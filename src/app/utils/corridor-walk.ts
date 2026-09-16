@@ -119,8 +119,15 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround): WalkJudgement {
 /**
  * The ground a tunnel portal at (x, z) takes instead of the hit `y` of its
  * column: the street under the band station there (`street`, streetLevel),
- * where `y` lies more than `roofRise` above it; else null, which keeps the
- * hit (RouteCellSampler.tunnelColumn).
+ * where `y` lies more than `roofRise` above it or the column has no hit at
+ * all (`y` null); else null, which keeps the hit
+ * (RouteCellSampler.tunnelColumn).
+ *
+ * Without a hit: a portal whose column meets nothing, a hole in the mesh
+ * or the underside of the eaves over a mouth, left every cell of the
+ * stretch without a height, and the fallback level only helped where its
+ * coarser mesh happened to have one. The street there is measured, from the
+ * backbones of the stations around it.
  *
  * Two metres outside a mouth the column can come down on the jetty of the
  * house the passage runs through, or on the house itself where the OSM way
@@ -135,7 +142,7 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround): WalkJudgement {
  * kept its hit on the roof (playtest 2026-09-16, Rothenburg, Weisser Turm).
  * `street` holds whatever the lane is covered by out of it.
  */
-export function portalGround(x: number, z: number, y: number, ground: WalkGround): number | null {
+export function portalGround(x: number, z: number, y: number | null, ground: WalkGround): number | null {
   const street = ground.station(x, z)?.street ?? null;
-  return street !== null && y - street > corridorConfig.roofRise ? street : null;
+  return street !== null && (y === null || y - street > corridorConfig.roofRise) ? street : null;
 }

@@ -112,6 +112,12 @@ describe('portalGround', () => {
     expect(portalGround(1, 1, 12, ground(flat, station({ kind: 'climb', backbone: { offset: 0, y: 12 } })))).toBe(0);
   });
 
+  it('gives a portal whose column has no hit the street, where the band has one', () => {
+    expect(portalGround(1, 1, null, ground(flat))).toBe(0);
+    expect(portalGround(1, 1, null, ground(flat, null))).toBeNull();
+    expect(portalGround(1, 1, null, ground(flat, station({ street: null })))).toBeNull();
+  });
+
   it('takes the threshold from corridorConfig.roofRise', () => {
     corridorConfig.roofRise = 1.5;
     expect(portalGround(1, 1, 2, ground(flat))).toBe(0);

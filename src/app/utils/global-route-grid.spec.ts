@@ -1142,11 +1142,29 @@ describe('GlobalRouteGrid tunnels', () => {
     expect(mouth.terrainHeight).toBeCloseTo((10 * 3) / 24, 6);
   });
 
-  it('leaves the cells unsampled until both portals have a tile', () => {
+  it('leaves the cells unsampled while a portal has no tile and no band stands there', () => {
     const grid = build((x) => (x > 41 ? null : hill(x)));
     const inside = grid.getCellAt(31, 1)!;
     expect(inside.sample.state).toBe('unsampled');
     expect(inside.heightSampled).toBe(false);
+  });
+
+  /**
+   * A portal whose column meets nothing, a hole in the mesh or the
+   * underside of the eaves over a mouth, left every cell of the stretch
+   * without a height; the fallback level only helped where its coarser mesh
+   * had a hit there. The street of the band there is measured.
+   */
+  it('takes a portal without a hit from the street of the band, and fills the cells', () => {
+    // Portal b at x = 42 meets nothing within the half metre the probes look beside it.
+    const grid = build((x) => (Math.abs(x - 42) <= 0.6 ? null : hill(x)), route, (x) => (x > 30 ? 10 : 0));
+    const inside = grid.getCellAt(31, 1)!;
+    expect(inside.sample.state).toBe('filled');
+    expect(inside.terrainHeight).toBeCloseTo((10 * 13) / 24, 6);
+    // The fallback level, where the portal has a column, gives the cells a sample of their own.
+    grid.initialize(hill as never, coordinateSync);
+    expect(grid.retryUnsampledCells().promoted).toBeGreaterThan(0);
+    expect(grid.getCellAt(31, 1)!.sample.state).toBe('stable');
   });
 
   /**
