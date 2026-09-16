@@ -336,6 +336,65 @@ describe('buildBand', () => {
     const ground = columns((x, z) => (onCar(x, z) ? 1.5 : 0));
     expect(buildBand(street(), ground, CELL, 'band')).toEqual(buildBand(street(), ground, CELL, 'band'));
   });
+
+  /**
+   * Playtest 748: round the outside of a turn the band's edge runs round the
+   * corner, metres longer than the route. Measured along the route alone, the
+   * narrower street after a turn narrowed the wide one before it on the
+   * outside, where it never comes near the other street's houses.
+   */
+  describe('turning between a wide and a narrower street', () => {
+    /**
+     * A street `first` m either side of its line from (1.3, 1.1), 60 m along
+     * x to the joint, turning `deg` degrees towards +z (right of travel) into
+     * one `second` m either side, 60 m on. Houses 8 m high beyond both, the
+     * corner square; the rays stop `wallMargin` short of them, or at
+     * `maxHalfWidth`.
+     */
+    const bend = (deg: number, first: number, second: number) => {
+      const turn = (deg * Math.PI) / 180;
+      const joint = { x: 61.3, z: 1.1 };
+      const legs = [{ x: 1, z: 0 }, { x: Math.cos(turn), z: Math.sin(turn) }];
+      const points = [{ x: 1.3, z: 1.1 }, joint, { x: joint.x + 60 * legs[1].x, z: joint.z + 60 * legs[1].z }];
+      const inStreet = (x: number, z: number) => [[-Infinity, second, first], [-first, Infinity, second]].some(([from, to, half], i) => {
+        const along = (x - joint.x) * legs[i].x + (z - joint.z) * legs[i].z;
+        return along >= from && along <= to && Math.abs((z - joint.z) * legs[i].x - (x - joint.x) * legs[i].z) <= half;
+      });
+      const walls = (side: number) => [0, 1].map((i) => {
+        const [a, b] = [points[i], points[i + 1]];
+        return Array.from({ length: 30 }, (_, k) => {
+          const x = a.x + (b.x - a.x) * ((k + 0.5) / 30);
+          const z = a.z + (b.z - a.z) * ((k + 0.5) / 30);
+          for (let m = 0.25; m <= corridorConfig.maxHalfWidth; m += 0.25) {
+            if (!inStreet(x - side * legs[i].z * m, z + side * legs[i].x * m)) return m - corridorConfig.wallMargin;
+          }
+          return corridorConfig.maxHalfWidth;
+        });
+      });
+      const route: BandRoute = { points, open: [true, true], covered: [false, false], streetHalfWidth: [first, second], wallLeft: walls(-1), wallRight: walls(1) };
+      const cell = (v: number) => (Math.floor(v / CELL) + 0.5) * CELL;
+      return { route, ground: columns((x, z) => (inStreet(cell(x), cell(z)) ? 0 : 8)) };
+    };
+
+    for (const deg of [30, 60, 90, -90]) {
+      for (const [first, second] of [[7, 4], [4, 7]]) {
+        it(`keeps the wide street's band out to its walls round the outside of a ${deg} degree turn, ${first} m then ${second} m`, () => {
+          const { route, ground } = bend(deg, first, second);
+          const band = buildBand(route, ground, CELL, 'band');
+          const wide = first > second ? 0 : 1;
+          const near = band.stations.filter((st) => st.segment === wide && Math.abs(st.s - 60) < 10);
+          expect(near.length).toBeGreaterThan(3);
+          // Turning right, the outside is left. Measured along the route alone the edge lay 1.25 to 2.25 m inside the
+          // wall; the walk itself ends up to half a metre short of it, where the cells meet the square corner.
+          for (const st of near) {
+            const wall = (deg > 0 ? route.wallLeft : route.wallRight)[st.segment][st.k];
+            const edge = deg > 0 ? -st.left : st.right;
+            expect(edge, `${st.segment}:${st.k}`).toBeGreaterThanOrEqual(wall - 1);
+          }
+        });
+      }
+    }
+  });
 });
 
 describe('smoothCentre', () => {
