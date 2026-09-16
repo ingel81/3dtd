@@ -1,4 +1,5 @@
 import { TD_FONTS, TD_THEME } from '../styles/td-theme';
+import { downloadBlob, fileSlug } from './download';
 
 /**
  * Screenshot helpers for photo mode: file name, the stamp with the
@@ -25,13 +26,7 @@ const pad2 = (n: number) => String(n).padStart(2, '0');
 
 /** 3dtd-<place>-<yyyymmdd>-<hhmmss>.png, the place reduced to ASCII letters, digits and dashes. */
 export function screenshotFileName(place: string, date: Date): string {
-  const slug = place
-    .normalize('NFKD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .slice(0, 40)
-    .replace(/^-+|-+$/g, '');
+  const slug = fileSlug(place, 40);
   const stamp = `${date.getFullYear()}${pad2(date.getMonth() + 1)}${pad2(date.getDate())}`
     + `-${pad2(date.getHours())}${pad2(date.getMinutes())}${pad2(date.getSeconds())}`;
   return slug ? `3dtd-${slug}-${stamp}.png` : `3dtd-${stamp}.png`;
@@ -156,13 +151,7 @@ export function downloadCanvasPng(canvas: HTMLCanvasElement, fileName: string): 
         resolve(false);
         return;
       }
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = fileName;
-      link.click();
-      // The download has picked the blob up by then
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadBlob(blob, fileName);
       resolve(true);
     }, 'image/png');
   });

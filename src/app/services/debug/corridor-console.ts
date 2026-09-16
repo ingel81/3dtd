@@ -12,7 +12,7 @@ import type { PathAndRouteService } from '../world/path-route.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { ColumnSample } from '../../three-engine/column-sample';
 import type { GlobalRouteGrid } from '../../utils/global-route-grid';
-import type { RouteCellProbe } from '../../utils/route-grid-diagnostics';
+import { WHOLE_GRID, type RouteCellProbe } from '../../utils/route-grid-diagnostics';
 import type { CellReportService, CellReportSource } from './cell-report.service';
 import type { CellProbe, CellSpot, NeighbourRow, ProbedCell, ScreenRect } from './cell-report';
 import type { CorridorLodProbe } from './corridor-lod-probe';
@@ -36,9 +36,6 @@ interface PickView {
   drawn: Set<string> | null;
   lift: number;
 }
-
-/** Every cell of the grid, for dumpCellsInBox. */
-const WHOLE_GRID = { xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity };
 
 /**
  * The column at the click for the console: the sample the cache holds (what
