@@ -74,7 +74,7 @@ export interface LocationChangeCallbacks {
  * 1. Initialize - Set loading flags, reset steps
  * 2. Reset - Stop updates, reset game state, update engine origin
  * 3. Load Streets - Load OSM data (with cache check)
- * 4. Place HQ - Initialize visualization services, add base marker
+ * 4. Place HQ - Wait for the first tiles, initialize visualization services, add base marker
  * 5. Place Spawn - Add spawn point with marker and path
  * 6. Calculate Routes - Initialize game state, validate paths, setup grid
  * 7. Finalize - Height updates, save location, start animation
@@ -115,10 +115,7 @@ export class LocationChangeExecutorService {
     // STEP 3: Load streets (with cache check)
     const streetNetwork = await this.step3_LoadStreets(input, ctx, callbacks);
 
-    // Wait for tiles with timeout
-    await this.waitForTilesWithTimeout(ctx);
-
-    // STEP 4: Place HQ marker and initialize services
+    // STEP 4: Place HQ marker (after the first tiles) and initialize services
     await this.step4_PlaceHQMarker(input, ctx, streetNetwork);
 
     // STEP 5: Place spawn point
@@ -263,7 +260,9 @@ export class LocationChangeExecutorService {
   }
 
   /**
-   * STEP 4: Place HQ marker and initialize visualization services
+   * STEP 4: Place HQ marker and initialize visualization services. The wait
+   * for the first tiles of the new place runs under this step, so the
+   * loading screen shows one while it waits.
    */
   private async step4_PlaceHQMarker(
     input: LocationChangeInput,
@@ -271,6 +270,7 @@ export class LocationChangeExecutorService {
     streetNetwork: StreetNetwork
   ): Promise<void> {
     await this.engineInit.setStepCurrent('hq');
+    await this.waitForTilesWithTimeout(ctx);
 
     // Initialize visualization services (ORDER IS CRITICAL!)
     this.markerViz.initialize(

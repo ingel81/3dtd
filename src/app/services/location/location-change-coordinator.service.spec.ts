@@ -460,6 +460,9 @@ describe('LocationChangeCoordinatorService', () => {
       await vi.advanceTimersByTimeAsync(14_999);
       expect(markerViz.initialize).not.toHaveBeenCalled();
       expect(engineInit.tilesLoading()).toBe(true);
+      // The loading screen waits under the HQ step, not under none
+      expect(engineInit.setStepCurrent).toHaveBeenLastCalledWith('hq');
+      expect(engineInit.setStepDone).toHaveBeenLastCalledWith('streets', '3 Streets');
 
       await vi.advanceTimersByTimeAsync(1);
       await done;

@@ -439,9 +439,10 @@ STEP 3: Load Streets
   - Street-Rendering läuft progressiv (50 Nodes/Frame, alte Straßen
     bleiben sichtbar, bis neue fertig sind; `street-rendering.service.ts`)
 
-  → Tiles-Loading abwarten (mit 15s Timeout-Fallback)
-
 STEP 4: Place HQ Marker
+  - Erste Tiles abwarten (mit 15s Timeout-Fallback), schon unter dem
+    Boot-Step "Placing Headquarters"; bis 2026-09-16 lief die Wartezeit
+    zwischen zwei Schritten, ohne dass einer aktiv war
   - MarkerVisualizationService initialisieren
   - PathAndRouteService initialisieren
   - CameraControlService initialisieren
