@@ -655,12 +655,13 @@ describe('GlobalRouteGrid centre line', () => {
 /**
  * Playtest 2026-09-12 and 2026-09-14: edge cells sat on the eaves of houses
  * at the street, on a roof in an alley, on a parked van, on cars and
- * hedges. The photogrammetry has no ground under any of them, so the
- * column finds only their top. The cell keeps that height, the grid names
- * it as a cell no enemy could walk to, and the route service ends the
- * corridor before it (corridor-walk.ts).
+ * hedges. The photogrammetry has no ground under any of them, so the column
+ * finds only their top and the cell keeps that height. Which cells belong
+ * to the corridor is the band's business now (corridor-band.ts); the grid
+ * judges a cell against the band it was given (setBand) for
+ * `__corridor.pick()`.
  */
-describe('GlobalRouteGrid cells an enemy could not walk to', () => {
+describe('GlobalRouteGrid cells beside the band', () => {
   const coordinateSync = {
     geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
   } as never;
@@ -682,34 +683,54 @@ describe('GlobalRouteGrid cells an enemy could not walk to', () => {
 
   afterEach(() => resetCorridorConfig());
 
-  /** Centres of the cells the grid names as unwalkable, as "x,z". */
-  const unwalkable = (grid: GlobalRouteGrid) => grid.unwalkableCells().map((c) => `${c.x},${c.z}`);
+  /**
+   * The band of the route: a station every 2 m on the line at z = 1, its
+   * backbone on the street and its band `left` to `right` of the line
+   * (right of travel is +z here).
+   */
+  const withBand = (grid: GlobalRouteGrid, left = -4, right = 4): GlobalRouteGrid => {
+    grid.setBand((x) => ({
+      segment: 0, k: Math.max(0, Math.round((x - 1) / 2)), n: 20, s: x, x, z: 1, rx: 0, rz: 1,
+      kind: 'band', backbone: { offset: 0, y: 0 }, left, right, centre: 0,
+    }));
+    return grid;
+  };
 
-  it('keeps a cell whose column finds only a roof on the roof and names it', () => {
-    const grid = build(street(6));
-    // Centre (21, 3): under the roof, 2 m off the centre line.
+  /** Centres of the cells the walk check judges as beside the band, as "x,z". */
+  const beside = (grid: GlobalRouteGrid) => grid.describeCellsAround(20, 1, 25, null)
+    .filter((row) => row.walkable === false)
+    .map((row) => `${row.x},${row.z}`);
+
+  it('keeps a cell whose column finds only a roof on the roof and names it beside the band', () => {
+    // The band ends before the roof: 1 m right of the line.
+    const grid = withBand(build(street(6)), -4, 1);
+    // Centre (21, 3): under the roof, 2 m off the street's line.
     expect(grid.getCellAt(20.5, 3.5)!.terrainHeight).toBe(6);
-    expect(unwalkable(grid)).toContain('21,3');
-    expect(unwalkable(grid)).not.toContain('21,1');
-    expect(unwalkable(grid)).not.toContain('21,-1');
+    expect(beside(grid)).toContain('21,3');
+    expect(beside(grid)).not.toContain('21,1');
+    expect(beside(grid)).not.toContain('21,-1');
     expect(grid.describeTowerRange('t1', 20, 1, 10).unwalkable).toBeGreaterThan(0);
-    expect(grid.describeCellsAround(21, 3, 0.5, null)).toMatchObject([{ x: 21, z: 3, heightM: 6, walkable: false }]);
+    expect(grid.describeCellsAround(21, 3, 0.5, null))
+      .toMatchObject([{ x: 21, z: 3, heightM: 6, walkable: false, walkCheck: 'roof' }]);
   });
 
-  it('lets a rise below both thresholds be, and never judges a bridge deck', () => {
-    // A 2 m rise is below roofRise; the step check would take it.
-    corridorConfig.stepRise = 5;
-    expect(build(street(2)).unwalkableCells()).toEqual([]);
-    // Deck at 8 m over a street at 0: the edge cell stays on the deck.
-    const bridge = build(street(0, 8), [at(0, 1, true), at(40, 1)]);
+  it('judges nothing without a band, and never a bridge deck', () => {
+    // No band yet: the cells are there, the check says so.
+    const grid = build(street(6));
+    expect(beside(grid)).toEqual([]);
+    expect(grid.describeCellsAround(21, 3, 0.5, null)).toMatchObject([{ walkable: null, walkCheck: 'no band' }]);
+    // Deck at 8 m over a street at 0: the edge cell stays on the deck and is never judged.
+    const bridge = withBand(build(street(0, 8), [at(0, 1, true), at(40, 1)]));
     expect(bridge.getCellAt(20.5, -0.5)!.terrainHeight).toBe(8);
-    expect(bridge.unwalkableCells()).toEqual([]);
+    expect(beside(bridge)).toEqual([]);
   });
 
-  it('takes the threshold from corridorConfig.roofRise', () => {
-    corridorConfig.stepRise = 5;
+  it('says which rule of the band the cell lies beyond', () => {
+    const grid = withBand(build(street(2)), -4, 1);
+    // 2 m over the backbone: more than a step, less than a roof.
+    expect(grid.describeCellsAround(21, 3, 0.5, null)).toMatchObject([{ walkCheck: 'step' }]);
     corridorConfig.roofRise = 1.5;
-    expect(unwalkable(build(street(2)))).toContain('21,3');
+    expect(grid.describeCellsAround(21, 3, 0.5, null)).toMatchObject([{ walkCheck: 'roof' }]);
   });
 
   /**
@@ -722,34 +743,25 @@ describe('GlobalRouteGrid cells an enemy could not walk to', () => {
   /** Street at 0 m, a car (roof 1.5 m) parked 1 to 3 m south of the centre line, the pavement at 0.15 m behind it. */
   const parked = (_x: number, z: number) => column(z > 2 && z < 4 ? 1.5 : z >= 4 ? 0.15 : 0);
 
-  it('names a cell on a parked car, not the pavement behind it', () => {
-    const grid = build(parked);
+  it('names a cell on a parked car the band ends before, not the pavement behind it', () => {
+    // The band ends before the car, 2 m right of the line; the pavement behind it is not in the band either.
+    const grid = withBand(build(parked), -4, 1);
     // Centre (21, 3): on the car, at the car's roof.
     expect(grid.getCellAt(20.5, 3.5)!.terrainHeight).toBe(1.5);
-    expect(unwalkable(grid)).toContain('21,3');
-    // Centre (21, 5): the pavement, reached past the car.
+    expect(beside(grid)).toContain('21,3');
+    expect(grid.describeCellsAround(21, 3, 0.5, null)).toMatchObject([{ walkCheck: 'step' }]);
+    // Centre (21, 5): the pavement, 0.15 m over the street.
     expect(grid.getCellAt(20.5, 5.5)!.terrainHeight).toBe(0.15);
-    expect(unwalkable(grid)).not.toContain('21,5');
-
-    // The same car on a quay, the river 5 m down north of the centre line:
-    // the drop is no slope the car could stand on.
-    const quay = build((x, z) => (z < 0 ? column(-5) : parked(x, z)));
-    expect(unwalkable(quay)).toContain('21,3');
+    expect(grid.describeCellsAround(21, 5, 0.5, null)).toMatchObject([{ walkCheck: 'beyond the band' }]);
   });
 
-  it('keeps the cells of a street across a slope walkable', () => {
+  it('keeps the cells of a street across a slope in its band', () => {
     // A plane rising 0.5 m per metre southwards: 1 m from one cell to the
-    // next, more than stepRise, but the ground falls as much on the other
-    // side of the centre line.
-    const grid = build((_x, z) => column((z - 1) * 0.5));
+    // next, and the band spans it (the walk out allows for the cross slope).
+    const grid = withBand(build((_x, z) => column((z - 1) * 0.5)));
     expect(grid.getCellAt(20.5, 5.5)!.terrainHeight).toBe(2);
     expect(grid.getCellAt(20.5, 3.5)!.terrainHeight).toBe(1);
-    expect(grid.unwalkableCells()).toEqual([]);
-  });
-
-  it('takes the step from corridorConfig.stepRise', () => {
-    corridorConfig.stepRise = 2;
-    expect(build(parked).unwalkableCells()).toEqual([]);
+    expect(beside(grid)).toEqual([]);
   });
 
   it('measures the edge cells at the head of a bridge from the deck, not from the water under it', () => {
@@ -762,29 +774,6 @@ describe('GlobalRouteGrid cells an enemy could not walk to', () => {
       ({ lat: z, lon: x, corridorLeft: 7, corridorRight: 7, onBridge });
     const grid = build(water, [wide(0, 0), wide(20, 20, true), wide(40, 40), wide(60, 60)]);
     expect(grid.getCellAt(17, 23)!.terrainHeight).toBe(8);
-    expect(grid.unwalkableCells()).toEqual([]);
-  });
-
-  /**
-   * Rothenburg, retest 560 to 563: the centre line of an alley runs under
-   * a jetty whose column has no street under it (pick C, 5.7 m up), and
-   * clips the corner of a roof (pick B, 7.6 m up). The corridor keeps
-   * both cells at any width; they take the street.
-   */
-  it('puts a cell the centre line runs through on the street, not on a jetty or a roof corner over it', () => {
-    const spot = (v: number) => (Math.floor(v / 2) + 0.5) * 2;
-    const heights: Record<string, number> = { '-231,-57': 477, '-231,-55': 471.93 };
-    const alley = (x: number, z: number) => column(heights[`${spot(x)},${spot(z)}`] ?? 471.25);
-    const line = (x: number, z: number): RouteWaypoint => ({ lat: z, lon: x, corridorLeft: 1, corridorRight: 7 });
-    const jetty = build(alley, [line(-235, -70), line(-229, -46)]);
-    expect(jetty.getCellAt(-231, -57)!.terrainHeight).toBeLessThan(472);
-    expect(jetty.getCellAt(-231, -57)!.sample.state).toBe('stable');
-    // Its neighbour 0.65 m up under the jetty is no roof: it keeps its hit.
-    expect(jetty.getCellAt(-231, -55)!.terrainHeight).toBe(471.93);
-
-    const corner = (x: number, z: number) => column(spot(x) === -227 && spot(z) === -19 ? 480.57 : 472.9);
-    const clipped = build(corner, [line(-230.9, -27.1), line(-224.9, -9.1)]);
-    expect(clipped.getCellAt(-227, -19)!.terrainHeight).toBe(472.9);
   });
 
   it('keeps the cells of a centre line up a steep street where they are', () => {
@@ -795,7 +784,9 @@ describe('GlobalRouteGrid cells an enemy could not walk to', () => {
   });
 
   it('judges no cell sampled from a tile coarser than maxTileError', () => {
-    expect(build((x, z) => ({ ...parked(x, z), tileGeometricError: 20 })).unwalkableCells()).toEqual([]);
+    const coarse = withBand(build((x, z) => ({ ...parked(x, z), tileGeometricError: 20 })), -4, 1);
+    expect(beside(coarse)).toEqual([]);
+    expect(coarse.describeCellsAround(21, 3, 0.5, null)).toMatchObject([{ walkable: null, walkCheck: 'coarse tile' }]);
   });
 });
 
@@ -903,8 +894,6 @@ describe('GlobalRouteGrid bridges', () => {
       for (const x of [24, 30, 90, 96]) expect(bridge.getGroundLocalYAt(x, 0), `waypoint ${x}`).toBe(80);
       expect(bridge.getCellAt(25, 5)).toMatchObject({ surface: 'approach' });
       expect(bridge.getCellAt(25, 5)!.deckEnd!.path[0]).toEqual({ x: 30, z: 0 });
-      // The walk check judges them from the centre line on the deck.
-      expect(bridge.unwalkableCells()).toEqual([]);
       // Beside the deck, over the open quay, the ground.
       expect(build(head, [route.map((w) => ({ ...w, corridorLeft: 11, corridorRight: 11 }))]).getGroundLocalYAt(25, 10)).toBe(70);
     });
@@ -928,7 +917,6 @@ describe('GlobalRouteGrid bridges', () => {
       const street = [{ lat: -40, lon: 117, corridorLeft: 5, corridorRight: 5 }, { lat: 40, lon: 117 }];
       const under = build((x, z) => (Math.abs(z) < 15 ? overpass(x, z) : { groundY: 80, topY: 80, tileDepth: 20, tileGeometricError: 2 }), [street]);
       for (const z of [-11, -1, 1, 11]) expect(under.getCellAt(117, z)).toMatchObject({ surface: 'ground', terrainHeight: 80 });
-      expect(under.unwalkableCells()).toEqual([]);
     });
 
     it('carries the deck no further than DECK_APPROACH_M past the end of the bridge way', () => {
@@ -959,12 +947,6 @@ describe('GlobalRouteGrid bridges', () => {
       // The red line takes its heights at the waypoints.
       for (const z of [0, 40]) expect(bridge.getGroundLocalYAt(96, z), `waypoint 96, ${z}`).toBe(80);
       expect(bridge.getCellAt(95, 11)).toMatchObject({ surface: 'approach' });
-      // Nothing on the square is unwalkable. West of x = 90, beside the
-      // bridge, the ground lies 10 m under it: the drop check (stepDrop)
-      // ends the corridor there.
-      const unwalkable = bridge.unwalkableCells();
-      expect(unwalkable.filter((c) => c.x > 90)).toEqual([]);
-      expect(unwalkable.every((c) => c.x < 90 && c.terrainHeight === 70)).toBe(true);
     });
 
     /**
@@ -994,7 +976,6 @@ describe('GlobalRouteGrid bridges', () => {
       // The red line takes its heights at the waypoints.
       for (const z of [-17.6, 0]) expect(bridge.getGroundLocalYAt(21.3, z), `waypoint 21.3, ${z}`).toBe(80);
       expect(bridge.getCellAt(21, -11)).toMatchObject({ surface: 'approach' });
-      expect(bridge.unwalkableCells()).toEqual([]);
     });
 
     it('follows stairs off a bridge end down to the quay, and keeps the quay under a deck there', () => {
@@ -1073,9 +1054,24 @@ describe('GlobalRouteGrid tunnels', () => {
     groundY: x > 20 && x < 40 ? 30 : x <= 20 ? 0 : 10, topY: 30, tileDepth: 20, tileGeometricError: 2,
   });
 
-  function build(column: (x: number, z: number) => ColumnSample | null, passage = route): GlobalRouteGrid {
+  /**
+   * `band`: the street the band's backbone stands on at a point, which a
+   * portal whose column came down on a roof over it takes instead
+   * (portalGround). Without it a portal keeps its own hit.
+   */
+  function build(
+    column: (x: number, z: number) => ColumnSample | null,
+    passage = route,
+    band?: (x: number) => number,
+  ): GlobalRouteGrid {
     const grid = new GlobalRouteGrid();
     grid.initialize(column as never, coordinateSync);
+    if (band) {
+      grid.setBand((x) => ({
+        segment: 0, k: 0, n: 30, s: x, x, z: 1, rx: 0, rz: 1,
+        kind: 'band', backbone: { offset: 0, y: band(x) }, left: -3, right: 3, centre: 0,
+      }));
+    }
     grid.generateFromRoutes([passage]);
     return grid;
   }
@@ -1094,7 +1090,8 @@ describe('GlobalRouteGrid tunnels', () => {
       const y = x > 20 && x < 30 ? 10 : x >= 30 && x < 33 ? 4 : 0;
       return { groundY: y, topY: y, tileDepth: 20, tileGeometricError: 2 };
     };
-    const grid = build(house, [at(0, 1), at(20, 1, true), at(30, 1), at(60, 1)]);
+    // The band of the route runs on the street, under the jetty as well.
+    const grid = build(house, [at(0, 1), at(20, 1, true), at(30, 1), at(60, 1)], () => 0);
     // Portals at x = 18 and 32; cells up to 3 m past each mouth are the tunnel's.
     for (const x of [21, 25, 29, 31, 33]) {
       expect(grid.getCellAt(x, 1)!.surface, `${x}`).toBe('tunnel');

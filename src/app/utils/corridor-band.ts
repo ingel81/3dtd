@@ -131,15 +131,25 @@ const PASSAGE_REACH_STATIONS = 4;
 
 /**
  * Penalty on the bend of the enemies' line against keeping to its target,
- * per second difference of stations 2 m apart. 150 spreads a 3 m change of
- * the target over about 20 m of route: its tightest bend stays under the
- * worm's 1/20 m and its slope under 0.25 m per m where the band leaves room
- * (corridor-band.spec.ts).
+ * per second difference of stations 2 m apart. The line follows a change of
+ * the target over about `stationSpacing * stiffness^(1/4) * sqrt(2)` of
+ * route, so 150 spreads one over some 10 m: a 3 m change bends less than
+ * the worm's 1/20 m and moves less than 0.25 m per m where the band leaves
+ * room (corridor-band.spec.ts). The band's edges bound the line whatever
+ * the stiffness, so a stiffer one does not leave the band; it only reaches
+ * the middle later.
  */
 export const CENTRE_STIFFNESS = 150;
 
 /** Step along the line across the route that finds the cells it crosses, metres. */
 const CROSS_STEP_M = 0.25;
+
+/**
+ * Rounds of placing the enemies' line and tapering the room beside it: the
+ * two depend on each other, and the second round settles them (the line
+ * moves by centimetres in it).
+ */
+const CENTRE_ROUNDS = 2;
 
 /** A lattice cell on the line across a station. */
 interface CrossCell {
@@ -213,7 +223,12 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
   for (const st of stations) walkBand(st);
   cutBulges(stations);
   taperEdges(stations);
-  placeCentre(stations, mode);
+  // The line and the room beside it settle together: the line moves within
+  // the band, so the room changes faster than the edges do (taperWidths).
+  for (let round = 0; round < CENTRE_ROUNDS; round++) {
+    placeCentre(stations, mode);
+    taperWidths(stations);
+  }
 
   const passages: { from: number; to: number }[] = [];
   for (let k = 0; k < stations.length; k++) {
@@ -514,6 +529,32 @@ function taperEdges(stations: Work[]): void {
 }
 
 /**
+ * The room beside the enemies' line rises along the route by at most
+ * `taper` per metre, the same rule the edges keep (taperEdges) and the
+ * enemies' lateral limits are built with (buildSideLimits). The line moves
+ * within the band as well, so the room beside it changes faster than the
+ * edges do: beside a van the band narrowed from 7 to 1.5 m while the line
+ * moved 0.15 m per metre, and the worm's rings, which sit across the
+ * corridor (wormSway), turned 17 degrees against each other
+ * (worm-detour.spec.ts). Only ever narrows the band, and the backbone stays
+ * inside.
+ */
+function taperWidths(stations: Work[]): void {
+  const { taper } = corridorConfig;
+  for (const side of ['left', 'right'] as const) {
+    const room = stations.map((st) => (side === 'left' ? st.centre - st.left : st.right - st.centre));
+    for (let k = 1; k < stations.length; k++) room[k] = Math.min(room[k], room[k - 1] + taper * (stations[k].s - stations[k - 1].s));
+    for (let k = stations.length - 2; k >= 0; k--) room[k] = Math.min(room[k], room[k + 1] + taper * (stations[k + 1].s - stations[k].s));
+    stations.forEach((st, k) => {
+      if (st.kind !== 'band' && st.kind !== 'climb') return;
+      const b = st.backbone!.offset;
+      if (side === 'left') st.left = Math.min(b, st.centre - room[k]);
+      else st.right = Math.max(b, st.centre + room[k]);
+    });
+  }
+}
+
+/**
  * The enemies' line of every station: its target (the middle of the band,
  * or in `minimal` mode the OSM line moved into the band only as far as
  * needed), kept within `edgeMargin` of both edges (the middle where the
@@ -660,12 +701,33 @@ function shapeOf(stations: readonly BandStation[]): { maxSlope: number; maxCurva
   return { maxSlope, maxCurvature };
 }
 
+/** The station of `band` nearest to the local point (x, z), null where it has none. */
+export function stationNear(band: CorridorBand, x: number, z: number): BandStation | null {
+  let best: BandStation | null = null;
+  let bestD = Infinity;
+  for (const st of band.stations) {
+    const d = (st.x - x) ** 2 + (st.z - z) ** 2;
+    if (d < bestD) {
+      bestD = d;
+      best = st;
+    }
+  }
+  return best;
+}
+
+/** Offset of the local point (x, z) from the OSM line at station `st`, right of the direction of travel positive. */
+export function offsetAt(st: BandStation, x: number, z: number): number {
+  return (x - st.x) * st.rx + (z - st.z) * st.rz;
+}
+
 /** A point of the enemies' line, local x, z, with what holds for the piece from it to the next point. */
 export interface BandPoint {
   x: number;
   z: number;
   /** Segment of the route the piece lies on. */
   segment: number;
+  /** How far the point lies off the OSM line, right of the direction of travel positive. */
+  offset: number;
   /** Half widths left and right of the line for the piece: the narrower at its two ends. */
   left: number;
   right: number;
@@ -687,14 +749,14 @@ export function bandPath(route: BandRoute, band: CorridorBand): BandPoint[] {
   const widths = (st: BandStation) => (st.kind === 'passage'
     ? { left: route.streetHalfWidth[st.segment], right: route.streetHalfWidth[st.segment] }
     : { left: st.centre - st.left, right: st.right - st.centre });
-  interface Node { x: number; z: number; segment: number; left: number; right: number; passage: boolean }
+  interface Node { x: number; z: number; segment: number; offset: number; left: number; right: number; passage: boolean }
   const nodes: Node[] = [];
   const first = stations[0];
-  nodes.push({ x: points[0].x, z: points[0].z, segment: first.segment, ...widths(first), passage: first.kind === 'passage' });
+  nodes.push({ x: points[0].x, z: points[0].z, segment: first.segment, offset: 0, ...widths(first), passage: first.kind === 'passage' });
   for (let k = 0; k < stations.length; k++) {
     const st = stations[k];
     const next = stations[k + 1];
-    nodes.push({ x: st.x + st.rx * st.centre, z: st.z + st.rz * st.centre, segment: st.segment, ...widths(st), passage: st.kind === 'passage' });
+    nodes.push({ x: st.x + st.rx * st.centre, z: st.z + st.rz * st.centre, segment: st.segment, offset: st.centre, ...widths(st), passage: st.kind === 'passage' });
     if (!next || next.segment === st.segment) continue;
     // The point between the two segments, along the mitre of their right vectors.
     const joint = points[next.segment];
@@ -708,6 +770,7 @@ export function bandPath(route: BandRoute, band: CorridorBand): BandPoint[] {
       x: joint.x + (st.rx + next.rx) * scale * offset,
       z: joint.z + (st.rz + next.rz) * scale * offset,
       segment: next.segment,
+      offset,
       left: Math.min(wa.left, wb.left),
       right: Math.min(wa.right, wb.right),
       passage: st.kind === 'passage' && next.kind === 'passage',
@@ -715,7 +778,7 @@ export function bandPath(route: BandRoute, band: CorridorBand): BandPoint[] {
   }
   const end = points[points.length - 1];
   const lastSt = stations[stations.length - 1];
-  nodes.push({ x: end.x, z: end.z, segment: lastSt.segment, ...widths(lastSt), passage: false });
+  nodes.push({ x: end.x, z: end.z, segment: lastSt.segment, offset: 0, ...widths(lastSt), passage: false });
   // A piece takes the narrower half widths of its two ends.
   return nodes.map((node, i) => {
     const next = nodes[i + 1];

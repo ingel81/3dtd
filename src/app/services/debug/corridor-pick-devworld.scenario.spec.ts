@@ -23,7 +23,11 @@ vi.mock('@angular/core', async () => {
     },
     UIStore: { routesVisible: () => false },
     PathfindingWorkerService: { isWorkerAvailable: false, dispose: () => undefined },
-    GlobalRouteGridService: { isInitialized: () => true, getGroundLocalYAt: (x: number, z: number) => hill(x, z) },
+    GlobalRouteGridService: {
+      isInitialized: () => true,
+      getGroundLocalYAt: (x: number, z: number) => hill(x, z),
+      getGrid: () => ({ setBand: () => undefined }),
+    },
   };
   return { ...actual, inject: (token: { name?: string }) => stubs[token?.name ?? ''] ?? {} };
 });

@@ -47,8 +47,9 @@ export interface CorridorBuildResult {
   stations: number;
   /** Stations still without a measurement at the end: they keep the street width. */
   unmeasured: number;
-  /** Builds of routes and cells until the walk check narrowed nothing more. */
-  passes: number;
+  /** Stations of the walkable band over all routes, and the stretches of them run as a passage. */
+  bandStations: number;
+  passages: number;
   /** The tiles did not settle within TILES_TIMEOUT_MS: the build took what had come. */
   timedOut: boolean;
   /** Stations and cells the finest level had no column for and the fallback level had. */
@@ -68,7 +69,7 @@ export interface CorridorBuildDeps {
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
   pathRoute: Pick<
     PathAndRouteService,
-    | 'beginClearanceMeasurement' | 'unmeasuredStations' | 'resetWalkCaps' | 'walkState' | 'narrowToWalkable'
+    | 'beginClearanceMeasurement' | 'unmeasuredStations' | 'buildBands'
     | 'clearCorridorMeasurements' | 'refreshRouteLines' | 'getCachedPaths' | 'routesEpoch'
   >;
   routeAnimation: Pick<RouteAnimationService, 'isRunning' | 'startAnimation'>;
@@ -90,9 +91,10 @@ const BUILD_STEP = 'Building the corridor';
 const percentOf = ({ done, total }: { done: number; total: number }) => (total > 0 ? Math.floor((100 * done) / total) : 100);
 
 /**
- * The one owner of the route corridor: routes with their widths, walk caps
- * and detours, the cells and their heights and the route line are built
- * here and nowhere else, once per route set, and then stay as they are.
+ * The one owner of the route corridor: the walkable band of every route
+ * with the enemies' line in it, the cells and their heights and the route
+ * line are built here and nowhere else, once per route set, and then stay
+ * as they are.
  *
  * A build (build) runs behind the loading screen of a location load, under
  * the hint while HQ or spawn move, and for `__corridor.set()` / `reset()`:
@@ -104,9 +106,10 @@ const percentOf = ({ done, total }: { done: number; total: number }) => (total >
  *    frame, against an emptied column cache.
  * 3. Stations without a column there: the coarse level
  *    (ROUTE_CORRIDOR_COARSE_ERROR_TARGET) for them, then back.
- * 4. Routes and cells built again and again until the walk check narrows
- *    nothing more (walk caps only narrow within a build).
- * 5. Cells without a height of their own: the fallback level for them.
+ * 4. The walkable band of every route on these columns (buildBands), then
+ *    the routes in it and their cells. One pass: the band reads the frozen
+ *    columns, not the cells.
+ * 5. Cells without a height of their own: the coarse level for them.
  * 6. The route line on the final cells; frozen. Camera back, and the region
  *    down to the coarse level (unmute).
  *
@@ -129,13 +132,6 @@ export class CorridorBuild {
 
   /** Longest wait for the tiles of each switch to the fallback level and back, ms. */
   static readonly FALLBACK_TIMEOUT_MS = 10_000;
-
-  /**
-   * Safety stop for the passes. Walk caps only narrow within a build, so
-   * without a detour plan that flips back and forth (which the build tells
-   * by the state repeating) it ends by itself; this is for the rest.
-   */
-  static readonly MAX_PASSES = 20;
 
   /** Bumped by expect() and dispose(): a build from before stops at its next frame. */
   private generation = 0;
@@ -230,7 +226,7 @@ export class CorridorBuild {
     const start = this.now();
     const engine = this.deps.engineInit.getEngine();
     const tiles = engine?.tilesLodDebug() ?? null;
-    const ms = { tiles: 0, measure: 0, fallback: 0, passes: 0, lines: 0 };
+    const ms = { tiles: 0, measure: 0, fallback: 0, build: 0, lines: 0 };
     try {
       traced(() => corridorTrace.log('build.start', { reason, tiles: tiles !== null }));
 
@@ -263,7 +259,6 @@ export class CorridorBuild {
 
       // 2. Every station once, on these tiles only.
       engine?.terrain.clearHeightCache();
-      pathRoute.resetWalkCaps();
       const run = traced(() => pathRoute.beginClearanceMeasurement());
       for (;;) {
         const t = this.now();
@@ -302,47 +297,28 @@ export class CorridorBuild {
         traced(() => corridorTrace.log('build.fallback', { what: 'stations', missing, found: fallbackStations }));
       }
 
-      // 4. Routes and cells until the walk check narrows nothing more.
+      // 4. The band of every route on these columns, then routes and cells.
       const spawns = this.deps.store.spawnPoints();
       const gameState = this.deps.gameState();
       const grid = gameState.getGlobalRouteGrid();
       const before = corridorTrace.enabled ? this.snapshot() : null;
-      const seen = new Set([pathRoute.walkState()]);
-      let passes = 0;
-      for (;;) {
-        passes++;
-        report({ step: BUILD_STEP, percent: null });
-        const t = this.now();
-        const changed = traced(() => corridorTrace.within(`pass ${passes}`, () => {
-          pathRoute.refreshRouteLines(spawns);
-          gameState.rebuildRouteCells();
-          return pathRoute.narrowToWalkable();
-        }));
-        const passMs = this.now() - t;
-        ms.passes += passMs;
-        traced(() => {
-          corridorTrace.log('build.pass', { pass: passes, changed, cells: grid.getStats().totalCells, ms: passMs });
-          corridorTrace.cost('build.pass', passMs);
-        });
-        if (!changed) break;
-        const state = pathRoute.walkState();
-        const unsettled = seen.has(state) ? 'walk caps and detours came back to an earlier state'
-          : passes >= CorridorBuild.MAX_PASSES ? `still narrowing after ${passes} passes`
-          : null;
-        seen.add(state);
-        if (unsettled) {
-          // The last planning still needs its routes and cells.
-          traced(() => corridorTrace.within('last plan', () => {
-            pathRoute.refreshRouteLines(spawns);
-            gameState.rebuildRouteCells();
-          }));
-          console.warn(`[Corridor] build did not settle: ${unsettled}; frozen with the last plan`);
-          traced(() => corridorTrace.log('build.unsettled', { passes, why: unsettled }));
-          break;
-        }
-        await this.nextFrame();
-        if (dropped()) return null;
-      }
+      report({ step: BUILD_STEP, percent: null });
+      const t0 = this.now();
+      const band = traced(() => corridorTrace.within('band', () => {
+        // The band is looked for along the street's own line, so the routes stand there first.
+        pathRoute.refreshRouteLines(spawns);
+        return pathRoute.buildBands();
+      }));
+      traced(() => corridorTrace.within('build', () => {
+        pathRoute.refreshRouteLines(spawns);
+        gameState.rebuildRouteCells();
+      }));
+      ms.build = this.now() - t0;
+      traced(() => {
+        corridorTrace.log('build.band', { ...band, cells: grid.getStats().totalCells, ms: ms.build });
+        corridorTrace.cost('build.band', ms.build);
+      });
+      if (dropped()) return null;
 
       // 5. Cells the finest level gave no height of their own: the fallback level.
       let fallbackCells = 0;
@@ -374,7 +350,8 @@ export class CorridorBuild {
       const result: CorridorBuildResult = {
         stations: measured,
         unmeasured: pathRoute.unmeasuredStations(),
-        passes,
+        bandStations: band.stations,
+        passages: band.passages,
         timedOut,
         fallbackStations,
         fallbackCells,
@@ -385,7 +362,7 @@ export class CorridorBuild {
       const f = (value: number) => value.toFixed(1);
       console.log(
         `[Corridor] build: reason=${reason} tiles=${f(ms.tiles)} measure=${f(ms.measure)} fallback=${f(ms.fallback)} ` +
-        `passes=${passes} (${f(ms.passes)}) lines=${f(ms.lines)} wall=${f(result.ms)}ms stations=${measured} ` +
+        `band=${band.stations} (${f(ms.build)}) lines=${f(ms.lines)} wall=${f(result.ms)}ms stations=${measured} ` +
         `unmeasured=${result.unmeasured} cells=${result.cells}${timedOut ? ' tiles timed out' : ''}`,
       );
       // Built on nothing: no station had a tile, or no cell got a height.
@@ -409,8 +386,8 @@ export class CorridorBuild {
         }));
       }
       traced(() => {
-        if (before) corridorTrace.rebuilt(before, this.snapshot(), { passes, spawns: spawns.length }, ms.passes + ms.lines);
-        corridorTrace.log('build.freeze', { ...result, tilesMs: ms.tiles, measureMs: ms.measure, fallbackMs: ms.fallback, passesMs: ms.passes });
+        if (before) corridorTrace.rebuilt(before, this.snapshot(), { bands: band.routes, spawns: spawns.length }, ms.build + ms.lines);
+        corridorTrace.log('build.freeze', { ...result, tilesMs: ms.tiles, measureMs: ms.measure, fallbackMs: ms.fallback, buildMs: ms.build });
       });
       return result;
     } finally {

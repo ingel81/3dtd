@@ -9,12 +9,11 @@ import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
  * looks does not change it; the same corridor gives the same hash. Each part
  * is hashed on its own, so two hashes that differ tell which part did:
  *
- * - `pieces`: per route and segment the corridor pieces in use, t and the
- *   half width left and right (cm)
+ * - `band`: per route and station of its walkable band what it decided:
+ *   the kind, the backbone (offset cm, height dm), the edges left and right
+ *   and the offset of the enemies' line (cm)
  * - `stations`: per measured station the free space left and right (cm)
  *   and why it stayed unmeasured
- * - `walk`: the walk caps per station and side (cm)
- * - `detours`: the detour pieces (from, to, offsets, cm) and passages
  * - `cells`: the cells, by their centre (cm)
  * - `heights`: their heights, rounded to 0.1 m
  * - `tiles`: the geometric error of the tile under each measured station,
@@ -24,7 +23,7 @@ import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
  * filled in does not count.
  */
 
-export const FINGERPRINT_PARTS = ['pieces', 'stations', 'walk', 'detours', 'cells', 'heights', 'tiles'] as const;
+export const FINGERPRINT_PARTS = ['band', 'stations', 'cells', 'heights', 'tiles'] as const;
 export type FingerprintPartName = (typeof FINGERPRINT_PARTS)[number];
 
 /** One part of the fingerprint: how many entries went in and their hash. */
@@ -64,30 +63,23 @@ export function fnv1a(text: string): string {
 /** The fingerprint of a corridor, see the file comment. Pure: the same input gives the same hash. */
 export function corridorFingerprint(state: CorridorState, cells: readonly RouteCellDump[]): CorridorFingerprint {
   const lines: Record<FingerprintPartName, string[]> = {
-    pieces: [], stations: [], walk: [], detours: [], cells: [], heights: [], tiles: [],
+    band: [], stations: [], cells: [], heights: [], tiles: [],
   };
 
   for (const route of [...state.routes].sort(byKey)) {
-    route.pieces.forEach((segment, i) => {
-      for (const piece of segment) {
-        lines.pieces.push(`${route.key}#${i}:${num(piece.t, 4)},${num(piece.left, 2)},${num(piece.right, 2)}`);
-      }
-    });
+    for (const station of route.band) {
+      lines.band.push(
+        `${route.key}#${station.segment}:${station.k}:${station.kind},` +
+        `${num(station.backbone?.offset ?? null, 2)},${num(station.backbone?.y ?? null, 1)},` +
+        `${num(station.left, 2)},${num(station.right, 2)},${num(station.centre, 2)}`,
+      );
+    }
   }
   for (const segment of [...state.stations].sort(byKey)) {
     segment.left.forEach((left, k) => {
       lines.stations.push(`${segment.key}#${k}:${num(left, 2)},${num(segment.right[k], 2)},${segment.unmeasured[k] ?? '-'}`);
       lines.tiles.push(`${segment.key}#${k}:${num(segment.tileError[k], 3)}`);
     });
-  }
-  for (const segment of [...state.walkCaps].sort(byKey)) {
-    segment.left.forEach((left, k) => lines.walk.push(`${segment.key}#${k}:${num(left, 2)},${num(segment.right[k], 2)}`));
-  }
-  for (const { key, plan } of [...state.detours].sort(byKey)) {
-    for (const p of plan.pieces) {
-      lines.detours.push(`${key}:piece ${num(p.from, 2)},${num(p.to, 2)},${num(p.offsetFrom, 2)},${num(p.offsetTo, 2)}`);
-    }
-    for (const p of plan.passages) lines.detours.push(`${key}:passage ${num(p.from, 2)},${num(p.to, 2)}`);
   }
   const sorted = [...cells].sort((a, b) => (a.x - b.x) || (a.z - b.z));
   for (const cell of sorted) {

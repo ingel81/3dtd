@@ -27,7 +27,8 @@ import {
 } from './route-grid-diagnostics';
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
 import { RouteCellSampler } from './route-cell-sampler';
-import { WalkGround, cellWalkable, centreLineKeys, judgeWalk, streetUnderRoof, streetUnderRoofAt, unwalkableCells } from './corridor-walk';
+import { WalkGround, cellWalkable, judgeWalk, portalGround } from './corridor-walk';
+import type { BandStation } from './corridor-band';
 import { logGrid } from './route-grid-log';
 import { corridorTrace } from './corridor-trace';
 import type { RouteBodyContact } from './route-body';
@@ -120,51 +121,57 @@ export class GlobalRouteGrid {
 
   /**
    * Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern.
-   * A cell a centre line runs through takes the street instead of a hit on
-   * a roof over the line (streetUnderRoof), and so does a tunnel portal
-   * (streetUnderRoofAt).
+   * A tunnel portal takes the backbone of the band station there instead of
+   * a hit on a roof over the street (portalGround).
    */
   private readonly sampler = new RouteCellSampler(
     (cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth),
-    (cell, y) => streetUnderRoof(cell, y, this.walkGround, this.CELL_SIZE),
-    (x, z, y) => streetUnderRoofAt(x, z, y, this.walkGround, this.CELL_SIZE),
+    (x, z, y) => portalGround(x, z, y, this.walkGround),
   );
 
-  /** Keys of the cells a route centre line runs through (centreLineKeys), set by generateFromRoutes. */
-  private centreLine = new Set<number>();
-
-  /** Keys of the cells the centre line of a detour runs through (RouteWaypoint.detour), for `__corridor.pick()`. */
-  private detourLine = new Set<number>();
+  /**
+   * The band station nearest to a local point, set by PathAndRouteService
+   * once it has built the band of the routes in use (setBand); null before
+   * that, and while the routes are being replaced.
+   */
+  private bandStation: ((x: number, z: number) => BandStation | null) | null = null;
 
   /**
    * What the walk check reads off this grid (corridor-walk.ts): the
-   * sampler's column probe, beside a seam as well, and the cells a centre
-   * line runs through.
+   * sampler's column probe, beside a seam as well, and the band of the
+   * routes in use.
    */
   private readonly walkGround: WalkGround = {
     column: (x, z) => this.sampler.columnNear(x, z),
-    lineCell: (x, z) => {
-      const key = this.intCellKey(this.cellIndex(x), this.cellIndex(z));
-      return this.centreLine.has(key) ? this.cells.get(key) ?? null : null;
-    },
-    onDetour: (x, z) => this.detourLine.has(this.intCellKey(this.cellIndex(x), this.cellIndex(z))),
+    station: (x, z) => this.bandStation?.(x, z) ?? null,
   };
+
+  /**
+   * Where the walkable band of the routes in use stands: its station
+   * nearest to a local point (PathAndRouteService.bandStationAt). The cells
+   * of a tunnel portal and the diagnosis of `__corridor.pick()` read it;
+   * null takes the band away again.
+   */
+  setBand(stationAt: ((x: number, z: number) => BandStation | null) | null): void {
+    this.bandStation = stationAt;
+  }
 
   /**
    * The column at local (x, z) as the cells and the walk check read it: the
    * engine's cached column probe, half a metre beside it on a seam. Null
-   * before initialize() and where no tile is. For the obstacle check on the
-   * route centre lines (PathAndRouteService, corridor-detour.ts).
+   * before initialize() and where no tile is. The walkable band of the
+   * routes is built on these columns (PathAndRouteService.buildBands,
+   * corridor-band.ts).
    */
   columnNear(x: number, z: number): ColumnSample | null {
     return this.sampler.columnNear(x, z);
   }
 
   /** cellWalkable for one cell of this grid, for the diagnostics. */
-  private readonly walkable = (cell: RouteCell) => cellWalkable(cell, this.walkGround, this.CELL_SIZE);
+  private readonly walkable = (cell: RouteCell) => cellWalkable(cell, this.walkGround);
 
   /** judgeWalk for one cell of this grid, for `__corridor.pick()`. */
-  private readonly walkJudgement = (cell: RouteCell) => judgeWalk(cell, this.walkGround, this.CELL_SIZE);
+  private readonly walkJudgement = (cell: RouteCell) => judgeWalk(cell, this.walkGround);
 
   /** Coordinate sync for geo <-> local conversions */
   private coordinateSync: CoordinateSync | null = null;
@@ -385,18 +392,11 @@ export class GlobalRouteGrid {
     this.cachedRoutes = routes;
 
     const alongClaims = new Set<number>();
-    const lines: { x: number; z: number }[][] = [];
-    const detours: { x: number; z: number }[][] = [];
     for (const route of routes) {
       if (route.length < 2) continue;
-
       const points = route.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
       claimRouteCells(this.cells, this.lattice, route, points, alongClaims);
-      lines.push(points);
-      for (let i = 0; i < route.length - 1; i++) if (route[i].detour) detours.push([points[i], points[i + 1]]);
     }
-    this.centreLine = centreLineKeys(lines, this.lattice);
-    this.detourLine = centreLineKeys(detours, this.lattice);
 
     // Sampled only once every segment has claimed its cells: which surface
     // a cell samples depends on all segments that reach it. Then the gaps
@@ -985,17 +985,6 @@ export class GlobalRouteGrid {
     return probeCellsAround(this.view, x, z, radius, towerId, (cell) => this.medianOfStableNeighbourY(cell), this.walkJudgement);
   }
 
-  /**
-   * The cells an enemy could not walk to from the route centre line: on a
-   * car, a van or a hedge, under an eave or a crown at the corridor edge
-   * (corridor-walk.ts). The route service narrows the corridor short of
-   * them (PathAndRouteService.narrowToWalkable). One pass over the cells,
-   * the columns from the engine's cache.
-   */
-  unwalkableCells(): RouteCell[] {
-    return unwalkableCells(this.cells.values(), this.walkGround, this.CELL_SIZE);
-  }
-
   /** The grid as the spatial probes in route-grid-diagnostics read it. Diagnostics only. */
   private get view(): RouteGridView {
     return { cells: this.cells, lattice: this.lattice, routes: this.cachedRoutes, sync: this.coordinateSync };
@@ -1079,8 +1068,6 @@ export class GlobalRouteGrid {
    */
   clear(): void {
     this.cells.clear();
-    this.centreLine.clear();
-    this.detourLine.clear();
     this.enemyCellKeys.clear();
     this.bodyEnemies.length = 0;
     this.generation = GlobalRouteGrid.nextGeneration++;

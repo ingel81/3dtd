@@ -283,16 +283,19 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
       routesEpoch: () => 1,
       beginClearanceMeasurement: measurements,
       unmeasuredStations: () => unmeasured,
-      walkState: () => '',
-      narrowToWalkable: () => false,
+      buildBands: () => ({ routes: 1, stations: 30, passages: 0, maxSlopeM: 0, maxCurvature: 0 }),
       refreshRouteLines: vi.fn(() => { paths.set('spawn-1', route()); }),
-      // The part of the state the fingerprint hashes of the routes: the
-      // width in use per segment. Nothing here measures stations or detours.
+      // The part of the state the fingerprint hashes of the routes: the band
+      // in use per station. Nothing here measures stations.
       corridorState: () => ({
-        routes: [{ key: 'spawn-1', pieces: [[{ t: 0, left: halfWidth, right: halfWidth }]] }],
+        routes: [{
+          key: 'spawn-1',
+          band: [{
+            segment: 0, k: 0, n: 1, s: 1, x: 0, z: 0, rx: 0, rz: 1,
+            kind: 'band', backbone: { offset: 0, y: 0 }, left: -halfWidth, right: halfWidth, centre: 0,
+          }],
+        }],
         stations: [],
-        walkCaps: [],
-        detours: [],
       }) as unknown as CorridorState,
     }) as typeof pathRoute;
 
@@ -443,7 +446,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     // The batch really did carry other tiles: the new build shows it.
     const after = fingerprint();
     expect(after.hash).not.toBe(before.hash);
-    expect(after.parts.pieces.hash).not.toBe(before.parts.pieces.hash);
+    expect(after.parts.band.hash).not.toBe(before.parts.band.hash);
     expect(after.parts.heights.hash).not.toBe(before.parts.heights.hash);
   });
 

@@ -2,11 +2,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Group, Vector3 } from 'three';
 
 // Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe,
-// `unwalkable` = Mittelpunkte der Zellen, zu denen kein Gegner laufen kann.
+// `column` = die eingefrorene Säule an einem lokalen Punkt, aus der das Band gebaut wird.
 const grid = vi.hoisted(() => ({
   ready: false,
   cellY: (_x: number, _z: number): number | null => null,
-  unwalkable: [] as { x: number; z: number }[],
+  column: (_x: number, _z: number): { groundY: number; topY: number; tileDepth: number; tileGeometricError: number } | null => null,
+  band: null as unknown,
 }));
 
 // inject() liefert pro Service-Klasse einen Stub. PathAndRouteService braucht
@@ -20,7 +21,11 @@ vi.mock('@angular/core', async () => {
     GlobalRouteGridService: {
       isInitialized: () => grid.ready,
       getGroundLocalYAt: (x: number, z: number) => grid.cellY(x, z),
-      getGrid: () => ({ unwalkableCells: () => grid.unwalkable, getCellSize: () => 2, columnNear: () => null }),
+      getGrid: () => ({
+        getCellSize: () => 2,
+        columnNear: (x: number, z: number) => grid.column(x, z),
+        setBand: (stationAt: unknown) => { grid.band = stationAt; },
+      }),
     },
   };
   return {
@@ -187,7 +192,7 @@ describe('PathAndRouteService route geometry', () => {
   beforeEach(() => {
     grid.ready = false;
     grid.cellY = () => null;
-    grid.unwalkable = [];
+    grid.column = () => null;
     clearanceAt = (_x, _z, max) => max;
     network = makeNetwork([
       { id: 100, nodes: [n10, n1] },
@@ -401,87 +406,64 @@ describe('PathAndRouteService route geometry', () => {
         expect(service.getCachedPath('s1')!.map((p) => p.corridorLeft)).toEqual([7, 7, 7, 7, 2.75, undefined]);
       });
 
-      it('ends the corridor before a cell no enemy could walk to, and keeps it there', () => {
-        // Open on both sides; the grid in use has a van 3 m right of the
-        // centre line, 50 m north of n1 (local z points south).
+      it('lays the enemies\' line in the band the columns leave beside a van on the street', () => {
+        // Open on both sides; the frozen columns show a van 3 m right of the
+        // street's line, 50 m north of n1 (local z points south), 1.5 m over it.
         const service = buildRouteService(network, spawn, hq);
         measure(service);
         const n1Local = toMeters(n1);
         grid.ready = true;
-        grid.unwalkable = [{ x: n1Local.x + 3, z: -(n1Local.z + 50) }];
-
-        expect(service.narrowToWalkable()).toBe(true);
-        // The same cell again narrows nothing more.
-        expect(service.narrowToWalkable()).toBe(false);
-
-        service.showPathFromSpawn(spawnPointAt(spawn));
-        const narrow = service.getCachedPath('s1')!.filter((p) => p.corridorRight === 2.5);
-        // One station, 2.9 m short of the van rounded down; closing short narrowings keeps it.
-        expect(narrow).toHaveLength(1);
-        expect(narrow[0].corridorLeft).toBe(7);
-        expect(northOfN1(-toMeters(narrow[0]).z)).toBeCloseTo(50, -1);
-
-        const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
-        expect(why.sides[1]).toMatchObject({
-          side: 'right', halfWidthM: 2.5, walkableM: 2.9, rule: 'no wall within the maximum, unwalkable cell beyond',
-        });
-        expect(why.sides[0]).toMatchObject({ side: 'left', halfWidthM: 7, walkableM: null });
-
-        // Forgotten with the measurements.
-        service.clearCorridorMeasurements();
-        grid.unwalkable = [];
-        measure(service);
-        service.showPathFromSpawn(spawnPointAt(spawn));
-        expect(service.getCachedPath('s1')!.some((p) => p.corridorRight === 2.5)).toBe(false);
-      });
-
-      it('takes no walk caps from the grid in use when a run is stored: they come from the grids of the build', () => {
-        // Before, a run without stations took the caps of the grid in use
-        // and narrowed the corridor by them alone, whatever tiles that grid
-        // had been sampled from (`rays=0 changed=true`).
-        vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-        const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
-        const service = buildRouteService(network, spawn, hq);
-        measure(service);
-        const n1Local = toMeters(n1);
-        grid.ready = true;
-        grid.unwalkable = [{ x: n1Local.x + 3, z: -(n1Local.z + 50) }];
-        corridorTrace.setEnabled(true);
-        const lines: string[] = [];
+        grid.column = (x, z) => {
+          const onVan = Math.abs(x - (n1Local.x + 3)) <= 1 && Math.abs(-z - (n1Local.z + 50)) <= 2.5;
+          const y = onVan ? 1.5 : 0;
+          return { groundY: y, topY: y, tileDepth: 20, tileGeometricError: 2 };
+        };
         try {
-          expect(measure(service)).toBe(false);
-          expect(service.corridorState().walkCaps).toEqual([]);
-        } finally {
-          lines.push(...log.mock.calls.map(([line]) => String(line)).filter((line) => line.startsWith('[CorridorTrace]')));
-          corridorTrace.setEnabled(false);
-          grid.ready = false;
-          grid.unwalkable = [];
-          vi.restoreAllMocks();
-        }
+          expect(service.buildBands()).toMatchObject({ routes: 1, passages: 0 });
+          service.showPathFromSpawn(spawnPointAt(spawn));
 
-        expect(lines).toHaveLength(3);
-        expect(lines[0]).toMatch(/ clearance\.start segments=0 stations=0 \| /);
-        expect(lines[1]).toMatch(/ store changed=false by=none segments=0 ms=/);
-        expect(lines[2]).toMatch(/ clearance\.commit segments=0 stations=0 unmeasured=0 coarse=0 rays=0 changed=false lod=2m:0,2\.5m:0,5m:0,coarse:0,none:0 slices=1 /);
-      });
-
-      it('forgets walk caps and detours for the next build, and tells their state apart', () => {
-        const service = buildRouteService(network, spawn, hq);
-        measure(service);
-        const empty = service.walkState();
-        const n1Local = toMeters(n1);
-        grid.ready = true;
-        grid.unwalkable = [{ x: n1Local.x + 3, z: -(n1Local.z + 50) }];
-        try {
-          expect(service.narrowToWalkable()).toBe(true);
-          expect(service.walkState()).not.toBe(empty);
-          service.resetWalkCaps();
-          expect(service.walkState()).toBe(empty);
-          expect(service.corridorState().walkCaps).toEqual([]);
+          // The band beside the van ends before it, and the enemies' line runs in its middle, left of the street's line.
+          const why = service.explainCorridorAt(n1Local.x, -(n1Local.z + 50))!;
+          expect(why.bandKind).toBe('band');
+          expect(why.bandRightM).toBeLessThanOrEqual(2);
+          expect(why.backboneM).toBeLessThanOrEqual(0);
+          expect(why.detourM).toBeLessThan(0);
+          expect(service.corridorState().routes[0].band.length).toBeGreaterThan(0);
+          // The waypoints there run off the street's line, and their corridor keeps off the van.
+          const path = service.getCachedPath('s1')!;
+          expect(path.some((p) => p.detour)).toBe(true);
         } finally {
           grid.ready = false;
-          grid.unwalkable = [];
+          grid.column = () => null;
         }
+      });
+
+      it('forgets the bands with the measurements: the line runs on the street again', () => {
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+        grid.ready = true;
+        grid.column = () => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 });
+        try {
+          service.buildBands();
+          expect(service.corridorState().routes[0].band.length).toBeGreaterThan(0);
+
+          service.clearCorridorMeasurements();
+          measure(service);
+          service.showPathFromSpawn(spawnPointAt(spawn));
+          expect(service.corridorState().routes[0].band).toEqual([]);
+          expect(service.getCachedPath('s1')!.some((p) => p.detour)).toBe(false);
+        } finally {
+          grid.ready = false;
+          grid.column = () => null;
+        }
+      });
+
+      it('builds no band without a grid: the route keeps the street line and the rays\' widths', () => {
+        const service = buildRouteService(network, spawn, hq);
+        measure(service);
+        expect(service.buildBands()).toMatchObject({ routes: 0, stations: 0 });
+        service.showPathFromSpawn(spawnPointAt(spawn));
+        expect(service.getCachedPath('s1')!.every((p) => !p.detour)).toBe(true);
       });
 
       it('traces each slice against its budget: a slow station runs past it, as in Berlin', () => {
@@ -1089,7 +1071,7 @@ describe('PathAndRouteService under a bridge of no route way', () => {
   beforeEach(() => {
     grid.ready = false;
     grid.cellY = () => null;
-    grid.unwalkable = [];
+    grid.column = () => null;
     clearanceAt = (_x, _z, max) => max;
     network = makeNetwork([
       { id: 100, nodes: [n10, n1] },

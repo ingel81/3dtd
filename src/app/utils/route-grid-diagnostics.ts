@@ -109,17 +109,16 @@ export interface RouteCellProbe {
   state: CellSample['state'] | '-';
   heightM: number | null;
   /**
-   * An enemy could walk there from the route centre line (cellWalkable,
-   * corridor-walk.ts). False on a cell the corridor keeps although no enemy
-   * could walk to it: a finer tile showed it only once towers stood. Null
+   * The cell lies in the walkable band of its station (cellWalkable,
+   * corridor-walk.ts). False beside the band: the band ends before it. Null
    * where that cannot be told or would change nothing (no sample of its
-   * own, a coarse tile, a cell a centre line runs through, a deck or tunnel
-   * cell) or without a cell.
+   * own, a coarse tile, a deck or tunnel cell, a passage, a stretch the
+   * band does not decide) or without a cell.
    */
   walkable: boolean | null;
-  /** Why `walkable` is what it is (WalkCheck): `roof`, `step`, `drop`, `centre line`, `coarse tile` and so on; null without a cell. */
+  /** Why `walkable` is what it is (WalkCheck): `band`, `roof`, `step`, `drop`, `hollow`, `coarse tile` and so on; null without a cell. */
   walkCheck: WalkCheck | null;
-  /** Height over the ground of the centre line beside the cell that the walk check measures from (centreLineGround). */
+  /** Height of the cell over the backbone of its band station (corridor-band.ts). */
   overLineM: number | null;
   /** Height above the median of the sampled neighbours. */
   aboveNeighboursM: number | null;

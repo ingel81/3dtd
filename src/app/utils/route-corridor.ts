@@ -491,12 +491,19 @@ export interface CorridorPiece {
   left: number;
   right: number;
   /**
-   * Widest the piece may get on each side: short of a cell an enemy could
-   * not walk to (CorridorStations.walkLeft), which closeShortNarrowings
+   * Widest the piece may get on each side: at a low wall the rays saw (a
+   * parked car, a hedge) the half width it gave, which closeShortNarrowings
    * keeps to. Absent where nothing limits it.
    */
   maxLeft?: number;
   maxRight?: number;
+}
+
+/** What a clearance measurement holds for one segment (PathAndRouteService.clearanceBySegment). */
+export interface SegmentClearance {
+  left: number[];
+  right: number[];
+  probes: (StationProbe | null)[];
 }
 
 /** One segment of a route as {@link fitCorridorPieces} sees it. */
@@ -517,15 +524,6 @@ export interface CorridorStations {
    * the fallback, not widen it.
    */
   onStreet: boolean;
-  /**
-   * How far out from the centre line enemies can walk at each station,
-   * left and right: short of the cells an enemy could not walk to (walkCaps
-   * in corridor-walk.ts). A cap on the half width after every other rule,
-   * below `minHalfWidth` as well. Infinity, or missing, where nothing stops
-   * them.
-   */
-  walkLeft?: readonly number[];
-  walkRight?: readonly number[];
   /**
    * Stations whose free space is a low wall (probeLowWall), left and right:
    * a parked car or a van. The dip closing keeps them, and closing short
@@ -565,7 +563,7 @@ export function lowRayAlone(hits: readonly number[], maxDistance: number): boole
  * car 1.48 and 2 m over the street under it; its cells stood on that street
  * and passed the walk check, and the column behind the low ray's hit showed
  * no rise). Higher up it is a roof, an awning, a crown or a deck, which
- * streetUnderRoof and the stretch off a bridge end deal with. Where a cell
+ * the band's roof check and the stretch off a bridge end deal with. Where a cell
  * stands on the top already (the deck carried on past a bridge end over a
  * hollow under the road), nothing lies above it. A column keeps only its
  * lowest and its highest hit (ColumnSample): a car under a crown or an eave
@@ -656,15 +654,8 @@ export interface StationFit {
   /** After filling short gaps, closing short dips and cutting short bulges along the route. */
   smoothed: number;
   halfWidth: number;
-  /** How far out enemies can walk there (CorridorStations.walkLeft), Infinity where nothing stops them. */
-  walk: number;
   /** What set the half width, e.g. "bulge cut, wall less margin". For `__corridor.pick()`. */
   rule: string;
-}
-
-/** The half width a walk cap allows: rounded down to `widthStep`, Infinity where there is none. */
-export function walkWidth(walk: number): number {
-  return walk === Infinity ? Infinity : Math.max(0, Math.floor(walk / corridorConfig.widthStep) * corridorConfig.widthStep);
 }
 
 /**
@@ -680,9 +671,11 @@ export function walkWidth(walk: number): number {
  * cut (cutShortBulges), each side on its own, then the value is rounded
  * down to `widthStep`. A station the tiles
  * could not measure in a longer gap gets the street's half width; off the
- * network the street's half width is the cap. Last, whatever set it, the
- * half width stays short of a cell an enemy could not walk to (walkLeft,
- * walkRight), not smoothed: a car narrows the corridor over its length.
+ * network the street's half width is the cap.
+ *
+ * This is how far the rays leave room, the wall the walkable band is looked
+ * for within (corridor-band.ts), not the corridor in use: the band's edges
+ * set that.
  */
 export function fitCorridorStations(
   segments: readonly CorridorStations[],
@@ -696,12 +689,10 @@ export function fitCorridorStations(
     const smoothed = cutShortBulges(closeShortDips(filled, lowWalls));
     let offset = 0;
     return segments.map((segment) => {
-      const walks = side === 'left' ? segment.walkLeft : segment.walkRight;
       const fits = segment[side].map((_, k): StationFit => {
         const f = free[offset + k];
         const g = filled[offset + k];
         const s = smoothed[offset + k];
-        const walk = walks?.[k] ?? Infinity;
         const rules: string[] = [];
         let halfWidth: number;
         if (Number.isNaN(s)) {
@@ -730,11 +721,7 @@ export function fitCorridorStations(
             rules.push('leg to the HQ: street width');
           }
         }
-        if (walkWidth(walk) < halfWidth) {
-          halfWidth = walkWidth(walk);
-          rules.push('unwalkable cell beyond');
-        }
-        return { free: f, smoothed: s, halfWidth, walk, rule: rules.join(', ') };
+        return { free: f, smoothed: s, halfWidth, rule: rules.join(', ') };
       });
       offset += segment[side].length;
       return fits;
@@ -774,8 +761,8 @@ export function fitCorridorPieces(segments: readonly CorridorStations[]): Corrid
         last = { t: k / n, left: l, right: r };
         pieces.push(last);
       }
-      const maxLeft = Math.min(last.maxLeft ?? Infinity, walkWidth(left[i][k].walk), lowLeft[k] ? l : Infinity);
-      const maxRight = Math.min(last.maxRight ?? Infinity, walkWidth(right[i][k].walk), lowRight[k] ? r : Infinity);
+      const maxLeft = Math.min(last.maxLeft ?? Infinity, lowLeft[k] ? l : Infinity);
+      const maxRight = Math.min(last.maxRight ?? Infinity, lowRight[k] ? r : Infinity);
       if (maxLeft < Infinity) last.maxLeft = maxLeft;
       if (maxRight < Infinity) last.maxRight = maxRight;
     }

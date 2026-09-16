@@ -38,7 +38,6 @@ describe('cell report JSON', () => {
     smoothedM: 2.3,
     halfWidthM: 1.8,
     inUseM: 1.8,
-    walkableM: null,
     rule: 'wall less margin',
   });
 
@@ -55,6 +54,11 @@ describe('cell report JSON', () => {
     onStreet: true,
     inTunnel: false,
     underWay: null,
+    backboneM: 0,
+    backboneY: 218.4,
+    bandLeftM: -2.5,
+    bandRightM: 2.5,
+    bandKind: 'band',
     detourM: null,
     passage: false,
     unmeasured: null,
