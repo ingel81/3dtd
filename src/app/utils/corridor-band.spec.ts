@@ -90,6 +90,56 @@ describe('buildBand', () => {
     expect(st.centre).toBeCloseTo(0, 6);
   });
 
+  /**
+   * Playtest 748, Stuttgart: a verge under a hedge beside the street lay
+   * 0.46 m lower, and one station found it within its window. It laid its
+   * band on the verge, the stations around it on the street, and the taper
+   * along the route cut both down to nothing.
+   */
+  it('keeps the band on the street past a lower verge one station finds behind a hedge', () => {
+    // The street 7 m either side; at x 60 to 62 a hedge 1 to 3 m right of the line and the verge behind it 0.4 m down.
+    const hedge = (x: number, z: number) => x > 60 && x < 62 && z > 2 && z < 4;
+    const verge = (x: number, z: number) => x > 60 && x < 62 && z > 4 && z < 6;
+    const band = buildBand(street(7, 3.5), columns((x, z) => (verge(x, z) ? -0.4 : 0), (x, z) => (hedge(x, z) ? 1.2 : verge(x, z) ? -0.4 : 0)), CELL, 'band');
+    for (const st of band.stations.filter((s) => s.x > 40 && s.x < 80)) {
+      expect(st.backbone!.y, `${st.s}`).toBe(0);
+      expect(st.left, `${st.s}`).toBe(-7);
+      expect(st.right, `${st.s}`).toBeGreaterThanOrEqual(1);
+    }
+    // The hedge ends the band beside it, and the band narrows before it.
+    expect(at(band, 61).right).toBeCloseTo(1, 9);
+    expect(at(band, 57).right).toBeCloseTo(3, 9);
+  });
+
+  /** Playtest 748, Berlin and Paris: an object between the two sides of the street, the ground behind it a few centimetres lower at one station, then at the next on the other side. */
+  it('keeps the band on one side of an object between the two sides of the street', () => {
+    // A post on the line from x 50 to 60; the ground 3 cm lower right of it, left of it at x 54 to 56.
+    const post = (x: number, z: number) => x > 50 && x < 60 && z > 0 && z < 2;
+    const dip = (x: number, z: number) => (x > 54 && x < 56 ? z < 0 : z > 2) && x > 50 && x < 60;
+    const band = buildBand(street(), columns((x, z) => (dip(x, z) ? -0.03 : 0), (x, z) => (post(x, z) ? 1.2 : dip(x, z) ? -0.03 : 0)), CELL, 'band');
+    const beside = band.stations.filter((st) => st.x > 50 && st.x < 60);
+    expect(beside.length).toBeGreaterThan(3);
+    const side = Math.sign(beside[0].backbone!.offset);
+    for (const st of beside) {
+      expect(Math.sign(st.backbone!.offset), `${st.s}`).toBe(side);
+      expect(st.right - st.left, `${st.s}`).toBeGreaterThanOrEqual(5);
+    }
+  });
+
+  it('changes sides where a long row of objects leaves no way round it', () => {
+    // A row of posts on the line from x 20 to 100; a wall 0.5 m left of the line from x 60, 0.5 m right of it before.
+    const row = (x: number, z: number) => x > 20 && x < 100 && z > 0 && z < 2;
+    const route = street();
+    route.wallLeft = [route.wallLeft[0].map((w, k) => (2 * k + 1 >= 60 ? 0.5 : w))];
+    route.wallRight = [route.wallRight[0].map((w, k) => (2 * k + 1 < 60 ? 0.5 : w))];
+    const band = buildBand(route, columns(() => 0, (x, z) => (row(x, z) ? 1.2 : 0)), CELL, 'band');
+    for (const st of band.stations.filter((s) => s.x > 22 && s.x < 98)) {
+      expect(st.kind, `${st.s}`).toBe('band');
+      if (st.x < 60) expect(st.right, `${st.s}`).toBeLessThanOrEqual(-1);
+      else expect(st.left, `${st.s}`).toBeGreaterThanOrEqual(1);
+    }
+  });
+
   it('runs a passage under a jetty the mesh fills down to a narrow lane', () => {
     const jetty = columns((x, z) => (Math.abs(z - 1) >= 2 ? 8 : x >= 55.5 && x <= 58.5 ? 5 : 0));
     const band = buildBand(street(1.5, 1.5), jetty, CELL, 'band');
