@@ -372,12 +372,32 @@ und `tiles` und anderen `band` und `heights` (PLAYTEST 745). Nachgestellt in
   bekommt den Mittelwert dieser Paare und den Zustand `filled`. Sie zählt
   als Zelle mit Höhe (`heightSampled`: LOS-Anzeige, Gegner, Overlay ohne
   rosa Kontur), das Sampling versucht sie weiter wie eine ungesampelte und
-  ersetzt die Füllung durch das erste Sample, das es annimmt. Gefüllt wird
-  nur aus stabilen Zellen, eine Füllung breitet sich also nicht aus; eine
-  Lücke breiter als eine Zelle bleibt ohne Höhe. Eine stabile Zelle mehr als
-  50 m neben ihren Nachbarn aus mindestens so tiefen Tiles (ein Treffer, der
-  vor ihnen kam) wird ebenso gefüllt oder, ohne Paar, wieder `unsampled`.
-  Tunnelzellen bleiben, wie sie sind.
+  ersetzt die Füllung durch das erste Sample, das es annimmt.
+  - **Drei Nachbarn** (seit 2026-09-16): Ohne solches Paar nimmt eine
+    Zelle, die mindestens drei stabile Zellen derselben Fläche berühren,
+    deren Median (`medianOfStableNeighbourY`, derselbe wie im
+    Ausreißer-Test) und ist ebenfalls `filled`. Das ist die Zelle am Rand
+    des Korridors, deren Säulen nichts treffen: Unter einer Traufe, einem
+    Laubengang oder einer Auskragung trifft eine Säule von oben nur die
+    Unterseite des Meshes, und die zählt ein Strahl nicht. Hinter ihr
+    liegt keine Zelle, also gibt es kein Paar. Anlass: Playtest 2026-09-16,
+    Rothenburg, `build.fallback what=cells missing=7 found=0`: sieben rosa
+    Zellen in einer Reihe am Rand des Bands vor dem Laubengang des
+    Rathauses am Marktplatz (Way 1311003086, Screenshot 082242), die
+    Rückfallstufe fand dort auch nichts. Ob ihre Säulen gar nichts trafen
+    oder nur Treffer, die die Nachbarn ablehnten, sagt das Log nicht; das
+    Band liest dieselben Säulen und endet vor einem Treffer weit über oder
+    unter dem Boden, den es erreicht hat, also ist "gar nichts" das
+    Wahrscheinlichere. Nachgestellt in `corridor-band.scenes.spec.ts`
+    ("Marktplatz") auf der echten OSM-Linie mit den Gebäuden aus OSM.
+  - Gefüllt wird nur aus stabilen Zellen, eine Füllung breitet sich also
+    nicht aus. Eine Zelle, die weder zwischen zwei stabilen liegt noch drei
+    berührt (eine Lücke breiter als eine Zelle, ihre Ecken), bleibt ohne
+    Höhe; der Trace nennt sie (`build.freeze why=`, `at=`).
+  - Eine stabile Zelle mehr als 50 m neben ihren Nachbarn aus mindestens so
+    tiefen Tiles (ein Treffer, der vor ihnen kam) wird ebenso gefüllt oder,
+    ohne beides, wieder `unsampled`.
+  - Tunnelzellen bleiben, wie sie sind.
 
 Ausnahmen:
 
@@ -488,8 +508,15 @@ Ausnahmen:
     "takes a portal under a jetty from the street around it"). Das Rückgrat
     steht auf der Straße vor der Mündung; ohne Band (erster Bau, DevWorld)
     behält das Portal seinen Treffer.
-  - **Ohne Portal-Tile:** Solange an einem der beiden Portale kein Tile
-    liegt, bleibt die Zelle ohne Höhenprobe.
+  - **Portal ohne Treffer** (seit 2026-09-16): Trifft die Säule an einem
+    Portal nichts (ein Loch im Mesh, die Unterseite der Traufe über einer
+    Mündung), nimmt das Portal ebenso die Straße unter der Bandstation dort
+    (`portalGround`). Die Zellen des Stücks sind dann `filled`, nicht
+    `stable`: Die Höhe ist die des Bands, nicht die einer Säule, und die
+    Rückfallstufe ersetzt sie, wo das Portal dort eine Säule hat. Vorher
+    blieb das ganze Stück ohne Höhe, bis die Rückfallstufe zufällig einen
+    Treffer hatte. Ohne Band (DevWorld) oder ohne Straße dort bleibt die
+    Zelle ohne Höhenprobe (`why=noPortal`).
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
     Tunnelzelle, auch wenn ein anderes Segment sie ebenfalls erreicht
     (`claimSegmentCells`).
@@ -937,8 +964,18 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
    `build.unsettled` sind mit der Kappen-Schleife weg. Der Trace schreibt
    `build.band` mit Routen, Stationen, Durchgängen, steilster Bewegung und
    engster Krümmung der Gegnerlinie.
-5. **Rückfall für Zellen:** Zellen ohne eigene Höhe bekommen dieselbe gröbere
-   Stufe (`retryUnsampledCells`).
+5. **Rückfall für Zellen:** Zellen ohne Höhe bekommen dieselbe gröbere
+   Stufe (`retryUnsampledCells`). Anders als bei den Stationen geht es danach
+   nicht zurück auf die feinste Stufe (seit 2026-09-16): Rote Linie und
+   Overlays lesen die Zellen, keine Säulen (die Linie liest die Säule am HQ
+   nur für einen Punkt ohne Zellhöhe ringsum), und das Einfrieren setzt die
+   Region ohnehin auf die grobe Stufe. Der Rückweg wartete mindestens
+   `QUIET_MS` (500 ms) auf Tiles, auf denen niemand mehr misst; im Test auf
+   der Uhr der Spec (16 ms je Frame) sinkt der Rückfall für Zellen von 1056
+   auf 528 ms, der für Stationen bleibt bei 1056. Eine Zelle, die die
+   feinste Stufe über zwei Nachbarn oder drei (siehe Zellhöhe, Lücken
+   füllen) oder über die Straße des Bands (Portal ohne Treffer) füllt, zählt
+   als Zelle mit Höhe und schickt den Bau nicht mehr auf die grobe Stufe.
 6. **Einfrieren:** rote Linie auf den fertigen Zellen, Overlays, laufende
    Routenanimation neu; Kamera zurück, Region auf die grobe Stufe (5 m,
    siehe "Feine Tiles im Korridor").
@@ -1081,8 +1118,9 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
   `stations=N of M`: so weit kam er.
 - **`build`** (`CorridorBuild.build`): eine Zeile je Bau, der eingefroren
   hat. `reason` ist sein Auslöser, `tiles` die Wartezeit auf die Tiles der
-  Region, `measure` die Rechenzeit aller Messscheiben, `fallback` beide
-  Wechsel auf die gröbere Stufe, `band=N ()` die Stationen des Bands samt
+  Region, `measure` die Rechenzeit aller Messscheiben, `fallback` die
+  Wechsel auf die gröbere Stufe (für Stationen hin und zurück, für Zellen
+  nur hin), `band=N ()` die Stationen des Bands samt
   der Zeit für Band, Routen und Zellen, `lines` die rote Linie am Ende,
   `wall` die ganze Dauer vom Aufruf bis zum Einfrieren; dazu `stations`,
   `unmeasured`, `cells` und, wenn die Tiles nicht ruhig wurden,
@@ -1141,12 +1179,12 @@ vitest (Specs schalten ihn selbst ein).
 | `region.complete` | das erste Mal je Ort `coarse=0` | `tiles`, `finest` |
 | `build.start` | Beginn eines Baus (`CorridorBuild.build`) | `reason`, `tiles` (es gibt 3D-Tiles; in DevWorld false) |
 | `build.tiles` | die Tiles der Region sind ruhig, oder der Timeout ist um | `target` (Fehlerziel der Region, m), `loadS`, `timedOut`, dazu der Stand der Region (`lodState`) |
-| `build.fallback` | ein Wechsel auf die gröbere Stufe und zurück | `what`: `stations` oder `cells`; `missing`, `found` |
+| `build.fallback` | ein Wechsel auf die gröbere Stufe (für Stationen und zurück) | `what`: `stations` oder `cells`; `missing`, `found`; für Zellen `why`: wie viele aus welchem Grund ohne Höhe waren, bevor die gröbere Stufe probte (unten) |
 | `build.band` | das Band aller Routen, dann Routen und Zellen (Schritt 4) | `routes`, `stations`, `passages`, `maxSlopeM`, `maxCurvature`, `cells`, `ms` |
 | `build.notiles` | der Bau maß auf nichts: keine Station mit Tile oder keine Zelle mit Höhe; der Korridor friert mit den OSM-Breiten ein | `stations`, `unmeasured`, `cells`, `bare` (Zellen ohne eigene Höhe), `timedOut` |
 | `build.revisit` | die Seite wurde sichtbar und der Korridor war auf nichts gebaut (`rebuildAfterBlindBuild`) | `built`: ob ein Bau startete; `blocked`: die Sperre, wenn nicht |
 | `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
-| `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `bandStations`, `passages`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `cellsWithoutHeight`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `buildMs` |
+| `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `bandStations`, `passages`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `cellsWithoutHeight`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `buildMs`; nur wenn Zellen ohne Höhe bleiben `why` (Gründe, unten) und `at` (lokale `x,z` der ersten zehn, `;+N` für den Rest) |
 | `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |
 | `routes.refresh` | jeder Neuaufbau der roten Linie (`PathAndRouteService.refreshRouteLines`, `refreshRouteLinesAsync` mit `async=true`) | `spawns`, `waypoints`, `ms` |
 | `routeAnimation.start` | jeder Start der Routen-Animation (`RouteAnimationService.startAnimation`), der ihren Strich-Versatz zurücksetzt | `routes`, `restart` (lief schon) |
@@ -1155,6 +1193,15 @@ vitest (Specs schalten ihn selbst ein).
 | `grid.generate` | `GlobalRouteGrid.generateFromRoutes` | `cells`, `routes`, `ms` |
 | `rebuild` | Ende eines Baus, Delta über den ganzen Bau (`CorridorBuild`) | Delta, unten |
 | `intro.*`, `loading.done`, `heights.*` | aus der Kamera-Zeitleiste (`cameraTimeline`): Intro-Phasen, Ladeschirm-Gate (`intro.gateOpen`), Höhen-Update | wie dort, Auslöser `camera timeline` |
+
+**`why`** (`why=noColumn:5,refused:2`, `GlobalRouteGrid.describeCellsWithoutHeight`):
+warum der letzte Versuch einer Zelle keine eigene Höhe gab
+(`RouteCellSampler.lastMiss`). `noColumn`: keine Säule an der Zelle und
+0,5 m daneben (kein Tile dort, oder ein Mesh, von dem die Säulen nichts
+treffen); `refused`: Säulen mit Treffern, die die Nachbarn ablehnten
+(Ausreißer); `noPortal`: ein Tunnelportal ohne Säule und ohne Straße des
+Bands; `noBridgeEnd`: keine Säule am Brückenende, von dem die Höhe dahinter
+getragen wird. Gezählt werden nur Zellen ohne Höhe, gefüllte nicht.
 
 **`lod`** (`lod=2m:12,2.5m:200,5m:4,coarse:0,none:24`): die Säulen, die ein
 Lauf je Station benutzt hat, nach dem geometricError ihres Tiles: bis 2 m
@@ -1693,7 +1740,7 @@ Ein `__corridor.pick()` je Stelle trennt die Fälle:
 | wie oben, aber die Straße liegt in Wirklichkeit oben (`tags` mit `layer=1`, keine `bridge`) | Die Route läuft über ein Bauwerk ohne Brücken-Tag, die Zellen fallen auf die untere Ebene |
 | `heightM` weit weg von `columnBottomM` und den Nachbarn, oder `NaN` | Zellhöhe falsch (Naht, Ausreißer-Cluster); Linie, Zellen und Gegner liegen woanders |
 | `cell` false auf der Linie | keine Zellen, Lücke im Grid |
-| `surface` `tunnel`, `state` `unsampled` | Tunnelstück ohne Portal-Tile |
+| `surface` `tunnel`, `state` `unsampled` | Tunnelstück mit einem Portal ohne Treffer und ohne Straße des Bands dort (`build.freeze why=noPortal`) |
 
 ### Route Grid Overlay
 
@@ -1817,8 +1864,12 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   oder Gegner da sind, bleibt im Korridor, auf seiner Höhe, bis zum
   nächsten Neuaufbau (siehe Band).
 - Nähte zwischen Tile-Meshes: Stationen und Zellen versuchen Säulen 0,5 m
-  daneben, Lücken füllt der Grid aus den Nachbarn. Eine Lücke breiter als
-  eine Zelle bleibt ohne Höhe (rosa), eine Messlücke länger als etwa
+  daneben, Lücken füllt der Grid aus den Nachbarn. Eine Zelle, die weder
+  zwischen zwei stabilen Zellen liegt noch drei berührt, bleibt ohne Höhe
+  (rosa), wenn auch die gröbere Stufe dort nichts trifft; ihre LOS-Antwort
+  rechnet der Tower dann auf der Höhe des Routenankers
+  (`route-grid-los.ts`), während Gegner dort auf dem Median der Nachbarn
+  stehen (`estimateTerrainY`). Eine Messlücke länger als etwa
   `dipLength` bei der Straßenbreite. Liegt der Mittelpunkt einer Zelle in
   keiner Bounding Box eines Tiles, probt der Sweep sie gar nicht; dann greift
   nur das Füllen. Der Ausreißer-Test braucht mindestens drei stabile
