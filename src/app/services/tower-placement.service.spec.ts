@@ -169,8 +169,12 @@ describe('TowerPlacementService', () => {
     service.selectTowerType(typeId);
     await flush();
   };
-  const hover = (p: { lat: number; lon: number }, height = 0) =>
+  /** Height of the last hovered cursor surface, where the tiles show flat ground by default */
+  let cursorY = 0;
+  const hover = (p: { lat: number; lon: number }, height = 0) => {
+    cursorY = height;
     service.updatePreviewPosition(p.lat, p.lon, height);
+  };
   /** The footprint lines `__footprintDebug.watch()` logged, from a console.log spy. */
   const watchLines = (log: { mock: { calls: unknown[][] } }) =>
     log.mock.calls.map(([line]) => String(line)).filter((line) => line.includes(' rule='));
@@ -221,8 +225,9 @@ describe('TowerPlacementService', () => {
     scene = {};
     blockerGroup = {};
     devTerrain = null;
-    // The tiles have no surface under the footprint unless a test gives them one.
-    terrain = { raycastColumnSample: vi.fn(() => null) };
+    // The tiles show flat ground at the cursor unless a test gives them something else.
+    cursorY = 0;
+    terrain = { raycastColumnSample: vi.fn(() => column(cursorY)) };
     const referencePos = new Vector3(1, 2, 3);
     mapper = {
       invalidate: vi.fn(),
@@ -746,8 +751,8 @@ describe('TowerPlacementService', () => {
         service.tickBuildPreviewViz(10.4);
         service.tickBuildPreviewViz(11);
         expect(watchLines(log)).toEqual([
-          '[Footprint] rest archer rule=roof-column centreGroundY=5 centreTopY=20 plinthHeight=1.5 footY=21.5 '
-            + `surfaceY=20 at ${FREE.lat.toFixed(6)},${FREE.lon.toFixed(6)}`,
+          '[Footprint] rest archer rule=roof-column centreGroundY=5 centreTopY=20 plinthHeight=1.5 overhang=0 '
+            + `refusal=- footY=21.5 surfaceY=20 at ${FREE.lat.toFixed(6)},${FREE.lon.toFixed(6)}`,
         ]);
 
         const next = at(0, 310);
@@ -790,7 +795,7 @@ describe('TowerPlacementService', () => {
         service.handleBuildClick();
         expect(emit).toHaveBeenCalledTimes(1);
         expect(watchLines(log)).toEqual([
-          expect.stringMatching(/^\[Footprint\] placed archer rule=roof-column .*plinthHeight=1\.5 footY=21\.5 /),
+          expect.stringMatching(/^\[Footprint\] placed archer rule=roof-column .*plinthHeight=1\.5 overhang=0 refusal=- footY=21\.5 /),
         ]);
 
         window.__footprintDebug!.watch(false);

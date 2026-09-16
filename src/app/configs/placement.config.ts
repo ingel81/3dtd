@@ -22,9 +22,11 @@ export const PLACEMENT_CONFIG = {
 } as const;
 
 /**
- * How high a tower stands on uneven ground (resolveTowerFootprint). The rules
- * above decide whether a tower may stand somewhere; these only decide its
- * height there and whether a stone plinth goes under it.
+ * How high a tower stands on uneven ground (resolveTowerFootprint): its
+ * height, the stone plinth under it and the braces where it overhangs. The
+ * rules above decide whether a tower may stand somewhere; of these, MAX_RISE
+ * and MAX_DROP also rule out a spot whose centre or inner ring stands in a
+ * wall or over a drop (FootprintRefusal).
  */
 export const PLINTH_CONFIG = {
   /**
@@ -40,8 +42,9 @@ export const PLINTH_CONFIG = {
   /**
    * A surface this far (m) above the one under the cursor is not ground under
    * the tower but something beside it: a facade, a tall crown. It does not
-   * lift the tower, which then clips into it as before. 5 m covers a 45° roof
-   * across the widest footprint (5.3 m, Fire) from eave to ridge.
+   * lift the tower. Under the outer ring the tower clips into it as before,
+   * under the centre or the inner ring the spot is refused. 5 m covers a 45°
+   * roof across the widest footprint (5.3 m, Fire) from eave to ridge.
    */
   MAX_RISE: 5,
 
@@ -49,7 +52,8 @@ export const PLINTH_CONFIG = {
    * A surface this far (m) below the one under the cursor is past an edge
    * (a roof edge, a step down to a lower part of the building, a terrace
    * wall), not the foot of a plinth, unless the ground slopes down to it
-   * (MAX_SLOPE). The plinth ends above it and hangs over the drop, on braces.
+   * (MAX_SLOPE). The plinth ends above it and hangs over the drop, on braces;
+   * under the centre or the inner ring the spot is refused.
    * About a storey: a balcony or a canopy up to that far below the roof
    * still carries the plinth, a lower roof deeper down no longer draws it
    * down the facade.

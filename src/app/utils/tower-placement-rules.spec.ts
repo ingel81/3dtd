@@ -73,6 +73,17 @@ describe('checkTowerPlacement', () => {
       }));
       expect(result).toEqual({ valid: false, reason: 'Too close to another tower' });
     });
+
+    it('the ground under the footprint: in a wall, or over the edge beyond the outer ring (C10)', () => {
+      const footprint = { footY: 20, plinthHeight: 0.5, overhang: [7] };
+      expect(checkTowerPlacement(48.14, 11.57, context(), footprint)).toEqual({ valid: true });
+      expect(checkTowerPlacement(48.14, 11.57, context(), { ...footprint, refusal: 'wall' })).toEqual({
+        valid: false, reason: 'Not enough room',
+      });
+      expect(checkTowerPlacement(48.14, 11.57, context(), { ...footprint, refusal: 'edge' })).toEqual({
+        valid: false, reason: 'Too far over the edge',
+      });
+    });
   });
 
   describe('order of checks', () => {
@@ -94,6 +105,12 @@ describe('checkTowerPlacement', () => {
     it('towers before routes', () => {
       const result = checkTowerPlacement(48.137, 11.575, { ...atDistances(1000, 1000, 0), routes: [ROUTE] });
       expect(result.reason).toBe('Too close to another tower');
+    });
+
+    it('routes before the ground under the footprint', () => {
+      const footprint = { footY: 0, plinthHeight: 0, refusal: 'edge' as const };
+      const result = checkTowerPlacement(48.137, 11.575, { ...atDistances(1000, 1000, 1000), routes: [ROUTE] }, footprint);
+      expect(result.reason).toBe('Too close to route');
     });
   });
 
