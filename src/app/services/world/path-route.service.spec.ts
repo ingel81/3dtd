@@ -104,9 +104,9 @@ function makeEngine(): ThreeTilesEngine {
       getStreetHeightEstimate: () => 0,
       measureStreetClearance: (
         x: number, z: number, ax: number, az: number, heights: readonly number[], max: number, onDeck = false,
-        deckEnd: { path: readonly { x: number; z: number }[]; m: number } | null = null,
+        onApproach: { path: readonly { x: number; z: number }[]; m: number } | null = null,
       ): StationProbe => {
-        probeCalls.push([x, z, ax, az, [...heights], max, onDeck, deckEnd]);
+        probeCalls.push([x, z, ax, az, [...heights], max, onDeck, onApproach]);
         const free = clearanceAt(x, z, max);
         if (free === null) return { unmeasured: 'coarse tile', tileError: 20, left: [], right: [] };
         if (free === 'no tile') return { unmeasured: 'no tile', tileError: Infinity, left: [], right: [] };

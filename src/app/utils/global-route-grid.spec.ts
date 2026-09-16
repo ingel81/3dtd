@@ -920,7 +920,7 @@ describe('GlobalRouteGrid bridges', () => {
       // The red line takes its heights at the waypoints, the enemies from the cells.
       for (const x of [24, 30, 90, 96]) expect(bridge.getGroundLocalYAt(x, 0), `waypoint ${x}`).toBe(80);
       expect(bridge.getCellAt(25, 5)).toMatchObject({ surface: 'approach' });
-      expect(bridge.getCellAt(25, 5)!.deckEnd!.path[0]).toEqual({ x: 30, z: 0 });
+      expect(bridge.getCellAt(25, 5)!.onApproach!.path[0]).toEqual({ x: 30, z: 0 });
       // Beside the deck, over the open quay, the ground.
       expect(build(head, [route.map((w) => ({ ...w, corridorLeft: 11, corridorRight: 11 }))]).getGroundLocalYAt(25, 10)).toBe(70);
     });

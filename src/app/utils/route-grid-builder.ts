@@ -1,7 +1,7 @@
 import { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, segmentLeft, segmentRight } from './route-corridor';
-import { DeckEnd, RouteCell, TunnelSpan } from './route-cell';
-import { SegmentApproach, deckApproaches, deckEndAt, nearestDeckApproach, segmentApproaches } from './deck-approach';
+import { ApproachPoint, RouteCell, TunnelSpan } from './route-cell';
+import { SegmentApproach, nearestApproach, pointOnApproach, routeApproaches, segmentApproaches } from './carried-height';
 
 /**
  * Building the route-cell corridor: which cells a route claims, which
@@ -136,7 +136,7 @@ export function jointCap(own: number, other: number, cellSize: number): number {
  * of two segments each one's round end is cut to jointCap; the two ends of
  * the route keep their half widths. `alongClaims`: see claimSegmentCells,
  * one set for all routes of a grid. A segment on the stretch off a bridge
- * end (deckApproaches) hands it on.
+ * end (routeApproaches) hands it on.
  */
 export function claimRouteCells(
   cells: Map<number, RouteCell>,
@@ -148,7 +148,7 @@ export function claimRouteCells(
   const tunnels = tunnelSegments(route, points);
   const segments = route.length - 1;
   const flags = route.slice(0, Math.max(0, segments));
-  const approaches = deckApproaches(points, flags.map((w) => w.onBridge === true), flags.map((w) => w.inTunnel === true));
+  const approaches = routeApproaches(points, flags.map((w) => w.onBridge === true), flags.map((w) => w.inTunnel === true));
   const cap = (own: number, neighbour: RouteWaypoint | undefined, side: (w: RouteWaypoint) => number) =>
     neighbour ? jointCap(own, side(neighbour), lattice.cellSize) : own;
   for (let i = 0; i < segments; i++) {
@@ -194,7 +194,7 @@ const SURFACE_ORDER: Record<RouteCell['surface'], number> = { ground: 0, approac
  * (SegmentApproach). A cell whose nearest point on the segment lies within
  * DECK_APPROACH_M of the nearest such bridge end is an `approach` cell and
  * compares with the height the route carries at that point
- * (RouteCell.deckEnd).
+ * (RouteCell.onApproach).
  *
  * A cell another segment reached first: a tunnel wins. Otherwise a segment
  * that reaches the cell along its length (the centre's nearest point lies
@@ -264,9 +264,9 @@ export function claimSegmentCells(
       const axisX = (lattice.index(start.x + dx * t) + 0.5) * cellSize;
       const axisZ = (lattice.index(start.z + dz * t) + 0.5) * cellSize;
       const anchorY = start.y + (end.y - start.y) * t;
-      const approach = onBridge || tunnel ? null : nearestDeckApproach(approaches, t);
+      const approach = onBridge || tunnel ? null : nearestApproach(approaches, t);
       const surface: RouteCell['surface'] = onBridge ? 'deck' : tunnel ? 'tunnel' : approach ? 'approach' : 'ground';
-      const deckEnd = approach ? deckEndAt(approach, t) : null;
+      const onApproach = approach ? pointOnApproach(approach, t) : null;
       if (existing) {
         // A cell several segments reach: a tunnel wins, or the cells in its
         // mouth, reached by the approach first, would sample the hill above
@@ -276,26 +276,26 @@ export function claimSegmentCells(
           if (existing.surface !== 'tunnel') {
             existing.surface = 'tunnel';
             existing.tunnelSpan = span;
-            existing.deckEnd = null;
+            existing.onApproach = null;
           }
         } else if (existing.surface !== 'tunnel') {
           if (alongIt && !alongClaims.has(key)) {
             alongClaims.add(key);
             existing.surface = surface;
-            existing.deckEnd = deckEnd;
+            existing.onApproach = onApproach;
             existing.axisX = axisX;
             existing.axisZ = axisZ;
             existing.routeAnchorY = anchorY;
             existing.terrainHeight = anchorY;
           } else if (alongIt === alongClaims.has(key) && SURFACE_ORDER[surface] < SURFACE_ORDER[existing.surface]) {
             existing.surface = surface;
-            existing.deckEnd = deckEnd;
+            existing.onApproach = onApproach;
           }
         }
         continue;
       }
       if (alongIt) alongClaims.add(key);
-      addCell(cells, key, cx, cz, axisX, axisZ, anchorY, surface, span, deckEnd);
+      addCell(cells, key, cx, cz, axisX, axisZ, anchorY, surface, span, onApproach);
     }
   }
 }
@@ -353,7 +353,7 @@ function addCell(
   anchorY: number,
   surface: RouteCell['surface'],
   tunnelSpan: TunnelSpan | null,
-  deckEnd: DeckEnd | null,
+  onApproach: ApproachPoint | null,
 ): void {
   const cell: RouteCell = {
     key,
@@ -364,7 +364,7 @@ function addCell(
     terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
     surface,
     tunnelSpan,
-    deckEnd,
+    onApproach,
     routeAnchorY: anchorY,
     sample: {
       state: 'unsampled',

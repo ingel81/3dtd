@@ -1,6 +1,6 @@
 import { ColumnSample, ColumnSampler, TerrainPeekLOD, isBetterLod } from '../three-engine/column-sample';
 import { RouteCell, TunnelSpan } from './route-cell';
-import { carriedDeckY, surfaceY } from './deck-approach';
+import { carriedY, surfaceY } from './carried-height';
 import { corridorConfig } from './route-corridor';
 import { TUNNEL_PORTAL_OFFSET_M } from './route-grid-builder';
 import { logGrid } from './route-grid-log';
@@ -11,10 +11,10 @@ import { logGrid } from './route-grid-log';
  * at the cell or half a metre beside it (no tile there, or a mesh the
  * columns meet nothing of); `refused`, columns whose hits its neighbours
  * refused (plausible); `noPortal`, a tunnel portal with neither a column
- * nor a street of the band; `noBridgeEnd`, no column at the bridge end the
+ * nor a street of the band; `noApproachStart`, no column at the bridge end the
  * height off it is carried from.
  */
-export type CellMiss = 'noColumn' | 'refused' | 'noPortal' | 'noBridgeEnd';
+export type CellMiss = 'noColumn' | 'refused' | 'noPortal' | 'noApproachStart';
 
 /**
  * What a tunnel cell stands on, see RouteCellSampler.tunnelColumn: the
@@ -159,7 +159,7 @@ export class RouteCellSampler {
     // discards hits without usable LOD info (undecoded tile meshes) and
     // resolves ground against the finest LOD in it. A tunnel cell takes its
     // portals instead. A cell on the stretch off a bridge end compares with
-    // the height the route carries there from that end (carriedDeckY), and
+    // the height the route carries there from that end (carriedY), and
     // like a tunnel cell waits for a column at the bridge end.
     this.raycastCount++;
     const sampler = this.columnSampler;
@@ -180,12 +180,12 @@ export class RouteCellSampler {
       }
       if (ground !== null) hit = this.plausible(cell, this.hitOf(cell, ground.column, null, null));
     } else {
-      const deckEnd = cell.surface === 'approach' ? cell.deckEnd : null;
-      const deck = deckEnd ? this.columnNear(deckEnd.path[0].x, deckEnd.path[0].z) : null;
-      const carried = deckEnd && deck ? carriedDeckY(deckEnd, (x, z) => this.columnNear(x, z)) : null;
-      if (deckEnd !== null && deck === null) missing = 'noBridgeEnd';
+      const onApproach = cell.surface === 'approach' ? cell.onApproach : null;
+      const deck = onApproach ? this.columnNear(onApproach.path[0].x, onApproach.path[0].z) : null;
+      const carried = onApproach && deck ? carriedY(onApproach, (x, z) => this.columnNear(x, z)) : null;
+      if (onApproach !== null && deck === null) missing = 'noApproachStart';
       for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
-        if (deckEnd !== null && deck === null) break;
+        if (onApproach !== null && deck === null) break;
         const column = sampler(cell.x + dx, cell.z + dz);
         if (column === null) continue;
         found = true;
@@ -245,9 +245,9 @@ export class RouteCellSampler {
    * The height `column` gives `cell`: a bridge deck is the top of its
    * column, the ground is the bottom. On the stretch off a bridge end
    * (`deck`, the column at that end) the hit nearest to the height the
-   * route carries there (`carried`, deckApproachY), with the coarser LOD of
+   * route carries there (`carried`, approachY), with the coarser LOD of
    * the two columns, so the cell is sampled again once the bridge end has a
-   * finer tile; the columns carriedDeckY reads between the two do not count
+   * finer tile; the columns carriedY reads between the two do not count
    * in it. Under a flat roof the bottom is usually the street: playtest
    * 2026-09-14 (Tokyo), roofs at 70.5 to 99.3 m had their column's ground at
    * 39.5 to 39.9 m. A column at the corridor edge can still come down on a

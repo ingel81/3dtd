@@ -568,7 +568,7 @@ export interface StationProbe {
    * off a bridge end, the column at that end has no such tile yet. Null
    * when measured.
    */
-  unmeasured: 'no tile' | 'coarse tile' | 'no bridge end' | null;
+  unmeasured: 'no tile' | 'coarse tile' | 'no approach start' | null;
   /** Geometric error of the tile under the station, Infinity without one. */
   tileError: number;
   /**

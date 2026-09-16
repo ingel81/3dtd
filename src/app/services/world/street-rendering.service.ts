@@ -17,7 +17,7 @@ import { smoothPathHeights } from '../../utils/route-height-smoothing';
 import { GeoPosition } from '../../models/game.types';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { UIStore } from '../../store/ui.store';
-import { StreetDeck, streetDeckApproaches } from '../../utils/deck-approach';
+import { StreetDeck, streetDeckApproaches } from '../../utils/carried-height';
 import { streetUnderpasses } from '../../utils/underpass';
 
 /**
@@ -54,7 +54,7 @@ interface PreparedNode {
  * - Merged LineSegments geometry for all streets (1 draw call instead of 600+)
  * - Terrain-following street heights via raycast with segment subdivision,
  *   on the deck over a bridge way, on the ways off its ends at the height
- *   they carry from there (deck-approach.ts), and under another way between
+ *   they carry from there (carried-height.ts), and under another way between
  *   the ground either side (underpass.ts), as the route cells take them
  * - Debug height markers
  * - Street visibility toggle

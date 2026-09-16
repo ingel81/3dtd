@@ -322,7 +322,7 @@ describe('TerrainQueries', () => {
       expect(onDeck.lowRise).toEqual({ left: NaN, right: NaN });
     });
 
-    it('beurteilt ein Auto auf der Strecke hinter dem Brückenende mit dem Boden der Station (deckEnd)', () => {
+    it('beurteilt ein Auto auf der Strecke hinter dem Brückenende mit dem Boden der Station (onApproach)', () => {
       const car = setup();
       car.addTile(floor(0, 6), 3, FINE);
       car.addTile(wall(3, 1.5), 3, FINE);
@@ -366,7 +366,7 @@ describe('TerrainQueries', () => {
     it('lässt eine Station auf der Fortsetzung ungemessen, solange das Brückenende keine feine Säule hat', () => {
       const { queries } = street();
       expect(queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 100, z: 100 }, { x: 0, z: 0 }], m: 141 })).toEqual({
-        unmeasured: 'no bridge end', tileError: FINE, left: [], right: [],
+        unmeasured: 'no approach start', tileError: FINE, left: [], right: [],
       });
     });
 

@@ -4,40 +4,40 @@ import type { Street, StreetNode } from '../interfaces/street-network-provider.i
 import { METERS_PER_DEGREE_LAT } from './geo-utils';
 import {
   DECK_APPROACH_M,
-  carriedDeckY,
-  deckApproachY,
-  deckApproaches,
-  deckEndAt,
-  nearestDeckApproach,
+  approachY,
+  carriedY,
+  nearestApproach,
+  pointOnApproach,
+  routeApproaches,
   segmentApproaches,
   streetDeckApproaches,
-} from './deck-approach';
+} from './carried-height';
 
 const p = (x: number, z: number) => ({ x, z });
 const column = (groundY: number, topY: number): ColumnSample => ({ groundY, topY, tileDepth: 20, tileGeometricError: 2 });
 
-describe('deckApproachY', () => {
+describe('approachY', () => {
   it('takes the hit nearest to the height the route carries there', () => {
     // The deck at 80 m over a quay at 70 m, with a rise or an underside a little below it.
-    expect(deckApproachY(column(70, 80), 80)).toBe(80);
-    expect(deckApproachY(column(70, 81.5), 80)).toBe(81.5);
-    expect(deckApproachY(column(78.5, 80), 80)).toBe(80);
+    expect(approachY(column(70, 80), 80)).toBe(80);
+    expect(approachY(column(70, 81.5), 80)).toBe(81.5);
+    expect(approachY(column(78.5, 80), 80)).toBe(80);
     // A crown 8 m, a lamp, a car over a street on the level of the deck: the street.
-    expect(deckApproachY(column(80, 88), 80)).toBe(80);
-    expect(deckApproachY(column(80, 81.4), 80)).toBe(80);
+    expect(approachY(column(80, 88), 80)).toBe(80);
+    expect(approachY(column(80, 81.4), 80)).toBe(80);
     // A street far below with nothing over it: its ground.
-    expect(deckApproachY(column(70, 70), 80)).toBe(70);
+    expect(approachY(column(70, 70), 80)).toBe(70);
   });
 });
 
-describe('carriedDeckY', () => {
+describe('carriedY', () => {
   it('stays on the level of the deck round a corner over a road below', () => {
     // A square at 80 m past the bridge end at (0, 0), a road under it at
     // 71 m from z = 3 to 20; the route turns south at (10, 0).
     const square = (x: number, z: number) => (z > 3 && z < 20 ? column(71, 80) : column(80, 80));
     const deck = { path: [p(0, 0), p(10, 0), p(10, 30)], m: 30 };
-    expect(carriedDeckY(deck, square)).toBe(80);
-    expect(deckApproachY(square(12, 11), carriedDeckY({ ...deck, m: 21 }, square)!)).toBe(80);
+    expect(carriedY(deck, square)).toBe(80);
+    expect(approachY(square(12, 11), carriedY({ ...deck, m: 21 }, square)!)).toBe(80);
   });
 
   it('goes down stairs to the quay and keeps it under a deck there', () => {
@@ -49,36 +49,36 @@ describe('carriedDeckY', () => {
         : z > 36 && z < 44 ? column(70, 80) : column(70, 70));
     const deck = { path: [p(0, 0), p(0, 9), p(0, 60)], m: 40 };
     // The last point before 17 m is 16 m on, 7 m down the stairs.
-    expect(carriedDeckY({ ...deck, m: 17 }, quay)).toBe(75.625);
-    expect(carriedDeckY(deck, quay)).toBe(70);
-    expect(deckApproachY(quay(0, 40), carriedDeckY(deck, quay)!)).toBe(70);
+    expect(carriedY({ ...deck, m: 17 }, quay)).toBe(75.625);
+    expect(carriedY(deck, quay)).toBe(70);
+    expect(approachY(quay(0, 40), carriedY(deck, quay)!)).toBe(70);
   });
 
   it('neither drops through a gap in the mesh nor climbs a crown with no ground under it', () => {
     // The deck at 80 m over the quay at 70 m; at x = 10 a crown alone at 88 m, at x = 14 a gap onto the quay.
     const head = (x: number) => (Math.abs(x - 10) < 1 ? column(88, 88) : Math.abs(x - 14) < 1 ? column(70, 70) : column(70, 80));
     const deck = { path: [p(0, 0), p(30, 0)], m: 20 };
-    expect(carriedDeckY(deck, head)).toBe(80);
+    expect(carriedY(deck, head)).toBe(80);
     // A point without a column keeps the height so far.
-    expect(carriedDeckY(deck, (x) => (x > 5 && x < 15 ? null : head(x)))).toBe(80);
+    expect(carriedY(deck, (x) => (x > 5 && x < 15 ? null : head(x)))).toBe(80);
   });
 
   it('waits for a column at the bridge end, and keeps a bus there out of the cells', () => {
-    expect(carriedDeckY({ path: [p(0, 0), p(10, 0)], m: 10 }, (x) => (x < 1 ? null : column(70, 80)))).toBeNull();
+    expect(carriedY({ path: [p(0, 0), p(10, 0)], m: 10 }, (x) => (x < 1 ? null : column(70, 80)))).toBeNull();
     // A bus 3 m up at the bridge end: the height stays there, and still the deck lies nearer than the quay.
     const bus = (x: number) => (x < 1 ? column(83, 83) : column(70, 80));
-    const carried = carriedDeckY({ path: [p(0, 0), p(10, 0)], m: 10 }, bus)!;
+    const carried = carriedY({ path: [p(0, 0), p(10, 0)], m: 10 }, bus)!;
     expect(carried).toBe(83);
-    expect(deckApproachY(bus(10), carried)).toBe(80);
+    expect(approachY(bus(10), carried)).toBe(80);
   });
 });
 
-describe('deckApproaches', () => {
+describe('routeApproaches', () => {
   it('runs along the route from both ends of a bridge and stops past DECK_APPROACH_M', () => {
     // Eastbound: road 0 to 10, ways of 20 and 8 m, the bridge 38 to 98, then 30, 20, 70 and 12 m.
     const points = [p(0, 0), p(10, 0), p(30, 0), p(38, 0), p(98, 0), p(128, 0), p(148, 0), p(218, 0), p(230, 0)];
     const onBridge = [false, false, false, true, false, false, false, false];
-    const approaches = deckApproaches(points, onBridge, onBridge.map(() => false));
+    const approaches = routeApproaches(points, onBridge, onBridge.map(() => false));
 
     // Back from the bridge start (point 3): 8 m, then 20 m, then 10 m of the road.
     expect(approaches[2]).toEqual([{ path: [3, 2], from: 8, to: 0 }]);
@@ -95,36 +95,36 @@ describe('deckApproaches', () => {
 
   it('follows the route round a corner, and stops at a tunnel and at the next bridge', () => {
     // A bridge east to (60, 0), then a way south: the route turns 90 degrees.
-    expect(deckApproaches([p(0, 0), p(60, 0), p(60, 30)], [true, false], [false, false])[1])
+    expect(routeApproaches([p(0, 0), p(60, 0), p(60, 30)], [true, false], [false, false])[1])
       .toEqual([{ path: [1, 2], from: 0, to: 30 }]);
 
-    const tunnel = deckApproaches([p(0, 0), p(60, 0), p(70, 0), p(90, 0)], [true, false, false], [false, true, false]);
+    const tunnel = routeApproaches([p(0, 0), p(60, 0), p(70, 0), p(90, 0)], [true, false, false], [false, true, false]);
     expect(tunnel[1]).toEqual([]);
     expect(tunnel[2]).toEqual([]);
 
     // A 20 m way between two bridges belongs to both ends.
-    const between = deckApproaches([p(0, 0), p(60, 0), p(80, 0), p(140, 0)], [true, false, true], [false, false, false]);
+    const between = routeApproaches([p(0, 0), p(60, 0), p(80, 0), p(140, 0)], [true, false, true], [false, false, false]);
     expect(between[1]).toEqual([{ path: [1, 2], from: 0, to: 20 }, { path: [2, 1], from: 20, to: 0 }]);
   });
 
   it('hands the cells and stations of a segment the route from the bridge end to their point', () => {
     const points = [p(0, 0), p(60, 0), p(60, 30)];
-    const [approach] = segmentApproaches(deckApproaches(points, [true, false], [false, false])[1], points);
+    const [approach] = segmentApproaches(routeApproaches(points, [true, false], [false, false])[1], points);
     expect(approach.path).toEqual([p(60, 0), p(60, 30)]);
-    expect(deckEndAt(approach, 0.5)).toEqual({ path: approach.path, m: 15 });
+    expect(pointOnApproach(approach, 0.5)).toEqual({ path: approach.path, m: 15 });
   });
 });
 
-describe('nearestDeckApproach', () => {
+describe('nearestApproach', () => {
   it('picks the nearer bridge end at a point of the segment, none past DECK_APPROACH_M', () => {
     const a = { from: 0, to: 20 };
     const b = { from: 20, to: 0 };
-    expect(nearestDeckApproach([a, b], 0.2)).toBe(a);
-    expect(nearestDeckApproach([a, b], 0.8)).toBe(b);
+    expect(nearestApproach([a, b], 0.2)).toBe(a);
+    expect(nearestApproach([a, b], 0.8)).toBe(b);
     const far = { from: DECK_APPROACH_M - 5, to: DECK_APPROACH_M + 5 };
-    expect(nearestDeckApproach([far], 0.4)).toBe(far);
-    expect(nearestDeckApproach([far], 0.6)).toBeNull();
-    expect(nearestDeckApproach([], 0.5)).toBeNull();
+    expect(nearestApproach([far], 0.4)).toBe(far);
+    expect(nearestApproach([far], 0.6)).toBeNull();
+    expect(nearestApproach([], 0.5)).toBeNull();
   });
 });
 
@@ -164,7 +164,7 @@ describe('streetDeckApproaches', () => {
     expect(at(n.b)).toEqual(['2,3,4', 9]);
     expect(at(n.c)).toEqual(['2,3,4,5', 39]);
     expect(at(n.d)).toBeNull();
-    // The stairs down at a right angle: followed, their heights come from the columns along them (carriedDeckY).
+    // The stairs down at a right angle: followed, their heights come from the columns along them (carriedY).
     expect(at(n.stairs2)).toEqual(['2,7,8', 30]);
     expect(at(n.west)).toEqual(['1', 0]);
     expect(at(n.w)).toEqual(['1,11', 31]);

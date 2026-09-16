@@ -2,10 +2,10 @@ import { Box3, Raycaster, Vector3, type Intersection, type Object3D } from 'thre
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowObjectTop, lowRayAlone } from '../utils/route-corridor';
-import { StreetDeck, carriedDeckY, deckApproachY, surfaceY } from '../utils/deck-approach';
+import { StreetDeck, approachY, carriedY, surfaceY } from '../utils/carried-height';
 import type { StreetUnder } from '../utils/underpass';
 import { raycastStats } from '../utils/raycast-stats';
-import type { DeckEnd } from '../utils/route-cell';
+import type { ApproachPoint } from '../utils/route-cell';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import type { EllipsoidSync } from './ellipsoid-sync';
 import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
@@ -181,9 +181,9 @@ export class TerrainQueries {
    *
    * `deck` 'bridge', on a way with `bridge=*`: the top of the column, the
    * deck, as the route cells of a bridge segment take it. `deck` the way
-   * from a bridge end, on the stretch off it (deck-approach.ts): the hit
-   * nearest to the height the way carries there (carriedDeckY,
-   * deckApproachY), as the route cells there take it; where that lies more
+   * from a bridge end, on the stretch off it (carried-height.ts): the hit
+   * nearest to the height the way carries there (carriedY,
+   * approachY), as the route cells there take it; where that lies more
    * than `roofRise` above the height carried (a crown, awning or car with
    * no ground under it), the height carried. `deck` the portals of a stretch under
    * another way (StreetUnder, underpass.ts): the ground at the two portals
@@ -208,14 +208,14 @@ export class TerrainQueries {
       const here = this.columnAtGeo(lat, lon);
       const carried = here === null ? null : this.carriedAtGeo(deck);
       if (here !== null && carried !== null) {
-        const y = deckApproachY(here, carried);
+        const y = approachY(here, carried);
         return y - carried > corridorConfig.roofRise ? carried : y;
       }
     }
     return this.getGroundHeightEstimate(lat, lon, prevLat, prevLon, nextLat, nextLon);
   }
 
-  /** The height carried at a street point off a bridge end (carriedDeckY), its rays booked as `heightAtGeo`. */
+  /** The height carried at a street point off a bridge end (carriedY), its rays booked as `heightAtGeo`. */
   private carriedAtGeo(deck: Exclude<StreetDeck, 'bridge' | StreetUnder>): number | null {
     const path = deck.path.map((p) => {
       const local = this.sync.geoToLocalSimple(p.lat, p.lon, 0);
@@ -223,7 +223,7 @@ export class TerrainQueries {
     });
     const scope = raycastStats.enter('heightAtGeo');
     try {
-      return carriedDeckY({ path, m: deck.m }, (x, z) => this.sampleColumn(x, z));
+      return carriedY({ path, m: deck.m }, (x, z) => this.sampleColumn(x, z));
     } finally {
       raycastStats.exit(scope);
     }
@@ -426,11 +426,11 @@ export class TerrainQueries {
    * Free space either side of a point on a street, for fitting the route
    * corridor to the street the tiles show. Casts a horizontal ray to each
    * side at every height in `heightsAboveGround`, over the surface the
-   * route cells there stand on (surfaceY in deck-approach.ts): the column's
+   * route cells there stand on (surfaceY in carried-height.ts): the column's
    * ground, its top `onDeck` for a bridge, and on the stretch off a bridge
-   * end (`deckEnd`, the route from that end to the station) the hit nearest
-   * to the height the route carries there (carriedDeckY). Such a station
-   * comes back unmeasured (`no bridge end`)
+   * end (`onApproach`, the route from that end to the station) the hit nearest
+   * to the height the route carries there (carriedY). Such a station
+   * comes back unmeasured (`no approach start`)
    * while the column at the bridge end has no tile up to `maxTileError`.
    * What blocks the rays at all
    * heights counts as a wall (a facade, a wall, a trunk), so the free space
@@ -482,7 +482,7 @@ export class TerrainQueries {
     heightsAboveGround: readonly number[],
     maxDistance: number,
     onDeck = false,
-    deckEnd: DeckEnd | null = null,
+    onApproach: ApproachPoint | null = null,
   ): StationProbe | null {
     const tiles = this.sources.tiles();
     if (this.sources.devTerrain() || !tiles) return null;
@@ -505,13 +505,13 @@ export class TerrainQueries {
       // Off a bridge end the rays start where the cells there stand: on the
       // hit nearest to the height the route carries there from that end.
       let carried: number | null = null;
-      if (deckEnd !== null && !onDeck) {
-        const end = deckEnd.path[0];
+      if (onApproach !== null && !onDeck) {
+        const end = onApproach.path[0];
         const deck = this.columnBesideSeam(end.x, end.z, alongX, alongZ);
         if (!deck || deck.column.tileGeometricError > corridorConfig.maxTileError) {
-          return { unmeasured: 'no bridge end', tileError: column.tileGeometricError, left: [], right: [], ...shifted };
+          return { unmeasured: 'no approach start', tileError: column.tileGeometricError, left: [], right: [], ...shifted };
         }
-        carried = carriedDeckY(deckEnd, (px, pz) => this.columnBesideSeam(px, pz, alongX, alongZ)?.column ?? null);
+        carried = carriedY(onApproach, (px, pz) => this.columnBesideSeam(px, pz, alongX, alongZ)?.column ?? null);
       }
       const baseY = surfaceY(onDeck ? 'deck' : carried === null ? 'ground' : 'approach', column, carried)!;
       const left: number[] = [];
