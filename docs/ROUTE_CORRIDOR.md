@@ -444,9 +444,15 @@ Ausnahmen:
     `tunnelSegments` in `route-grid-builder.ts`). Die Höhe hat die gröbere
     LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts`).
   - **Portal unter einem Dach** (seit 2026-09-15, seit 2026-09-16 am Band):
-    Liegt der Boden der Säule an einem Portal mehr als `roofRise` über dem
-    Rückgrat der Bandstation dort (siehe Band), nimmt das Portal dessen
-    Höhe (`portalGround` in `corridor-walk.ts`). Anlass: Playtest
+    Liegt der Boden der Säule an einem Portal mehr als `roofRise` über der
+    Straße unter der Bandstation dort (`street`, siehe Band), nimmt das
+    Portal diese Höhe (`portalGround` in `corridor-walk.ts`). Nicht das
+    Rückgrat dieser Station: An einem Torturm reicht das Mesh über die
+    Mündung hinaus, die Station 2 m davor ist dann selbst ein Durchgang
+    (ohne Rückgrat) oder hat ihr Rückgrat auf dem Turm, und beides ließ das
+    Portal auf dem Dach stehen (Playtest 2026-09-16, Rothenburg, Weißer
+    Turm: alle Zellen des Durchgangs stiegen den Turm hinauf, die rote Linie
+    mit ihnen). Anlass: Playtest
     2026-09-15 (Retest 607, Rothenburg), Torbogen: Die gelben Zellen
     stiegen im Durchgang an, die Gegner kamen auf der anderen Seite aus
     der Hauswand. 2 m vor einer Mündung kann die Säule auf der Auskragung
@@ -774,13 +780,42 @@ Enden der Route sind auf die OSM-Linie festgenagelt. Der Bericht nennt die
 steilste Bewegung und die engste Krümmung; über die fünf Szenen bleibt sie unter
 dem Wurm-Radius (1/20 m) und unter 0,25 m je Meter.
 
-**Kein Band:** Liegt das Rückgrat einer Station mehr als `roofRise` über den
-Starts ringsum (Erker, Dachecke, Krone, bis zum Boden gefüllt), wird das Stück
-ein **Durchgang**: ein Tunnelstück wie ein Torbogen (`inTunnel`, `passage`,
-Portale, Höhe zwischen ihnen). Ein tieferes Objekt, das die Gasse ausfüllt, ist
-sein eigenes Rückgrat: Das Band liegt darauf, die Gegner steigen darüber (E6).
+**Straße unter der Station** (`street`, `streetLevel`, seit 2026-09-16): die
+Rückgrate entlang der Route als morphologisches Opening über `PASSAGE_SPAN_M`
+(30 m) - erst das tiefste Rückgrat in 15 m beiderseits, dann das höchste dieser
+Werte. Was die Gasse über weniger als diese Länge bedeckt (Torturm, Torbogen,
+Auskragung, Auto), ist damit heraus, eine steigende Straße behält ihre Neigung
+(auf einer geraden gibt das Opening sie exakt zurück). Stationen ohne Rückgrat
+(Brücke, Tunnel, Endstück zum HQ) bekommen die Straße aus den Stationen in
+Reichweite. `street` ist der Bezug für Durchgang und Übersteigen und die Höhe,
+die ein Tunnelportal statt eines Treffers auf einem Dach nimmt (`portalGround`).
+
+**Kein Band:** Ein Stück wird ein **Durchgang** (Tunnelstück wie ein Torbogen:
+`inTunnel`, `passage`, Portale, Höhe zwischen ihnen), wenn die Station ihre
+Linie nicht auf die Straße legen kann, auf zwei Weisen:
+
+- Das **Rückgrat** liegt mehr als `roofRise` über `street`: quer zur Linie ist
+  gar keine Zelle auf der Straße (Gasse bis zum Boden gefüllt, Krone, Erker).
+- Die Zelle, durch die die **Linie** läuft, liegt so hoch über `street`, und das
+  Band ist schmaler als zwei `edgeMargin`, die Linie kann also nicht daneben.
+  Eine Route beansprucht die Zelle, durch die ihre Linie läuft, bei jeder
+  Breite (`claimSegmentCells`), und die behält das Dach über der Gasse: ein
+  vorkragendes Obergeschoss, oder das Mesh eines Torturms hinter der Öffnung.
+  Bis 2026-09-16 fing das `streetUnderRoof` als eigene Höhenregel ab; das Band
+  hat sie ersetzt und diesen Fall zunächst offen gelassen.
+
+Ein tieferes Objekt, das die Gasse ausfüllt, ist sein eigenes Rückgrat: Das Band
+liegt darauf, die Gegner steigen darüber (E6, mehr als `stepRise` über `street`).
 Brücke, Tunnel, Unterführung, Strecke hinter einem Brückenende und das Endstück
 zum HQ entscheidet das Band nicht; dort bleiben OSM-Linie und Strahlbreiten.
+
+**Anlass** (Playtest 2026-09-16, Rothenburg, Weißer Turm über der Georgengasse,
+Way 139711833 `building=tower historic=city_gate height=37`): Der Bezug war
+vorher der Median der Rückgrate von je vier Stationen beiderseits. Ein Torturm
+ist tiefer als diese 8 m, also war der Median selbst das Turmdach: Nur die
+beiden Enden des Stücks wurden Durchgang, das Band dazwischen lag auf dem Turm,
+und die Portale 2 m vor den Mündungen fragten Stationen, die ebenfalls auf dem
+Turm standen. Szene: `integration/corridor-band.scenes.spec.ts`, "Weisser Turm".
 
 **In der Route** (`bandPath`, `laidInBand`): Knoten sind der Routenstart, jede
 Station um ihren Versatz zur Seite gesetzt, jeder Punkt der Route entlang der
@@ -798,9 +833,12 @@ Höhenänderung. Vergessen mit den Messungen. Das Grid bekommt die Station zu ei
 Punkt (`setBand`), für die Diagnose und für die Portale eines Tunnels.
 
 **Diagnose:** `__corridor.pick()` nennt an der Station `backboneM`, `backboneY`,
-`bandLeftM`, `bandRightM`, `bandKind` (`band`, `climb`, `passage`, `fixed`),
-`detourM` (Versatz der Gegnerlinie, rechts positiv) und `passage`; je Zelle
-`walkCheck` wie oben. `__corridor.fingerprint()` hasht das Band unter `band`.
+`streetY` (die Straße unter der Station, siehe oben), `bandLeftM`, `bandRightM`,
+`bandKind` (`band`, `climb`, `passage`, `fixed`), `detourM` (Versatz der
+Gegnerlinie, rechts positiv) und `passage`; je Zelle `walkCheck` wie oben.
+Steht `backboneY` mehr als 0,5 m über `streetY`, liegt das Band auf etwas;
+liegen beide gleich, steht es auf der Straße. `__corridor.fingerprint()` hasht
+das Band unter `band`, `streetY` eingeschlossen.
 
 **Tests:** `utils/corridor-band.spec.ts` (Regeln, dazu Böschung, Kai, Damm, 15 %
 Querneigung, Durchgang, Übersteigen, Determinismus),
@@ -1682,6 +1720,20 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
     läuft (vier Stationen), sieht die Regel "Rückgrat nur auf Straßenhöhe"
     nicht mehr als Straße daneben: Das Band legt sich dann auf die Dächer,
     und die Gegner steigen darüber.
+  - Die Straße unter einer Station (`street`) kommt aus einem Opening über
+    `PASSAGE_SPAN_M` (30 m). Ein Durchgang, der länger ist, hat in seiner
+    Mitte keine Straße in Reichweite; dort liegt das Band wieder auf dem,
+    was ihn überdeckt. An den beiden Enden der Route liest das Opening auf
+    einer Steigung bis zu `Neigung · 15 m` zu tief: bei 8 % sind das 1,2 m,
+    ab etwa 17 % erreicht das `roofRise`, und die letzten 15 m der Route
+    könnten fälschlich Durchgang werden. Im Spiel nicht beobachtet, im Test
+    nur bis 8 % geprüft.
+  - Die zweite Durchgangsregel (Zelle der Linie auf einem Dach) greift nur,
+    wo das Band schmaler als zwei `edgeMargin` (3 m) ist. Ist es breiter,
+    rückt die Linie zur Seite und ihre Zelle ist eine erreichte. Verschmälert
+    `taperWidths` das Band danach noch, kann die Linie doch näher an eine
+    Kante rücken; in der Szene mit 3 m Mesh-Überstand blieb so eine Zelle auf
+    einem Dach übrig.
   - Die Zellen quer prüft das Band nur auf der Linie durch jede Station;
     was zwischen zwei Stationen steht, sieht es nur, wenn es auch eine
     ihrer Querlinien trifft. Auf einer Diagonale kann eine Zelle dazwischen
