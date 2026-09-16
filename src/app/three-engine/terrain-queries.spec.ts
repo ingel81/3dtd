@@ -1,4 +1,4 @@
-import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
+import { BufferGeometry, DoubleSide, Float32BufferAttribute, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { LibraryTiles } from '../../test/library-tiles-fixture';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
@@ -673,10 +673,20 @@ describe('TerrainQueries', () => {
    * 2026-09-16, Tokyo (PLAYTEST 745): a cold load, a location change in game
    * and `__corridor.reset()` gave three corridors with the same stations,
    * cells and tile depth and error under every column, and different heights.
-   * Two things the library already rules out as the cause are pinned here.
+   * Two things the library already rules out as the cause are pinned here,
+   * and the cause, a column that read what its first caller's point showed.
    */
   describe('on the library ray path', () => {
     const queriesOver = (tiles: LibraryTiles) => new TerrainQueries(sync, { tiles: () => tiles.renderer, devTerrain: () => null });
+
+    /** A slope rising 0.5 m per metre east, x and z -50 to 50, split along x = -z so no ray here meets both triangles. */
+    function slope(): Mesh {
+      const geometry = new BufferGeometry();
+      const corners = [[-50, -50], [50, -50], [50, 50], [-50, 50]].flatMap(([x, z]) => [x, 0.5 * x, z]);
+      geometry.setAttribute('position', new Float32BufferAttribute(corners, 3));
+      geometry.setIndex([0, 1, 3, 1, 2, 3]);
+      return new Mesh(geometry, material);
+    }
 
     // What makes the filter on `activeTiles` planned after the playtest a
     // no-op: TilesGroup.raycast ends three's recursion into the group, and
@@ -708,6 +718,36 @@ describe('TerrainQueries', () => {
       tiles.renderer.group.position.y = -5;
       tiles.renderer.group.updateMatrixWorld();
       expect(queriesOver(tiles).sampleColumn(1, 3)?.groundY).toBeCloseTo(2, 6);
+    });
+
+    it('reads a column the same, whichever point of it asked first', () => {
+      const tiles = new LibraryTiles();
+      tiles.add(slope(), 3, 2);
+      const eastFirst = queriesOver(tiles);
+      const westFirst = queriesOver(tiles);
+      eastFirst.sampleColumn(1.2, 3);
+      westFirst.sampleColumn(0.8, 3);
+
+      expect(eastFirst.sampleColumn(1, 3)).toEqual(westFirst.sampleColumn(1, 3));
+      // Every point of the bucket reads the column at its centre, x 1.
+      expect(westFirst.sampleColumn(1.2, 3)?.groundY).toBeCloseTo(0.5, 6);
+      expect(westFirst.inspectColumn(0.8, 3)?.fresh?.groundY).toBeCloseTo(0.5, 6);
+    });
+
+    it('shifts a station on a seam into the next column ahead, also on a diagonal', () => {
+      // Two floors with a 0.2 m joint along x = 0.
+      const tiles = new LibraryTiles();
+      tiles.add(floor(0, 19.9, -10.05, 0), 3, 2);
+      tiles.add(floor(0, 19.9, 10.05, 0), 3, 2);
+      const queries = queriesOver(tiles);
+      // The station's column stands at (0, 0), in the joint.
+      expect(queries.sampleColumn(-0.2, 0.2)).toBeNull();
+
+      // Across (1, 1): the route runs (0.71, -0.71). Half a metre along it
+      // would end in the same column; one column is 0.71 m on this diagonal.
+      const probe = queries.measureStreetClearance(-0.2, 0.2, 1, 1, [1], 10);
+      expect(probe?.unmeasured).toBeNull();
+      expect(probe?.shiftM).toBeCloseTo(Math.SQRT1_2, 6);
     });
   });
 

@@ -22,14 +22,26 @@ const COLUMN_RAY_DIRECTION = new Vector3(0, -1, 0);
 
 /**
  * How far along the route a clearance station moves its column when the
- * column under it finds no tile, ahead first: a seam between two tile
- * meshes is far thinner than that. One column cache bucket, so each shift
- * is a column of its own.
+ * column under it finds no tile, ahead first, in columns: a seam between
+ * two tile meshes is far thinner than one. A shift of one column moves the
+ * route's major axis by one cache bucket (columnCentre), 0.5 m along an
+ * axis and up to 0.71 m on a diagonal, so each shift is a column of its own.
  */
-const SEAM_SHIFTS_M = [0.5, -0.5] as const;
+const SEAM_SHIFTS = [1, -1] as const;
 
 /** Column cache granularity: 2 buckets per metre (0.5 m grid). */
 const COLUMN_CACHE_SCALE = 2;
+
+/**
+ * Where the column of a local coordinate stands: the centre of its 0.5 m
+ * cache bucket. Every point of a bucket reads the column there, so what the
+ * cache holds for a bucket does not depend on which point asked first
+ * (playtest 2026-09-16, PLAYTEST 745). The cells and the band sample at
+ * whole metres and half metres, which are centres already.
+ */
+export function columnCentre(local: number): number {
+  return Math.round(local * COLUMN_CACHE_SCALE) / COLUMN_CACHE_SCALE;
+}
 
 /** Quantised column key, 0.5 m grid, Szudzik pairing (negatives safe). */
 export function columnCacheKey(localX: number, localZ: number): number {
@@ -312,6 +324,12 @@ export class TerrainQueries {
    * {@link lodVersion}, a stale entry is only re-raycast when the peek says
    * better tile data actually exists, otherwise it is just re-stamped.
    *
+   * The ray and the peek stand at the column's centre (columnCentre), not at
+   * the point asked for. Cast at the first point that asked, a bucket held
+   * what that point showed, and the cells of a corridor build read other
+   * heights depending on what had sampled before them: the stations on a
+   * cold load, nothing on `__corridor.reset()`.
+   *
    * @returns null if nothing usable was hit; the cache is left untouched so
    *   callers keep whatever value they already had.
    */
@@ -324,19 +342,21 @@ export class TerrainQueries {
       return { groundY: y, topY: y, tileDepth: 99, tileGeometricError: 0 };
     }
 
-    const key = columnCacheKey(localX, localZ);
+    const x = columnCentre(localX);
+    const z = columnCentre(localZ);
+    const key = columnCacheKey(x, z);
     const entry = this.columnCache.get(key);
     if (entry) {
       if (entry.lodVersion === this._lodVersion) return entry.sample;
       // Tile set changed. Only pay for a ray if finer data is actually there.
-      const peek = this.peekBestTileLODAtLocal(localX, localZ);
+      const peek = this.peekBestTileLODAtLocal(x, z);
       if (peek && !isBetterLod(peek, entry.sample)) {
         entry.lodVersion = this._lodVersion;
         return entry.sample;
       }
     }
 
-    const sample = this.raycastColumn(localX, localZ);
+    const sample = this.raycastColumn(x, z);
     if (sample === null) return null;
 
     this.columnCache.set(key, { sample, lodVersion: this._lodVersion });
@@ -345,9 +365,10 @@ export class TerrainQueries {
 
   /**
    * What the column at a local position is made of, for `__corridor.pick()`:
-   * every hit of a fresh ray (height, tile depth, geometricError), the
-   * sample selectColumnSample makes of them now, and the sample the column
-   * cache holds, which the route cells and the street overlay read. Tells
+   * every hit of a fresh ray through the column's centre (columnCentre;
+   * height, tile depth, geometricError), the sample selectColumnSample makes
+   * of them now, and the sample the column cache holds, which the route
+   * cells and the street overlay read. Tells
    * apart a street under a deck that no hit shows, one only in a coarser
    * tile than the deck (dropped by the finest-LOD filter), and one the
    * cache has not seen yet. Uncached; rays booked on `corridorPick`. Null
@@ -357,11 +378,13 @@ export class TerrainQueries {
     if (this.sources.devTerrain()) return null;
     const scope = raycastStats.enter('corridorPick');
     try {
-      const fresh = this.raycastColumn(localX, localZ);
+      const x = columnCentre(localX);
+      const z = columnCentre(localZ);
+      const fresh = this.raycastColumn(x, z);
       return {
         hits: this._columnHits.map((hit) => ({ ...hit })),
         fresh,
-        cached: this.columnCache.get(columnCacheKey(localX, localZ))?.sample ?? null,
+        cached: this.columnCache.get(columnCacheKey(x, z))?.sample ?? null,
       };
     } finally {
       raycastStats.exit(scope);
@@ -431,10 +454,11 @@ export class TerrainQueries {
    * comes back unmeasured, with the reason (`StationProbe.unmeasured`).
    *
    * A column that finds no tile at all may stand on a seam between two
-   * tile meshes. The station then tries the columns half a metre ahead and
-   * behind along the route (SEAM_SHIFTS_M) and measures from the first that
-   * finds one (`StationProbe.shiftM`): at most two more column rays, only
-   * for such a station. The column at a bridge end tries the same shifts.
+   * tile meshes. The station then tries the next column ahead and behind
+   * along the route (SEAM_SHIFTS) and measures from the first that finds
+   * one (`StationProbe.shiftM`, the metres it moved): at most two more
+   * column rays, only for such a station. The column at a bridge end tries
+   * the same shifts.
    *
    * @returns the first hit per height and side (probeFreeSpace makes the
    *   free space of it), or null where there is nothing to measure: in
@@ -501,10 +525,10 @@ export class TerrainQueries {
 
   /**
    * The column at (x, z), or, where that finds no tile (a seam between two
-   * tile meshes), the first one SEAM_SHIFTS_M along the unit direction
-   * (alongX, alongZ) that does, with where it stands and the shift it
-   * took (null for none). Null without a column; no shift for a zero
-   * direction.
+   * tile meshes), the first one SEAM_SHIFTS columns along the unit
+   * direction (alongX, alongZ) that does, with where it stands and the
+   * shift it took in metres (null for none). Null without a column; no
+   * shift for a zero direction.
    */
   private columnBesideSeam(
     x: number, z: number, alongX: number, alongZ: number,
@@ -512,7 +536,10 @@ export class TerrainQueries {
     const column = this.sampleColumn(x, z);
     if (column) return { column, x, z, shiftM: null };
     if (alongX === 0 && alongZ === 0) return null;
-    for (const shift of SEAM_SHIFTS_M) {
+    // One bucket on the major axis: never back into the column that found nothing.
+    const bucketM = 1 / (COLUMN_CACHE_SCALE * Math.max(Math.abs(alongX), Math.abs(alongZ)));
+    for (const columns of SEAM_SHIFTS) {
+      const shift = columns * bucketM;
       const sx = x + alongX * shift;
       const sz = z + alongZ * shift;
       const shifted = this.sampleColumn(sx, sz);
