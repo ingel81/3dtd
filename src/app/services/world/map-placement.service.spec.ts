@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { Color, Group, Mesh, MeshPhongMaterial, Vector2 } from 'three';
+import { Color, Group, Mesh, MeshPhongMaterial } from 'three';
 import { MapPlacementService } from './map-placement.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { OsmStreetService } from '../location/osm-street.service';
@@ -98,7 +98,6 @@ describe('MapPlacementService', () => {
     const engine = {
       getOverlayGroup: () => overlay,
       getTerrainHeightAtGeo: () => 0,
-      getRenderer: () => ({ getSize: (target: Vector2) => target.set(1600, 900) }),
       sync: { geoToLocalSimple: geoToLocal },
     };
     service.initialize(engine as unknown as ThreeTilesEngine, { bounds: BOUNDS } as unknown as StreetNetwork, { ...HQ });
