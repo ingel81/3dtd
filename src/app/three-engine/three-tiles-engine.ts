@@ -84,6 +84,19 @@ const ROUTE_CORRIDOR_HALF_WIDTH = 20;
  */
 const TILE_LOD_DEBUG_MAX_ERROR = 20;
 
+/** Options of the canvas renderer, without the canvas. */
+export const CANVAS_RENDERER_OPTIONS = {
+  antialias: true,
+  // Required for the 1m..8000m depth range over the 3D tiles (kept to
+  // avoid far-field z-fighting).
+  logarithmicDepthBuffer: true,
+  powerPreference: 'high-performance', // prefer dGPU on hybrid laptops
+  // The tower range rings find the surface they lie on with the
+  // stencil buffer; without one they paint their whole volume
+  // (range-ring.ts). The composer target has one as well.
+  stencil: true,
+} as const;
+
 /**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
  *
@@ -253,18 +266,7 @@ export class ThreeTilesEngine {
 
     // Create WebGL renderer with error handling
     try {
-      this.renderer = new WebGLRenderer({
-        canvas,
-        antialias: true,
-        // Required for the 1m..8000m depth range over the 3D tiles (kept to
-        // avoid far-field z-fighting).
-        logarithmicDepthBuffer: true,
-        powerPreference: 'high-performance', // prefer dGPU on hybrid laptops
-        // The tower range rings find the surface they lie on with the
-        // stencil buffer; without one they paint their whole volume
-        // (range-ring.ts). The composer target has one as well.
-        stencil: true,
-      });
+      this.renderer = new WebGLRenderer({ canvas, ...CANVAS_RENDERER_OPTIONS });
     } catch {
       throw new Error('WebGL is not supported. Enable hardware acceleration in your browser.');
     }
