@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, isDevMode, signal } from '@angular/core';
 
 export interface RandomCity {
   name: string;
@@ -118,7 +118,7 @@ export class WorldDiceService {
       const data = await response.json();
       this.cityPool = this.parseAllCities(data);
 
-      console.log(`[WorldDice] Loaded ${this.cityPool.length} cities`);
+      if (isDevMode()) console.log(`[WorldDice] Loaded ${this.cityPool.length} cities`);
     } catch (err) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {

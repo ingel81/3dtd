@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, isDevMode } from '@angular/core';
 
 export type GeolocationSource = 'browser';
 
@@ -33,11 +33,11 @@ export class GeolocationService {
     this.updateDetail('Checking browser location...');
     const browser = await this.tryBrowserGeolocation();
     if (browser) {
-      console.log('[Geolocation] Browser API successful');
+      if (isDevMode()) console.log('[Geolocation] Browser API successful');
       return { ...browser, source: 'browser' };
     }
 
-    console.log('[Geolocation] No location detection possible');
+    if (isDevMode()) console.log('[Geolocation] No location detection possible');
     this.updateDetail('No location found');
     return null;
   }
@@ -48,7 +48,7 @@ export class GeolocationService {
   private tryBrowserGeolocation(): Promise<{ lat: number; lon: number } | null> {
     return new Promise(resolve => {
       if (!navigator.geolocation) {
-        console.log('[Geolocation] Browser API not available');
+        if (isDevMode()) console.log('[Geolocation] Browser API not available');
         resolve(null);
         return;
       }
@@ -61,7 +61,7 @@ export class GeolocationService {
           });
         },
         error => {
-          console.log('[Geolocation] Browser API error:', error.message);
+          if (isDevMode()) console.log('[Geolocation] Browser API error:', error.message);
           resolve(null);
         },
         {

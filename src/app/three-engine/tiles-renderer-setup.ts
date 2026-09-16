@@ -1,3 +1,4 @@
+import { isDevMode } from '@angular/core';
 import { MathUtils } from 'three';
 import { TilesRenderer } from '3d-tiles-renderer';
 import {
@@ -50,7 +51,7 @@ export function createTilesRenderer(options: TilesRendererOptions): TilesRendere
 
   // Register auth plugin based on tile provider
   if (options.provider === 'google') {
-    console.log('[ThreeTilesEngine] Using Google Cloud 3D Tiles (direct)');
+    if (isDevMode()) console.log('[ThreeTilesEngine] Using Google Cloud 3D Tiles (direct)');
     tilesRenderer.registerPlugin(
       // Sessions expire. Without the refresh, tiles start failing mid-game
       // with per-tile errors, which the auth-error check of the
@@ -58,7 +59,7 @@ export function createTilesRenderer(options: TilesRendererOptions): TilesRendere
       new GoogleCloudAuthPlugin({ apiToken: options.googleMapsApiKey, autoRefreshToken: true })
     );
   } else {
-    console.log('[ThreeTilesEngine] Using Cesium Ion 3D Tiles');
+    if (isDevMode()) console.log('[ThreeTilesEngine] Using Cesium Ion 3D Tiles');
     tilesRenderer.registerPlugin(
       new CesiumIonAuthPlugin({
         apiToken: options.cesiumIonToken,

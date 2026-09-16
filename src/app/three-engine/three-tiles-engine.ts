@@ -1,3 +1,4 @@
+import { isDevMode } from '@angular/core';
 import {
   WebGLRenderer,
   Scene,
@@ -449,7 +450,7 @@ export class ThreeTilesEngine {
     // DEVWORLD MODE - Use fake terrain instead of Google 3D Tiles
     // ========================================
     if (this.devWorld?.isActive) {
-      console.log('[ThreeTilesEngine] DevWorld mode active - using fake terrain');
+      if (isDevMode()) console.log('[ThreeTilesEngine] DevWorld mode active - using fake terrain');
       await this.initializeDevWorld();
       return;
     }

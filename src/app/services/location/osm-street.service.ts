@@ -1,4 +1,4 @@
-import { inject, Injectable } from '@angular/core';
+import { inject, Injectable, isDevMode } from '@angular/core';
 import type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 import { RandomSpawnCandidate } from '../../models/location.types';
 import { StreetCacheService } from './street-cache.service';
@@ -193,7 +193,7 @@ export class OsmStreetService {
     const cacheKey = this.streetCache.getCacheKey(centerLat, centerLon, radiusMeters);
     const cached = await this.streetCache.load(cacheKey);
     if (cached) {
-      console.log('[OSM] Loaded from IndexedDB cache');
+      if (isDevMode()) console.log('[OSM] Loaded from IndexedDB cache');
       this.lastLoaded = cached;
       return cached;
     }
@@ -588,7 +588,7 @@ export class OsmStreetService {
       }
     }
 
-    console.log(`[OSM] Filtered: ${network.streets.length} → ${filteredStreets.length} streets, ${network.nodes.size} → ${filteredNodes.size} nodes`);
+    if (isDevMode()) console.log(`[OSM] Filtered: ${network.streets.length} → ${filteredStreets.length} streets, ${network.nodes.size} → ${filteredNodes.size} nodes`);
 
     return {
       streets: filteredStreets,
@@ -776,7 +776,7 @@ export class OsmStreetService {
       throw error instanceof Error ? error : new Error('Failed to load buildings');
     }
 
-    console.log(`[OSM] Loaded ${buildings.length} building footprints`);
+    if (isDevMode()) console.log(`[OSM] Loaded ${buildings.length} building footprints`);
     return { buildings };
   }
 
@@ -857,7 +857,7 @@ export class OsmStreetService {
       }
     }
 
-    console.log(`[OSM] Filtered buildings: ${buildings.length} → ${filtered.length}`);
+    if (isDevMode()) console.log(`[OSM] Filtered buildings: ${buildings.length} → ${filtered.length}`);
     return filtered;
   }
 
