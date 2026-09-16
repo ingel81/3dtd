@@ -7,6 +7,42 @@
  */
 
 /**
+ * Cost multipliers for pathfinding by street type.
+ * Lower = preferred, Higher = avoided.
+ * Footpaths get multiplier 3.0 = only used if route is >66% shorter
+ */
+export const ROAD_TYPE_WEIGHTS: Record<string, number> = {
+  // Main roads - preferred
+  motorway: 0.8,
+  motorway_link: 0.85,
+  trunk: 0.85,
+  trunk_link: 0.9,
+  primary: 0.9,
+  primary_link: 0.95,
+  secondary: 0.95,
+  secondary_link: 1.0,
+  tertiary: 1.0,
+  tertiary_link: 1.0,
+
+  // Normal streets - standard
+  residential: 1.0,
+  living_street: 1.1,
+  unclassified: 1.0,
+  service: 1.2,
+
+  // Footpaths/bike paths - heavily penalized (only if significantly shorter)
+  pedestrian: 2.5,
+  cycleway: 2.0,
+  footway: 3.0,
+  path: 3.0,
+  track: 2.5,
+  steps: 5.0, // Strongly avoid stairs
+};
+
+/** Default weight for unknown street types */
+export const DEFAULT_ROAD_WEIGHT = 1.5;
+
+/**
  * MinHeap for A* pathfinding - O(log n) insert/extract
  */
 export class MinHeap<T> {
