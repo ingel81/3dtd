@@ -121,8 +121,8 @@ export class GlobalRouteGrid {
 
   /**
    * Terrain-Sampling der Cells (`sampleCellY`) mit Proben und Sweep-Zählern.
-   * A tunnel portal takes the backbone of the band station there instead of
-   * a hit on a roof over the street (portalGround).
+   * A tunnel portal takes the street under the band station there instead of
+   * a hit on a roof over the street, or of no hit at all (portalGround).
    */
   private readonly sampler = new RouteCellSampler(
     (cell, minDepth) => this.medianOfStableNeighbourY(cell, minDepth),

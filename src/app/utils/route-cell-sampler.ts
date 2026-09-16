@@ -59,19 +59,23 @@ export class RouteCellSampler {
    */
   private readonly neighbourMedian: (cell: RouteCell, minDepth: number) => number | null;
 
-  /** The ground a tunnel portal at (x, z) takes instead of the ground `y` of its column, null to keep it; see tunnelColumn. */
-  private readonly replacePortal: ((x: number, z: number, y: number) => number | null) | null;
+  /**
+   * The ground a tunnel portal at (x, z) takes instead of the ground `y` of
+   * its column (null: the column has no hit), null to keep it; see
+   * tunnelColumn.
+   */
+  private readonly replacePortal: ((x: number, z: number, y: number | null) => number | null) | null;
 
   /**
    * @param neighbourMedian `GlobalRouteGrid.medianOfStableNeighbourY`.
    *   Läuft nur, wenn die Säule getroffen hat.
    * @param replacePortal The grid's rule for a tunnel portal whose column
-   *   came down on a roof over the street: portalGround in corridor-walk.ts,
-   *   which takes the backbone of the band station there.
+   *   came down on a roof over the street or has no hit: portalGround in
+   *   corridor-walk.ts, which takes the street under the band station there.
    */
   constructor(
     neighbourMedian: (cell: RouteCell, minDepth: number) => number | null,
-    replacePortal: ((x: number, z: number, y: number) => number | null) | null = null,
+    replacePortal: ((x: number, z: number, y: number | null) => number | null) | null = null,
   ) {
     this.neighbourMedian = neighbourMedian;
     this.replacePortal = replacePortal;
@@ -144,6 +148,11 @@ export class RouteCellSampler {
     if (cell.surface === 'tunnel' && cell.tunnelSpan) {
       const column = this.tunnelColumn(cell.tunnelSpan);
       found = column !== null;
+      if (column !== null && column.tileDepth === 0) {
+        // A portal without a hit stands on the street of the band: a height, not a sample.
+        this.fill(cell, column.groundY);
+        return false;
+      }
       if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column, null, null));
     } else {
       const deckEnd = cell.surface === 'approach' ? cell.deckEnd : null;
@@ -272,17 +281,21 @@ export class RouteCellSampler {
    * stretch, interpolated along it, with the coarser of the two LODs. A
    * portal whose column came down on a roof over the street (a jetty, the
    * house the passage runs through) takes the street around it instead
-   * (replacePortal), so the cells no longer climb towards it. Between the
-   * portals, columns that show the street under what covers it carry the
-   * line (supportedY). Null until both portals have a tile.
+   * (replacePortal), so the cells no longer climb towards it; so does a
+   * portal whose column has no hit, and the column then carries no LOD
+   * (depth 0, as selectColumnSample reads it): the height is the band's,
+   * not a column's (sampleCellY fills the cell). Between the portals,
+   * columns that show the street under what covers it carry the line
+   * (supportedY). Null while a portal has neither a column nor a street.
    */
   private tunnelColumn(span: TunnelSpan): ColumnSample | null {
     const a = this.columnNear(span.ax, span.az);
     const b = this.columnNear(span.bx, span.bz);
-    if (a === null || b === null) return null;
-    const ay = this.replacePortal?.(span.ax, span.az, a.groundY) ?? a.groundY;
-    const by = this.replacePortal?.(span.bx, span.bz, b.groundY) ?? b.groundY;
+    const ay = this.replacePortal?.(span.ax, span.az, a?.groundY ?? null) ?? a?.groundY ?? null;
+    const by = this.replacePortal?.(span.bx, span.bz, b?.groundY ?? null) ?? b?.groundY ?? null;
+    if (ay === null || by === null) return null;
     const y = this.supportedY(span, ay, by);
+    if (a === null || b === null) return { groundY: y, topY: y, tileDepth: 0, tileGeometricError: Infinity };
     return {
       groundY: y,
       topY: y,
@@ -348,10 +361,12 @@ export class RouteCellSampler {
 
   /**
    * Gives a cell without a usable sample of its own the height its grid
-   * interpolated between stable neighbours (GlobalRouteGrid.fillGaps). The
-   * state is `filled`, not `stable`: sampleCellY keeps trying the cell like
-   * an unsampled one and replaces the height with the first sample it
-   * accepts. No tile LOD: the height is the neighbours', not a column's.
+   * took from stable neighbours (GlobalRouteGrid.fillGaps), or a tunnel cell
+   * the height between its portals where a portal without a hit stands on
+   * the street of the band (tunnelColumn). The state is `filled`, not
+   * `stable`: sampleCellY keeps trying the cell like an unsampled one and
+   * replaces the height with the first sample it accepts. No tile LOD: the
+   * height is the neighbours' or the band's, not a column's.
    *
    * @returns true when the height or the state changed.
    */
