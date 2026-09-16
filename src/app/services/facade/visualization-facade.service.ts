@@ -779,23 +779,11 @@ export class VisualizationFacadeService {
 
     // The cells, their heights, the route line and the corridor stay as the
     // corridor build left them (CorridorBuild): a tile batch neither samples
-    // a cell nor rebuilds a line. Before it, the loading screen stands and
-    // the build measures on the tiles it waits for itself.
-    const tTerrainHeights = performance.now();
-    const tRoutes = performance.now();
-    const tRouteAnim = performance.now();
-
+    // a cell nor rebuilds a line, nor resolves the LOS of a tower again
+    // (docs/LOS_PIPELINE.md). Before it, the loading screen stands and the
+    // build measures on the tiles it waits for itself.
     this.gameState.onTilesLoaded();
     const tGameState = performance.now();
-    const tConvergence = performance.now();
-
-    // Per-tower LOS is no longer re-resolved here. It used to run a full
-    // sweep (clear every tower's visibility cache, then re-raycast every
-    // in-range cell via per-cell GPU readPixels) on every tile-load — a
-    // multi-second main-thread stall even when no cell had actually
-    // changed LOD. The cells-changed listener, fired by each slice of the
-    // sweep, now covers both promoted and refreshed cells incrementally, so a
-    // tile-load with no LOD change costs nothing.
 
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
     this.gameState.getGlobalRouteGrid().initAirSpatialGridVisualizationIfEnabled();
@@ -807,12 +795,8 @@ export class VisualizationFacadeService {
       `streets=${(tStreets - t0).toFixed(1)} ` +
       `buildings=${(tBuildings - tStreets).toFixed(1)} ` +
       `markers=${(tMarkers - tBuildings).toFixed(1)} ` +
-      `terrainHeights=${(tTerrainHeights - tMarkers).toFixed(1)} ` +
-      `refreshRoutes=${(tRoutes - tTerrainHeights).toFixed(1)} ` +
-      `routeAnim=${(tRouteAnim - tRoutes).toFixed(1)} ` +
-      `gameState=${(tGameState - tRouteAnim).toFixed(1)} ` +
-      `convergence=${(tConvergence - tGameState).toFixed(1)} ` +
-      `debugViz=${(tDebugViz - tConvergence).toFixed(1)}ms`,
+      `gameState=${(tGameState - tMarkers).toFixed(1)} ` +
+      `debugViz=${(tDebugViz - tGameState).toFixed(1)}ms`,
     );
     corridorTrace.cost('tilesLoaded', tDebugViz - t0);
     corridorTrace.exit(trace);
