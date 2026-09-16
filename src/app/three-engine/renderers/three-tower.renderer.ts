@@ -1,3 +1,4 @@
+import { isDevMode } from '@angular/core';
 import {
   Scene,
   Object3D,
@@ -189,7 +190,7 @@ export class ThreeTowerRenderer {
       this.loadedModelUrls.add(config.modelUrl);
 
       if (cachedModel.animations.length > 0) {
-        console.log(`[ThreeTowerRenderer] Loaded ${typeId} with ${cachedModel.animations.length} animation(s): ${cachedModel.animations.map(a => a.name).join(', ')}`);
+        if (isDevMode()) console.log(`[ThreeTowerRenderer] Loaded ${typeId} with ${cachedModel.animations.length} animation(s): ${cachedModel.animations.map(a => a.name).join(', ')}`);
       }
     } catch (err) {
       console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
