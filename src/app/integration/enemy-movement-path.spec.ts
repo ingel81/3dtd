@@ -17,7 +17,7 @@ import {
   TestManagers,
   TEST_PATH,
 } from './test-helpers';
-import { GAME_BALANCE } from '../configs/game-balance.config';
+import { enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
 
 describe('Enemy Movement Path Integration', () => {
   let m: TestManagers;
@@ -70,7 +70,7 @@ describe('Enemy Movement Path Integration', () => {
     expect(reachedBaseHandler).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'enemy:reached-base',
-        damage: GAME_BALANCE.combat.enemyBaseDamage,
+        damage: enemyBaseDamageForWave(1),
       })
     );
   });

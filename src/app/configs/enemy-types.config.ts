@@ -82,7 +82,6 @@ export interface EnemyTypeConfig {
   // Stats
   baseHp: number;
   baseSpeed: number; // m/s
-  reward: number; // Credits on kill (only used without AI - AI uses dynamic reward calculation)
 
   // Animation
   hasAnimations: boolean;
@@ -291,7 +290,6 @@ const WORM_STATS = {
   // Per segment, 14 HP per metre of worm; 240 segments are 8,400 HP at HP multiplier 1
   baseHp: 35,
   baseSpeed: 4.5,
-  reward: 1,
   canBleed: true,
   // Only the worm, only in the boss rotation, Custom Wave and Enemy Debug
   isBoss: true,
@@ -309,7 +307,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 5,
-    reward: 3, // Only without AI
     hasAnimations: true,
     walkAnimation: 'Armature|Walk',
     deathAnimation: 'Armature|Die',
@@ -335,7 +332,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 3,
-    reward: 3,
     hasAnimations: true,
     walkAnimation: 'Unsteady_Walk',
     // Electrocuted_Fall is cut to its fall, 3.0-5.0 s of the source clip.
@@ -377,7 +373,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'heavy',
     baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
-    reward: 5, // Only without AI
     hasAnimations: true,
     walkAnimation: 'TankArmature|Tank_Forward',
     // The lower track run moves 0.81 m per clip second, so the tracks keep
@@ -414,7 +409,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // Walks 4, runs 10 m/s half the time (rush): mean 7 m/s, the speed the
     // wave curriculum was tuned with while the rush was lost.
     baseSpeed: 4,
-    reward: 5, // Only without AI
     hasAnimations: true,
     walkAnimation: 'CharacterArmature|Walk',
     runAnimation: 'CharacterArmature|Run',
@@ -452,7 +446,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'fortified',
     baseHp: 480,
     baseSpeed: 2.5,
-    reward: 12,
 
     hasAnimations: true,
     walkAnimation: 'Casual_Walk',
@@ -492,7 +485,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'light',
     baseHp: 25,
     baseSpeed: 8,
-    reward: 2, // Only without AI
     hasAnimations: true,
     walkAnimation: 'fly.001',
     animationSpeed: 2.79,
@@ -518,7 +510,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'unarmored',
     baseHp: 30,
     baseSpeed: 9,
-    reward: 2, // Only without AI
     hasAnimations: true,
     walkAnimation: 'Walk',
     deathAnimation: 'Fall',
@@ -544,7 +535,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'fortified',
     baseHp: 500,
     baseSpeed: 4,
-    reward: 15, // Only without AI
     hasAnimations: true,
     walkAnimation: 'Armature|walking_man|baselayer',
     animationSpeed: 1.0,
@@ -596,7 +586,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'heavy',
     baseHp: 160,
     baseSpeed: 6,
-    reward: 5,
     hasAnimations: true,
     walkAnimation: 'zombie_02_Run',
     deathAnimation: 'zombie_02_Death',
@@ -633,7 +622,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'unarmored',
     baseHp: 5,
     baseSpeed: 10,
-    reward: 1,
     hasAnimations: true,
     walkAnimation: 'Run',
     animationSpeed: 2.0,
@@ -668,7 +656,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // Swarm between the rat (5 HP, 10 m/s) and the zombie (80 HP, 5 m/s).
     baseHp: 20,
     baseSpeed: 6,
-    reward: 1,
     hasAnimations: true,
     walkAnimation: 'sprint',
     // 0.33 s, clamped on its last frame; removal after
@@ -706,7 +693,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // splitOnDeath of its own: a minion does not split again.
     baseHp: 6,
     baseSpeed: 7,
-    reward: 1,
     hasAnimations: true,
     walkAnimation: 'sprint',
     deathAnimation: 'die',
@@ -734,7 +720,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'light',
     baseHp: 60,
     baseSpeed: 9,
-    reward: 2,
     hasAnimations: true,
     walkAnimation: 'Armature|Walk-Cycle-Basic',
     animationSpeed: 2.0,
@@ -760,7 +745,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'fortified',
     baseHp: 400,
     baseSpeed: 3,
-    reward: 10,
     hasAnimations: true,
     walkAnimation: 'Walk',
     deathAnimation: 'Die',
@@ -794,7 +778,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'heavy',
     baseHp: 300,
     baseSpeed: 8,
-    reward: 8,
     hasAnimations: true,
     walkAnimation: 'GltfAnimation 0',
     animationSpeed: 2.0,
@@ -832,7 +815,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'heavy',
     baseHp: 450,
     baseSpeed: 6,
-    reward: 12,
     hasAnimations: true,
     walkAnimation: 'flying',
     animationSpeed: 1.46,
@@ -869,7 +851,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'ethereal',
     baseHp: 120,
     baseSpeed: 5,
-    reward: 6,
     hasAnimations: true,
     walkAnimation: 'Take 001',
     animationSpeed: 1.0,
@@ -896,7 +877,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'light',
     baseHp: 80,
     baseSpeed: 9,
-    reward: 4,
     hasAnimations: true,
     walkAnimation: 'Take 001',
     animationSpeed: 4.07,
@@ -928,7 +908,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'heavy',
     baseHp: 500,
     baseSpeed: 3,
-    reward: 12,
     hasAnimations: true,
     walkAnimation: 'Armature|Walk',
     animationSpeed: 0.7,
@@ -952,7 +931,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'ethereal',
     baseHp: 100,
     baseSpeed: 8,
-    reward: 7,
     hasAnimations: true,
     walkAnimation: 'Armature|RunFast|baselayer',
     animationSpeed: 0.69,
@@ -1029,7 +1007,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // once: six Herberts, pinned by no template (not in AI_ENEMY_ORDER).
     baseHp: 3000,
     baseSpeed: 3,
-    reward: 20, // Only without AI
     hasAnimations: true,
     walkAnimation: 'Wobble',
     animationSpeed: 0.6,
@@ -1068,7 +1045,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // its HP multiplier. No template, not in AI_ENEMY_ORDER, no split of its own.
     baseHp: 15,
     baseSpeed: 4.5,
-    reward: 1,
     hasAnimations: true,
     walkAnimation: 'Wobble',
     // 0.45 s, it lies flat until the removal after 2 s

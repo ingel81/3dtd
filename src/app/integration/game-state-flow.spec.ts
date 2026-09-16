@@ -27,6 +27,7 @@ import {
   makeSingleTypeWaveConfig,
 } from './test-helpers';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 
 describe('Game State Flow Integration', () => {
@@ -91,7 +92,7 @@ describe('Game State Flow Integration', () => {
       if (m.enemyManager.getAll().length === 0) break;
     }
 
-    expect(baseHealth).toBe(GAME_BALANCE.player.startHealth - GAME_BALANCE.combat.enemyBaseDamage);
+    expect(baseHealth).toBe(GAME_BALANCE.player.startHealth - enemyBaseDamageForWave(1));
   });
 
   it('should track credits through event chain (enemy killed → credits)', () => {

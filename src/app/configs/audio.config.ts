@@ -29,7 +29,6 @@ export const AUDIO_LIMITS = {
    * master limiter. 30 is still rich enough for combat density.
    */
   maxConcurrentOneShots: 30,
-  maxEffectSounds: 10,
   /**
    * Per-sound anti-flood window AND polyphony cap are now derived per
    * buffer from its duration (short combat samples = loose, long spawn
