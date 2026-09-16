@@ -981,7 +981,7 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
 2. **Messen:** jede Station einmal auf diesen Tiles, in Scheiben (unten),
    gegen einen geleerten Säulen-Cache.
 3. **Rückfall für Stationen:** Stationen, für die es dort keine Säule gibt,
-   bekommen die gröbere Stufe (`ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET`, 5 m),
+   bekommen die gröbere Stufe (`ROUTE_CORRIDOR_COARSE_ERROR_TARGET`, 5 m),
    dann geht es zurück auf die feinste.
 4. **Bauen:** Routen, Zellen und Laufweg-Kappen so oft nacheinander, bis der
    Laufweg nichts mehr wegnimmt (siehe Laufweg). Keine feste Obergrenze:
@@ -990,7 +990,8 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
 5. **Rückfall für Zellen:** Zellen ohne eigene Höhe bekommen dieselbe gröbere
    Stufe (`retryUnsampledCells`).
 6. **Einfrieren:** rote Linie auf den fertigen Zellen, Overlays, laufende
-   Routenanimation neu; Kamera und Region zurück.
+   Routenanimation neu; Kamera zurück, Region auf die grobe Stufe (5 m,
+   siehe "Feine Tiles im Korridor").
 
 Danach ändert nichts mehr Routen, Waypoints, Zellen oder Höhen: kein
 Tile-Schub, keine Kamerafahrt, kein Tower. Erst der nächste Bau tut es.
@@ -1017,7 +1018,8 @@ gemessen.
 Ein Bau, den ein neuer überholt (`superseded`), oder einer, dem der
 Routendienst die Routen unter den Füßen wegzieht (`routes replaced`), hört
 auf, ohne einzufrieren; Kamera und Region bekommen ihre Werte trotzdem
-zurück.
+zurück. Ein Bau, der einen anderen überholt, hält die Kamera stumm, bis er
+selbst fertig ist.
 
 ### In Scheiben
 
@@ -1202,8 +1204,8 @@ Segmente), nicht gemessen.
   segments=0`, `store by=walkCaps` und `clearance.commit segments=0 rays=0
   changed=true` (nachgestellt in `path-route.service.spec.ts`, "traces a
   run without stations").
-- Auf welchen Tiles: `lod` in `clearance.commit` und `heights`; `2m:` über
-  0 heißt, feinere Tiles als die Region (Kamera, Zoom) sind eingeflossen.
+- Auf welchen Tiles: `lod` in `clearance.commit`; `2m:` über 0 heißt,
+  feinere Tiles als die Region (Kamera, Zoom) sind eingeflossen.
   `region.complete` sagt, wann die Region zum ersten Mal ganz verfeinert war.
 - Warum ein Bau nicht eingefroren hat: `build.cancel reason=superseded` oder
   `routes replaced`; warum er die Durchgänge abgebrochen hat:
@@ -1226,11 +1228,30 @@ fallen heraus.
 ## Feine Tiles im Korridor
 
 Die Tile-Region `RouteCorridorRegion` (`three-engine/route-corridor-region.ts`)
-hält Tiles bis 20 m neben den Routensegmenten auf 5 m geometricError und aktiv,
-auch außerhalb des Bildes (`ROUTE_CORRIDOR_HALF_WIDTH`,
-`ROUTE_CORRIDOR_ERROR_TARGET` und `setRouteCorridor()` in `three-tiles-engine.ts`). Daher
-die Vorgabe `maxTileError` 5 und die Obergrenze 15 für `maxHalfWidth`: Weiter
-als 20 m neben der Route gibt es keine garantiert feinen Tiles.
+hält Tiles bis 20 m neben den Routensegmenten aktiv, auch außerhalb des
+Bildes (`ROUTE_CORRIDOR_HALF_WIDTH` und `setRouteCorridor()` in
+`three-tiles-engine.ts`). Daher die Vorgabe `maxTileError` 5 und die
+Obergrenze 15 für `maxHalfWidth`: Weiter als 20 m neben der Route gibt es
+keine garantiert feinen Tiles.
+
+Zwei Stufen:
+
+- **Bau:** 2,5 m (`ROUTE_CORRIDOR_ERROR_TARGET`), die feinste Stufe, die die
+  Tiles haben. Nur ein Bau hält sie, und nur, solange er misst.
+- **Ruhe:** 5 m (`ROUTE_CORRIDOR_COARSE_ERROR_TARGET`), sobald der Bau
+  einfriert (`CorridorBuild.unmute`). Der eingefrorene Korridor probt keine
+  Zelle mehr, feine Tiles braucht dafür niemand. 2,5 m die ganze Sitzung zu
+  halten kostete nach Phase 0 39 bis 166 MB aktive Tiles.
+
+Die Region selbst bleibt aber bestehen, denn der Renderer aktiviert nur, was
+im Kamera-Frustum liegt, und Strahlen treffen nur aktive Tiles. Zwei Dinge
+brauchen die Korridor-Tiles auch lange nach dem Einfrieren und egal, wohin
+die Kamera sieht: die Cubemap der Tower-LOS, die die Tiles-Gruppe vom
+Tower-Tip aus rendert (bei jeder Platzierung, jedem Reichweiten-Upgrade und
+der Forschung mit Luftzielen), und der CPU-Rückfall des Kampfes, wo eine
+Zelle keine Antwort hält (`TerrainQueries.raycastLineOfSight`). Beide
+brauchen Geometrie, die da ist, nicht feine Geometrie; die grobe Stufe
+genügt ihnen.
 
 ## Diagnose
 

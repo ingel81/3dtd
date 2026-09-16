@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CorridorBuild, type CorridorBuildDeps, type CorridorMeasurement } from './corridor-build';
 import { MUTED_CAMERA_ERROR_TARGET, QUIET_MS } from '../../three-engine/tiles-lod-debug';
-import { ROUTE_CORRIDOR_ERROR_TARGET, ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET } from '../../three-engine/route-corridor-region';
+import { ROUTE_CORRIDOR_COARSE_ERROR_TARGET, ROUTE_CORRIDOR_ERROR_TARGET } from '../../three-engine/route-corridor-region';
 import { resetCorridorConfig, setCorridorConfig } from '../../utils/route-corridor';
 
 /**
@@ -18,7 +18,8 @@ describe('CorridorBuild', () => {
   const SPAWNS = [{ id: 'spawn-1' }];
   const PATHS = new Map([['spawn-1', []]]);
   const FINE = `region ${ROUTE_CORRIDOR_ERROR_TARGET}`;
-  const FALLBACK = `region ${ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET}`;
+  /** The build falls back to this level, and the region rests at it once the build freezes. */
+  const COARSE = `region ${ROUTE_CORRIDOR_COARSE_ERROR_TARGET}`;
   const MUTED = `camera ${MUTED_CAMERA_ERROR_TARGET}`;
 
   let clock: number;
@@ -182,7 +183,7 @@ describe('CorridorBuild', () => {
         'routes', 'cells', 'narrow',
         'routes', 'cells', 'narrow',
         'routes', 'overlays',
-        'camera 20', FINE,
+        'camera 20', COARSE,
       ]);
       expect(runs[0].budgets).toEqual([CorridorBuild.SLICE_MS, CorridorBuild.SLICE_MS, CorridorBuild.SLICE_MS]);
       expect(result).toMatchObject({ stations: 3, unmeasured: 0, passes: 2, timedOut: false, fallbackStations: 0, fallbackCells: 0, cells: 42 });
@@ -228,7 +229,7 @@ describe('CorridorBuild', () => {
 
       expect(calls.slice(0, 13)).toEqual([
         MUTED, FINE, 'clearColumns', 'resetWalkCaps', 'measure', 'commit',
-        FALLBACK, 'clearColumns', 'measure', 'commit', FINE, 'clearColumns',
+        COARSE, 'clearColumns', 'measure', 'commit', FINE, 'clearColumns',
         'routes',
       ]);
       // What is left, in one go
@@ -242,8 +243,24 @@ describe('CorridorBuild', () => {
       const result = await corridor.build('location load');
 
       const retry = calls.indexOf('retryCells');
-      expect(calls.slice(retry - 3, retry + 4)).toEqual(['narrow', FALLBACK, 'clearColumns', 'retryCells', FINE, 'clearColumns', 'routes']);
+      expect(calls.slice(retry - 3, retry + 4)).toEqual(['narrow', COARSE, 'clearColumns', 'retryCells', FINE, 'clearColumns', 'routes']);
       expect(result?.fallbackCells).toBe(2);
+    });
+
+    /**
+     * Only a build needs the finest level. Holding it for the whole session
+     * cost 39 to 166 MB of active tiles (phase 0). The region stays, at the
+     * coarse level: it keeps the corridor tiles active off screen, which the
+     * tower LOS cubemap and the CPU raycast fallback need.
+     */
+    it('leaves the region at the coarse level when it freezes, and raises it again for the next build', async () => {
+      await corridor.build('location load');
+      expect(calls.slice(-2)).toEqual(['camera 20', COARSE]);
+
+      calls.length = 0;
+      await corridor.build('HQ moved in place');
+      expect(calls.slice(0, 2)).toEqual([MUTED, FINE]);
+      expect(calls.slice(-2)).toEqual(['camera 20', COARSE]);
     });
 
     it('without tiles (DevWorld) measures and builds at once: no tile wait, no fallback level', async () => {
@@ -276,7 +293,7 @@ describe('CorridorBuild', () => {
       expect(warn).toHaveBeenCalledWith(
         '[Corridor] build did not settle: walk caps and detours came back to an earlier state; frozen with the last plan',
       );
-      expect(calls.slice(-7)).toEqual(['narrow', 'routes', 'cells', 'routes', 'overlays', 'camera 20', FINE]);
+      expect(calls.slice(-7)).toEqual(['narrow', 'routes', 'cells', 'routes', 'overlays', 'camera 20', COARSE]);
     });
 
     it('stops after MAX_PASSES passes that keep narrowing', async () => {
@@ -306,7 +323,7 @@ describe('CorridorBuild', () => {
       const building = corridor.build('location load');
       state.epoch++;
       expect(await building).toBeNull();
-      expect(calls).toEqual([MUTED, FINE, 'camera 20', FINE]);
+      expect(calls).toEqual([MUTED, FINE, 'camera 20', COARSE]);
       expect(corridor.pending()).toBe(false);
     });
 
