@@ -63,6 +63,8 @@ zoomen und mit G springen.
   eigene Straßenhöhe (geglättet über 30 m); Durchgangserkennung, die zweite Durchgangsregel und die Portalhöhe lesen
   diese. Deckt Torturm, Torbogen, Auskragung und Steg ab, nicht Durchgänge über 30 m Tiefe. Die sieben Zellen ohne
   Höhe ließen sich nicht nachstellen, siehe nächsten Lauf. Nachtest: siehe `tmp/fix1/reports/corrpassage.md`.
+  **Vom User bestätigt (2026-09-16):** "Turmpassage sieht nun gut aus", Bau 4,9 s, 235 Stationen, alle gemessen,
+  765 Zellen. `cellsWithoutHeight` steht noch aus.
 - **745 Ortswechsel im Spiel ändert den Korridor.** Erlenbach laden, dann im Spiel nach Tokyo navigieren: Fingerprint
   `fa4461be` statt `e51f7114` beim frischen Laden. Abweichend sind `band` (`23291918` statt `40f24cbd`) und `heights`
   (`813a9c6f` statt `8ae65891`); `stations`, `cells` und `tiles` sind gleich, alle Anzahlen identisch. Also weichen
