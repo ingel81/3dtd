@@ -1578,8 +1578,10 @@ class GlobalRouteGrid {
 - `route-grid-aggregate-viz.ts`: Aggregat-Debug-Mesh (`grid`/`gridAir`, "Route Grid Overlay") mit
   Cell-Shader: jede Zelle, auch ohne Höhenprobe, Fläche nach Coverage, Kontur nach Zustand
   (normal, Brückendeck, ohne Höhenprobe, Tunnel), Farben in `LOS_VIZ_CONFIG.gridOverlay`
-- `corridor-walk.ts`: Laufweg-Check (`cellWalkable`, Dach- und Stufen-Check) und `walkCaps`, die
-  Kappen je Station, mit denen der Korridor vor Zellen endet, zu denen kein Gegner laufen kann
+- `corridor-band.ts`: das begehbare Band je Station (Rückgrat, Kanten, Gegnerlinie); es
+  entscheidet, welche Zellen der Korridor bekommt
+- `corridor-walk.ts`: Diagnose dazu (`judgeWalk`, `cellWalkable`) und die Höhe eines
+  Tunnelportals (`portalGround`)
 - `route-grid-diagnostics.ts`: `__rg.*`-Dumps; `route-grid-log.ts`: `[CELL-GRID]`-Log
 - Körperliste (`addBodyEnemy`, `getBodyEnemies`, `hasBodyWithin`): Gegner mit einem Körper
   entlang der Route (Ooze, `route-body.ts`) stehen in keiner Zelle. `getEnemiesInRadius`
@@ -1593,8 +1595,8 @@ class GlobalRouteGrid {
   Segment entfernt ist, außerdem jede Zelle, durch die die Mittellinie läuft (Engstelle: eine
   Zellreihe)
 - Randzellen, deren Säule ein Dach, eine Krone, ein Auto oder eine Hecke trifft, sind nicht
-  begehbar; der Korridor endet vor ihnen, Routen und Grid werden neu gebaut (`roofRise`,
-  `stepRise`, `corridor-walk.ts`, ROUTE_CORRIDOR.md, Laufweg)
+  begehbar; das Band endet vor ihnen, der Korridor beansprucht sie also gar nicht erst
+  (`roofRise`, `stepRise`, `corridor-band.ts`, ROUTE_CORRIDOR.md, Band)
 - Gegner-Seitenversatz auf die Halbbreite der Seite minus 1,5 m begrenzt, damit jeder Gegner
   in einer Zelle steht (Details: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#seitenversatz-der-gegner))
 - 2m Zellenauflösung für präzise LOS-Prüfung

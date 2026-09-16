@@ -22,8 +22,8 @@ Route (vom Spawn zum HQ).
 | Unterführung | `utils/underpass.ts` (`UnderpassIndex`, `splitAtSpans`), `PathAndRouteService.buildRouteFromPath` | Stück unter einem Way, der die Route auf höherer Ebene kreuzt, als Tunnel |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle, Straße unter einer fremden Brücke |
-| Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, die Durchgänge in `CorridorBuild.build` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke, Böschung), fallen weg; die Halbbreite endet davor |
-| Umweg | `planDetours`, `applyDetourPlan` (`utils/corridor-detour.ts`), `PathAndRouteService.detoursWithGrid` | Die Waypoints biegen um ein Hindernis auf der Mittellinie (Auto, Hecke, Erker, Dachecke); ohne Platz wird ein Hindernis über der Gasse ein Durchgang (Tunnel), ein niedriges bleibt |
+| Band | `buildBand`, `bandPath` (`utils/corridor-band.ts`), `PathAndRouteService.buildBands`, Schritt 4 in `CorridorBuild.build` | Je Station das Rückgrat, das begehbare Band beiderseits und die Gegnerlinie darin; die Waypoints laufen in seiner Mitte, ihre Halbbreiten sind seine Kanten |
+| Laufweg | `judgeWalk`, `cellWalkable` (`utils/corridor-walk.ts`) | Nur noch Diagnose für `__corridor.pick()`: warum eine Zelle im Band liegt oder daneben (Auto, Traufe, Hecke, Böschung) |
 | Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
 | Auslöser | `CorridorBuild` (`services/world/corridor-build.ts`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
@@ -50,9 +50,9 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 | `widthStep` | 0,5 | 0,1 bis 2 | Rundung der gemessenen Breite nach unten |
 | `dipLength` | 4 | 0 bis 100 | Einbrüche bis etwa so lang werden geschlossen, außer an einem niedrigen Hindernis (Auto, Transporter) |
 | `bulgeLength` | 8 | 0 bis 100 | Ausbuchtungen bis etwa so lang werden abgeschnitten |
-| `roofRise` | 2,5 | 0,5 bis 50 | Dach-Check: so weit über der Mittellinie daneben ist eine Zelle nicht begehbar (siehe Laufweg) |
-| `stepRise` | 0,5 | 0,1 bis 50 | Stufen-Check: höchste Stufe je Rasterschritt (2 m) auf dem Weg zur Zelle (siehe Laufweg; bis 2026-09-14 0,75) |
-| `stepDrop` | 0,5 | 0,1 bis 50 | Abfall-Check: tiefster Abfall je Rasterschritt auf dem Weg zur Zelle (siehe Laufweg; bis 2026-09-15 ohne Grenze); 50 schaltet ihn praktisch ab |
+| `roofRise` | 2,5 | 0,5 bis 50 | Dach-Check: so weit über dem Rückgrat der Station ist eine Zelle nicht begehbar (siehe Band) |
+| `stepRise` | 0,5 | 0,1 bis 50 | Stufen-Check: höchste Stufe je Rasterschritt (2 m) auf dem Weg vom Rückgrat nach außen (siehe Band; bis 2026-09-14 0,75) |
+| `stepDrop` | 0,5 | 0,1 bis 50 | Abfall-Check: tiefster Abfall je Rasterschritt auf demselben Weg (siehe Band; bis 2026-09-15 ohne Grenze); 50 schaltet ihn praktisch ab |
 | `highwayWidths` | Tabelle unten | je bis 50 | Straßenbreite je `highway`-Klasse |
 | `unknownHighwayWidth`, `laneWidth`, `laneExtra` | 5, 3, 1 | 1 bis 50, 1 bis 10, 0 bis 10 | Breite unbekannter Klassen, Spurbreite, Zuschlag bei `lanes` |
 
@@ -60,7 +60,7 @@ erst nach einem Neuaufbau (`__corridor.set()` baut neu, siehe unten).
 eine neue Messung braucht: `stationSpacing`, `rayHeightLow`, `rayHeightHigh`,
 `maxHalfWidth`, `maxTileError`, `overhangDepth` und `lowWallRise` (der
 gespeicherte Freiraum entsteht beim Messen aus den Treffern), `roofRise`, `stepRise` und `stepDrop` (die
-gespeicherten Kappen des Laufwegs entstehen aus den Zellen, siehe Laufweg).
+das Band entsteht beim Bauen aus den Säulen, siehe Band).
 Die übrigen formen nur das Gemessene um.
 
 ## Breite aus dem Freiraum, je Seite
@@ -241,8 +241,9 @@ eines kurzen Segments, das noch nicht gemessen ist, oder eines kurzen
 Fußweg-Stücks zwischen zwei Straßen. Längere Engstellen, eine Engstelle am
 Anfang oder Ende der Route und Tunnel bleiben. Ein Stück an einem
 niedrigen Hindernis wird nicht breiter als dort gemessen (`maxLeft`,
-`maxRight`, wie bei den Kappen des Laufwegs). `__corridor.pick()` nennt es
-mit `short narrowing closed` in `rule`.
+`maxRight`). `__corridor.pick()` nennt es mit `short narrowing closed` in
+`rule`. Das alles ist die Wand, die die Strahlen sehen; wie weit der
+Korridor tatsächlich reicht, entscheidet das Band darin (siehe Band).
 
 `applyClearance` (`path-route.service.ts`) teilt jedes Segment an den
 Stückgrenzen; jedes Stück wird ein eigener Waypoint mit `corridorLeft` und
@@ -328,7 +329,7 @@ unterste Treffer der feinsten LOD (`column-sample.ts`).
   Treffer, den die Nachbarn ablehnen (unten), versucht die Zelle die Säulen
   0,5 m daneben in x und z und nimmt die erste, die einen annehmbaren
   Treffer gibt. Höchstens vier weitere Säulen, nur für solche Zellen. Die
-  Säulen des Laufweg-Checks und die Portalproben eines Tunnels machen es
+  Säulen des Bands und die Portalproben eines Tunnels machen es
   ebenso. Liegt der Mittelpunkt in keiner Bounding Box
   eines Tiles, überspringt der Sweep die Zelle wie bisher ohne Probe.
 - **Ausreißer** (`plausible`): Ein Treffer mehr als 50 m (`OUTLIER_M`) vom
@@ -337,8 +338,8 @@ unterste Treffer der feinsten LOD (`column-sample.ts`).
   aus mindestens so tiefen Tiles, damit eine grobe Hülle ringsum ein
   feineres Sample nicht verhindert. Vorher lief der Test nur für stabile
   Zellen ohne Upgrade; im Playtest 2026-09-13 stand eine Zelle so auf
-  -3542 m zwischen Zellen auf 243 m. Der Laufweg-Check urteilt nicht über
-  eine Zelle mehr als 50 m über oder unter der Mittellinie daneben.
+  -3542 m zwischen Zellen auf 243 m. Der Weg nach außen überspringt eine
+  Zelle mehr als 50 m unter dem bisher erreichten Boden als Naht.
 - **Lücken füllen** (`GlobalRouteGrid.fillGaps`, nach dem Erzeugen, am Ende
   jedes Sweeps und nach einem Retry mit Promotion): Eine Zelle ohne
   annehmbares eigenes Sample, zwischen stabilen Zellen derselben Fläche auf
@@ -357,38 +358,20 @@ Ausnahmen:
 
 - **Dach, Traufe, Krone, Auto, Hecke:** Die Zelle behält den untersten
   Treffer ihrer Säule, auch wo er auf deren Oberseite liegt, weil die
-  Photogrammetrie darunter keinen Boden hat. Gegner laufen dort nicht: Der
-  Korridor endet vor einer solchen Zelle (siehe Laufweg).
-- **Mittellinie unter einer Auskragung oder an einer Dachecke:** Eine
-  Zelle, durch die eine Mittellinie läuft, nimmt statt eines Treffers mehr
-  als `roofRise` über der Höhe der Mittellinie ringsum (`centreLineGround`,
-  siehe Laufweg) diese Höhe, mit dem LOD des Treffers (`streetUnderRoof` in
-  `corridor-walk.ts`, angewandt in `RouteCellSampler.sampleCellY`). Solche
-  Zellen kann der Korridor nicht weglassen, er nimmt sie bei jeder Breite,
-  und Gegner nehmen ihre Höhe aus der Zelle, in der sie stehen. In
-  Rothenburg (Retest 560 bis 563) lag so eine Zelle unter einer Auskragung
-  5,7 m über der Straße (Pick C) und eine an einer Dachecke, die die Linie
-  anschneidet, 7,6 m (Pick B); beide weiß im Overlay, die Gegner stiegen
-  hinauf. Eine Steigung entlang der Linie steigt von Stelle zu Stelle weit
-  weniger als `roofRise`, und der Median über je zwei Stellen davor und
-  danach lässt bis zu zwei hohe Stellen in Folge aus dem Bezug heraus, die
-  Zelle und eine Nachbarin. Eine Baumkrone über der Straße ist derselbe
-  Fall (Playtest Erlenbach). `__corridor.pick()` zeigt sie mit
-  `walkCheck: 'centre line on a roof'`, `heightM` auf der Straße und
-  `columnBottomM` auf der Auskragung. Eine Urteilsfrage: Die
-  Nutzerentscheidung vom 2026-09-14 ("Orange Zellen weglassen") galt
-  Randzellen, die wegfallen können; diese Zellen können es nicht. Seit der
-  Entscheidung E6 (2026-09-15) planen die Routen um solche Stellen herum
-  (siehe "Hindernis auf der Mittellinie"): Mit Platz daneben liegt dort keine
-  Mittellinie mehr, ohne Platz ist die Zelle eine Tunnelzelle eines
-  Durchgangs. Diese Regel bleibt für den ersten Bau vor der Planung und für
-  eine Stelle, die die Planung nicht erfasst. Auf der
-  Strecke hinter einem Brückenende (`approach`, unten) ist der Bezug die
-  Höhe, die die Route dort trägt (`carriedDeckY`), nicht die Mittellinie
-  ringsum: Die Mittellinie um die letzten Zellen der Strecke reicht über sie
-  hinaus auf Bodenzellen, deren unterster Treffer unter einem
-  weiterreichenden Deck der Kai sein kann, und der Median zöge eine Zelle
-  auf dem Deck dorthin. Deck- und Tunnelzellen behalten ihren Treffer.
+  Photogrammetrie darunter keinen Boden hat. Gegner laufen dort nicht: Das
+  Band endet vor einer solchen Zelle (siehe Band).
+- **Auskragung oder Dachecke über der Linie:** Bis 2026-09-16 nahm eine
+  Zelle, durch die eine Mittellinie läuft, statt eines Treffers mehr als
+  `roofRise` über der Höhe der Mittellinie ringsum diese Höhe
+  (`streetUnderRoof`). Die Regel ist weg, mit ihr `centreLineGround`: Die
+  Gegnerlinie läuft jetzt in der Mitte des begehbaren Bands (siehe Band) und
+  damit nicht mehr unter einer Auskragung durch. Füllt das Mesh die Gasse,
+  ist das Stück ein Durchgang und seine Zellen sind Tunnelzellen; sonst
+  liegt die Linie daneben, und die Zelle unter der Auskragung ist eine
+  Randzelle, vor der das Band endet. In Rothenburg (Retest 560 bis 563) lag
+  so eine Zelle unter einer Auskragung 5,7 m über der Straße (Pick C), eine
+  an einer Dachecke 7,6 m (Pick B); beide weiß im Overlay, die Gegner
+  stiegen hinauf.
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
   (`PathAndRouteService.buildRouteFromPath`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
@@ -460,11 +443,10 @@ Ausnahmen:
     Mündungen des ganzen Tunnelstücks (`TUNNEL_PORTAL_OFFSET_M`,
     `tunnelSegments` in `route-grid-builder.ts`). Die Höhe hat die gröbere
     LOD der beiden Portale (`tunnelColumn`, `route-cell-sampler.ts`).
-  - **Portal unter einem Dach** (seit 2026-09-15): Liegt der Boden der
-    Säule an einem Portal mehr als `roofRise` über der Höhe der Mittellinie
-    ringsum (`centreLineGround`, ohne Tunnelstellen, siehe Laufweg), nimmt
-    das Portal diese Höhe (`streetUnderRoofAt` in `corridor-walk.ts`), wie
-    eine Zelle der Mittellinie unter einer Auskragung. Anlass: Playtest
+  - **Portal unter einem Dach** (seit 2026-09-15, seit 2026-09-16 am Band):
+    Liegt der Boden der Säule an einem Portal mehr als `roofRise` über dem
+    Rückgrat der Bandstation dort (siehe Band), nimmt das Portal dessen
+    Höhe (`portalGround` in `corridor-walk.ts`). Anlass: Playtest
     2026-09-15 (Retest 607, Rothenburg), Torbogen: Die gelben Zellen
     stiegen im Durchgang an, die Gegner kamen auf der anderen Seite aus
     der Hauswand. 2 m vor einer Mündung kann die Säule auf der Auskragung
@@ -472,10 +454,9 @@ Ausnahmen:
     selbst, wo der OSM-Way vor der Öffnung endet; ihr unterster Treffer
     ist dann das Obergeschoss, und alle Zellen des Durchgangs lagen auf
     der Geraden dorthin (nachgestellt in `global-route-grid.spec.ts`,
-    "takes a portal under a jetty from the street around it"). Der Boden
-    ringsum kommt aus den Stellen der Mittellinie hinter der Mündung; die
-    Zellen bis 3 m hinter der Mündung gehören noch zum Tunnel (rundes
-    Ende) und zählen nicht.
+    "takes a portal under a jetty from the street around it"). Das Rückgrat
+    steht auf der Straße vor der Mündung; ohne Band (erster Bau, DevWorld)
+    behält das Portal seinen Treffer.
   - **Ohne Portal-Tile:** Solange an einem der beiden Portale kein Tile
     liegt, bleibt die Zelle ohne Höhenprobe.
   - **Geteilte Zellen:** Erreicht ein Tunnelsegment eine Zelle, ist sie
@@ -494,7 +475,7 @@ Ausnahmen:
     einer Fläche (Hügel, Auskragung) auch nicht, der Boden zwischen Portal
     und Mündung ebenso wenig: Für ihn steht das Portal. Anlass: D2, siehe
     unten.
-  - Kein Laufweg-Check.
+  - Kein Band: Das Stück behält die OSM-Linie und die OSM-Breite.
 - **Unter einer fremden Brücke** (`utils/underpass.ts`, seit 2026-09-15):
   Kreuzt ein Way die Route auf höherer Ebene, gilt das Stück darunter als
   Tunnel. `UnderpassIndex.spans` sucht je Segment der Route, das weder
@@ -516,7 +497,7 @@ Ausnahmen:
     dann entscheidet die Mitte); das Stück dazwischen trägt `inTunnel`.
     Damit gilt alles vom Tunnel: Portale 2 m vor den Mündungen, Höhe
     zwischen ihnen mit Stützen, Fläche `tunnel` (gelb im Overlay), keine
-    Messung, OSM-Breite, kein Laufweg-Check, `closeShortNarrowings` lässt
+    Messung, OSM-Breite, kein Band, `closeShortNarrowings` lässt
     das Stück schmal, und die Strecke hinter einem Brückenende endet
     davor. Die rote Linie nimmt ihre Höhe an den Waypoints aus diesen
     Zellen, die Gegner aus der Zelle, in der sie stehen. Liegt ein Portal
@@ -549,37 +530,28 @@ Zelle. Vorher blieb sie im Korridor und wurde auf den Boden daneben gesetzt
 (orange Kontur, `clamped`): Gegner liefen dort durch das Auto oder standen
 unter dem Dach.
 
-**Prüfung** (`judgeWalk`, `cellWalkable`, `utils/corridor-walk.ts`): für
-jede Zelle mit Fläche `ground` oder `approach` und einer eigenen Probe aus
-einem Tile bis `maxTileError`, durch die keine Mittellinie läuft. Bezug ist die Höhe der
-Mittellinie neben der Zelle (`centreLineGround`): der Median über die
-Mittellinien-Stelle daneben (`axisX`, `axisZ`, beim Anlegen festgelegt) und
-die Mittellinien-Stellen bis zwei Rasterschritte um sie (5×5), bei gerader
-Anzahl der untere der beiden mittleren. Auf einer Linie sind das die Stelle
-und je zwei davor und danach. Mit nur je einer (3×3) kippte der Median, wo
-eine Baumkrone über der Straße zwei Stellen in Folge abdeckt: Randzellen
-in der Krone lagen unter dem Bezug und blieben (Playtest Erlenbach,
-Weinstraße und Erlenweg, einzelne weiße Zellen in Kronen neben der Straße;
-nachgestellt in `integration/corridor-walk.spec.ts`). Drei hohe Stellen in
-Folge, etwa 6 m Krone über der Linie, kippen ihn weiter. Jede Stelle zählt
-mit der Fläche ihrer Zelle wie beim
-Sampeln (`surfaceY`, `deck-approach.ts`): der unterste Treffer, auf einem
-Brückendeck der oberste, auf der Strecke hinter einem Brückenende
-(`approach`) der, der der getragenen Höhe dort am nächsten liegt; eine
-Tunnelstelle zählt nicht. Mit dem untersten Treffer auch der Deck-Stellen
-lagen an einem Brückenkopf auf einer schrägen Linie Randzellen 8 m über dem
-Median, dem Wasser unter dem Deck (Spec). Bis 2026-09-14 war es die eine Stelle.
-Lag sie unter einer Auskragung, deren Säule keinen Boden hat, zählte deren
-Unterseite: In Rothenburg (Retest 560 bis 563, Pick C) lag die Stelle 5,7 m
-über der Straße, und eine Zelle 2 m über der Straße unter einer Traufe
-bestand den Check. Auf der Strecke hinter einem Brückenende steht auch der
-Weg nach außen auf dem Treffer, den eine Zelle dort nähme (`walkSurface`):
-auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Deck
-10 m über dem Kai und fiele als Dach weg.
+Seit 2026-09-16 entscheidet das Band, welche Zellen der Korridor bekommt
+(siehe Band): Der Weg nach außen läuft dort einmal je Station vom Rückgrat
+aus, und der Korridor beansprucht genau die Zellen, die er erreicht. Was
+hier steht, sind die Regeln dieses Wegs (`walkSide` in `corridor-band.ts`)
+und die Diagnose danach.
 
-- **Dach-Check:** Liegt die Zelle mehr als `roofRise` (2,5 m) über der
-  Höhe der Mittellinie daneben, ist sie nicht begehbar: Dach, Traufe,
-  Krone.
+**Diagnose** (`judgeWalk`, `cellWalkable`, `utils/corridor-walk.ts`): für
+jede Zelle mit Fläche `ground` oder `approach` und einer eigenen Probe aus
+einem Tile bis `maxTileError`. Bezug ist das Rückgrat der Bandstation neben
+der Zelle: Liegt die Zelle zwischen den Bandkanten, ist sie im Korridor
+(`band`); sonst nennt die Diagnose die Regel, an der der Weg dort endete
+(`hollow`, `roof`, `step`, `drop`), oder `beyond the band`, wenn eine
+andere Grenze davor lag (Wand der Strahlen, geschnittene Ausbuchtung,
+Taper). Ohne Band (erster Bau, DevWorld, Brücke, Tunnel, Durchgang,
+Endstück zum HQ) urteilt sie nicht. Bis 2026-09-16 war der Bezug der Median
+der Mittellinien-Stellen ringsum (`centreLineGround`); mit der Gegnerlinie
+in der Bandmitte gibt es die Sonderfälle nicht mehr, die er auffangen
+musste (Linie auf einer Autoreihe, unter einer Auskragung, an einem
+Brückenkopf über dem Kai).
+
+- **Dach-Check:** Liegt die Zelle mehr als `roofRise` (2,5 m) über dem
+  Rückgrat ihrer Station, ist sie nicht begehbar: Dach, Traufe, Krone.
 - **Hohl-Check** (`hollow`, seit 2026-09-15): Trifft die Säule der Zelle
   mehr als `stepRise` und höchstens `roofRise` über dem Treffer, auf dem
   die Zelle steht, noch etwas (`lowObjectTop`), ist sie nicht begehbar: ein
@@ -698,236 +670,143 @@ auf dem Deck, nicht auf dem Kai darunter. Sonst läge eine Randzelle auf dem Dec
     weg und alles dahinter mit, der Korridor endet an der Straßenkante. Ein
     Bankett bis 0,45 m unter der Straße bleibt als eine Reihe, die Böschung
     0,8 m darunter nicht. Eine Reihe genau 0,5 m tiefer bleibt ebenfalls.
-  - **Erhöhte Mittellinie** (`groundBesideRaisedLine`, seit 2026-09-15):
-    Liegen der erste Schritt zur Zelle hin und sein Spiegelbild beide mehr
-    als `stepDrop` unter der Höhe der Mittellinie, steht die Linie auf
-    etwas, von dem der Boden zu beiden Seiten abfällt: eine Reihe parkender
-    Autos, über die der OSM-Weg läuft, eine Hecke. Dann beginnt der Weg auf
-    dem Boden daneben, der Mitte der beiden Stellen, so bleibt die
-    Querneigung. Liegen die beiden mehr als 2 × `stepRise` auseinander
-    (eine Seite fällt weit, Kaimauer, Böschung), beginnt er auf der höheren.
-    Anlass: Playtest 2026-09-15 (Retest 706 bis 708, Rothenburg und
-    Erlenbach), parkende Autos hatten mehr Zellen als in 607. Liegen drei der
-    fünf Mittellinien-Stellen auf Autos, steht der Median auf den Dächern.
-    Mit dem Abfall-Check lag jede Zelle der Straße daneben mehr als eine
-    Stufe darunter (`drop`), der Korridor bestand dort nur aus den
-    Mittellinienzellen auf den Dächern; vorher ging der Weg jede Stufe
-    hinab. Synthetisch (Reihe 9,2 m auf der Linie, 1,5 m hoch, Straße eben):
-    je Seite 15 Zellen neben der Reihe vorher, 0 mit dem Abfall-Check, 15
-    jetzt. Ein Auto am Rand neben so einer Reihe misst jetzt von der Straße
-    aus und fällt weg; vorher maß es von den Dächern und blieb. Zellen genau
-    einen Schritt neben der Linie und auf ihrer Höhe prüft der Weg ohne
-    Proben (siehe oben), für sie gilt der Median weiter. Eine Straße auf
-    einem Damm, der schon im ersten Schritt zu beiden Seiten mehr als
-    `stepDrop` fällt, misst ebenso von den Seiten aus.
-- **Kein Urteil** (`null`): Zellen, durch die eine Mittellinie läuft,
-  auch wenn sie nur eine Ecke anschneidet (`centreLineKeys`; der Korridor
-  nimmt sie bei jeder Breite, `walkCaps` lässt sie aus), Deck und Tunnel,
-  Strecke hinter einem Brückenende ohne Säule dort (`no bridge end`),
-  gefüllte und ungesampelte Zellen, Zellen aus Tiles gröber als
-  `maxTileError` (ein grober Klumpen engt nichts ein; sie kommen dran,
-  sobald ein feineres Tile da ist), eine Zelle ohne Säule an der
-  Mittellinie oder mehr als `OUTLIER_M` von ihr entfernt (Naht). Bis
-  2026-09-14 galt nur eine Zelle als Mittellinie, deren `axisX`/`axisZ`
-  sie selbst ist. Schneidet die Linie nur eine Ecke an, liegt der nächste
-  Punkt der Linie oft in der Nachbarstelle: Die Zelle wurde geprüft, als
-  nicht begehbar gemeldet und blieb trotzdem (Rothenburg, Pick B, Dachecke
-  7,6 m über der Straße).
+  - **Erhöhte Mittellinie** (`groundBesideRaisedLine`, 2026-09-15 bis
+    2026-09-16, weg): Lagen der erste Schritt zur Zelle hin und sein
+    Spiegelbild beide mehr als `stepDrop` unter der Höhe der Mittellinie,
+    stand die Linie auf etwas, von dem der Boden zu beiden Seiten abfällt
+    (eine Reihe parkender Autos, über die der OSM-Weg läuft), und der Weg
+    begann auf dem Boden daneben. Das Band braucht die Regel nicht: Sein
+    Weg beginnt ohnehin am Rückgrat, also auf der tiefsten plausiblen
+    Fläche quer zur Linie, und über einer Autoreihe liegt das Rückgrat auf
+    der Straße daneben.
+- **Kein Urteil** (`null`): Deck- und Tunnelzellen, Zellen eines
+  Durchgangs (`passage`) und einer Strecke, über die das Band nicht
+  entscheidet (`fixed stretch`: Brücke, Tunnel, Strecke hinter einem
+  Brückenende, Endstück zum HQ), gefüllte und ungesampelte Zellen, Zellen
+  aus Tiles gröber als `maxTileError` (sie kommen dran, sobald ein feineres
+  Tile da ist) und jede Zelle, solange kein Band gebaut ist (`no band`).
 
 Die Zelle selbst behält ihre Höhe (`sampleCellY` nimmt den untersten
 Treffer). `clamped`, `stepTop` und die orange Kontur gibt es nicht mehr;
 die Boden-Probe der Tower-LOS liegt wie überall 1,5 m über der Zelle
 (`getGroundTargetY`).
 
-**Vom Grid auf die Breite** (`walkCaps`,
-`PathAndRouteService.walkCapsWithGrid`): Jede nicht begehbare Zelle kappt
-auf ihrer Seite die Station, deren Stück sie beansprucht: entlang eines
-Segments die Station dort, hinter einem Segmentende die Station an diesem
-Ende, wenn dessen rundes Ende (`jointCap`, mit den Breiten in Gebrauch) die
-Zelle erreicht; an einer Ecke, deren runde Enden sie beide erreichen, nur
-das frühere Segment. Die Kappe ist der Abstand der Zelle zur Mittellinie
-(hinter einem Ende zum Endpunkt) weniger 0,09 m: So weit reicht das runde
-Ende eines Nachbarstücks über dessen Halbbreite hinaus (halbe
-Zelldiagonale mal `hypot(1, taper)` weniger `edgeMargin`), dazu 1 cm. Das
-gilt, solange die Kappe mindestens `edgeMargin` ist. Darunter ist die
-Grenze der Gegner dort 0, und das runde Ende der Nachbarstation reicht
-trotzdem 1,58 m weit (`jointCap`). Darum kappt `walkCaps` danach jede
-Station, deren rundes Ende an einem Stoß (zwei Segmente, oder zwei
-Stationen eines Segments, die auf einer der beiden Seiten verschieden
-breit sind: Ändert sich nur die rechte Seite, reicht das runde Ende links
-so weit, wie die Nachbarstation links erlaubt, auch über ein kurzes Stück
-hinweg in eine links schmale Strecke) oder deren Ende
-genau an der Zelle sie noch erreicht, auf ihren Abstand weniger 1 cm, bis
-sich nichts mehr ändert (`roundEndsOff`). Vorher blieb in einer schmalen
-Gasse eine Autozelle 1,5 m neben der Linie stehen, wo zwei Stationen
-aneinanderstoßen. Eine Zelle, durch die eine Mittellinie läuft, bleibt;
-der Korridor nimmt sie bei jeder Breite. Gespeichert je Segment, Station und Seite in
-`walkBySegment`, nur je schmaler, vergessen mit den Messungen
-(Ortswechsel, `clearCorridorMeasurements`, `__corridor.set()` mit einem
-der `MEASUREMENT_KEYS`).
+**Von den Säulen auf die Breite:** Der Weg läuft einmal je Station und
+Seite vom Rückgrat nach außen, und die Bandkante liegt mittig zwischen der
+letzten erreichten und der ersten nicht erreichten Zellmitte. Genau
+innerhalb dieser Kanten beansprucht der Korridor seine Zellen; eine Zelle
+auf einem Auto oder unter einer Traufe kommt gar nicht erst hinein, statt
+sie nachträglich wegzukappen (bis 2026-09-16: `walkCaps`, `roundEndsOff`,
+`walkBySegment` und ein weiterer Durchgang je Fund). Was hinter der Kante
+liegt, fällt mit weg, auch der Gehweg hinter einer Autoreihe. Gegner halten
+sich an die Breite wie an jede andere (`lateralLimit`;
+`route-corridor-coverage.spec.ts`).
 
-**In der Anpassung** (`fitCorridorStations`): Die Kappe gilt nach allen
-anderen Regeln, abgerundet auf `widthStep`, auch unter `minHalfWidth`, und
-ohne Glättung: Ein Auto engt den Korridor auf seiner Länge ein, auch unter
-`dipLength`. `closeShortNarrowings` weitet ein Stück höchstens bis zu seiner
-Kappe (`maxLeft`, `maxRight`). Weil der Korridor je Seite ein Band ist,
-fällt alles dahinter mit weg, auch der Gehweg hinter einer Autoreihe.
-Gegner halten sich an die schmalere Breite wie an jede andere
-(`lateralLimit`; `route-corridor-coverage.spec.ts`,
-`integration/corridor-walk.spec.ts`).
+**Wann:** einmal je Bau, in Schritt 4 (siehe "Wann gemessen und neu gebaut
+wird"), auf den eingefrorenen Säulen. Zwischen zwei Bauten ändert sich
+nichts. Was ein feineres Tile erst nach dem Einfrieren zeigt, bleibt im
+Korridor, auf seiner Höhe (Autodach, Traufe), bis zum nächsten Bau.
+`__corridor.towerCells()` zählt es unter `unwalkable`, `pick()` zeigt
+`walkable: false`.
 
-**Wann** (Rückkopplung Messung, Grid, Breite, Neubau):
+**Kosten:** Das Band probt je Station die Zellen quer zur Linie bis
+`maxHalfWidth` plus eine Zelle, die Säulen aus dem Cache der Engine, den
+der Bau im selben Frame gefüllt hat; je Route einmal, nicht je Durchgang.
+Nicht im Spiel gemessen.
 
-- In jedem Durchgang eines Baus (Schritt 4 unter "Wann gemessen und neu
-  gebaut wird"), mit dem Grid, das dieser Durchgang gerade erzeugt hat.
-- Die Kappen werden innerhalb eines Baus nur schmaler, ein weiterer
-  Durchgang hat also nur Zellen des vorherigen. Darum endet die Kette von
-  selbst, und der Bau läuft sie bis zum Ende, bevor er einfriert.
-- Zwischen zwei Bauten ändert sich nichts. Was ein feineres Tile erst nach
-  dem Einfrieren zeigt, bleibt im Korridor, auf seiner Höhe (Autodach,
-  Traufe), bis zum nächsten Bau. `__corridor.towerCells()` zählt es unter
-  `unwalkable`, `pick()` zeigt `walkable: false`.
+## Band: Rückgrat, Bandkanten und die Gegnerlinie
 
-**Kosten:** In einer Spec ohne Engine (1 km Route mit Knicken, 7 m je
-Seite, 3714 Zellen, ein Auto alle 12 m, Median aus 7 Läufen) kostete die
-Prüfung aller Zellen 1,2 ms und die Kappen 0,1 ms; Grid erzeugen und
-voller Höhen-Sweep in derselben Spec 6 und 5 ms. Mit dem Median über die
-Mittellinie (bis zu 25 Säulen je Achsstelle, je Durchgang einmal je
-Stelle gemerkt) kostete die Prüfung in einer ähnlichen Spec (3714 Zellen,
-227 nicht begehbar, Median aus 9 Läufen, nicht committet) 1,1 ms, mit dem
-3×3 0,8 bis 0,9 ms, mit der einen Stelle 0,45 ms; ohne das Merken waren es
-mit dem 3×3 1,8 ms. Im Spiel liest die Prüfung
-die Säulen aus dem Cache der Engine, den das Grid im selben Frame gefüllt
-hat; nicht gemessen. Teuer ist ein zusätzlicher Bau: nach den Zahlen vom
-2026-09-12 (routes 14, grid 10, heights 4 bis 6 ms) etwa 30 ms, synchron im
-selben Frame, und nur, wenn eine nicht begehbare Zelle einen Korridor
-ändert. `[Corridor] rebuild` nennt ihn mit `walk=` und `narrowed=`.
+Seit 2026-09-16 (Phase 2, Entwurf `tmp/fix1/reports/phase2-design.md`). Code:
+`utils/corridor-band.ts` (`buildBand`, `bandPath`, `smoothCentre`),
+`PathAndRouteService` (`buildBands`, `bandRouteOf`, `laidInBand`,
+`bandStationAt`), Schritt 4 in `CorridorBuild.build`. Ersetzt den Umweg-Planer
+(`corridor-detour.ts`) und die Kappen-Schleife.
 
-## Hindernis auf der Mittellinie: Umweg und Durchgang
+**Anlass** (Nutzerentscheidung E6, 2026-09-15: "Es soll realistisch sein, das
+3D-Modell gilt."): Die OSM-Linie einer Straße läuft über etwas, das die
+Photogrammetrie auf der Straße zeigt: parkende Autos (Erlenbach, Way 959083801:
+Mittellinienzellen 0,59 bis 1,08 m über der Linie), Erker und Dachecken
+(Rothenburg). Der Korridor nimmt eine Zelle, durch die die Linie läuft, bei jeder
+Breite; die Gegner stiegen über das Auto, die rote Linie nahm seine Dachhöhe. Der
+Planer davor bog die Route um jedes einzelne Hindernis herum, und seine Kaskade
+aus Finden, Zusammenlegen und Auslegen versagte, sobald mehrere zusammenkamen
+(Playtest 732, `detour.md`, Nachtrag 2). Das Band kennt diese Fälle nicht
+einzeln: Autos auf der Linie, eine Linie neben der Fahrbahn und viele Autos
+hintereinander sind derselbe Fall.
 
-Seit 2026-09-15, Nutzerentscheidung E6 nach dem Playtest (Retest 706 bis 708): "Es
-soll realistisch sein, das 3D-Modell gilt." Code: `utils/corridor-detour.ts`
-(`planDetours`, `applyDetourPlan`, `derivedClearance`), `PathAndRouteService`
-(`detoursWithGrid`, `detoured`, `measuredOf`).
+**Eingaben,** eingefroren aus dem Bau: die OSM-Route je Spawn (Punkte, Ways,
+Brücke, Tunnel, Unterführung, Brückenstrecke), je Station die Wand, die die
+Strahlen erlauben (`fitCorridorStations`, ohne weitere Kappen), und die Säulen
+auf dem Zellraster bis `maxHalfWidth` beiderseits. Stationen bleiben alle
+`stationSpacing`.
 
-**Anlass:** Die OSM-Linie einer Straße läuft über etwas, das die Photogrammetrie auf
-der Straße zeigt: parkende Autos (Erlenbach, Schulstraße, Way 959083801:
-Mittellinienzellen 0,59 bis 1,08 m über der Linie, `walkCheck: 'centre line'`),
-Erker und Dachecken (Rothenburg). Der Korridor nimmt eine Zelle, durch die die Linie
-läuft, bei jeder Breite. Die Gegner stiegen über das Auto, die rote Linie nahm seine
-Dachhöhe.
+**Rückgrat** je Station: die tiefste plausible Zelle quer zur Linie innerhalb der
+OSM-Halbbreite plus `BACKBONE_SLACK_M` (1,5 m) und innerhalb der Strahlenwände.
+Plausibel heißt: nicht hohl (`hollow`), eine Nachbarzelle quer innerhalb
+`stepRise` (ein Einzelloch wird nicht Start; in einer einzelligen Gasse zwischen
+Häusern gilt die Regel nicht, weil dort kein Nachbar zwischen den Wänden liegt),
+und Straße: höchstens `stepDrop` unter der Zelle der OSM-Linie, oder die Linie
+kommt innerhalb von vier Stationen bis auf `stepRise` an sie heran. Ohne diese
+letzte Bedingung wird der Fluss neben einem Kai oder die Böschung eines Damms
+zum Start. Liegt ein Start mehr als `stepDrop` unter dem Median der Starts von
+±2 Stationen (Gully, Loch im Mesh), nimmt die Station die tiefste Zelle darüber.
 
-**Hindernis** (`judge`, `streetBeside`): Alle `DETOUR_SAMPLE_M` (1 m) entlang der
-Route, wie das Straßennetz sie gibt, eine Säule auf der Linie (nur Tiles bis
-`maxTileError`). Straße neben der Stelle heißt: zu dieser Seite bis 3 m die erste
-Säule mehr als `stepRise` unter dem Treffer, und 1 m weiter außen fällt der Boden
-nicht um mehr als `stepDrop` (kein Damm, kein Grat). Ein Hindernis ist dort:
+**Bandkanten** je Station und Seite: vom Rückgrat quer nach außen, Zelle für
+Zelle, mit den Stufen-, Abfall- und Querneigungsregeln des Laufwegs (oben), nur
+vom Rückgrat statt von der Mittellinie aus. Das Band endet vor der ersten Zelle,
+die zu hoch, zu tief, hohl oder mehr als `roofRise` über dem Rückgrat liegt,
+spätestens an der Wand der Strahlen. Ein kleines Objekt auf einem Platz wird
+nicht umflossen: Das Band endet davor (Nutzerentscheidung). Die Kante liegt
+mittig zwischen der letzten erreichten und der ersten nicht erreichten Zellmitte.
+Kurze Ausbuchtungen entlang der Route werden geschnitten (`cutShortBulges`,
+`bulgeLength`), und Kanten wie Breiten steigen entlang der Route höchstens um
+`taper` je Meter (`taperEdges`, `taperWidths`). Ohne diesen Taper legt sich das
+runde Ende der Zellen einer breiten Station eine halbe Autolänge davor über genau
+das Auto, vor dem das Band endet, denn `jointCap` kappt nur das Nachbarsegment.
 
-- ein Treffer mehr als `roofRise` über dem Boden der Linie ringsum (Median der
-  Stellen bis 4 m davor und danach): Erker, Dachecke, Krone über der Linie;
-- sonst ein Treffer mit Straße zu beiden Seiten, beide höchstens `stepRise`
-  auseinander. Das trifft Auto, Transporter, Hecke, Mäuerchen. Diese Regel hat der
-  Worker carcells als O1 an den Wächtern geprüft;
-- sonst ein Treffer mit Straße nur auf einer Seite, während die andere steigt oder
-  weit fällt (Garten oder Mauer hinter einer Autoreihe, Kaimauer). Dann muss die
-  Stelle ein Buckel entlang der Linie sein: Bis `BUMP_REACH_M` (6 m) davor und
-  danach kommt die Linie mehr als `stepRise` herunter (`raisedAlong`; ein Auto ist
-  4,5 m lang, zwei Stoß an Stoß 9 m). Und die Linie muss dort bis auf `stepRise` an
-  diese Straße herankommen (`reachesAlong`). Ein Gehweg auf einer Stützmauer oder
-  eine Straße quer an einem steilen Hang ist kein Buckel; ein Kai unter einer Straße
-  ist kein Boden, auf den die Linie herunterkommt. Anlass: Playtest 719, Erlenbach,
-  Erlenbacher Weg (Way 959083801). Die Linie läuft an der Südkante einer Autoreihe
-  entlang, dahinter liegt der Boden 1,6 bis 2,6 m höher. Der Laufweg begann dort auf
-  den Dächern, weil nur eine Seite tiefer liegt (`groundBesideRaisedLine` braucht
-  beide). Die Straße daneben war `drop`, und die Kappen rissen einzelne Löcher in
-  den Korridor. Mit dem Umweg liegt die Mittellinie auf der Straße und der Laufweg
-  misst von dort.
+**Gegnerlinie:** Ziel ist die Bandmitte (`centreMode: 'band'`, Vorgabe) oder die
+OSM-Linie, wo sie mit `edgeMargin` Abstand im Band liegt, sonst so weit versetzt
+wie nötig (`'minimal'`, zum Vergleich umschaltbar). Geglättet wird mit einem
+Glättungs-Spline mit Schranken (`smoothCentre`, `CENTRE_STIFFNESS`), der die
+Linie innerhalb `[L + edgeMargin, R − edgeMargin]` hält; ist das Band schmaler
+als `2 · edgeMargin`, läuft sie in seiner Mitte. Stationen ohne Band und beide
+Enden der Route sind auf die OSM-Linie festgenagelt. Der Bericht nennt die
+steilste Bewegung und die engste Krümmung; über die fünf Szenen bleibt sie unter
+dem Wurm-Radius (1/20 m) und unter 0,25 m je Meter.
 
-Stellen bis `JOIN_M` (2 m) auseinander sind ein Hindernis. Gesucht wird nur auf
-Straßen am Boden: nicht auf einer Brücke, im Tunnel, auf der Strecke hinter einem
-Brückenende oder auf dem Endstück zum HQ.
+**Kein Band:** Liegt das Rückgrat einer Station mehr als `roofRise` über den
+Starts ringsum (Erker, Dachecke, Krone, bis zum Boden gefüllt), wird das Stück
+ein **Durchgang**: ein Tunnelstück wie ein Torbogen (`inTunnel`, `passage`,
+Portale, Höhe zwischen ihnen). Ein tieferes Objekt, das die Gasse ausfüllt, ist
+sein eigenes Rückgrat: Das Band liegt darauf, die Gegner steigen darüber (E6).
+Brücke, Tunnel, Unterführung, Strecke hinter einem Brückenende und das Endstück
+zum HQ entscheidet das Band nicht; dort bleiben OSM-Linie und Strahlbreiten.
 
-**Platz daneben** (`offsetFor`, `pickSide`): Der Weg rückt um das kleinste Maß in
-Schritten von 0,5 m zur Seite, bei dem an jeder Stelle des Hindernisses und 2 m
-davor und danach (`HOLD_MARGIN_M`) die Säulen bis 1,5 m zu beiden Seiten des Weges
-Straße zeigen. Straße heißt: höchstens `stepRise` über und `stepDrop` unter dem
-Boden daneben, mit dessen Querneigung, und innerhalb der Breite, die die Strahlen
-dort erlauben, plus `wallMargin`. Die Breite zählt ohne die Kappen des Laufwegs,
-denn die legen sich um das Hindernis selbst. 1,5 m ist die halbe Zelldiagonale
-(1,41 m) auf dem 0,5-m-Raster der Säulen: Eine Zelle, die der Weg berührt, hat ihren
-Mittelpunkt höchstens so weit neben ihm, ihre Höhe kommt also von der Straße.
-Gewählt wird die Seite mit dem kleineren Maß, bei gleichem die mit mehr Platz, dann
-rechts. Ein Auto von 1,8 m mittig auf der Linie braucht 2,5 m. Eine Säule ganz ohne
-Treffer (ein Loch im Mesh, im Playtest 719 die Zellen (413, 25) und (413, 27)) zählt
-nicht als Hindernis, solange mindestens die Hälfte der Säulen im Band einen Treffer
-hat. Eine Zelle dort bekommt wie an einer Naht die Höhe ihrer Nachbarn (`fillGaps`),
-wo auf zwei gegenüberliegenden Seiten stabile Zellen liegen; sonst bleibt sie ohne
-Höhe (rosa), die Gegner nehmen dort den Median der Nachbarn. Der Laufweg überspringt
-Säulen ohne Treffer und urteilt über eine Zelle ohne eigene Probe nicht, sie reißt
-also keine Lücke in den Korridor.
+**In der Route** (`bandPath`, `laidInBand`): Knoten sind der Routenstart, jede
+Station um ihren Versatz zur Seite gesetzt, jeder Punkt der Route entlang der
+Gehrung seiner beiden Segmente und das Routenende. Die Halbbreiten eines Stücks
+sind die Bandkanten ab der Linie, das Schmalere seiner beiden Enden; in einem
+Durchgang die OSM-Halbbreite. Ein Stück abseits der OSM-Linie trägt `detour`, ein
+Durchgang `passage` und `inTunnel`. Zellen, Seitenversatz, Wurm, Ooze, Held und
+rote Linie folgen den Waypoints ohne eigene Regel.
 
-**Umweg:** Das Maß gilt entlang des Hindernisses, davor und danach liegt eine Rampe
-als halbe Kosinuskurve. Ihre engste Krümmung ist der Radius, mit dem der Wurm eine
-Ecke rundet (`WORM_BEND_RADIUS_M`, 20 m): `rampLength` = π·√(Maß · 10 m), 15,7 m
-für 2,5 m. Die starren Ringe des Wurms klaffen an einer schärferen Biegung auf; das
-Band der Ooze dreht mit den Segmenten. Die Rampe bekommt alle `RAMP_STEP_M` (1 m)
-einen Waypoint.
+**Wann** (`buildBands`): einmal je Bau, nach der Messung und vor Routen und
+Zellen, auf den eingefrorenen Säulen des Grids (`columnNear`, Tiles bis
+`maxTileError`). Gespeichert je Route, wie das Straßennetz sie gibt; jeder Bau
+derselben Route legt dieselbe Linie, auch ein Neubau der roten Linie nach einer
+Höhenänderung. Vergessen mit den Messungen. Das Grid bekommt die Station zu einem
+Punkt (`setBand`), für die Diagnose und für die Portale eines Tunnels.
 
-- Liefe die Rampe über ein anderes Hindernis, versucht sie 75 % und 50 % der Länge,
-  mindestens das Doppelte des Maßes. Sonst entfällt der Umweg.
-- Hindernisse auf derselben Seite, deren Rampen sich träfen (Autoreihe mit Lücken),
-  werden ein Umweg mit dem größeren Maß, wo das überall frei ist. Sonst, und auf
-  verschiedenen Seiten, geht der Weg in einem Stück von einem Maß zum anderen.
+**Diagnose:** `__corridor.pick()` nennt an der Station `backboneM`, `backboneY`,
+`bandLeftM`, `bandRightM`, `bandKind` (`band`, `climb`, `passage`, `fixed`),
+`detourM` (Versatz der Gegnerlinie, rechts positiv) und `passage`; je Zelle
+`walkCheck` wie oben. `__corridor.fingerprint()` hasht das Band unter `band`.
 
-**Kein Platz:**
-
-- Ein Hindernis mehr als `roofRise` hoch (Erker oder Dach über der Gasse, darunter
-  vom Mesh gefüllt) wird ein **Durchgang**. Das Stück vom Hindernis bis 1 m davor und
-  danach (`PASSAGE_MARGIN_M`) läuft als Tunnel (`inTunnel`, dazu `passage`), wie ein
-  Torbogen: Höhe zwischen zwei Portalen 2 m vor den Mündungen, gelb im Overlay, nicht
-  vermessen, OSM-Breite. Im gefüllten Mesh sind die Gegner kurz verdeckt.
-- Ein niedrigeres Hindernis (ein Auto, das eine schmale Gasse ausfüllt) bleibt: Die
-  Zellen stehen auf ihm, die Gegner steigen darüber, wie das Modell es zeigt.
-
-**In der Route** (`applyDetourPlan`, `PathAndRouteService.detoured`): Die Route wird
-an den Enden der Stücke und entlang der Rampen geteilt, jeder Schnitt um das Maß dort
-zur Seite gesetzt, ein Punkt der Route innerhalb eines Umwegs entlang der Gehrung
-seiner beiden Segmente. Die übrigen Segmente bleiben, wie sie waren.
-
-- Jedes neue Segment trägt die Flags, die Straßenbreite und den Way des
-  Straßensegments, auf dem es liegt (`parent`), dazu `detour` am Waypoint.
-- Seine Stationen kommen aus der Messung dieses Straßensegments (`measuredOf`,
-  `derivedClearance`): etwa gleich viele je Meter, der Freiraum der Station dort um
-  das Maß verschoben. Eine Wand links liegt vom nach rechts gerückten Weg weiter weg,
-  eine rechts näher. Ein Strahl ohne Treffer meldet seine Länge; auf der Seite, zu der
-  der Weg rückt, reicht der Korridor also nicht weiter hinaus, als die Strahlen
-  gesehen haben. Gemessen wird weiter nur die Route, wie das Straßennetz sie gibt.
-- Die Kappen des Laufwegs gelten je neuem Segment. Das Hindernis liegt jetzt neben
-  der Mittellinie und fällt als `step` oder `roof` weg wie ein Auto am Rand.
-- Zellen, Seitenversatz, Wurm, Ooze, Held und rote Linie folgen den Waypoints ohne
-  eigene Regel.
-
-**Wann** (`detoursWithGrid`): zur selben Zeit wie die Kappen des Laufwegs, mit den
-Säulen des Grids in Gebrauch: in jedem Durchgang eines Baus (`narrowToWalkable`).
-Gespeichert je Route, wie das Straßennetz sie gibt (`detourPlans`). Jeder Bau
-derselben Route setzt bis zur nächsten Planung dieselben Umwege ein, auch ein Neubau
-der roten Linie nach einer Höhenänderung. Ein neuer Umweg braucht einen Durchgang zum
-Finden und einen für die Kappen um das Hindernis; der Bau läuft so viele Durchgänge,
-bis sich nichts mehr ändert. Vergessen mit den Messungen.
-
-**Diagnose:** `__corridor.pick()` nennt eine Zelle auf der Mittellinie eines Umwegs
-`walkCheck: 'detour'`, eine Zelle eines Durchgangs `'passage'`. Die Station zeigt
-`detourM` (Maß, rechts positiv, `null` auf der Linie) und `passage`; ihre Treffer
-sind die der Straßenstation dort, um das Maß verschoben.
-
-**Kosten:** je Planung eine Säule je Meter Route, dazu je Hindernisstelle bis 12
-Säulen quer und je geprüftem Maß 7 Säulen je Stelle, nach dem ersten Mal aus dem
-0,5-m-Cache der Engine. Nicht im Spiel gemessen.
-
-**Tests:** `utils/corridor-detour.spec.ts` (Regeln), `integration/corridor-detour.spec.ts`
-(ganze Kette mit Routendienst und Grid: Auto mit Platz, Auto in der Gasse, Erker über
-der Gasse, Dachecke, Auto am Rand), `managers/worm/worm-detour.spec.ts` (Wurm durch den
-Umweg).
+**Tests:** `utils/corridor-band.spec.ts` (Regeln, dazu Böschung, Kai, Damm, 15 %
+Querneigung, Durchgang, Übersteigen, Determinismus),
+`integration/corridor-band.scenes.spec.ts` (fünf echte OSM-Routen mit den Zellen
+der Playtests, je zweimal mit gleichem Bericht), `managers/worm/worm-detour.spec.ts`
+(Wurm neben einem Transporter).
 
 ## Seitenversatz der Gegner
 
@@ -964,7 +843,7 @@ Stelle, auf der Seite, auf der der Gegner läuft (`MovementComponent.advance`).
 ## Wann gemessen und neu gebaut wird
 
 `CorridorBuild` (`services/world/corridor-build.ts`) ist der einzige, der
-Routen, Waypoints, Zellen, Zellhöhen, Freiraum, Laufweg-Kappen und Umwege
+Routen, Waypoints, Zellen, Zellhöhen, Freiraum und das begehbare Band
 schreibt, getestet in `corridor-build.spec.ts`. Er baut den Korridor einmal
 je Routensatz und friert ihn dann ein. Der Spieler sieht also den fertigen
 Korridor, bevor er spielt, und danach ändert sich keiner mehr.
@@ -987,10 +866,14 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
 3. **Rückfall für Stationen:** Stationen, für die es dort keine Säule gibt,
    bekommen die gröbere Stufe (`ROUTE_CORRIDOR_COARSE_ERROR_TARGET`, 5 m),
    dann geht es zurück auf die feinste.
-4. **Bauen:** Routen, Zellen und Laufweg-Kappen so oft nacheinander, bis der
-   Laufweg nichts mehr wegnimmt (siehe Laufweg). Keine feste Obergrenze:
-   `MAX_PASSES` (20) und ein Zustand, der sich wiederholt, sind nur
-   Notbremsen, beide mit einer Warnung und `build.unsettled` im Trace.
+4. **Bauen:** das begehbare Band jeder Route aus diesen Säulen
+   (`PathAndRouteService.buildBands`, siehe Band), dann die Routen darin und
+   ihre Zellen. Ein Durchgang, keine Schleife: Das Band liest die
+   eingefrorenen Säulen, nicht die Zellen, es gibt also keinen Fixpunkt zu
+   suchen. `MAX_PASSES`, die Zyklenerkennung über `walkState()` und
+   `build.unsettled` sind mit der Kappen-Schleife weg. Der Trace schreibt
+   `build.band` mit Routen, Stationen, Durchgängen, steilster Bewegung und
+   engster Krümmung der Gegnerlinie.
 5. **Rückfall für Zellen:** Zellen ohne eigene Höhe bekommen dieselbe gröbere
    Stufe (`retryUnsampledCells`).
 6. **Einfrieren:** rote Linie auf den fertigen Zellen, Overlays, laufende
@@ -1128,8 +1011,8 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
 - **`build`** (`CorridorBuild.build`): eine Zeile je Bau, der eingefroren
   hat. `reason` ist sein Auslöser, `tiles` die Wartezeit auf die Tiles der
   Region, `measure` die Rechenzeit aller Messscheiben, `fallback` beide
-  Wechsel auf die gröbere Stufe, `passes=N ()` die Durchgänge aus Routen,
-  Zellen und Laufweg samt ihrer Zeit, `lines` die rote Linie am Ende,
+  Wechsel auf die gröbere Stufe, `band=N ()` die Stationen des Bands samt
+  der Zeit für Band, Routen und Zellen, `lines` die rote Linie am Ende,
   `wall` die ganze Dauer vom Aufruf bis zum Einfrieren; dazu `stations`,
   `unmeasured`, `cells` und, wenn die Tiles nicht ruhig wurden,
   `tiles timed out`. Ein Bau, der aufhört, ohne einzufrieren, schreibt keine
@@ -1159,7 +1042,7 @@ vitest (Specs schalten ihn selbst ein).
 
 ```
 [CorridorTrace] 12.35s clearance.commit segments=20 stations=236 ... changed=true lod=2m:0,2.5m:236,5m:0,coarse:0,none:0 ... | build location load
-[CorridorTrace] LONG 12.35s build.pass pass=1 changed=true cells=1204 ms=183.5 | build location load -> pass 1
+[CorridorTrace] LONG 12.35s build.band routes=1 stations=236 passages=0 cells=1204 ms=183.5 | build location load
 ```
 
 - **Zeit:** Sekunden seit dem Laden des Orts: Seitenaufruf,
@@ -1173,7 +1056,7 @@ vitest (Specs schalten ihn selbst ein).
   keine Kette hinführt, steht `caller` mit den zwei Funktionen über dem
   Ereignis (im Production-Build minifiziert).
 - **`LONG`:** ein Schritt, der in einem Frame länger als 16 ms lief
-  (`LONG_STEP_MS`): `build.pass`, `rebuild`, `grid.generate`,
+  (`LONG_STEP_MS`): `build.band`, `rebuild`, `grid.generate`,
   `clearance.slice`, `clearance.commit`, `routes.refresh`, `tilesLoaded`.
 
 | Ereignis | Wo | Zahlen |
@@ -1184,18 +1067,16 @@ vitest (Specs schalten ihn selbst ein).
 | `build.start` | Beginn eines Baus (`CorridorBuild.build`) | `reason`, `tiles` (es gibt 3D-Tiles; in DevWorld false) |
 | `build.tiles` | die Tiles der Region sind ruhig, oder der Timeout ist um | `target` (Fehlerziel der Region, m), `loadS`, `timedOut`, dazu der Stand der Region (`lodState`) |
 | `build.fallback` | ein Wechsel auf die gröbere Stufe und zurück | `what`: `stations` oder `cells`; `missing`, `found` |
-| `build.pass` | je Durchgang aus Routen, Zellen und Laufweg | `pass`, `changed` (der Laufweg hat etwas weggenommen), `cells`, `ms` |
-| `build.unsettled` | die Durchgänge kamen nicht zur Ruhe, der Bau friert mit dem letzten Plan ein | `passes`, `why` |
+| `build.band` | das Band aller Routen, dann Routen und Zellen (Schritt 4) | `routes`, `stations`, `passages`, `maxSlopeM`, `maxCurvature`, `cells`, `ms` |
 | `build.notiles` | der Bau maß auf nichts: keine Station mit Tile oder keine Zelle mit Höhe; der Korridor friert mit den OSM-Breiten ein | `stations`, `unmeasured`, `cells`, `bare` (Zellen ohne eigene Höhe), `timedOut` |
 | `build.revisit` | die Seite wurde sichtbar und der Korridor war auf nichts gebaut (`rebuildAfterBlindBuild`) | `built`: ob ein Bau startete; `blocked`: die Sperre, wenn nicht |
 | `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
-| `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `passes`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `passesMs` |
+| `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `bandStations`, `passages`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `cellsWithoutHeight`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `buildMs` |
 | `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |
 | `routes.refresh` | jeder Neuaufbau der roten Linie (`PathAndRouteService.refreshRouteLines`, `refreshRouteLinesAsync` mit `async=true`) | `spawns`, `waypoints`, `ms` |
 | `routeAnimation.start` | jeder Start der Routen-Animation (`RouteAnimationService.startAnimation`), der ihren Strich-Versatz zurücksetzt | `routes`, `restart` (lief schon) |
 | `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `budgetMs` (die Budgets der Scheiben, in einem Bau `32`), `overBudget` (Scheiben länger als ihr Budget: eine Scheibe nimmt mindestens eine Station), `maxSliceMs`, `meanSliceMs`, `msPerStation`, `busyMs`, `wallMs`; `reason` |
-| `store` | `storeClearance` | `changed` (eine Breite oder ein Umweg hat sich geändert), `by`: welche Daten neu sind, `measured` (der Lauf brachte Freiraum, den der Korridor nicht hatte), `walkCaps` (das Grid gab andere Kappen des Laufwegs), `detourPlans` (Umwege neu geplant); `capped` (Stationen mit Kappe), `plans`, `ms` (die ganze Übergabe) |
-| `walk.narrow` | Laufweg in jedem Durchgang eines Baus (`narrowToWalkable`) | `changed`, `by`, `capped`, `plans` |
+| `store` | `storeClearance` | `changed` (eine Breite hat sich geändert), `by`: `measured`, wenn der Lauf Freiraum brachte, den der Korridor nicht hatte; `segments`, `ms` (die ganze Übergabe) |
 | `grid.generate` | `GlobalRouteGrid.generateFromRoutes` | `cells`, `routes`, `ms` |
 | `rebuild` | Ende eines Baus, Delta über den ganzen Bau (`CorridorBuild`) | Delta, unten |
 | `intro.*`, `loading.done`, `heights.*` | aus der Kamera-Zeitleiste (`cameraTimeline`): Intro-Phasen, Ladeschirm-Gate (`intro.gateOpen`), Höhen-Update | wie dort, Auslöser `camera timeline` |
@@ -1213,11 +1094,10 @@ Halbbreiten links und rechts alle 2 m entlang jeder Route aus den Waypoints
 (`widthProfile`), die Zahl der Waypoints.
 
 - `by`: welche Daten seit dem letzten Bau neu sind: `measured`
-  (neuer Freiraum aus den Strahlen), `walkCaps` (andere Kappen des Laufwegs
-  aus dem Grid in Gebrauch), `detourPlans` (Umwege neu geplant), `settings`
-  (`__corridor.set()`); `none`.
+  (neuer Freiraum aus den Strahlen), `band` (das Band ist neu gebaut),
+  `settings` (`__corridor.set()`); `none`.
 - `rays`: Strahlen aller Läufe seit dem letzten Bau. `rays=0` mit
-  `by=walkCaps` oder `detourPlans` ist ein Bau ohne neue Messung.
+  `by=band` ist ein Bau ohne neue Messung.
 - `cells` alt->neu, `added`, `removed`, `moved` (mehr als 0,25 m,
   `HEIGHT_MOVE_M`), `maxMoveM`, `lostHeight`, `gotHeight`.
 - `widthPoints`: Punkte mit anderer Halbbreite / verglichene Punkte; ein
@@ -1239,19 +1119,15 @@ Segmente), nicht gemessen.
 **Lesen:**
 
 - Wer hat den Korridor geändert: die `rebuild`-Zeilen, `by`, `rays` und
-  die Kette. Ein Neuaufbau ohne `[Corridor] clearance` davor (Log Berlin vom
-  2026-09-15) kann nach dem Code nur aus einem Lauf ohne Segmente kommen,
-  dessen Commit Kappen oder Umwege aus dem Grid übernimmt, oder aus
-  `__corridor.set()`. Im Trace steht der Lauf dann als `clearance.start
-  segments=0`, `store by=walkCaps` und `clearance.commit segments=0 rays=0
-  changed=true` (nachgestellt in `path-route.service.spec.ts`, "traces a
-  run without stations").
+  die Kette. `by=band` ohne `measured` ist ein Bau, der auf denselben
+  Messungen ein neues Band gelegt hat; `by=settings` kommt von
+  `__corridor.set()`.
 - Auf welchen Tiles: `lod` in `clearance.commit`; `2m:` über 0 heißt,
   feinere Tiles als die Region (Kamera, Zoom) sind eingeflossen.
   `region.complete` sagt, wann die Region zum ersten Mal ganz verfeinert war.
 - Warum ein Bau nicht eingefroren hat: `build.cancel reason=superseded` oder
-  `routes replaced`; warum er die Durchgänge abgebrochen hat:
-  `build.unsettled`.
+  `routes replaced`. Was das Band ergab: `build.band` mit Routen, Stationen,
+  Durchgängen, steilster Bewegung und engster Krümmung der Gegnerlinie.
 - Welcher Frame hängt: `[CorridorTrace] LONG`. Ob die Messung ihr Budget
   hält: `overBudget` und `msPerStation` in `clearance.commit`.
 - Was die rote Linie neu baut: `routes.refresh` mit seinem Auslöser. Nach
@@ -1333,8 +1209,8 @@ __corridor.trace(false)                                 // Trace aus, trace(true
   - Antworten des Towers: `groundVisible`/`Blocked`/`Missing`, dasselbe für
     `air`.
   - Auffällige Zellen: `holes`, `raised` (mehr als 1 m über dem Median der
-    Nachbarn), `unwalkable` (Zellen, zu denen kein Gegner laufen kann und die
-    der Korridor trotzdem hält, siehe Laufweg).
+    Nachbarn), `unwalkable` (Zellen neben dem Band, die der Korridor
+    trotzdem hält, siehe Band).
   - Die Mittellinie für sich: `centreCells`, `centreMissing`,
     `centreUnsampled`, `centreBlocked`, `centreRaised`,
     `centreNotDisplayed`.
@@ -1351,7 +1227,7 @@ __corridor.trace(false)                                 // Trace aus, trace(true
   | `airMissing` | bei reinen Boden-Towern gleich `cells` |
   | `holes` > 0 | widerspräche dem Test "leaves no hole in the corridor at any heading" (`global-route-grid.spec.ts`); Liste in `holeCells` |
   | `raised` > 0 | Zellen auf Autodach oder Krone, ihre Platte schwebt und erscheint aus schräger Kamera versetzt; Liste in `raisedCells` (x, z, Meter über den Nachbarn, höchstens 20) |
-  | `unwalkable` > 0 | ein feineres Tile zeigte sie erst, als Tower standen (siehe Laufweg) |
+  | `unwalkable` > 0 | ein feineres Tile zeigte sie erst, als Tower standen (siehe Band) |
   | `centreMissing` > 0 | widerspräche den Tests zur Mittelreihe; Liste in `centreMissingCells` |
   | `centreUnsampled`, `centreBlocked`, `centreRaised`, `centreNotDisplayed` | woran eine fehlende Reihe entlang der roten Linie liegt |
   | `displayOutdated` > 0 | Grid neu gebaut, Anzeige nicht |
@@ -1368,15 +1244,12 @@ __corridor.trace(false)                                 // Trace aus, trace(true
      die nächste zur Mittellinie zuerst (`RouteCellProbe`,
      `route-grid-diagnostics.ts`).
      - Lage und Zelle: `routeM`, `cell`, `state`, `heightM`, `walkable`
-       (`cellWalkable`; `false`: kein Gegner kann dorthin laufen, der Korridor
-       hält die Zelle trotzdem), `walkCheck` (warum: `walkable`, `roof`,
-       `step`, `drop`, `hollow` (Auto hohl im Mesh), `centre line`, `centre line on a roof` (auf die Straße gesetzt,
-       siehe Zellhöhe), `detour` (Mittellinie eines Umwegs), `passage` (Zelle eines
-       Durchgangs, siehe "Hindernis auf der Mittellinie"), `coarse tile`, `no sample`, `deck or tunnel`,
-       `no bridge end` (Strecke hinter einem Brückenende ohne Säule dort),
-       `no centre line ground`, `seam`), `overLineM` (Höhe über der
-       Mittellinie, gegen die der Check misst; bei einer Zelle der
-       Mittellinie über der Mittellinie ringsum), `aboveNeighboursM`,
+       (`cellWalkable`; `false`: die Zelle liegt neben dem Band), `walkCheck`
+       (warum: `band`, `beyond the band`, `roof`, `step`, `drop`, `hollow`
+       (Auto hohl im Mesh), `passage` (Zelle eines Durchgangs),
+       `fixed stretch` (Brücke, Tunnel, Brückenstrecke, Endstück zum HQ),
+       `deck or tunnel`, `coarse tile`, `no sample`, `no band`),
+       `overLineM` (Höhe über dem Rückgrat der Station), `aboveNeighboursM`,
        `surface`.
      - Antworten und Anzeige des ausgewählten Towers: `ground`, `air`,
        `displayed`.
@@ -1405,16 +1278,19 @@ __corridor.trace(false)                                 // Trace aus, trace(true
      - Die Station: Way, `tags` (`width`, `lanes`, `bridge`, `tunnel`,
        `covered`, `layer` wie in `__routes.describe()`), `streetWidthM`, `widthSource`, `onStreet`,
        `inTunnel`, `underWay` (der Way über einem Stück unter einer fremden Brücke, sonst null),
-       `detourM` (wie weit die Route dort um ein Hindernis auf der Mittellinie
-       zur Seite rückt, rechts positiv, sonst null), `passage` (in einem Durchgang),
+       `backboneM` und `backboneY` (Versatz und Höhe des Rückgrats),
+       `bandLeftM` und `bandRightM` (Bandkanten, Versatz zur OSM-Linie),
+       `bandKind` (`band`, `climb`, `passage`, `fixed`),
+       `detourM` (wie weit die Gegnerlinie dort neben der OSM-Linie läuft,
+       rechts positiv, sonst null), `passage` (in einem Durchgang),
        `unmeasured`, `tileError`, am Ende `shiftM` (wie weit
        entlang der Route die Station neben einer Naht gemessen wurde, sonst
        null).
      - Je Seite eine Zeile: `lowHitM`, `highHitM`, `lowRiseM` (wo nur der
        untere Strahl stoppte: wie hoch die Säule 1 m hinter seinem Treffer
        über dem Boden der Station liegt, sonst null), `wall`, `freeM`,
-       `smoothedM`, `halfWidthM`, `inUseM`, `walkableM` (die Kappe des
-       Laufwegs, sonst null) und `rule`.
+       `smoothedM`, `halfWidthM` (was die Strahlen erlauben), `inUseM` (die
+       Bandkante ab der Gegnerlinie, wie die Route sie hält) und `rule`.
      - Eine Tabelle mit den vier Stationen davor und danach; `leftM` und
        `rightM` sind die Halbbreiten der Stücke dort.
 
@@ -1429,8 +1305,8 @@ __corridor.trace(false)                                 // Trace aus, trace(true
     `tunnel or covered: street width`, `under way N: street width` (unter
     einer fremden Brücke, N der Way darüber; `unmeasured` dort
     `under way N: not measured`), `not measured yet: street width`;
-  - zuletzt je Station, wo die Kappe des Laufwegs greift: `unwalkable cell beyond`;
-  - danach, über die fertigen Stücke: `short narrowing closed`.
+  - danach, über die fertigen Stücke: `short narrowing closed`. Wie weit der
+    Korridor dort wirklich reicht, sagen die Bandkanten (siehe Band).
 - **`report`** schaltet den Zellbericht ein, wie die Kachel Cells in den
   Entwickleroptionen, Gruppe Waves & Inspect (`CellReportService`,
   `debug/cell-report.service.ts`). Solange er an ist:
@@ -1566,18 +1442,16 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
 
   | Teil | Inhalt |
   |---|---|
-  | `pieces` | je Route und Segment die Korridorstücke in Gebrauch: t, Halbbreite links und rechts (cm) |
+  | `band` | je Route und Station des Bands: Art, Rückgrat (Versatz cm, Höhe dm), Kanten links und rechts und Versatz der Gegnerlinie (cm) |
   | `stations` | je gemessener Station der Freiraum links und rechts (cm) und warum sie ungemessen blieb |
-  | `walk` | Kappen des Laufwegs je Station und Seite (cm): die Laufweg-Urteile, wie der Korridor sie angewendet hat |
-  | `detours` | Umweg-Stücke (von, bis, Versatz, cm) und Durchgänge |
   | `cells` | Zellen nach ihrer Mitte (cm) |
   | `heights` | Zellhöhen auf 0,1 m gerundet |
   | `tiles` | geometricError des Tiles unter jeder gemessenen Station; je Zelle Sample-Zustand, Tiefe und geometricError |
 
   Routen, Segmente und Zellen gehen nach Schlüssel sortiert ein. Messungen
   von Routen, die nicht mehr in Gebrauch sind (Spawn verschoben), fehlen. Das
-  Urteil des Laufwegs je Zelle geht nicht ein: Es neu zu berechnen läse den
-  Säulen-Cache, und der folgt der Kamera.
+  Urteil je Zelle geht nicht ein: Es neu zu berechnen läse den Säulen-Cache,
+  und der folgt der Kamera.
 
 ### `__routes.describe()`
 
@@ -1617,8 +1491,7 @@ Layer "Show streets" im Layers-Menü der Quick-Actions
   nächsten liegt, die der Weg vom Endknoten des Brücken-Ways bis zum Knoten
   trägt (`carriedDeckY`, wie die Zellen); liegt er mehr als `roofRise` über
   dieser Höhe (Krone, Schild, Auto ohne Boden darunter), die getragene
-  Höhe, wie eine Zelle auf der Mittellinie (`streetUnderRoof`). Ohne Säule
-  am Endknoten wie oben. Welche Knoten dazugehören, sucht
+  Höhe, wie eine Zelle der Strecke. Ohne Säule am Endknoten wie oben. Welche Knoten dazugehören, sucht
   `streetDeckApproaches` im Straßennetz: von beiden Endknoten jedes
   Brücken-Ways über Ways ohne Brücken-Tag, in jede Richtung, ohne Tunnel,
   bis 60 m, je Knoten über den kürzesten Weg. Das ist dieselbe Strecke, die
@@ -1782,7 +1655,7 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Gehweghöhe bleibt im Korridor; eine Hecke 1 m tief und mehr zählt selbst
   als erhöht. Ein erhöhter Garten ohne etwas darauf, das den unteren
   Strahl stoppt, bleibt für die Strahlen offen (0,4 m liegen unter dem
-  Strahl in 1 m) und für den Laufweg auch, solange die Stufe unter
+  Strahl in 1 m) und für den Weg nach außen auch, solange die Stufe unter
   `stepRise` bleibt.
 - **Quergefälle:** Steigt der Boden neben der Straße bis auf die Höhe des
   unteren Strahls (Böschung, Hang), trifft der ihn, und die Säule dahinter
@@ -1793,39 +1666,26 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Strahl stoppt und oben mehr als 0,3 m hoch ist (Stromkasten, Kübel mit
   Bewuchs), engt seine Station (2 m) ein; das Schließen der Einbrüche nimmt
   es nicht weg.
-- Der Laufweg-Check geht von der Mittellinie neben der Zelle aus, dem
-  Median über die Stelle daneben und je zwei Nachbarn auf der Linie.
-  Stehen dort drei und mehr Stellen in Folge auf einer Krone oder einem
-  Auto (OSM-Linie über dem Parkstreifen), greift er nicht, außer wo der
-  Boden einen Schritt daneben zu beiden Seiten mehr als `stepDrop` tiefer
-  liegt (Erhöhte Mittellinie, dann misst er von dort). Unter einer Krone,
-  die auch die Stellen daneben deckt, zählt die Krone: Die Straße jenseits
-  ihres Randes fällt dann als `drop` weg, die Zellen in der Krone bleiben.
-  Zellen, durch die eine Mittellinie läuft,
-  prüft er nicht. Um ein Hindernis auf ihr biegt die Route, wo Platz ist
-  (siehe "Hindernis auf der Mittellinie"); was die Planung nicht erfasst,
-  bleibt: Liegt ihr Treffer mehr als `roofRise` über der Mittellinie
-  ringsum, nehmen sie deren Höhe (siehe Zellhöhe), sonst steigen die Gegner
-  darüber.
-- Hindernis auf der Mittellinie (`corridor-detour.ts`), nicht im Spiel
-  geprüft:
-  - Mit Straße nur auf einer Seite (Auto direkt an einer Mauer oder einem
-    erhöhten Garten) gilt ein Hindernis nur als Buckel der Linie. Eine
-    Reihe ohne Lücke, länger als etwa 12 m, gilt in ihrer Mitte nicht, und
-    die Gegner steigen dort darüber.
-  - Ein Erker oder eine Krone über mehr als etwa 4 m der Linie kippt den
-    Median entlang der Linie und gilt nicht.
-  - Der Weg braucht beiderseits 1,5 m Straße, zusammen etwa 3 m neben dem
-    Hindernis. Ein Auto mitten auf einer Wohnstraße von 5,5 m lässt je Seite
-    etwa 1,8 m; dort steigen die Gegner darüber.
-  - Die Säulen quer zum Weg prüft die Planung nur an den Stellen im Meter-
-    raster entlang der Linie; was zwischen zwei Stellen und zwischen den
-    0,5-m-Säulen quer steht, sieht sie nicht.
-  - Eine Rampe, die kürzer sein muss (Routenende, Brücke, Tunnel, anderes
-    Hindernis), biegt enger als der Wurm; bei der Hälfte der Länge etwa mit
-    5 m Radius.
-  - `__routes.describe()` findet für die Segmente eines Umwegs keinen Way
-    (sie liegen neben seiner Kante).
+- Das Band (`corridor-band.ts`), nicht im Spiel geprüft:
+  - Das Rückgrat sucht nur innerhalb der OSM-Halbbreite plus 1,5 m und
+    innerhalb der Strahlenwände. Liegt die Fahrbahn weiter neben der Linie,
+    bleibt das Band auf dem, was im Fenster liegt.
+  - Eine Autoreihe ohne Lücke, über die die Linie länger als etwa 8 m
+    läuft (vier Stationen), sieht die Regel "Rückgrat nur auf Straßenhöhe"
+    nicht mehr als Straße daneben: Das Band legt sich dann auf die Dächer,
+    und die Gegner steigen darüber.
+  - Die Zellen quer prüft das Band nur auf der Linie durch jede Station;
+    was zwischen zwei Stationen steht, sieht es nur, wenn es auch eine
+    ihrer Querlinien trifft. Auf einer Diagonale kann eine Zelle dazwischen
+    durchrutschen.
+  - Die Gegnerlinie hält `edgeMargin` zu beiden Kanten; ist das Band
+    schmaler als 3 m, läuft sie in seiner Mitte und die Gegner laufen alle
+    auf ihr.
+  - `__routes.describe()` findet für Segmente neben der OSM-Linie keinen
+    Way (sie liegen neben seiner Kante).
+  - Die Ringe des Wurms stehen quer im Korridor und folgen dessen Breite;
+    wo das Band neben einem Transporter von 7 auf 1,5 m schrumpft, gieren
+    benachbarte Ringe bis 16,6 Grad gegeneinander (`worm-detour.spec.ts`).
 - Ein Auto oder eine Hecke am Rand nimmt den Korridor dahinter mit, den
   Gehweg hinter einer Autoreihe eingeschlossen: Der Korridor ist je Seite
   ein Band. Genau dieses Einengen hatte der Playtest vom 2026-09-12 bei den
@@ -1859,7 +1719,7 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   vor ihr.
 - Was ein feineres Tile erst zeigt, während Tower stehen, eine Welle läuft
   oder Gegner da sind, bleibt im Korridor, auf seiner Höhe, bis zum
-  nächsten Neuaufbau (siehe Laufweg).
+  nächsten Neuaufbau (siehe Band).
 - Nähte zwischen Tile-Meshes: Stationen und Zellen versuchen Säulen 0,5 m
   daneben, Lücken füllt der Grid aus den Nachbarn. Eine Lücke breiter als
   eine Zelle bleibt ohne Höhe (rosa), eine Messlücke länger als etwa
