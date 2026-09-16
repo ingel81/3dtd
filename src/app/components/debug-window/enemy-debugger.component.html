@@ -177,10 +177,10 @@
 
           <div class="slider-row">
             <span class="label">Offset Y</span>
-            <input type="range" min="-3" max="3" step="0.1"
+            <input type="range" min="-3" max="10" step="0.1"
                    [value]="selected.overrides.previewOffsetY"
                    (input)="onSelectedSliderChange('previewOffsetY', $event)" />
-            <input type="number" class="number-input" min="-3" max="3" step="0.1"
+            <input type="number" class="number-input" min="-3" max="10" step="0.1"
                    [value]="selected.overrides.previewOffsetY"
                    (change)="onSelectedSliderChange('previewOffsetY', $event)" />
           </div>
