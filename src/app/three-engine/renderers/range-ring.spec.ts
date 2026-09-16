@@ -8,12 +8,18 @@ import {
   KeepStencilOp,
   Mesh,
   NotEqualStencilFunc,
+  PerspectiveCamera,
   Raycaster,
   Scene,
   Vector3,
   ZeroStencilOp,
+  type Vector2,
+  type WebGLRenderer,
 } from 'three';
+import type { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RangeRingKit, createRangeRingGeometry, placeRangeRing } from './range-ring';
+import { CANVAS_RENDERER_OPTIONS } from '../three-tiles-engine';
+import { PostProcessingPipeline } from '../post-processing/post-processing-pipeline';
 
 /** The volume's corners as the vertex shader places them at unit range: inner wall at 0.9, outer at 1. */
 function corners(segments: number): { points: Vector3[]; index: number[] } {
@@ -115,5 +121,25 @@ describe('RangeRingKit', () => {
     scene.updateMatrixWorld(true);
     const ray = new Raycaster(new Vector3(5 + 39.5, 500, 7), new Vector3(0, -1, 0));
     expect(ray.intersectObject(scene, true)).toEqual([]);
+  });
+});
+
+/**
+ * Every target the scene is drawn into needs a stencil buffer, or the
+ * stencil test passes everywhere and each ring paints its whole volume.
+ */
+describe('stencil buffer for the range rings', () => {
+  it('asks the canvas for one', () => {
+    expect(CANVAS_RENDERER_OPTIONS.stencil).toBe(true);
+  });
+
+  it('gives both composer targets one', () => {
+    const renderer = {
+      getSize: (target: Vector2) => target.set(800, 600),
+      getPixelRatio: () => 1,
+    } as unknown as WebGLRenderer;
+    const pipeline = new PostProcessingPipeline(renderer, new Scene(), new PerspectiveCamera());
+    const { composer } = pipeline as unknown as { composer: EffectComposer };
+    expect([composer.renderTarget1.stencilBuffer, composer.renderTarget2.stencilBuffer]).toEqual([true, true]);
   });
 });

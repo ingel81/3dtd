@@ -43,7 +43,7 @@ import { unpickable } from './effect-buffers';
  * Every target the scene is drawn into needs a stencil buffer: the canvas
  * (three-tiles-engine.ts) and the composer target
  * (post-processing-pipeline.ts). Without one the stencil test passes
- * everywhere and draw 3 paints the whole volume.
+ * everywhere and draw 3 paints the whole volume (range-ring.spec.ts holds both).
  *
  * The band keeps about the same width on screen: BAND_PER_M of the camera's
  * distance to the ring at that bearing, between BAND_MIN_M and BAND_MAX_M.
