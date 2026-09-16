@@ -88,7 +88,6 @@ export class WaveDebugService {
 
   // All enemy groups in the current wave (for mixed wave display)
   readonly currentWaveGroups = signal<WaveGroupDisplay[]>([]);
-  readonly isMixedWave = computed(() => this.currentWaveGroups().length > 1);
 
   setEnemyCount(value: number): void {
     this.enemyCount.set(Math.max(1, Math.min(20000, value)));
