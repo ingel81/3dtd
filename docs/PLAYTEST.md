@@ -50,7 +50,8 @@ zoomen und mit G springen.
   `rebuild`. Der Korridor ändert sich nach dem Ladescreen nicht mehr.
 > **Achtung beim Vergleichen:** Der Turm-Fix vom 16.09. ändert den Teil `band` des Fingerprints an jedem Ort. Die
 > Werte unten (Tokyo `e51f7114`, `band 40f24cbd`) taugen nur noch als Vergleich untereinander, nicht gegen neue
-> Läufe. Für den nächsten Vergleich einmal frisch eichen.
+> Läufe. Für den nächsten Vergleich einmal frisch eichen. **Geeicht nach dem Säulen-Fix (`2ecb51d4`): Tokyo
+> `1fc26ab1`**, siehe 745.
 
 - **739 Determinismus: ok.** Tokyo dreimal geladen (mit Intro, Intro abgebrochen plus Zoomen, andere Fenstergröße):
   jedes Mal Fingerprint `e51f7114`, auch jeder Teil gleich.
@@ -81,11 +82,170 @@ zoomen und mit G springen.
   obwohl Tile-Tiefe und geometrischer Fehler je Zelle gleich bleiben. **Nebenbefund:** `reset()` baut ohne zu messen
   (`clearance.start segments=0 stations=0`, `rays=0`) und ändert dabei trotzdem die Höhen; ein Neubau ohne Messung
   sollte entweder neu messen oder ablehnen.
+  **Fix (2026-09-16, `2ecb51d4`, Worker determ, Bericht `tmp/fix1/reports/determ.md`):** Die Vermutung "der Strahl
+  trifft ausblendende Tiles" war falsch, die Bibliothek schneidet nur aktive Tiles. Ursache war der Säulen-Cache: Er
+  hält eine Höhe je 0,5-m-Feld, gemessen am Punkt des ersten Aufrufers. Bei frischer Ladung füllten die Stationen die
+  Felder der Zellmitten zuerst, bei `reset()` (keine Station gemessen) die Zellen selbst; gleiche Tiles, andere Höhen.
+  Für `reset()` per Test belegt (ohne Fix 20 von 67 Zellen anders), für die Navigation nur plausibel. Jetzt castet der
+  Cache in der Feldmitte, Stationen messen exakt am Punkt und ohne Cache. Neu im Trace: `tileSet` in `build.tiles`
+  (Hash über die Tiles, auf denen gemessen wurde). Der Fix ändert `heights` und `band` an jedem Ort, also neu eichen.
+  **Nachtest** (Konsole offen, Filter leer; keine Tower, keine Welle, sonst lehnt `reset()` ab):
+  1. Tokyo `?l=35.65924,139.70049&s=35.65208,139.69853`, F5, Ladescreen abwarten (Intro darf abgebrochen werden).
+     `__corridor.fingerprint()` notieren (**A**, neue Eichung), dazu `tileSet` aus der Zeile
+     `[CorridorTrace] ... build.tiles`.
+  2. Dieselbe URL noch einmal mit F5: Hash gleich A? `tileSet` gleich? (Wenn nicht, taugt `tileSet` nicht, trotzdem
+     weiter.)
+  3. Erlenbach `?l=49.17337,9.26851&s=49.17556,9.26401`, F5, warten. Dann Header "Change location", Tab "Showcase",
+     "Tokyo, Shibuya Crossing", Ladescreen abwarten, nicht neu laden. `__corridor.fingerprint()`: gleich A? `tileSet`
+     der neuen `build.tiles`-Zeile notieren.
+  4. Ohne Neuladen `__corridor.reset()`, warten auf `[Corridor] Corridor rebuilt`. `__corridor.fingerprint()`: gleich
+     A? `tileSet` notieren.
+  Auswertung: 2, 3 und 4 gleich A heißt behoben. Weicht es ab, bitte die Fingerprint-Tabellen und die
+  `build.tiles`-Zeilen schicken; bei anderem `tileSet` wurde auf anderen Tiles gemessen, bei gleichem dazu
+  `__corridor.trace()` nach Schritt 3 und 4.
+  **Nachtest ok (User, 2026-09-16):** frisch, zweites F5, Navigation Erlenbach -> Tokyo und `reset()` liefern alle
+  `1fc26ab1` (band `bab15dbb`, stations `01764c71`, cells `cee4fd07`, heights `31d812ba`, tiles `cb1e6d21`; 470, 387,
+  1509, 1509, 1896 Einträge). **Neue Eichung Tokyo: `1fc26ab1`.** `tileSet` taugt so nur bedingt: frisch `311f13f3`
+  (201 Tiles, coarse 20), nach Navigation und `reset()` `aa4f29c7` (195 Tiles, coarse 14), bei gleichem `fine=181`
+  und gleichem Fingerprint. Der Hash zählt die groben Eltern mit, die noch aktiv sind, aber nicht gemessen werden.
 - **744 Rückfall kostet eine Sekunde umsonst.** Rothenburg 1036 ms ohne Fund, Berlin 1070 ms für eine Station,
   Paris 1087 ms für vier. **Stand 2026-09-16: bewusst offen gelassen.** Ladezeit ist billig, und die Sekunde ist in
   Rothenburg dieselbe Ursache wie die sieben Zellen ohne Höhe; zuerst gehören die geklärt. Einstiegspunkt im Bericht
   `tmp/fix1/reports/corrpassage.md`, Abschnitt 7. Nebenbei behoben: Die Trace meldet `LONG` jetzt nur noch über dem
   eigenen Budget des Schritts, statt bei jedem Messabschnitt (`bea9becd`).
+  **Fix 743/744 (2026-09-16, `27bfa500`, Worker cells7, Bericht `tmp/fix1/reports/cells7.md`):** Die sieben Zellen
+  liegen nicht am Turm, sondern am Marktplatz in einer Reihe am Rand vor dem Laubengang des Rathauses (belegt über
+  Screenshot 082242, Route und OSM). Vermutlich treffen ihre Säulen nichts (Loch im Mesh), und am Rand fehlt das
+  gegenüberliegende Nachbarpaar zum Füllen (plausibel, nicht belegt). Jetzt: Eine Zelle ohne eigene Höhe, die
+  mindestens drei gemessene Zellen derselben Fläche berührt, nimmt deren Median (`filled`); ein Tunnelportal ohne
+  Treffer nimmt die Straße des Bands; der Rückfall für Zellen spart sich den Rückweg auf 2,5 m (Spec 1056 -> 528 ms);
+  `build.fallback` und `build.freeze` nennen `why=` und `at=`. Übrige Zellen ohne Höhe (Lücken ab zwei Zellen Tiefe,
+  Brückenende oder Portal ohne Säule und Straße) bleiben ohne Höhe und stehen nur im Trace (Lead-Entscheidung: keine
+  Höhen erfinden). **Offener Befund:** Für so eine Zelle rechnet die Tower-LOS auf der Höhe des Routenankers, die
+  Gegner stehen dort anders (`route-grid-los.ts:54`, `:66`); nicht angefasst.
+  **Nachtest** (Konsole offen, Filter leer):
+  1. Rothenburg `?l=49.37721,10.17904&s=49.37944,10.18365`, F5, Ladescreen abwarten. Erwartet: keine Zeile
+     `[CorridorTrace] ... build.fallback what=cells`; in `build.freeze` `cellsWithoutHeight=0` ohne `why=` und
+     `fallbackMs=0` (vorher 1036); `[Corridor] build: ... fallback=0.0`.
+  2. Layers "Route Grid Overlay" an, zum Rathaus am Ende der Route (wie Screenshot 082242): vor dem Laubengang keine
+     rosa Zelle, die Randreihe auf Platzhöhe. `__corridor.pick()` auf eine dieser Zellen: `state: 'filled'`.
+  3. Falls doch rosa: die Zeilen `build.freeze ... why=... at=...` und `build.fallback what=cells ...` schicken, dazu
+     `__corridor.pick()` auf eine Stelle aus `at`.
+  4. Gegenprobe Paris `?l=48.85889,2.29320&s=48.86239,2.29190`: `build.fallback what=stations` wie bisher (4
+     gefunden, um 1,07 s), keine Zeile `what=cells`, `cellsWithoutHeight=0`.
+  **Nachtest (User, 2026-09-16):** Die rosa Zellen in Rothenburg sind weg. Neuer Befund siehe 747.
+- **747 Rothenburg: Durchgang unterscheidet sich zwischen Navigation im Spiel und kaltem Einstieg** (User,
+  2026-09-16). Daten folgen. Dafür neu (`aa9cf333`, Worker snapshot, Bericht `tmp/fix1/reports/snapshot.md`): Kachel
+  "Snapshot" unter Developer options, "Waves & Inspect" (oder `__corridor.snapshot()`) lädt den ganzen Korridor als
+  `corridor-<ort>-<cold|nav>-<hhmmss>.json` herunter. Ablauf: Rothenburg kalt laden, Kamera auf den Durchgang,
+  Snapshot; von einem anderen Ort im Spiel nach Rothenburg, Kamera auf den Durchgang, Snapshot. Die Dateien liest der
+  Lead aus dem Download-Ordner.
+  **Auswertung (Lead, Snapshots `tmp/snapshots/corridor-rothenburg-ob-der-tauber-{cold-140702,nav-140807}.json`):**
+  Beide Baue messen auf denselben Tiles (`tileSet` im Bau `2c5bb2bf`, Region `8f6524dd`, 27 feine Tile-Pfade
+  identisch). Verschieden ist die Eingabe: kalt kommt das HQ aus der URL mit 5 Nachkommastellen (`49.37721,10.17904`),
+  nach Navigation mit voller Genauigkeit (`49.377211325…,10.179041659…`), 0,148 m nördlich und 0,120 m östlich; der
+  Spawn liegt ebenso rund 0,1 m daneben. Damit verschiebt sich das 2-m-Zellgitter gegen die Welt, und alles danach
+  weicht ab: 238 von 238 Band-Einträgen, 51 Stationen, 765 gegen 763 Zellen. Am Weißen Turm erkennt der kalte Bau zwei
+  Durchgänge, der navigierte nur einen (`passages=2` gegen `1`); dort stehen im navigierten Bau Zellen auf dem Turm
+  (z.B. Zelle -97,111: 490,37 m statt 480,65 m Straße). **Zwei Befunde:** (a) derselbe Ort hat je nach Einstieg andere
+  Koordinaten; (b) die Durchgangserkennung kippt schon bei 19 cm Versatz des Gitters.
+  **Fix (a) (2026-09-16, `0acd8fe2`, Worker coords, Bericht `tmp/fix1/reports/coords.md`):** HQ und Spawns kommen auf
+  jedem Weg mit 5 Nachkommastellen ins Spiel, so wie die URL sie schreibt (`canonicalCoords` in `utils/geo-utils.ts`):
+  URL, Favoriten, letzte Orte, Dialog, Zufalls-Spawn, Klick-Platzierung. Gespeicherte Orte werden beim Laden gerundet.
+  Die Platzierungs-Vorschau springt in Schritten von rund 1 m, ein Punkt rückt bis 0,66 m. Orte, die bisher mit voller
+  Genauigkeit geladen wurden, bekommen einen anderen Fingerprint (denselben wie über ihre URL). Befund (b) ist in
+  Arbeit (Worker passshift).
+  **Nachtest (a):** Rothenburg `?l=49.37721,10.17904&s=49.37944,10.18365` kalt laden, Snapshot. Anderen Ort laden, im
+  Spiel über Favoriten oder "letzte Orte" nach Rothenburg, Snapshot. Erwartet: beide Dateien gleiche `meta.hq` und
+  gleicher Fingerprint (der Lead vergleicht).
+  **Fix (b) (2026-09-16, `790bff72`, Worker passshift, Bericht `tmp/fix1/reports/passshift.md`):** Beide
+  Durchgangsregeln brauchten ein Rückgrat, unter dem Turm gab es nur eines auf dem Dach; ob zwei Dachzellen eine Stufe
+  auseinander lagen (kalt 0,26 m, nav 0,57 m), entschied über Durchgang oder Zellen auf dem Turm. Dazu prüfte die
+  Linienregel nur die Zelle unter der Station. Jetzt: Durchgang auch ohne Rückgrat, sobald die Gegnerlinie irgendwo eine
+  Zelle mehr als `roofRise` über der Straße kreuzt; Lücken bis 4 m zu einem anderen Durchgang oder OSM-Tunnel werden
+  geschlossen; `passages` im Trace zählt keine Durchgänge mehr, die an einen OSM-Tunnel grenzen. Test: Turm-Szene in 65
+  Gitterlagen, Überdeckungen in drei Winkeln, Pont d'Iéna und A6 in allen Lagen. **Risiko:** Die Bedingung "Band
+  schmaler als 3 m" ist weg, an Traufen oder Kronen können neue Durchgänge entstehen. `passages` bisher: Berlin 0,
+  Erlenbach 0, Paris 0, Tokyo 1, Rothenburg 2 (jetzt erwartet 0, der Turm liegt an einem OSM-Tunnel).
+  **Offene Nebenbefunde (vor dem Fix schon so):** Zellen auf Dächern an Routenecken (`jointCap`, Ratstrinkstube,
+  Markt 3); bei Überdeckung über 30 m liest `street` die Dächer (`PASSAGE_SPAN_M`); Marktplatz-Füllregel greift in 10
+  von 65 Lagen nicht.
+  **Nachtest (a + b):**
+  1. Rothenburg `?l=49.37721,10.17904&s=49.37944,10.18365` kalt, Ladescreen abwarten. Overlay an, Kamera auf den
+     Weißen Turm: gelbe Zellen durchgehend durch das Tor auf Straßenhöhe, keine Zelle auf dem Turm, rote Linie ohne
+     Buckel. Snapshot.
+  2. Anderen Ort laden, im Spiel über Favoriten oder "letzte Orte" nach Rothenburg, gleiche Prüfung, Snapshot.
+  3. Kurz Berlin, Erlenbach, Paris, Tokyo kalt laden: `band.build ... passages=` wie bisher (0, 0, 0, 1)? Wo mehr: dort
+     ein Snapshot mit Kamera auf die gelbe Stelle.
+  **Nachtest ok (User, 2026-09-16, Snapshots in `tmp/snapshots/`, *-1503xx bis *-1509xx):** Rothenburg kalt und nach
+  Navigation identisch, Fingerprint `d8050177` in allen fünf Teilen, `passages=0`, HQ beide `49.37721,10.17904`.
+  `passages`: Berlin 0, Erlenbach 0, Paris 0, Tokyo 2 (vorher 1; laut User legitim). **Neue Eichung** (URL-Orte mit
+  festem Spawn): Rothenburg `d8050177`, Tokyo `efc7362a`, Berlin `1d521dce`, Paris `16fbf786`; Erlenbach mit Spawn
+  `s=49.17434,9.25915` `deaf0179`. **Beobachtung Erlenbach** (dieser Spawn): 2 von 482 Stationen ohne Tile auf beiden
+  Stufen (`lod ... none:2`, `build.fallback what=stations missing=2 found=0`), auf einem Stück von rund 0,6 m
+  (Segment `49.1736292,9.2614654|49.1736286,9.2614738`); `build.band` 1,02 s. Lead aus dem Snapshot: ein rund 2 m
+  breiter Nord-Süd-Streifen ohne jeden Säulentreffer bei `49.17363, 9.26147` (vermutlich Naht zwischen Tiles, nicht
+  belegt); Zellen dort gefüllt, die zwei Stationen auf Standardbreiten. **User: zurückgestellt**, wieder aufmachen,
+  wenn solche Löcher gehäuft Probleme machen.
+- **748 Band an Kurven und Abzweigungen dünn** (User, 2026-09-16, Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`,
+  Snapshot `tmp/snapshots/corridor-stuttgart-nav-152029.json`). **Analyse (Analyst cornerband, nur verstanden, nichts
+  gebaut; Bericht `tmp/fix1/reports/cornerband.md`, Harness `tmp/fix1/cornerband-harness/`):** Nachgerechnet auf
+  0,004 m. Je Station nimmt das Band als Rückgrat die tiefste Zelle im Suchfenster um die OSM-Linie. An der Kurve liegt
+  eine Grünstreifen-Zelle neben der Fahrbahn 0,46 m tiefer und besteht die Einstiegsregeln mit rund 4 cm Luft; Station
+  188 legt ihr Band deshalb neben die Straße, die Nachbarn auf die Fahrbahn. `taperEdges` (`corridor-band.ts:724-730`)
+  begrenzt jede Kante auf 0,5 m je Meter gegen die Nachbarn und klemmt sie am eigenen Rückgrat; zwei seitlich
+  auseinanderliegende Bänder schneiden sich so gegenseitig auf 1 m oder 0 ab. Der Knick verstärkt es (Kanten in
+  gedrehten Segmentrahmen über den Knick verglichen, Querlinien laufen die andere Straße entlang), ist aber nicht die
+  Ursache: Derselbe Kern steckt nachgerechnet in Berlin 157-159 und Paris 64-66 auf geraden Stücken (Rückgrat springt
+  um ein Objekt, in Paris wegen 3 cm), nach Signatur in 35 von 59 schmalen Stationen aus 6 Snapshots. **Merkmal:**
+  falsch schmal, wenn der eigene Lauf breit war, eine Kante am Rückgrat liegt und ein Nachbar ±2 Stationen ein Band
+  ohne Überlappung hat; korrekt schmal, wenn die Kante aus eigenem Lauf oder eigener Wand kommt und die Nachbarn
+  überlappen. **Lösungsrichtungen:** (1) Rückgrat als zusammenhängende Wahl entlang der Route (kürzester Weg über
+  Stationen und begehbare Abschnitte) statt je Station die tiefste Zelle; (2) Taper aufs Intervall statt Kante plus
+  Klemme; (3) gemeinsamer Rahmen am Knick. Empfehlung des Analysten: 1, dann 3. Entscheidung beim User.
+  **User: 1 und 3 bauen, beides zurücknehmbar. Gebaut (2026-09-16, `47b29354`, Worker chainband, Bericht
+  `tmp/fix1/reports/chainband.md`):** (A) Je Station alle begehbaren Wege quer zur Linie; die Kette wählt über alle
+  Stationen die Folge mit möglichst wenig Wechseln ohne Überlappung, dann möglichst wenig Metern über `stepRise`, dann
+  Abstand zur OSM-Linie (lexikographisch, deterministisch). Stationen ohne Weg werden überbrückt. Die Klemme am Rückgrat
+  bleibt. (B) Taper und Ausbuchtungs-Schnitt messen außen am Knick die Kantenlänge um die Ecke, innen und auf geraden
+  Stücken wie vorher. Modell (Säulen außerhalb des Snapshots modelliert): Stuttgart 185-194 von 0,0-5,8 auf 2,5-9,8 m,
+  Berlin 155-163 auf 8,8-12,8 m, Paris 60-66 auf 9,2-14,0 m. **Zurücknehmen** (geprüft, jeweils ohne Konflikt, Suite
+  grün): A `git revert 5b527ec2 d6e679b7 d8c05568 75be147c`, B `git revert 47b29354 d35a753e`. **Risiken:** Tokyo
+  verliert im Modell den Durchgang an Station 207/208 (Kette nimmt einen ebenerdigen Weg daneben); einzelne Stellen
+  schmaler (Stuttgart 134 5,0 auf 1,8 m, 137, Berlin 29, Shibuya 202-204); alle Fingerprints ändern sich.
+  **Nachtest:**
+  1. Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791` kalt, Overlay an, Kurve an der Einmündung: Zellen durchgehend
+     über die Fahrbahn, rote Linie ohne Sprünge. Snapshot.
+  2. Kalt laden, je Snapshot (der Lead vergleicht Breiten gegen die alten Dateien): Rothenburg
+     `?l=49.37721,10.17904&s=49.37944,10.18365`, Berlin `?l=52.51630,13.37759&s=52.51861,13.37529`, Paris
+     `?l=48.85889,2.29320&s=48.86239,2.29190`, Tokyo `?l=35.65924,139.70049&s=35.65208,139.69853`, Erlenbach
+     `?l=49.17337,9.26851&s=49.17434,9.25915`.
+  3. Tokyo gezielt: `band.build ... passages=` (vorher 2) und die gelben Durchgänge zwischen den zwei Knicken: Läuft die
+     Linie noch darunter oder daneben, und ist daneben wirklich begehbar?
+  4. Rothenburg: Weißer Turm weiter ein Durchgang, keine Zelle auf dem Turm.
+  **User (2026-09-16, abends): "Das gesamte Korridorthema ist jetzt mal soweit in Ordnung und vorerst abgenommen."**
+  Neue Snapshots nach `47b29354` liegen nicht vor; die Eichwerte aus 747 gelten nach 748 nicht mehr und sind beim
+  nächsten Vergleich neu zu nehmen.
+- **746 Ladeschritte aufgeräumt (2026-09-16, `78911ecd`, Worker bootclean, Bericht `tmp/fix1/reports/bootclean.md`).**
+  Überblick wird nach dem Einfrieren auf den fertigen Zellen gerahmt und als Startansicht gespeichert (nicht bei
+  HQ-/Spawn-Umzug). Schritt "Waiting for 3D Tiles" gestrichen (10 statt 11 Schritte); beim Ortswechsel läuft das
+  Warten auf die ersten Tiles jetzt unter "Placing Headquarters". Tote Reste entfernt. Im Spiel: kein
+  `init...IfEnabled` mehr je Tile-Satz, Straßen werden nur gerechnet, wenn Straßen oder Höhen-Marker sichtbar sind.
+  `tileSet` hasht nur noch die feinen Tiles (alte Werte gelten nicht). Frühe Zellerzeugung bleibt: kostet laut Logs
+  1,7 bis 2,7 ms je Ladung. Nicht im Browser geprüft.
+  **Nachtest** (Konsole offen, Filter leer):
+  1. Tokyo `?l=35.65924,139.70049&s=35.65208,139.69853`, F5: 10 Schritte, zu jedem Zeitpunkt genau einer aktiv, kein
+     "Waiting for 3D Tiles". Nach `[Corridor] build` die Zeile `[Camera] ... corridor.cameraCorrection`. Die Kamera am
+     Ende des Ladescreens bzw. nach der Intro-Landung steht sauber über der Route.
+     `__corridor.fingerprint()` = `1fc26ab1`, `tileSet` aus `build.tiles` notieren.
+  2. Noch einmal F5: Fingerprint `1fc26ab1`, `tileSet` gleich wie in 1.
+  3. Erlenbach `?l=49.17337,9.26851&s=49.17556,9.26401` laden, im Spiel "Change location" -> Tab "Showcase" -> "Tokyo,
+     Shibuya Crossing": nach "Loading Street Network" dreht sofort "Placing Headquarters". Danach Fingerprint
+     `1fc26ab1`, `tileSet` gleich wie in 1. Dann `__corridor.reset()`: Fingerprint und `tileSet` gleich.
+  4. Straßen aus (Vorgabe): `__raycastStats()` notieren, zoomen, bis Tiles nachladen, erneut `__raycastStats()`: der
+     Posten `streets` wächst nicht. Straßen einschalten: gelbe Linien erscheinen nach kurzer Zeit.
+  5. "Route Grid Overlay" an, F5: Overlay erscheint mit dem Ende von "Measuring the Corridor" und ändert sich beim
+     Zoomen nicht.
 
 ## Nachtests 3 (Fixes der Session 4, 15.09.)
 
