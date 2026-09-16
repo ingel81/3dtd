@@ -789,10 +789,9 @@ describe('VisualizationFacadeService', () => {
       expect(bridge.setFilteredStreetNetwork).not.toHaveBeenCalled();
     });
 
-    it('renders the filtered and the full network with the store visibility', () => {
-      store.streetsVisible.set(false);
+    it('renders the filtered and the full network', () => {
       facade.renderStreets();
-      expect(streetRendering.renderStreets).toHaveBeenCalledWith(engine, filteredNetwork, streetNetwork, HQ, false);
+      expect(streetRendering.renderStreets).toHaveBeenCalledWith(engine, filteredNetwork, streetNetwork, HQ);
     });
   });
 

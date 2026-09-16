@@ -61,6 +61,8 @@ interface PreparedNode {
  *
  * Uses progressive rendering to avoid main-thread stutter:
  * startStreetRender() collects work, continueStreetRender() processes in batches.
+ * Renders only while the streets or the height markers show; a render asked
+ * for while both are hidden waits until one of them shows (renderSkipped).
  */
 @Injectable({ providedIn: 'root' })
 export class StreetRenderingService {
@@ -77,11 +79,18 @@ export class StreetRenderingService {
   /** Flag to prevent concurrent renderStreets calls */
   private isRenderingStreets = false;
 
+  /** The last render asked for while nothing of it showed, see renderStreets() */
+  private skipped: {
+    engine: ThreeTilesEngine;
+    filteredNetwork: StreetNetwork;
+    fullNetwork: StreetNetwork | null;
+    baseCoords: GeoPosition;
+  } | null = null;
+
   /** Progressive street build state */
   private streetBuildState: {
     engine: ThreeTilesEngine;
     overlayGroup: Group;
-    visible: boolean;
     heightAboveGround: number;
     streets: StreetNetwork['streets'];
     /** Flat list of all nodes to process (across all streets) */
@@ -106,10 +115,18 @@ export class StreetRenderingService {
     filteredNetwork: StreetNetwork | null,
     fullNetwork: StreetNetwork | null,
     baseCoords: GeoPosition,
-    visible: boolean
   ): void {
     // Guard: Only render when filtered (prevents 16s raycast on unfiltered streets)
     if (!filteredNetwork) return;
+
+    // Hidden streets and hidden height markers: nothing of this would show,
+    // yet every node costs its rays, on each tile batch and each height
+    // update of a load. Keep the request until one of them shows.
+    if (!this.showsAnything()) {
+      this.skipped = { engine, filteredNetwork, fullNetwork, baseCoords };
+      return;
+    }
+    this.skipped = null;
 
     // Cancel any ongoing progressive build and reset guard
     if (this.streetBuildState) {
@@ -196,7 +213,6 @@ export class StreetRenderingService {
     this.streetBuildState = {
       engine,
       overlayGroup,
-      visible,
       heightAboveGround,
       streets: networkToRender.streets,
       allNodes,
@@ -327,7 +343,8 @@ export class StreetRenderingService {
       });
 
       this.streetLinesMesh = new LineSegments(geometry, material);
-      this.streetLinesMesh.visible = s.visible;
+      // As the toggle stands now, which may have changed during the build
+      this.streetLinesMesh.visible = this.uiStore.streetsVisible();
       this.streetLinesMesh.renderOrder = 1;
       this.streetLinesMesh.frustumCulled = false;
       s.overlayGroup.add(this.streetLinesMesh);
@@ -353,6 +370,23 @@ export class StreetRenderingService {
    */
   toggleVisibility(): void {
     this.setVisibility(this.uiStore.streetsVisible());
+    this.renderSkipped();
+  }
+
+  /**
+   * The render renderStreets() kept back while the streets and the height
+   * markers were hidden, now that one of them shows: when the streets or the
+   * height markers are switched on.
+   */
+  renderSkipped(): void {
+    const skipped = this.skipped;
+    if (!skipped || !this.showsAnything()) return;
+    this.renderStreets(skipped.engine, skipped.filteredNetwork, skipped.fullNetwork, skipped.baseCoords);
+  }
+
+  /** The streets show, or the height markers along them do. */
+  private showsAnything(): boolean {
+    return this.uiStore.streetsVisible() || this.uiStore.heightDebugVisible();
   }
 
   /**
@@ -367,6 +401,7 @@ export class StreetRenderingService {
    */
   dispose(overlayGroup: Group): void {
     this.streetBuildState = null;
+    this.skipped = null;
     if (this.oldStreetLinesMesh) {
       overlayGroup.remove(this.oldStreetLinesMesh);
       this.oldStreetLinesMesh.geometry.dispose();
@@ -389,6 +424,7 @@ export class StreetRenderingService {
     this.oldStreetLinesMesh = null;
     this.isRenderingStreets = false;
     this.streetBuildState = null;
+    this.skipped = null;
   }
 
   /**

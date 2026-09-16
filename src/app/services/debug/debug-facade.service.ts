@@ -1,6 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
+import { StreetRenderingService } from '../world/street-rendering.service';
 import { CombatEffectService } from '../combat/combat-effect.service';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
@@ -24,6 +25,7 @@ function toFpsLimit(value: unknown): FpsLimit {
  * from TowerDefenseComponent. Delegates to specialized services:
  * - UIStore: debug log, height debug toggle
  * - MarkerVisualizationService: height debug marker visualization
+ * - StreetRenderingService: the street render that places those markers
  * - GameStateManager: game state cheats (credits, health)
  *
  * Also owns the display options (persisted in one object, see
@@ -33,6 +35,7 @@ function toFpsLimit(value: unknown): FpsLimit {
 export class DebugFacadeService {
   private readonly uiStore = inject(UIStore);
   private readonly markerViz = inject(MarkerVisualizationService);
+  private readonly streetRendering = inject(StreetRenderingService);
   private readonly combatEffect = inject(CombatEffectService);
 
   /** Display options as stored at startup; the shared signals below start from them. */
@@ -159,11 +162,14 @@ export class DebugFacadeService {
   // ========================================
 
   /**
-   * Toggle height debug visualization (signal + marker visibility)
+   * Toggle height debug visualization (signal + marker visibility). The
+   * markers come from the street render, which waits while nothing of it
+   * shows (StreetRenderingService.renderSkipped).
    */
   toggleHeightDebug(): void {
     this.uiStore.toggleHeightDebug();
     this.markerViz.toggleHeightDebug(this.heightDebugVisible());
+    this.streetRendering.renderSkipped();
   }
 
   // ========================================

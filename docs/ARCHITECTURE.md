@@ -564,6 +564,11 @@ Tower-Platzierung und Kamera-Bewegung lösten früher schwere Frame-Drops aus
 
 **Street Rendering:**
 - `renderStreets()` sammelt alle Nodes und gibt sofort zurück
+- Gerechnet wird nur, solange die Straßen oder die Höhen-Marker entlang der Straßen
+  sichtbar sind (Vorgabe: beide aus). Sonst merkt sich der Dienst den letzten Auftrag
+  und holt ihn beim Einblenden nach (`renderSkipped`, aus dem Straßen- und dem
+  Höhen-Debug-Schalter); bis 2026-09-16 probte jeder Tile-Schub und jede Höhenrunde
+  alle Straßen-Nodes auch bei ausgeblendeten Straßen
 - `continueStreetRender()` verarbeitet 50 Nodes/Frame (je 5 Raycasts bei Lateral Sampling)
 - Alte Straßen bleiben sichtbar bis neue fertig (kein Flackern)
 - Tile-Reload-Callback: von 350-600ms auf 14-34ms reduziert

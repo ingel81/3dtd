@@ -589,7 +589,6 @@ export class VisualizationFacadeService {
       this.bridge.getFilteredStreetNetwork(),
       this.bridge.getStreetNetwork(),
       { lat: base.lat, lon: base.lon },
-      this.store.streetsVisible()
     );
   }
 
