@@ -1,7 +1,7 @@
 # Run-Dump: Plan
 
 **Status:** Plan, nicht gebaut. Anforderungen des Users vom 2026-09-14, aus TODO.md hierher verschoben (2026-09-16).
-Der Eintrag in [TODO.md](../TODO.md) (Gruppe E) verweist hierher.
+Der Eintrag E1 in [TODO.md](../TODO.md) verweist hierher.
 
 ## Ziel
 
@@ -34,8 +34,8 @@ erfasst wird, und darauf aufbauen statt ein zweites System daneben zu stellen.
   Forschung).
 - Drei Datenquellen fürs Balancing: menschliche Spieler, die Strategie-Bots und der Regel-Director. Das
   PPO/ONNX-Training ist vermutlich obsolet; zuerst sichten, was aus der Trainings-Infrastruktur verwertbar ist
-  (WebSocket-Client, Server, Logger, AIDataCollector, Snapshot-Teile, Bot-System, Training-Session, Dashboard). Hängt an
-  der Entscheidung zum ONNX-Pfad (TODO.md, B1).
+  (WebSocket-Client, Server, Logger, AIDataCollector, Snapshot-Teile, Bot-System, Training-Session, Dashboard).
+  Entschieden am 2026-09-16: ONNX-Pfad und Training bleiben im Repo, die Infrastruktur also auch.
 
 ## Bestand (Sichtung 2026-09-14, Pfade unter `src/app/`)
 

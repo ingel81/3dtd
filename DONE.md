@@ -28,6 +28,24 @@ Eintrag "Korridor einmal fertig messen, dann einfrieren" bleibt bis zu den Nacht
 - [x] **Veraltete Doku und Kommentare nachgezogen**: ARCHITECTURE, DEVWORLD, ROUTE_CORRIDOR, STATIC_WAVE_FALLBACK,
       ROUTE_ALIGNED_CELLS_CONCEPT und Code-Kommentare zum eingefrorenen Korridor, zum lokalen Frame und zu gelöschten
       Dateien (`3d6d9894`).
+- [x] **Weitere Dokumente im Archiv**: `HANDOVER_RULE_DIRECTOR.md` und `HANDOVER_TRAINING_REFRESH.md` (`f5b1bb18`),
+      `PERF_BUG_ANALYSIS_2026-05-28.md` mit den Benchmarks jetzt in ARCHITECTURE, die Abschnitte 0 bis 6 von
+      `PLAYER_AGENCY_CONCEPT.md` als `archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md` (`6814d454`).
+
+### Entscheidungen des Users
+
+Getroffen über die Klickliste vom 2026-09-16; keine Arbeit daraus.
+
+- [x] **ONNX-Modell und Training bleiben** im Repo (Opt-in im Debug-Fenster, Backend für Trainingsläufe).
+- [x] **Kette und Knick-Rahmen (Playtest 748) bleiben.**
+- [x] **Skarnax-Ringe**, die neben einem Transporter schräg im Korridor stehen, stören nicht.
+- [x] **Suchscheinwerfer bleibt, wie er ist** (kodiert sein Licht selbst, nicht über `displayLight`).
+- [x] **Dev-Menü, Konsolen-Globals und Dauer-Messungen bleiben im Release-Build**: Cheats, `__corridor`, `__rg`,
+      `__perf` usw., die Raycast-Zeitmessung und das `[Camera]`-Log.
+- [x] **32 Worker-Entscheidungen bestätigt**, die im Playtest ohne Einwand blieben, dazu "Shader-Prüfung mit
+      glslangValidator bleibt manuell" (ARCHITECTURE.md, Abschnitt 13). Die Entscheidungen stehen in `docs/archive/`:
+      REVIEW_SPRINT_2026-09-11 Nr. 1; -12 Nr. 1, 4, 7; -13 Nr. 3 bis 14, 16 bis 18; -14 Nr. 1, 4, 5, 11, 13, 16, 17,
+      19 bis 21, 24, 26, 28.
 
 ---
 
@@ -126,7 +144,7 @@ Bestätigt im Playtest 2 vom 14.09. (Punkte 101 bis 440 in `docs/archive/REVIEW_
 
 Bestätigt im Playtest 2 vom 14.09. (Punkte 1 bis 56 in `docs/archive/REVIEW_SPRINT_2026-09-12.md`). Die Einträge
 zum Training (Lazy-Loading, Dashboard, Backend-Struktur, Bot-Snapshots) sind nicht mit einem echten Trainingslauf
-geprüft; ob es den noch gibt, ist eine offene Entscheidung in TODO.md.
+geprüft; das Training bleibt (Entscheidung vom 2026-09-16).
 
 - [x] **Verhaltensprüfung nach dem Terrain- und Performance-Umbau**: Gift bei Timescale, Frost-Aura, Luft-Einheiten,
       Terrain-Höhen. Playtest 5 bis 8; den Headless-Trainingslauf hat niemand geklickt.

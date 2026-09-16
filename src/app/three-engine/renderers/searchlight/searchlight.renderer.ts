@@ -163,7 +163,7 @@ const SEARCHLIGHT_FRAGMENT_SHADER = /* glsl */ `
     vec3 light = uColor * (uIntensity * facing * facing * fall * fall);
     // Given in display values: decoded, then encoded for the target, it
     // shows as it is on the canvas and as linear light through the
-    // post-processing target (same as the portal's summoning circle)
+    // post-processing target; kept this way rather than displayLight (2026-09-16)
     gl_FragColor = linearToOutputTexel(sRGBTransferEOTF(vec4(light, 1.0)));
   }
 `;
