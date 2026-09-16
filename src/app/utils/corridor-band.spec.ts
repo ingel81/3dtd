@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { BandColumn, BandRoute, CorridorBand, PASSAGE_SPAN_M, bandPath, buildBand, smoothCentre } from './corridor-band';
 import { corridorConfig, resetCorridorConfig, setCorridorConfig } from './route-corridor';
+import { segmentTouchesCell } from './route-grid-builder';
 
 const CELL = 2;
 
@@ -117,15 +118,86 @@ describe('buildBand', () => {
     for (const st of band.stations) expect(st.street, `${st.s}`).toBe(0);
   });
 
-  /*
-   * The second way into a passage, the cell the line runs through standing
-   * on a roof while the backbone is still on the street, needs a line at an
-   * angle to the cell lattice: only then can the nearest cell centre across
-   * belong to one cell and the point itself to the next. On this street
-   * along a row of cells the two are always the same cell. The scene
-   * "Weisser Turm" in integration/corridor-band.scenes.spec.ts guards it on
-   * the real line instead.
+  /**
+   * Playtest 747: the same gate tower loaded twice, the cell lattice 19 cm
+   * apart, gave two passages and one. A lane at an angle to the lattice,
+   * shifted by every quarter cell: the line crosses cells between two
+   * stations, and which cells lie under a station depends on the shift.
    */
+  describe('wherever the cell lattice lies', () => {
+    const shifts = Array.from({ length: 64 }, (_, i) => [Math.floor(i / 8) * 0.25, (i % 8) * 0.25] as const);
+
+    /**
+     * A lane 4 m wide between houses 8 m high, 120 m long at `angle` to the
+     * lattice from (dx, 1 + dz), covered `cover(s)` high `s` metres along it,
+     * a tunnel from OSM from `tunnel[0]` to `tunnel[1]` metres along it. The
+     * rays leave 1.5 m either side.
+     */
+    const lane = (angle: number, [dx, dz]: readonly [number, number], cover: (s: number) => number, tunnel?: readonly [number, number]) => {
+      const [ux, uz] = [Math.cos(angle), Math.sin(angle)];
+      const [x0, z0] = [dx, 1 + dz];
+      const along = (x: number, z: number) => (x - x0) * ux + (z - z0) * uz;
+      const across = (x: number, z: number) => (z - z0) * ux - (x - x0) * uz;
+      const cuts = tunnel ? [0, tunnel[0], tunnel[1], 120] : [0, 120];
+      const segments = cuts.slice(1).map((end, i) => ({ length: end - cuts[i], tunnel: tunnel !== undefined && i === 1 }));
+      const walls = () => segments.map((seg) => new Array<number>(Math.round(seg.length / corridorConfig.stationSpacing)).fill(1.5));
+      const route: BandRoute = {
+        points: cuts.map((s) => ({ x: x0 + s * ux, z: z0 + s * uz })),
+        open: segments.map((seg) => !seg.tunnel),
+        covered: segments.map((seg) => seg.tunnel),
+        streetHalfWidth: segments.map(() => 1.5),
+        wallLeft: walls(),
+        wallRight: walls(),
+      };
+      const ground = columns((x, z) => (Math.abs(across(x, z)) >= 2 ? 8 : cover(along(x, z))));
+      return { route, ground, along };
+    };
+
+    /** What covers the lane from `from` to `to`, and how many passages the band lists. */
+    const covers: readonly { what: string; from: number; to: number; cover: (s: number) => number; tunnel?: readonly [number, number]; listed: number }[] = [
+      { what: 'a jetty', from: 55.5, to: 58.5, cover: (s) => (s >= 55.5 && s <= 58.5 ? 5 : 0), listed: 1 },
+      { what: 'a gate tower', from: 50, to: 62, cover: (s) => (s >= 50 && s <= 62 ? 20 : 0), listed: 1 },
+      // In 747 the lane before the tower was covered 2.7 to 2.9 m over the street, 2.3 m at one station.
+      {
+        what: 'a vault whose soffit dips under roofRise for 2 m', from: 40, to: 52,
+        cover: (s) => (s >= 40 && s <= 52 ? (s >= 45 && s < 47 ? 2.2 : 2.8) : 0), listed: 1,
+      },
+      // The mesh of a gate tower reaching past the mouth of its archway, the street open for 2 m before it: the
+      // archway is longer, no passage of its own.
+      { what: 'the mesh before an archway from OSM', from: 48, to: 58, cover: (s) => (s >= 48 && s < 56 ? 20 : 0), tunnel: [58, 64], listed: 0 },
+    ];
+    for (const { what, from, to, cover, tunnel, listed } of covers) {
+      it(`runs one passage under ${what}, and the line runs through no cell on it outside the passage`, () => {
+        for (const angle of [0, 0.5, Math.PI / 4]) {
+          for (const shift of shifts) {
+            const at = `angle ${angle.toFixed(2)} lattice ${shift.join(', ')}`;
+            const { route, ground, along } = lane(angle, shift, cover, tunnel);
+            const band = buildBand(route, ground, CELL, 'band');
+            expect(band.passages, at).toHaveLength(listed);
+            // Every station whose cell lies under the cover whatever the lattice is part of it, none two cells off it.
+            const inside = CELL * Math.SQRT1_2;
+            for (const st of band.stations) {
+              const s = along(st.x, st.z);
+              if (s >= from + inside && s <= to - inside) expect(st.kind, `${at} s ${s.toFixed(2)}`).toBe('passage');
+              if ((s < from - 2 * CELL || s > to + 2 * CELL) && !route.covered[st.segment]) expect(st.kind, `${at} s ${s.toFixed(2)}`).not.toBe('passage');
+            }
+            // Every cell the line runs through outside the passage (claimSegmentCells) is on the street.
+            const path = bandPath(route, band);
+            for (let i = 0; i + 1 < path.length; i++) {
+              if (path[i].passage) continue;
+              const [a, b] = [path[i], path[i + 1]];
+              for (let gx = Math.floor(Math.min(a.x, b.x) / CELL); gx <= Math.floor(Math.max(a.x, b.x) / CELL); gx++) {
+                for (let gz = Math.floor(Math.min(a.z, b.z) / CELL); gz <= Math.floor(Math.max(a.z, b.z) / CELL); gz++) {
+                  if (!segmentTouchesCell(CELL, a, b, gx, gz)) continue;
+                  expect(ground((gx + 0.5) * CELL, (gz + 0.5) * CELL)!.ground, `${at} cell ${gx},${gz}`).toBeLessThanOrEqual(corridorConfig.roofRise);
+                }
+              }
+            }
+          }
+        }
+      });
+    }
+  });
 
   it('takes no passage on a street that climbs, and gives its slope back', () => {
     const band = buildBand(street(), columns((x) => 0.08 * x), CELL, 'band');
