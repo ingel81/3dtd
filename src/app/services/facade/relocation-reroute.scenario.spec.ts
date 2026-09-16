@@ -293,7 +293,8 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
     const spawns = store.spawnPoints();
     expect(spawns).toHaveLength(1);
     const spawn = spawns[0];
-    expect(local(spawn).z).toBeCloseTo(400, 6);
+    // On the north bank street, its node rounded to canonical coordinates
+    expect(Math.abs(local(spawn).z - 400)).toBeLessThan(1);
     expect(metres(spawn, HQ_ACROSS)).toBeGreaterThanOrEqual(MIN_SPAWN_DISTANCE);
     expect(metres(spawn, HQ_ACROSS)).toBeLessThanOrEqual(MAX_SPAWN_DISTANCE);
 

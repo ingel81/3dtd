@@ -291,7 +291,8 @@ Gerundet wird dort, wo Koordinaten ins Spiel kommen, bevor Origin, Routen oder K
 |--------|----------------------|
 | `LocationManagementService.setLocation`, `setGeneratedSpawns` | Der Ort beim Start (URL, Browser-Standort, Dialog) und nach jedem Wechsel; URL, Favoriten, Zuletzt gespielt und Weltkarte speichern ihn von hier |
 | `LocationChangeCoordinatorService.applyNewLocation` | Jeder Ortswechsel: Dialog (Suche, Koordinaten, Zuletzt gespielt, Showcase, Weltkarte), Favorit, HQ außerhalb der Straßen, erneuter Versuch. Der Dialog-Zweig rundet das HQ schon davor, weil er die Straßen für einen Zufalls-Spawn um das HQ lädt |
-| `LocationFacadeService.addSpawnPoint` | Jeder Spawn im Spiel, auch der zufällige auf einem OSM-Knoten (7 Stellen) |
+| `OsmStreetService.findRandomStreetPoint` | Der Zufalls-Spawn: der OSM-Knoten (7 Stellen) gerundet, bevor Abstand und Route geprüft werden. Gerundet kann der Punkt näher an einem anderen Weg liegen; geprüft wird die Route, die der Spawn dann wirklich bekommt |
+| `LocationFacadeService.addSpawnPoint` | Jeder Spawn im Spiel |
 | `MapPlacementService.updatePreviewPosition` | HQ und Spawn per Klick: Prüfung und Vorschau sehen den Punkt, der gesetzt wird; die Vorschau folgt dem Cursor dadurch in Schritten von rund einem Meter |
 
 - Gespeicherte Orte mit mehr Stellen (Favoriten, Zuletzt gespielt, Weltkarte) bleiben im Speicher, wie sie sind, und werden gerundet, wenn der Ort geladen wird. Neue Einträge kommen aus `LocationManagementService` und sind schon kanonisch; eine Migration gibt es nicht

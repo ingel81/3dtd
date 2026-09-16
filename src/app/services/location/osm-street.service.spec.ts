@@ -305,6 +305,31 @@ describe('OsmStreetService', () => {
   // loadStreets: the Overpass servers
   // ════════════════════════════════════════════════════════════
 
+  describe('findRandomStreetPoint', () => {
+    it('checks the route from where the spawn will stand, the node rounded as the game takes it', () => {
+      // A street north along lon 9, its far end at more digits than the URL keeps.
+      const s0 = { id: 0, lat: 48.0, lon: 9.0 };
+      const s1 = { id: 1, lat: 48.003, lon: 9.0 };
+      const s2 = { id: 2, lat: 48.0045678912, lon: 9.0000012345 };
+      const network: StreetNetwork = {
+        streets: [
+          { id: 100, name: 'Süd', type: 'residential', nodes: [s0, s1] },
+          { id: 200, name: 'Nord', type: 'residential', nodes: [s1, s2] },
+        ],
+        nodes: new Map([s0, s1, s2].map((n) => [n.id, n])),
+        bounds: { minLat: 48.0, maxLat: 48.0046, minLon: 9.0, maxLon: 9.0 },
+      };
+      const findPath = vi.spyOn(service, 'findPath');
+
+      // 20 m east of the middle of Süd; only s2 lies 300 m or more off.
+      const spawn = service.findRandomStreetPoint(network, 48.0015, 9.00027, 300, 1000);
+
+      expect(spawn).toMatchObject({ lat: 48.00457, lon: 9, nodeId: 2 });
+      expect(findPath).toHaveBeenCalledOnce();
+      expect(findPath.mock.calls[0].slice(1, 3)).toEqual([48.00457, 9]);
+    });
+  });
+
   describe('loadStreets', () => {
     /** A request to a fake Overpass server, answered by the test. */
     interface OverpassRequest {

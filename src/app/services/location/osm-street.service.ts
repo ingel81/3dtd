@@ -2,7 +2,7 @@ import { inject, Injectable } from '@angular/core';
 import { RandomSpawnCandidate } from '../../models/location.types';
 import { StreetCacheService } from './street-cache.service';
 import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
-import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { METERS_PER_DEGREE_LAT, canonicalCoords } from '../../utils/geo-utils';
 import { SegmentRoutes, type RouteTail } from '../../utils/route-start';
 import {
   MinHeap,
@@ -948,6 +948,11 @@ export class OsmStreetService {
    * Find a random street point within a distance range from center
    * Used for generating random spawn points
    *
+   * A candidate stands at its node's canonical coordinates
+   * (canonicalCoords), where the spawn will stand, and its route is checked
+   * from there: rounded, the point can lie nearer another way than the one
+   * the node is on.
+   *
    * @param network - The loaded street network
    * @param centerLat - Center latitude (HQ position)
    * @param centerLon - Center longitude (HQ position)
@@ -972,11 +977,12 @@ export class OsmStreetService {
       }
 
       for (const node of street.nodes) {
-        const distance = this.haversineDistance(centerLat, centerLon, node.lat, node.lon);
+        const { lat, lon } = canonicalCoords(node);
+        const distance = this.haversineDistance(centerLat, centerLon, lat, lon);
         if (distance >= minDistance && distance <= maxDistance) {
           candidates.push({
-            lat: node.lat,
-            lon: node.lon,
+            lat,
+            lon,
             distance,
             streetName: street.name,
             nodeId: node.id,
