@@ -15,12 +15,10 @@ function createEngineInitStub() {
   return {
     loading: signal(true),
     error: signal<string | null>(null),
-    loadingStatus: signal('Initializing...'),
     loadingSteps: signal<{ id: string; title: string; status: string; meta?: string }[]>([]),
     reset: () => {
       engineInitStub.loading.set(true);
       engineInitStub.error.set(null);
-      engineInitStub.loadingStatus.set('Initializing...');
       engineInitStub.loadingSteps.set([]);
     },
   } as unknown as EngineInitializationService;

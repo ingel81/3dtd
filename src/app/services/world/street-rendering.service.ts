@@ -390,13 +390,6 @@ export class StreetRenderingService {
   }
 
   /**
-   * Check if streets are currently rendered
-   */
-  hasStreets(): boolean {
-    return this.streetLinesMesh !== null;
-  }
-
-  /**
    * Dispose street mesh and cleanup
    */
   dispose(overlayGroup: Group): void {

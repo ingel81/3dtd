@@ -9,7 +9,7 @@ describe('EngineStore', () => {
     store = new EngineStore();
   });
 
-  // NOTE: loading, error, loadingStatus, loadingSteps signals are now owned by
+  // NOTE: loading, error, loadingSteps signals are now owned by
   // EngineInitializationService and proxied through TowerDefenseStore directly.
   // EngineStore no longer holds those signals.
 

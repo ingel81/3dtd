@@ -3,7 +3,7 @@ import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
 
 @Injectable({ providedIn: 'root' })
 export class EngineStore {
-  // NOTE: loading, error, loadingStatus, loadingSteps signals are owned by
+  // NOTE: loading, error, loadingSteps signals are owned by
   // EngineInitializationService (the writer). TowerDefenseStore proxies them
   // directly from the service. EngineStore no longer duplicates them.
 

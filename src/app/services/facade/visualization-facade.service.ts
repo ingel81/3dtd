@@ -631,7 +631,6 @@ export class VisualizationFacadeService {
     const ticket = this.corridor.expect();
     this.heightUpdate.initialize(
       engine,
-      this.engineInit.loadingStatus,
       // The markers only: the cells get their heights from the corridor build.
       () => this.markerViz.updateMarkerHeights(),
       () => this.renderStreets(),
