@@ -77,12 +77,14 @@ Je Station (`TerrainQueries.measureStreetClearance`):
 
 1. Eine Säulenprobe unter der Station. Findet sie gar kein Tile, steht die
    Station womöglich auf einer Naht zwischen zwei Tile-Meshes; dann versucht
-   sie die Säulen 0,5 m voraus und 0,5 m zurück entlang der Route
-   (`SEAM_SHIFTS_M`, `terrain-queries.ts`) und misst von der ersten, die ein
-   Tile findet. Das kostet höchstens zwei weitere Säulen, nur für solche
-   Stationen; `__corridor.pick()` zeigt die Verschiebung als `shiftM`. Ohne
-   Tile auch dort ist die Station `unmeasured: 'no tile'`, mit einem Tile
-   gröber als `maxTileError` ist sie `unmeasured: 'coarse tile'`.
+   sie die nächste Säule voraus und zurück entlang der Route (`SEAM_SHIFTS`,
+   `terrain-queries.ts`: ein 0,5-m-Feld weiter auf der Hauptachse der Route,
+   also 0,5 m entlang einer Achse und bis 0,71 m diagonal) und misst von der
+   ersten, die ein Tile findet. Das kostet höchstens zwei weitere Säulen, nur
+   für solche Stationen; `__corridor.pick()` zeigt die Verschiebung in Metern
+   als `shiftM`. Ohne Tile auch dort ist die Station `unmeasured: 'no tile'`,
+   mit einem Tile gröber als `maxTileError` ist sie
+   `unmeasured: 'coarse tile'`.
 2. Je Strahlhöhe ein waagrechter Strahl nach links und einer nach rechts, in
    1 m und 3,5 m über der Fläche, auf der die Zellen dort stehen (`surfaceY`,
    siehe Zellhöhe), jeder `maxHalfWidth` lang. Das ist der Boden der Säule,
@@ -323,6 +325,20 @@ erreichen.
 
 Die Höhe einer Zelle kommt aus der Säulenprobe an ihrem Mittelpunkt: der
 unterste Treffer der feinsten LOD (`column-sample.ts`).
+
+**Eine Säule je 0,5-m-Feld** (`columnCentre`, `terrain-queries.ts`): Der
+Säulen-Cache hält eine Säule je 0,5-m-Feld, und ihr Strahl steht in der
+Mitte des Felds, nicht an dem Punkt, der fragt. Zellen und Band proben auf
+ganzen und halben Metern, also genau dort; eine Station, ein Knoten des
+Straßen-Overlays oder ein Tower liest die Säule bis 0,35 m neben sich. Bis
+2026-09-16 stand der Strahl am ersten Punkt, der fragte, und jeder weitere
+Punkt des Felds bekam dessen Höhe. Die Zellen eines Baus hingen damit davon
+ab, was vorher gesampelt hatte: bei einer frischen Ladung die Stationen,
+bei `__corridor.reset()` (gespeicherte Messungen, `stations=0`) nichts. So
+ergab Tokyo in einer Sitzung drei Korridore mit gleichen `stations`, `cells`
+und `tiles` und anderen `band` und `heights` (PLAYTEST 745). Nachgestellt in
+`integration/corridor-column-order.spec.ts` auf dem Strahlweg der Bibliothek
+(`test/library-tiles-fixture.ts`).
 
 - **Naht zwischen zwei Tile-Meshes** (`RouteCellSampler.sampleCellY`,
   `CELL_PROBES_M`): Findet die Säule am Mittelpunkt kein Tile oder nur einen
@@ -1041,7 +1057,7 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
     Zahlen von vor dem Stückeln.
   - `slices`: Scheiben, eine je Frame. `wall`: Zeit vom Start bis zum Ende
     des Laufs.
-  - `noTile`: nur wenn Stationen auch 0,5 m voraus und zurück kein Tile
+  - `noTile`: nur wenn Stationen auch eine Säule voraus und zurück kein Tile
     fanden. Ihre lokalen `x,z` (wie `[Corridor] pick at` sie druckt), mit `;`
     getrennt, höchstens zehn, dahinter `;+N` für den Rest. Dort lohnt
     `__corridor.pick()`.
@@ -1112,7 +1128,7 @@ vitest (Specs schalten ihn selbst ein).
 | Ereignis | Wo | Zahlen |
 |---|---|---|
 | `load` | Beginn eines Orts | `label` |
-| `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis 5 m oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
+| `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis 5 m oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `tileSet`: welche Tiles das sind, 8 Hex-Ziffern über ihre Content-Pfade ohne Query (die trägt die Session), gleich heißt dieselben Tiles; `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
 | `region.complete` | das erste Mal je Ort `coarse=0` | `tiles`, `finest` |
 | `build.start` | Beginn eines Baus (`CorridorBuild.build`) | `reason`, `tiles` (es gibt 3D-Tiles; in DevWorld false) |
 | `build.tiles` | die Tiles der Region sind ruhig, oder der Timeout ist um | `target` (Fehlerziel der Region, m), `loadS`, `timedOut`, dazu der Stand der Region (`lodState`) |
@@ -1318,7 +1334,8 @@ __corridor.trace(false)                                 // Trace aus, trace(true
   2. `[Corridor] column at the click` (`TerrainQueries.inspectColumn`, nicht
      in DevWorld): die Säule an der Klickstelle, `cached` wie der
      Säulen-Cache sie hält (das lesen Zellen und Overlay), `fresh` aus einem
-     neuen Strahl, und unter `hits` jeder Treffer dieses Strahls als
+     neuen Strahl durch die Mitte derselben Säule (`columnCentre`, siehe
+     Zellhöhe), und unter `hits` jeder Treffer dieses Strahls als
      Höhe@Tiefe/geometricError, von oben. Unterscheidet eine Straße unter
      einem Deck, die kein Treffer zeigt, eine nur in einem gröberen Tile
      (verworfen) und eine, die der Cache noch nicht kennt (siehe Befund
@@ -1503,6 +1520,11 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   von Routen, die nicht mehr in Gebrauch sind (Spawn verschoben), fehlen. Das
   Urteil je Zelle geht nicht ein: Es neu zu berechnen läse den Säulen-Cache,
   und der folgt der Kamera.
+
+  Weichen zwei Fingerprints desselben Orts ab, sagt `tileSet` in der Zeile
+  `build.tiles` des Trace, ob beide auf denselben Tiles gemessen haben. Eine
+  Zeile `tiles` zwischen `build.tiles` und `build.freeze` heißt, dass
+  während des Baus ein Tile-Schub zur Ruhe kam, mit dem `tileSet` danach.
 
 ### `__routes.describe()`
 
