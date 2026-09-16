@@ -800,10 +800,13 @@ export class InputHandlerService {
   }
 
   /**
-   * Handle window blur - clear all pressed keys.
+   * Handle window blur - clear all pressed keys. R let go outside the window
+   * sends no keyup here, so the tower or spawn portal stops turning as well.
    */
   handleWindowBlur(): void {
     this.keyboardPan.clearKeys();
+    this.towerPlacement.stopRotating();
+    this.mapPlacement.stopRotating();
     // The button may come up outside the window: a box under way is dropped
     if (this.reportDragStart) {
       this.reportDragStart = null;

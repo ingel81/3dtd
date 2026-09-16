@@ -70,8 +70,8 @@ describe('InputHandlerService with the cell report', () => {
         { provide: UIStore, useValue: { viewOnly: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: { onKeyDown: () => false, onKeyUp: vi.fn(), clearKeys: vi.fn() } },
-        { provide: TowerPlacementService, useValue: { buildMode: () => false } },
-        { provide: MapPlacementService, useValue: { startRotating: () => false } },
+        { provide: TowerPlacementService, useValue: { buildMode: () => false, stopRotating: vi.fn() } },
+        { provide: MapPlacementService, useValue: { startRotating: () => false, stopRotating: vi.fn() } },
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());
