@@ -20,6 +20,15 @@ Eintrag "Korridor einmal fertig messen, dann einfrieren" bleibt bis zu den Nacht
       (`cac8c792`).
 - [x] **Kachel "Snapshot"**: speichert den ganzen Korridor als JSON (`8f672c0b`).
 
+### Listen und Doku aufgeräumt
+
+- [x] **Eine Liste offener Arbeit**: TODO.md auf die Gruppen A bis J gekürzt (`796d209c`), PLAYTEST.md nur noch
+      offene Nachtests (`0c781be4`), die fünf REVIEW-Handover und die alte Playtest-Liste im Archiv (`81911013`),
+      Run-Dump-Anforderungen in `docs/RUN_DUMP_PLAN.md`.
+- [x] **Veraltete Doku und Kommentare nachgezogen**: ARCHITECTURE, DEVWORLD, ROUTE_CORRIDOR, STATIC_WAVE_FALLBACK,
+      ROUTE_ALIGNED_CELLS_CONCEPT und Code-Kommentare zum eingefrorenen Korridor, zum lokalen Frame und zu gelöschten
+      Dateien (`3d6d9894`).
+
 ---
 
 ## 2026-09-15
