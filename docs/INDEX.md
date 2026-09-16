@@ -18,6 +18,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) | Aktuell | Signal Store (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug), Facade Pattern, Persistence |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Aktuell | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
 | [TODO.md](../TODO.md) | Aktuell | Die eine Liste offener Arbeit: vor dem Merge, Entscheidungen, Bugs, Features, Messungen, Konzepte, Ideen, Aufräumen |
+| [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Nur offene Nachtests (Pakete mit Klickwegen und URLs) und die Eichtabelle der Korridor-Fingerprints; erledigte Pakete wandern ins Archiv |
 | [DONE.md](../DONE.md) | Aktuell | Changelog, neueste zuerst |
 
 ## Features & Systeme
@@ -75,7 +76,6 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Nur offene Nachtests (Pakete mit Klickwegen und URLs) und die Eichtabelle der Korridor-Fingerprints; erledigte Pakete wandern ins Archiv |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks. Nachträge: Raycast-Messung, Kamera-Raycast-Cache, Benchmarks (`npm run bench`) |
 
 ## Pläne (nicht umgesetzt)
@@ -165,27 +165,6 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 
 ---
 
-## Dateistruktur (Kurzübersicht)
+## Dateistruktur
 
-```
-src/app/
-├── tower-defense.component.*    # Haupt-Spielkomponente (.ts, .html, .scss)
-├── ai/
-│   ├── core/                    # Regel-Director, Gate-Controller, Templates, Encoder
-│   └── training/                # Bots + Strategien, WebSocket-Client
-├── devworld/                    # Offline-Umgebung (Terrain, Streets, Buildings)
-├── game-engine/                 # Event Bus, VFX/Audio/Music/Screen Shake (framework-agnostisch)
-├── replay/                      # Replay der letzten Welle (Recorder, Player)
-├── services/                    # Angular Services (Facades, UI-Bindings, Onboarding)
-├── store/                       # Signal Stores
-├── managers/                    # Manager (Enemy, Tower, Wave, Research; event-driven)
-├── entities/                    # Enemy, Tower, Projectile
-├── game-components/             # Transform, Health, Movement, Combat, ...
-├── configs/                     # Tower/Enemy/Projectile/Combat/Research/Audio/Wave-Curriculum
-├── components/                  # UI Sub-Components
-├── utils/                       # Route-Grid, Route-Korridor, Geo-Utils, ...
-├── workers/                     # Web Workers (Pathfinding, Heartbeat)
-└── three-engine/                # Three.js Engine + Renderers
-```
-
-Ordner mit Zweck und die wichtigsten Dateien: [ARCHITECTURE.md](ARCHITECTURE.md).
+Ordner mit Zweck und die wichtigsten Dateien: [ARCHITECTURE.md](ARCHITECTURE.md), Abschnitt 10 "Dateistruktur".
