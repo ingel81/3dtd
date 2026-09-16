@@ -164,7 +164,6 @@ export const AUDIO_LIMITS = {
   maxConcurrentOneShots: 30,    // Cap über alle One-Shots. Bei Überschreitung stoppt
                                 // Voice-Stealing den ältesten One-Shot ohne `priority`
                                 // (weicher als Reject).
-  maxEffectSounds: 10,          // wird derzeit nirgends gelesen
   maxAudibleDistance: 500,      // Loops pausieren jenseits dieser Distanz, One-Shots fallen weg
                                 // (je Sound überschreibbar: `audibleDistance`)
 } as const;

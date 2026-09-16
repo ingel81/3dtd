@@ -44,7 +44,6 @@ typischen Singleplayer-Codebase.
 | **Fixed-Timestep-Sub-Step-Loop** | `managers/game-state/game-clock.ts`: `GameClock.FIXED_STEP_MS = 16.667` | Die wichtigste Voraussetzung für Lockstep ist schon da. Gameplay läuft bereits in festen Game-Time-Schritten, unabhängig von der Framerate. |
 | **Command-Bus mit 14 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | Tower: `place-tower`, `sell-tower`, `upgrade-tower`, `set-targeting`; Welle und Spiel: `start-wave`, `restart-game`; Forschung: `start-research`, `cancel-research`, `queue-research`, `unqueue-research`; Fähigkeiten: `use-ability`; Held: `hire-hero`, `hero-move`, `hero-ammo` (beim Schreiben des Konzepts waren es sieben). Das ist die *komplette* Input-Oberfläche: genau das, was über die Leitung muss. |
 | **Command-Handler ist bereits vom Game-Loop-Owner getrennt** | `game-commands.handler.ts` | Der Netzwerk-Layer hängt sich zwischen Bus und Handler, ohne Manager anzufassen. |
-| **Serialisierbares Straßennetz** | `pathfinding.worker.ts`, `SerializedStreetNetwork` | Das Format für den World-Snapshot existiert schon, inklusive Tests. |
 | **WebSocket-Client-Präzedenz** | `ai/training/training-session.ts` | Reconnect, Message-Typing, Lifecycle: als Vorlage für den Netzwerk-Client wiederverwendbar. |
 | **Deterministische Bewegung** | `movement.component.ts` | Gegner folgen vorberechneten Geo-Pfaden mit Prefix-Summen. Gleicher Pfad + gleicher Step = gleiche Position. |
 | **Timescale-Konzept** | `trainingTimescale` | Muss im MP auf 1.0 gepinnt (oder mitsynchronisiert) werden: der Hebel dafür existiert. |
@@ -236,7 +235,7 @@ identische Daten, und die Rate-Limits werden mit mehreren Clients unangenehm):
 WorldSnapshot {
   version, seed, createdAt
   hq: LocationConfig, spawnPoints: LocationConfig[]
-  streetNetwork: SerializedStreetNetwork      // Format existiert
+  streetNetwork: SerializedStreetNetwork      // Format noch zu definieren
   routes: GeoPosition[][]                      // vorberechnete Pfade
   routeGrid: { cellKeys: Int32Array, heights: Int16Array }   // World Seal
   balanceHash: string                          // Config-Fingerprint

@@ -187,8 +187,8 @@ schaltete ihn ein, sobald das ONNX-Modell geladen war. Dieser Effect ist
 > konnte den Director nicht abschalten, und ein Store-Reset wurde sofort
 > überschrieben.
 
-Geschrieben wird das Flag außer von den Store-Resets an drei Stellen, alle in
-den Facades: `GameLoopFacadeService.toggleAIDirector()` (User), der Fehlerpfad
+Geschrieben wird das Flag außer von den Store-Resets an zwei Stellen, beide in
+den Facades: der Fehlerpfad
 in `startWaveWithAI()`, der auf manuelle Wave-Erzeugung zurückfällt, und
 `TowerDefenseFacadeService` beim Init in der DevWorld (setzt `true`). Das
 entspricht der Regel oben: **State im Store, Entscheidung in der Facade**.

@@ -106,7 +106,6 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
   // Stats
   baseHp: 150,
   baseSpeed: 5,    // m/s
-  reward: 2,       // Credits bei Kill (nur ohne AI - AI nutzt dynamische Reward-Berechnung)
 
   // Animation
   hasAnimations: true,
@@ -636,7 +635,6 @@ zombie: {
   armorType: 'unarmored',
   baseHp: 80,
   baseSpeed: 5,
-  reward: 3,
   hasAnimations: true,
   walkAnimation: 'Armature|Walk',
   deathAnimation: 'Armature|Die',
@@ -667,7 +665,6 @@ bat: {
   armorType: 'light',
   baseHp: 25,
   baseSpeed: 8,
-  reward: 2,
   hasAnimations: true,
   walkAnimation: 'fly.001',
   animationSpeed: 2.79,
@@ -694,7 +691,6 @@ herbert: {
   armorType: 'fortified',
   baseHp: 500,
   baseSpeed: 4,
-  reward: 15,
   hasAnimations: true,
   walkAnimation: 'Armature|walking_man|baselayer',
   animationSpeed: 1.0,
@@ -728,7 +724,6 @@ penguin: {
   armorType: 'unarmored',
   baseHp: 30,
   baseSpeed: 9,
-  reward: 2,
   hasAnimations: true,
   walkAnimation: 'Walk',
   deathAnimation: 'Fall',
@@ -759,7 +754,6 @@ wallsmasher: {
   armorType: 'light',
   baseHp: 200,
   baseSpeed: 4,                // geht 4, rennt 10 m/s, Mittel 7 m/s
-  reward: 5,
   hasAnimations: true,
   walkAnimation: 'CharacterArmature|Walk',
   runAnimation: 'CharacterArmature|Run',
