@@ -1327,6 +1327,7 @@ __corridor.fingerprint()                                // Hash über den Korrid
 __tiles.stats()                                         // Tiles, Cache, Downloads, beide Fehlerziele
 __corridor.trace()                                      // Zeitleiste des Korridor-Trace, siehe Logs, Trace
 __corridor.trace(false)                                 // Trace aus, trace(true) an
+__corridor.snapshot()                                   // alles zum Korridor als eine JSON-Datei (Download), wie die Kachel Snapshot
 ```
 
 - **`set` und `reset`** geben `Not changed: ...` zurück, wenn kein Ort geladen
@@ -1479,6 +1480,73 @@ __corridor.trace(false)                                 // Trace aus, trace(true
     `"dx,dz": [heightM, walkable]` in Zellen entlang lokal x und z, `null`
     ohne Zelle), `column` (wie Ausgabe 2), `station` (Schlüssel in
     `stations`) und `stationM` (Abstand zur Station).
+- **`snapshot`** speichert alles zum Korridor dieses Orts als eine JSON-Datei
+  im Download-Ordner, wie ein Klick auf die Kachel Snapshot in den
+  Entwickleroptionen, Gruppe Waves & Inspect (`CorridorSnapshotService`,
+  `debug/corridor-snapshot.service.ts`). Gedacht für zwei Ladungen desselben
+  Orts, eine nach dem Seitenaufruf, eine im Spiel hinnavigiert. Unter den
+  Kacheln steht der Fortschritt, am Ende der Dateiname; ohne Ort, im
+  Ladebildschirm, während eines Korridorbaus und während `probeLod()` nur der
+  Grund.
+  - Name `corridor-<ort>-<cold|nav>-<hhmmss>.json`: `<ort>` die Stadt oder
+    Gemeinde der Adresse (sonst der Name im Header, sonst die
+    HQ-Koordinaten), höchstens 24 Zeichen ASCII. `cold`: die Ortsladung des Seitenaufrufs, `nav`: ein
+    Ortswechsel oder HQ-Umzug im Spiel (`CorridorTrace.loads`, das Label der
+    letzten Ortsladung). Ein Spawn-Umzug ist keine Ortsladung und ändert die
+    Art nicht, sein Neubau steht im Trace.
+  - Aufbau (`buildCorridorSnapshot`, `debug/corridor-snapshot.ts`), eine Zeile
+    je Eintrag, Zahlen außerhalb von `meta` auf 2 Stellen, nicht endliche als
+    `null`:
+    - `meta`: `time`, `version`, `url` (mit `l=` und `s=`, ohne Parameter,
+      deren Name nach Schlüssel oder Token klingt), `location`, `load`
+      (`kind`, `label`, `loads` dieser Seite, `sinceLoadS`, `history` aller
+      Ortsladungen der Seite, `previous`: der zuvor gespielte Ort seit dem
+      Seitenaufruf aus der Liste der letzten Orte, die einen Ort nur einmal
+      führt), `corridor` (alle Werte), `corridorChanged`, `hq` und `spawns`
+      (lat, lon, lokal x, z), `cellSize`, `camera`.
+    - `cost`: `cells`, `cellsMs`, `columnsMs`, `slices`, `screenshotMs`,
+      `wallMs`.
+    - `fingerprint` wie `__corridor.fingerprint()`, dazu `lines`: die
+      Einträge jedes Teils vor dem Hash. Weicht ein Teil-Hash ab, zeigen die
+      Zeilen, welche Einträge.
+    - `tiles` wie `__tiles.stats()`, `region` wie die Trace-Zeile `tiles`
+      (mit `tileSet`), `tilePaths`: die Content-Pfade der feinen Tiles, über
+      die `tileSet` hasht (`RouteCorridorRegion.finePaths`).
+    - `band`: je Route und Station des Bands (`BandStation`) `kind`,
+      `backbone`, `street`, `left`, `right` und `centre` (Versatz der
+      Gegnerlinie), dazu `route`, `segment`, `k`, `n`, `s`, `x`, `z`, `rx`,
+      `rz`. `stations`: je gemessener Station `segment`, `k`, `leftM`,
+      `rightM`, `tileError`, `unmeasured` und `shiftM`
+      (`PathAndRouteService.corridorState`).
+    - `cells`: jede Zelle mit `key`, `x`, `z`, `state`, `heightM`, `anchorM`,
+      `surface`, `passage` (Tunnelzelle eines Durchgangs), `tileDepth`,
+      `tileError`, `miss` (warum ohne Höhe, `GlobalRouteGrid.missOf`), aus
+      der `pick`-Zeile `routeM`, `walkable`, `walkCheck`, `overLineM`,
+      `aboveNeighboursM`, und `column`, die Säule an der Mitte wie Ausgabe 2.
+    - `trace`: die Zeitleiste dieser Ortsladung wie `__corridor.trace()`,
+      leer bei ausgeschaltetem Trace (Production-Build).
+    - `screenshot`: das Canvas als PNG-Data-URL, höchstens 1920 px breit, als
+      letzte Zeile.
+  - Ablauf (`CorridorSnapshotReader`, `debug/corridor-snapshot-reader.ts`):
+    zuerst das Bild, im Frame kopiert (`ThreeTilesEngine.captureFrame`), dann
+    Korridor, Trace und Tiles, dann die Zellen in Scheiben von
+    `CorridorBuild.SLICE_MS` je Frame. Solange hält er beruhigte Tile-Ladungen
+    vom Spiel fern (`SettleHold`), Säulen-Cache und `lodVersion` bleiben also
+    stehen. Kommt zwischen zwei Scheiben ein Ladebildschirm, ein Korridorbau
+    oder ein anderer Ort, bricht er mit dem Grund ab.
+  - Kosten, unter Node: Die Datei für 2000 Zellen entsteht in 8 bis 12 ms,
+    775 kB ohne Bild (`corridor-snapshot.spec.ts`); die `pick`-Zeilen von
+    1801 Zellen einer Route mit 400 Waypoints kosteten in einer einmaligen
+    Messung rund 16 ms. Die Säulen, ein Strahl je Zelle, sind im Browser
+    nicht gemessen. Geschätzt: Phase 0 kam auf 0,12 bis 0,33 ms je Strahl
+    (`measureMs` durch `rays` einer Messung aller Stationen), für Tokyo mit
+    1915 Zellen wären das 0,2 bis 0,6 s, verteilt auf bis zu rund 20 Frames.
+    Die echten Zahlen stehen in `cost` jeder Datei.
+  - Grenzen: `column` und `walkable` lesen die aktiven Tiles und den
+    Säulen-Cache von jetzt. Die Tiles folgen der Kamera, die Region ruht nach
+    dem Einfrieren auf 5 m. Dort können zwei Dateien abweichen, ohne dass der
+    Korridor abweicht; der Korridor selbst steht in `fingerprint`, `lines`,
+    `band`, `stations` und den gespeicherten Zellwerten.
 
 ### Phase 0: auf fester LOD messen
 
