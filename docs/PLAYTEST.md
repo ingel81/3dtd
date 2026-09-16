@@ -70,7 +70,13 @@ zoomen und mit G springen.
   `fa4461be` statt `e51f7114` beim frischen Laden. Abweichend sind `band` (`23291918` statt `40f24cbd`) und `heights`
   (`813a9c6f` statt `8ae65891`); `stations`, `cells` und `tiles` sind gleich, alle Anzahlen identisch. Also weichen
   nur Säulenhöhen ab, und das Rückgrat verschiebt das Band mit. Nach einem vollständigen Neuladen stimmt der Hash
-  wieder. Worker corrpassage.
+  wieder. Worker corrpassage. **Experiment (2026-09-16):** In einer Sitzung ergeben sich drei verschiedene Stände,
+  bei identischen `stations`, `cells`, `tiles` und identischen Anzahlen: frisch geladen `e51f7114` (band `40f24cbd`,
+  heights `8ae65891`), nach Navigation im Spiel `487799db` (`0b833f4b`, `813a9c6f`), nach `__corridor.reset()`
+  `a53ad0e9` (`bab15dbb`, `9629bd73`), ein zweites `reset()` ändert nichts mehr. Also weichen nur Säulenhöhen ab,
+  obwohl Tile-Tiefe und geometrischer Fehler je Zelle gleich bleiben. **Nebenbefund:** `reset()` baut ohne zu messen
+  (`clearance.start segments=0 stations=0`, `rays=0`) und ändert dabei trotzdem die Höhen; ein Neubau ohne Messung
+  sollte entweder neu messen oder ablehnen.
 - **744 Rückfall kostet eine Sekunde umsonst.** Rothenburg 1036 ms ohne Fund, Berlin 1070 ms für eine Station,
   Paris 1087 ms für vier. Mit corrpassage.
 
