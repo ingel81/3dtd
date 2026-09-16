@@ -1133,6 +1133,23 @@ describe('VisualizationFacadeService', () => {
       expect(gameState.onTilesLoaded).toHaveBeenCalled();
     });
 
+    it('takes its tile batch off the trace chain when a step throws', () => {
+      corridorTrace.setEnabled(true);
+      try {
+        const chain = () => corridorTrace.within('probe', () => corridorTrace.capture());
+        const before = chain();
+        markerViz.updateMarkerHeights.mockImplementationOnce(() => {
+          throw new Error('marker heights');
+        });
+
+        expect(() => facade.onTilesLoaded()).toThrow('marker heights');
+
+        expect(chain()).toBe(before);
+      } finally {
+        corridorTrace.setEnabled(false);
+      }
+    });
+
     /**
      * The overlays of the cells show frozen cells; the build draws them at
      * its end, a location change at its grid step. Drawn from a tile batch

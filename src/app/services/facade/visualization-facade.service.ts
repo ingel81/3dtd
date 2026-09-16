@@ -782,42 +782,45 @@ export class VisualizationFacadeService {
     // Everything below, and the frames it schedules, runs under this tile batch in the corridor trace.
     const lodVersion = engine.terrain.lodVersion;
     const trace = corridorTrace.enter(`tilesLoaded lod=${lodVersion}`);
-    corridorTrace.tiles(lodVersion, () => engine.routeCorridorLod());
+    try {
+      corridorTrace.tiles(lodVersion, () => engine.routeCorridorLod());
 
-    this.renderStreets();
-    const tStreets = performance.now();
+      this.renderStreets();
+      const tStreets = performance.now();
 
-    // Re-render buildings if loaded
-    this.buildings.rerender(engine);
-    const tBuildings = performance.now();
+      // Re-render buildings if loaded
+      this.buildings.rerender(engine);
+      const tBuildings = performance.now();
 
-    this.markerViz.updateMarkerHeights();
-    const tMarkers = performance.now();
+      this.markerViz.updateMarkerHeights();
+      const tMarkers = performance.now();
 
-    // The cells, their heights, the route line and the corridor stay as the
-    // corridor build left them (CorridorBuild): a tile batch neither samples
-    // a cell nor rebuilds a line, nor resolves the LOS of a tower again
-    // (docs/LOS_PIPELINE.md). Before it, the loading screen stands and the
-    // build measures on the tiles it waits for itself.
-    //
-    // Nor does it touch the overlays of the cells (Route Grid, Air Route
-    // Grid, air route): they show frozen cells, and whatever makes cells
-    // draws them itself, the build at its end, a location change at its grid
-    // step. The overlay places its plates once, when it is made, so a batch
-    // that made it between a build's cells and the end of that build could
-    // leave it on the heights from before the cell fallback.
-    this.gameState.onTilesLoaded();
-    const tGameState = performance.now();
+      // The cells, their heights, the route line and the corridor stay as the
+      // corridor build left them (CorridorBuild): a tile batch neither samples
+      // a cell nor rebuilds a line, nor resolves the LOS of a tower again
+      // (docs/LOS_PIPELINE.md). Before it, the loading screen stands and the
+      // build measures on the tiles it waits for itself.
+      //
+      // Nor does it touch the overlays of the cells (Route Grid, Air Route
+      // Grid, air route): they show frozen cells, and whatever makes cells
+      // draws them itself, the build at its end, a location change at its grid
+      // step. The overlay places its plates once, when it is made, so a batch
+      // that made it between a build's cells and the end of that build could
+      // leave it on the heights from before the cell fallback.
+      this.gameState.onTilesLoaded();
+      const tGameState = performance.now();
 
-    perfTrace.log(() =>
-      `[PerfTrace] onTilesLoaded: ${(tGameState - t0).toFixed(1)}ms total | ` +
-      `streets=${(tStreets - t0).toFixed(1)} ` +
-      `buildings=${(tBuildings - tStreets).toFixed(1)} ` +
-      `markers=${(tMarkers - tBuildings).toFixed(1)} ` +
-      `gameState=${(tGameState - tMarkers).toFixed(1)}ms`,
-    );
-    corridorTrace.cost('tilesLoaded', tGameState - t0);
-    corridorTrace.exit(trace);
+      perfTrace.log(() =>
+        `[PerfTrace] onTilesLoaded: ${(tGameState - t0).toFixed(1)}ms total | ` +
+        `streets=${(tStreets - t0).toFixed(1)} ` +
+        `buildings=${(tBuildings - tStreets).toFixed(1)} ` +
+        `markers=${(tMarkers - tBuildings).toFixed(1)} ` +
+        `gameState=${(tGameState - tMarkers).toFixed(1)}ms`,
+      );
+      corridorTrace.cost('tilesLoaded', tGameState - t0);
+    } finally {
+      corridorTrace.exit(trace);
+    }
   }
 
   // ══════════════════════════════════════════════════════════════
