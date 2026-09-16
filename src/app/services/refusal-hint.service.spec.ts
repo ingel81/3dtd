@@ -19,6 +19,7 @@ import { RefusalHintService, abilityNoRouteText, abilityRefusalText, heroRefusal
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { lockedAbilityStatus, type AbilityStatus } from '../configs/abilities.config';
+import { initialHeroStatus, type HeroStatus } from '../configs/hero.config';
 
 describe('abilityRefusalText', () => {
   it('says what the player can act on', () => {
@@ -38,14 +39,18 @@ describe('abilityRefusalText', () => {
 
 describe('heroRefusalText', () => {
   it('names the missing credits like the U key does for an upgrade', () => {
-    expect(heroRefusalText('credits', 400)).toBe('Need 600 credits');
-    expect(heroRefusalText('credits', 0)).toBe('Need 1,000 credits');
-    expect(heroRefusalText('no-route', 0)).toBe('No way there along the routes');
+    expect(heroRefusalText('credits', 400, false)).toBe('Need 600 credits');
+    expect(heroRefusalText('credits', 0, false)).toBe('Need 1,000 credits');
+  });
+
+  it('tells a hire without a route to stand on from an order no route leads to', () => {
+    expect(heroRefusalText('no-route', 0, false)).toBe('No route to stand on');
+    expect(heroRefusalText('no-route', 0, true)).toBe('No way there along the routes');
   });
 
   it('keeps quiet for what no button or key runs into', () => {
     for (const reason of ['locked', 'hired', 'no-hero', 'unknown-ammo'] as const) {
-      expect(heroRefusalText(reason, 0), reason).toBeNull();
+      expect(heroRefusalText(reason, 0, false), reason).toBeNull();
     }
   });
 });
@@ -57,7 +62,11 @@ describe('RefusalHintService', () => {
     abilityTargeting: ReturnType<typeof signal<string | null>>;
     heroSelected: ReturnType<typeof signal<boolean>>;
   };
-  let store: { abilities: ReturnType<typeof signal<Record<string, AbilityStatus>>>; credits: ReturnType<typeof signal<number>> };
+  let store: {
+    abilities: ReturnType<typeof signal<Record<string, AbilityStatus>>>;
+    credits: ReturnType<typeof signal<number>>;
+    hero: ReturnType<typeof signal<HeroStatus>>;
+  };
   let bus: GameEventBus;
   let player: boolean;
   let service: RefusalHintService;
@@ -71,6 +80,7 @@ describe('RefusalHintService', () => {
     store = {
       abilities: signal({ 'nuclear-strike': { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, wavesUntilCharge: 2 } }),
       credits: signal(400),
+      hero: signal(initialHeroStatus()),
     };
     injections['UIStore'] = ui;
     injections['TowerDefenseStore'] = store;
@@ -101,6 +111,12 @@ describe('RefusalHintService', () => {
     bus.emit({ type: 'hero:rejected', reason: 'credits' });
     expect(service.refusal()).toEqual({ subject: 'Hire Mercenary', reason: 'Need 600 credits' });
 
+    bus.emit({ type: 'hero:rejected', reason: 'no-route' });
+    expect(service.refusal()).toEqual({ subject: 'Hire Mercenary', reason: 'No route to stand on' });
+  });
+
+  it('an order of the hired hero no route leads to: "Mercenary", no way there', () => {
+    store.hero.set({ ...initialHeroStatus(), unlocked: true, hired: true });
     bus.emit({ type: 'hero:rejected', reason: 'no-route' });
     expect(service.refusal()).toEqual({ subject: 'Mercenary', reason: 'No way there along the routes' });
   });

@@ -46,12 +46,13 @@ export function abilityRefusalText(id: AbilityId, reason: AbilityRejectReason, w
  * `no-hero`, `unknown-ammo`).
  *
  * @param credits credits on hand, to say how many are missing
+ * @param hired whether he is hired: `no-route` refuses a hire before, an order after
  */
-export function heroRefusalText(reason: HeroRejectReason, credits: number): string | null {
+export function heroRefusalText(reason: HeroRejectReason, credits: number, hired: boolean): string | null {
   switch (reason) {
     case 'credits': return `Need ${(HERO.cost - credits).toLocaleString('en-US')} credits`;
-    // A hire without a route to stand on, an order to a part no route leads to
-    case 'no-route': return 'No way there along the routes';
+    // An order to a part no route leads to, a hire without a route to stand on
+    case 'no-route': return hired ? 'No way there along the routes' : 'No route to stand on';
     default: return null;
   }
 }
@@ -120,8 +121,9 @@ export class RefusalHintService {
 
   /** The hero was not hired or did not go: say why, if the player can act on it. */
   hero(reason: HeroRejectReason): void {
-    const text = heroRefusalText(reason, this.store.credits());
-    if (text) this.show({ subject: reason === 'credits' ? `Hire ${HERO.name}` : HERO.name, reason: text });
+    const hired = this.store.hero().hired;
+    const text = heroRefusalText(reason, this.store.credits(), hired);
+    if (text) this.show({ subject: hired ? HERO.name : `Hire ${HERO.name}`, reason: text });
   }
 
   clear(): void {
