@@ -27,7 +27,7 @@ const EFFECT_ROWS: readonly { key: VfxSwitch; label: string; hint: string }[] = 
   { key: 'muzzleFlash', label: 'Muzzle Flash', hint: 'Flash and light at the barrel of guns, launcher and bow' },
   { key: 'projectileTrails', label: 'Projectile Trails', hint: 'Streaks and particle trails behind projectiles' },
   { key: 'impactEffects', label: 'Impact Effects', hint: 'Explosions, smoke, spark bursts and blood spray at hits' },
-  { key: 'groundMarks', label: 'Ground Marks', hint: 'Blood, frost and scorch marks on the ground' },
+  { key: 'groundMarks', label: 'Ground Marks', hint: 'Blood, frost, scorch marks and ooze puddles on the ground' },
   { key: 'bloom', label: 'Bloom', hint: 'Glow around bright surfaces, an extra full-screen pass' },
 ];
 

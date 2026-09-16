@@ -13,7 +13,7 @@ export interface VfxSettings {
   projectileTrails: boolean;
   /** Fire-atlas explosions with their smoke, spark bursts and blood spray at hits */
   impactEffects: boolean;
-  /** Blood, frost and scorch decals on the ground */
+  /** Blood, frost and scorch decals and ooze puddles on the ground */
   groundMarks: boolean;
   /** Blue tint and orbiting ice particles on slowed enemies */
   freezeTint: boolean;
