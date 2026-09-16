@@ -18,11 +18,17 @@ const create = () => runInInjectionContext(new StubInjector(), () => new EngineI
  * after the corridor build, whose step holds that wait.
  */
 describe('EngineInitializationService loading steps', () => {
-  it('has no step of its own for the 3D tiles', () => {
+  it('has no step of its own for the 3D tiles, and the same steps, all pending, after a reset', () => {
     const init = create();
-    expect(init.loadingSteps().map((s) => s.id)).toEqual([
-      'location', 'engine', 'streets', 'hq', 'spawns', 'routes', 'grid', 'view', 'corridor', 'flight',
-    ]);
+    const ids = ['location', 'engine', 'streets', 'hq', 'spawns', 'routes', 'grid', 'view', 'corridor', 'flight'];
+    expect(init.loadingSteps().map((s) => s.id)).toEqual(ids);
+
+    // One list for both: a step done on one load is pending again on the next
+    void init.setStepCurrent('engine');
+    void init.setStepDone('streets', '3 Streets');
+    init.resetLoadingSteps();
+    expect(init.loadingSteps().map((s) => s.id)).toEqual(ids);
+    expect(init.loadingSteps().every((s) => s.status === 'pending' && s.meta === undefined)).toBe(true);
   });
 
   it('ends loading only once tiles, streets and heights are all done', () => {
