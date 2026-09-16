@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { Vector3 } from 'three';
 import { parseStreetTags } from '../services/location/osm-street.service';
-import { BandColumn, BandColumns, BandRoute, BandStation, CorridorBand, bandPath, buildBand } from '../utils/corridor-band';
+import { BandColumn, BandColumns, BandRoute, BandStation, CorridorBand, bandPath, buildBand, stationNear } from '../utils/corridor-band';
 import { deckApproaches } from '../utils/deck-approach';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { GlobalRouteGrid } from '../utils/global-route-grid';
@@ -50,11 +50,19 @@ interface OsmElement {
   tags?: Record<string, string>;
 }
 
+/** What stands over or beside the route: a closed ring and the height its OSM tags give, see the README. */
+interface FixtureStructure {
+  wayId: number;
+  heightM: number;
+  points: [number, number][];
+}
+
 /** A fixture as fixtures/osm/README.md describes it, the fields the scenes read. */
 interface Fixture {
   hq: { lat: number; lon: number };
   route: { wayIds: number[]; underWayIds: number[] };
   cells: FixtureCell[];
+  structures?: FixtureStructure[];
   routePoints: [number, number][];
   elements: OsmElement[];
 }
@@ -128,6 +136,17 @@ function distanceToLine(line: readonly Local[], x: number, z: number): number {
     best = Math.min(best, Math.hypot(x - a.x - t * dx, z - a.z - t * dz));
   }
   return best;
+}
+
+/** Whether (x, z) lies inside the closed ring `poly`. */
+function insidePolygon(poly: readonly Local[], x: number, z: number): boolean {
+  let inside = false;
+  for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+    const a = poly[i];
+    const b = poly[j];
+    if ((a.z > z) !== (b.z > z) && x < ((b.x - a.x) * (z - a.z)) / (b.z - a.z) + a.x) inside = !inside;
+  }
+  return inside;
 }
 
 /** Offset of (x, z) from the nearest segment of `line`, right of its direction positive. */
@@ -225,6 +244,9 @@ function run(fixture: Fixture, columns: BandColumns, walls: Walls = () => OPEN_W
   };
   const grid = new GlobalRouteGrid();
   grid.initialize(sample, frame.sync as never);
+  // As PathAndRouteService.buildBands does: the cells of a tunnel portal and
+  // the walk check read the band off the grid (setBand, corridor-walk.ts).
+  grid.setBand((x, z) => stationNear(band, x, z));
   grid.generateFromRoutes([waypoints]);
   return { cut, band, waypoints, grid };
 }
@@ -380,6 +402,113 @@ describe('the walkable band on the OSM fixtures', () => {
       expect(r.grid.getCellAt(st.x, st.z)?.surface).toBe('tunnel');
     }
     expectGentle(r.band);
+  });
+
+  /**
+   * Playtest 2026-09-16, Rothenburg: the route runs through the archway of
+   * way 139711828 (`tunnel=yes layer=-1`), which spans the Weisser Turm (way
+   * 139711833, `building=tower historic=city_gate height=37`) from one
+   * corner of its footprint to the other, 6.16 m. The corridor climbed over
+   * the tower instead of running under it: the cells there were yellow, so
+   * the passage was found, but they rose up the tower and the red line with
+   * them.
+   *
+   * Heights: the street flat at 485.2 (the picks beside the car give 484.9
+   * to 485.43, there is no cell report from the gate itself), every
+   * structure of the fixture a block at the height its OSM tags give, and
+   * its photogrammetry reaching `spill` metres past the OSM footprint. The
+   * rays stop `wallMargin` short of the first structure either side, as the
+   * clearance measurement leaves room. The spill is the one modelled number
+   * here, so what is asserted is asserted over a range of it.
+   */
+  describe('Weisser Turm: the route runs under the gate, the corridor does not climb it', () => {
+    const ARCHWAY = 139711828;
+    const TOWER = 139711833;
+    const STREET_Y = 485.2;
+    const fixture = load('rothenburg-galgengasse');
+    const frame = frameOf(fixture.hq);
+    const line = fixture.routePoints.map(([lat, lon]) => frame.toLocal({ lat, lon }));
+    const rings = fixture.structures!.map((s) => ({
+      wayId: s.wayId, top: STREET_Y + s.heightM, ring: s.points.map(([lat, lon]) => frame.toLocal({ lat, lon })),
+    }));
+    const tower = rings.find((s) => s.wayId === TOWER)!;
+
+    /** Distance from (x, z) to the gate tower, 0 inside its footprint. */
+    const toTower = (x: number, z: number) => (insidePolygon(tower.ring, x, z) ? 0 : distanceToLine(tower.ring, x, z));
+
+    /** Columns and rays where the mesh of every structure reaches `spill` metres past its footprint. */
+    function scene(spill: number) {
+      const solidAt = (x: number, z: number) =>
+        rings.find((s) => insidePolygon(s.ring, x, z) || distanceToLine(s.ring, x, z) <= spill) ?? null;
+      const columns = (x: number, z: number): BandColumn => {
+        const solid = solidAt(centreOf(x), centreOf(z));
+        return solid ? { ground: solid.top, top: solid.top } : { ground: STREET_Y, top: STREET_Y };
+      };
+      const walls: Walls = (x, z, side) => {
+        let best = { d: Infinity, rx: 0, rz: 0 };
+        for (let i = 0; i + 1 < line.length; i++) {
+          const a = line[i];
+          const dx = line[i + 1].x - a.x;
+          const dz = line[i + 1].z - a.z;
+          const len = Math.hypot(dx, dz);
+          if (len === 0) continue;
+          const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (len * len)));
+          const d = Math.hypot(x - a.x - t * dx, z - a.z - t * dz);
+          if (d < best.d) best = { d, rx: -dz / len, rz: dx / len };
+        }
+        const sign = side === 'right' ? 1 : -1;
+        const margin = corridorConfig.wallMargin;
+        for (let m = margin; m <= OPEN_WALL_M; m += 0.25) {
+          if (solidAt(x + best.rx * sign * m, z + best.rz * sign * m) !== null) return Math.max(margin, m - margin);
+        }
+        return OPEN_WALL_M;
+      };
+      return { columns, walls };
+    }
+
+    for (const spill of [1, 2]) {
+      it(`keeps every cell round the gate on the street, mesh ${spill} m past the footprints`, () => {
+        const { columns, walls } = scene(spill);
+        const r = twice(() => run(fixture, columns, walls));
+        // No station inside the footprint has a band: they run as the archway's tunnel or as a passage.
+        const gate = r.band.stations.filter((st) => toTower(st.x, st.z) === 0);
+        expect(gate.length).toBeGreaterThan(2);
+        for (const st of gate) {
+          expect(['passage', 'fixed'], `${st.segment}:${st.k} is ${st.kind}`).toContain(st.kind);
+          expect(st.backbone, `${st.segment}:${st.k}`).toBeNull();
+        }
+        // No band round the gate lies on the tower or on an overhang, and no cell of one does.
+        for (const st of r.band.stations.filter((s) => toTower(s.x, s.z) < 15 && s.backbone !== null)) {
+          expect(st.backbone!.y, `${st.segment}:${st.k}`).toBeLessThanOrEqual(STREET_Y + corridorConfig.stepRise);
+        }
+        const round = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => toTower(c.x, c.z) < 15);
+        expect(round.length).toBeGreaterThan(20);
+        const raised = round.filter((c) => c.terrainHeight > STREET_Y + corridorConfig.stepRise);
+        expect(raised.map((c) => `${c.x},${c.z} ${c.surface} ${c.terrainHeight.toFixed(2)}`)).toEqual([]);
+        expect(round.filter((c) => !c.heightSampled).map((c) => `${c.x},${c.z}`)).toEqual([]);
+        // No expectGentle here: the rays of this scene are modelled as the
+        // first structure within maxHalfWidth, without the fitting and the
+        // smoothing the clearance measurement puts on them, so the widths
+        // jump from station to station and the line's bend is the model's,
+        // not the band's. The five scenes above measure it on their own.
+      });
+    }
+
+    it('takes the street between the portals of the passage, whatever the mesh spills over the gate', () => {
+      for (const spill of [1, 2, 3]) {
+        const { columns, walls } = scene(spill);
+        const r = run(fixture, columns, walls);
+        const arch = r.band.stations.filter((st) => r.cut.ways[st.segment]?.id === ARCHWAY);
+        expect(arch.length, `spill ${spill}`).toBeGreaterThan(0);
+        for (const st of arch) expect(st, `spill ${spill} ${st.segment}:${st.k}`).toMatchObject({ kind: 'fixed', centre: 0 });
+        const tunnel = r.grid.getCellsInRange(0, 0, 1e6).filter((c) => c.surface === 'tunnel' && toTower(c.x, c.z) < 15);
+        expect(tunnel.length, `spill ${spill}`).toBeGreaterThan(4);
+        for (const c of tunnel) expect(c.terrainHeight, `spill ${spill} ${c.x},${c.z}`).toBeCloseTo(STREET_Y, 1);
+        for (const st of r.band.stations.filter((s) => toTower(s.x, s.z) < 15 && s.backbone !== null)) {
+          expect(st.backbone!.y, `spill ${spill} ${st.segment}:${st.k}`).toBeLessThanOrEqual(STREET_Y + corridorConfig.stepRise);
+        }
+      }
+    });
   });
 
   it('Platz der Republik: ends the band before the objects on the square, without bulges one station long', () => {
