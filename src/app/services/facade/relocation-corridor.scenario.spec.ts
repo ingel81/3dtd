@@ -129,7 +129,6 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
       // PathAndRouteService's own
       DevWorldService: { isActive: false },
       UIStore: { routesVisible: () => false },
-      PathfindingWorkerService: { isWorkerAvailable: false, dispose: () => undefined },
       GlobalRouteGridService: { isInitialized: () => false, getGroundLocalYAt: () => null },
       // MapRelocationService's
       OsmStreetService: { findPath: () => [SPAWN, HQ], findRandomStreetPoint: () => null, haversineDistance: () => 0 },
