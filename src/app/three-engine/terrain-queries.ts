@@ -22,12 +22,11 @@ const COLUMN_RAY_DIRECTION = new Vector3(0, -1, 0);
 
 /**
  * How far along the route a clearance station moves its column when the
- * column under it finds no tile, ahead first, in columns: a seam between
- * two tile meshes is far thinner than one. A shift of one column moves the
- * route's major axis by one cache bucket (columnCentre), 0.5 m along an
- * axis and up to 0.71 m on a diagonal, so each shift is a column of its own.
+ * column under it finds no tile, ahead first: a seam between two tile
+ * meshes is far thinner than that. A station's columns are exact rays
+ * (measureStreetClearance), so each shift is a column of its own.
  */
-const SEAM_SHIFTS = [1, -1] as const;
+const SEAM_SHIFTS_M = [0.5, -0.5] as const;
 
 /** Column cache granularity: 2 buckets per metre (0.5 m grid). */
 const COLUMN_CACHE_SCALE = 2;
@@ -391,7 +390,10 @@ export class TerrainQueries {
     }
   }
 
-  /** Uncached ray + LOD resolution behind {@link sampleColumn}. */
+  /**
+   * Uncached ray + LOD resolution behind {@link sampleColumn}, and the exact
+   * column of a station measurement (measureStreetClearance).
+   */
   private raycastColumn(localX: number, localZ: number): ColumnSample | null {
     this._columnHits.length = 0;
     // The ray only ever hits active tiles.
@@ -454,11 +456,19 @@ export class TerrainQueries {
    * comes back unmeasured, with the reason (`StationProbe.unmeasured`).
    *
    * A column that finds no tile at all may stand on a seam between two
-   * tile meshes. The station then tries the next column ahead and behind
-   * along the route (SEAM_SHIFTS) and measures from the first that finds
-   * one (`StationProbe.shiftM`, the metres it moved): at most two more
-   * column rays, only for such a station. The column at a bridge end tries
-   * the same shifts.
+   * tile meshes. The station then tries the columns half a metre ahead and
+   * behind along the route (SEAM_SHIFTS_M) and measures from the first that
+   * finds one (`StationProbe.shiftM`): at most two more column rays, only
+   * for such a station. The column at a bridge end tries the same shifts.
+   *
+   * Every column of a station, under it, beside a seam, at and off a bridge
+   * end and behind a low hit, is a ray at its exact point that neither reads
+   * nor writes the column cache (raycastColumn). The side rays start at that
+   * column's height: the column at the centre of its cache bucket
+   * (columnCentre) can lie 0.35 m away, on a kerb or a car; and a station
+   * that filled the cache would decide what the cells beside it read
+   * (PLAYTEST 745). A station therefore costs its columns on every
+   * measurement, the cells and the band never pay for them.
    *
    * @returns the first hit per height and side (probeFreeSpace makes the
    *   free space of it), or null where there is nothing to measure: in
@@ -524,25 +534,22 @@ export class TerrainQueries {
   }
 
   /**
-   * The column at (x, z), or, where that finds no tile (a seam between two
-   * tile meshes), the first one SEAM_SHIFTS columns along the unit
-   * direction (alongX, alongZ) that does, with where it stands and the
-   * shift it took in metres (null for none). Null without a column; no
-   * shift for a zero direction.
+   * The exact, uncached column at (x, z) (raycastColumn), or, where that
+   * finds no tile (a seam between two tile meshes), the first one
+   * SEAM_SHIFTS_M along the unit direction (alongX, alongZ) that does, with
+   * where it stands and the shift it took (null for none). Null without a
+   * column; no shift for a zero direction.
    */
   private columnBesideSeam(
     x: number, z: number, alongX: number, alongZ: number,
   ): { column: ColumnSample; x: number; z: number; shiftM: number | null } | null {
-    const column = this.sampleColumn(x, z);
+    const column = this.raycastColumn(x, z);
     if (column) return { column, x, z, shiftM: null };
     if (alongX === 0 && alongZ === 0) return null;
-    // One bucket on the major axis: never back into the column that found nothing.
-    const bucketM = 1 / (COLUMN_CACHE_SCALE * Math.max(Math.abs(alongX), Math.abs(alongZ)));
-    for (const columns of SEAM_SHIFTS) {
-      const shift = columns * bucketM;
+    for (const shift of SEAM_SHIFTS_M) {
       const sx = x + alongX * shift;
       const sz = z + alongZ * shift;
-      const shifted = this.sampleColumn(sx, sz);
+      const shifted = this.raycastColumn(sx, sz);
       if (shifted) return { column: shifted, x: sx, z: sz, shiftM: shift };
     }
     return null;
@@ -557,7 +564,8 @@ export class TerrainQueries {
    * station, as the station's own ground (surfaceY); the top of a low
    * object over a hollow above that instead (lowObjectTop: a car the mesh
    * made hollow, the street under its body its lowest hit). NaN where it
-   * did not, or where that column has no tile up to `maxTileError`.
+   * did not, or where that column has no tile up to `maxTileError`. An
+   * exact, uncached column, as every column of a station.
    */
   private riseBehindLowHit(
     x: number, z: number, dirX: number, dirZ: number, hits: readonly number[], maxDistance: number, groundY: number,
@@ -565,7 +573,7 @@ export class TerrainQueries {
   ): number {
     if (!lowRayAlone(hits, maxDistance)) return NaN;
     const reach = hits[0] + LOW_WALL_BEHIND_M;
-    const behind = this.sampleColumn(x + dirX * reach, z + dirZ * reach);
+    const behind = this.raycastColumn(x + dirX * reach, z + dirZ * reach);
     if (!behind || behind.tileGeometricError > corridorConfig.maxTileError) return NaN;
     const y = surfaceY(carried === null ? 'ground' : 'approach', behind, carried)!;
     return (lowObjectTop(behind, y) ?? y) - groundY;
