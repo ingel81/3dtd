@@ -666,7 +666,7 @@ export class PathAndRouteService {
     const band = this.bands.get(routeKey(base));
     const laid = band ? this.laidInBand(base, band) : this.applyClearance(base);
     geoPath = laid.points;
-    const { left: leftWidths, right: rightWidths, onBridge, inTunnel, passage, detour } = laid;
+    const { left: leftWidths, right: rightWidths, onBridge, inTunnel, passage } = laid;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
     const HEIGHT_ABOVE_GROUND = this.routeLineLift();
@@ -719,7 +719,6 @@ export class PathAndRouteService {
         if (onBridge[i]) waypoint.onBridge = true;
         if (inTunnel[i]) waypoint.inTunnel = true;
         if (passage[i]) waypoint.passage = true;
-        if (detour[i]) waypoint.detour = true;
       }
       pathWithHeights[i] = waypoint;
     }
@@ -741,14 +740,14 @@ export class PathAndRouteService {
    * corridor is being measured.
    */
   private applyClearance(route: StreetRoute): {
-    points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[]; passage: boolean[]; detour: boolean[];
+    points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[]; passage: boolean[];
   } {
     const { points, onBridge, inTunnel } = route;
     const fitted = this.fitRoute(route);
     const fittedPoints: LatLon[] = [];
     const left: number[] = [];
     const right: number[] = [];
-    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[], detour: [] as boolean[] };
+    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[] };
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
@@ -758,9 +757,8 @@ export class PathAndRouteService {
         right.push(piece.right);
         flags.onBridge.push(onBridge[i]);
         flags.inTunnel.push(inTunnel[i]);
-        // Without a band nothing is a passage and nothing is moved sideways.
+        // Without a band nothing is a passage.
         flags.passage.push(false);
-        flags.detour.push(false);
       }
     }
     fittedPoints.push(points[points.length - 1]);
@@ -837,11 +835,10 @@ export class PathAndRouteService {
    * lays it, with the half width left and right of it per piece. Local
    * metres become latitude and longitude around the route's first point,
    * the way geoToLocalSimple maps a small step of each there. A piece of a
-   * passage runs as a tunnel, one off the street's line is a detour (for
-   * `__corridor.pick()` and the worm's arcs).
+   * passage runs as a tunnel.
    */
   private laidInBand(route: StreetRoute, band: RouteBand): {
-    points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[]; passage: boolean[]; detour: boolean[];
+    points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[]; passage: boolean[];
   } {
     const sync = this.engine!.sync;
     const step = 1e-5;
@@ -858,7 +855,7 @@ export class PathAndRouteService {
     const points: LatLon[] = [];
     const left: number[] = [];
     const right: number[] = [];
-    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[], detour: [] as boolean[] };
+    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[] };
     const nodes = bandPath(band.input, band.band);
     nodes.forEach((node, k) => {
       points.push(geoOf(node.x, node.z));
@@ -868,7 +865,6 @@ export class PathAndRouteService {
       flags.onBridge.push(route.onBridge[node.segment]);
       flags.inTunnel.push(route.inTunnel[node.segment] || node.passage);
       flags.passage.push(node.passage);
-      flags.detour.push(Math.abs(node.offset) > 1e-9);
     });
     return { points, left, right, ...flags };
   }

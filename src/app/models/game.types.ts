@@ -39,12 +39,6 @@ export interface RouteWaypoint extends GeoPosition {
    * (`utils/corridor-band.ts`). In a tunnel as well (`inTunnel`).
    */
   passage?: boolean;
-  /**
-   * The segment runs off the street's own line: the enemies' line lies in
-   * the middle of the walkable band, past a parked car, a hedge or a jetty
-   * on the line (`utils/corridor-band.ts`).
-   */
-  detour?: boolean;
 }
 
 /**
