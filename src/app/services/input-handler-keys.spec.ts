@@ -28,14 +28,16 @@ function keyOn(type: 'keydown' | 'keyup', key: string, target: EventTarget): Key
 describe('InputHandlerService keys on a focused slider', () => {
   let service: InputHandlerService;
   let slider: HTMLInputElement;
-  let pan: { onKeyDown: ReturnType<typeof vi.fn>; onKeyUp: ReturnType<typeof vi.fn> };
+  let pan: { onKeyDown: ReturnType<typeof vi.fn>; onKeyUp: ReturnType<typeof vi.fn>; clearKeys: ReturnType<typeof vi.fn> };
   let mapPlacement: { startRotating: ReturnType<typeof vi.fn>; stopRotating: ReturnType<typeof vi.fn> };
+  let towerPlacement: { buildMode: () => boolean; stopRotating: ReturnType<typeof vi.fn> };
 
   beforeEach(() => {
     slider = document.createElement('input');
     slider.type = 'range';
-    pan = { onKeyDown: vi.fn(() => true), onKeyUp: vi.fn(() => true) };
+    pan = { onKeyDown: vi.fn(() => true), onKeyUp: vi.fn(() => true), clearKeys: vi.fn() };
     mapPlacement = { startRotating: vi.fn(() => true), stopRotating: vi.fn() };
+    towerPlacement = { buildMode: () => false, stopRotating: vi.fn() };
 
     const injector = Injector.create({
       providers: [
@@ -43,7 +45,7 @@ describe('InputHandlerService keys on a focused slider', () => {
         { provide: UIStore, useValue: { photoMode: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
         { provide: KeyboardPanService, useValue: pan },
-        { provide: TowerPlacementService, useValue: { buildMode: () => false, stopRotating: vi.fn() } },
+        { provide: TowerPlacementService, useValue: towerPlacement },
         { provide: MapPlacementService, useValue: mapPlacement },
       ],
     });
@@ -65,6 +67,18 @@ describe('InputHandlerService keys on a focused slider', () => {
     const other = keyOn('keydown', 'R', document.body);
     service.handleKeyDown(other);
     expect(other.defaultPrevented).toBe(false);
+  });
+
+  it('stops turning the spawn portal and the tower when the window loses the focus with R held', () => {
+    pan.onKeyDown.mockReturnValue(false);
+    service.handleKeyDown(keyOn('keydown', 'r', document.body));
+
+    // R comes up in another window: no keyup reaches the game
+    service.handleWindowBlur();
+
+    expect(mapPlacement.stopRotating).toHaveBeenCalled();
+    expect(towerPlacement.stopRotating).toHaveBeenCalled();
+    expect(pan.clearKeys).toHaveBeenCalled();
   });
 
   it('leaves the arrow keys to the slider, the camera does not pan', () => {
