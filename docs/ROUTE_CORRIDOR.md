@@ -843,22 +843,44 @@ die ein Tunnelportal statt eines Treffers auf einem Dach nimmt (`portalGround`).
 
 **Kein Band:** Ein Stück wird ein **Durchgang** (Tunnelstück wie ein Torbogen:
 `inTunnel`, `passage`, Portale, Höhe zwischen ihnen), wenn die Station ihre
-Linie nicht auf die Straße legen kann, auf zwei Weisen:
+Linie nicht auf die Straße legen kann. Das gilt nur auf Straßen, die das Band
+entscheidet, und wo `street` bekannt ist, auf drei Weisen (`markPassages`):
 
 - Das **Rückgrat** liegt mehr als `roofRise` über `street`: quer zur Linie ist
   gar keine Zelle auf der Straße (Gasse bis zum Boden gefüllt, Krone, Erker).
-- Die Zelle, durch die die **Linie** läuft, liegt so hoch über `street`, und das
-  Band ist schmaler als zwei `edgeMargin`, die Linie kann also nicht daneben.
-  Eine Route beansprucht die Zelle, durch die ihre Linie läuft, bei jeder
-  Breite (`claimSegmentCells`), und die behält das Dach über der Gasse: ein
+- Die **Linie** läuft außerhalb eines Durchgangs durch eine Zelle, die so hoch
+  über `street` liegt (`coveredOnLine`), mit oder ohne Rückgrat. Eine Route
+  beansprucht jede Zelle, durch die ihre Linie läuft, bei jeder Breite
+  (`claimSegmentCells`), und die behält das Dach über der Gasse: ein
   vorkragendes Obergeschoss, oder das Mesh eines Torturms hinter der Öffnung.
-  Bis 2026-09-16 fing das `streetUnderRoof` als eigene Höhenregel ab; das Band
-  hat sie ersetzt und diesen Fall zunächst offen gelassen.
+  Geprüft wird die Gegnerlinie, wie `bandPath` sie legt, Stück für Stück, mit
+  jeder Zelle, die ein Stück berührt, auch nur an einer Ecke (auf 1 mm,
+  `CLAIM_MARGIN_M`). Die Zelle zählt für die nähere der beiden Stationen an
+  den Enden des Stücks; ein Punkt zwischen zwei Segmenten ist kein solches
+  Ende. Diese Station wird Durchgang, dann werden Band und Linie neu gelegt,
+  bis keine solche Zelle mehr bleibt. Jede Runde fügt nur Stationen hinzu,
+  der Bau endet also.
+- Eine **Lücke** zwischen zwei Durchgängen, oder zwischen einem Durchgang und
+  einem Stück unter Deckung aus OSM (Tunnel, überdachter Durchgang, Stück
+  unter einer fremden Brücke, `BandRoute.covered`), höchstens
+  `PASSAGE_GAP_M` (4 m, zwei Stationen) lang (`closePassageGaps`).
+
+Bis 2026-09-16 brauchten beide Regeln ein Rückgrat, und die zweite prüfte nur
+die Zelle, in der die Station steht, und nur, wo das Band schmaler als zwei
+`edgeMargin` war. Davor fing `streetUnderRoof` den zweiten Fall als eigene
+Höhenregel ab; das Band hatte sie ersetzt.
 
 Ein tieferes Objekt, das die Gasse ausfüllt, ist sein eigenes Rückgrat: Das Band
 liegt darauf, die Gegner steigen darüber (E6, mehr als `stepRise` über `street`).
 Brücke, Tunnel, Unterführung, Strecke hinter einem Brückenende und das Endstück
 zum HQ entscheidet das Band nicht; dort bleiben OSM-Linie und Strahlbreiten.
+
+**`passages`** (`CorridorBand.passages`, Trace `band.build` und
+`build.freeze`) zählt die Durchgänge, die an kein Stück unter Deckung aus OSM
+grenzen. Ein Durchgang an einem Tunnel verlängert diesen (das Mesh eines
+Torturms über die Mündung hinaus) und zählt nicht: Ob die Kante des Meshes
+noch die Linie einer Station erreicht, entscheidet die Lage des Gitters auf
+eine Zelle genau.
 
 **Anlass** (Playtest 2026-09-16, Rothenburg, Weißer Turm über der Georgengasse,
 Way 139711833 `building=tower historic=city_gate height=37`): Der Bezug war
@@ -867,6 +889,43 @@ ist tiefer als diese 8 m, also war der Median selbst das Turmdach: Nur die
 beiden Enden des Stücks wurden Durchgang, das Band dazwischen lag auf dem Turm,
 und die Portale 2 m vor den Mündungen fragten Stationen, die ebenfalls auf dem
 Turm standen. Szene: `integration/corridor-band.scenes.spec.ts`, "Weisser Turm".
+
+**Anlass Gitterlage** (Playtest 747, Rothenburg): Derselbe Turm, einmal kalt
+geladen und einmal im Spiel hinnavigiert, auf denselben Tiles. Das HQ lag
+0,148 m nördlich und 0,120 m östlich daneben, das 2-m-Gitter also rund 19 cm
+anders gegen die Welt. Der kalte Bau fand zwei Durchgänge, der navigierte
+einen, und dort standen Zellen zwischen Durchgang und Torbogen auf dem Turm
+(Zelle -97,111 auf 490,37 m, die Straße auf 480,65 m). Aus den beiden
+Snapshots (`tmp/fix1/reports/passshift.md`), soweit sie reichen; die Säulen
+darin sind die des Säulen-Caches beim Schnappschuss, dieselben wie beim Bau
+angenommen:
+
+- Station 11:5, 2 m vor dem Turm, hatte in beiden Bauen innerhalb der
+  Strahlenwände nur Zellen auf dem Turm. Kalt lagen zwei davon 0,26 m
+  auseinander (488,37 und 488,11 m), also innerhalb einer Stufe: Rückgrat auf
+  dem Turm, rund 7,5 m über `street`, Durchgang. Navigiert 0,57 m (487,41 und
+  487,98 m): kein Rückgrat, die Station `fixed`. Eine Station ohne Rückgrat
+  prüfte keine Regel, ihr Stück behielt die Strahlbreiten und beanspruchte die
+  Zellen auf dem Turm als Boden.
+- Davor lagen die Zellen quer zur Linie 2,6 bis 2,9 m über `street`
+  (Stationen 11:1 und 11:2, Durchgang), an Station 11:3 die Zelle der Linie
+  2,3 m: kalt ohne Rückgrat, navigiert ein Übersteigen. Beide trennten den
+  Durchgang davor vom Turm.
+- Mit den Regeln von oben kreuzt die Linie beider Snapshots an 11:4 und 11:6
+  (kalt) und an 11:4 bis 11:6 (navigiert) Zellen 4 bis 28 m über `street`;
+  die Lücke an 11:3 schließt sich. Das gäbe in beiden Bauen einen Durchgang von
+  11:1 bis in den Torbogen. Nachgerechnet auf den Linien und Säulen der
+  Snapshots, nicht auf einem neu gebauten Band (die Säulen neben dem Korridor
+  fehlen darin), also plausibel, nicht belegt.
+
+Nachgestellt in `corridor-band.spec.ts` ("wherever the cell lattice lies":
+Vorbau, Torturm, Gewölbe mit einer Stelle unter `roofRise`, Mesh vor einem
+Torbogen aus OSM, je in 64 Gitterlagen und drei Winkeln) und in der Szene
+"Weisser Turm" (65 Gitterlagen, die aus 747 eingeschlossen, 1 und 2 m
+Mesh-Überstand). Mit den Regeln davor lagen in der Szene bei 1 m Überstand in
+16 von 65 Gitterlagen Zellen im Umkreis von 15 m um den Turm über der Straße,
+bei 2 m in 53; synthetisch lag in den schrägen Gassen in 23 bis 30 von 64
+Lagen eine Zelle der Deckung auf der Linie.
 
 **In der Route** (`bandPath`, `laidInBand`): Knoten sind der Routenstart, jede
 Station um ihren Versatz zur Seite gesetzt, jeder Punkt der Route entlang der
@@ -892,10 +951,11 @@ liegen beide gleich, steht es auf der Straße. `__corridor.fingerprint()` hasht
 das Band unter `band`, `streetY` eingeschlossen.
 
 **Tests:** `utils/corridor-band.spec.ts` (Regeln, dazu Böschung, Kai, Damm, 15 %
-Querneigung, Durchgang, Übersteigen, Determinismus),
-`integration/corridor-band.scenes.spec.ts` (fünf echte OSM-Routen mit den Zellen
-der Playtests, je zweimal mit gleichem Bericht), `managers/worm/worm-detour.spec.ts`
-(Wurm neben einem Transporter).
+Querneigung, Durchgang, Übersteigen, Determinismus, Durchgänge in jeder
+Gitterlage), `integration/corridor-band.scenes.spec.ts` (fünf echte OSM-Routen
+mit den Zellen der Playtests, je zweimal mit gleichem Bericht; Weißer Turm,
+Pont d'Iéna und A6 in jeder Gitterlage auf eine Viertelzelle, `LATTICE_SHIFTS`),
+`managers/worm/worm-detour.spec.ts` (Wurm neben einem Transporter).
 
 ## Seitenversatz der Gegner
 
@@ -1888,12 +1948,22 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
     ab etwa 17 % erreicht das `roofRise`, und die letzten 15 m der Route
     könnten fälschlich Durchgang werden. Im Spiel nicht beobachtet, im Test
     nur bis 8 % geprüft.
-  - Die zweite Durchgangsregel (Zelle der Linie auf einem Dach) greift nur,
-    wo das Band schmaler als zwei `edgeMargin` (3 m) ist. Ist es breiter,
-    rückt die Linie zur Seite und ihre Zelle ist eine erreichte. Verschmälert
-    `taperWidths` das Band danach noch, kann die Linie doch näher an eine
-    Kante rücken; in der Szene mit 3 m Mesh-Überstand blieb so eine Zelle auf
-    einem Dach übrig.
+    In der Turm-Szene mit 3 m Mesh-Überstand liegen so in 15 von 65
+    Gitterlagen Zellen auf den Dächern (in zwei davon nachgesehen: die Gasse
+    ist dort über 40 m überdeckt, `street` liest die Dächer), mit den Regeln
+    vor wie nach Playtest 747.
+  - Die Durchgangsregel der Linie prüft die Zellen, durch die die Linie
+    läuft, nicht die Zellen innerhalb der Halbbreiten ihrer Stücke. In der
+    Szene "Marktplatz" liegen je nach Gitterlage bis zu zwei Zellen auf dem
+    Block der Ratstrinkstube (Way 141331646, 28 m), in der Turm-Szene
+    ebenso auf Markt 3 (Way 141331659): an Ecken der Route, beansprucht nur
+    vom runden Ende eines Stücks (`jointCap`). Mit den Regeln vor wie nach
+    Playtest 747, Ursache nicht weiter untersucht, im Spiel nicht beobachtet.
+  - Wie weit ein Durchgang reicht, entscheidet die Lage des Gitters an jedem
+    Ende auf etwa eine Zelle genau; ein Durchgang an einem Tunnel aus OSM ist
+    deshalb Teil des Tunnels (`passages`). Eine Deckung, deren Kante gerade
+    bis an die Linie reicht, ergibt je nach Gitterlage einen Durchgang oder
+    keinen.
   - Die Zellen quer prüft das Band nur auf der Linie durch jede Station;
     was zwischen zwei Stationen steht, sieht es nur, wenn es auch eine
     ihrer Querlinien trifft. Auf einer Diagonale kann eine Zelle dazwischen
