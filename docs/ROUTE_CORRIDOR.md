@@ -1009,11 +1009,22 @@ und `CorridorBuild.frozeBlind()` merkt es sich.
 
 Wird die Seite danach sichtbar, baut der Korridor von selbst noch einmal, nun
 mit Tiles (`VisualizationFacadeService.rebuildAfterBlindBuild`, am
-`visibilitychange` des Dokuments). Nicht, solange Tower stehen, eine Welle
-läuft oder Gegner auf der Karte sind (`rebuildBlocker`): Deren LOS-Antworten,
-Zellen und Routen stehen auf dem Korridor in Gebrauch. Dann bleibt es bei den
-OSM-Breiten, und die Warnung im Log ist der Hinweis darauf; ein Neuladen des
-Orts baut ihn neu.
+`visibilitychange` des Dokuments, Grund `visible after unmeasured freeze`).
+Weil das in einer dichten Stadt Sekunden dauert und Tower und Wellen so lange
+warten, steht dabei derselbe Hinweis über der Karte wie bei einem HQ-Umzug
+(`RelocationStatusService`), mit den Schritten des Baus.
+
+Höchstens ein Bau je eingefrorenem Bau: Solange er läuft, hält `pending()`
+eine zweite Sichtbarkeitsmeldung ab, und danach ersetzt sein eigenes Ergebnis
+den Merker. Friert auch er blind ein, bleibt der Merker stehen, und die
+nächste Sichtbarkeitsmeldung versucht es noch einmal.
+
+Nicht, solange Tower stehen, eine Welle läuft oder Gegner auf der Karte sind
+(`rebuildBlocker`): Deren LOS-Antworten, Zellen und Routen stehen auf dem
+Korridor in Gebrauch. Das steht als `build.revisit built=false blocked=...`
+im Trace, die Warnung im Log bleibt, und die nächste Sichtbarkeitsmeldung
+versucht es wieder; das ist die Warteschlange auf den nächsten sicheren
+Moment.
 
 | Auslöser | Wann |
 |---|---|
@@ -1176,6 +1187,7 @@ vitest (Specs schalten ihn selbst ein).
 | `build.pass` | je Durchgang aus Routen, Zellen und Laufweg | `pass`, `changed` (der Laufweg hat etwas weggenommen), `cells`, `ms` |
 | `build.unsettled` | die Durchgänge kamen nicht zur Ruhe, der Bau friert mit dem letzten Plan ein | `passes`, `why` |
 | `build.notiles` | der Bau maß auf nichts: keine Station mit Tile oder keine Zelle mit Höhe; der Korridor friert mit den OSM-Breiten ein | `stations`, `unmeasured`, `cells`, `bare` (Zellen ohne eigene Höhe), `timedOut` |
+| `build.revisit` | die Seite wurde sichtbar und der Korridor war auf nichts gebaut (`rebuildAfterBlindBuild`) | `built`: ob ein Bau startete; `blocked`: die Sperre, wenn nicht |
 | `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
 | `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `passes`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `passesMs` |
 | `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |

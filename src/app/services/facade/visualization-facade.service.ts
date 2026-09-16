@@ -226,16 +226,38 @@ export class VisualizationFacadeService {
    * froze the OSM street widths (CorridorBuild.frozeBlind). Nothing
    * re-measures after a freeze, so build once more, now that tiles can load.
    *
+   * At most one build per frozen build: `pending()` holds off a second
+   * visibility change while it runs, and the build that follows replaces
+   * `frozeBlind` with its own outcome. A build that is blind again leaves
+   * the flag up, so a later visibility change tries once more.
+   *
    * Not while towers stand, a wave runs or enemies walk (rebuildBlocker):
-   * their LOS answers, cells and routes stand on the corridor in use. The
-   * warning of the blind build stays in the log for that case.
+   * their LOS answers, cells and routes stand on the corridor in use. That
+   * is `build.revisit built=false` in the trace, and the warning of the
+   * blind build stays in the log; the next visibility change tries again,
+   * which is the queue for the next safe moment.
+   *
+   * The build takes seconds in a dense city and holds towers and waves back
+   * while it runs (corridorPending), so it shows the hint over the map that
+   * an HQ move shows (RelocationStatusService).
    */
   private async rebuildAfterBlindBuild(): Promise<void> {
     if (!this.initialized || document.hidden) return;
     if (!this.corridor.frozeBlind() || this.corridor.pending()) return;
-    if (this.corridor.rebuildBlocker()) return;
+    const blocked = this.corridor.rebuildBlocker();
+    if (blocked) {
+      corridorTrace.log('build.revisit', { built: false, blocked });
+      return;
+    }
+    corridorTrace.log('build.revisit', { built: true });
     console.log('[Corridor] the page is visible again and the corridor was built without tiles: building it again.');
-    await this.corridor.build('page visible after a build without tiles');
+    this.relocationStatus.show('Building the corridor', 'Loading the corridor tiles');
+    const hint = this.relocationStatus.follow();
+    try {
+      await this.corridor.build('visible after unmeasured freeze', hint.report);
+    } finally {
+      hint.end();
+    }
   }
 
   /**
