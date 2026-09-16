@@ -871,13 +871,6 @@ export class GameEventBus {
   }
 
   /**
-   * Disable performance metrics tracking
-   */
-  disableMetrics(): void {
-    this.metricsEnabled = false;
-  }
-
-  /**
    * Get performance metrics
    *
    * @returns Metrics object

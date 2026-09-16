@@ -100,13 +100,6 @@ export class ThreeFlameBeamRenderer {
     this.activeBeams.delete(towerId);
   }
 
-  /**
-   * Check if tower has an active beam
-   */
-  hasBeam(towerId: string): boolean {
-    return this.activeBeams.has(towerId);
-  }
-
   /** Target and width of a tower's beam, null without one. Read by the replay recorder. */
   getBeam(towerId: string): Readonly<Pick<ActiveBeam, 'targetPosition' | 'beamWidth'>> | null {
     return this.activeBeams.get(towerId) ?? null;

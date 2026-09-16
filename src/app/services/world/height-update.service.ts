@@ -40,9 +40,6 @@ export class HeightUpdateService {
   /** Height update attempt counter */
   private heightUpdateAttempts = 0;
 
-  /** Flag indicating overlays have been updated */
-  private overlayHeightsUpdated = false;
-
   /** Promise resolve callback for height stability */
   private heightStableResolve: (() => void) | null = null;
 
@@ -109,7 +106,6 @@ export class HeightUpdateService {
     cameraTimeline.record('heights.schedule', { alreadyRunning: this.heightUpdateIntervalId !== null });
     // Reset counters for fresh location
     this.heightUpdateAttempts = 0;
-    this.overlayHeightsUpdated = false;
     this.heightsLoading.set(true);
 
     // Update detail for first cycle
@@ -183,7 +179,6 @@ export class HeightUpdateService {
       clearInterval(this.heightUpdateIntervalId);
       this.heightUpdateIntervalId = null;
     }
-    this.overlayHeightsUpdated = true;
 
     // Only call callbacks if we had an active interval
     // This prevents stale callbacks from being called during location change init
@@ -218,24 +213,6 @@ export class HeightUpdateService {
   }
 
   // ========================================
-  // GETTERS
-  // ========================================
-
-  /**
-   * Check if height updates are complete
-   */
-  isComplete(): boolean {
-    return this.overlayHeightsUpdated;
-  }
-
-  /**
-   * Get current attempt count
-   */
-  getAttemptCount(): number {
-    return this.heightUpdateAttempts;
-  }
-
-  // ========================================
   // CLEANUP
   // ========================================
 
@@ -259,7 +236,6 @@ export class HeightUpdateService {
   reset(): void {
     this.stopHeightUpdates();
     this.heightUpdateAttempts = 0;
-    this.overlayHeightsUpdated = false;
     this.heightsLoading.set(true);
   }
 }

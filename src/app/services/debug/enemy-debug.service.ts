@@ -169,31 +169,6 @@ export class EnemyDebugService {
   }
 
   /**
-   * Setzt die Overrides für den ausgewählten Enemy auf Original zurück.
-   */
-  resetCurrentEnemy(): void {
-    const id = this.selectedEnemyId();
-    const config = ENEMY_TYPES[id];
-    const all = this.allOverrides();
-    this.allOverrides.set({
-      ...all,
-      [id]: {
-        scale: config.scale,
-        baseHp: config.baseHp,
-        baseSpeed: config.baseSpeed,
-        heightOffset: config.heightOffset,
-        healthBarOffset: config.healthBarOffset,
-        previewScale: config.previewScale ?? config.scale * 0.4,
-        previewCameraDistance: config.previewCameraDistance ?? 7,
-        previewCameraAngle: config.previewCameraAngle ?? Math.PI / 12,
-        previewOffsetY: config.previewOffsetY ?? 0,
-        rotation: 0,
-        animationSpeed: config.animationSpeed ?? 1.0,
-      },
-    });
-  }
-
-  /**
    * Setzt alle Overrides auf Original-Werte zurück.
    */
   resetAllOverrides(): void {
@@ -205,13 +180,6 @@ export class EnemyDebugService {
    */
   togglePlacementMode(): void {
     this.placementMode.update(v => !v);
-  }
-
-  /**
-   * Aktiviert den Placement-Mode.
-   */
-  enterPlacementMode(): void {
-    this.placementMode.set(true);
   }
 
   /**
@@ -237,13 +205,6 @@ export class EnemyDebugService {
         overrides: { ...typeOverrides },
       },
     ]);
-  }
-
-  /**
-   * Selektiert einen Debug-Enemy für Live-Editing.
-   */
-  selectDebugEnemy(enemyId: string | null): void {
-    this.selectedDebugEnemyId.set(enemyId);
   }
 
   /**
@@ -338,13 +299,6 @@ export class EnemyDebugService {
    */
   getDebugEnemy(enemyId: string): DebugEnemy | undefined {
     return this.debugEnemies().find(de => de.id === enemyId);
-  }
-
-  /**
-   * Prüft ob ein Enemy ein Debug-Enemy ist.
-   */
-  isDebugEnemy(enemyId: string): boolean {
-    return this.debugEnemies().some(de => de.id === enemyId);
   }
 
   /**

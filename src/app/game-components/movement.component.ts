@@ -598,26 +598,6 @@ export class MovementComponent extends Component {
     this.headingLocked = false;
   }
 
-  /**
-   * Get current segment
-   */
-  getCurrentSegment(): { from: GeoPosition; to: GeoPosition } | null {
-    if (this.currentIndex >= this.path.length - 1) return null;
-    return {
-      from: this.path[this.currentIndex],
-      to: this.path[this.currentIndex + 1],
-    };
-  }
-
-
-  /**
-   * Get next waypoint
-   */
-  getNextWaypoint(): GeoPosition | null {
-    if (this.currentIndex + 1 >= this.path.length) return null;
-    return this.path[this.currentIndex + 1];
-  }
-
   update(_deltaTime: number): void {
     // Movement is triggered explicitly via move() method
   }

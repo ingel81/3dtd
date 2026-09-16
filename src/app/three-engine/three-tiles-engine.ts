@@ -1077,14 +1077,6 @@ export class ThreeTilesEngine {
     return this.overlayGroup;
   }
 
-
-  /**
-   * Get tiles renderer group (for debugging)
-   */
-  getTilesGroup(): Group | null {
-    return this.tilesRenderer?.group ?? null;
-  }
-
   /**
    * Lazy-getter für den shared TowerShadowMapper. Erste Anforderung
    * instanziiert (passiert in Tower-Placement-Service / TowerManager-

@@ -248,7 +248,6 @@ export class UIStore {
   // TOGGLE METHODS
   // ════════════════════════════════════════════════════════════
 
-  toggleDebug(): void { this.debugMode.update(v => !v); }
   /** Open a quick-actions menu and close the others, or close it if it is open. */
   toggleMenu(menu: QuickMenu): void { this.openMenu.update(open => (open === menu ? null : menu)); }
   toggleStreets(): void { this.streetsVisible.update(v => !v); }

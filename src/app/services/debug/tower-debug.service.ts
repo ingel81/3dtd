@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { TOWER_TYPES, TowerTypeConfig, TowerTypeId } from '../../configs/tower-types.config';
+import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { DebugStore, TowerOverrides } from '../../store/debug.store';
 
 export type { TowerOverrides };
@@ -46,23 +46,6 @@ export class TowerDebugService {
       };
     }
     return result;
-  }
-
-  /**
-   * Gibt die effektive Konfiguration für einen Tower-Typ zurück.
-   */
-  getEffectiveConfig(id: TowerTypeId): TowerTypeConfig {
-    const original = TOWER_TYPES[id];
-    const overrides = this.allOverrides()[id];
-
-    return {
-      ...original,
-      scale: overrides.scale,
-      previewScale: overrides.previewScale,
-      heightOffset: overrides.heightOffset,
-      shootHeight: overrides.shootHeight,
-      rotationY: overrides.rotationY,
-    };
   }
 
   /**

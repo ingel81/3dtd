@@ -334,11 +334,6 @@ export class OozeDebrisRenderer {
     return this.liveCount;
   }
 
-  /** Pieces of `kind` flying or lying */
-  countOf(kind: OozeDebrisKind): number {
-    return this.live[KINDS.indexOf(kind)].length;
-  }
-
   /** Draw calls this frame: one per kind with a piece out */
   get drawCalls(): number {
     let calls = 0;

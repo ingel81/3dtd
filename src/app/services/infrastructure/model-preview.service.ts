@@ -355,26 +355,6 @@ export class ModelPreviewService {
   }
 
   /**
-   * Pause a specific preview's animation.
-   */
-  pausePreview(id: string): void {
-    const preview = this.previews.get(id);
-    if (preview) {
-      preview.animating = false;
-    }
-  }
-
-  /**
-   * Resume a specific preview's animation.
-   */
-  resumePreview(id: string): void {
-    const preview = this.previews.get(id);
-    if (preview) {
-      preview.animating = true;
-    }
-  }
-
-  /**
    * Destroy a specific preview.
    */
   destroyPreview(id: string): void {

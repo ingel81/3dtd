@@ -105,37 +105,4 @@ export class StrategyBot extends BaseTowerBot {
     }
   }
 
-  /**
-   * Add strategy at runtime (for dynamic behavior)
-   */
-  addStrategy(strategy: ITowerStrategy): void {
-    this.strategies.push(strategy);
-    this.strategies.sort((a, b) => b.priority - a.priority);
-  }
-
-  /**
-   * Remove strategy by name
-   */
-  removeStrategy(name: string): boolean {
-    const index = this.strategies.findIndex(s => s.name === name);
-    if (index >= 0) {
-      this.strategies.splice(index, 1);
-      return true;
-    }
-    return false;
-  }
-
-  /**
-   * Replace strategy
-   */
-  replaceStrategy(name: string, newStrategy: ITowerStrategy): boolean {
-    const index = this.strategies.findIndex(s => s.name === name);
-    if (index >= 0) {
-      this.strategies[index] = newStrategy;
-      this.strategies.sort((a, b) => b.priority - a.priority);
-      return true;
-    }
-    return false;
-  }
-
 }

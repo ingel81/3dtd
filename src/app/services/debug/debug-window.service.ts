@@ -171,13 +171,6 @@ export class DebugWindowService {
   }
 
   /**
-   * Get the current z-index for a window
-   */
-  getZIndex(windowId: DebugWindowId): number {
-    return this.windowStates()[windowId].zIndex;
-  }
-
-  /**
    * Get the current position for a window
    */
   getPosition(windowId: DebugWindowId): WindowPosition {

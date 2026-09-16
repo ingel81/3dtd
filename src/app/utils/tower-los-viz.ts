@@ -121,11 +121,6 @@ export class TowerLosViz {
     scene.add(this.group);
   }
 
-  /** Aus der Scene entfernen. */
-  removeFrom(scene: Scene | Object3D): void {
-    scene.remove(this.group);
-  }
-
   /** Active layer (cells + meshes) — null if viz wurde noch nicht/nicht
    * mehr gebaut. Für Reverse-Hover-Picking im LOS-Debug-Panel. */
   getLayer(): TowerLosLayer | null {

@@ -268,7 +268,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Expose Math and tower config for template
   readonly Math = Math;
-  readonly archerTowerConfig = TOWER_TYPES.archer;
   readonly towerTypes = getAllTowerTypes();
 
   private engine: ThreeTilesEngine | null = null;
@@ -659,13 +658,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Toggle AI Director mode, delegates to facade
-   */
-  toggleAIDirector(): void {
-    this.facade.toggleAIDirector();
-  }
-
-  /**
    * Toggle static-curriculum fallback (debug button in quick-actions).
    */
   onStaticCurriculumToggled(): void {
@@ -677,13 +669,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   startCustomWave(): void {
     this.facade.startCustomWave();
-  }
-
-  /**
-   * Get AI Director status text, delegates to facade
-   */
-  getAIStatusText(): string {
-    return this.facade.getAIStatusText();
   }
 
   /**
@@ -846,33 +831,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   restartGame(): void {
     this.facade.restartGame();
-  }
-
-  /**
-   * Retry loading after an error during location change
-   * Resets error state and retries with current coordinates
-   */
-  retryLoading(): void {
-    // Clear error state
-    this.engineInit.setError(null);
-
-    // Clear cached network to force reload
-    this.streetNetworkLocation = null;
-
-    // Get current location from service
-    const hq = this.editableHqLocation();
-    const spawn = this.editableSpawnLocations()[0];
-
-    if (hq && spawn) {
-      // Retry with current location, the spawn's portal turned as before
-      this.onApplyNewLocation({
-        hq: { lat: hq.lat, lon: hq.lon, name: hq.name },
-        spawn: { lat: spawn.lat, lon: spawn.lon, name: spawn.name, portalBearing: spawn.portalBearing },
-      });
-    } else {
-      // No location - open location dialog
-      this.openLocationDialog();
-    }
   }
 
   // ==================== Location Settings Methods (delegates to LocationChangeCoordinatorService) ====================

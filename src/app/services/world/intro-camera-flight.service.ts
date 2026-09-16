@@ -539,11 +539,6 @@ export class IntroCameraFlightService {
     return true;
   }
 
-  /** True between prepare() and start(). */
-  isPrepared(): boolean {
-    return this.prepared;
-  }
-
   /**
    * Budgeted sampling over the whole route while the loading screen waits
    * (boot gate). Same round robin as in flight, so coarse samples are

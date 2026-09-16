@@ -420,16 +420,8 @@ export class InstancedEnemyRenderer {
     this.healthBarManager.setVisible(visible);
   }
 
-  get showHealthBars(): boolean {
-    return this._showHealthBars;
-  }
-
   setAnimationsEnabled(enabled: boolean): void {
     this._showAnimations = enabled;
-  }
-
-  get showAnimations(): boolean {
-    return this._showAnimations;
   }
 
   setEnemiesVisible(visible: boolean): void {
@@ -437,10 +429,6 @@ export class InstancedEnemyRenderer {
     this._showEnemies = visible;
     this.instanceManager.setVisible(visible);
     this.healthBarManager.setVisible(visible && this._showHealthBars);
-  }
-
-  get showEnemies(): boolean {
-    return this._showEnemies;
   }
 
   // =====================================================
@@ -454,20 +442,6 @@ export class InstancedEnemyRenderer {
    */
   applyDebugOverrides(id: string, overrides: EnemyDebugOverrides): void {
     this.instanceManager.applyDebugOverrides(id, overrides);
-  }
-
-  setAnimationSpeed(id: string, speed: number): void {
-    const state = this.instanceManager.getState(id);
-    if (!state) return;
-    const baseAnimSpeed = state.config.animationSpeed ?? 1.0;
-    const speedRatio = speed / state.config.baseSpeed;
-    state.animSpeed = baseAnimSpeed * speedRatio;
-  }
-
-  setAnimationTimeScale(id: string, timeScale: number): void {
-    const state = this.instanceManager.getState(id);
-    if (!state) return;
-    state.animSpeed = timeScale;
   }
 
   // =====================================================

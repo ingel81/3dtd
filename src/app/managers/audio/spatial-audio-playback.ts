@@ -174,12 +174,6 @@ export class SpatialAudioPlayback {
     }
   }
 
-  // --- Active sounds accessors ---
-
-  getActiveSounds(): ActiveSound[] {
-    return this.activeSounds;
-  }
-
   getActiveSoundCount(): number {
     return this.activeSounds.length;
   }

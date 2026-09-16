@@ -275,25 +275,6 @@ export class TowerManager extends EntityManager<Tower> {
   }
 
   /**
-   * Put tower to sleep (no enemies nearby).
-   * Sleeping towers skip combat updates.
-   */
-  sleepTower(tower: Tower): void {
-    if (!tower.isSleeping) {
-      tower.isSleeping = true;
-    }
-  }
-
-  /**
-   * Wake tower up (enemy entered range).
-   */
-  wakeTower(tower: Tower): void {
-    if (tower.isSleeping) {
-      tower.isSleeping = false;
-    }
-  }
-
-  /**
    * Select a tower
    */
   selectTower(id: string | null): void {

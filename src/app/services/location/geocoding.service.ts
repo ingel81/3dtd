@@ -202,14 +202,6 @@ export class GeocodingService {
   }
 
   /**
-   * Reverse geocoding: get address from coordinates
-   */
-  async reverseGeocode(lat: number, lon: number): Promise<string | null> {
-    const result = await this.reverseGeocodeDetailed(lat, lon);
-    return result?.displayName ?? null;
-  }
-
-  /**
    * Reverse geocoding with full address details
    */
   async reverseGeocodeDetailed(lat: number, lon: number): Promise<ReverseGeocodeResult | null> {
