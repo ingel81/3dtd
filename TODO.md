@@ -9,7 +9,7 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-16 abends, Branch `next` @ `77aa0771`. Nichts in Arbeit.
+Stand 2026-09-16 abends, Branch `next`. Nichts in Arbeit.
 
 ---
 
