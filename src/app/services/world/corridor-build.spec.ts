@@ -47,6 +47,8 @@ describe('CorridorBuild', () => {
     bare: number;
     promoted: number;
     animation: boolean;
+    /** Active tiles the region reports; null: no region, the build waits for none. */
+    regionTiles: () => number | null;
   };
   let corridor: CorridorBuild;
 
@@ -62,12 +64,16 @@ describe('CorridorBuild', () => {
         calls.push(`camera ${px}`);
         camera = px;
       },
+      requestUpdate: () => calls.push('requestUpdate'),
       holdSettled: vi.fn(),
     };
     const engine = {
       tilesLodDebug: () => (state.tiles ? tiles : null),
       terrain: { clearHeightCache: () => calls.push('clearColumns') },
-      routeCorridorLod: () => null,
+      routeCorridorLod: () => {
+        const count = state.regionTiles();
+        return count === null ? null : { tiles: count };
+      },
     };
     const grid = {
       getStats: () => ({ totalCells: 42 }),
@@ -158,6 +164,7 @@ describe('CorridorBuild', () => {
     state = {
       towers: 0, enemies: 0, phase: 'setup', engine: true, tiles: true, loadingUntil: 0, epoch: 1, slices: 1,
       unmeasured: [0], narrow: 0, walkStates: null, bare: 0, promoted: 0, animation: false,
+      regionTiles: () => null,
     };
     corridor = create();
   });
@@ -212,6 +219,39 @@ describe('CorridorBuild', () => {
         'Measuring the corridor 25', 'Measuring the corridor 50', 'Measuring the corridor 75',
         'Building the corridor',
       ]);
+    });
+
+    /**
+     * Browser check 2026-09-16, Erlenbach in a background tab: the wait ended
+     * 1 s in with `tiles=0 pending=0`, every station measured `none`, and the
+     * corridor froze at OSM width. Nothing was loading because nothing had
+     * been asked for: in a background tab rAF stands, so the renderer never
+     * traverses. Quiet is not "loaded" until the region holds a tile.
+     */
+    it('waits for the first tile of the region instead of taking quiet for loaded, and nudges the renderer', async () => {
+      const appearAt = 4000;
+      state.regionTiles = () => (clock >= appearAt ? 3 : 0);
+
+      const result = await corridor.build('location load');
+
+      expect(result?.timedOut).toBe(false);
+      expect(clock).toBeGreaterThanOrEqual(appearAt + QUIET_MS);
+      expect(calls.filter((call) => call === 'requestUpdate').length).toBeGreaterThan(0);
+      expect(calls).toContain('measure');
+    });
+
+    it('warns when no station found a tile: the corridor stays at the OSM width until the next build', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      state.regionTiles = () => 0;
+      state.slices = 3;
+      state.unmeasured = [3];
+
+      const result = await corridor.build('location load');
+
+      expect(result).toMatchObject({ stations: 3, unmeasured: 3, timedOut: true, fallbackStations: 0 });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining(
+        'no station found a tile (3 stations, and the tiles never settled)',
+      ));
     });
 
     it('builds with what came when the tiles do not settle within the timeout, and says so', async () => {

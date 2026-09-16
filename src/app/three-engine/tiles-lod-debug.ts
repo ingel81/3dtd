@@ -47,25 +47,56 @@ export interface TilesWait {
   stopped: boolean;
 }
 
+/** How long a wait sits still before it asks the renderer to traverse again, ms. */
+const NUDGE_MS = 1000;
+
+/** What a wait for the tiles may do besides watching `busy()`, see waitForQuietTiles. */
+export interface QuietTilesOptions {
+  /** End the wait early; the result then says `stopped`. */
+  stop?: () => boolean;
+  /**
+   * The tiles the caller needs are there. Without it quiet counts on its
+   * own; with it, a quiet spell in which `ready()` is false does not count.
+   * Nothing loading is not the same as everything loaded: before the
+   * renderer has traversed once, nothing is queued either.
+   */
+  ready?: () => boolean;
+  /**
+   * Called while nothing loads and `ready()` is false, at most every
+   * NUDGE_MS: ask the renderer to traverse again. It traverses on camera
+   * moves and tile loads only (UpdateOnChangePlugin), and in a background
+   * tab rAF does not run, so without this a wait can sit out its whole
+   * timeout without one request going out.
+   */
+  nudge?: () => void;
+}
+
 /**
- * Wait until the tiles have not loaded for QUIET_MS, at most `timeoutMs`,
- * checking once a frame; `stop` ends the wait early.
+ * Wait until the tiles have not loaded for QUIET_MS and `ready()` holds, at
+ * most `timeoutMs`, checking once a frame.
  */
 export async function waitForQuietTiles(
   tiles: Pick<TilesLodDebug, 'busy'>,
   timeoutMs: number,
   nextFrame: () => Promise<void>,
   now: () => number,
-  stop: () => boolean = () => false,
+  { stop = () => false, ready = () => true, nudge }: QuietTilesOptions = {},
 ): Promise<TilesWait> {
   const start = now();
   let quietSince: number | null = null;
+  let nudgedAt = start;
   for (;;) {
     await nextFrame();
     const time = now();
     if (stop()) return { ms: time - start, timedOut: false, stopped: true };
-    if (tiles.busy()) quietSince = null;
-    else quietSince ??= time;
+    const busy = tiles.busy();
+    if (busy || !ready()) {
+      quietSince = null;
+      if (!busy && nudge && time - nudgedAt >= NUDGE_MS) {
+        nudgedAt = time;
+        nudge();
+      }
+    } else quietSince ??= time;
     if (quietSince !== null && time - quietSince >= QUIET_MS) return { ms: quietSince - start, timedOut: false, stopped: false };
     if (time - start >= timeoutMs) return { ms: time - start, timedOut: true, stopped: false };
   }
@@ -102,6 +133,8 @@ export interface TilesLodDebug {
   setRegionErrorTarget(metres: number): boolean;
   /** The camera's screen-space error target, px. */
   setCameraErrorTarget(px: number): void;
+  /** Ask the renderer to traverse again: it does so on camera moves and tile loads only. */
+  requestUpdate(): void;
   /** Hold the settled tile loads back from the game, see SettleHold. */
   holdSettled(hold: boolean): void;
 }
@@ -162,6 +195,7 @@ export function createTilesLodDebug(
       tiles.errorTarget = px;
       update();
     },
+    requestUpdate: () => update(),
     holdSettled: (hold) => host.holdSettled(hold),
   };
 }

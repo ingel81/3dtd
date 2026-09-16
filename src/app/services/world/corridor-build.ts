@@ -223,7 +223,19 @@ export class CorridorBuild {
         report({ step: TILES_STEP, percent: null });
         this.mute(tiles);
         tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
-        const wait = await waitForQuietTiles(tiles, CorridorBuild.TILES_TIMEOUT_MS, this.nextFrame, this.now, () => stopped() !== null);
+        // Quiet on its own would end this wait a second after it began while
+        // the region holds no tile at all: nothing is loading because nothing
+        // has been asked for yet. The build would then measure on nothing and
+        // freeze the OSM street widths (browser check 2026-09-16, in a
+        // background tab, where rAF and with it the renderer stand still).
+        // So wait for the region's first tile, and meanwhile ask the renderer
+        // to traverse; without a region (null) there is nothing to wait for.
+        let sawTiles = false;
+        const wait = await waitForQuietTiles(tiles, CorridorBuild.TILES_TIMEOUT_MS, this.nextFrame, this.now, {
+          stop: () => stopped() !== null,
+          ready: () => (sawTiles ||= (engine?.routeCorridorLod()?.tiles ?? 1) > 0),
+          nudge: () => tiles.requestUpdate(),
+        });
         if (dropped()) return null;
         timedOut = wait.timedOut;
         ms.tiles = wait.ms;
@@ -358,6 +370,15 @@ export class CorridorBuild {
         `passes=${passes} (${f(ms.passes)}) lines=${f(ms.lines)} wall=${f(result.ms)}ms stations=${measured} ` +
         `unmeasured=${result.unmeasured} cells=${result.cells}${timedOut ? ' tiles timed out' : ''}`,
       );
+      // Not a note: the corridor is frozen like this until the next build,
+      // so every route keeps the width its OSM tags gave it.
+      if (measured > 0 && result.unmeasured === measured) {
+        console.warn(
+          `[Corridor] build: no station found a tile (${measured} stations${timedOut ? ', and the tiles never settled' : ''}). ` +
+          'The corridor keeps the street widths from OSM until the next build; reload the location or move the HQ to build it again.',
+        );
+        traced(() => corridorTrace.log('build.notiles', { stations: measured, timedOut }));
+      }
       traced(() => {
         if (before) corridorTrace.rebuilt(before, this.snapshot(), { passes, spawns: spawns.length }, ms.passes + ms.lines);
         corridorTrace.log('build.freeze', { ...result, tilesMs: ms.tiles, measureMs: ms.measure, fallbackMs: ms.fallback, passesMs: ms.passes });
@@ -422,12 +443,12 @@ export class CorridorBuild {
     report({ step: FALLBACK_STEP, percent: null });
     const stop = () => stopped() !== null;
     tiles.setRegionErrorTarget(ROUTE_CORRIDOR_COARSE_ERROR_TARGET);
-    await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, stop);
+    await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, { stop });
     if (stop()) return false;
     engine.terrain.clearHeightCache();
     work();
     tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
-    await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, stop);
+    await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, { stop });
     if (stop()) return false;
     engine.terrain.clearHeightCache();
     return true;

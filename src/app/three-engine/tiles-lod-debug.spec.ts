@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { TilesRenderer } from '3d-tiles-renderer';
-import { SettleHold, createTilesLodDebug } from './tiles-lod-debug';
+import { QUIET_MS, SettleHold, createTilesLodDebug, waitForQuietTiles, type QuietTilesOptions } from './tiles-lod-debug';
 
 /**
  * The tiles' LOD handle for `__tiles.stats()` and `__corridor.probeLod()`:
@@ -63,8 +63,57 @@ describe('createTilesLodDebug', () => {
     expect(region.errorTarget).toBe(2.5);
     debug.setCameraErrorTarget(1e6);
     expect(tiles.errorTarget).toBe(1e6);
-    expect(tiles.dispatchEvent).toHaveBeenCalledTimes(2);
+    debug.requestUpdate();
+    expect(tiles.dispatchEvent).toHaveBeenCalledTimes(3);
     expect(tiles.dispatchEvent).toHaveBeenCalledWith({ type: 'needs-update' });
+  });
+});
+
+/**
+ * The wait the corridor build takes before it measures. "Nothing is loading"
+ * is not "everything is loaded": before the renderer has traversed once,
+ * nothing is queued either, and in a background tab rAF never runs it. The
+ * caller says with `ready` what it is actually waiting for.
+ */
+describe('waitForQuietTiles', () => {
+  const FRAME_MS = 50;
+
+  function run(busy: () => boolean, options?: QuietTilesOptions, timeoutMs = 10_000) {
+    let clock = 0;
+    const promise = waitForQuietTiles(
+      { busy }, timeoutMs, async () => { clock += FRAME_MS; }, () => clock, options,
+    );
+    return { promise, clock: () => clock };
+  }
+
+  it('ends once nothing has loaded for QUIET_MS', async () => {
+    const wait = run(() => false);
+    expect(await wait.promise).toMatchObject({ timedOut: false, stopped: false });
+    expect(wait.clock()).toBeGreaterThanOrEqual(QUIET_MS);
+  });
+
+  it('keeps waiting while the caller says its tiles are not there, and nudges the renderer', async () => {
+    let ready = false;
+    let nudges = 0;
+    const wait = run(() => false, {
+      ready: () => ready,
+      nudge: () => { if (++nudges >= 3) ready = true; },
+    });
+
+    expect(await wait.promise).toMatchObject({ timedOut: false, stopped: false });
+    expect(nudges).toBe(3);
+    // Three nudges a second apart, then the quiet spell
+    expect(wait.clock()).toBeGreaterThan(2 * 1000 + QUIET_MS);
+  });
+
+  it('times out when the tiles never come', async () => {
+    const wait = run(() => false, { ready: () => false }, 2000);
+    expect(await wait.promise).toMatchObject({ timedOut: true, stopped: false });
+    expect(wait.clock()).toBeGreaterThanOrEqual(2000);
+  });
+
+  it('stops when the caller says so', async () => {
+    expect(await run(() => true, { stop: () => true }).promise).toMatchObject({ stopped: true });
   });
 });
 
