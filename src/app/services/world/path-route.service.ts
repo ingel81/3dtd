@@ -226,8 +226,8 @@ export interface CorridorExplanation {
   bandKind: string | null;
   /**
    * How far the enemies' line runs off the OSM line at the station, right
-   * of travel positive; null where it runs on it. The middle of the band or
-   * the line moved into it, smoothed (`centreMode`).
+   * of travel positive; null where it runs on it. The middle of the band,
+   * smoothed.
    */
   detourM: number | null;
   /** In a passage: something fills the lane, the stretch runs as a tunnel and is not measured. */

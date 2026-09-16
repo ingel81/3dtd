@@ -1,4 +1,4 @@
-import { CentreMode, corridorConfig, stationRadius } from './route-corridor';
+import { corridorConfig, stationRadius } from './route-corridor';
 import { segmentTouchesCell } from './route-grid-builder';
 
 /**
@@ -32,9 +32,7 @@ import { segmentTouchesCell } from './route-grid-builder';
  *    flow round a small object on a square: it ends before it (user decision
  *    2026-09-16). Its edge lies midway between the last cell reached and the
  *    first one not, so claiming the cells of the band takes exactly those.
- * 3. **Enemies' line:** the middle of the band (`centreMode` `band`) or the
- *    OSM line where it lies in the band with `edgeMargin` to spare, else the
- *    nearest point that does (`minimal`), smoothed: a smoothing spline with a
+ * 3. **Enemies' line:** the middle of the band, smoothed: a smoothing spline with a
  *    penalty on the bend (CENTRE_STIFFNESS), kept within `edgeMargin` of both
  *    edges. The report gives its steepest slope and tightest bend.
  * 4. **No band:** a backbone more than `roofRise` above the street under the
@@ -244,9 +242,9 @@ function hollow(column: BandColumn): boolean {
 /**
  * The walkable band along `route` and the enemies' line in it, see the file
  * comment. `columns` must be a pure lookup (the frozen measurement); each
- * cell's column is read once. `mode`: corridorConfig.centreMode unless given.
+ * cell's column is read once.
  */
-export function buildBand(route: BandRoute, columns: BandColumns, cellSize: number, mode: CentreMode = corridorConfig.centreMode): CorridorBand {
+export function buildBand(route: BandRoute, columns: BandColumns, cellSize: number): CorridorBand {
   const memo = new Map<string, BandColumn | null>();
   const columnAt = (gx: number, gz: number): BandColumn | null => {
     const key = `${gx},${gz}`;
@@ -304,7 +302,7 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
     // The line and the room beside it settle together: the line moves within
     // the band, so the room changes faster than the edges do (taperWidths).
     for (let round = 0; round < CENTRE_ROUNDS; round++) {
-      placeCentre(stations, mode);
+      placeCentre(stations);
       taperWidths(stations);
     }
     const found = coveredOnLine(route, stations, columnAt, cellSize).filter((k) => !underCover.has(k));
@@ -964,13 +962,12 @@ function taperWidths(stations: Work[]): void {
 }
 
 /**
- * The enemies' line of every station: its target (the middle of the band,
- * or in `minimal` mode the OSM line moved into the band only as far as
- * needed), kept within `edgeMargin` of both edges (the middle where the
+ * The enemies' line of every station: its target (the middle of the band),
+ * kept within `edgeMargin` of both edges (the middle where the
  * band is narrower), smoothed along the route (smoothCentre). Stations
  * without a band keep the OSM line, and so do both ends of the route.
  */
-function placeCentre(stations: Work[], mode: CentreMode): void {
+function placeCentre(stations: Work[]): void {
   const e = corridorConfig.edgeMargin;
   const n = stations.length;
   const target: number[] = [];
@@ -984,7 +981,7 @@ function placeCentre(stations: Work[], mode: CentreMode): void {
     let high = st.right - e;
     if (low > high) low = high = (st.left + st.right) / 2;
     const middle = (st.left + st.right) / 2;
-    target.push(pin ? 0 : mode === 'band' ? middle : Math.min(high, Math.max(low, 0)));
+    target.push(pin ? 0 : middle);
     lo.push(pin ? 0 : low);
     hi.push(pin ? 0 : high);
     pinned.push(pin);
