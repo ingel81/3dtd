@@ -5,8 +5,8 @@ import { cameraTimeline } from '../../utils/camera-timeline';
 /**
  * HeightUpdateService
  *
- * Manages terrain height synchronization for overlays (markers, streets).
- * Handles periodic height updates until terrain tiles are fully loaded and stable.
+ * Manages terrain height synchronization for overlays (markers, streets):
+ * a fixed number of height updates, one every UPDATE_INTERVAL_MS.
  */
 @Injectable({ providedIn: 'root' })
 export class HeightUpdateService {
@@ -14,11 +14,8 @@ export class HeightUpdateService {
   // CONSTANTS
   // ========================================
 
-  /** Maximum height update attempts */
-  private readonly MAX_ATTEMPTS = 20; // Max 20 attempts (10 seconds total)
-
-  /** Minimum height update attempts */
-  private readonly MIN_ATTEMPTS = 4; // Minimum 4 attempts (2 seconds)
+  /** Height update attempts */
+  private readonly ATTEMPTS = 4; // 4 attempts (2 seconds)
 
   /** Update interval in milliseconds */
   private readonly UPDATE_INTERVAL_MS = 500;
@@ -114,8 +111,8 @@ export class HeightUpdateService {
 
   /**
    * Schedule periodic overlay height updates
-   * Runs every 500ms until terrain heights are stable
-   * @returns Promise that resolves when heights are stable
+   * Runs every 500ms, ATTEMPTS times
+   * @returns Promise that resolves after the last one
    */
   scheduleOverlayHeightUpdate(): Promise<void> {
     cameraTimeline.record('heights.schedule', { alreadyRunning: this.heightUpdateIntervalId !== null });
@@ -157,9 +154,9 @@ export class HeightUpdateService {
 
     // Update step detail for live progress display - show what's happening
     if (this.onUpdateDetailCallback) {
-      const remaining = this.MIN_ATTEMPTS - this.heightUpdateAttempts;
+      const remaining = this.ATTEMPTS - this.heightUpdateAttempts;
       if (remaining > 0) {
-        this.onUpdateDetailCallback(`Synchronizing terrain... (${this.heightUpdateAttempts}/${this.MIN_ATTEMPTS})`);
+        this.onUpdateDetailCallback(`Synchronizing terrain... (${this.heightUpdateAttempts}/${this.ATTEMPTS})`);
       } else {
         this.onUpdateDetailCallback(`Finalizing terrain...`);
       }
@@ -183,18 +180,8 @@ export class HeightUpdateService {
       this.onUpdateMarkersCallback();
     }
 
-    // Check if we should stop (stability or max attempts reached)
-    this.checkStabilityAndStop();
-  }
-
-  /**
-   * Check if heights are stable and stop updates if needed
-   */
-  private checkStabilityAndStop(): void {
-    // Only stop after minimum attempts
-    if (this.heightUpdateAttempts >= this.MIN_ATTEMPTS) {
-      this.stopHeightUpdates();
-    } else if (this.heightUpdateAttempts >= this.MAX_ATTEMPTS) {
+    // Stop after the last attempt
+    if (this.heightUpdateAttempts >= this.ATTEMPTS) {
       this.stopHeightUpdates();
     }
   }

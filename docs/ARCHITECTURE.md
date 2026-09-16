@@ -157,7 +157,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **IntroCameraFlightService** | Intro-Kamerafahrt entlang der Route, lädt dabei die Tiles des Korridors vor. Abbruch per Klick oder Mausrad auf dem Canvas, "Skip Intro" oder Esc; die übrigen Spieltasten wirken während des Flugs nicht (`handleKeyDown`, von der Spielkomponente nach dem Boss-Intro und vor InputHandler und HotkeyService gefragt) |
 | **CorridorBuild** (`corridor-build.ts`) | Der eine Besitzer des Korridors: baut ihn einmal je Routensatz hinter dem Ladescreen und friert Routen, Zellen und Höhen ein, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | **SpatialGridService** | Generischer Spatial Hash für Tower/Enemy Range-Queries |
-| **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
+| **HeightUpdateService** | Terrain Height Sync für Marker und Straßen beim Laden: 4 Runden alle 500 ms |
 | **StreetRenderingService** | Street Network Visualisierung mit Terrain-Following |
 | **BuildingRenderingService** | OSM-Gebäude rendern (DevWorld + Live) |
 | **MapPlacementService** | HQ-Placement, Spawn-Generation, Map-Bounds |
