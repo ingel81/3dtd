@@ -9,91 +9,9 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-16, Branch `next`.
+Stand 2026-09-16 abends, Branch `next` @ `77aa0771`. Nichts in Arbeit.
 
 ---
-
-## In Arbeit
-
-Worker laufen; nach dem Merge gehen die Einträge nach DONE.md.
-
-- [ ] **A4 Replay-Knopf vor dem Merge ausblenden** (das Replay ist ungetestet). Status: in Arbeit (smallbugs2).
-- [ ] **B7 Schalter `centreMode` entfernen** (zweiter Modus der roten Linie neben der Bandmitte). Status: in Arbeit
-      (hygiene).
-- [ ] **B13 Pathfinding-Worker entfernen**: `PathRouteService.initializeWorker()` hat keinen Aufrufer, der Worker
-      startet nie; seine Typen sind doppelt. Status: in Arbeit (hygiene).
-- [ ] **E3 Bär dunkler**: wirkt zu hell und gelb. Status: in Arbeit (smallbugs2).
-
-### C. Bugs: Korrektheit (in Arbeit)
-
-- [ ] **C1 Tower-Sichtlinie für Zellen ohne Höhe** rechnet auf der Höhe des Routenankers (`route-grid-los.ts:54`,
-      `:66`), die Gegner stehen dort anders.
-- [ ] **C2 Luftgegner kurz nach dem Tor**: Auf den ersten 43 bis 47 m fliegen sie tiefer als die 15 m, für die die
-      Air-LOS gilt; der Drache ist breiter als jede Toröffnung (`AIR_PORTAL_EXIT`). Nie gesehen.
-- [ ] **C3 Straßen laden kann ewig hängen**: Die Overpass-Abfrage hat nur für die Header ein Zeitlimit
-      (`OVERPASS_HEADER_TIMEOUT_MS`), nicht für die Antwort.
-- [ ] **C4 Zufalls-Spawn nach dem Runden** auf 5 Stellen kann näher an einer anderen Straße liegen, schlimmstenfalls
-      ohne Route; der Straßen-Cache rundet auf 4 Stellen. Aus dem Code, nicht beobachtet.
-- [ ] **C5 `hasRoutes`** im Root-Service (`path-route.service.ts`) bleibt beim Neuaufbau der Spielkomponente eventuell
-      veraltet. Ungeprüft.
-- [ ] **C6 Dauergeräusche von Skarnax und Ooze**: `EnemyManager.destroy()` beendet ihre Loops nicht, nur `clear()`.
-      Ungeprüft, ob hörbar.
-- [ ] **C7 Onboarding zählt eventuell Ereignisse aus dem Replay** mit. Ungeprüft.
-- [ ] **C8 `computed` ohne Signalquelle** (Muster des Tower-Schlaf-Bugs) in `los-legend.component.ts:35` und
-      `icon.component.ts:188`. Ungeprüft.
-- [ ] **C9 Grafikspeicher nach Kontextverlust**: Nach einem Context-Restore werden die ersetzten VAT-Texturen nicht
-      freigegeben. Ungeprüft, ob es kostet.
-
-### D. Bugs: Kosmetik und Debug (in Arbeit)
-
-- [ ] **D1 Spawn-Portal an engen Stellen und Hängen**: Pfeiler in Fassaden, Lichtfleck am Hang schief. Ungesehen.
-- [ ] **D2 Vorschau dreht weiter**, wenn das Fenster bei gehaltenem R den Fokus verliert (auch beim Tower); lädt das
-      Rahmenmodell spät, bleibt die Vorschau undurchsichtig (`map-placement.service.ts`).
-- [ ] **D3 Held anheuern ohne Route** zeigt den Text für "Befehl ohne Weg" ("No way there along the routes").
-- [ ] **D4 "Skarnax Tail"** steht in den Gegnerlisten von Custom Wave und Enemy Debug.
-- [ ] **D5 DevWorld: Intro-Flug** rechnet mit `PATH_HEIGHT_OFFSET = 1`, die Linie liegt dort 3 m hoch
-      (`intro-camera-flight.service.ts`).
-- [ ] **D6 Enemy Debugger: Regler "Offset Y"** reicht nur bis ±3, manche Gegner brauchen 5 bis 7; Ziehen überschreibt.
-
-### I. Aufräumen: Code, Tests, Werkzeuge (in Arbeit)
-
-- [ ] **I1 Code-Reste**
-  - `try/finally` im Korridor-Rückfall (`onFallbackLevel`), Listener erst entfernen, dann anhängen (Klarheit, kein
-    Fehler).
-  - Zwei Tower-Zähler könnten auseinanderlaufen (`store.towerCount` gegen `GameStateManager.towerCount()`,
-    spekulativ).
-  - Totes Signal `loadingStatus`, `hasStreets()` ohne Aufrufer.
-  - `RefusalHintService` und `UpgradeHintService` zusammenlegen.
-  - `loadingPercentage` ohne Leser und falsch gerechnet (`asset-manager.service.ts`); ungelesenes `computed` in
-    `td-rich-tooltip.directive.ts`.
-  - `111320` und `Math.PI/180` statt gemeinsamer Konstanten (`tower-placement.service.ts`, `route-geometry.ts`).
-  - `isMixedWave` ohne Leser (`wave-debug.service.ts`).
-  - Tote `createLineGeometryWithDistances()`, ungenutzter Parameter `_color` (`route-animation.service.ts`).
-  - Info-Ausgaben in der Konsole im Normalbetrieb; 231 überflüssige `export`.
-  - Überflüssiger Parameter `resolution` bei den Spawn-Distanzringen (`spawn-distance-rings.ts`).
-  - Trace-Klammer in `onTilesLoaded` ohne `try` (`visualization-facade.service.ts`).
-  - Falsches Label `climb` an einer Straßenkuppe (Trace des Bands).
-  - Krücken für grobe Tiles (`unmeasured: 'coarse tile'`) nach dem Einfrieren noch nötig?
-  - Hinweistext "Ground Marks" nennt die Ooze-Pfützen nicht (`quick-actions.component.ts`).
-  - Zähler `peekSkipCount` und `raycastCount` in `route-cell-sampler.ts` ohne Leser.
-- [ ] **I2 Tests und Werkzeuge**
-  - Gemeinsamer Engine-Mock (`integration/test-helpers.ts`) kennt `tentacles` und `plinths` nicht.
-  - `ability-bosses.scenario.spec.ts` baut `applyMaxHpFraction` nach, statt sie aufzurufen.
-  - Stencil-Pflicht der Reichweitenringe nur per Kommentar abgesichert.
-  - Testlücken: gesperrte Kachel anklicken, Doppelklick im Referenz-Dialog, Training-Debugger ohne Spec.
-  - `bake-compare.mjs` schneidet Todes-Animationen bei 2 s ab statt bei `deathDuration`.
-  - Ordner `tools/` wird von keiner Typprüfung erfasst.
-  - npm meldet sechs Install-Skripte; `TimeoutNaNWarning` und "Handler for 'audio:play' threw" in der Testausgabe.
-  - Veraltetes `::ng-deep` in `loading-screen.component.scss`.
-
-### J. Aufräumen: Doku (in Arbeit)
-
-- [ ] **J1 Doku-Reste**
-  - `MULTIPLAYER_CONCEPT.md` ist nicht nachgezogen.
-  - Bekannte Grenzen aus den Worker-Berichten in die Fach-Doku übernehmen: Korridor-Nebenbefunde (Dachzellen an
-    Routenecken, Überdeckung über 30 m, Füllregel über Gitterlagen, Loch im Mesh in Erlenbach, Rückfall-Sekunde bei
-    Stationen), Review-Randfälle, schwebende Ooze-Trümmer am Hang und weitere laut
-    `tmp/fix1/reports/cleanup-todo.md` Abschnitt 4 (Ziel "Doku").
 
 ## Vor dem Merge nach `main`
 
@@ -119,10 +37,16 @@ Worker laufen; nach dem Merge gehen die Einträge nach DONE.md.
 - [ ] **F4 Ungemessene Grafik- und CPU-Kosten**: Laser-Säule, drei Stencil-Pässe der Reichweitenringe, Kegel-Upload,
       Drehbereichssuche des Portals, `buildBand` im Spiel.
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,
-      `immunityPercent` geht im neuen Feld auf. Grundlage: `tmp/fix1/reports/bossresist.md`, `immunity.md`.
-- [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge in `tmp/fix1/reports/herotier2.md`.
+      `immunityPercent` geht im neuen Feld auf. Grundlage: `tmp/archive-2026-09/fix1/reports/bossresist.md`, `immunity.md`.
+- [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge in `tmp/archive-2026-09/fix1/reports/herotier2.md`.
 - [ ] **G3 Konzept Forschung als eigener Dialog** mit echtem Baum (Knoten, Kanten, Fortschritt, Queue).
 - [ ] **G4 Konzept Explosivmunition des Helden mit Flächenschaden** (`hero.config.ts`).
+- [ ] **D1 Spawn-Portal an engen Stellen und Hängen**: Pfeiler in Fassaden, Lichtfleck am Hang schief. Nur im Browser
+      an echten Gassen zu beurteilen.
+- [ ] **I3 Zähler ohne Leser**: `peekSkipCount` und `raycastCount` in `route-cell-sampler.ts`.
+- [ ] **J1 Doku-Reste**: `MULTIPLAYER_CONCEPT.md` nachziehen; bekannte Grenzen aus den Worker-Berichten in die
+      Fach-Doku (Korridor-Nebenbefunde: Dachzellen an Routenecken, Überdeckung über 30 m, Füllregel über Gitterlagen,
+      Loch im Mesh in Erlenbach, Rückfall-Sekunde bei Stationen; Review-Randfälle; schwebende Ooze-Trümmer am Hang).
 - [ ] **H3** Object-Pooling für Projektile, erst prüfen, ob GC-Druck messbar ist.
 - [ ] **H4** Tower-LOD (High, Medium, Low).
 - [ ] **H5** Tower-Instancing (schwierig wegen der Rotationen).
@@ -147,7 +71,7 @@ jeweiligen Fach-Doku.
 - **B6** Skarnax-Ringe, die neben einem Transporter schräg stehen, stören nicht.
 - **B8** Der Suchscheinwerfer bleibt, wie er ist.
 - **B11** `PERF_BUG_ANALYSIS_2026-05-28.md` und die Abschnitte 0 bis 6 von `PLAYER_AGENCY_CONCEPT.md` liegen im Archiv
-  (erledigt, `6814d454`).
+  (erledigt, `fbd30436`).
 - **B12** Die 32 Worker-Entscheidungen und "Shader-Prüfung bleibt manuell" sind bestätigt; Fundstellen in DONE.md.
 - Dev-Menü mit Cheats, alle Konsolen-Globals (`__corridor`, `__rg`, `__perf` usw.) und die Dauer-Messungen
   (Raycast-Zeitmessung, `[Camera]`-Log) bleiben im Release-Build.
@@ -181,3 +105,12 @@ Vom User am 2026-09-16 gestrichen:
 - **H11** Gewässer aus OSM als unpassierbare Zonen.
 - **H12** MechaCat als Gegner.
 - **H15** Hitze-Verzerrung beim Orbitallaser.
+
+Bei den Aufräumarbeiten am 2026-09-16 bewusst nicht gemacht:
+
+- **Zwei Tower-Zähler zusammenlegen**: keine echte Doppelung, der Store-Zähler ist nur Auslöser.
+- **Hinweis-Services zusammenlegen** (Refusal, Upgrade): verschiedene Leser und Regeln, 19 Dateien für einen Timer.
+- **Label `climb` an Straßenkuppen korrigieren**: würde die abgenommene Korridor-Messung ändern.
+- **Krücken für grobe Tiles entfernen**: `maxTileError` greift weiterhin, wenn Tiles spät kommen.
+- **231 überflüssige `export` entfernen**: kein sicheres Werkzeug (Specs, `tools/`, dynamische Importe).
+- **npm-Install-Skripte freigeben**: Entscheidung über fremden Code, bei Bedarf neu aufmachen.
