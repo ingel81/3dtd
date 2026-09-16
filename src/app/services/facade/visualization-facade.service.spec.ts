@@ -1111,16 +1111,27 @@ describe('VisualizationFacadeService', () => {
       expect(gameState.onTilesLoaded).not.toHaveBeenCalled();
     });
 
-    it('refreshes streets, markers and the debug overlays', () => {
+    it('refreshes streets and markers', () => {
       facade.onTilesLoaded();
 
       expect(streetRendering.renderStreets).toHaveBeenCalled();
       expect(buildingRendering.renderBuildings).not.toHaveBeenCalled();
       expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
       expect(gameState.onTilesLoaded).toHaveBeenCalled();
-      expect(grid.initSpatialGridVisualizationIfEnabled).toHaveBeenCalled();
-      expect(grid.initAirSpatialGridVisualizationIfEnabled).toHaveBeenCalled();
-      expect(grid.initAirRouteLayerIfEnabled).toHaveBeenCalled();
+    });
+
+    /**
+     * The overlays of the cells show frozen cells; the build draws them at
+     * its end, a location change at its grid step. Drawn from a tile batch
+     * during a build, they could keep the heights from before its cell
+     * fallback.
+     */
+    it('leaves the overlays of the cells to what makes the cells', () => {
+      facade.onTilesLoaded();
+
+      expect(grid.initSpatialGridVisualizationIfEnabled).not.toHaveBeenCalled();
+      expect(grid.initAirSpatialGridVisualizationIfEnabled).not.toHaveBeenCalled();
+      expect(grid.initAirRouteLayerIfEnabled).not.toHaveBeenCalled();
     });
 
     /**

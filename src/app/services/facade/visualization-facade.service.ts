@@ -782,23 +782,24 @@ export class VisualizationFacadeService {
     // a cell nor rebuilds a line, nor resolves the LOS of a tower again
     // (docs/LOS_PIPELINE.md). Before it, the loading screen stands and the
     // build measures on the tiles it waits for itself.
+    //
+    // Nor does it touch the overlays of the cells (Route Grid, Air Route
+    // Grid, air route): they show frozen cells, and whatever makes cells
+    // draws them itself, the build at its end, a location change at its grid
+    // step. The overlay places its plates once, when it is made, so a batch
+    // that made it between a build's cells and the end of that build could
+    // leave it on the heights from before the cell fallback.
     this.gameState.onTilesLoaded();
     const tGameState = performance.now();
 
-    this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
-    this.gameState.getGlobalRouteGrid().initAirSpatialGridVisualizationIfEnabled();
-    this.gameState.getGlobalRouteGrid().initAirRouteLayerIfEnabled();
-    const tDebugViz = performance.now();
-
     perfTrace.log(() =>
-      `[PerfTrace] onTilesLoaded: ${(tDebugViz - t0).toFixed(1)}ms total | ` +
+      `[PerfTrace] onTilesLoaded: ${(tGameState - t0).toFixed(1)}ms total | ` +
       `streets=${(tStreets - t0).toFixed(1)} ` +
       `buildings=${(tBuildings - tStreets).toFixed(1)} ` +
       `markers=${(tMarkers - tBuildings).toFixed(1)} ` +
-      `gameState=${(tGameState - tMarkers).toFixed(1)} ` +
-      `debugViz=${(tDebugViz - tGameState).toFixed(1)}ms`,
+      `gameState=${(tGameState - tMarkers).toFixed(1)}ms`,
     );
-    corridorTrace.cost('tilesLoaded', tDebugViz - t0);
+    corridorTrace.cost('tilesLoaded', tGameState - t0);
     corridorTrace.exit(trace);
   }
 

@@ -276,8 +276,12 @@ gelassen.
 2. VisualizationFacadeService.onTilesLoaded:
    a. UI (Straßen, Gebäude, Marker)
    b. gameState.onTilesLoaded()
-   c. Spatial-Grid- und Air-Layer-Anzeige
 ```
+
+Die Overlays der Zellen (Route Grid, Air Route Grid, Flughöhe der Air-Route)
+zeichnet, wer die Zellen macht: der Korridor-Bau an seinem Ende, ein
+Ortswechsel in seinem Grid-Schritt. Ein Tile-Schub fasst sie seit 2026-09-16
+nicht mehr an.
 
 Am Korridor ändert ein Tile-Schub nichts: keine Zellhöhe wird neu geprobt,
 keine Routenlinie neu gebacken, kein Tower neu aufgelöst. Zellen und Höhen
