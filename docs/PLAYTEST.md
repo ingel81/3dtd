@@ -48,6 +48,10 @@ zoomen und mit G springen.
 
 - **738 Stabilität: ok.** In keinem der fünf Logs kommt nach `loading.done` noch ein `[Corridor] build` oder
   `rebuild`. Der Korridor ändert sich nach dem Ladescreen nicht mehr.
+> **Achtung beim Vergleichen:** Der Turm-Fix vom 16.09. ändert den Teil `band` des Fingerprints an jedem Ort. Die
+> Werte unten (Tokyo `e51f7114`, `band 40f24cbd`) taugen nur noch als Vergleich untereinander, nicht gegen neue
+> Läufe. Für den nächsten Vergleich einmal frisch eichen.
+
 - **739 Determinismus: ok.** Tokyo dreimal geladen (mit Intro, Intro abgebrochen plus Zoomen, andere Fenstergröße):
   jedes Mal Fingerprint `e51f7114`, auch jeder Teil gleich.
 - **740 Messung: ok.** Alle Stationen gemessen (`unmeasured=0`), alle auf der 2,5-m-Stufe.
