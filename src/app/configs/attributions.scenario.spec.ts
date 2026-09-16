@@ -20,6 +20,12 @@ describe('Attributions of the hero and the world map (playtest 302)', () => {
     }));
   });
 
+  it('names Stone Golem and Herbert as original work of ingel81 (decided 2026-09-16)', () => {
+    for (const name of ['Stone Golem', 'Herbert']) {
+      expect(category('3D Models')!.items).toContainEqual({ name, author: 'ingel81', license: 'Original work' });
+    }
+  });
+
   it('302: has a section "Map Data" with Natural Earth, Public Domain', () => {
     expect(category('Map Data')!.items).toEqual([
       expect.objectContaining({ author: 'Natural Earth', license: 'Public Domain' }),
