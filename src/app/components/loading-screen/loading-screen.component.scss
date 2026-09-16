@@ -324,13 +324,9 @@
     font: 400 12.5px/1.45 var(--td-font-body);
     color: var(--td-text-secondary);
 
-    // Field tips (field-tips.ts) render through [innerHTML], so this markup
-    // never gets the scoped _ngcontent attribute emulated encapsulation
-    // relies on - ::ng-deep is required to reach the accent classes.
-    ::ng-deep {
-      .tip-gold { color: var(--td-gold-light); font-weight: 700; }
-      .tip-teal { color: var(--td-teal-light); font-weight: 700; }
-    }
+    // Accents of the field tips (field-tips.ts)
+    .tip-gold { color: var(--td-gold-light); font-weight: 700; }
+    .tip-teal { color: var(--td-teal-light); font-weight: 700; }
   }
   &__tip-label {
     font: 700 9.5px/1 var(--td-font-mono);

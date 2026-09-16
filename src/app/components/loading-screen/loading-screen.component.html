@@ -121,7 +121,16 @@
       </span>
       <div class="td-loading__tip-body">
         <span class="td-loading__tip-label">Field Tip</span>
-        <span [innerHTML]="currentTip.html"></span>
+        <!-- Each text in an element of its own: the line breaks around it would show as spaces before an accent -->
+        <span>
+          @for (part of currentTip.parts; track $index) {
+            @if (part.accent) {
+              <b [class]="'tip-' + part.accent">{{ part.text }}</b>
+            } @else {
+              <ng-container>{{ part.text }}</ng-container>
+            }
+          }
+        </span>
       </div>
       <div class="td-loading__tip-cycler">
         <button type="button" class="td-loading__tip-arrow" (click)="prevTip()" aria-label="Previous tip">
