@@ -30,7 +30,7 @@ import {
   buildBand,
   stationNear,
 } from '../../utils/corridor-band';
-import { SegmentApproach, nearestApproach, pointOnApproach, routeApproaches, segmentApproaches } from '../../utils/carried-height';
+import { SegmentApproach, nearestApproach, pointOnApproach, routeApproaches, segmentApproaches, startsNearer } from '../../utils/carried-height';
 import { UnderpassIndex, splitAtSpans } from '../../utils/underpass';
 import type { ApproachPoint } from '../../utils/route-cell';
 import { haversineDistance } from '../../utils/geo-utils';
@@ -94,6 +94,18 @@ interface RouteBand {
   band: CorridorBand;
 }
 
+/** A street route split into the pieces its waypoints get: their points and, per piece, the half widths and flags. */
+interface LaidRoute {
+  points: LatLon[];
+  left: number[];
+  right: number[];
+  onBridge: boolean[];
+  inTunnel: boolean[];
+  passage: boolean[];
+  /** The piece lies on the leg to the HQ (RouteWaypoint.offStreet). */
+  offStreet: boolean[];
+}
+
 /** The same values in the same places, NaN equal to NaN; `a` missing counts as all NaN. For the corridor trace. */
 function sameNumbers(a: readonly number[] | undefined, b: readonly number[]): boolean {
   if (!a) return b.every(Number.isNaN);
@@ -106,25 +118,22 @@ const segmentKey = (a: LatLon, b: LatLon) => `${a.lat},${a.lon}|${b.lat},${b.lon
 const round1 = (v: number): number | null => (Number.isFinite(v) ? Math.round(v * 10) / 10 : null);
 
 /**
- * The stretch off a bridge end that station `t` (0 to 1 along a segment)
- * lies on, from the stretches of each route over the segment: the one with
- * the nearest bridge end where every route has the station on such a
- * stretch, else null. A cell two segments reach along their length takes
- * the lower surface, the ground over the stretch off a bridge end
- * (claimSegmentCells), and the station measures from where its cells
- * stand; so the order of the routes does not decide it.
+ * The approach that station `t` (0 to 1 along a segment) lies on, from the
+ * approaches of each route over the segment, as a point on it: the one with
+ * the nearer start (startsNearer) where every route has the station on an
+ * approach, else null. A cell two segments reach along their length takes
+ * the lower surface, the ground over the stretch off a bridge end, and of
+ * two approaches the nearer start (claimSegmentCells); the station measures
+ * from where its cells stand, so the order of the routes does not decide
+ * it. A segment of the leg to the HQ lies on an approach on every route.
  */
-function stationApproach(byRoute: readonly (readonly SegmentApproach[])[], t: number): SegmentApproach | null {
-  let nearest: SegmentApproach | null = null;
-  let nearestM = Infinity;
+function stationApproach(byRoute: readonly (readonly SegmentApproach[])[], t: number): ApproachPoint | null {
+  let nearest: ApproachPoint | null = null;
   for (const approaches of byRoute) {
     const approach = nearestApproach(approaches, t);
     if (approach === null) return null;
-    const m = approach.from + (approach.to - approach.from) * t;
-    if (m < nearestM) {
-      nearest = approach;
-      nearestM = m;
-    }
+    const point = pointOnApproach(approach, t);
+    if (nearest === null || startsNearer(point, nearest)) nearest = point;
   }
   return nearest;
 }
@@ -573,7 +582,7 @@ export class PathAndRouteService {
     const band = this.bands.get(routeKey(base));
     const laid = band ? this.laidInBand(base, band) : this.applyClearance(base);
     geoPath = laid.points;
-    const { left: leftWidths, right: rightWidths, onBridge, inTunnel, passage } = laid;
+    const { left: leftWidths, right: rightWidths, onBridge, inTunnel, passage, offStreet } = laid;
 
     // Create route line in Three.js - on terrain with RELATIVE heights
     const HEIGHT_ABOVE_GROUND = this.routeLineLift();
@@ -626,6 +635,11 @@ export class PathAndRouteService {
         if (onBridge[i]) waypoint.onBridge = true;
         if (inTunnel[i]) waypoint.inTunnel = true;
         if (passage[i]) waypoint.passage = true;
+        // Not in DevWorld: its columns are the terrain alone, no building on
+        // it, and the terrain there climbs far steeper than a step (in
+        // `gentle` some 190 % at the HQ); carried on, the leg would run into
+        // the hill.
+        if (offStreet[i] && !this.devWorld.isActive) waypoint.offStreet = true;
       }
       pathWithHeights[i] = waypoint;
     }
@@ -646,15 +660,13 @@ export class PathAndRouteService {
    * on the first build of a location, and in the loading screen while the
    * corridor is being measured.
    */
-  private applyClearance(route: StreetRoute): {
-    points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[]; passage: boolean[];
-  } {
-    const { points, onBridge, inTunnel } = route;
+  private applyClearance(route: StreetRoute): LaidRoute {
+    const { points, onBridge, inTunnel, onStreet } = route;
     const fitted = this.fitRoute(route);
     const fittedPoints: LatLon[] = [];
     const left: number[] = [];
     const right: number[] = [];
-    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[] };
+    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[], offStreet: [] as boolean[] };
     for (let i = 0; i < points.length - 1; i++) {
       const a = points[i];
       const b = points[i + 1];
@@ -666,6 +678,7 @@ export class PathAndRouteService {
         flags.inTunnel.push(inTunnel[i]);
         // Without a band nothing is a passage.
         flags.passage.push(false);
+        flags.offStreet.push(!onStreet[i]);
       }
     }
     fittedPoints.push(points[points.length - 1]);
@@ -730,7 +743,7 @@ export class PathAndRouteService {
       const local = sync.geoToLocalSimple(p.lat, p.lon, 0);
       return { x: local.x, z: local.z };
     });
-    const approaches = routeApproaches(points, route.onBridge, route.inTunnel);
+    const approaches = routeApproaches(points, route.onBridge, route.inTunnel, route.onStreet);
     const open = route.onStreet.map((onStreet, i) => onStreet && !route.onBridge[i] && !route.inTunnel[i] && approaches[i].length === 0);
     const fit = fitCorridorStations(this.corridorStationsOf(route));
     const wall = (side: 'left' | 'right') => fit[side].map((stations) => stations.map((station) => station.halfWidth));
@@ -744,9 +757,7 @@ export class PathAndRouteService {
    * the way geoToLocalSimple maps a small step of each there. A piece of a
    * passage runs as a tunnel.
    */
-  private laidInBand(route: StreetRoute, band: RouteBand): {
-    points: LatLon[]; left: number[]; right: number[]; onBridge: boolean[]; inTunnel: boolean[]; passage: boolean[];
-  } {
+  private laidInBand(route: StreetRoute, band: RouteBand): LaidRoute {
     const sync = this.engine!.sync;
     const step = 1e-5;
     const origin = route.points[0];
@@ -762,7 +773,7 @@ export class PathAndRouteService {
     const points: LatLon[] = [];
     const left: number[] = [];
     const right: number[] = [];
-    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[] };
+    const flags = { onBridge: [] as boolean[], inTunnel: [] as boolean[], passage: [] as boolean[], offStreet: [] as boolean[] };
     const nodes = bandPath(band.input, band.band);
     nodes.forEach((node, k) => {
       points.push(geoOf(node.x, node.z));
@@ -772,6 +783,7 @@ export class PathAndRouteService {
       flags.onBridge.push(route.onBridge[node.segment]);
       flags.inTunnel.push(route.inTunnel[node.segment] || node.passage);
       flags.passage.push(node.passage);
+      flags.offStreet.push(!route.onStreet[node.segment]);
     });
     return { points, left, right, ...flags };
   }
@@ -1146,14 +1158,14 @@ export class PathAndRouteService {
     const engine = this.engine;
     const segments: ClearanceSegment[] = [];
     // Routes from several spawns share segments; one pass over each is
-    // enough. Each route over one hands on its stretches off a bridge end.
+    // enough. Each route over one hands on its approaches.
     const byKey = new Map<string, ClearanceSegment | null>();
 
-    for (const { points, onBridge, inTunnel } of this.streetRoutes.values()) {
+    for (const { points, onBridge, inTunnel, onStreet } of this.streetRoutes.values()) {
       if (!engine) break;
       const local = points.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0));
-      // The stretches off each bridge end, as the route cells there find them.
-      const approaches = routeApproaches(local, onBridge, inTunnel);
+      // The approaches off each bridge end and along the leg to the HQ, as the route cells there find them.
+      const approaches = routeApproaches(local, onBridge, inTunnel, onStreet);
       for (let i = 0; i < points.length - 1; i++) {
         // In a tunnel the rays would hit its walls and the column the ground
         // above: the street width stays.
@@ -1330,12 +1342,11 @@ interface ClearanceSegment {
   count: number;
   onBridge: boolean;
   /**
-   * Per route over the segment, the stretches off a bridge end it lies on
-   * (routeApproaches), with the route from their bridge ends as the route
-   * cells there take them. A station on such a stretch on every route
-   * (stationApproach) measures from where those cells stand and judges no
-   * low wall, as on the deck (TerrainQueries.measureStreetClearance,
-   * `onApproach`).
+   * Per route over the segment, the approaches it lies on (routeApproaches:
+   * off a bridge end, on the leg to the HQ), with the route from their
+   * starts as the route cells there take them. A station on an approach on
+   * every route (stationApproach) measures from where those cells stand
+   * (TerrainQueries.measureStreetClearance, `onApproach`).
    */
   approaches: SegmentApproach[][];
   /** Free space per station and side, NaN until measured, and what each station's rays found. */
@@ -1513,10 +1524,10 @@ class ClearanceRun implements CorridorMeasurement {
     const t = (k + 0.5) / segment.count;
     const x = segment.x + segment.dx * t;
     const z = segment.z + segment.dz * t;
-    // Off a bridge end: the end nearest the station, as for a route cell there
+    // On an approach: from the start nearest the station, as for a route cell there
     const approach = segment.onBridge ? null : stationApproach(segment.approaches, t);
     // (-dz, dx) points right of the direction of travel.
-    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach ? pointOnApproach(approach, t) : null);
+    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach);
     segment.probes[k] = probe;
     this.probed++;
     countLod(this.lod, probe?.tileError ?? Infinity);

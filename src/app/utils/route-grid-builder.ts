@@ -1,7 +1,7 @@
 import { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, segmentLeft, segmentRight } from './route-corridor';
 import { ApproachPoint, RouteCell, TunnelSpan } from './route-cell';
-import { SegmentApproach, nearestApproach, pointOnApproach, routeApproaches, segmentApproaches } from './carried-height';
+import { SegmentApproach, nearestApproach, pointOnApproach, routeApproaches, segmentApproaches, startsNearer } from './carried-height';
 
 /**
  * Building the route-cell corridor: which cells a route claims, which
@@ -135,8 +135,8 @@ export function jointCap(own: number, other: number, cellSize: number): number {
  * caller samples only once every route has claimed its cells. At a joint
  * of two segments each one's round end is cut to jointCap; the two ends of
  * the route keep their half widths. `alongClaims`: see claimSegmentCells,
- * one set for all routes of a grid. A segment on the stretch off a bridge
- * end (routeApproaches) hands it on.
+ * one set for all routes of a grid. A segment on an approach (off a bridge
+ * end or on the leg to the HQ, `offStreet`, routeApproaches) hands it on.
  */
 export function claimRouteCells(
   cells: Map<number, RouteCell>,
@@ -148,7 +148,9 @@ export function claimRouteCells(
   const tunnels = tunnelSegments(route, points);
   const segments = route.length - 1;
   const flags = route.slice(0, Math.max(0, segments));
-  const approaches = routeApproaches(points, flags.map((w) => w.onBridge === true), flags.map((w) => w.inTunnel === true));
+  const approaches = routeApproaches(
+    points, flags.map((w) => w.onBridge === true), flags.map((w) => w.inTunnel === true), flags.map((w) => w.offStreet !== true),
+  );
   const cap = (own: number, neighbour: RouteWaypoint | undefined, side: (w: RouteWaypoint) => number) =>
     neighbour ? jointCap(own, side(neighbour), lattice.cellSize) : own;
   for (let i = 0; i < segments; i++) {
@@ -174,7 +176,27 @@ export function claimRouteCells(
  * both along their length or both with a round end: the lower one, see
  * claimSegmentCells. Tunnels are settled before.
  */
-const SURFACE_ORDER: Record<RouteCell['surface'], number> = { ground: 0, approach: 1, deck: 2, tunnel: 3 };
+const SURFACE_ORDER: Record<RouteCell['surface'], number> = { ground: 1, approach: 2, deck: 3, tunnel: 4 };
+
+/**
+ * Whether a claim of `surface` on the approach point `onApproach` takes
+ * `cell` from the claim it has, where both reach it on equal terms: the
+ * lower surface (SURFACE_ORDER). A cell of the leg to the HQ counts below
+ * the ground: its height is the ground's carried from the street, but for a
+ * roof far above that (approachY), so where the street and a short leg both
+ * reach cells round the HQ in its building, they keep off its roof. Two
+ * claims on approaches of
+ * the same rank (two legs to the HQ, two ends of a bridge): the one whose
+ * start lies nearer (startsNearer), so the order of the routes does not
+ * decide it.
+ */
+function takesClaim(surface: RouteCell['surface'], onApproach: ApproachPoint | null, cell: RouteCell): boolean {
+  const rank = (s: RouteCell['surface'], point: ApproachPoint | null) => (point?.start === 'street' ? 0 : SURFACE_ORDER[s]);
+  const own = rank(surface, onApproach);
+  const held = rank(cell.surface, cell.onApproach);
+  if (own !== held) return own < held;
+  return onApproach !== null && cell.onApproach !== null && startsNearer(onApproach, cell.onApproach);
+}
 
 /**
  * Claim the cells whose centre lies within the half width of the segment
@@ -190,11 +212,10 @@ const SURFACE_ORDER: Record<RouteCell['surface'], number> = { ground: 0, approac
  * the segment lies in a tunnel, its cells take their height between the
  * portals, also those another segment reaches as well.
  *
- * `approaches`: the stretches off a bridge end the segment lies on
- * (SegmentApproach). A cell whose nearest point on the segment lies within
- * DECK_APPROACH_M of the nearest such bridge end is an `approach` cell and
- * compares with the height the route carries at that point
- * (RouteCell.onApproach).
+ * `approaches`: the approaches the segment lies on (SegmentApproach). A
+ * cell whose nearest point on the segment one of them reaches is an
+ * `approach` cell and compares with the height the route carries at that
+ * point from the nearest start (RouteCell.onApproach).
  *
  * A cell another segment reached first: a tunnel wins. Otherwise a segment
  * that reaches the cell along its length (the centre's nearest point lies
@@ -202,12 +223,12 @@ const SURFACE_ORDER: Record<RouteCell['surface'], number> = { ground: 0, approac
  * line spot, from one that reached it only with a round end; `alongClaims`
  * holds the keys of cells claimed along a length so far. Two segments that
  * both reach it along their length, or both with a round end: the lower
- * surface wins, the ground over the stretch off a bridge end over a deck
- * (SURFACE_ORDER), a street under a bridge. So at the end of a bridge the
- * approach's round end no longer turns the first metres of the deck into
- * ground, which took the lowest hit, the quay or river under the deck
- * (playtest 2026-09-14, Paris, Pont d'Iéna), and the bridge's round end
- * leaves the approach on its own surface.
+ * surface wins, the ground over the stretch off a bridge end over a deck, a
+ * street under a bridge; the leg to the HQ over the ground (takesClaim). So
+ * at the end of a bridge the approach's round end no longer turns the first
+ * metres of the deck into ground, which took the lowest hit, the quay or
+ * river under the deck (playtest 2026-09-14, Paris, Pont d'Iéna), and the
+ * bridge's round end leaves the approach on its own surface.
  */
 export function claimSegmentCells(
   cells: Map<number, RouteCell>,
@@ -287,7 +308,7 @@ export function claimSegmentCells(
             existing.axisZ = axisZ;
             existing.routeAnchorY = anchorY;
             existing.terrainHeight = anchorY;
-          } else if (alongIt === alongClaims.has(key) && SURFACE_ORDER[surface] < SURFACE_ORDER[existing.surface]) {
+          } else if (alongIt === alongClaims.has(key) && takesClaim(surface, onApproach, existing)) {
             existing.surface = surface;
             existing.onApproach = onApproach;
           }

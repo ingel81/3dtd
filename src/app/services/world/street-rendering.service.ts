@@ -17,7 +17,7 @@ import { smoothPathHeights } from '../../utils/route-height-smoothing';
 import { GeoPosition } from '../../models/game.types';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { UIStore } from '../../store/ui.store';
-import { StreetDeck, streetDeckApproaches } from '../../utils/carried-height';
+import { StreetSurface, streetDeckApproaches } from '../../utils/carried-height';
 import { streetUnderpasses } from '../../utils/underpass';
 
 /**
@@ -43,7 +43,7 @@ interface PreparedNode {
    * way, what the height compares with (TerrainQueries.getStreetHeightEstimate);
    * null elsewhere and in DevWorld.
    */
-  deck: StreetDeck | null;
+  deck: StreetSurface | null;
 }
 
 /**
@@ -197,8 +197,8 @@ export class StreetRenderingService {
           // Under another way, as a route piece there is a tunnel stretch, the stretch off a bridge end ends.
           const under = underpasses?.get(street.id)?.[idx] ?? null;
           const approach = street.bridge !== undefined || under !== null ? null : approaches?.get(node.id);
-          const deck: StreetDeck | null = street.bridge !== undefined ? 'bridge'
-            : under ?? (approach ? { path: approach.path, m: approach.distanceM } : null);
+          const deck: StreetSurface | null = street.bridge !== undefined ? 'bridge'
+            : under ?? (approach ? { path: approach.path, m: approach.distanceM, start: 'bridge' } : null);
           allNodes.push({ node, prev: prevNode, next: nextNode, isDevWorld: false, deck });
           streetIndices.push(si);
         }

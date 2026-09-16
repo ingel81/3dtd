@@ -21,7 +21,7 @@ vi.mock('@angular/core', async () => {
 import { StreetRenderingService } from './street-rendering.service';
 import type { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import type { ThreeTilesEngine } from '../../three-engine';
-import type { StreetDeck } from '../../utils/carried-height';
+import type { StreetSurface } from '../../utils/carried-height';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 
 /** A node `x` metres east and `z` north of (0, 0). */
@@ -54,7 +54,7 @@ describe('StreetRenderingService', () => {
       getTerrainHeightAtGeo: () => 70,
       sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
       terrain: {
-        getStreetHeightEstimate: (lat: number, lon: number, _pl: number, _po: number, _nl: number, _no: number, deck: StreetDeck | null) => {
+        getStreetHeightEstimate: (lat: number, lon: number, _pl: number, _po: number, _nl: number, _no: number, deck: StreetSurface | null) => {
           const id = Object.values(n).find((p) => p.lat === lat && p.lon === lon)!.id;
           const way = deck === null || deck === 'bridge' ? deck
             : 'portals' in deck ? 'under'
@@ -99,13 +99,13 @@ describe('StreetRenderingService', () => {
       { id: 900, name: '', type: 'motorway', lanes: 3, bridge: 'yes', layer: 1, nodes: [n.west, n.east] },
     ];
     const network = { streets, nodes: new Map(), bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 } } as unknown as StreetNetwork;
-    const asked = new Map<number, StreetDeck | null>();
+    const asked = new Map<number, StreetSurface | null>();
     const engine = {
       getOverlayGroup: () => new Group(),
       getTerrainHeightAtGeo: () => 0,
       sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
       terrain: {
-        getStreetHeightEstimate: (lat: number, lon: number, _pl: number, _po: number, _nl: number, _no: number, deck: StreetDeck | null) => {
+        getStreetHeightEstimate: (lat: number, lon: number, _pl: number, _po: number, _nl: number, _no: number, deck: StreetSurface | null) => {
           asked.set(Object.values(n).find((p) => p.lat === lat && p.lon === lon)!.id, deck);
           return 0;
         },

@@ -105,7 +105,7 @@ describe('claimSegmentCells', () => {
       claimSegmentCells(cells, lattice, p(-40, 1), p(0, 1), 3, 3, true, null, undefined, claims);
     const offBridge = (cells: Map<number, RouteCell>, claims: Set<number>) =>
       claimSegmentCells(cells, lattice, p(0, 1), end, 3, 3, false, null, undefined, claims,
-        [{ path: [{ x: 0, z: 1 }, { x: end.x, z: end.z }], from: 0, to: 20 }]);
+        [{ path: [{ x: 0, z: 1 }, { x: end.x, z: end.z }], from: 0, to: 20, start: 'bridge', reach: 60 }]);
     const bridgeEnd = (cells: Map<number, RouteCell>, x: number, z: number) => cellAt(cells, x, z)?.onApproach?.path[0] ?? null;
     // A street under both, along x = -11 and x = 9.
     const under = (cells: Map<number, RouteCell>, claims: Set<number>) => {

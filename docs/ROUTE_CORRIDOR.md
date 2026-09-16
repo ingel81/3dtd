@@ -18,10 +18,10 @@ Route (vom Spawn zum HQ).
 | Straßenbreite je Segment | `utils/route-corridor.ts` (`estimateStreetWidth`, `routeHalfWidths`), Zuordnung Segment zu OSM-Way in `PathAndRouteService.buildRouteFromPath` | Halbbreite aus OSM, Rückfall für alles, was die Tiles nicht messen |
 | Messung | `PathAndRouteService.beginClearanceMeasurement` und der Lauf `ClearanceRun` (`path-route.service.ts`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
 | Anpassung | `fitCorridorStations`, `fitCorridorPieces`, `closeShortNarrowings` (`route-corridor.ts`), `fitRoute`, `applyClearance` (`path-route.service.ts`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück; kurze Engstellen geschlossen |
-| Waypoints | `PathAndRouteService.buildRouteFromPath` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
+| Waypoints | `PathAndRouteService.buildRouteFromPath` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel`, `offStreet` (Endstück zum HQ) am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Unterführung | `utils/underpass.ts` (`UnderpassIndex`, `splitAtSpans`), `PathAndRouteService.buildRouteFromPath` | Stück unter einem Way, der die Route auf höherer Ebene kreuzt, als Tunnel |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts`) | 2-m-Zellen im Korridor |
-| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/carried-height.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle, Straße unter einer fremden Brücke |
+| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/carried-height.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Endstück zum HQ, Tunnelsohle, Straße unter einer fremden Brücke |
 | Band | `buildBand`, `bandPath` (`utils/corridor-band.ts`), `PathAndRouteService.buildBands`, Schritt 4 in `CorridorBuild.build` | Je Station das Rückgrat, das begehbare Band beiderseits und die Gegnerlinie darin; die Waypoints laufen in seiner Mitte, ihre Halbbreiten sind seine Kanten |
 | Laufweg | `judgeWalk`, `cellWalkable` (`utils/corridor-walk.ts`) | Nur noch Diagnose für `__corridor.pick()`: warum eine Zelle im Band liegt oder daneben (Auto, Traufe, Hecke, Böschung) |
 | Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
@@ -97,13 +97,15 @@ Je Station (`TerrainQueries.measureStreetClearance`):
    1 m und 3,5 m über der Fläche, auf der die Zellen dort stehen (`surfaceY`,
    siehe Zellhöhe), jeder `maxHalfWidth` lang. Das ist der Boden der Säule,
    auf einer Brücke ihre Oberkante `topY`. Auf der Strecke hinter einem
-   Brückenende (`approach`) ist es der Treffer, der der Höhe am nächsten
-   liegt, die die Route vom nächsten Brückenende bis zur Station trägt
-   (`carriedY`, siehe Zellhöhe); dafür nimmt die Station die Säulen am
-   Brückenende und entlang der Route bis zu ihr dazu, bei einer Naht mit
-   denselben Verschiebungen. Hat die Säule am Brückenende kein Tile bis
-   `maxTileError`, ist die Station `unmeasured: 'no approach start'` und kommt
-   beim nächsten Lauf wieder dran. Teilen sich Routen ein Segment, liegt
+   Brückenende und auf dem Endstück zum HQ (`approach`) ist es der Treffer,
+   der der Höhe am nächsten liegt, die die Route vom nächsten Brückenende
+   oder von der Straße bis zur Station trägt, unter einem Treffer weit
+   darüber diese Höhe selbst (`carriedY`, `approachY`, siehe Zellhöhe);
+   dafür nimmt die Station die Säulen am Anfang der Strecke und entlang der
+   Route bis zu ihr dazu, bei einer Naht mit denselben Verschiebungen. Hat
+   die Säule am Anfang kein Tile bis `maxTileError`, ist die Station
+   `unmeasured: 'no approach start'` (bis 2026-09-16 `'no bridge end'`) und
+   kommt beim nächsten Lauf wieder dran. Teilen sich Routen ein Segment, liegt
    eine Station nur dann auf der Strecke, wenn jede von ihnen sie dort hat, wie bei den
    Zellen (die tiefere Fläche gewinnt, `stationApproach`). Bis 2026-09-15
    gingen die Strahlen dort vom untersten
@@ -405,7 +407,10 @@ Ausnahmen:
 - **Dach, Traufe, Krone, Auto, Hecke:** Die Zelle behält den untersten
   Treffer ihrer Säule, auch wo er auf deren Oberseite liegt, weil die
   Photogrammetrie darunter keinen Boden hat. Gegner laufen dort nicht: Das
-  Band endet vor einer solchen Zelle (siehe Band).
+  Band endet vor einer solchen Zelle (siehe Band). Auf einer Strecke, über
+  die das Band nicht entscheidet, gilt das nur für den Boden; hinter einem
+  Brückenende und auf dem Endstück zum HQ nimmt die Zelle statt eines
+  Treffers weit über der getragenen Höhe diese Höhe (unten).
 - **Auskragung oder Dachecke über der Linie:** Bis 2026-09-16 nahm eine
   Zelle, durch die eine Mittellinie läuft, statt eines Treffers mehr als
   `roofRise` über der Höhe der Mittellinie ringsum diese Höhe
@@ -427,7 +432,8 @@ Ausnahmen:
   `alongClaims`). Erreichen zwei Segmente eine Zelle beide entlang ihrer
   Länge (eine Straße unter der Brücke) oder beide nur mit dem runden Ende,
   gilt die tiefere Fläche: Boden vor Strecke hinter dem Brückenende vor Deck
-  (`SURFACE_ORDER`). Vorher gewann der Boden immer: Das runde Ende der
+  (`SURFACE_ORDER`); das Endstück zum HQ zählt vor dem Boden (`takesClaim`,
+  siehe dort). Vorher gewann der Boden immer: Das runde Ende der
   Zufahrt (bei 7 m Halbbreite 7 m weit) machte die ersten Meter des Decks zu
   Bodenzellen, und die nahmen den untersten Treffer, den Kai oder Fluss
   unter dem Deck (Playtest 2026-09-14, Paris, siehe "Linie, Zellen und
@@ -439,7 +445,8 @@ Ausnahmen:
   `DECK_APPROACH_M` (60 m) entlang der Route zur Strecke, gleich wie die
   Route abbiegt, solange es weder Brücke noch Tunnel ist (`routeApproaches`).
   Seine Zellen tragen die Fläche `approach` und in `onApproach` die Route vom
-  Brückenende bis zu ihnen (`path`, `m`).
+  Brückenende bis zu ihnen (`path`, `m`, `start: 'bridge'`). Beginnt das
+  Endstück zum HQ innerhalb dieser 60 m, gehört es ganz dazu.
   - **Getragene Höhe** (`carriedY`): Sie beginnt mit der Oberkante der
     Säule am Brückenende und folgt der Route alle `CARRY_STEP_M` (2 m). An
     jeder Stelle nimmt sie den Treffer der Säule dort, der ihr am nächsten
@@ -490,6 +497,66 @@ Ausnahmen:
     Eiffelturm-Seite erreicht die Route 44 m hinter dem Ende eine Kreuzung
     am Quai Jacques Chirac, unter der Unterführungen des Quais liegen; dort
     meldete der Retest nichts.
+- **Endstück zum HQ** (`approach`, seit 2026-09-16): Das Segment vom Punkt
+  der Route, der dem HQ am nächsten liegt, zum HQ läuft über keinen OSM-Way
+  (`onStreet` false, am Waypoint `offStreet`) und oft in ein Gebäude. Die
+  Photogrammetrie hat dort keinen Boden, der unterste Treffer einer Säule
+  ist das Dach.
+  - **Regel:** dieselbe wie hinter einem Brückenende (Entscheidung des
+    Users). Das Endstück ist eine eigene Strecke (`routeApproaches`, Fläche
+    `approach`, `start: 'street'`), vom Punkt, an dem es die Straße (oder
+    einen Tunnel) verlässt, bis zum HQ, ohne Längengrenze. Die getragene
+    Höhe beginnt dort mit dem untersten Treffer, nicht mit der Oberkante,
+    und folgt der Route alle 2 m wie oben. Jede Zelle nimmt den Treffer
+    ihrer Säule, der dieser Höhe an ihrem Routenpunkt am nächsten liegt,
+    oder die Höhe selbst, wo er mehr als 1,5 m darüber liegt (`approachY`).
+    Erreicht die Strecke eines Brückenendes den Anfang des Endstücks, trägt
+    sie dessen Höhe über das ganze Endstück weiter.
+  - **Wirkung:** Im Gebäude bleiben Zellen, rote Linie (sie liest am HQ die
+    Zelle dort) und Gegner auf Straßenhöhe; die Gegner laufen ebenerdig
+    hinein und verschwinden am Ende der Route. Hof, Garten, Rampe und
+    Treppe bis 1,5 m je 2 m folgen dem Boden; ein HQ auf freier Fläche
+    bleibt, wie es war. Eine Terrasse oder Stufe höher als 1,5 m je 2 m
+    hängt die getragene Höhe ab: Die Zellen dahinter liegen auf der Höhe
+    davor, im Hang oder in der Terrasse, wie im Gebäude. Ein Hof tiefer als
+    die getragene Höhe nimmt seinen Boden (nur ein Treffer darüber wird
+    ersetzt).
+  - **Gleichstand:** Erreichen Straße und Endstück eine Zelle beide entlang
+    ihrer Länge oder beide mit dem runden Ende, gewinnt das Endstück: Seine
+    Höhe ist die des Bodens, außer unter einem Dach (`takesClaim` in
+    `route-grid-builder.ts`). Erreichen zwei Strecken derselben Art eine
+    Zelle so, etwa die Endstücke zweier Spawns, gilt die mit dem näheren
+    Anfang, bei gleichem Abstand die mit dem kleineren x, dann z des
+    Anfangs (`startsNearer`), unabhängig von der Reihenfolge der Routen.
+    Eine Station auf einem Segment mehrerer Routen nimmt dieselbe Strecke
+    (`stationApproach`).
+  - **Wo es gilt:** Zellen (`RouteCellSampler.sampleCellY`), Stationen des
+    Endstücks (`measureStreetClearance`, ihre Strahlen starten auf der
+    getragenen Höhe), `__routes.describe()` (vergleicht auf dem Endstück mit
+    der getragenen Höhe) und das Route Grid Overlay (blaue Kontur). Das
+    gelbe Straßen-Overlay zeichnet das Endstück nicht, das Band entscheidet
+    dort nichts (`fixed stretch`). Nicht in DevWorld: Seine Säulen sehen
+    nur das Gelände, kein Gebäude, und das Gelände steigt dort weit steiler
+    als eine Stufe (Preset `gentle`, Seed 42: in der Höhenkarte am HQ rund 190 %,
+    auf dem Terrain-Mesh im Umkreis von 100 m bis rund 250 %); getragen liefe das
+    Endstück in den Hang. `buildRouteFromPath` setzt `offStreet` dort nicht,
+    das Endstück nimmt wie vorher den Boden.
+  - **Anlass:** Playtest 2026-09-16, Audi NSU Neckarsulm
+    (`?l=49.19489,9.22041`) und Erlenbach, BBH (`?l=49.17337,9.26851`):
+    Zellen und rote Linie auf dem Hallendach unter dem HQ-Marker, am BBH die
+    rote Linie schräg die Fassade hinauf; Gegner liefen ins Haus und kamen
+    durchs Dach wieder heraus. In den Snapshots dazu
+    (`corridor-neckarsulm-kernstadt-cold-231301`,
+    `corridor-binswangen-cold-231425`) ist das Endstück 16 und 12 m lang,
+    die Straße unter seiner letzten Station 198,94 und 227,33 m. Sechs
+    Zellen des Endstücks lagen auf dem Hallendach (206,22 bis 207,58 m),
+    acht auf dem Schuldach (235,59 bis 236,93 m). Auf den Säulen der
+    Snapshots nachgerechnet (`integration/hq-leg.snapshots.spec.ts`,
+    Ausschnitte in `integration/fixtures/hq-leg`): Sie liegen jetzt auf
+    199,30 bis 199,53 m und 227,41 m, die Zellen der Straße davor
+    unverändert. Nachgestellt in `global-route-grid.spec.ts` ("leg to the
+    HQ": Halle, Hof mit Rampe und Terrasse, Platz mit Krone, Deck hinter
+    einem Brückenende, kurzes Endstück, zwei Endstücke).
 - **Tunnel und überdachte Durchgänge:** `runsUnderCover`
   (`route-corridor.ts`) gilt für `tunnel=*` außer `no` (also auch
   `building_passage`) und für `covered=yes`. Solche Segmente tragen `inTunnel`
@@ -1355,8 +1422,8 @@ warum der letzte Versuch einer Zelle keine eigene Höhe gab
 0,5 m daneben (kein Tile dort, oder ein Mesh, von dem die Säulen nichts
 treffen); `refused`: Säulen mit Treffern, die die Nachbarn ablehnten
 (Ausreißer); `noPortal`: ein Tunnelportal ohne Säule und ohne Straße des
-Bands; `noApproachStart`: keine Säule am Brückenende, von dem die Höhe dahinter
-getragen wird. Gezählt werden nur Zellen ohne Höhe, gefüllte nicht.
+Bands; `noApproachStart`: keine Säule am Anfang der Strecke, von dem die Höhe
+getragen wird (Brückenende, Beginn des Endstücks zum HQ). Gezählt werden nur Zellen ohne Höhe, gefüllte nicht.
 
 **`lod`** (`lod=2m:12,2.5m:200,5m:4,coarse:0,none:24`): die Säulen, die ein
 Lauf je Station benutzt hat, nach dem geometricError ihres Tiles: bis 2 m
@@ -1820,12 +1887,13 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
 - Höhe: `maxCellAboveStreetM` und `at`, der größte Abstand der Zellhöhe über
   der Straßenhöhe entlang der Mittellinie, nach der Regel des gelben
   Straßen-Overlays (`getStreetHeightEstimate`, siehe unten). Die Strecke
-  hinter einem Brückenende nimmt der Vergleich wie die Zellen entlang der
-  Route (`routeApproaches`), mit der Höhe, die die Route von dort trägt.
+  hinter einem Brückenende und das Endstück zum HQ nimmt der Vergleich wie
+  die Zellen entlang der Route (`routeApproaches`), mit der Höhe, die die
+  Route vom Brückenende oder von der Straße trägt.
 
 Nur für Diagnose: je Punkt alle 2 m bis zu fünf Säulenproben, auf einer
-Brücke eine mehr, auf der Strecke dahinter die Säulen entlang der Route vom
-Brückenende (alle 2 m, im Cache der Engine).
+Brücke eine mehr, auf der Strecke dahinter und auf dem Endstück die Säulen
+entlang der Route von deren Anfang (alle 2 m, im Cache der Engine).
 
 ### Gelbes Straßen-Overlay
 
@@ -1980,7 +2048,7 @@ Die Kontur zeigt den Zustand, in dieser Rangfolge (`overlayCellKind`,
 | Kontur | Zustand |
 |---|---|
 | rosa | ohne Höhenprobe; die LOS-Anzeige eines Towers lässt die Zelle aus. Eine gefüllte Zelle (`filled`, siehe Zellhöhe) hat eine Höhe und die Kontur ihrer Fläche; `__corridor.pick()` zeigt sie als `state: 'filled'`, `__rg.dumpStats()` zählt sie unter `filled` |
-| blau | Brückendeck, und die Strecke hinter einem Brückenende (`approach`, bis 60 m entlang der Route), gleich welchen Treffer die Säule ihr gab; die Höhe zeigt, ob Deck oder Boden |
+| blau | Brückendeck, die Strecke hinter einem Brückenende (`approach`, bis 60 m entlang der Route) und das Endstück zum HQ (`approach`, seit 2026-09-16), gleich welchen Treffer die Säule ihr gab; die Höhe zeigt, ob Deck, Boden oder getragene Höhe |
 | gelb | Tunnel, überdachter Durchgang oder Stück unter einer fremden Brücke |
 | weiß | normal |
 
@@ -2160,9 +2228,28 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   - Eine Säule liefert nur Oberkante und untersten Treffer. Liegt die
     Fläche der Route dazwischen (ein Deck über einer Straße über einer
     tieferen Straße), nimmt die Zelle den näheren der beiden.
-  - Kosten nicht gemessen: je Zelle, Station und Overlay-Knoten der Strecke
-    bis zu 30 Säulen entlang der Route, für alle einer Strecke dieselben,
-    im 0,5-m-Cache der Engine.
+  - Kosten nicht gemessen: je Zelle und Overlay-Knoten der Strecke bis zu
+    30 Säulen entlang der Route, für alle einer Strecke dieselben, im
+    0,5-m-Cache der Engine; je Station dieselben Säulen als eigene Strahlen.
+- Endstück zum HQ (seit 2026-09-16, nicht im Spiel geprüft):
+  - Die getragene Höhe beginnt mit dem untersten Treffer dort, wo das
+    Endstück die Straße verlässt. Steht dort ein Transporter ohne Straße
+    darunter, oder beginnt das Endstück an der Mündung eines Tunnels oder
+    Durchgangs unter einer Auskragung, beginnt sie auf dessen Dach. Ein Hof
+    oder Dach unter dieser Höhe oder bis 1,5 m darüber behält dann seinen
+    Treffer, ein höheres Dach bekommt die Höhe am Anfang.
+  - Seitlich misst eine Zelle gegen die getragene Höhe an ihrem Routenpunkt.
+    Am Hang quer zum Endstück liegen Zellen bergseitig mehr als 1,5 m über
+    ihr auf dieser Höhe, also im Hang; bei 2,75 m Halbbreite ab etwa 55 %
+    Querneigung an der äußersten Zelle.
+  - Eine Terrasse, Mauer oder Stufe höher als 1,5 m je 2 m auf dem Endstück
+    hängt die getragene Höhe ab; Zellen dahinter liegen in ihr, die Gegner
+    laufen hinein. Das gilt auch für einen Weinberg mit Trockenmauern über
+    1,5 m, die das Endstück hinaufsteigt, und für Gelände steiler als 75 %.
+  - Kosten nicht gemessen: je Zelle eine Säule aus dem Cache je 2 m vom
+    Anfang des Endstücks bis zu ihrem Routenpunkt, je Station ebenso viele
+    Strahlen. Auf den Endstücken der beiden Snapshots (16 und 12 m) sind das
+    bis zu 9 Säulen, auf einem Endstück von 100 m bis zu 51.
 - Der synchrone Neuaufbau im laufenden Spiel, der Hänger beim Setzen eines
   Towers während der Messung und der Flush vor einer Welle sind mit
   `CorridorBuild` entfallen: Der Korridor wird je Routensatz einmal gebaut

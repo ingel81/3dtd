@@ -2,8 +2,7 @@ import { Box3, Raycaster, Vector3, type Intersection, type Object3D } from 'thre
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { LOW_WALL_BEHIND_M, StationProbe, corridorConfig, lowObjectTop, lowRayAlone } from '../utils/route-corridor';
-import { StreetDeck, approachY, carriedY, surfaceY } from '../utils/carried-height';
-import type { StreetUnder } from '../utils/underpass';
+import { StreetApproach, StreetSurface, approachY, carriedY, surfaceY } from '../utils/carried-height';
 import { raycastStats } from '../utils/raycast-stats';
 import type { ApproachPoint } from '../utils/route-cell';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
@@ -179,47 +178,48 @@ export class TerrainQueries {
    * Height of a street at a path point, as the yellow street overlay draws
    * it and `__routes.describe()` compares the route cells with.
    *
-   * `deck` 'bridge', on a way with `bridge=*`: the top of the column, the
-   * deck, as the route cells of a bridge segment take it. `deck` the way
-   * from a bridge end, on the stretch off it (carried-height.ts): the hit
-   * nearest to the height the way carries there, or that height where the
-   * hit lies further above it (a crown, awning or car with no ground under
-   * it; carriedY, approachY), as the route cells there take it. `deck` the portals of a stretch under
-   * another way (StreetUnder, underpass.ts): the ground at the two portals
-   * (getGroundHeightEstimate across the way from one to the other),
-   * interpolated, as the route cells of a tunnel stretch take it. Otherwise,
-   * for `deck` null and without a column at the bridge end or at a portal,
-   * getGroundHeightEstimate.
+   * `surface` 'bridge', on a way with `bridge=*`: the top of the column,
+   * the deck, as the route cells of a bridge segment take it. `surface` the
+   * way from the start of an approach, off a bridge end or on the leg to
+   * the HQ (carried-height.ts): the hit nearest to the height the way
+   * carries there, or that height where the hit lies further above it (a
+   * crown, awning, car or roof with no ground under it; carriedY,
+   * approachY), as the route cells there take it. `surface` the portals of
+   * a stretch under another way (StreetUnder, underpass.ts): the ground at
+   * the two portals (getGroundHeightEstimate across the way from one to the
+   * other), interpolated, as the route cells of a tunnel stretch take it.
+   * Otherwise, for `surface` null and without a column at the start of the
+   * approach or at a portal, getGroundHeightEstimate.
    */
   getStreetHeightEstimate(
     lat: number, lon: number,
     prevLat: number, prevLon: number,
     nextLat: number, nextLon: number,
-    deck: StreetDeck | null,
+    surface: StreetSurface | null,
   ): number | null {
-    if (deck === 'bridge') return this.columnAtGeo(lat, lon)?.topY ?? null;
-    if (deck !== null && 'portals' in deck) {
-      const [a, b] = deck.portals;
+    if (surface === 'bridge') return this.columnAtGeo(lat, lon)?.topY ?? null;
+    if (surface !== null && 'portals' in surface) {
+      const [a, b] = surface.portals;
       const ya = this.getGroundHeightEstimate(a.lat, a.lon, a.lat, a.lon, b.lat, b.lon);
       const yb = this.getGroundHeightEstimate(b.lat, b.lon, a.lat, a.lon, b.lat, b.lon);
-      if (ya !== null && yb !== null) return ya + (yb - ya) * deck.f;
-    } else if (deck !== null) {
+      if (ya !== null && yb !== null) return ya + (yb - ya) * surface.f;
+    } else if (surface !== null) {
       const here = this.columnAtGeo(lat, lon);
-      const carried = here === null ? null : this.carriedAtGeo(deck);
+      const carried = here === null ? null : this.carriedAtGeo(surface);
       if (here !== null && carried !== null) return approachY(here, carried);
     }
     return this.getGroundHeightEstimate(lat, lon, prevLat, prevLon, nextLat, nextLon);
   }
 
-  /** The height carried at a street point off a bridge end (carriedY), its rays booked as `heightAtGeo`. */
-  private carriedAtGeo(deck: Exclude<StreetDeck, 'bridge' | StreetUnder>): number | null {
-    const path = deck.path.map((p) => {
+  /** The height carried at a street point on an approach (carriedY), its rays booked as `heightAtGeo`. */
+  private carriedAtGeo(approach: StreetApproach): number | null {
+    const path = approach.path.map((p) => {
       const local = this.sync.geoToLocalSimple(p.lat, p.lon, 0);
       return { x: local.x, z: local.z };
     });
     const scope = raycastStats.enter('heightAtGeo');
     try {
-      return carriedY({ path, m: deck.m }, (x, z) => this.sampleColumn(x, z));
+      return carriedY({ path, m: approach.m, start: approach.start }, (x, z) => this.sampleColumn(x, z));
     } finally {
       raycastStats.exit(scope);
     }
@@ -423,11 +423,12 @@ export class TerrainQueries {
    * corridor to the street the tiles show. Casts a horizontal ray to each
    * side at every height in `heightsAboveGround`, over the surface the
    * route cells there stand on (surfaceY in carried-height.ts): the column's
-   * ground, its top `onDeck` for a bridge, and on the stretch off a bridge
-   * end (`onApproach`, the route from that end to the station) the hit nearest
-   * to the height the route carries there (carriedY). Such a station
-   * comes back unmeasured (`no approach start`)
-   * while the column at the bridge end has no tile up to `maxTileError`.
+   * ground, its top `onDeck` for a bridge, and on an approach, off a bridge
+   * end or on the leg to the HQ (`onApproach`, the route from its start to
+   * the station), the hit nearest to the height the route carries there, or
+   * that height under a hit far above it (carriedY, approachY). Such a
+   * station comes back unmeasured (`no approach start`) while the column at
+   * the start of the approach has no tile up to `maxTileError`.
    * What blocks the rays at all
    * heights counts as a wall (a facade, a wall, a trunk), so the free space
    * on a side is the farthest of the first hits: an eave or a tree crown
@@ -440,9 +441,9 @@ export class TerrainQueries {
    * fence), one more column LOW_WALL_BEHIND_M behind its hit tells how far
    * the ground there lies above the station's (`StationProbe.lowRise`);
    * raised ground makes the hit a wall (probeLowWall). That column's ground
-   * is taken by the station's rule (surfaceY): on the stretch off a bridge
-   * end the hit nearest to the height carried there, so a car there is a
-   * wall and a station over a hollow under the road measures from the road.
+   * is taken by the station's rule (surfaceY): on an approach the hit
+   * nearest to the height carried there, so a car there is a wall and a
+   * station over a hollow under the road measures from the road.
    * Not on a deck (`onDeck`), where the lowest hit of that column may be the
    * river, quay or road under the deck.
    *
@@ -455,11 +456,12 @@ export class TerrainQueries {
    * tile meshes. The station then tries the columns half a metre ahead and
    * behind along the route (SEAM_SHIFTS_M) and measures from the first that
    * finds one (`StationProbe.shiftM`): at most two more column rays, only
-   * for such a station. The column at a bridge end tries the same shifts.
+   * for such a station. The column at the start of an approach tries the
+   * same shifts.
    *
-   * Every column of a station, under it, beside a seam, at and off a bridge
-   * end and behind a low hit, is a ray at its exact point that neither reads
-   * nor writes the column cache (raycastColumn). The side rays start at that
+   * Every column of a station, under it, beside a seam, at the start of an
+   * approach and along it and behind a low hit, is a ray at its exact point
+   * that neither reads nor writes the column cache (raycastColumn). The side rays start at that
    * column's height: the column at the centre of its cache bucket
    * (columnCentre) can lie 0.35 m away, on a kerb or a car; and a station
    * that filled the cache would decide what the cells beside it read
@@ -498,13 +500,13 @@ export class TerrainQueries {
       }
       if (len === 0) return null;
 
-      // Off a bridge end the rays start where the cells there stand: on the
-      // hit nearest to the height the route carries there from that end.
+      // On an approach the rays start where the cells there stand: at the
+      // height the route carries there from its start (approachY).
       let carried: number | null = null;
       if (onApproach !== null && !onDeck) {
-        const end = onApproach.path[0];
-        const deck = this.columnBesideSeam(end.x, end.z, alongX, alongZ);
-        if (!deck || deck.column.tileGeometricError > corridorConfig.maxTileError) {
+        const first = onApproach.path[0];
+        const start = this.columnBesideSeam(first.x, first.z, alongX, alongZ);
+        if (!start || start.column.tileGeometricError > corridorConfig.maxTileError) {
           return { unmeasured: 'no approach start', tileError: column.tileGeometricError, left: [], right: [], ...shifted };
         }
         carried = carriedY(onApproach, (px, pz) => this.columnBesideSeam(px, pz, alongX, alongZ)?.column ?? null);
@@ -555,9 +557,9 @@ export class TerrainQueries {
    * How far the column LOW_WALL_BEHIND_M behind the low ray's hit, along
    * the horizontal unit direction (dirX, dirZ) from (x, z), comes down
    * above `groundY`, where the low ray alone stopped (`hits` per ray
-   * height, see lowRayAlone): its lowest hit, or on the stretch off a
-   * bridge end the one nearest to `carried`, the height carried at the
-   * station, as the station's own ground (surfaceY); the top of a low
+   * height, see lowRayAlone): its lowest hit, or on an approach the one
+   * nearest to `carried`, the height carried at the station, as the
+   * station's own ground (surfaceY, approachY); the top of a low
    * object over a hollow above that instead (lowObjectTop: a car the mesh
    * made hollow, the street under its body its lowest hit). NaN where it
    * did not, or where that column has no tile up to `maxTileError`. An

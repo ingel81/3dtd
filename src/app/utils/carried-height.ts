@@ -1,12 +1,13 @@
 import type { ColumnSample } from '../three-engine/column-sample';
-import type { ApproachPoint, RouteCell } from './route-cell';
+import type { ApproachPoint, ApproachStart, RouteCell } from './route-cell';
 import type { Street, StreetNode } from '../interfaces/street-network-provider.interface';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
 import { runsUnderCover } from './route-corridor';
 import type { StreetUnder } from './underpass';
 
 /**
- * Where a bridge deck carries on past the end of its OSM bridge way.
+ * The height a route carries along an approach: past the end of its OSM
+ * bridge way, and along the leg from the street to the HQ.
  *
  * A route over a way with `bridge=*` stands on the deck, the top of the
  * column (RouteCellSampler); every other way on the lowest hit. The
@@ -32,6 +33,19 @@ import type { StreetUnder } from './underpass';
  * a deck. A crown, lamp, statue or awning over a street on the level of the
  * deck lies farther above it than the street. Past that distance the lowest
  * hit, as on any other way.
+ *
+ * The leg to the HQ runs over no street, from the point of the route
+ * nearest to the HQ, often into a building. Photogrammetry has no floor in
+ * a building, the lowest hit of a column there is its roof: the cells of
+ * the leg climbed onto the HQ's building, the red line ran up its facade,
+ * and enemies walked into the house and came out through the roof
+ * (playtest 2026-09-16, Audi NSU Neckarsulm and Erlenbach BBH). So the leg
+ * carries the height too, from the lowest hit where it leaves the street,
+ * along the whole leg (routeApproaches): a yard, a garden, a ramp or stairs
+ * follow their ground, a building keeps the street's level, and the
+ * enemies walk into it at street level and vanish at the end of the route.
+ * Where a bridge's approach reaches the start of the leg, the leg carries
+ * that height on instead.
  *
  * Route cells find the stretch along their route (routeApproaches), the
  * yellow street overlay along the street network (streetDeckApproaches);
@@ -80,21 +94,23 @@ export function approachY(column: ColumnSample, y: number): number {
 }
 
 /**
- * The height the route carries `point.m` along `point.path` off its bridge
- * end, the first point of the path: the top of the column at the bridge
- * end, then every CARRY_STEP_M along the path the hit of the column there
- * nearest to the height so far (approachY), where that lies within
- * CARRY_STEP_RISE_M of it; a point whose column has none, or no column,
- * keeps the height so far. So the height goes down stairs and up a ramp,
- * but neither down through a gap in the mesh onto the road under a deck nor
- * up onto a crown or a car. Null without a column at the bridge end.
- * `column` is the caller's column probe, cached by the engine per 0.5 m.
+ * The height the route carries `point.m` along `point.path` from the start
+ * of its approach, the first point of the path: at the end of a bridge the
+ * top of the column there, where the leg to the HQ leaves the street its
+ * lowest hit (`point.start`); then every CARRY_STEP_M along the path the
+ * hit of the column there nearest to the height so far (approachY), where
+ * that lies within CARRY_STEP_RISE_M of it; a point whose column has none,
+ * or no column, keeps the height so far. So the height goes down stairs and
+ * up a ramp, but neither down through a gap in the mesh onto the road under
+ * a deck nor up onto a crown, a car or the roof of a building. Null without
+ * a column at the start. `column` is the caller's column probe, cached by
+ * the engine per 0.5 m.
  */
 export function carriedY(point: ApproachPoint, column: (x: number, z: number) => ColumnSample | null): number | null {
   const { path, m } = point;
-  const end = column(path[0].x, path[0].z);
-  if (end === null) return null;
-  let y = end.topY;
+  const first = column(path[0].x, path[0].z);
+  if (first === null) return null;
+  let y = point.start === 'bridge' ? first.topY : first.groundY;
   let next = CARRY_STEP_M;
   let start = 0;
   for (let k = 1; k < path.length && next <= m; k++) {
@@ -115,14 +131,12 @@ export function carriedY(point: ApproachPoint, column: (x: number, z: number) =>
 
 /**
  * The height `column` gives a cell of `surface` (RouteCell.surface): the
- * lowest hit on the ground, the top on a deck, approachY on the stretch
- * off a bridge end with `carried` the height the route carries there
- * (carriedY). Null for a tunnel cell, which takes its height between
- * the portals, and for an approach cell without `carried`. The one rule
- * for the hit a cell stands on: the cells (RouteCellSampler.hitOf), the
- * centre line ground and the walk out to a cell (corridor-walk.ts) and the
- * clearance stations (TerrainQueries.measureStreetClearance) read their
- * columns through it.
+ * lowest hit on the ground, the top on a deck, approachY on an approach
+ * with `carried` the height the route carries there (carriedY). Null for a
+ * tunnel cell, which takes its height between the portals, and for an
+ * approach cell without `carried`. The one rule for the hit a cell stands
+ * on: the cells (RouteCellSampler.hitOf) and the clearance stations
+ * (TerrainQueries.measureStreetClearance) read their columns through it.
  */
 export function surfaceY(surface: RouteCell['surface'], column: ColumnSample, carried: number | null): number | null {
   if (surface === 'ground') return column.groundY;
@@ -132,68 +146,86 @@ export function surfaceY(surface: RouteCell['surface'], column: ColumnSample, ca
 }
 
 /**
- * A segment of a route on the stretch off a bridge end: `path` the indices
- * of the route points from the bridge end to the far end of the segment,
- * the first the bridge end; `from` and `to` the distance along the route
- * from the bridge end to the segment's start and to its end, metres.
+ * A segment of a route on an approach: `path` the indices of the route
+ * points from the start of the approach to the far end of the segment, the
+ * first the start; `from` and `to` the distance along the route from the
+ * start to the segment's start and to its end, metres; `start` what the
+ * approach starts from (ApproachPoint.start); `reach` how far from its
+ * start the approach carries its height on this segment: DECK_APPROACH_M on
+ * a street, all of the leg to the HQ.
  */
 export interface Approach {
   path: readonly number[];
   from: number;
   to: number;
+  start: ApproachStart;
+  reach: number;
 }
 
 /**
- * The stretches off each bridge end of a route, per segment (none, one, or
- * two between two bridges). `points` are the route's local positions,
- * `onBridge` and `inTunnel` the flags per segment. From every end of a run
- * of bridge segments the stretch runs on along the route, whichever way it
- * turns, while the route is neither bridge nor tunnel and the segment
- * starts within DECK_APPROACH_M.
+ * The approaches of a route, per segment (none, one, or more: between two
+ * bridges, or off a bridge onto the leg to the HQ). `points` are the
+ * route's local positions, `onBridge`, `inTunnel` and `onStreet` the flags
+ * per segment; the leg to the HQ runs over no street.
+ *
+ * From every end of a run of bridge segments the approach runs on along
+ * the route, whichever way it turns, while the route is neither bridge nor
+ * tunnel: over a street while the segment starts within DECK_APPROACH_M,
+ * onto the leg to the HQ where that starts within it, and then along the
+ * whole leg. A leg no bridge's approach reaches is an approach of its own,
+ * from where it leaves the street (or a tunnel) to its end.
  */
 export function routeApproaches(
   points: readonly { x: number; z: number }[],
   onBridge: readonly boolean[],
   inTunnel: readonly boolean[],
+  onStreet: readonly boolean[],
 ): Approach[][] {
   const segments = points.length - 1;
   const result: Approach[][] = Array.from({ length: Math.max(0, segments) }, () => []);
   const open = (i: number) => i >= 0 && i < segments && !onBridge[i] && !inTunnel[i];
+  const leg = (i: number) => open(i) && !onStreet[i];
 
-  // From the bridge end at point `end` along the route in `step`, starting with segment `first`.
-  const walk = (first: number, step: 1 | -1, end: number) => {
+  // From the start at point `end` along the route in `step`, beginning with segment `first`.
+  const walk = (first: number, step: 1 | -1, end: number, start: ApproachStart) => {
     const path = [end];
     let distance = 0;
-    for (let j = first; open(j) && distance < DECK_APPROACH_M; j += step) {
+    let onLeg = false;
+    for (let j = first; open(j); j += step) {
+      const reaches = leg(j) ? onLeg || distance <= DECK_APPROACH_M : start === 'bridge' && distance < DECK_APPROACH_M;
+      if (!reaches) break;
+      onLeg = leg(j);
       const a = points[step > 0 ? j : j + 1];
       const b = points[step > 0 ? j + 1 : j];
       const length = Math.hypot(b.x - a.x, b.z - a.z);
       path.push(step > 0 ? j + 1 : j);
       const [from, to] = step > 0 ? [distance, distance + length] : [distance + length, distance];
-      result[j].push({ path: [...path], from, to });
+      result[j].push({ path: [...path], from, to, start, reach: onLeg ? Infinity : DECK_APPROACH_M });
       distance += length;
     }
   };
 
   for (let i = 0; i < segments; i++) {
     if (!onBridge[i]) continue;
-    if (open(i + 1)) walk(i + 1, 1, i + 1);
-    if (open(i - 1)) walk(i - 1, -1, i);
+    if (open(i + 1)) walk(i + 1, 1, i + 1, 'bridge');
+    if (open(i - 1)) walk(i - 1, -1, i, 'bridge');
+  }
+  for (let i = 0; i < segments; i++) {
+    if (leg(i) && !leg(i - 1) && result[i].length === 0) walk(i, 1, i, 'street');
   }
   return result;
 }
 
 /**
- * The stretch among a segment's `approaches` whose bridge end is nearest
- * to the point `t` of the way along it (0 to 1), null where none lies
- * within DECK_APPROACH_M.
+ * The approach among a segment's `approaches` whose start is nearest to the
+ * point `t` of the way along it (0 to 1), null where none reaches it.
  */
-export function nearestApproach<T extends { from: number; to: number }>(approaches: readonly T[], t: number): T | null {
+export function nearestApproach<T extends { from: number; to: number; reach: number }>(approaches: readonly T[], t: number): T | null {
   let nearest: T | null = null;
-  let nearestM = DECK_APPROACH_M;
+  let nearestM = Infinity;
   for (const approach of approaches) {
     const distance = approach.from + (approach.to - approach.from) * t;
-    if (distance <= nearestM) {
+    if (distance <= approach.reach && distance <= nearestM) {
       nearest = approach;
       nearestM = distance;
     }
@@ -202,33 +234,57 @@ export function nearestApproach<T extends { from: number; to: number }>(approach
 }
 
 /**
- * A stretch off a bridge end as the cells and clearance stations of a
- * segment take it: Approach with the route points of its path, local.
+ * An approach as the cells and clearance stations of a segment take it:
+ * Approach with the route points of its path, local.
  */
 export interface SegmentApproach {
   path: readonly { x: number; z: number }[];
   from: number;
   to: number;
+  start: ApproachStart;
+  reach: number;
 }
 
-/** The stretches `approaches` of a segment of the route with the local positions `points`, see SegmentApproach. */
+/** The approaches `approaches` of a segment of the route with the local positions `points`, see SegmentApproach. */
 export function segmentApproaches(approaches: readonly Approach[], points: readonly { x: number; z: number }[]): SegmentApproach[] {
-  return approaches.map(({ path, from, to }) => ({ path: path.map((k) => ({ x: points[k].x, z: points[k].z })), from, to }));
+  return approaches.map((approach) => ({ ...approach, path: approach.path.map((k) => ({ x: points[k].x, z: points[k].z })) }));
 }
 
-/** Where the point `t` (0 to 1) of a segment lies on its stretch `approach`, see RouteCell.onApproach. */
+/**
+ * Whether the start of the approach `a` lies nearer along its route than
+ * that of `b`; at the same distance, whether its start has the lesser x,
+ * then z. Of two approaches that reach a cell or a station, the height
+ * carried from the nearer start counts, whichever route came first.
+ */
+export function startsNearer(a: ApproachPoint, b: ApproachPoint): boolean {
+  if (a.m !== b.m) return a.m < b.m;
+  const [p, q] = [a.path[0], b.path[0]];
+  return p.x !== q.x ? p.x < q.x : p.z < q.z;
+}
+
+/** Where the point `t` (0 to 1) of a segment lies on its approach `approach`, see RouteCell.onApproach. */
 export function pointOnApproach(approach: SegmentApproach, t: number): ApproachPoint {
-  return { path: approach.path, m: approach.from + (approach.to - approach.from) * t };
+  return { path: approach.path, m: approach.from + (approach.to - approach.from) * t, start: approach.start };
 }
 
 /**
  * What a street point takes its height from (TerrainQueries.getStreetHeightEstimate):
- * `bridge` on a bridge way; on the stretch off a bridge end the way there
- * from the bridge end, geographic, its first point the bridge end and its
- * last the street point, and its length `m`; on a stretch under another way
- * the portals either side (StreetUnder, underpass.ts); null elsewhere.
+ * `bridge` on a bridge way; on an approach the route or way there from its
+ * start, geographic, its first point the start and its last the street
+ * point, its length `m` and what the height is carried from (`start`,
+ * ApproachStart); on a stretch under another way the portals either side
+ * (StreetUnder, underpass.ts); null elsewhere. The yellow overlay knows
+ * approaches off bridge ends only, `__routes.describe()` the leg to the HQ
+ * as well.
  */
-export type StreetDeck = 'bridge' | { path: readonly { lat: number; lon: number }[]; m: number } | StreetUnder;
+export type StreetSurface = 'bridge' | StreetApproach | StreetUnder;
+
+/** A street point on an approach, geographic, see StreetSurface. */
+export interface StreetApproach {
+  path: readonly { lat: number; lon: number }[];
+  m: number;
+  start: ApproachStart;
+}
 
 /** A node of the street network on the stretch off a bridge end. */
 export interface StreetDeckApproach {

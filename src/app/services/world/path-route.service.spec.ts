@@ -3,6 +3,8 @@ import { Group, Vector3 } from 'three';
 
 // Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe,
 // `column` = die eingefrorene Säule an einem lokalen Punkt, aus der das Band gebaut wird.
+// DevWorld, pro Test umschaltbar.
+const devWorld = vi.hoisted(() => ({ isActive: false }));
 const grid = vi.hoisted(() => ({
   ready: false,
   cellY: (_x: number, _z: number): number | null => null,
@@ -15,7 +17,7 @@ const grid = vi.hoisted(() => ({
 vi.mock('@angular/core', async () => {
   const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
   const stubs: Record<string, unknown> = {
-    DevWorldService: { isActive: false },
+    DevWorldService: devWorld,
     UIStore: { routesVisible: () => false },
     GlobalRouteGridService: {
       isInitialized: () => grid.ready,
@@ -250,6 +252,39 @@ describe('PathAndRouteService route geometry', () => {
     expect(route[route.length - 1]).toMatchObject(hq);
     for (let i = 0; i < route.length - 2; i++) {
       expect(liesOnWayEdge(network, route[i], route[i + 1]), `segment ${i}`).toBe(true);
+    }
+  });
+
+  it('flags the leg to the HQ, and measures its stations from the height carried on from the street', () => {
+    const hq = { lat: 48.0011, lon: 9.0025 };
+    const service = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq);
+    const route = service.getCachedPath('s1')!;
+    expect(route.slice(0, -2).every((p) => p.offStreet === undefined)).toBe(true);
+    expect(route[route.length - 2].offStreet).toBe(true);
+
+    probeCalls.length = 0;
+    measure(service);
+    // No bridge on the route: the stations on an approach are those of the leg, carried from where it leaves the street.
+    const start = toMeters(route[route.length - 2]);
+    const onLeg = probeCalls.filter((call) => call[7] !== null);
+    expect(onLeg.length).toBeGreaterThan(2);
+    for (const call of onLeg) {
+      const point = call[7] as { path: { x: number; z: number }[]; m: number; start: string };
+      expect(point.start).toBe('street');
+      expect(point.path[0].x).toBeCloseTo(start.x, 3);
+      expect(point.path[0].z).toBeCloseTo(-start.z, 3);
+    }
+    expect(onLeg.length).toBeLessThan(probeCalls.length);
+  });
+
+  it('flags no leg in DevWorld, whose columns see no building on its steep terrain', () => {
+    devWorld.isActive = true;
+    try {
+      const route = buildRoute(network, { lat: 47.9995, lon: 9.0 }, { lat: 48.0011, lon: 9.0025 });
+      expect(route.length).toBeGreaterThan(3);
+      expect(route.every((p) => p.offStreet === undefined)).toBe(true);
+    } finally {
+      devWorld.isActive = false;
     }
   });
 
