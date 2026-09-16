@@ -377,8 +377,8 @@ export class GlobalRouteGrid {
     const at: string[] = [];
     let more = 0;
     for (const cell of this.cells.values()) {
-      if (cell.heightSampled) continue;
-      const miss = this.misses.get(cell.key) ?? 'noColumn';
+      const miss = this.missOf(cell);
+      if (miss === null) continue;
       counts.set(miss, (counts.get(miss) ?? 0) + 1);
       if (at.length < GlobalRouteGrid.LISTED_CELLS) at.push(`${cell.x},${cell.z}`);
       else more++;
@@ -387,6 +387,15 @@ export class GlobalRouteGrid {
       why: [...counts].map(([miss, n]) => `${miss}:${n}`).join(','),
       at: at.join(';') + (more > 0 ? `;+${more}` : ''),
     };
+  }
+
+  /**
+   * Why a cell has no height (CellMiss, as describeCellsWithoutHeight counts
+   * it; `noColumn` for one never tried), null for a cell with one, sampled
+   * or filled.
+   */
+  missOf(cell: RouteCell): CellMiss | null {
+    return cell.heightSampled ? null : this.misses.get(cell.key) ?? 'noColumn';
   }
 
   /** sampleCellY for one cell of this grid, keeping why it failed (misses). */

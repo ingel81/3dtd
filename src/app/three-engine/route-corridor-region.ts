@@ -177,6 +177,22 @@ export class RouteCorridorRegion {
    * O(active tiles × segments), footprints cached per tile.
    */
   lodState(activeTiles: Iterable<RegionTile>): RegionLodState {
+    const { state, paths } = this.scan(activeTiles);
+    state.tileSet = fnv1a(paths.join('\n'));
+    return state;
+  }
+
+  /**
+   * The content paths of the fine tiles lodState hashes into `tileSet`,
+   * without the query and sorted: which tiles those are, for the corridor
+   * snapshot.
+   */
+  finePaths(activeTiles: Iterable<RegionTile>): string[] {
+    return this.scan(activeTiles).paths;
+  }
+
+  /** The counts of lodState and the sorted content paths of its fine tiles. */
+  private scan(activeTiles: Iterable<RegionTile>): { state: RegionLodState; paths: string[] } {
     const state: RegionLodState = { tiles: 0, fine: 0, finest: 0, coarse: 0, tileSet: '' };
     const paths: string[] = [];
     for (const tile of activeTiles) {
@@ -192,8 +208,7 @@ export class RouteCorridorRegion {
         paths.push(tile.content?.uri?.split('?')[0] ?? '');
       }
     }
-    state.tileSet = fnv1a(paths.sort().join('\n'));
-    return state;
+    return { state, paths: paths.sort() };
   }
 
   private footprintOf(boundingVolume: BoundingVolumeLike): TileFootprint | null {

@@ -943,11 +943,12 @@ export class PathAndRouteService {
   }
 
   /**
-   * What the corridor in use is made of, for `__corridor.fingerprint()`:
-   * stored state only, nothing is measured or judged anew, so the camera
-   * does not change it. Per route in use the band of its stations
-   * (buildBands) and what each station of its line measured. Measurements of
-   * routes no longer in use (a spawn moved) are left out.
+   * What the corridor in use is made of, for `__corridor.fingerprint()` and
+   * `__corridor.snapshot()`: stored state only, nothing is measured or
+   * judged anew, so the camera does not change it. Per route in use the band
+   * of its stations (buildBands) and what each station of its line
+   * measured. Measurements of routes no longer in use (a spawn moved) are
+   * left out.
    */
   corridorState(): CorridorState {
     const routes = new Map<string, CorridorState['routes'][number]>();
@@ -966,6 +967,7 @@ export class PathAndRouteService {
           right: measured.right,
           tileError: measured.probes.map((probe) => probe?.tileError ?? null),
           unmeasured: measured.probes.map((probe) => probe?.unmeasured ?? null),
+          shiftM: measured.probes.map((probe) => probe?.shiftM ?? null),
         });
       }
     }
@@ -1406,10 +1408,19 @@ export interface CorridorState {
   /**
    * Per measured segment of the street routes (segment key), per station:
    * the free space left and right (NaN unmeasured), the geometric error of
-   * the tile under it (Infinity without a tile, null without a probe) and
-   * why it stayed unmeasured.
+   * the tile under it (Infinity without a tile, null without a probe), why
+   * it stayed unmeasured and how far along the route it was measured from
+   * (StationProbe.shiftM, null where it was not moved). The fingerprint
+   * leaves the shift out.
    */
-  stations: { key: string; left: number[]; right: number[]; tileError: (number | null)[]; unmeasured: (string | null)[] }[];
+  stations: {
+    key: string;
+    left: number[];
+    right: number[];
+    tileError: (number | null)[];
+    unmeasured: (string | null)[];
+    shiftM: (number | null)[];
+  }[];
 }
 
 /** A segment a clearance run measures: where its stations stand and what they found. */

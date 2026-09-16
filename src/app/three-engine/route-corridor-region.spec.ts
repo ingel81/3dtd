@@ -85,6 +85,16 @@ describe('RouteCorridorRegion', () => {
     expect(region.lodState([tile(10, 'a.glb'), tile(20, 'c.glb')]).tileSet).not.toBe(a);
   });
 
+  it('lists the paths of the tiles it names, sorted and without the session', () => {
+    const region = new RouteCorridorRegion([route], identity, 20, 5);
+    const tile = (x: number, uri: string, geometricError = 1, children = 0) =>
+      ({ geometricError, children: new Array(children), content: { uri }, engineData: { boundingVolume: sphereVolume(x, 0, 100, 5) } });
+    const active = [tile(20, 'b.glb?session=1'), tile(10, 'a.glb?session=1'), tile(10, 'parent.glb', 20, 4), tile(200, 'c.glb')];
+
+    expect(region.finePaths(active)).toEqual(['a.glb', 'b.glb']);
+    expect(region.lodState(active).tileSet).toBe(region.lodState([tile(10, 'a.glb'), tile(20, 'b.glb')]).tileSet);
+  });
+
   /**
    * Tokyo, retest of 2026-09-16: the same corridor on a fresh load and after
    * a location change and reset(), with fine=181 both times, but coarse=20

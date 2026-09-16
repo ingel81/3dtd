@@ -49,11 +49,24 @@ function num(value: number | null, digits: number): string {
   return String(Math.round(value * f) / f + 0);
 }
 
-const byKey = <T extends { key: string }>(a: T, b: T) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+/** The order routes and segments go in; the corridor snapshot lists its rows in it too. */
+export const byKey = <T extends { key: string }>(a: T, b: T) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
+
+/** The entries that go into each part, one string each, in the order they are hashed. */
+export type FingerprintLines = Record<FingerprintPartName, string[]>;
 
 /** The fingerprint of a corridor, see the file comment. Pure: the same input gives the same hash. */
 export function corridorFingerprint(state: CorridorState, cells: readonly RouteCellDump[]): CorridorFingerprint {
-  const lines: Record<FingerprintPartName, string[]> = {
+  return fingerprintOfLines(corridorFingerprintLines(state, cells));
+}
+
+/**
+ * The entries of each part before they are hashed, for the corridor
+ * snapshot: two snapshots of a place compare entry by entry where their
+ * part hashes differ.
+ */
+export function corridorFingerprintLines(state: CorridorState, cells: readonly RouteCellDump[]): FingerprintLines {
+  const lines: FingerprintLines = {
     band: [], stations: [], cells: [], heights: [], tiles: [],
   };
 
@@ -79,7 +92,11 @@ export function corridorFingerprint(state: CorridorState, cells: readonly RouteC
     lines.heights.push(`${at}:${num(cell.terrainHeight, 1)}`);
     lines.tiles.push(`${at}:${cell.state},${cell.tileDepth},${num(cell.tileGeometricError, 3)}`);
   }
+  return lines;
+}
 
+/** The hash of each part and the hash over them, from the entries corridorFingerprintLines gives. */
+export function fingerprintOfLines(lines: FingerprintLines): CorridorFingerprint {
   const parts = {} as Record<FingerprintPartName, FingerprintPart>;
   for (const name of FINGERPRINT_PARTS) {
     parts[name] = { entries: lines[name].length, hash: fnv1a(lines[name].join('\n')) };

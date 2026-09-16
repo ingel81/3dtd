@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { corridorFingerprint } from './corridor-fingerprint';
+import { corridorFingerprint, corridorFingerprintLines, fingerprintOfLines } from './corridor-fingerprint';
 import type { CorridorState } from '../world/path-route.service';
 import type { BandStation } from '../../utils/corridor-band';
 import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
@@ -25,8 +25,8 @@ describe('corridorFingerprint', () => {
         { key: 'r-a', band: [station(0, { left: -1, right: 1 })] },
       ],
       stations: [
-        { key: 's-2', left: [5.2, NaN], right: [7, NaN], tileError: [2.5, 20], unmeasured: [null, 'coarse tile'] },
-        { key: 's-1', left: [4], right: [4], tileError: [Infinity], unmeasured: ['no tile'] },
+        { key: 's-2', left: [5.2, NaN], right: [7, NaN], tileError: [2.5, 20], unmeasured: [null, 'coarse tile'], shiftM: [null, null] },
+        { key: 's-1', left: [4], right: [4], tileError: [Infinity], unmeasured: ['no tile'], shiftM: [0.5] },
       ],
     };
   }
@@ -50,6 +50,19 @@ describe('corridorFingerprint', () => {
     expect(a.parts.stations.entries).toBe(3);
     // Three stations and three cells
     expect(a.parts.tiles.entries).toBe(6);
+  });
+
+  it('hashes the entries it lists per part, one per band station, station and cell', () => {
+    const lines = corridorFingerprintLines(state(), cells());
+    expect(fingerprintOfLines(lines)).toEqual(corridorFingerprint(state(), cells()));
+    expect(lines.band).toEqual([
+      'r-a#0:0:band,0.5,12.3,12.3,-1,1,0.4',
+      'r-b#0:0:band,0.5,12.3,12.3,-3.2,4,0.4',
+      'r-b#0:1:passage,-,-,12.3,-2,2,0',
+    ]);
+    expect(lines.stations).toEqual(['s-1#0:4,4,no tile', 's-2#0:5.2,7,-', 's-2#1:nan,nan,coarse tile']);
+    expect(lines.heights).toEqual(['1,1:10', '1,3:11', '3,1:10.4']);
+    expect(lines.tiles.at(-1)).toBe('3,1:stable,21,2');
   });
 
   it('does not care in which order routes, segments and cells come', () => {

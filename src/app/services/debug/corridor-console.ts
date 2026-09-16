@@ -40,9 +40,10 @@ interface PickView {
 /**
  * The column at the click for the console: the sample the cache holds (what
  * the cells read), the one a fresh ray gives now, and every hit of that ray
- * as height@depth/geometricError, top first.
+ * as height@depth/geometricError, top first. The cell report and the
+ * corridor snapshot write it the same way.
  */
-function describeColumn(column: ColumnInspection): Record<string, string | null> {
+export function describeColumn(column: ColumnInspection): Record<string, string | null> {
   const sample = (s: ColumnSample | null) => (s ? `ground ${round(s.groundY, 2)} top ${round(s.topY, 2)} depth ${s.tileDepth}` : null);
   return {
     cached: sample(column.cached),
