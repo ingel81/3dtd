@@ -1,5 +1,6 @@
 import { DoubleSide, Group, Mesh, MeshBasicMaterial, PlaneGeometry, Vector3 } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
+import { LibraryTiles } from '../../test/library-tiles-fixture';
 import type { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { corridorConfig, probeLowWall } from '../utils/route-corridor';
@@ -667,60 +668,46 @@ describe('TerrainQueries', () => {
   });
 
   /**
-   * A location change has to give the same columns as a fresh load of that
-   * place: the corridor build reads every height through sampleColumn, and
-   * the band's backbone with it. Playtest 2026-09-16, Tokyo: loading
-   * Erlenbach and navigating to Tokyo in game gave a fingerprint whose
-   * `band` and `heights` differed from three cold loads, while `stations`,
-   * `cells` and `tiles` were identical.
+   * The rays on the ray path of 3d-tiles-renderer itself (LibraryTiles): a
+   * real TilesRenderer, its TilesGroup and raycastTraverse. Playtest
+   * 2026-09-16, Tokyo (PLAYTEST 745): a cold load, a location change in game
+   * and `__corridor.reset()` gave three corridors with the same stations,
+   * cells and tile depth and error under every column, and different heights.
+   * Two things the library already rules out as the cause are pinned here.
    */
-  describe('a second location in one session', () => {
-    /** What ThreeTilesEngine.setOrigin leaves behind on a location change. */
-    const changeLocation = (world: ReturnType<typeof setup>): void => {
-      for (const mesh of [...world.group.children]) world.group.remove(mesh);
-      world.activeTiles.clear();
-      world.queries.clearHeightCache();
-    };
+  describe('on the library ray path', () => {
+    const queriesOver = (tiles: LibraryTiles) => new TerrainQueries(sync, { tiles: () => tiles.renderer, devTerrain: () => null });
 
-    it('reads the same columns as a cold session once the old tiles are gone', () => {
-      const warm = setup();
-      warm.addTile(floor(25, 100), 3, 2);
-      expect(warm.queries.sampleColumn(0, 0)?.groundY).toBeCloseTo(25, 6);
-      expect(warm.queries.sampleColumn(4, 4)?.groundY).toBeCloseTo(25, 6);
+    // What makes the filter on `activeTiles` planned after the playtest a
+    // no-op: TilesGroup.raycast ends three's recursion into the group, and
+    // raycastTraverse meets active tiles only.
+    it('meets no tile that is no longer active, while its scene still fades out in the group', () => {
+      const tiles = new LibraryTiles();
+      tiles.add(floor(7, 100), 3, 2);
+      const leaving = tiles.add(floor(3, 100), 3, 2);
+      // TilesFadePlugin holds back setTileVisible(false) until its fade ends:
+      // the renderer has deactivated the tile, its scene is still a child.
+      tiles.setActive(leaving, false);
+      expect(tiles.renderer.group.children).toContain(leaving.engineData.scene);
 
-      changeLocation(warm);
-      warm.addTile(floor(7, 100), 3, 2);
-
-      const cold = setup();
-      cold.addTile(floor(7, 100), 3, 2);
-
-      for (const [x, z] of [[0, 0], [4, 4], [-3, 2]]) {
-        expect(warm.queries.sampleColumn(x, z), `${x},${z}`).toEqual(cold.queries.sampleColumn(x, z));
-      }
+      const queries = queriesOver(tiles);
+      expect(queries.sampleColumn(1, 3)?.groundY).toBeCloseTo(7, 6);
+      expect(queries.inspectColumn(1, 3)?.hits.map((hit) => Math.round(hit.y))).toEqual([7]);
+      // Through the active floor blocked, through the fading one not.
+      expect(queries.raycastLineOfSight(1, 8, 3, 1, 6, 3)).toBe(true);
+      expect(queries.raycastLineOfSight(1, 5, 3, 1, 1, 3)).toBe(false);
     });
 
-    /**
-     * The one way left for the heights to differ while the `tiles` part of
-     * the fingerprint stays identical: a mesh of the same depth and the same
-     * geometric error still hanging in the group. selectColumnSample keeps
-     * every hit of the deepest level and reads the ground off all of them,
-     * and reports the lowest geometric error among them, so such a leftover
-     * moves the height without moving depth or error.
-     */
-    it('a leftover tile of the same level moves the ground while depth and error stay put', () => {
-      const cold = setup();
-      cold.addTile(floor(7, 100), 3, 2);
-      const clean = cold.queries.sampleColumn(0, 0)!;
+    // An active tile off screen is parented to the group but not a child of
+    // it; TilesGroup.updateMatrixWorld moves it along with the group anyway.
+    it('meets a tile active off screen where it is after the group moved, as a new origin moves it', () => {
+      const tiles = new LibraryTiles();
+      const offScreen = tiles.add(floor(7, 100), 3, 2, { visible: false });
+      expect(tiles.renderer.group.children).not.toContain(offScreen.engineData.scene);
 
-      const stale = setup();
-      stale.addTile(floor(3, 100), 3, 2);
-      stale.addTile(floor(7, 100), 3, 2);
-      const mixed = stale.queries.sampleColumn(0, 0)!;
-
-      expect(mixed.tileDepth).toBe(clean.tileDepth);
-      expect(mixed.tileGeometricError).toBe(clean.tileGeometricError);
-      expect(mixed.groundY).toBeCloseTo(3, 6);
-      expect(clean.groundY).toBeCloseTo(7, 6);
+      tiles.renderer.group.position.y = -5;
+      tiles.renderer.group.updateMatrixWorld();
+      expect(queriesOver(tiles).sampleColumn(1, 3)?.groundY).toBeCloseTo(2, 6);
     });
   });
 
