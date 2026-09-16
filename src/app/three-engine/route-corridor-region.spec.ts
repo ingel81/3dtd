@@ -85,6 +85,26 @@ describe('RouteCorridorRegion', () => {
     expect(region.lodState([tile(10, 'a.glb'), tile(20, 'c.glb')]).tileSet).not.toBe(a);
   });
 
+  /**
+   * Tokyo, retest of 2026-09-16: the same corridor on a fresh load and after
+   * a location change and reset(), with fine=181 both times, but coarse=20
+   * and 14, and so two tileSet hashes.
+   */
+  it('names only the fine tiles: parents still to refine do not change it, a coarse leaf does', () => {
+    const region = new RouteCorridorRegion([route], identity, 20, 5);
+    const tile = (uri: string, geometricError: number, children = 0) =>
+      ({ geometricError, children: new Array(children), content: { uri }, engineData: { boundingVolume: sphereVolume(10, 0, 100, 5) } });
+    const fine = [tile('a.glb', 2.5), tile('b.glb', 4)];
+    const measured = region.lodState(fine);
+
+    const withParents = region.lodState([...fine, tile('p.glb', 20, 4), tile('q.glb', 10, 8)]);
+    expect(withParents).toMatchObject({ tiles: 4, fine: 2, coarse: 2 });
+    expect(withParents.tileSet).toBe(measured.tileSet);
+
+    expect(region.lodState([...fine, tile('leaf.glb', 20)]).tileSet).not.toBe(measured.tileSet);
+    expect(region.lodState([tile('a.glb', 2.5)]).tileSet).not.toBe(measured.tileSet);
+  });
+
   it('refines while the tile is coarser than its error target', () => {
     const region = new RouteCorridorRegion([route], identity, 20, 5);
     const tiles = { errorTarget: 20 };
