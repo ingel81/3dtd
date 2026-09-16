@@ -140,12 +140,12 @@ describe('corridor trace', () => {
     });
 
     it('mark the route corridor region complete the first time none of its tiles is left to refine', () => {
-      const region = { tiles: 10, fine: 8, finest: 2, coarse: 2, pending: 5 };
+      const region = { tiles: 10, fine: 8, finest: 2, coarse: 2, tileSet: '0badf00d', pending: 5 };
       corridorTrace.tiles(3, () => region);
       corridorTrace.tiles(4, () => ({ ...region, fine: 10, coarse: 0, pending: 0 }));
       corridorTrace.tiles(5, () => ({ ...region, fine: 10, coarse: 0, pending: 0 }));
       expect(lines.map((line) => /s (\S+)/.exec(line)?.[1])).toEqual(['tiles', 'tiles', 'region.complete', 'tiles']);
-      expect(lines[0]).toContain(' tiles lod=3 tiles=10 fine=8 finest=2 coarse=2 pending=5 ');
+      expect(lines[0]).toContain(' tiles lod=3 tiles=10 fine=8 finest=2 coarse=2 tileSet=0badf00d pending=5 ');
     });
   });
 
