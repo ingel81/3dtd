@@ -21,7 +21,7 @@ vi.mock('@angular/core', async () => {
 import { StreetRenderingService } from './street-rendering.service';
 import type { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import type { ThreeTilesEngine } from '../../three-engine';
-import type { StreetDeck } from '../../utils/deck-approach';
+import type { StreetDeck } from '../../utils/carried-height';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 
 /** A node `x` metres east and `z` north of (0, 0). */

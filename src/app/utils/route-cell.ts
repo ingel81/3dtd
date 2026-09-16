@@ -67,8 +67,8 @@ export interface RouteCell {
    * Which surface of the column the cell stands on: `ground` is the lowest
    * hit, `deck` the highest, the deck of a bridge the route crosses rather
    * than the river or road below it. `approach`: on the route off a bridge
-   * end, near it (deck-approach.ts), the hit nearest to the height the route
-   * carries there from the bridge end (`deckEnd`), the deck carried on over
+   * end, near it (carried-height.ts), the hit nearest to the height the route
+   * carries there from the bridge end (`onApproach`), the deck carried on over
    * a quay or road below, the ground of a street or stairs on their own.
    * `tunnel`: none of them, the cell lies in a tunnel or covered passage
    * and takes its height between the portals (`tunnelSpan`). Set at
@@ -80,10 +80,10 @@ export interface RouteCell {
   tunnelSpan: TunnelSpan | null;
   /**
    * Where an `approach` cell lies on the route off a bridge end: the height
-   * the route carries there (carriedDeckY) is what its hits compare with
-   * (deckApproachY). Null on every other cell.
+   * the route carries there (carriedY) is what its hits compare with
+   * (approachY). Null on every other cell.
    */
-  deckEnd: DeckEnd | null;
+  onApproach: ApproachPoint | null;
   /**
    * Route-anchor Y, taken at generation time from the smoothed route height
    * at the nearest route sample point. Stands in as `terrainHeight` until the
@@ -126,11 +126,11 @@ export interface TunnelSpan {
 }
 
 /**
- * A point on the route off a bridge end, see RouteCell.deckEnd: `path`,
+ * A point on the route off a bridge end, see RouteCell.onApproach: `path`,
  * the route from the bridge end on, local x, z, its first point the bridge
  * end; `m`, how far along it the point lies, metres.
  */
-export interface DeckEnd {
+export interface ApproachPoint {
   path: readonly { x: number; z: number }[];
   m: number;
 }

@@ -4,7 +4,7 @@
  * The routes of the five fixtures in fixtures/osm, cut as
  * PathAndRouteService.buildRouteFromPath cuts them (StreetEdgeIndex,
  * UnderpassIndex, splitAtSpans, routeHalfWidths), the stretches off a bridge
- * end as the route grid finds them (deckApproaches). The ground: the playtest
+ * end as the route grid finds them (routeApproaches). The ground: the playtest
  * cell reports where the fixture has them, synthetic on the real line
  * elsewhere, as each scene says. buildBand decides the band and the enemies'
  * line, bandPath turns it into route waypoints, the route grid claims and
@@ -20,7 +20,7 @@ import { join } from 'node:path';
 import { Vector3 } from 'three';
 import { parseStreetTags } from '../services/location/osm-street.service';
 import { BandColumn, BandColumns, BandRoute, BandStation, CorridorBand, bandPath, buildBand, stationNear } from '../utils/corridor-band';
-import { deckApproaches } from '../utils/deck-approach';
+import { routeApproaches } from '../utils/carried-height';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { GlobalRouteGrid } from '../utils/global-route-grid';
 import { corridorConfig, routeHalfWidths, runsUnderCover } from '../utils/route-corridor';
@@ -202,7 +202,7 @@ interface Cut {
   ways: (Street | null)[];
   onBridge: boolean[];
   inTunnel: boolean[];
-  /** On the stretch off a bridge end (deckApproaches). */
+  /** On the stretch off a bridge end (routeApproaches). */
   approach: boolean[];
 }
 
@@ -218,7 +218,7 @@ function cutRoute(fixture: Fixture, frame: Frame, walls: Walls): Cut {
   const onBridge = ways.map((way) => way?.bridge !== undefined);
   const inTunnel = ways.map((way, i) => split.under[i] !== null || (way !== null && runsUnderCover(way)));
   const points = split.points.map(frame.toLocal);
-  const approach = deckApproaches(points, onBridge, inTunnel).map((stretches) => stretches.length > 0);
+  const approach = routeApproaches(points, onBridge, inTunnel).map((stretches) => stretches.length > 0);
   // The band decides a street on the ground; not a bridge, a tunnel, the stretch off a bridge end or the leg to the HQ.
   const band = ways.map((way, i) => way !== null && !onBridge[i] && !inTunnel[i] && !approach[i]);
   const wallLeft: number[][] = [];

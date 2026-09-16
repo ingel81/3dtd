@@ -4,7 +4,7 @@ import type { Street } from '../location/osm-street.service';
 import type { StreetEdgeIndex } from '../../utils/route-ways';
 import type { GeoDistance } from '../../utils/route-geometry';
 import { estimateStreetWidth, segmentLeft, segmentRight } from '../../utils/route-corridor';
-import { StreetDeck, deckApproaches, nearestDeckApproach } from '../../utils/deck-approach';
+import { StreetDeck, nearestApproach, routeApproaches } from '../../utils/carried-height';
 import type { GlobalRouteGridService } from './global-route-grid.service';
 
 /** Smallest and largest value seen so far, as `5.0` or `5.0-12.0`, for the diagnostics table. */
@@ -74,7 +74,7 @@ export interface RouteWayRun {
  * (`getStreetHeightEstimate`: seitliches Minimum, auf einem Brücken-Way das
  * Deck, auf der Strecke hinter seinem Ende die Höhe, die die Route von dort
  * trägt; die Strecke hier entlang der Route wie bei den Zellen,
- * `deckApproaches`). Beantwortet am Ort eines
+ * `routeApproaches`). Beantwortet am Ort eines
  * Routen-Befunds zwei Fragen: Läuft die Route dort über einen anderen Way
  * als die sichtbare Straße (Fußweg, Durchgang, Tunnel)? Und liegen die
  * Zellen dort auf Dach oder Baumkrone, während die Straße darunter liegt?
@@ -103,7 +103,7 @@ export function describeRouteWays(
   for (const [routeId, path] of paths) {
     const ways = index.match(path);
     const flags = path.slice(0, -1);
-    const approaches = deckApproaches(
+    const approaches = routeApproaches(
       path.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0)),
       flags.map((p) => p.onBridge === true),
       flags.map((p) => p.inTunnel === true),
@@ -158,7 +158,7 @@ export function describeRouteWays(
         const lon = a.lon + (b.lon - a.lon) * t;
         const local = engine.sync.geoToLocalSimple(lat, lon, 0);
         const cellY = grid.getGroundLocalYAt(local.x, local.z);
-        const approach = a.onBridge ? null : nearestDeckApproach(approaches[i], t);
+        const approach = a.onBridge ? null : nearestApproach(approaches[i], t);
         const deck: StreetDeck | null = a.onBridge ? 'bridge'
           : approach ? { path: approach.path.map((k) => path[k]), m: approach.from + (approach.to - approach.from) * t } : null;
         const streetY = engine.terrain.getStreetHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon, deck);

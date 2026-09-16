@@ -21,7 +21,7 @@ Route (vom Spawn zum HQ).
 | Waypoints | `PathAndRouteService.buildRouteFromPath` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Unterführung | `utils/underpass.ts` (`UnderpassIndex`, `splitAtSpans`), `PathAndRouteService.buildRouteFromPath` | Stück unter einem Way, der die Route auf höherer Ebene kreuzt, als Tunnel |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts`) | 2-m-Zellen im Korridor |
-| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle, Straße unter einer fremden Brücke |
+| Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/carried-height.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle, Straße unter einer fremden Brücke |
 | Band | `buildBand`, `bandPath` (`utils/corridor-band.ts`), `PathAndRouteService.buildBands`, Schritt 4 in `CorridorBuild.build` | Je Station das Rückgrat, das begehbare Band beiderseits und die Gegnerlinie darin; die Waypoints laufen in seiner Mitte, ihre Halbbreiten sind seine Kanten |
 | Laufweg | `judgeWalk`, `cellWalkable` (`utils/corridor-walk.ts`) | Nur noch Diagnose für `__corridor.pick()`: warum eine Zelle im Band liegt oder daneben (Auto, Traufe, Hecke, Böschung) |
 | Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
@@ -99,10 +99,10 @@ Je Station (`TerrainQueries.measureStreetClearance`):
    auf einer Brücke ihre Oberkante `topY`. Auf der Strecke hinter einem
    Brückenende (`approach`) ist es der Treffer, der der Höhe am nächsten
    liegt, die die Route vom nächsten Brückenende bis zur Station trägt
-   (`carriedDeckY`, siehe Zellhöhe); dafür nimmt die Station die Säulen am
+   (`carriedY`, siehe Zellhöhe); dafür nimmt die Station die Säulen am
    Brückenende und entlang der Route bis zu ihr dazu, bei einer Naht mit
    denselben Verschiebungen. Hat die Säule am Brückenende kein Tile bis
-   `maxTileError`, ist die Station `unmeasured: 'no bridge end'` und kommt
+   `maxTileError`, ist die Station `unmeasured: 'no approach start'` und kommt
    beim nächsten Lauf wieder dran. Teilen sich Routen ein Segment, liegt
    eine Station nur dann auf der Strecke, wenn jede von ihnen sie dort hat, wie bei den
    Zellen (die tiefere Fläche gewinnt, `stationApproach`). Bis 2026-09-15
@@ -432,23 +432,23 @@ Ausnahmen:
   Bodenzellen, und die nahmen den untersten Treffer, den Kai oder Fluss
   unter dem Deck (Playtest 2026-09-14, Paris, siehe "Linie, Zellen und
   Gegner verschwinden").
-- **Strecke hinter dem Brückenende** (`approach`, `utils/deck-approach.ts`):
+- **Strecke hinter dem Brückenende** (`approach`, `utils/carried-height.ts`):
   Das Bauwerk einer Brücke reicht oft über das Ende ihres OSM-Brücken-Ways
   hinaus, die Ways dort tragen kein Brücken-Tag. Ein Segment, das an einem
   Ende einer Folge von Brückensegmenten weiterläuft, gehört bis
   `DECK_APPROACH_M` (60 m) entlang der Route zur Strecke, gleich wie die
-  Route abbiegt, solange es weder Brücke noch Tunnel ist (`deckApproaches`).
-  Seine Zellen tragen die Fläche `approach` und in `deckEnd` die Route vom
+  Route abbiegt, solange es weder Brücke noch Tunnel ist (`routeApproaches`).
+  Seine Zellen tragen die Fläche `approach` und in `onApproach` die Route vom
   Brückenende bis zu ihnen (`path`, `m`).
-  - **Getragene Höhe** (`carriedDeckY`): Sie beginnt mit der Oberkante der
-    Säule am Brückenende und folgt der Route alle `DECK_STEP_M` (2 m). An
+  - **Getragene Höhe** (`carriedY`): Sie beginnt mit der Oberkante der
+    Säule am Brückenende und folgt der Route alle `CARRY_STEP_M` (2 m). An
     jeder Stelle nimmt sie den Treffer der Säule dort, der ihr am nächsten
-    liegt, wenn er höchstens `DECK_STEP_RISE_M` (1,5 m) von ihr abweicht;
+    liegt, wenn er höchstens `CARRY_STEP_RISE_M` (1,5 m) von ihr abweicht;
     sonst, und ohne Säule, bleibt sie. So geht sie eine Treppe hinunter
     (etwa 1,2 m je 2 m) und eine Rampe hinauf, fällt aber nicht durch eine
     Lücke im Mesh auf die Straße unter einem Platz und steigt nicht auf
     eine Krone oder ein Auto ohne Boden darunter.
-  - **Höhe der Zelle** (`deckApproachY`): der Treffer ihrer Säule, der der
+  - **Höhe der Zelle** (`approachY`): der Treffer ihrer Säule, der der
     getragenen Höhe an ihrem Routenpunkt am nächsten liegt. Über einer
     tieferen Straße oder dem Kai ist das die Oberkante; eine Straße auf
     Deckhöhe liegt näher als Krone, Laterne, Statue oder Auto darüber; eine
@@ -1345,7 +1345,7 @@ warum der letzte Versuch einer Zelle keine eigene Höhe gab
 0,5 m daneben (kein Tile dort, oder ein Mesh, von dem die Säulen nichts
 treffen); `refused`: Säulen mit Treffern, die die Nachbarn ablehnten
 (Ausreißer); `noPortal`: ein Tunnelportal ohne Säule und ohne Straße des
-Bands; `noBridgeEnd`: keine Säule am Brückenende, von dem die Höhe dahinter
+Bands; `noApproachStart`: keine Säule am Brückenende, von dem die Höhe dahinter
 getragen wird. Gezählt werden nur Zellen ohne Höhe, gefüllte nicht.
 
 **`lod`** (`lod=2m:12,2.5m:200,5m:4,coarse:0,none:24`): die Säulen, die ein
@@ -1811,7 +1811,7 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   der Straßenhöhe entlang der Mittellinie, nach der Regel des gelben
   Straßen-Overlays (`getStreetHeightEstimate`, siehe unten). Die Strecke
   hinter einem Brückenende nimmt der Vergleich wie die Zellen entlang der
-  Route (`deckApproaches`), mit der Höhe, die die Route von dort trägt.
+  Route (`routeApproaches`), mit der Höhe, die die Route von dort trägt.
 
 Nur für Diagnose: je Punkt alle 2 m bis zu fünf Säulenproben, auf einer
 Brücke eine mehr, auf der Strecke dahinter die Säulen entlang der Route vom
@@ -1831,7 +1831,7 @@ Layer "Show streets" im Layers-Menü der Quick-Actions
   Zellen eines Brückensegments;
 - auf der Strecke hinter einem Brückenende der Treffer, der der Höhe am
   nächsten liegt, die der Weg vom Endknoten des Brücken-Ways bis zum Knoten
-  trägt (`carriedDeckY`, wie die Zellen); liegt er mehr als `roofRise` über
+  trägt (`carriedY`, wie die Zellen); liegt er mehr als `roofRise` über
   dieser Höhe (Krone, Schild, Auto ohne Boden darunter), die getragene
   Höhe, wie eine Zelle der Strecke. Ohne Säule am Endknoten wie oben. Welche Knoten dazugehören, sucht
   `streetDeckApproaches` im Straßennetz: von beiden Endknoten jedes

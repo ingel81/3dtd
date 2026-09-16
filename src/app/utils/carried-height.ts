@@ -1,5 +1,5 @@
 import type { ColumnSample } from '../three-engine/column-sample';
-import type { DeckEnd, RouteCell } from './route-cell';
+import type { ApproachPoint, RouteCell } from './route-cell';
 import type { Street, StreetNode } from '../interfaces/street-network-provider.interface';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
 import { runsUnderCover } from './route-corridor';
@@ -23,21 +23,21 @@ import type { StreetUnder } from './underpass';
  *
  * So the route off a bridge end is followed for up to DECK_APPROACH_M,
  * whichever way it turns, as long as it is neither bridge nor tunnel
- * (deckApproaches). Along it, the height the route carries is followed from
- * the top of the column at the bridge end, point by point (carriedDeckY),
+ * (routeApproaches). Along it, the height the route carries is followed from
+ * the top of the column at the bridge end, point by point (carriedY),
  * and a cell or point there takes the hit of its own column nearest to that
- * height (deckApproachY). Where the route stays on the level of the deck,
+ * height (approachY). Where the route stays on the level of the deck,
  * over a quay or a road below, that is the top. Stairs and ramps down to the
  * quay are followed down and keep their ground, also where they pass under
  * a deck. A crown, lamp, statue or awning over a street on the level of the
  * deck lies farther above it than the street. Past that distance the lowest
  * hit, as on any other way.
  *
- * Route cells find the stretch along their route (deckApproaches), the
+ * Route cells find the stretch along their route (routeApproaches), the
  * yellow street overlay along the street network (streetDeckApproaches);
  * cells, the centre line ground, the corridor walk check, the clearance
  * stations and the overlay take their heights by the same rule (surfaceY,
- * carriedDeckY, deckApproachY).
+ * carriedY, approachY).
  */
 
 /**
@@ -51,57 +51,57 @@ export const DECK_APPROACH_M = 60;
 
 /**
  * Metres between the points the height the route carries is followed at
- * (carriedDeckY), one grid cell.
+ * (carriedY), one grid cell.
  */
-export const DECK_STEP_M = 2;
+export const CARRY_STEP_M = 2;
 
 /**
  * How far the height the route carries may change from one point to the
- * next (carriedDeckY), metres. Stairs rise about 1.2 m over DECK_STEP_M; a
+ * next (carriedY), metres. Stairs rise about 1.2 m over CARRY_STEP_M; a
  * deck lies further over the stairs, road or quay it spans, and a crown,
  * awning or car without ground under it further over the street.
  */
-export const DECK_STEP_RISE_M = 1.5;
+export const CARRY_STEP_RISE_M = 1.5;
 
 /**
  * The hit of `column` nearest to `y`, the height the route carries there
- * (carriedDeckY): its top where that lies at least as near as its lowest
+ * (carriedY): its top where that lies at least as near as its lowest
  * hit, else the lowest hit. The top of a deck carried on lies nearer than
  * the quay or road under it; a street on the level of the deck nearer than
  * a crown, lamp, statue or car over it.
  */
-export function deckApproachY(column: ColumnSample, y: number): number {
+export function approachY(column: ColumnSample, y: number): number {
   return Math.abs(column.topY - y) <= Math.abs(column.groundY - y) ? column.topY : column.groundY;
 }
 
 /**
- * The height the route carries `deck.m` along `deck.path` off its bridge
+ * The height the route carries `point.m` along `point.path` off its bridge
  * end, the first point of the path: the top of the column at the bridge
- * end, then every DECK_STEP_M along the path the hit of the column there
- * nearest to the height so far (deckApproachY), where that lies within
- * DECK_STEP_RISE_M of it; a point whose column has none, or no column,
+ * end, then every CARRY_STEP_M along the path the hit of the column there
+ * nearest to the height so far (approachY), where that lies within
+ * CARRY_STEP_RISE_M of it; a point whose column has none, or no column,
  * keeps the height so far. So the height goes down stairs and up a ramp,
  * but neither down through a gap in the mesh onto the road under a deck nor
  * up onto a crown or a car. Null without a column at the bridge end.
  * `column` is the caller's column probe, cached by the engine per 0.5 m.
  */
-export function carriedDeckY(deck: DeckEnd, column: (x: number, z: number) => ColumnSample | null): number | null {
-  const { path, m } = deck;
+export function carriedY(point: ApproachPoint, column: (x: number, z: number) => ColumnSample | null): number | null {
+  const { path, m } = point;
   const end = column(path[0].x, path[0].z);
   if (end === null) return null;
   let y = end.topY;
-  let next = DECK_STEP_M;
+  let next = CARRY_STEP_M;
   let start = 0;
   for (let k = 1; k < path.length && next <= m; k++) {
     const a = path[k - 1];
     const b = path[k];
     const length = Math.hypot(b.x - a.x, b.z - a.z);
-    for (; next <= m && next <= start + length; next += DECK_STEP_M) {
+    for (; next <= m && next <= start + length; next += CARRY_STEP_M) {
       const f = (next - start) / length;
       const here = column(a.x + (b.x - a.x) * f, a.z + (b.z - a.z) * f);
       if (here === null) continue;
-      const hit = deckApproachY(here, y);
-      if (Math.abs(hit - y) <= DECK_STEP_RISE_M) y = hit;
+      const hit = approachY(here, y);
+      if (Math.abs(hit - y) <= CARRY_STEP_RISE_M) y = hit;
     }
     start += length;
   }
@@ -110,19 +110,19 @@ export function carriedDeckY(deck: DeckEnd, column: (x: number, z: number) => Co
 
 /**
  * The height `column` gives a cell of `surface` (RouteCell.surface): the
- * lowest hit on the ground, the top on a deck, deckApproachY on the stretch
- * off a bridge end with `carriedY` the height the route carries there
- * (carriedDeckY). Null for a tunnel cell, which takes its height between
- * the portals, and for an approach cell without `carriedY`. The one rule
+ * lowest hit on the ground, the top on a deck, approachY on the stretch
+ * off a bridge end with `carried` the height the route carries there
+ * (carriedY). Null for a tunnel cell, which takes its height between
+ * the portals, and for an approach cell without `carried`. The one rule
  * for the hit a cell stands on: the cells (RouteCellSampler.hitOf), the
  * centre line ground and the walk out to a cell (corridor-walk.ts) and the
  * clearance stations (TerrainQueries.measureStreetClearance) read their
  * columns through it.
  */
-export function surfaceY(surface: RouteCell['surface'], column: ColumnSample, carriedY: number | null): number | null {
+export function surfaceY(surface: RouteCell['surface'], column: ColumnSample, carried: number | null): number | null {
   if (surface === 'ground') return column.groundY;
   if (surface === 'deck') return column.topY;
-  if (surface === 'approach' && carriedY !== null) return deckApproachY(column, carriedY);
+  if (surface === 'approach' && carried !== null) return approachY(column, carried);
   return null;
 }
 
@@ -132,7 +132,7 @@ export function surfaceY(surface: RouteCell['surface'], column: ColumnSample, ca
  * the first the bridge end; `from` and `to` the distance along the route
  * from the bridge end to the segment's start and to its end, metres.
  */
-export interface DeckApproach {
+export interface Approach {
   path: readonly number[];
   from: number;
   to: number;
@@ -146,13 +146,13 @@ export interface DeckApproach {
  * turns, while the route is neither bridge nor tunnel and the segment
  * starts within DECK_APPROACH_M.
  */
-export function deckApproaches(
+export function routeApproaches(
   points: readonly { x: number; z: number }[],
   onBridge: readonly boolean[],
   inTunnel: readonly boolean[],
-): DeckApproach[][] {
+): Approach[][] {
   const segments = points.length - 1;
-  const result: DeckApproach[][] = Array.from({ length: Math.max(0, segments) }, () => []);
+  const result: Approach[][] = Array.from({ length: Math.max(0, segments) }, () => []);
   const open = (i: number) => i >= 0 && i < segments && !onBridge[i] && !inTunnel[i];
 
   // From the bridge end at point `end` along the route in `step`, starting with segment `first`.
@@ -183,7 +183,7 @@ export function deckApproaches(
  * to the point `t` of the way along it (0 to 1), null where none lies
  * within DECK_APPROACH_M.
  */
-export function nearestDeckApproach<T extends { from: number; to: number }>(approaches: readonly T[], t: number): T | null {
+export function nearestApproach<T extends { from: number; to: number }>(approaches: readonly T[], t: number): T | null {
   let nearest: T | null = null;
   let nearestM = DECK_APPROACH_M;
   for (const approach of approaches) {
@@ -198,7 +198,7 @@ export function nearestDeckApproach<T extends { from: number; to: number }>(appr
 
 /**
  * A stretch off a bridge end as the cells and clearance stations of a
- * segment take it: DeckApproach with the route points of its path, local.
+ * segment take it: Approach with the route points of its path, local.
  */
 export interface SegmentApproach {
   path: readonly { x: number; z: number }[];
@@ -207,12 +207,12 @@ export interface SegmentApproach {
 }
 
 /** The stretches `approaches` of a segment of the route with the local positions `points`, see SegmentApproach. */
-export function segmentApproaches(approaches: readonly DeckApproach[], points: readonly { x: number; z: number }[]): SegmentApproach[] {
+export function segmentApproaches(approaches: readonly Approach[], points: readonly { x: number; z: number }[]): SegmentApproach[] {
   return approaches.map(({ path, from, to }) => ({ path: path.map((k) => ({ x: points[k].x, z: points[k].z })), from, to }));
 }
 
-/** Where the point `t` (0 to 1) of a segment lies on its stretch `approach`, see RouteCell.deckEnd. */
-export function deckEndAt(approach: SegmentApproach, t: number): DeckEnd {
+/** Where the point `t` (0 to 1) of a segment lies on its stretch `approach`, see RouteCell.onApproach. */
+export function pointOnApproach(approach: SegmentApproach, t: number): ApproachPoint {
   return { path: approach.path, m: approach.from + (approach.to - approach.from) * t };
 }
 
@@ -241,7 +241,7 @@ export interface StreetDeckApproach {
  * to the nearest bridge end. The end nodes themselves are in it at 0 m, as
  * the first node of the way off the bridge.
  *
- * The same stretch as deckApproaches along a route over those ways, except
+ * The same stretch as routeApproaches along a route over those ways, except
  * where a route leaves a bridge way at one of its middle nodes: the route
  * carries the deck on there, the street network does not.
  */

@@ -13,7 +13,7 @@ const approachCell = (): RouteCell => ({
   terrainHeight: 80,
   surface: 'approach',
   tunnelSpan: null,
-  deckEnd: { path: [{ x: 0, z: 0 }, { x: 10, z: 0 }], m: 10 },
+  onApproach: { path: [{ x: 0, z: 0 }, { x: 10, z: 0 }], m: 10 },
   routeAnchorY: 80,
   sample: { state: 'unsampled', sampledAt: 0, tileDepth: 0, tileGeometricError: Infinity },
   heightSampled: false,
@@ -85,7 +85,7 @@ describe('RouteCellSampler.sampleCellY', () => {
     const columnAt = sampler.columnSampler!;
     sampler.columnSampler = (x, z) => (x < 5 ? null : columnAt(x, z));
     expect(sampler.sampleCellY(approachCell())).toBe(false);
-    expect(sampler.lastMiss).toBe('noBridgeEnd');
+    expect(sampler.lastMiss).toBe('noApproachStart');
 
     // Columns everywhere, their hits 60 m off the neighbours.
     sampler.columnSampler = columnAt;

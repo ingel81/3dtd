@@ -30,9 +30,9 @@ import {
   buildBand,
   stationNear,
 } from '../../utils/corridor-band';
-import { SegmentApproach, deckApproaches, deckEndAt, nearestDeckApproach, segmentApproaches } from '../../utils/deck-approach';
+import { SegmentApproach, nearestApproach, pointOnApproach, routeApproaches, segmentApproaches } from '../../utils/carried-height';
 import { UnderpassIndex, splitAtSpans } from '../../utils/underpass';
-import type { DeckEnd } from '../../utils/route-cell';
+import type { ApproachPoint } from '../../utils/route-cell';
 import { haversineDistance } from '../../utils/geo-utils';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
@@ -118,7 +118,7 @@ function stationApproach(byRoute: readonly (readonly SegmentApproach[])[], t: nu
   let nearest: SegmentApproach | null = null;
   let nearestM = Infinity;
   for (const approaches of byRoute) {
-    const approach = nearestDeckApproach(approaches, t);
+    const approach = nearestApproach(approaches, t);
     if (approach === null) return null;
     const m = approach.from + (approach.to - approach.from) * t;
     if (m < nearestM) {
@@ -730,7 +730,7 @@ export class PathAndRouteService {
       const local = sync.geoToLocalSimple(p.lat, p.lon, 0);
       return { x: local.x, z: local.z };
     });
-    const approaches = deckApproaches(points, route.onBridge, route.inTunnel);
+    const approaches = routeApproaches(points, route.onBridge, route.inTunnel);
     const open = route.onStreet.map((onStreet, i) => onStreet && !route.onBridge[i] && !route.inTunnel[i] && approaches[i].length === 0);
     const fit = fitCorridorStations(this.corridorStationsOf(route));
     const wall = (side: 'left' | 'right') => fit[side].map((stations) => stations.map((station) => station.halfWidth));
@@ -1131,8 +1131,8 @@ export class PathAndRouteService {
     return new ClearanceRun(
       segments,
       2 * rayHeights.length,
-      (x, z, acrossX, acrossZ, onDeck, deckEnd) =>
-        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, deckEnd) ?? null,
+      (x, z, acrossX, acrossZ, onDeck, onApproach) =>
+        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck, onApproach) ?? null,
       store,
     );
   }
@@ -1153,7 +1153,7 @@ export class PathAndRouteService {
       if (!engine) break;
       const local = points.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0));
       // The stretches off each bridge end, as the route cells there find them.
-      const approaches = deckApproaches(local, onBridge, inTunnel);
+      const approaches = routeApproaches(local, onBridge, inTunnel);
       for (let i = 0; i < points.length - 1; i++) {
         // In a tunnel the rays would hit its walls and the column the ground
         // above: the street width stays.
@@ -1331,11 +1331,11 @@ interface ClearanceSegment {
   onBridge: boolean;
   /**
    * Per route over the segment, the stretches off a bridge end it lies on
-   * (deckApproaches), with the route from their bridge ends as the route
+   * (routeApproaches), with the route from their bridge ends as the route
    * cells there take them. A station on such a stretch on every route
    * (stationApproach) measures from where those cells stand and judges no
    * low wall, as on the deck (TerrainQueries.measureStreetClearance,
-   * `deckEnd`).
+   * `onApproach`).
    */
   approaches: SegmentApproach[][];
   /** Free space per station and side, NaN until measured, and what each station's rays found. */
@@ -1382,7 +1382,7 @@ class ClearanceRun implements CorridorMeasurement {
     /** Rays a measured station casts, for the log. */
     private readonly raysPerStation: number,
     private readonly probeAt: (
-      x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean, deckEnd: DeckEnd | null,
+      x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean, onApproach: ApproachPoint | null,
     ) => StationProbe | null,
     /** Stores what the run measured; true when that changes a corridor. */
     private readonly store: (segments: readonly ClearanceSegment[]) => boolean,
@@ -1516,7 +1516,7 @@ class ClearanceRun implements CorridorMeasurement {
     // Off a bridge end: the end nearest the station, as for a route cell there
     const approach = segment.onBridge ? null : stationApproach(segment.approaches, t);
     // (-dz, dx) points right of the direction of travel.
-    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach ? deckEndAt(approach, t) : null);
+    const probe = this.probeAt(x, z, -segment.dz, segment.dx, segment.onBridge, approach ? pointOnApproach(approach, t) : null);
     segment.probes[k] = probe;
     this.probed++;
     countLod(this.lod, probe?.tileError ?? Infinity);

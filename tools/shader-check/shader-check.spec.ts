@@ -145,7 +145,7 @@ function withoutCanvas2d(build: () => void): void {
 /** A sampled ground cell at the origin: one instance of the route grid overlay or a LOS layer. */
 function routeCell(): RouteCell {
   return {
-    key: 1, x: 0, z: 0, axisX: 0, axisZ: 0, terrainHeight: 0, surface: 'ground', tunnelSpan: null, deckEnd: null,
+    key: 1, x: 0, z: 0, axisX: 0, axisZ: 0, terrainHeight: 0, surface: 'ground', tunnelSpan: null, onApproach: null,
     routeAnchorY: 0, sample: { state: 'stable', sampledAt: 1, tileDepth: 20, tileGeometricError: 2 }, heightSampled: true,
     enemies: new Set(), towerVisibility: new Map(), airVisibility: new Map(),
   };

@@ -21,7 +21,7 @@ function cell(
     terrainHeight: sampled ? 5 : 0,
     surface: opts.surface ?? 'ground',
     tunnelSpan: null,
-    deckEnd: null,
+    onApproach: null,
     routeAnchorY: 0,
     sample: {
       state: sampled ? 'stable' : 'unsampled',

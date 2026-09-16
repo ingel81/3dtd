@@ -25,7 +25,7 @@ const ground = (column: ColumnAt, st: BandStation | null = station()): WalkGroun
 
 /** A cell 6 m right of the line at (1, 7), beyond a band that ends 3 m out; `terrainHeight` its height over the backbone. */
 const cell = (over: Partial<RouteCell> = {}): RouteCell => ({
-  key: 0, x: 1, z: 7, axisX: 1, axisZ: 1, terrainHeight: 3, surface: 'ground', tunnelSpan: null, deckEnd: null, routeAnchorY: 0,
+  key: 0, x: 1, z: 7, axisX: 1, axisZ: 1, terrainHeight: 3, surface: 'ground', tunnelSpan: null, onApproach: null, routeAnchorY: 0,
   sample: { state: 'stable', sampledAt: 1, tileDepth: 20, tileGeometricError: 2 },
   heightSampled: true, enemies: new Set(), towerVisibility: new Map(), airVisibility: new Map(),
   ...over,
