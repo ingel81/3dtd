@@ -214,6 +214,13 @@ export interface CorridorExplanation {
    */
   backboneM: number | null;
   backboneY: number | null;
+  /**
+   * The street under the station, whatever stands over it (streetLevel in
+   * corridor-band.ts): what the backbone is judged against, and what a
+   * tunnel portal takes instead of a hit on a roof. Null before a band is
+   * built and where no station of the route found a backbone.
+   */
+  streetY: number | null;
   /** Edges of the band at the station, metres off the OSM line, left at most right; null without a band. */
   bandLeftM: number | null;
   bandRightM: number | null;
@@ -1119,6 +1126,7 @@ export class PathAndRouteService {
       underWay: route.underWay[i],
       backboneM: bandStation?.backbone ? round1(bandStation.backbone.offset) : null,
       backboneY: bandStation?.backbone ? round1(bandStation.backbone.y) : null,
+      streetY: bandStation?.street != null ? round1(bandStation.street) : null,
       bandLeftM: banded ? round1(bandStation!.left) : null,
       bandRightM: banded ? round1(bandStation!.right) : null,
       bandKind: bandStation?.kind ?? null,

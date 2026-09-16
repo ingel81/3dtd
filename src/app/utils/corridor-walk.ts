@@ -118,19 +118,24 @@ export function judgeWalk(cell: RouteCell, ground: WalkGround): WalkJudgement {
 
 /**
  * The ground a tunnel portal at (x, z) takes instead of the hit `y` of its
- * column: the backbone of the band station there, where `y` lies more than
- * `roofRise` above it; else null, which keeps the hit
- * (RouteCellSampler.tunnelColumn).
+ * column: the street under the band station there (`street`, streetLevel),
+ * where `y` lies more than `roofRise` above it; else null, which keeps the
+ * hit (RouteCellSampler.tunnelColumn).
  *
  * Two metres outside a mouth the column can come down on the jetty of the
  * house the passage runs through, or on the house itself where the OSM way
  * ends short of the opening, and every cell of the passage took its height
  * on the line between that and the other portal (playtest 2026-09-15,
  * Rothenburg, archway: the yellow cells climbed inside the passage, enemies
- * came out of the house on the other side). The backbone of the station
- * outside the mouth stands on the street.
+ * came out of the house on the other side).
+ *
+ * The street, not the backbone of that station: at a gate tower the mesh
+ * reaches past the mouth, so the station outside it can be a passage itself
+ * (no backbone) or have its own backbone on the tower, and the portal then
+ * kept its hit on the roof (playtest 2026-09-16, Rothenburg, Weisser Turm).
+ * `street` holds whatever the lane is covered by out of it.
  */
 export function portalGround(x: number, z: number, y: number, ground: WalkGround): number | null {
-  const backbone = ground.station(x, z)?.backbone ?? null;
-  return backbone !== null && y - backbone.y > corridorConfig.roofRise ? backbone.y : null;
+  const street = ground.station(x, z)?.street ?? null;
+  return street !== null && y - street > corridorConfig.roofRise ? street : null;
 }

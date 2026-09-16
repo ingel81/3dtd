@@ -691,7 +691,7 @@ describe('GlobalRouteGrid cells beside the band', () => {
   const withBand = (grid: GlobalRouteGrid, left = -4, right = 4): GlobalRouteGrid => {
     grid.setBand((x) => ({
       segment: 0, k: Math.max(0, Math.round((x - 1) / 2)), n: 20, s: x, x, z: 1, rx: 0, rz: 1,
-      kind: 'band', backbone: { offset: 0, y: 0 }, left, right, centre: 0,
+      kind: 'band', backbone: { offset: 0, y: 0 }, street: 0, left, right, centre: 0,
     }));
     return grid;
   };
@@ -1069,7 +1069,7 @@ describe('GlobalRouteGrid tunnels', () => {
     if (band) {
       grid.setBand((x) => ({
         segment: 0, k: 0, n: 30, s: x, x, z: 1, rx: 0, rz: 1,
-        kind: 'band', backbone: { offset: 0, y: band(x) }, left: -3, right: 3, centre: 0,
+        kind: 'band', backbone: { offset: 0, y: band(x) }, street: band(x), left: -3, right: 3, centre: 0,
       }));
     }
     grid.generateFromRoutes([passage]);

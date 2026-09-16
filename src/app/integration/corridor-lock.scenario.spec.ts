@@ -292,7 +292,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
           key: 'spawn-1',
           band: [{
             segment: 0, k: 0, n: 1, s: 1, x: 0, z: 0, rx: 0, rz: 1,
-            kind: 'band', backbone: { offset: 0, y: 0 }, left: -halfWidth, right: halfWidth, centre: 0,
+            kind: 'band', backbone: { offset: 0, y: 0 }, street: 0, left: -halfWidth, right: halfWidth, centre: 0,
           }],
         }],
         stations: [],
