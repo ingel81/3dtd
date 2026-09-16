@@ -1,4 +1,4 @@
-import { Injectable, signal, WritableSignal } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
 import { cameraTimeline } from '../../utils/camera-timeline';
 
@@ -49,9 +49,6 @@ export class HeightUpdateService {
   /** Promise resolve callback for height stability */
   private heightStableResolve: (() => void) | null = null;
 
-  /** Loading status signal (from EngineInitializationService) */
-  private loadingStatusSignal: WritableSignal<string> | null = null;
-
   /** Callback to update marker heights */
   private onUpdateMarkersCallback: (() => void) | null = null;
 
@@ -77,7 +74,6 @@ export class HeightUpdateService {
   /**
    * Initialize height update service
    * @param engine ThreeTilesEngine instance
-   * @param loadingStatusSignal Loading status signal
    * @param onUpdateMarkers Callback to update marker heights
    * @param onRenderStreets Callback to render streets
    * @param onFinalize Callback to finalize step
@@ -87,7 +83,6 @@ export class HeightUpdateService {
    */
   initialize(
     engine: ThreeTilesEngine,
-    loadingStatusSignal: WritableSignal<string>,
     onUpdateMarkers: () => void,
     onRenderStreets: () => void,
     onFinalize: (detail: string) => void,
@@ -96,7 +91,6 @@ export class HeightUpdateService {
     onCameraCorrection?: () => void
   ): void {
     this.engine = engine;
-    this.loadingStatusSignal = loadingStatusSignal;
     this.onUpdateMarkersCallback = onUpdateMarkers;
     this.onRenderStreetsCallback = onRenderStreets;
     this.onFinalizeCallback = onFinalize;
@@ -121,10 +115,6 @@ export class HeightUpdateService {
     this.overlayHeightsUpdated = false;
     this.heightsLoading.set(true);
     this.heightProgress.set(0);
-
-    if (this.loadingStatusSignal) {
-      this.loadingStatusSignal.set('Waiting for 3D tiles...');
-    }
 
     // Update detail for first cycle
     if (this.onUpdateDetailCallback) {
@@ -260,7 +250,6 @@ export class HeightUpdateService {
   dispose(): void {
     this.stopHeightUpdates();
     this.engine = null;
-    this.loadingStatusSignal = null;
     this.onUpdateMarkersCallback = null;
     this.onRenderStreetsCallback = null;
     this.onFinalizeCallback = null;

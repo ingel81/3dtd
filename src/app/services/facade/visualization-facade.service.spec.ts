@@ -261,7 +261,6 @@ describe('VisualizationFacadeService', () => {
     setStepCurrent: vi.fn(async (_id: string) => undefined),
     setStepDone: vi.fn(async (_id: string, _meta?: string) => undefined),
     updateStepMeta: vi.fn(),
-    loadingStatus: signal('status'),
     loading: signal(false),
     tilesLoading: signal(false),
     osmLoading: signal(false),
@@ -821,9 +820,9 @@ describe('VisualizationFacadeService', () => {
       await facade.scheduleOverlayHeightUpdate();
 
       expect(heightUpdate.scheduleOverlayHeightUpdate).toHaveBeenCalled();
-      const [engineArg, status, onHeights, onStreets, onDone, onMeta, onCheck, onCamera] =
+      const [engineArg, onHeights, onStreets, onDone, onMeta, onCheck, onCamera] =
         heightUpdate.initialize.mock.calls[0];
-      expect([engineArg, status]).toEqual([engine, engineInit.loadingStatus]);
+      expect(engineArg).toBe(engine);
 
       onHeights();
       expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();

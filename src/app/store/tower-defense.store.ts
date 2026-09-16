@@ -130,9 +130,6 @@ export class TowerDefenseStore {
   /** Error message (null = no error) — owned by EngineInitializationService */
   readonly error = this.engineInit.error;
 
-  /** Loading status string for progress UI — owned by EngineInitializationService */
-  readonly loadingStatus = this.engineInit.loadingStatus;
-
   /** Ordered loading steps — owned by EngineInitializationService */
   readonly loadingSteps = this.engineInit.loadingSteps;
 

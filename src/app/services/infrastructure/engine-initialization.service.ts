@@ -55,9 +55,6 @@ export class EngineInitializationService {
   /** OSM streets loading state */
   readonly osmLoading = signal(true);
 
-  /** Loading status text */
-  readonly loadingStatus = signal('Initializing...');
-
   /** Error message (if any) */
   readonly error = signal<string | null>(null);
 
@@ -139,7 +136,7 @@ export class EngineInitializationService {
   // ========================================
 
   /**
-   * Set a loading step to 'current' status and update loadingStatus text.
+   * Set a loading step to 'current' status.
    * Any previously-current step that wasn't this one is rolled back to
    * 'pending' so only one step is ever 'current' at a time.
    * @param stepId Step identifier
@@ -151,10 +148,6 @@ export class EngineInitializationService {
         status: s.id === stepId ? ('current' as const) : s.status === 'current' ? ('pending' as const) : s.status,
       }))
     );
-    const step = this.loadingSteps().find((s) => s.id === stepId);
-    if (step) {
-      this.loadingStatus.set(step.title + '...');
-    }
     await this.tick();
   }
 
@@ -184,7 +177,6 @@ export class EngineInitializationService {
    */
   startWorldDiceLoading(): void {
     this.loading.set(true);
-    this.loadingStatus.set('Rolling random city...');
     this.loadingSteps.set([
       { id: 'dice-city', title: 'Rolling City', status: 'current', meta: 'Loading city pool...' },
     ]);
@@ -209,7 +201,6 @@ export class EngineInitializationService {
       ...steps,
       { id: 'dice-reload', title: 'Loading Map', status: 'current' as const }
     ]);
-    this.loadingStatus.set('Loading map...');
   }
 
   /**
@@ -491,7 +482,6 @@ export class EngineInitializationService {
     this.loading.set(true);
     this.tilesLoading.set(true);
     this.osmLoading.set(true);
-    this.loadingStatus.set('Initializing...');
     this.error.set(null);
     this.resetLoadingSteps();
   }
