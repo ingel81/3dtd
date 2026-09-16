@@ -126,6 +126,23 @@ describe('buildBand', () => {
     }
   });
 
+  /** The Shibuya snapshot rebuilt on modelled columns: stations with nothing plausible across split the chain, and each piece chose its own side. */
+  it('keeps one side past a station with no way across', () => {
+    // A post on the line from x 30 to 90; the ground 3 cm lower left of it before x 60, right of it after; at x 58 to
+    // 60 every cell across hollow, a barrier the mesh made hollow.
+    const post = (x: number, z: number) => x > 30 && x < 90 && z > 0 && z < 2;
+    const dip = (x: number, z: number) => x > 30 && x < 90 && (x < 60 ? z < 0 : z > 2);
+    const barrier = (x: number) => x > 58 && x < 60;
+    const band = buildBand(street(), columns((x, z) => (dip(x, z) ? -0.03 : 0), (x, z) => (post(x, z) || barrier(x) ? 1.2 : dip(x, z) ? -0.03 : 0)), CELL, 'band');
+    expect(at(band, 59).kind).toBe('fixed');
+    const beside = band.stations.filter((st) => st.x > 32 && st.x < 88 && st.kind !== 'fixed');
+    const side = Math.sign(beside[0].backbone!.offset);
+    for (const st of beside) {
+      expect(Math.sign(st.backbone!.offset), `${st.s}`).toBe(side);
+      expect(st.right - st.left, `${st.s}`).toBeGreaterThanOrEqual(5);
+    }
+  });
+
   it('changes sides where a long row of objects leaves no way round it', () => {
     // A row of posts on the line from x 20 to 100; a wall 0.5 m left of the line from x 60, 0.5 m right of it before.
     const row = (x: number, z: number) => x > 20 && x < 100 && z > 0 && z < 2;
