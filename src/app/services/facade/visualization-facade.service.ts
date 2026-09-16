@@ -654,8 +654,9 @@ export class VisualizationFacadeService {
     // the intro lands in and Reset Camera returns to. The build is over, so
     // this move cannot touch what it measured, and the camera refines as
     // usual again (CorridorBuild.unmute). The loading screen still stands and
-    // takes the pointer; the intro flight takes the camera right after it. A
-    // build under the hint of a move (buildCorridor) leaves the camera alone.
+    // takes the pointer, and the intro flight, where it runs, takes the
+    // camera after it. A build under the hint of a move (buildCorridor)
+    // leaves the camera alone.
     cameraTimeline.record('corridor.cameraCorrection', { introRunning: this.introFlight.isRunning() });
     this.reframeCameraWithRoutes();
     this.saveInitialCameraPosition();
