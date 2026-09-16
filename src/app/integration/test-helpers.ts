@@ -172,6 +172,23 @@ export function createMockTilesEngine() {
       remove: vi.fn(),
       clear: vi.fn(),
     },
+    tentacles: {
+      create: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn(),
+      setVisible: vi.fn(),
+      startStrike: vi.fn(),
+      resetAllToIdle: vi.fn(),
+      getStrikeTarget: vi.fn(() => null),
+      captureStrike: vi.fn(() => null),
+      restoreStrike: vi.fn(),
+    },
+    plinths: {
+      create: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn(),
+      setVisible: vi.fn(),
+    },
     enemies: {
       create: vi.fn(() => Promise.resolve({})),
       remove: vi.fn(),

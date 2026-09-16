@@ -42,12 +42,7 @@ describe('Tower veterans, playtest 347 to 351 and 404', () => {
     m = createTestManagers();
     scene = new Scene();
     badges = new TowerBadgeRenderer(scene, (id) => models[id] ?? null);
-    // The shared engine mock has no tentacle or plinth renderer, TowerManager.clear() needs both
-    Object.assign(m.tilesEngine, {
-      towerBadges: badges,
-      tentacles: { remove: vi.fn(), clear: vi.fn() },
-      plinths: { remove: vi.fn(), clear: vi.fn() },
-    });
+    Object.assign(m.tilesEngine, { towerBadges: badges });
     m.towerManager.initialize(m.engine);
     damage = new DamageApplicationService();
     damage.initialize(m.towerManager, m.enemyManager, m.eventBus);
