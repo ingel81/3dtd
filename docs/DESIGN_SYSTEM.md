@@ -222,7 +222,7 @@ Das Dev-Menü (`.td-dev-menu`) ist ein Glas-Panel (Mixin `bevel-glass`) über de
 | Map | Height, Points, Recast, Dump |
 | View & Panels | Camera, Frame, Display, Perf, LOS, Audio, DevWorld (nur mit `?devworld`) |
 | Cheats | Kill, Credits, +HP, Research, Max Up, Abilities, Hero |
-| Waves & Inspect | Waves, Static, AI, Towers, Enemies, Events, Cells (Zellbericht, siehe unten) |
+| Waves & Inspect | Waves, Static, AI, Towers, Enemies, Events, Cells (Zellbericht, siehe unten), Snapshot (Korridor als JSON-Download) |
 
 Kachel (`.td-dev-tile`): 44px hoch, Icon 18px über einer Beschriftung in 8px Versalien (`letter-spacing: 0.06em`), Fläche `rgba(11,15,12,0.6)`, Rahmen `--td-frame-dark`.
 
@@ -235,6 +235,8 @@ Kachel (`.td-dev-tile`): 44px hoch, Icon 18px über einer Beschriftung in 8px Ve
 Die Tooltips nennen die volle Funktion (z. B. "+1000 Credits (Shift+Click: +100k)"), die `aria-label`s ebenso. Beschriftungen kurz halten: in der Mono-Ersatzschrift (Consolas) sind 8 Zeichen bei 8px rund 39px breit, die Kachel innen 44,5px. Der Dev-Toggle zeigt geöffnet das Gold-Rezept mit `--td-gold-glow`, wie der Layers-Toggle.
 
 Die Höhe ist auf den Platz zwischen Leiste und Kompass begrenzt; bei niedrigem Fenster scrollt das Panel, statt den Kompass zu überdecken. Neue Einträge in die passende Gruppe einsortieren.
+
+Snapshot leuchtet im Aktiv-Zustand, solange er liest. Was er zuletzt sagt (Fortschritt, Dateiname, Grund ohne Datei), steht als Statuszeile (`.td-dev-status`) über die volle Breite unter der Gruppe: 9px Mono, `--td-text-muted`, bricht lange Dateinamen um, `role="status"`. Inhalt der Datei: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#__corridor-devtools).
 
 **Zellbericht** (Kachel Cells, `app-cell-report-panel` in `components/cell-report-panel/`): Solange er an ist, steht oben in der Mitte, 120px unter der Oberkante der Canvas-Fläche und damit unter Game Speed und Boss-Leiste, ein Glas-Panel (Mixin `bevel-glass`, 300px breit). Oben der Titel "CELL REPORT" (12px/600 `--td-font-body`, Versalien), rechts die Zahl der Zellen in `#e69f00` (Okabe-Ito-Orange, die Rahmenfarbe der gewählten Zellen auf der Karte), darunter die Bedienung (10px Mono, `--td-text-muted`), ein Notizfeld (Input-Rezept) und die Knöpfe Copy JSON (Gold-Rezept), Clear und Done (Rahmen-Rezept), zuletzt eine Statuszeile. Nur das Panel nimmt Klicks. Das Rechteck eines Shift-Ziehens ist ein gestrichelter Rahmen in derselben Farbe. Bedienung und JSON: [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#__corridor-devtools).
 
