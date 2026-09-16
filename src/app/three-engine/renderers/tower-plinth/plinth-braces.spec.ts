@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { footprintSampleOffsets } from '../../../utils/tower-footprint';
+import { footprintInnerCount, footprintSampleOffsets } from '../../../utils/tower-footprint';
+import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { BRACE_MIN_RUN_M, plinthBraces } from './plinth-braces';
 import { BRACE_TOP_Y, BRACE_WIDTH_M, plinthWallRadius, type PlinthBrace } from './plinth-geometry';
 
@@ -107,11 +108,17 @@ describe('plinthBraces (E18, stone corbels under a plinth at a roof edge)', () =
     }
   });
 
-  it('leaves out a stretch where the plinth barely overhangs the roof', () => {
+  it('props a stretch where the plinth barely overhangs the roof too, reaching further into the building (C10)', () => {
     // Only the rim probe straight east is over the drop, the roof ends 0.1 m before it
     const overhang = overhangWhere((x) => x > 3.5);
     expect(overhang).toHaveLength(1);
-    expect(plinthBraces(R, HEIGHT, overhang)).toEqual([]);
+    const braces = plinthBraces(R, HEIGHT, overhang);
+
+    expect(braces).toHaveLength(1);
+    const [brace] = braces;
+    expect(run(brace)).toBeCloseTo(BRACE_MIN_RUN_M, 9);
+    expect(at(brace, brace.topReach)[0]).toBeGreaterThan(3.12);
+    expect(at(brace, brace.footReach)[0]).toBeLessThan(3.12);
   });
 
   it('keeps every corbel it puts at least BRACE_MIN_RUN_M long', () => {
@@ -124,5 +131,87 @@ describe('plinthBraces (E18, stone corbels under a plinth at a roof edge)', () =
 
   it('puts none where the tower itself stands over the drop', () => {
     expect(plinthBraces(R, HEIGHT, overhangWhere((x) => x > -0.5))).toEqual([]);
+  });
+
+  describe('C10: every overhang the placement rules allow carries corbels', () => {
+    /** The rim probes (counted along the outer ring) nearest to the front face of each corbel */
+    const frontedProbes = (radius: number, braces: readonly PlinthBrace[]) => {
+      const rim = footprintSampleOffsets(radius).slice(footprintInnerCount(radius));
+      return new Set(braces.map((brace) => {
+        const [x, z] = at(brace, brace.topReach);
+        const distances = rim.map(([px, pz]) => Math.hypot(px - x, pz - z));
+        return distances.indexOf(Math.min(...distances));
+      }));
+    };
+
+    /**
+     * Each stretch of rim probes over the drop has a corbel fronting on it or
+     * on the rim probe either side of it.
+     */
+    const everyStretchBraced = (radius: number, height: number, overhang: readonly number[]) => {
+      const inner = footprintInnerCount(radius);
+      const count = footprintSampleOffsets(radius).length - inner;
+      const over = new Set(overhang.map((index) => index - inner));
+      const fronted = frontedProbes(radius, plinthBraces(radius, height, overhang));
+      if (over.size === count) return fronted.size > 0;
+      for (let first = 0; first < count; first++) {
+        const before = (first + count - 1) % count;
+        if (!over.has(first) || over.has(before)) continue;
+        let after = first;
+        let braced = fronted.has(before);
+        while (over.has(after)) {
+          braced = braced || fronted.has(after);
+          after = (after + 1) % count;
+        }
+        if (!braced && !fronted.has(after)) return false;
+      }
+      return true;
+    };
+
+    const radii = [...new Set(Object.values(TOWER_TYPES).map((type) => type.footprintRadius))];
+
+    it('at a straight edge or a corner, whatever its direction and wherever past the inner ring it runs', () => {
+      for (const radius of radii) {
+        const offsets = footprintSampleOffsets(radius);
+        const inner = footprintInnerCount(radius);
+        for (let degrees = 0; degrees < 360; degrees += 15) {
+          for (let edge = 0; edge <= radius; edge += 0.1) {
+            for (const corner of [false, true]) {
+              const past = (x: number, z: number, turn: number) => {
+                const angle = ((degrees + turn) * Math.PI) / 180;
+                return x * Math.cos(angle) + z * Math.sin(angle) > edge;
+              };
+              const overhang = offsets.flatMap(([x, z], index) => {
+                const over = past(x, z, 0) || (corner && past(x, z, 90));
+                return over ? [index] : [];
+              });
+              if (overhang.length === 0 || overhang.some((index) => index < inner)) continue;
+              for (const height of [0.5, 3]) {
+                const label = `radius ${radius}, ${degrees} degrees, edge ${edge}, corner ${corner}`;
+                expect(everyStretchBraced(radius, height, overhang), label).toBe(true);
+              }
+            }
+          }
+        }
+      }
+    });
+
+    it('under a ragged rim: holes in the mesh, balconies, any stretches of the outer ring', () => {
+      let seed = 7;
+      const random = () => {
+        seed = (seed * 16807) % 2147483647;
+        return seed / 2147483647;
+      };
+      for (const radius of radii) {
+        const offsets = footprintSampleOffsets(radius);
+        const inner = footprintInnerCount(radius);
+        for (let n = 0; n < 300; n++) {
+          const share = random();
+          const overhang = offsets.flatMap((_, index) => (index >= inner && random() < share ? [index] : []));
+          if (overhang.length === 0) continue;
+          expect(everyStretchBraced(radius, 0.5, overhang), `radius ${radius}, overhang ${overhang.join(' ')}`).toBe(true);
+        }
+      }
+    });
   });
 });

@@ -14,8 +14,9 @@ const BRACE_MIN_PROJECTION_M = 0.45;
 /** Step (m) of the walk along a corbel to where the roof ends. */
 const EDGE_WALK_M = 0.05;
 /**
- * Shortest corbel (m, from its back to its front face). Shorter, and the
- * plinth barely overhangs the roof there.
+ * Shortest corbel (m, from its back to its front face). Where the plinth
+ * barely overhangs the roof, the corbel reaches this far back into the
+ * building instead of its back ending BRACE_FOOT_INSET_M inside the roof.
  */
 export const BRACE_MIN_RUN_M = 1.04;
 
@@ -35,11 +36,14 @@ type Point = readonly [number, number];
  * the roof (at a corner) points straight out from the axis instead.
  *
  * The roof is the convex hull of the probes with ground under the plinth. A
- * corbel's back ends BRACE_FOOT_INSET_M inside it, in the building; its
- * steps project from where the roof ends along its middle, halfway between a
- * probe on the roof and one over the drop as far as the nearest probe tells
- * (edgeReach), to its front face just inside the wall. None where the
- * tower's axis is not over that roof, and none shorter than BRACE_MIN_RUN_M.
+ * corbel's back ends BRACE_FOOT_INSET_M inside it, in the building, and at
+ * least BRACE_MIN_RUN_M behind its front; its steps project from where the
+ * roof ends along its middle, halfway between a probe on the roof and one
+ * over the drop as far as the nearest probe tells (edgeReach), to its front
+ * face just inside the wall. None where the tower's axis is not over that
+ * roof. Where the centre and the inner ring stand on the roof, which the
+ * placement rules ask for (FootprintRefusal), every stretch of the rim over
+ * the drop gets at least one.
  */
 export function plinthBraces(footprintRadius: number, height: number, overhang: readonly number[]): PlinthBrace[] {
   if (overhang.length === 0) return [];
@@ -86,8 +90,8 @@ export function plinthBraces(footprintRadius: number, height: number, overhang: 
 
 /**
  * The corbel along `angle` at `offset` to the side of the axis, whose line
- * leaves the roof at reach `roofExit`; null where it would be shorter than
- * BRACE_MIN_RUN_M or its front would not fit under the wall.
+ * leaves the roof at reach `roofExit`; null where its front would not fit
+ * under the wall.
  */
 function corbel(
   footprintRadius: number,
@@ -106,8 +110,7 @@ function corbel(
     wallReach = Math.min(wallReach, Math.sqrt(r * r - across * across));
   }
   const topReach = wallReach - BRACE_RIM_INSET_M;
-  const footReach = roofExit - BRACE_FOOT_INSET_M;
-  if (topReach - footReach < BRACE_MIN_RUN_M) return null;
+  const footReach = Math.min(roofExit - BRACE_FOOT_INSET_M, topReach - BRACE_MIN_RUN_M);
 
   // From the front inwards to the first point whose nearest probe has ground under the plinth
   const ux = Math.cos(angle);
