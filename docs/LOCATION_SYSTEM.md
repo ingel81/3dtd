@@ -463,18 +463,19 @@ STEP 6: Calculate Routes
   - GlobalRouteGrid initialisieren (eigener Boot-Step "Generating Route Grid")
   - Eingeschaltete Overlays (Route Grid, Air Route Grid, Flughöhe der
     Air-Route) gleich auf die neuen Zellen zeichnen (`init…IfEnabled()` wie
-    `CorridorController.rebuildCorridors`); STEP 2 hat sie mit den alten
-    Zellen entsorgt
+    am Ende eines Korridor-Baus); STEP 2 hat sie mit den alten Zellen
+    entsorgt
   - TowerPlacement neu initialisieren
   - Street-Network auf Route-Korridor filtern (nicht in DevWorld)
   - Höhen liegen in den Zellen des GlobalRouteGrid, jede mit Tiefe und
-    geometricError des Tiles, aus dem ihr Sample stammt. Ein Sample aus
-    einem strikt schlechteren Tile (geringere Tiefe und größerer
-    geometricError) ersetzt ein stabiles nicht (`utils/route-cell-sampler.ts`).
+    geometricError des Tiles, aus dem ihr Sample stammt. Eine Zelle wird
+    einmal beim Erzeugen gesampelt; danach schreibt nur noch der
+    Korridor-Bau (`utils/route-cell-sampler.ts`, siehe ROUTE_CORRIDOR.md)
 
 STEP 7: Finalize
-  - Höhen-Updates durchführen (await); danach erste Anpassung des
-    Korridors an die Tiles, siehe ROUTE_CORRIDOR.md
+  - Höhen-Updates durchführen (await); danach baut `CorridorBuild` den
+    Korridor hinter dem Ladescreen (Boot-Step "Measuring the Corridor")
+    und friert ihn ein, siehe ROUTE_CORRIDOR.md
   - isApplyingLocation = false
   - Route-Animation starten
   - Intro-Kamerafahrt starten (IntroCameraFlightService.start())
@@ -625,21 +626,21 @@ Wenn das HQ außerhalb der Bounds platziert wird (z.B. 10km entfernt):
 
 Solange das HQ umzieht, steht oben mittig ein Hinweis "MOVING HQ" mit dem laufenden Schritt (`RelocationStatusService`, `components/relocation-status/`, Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#umzugs-hinweis-canvas)):
 
-- **Fast Path:** "Finding the route", bevor der Umbau beginnt. Der Umbau blockiert den Hauptthread bis zum Ende, deshalb wartet er zwei Animation-Frames (`painted()`), damit der Browser den Hinweis vorher zeichnet. Danach "Measuring the corridor" mit Prozent und 2px-Balken, solange die Korridor-Messung der neuen Routen läuft (`PathAndRouteService.clearanceProgress()`, je Frame außerhalb von Angular gelesen, das Signal ändert sich nur mit der Prozentzahl). Solange dieser Schritt steht, misst sie in Scheiben von 32 ms statt 4 ms je Frame (`CorridorRefit.HURRIED_BUDGET_MS`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#in-scheiben)); die erste Scheibe läuft noch unter "Finding the route" mit 4 ms. Mit ihrem Ende, samt Neuaufbau von Routen und Zellen, verschwindet der Hinweis. Ein Tower oder Wellenstart während der Messung bringt sie sofort zu Ende (flush, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#in-scheiben)), Gegner aus dem Debug-Panel brechen sie ab; beides beendet auch den Hinweis
-- **Slow Path:** "Loading streets", solange Straßen und Zufalls-Spawn vor dem Ladescreen gesucht werden; bleibt der alte Spawn, erscheint er nicht. Eine Korridor-Messung der alten Routen in dieser Zeit behält die 4 ms je Frame. Der Ladescreen des Ortswechsels löst ihn ab
-- Spawn umsetzen zeigt keinen Hinweis
+- **Fast Path:** "Finding the route", bevor der Umbau beginnt. Der Umbau blockiert den Hauptthread bis zum Ende, deshalb wartet er zwei Animation-Frames (`painted()`), damit der Browser den Hinweis vorher zeichnet. Danach zeigt er die Schritte des Korridor-Baus mit Prozent und 2px-Balken ("Loading the corridor tiles", "Measuring the corridor", "Building the corridor"; `CorridorBuild` meldet sie an `RelocationStatusService.follow()`, je Frame außerhalb von Angular gelesen, das Signal ändert sich nur mit Schritt und Prozentzahl). Mit dem Einfrieren des Korridors verschwindet der Hinweis, danach startet die Routen-Animation auf den eingefrorenen Routen. Ein Tower oder Wellenstart wartet währenddessen auf den Bau (`GameStateManager.corridorPending`), statt ihn abzukürzen; einen Flush gibt es nicht mehr
+- **Slow Path:** "Loading streets", solange Straßen und Zufalls-Spawn vor dem Ladescreen gesucht werden; bleibt der alte Spawn, erscheint er nicht. Der Ladescreen des Ortswechsels löst ihn ab, und der Korridor entsteht dort hinter dem Ladescreen
+- Spawn umsetzen zeigt denselben Hinweis mit dem Titel "Moving spawn": die neue Route entsteht aus den vorhandenen Messungen, danach baut `CorridorBuild` den Korridor (`applySpawnInPlace`)
 
 ### Zeiten (`[Relocation]` in der Konsole)
 
 Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.service.ts`), einen Schritt, der nicht lief, mit 0.0:
 
 ```
-[Relocation] HQ in place: reset= clear= services= paths= route= random= state= grid= placement= streets= camera= rest= corridor= total=ms spawnFrom=old|random|none spawns=
-[Relocation] HQ done: paint= work= corridor= total=ms ended=commit|cancel|none
+[Relocation] HQ in place: reset= clear= services= paths= route= random= state= grid= placement= streets= camera= rest= total=ms spawnFrom=old|random|none spawns=
+[Relocation] HQ done: paint= work= corridor= total=ms ended=frozen|stopped
 [Relocation] HQ outside the streets: streets= spawn= total=ms spawnFrom=old|random|fallback
 ```
 
-- **`HQ done`** (Fast Path, wenn der Hinweis verschwindet): `paint` = Klick bis Beginn des Umbaus (die zwei Frames für den Hinweis), `work` = der Umbau am Stück (wie `total` der Zeile davor), `corridor` = Rest der Messung samt Neuaufbau, `total` = Klick bis der Hinweis weg ist, also die ganze Wartezeit. `ended` sagt, wie die Messung endete (`PathAndRouteService.clearanceEnding()`): `commit` = gemessen und gespeichert, neu aufgebaut nur bei geänderter Breite (`changed=` in `[Corridor] clearance`); `cancel` = abgebrochen (Spawn umgesetzt, Ortswechsel, Gegner aus dem Debug-Panel), dann ohne Neuaufbau, und `corridor` ist nur die Zeit bis zum Abbruch; `none` = es lief nie eine Messung
+- **`HQ done`** (Fast Path, wenn der Hinweis verschwindet): `paint` = Klick bis Beginn des Umbaus (die zwei Frames für den Hinweis), `work` = der Umbau am Stück (wie `total` der Zeile davor), `corridor` = der Korridor-Bau von den Tiles bis zum Einfrieren, `total` = Klick bis der Hinweis weg ist, also die ganze Wartezeit. `ended` sagt, wie der Bau endete: `frozen` = fertig gebaut und eingefroren, `stopped` = aufgehört, ohne einzufrieren (ein neuer Bau überholte ihn, oder die Routen wurden ersetzt), dann steht der Korridor von vorher. Was der Bau gemessen und gebaut hat, sagt `[Corridor] build` daneben
 
 - **Fast Path** (`HQ in place`): alles bis `corridor` läuft am Stück im Hauptthread, `total` ist also die Zeit, in der das Spiel steht
   - `reset`: Animation und Höhen-Updates stoppen, `gameState.reset()`
@@ -653,8 +654,8 @@ Jede Zeile nennt die Zeit je Schritt in ms (`StepTimes` in `map-relocation.servi
   - `placement`: Tower-, Karten-, Fähigkeiten-, Helden-Platzierung neu
   - `streets`: Straßen filtern und zeichnen (das Zeichnen selbst läuft danach in Scheiben)
   - `camera`: Übersicht neu
-  - `rest`: Standort, URL, Routenanimation
-  - `corridor`: erste Scheibe der Korridor-Messung. Den Rest der Messung meldet danach `[Corridor] clearance` (`in` = Rechenzeit, `wall` = Dauer bis zum Ende), einen Neuaufbau `[Corridor] rebuild`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#logs)
+  - `rest`: Standort, URL. Die Routen-Animation startet erst nach dem Bau, auf den eingefrorenen Routen
+  - Der Korridor-Bau selbst läuft danach über mehrere Frames und meldet sich mit `[Corridor] build`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#logs); seine Dauer steht als `corridor` in der Zeile `HQ done`
 - **Slow Path** (`HQ outside the streets`): die Zeit vor dem Ladescreen, `streets` = Overpass bzw. Straßen-Cache, `spawn` = Suche nach einem Zufalls-Spawn. Bleibt der alte Spawn, sind beide 0.0. Den Ortswechsel danach zeigt der Ladescreen. Wohin die Zeit von `streets` ging, sagen die `[OSM]`-Zeilen davor
 
 Jeder Versuch bei einem Overpass-Server (`OsmStreetService.fetchOverpass`, für Straßen und Gebäude) steht mit eigener Zeile in der Konsole:

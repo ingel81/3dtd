@@ -1,6 +1,6 @@
 # LOS-Pipeline: Sichtlinien der Tower auf dem Route-Grid
 
-**Stand:** 2026-09-15
+**Stand:** 2026-09-16
 
 Wie ein Tower weiß, welche Route-Zellen er sieht: eine Cubemap je Tower-Tip auf
 der GPU, drei Leser derselben Cubemap und ein Cache in den Zellen, den der
@@ -201,11 +201,11 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 |---|---|
 | `three-engine/tower-shadow-mapper.ts` | Cube-Render, Move-Gate, `invalidate()`, Render-Version, `getFaceImageData` fürs Debug-Panel |
 | `utils/gpu-cube-resolve.ts` | `LosResolveContext`, `sampleCubeAtPoint`, `isCubeVisible`: der CPU-Pfad für den Kampf-Cache |
-| `utils/route-grid-los.ts` | `resolveTowerLos`, `resolveTowerLosIncremental`: Antworten je Zelle in Reichweite, Höhe vorher neu geprobt |
-| `utils/global-route-grid.ts` | `GlobalRouteGrid`: Zellen, Gegner je Zelle und Umkreis (Hot Path), `registerTower`/`registerTowerIncremental` über die Box `cellsInRange`, Höhen-Sweep, `addCellsChangedListener` |
+| `utils/route-grid-los.ts` | `resolveTowerLos`, `resolveTowerLosIncremental`: Antworten je Zelle in Reichweite, auf den eingefrorenen Höhen |
+| `utils/global-route-grid.ts` | `GlobalRouteGrid`: Zellen, Gegner je Zelle und Umkreis (Hot Path), `registerTower`/`registerTowerIncremental` über die Box `cellsInRange`, `retryUnsampledCells` |
 | `utils/route-grid-builder.ts` | welche Zellen ein Segment beansprucht (`claimRouteCells`), siehe ROUTE_CORRIDOR.md |
 | `utils/route-cell.ts` | `RouteCell`, `CellSample`, `getGroundTargetY`, `getAirTargetY` |
-| `utils/route-cell-sampler.ts` | `sampleCellY` (einziger Schreiber von `cell.terrainHeight`), Säulenprobe, LOD-Peek, Sweep-Zähler |
+| `utils/route-cell-sampler.ts` | `sampleCellY` (einziger Schreiber von `cell.terrainHeight`), Säulenprobe, LOD-Peek, Zähler für übersprungene und gecastete Säulen |
 | `utils/tower-los-viz.ts` | Composite für Build-Vorschau und Auswahl-Anzeige, `getLayer()` fürs Debug-Panel |
 | `utils/tower-los-layer-builder.ts` | InstancedMesh und Fragment-Shader mit Live-Sample, ein Material je Layer, `visibleLosLayers` |
 | `utils/route-grid-aggregate-viz.ts` | Aggregat-Mesh (`grid`, `gridAir`), `MAX_VIZ_CELLS_HARDLIMIT` |
@@ -213,11 +213,11 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 | `utils/route-altitude-tubes.ts` | Debug-Röhre der Air-Route |
 | `utils/los-perf.ts` | Phasen-Profiler (aus) |
 | `utils/los-debug-pixel-math.ts` | `directionToFacePixel` und Umkehrung, bitgleich zu `gpu-cube-resolve.ts` |
-| `services/tower-los-registry.ts` | `TowerLosRegistry`: `buildLosResolveContext`, `register`, `recompute`, `onCellsChanged` und `drainLosRefresh` |
+| `services/tower-los-registry.ts` | `TowerLosRegistry`: `buildLosResolveContext`, `register`, `recompute`, `scheduleRecompute` und `drainLosRefresh` |
 | `services/tower-placement.service.ts` | Einstieg `registerTowerOnGrid`, `recomputeTowerLOS`, `scheduleLosRecompute`; Build-Vorschau in `build-preview-los.ts` |
 | `services/combat/tower-combat.service.ts` | `buildLosCheck`: Nachschlagen im Cache, CPU-Rückfall |
 | `services/world/global-route-grid.service.ts` | Angular-Hülle um das Grid |
-| `services/world/route-grid-convergence.ts` | Höhen-Sweep und Nachproben nach einem Tile-Schub |
+| `services/world/corridor-build.ts` | `CorridorBuild`: baut den Korridor einmal je Routensatz und friert Zellen und Höhen ein, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | `services/facade/visualization-facade.service.ts` | `onTilesLoaded`, initialisiert den `LosDebugService` |
 | `managers/tower.manager.ts` | Besitzer der Auswahl-Anzeige, `refreshSelectionViz`, `applyLosFilter`, `getSelectionViz()` |
 | `configs/los-viz.config.ts` | alle Zahlen: Probenhöhen, Farben, Deckkraft |
@@ -232,39 +232,32 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 1. UI → command:place-tower → GameStateManager.placeTower
 2. TowerManager.placeTower legt die Entity an
 3. TowerPlacementService.registerTowerOnGrid(tower, position, typeId):
-   a. globalRouteGrid.refineCellsInRadius(x, z, range)
-      holt ungeprobte Zellen nach und frischt stabile bei besserem LOD auf,
-      meldet beide per cells-changed (andere Tower landen in staleLos)
-   b. buildLosResolveContext(tipWorld, range):
+   a. buildLosResolveContext(tipWorld, range):
       mapper.invalidate()                            ← Pflicht
       mapper.update(tipWorld, range, blockerGroup)   ← rendert den Cube
-   c. globalRouteGrid.registerTower(towerId, x, z, range, ctx, …)
-      → resolveTowerLos über cellsInRange:
-         sampleCellY(cell)                      Höhe auffrischen
+   b. globalRouteGrid.registerTower(towerId, x, z, range, ctx, …)
+      → resolveTowerLos über cellsInRange, auf den Höhen, die der
+        Korridor-Bau eingefroren hat (keine Säulenprobe):
          canTargetGround: isCubeVisible(tip, getGroundTargetY(cell), …)
                           → cell.towerVisibility
          canTargetAir:    isCubeVisible(tip, getAirTargetY(cell), …)
                           → cell.airVisibility
-      danach Aggregat-Positionen auffrischen und die Zellen melden, deren
-      Höhe sich bewegt hat (die anderen Tower rechnen später, dieser ist
-      schon aktuell)
-   d. tower.losReady = true
-   e. ist der Tower gewählt: refreshSelectionViz(tower)
+      danach Aggregat-Positionen auffrischen
+   c. tower.losReady = true
+   d. ist der Tower gewählt: refreshSelectionViz(tower)
 ```
 
 ### Reichweiten-Upgrade (`recomputeTowerLOS`)
 
 Wie beim Bau, aber `registerTowerIncremental` behält die Antworten für
-schon registrierte Zellen. Neu geprobt werden der Ring, die wartenden Zellen
-aus `staleLos` und Zellen, deren Höhe `sampleCellY` im selben Durchlauf
-bewegt hat; die meldet das Grid danach an die anderen Tower weiter.
+schon registrierte Zellen. Gegen den Cube gehalten werden nur der neue Ring
+und Zellen, für die dieser Tower noch keine Antwort hat.
 
 ### Luftziele durch Forschung (`research:completed`)
 
 `TowerLifecycle.scheduleAirRetrofit` stellt die Tower, die erst durch die
-Forschung Luftziele bekommen, per `scheduleLosRecompute` in dieselbe
-Warteschlange (`staleLos`, als ausdrückliche Anfrage, ohne auf einen Sweep zu
-warten). Nicht synchron: der `ResearchStore` setzt das Air-Flag erst im
+Forschung Luftziele bekommen, per `scheduleLosRecompute` in die
+Warteschlange des Registers (`staleLos`). Nicht synchron: der `ResearchStore` setzt das Air-Flag erst im
 Handler des `GameStateSyncService`, und der läuft nach dem des
 GameStateManagers.
 
@@ -282,35 +275,25 @@ gelassen.
 1. tilesRenderer-Event → engine.onTilesLoadCallback
 2. VisualizationFacadeService.onTilesLoaded:
    a. UI (Straßen, Gebäude, Marker)
-   b. globalRouteGrid.beginTerrainHeightRefresh()
-      legt den Sweep über alle Zellen an, er läuft erst in e. Jede Scheibe
-      probt die Zellhöhen gegen die neuen Tiles und meldet die geänderten
-      Zellen: nachgeholt (ungeprobt → geprobt) und aufgefrischt (besseres LOD)
-   c. RouteGridConvergence.scheduleBakedHeightRefresh(): während des Sweeps
-      nur vorgemerkt; Routenlinien, Marker und Routenanimation werden einmal
-      neu gebaut, wenn er durch ist
-   d. gameState.onTilesLoaded()
-   e. RouteGridConvergence.schedule(): rAF-Schleife, erst
-      stepTerrainHeightRefresh(5 ms) je Frame bis der Sweep durch ist, dann
-      retryUnsampledCells(), bis 2 Frames ohne Nachholen oder 120 Frames
-   f. Spatial-Grid- und Air-Layer-Anzeige
+   b. gameState.onTilesLoaded()
+   c. Spatial-Grid- und Air-Layer-Anzeige
 ```
 
-Der blockierende `updateTerrainHeights()` (derselbe Sweep ohne Budget) läuft
-beim Laden eines Orts (`HeightUpdateService`) und beim Neuaufbau des
-Korridors (`CorridorController.rebuildCorridors`).
+Am Korridor ändert ein Tile-Schub nichts: keine Zellhöhe wird neu geprobt,
+keine Routenlinie neu gebacken, kein Tower neu aufgelöst. Zellen und Höhen
+stehen, seit der Korridor-Bau sie eingefroren hat
+([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md)); bis zum nächsten Bau (Ortswechsel,
+HQ- oder Spawn-Umzug) bleibt die Antwort jedes Towers gültig. Die
+Warteschlange des Registers (`staleLos`, `drainLosRefresh`, ein Tower je
+Frame) bleibt für die Anfragen, die es noch gibt: Luftziele durch Forschung
+und Reichweiten-Upgrade.
 
-Der cells-changed-Listener (`TowerLosRegistry.onCellsChanged`) rechnet nicht
-sofort. Er merkt sich je Tower die geänderten Zellen (`staleLos`), dazu ein
-per rAF entprellter `rebuildAirRouteLayer()`. `drainLosRefresh` wartet, solange
-der Sweep läuft, und löst dann jeden betroffenen Tower einmal inkrementell
-neu auf, einen je Frame (`LOS_RECOMPUTES_PER_FRAME`). Länger als
-`MAX_LOS_WAIT_MS` (3 s Wanduhr) wartet kein Tower. Bis zum Recompute gilt die
-alte Antwort; ohne Eintrag nähme jeder Kandidat in diesen Zellen den
-CPU-Rückfall. Bricht ein Recompute ab (keine Engine, kein Grid, keine
-Blocker-Gruppe), bleibt der Tower in der Warteschlange. Ändert kein Tile das
-LOD einer Zelle (der häufige Fall beim Schwenken), meldet der Listener
-nichts.
+Bis zum 2026-09-16 lief hier ein Höhen-Sweep über alle Zellen, danach eine
+rAF-Konvergenzschleife mit Nachproben, ein Neubacken von Routenlinie,
+Markern und Animation, und eine Warteschlange, die jeden Tower über einer
+bewegten Zelle neu auflöste. Auf diesem Weg änderte sich der Korridor unter
+stehenden Towern (Playtest 2026-09-15): die Tower hielten Zellen eines
+ersetzten Grids und hörten auf zu schießen.
 
 Früher leerte jeder Tile-Load den Cache aller Tower und rechnete jede Zelle in
 Reichweite neu (`recomputeAllTowersGroundLOS`, entfernt am 2026-05-16 in

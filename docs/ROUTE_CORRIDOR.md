@@ -22,10 +22,10 @@ Route (vom Spawn zum HQ).
 | Unterführung | `utils/underpass.ts` (`UnderpassIndex`, `splitAtSpans`), `PathAndRouteService.buildRouteFromPath` | Stück unter einem Way, der die Route auf höherer Ebene kreuzt, als Tunnel |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/deck-approach.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Tunnelsohle, Straße unter einer fremden Brücke |
-| Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, `CorridorController.rebuildCorridors` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke, Böschung), fallen weg; die Halbbreite endet davor |
+| Laufweg | `cellWalkable`, `walkCaps` (`utils/corridor-walk.ts`), `PathAndRouteService.narrowToWalkable`, die Durchgänge in `CorridorBuild.build` | Zellen, zu denen kein Gegner laufen kann (Auto, Traufe, Hecke, Böschung), fallen weg; die Halbbreite endet davor |
 | Umweg | `planDetours`, `applyDetourPlan` (`utils/corridor-detour.ts`), `PathAndRouteService.detoursWithGrid` | Die Waypoints biegen um ein Hindernis auf der Mittellinie (Auto, Hecke, Erker, Dachecke); ohne Platz wird ein Hindernis über der Gasse ein Durchgang (Tunnel), ein niedriges bleibt |
 | Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
-| Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `CorridorController` (`services/world/corridor-controller.ts`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
+| Auslöser | `CorridorBuild` (`services/world/corridor-build.ts`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
 ## Einstellungen
 
@@ -778,26 +778,15 @@ Gegner halten sich an die schmalere Breite wie an jede andere
 
 **Wann** (Rückkopplung Messung, Grid, Breite, Neubau):
 
-- Am Ende jedes Messlaufs (`storeClearance`), mit dem Grid, das gerade
-  steht.
-- Nach jedem Neuaufbau (`CorridorController.rebuildCorridors`, Schritt
-  `walk`): Die neuen Zellen können weiter reichen als die alten, etwa wenn
-  die erste Messung über die OSM-Breite hinaus verbreitert. Dann Routen,
-  Grid und Höhen noch einmal, bis sich kein Korridor mehr ändert, höchstens
-  `MAX_WALK_PASSES` (2) weitere Male. Die Kappen werden nur schmaler, ein
-  weiterer Bau hat also nur Zellen des vorherigen. Braucht er alle, ruft
-  er `CorridorRefit.remeasureLater` auf: nach 3 s ein `remeasure()`, das
-  nur misst, wo `hasUnwalkableCells` noch eine Zelle findet, die ein
-  schmalerer Korridor wegnähme. Vorher wartete der Rest auf den nächsten
-  Tile-Schub, der bei stehender Kamera nicht kommt.
-- Nach einem Tile-Schub (`remeasure()`): Zeigt ein feineres Tile Zellen, zu
-  denen kein Gegner laufen kann und die ein schmalerer Korridor wegnähme
-  (`hasUnwalkableCells`), misst `remeasure()` wie bei ungemessenen
-  Stationen; der dann leere Lauf speichert die Kappen, der Neuaufbau folgt.
-- Nicht unter Tower, Welle oder Gegnern (`rebuildBlocker`). Was ein
-  feineres Tile erst dann zeigt, bleibt im Korridor, auf seiner Höhe
-  (Autodach, Traufe), bis zum nächsten Neuaufbau. `__corridor.towerCells()`
-  zählt es unter `unwalkable`, `pick()` zeigt `walkable: false`.
+- In jedem Durchgang eines Baus (Schritt 4 unter "Wann gemessen und neu
+  gebaut wird"), mit dem Grid, das dieser Durchgang gerade erzeugt hat.
+- Die Kappen werden innerhalb eines Baus nur schmaler, ein weiterer
+  Durchgang hat also nur Zellen des vorherigen. Darum endet die Kette von
+  selbst, und der Bau läuft sie bis zum Ende, bevor er einfriert.
+- Zwischen zwei Bauten ändert sich nichts. Was ein feineres Tile erst nach
+  dem Einfrieren zeigt, bleibt im Korridor, auf seiner Höhe (Autodach,
+  Traufe), bis zum nächsten Bau. `__corridor.towerCells()` zählt es unter
+  `unwalkable`, `pick()` zeigt `walkable: false`.
 
 **Kosten:** In einer Spec ohne Engine (1 km Route mit Knicken, 7 m je
 Seite, 3714 Zellen, ein Auto alle 12 m, Median aus 7 Läufen) kostete die
@@ -919,14 +908,12 @@ seiner beiden Segmente. Die übrigen Segmente bleiben, wie sie waren.
   eigene Regel.
 
 **Wann** (`detoursWithGrid`): zur selben Zeit wie die Kappen des Laufwegs, mit den
-Säulen des Grids in Gebrauch: nach jedem Bau (`narrowToWalkable`, Schritt `walk` in
-`rebuildCorridors`), am Ende eines Messlaufs (`storeClearance`) und bei `remeasure()`
-(`hasUnwalkableCells`). Gespeichert je Route, wie das Straßennetz sie gibt
-(`detourPlans`). Jeder Bau derselben Route setzt bis zur nächsten Planung dieselben
-Umwege ein, auch ein Neubau der roten Linie nach einer Höhenänderung. Unter Tower,
-Welle oder Gegnern wird nichts neu gebaut (`rebuildBlocker`). Ein neuer Umweg braucht
-einen Bau zum Finden und einen für die Kappen um das Hindernis; mit
-`MAX_WALK_PASSES` (2) prüft `remeasureLater` den Rest. Vergessen mit den Messungen.
+Säulen des Grids in Gebrauch: in jedem Durchgang eines Baus (`narrowToWalkable`).
+Gespeichert je Route, wie das Straßennetz sie gibt (`detourPlans`). Jeder Bau
+derselben Route setzt bis zur nächsten Planung dieselben Umwege ein, auch ein Neubau
+der roten Linie nach einer Höhenänderung. Ein neuer Umweg braucht einen Durchgang zum
+Finden und einen für die Kappen um das Hindernis; der Bau läuft so viele Durchgänge,
+bis sich nichts mehr ändert. Vergessen mit den Messungen.
 
 **Diagnose:** `__corridor.pick()` nennt eine Zelle auf der Mittellinie eines Umwegs
 `walkCheck: 'detour'`, eine Zelle eines Durchgangs `'passage'`. Die Station zeigt
@@ -976,143 +963,92 @@ Stelle, auf der Seite, auf der der Gegner läuft (`MovementComponent.advance`).
 
 ## Wann gemessen und neu gebaut wird
 
-`CorridorRefit` (`services/world/corridor-refit.ts`) entscheidet das, getestet in
-`corridor-refit.spec.ts`. Drei Auslöser:
+`CorridorBuild` (`services/world/corridor-build.ts`) ist der einzige, der
+Routen, Waypoints, Zellen, Zellhöhen, Freiraum, Laufweg-Kappen und Umwege
+schreibt, getestet in `corridor-build.spec.ts`. Er baut den Korridor einmal
+je Routensatz und friert ihn dann ein. Der Spieler sieht also den fertigen
+Korridor, bevor er spielt, und danach ändert sich keiner mehr.
 
-| Auslöser | Wann | Bedingung |
-|---|---|---|
-| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`VisualizationFacadeService.scheduleOverlayHeightUpdate`), und nach dem Umsetzen von Spawn oder HQ ohne Neuladen (siehe unten). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`MIN_ATTEMPTS`, `UPDATE_INTERVAL_MS` in `HeightUpdateService`) | kein Intro-Flug (siehe unten); neu gebaut wird nur, wenn die Messung einen Korridor ändert |
-| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`RouteGridConvergence`), und von selbst noch einmal, wenn ihn einer der letzten drei Punkte rechts aufhielt (siehe unten) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`) oder Zellen, zu denen kein Gegner laufen kann und die ein schmalerer Korridor wegnähme (`hasUnwalkableCells`, siehe Laufweg), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
-| `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst am Stück und baut immer neu |
+Ein Bau (`build`) läuft in dieser Reihenfolge:
 
-Für alle drei gilt die Sperre `rebuildBlocker()`: kein Neuaufbau, solange Tower
-stehen, eine Welle läuft oder Gegner auf der Karte sind. Tower halten ihre
-LOS-Antworten in den Zellen, die ein Neuaufbau ersetzt, Gegner ihre Zelle und
-ihre Route.
+1. **Tiles:** Region auf die feinste Stufe (`ROUTE_CORRIDOR_ERROR_TARGET`,
+   2,5 m), die eigene Verfeinerung der Kamera stummgeschaltet
+   (`MUTED_CAMERA_ERROR_TARGET`), dann warten, bis 500 ms lang kein Tile mehr
+   geladen hat (`waitForQuietTiles`). Nach `TILES_TIMEOUT_MS` (30 s) baut er
+   mit dem, was da ist, und schreibt `timedOut` in Log und Trace. Damit
+   hängen die Tiles im Korridor an den Routen, nicht daran, wohin die Kamera
+   gerade sieht.
+2. **Messen:** jede Station einmal auf diesen Tiles, in Scheiben (unten),
+   gegen einen geleerten Säulen-Cache.
+3. **Rückfall für Stationen:** Stationen, für die es dort keine Säule gibt,
+   bekommen die gröbere Stufe (`ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET`, 5 m),
+   dann geht es zurück auf die feinste.
+4. **Bauen:** Routen, Zellen und Laufweg-Kappen so oft nacheinander, bis der
+   Laufweg nichts mehr wegnimmt (siehe Laufweg). Keine feste Obergrenze:
+   `MAX_PASSES` (20) und ein Zustand, der sich wiederholt, sind nur
+   Notbremsen, beide mit einer Warnung und `build.unsettled` im Trace.
+5. **Rückfall für Zellen:** Zellen ohne eigene Höhe bekommen dieselbe gröbere
+   Stufe (`retryUnsampledCells`).
+6. **Einfrieren:** rote Linie auf den fertigen Zellen, Overlays, laufende
+   Routenanimation neu; Kamera und Region zurück.
 
-Die erste Messung wartet auf das Ende des Intro-Flugs, der die Tiles entlang
-der Route lädt. Läuft er beim Aufruf, oder startet er mitten im Lauf (ein
-Ortswechsel startet ihn gleich nach der ersten Scheibe, STEP 7 in
-`location-change-executor.service.ts`), verwirft `fitToTiles()` den Lauf
-(`clearance cancelled (intro flight)`) und merkt sich die Messung
-(`fitPending`). `remeasure()` holt sie nach dem Flug nach, beim nächsten
-Tile-Schub oder spätestens mit dem 3-s-Takt unten, ohne die 3 s seit dem
-letzten Lauf abzuwarten; ein Tower oder eine Welle vorher misst sie am Stück
-(`flush`). Anlass: Im Playtest vom 2026-09-14 in Paris lief die erste Messung
-nach einem Umzug außerhalb der Straßen 5,1 s lang und ließ 617 Stationen
-ungemessen. Auf die feinen Tiles selbst wartet die Messung nicht; die laden
-danach weiter. Stationen, die dann noch auf groben Tiles stehen, laufen
-mit der OSM-Breite, bis `remeasure()` sie nach einem späteren Tile-Schub
-nachholt. Ob sich etwas geändert hat, vergleicht `storeClearance` an den
-fertigen Korridorstücken aller Routen vor und nach dem Speichern
-(`fittedCorridors`).
+Danach ändert nichts mehr Routen, Waypoints, Zellen oder Höhen: kein
+Tile-Schub, keine Kamerafahrt, kein Tower. Erst der nächste Bau tut es.
 
-Hält der Intro-Flug, ein offener Lauf oder die 3 s `remeasure()` auf, ruft es
-sich selbst wieder auf (`retryRemeasure`): bei
-den 3 s, sobald sie um sind, sonst alle 3 s, bis es misst; unter Tower,
-Gegner oder Welle nicht. Vorher geschah nach einem aufgehaltenen Aufruf nichts
-mehr bis zum nächsten Tile-Schub. Setzte sich der letzte Schub eines Orts
-während des Intro-Flugs (der den Korridor lädt) oder kurz nach einem Lauf,
-blieben die Stationen bei der OSM-Breite, bis die Kamera neue Tiles lud
-(Befund 2 in REVIEW_SPRINT_2026-09-12).
+| Auslöser | Wann |
+|---|---|
+| Ortsladung | hinter dem Ladescreen, Schritt "Measuring the Corridor" nach "Waiting for 3D Tiles" und vor dem Intro-Flug |
+| HQ oder Spawn umsetzen ohne Neuladen | unter dem Hinweis "MOVING HQ" (`MapRelocationService`, `RelocationStatusService`) |
+| `__corridor.set()`, `__corridor.reset()` | `change()`; bei geänderten `MEASUREMENT_KEYS` werden vorher alle Messungen verworfen |
 
-Wird der Spawn oder das HQ ohne Neuladen des Orts umgesetzt
-(`MapRelocationService`, private `applySpawnInPlace` und `applyHqInPlace`), entsteht die
-Route neu aus den vorhandenen Messungen: Ein Segment, das die neue Route mit
-der alten teilt, behält seine Messung. Beim HQ beginnt der Routen-Dienst von
-vorn, dort ist nichts gemessen. Danach misst `fitToTiles()` die neuen Segmente
-wie nach dem Laden, in Scheiben und unter denselben Sperren
-(`VisualizationFacadeService.fitCorridorToTiles`); bis der Lauf fertig ist,
-laufen sie mit der OSM-Breite. Die feinen Tiles der neuen Route laden erst ab
-dem Grid-Aufbau (`setRouteCorridor`); Stationen, die dann noch auf groben
-Tiles stehen, holt `remeasure()` nach. Wartende Stationen einer ersetzten
-Route zählen für `hasUnmeasuredStations` nicht mehr.
+Solange ein Bau läuft oder angekündigt ist (`pending()`), wartet alles, was
+auf dem Korridor steht: `GameStateManager.placeTower` setzt keinen Tower,
+`startWave` und `beginWave` starten keine Welle, der Trainings-Bot hält an
+(`TrainingSession.updateBot`), und der Ladescreen bleibt stehen.
+`__corridor.set()` wird unter Towern, einer laufenden Welle oder Gegnern
+abgelehnt (`rebuildBlocker`): Tower halten ihre LOS-Antworten in den Zellen,
+die ein Bau ersetzt, Gegner ihre Zelle und ihre Route.
+
+Beim Umsetzen von Spawn oder HQ entsteht die Route neu aus den vorhandenen
+Messungen: Ein Segment, das die neue Route mit der alten teilt, behält seine
+Messung. Beim HQ beginnt der Routen-Dienst von vorn, dort ist nichts
+gemessen.
+
+Ein Bau, den ein neuer überholt (`superseded`), oder einer, dem der
+Routendienst die Routen unter den Füßen wegzieht (`routes replaced`), hört
+auf, ohne einzufrieren; Kamera und Region bekommen ihre Werte trotzdem
+zurück.
 
 ### In Scheiben
 
-`fitToTiles()` und `remeasure()` messen nicht am Stück, sondern je Frame so
-viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
-`CorridorRefit`, Ablauf in `fitToTiles`). Die Frames kommen aus
-`requestAnimationFrame` wie beim Höhen-Sweep
-(`eachFrame` im Host, den der `CorridorController` baut).
+Gemessen wird nicht am Stück, sondern je Frame so viele Stationen, wie in
+`SLICE_MS` (32 ms) passen (`CorridorBuild`). Der Ladescreen oder der Hinweis
+über der Karte steht dabei, sonst wartet niemand auf diese Frames, und der
+Balken bewegt sich weiter.
 
-- **Budget:** Eine Station (Säule und vier Strahlen) kostete im Playtest vom
-  2026-09-12 in der Innenstadt etwa 1,7 ms (533 ms für 316 Stationen); 4 ms
-  sind dort zwei Stationen je Frame. Der Höhen-Sweep nach einem Tile-Schub
-  nimmt 5 ms je Frame und läuft oft in denselben Frames, zusammen bleiben
-  beide unter 10 ms. Der Lauf hört vor der Station auf, die nach den
+- **Budget:** Eine Station (Säule und vier Strahlen) kostete an den fünf
+  Orten vom 2026-09-16 zwischen 0,6 und 1,9 ms; 32 ms sind dort etwa 17 bis
+  50 Stationen je Frame. Der Lauf hört vor der Station auf, die nach den
   bisherigen Kosten je Station über das Budget ginge, nimmt aber mindestens
-  eine Station je Frame.
-- **Budget, während der Spieler wartet:** Solange der Hinweis "MOVING HQ"
-  die Messung zeigt (Schritt "Measuring the corridor", `MEASURING_STEP` in
-  `relocation-status.service.ts`; `CorridorRefitHost.hurried`), sind es
-  `HURRIED_BUDGET_MS` = 32 ms je Frame (`corridor-refit.ts`). Im Playtest
-  vom 2026-09-14 in Paris brauchte ein Umzug für 358 Stationen 465 ms
-  Rechenzeit in 144 Scheiben über 5,3 s; jeder Frame kostete neben seiner
-  Scheibe etwa 33 ms. Mit 32 ms sind es etwa 15 Frames zu 65 ms, rund 1 s.
-  Gelesen wird je Scheibe: Verschwindet der Hinweis mitten im Lauf, geht es
-  mit 4 ms weiter. Die erste Scheibe läuft im Umzug selbst, noch unter
-  "Finding the route", und nimmt 4 ms. Unter "Loading streets" (Umzug
-  außerhalb der Straßen) bleibt es bei 4 ms: Ein Lauf misst dann die alten
-  Routen, und der Ortswechsel danach verwirft sein Ergebnis. Nachmessungen
-  nach Tile-Schüben und die erste Messung nach dem Laden laufen ohne Hinweis
-  und behalten die 4 ms.
+  eine Station je Frame. Bis 2026-09-16 waren es 4 ms im Hintergrund und
+  32 ms unter dem Umzugs-Hinweis; jetzt wartet ohnehin immer jemand, also
+  gilt überall dasselbe Budget.
+- **Fortschritt:** Nach jeder Scheibe meldet der Bau Schritt und Prozent
+  (`CorridorProgress`): am Ladescreen unter "Measuring the Corridor", beim
+  Umzug im Hinweis "MOVING HQ".
 - **Gleiches Ergebnis:** Der Lauf nimmt die Stationen in derselben
-  Reihenfolge und mit denselben Strahlen wie der frühere Lauf am Stück und
-  legt sie in dieselben Felder. `path-route.service.spec.ts` ("in slices")
-  vergleicht Strahlen, Korridor und Log beider Wege, auch für einen Lauf,
-  den ein Tower zu Ende bringt.
-- **Erste Scheibe sofort:** Die erste Scheibe läuft im Aufruf selbst. Passt
-  alles hinein (DevWorld, wo `TerrainQueries` keine Probe liefert, oder wenige
-  Stationen), ist der Lauf wie früher im Aufruf fertig.
+  Reihenfolge und mit denselben Strahlen wie ein Lauf am Stück und legt sie
+  in dieselben Felder. `path-route.service.spec.ts` ("in slices") vergleicht
+  Strahlen, Korridor und Log beider Wege.
 - **Korridor bis zum Ende unverändert:** Bis zum Ende des Laufs bauen Routen
-  und Zellen mit dem Korridor von vorher. Dann wird gespeichert und, wenn sich
-  ein Korridor ändert, im selben Frame neu gebaut.
-- **Tower und Welle bringen den Lauf zu Ende:** Soll ein Tower gesetzt werden
-  oder eine Welle starten, solange ein Lauf offen ist, misst
-  `CorridorRefit.flush` den Rest sofort am Stück,
-  speichert und baut neu; erst dann steht der Tower oder startet die Welle.
-  Dasselbe gilt für eine erste Messung, die auf das Ende des Intro-Flugs
-  wartet.
-  Der Haken sitzt in `GameStateManager.placeTower`, `startWave` und
-  `beginWave` (`setBeforeCorridorLock`, gesetzt von `CorridorController.attach`
-  aus `VisualizationFacadeService.initialize`) und gilt damit für Klick, Hotkey,
-  Auto-Start, KI-Director und den Trainings-Bot, der `placeTower` direkt
-  aufruft. Im schlimmsten Fall ist das der eine Hänger des früheren Laufs am
-  Stück, mit demselben Ergebnis, und der Tower steht auf den neuen Zellen.
-  Eine abgelehnte Platzierung (Gold, Research, zweites Research Center) löst
-  nichts aus.
-- **Sperren:** `rebuildBlocker()` wird zusätzlich vor jeder Scheibe geprüft.
-  Gegner aus dem Debug-Panel verwerfen den Lauf, der Korridor bleibt dann, wie
-  er war, ebenso ein Tower oder eine Welle, die ohne den Haken dazukamen.
-- **Tiles laden weiter:** Laden während eines Laufs Tiles nach, läuft er
-  weiter. Jede Station hält, was sie zu ihrem Zeitpunkt sah; eine Station auf
-  einem noch groben Tile bleibt NaN und wird später nachgemessen. Ein Neustart
-  bei jedem Tile-Schub käme bei laufendem Streaming (Intro-Flug) nicht ans
-  Ende.
-- **Abbruch:** Ortswechsel und ersetzte Routen (`initialize`, `clearCache`,
-  auch beim Umsetzen von Spawn oder HQ), `clearCorridorMeasurements`,
-  `dispose` und ein neuer Lauf verwerfen den offenen, ebenso ein Intro-Flug,
-  der währenddessen startet (danach wie oben). `fitToTiles()` lässt einen
-  offenen Lauf weiterlaufen, `remeasure()` wartet auf ihn.
-- **Konsole:** `__corridor.set()` und `reset()` verwerfen einen offenen Lauf
-  und messen am Stück (Budget unbegrenzt), die Konsole wartet auf die
-  Antwort.
-
-### Neuaufbau
-
-`CorridorController.rebuildCorridors` läuft synchron in
-einem Frame:
-
-1. `routes`: `refreshRouteLines`, also Wegsuche je Spawn, Korridoranpassung
-   und rote Linie.
-2. `grid`: Grid leeren und neu erzeugen, samt erster Höhenprobe je Zelle.
-3. `heights`: voller Höhen-Sweep (`updateTerrainHeights`).
-4. `walk`: Zellen, zu denen kein Gegner laufen kann, kappen den Korridor
-   (`narrowToWalkable`); wo das einen Korridor ändert, die Schritte 1 bis 3
-   noch einmal, höchstens `MAX_WALK_PASSES` (2) Mal (siehe Laufweg).
-5. `lines`: `refreshRouteLines` ein zweites Mal, auf den neuen Zellhöhen.
-6. `overlays`: Debug-Layer neu, laufende Routen-Animation neu gestartet.
+  und Zellen mit dem Korridor von vorher; gespeichert wird beim Commit.
+- **Kein Flush mehr:** Tower und Welle warten auf das Einfrieren
+  (`corridorPending`), statt einen offenen Lauf am Stück zu Ende bringen zu
+  lassen. Den Haken `setBeforeCorridorLock` gibt es nicht mehr.
+- **Abbruch:** Ein neuer Bau (`superseded`), ersetzte Routen
+  (`routes replaced`) und `dispose` beenden den Lauf, ohne einzufrieren.
+- **Konsole:** `__corridor.set()` und `reset()` bauen über denselben Weg; die
+  Konsole wartet auf die Antwort.
 
 ### Logs
 
@@ -1120,15 +1056,15 @@ Alle Zeilen hier sind `console.log`, keine Warnungen: Chrome hängt an jede
 Warnung einen aufklappbaren Stack, im Log Berlin vom 2026-09-15 etwa
 192.000 von 206.000 Zeilen, bis DevTools aufgab (bis 2026-09-16 waren
 `[Corridor]` und `[PerfTrace]` Warnungen). Warnungen und Fehler bleiben für
-echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub und Höhen-Sweep
-(`onTilesLoadCallback`, `onTilesLoaded`, `updateTerrainHeights`) sind
-seitdem aus; `__perf.trace(true)` schaltet sie an, `__perf.trace(false)`
-wieder aus (`utils/perf-trace.ts`). Die `[Corridor]`-Zeilen unten bleiben an.
+echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
+(`onTilesLoadCallback`, `onTilesLoaded`) sind seitdem aus;
+`__perf.trace(true)` schaltet sie an, `__perf.trace(false)` wieder aus
+(`utils/perf-trace.ts`). Die `[Corridor]`-Zeilen unten bleiben an.
 
 ```
-[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [flushed=tower|wave] [noTile=x,z;x,z;...]
+[Corridor] build: reason= tiles= measure= fallback= passes=N () lines= wall=ms stations= unmeasured= cells= [tiles timed out]
+[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [noTile=x,z;x,z;...]
 [Corridor] clearance cancelled (Grund): stations=N of M in X ms slices= wall= ms, corridor unchanged
-[Corridor] rebuild: routes= grid= heights= walk= narrowed= lines= overlays= total= ms spawns= cells=
 ```
 
 - **`clearance`** (`ClearanceRun.commit` in `path-route.service.ts`):
@@ -1142,9 +1078,6 @@ wieder aus (`utils/perf-trace.ts`). Die `[Corridor]`-Zeilen unten bleiben an.
     Zahlen von vor dem Stückeln.
   - `slices`: Scheiben, eine je Frame. `wall`: Zeit vom Start bis zum Ende
     des Laufs.
-  - `flushed`: nur bei einem Lauf, den ein Tower (`tower`) oder eine Welle
-    (`wave`) zu Ende gebracht hat; die letzte Scheibe war dann der Rest am
-    Stück.
   - `noTile`: nur wenn Stationen auch 0,5 m voraus und zurück kein Tile
     fanden. Ihre lokalen `x,z` (wie `[Corridor] pick at` sie druckt), mit `;`
     getrennt, höchstens zehn, dahinter `;+N` für den Rest. Dort lohnt
@@ -1158,10 +1091,15 @@ wieder aus (`utils/perf-trace.ts`). Die `[Corridor]`-Zeilen unten bleiben an.
   `measurements cleared`, `settings changed`, `superseded`, `disposed`,
   `intro flight`.
   `stations=N of M`: so weit kam er.
-- **`rebuild`**: erscheint nur bei einem Neuaufbau, also nach `changed=true`
-  oder nach `__corridor.set()`/`reset()`. `walk` ist die Zeit der
-  Laufweg-Runden samt ihrer Bauten, `narrowed` deren Zahl (0 bis
-  `MAX_WALK_PASSES`).
+- **`build`** (`CorridorBuild.build`): eine Zeile je Bau, der eingefroren
+  hat. `reason` ist sein Auslöser, `tiles` die Wartezeit auf die Tiles der
+  Region, `measure` die Rechenzeit aller Messscheiben, `fallback` beide
+  Wechsel auf die gröbere Stufe, `passes=N ()` die Durchgänge aus Routen,
+  Zellen und Laufweg samt ihrer Zeit, `lines` die rote Linie am Ende,
+  `wall` die ganze Dauer vom Aufruf bis zum Einfrieren; dazu `stations`,
+  `unmeasured`, `cells` und, wenn die Tiles nicht ruhig wurden,
+  `tiles timed out`. Ein Bau, der aufhört, ohne einzufrieren, schreibt keine
+  Zeile und steht nur als `build.cancel` im Trace.
 - **Gemessen** (Playtest 2026-09-12, Innenstadt, eine Route, Punkt 52 in
   REVIEW_SPRINT_2026-09-12, noch am Stück): Neuaufbau 39,5 bis 41,7 ms; die
   Messung davor mit 1260 Strahlen 520 bis 533 ms. Weitere Orte sind nicht
@@ -1178,8 +1116,8 @@ ihren Text. `console.log`, eine Zeile je Ereignis; die ganze Tabelle nur mit
 vitest (Specs schalten ihn selbst ein).
 
 ```
-[CorridorTrace] 12.35s clearance.commit segments=20 stations=236 ... changed=true lod=2m:0,5m:236,coarse:0,none:0 ... | tilesLoaded lod=15 -> convergence.settled -> refit.remeasure -> refit.slice
-[CorridorTrace] LONG 12.35s rebuild ms=183.5 | tilesLoaded lod=15 -> convergence.settled -> refit.remeasure -> refit.slice -> rebuild
+[CorridorTrace] 12.35s clearance.commit segments=20 stations=236 ... changed=true lod=2m:0,2.5m:236,5m:0,coarse:0,none:0 ... | build location load
+[CorridorTrace] LONG 12.35s build.pass pass=1 changed=true cells=1204 ms=183.5 | build location load -> pass 1
 ```
 
 - **Zeit:** Sekunden seit dem Laden des Orts: Seitenaufruf,
@@ -1187,53 +1125,55 @@ vitest (Specs schalten ihn selbst ein).
   (`MapRelocationService`). Ein Umsetzen ohne Neuladen läuft weiter.
 - **Ereignis**, dann seine Zahlen als `name=wert`.
 - **Auslöser** nach `|`: die Kette der Aufrufer und Gründe, der älteste
-  zuerst. Frames und Timer tragen die Kette weiter, unter der sie geplant
-  wurden (`refit.slice`, `refit.retry`, `convergence`). Im Neuaufbau trägt
-  jeder Schritt sein Label: `rebuild -> routes`, `rebuild -> walkPass 1`,
-  `rebuild -> lines`. Wo keine Kette hinführt, steht `caller` mit den zwei
-  Funktionen über dem Ereignis (im Production-Build minifiziert).
+  zuerst. Ein Bau trägt seinen Grund als `build <reason>`, und die Frames,
+  auf die er wartet, tragen die Kette weiter. Seine Schritte tragen ihr
+  Label: `build location load -> pass 1`, `-> last plan`, `-> lines`. Wo
+  keine Kette hinführt, steht `caller` mit den zwei Funktionen über dem
+  Ereignis (im Production-Build minifiziert).
 - **`LONG`:** ein Schritt, der in einem Frame länger als 16 ms lief
-  (`LONG_STEP_MS`): `rebuild`, `grid.generate`, `heights.slice`,
-  `clearance.slice`, `clearance.commit`, `convergence.retry`,
-  `routeLines.refresh`, `routes.refresh`, `tilesLoaded`.
+  (`LONG_STEP_MS`): `build.pass`, `rebuild`, `grid.generate`,
+  `clearance.slice`, `clearance.commit`, `routes.refresh`, `tilesLoaded`.
 
 | Ereignis | Wo | Zahlen |
 |---|---|---|
 | `load` | Beginn eines Orts | `label` |
 | `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis 5 m oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
 | `region.complete` | das erste Mal je Ort `coarse=0` | `tiles`, `finest` |
-| `convergence.schedule`, `convergence.settled` | `RouteGridConvergence` | `running` (lief schon); `frames`, `sweepFrames`, `retryPromoted`, `capped`, `wallMs` |
-| `heights` | Ende jedes Höhen-Sweeps (`RouteGridHeightSweep`), auch des blockierenden `updateTerrainHeights` im Neuaufbau und im Höhen-Update | `raycasted`, `promoted`, `refreshed`, `probedNoChange` (Zellen, bei denen der LOD-Peek ein feineres Tile versprach und die Probe trotzdem nichts änderte), `moved` (aufgefrischte Zellen, die sich mehr als 0,25 m bewegten), `maxMoveM`, `lod`, `slices`, `spanMs`, `maxSliceMs` |
-| `routeLines.refresh` | rote Linie, Marker und Animation nach einem Sweep neu (`scheduleBakedHeightRefresh`), Auslöser die erste Anfrage | `spawns`, `changedCells` (Zellen, die das Grid seit dem letzten Mal als geändert meldete; 0: nichts hat sich bewegt), `requests`, `animation` (Routen-Animation neu gestartet), `ms` |
+| `build.start` | Beginn eines Baus (`CorridorBuild.build`) | `reason`, `tiles` (es gibt 3D-Tiles; in DevWorld false) |
+| `build.tiles` | die Tiles der Region sind ruhig, oder der Timeout ist um | `target` (Fehlerziel der Region, m), `loadS`, `timedOut`, dazu der Stand der Region (`lodState`) |
+| `build.fallback` | ein Wechsel auf die gröbere Stufe und zurück | `what`: `stations` oder `cells`; `missing`, `found` |
+| `build.pass` | je Durchgang aus Routen, Zellen und Laufweg | `pass`, `changed` (der Laufweg hat etwas weggenommen), `cells`, `ms` |
+| `build.unsettled` | die Durchgänge kamen nicht zur Ruhe, der Bau friert mit dem letzten Plan ein | `passes`, `why` |
+| `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
+| `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `passes`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `passesMs` |
+| `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |
 | `routes.refresh` | jeder Neuaufbau der roten Linie (`PathAndRouteService.refreshRouteLines`, `refreshRouteLinesAsync` mit `async=true`) | `spawns`, `waypoints`, `ms` |
 | `routeAnimation.start` | jeder Start der Routen-Animation (`RouteAnimationService.startAnimation`), der ihren Strich-Versatz zurücksetzt | `routes`, `restart` (lief schon) |
-| `refit.fit`, `refit.remeasure`, `refit.flush`, `refit.change`, `refit.remeasureLater` | Entscheidungen in `CorridorRefit` | `outcome`: `measure`, `blocked: <Sperre>`, `held for the intro flight`, `wait <ms> (intro flight / run under way / interval)`, `nothing to measure`, `run under way`; `reason` bei `flush`, `remeasure` bei `change` |
-| `pending.unwalkable` | `hasUnwalkableCells` ist wahr, `remeasure` misst deshalb | `by`: `walkCaps` oder `detourPlans` |
-| `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `budgetMs` (die Budgets der Scheiben, `4/32` bei beiden), `overBudget` (Scheiben länger als ihr Budget: eine Scheibe nimmt mindestens eine Station), `maxSliceMs`, `meanSliceMs`, `msPerStation`, `busyMs`, `wallMs`, `flushed`; `reason` |
+| `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `budgetMs` (die Budgets der Scheiben, in einem Bau `32`), `overBudget` (Scheiben länger als ihr Budget: eine Scheibe nimmt mindestens eine Station), `maxSliceMs`, `meanSliceMs`, `msPerStation`, `busyMs`, `wallMs`; `reason` |
 | `store` | `storeClearance` | `changed` (eine Breite oder ein Umweg hat sich geändert), `by`: welche Daten neu sind, `measured` (der Lauf brachte Freiraum, den der Korridor nicht hatte), `walkCaps` (das Grid gab andere Kappen des Laufwegs), `detourPlans` (Umwege neu geplant); `capped` (Stationen mit Kappe), `plans`, `ms` (die ganze Übergabe) |
-| `walk.narrow` | Laufweg-Runde im Neuaufbau (`narrowToWalkable`) | `changed`, `by`, `capped`, `plans` |
+| `walk.narrow` | Laufweg in jedem Durchgang eines Baus (`narrowToWalkable`) | `changed`, `by`, `capped`, `plans` |
 | `grid.generate` | `GlobalRouteGrid.generateFromRoutes` | `cells`, `routes`, `ms` |
-| `rebuild` | Ende von `CorridorController.rebuildCorridors` | Delta, unten |
+| `rebuild` | Ende eines Baus, Delta über den ganzen Bau (`CorridorBuild`) | Delta, unten |
 | `intro.*`, `loading.done`, `heights.*` | aus der Kamera-Zeitleiste (`cameraTimeline`): Intro-Phasen, Ladeschirm-Gate (`intro.gateOpen`), Höhen-Update | wie dort, Auslöser `camera timeline` |
 
-**`lod`** (`lod=2m:12,5m:200,coarse:0,none:24`): die Säulen, die ein Lauf
-(je Station) oder ein Sweep (je Zelle) benutzt hat, nach dem geometricError
-ihres Tiles: bis 2 m (feiner als die Region verlangt, Tiles der Kamera), bis
-5 m (Ziel der Region und `maxTileError`), gröber, ohne Tile (bei Zellen:
-ohne eigenes Sample).
+**`lod`** (`lod=2m:12,2.5m:200,5m:4,coarse:0,none:24`): die Säulen, die ein
+Lauf je Station benutzt hat, nach dem geometricError ihres Tiles: bis 2 m
+(feiner als die Region verlangt), bis 2,5 m (die feinste Stufe, auf der ein
+Bau misst), bis 5 m (die Rückfallstufe und `maxTileError`), gröber, ohne
+Tile. Ein Bau misst auf 2,5 m; `5m:` über 0 sind die Stationen, die erst der
+Rückfall gemessen hat.
 
 **Delta eines Neuaufbaus** (`rebuild`). Vor und nach dem Neuaufbau je ein
 Schnappschuss: Höhe je Zelle (`GlobalRouteGrid.snapshotHeights`), die
 Halbbreiten links und rechts alle 2 m entlang jeder Route aus den Waypoints
 (`widthProfile`), die Zahl der Waypoints.
 
-- `by`: welche Daten seit dem letzten Neuaufbau neu sind: `measured`
+- `by`: welche Daten seit dem letzten Bau neu sind: `measured`
   (neuer Freiraum aus den Strahlen), `walkCaps` (andere Kappen des Laufwegs
   aus dem Grid in Gebrauch), `detourPlans` (Umwege neu geplant), `settings`
-  (`__corridor.set()`), mit `walkPass:` davor dasselbe aus den Laufweg-Runden
-  des Neuaufbaus; `none`.
-- `rays`: Strahlen aller Läufe seit dem letzten Neuaufbau. `rays=0` mit
-  `by=walkCaps` oder `detourPlans` ist ein Neuaufbau ohne neue Messung.
+  (`__corridor.set()`); `none`.
+- `rays`: Strahlen aller Läufe seit dem letzten Bau. `rays=0` mit
+  `by=walkCaps` oder `detourPlans` ist ein Bau ohne neue Messung.
 - `cells` alt->neu, `added`, `removed`, `moved` (mehr als 0,25 m,
   `HEIGHT_MOVE_M`), `maxMoveM`, `lostHeight`, `gotHeight`.
 - `widthPoints`: Punkte mit anderer Halbbreite / verglichene Punkte; ein
@@ -1265,16 +1205,15 @@ Segmente), nicht gemessen.
 - Auf welchen Tiles: `lod` in `clearance.commit` und `heights`; `2m:` über
   0 heißt, feinere Tiles als die Region (Kamera, Zoom) sind eingeflossen.
   `region.complete` sagt, wann die Region zum ersten Mal ganz verfeinert war.
-- Warum nichts passiert: `refit.remeasure outcome=...` und `refit.fit
-  outcome=...`.
+- Warum ein Bau nicht eingefroren hat: `build.cancel reason=superseded` oder
+  `routes replaced`; warum er die Durchgänge abgebrochen hat:
+  `build.unsettled`.
 - Welcher Frame hängt: `[CorridorTrace] LONG`. Ob die Messung ihr Budget
   hält: `overBudget` und `msPerStation` in `clearance.commit`.
-- Was sich ohne Neuaufbau sichtbar tut: `routeLines.refresh changedCells=0`
-  baut rote Linie und Marker neu, ohne dass eine Zelle sich bewegt hat,
-  `animation=true` startet dabei die Routen-Animation neu; `routes.refresh`
-  zeigt jeden Neuaufbau der Linie mit seinem Auslöser, auch die mehrfachen
-  in einem `rebuild`; `probedNoChange` in `heights` zählt Proben, die nichts
-  brachten.
+- Was die rote Linie neu baut: `routes.refresh` mit seinem Auslöser. Nach
+  dem Einfrieren darf keine Zeile mehr kommen, bis der nächste Bau läuft;
+  jede dort ist ein Neubau, den niemand bestellt hat. Dasselbe gilt für
+  `grid.generate` und `routeAnimation.start`.
 
 ```js
 __corridor.trace()        // Zeitleiste dieser Ortsladung als Tabelle (console.table)
@@ -1323,7 +1262,7 @@ __corridor.trace(false)                                 // Trace aus, trace(true
   ist, die Sperre greift oder ein Wert abgelehnt wird (unbekannter Name, Wert
   außerhalb des Bereichs, Minimum über Maximum). Sonst kommt
   `Corridor rebuilt[, measured again]: N cells. Widths per stretch: __routes.describe()`
-  zurück (`CorridorRefit.change`).
+  zurück (`CorridorBuild.change`).
   - Die Werte gelten bis zum Neuladen der Seite; dauerhaft heißt
     `CORRIDOR_DEFAULTS` im Code ändern.
 - **`towerCells`** gibt eine Tabelle zum Tower zurück (`CorridorConsole.describeTowerCells`):
@@ -1511,8 +1450,8 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
      Welle läuft, Gegner da sind, der Intro-Flug läuft oder eine
      Korridormessung offen ist, ebenso ohne Tiles (DevWorld) oder ohne Region.
   2. Hält die beruhigten Tile-Ladungen vom Spiel fern (`SettleHold`): kein
-     Sprung der `lodVersion`, kein Höhen-Sweep, kein `remeasure`, solange sie
-     läuft. Setzt das Fehlerziel der Kamera auf 1e6 px
+     Sprung der `lodVersion`, solange sie läuft. Setzt das Fehlerziel der
+     Kamera auf 1e6 px
      (`MUTED_CAMERA_ERROR_TARGET`): Die Kamera verfeinert nichts mehr, die
      Region weiter bis zu ihrem Ziel.
   3. Je Ziel: Fehlerziel der Region setzen, warten, bis 0,5 s lang nichts
@@ -1548,9 +1487,9 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   | `rays`, `rayMs`, `hitsPerRay` | Säulen- und Seitenstrahlen des Durchlaufs; `__raycastStats()` bucht sie unter `corridorLodProbe` |
 
   `corridorUnchanged` sagt, ob sich der Korridor während der Probe geändert
-  hat (Fingerprint vor und nach der Probe, vor der Freigabe). Nach der Freigabe läuft der weitergegebene
-  Tile-Schub wie jeder andere: Sweep, Konvergenz, `remeasure`. Fingerprints
-  daher vor der Probe nehmen oder nach einem Neuladen.
+  hat (Fingerprint vor und nach der Probe, vor der Freigabe). Seit der
+  Korridor eingefroren wird, ändert der weitergegebene Tile-Schub danach
+  nichts mehr an ihm; die Probe misst nur und baut nie.
 
   Grenzen: Während der Probe fallen die Tiles außerhalb der Region auf grobe
   LOD, das Bild wird grob. Bei `cacheFull` starten keine neuen Downloads; die
