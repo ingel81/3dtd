@@ -57,7 +57,12 @@ zoomen und mit G springen.
   Zellen auf den Transportern, Tokyo ohne Ausreißer.
 - **743 Turm in Rothenburg: Befund.** Am Turm mit Durchgang steigt der Korridor über den Turm, statt unten
   durchzugehen. Die Zellen sind gelb, also als Durchgang erkannt, nehmen aber die falsche Höhe; dazu
-  `cellsWithoutHeight=7` (sonst überall 0). Worker corrpassage.
+  `cellsWithoutHeight=7` (sonst überall 0). **Behoben (2026-09-16, `35539d1d`):** Unter dem Weißen Turm (Stadttor,
+  8,7 m tief) stand das Rückgrat selbst auf dem Turm, deshalb erkannten alle Bandregeln den Durchgang nur an seinen
+  Enden, das Portal fand keine Antwort, und die Zellen dazwischen nahmen das Dach. Jede Station trägt jetzt eine
+  eigene Straßenhöhe (geglättet über 30 m); Durchgangserkennung, die zweite Durchgangsregel und die Portalhöhe lesen
+  diese. Deckt Torturm, Torbogen, Auskragung und Steg ab, nicht Durchgänge über 30 m Tiefe. Die sieben Zellen ohne
+  Höhe ließen sich nicht nachstellen, siehe nächsten Lauf. Nachtest: siehe `tmp/fix1/reports/corrpassage.md`.
 - **745 Ortswechsel im Spiel ändert den Korridor.** Erlenbach laden, dann im Spiel nach Tokyo navigieren: Fingerprint
   `fa4461be` statt `e51f7114` beim frischen Laden. Abweichend sind `band` (`23291918` statt `40f24cbd`) und `heights`
   (`813a9c6f` statt `8ae65891`); `stations`, `cells` und `tiles` sind gleich, alle Anzahlen identisch. Also weichen
