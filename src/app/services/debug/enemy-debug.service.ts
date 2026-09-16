@@ -1,5 +1,5 @@
 import { Injectable, Signal, signal, computed, inject } from '@angular/core';
-import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, getDebugEnemyTypes, getEnemyTypeIds } from '../../configs/enemy-types.config';
 import { Enemy } from '../../entities/enemy.entity';
 import { RouteWaypoint } from '../../models/game.types';
 import { GameStateManager } from '../../managers/game-state.manager';
@@ -48,8 +48,8 @@ export class EnemyDebugService {
   /** Aktuell selektierter Debug-Enemy (für Live-Editing) */
   readonly selectedDebugEnemyId = signal<string | null>(null);
 
-  /** Alle verfügbaren Enemy-Typen */
-  readonly enemyTypes = computed(() => getEnemyTypeIds());
+  /** Die Enemy-Typen der Auswahl (getDebugEnemyTypes) */
+  readonly enemyTypes = computed(() => getDebugEnemyTypes().map((type) => type.id as EnemyTypeId));
 
   /** Aktuelle Overrides für den ausgewählten Enemy-Typ (für Placement) */
   readonly currentOverrides = computed(() => {

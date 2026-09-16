@@ -1,6 +1,7 @@
 import {
   ENEMY_TYPES,
   getAllEnemyTypes,
+  getDebugEnemyTypes,
   getEnemyType,
   getEnemyTypeIds,
   lineageHp,
@@ -22,6 +23,12 @@ describe('enemy types config', () => {
       for (let depth = 0; next && depth < 4; depth++) next = ENEMY_TYPES[next]?.splitOnDeath?.type;
       expect(next, `${enemy.id} split chain`).toBeUndefined();
     }
+  });
+
+  it('offers Skarnax to Custom Wave and Enemy Debug as the worm and its segment, not its tail', () => {
+    const skarnax = getDebugEnemyTypes().map((e) => e.id).filter((id) => id.startsWith('worm'));
+    expect(skarnax).toEqual(['worm', 'worm-segment']);
+    expect(getDebugEnemyTypes()).toHaveLength(getAllEnemyTypes().length - 1);
   });
 
   it('flags the machines as mechanical: tank and mech', () => {

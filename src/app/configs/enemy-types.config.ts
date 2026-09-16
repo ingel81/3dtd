@@ -178,6 +178,12 @@ export interface EnemyTypeConfig {
   chain?: EnemyChain; // Walks as a chain of segments, each an enemy of this type (worm)
   /** A body along the route instead of a model instance (the ooze), see OozeConfig */
   ooze?: OozeConfig;
+  /**
+   * Left out of the enemy lists of Custom Wave and Enemy Debug
+   * (getDebugEnemyTypes): a model of another type's body that is no use to
+   * spawn on its own.
+   */
+  debugUnlisted?: boolean;
 
   // Preview
   previewScale?: number; // Override scale for model preview (sidebar)
@@ -998,12 +1004,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'worm-tail': {
     // The last ring of a worm, with its tail plates and cerci: drawn from
     // this pool once the worm's last segment is out (chain.tailModel), and
-    // for the segment in front of a gap. On its own a single tail with the
-    // worm's stats, like worm-segment.
+    // for the segment in front of a gap. Not offered on its own in the
+    // debug lists; worm-segment is the ring to tune there.
     id: 'worm-tail',
     name: 'Skarnax Tail',
     ...WORM_MODELS.tail,
     ...WORM_STATS,
+    debugUnlisted: true,
   },
 
   ooze: {
@@ -1103,6 +1110,11 @@ export function getAllEnemyTypes(): EnemyTypeConfig[] {
 
 export function getEnemyTypeIds(): EnemyTypeId[] {
   return Object.keys(ENEMY_TYPES) as EnemyTypeId[];
+}
+
+/** The types Custom Wave and Enemy Debug offer: all but the `debugUnlisted` ones. */
+export function getDebugEnemyTypes(): EnemyTypeConfig[] {
+  return getAllEnemyTypes().filter((type) => !type.debugUnlisted);
 }
 
 /** Guard against a split cycle in the config (a type splitting into itself). */

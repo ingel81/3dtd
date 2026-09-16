@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { EnemyTypeId, getDebugEnemyTypes, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { UIStore } from '../../store/ui.store';
 import { DebugStore } from '../../store/debug.store';
 import { WaveConfig as AIWaveConfig } from '../../ai/core/models/wave-config';
@@ -67,7 +67,7 @@ export class WaveDebugService {
   );
 
   // Available enemy types
-  readonly enemyTypes = computed(() => getAllEnemyTypes());
+  readonly enemyTypes = computed(() => getDebugEnemyTypes());
 
   // Current enemy config based on selected type
   readonly currentEnemyConfig = computed(() => {
@@ -132,7 +132,7 @@ export class WaveDebugService {
   addGroup(): void {
     const existing = this.mixedGroups();
     const usedTypes = new Set(existing.map(g => g.enemyType));
-    const allTypes = getAllEnemyTypes();
+    const allTypes = this.enemyTypes();
     const nextType = allTypes.find(t => !usedTypes.has(t.id as EnemyTypeId));
 
     this.mixedGroups.update(groups => [

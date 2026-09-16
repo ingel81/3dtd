@@ -53,7 +53,7 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
 | **worm** | heavy | 35 je Segment | 4.5 | – | Boss, Kette aus Segmenten (`chain`, siehe [Kette](#kette-chain-der-wurm)), jedes Segment ein eigener Gegner; Endlos-Rotation ab W35, kein Template |
 | worm-segment | heavy | 35 | 4.5 | – | Modell der Wurm-Segmente (eigener VAT-Pool). Einzeln gespawnt ein einzelner Ring mit den Werten des Wurms |
-| worm-tail | heavy | 35 | 4.5 | – | Modell des letzten Segments eines Wurms (eigener VAT-Pool): Ring mit Schwanzplatten und Cerci. Einzeln gespawnt ein einzelnes Schwanzstück mit den Werten des Wurms |
+| worm-tail | heavy | 35 | 4.5 | – | Modell des letzten Segments eines Wurms (eigener VAT-Pool): Ring mit Schwanzplatten und Cerci. Steht nicht in den Listen von Custom Wave und Enemy Debug (`debugUnlisted`) |
 | **ooze** | unarmored | 3000 | 3 | – | Boss (2026-09-14), `isBoss`, ein Körper entlang der Route statt eines Modells ([Körper entlang der Route](#körper-entlang-der-route-ooze)), fließt an der HQ Meter für Meter hinein, zerfällt beim Kill in Slime Clumps. Boss-Variante der Endlos-Rotation, kein Template |
 | slime-clump | unarmored | 15 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
 
