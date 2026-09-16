@@ -797,16 +797,62 @@ Strahlen erlauben (`fitCorridorStations`, ohne weitere Kappen), und die Säulen
 auf dem Zellraster bis `maxHalfWidth` beiderseits. Stationen bleiben alle
 `stationSpacing`.
 
-**Rückgrat** je Station: die tiefste plausible Zelle quer zur Linie innerhalb der
-OSM-Halbbreite plus `BACKBONE_SLACK_M` (1,5 m) und innerhalb der Strahlenwände.
-Plausibel heißt: nicht hohl (`hollow`), eine Nachbarzelle quer innerhalb
-`stepRise` (ein Einzelloch wird nicht Start; in einer einzelligen Gasse zwischen
-Häusern gilt die Regel nicht, weil dort kein Nachbar zwischen den Wänden liegt),
-und Straße: höchstens `stepDrop` unter der Zelle der OSM-Linie, oder die Linie
-kommt innerhalb von vier Stationen bis auf `stepRise` an sie heran. Ohne diese
-letzte Bedingung wird der Fluss neben einem Kai oder die Böschung eines Damms
-zum Start. Liegt ein Start mehr als `stepDrop` unter dem Median der Starts von
-±2 Stationen (Gully, Loch im Mesh), nimmt die Station die tiefste Zelle darüber.
+**Rückgrat-Kandidaten** je Station: die plausiblen Zellen quer zur Linie innerhalb
+der OSM-Halbbreite plus `BACKBONE_SLACK_M` (1,5 m) und innerhalb der
+Strahlenwände. Plausibel heißt: nicht hohl (`hollow`), eine Nachbarzelle quer
+innerhalb `stepRise` (ein Einzelloch wird nicht Start; in einer einzelligen Gasse
+zwischen Häusern gilt die Regel nicht, weil dort kein Nachbar zwischen den Wänden
+liegt), und Straße: höchstens `stepDrop` unter der Zelle der OSM-Linie, oder die
+Linie kommt innerhalb von vier Stationen bis auf `stepRise` an sie heran. Ohne
+diese letzte Bedingung wird der Fluss neben einem Kai oder die Böschung eines
+Damms zum Start. Liegt die tiefste Kandidatin einer Station mehr als `stepDrop`
+unter dem Median der tiefsten von ±2 Stationen (Gully, Loch im Mesh), fallen
+die Kandidatinnen darunter weg (`withoutPits`), sofern welche übrig bleiben.
+
+**Wege quer** (`sectionsOf`): Von der tiefsten Kandidatin aus wird das Band
+gelaufen (Bandkanten, unten), dann von der tiefsten, die dieses Band nicht
+erreicht, und so weiter, bis jede Kandidatin in einem Band liegt. Zwei Wege einer
+Station liegen nebeneinander, getrennt durch das, woran ihr Lauf endete: ein
+hohles Objekt, eine Stufe, einen Abfall.
+
+**Rückgrat als Kette** (`chainSections`, seit 2026-09-16): Die Route wählt je
+Station einen Weg, als kürzester Weg über Stationen und Wege (Viterbi) über jede
+Folge von Stationen mit Wegen, deterministisch, bei Gleichstand der tiefere Weg.
+Verglichen wird der Reihe nach:
+
+1. **Wechsel ohne Überlappung:** Überlappt der Weg einer Station den der Station
+   davor nicht (Versätze der Kanten), kreuzt die Linie das, was beide Läufe
+   beendet hat. So wenige wie möglich.
+2. **Erhöht:** Meter, die das Rückgrat eines Wegs mehr als `stepRise` über dem
+   tiefsten Rückgrat seiner Station liegt, summiert. Innerhalb einer Stufe zählt
+   die Höhe nicht: ein Grünstreifen 0,46 m unter der Fahrbahn, ein Rinnstein.
+3. **Abseits:** Meter, die ein Weg neben der OSM-Linie liegt (0, wo sie in ihm
+   liegt), summiert.
+
+Damit steigt das Band von einem Auto, einer Hecke oder einem Erker, über die die
+OSM-Linie läuft, auf die Straße daneben: Dieser Weg liegt tiefer und überlappt die
+Stationen ringsum ebenso. Füllt ein Auto die Gasse, ist es der einzige Weg, das
+Band liegt darauf (E6). Um eine lange Objektreihe herum wechselt die Kette die
+Seite, wo kein Weg herum führt, einmal. Das Rückgrat ist die Kandidatin, von der
+aus der gewählte Weg gelaufen wurde, die Bandkanten sind die seines Laufs.
+
+**Anlass** (Playtest 748, Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`,
+Analyse `tmp/fix1/reports/cornerband.md`): Vorher nahm jede Station für sich die
+tiefste Kandidatin. An der Kurve lag eine Grünstreifen-Zelle unter einer Hecke
+0,46 m tiefer als die Fahrbahn, Station 188 legte ihr Band dorthin, die Nachbarn
+auf die Fahrbahn; im Einmündungsbereich legte 192 ihr Band nördlich eines Masts.
+Der Taper entlang der Route (`taperEdges`) begrenzt jede Kante gegen die Nachbarn
+und klemmt sie am eigenen Rückgrat, so schnitten sich die seitlich getrennten
+Bänder auf 0 bis 1,5 m ab, wo jeder Lauf für sich 4 bis 14 m breit war. Derselbe
+Kern in Berlin (Platz der Republik, ein hohles Objekt zwischen den Seiten) und
+Paris (Place de Varsovie, der Boden hinter einer Reihe hohler Zellen 3 cm tiefer).
+Nachgestellt in `integration/corridor-band.snapshots.spec.ts` auf Ausschnitten der
+Snapshots (`integration/fixtures/band/README.md`) und in `corridor-band.spec.ts`
+(Grünstreifen hinter einer Hecke, Objekt zwischen den Seiten, Seitenwechsel an
+einer langen Objektreihe). Die Klemme am Rückgrat in `taperEdges` bleibt: Sie
+greift auch zwischen überlappenden Nachbarn, wo das Rückgrat nahe einer Kante
+liegt, und hält jedes Band nicht leer. Wo die Kette die Seite wechseln muss,
+schneidet sie die Bänder dort weiterhin auf das Rückgrat zu.
 
 **Bandkanten** je Station und Seite: vom Rückgrat quer nach außen, Zelle für
 Zelle, mit den Stufen-, Abfall- und Querneigungsregeln des Laufwegs (oben), nur
@@ -955,7 +1001,9 @@ Querneigung, Durchgang, Übersteigen, Determinismus, Durchgänge in jeder
 Gitterlage), `integration/corridor-band.scenes.spec.ts` (fünf echte OSM-Routen
 mit den Zellen der Playtests, je zweimal mit gleichem Bericht; Weißer Turm,
 Pont d'Iéna und A6 in jeder Gitterlage auf eine Viertelzelle, `LATTICE_SHIFTS`),
-`managers/worm/worm-detour.spec.ts` (Wurm neben einem Transporter).
+`managers/worm/worm-detour.spec.ts` (Wurm neben einem Transporter),
+`integration/corridor-band.snapshots.spec.ts` (Stuttgart, Berlin, Paris und zwei
+Engstellen an Wänden auf den Säulen der Snapshots, Playtest 748).
 
 ## Seitenversatz der Gegner
 
