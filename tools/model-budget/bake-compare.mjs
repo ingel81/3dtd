@@ -1,6 +1,7 @@
 // Compares two enemy GLBs in bake space, sampled the way vat-baker.ts bakes:
 // 30 fps, skinned meshes through applyBoneTransform, otherwise the meshes'
-// animated node transforms, death clips cut at 2 s x animationSpeed. Prints
+// animated node transforms, death clips cut where vatDeathSeconds cuts them:
+// the type's deathDuration x animationSpeed. Prints
 // vertex counts, clip lengths and the bounding box per clip; with two files
 // also the largest bounding-box and centroid deviation per frame and a
 // nearest-vertex distance at three frames, all in % of the model height.
@@ -8,6 +9,7 @@
 // usage (from the repo root, Node 24):
 //   node tools/model-budget/bake-compare.mjs <a.glb> [<b.glb>] --clips walk,run
 //        [--death die1,die2] [--speed animationSpeed]
+//        [--death-ms ms]     the type's deathDuration (enemy-types.config.ts), default 2000
 //        [--offset s]        sample <a> from clip time s on (a cut clip against its source window)
 //        [--scale f]         multiply the positions of <b> (a unit change)
 //        [--rename a=b,...]  clips named differently in <b>
@@ -16,7 +18,8 @@ import * as THREE from 'three';
 import { loadGlb } from './glb-node.mjs';
 
 const FPS = 30;
-const DEATH_SECONDS = 2; // TIMING.deathAnimationDuration
+/** TIMING.deathAnimationDuration, for a type without a deathDuration of its own */
+const DEFAULT_DEATH_MS = 2000;
 
 const args = process.argv.slice(2);
 const opt = (name, fallback) => {
@@ -155,7 +158,7 @@ models.forEach((m, i) => {
   console.log(`[${i}] ${files[i]}: ${mode}, ${meshes.length} meshes, ${vertices} vertices, clips: ${clips}`);
 });
 
-const deathSeconds = DEATH_SECONDS * parseFloat(opt('speed', '1'));
+const deathSeconds = (parseFloat(opt('death-ms', String(DEFAULT_DEATH_MS))) / 1000) * parseFloat(opt('speed', '1'));
 const offset = parseFloat(opt('offset', '0'));
 const scale = parseFloat(opt('scale', '1'));
 const plan = [...list('clips').map((n) => [n, Infinity]), ...list('death').map((n) => [n, deathSeconds])];
