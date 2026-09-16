@@ -27,9 +27,6 @@ export class HeightUpdateService {
   /** Height updates in progress */
   readonly heightsLoading = signal(true);
 
-  /** Current height update progress (attempt count) */
-  readonly heightProgress = signal(0);
-
   // ========================================
   // STATE
   // ========================================
@@ -114,7 +111,6 @@ export class HeightUpdateService {
     this.heightUpdateAttempts = 0;
     this.overlayHeightsUpdated = false;
     this.heightsLoading.set(true);
-    this.heightProgress.set(0);
 
     // Update detail for first cycle
     if (this.onUpdateDetailCallback) {
@@ -140,7 +136,6 @@ export class HeightUpdateService {
     }
 
     this.heightUpdateAttempts++;
-    this.heightProgress.set(this.heightUpdateAttempts);
 
     // Update step detail for live progress display - show what's happening
     if (this.onUpdateDetailCallback) {
@@ -266,6 +261,5 @@ export class HeightUpdateService {
     this.heightUpdateAttempts = 0;
     this.overlayHeightsUpdated = false;
     this.heightsLoading.set(true);
-    this.heightProgress.set(0);
   }
 }

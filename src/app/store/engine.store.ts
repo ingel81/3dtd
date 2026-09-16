@@ -7,7 +7,7 @@ export class EngineStore {
   // EngineInitializationService (the writer). TowerDefenseStore proxies them
   // directly from the service. EngineStore no longer duplicates them.
 
-  // NOTE: tilesLoading, osmLoading, heightsLoading, heightProgress
+  // NOTE: tilesLoading, osmLoading, heightsLoading
   // are owned by EngineInitializationService / HeightUpdateService (the writers).
   // Component reads them directly from those services.
 

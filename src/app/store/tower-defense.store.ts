@@ -124,7 +124,7 @@ export class TowerDefenseStore {
   readonly loading = this.engineInit.loading;
 
   // NOTE: tilesLoading, osmLoading owned by EngineInitializationService;
-  // heightsLoading, heightProgress owned by HeightUpdateService.
+  // heightsLoading owned by HeightUpdateService.
   // Component reads directly from those services (they are the signal owners).
 
   /** Error message (null = no error) — owned by EngineInitializationService */
