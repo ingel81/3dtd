@@ -1101,9 +1101,13 @@ vitest (Specs schalten ihn selbst ein).
   Label: `build location load -> pass 1`, `-> last plan`, `-> lines`. Wo
   keine Kette hinführt, steht `caller` mit den zwei Funktionen über dem
   Ereignis (im Production-Build minifiziert).
-- **`LONG`:** ein Schritt, der in einem Frame länger als 16 ms lief
-  (`LONG_STEP_MS`): `build.band`, `rebuild`, `grid.generate`,
-  `clearance.slice`, `clearance.commit`, `routes.refresh`, `tilesLoaded`.
+- **`LONG`:** ein Schritt, der in einem Frame länger lief als sein Budget:
+  `build.band`, `rebuild`, `grid.generate`, `clearance.commit`,
+  `routes.refresh`, `tilesLoaded` gegen 16 ms (`LONG_STEP_MS`),
+  `clearance.slice` gegen das Budget der Scheibe selbst
+  (`CorridorBuild.SLICE_MS`, 32 ms). Bis 2026-09-16 galten für alle 16 ms;
+  damit war jede Messscheibe `LONG`, 15 bis 33 Zeilen je Ortsladung, die
+  nichts meldeten außer der Absicht.
 
 | Ereignis | Wo | Zahlen |
 |---|---|---|
@@ -1174,8 +1178,9 @@ Segmente), nicht gemessen.
 - Warum ein Bau nicht eingefroren hat: `build.cancel reason=superseded` oder
   `routes replaced`. Was das Band ergab: `build.band` mit Routen, Stationen,
   Durchgängen, steilster Bewegung und engster Krümmung der Gegnerlinie.
-- Welcher Frame hängt: `[CorridorTrace] LONG`. Ob die Messung ihr Budget
-  hält: `overBudget` und `msPerStation` in `clearance.commit`.
+- Welcher Frame hängt: `[CorridorTrace] LONG`. Eine Messscheibe steht dort
+  nur, wenn sie über ihr eigenes Budget lief; ob die Messung es insgesamt
+  hält, sagen `overBudget` und `msPerStation` in `clearance.commit`.
 - Was die rote Linie neu baut: `routes.refresh` mit seinem Auslöser. Nach
   dem Einfrieren darf keine Zeile mehr kommen, bis der nächste Bau läuft;
   jede dort ist ein Neubau, den niemand bestellt hat. Dasselbe gilt für

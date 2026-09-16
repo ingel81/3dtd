@@ -1516,7 +1516,8 @@ class ClearanceRun implements CorridorMeasurement {
     this.sliceMsTotal += sliceMs;
     this.budgets.add(budgetMs);
     if (sliceMs > budgetMs) this.overBudget++;
-    corridorTrace.cost('clearance.slice', sliceMs, { stations: here, budgetMs });
+    // Against its own budget, not LONG_STEP_MS: these slices aim at budgetMs.
+    corridorTrace.cost('clearance.slice', sliceMs, { stations: here, budgetMs }, budgetMs);
     return this.next() === null;
   }
 

@@ -91,9 +91,22 @@ describe('corridor trace', () => {
     });
 
     it('flag a step longer than a frame, and only such a step', () => {
-      corridorTrace.cost('rebuild', LONG_STEP_MS, {}, 'x');
-      corridorTrace.cost('rebuild', 183.5, { cells: 988 }, 'x');
+      corridorTrace.cost('rebuild', LONG_STEP_MS, {}, LONG_STEP_MS, 'x');
+      corridorTrace.cost('rebuild', 183.5, { cells: 988 }, LONG_STEP_MS, 'x');
       expect(lines).toEqual([expect.stringMatching(/^\[CorridorTrace\] LONG \d+\.\d\ds rebuild ms=183\.5 cells=988 \| x$/)]);
+    });
+
+    /**
+     * Work that is sliced on purpose is measured against the budget it was
+     * given: the clearance runs in slices of CorridorBuild.SLICE_MS (32 ms),
+     * so against LONG_STEP_MS every single slice came out LONG, 15 to 33
+     * lines of noise per location load (playtest 2026-09-16).
+     */
+    it('measure sliced work against its own budget, not against a frame', () => {
+      corridorTrace.cost('clearance.slice', 31, { stations: 9, budgetMs: 32 }, 32, 'x');
+      expect(lines).toEqual([]);
+      corridorTrace.cost('clearance.slice', 40, { stations: 9, budgetMs: 32 }, 32, 'x');
+      expect(lines).toEqual([expect.stringMatching(/LONG \d+\.\d\ds clearance\.slice ms=40 stations=9 budgetMs=32 \| x$/)]);
     });
 
     it('stay away while the trace is off, and the code under a label still runs', () => {

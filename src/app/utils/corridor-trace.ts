@@ -17,7 +17,14 @@ import type { RouteWaypoint } from '../models/game.types';
  * How to read it: docs/ROUTE_CORRIDOR.md, "Trace".
  */
 
-/** A corridor step longer than this in one frame gets a `[CorridorTrace] LONG` line. */
+/**
+ * A corridor step longer than this in one frame gets a `[CorridorTrace] LONG`
+ * line. Work that is sliced on purpose hands `cost()` its own budget and is
+ * measured against that instead: the clearance runs in slices of
+ * CorridorBuild.SLICE_MS (32 ms), so against these 16 ms every single slice
+ * came out LONG, 15 to 33 lines of noise per location load (playtest
+ * 2026-09-16, all five places).
+ */
 export const LONG_STEP_MS = 16;
 
 /** A cell whose height moved more than this counts as moved (rebuild delta, height sweeps). */
@@ -303,9 +310,14 @@ export class CorridorTrace {
     this.write('', event, detail, trigger);
   }
 
-  /** A `LONG` line when `ms` spent on `step` in one frame is more than LONG_STEP_MS. */
-  cost(step: string, ms: number, detail: Record<string, unknown> = {}, trigger?: string): void {
-    if (!this.on || ms <= LONG_STEP_MS) return;
+  /**
+   * A `LONG` line when `ms` spent on `step` in one frame is more than
+   * `budgetMs`, by default LONG_STEP_MS. Work that runs in slices of a budget
+   * of its own passes that budget: a slice that keeps to it is doing what it
+   * was told and says nothing, one that overruns it still shows.
+   */
+  cost(step: string, ms: number, detail: Record<string, unknown> = {}, budgetMs = LONG_STEP_MS, trigger?: string): void {
+    if (!this.on || ms <= budgetMs) return;
     this.write('LONG ', step, { ms, ...detail }, trigger);
   }
 
