@@ -8,7 +8,7 @@ off the real one passed while the game failed. Scenes build on these lines, not 
 |---|---|---|---|
 | `erlenbach-732.json` | `?l=49.17337,9.26851&s=49.17434,9.25915` | 11 ways, way 959083801 Erlenbacher Weg | parked cars along the line, street on one side only, holes, columns without a hit |
 | `erlenbach-weinsberger-a6.json` | spawn and HQ set on L 1101 either side of the A6 | 3 ways of L 1101 (230161782, 230161781, 283608415), under the A6 decks 15258911, 15258913 | a route under a bridge of another way (tunnel) |
-| `rothenburg-galgengasse.json` | `?l=49.37721,10.17904&s=49.37944,10.18365` | 14 ways, Galgengasse 1115686347, Georgengasse 139711828 `tunnel=yes` | a car hollow in the mesh, an archway |
+| `rothenburg-galgengasse.json` | `?l=49.37721,10.17904&s=49.37944,10.18365` | 14 ways, Galgengasse 1115686347, Georgengasse 139711828 `tunnel=yes`, 23 structures | a car hollow in the mesh, the archway through the gate tower Weisser Turm (139711833) |
 | `berlin-platz-der-republik.json` | `?l=52.51630,13.37759&s=52.51861,13.37529` | 13 ways across the square | an open square with small objects |
 | `paris-pont-d-iena.json` | `?l=48.85889,2.29320&s=48.86239,2.29190` | 8 ways, Place de Varsovie to the bridge 1322092757 | the stretch off a bridge end, a hollow under the road |
 
@@ -29,6 +29,12 @@ One JSON object per file:
   height or the column's lowest hit), `topM` (highest hit where reported), `cell: false` for a spot the corridor
   lost, `what`, `from` (the report).
 - `picks`: measurements without a cell position (heights under a deck, picks along a route).
+- `structures` (optional): what stands over or beside the route, for scenes that need the lane to be built up:
+  `wayId`, the closed ring `points` (lat, lon), `heightM` and `heightFrom` (the `height` tag, else
+  `building:levels` times 3.3 plus `roof:levels` times 2, else assumed). Not part of the street network: these
+  ways carry no `highway` tag and stay out of `elements`, so `findPath` and `StreetEdgeIndex.match` do not see
+  them. A scene turns them into columns itself and says how far it lets the photogrammetry reach past the
+  footprint.
 
 ## How they were cut
 
