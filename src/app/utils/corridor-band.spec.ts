@@ -20,6 +20,7 @@ function street(wall = 7, half = 2.75, wallRight = wall): BandRoute {
   return {
     points: [{ x: 0, z: 1 }, { x: 120, z: 1 }],
     open: [true],
+    covered: [false],
     streetHalfWidth: [half],
     wallLeft: [new Array<number>(60).fill(wall)],
     wallRight: [new Array<number>(60).fill(wallRight)],

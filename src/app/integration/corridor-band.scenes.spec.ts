@@ -212,7 +212,7 @@ function cutRoute(fixture: Fixture, frame: Frame, walls: Walls): Cut {
     wallLeft.push(side('left'));
     wallRight.push(side('right'));
   }
-  return { route: { points, open: band, streetHalfWidth: halfWidths, wallLeft, wallRight }, ways, onBridge, inTunnel, approach };
+  return { route: { points, open: band, covered: inTunnel, streetHalfWidth: halfWidths, wallLeft, wallRight }, ways, onBridge, inTunnel, approach };
 }
 
 interface Run {
