@@ -17,7 +17,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [EVENT_SYSTEM.md](EVENT_SYSTEM.md) | Aktuell | Event Bus, Event-Typen, Manager-Kommunikation |
 | [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) | Aktuell | Signal Store (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug), Facade Pattern, Persistence |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Aktuell | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
-| [TODO.md](../TODO.md) | Aktuell | Offene Aufgaben und bekannte Bugs |
+| [TODO.md](../TODO.md) | Aktuell | Die eine Liste offener Arbeit: vor dem Merge, Entscheidungen, Bugs, Features, Messungen, Konzepte, Ideen, Aufräumen |
 | [DONE.md](../DONE.md) | Aktuell | Changelog, neueste zuerst |
 
 ## Features & Systeme
@@ -83,6 +83,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
+| [RUN_DUMP_PLAN.md](RUN_DUMP_PLAN.md) | Plan | Ein ganzer Lauf als Datei fürs Balancing: Inhalt, Bestand im Code, Anforderungen des Users, Balance-Fragen, die darauf warten |
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. PoC abgeschlossen und zurückgebaut |
 
@@ -129,7 +130,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...den Signal Store verstehen | [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) |
 | ...wissen, welche Services es gibt | [ARCHITECTURE.md](ARCHITECTURE.md) → Services |
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
-| ...einen Bug fixen | [TODO.md](../TODO.md) |
+| ...wissen, was offen ist (Bugs, Entscheidungen, Features) | [TODO.md](../TODO.md) |
 | ...wissen, was schon fertig ist | [DONE.md](../DONE.md) |
 | ...wissen, was im Spiel noch nachzutesten ist | [PLAYTEST.md](PLAYTEST.md) |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
