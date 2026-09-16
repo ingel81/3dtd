@@ -294,6 +294,48 @@ function expectGentle(band: CorridorBand): void {
   expect(band.maxSlope).toBeLessThan(0.25);
 }
 
+/**
+ * Columns and rays over the fixture's `structures` on a flat street at
+ * `streetY`: every structure a block at the height its OSM tags give, its
+ * mesh reaching `spill` metres past its footprint. The rays stop
+ * `wallMargin` short of the first structure either side, as the clearance
+ * measurement leaves room. `noHit`: where a column meets nothing at all.
+ */
+function structureScene(fixture: Fixture, streetY: number, spill: number, noHit: (x: number, z: number) => boolean = () => false) {
+  const frame = frameOf(fixture.hq);
+  const line = fixture.routePoints.map(([lat, lon]) => frame.toLocal({ lat, lon }));
+  const rings = fixture.structures!.map((s) => ({
+    wayId: s.wayId, top: streetY + s.heightM, ring: s.points.map(([lat, lon]) => frame.toLocal({ lat, lon })),
+  }));
+  const solidAt = (x: number, z: number) =>
+    rings.find((s) => insidePolygon(s.ring, x, z) || distanceToLine(s.ring, x, z) <= spill) ?? null;
+  const columns = (x: number, z: number): BandColumn | null => {
+    if (noHit(x, z)) return null;
+    const solid = solidAt(centreOf(x), centreOf(z));
+    return solid ? { ground: solid.top, top: solid.top } : { ground: streetY, top: streetY };
+  };
+  const walls: Walls = (x, z, side) => {
+    let best = { d: Infinity, rx: 0, rz: 0 };
+    for (let i = 0; i + 1 < line.length; i++) {
+      const a = line[i];
+      const dx = line[i + 1].x - a.x;
+      const dz = line[i + 1].z - a.z;
+      const len = Math.hypot(dx, dz);
+      if (len === 0) continue;
+      const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (len * len)));
+      const d = Math.hypot(x - a.x - t * dx, z - a.z - t * dz);
+      if (d < best.d) best = { d, rx: -dz / len, rz: dx / len };
+    }
+    const sign = side === 'right' ? 1 : -1;
+    const margin = corridorConfig.wallMargin;
+    for (let m = margin; m <= OPEN_WALL_M; m += 0.25) {
+      if (solidAt(x + best.rx * sign * m, z + best.rz * sign * m) !== null) return Math.max(margin, m - margin);
+    }
+    return OPEN_WALL_M;
+  };
+  return { frame, rings, columns, walls };
+}
+
 /** The plane through `points` nearest in height (least squares). */
 function planeThrough(points: readonly { x: number; z: number; y: number }[]): (x: number, z: number) => number {
   const n = points.length;
@@ -426,45 +468,13 @@ describe('the walkable band on the OSM fixtures', () => {
     const TOWER = 139711833;
     const STREET_Y = 485.2;
     const fixture = load('rothenburg-galgengasse');
-    const frame = frameOf(fixture.hq);
-    const line = fixture.routePoints.map(([lat, lon]) => frame.toLocal({ lat, lon }));
-    const rings = fixture.structures!.map((s) => ({
-      wayId: s.wayId, top: STREET_Y + s.heightM, ring: s.points.map(([lat, lon]) => frame.toLocal({ lat, lon })),
-    }));
-    const tower = rings.find((s) => s.wayId === TOWER)!;
+    const tower = structureScene(fixture, STREET_Y, 0).rings.find((s) => s.wayId === TOWER)!;
 
     /** Distance from (x, z) to the gate tower, 0 inside its footprint. */
     const toTower = (x: number, z: number) => (insidePolygon(tower.ring, x, z) ? 0 : distanceToLine(tower.ring, x, z));
 
     /** Columns and rays where the mesh of every structure reaches `spill` metres past its footprint. */
-    function scene(spill: number) {
-      const solidAt = (x: number, z: number) =>
-        rings.find((s) => insidePolygon(s.ring, x, z) || distanceToLine(s.ring, x, z) <= spill) ?? null;
-      const columns = (x: number, z: number): BandColumn => {
-        const solid = solidAt(centreOf(x), centreOf(z));
-        return solid ? { ground: solid.top, top: solid.top } : { ground: STREET_Y, top: STREET_Y };
-      };
-      const walls: Walls = (x, z, side) => {
-        let best = { d: Infinity, rx: 0, rz: 0 };
-        for (let i = 0; i + 1 < line.length; i++) {
-          const a = line[i];
-          const dx = line[i + 1].x - a.x;
-          const dz = line[i + 1].z - a.z;
-          const len = Math.hypot(dx, dz);
-          if (len === 0) continue;
-          const t = Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / (len * len)));
-          const d = Math.hypot(x - a.x - t * dx, z - a.z - t * dz);
-          if (d < best.d) best = { d, rx: -dz / len, rz: dx / len };
-        }
-        const sign = side === 'right' ? 1 : -1;
-        const margin = corridorConfig.wallMargin;
-        for (let m = margin; m <= OPEN_WALL_M; m += 0.25) {
-          if (solidAt(x + best.rx * sign * m, z + best.rz * sign * m) !== null) return Math.max(margin, m - margin);
-        }
-        return OPEN_WALL_M;
-      };
-      return { columns, walls };
-    }
+    const scene = (spill: number) => structureScene(fixture, STREET_Y, spill);
 
     for (const spill of [1, 2]) {
       it(`keeps every cell round the gate on the street, mesh ${spill} m past the footprints`, () => {
@@ -509,6 +519,56 @@ describe('the walkable band on the OSM fixtures', () => {
         }
       }
     });
+  });
+
+  /**
+   * Playtest 2026-09-16, Rothenburg: `build.fallback what=cells missing=7
+   * found=0`, `cellsWithoutHeight=7`. The seven pink cells stand in one row
+   * along the Marktplatz at the end of the route (screenshot 082242), at the
+   * edge of the band before the Laubengang of the town hall (way 1311003086,
+   * `building:part`, `height=15`), the arcade whose front runs 7.7 to 10 m
+   * beside the last street segment. Their neighbours towards the line have a
+   * height. Which of the two ways to a cell without a height it was, no
+   * column at any of its five probes or only hits its neighbours refuse, the
+   * log does not say; the band reads the same columns and ends before a hit
+   * far above or below the ground it walked, so no column at all is the
+   * likelier. This scene models that.
+   *
+   * Heights: the square flat at 485.2, every structure a block at the height
+   * its OSM tags give, and in front of the arcade, `overhang` metres past its
+   * footprint, columns that meet nothing: under the eaves of the arcade a
+   * column from above meets only the underside of the mesh, which a ray does
+   * not count. That strip is the one modelled number, so it is checked over a
+   * range of it.
+   */
+  describe('Marktplatz: the cells before the arcade of the town hall, whose columns meet nothing', () => {
+    const ARCADE = 1311003086;
+    const SQUARE_Y = 485.2;
+    const fixture = load('rothenburg-galgengasse');
+    const arcade = structureScene(fixture, SQUARE_Y, 0).rings.find((s) => s.wayId === ARCADE)!.ring;
+    /** Distance from (x, z) to the arcade outside its footprint, 0 inside it. */
+    const toArcade = (x: number, z: number) => (insidePolygon(arcade, x, z) ? 0 : distanceToLine(arcade, x, z));
+
+    for (const overhang of [3, 4]) {
+      it(`gives them the square from the cells beside them, eaves ${overhang} m over the square`, () => {
+        const { columns, walls } = structureScene(fixture, SQUARE_Y, 0, (x, z) => {
+          const d = toArcade(x, z);
+          return d > 0 && d <= overhang;
+        });
+        const r = twice(() => run(fixture, columns, walls));
+        // The corridor reaches under the eaves: cells none of whose five probes meets anything.
+        const cells = r.grid.dumpCellsInBox({ xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity });
+        const blind = cells.filter((c) => [[0, 0], [0.5, 0], [-0.5, 0], [0, 0.5], [0, -0.5]]
+          .every(([dx, dz]) => columns(c.x + dx, c.z + dz) === null));
+        expect(blind.length, `overhang ${overhang}`).toBeGreaterThanOrEqual(3);
+        for (const c of blind) {
+          expect(c.heightSampled, `overhang ${overhang} ${c.x},${c.z}`).toBe(true);
+          expect(c.state).toBe('filled');
+          expect(c.terrainHeight).toBeCloseTo(SQUARE_Y, 6);
+        }
+        expect(r.grid.cellsWithoutHeight()).toBe(0);
+      });
+    }
   });
 
   it('Platz der Republik: ends the band before the objects on the square, without bulges one station long', () => {
