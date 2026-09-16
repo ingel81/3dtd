@@ -355,8 +355,8 @@ und `tiles` und anderen `band` und `heights` (PLAYTEST 745). Nachgestellt in
   0,5 m daneben in x und z und nimmt die erste, die einen annehmbaren
   Treffer gibt. Höchstens vier weitere Säulen, nur für solche Zellen. Die
   Säulen des Bands und die Portalproben eines Tunnels machen es
-  ebenso. Liegt der Mittelpunkt in keiner Bounding Box
-  eines Tiles, überspringt der Sweep die Zelle wie bisher ohne Probe.
+  ebenso. Ist an der Stelle noch kein Tile-Mesh dekodiert
+  (`terrainPeekLOD`), bleibt die Zelle ohne Probe.
 - **Ausreißer** (`plausible`): Ein Treffer mehr als 50 m (`OUTLIER_M`) vom
   Median der stabilen Nachbarn derselben Fläche entfernt zählt nicht. Für
   die erste Probe einer Zelle und für ein LOD-Upgrade zählen nur Nachbarn
@@ -365,14 +365,15 @@ und `tiles` und anderen `band` und `heights` (PLAYTEST 745). Nachgestellt in
   Zellen ohne Upgrade; im Playtest 2026-09-13 stand eine Zelle so auf
   -3542 m zwischen Zellen auf 243 m. Der Weg nach außen überspringt eine
   Zelle mehr als 50 m unter dem bisher erreichten Boden als Naht.
-- **Lücken füllen** (`GlobalRouteGrid.fillGaps`, nach dem Erzeugen, am Ende
-  jedes Sweeps und nach einem Retry mit Promotion): Eine Zelle ohne
+- **Lücken füllen** (`GlobalRouteGrid.fillGaps`, nach dem Erzeugen und nach
+  einem Retry mit Promotion): Eine Zelle ohne
   annehmbares eigenes Sample, zwischen stabilen Zellen derselben Fläche auf
   gegenüberliegenden Seiten (west-ost, süd-nord, die zwei Diagonalen),
   bekommt den Mittelwert dieser Paare und den Zustand `filled`. Sie zählt
   als Zelle mit Höhe (`heightSampled`: LOS-Anzeige, Gegner, Overlay ohne
-  rosa Kontur), das Sampling versucht sie weiter wie eine ungesampelte und
-  ersetzt die Füllung durch das erste Sample, das es annimmt.
+  rosa Kontur); der Rückfall für Zellen (`retryUnsampledCells`) versucht sie
+  wie eine ungesampelte und ersetzt die Füllung durch das erste Sample, das
+  er annimmt.
   - **Drei Nachbarn** (seit 2026-09-16): Ohne solches Paar nimmt eine
     Zelle, die mindestens drei stabile Zellen derselben Fläche berühren,
     deren Median (`medianOfStableNeighbourY`, derselbe wie im
@@ -773,7 +774,7 @@ Nicht im Spiel gemessen.
 
 ## Band: Rückgrat, Bandkanten und die Gegnerlinie
 
-Seit 2026-09-16 (Phase 2, Entwurf `tmp/fix1/reports/phase2-design.md`). Code:
+Seit 2026-09-16 (Phase 2, `89651d26`). Code:
 `utils/corridor-band.ts` (`buildBand`, `bandPath`, `smoothCentre`),
 `PathAndRouteService` (`buildBands`, `bandRouteOf`, `laidInBand`,
 `bandStationAt`), Schritt 4 in `CorridorBuild.build`. Ersetzt den Umweg-Planer
@@ -838,8 +839,8 @@ Band liegt darauf (E6). Um eine lange Objektreihe herum wechselt die Kette die
 Seite, wo kein Weg herum führt, einmal. Das Rückgrat ist die Kandidatin, von der
 aus der gewählte Weg gelaufen wurde, die Bandkanten sind die seines Laufs.
 
-**Anlass** (Playtest 748, Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`,
-Analyse `tmp/fix1/reports/cornerband.md`): Vorher nahm jede Station für sich die
+**Anlass** (Playtest 748, Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`):
+Vorher nahm jede Station für sich die
 tiefste Kandidatin. An der Kurve lag eine Grünstreifen-Zelle unter einer Hecke
 0,46 m tiefer als die Fahrbahn, Station 188 legte ihr Band dorthin, die Nachbarn
 auf die Fahrbahn; im Einmündungsbereich legte 192 ihr Band nördlich eines Masts.
@@ -971,7 +972,7 @@ geladen und einmal im Spiel hinnavigiert, auf denselben Tiles. Das HQ lag
 anders gegen die Welt. Der kalte Bau fand zwei Durchgänge, der navigierte
 einen, und dort standen Zellen zwischen Durchgang und Torbogen auf dem Turm
 (Zelle -97,111 auf 490,37 m, die Straße auf 480,65 m). Aus den beiden
-Snapshots (`tmp/fix1/reports/passshift.md`), soweit sie reichen; die Säulen
+Snapshots, soweit sie reichen; die Säulen
 darin sind die des Säulen-Caches beim Schnappschuss, dieselben wie beim Bau
 angenommen:
 
@@ -1371,8 +1372,8 @@ Halbbreiten links und rechts alle 2 m entlang jeder Route aus den Waypoints
 - `widthPoints`: Punkte mit anderer Halbbreite / verglichene Punkte; ein
   Punkt, den nur einer der beiden hat (Route länger oder kürzer), zählt als
   geändert. `maxWidthChangeM`.
-- `waypoints` alt->neu, `narrowed`, `spawns`, `ms` (der Neuaufbau, ein
-  Frame), `snapshotMs`, `deltaMs`.
+- `waypoints` alt->neu, `bands` (Routen mit Band), `spawns`, `ms` (Bau und
+  Linien), `deltaMs` (das Delta selbst).
 
 **Kosten** (Spec unter Node, `corridor-trace.spec.ts`, "cost"): beide
 Schnappschüsse und das Delta für 1204 Zellen und 1194 Breitenpunkte
@@ -2094,8 +2095,8 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   rechnet der Tower dann auf der Höhe des Routenankers
   (`route-grid-los.ts`), während Gegner dort auf dem Median der Nachbarn
   stehen (`estimateTerrainY`). Eine Messlücke länger als etwa
-  `dipLength` bei der Straßenbreite. Liegt der Mittelpunkt einer Zelle in
-  keiner Bounding Box eines Tiles, probt der Sweep sie gar nicht; dann greift
+  `dipLength` bei der Straßenbreite. Ist an der Stelle einer Zelle kein
+  Tile-Mesh dekodiert, probt sie gar nicht (`terrainPeekLOD`); dann greift
   nur das Füllen. Der Ausreißer-Test braucht mindestens drei stabile
   Nachbarn derselben Fläche; für eine erste Probe oder ein Upgrade zählen
   nur Nachbarn aus mindestens so tiefen Tiles. Ein Treffer aus einem
@@ -2152,20 +2153,7 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   - Kosten nicht gemessen: je Zelle, Station und Overlay-Knoten der Strecke
     bis zu 30 Säulen entlang der Route, für alle einer Strecke dieselben,
     im 0,5-m-Cache der Engine.
-- Der Neuaufbau läuft weiter synchron in einem Frame, im Playtest etwa 40 ms
-  (routes 14, lines 11, grid 10, heights 4 bis 6 ms), mit dem Laufweg bis
-  zu zwei weitere Bauten von Routen, Grid und Höhen, nach diesen Zahlen je
-  etwa 30 ms (nicht gemessen). Routen und Zellen
-  müssen im selben Frame wechseln: Eine Welle, die dazwischen startet, liefe
-  sonst mit den neuen Breiten der Routen auf den alten Zellen. Übrig bliebe
-  der Höhen-Sweep (4 bis 6 ms), der auf den Sweep mit Frame-Budget könnte;
-  das spart wenig und ließe die neuen Zellen einige Frames auf ihrer ersten
-  Höhenprobe. Nicht gemacht.
-- Setzt der Spieler einen Tower oder startet eine Welle, solange der erste
-  Lauf misst, hängt das Spiel in diesem Moment für den Rest der Messung
-  (höchstens so lange wie früher der ganze Lauf). Gegner aus dem Debug-Panel
-  verwerfen den Lauf dagegen; der Ort bleibt dann bei der OSM-Breite, bis sie
-  weg sind und `__corridor.set()` oder `reset()` neu baut.
-- Die Welle startet nach einem Flush mit der Konfiguration, die der
-  Director vorher berechnet hat. Die neuen Breiten ändern Route und Länge
-  nicht, nur die Zellen daneben.
+- Der synchrone Neuaufbau im laufenden Spiel, der Hänger beim Setzen eines
+  Towers während der Messung und der Flush vor einer Welle sind mit
+  `CorridorBuild` entfallen: Der Korridor wird je Routensatz einmal gebaut
+  und eingefroren (siehe "Wann gemessen und neu gebaut wird").

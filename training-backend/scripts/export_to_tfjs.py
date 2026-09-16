@@ -6,9 +6,9 @@ Usage:
     python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_5000.pt
     python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_5000.pt --output ../public/assets/ai/wave-director
 
-Phase 5.10 output format (34 values per sample):
+Phase 5.10 output format (36 values per sample, OUTPUT_SIZE in config.py):
   [0..MAX_TEMPLATE_SLOTS-1]               = template_logits (32)
-  [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1] = raw continuous params (strength, count)
+  [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1] = raw continuous params (4: count, spawn_delay, hp_mult, variation)
 
 The frontend consumes this tensor in decodeModelOutput() (src/app/ai/core/onnx-policy.ts).
 """

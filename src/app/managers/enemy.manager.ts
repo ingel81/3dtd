@@ -125,7 +125,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Cached alive enemies array (invalidated on spawn/kill/remove/clear)
   private cachedAliveEnemies: Enemy[] | null = null;
 
-  // Wave-number provider (for WaveFactor in kill-reward formula).
+  // Wave-number provider: the gold budget of kill rewards and the damage of leaks, oozes included.
   // Set via setWaveNumberProvider() after construction (loose coupling).
   private getWaveNumber: () => number = () => 0;
 
@@ -398,7 +398,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   /**
    * Set the wave-number provider (from WaveManager).
-   * Used in the kill-reward formula (WaveFactor component).
+   * Used for the kill-reward budget and the damage of leaks, oozes included.
    * Loose coupling — no direct WaveManager dependency.
    */
   setWaveNumberProvider(provider: () => number): void {

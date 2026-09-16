@@ -23,7 +23,7 @@ export interface SplitOnDeath {
 }
 
 /**
- * A boss that walks as a chain of segments, the chitin worm (managers/worm).
+ * A boss that walks as a chain of segments, Skarnax (managers/worm).
  * Every segment is an enemy of the chained type with its own HP; the type's
  * own model draws the head, `segmentModel` the body. One spawn of the type
  * puts the whole chain on the route, the segments coming out one after

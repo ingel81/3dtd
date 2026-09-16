@@ -15,7 +15,10 @@ const LAT0 = 48.7758;
 const LON0 = 9.1829;
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(LAT0 * DEG_TO_RAD);
 
-/** Flat local frame at (LAT0, LON0): x east, z south, as the engine's overlay group. */
+/**
+ * Flat local frame at (LAT0, LON0): x east, z south, the engine's frame (x west,
+ * z north) turned by 180 degrees, which keeps distances and sides.
+ */
 const flatSync = {
   geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3): Vector3 =>
     target.set((lon - LON0) * M_PER_DEG_LON, height, -(lat - LAT0) * METERS_PER_DEGREE_LAT),

@@ -178,7 +178,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **GeolocationService** | Browser Geolocation API Wrapper |
 | **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
 | **StreetCacheService** | IndexedDB Cache für Straßendaten |
-| **PathfindingWorkerService** | A*-Pathfinding über Web Worker |
+| **PathfindingWorkerService** | A*-Pathfinding über Web Worker. **Nicht angebunden:** `PathRouteService.initializeWorker()` hat keinen Aufrufer, der Worker startet nie, A* läuft im Main Thread (TODO.md, I1) |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |
 | **WorldDiceService** | Zufällige Städte für Random-Location |
 | **BestWaveService** | Beste Welle je Ort am Event-Bus, Rekord-Hinweis beim Game Over; Liste und Speicher in `best-waves.ts` |
@@ -1222,22 +1222,6 @@ for (const enemy of enemies) {
 }
 ```
 
-#### geoDistance() - Convenience Wrapper
-
-```typescript
-geoDistance(
-  pos1: { lat: number; lon: number },
-  pos2: { lat: number; lon: number }
-): number
-```
-
-Wrapper für `haversineDistance` mit Objekt-Syntax statt 4 Parametern.
-
-**Beispiel:**
-```typescript
-const dist = geoDistance(enemy.position, tower.position);
-```
-
 #### Performance-Vergleich
 
 | Methode | Ns/Aufruf | Relativ | Use Case |
@@ -1256,8 +1240,8 @@ Außerdem: `geoDistanceFast()` (Objekt-Wrapper um `fastDistance`) sowie
 
 Erledigt (DONE.md, „Fast-Distance statt Haversine"). EnemyManager, TowerManager und
 GameStateManager rufen keine Distanzfunktion aus `geo-utils` mehr direkt auf, Umkreis-Abfragen
-laufen über `GlobalRouteGrid.getEnemiesInRadius()`. `haversineDistance`/`geoDistance`
-nutzen noch Location-, OSM-, Pfad- und Platzierungscode sowie der Pathfinding-Worker.
+laufen über `GlobalRouteGrid.getEnemiesInRadius()`. `haversineDistance` nutzen noch Location-,
+OSM-, Pfad- und Platzierungscode sowie der (nicht angebundene) Pathfinding-Worker.
 
 ---
 
@@ -1550,14 +1534,15 @@ Alles Weitere, auch Drehbereich, Lufteinheiten, Licht und die Regeln für neue S
 Animierte Routen-Visualisierung:
 
 ```typescript
-// RouteAnimationService
-startAnimation(routes: RouteData[]): void;
+// RouteAnimationService (services/world/route-animation.service.ts)
+startAnimation(cachedPaths: Map<string, GeoPosition[]>, spawnPoints: SpawnPoint[]): void;
 stopAnimation(): void;
+setHoldUntilReleased(hold: boolean): void;
 ```
 
-- Lauflichter entlang der Routen
-- Konfigurierbare Geschwindigkeit und Farbe
-- Aktiviert während Setup-Phase
+- Lauflichter entlang der Routen, Farben und Tempo als Konstanten im Service
+- Startet nach dem Korridor-Bau und nach einem Orts- oder HQ-Wechsel, läuft einmal durch und blendet aus
+- Der Intro-Flug hält sie mit `setHoldUntilReleased(true)` in der Schleife, bis er endet
 
 ### Route LOS Grid System
 
@@ -1577,8 +1562,10 @@ class GlobalRouteGrid {
 
 **Module (`src/app/utils/`):**
 - `global-route-grid.ts`: `GlobalRouteGrid`, Einstiegspunkt. Cell-Generierung, Enemy-Tracking
-  und Umkreis-Abfragen (Hot Path, Daten bleiben in dieser Klasse), Tower-Registrierung,
-  Terrain-Sweep, cells-changed-Listener
+  und Umkreis-Abfragen (Hot Path, Daten bleiben in dieser Klasse), Tower-Registrierung. Zellhöhen
+  werden einmal beim Korridor-Bau abgetastet (`generateFromRoutes`, Rückfall `retryUnsampledCells`)
+  und danach nur noch vom Debug-Reset `__rg.resetHeightsAndRetry()` angefasst; es gibt keinen Sweep und
+  keine cells-changed-Events
 - `route-cell.ts`: `RouteCell`/`CellSample` + `getAirTargetY`
 - `route-cell-sampler.ts`: `sampleCellY`, einziger Schreiber von `cell.terrainHeight`
 - `route-grid-aggregate-viz.ts`: Aggregat-Debug-Mesh (`grid`/`gridAir`, "Route Grid Overlay") mit

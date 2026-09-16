@@ -8,8 +8,9 @@ import { corridorConfig, resetCorridorConfig } from './route-corridor';
 /**
  * The walk check reads the frozen band: a cell within its edges lies in the
  * corridor, a cell beyond them is one the band ended before, and the check
- * says which rule of the walk out that was. Local x east, z south, as the
- * grid keys its cells; the station runs east, so right of travel is +z.
+ * says which rule of the walk out that was. Local x east, z south (the
+ * engine's frame, x west and z north, turned by 180 degrees, which keeps
+ * sides); the station runs east, so right of travel is +z.
  */
 const flat = (): ColumnSample => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 2 });
 
