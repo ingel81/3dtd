@@ -42,6 +42,7 @@ import {
   LocationDialogLoadError,
 } from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
+import { canonicalCoords } from '../../utils/geo-utils';
 import type { FavoriteLocation, LocationDialogResult } from '../../models/location.types';
 import type { StreetNetwork } from './osm-street.service';
 
@@ -771,8 +772,10 @@ describe('LocationChangeCoordinatorService', () => {
       coordinator.initializeFlow(delegate);
       await coordinator.onSelectFavorite(favB);
 
+      // In the canonical form the change takes every point in
+      const north = canonicalCoords({ lat: SPAWN.lat + 0.005, lon: SPAWN.lon });
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith(
-        'spawn-1', 'Spawn', SPAWN.lat + 0.005, SPAWN.lon, SPAWN_COLORS[0], undefined,
+        'spawn-1', 'Spawn', north.lat, north.lon, SPAWN_COLORS[0], undefined,
       );
     });
   });

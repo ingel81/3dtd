@@ -3,6 +3,7 @@ import { SpawnLocationConfig, FavoriteLocation, SavedSpawn } from '../../models/
 import { GeocodingService, NominatimAddress } from './geocoding.service';
 import { MissionInfo } from '../../components/loading-screen/boot-step.model';
 import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
+import { COORD_DECIMALS, canonicalCoords } from '../../utils/geo-utils';
 import { PathAndRouteService } from '../world/path-route.service';
 import {
   RecentLocation,
@@ -31,7 +32,8 @@ export const LOADING_NAME = 'Loading...';
  */
 export function formatShowcaseLine(hq: { lat: number; lon: number } | null, spawn: SavedSpawn | undefined): string {
   if (!hq) return 'No location loaded.';
-  const at = (p: { lat: number; lon: number }) => `lat: ${p.lat.toFixed(5)}, lon: ${p.lon.toFixed(5)}`;
+  const at = (p: { lat: number; lon: number }) =>
+    `lat: ${p.lat.toFixed(COORD_DECIMALS)}, lon: ${p.lon.toFixed(COORD_DECIMALS)}`;
   const bearing = spawn?.portalBearing === undefined ? '' : `, portalBearing: ${spawn.portalBearing.toFixed(1)}`;
   const spawnPart = spawn ? `, spawn: { ${at(spawn)}${bearing} }` : '';
   return `{ id: 'TODO', name: 'TODO', hint: 'TODO', ${at(hq)}${spawnPart} }`;
@@ -141,15 +143,18 @@ export class LocationManagementService {
   // ==================== LOCATION ====================
 
   /**
-   * Set current location and resolve display name
+   * Set current location and resolve display name. HQ and spawns are kept
+   * in their canonical form (canonicalCoords), however many digits they
+   * came with: the URL, favorites, recent places and the world map store
+   * the place as the game plays it.
    * @param spawns With the bearing of each portal the player turned (SavedSpawn); URL and favorites take it from here
    */
   setLocation(hq: { lat: number; lon: number }, spawns: SavedSpawn[]): void {
-
-    this.hq.set(hq);
+    const at = canonicalCoords(hq);
+    this.hq.set(at);
 
     if (spawns.length > 0) {
-      this.spawns.set(spawns);
+      this.spawns.set(spawns.map((spawn) => canonicalCoords(spawn)));
       this.needsRandomSpawn.set(false);
     } else {
       // No spawns provided - will be generated randomly after streets are loaded
@@ -157,7 +162,7 @@ export class LocationManagementService {
       this.needsRandomSpawn.set(true);
     }
 
-    this.resolveDisplayName(hq.lat, hq.lon);
+    this.resolveDisplayName(at.lat, at.lon);
   }
 
   /**
@@ -306,10 +311,11 @@ export class LocationManagementService {
   }
 
   /**
-   * Set spawns after random generation (clears needsRandomSpawn flag)
+   * Set spawns after random generation (clears needsRandomSpawn flag), in
+   * their canonical form like setLocation()
    */
   setGeneratedSpawns(spawns: { lat: number; lon: number }[]): void {
-    this.spawns.set(spawns);
+    this.spawns.set(spawns.map((spawn) => canonicalCoords(spawn)));
     this.needsRandomSpawn.set(false);
   }
 

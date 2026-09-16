@@ -30,6 +30,7 @@ import { MapRelocationService, RelocationHost } from './map-relocation.service';
 import type { CorridorBuildResult, CorridorProgress } from '../world/corridor-build';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
+import { canonicalCoords } from '../../utils/geo-utils';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -402,7 +403,9 @@ export class LocationFacadeService {
   }
 
   /**
-   * Add a spawn point (delegates to services).
+   * Add a spawn point (delegates to services), at its canonical coordinates
+   * (canonicalCoords): a random spawn on a street node comes with more
+   * digits than the URL keeps of it.
    * @param portalBearing Compass bearing the player turned its portal to
    *   (SavedSpawn); without one the portal faces along its route
    */
@@ -413,10 +416,10 @@ export class LocationFacadeService {
     const streetNetwork = ctx.bridge.getStreetNetwork();
     if (!engine || !streetNetwork) return;
 
-    const spawn: SpawnPoint = { id, name, lat, lon, color };
+    const spawn: SpawnPoint = canonicalCoords({ id, name, lat, lon, color });
     this.store.spawnPoints.update((points) => [...points, spawn]);
 
-    this.markerViz.addSpawnMarker(id, name, lat, lon, color);
+    this.markerViz.addSpawnMarker(id, name, spawn.lat, spawn.lon, color);
     this.pathRoute.showPathFromSpawn(spawn);
     // After the route: the turn is held in the range the enemies still get out through
     if (portalBearing !== undefined) this.markerViz.setPortalHeading(id, bearingToPortalHeading(portalBearing));
