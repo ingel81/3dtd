@@ -34,7 +34,7 @@ CPU-Partikel. `ThreeEffectsRenderer` ist seit 2026-05-21 eine Delegations-Facade
 Pool-Limits und Effektwerte in `configs/visual-effects.config.ts` (`PARTICLE_LIMITS`,
 `BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `SCORCH_DECAL_CONFIG`, `EXPLOSION_PRESETS`,
 `EXPLOSION_LOOK`, `MUSHROOM_CLOUD_LOOK`, `BURST_PALETTES`, `MUZZLE_FLASH_PROFILES`,
-`SCREEN_SHAKE_CONFIG`, `FIRE_INTENSITY` mit Anzahl und Radius für `spawnFire*`).
+`SCREEN_SHAKE_CONFIG`).
 Der Tower-Fire-Pool (800) ist `MAX_TOWER_FIRE_PARTICLES` in `particle-pool-manager.ts`.
 
 ---
@@ -331,7 +331,7 @@ typischerweise vom `VFXService` über EventBus-Subscriptions aufgerufen:
 | `spawnIceDecal(lat, lon, h, size)` | Eis-Decal (GPU-instanced) |
 | `spawnGooDecal(lat, lon, h, splash)` | Pfütze einer getöteten Ooze (Goo-Pool, GPU-instanced), Form und Größe aus `GooSplash` |
 | `markScorch(localX, localY, localZ, source)` | Kampfspur am Boden unter einem Treffer, eine pro Route-Zelle |
-| `spawnFire(...)` / `spawnFireOnTerrain(...)` / `spawnFireAtLocalY(...)` | Anhaltende Feuerquelle, Stufe `tiny` bis `inferno` (Anzahl und Radius aus `FIRE_INTENSITY`) |
+| `spawnScaledFire(lat, lon, localY, scale)` | Anhaltende Feuerquelle bis `stopFire`, `scale` 0 bis 1: 30 bis 230 Partikel, Radius 1,5 bis 11,5 m |
 | `spawnFireFlash(lat, lon, localY)` | Kurzer Feuerblitz (z.B. Flame-Beam-Hit) |
 | `spawnExplosion(localX, localY, localZ, count, radius, smokePuffs)` | Zweistufige Feuer-Atlas-Explosion am lokalen Punkt, siehe unten |
 | `spawnExplosionAtGeo(lat, lon, h, count, radius, smokePuffs)` | Dasselbe an Geo-Position |

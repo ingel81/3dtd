@@ -269,7 +269,6 @@ Die Drehung des Spawn-Portals:
 | Spawn setzen mit R-Drehung (`MapRelocationService.applySpawnInPlace`) | `portalHeadingToBearing` der Drehung, in `LocationManagementService.spawns`, von dort in die URL und in einen danach gespeicherten Favoriten |
 | Reload, geteilter Link | aus `s`, `addPredefinedSpawns` → `addSpawnPoint(…, portalBearing)` |
 | Favorit laden | aus `FavoriteLocation.spawns[0]`, über `applyNewLocation` (Schritt 2 schreibt ihn in Ort und URL, Schritt 5 an den Spawn) |
-| Erneuter Versuch nach Ladefehler (`retryLoading`) | bleibt |
 | HQ versetzen (in place und außerhalb der Straßen), Standort-Dialog, Zuletzt gespielt, Weltkarte, World Dice | keiner, das Portal folgt der Route |
 
 `LocationFacadeService.addSpawnPoint` dreht das Portal nach dem Bau der Route (`MarkerVisualizationService.setPortalHeading`); jeder Bau der Route hält den Kurs im Drehbereich dieser Route (`clampPortalHeading`). Hat sich die Route seit dem Speichern geändert, steht das Portal an der Grenze; im Ort, in der URL und im Favoriten bleibt der Kurs, wie er gegeben wurde. Mehr zum Drehbereich in [SPAWN_PORTAL.md](SPAWN_PORTAL.md#drehbereich).
@@ -278,7 +277,6 @@ Die Drehung des Spawn-Portals:
 parseFromUrl(): { hq, spawns } | null   // URL parsen
 updateUrl(hq, spawns): void              // URL ohne Reload aktualisieren (replaceState), Spawns samt Kurs
 getShareUrl(): string                    // Aktuelle URL für Sharing
-hasLocationParams(): boolean             // Prueft ob l= Parameter vorhanden
 ```
 
 ## Kanonische Koordinaten
@@ -344,9 +342,6 @@ clearResults(): void
 ### Reverse Geocoding
 
 ```typescript
-reverseGeocode(lat, lon): Promise<string | null>
-// Einfach: gibt displayName zurück
-
 reverseGeocodeDetailed(lat, lon): Promise<ReverseGeocodeResult | null>
 // Vollständig: displayName + locationName + address + lat/lon
 

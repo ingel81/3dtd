@@ -178,7 +178,6 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **GeolocationService** | Browser Geolocation API Wrapper |
 | **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
 | **StreetCacheService** | IndexedDB Cache für Straßendaten |
-| **PathfindingWorkerService** | A*-Pathfinding über Web Worker. **Nicht angebunden:** `PathRouteService.initializeWorker()` hat keinen Aufrufer, der Worker startet nie, A* läuft im Main Thread (TODO.md, I1) |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |
 | **WorldDiceService** | Zufällige Städte für Random-Location |
 | **BestWaveService** | Beste Welle je Ort am Event-Bus, Rekord-Hinweis beim Game Over; Liste und Speicher in `best-waves.ts` |
@@ -393,18 +392,6 @@ const pos = engine.sync.geoToLocal(lat, lon, localY); // ❌ Doppelte Transforma
 const localY = engine.getTerrainHeightAtGeo(lat, lon);
 const localXZ = engine.sync.geoToLocalSimple(lat, lon, 0);
 object.position.set(localXZ.x, localY, localXZ.z); // ✅
-```
-
-#### Convenience-Methoden
-
-Für häufige Operationen gibt es Convenience-Methoden, die das automatisch richtig machen:
-
-```typescript
-// Feuer auf Terrain spawnen - macht Raycast intern
-engine.effects.spawnFireOnTerrain(lat, lon, engine.getTerrainHeightAtGeo, 'medium');
-
-// Oder mit lokalem Y direkt
-engine.effects.spawnFireAtLocalY(lat, lon, localY, 'medium');
 ```
 
 #### WICHTIG: Terrain-Höhe LIVE ermitteln!
@@ -1078,8 +1065,9 @@ class ThreeEffectsRenderer {
   spawnBloodSplatter(lat, lon, height, count?): string;  // Particle splatter
   spawnBloodDecal(lat, lon, height, size?): string;      // Persistent ground stain
 
-  // Fire effects
-  spawnFire(lat, lon, height, intensity): string;
+  // Fire effects (localY = lokale Szenenhöhe, siehe getTerrainHeightAtGeo)
+  spawnScaledFire(lat, lon, localY, scale): string;  // dauerhaft bis stopFire, scale 0..1
+  spawnFireFlash(lat, lon, localY): void;            // kurzer Aufflammer
   stopFire(id: string): void;
   stopAllFires(): void;
 
@@ -1168,8 +1156,6 @@ class EllipsoidSync {
   // Lokale Koordinaten → WGS84
   localToGeo(vec: THREE.Vector3): { lat, lon, height };
 
-  // Entfernung vom Origin
-  distanceFromOrigin(lat, lon): number;
 
   // Heading-Berechnung
   calculateHeading(fromLat, fromLon, toLat, toLon): number;
@@ -1260,7 +1246,7 @@ Außerdem: `geoDistanceFast()` (Objekt-Wrapper um `fastDistance`) sowie
 Erledigt (DONE.md, „Fast-Distance statt Haversine"). EnemyManager, TowerManager und
 GameStateManager rufen keine Distanzfunktion aus `geo-utils` mehr direkt auf, Umkreis-Abfragen
 laufen über `GlobalRouteGrid.getEnemiesInRadius()`. `haversineDistance` nutzen noch Location-,
-OSM-, Pfad- und Platzierungscode sowie der (nicht angebundene) Pathfinding-Worker.
+OSM-, Pfad- und Platzierungscode.
 
 ---
 
@@ -1382,7 +1368,7 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | `styles/` | Theme-Tokens | `td-theme.ts` |
 | `three-engine/` | Three.js-Engine: Szene, Tiles, Kamera, Render-Loop, Raycasts, Renderer, Post-Processing | `three-tiles-engine.ts`, Abschnitt 1 und 6 |
 | `utils/` | Reine Hilfsmodule (Route-Grid, Korridor, Geo, Kamera, LOS, Platzierung, Frame-Pacer) | `global-route-grid.ts`, `route-corridor.ts`, `geo-utils.ts` |
-| `workers/` | Web Worker: A*-Pathfinding, Heartbeat für den Loop im versteckten Tab | `pathfinding.worker.ts`, `heartbeat.worker.ts` |
+| `workers/` | Web Worker: Heartbeat für den Loop im versteckten Tab (A* läuft im Main Thread) | `heartbeat.worker.ts` |
 
 Außerhalb von `src/app/`: `tools/` (Shader-Check, Blender-Skripte, Weltkarten-Umrisse,
 Modell-Budget, Charts, Benchmarks, AI-Schema), `training-backend/` (Python, nur Training), `docs/` (siehe
@@ -1475,22 +1461,14 @@ Feuer-Effekte bei HQ-Damage und Game Over, als Partikel.
 #### Technische Implementierung
 
 ```typescript
-spawnFire(lat: number, lon: number, height: number, intensity: FireIntensityLevel): string;
-spawnFireOnTerrain(lat: number, lon: number, getHeight: Function, intensity: FireIntensityLevel): string;
-spawnFireAtLocalY(lat: number, lon: number, localY: number, intensity: FireIntensityLevel): string;
-
-type FireIntensityLevel = keyof typeof FIRE_INTENSITY; // 'tiny' | 'small' | 'medium' | 'large' | 'inferno'
+spawnScaledFire(lat: number, lon: number, localY: number, scale: number): string; // brennt bis stopFire()
+spawnFireFlash(lat: number, lon: number, localY: number): void;                   // kurzer Aufflammer
+stopFire(id: string): void;
+stopAllFires(): void;
 ```
 
-**Intensitätsstufen** (`FIRE_INTENSITY` in `configs/visual-effects.config.ts`, jedes Feuer brennt bis `stopFire()`):
-
-| Intensity | Partikel | Radius |
-|-----------|----------|--------|
-| `tiny` | 15 | 1,5 m |
-| `small` | 40 | 2,5 m |
-| `medium` | 80 | 4 m |
-| `large` | 120 | 6 m |
-| `inferno` | 200 | 10 m |
+`localY` ist die lokale Szenenhöhe (`getTerrainHeightAtGeo` liefert sie direkt). `scale` von 0 bis 1 bestimmt
+Partikelzahl (30 bis 230) und Radius (1,5 bis 11,5 m).
 
 **Komponenten:**
 
@@ -1499,43 +1477,12 @@ type FireIntensityLevel = keyof typeof FIRE_INTENSITY; // 'tiny' | 'small' | 'me
    - Rauch-Partikel (grau)
    - Aufwärtsbewegung mit Turbulenz
 
-Ein Licht oder einen eigenen Loop-Sound erzeugt `spawnFire()` nicht.
-
-**Lifecycle:**
-
-```typescript
-// 1. Spawn
-const fireId = engine.effects.spawnFire(lat, lon, height, 'large');
-
-// 2. Update Loop (intern)
-// - Partikel bewegen sich nach oben
-// - Neue Partikel spawnen
-// - Alte Partikel faden out
-
-// 3. Cleanup
-engine.effects.stopFire(fireId);     // Einzelnes Feuer
-engine.effects.stopAllFires();       // Alle Feuer
-```
+Ein Licht oder einen eigenen Loop-Sound erzeugt das Feuer nicht.
 
 **Automatisches Spawning** (`HQDamageService`):
 - HP über `GAME_BALANCE.fire.permanentThreshold` (50): kurzer `spawnFireFlash()` pro Treffer
 - HP darunter: ein dauerhaftes `spawnScaledFire()` mit Skala `1 - HP/50`, bei jedem Treffer neu gesetzt
 - Game Over: `spawnHQExplosion()` plus `spawnScaledFire(…, 1.0)`
-
-**Convenience-Methoden:**
-
-```typescript
-// Mit automatischem Terrain-Raycast
-spawnFireOnTerrain(lat, lon, getTerrainHeight, 'medium');
-
-// Mit bekannter Local-Y
-spawnFireAtLocalY(lat, lon, localY, 'medium');
-```
-
-**WICHTIG:** `spawnFireOnTerrain` nutzt die übergebene `getTerrainHeight` Funktion. Grund: ThreeEffectsRenderer hat keinen direkten Zugriff auf TilesRenderer.
-
-**Konfiguration:** `FIRE_INTENSITY` in `configs/visual-effects.config.ts` (Tabelle oben);
-der Typ `FireIntensityLevel` ist aus seinen Schlüsseln abgeleitet.
 
 ### Spawn-Portal
 

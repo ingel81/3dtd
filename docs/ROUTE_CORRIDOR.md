@@ -871,9 +871,7 @@ Kurze Ausbuchtungen entlang der Route werden geschnitten (`cutShortBulges`,
 runde Ende der Zellen einer breiten Station eine halbe Autolänge davor über genau
 das Auto, vor dem das Band endet, denn `jointCap` kappt nur das Nachbarsegment.
 
-**Gegnerlinie:** Ziel ist die Bandmitte (`centreMode: 'band'`, Vorgabe) oder die
-OSM-Linie, wo sie mit `edgeMargin` Abstand im Band liegt, sonst so weit versetzt
-wie nötig (`'minimal'`, zum Vergleich umschaltbar). Geglättet wird mit einem
+**Gegnerlinie:** Ziel ist die Bandmitte. Geglättet wird mit einem
 Glättungs-Spline mit Schranken (`smoothCentre`, `CENTRE_STIFFNESS`), der die
 Linie innerhalb `[L + edgeMargin, R − edgeMargin]` hält; ist das Band schmaler
 als `2 · edgeMargin`, läuft sie in seiner Mitte. Stationen ohne Band und beide
@@ -1333,7 +1331,7 @@ vitest (Specs schalten ihn selbst ein).
 | `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
 | `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `bandStations`, `passages`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `cellsWithoutHeight`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `buildMs`; nur wenn Zellen ohne Höhe bleiben `why` (Gründe, unten) und `at` (lokale `x,z` der ersten zehn, `;+N` für den Rest) |
 | `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |
-| `routes.refresh` | jeder Neuaufbau der roten Linie (`PathAndRouteService.refreshRouteLines`, `refreshRouteLinesAsync` mit `async=true`) | `spawns`, `waypoints`, `ms` |
+| `routes.refresh` | jeder Neuaufbau der roten Linie (`PathAndRouteService.refreshRouteLines`) | `spawns`, `waypoints`, `ms` |
 | `routeAnimation.start` | jeder Start der Routen-Animation (`RouteAnimationService.startAnimation`), der ihren Strich-Versatz zurücksetzt | `routes`, `restart` (lief schon) |
 | `clearance.start`, `clearance.commit`, `clearance.cancel` | `ClearanceRun`, auch ein Lauf ohne Segmente, für den `[Corridor] clearance` nichts schreibt | `segments`, `stations`, `rays`, `changed`, `lod`, `slices`, `budgetMs` (die Budgets der Scheiben, in einem Bau `32`), `overBudget` (Scheiben länger als ihr Budget: eine Scheibe nimmt mindestens eine Station), `maxSliceMs`, `meanSliceMs`, `msPerStation`, `busyMs`, `wallMs`; `reason` |
 | `store` | `storeClearance` | `changed` (eine Breite hat sich geändert), `by`: `measured`, wenn der Lauf Freiraum brachte, den der Korridor nicht hatte; `segments`, `ms` (die ganze Übergabe) |

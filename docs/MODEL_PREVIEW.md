@@ -228,12 +228,6 @@ this.modelPreview.createPreview(`tower-preview-${towerId}`, canvas, {
 ### createPreview(id, canvas, config)
 Erstellt ein neues Preview. Überschreibt existierendes Preview mit gleicher ID.
 
-### pausePreview(id)
-Pausiert die Animation eines spezifischen Previews.
-
-### resumePreview(id)
-Setzt die Animation eines pausierten Previews fort.
-
 ### destroyPreview(id)
 Entfernt ein spezifisches Preview und gibt Ressourcen frei.
 
