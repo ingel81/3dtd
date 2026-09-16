@@ -52,7 +52,7 @@ function stretch(name: string): Stretch {
   const cells = new Map(fixture.columns.map(([gx, gz, ground, top]) => [`${gx},${gz}`, { ground, top }]));
   const column = (gx: number, gz: number) => cells.get(`${gx},${gz}`) ?? null;
   const size = fixture.cellSize;
-  const band = buildBand(route, (x, z) => column(Math.floor(x / size), Math.floor(z / size)), size, 'band');
+  const band = buildBand(route, (x, z) => column(Math.floor(x / size), Math.floor(z / size)), size);
   return {
     route,
     column,

@@ -1,6 +1,6 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { BandColumn, BandRoute, CorridorBand, PASSAGE_SPAN_M, bandPath, buildBand, smoothCentre } from './corridor-band';
-import { corridorConfig, resetCorridorConfig, setCorridorConfig } from './route-corridor';
+import { corridorConfig } from './route-corridor';
 import { segmentTouchesCell } from './route-grid-builder';
 
 const CELL = 2;
@@ -35,10 +35,8 @@ const at = (band: CorridorBand, x: number) => band.stations.reduce((a, b) => (Ma
 const car = (z0: number, z1: number) => (x: number, z: number) => x >= 55 && x <= 59.5 && z > z0 && z < z1;
 
 describe('buildBand', () => {
-  afterEach(() => resetCorridorConfig());
-
   it('lies in the middle of a level street between its walls', () => {
-    const band = buildBand(street(2.25), columns(() => 0), CELL, 'band');
+    const band = buildBand(street(2.25), columns(() => 0), CELL);
     for (const st of band.stations) {
       expect(st).toMatchObject({ kind: 'band', left: -2.25, right: 2.25 });
       expect(st.centre).toBeCloseTo(0, 9);
@@ -50,7 +48,7 @@ describe('buildBand', () => {
   it('moves the enemies off a car on the line into the middle of the street beside it, smoothly', () => {
     // A car on the line, the street 7 m either side: the backbone goes to the street on the left of it.
     const onCar = car(0.1, 1.9);
-    const band = buildBand(street(), columns((x, z) => (onCar(x, z) ? 1.5 : 0)), CELL, 'band');
+    const band = buildBand(street(), columns((x, z) => (onCar(x, z) ? 1.5 : 0)), CELL);
     const beside = at(band, 57);
     expect(beside.backbone!.offset).toBe(-2);
     expect(beside.left).toBe(-7);
@@ -66,26 +64,11 @@ describe('buildBand', () => {
     expect(band.maxSlope).toBeLessThan(0.25);
   });
 
-  it('moves the line only as far as needed in minimal mode, and reads the mode from the settings', () => {
-    const onCar = car(0.1, 1.9);
-    const ground = columns((x, z) => (onCar(x, z) ? 1.5 : 0));
-    const minimal = buildBand(street(), ground, CELL, 'minimal');
-    // The edge 1 m left of the line, the enemies edgeMargin off it; the smoothed line a little further where it turns.
-    expect(at(minimal, 57).centre).toBeLessThanOrEqual(-1 - corridorConfig.edgeMargin + 1e-9);
-    expect(at(minimal, 57).centre).toBeGreaterThan(-3);
-    expect(at(minimal, 57).centre).toBeGreaterThan(at(buildBand(street(), ground, CELL, 'band'), 57).centre);
-    expect(minimal.maxCurvature).toBeLessThan(1 / 20);
-
-    expect(setCorridorConfig({ centreMode: 'minimal' })).toEqual([]);
-    expect(buildBand(street(), ground, CELL)).toEqual(minimal);
-    expect(setCorridorConfig({ centreMode: 'middle' as never })).toEqual(["centreMode must be 'band' or 'minimal'"]);
-  });
-
   it('lets enemies climb over a car that fills a narrow lane', () => {
     // Houses 2 m either side of the line, the rays leave 1.5 m.
     const onCar = car(-1, 3);
     const lane = columns((x, z) => (Math.abs(z - 1) >= 2 ? 8 : onCar(x, z) ? 1.5 : 0));
-    const st = at(buildBand(street(1.5, 1.5), lane, CELL, 'band'), 57);
+    const st = at(buildBand(street(1.5, 1.5), lane, CELL), 57);
     expect(st).toMatchObject({ kind: 'climb', backbone: { offset: 0, y: 1.5 }, left: -1.5, right: 1.5 });
     expect(st.centre).toBeCloseTo(0, 6);
   });
@@ -100,7 +83,7 @@ describe('buildBand', () => {
     // The street 7 m either side; at x 60 to 62 a hedge 1 to 3 m right of the line and the verge behind it 0.4 m down.
     const hedge = (x: number, z: number) => x > 60 && x < 62 && z > 2 && z < 4;
     const verge = (x: number, z: number) => x > 60 && x < 62 && z > 4 && z < 6;
-    const band = buildBand(street(7, 3.5), columns((x, z) => (verge(x, z) ? -0.4 : 0), (x, z) => (hedge(x, z) ? 1.2 : verge(x, z) ? -0.4 : 0)), CELL, 'band');
+    const band = buildBand(street(7, 3.5), columns((x, z) => (verge(x, z) ? -0.4 : 0), (x, z) => (hedge(x, z) ? 1.2 : verge(x, z) ? -0.4 : 0)), CELL);
     for (const st of band.stations.filter((s) => s.x > 40 && s.x < 80)) {
       expect(st.backbone!.y, `${st.s}`).toBe(0);
       expect(st.left, `${st.s}`).toBe(-7);
@@ -116,7 +99,7 @@ describe('buildBand', () => {
     // A post on the line from x 50 to 60; the ground 3 cm lower right of it, left of it at x 54 to 56.
     const post = (x: number, z: number) => x > 50 && x < 60 && z > 0 && z < 2;
     const dip = (x: number, z: number) => (x > 54 && x < 56 ? z < 0 : z > 2) && x > 50 && x < 60;
-    const band = buildBand(street(), columns((x, z) => (dip(x, z) ? -0.03 : 0), (x, z) => (post(x, z) ? 1.2 : dip(x, z) ? -0.03 : 0)), CELL, 'band');
+    const band = buildBand(street(), columns((x, z) => (dip(x, z) ? -0.03 : 0), (x, z) => (post(x, z) ? 1.2 : dip(x, z) ? -0.03 : 0)), CELL);
     const beside = band.stations.filter((st) => st.x > 50 && st.x < 60);
     expect(beside.length).toBeGreaterThan(3);
     const side = Math.sign(beside[0].backbone!.offset);
@@ -133,7 +116,7 @@ describe('buildBand', () => {
     const post = (x: number, z: number) => x > 30 && x < 90 && z > 0 && z < 2;
     const dip = (x: number, z: number) => x > 30 && x < 90 && (x < 60 ? z < 0 : z > 2);
     const barrier = (x: number) => x > 58 && x < 60;
-    const band = buildBand(street(), columns((x, z) => (dip(x, z) ? -0.03 : 0), (x, z) => (post(x, z) || barrier(x) ? 1.2 : dip(x, z) ? -0.03 : 0)), CELL, 'band');
+    const band = buildBand(street(), columns((x, z) => (dip(x, z) ? -0.03 : 0), (x, z) => (post(x, z) || barrier(x) ? 1.2 : dip(x, z) ? -0.03 : 0)), CELL);
     expect(at(band, 59).kind).toBe('fixed');
     const beside = band.stations.filter((st) => st.x > 32 && st.x < 88 && st.kind !== 'fixed');
     const side = Math.sign(beside[0].backbone!.offset);
@@ -149,7 +132,7 @@ describe('buildBand', () => {
     const route = street();
     route.wallLeft = [route.wallLeft[0].map((w, k) => (2 * k + 1 >= 60 ? 0.5 : w))];
     route.wallRight = [route.wallRight[0].map((w, k) => (2 * k + 1 < 60 ? 0.5 : w))];
-    const band = buildBand(route, columns(() => 0, (x, z) => (row(x, z) ? 1.2 : 0)), CELL, 'band');
+    const band = buildBand(route, columns(() => 0, (x, z) => (row(x, z) ? 1.2 : 0)), CELL);
     for (const st of band.stations.filter((s) => s.x > 22 && s.x < 98)) {
       expect(st.kind, `${st.s}`).toBe('band');
       if (st.x < 60) expect(st.right, `${st.s}`).toBeLessThanOrEqual(-1);
@@ -159,7 +142,7 @@ describe('buildBand', () => {
 
   it('runs a passage under a jetty the mesh fills down to a narrow lane', () => {
     const jetty = columns((x, z) => (Math.abs(z - 1) >= 2 ? 8 : x >= 55.5 && x <= 58.5 ? 5 : 0));
-    const band = buildBand(street(1.5, 1.5), jetty, CELL, 'band');
+    const band = buildBand(street(1.5, 1.5), jetty, CELL);
     expect(at(band, 57)).toMatchObject({ kind: 'passage', backbone: null, centre: 0 });
     // The jetty fills the cell from x = 56 to 58.
     expect(band.passages).toEqual([{ from: 56, to: 58 }]);
@@ -176,7 +159,7 @@ describe('buildBand', () => {
   it('runs a passage under a gate tower deeper than the stations around it', () => {
     // Houses 2 m either side of the line, the tower filled to the ground from x = 50 to 62.
     const gate = columns((x, z) => (Math.abs(z - 1) >= 2 ? 8 : x >= 50 && x <= 62 ? 20 : 0));
-    const band = buildBand(street(1.5, 1.5), gate, CELL, 'band');
+    const band = buildBand(street(1.5, 1.5), gate, CELL);
     const inside = band.stations.filter((st) => st.x > 50 && st.x < 62);
     expect(inside.length).toBeGreaterThan(4);
     for (const st of inside) expect(st, `${st.s}`).toMatchObject({ kind: 'passage', backbone: null });
@@ -239,7 +222,7 @@ describe('buildBand', () => {
           for (const shift of shifts) {
             const at = `angle ${angle.toFixed(2)} lattice ${shift.join(', ')}`;
             const { route, ground, along } = lane(angle, shift, cover, tunnel);
-            const band = buildBand(route, ground, CELL, 'band');
+            const band = buildBand(route, ground, CELL);
             expect(band.passages, at).toHaveLength(listed);
             // Every station whose cell lies under the cover whatever the lattice is part of it, none two cells off it.
             const inside = CELL * Math.SQRT1_2;
@@ -267,7 +250,7 @@ describe('buildBand', () => {
   });
 
   it('takes no passage on a street that climbs, and gives its slope back', () => {
-    const band = buildBand(street(), columns((x) => 0.08 * x), CELL, 'band');
+    const band = buildBand(street(), columns((x) => 0.08 * x), CELL);
     expect(band.passages).toEqual([]);
     // The opening gives a straight slope back exactly, but for half a span
     // at each end of the route, where it reads up to `slope * span / 2` low.
@@ -287,13 +270,13 @@ describe('buildBand', () => {
       if (off < -3) return 0.09 + (-off - 3) / 1.5;
       return -0.03 * off;
     };
-    const st = at(buildBand(street(), columns(terrace), CELL, 'band'), 31);
+    const st = at(buildBand(street(), columns(terrace), CELL), 31);
     expect(st.right).toBe(3);
     expect(st.left).toBe(-3);
   });
 
   it('keeps the backbone on the street beside a quay, not on the river', () => {
-    const st = at(buildBand(street(), columns((_x, z) => (z - 1 > 3 ? -4 : 0)), CELL, 'band'), 31);
+    const st = at(buildBand(street(), columns((_x, z) => (z - 1 > 3 ? -4 : 0)), CELL), 31);
     expect(st.backbone).toEqual({ offset: 0, y: 0 });
     expect(st.right).toBe(3);
     expect(st.left).toBe(-7);
@@ -301,14 +284,14 @@ describe('buildBand', () => {
 
   it('keeps the band on a road on a dam', () => {
     const dam: Ground = (_x, z) => -Math.max(0, Math.abs(z - 1) - 2.75) / 1.5;
-    const st = at(buildBand(street(), columns(dam), CELL, 'band'), 31);
+    const st = at(buildBand(street(), columns(dam), CELL), 31);
     expect(st.backbone!.offset).toBe(0);
     expect(st.left).toBe(-3);
     expect(st.right).toBe(3);
   });
 
   it('spans a street across a 15 % slope from wall to wall', () => {
-    const st = at(buildBand(street(), columns((_x, z) => 0.15 * (z - 1)), CELL, 'band'), 31);
+    const st = at(buildBand(street(), columns((_x, z) => 0.15 * (z - 1)), CELL), 31);
     expect(st.left).toBe(-7);
     expect(st.right).toBe(7);
     expect(st.centre).toBeCloseTo(0, 6);
@@ -317,24 +300,24 @@ describe('buildBand', () => {
   it('ends the band before a small object on a square, not round it', () => {
     // A bench 0.6 m high 4 m right of the line, x 60 to 62.
     const bench = (x: number, z: number) => x > 60 && x < 62 && z > 4 && z < 6;
-    const band = buildBand(street(), columns((x, z) => (bench(x, z) ? 0.6 : 0)), CELL, 'band');
+    const band = buildBand(street(), columns((x, z) => (bench(x, z) ? 0.6 : 0)), CELL);
     expect(at(band, 61).right).toBe(3);
     expect(at(band, 31).right).toBe(7);
     // A person the mesh made hollow: its top 1.7 m over the ground under it.
     const person = (x: number, z: number) => x > 60 && x < 62 && z > -4 && z < -2;
-    const hollowBand = buildBand(street(), columns(() => 0, (x, z) => (person(x, z) ? 1.7 : 0)), CELL, 'band');
+    const hollowBand = buildBand(street(), columns(() => 0, (x, z) => (person(x, z) ? 1.7 : 0)), CELL);
     expect(at(hollowBand, 61).left).toBe(-3);
   });
 
   it('passes over a cell without any column', () => {
-    const st = at(buildBand(street(), columns(() => 0, () => 0, (x, z) => x > 30 && x < 32 && z > 4 && z < 6), CELL, 'band'), 31);
+    const st = at(buildBand(street(), columns(() => 0, () => 0, (x, z) => x > 30 && x < 32 && z > 4 && z < 6), CELL), 31);
     expect(st.right).toBe(7);
   });
 
   it('gives the same band for the same input', () => {
     const onCar = car(0.1, 1.9);
     const ground = columns((x, z) => (onCar(x, z) ? 1.5 : 0));
-    expect(buildBand(street(), ground, CELL, 'band')).toEqual(buildBand(street(), ground, CELL, 'band'));
+    expect(buildBand(street(), ground, CELL)).toEqual(buildBand(street(), ground, CELL));
   });
 
   /**
@@ -380,7 +363,7 @@ describe('buildBand', () => {
       for (const [first, second] of [[7, 4], [4, 7]]) {
         it(`keeps the wide street's band out to its walls round the outside of a ${deg} degree turn, ${first} m then ${second} m`, () => {
           const { route, ground } = bend(deg, first, second);
-          const band = buildBand(route, ground, CELL, 'band');
+          const band = buildBand(route, ground, CELL);
           const wide = first > second ? 0 : 1;
           const near = band.stations.filter((st) => st.segment === wide && Math.abs(st.s - 60) < 10);
           expect(near.length).toBeGreaterThan(3);

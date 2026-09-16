@@ -23,7 +23,7 @@ import { BandColumn, BandColumns, BandRoute, BandStation, CorridorBand, bandPath
 import { deckApproaches } from '../utils/deck-approach';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { GlobalRouteGrid } from '../utils/global-route-grid';
-import { CentreMode, corridorConfig, routeHalfWidths, runsUnderCover } from '../utils/route-corridor';
+import { corridorConfig, routeHalfWidths, runsUnderCover } from '../utils/route-corridor';
 import { StreetEdgeIndex } from '../utils/route-ways';
 import { UnderpassIndex, splitAtSpans } from '../utils/underpass';
 import type { Street, StreetNode } from '../interfaces/street-network-provider.interface';
@@ -247,10 +247,10 @@ interface Run {
 }
 
 /** Band, enemies' line and route cells of `fixture` over `columns`. */
-function run(fixture: Fixture, columns: BandColumns, walls: Walls = () => OPEN_WALL_M, mode?: CentreMode): Run {
+function run(fixture: Fixture, columns: BandColumns, walls: Walls = () => OPEN_WALL_M): Run {
   const frame = frameOf(fixture.hq);
   const cut = cutRoute(fixture, frame, walls);
-  const band = buildBand(cut.route, columns, CELL, mode);
+  const band = buildBand(cut.route, columns, CELL);
   const path = bandPath(cut.route, band);
   const waypoints = path.map((p, i): RouteWaypoint => {
     const waypoint: RouteWaypoint = { ...frame.toGeo(p.x, p.z), height: 0 };
@@ -435,32 +435,30 @@ describe('the walkable band on the OSM fixtures', () => {
     // The rays: along the row the cars and the fronts behind them 1.5 m right of the line; the street to the left.
     const walls: Walls = (x, z, side) => (side === 'right' && nearCars(x, z) ? 1.5 : OPEN_WALL_M);
 
-    for (const mode of ['band', 'minimal'] as const) {
-      const r = twice(() => run(fixture, columns, walls, mode));
-      const row = r.band.stations.filter((st) => cars.some((c) => Math.hypot(c.x - st.x, c.z - st.z) < 2.5));
-      expect(row.length).toBeGreaterThan(5);
-      for (const st of row) {
-        expect(st.kind, `${mode} ${st.segment}:${st.k}`).toBe('band');
-        expect(st.backbone!.offset).toBeLessThan(0);
-        expect(st.right).toBeLessThan(0);
-        expect(st.centre).toBeLessThanOrEqual(st.right - corridorConfig.edgeMargin + 1e-6);
-      }
-      const onCars = [...carAt.keys()].filter((key) => {
-        const [x, z] = key.split(',').map(Number);
-        return r.grid.getCellAt(x, z) !== undefined;
-      });
-      expect(onCars, mode).toEqual([]);
-      // The street cells lost beside the cars are cells at their height; the spot without a hit takes one from its neighbours.
-      const lost = fixture.cells.filter((c) => c.cell === false && r.band.stations.some((st) => Math.hypot(st.x - c.x, st.z - c.z) < 6));
-      expect(lost.length).toBeGreaterThanOrEqual(7);
-      for (const c of lost) {
-        const cell = r.grid.getCellAt(c.x, c.z);
-        expect(cell, `${mode} ${c.x},${c.z}`).toBeDefined();
-        expect(cell!.heightSampled).toBe(true);
-        if (c.heightM !== null) expect(cell!.terrainHeight).toBeCloseTo(c.heightM, 1);
-      }
-      expectGentle(r.band);
+    const r = twice(() => run(fixture, columns, walls));
+    const row = r.band.stations.filter((st) => cars.some((c) => Math.hypot(c.x - st.x, c.z - st.z) < 2.5));
+    expect(row.length).toBeGreaterThan(5);
+    for (const st of row) {
+      expect(st.kind, `${st.segment}:${st.k}`).toBe('band');
+      expect(st.backbone!.offset).toBeLessThan(0);
+      expect(st.right).toBeLessThan(0);
+      expect(st.centre).toBeLessThanOrEqual(st.right - corridorConfig.edgeMargin + 1e-6);
     }
+    const onCars = [...carAt.keys()].filter((key) => {
+      const [x, z] = key.split(',').map(Number);
+      return r.grid.getCellAt(x, z) !== undefined;
+    });
+    expect(onCars).toEqual([]);
+    // The street cells lost beside the cars are cells at their height; the spot without a hit takes one from its neighbours.
+    const lost = fixture.cells.filter((c) => c.cell === false && r.band.stations.some((st) => Math.hypot(st.x - c.x, st.z - c.z) < 6));
+    expect(lost.length).toBeGreaterThanOrEqual(7);
+    for (const c of lost) {
+      const cell = r.grid.getCellAt(c.x, c.z);
+      expect(cell, `${c.x},${c.z}`).toBeDefined();
+      expect(cell!.heightSampled).toBe(true);
+      if (c.heightM !== null) expect(cell!.terrainHeight).toBeCloseTo(c.heightM, 1);
+    }
+    expectGentle(r.band);
   });
 
   it('Galgengasse: ends the band before the hollow car; Georgengasse stays a tunnel', () => {

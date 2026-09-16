@@ -17,9 +17,6 @@ import type { ColumnSample } from '../three-engine/column-sample';
  * use are {@link corridorConfig}; routes and grid read them when they are
  * built, so a change needs a rebuild to show (`__corridor.set()` does that).
  */
-/** Where the enemies' line runs in the walkable band, see CorridorConfig.centreMode. */
-export type CentreMode = 'band' | 'minimal';
-
 export interface CorridorConfig {
   /**
    * Smallest corridor half width, per side. Half a cell: at a bottleneck the
@@ -155,14 +152,6 @@ export interface CorridorConfig {
    */
   stepDrop: number;
   /**
-   * Where the enemies' line runs in the walkable band (corridor-band.ts):
-   * `band` in its middle, `minimal` on the OSM line where that lies within
-   * the band with `edgeMargin` to spare, else moved only as far as needed.
-   * Either way smoothed as gently as the worm bends. Read when the band is
-   * built.
-   */
-  centreMode: CentreMode;
-  /**
    * Typical carriageway width per `highway` class, for stations the tiles
    * cannot measure. Used when a way has neither `width` nor `lanes`, which
    * is most of them. Motorways are mapped per direction, so the value is
@@ -197,7 +186,6 @@ export const CORRIDOR_DEFAULTS: Readonly<CorridorConfig> = Object.freeze({
   roofRise: 2.5,
   stepRise: 0.5,
   stepDrop: 0.5,
-  centreMode: 'band',
   highwayWidths: Object.freeze({
     motorway: 11,
     trunk: 9,
@@ -261,7 +249,7 @@ export const MEASUREMENT_KEYS: readonly (keyof CorridorConfig)[] = [
 ];
 
 /** Allowed range per numeric setting, inclusive. */
-const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths' | 'centreMode'>, [number, number]> = {
+const SETTING_RANGES: Record<Exclude<keyof CorridorConfig, 'highwayWidths'>, [number, number]> = {
   // The cells the centre line runs through belong to the corridor at any width.
   minHalfWidth: [0, 15],
   // The route corridor loads fine tiles 20 m either side.
@@ -308,11 +296,6 @@ export function setCorridorConfig(patch: Partial<CorridorConfig>): string[] {
         if (typeof width === 'number' && width > 0 && width <= 50) next.highwayWidths[type] = width;
         else problems.push(`highwayWidths.${type} must be a width from 0 to 50 m`);
       }
-      continue;
-    }
-    if (key === 'centreMode') {
-      if (value === 'band' || value === 'minimal') next.centreMode = value;
-      else problems.push("centreMode must be 'band' or 'minimal'");
       continue;
     }
     const range = SETTING_RANGES[key as keyof typeof SETTING_RANGES];
