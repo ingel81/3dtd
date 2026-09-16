@@ -296,8 +296,8 @@
               <td-icon name="refresh" [size]="18"></td-icon>
               RESTART
             </button>
-            <!-- The wave that broke the HQ, once more -->
-            @if (replay.available()) {
+            <!-- The wave that broke the HQ, once more, while the replay is offered -->
+            @if (replay.offered()) {
               <button type="button" class="td-gameover-replay" (click)="replay.enter()">
                 <td-icon name="replay" [size]="14"></td-icon>
                 <span>Replay wave {{ replay.recordedWave() }}</span>

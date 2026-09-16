@@ -29,4 +29,11 @@ export const REPLAY_CONFIG = {
   speeds: [0.25, 0.5, 1, 2, 4] as readonly number[],
   /** Above this speed the replay plays no sounds; they would pile up */
   maxAudioSpeed: 1,
+  /**
+   * The player gets a way in: the replay link in the WAVE panel and the
+   * button on the game-over screen (ReplayService.offered). Off until the
+   * replay is tested (decided 2026-09-16); recording and replay stay as
+   * they are.
+   */
+  offered: false as boolean,
 } as const;

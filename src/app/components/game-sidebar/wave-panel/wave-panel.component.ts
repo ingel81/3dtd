@@ -99,11 +99,12 @@ export class SidebarWavePanelComponent implements AfterViewInit {
 
   /**
    * Wave the replay link under the button offers: the last one, between
-   * waves only (the game-over screen has a button of its own). Null hides it,
-   * so it goes the moment the next wave starts.
+   * waves only (the game-over screen has a button of its own), while the
+   * player is offered the replay at all (ReplayService.offered). Null hides
+   * it, so it goes the moment the next wave starts.
    */
   readonly replayWave = computed(() =>
-    !this.waveActive() && !this.isGameOver() && this.replay.available() ? this.replay.recordedWave() : null
+    !this.waveActive() && !this.isGameOver() && this.replay.offered() ? this.replay.recordedWave() : null
   );
 
   // Wave group display, only consumed by the template while a wave is active,

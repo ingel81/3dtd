@@ -155,6 +155,14 @@ describe('ReplayService.enter gate', () => {
     expect(paused()).toBe(true);
   });
 
+  it('offers the player no button while REPLAY_CONFIG.offered is off, and starts from code still', () => {
+    expect(service.available()).toBe(true);
+    expect(service.offered()).toBe(false);
+
+    service.enter();
+    expect(service.active()).toBe(true);
+  });
+
   it('does not start without a recorded wave or during a wave', () => {
     recordedWave.set(null);
     service.enter();
