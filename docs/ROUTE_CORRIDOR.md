@@ -453,7 +453,17 @@ Ausnahmen:
     tieferen Straße oder dem Kai ist das die Oberkante; eine Straße auf
     Deckhöhe liegt näher als Krone, Laterne, Statue oder Auto darüber; eine
     Treppe hinunter zum Kai behält ihre Stufen und der Kai unter einem Deck
-    seinen Boden. Die LOD ist die gröbere der Säulen von Zelle und
+    seinen Boden. Liegt dieser Treffer mehr als `CARRY_STEP_RISE_M` (1,5 m)
+    über der getragenen Höhe, nimmt die Zelle die getragene Höhe selbst
+    (seit 2026-09-16): Krone, Vordach, Schild oder Dach ohne Boden darunter
+    sind kein Boden, und die getragene Höhe hat an ihrem eigenen Punkt einen
+    solchen Treffer ebenso übergangen. Vorher stand die Zelle darauf, das
+    gelbe Overlay erst ab `roofRise` (2,5 m) nicht mehr; beide nehmen jetzt
+    dieselbe Regel. Ein Treffer weiter unten bleibt: Der offene Kai neben
+    dem Deck ist Boden. Im Paris-Snapshot (`corridor-paris-cold-150811`)
+    liegt keine der 409 Zellen der Strecke mehr als 1,5 m über dem Median
+    ihrer Nachbarn der Strecke, dort ändert sich also voraussichtlich
+    nichts (geprüft am Snapshot, nicht neu gebaut). Die LOD ist die gröbere der Säulen von Zelle und
     Brückenende, die Säulen dazwischen zählen nicht; ohne Säule am
     Brückenende wartet die Zelle wie ein Tunnel auf seine Portale. Eine
     Straße einer anderen Route unter dem Deck gewinnt als Boden (oben).
@@ -1831,9 +1841,10 @@ Layer "Show streets" im Layers-Menü der Quick-Actions
   Zellen eines Brückensegments;
 - auf der Strecke hinter einem Brückenende der Treffer, der der Höhe am
   nächsten liegt, die der Weg vom Endknoten des Brücken-Ways bis zum Knoten
-  trägt (`carriedY`, wie die Zellen); liegt er mehr als `roofRise` über
+  trägt (`carriedY`); liegt er mehr als `CARRY_STEP_RISE_M` (1,5 m) über
   dieser Höhe (Krone, Schild, Auto ohne Boden darunter), die getragene
-  Höhe, wie eine Zelle der Strecke. Ohne Säule am Endknoten wie oben. Welche Knoten dazugehören, sucht
+  Höhe. Beides nach derselben Regel wie eine Zelle der Strecke
+  (`approachY`; bis 2026-09-16 galt hier `roofRise`). Ohne Säule am Endknoten wie oben. Welche Knoten dazugehören, sucht
   `streetDeckApproaches` im Straßennetz: von beiden Endknoten jedes
   Brücken-Ways über Ways ohne Brücken-Tag, in jede Richtung, ohne Tunnel,
   bis 60 m, je Knoten über den kürzesten Weg. Das ist dieselbe Strecke, die

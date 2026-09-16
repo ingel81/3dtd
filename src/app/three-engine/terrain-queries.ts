@@ -182,10 +182,9 @@ export class TerrainQueries {
    * `deck` 'bridge', on a way with `bridge=*`: the top of the column, the
    * deck, as the route cells of a bridge segment take it. `deck` the way
    * from a bridge end, on the stretch off it (carried-height.ts): the hit
-   * nearest to the height the way carries there (carriedY,
-   * approachY), as the route cells there take it; where that lies more
-   * than `roofRise` above the height carried (a crown, awning or car with
-   * no ground under it), the height carried. `deck` the portals of a stretch under
+   * nearest to the height the way carries there, or that height where the
+   * hit lies further above it (a crown, awning or car with no ground under
+   * it; carriedY, approachY), as the route cells there take it. `deck` the portals of a stretch under
    * another way (StreetUnder, underpass.ts): the ground at the two portals
    * (getGroundHeightEstimate across the way from one to the other),
    * interpolated, as the route cells of a tunnel stretch take it. Otherwise,
@@ -207,10 +206,7 @@ export class TerrainQueries {
     } else if (deck !== null) {
       const here = this.columnAtGeo(lat, lon);
       const carried = here === null ? null : this.carriedAtGeo(deck);
-      if (here !== null && carried !== null) {
-        const y = approachY(here, carried);
-        return y - carried > corridorConfig.roofRise ? carried : y;
-      }
+      if (here !== null && carried !== null) return approachY(here, carried);
     }
     return this.getGroundHeightEstimate(lat, lon, prevLat, prevLon, nextLat, nextLon);
   }

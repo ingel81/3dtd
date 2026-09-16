@@ -613,6 +613,13 @@ describe('TerrainQueries', () => {
         expect(at(0, 2, from(0, -4, 0, 2))(queries)).toBeCloseTo(9, 6);
       });
 
+      it('nimmt unter einem Vordach 2 m über dem Deck die getragene Höhe, wie eine Zelle der Strecke', () => {
+        const { queries, addTile } = quay();
+        // Das Vordach bei z = 2 liegt mehr als CARRY_STEP_RISE_M über dem Deck und näher als der Kai 9 m darunter.
+        addTile(floor(11, 1, 0, 2), 3, 2);
+        expect(at(0, 2, from(0, -4, 0, 2))(queries)).toBeCloseTo(9, 6);
+      });
+
       // Playtest 2026-09-15, Erlenbach (D2): eine Straße unter einem Autobahndeck, das die Photogrammetrie bis zum Boden füllt.
       it('nimmt unter einem anderen Way die Höhe zwischen dem Boden an den beiden Portalen', () => {
         const { queries, addTile } = setup();

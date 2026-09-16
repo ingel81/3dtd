@@ -66,12 +66,17 @@ export const CARRY_STEP_RISE_M = 1.5;
 /**
  * The hit of `column` nearest to `y`, the height the route carries there
  * (carriedY): its top where that lies at least as near as its lowest
- * hit, else the lowest hit. The top of a deck carried on lies nearer than
+ * hit, else the lowest hit; but `y` itself where that hit lies more than
+ * CARRY_STEP_RISE_M above it. The top of a deck carried on lies nearer than
  * the quay or road under it; a street on the level of the deck nearer than
- * a crown, lamp, statue or car over it.
+ * a crown, lamp, statue or car over it. A crown, awning, sign or roof with
+ * no ground under it lies further above, and a cell there stands at the
+ * height carried, as the route itself keeps it past such a column
+ * (carriedY). A hit further below stays: the open quay beside a deck.
  */
 export function approachY(column: ColumnSample, y: number): number {
-  return Math.abs(column.topY - y) <= Math.abs(column.groundY - y) ? column.topY : column.groundY;
+  const hit = Math.abs(column.topY - y) <= Math.abs(column.groundY - y) ? column.topY : column.groundY;
+  return hit - y > CARRY_STEP_RISE_M ? y : hit;
 }
 
 /**

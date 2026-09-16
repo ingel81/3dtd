@@ -1050,6 +1050,17 @@ describe('GlobalRouteGrid bridges', () => {
       expect(grid2.getCellAt(121, 5)).toMatchObject({ surface: 'approach', terrainHeight: 80 });
       expect(grid2.getCellAt(121, 45)).toMatchObject({ surface: 'ground', terrainHeight: 80 });
     });
+
+    it('keeps a cell under an awning with no ground under it at the height carried past the bridge end', () => {
+      // Awnings 2 and 4 m over the street at 80 m on the way off the bridge, no ground under them.
+      const awnings = (x: number, z: number): ColumnSample =>
+        Math.abs(x - 121) < 1 && z > 4 && z < 6 ? { groundY: 82, topY: 82, tileDepth: 20, tileGeometricError: 2 }
+          : Math.abs(x - 125) < 1 && z > 4 && z < 6 ? { groundY: 84, topY: 84, tileDepth: 20, tileGeometricError: 2 }
+            : head(x, z);
+      const grid2 = build(awnings, [route]);
+      expect(grid2.getCellAt(121, 5)).toMatchObject({ surface: 'approach', terrainHeight: 80 });
+      expect(grid2.getCellAt(125, 5)).toMatchObject({ surface: 'approach', terrainHeight: 80 });
+    });
   });
 
   it('decides the surface before sampling, whichever route comes first', () => {
