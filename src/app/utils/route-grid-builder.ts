@@ -301,7 +301,9 @@ export function claimSegmentCells(
 
 /**
  * Whether the segment `start`-`end` touches the square of grid spot
- * (gx, gz), edges included (Liang-Barsky clipping). Only at generation.
+ * (gx, gz), edges included (Liang-Barsky clipping), the square grown by
+ * `margin` on every side. At generation, and where the band checks the
+ * cells its line will claim (corridor-band.ts).
  */
 export function segmentTouchesCell(
   cellSize: number,
@@ -309,6 +311,7 @@ export function segmentTouchesCell(
   end: { x: number; z: number },
   gx: number,
   gz: number,
+  margin = 0,
 ): boolean {
   const dx = end.x - start.x;
   const dz = end.z - start.z;
@@ -326,10 +329,11 @@ export function segmentTouchesCell(
     }
     return true;
   };
-  const x0 = gx * cellSize;
-  const z0 = gz * cellSize;
-  return clip(-dx, start.x - x0) && clip(dx, x0 + cellSize - start.x)
-    && clip(-dz, start.z - z0) && clip(dz, z0 + cellSize - start.z);
+  const x0 = gx * cellSize - margin;
+  const z0 = gz * cellSize - margin;
+  const size = cellSize + 2 * margin;
+  return clip(-dx, start.x - x0) && clip(dx, x0 + size - start.x)
+    && clip(-dz, start.z - z0) && clip(dz, z0 + size - start.z);
 }
 
 /**
