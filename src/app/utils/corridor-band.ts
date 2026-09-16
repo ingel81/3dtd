@@ -1,4 +1,5 @@
 import { CentreMode, corridorConfig, cutShortBulges } from './route-corridor';
+import { segmentTouchesCell } from './route-grid-builder';
 
 /**
  * The walkable band along a route and the enemies' line in it (phase 2 of
@@ -34,10 +35,12 @@ import { CentreMode, corridorConfig, cutShortBulges } from './route-corridor';
  *    edges. The report gives its steepest slope and tightest bend.
  * 4. **No band:** a backbone more than `roofRise` above the street under the
  *    station (`street`, streetLevel: the backbones with what covers the lane
- *    taken out) makes the station part of a passage, run as a tunnel: a
- *    jetty or a roof the mesh fills down to the street, an archway, a gate
- *    tower. A lower object filling the lane is its own backbone: the band
- *    lies on it and enemies climb over it (decision E6).
+ *    taken out), or a cell that high on the line it lays, makes the station
+ *    part of a passage, run as a tunnel: a jetty or a roof the mesh fills
+ *    down to the street, an archway, a gate tower. So do a few metres
+ *    between two passages, or between a passage and a tunnel from OSM. A
+ *    lower object filling the lane is its own backbone: the band lies on it
+ *    and enemies climb over it (decision E6).
  *
  * Stretches the band does not decide (a bridge, a tunnel, a stretch under
  * another way, the stretch off a bridge end, the leg to the HQ) keep the OSM
@@ -62,6 +65,12 @@ export interface BandRoute {
    * stretch off a bridge end or the leg to the HQ.
    */
   open: readonly boolean[];
+  /**
+   * Per segment: under cover from OSM, a tunnel, a covered passage or a
+   * stretch under another way. A passage the band finds next to one is
+   * part of it (closePassageGaps, CorridorBand.passages).
+   */
+  covered: readonly boolean[];
   /** Per segment: half width of the OSM street; the backbone is looked for this plus BACKBONE_SLACK_M either side. */
   streetHalfWidth: readonly number[];
   /**
@@ -114,7 +123,13 @@ export interface BandStation {
 /** The band of one route, see buildBand. */
 export interface CorridorBand {
   stations: BandStation[];
-  /** Metres along the route, stations in a passage and half a station either side. */
+  /**
+   * Metres along the route, stations in a passage and half a station either
+   * side. A passage next to a stretch under cover from OSM lengthens that
+   * stretch (the mesh of a gate tower past the mouth of its archway) and is
+   * not listed: where the lattice lies decides by a station whether there is
+   * one at all.
+   */
   passages: { from: number; to: number }[];
   /** Steepest change of the enemies' line (m per m) and its tightest bend (1 per m) over stations with a band. */
   maxSlope: number;
@@ -152,6 +167,26 @@ export const PASSAGE_SPAN_M = 30;
  * the middle later.
  */
 export const CENTRE_STIFFNESS = 150;
+
+/**
+ * Longest gap along the route between two passages, or a passage and a
+ * stretch under cover from OSM, that becomes part of the passage, metres
+ * (closePassageGaps): two stations. What covers a lane is judged in 2 m
+ * cells, so where the lattice lies decides by a cell whether the edge of a
+ * cover still reaches a station's line, and a surface of the cover within
+ * `roofRise` of the street (an arch, a lower roof) can give a station or two
+ * a backbone on it. Neither splits one passage into two any more.
+ */
+const PASSAGE_GAP_M = 4;
+
+/**
+ * How far past its square the band counts a cell as one its line runs
+ * through, metres: the line reaches the grid through latitude and longitude
+ * (PathAndRouteService.laidInBand), so a point can come back off by a few
+ * micrometres, and a cell the line only touches at a corner is claimed
+ * (claimSegmentCells).
+ */
+const CLAIM_MARGIN_M = 1e-3;
 
 /** Step along the line across the route that finds the cells it crosses, metres. */
 const CROSS_STEP_M = 0.25;
@@ -210,12 +245,6 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
     for (const cell of st.cells) if (cell.column && (!best || Math.abs(cell.u) < Math.abs(best.u))) best = cell;
     return best?.column?.ground ?? null;
   });
-  // Ground of the cell the line itself runs through, which is not always the
-  // one above: on a line across the lattice at an angle the nearest centre
-  // can belong to the cell beside it. A route claims the cell its line runs
-  // through whatever its width (claimSegmentCells), so this is the one that
-  // has to be on the street (markPassages).
-  const lineCell = stations.map((st) => columnAt(Math.floor(st.x / cellSize), Math.floor(st.z / cellSize))?.ground ?? null);
   const { stepRise, stepDrop } = corridorConfig;
   /**
    * Whether a cell of station `k` with ground `g` may be a backbone: no more
@@ -242,26 +271,39 @@ export function buildBand(route: BandRoute, columns: BandColumns, cellSize: numb
   stations.forEach((st, k) => {
     st.street = street[k];
   });
-  // The band first: whether a station can put its line clear of what covers
-  // the lane decides whether the stretch is a passage (markPassages).
   for (const st of stations) walkBand(st);
-  markPassages(stations, lineCell);
-  cutBulges(stations);
-  taperEdges(stations);
-  // The line and the room beside it settle together: the line moves within
-  // the band, so the room changes faster than the edges do (taperWidths).
-  for (let round = 0; round < CENTRE_ROUNDS; round++) {
-    placeCentre(stations, mode);
-    taperWidths(stations);
+  // Passages, band and line, until the line runs through no cell on a cover
+  // outside a passage (coveredOnLine). Each round starts from the walk and
+  // only adds stations, so it ends.
+  const walked = stations.map(({ kind, backbone, b, left, right }) => ({ kind, backbone, b, left, right }));
+  const underCover = new Set<number>();
+  for (;;) {
+    stations.forEach((st, k) => Object.assign(st, walked[k]));
+    markPassages(stations, route, underCover);
+    cutBulges(stations);
+    taperEdges(stations);
+    // The line and the room beside it settle together: the line moves within
+    // the band, so the room changes faster than the edges do (taperWidths).
+    for (let round = 0; round < CENTRE_ROUNDS; round++) {
+      placeCentre(stations, mode);
+      taperWidths(stations);
+    }
+    const found = coveredOnLine(route, stations, columnAt, cellSize).filter((k) => !underCover.has(k));
+    if (found.length === 0) break;
+    for (const k of found) underCover.add(k);
   }
 
+  // Runs of passage stations; one next to a stretch under cover from OSM is part of that stretch.
   const passages: { from: number; to: number }[] = [];
+  const nextToCover = (k: number) => stations[k] !== undefined && route.covered[stations[k].segment];
   for (let k = 0; k < stations.length; k++) {
     if (stations[k].kind !== 'passage') continue;
-    const half = halfStation(stations, k);
-    const last = passages[passages.length - 1];
-    if (last && k > 0 && stations[k - 1].kind === 'passage') last.to = stations[k].s + half;
-    else passages.push({ from: stations[k].s - half, to: stations[k].s + half });
+    let end = k;
+    while (end + 1 < stations.length && stations[end + 1].kind === 'passage') end++;
+    if (!nextToCover(k - 1) && !nextToCover(end + 1)) {
+      passages.push({ from: stations[k].s - halfStation(stations, k), to: stations[end].s + halfStation(stations, end) });
+    }
+    k = end;
   }
   const { maxSlope, maxCurvature } = shapeOf(stations);
   return {
@@ -459,42 +501,116 @@ function streetLevel(stations: readonly Work[]): (number | null)[] {
  * archway every station within a few metres stands on the same roof, so a
  * median over them is the roof itself.
  *
- * A passage, either way round:
+ * A passage, on a street the band decides and where the street is known:
  *
  * - the **backbone** stands more than `roofRise` over the street: no cell
  *   across the line is on the street at all (the lane is filled down to the
  *   ground, a crown, a jetty);
- * - the cell the **line** runs through stands that far over the street and
- *   the band is narrower than two `edgeMargin`, so the line cannot be put
- *   clear of it. A route claims every cell its line runs through whatever
- *   its width (claimSegmentCells), and such a cell keeps the roof over the
- *   lane: an upper floor jutting over an alley, or the mesh of a gate tower
- *   past the mouth of its archway.
+ * - the **line** runs through a cell that far over the street (`underCover`,
+ *   coveredOnLine), with or without a backbone;
+ * - a **gap** between two passages, or between a passage and a stretch
+ *   under cover from OSM, no longer than PASSAGE_GAP_M (closePassageGaps).
  *
  * Playtest 2026-09-16, Rothenburg, the Weisser Turm over Georgengasse: the
  * first rule found only the two ends of the stretch under the tower (the
  * median over four stations either way was the tower roof), the band
  * between them lay on the tower, and the cells the line ran through under
- * the overhangs either side stood 14 to 16 m up. Until 2026-09-16 the
- * second case was caught by `streetUnderRoof`, a height rule of its own for
- * a centre line cell; the band replaced it and left the case open.
+ * the overhangs either side stood 14 to 16 m up. Playtest 747: the same
+ * tower loaded twice, the cell lattice 19 cm apart, gave two passages and
+ * one, and in the second the cells between the passage and the archway
+ * stood on the tower. Both rules needed a backbone, under the tower one on
+ * its roof: in the snapshots two roof cells beside the line lay 0.26 m
+ * apart in one load and 0.57 m in the other, a step apart or not, and the
+ * station was a passage or had no band at all. And the line was checked
+ * only in the cell each station stands in, not in the cells it crosses
+ * between two stations.
  */
-function markPassages(stations: Work[], line: readonly (number | null)[]): void {
-  const { roofRise, stepRise, edgeMargin } = corridorConfig;
+function markPassages(stations: Work[], route: BandRoute, underCover: ReadonlySet<number>): void {
+  const { roofRise, stepRise } = corridorConfig;
   stations.forEach((st, k) => {
-    if (!st.backbone || st.street === null) return;
-    const lineY = line[k];
-    const covered = lineY !== null && lineY - st.street > roofRise && st.right - st.left < 2 * edgeMargin;
-    if (st.backbone.y - st.street > roofRise || covered) {
-      st.kind = 'passage';
-      st.backbone = null;
-      st.b = -1;
-      st.left = -st.wallL;
-      st.right = st.wallR;
-    } else if (st.backbone.y - st.street > stepRise) {
-      st.kind = 'climb';
-    }
+    if (!route.open[st.segment] || st.street === null) return;
+    if ((st.backbone !== null && st.backbone.y - st.street > roofRise) || underCover.has(k)) toPassage(st);
+    else if (st.backbone !== null && st.backbone.y - st.street > stepRise) st.kind = 'climb';
   });
+  closePassageGaps(stations, route);
+}
+
+/** `st` becomes part of a passage: no backbone, the rays' walls. */
+function toPassage(st: Work): void {
+  st.kind = 'passage';
+  st.backbone = null;
+  st.b = -1;
+  st.left = -st.wallL;
+  st.right = st.wallR;
+}
+
+/**
+ * The stations between two passages, or between a passage and a stretch
+ * under cover from OSM (`covered`: a tunnel, a covered passage, a stretch
+ * under another way), become part of the passage where they span at most
+ * PASSAGE_GAP_M along the route, all of them on a street the band decides
+ * and with a street known under them.
+ */
+function closePassageGaps(stations: Work[], route: BandRoute): void {
+  const cover = (st: Work) => st.kind === 'passage' || route.covered[st.segment];
+  let last = -1;
+  stations.forEach((st, k) => {
+    if (!cover(st)) return;
+    if (last >= 0 && k - last > 1 && !(route.covered[stations[last].segment] && route.covered[st.segment])) {
+      const gap = stations.slice(last + 1, k);
+      const span = st.s - stations[last].s - halfStation(stations, last) - halfStation(stations, k);
+      if (span <= PASSAGE_GAP_M + 1e-6 && gap.every((g) => route.open[g.segment] && g.street !== null)) gap.forEach(toPassage);
+    }
+    last = k;
+  });
+}
+
+/**
+ * The stations whose line runs through a cell more than `roofRise` over the
+ * street under them, outside a passage: the cells a route claims whatever
+ * its width (claimSegmentCells, every cell its line runs through), on the
+ * pieces of the line as bandPath lays them. A piece is checked against the
+ * station at each of its ends that the band decides, and a cell counts for
+ * the nearer of them; it becomes a passage (markPassages), which makes every
+ * piece at it one. A point between two segments is no such end: its piece
+ * is a passage when the station at its other end is.
+ *
+ * A cell over the street on the line keeps the roof over the lane: an upper
+ * floor jutting over an alley, the mesh of a gate tower past the mouth of
+ * its archway. Until 2026-09-16 `streetUnderRoof` gave such a cell the
+ * street; the band replaced it, then checked only the cell each station
+ * stands in, where the band was narrower than two `edgeMargin`. On a line
+ * at an angle to the lattice a covered cell between two stations then went
+ * unchecked, and whether a station stood in it depended on where the
+ * lattice lay (playtest 747).
+ */
+function coveredOnLine(
+  route: BandRoute, stations: readonly Work[], columnAt: (gx: number, gz: number) => BandColumn | null, cellSize: number,
+): number[] {
+  const { roofRise } = corridorConfig;
+  const nodes = lineNodes(route, stations);
+  const found = new Set<number>();
+  const decides = (k: number) => k >= 0 && route.open[stations[k].segment] && stations[k].street !== null;
+  for (let i = 0; i + 1 < nodes.length; i++) {
+    const a = nodes[i];
+    const b = nodes[i + 1];
+    if (a.passage || b.passage || !route.open[a.segment]) continue;
+    const ends = [a.station, b.station].filter(decides);
+    if (ends.length === 0) continue;
+    const m = CLAIM_MARGIN_M;
+    for (let gx = Math.floor((Math.min(a.x, b.x) - m) / cellSize); gx <= Math.floor((Math.max(a.x, b.x) + m) / cellSize); gx++) {
+      for (let gz = Math.floor((Math.min(a.z, b.z) - m) / cellSize); gz <= Math.floor((Math.max(a.z, b.z) + m) / cellSize); gz++) {
+        if (!segmentTouchesCell(cellSize, a, b, gx, gz, m)) continue;
+        const column = columnAt(gx, gz);
+        if (column === null) continue;
+        const cx = (gx + 0.5) * cellSize;
+        const cz = (gz + 0.5) * cellSize;
+        const k = ends.reduce((p, q) => (Math.hypot(stations[q].x - cx, stations[q].z - cz) < Math.hypot(stations[p].x - cx, stations[p].z - cz) ? q : p));
+        if (column.ground - stations[k].street! > roofRise) found.add(k);
+      }
+    }
+  }
+  return [...found].sort((p, q) => p - q);
 }
 
 /** The edges of the band of `st` (band and climb), see the file comment. */
@@ -831,20 +947,37 @@ export interface BandPoint {
  * the narrower of the two; in a passage the street's half width.
  */
 export function bandPath(route: BandRoute, band: CorridorBand): BandPoint[] {
+  const nodes = lineNodes(route, band.stations);
+  // A piece takes the narrower half widths of its two ends.
+  return nodes.map(({ station: _station, ...node }, i) => {
+    const next = nodes[i + 1];
+    if (!next) return node;
+    return { ...node, left: Math.min(node.left, next.left), right: Math.min(node.right, next.right), passage: node.passage || next.passage };
+  });
+}
+
+/** A point of the enemies' line before its piece takes the narrower widths (bandPath), with the station it stands for, -1 between two segments. */
+interface LineNode extends BandPoint {
+  station: number;
+}
+
+/** The points of the enemies' line of `stations` along `route`, see bandPath; a piece is a passage where either end is. */
+function lineNodes(route: BandRoute, stations: readonly BandStation[]): LineNode[] {
   const { points } = route;
-  const { stations } = band;
   if (points.length < 2 || stations.length === 0) return [];
   const widths = (st: BandStation) => (st.kind === 'passage'
     ? { left: route.streetHalfWidth[st.segment], right: route.streetHalfWidth[st.segment] }
     : { left: st.centre - st.left, right: st.right - st.centre });
-  interface Node { x: number; z: number; segment: number; offset: number; left: number; right: number; passage: boolean }
-  const nodes: Node[] = [];
+  const nodes: LineNode[] = [];
   const first = stations[0];
-  nodes.push({ x: points[0].x, z: points[0].z, segment: first.segment, offset: 0, ...widths(first), passage: first.kind === 'passage' });
+  nodes.push({ x: points[0].x, z: points[0].z, segment: first.segment, offset: 0, ...widths(first), passage: first.kind === 'passage', station: 0 });
   for (let k = 0; k < stations.length; k++) {
     const st = stations[k];
     const next = stations[k + 1];
-    nodes.push({ x: st.x + st.rx * st.centre, z: st.z + st.rz * st.centre, segment: st.segment, offset: st.centre, ...widths(st), passage: st.kind === 'passage' });
+    nodes.push({
+      x: st.x + st.rx * st.centre, z: st.z + st.rz * st.centre, segment: st.segment, offset: st.centre, ...widths(st),
+      passage: st.kind === 'passage', station: k,
+    });
     if (!next || next.segment === st.segment) continue;
     // The point between the two segments, along the mitre of their right vectors.
     const joint = points[next.segment];
@@ -862,15 +995,11 @@ export function bandPath(route: BandRoute, band: CorridorBand): BandPoint[] {
       left: Math.min(wa.left, wb.left),
       right: Math.min(wa.right, wb.right),
       passage: st.kind === 'passage' && next.kind === 'passage',
+      station: -1,
     });
   }
   const end = points[points.length - 1];
-  const lastSt = stations[stations.length - 1];
-  nodes.push({ x: end.x, z: end.z, segment: lastSt.segment, offset: 0, ...widths(lastSt), passage: false });
-  // A piece takes the narrower half widths of its two ends.
-  return nodes.map((node, i) => {
-    const next = nodes[i + 1];
-    if (!next) return node;
-    return { ...node, left: Math.min(node.left, next.left), right: Math.min(node.right, next.right), passage: node.passage || next.passage };
-  });
+  const last = stations.length - 1;
+  nodes.push({ x: end.x, z: end.z, segment: stations[last].segment, offset: 0, ...widths(stations[last]), passage: false, station: last });
+  return nodes;
 }

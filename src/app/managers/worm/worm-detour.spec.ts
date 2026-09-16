@@ -57,6 +57,7 @@ function bandedPath(): RouteWaypoint[] {
   const route: BandRoute = {
     points,
     open: [true],
+    covered: [false],
     streetHalfWidth: [3.5],
     wallLeft: [new Array<number>(stations).fill(7)],
     wallRight: [new Array<number>(stations).fill(7)],
