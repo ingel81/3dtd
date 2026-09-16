@@ -34,6 +34,7 @@ vi.mock('../../ai/core/dps-profile-visualizer', () => ({
 
 import { VisualizationFacadeService } from './visualization-facade.service';
 import { CorridorBuild } from '../world/corridor-build';
+import { corridorTrace } from '../../utils/corridor-trace';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
 import { CameraControlService, type CameraView } from '../camera-control.service';
@@ -293,7 +294,19 @@ describe('VisualizationFacadeService', () => {
   const aiDataCollector = { getCurrentDPSProfile: vi.fn(() => ({ profile: 1 })) };
   const mapPlacement = { initialize: vi.fn(), placementMode: vi.fn(() => null) };
   const engineStore = { cameraDebugEnabled: signal(false), cameraDebugInfo: signal<unknown>(null) };
-  const relocationStatus = { status: signal<{ title: string; step: string; percent: number | null } | null>(null) };
+  /** The hint over the map, as RelocationStatusService holds it. */
+  const relocationStatus = {
+    status: signal<{ title: string; step: string; percent: number | null } | null>(null),
+    show: vi.fn((title: string, step: string) => relocationStatus.status.set({ title, step, percent: null })),
+    clear: vi.fn(() => relocationStatus.status.set(null)),
+    follow: vi.fn(() => ({
+      report: ({ step, percent }: { step: string; percent: number | null }) => {
+        const current = relocationStatus.status();
+        if (current) relocationStatus.status.set({ ...current, step, percent });
+      },
+      end: () => relocationStatus.status.set(null),
+    })),
+  };
   let store: {
     baseCoords: ReturnType<typeof signal<{ lat: number; lon: number }>>;
     centerCoords: ReturnType<typeof signal<{ lat: number; lon: number; height: number }>>;
@@ -463,13 +476,32 @@ describe('VisualizationFacadeService', () => {
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
     });
 
-    it('leaves the corridor alone while towers stand on it', async () => {
+    it('leaves the corridor alone while towers stand on it, and says so in the trace', async () => {
       await blindBuild();
       towerCount = 1;
+      const traced = vi.spyOn(corridorTrace, 'log');
 
       await show();
 
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+      expect(traced).toHaveBeenCalledWith('build.revisit', {
+        built: false, blocked: 'towers stand on the map, sell them first',
+      });
+      // The next visibility change tries again: the flag stays up.
+      towerCount = 0;
+      await show();
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
+    });
+
+    it('shows the hint over the map while it builds, and takes it away after', async () => {
+      await blindBuild();
+
+      await show();
+
+      // Towers and waves wait for this build, so the player sees why.
+      expect(relocationStatus.show).toHaveBeenCalledWith('Building the corridor', 'Loading the corridor tiles');
+      expect(relocationStatus.follow).toHaveBeenCalled();
+      expect(relocationStatus.status()).toBeNull();
     });
 
     it('builds nothing again after a build that measured its stations', async () => {
