@@ -880,6 +880,32 @@ Enden der Route sind auf die OSM-Linie festgenagelt. Der Bericht nennt die
 steilste Bewegung und die engste Krümmung; über die fünf Szenen bleibt sie unter
 dem Wurm-Radius (1/20 m) und unter 0,25 m je Meter.
 
+**Am Knick** (`edgeLength`, seit 2026-09-16): Ausbuchtungs-Schnitt (`cutBulges`) und
+Taper (`taperEdges`, `taperWidths`) messen die Meter zwischen zwei Stationen entlang
+der Kante, so wie `bandPath` das Band legt: als Parallele der Route, am Knick auf
+Gehrung. Das ist die Route dazwischen, und wo sie von der Seite der Kante wegdreht,
+dazu der Bogen um die Außenseite, Versatz mal Winkel. Der Taper nimmt den Versatz
+der Station, von der die Grenze kommt, der Schnitt den der Stufe, die er prüft, und
+zählt die Länge in Stationen. Auf gerader Route bleibt der Schnitt so genau
+`cutShortBulges` und der Taper die Distanztransformation entlang der Route. Innen
+verkürzt sich die Parallele und faltet sich wenige Meter vom Knick, wo die
+Querlinien der Stationen die andere Straße entlanglaufen; dort bleibt die Länge
+entlang der Route, der Taper greift innen also so stark wie zuvor.
+
+- **Anlass** (Playtest 748): Entlang der Route gemessen schnürte eine schmalere
+  Straße nach einem Knick die breitere davor an der Außenseite ein, auf einer
+  Kante, die um die Ecke läuft und den Häusern der anderen Straße nicht nahekommt,
+  und ebenso umgekehrt. Nachgestellt in `corridor-band.spec.ts` ("turning between
+  a wide and a narrower street": 7 und 4 m Halbbreite, 30°, 60° und 90° in beide
+  Richtungen, Häuser an eckigen Straßenrändern): Die Außenkante der breiten Straße
+  lag in den 10 m vor oder nach dem Knick 1,25 bis 2,25 m innerhalb ihrer Wand, jetzt
+  höchstens 0,5 m (bei 90° gar nicht).
+- **Nicht geändert:** Die Querlinien selbst. Eine Station wenige Meter vor einem
+  Knick misst quer zu ihrem Segment und damit die andere Straße entlang; ein Objekt
+  dort beendet ihren Lauf (Nutzerentscheidung: Das Band endet vor einem kleinen
+  Objekt). Die Querlinien entlang der Gehrung zu drehen (Variante a der Analyse)
+  änderte Lauf, Wände und die Punkte der Gegnerlinie zugleich.
+
 **Straße unter der Station** (`street`, `streetLevel`, seit 2026-09-16): die
 Rückgrate entlang der Route als morphologisches Opening über `PASSAGE_SPAN_M`
 (30 m) - erst das tiefste Rückgrat in 15 m beiderseits, dann das höchste dieser
