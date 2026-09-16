@@ -4,6 +4,144 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-16
+
+### Korridor: vom User bestätigte Fixes
+
+Teilschritte des Korridor-Umbaus, bestätigt im Playtest vom 2026-09-16 (`docs/archive/PLAYTEST_2026-09.md`). Der
+Eintrag "Korridor einmal fertig messen, dann einfrieren" bleibt bis zu den Nachtests K1 und K2 in TODO.md.
+
+- [x] **Durchgang unter dem Weißen Turm (743)**: Jede Station trägt ihre eigene Straßenhöhe, die Durchgangsregeln
+      lesen sie (`b75eaa3e`); die rosa Zellen am Rathaus sind weg (`6cadea9d`).
+- [x] **Derselbe Korridor nach Navigation und `reset()` (745)**: Der Säulen-Cache castet in der Feldmitte, Stationen
+      messen exakt (`5cdcd13f`, `c2cf606a`).
+- [x] **Ein Ort, ein Korridor (747)**: HQ und Spawns kommen auf jedem Weg mit 5 Nachkommastellen ins Spiel
+      (`397041eb`); ein Durchgang entsteht, wo die Linie eine Überdeckung kreuzt, unabhängig von der Gitterlage
+      (`cac8c792`).
+- [x] **Kachel "Snapshot"**: speichert den ganzen Korridor als JSON (`8f672c0b`).
+
+---
+
+## 2026-09-15
+
+### Nachtests vom 15.09., aus TODO.md übernommen
+
+Beim Aufräumen am 2026-09-16 aus TODO.md übernommen; bestätigt in den Nachtests 601 bis 737
+(`docs/archive/PLAYTEST_2026-09.md`).
+
+- [x] **Gegnermodelle: Blender-Runde**: 12 Modelle optimiert, VAT aller Typen 264,2 auf 105,2 MB (`99f2845` bis
+      `32195cb`), `Electrocuted_Fall` zurück im Pool (`05b2523`). Playtest 632, 634, 635, 715.
+- [x] **Mech und Ghost unter dem Modell-Budget** (`58161fd7`, `43a4d0a8`). Playtest 735.
+- [x] **zombie_v2 extern optimiert**: in Blender dezimiert, Textur neu gebacken (`4c8d21c`, `b09d24d`). Playtest 152,
+      715.
+- [x] **Nuklearschlag in Echtzeit, mit Warnsirene**: Nachhall in Spielzeit (`46a096d2`), VFX, Ton und Shake je
+      Fähigkeit (`4479bc9f`), Sirene in der Vorwarnung (`ac048b74`). Playtest 622 bis 624b, 733.
+- [x] **Fähigkeiten: Sounds und Laser-Bot**: eigene Sounds für Frostbombe und EMP (`fb7edff7`), Laser-Ton
+      (`cc389c68`), der Bot zielt mit dem Strahl der Fähigkeit (`d39fb314`). Playtest 713, 714, 729, 730, 733.
+- [x] **Held: Reste**: Eine Ablehnung beim Anheuern oder bei einer Fähigkeit nennt den Grund (`0961846d`), der Held
+      zählt im Fairness-Gate (`3bca58b6`). Playtest 637 bis 639. Explosivmunition mit Flächenschaden steht als
+      Konzept in TODO.md.
+- [x] **Konzept "Spieler aktiver einbinden" umgesetzt**: Nuklearschlag, Frostbombe, EMP, Orbitallaser und Held
+      (`docs/ABILITIES.md`, `docs/HERO.md`). Playtest 114 bis 123, 637 bis 639.
+- [x] **Boss-Intro: Reste**: kein Intro bei offenem Dialog (`77fb07b4`), Kameraeinstellung sucht freie Sicht
+      (`0188b22c`), Esc in der Tastenübersicht (`821c0cf6`). Playtest 609 bis 612b.
+- [x] **Route auf einer Brücke**: Das Brückenende behält seine Deck-Zellen (`427443a6`). Playtest 701 bis 704, 726.
+- [x] **Weltkarte im Spiel geprüft**: Zeichnen, Hover, Ziehen und Zoomen. Playtest 340 bis 346, 649.
+- [x] **Showcase-Orte und Recent**: Rio und Tokyo angespielt, Recent speichert erst nach stehender Route
+      (`df847ee8`). Playtest 630, 725.
+- [x] **Eigene Shader mit Ausgabe-Kodierung**: gleiches Bild mit und ohne Bloom (`9aab6a0e`). Playtest 626 bis 629.
+- [x] **Beschwörungskreis mit Bloom sichtbar** (`7c2530f6`). Playtest 248, 338, 629.
+- [x] **VAT nach Context-Restore im Browser gemessen**: Neu-Backen 4,5 s. Playtest 633a, 716.
+- [x] **Drache hat Sound**: kein Fehler, das Brüllen ist hörbar. Playtest 632.
+- [x] **Onboarding-Tipps entlang des Spielablaufs**: 7 Tipps (`4a219445`), "Tips" setzt am laufenden Spiel an
+      (`1d8d2aaa`), Research-Center-Tipp nach Welle 3. Playtest 502 bis 507, 728.
+- [x] **Globale Damage-Matrix-Übersicht** als Dialog (`46c350d` bis `324ca45`). Playtest 3, 160, 650.
+
+---
+
+## 2026-09-14
+
+### Fix-Session vom 14.09., aus TODO.md übernommen
+
+Beim Aufräumen am 2026-09-16 aus TODO.md übernommen; bestätigt im Playtest 2 vom 14.09. (Punkte 501 bis 570 in
+`docs/archive/REVIEW_FIX_2026-09-14.md`).
+
+- [x] **Upgrade per U mit Rückmeldung**: Welttext, Kachel-Blitz, bei Ablehnung der Grund (`68f69772`), dasselbe beim
+      Klick auf eine Kachel (`a2198b2a`). Playtest 517 bis 520.
+- [x] **Knopf "Keys" für die Tastenübersicht** (`edb6d630`). Playtest 524.
+- [x] **Intro-Flug: nur Esc und Maus brechen ab** (`f94813b7`). Playtest 525 bis 528.
+- [x] **Keine Hover-Reichweite beim Ziehen auf dem Tower** (`b1b684dd`). Playtest 521, 522.
+- [x] **Screenshot mit Logo und Adresse** als ein Block unten rechts (`2e2b266c`, `81ad0b9b`). Playtest 557 bis 559.
+- [x] **Fähigkeiten erst nach ihrer Forschung in der Leiste** (`586f493e`). Playtest 510 bis 513.
+- [x] **Blutmond-Scheinwerfer drehen mit dem Turm** (`6a42d3a5`). Playtest 501, 549 bis 552.
+- [x] **HQ umsetzen mit Rückmeldung**: Hinweis mit Korridor-Prozent (`ac5eafee`), Messung in 32-ms-Scheiben
+      (`b8f837fc`), nur der fehlende Teil der Straßen-Box (`3eb5a26e`); Paris 2,5 statt 6,1 s. Playtest 541 bis 544.
+- [x] **Alter Korridor verschwindet beim Ortswechsel** (`4132607f`, `a99e7095`). Playtest 535, 536.
+- [x] **Portal an Kurven, Spawn drehbar**: Ausrichtung am Austritt der Route (`5a061423`), R dreht im Rahmen der
+      Öffnung (`bfd2d312`), die Route beginnt am Fuß des Spawns (`83565c40`). Playtest 529 bis 534.
+- [x] **Favoriten ohne Grenze**, mit Namen, umbenennen und ordnen (`a30d8412`). Playtest 537 bis 540.
+- [x] **zombie_v2-Vorschau**: Rahmung und Material (`b2631a18`, `814dec34`). Playtest 515.
+- [x] **Spawn-Vorschau an gültigen Stellen grün** (`23483121`). Playtest 531.
+- [x] **"Impact Effects" wirkt auf den Knochen-Puff**: kein Defekt, per Test belegt (`0b1dbdf4`). Playtest 514.
+- [x] **Sockel unter Dächern**: In Tokyo zeigen die Tiles unter Flachdächern Boden, die Kommentare sind angeglichen
+      (`179b1804`). Playtest 429 bis 433.
+- [x] **Pause hält alle Sound-Loops** (`177ba53f`, `5ae79d52`). Playtest 545 bis 548.
+- [x] **Fähigkeitsleiste**: eine Zahlenquelle für den Rand (`49d8e06e`), drei Icons über NEXT passen (`f758f544`),
+      Abstand zum Info-Overlay (`d48dc0b7`). Playtest 323, 516.
+- [x] **Hover-Pick nimmt den vordersten Tower** (`57858cb0`). Playtest 523.
+
+### Nachtschichten 13. und 14.09., aus TODO.md übernommen
+
+Bestätigt im Playtest 2 vom 14.09. (Punkte 101 bis 440 in `docs/archive/REVIEW_SPRINT_2026-09-13.md` und `-14.md`).
+
+- [x] **`three-tiles-engine.ts` abgespeckt**: Render-Loop, Terrain-Abfragen, Szene, Picking und TilesRenderer-Setup
+      ausgelagert (`89871ab` bis `f8d1a97`, `d57026c` bis `1f7c867`). Playtest 164.
+- [x] **Kleinkram Runde 2**: Code ohne Aufrufer entfernt (`71f41ec`, `693571b`), Wachrichtung nach Debug-Gegnern
+      (`d6a5b06`), `poison-glob` im Sound-Budget (`3047750`), Charts über `writeGeneratedFile` (`9f4b0a5`),
+      verzögerter Rauch (`bd5112d`), Split des Skeletons (`99178cd` bis `0557aba`). Playtest 124 bis 127.
+- [x] **Canvas folgt der Fenstergröße** (`9619b82f`). Playtest 330.
+- [x] **Skeleton-Split: Reste**: Tower zielen weiter, wenn ein Debug-Skeleton splittet (`dde04a9c`), Debug-Gegner
+      stehen auf der Route (`cbd01d10`). Playtest 336. Die Balance wartet auf den Run-Dump.
+- [x] **Lazy-Chunks: Reste**: "Reload" statt neuer Credentials (`9504032d`), `@angular/animations` entfernt
+      (`82f23124`). Playtest 189, 191, 333, 334.
+- [x] **Steuerung und HUD**: Wellenstart hebt die Pause auf (`c3d6f89a`), Fokusfalle der Photo-Leiste (`ae0a5f39`),
+      Research-Queue wieder strikt (`a1bcb3d5`). Playtest 109, 135, 188, 331, 337, 508, 509.
+- [x] **Training-Debugger mit Outputs** statt Funktions-Inputs (`ca88d039`).
+- [x] **Steinsockel für Tower auf schrägen Dächern** (`7185812f` bis `10c9b178`). Playtest 309 bis 316, 401, 402.
+- [x] **Debug-Gegner schauen ab dem Spawn in Laufrichtung** (`7414ee13`). Playtest 329.
+- [x] **Kamera-Raycasts in Ruhe aus dem Cache** (`8380bd01`). Playtest 254, 305 bis 308.
+- [x] **Spawn-Portal statt Spawn-Marker** (`a214973` bis `cc8da0f`). Playtest 128 bis 133, 239 bis 249.
+- [x] **Skeleton als Schwarm, Split in zwei Minions** (`a177026`, `99178cd` bis `0557aba`). Playtest 39, 124 bis 127.
+
+### Sprint-Runde vom 12.09., aus TODO.md übernommen
+
+Bestätigt im Playtest 2 vom 14.09. (Punkte 1 bis 56 in `docs/archive/REVIEW_SPRINT_2026-09-12.md`). Die Einträge
+zum Training (Lazy-Loading, Dashboard, Backend-Struktur, Bot-Snapshots) sind nicht mit einem echten Trainingslauf
+geprüft; ob es den noch gibt, ist eine offene Entscheidung in TODO.md.
+
+- [x] **Verhaltensprüfung nach dem Terrain- und Performance-Umbau**: Gift bei Timescale, Frost-Aura, Luft-Einheiten,
+      Terrain-Höhen. Playtest 5 bis 8; den Headless-Trainingslauf hat niemand geklickt.
+- [x] **Platzierungsregeln: eine Quelle für Spiel und Bots** (`9eecf67`).
+- [x] **Decision-Explainer im Wave-Debug-Fenster** (`0f3c364`). Playtest 22.
+- [x] **Debug-Fenster als ein Lazy-Chunk**, Spielstart etwa 147 kB kleiner (`eddeb82`). Playtest 50.
+- [x] **Schadensmatrix gespreizt**, Fairness-Floor 0,6 (`5b3102e`). Playtest 4; die Balance wartet auf den Run-Dump.
+- [x] **Boss jede fünfte Welle ab W31** (`9e46b11`), Wurm in der Rotation ab W35 (`7c6025b6`). Playtest 4.
+- [x] **Explosions-Partikel feingetunt** (`c904b3f` bis `6686dc1`). Playtest 30.
+- [x] **Screen Shake ohne Tile-Traversierung**, nur bei nahen Einschlägen (`142193c`). Playtest 32, 33.
+- [x] **Türme halten in der Welle ihre Richtung**, danach Wachrichtung (`c4cb08b`). Playtest 17 bis 19.
+- [x] **Kampfspuren als Decals** (`e404806`, `412cbff`). Playtest 31.
+- [x] **VFX-Einstellungen im Display-Menü** mit Presets (`8eb765f` bis `de1b57d`). Playtest 51.
+- [x] **Chaos Tower** (`0fcacd8` bis `12e9f1e`). Playtest 36, 37; die Balance wartet auf den Run-Dump.
+- [x] **Training-Code lazy geladen** statt über fileReplacements (`85d8402`, `ab6a7c1`, `88ddc55`).
+- [x] **Dashboard-Header** in Lauf- und Modellmetriken geteilt (`c2ee884`).
+- [x] **Design-Runde**: Header, goldener Knopf "Start Wave N", Dev-Menü als Kachelraster (`72073847`, `143dfb3e`,
+      `6deed167`). Playtest 46 bis 49.
+- [x] **training-backend in `core/`, `utils/`, `scripts/` gegliedert** (`058df7a`).
+- [x] **Bot-Snapshots lazy**, Test ergänzt (`f3b0c79`).
+- [x] **Ghost** gab es schon (`ghost` auf W13, W18, W23), Eintrag geschlossen.
+
+---
+
 ## 2026-09-12
 
 ### Sprint 2026-09-11, im Playtest bestätigt
@@ -353,6 +491,22 @@ Review-Agent hat die Stellen gegengelesen.
       (>80% Pfad ohne Ankunft) waren in nur 2,2% der Wellen überhaupt erreichbar.
       Dateien: `src/app/ai/training/strategies/upgrade/path-coverage-upgrade.strategy.ts`,
       `src/app/services/world/strategic-placement.service.ts` (+ `.spec.ts`).
+
+---
+
+## 2026-08-27
+
+### Wave-Curriculum und Schema
+
+Beim Aufräumen am 2026-09-16 aus TODO.md übernommen, dort schon abgehakt.
+
+- [x] **Stone Golem im Wave-Curriculum**: `golem_squad` mit `minWave: 14`, steht auf W15, über das generierte Schema
+      auch im Backend sichtbar.
+- [x] **Wave-Template-Drift zwischen Frontend und Backend behoben**: Das Backend liest
+      `training-backend/generated/ai-schema.json` aus `npm run ai-schema`; `templates.py`, `wave_curriculum.py` und die
+      Gegnertabellen in `config.py` sind gelöscht.
+- [x] **Lightning in AI und Bot**: Schema v2 nimmt Lightning als 10. Tower und 8. Schadensart auf (162 Features),
+      der Bot hat es in `ALL_COMBAT_TOWERS` und `storm-mastery` in der Forschungsreihenfolge.
 
 ---
 
