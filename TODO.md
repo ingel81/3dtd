@@ -17,11 +17,12 @@ Stand 2026-09-16, Branch `next`.
 
 Worker laufen; nach dem Merge gehen die Einträge nach DONE.md.
 
-- [ ] **A4 Replay-Knopf vor dem Merge ausblenden** (das Replay ist ungetestet). Status: in Arbeit.
-- [ ] **B7 Schalter `centreMode` entfernen** (zweiter Modus der roten Linie neben der Bandmitte). Status: in Arbeit.
+- [ ] **A4 Replay-Knopf vor dem Merge ausblenden** (das Replay ist ungetestet). Status: in Arbeit (smallbugs2).
+- [ ] **B7 Schalter `centreMode` entfernen** (zweiter Modus der roten Linie neben der Bandmitte). Status: in Arbeit
+      (hygiene).
 - [ ] **B13 Pathfinding-Worker entfernen**: `PathRouteService.initializeWorker()` hat keinen Aufrufer, der Worker
-      startet nie; seine Typen sind doppelt. Status: in Arbeit.
-- [ ] **E3 Bär dunkler**: wirkt zu hell und gelb. Status: in Arbeit.
+      startet nie; seine Typen sind doppelt. Status: in Arbeit (hygiene).
+- [ ] **E3 Bär dunkler**: wirkt zu hell und gelb. Status: in Arbeit (smallbugs2).
 
 ### C. Bugs: Korrektheit (in Arbeit)
 
@@ -96,15 +97,15 @@ Worker laufen; nach dem Merge gehen die Einträge nach DONE.md.
 
 ## Vor dem Merge nach `main`
 
-- [ ] **A5 Merge-Ablauf**: Code-Stopp; Nachtests K1 bis K3 ([docs/PLAYTEST.md](docs/PLAYTEST.md)), danach nach DONE:
-      Korridor einmal messen und einfrieren, Kragsteine an der Dachkante, Skarnax mit Textur, Beinen, Schwanz und
-      Stimme, Tank-Modell; Build aus frischem Klon mit dem CI-Befehl, dann Gate; Tag auf dem heutigen `main` als
-      Rückweg; `next` sichern (liegt nur lokal). Ein Push auf `main` deployt ohne Tests sofort nach `/play/`.
+- [ ] **A5 Merge-Ablauf**: Code-Stopp; Nachtests K2 und K3 ([docs/PLAYTEST.md](docs/PLAYTEST.md)), danach nach DONE:
+      Kragsteine an der Dachkante, Skarnax mit Textur, Beinen, Schwanz und Stimme, Tank-Modell; Build aus frischem
+      Klon mit dem CI-Befehl, dann Gate; Tag auf dem heutigen `main` als Rückweg; `next` sichern (liegt nur lokal).
+      Ein Push auf `main` deployt ohne Tests sofort nach `/play/`.
 
 ## Später (Backlog)
 
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
-      `attributions.config.ts` nachtragen. User: "Suche ich raus, low prio"; Stone Golem und Herbert sind eigene
+      `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
 - [ ] **B5 Straßen-Overlay und Intro-Flug auf die eingefrorenen Zellhöhen umstellen?** Beide haben eine eigene
       Höhenabfrage neben dem Korridor (`getStreetHeightEstimate`, Flugprofil).
@@ -136,9 +137,47 @@ Worker laufen; nach dem Merge gehen die Einträge nach DONE.md.
 
 ---
 
+## Entschieden (keine Arbeit)
+
+Vom User am 2026-09-16 entschieden, festgehalten in DONE.md (2026-09-16, "Entscheidungen des Users") und in der
+jeweiligen Fach-Doku.
+
+- **B1** ONNX-Modell und Training bleiben.
+- **B4** Kette und Knick-Rahmen aus Playtest 748 bleiben.
+- **B6** Skarnax-Ringe, die neben einem Transporter schräg stehen, stören nicht.
+- **B8** Der Suchscheinwerfer bleibt, wie er ist.
+- **B11** `PERF_BUG_ANALYSIS_2026-05-28.md` und die Abschnitte 0 bis 6 von `PLAYER_AGENCY_CONCEPT.md` liegen im Archiv
+  (erledigt, `6814d454`).
+- **B12** Die 32 Worker-Entscheidungen und "Shader-Prüfung bleibt manuell" sind bestätigt; Fundstellen in DONE.md.
+- Dev-Menü mit Cheats, alle Konsolen-Globals (`__corridor`, `__rg`, `__perf` usw.) und die Dauer-Messungen
+  (Raycast-Zeitmessung, `[Camera]`-Log) bleiben im Release-Build.
+
 ## Verworfen (nicht erneut angehen)
 
 - **Enemy Movement als Structure of Arrays**: gebaut `bd1d3a5`, zurückgenommen `731f454` (13 % langsamer). Nur als
   Komplettumbau mit Position und Rotation in Arrays sinnvoll; gemessen unter jsdom.
 - **Weitere Enemy-Hot-Path-Hebel** (2026-09-10): Culling je Pool greift nur bei ganz anderer Blickrichtung; kalte
   Gegner einmal je Frame zu rechnen ändert die Simulation.
+
+Vom User am 2026-09-16 gestrichen:
+
+- **A2** Benchmark mit 20.000 Gegnern gegen `main` (der User misst laufend).
+- **A3** Ladezeit und Grafikspeicher gegen `main` (irrelevant).
+- **B2** BVH für Raycasts gegen die Tiles.
+- **B3** Zellen parallel zur Route (das Konzeptdokument bleibt, nicht geplant).
+- **B9** Atompilz auf Grafikstufe Low noch einmal ansehen.
+- **B10** Feste Spawns für weitere Showcase-Orte.
+- **B14 (D7)** Falsche Spanne in "COMING UP" bei ausgeschaltetem Director.
+- **E6** Tower-Debug: Kegelhöhe des Blutmond-Scheinwerfers je Towertyp.
+- **E7** Debug: Blutmond und künftige Modi erzwingen.
+- **F1** Anteil beleuchteter Tile-Materialien messen.
+- **F2** Skarnax-Pfad bei 75-facher Geschwindigkeit messen.
+- **F3** Audio-Aktualisierung je Sub-Step messen.
+- **F5** Kalter Start ohne Intro auf 2,5 m; `__raycastStats()` beim Boss-Intro.
+- **F6** Grobe Kamera-Tiles, wo die Korridor-Region kein Tile hat.
+- **F7** Laser-Bot: 2,9 ms je Entscheidung.
+- **H1** logDepth-Experiment.
+- **H2** Loading Screen überarbeiten.
+- **H11** Gewässer aus OSM als unpassierbare Zonen.
+- **H12** MechaCat als Gegner.
+- **H15** Hitze-Verzerrung beim Orbitallaser.
