@@ -16,6 +16,13 @@ import { logGrid } from './route-grid-log';
  */
 export type CellMiss = 'noColumn' | 'refused' | 'noPortal' | 'noBridgeEnd';
 
+/**
+ * What a tunnel cell stands on, see RouteCellSampler.tunnelColumn: the
+ * column between its portals, or, where a portal has no hit and the band
+ * gave it the street, only a height, with no tile behind it.
+ */
+type TunnelGround = { fromBand: false; column: ColumnSample } | { fromBand: true; y: number };
+
 /** What one column gives a cell, see RouteCellSampler.hitOf. */
 interface CellHit {
   y: number;
@@ -162,16 +169,16 @@ export class RouteCellSampler {
     let found = false;
     let missing: CellMiss = 'noColumn';
     if (cell.surface === 'tunnel' && cell.tunnelSpan) {
-      const column = this.tunnelColumn(cell.tunnelSpan);
-      found = column !== null;
+      const ground = this.tunnelColumn(cell.tunnelSpan);
+      found = ground !== null;
       missing = 'noPortal';
-      if (column !== null && column.tileDepth === 0) {
+      if (ground !== null && ground.fromBand) {
         // A portal without a hit stands on the street of the band: a height, not a sample.
-        this.fill(cell, column.groundY);
+        this.fill(cell, ground.y);
         this.lastMiss = null;
         return false;
       }
-      if (column !== null) hit = this.plausible(cell, this.hitOf(cell, column, null, null));
+      if (ground !== null) hit = this.plausible(cell, this.hitOf(cell, ground.column, null, null));
     } else {
       const deckEnd = cell.surface === 'approach' ? cell.deckEnd : null;
       const deck = deckEnd ? this.columnNear(deckEnd.path[0].x, deckEnd.path[0].z) : null;
@@ -302,26 +309,30 @@ export class RouteCellSampler {
    * stretch, interpolated along it, with the coarser of the two LODs. A
    * portal whose column came down on a roof over the street (a jetty, the
    * house the passage runs through) takes the street around it instead
-   * (replacePortal), so the cells no longer climb towards it; so does a
-   * portal whose column has no hit, and the column then carries no LOD
-   * (depth 0, as selectColumnSample reads it): the height is the band's,
-   * not a column's (sampleCellY fills the cell). Between the portals,
-   * columns that show the street under what covers it carry the line
-   * (supportedY). Null while a portal has neither a column nor a street.
+   * (replacePortal), so the cells no longer climb towards it. So does a
+   * portal whose column has no hit; then the result says so (`fromBand`)
+   * and carries only the height, no LOD: the height is the band's, not a
+   * column's, and sampleCellY fills the cell instead of sampling it.
+   * Between the portals, columns that show the street under what covers it
+   * carry the line (supportedY). Null while a portal has neither a column
+   * nor a street.
    */
-  private tunnelColumn(span: TunnelSpan): ColumnSample | null {
+  private tunnelColumn(span: TunnelSpan): TunnelGround | null {
     const a = this.columnNear(span.ax, span.az);
     const b = this.columnNear(span.bx, span.bz);
     const ay = this.replacePortal?.(span.ax, span.az, a?.groundY ?? null) ?? a?.groundY ?? null;
     const by = this.replacePortal?.(span.bx, span.bz, b?.groundY ?? null) ?? b?.groundY ?? null;
     if (ay === null || by === null) return null;
     const y = this.supportedY(span, ay, by);
-    if (a === null || b === null) return { groundY: y, topY: y, tileDepth: 0, tileGeometricError: Infinity };
+    if (a === null || b === null) return { fromBand: true, y };
     return {
-      groundY: y,
-      topY: y,
-      tileDepth: Math.min(a.tileDepth, b.tileDepth),
-      tileGeometricError: Math.max(a.tileGeometricError, b.tileGeometricError),
+      fromBand: false,
+      column: {
+        groundY: y,
+        topY: y,
+        tileDepth: Math.min(a.tileDepth, b.tileDepth),
+        tileGeometricError: Math.max(a.tileGeometricError, b.tileGeometricError),
+      },
     };
   }
 

@@ -1153,9 +1153,9 @@ describe('GlobalRouteGrid tunnels', () => {
 
   /**
    * A portal whose column meets nothing, a hole in the mesh at the mouth,
-   * left every cell of the stretch
-   * without a height; the fallback level only helped where its coarser mesh
-   * had a hit there. The street of the band there is measured.
+   * left every cell of the stretch without a height; the fallback level only
+   * helped where its coarser mesh had a hit there. The street of the band
+   * there is measured.
    */
   it('takes a portal without a hit from the street of the band, and fills the cells', () => {
     // Portal b at x = 42 meets nothing within the half metre the probes look beside it.
@@ -1167,6 +1167,14 @@ describe('GlobalRouteGrid tunnels', () => {
     grid.initialize(hill as never, coordinateSync);
     expect(grid.retryUnsampledCells().promoted).toBeGreaterThan(0);
     expect(grid.getCellAt(31, 1)!.sample.state).toBe('stable');
+  });
+
+  it('takes a portal hit on a tile of depth 0 as a sample, not as the street of the band', () => {
+    // Portal b at x = 42 on a tile of depth 0, which is a depth like any other; no band stands there.
+    const grid = build((x) => (Math.abs(x - 42) <= 0.6 ? { ...hill(x)!, tileDepth: 0 } : hill(x)));
+    const inside = grid.getCellAt(31, 1)!;
+    expect(inside.sample).toMatchObject({ state: 'stable', tileDepth: 0, tileGeometricError: 2 });
+    expect(inside.terrainHeight).toBeCloseTo((10 * 13) / 24, 6);
   });
 
   /**
