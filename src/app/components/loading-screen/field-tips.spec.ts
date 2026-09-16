@@ -1,30 +1,30 @@
-import { ɵ_sanitizeHtml as _sanitizeHtml } from '@angular/core';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { FIELD_TIPS } from './field-tips';
 
 /**
- * loading-screen.component.html binds tip.html via [innerHTML], which runs
- * every string through Angular's DomSanitizer. Attributes the sanitizer
- * does not allow (e.g. `style=`) get silently stripped and log
- * "WARNING: sanitizing HTML stripped some content" - this is how the
- * gold/teal accent colours went missing. Guard against a regression by
- * running each tip through the same sanitizer Angular uses at runtime.
+ * The loading screen renders each part of a tip as text and an accent as a
+ * coloured `<b>` (loading-screen.component.html). Markup in a part would
+ * show as literal text, so the tips carry none.
  */
-describe('FIELD_TIPS sanitization', () => {
-  it('passes every tip through Angular\'s HTML sanitizer unchanged', () => {
-    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-
+describe('FIELD_TIPS', () => {
+  it('carries text in every part and no markup', () => {
     for (const tip of FIELD_TIPS) {
-      _sanitizeHtml(document, tip.html);
+      expect(tip.parts.length).toBeGreaterThan(0);
+      for (const part of tip.parts) {
+        expect(part.text.length).toBeGreaterThan(0);
+        expect(part.text).not.toMatch(/[<>]/);
+      }
     }
-
-    expect(warn).not.toHaveBeenCalled();
-    warn.mockRestore();
   });
 
-  it('has no inline style attributes (sanitizer always strips those)', () => {
-    for (const tip of FIELD_TIPS) {
-      expect(tip.html).not.toContain('style=');
-    }
+  it('keeps the accents as parts of their own, with the spaces around them in the text', () => {
+    const selling = FIELD_TIPS.find((tip) => tip.parts.some((part) => part.text === '75%'))!;
+    expect(selling.parts).toEqual([
+      { text: 'Selling a tower refunds ' },
+      { text: '75%', accent: 'gold' },
+      { text: ' of everything you invested, base cost plus all upgrades. Don\'t hesitate to reshuffle between waves.' },
+    ]);
+    expect(FIELD_TIPS.flatMap((tip) => tip.parts.filter((part) => part.accent).map((part) => part.accent)))
+      .toEqual(['gold', 'teal', 'teal', 'gold']);
   });
 });
