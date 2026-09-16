@@ -98,6 +98,8 @@ describe('VisualizationFacadeService', () => {
   let frames: Map<number, FrameRequestCallback>;
   let nextFrameId: number;
   let towerCount: number;
+  /** What PathAndRouteService.routesEpoch answers; a change stops a build under way. */
+  let routesEpoch: number;
 
   type Fn = ReturnType<typeof vi.fn>;
   /** The corridor measurement fake: slices a run takes, whether it changes a corridor, the runs so far. */
@@ -413,6 +415,8 @@ describe('VisualizationFacadeService', () => {
     // clearAllMocks keeps implementations: without this a test that makes a
     // build measure nothing would leave the next one blind as well.
     pathRoute.unmeasuredStations.mockReturnValue(0);
+    routesEpoch = 1;
+    pathRoute.routesEpoch.mockImplementation(() => routesEpoch);
     introFlight.isRunning.mockReturnValue(false);
     introFlight.prepare.mockReturnValue(true);
     introFlight.readiness.mockReturnValue(0);
@@ -509,6 +513,28 @@ describe('VisualizationFacadeService', () => {
       await show();
 
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+    });
+
+    /**
+     * The flag belonged to the location before: this facade is a singleton,
+     * so a location change neither disposes the build nor cleared it. With a
+     * second location whose build stops early, the next visibility change
+     * rebuilt a corridor that had measured fine (review-corridor.md).
+     */
+    it('forgets the blind location when the next one loads, even if that build stops early', async () => {
+      await blindBuild();
+
+      // The next location: its build stops as soon as the routes are replaced.
+      pathRoute.unmeasuredStations.mockReturnValue(0);
+      corridor.slices = 3;
+      const building = facade.scheduleOverlayHeightUpdate();
+      routesEpoch = 2;
+      await untilDone(building);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
+
+      await show();
+
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
     });
 
     it('stops listening on dispose', async () => {

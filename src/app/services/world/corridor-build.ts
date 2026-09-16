@@ -165,8 +165,17 @@ export class CorridorBuild {
    * Announce a build that begins later (after the height update of a
    * location load): pending from now on. A build still running stops. The
    * number goes to build().
+   *
+   * Every build cycle starts here, build() included, so this is where the
+   * blind flag is dropped: it describes the build that froze last, and a new
+   * cycle has not frozen anything yet. Without that it outlived a location,
+   * because this class is a singleton and dispose() only runs when the app
+   * shuts down: a blind location, then one whose build stops early (routes
+   * replaced), and the next visibility change rebuilt a corridor that had
+   * measured fine (review-corridor.md).
    */
   expect(): number {
+    this.blind = false;
     this.active = ++this.generation;
     return this.active;
   }
@@ -179,6 +188,10 @@ export class CorridorBuild {
    * when the page becomes visible again: a location that loads in a hidden
    * tab loads no tiles at all, because the browser stops rAF and the
    * renderer never traverses.
+   *
+   * Always about the build cycle running now: expect() drops it, and only a
+   * freeze sets it. A build that stops early therefore leaves it false, not
+   * whatever an earlier location left behind.
    */
   frozeBlind(): boolean {
     return this.blind;
@@ -431,6 +444,7 @@ export class CorridorBuild {
     this.generation++;
     this.active = null;
     this.running = null;
+    this.blind = false;
     this.unmute();
   }
 
