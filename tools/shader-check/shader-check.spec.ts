@@ -145,8 +145,8 @@ function withoutCanvas2d(build: () => void): void {
 /** A sampled ground cell at the origin: one instance of the route grid overlay or a LOS layer. */
 function routeCell(): RouteCell {
   return {
-    key: 1, x: 0, z: 0, axisX: 0, axisZ: 0, terrainHeight: 0, surface: 'ground', tunnelSpan: null,
-    routeAnchorY: 0, sample: { clamped: false } as RouteCell['sample'], heightSampled: true,
+    key: 1, x: 0, z: 0, axisX: 0, axisZ: 0, terrainHeight: 0, surface: 'ground', tunnelSpan: null, deckEnd: null,
+    routeAnchorY: 0, sample: { state: 'stable', sampledAt: 1, tileDepth: 20, tileGeometricError: 2 }, heightSampled: true,
     enemies: new Set(), towerVisibility: new Map(), airVisibility: new Map(),
   };
 }
@@ -273,7 +273,7 @@ const CASES: ShaderCase[] = [
         sync: { geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon * 1e5, height, -lat * 1e5) },
         getTerrainHeightAtGeo: () => 0,
       };
-      scene.add(new SpawnDistanceRings(ground, { lat: 0, lon: 0 }, [{ radiusM: 200, color: 0xc96a3a }], new Vector2(800, 600)).group);
+      scene.add(new SpawnDistanceRings(ground, { lat: 0, lon: 0 }, [{ radiusM: 200, color: 0xc96a3a }]).group);
     },
   },
   {

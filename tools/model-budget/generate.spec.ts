@@ -191,7 +191,9 @@ async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
       for (const texture of parser.json.textures ?? []) delete texture.extensions;
       return null;
     },
-    loadTexture: async (index: number) => {
+    // A promise of null for a texture it leaves out: a plain null would hand
+    // the texture to the built-in loader, which needs a browser.
+    loadTexture: (async (index: number) => {
       const baseColour = (parser.json.materials ?? []).some(
         (m: { pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }) =>
           m.pbrMetallicRoughness?.baseColorTexture?.index === index,
@@ -204,7 +206,7 @@ async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
       if (file && imageSize(file)?.mimeType === 'image/jpeg') return null;
       const pixels = file ? decodePng(file) : null;
       return new Texture(pixels ?? undefined);
-    },
+    }) as (index: number) => Promise<Texture>,
   }));
   const gltf = await loader.parseAsync(buffer, '');
   return bakeEnemyVAT(config, SkeletonUtils.clone(gltf.scene), gltf.animations);
