@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { corridorFingerprint, fnv1a } from './corridor-fingerprint';
+import { corridorFingerprint } from './corridor-fingerprint';
 import type { CorridorState } from '../world/path-route.service';
 import type { BandStation } from '../../utils/corridor-band';
 import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
@@ -110,11 +110,5 @@ describe('corridorFingerprint', () => {
     const finerCell = cells();
     finerCell[2].tileGeometricError = 1.25;
     expect(changedParts(base, corridorFingerprint(state(), finerCell))).toEqual(['tiles']);
-  });
-
-  it('hashes with FNV-1a', () => {
-    // Reference values of 32-bit FNV-1a
-    expect(fnv1a('')).toBe('811c9dc5');
-    expect(fnv1a('a')).toBe('e40c292c');
   });
 });

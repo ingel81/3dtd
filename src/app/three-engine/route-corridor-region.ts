@@ -1,4 +1,5 @@
 import { Matrix4, Sphere, Vector3 } from 'three';
+import { fnv1a } from '../utils/fnv1a';
 
 /**
  * Geometric error in metres a corridor build refines the region to while it
@@ -37,6 +38,7 @@ interface BoundingVolumeLike {
 export interface RegionTile {
   geometricError?: number;
   children?: readonly unknown[];
+  content?: { uri?: string } | null;
   engineData?: { boundingVolume?: BoundingVolumeLike | null } | null;
 }
 
@@ -50,6 +52,12 @@ export interface RegionLodState {
   finest: number;
   /** Of those, coarser than `errorTarget` with children: still to refine. */
   coarse: number;
+  /**
+   * Which tiles those are, 8 hex digits over their content paths (without
+   * the query, which carries the session): two builds of a place measured
+   * on the same tiles when it is the same.
+   */
+  tileSet: string;
 }
 
 /** Tile bounding sphere, projected onto the local ground plane. */
@@ -159,19 +167,24 @@ export class RouteCorridorRegion {
    * How far the active tiles that reach the region are refined, for the
    * corridor trace: a coarse tile stays active until its children are
    * ready, so a coarse one with children is a refinement still to come.
+   * And which tiles they are (`tileSet`), for comparing the tiles two
+   * builds of a place measured on (PLAYTEST 745).
    * O(active tiles × segments), footprints cached per tile.
    */
   lodState(activeTiles: Iterable<RegionTile>): RegionLodState {
-    const state: RegionLodState = { tiles: 0, fine: 0, finest: 0, coarse: 0 };
+    const state: RegionLodState = { tiles: 0, fine: 0, finest: 0, coarse: 0, tileSet: '' };
+    const paths: string[] = [];
     for (const tile of activeTiles) {
       const volume = tile.engineData?.boundingVolume;
       if (!volume || !this.intersectsTile(volume, tile)) continue;
       state.tiles++;
+      paths.push(tile.content?.uri?.split('?')[0] ?? '');
       const error = tile.geometricError ?? Infinity;
       if (error <= 2) state.finest++;
       if (error > this.errorTarget && (tile.children?.length ?? 0) > 0) state.coarse++;
       else state.fine++;
     }
+    state.tileSet = fnv1a(paths.sort().join('\n'));
     return state;
   }
 

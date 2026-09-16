@@ -80,6 +80,8 @@ export interface RegionLod {
   finest: number;
   /** Of those, coarser than the target and still to refine. */
   coarse: number;
+  /** Which tiles those are, a hash over their content paths (RouteCorridorRegion.lodState). */
+  tileSet: string;
   /** Tiles queued, downloading or parsing, anywhere (the renderer counts no region). */
   pending: number;
 }

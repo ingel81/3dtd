@@ -70,7 +70,19 @@ describe('RouteCorridorRegion', () => {
       tile(10, 20), // coarser, a leaf that cannot refine
       tile(200, 20, 4), // beside the corridor
       { geometricError: 1 }, // no bounding volume
-    ])).toEqual({ tiles: 4, fine: 3, finest: 1, coarse: 1 });
+    ])).toEqual({ tiles: 4, fine: 3, finest: 1, coarse: 1, tileSet: expect.stringMatching(/^[0-9a-f]{8}$/) });
+  });
+
+  it('names the tiles that reach it by their content paths, whatever the session and the order', () => {
+    const region = new RouteCorridorRegion([route], identity, 20, 5);
+    const tile = (x: number, uri: string) =>
+      ({ geometricError: 1, content: { uri }, engineData: { boundingVolume: sphereVolume(x, 0, 100, 5) } });
+    const a = region.lodState([tile(10, 'a.glb?session=1'), tile(20, 'b.glb?session=1')]).tileSet;
+
+    expect(region.lodState([tile(20, 'b.glb?session=2'), tile(10, 'a.glb?session=2')]).tileSet).toBe(a);
+    // Beside the corridor: not one of its tiles.
+    expect(region.lodState([tile(10, 'a.glb'), tile(20, 'b.glb'), tile(200, 'c.glb')]).tileSet).toBe(a);
+    expect(region.lodState([tile(10, 'a.glb'), tile(20, 'c.glb')]).tileSet).not.toBe(a);
   });
 
   it('refines while the tile is coarser than its error target', () => {

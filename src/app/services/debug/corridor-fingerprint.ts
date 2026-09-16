@@ -1,5 +1,6 @@
 import type { CorridorState } from '../world/path-route.service';
 import type { RouteCellDump } from '../../utils/route-grid-diagnostics';
+import { fnv1a } from '../../utils/fnv1a';
 
 /**
  * `__corridor.fingerprint()`: a short hash over the corridor in use, to tell
@@ -49,16 +50,6 @@ function num(value: number | null, digits: number): string {
 }
 
 const byKey = <T extends { key: string }>(a: T, b: T) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0);
-
-/** FNV-1a, 32 bit, as 8 hex digits: short enough to compare by eye. */
-export function fnv1a(text: string): string {
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    hash ^= text.charCodeAt(i);
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return (hash >>> 0).toString(16).padStart(8, '0');
-}
 
 /** The fingerprint of a corridor, see the file comment. Pure: the same input gives the same hash. */
 export function corridorFingerprint(state: CorridorState, cells: readonly RouteCellDump[]): CorridorFingerprint {
