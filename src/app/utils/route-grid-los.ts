@@ -7,6 +7,11 @@ import { RouteCell, getAirTargetY, getGroundTargetY } from './route-cell';
  * registerTowerIncremental run these over the cells in the tower's range
  * box. The cells are frozen when a tower is placed (CorridorBuild), so their
  * heights are the ones the answers are for, once and for good.
+ *
+ * `standY` is the height enemies stand on in a cell
+ * (GlobalRouteGrid.getGroundLocalYAt at its centre). For a cell with a
+ * height that is its own; for one without, the anchor it holds can lie far
+ * off where the enemies walk, and the answers go by what they walk on.
  */
 
 /**
@@ -21,6 +26,7 @@ import { RouteCell, getAirTargetY, getGroundTargetY } from './route-cell';
  *
  * @param candidates Cells whose centre can lie in range (the range box)
  * @param ctx GPU-cube resolve context (built by caller via TowerShadowMapper)
+ * @param standY Height enemies stand on in a cell
  * @returns the cells the tower can see something in
  */
 export function resolveTowerLos(
@@ -32,6 +38,7 @@ export function resolveTowerLos(
   ctx: LosResolveContext,
   canTargetGround: boolean,
   canTargetAir: boolean,
+  standY: (cell: RouteCell) => number,
 ): RouteCell[] {
   const visibleCells: RouteCell[] = [];
   const rangeSq = range * range;
@@ -45,25 +52,25 @@ export function resolveTowerLos(
 
     const atTower = distSq < 0.01;
 
-    // Ground visibility — GPU-cube sample at getGroundTargetY(cell) (terrain + 1.5m)
+    // Ground visibility — GPU-cube sample at getGroundTargetY (ground + 1.5m)
     let groundVisible = false;
     if (canTargetGround) {
       if (atTower) {
         groundVisible = true;
       } else {
-        const targetY = getGroundTargetY(cell);
+        const targetY = getGroundTargetY(cell, standY(cell));
         groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
       }
       cell.towerVisibility.set(towerId, groundVisible);
     }
 
-    // Air visibility — GPU-cube sample at getAirTargetY(cell) (terrain + 15m)
+    // Air visibility — GPU-cube sample at getAirTargetY (ground + 15m)
     let airVisible = false;
     if (canTargetAir) {
       if (atTower) {
         airVisible = true;
       } else {
-        const targetY = getAirTargetY(cell);
+        const targetY = getAirTargetY(cell, standY(cell));
         airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
       }
       cell.airVisibility.set(towerId, airVisible);
@@ -98,6 +105,7 @@ export function resolveTowerLosIncremental(
   ctx: LosResolveContext,
   canTargetGround: boolean,
   canTargetAir: boolean,
+  standY: (cell: RouteCell) => number,
 ): RouteCell[] {
   const visibleCells: RouteCell[] = [];
   const rangeSq = range * range;
@@ -127,7 +135,7 @@ export function resolveTowerLosIncremental(
         groundVisible = true;
         cell.towerVisibility.set(towerId, groundVisible);
       } else {
-        const targetY = getGroundTargetY(cell);
+        const targetY = getGroundTargetY(cell, standY(cell));
         groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
         cell.towerVisibility.set(towerId, groundVisible);
       }
@@ -145,7 +153,7 @@ export function resolveTowerLosIncremental(
         airVisible = true;
         cell.airVisibility.set(towerId, airVisible);
       } else {
-        const targetY = getAirTargetY(cell);
+        const targetY = getAirTargetY(cell, standY(cell));
         airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
         cell.airVisibility.set(towerId, airVisible);
       }

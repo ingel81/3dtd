@@ -39,6 +39,9 @@ Sample-Pipeline. Es kann also nicht von dem abweichen, was der Kampf sieht.
 mit den Werten aus `LOS_VIZ_CONFIG`. Kampf-Probe, Platten der Anzeigen,
 Sample-Y im Shader und die Air-Route-Röhre laufen über diese Helfer. Gegner
 in der Luft fliegen auf `geoHeight + heightOffset` ihres Typs (15 bis 20 m).
+Für eine Zelle ohne Höhe probt die Kampf-LOS über der Höhe, auf der die Gegner
+dort stehen (Median der Nachbarn wie `getGroundLocalYAt`), nicht über dem
+Routenanker, den die Zelle hält (`standY` in `resolveTowerLos`).
 
 Zellen in einem Tunnel und unter einer fremden Brücke liegen auf der Straße
 darunter ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#zellhöhe)), ihre Bodenprobe
@@ -238,9 +241,9 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
    b. globalRouteGrid.registerTower(towerId, x, z, range, ctx, …)
       → resolveTowerLos über cellsInRange, auf den Höhen, die der
         Korridor-Bau eingefroren hat (keine Säulenprobe):
-         canTargetGround: isCubeVisible(tip, getGroundTargetY(cell), …)
+         canTargetGround: isCubeVisible(tip, getGroundTargetY(cell, standY), …)
                           → cell.towerVisibility
-         canTargetAir:    isCubeVisible(tip, getAirTargetY(cell), …)
+         canTargetAir:    isCubeVisible(tip, getAirTargetY(cell, standY), …)
                           → cell.airVisibility
       danach Aggregat-Positionen auffrischen
    c. tower.losReady = true

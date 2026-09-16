@@ -141,16 +141,19 @@ export interface DeckEnd {
  * air-route-tube debug overlay, and any future air-targeting code that
  * needs the canonical sample-Y. Keep this in lock-step with
  * `tower-los-layer-builder.ts` which inlines the same formula.
+ * `ground` is the height the enemies stand on in the cell, its own
+ * height unless the caller knows better (a cell without one).
  */
-export function getAirTargetY(cell: RouteCell): number {
-  return cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
+export function getAirTargetY(cell: RouteCell, ground = cell.terrainHeight): number {
+  return ground + LOS_VIZ_CONFIG.airSampleYOffset;
 }
 
 /**
  * Single-source-of-truth for the LOS ground-sample altitude of a cell:
  * `groundSampleYOffset` above its ground. Used by the grid's LOS resolve,
  * the layer-builder, the LOS debug service and the LOS debugger.
+ * `ground` as in getAirTargetY.
  */
-export function getGroundTargetY(cell: RouteCell): number {
-  return cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+export function getGroundTargetY(cell: RouteCell, ground = cell.terrainHeight): number {
+  return ground + LOS_VIZ_CONFIG.groundSampleYOffset;
 }

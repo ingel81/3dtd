@@ -177,17 +177,18 @@ export class GlobalRouteGrid {
   private coordinateSync: CoordinateSync | null = null;
 
   /** Aggregat-Debug-Viz (`grid` / `gridAir`), liest dieselbe Cell-Map. */
-  private readonly aggregateViz = new RouteGridAggregateViz(this.cells, this.CELL_SIZE, (cell) => this.overlayHeight(cell));
+  private readonly aggregateViz = new RouteGridAggregateViz(this.cells, this.CELL_SIZE, (cell) => this.standHeight(cell));
 
   /**
-   * Height the overlay draws a cell at: its sample, or for a cell without
-   * one the median of its sampled neighbours, so it shows beside the others
-   * instead of at the route anchor, which can be far off.
+   * Height enemies stand on in a cell, what getGroundLocalYAt answers at its
+   * centre: its sample, or for a cell without one the median of its sampled
+   * neighbours instead of the route anchor, which can be far off. The
+   * overlay draws the cell there, and the tower LOS samples above it.
    */
-  private overlayHeight(cell: RouteCell): number {
+  private readonly standHeight = (cell: RouteCell): number => {
     if (cell.heightSampled) return cell.terrainHeight;
     return this.estimateTerrainY(cell.x, cell.z) ?? cell.terrainHeight;
-  }
+  };
 
   /** Reused sample buffer for medianOfStableNeighbourY. */
   private readonly _medianScratch: number[] = [];
@@ -568,6 +569,7 @@ export class GlobalRouteGrid {
   ): RouteCell[] {
     return resolveTowerLos(
       this.cellsInRange(towerX, towerZ, range), towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+      this.standHeight,
     );
   }
 
@@ -595,6 +597,7 @@ export class GlobalRouteGrid {
   ): RouteCell[] {
     return resolveTowerLosIncremental(
       this.cellsInRange(towerX, towerZ, range), towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+      this.standHeight,
     );
   }
 
