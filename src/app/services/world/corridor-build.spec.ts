@@ -302,8 +302,35 @@ describe('CorridorBuild', () => {
       const result = await corridor.build('location load');
 
       const retry = calls.indexOf('retryCells');
-      expect(calls.slice(retry - 3, retry + 4)).toEqual(['cells', COARSE, 'clearColumns', 'retryCells', FINE, 'clearColumns', 'routes']);
+      expect(calls.slice(retry - 3, retry + 2)).toEqual(['cells', COARSE, 'clearColumns', 'retryCells', 'routes']);
       expect(result?.fallbackCells).toBe(2);
+    });
+
+    /**
+     * Playtest 2026-09-16: the fallback took 1036 ms in Rothenburg, for cells.
+     * After the cells nothing reads a column, and the freeze leaves the
+     * region at the coarse level: the way back to the finest level waited
+     * for tiles no one measured on. The stations still go back, their band
+     * and cells measure on the finest level.
+     */
+    it('waits for the tiles once for the cells, twice for the stations', async () => {
+      const fallbackMs = () => Number(/ fallback=(\d+\.\d)/.exec(
+        vi.mocked(console.log).mock.calls.map(([line]) => String(line)).find((line) => line.startsWith('[Corridor] build:'))!,
+      )![1]);
+      state.bare = 3;
+      state.promoted = 3;
+      await corridor.build('location load');
+      expect(calls.filter((call) => call === FINE)).toHaveLength(1);
+      expect(fallbackMs()).toBeGreaterThanOrEqual(QUIET_MS);
+      expect(fallbackMs()).toBeLessThan(2 * QUIET_MS);
+
+      vi.mocked(console.log).mockClear();
+      calls.length = 0;
+      state.bare = 0;
+      state.unmeasured = [4, 0];
+      await corridor.build('location load');
+      expect(calls.filter((call) => call === FINE)).toHaveLength(2);
+      expect(fallbackMs()).toBeGreaterThanOrEqual(2 * QUIET_MS);
     });
 
     it('says in the trace why cells have no height, before the fallback level and at the freeze', async () => {

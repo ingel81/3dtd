@@ -109,7 +109,8 @@ const percentOf = ({ done, total }: { done: number; total: number }) => (total >
  * 4. The walkable band of every route on these columns (buildBands), then
  *    the routes in it and their cells. One pass: the band reads the frozen
  *    columns, not the cells.
- * 5. Cells without a height of their own: the coarse level for them.
+ * 5. Cells without a height: the coarse level for them. No way back:
+ *    nothing after them reads a column.
  * 6. The route line on the final cells; frozen. Camera back, and the region
  *    down to the coarse level (unmute).
  *
@@ -300,7 +301,7 @@ export class CorridorBuild {
           const retry = pathRoute.beginClearanceMeasurement();
           retry.step(Infinity);
           retry.commit();
-        }));
+        }), true);
         if (!reached) {
           dropped();
           return null;
@@ -341,7 +342,7 @@ export class CorridorBuild {
         const t = this.now();
         const reached = await this.onFallbackLevel(tiles, engine, report, stopped, () => traced(() => {
           fallbackCells = grid.retryUnsampledCells().promoted;
-        }));
+        }), false);
         if (!reached) {
           dropped();
           return null;
@@ -455,8 +456,15 @@ export class CorridorBuild {
 
   /**
    * Switch the region to the fallback level, run `work` on its tiles, and
-   * back to the finest level; the column cache emptied after each switch.
-   * False when the build stopped meanwhile.
+   * with `back` return to the finest level; the column cache emptied after
+   * each switch. False when the build stopped meanwhile.
+   *
+   * `back` for the stations, whose band and cells measure on the finest
+   * level after them. Not for the cells: nothing after them reads a column
+   * (the route line and the overlays read the cells), and the freeze hands
+   * the region to this level anyway (unmute). The way back waited at least
+   * QUIET_MS for tiles no one measured on; a whole fallback took 1036 to
+   * 1087 ms in Rothenburg, Berlin and Paris (2026-09-16).
    */
   private async onFallbackLevel(
     tiles: TilesLodDebug,
@@ -464,6 +472,7 @@ export class CorridorBuild {
     report: (progress: CorridorProgress) => void,
     stopped: () => string | null,
     work: () => void,
+    back: boolean,
   ): Promise<boolean> {
     report({ step: FALLBACK_STEP, percent: null });
     const stop = () => stopped() !== null;
@@ -472,6 +481,7 @@ export class CorridorBuild {
     if (stop()) return false;
     engine.terrain.clearHeightCache();
     work();
+    if (!back) return true;
     tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
     await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, { stop });
     if (stop()) return false;
