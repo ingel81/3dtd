@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { Injector, runInInjectionContext } from '@angular/core';
+import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { DebugFacadeService } from './debug-facade.service';
 import { UIStore } from '../../store/ui.store';
 import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
+import { StreetRenderingService } from '../world/street-rendering.service';
 import { CombatEffectService } from '../combat/combat-effect.service';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { DEFAULT_VFX_SETTINGS, matchingVfxPreset } from '../../three-engine/vfx-settings';
@@ -12,12 +13,13 @@ import { GameEventBus } from '../../game-engine/game-event-bus';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import { ABILITY_IDS } from '../../configs/abilities.config';
 
-function createFacade(uiStore: object = {}): DebugFacadeService {
+function createFacade(uiStore: object = {}, markerViz: object = {}, streetRendering: object = {}): DebugFacadeService {
   const injector = Injector.create({
     providers: [
       { provide: UIStore, useValue: uiStore },
       { provide: EnemyDebugService, useValue: {} },
-      { provide: MarkerVisualizationService, useValue: {} },
+      { provide: MarkerVisualizationService, useValue: markerViz },
+      { provide: StreetRenderingService, useValue: streetRendering },
       { provide: CombatEffectService, useValue: {} },
     ],
   });
@@ -36,6 +38,20 @@ function store(options: object): void {
 function stored(): Record<string, unknown> {
   return JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
 }
+
+describe('DebugFacadeService height markers', () => {
+  it('shows or hides the markers and has the street render catch up on what it skipped while hidden', () => {
+    const visible = signal(false);
+    const uiStore = { heightDebugVisible: visible, toggleHeightDebug: () => visible.update((v) => !v) };
+    const markerViz = { toggleHeightDebug: vi.fn() };
+    const streetRendering = { renderSkipped: vi.fn() };
+
+    createFacade(uiStore, markerViz, streetRendering).toggleHeightDebug();
+
+    expect(markerViz.toggleHeightDebug).toHaveBeenCalledWith(true);
+    expect(streetRendering.renderSkipped).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('DebugFacadeService cheats', () => {
   it('readies every ability through deferred debug events, for the next sub-step', () => {

@@ -1,5 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
+import { beforeEach, describe, it, expect, vi } from 'vitest';
 import { BufferGeometry, Group, LineSegments, Vector3 } from 'three';
+
+/** The toggles of the UIStore stub: streets and height markers shown. */
+const ui = vi.hoisted(() => ({ streets: true, heights: false }));
 
 // inject() liefert pro Service-Klasse einen Stub.
 vi.mock('@angular/core', async () => {
@@ -7,7 +10,7 @@ vi.mock('@angular/core', async () => {
   const stubs: Record<string, unknown> = {
     MarkerVisualizationService: { clearHeightDebugMarkers: () => undefined, addHeightDebugMarker: () => undefined },
     DevWorldService: { isActive: false },
-    UIStore: { streetsVisible: () => true },
+    UIStore: { streetsVisible: () => ui.streets, heightDebugVisible: () => ui.heights },
   };
   return {
     ...actual,
@@ -25,6 +28,11 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 const node = (id: number, x: number, z: number): StreetNode => ({ id, lat: z / METERS_PER_DEGREE_LAT, lon: x / METERS_PER_DEGREE_LAT });
 
 describe('StreetRenderingService', () => {
+  beforeEach(() => {
+    ui.streets = true;
+    ui.heights = false;
+  });
+
   /**
    * Playtest 2026-09-14, Paris, Pont d'Iéna: the yellow street overlay ran
    * on the quay and the river under the bridge, and past its ends.
@@ -57,7 +65,7 @@ describe('StreetRenderingService', () => {
       },
     } as unknown as ThreeTilesEngine;
 
-    new StreetRenderingService().renderStreets(engine, network, network, { lat: 0, lon: 0 } as never, true);
+    new StreetRenderingService().renderStreets(engine, network, network, { lat: 0, lon: 0 } as never);
 
     expect(asked).toEqual([
       [n.west.id, 'bridge'],
@@ -104,7 +112,7 @@ describe('StreetRenderingService', () => {
       },
     } as unknown as ThreeTilesEngine;
 
-    new StreetRenderingService().renderStreets(engine, network, network, { lat: 0, lon: 0 } as never, true);
+    new StreetRenderingService().renderStreets(engine, network, network, { lat: 0, lon: 0 } as never);
 
     expect(asked.get(n.south.id)).toBeNull();
     expect(asked.get(n.north.id)).toBeNull();
@@ -114,5 +122,88 @@ describe('StreetRenderingService', () => {
     expect(under.portals.map((p) => p.lat * METERS_PER_DEGREE_LAT)).toEqual([expect.closeTo(-11, 1), expect.closeTo(11, 1)]);
     expect(under.f).toBeCloseTo(7 / 22, 2);
     expect(asked.get(n.west.id)).toBe('bridge');
+  });
+
+  /**
+   * A straight street of `nodes` nodes, 1 m apart, on ground at 70 m, and
+   * the columns asked for so far.
+   */
+  function straightStreet(nodes: number) {
+    const way: Street = { id: 1, name: '', type: 'residential', nodes: Array.from({ length: nodes }, (_, i) => node(i + 1, i, 0)) };
+    const network = { streets: [way], nodes: new Map(), bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 } } as unknown as StreetNetwork;
+    const overlay = new Group();
+    const asked = { count: 0 };
+    const engine = {
+      getOverlayGroup: () => overlay,
+      getTerrainHeightAtGeo: () => 70,
+      sync: { geoToLocalSimple: (lat: number, lon: number, h: number) => new Vector3(lon * METERS_PER_DEGREE_LAT, h, -lat * METERS_PER_DEGREE_LAT) },
+      terrain: { getStreetHeightEstimate: () => { asked.count++; return 70; } },
+    } as unknown as ThreeTilesEngine;
+    const render = (service: StreetRenderingService) => service.renderStreets(engine, network, network, { lat: 0, lon: 0 } as never);
+    return { overlay, asked, render };
+  }
+
+  /**
+   * Every tile batch and every height update of a load asked for all street
+   * nodes again, with the streets hidden (the default) as well: rays for
+   * nothing anyone saw (bootsteps.md, section 6).
+   */
+  it('samples no street while the streets and the height markers are hidden, and catches up once the streets show', () => {
+    ui.streets = false;
+    const street = straightStreet(10);
+    const service = new StreetRenderingService();
+
+    street.render(service);
+    street.render(service);
+    expect(street.asked.count).toBe(0);
+    expect(street.overlay.children).toHaveLength(0);
+
+    ui.streets = true;
+    service.toggleVisibility();
+    expect(street.asked.count).toBe(10);
+    expect(street.overlay.children).toHaveLength(1);
+    expect(street.overlay.children[0].visible).toBe(true);
+
+    // Once caught up, a second toggle renders nothing more
+    service.toggleVisibility();
+    expect(street.asked.count).toBe(10);
+  });
+
+  it('samples the streets for the height markers alone, and keeps the lines hidden', () => {
+    ui.streets = false;
+    ui.heights = true;
+    const street = straightStreet(10);
+    const service = new StreetRenderingService();
+
+    street.render(service);
+
+    expect(street.asked.count).toBe(10);
+    expect(street.overlay.children[0].visible).toBe(false);
+  });
+
+  it('catches up when the height markers are switched on', () => {
+    ui.streets = false;
+    const street = straightStreet(10);
+    const service = new StreetRenderingService();
+    street.render(service);
+
+    ui.heights = true;
+    service.renderSkipped();
+
+    expect(street.asked.count).toBe(10);
+  });
+
+  it('shows the finished lines as the toggle stands at the end of a progressive render', () => {
+    const street = straightStreet(60);
+    const service = new StreetRenderingService();
+    street.render(service);
+    expect(street.overlay.children).toHaveLength(0);
+
+    ui.streets = false;
+    service.toggleVisibility();
+    while (!service.continueStreetRender()) { /* frames */ }
+
+    expect(street.asked.count).toBe(60);
+    expect(street.overlay.children[0].visible).toBe(false);
   });
 });

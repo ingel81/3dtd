@@ -8,6 +8,7 @@ import { DebugFacadeService } from '../services/debug/debug-facade.service';
 import { UIStore } from '../store/ui.store';
 import { EnemyDebugService } from '../services/debug/enemy-debug.service';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
+import { StreetRenderingService } from '../services/world/street-rendering.service';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GameStateManager } from '../managers/game-state.manager';
@@ -68,6 +69,7 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
         { provide: UIStore, useValue: {} },
         { provide: EnemyDebugService, useValue: {} },
         { provide: MarkerVisualizationService, useValue: {} },
+        { provide: StreetRenderingService, useValue: {} },
         { provide: CombatEffectService, useValue: {} },
       ],
     });
