@@ -8,8 +8,8 @@ import { resetCorridorConfig, setCorridorConfig } from '../../utils/route-corrid
  * CorridorBuild builds the route corridor once per route set and freezes it:
  * camera muted and region at the finest level until the tiles are quiet,
  * every station measured in slices, the fallback level for stations and
- * cells the finest has no column for, routes and cells until the walk check
- * narrows nothing more, the route line last, camera and region back. These
+ * cells the finest has no column for, the walkable band on those columns
+ * with routes and cells in it, the route line last, camera and region back. These
  * tests drive it on a fake clock (16 ms a frame) against a fake tile handle,
  * route service and grid, and pin the order of what it asks of them.
  */
@@ -39,10 +39,6 @@ describe('CorridorBuild', () => {
     slices: number;
     /** What unmeasuredStations answers, one per call, the last one repeats. */
     unmeasured: number[];
-    /** narrowToWalkable answers true this many times more. */
-    narrow: number;
-    /** What walkState answers, one per call, the last one repeats; null: a new state each call. */
-    walkStates: string[] | null;
     /** Cells without a height, and how many of them the fallback level gives one. */
     bare: number;
     promoted: number;
@@ -88,7 +84,6 @@ describe('CorridorBuild', () => {
       initAirSpatialGridVisualizationIfEnabled: vi.fn(),
       initAirRouteLayerIfEnabled: vi.fn(),
     };
-    let walkCall = 0;
     const pathRoute = {
       routesEpoch: () => state.epoch,
       beginClearanceMeasurement: () => {
@@ -119,14 +114,9 @@ describe('CorridorBuild', () => {
         return run;
       },
       unmeasuredStations: () => (state.unmeasured.length > 1 ? state.unmeasured.shift()! : state.unmeasured[0]),
-      resetWalkCaps: () => calls.push('resetWalkCaps'),
-      walkState: () => {
-        if (state.walkStates === null) return `state ${walkCall++}`;
-        return state.walkStates.length > 1 ? state.walkStates.shift()! : state.walkStates[0];
-      },
-      narrowToWalkable: () => {
-        calls.push('narrow');
-        return state.narrow-- > 0;
+      buildBands: () => {
+        calls.push('band');
+        return { routes: 1, stations: 30, passages: 1, maxSlopeM: 0.2, maxCurvature: 0.04 };
       },
       clearCorridorMeasurements: () => calls.push('clearMeasurements'),
       refreshRouteLines: (spawns: unknown) => {
@@ -163,7 +153,7 @@ describe('CorridorBuild', () => {
     runs = [];
     state = {
       towers: 0, enemies: 0, phase: 'setup', engine: true, tiles: true, loadingUntil: 0, epoch: 1, slices: 1,
-      unmeasured: [0], narrow: 0, walkStates: null, bare: 0, promoted: 0, animation: false,
+      unmeasured: [0], bare: 0, promoted: 0, animation: false,
       regionTiles: () => null,
     };
     corridor = create();
@@ -176,28 +166,29 @@ describe('CorridorBuild', () => {
   });
 
   describe('build', () => {
-    it('mutes the camera, loads the region at the finest level, measures in slices, builds until nothing narrows, then the line; camera back', async () => {
+    it('mutes the camera, loads the region at the finest level, measures in slices, builds the band, routes and cells, then the line; camera back', async () => {
       state.loadingUntil = 100;
       state.slices = 3;
-      state.narrow = 1;
 
       const result = await corridor.build('location load');
 
       expect(calls).toEqual([
         MUTED, FINE,
-        // Columns from these tiles only; walk caps from this build's grids only
-        'clearColumns', 'resetWalkCaps', 'measure', 'commit',
-        'routes', 'cells', 'narrow',
-        'routes', 'cells', 'narrow',
+        // Columns from these tiles only
+        'clearColumns', 'measure', 'commit',
+        // The street's line, the band on its columns, the line in the band, its cells
+        'routes', 'band', 'routes', 'cells',
         'routes', 'overlays',
         'camera 20', COARSE,
       ]);
       expect(runs[0].budgets).toEqual([CorridorBuild.SLICE_MS, CorridorBuild.SLICE_MS, CorridorBuild.SLICE_MS]);
-      expect(result).toMatchObject({ stations: 3, unmeasured: 0, passes: 2, timedOut: false, fallbackStations: 0, fallbackCells: 0, cells: 42 });
+      expect(result).toMatchObject({
+        stations: 3, unmeasured: 0, bandStations: 30, passages: 1, timedOut: false, fallbackStations: 0, fallbackCells: 0, cells: 42,
+      });
       // The tiles loaded until 100 ms, then half a second of quiet
       expect(clock).toBeGreaterThanOrEqual(100 + QUIET_MS);
       expect(vi.mocked(console.log)).toHaveBeenCalledWith(expect.stringMatching(
-        /^\[Corridor\] build: reason=location load tiles=\d+\.\d measure=\d+\.\d fallback=0\.0 passes=2 \(\d+\.\d\) lines=\d+\.\d wall=\d+\.\dms stations=3 unmeasured=0 cells=42$/,
+        /^\[Corridor\] build: reason=location load tiles=\d+\.\d measure=\d+\.\d fallback=0\.0 band=30 \(\d+\.\d\) lines=\d+\.\d wall=\d+\.\dms stations=3 unmeasured=0 cells=42$/,
       ));
     });
 
@@ -294,22 +285,22 @@ describe('CorridorBuild', () => {
       const result = await corridor.build('location load');
 
       expect(calls.slice(0, 13)).toEqual([
-        MUTED, FINE, 'clearColumns', 'resetWalkCaps', 'measure', 'commit',
+        MUTED, FINE, 'clearColumns', 'measure', 'commit',
         COARSE, 'clearColumns', 'measure', 'commit', FINE, 'clearColumns',
-        'routes',
+        'routes', 'band',
       ]);
       // What is left, in one go
       expect(runs[1].budgets).toEqual([Infinity]);
       expect(result).toMatchObject({ fallbackStations: 4, unmeasured: 0 });
     });
 
-    it('gives cells without a height a sample on the fallback level once the passes are done, before the line', async () => {
+    it('gives cells without a height a sample on the coarse level after the band, before the line', async () => {
       state.bare = 3;
       state.promoted = 2;
       const result = await corridor.build('location load');
 
       const retry = calls.indexOf('retryCells');
-      expect(calls.slice(retry - 3, retry + 4)).toEqual(['narrow', COARSE, 'clearColumns', 'retryCells', FINE, 'clearColumns', 'routes']);
+      expect(calls.slice(retry - 3, retry + 4)).toEqual(['cells', COARSE, 'clearColumns', 'retryCells', FINE, 'clearColumns', 'routes']);
       expect(result?.fallbackCells).toBe(2);
     });
 
@@ -335,7 +326,7 @@ describe('CorridorBuild', () => {
       state.bare = 3;
       const result = await corridor.build('location load');
 
-      expect(calls).toEqual(['clearColumns', 'resetWalkCaps', 'measure', 'commit', 'routes', 'cells', 'narrow', 'routes', 'overlays']);
+      expect(calls).toEqual(['clearColumns', 'measure', 'commit', 'routes', 'band', 'routes', 'cells', 'routes', 'overlays']);
       expect(clock).toBe(0);
       expect(result).toMatchObject({ unmeasured: 4, fallbackStations: 0, fallbackCells: 0 });
     });
@@ -344,30 +335,6 @@ describe('CorridorBuild', () => {
       state.animation = true;
       await corridor.build('location load');
       expect(calls.slice(-5, -2)).toEqual(['routes', 'overlays', 'animation']);
-    });
-  });
-
-  describe('until nothing narrows', () => {
-    it('stops passes that come back to an earlier state, builds the last plan once more and warns', async () => {
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      state.narrow = 100;
-      state.walkStates = ['empty', 'a', 'b', 'a'];
-
-      const result = await corridor.build('location load');
-
-      expect(result?.passes).toBe(3);
-      expect(warn).toHaveBeenCalledWith(
-        '[Corridor] build did not settle: walk caps and detours came back to an earlier state; frozen with the last plan',
-      );
-      expect(calls.slice(-7)).toEqual(['narrow', 'routes', 'cells', 'routes', 'overlays', 'camera 20', COARSE]);
-    });
-
-    it('stops after MAX_PASSES passes that keep narrowing', async () => {
-      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      state.narrow = 1000;
-      const result = await corridor.build('location load');
-      expect(result?.passes).toBe(CorridorBuild.MAX_PASSES);
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining(`still narrowing after ${CorridorBuild.MAX_PASSES} passes`));
     });
   });
 
@@ -399,7 +366,7 @@ describe('CorridorBuild', () => {
       const building = corridor.build('location load');
       state.epoch++;
       expect(await building).toBeNull();
-      expect(calls).toEqual(['clearColumns', 'resetWalkCaps', 'measure', 'cancel routes replaced']);
+      expect(calls).toEqual(['clearColumns', 'measure', 'cancel routes replaced']);
     });
 
     it('stops a build under way on dispose and gives the camera back at once', async () => {

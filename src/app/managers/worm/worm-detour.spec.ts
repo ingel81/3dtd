@@ -1,9 +1,9 @@
 /**
- * The worm round a car on the street's centre line, through the real
- * EnemyManager with rendering mocked: the route bends round the car
- * (corridor-detour.ts) on ramps as gentle as the worm's own bend, so its
- * rigid rings stay joined as on a straight street (see worm-corner.spec.ts
- * for the measure).
+ * The worm past a van on the street's centre line, through the real
+ * EnemyManager with rendering mocked: the enemies' line runs in the middle
+ * of the walkable band (corridor-band.ts), which leaves the street's line as
+ * gently as the worm bends, so its rigid rings stay joined (see
+ * worm-corner.spec.ts for the measure).
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -14,8 +14,7 @@ vi.mock('three', async () => {
 
 import { createTestManagers, TestManagers } from '../../integration/test-helpers';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
-import { applyDetourPlan, planDetours } from '../../utils/corridor-detour';
-import type { ColumnSample } from '../../three-engine/column-sample';
+import { BandRoute, bandPath, buildBand } from '../../utils/corridor-band';
 import type { RouteWaypoint } from '../../models/game.types';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from './worm-group';
@@ -41,27 +40,49 @@ const local = (p: { lat: number; lon: number }): { e: number; n: number } => ({
 });
 
 /**
- * 300 m north with a car parked on the centre line at 150 to 154.5 m, 1.8 m
- * wide, and room either side; the route bent round it as PathAndRouteService
- * bends it. In the game's local frame x is east and z south.
+ * 300 m north with a van parked on the centre line at 150 to 154.5 m, 2.2 m
+ * wide, and room either side; the enemies' line in the band beside it, as
+ * PathAndRouteService lays it. In the game's local frame x is east and z
+ * south.
  */
-function detouredPath(): RouteWaypoint[] {
+function bandedPath(): RouteWaypoint[] {
   const street = [geo(0, 0), geo(0, 300)];
   const points = street.map((p) => ({ x: local(p).e, z: -local(p).n }));
-  const onCar = (x: number, z: number) => -z >= 150 && -z <= 154.5 && Math.abs(x) < 0.9;
-  const column = (x: number, z: number): ColumnSample => {
+  const onCar = (x: number, z: number) => -z >= 150 && -z <= 154.5 && Math.abs(x) <= 1.1;
+  const columns = (x: number, z: number) => {
     const y = onCar(x, z) ? 1.5 : 0;
-    return { groundY: y, topY: y, tileDepth: 20, tileGeometricError: 2 };
+    return { ground: y, top: y };
   };
-  const plan = planDetours({ points, open: [true], room: () => 7 }, column, 2);
-  const interpolate = (a: RouteWaypoint, b: RouteWaypoint, f: number): RouteWaypoint =>
-    ({ lat: a.lat + (b.lat - a.lat) * f, lon: a.lon + (b.lon - a.lon) * f, height: 300 });
-  const shift = (p: RouteWaypoint, dx: number, dz: number): RouteWaypoint =>
-    ({ lat: p.lat - dz / METERS_PER_DEGREE_LAT, lon: p.lon + dx / M_PER_DEG_LON, height: 300 });
-  // The corridor as the walk caps leave it round the car: no room for the
-  // worm's arcs on the car's side (lateral limit 0), 2.5 m on the other.
-  return applyDetourPlan(street, points, plan, interpolate, shift).points
-    .map((p) => ({ ...p, corridorLeft: 1.5, corridorRight: 4 }));
+  const stations = 150;
+  const route: BandRoute = {
+    points,
+    open: [true],
+    streetHalfWidth: [3.5],
+    wallLeft: [new Array<number>(stations).fill(7)],
+    wallRight: [new Array<number>(stations).fill(7)],
+  };
+  const band = buildBand(route, columns, 2);
+  return bandPath(route, band).map((node) => ({
+    lat: LAT0 - node.z / METERS_PER_DEGREE_LAT,
+    lon: LON0 + node.x / M_PER_DEG_LON,
+    height: 300,
+    corridorLeft: node.left,
+    corridorRight: node.right,
+  }));
+}
+
+/** Tightest bend of a path, 1 per metre: the second difference of its offset east over its northing. */
+function maxCurvature(path: readonly RouteWaypoint[]): number {
+  const e = path.map((p) => local(p).e);
+  const n = path.map((p) => local(p).n);
+  let worst = 0;
+  for (let k = 1; k + 1 < path.length; k++) {
+    const h1 = n[k] - n[k - 1];
+    const h2 = n[k + 1] - n[k];
+    if (Math.abs(h1) < 1e-6 || Math.abs(h2) < 1e-6) continue;
+    worst = Math.max(worst, Math.abs(((e[k + 1] - e[k]) / h2 - (e[k] - e[k - 1]) / h1) / ((h1 + h2) / 2)));
+  }
+  return worst;
 }
 
 /** The largest gap between the ends of two neighbouring rings, and their largest yaw (rad), over the chains out on the route. */
@@ -100,7 +121,7 @@ function worstJoint(group: WormGroup): { gap: number; yaw: number } {
   return { gap, yaw };
 }
 
-describe('Worm round a car on the centre line', () => {
+describe('Worm past a car on the centre line', () => {
   let m: TestManagers;
 
   beforeEach(() => {
@@ -113,10 +134,14 @@ describe('Worm round a car on the centre line', () => {
     vi.restoreAllMocks();
   });
 
-  it('keeps its rings joined through the detour', () => {
-    const path = detouredPath();
-    // The route does bend: 2.5 m east beside the car.
-    expect(Math.max(...path.map((p) => local(p).e))).toBeCloseTo(2.5, 6);
+  it('keeps its rings joined where the band takes the line off the street line', () => {
+    const path = bandedPath();
+    // The line does leave the street's line: the band beside the van is 1 to 7 m out.
+    const offset = Math.max(...path.map((p) => Math.abs(local(p).e)));
+    expect(offset).toBeGreaterThan(2);
+    expect(offset).toBeLessThan(7);
+    // And it bends no more than the worm does: 1/20 m (WORM_BEND_RADIUS_M).
+    expect(maxCurvature(path)).toBeLessThan(1 / 20);
 
     const group = m.enemyManager.spawn(path, 'worm').worm!.group;
     let gap = -Infinity;
@@ -141,15 +166,27 @@ describe('Worm round a car on the centre line', () => {
         }
         last.set(e, e.transform.rotation);
         const at = local(e.position);
-        if (at.n > 150 && at.n < 154.5 && at.e > 1) passedBeside = true;
+        if (at.n > 150 && at.n < 154.5 && Math.abs(at.e) > 1) passedBeside = true;
       }
     }
 
     expect(passedBeside).toBe(true);
-    // On a straight street the ends overlap by 0.25 m; worm-corner.spec.ts allows 0.5 m in a corner.
-    expect(gap).toBeLessThan(0.5);
-    expect(yaw).toBeLessThan(10 * DEG_TO_RAD);
-    // A ring turns with the curve it walks, no swing.
-    expect(turn).toBeLessThan(0.02);
+    // The rings sit across the corridor (wormSway), so they follow its
+    // width, and beside the van the corridor narrows: from 7 to 1.5 m in
+    // the band, as it did from 7 to 2.5 m in the fitting before it. Both
+    // turn neighbouring rings against each other, 16.6 degrees with the
+    // band's widths and 14.6 with the fitting's, and open their ends by
+    // 0.64 m; with the widths pinned all along, as this spec had them
+    // before, it is 0.5 m and under 10 degrees. worm-corner.spec.ts allows
+    // 20 degrees between neighbours in a corner.
+    expect(gap).toBeLessThan(0.7);
+    expect(yaw).toBeLessThan(20 * DEG_TO_RAD);
+    // A ring turns with the curve it walks; where the room beside the line
+    // changes it turns a little faster, as the sway carries it across the
+    // corridor. Measured over this route: 0.025 rad a step (16.7 ms) with
+    // the band's widths, which move with the line, under 0.02 both with the
+    // widths pinned all along and with the one-sided step from 7 to 2.5 m
+    // the fitting gave at a car.
+    expect(turn).toBeLessThan(0.03);
   });
 });

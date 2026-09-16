@@ -54,6 +54,11 @@ describe('A cell under an eave in __corridor (playtest 567, orange cells left ou
     grid.initialize(street as never, coordinateSync);
     // An eastbound street along z = 1, 4 m either side
     grid.generateFromRoutes([[at(0, 1), at(40, 1)]]);
+    // The band of the route: on the street, ending before the eave 2 m right of the line (corridor-band.ts).
+    grid.setBand((x) => ({
+      segment: 0, k: Math.max(0, Math.round((x - 1) / 2)), n: 20, s: x, x, z: 1, rx: 0, rz: 1,
+      kind: 'band', backbone: { offset: 0, y: 0 }, left: -3, right: 1, centre: 0,
+    }));
     grid.registerTower(TOWER.id, 20, -6, TOWER.combat.range, { referencePos: { x: 20, y: 8, z: -6 } } as never);
 
     picked = null;
@@ -86,7 +91,7 @@ describe('A cell under an eave in __corridor (playtest 567, orange cells left ou
   it('keeps the eave cell at the eave, names it, and probes 1.5 m above it', () => {
     const eave = grid.getCellAt(20.5, 3.5)!;
     expect(eave.terrainHeight).toBe(6);
-    expect(grid.unwalkableCells()).toContain(eave);
+    expect(grid.describeCellsAround(eave.x, eave.z, 0.5, null)).toMatchObject([{ walkable: false, walkCheck: 'roof' }]);
 
     const probes = cube.mock.calls.filter((call) => call[3] === eave.x && call[5] === eave.z);
     expect(probes.map((call) => call[4])).toEqual([6 + LOS_VIZ_CONFIG.groundSampleYOffset]);
@@ -113,7 +118,7 @@ describe('A cell under an eave in __corridor (playtest 567, orange cells left ou
   it('towerCells() counts it under unwalkable', () => {
     const eave = grid.getCellAt(20.5, 3.5)!;
     const inRange = grid.getCellsInRange(20, -6, TOWER.combat.range);
-    const unwalkable = grid.unwalkableCells().filter((c) => inRange.includes(c));
+    const unwalkable = inRange.filter((c) => grid.describeCellsAround(c.x, c.z, 0.5, null)[0]?.walkable === false);
     expect(unwalkable).toContain(eave);
 
     const report = api().towerCells();

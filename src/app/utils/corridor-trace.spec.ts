@@ -174,13 +174,13 @@ describe('corridor trace', () => {
     it('names what changed the data since the last rebuild, and forgets it with the rebuild', () => {
       const snapshot = { cells: new Map([[1, 0]]), widths: new Map<string, number[]>(), waypoints: 5 };
       corridorTrace.noteChange(['measured'], 944);
-      corridorTrace.noteChange(['walkCaps', 'measured']);
+      corridorTrace.noteChange(['band', 'measured']);
       corridorTrace.rebuilt(snapshot, snapshot, { narrowed: 2 }, 183.5);
       corridorTrace.rebuilt(snapshot, snapshot, {}, 1);
 
       const rebuilds = lines.filter((line) => line.includes(' rebuild ') && !line.includes(' LONG '));
       expect(rebuilds[0]).toMatch(
-        / rebuild by=measured\+walkCaps rays=944 cells=1->1 added=0 removed=0 moved=0 maxMoveM=0 lostHeight=0 gotHeight=0 widthPoints=0\/0 maxWidthChangeM=0 waypoints=5->5 narrowed=2 ms=183\.5 deltaMs=/,
+        / rebuild by=measured\+band rays=944 cells=1->1 added=0 removed=0 moved=0 maxMoveM=0 lostHeight=0 gotHeight=0 widthPoints=0\/0 maxWidthChangeM=0 waypoints=5->5 narrowed=2 ms=183\.5 deltaMs=/,
       );
       expect(rebuilds[1]).toMatch(/ rebuild by=none rays=0 /);
       expect(lines.some((line) => line.startsWith('[CorridorTrace] LONG') && line.includes(' rebuild ms=183.5'))).toBe(true);

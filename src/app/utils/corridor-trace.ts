@@ -309,7 +309,7 @@ export class CorridorTrace {
     this.write('LONG ', step, { ms, ...detail }, trigger);
   }
 
-  /** What changed the corridor data (`measured`, `walkCaps`, `detourPlans`, ...) and new rays, for the next rebuild line. */
+  /** What changed the corridor data (`measured`, `band`, `settings`, ...) and new rays, for the next rebuild line. */
   noteChange(reasons: readonly string[], rays = 0): void {
     if (!this.on) return;
     for (const reason of reasons) this.changedBy.add(reason);

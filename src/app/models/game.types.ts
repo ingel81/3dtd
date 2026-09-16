@@ -34,14 +34,15 @@ export interface RouteWaypoint extends GeoPosition {
    */
   inTunnel?: boolean;
   /**
-   * The segment is part of a passage: the centre line runs under something
-   * the photogrammetry fills down to the street, with no room beside it
-   * (`utils/corridor-detour.ts`). In a tunnel as well (`inTunnel`).
+   * The segment is part of a passage: the street's line runs under something
+   * the photogrammetry fills down to it, with no walkable band beside it
+   * (`utils/corridor-band.ts`). In a tunnel as well (`inTunnel`).
    */
   passage?: boolean;
   /**
-   * The segment bends sideways round something standing on the street's
-   * centre line, a parked car or a jetty (`utils/corridor-detour.ts`).
+   * The segment runs off the street's own line: the enemies' line lies in
+   * the middle of the walkable band, past a parked car, a hedge or a jetty
+   * on the line (`utils/corridor-band.ts`).
    */
   detour?: boolean;
 }

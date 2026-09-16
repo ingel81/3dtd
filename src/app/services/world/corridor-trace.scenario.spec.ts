@@ -23,7 +23,7 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
 
   let clock: number;
   let lines: string[];
-  let state: { narrow: number; epoch: number; cells: Map<number, number>; paths: Map<string, RouteWaypoint[]> };
+  let state: { epoch: number; cells: Map<number, number>; paths: Map<string, RouteWaypoint[]> };
 
   /** `event | trigger` of each line; LONG lines left out, they depend on the machine. */
   const events = () => lines
@@ -76,9 +76,10 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
         return run;
       }),
       unmeasuredStations: () => 0,
-      resetWalkCaps: vi.fn(),
-      walkState: () => `caps left ${state.narrow}`,
-      narrowToWalkable: () => state.narrow-- > 0,
+      buildBands: () => {
+        corridorTrace.noteChange(['band']);
+        return { routes: 1, stations: 20, passages: 0, maxSlopeM: 0.1, maxCurvature: 0.03 };
+      },
       clearCorridorMeasurements: vi.fn(),
       // Built again: wider on the right.
       refreshRouteLines: vi.fn(() => {
@@ -118,7 +119,7 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
     vi.spyOn(console, 'log').mockImplementation((line: unknown) => {
       if (typeof line === 'string' && line.startsWith('[CorridorTrace]')) lines.push(line);
     });
-    state = { narrow: 0, epoch: 1, cells: new Map([[1, 10], [2, 10], [3, 10]]), paths: new Map([['spawn-1', path(3)]]) };
+    state = { epoch: 1, cells: new Map([[1, 10], [2, 10], [3, 10]]), paths: new Map([['spawn-1', path(3)]]) };
     corridorTrace.setEnabled(true);
     corridorTrace.begin('spec');
   });
@@ -129,7 +130,6 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
   });
 
   it('prints one line per step of a build, each with the chain from the height update to it', async () => {
-    state.narrow = 1;
     const corridor = create();
     await corridorTrace.within('heightUpdate.done', () => corridor.build('location load'));
 
@@ -138,19 +138,20 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
       'load | spec',
       `build.start | ${build}`,
       `build.tiles | ${build}`,
-      `build.pass | ${build}`,
-      `build.pass | ${build}`,
+      `build.band | ${build}`,
       `rebuild | ${build}`,
       `build.freeze | ${build}`,
     ]);
     // Quiet from the first frame on, 0.1 s in, then 0.5 s of quiet.
     expect(lineOf('build.tiles')).toMatch(/ target=2\.5 loadS=0\.1 timedOut=false tiles=12 fine=12 finest=0 coarse=0 pending=0 \| /);
-    expect(lines.filter((line) => / build\.pass /.test(line)).map((line) => / changed=(\w+)/.exec(line)?.[1])).toEqual(['true', 'false']);
-    // New free space; a cell more, one moved, one lost its height; the right side 2 m wider all along.
+    expect(lineOf('build.band')).toMatch(/ routes=1 stations=20 passages=0 maxSlopeM=0\.1 maxCurvature=0\.03 cells=4 ms=/);
+    // The band and new free space; a cell more, one moved, one lost its height; the right side 2 m wider all along.
     expect(lineOf('rebuild')).toMatch(
-      / by=measured rays=0 cells=3->4 added=1 removed=0 moved=1 maxMoveM=0\.5 lostHeight=1 gotHeight=0 widthPoints=10\/10 maxWidthChangeM=2 waypoints=3->3 passes=2 spawns=1 /,
+      / by=measured\+band rays=0 cells=3->4 added=1 removed=0 moved=1 maxMoveM=0\.5 lostHeight=1 gotHeight=0 widthPoints=10\/10 maxWidthChangeM=2 waypoints=3->3 bands=1 spawns=1 /,
     );
-    expect(lineOf('build.freeze')).toMatch(/ stations=20 unmeasured=0 passes=2 timedOut=false fallbackStations=0 fallbackCells=0 cells=4 /);
+    expect(lineOf('build.freeze')).toMatch(
+      / stations=20 unmeasured=0 bandStations=20 passages=0 timedOut=false fallbackStations=0 fallbackCells=0 cells=4 /,
+    );
   });
 
   it('names why a build stopped: a newer one began, or the routes were replaced', async () => {

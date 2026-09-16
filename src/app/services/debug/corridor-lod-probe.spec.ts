@@ -62,7 +62,7 @@ describe('CorridorLodProbe', () => {
     };
   }
 
-  const corridorState = (): CorridorState => ({ routes: [{ key: 'r', pieces: [[{ t: 0, left: 3, right: 3 }]] }], walkCaps: [], detours: [], stations: [] });
+  const corridorState = (): CorridorState => ({ routes: [{ key: 'r', band: [] }], stations: [] });
 
   function cell(x: number, terrainHeight: number): RouteCellDump {
     return {

@@ -174,8 +174,7 @@ export class TerrainQueries {
    * nearest to the height the way carries there (carriedDeckY,
    * deckApproachY), as the route cells there take it; where that lies more
    * than `roofRise` above the height carried (a crown, awning or car with
-   * no ground under it), the height carried, as a route cell on the centre
-   * line takes it (streetUnderRoof). `deck` the portals of a stretch under
+   * no ground under it), the height carried. `deck` the portals of a stretch under
    * another way (StreetUnder, underpass.ts): the ground at the two portals
    * (getGroundHeightEstimate across the way from one to the other),
    * interpolated, as the route cells of a tunnel stretch take it. Otherwise,
