@@ -1,9 +1,8 @@
 /**
  * Shared primitives for street-network A* pathfinding.
  *
- * Used by OsmStreetService, DevStreetProvider and the pathfinding web worker
- * so all three run the identical geometry. Framework-free (no Angular, no DOM)
- * so it can also be bundled into the worker chunk.
+ * Used by OsmStreetService and DevStreetProvider so both run the identical
+ * geometry. Framework-free (no Angular, no DOM).
  */
 
 /**

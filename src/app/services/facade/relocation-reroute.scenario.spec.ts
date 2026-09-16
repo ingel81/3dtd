@@ -192,7 +192,6 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
       // PathAndRouteService's own
       DevWorldService: { isActive: false },
       UIStore: { routesVisible: () => false },
-      PathfindingWorkerService: { isWorkerAvailable: false, dispose: () => undefined },
       GlobalRouteGridService: { isInitialized: () => false, getGroundLocalYAt: () => null },
       // RelocationStatusService's
       NgZone: { runOutsideAngular: (fn: () => unknown) => fn() },

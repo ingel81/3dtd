@@ -10,8 +10,7 @@
  *      camera setter (utils/camera-timeline.ts), the rig's start pose among
  *      them; that is a later, deliberate line, not one of the old. Only in
  *      the code: the engine's own DevWorld lines (three-tiles-engine.ts needs
- *      WebGL) and the pathfinding worker's ready line (ad19437d, needs a
- *      worker). [Tiles], [Warmup] and [Corridor] staying and the Fire Tower
+ *      WebGL). [Tiles], [Warmup] and [Corridor] staying and the Fire Tower
  *      effects are the user's; Load ONNX without a TypeError is
  *      wave-director.service.spec.ts ("opts into the ONNX policy ...").
  * 176: the loading screen names "Preparing Intro Flight" as its last step, on

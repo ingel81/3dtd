@@ -22,7 +22,6 @@ vi.mock('@angular/core', async () => {
       },
     },
     UIStore: { routesVisible: () => false },
-    PathfindingWorkerService: { isWorkerAvailable: false, dispose: () => undefined },
     GlobalRouteGridService: {
       isInitialized: () => true,
       getGroundLocalYAt: (x: number, z: number) => hill(x, z),

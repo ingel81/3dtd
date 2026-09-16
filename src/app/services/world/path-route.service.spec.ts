@@ -17,7 +17,6 @@ vi.mock('@angular/core', async () => {
   const stubs: Record<string, unknown> = {
     DevWorldService: { isActive: false },
     UIStore: { routesVisible: () => false },
-    PathfindingWorkerService: { isWorkerAvailable: false, dispose: () => undefined },
     GlobalRouteGridService: {
       isInitialized: () => grid.ready,
       getGroundLocalYAt: (x: number, z: number) => grid.cellY(x, z),

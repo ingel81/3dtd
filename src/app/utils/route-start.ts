@@ -10,8 +10,7 @@ import { closestPointOnSegment } from './route-geometry';
  * (MarkerVisualizationService.placeSpawnPortal, EnemyManager), so they stand
  * where the player clicked. Until 2026-09-14 the route began on the
  * segment's first node, up to a segment's length along the street from the
- * click. Shared by OsmStreetService and the pathfinding worker, which run
- * the same A* on the same network.
+ * click. Used by OsmStreetService's A*.
  */
 
 /**
