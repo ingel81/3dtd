@@ -53,9 +53,14 @@ export interface RegionLodState {
   /** Of those, coarser than `errorTarget` with children: still to refine. */
   coarse: number;
   /**
-   * Which tiles those are, 8 hex digits over their content paths (without
-   * the query, which carries the session): two builds of a place measured
-   * on the same tiles when it is the same.
+   * Which of the `fine` tiles those are, 8 hex digits over their content
+   * paths (without the query, which carries the session): two builds of a
+   * place measured on the same tiles when it is the same. The `coarse` ones
+   * stay out: they are parents still to refine, and how many of them are
+   * still active varies from load to load. Tokyo, retest of 2026-09-16: the
+   * same corridor (fingerprint) with fine=181 both times and coarse=20 on a
+   * fresh load, 14 after a location change and reset(), and with the
+   * parents counted two different hashes.
    */
   tileSet: string;
 }
@@ -167,8 +172,8 @@ export class RouteCorridorRegion {
    * How far the active tiles that reach the region are refined, for the
    * corridor trace: a coarse tile stays active until its children are
    * ready, so a coarse one with children is a refinement still to come.
-   * And which tiles they are (`tileSet`), for comparing the tiles two
-   * builds of a place measured on (PLAYTEST 745).
+   * And which of the fine ones they are (`tileSet`), for comparing the
+   * tiles two builds of a place measured on (PLAYTEST 745).
    * O(active tiles × segments), footprints cached per tile.
    */
   lodState(activeTiles: Iterable<RegionTile>): RegionLodState {
@@ -178,11 +183,14 @@ export class RouteCorridorRegion {
       const volume = tile.engineData?.boundingVolume;
       if (!volume || !this.intersectsTile(volume, tile)) continue;
       state.tiles++;
-      paths.push(tile.content?.uri?.split('?')[0] ?? '');
       const error = tile.geometricError ?? Infinity;
       if (error <= 2) state.finest++;
-      if (error > this.errorTarget && (tile.children?.length ?? 0) > 0) state.coarse++;
-      else state.fine++;
+      if (error > this.errorTarget && (tile.children?.length ?? 0) > 0) {
+        state.coarse++;
+      } else {
+        state.fine++;
+        paths.push(tile.content?.uri?.split('?')[0] ?? '');
+      }
     }
     state.tileSet = fnv1a(paths.sort().join('\n'));
     return state;

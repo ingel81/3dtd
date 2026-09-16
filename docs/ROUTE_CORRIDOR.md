@@ -1184,7 +1184,7 @@ vitest (Specs schalten ihn selbst ein).
 | Ereignis | Wo | Zahlen |
 |---|---|---|
 | `load` | Beginn eines Orts | `label` |
-| `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis 5 m oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `tileSet`: welche Tiles das sind, 8 Hex-Ziffern über ihre Content-Pfade ohne Query (die trägt die Session), gleich heißt dieselben Tiles; `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
+| `tiles` | `VisualizationFacadeService.onTilesLoaded`, je beruhigtem Tile-Schub | `lod` (lodVersion); aktive Tiles, die die Region (`RouteCorridorRegion.lodState`) erreichen: `tiles`, `fine` (bis zum Fehlerziel der Region, im Bau 2,5 m, sonst 5 m, oder Blatt), `finest` (bis 2 m), `coarse` (gröber und noch zu verfeinern); `tileSet`: welche der `fine`-Tiles das sind, 8 Hex-Ziffern über ihre Content-Pfade ohne Query (die trägt die Session), gleich heißt dieselben feinen Tiles. Die `coarse`-Eltern gehen seit 2026-09-16 nicht mehr ein: Wie viele davon noch aktiv sind, schwankt von Ladung zu Ladung (Tokyo, derselbe Korridor: `fine=181` beide Male, `coarse=20` frisch und 14 nach Ortswechsel und `reset()`, damit zwei Hashes); `pending`: Tiles in Warteschlange, Download oder beim Parsen, überall |
 | `region.complete` | das erste Mal je Ort `coarse=0` | `tiles`, `finest` |
 | `build.start` | Beginn eines Baus (`CorridorBuild.build`) | `reason`, `tiles` (es gibt 3D-Tiles; in DevWorld false) |
 | `build.tiles` | die Tiles der Region sind ruhig, oder der Timeout ist um | `target` (Fehlerziel der Region, m), `loadS`, `timedOut`, dazu der Stand der Region (`lodState`) |
@@ -1587,7 +1587,7 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   und der folgt der Kamera.
 
   Weichen zwei Fingerprints desselben Orts ab, sagt `tileSet` in der Zeile
-  `build.tiles` des Trace, ob beide auf denselben Tiles gemessen haben. Eine
+  `build.tiles` des Trace, ob beide auf denselben feinen Tiles gemessen haben. Eine
   Zeile `tiles` zwischen `build.tiles` und `build.freeze` heißt, dass
   während des Baus ein Tile-Schub zur Ruhe kam, mit dem `tileSet` danach.
 
