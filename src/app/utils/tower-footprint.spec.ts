@@ -48,6 +48,10 @@ const extremes = (top: Surface, counts: (x: number, z: number) => boolean = () =
   return { max: Math.max(...ys), min: Math.min(...ys) };
 };
 
+/** Indices of the probes of the footprint of `radius` where `counts` holds */
+const probesWhere = (counts: (x: number, z: number) => boolean, radius = R) =>
+  footprintSampleOffsets(radius).flatMap(([x, z], index) => (counts(x, z) ? [index] : []));
+
 /** A parked car, 1.5 m high, on the box x0..x1, z0..z1 */
 const car = (x0: number, x1: number, z0: number, z1: number) => (x: number, z: number) =>
   x >= x0 && x <= x1 && z >= z0 && z <= z1;
@@ -194,20 +198,23 @@ describe('resolveTowerFootprint', () => {
       expect(resolveTowerFootprint(13.5, R, columns(top))).toEqual({ footY: 13.5, plinthHeight: 1.5 });
     });
 
-    it('reaches down past a wall or an edge, but not past a drop far below', () => {
-      expect(resolveTowerFootprint(50, R, columns((x) => (x > 1 ? 49 : 50)))).toEqual({ footY: 50, plinthHeight: 1 });
-      const street = 50 - PLINTH_CONFIG.MAX_DROP - 0.1;
-      expect(resolveTowerFootprint(50, R, columns((x) => (x > 1 ? street : 50)))).toEqual({
+    it('reaches down a step within MAX_DROP, but ends above a deeper one', () => {
+      expect(resolveTowerFootprint(50, R, columns((x) => (x > 2 ? 49 : 50)))).toEqual({ footY: 50, plinthHeight: 1 });
+      const lower = 50 - 2 * PLINTH_CONFIG.MAX_DROP;
+      expect(resolveTowerFootprint(50, R, columns((x) => (x > 2 ? lower : 50)))).toEqual({
         footY: 50,
-        plinthHeight: 0,
+        plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+        overhang: probesWhere((x) => x > 2),
       });
     });
 
-    it('skips probes that hit nothing', () => {
-      const top = (x: number) => (x < 0 ? null : x > 1 ? 5.4 : 5);
-      const footprint = resolveTowerFootprint(5, R, columns(top));
-      expect(footprint.footY).toBeCloseTo(5.4, 9);
-      expect(footprint.plinthHeight).toBeCloseTo(0.4, 9);
+    it('counts probes that hit nothing as a drop', () => {
+      const top = (x: number) => (x < -2 ? null : x > 1 ? 5.4 : 5);
+      expect(resolveTowerFootprint(5, R, columns(top))).toEqual({
+        footY: 5.4,
+        plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+        overhang: probesWhere((x) => x < -2),
+      });
     });
 
     it('does not climb a car beside the sidewalk, with the street level around', () => {
@@ -324,11 +331,8 @@ describe('resolveTowerFootprint', () => {
   });
 
   describe('overhang (E18, braces under a plinth at a roof edge)', () => {
-    /** The street more than MAX_DROP below a roof at 50 m */
-    const deepStreet = 50 - PLINTH_CONFIG.MAX_DROP - 10;
-    /** Indices of the probes of the footprint of radius R where `counts` holds */
-    const probesWhere = (counts: (x: number, z: number) => boolean) =>
-      footprintSampleOffsets(R).flatMap(([x, z], index) => (counts(x, z) ? [index] : []));
+    /** The street far below a roof at 50 m */
+    const deepStreet = 10;
 
     it('names the probes past a roof edge deeper than MAX_DROP, where the plinth hangs over the street', () => {
       // Roof at 50 m, 1 m higher west of x = -1, its edge 2 m east of the tower
@@ -351,10 +355,89 @@ describe('resolveTowerFootprint', () => {
       expect(resolveTowerFootprint(50, R, columns(top, () => street))).toEqual({ footY: 50, plinthHeight: 50 - street });
     });
 
-    it('names none on a flat roof, at its edge (no plinth there) or in its middle', () => {
+    it('puts a slab on a flat roof at its edge to carry the braces, and nothing in its middle', () => {
       const edge = (x: number) => (x > 2 ? deepStreet : 50);
-      expect(resolveTowerFootprint(50, R, columns(edge, () => deepStreet))).toEqual({ footY: 50, plinthHeight: 0 });
+      expect(resolveTowerFootprint(50, R, columns(edge, () => deepStreet))).toEqual({
+        footY: 50,
+        plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+        overhang: probesWhere((x) => x > 2),
+      });
       expect(resolveTowerFootprint(50, R, columns(() => 50, () => deepStreet))).toEqual({ footY: 50, plinthHeight: 0 });
+    });
+
+    it('stands the slab on the highest probe of a roof that is even within MIN_UNEVENNESS', () => {
+      const top = (x: number, z: number) => (x > 2 ? deepStreet : z > 1 ? 50.1 : 50);
+      expect(resolveTowerFootprint(50, R, columns(top, () => deepStreet))).toMatchObject({
+        footY: 50.1,
+        plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+      });
+    });
+
+    describe('C10: the plinth ends within MAX_DROP at an edge, whatever lies below', () => {
+      it('above a lower part of a stepped building, it hangs over the step on braces', () => {
+        // Playtest 12: the lower part 12 m down drew the plinth down the facade
+        const top = (x: number) => (x > 2 ? 38 : 50);
+        expect(resolveTowerFootprint(50, R, columns(top, () => 5))).toEqual({
+          footY: 50,
+          plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+          overhang: probesWhere((x) => x > 2),
+        });
+      });
+
+      it('at an edge the photogrammetry melts into a bevel, it reaches the bevel but not the step below', () => {
+        // 2.8 m down over 1.3 m, then the lower part 12 m down
+        const top = (x: number) => (x < 2 ? 50 : x < 3.3 ? 50 - (2.8 * (x - 2)) / 1.3 : 38);
+        const footprint = resolveTowerFootprint(50, R, columns(top, () => 5));
+        expect(footprint.footY).toBe(50);
+        expect(footprint.plinthHeight).toBeCloseTo(50 - top(R * Math.cos(Math.PI / 6)), 9);
+        expect(footprint.plinthHeight).toBeLessThanOrEqual(PLINTH_CONFIG.MAX_DROP);
+        expect(footprint.overhang).toEqual(probesWhere((x) => x >= 3.3));
+      });
+
+      it('on a balcony or canopy within MAX_DROP it stands, past it and below a deeper one it hangs', () => {
+        const withBalcony = (depth: number) => (x: number) => (x > 3.3 ? 35 : x > 2 ? 50 - depth : 50);
+        expect(resolveTowerFootprint(50, R, columns(withBalcony(2.5), () => 5))).toEqual({
+          footY: 50,
+          plinthHeight: 2.5,
+          overhang: probesWhere((x) => x > 3.3),
+        });
+        expect(resolveTowerFootprint(50, R, columns(withBalcony(5), () => 5))).toEqual({
+          footY: 50,
+          plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+          overhang: probesWhere((x) => x > 2),
+        });
+      });
+
+      it('on a terrace, it reaches down a low wall to the ground below and hangs over a high one', () => {
+        const terrace = (height: number) => (x: number) => (x > 2 ? 12 - height : 12);
+        expect(resolveTowerFootprint(12, R, columns(terrace(2)))).toEqual({ footY: 12, plinthHeight: 2 });
+        expect(resolveTowerFootprint(12, R, columns(terrace(5)))).toEqual({
+          footY: 12,
+          plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+          overhang: probesWhere((x) => x > 2),
+        });
+      });
+
+      it('on a hillside, it follows the slope further down than MAX_DROP', () => {
+        const hill = (x: number, z: number) => 10 - (x + z) / Math.SQRT2;
+        const { max, min } = extremes(hill);
+        expect(max - min).toBeGreaterThan(2 * PLINTH_CONFIG.MAX_DROP);
+
+        const footprint = resolveTowerFootprint(10, R, columns(hill));
+        expect(footprint.footY).toBeCloseTo(max, 9);
+        expect(footprint.plinthHeight).toBeCloseTo(max - min, 9);
+        expect(footprint.overhang).toBeUndefined();
+      });
+
+      it('on a hillside ending in a retaining wall, it follows the slope and hangs over the wall', () => {
+        const hill = (x: number) => 10 - 0.3 * x - (x > 2 ? 6 : 0);
+        const { max, min } = extremes(hill, (x) => x <= 2);
+        expect(resolveTowerFootprint(10, R, columns(hill))).toEqual({
+          footY: max,
+          plinthHeight: max - min,
+          overhang: probesWhere((x) => x > 2),
+        });
+      });
     });
 
     it('names none on a slope on the ground or on a stepped roof', () => {
