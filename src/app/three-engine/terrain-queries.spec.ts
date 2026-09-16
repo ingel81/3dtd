@@ -735,20 +735,40 @@ describe('TerrainQueries', () => {
       expect(westFirst.inspectColumn(0.8, 3)?.fresh?.groundY).toBeCloseTo(0.5, 6);
     });
 
-    it('shifts a station on a seam into the next column ahead, also on a diagonal', () => {
-      // Two floors with a 0.2 m joint along x = 0.
+    /**
+     * A kerb 0.3 m high from x 1.1, across the column bucket of x 1 (0.75 to
+     * 1.25), and a wall 1.15 m high at z 5 from the ground up.
+     */
+    function kerb(): LibraryTiles {
       const tiles = new LibraryTiles();
-      tiles.add(floor(0, 19.9, -10.05, 0), 3, 2);
-      tiles.add(floor(0, 19.9, 10.05, 0), 3, 2);
-      const queries = queriesOver(tiles);
-      // The station's column stands at (0, 0), in the joint.
-      expect(queries.sampleColumn(-0.2, 0.2)).toBeNull();
+      tiles.add(floor(0, 20, -8.9, 3), 3, 2);
+      tiles.add(floor(0.3, 20, 11.1, 3), 3, 2);
+      const low = new Mesh(new PlaneGeometry(40, 1.15), material);
+      low.position.set(0, 0.575, 5);
+      tiles.add(low, 3, 2);
+      return tiles;
+    }
 
-      // Across (1, 1): the route runs (0.71, -0.71). Half a metre along it
-      // would end in the same column; one column is 0.71 m on this diagonal.
-      const probe = queries.measureStreetClearance(-0.2, 0.2, 1, 1, [1], 10);
-      expect(probe?.unmeasured).toBeNull();
-      expect(probe?.shiftM).toBeCloseTo(Math.SQRT1_2, 6);
+    it('measures a station from the column at its own point, not from the cached one of its bucket', () => {
+      const queries = queriesOver(kerb());
+      // The bucket's column at x 1 stands before the kerb.
+      expect(queries.sampleColumn(0.9, 3)?.groundY).toBeCloseTo(0, 6);
+
+      // On the kerb at x 1.2 the ray 1 m up passes over the wall; 1 m over the street it would stop there, 2 m out.
+      const probe = queries.measureStreetClearance(1.2, 3, 0, 1, [1], 10);
+      expect(probe?.right).toEqual([10]);
+    });
+
+    it('leaves the column cache as it was when it measures a station', () => {
+      const tiles = kerb();
+      const queries = queriesOver(tiles);
+      const rays = vi.spyOn(tiles.renderer.group, 'raycast');
+      queries.measureStreetClearance(1.2, 3, 0, 1, [1], 10);
+      const stationRays = rays.mock.calls.length;
+
+      // Nothing cached: the bucket costs a ray of its own, at its centre before the kerb.
+      expect(queries.sampleColumn(1.2, 3)?.groundY).toBeCloseTo(0, 6);
+      expect(rays).toHaveBeenCalledTimes(stationRays + 1);
     });
   });
 

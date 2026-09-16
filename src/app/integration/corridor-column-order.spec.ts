@@ -7,12 +7,15 @@
  * with the same stations, cells and tile depth and error under every column,
  * and different heights. A second reset changed nothing.
  *
- * The three differ in what samples the column cache between the build
- * emptying it and the cells reading it (CorridorBuild, steps 2 to 4): a cold
+ * The three differ in what may sample columns between the build emptying the
+ * column cache and the cells reading it (CorridorBuild, steps 2 to 4): a cold
  * load measures every station there; a reset reuses the stored measurements
  * and measures none (`clearance.start stations=0`); on a location change a
  * settled tile batch can land between two measuring slices and have the
  * street overlay sample its heights (VisualizationFacadeService.onTilesLoaded).
+ * The cache used to hold what the point of its first caller showed. Now a
+ * station casts its columns past the cache (measureStreetClearance), and
+ * every cached column stands at the centre of its bucket (columnCentre).
  *
  * Real: TerrainQueries with its column cache, GlobalRouteGrid and its cell
  * sampler, and the ray path of 3d-tiles-renderer (LibraryTiles). Synthetic:
