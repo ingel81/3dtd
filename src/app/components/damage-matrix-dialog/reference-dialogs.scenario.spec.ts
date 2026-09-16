@@ -10,8 +10,9 @@
  * DamageMatrixDialogComponent with its template read from disk. H and
  * Attributions open theirs through the same lazyDialog (hotkey.service.spec.ts
  * "H opens the shortcut overview", lazy-dialog.spec.ts). Not covered: the
- * transitions and fonts (visible only), and a double click on a later open,
- * when the chunk is cached and the second click may land on the backdrop.
+ * transitions and fonts (visible only), and whether the second click of a
+ * double click on a later open lands on the backdrop (browser only; that
+ * both clicks open one dialog is covered below).
  */
 // Material's dialog is partially compiled and needs the JIT compiler
 import '@angular/compiler';
@@ -107,6 +108,18 @@ describe('Damage vs armor, logic of playtest 160 (night 1) replayed', () => {
     await settle();
     expect(dialog.openDialogs).toHaveLength(0);
     expect(document.activeElement).toBe(trigger);
+  });
+
+  it('a double click on a later open, the chunk cached, still opens one dialog', async () => {
+    (await openDamageMatrixDialog(dialog, 'archer')).close();
+    await settle();
+    expect(dialog.openDialogs).toHaveLength(0);
+
+    const first = openDamageMatrixDialog(dialog, 'archer');
+    const second = openDamageMatrixDialog(dialog, 'archer');
+    expect(await second).toBe(await first);
+    await settle();
+    expect(dialog.openDialogs).toHaveLength(1);
   });
 
   it('from the build panel: no row is marked', async () => {
