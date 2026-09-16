@@ -82,7 +82,10 @@ zoomen und mit G springen.
   (`clearance.start segments=0 stations=0`, `rays=0`) und ändert dabei trotzdem die Höhen; ein Neubau ohne Messung
   sollte entweder neu messen oder ablehnen.
 - **744 Rückfall kostet eine Sekunde umsonst.** Rothenburg 1036 ms ohne Fund, Berlin 1070 ms für eine Station,
-  Paris 1087 ms für vier. Mit corrpassage.
+  Paris 1087 ms für vier. **Stand 2026-09-16: bewusst offen gelassen.** Ladezeit ist billig, und die Sekunde ist in
+  Rothenburg dieselbe Ursache wie die sieben Zellen ohne Höhe; zuerst gehören die geklärt. Einstiegspunkt im Bericht
+  `tmp/fix1/reports/corrpassage.md`, Abschnitt 7. Nebenbei behoben: Die Trace meldet `LONG` jetzt nur noch über dem
+  eigenen Budget des Schritts, statt bei jedem Messabschnitt (`bea9becd`).
 
 ## Nachtests 3 (Fixes der Session 4, 15.09.)
 
