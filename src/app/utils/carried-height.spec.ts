@@ -28,6 +28,16 @@ describe('approachY', () => {
     // A street far below with nothing over it: its ground.
     expect(approachY(column(70, 70), 80)).toBe(70);
   });
+
+  it('takes the height carried where the nearest hit lies more than CARRY_STEP_RISE_M above it', () => {
+    // A crown, a roof or an awning with no ground under it: no ground to stand on.
+    expect(approachY(column(88, 88), 80)).toBe(80);
+    expect(approachY(column(81.6, 81.6), 80)).toBe(80);
+    // Its top 2 m up, nearer than the quay 10 m down.
+    expect(approachY(column(70, 82), 80)).toBe(80);
+    // Up to CARRY_STEP_RISE_M it stands on it, as the route itself would climb it.
+    expect(approachY(column(81.5, 81.5), 80)).toBe(81.5);
+  });
 });
 
 describe('carriedY', () => {
