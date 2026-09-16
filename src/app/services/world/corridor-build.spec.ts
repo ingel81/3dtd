@@ -369,6 +369,44 @@ describe('CorridorBuild', () => {
       expect(calls).toEqual(['clearColumns', 'measure', 'cancel routes replaced']);
     });
 
+    /**
+     * The flag described the build that froze last, and nothing dropped it
+     * on a location change: this class is a singleton and dispose() only
+     * runs when the app shuts down. A blind location, then one whose build
+     * stops early, and the flag was still up from the location before
+     * (review-corridor.md).
+     */
+    it('forgets a blind freeze when the next build cycle starts', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      // Location 1 in a hidden tab: no station found a tile.
+      state.regionTiles = () => 0;
+      state.slices = 1;
+      state.unmeasured = [1];
+      await corridor.build('location load');
+      expect(corridor.frozeBlind()).toBe(true);
+
+      // Location 2: its build stops early, so it never freezes.
+      state.tiles = false;
+      state.slices = 5;
+      const building = corridor.build('location load');
+      state.epoch++;
+
+      expect(await building).toBeNull();
+      expect(corridor.frozeBlind()).toBe(false);
+    });
+
+    it('forgets a blind freeze on dispose', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      state.regionTiles = () => 0;
+      state.unmeasured = [1];
+      await corridor.build('location load');
+      expect(corridor.frozeBlind()).toBe(true);
+
+      corridor.dispose();
+
+      expect(corridor.frozeBlind()).toBe(false);
+    });
+
     it('stops a build under way on dispose and gives the camera back at once', async () => {
       state.loadingUntil = 1000;
       const building = corridor.build('location load');

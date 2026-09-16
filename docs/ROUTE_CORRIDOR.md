@@ -902,6 +902,14 @@ eine zweite Sichtbarkeitsmeldung ab, und danach ersetzt sein eigenes Ergebnis
 den Merker. Friert auch er blind ein, bleibt der Merker stehen, und die
 nächste Sichtbarkeitsmeldung versucht es noch einmal.
 
+Der Merker gilt immer dem Bau, der gerade läuft: `expect()` löscht ihn, und
+nur ein Einfrieren setzt ihn. Ein Bau, der vorher abbricht, lässt ihn also
+auf `false` und nicht auf dem, was ein früherer Ort hinterließ.
+`CorridorBuild` ist ein Singleton, und `dispose()` läuft erst beim Schließen
+der Seite; ohne das überlebte ein blinder Ort den Ortswechsel, und die
+nächste Sichtbarkeitsmeldung baute einen sauber gemessenen Korridor neu
+(`review-corridor.md`).
+
 Nicht, solange Tower stehen, eine Welle läuft oder Gegner auf der Karte sind
 (`rebuildBlocker`): Deren LOS-Antworten, Zellen und Routen stehen auf dem
 Korridor in Gebrauch. Das steht als `build.revisit built=false blocked=...`
