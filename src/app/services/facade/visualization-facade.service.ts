@@ -40,6 +40,8 @@ import { CorridorConsole } from '../debug/corridor-console';
 import { CorridorLodProbe } from '../debug/corridor-lod-probe';
 import { TilesConsole } from '../debug/tiles-console';
 import { CellReportService } from '../debug/cell-report.service';
+import { CorridorSnapshotService } from '../debug/corridor-snapshot.service';
+import { CorridorSnapshotReader } from '../debug/corridor-snapshot-reader';
 import { TowerTargetConsole } from '../debug/tower-target-console';
 import { IntroLoadingGate } from '../world/intro-loading-gate';
 import { CameraOverview } from '../camera-overview';
@@ -65,6 +67,7 @@ import { perfTrace } from '../../utils/perf-trace';
  * - CorridorBuild: the route corridor, built once per route set
  * - CorridorConsole: `__corridor` in DevTools
  * - CorridorLodProbe: `__corridor.probeLod()` and `fingerprint()`
+ * - CorridorSnapshotReader: what the corridor snapshot reads off the game
  * - TilesConsole: `__tiles` in DevTools
  * - TowerTargetConsole: `__towerTargets` in DevTools
  * - IntroLoadingGate: loading screen held for the intro flight
@@ -105,6 +108,7 @@ export class VisualizationFacadeService {
   private readonly engineStore = inject(EngineStore);
   private readonly relocationStatus = inject(RelocationStatusService);
   private readonly cellReport = inject(CellReportService);
+  private readonly corridorSnapshot = inject(CorridorSnapshotService);
 
   /** The one owner of the route corridor, built once per route set (CorridorBuild). */
   private readonly corridor = new CorridorBuild({
@@ -136,6 +140,17 @@ export class VisualizationFacadeService {
       : this.corridor.change(apply)),
     cellReport: this.cellReport,
     lodProbe: this.lodProbe,
+    snapshot: this.corridorSnapshot,
+  });
+
+  /** What the corridor snapshot (Snapshot tile, `__corridor.snapshot()`) reads off the game, see CorridorSnapshotReader. */
+  private readonly snapshotReader = new CorridorSnapshotReader({
+    gameState: () => this.gameState,
+    engineInit: this.engineInit,
+    pathRoute: this.pathRoute,
+    store: this.store,
+    corridorBuilding: () => this.corridor.pending(),
+    lodProbeRunning: () => this.lodProbe.running,
   });
 
   /** `__tiles` in DevTools, see TilesConsole. */
@@ -215,6 +230,7 @@ export class VisualizationFacadeService {
     // Adding the same listener twice (a location change) does nothing.
     document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.corridorConsole.install();
+    this.corridorSnapshot.connect(this.snapshotReader);
     this.tilesConsole.install();
     this.towerTargetConsole.install();
   }
@@ -269,6 +285,7 @@ export class VisualizationFacadeService {
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.corridor.dispose();
     this.corridorConsole.uninstall();
+    this.corridorSnapshot.disconnect(this.snapshotReader);
     this.tilesConsole.uninstall();
     this.towerTargetConsole.uninstall();
     this.introGate.dispose();

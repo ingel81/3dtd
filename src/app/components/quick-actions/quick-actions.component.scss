@@ -472,6 +472,17 @@
   margin-top: 2px;
 }
 
+/* What a tile that runs for a while says last (Snapshot): a line over the
+   whole width under its group, as the cell report panel's status line. */
+.td-dev-status {
+  grid-column: 1 / -1;
+  margin: 0 2px;
+  font-size: 9px;
+  line-height: 12px;
+  color: var(--td-text-muted);
+  overflow-wrap: anywhere;
+}
+
 /* Tile: icon over a short caption. The longest captions in one cell
    (DEVWORLD, RESEARCH) measure about 39px in the monospace fallback, the
    tile is 44.5px wide inside. */
