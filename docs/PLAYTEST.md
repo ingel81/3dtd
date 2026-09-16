@@ -5,7 +5,7 @@ warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). 
 liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
 **So wird ein Punkt abgeschlossen:**
-- Antworten reicht so: "K1.1 ok, K2.3 kaputt", bei kaputt ein Satz oder ein Screenshot.
+- Antworten reicht so: "K2.1 ok, K3.4 kaputt", bei kaputt ein Satz oder ein Screenshot.
 - Das Ergebnis kommt als eine Zeile unter den Punkt (`**ok (Datum)**` oder der Befund).
 - Ist ein Paket durch, wandert es ins Archiv; ein Befund wird ein Eintrag in TODO.md.
 - Logik prüft der Lead per Szenario-Test, hier stehen nur Augen, Ohren und echte Karten.
@@ -23,26 +23,6 @@ liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Li
   Enemies" anklicken, unter "Movement" "Start".
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
-
-## K1: Korridor nach Kette und Knick (748)
-
-Der Korridor ist seit 2026-09-16 abgenommen. K1 bestätigt den Stand nach 748 an den bekannten Orten und liefert die
-neue Eichung. Je Ort: laden, "Route Grid Overlay" an, am Ende "Snapshot" (der Lead vergleicht die Breiten) und
-`__corridor.fingerprint()` in die Eichtabelle.
-
-- **K1.1** Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`, Kurve an der Einmündung: Zellen durchgehend über der
-  Fahrbahn, rote Linie ohne Sprünge?
-- **K1.2** Rothenburg `?l=49.37721,10.17904&s=49.37944,10.18365`: Weißer Turm gelb auf Straßenhöhe, keine Zelle auf dem
-  Turm? Rotes Auto ohne Zellen? An den Routenecken am Marktplatz (Ratstrinkstube, Markt 3) Zellen auf Dächern?
-- **K1.3** Erlenbach `?l=49.17337,9.26851&s=49.17434,9.25915`, Erlenbacher Weg: rote Linie neben der Autoreihe, keine
-  Zelle auf einem Auto, keine Löcher daneben? A6-Brücke über der Weinsberger Straße: gelbe Zellen unter dem Deck auf
-  Straßenhöhe?
-- **K1.4** Tokyo `?l=35.65924,139.70049&s=35.65208,139.69853`: Zeile `band.build ... passages=` (vorher 2)? Zwischen
-  den zwei Knicken: läuft die Linie unter dem Durchgang oder daneben, und ist daneben begehbar? Danach Berlin
-  `?l=52.51630,13.37759&s=52.51861,13.37529` und Paris `?l=48.85889,2.29320&s=48.86239,2.29190` nur laden, Snapshot,
-  Fingerprint.
-
-748 bleibt (Entscheidung des Users, 2026-09-16); ein Befund aus K1 wird ein Bug in TODO.md.
 
 ## K2: Laden, Eichung, Rückfall (744, 746)
 
@@ -76,14 +56,9 @@ Beliebiger Ort, Ton an, Cheat "Credits".
 
 ## Eichtabelle
 
-Fingerprints aus `__corridor.fingerprint()` nach 748. Alle älteren Werte (747: Rothenburg `d8050177`, Tokyo
+Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
 `efc7362a` usw.) gelten nicht mehr. Ein neuer Wert gilt, bis ein Commit den Korridor ändert; dann hier leeren.
 
-| Ort | URL-Parameter | Fingerprint | `passages` | `tileSet` | Datum |
-|---|---|---|---|---|---|
-| Stuttgart | `l=48.77895,9.17875&s=48.78353,9.17791` | | | | |
-| Rothenburg | `l=49.37721,10.17904&s=49.37944,10.18365` | | | | |
-| Erlenbach | `l=49.17337,9.26851&s=49.17434,9.25915` | | | | |
-| Tokyo | `l=35.65924,139.70049&s=35.65208,139.69853` | | | | |
-| Berlin | `l=52.51630,13.37759&s=52.51861,13.37529` | | | | |
-| Paris | `l=48.85889,2.29320&s=48.86239,2.29190` | | | | |
+| Ort | URL-Parameter | Fingerprint | `tileSet` | Datum |
+|---|---|---|---|---|
+| Tokyo | `l=35.65924,139.70049&s=35.65208,139.69853` | | | |
