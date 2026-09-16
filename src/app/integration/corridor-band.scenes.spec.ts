@@ -202,7 +202,7 @@ interface Cut {
   ways: (Street | null)[];
   onBridge: boolean[];
   inTunnel: boolean[];
-  /** On the stretch off a bridge end (routeApproaches). */
+  /** On an approach, off a bridge end or on the leg to the HQ (routeApproaches). */
   approach: boolean[];
 }
 
@@ -218,7 +218,7 @@ function cutRoute(fixture: Fixture, frame: Frame, walls: Walls): Cut {
   const onBridge = ways.map((way) => way?.bridge !== undefined);
   const inTunnel = ways.map((way, i) => split.under[i] !== null || (way !== null && runsUnderCover(way)));
   const points = split.points.map(frame.toLocal);
-  const approach = routeApproaches(points, onBridge, inTunnel).map((stretches) => stretches.length > 0);
+  const approach = routeApproaches(points, onBridge, inTunnel, ways.map((way) => way !== null)).map((stretches) => stretches.length > 0);
   // The band decides a street on the ground; not a bridge, a tunnel, the stretch off a bridge end or the leg to the HQ.
   const band = ways.map((way, i) => way !== null && !onBridge[i] && !inTunnel[i] && !approach[i]);
   const wallLeft: number[][] = [];
@@ -260,6 +260,7 @@ function run(fixture: Fixture, columns: BandColumns, walls: Walls = () => OPEN_W
     if (cut.onBridge[p.segment]) waypoint.onBridge = true;
     if (cut.inTunnel[p.segment] || p.passage) waypoint.inTunnel = true;
     if (p.passage) waypoint.passage = true;
+    if (cut.ways[p.segment] === null) waypoint.offStreet = true;
     return waypoint;
   });
   const sample = (x: number, z: number): ColumnSample | null => {

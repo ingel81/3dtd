@@ -11,8 +11,9 @@ import { logGrid } from './route-grid-log';
  * at the cell or half a metre beside it (no tile there, or a mesh the
  * columns meet nothing of); `refused`, columns whose hits its neighbours
  * refused (plausible); `noPortal`, a tunnel portal with neither a column
- * nor a street of the band; `noApproachStart`, no column at the bridge end the
- * height off it is carried from.
+ * nor a street of the band; `noApproachStart`, no column at the start of the
+ * approach the height is carried from (a bridge end, where the leg to the
+ * HQ leaves the street).
  */
 export type CellMiss = 'noColumn' | 'refused' | 'noPortal' | 'noApproachStart';
 
@@ -158,9 +159,9 @@ export class RouteCellSampler {
     // most four more column probes, only for such a cell. A column already
     // discards hits without usable LOD info (undecoded tile meshes) and
     // resolves ground against the finest LOD in it. A tunnel cell takes its
-    // portals instead. A cell on the stretch off a bridge end compares with
-    // the height the route carries there from that end (carriedY), and
-    // like a tunnel cell waits for a column at the bridge end.
+    // portals instead. A cell on an approach compares with the height the
+    // route carries there from its start (carriedY), and like a tunnel cell
+    // waits for a column at that start.
     this.raycastCount++;
     const sampler = this.columnSampler;
     if (sampler === null) return false;
@@ -181,15 +182,15 @@ export class RouteCellSampler {
       if (ground !== null) hit = this.plausible(cell, this.hitOf(cell, ground.column, null, null));
     } else {
       const onApproach = cell.surface === 'approach' ? cell.onApproach : null;
-      const deck = onApproach ? this.columnNear(onApproach.path[0].x, onApproach.path[0].z) : null;
-      const carried = onApproach && deck ? carriedY(onApproach, (x, z) => this.columnNear(x, z)) : null;
-      if (onApproach !== null && deck === null) missing = 'noApproachStart';
+      const start = onApproach ? this.columnNear(onApproach.path[0].x, onApproach.path[0].z) : null;
+      const carried = onApproach && start ? carriedY(onApproach, (x, z) => this.columnNear(x, z)) : null;
+      if (onApproach !== null && start === null) missing = 'noApproachStart';
       for (const [dx, dz] of RouteCellSampler.CELL_PROBES_M) {
-        if (onApproach !== null && deck === null) break;
+        if (onApproach !== null && start === null) break;
         const column = sampler(cell.x + dx, cell.z + dz);
         if (column === null) continue;
         found = true;
-        hit = this.plausible(cell, this.hitOf(cell, column, deck, carried));
+        hit = this.plausible(cell, this.hitOf(cell, column, start, carried));
         if (hit !== null) break;
       }
     }
@@ -243,26 +244,26 @@ export class RouteCellSampler {
 
   /**
    * The height `column` gives `cell`: a bridge deck is the top of its
-   * column, the ground is the bottom. On the stretch off a bridge end
-   * (`deck`, the column at that end) the hit nearest to the height the
-   * route carries there (`carried`, approachY), with the coarser LOD of
-   * the two columns, so the cell is sampled again once the bridge end has a
-   * finer tile; the columns carriedY reads between the two do not count
-   * in it. Under a flat roof the bottom is usually the street: playtest
-   * 2026-09-14 (Tokyo), roofs at 70.5 to 99.3 m had their column's ground at
-   * 39.5 to 39.9 m. A column at the corridor edge can still come down on a
-   * roof, an eave, a crown or a parked car with no ground showing under it;
-   * the cell keeps that height, and the corridor ends before such a cell
-   * instead (corridor-walk.ts).
+   * column, the ground is the bottom. On an approach (`start`, the column
+   * at its start) the hit nearest to the height the route carries there, or
+   * that height below a hit far above it (`carried`, approachY), with the
+   * coarser LOD of the two columns, so the cell is sampled again once the
+   * start has a finer tile; the columns carriedY reads between the two do
+   * not count in it. Under a flat roof the bottom is usually the street:
+   * playtest 2026-09-14 (Tokyo), roofs at 70.5 to 99.3 m had their column's
+   * ground at 39.5 to 39.9 m. A column at the corridor edge can still come
+   * down on a roof, an eave, a crown or a parked car with no ground showing
+   * under it; the cell keeps that height, and the corridor ends before such
+   * a cell instead (corridor-walk.ts).
    */
-  private hitOf(cell: RouteCell, column: ColumnSample, deck: ColumnSample | null, carried: number | null): CellHit {
+  private hitOf(cell: RouteCell, column: ColumnSample, start: ColumnSample | null, carried: number | null): CellHit {
     // A tunnel cell's column is already the one between its portals (tunnelColumn).
     const y = cell.surface === 'tunnel' ? column.groundY : surfaceY(cell.surface, column, carried) ?? column.groundY;
-    if (deck !== null) {
+    if (start !== null) {
       return {
         y,
-        tileDepth: Math.min(column.tileDepth, deck.tileDepth),
-        tileGeometricError: Math.max(column.tileGeometricError, deck.tileGeometricError),
+        tileDepth: Math.min(column.tileDepth, start.tileDepth),
+        tileGeometricError: Math.max(column.tileGeometricError, start.tileGeometricError),
       };
     }
     return { y, tileDepth: column.tileDepth, tileGeometricError: column.tileGeometricError };

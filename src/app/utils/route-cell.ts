@@ -66,22 +66,23 @@ export interface RouteCell {
   /**
    * Which surface of the column the cell stands on: `ground` is the lowest
    * hit, `deck` the highest, the deck of a bridge the route crosses rather
-   * than the river or road below it. `approach`: on the route off a bridge
-   * end, near it (carried-height.ts), the hit nearest to the height the route
-   * carries there from the bridge end (`onApproach`), the deck carried on over
-   * a quay or road below, the ground of a street or stairs on their own.
-   * `tunnel`: none of them, the cell lies in a tunnel or covered passage
-   * and takes its height between the portals (`tunnelSpan`). Set at
-   * generation from the OSM tags of the segments that reach the cell, read
-   * by `sampleCellY`.
+   * than the river or road below it. `approach`: on an approach
+   * (carried-height.ts), the route off a bridge end near it or the leg to
+   * the HQ, the hit nearest to the height the route carries there
+   * (`onApproach`), but no hit far above it: the deck carried on over a quay
+   * or road below, the ground of a street, yard or stairs on their own, the
+   * street's level in a building. `tunnel`: none of them, the cell lies in a
+   * tunnel or covered passage and takes its height between the portals
+   * (`tunnelSpan`). Set at generation from the OSM tags of the segments that
+   * reach the cell, read by `sampleCellY`.
    */
   surface: 'ground' | 'approach' | 'deck' | 'tunnel';
   /** Portals a `tunnel` cell takes its height between; null on every other cell. */
   tunnelSpan: TunnelSpan | null;
   /**
-   * Where an `approach` cell lies on the route off a bridge end: the height
-   * the route carries there (carriedY) is what its hits compare with
-   * (approachY). Null on every other cell.
+   * Where an `approach` cell lies on its approach: the height the route
+   * carries there (carriedY) is what its hits compare with (approachY). Null
+   * on every other cell.
    */
   onApproach: ApproachPoint | null;
   /**
@@ -126,13 +127,23 @@ export interface TunnelSpan {
 }
 
 /**
- * A point on the route off a bridge end, see RouteCell.onApproach: `path`,
- * the route from the bridge end on, local x, z, its first point the bridge
- * end; `m`, how far along it the point lies, metres.
+ * What an approach carries its height from, at the first point of its
+ * path: `bridge`, the end of a bridge, the top of the column there;
+ * `street`, where the leg to the HQ leaves the street (or a tunnel), the
+ * lowest hit there.
+ */
+export type ApproachStart = 'bridge' | 'street';
+
+/**
+ * A point on an approach, see RouteCell.onApproach: `path`, the route from
+ * the start of the approach on, local x, z, its first point the start;
+ * `m`, how far along it the point lies, metres; `start`, what the height is
+ * carried from.
  */
 export interface ApproachPoint {
   path: readonly { x: number; z: number }[];
   m: number;
+  start: ApproachStart;
 }
 
 /**

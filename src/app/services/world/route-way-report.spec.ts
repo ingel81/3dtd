@@ -102,4 +102,29 @@ describe('describeRouteWays', () => {
     expect(off[16].m).toBeCloseTo(29, 3);
     expect(decks.slice(67 + 16).every((d) => d === null)).toBe(true);
   });
+
+  it('compares with the street height carried along the leg to the HQ, as the cells there take it', () => {
+    const surfaces: unknown[] = [];
+    const metric = {
+      sync: {
+        geoToLocalSimple: (lat: number, lon: number) => ({ x: (lon - 9) * M_PER_DEG_LON, y: 0, z: (lat - 48) * METERS_PER_DEGREE_LAT }),
+      },
+      terrain: {
+        getStreetHeightEstimate: (...args: unknown[]) => {
+          surfaces.push(args[6]);
+          return 2;
+        },
+      },
+    } as unknown as ThreeTilesEngine;
+    // North 19 m on the street, then the leg 9 m to the HQ; samples at most 2 m apart.
+    const north = (m: number) => 48 + m / METERS_PER_DEGREE_LAT;
+    const path: RouteWaypoint[] = [{ lat: north(0), lon: 9 }, { lat: north(19), lon: 9, offStreet: true }, { lat: north(28), lon: 9 }];
+    describeRouteWays(new Map([['s1', path]]), new StreetEdgeIndex([]), metric, { isInitialized: () => true, getGroundLocalYAt: () => 2 }, flat);
+
+    expect(surfaces).toHaveLength(11 + 6);
+    expect(surfaces.slice(0, 11).every((s) => s === null)).toBe(true);
+    const leg = surfaces.slice(11) as { path: RouteWaypoint[]; m: number; start: string }[];
+    expect(leg.every((s) => s.start === 'street' && s.path[0] === path[1])).toBe(true);
+    expect(leg.map((s) => Math.round(s.m * 10) / 10)).toEqual([0, 1.8, 3.6, 5.4, 7.2, 9]);
+  });
 });

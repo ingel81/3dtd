@@ -1075,6 +1075,104 @@ describe('GlobalRouteGrid bridges', () => {
 });
 
 /**
+ * Playtest 2026-09-16, Audi NSU Neckarsulm and Erlenbach BBH: on the last
+ * metres to the HQ the cells stood on the roof of the HQ's building, the red
+ * line ran up its facade, and enemies walked into the house and out through
+ * the roof. The leg from the street to the HQ runs over no street; the
+ * photogrammetry has no floor in a building, its lowest hit is the roof.
+ */
+describe('GlobalRouteGrid leg to the HQ', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  const column = (groundY: number, topY = groundY): ColumnSample => ({ groundY, topY, tileDepth: 20, tileGeometricError: 2 });
+  /** A street east along z = 0 from x = 0 to 40, 3.5 m either side, then the leg north to the HQ at (40, `hqZ`), 2.75 m either side. */
+  const route = (hqZ: number, streetZ = 0): RouteWaypoint[] => [
+    { lat: streetZ, lon: 0, corridorLeft: 3.5, corridorRight: 3.5 },
+    { lat: streetZ, lon: 40, corridorLeft: 2.75, corridorRight: 2.75, offStreet: true },
+    { lat: hqZ, lon: 40 },
+  ];
+
+  function build(columns: (x: number, z: number) => ColumnSample, routes: RouteWaypoint[][]): GlobalRouteGrid {
+    const built = new GlobalRouteGrid();
+    built.initialize(columns as never, coordinateSync);
+    built.generateFromRoutes(routes);
+    return built;
+  }
+
+  /** Every cell within 4 m of the leg from z = `from` to `to`, as "x,z: height". */
+  const legCells = (built: GlobalRouteGrid, from: number, to: number) => built.getCellsInRange(40, (from + to) / 2, 40)
+    .filter((c) => Math.abs(c.x - 40) < 4 && c.z > from && c.z < to)
+    .map((c) => `${c.x},${c.z}: ${c.terrainHeight}`)
+    .sort();
+
+  it('runs the leg into a building at the street level, not on its roof', () => {
+    // The street at 199 m, a hall from z = 8 on with its roof at 207.5 m and no floor under it.
+    const hall = (x: number, z: number) => (z >= 8 && Math.abs(x - 40) < 15 ? column(207.5) : column(199));
+    const built = build(hall, [route(20)]);
+    const cells = legCells(built, 8, 24);
+    expect(cells.length).toBeGreaterThan(10);
+    expect(cells.every((c) => c.endsWith(': 199')), cells.join(' ')).toBe(true);
+    // The red line takes its height at the HQ from the cell there.
+    expect(built.getGroundLocalYAt(40, 20)).toBe(199);
+    expect(built.getCellAt(41, 15)).toMatchObject({ surface: 'approach', onApproach: { start: 'street' } });
+    // The street before it keeps its ground.
+    expect(built.getCellAt(21, 1)).toMatchObject({ surface: 'ground', terrainHeight: 199 });
+  });
+
+  it('follows a yard and a ramp, and runs into the wall of a terrace at the height it reached', () => {
+    // The yard at 199 m to z = 6, a ramp up 0.5 m per metre to z = 12, a landing at 202 m, a terrace at 205 m from z = 14.
+    const ground = (z: number) => (z < 6 ? 199 : z < 12 ? 199 + (z - 6) / 2 : z < 14 ? 202 : 205);
+    const built = build((_x, z) => column(ground(z)), [route(24)]);
+    expect(built.getGroundLocalYAt(40.5, 3)).toBe(199);
+    expect(built.getGroundLocalYAt(40.5, 9)).toBe(200.5);
+    expect(built.getGroundLocalYAt(40.5, 13)).toBe(202);
+    expect(built.getGroundLocalYAt(40.5, 19)).toBe(202);
+  });
+
+  it('keeps the ground of an HQ on open ground, under a crown too', () => {
+    // A square at 199 m, a crown 7 m over it at the HQ.
+    const square = (x: number, z: number) => (Math.hypot(x - 40, z - 20) < 3 ? column(199, 206) : column(199));
+    const cells = legCells(build(square, [route(20)]), 0, 24);
+    expect(cells.every((c) => c.endsWith(': 199')), cells.join(' ')).toBe(true);
+  });
+
+  it('carries a deck on to an HQ right past a bridge end', () => {
+    // The bridge from x = 0 to 40 over a quay at 70 m, its deck at 80 m going on north past its end to z = 30.
+    const head = (x: number, z: number) => (x < 50 && z < 30 ? column(70, 80) : column(70));
+    const bridge = route(20).map((w, i) => (i === 0 ? { ...w, onBridge: true } : w));
+    const cells = legCells(build(head, [bridge]), 4, 24);
+    expect(cells.every((c) => c.endsWith(': 80')), cells.join(' ')).toBe(true);
+    expect(build(head, [bridge]).getCellAt(41, 15)).toMatchObject({ surface: 'approach', onApproach: { start: 'bridge' } });
+  });
+
+  it('gives a cell the street and a short leg both reach along their length the height of the leg', () => {
+    // The HQ 3.5 m north of the street line, 1 m into a building from z = 2.5 on with its roof at 207.5 m; the
+    // street's corridor reaches 3.5 m into it, as where no band decides it.
+    const house = (x: number, z: number) => (z >= 2.5 && Math.abs(x - 40) < 15 ? column(207.5) : column(199));
+    const built = build(house, [route(3.5)]);
+    // Centres (39, 3) and (41, 3) lie along the street and along the leg, (39, 5) and (41, 5) round the HQ.
+    for (const [x, z] of [[39, 3], [41, 3], [39, 5], [41, 5]]) {
+      expect(built.getGroundLocalYAt(x, z), `${x}, ${z}`).toBe(199);
+    }
+    // Along the street alone its cells keep the lowest hit.
+    expect(built.getCellAt(35, 3)).toMatchObject({ surface: 'ground', terrainHeight: 207.5 });
+  });
+
+  it('gives the cells two legs to the HQ reach the height of the nearer street, whichever route comes first', () => {
+    // A second route along z = 40 at 201 m, its leg south to the same HQ at (40, 20); a hall round the HQ with its roof at 207.5 m.
+    const hall = (x: number, z: number) => (Math.abs(z - 20) < 12 && Math.abs(x - 40) < 15 ? column(207.5) : column(z > 30 ? 201 : 199));
+    const north = route(20, 40);
+    const report = (built: GlobalRouteGrid) => built.getCellsInRange(40, 20, 30).map((c) => `${c.x},${c.z}: ${c.terrainHeight}`).sort();
+    const one = build(hall, [route(20), north]);
+    expect(report(build(hall, [north, route(20)]))).toEqual(report(one));
+    // Nearer the street along z = 0, and nearer the one along z = 40.
+    expect(one.getGroundLocalYAt(41, 13)).toBe(199);
+    expect(one.getGroundLocalYAt(41, 27)).toBe(201);
+  });
+});
+
+/**
  * In a tunnel or covered passage a column sees only the hill or the building
  * above it. Its cells take the ground just outside the two mouths instead,
  * interpolated along the stretch.

@@ -39,6 +39,14 @@ export interface RouteWaypoint extends GeoPosition {
    * (`utils/corridor-band.ts`). In a tunnel as well (`inTunnel`).
    */
   passage?: boolean;
+  /**
+   * The segment runs over no street of the network: the leg from the point
+   * of the route nearest to the HQ to the HQ. Its cells carry the height of
+   * the street on (`utils/carried-height.ts`): a column in the building an
+   * HQ often stands in only sees the roof. Unset in DevWorld, whose columns
+   * see no building and whose terrain is steeper than a step.
+   */
+  offStreet?: boolean;
 }
 
 /**

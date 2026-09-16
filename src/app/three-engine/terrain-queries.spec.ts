@@ -327,7 +327,7 @@ describe('TerrainQueries', () => {
       car.addTile(floor(0, 6), 3, FINE);
       car.addTile(wall(3, 1.5), 3, FINE);
       car.addTile(floor(1.5, 2, 4, 0), 3, FINE);
-      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, { path: [{ x: 0, z: 1 }, { x: 0, z: 0 }], m: 1 })!;
+      const probe = car.queries.measureStreetClearance(0, 0, 1, 0, [1, 3], 10, false, { path: [{ x: 0, z: 1 }, { x: 0, z: 0 }], m: 1, start: 'bridge' })!;
       expect(probe.right.map((d) => +d.toFixed(6))).toEqual([3, 10]);
       expect(probe.lowRise?.right).toBeCloseTo(1.5, 6);
       expect(probe.lowRise?.left).toBeNaN();
@@ -345,7 +345,7 @@ describe('TerrainQueries', () => {
       expect(ground.right.map((d) => +d.toFixed(6))).toEqual([2, 10]);
       expect(probeLowWall(ground, 'right')).toBe(true);
       // Auf der Strecke hinter dem Brückenende von der Straße aus: frei.
-      const off = world.queries.measureStreetClearance(0, 0, 1, 0, [1, 3.5], 10, false, { path: [{ x: 0, z: 1.5 }, { x: 0, z: 0 }], m: 1.5 })!;
+      const off = world.queries.measureStreetClearance(0, 0, 1, 0, [1, 3.5], 10, false, { path: [{ x: 0, z: 1.5 }, { x: 0, z: 0 }], m: 1.5, start: 'bridge' })!;
       expect(off.right.map((d) => +d.toFixed(6))).toEqual([10, 10]);
       expect(probeLowWall(off, 'right')).toBe(false);
     });
@@ -356,18 +356,32 @@ describe('TerrainQueries', () => {
       addTile(floor(6, 4), 3, FINE);
       addTile(wall(2, 10, 5), 3, FINE);
       // Das Brückenende auf dem Deck: die Route trägt das Deck bis hier, die Strahlen gehen über das Deck.
-      const onDeck = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 0, z: 1.5 }, { x: 0, z: 0 }], m: 1.5 });
+      const onDeck = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 0, z: 1.5 }, { x: 0, z: 0 }], m: 1.5, start: 'bridge' });
       expect(onDeck?.right.map((d) => +d.toFixed(6))).toEqual([2]);
       // Das Brückenende 6 m tiefer, die Route von dort auf der Straße: die Säule behält ihren Boden.
-      const below = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 0, z: 10 }, { x: 0, z: 0 }], m: 10 });
+      const below = queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 0, z: 10 }, { x: 0, z: 0 }], m: 10, start: 'bridge' });
       expect(below?.right.map((d) => +d.toFixed(6))).toEqual([4]);
     });
 
     it('lässt eine Station auf der Fortsetzung ungemessen, solange das Brückenende keine feine Säule hat', () => {
       const { queries } = street();
-      expect(queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 100, z: 100 }, { x: 0, z: 0 }], m: 141 })).toEqual({
+      expect(queries.measureStreetClearance(0, 0, 1, 0, [1], 10, false, { path: [{ x: 100, z: 100 }, { x: 0, z: 0 }], m: 141, start: 'bridge' })).toEqual({
         unmeasured: 'no approach start', tileError: FINE, left: [], right: [],
       });
+    });
+
+    // Playtest 2026-09-16, Audi NSU Neckarsulm: das Endstück zum HQ in einer Halle, deren Säulen nur das Dach treffen.
+    it('misst eine Station des Endstücks zum HQ in einem Gebäude ohne Boden von der Straßenhöhe aus, nicht vom Dach', () => {
+      const { queries, addTile } = setup();
+      // Die Straße bis z = 5, dahinter das Dach auf 8 m ohne Boden darunter, innen eine Wand 3 m rechts, 6 m hoch.
+      addTile(floor(0, 10), 3, FINE);
+      addTile(floor(8, 10, 0, 10), 3, FINE);
+      addTile(wall(3, 6), 3, FINE);
+      const leg = { path: [{ x: 0, z: 0 }, { x: 0, z: 10 }], m: 10, start: 'street' as const };
+      const inside = queries.measureStreetClearance(0, 10, 1, 0, [1], 10, false, leg)!;
+      expect(inside.right.map((d) => +d.toFixed(6))).toEqual([3]);
+      // Als Bodenstation stand sie auf dem Dach, der Strahl ging über die Wand.
+      expect(queries.measureStreetClearance(0, 10, 1, 0, [1], 10)!.right.map((d) => +d.toFixed(6))).toEqual([10]);
     });
 
     it('kostet für ein Hindernis nur am unteren Strahl eine Säule mehr', () => {
@@ -584,14 +598,14 @@ describe('TerrainQueries', () => {
       });
 
       /** Der Weg vom Brückenende (x0, z0) gerade zum Punkt (x, z). */
-      const from = (x0: number, z0: number, x: number, z: number) => ({ path: [geo(x0, z0), geo(x, z)], m: Math.hypot(x - x0, z - z0) });
+      const from = (x0: number, z0: number, x: number, z: number) => ({ path: [geo(x0, z0), geo(x, z)], m: Math.hypot(x - x0, z - z0), start: 'bridge' as const });
 
       it('nimmt hinter dem Brückenende die Höhe, die der Weg von dort trägt', () => {
         const { queries } = quay();
         // Brückenende bei z = -4, der Punkt 7 m weiter nördlich noch über dem Kai.
         expect(at(0, 3, from(0, -4, 0, 3))(queries)).toBeCloseTo(9, 6);
         // Um die Ecke, noch über dem Kai.
-        expect(at(4, 0, { path: [geo(0, -4), geo(0, 0), geo(4, 0)], m: 8 })(queries)).toBeCloseTo(9, 6);
+        expect(at(4, 0, { path: [geo(0, -4), geo(0, 0), geo(4, 0)], m: 8, start: 'bridge' })(queries)).toBeCloseTo(9, 6);
         // Über dem offenen Kai hinter dem Deck: kein Deck, der Boden.
         expect(at(0, 8, from(0, -4, 0, 8))(queries)).toBeCloseTo(0, 6);
         // Ohne Säule am Brückenende: wie überall.
@@ -618,6 +632,15 @@ describe('TerrainQueries', () => {
         // Das Vordach bei z = 2 liegt mehr als CARRY_STEP_RISE_M über dem Deck und näher als der Kai 9 m darunter.
         addTile(floor(11, 1, 0, 2), 3, 2);
         expect(at(0, 2, from(0, -4, 0, 2))(queries)).toBeCloseTo(9, 6);
+      });
+
+      it('nimmt auf dem Endstück zum HQ in einem Gebäude ohne Boden die Straßenhöhe, wie die Zellen dort', () => {
+        const { queries, addTile } = setup();
+        // Die Straße bis z = 5, dahinter ein Dach auf 8 m ohne Boden darunter.
+        addTile(floor(0, 10), 3, 2);
+        addTile(floor(8, 10, 0, 10), 3, 2);
+        expect(at(0, 10, { path: [geo(0, 0), geo(0, 10)], m: 10, start: 'street' })(queries)).toBeCloseTo(0, 6);
+        expect(at(0, 10, null)(queries)).toBeCloseTo(8, 6);
       });
 
       // Playtest 2026-09-15, Erlenbach (D2): eine Straße unter einem Autobahndeck, das die Photogrammetrie bis zum Boden füllt.

@@ -4,7 +4,7 @@ import type { Street } from '../location/osm-street.service';
 import type { StreetEdgeIndex } from '../../utils/route-ways';
 import type { GeoDistance } from '../../utils/route-geometry';
 import { estimateStreetWidth, segmentLeft, segmentRight } from '../../utils/route-corridor';
-import { StreetDeck, nearestApproach, routeApproaches } from '../../utils/carried-height';
+import { StreetSurface, nearestApproach, routeApproaches } from '../../utils/carried-height';
 import type { GlobalRouteGridService } from './global-route-grid.service';
 
 /** Smallest and largest value seen so far, as `5.0` or `5.0-12.0`, for the diagnostics table. */
@@ -72,17 +72,18 @@ export interface RouteWayRun {
  * vergleicht entlang der Mittellinie (alle 2 m) die Zellhöhe mit der Höhe,
  * die das gelbe Straßen-Overlay an derselben Stelle nimmt
  * (`getStreetHeightEstimate`: seitliches Minimum, auf einem Brücken-Way das
- * Deck, auf der Strecke hinter seinem Ende die Höhe, die die Route von dort
- * trägt; die Strecke hier entlang der Route wie bei den Zellen,
- * `routeApproaches`). Beantwortet am Ort eines
- * Routen-Befunds zwei Fragen: Läuft die Route dort über einen anderen Way
+ * Deck, auf der Strecke hinter seinem Ende und auf dem Endstück zum HQ die
+ * Höhe, die die Route vom Brückenende oder von der Straße trägt; die Strecke
+ * hier entlang der Route wie bei den Zellen, `routeApproaches`). Beantwortet
+ * am Ort eines Routen-Befunds zwei Fragen: Läuft die Route dort über einen anderen Way
  * als die sichtbare Straße (Fußweg, Durchgang, Tunnel)? Und liegen die
  * Zellen dort auf Dach oder Baumkrone, während die Straße darunter liegt?
  * Dazu die Straßenbreite, ihre Quelle und die Korridorbreite, die daraus
  * geworden ist.
  *
  * Nur für Diagnose: ein Aufruf kostet pro Punkt bis zu fünf Säulen-Samples,
- * hinter einem Brückenende dazu die Säulen entlang der Route von dort.
+ * hinter einem Brückenende und auf dem Endstück dazu die Säulen entlang der
+ * Route von deren Anfang.
  * Hinter `__routes.describe()` (PathAndRouteService.describeRoutes).
  *
  * @param paths Gecachte Routen je Spawn
@@ -107,6 +108,7 @@ export function describeRouteWays(
       path.map((p) => engine.sync.geoToLocalSimple(p.lat, p.lon, 0)),
       flags.map((p) => p.onBridge === true),
       flags.map((p) => p.inTunnel === true),
+      flags.map((p) => p.offStreet !== true),
     );
     let run: RouteWayRun | null = null;
     let spans = { corridor: new Span(), left: new Span(), right: new Span() };
@@ -159,9 +161,10 @@ export function describeRouteWays(
         const local = engine.sync.geoToLocalSimple(lat, lon, 0);
         const cellY = grid.getGroundLocalYAt(local.x, local.z);
         const approach = a.onBridge ? null : nearestApproach(approaches[i], t);
-        const deck: StreetDeck | null = a.onBridge ? 'bridge'
-          : approach ? { path: approach.path.map((k) => path[k]), m: approach.from + (approach.to - approach.from) * t } : null;
-        const streetY = engine.terrain.getStreetHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon, deck);
+        const surface: StreetSurface | null = a.onBridge ? 'bridge' : approach
+          ? { path: approach.path.map((k) => path[k]), m: approach.from + (approach.to - approach.from) * t, start: approach.start }
+          : null;
+        const streetY = engine.terrain.getStreetHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon, surface);
         if (cellY === null || streetY === null) continue;
         const gap = cellY - streetY;
         if (run.maxCellAboveStreetM === null || gap > run.maxCellAboveStreetM) {

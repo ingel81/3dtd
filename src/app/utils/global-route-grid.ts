@@ -427,9 +427,10 @@ export class GlobalRouteGrid {
    * surface of the segment it lies along, not of the one that reaches it
    * only with a round end; a cell both reach along their length (a street
    * under the bridge) stays on the ground (claimSegmentCells). Cells of the
-   * route off a bridge end, up to DECK_APPROACH_M past it, take the hit of
-   * their column nearest to the height the route carries there from the
-   * bridge end (`approach`, carried-height.ts).
+   * route off a bridge end, up to DECK_APPROACH_M past it, and of the leg to
+   * the HQ (`offStreet`) take the hit of their column nearest to the height
+   * the route carries there from the bridge end or the street, but not one
+   * far above it (`approach`, carried-height.ts).
    *
    * Cells of a segment in a tunnel or covered passage (`inTunnel`) take their
    * height between the ground just outside the two mouths of the stretch,
