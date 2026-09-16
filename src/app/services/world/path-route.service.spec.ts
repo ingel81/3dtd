@@ -187,6 +187,9 @@ describe('PathAndRouteService route geometry', () => {
   const n2 = { id: 2, lat: 48.001, lon: 9.0 };
   const n3 = { id: 3, lat: 48.001, lon: 9.0015 };
   const n30 = { id: 30, lat: 48.001, lon: 9.003 };
+  /** Metres a waypoint between n1 and n2 lies off the street's line there (0 elsewhere) */
+  const offStreetLine = (p: { lat: number; lon: number }) =>
+    p.lat > n1.lat && p.lat < n2.lat ? Math.abs(p.lon - n1.lon) * M_PER_DEG_LON : 0;
   let network: StreetNetwork;
 
   beforeEach(() => {
@@ -430,8 +433,7 @@ describe('PathAndRouteService route geometry', () => {
           expect(why.detourM).toBeLessThan(0);
           expect(service.corridorState().routes[0].band.length).toBeGreaterThan(0);
           // The waypoints there run off the street's line, and their corridor keeps off the van.
-          const path = service.getCachedPath('s1')!;
-          expect(path.some((p) => p.detour)).toBe(true);
+          expect(service.getCachedPath('s1')!.some((p) => offStreetLine(p) > 0.5)).toBe(true);
         } finally {
           grid.ready = false;
           grid.column = () => null;
@@ -451,7 +453,7 @@ describe('PathAndRouteService route geometry', () => {
           measure(service);
           service.showPathFromSpawn(spawnPointAt(spawn));
           expect(service.corridorState().routes[0].band).toEqual([]);
-          expect(service.getCachedPath('s1')!.some((p) => p.detour)).toBe(false);
+          expect(service.getCachedPath('s1')!.every((p) => offStreetLine(p) < 0.01)).toBe(true);
         } finally {
           grid.ready = false;
           grid.column = () => null;
@@ -463,7 +465,7 @@ describe('PathAndRouteService route geometry', () => {
         measure(service);
         expect(service.buildBands()).toMatchObject({ routes: 0, stations: 0 });
         service.showPathFromSpawn(spawnPointAt(spawn));
-        expect(service.getCachedPath('s1')!.every((p) => !p.detour)).toBe(true);
+        expect(service.getCachedPath('s1')!.every((p) => offStreetLine(p) < 0.01)).toBe(true);
       });
 
       it('traces each slice against its budget: a slow station runs past it, as in Berlin', () => {
