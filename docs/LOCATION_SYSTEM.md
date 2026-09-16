@@ -1,6 +1,6 @@
 # Location System
 
-**Stand:** 2026-09-14
+**Stand:** 2026-09-16
 
 Das Location-System ermöglicht es Spielern, ihren eigenen Spielort zu wählen. Die URL ist die Single Source of Truth für die aktuelle Location.
 
@@ -160,6 +160,7 @@ readonly recentCandidate = computed(() => { ... });           // der Ort als Rec
 setLocation(hq: { lat: number; lon: number }, spawns: SavedSpawn[]): void
 // Wenn spawns leer → needsRandomSpawn = true (wird später generiert)
 // URL und Favoriten nehmen die Spawns samt portalBearing von hier
+// HQ und Spawns in kanonischer Form, siehe Kanonische Koordinaten
 
 // Display-Name abfragen
 getLocationDisplayName(): string
@@ -255,7 +256,7 @@ URL ist die Single Source of Truth. Format:
 ?l=49.17327,9.26859&s=49.17555,9.26387,187.5;49.18000,9.27000
 ```
 
-- `l` = HQ (lat,lon) - 5 Dezimalstellen
+- `l` = HQ (lat,lon) - 5 Dezimalstellen (`COORD_DECIMALS`), die kanonische Form, siehe [Kanonische Koordinaten](#kanonische-koordinaten)
 - `s` = Spawns (Semikolon-getrennt), optional; je Spawn `lat,lon` und, wenn der Spieler sein Portal beim Setzen mit R gedreht hat, der Kompasskurs des Portals in Grad (im Uhrzeigersinn ab Nord, 1 Dezimalstelle, `SavedSpawn.portalBearing`)
 - Kein `s`-Parameter = Random Spawn wird generiert
 - Ein Spawn ohne Kurs (auch in allen URLs von vor 2026-09-14) folgt mit seinem Portal der Route. Ein Kurs, der keine Zahl ist, fällt weg, der Spawn bleibt
@@ -279,6 +280,24 @@ updateUrl(hq, spawns): void              // URL ohne Reload aktualisieren (repla
 getShareUrl(): string                    // Aktuelle URL für Sharing
 hasLocationParams(): boolean             // Prueft ob l= Parameter vorhanden
 ```
+
+## Kanonische Koordinaten
+
+Ein Ort hat eine Form seiner Koordinaten, gleich über welchen Weg er geladen wird: HQ und Spawns auf 5 Nachkommastellen (`COORD_DECIMALS`), so wie die URL sie schreibt, rund 1,1 m Nord-Süd und 0,7 m Ost-West in Mitteleuropa. `canonicalCoords()` (`utils/geo-utils.ts`) rundet genau wie `toFixed` beim Schreiben der URL, eine URL liest den Punkt also unverändert zurück. Engine-Origin, Routen und Korridor-Zellen hängen an jeder Stelle: Rothenburg, nach einem Ortswechsel mit allen Stellen geladen, lag 0,19 m neben Rothenburg aus seiner URL und bekam bei denselben Tiles einen anderen Korridor (Playtest 747).
+
+Gerundet wird dort, wo Koordinaten ins Spiel kommen, bevor Origin, Routen oder Korridor sie sehen:
+
+| Stelle | Was dort hereinkommt |
+|--------|----------------------|
+| `LocationManagementService.setLocation`, `setGeneratedSpawns` | Der Ort beim Start (URL, Browser-Standort, Dialog) und nach jedem Wechsel; URL, Favoriten, Zuletzt gespielt und Weltkarte speichern ihn von hier |
+| `LocationChangeCoordinatorService.applyNewLocation` | Jeder Ortswechsel: Dialog (Suche, Koordinaten, Zuletzt gespielt, Showcase, Weltkarte), Favorit, HQ außerhalb der Straßen, erneuter Versuch. Der Dialog-Zweig rundet das HQ schon davor, weil er die Straßen für einen Zufalls-Spawn um das HQ lädt |
+| `LocationFacadeService.addSpawnPoint` | Jeder Spawn im Spiel, auch der zufällige auf einem OSM-Knoten (7 Stellen) |
+| `MapPlacementService.updatePreviewPosition` | HQ und Spawn per Klick: Prüfung und Vorschau sehen den Punkt, der gesetzt wird; die Vorschau folgt dem Cursor dadurch in Schritten von rund einem Meter |
+
+- Gespeicherte Orte mit mehr Stellen (Favoriten, Zuletzt gespielt, Weltkarte) bleiben im Speicher, wie sie sind, und werden gerundet, wenn der Ort geladen wird. Neue Einträge kommen aus `LocationManagementService` und sind schon kanonisch; eine Migration gibt es nicht
+- Das Runden versetzt einen Punkt um höchstens 0,000005° je Achse: bei 49° N bis 0,56 m nach Nord oder Süd und 0,36 m nach Ost oder West (zusammen 0,66 m), am Äquator bis 0,79 m
+- Ein Ort, der bis 2026-09-16 mit voller Genauigkeit geladen wurde (etwa ein Favorit von einem per Klick versetzten HQ), kann dadurch einen anderen Korridor bekommen als bisher, dafür denselben wie über seine URL
+- DevWorld: der Origin 0/0 bleibt, die Spawns des Straßengenerators laufen ebenfalls durch `addSpawnPoint`
 
 ## GeolocationService
 
