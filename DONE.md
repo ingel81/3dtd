@@ -25,15 +25,15 @@ der Nachtest K1 entfällt damit. Punkte in `docs/archive/PLAYTEST_2026-09.md`.
 
 ### Listen und Doku aufgeräumt
 
-- [x] **Eine Liste offener Arbeit**: TODO.md auf die Gruppen A bis J gekürzt (`796d209c`), PLAYTEST.md nur noch
-      offene Nachtests (`0c781be4`), die fünf REVIEW-Handover und die alte Playtest-Liste im Archiv (`81911013`),
+- [x] **Eine Liste offener Arbeit**: TODO.md auf die Gruppen A bis J gekürzt (`44020e87`), PLAYTEST.md nur noch
+      offene Nachtests (`27921cc3`), die fünf REVIEW-Handover und die alte Playtest-Liste im Archiv (`5e53a222`),
       Run-Dump-Anforderungen in `docs/RUN_DUMP_PLAN.md`.
 - [x] **Veraltete Doku und Kommentare nachgezogen**: ARCHITECTURE, DEVWORLD, ROUTE_CORRIDOR, STATIC_WAVE_FALLBACK,
       ROUTE_ALIGNED_CELLS_CONCEPT und Code-Kommentare zum eingefrorenen Korridor, zum lokalen Frame und zu gelöschten
-      Dateien (`3d6d9894`).
-- [x] **Weitere Dokumente im Archiv**: `HANDOVER_RULE_DIRECTOR.md` und `HANDOVER_TRAINING_REFRESH.md` (`f5b1bb18`),
+      Dateien (`9410922d`).
+- [x] **Weitere Dokumente im Archiv**: `HANDOVER_RULE_DIRECTOR.md` und `HANDOVER_TRAINING_REFRESH.md` (`2e848c85`),
       `PERF_BUG_ANALYSIS_2026-05-28.md` mit den Benchmarks jetzt in ARCHITECTURE, die Abschnitte 0 bis 6 von
-      `PLAYER_AGENCY_CONCEPT.md` als `archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md` (`6814d454`).
+      `PLAYER_AGENCY_CONCEPT.md` als `archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md` (`fbd30436`).
 
 ### Entscheidungen des Users
 
@@ -49,6 +49,38 @@ Getroffen über die Klickliste vom 2026-09-16; keine Arbeit daraus.
       glslangValidator bleibt manuell" (ARCHITECTURE.md, Abschnitt 13). Die Entscheidungen stehen in `docs/archive/`:
       REVIEW_SPRINT_2026-09-11 Nr. 1; -12 Nr. 1, 4, 7; -13 Nr. 3 bis 14, 16 bis 18; -14 Nr. 1, 4, 5, 11, 13, 16, 17,
       19 bis 21, 24, 26, 28.
+
+### Bugs, Kosmetik und Aufräumen aus der Klickliste
+
+Gebaut von den Workern smallbugs2 und hygiene, Gate grün auf `77aa0771` (4957 Tests). Nicht im Browser angesehen.
+
+- [x] **A4 Replay-Knöpfe ausgeblendet** (WAVE-Panel, Game-Over), `REPLAY_CONFIG.offered = false`; die Aufnahme läuft
+      weiter (`c8a7e60f`).
+- [x] **E3 Bär dunkler**: `colorMultiplier` 1,3 auf 0,8, Leuchten 0,15 auf 0,05 (`38ab232c`).
+- [x] **A1 teilweise**: Stone Golem und Herbert als eigene Modelle in den Lizenzangaben (`fefb1522`).
+- [x] **B7 Schalter `centreMode` entfernt**, die Gegnerlinie läuft in der Bandmitte (`cf437e25`).
+- [x] **B13 Pathfinding-Worker entfernt**, er startete nie (`39be1a3f`).
+- [x] **C1 Tower-Sichtlinie für Zellen ohne Höhe** probt über der Höhe, auf der Gegner dort stehen (`03b2972b`).
+- [x] **C3 Overpass-Antwort mit Zeitlimit**: 30 s nach den Headern, dann der nächste Server (`57a35ce6`).
+- [x] **C4 Zufalls-Spawn** wird vor Abstands- und Routenprüfung gerundet (`631267ab`).
+- [x] **C2, C5 bis C9 geprüft, kein Fehler**: Tiefflug am Tor ist gewollt; `hasRoutes` wird vor jedem Ortsaufbau
+      geleert; `destroy()` beendet die Loops über `clear()`; das Replay sendet auf eigenen Bussen; beide `computed` lesen
+      Signale; alte VAT-Texturen belegen nach dem Restore keinen Grafikspeicher.
+- [x] **D2 Vorschau dreht nicht weiter**, wenn das Fenster den Fokus verliert; spät geladener Portalrahmen halb
+      transparent (`0c420c13`, `ddc6aeeb`).
+- [x] **D3 Anheuern ohne Route** zeigt "No route to stand on" (`da92952a`).
+- [x] **D4 "Skarnax Tail"** nicht mehr in Custom Wave und Enemy Debug (`0098e3b1`).
+- [x] **D5 DevWorld-Intro**: Konstante `PATH_HEIGHT_OFFSET` entfernt, sie wirkte nie (`2923369b`).
+- [x] **D6 Enemy Debugger**: Offset Y reicht von -3 bis 10 (`b868be54`).
+- [x] **I1 Code-Reste**: Korridor-Rückfall mit `finally` und Listener erst ab, dann an (`e461d72c`); `loadingStatus`,
+      `hasStreets()`, `heightProgress`, `RouteWaypoint.detour`, `isMixedWave`, tote Liniengeometrie, `resolution`,
+      Ladefortschritt im AssetManager, elf ungelesene Store-Durchreicher, drei ungelesene Config-Werte und 57 tote
+      Member entfernt; gemeinsame Konstanten für Grad und Meter; Trace-Klammer in `finally`; Ground-Marks-Hinweis nennt
+      die Ooze-Pfützen; 13 Info-Logs nur noch im Dev-Build (`5919c378` bis `87095490`).
+- [x] **I2 Tests und Werkzeuge**: Engine-Mock mit Tentakeln und Sockeln, Boss-Szenario ruft `applyMaxHpFraction`,
+      Stencil der Reichweitenringe als Spec, Testlücken Kachel und Referenz-Dialog, `bake-compare` mit `deathDuration`,
+      `tools/` in der Typprüfung (sechs Typfehler behoben), keine Warnungen mehr in der Testausgabe, `::ng-deep` raus,
+      Scorch-Marks-Test ohne Zufall (`14456d01` bis `77aa0771`).
 
 ---
 
