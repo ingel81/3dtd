@@ -6,11 +6,14 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-16
 
-### Korridor: vom User bestätigte Fixes
+### Korridor vom User abgenommen
 
-Teilschritte des Korridor-Umbaus, bestätigt im Playtest vom 2026-09-16 (`docs/archive/PLAYTEST_2026-09.md`). Der
-Eintrag "Korridor einmal fertig messen, dann einfrieren" bleibt bis zu den Nachtests K1 und K2 in TODO.md.
+Der User hat den Korridor am 2026-09-16 abgenommen ("Das gesamte Korridorthema ist jetzt mal soweit in Ordnung");
+der Nachtest K1 entfällt damit. Punkte in `docs/archive/PLAYTEST_2026-09.md`.
 
+- [x] **Korridor einmal fertig messen, dann einfrieren**: im Ladescreen auf 2,5 m gemessen, einmal gebaut und
+      eingefroren (`3f66a256`, `307df4b5`), das begehbare Band baut den Korridor (`89651d26`), Kette und Knick-Rahmen
+      (`75be147c` bis `47b29354`). Grund für DONE: Korridor vom User abgenommen.
 - [x] **Durchgang unter dem Weißen Turm (743)**: Jede Station trägt ihre eigene Straßenhöhe, die Durchgangsregeln
       lesen sie (`b75eaa3e`); die rosa Zellen am Rathaus sind weg (`6cadea9d`).
 - [x] **Derselbe Korridor nach Navigation und `reset()` (745)**: Der Säulen-Cache castet in der Feldmitte, Stationen
