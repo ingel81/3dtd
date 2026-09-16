@@ -5,15 +5,13 @@ import {
   BURST_PALETTES,
   type BurstPalette,
   EXPLOSION_LOOK,
-  FIRE_INTENSITY,
-  type FireIntensityLevel,
   type MuzzleFlashProfile,
 } from '../../configs/visual-effects.config';
 import type { ScorchSource } from '../../configs/visual-effects.config';
 import type { VfxSettings } from '../vfx-settings';
 import type { ScorchGround } from './scorch-marks';
 import { GroundDecals, type GooSplash } from './ground-decals';
-import { igniteFireParticle, setFireColor } from './fire-particles';
+import { igniteFireParticle } from './fire-particles';
 import { ParticlePoolManager, type Particle } from './particle-pool-manager';
 import {
   emitColorBurst,
@@ -180,68 +178,6 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Spawn fire effect at a position
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param height - Height above ground
-   * @param intensity - Fire intensity (FIRE_INTENSITY)
-   */
-  spawnFire(
-    lat: number,
-    lon: number,
-    height: number,
-    intensity: FireIntensityLevel = 'medium'
-  ): string {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    const { count, radius } = FIRE_INTENSITY[intensity];
-    return this.startFire(localPos, count, radius, 0);
-  }
-
-  /**
-   * Spawn fire effect ON TERRAIN at given geo coordinates
-   * Automatically raycasts to find terrain/roof height - no manual height calculation needed!
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param getTerrainHeight - Function to get terrain height (engine.getTerrainHeightAtGeo)
-   * @param intensity - Fire intensity
-   * @param heightOffset - Optional offset above terrain (default: 0)
-   */
-  spawnFireOnTerrain(
-    lat: number,
-    lon: number,
-    getTerrainHeight: (lat: number, lon: number) => number | null,
-    intensity: FireIntensityLevel = 'medium',
-    heightOffset = 0
-  ): string {
-    const localY = getTerrainHeight(lat, lon) ?? 0;
-    return this.spawnFireAtLocalY(lat, lon, localY + heightOffset, intensity);
-  }
-
-  /**
-   * Spawn fire effect using local Y coordinate directly
-   * Use this when you have a local terrain Y from getTerrainHeightAtGeo()
-   *
-   * @param lat - Latitude (for X/Z positioning)
-   * @param lon - Longitude (for X/Z positioning)
-   * @param localY - Local Y coordinate (from getTerrainHeightAtGeo)
-   * @param intensity - Fire intensity
-   */
-  spawnFireAtLocalY(
-    lat: number,
-    lon: number,
-    localY: number,
-    intensity: FireIntensityLevel = 'medium'
-  ): string {
-    // Get X/Z from geo, but use provided localY directly
-    const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
-    const localPos = new Vector3(localXZ.x, localY, localXZ.z);
-    const { count, radius } = FIRE_INTENSITY[intensity];
-    return this.startFire(localPos, count, radius, 0);
-  }
-
-  /**
    * Start a fire at a local position: `count` particles from the additive
    * pool (per-particle colours, shader support), lit within `radius`, each
    * `sizeBonus` bigger than a plain fire's. It burns (duration -1) until
@@ -353,55 +289,6 @@ export class ParticleEffectsRenderer {
     const fireRadius = 1.5 + clampedScale * 10; // 1.5-11.5 meters
     // Bigger particles at higher scale
     return this.startFire(localPos, particleCount, fireRadius, clampedScale * 1.5);
-  }
-
-  /**
-   * Scale up an existing fire to inferno level
-   * Adds more particles to the existing fire effect
-   */
-  scaleFireToInferno(fireId: string): void {
-    const effect = this.activeEffects.get(fireId);
-    if (!effect || effect.type !== 'fire') {
-      console.warn('[Effects] Cannot scale fire - not found:', fireId);
-      return;
-    }
-
-    const localPos = effect.localPosition;
-    const currentRadius = effect.radius || 5;
-
-    // Increase radius to inferno level
-    const infernoRadius = Math.max(currentRadius, 15);
-    effect.radius = infernoRadius;
-
-    // Add more particles to reach inferno level (~300 total)
-    const currentCount = effect.particles.length;
-    const targetCount = 300;
-    const toAdd = Math.max(0, targetCount - currentCount);
-
-    for (let i = 0; i < toAdd; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      const angle = Math.random() * Math.PI * 2;
-      const radius = Math.random() * infernoRadius;
-
-      particle.position.copy(localPos);
-      particle.position.x += Math.cos(angle) * radius;
-      particle.position.z += Math.sin(angle) * radius;
-
-      particle.velocity.set(
-        (Math.random() - 0.5) * 6,
-        8 + Math.random() * 16, // FIRE_TEMPO note at the top
-        (Math.random() - 0.5) * 6
-      );
-      particle.life = 1.0;
-      particle.maxLife = 0.25 + Math.random() * 0.5;
-      particle.size = 2.5 + Math.random() * 4.0;
-
-      setFireColor(particle);
-
-      effect.particles.push(particle);
-    }
   }
 
   /**

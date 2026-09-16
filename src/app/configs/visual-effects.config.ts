@@ -219,20 +219,6 @@ export const ABILITY_IMPACT_SHAKE: Record<AbilityId, AbilityImpactShake | null> 
 };
 
 /**
- * Fire intensity presets for spawnFire and its terrain/local-Y variants:
- * particle count and the radius they scatter over (m). Every fire burns until
- * stopFire(). Until 2026-09-13 this table held other values that nothing
- * read, and the renderer kept its own copy of the ones below.
- */
-export const FIRE_INTENSITY = {
-  tiny:    { count: 15,  radius: 1.5 },
-  small:   { count: 40,  radius: 2.5 },
-  medium:  { count: 80,  radius: 4 },
-  large:   { count: 120, radius: 6 },
-  inferno: { count: 200, radius: 10 },
-} as const;
-
-/**
  * Explosion presets for different projectile types. `radius` sizes the
  * fire-atlas explosion (EXPLOSION_LOOK), `smokePuffs` is its smoke stage.
  * The spark bursts (poison, arcane, chaos, bone) only take a particle count,
@@ -1042,5 +1028,3 @@ export const MUZZLE_FLASH_PROFILES: Partial<Record<TowerTypeId, MuzzleFlashProfi
   cannon: { countMin: 6, countMax: 8, sizeMin: 2.5, sizeMax: 4.5, lifeMin: 0.06, lifeMax: 0.1, lightIntensity: 5 },
 };
 
-/** Type exports */
-export type FireIntensityLevel = keyof typeof FIRE_INTENSITY;

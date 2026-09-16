@@ -286,13 +286,6 @@ export class AuraRenderer {
   }
 
   /**
-   * Check if an enemy has an active poison aura
-   */
-  hasPoisonAura(enemyId: string): boolean {
-    return this.activePoisonAuras.has(enemyId);
-  }
-
-  /**
    * Per-frame orbit update for all active frost + poison auras; the ice
    * crystals stay where they are.
    * @param dt delta time in seconds
