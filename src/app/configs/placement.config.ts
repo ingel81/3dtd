@@ -46,10 +46,33 @@ export const PLINTH_CONFIG = {
   MAX_RISE: 5,
 
   /**
-   * A surface this far (m) below the one under the cursor is the drop past an
-   * edge (a high roof, a hole in the mesh), not the foot of a plinth.
+   * A surface this far (m) below the one under the cursor is past an edge
+   * (a roof edge, a step down to a lower part of the building, a terrace
+   * wall), not the foot of a plinth, unless the ground slopes down to it
+   * (MAX_SLOPE). The plinth ends above it and hangs over the drop, on braces.
+   * About a storey: a balcony or a canopy up to that far below the roof
+   * still carries the plinth, a lower roof deeper down no longer draws it
+   * down the facade.
    */
-  MAX_DROP: 30,
+  MAX_DROP: 3,
+
+  /**
+   * Steepest fall (m per m, 56°) between neighbouring probes that still
+   * counts as ground sloping down, not as an edge: a hillside, a pitched
+   * roof. Down such a slope the plinth reaches further than MAX_DROP. A
+   * facade falls steeper between neighbouring probes, up to 2.5 m apart on
+   * most towers (3.3 m on Fire), also where the photogrammetry melts its top
+   * into a bevel. Between those of the Research Center, up to 6.25 m apart,
+   * a step of up to 9 m still passes as slope.
+   */
+  MAX_SLOPE: 1.5,
+
+  /**
+   * Least height (m) of a plinth that hangs over a drop, so its braces have
+   * a plinth to sit under: on a flat roof at its edge the plinth is a slab
+   * this high with the braces below.
+   */
+  MIN_BRACED_HEIGHT: 0.5,
 
   /**
    * The cursor surface this far (m) above the ground is on a roof, a deck or

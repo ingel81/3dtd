@@ -29,7 +29,7 @@ export interface FootprintColumn {
 
 /** Which rule set the foot, see resolveTowerFootprint. */
 export type FootprintRule =
-  /** The probes lie within MIN_UNEVENNESS: the cursor surface, no plinth */
+  /** The probes lie within MIN_UNEVENNESS: the cursor surface, no plinth unless it hangs over a drop */
   | 'even'
   /** The ground rule reaches the highest probe: roof or ground gives the same */
   | 'agree'
@@ -64,11 +64,12 @@ const RING_SPACING_M = 2;
  */
 const NEIGHBOUR_REACH = 1.25;
 
-/** A neighbouring probe and the horizontal step (m) to it. */
+/** A neighbouring probe and the horizontal step (m) to it, `distance` long. */
 interface Neighbour {
   index: number;
   dx: number;
   dz: number;
+  distance: number;
 }
 
 /**
@@ -120,7 +121,8 @@ function footprintPattern(radius: number): FootprintPattern {
   const neighbours = offsets.map(([ax, az], a) => {
     const list: Neighbour[] = [];
     offsets.forEach(([bx, bz], b) => {
-      if (b !== a && Math.hypot(bx - ax, bz - az) <= reach) list.push({ index: b, dx: bx - ax, dz: bz - az });
+      const distance = Math.hypot(bx - ax, bz - az);
+      if (b !== a && distance <= reach) list.push({ index: b, dx: bx - ax, dz: bz - az, distance });
     });
     return list;
   });
@@ -209,8 +211,9 @@ export function levelWithCursor(surfaceY: number, columns: readonly (FootprintCo
  * On uneven ground the tower stands on the highest point and the plinth
  * reaches down to the lowest, so no part of the tower sinks into the ground.
  * Each probe counts with the top of its column. Probes more than
- * PLINTH_CONFIG.MAX_RISE above or MAX_DROP below the cursor surface are left
- * out: a facade beside the tower, the drop past an edge. Below
+ * PLINTH_CONFIG.MAX_RISE above the cursor surface are left out, a facade
+ * beside the tower, and so are those past an edge (carryingHeights): more
+ * than MAX_DROP below it, unless the ground slopes down to them. Below
  * MIN_UNEVENNESS the tower keeps the cursor surface and gets no plinth.
  *
  * What may lift the tower depends on where the cursor is:
@@ -226,10 +229,10 @@ export function levelWithCursor(surfaceY: number, columns: readonly (FootprintCo
  *   groundTop. A car, a hedge, a wall or a crown beside the tower rises
  *   steeply out of the ground and does not lift it; the tower clips into it
  *   as it did before the plinth existed.
- * The lowest probe counts in both cases, the plinth also covers a drop
+ * The lowest probe counts in both cases, the plinth also covers a step down
  * behind a wall. Where it hangs over a drop it does not reach down to, past
- * a roof edge deeper than MAX_DROP, `overhang` names those probes
- * (plinthOverhang).
+ * an edge, `overhang` names those probes (plinthOverhang), and the plinth is
+ * at least MIN_BRACED_HEIGHT high to carry the braces, also on a flat roof.
  */
 export function resolveTowerFootprint(
   surfaceY: number,
@@ -247,11 +250,8 @@ export function decideTowerFootprint(
   columns: readonly (FootprintColumn | null)[],
   surroundings?: () => readonly (FootprintColumn | null)[],
 ): FootprintDecision {
-  const heights = columns.map((column) => {
-    if (column === null) return null;
-    const y = column.topY;
-    return y > surfaceY + PLINTH_CONFIG.MAX_RISE || y < surfaceY - PLINTH_CONFIG.MAX_DROP ? null : y;
-  });
+  const pattern = footprintPattern(radius);
+  const heights = carryingHeights(surfaceY, columns, pattern);
 
   let bottom = surfaceY;
   let roofTop = surfaceY;
@@ -260,17 +260,16 @@ export function decideTowerFootprint(
     if (y < bottom) bottom = y;
     if (y > roofTop) roofTop = y;
   }
-  const groundTopY = groundTop(surfaceY, heights, footprintPattern(radius));
+  const groundTopY = groundTop(surfaceY, heights, pattern);
   const centre = columns[0] ?? null;
+  const overhang = plinthOverhang(bottom, columns);
 
   const decided = (
     rule: FootprintRule,
     top: number,
     probed: readonly (FootprintColumn | null)[] | null = null,
   ): FootprintDecision => ({
-    footprint: top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS
-      ? { footY: surfaceY, plinthHeight: 0 }
-      : plinthFootprint(top, bottom, columns),
+    footprint: plinthFootprint(surfaceY, top, bottom, overhang),
     rule,
     centre,
     bottom,
@@ -279,7 +278,8 @@ export function decideTowerFootprint(
     surroundings: probed,
   });
 
-  if (roofTop - bottom < PLINTH_CONFIG.MIN_UNEVENNESS) return decided('even', surfaceY);
+  // Over a drop the plinth stands on the highest probe like any other
+  if (roofTop - bottom < PLINTH_CONFIG.MIN_UNEVENNESS) return decided('even', roofTop);
   if (groundTopY === roofTop) return decided('agree', roofTop);
   if (groundFarBelow(surfaceY, centre)) return decided('roof-column', roofTop);
   const around = surroundings?.() ?? null;
@@ -289,18 +289,24 @@ export function decideTowerFootprint(
   return decided('ground', groundTopY, around);
 }
 
-/** The foot at `footY` on a plinth down to `bottom`, with the probes it overhangs. */
-function plinthFootprint(footY: number, bottom: number, columns: readonly (FootprintColumn | null)[]): TowerFootprint {
-  const overhang = plinthOverhang(bottom, columns);
-  const footprint = { footY, plinthHeight: footY - bottom };
-  return overhang.length > 0 ? { ...footprint, overhang } : footprint;
+/**
+ * The foot at `top` on a plinth down to `bottom`, braced over the probes of
+ * `overhang`. Without overhang and below MIN_UNEVENNESS the cursor surface,
+ * no plinth.
+ */
+function plinthFootprint(surfaceY: number, top: number, bottom: number, overhang: readonly number[]): TowerFootprint {
+  if (overhang.length > 0) {
+    return { footY: top, plinthHeight: Math.max(top - bottom, PLINTH_CONFIG.MIN_BRACED_HEIGHT), overhang };
+  }
+  if (top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS) return { footY: surfaceY, plinthHeight: 0 };
+  return { footY: top, plinthHeight: top - bottom };
 }
 
 /**
  * The probes a plinth down to `bottom` hangs over a drop at: their column
  * tops out below it or hits nothing. The plinth reaches down to every probe
- * resolveTowerFootprint counts, so these are the ones MAX_DROP left out, the
- * drop past a roof edge, and those without a surface. Indices into `columns`.
+ * resolveTowerFootprint counts, so these are the ones past an edge
+ * (carryingHeights) and those without a surface. Indices into `columns`.
  */
 export function plinthOverhang(bottom: number, columns: readonly (FootprintColumn | null)[]): number[] {
   const overhang: number[] = [];
@@ -339,6 +345,39 @@ function groundFarBelowOnBothSides(surfaceY: number, around: readonly (Footprint
 }
 
 /**
+ * The top of each column where it can carry the plinth, else null. Null
+ * where the probe hit nothing or tops out more than PLINTH_CONFIG.MAX_RISE
+ * above `surfaceY` (a facade, a tall crown), and past an edge: more than
+ * MAX_DROP below `surfaceY`, unless the ground slopes down to it from a
+ * probe that carries, no steeper than MAX_SLOPE between neighbours. A
+ * hillside or a pitched roof carries the plinth all the way down; behind a
+ * roof edge, a step down to a lower part of the building or a terrace wall
+ * the plinth ends and hangs over the drop.
+ */
+function carryingHeights(
+  surfaceY: number,
+  columns: readonly (FootprintColumn | null)[],
+  pattern: FootprintPattern,
+): (number | null)[] {
+  const heights = columns.map((column) =>
+    column === null || column.topY > surfaceY + PLINTH_CONFIG.MAX_RISE ? null : column.topY,
+  );
+  const carries = heights.map((y) => y !== null && y >= surfaceY - PLINTH_CONFIG.MAX_DROP);
+  const open = carries.flatMap((carrying, index) => (carrying ? [index] : []));
+  while (open.length > 0) {
+    const from = open.pop()!;
+    for (const to of pattern.neighbours[from]) {
+      const y = heights[to.index];
+      if (y === null || y === undefined || carries[to.index]) continue;
+      if (heights[from]! - y > PLINTH_CONFIG.MAX_SLOPE * to.distance) continue;
+      carries[to.index] = true;
+      open.push(to.index);
+    }
+  }
+  return heights.map((y, index) => (carries[index] ? y : null));
+}
+
+/**
  * Highest probe the ground climbs to from the cursor: walking from the
  * cursor to neighbouring probes, a step may go down any distance but up
  * only PLINTH_CONFIG.MAX_STEP plus what the slope under the cursor
@@ -361,7 +400,7 @@ function groundTop(surfaceY: number, heights: readonly (number | null)[], patter
   };
 
   // The cursor stands where the centre probe is and has its neighbours
-  step(surfaceY, { index: 0, dx: 0, dz: 0 });
+  step(surfaceY, { index: 0, dx: 0, dz: 0, distance: 0 });
   for (const to of pattern.neighbours[0]) step(surfaceY, to);
   while (open.length > 0) {
     const from = open.pop()!;

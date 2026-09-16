@@ -52,6 +52,7 @@ import type { GeoPosition } from '../models/game.types';
 import type { RouteCell } from '../utils/route-cell';
 import { PLINTH_EMBED_M } from '../three-engine/renderers/tower-plinth/plinth-geometry';
 import { footprintSampleOffsets } from '../utils/tower-footprint';
+import { PLINTH_CONFIG } from '../configs/placement.config';
 
 /**
  * Build mode, preview, click and grid registration of TowerPlacementService.
@@ -832,7 +833,7 @@ describe('TowerPlacementService', () => {
         expect(terrain.raycastColumnSample).toHaveBeenCalledTimes(10 * INNER + OUTER);
       });
 
-      it('shows the plinth once the cursor rests when only the outer ring is uneven', async () => {
+      it('shows the plinth once the cursor rests when only the outer ring hangs over the edge', async () => {
         roofEdge();
         init();
         await enterBuild('archer');
@@ -842,7 +843,8 @@ describe('TowerPlacementService', () => {
 
         service.tickBuildPreviewViz(1);
         expect(plinth()!.visible).toBe(true);
-        expect(plinth()!.position.y).toBeCloseTo(5);
+        // A slab on the roof, braced over the street 15 m below (C10)
+        expect(plinth()!.position.y).toBeCloseTo(20 - PLINTH_CONFIG.MIN_BRACED_HEIGHT);
         expect(preview()!.position.y).toBeCloseTo(20 + TOWER_TYPES.archer.heightOffset);
       });
 
@@ -853,7 +855,13 @@ describe('TowerPlacementService', () => {
         hover(FREE, 20);
         service.handleBuildClick();
 
-        expect(emit.mock.calls[0][0]).toMatchObject({ position: { height: 20 }, plinthHeight: 15 });
+        const pastEdge = footprintSampleOffsets(TOWER_TYPES.archer.footprintRadius)
+          .flatMap(([dx], index) => (dx > 3 ? [index] : []));
+        expect(emit.mock.calls[0][0]).toMatchObject({
+          position: { height: 20 },
+          plinthHeight: PLINTH_CONFIG.MIN_BRACED_HEIGHT,
+          plinthOverhang: pastEdge,
+        });
       });
 
       it('lets the watch log the settled footprint, not the provisional one', async () => {
@@ -871,7 +879,7 @@ describe('TowerPlacementService', () => {
 
         service.tickBuildPreviewViz(0.5);
         expect(watchLines(log)).toHaveLength(1);
-        expect(watchLines(log)[0]).toContain('plinthHeight=15 ');
+        expect(watchLines(log)[0]).toContain(`plinthHeight=${PLINTH_CONFIG.MIN_BRACED_HEIGHT} `);
         expect(watchLines(log)[0]).not.toContain('level-inner-ring');
       });
     });
