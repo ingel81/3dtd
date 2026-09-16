@@ -26,7 +26,7 @@ import { GameCommandsHandler } from '../managers/game-commands.handler';
 import type { GameStateManager } from '../managers/game-state.manager';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { ABILITIES, type AbilityId, type AbilityStatus } from '../configs/abilities.config';
-import { HERO } from '../configs/hero.config';
+import { HERO, initialHeroStatus } from '../configs/hero.config';
 import type { ResearchId } from '../configs/research/research.types';
 import type { GamePhase, GeoPosition } from '../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
@@ -61,6 +61,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
   const aiming = signal<AbilityId | null>(null);
   const abilityStatuses = signal({} as Record<AbilityId, AbilityStatus>);
   const storeCredits = signal(0);
+  const storeHero = signal(initialHeroStatus());
 
   /** The research of `perkId` is done (ResearchManager's research:completed) */
   const research = (perkId: string) => bus.emit({
@@ -106,12 +107,14 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
     } as unknown as HeroWorld);
     new GameCommandsHandler({ abilityManager: abilities, heroManager: hero } as unknown as GameStateManager, bus);
 
-    // GameStateSyncService: GameStore.abilities and the credits follow the managers
+    // GameStateSyncService: GameStore.abilities, the hero and the credits follow the managers
     const mirror = () => abilityStatuses.set(
       Object.fromEntries(abilities.getStatuses().map((s) => [s.id, s])) as Record<AbilityId, AbilityStatus>,
     );
     mirror();
     bus.on('ability:state-changed', mirror);
+    storeHero.set(initialHeroStatus());
+    bus.on('hero:state-changed', (event) => storeHero.set(event.hero));
     storeCredits.set(credits);
     aiming.set(null);
 
@@ -121,7 +124,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
       abilityTargeting: aiming,
       heroSelected: signal(false),
     };
-    injections['TowerDefenseStore'] = { waveActive: signal(false), abilities: abilityStatuses, credits: storeCredits };
+    injections['TowerDefenseStore'] = { waveActive: signal(false), abilities: abilityStatuses, credits: storeCredits, hero: storeHero };
     injections['TowerPlacementService'] = { exitBuildMode: vi.fn() };
     injections['MapPlacementService'] = { exitPlacementMode: vi.fn() };
     refusals = new RefusalHintService();
