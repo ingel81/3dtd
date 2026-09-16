@@ -15,6 +15,7 @@ const cell = (x: number, z: number, terrainHeight: number) =>
   ({ x, z, terrainHeight, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
 
 const ctx = { referencePos: { x: 0, y: 20, z: 0 } } as unknown as LosResolveContext;
+const ownHeight = (c: RouteCell) => c.terrainHeight;
 const cube = isCubeVisible as unknown as MockInstance;
 
 describe('resolveTowerLos', () => {
@@ -33,7 +34,7 @@ describe('resolveTowerLos', () => {
   });
 
   it('answers ground and air and lists the cells it sees anything in', () => {
-    const visible = resolveTowerLos([low, mid, high, far], 't1', 0, 0, 10, ctx, true, true);
+    const visible = resolveTowerLos([low, mid, high, far], 't1', 0, 0, 10, ctx, true, true, ownHeight);
 
     expect(visible).toEqual([low, mid]);
     expect([low, mid, high].map((c) => [c.towerVisibility.get('t1'), c.airVisibility.get('t1')]))
@@ -43,20 +44,32 @@ describe('resolveTowerLos', () => {
 
   it('sees the cell it stands on without asking the cube', () => {
     const own = cell(0.05, 0, 50);
-    expect(resolveTowerLos([own], 't1', 0, 0, 10, ctx, true, true)).toEqual([own]);
+    expect(resolveTowerLos([own], 't1', 0, 0, 10, ctx, true, true, ownHeight)).toEqual([own]);
     expect(cube).not.toHaveBeenCalled();
   });
 
   it('answers only for what the tower targets', () => {
-    const visible = resolveTowerLos([low, mid], 't1', 0, 0, 10, ctx, false, true);
+    const visible = resolveTowerLos([low, mid], 't1', 0, 0, 10, ctx, false, true, ownHeight);
     expect(visible).toEqual([low]);
     expect(low.towerVisibility.has('t1')).toBe(false);
     expect(mid.airVisibility.get('t1')).toBe(false);
   });
 
+  it('samples above the height enemies stand on, not the anchor a cell without a height holds', () => {
+    // Playtest 743: a cell without a height of its own keeps its route
+    // anchor, 30 m under the square the enemies walk on beside it.
+    const hole = cell(3, 0, -30);
+    const onSquare = (c: RouteCell) => (c === hole ? 9 : c.terrainHeight);
+
+    resolveTowerLos([hole], 't1', 0, 0, 10, ctx, true, true, onSquare);
+
+    expect(cube.mock.calls.map((args) => args[4])).toEqual([10.5, 24]);
+    expect([hole.towerVisibility.get('t1'), hole.airVisibility.get('t1')]).toEqual([false, false]);
+  });
+
   it('samples no cell height: the cells are the ones the corridor build froze', () => {
     const frozen = cell(3, 0, 0);
-    resolveTowerLos([frozen], 't1', 0, 0, 10, ctx, true, false);
+    resolveTowerLos([frozen], 't1', 0, 0, 10, ctx, true, false, ownHeight);
     expect(frozen.terrainHeight).toBe(0);
   });
 });
@@ -67,10 +80,10 @@ describe('resolveTowerLosIncremental', () => {
   it('reuses the answers it has and asks the cube only for the new cells', () => {
     const inner = cell(3, 0, 0);
     const outer = cell(8, 0, 0);
-    resolveTowerLos([inner], 't1', 0, 0, 5, ctx, true, false);
+    resolveTowerLos([inner], 't1', 0, 0, 5, ctx, true, false, ownHeight);
     cube.mockClear();
 
-    const visible = resolveTowerLosIncremental([inner, outer], 't1', 0, 0, 10, ctx, true, false);
+    const visible = resolveTowerLosIncremental([inner, outer], 't1', 0, 0, 10, ctx, true, false, ownHeight);
     expect(visible).toEqual([inner, outer]);
     expect(cube).toHaveBeenCalledOnce();
     expect(cube.mock.calls[0][3]).toBe(8);
@@ -80,7 +93,7 @@ describe('resolveTowerLosIncremental', () => {
     const retrofitted = cell(3, 0, 0);
     retrofitted.towerVisibility.set('t1', false);
     retrofitted.towerVisibility.delete('t1');
-    const visible = resolveTowerLosIncremental([retrofitted], 't1', 0, 0, 10, ctx, true, false);
+    const visible = resolveTowerLosIncremental([retrofitted], 't1', 0, 0, 10, ctx, true, false, ownHeight);
     expect(visible).toEqual([retrofitted]);
     expect(retrofitted.towerVisibility.get('t1')).toBe(true);
   });
@@ -92,7 +105,7 @@ describe('resolveTowerLosIncremental', () => {
       c.towerVisibility.set('t1', true);
       c.airVisibility.set('t1', true);
     }
-    resolveTowerLosIncremental([corner, inside], 't1', 0, 0, 10, ctx, true, false);
+    resolveTowerLosIncremental([corner, inside], 't1', 0, 0, 10, ctx, true, false, ownHeight);
     expect(corner.towerVisibility.has('t1') || corner.airVisibility.has('t1')).toBe(false);
     expect(inside.towerVisibility.get('t1')).toBe(true);
     expect(inside.airVisibility.has('t1')).toBe(false);
