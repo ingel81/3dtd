@@ -17,7 +17,7 @@ import { UIStore } from '../store/ui.store';
 import { ThreeTowerRenderer, type TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
 
 /**
- * Playtest 522 (docs/REVIEW_FIX_2026-09-14.md) replayed: the real input
+ * Playtest 522 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: the real input
  * handler over a canvas, the real tower renderer that shows the range, the
  * selection as TowerManager.selectTower drives the renderer.
  */

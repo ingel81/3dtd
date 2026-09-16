@@ -64,7 +64,7 @@
       **Stand 2026-09-12 (Runde 2):** umgesetzt auf dem Sprint-Branch
       (`1306460` bis `bfb550c`), inklusive Tile-Messung und Brücken-Deck;
       Tunnel nicht angefasst. Playtest steht aus
-      (`docs/REVIEW_SPRINT_2026-09-12.md`).
+      (`docs/archive/REVIEW_SPRINT_2026-09-12.md`).
       **Nach dem Playtest 2026-09-12:** Breite aus dem gemessenen Freiraum je
       Seite (bis 7 m Halbbreite, OSM nur Fallback), Engstelle 1 Zelle,
       Dach-Check, zwei Strahlhöhen gegen parkende Autos, Tuning per
@@ -102,7 +102,7 @@
       **Entscheidung 2026-09-12:** Diese Punkte kommen in die nächste
       nummerierte Playtest-Liste, danach schließen.
       **Stand:** Punkte 5 bis 8 der Playtest-Liste in
-      `docs/REVIEW_SPRINT_2026-09-12.md`.
+      `docs/archive/REVIEW_SPRINT_2026-09-12.md`.
 
 - [ ] **Route folgt der Straße nicht, Route-Cells auf Dach und Baum**
       Playtest 2026-09-10 (Kleinstadt, Engstelle): Die rote Enemy-Route
@@ -160,13 +160,13 @@
       SoA siehe Backlog, verworfen.
 
 - [ ] **20k-Benchmark gegen den Stand vor dem Terrain-/Performance-Umbau**
-      Aus der Playtest-Liste verschoben (REVIEW_SPRINT_2026-09-12.md, alte Liste
+      Aus der Playtest-Liste verschoben (archive/REVIEW_SPRINT_2026-09-12.md, alte Liste
       16, Playtest 2026-09-14): Messaufgabe, kein Klicktest. 20k Gegner auf
       demselben Ort und derselben Kamera einmal auf `02278dc` und einmal auf dem
       aktuellen Stand messen (FPS, Frame-Zeit, Chrome-Trace je Sub-Step), damit
       belegt ist, dass der Umbau nicht langsamer ist. Vergleichsstand in einem
       eigenen Worktree bauen.
-      Dazu aus der Nacht-1-Liste 157 (REVIEW_SPRINT_2026-09-13.md): derselbe
+      Dazu aus der Nacht-1-Liste 157 (archive/REVIEW_SPRINT_2026-09-13.md): derselbe
       20k-Lauf gegen `39fbb18` (vor der Nachtschicht 1) mit FPS, GPU-Speicher
       und Tab-Speicher, um die VAT-Umstellung (Half Float, opak, nur GPU) zu
       belegen.
@@ -205,7 +205,7 @@
       messen, dann Lichter reduzieren oder die Tiles einheitlich unlit machen.
 
 - [ ] **Ladezeit und GPU-Speicher gegen `412cbff` messen**
-      Aus der Playtest-Liste verschoben (REVIEW_SPRINT_2026-09-12.md, alte Liste
+      Aus der Playtest-Liste verschoben (archive/REVIEW_SPRINT_2026-09-12.md, alte Liste
       29, Playtest 2026-09-14): Messaufgabe gegen einen alten Stand, kein
       Klicktest. Gleicher Ort, kalter und warmer Cache, jeweils Zeit bis
       spielbar und GPU-Speicher (Chrome Task-Manager bzw. `__perf.stats`),
@@ -214,7 +214,7 @@
 ## 1.6 Befunde aus dem Sprint 2026-09-11 (nicht behoben)
 
 > Beim Abarbeiten auf `sprint/todo-2026-09-11` aufgefallen, bewusst nicht im
-> Sprint erledigt. Übersicht des Sprints: `docs/REVIEW_SPRINT_2026-09-11.md`.
+> Sprint erledigt. Übersicht des Sprints: `docs/archive/REVIEW_SPRINT_2026-09-11.md`.
 
 - [ ] **Platzierungsregeln: zwei weitere Kopien mit anderer Distanzformel**
       Maus-Vorschau, Klick und Training-Session prüfen seit dem Sprint über
@@ -260,7 +260,7 @@
 
 ## 1.7 Befunde aus der Sprint-Runde 2026-09-12 (nicht behoben)
 
-> Übersicht der Runde: `docs/REVIEW_SPRINT_2026-09-12.md`.
+> Übersicht der Runde: `docs/archive/REVIEW_SPRINT_2026-09-12.md`.
 
 - [ ] **Routenkorridor: Restpunkte**
       Tunnel und Durchgänge: erledigt (`db2eb51`, Höhe zwischen den Portalen,
@@ -318,7 +318,7 @@
       Lead-Entscheidung), Stufen-Check erst über Straßenhöhe (`9f2e2b47`),
       `pick()` mit dem echten Lift der Linie (`d8298b31`), Zeilenverweise
       (`633ec1cf`). Playtest 560 bis 563 und 566 bis 570 in
-      `docs/REVIEW_FIX_2026-09-14.md`.
+      `docs/archive/REVIEW_FIX_2026-09-14.md`.
       Seit `509aaed0` (User-Entscheidung nach Playtest 560 bis 562): keine
       orangen Zellen mehr, der Korridor endet vor Zellen, zu denen kein
       Gegner laufen kann (aus Code und Specs, im Browser ungesehen); die
@@ -389,7 +389,7 @@
 ## 1.8 Befunde aus der Nachtschicht 2026-09-13 (nicht behoben)
 
 > Auf `sprint/night-2026-09-13` aufgefallen, bewusst nicht in der Nacht
-> erledigt. Übersicht: `docs/REVIEW_SPRINT_2026-09-13.md`. In der Nacht noch
+> erledigt. Übersicht: `docs/archive/REVIEW_SPRINT_2026-09-13.md`. In der Nacht noch
 > behoben (fix3, `158f0f1` bis `c8c4242`): Leck-Budget in `beginWave()`,
 > DPS-Bins doppelt abonniert, Höhen-Refresh und `__corridor` nach
 > `dispose()`, Musik bei verweigertem `ctx.resume()`, Sounddatei nach
@@ -448,7 +448,7 @@
       **Stand (Fix-Session 2026-09-14):** Die Queue-Ketten der Nacht 2
       (`7914062f`) sind zurückgenommen (`a1bcb3d5`, User-Entscheidung): eine
       gesperrte Forschung lässt sich nicht einreihen, die Queue läuft strikt in
-      Reihenfolge. Playtest 508, 509 in `docs/REVIEW_FIX_2026-09-14.md`.
+      Reihenfolge. Playtest 508, 509 in `docs/archive/REVIEW_FIX_2026-09-14.md`.
 
 - [ ] **Meta: ungeprüft**
       Showcase-Orte nicht angespielt (`configs/showcase-locations.config.ts`);
@@ -532,7 +532,7 @@
       13 %). Die GlobeControls raycasten jeden Frame
       den Punkt unter der Kamera, auch in Ruhe. Hebel: Strahl nur bei
       Kamerabewegung oder Tile-Wechsel, oder BVH für die Tile-Meshes (siehe
-      alte Playtest-Frage 27 in `docs/REVIEW_SPRINT_2026-09-12.md`).
+      alte Playtest-Frage 27 in `docs/archive/REVIEW_SPRINT_2026-09-12.md`).
 
 - [ ] **Kamera fährt in Tower-Modelle** (seit `bac034a2`)
       Zoom, Pan und Mindestabstand der GlobeControls treffen nur noch die
@@ -542,7 +542,7 @@
 ## 1.9 Befunde aus der Nachtschicht 2026-09-14 (nicht behoben)
 
 > Auf `sprint/night-2026-09-14` aufgefallen, bewusst nicht in der Nacht
-> erledigt. Übersicht: `docs/REVIEW_SPRINT_2026-09-14.md`. Aus 1.8 hat die
+> erledigt. Übersicht: `docs/archive/REVIEW_SPRINT_2026-09-14.md`. Aus 1.8 hat die
 > Nacht bearbeitet (nichts verschoben, Playtest steht aus): Canvas folgt der
 > Fenstergröße (`9619b82f`); Lazy-Chunks: "Reload" statt "Change tile
 > credentials" (`9504032d`), `@angular/animations` raus (`82f23124`);
@@ -561,7 +561,7 @@
 > (`46a096d2`), VFX, Ton und Shake gehen je Fähigkeit (`4479bc9f`); offen
 > bleibt die Warnsirene.
 > Fix-Session 2026-09-14: Stand je Eintrag unten, Übersicht in
-> `docs/REVIEW_FIX_2026-09-14.md`. Die Queue-Ketten (`7914062f`) sind dort
+> `docs/archive/REVIEW_FIX_2026-09-14.md`. Die Queue-Ketten (`7914062f`) sind dort
 > zurückgenommen (`a1bcb3d5`).
 
 - [ ] **Idee: Tower an der Dachkante mit Schrägstütze** (Playtest 2, 2026-09-14, bei 429)
@@ -860,7 +860,7 @@
       Pick-Koordinaten.
       **Stand (Fix-Session 2026-09-14):** zuerst nur Diagnose, kein Fix ohne
       Daten. Fünf Hypothesen aus dem Code (H1 bis H5 in
-      `docs/REVIEW_FIX_2026-09-14.md`); `__corridor.pick()` zeigt jetzt Säule,
+      `docs/archive/REVIEW_FIX_2026-09-14.md`); `__corridor.pick()` zeigt jetzt Säule,
       Überbau, Kamerasicht und OSM-Tags (`8f47fc4b`). Nach den Paris-Daten
       aus Playtest 564: die Route liegt auf der Brücke selbst (Way
       986589650), Ursache aus dem Code: das runde Ende der Zufahrt zog die
@@ -1179,24 +1179,24 @@
         Backend fest `gameVersion: '1.0.0'` statt der echten Version.
       Balance-Fragen, die auf den Run-Dump warten (aus den Playtest-Listen
       zurückgestellt oder offen als Entscheidung):
-      - REVIEW_SPRINT_2026-09-12.md: alte Liste 4 (Matrix, Boss-Takt, Gold bei
+      - archive/REVIEW_SPRINT_2026-09-12.md: alte Liste 4 (Matrix, Boss-Takt, Gold bei
         W30), 38 (Chaos an W16/W18), Entscheidung 2 (Chaos-Preis 200, Vorschlag
         220 bis 250).
-      - REVIEW_SPRINT_2026-09-13.md: Entscheidung 1 (Atomschlag gegen Golem und
+      - archive/REVIEW_SPRINT_2026-09-13.md: Entscheidung 1 (Atomschlag gegen Golem und
         Dragon 60 statt 20 %), Befund 6 (Skeleton-Split ungespielt).
       - Playtest-Eindruck des Users 2026-09-14: Ooze eher zu schwach, Chitin
         Worm eher zu stark (Worm erst in einem vollständigen Durchlauf
         bewerten).
-      - REVIEW_SPRINT_2026-09-14.md: Entscheidungen 2 (Held-Preise), 6 (Wurm
+      - archive/REVIEW_SPRINT_2026-09-14.md: Entscheidungen 2 (Held-Preise), 6 (Wurm
         35 HP je Segment, bis 240), 8 (Ooze-Werte), 9 (Boss-Rotation), 12
         (Veteranen-Schwellen aus Bot-Logs), 14 (Sprung-Gold), Befund 4
         (Boss-Varianten ohne Fairness-Gate), Freischaltzeitpunkte der
         Fähigkeiten nur geschätzt.
-      - PLAYTEST.md E3 (2026-09-15): Wie stark Herbert, Skarnax und Ooze je
+      - archive/PLAYTEST_2026-09.md E3 (2026-09-15): Wie stark Herbert, Skarnax und Ooze je
         Welle sein sollen (HP, Tempo, Gold gegen typische Tower-DPS), passt laut
         User aktuell nicht; zusammen damit klären, welche Welle mit welcher
         Boss-Variante ins Log des Collectors gehört.
-      - PLAYTEST.md E11 (2026-09-15): Gold einer jung getöteten Ooze hängt von
+      - archive/PLAYTEST_2026-09.md E11 (2026-09-15): Gold einer jung getöteten Ooze hängt von
         der Länge ab (meist weniger, bei manchen Längen etwas mehr als vorher;
         Tabelle in `tmp/fix1/reports/oozedeath.md`), mit der Boss-Stärke klären.
       Verwandt: Live-Playtest Phase-5.16-Balance, Gold-Budget feinjustieren (oben),
@@ -1397,7 +1397,7 @@
       `324ca45`); nach dem Playtest überarbeitet (gesperrte Tower ausblenden,
       Breite, Optik) auf `wt/fix-matrixui`, Retest steht aus.
 
-- [ ] **Konzept: Resistenzen, Immunitäten, Schild und HP** (PLAYTEST.md E16,
+- [ ] **Konzept: Resistenzen, Immunitäten, Schild und HP** (archive/PLAYTEST_2026-09.md E16,
       2026-09-15, erst Konzept, dann bauen). Resistenz heißt: ein Effekt oder
       Schadenstyp wirkt nur zum Teil; Immunität: gar nicht (100 %). Gewünscht
       für Effekte (Slow, Frost, Stun) und für Schadenstypen, je Gegnertyp.
@@ -1670,7 +1670,7 @@
 
 ## Gameplay-Konzepte
 
-- [ ] **Konzept: Tech Tree des Helden** (PLAYTEST.md E18 "Held Stufe 2",
+- [ ] **Konzept: Tech Tree des Helden** (archive/PLAYTEST_2026-09.md E18 "Held Stufe 2",
       2026-09-15). Der Held braucht vermutlich viel mehr Möglichkeiten; eine
       Stufe 2 erst mit dem passenden Tech Tree. Drei Vorschläge (Forschung
       "Heavy Gear", nur Look ab 100 Kills, ganzes Straßennetz) mit Werten und

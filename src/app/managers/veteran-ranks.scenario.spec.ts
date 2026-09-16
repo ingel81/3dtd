@@ -1,5 +1,5 @@
 /**
- * Playtest 347, 348, 350, 351 and 404 (docs/REVIEW_SPRINT_2026-09-14.md,
+ * Playtest 347, 348, 350, 351 and 404 (docs/archive/REVIEW_SPRINT_2026-09-14.md,
  * tower veterans). Killing blows go through the real DamageApplicationService
  * into the real TowerManager; each "frame" runs syncVeteranBadges, as
  * GameLoopFacadeService does, into a real TowerBadgeRenderer. The upgrade

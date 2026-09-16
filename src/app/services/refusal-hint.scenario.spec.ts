@@ -38,7 +38,7 @@ const ROUTE: GeoPosition[] = [{ lat: HQ.lat - 300 / METERS_PER_DEGREE_LAT, lon: 
 const ON_ROUTE: GeoPosition = { lat: HQ.lat - 100 / METERS_PER_DEGREE_LAT, lon: HQ.lon };
 
 /**
- * Open point 13 of the fix handover (docs/REVIEW_FIX_2026-09-14.md): a
+ * Open point 13 of the fix handover (docs/archive/REVIEW_FIX_2026-09-14.md): a
  * refused hire or ability said nothing. Replayed on the real ability and
  * hero managers on one bus, the commands through GameCommandsHandler, the
  * presses through the real AbilityTargetingService (K and the bar's button

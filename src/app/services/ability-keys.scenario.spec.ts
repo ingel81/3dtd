@@ -24,7 +24,7 @@ import { resolveHotkey } from './hotkey-map';
 import { ABILITIES, type AbilityId } from '../configs/abilities.config';
 
 /**
- * Playtest 510 (docs/REVIEW_FIX_2026-09-14.md), the keys: K, F, E and L go
+ * Playtest 510 (docs/archive/REVIEW_FIX_2026-09-14.md), the keys: K, F, E and L go
  * through resolveHotkey to HotkeyService.toggleAbility, which starts the
  * targeting mode and takes the key only when it is on. Here the real
  * AbilityTargetingService asks the real AbilityManager of a new game.

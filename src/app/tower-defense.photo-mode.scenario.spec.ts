@@ -1,5 +1,5 @@
 /**
- * Playtest 321 (night 2, docs/REVIEW_SPRINT_2026-09-14.md): O (photo mode)
+ * Playtest 321 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md): O (photo mode)
  * hides the ability bar with the rest of the HUD, O or Esc brings it back.
  *
  * The keys are hotkey.service.spec.ts ("O turns it on and off and takes the

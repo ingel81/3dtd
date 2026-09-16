@@ -65,7 +65,7 @@ const STREET_POSE = spawnPortalPose(STREET_POINTS, 0, portalCorridorWidth(STREET
 const STREET_TURN = portalTurnRange(STREET_POINTS, STREET_POSE, portalLaneOffset(STREET[0]));
 
 /**
- * Playtest 534 (docs/REVIEW_FIX_2026-09-14.md), second half, replayed: the
+ * Playtest 534 (docs/archive/REVIEW_FIX_2026-09-14.md), second half, replayed: the
  * game is paused, the spawn preview of the real MapPlacementService stands on
  * its route start and is turned with R held, and the per-frame engine update
  * of the game loop facade runs as it does every frame.

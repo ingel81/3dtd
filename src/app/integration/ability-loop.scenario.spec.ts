@@ -1,6 +1,6 @@
 /**
  * Integration Test: playtest points 320, 335, 395 and 397 of night 2
- * (docs/REVIEW_SPRINT_2026-09-14.md) through the real GameStateManager
+ * (docs/archive/REVIEW_SPRINT_2026-09-14.md) through the real GameStateManager
  * sub-step loop, with the real VFX, audio and screen shake services it
  * creates, the real damage path and real enemies.
  *

@@ -1,5 +1,5 @@
 /**
- * Playtest 361 (night 2, docs/REVIEW_SPRINT_2026-09-14.md) replayed: Custom
+ * Playtest 361 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed: Custom
  * Wave Ooze, Cheat Abilities, K on a stretch of body far behind the tip: the
  * boss bar drops by 20 %.
  *

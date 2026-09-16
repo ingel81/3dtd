@@ -1,5 +1,5 @@
 /**
- * Logic of playtest 160 of night 1 (docs/REVIEW_SPRINT_2026-09-13.md)
+ * Logic of playtest 160 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md)
  * replayed: "Damage vs armor" opens the matrix, Esc closes it and the focus
  * goes back to the button; from the tower panel the tower's row is marked;
  * a double click opens one dialog (8b82e2e3, the reference dialogs as one

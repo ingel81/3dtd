@@ -49,7 +49,7 @@ import { IntroSkipComponent } from '../../components/intro-skip/intro-skip.compo
 const HQ = { lat: 48.7, lon: 9.1 };
 
 /**
- * Playtest 525 to 528 (docs/REVIEW_FIX_2026-09-14.md) replayed: the real
+ * Playtest 525 to 528 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: the real
  * intro flight, input handler and hotkey service in the order the game
  * component's window keydown runs them, the canvas and the skip button, an
  * open dialog as the CDK dialog takes Esc.

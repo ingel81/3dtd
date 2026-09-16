@@ -56,7 +56,7 @@ const HQ = at(0, 300);
 const TOWER_PX = { x: 60, y: 250 };
 
 /**
- * Playtest 386, 387, 389, 391 and 425 (docs/REVIEW_SPRINT_2026-09-14.md)
+ * Playtest 386, 387, 389, 391 and 425 (docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed through the pointer: the real InputHandlerService over a canvas,
  * the real HeroControlService wired to it as VisualizationFacadeService does,
  * its commands through GameCommandsHandler to the real HeroManager. The

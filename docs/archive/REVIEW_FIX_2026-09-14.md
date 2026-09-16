@@ -1,5 +1,8 @@
 # Review-Handover: Fix-Session 2026-09-14
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Offene Arbeit steht in [TODO.md](../../TODO.md), offene Nachtests in
+> [PLAYTEST.md](../PLAYTEST.md). Die Punktnummern bleiben gültig, Tests und Code-Kommentare zitieren sie.
+
 Fix-Session nach dem Playtest vom 2026-09-14, auf dem Branch
 `sprint/night-2026-09-14` (Ende der Nacht 2 plus Playtest-Doku). Auftrag:
 die Befunde des Playtests (TODO 1.10, dazu der Korridor in 1.7) und die
@@ -551,7 +554,7 @@ Konflikt an.
 
 ## Offene Punkte und Entscheidungen für dich
 
-**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+**Offene Punkte standen ab 2026-09-15 in [PLAYTEST_2026-09.md](PLAYTEST_2026-09.md); was danach offen ist, steht in [TODO.md](../../TODO.md) und [PLAYTEST.md](../PLAYTEST.md).**
 
 **Stand 2026-09-14 abends** (User: "Alles, was du ohne mich machen kannst,
 bitte klären"; Lead-Entscheidungen sind revertierbar):
@@ -778,7 +781,7 @@ behoben (fixrev2).
 
 ## Playtest-Liste
 
-**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+**Offene Punkte standen ab 2026-09-15 in [PLAYTEST_2026-09.md](PLAYTEST_2026-09.md); was danach offen ist, steht in [TODO.md](../../TODO.md) und [PLAYTEST.md](../PLAYTEST.md).**
 
 Nummeriert, damit du mit "505 ok, 512 kaputt" antworten kannst. Punkte mit
 gleichem Aufbau stehen hintereinander, so lassen sich vier je Runde

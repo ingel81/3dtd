@@ -9,7 +9,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 ### Sprint 2026-09-11, im Playtest bestätigt
 
 Umgesetzt auf `sprint/todo-2026-09-11` (Übersicht in
-`docs/REVIEW_SPRINT_2026-09-11.md`), nach dem Playtest vom 2026-09-11 aus
+`docs/archive/REVIEW_SPRINT_2026-09-11.md`), nach dem Playtest vom 2026-09-11 aus
 TODO.md übernommen. Einträge, die der Playtest nicht direkt geprüft hat,
 stehen weiter in TODO.md.
 

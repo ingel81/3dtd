@@ -1,5 +1,5 @@
 /**
- * Logic of playtest 163 and 176 of night 1 (docs/REVIEW_SPRINT_2026-09-13.md)
+ * Logic of playtest 163 and 176 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md)
  * replayed.
  *
  * 163: the init banners of the particle pools and the flame beam are gone,

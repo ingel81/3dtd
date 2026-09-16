@@ -6,7 +6,7 @@ Wie breit der Korridor aus Route-Zellen links und rechts der Mittellinie einer
 Route ist, woher die Breite kommt, wann sie gemessen und neu gebaut wird und
 wie man sie im Spiel prüft. Die Herleitung und die Playtest-Befunde stehen in
 [ROUTE_GEOMETRY_ANALYSIS.md](archive/ROUTE_GEOMETRY_ANALYSIS.md) und
-[REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md).
+[REVIEW_SPRINT_2026-09-12.md](archive/REVIEW_SPRINT_2026-09-12.md).
 
 Längen in Metern. "Links" und "rechts" meinen immer die Fahrtrichtung der
 Route (vom Spawn zum HQ).
@@ -1281,7 +1281,7 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
   (siehe "Grenzfall Hintergrund-Tab" oben); sonst deutet die Zeile auf Tiles,
   die gar nicht laden (Token, Netz, voller Cache).
 - **Gemessen** (Playtest 2026-09-12, Innenstadt, eine Route, Punkt 52 in
-  REVIEW_SPRINT_2026-09-12, noch am Stück): Neuaufbau 39,5 bis 41,7 ms; die
+  archive/REVIEW_SPRINT_2026-09-12, noch am Stück): Neuaufbau 39,5 bis 41,7 ms; die
   Messung davor mit 1260 Strahlen 520 bis 533 ms. Weitere Orte sind nicht
   gemessen.
 
@@ -1983,7 +1983,7 @@ Ausschnitts mit Probe, LOD und `surface`.
 ## Grenzen
 
 Aus dem Code abgeleitet, im Spiel nur teilweise geprüft (Playtest-Liste in
-REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
+archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
 
 - Die Messung ist je Seite. Liegt die OSM-Mittellinie neben der Straßenmitte
   der Photogrammetrie, wird die Seite mit mehr Platz breiter. Die Mittellinie

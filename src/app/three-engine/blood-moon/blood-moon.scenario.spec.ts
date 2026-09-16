@@ -18,7 +18,7 @@ const sync: ConstructorParameters<typeof SearchlightRenderer>[1] = {
 };
 
 /**
- * Night-2 playtest 373 to 375 (docs/REVIEW_SPRINT_2026-09-14.md), the logic
+ * Night-2 playtest 373 to 375 (docs/archive/REVIEW_SPRINT_2026-09-14.md), the logic
  * parts, replayed on the real chain: BloodMoonService on the event bus
  * switches the real BloodMoonLook, which drives the real mood quad and the
  * real searchlights. frame() hands the look what ThreeTilesEngine.animate()

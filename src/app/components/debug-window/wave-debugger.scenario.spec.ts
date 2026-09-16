@@ -9,7 +9,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 
 /**
- * Playtest 378 and 380 (docs/REVIEW_SPRINT_2026-09-14.md) replayed on the
+ * Playtest 378 and 380 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed on the
  * "Jump to wave" section of the Wave Debug window: the real component, the
  * store's wave and phase as signals, its event on a real bus. The event goes
  * to GameStateManager.jumpToWave through GameCommandsHandler

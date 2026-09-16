@@ -25,7 +25,7 @@ const STEP_MS = 16.667;
 const WARNING_STEPS = 90;
 
 /**
- * Playtest 318 and the logic of 319 (night 2, docs/REVIEW_SPRINT_2026-09-14.md)
+ * Playtest 318 and the logic of 319 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed: Cheat Abilities, a nuclear strike in a wave and its recharge over
  * the next waves. The real research and ability managers on one bus, the
  * cheat and the click through GameCommandsHandler, the buttons as

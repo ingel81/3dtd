@@ -1,5 +1,5 @@
 /**
- * Playtest 144 of night 1 (docs/REVIEW_SPRINT_2026-09-13.md) replayed: the
+ * Playtest 144 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md) replayed: the
  * game-over screen shows Wave, Kills, Time, Earned, Spent, a leak bar per
  * wave and the top three towers; a restart clears everything.
  *

@@ -1,5 +1,8 @@
 # Review-Handover: Sprint-Runde 2026-09-12
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Offene Arbeit steht in [TODO.md](../../TODO.md), offene Nachtests in
+> [PLAYTEST.md](../PLAYTEST.md). Die Punktnummern bleiben gültig, Tests und Code-Kommentare zitieren sie.
+
 Zweite Runde auf demselben Branch `sprint/todo-2026-09-11`, gebaut wurden die
 in der Review-Runde vom 2026-09-12 entschiedenen TODOs. Alles liegt lokal,
 `main` ist unberührt, nichts ist gepusht. Kein TODO-Eintrag ist nach DONE.md
@@ -268,7 +271,7 @@ DPS-Modell rechnet das nicht ein.
 
 ## Playtest-Liste
 
-**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+**Offene Punkte standen ab 2026-09-15 in [PLAYTEST_2026-09.md](PLAYTEST_2026-09.md); was danach offen ist, steht in [TODO.md](../../TODO.md) und [PLAYTEST.md](../PLAYTEST.md).**
 
 Nummeriert, damit du mit "7 ok, 12 kaputt" antworten kannst.
 
@@ -637,7 +640,7 @@ Auch hier lief nichts im Browser.
 
 ### Playtest-Liste, Fortsetzung
 
-**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+**Offene Punkte standen ab 2026-09-15 in [PLAYTEST_2026-09.md](PLAYTEST_2026-09.md); was danach offen ist, steht in [TODO.md](../../TODO.md) und [PLAYTEST.md](../PLAYTEST.md).**
 
 41. Korridor an einer Wohnstraße mit Parkstreifen: die Seite mit Parkstreifen
     oder Vorgärten breiter als die an einer Fassade; in Gassen eine Zellreihe.

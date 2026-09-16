@@ -1,5 +1,5 @@
 /**
- * Playtest 238 of night 1 (docs/REVIEW_SPRINT_2026-09-13.md) replayed:
+ * Playtest 238 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md) replayed:
  * regular W7 (bat_swarm) and W8 (hornet_strike) at a place with two spawns.
  * At each portal the air units come as in 232 and 233 with a custom wave:
  * through the middle of the opening, all of a type at the same height, level
