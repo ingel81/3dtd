@@ -110,7 +110,7 @@ const percentOf = ({ done, total }: { done: number; total: number }) => (total >
  *    the routes in it and their cells. One pass: the band reads the frozen
  *    columns, not the cells.
  * 5. Cells without a height: the coarse level for them. No way back:
- *    nothing after them reads a column.
+ *    what follows reads the cells, not the columns.
  * 6. The route line on the final cells; frozen. Camera back, and the region
  *    down to the coarse level (unmute).
  *
@@ -460,9 +460,10 @@ export class CorridorBuild {
    * each switch. False when the build stopped meanwhile.
    *
    * `back` for the stations, whose band and cells measure on the finest
-   * level after them. Not for the cells: nothing after them reads a column
-   * (the route line and the overlays read the cells), and the freeze hands
-   * the region to this level anyway (unmute). The way back waited at least
+   * level after them. Not for the cells: the route line and the overlays
+   * after them read the cells (the line reads the column at the HQ only for
+   * a point with no cell height around it), and the freeze hands the region
+   * to this level anyway (unmute). The way back waited at least
    * QUIET_MS for tiles no one measured on; a whole fallback took 1036 to
    * 1087 ms in Rothenburg, Berlin and Paris (2026-09-16).
    */
