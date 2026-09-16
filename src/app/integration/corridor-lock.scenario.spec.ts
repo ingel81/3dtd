@@ -52,7 +52,7 @@ import { GlobalRouteGridService } from '../services/world/global-route-grid.serv
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { CorridorBuild, type CorridorBuildDeps, type CorridorMeasurement } from '../services/world/corridor-build';
 import { corridorFingerprint, type CorridorFingerprint } from '../services/debug/corridor-fingerprint';
-import { ROUTE_CORRIDOR_ERROR_TARGET } from '../three-engine/route-corridor-region';
+import { ROUTE_CORRIDOR_COARSE_ERROR_TARGET, ROUTE_CORRIDOR_ERROR_TARGET } from '../three-engine/route-corridor-region';
 import type { CorridorState } from '../services/world/path-route.service';
 import { GameObject } from '../core/game-object';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
@@ -358,8 +358,10 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
 
     expect(result.timedOut).toBe(false);
     expect(result.cells).toBeGreaterThan(0);
-    // Back to the finest level for the region, and the camera refines again.
-    expect(level).toBe(ROUTE_CORRIDOR_ERROR_TARGET);
+    // The camera refines again, and the region rests at the coarse level:
+    // the frozen corridor samples nothing, so the fine tiles need not stay
+    // active for the rest of the session.
+    expect(level).toBe(ROUTE_CORRIDOR_COARSE_ERROR_TARGET);
     expect(cameraTarget).toBe(16);
   });
 
@@ -373,7 +375,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     expect(result.unmeasured).toBe(0);
     // Every cell has a height, though the finest level gave none of them one.
     expect(grid.getGrid().cellsWithoutHeight()).toBe(0);
-    expect(level).toBe(ROUTE_CORRIDOR_ERROR_TARGET);
+    expect(level).toBe(ROUTE_CORRIDOR_COARSE_ERROR_TARGET);
   });
 
   it('measures, samples and rebuilds nothing when finer tiles arrive after the freeze', async () => {

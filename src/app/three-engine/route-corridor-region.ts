@@ -1,20 +1,30 @@
 import { Matrix4, Sphere, Vector3 } from 'three';
 
 /**
- * Geometric error in metres the route corridor refines to: the finest level
- * the tiles have. At all five places measured on 2026-09-16 (Berlin,
- * Erlenbach, Rothenburg, Paris, Tokyo; tmp/fix1/reports/phase0-results.md)
- * the tiles under every station were 2.0 m at 2.5 as at 0, so nothing the
- * camera loads is finer. It costs 39 to 166 MB of active tiles over 5 m.
+ * Geometric error in metres a corridor build refines the region to while it
+ * measures: the finest level the tiles have. At all five places measured on
+ * 2026-09-16 (Berlin, Erlenbach, Rothenburg, Paris, Tokyo;
+ * tmp/fix1/reports/phase0-results.md) the tiles under every station were
+ * 2.0 m at 2.5 as at 0, so nothing the camera loads is finer.
+ *
+ * Only a build holds this level. It costs 39 to 166 MB of active tiles over
+ * the coarse level, so the build hands the region back to
+ * ROUTE_CORRIDOR_COARSE_ERROR_TARGET when it freezes (CorridorBuild.unmute).
  */
 export const ROUTE_CORRIDOR_ERROR_TARGET = 2.5;
 
 /**
- * The level the corridor build falls back to where the finest has no
- * column (CorridorBuild): in Paris 4 stations at the bridge found none at
- * 2.5 m and one at 5 m.
+ * The coarse level of the region, for two things:
+ *
+ * - what a build falls back to where the finest level has no column
+ *   (CorridorBuild): in Paris 4 stations at the bridge found none at 2.5 m
+ *   and one at 5 m;
+ * - what the region rests at between builds. The frozen corridor samples no
+ *   cell any more, so nothing needs fine tiles; the region stays only to
+ *   keep corridor tiles ACTIVE off screen, which the tower LOS cubemap and
+ *   its CPU raycast fallback need (see CorridorBuild.unmute).
  */
-export const ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET = 5;
+export const ROUTE_CORRIDOR_COARSE_ERROR_TARGET = 5;
 
 /** The parts of a 3d-tiles-renderer bounding volume this region reads. */
 interface BoundingVolumeLike {

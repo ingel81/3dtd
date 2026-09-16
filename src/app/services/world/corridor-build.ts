@@ -6,7 +6,7 @@ import {
   waitForQuietTiles,
   type TilesLodDebug,
 } from '../../three-engine/tiles-lod-debug';
-import { ROUTE_CORRIDOR_ERROR_TARGET, ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET } from '../../three-engine/route-corridor-region';
+import { ROUTE_CORRIDOR_COARSE_ERROR_TARGET, ROUTE_CORRIDOR_ERROR_TARGET } from '../../three-engine/route-corridor-region';
 import type { PathAndRouteService } from './path-route.service';
 import type { RouteAnimationService } from './route-animation.service';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
@@ -100,12 +100,13 @@ const percentOf = ({ done, total }: { done: number; total: number }) => (total >
  *    then with what came).
  * 2. Every station measured once on these tiles, in slices of SLICE_MS a
  *    frame, against an emptied column cache.
- * 3. Stations without a column there: the fallback level
- *    (ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET) for them, then back.
+ * 3. Stations without a column there: the coarse level
+ *    (ROUTE_CORRIDOR_COARSE_ERROR_TARGET) for them, then back.
  * 4. Routes and cells built again and again until the walk check narrows
  *    nothing more (walk caps only narrow within a build).
  * 5. Cells without a height of their own: the fallback level for them.
- * 6. The route line on the final cells; frozen. Camera and region back.
+ * 6. The route line on the final cells; frozen. Camera back, and the region
+ *    down to the coarse level (unmute).
  *
  * Afterwards no tile load, camera move or tower changes routes, cells or
  * heights; the next build does. Towers and waves wait for it (pending),
@@ -420,7 +421,7 @@ export class CorridorBuild {
   ): Promise<boolean> {
     report({ step: FALLBACK_STEP, percent: null });
     const stop = () => stopped() !== null;
-    tiles.setRegionErrorTarget(ROUTE_CORRIDOR_FALLBACK_ERROR_TARGET);
+    tiles.setRegionErrorTarget(ROUTE_CORRIDOR_COARSE_ERROR_TARGET);
     await waitForQuietTiles(tiles, CorridorBuild.FALLBACK_TIMEOUT_MS, this.nextFrame, this.now, stop);
     if (stop()) return false;
     engine.terrain.clearHeightCache();
@@ -438,13 +439,30 @@ export class CorridorBuild {
     tiles.setCameraErrorTarget(MUTED_CAMERA_ERROR_TARGET);
   }
 
-  /** Give the camera its refinement back and the region its finest level. */
+  /**
+   * Give the camera its refinement back and let the region rest at the
+   * coarse level.
+   *
+   * Only a build needs the finest level, and the frozen corridor samples no
+   * cell any more. The region itself stays: it is the only thing that keeps
+   * corridor tiles ACTIVE while they are off screen, and the renderer
+   * activates only what the camera frustum covers. Two things still depend
+   * on that, long after the freeze and wherever the camera happens to look:
+   * the tower LOS cubemap, which renders the tiles group from the tower tip
+   * (TowerShadowMapper, on every placement, range upgrade and air retrofit),
+   * and the CPU raycast fallback the combat loop takes where a cell holds no
+   * answer (TerrainQueries.raycastLineOfSight). Both need geometry to be
+   * there, not to be fine, so the coarse level serves them.
+   *
+   * Holding the finest level for the whole session instead cost 39 to
+   * 166 MB of active tiles (phase 0, 2026-09-16).
+   */
   private unmute(): void {
     const muted = this.muted;
     if (!muted) return;
     this.muted = null;
     muted.tiles.setCameraErrorTarget(muted.camera);
-    muted.tiles.setRegionErrorTarget(ROUTE_CORRIDOR_ERROR_TARGET);
+    muted.tiles.setRegionErrorTarget(ROUTE_CORRIDOR_COARSE_ERROR_TARGET);
   }
 
   /** The cells, the half widths along each route and the waypoints in use, for the corridor trace (CorridorTrace.rebuilt). */
