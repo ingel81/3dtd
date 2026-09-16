@@ -470,8 +470,6 @@ export class LocationFacadeService {
 
     ctx.bridge.setFilteredStreetNetwork(null);
     ctx.bridge.setStreetNetworkLocation(null);
-
-    this.engineInit.stopTileStatsPolling();
   }
 
   // ══════════════════════════════════════════════════════════════

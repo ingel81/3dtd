@@ -941,7 +941,6 @@ describe('VisualizationFacadeService', () => {
       facade.checkAllLoaded();
 
       expect(introFlight.prepare).toHaveBeenCalledWith(cachedPaths);
-      expect(engineInit.setStepDone).toHaveBeenCalledWith('tiles');
       expect(engineInit.setStepCurrent).toHaveBeenCalledWith('flight');
       expect(engineInit.updateStepMeta).toHaveBeenCalledWith('flight', '50 % of the route');
       expect(engineInit.checkAllLoaded).not.toHaveBeenCalled();
@@ -968,6 +967,12 @@ describe('VisualizationFacadeService', () => {
       facade.checkAllLoaded();
       expect(introFlight.prepare).not.toHaveBeenCalled();
       expect(engineInit.checkAllLoaded).not.toHaveBeenCalled();
+      // Nor does a later step show while the first tiles are still missing
+      engineInit.tilesLoading.set(true);
+      facade.checkAllLoaded();
+      expect(engineInit.setStepCurrent).not.toHaveBeenCalled();
+      expect(engineInit.checkAllLoaded).not.toHaveBeenCalled();
+      engineInit.tilesLoading.set(false);
 
       heightsDone();
       await untilDone(loading);
@@ -993,10 +998,11 @@ describe('VisualizationFacadeService', () => {
       expect(engineInit.checkAllLoaded).toHaveBeenCalled();
     });
 
-    it('does not hold while tiles, streets or heights are still loading', () => {
+    it('does not hold while tiles, streets or heights are still loading, and waits for the first tiles under the flight step', () => {
       engineInit.tilesLoading.set(true);
       facade.checkAllLoaded();
       expect(introFlight.prepare).not.toHaveBeenCalled();
+      expect(engineInit.setStepCurrent).toHaveBeenCalledWith('flight');
       expect(engineInit.checkAllLoaded).toHaveBeenCalledWith(heightUpdate.heightsLoading);
     });
 
