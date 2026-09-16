@@ -1,5 +1,8 @@
 # Review-Handover: TODO-Sprint 2026-09-11
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Offene Arbeit steht in [TODO.md](../../TODO.md), offene Nachtests in
+> [PLAYTEST.md](../PLAYTEST.md). Die Punktnummern bleiben gültig, Tests und Code-Kommentare zitieren sie.
+
 Arbeitsstand für dein Review. Alles liegt auf lokalen Branches, `main` ist
 unberührt, nichts ist gepusht. Kein TODO-Eintrag ist nach DONE.md verschoben;
 welche Einträge erledigt sind, steht unten in der Tabelle "TODO-Stand".

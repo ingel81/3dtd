@@ -1,5 +1,5 @@
 /**
- * Playtest 357 (docs/REVIEW_SPRINT_2026-09-14.md), the gold of W35: the worm
+ * Playtest 357 (docs/archive/REVIEW_SPRINT_2026-09-14.md), the gold of W35: the worm
  * the boss rotation sends through the real WaveManager and EnemyManager,
  * wired as GameStateManager wires them for the kill budget, every segment
  * killed. The completion bonus is EconomyService's, which GameStateManager

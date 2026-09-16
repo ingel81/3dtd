@@ -33,7 +33,7 @@ const HQ: GeoPosition = { lat: 48.7758, lon: 9.1829 };
 const ROUTE: GeoPosition[] = [{ lat: HQ.lat - 300 / METERS_PER_DEGREE_LAT, lon: HQ.lon }, HQ];
 
 /**
- * Playtest 384 and 385 (docs/REVIEW_SPRINT_2026-09-14.md) replayed: the
+ * Playtest 384 and 385 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed: the
  * Mercenary Contract researched at the Research Center in game-time
  * sub-steps, the hero button as the game component derives it
  * (tower-defense.component.ts heroBar), its press as HeroControlService.hire

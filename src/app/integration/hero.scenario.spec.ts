@@ -1,5 +1,5 @@
 /**
- * Playtest 426 (docs/REVIEW_SPRINT_2026-09-14.md) replayed: the hero at a
+ * Playtest 426 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed: the hero at a
  * post through the real GameStateManager sub-step loop at 75x, with real
  * enemies, projectiles and the damage path, the harness of hero.spec.ts.
  *

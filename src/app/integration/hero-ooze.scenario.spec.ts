@@ -1,5 +1,5 @@
 /**
- * Playtest 393 (night 2, docs/REVIEW_SPRINT_2026-09-14.md) replayed: an ooze
+ * Playtest 393 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed: an ooze
  * passes the hero at his post. He shoots on while a stretch of its body is
  * within his 18 m, and the tracers fly to the body point nearest him, not to
  * its tip.

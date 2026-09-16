@@ -54,7 +54,7 @@ const DIRECTED: WaveConfig = {
 };
 
 /**
- * Playtest 357, 365, 379 and 380 (docs/REVIEW_SPRINT_2026-09-14.md)
+ * Playtest 357, 365, 379 and 380 (docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed after the dev jump: the `wave:jumped` event GameStateManager
  * sends (game-state.manager.spec.ts) goes through the real
  * GameStateSyncService into the store, the real GameLoopFacadeService starts

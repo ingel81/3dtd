@@ -1,5 +1,8 @@
 # Review-Handover: Nachtschicht 2026-09-13
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Offene Arbeit steht in [TODO.md](../../TODO.md), offene Nachtests in
+> [PLAYTEST.md](../PLAYTEST.md). Die Punktnummern bleiben gültig, Tests und Code-Kommentare zitieren sie.
+
 Nachtschicht auf dem neuen Branch `sprint/night-2026-09-13`, abgezweigt von
 `39fbb18` (Stand von `sprint/todo-2026-09-11` nach dem Playtest vom
 2026-09-12). Der Haupt-Checkout `D:/Source/3dtd` steht auf diesem Branch.
@@ -175,7 +178,7 @@ vorhandenen Specs.
 
 ### Doku (docs, `e7ef496` bis `7f1e529`, dazu die Doku-Commits der Feature-Worker)
 
-- Neu [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md): der Korridor, wie er auf dem
+- Neu [ROUTE_CORRIDOR.md](../ROUTE_CORRIDOR.md): der Korridor, wie er auf dem
   Branch arbeitet, jede Aussage mit Dateiverweis; bisher über
   ROUTE_GEOMETRY_ANALYSIS und zwei Handovers verteilt.
 - 15 Dokumente gegen den Code abgeglichen, dazu README, darunter
@@ -183,7 +186,7 @@ vorhandenen Specs.
   TOWER_CREATION, PARTICLE_SYSTEM und LOCATION_SYSTEM. Drei überholte Dokumente
   liegen unter `docs/archive/`. INDEX.md listet jedes Dokument mit Status,
   CLAUDE.md und README folgen.
-- Neu [ABILITIES.md](ABILITIES.md) (nuke). ENEMY_MODEL_BUDGET.md hat Spalten
+- Neu [ABILITIES.md](../ABILITIES.md) (nuke). ENEMY_MODEL_BUDGET.md hat Spalten
   für Format und Half-Fehler und eine Alpha-Tabelle und beschreibt den Stand
   nach der Blender-Runde (`c19aefe`). Die Zerlegungen haben
   die Datei- und Zeilenverweise in ROUTE_CORRIDOR, ARCHITECTURE,
@@ -756,7 +759,7 @@ steht unter "Bugfixes".
 
 ## Playtest-Liste
 
-**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+**Offene Punkte standen ab 2026-09-15 in [PLAYTEST_2026-09.md](PLAYTEST_2026-09.md); was danach offen ist, steht in [TODO.md](../../TODO.md) und [PLAYTEST.md](../PLAYTEST.md).**
 
 **Stand 2026-09-14 (nach der Fix-Session):** Die offenen Punkte 117, 121,
 142, 144, 151, 154 bis 231 und 238, dazu die alten Punkte 53 und 14, sind

@@ -1,5 +1,8 @@
 # Playtest-Liste
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Offene Arbeit steht in [TODO.md](../../TODO.md), offene Nachtests in
+> [PLAYTEST.md](../PLAYTEST.md). Die Punktnummern bleiben gültig, Tests und Code-Kommentare zitieren sie.
+
 Stand 2026-09-15. Das ist die eine, laufende Liste für die nächste Session: nur offene Punkte. Die alten Listen
 (REVIEW_FIX_2026-09-14, REVIEW_SPRINT_2026-09-12 bis -14) verweisen hierher. Code-Stand: Branch `next` (umbenannt
 aus `sprint/night-2026-09-14`) auf `8d9cdb6c`, mit den Fixes aus Playtest 3 (Nachtests 701 bis 716).

@@ -1,5 +1,5 @@
 /**
- * Playtest 121 of night 1 (docs/REVIEW_SPRINT_2026-09-13.md) replayed: a
+ * Playtest 121 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md) replayed: a
  * small wave of three zombies, the last one just before the HQ, and a
  * nuclear strike behind it. The wave stays running until the explosion, the
  * auto-start of the next wave counts only from then on.

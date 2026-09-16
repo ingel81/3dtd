@@ -75,12 +75,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Offene Playtest-Punkte, Datenpunkte und Entscheidungen für die nächste Session; die alten Playtest-Listen der Reviews verweisen hierher |
-| [REVIEW_FIX_2026-09-14.md](REVIEW_FIX_2026-09-14.md) | Bericht (Playtest offen) | Fix-Session nach dem Playtest 2026-09-14 auf `sprint/night-2026-09-14`: Änderungen je Thema mit Revert-Probe, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 501 |
-| [REVIEW_SPRINT_2026-09-14.md](REVIEW_SPRINT_2026-09-14.md) | Bericht (Playtest offen) | Nachtschicht 2 auf `sprint/night-2026-09-14`: Änderungen je Feature mit Commit-Bereichen und Revert-Probe, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 301 |
-| [REVIEW_SPRINT_2026-09-13.md](REVIEW_SPRINT_2026-09-13.md) | Bericht (Playtest offen) | Nachtschicht auf `sprint/night-2026-09-13`: Änderungen, Entscheidungen, Review-Befunde, nummerierte Playtest-Liste ab 101 |
-| [REVIEW_SPRINT_2026-09-12.md](REVIEW_SPRINT_2026-09-12.md) | Bericht (Playtest läuft) | Zweite Sprint-Runde auf `sprint/todo-2026-09-11`: Änderungen, Review-Befunde, nummerierte Playtest-Liste mit Ergebnissen |
-| [REVIEW_SPRINT_2026-09-11.md](REVIEW_SPRINT_2026-09-11.md) | Bericht | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand. TODO.md 1.6 verweist darauf |
+| [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Offene Playtest-Punkte, Datenpunkte und Entscheidungen für die nächste Session |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks. Nachträge: Raycast-Messung, Kamera-Raycast-Cache, Benchmarks (`npm run bench`) |
 
 ## Pläne (nicht umgesetzt)
@@ -107,6 +102,12 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [UX_DISCUSSION_NOTES.md](archive/UX_DISCUSSION_NOTES.md) | Diskussionsnotizen zu Turmdrehung und Color Grading, beide entschieden |
 | [ENGINE_DEEP_REVIEW_2026-05-16.md](archive/ENGINE_DEEP_REVIEW_2026-05-16.md) | Engine-Review über `src/app/`, Dependencies, Tests (Stand 2026-05-16) |
 | [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](archive/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | Merge-Divergenz lokal ↔ origin/main (2026-08-23) |
+| [PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md) | [PLAYTEST.md](PLAYTEST.md), [TODO.md](../TODO.md); Playtest-Liste vom 15. und 16.09. mit Ergebnissen, Punkte 601 bis 748, D1 bis D6, E1 bis E19 |
+| [REVIEW_FIX_2026-09-14.md](archive/REVIEW_FIX_2026-09-14.md) | Fix-Session nach dem Playtest 2026-09-14: Änderungen je Thema, Entscheidungen, Review-Befunde, Playtest-Liste 501 bis 570 |
+| [REVIEW_SPRINT_2026-09-14.md](archive/REVIEW_SPRINT_2026-09-14.md) | Nachtschicht 2: Änderungen je Feature mit Revert-Probe, Entscheidungen, Review-Befunde, Playtest-Liste 301 bis 440 |
+| [REVIEW_SPRINT_2026-09-13.md](archive/REVIEW_SPRINT_2026-09-13.md) | Nachtschicht 1: Änderungen, Entscheidungen, Review-Befunde, Playtest-Liste 101 bis 258 |
+| [REVIEW_SPRINT_2026-09-12.md](archive/REVIEW_SPRINT_2026-09-12.md) | Zweite Sprint-Runde: Änderungen, Review-Befunde, Playtest-Liste 1 bis 56 mit Ergebnissen |
+| [REVIEW_SPRINT_2026-09-11.md](archive/REVIEW_SPRINT_2026-09-11.md) | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand (in DONE.md 2026-09-12 übernommen) |
 | `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), historisches Restart-Runbook, liegt bewusst unter `training-backend/` |
 
 ## Werkzeuge (HTML, lokal im Browser öffnen)

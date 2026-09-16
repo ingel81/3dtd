@@ -53,7 +53,7 @@ const GOLD = '#D9BC68';
 const ORANGE = '#C96A3A';
 
 /**
- * Playtest 518, 519 and 520 (docs/REVIEW_FIX_2026-09-14.md) replayed: U
+ * Playtest 518, 519 and 520 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: U
  * through HotkeyService and a click on a tile through
  * TowerDefenseComponent.upgradeTower, both into the real TowerUpgradeService
  * on real towers; the purchase through the facade's command into

@@ -31,7 +31,7 @@ const HQ: GeoPosition = { lat: 48.7758, lon: 9.1829 };
 const ROUTE: GeoPosition[] = [{ lat: HQ.lat - 300 / METERS_PER_DEGREE_LAT, lon: HQ.lon }, HQ];
 
 /**
- * Playtest 510, 511 and 513 (docs/REVIEW_FIX_2026-09-14.md) replayed: the
+ * Playtest 510, 511 and 513 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: the
  * real research, ability and hero managers on one bus, the cheats through
  * GameCommandsHandler, the bar's buttons as AbilityBarComponent derives them
  * from the GameStore snapshot. The hero button is heroBarView, which the game

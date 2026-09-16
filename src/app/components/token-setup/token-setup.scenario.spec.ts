@@ -1,5 +1,5 @@
 /**
- * Playtest 161 of night 1 (docs/REVIEW_SPRINT_2026-09-13.md) replayed:
+ * Playtest 161 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md) replayed:
  * "Map Key" opens the token screen, Esc closes it; with the key deleted and
  * the page reloaded, the token screen is back and Esc does not leave it.
  *

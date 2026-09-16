@@ -188,7 +188,7 @@ Vergleich mit `bake-compare.mjs`; Normalen zusätzlich Vertex für Vertex vergli
 
 ### Runde vom 2026-09-15
 
-Nach der Playtest-Entscheidung E18 (docs/PLAYTEST.md). Rezepte wie oben in
+Nach der Playtest-Entscheidung E18 (docs/archive/PLAYTEST_2026-09.md). Rezepte wie oben in
 `optimize_enemy.py`; Vergleich mit `bake-compare.mjs` und mit Workbench-Renders aus Blender
 (vier Ansichten, vorher und nachher).
 

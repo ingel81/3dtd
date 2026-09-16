@@ -1,6 +1,6 @@
 /**
  * The first-run tips through the playtest steps 502 to 507 of
- * docs/REVIEW_FIX_2026-09-14.md, checked here instead of by hand. Research,
+ * docs/archive/REVIEW_FIX_2026-09-14.md, checked here instead of by hand. Research,
  * abilities and the hero are the real managers on the bus, so the research
  * center, the Research Wing and the research cheat send what the game
  * sends. Towers, waves, the strike and the hire go out in the shape their

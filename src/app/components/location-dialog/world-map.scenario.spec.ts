@@ -1,5 +1,5 @@
 /**
- * Playtest 340 to 343, 345 and 346 (docs/REVIEW_SPRINT_2026-09-14.md, world
+ * Playtest 340 to 343, 345 and 346 (docs/archive/REVIEW_SPRINT_2026-09-14.md, world
  * map). The waves go over a real GameEventBus into the real BestWaveService
  * and its localStorage key; the location dialog and the game-over hint are
  * rendered with their real templates (read from disk, the vitest build has

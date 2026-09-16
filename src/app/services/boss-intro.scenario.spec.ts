@@ -73,7 +73,7 @@ function boss(type: 'herbert' | 'worm' | 'ooze'): Boss {
 }
 
 /**
- * Night-2 playtest 366 to 371 and 423 (docs/REVIEW_SPRINT_2026-09-14.md)
+ * Night-2 playtest 366 to 371 and 423 (docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed on the real BossIntroService with the real boss configs: the
  * wave's spawns come over the event bus as EnemyManager emits them, the
  * frames through update() as GameLoopFacadeService ticks it after the

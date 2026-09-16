@@ -60,7 +60,7 @@ const STEP_MS = 16.667;
 const AUTO_SECONDS = AUTO_WAVE_DELAY_MS / 1000;
 
 /**
- * Playtest 324 (docs/REVIEW_SPRINT_2026-09-14.md) replayed: the auto-start
+ * Playtest 324 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed: the auto-start
  * switch under the wave button. The switch is UIStore.autoStartWaves
  * (SidebarWavePanelComponent.toggleAutoStart), the countdown runs in
  * GameLoopFacadeService on the game clock, the button text is waveButtonView
@@ -173,7 +173,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
 });
 
 /**
- * Playtest 326, 327, 365 and 372 (docs/REVIEW_SPRINT_2026-09-14.md) replayed
+ * Playtest 326, 327, 365 and 372 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed
  * on the NEXT timeline: the real WaveTimelineComponent with the marks the
  * WAVE panel hands it (peekUpcomingWaves with the store's wave, the tower DPS
  * and the blood moon switch). The pointer and focus handlers of the template

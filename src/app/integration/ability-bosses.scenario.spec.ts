@@ -1,5 +1,5 @@
 /**
- * Playtest 398 and the logic of 399 (night 2, docs/REVIEW_SPRINT_2026-09-14.md)
+ * Playtest 398 and the logic of 399 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed through the real EnemyManager and WaveManager, rendering mocked.
  *
  * 398: frost bomb and EMP on part of the worm: the rings in the radius are

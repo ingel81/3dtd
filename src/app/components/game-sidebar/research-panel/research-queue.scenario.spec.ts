@@ -25,7 +25,7 @@ import { GAME_BALANCE } from '../../../configs/game-balance.config';
 const STEP_MS = 16.667;
 
 /**
- * Playtest 508 and 509 (docs/REVIEW_FIX_2026-09-14.md) replayed: the
+ * Playtest 508 and 509 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: the
  * research panel decides between start and queue, its outputs go to the
  * bus as commands, GameCommandsHandler and ResearchManager do the rest,
  * sub-step by sub-step as GameStateManager.runSubStep runs them.

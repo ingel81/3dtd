@@ -1,5 +1,5 @@
 /**
- * Playtest 400 (night 2, docs/REVIEW_SPRINT_2026-09-14.md), the preset part:
+ * Playtest 400 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md), the preset part:
  * Display, preset Low: frost without shards and mist, EMP and laser without
  * sparks.
  *

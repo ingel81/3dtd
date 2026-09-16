@@ -200,7 +200,7 @@ function createMockEngine(): never {
 }
 
 /**
- * Playtest 381 and 382 (docs/REVIEW_SPRINT_2026-09-14.md) replayed with the
+ * Playtest 381 and 382 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed with the
  * real GameStateManager: its jumpToWave, its AbilityManager, and the
  * `wave:jumped` and `credits:changed` it sends read by the real run tally
  * (RunStatsTracker, the game-over summary) and the real BestWaveService (the

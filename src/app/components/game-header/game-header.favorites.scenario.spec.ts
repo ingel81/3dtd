@@ -19,7 +19,7 @@ import { PathAndRouteService } from '../../services/world/path-route.service';
 import { ownsKey } from '../../utils/keyboard-target';
 
 /**
- * Playtest 538 to 540 (docs/REVIEW_FIX_2026-09-14.md) replayed on the
+ * Playtest 538 to 540 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed on the
  * header's class without a view: its methods are what the template binds
  * (pencil, arrows, (keydown.enter), (keydown.escape), document:click), the
  * name field is a real input handed in as the template's #favInput. Rename

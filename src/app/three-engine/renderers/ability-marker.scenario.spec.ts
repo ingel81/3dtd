@@ -12,7 +12,7 @@ function bands(scene: Scene): Mesh<BufferGeometry>[] {
 }
 
 /**
- * Playtest 427 (night 2, docs/REVIEW_SPRINT_2026-09-14.md) replayed on the
+ * Playtest 427 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed on the
  * real renderer: aim the laser (gold band), cancel, change the location over
  * the world map. A location change keeps the engine
  * (LocationChangeExecutorService step 2: setOrigin and gameState.reset());

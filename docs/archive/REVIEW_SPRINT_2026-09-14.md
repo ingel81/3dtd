@@ -1,5 +1,8 @@
 # Review-Handover: Nachtschicht 2026-09-14
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Offene Arbeit steht in [TODO.md](../../TODO.md), offene Nachtests in
+> [PLAYTEST.md](../PLAYTEST.md). Die Punktnummern bleiben gültig, Tests und Code-Kommentare zitieren sie.
+
 Zweite Nachtschicht, auf dem neuen Branch `sprint/night-2026-09-14`,
 abgezweigt von `1ca6713a` (Ende der Nacht 1 plus Playtest-Doku). Der
 Haupt-Checkout `D:/Source/3dtd` steht auf diesem Branch. Alles liegt lokal,
@@ -384,7 +387,7 @@ stehen die Hashes des Branches.
   30 s, nach Siege Engineering), danach einmal anheuern für 1 000. Der Weg
   kostet zusammen 2 500 (Gatling 400, Siege Engineering 500, Forschung,
   Anheuern); das kumulierte Einkommen erreicht 3 000 um W6, realistisch
-  kauft man ihn W8 bis W10 (Herleitung in [HERO.md](HERO.md)). Bots
+  kauft man ihn W8 bis W10 (Herleitung in [HERO.md](../HERO.md)). Bots
   überspringen die Forschung. `1e13ad5c` zählt ihn im Economy-Roster und
   erzeugt die Charts neu.
 - **Steuerung**: Held-Knopf oben in der linken Leiste (vor dem Anheuern eine
@@ -465,7 +468,7 @@ stehen die Hashes des Branches.
   Flughöhe, Wahl des Spawnpunkts), die Sichtlinie der Tower kommt aus
   GPU-Readbacks gegen gestreamte Tiles, die Turmdrehung, die das Feuern
   freigibt, lebt im Renderer, und die Simulationsdienste sind Singletons des
-  laufenden Spiels. Belege in [REPLAY.md](REPLAY.md). Zufall, GPU-LOS und
+  laufenden Spiels. Belege in [REPLAY.md](../REPLAY.md). Zufall, GPU-LOS und
   Zellhöhen stehen auch in MULTIPLAYER_CONCEPT.md Abschnitt 2, Turmdrehung
   im Renderer und Singleton-Dienste kommen dazu. Alle `command:*` der Welle stehen trotzdem als
   Klartext im Log, mit der `WaveConfig` des Starts.
@@ -1070,7 +1073,7 @@ Von review5 sind die zwei Hinweise offen (17).
 
 ## Playtest-Liste
 
-**Offene Punkte stehen jetzt in [docs/PLAYTEST.md](PLAYTEST.md) (Stand 2026-09-15).**
+**Offene Punkte standen ab 2026-09-15 in [PLAYTEST_2026-09.md](PLAYTEST_2026-09.md); was danach offen ist, steht in [TODO.md](../../TODO.md) und [PLAYTEST.md](../PLAYTEST.md).**
 
 **Ergebnisse Playtest 2026-09-14 (Nachmittag, nach der Fix-Session)**,
 vorsortiert in `tmp/fix1/reports/sorter-night2.md` (überholt, per Test,

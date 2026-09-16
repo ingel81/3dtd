@@ -1,5 +1,5 @@
 /**
- * Playtest 169 and 180 of night 1 (docs/REVIEW_SPRINT_2026-09-13.md) replayed.
+ * Playtest 169 and 180 of night 1 (docs/archive/REVIEW_SPRINT_2026-09-13.md) replayed.
  *
  * 169: Dev, Dump: the file name carries the place's name instead of
  *      "unknown". The real DebugStateDumpService; the name comes from

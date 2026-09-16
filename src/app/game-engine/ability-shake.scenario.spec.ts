@@ -24,7 +24,7 @@ const NUKE = ABILITIES['nuclear-strike'];
 const WARNING_STEPS = 90;
 
 /**
- * Playtest 320 (night 2, docs/REVIEW_SPRINT_2026-09-14.md), the shake:
+ * Playtest 320 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md), the shake:
  * Display, "Screen Shake" off, then fire the nuclear strike again. The
  * switch goes through DebugFacadeService.onScreenShakeToggled to the game
  * state's ScreenShakeService; the strike is the real AbilityManager's, its
