@@ -319,12 +319,35 @@ describe('GlobalRouteGrid tile seams', () => {
     expect(cell.terrainHeight).toBeCloseTo(2.15, 6);
   });
 
-  it('leaves a cell without stable cells on opposite sides unsampled', () => {
-    // A gap three cells wide.
+  it('leaves a cell unsampled that neither lies between stable cells nor touches three of them', () => {
+    // A gap three cells wide: the middle one touches none.
     const grid = street((x) => (Math.abs(x - 21) < 2.6 ? null : seam(x)));
     const cell = grid.getCellAt(21, 1)!;
     expect(cell.sample.state).toBe('unsampled');
     expect(overlayCellKind(cell) & 7).toBe(2);
+  });
+
+  /**
+   * Playtest 2026-09-16, Rothenburg: seven cells at the edge of the corridor
+   * before the arcade of the town hall stayed without a height, and the
+   * fallback level found no column there either. Under eaves a column from
+   * above meets only the underside of the mesh. Beyond such a cell there is
+   * no cell, so it has no stable pair; the cells towards the line have the
+   * ground.
+   */
+  it('fills a cell at the edge whose columns meet nothing from the three stable cells beside it', () => {
+    // The outer row (z = 5, centre 4 m off the line) meets nothing from x = 10 to 30.
+    const grid = new GlobalRouteGrid();
+    grid.initialize(((x: number, z: number) => (z > 4 && x > 10 && x < 30 ? null : seam(x))) as never, coordinateSync);
+    grid.generateFromRoutes([[{ lat: 1, lon: 0, corridorLeft: 4, corridorRight: 4 }, { lat: 1, lon: 40 }]]);
+
+    for (const x of [13, 17, 25]) {
+      const cell = grid.getCellAt(x, 5)!;
+      expect(cell.sample.state, `x=${x}`).toBe('filled');
+      // The middle of the three at z = 3 along the rising ground.
+      expect(cell.terrainHeight, `x=${x}`).toBeCloseTo(x * 0.1, 6);
+    }
+    expect(grid.cellsWithoutHeight()).toBe(0);
   });
 });
 
