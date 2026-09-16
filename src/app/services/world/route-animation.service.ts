@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { Color, Group, Vector3, Vector2, BufferGeometry, Float32BufferAttribute } from 'three';
+import { Color, Group, Vector3, Vector2 } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
@@ -129,7 +129,7 @@ export class RouteAnimationService {
     for (const [spawnId, path] of cachedPaths) {
       if (path.length < 2) continue;
 
-      const animatedRoute = this.createAnimatedRoute(spawnId, path, this.MAIN_COLOR);
+      const animatedRoute = this.createAnimatedRoute(spawnId, path);
       if (animatedRoute) {
         this.animatedRoutes.push(animatedRoute);
       }
@@ -263,14 +263,9 @@ export class RouteAnimationService {
    * Create an animated route from path data
    * @param id Route identifier
    * @param path Path as GeoPosition array
-   * @param color Route color (unused, using configured colors)
    * @returns AnimatedRoute or null if creation failed
    */
-  private createAnimatedRoute(
-    id: string,
-    path: GeoPosition[],
-    _color: Color
-  ): AnimatedRoute | null {
+  private createAnimatedRoute(id: string, path: GeoPosition[]): AnimatedRoute | null {
     if (!this.engine || !this.overlayGroup) return null;
 
     // Convert GeoPosition[] to local Vector3[]
@@ -332,39 +327,6 @@ export class RouteAnimationService {
   private convertPathToLocalPoints(path: GeoPosition[]): Vector3[] {
     if (!this.engine) return [];
     return routePathToLocalPoints(this.engine, path, this.pathAndRoute.routeLineLift());
-  }
-
-  /**
-   * Create BufferGeometry with position and cumulative distance attributes
-   * @param points Array of Vector3 points
-   * @returns Geometry and total length
-   */
-  private createLineGeometryWithDistances(points: Vector3[]): {
-    geometry: BufferGeometry;
-    totalLength: number;
-  } {
-    const positions: number[] = [];
-    const distances: number[] = [];
-    let cumulativeDistance = 0;
-
-    for (let i = 0; i < points.length; i++) {
-      const point = points[i];
-      positions.push(point.x, point.y, point.z);
-
-      if (i > 0) {
-        const prev = points[i - 1];
-        const segmentLength = point.distanceTo(prev);
-        cumulativeDistance += segmentLength;
-      }
-
-      distances.push(cumulativeDistance);
-    }
-
-    const geometry = new BufferGeometry();
-    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('aLineDistance', new Float32BufferAttribute(distances, 1));
-
-    return { geometry, totalLength: cumulativeDistance };
   }
 
   /**
