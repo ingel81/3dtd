@@ -1004,10 +1004,16 @@ Tile-Schub, keine Kamerafahrt, kein Tower. Erst der nächste Bau tut es.
 nicht zeichnet, steht `requestAnimationFrame`. Der Renderer traversiert dann
 nicht und fragt keine Tiles an, auch nicht die der Region. Der Bau wartet
 seine 30 s ab, misst auf nichts und friert die OSM-Breiten ein; die Warnung
-`no station found a tile` sagt es (siehe Logs). Das Tab später in den
-Vordergrund zu holen misst **nichts** nach, denn nach dem Einfrieren misst
-nichts mehr nach. Es braucht einen neuen Bau: Ort neu laden, HQ oder Spawn
-umsetzen, oder `__corridor.set()`.
+`no station found a tile` oder `no cell got a height` sagt es (siehe Logs),
+und `CorridorBuild.frozeBlind()` merkt es sich.
+
+Wird die Seite danach sichtbar, baut der Korridor von selbst noch einmal, nun
+mit Tiles (`VisualizationFacadeService.rebuildAfterBlindBuild`, am
+`visibilitychange` des Dokuments). Nicht, solange Tower stehen, eine Welle
+läuft oder Gegner auf der Karte sind (`rebuildBlocker`): Deren LOS-Antworten,
+Zellen und Routen stehen auf dem Korridor in Gebrauch. Dann bleibt es bei den
+OSM-Breiten, und die Warnung im Log ist der Hinweis darauf; ein Neuladen des
+Orts baut ihn neu.
 
 | Auslöser | Wann |
 |---|---|
@@ -1079,6 +1085,7 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
 ```
 [Corridor] build: reason= tiles= measure= fallback= passes=N () lines= wall=ms stations= unmeasured= cells= [tiles timed out]
 [Corridor] build: no station found a tile (N stations[, and the tiles never settled]). ...   (console.warn)
+[Corridor] build: no cell got a height (N cells[, and the tiles never settled]). ...         (console.warn)
 [Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [noTile=x,z;x,z;...]
 [Corridor] clearance cancelled (Grund): stations=N of M in X ms slices= wall= ms, corridor unchanged
 ```
@@ -1116,13 +1123,14 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
   `unmeasured`, `cells` und, wenn die Tiles nicht ruhig wurden,
   `tiles timed out`. Ein Bau, der aufhört, ohne einzufrieren, schreibt keine
   Zeile und steht nur als `build.cancel` im Trace.
-- **`build: no station found a tile`** (`console.warn`, dazu `build.notiles`
-  im Trace): Kein einziger Messpunkt hatte ein Tile. Jede Route behält die
-  Breite aus ihren OSM-Tags, und der Korridor friert so ein, bis ein neuer
-  Bau läuft. Darum eine Warnung und kein Hinweis. Gesehen im Browser-Check
-  vom 2026-09-16 in einem Hintergrund-Tab (siehe "Grenzfall Hintergrund-Tab"
-  oben); sonst deutet die Zeile auf Tiles, die gar nicht laden (Token,
-  Netz, voller Cache).
+- **`build: no station found a tile`** und **`build: no cell got a height`**
+  (`console.warn`, dazu `build.notiles` im Trace): Der Bau maß auf nichts,
+  entweder hatte keine Station ein Tile oder keine Zelle bekam eine Höhe.
+  Jede Route behält dann die Breite aus ihren OSM-Tags, und der Korridor
+  friert so ein, bis ein neuer Bau läuft. Darum eine Warnung und kein
+  Hinweis. Gesehen im Browser-Check vom 2026-09-16 in einem Hintergrund-Tab
+  (siehe "Grenzfall Hintergrund-Tab" oben); sonst deutet die Zeile auf Tiles,
+  die gar nicht laden (Token, Netz, voller Cache).
 - **Gemessen** (Playtest 2026-09-12, Innenstadt, eine Route, Punkt 52 in
   REVIEW_SPRINT_2026-09-12, noch am Stück): Neuaufbau 39,5 bis 41,7 ms; die
   Messung davor mit 1260 Strahlen 520 bis 533 ms. Weitere Orte sind nicht
@@ -1167,7 +1175,7 @@ vitest (Specs schalten ihn selbst ein).
 | `build.fallback` | ein Wechsel auf die gröbere Stufe und zurück | `what`: `stations` oder `cells`; `missing`, `found` |
 | `build.pass` | je Durchgang aus Routen, Zellen und Laufweg | `pass`, `changed` (der Laufweg hat etwas weggenommen), `cells`, `ms` |
 | `build.unsettled` | die Durchgänge kamen nicht zur Ruhe, der Bau friert mit dem letzten Plan ein | `passes`, `why` |
-| `build.notiles` | kein Messpunkt fand ein Tile; der Korridor friert mit den OSM-Breiten ein | `stations`, `timedOut` |
+| `build.notiles` | der Bau maß auf nichts: keine Station mit Tile oder keine Zelle mit Höhe; der Korridor friert mit den OSM-Breiten ein | `stations`, `unmeasured`, `cells`, `bare` (Zellen ohne eigene Höhe), `timedOut` |
 | `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
 | `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `passes`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `passesMs` |
 | `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |

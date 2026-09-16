@@ -399,6 +399,9 @@ describe('VisualizationFacadeService', () => {
     grid.isInitialized.mockReturnValue(false);
     grid.getCoordinateSync.mockReturnValue({ sync: true });
     grid.retryUnsampledCells.mockReturnValue({ promoted: 0 });
+    // clearAllMocks keeps implementations: without this a test that makes a
+    // build measure nothing would leave the next one blind as well.
+    pathRoute.unmeasuredStations.mockReturnValue(0);
     introFlight.isRunning.mockReturnValue(false);
     introFlight.prepare.mockReturnValue(true);
     introFlight.readiness.mockReturnValue(0);
@@ -426,6 +429,66 @@ describe('VisualizationFacadeService', () => {
     delete (globalThis as Record<string, unknown>)['__corridor'];
     vi.unstubAllGlobals();
     vi.restoreAllMocks();
+  });
+
+  /**
+   * A location that loads in a hidden tab loads no tiles at all: the browser
+   * stops rAF, the tiles renderer never traverses and never asks for any, so
+   * the build measures on nothing and freezes the OSM street widths. Nothing
+   * re-measures after a freeze, so the facade builds once more as soon as the
+   * page is visible (browser check 2026-09-16).
+   */
+  describe('a corridor that was built without tiles', () => {
+    /** A build in which no station found a tile; there are no tiles in this spec anyway. */
+    const blindBuild = async () => {
+      corridor.slices = 3;
+      pathRoute.unmeasuredStations.mockReturnValue(3);
+      await untilDone(facade.scheduleOverlayHeightUpdate());
+    };
+    /** The page becomes visible, then the frames the build that follows waits for. */
+    const show = async () => {
+      document.dispatchEvent(new Event('visibilitychange'));
+      for (let i = 0; i < 50; i++) {
+        runFrames();
+        for (let j = 0; j < 10; j++) await Promise.resolve();
+      }
+    };
+
+    it('builds again once the page is visible', async () => {
+      await blindBuild();
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+
+      await show();
+
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(2);
+    });
+
+    it('leaves the corridor alone while towers stand on it', async () => {
+      await blindBuild();
+      towerCount = 1;
+
+      await show();
+
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+    });
+
+    it('builds nothing again after a build that measured its stations', async () => {
+      corridor.slices = 3;
+      await untilDone(facade.scheduleOverlayHeightUpdate());
+
+      await show();
+
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+    });
+
+    it('stops listening on dispose', async () => {
+      await blindBuild();
+      facade.dispose();
+
+      await show();
+
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('initializeVisualizationServices', () => {

@@ -81,7 +81,7 @@ describe('CorridorBuild', () => {
       cellsWithoutHeight: () => state.bare,
       retryUnsampledCells: () => {
         calls.push('retryCells');
-        state.bare = 0;
+        state.bare = Math.max(0, state.bare - state.promoted);
         return { promoted: state.promoted };
       },
       initSpatialGridVisualizationIfEnabled: () => calls.push('overlays'),
@@ -252,6 +252,32 @@ describe('CorridorBuild', () => {
       expect(warn).toHaveBeenCalledWith(expect.stringContaining(
         'no station found a tile (3 stations, and the tiles never settled)',
       ));
+      expect(corridor.frozeBlind()).toBe(true);
+    });
+
+    it('warns when the stations measured but no cell got a height', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      // Every cell of the fake grid, and the fallback level promotes none.
+      state.bare = 42;
+      state.promoted = 0;
+
+      const result = await corridor.build('location load');
+
+      expect(result).toMatchObject({ cells: 42, cellsWithoutHeight: 42, unmeasured: 0, fallbackCells: 0 });
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining('no cell got a height (42 cells)'));
+      expect(corridor.frozeBlind()).toBe(true);
+    });
+
+    it('calls no build blind that measured its stations and sampled its cells', async () => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      state.bare = 3;
+      state.promoted = 3;
+
+      const result = await corridor.build('location load');
+
+      expect(result).toMatchObject({ cellsWithoutHeight: 0, fallbackCells: 3 });
+      expect(warn).not.toHaveBeenCalled();
+      expect(corridor.frozeBlind()).toBe(false);
     });
 
     it('builds with what came when the tiles do not settle within the timeout, and says so', async () => {

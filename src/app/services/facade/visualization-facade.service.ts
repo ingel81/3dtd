@@ -67,7 +67,6 @@ import { perfTrace } from '../../utils/perf-trace';
  * - CorridorLodProbe: `__corridor.probeLod()` and `fingerprint()`
  * - TilesConsole: `__tiles` in DevTools
  * - TowerTargetConsole: `__towerTargets` in DevTools
- * - RouteGridConvergence: cell refresh after tile loads, baked heights
  * - IntroLoadingGate: loading screen held for the intro flight
  * - CameraOverview: overview frame, initial view, camera debug toggles
  * - DpsBinsOverlay: DPS profile bins
@@ -196,6 +195,11 @@ export class VisualizationFacadeService {
   /** EventBus subscription bag — cleaned up in dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
+  /** The page was shown or hidden, see rebuildAfterBlindBuild(). */
+  private readonly onVisibilityChange = (): void => {
+    void this.rebuildAfterBlindBuild();
+  };
+
   /**
    * Initialize sub-facade with bridge and game state.
    */
@@ -206,9 +210,32 @@ export class VisualizationFacadeService {
 
     // Towers and waves wait while the corridor is built.
     gameState.setCorridorPending(() => this.corridor.pending());
+    // A location that loads in a hidden tab gets no tiles at all, and the
+    // corridor freezes on nothing; build again when the page is shown.
+    // Adding the same listener twice (a location change) does nothing.
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
     this.corridorConsole.install();
     this.tilesConsole.install();
     this.towerTargetConsole.install();
+  }
+
+  /**
+   * The page became visible. A location that loaded in a hidden tab loaded
+   * no tiles: the browser stops rAF there, so the tiles renderer never
+   * traverses and never asks for any. The build then measured on nothing and
+   * froze the OSM street widths (CorridorBuild.frozeBlind). Nothing
+   * re-measures after a freeze, so build once more, now that tiles can load.
+   *
+   * Not while towers stand, a wave runs or enemies walk (rebuildBlocker):
+   * their LOS answers, cells and routes stand on the corridor in use. The
+   * warning of the blind build stays in the log for that case.
+   */
+  private async rebuildAfterBlindBuild(): Promise<void> {
+    if (!this.initialized || document.hidden) return;
+    if (!this.corridor.frozeBlind() || this.corridor.pending()) return;
+    if (this.corridor.rebuildBlocker()) return;
+    console.log('[Corridor] the page is visible again and the corridor was built without tiles: building it again.');
+    await this.corridor.build('page visible after a build without tiles');
   }
 
   /**
@@ -217,6 +244,7 @@ export class VisualizationFacadeService {
   dispose(): void {
     this.eventBusSubs.disposeAll();
     if (this.initialized) this.gameState.setCorridorPending(null);
+    document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.corridor.dispose();
     this.corridorConsole.uninstall();
     this.tilesConsole.uninstall();
