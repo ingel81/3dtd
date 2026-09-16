@@ -19,7 +19,7 @@ export interface CellSample {
    *   is still a fallback (route-anchor Y). Viz call sites skip these cells.
    * `filled`: no usable hit of its own, but the cell lies between stable
    *   cells of its surface (a seam between two tile meshes) or touches at
-   *   least three of them (eaves over the edge of the corridor), and
+   *   least three of them (a hole at the edge of the corridor), and
    *   `terrainHeight` is taken from them (GlobalRouteGrid fillGaps); or a
    *   tunnel cell whose portal without a hit stands on the street of the
    *   band (RouteCellSampler.tunnelColumn). Counts as having a height;
