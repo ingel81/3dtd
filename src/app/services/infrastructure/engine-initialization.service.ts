@@ -253,8 +253,6 @@ export class EngineInitializationService {
     onInitializeGameState: () => string | undefined;
     onScheduleHeightUpdate: () => Promise<void>;
     onSetupClickHandler: () => void;
-    onCreateBuildPreview: () => void;
-    onSaveInitialCameraPosition: () => void;
     onCheckAllLoaded: () => void;
   }): Promise<void> {
     try {
@@ -309,9 +307,8 @@ export class EngineInitializationService {
       // Preload 3D models in background
       this.engine.preloadModels();
 
-      // Setup click handler and build preview
+      // Setup click handler
       callbacks.onSetupClickHandler();
-      callbacks.onCreateBuildPreview();
 
       // Start render loop outside Angular zone to avoid triggering change detection on every frame
       const engine = this.engine;
