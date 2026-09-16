@@ -1464,8 +1464,8 @@ Werkzeuge für die Entscheidung "einmal im Ladebildschirm auf fester LOD messen"
   3. Je Ziel: Fehlerziel der Region setzen, warten, bis 0,5 s lang nichts
      lädt (`QUIET_MS`, wie der Debounce des `TileLoadingTracker`), höchstens
      `timeoutS`. Dann jede Station einmal messen
-     (`PathAndRouteService.measureAllStations`), am Stück und mit einem
-     eigenen, leeren Säulen-Cache (`TerrainQueries.withScratchColumnCache`).
+     (`PathAndRouteService.measureAllStations`), am Stück; die Säulen einer
+     Station berühren den Säulen-Cache nicht (siehe Messung).
      Nichts davon wird gespeichert oder gebaut.
   4. Am Ende, auch nach Timeout, Fehler oder Abbruch: beide Fehlerziele
      zurück auf die Werte von vorher, warten, bis die Tiles ruhig sind, dann
