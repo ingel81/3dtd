@@ -811,22 +811,30 @@ Den Kontext (Spielbereich, HQ, Spawns, Tower, Routen) stellt der
 `placementChecker()` für viele hintereinander (Kandidatensuche der Bots im
 `StrategicPlacementService`). Die erste verletzte Regel liefert den Grund.
 
-| Regel | Wert | Beschreibung |
-|-------|------|--------------|
-| Spielbereich | Bounds des Straßennetzes | Position innerhalb der geladenen Straßen |
-| `MIN_DISTANCE_TO_BASE` | 30m | Mindestabstand zum HQ |
-| `MIN_DISTANCE_TO_SPAWN` | 60m | Mindestabstand zu Spawns |
-| `MIN_DISTANCE_TO_OTHER_TOWER` | 8m | Mindestabstand zu anderen Türmen |
-| `MIN_DISTANCE_TO_ROUTE` | 10m | Mindestabstand zu den Gegnerrouten (Abstand zum Segment) |
+| Regel | Wert | Beschreibung | Grund |
+|-------|------|--------------|-------|
+| Spielbereich | Bounds des Straßennetzes | Position innerhalb der geladenen Straßen | Outside play area |
+| `MIN_DISTANCE_TO_BASE` | 30m | Mindestabstand zum HQ | Too close to HQ |
+| `MIN_DISTANCE_TO_SPAWN` | 60m | Mindestabstand zu Spawns | Too close to spawn |
+| `MIN_DISTANCE_TO_OTHER_TOWER` | 8m | Mindestabstand zu anderen Türmen | Too close to another tower |
+| `MIN_DISTANCE_TO_ROUTE` | 10m | Mindestabstand zu den Gegnerrouten (Abstand zum Segment) | Too close to route |
+| Wand (`MAX_RISE`) | 5m | Keine Probe der Mitte oder des inneren Rings (halber `footprintRadius`) mehr als 5 m über der Cursor-Fläche | Not enough room |
+| Abbruch (`MAX_DROP`, `MAX_SLOPE`) | 3m, 1,5 m/m | Mitte und innerer Ring nicht über einem Abbruch, den der Sockel nicht hinabreicht, und nicht ohne Treffer; nur der äußere Ring darf über eine Kante ragen | Too far over the edge |
 
 Alle Abstände sind horizontal (Haversine zu HQ, Spawns und Towern, `distanceToSegment` zur
-Route). Gebäude sind kein Hindernis: Der
-Tower wird auf Dachhöhe gehoben und steht dann auf dem Dach.
+Route). Ein Gebäude ist kein Hindernis: Der Tower wird auf Dachhöhe gehoben und steht dann auf
+dem Dach. Die letzten beiden Regeln prüfen den Grund unter der Grundfläche und brauchen den
+Footprint (`checkTowerPlacement(lat, lon, ctx, footprint)`, `TowerFootprint.refusal`, siehe
+Ausschluss im nächsten Abschnitt). Die Vorschau prüft mit dem Footprint, den sie zeigt, der Klick
+mit dem, den er setzt, der Trainings-Bot über `placementAt`. `placementChecker()` in der
+Kandidatensuche prüft ohne Footprint nur die Abstände; `StrategicPlacementService` probt danach
+den Footprint vom besten Kandidaten an, bis einer steht (BOT_SYSTEM.md).
 
 ### Sockel auf unebenem Grund
 
-Ob ein Tower an einer Stelle stehen darf, entscheiden allein die Regeln oben. Wie hoch er dort
-steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
+Wie hoch ein Tower steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`).
+Derselbe Boden schließt einen Platz aus, an dem die innere Hälfte der Grundfläche in einer Wand
+steht oder über einem Abbruch hängt (Wand und Abbruch in den Regeln oben):
 
 - **Abtastung:** `TowerPlacementService.resolveFootprint` liest senkrecht von oben die Säule jeder
   Probe, Boden und oberste Fläche: auf den 3D-Tiles über `TerrainQueries.raycastColumnSample`
@@ -835,20 +843,29 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   Mitte, auf einem Ring bei halbem und einem bei vollem Radius, höchstens 2 m auseinander
   (`footprintSampleOffsets`, 19 bis 27 Proben je nach Tower, 49 beim Research Center). Neu
   geprobt wird wie die Validierung erst, wenn der Cursor 1 m gewandert ist.
-- **Bauvorschau:** Sie probt zuerst die Mitte und den inneren Ring. Liegen die weniger als 0,2 m
-  neben der Cursor-Fläche (`levelWithCursor`), gilt vorläufig ebener Grund, und der äußere Ring
-  folgt erst, wenn der Cursor einen Frame lang innerhalb dieses Meters bleibt
-  (`tickBuildPreviewViz`), spätestens beim Klick. Beim Überstreichen ebenen Grunds kostet eine
-  Validierung damit 7 bis 10 statt 19 bis 27 Säulen (Research Center 17 statt 49). Uneben wird
-  sofort alles geprobt. Das Ergebnis ist dasselbe; ein Sockel, den nur der äußere Ring verlangt
-  (etwa an einer Dachkante), erscheint erst, wenn der Cursor ruht. Der Trainings-Bot probt
-  immer alles (`resolveFootprint`).
+- **Bauvorschau:** Sie probt zuerst die Mitte und den inneren Ring. Haben alle etwas getroffen und
+  liegen weniger als 0,2 m neben der Cursor-Fläche (`levelWithCursor`), gilt vorläufig ebener
+  Grund, und der äußere Ring folgt erst, wenn der Cursor einen Frame lang innerhalb dieses Meters
+  bleibt (`tickBuildPreviewViz`), spätestens beim Klick. Beim Überstreichen ebenen Grunds kostet
+  eine Validierung damit 7 bis 10 statt 19 bis 27 Säulen (Research Center 17 statt 49). Uneben
+  oder ohne Treffer wird sofort alles geprobt. Das Ergebnis ist dasselbe; ein Sockel, den nur der
+  äußere Ring verlangt (etwa an einer Dachkante), erscheint erst, wenn der Cursor ruht. Ob der
+  Platz gültig ist, steht schon vorher fest: ein ebener innerer Ring liegt weder in einer Wand
+  noch über einem Abbruch, was auch der äußere Ring zeigt. Der Klick probt den äußeren Ring,
+  bevor er die Regeln mit dem vollständigen Footprint prüft. Der Trainings-Bot probt immer alles
+  (`placementAt`).
 - **Entscheidung** (`resolveTowerFootprint`, Werte in `PLINTH_CONFIG`): Jede Probe zählt mit der
   obersten Fläche ihrer Säule. Weichen die Proben weniger als 0,2 m voneinander ab
-  (`MIN_UNEVENNESS`), bleibt der Tower auf der Fläche unter dem Cursor, ohne Sockel, wie früher.
+  (`MIN_UNEVENNESS`), bleibt der Tower auf der Fläche unter dem Cursor, ohne Sockel, wie früher,
+  außer er hängt über einem Abbruch (Stützen, unten).
   Sonst steht sein Fuß auf der höchsten Probe, die ihn heben darf (unten), und ein Sockel reicht
-  bis zur tiefsten Probe. Proben mehr als 5 m über der Cursor-Fläche (`MAX_RISE`: Fassade, hohe
-  Krone) oder mehr als 30 m darunter (`MAX_DROP`: Abbruch hinter einer Dachkante) zählen nicht.
+  bis zur tiefsten Probe, die ihn trägt. Proben mehr als 5 m über der Cursor-Fläche (`MAX_RISE`:
+  Fassade, hohe Krone) zählen nicht, ebenso Proben hinter einer Kante (`carryingHeights`, C10):
+  mehr als 3 m unter der Cursor-Fläche (`MAX_DROP`), es sei denn, der Grund fällt von einer
+  tragenden Probe dorthin zwischen Nachbarproben nicht steiler als 1,5 m je Meter ab
+  (`MAX_SLOPE`, 56°). Ein Hang, ein Steildach oder eine Terrassenmauer bis 3 m tragen den Sockel
+  damit ganz hinunter. Hinter einer Dachkante, über einer tieferen Gebäudestufe, einem Balkon
+  mehr als 3 m tiefer oder einer höheren Stützmauer endet er, und Stützen tragen ihn (unten).
 - **Dach oder Boden:** Liegt die Cursor-Fläche mehr als 2,5 m über dem Boden (`ROOF_ABOVE_GROUND`,
   derselbe Wert wie `roofRise` im Routenraster), steht der Cursor auf einem Dach, Deck oder einer
   Brücke. Boden heißt: der Boden der eigenen Säule, oder, wo die Photogrammetrie unter einem Dach
@@ -878,23 +895,34 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   Umgekehrt gilt die Dach-Regel auf einem Damm, einer Kuppe oder einer Terrasse, die zu zwei
   gegenüberliegenden Seiten binnen Radius + 8 m um mehr als 2,5 m abfällt; dort heben auch Autos
   und Hecken.
+- **Ausschluss** (`TowerFootprint.refusal`, C10): Nur der äußere Ring darf über eine Kante ragen
+  oder eine Wand streifen. Trifft eine Probe der Mitte oder des inneren Rings eine Fläche mehr als
+  `MAX_RISE` über der Cursor-Fläche, lautet die Ablehnung `wall` (Grund „Not enough room"),
+  hängt eine davon über dem Abbruch (in `overhang`, auch ohne Treffer), `edge` („Too far over the
+  edge"); die Wand zuerst. `checkTowerPlacement` prüft das nach den Abständen. Der Footprint wird
+  trotzdem entschieden: die rote Vorschau zeigt Sockel und Stützen. Eine Baumkrone oder ein
+  Brückendeck mehr als 5 m über der Mitte oder dem inneren Ring schließt den Platz genauso aus,
+  die Proben unterscheiden sie nicht von einer Wand.
 - **Prüfen im Spiel:** `__footprintDebug()` in der Konsole (Dev-Build) zeigt für die letzte
   Validierung der Bauvorschau Cursor-Fläche, Boden und Oberkante der Cursor-Säule
   (`centreGroundY`, `centreTopY`: gleich, wo die Säule unter dem Dach keinen Boden zeigt), die
   Regel (`even`, `agree`: beide Regeln ergeben denselben Fuß, `roof-column`, `roof-surroundings`,
   `ground`, `level-inner-ring`: der äußere Ring ist noch nicht geprobt), Fuß, Sockel, tiefste und
-  höchste Probe, die höchste, die die Boden-Regel erreicht, und den Boden der acht Säulen rundherum.
+  höchste Probe, die höchste, die die Boden-Regel erreicht, wie viele Proben über dem Abbruch
+  hängen (`overhang`: dort endet der Sockel an einer Kante), die Ablehnung (`refusal`: `wall`,
+  `edge` oder leer) und den Boden der acht Säulen rundherum.
   Ohne Tippen während des Zielens: `__footprintDebug.watch()` einmal aufrufen, danach schreibt die
   Konsole eine Zeile, sobald der Cursor 0,3 s auf einer neu geprüften Stelle ruht (neu geprüft
   wird nach mehr als 1 m Weg), und eine bei jeder Platzierung: `rest` bzw. `placed`, Tower,
-  `rule`, `centreGroundY`, `centreTopY`, `plinthHeight`, `footY`, `surfaceY` und Position.
+  `rule`, `centreGroundY`, `centreTopY`, `plinthHeight`, `overhang`, `refusal` (`-` ohne),
+  `footY`, `surfaceY` und Position.
   `__footprintDebug.watch(false)` beendet das; aus kostet es einen Null-Vergleich pro Frame.
 - **Weg ins Spiel:** `command:place-tower` trägt `position.height` = Fuß (Oberkante des Sockels),
   `plinthHeight` und `plinthOverhang` (Stützen, unten). Alles landet im `Tower` (`position.height`,
   `plinthHeight`, `plinthOverhang`). Alles, was
   von `position.height` ausgeht, beginnt damit am angehobenen Fuß: LOS-Registrierung
   (`TowerLosRegistry`), LOS-Vorschau, Schussursprung, Tip-Marker, Tentakel und Idle-Crackle.
-  Der Trainings-Bot geht denselben Weg.
+  Der Trainings-Bot geht denselben Weg (`placementAt`, dann `GameStateManager.placeTower`).
 - **Darstellung:** `TowerPlinthRenderer` (`engine.plinths`, `three-engine/renderers/tower-plinth/`)
   baut pro Sockel ein Mesh: runde, leicht geböschte Säule, 0,2 m breiter als die Grundfläche,
   0,4 m tiefer als die tiefste Probe. Das Bruchsteinmauerwerk zeichnet ein
@@ -904,12 +932,14 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   Der `TowerManager` legt den Sockel mit dem Tower an und entfernt ihn beim Verkauf. Ein Klick
   auf den Sockel wählt den Tower. Die Bauvorschau zeigt den Sockel durchscheinend und grün oder
   rot getönt wie den Vorschau-Tower (`TowerPlinthPreview`).
-- **Stützen an der Dachkante** (E18, `plinth-braces.ts`): Liegt die Straße hinter einer Dachkante
-  tiefer als `MAX_DROP`, reicht der Sockel nur so tief, wie das Dach uneben ist, und ragt über die
-  Kante. Die Proben dort (Säule endet unter dem tiefsten Punkt des Sockels oder trifft nichts)
-  nennt `resolveTowerFootprint` als `overhang`, nur mit Sockel. Daraus baut der
-  `TowerPlinthRenderer` beim Anlegen gestufte Kragsteine in dieselbe Geometrie, mit demselben
-  Material: Steinblöcke, 1,2 m breit, die in drei Lagen auskragen, jede Lage so hoch, wie sie
+- **Stützen an der Dachkante** (E18, C10, `plinth-braces.ts`): Liegt der Grund hinter einer Kante
+  tiefer als `MAX_DROP` und fällt nicht als Hang dorthin ab, reicht der Sockel nur so tief, wie das
+  Dach uneben ist, und ragt über die Kante; mindestens 0,5 m (`MIN_BRACED_HEIGHT`), auf einem
+  flachen Dach eine Platte auf der höchsten Probe. Die Proben dort (Säule endet unter dem
+  tiefsten Punkt des Sockels oder trifft nichts) nennt `resolveTowerFootprint` als `overhang`,
+  nur mit Sockel. Daraus baut der `TowerPlinthRenderer` beim Anlegen gestufte Kragsteine in
+  dieselbe Geometrie, mit demselben Material: Steinblöcke, 1,2 m breit, die in drei Lagen
+  auskragen, jede Lage so hoch, wie sie
   vorspringt (0,4 bis 0,9 m). Die oberste Lage endet stumpf knapp innerhalb der Wand unter dem
   Rand, die unterste läuft mit flacher Unterseite ins Gebäude. Entlang jeder überhängenden
   Strecke des Rands steht etwa alle 3 m einer, höchstens zwei je halbem Rand. Die Kragsteine
@@ -917,18 +947,28 @@ steht, entscheidet der Boden unter seiner Grundfläche (`footprintRadius`):
   rechtwinklig; verfehlt die Linie eines Kragsteins das Dach (an einer Ecke), zeigt er radial
   von der Achse weg. Das Dach ist die konvexe Hülle der Proben mit Grund unter dem Sockel, der
   Rücken endet 0,3 m innerhalb davon. Die Stufen setzen dort an, wo das Dach laut nächster Probe
-  endet, zwischen der letzten Probe auf dem Dach und der ersten über dem Abbruch. Kein
-  Kragstein, wo er vom Rücken bis zur Stirn kürzer als 1,04 m wäre oder die Achse des Towers
-  selbst über dem Abbruch steht. Ein Sockel mit Kragsteinen bekommt eine Bodenfläche, von unten
-  ist er sonst offen. Nur Probedaten, keine zusätzlichen Raycasts, nichts pro Frame; die
+  endet, zwischen der letzten Probe auf dem Dach und der ersten über dem Abbruch. Endet das Dach
+  knapp vor dem Rand, reicht der Kragstein vom Rücken bis zur Stirn trotzdem 1,04 m
+  (`BRACE_MIN_RUN_M`), weiter ins Gebäude. Kein Kragstein, wo die Achse des Towers selbst über dem
+  Abbruch steht; solche Plätze schließen die Regeln aus. Stehen Mitte und innerer Ring auf dem
+  Dach, steht an jeder überhängenden Strecke des Rands mindestens ein Kragstein
+  (`plinth-braces.spec.ts` prüft das für alle Tower-Radien mit geraden Kanten in 15°-Schritten,
+  Ecken und zufälligen Randstücken). Ein Sockel mit Kragsteinen bekommt eine Bodenfläche, von
+  unten ist er sonst offen. Nur Probedaten, keine zusätzlichen Raycasts, nichts pro Frame; die
   Bauvorschau zeigt die Kragsteine mit. Sockel und Kragsteine hängen direkt an der Szene, nicht
   in der Blocker-Gruppe, der LOS-Cube zeichnet sie nicht (Regel 8,
   [LOS_PIPELINE.md](LOS_PIPELINE.md)).
 - **Grenzen der Stützen:** Sie setzen voraus, dass die Fassade unter der Dachkante steht; unter
   einem vorkragenden Dach oder vor einem zurückgesetzten Geschoss kann ein Kragstein vor der
-  Fassade frei enden. Ein flaches Dach an der Kante gibt keinen Sockel (Proben innerhalb `MIN_UNEVENNESS`) und
-  damit keine Stütze, der Tower ragt dort wie bisher über die Kante. Liegt die Straße weniger als
-  `MAX_DROP` tiefer, reicht der Sockel bis zu ihr hinab und braucht keine Stütze.
+  Fassade frei enden. Liegt der Grund hinter der Kante höchstens `MAX_DROP` tiefer (Balkon,
+  niedrige Terrasse), reicht der Sockel bis zu ihm hinab und braucht dort keine Stütze.
+- **Grenzen von Kante und Ausschluss:** `MAX_SLOPE` misst zwischen Nachbarproben, bei den meisten
+  Towern bis 2,5 m auseinander: eine senkrechte Stufe von bis zu etwa 3,75 m zählt dort noch als
+  Hang, beim Research Center (Proben bis 6,25 m auseinander) bis etwa 9 m. Probenpaare, die fast
+  entlang einer abgeschmolzenen Fassade liegen, fallen flacher ab als die Fassade; der Sockel kann
+  dort tiefer als 3 m reichen. Die Tiefe zählt ab der Cursor-Fläche: hebt die Dach-Regel den Fuß
+  (bis `MAX_RISE`), kommt das zur Sockelhöhe hinzu. Wand und Abbruch sieht die Regel nur an den
+  Proben: eine Wand oder ein Schacht schmaler als ihr Abstand kann zwischen ihnen liegen.
 
 ### Keyboard-Shortcuts im Build-Modus
 
