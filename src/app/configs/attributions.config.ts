@@ -110,6 +110,16 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         license: 'CC0',
         sourceUrl: 'https://kenney.nl/assets/graveyard-kit',
       },
+      {
+        name: 'Stone Golem',
+        author: 'ingel81',
+        license: 'Original work',
+      },
+      {
+        name: 'Herbert',
+        author: 'ingel81',
+        license: 'Original work',
+      },
     ],
   },
   {
