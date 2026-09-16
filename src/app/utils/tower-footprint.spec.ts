@@ -106,10 +106,14 @@ describe('footprintSurroundingOffsets', () => {
 
 describe('levelWithCursor', () => {
   it('holds while every probe tops out within MIN_UNEVENNESS of the cursor surface', () => {
-    expect(levelWithCursor(12, [{ groundY: 12, topY: 12.1 }, null, { groundY: 11.95, topY: 11.95 }])).toBe(true);
+    expect(levelWithCursor(12, [{ groundY: 12, topY: 12.1 }, { groundY: 11.95, topY: 11.95 }])).toBe(true);
     expect(levelWithCursor(12, [])).toBe(true);
     expect(levelWithCursor(12, [{ groundY: 12, topY: 12 + PLINTH_CONFIG.MIN_UNEVENNESS * 1.1 }])).toBe(false);
     expect(levelWithCursor(12, [{ groundY: 12, topY: 12.15 }, { groundY: 11.9, topY: 11.9 }])).toBe(false);
+  });
+
+  it('does not hold where a probe hit nothing: that may be a drop (C10)', () => {
+    expect(levelWithCursor(12, [{ groundY: 12, topY: 12 }, null])).toBe(false);
   });
 });
 
@@ -271,7 +275,7 @@ describe('resolveTowerFootprint', () => {
     it('does not climb a facade far above the cursor surface', () => {
       const facade = 12 + PLINTH_CONFIG.MAX_RISE + 0.1;
       const ground = () => 0;
-      expect(resolveTowerFootprint(12, R, columns((x) => (x > 1 ? facade : 12), ground))).toEqual({
+      expect(resolveTowerFootprint(12, R, columns((x) => (x > 2 ? facade : 12), ground))).toEqual({
         footY: 12,
         plinthHeight: 0,
       });
@@ -308,7 +312,87 @@ describe('resolveTowerFootprint', () => {
         expect(decision.footprint.plinthHeight).toBeCloseTo(max - min, 9);
         // The ridge caps the slope the ground rule reads, it would leave the tower in the roof
         expect(decision.groundTop).toBeLessThan(max);
+        // A pitched roof is no edge: nothing overhangs, nothing refuses the spot
+        expect(decision.footprint.overhang).toBeUndefined();
+        expect(decision.footprint.refusal).toBeUndefined();
       });
+    });
+  });
+
+  describe('refusal (C10: only the outer ring may reach past an edge, none of the inner half into a wall)', () => {
+    /** The street far below a roof at 50 m */
+    const street = () => 5;
+    /** A roof at 50 m with its edge at x = `edge`, the street 45 m below past it */
+    const roofEdge = (edge: number) => (x: number) => (x > edge ? 5 : 50);
+
+    it('lets the outer ring hang over a high-rise edge, not the inner ring or the centre', () => {
+      expect(resolveTowerFootprint(50, R, columns(roofEdge(2), street)).refusal).toBeUndefined();
+
+      // Playtest 14, 17: the inner ring past the edge (at 1.56 m), then the centre
+      for (const edge of [1, -0.5]) {
+        const footprint = resolveTowerFootprint(50, R, columns(roofEdge(edge), street));
+        expect(footprint.refusal).toBe('edge');
+        // Decided all the same, for the red preview
+        expect(footprint.overhang).toEqual(probesWhere((x) => x > edge));
+      }
+    });
+
+    it('refuses the inner ring over a lower part of a stepped building, a balcony or a high terrace wall', () => {
+      const stepped = (x: number) => (x > 1 ? 38 : 50);
+      expect(resolveTowerFootprint(50, R, columns(stepped, street)).refusal).toBe('edge');
+      const balcony = (x: number) => (x > 1 ? 45 : 50);
+      expect(resolveTowerFootprint(50, R, columns(balcony, street)).refusal).toBe('edge');
+      const terrace = (x: number) => (x > 1 ? 7 : 12);
+      expect(resolveTowerFootprint(12, R, columns(terrace)).refusal).toBe('edge');
+    });
+
+    it('lets the inner ring stand on what the plinth reaches: a low terrace, a slope, a pitched roof', () => {
+      const lowTerrace = (x: number) => (x > 1 ? 10 : 12);
+      expect(resolveTowerFootprint(12, R, columns(lowTerrace))).toEqual({ footY: 12, plinthHeight: 2 });
+      const hill = (x: number, z: number) => 10 - (x + z) / Math.SQRT2;
+      expect(resolveTowerFootprint(10, R, columns(hill)).refusal).toBeUndefined();
+      const ridge = (x: number) => 22 - 1.5 * Math.abs(x - 1);
+      expect(resolveTowerFootprint(20.5, R, columns(ridge, street)).refusal).toBeUndefined();
+    });
+
+    it('refuses where the inner ring or the centre hits nothing', () => {
+      const hole = (x: number) => (x > 1 ? null : 50);
+      expect(resolveTowerFootprint(50, R, columns(hole, street)).refusal).toBe('edge');
+      const outerHole = (x: number) => (x > 2 ? null : 50);
+      expect(resolveTowerFootprint(50, R, columns(outerHole, street)).refusal).toBeUndefined();
+    });
+
+    it('refuses a spot whose inner ring meets a facade more than MAX_RISE above the cursor surface', () => {
+      // Playtest 13: a tower half inside the wall of a higher building beside the lower roof
+      const higher = (x: number) => (x > 1 ? 20 + PLINTH_CONFIG.MAX_RISE + 0.1 : 20);
+      const footprint = resolveTowerFootprint(20, R, columns(higher, street));
+      expect(footprint).toEqual({ footY: 20, plinthHeight: 0, refusal: 'wall' });
+
+      // The outer ring may touch it, the tower clips into the wall as before
+      const beside = (x: number) => (x > 2 ? 40 : 20);
+      expect(resolveTowerFootprint(20, R, columns(beside, street))).toEqual({ footY: 20, plinthHeight: 0 });
+      // A higher part within MAX_RISE lifts the tower onto it
+      const within = (x: number) => (x > 1 ? 20 + PLINTH_CONFIG.MAX_RISE : 20);
+      expect(resolveTowerFootprint(20, R, columns(within, street)).refusal).toBeUndefined();
+    });
+
+    it('refuses the centre or the inner ring under a crown as well, the probes do not tell it from a wall', () => {
+      const crown = (x: number, z: number) => (Math.hypot(x - 1, z) < 1.5 ? 18 : 10);
+      expect(resolveTowerFootprint(10, R, columns(crown)).refusal).toBe('wall');
+    });
+
+    it('names the wall before the drop', () => {
+      const both = (x: number) => (x > 1 ? 60 : x < -1 ? 5 : 50);
+      expect(resolveTowerFootprint(50, R, columns(both, street)).refusal).toBe('wall');
+    });
+
+    it('holds for every footprint radius: the inner ring, not a distance', () => {
+      for (const radius of [2.4, 3.6, 5.3, 10]) {
+        const innerReach = Math.max(...footprintSampleOffsets(radius).slice(1, footprintInnerCount(radius)).map(([x]) => x));
+        const past = (edge: number) => resolveTowerFootprint(50, radius, columns(roofEdge(edge), street, radius));
+        expect(past(radius / 2 + 0.1).refusal).toBeUndefined();
+        expect(past(innerReach - 0.1).refusal).toBe('edge');
+      }
     });
   });
 
@@ -459,11 +543,12 @@ describe('plinthOverhang', () => {
 });
 
 describe('sameFootprint', () => {
-  it('compares foot, plinth and overhang, no overhang the same as an empty one', () => {
+  it('compares foot, plinth, overhang and refusal, no overhang the same as an empty one', () => {
     expect(sameFootprint({ footY: 1, plinthHeight: 1 }, { footY: 1, plinthHeight: 1, overhang: [] })).toBe(true);
     expect(sameFootprint({ footY: 1, plinthHeight: 1, overhang: [3] }, { footY: 1, plinthHeight: 1, overhang: [3] })).toBe(true);
     expect(sameFootprint({ footY: 1, plinthHeight: 1, overhang: [3] }, { footY: 1, plinthHeight: 1, overhang: [4] })).toBe(false);
     expect(sameFootprint({ footY: 1, plinthHeight: 1 }, { footY: 1, plinthHeight: 2 })).toBe(false);
     expect(sameFootprint({ footY: 1, plinthHeight: 1 }, { footY: 2, plinthHeight: 1 })).toBe(false);
+    expect(sameFootprint({ footY: 1, plinthHeight: 1 }, { footY: 1, plinthHeight: 1, refusal: 'wall' })).toBe(false);
   });
 });

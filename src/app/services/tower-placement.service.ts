@@ -20,6 +20,7 @@ import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import {
   FootprintColumn,
   FootprintDecision,
+  FootprintRefusal,
   FootprintRule,
   TowerFootprint,
   decideTowerFootprint,
@@ -50,6 +51,10 @@ export interface FootprintDebugRow {
   bottom: number | null;
   groundTop: number | null;
   roofTop: number | null;
+  /** How many probes the plinth hangs over a drop at: where it ends above an edge, on braces */
+  overhang: number;
+  /** Why the spot is refused (`wall`, `edge`), null where it is not */
+  refusal: FootprintRefusal | null;
   /** Ground of the eight surroundings probes, `-` where one hit nothing */
   surroundingsGroundY: string;
 }
@@ -173,13 +178,8 @@ export class TowerPlacementService {
   /** Queued position update while model was loading */
   private queuedPosition: { lat: number; lon: number; height: number } | null = null;
 
-  /**
-   * Current preview position: height is the tower's foot, with the plinth
-   * below it and the footprint probes it hangs over a drop at
-   */
-  private currentPosition:
-    | { lat: number; lon: number; height: number; plinthHeight: number; plinthOverhang: readonly number[] }
-    | null = null;
+  /** Current preview position and where the tower stands there */
+  private currentPosition: { lat: number; lon: number; footprint: TowerFootprint } | null = null;
 
   /** Rotation speed (radians per second when holding R) */
   private readonly ROTATION_SPEED = Math.PI; // 180 degrees per second
@@ -463,6 +463,11 @@ export class TowerPlacementService {
    * in: a cursor that moves on by a metre every frame never pays for it, one
    * that stays within the metre for a frame does. The click settles it at
    * once. Returns the footprint when it differs from the provisional one.
+   *
+   * The validation stays as it was: the outer ring cannot refuse the spot.
+   * The provisional footprint stands on an inner ring that hit a surface
+   * within MIN_UNEVENNESS of the cursor at every probe, so none of it lies in
+   * a wall or past an edge (FootprintRefusal), whatever the outer ring shows.
    */
   private settleFootprint(now: boolean): TowerFootprint | null {
     const validation = this.lastValidation;
@@ -529,7 +534,8 @@ export class TowerPlacementService {
       return null;
     }
     const row = this.footprintRow(note);
-    console.log(`[Footprint] ${row.tower}: rule ${row.rule}, foot ${row.footY} m, plinth ${row.plinthHeight} m`);
+    console.log(`[Footprint] ${row.tower}: rule ${row.rule}, foot ${row.footY} m, plinth ${row.plinthHeight} m`
+      + (row.refusal ? `, refused: ${row.refusal}` : ''));
     console.table(row);
     return row;
   }
@@ -565,11 +571,12 @@ export class TowerPlacementService {
     console.log(this.footprintLine(note, 'rest'));
   }
 
-  /** One watch line: rule, the cursor's column, plinth, foot and where. */
+  /** One watch line: rule, the cursor's column, plinth, overhang, refusal, foot and where. */
   private footprintLine(note: FootprintNote, event: 'rest' | 'placed'): string {
     const row = this.footprintRow(note);
     return `[Footprint] ${event} ${row.tower} rule=${row.rule} centreGroundY=${row.centreGroundY} `
-      + `centreTopY=${row.centreTopY} plinthHeight=${row.plinthHeight} footY=${row.footY} `
+      + `centreTopY=${row.centreTopY} plinthHeight=${row.plinthHeight} overhang=${row.overhang} `
+      + `refusal=${row.refusal ?? '-'} footY=${row.footY} `
       + `surfaceY=${row.surfaceY} at ${row.lat.toFixed(6)},${row.lon.toFixed(6)}`;
   }
 
@@ -591,6 +598,8 @@ export class TowerPlacementService {
       bottom: round(decision?.bottom),
       groundTop: round(decision?.groundTop),
       roofTop: round(decision?.roofTop),
+      overhang: decision?.footprint.overhang?.length ?? 0,
+      refusal: decision?.footprint.refusal ?? null,
       surroundingsGroundY: surroundings
         ? surroundings.map((column) => (column ? round(column.groundY)!.toFixed(2) : '-')).join(' ')
         : 'not probed',
@@ -650,7 +659,7 @@ export class TowerPlacementService {
         ? this.probeFootprint(lat, lon, typeId, surfaceY)
         : { footprint: { footY: surfaceY, plinthHeight: 0 }, partial: null };
       footprint = probe.footprint;
-      const validation = this.validateTowerPosition(lat, lon);
+      const validation = this.validateTowerPosition(lat, lon, footprint);
       validValid = validation.valid;
       validReason = validation.valid ? null : (validation.reason ?? 'Invalid position');
       const previousValid = this.lastValidation?.valid ?? null;
@@ -674,13 +683,7 @@ export class TowerPlacementService {
     // Store current position for placement: the foot on the highest point
     // of the footprint, the plinth below it
     const resolvedHeight = footprint.footY;
-    this.currentPosition = {
-      lat,
-      lon,
-      height: resolvedHeight,
-      plinthHeight: footprint.plinthHeight,
-      plinthOverhang: footprint.overhang ?? [],
-    };
+    this.currentPosition = { lat, lon, footprint };
 
     if (!typeId) return;
     const config = TOWER_TYPES[typeId];
@@ -748,7 +751,7 @@ export class TowerPlacementService {
     const position = this.currentPosition;
     if (this.settleFootprint(false) && position) {
       // Within the metre of the last validation: takes its footprint, validates nothing
-      this.updatePreviewPosition(position.lat, position.lon, position.height);
+      this.updatePreviewPosition(position.lat, position.lon, position.footprint.footY);
     }
     if (this.footprintWatch) this.tickFootprintWatch(this.footprintWatch, timeSeconds);
     this.buildPreviewLos.tick(timeSeconds);
@@ -805,26 +808,26 @@ export class TowerPlacementService {
    * Handle click in build mode - directly places tower if valid
    */
   handleBuildClick(): boolean {
-    if (!this.gameState || !this.currentPosition) {
+    const position = this.currentPosition;
+    const typeId = this.selectedTowerType();
+    if (!this.gameState || !position || !typeId) {
       return false;
     }
 
-    // Validate position
-    const validation = this.validateTowerPosition(this.currentPosition.lat, this.currentPosition.lon);
+    // The outer ring of the footprint, if the preview put it off, shown at
+    // once as the click may still be refused; then the rules with the
+    // footprint the tower would stand on
+    const settled = this.settleFootprint(true);
+    if (settled) {
+      position.footprint = settled;
+      this.updatePreviewPosition(position.lat, position.lon, settled.footY);
+    }
+    const footprint = position.footprint;
+    const validation = this.validateTowerPosition(position.lat, position.lon, footprint);
     if (!validation.valid) {
       return false;
     }
 
-    const typeId = this.selectedTowerType();
-    if (!typeId) return false;
-
-    // The outer ring of the footprint, if the preview put it off
-    const settled = this.settleFootprint(true);
-    if (settled) {
-      this.currentPosition.height = settled.footY;
-      this.currentPosition.plinthHeight = settled.plinthHeight;
-      this.currentPosition.plinthOverhang = settled.overhang ?? [];
-    }
     const watch = this.footprintWatch;
     if (watch && this.footprintNote) {
       watch.logged = this.footprintNote;
@@ -835,14 +838,14 @@ export class TowerPlacementService {
     this.gameState.getEventBus().emit({
       type: 'command:place-tower',
       position: {
-        lat: this.currentPosition.lat,
-        lon: this.currentPosition.lon,
-        height: this.currentPosition.height,
+        lat: position.lat,
+        lon: position.lon,
+        height: footprint.footY,
       },
       typeId,
       rotation: this.currentRotation(),
-      plinthHeight: this.currentPosition.plinthHeight,
-      plinthOverhang: this.currentPosition.plinthOverhang,
+      plinthHeight: footprint.plinthHeight,
+      plinthOverhang: footprint.overhang ?? [],
     });
 
     // Exit build mode (placement handled by GSM via event)
@@ -866,10 +869,11 @@ export class TowerPlacementService {
   /**
    * Prüft eine Position gegen die Platzierungsregeln. Gemeinsamer Pfad für
    * Maus-Vorschau, Klick und Bot (Training-Client); die Regeln selbst stehen
-   * in `checkTowerPlacement`.
+   * in `checkTowerPlacement`. Mit `footprint` (resolveFootprint) auch den
+   * Grund unter der Grundfläche: Wand oder Abbruch unter dem inneren Ring.
    */
-  validateTowerPosition(lat: number, lon: number): TowerPlacementResult {
-    return this.placementChecker()(lat, lon);
+  validateTowerPosition(lat: number, lon: number, footprint?: TowerFootprint): TowerPlacementResult {
+    return this.placementChecker()(lat, lon, footprint);
   }
 
   /**
@@ -878,7 +882,7 @@ export class TowerPlacementService {
    * zusammengestellt statt pro Position. Gleiche Regeln, gleiche
    * Distanzformel. Ein Schnappschuss, nach einer Platzierung neu holen.
    */
-  placementChecker(): (lat: number, lon: number) => TowerPlacementResult {
+  placementChecker(): (lat: number, lon: number, footprint?: TowerFootprint) => TowerPlacementResult {
     const osmService = this.osmService;
     if (!this.streetNetwork || !osmService || !this.baseCoords) {
       return () => ({ valid: false, reason: 'Service not initialized' });
@@ -897,7 +901,7 @@ export class TowerPlacementService {
       routes: this.getActiveRoutes(),
       geo: osmService,
     };
-    return (lat, lon) => checkTowerPlacement(lat, lon, ctx);
+    return (lat, lon, footprint) => checkTowerPlacement(lat, lon, ctx, footprint);
   }
 
   // ========================================

@@ -237,9 +237,10 @@ export class TrainingSession {
             height: footprint.footY
           };
 
-          // Same rules as the mouse preview and the click. Height plays no
-          // part in them: rooftops are valid spots.
-          const validation = this.towerPlacement.validateTowerPosition(geoPos.lat, geoPos.lon);
+          // Same rules as the mouse preview and the click, with the ground
+          // under the footprint: rooftops are valid spots, a wall or a drop
+          // under its inner half is not.
+          const validation = this.towerPlacement.validateTowerPosition(geoPos.lat, geoPos.lon, footprint);
 
           if (!validation.valid) {
             console.warn(`[Bot] ⛔ Position invalid: ${validation.reason} - ${action.reason}`);

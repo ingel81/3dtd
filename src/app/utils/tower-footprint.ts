@@ -15,7 +15,20 @@ export interface TowerFootprint {
    * none. The plinth gets braces there (plinth-braces.ts).
    */
   overhang?: readonly number[];
+  /** Why the tower may not stand here, see FootprintRefusal; missing = it may. */
+  refusal?: FootprintRefusal;
 }
+
+/**
+ * What the ground under the centre and the inner ring of the footprint (half
+ * the radius) rules out; checkTowerPlacement gives the reason:
+ * - `wall`: one of them tops out more than PLINTH_CONFIG.MAX_RISE above the
+ *   cursor surface. The tower would stand in a facade (also under a crown or
+ *   a bridge deck, the probes do not tell them apart).
+ * - `edge`: one of them hangs over a drop (`overhang`). Only the outer ring
+ *   may reach past an edge, where braces carry the plinth.
+ */
+export type FootprintRefusal = 'wall' | 'edge';
 
 /**
  * What a vertical probe found in its column, as `ColumnSample` has it: the
@@ -188,15 +201,16 @@ export function footprintSurroundingOffsets(radius: number): readonly (readonly 
 }
 
 /**
- * True while every column that hit something tops out less than
- * PLINTH_CONFIG.MIN_UNEVENNESS from the cursor surface and from each other:
- * level ground as far as these probes see.
+ * True while every column tops out less than PLINTH_CONFIG.MIN_UNEVENNESS
+ * from the cursor surface and from each other: level ground as far as these
+ * probes see. A column that hit nothing is no level ground, it counts as a
+ * drop.
  */
 export function levelWithCursor(surfaceY: number, columns: readonly (FootprintColumn | null)[]): boolean {
   let top = surfaceY;
   let bottom = surfaceY;
   for (const column of columns) {
-    if (column === null) continue;
+    if (column === null) return false;
     if (column.topY > top) top = column.topY;
     if (column.topY < bottom) bottom = column.topY;
   }
@@ -233,6 +247,10 @@ export function levelWithCursor(surfaceY: number, columns: readonly (FootprintCo
  * behind a wall. Where it hangs over a drop it does not reach down to, past
  * an edge, `overhang` names those probes (plinthOverhang), and the plinth is
  * at least MIN_BRACED_HEIGHT high to carry the braces, also on a flat roof.
+ *
+ * Where the centre or the inner ring hangs over a drop or meets a facade,
+ * `refusal` says so (FootprintRefusal), and the placement rules refuse the
+ * spot. The footprint is decided all the same, for the red preview.
  */
 export function resolveTowerFootprint(
   surfaceY: number,
@@ -263,13 +281,14 @@ export function decideTowerFootprint(
   const groundTopY = groundTop(surfaceY, heights, pattern);
   const centre = columns[0] ?? null;
   const overhang = plinthOverhang(bottom, columns);
+  const refusal = footprintRefusal(surfaceY, columns, overhang, pattern.innerCount);
 
   const decided = (
     rule: FootprintRule,
     top: number,
     probed: readonly (FootprintColumn | null)[] | null = null,
   ): FootprintDecision => ({
-    footprint: plinthFootprint(surfaceY, top, bottom, overhang),
+    footprint: plinthFootprint(surfaceY, top, bottom, overhang, refusal),
     rule,
     centre,
     bottom,
@@ -291,15 +310,42 @@ export function decideTowerFootprint(
 
 /**
  * The foot at `top` on a plinth down to `bottom`, braced over the probes of
- * `overhang`. Without overhang and below MIN_UNEVENNESS the cursor surface,
- * no plinth.
+ * `overhang`, with the refusal if there is one. Without overhang and below
+ * MIN_UNEVENNESS the cursor surface, no plinth.
  */
-function plinthFootprint(surfaceY: number, top: number, bottom: number, overhang: readonly number[]): TowerFootprint {
+function plinthFootprint(
+  surfaceY: number,
+  top: number,
+  bottom: number,
+  overhang: readonly number[],
+  refusal: FootprintRefusal | null,
+): TowerFootprint {
+  let footprint: TowerFootprint;
   if (overhang.length > 0) {
-    return { footY: top, plinthHeight: Math.max(top - bottom, PLINTH_CONFIG.MIN_BRACED_HEIGHT), overhang };
+    footprint = { footY: top, plinthHeight: Math.max(top - bottom, PLINTH_CONFIG.MIN_BRACED_HEIGHT), overhang };
+  } else if (top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS) {
+    footprint = { footY: surfaceY, plinthHeight: 0 };
+  } else {
+    footprint = { footY: top, plinthHeight: top - bottom };
   }
-  if (top - bottom < PLINTH_CONFIG.MIN_UNEVENNESS) return { footY: surfaceY, plinthHeight: 0 };
-  return { footY: top, plinthHeight: top - bottom };
+  return refusal ? { ...footprint, refusal } : footprint;
+}
+
+/**
+ * Whether the centre or the inner ring (the first `innerCount` columns) rules
+ * the spot out, see FootprintRefusal; a facade first, then a drop.
+ */
+function footprintRefusal(
+  surfaceY: number,
+  columns: readonly (FootprintColumn | null)[],
+  overhang: readonly number[],
+  innerCount: number,
+): FootprintRefusal | null {
+  for (let index = 0; index < innerCount; index++) {
+    const column = columns[index];
+    if (column && column.topY > surfaceY + PLINTH_CONFIG.MAX_RISE) return 'wall';
+  }
+  return overhang.some((index) => index < innerCount) ? 'edge' : null;
 }
 
 /**
@@ -316,9 +362,12 @@ export function plinthOverhang(bottom: number, columns: readonly (FootprintColum
   return overhang;
 }
 
-/** True when two footprints stand the tower the same way: foot, plinth and overhang. */
+/** True when two footprints stand the tower the same way: foot, plinth, overhang and refusal. */
 export function sameFootprint(a: TowerFootprint, b: TowerFootprint): boolean {
-  return a.footY === b.footY && a.plinthHeight === b.plinthHeight && sameOverhang(a.overhang, b.overhang);
+  return a.footY === b.footY
+    && a.plinthHeight === b.plinthHeight
+    && sameOverhang(a.overhang, b.overhang)
+    && a.refusal === b.refusal;
 }
 
 /** True when two overhangs name the same probes, missing the same as none. */

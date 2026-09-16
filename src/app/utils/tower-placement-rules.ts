@@ -1,5 +1,6 @@
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { findNearestRouteDistance } from './geo-utils';
+import type { FootprintRefusal, TowerFootprint } from './tower-footprint';
 
 interface LatLon {
   lat: number;
@@ -27,18 +28,28 @@ export interface TowerPlacementContext {
   geo: { haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number };
 }
 
+/** UI-Text je FootprintRefusal: warum der Grund unter der Grundfläche den Platz ausschließt */
+const FOOTPRINT_REASONS: Record<FootprintRefusal, string> = {
+  wall: 'Not enough room',
+  edge: 'Too far over the edge',
+};
+
 /**
  * Platzierungsregeln für Tower, gemeinsam für Maus-Vorschau, Klick und Bot.
- * Reihenfolge: Spielbereich, HQ, Spawns, andere Tower, Routen. Die erste
+ * Reihenfolge: Spielbereich, HQ, Spawns, andere Tower, Routen, dann der
+ * Grund unter der Grundfläche, sofern `footprint` mitkommt. Die erste
  * verletzte Regel liefert den Grund.
  *
- * Gebäude sind kein Hindernis: der Service hebt den Tower per raycastDown
- * auf Dachhöhe, Tower stehen dann auf dem Dach.
+ * Ein Gebäude ist kein Hindernis: der Service hebt den Tower auf Dachhöhe,
+ * er steht dann auf dem Dach. Ausgeschlossen ist ein Platz, dessen Mitte
+ * oder innerer Ring der Grundfläche in einer Wand steht oder über einem
+ * Abbruch hängt (`footprint.refusal`, FootprintRefusal).
  */
 export function checkTowerPlacement(
   lat: number,
   lon: number,
   ctx: TowerPlacementContext,
+  footprint?: TowerFootprint,
 ): TowerPlacementResult {
   const { bounds, geo } = ctx;
   const inBounds = lat >= bounds.minLat && lat <= bounds.maxLat &&
@@ -69,6 +80,10 @@ export function checkTowerPlacement(
     if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
       return { valid: false, reason: 'Too close to route' };
     }
+  }
+
+  if (footprint?.refusal) {
+    return { valid: false, reason: FOOTPRINT_REASONS[footprint.refusal] };
   }
 
   return { valid: true };
