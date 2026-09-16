@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'vitest';
+import { afterEach, beforeEach, describe, it, expect, vi } from 'vitest';
 import { BufferAttribute, PlaneGeometry } from 'three';
 import { SCORCH_DECAL_CONFIG } from '../../configs/visual-effects.config';
 import { ScorchMarks, type ScorchGround } from './scorch-marks';
@@ -11,6 +11,11 @@ const grid: ScorchGround = {
 };
 
 describe('ScorchMarks', () => {
+  // A mark's colour and size vary at random around its source's; without the
+  // spread the beam and rocket compare as configured, not by chance.
+  beforeEach(() => vi.spyOn(Math, 'random').mockReturnValue(0.5));
+  afterEach(() => vi.restoreAllMocks());
+
   const create = () => {
     const marks = new ScorchMarks(new PlaneGeometry(2, 2));
     marks.setGround(grid);
