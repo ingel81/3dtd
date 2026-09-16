@@ -197,11 +197,6 @@ export class Enemy extends GameObject {
     return this._armorTypeOverride ?? this.typeConfig.armorType;
   }
 
-  /** Set armor type override (e.g., Armor Break → 'unarmored'). Pass null to clear. */
-  setArmorTypeOverride(armorType: ArmorType | null): void {
-    this._armorTypeOverride = armorType;
-  }
-
   // Convenience getters
   get transform(): TransformComponent {
     return this._transform;

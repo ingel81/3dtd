@@ -524,14 +524,6 @@ export class OsmStreetService {
   }
 
   /**
-   * Clear cached graph (call when switching locations)
-   */
-  clearGraphCache(): void {
-    this.cachedGraph = null;
-    this.cachedGraphNetworkId = null;
-  }
-
-  /**
    * Filter street network to only include streets near the given routes.
    * This dramatically reduces data for rendering in dense cities.
    *

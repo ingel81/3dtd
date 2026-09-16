@@ -68,13 +68,6 @@ export class UrlLocationService {
     return window.location.href;
   }
 
-  /**
-   * Check if URL has location params
-   */
-  hasLocationParams(): boolean {
-    return new URLSearchParams(window.location.search).has('l');
-  }
-
   private formatSpawn(spawn: SavedSpawn): string {
     const at = `${spawn.lat.toFixed(COORD_DECIMALS)},${spawn.lon.toFixed(COORD_DECIMALS)}`;
     return spawn.portalBearing === undefined ? at : `${at},${spawn.portalBearing.toFixed(this.BEARING_PRECISION)}`;

@@ -641,30 +641,6 @@ export class TrainingSession {
     this.send({ type: 'game_over', won, waves });
   }
 
-  /**
-   * Request training stats
-   */
-  requestStats(): void {
-    if (!this.signals.isConnected()) return;
-
-    this.send({ type: 'request_stats' });
-  }
-
-  /**
-   * Request model export
-   */
-  async requestExport(version: string): Promise<{ path: string; version: string }> {
-    if (!this.signals.isConnected()) {
-      throw new Error('Not connected to training backend');
-    }
-
-    this.send({ type: 'request_export', version });
-
-    return firstValueFrom(
-      this.pendingExport.pipe(timeout(30000), take(1)) // Export can take longer
-    );
-  }
-
   // === PRIVATE METHODS ===
 
   private send(message: ClientMessage): void {

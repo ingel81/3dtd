@@ -206,10 +206,6 @@ export class AbilityManager implements IGameManager {
     return this.world.routeSweep(target, config.snapRadiusM, lengthM ?? abilityBeamReachM(config.effect));
   }
 
-  getPendingStrikes(): readonly PendingStrike[] {
-    return this.pending;
-  }
-
   /** A strike is counting down or a beam still burns. The wave does not end before it is over. */
   hasPendingStrikes(): boolean {
     return this.pending.length > 0;

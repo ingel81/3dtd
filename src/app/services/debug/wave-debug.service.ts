@@ -251,16 +251,4 @@ export class WaveDebugService {
   clearLog(): void {
     this.uiStore.debugLog.set('');
   }
-
-  appendLog(message: string): void {
-    this.uiStore.debugLog.update(log => {
-      const timestamp = new Date().toLocaleTimeString('de-DE', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-      });
-      const newEntry = `[${timestamp}] ${message}`;
-      return log ? `${log}\n${newEntry}` : newEntry;
-    });
-  }
 }

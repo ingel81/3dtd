@@ -180,16 +180,6 @@ export class LosDebugService {
     }
   }
 
-  /**
-   * Forces a recomputation of the cell-pixel map for the active tower.
-   * Useful after the panel detects a Cubemap re-render (e.g. on tile
-   * load) or when range upgrades change the cell set.
-   */
-  refreshCellMap(): void {
-    const t = this._activeTower();
-    if (t) this.rebuildCellEntries(t);
-  }
-
   /** The mapper the panel reads from. Null if no engine wired up. */
   getMapper(): TowerShadowMapper | null {
     return this.engine?.getTowerShadowMapper() ?? null;
@@ -247,18 +237,6 @@ export class LosDebugService {
     const cell = this._hoveredCell();
     if (cell) this.setHoveredCell(cell);
     else this.updateHoverMarker();
-  }
-
-  /** Returns the pre-computed pixel for `cell` on the chosen layer. */
-  getCellPixel(cell: RouteCell, layer: 'ground' | 'air'): FacePixel | null {
-    const entry = this._cellEntries().find((e) => e.cell.key === cell.key);
-    if (!entry) return null;
-    return layer === 'air' ? entry.airPixel : entry.groundPixel;
-  }
-
-  /** All cell entries (for the panel's cell list). */
-  getCellEntries(): readonly CellPixelEntry[] {
-    return this._cellEntries();
   }
 
   // ----- internal -----

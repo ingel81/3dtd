@@ -809,18 +809,4 @@ export class TerrainGenerator {
 
     return h0 * (1 - fy) + h1 * fy;
   }
-
-  /**
-   * Get the preset configuration.
-   */
-  getPresetConfig(): PresetConfig {
-    return GENERATORS[this.config.preset];
-  }
-
-  /**
-   * Get the full configuration.
-   */
-  getConfig(): Required<TerrainGeneratorConfig> {
-    return { ...this.config };
-  }
 }

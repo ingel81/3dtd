@@ -435,22 +435,6 @@ export class EngineInitializationService {
   }
 
   /**
-   * Set tiles loading state
-   * @param isLoading Loading state
-   */
-  setTilesLoading(isLoading: boolean): void {
-    this.tilesLoading.set(isLoading);
-  }
-
-  /**
-   * Set OSM loading state
-   * @param isLoading Loading state
-   */
-  setOsmLoading(isLoading: boolean): void {
-    this.osmLoading.set(isLoading);
-  }
-
-  /**
    * Set error message
    * @param errorMsg Error message
    */

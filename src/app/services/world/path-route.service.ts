@@ -1,6 +1,5 @@
 import { Injectable, WritableSignal, inject, signal } from '@angular/core';
 import { Vector3 } from 'three';
-import type { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { StreetNetwork, StreetNode } from '../location/osm-street.service';
@@ -398,16 +397,6 @@ export class PathAndRouteService {
    */
   getCachedPath(spawnId: string): RouteWaypoint[] | undefined {
     return this.cachedPaths.get(spawnId);
-  }
-
-  /**
-   * Cache path for spawn point
-   * @param spawnId Spawn point ID
-   * @param path Path to cache
-   */
-  cachePath(spawnId: string, path: RouteWaypoint[]): void {
-    this.cachedPaths.set(spawnId, path);
-    this.hasRoutes.set(true);
   }
 
   /**
@@ -1345,13 +1334,6 @@ export class PathAndRouteService {
    */
   toggleRouteLinesVisibility(): void {
     this.setRouteLinesVisible(this.uiStore.routesVisible());
-  }
-
-  /**
-   * Get all route lines
-   */
-  getRouteLines(): Line2[] {
-    return this.routeLines.all;
   }
 
   // ========================================

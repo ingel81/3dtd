@@ -10,14 +10,12 @@
 import { GameEventBus, IGameManager } from '../game-engine';
 import {
   ResearchId,
-  ResearchConfig,
   ActiveResearch,
   ResearchSaveState,
 } from '../configs/research/research.types';
 import {
   RESEARCH_TREE,
   getResearch,
-  getResearchForTower,
 } from '../configs/research/research-tree.config';
 import {
   RESEARCH_CENTER_CONFIG,
@@ -97,12 +95,6 @@ export class ResearchManager implements IGameManager {
     return false;
   }
 
-  /** Get the research needed to unlock a tower, or undefined if no research needed. */
-  getRequiredResearchForTower(towerId: TowerTypeId): ResearchConfig | undefined {
-    if (towerId === 'archer' || towerId === 'research-center') return undefined;
-    return getResearchForTower(towerId);
-  }
-
   /** Get snapshot of all active researches. */
   getActiveResearches(): ActiveResearch[] {
     return [...this.activeResearches.values()];
@@ -148,32 +140,6 @@ export class ResearchManager implements IGameManager {
       }
     }
     return maxTier;
-  }
-
-  /** Check if a specific global perk is unlocked. */
-  isPerkUnlocked(perkId: string): boolean {
-    for (const researchId of this.completedResearches) {
-      const config = getResearch(researchId);
-      if (config) {
-        for (const effect of config.effects) {
-          if (effect.kind === 'global-perk' && effect.perkId === perkId) return true;
-        }
-      }
-    }
-    return false;
-  }
-
-  /** Check if air targeting is enabled via research. */
-  isAirTargetingEnabled(): boolean {
-    for (const researchId of this.completedResearches) {
-      const config = getResearch(researchId);
-      if (config) {
-        for (const effect of config.effects) {
-          if (effect.kind === 'enable-targeting' && effect.capability === 'air') return true;
-        }
-      }
-    }
-    return false;
   }
 
   // ==================== Actions ====================

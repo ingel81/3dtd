@@ -1185,17 +1185,6 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Get grid stats for debugging
-   */
-  getGridStats(): { trackedEnemies: number; occupiedCells: number } {
-    const stats = this.globalRouteGrid.getStats();
-    return {
-      trackedEnemies: stats.trackedEnemies,
-      occupiedCells: stats.occupiedCells,
-    };
-  }
-
-  /**
    * Destroy the enemy manager - cleanup all resources and timeouts
    */
   override destroy(): void {

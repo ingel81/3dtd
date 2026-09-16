@@ -147,20 +147,6 @@ export class AssetManagerService {
   }
 
   /**
-   * Check if model is cached
-   */
-  isCached(url: string): boolean {
-    return this.modelCache.has(url);
-  }
-
-  /**
-   * Check if model is currently loading
-   */
-  isModelLoading(url: string): boolean {
-    return this.loadingPromises.has(url);
-  }
-
-  /**
    * Release a model reference
    * When refCount reaches 0, model is disposed from GPU memory
    */
@@ -183,16 +169,6 @@ export class AssetManagerService {
    */
   async preloadModels(urls: string[]): Promise<void> {
     await Promise.all(urls.map((url) => this.loadModel(url)));
-  }
-
-  /**
-   * Get cache statistics
-   */
-  getCacheStats(): { count: number; urls: string[] } {
-    return {
-      count: this.modelCache.size,
-      urls: Array.from(this.modelCache.keys()),
-    };
   }
 
   /**

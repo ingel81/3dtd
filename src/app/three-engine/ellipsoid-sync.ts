@@ -152,14 +152,6 @@ export class EllipsoidSync {
   }
 
   /**
-   * Get distance from origin to a geo position (in meters, horizontal only)
-   */
-  distanceFromOrigin(lat: number, lon: number): number {
-    const local = this.geoToLocal(lat, lon, 0);
-    return Math.sqrt(local.x * local.x + local.z * local.z);
-  }
-
-  /**
    * Calculate heading angle (rotation.y) for Three.js from one geo position to another.
    *
    * This is the PRIMARY method for calculating entity orientation.
