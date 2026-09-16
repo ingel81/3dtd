@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-09-15 (Services, Manager, Signaturen, Ordner und Game Loop gegen den Code geprüft)
+**Stand:** 2026-09-16 (Services, Manager, Signaturen, Ordner und Game Loop gegen den Code geprüft)
 
 ## Übersicht
 
@@ -105,7 +105,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | Service | Verantwortung |
 |---------|---------------|
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
-| **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid` und `flight` setzen andere Services), Progress Tracking |
+| **EngineInitializationService** | Loading Sequence mit 11 Boot-Steps (`location` bis `flight`; `location`, `grid`, `corridor` und `flight` setzen andere Services), Progress Tracking |
 | **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
 | **GameStateSyncService** | EventBus → Store Bridge: wave/game/credits/health/tower/enemy/research:state-changed |
 | **RunStatsTracker** (`run-stats.ts`) | Zahlen der Game-Over-Bilanz vom Event-Bus, Angular-frei, gehalten vom GameStateSyncService |
@@ -121,7 +121,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **TowerUpgradeService** | Upgrade-Käufe des Spielers, von U (`buyFirst`, aus dem HotkeyService) und vom Klick auf eine Upgrade-Kachel (`buy`, Tower- und Research-Panel über die Spielkomponente), mit einer Antwort für beide: Track und neue Stufe als Welttext über dem Tower und Kachel-Blitz, oder der Grund über dem Tower und als Zeile im Panel (`UpgradeHintService`). Regeln in `utils/player-actions.ts` (`upgradeTrackRefusal`). Provider der Spielkomponente, weil er die Facade braucht; die Bots kaufen direkt über die Facade, ohne Antwort |
 | **BossIntroService** | Boss-Intro: tritt ein Boss einer Welle aus seinem Portal, Kameraschnitt aufs Portal mit Titelkarte, das Spiel pausiert, Klick oder Esc überspringt. Provider der Spielkomponente (hört am Bus des GameStateManager), getickt aus `GameLoopFacadeService.onEngineUpdate` nach den Sub-Steps; bekommt jede Taste vor InputHandler und HotkeyService. Regeln, Zeitplan und Einstellung in `utils/boss-intro.ts`, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro) |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
-| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, refineCellsInRadius vor LOS-Reg. Tastet die Grundfläche ab (`resolveFootprint`): auf unebenem Grund Fuß auf dem höchsten Punkt, Sockel bis zum tiefsten, schon in der Vorschau |
+| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, LOS-Registrierung auf den eingefrorenen Zellen. Tastet die Grundfläche ab (`resolveFootprint`): auf unebenem Grund Fuß auf dem höchsten Punkt, Sockel bis zum tiefsten, schon in der Vorschau |
 | **EconomyService** | Wave-Completion-Bonus + Perfect-Streak (extrahiert aus GameStateManager, 2026-05-10) |
 | **AbilityTargetingService** | Zielmodus einer Fähigkeit: Ring im Radius des Schlags am Cursor, auf die Route gesnappt, Klick sendet `command:use-ability`, siehe [ABILITIES.md](ABILITIES.md) |
 | **HeroControlService** | Held wählen, schicken (`command:hero-move`), anheuern und Munition wechseln, siehe [HERO.md](HERO.md) |
@@ -130,7 +130,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **SellConfirmService** | Verkauf in zwei Schritten ohne Dialog (`SELL_CONFIRM_WINDOW_MS`), für Tower- und Research-Panel |
 | **RefusalHintService** | Hinweis in der Context-Hint-Box, wenn eine Fähigkeit oder der Held einen Befehl des Spielers ablehnt |
 | **UpgradeHintService** | Zeile im Panel, wenn ein Upgrade nicht gekauft werden kann (`UPGRADE_HINT_MS`) |
-| **TowerLosRegistry** (`tower-los-registry.ts`) | LOS eines Towers auf dem Route-Grid: Registrieren, Neuberechnen, Warteschlange geänderter Zellen, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md) |
+| **TowerLosRegistry** (`tower-los-registry.ts`) | LOS eines Towers auf dem Route-Grid: Registrieren, Neuberechnen, Warteschlange der angeforderten Neuberechnungen, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md) |
 | `build-preview-los.ts`, `tower-preview-model.ts`, `tower-plinth-preview.ts` | Bauvorschau: LOS-Anzeige, transparentes Modell mit Grün/Rot-Tönung, Sockel |
 | `hotkey-map.ts` | Zuordnung Taste zu Aktion (`resolveHotkey`, `HOTKEY_HELP`) |
 
@@ -155,7 +155,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **RouteAnimationService** | Knight Rider Routen-Animation |
 | **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, Tower-Registrierung. Die Per-Tower-Viz (`TowerLosViz`, `utils/tower-los-viz.ts`) halten TowerManager (Auswahl) und TowerPlacementService (Build-Preview) |
 | **IntroCameraFlightService** | Intro-Kamerafahrt entlang der Route, lädt dabei die Tiles des Korridors vor. Abbruch per Klick oder Mausrad auf dem Canvas, "Skip Intro" oder Esc; die übrigen Spieltasten wirken während des Flugs nicht (`handleKeyDown`, von der Spielkomponente nach dem Boss-Intro und vor InputHandler und HotkeyService gefragt) |
-| **CorridorRefit** (`corridor-refit.ts`) | Korridor-Messung nach Tile-Loads nachziehen, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
+| **CorridorBuild** (`corridor-build.ts`) | Der eine Besitzer des Korridors: baut ihn einmal je Routensatz hinter dem Ladescreen und friert Routen, Zellen und Höhen ein, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | **SpatialGridService** | Generischer Spatial Hash für Tower/Enemy Range-Queries |
 | **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
 | **StreetRenderingService** | Street Network Visualisierung mit Terrain-Following |
@@ -165,7 +165,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **RelocationStatusService** | Hinweis "MOVING HQ" beim HQ-Umzug mit Schritt und Messfortschritt |
 | `route-line-layer.ts` | Rote Routenlinien (Line2, eine je Spawn-Route) des PathAndRouteService |
 | `route-way-report.ts` | Tabelle für `__routes.describe()`, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#__routesdescribe) |
-| `corridor-controller.ts`, `route-grid-convergence.ts`, `intro-loading-gate.ts`, `building-overlay.ts` | Hilfsklassen der VisualizationFacade (unten) |
+| `intro-loading-gate.ts`, `building-overlay.ts` | Hilfsklassen der VisualizationFacade (unten) |
 
 #### location/
 
@@ -226,9 +226,8 @@ baut, die sie brauchen, und an denselben Stellen aufruft wie vorher den eigenen 
 
 | Klasse | Datei | Aufgabe |
 |--------|-------|---------|
-| **CorridorController** | `world/corridor-controller.ts` | `CorridorRefit` verdrahten (Frames, Timer, Sperren), Neuaufbau von Routen, Zellen und Routenlinie, Flush-Haken am `GameStateManager` |
+| **CorridorBuild** | `world/corridor-build.ts` | Messung, Routen, Zellen, Höhen und Routenlinie in einem Lauf hinter dem Ladescreen; danach eingefroren. Tower und Wellen warten darauf (`corridorPending`) |
 | **CorridorConsole** | `debug/corridor-console.ts` | `__corridor.get/set/reset/towerCells/pick/report`; liest dem Zellbericht (`debug/cell-report.service.ts`) die Zellen wie `pick` |
-| **RouteGridConvergence** | `world/route-grid-convergence.ts` | rAF-Schleife nach Tile-Loads (Höhen-Sweep, Retry), Routenlinie, Marker und Animation neu, wenn sich Zellen ändern |
 | **IntroLoadingGate** | `world/intro-loading-gate.ts` | Ladescreen beim ersten Laden halten, bis die Intro-Fahrt Höhen hat |
 | **CameraOverview** | `camera-overview.ts` | Übersichts-Frame, Startansicht, Kamera-Debug-Toggles |
 | **DpsBinsOverlay** | `debug/dps-bins-overlay.ts` | DPS-Profil-Bins entlang der Route |
@@ -468,7 +467,7 @@ ein Map-Zugriff pro Strahl. Herkunft: PERF_BUG_ANALYSIS_2026-05-28.md, Nachtrag 
 
 | Aufrufer | Strahlen |
 |---|---|
-| `routeGrid` | Zell-Sampling und Sweeps des Route-Grids (`GameStateManager`) |
+| `routeGrid` | Zell-Sampling des Route-Grids, nur im Korridor-Bau (`GameStateManager`) |
 | `routeCorridor` | Säule und Seitenstrahlen der Korridor-Stationen (`TerrainQueries.measureStreetClearance`) |
 | `corridorPick` | Säulen-Inspektion ohne Cache (`TerrainQueries.inspectColumn`) |
 | `streets` | Straßen-Overlay (`StreetRenderingService`) |
@@ -525,16 +524,10 @@ Tower-LOS und Air-Routing bedienen.
 1. Engine (`onTileSetSettled`): `terrain.markTileSetChanged()` erhöht `lodVersion`,
    das entwertet einzelne Säulen-Samples (kein globaler Cache-Clear); danach
    invalidiert der Engine die LOS-Cubemap und ruft den Callback
-2. `VisualizationFacadeService.onTilesLoaded()`: Straßen, Gebäude, Marker-Höhen, dann
-   `globalRouteGrid.beginTerrainHeightRefresh()`, ein Sweep über alle Cells mit
-   Frame-Budget statt eines blockierenden Voll-Durchlaufs; stabile Cells werden nur bei
-   besserem LOD neu gesampelt
-3. `RouteGridConvergence.scheduleBakedHeightRefresh()` merkt den Neuaufbau von Route-Linien, Markern und
-   Animation vor; er läuft einmal, wenn der Sweep fertig ist
-4. `RouteGridConvergence.schedule()`: rAF-Schleife, erst `stepTerrainHeightRefresh()` mit
-   5 ms pro Frame, danach `retryUnsampledCells()` für Cells, deren Tile-Mesh später
-   dekodiert wurde, bis zwei Frames nacheinander nichts mehr befördern (Sicherheitsgrenze
-   120 Frames). Am Ende laufen der Baked-Refresh und `CorridorRefit.remeasure()`
+2. `VisualizationFacadeService.onTilesLoaded()`: Straßen, Gebäude, Marker-Höhen,
+   `gameState.onTilesLoaded()`, Spatial-Grid- und Air-Layer-Anzeige
+3. Am Korridor ändert sich dabei nichts: Cells, Höhen und Routenlinie stehen, seit
+   `CorridorBuild` sie eingefroren hat. Gesampelt wird nur in einem Bau
    ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md))
 
 **Sanity & sampling rules (in `sampleCellY`, `route-cell-sampler.ts`):**
@@ -543,8 +536,9 @@ Tower-LOS und Air-Routing bedienen.
 - Rejects outliers >50 m from the median of stable neighbours of the same
   surface; for a first sample or an LOD upgrade only neighbours from tiles at
   least as deep count (ROUTE_CORRIDOR.md, Zellhöhe)
-- LOD-versioned idempotency: stable cells are only resampled when the
-  hit comes from a strictly better LOD
+- Sampled once: a cell takes its height when the grid generates it, and is
+  probed again only while it has no sample of its own (`retryUnsampledCells`
+  on the fallback level, in the build)
 
 **smoothPathHeights():** liegt in `utils/route-height-smoothing.ts` und wird
 ausschließlich von `street-rendering.service.ts` für gerenderte Straßenmesh-
@@ -558,15 +552,14 @@ Tower-Platzierung und Kamera-Bewegung lösten früher schwere Frame-Drops aus
 
 **Tower LOS Registration:**
 - `TowerPlacementService.registerTowerOnGrid()` läuft beim Platzieren (aus
-  `GameStateManager`, nicht für passive Gebäude): erst `refineCellsInRadius()` im
-  Tower-Radius, dann `registerTower()` am Grid mit GPU-Cubemap-LOS
-  ([LOS_PIPELINE.md](LOS_PIPELINE.md)), danach
-  `tower.losReady = true`
+  `GameStateManager`, nicht für passive Gebäude): `registerTower()` am Grid mit
+  GPU-Cubemap-LOS auf den eingefrorenen Cells
+  ([LOS_PIPELINE.md](LOS_PIPELINE.md)), danach `tower.losReady = true`
 - Combat-System überspringt Towers mit `!losReady`
-- Ändern sich Cell-Höhen (cells-changed-Listener), kommen die betroffenen Tower in eine
-  Queue (`TowerLosRegistry`); `drainLosRefresh()` rechnet höchstens einen Tower pro Frame neu
-  (`LOS_RECOMPUTES_PER_FRAME`) und wartet dabei auf einen laufenden Terrain-Sweep, maximal
-  3 s (`MAX_LOS_WAIT_MS`)
+- Eine Neuberechnung fragen nur die Forschung, die einem Tower Luftziele gibt, und
+  ein Reichweiten-Upgrade an; sie landet in der Queue des `TowerLosRegistry`,
+  `drainLosRefresh()` rechnet höchstens einen Tower pro Frame
+  (`LOS_RECOMPUTES_PER_FRAME`)
 
 **Street Rendering:**
 - `renderStreets()` sammelt alle Nodes und gibt sofort zurück
