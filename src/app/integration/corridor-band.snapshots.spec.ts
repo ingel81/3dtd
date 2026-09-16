@@ -11,7 +11,7 @@
  * cell beside the street lay a little lower or an object stood between the
  * two sides, neighbouring stations laid their bands on different sides of it,
  * and the taper along the route cut each down to its backbone: 0 to 1.5 m
- * where every walk alone was 4 to 14 m wide (tmp/fix1/reports/cornerband.md).
+ * where every walk alone was 4 to 14 m wide (tmp/archive-2026-09/fix1/reports/cornerband.md).
  */
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';

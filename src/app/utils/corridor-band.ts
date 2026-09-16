@@ -3,7 +3,7 @@ import { segmentTouchesCell } from './route-grid-builder';
 
 /**
  * The walkable band along a route and the enemies' line in it (phase 2 of
- * the corridor, tmp/fix1/reports/phase2-design.md).
+ * the corridor, tmp/archive-2026-09/fix1/reports/phase2-design.md).
  *
  * A pure function of what the route build froze: the OSM line of a route,
  * how far the clearance rays leave room at each station, and the columns
@@ -509,7 +509,7 @@ const cheaper = (a: ChainCost, b: ChainCost) =>
  * neighbouring stations laid their bands on different sides of it, and the
  * taper along the route (taperEdges) cut each down to its backbone: 0 to
  * 1.5 m where the walks alone were 4 to 14 m wide (playtest 748, Stuttgart,
- * Berlin, Paris; tmp/fix1/reports/cornerband.md).
+ * Berlin, Paris; tmp/archive-2026-09/fix1/reports/cornerband.md).
  *
  * - Off a car, a hedge or a roof the OSM line runs over: that way stands
  *   more than a step over the street beside it, which overlaps the stations

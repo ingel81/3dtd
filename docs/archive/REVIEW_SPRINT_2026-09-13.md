@@ -764,7 +764,7 @@ steht unter "Bugfixes".
 **Stand 2026-09-14 (nach der Fix-Session):** Die offenen Punkte 117, 121,
 142, 144, 151, 154 bis 231 und 238, dazu die alten Punkte 53 und 14, sind
 vorsortiert in
-`tmp/fix1/reports/sorter-night1.md` (Code-Stand `509aaed0`): 17 überholt,
+`tmp/archive-2026-09/fix1/reports/sorter-night1.md` (Code-Stand `509aaed0`): 17 überholt,
 32 per Szenario-Test prüfbar (verifyE), 29 für den User in den Runden O bis
 T, 7 gemischt. **verifyE:** von 39 Logikpunkten (inklusive der Logikteile
 der gemischten) sind 37 per Test bestätigt, kein Befund; 166 (Hinweistext)

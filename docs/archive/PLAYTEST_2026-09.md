@@ -70,7 +70,7 @@ zoomen und mit G springen.
   Enden, das Portal fand keine Antwort, und die Zellen dazwischen nahmen das Dach. Jede Station trägt jetzt eine
   eigene Straßenhöhe (geglättet über 30 m); Durchgangserkennung, die zweite Durchgangsregel und die Portalhöhe lesen
   diese. Deckt Torturm, Torbogen, Auskragung und Steg ab, nicht Durchgänge über 30 m Tiefe. Die sieben Zellen ohne
-  Höhe ließen sich nicht nachstellen, siehe nächsten Lauf. Nachtest: siehe `tmp/fix1/reports/corrpassage.md`.
+  Höhe ließen sich nicht nachstellen, siehe nächsten Lauf. Nachtest: siehe `tmp/archive-2026-09/fix1/reports/corrpassage.md`.
   **Vom User bestätigt (2026-09-16):** "Turmpassage sieht nun gut aus", Bau 4,9 s, 235 Stationen, alle gemessen,
   765 Zellen. **Offen bleibt:** `build.fallback what=cells missing=7 found=0`, also weiter sieben Zellen ohne Höhe;
   der Lauf dauert genau die Sekunde aus Punkt 744. Beide Punkte sind derselbe Fall.
@@ -85,7 +85,7 @@ zoomen und mit G springen.
   obwohl Tile-Tiefe und geometrischer Fehler je Zelle gleich bleiben. **Nebenbefund:** `reset()` baut ohne zu messen
   (`clearance.start segments=0 stations=0`, `rays=0`) und ändert dabei trotzdem die Höhen; ein Neubau ohne Messung
   sollte entweder neu messen oder ablehnen.
-  **Fix (2026-09-16, `2ecb51d4`, Worker determ, Bericht `tmp/fix1/reports/determ.md`):** Die Vermutung "der Strahl
+  **Fix (2026-09-16, `2ecb51d4`, Worker determ, Bericht `tmp/archive-2026-09/fix1/reports/determ.md`):** Die Vermutung "der Strahl
   trifft ausblendende Tiles" war falsch, die Bibliothek schneidet nur aktive Tiles. Ursache war der Säulen-Cache: Er
   hält eine Höhe je 0,5-m-Feld, gemessen am Punkt des ersten Aufrufers. Bei frischer Ladung füllten die Stationen die
   Felder der Zellmitten zuerst, bei `reset()` (keine Station gemessen) die Zellen selbst; gleiche Tiles, andere Höhen.
@@ -114,9 +114,9 @@ zoomen und mit G springen.
 - **744 Rückfall kostet eine Sekunde umsonst.** Rothenburg 1036 ms ohne Fund, Berlin 1070 ms für eine Station,
   Paris 1087 ms für vier. **Stand 2026-09-16: bewusst offen gelassen.** Ladezeit ist billig, und die Sekunde ist in
   Rothenburg dieselbe Ursache wie die sieben Zellen ohne Höhe; zuerst gehören die geklärt. Einstiegspunkt im Bericht
-  `tmp/fix1/reports/corrpassage.md`, Abschnitt 7. Nebenbei behoben: Die Trace meldet `LONG` jetzt nur noch über dem
+  `tmp/archive-2026-09/fix1/reports/corrpassage.md`, Abschnitt 7. Nebenbei behoben: Die Trace meldet `LONG` jetzt nur noch über dem
   eigenen Budget des Schritts, statt bei jedem Messabschnitt (`bea9becd`).
-  **Fix 743/744 (2026-09-16, `27bfa500`, Worker cells7, Bericht `tmp/fix1/reports/cells7.md`):** Die sieben Zellen
+  **Fix 743/744 (2026-09-16, `27bfa500`, Worker cells7, Bericht `tmp/archive-2026-09/fix1/reports/cells7.md`):** Die sieben Zellen
   liegen nicht am Turm, sondern am Marktplatz in einer Reihe am Rand vor dem Laubengang des Rathauses (belegt über
   Screenshot 082242, Route und OSM). Vermutlich treffen ihre Säulen nichts (Loch im Mesh), und am Rand fehlt das
   gegenüberliegende Nachbarpaar zum Füllen (plausibel, nicht belegt). Jetzt: Eine Zelle ohne eigene Höhe, die
@@ -138,7 +138,7 @@ zoomen und mit G springen.
      gefunden, um 1,07 s), keine Zeile `what=cells`, `cellsWithoutHeight=0`.
   **Nachtest (User, 2026-09-16):** Die rosa Zellen in Rothenburg sind weg. Neuer Befund siehe 747.
 - **747 Rothenburg: Durchgang unterscheidet sich zwischen Navigation im Spiel und kaltem Einstieg** (User,
-  2026-09-16). Daten folgen. Dafür neu (`aa9cf333`, Worker snapshot, Bericht `tmp/fix1/reports/snapshot.md`): Kachel
+  2026-09-16). Daten folgen. Dafür neu (`aa9cf333`, Worker snapshot, Bericht `tmp/archive-2026-09/fix1/reports/snapshot.md`): Kachel
   "Snapshot" unter Developer options, "Waves & Inspect" (oder `__corridor.snapshot()`) lädt den ganzen Korridor als
   `corridor-<ort>-<cold|nav>-<hhmmss>.json` herunter. Ablauf: Rothenburg kalt laden, Kamera auf den Durchgang,
   Snapshot; von einem anderen Ort im Spiel nach Rothenburg, Kamera auf den Durchgang, Snapshot. Die Dateien liest der
@@ -152,7 +152,7 @@ zoomen und mit G springen.
   Durchgänge, der navigierte nur einen (`passages=2` gegen `1`); dort stehen im navigierten Bau Zellen auf dem Turm
   (z.B. Zelle -97,111: 490,37 m statt 480,65 m Straße). **Zwei Befunde:** (a) derselbe Ort hat je nach Einstieg andere
   Koordinaten; (b) die Durchgangserkennung kippt schon bei 19 cm Versatz des Gitters.
-  **Fix (a) (2026-09-16, `0acd8fe2`, Worker coords, Bericht `tmp/fix1/reports/coords.md`):** HQ und Spawns kommen auf
+  **Fix (a) (2026-09-16, `0acd8fe2`, Worker coords, Bericht `tmp/archive-2026-09/fix1/reports/coords.md`):** HQ und Spawns kommen auf
   jedem Weg mit 5 Nachkommastellen ins Spiel, so wie die URL sie schreibt (`canonicalCoords` in `utils/geo-utils.ts`):
   URL, Favoriten, letzte Orte, Dialog, Zufalls-Spawn, Klick-Platzierung. Gespeicherte Orte werden beim Laden gerundet.
   Die Platzierungs-Vorschau springt in Schritten von rund 1 m, ein Punkt rückt bis 0,66 m. Orte, die bisher mit voller
@@ -161,7 +161,7 @@ zoomen und mit G springen.
   **Nachtest (a):** Rothenburg `?l=49.37721,10.17904&s=49.37944,10.18365` kalt laden, Snapshot. Anderen Ort laden, im
   Spiel über Favoriten oder "letzte Orte" nach Rothenburg, Snapshot. Erwartet: beide Dateien gleiche `meta.hq` und
   gleicher Fingerprint (der Lead vergleicht).
-  **Fix (b) (2026-09-16, `790bff72`, Worker passshift, Bericht `tmp/fix1/reports/passshift.md`):** Beide
+  **Fix (b) (2026-09-16, `790bff72`, Worker passshift, Bericht `tmp/archive-2026-09/fix1/reports/passshift.md`):** Beide
   Durchgangsregeln brauchten ein Rückgrat, unter dem Turm gab es nur eines auf dem Dach; ob zwei Dachzellen eine Stufe
   auseinander lagen (kalt 0,26 m, nav 0,57 m), entschied über Durchgang oder Zellen auf dem Turm. Dazu prüfte die
   Linienregel nur die Zelle unter der Station. Jetzt: Durchgang auch ohne Rückgrat, sobald die Gegnerlinie irgendwo eine
@@ -192,7 +192,7 @@ zoomen und mit G springen.
   wenn solche Löcher gehäuft Probleme machen.
 - **748 Band an Kurven und Abzweigungen dünn** (User, 2026-09-16, Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`,
   Snapshot `tmp/snapshots/corridor-stuttgart-nav-152029.json`). **Analyse (Analyst cornerband, nur verstanden, nichts
-  gebaut; Bericht `tmp/fix1/reports/cornerband.md`, Harness `tmp/fix1/cornerband-harness/`):** Nachgerechnet auf
+  gebaut; Bericht `tmp/archive-2026-09/fix1/reports/cornerband.md`, Harness `tmp/archive-2026-09/fix1/cornerband-harness/`):** Nachgerechnet auf
   0,004 m. Je Station nimmt das Band als Rückgrat die tiefste Zelle im Suchfenster um die OSM-Linie. An der Kurve liegt
   eine Grünstreifen-Zelle neben der Fahrbahn 0,46 m tiefer und besteht die Einstiegsregeln mit rund 4 cm Luft; Station
   188 legt ihr Band deshalb neben die Straße, die Nachbarn auf die Fahrbahn. `taperEdges` (`corridor-band.ts:724-730`)
@@ -207,7 +207,7 @@ zoomen und mit G springen.
   Stationen und begehbare Abschnitte) statt je Station die tiefste Zelle; (2) Taper aufs Intervall statt Kante plus
   Klemme; (3) gemeinsamer Rahmen am Knick. Empfehlung des Analysten: 1, dann 3. Entscheidung beim User.
   **User: 1 und 3 bauen, beides zurücknehmbar. Gebaut (2026-09-16, `47b29354`, Worker chainband, Bericht
-  `tmp/fix1/reports/chainband.md`):** (A) Je Station alle begehbaren Wege quer zur Linie; die Kette wählt über alle
+  `tmp/archive-2026-09/fix1/reports/chainband.md`):** (A) Je Station alle begehbaren Wege quer zur Linie; die Kette wählt über alle
   Stationen die Folge mit möglichst wenig Wechseln ohne Überlappung, dann möglichst wenig Metern über `stepRise`, dann
   Abstand zur OSM-Linie (lexikographisch, deterministisch). Stationen ohne Weg werden überbrückt. Die Klemme am Rückgrat
   bleibt. (B) Taper und Ausbuchtungs-Schnitt messen außen am Knick die Kantenlänge um die Ecke, innen und auf geraden
@@ -229,7 +229,7 @@ zoomen und mit G springen.
   **User (2026-09-16, abends): "Das gesamte Korridorthema ist jetzt mal soweit in Ordnung und vorerst abgenommen."**
   Neue Snapshots nach `47b29354` liegen nicht vor; die Eichwerte aus 747 gelten nach 748 nicht mehr und sind beim
   nächsten Vergleich neu zu nehmen.
-- **746 Ladeschritte aufgeräumt (2026-09-16, `78911ecd`, Worker bootclean, Bericht `tmp/fix1/reports/bootclean.md`).**
+- **746 Ladeschritte aufgeräumt (2026-09-16, `78911ecd`, Worker bootclean, Bericht `tmp/archive-2026-09/fix1/reports/bootclean.md`).**
   Überblick wird nach dem Einfrieren auf den fertigen Zellen gerahmt und als Startansicht gespeichert (nicht bei
   HQ-/Spawn-Umzug). Schritt "Waiting for 3D Tiles" gestrichen (10 statt 11 Schritte); beim Ortswechsel läuft das
   Warten auf die ersten Tiles jetzt unter "Placing Headquarters". Tote Reste entfernt. Im Spiel: kein
@@ -338,7 +338,7 @@ jedem Einsatz "Abilities" erneut. Ton an, möglichst Kopfhörer.
   OSM-Linie):** Der Planer findet die Autos, legt aber zwei Ausweichstücke auf derselben Seite 1 m auseinander (3,5
   und 2,5 m Versatz); der Übergang braucht 2 m, das zweite fällt weg, die Rampe des ersten läuft dann durch dessen
   Autos, das erste fällt auch: leerer Plan. Beide Kandidaten oben ausgeschlossen. Vorschlag in
-  `tmp/fix1/reports/detour.md` (Nachtrag 2). **User:** klingt sinnvoll, gewünscht ist aber eine allgemeine Lösung;
+  `tmp/archive-2026-09/fix1/reports/detour.md` (Nachtrag 2). **User:** klingt sinnvoll, gewünscht ist aber eine allgemeine Lösung;
   mit der Umsetzung warten, Details zum Korridor folgen. **733 ok. 734:** ok, aber der Skarnax-Ton loopt zu
   gleichmäßig, lieber zufällig und seltener (sounds). **735:** Tank gut, Textur könnte moderner sein (models); Ghost
   und Mech passen.
@@ -842,7 +842,7 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
 - **E11 Ooze-Gold bei junger Ooze:** Eine voll gewachsene Ooze zahlt gleich viel wie vorher. Bei einer jung getöteten
   hängt es von der Länge ab: meist weniger, bei manchen Längen etwas mehr (Welle 45: 1,5 m Körper 1142 statt 2181
   Gold, 15 m 2855 statt 3272, 27 m 4568 statt 4363). Genau gleich ginge nur mit gewichteten Slots für alle Gegner
-  (`2acf7db9`, Tabelle in `tmp/fix1/reports/oozedeath.md`). **Entscheidung User (2026-09-15): ins Balancing**
+  (`2acf7db9`, Tabelle in `tmp/archive-2026-09/fix1/reports/oozedeath.md`). **Entscheidung User (2026-09-15): ins Balancing**
   (TODO 2.2).
 - **E12 Debug-Checkboxen entfernt:** "Textures", "Skeleton Clone" und "Alpha Blend" im Debug-Fenster Display
   (Abschnitt "Performance") waren wirkungslos und sind weg (`1427f5c0`). **Entscheidung User (2026-09-15): ok.**
@@ -860,13 +860,13 @@ Einzeln vorlegen. Die Lead-Entscheidungen sind gebaut und lassen sich einzeln zu
 
 - **E16 `immunityPercent`:** Steht bei Herbert auf 100, wirkt aber nirgends. Entfernen oder an Schaden und Anzeige
   anbinden? **Entscheidung User (2026-09-15): anbinden.** Worker immunity fand: gedacht als Schadensimmunität, bei
-  100 wäre Herbert unverwundbar (`tmp/fix1/reports/immunity.md`). **User:** Bosse brauchen so etwas sicher, offen ist
-  was genau und in welchem Umfang; erst besprechen. Grundlage: `tmp/fix1/reports/bossresist.md`.
+  100 wäre Herbert unverwundbar (`tmp/archive-2026-09/fix1/reports/immunity.md`). **User:** Bosse brauchen so etwas sicher, offen ist
+  was genau und in welchem Umfang; erst besprechen. Grundlage: `tmp/archive-2026-09/fix1/reports/bossresist.md`.
   **Teilentscheidungen User (2026-09-15):** Herbert Slow-Schutz 50 %; Skarnax steht nur still, wenn sein Kopf
   eingefroren oder betäubt ist (Worker skarnax). **User:** Es gibt Immunitäten und Resistenzen, für Effekte und für
   Schadenstypen, dazu eventuell Schild und HP getrennt; erst ein Konzept, nicht heute (TODO 3.3). Nicht mehr vorlegen.
 - **Held Stufe 2 (aus E18):** Worker herotier2 fand keine Vorgabe in der Doku und schlug drei Varianten vor
-  (`tmp/fix1/reports/herotier2.md`). **User (2026-09-15):** offen lassen, erst braucht es den richtigen Tech Tree;
+  (`tmp/archive-2026-09/fix1/reports/herotier2.md`). **User (2026-09-15):** offen lassen, erst braucht es den richtigen Tech Tree;
   der Held muss vermutlich viel mehr Möglichkeiten bekommen. TODO.
 - **E17 Doku-Tabelle in CLAUDE.md:** Auf die Pflichtlektüre plus Verweis auf docs/INDEX.md kürzen? Vorerst bleibt sie
   voll. **Entscheidung User (2026-09-15): kürzen.** Worker docsai.

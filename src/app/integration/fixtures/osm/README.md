@@ -1,7 +1,7 @@
 # OSM fixtures for corridor scenes
 
 Real route geometry for scene tests of the route corridor (phase 2, the enemies' line in the middle of the
-walkable band, `tmp/fix1/reports/phase2-design.md`). Lesson from playtest 732: a scene on a modelled line 0.9 m
+walkable band, `tmp/archive-2026-09/fix1/reports/phase2-design.md`). Lesson from playtest 732: a scene on a modelled line 0.9 m
 off the real one passed while the game failed. Scenes build on these lines, not on hand-drawn ones.
 
 | File | Place | Route | For |

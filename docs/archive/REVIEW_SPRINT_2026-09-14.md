@@ -1076,7 +1076,7 @@ Von review5 sind die zwei Hinweise offen (17).
 **Offene Punkte standen ab 2026-09-15 in [PLAYTEST_2026-09.md](PLAYTEST_2026-09.md); was danach offen ist, steht in [TODO.md](../../TODO.md) und [PLAYTEST.md](../PLAYTEST.md).**
 
 **Ergebnisse Playtest 2026-09-14 (Nachmittag, nach der Fix-Session)**,
-vorsortiert in `tmp/fix1/reports/sorter-night2.md` (überholt, per Test,
+vorsortiert in `tmp/archive-2026-09/fix1/reports/sorter-night2.md` (überholt, per Test,
 User, zurückgestellt):
 - **305/306 ok:** nach dem Laden im Stillstand keine `cameraControls`-
   Raycasts (Nacht 1 etwa 5 000); beim heftigen Manövrieren 2 019 Aufrufe
