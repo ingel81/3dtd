@@ -134,6 +134,8 @@ export function createMockTilesEngine() {
     spatialAudio: {
       registerSound: vi.fn(),
       playAt: vi.fn(),
+      // AudioService chains .catch() on it
+      playAtGeo: vi.fn(() => Promise.resolve(null)),
       geoToLocalPosition: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
       createLoop: vi.fn(() => Promise.resolve({ stop: vi.fn() })),
       playOneShot: vi.fn(() => Promise.resolve()),
