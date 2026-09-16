@@ -17,7 +17,7 @@ Anleitung zum Exportieren des trainierten PyTorch-Modells für Browser-Inferenz.
 > der gegen echte Spielerdaten statt gegen einen scripted Bot trainiert wurde.
 > Einstieg: [AI_WAVE_DIRECTOR_PLAN.md](../../docs/AI_WAVE_DIRECTOR_PLAN.md); die
 > vollständige Begründung mit der Messreihe:
-> [HANDOVER_RULE_DIRECTOR.md](../../docs/HANDOVER_RULE_DIRECTOR.md).
+> [HANDOVER_RULE_DIRECTOR.md](../../docs/archive/HANDOVER_RULE_DIRECTOR.md).
 
 > Trotz des historischen Skript-Namens `export_to_tfjs.py` exportieren wir
 > direkt nach **ONNX**; TensorFlow.js wird **nicht** verwendet.

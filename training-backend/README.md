@@ -8,7 +8,7 @@ Python-Trainings- und Messserver für den Wave Director mit Live-Web-Dashboard.
 > Spiel entscheidet ein Regel-Director im Client
 > (`src/app/ai/core/rule-director.ts`), kein Server, kein Modell, keine
 > ONNX-Runtime. Einstieg: [`../docs/AI_WAVE_DIRECTOR_PLAN.md`](../docs/AI_WAVE_DIRECTOR_PLAN.md),
-> die Messreihe dahinter: [`../docs/HANDOVER_RULE_DIRECTOR.md`](../docs/HANDOVER_RULE_DIRECTOR.md).
+> die Messreihe dahinter: [`../docs/archive/HANDOVER_RULE_DIRECTOR.md`](../docs/archive/HANDOVER_RULE_DIRECTOR.md).
 
 ## Quick Start (Windows)
 
@@ -150,7 +150,7 @@ JSONL-Logs in `logs/training_*.jsonl` für Post-hoc-Analyse via
 | Doku | Inhalt |
 |---|---|
 | `../docs/AI_WAVE_DIRECTOR_PLAN.md` | **Einstieg:** Regel-Director, Gate-Controller, Decoder; was vom RL-Aufbau bleibt |
-| `../docs/HANDOVER_RULE_DIRECTOR.md` | Die Messreihe hinter dem Wechsel auf Regeln, und was zuerst zu reparieren ist, wenn wieder trainiert werden soll |
+| `../docs/archive/HANDOVER_RULE_DIRECTOR.md` | Die Messreihe hinter dem Wechsel auf Regeln, und was zuerst zu reparieren ist, wenn wieder trainiert werden soll |
 | `docs/AI_TRAINING_BACKEND.md` | Vollständige technische Dokumentation |
 | `docs/AI_TRAINING_SESSION_NOTES.md` | Entwicklungsgeschichte (neueste zuerst) |
 | `docs/AI_MODEL_EXPORT.md` | ONNX-Export für Browser-Inferenz (Opt-in-Pfad) |

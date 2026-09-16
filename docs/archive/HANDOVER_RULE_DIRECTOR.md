@@ -1,5 +1,8 @@
 # Handover: Regel-Director ersetzt das Modell
 
+> **Archiviert (2026-09-16).** Nur noch Historie. Den laufenden Stand beschreibt
+> [AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md), offene Arbeit steht in [TODO.md](../../TODO.md).
+
 **Stand:** 2026-09-07
 **Branch:** `feat/training-backend-refresh`
 **Commits:** `3e8fe54` (Gate steuert statt ratscht), `3875d61` (Regel-Director clientseitig)
@@ -46,12 +49,12 @@ Modell und keine ONNX-Runtime. Es wird beim Kaltstart nichts nachgeladen
 **Der ONNX-Pfad bleibt erreichbar** — als Opt-in über den Knopf
 „ONNX-Modell laden" im Debug-Fenster (`training-debugger.component.ts`),
 zurück über „Regeln nutzen". Details und der Stand des ausgelieferten Modells:
-[AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md).
+[AI_MODEL_EXPORT.md](../../training-backend/docs/AI_MODEL_EXPORT.md).
 
 **Das Trainings-Backend bleibt bestehen — als Messinstrument, nicht als
 Produktionsabhängigkeit.** Es ist die einzige Umgebung, in der sich Wave-Designs
 gegen Bots über hunderte Runs vergleichen lassen. Technische Referenz:
-[AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md).
+[AI_TRAINING_BACKEND.md](../../training-backend/docs/AI_TRAINING_BACKEND.md).
 
 ---
 

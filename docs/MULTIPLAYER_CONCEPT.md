@@ -1220,7 +1220,7 @@ Der Teil, der über die zwei Modi hinaus Wert schafft:
    trainiert, lernt dessen Schwächen, und die hat ein Mensch nicht. Menschliche
    Sends sind damit nicht bloß besseres Material, sondern die Vorbedingung
    dafür, dass sich ein gelerntes Modell hier überhaupt lohnt. Siehe
-   `docs/HANDOVER_RULE_DIRECTOR.md`.
+   `docs/archive/HANDOVER_RULE_DIRECTOR.md`.
 3. **Der AI-Director als PvP-Gegner** (Teil I, Modus C): dieselbe UI, dieselbe
    Aktionsraum-Anbindung wie der menschliche Angreifer in Modus B.
 4. **Replays** aus dem Command-Log: beide Modi, ohne Zusatzaufwand.

@@ -14,7 +14,7 @@
 > hat keinen `__main__`-Block.
 >
 > Den kompletten aktuellen Ablauf beschreibt
-> [docs/HANDOVER_TRAINING_REFRESH.md](../docs/HANDOVER_TRAINING_REFRESH.md);
+> [docs/archive/HANDOVER_TRAINING_REFRESH.md](../docs/archive/HANDOVER_TRAINING_REFRESH.md);
 > `/training` fährt ihn hoch.
 
 After the Phase 5.5 architecture changes (state-vector 74→93, enemy pool 6→16,

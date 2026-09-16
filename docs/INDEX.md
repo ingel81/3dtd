@@ -64,9 +64,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | **[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** Regel-Director, Gate-Controller, warum das Modell ersetzt wurde, was vom RL-Aufbau bleibt |
-| [HANDOVER_RULE_DIRECTOR.md](HANDOVER_RULE_DIRECTOR.md) | Bericht | Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07): die Messreihe dahinter, Einstieg für ein späteres Training |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Gegenspieler im Training |
-| [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md) | Bericht | Refresh des Trainings-Backends (Stand 2026-09-07, abgeschlossen): Befunde, Grundsatzentscheidungen, Messbetrieb |
 | [training-backend/README.md](../training-backend/README.md) | Aktuell | Backend starten, Ordner, Befehle |
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Aktuell | Python Training Backend: PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
 | [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) | Aktuell | ONNX-Export (`npm run export-ai`), nur für den Opt-in-Pfad nötig |
@@ -99,7 +97,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [HANDOVER_ROUTE_GRID_GPU_LOS.md](archive/HANDOVER_ROUTE_GRID_GPU_LOS.md) | [LOS_PIPELINE.md](LOS_PIPELINE.md); Sackgassen, Diagnose-Werkzeuge und GPU-Probe der LOS-Anläufe (2026-05-15) |
 | [TILES_LOADING_BUG.md](archive/TILES_LOADING_BUG.md) | Untersuchung der Tile-Ladefehler (2026-05-08); der Ablauf heute steht in ARCHITECTURE.md (`tile-loading-tracker.ts`) |
 | [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Range-Templates und Decoder, die Mechanik gilt weiter |
-| [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md) | [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md); Balance-Pass von Phase 5.16 |
+| [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md) | [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md); Balance-Pass von Phase 5.16 |
 | [UX_DISCUSSION_NOTES.md](archive/UX_DISCUSSION_NOTES.md) | Diskussionsnotizen zu Turmdrehung und Color Grading, beide entschieden |
 | [ENGINE_DEEP_REVIEW_2026-05-16.md](archive/ENGINE_DEEP_REVIEW_2026-05-16.md) | Engine-Review über `src/app/`, Dependencies, Tests (Stand 2026-05-16) |
 | [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](archive/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | Merge-Divergenz lokal ↔ origin/main (2026-08-23) |
@@ -109,6 +107,8 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [REVIEW_SPRINT_2026-09-13.md](archive/REVIEW_SPRINT_2026-09-13.md) | Nachtschicht 1: Änderungen, Entscheidungen, Review-Befunde, Playtest-Liste 101 bis 258 |
 | [REVIEW_SPRINT_2026-09-12.md](archive/REVIEW_SPRINT_2026-09-12.md) | Zweite Sprint-Runde: Änderungen, Review-Befunde, Playtest-Liste 1 bis 56 mit Ergebnissen |
 | [REVIEW_SPRINT_2026-09-11.md](archive/REVIEW_SPRINT_2026-09-11.md) | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand (in DONE.md 2026-09-12 übernommen) |
+| [HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07), die Messreihe dahinter, Einstieg für ein späteres Training |
+| [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Refresh des Trainings-Backends bis 2026-09-07: Befunde, Grundsatzentscheidungen, Messhistorie |
 | `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), historisches Restart-Runbook, liegt bewusst unter `training-backend/` |
 
 ## Werkzeuge (HTML, lokal im Browser öffnen)

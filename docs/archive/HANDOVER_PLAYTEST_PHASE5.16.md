@@ -5,7 +5,7 @@
 **Build-Status:** grün, zuletzt 642/642 Tests pass (Engine Cleanup-Pass 2026-05-11)
 **Letzte Aktualisierung:** 2026-08-27 (Korrekturen, siehe Kasten)
 
-> **Überholt durch [HANDOVER_TRAINING_REFRESH.md](../HANDOVER_TRAINING_REFRESH.md).**
+> **Überholt durch [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).**
 > Dieses Dokument bleibt als Protokoll des Phase-5.16-Balance-Passes stehen,
 > beschreibt den Code aber nicht mehr durchgehend korrekt. Beim Wiederaufsetzen
 > gilt der Training-Refresh-Handover; hier stehen nur noch die Design-Absichten
@@ -156,7 +156,7 @@ Zwei Stufen haben das überholt:
    Opt-in. Ein Re-Training ist damit kein offener Punkt mehr, sondern eine
    Grundsatzentscheidung.
 
-Details: [HANDOVER_TRAINING_REFRESH.md](../HANDOVER_TRAINING_REFRESH.md).
+Details: [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
 
 ### C) Boss-Frequenz ab W31
 > **Umgesetzt 2026-09** (Entwurf, BALANCE_PROPOSAL_2026-09 §5): `isBossWave()`,

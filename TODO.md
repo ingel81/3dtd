@@ -32,7 +32,7 @@ Stand 2026-09-16, Branch `next`.
 ## B. Entscheidungen (User)
 
 - [ ] **B1 ONNX-Modell und Training behalten oder entfernen?** Das Netz war nicht besser als Zufall, der Betrieb läuft
-      auf dem Regel-Director ([HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md)). Bei "entfernen"
+      auf dem Regel-Director ([HANDOVER_TRAINING_REFRESH.md](docs/archive/HANDOVER_TRAINING_REFRESH.md)). Bei "entfernen"
       fallen F7, die offenen Trainings-Prüfungen (DONE.md 2026-09-14) und Teile von E1 weg.
 - [ ] **B2 BVH für Raycasts gegen die Tiles noch nötig?** Die teuren Messungen laufen seit dem Korridor-Umbau im
       Ladescreen. Stand 2026-09-14: ein Strahl 0,1 bis 0,45 ms, Bursts beim Setzen eines Towers und bei der

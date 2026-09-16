@@ -3,7 +3,7 @@
 Chronologische Zusammenfassung der Architektur-Iterationen des AI Wave
 Directors, neueste zuerst. Aktueller Stand:
 `docs/AI_WAVE_DIRECTOR_PLAN.md` im Projekt-Root, die Messreihe vom 2026-09-07 in
-`docs/HANDOVER_RULE_DIRECTOR.md`.
+`docs/archive/HANDOVER_RULE_DIRECTOR.md`.
 
 ---
 
@@ -12,7 +12,7 @@ Directors, neueste zuerst. Aktueller Stand:
 **Ergebnis:** Der Wave Director im Spiel ist ab hier regelbasiert und
 clientseitig. Das trainierte Netz war nicht besser als Würfeln, und die Ursache
 lag vor dem Lernen. Vollständiger Handover mit Wiederaufsetz-Anleitung:
-`docs/HANDOVER_RULE_DIRECTOR.md`.
+`docs/archive/HANDOVER_RULE_DIRECTOR.md`.
 
 ### Voraussetzung: zwei Fehler im Fairness-Gate
 
@@ -130,7 +130,7 @@ Messinstrument.
 
 ## 2026-08: Training-Refresh, Schema v3, Reward v4
 
-Details: `docs/HANDOVER_TRAINING_REFRESH.md`.
+Details: `docs/archive/HANDOVER_TRAINING_REFRESH.md`.
 
 - **Schema v2 → v3, 162 → 203 Features.** Neu: der Wave-Context-Block
   (Availability-Maske 32 + effektive Ranges 6 + Fairness-Headroom 1). Das Netz
