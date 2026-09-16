@@ -127,9 +127,18 @@ interface OverpassAnswer {
 
 /**
  * Time a server gets to start its answer (the headers) before the attempt
- * is aborted. The body after the headers has no limit.
+ * is aborted.
  */
 const OVERPASS_HEADER_TIMEOUT_MS = 15000;
+
+/**
+ * Time a server gets from its headers to the end of its body before the
+ * attempt is aborted, so a server that starts its answer and then hangs
+ * hands over to the next instead of holding the load up for good. Generous
+ * against a slow but valid answer: the query itself runs at most 25 s on
+ * the server (`[timeout:25]`) before any of it is sent.
+ */
+const OVERPASS_BODY_TIMEOUT_MS = 30000;
 
 /**
  * Time a server gets to start its answer before the next one is asked
@@ -304,8 +313,9 @@ export class OsmStreetService {
   /**
    * Post `query` to the Overpass servers and return what `accept` makes of
    * the first answer it takes. The servers are asked in order. One that
-   * fails, does not start its answer within OVERPASS_HEADER_TIMEOUT_MS or
-   * whose answer `accept` throws on hands over to the next at once. One
+   * fails, does not start its answer within OVERPASS_HEADER_TIMEOUT_MS, does
+   * not finish it within OVERPASS_BODY_TIMEOUT_MS after that or whose answer
+   * `accept` throws on hands over to the next at once. One
    * that has not started its answer after OVERPASS_HEDGE_MS gets the next
    * asked alongside it, so a server that waits out its 15 s no longer holds
    * the others back that long; the first answer taken aborts the rest.
@@ -369,7 +379,9 @@ export class OsmStreetService {
   /**
    * Post `query` to one Overpass server and read its answer. Aborted
    * through `controller`, and by itself when the headers take longer than
-   * OVERPASS_HEADER_TIMEOUT_MS; `onHeaders` is called when they are there.
+   * OVERPASS_HEADER_TIMEOUT_MS or the body after them longer than
+   * OVERPASS_BODY_TIMEOUT_MS; `onHeaders` is called when the headers are
+   * there.
    */
   private async askOverpass(
     server: string,
@@ -405,7 +417,18 @@ export class OsmStreetService {
     if (!response.ok) {
       throw new Error(`OSM API error: ${response.status}`);
     }
-    const text = await response.text();
+    const bodyTimeoutId = setTimeout(() => {
+      timedOut = true;
+      controller.abort();
+    }, OVERPASS_BODY_TIMEOUT_MS);
+    let text: string;
+    try {
+      text = await response.text();
+    } catch (error) {
+      throw timedOut ? new Error(`answer not complete within ${OVERPASS_BODY_TIMEOUT_MS}ms`) : error;
+    } finally {
+      clearTimeout(bodyTimeoutId);
+    }
     return {
       data: JSON.parse(text) as OverpassResponse,
       chars: text.length,

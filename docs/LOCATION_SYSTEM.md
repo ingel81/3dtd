@@ -441,8 +441,8 @@ STEP 3: Load Streets
     einer, kommt sofort der nächste dran; hat einer nach 4 s noch nicht zu
     antworten begonnen (`OVERPASS_HEDGE_MS`, eine Annahme), wird der nächste
     zusätzlich gefragt. Die erste brauchbare Antwort gewinnt, die anderen
-    Anfragen werden abgebrochen. Jeder Server hat 15 s bis zu den Headern,
-    der Body danach keine Grenze. Jeder Versuch steht als
+    Anfragen werden abgebrochen. Jeder Server hat 15 s bis zu den Headern
+    und danach 30 s für den Body, sonst kommt der nächste dran. Jeder Versuch steht als
     `[OSM] streets from ...` in der Konsole, siehe "Zeiten" unten
   - Überlappt die Box die zuletzt geladenen Straßen (`lastLoaded`, eine im
     Speicher, aus Overpass oder dem IndexedDB-Cache), übernimmt
@@ -688,10 +688,10 @@ Jeder Versuch bei einem Overpass-Server (`OsmStreetService.fetchOverpass`, für 
 [OSM] streets from <host> failed after ms: <Grund>
 ```
 
-- `headers` = Anfrage bis zu den Headern, also bis der Server zu antworten beginnt; bis dahin wartet der Versuch höchstens 15 s (`OVERPASS_HEADER_TIMEOUT_MS`, Grund dann `no answer within 15000ms`). `body` = von dort bis zum Ende der Antwort, ohne Grenze
+- `headers` = Anfrage bis zu den Headern, also bis der Server zu antworten beginnt; bis dahin wartet der Versuch höchstens 15 s (`OVERPASS_HEADER_TIMEOUT_MS`, Grund dann `no answer within 15000ms`). `body` = von dort bis zum Ende der Antwort, höchstens 30 s (`OVERPASS_BODY_TIMEOUT_MS`, Grund dann `answer not complete within 30000ms`)
 - `size` = Länge des JSON-Texts in Millionen Zeichen, bei OSM-Daten etwa die Bytes entpackt. `ways`/`nodes` = was kam, vor dem Filter auf die Routen (`[OSM] Filtered: ...`)
 - `remark` nur, wenn der Server an eine Grenze stieß (Speicher `maxsize` 4 MB, Zeit 25 s); die Antwort kann dann unvollständig sein und wird trotzdem genommen, sobald sie Straßen enthält
-- Gründe beim Scheitern: `OSM API error: <Status>` (z. B. 429, 504), `no answer within 15000ms`, `No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt) oder der Netzwerkfehler des Browsers
+- Gründe beim Scheitern: `OSM API error: <Status>` (z. B. 429, 504), `no answer within 15000ms`, `answer not complete within 30000ms`, `No streets found ...` (Antwort ohne Straßen, der nächste Server wird gefragt) oder der Netzwerkfehler des Browsers
 - Ein Server, der abgebrochen wird, weil ein anderer zuerst antwortete, schreibt keine Zeile. Zwei Antwortzeilen zu einer Ladung heißen, dass beide fast gleichzeitig kamen
 - Beginnt ein Server erst nach mehr als 4 s zu antworten (`headers=` über 4000), wurde der nächste schon zusätzlich gefragt
 

@@ -344,7 +344,10 @@ describe('OsmStreetService', () => {
           answer: (data, status = 200) => resolve({ ok: status < 400, status, text: async () => JSON.stringify(data) }),
           stream: () => {
             let body!: (text: string) => void;
-            const text = new Promise<string>((done) => { body = done; });
+            const text = new Promise<string>((done, abort) => {
+              body = done;
+              signal.addEventListener('abort', () => abort(new DOMException('The operation was aborted.', 'AbortError')));
+            });
             resolve({ ok: true, status: 200, text: () => text });
             return (data) => body(JSON.stringify(data));
           },
@@ -434,6 +437,28 @@ describe('OsmStreetService', () => {
       expect(requests).toHaveLength(1);
 
       body(overpass([1, 48.78, 9.18, 48.781, 9.18]));
+      await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
+    });
+
+    it('aborts a server whose answer has not ended 30 s after its headers, and asks the next', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const loading = service.loadStreets(48.78, 9.18, 500);
+      await flush();
+      requests[0].stream();
+      await flush();
+
+      vi.advanceTimersByTime(29999);
+      await flush();
+      expect(requests).toHaveLength(1);
+      vi.advanceTimersByTime(1);
+      await flush();
+
+      expect(requests[0].signal.aborted).toBe(true);
+      expect(logged()).toContainEqual(expect.stringMatching(
+        /overpass\.kumi\.systems failed after \d+ms: answer not complete within 30000ms$/,
+      ));
+      expect(requests.map((request) => request.host)).toEqual(['overpass.kumi.systems', 'overpass-api.de']);
+      requests[1].answer(overpass([1, 48.78, 9.18, 48.781, 9.18]));
       await expect(loading).resolves.toMatchObject({ streets: [{ id: 1 }] });
     });
 
