@@ -26,7 +26,7 @@ import {
   summarizeTowerRange,
 } from './route-grid-diagnostics';
 import { RouteGridAggregateViz } from './route-grid-aggregate-viz';
-import { RouteCellSampler } from './route-cell-sampler';
+import { CellMiss, RouteCellSampler } from './route-cell-sampler';
 import { WalkGround, cellWalkable, judgeWalk, portalGround } from './corridor-walk';
 import type { BandStation } from './corridor-band';
 import { logGrid } from './route-grid-log';
@@ -263,6 +263,7 @@ export class GlobalRouteGrid {
         if (this.sampler.fill(cell, y)) changed.push(cell);
       } else if (cell.sample.state === 'stable') {
         this.sampler.resetToUnsampled(cell);
+        this.misses.set(cell.key, 'refused');
         changed.push(cell);
       }
     }
@@ -360,6 +361,44 @@ export class GlobalRouteGrid {
     return count;
   }
 
+  /** Why each cell's last sample failed (RouteCellSampler.lastMiss), by cell key; see sample(). */
+  private readonly misses = new Map<number, CellMiss>();
+
+  /** Cells describeCellsWithoutHeight lists by position; the rest it counts. */
+  private static readonly LISTED_CELLS = 10;
+
+  /**
+   * The cells without a height (cellsWithoutHeight), for the corridor trace:
+   * `why`, how many of them failed for each reason (CellMiss), and `at`,
+   * where the first LISTED_CELLS of them stand (local x,z) and how many
+   * more there are. O(cells).
+   */
+  describeCellsWithoutHeight(): { why: string; at: string } {
+    const counts = new Map<CellMiss, number>();
+    const at: string[] = [];
+    let more = 0;
+    for (const cell of this.cells.values()) {
+      if (cell.heightSampled) continue;
+      const miss = this.misses.get(cell.key) ?? 'noColumn';
+      counts.set(miss, (counts.get(miss) ?? 0) + 1);
+      if (at.length < GlobalRouteGrid.LISTED_CELLS) at.push(`${cell.x},${cell.z}`);
+      else more++;
+    }
+    return {
+      why: [...counts].map(([miss, n]) => `${miss}:${n}`).join(','),
+      at: at.join(';') + (more > 0 ? `;+${more}` : ''),
+    };
+  }
+
+  /** sampleCellY for one cell of this grid, keeping why it failed (misses). */
+  private sample(cell: RouteCell): boolean {
+    const sampled = this.sampler.sampleCellY(cell);
+    const miss = this.sampler.lastMiss;
+    if (miss === null) this.misses.delete(cell.key);
+    else this.misses.set(cell.key, miss);
+    return sampled;
+  }
+
   /**
    * Generate grid cells from enemy routes and sample their terrain height.
    *
@@ -398,6 +437,7 @@ export class GlobalRouteGrid {
 
     const t0 = performance.now();
     this.cells.clear();
+    this.misses.clear();
     this.enemyCellKeys.clear();
     this.generation = GlobalRouteGrid.nextGeneration++;
     this.cachedRoutes = routes;
@@ -412,7 +452,7 @@ export class GlobalRouteGrid {
     // Sampled only once every segment has claimed its cells: which surface
     // a cell samples depends on all segments that reach it. Then the gaps
     // between sampled cells, see fillGaps.
-    for (const cell of this.cells.values()) this.sampler.sampleCellY(cell);
+    for (const cell of this.cells.values()) this.sample(cell);
     this.fillGaps(this.cells.values());
 
     const ms = performance.now() - t0;
@@ -442,7 +482,7 @@ export class GlobalRouteGrid {
       // A filled cell has a height but no sample of its own: retried as well.
       if (cell.sample.state === 'stable') continue;
       totalUnsampled++;
-      if (this.sampler.sampleCellY(cell)) {
+      if (this.sample(cell)) {
         promoted.push(cell);
       } else {
         waiting.push(cell);
@@ -1079,6 +1119,7 @@ export class GlobalRouteGrid {
    */
   clear(): void {
     this.cells.clear();
+    this.misses.clear();
     this.enemyCellKeys.clear();
     this.bodyEnemies.length = 0;
     this.generation = GlobalRouteGrid.nextGeneration++;

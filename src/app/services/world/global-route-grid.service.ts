@@ -343,6 +343,11 @@ export class GlobalRouteGridService {
     return this.grid.cellsWithoutHeight();
   }
 
+  /** Why the cells without a height have none and where they stand, see GlobalRouteGrid.describeCellsWithoutHeight. */
+  describeCellsWithoutHeight(): { why: string; at: string } {
+    return this.grid.describeCellsWithoutHeight();
+  }
+
   /**
    * Create visualization mesh
    */

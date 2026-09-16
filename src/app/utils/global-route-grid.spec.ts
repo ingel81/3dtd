@@ -325,6 +325,8 @@ describe('GlobalRouteGrid tile seams', () => {
     const cell = grid.getCellAt(21, 1)!;
     expect(cell.sample.state).toBe('unsampled');
     expect(overlayCellKind(cell) & 7).toBe(2);
+    // The trace says why and where: the row x = 21, and the corners beside it, which touch two stable cells only.
+    expect(grid.describeCellsWithoutHeight()).toEqual({ why: 'noColumn:9', at: '19,-3;19,5;21,-3;21,-1;21,1;21,3;21,5;23,-3;23,5' });
   });
 
   /**
@@ -1147,6 +1149,7 @@ describe('GlobalRouteGrid tunnels', () => {
     const inside = grid.getCellAt(31, 1)!;
     expect(inside.sample.state).toBe('unsampled');
     expect(inside.heightSampled).toBe(false);
+    expect(grid.describeCellsWithoutHeight().why).toMatch(/noPortal:\d+/);
   });
 
   /**

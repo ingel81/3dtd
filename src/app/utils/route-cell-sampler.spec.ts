@@ -73,5 +73,26 @@ describe('RouteCellSampler.sampleCellY', () => {
     expect(columns).not.toHaveBeenCalled();
     expect(sampler.peekSkipCount).toBe(2);
     expect(cell.sample.state).toBe('unsampled');
+    expect(sampler.lastMiss).toBe('noColumn');
+  });
+
+  it('says why a cell got no sample, for the corridor trace', () => {
+    const { lod, sampler, cell } = setup();
+    expect(sampler.sampleCellY(cell)).toBe(true);
+    expect(sampler.lastMiss).toBeNull();
+
+    // No column at the bridge end the height is carried from.
+    const columnAt = sampler.columnSampler!;
+    sampler.columnSampler = (x, z) => (x < 5 ? null : columnAt(x, z));
+    expect(sampler.sampleCellY(approachCell())).toBe(false);
+    expect(sampler.lastMiss).toBe('noBridgeEnd');
+
+    // Columns everywhere, their hits 60 m off the neighbours.
+    sampler.columnSampler = columnAt;
+    const refusing = new RouteCellSampler(() => 10);
+    refusing.columnSampler = columnAt;
+    refusing.terrainPeekLOD = () => lod.cell;
+    expect(refusing.sampleCellY(approachCell())).toBe(false);
+    expect(refusing.lastMiss).toBe('refused');
   });
 });

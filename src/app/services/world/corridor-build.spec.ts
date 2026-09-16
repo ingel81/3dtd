@@ -3,6 +3,7 @@ import { CorridorBuild, type CorridorBuildDeps, type CorridorMeasurement } from 
 import { MUTED_CAMERA_ERROR_TARGET, QUIET_MS } from '../../three-engine/tiles-lod-debug';
 import { ROUTE_CORRIDOR_COARSE_ERROR_TARGET, ROUTE_CORRIDOR_ERROR_TARGET } from '../../three-engine/route-corridor-region';
 import { resetCorridorConfig, setCorridorConfig } from '../../utils/route-corridor';
+import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
  * CorridorBuild builds the route corridor once per route set and freezes it:
@@ -75,6 +76,7 @@ describe('CorridorBuild', () => {
       getStats: () => ({ totalCells: 42 }),
       snapshotHeights: () => new Map(),
       cellsWithoutHeight: () => state.bare,
+      describeCellsWithoutHeight: () => ({ why: `noColumn:${state.bare}`, at: '13,5' }),
       retryUnsampledCells: () => {
         calls.push('retryCells');
         state.bare = Math.max(0, state.bare - state.promoted);
@@ -302,6 +304,26 @@ describe('CorridorBuild', () => {
       const retry = calls.indexOf('retryCells');
       expect(calls.slice(retry - 3, retry + 4)).toEqual(['cells', COARSE, 'clearColumns', 'retryCells', FINE, 'clearColumns', 'routes']);
       expect(result?.fallbackCells).toBe(2);
+    });
+
+    it('says in the trace why cells have no height, before the fallback level and at the freeze', async () => {
+      const lines: string[] = [];
+      vi.mocked(console.log).mockImplementation((line: unknown) => {
+        if (typeof line === 'string' && line.startsWith('[CorridorTrace]')) lines.push(line);
+      });
+      corridorTrace.setEnabled(true);
+      try {
+        state.bare = 3;
+        state.promoted = 1;
+        await corridor.build('location load');
+      } finally {
+        corridorTrace.setEnabled(false);
+      }
+
+      expect(lines.find((line) => line.includes('build.fallback'))).toContain('what=cells missing=3 found=1 why=noColumn:3');
+      const freeze = lines.find((line) => line.includes('build.freeze'));
+      expect(freeze).toContain('cellsWithoutHeight=2 ');
+      expect(freeze).toContain('why=noColumn:2 at=13,5');
     });
 
     /**
