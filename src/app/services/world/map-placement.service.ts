@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color, Object3D, Vector2 } from 'three';
+import { Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color, Object3D } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import {
@@ -568,7 +568,6 @@ export class MapPlacementService {
   private createDistanceRings(): void {
     if (!this.engine || !this.baseCoords) return;
 
-    const resolution = this.engine.getRenderer().getSize(new Vector2());
     // A column sample per ring point and one at the centre, all in this
     // call: `__raycastStats()` books their rays as `spawnRings`
     const scope = raycastStats.enter('spawnRings');
@@ -576,7 +575,7 @@ export class MapPlacementService {
       this.distanceRings = new SpawnDistanceRings(this.engine, this.baseCoords, [
         { radiusM: MIN_MANUAL_SPAWN_DISTANCE, color: MIN_RING_COLOR },
         { radiusM: MAX_MANUAL_SPAWN_DISTANCE, color: MAX_RING_COLOR },
-      ], resolution);
+      ]);
     } finally {
       raycastStats.exit(scope);
     }

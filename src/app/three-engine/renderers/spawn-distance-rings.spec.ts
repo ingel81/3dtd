@@ -56,7 +56,7 @@ describe('SpawnDistanceRings', () => {
     const rings = new SpawnDistanceRings(ground(), HQ, [
       { radiusM: 200, color: 0xc96a3a },
       { radiusM: 1500, color: 0x22c55e },
-    ], new Vector2(1600, 900));
+    ]);
 
     const lines = rings.group.children as Line2[];
     expect(lines).toHaveLength(4);
@@ -69,7 +69,6 @@ describe('SpawnDistanceRings', () => {
     for (const material of [halo, line]) {
       expect(material.worldUnits).toBe(false);
       expect(material.depthTest).toBe(false);
-      expect(material.resolution.equals(new Vector2(1600, 900))).toBe(true);
     }
     expect(halo.linewidth).toBeGreaterThan(line.linewidth);
     expect(lines[1].renderOrder).toBeGreaterThan(lines[0].renderOrder);
@@ -79,7 +78,7 @@ describe('SpawnDistanceRings', () => {
   });
 
   it('takes the canvas size before every draw, so the pixel width follows a resize from the next frame', () => {
-    const rings = new SpawnDistanceRings(ground(), HQ, [{ radiusM: 200, color: 0xc96a3a }], new Vector2(1600, 900));
+    const rings = new SpawnDistanceRings(ground(), HQ, [{ radiusM: 200, color: 0xc96a3a }]);
     // After ThreeTilesEngine.resize(): renderer.setSize() set the viewport, in CSS px
     const renderer = { getViewport: (target: Vector4) => target.set(0, 0, 1280, 720) } as unknown as WebGLRenderer;
 
@@ -92,7 +91,7 @@ describe('SpawnDistanceRings', () => {
   });
 
   it('frees its lines on dispose', () => {
-    const rings = new SpawnDistanceRings(ground(), HQ, [{ radiusM: 200, color: 0xc96a3a }], new Vector2(800, 600));
+    const rings = new SpawnDistanceRings(ground(), HQ, [{ radiusM: 200, color: 0xc96a3a }]);
     const lines = [...rings.group.children] as Line2[];
     const disposed = lines.flatMap((l) => [vi.spyOn(l.geometry, 'dispose'), vi.spyOn(l.material, 'dispose')]);
 

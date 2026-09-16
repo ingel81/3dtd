@@ -1,4 +1,4 @@
-import { Group, type Vector2, type Vector3 } from 'three';
+import { Group, type Vector3 } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
@@ -92,12 +92,11 @@ export class SpawnDistanceRings {
   readonly group = new Group();
 
   /**
-   * @param resolution Size of the canvas in CSS px, for the pixel width. Line2
-   *   sets it again from the renderer's viewport before every draw
-   *   (LineSegments2.onBeforeRender), so the width follows a resize; the value
-   *   here only stands until the first draw.
+   * No canvas size for the pixel width: Line2 takes it from the renderer's
+   * viewport before every draw (LineSegments2.onBeforeRender), so the width
+   * also follows a resize.
    */
-  constructor(ground: RingGround, center: { lat: number; lon: number }, rings: readonly DistanceRing[], resolution: Vector2) {
+  constructor(ground: RingGround, center: { lat: number; lon: number }, rings: readonly DistanceRing[]) {
     this.group.name = 'spawnDistanceRings';
     for (const ring of rings) {
       const positions = groundCirclePositions(ground, center, ring.radiusM);
@@ -111,7 +110,6 @@ export class SpawnDistanceRings {
           depthTest: false,
           depthWrite: false,
           worldUnits: false,
-          resolution,
         }), RENDER_ORDER),
         this.line(positions, new LineMaterial({
           color: ring.color,
@@ -124,7 +122,6 @@ export class SpawnDistanceRings {
           dashed: true,
           dashSize: period * DASH_SHARE,
           gapSize: period * (1 - DASH_SHARE),
-          resolution,
         }), RENDER_ORDER + 1),
       );
     }
