@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable } from '@angular/core';
 import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -26,22 +26,12 @@ export interface CloneOptions {
 }
 
 /**
- * Loading progress info
- */
-interface LoadingProgress {
-  url: string;
-  loaded: number;
-  total: number;
-}
-
-/**
  * AssetManagerService - Centralized 3D model loading and caching
  *
  * Features:
  * - Single GLTFLoader instance (GLTF/GLB)
  * - Deduplicated model cache with reference counting
  * - Proper GPU resource disposal
- * - Loading progress tracking
  *
  * Usage:
  * 1. loadModel(url) - loads and caches model, returns CachedModel
@@ -57,25 +47,6 @@ export class AssetManagerService {
 
   // Loading promises to prevent duplicate loads
   private readonly loadingPromises = new Map<string, Promise<CachedModel>>();
-
-  // Progress tracking
-  private readonly loadingProgress = new Map<string, LoadingProgress>();
-
-  // Signals for UI feedback
-  readonly isLoading = signal(false);
-  readonly loadingCount = signal(0);
-  readonly totalModelsLoaded = signal(0);
-
-  // Computed: loading percentage (0-100)
-  readonly loadingPercentage = computed(() => {
-    let totalLoaded = 0;
-    let totalSize = 0;
-    for (const progress of this.loadingProgress.values()) {
-      totalLoaded += progress.loaded;
-      totalSize += progress.total || progress.loaded;
-    }
-    return totalSize > 0 ? Math.round((totalLoaded / totalSize) * 100) : 0;
-  });
 
   /**
    * Load a model from URL (cached)
@@ -104,12 +75,9 @@ export class AssetManagerService {
     try {
       const model = await loadPromise;
       this.modelCache.set(url, model);
-      this.totalModelsLoaded.update((n) => n + 1);
       return model;
     } finally {
       this.loadingPromises.delete(url);
-      this.loadingProgress.delete(url);
-      this.updateLoadingState();
     }
   }
 
@@ -117,24 +85,13 @@ export class AssetManagerService {
    * Internal: perform actual model load
    */
   private async doLoadModel(url: string): Promise<CachedModel> {
-    this.loadingCount.update((n) => n + 1);
-    this.updateLoadingState();
-
-    try {
-      const gltf = await this.gltfLoader.loadAsync(url, (event) => {
-        this.updateProgress(url, event.loaded, event.total);
-      });
-
-      return {
-        scene: gltf.scene,
-        animations: gltf.animations || [],
-        refCount: 1,
-        url,
-      };
-    } finally {
-      this.loadingCount.update((n) => n - 1);
-      this.updateLoadingState();
-    }
+    const gltf = await this.gltfLoader.loadAsync(url);
+    return {
+      scene: gltf.scene,
+      animations: gltf.animations || [],
+      refCount: 1,
+      url,
+    };
   }
 
   /**
@@ -247,7 +204,6 @@ export class AssetManagerService {
       this.disposeModel(cached);
     }
     this.modelCache.clear();
-    this.totalModelsLoaded.set(0);
   }
 
   /**
@@ -256,20 +212,11 @@ export class AssetManagerService {
   dispose(): void {
     this.clearCache();
     this.loadingPromises.clear();
-    this.loadingProgress.clear();
   }
 
   // ========================================
   // PRIVATE HELPERS
   // ========================================
-
-  private updateProgress(url: string, loaded: number, total: number): void {
-    this.loadingProgress.set(url, { url, loaded, total });
-  }
-
-  private updateLoadingState(): void {
-    this.isLoading.set(this.loadingCount() > 0);
-  }
 
   /**
    * Recursively dispose Three.js object and its resources

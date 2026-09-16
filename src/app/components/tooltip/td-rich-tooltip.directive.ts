@@ -4,10 +4,8 @@ import {
   HostListener,
   Injector,
   OnDestroy,
-  computed,
   inject,
   input,
-  signal,
 } from '@angular/core';
 import {
   ConnectedPosition,
@@ -74,15 +72,6 @@ export class TdRichTooltipDirective implements OnDestroy {
   private showTimer: ReturnType<typeof setTimeout> | null = null;
   private hideTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Allow component to react to data changes if open
-  private readonly visibleData = signal<TdTooltipData | null>(null);
-  private readonly _ = computed(() => {
-    const data = this.tdRichTooltip();
-    if (this.overlayRef && data) {
-      this.visibleData.set(data);
-    }
-  });
-
   @HostListener('mouseenter')
   @HostListener('focus')
   onShow(): void {
@@ -143,14 +132,12 @@ export class TdRichTooltipDirective implements OnDestroy {
     const portal = new ComponentPortal(TdTooltipContentComponent, null, this.injector);
     const ref = this.overlayRef.attach(portal);
     ref.setInput('data', data);
-    this.visibleData.set(data);
   }
 
   private closeOverlay(): void {
     if (!this.overlayRef) return;
     this.overlayRef.dispose();
     this.overlayRef = null;
-    this.visibleData.set(null);
   }
 
   private cancelShow(): void {
