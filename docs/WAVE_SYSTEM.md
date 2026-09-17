@@ -579,8 +579,10 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   Bosse stehen irgendwo auf der Route, ein Schnitt aufs Portal zeigte nichts.
 - **Der Schnitt wartet, bis der Boss draußen ist**: Routendistanz
   `bossClearDistance` = halbe Portaltiefe (`PORTAL_DEPTH`, mit
-  `portalDepthScale`) plus 3 m. Vorher steckt er im Portalvolumen und ist von
-  keiner Seite zu sehen. Bei Herbert (4 m/s) knapp 2 s nach dem Spawn. Bei der
+  `portalDepthScale`) plus 3 m. Vorher steckt er ganz oder zum Teil hinter der
+  Ebene des Portals, wo die Shader der Gegner ihn verwerfen
+  ([SPAWN_PORTAL.md](SPAWN_PORTAL.md#verdeckung-der-gegner)).
+  Bei Herbert (4 m/s) knapp 2 s nach dem Spawn. Bei der
   Ooze (Körper entlang der Route, `ooze`) zählt ihre Spitze, und es sind 6 m
   (`BOSS_INTRO_BODY_OUT_M`, seit 2026-09-15): Die Spitze rundet sich über 4 m
   ab (`OOZE_LOOK.capLength`), und die Einstellung schaut von vorn am Band

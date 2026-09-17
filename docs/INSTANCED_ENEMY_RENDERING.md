@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-09-15 (Doku-Abgleich: Stun- und Iced-Tint, Seiten, Typlisten per Verweis)
+**Stand:** 2026-09-17 (Spawn-Portal-Clip in VAT- und Healthbar-Shader)
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -242,6 +242,7 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `bloodMoonGlow` | float | Blutmond-Glühen 0..1, ein Objekt für alle Typen (siehe Blutmond) |
 | `bloodMoonTint` | vec3 | Faktor der Blutmond-Stimmung, nur für blendende Typen, ein Objekt für alle Typen |
 | `bloodMoonGlowColor`, `bloodMoonRim`, `bloodMoonBase` | vec3, float, float | Farbe und Stärke des Glühens aus `BLOOD_MOON_LOOK.glow` |
+| `uPortalClipCount`, `uPortalClipPlane`, `uPortalClipBox` | int, vec4[8], vec4[8] | Clip-Quader der Spawn-Portale, ein Objekt für alle Typen, die Healthbars und die Ooze (siehe Spawn-Portal-Clip) |
 
 ### Per-Vertex Attribute
 
@@ -322,6 +323,19 @@ Kopf, Ringe und Schwanz des Wurms (`worm`, `worm-segment`, `worm-tail`) sind VAT
 alle anderen und bekommen dieselben Uniforms. Die Ooze zeichnet ihren Körper nicht aus einem
 Pool, sondern als Band mit eigenem Shader (`renderers/ooze/`); dort sitzen Glühen und
 Tönung eigens, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#blutmond-wellen).
+
+### Spawn-Portal-Clip
+
+Ein Gegner startet hinter der Ebene seines Spawn-Portals und tritt durch sie heraus. Was von
+ihm noch hinter der Ebene liegt, verwirft der Fragment-Shader (`discard`), wo der Körper die
+Ebene schneidet, leuchtet ein schmaler Saum (`PORTAL_CLIP_GLSL`, `portal-clip.ts`; Quader,
+Saum und Kosten in [SPAWN_PORTAL.md](SPAWN_PORTAL.md#verdeckung-der-gegner)). Der Shader rechnet
+zuerst die Pixelgröße (`fwidth` der Weltposition, vor jedem Zweig), dann `portalClipAhead`; der
+Saum kommt nach dem Tonemapping über die Farbe. `EnemyInstanceManager` gibt jedem Pool-Material
+dieselben Uniform-Objekte, die `ThreeTilesEngine.portalClip` anlegt und `SpawnPortalManager`
+beschreibt, wie beim Blutmond ohne Material-Klone. Die Ooze bekommt dasselbe Objekt, die
+Healthbars ebenso (unten). Ohne übergebenes Objekt legt jeder Konstruktor ein eigenes ohne
+Portale an (Specs, Shader-Check).
 
 ### Seiten
 
@@ -500,6 +514,10 @@ zwei `Mesh`-Passes:
   Tiefen-Test, Geometrie verdeckt sie. Pass 2 (`renderOrder` 1000) zeichnet ohne
   Tiefen-Test nur beschädigte Bars (`aHealth` < 0.999), die sind also auch hinter
   Verdeckungen zu sehen. Keiner der Passes schreibt Tiefe.
+- **Spawn-Portal**: Liegt die Mitte einer Bar (`aCenter`) noch in einem Clip-Quader hinter der
+  Ebene eines Portals, klappt der Vertex-Shader sie weg wie eine versteckte
+  (`portalClipAhead`, Spawn-Portal-Clip oben). Sie erscheint in beiden Passes ganz, sobald der
+  Ursprung ihres Gegners durch die Ebene ist.
 
 ---
 

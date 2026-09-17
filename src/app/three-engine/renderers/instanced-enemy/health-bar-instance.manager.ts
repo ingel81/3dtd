@@ -24,7 +24,7 @@ const MAX_HEALTH_BARS = 20000;
 // the manager only writes 2 uniforms + the moving aCenter buffer — no Matrix4
 // compose and no full instanceMatrix upload per instance. A bar whose centre
 // is still behind a spawn portal's plane is collapsed like a hidden one
-// (portal-clip.ts): it shows once its enemy is half out.
+// (portal-clip.ts): it shows whole once its enemy's origin is through.
 const HEALTH_BAR_VERTEX = /* glsl */ `
   attribute vec3 aCenter;   // world-space (scene-local) bar center
   attribute vec2 aSize;     // bar width / height; aSize.x <= 0 → hidden slot
