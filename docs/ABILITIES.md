@@ -253,6 +253,71 @@ goldener Ring, der sich in Spielzeit vom Radius auf die Mitte zusammenzieht.
 Flache Meshes mit Standard-Materialien, Tiefentest aus, damit der Marker
 zwischen Gebäuden lesbar bleibt.
 
+**Rakete aus dem Silo** (`MISSILE_LAUNCH_LOOK` in `visual-effects.config.ts`,
+gezeichnet von `three-engine/renderers/missile-launch.renderer.ts`, seit
+2026-09-17). Trägt `ability:used` einen Startort (`launch`: Tower-ID und
+Basisposition des Silos), hebt dort beim Befehl eine Rakete ab und landet
+genau zum `ability:impact` auf `target`, samt dessen Höhe. Ihre Flugzeit ist
+die Vorwarnung aus dem Event (`warningMs`), keine eigene Konstante. Ohne
+`launch` bleibt es beim Zielmarker. Sie läuft in Spielzeit wie der Atompilz:
+Pause (P) hält Rakete und Rauch an, der Timescale spielt sie schneller ab,
+`game:reset` räumt sie. Der Einschlag nimmt die Rakete weg (`land`), auch wenn
+der Renderer einen Frame hinter der Simulation liegt; ihr Rauch bleibt stehen.
+Zwei Starts gleichzeitig, ein dritter nimmt den Platz des ältesten.
+
+Die Bahn (`utils/missile-flight.ts`, reine Funktion aus Start, Ziel und Zeit)
+liegt in der senkrechten Ebene durch Silo und Ziel: senkrecht hoch, zum Ziel
+neigen, Scheitel, fast senkrecht hinunter. Der Scheitel liegt 140 m plus 0,35
+mal die Entfernung über dem höheren Ende, mindestens 220 m, höchstens 700 m.
+Unter 110 m Entfernung schwingt die Bahn zur Seite aus (bei 0 m 110 m weit),
+damit die Rakete oben dreht statt zu kippen. Das Tempo: 0,4 s steht sie auf
+ihrem Feuer, dann hebt sie mit 9 m/s² ab, gleich für jede Entfernung, danach
+geht es in eine Geschwindigkeit über, die zum Ende hin bis aufs Dreifache
+steigt und über dem Scheitel auf 0,4 davon fällt; skaliert so, dass sie
+genau zum Einschlag ankommt. Zeiten bei 6,5 s Vorwarnung:
+
+| Zeit | Phase (Höhen über dem Silo) |
+|---|---|
+| 0 bis 0,45 s | Zündung: Blitz über dem Schacht (90 m), Licht am Boden um das Silo (45 m, solange die Flamme tiefer als 70 m steht), bis 2,6 s schlägt Feuer aus dem Schacht |
+| 0,15 bis 3 s | Startwolke: Rauch quillt 10 m über der Basis aus dem Schacht, rollt am Boden bis 42 m aus und bleibt 8 bis 12 s |
+| 0,4 bis 1,8 s | Abheben, langsam: die Düse verlässt den 10 m hohen Schacht nach 1,6 s |
+| bis etwa 3,5 s | senkrechter Aufstieg, immer schneller; bei 1000 m Entfernung bei 3 s gut 200 m hoch, bei 30 m Entfernung 40 m. Die Rakete wächst von 1,8 bis 3,8 s auf das 2,2-Fache |
+| etwa 3,5 bis 5,5 s | neigt sich zum Ziel und zieht über den Scheitel, dort langsamer: bei 1000 m knapp 500 m hoch bei 4,9 s, bei 30 m 224 m hoch bei 5 s |
+| bis 6,5 s | Sturzflug, immer schneller (bei 1000 m zuletzt gut 900 m/s); die letzten 30 m Höhe höchstens 10 Grad neben der Senkrechten, so schneidet sie keine Gebäude |
+| danach | Rakete weg, die Rauchspur steht, breitet sich aus, treibt mit dem Wind und blendet über 10 bis 15 s aus |
+
+Aussehen: die Rakete prozedural aus Grundkörpern (weiße Spitze, roter Ring,
+grauer und schwarzer Körper, vier Finnen, Düse), 6 m lang, die Düse im Schacht
+3,5 m über der Basis (`missile.baseHeight`), entlang der Bahn gedreht. Ein
+anderes Modell mit derselben Konvention (Ursprung an der Düse, Spitze +y)
+kann sie ersetzen. Flamme: additives Quad von der Düse zurück, zur Kamera
+gedreht, weißer Kern über Gelb-Orange, zur Spitze rot, flackernd, mit
+Tiefentest; länger mit dem Tempo. Dazu ein Glüh-Sprite an der Düse und eine
+Fahne aus acht Glut-Billboards. Rauch aus den Billboards des Atompilzes
+(dasselbe Material, derselbe Atlas), beleuchtet, junge Puffs von der Flamme
+orange angestrahlt. Budget und Aufbau in
+[PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md#raketenstart-nuklearschlag).
+
+Mit Impact Effects aus (Preset Low) Rakete, Flamme, Düsenglühen und Blitz,
+Startwolke und Spur aus weniger, größeren Puffs (24 und bis 90 statt 72 und
+bis 280), kein Feuer aus dem Schacht, keine Fahne, kein Bodenlicht.
+
+Ton (mit ElevenLabs erzeugt, Details in
+[SPATIAL_AUDIO.md](SPATIAL_AUDIO.md#nuklearschlag-synthetisiert-nachhall-in-spielzeit)):
+beim Start die Zündung am Silo (`nuclear_strike_launch`, 5 s), das Triebwerk
+als Loop an der Rakete, der ihrer Bahn in Spielzeit folgt
+(`nuclear_strike_engine`), 2,5 s vor dem Einschlag am Ziel ein fallendes,
+anschwellendes Pfeifen (`nuclear_strike_dive`), das der Einschlag abschneidet.
+Die Sirene am Ziel bleibt. Shake beim Start: `missileLaunch` 0,0045 für
+2000 ms am Silo, voll bis 200 m, keiner ab 1100 m (`launchNearDistance`,
+`launchFarDistance`), aus der Übersichtskamera (etwa 425 m) etwa drei Viertel;
+der Einschlag schüttelt mit fast der vierfachen Amplitude.
+
+Im Wave-Replay laufen Rakete, Rauch und Start-Shake wie live (das Replay spielt
+`ability:used` ab, ein Sprung und das Verlassen räumen sie). Es reicht das
+Event auch an seinen AudioService weiter: Zündung und Pfeifen sind bei 1x zu
+hören, Triebwerk und Sirene nicht, Loops stehen, weil das Spiel pausiert ist.
+
 **Einschlag: Atompilz** (`MUSHROOM_CLOUD_LOOK` in `visual-effects.config.ts`,
 gezeichnet von `three-engine/renderers/mushroom-cloud.renderer.ts`). Er läuft
 in Spielzeit: Pause (P) hält ihn an, der Timescale spielt ihn schneller ab.
@@ -400,13 +465,14 @@ dieselbe Reichweite wie Frostbombe und EMP.
 
 **Je Fähigkeit:** VFX, Ton und Shake wählen nach der `abilityId` im Event aus
 je einer Tabelle: `abilityVfx` im VFXService (was `ability:used` und
-`ability:impact` zeigen), `ABILITY_IMPACT_SOUNDS` in `audio.config.ts` und
-`ABILITY_IMPACT_SHAKE` in `visual-effects.config.ts`. Alle drei sind
-vollständig je `AbilityId` typisiert, eine neue Fähigkeit kompiliert erst mit
-ihren Einträgen; bei Ton und Shake heißt `null` keiner. Für den
-Nuklearschlag stehen dort die Werte von oben, sein Verhalten ist dasselbe.
-`game:reset` räumt Marker, Pilze und ausstehende Wiederholungen aller
-Fähigkeiten.
+`ability:impact` zeigen), `ABILITY_IMPACT_SOUNDS` in `audio.config.ts` (samt
+Start und Flug, `launch`) und `ABILITY_IMPACT_SHAKE` sowie
+`ABILITY_LAUNCH_SHAKE` (beim `ability:used` mit Startort) in
+`visual-effects.config.ts`. Alle sind vollständig je `AbilityId` typisiert,
+eine neue Fähigkeit kompiliert erst mit ihren Einträgen; bei Ton und Shake
+heißt `null` keiner. Für den Nuklearschlag stehen dort die Werte von oben,
+sein Verhalten ist dasselbe. `game:reset` räumt Marker, Raketen, Pilze und
+ausstehende Wiederholungen aller Fähigkeiten.
 
 ---
 
@@ -526,6 +592,9 @@ während einer Welle.
 | `components/ability-bar/` | Fähigkeitenleiste; `ability-button.ts`: Zustand und Tooltip der Knöpfe |
 | `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
+| `three-engine/renderers/missile-launch.renderer.ts` | Rakete des Nuklearschlags vom Silo aufs Ziel, mit Startwolke und Rauchspur |
+| `three-engine/renderers/missile-model.ts`, `missile-exhaust.ts`, `missile-smoke.ts`, `missile-launch-state.ts` | Raketenmodell, Flamme/Düsenglühen/Feuer/Blitz/Bodenlicht, Startwolke und Spur, Zustand eines Starts |
+| `utils/missile-flight.ts` | Flugbahn der Rakete: Position und Richtung über die normierte Flugzeit, für Renderer und Triebwerkston |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
 | `three-engine/renderers/mushroom-cloud-shape.ts`, `-sprites.ts`, `-fireball.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Form, Billboards samt Billow-Atlas und Materialien, Feuerball, Glut, Rauch, Bodenlicht/Ring/Kuppel/Blitz des Atompilzes |
 | `three-engine/renderers/frost-burst.renderer.ts` | Frostausbruch der Frostbombe |
@@ -545,7 +614,7 @@ während einer Welle.
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`,
+`vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`, `replay-player.spec.ts` (Rakete und Startton im Replay),
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,
@@ -587,8 +656,9 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
 
 ## Bewusst nicht gemacht
 
-- Keine Sirene im Wave-Replay: Das Replay reicht `ability:used` nicht an seinen
-  AudioService weiter, und während des Replays ist das Spiel pausiert, Loops stehen.
+- Keine Sirene im Wave-Replay: Das Replay reicht `ability:used` zwar an seinen
+  AudioService weiter (seit 2026-09-17, für den Start der Rakete), aber während
+  des Replays ist das Spiel pausiert, Loops stehen.
 - Keine Pause für einen Ton, der schon spielt: One-Shots kennen keine Pause.
   Ein Stück Grollen, das beim Pausieren läuft, spielt zu Ende, höchstens 3 s;
   die Stücke danach warten auf das Weiterspielen.
