@@ -168,6 +168,8 @@ export class ReplayPlayer {
   private readonly pendingStrikes = new Set<number>();
   /** An ability landed in the replay, its clouds go on exit */
   private abilityLanded = false;
+  /** A missile lifted off in the replay, it and its smoke go on exit */
+  private missileLaunched = false;
   /** Live towers built after the wave, hidden while the replay runs, and whether they showed */
   private readonly laterTowers: { id: string; visible: boolean }[] = [];
 
@@ -997,15 +999,17 @@ export class ReplayPlayer {
 
   /**
    * Take down what the replay's strikes put up: the markers still waiting
-   * for their impact and, once one landed, the clouds, bursts, pulses and
-   * beams (those of the live game with them). On exit and on every jump: a
-   * marker whose impact the jump skipped would stand to the end, an effect
-   * from before a jump back would run on and land a second time.
+   * for their impact, once one lifted off the missiles and their smoke, and
+   * once one landed the clouds, bursts, pulses and beams (those of the live
+   * game with them). On exit and on every jump: a marker whose impact the
+   * jump skipped would stand to the end, an effect from before a jump back
+   * would run on and land a second time.
    */
   private clearStrikes(): void {
     const engine = this.engine;
     for (const strikeId of this.pendingStrikes) engine.abilityMarkers.removeStrike(strikeId);
     this.pendingStrikes.clear();
+    if (this.missileLaunched) engine.missileLaunches.clear();
     if (this.abilityLanded) {
       engine.mushroomClouds.clear();
       engine.frostBursts.clear();
@@ -1038,6 +1042,7 @@ export class ReplayPlayer {
         }
         case 'ability:used':
           this.pendingStrikes.add(event.strikeId);
+          if (event.launch) this.missileLaunched = true;
           break;
         case 'ability:impact':
           this.pendingStrikes.delete(event.strikeId);

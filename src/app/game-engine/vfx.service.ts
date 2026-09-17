@@ -47,9 +47,13 @@ export class VFXService {
    * AbilityId, so a new ability decides here what it shows.
    */
   private readonly abilityVfx: Record<AbilityId, AbilityVfx> = {
-    // Target marker while it is on its way, mushroom cloud and scorch marks on impact
+    // Target marker while it is on its way, fired from a silo the missile's
+    // flight onto it; mushroom cloud and scorch marks on impact
     'nuclear-strike': {
-      used: (event) => this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs),
+      used: (event) => {
+        this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs);
+        if (event.launch) this.handleLaunch(event.strikeId, event.launch.position, event.target, event.warningMs);
+      },
       impact: (event) => this.handleStrikeImpact(event.strikeId, event.target, event.radiusM),
     },
     // Target marker while the bomb is on its way, frost burst and frost patches where it bursts
@@ -137,7 +141,7 @@ export class VFXService {
     this.subs.add(this.eventBus.on('ability:impact', (event) => {
       this.abilityVfx[event.abilityId]?.impact(event);
     }));
-    // A restart drops the markers and the clouds
+    // A restart drops the markers, the missiles and the clouds
     this.subs.add(this.eventBus.on('game:reset', () => this.clearStrikes()));
 
     // Hero level-up: "LEVEL N" in gold rising from his head
@@ -171,20 +175,32 @@ export class VFXService {
     }
   }
 
+  /**
+   * The missile lifts off the silo whose base is `site` and flies onto
+   * `target` in the warning's game time (MISSILE_LAUNCH_LOOK, the engine
+   * runs it in game time); the impact lands it.
+   */
+  private handleLaunch(strikeId: number, site: GeoPosition, target: GeoPosition, warningMs: number): void {
+    const from = this.tilesEngine.sync.geoToLocalSimpleInto(site.lat, site.lon, site.height ?? 0, this.tmpA);
+    const onto = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpB);
+    this.tilesEngine.missileLaunches.launch(strikeId, from, onto, warningMs / 1000);
+  }
+
   /** `path` in local coordinates, a new array (a beam's handful of points, once per use). */
   private localPath(path: readonly GeoPosition[]): Vector3[] {
     return path.map((p) => this.tilesEngine.sync.geoToLocalSimpleInto(p.lat, p.lon, p.height ?? 0, new Vector3()));
   }
 
   /**
-   * The marker goes and the mushroom cloud goes up on the ground point
-   * (MUSHROOM_CLOUD_LOOK; the engine runs it in game time). Scorch marks
-   * burn in on the centre and on NUCLEAR_STRIKE_SCORCH_RINGS around it,
-   * each ring turned half a step against the previous one, where they meet
-   * route cells.
+   * The marker and the missile go, its smoke stands on, and the mushroom
+   * cloud goes up on the ground point (MUSHROOM_CLOUD_LOOK; the engine runs
+   * it in game time). Scorch marks burn in on the centre and on
+   * NUCLEAR_STRIKE_SCORCH_RINGS around it, each ring turned half a step
+   * against the previous one, where they meet route cells.
    */
   private handleStrikeImpact(strikeId: number, target: GeoPosition, radiusM: number): void {
     this.tilesEngine.abilityMarkers.removeStrike(strikeId);
+    this.tilesEngine.missileLaunches.land(strikeId);
 
     const ground = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpA);
     this.tilesEngine.mushroomClouds.detonate(ground, radiusM);
@@ -263,6 +279,7 @@ export class VFXService {
 
   private clearStrikes(): void {
     this.tilesEngine.abilityMarkers.clear();
+    this.tilesEngine.missileLaunches.clear();
     this.tilesEngine.mushroomClouds.clear();
     this.tilesEngine.frostBursts.clear();
     this.tilesEngine.empPulses.clear();

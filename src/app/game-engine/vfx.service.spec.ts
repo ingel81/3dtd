@@ -216,6 +216,7 @@ describe('VFXService nuclear strike', () => {
       },
       effects: { spawnExplosion: vi.fn(), markScorch: vi.fn(), spawnIceDecal: vi.fn(), groundMarksEnabled: true },
       abilityMarkers: { showStrike: vi.fn(), removeStrike: vi.fn(), clear: vi.fn() },
+      missileLaunches: { launch: vi.fn(), land: vi.fn(), clear: vi.fn() },
       mushroomClouds: { detonate: vi.fn(), clear: vi.fn() },
       frostBursts: { burst: vi.fn(), clear: vi.fn() },
       empPulses: { pulse: vi.fn(), clear: vi.fn() },
@@ -235,6 +236,46 @@ describe('VFXService nuclear strike', () => {
     const { tilesEngine, service, used } = strikeSetup();
     used();
     expect(tilesEngine.abilityMarkers.showStrike).toHaveBeenCalledWith(3, expect.objectContaining({ x: 7, y: 8, z: 9 }), 25, 1500);
+    service.destroy();
+  });
+
+  it('flies the missile from the silo onto the target in the warning\'s time, only for a strike with a launch site', () => {
+    const { eventBus, tilesEngine, service, used } = strikeSetup();
+    const SILO = { lat: 48.01, lon: 9.01, height: 305 };
+    // The stand-in conversion puts height into y, so silo and target are told apart
+    tilesEngine.sync.geoToLocalSimpleInto.mockImplementation((_lat: number, _lon: number, h: number, target: Vector3) =>
+      target.set(7, h, 9));
+    used();
+    expect(tilesEngine.missileLaunches.launch).not.toHaveBeenCalled();
+
+    eventBus.emit({
+      type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 4, target: TARGET, radiusM: 25, warningMs: 6500,
+      launch: { towerId: 'silo-1', position: SILO },
+    });
+    expect(tilesEngine.missileLaunches.launch).toHaveBeenCalledTimes(1);
+    const [strikeId, site, target, durationS] = tilesEngine.missileLaunches.launch.mock.calls[0];
+    expect([strikeId, durationS]).toEqual([4, 6.5]);
+    expect(site.y).toBe(SILO.height);
+    expect(target.y).toBe(TARGET.height);
+    // The marker still goes up on the target
+    const [markerId, , markerRadius, markerMs] = tilesEngine.abilityMarkers.showStrike.mock.lastCall!;
+    expect([markerId, markerRadius, markerMs]).toEqual([4, 25, 6500]);
+
+    // Another ability with a launch site shows no missile
+    eventBus.emit({
+      type: 'ability:used', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20, warningMs: 500,
+      launch: { towerId: 'silo-1', position: SILO },
+    });
+    expect(tilesEngine.missileLaunches.launch).toHaveBeenCalledTimes(1);
+    service.destroy();
+  });
+
+  it('lands the missile on the impact, before the mushroom cloud goes up', () => {
+    const { tilesEngine, service, impact } = strikeSetup();
+    impact();
+    expect(tilesEngine.missileLaunches.land).toHaveBeenCalledWith(3);
+    expect(tilesEngine.missileLaunches.land.mock.invocationCallOrder[0])
+      .toBeLessThan(tilesEngine.mushroomClouds.detonate.mock.invocationCallOrder[0]);
     service.destroy();
   });
 
@@ -283,6 +324,7 @@ describe('VFXService nuclear strike', () => {
     impact();
     eventBus.emit({ type: 'game:reset' });
     expect(tilesEngine.abilityMarkers.clear).toHaveBeenCalled();
+    expect(tilesEngine.missileLaunches.clear).toHaveBeenCalled();
     expect(tilesEngine.mushroomClouds.clear).toHaveBeenCalled();
     expect(tilesEngine.frostBursts.clear).toHaveBeenCalled();
     expect(tilesEngine.empPulses.clear).toHaveBeenCalled();

@@ -104,6 +104,7 @@ function fakeEngine() {
     tentacles,
     flameBeams,
     abilityMarkers: auto(),
+    missileLaunches: auto(),
     mushroomClouds: auto(),
     frostBursts: auto(),
     empPulses: auto(),
@@ -765,6 +766,42 @@ describe('ReplayPlayer', () => {
       for (const renderer of ['mushroomClouds', 'frostBursts', 'empPulses', 'orbitalBeams'] as const) {
         expect(fake.engine[renderer]['clear']).toHaveBeenCalled();
       }
+    });
+
+    it('leaves the live game\'s missiles alone when the replay launched none', () => {
+      advance(p, 150);
+      p.seek(50);
+      p.exit();
+      expect(fake.engine.missileLaunches['clear']).not.toHaveBeenCalled();
+    });
+
+    it('lifts a nuclear strike\'s missile off its silo, lands it at the impact, clears it and its smoke on a jump and on exit', () => {
+      const rec = new ReplayRecording();
+      rec.reset(5, 0, 100, 0, null);
+      rec.beginFrame(0);
+      rec.endFrame();
+      rec.beginFrame(1000);
+      rec.endFrame();
+      const target = { lat: 48, lon: 9 };
+      const launch = { towerId: 'silo-1', position: { lat: 48.001, lon: 9, height: 2 } };
+      rec.pushEvent(20, { type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 3, target, radiusM: 25, warningMs: 500, launch });
+      rec.pushEvent(520, { type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 3, target, radiusM: 25 });
+      rec.finish(1000, 'completed');
+      // The player's own VFXService hears its bus for real here
+      (GameEventBus.prototype.emit as unknown as { mockRestore(): void }).mockRestore();
+      const f = fakeEngine();
+      const missiles = f.engine.missileLaunches;
+      const player = new ReplayPlayer(rec, f.engine as never);
+      player.enter();
+      advance(player, 100);
+      expect(missiles['launch'].mock.calls.map((call) => [(call as unknown[])[0], (call as unknown[])[3]])).toEqual([[3, 0.5]]);
+      advance(player, 500);
+      expect(missiles['land']).toHaveBeenCalledWith(3);
+      const cleared = missiles['clear'].mock.calls.length;
+      player.seek(0);
+      expect(missiles['clear']).toHaveBeenCalledTimes(cleared + 1);
+      player.exit();
+      expect(missiles['clear']).toHaveBeenCalledTimes(cleared + 2);
     });
   });
 });
