@@ -25,10 +25,15 @@ export class AutoWaveCountdown {
     this.deadlineMs = null;
   }
 
-  /** Whole seconds left, rounded up for the display; null when not armed. */
+  /**
+   * Whole seconds left, rounded up for the display; null when not armed. The
+   * gap is rounded to whole ms first: the game clock adds 16.667 ms per
+   * sub-step, and armed at some clock values the full delay came out as
+   * 10000.000000000002 ms, which rounded up to 11.
+   */
   secondsLeft(nowMs: number): number | null {
     if (this.deadlineMs === null) return null;
-    return Math.max(0, Math.ceil((this.deadlineMs - nowMs) / 1000));
+    return Math.max(0, Math.ceil(Math.round(this.deadlineMs - nowMs) / 1000));
   }
 
   /** True once, when the deadline has passed; the countdown is then over. */
