@@ -74,6 +74,11 @@ export class MushroomCloudRenderer {
     this.glow = new CloudGlow(scene, this.materials.glow);
   }
 
+  /** The smoke and glow materials with their billow atlas; the missile's smoke and fire share them (MissileLaunchRenderer). */
+  get spriteMaterials(): CloudSpriteMaterials {
+    return this.materials;
+  }
+
   /** Clouds on the way up or fading out. */
   get activeClouds(): number {
     return this.activeCount;

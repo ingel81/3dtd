@@ -676,6 +676,146 @@ export const MUSHROOM_CLOUD_LOOK = {
 } as const;
 
 /**
+ * Launch and flight of the nuclear strike's missile from its silo
+ * (MissileLaunchRenderer), from `ability:used` to `ability:impact`. Times
+ * are game seconds after the command, so a pause holds the missile and its
+ * smoke and the timescale plays them faster; lengths are metres.
+ *
+ * Ignition: a flash over the shaft, fire bursting out of it and light on
+ * the ground around the silo (an additive disc, the tiles take no light);
+ * smoke wells out of the shaft and rolls out along the ground. The missile
+ * stands on its fire for `flight.ignition`, lifts off slowly, climbs
+ * straight up and ever faster, pitches over towards the target, tops out
+ * high above it and dives, faster still, almost straight down onto it
+ * (MissileFlight, utils/missile-flight.ts). A bright flame flickers at its
+ * nozzle with a glow and a plume of fire; the trail it leaves is smoke
+ * puffs that stand in the world, spread, drift with the wind and fade over
+ * `trail.life`.
+ *
+ * With impact effects off (VFX settings, the Low preset) the missile, its
+ * flame, nozzle glow and flash, and the trail and the launch cloud from the
+ * `low` counts, larger: no fire, plume or ground light.
+ *
+ * Budget: see PARTICLE_SYSTEM.md, Raketenstart (missile-launch.renderer.spec.ts
+ * measures the peak).
+ */
+export const MISSILE_LAUNCH_LOOK = {
+  /** Launches drawn at once, each with its smoke; another takes the place of the oldest */
+  launches: 2,
+  /**
+   * The missile, `length` and `radius` m (the procedural model,
+   * missile-model.ts). Its nozzle stands `baseHeight` m above the silo's
+   * base, where the flight starts. It grows to `flightScale` between the
+   * two `grow` seconds, when it is out of the shaft, so it still reads from
+   * the overview camera (about 425 m).
+   */
+  missile: { length: 6, radius: 0.42, baseHeight: 3.5, flightScale: 2.2, grow: [1.8, 3.8] },
+  /** Top of the shaft over the silo's base: the smoke wells out and the flash goes up there */
+  shaftTop: 10,
+  /**
+   * The flight (MissileFlight). Apex above the higher of start and target:
+   * `base` plus `perM` times the ground distance, within min and max.
+   * `steep` 0 eases the way across in and out like smoothstep, 1 like
+   * smootherstep: the longer the climb and the dive stay upright. Closer
+   * than `swing` m the path swings out sideways, up to that far at the
+   * apex, so a short flight turns over the top instead of flipping. The
+   * missile stands on its fire for `ignition.seconds` (at most that share of
+   * the flight) and lifts off at `lift.acceleration` m/s² for `lift.seconds`
+   * (at most that share of the rest), whatever the distance. Then its speed
+   * blends over `pace.blend` m into a shape scaled to reach the target at
+   * the impact: up to 1 + `boost` times faster towards the end, slowed to
+   * `topSpeed` of that over the apex, in the top `topBand` of the climb
+   * and of the fall.
+   */
+  flight: {
+    apex: { min: 220, base: 140, perM: 0.35, max: 700 },
+    steep: 0.75,
+    swing: 110,
+    ignition: { seconds: 0.4, share: 0.1 },
+    lift: { acceleration: 9, seconds: 1.4, share: 0.35 },
+    pace: { boost: 2, topSpeed: 0.4, topBand: 0.3, blend: 60 },
+  },
+  /**
+   * Flame: a quad `length` m long and `width` m wide from the nozzle along
+   * the missile's way back, turned to the camera around it, additive at
+   * `intensity`, flickering. It comes up over `ignite` s, grows with the
+   * missile and by up to `stretch` of its length towards `stretchSpeed`
+   * m/s.
+   */
+  flame: { length: 9, width: 2.6, intensity: 2.2, ignite: 0.3, stretch: 0.8, stretchSpeed: 300 },
+  /** Glow sprite `size` m across on the nozzle, additive at `intensity`, with the flame */
+  nozzleGlow: { size: 18, intensity: 1.6 },
+  /** Sprite of `size` m over the shaft, additive at `intensity`, fading out over `duration` */
+  flash: { duration: 0.45, size: 90, intensity: 2.6 },
+  /**
+   * Light on the ground around the silo: an additive disc of `radius` m,
+   * `peak` bright while the flame is at the silo, gone once the missile is
+   * `height` m up
+   */
+  groundGlow: { radius: 45, peak: 1.3, height: 70 },
+  /**
+   * Fire bursting out of the shaft until `until`: sprites `size` m across,
+   * rising at `rise` m/s and spreading out by `spread` times the square root
+   * of their age over their `life`. Plume: sprites along the flame,
+   * out to `reach` times its length, `size` times its width at the nozzle
+   * and at the far end.
+   */
+  fire: { until: 2.6, life: [0.35, 0.8], size: [4, 10], rise: [5, 16], spread: 3 },
+  plume: { reach: 1.6, size: [2.2, 0.9] },
+  /** Additive sprites per launch, whole and with impact effects off */
+  glowSprites: {
+    full: { fire: 18, plume: 8 },
+    low: { fire: 0, plume: 0 },
+  },
+  /** Lit smoke sprites per launch, whole and with impact effects off */
+  smokeSprites: {
+    full: { cloud: 72, trail: 280 },
+    low: { cloud: 24, trail: 90 },
+  },
+  /**
+   * Launch cloud: puffs born between the two `emit` times on the top of the
+   * shaft, thrown up by `burst` m and out to `radius` m (time constant
+   * `spreadTime`), settling to `rest` m over the ground; `size` m across at
+   * birth and after spreading, growing by `growth` m/s, rising at `rise`
+   * m/s, faded out by the end of their `life`
+   */
+  cloud: {
+    emit: [0.15, 3], radius: [10, 42], burst: [2, 8], rest: [2, 9], spreadTime: 1.4,
+    size: [5, 20], growth: 0.35, rise: 0.25, life: [8, 12], alpha: 0.55,
+  },
+  /**
+   * Trail: puffs every `spacing` m of the flight or more (the `trail`
+   * count spread over the whole way), the first `from` m along it.
+   * `size` m across at birth and after `expandTime`, at least 0.9 and 1.6
+   * times the spacing, growing by `growth` m/s; pushed out by up to
+   * `spread` m, rising at `rise` and drifting with the wind at `drift` m/s;
+   * lit by the flame for `lit` s; faded out by the end of their `life`
+   */
+  trail: {
+    from: 7, spacing: 3, size: [2.5, 9], expandTime: 0.6, growth: 0.45, spread: 2.5,
+    rise: 0.35, drift: 0.9, lit: 0.4, life: [10, 15], alpha: 0.5,
+  },
+  /**
+   * Tints, linear. Smoke is the albedo the sprite shader lights; exhaustLit
+   * the flame's light on it. The missile's parts are sRGB hex colours.
+   */
+  colors: {
+    missile: { nose: 0xefeee9, ring: 0xb3261e, upper: 0x8c8f93, lower: 0x26282b, fins: 0x1b1c1e, nozzle: 0x3a3b3d },
+    flameCore: { r: 1, g: 0.96, b: 0.85 },
+    flameHot: { r: 1, g: 0.62, b: 0.22 },
+    flameOuter: { r: 0.95, g: 0.3, b: 0.06 },
+    nozzleGlow: { r: 1, g: 0.68, b: 0.34 },
+    flash: { r: 1, g: 0.9, b: 0.75 },
+    groundGlow: { r: 1, g: 0.55, b: 0.22 },
+    fire: { r: 1, g: 0.5, b: 0.16 },
+    plume: { r: 1, g: 0.72, b: 0.4 },
+    smoke: { r: 0.74, g: 0.72, b: 0.69 },
+    cloud: { r: 0.64, g: 0.61, b: 0.56 },
+    exhaustLit: { r: 1.5, g: 0.66, b: 0.24 },
+  },
+} as const;
+
+/**
  * Frost burst of the frost bomb (FrostBurstRenderer). Times are game
  * seconds after the impact, so a pause holds the burst and the timescale
  * plays it faster; lengths are metres at `referenceRadius` and scale with

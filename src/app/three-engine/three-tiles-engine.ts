@@ -46,6 +46,7 @@ import { TowerPlinthRenderer } from './renderers/tower-plinth/tower-plinth.rende
 import { TowerBadgeRenderer } from './renderers/tower-badge/tower-badge.renderer';
 import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
+import { MissileLaunchRenderer } from './renderers/missile-launch.renderer';
 import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
 import { OozeDebrisRenderer } from './renderers/ooze/ooze-debris.renderer';
 import { createPortalClipUniforms } from './renderers/portal-clip';
@@ -177,6 +178,8 @@ export class ThreeTilesEngine {
   readonly lightningBolts: LightningBoltRenderer;
   readonly abilityMarkers: AbilityMarkerRenderer;
   readonly mushroomClouds: MushroomCloudRenderer;
+  /** The nuclear strike's missile from its silo to the target, with its smoke */
+  readonly missileLaunches: MissileLaunchRenderer;
   /** Bodies of the oozes along the route, see OozeBodies */
   readonly oozes: OozeBandRenderer;
   /** Searchlights on the towers, lit by the blood moon */
@@ -362,6 +365,8 @@ export class ThreeTilesEngine {
     this.lightningBolts = new LightningBoltRenderer(this.scene);
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene);
+    // Its smoke and fire take the mushroom clouds' sprite materials
+    this.missileLaunches = new MissileLaunchRenderer(this.scene, this.mushroomClouds.spriteMaterials);
     // A killed ooze's bubbles and splashes go through the effects, its debris to a renderer of its own
     this.oozes = new OozeBandRenderer(
       this.scene, { effects: this.effects, debris: new OozeDebrisRenderer(this.scene) }, this.portalClip,
@@ -1055,6 +1060,8 @@ export class ThreeTilesEngine {
     this.mushroomClouds.update(gameDeltaSeconds * 1000, this.camera);
     // Their flash kicks the bloom, where bloom is on
     this.postProcessing?.setBloomKick(this.mushroomClouds.bloomKick, MUSHROOM_CLOUD_LOOK.bloomKick);
+    // The missile flies in game time too, onto the impact the simulation counts down to
+    this.missileLaunches.update(gameDeltaSeconds * 1000, this.camera);
     // Frost bursts run in game time as well
     this.frostBursts.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
     this.empPulses.update(gameDeltaSeconds * 1000, this.camera, this.renderer.domElement.height);
@@ -1208,6 +1215,7 @@ export class ThreeTilesEngine {
   applyVfxSettings(settings: import('./vfx-settings').VfxSettings): void {
     this.effects.setVfxSettings(settings);
     this.mushroomClouds.setFullCloud(settings.impactEffects);
+    this.missileLaunches.setFull(settings.impactEffects);
     this.frostBursts.setFull(settings.impactEffects);
     this.empPulses.setFull(settings.impactEffects);
     this.orbitalBeams.setFull(settings.impactEffects);
@@ -1308,6 +1316,8 @@ export class ThreeTilesEngine {
     this.trailStreaks.dispose();
     this.lightningBolts.dispose();
     this.abilityMarkers.dispose();
+    // Before the clouds, whose sprite materials it shares
+    this.missileLaunches.dispose();
     this.mushroomClouds.dispose();
     this.oozes.dispose();
     this.searchlights.dispose();

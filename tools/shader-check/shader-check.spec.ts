@@ -90,6 +90,8 @@ import { FrostBurstRenderer } from '../../src/app/three-engine/renderers/frost-b
 import { EmpPulseRenderer } from '../../src/app/three-engine/renderers/emp-pulse.renderer';
 import { OrbitalBeamRenderer } from '../../src/app/three-engine/renderers/orbital-beam.renderer';
 import { MushroomCloudRenderer } from '../../src/app/three-engine/renderers/mushroom-cloud.renderer';
+import { createCloudSpriteMaterials } from '../../src/app/three-engine/renderers/mushroom-cloud-sprites';
+import { MissileLaunchRenderer } from '../../src/app/three-engine/renderers/missile-launch.renderer';
 import { HealthBarInstanceManager } from '../../src/app/three-engine/renderers/instanced-enemy/health-bar-instance.manager';
 import { GroundDecals } from '../../src/app/three-engine/renderers/ground-decals';
 import { FloatingTextInstanceManager } from '../../src/app/three-engine/renderers/floating-text/floating-text-instance.manager';
@@ -334,6 +336,11 @@ const CASES: ShaderCase[] = [
     name: 'mushroom cloud (sprites, fireball, blast)',
     file: 'three-engine/renderers/mushroom-cloud.renderer.ts, mushroom-cloud-*.ts',
     build: (scene) => new MushroomCloudRenderer(scene),
+  },
+  {
+    name: 'missile launch (flame, missile, smoke and fire sprites)',
+    file: 'three-engine/renderers/missile-launch.renderer.ts, missile-*.ts',
+    build: (scene) => new MissileLaunchRenderer(scene, createCloudSpriteMaterials()),
   },
   // Enemies, projectiles and effects on the tiles
   {

@@ -50,6 +50,7 @@ function withPreset(preset: VfxPreset) {
   const engine = {
     effects: { setVfxSettings: vi.fn() },
     mushroomClouds: { setFullCloud: vi.fn() },
+    missileLaunches: { setFull: vi.fn() },
     frostBursts: frost.renderer,
     empPulses: emp.renderer,
     orbitalBeams: beam.renderer,
@@ -121,8 +122,9 @@ describe('Effect preset and the ability effects, playtest 400', () => {
     expect(low.frostFlash.visible).toBe(true);
     expect(low.empFronts.some((m) => m.visible)).toBe(true);
     expect(low.beamColumn.visible).toBe(true);
-    // The nuke's cloud is told the same
+    // The nuke's cloud and missile are told the same
     expect(low.engine.mushroomClouds.setFullCloud).toHaveBeenCalledWith(false);
+    expect(low.engine.missileLaunches.setFull).toHaveBeenCalledWith(false);
   });
 
   it('400 counter-check: preset Medium and High keep shards, mist and sparks', () => {
@@ -137,6 +139,7 @@ describe('Effect preset and the ability effects, playtest 400', () => {
       expect(full.beamEmbers.visible, preset).toBe(true);
       expect(full.beamGroundGlow.visible, preset).toBe(true);
       expect(full.engine.mushroomClouds.setFullCloud, preset).toHaveBeenCalledWith(true);
+      expect(full.engine.missileLaunches.setFull, preset).toHaveBeenCalledWith(true);
     }
   });
 });
