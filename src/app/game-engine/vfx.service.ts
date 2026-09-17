@@ -5,14 +5,15 @@ import {
   BURST_PALETTES,
   EXPLOSION_PRESETS,
   FROST_BOMB_ICE_RINGS,
+  MISSILE_LAUNCH_LOOK,
   MUZZLE_FLASH_PROFILES,
   NUCLEAR_STRIKE_SCORCH_RINGS,
   type ScorchSource,
 } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
-import { ABILITIES, type AbilityId } from '../configs/abilities.config';
-import { createMissileStart, missileStartAt } from '../three-engine/renderers/missile-silo';
+import { ABILITIES, ABILITY_IDS, type AbilityId } from '../configs/abilities.config';
+import { createMissileStart, launchSiteLoaded, missileStartAt } from '../three-engine/renderers/missile-silo';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
 import type { GameEvent } from './game-event-bus';
@@ -144,6 +145,11 @@ export class VFXService {
     this.subs.add(this.eventBus.on('ability:impact', (event) => {
       this.abilityVfx[event.abilityId]?.impact(event);
     }));
+    // The building an ability launches from shows its missile while a charge
+    // is ready and no strike is on its way (launchSiteLoaded)
+    this.subs.add(this.eventBus.on('ability:state-changed', ({ abilities }) => {
+      for (const status of abilities) this.showLoaded(status.id, launchSiteLoaded(status));
+    }));
     // A restart drops the markers, the missiles and the clouds
     this.subs.add(this.eventBus.on('game:reset', () => this.clearStrikes()));
 
@@ -182,7 +188,8 @@ export class VFXService {
    * The missile lifts off its silo and flies onto `target` in the warning's
    * game time (MISSILE_LAUNCH_LOOK, the engine runs it in game time); the
    * impact lands it. It starts where the silo's own missile stands
-   * (missileStartAt).
+   * (missileStartAt), which the silo hides at once: in the replay too, which
+   * plays no state snapshots.
    */
   private handleLaunch(
     abilityId: AbilityId,
@@ -196,8 +203,15 @@ export class VFXService {
     const { lat, lon, height } = launch.position;
     const site = this.tilesEngine.sync.geoToLocalSimpleInto(lat, lon, height ?? 0, this.tmpA);
     const start = missileStartAt(this.tilesEngine.towers.get(launch.towerId), from, site, this.missileStart);
+    this.showLoaded(abilityId, false);
     const onto = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpB);
     this.tilesEngine.missileLaunches.launch(strikeId, start, onto, warningMs / 1000);
+  }
+
+  /** The missile in the buildings `id` launches from, shown or hidden; nothing for an ability that launches from none. */
+  private showLoaded(id: AbilityId, loaded: boolean): void {
+    const from = ABILITIES[id]?.launchFrom;
+    if (from) this.tilesEngine.towers.setPartShown(from, MISSILE_LAUNCH_LOOK.missile.node, loaded);
   }
 
   /** `path` in local coordinates, a new array (a beam's handful of points, once per use). */
@@ -294,6 +308,8 @@ export class VFXService {
   private clearStrikes(): void {
     this.tilesEngine.abilityMarkers.clear();
     this.tilesEngine.missileLaunches.clear();
+    // A new game's silo stands loaded until a snapshot says otherwise
+    for (const id of ABILITY_IDS) this.showLoaded(id, true);
     this.tilesEngine.mushroomClouds.clear();
     this.tilesEngine.frostBursts.clear();
     this.tilesEngine.empPulses.clear();

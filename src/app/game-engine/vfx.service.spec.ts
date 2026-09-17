@@ -16,6 +16,7 @@ import {
 import { geoDistanceFast } from '../utils/geo-utils';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
+import { ABILITY_IDS, lockedAbilityStatus } from '../configs/abilities.config';
 import type { TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
 
 function setup() {
@@ -221,6 +222,7 @@ describe('VFXService nuclear strike', () => {
       missileLaunches: { launch: vi.fn(), land: vi.fn(), clear: vi.fn() },
       towers: {
         get: vi.fn((_id: string): TowerRenderData | undefined => undefined),
+        setPartShown: vi.fn(),
       },
       mushroomClouds: { detonate: vi.fn(), clear: vi.fn() },
       frostBursts: { burst: vi.fn(), clear: vi.fn() },
@@ -278,7 +280,7 @@ describe('VFXService nuclear strike', () => {
     service.destroy();
   });
 
-  it('starts the missile where the placed silo\'s missile node stands, turned and sized as there', () => {
+  it('starts the missile where the placed silo\'s missile node stands, turned and sized as there, and hides that one at once', () => {
     const { eventBus, tilesEngine, service } = strikeSetup();
     const mesh = new Group();
     mesh.position.set(40, 5, -12);
@@ -301,6 +303,34 @@ describe('VFXService nuclear strike', () => {
     expect(start.nozzle.z).toBeCloseTo(-12, 6);
     expect(start.turn.angleTo(mesh.quaternion)).toBeLessThan(1e-6);
     expect(start.scale).toBeCloseTo(7.36, 6);
+    expect(tilesEngine.towers.setPartShown).toHaveBeenCalledWith('missile-silo', MISSILE_LAUNCH_LOOK.missile.node, false);
+    expect(tilesEngine.towers.setPartShown.mock.invocationCallOrder[0])
+      .toBeLessThan(tilesEngine.missileLaunches.launch.mock.invocationCallOrder[0]);
+    service.destroy();
+  });
+
+  it('shows the missile in the silo while a charge is ready and no strike is on its way, as each snapshot says', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    const snapshot = (charges: number, pending: boolean) => eventBus.emit({
+      type: 'ability:state-changed',
+      abilities: ABILITY_IDS.map((id) => ({ ...lockedAbilityStatus(id), unlocked: true, launchSite: true, charges, pending })),
+    });
+    const shown = () => tilesEngine.towers.setPartShown.mock.calls as unknown[][];
+
+    snapshot(1, false);
+    // Only the nuclear strike launches from a building
+    expect(shown()).toEqual([['missile-silo', MISSILE_LAUNCH_LOOK.missile.node, true]]);
+    snapshot(0, true);
+    snapshot(0, false);
+    snapshot(1, false);
+    expect(shown().map((call) => call[2])).toEqual([true, false, false, true]);
+    service.destroy();
+  });
+
+  it('stands the missile back in the silo on a restart', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    eventBus.emit({ type: 'game:reset' });
+    expect(tilesEngine.towers.setPartShown).toHaveBeenCalledWith('missile-silo', MISSILE_LAUNCH_LOOK.missile.node, true);
     service.destroy();
   });
 

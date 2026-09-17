@@ -6,9 +6,10 @@ import type { TentacleStrike } from '../three-engine/renderers/three-tentacle.re
 import type { OozeGround } from '../three-engine/renderers/ooze/ooze-band-geometry';
 import type { HeroPresentation } from '../managers/hero.manager';
 import { ENEMY_TYPES, enemyDeathDuration, type EnemyTypeId } from '../configs/enemy-types.config';
-import { BURST_PALETTES, OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
+import { BURST_PALETTES, MISSILE_LAUNCH_LOOK, OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES, type ProjectileTypeId } from '../configs/projectile-types.config';
-import { TOWER_TYPES } from '../configs/tower-types.config';
+import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
+import { ABILITIES, ABILITY_IDS } from '../configs/abilities.config';
 import { REPLAY_CONFIG } from '../configs/replay.config';
 import { GameClock } from '../managers/game-state/game-clock';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
@@ -170,6 +171,12 @@ export class ReplayPlayer {
   private abilityLanded = false;
   /** A missile lifted off in the replay, it and its smoke go on exit */
   private missileLaunched = false;
+  /**
+   * Whether the buildings abilities launch from showed their missile when
+   * the replay began: a launch in the replay hides it (VFXService), a jump
+   * and the exit give it back
+   */
+  private readonly loadedBefore = new Map<TowerTypeId, boolean>();
   /** Live towers built after the wave, hidden while the replay runs, and whether they showed */
   private readonly laterTowers: { id: string; visible: boolean }[] = [];
 
@@ -273,6 +280,12 @@ export class ReplayPlayer {
     for (const view of this.views) this.viewById.set(view.tower.id, view);
     this.towerNext = new Int32Array(this.views.length);
     this.towerNextStamp = new Uint32Array(this.views.length);
+
+    // The missiles standing in the live silos
+    for (const id of ABILITY_IDS) {
+      const from = ABILITIES[id].launchFrom;
+      if (from) this.loadedBefore.set(from, engine.towers.isPartShown(from, MISSILE_LAUNCH_LOOK.missile.node));
+    }
 
     // The look of the recorded wave, at once
     this.bloodMoonBefore = engine.bloodMoon.isActive;
@@ -999,7 +1012,8 @@ export class ReplayPlayer {
 
   /**
    * Take down what the replay's strikes put up: the markers still waiting
-   * for their impact, once one lifted off the missiles and their smoke, and
+   * for their impact, once one lifted off the missiles and their smoke (and
+   * the missiles in the silos as they stood before the replay), and
    * once one landed the clouds, bursts, pulses and beams (those of the live
    * game with them). On exit and on every jump: a marker whose impact the
    * jump skipped would stand to the end, an effect from before a jump back
@@ -1009,7 +1023,12 @@ export class ReplayPlayer {
     const engine = this.engine;
     for (const strikeId of this.pendingStrikes) engine.abilityMarkers.removeStrike(strikeId);
     this.pendingStrikes.clear();
-    if (this.missileLaunched) engine.missileLaunches.clear();
+    if (this.missileLaunched) {
+      engine.missileLaunches.clear();
+      for (const [typeId, loaded] of this.loadedBefore) {
+        engine.towers.setPartShown(typeId, MISSILE_LAUNCH_LOOK.missile.node, loaded);
+      }
+    }
     if (this.abilityLanded) {
       engine.mushroomClouds.clear();
       engine.frostBursts.clear();
