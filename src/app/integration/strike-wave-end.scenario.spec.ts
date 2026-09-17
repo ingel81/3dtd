@@ -81,8 +81,8 @@ const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 const BEHIND: GeoPosition = TEST_PATH[3];
 const SEGMENT_M = geoDistanceFast(TEST_PATH[0], TEST_PATH[1]);
 const PATH_M = SEGMENT_M * (TEST_PATH.length - 1);
-/** 1500 ms of warning in sub-steps of 16.667 ms */
-const WARNING_STEPS = 90;
+/** 6500 ms of warning in sub-steps of 16.667 ms */
+const WARNING_STEPS = 390;
 const STEP_MS = 16.667;
 
 /** A game with the strike researched and the facade's auto-start on its bus. */

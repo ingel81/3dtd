@@ -160,7 +160,7 @@ export const GAME_SOUNDS = {
       { delayMs: 4800, volume: 0.45, sample: nukeRumble(2) },
     ],
     /**
-     * Air raid siren through the warning (1.5 s), at the target where the
+     * Air raid siren through the warning (6.5 s), at the target where the
      * marker shows it; generated with ElevenLabs (2 s, a rising wail). Ends
      * with the impact, the blast covers the cut. Rolls off like the blast.
      */

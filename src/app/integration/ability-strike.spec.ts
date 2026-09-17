@@ -56,33 +56,39 @@ const NUKE = ABILITIES['nuclear-strike'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** Sub-step whose per-step hook sends the command, as the bot does. */
 const COMMAND_STEP = 30;
-/** 1500 ms of warning in sub-steps of 16.667 ms */
-const WARNING_STEPS = 90;
+/** 6500 ms of warning in sub-steps of 16.667 ms */
+const WARNING_STEPS = 390;
 /** Outcome read at this sub-step, the same one in both runs */
 const READ_STEP = COMMAND_STEP + WARNING_STEPS + 10;
 /** Halfway through the warning */
 const PAUSE_STEP = COMMAND_STEP + WARNING_STEPS / 2;
 /** The fourth waypoint, about 33 m down the path */
 const TARGET: GeoPosition = TEST_PATH[3];
+/** Game seconds from the wave start (the spawn) to the impact */
+const IMPACT_S = ((COMMAND_STEP + WARNING_STEPS) * 16.667) / 1000;
+
+/** An enemy that has walked `metres` from the spawn when the strike lands */
+const walking = (type: EnemyTypeId, metres: number, preDamage: number) =>
+  ({ type, speed: metres / IMPACT_S, preDamage });
 
 /**
- * Speeds spread the enemies along the path: at the impact, two seconds in,
+ * Speeds spread the enemies along the path: at the impact, seven seconds in,
  * the first stands about 31 m from the target (outside the 25 m), the others
  * between 9 and 24 m. Half of them come in with half their HP gone, so the
  * strike kills them; herbert is the boss.
  */
 const ROSTER: { type: EnemyTypeId; speed: number; preDamage: number }[] = [
-  { type: 'zombie', speed: 1, preDamage: 0 },
-  { type: 'zombie', speed: 5, preDamage: 0 },
-  { type: 'zombie', speed: 6, preDamage: 0.5 },
-  { type: 'tank', speed: 8, preDamage: 0.5 },
-  { type: 'herbert', speed: 5, preDamage: 0.5 },
-  { type: 'bat', speed: 10, preDamage: 0 },
-  { type: 'zombie', speed: 12, preDamage: 0.5 },
+  walking('zombie', 2, 0),
+  walking('zombie', 10, 0),
+  walking('zombie', 12, 0.5),
+  walking('tank', 16, 0.5),
+  walking('herbert', 10, 0.5),
+  walking('bat', 20, 0),
+  walking('zombie', 24, 0.5),
 ];
 
 /** A skeleton where the third zombie of ROSTER stands, half its HP gone, so the strike kills it */
-const SKELETON_ROSTER: typeof ROSTER = [{ type: 'skeleton', speed: 6, preDamage: 0.5 }];
+const SKELETON_ROSTER: typeof ROSTER = [walking('skeleton', 12, 0.5)];
 
 interface EngineWithTexts {
   effects: { spawnFloatingText: ReturnType<typeof vi.fn> };
@@ -226,7 +232,7 @@ describe('Nuclear strike through the sub-step loop', () => {
     vi.restoreAllMocks();
   });
 
-  it('lands on the 90th sub-step after the command', () => {
+  it('lands on the 390th sub-step after the command', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5); // centre line, no height spread
     expect(run(1).impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
   });
@@ -296,8 +302,8 @@ describe('Nuclear strike through the sub-step loop', () => {
   it('stands still while the game is paused', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     const straight = run(1);
-    // About ten seconds of wall clock, far longer than the warning
-    const paused = run(1, 600);
+    // About twenty seconds of wall clock, three times the warning
+    const paused = run(1, 1200);
     expect(paused.impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
     expect(paused).toEqual(straight);
   });

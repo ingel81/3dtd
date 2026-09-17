@@ -326,8 +326,9 @@ export class AbilityManager implements IGameManager {
   /**
    * Count every pending strike down by one sub-step of game time, land the
    * ones that ran out and burn every beam one more sub-step. Called once per
-   * gameplay sub-step, right after the ResearchManager. A warning of 1500 ms
-   * lands on the 90th sub-step of 16.667 ms after the command.
+   * gameplay sub-step, right after the ResearchManager. A warning of 6500 ms
+   * (the nuclear strike) lands on the 390th sub-step of 16.667 ms after the
+   * command.
    */
   update(stepMs: number): void {
     if (this.pending.length === 0) return;

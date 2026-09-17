@@ -11,6 +11,8 @@ import { METERS_PER_DEGREE_LAT, geoDistanceFast } from '../utils/geo-utils';
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
 const NUKE = ABILITIES['nuclear-strike'];
+/** The nuclear strike's 6500 ms of warning in sub-steps */
+const NUKE_STEPS = 390;
 const FROST = ABILITIES['frost-bomb'];
 const EMP = ABILITIES['emp'];
 const LASER = ABILITIES['orbital-laser'];
@@ -133,11 +135,12 @@ describe('AbilityManager', () => {
       expect(manager.use('nuclear-strike', TARGET)).toEqual({ ok: false, reason: 'no-charge' });
     });
 
-    it('lands on the 90th sub-step after the command', () => {
+    it('lands on the 390th sub-step after the command, 6.5 s of game time', () => {
+      expect(NUKE.warningMs).toBe(6500);
       inRadius = [enemyOf('z1', 'zombie')];
       manager.use('nuclear-strike', TARGET);
 
-      tick(89);
+      tick(NUKE_STEPS - 1);
       expect(world.strike).not.toHaveBeenCalled();
 
       tick(1);
@@ -153,7 +156,7 @@ describe('AbilityManager', () => {
       expect(ENEMY_TYPES['bat'].isAirUnit).toBe(true);
       inRadius = [enemyOf('z1', 'zombie'), enemyOf('boss', 'herbert'), enemyOf('bat1', 'bat')];
       manager.use('nuclear-strike', TARGET);
-      tick(90);
+      tick(NUKE_STEPS);
       expect(strikes).toEqual([{ ids: ['z1', 'boss', 'bat1'], fractions: [0.6, 0.2, 0.6] }]);
     });
 
@@ -161,7 +164,7 @@ describe('AbilityManager', () => {
       inRadius = [enemyOf('z1', 'zombie'), enemyOf('boss', 'herbert')];
       strikeKills = 1;
       manager.use('nuclear-strike', TARGET);
-      tick(89);
+      tick(NUKE_STEPS - 1);
       expect(numbers).toEqual([]);
       tick(1);
       expect(numbers).toEqual([
@@ -173,7 +176,7 @@ describe('AbilityManager', () => {
     it('reports a strike as pending from the command until it lands', () => {
       expect(manager.hasPendingStrikes()).toBe(false);
       manager.use('nuclear-strike', TARGET);
-      tick(89);
+      tick(NUKE_STEPS - 1);
       expect(manager.hasPendingStrikes()).toBe(true);
       tick(1);
       expect(manager.hasPendingStrikes()).toBe(false);
@@ -181,7 +184,7 @@ describe('AbilityManager', () => {
 
     it('spends the charge even when the strike finds nobody', () => {
       manager.use('nuclear-strike', TARGET);
-      tick(90);
+      tick(NUKE_STEPS);
       expect(world.strike).not.toHaveBeenCalled();
       expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: 0, pending: false });
     });
@@ -242,7 +245,7 @@ describe('AbilityManager', () => {
       manager.use('nuclear-strike', TARGET);
       sites = {};
       manager.buildingChanged('missile-silo');
-      tick(90);
+      tick(NUKE_STEPS);
       expect(world.strike).toHaveBeenCalledTimes(1);
     });
 
@@ -539,7 +542,7 @@ describe('AbilityManager', () => {
         strikeId: 1,
         target: { ...TARGET, height: 5 },
         radiusM: 25,
-        warningMs: 1500,
+        warningMs: 6500,
         launch: SILO,
       }]);
     });
@@ -559,7 +562,7 @@ describe('AbilityManager', () => {
       inRadius = [enemyOf('a', 'zombie'), enemyOf('b', 'zombie'), enemyOf('c', 'herbert')];
       strikeKills = 2;
       manager.use('nuclear-strike', TARGET);
-      tick(89);
+      tick(NUKE_STEPS - 1);
       expect(ofType('ability:impact')).toEqual([]);
       tick(1);
       expect(ofType('ability:impact')).toEqual([{
@@ -585,7 +588,7 @@ describe('AbilityManager', () => {
         ofType('ability:state-changed').map((e) => e.abilities[0]).map((s) => [s.charges, s.wavesUntilCharge, s.pending]);
       unlock();
       manager.use('nuclear-strike', TARGET);
-      tick(90);
+      tick(NUKE_STEPS);
       completeWave();
       completeWave();
       completeWave();
@@ -608,7 +611,7 @@ describe('AbilityManager', () => {
       manager.use('nuclear-strike', TARGET);
       manager.reset();
 
-      tick(90);
+      tick(NUKE_STEPS);
       expect(world.strike).not.toHaveBeenCalled();
       expect(manager.getStatus('nuclear-strike').unlocked).toBe(false);
     });
