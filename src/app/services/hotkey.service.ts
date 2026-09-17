@@ -185,7 +185,7 @@ export class HotkeyService {
     const pickable = canPickTowerCard(tower, {
       credits: this.store.credits(),
       gameOver: this.store.isGameOver(),
-      researchCenterPlaced: this.researchStore.centerPlaced(),
+      placedUnique: this.store.placedUniqueTypes(),
       isUnlocked: (id) => this.researchStore.isTowerUnlocked(id),
     });
     if (!pickable) return false;

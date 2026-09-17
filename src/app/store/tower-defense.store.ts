@@ -98,6 +98,9 @@ export class TowerDefenseStore {
   /** Total placed tower count */
   readonly towerCount = this.gameStore.towerCount;
 
+  /** The one-per-map buildings standing on the map (see GameStore) */
+  readonly placedUniqueTypes = this.gameStore.placedUniqueTypes;
+
   /** Show game over overlay screen */
   readonly showGameOverScreen = this.gameStore.showGameOverScreen;
 

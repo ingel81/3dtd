@@ -1,6 +1,7 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
+import type { TowerTypeId } from '../configs/tower-types.config';
 import { GamePhase } from './tower-defense.store.types';
 import type { DecisionExplanation } from '../ai/core/decision-explainer';
 import type { RunSummary } from '../services/infrastructure/run-stats';
@@ -83,6 +84,12 @@ export class GameStore {
 
   /** Total placed tower count */
   readonly towerCount = signal<number>(0);
+
+  /**
+   * The one-per-map buildings standing on the map (TowerTypeConfig.unique),
+   * written from `tower:placed` and `tower:sold` like the tower count.
+   */
+  readonly placedUniqueTypes = signal<ReadonlySet<TowerTypeId>>(new Set());
 
   /** Show game over overlay screen */
   readonly showGameOverScreen = signal<boolean>(false);
@@ -185,6 +192,7 @@ export class GameStore {
     this.hero.set(initialHeroStatus());
     this.selectedTower.set(null);
     this.towerCount.set(0);
+    this.placedUniqueTypes.set(new Set());
     this.showGameOverScreen.set(false);
     this.runSummary.set(null);
     this.aiExplanation.set(null);

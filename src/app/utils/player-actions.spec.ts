@@ -11,7 +11,7 @@ import {
 const ctx = (over: Partial<TowerCardContext> = {}): TowerCardContext => ({
   credits: 10_000,
   gameOver: false,
-  researchCenterPlaced: false,
+  placedUnique: new Set(),
   isUnlocked: () => true,
   ...over,
 });
@@ -27,9 +27,14 @@ describe('canPickTowerCard', () => {
     expect(canPickTowerCard(TOWER_TYPES.archer, ctx({ gameOver: true }))).toBe(false);
   });
 
-  it('allows one Research Center only', () => {
+  it('allows a one-per-map building only while none of its type stands', () => {
+    expect(TOWER_TYPES['research-center'].unique).toBe(true);
     expect(canPickTowerCard(TOWER_TYPES['research-center'], ctx())).toBe(true);
-    expect(canPickTowerCard(TOWER_TYPES['research-center'], ctx({ researchCenterPlaced: true }))).toBe(false);
+    expect(canPickTowerCard(TOWER_TYPES['research-center'], ctx({ placedUnique: new Set(['research-center']) }))).toBe(false);
+  });
+
+  it('ignores the placed set for a tower that is not one per map', () => {
+    expect(canPickTowerCard(TOWER_TYPES.archer, ctx({ placedUnique: new Set(['archer']) }))).toBe(true);
   });
 });
 

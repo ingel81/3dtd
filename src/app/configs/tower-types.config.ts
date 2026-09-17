@@ -207,6 +207,15 @@ export interface TowerTypeConfig {
   cost: number;
   upgrades: TowerUpgrade[]; // Available upgrades for this tower type
 
+  /**
+   * One per map: while one stands, another cannot be placed. Checked by
+   * TowerLifecycle.place and, for the build card and its number key, by
+   * canPickTowerCard.
+   */
+  unique?: boolean;
+  /** What a passive building does, the flavor of its build card's tooltip */
+  description?: string;
+
   // Targeting capabilities
   canTargetAir?: boolean; // Can target air units (default: false)
   canTargetGround?: boolean; // Can target ground units (default: true)
@@ -539,6 +548,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'arrow', // Fallback, unused
 
     cost: 75,
+    unique: true,
+    description: 'Unlocks new towers and upgrade tiers.',
     upgrades: [
       {
         id: 'research-slots' as UpgradeId,

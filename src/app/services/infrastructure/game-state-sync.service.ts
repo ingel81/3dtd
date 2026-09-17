@@ -92,12 +92,22 @@ export class GameStateSyncService {
     }));
 
     // ── Tower lifecycle ───────────────────────────────────────────
-    this.subs.add(eventBus.on('tower:placed', (_event) => {
+    this.subs.add(eventBus.on('tower:placed', (event) => {
       this.store.towerCount.update(n => n + 1);
+      const type = event.tower.typeConfig;
+      if (type.unique) this.store.placedUniqueTypes.update(set => new Set(set).add(type.id));
     }));
 
     this.subs.add(eventBus.on('tower:sold', (event) => {
       this.store.towerCount.update(n => Math.max(0, n - 1));
+      const type = event.tower.typeConfig;
+      if (type.unique) {
+        this.store.placedUniqueTypes.update(set => {
+          const next = new Set(set);
+          next.delete(type.id);
+          return next;
+        });
+      }
 
       // Clear selection if the sold tower was the selected one
       const selected = this.store.selectedTower();

@@ -31,7 +31,6 @@ describe('ResearchStore', () => {
 
     it('starts with no Research Center placed', () => {
       expect(store.centerLevel()).toBe(0);
-      expect(store.centerPlaced()).toBe(false);
     });
 
     it('starts with one research slot and tier 1 unlocked', () => {
@@ -70,19 +69,6 @@ describe('ResearchStore', () => {
         { researchId: 'ice-magic', startTime: 0, duration: 10, elapsed: 0, cost: 40 },
       ]);
       expect(store.availableSlots()).toBe(0);
-    });
-  });
-
-  // ────────────────────────────────────────────────────────────────
-  // Computed: centerPlaced
-  // ────────────────────────────────────────────────────────────────
-  describe('centerPlaced', () => {
-    it('flips true when centerLevel becomes positive', () => {
-      expect(store.centerPlaced()).toBe(false);
-      store.centerLevel.set(1);
-      expect(store.centerPlaced()).toBe(true);
-      store.centerLevel.set(0);
-      expect(store.centerPlaced()).toBe(false);
     });
   });
 
@@ -182,7 +168,6 @@ describe('ResearchStore', () => {
       expect(store.completedResearches().size).toBe(0);
       expect(store.activeResearches().length).toBe(0);
       expect(store.centerLevel()).toBe(0);
-      expect(store.centerPlaced()).toBe(false);
       expect(store.researchSlots()).toBe(1);
       expect(store.maxUpgradeTier()).toBe(1);
       expect(store.unlockedPerks().size).toBe(0);
