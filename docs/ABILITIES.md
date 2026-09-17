@@ -300,13 +300,21 @@ genau zum Einschlag ankommt. Zeiten bei 6,5 s Vorwarnung:
 | bis 6,5 s | Sturzflug, immer schneller (bei 1000 m zuletzt gut 900 m/s); die letzten 30 m Höhe höchstens 10 Grad neben der Senkrechten, so schneidet sie keine Gebäude |
 | danach | Rakete weg, die Rauchspur steht, breitet sich aus, treibt mit dem Wind und blendet über 10 bis 15 s aus |
 
-Aussehen: die Rakete prozedural aus Grundkörpern (weiße Spitze, roter Ring,
-grauer und schwarzer Körper, vier Finnen, Düse), so groß wie die Rakete im
-Silo-Modell (`missile_silo.glb` bei Skala 7,36): 6,59 m lang, Rumpf 2 m dick,
-2,53 m über die Finnen, die Düse im Schacht 2,3 m über der Basis
-(`missile.baseHeight`, dort steht der Node `missile`), entlang der Bahn
-gedreht. Ein anderes Modell mit derselben Konvention (Ursprung an der Düse,
-Spitze +y) kann sie ersetzen. Flamme: additives Quad von der Düse zurück, zur Kamera
+Aussehen: Die fliegende Rakete ist der Node `missile` aus dem Silo-Modell
+(`missile_silo.glb`, Ursprung am Düsenausgang, Spitze +y), je Start-Slot einmal
+geklont, mit Geometrie und Material aus dem Modell-Cache (`AssetManagerService`).
+Sie startet genau dort, wo dieser Node im platzierten Silo steht: Position,
+Drehung samt Yaw des Silos (`rotationY` und die Drehung beim Bauen) und Größe
+kommen aus seiner Weltmatrix (`missileStartAt`, `three-engine/renderers/missile-silo.ts`),
+der Rauch quillt an der Oberkante des Modells heraus. Bei Skala 7,36 steht die
+Düse 2,3 m über der Basis, die Rakete ist 6,59 m lang und 2 m dick. Nur wenn das
+Render-Objekt des Silos oder der Node fehlt, gelten die Look-Werte
+(`missile.baseHeight` 2,3 m, `shaftTop` 10,4 m, Skala und `rotationY` des Typs). Im
+Flug dreht die Bahn die Rakete aus ihrer Stellung im Silo entlang ihrer
+Richtung, der Yaw des Silos bleibt als Drehung um die eigene Achse. Ist das
+Modell beim Start nicht geladen (sollte nicht vorkommen, das Silo steht
+vorher), fliegt keine Rakete; Flamme, Feuer, Rauch und Ton laufen trotzdem.
+Flamme: additives Quad von der Düse zurück, zur Kamera
 gedreht, weißer Kern über Gelb-Orange, zur Spitze rot, flackernd, mit
 Tiefentest; länger mit dem Tempo. Dazu ein Glüh-Sprite an der Düse und eine
 Fahne aus acht Glut-Billboards. Rauch aus den Billboards des Atompilzes
@@ -329,10 +337,28 @@ Die Sirene am Ziel bleibt. Shake beim Start: `missileLaunch` 0,0045 für
 `launchFarDistance`), aus der Übersichtskamera (etwa 425 m) etwa drei Viertel;
 der Einschlag schüttelt mit fast der vierfachen Amplitude.
 
+**Rakete im Silo:** Das platzierte Silo zeigt seine Rakete genau dann, wenn
+eine Ladung bereit ist und kein Schlag unterwegs ist (`launchSiteLoaded`:
+`charges >= 1` und nicht `pending`). Quelle sind die Snapshots
+`ability:state-changed`, die der `AbilityManager` nach jeder Änderung schickt,
+auch nach Bau und Verkauf eines Silos; der `VFXService` schaltet damit den
+Node `missile` in jedem Silo-Modell (`ThreeTowerRenderer.setPartShown`, gilt auch
+für später gebaute). Beim `ability:used` blendet er sie sofort aus, im selben
+Aufruf wie der Start der fliegenden Rakete, die ihren Platz einnimmt; der
+Snapshot direkt danach sagt dasselbe. Mit der zurückgekehrten Ladung (nach 3
+Wellen) steht sie wieder da. Ein neu gebautes Silo zeigt sofort den richtigen
+Zustand, `game:reset` stellt sie wieder hin.
+
 Im Wave-Replay laufen Rakete, Rauch und Start-Shake wie live (das Replay spielt
-`ability:used` ab, ein Sprung und das Verlassen räumen sie). Es reicht das
-Event auch an seinen AudioService weiter: Zündung und Pfeifen sind bei 1x zu
-hören, Triebwerk und Sirene nicht, Loops stehen, weil das Spiel pausiert ist.
+`ability:used` ab, ein Sprung und das Verlassen räumen sie). Ein Silo, das in
+der Welle verkauft wurde, startet von seinem Replay-Modell (die Tower-ID im
+Event wird auf dessen ID umgeschrieben). Snapshots zeichnet das Replay nicht
+auf: Beim Start im Replay verschwindet die Rakete aus dem Silo, ein Sprung und
+das Verlassen stellen den Zustand des Live-Spiels wieder her. Vor dem Start
+zeigt das Silo im Replay deshalb den Live-Zustand, nicht den der Welle. Das
+Replay reicht `ability:used` auch an seinen AudioService weiter: Zündung und
+Pfeifen sind bei 1x zu hören, Triebwerk und Sirene nicht, Loops stehen, weil
+das Spiel pausiert ist.
 
 **Einschlag: Atompilz** (`MUSHROOM_CLOUD_LOOK` in `visual-effects.config.ts`,
 gezeichnet von `three-engine/renderers/mushroom-cloud.renderer.ts`). Er läuft
@@ -634,7 +660,8 @@ der Nuklearschlag seinen Knopf.
 | `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
 | `three-engine/renderers/ability-marker.renderer.ts` | Zielmarker und Zielring |
 | `three-engine/renderers/missile-launch.renderer.ts` | Rakete des Nuklearschlags vom Silo aufs Ziel, mit Startwolke und Rauchspur |
-| `three-engine/renderers/missile-model.ts`, `missile-exhaust.ts`, `missile-smoke.ts`, `missile-launch-state.ts` | Raketenmodell, Flamme/Düsenglühen/Feuer/Blitz/Bodenlicht, Startwolke und Spur, Zustand eines Starts |
+| `three-engine/renderers/missile-silo.ts` | Die Rakete am Silo: ob es sie zeigt (`launchSiteLoaded`), wo die fliegende startet (`missileStartAt`) |
+| `three-engine/renderers/missile-exhaust.ts`, `missile-smoke.ts`, `missile-launch-state.ts` | Flamme/Düsenglühen/Feuer/Blitz/Bodenlicht, Startwolke und Spur, Zustand eines Starts |
 | `utils/missile-flight.ts` | Flugbahn der Rakete: Position und Richtung über die normierte Flugzeit, für Renderer und Triebwerkston |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Einschlags |
 | `three-engine/renderers/mushroom-cloud-shape.ts`, `-sprites.ts`, `-fireball.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Form, Billboards samt Billow-Atlas und Materialien, Feuerball, Glut, Rauch, Bodenlicht/Ring/Kuppel/Blitz des Atompilzes |
@@ -656,7 +683,7 @@ der Nuklearschlag seinen Knopf.
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `missile-model.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`, `replay-player.spec.ts` (Rakete und Startton im Replay),
+`vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `missile-silo.spec.ts`, `integration/silo-missile.scenario.spec.ts`, `three-tower.renderer.spec.ts` (Nodes ein- und ausblenden), `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`, `replay-player.spec.ts` (Rakete und Startton im Replay),
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,

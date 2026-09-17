@@ -313,6 +313,22 @@ if (target) {
 
 ---
 
+## Model-Teile ein- und ausblenden
+
+Ein Node im Modell eines Tower-Typs lässt sich über den Renderer zeigen oder verbergen,
+ohne den Tower selbst: `ThreeTowerRenderer.setPartShown(typeId, node, shown)` gilt für jeden
+stehenden Tower des Typs und für jeden, der danach gebaut wird (`create()` wendet es an);
+`isPartShown(typeId, node)` liest es zurück (ohne Aufruf `true`). Fehlt der Node im Modell,
+bleibt es unverändert. `mesh.visible` des Towers bleibt davon unberührt.
+
+Heute nutzt es das Missile Silo: Der `VFXService` blendet den Node `missile` aus, sobald ein
+Nuklearschlag abgefeuert ist, und wieder ein, wenn die Ladung zurück ist; die fliegende Rakete
+ist ein Klon desselben Nodes und startet von seiner Weltmatrix (Position, Yaw des Silos,
+Größe). Siehe [ABILITIES.md](ABILITIES.md#darstellung). Den Zustand setzt die Präsentation
+aus Events (`ability:state-changed`), keine Spiel-Logik liest ihn.
+
+---
+
 ## Sound-Integration
 
 ### Projektil-Sounds registrieren

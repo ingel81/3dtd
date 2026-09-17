@@ -485,8 +485,8 @@ kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
   | `nuclear_strike_dive`, `abilities/missile_dive.mp3` | 2,55 s | One-Shot am Ziel, 2500 ms Spielzeit vor dem Einschlag (`leadMs`), `volume` 1, `priority`, bis 1500 m | fallendes Pfeifen (von etwa 2 kHz auf 600 Hz), das anschwillt, an der lautesten Stelle geschnitten |
 
   Der `AudioService` plant beim `ability:used` dieselbe Flugbahn wie der Renderer
-  (`planMissileLaunch`, `utils/missile-flight.ts`, aus den lokalen Koordinaten von Silo und Ziel
-  und `warningMs`) und setzt den Triebwerks-Loop je Sub-Step (`update()`) dorthin, wo die
+  (`MissileFlight`, `utils/missile-flight.ts`, vom Start der Rakete im platzierten Silo,
+  `missileStartAt`, zum Ziel in `warningMs`) und setzt den Triebwerks-Loop je Sub-Step (`update()`) dorthin, wo die
   Bahn die Rakete zu dieser Spielzeit hat. Der Loop startet stumm (`volumeMultiplier` 0) und
   kommt über `setLoopVolume` hoch, während die Zündung ausklingt. Beim `ability:impact`
   desselben `strikeId` endet der Loop, und ein noch spielendes Pfeifen stoppt
