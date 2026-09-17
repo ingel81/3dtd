@@ -185,11 +185,11 @@ GameStateManager.runSubStep
 
 | Event | Abnehmer |
 |---|---|
-| `ability:used` | VFXService (Zielmarker; Rakete ab dem Silo, nur mit `launch`), AudioService (Warnsirene des Nuklearschlags; mit `launch` Zündung, Triebwerks-Loop und Pfeifen im Sturzflug), ScreenShakeService (Start-Shake am Silo, nur mit `launch`, `ABILITY_LAUNCH_SHAKE`), je `abilityId` (siehe [Darstellung](#darstellung)) |
+| `ability:used` | VFXService (Zielmarker; Rakete ab dem Silo, nur mit `launch`, die im Silo ist sofort weg), AudioService (Warnsirene des Nuklearschlags; mit `launch` Zündung, Triebwerks-Loop und Pfeifen im Sturzflug), ScreenShakeService (Start-Shake am Silo, nur mit `launch`, `ABILITY_LAUNCH_SHAKE`), je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:impact` | VFXService, AudioService, ScreenShakeService, je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
 | `ability:rejected` | RefusalHintService: Name und Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots. Die UI prüft vor dem Scharfschalten und vor dem Klick selbst; was ihre eigene Prüfung ablehnt, meldet sie dort genauso ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
-| `ability:state-changed` | GameStateSyncService → `GameStore.abilities`. Auch nach Bau und Verkauf eines Missile Silo: `TowerLifecycle.place` und `sell` rufen `AbilityManager.buildingChanged` auf, nachdem die Tower-Liste sich geändert hat, im Sub-Step des Befehls |
+| `ability:state-changed` | GameStateSyncService → `GameStore.abilities`; VFXService: Rakete im Silo sichtbar, solange eine Ladung bereit und kein Schlag unterwegs ist (`launchSiteLoaded`). Auch nach Bau und Verkauf eines Missile Silo: `TowerLifecycle.place` und `sell` rufen `AbilityManager.buildingChanged` auf, nachdem die Tower-Liste sich geändert hat, im Sub-Step des Befehls |
 
 Gründe für `ability:rejected`: `unknown`, `locked`, `no-launch-site`,
 `no-charge`, `no-wave`, `no-route`, in dieser Reihenfolge geprüft (`no-route`
