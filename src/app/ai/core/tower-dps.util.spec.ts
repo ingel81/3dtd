@@ -150,7 +150,7 @@ describe('computeTowerDPS()', () => {
   // DPS is always non-negative
   // ===================================================================
   it('all tower types produce non-negative DPS', () => {
-    const ids = ['archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'research-center'] as const;
+    const ids = ['archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos', 'research-center', 'missile-silo'] as const;
     for (const id of ids) {
       const tower = new Tower(POS, id);
       expect(computeTowerDPS(tower)).toBeGreaterThanOrEqual(0);

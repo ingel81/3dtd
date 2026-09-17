@@ -16,7 +16,7 @@ const POS = { lat: 10, lon: 20, height: 0 };
 describe('isSplashTower()', () => {
   it('matches what the game actually does', () => {
     const splash: TowerTypeId[] = ['cannon', 'ice', 'poison', 'fire', 'lightning'];
-    const single: TowerTypeId[] = ['archer', 'dual-gatling', 'magic', 'rocket', 'tentacle', 'chaos', 'research-center'];
+    const single: TowerTypeId[] = ['archer', 'dual-gatling', 'magic', 'rocket', 'tentacle', 'chaos', 'research-center', 'missile-silo'];
     for (const id of splash) expect(isSplashTower(id), id).toBe(true);
     for (const id of single) expect(isSplashTower(id), id).toBe(false);
   });

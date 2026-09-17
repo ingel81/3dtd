@@ -32,12 +32,13 @@ import { SidebarBuildPanelComponent } from './build-panel/build-panel.component'
 import { SidebarTowerPanelComponent } from './tower-panel/tower-panel.component';
 import { SidebarResearchPanelComponent } from './research-panel/research-panel.component';
 import { SidebarHeroPanelComponent } from './hero-panel/hero-panel.component';
+import { SidebarBuildingPanelComponent } from './building-panel/building-panel.component';
 import { UIStore } from '../../store/ui.store';
 
 /**
  * Rechte Sidebar: Rahmen, Footer und die Wahl des Panels. Die Sektionen sind
- * eigene Components (WAVE, BUILD, Tower, Research Center, Held), ihre Outputs
- * reicht die Sidebar an die Spielkomponente weiter.
+ * eigene Components (WAVE, BUILD, Tower, Research Center, passives Gebäude,
+ * Held), ihre Outputs reicht die Sidebar an die Spielkomponente weiter.
  */
 @Component({
   selector: 'app-game-sidebar',
@@ -48,6 +49,7 @@ import { UIStore } from '../../store/ui.store';
     SidebarBuildPanelComponent,
     SidebarTowerPanelComponent,
     SidebarResearchPanelComponent,
+    SidebarBuildingPanelComponent,
     SidebarHeroPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
@@ -97,6 +99,11 @@ export class GameSidebarComponent implements OnDestroy {
   /** Das Research Center bekommt statt des Tower-Details sein eigenes Panel. */
   readonly isResearchCenter = computed(() =>
     this.store.selectedTower()?.typeConfig.id === 'research-center'
+  );
+
+  /** Jedes andere passive Gebäude (Missile Silo): Text und Verkauf statt Kampfwerten. */
+  readonly isPassiveBuilding = computed(() =>
+    this.store.selectedTower()?.typeConfig.attackType === 'passive'
   );
 
   /**

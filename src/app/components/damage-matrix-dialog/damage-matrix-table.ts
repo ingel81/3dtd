@@ -83,8 +83,8 @@ export function formatMultiplier(multiplier: number): string {
 }
 
 /**
- * Das Research Center ist ein passives Gebäude, sein `damageType` ist nur
- * Platzhalter. Alle anderen Tower stehen im Baumenü, gesperrt oder nicht.
+ * Research Center und Missile Silo sind passive Gebäude, ihr `damageType` ist
+ * nur Platzhalter. Alle anderen Tower stehen im Baumenü, gesperrt oder nicht.
  */
 function isCombatTower(tower: TowerTypeConfig): boolean {
   return tower.attackType !== 'passive';

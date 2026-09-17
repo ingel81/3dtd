@@ -55,6 +55,7 @@ const TOWER_CAPABILITIES: Record<
   lightning: { antiAir: true },
   chaos: { antiAir: true }, // Generalist: air and ground, 1.0 against every armor
   'research-center': {}, // Passive building — no combat capabilities
+  'missile-silo': {}, // Passive building: the nuclear strike is an ability, not tower fire
 };
 
 /**

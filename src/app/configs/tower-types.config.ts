@@ -1,6 +1,8 @@
 import { DamageType } from './combat/combat.types';
 
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos' | 'research-center';
+export type TowerTypeId =
+  | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
+  | 'research-center' | 'missile-silo';
 export type ProjectileTypeId =
   | 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob' | 'chaos-orb'
   // The hero's ammo (hero.config.ts), fired by no tower
@@ -564,6 +566,35 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         },
       },
     ],
+  },
+  'missile-silo': {
+    id: 'missile-silo',
+    name: 'Missile Silo',
+    // Nodes `silo` and `missile`; the missile of the nuclear strike leaves
+    // from the middle of the building (ABILITIES.md). The model is 1.903
+    // units wide and 1.411 high with its origin at the base centre, its
+    // widest vertex 1.311 from the origin: at scale 7.36 a building 14 m wide
+    // and 10.4 m high, its footprint 9.65 m.
+    modelUrl: 'assets/models/buildings/missile_silo.glb',
+    scale: 7.36,
+    previewScale: 5.3, // As wide in its card as the Research Center (1.0 units at 10)
+    heightOffset: 0,
+    shootHeight: 10.4, // The roof
+    footprintRadius: 9.7,
+    rotationY: 0,
+
+    attackType: 'passive',
+    damageType: 'physical', // Unused, passive building
+    damage: 0,
+    range: 0,
+    fireRate: 0,
+    projectileType: 'arrow', // Fallback, unused
+
+    // Unlocked by the research `nuclear-strike`
+    cost: 400,
+    unique: true,
+    description: 'Launches the Nuclear Strike. Without a silo the strike cannot fire.',
+    upgrades: [],
   },
 };
 

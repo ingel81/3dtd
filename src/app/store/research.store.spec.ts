@@ -98,6 +98,12 @@ describe('ResearchStore', () => {
       expect(store.isTowerUnlocked('ice')).toBe(true);
       expect(store.isTowerUnlocked('tentacle')).toBe(false);
     });
+
+    it('unlocks the missile silo with the nuclear strike research', () => {
+      expect(store.isTowerUnlocked('missile-silo')).toBe(false);
+      store.completedResearches.set(new Set(['nuclear-strike']));
+      expect(store.isTowerUnlocked('missile-silo')).toBe(true);
+    });
   });
 
   // ────────────────────────────────────────────────────────────────

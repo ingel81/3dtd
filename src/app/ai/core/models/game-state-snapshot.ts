@@ -319,6 +319,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
         lightning: false,
         chaos: false,
         'research-center': true,
+        'missile-silo': false,
       },
     },
   };

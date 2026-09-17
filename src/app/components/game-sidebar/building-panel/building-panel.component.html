@@ -1,0 +1,25 @@
+<!-- PASSIVE BUILDING Panel (Missile Silo) -->
+<section class="td-panel td-building-panel">
+  <div class="td-panel-header td-tower-header">
+    <span class="td-tower-header-name" [class.td-sell-armed-text]="sellArmed()" aria-live="polite">
+      {{ sellArmed() ? 'Click again to sell' : (tower().typeConfig.name | uppercase) }}
+    </span>
+    @if (sellValue() > 0) {
+      <button class="td-header-sell-btn"
+              [class.armed]="sellArmed()"
+              aria-keyshortcuts="Delete"
+              [matTooltip]="sellArmed() ? 'Click again to sell for ' + sellValue() + ' credits' : 'Sell: refunds 75% of its cost'"
+              matTooltipPosition="left"
+              [attr.aria-label]="(sellArmed() ? 'Confirm: sell for ' : 'Sell for ') + sellValue() + ' credits'"
+              (click)="onSell()">
+        <td-icon name="coin" [size]="14"></td-icon>
+        <span class="td-header-sell-value">+{{ sellValue() }}</span>
+      </button>
+    }
+  </div>
+  <div class="td-panel-content td-building-section">
+    @if (tower().typeConfig.description; as description) {
+      <p class="td-building-info">{{ description }}</p>
+    }
+  </div>
+</section>

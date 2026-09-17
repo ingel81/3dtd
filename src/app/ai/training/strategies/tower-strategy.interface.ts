@@ -72,7 +72,7 @@ export abstract class BaseStrategy implements ITowerStrategy {
   /**
    * Get affordable towers from known types.
    * Filters out:
-   * - Passive buildings (research-center) — not combat towers
+   * - Passive buildings (research-center, missile-silo) — not combat towers
    * - Locked towers (if state provided) — respects research unlocks
    *
    * @param state Optional snapshot for research-gate check. Omit in contexts
