@@ -1486,9 +1486,10 @@ Ein Licht oder einen eigenen Loop-Sound erzeugt das Feuer nicht.
 
 ### Spawn-Portal
 
-Ein Steintor auf dem Routenstart jedes Spawns (`SpawnPortalManager`, `renderers/marker/`), zwei
-instanzierte Draw Calls für alle Portale. Gegner spawnen in seinem Volumen und treten vorn heraus,
-verdeckt samt Healthbar; das Portal schaut dorthin, wo die Route sein Volumen verlässt
+Ein Steinbogen vor dem Routenstart jedes Spawns (`SpawnPortalManager`, `renderers/marker/`), zwei
+instanzierte Draw Calls für alle Portale. Gegner spawnen hinter seiner Ebene und treten durch sie
+heraus; bis dahin verwerfen ihre eigenen Shader, was noch hinter ihr liegt, samt Healthbar
+(`renderers/portal-clip.ts`). Das Portal schaut dorthin, wo die Route durch seine Ebene tritt
 (`spawnPortalPose`). Beim Setzen zeigt eine Vorschau es so, wie es stehen wird; R dreht es im
 Drehbereich, der Kurs steht in URL und Favoriten. Rahmen ist ein gebackenes Asset
 (`spawn_portal.glb`), Sigillen und Beschwörungskreis zeichnen die Shader aus Distanzfeldern.
