@@ -95,6 +95,8 @@ function fakeEngine() {
       }),
       remove: vi.fn((id: string) => towers.delete(id)),
       getAllMeshes: () => [...towers].map(([id, data]) => ({ id, mesh: data.mesh })),
+      isPartShown: vi.fn(() => true),
+      setPartShown: vi.fn(),
     },
     effects: auto(),
     projectiles: auto(),
@@ -824,7 +826,7 @@ describe('ReplayPlayer', () => {
       expect(missiles['clear']).toHaveBeenCalledTimes(cleared + 2);
     });
 
-    it('launches from a silo sold during the wave off its replay model', () => {
+    it('launches from a silo sold during the wave off its replay model, hides the missile in the silos and gives the live look back', () => {
       const rec = new ReplayRecording();
       rec.reset(5, 0, 100, 0, null);
       rec.addTower({
@@ -846,12 +848,22 @@ describe('ReplayPlayer', () => {
       // The replay's own silo model, as ThreeTowerRenderer would build it
       const replaySilo = f.towers.get('replay-tower-0')! as unknown as { mesh: Group };
       replaySilo.mesh = new Group();
+      const setPartShown = f.engine.towers.setPartShown;
       const get = vi.spyOn(f.engine.towers, 'get');
 
       advance(player, 100);
+      expect(f.engine.towers.isPartShown).toHaveBeenCalledWith('missile-silo', 'missile');
       expect(f.engine.missileLaunches['launch']).toHaveBeenCalledTimes(1);
       expect(get).toHaveBeenCalledWith('replay-tower-0');
       expect(get).not.toHaveBeenCalledWith('silo-1');
+      expect(setPartShown).toHaveBeenLastCalledWith('missile-silo', 'missile', false);
+
+      player.seek(0);
+      expect(setPartShown).toHaveBeenLastCalledWith('missile-silo', 'missile', true);
+      advance(player, 100);
+      expect(setPartShown).toHaveBeenLastCalledWith('missile-silo', 'missile', false);
+      player.exit();
+      expect(setPartShown).toHaveBeenLastCalledWith('missile-silo', 'missile', true);
     });
   });
 });

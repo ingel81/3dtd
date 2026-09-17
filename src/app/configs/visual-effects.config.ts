@@ -684,7 +684,8 @@ export const MUSHROOM_CLOUD_LOOK = {
  * Ignition: a flash over the shaft, fire bursting out of it and light on
  * the ground around the silo (an additive disc, the tiles take no light);
  * smoke wells out of the shaft and rolls out along the ground. The missile,
- * the silo model's own, takes the place of the one standing in the silo. It
+ * the silo model's own, takes the place of the one standing in the silo,
+ * which the silo hides while no strike is loaded (VFXService). It
  * stands on its fire for `flight.ignition`, lifts off slowly, climbs
  * straight up and ever faster, pitches over towards the target, tops out
  * high above it and dives, faster still, almost straight down onto it

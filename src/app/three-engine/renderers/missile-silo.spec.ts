@@ -2,8 +2,9 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { BoxGeometry, Group, Mesh, Quaternion, Vector3, type Object3D } from 'three';
-import { createMissileStart, missileStartAt } from './missile-silo';
+import { createMissileStart, launchSiteLoaded, missileStartAt } from './missile-silo';
 import type { TowerRenderData } from './three-tower.renderer';
+import { lockedAbilityStatus, type AbilityStatus } from '../../configs/abilities.config';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { MISSILE_LAUNCH_LOOK } from '../../configs/visual-effects.config';
 
@@ -56,6 +57,24 @@ function placed(model: Object3D, site: Vector3, customRotation: number): TowerRe
   mesh.position.set(site.x, site.y + SILO.heightOffset, site.z);
   return { mesh, typeConfig: SILO } as unknown as TowerRenderData;
 }
+
+function status(charges: number, pending: boolean): AbilityStatus {
+  return { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, launchSite: true, charges, pending };
+}
+
+describe('launchSiteLoaded', () => {
+  it('shows the missile while a charge is ready and no strike is on its way', () => {
+    expect(launchSiteLoaded(status(1, false))).toBe(true);
+    // Fired: the charge is spent and the strike on its way
+    expect(launchSiteLoaded(status(0, true))).toBe(false);
+    // Landed, the charge not back yet
+    expect(launchSiteLoaded(status(0, false))).toBe(false);
+    // Back while one is still on its way (a charge refilled by the cheat)
+    expect(launchSiteLoaded(status(1, true))).toBe(false);
+    // Before the research
+    expect(launchSiteLoaded(lockedAbilityStatus('nuclear-strike'))).toBe(false);
+  });
+});
 
 describe('missileStartAt', () => {
   const SITE = new Vector3(120, 34, -80);

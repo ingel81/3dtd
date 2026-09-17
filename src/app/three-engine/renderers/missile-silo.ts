@@ -1,16 +1,27 @@
 import { Box3, Quaternion, Vector3 } from 'three';
+import type { AbilityStatus } from '../../configs/abilities.config';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
 import { MISSILE_LAUNCH_LOOK as LOOK } from '../../configs/visual-effects.config';
 import type { TowerRenderData } from './three-tower.renderer';
 
 /**
- * The missile at its silo: where the missile that lifts off starts, so it
- * takes the place of the one that stood there.
+ * The missile at its silo: whether the silo shows it standing in its shaft,
+ * and where the missile that lifts off starts, so it takes the place of the
+ * one that stood there.
  */
 
 const UP = new Vector3(0, 1, 0);
 const bounds = new Box3();
 const size = new Vector3();
+
+/**
+ * Whether the building an ability launches from shows its missile: a charge
+ * is ready and no strike of it is on its way. Hidden from the command on,
+ * shown again when the charge comes back.
+ */
+export function launchSiteLoaded(status: AbilityStatus): boolean {
+  return status.charges >= 1 && !status.pending;
+}
 
 /** Where a missile stands in its silo as it lifts off, local coordinates */
 export interface MissileStart {
