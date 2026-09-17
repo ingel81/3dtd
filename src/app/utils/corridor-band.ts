@@ -1145,8 +1145,10 @@ export interface BandPoint {
  * The enemies' line of `band` as a polyline: the route's start, every
  * station moved by its centre, every point of the route between two
  * segments moved along the mitre by the offset interpolated there, the
- * route's end. The half widths of a piece are those of the band at its ends,
- * the narrower of the two; in a passage the street's half width.
+ * route's end. Round the inside of a turn a station that lies past the
+ * mitre along its segment is left out, and the mitre takes its widths. The
+ * half widths of a piece are those of the band at its ends, the narrower of
+ * the two; in a passage the street's half width.
  */
 export function bandPath(route: BandRoute, band: CorridorBand): BandPoint[] {
   const nodes = lineNodes(route, band.stations);
@@ -1173,13 +1175,28 @@ function lineNodes(route: BandRoute, stations: readonly BandStation[]): LineNode
   const nodes: LineNode[] = [];
   const first = stations[0];
   nodes.push({ x: points[0].x, z: points[0].z, segment: first.segment, offset: 0, ...widths(first), passage: first.kind === 'passage', station: 0 });
+  // Along `st`'s direction of travel, how far `node` lies past `mitre`.
+  const past = (node: LineNode, mitre: LineNode, st: BandStation) => (node.x - mitre.x) * st.rz - (node.z - mitre.z) * st.rx;
+  // A station dropped at a mitre hands the mitre its widths, so the piece now over its place keeps them.
+  const handOver = (node: LineNode, mitre: LineNode) => {
+    mitre.left = Math.min(mitre.left, node.left);
+    mitre.right = Math.min(mitre.right, node.right);
+  };
+  // The last mitre while the stations after it on its segment may still lie behind it.
+  let mitre: LineNode | null = null;
   for (let k = 0; k < stations.length; k++) {
     const st = stations[k];
     const next = stations[k + 1];
-    nodes.push({
+    const node: LineNode = {
       x: st.x + st.rx * st.centre, z: st.z + st.rz * st.centre, segment: st.segment, offset: st.centre, ...widths(st),
       passage: st.kind === 'passage', station: k,
-    });
+    };
+    if (mitre !== null && mitre.segment === st.segment && past(node, mitre, st) < 0) {
+      handOver(node, mitre);
+    } else {
+      mitre = null;
+      nodes.push(node);
+    }
     if (!next || next.segment === st.segment) continue;
     // The point between the two segments, along the mitre of their right vectors.
     const joint = points[next.segment];
@@ -1189,7 +1206,7 @@ function lineNodes(route: BandRoute, stations: readonly BandStation[]): LineNode
     const scale = 1 + dot > 0.2 ? 1 / (1 + dot) : 0.5;
     const wa = widths(st);
     const wb = widths(next);
-    nodes.push({
+    const joined: LineNode = {
       x: joint.x + (st.rx + next.rx) * scale * offset,
       z: joint.z + (st.rz + next.rz) * scale * offset,
       segment: next.segment,
@@ -1198,7 +1215,19 @@ function lineNodes(route: BandRoute, stations: readonly BandStation[]): LineNode
       right: Math.min(wa.right, wb.right),
       passage: st.kind === 'passage' && next.kind === 'passage',
       station: -1,
-    });
+    };
+    // Round the inside of a turn the parallel folds: a station nearer the
+    // joint than the mitre lies past it, and the line would step back. The
+    // stations past it before the joint go here, those short of it after the
+    // joint as they come; the route's start and end stay.
+    while (nodes.length > 1) {
+      const last = nodes[nodes.length - 1];
+      if (last.station < 0 || last.segment !== st.segment || past(last, joined, st) <= 0) break;
+      handOver(last, joined);
+      nodes.pop();
+    }
+    nodes.push(joined);
+    mitre = joined;
   }
   const end = points[points.length - 1];
   const last = stations.length - 1;
