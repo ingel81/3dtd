@@ -28,6 +28,11 @@
           (queueResearch)="queueResearch.emit($event)"
           (unqueueResearch)="unqueueResearch.emit($event)"
         />
+      } @else if (isPassiveBuilding()) {
+        <app-sidebar-building-panel
+          [tower]="tower"
+          (sellTower)="sellTower.emit()"
+        />
       } @else {
         <app-sidebar-tower-panel
           [tower]="tower"

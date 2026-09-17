@@ -44,8 +44,8 @@ describe('matrixTierColor', () => {
 describe('buildDamageMatrixRows', () => {
   const rows = buildDamageMatrixRows();
 
-  it('lists every tower of the build menu in config order, without the research center', () => {
-    const expected = Object.keys(TOWER_TYPES).filter((id) => id !== 'research-center');
+  it('lists every tower of the build menu in config order, without the passive buildings', () => {
+    const expected = Object.keys(TOWER_TYPES).filter((id) => id !== 'research-center' && id !== 'missile-silo');
     expect(rows.map((r) => r.towerId)).toEqual(expected);
   });
 

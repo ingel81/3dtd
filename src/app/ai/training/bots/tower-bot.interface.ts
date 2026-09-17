@@ -113,8 +113,9 @@ export interface ITowerBot {
 }
 
 /**
- * All combat towers. The Research Center is not one and is filtered out by
- * `attackType === 'passive'`; research unlocks are the actual gate on what the
+ * All combat towers. The passive buildings (Research Center, Missile Silo)
+ * are none and are filtered out by `attackType === 'passive'`; strategies of
+ * their own place them. Research unlocks are the actual gate on what the
  * bot can build. Skill levels differ in reaction time and tower cap, not in
  * which towers they know about.
  */

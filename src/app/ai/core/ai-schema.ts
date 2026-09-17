@@ -55,9 +55,11 @@ export const AI_ENEMY_ORDER: readonly EnemyTypeId[] = [
 ];
 
 /**
- * Combat-tower order, 11 entries. `research-center` is deliberately absent:
- * it deals no damage and its state is already covered by the research block
- * (`centerLevel`, `slotsUsed`, `maxSlots`).
+ * Combat-tower order, 11 entries. The passive buildings are deliberately
+ * absent: they deal no damage. The state of `research-center` is already
+ * covered by the research block (`centerLevel`, `slotsUsed`, `maxSlots`);
+ * `missile-silo` only decides whether the player's nuclear strike can fire,
+ * which the director does not model (ABILITIES.md, Wave-Director und Gate).
  */
 export const AI_TOWER_ORDER: readonly TowerTypeId[] = [
   'archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'fire', 'tentacle', 'poison',

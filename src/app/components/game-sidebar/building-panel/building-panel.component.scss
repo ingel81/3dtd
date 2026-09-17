@@ -1,0 +1,32 @@
+@use '../sidebar-panel' as panel;
+
+:host {
+  display: contents;
+}
+
+@include panel.section;
+
+@include panel.fill;
+
+@include panel.header;
+
+@include panel.content;
+
+@include panel.tower-header;
+
+/* === Passive building ===
+ * Kopf wie das Tower-Detail, darunter nur der Text, was das Gebäude tut. */
+.td-building-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  font-family: var(--td-font-mono);
+}
+
+.td-building-info {
+  margin: 0;
+  font-family: var(--td-font-body);
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--td-text-secondary);
+}

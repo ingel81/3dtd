@@ -35,6 +35,19 @@ describe('towerCardTooltip', () => {
     expect(towerCardTooltip(TOWER_TYPES['research-center'], aaUnlocked).flavor).toBe('Already placed.');
   });
 
+  it('describes the missile silo the same way: what it launches, or that it stands', () => {
+    const tip = towerCardTooltip(TOWER_TYPES['missile-silo'], { ...noResearch, hotkey: null });
+    expect(tip).toEqual({
+      title: 'Missile Silo',
+      category: 'STRUCTURE',
+      accent: 'gold',
+      flavor: TOWER_TYPES['missile-silo'].description,
+    });
+    expect(tip.flavor).toContain('Nuclear Strike');
+    expect(tip.stats).toBeUndefined();
+    expect(towerCardTooltip(TOWER_TYPES['missile-silo'], aaUnlocked).flavor).toBe('Already placed.');
+  });
+
   it('shows damage, rate and range for a projectile tower', () => {
     const tip = towerCardTooltip(TOWER_TYPES.archer, noResearch);
     expect(tip.title).toBe(TOWER_TYPES.archer.name);

@@ -16,9 +16,9 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 describe('tower types config', () => {
-  // Combat towers + passive buildings (research-center)
+  // Combat towers + passive buildings (research-center, missile-silo)
   const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning', 'chaos'];
-  const allIds: TowerTypeId[] = [...combatIds, 'research-center'];
+  const allIds: TowerTypeId[] = [...combatIds, 'research-center', 'missile-silo'];
 
   it('contains all tower types', () => {
     allIds.forEach((id) => {
@@ -54,6 +54,23 @@ describe('tower types config', () => {
       expect(tower.cost).toBeGreaterThan(0);
       expect(Array.isArray(tower.upgrades)).toBe(true);
     });
+  });
+
+  it('the missile silo is a passive building for 400, one per map, without upgrades, unlocked by the nuclear strike', () => {
+    const silo = getTowerType('missile-silo');
+    expect(silo.attackType).toBe('passive');
+    expect(silo.cost).toBe(400);
+    expect(silo.unique).toBe(true);
+    expect(silo.upgrades).toEqual([]);
+    expect(silo.modelUrl).toBe('assets/models/buildings/missile_silo.glb');
+    expect(getResearchForTower('missile-silo')?.id).toBe('nuclear-strike');
+  });
+
+  it('only the passive buildings are one per map, and each says what it does', () => {
+    for (const tower of getAllTowerTypes()) {
+      expect(tower.unique === true, tower.id).toBe(tower.attackType === 'passive');
+      if (tower.attackType === 'passive') expect(tower.description, tower.id).toBeTruthy();
+    }
   });
 
   it('fire tower special properties', () => {

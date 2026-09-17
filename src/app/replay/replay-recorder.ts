@@ -52,7 +52,7 @@ export interface RecordableProjectile {
 /** What the recorder reads of a tower; Tower has all of it. */
 export interface RecordableTower {
   readonly id: string;
-  /** attackType 'passive' for a building that aims at nothing (the Research Center) */
+  /** attackType 'passive' for a building that aims at nothing (Research Center, Missile Silo) */
   readonly typeConfig: { readonly id: string; readonly attackType?: string };
   readonly position: { readonly lat: number; readonly lon: number; readonly height?: number };
   readonly customRotation: number;
