@@ -22,7 +22,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
 - Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
 - **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'`: Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
-- Passive Buildings (Research Center, `attackType: 'passive'`)
+- Passive Buildings (Research Center, Missile Silo, `attackType: 'passive'`), einmal je Karte über `unique`
 - **Veteranen-Ränge** aus Kills, rein kosmetisch, mit Abzeichen über dem Tower (siehe [Veteranen-Ränge](#veteranen-ränge))
 
 ---
@@ -42,12 +42,22 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Chaos | projectile | chaos | 50 | 60m | 1.2/s | 200 | Generalist (1,0 gegen jede Rüstung), Air+Ground, Projektil `chaos-orb`. Kenney-Modell, der mittlere Kristall dreht sich (`turretNode: 'crystal'`) |
-| Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System |
+| Research Center | **passive** | – | 0 | 0 | 0 | 75 | Kein Combat, siehe Research-System. Einmal je Karte |
+| Missile Silo | **passive** | – | 0 | 0 | 0 | 400 | Kein Combat, von ihm startet der Nuklearschlag ([ABILITIES.md](ABILITIES.md)). Einmal je Karte, keine Upgrades, Forschung `nuclear-strike` |
 
 Archer und Research Center sind von Anfang an baubar. Alle anderen Tower schaltet eine Forschung
 mit einem `unlock-tower`-Effekt frei (`configs/research/research-tree.config.ts`, Chaos:
-`chaos-rift`), geprüft in `ResearchStore.isTowerUnlocked`. Bis dahin zeigt das Baumenü die Karte
+`chaos-rift`, Missile Silo: `nuclear-strike`), geprüft in `ResearchStore.isTowerUnlocked`. Bis dahin zeigt das Baumenü die Karte
 gesperrt, mit dem Namen der Forschung im Tooltip.
+
+**Passive Gebäude.** Ein Gebäude ist ein Eintrag in `TOWER_TYPES` mit `attackType: 'passive'`:
+kein Grid- und LOS-Eintrag beim Bau, kein Suchscheinwerfer, nicht in den Kampf-Listen
+(`AI_TOWER_ORDER`, `ALL_COMBAT_TOWERS`, Schadensmatrix-Dialog, DPS-Modell). `unique: true` erlaubt
+eines je Karte: `TowerLifecycle.place` lehnt ein zweites ab, die Karte im BUILD-Panel und ihre
+Zifferntaste sind aus, solange eines steht (`canPickTowerCard`, `GameStore.placedUniqueTypes`).
+`description` ist der Text im Tooltip der Karte. Gewählt zeigt das Research Center sein
+Research-Panel, jedes andere Gebäude das Panel `building-panel/` (Text, Fähigkeiten, die von ihm
+starten, Verkauf).
 
 ---
 
@@ -59,7 +69,8 @@ gesperrt, mit dem Namen der Forschung im Tooltip.
 // configs/tower-types.config.ts
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket'
-  | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos' | 'research-center'
+  | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
+  | 'research-center' | 'missile-silo'
   | 'NEW_TYPE';
 ```
 
@@ -129,6 +140,8 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `projectileType` | ProjectileTypeId | - | Projektiltyp |
 | `cost` | number | - | Baukosten |
 | `upgrades` | TowerUpgrade[] | - | Verfügbare Upgrades |
+| `unique` | boolean | false | Einmal je Karte (Research Center, Missile Silo): kein zweites, solange eines steht |
+| `description` | string | - | Was ein passives Gebäude tut, Text im Tooltip seiner Karte |
 | `canTargetAir` | boolean | false | Kann Luft-Einheiten angreifen |
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
@@ -343,6 +356,7 @@ export const TOWER_TYPES = {
   lightning: { ... },          // 10. Position
   chaos: { ... },              // 11. Position
   'research-center': { ... },  // 12. Position (passives Building, kein Combat)
+  'missile-silo': { ... },     // 13. Position (passives Building, Abschussort des Nuklearschlags)
 };
 ```
 
@@ -369,7 +383,8 @@ const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.03; // Fire only, ebenfalls 10 Stufen
 Ein Combat-Tower bekommt seine Tracks über `combatUpgrades({ damage, rate })`: Damage- und
 Fire-Rate-Track mit tower-eigenem Multiplikator `m` (Stufe 16–25: `1 + 0,4 × (m − 1)`), dazu
 der gemeinsame Range-Track. Fire nutzt `degressiveUpgrade('damage', …)`, `RANGE_UPGRADE` und
-`BEAM_WIDTH_UPGRADE`. Research Center ist die einzige Ausnahme (eigenes `research-slots`-Upgrade).
+`BEAM_WIDTH_UPGRADE`. Die passiven Gebäude sind die Ausnahme: das Research Center hat sein eigenes
+`research-slots`-Upgrade, das Missile Silo keine Upgrades.
 
 Werte werden nie kompoundiert, sondern aus Basiswert × `upgradeFactor(track, stufe)` berechnet.
 Die Funktion ist die einzige Stelle mit der Upgrade-Formel: Tower-Entity, Beam-Werte, DPS-Modell

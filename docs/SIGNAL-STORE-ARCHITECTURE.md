@@ -16,7 +16,7 @@ Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentr
 ### Sub-Stores
 | Store | Datei | Domain | Signals |
 |-------|-------|--------|---------|
-| `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies (`enemiesAlive`, `waveEnemyTotal`, `waveEnemiesLeft`), towers (`selectedTower`, `selectedTowerRevision`), `abilities`, `hero`, `paused`, `autoWaveSecondsLeft` (Countdown der Auto-Welle), `runSummary` (Game-Over-Bilanz), Training/AI-Director |
+| `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies (`enemiesAlive`, `waveEnemyTotal`, `waveEnemiesLeft`), towers (`selectedTower`, `selectedTowerRevision`, `placedUniqueTypes`: die stehenden Einmal-Gebäude), `abilities`, `hero`, `paused`, `autoWaveSecondsLeft` (Countdown der Auto-Welle), `runSummary` (Game-Over-Bilanz), Training/AI-Director |
 | `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, Quick-Actions-Menü (`openMenu`), Audio-Lautstärken, `autoStartWaves`, build mode, `photoMode`, `replayMode`, persistence |
 | `EngineStore` | `store/engine.store.ts` | Engine State | fps, tiles, camera, compass |
 | `LocationStore` | `store/location.store.ts` | Location State | coords, spawns, streets |

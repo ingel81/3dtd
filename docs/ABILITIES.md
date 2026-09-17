@@ -1,6 +1,6 @@
 # Fähigkeiten (Player Abilities)
 
-**Stand:** 2026-09-15. Konzept und Entscheidungen zum Nuklearschlag:
+**Stand:** 2026-09-17 (Nuklearschlag aus dem Missile Silo). Konzept und Entscheidungen zum Nuklearschlag:
 [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md), Abschnitte 7
 und 8 (das MVP aus Abschnitt 5 im
 [Archiv](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md)). Die weiteren
@@ -29,11 +29,12 @@ Alle Werte stehen in `configs/abilities.config.ts` (`ABILITIES['nuclear-strike']
 
 | Punkt | Wert |
 |---|---|
-| Freischaltung | Forschung `nuclear-strike`: 1.000 Gold, 40 s, Voraussetzung `advanced-weaponry`. Die Forschung gibt die erste Ladung |
+| Freischaltung | Forschung `nuclear-strike`: 1.000 Gold, 40 s, Voraussetzung `advanced-weaponry`. Die Forschung gibt die erste Ladung und schaltet das Gebäude Missile Silo frei (`unlock-tower`) |
+| Abschussort | Missile Silo (`missile-silo`, `AbilityConfig.launchFrom`): 400 Gold, eines je Karte, verkaufbar wie jedes Gebäude. Ohne Silo hat die Fähigkeit keinen Knopf und wird mit `no-launch-site` abgelehnt; Ladungen und Nachladen laufen weiter, nach einem Neubau ist die Ladung wieder nutzbar. Eine Rakete, die schon fliegt, schlägt auch nach einem Verkauf ein |
 | Ladungen | 1, höchstens 1. Eine neue nach je 3 abgeschlossenen Wellen; die Welle des Einsatzes zählt mit. Solange die Ladung steht, sammeln Wellen nichts an |
 | Einsatz | nur während einer Welle |
 | Ziel | Klick; der Einschlag liegt auf der Mitte der nächsten Route-Zelle im Umkreis von 30 m, sonst wird abgelehnt |
-| Vorwarnung | 1500 ms Spielzeit, das sind 90 Sub-Steps à 16,667 ms |
+| Vorwarnung | 6500 ms Spielzeit, das sind 390 Sub-Steps à 16,667 ms, gleich aus jeder Entfernung zum Silo (Entscheidung des Users 2026-09-17; bis dahin 1500 ms). Ein Zombie (5 m/s) läuft in der Zeit 32 m, ein Tank (3 m/s) 19,5 m: der Spieler muss vorhalten |
 | Wirkung | Radius 25 m, gemessen in 2D, also Boden und Luft; 60 % der Max-HP, Bosse (`isBoss`) 20 %; an der Schadensmatrix vorbei (`effect` der Art `max-hp-fraction`) |
 | Gold | jeder Kill zahlt seinen Anteil am Kill-Budget der Welle wie jeder andere, mit Gold-Popup, und zählt in KILLS und EARNED der Game-Over-Übersicht; kein Tower bekommt ihn gutgeschrieben, auch keinen Veteranenrang. Ein getötetes Skeleton splittet wie bei jedem Kill |
 | Schadenszahl | je getroffenem Gegner eine, die getöteten eingeschlossen: sein Anteil an den Max-HP, rot wie ein normaler Tower-Treffer (matrixfrei, `EFFECTIVENESS_COLORS.normal`). Der Schalter Damage Numbers gilt auch hier |
@@ -163,14 +164,16 @@ UI (AbilityTargetingService)            Bot (NuclearStrikeStrategy)
           └────────── command:use-ability { abilityId, target } ─────────┘
                                    │
                     GameCommandsHandler → AbilityManager.use()
-                                   │  Forschung, Ladung, Wellenphase
+                                   │  Forschung, Abschussort (AbilityWorld.launchSite),
+                                   │  Ladung, Wellenphase
                                    │  Ziel auf die Route-Zelle snappen (30 m)
                   ┌────────────────┴────────────────┐
-         ability:rejected { reason }     ability:used { strikeId, target, radiusM, warningMs }
+         ability:rejected { reason }     ability:used { strikeId, target, radiusM, warningMs,
+                                                        launch: { towerId, position } }
                                                     + ability:state-changed
 GameStateManager.runSubStep
   researchManager.update → abilityManager.update(stepMs)     Countdown in Spielzeit
-                                   │  nach 90 Sub-Steps
+                                   │  nach 390 Sub-Steps
        GlobalRouteGridService.getEnemiesInRadiusGeo (25 m)
        CombatEffectService.applyAbilityStrike
        DamageApplicationService.applyMaxHpFraction           matrixfrei, kein Tower-Kill
@@ -186,10 +189,17 @@ GameStateManager.runSubStep
 | `ability:impact` | VFXService, AudioService, ScreenShakeService, je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
 | `ability:rejected` | RefusalHintService: Name und Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots. Die UI prüft vor dem Scharfschalten und vor dem Klick selbst; was ihre eigene Prüfung ablehnt, meldet sie dort genauso ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
-| `ability:state-changed` | GameStateSyncService → `GameStore.abilities` |
+| `ability:state-changed` | GameStateSyncService → `GameStore.abilities`. Auch nach Bau und Verkauf eines Missile Silo: `TowerLifecycle.place` und `sell` rufen `AbilityManager.buildingChanged` auf, nachdem die Tower-Liste sich geändert hat, im Sub-Step des Befehls |
 
-Gründe für `ability:rejected`: `unknown`, `locked`, `no-charge`, `no-wave`,
-`no-route`. Die Ladung wird mit dem Befehl verbraucht, nicht beim Einschlag.
+Gründe für `ability:rejected`: `unknown`, `locked`, `no-launch-site`,
+`no-charge`, `no-wave`, `no-route`, in dieser Reihenfolge geprüft (`no-route`
+zuletzt, beim Snappen des Ziels). Die Ladung wird mit dem Befehl verbraucht,
+nicht beim Einschlag.
+
+`launch` im `ability:used` trägt die Tower-ID des Silos und seine
+Grundposition (`Tower.position`, `height` ist die Oberkante des Sockels), als
+Kopie zum Zeitpunkt des Befehls; ohne `launchFrom` fehlt das Feld. Der
+Einschlag hängt nicht daran.
 
 ---
 
@@ -209,14 +219,18 @@ Gründe für `ability:rejected`: `unknown`, `locked`, `no-charge`, `no-wave`,
 - Die Welle endet nicht, solange ein Schlag unterwegs ist oder ein Strahl
   brennt (`AbilityManager.hasPendingStrikes()` in der Sub-Step-Schleife vor
   `checkWaveComplete()`); beim Orbitallaser höchstens 5 s nach dem Befehl. Stirbt oder leakt der Rest der Welle in der
-  Vorwarnung, bleibt die Welle bis zum Einschlag offen, höchstens 1,5 s
-  Spielzeit, und endet im Sub-Step des Einschlags. Der Schlag landet damit immer
+  Vorwarnung, bleibt die Welle bis zum Einschlag offen, beim Nuklearschlag
+  höchstens 6,5 s Spielzeit, und endet im Sub-Step des Einschlags. Der Schlag landet damit immer
   in seiner Welle: nie in der Aufbauphase und mit Auto-Start nie in der nächsten
   Welle, deren Kills und `abilityKills` er sonst verfälschte.
 - Nachweis: `integration/ability-strike.spec.ts` schickt den Befehl über den
   echten Sub-Step-Loop des GameStateManager mit echten Gegnern und dem echten
-  Schadensweg. Der Einschlag liegt auf Sub-Step 90 nach dem Befehl, und HP,
-  Kills und Gold sind bei Timescale 1 und 10 gleich.
+  Schadensweg, mit einem Missile Silo in der Tower-Liste. Der Einschlag liegt
+  auf Sub-Step 390 nach dem Befehl, und HP, Kills und Gold sind bei Timescale
+  1 und 10 gleich. Die Gegner laufen dort langsamer als früher (Wege statt
+  Tempi), damit sie beim Einschlag an denselben Stellen stehen wie mit 1,5 s.
+  Derselbe Spec prüft den Abschussort: ohne Silo `no-launch-site`, mit Silo
+  dessen ID und Position in `launch`.
 - Im Mehrspielerbetrieb liefe `command:use-ability` über dieselbe Pipeline wie
   die übrigen Commands ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) §4.3;
   das Konzept zählt sieben, der Bus kennt heute 14 `command:*`).
@@ -484,7 +498,10 @@ Knopf in der Fähigkeitenleiste am linken Rand des Spielfelds (siehe unten,
 Aussehen in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#fähigkeitenleiste-canvas)). Er
 erscheint erst mit der fertigen Forschung, vorher hat die Fähigkeit keinen
 Knopf (Entscheidung des Users 2026-09-14; bis dahin stand sie gesperrt mit
-Schloss in der Leiste). Ein Druck schaltet den Zielmodus ein (`UIStore.abilityTargeting`,
+Schloss in der Leiste). Der Nuklearschlag braucht dazu ein stehendes Missile
+Silo (Entscheidung des Users 2026-09-17): Die Forschung schaltet das Silo im
+BUILD-Panel frei, der Knopf kommt, sobald es steht, und geht mit seinem
+Verkauf. Ein Druck schaltet den Zielmodus ein (`UIStore.abilityTargeting`,
 geführt vom `AbilityTargetingService`):
 
 - Ein Ring im Strike-Radius folgt dem Cursor, gesnappt auf die Route-Zelle, auf
@@ -495,22 +512,29 @@ geführt vom `AbilityTargetingService`):
 - Linksklick feuert und verlässt den Modus; auf einem ungültigen Punkt bleibt
   der Modus an. Tower-Auswahl und Bauen sind im Modus aus.
 - Esc und ein kurzer Rechtsklick brechen ab. Wellenende, verbrauchte Ladung,
-  Build-Mode und Kartenplatzierung beenden den Modus ebenfalls.
+  Verkauf des Silos, Build-Mode und Kartenplatzierung beenden den Modus
+  ebenfalls.
 - Die Taste der Fähigkeit (Nuklearschlag: K) wirkt wie ein Klick auf den Knopf (`AbilityConfig.hotkey`, aufgelöst in
   `services/hotkey-map.ts`, ausgeführt vom `HotkeyService`): schaltet den
   Modus an, wenn der Schlag feuern kann, ein zweiter Druck schaltet ihn ab. Die
-  Tastenübersicht (H) führt die Taste auf.
+  Tastenübersicht (H) führt die Taste auf. K nach der Forschung, aber ohne
+  Silo, schaltet nichts scharf; die Kontext-Hinweis-Box zeigt "Nuclear Strike"
+  über "Build a Missile Silo first", in einer Welle und zwischen den Wellen.
+- Ein gewähltes Silo öffnet in der Sidebar das Panel für passive Gebäude
+  (`building-panel/`): Name, was es tut, eine Zeile "Nuclear Strike" mit
+  Taste K und dem Zustand seines Knopfs ("ready", "recharges in 2 waves"),
+  Verkaufen.
 
 ### Fähigkeitenleiste
 
 `app-ability-bar` (`components/ability-bar/`) zeigt jede erforschte Fähigkeit
-aus `ABILITIES`, in der Reihenfolge der Einträge, und liest ihren Zustand aus
-`GameStore.abilities`. Was ein Knopf zeigt, kommt aus dem Eintrag und dem
-Snapshot des `AbilityManager`:
+aus `ABILITIES`, deren Abschussort steht, in der Reihenfolge der Einträge, und
+liest ihren Zustand aus `GameStore.abilities`. Was ein Knopf zeigt, kommt aus
+dem Eintrag und dem Snapshot des `AbilityManager`:
 
 | Anzeige | Quelle |
 |---|---|
-| Knopf da, sobald die Forschung fertig ist | `AbilityStatus.unlocked` (`abilityBarIds`) |
+| Knopf da, sobald die Forschung fertig ist und der Abschussort steht (nur Nuklearschlag: Missile Silo) | `AbilityStatus.unlocked` und `AbilityStatus.launchSite` (`abilityBarIds`) |
 | Icon | `AbilityConfig.icon` (td-icon) |
 | Taste oben rechts, Tastenkappe im Tooltip | `AbilityConfig.hotkey` |
 | Ladungen (als Zahl nur ab `maxCharges` 2) | `AbilityStatus.charges` |
@@ -549,7 +573,9 @@ füllt die Ladungen auf (`AbilityManager.refillCharges`), beliebig oft
 hintereinander. Die UI schickt je Fähigkeit ein `debug:ready-ability`
 verzögert (`emitDeferred`), der `GameCommandsHandler` setzt es im nächsten
 Sub-Step um; in der Pause erst beim Weiterlaufen. Feuern geht weiter nur
-während einer Welle.
+während einer Welle. Das Missile Silo baut der Cheat nicht: Nach dem Cheat
+steht es im BUILD-Panel (400 Gold, Cheat "Credits" hilft), erst mit ihm hat
+der Nuklearschlag seinen Knopf.
 
 ---
 
@@ -557,14 +583,23 @@ während einer Welle.
 
 - Aktion `use-ability` mit `abilityId` und Ziel (`position`, x = lon, z = lat);
   `TrainingSession` schickt sie als `command:use-ability`.
-- `NuclearStrikeStrategy` (Priorität 97, über allen anderen) feuert während
-  einer Welle, sobald der Schlag bereit ist und mindestens 10 Gegner im letzten
-  Fünftel ihrer Route stehen (Pfadfortschritt ab 0,8). Ziel ist der Gegner in
-  diesem Abschnitt mit den meisten anderen im Radius; geprüft werden höchstens
-  48 Kandidaten.
-- Die Factory hängt die Strategie an alle Skill-Stufen. Erforschen tun sie nur
-  strategist und meta; für beginner und casual bleibt sie wirkungslos. Folge
-  für Messungen: siehe [BOT_SYSTEM.md](BOT_SYSTEM.md#nuclearstrike-97).
+- `MissileSiloPlacementStrategy` (91, über den Kampf-Platzierungen) baut das
+  Silo, sobald `nuclear-strike` erforscht ist und keines steht, wenn das Gold
+  für Silo und einen Archer reicht (400 + 45), auf den besten Kandidaten von
+  `findStrategicPositions` für den Typ, wie beim Research Center
+  ([BOT_SYSTEM.md](BOT_SYSTEM.md#missilesiloplacement-91)).
+- `NuclearStrikeStrategy` (Priorität 97, über allen anderen) hält vor: Jeder
+  Gegner zählt dort, wo er beim Einschlag steht, sein Tempo dieses Moments
+  (Slow, Freeze, Stun eingerechnet) mal 6,5 s weiter auf seinem Pfad
+  (`enemyAhead` in `ability-aim.ts`). Sie feuert während einer Welle, sobald
+  der Schlag bereit ist (mit Silo) und mindestens 10 Gegner beim Einschlag im
+  letzten Fünftel ihrer Route stehen (Pfadfortschritt ab 0,8), aber noch vor
+  dem Pfadende, also vor der HQ. Ziel ist der vorhergesagte Punkt in diesem
+  Abschnitt mit den meisten anderen im Radius; geprüft werden höchstens 48
+  Kandidaten.
+- Die Factory hängt beide Strategien an alle Skill-Stufen. Erforschen tun sie
+  nur strategist und meta; für beginner und casual bleiben sie wirkungslos.
+  Folge für Messungen: siehe [BOT_SYSTEM.md](BOT_SYSTEM.md#nuclearstrike-97).
 - `FrostBombStrategy` (96): wirft die Frostbombe auf die dichteste Gruppe von
   mindestens 8 Gegnern in der zweiten Hälfte der Route
   ([BOT_SYSTEM.md](BOT_SYSTEM.md#frostbomb-96)).
@@ -584,7 +619,11 @@ während einer Welle.
 | Datei | Rolle |
 |---|---|
 | `configs/abilities.config.ts` | Werte, `AbilityStatus`, Ablehnungsgründe |
-| `managers/ability.manager.ts` | Ladungen, Nachladen, Zeitplan und Auflösung der Einschläge |
+| `managers/ability.manager.ts` | Ladungen, Nachladen, Abschussort (`buildingChanged`), Zeitplan und Auflösung der Einschläge |
+| `managers/game-state.manager.ts` | `AbilityWorld` im Spiel, `launchSite`: der erste Tower des Typs in der Tower-Liste |
+| `managers/game-state/tower-lifecycle.ts` | Bau und Verkauf des Silos (einmal je Karte über `TowerTypeConfig.unique`), danach `buildingChanged` |
+| `configs/tower-types.config.ts` | `TOWER_TYPES['missile-silo']`, das Gebäude |
+| `components/game-sidebar/building-panel/` | Panel eines gewählten Silos; `building-panel.ts`: die Zeilen der Fähigkeiten, die von ihm starten |
 | `managers/game-commands.handler.ts` | `command:use-ability`, Cheat `debug:ready-ability` |
 | `services/refusal-hint.service.ts` | Warum ein Druck nichts tat, in der Kontext-Hinweis-Box (auch für den Helden) |
 | `services/combat/damage-application.service.ts` | `applyMaxHpFraction`, der matrixfreie Schadensweg |
@@ -608,7 +647,8 @@ während einer Welle.
 | `utils/nuke-sound.ts` | Ton des Nuklearschlags, im Code synthetisiert: Knall und drei Stücke Grollen |
 | `utils/laser-sound.ts` | Einschlag des Orbitallasers, im Code synthetisiert; das Brennen ist ein Asset-Loop (`abilities/orbital_laser_beam.mp3`, AudioService) |
 | `utils/synth.ts` | Seed-Zufall, Tiefpass-Koeffizient und Normalisieren, geteilt mit den Ooze-Sounds |
-| `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot |
+| `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot, hält über die Vorwarnung vor |
+| `ai/training/strategies/placement/missile-silo-placement.strategy.ts` | Bot baut das Silo |
 | `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
 | `ai/training/strategies/ability/emp.strategy.ts` | Bot des EMP |
 | `ai/training/strategies/ability/orbital-laser.strategy.ts` | Bot des Orbitallasers |
@@ -625,7 +665,12 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-ooze.spec.ts` (Frost, EMP und Laser gegen den Körper der Ooze),
 `route-sweep.spec.ts`, `ability-marker.renderer.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
-`strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`.
+`strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`. Zum Silo:
+`ability-bar.scenario.spec.ts` (Knopf kommt und geht mit dem Silo),
+`refusal-hint.scenario.spec.ts` (K ohne Silo), `game-state.manager.order.spec.ts`
+(Snapshot nach Bau und Verkauf), `building-panel.spec.ts`,
+`missile-silo-placement.strategy.spec.ts`, `integration/strike-wave-end.scenario.spec.ts`
+(Welle bleibt 390 Sub-Steps offen).
 
 ---
 
@@ -640,7 +685,10 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
    ist (vergeben: siehe Tastenkürzel in DESIGN_SYSTEM.md).
 2. Eine Forschung mit einem `global-perk`, dessen `perkId` dem Eintrag
    entspricht, und `researchId` im Eintrag; ist sie fertig, erscheint der
-   Knopf in der Leiste.
+   Knopf in der Leiste. Startet die Fähigkeit von einem Gebäude wie der
+   Nuklearschlag vom Silo, trägt der Eintrag `launchFrom` (ein passives
+   Gebäude mit `unique`, von derselben Forschung per `unlock-tower`
+   freigeschaltet); dann kommt der Knopf erst mit dem Gebäude.
 3. Die Wirkung: `AbilityConfig.effect`, eine Art aus `AbilityEffect`;
    `AbilityManager.resolve` hat je Art einen Zweig. Eine neue Art kommt mit
    ihrem Zweig. Macht sie Schaden, ruft der Zweig `AbilityWorld.showDamage`
@@ -665,6 +713,10 @@ Der Manager ist auf mehrere Fähigkeiten ausgelegt (Ladungen und Einschläge pro
   Ein Stück Grollen, das beim Pausieren läuft, spielt zu Ende, höchstens 3 s;
   die Stücke danach warten auf das Weiterspielen.
 - Keine Rückgabe der Ladung, wenn der Einschlag niemanden trifft, auch nicht,
-  wenn der Rest der Welle in den 1,5 s der Vorwarnung stirbt oder durchläuft.
+  wenn der Rest der Welle in den 6,5 s der Vorwarnung stirbt oder durchläuft,
+  und auch nicht, wenn das Silo in der Zeit verkauft wird.
+- Kein zweites Silo als Reserve und keine Vorwarnung nach Entfernung: Die
+  Flugzeit ist aus jeder Entfernung 6,5 s (Entscheidung des Users).
+- Der Cheat "Abilities" baut kein Silo.
 - Der Event-Debugger hat keine eigene Kategorie für `ability:*`; die Events
   stehen unter "All".

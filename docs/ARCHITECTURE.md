@@ -1108,7 +1108,7 @@ const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
   cannon: { /* ... */ },
   magic: { /* ... */ },
-  // ... weitere: dual-gatling, rocket, ice, fire, tentacle, poison, lightning, chaos, research-center
+  // ... weitere: dual-gatling, rocket, ice, fire, tentacle, poison, lightning, chaos, research-center, missile-silo
 };
 ```
 
