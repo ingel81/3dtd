@@ -5,6 +5,7 @@ import { StreetCacheService } from './street-cache.service';
 import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
 import { METERS_PER_DEGREE_LAT, canonicalCoords } from '../../utils/geo-utils';
 import { SegmentRoutes, type RouteTail } from '../../utils/route-start';
+import { PORTAL_DEPTH, PORTAL_MAX_SCALE, portalDepthScale } from '../../configs/marker-geometry.config';
 import {
   DEFAULT_ROAD_WEIGHT,
   MinHeap,
@@ -30,6 +31,13 @@ export interface BuildingData {
  * Street types suitable for enemy spawning (exclude footpaths)
  */
 const SPAWNABLE_STREET_TYPES = ['residential', 'primary', 'secondary', 'tertiary', 'unclassified', 'living_street'];
+
+/** A random spawn's route may turn this much (rad, 5°) up to the portal's plane and still count as straight. */
+const SPAWN_STRAIGHT_TURN = (5 * Math.PI) / 180;
+/** Step (m) a random spawn moves along its route to a straight stretch. */
+const SPAWN_SHIFT_STEP_M = 0.5;
+/** Farthest (m) a random spawn moves along its route to a straight stretch. */
+const SPAWN_MAX_SHIFT_M = 30;
 
 /** An element of an Overpass answer, as far as the parsers read it. */
 interface OverpassElement {
@@ -932,11 +940,74 @@ export class OsmStreetService {
 
       // Path must exist (length > 0) and have at least 2 nodes
       if (path.length >= 2) {
-        return candidate;
+        return this.straightSpawn(network, candidate, path, centerLat, centerLon);
       }
     }
 
     console.warn(`[OSM] No reachable street points found after testing ${testedCount} candidates`);
     return null;
+  }
+
+  /**
+   * `candidate` moved along its `path` towards the HQ as little as it takes
+   * for the route to run straight through the spawn portal: within
+   * SPAWN_STRAIGHT_TURN of the chord up to the portal's plane at its largest
+   * scale. A random node often sits in a junction or just before a bend,
+   * where the portal, turned to the route, stood askew to both streets. In
+   * steps of SPAWN_SHIFT_STEP_M up to SPAWN_MAX_SHIFT_M; the candidate as it
+   * is where no such place comes, or where the moved point has no route.
+   */
+  private straightSpawn(
+    network: StreetNetwork,
+    candidate: RandomSpawnCandidate,
+    path: readonly StreetNode[],
+    centerLat: number,
+    centerLon: number,
+  ): RandomSpawnCandidate {
+    const cosLat = Math.cos((candidate.lat * Math.PI) / 180);
+    const points = path.map((n) => ({
+      x: (n.lon - candidate.lon) * cosLat * METERS_PER_DEGREE_LAT,
+      z: (n.lat - candidate.lat) * METERS_PER_DEGREE_LAT,
+    }));
+    const lengths = points.slice(1).map((p, i) => Math.hypot(p.x - points[i].x, p.z - points[i].z));
+    const total = lengths.reduce((sum, l) => sum + l, 0);
+    const reach = (PORTAL_DEPTH / 2) * portalDepthScale(PORTAL_MAX_SCALE);
+
+    // The point `m` along the path, with the index of the segment it lies on
+    const at = (m: number) => {
+      let i = 0;
+      while (i < lengths.length - 1 && m > lengths[i]) m -= lengths[i++];
+      const f = lengths[i] > 0 ? Math.min(1, m / lengths[i]) : 0;
+      return { x: points[i].x + (points[i + 1].x - points[i].x) * f, z: points[i].z + (points[i + 1].z - points[i].z) * f, i };
+    };
+    const straightFrom = (m: number) => {
+      const a = at(m);
+      const b = at(m + reach);
+      const chord = Math.atan2(b.x - a.x, b.z - a.z);
+      for (let i = a.i; i <= b.i; i++) {
+        if (lengths[i] === 0) continue;
+        const heading = Math.atan2(points[i + 1].x - points[i].x, points[i + 1].z - points[i].z);
+        if (Math.abs(Math.atan2(Math.sin(heading - chord), Math.cos(heading - chord))) > SPAWN_STRAIGHT_TURN) return false;
+      }
+      return true;
+    };
+
+    for (let m = 0; m <= SPAWN_MAX_SHIFT_M && m + reach <= total; m += SPAWN_SHIFT_STEP_M) {
+      if (!straightFrom(m)) continue;
+      if (m === 0) return candidate;
+      const p = at(m);
+      const moved = canonicalCoords({
+        lat: candidate.lat + p.z / METERS_PER_DEGREE_LAT,
+        lon: candidate.lon + p.x / (cosLat * METERS_PER_DEGREE_LAT),
+      });
+      if (this.findPath(network, moved.lat, moved.lon, centerLat, centerLon).length < 2) return candidate;
+      return {
+        ...candidate,
+        ...moved,
+        distance: this.haversineDistance(centerLat, centerLon, moved.lat, moved.lon),
+        nodeId: undefined,
+      };
+    }
+    return candidate;
   }
 }
