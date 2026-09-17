@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { ScreenShakeService, shakeFalloff } from './screen-shake.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import { ABILITY_IMPACT_SHAKE, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { ABILITY_IMPACT_SHAKE, ABILITY_LAUNCH_SHAKE, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { LEGACY_SCREEN_SHAKE_KEY, STORAGE_KEY } from '../utils/display-options.storage';
 
 const { nearDistance, farDistance, presets } = SCREEN_SHAKE_CONFIG;
@@ -202,6 +202,36 @@ describe('ScreenShakeService', () => {
     expect(presets.orbitalLaser.amplitude).toBeLessThan(presets.nuclearStrike.amplitude / 2);
     expect(presets.orbitalLaser.duration).toBeGreaterThan(presets.emp.duration);
     expect(presets.orbitalLaser.duration).toBeLessThan(presets.nuclearStrike.duration);
+  });
+
+  it('rumbles a little where the nuclear strike\'s missile lifts off, fading over a range of its own, far below the impact', () => {
+    const { eventBus, engine, service } = setup();
+    const { launchNearDistance, launchFarDistance } = SCREEN_SHAKE_CONFIG;
+    expect(ABILITY_LAUNCH_SHAKE['nuclear-strike']).toEqual({
+      preset: presets.missileLaunch,
+      nearDistance: launchNearDistance,
+      farDistance: launchFarDistance,
+    });
+    const used = (distance: number, abilityId: 'nuclear-strike' | 'frost-bomb' = 'nuclear-strike', launch = true) =>
+      eventBus.emit({
+        type: 'ability:used', abilityId, strikeId: 1,
+        // The target far off, so only the launch site could shake
+        target: { lat: 5000, lon: 0 }, radiusM: 25, warningMs: 6500,
+        ...(launch ? { launch: { towerId: 'silo', position: { lat: distance, lon: 0 } } } : {}),
+      });
+    used(launchNearDistance);
+    used((launchNearDistance + launchFarDistance) / 2);
+    used(launchFarDistance + 10);
+    used(0, 'nuclear-strike', false);
+    used(0, 'frost-bomb');
+    expect(engine.triggerScreenShake.mock.calls).toEqual([
+      [presets.missileLaunch.amplitude, presets.missileLaunch.duration],
+      [expect.closeTo(presets.missileLaunch.amplitude * 0.5), presets.missileLaunch.duration],
+    ]);
+    // The overview camera stands about 425 m away and gets about three quarters
+    expect(shakeFalloff(425, launchNearDistance, launchFarDistance)).toBeCloseTo(0.75, 1);
+    expect(presets.missileLaunch.amplitude).toBeLessThan(presets.nuclearStrike.amplitude / 3);
+    service.destroy();
   });
 
   it('shakes by the ability that landed: one without an entry does not shake', () => {

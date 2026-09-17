@@ -489,7 +489,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
         'enemy:split', 'ability:used', 'ability:impact', 'game:reset', 'hero:level-up',
         'audio:play', 'ability:used', 'ability:impact', 'game:reset',
-        'vfx:projectile-impact', 'health:changed', 'ability:impact', 'enemy:died',
+        'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         // GameStateManager: leak budget, AA retrofit, guard turns, kill reward

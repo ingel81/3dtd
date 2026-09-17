@@ -1,7 +1,12 @@
 import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from './game-event-bus';
 import { ThreeTilesEngine } from '../three-engine';
-import { ABILITY_IMPACT_SHAKE, SCREEN_SHAKE_CONFIG, type ScreenShakePreset } from '../configs/visual-effects.config';
+import {
+  ABILITY_IMPACT_SHAKE,
+  ABILITY_LAUNCH_SHAKE,
+  SCREEN_SHAKE_CONFIG,
+  type ScreenShakePreset,
+} from '../configs/visual-effects.config';
 import { loadDisplayOptions } from '../utils/display-options.storage';
 
 /**
@@ -99,6 +104,17 @@ export class ScreenShakeService {
         this.lastHqShakeHp = hpLost;
         const damageFactor = Math.max(0.5, Math.min(hpLost / 10, 2.0));
         this.shake(presets.hqDamage.amplitude * damageFactor, presets.hqDamage.duration);
+      }),
+    );
+
+    // Strike fired from a building → a low rumble where it lifts off
+    // (ABILITY_LAUNCH_SHAKE: the nuclear strike's missile off its silo)
+    this.subs.add(
+      this.eventBus.on('ability:used', ({ abilityId, launch }) => {
+        const shake = ABILITY_LAUNCH_SHAKE[abilityId];
+        if (!shake || !launch) return;
+        const { lat, lon, height } = launch.position;
+        this.shakeAt(shake.preset, lat, lon, height ?? 0, shake.nearDistance, shake.farDistance);
       }),
     );
 
