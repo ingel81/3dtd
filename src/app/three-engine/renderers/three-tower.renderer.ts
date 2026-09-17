@@ -103,6 +103,9 @@ export class ThreeTowerRenderer {
   /** Tower under the pointer, shows its range like a selected one, see setHovered */
   private hoveredId: string | null = null;
 
+  /** Model nodes the game shows or hides per tower type, by node name, see setPartShown */
+  private readonly partsShown = new Map<TowerTypeId, Map<string, boolean>>();
+
   /** Geometry and materials every range ring shares */
   private readonly rangeRings = new RangeRingKit();
 
@@ -418,8 +421,43 @@ export class ThreeTowerRenderer {
       currentAction,
     };
 
+    this.applyParts(renderData);
     this.towers.set(id, renderData);
     return renderData;
+  }
+
+  /**
+   * Show or hide the node `node` in the model of every tower of `typeId`,
+   * standing or built later: the missile standing in the missile silo while
+   * a strike is loaded (VFXService). A model without the node is left as it
+   * is. The tower's own visibility (`mesh.visible`) is not touched.
+   */
+  setPartShown(typeId: TowerTypeId, node: string, shown: boolean): void {
+    let parts = this.partsShown.get(typeId);
+    if (!parts) {
+      parts = new Map();
+      this.partsShown.set(typeId, parts);
+    }
+    parts.set(node, shown);
+    for (const data of this.towers.values()) {
+      if (data.typeConfig.id === typeId) this.applyPart(data, node, shown);
+    }
+  }
+
+  /** Whether `node` shows in the models of `typeId`: true until setPartShown hides it. */
+  isPartShown(typeId: TowerTypeId, node: string): boolean {
+    return this.partsShown.get(typeId)?.get(node) ?? true;
+  }
+
+  private applyParts(data: TowerRenderData): void {
+    const parts = this.partsShown.get(data.typeConfig.id);
+    if (!parts) return;
+    for (const [node, shown] of parts) this.applyPart(data, node, shown);
+  }
+
+  private applyPart(data: TowerRenderData, node: string, shown: boolean): void {
+    const part = data.mesh.getObjectByName(node);
+    if (part) part.visible = shown;
   }
 
   /**

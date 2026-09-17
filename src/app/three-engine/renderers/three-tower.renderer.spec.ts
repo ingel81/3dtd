@@ -260,6 +260,53 @@ describe('ThreeTowerRenderer turret node', () => {
   });
 });
 
+describe('ThreeTowerRenderer model parts', () => {
+  /** A silo-like model: the building and the missile standing in it */
+  const assetManager = {
+    loadModel: async () => ({ animations: [] }),
+    cloneModel: () => {
+      const model = new Group();
+      for (const name of ['silo', 'missile']) {
+        const node = new Object3D();
+        node.name = name;
+        model.add(node);
+      }
+      return model;
+    },
+  };
+  const sync = {
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
+  };
+  const part = (data: TowerRenderData, name: string) => data.mesh.getObjectByName(name)!;
+
+  it('hides and shows a node in every tower of the type, not in other types, and leaves the tower itself visible', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    const silo = (await renderer.create('s1', 'missile-silo', 0, 0, 0))!;
+    const archer = (await renderer.create('a1', 'archer', 0, 0, 0))!;
+    expect(renderer.isPartShown('missile-silo', 'missile')).toBe(true);
+
+    renderer.setPartShown('missile-silo', 'missile', false);
+    expect(part(silo, 'missile').visible).toBe(false);
+    expect(part(silo, 'silo').visible).toBe(true);
+    expect(silo.mesh.visible).toBe(true);
+    expect(part(archer, 'missile').visible).toBe(true);
+    expect(renderer.isPartShown('missile-silo', 'missile')).toBe(false);
+
+    renderer.setPartShown('missile-silo', 'missile', true);
+    expect(part(silo, 'missile').visible).toBe(true);
+  });
+
+  it('builds a new tower of the type with the node as the game last said', async () => {
+    const renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    renderer.setPartShown('missile-silo', 'missile', false);
+    const silo = (await renderer.create('s1', 'missile-silo', 0, 0, 0))!;
+    expect(part(silo, 'missile').visible).toBe(false);
+    // A model without the node is left as it is
+    renderer.setPartShown('missile-silo', 'hatch', false);
+    expect(part(silo, 'silo').visible).toBe(true);
+  });
+});
+
 describe('ThreeTowerRenderer hover range', () => {
   const assetManager = {
     loadModel: async () => ({ animations: [] }),
