@@ -8,6 +8,7 @@ import { VATData } from './vat-baker';
 import type { VATAlphaMode } from './vat-surface';
 import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
 import { DISPLAY_OUTPUT_GLSL } from '../display-output';
+import { createPortalClipUniforms, PORTAL_CLIP_GLSL, type PortalClipUniforms } from '../portal-clip';
 
 /** Shader switch per VAT alpha mode. */
 const ALPHA_DEFINES: Record<VATAlphaMode, Record<string, string>> = {
@@ -40,6 +41,8 @@ export interface VATMaterialOptions {
   colorMultiplier?: number;
   /** Shared blood moon uniforms; without them the material gets its own, at rest */
   bloodMoon?: VATBloodMoonUniforms;
+  /** Shared spawn portal clip; without it the material gets its own, without portals */
+  portalClip?: PortalClipUniforms;
 }
 
 /**
@@ -60,6 +63,10 @@ export interface VATMaterialOptions {
  * Blood moon (VATBloodMoonUniforms, shared by every type): a rim glow while
  * bloodMoonGlow is above 0, and for blending types the mood's multiplier.
  *
+ * Spawn portals (PortalClipUniforms, shared by every type, portal-clip.ts):
+ * what of an enemy is still behind a portal's plane is dropped, and a
+ * glowing seam runs where its body comes through.
+ *
  * The colour is built in display values (the lights and the tone curve were
  * tuned on the canvas) and written for the target (displayOutput,
  * display-output.ts): as it is on the canvas, as linear light through the
@@ -70,11 +77,13 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
   const emissiveColor = new Color(options?.emissiveColor ?? '#ffffff');
   const colorMultiplier = options?.colorMultiplier ?? 1.0;
   const bloodMoon = options?.bloodMoon ?? createVATBloodMoonUniforms();
+  const portalClip = options?.portalClip ?? createPortalClipUniforms();
   const glow = BLOOD_MOON_LOOK.glow;
 
   const uniforms: Record<string, { value: unknown }> = {
-    // The same uniform objects in every material (see VATBloodMoonUniforms)
+    // The same uniform objects in every material (see VATBloodMoonUniforms, PortalClipUniforms)
     ...bloodMoon,
+    ...portalClip,
     bloodMoonGlowColor: { value: new Vector3(glow.color.r, glow.color.g, glow.color.b) },
     bloodMoonRim: { value: glow.rim },
     bloodMoonBase: { value: glow.base },
@@ -197,8 +206,16 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
       ${DISPLAY_OUTPUT_GLSL}
 
+      ${PORTAL_CLIP_GLSL}
+
       void main() {
         #include <logdepthbuf_fragment>
+
+        // Metres per pixel, before any branch: derivatives need uniform control flow
+        float footprint = length(fwidth(vWorldPosition));
+        // Still behind a spawn portal's plane: not out yet
+        float portalAhead = portalClipAhead(vWorldPosition);
+        if (portalAhead < 0.0) discard;
 
         // Base color + alpha: per-vertex texture flag decides texture vs vertex color
         vec3 baseColor;
@@ -281,6 +298,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         // Prevents overexposure and preserves color saturation
         litColor = (litColor * (2.51 * litColor + 0.03)) /
                    (litColor * (2.43 * litColor + 0.59) + 0.14);
+
+        // The seam where the body comes through a spawn portal's plane
+        litColor = mix(litColor, PORTAL_SEAM_COLOR, portalSeam(portalAhead, footprint));
 
         // Written for the target: as it is on the canvas, as linear light
         // through the post-processing target

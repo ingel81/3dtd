@@ -9,6 +9,7 @@ import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../configs/enem
 import { AssetManagerService } from '../../../services/infrastructure/asset-manager.service';
 import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
+import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { bakeEnemyVAT } from './vat-baker';
 import { registerEnemyModelRangeY } from '../../../utils/enemy-aim.util';
 
@@ -74,13 +75,15 @@ export class InstancedEnemyRenderer {
   /** Removes the webglcontextrestored listener (rebakeOnContextRestore). */
   private stopRebakeOnRestore: (() => void) | null = null;
 
+  /** @param portalClip The spawn portals' clip, which the enemies and their health bars share (portal-clip.ts) */
   constructor(
     scene: Scene,
     private readonly sync: CoordinateSync,
     private readonly assetManager: AssetManagerService,
+    portalClip: PortalClipUniforms = createPortalClipUniforms(),
   ) {
-    this.instanceManager = new EnemyInstanceManager(scene);
-    this.healthBarManager = new HealthBarInstanceManager(scene);
+    this.instanceManager = new EnemyInstanceManager(scene, portalClip);
+    this.healthBarManager = new HealthBarInstanceManager(scene, portalClip);
   }
 
   // =====================================================

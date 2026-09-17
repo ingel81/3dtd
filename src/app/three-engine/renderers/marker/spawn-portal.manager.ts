@@ -18,9 +18,8 @@ import {
 import type { SpawnPortalFrame } from './spawn-portal-frame';
 import type { SpawnPortalPose } from './spawn-portal-pose';
 import { SPAWN_PORTAL_LOOK } from '../../../configs/visual-effects.config';
-import { portalDepthScale } from '../../../configs/marker-geometry.config';
-
-const MAX_PORTALS = 8;
+import { MAX_SPAWN_PORTALS, portalDepthScale } from '../../../configs/marker-geometry.config';
+import { createPortalClipUniforms, setPortalClips, type PortalClipUniforms } from '../portal-clip';
 
 /** Per-instance attributes both meshes share. */
 const INSTANCE_ATTRIBUTES = ['aColor', 'aPhase', 'aRipple'] as const;
@@ -86,10 +85,18 @@ export class SpawnPortalManager {
   private readonly tmpScale = new Vector3();
   private readonly tmpColor = new Color();
 
-  constructor(private readonly overlayGroup: Group) {
-    this.colorAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS * 3), 3);
-    this.phaseAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS), 1);
-    this.rippleAttr = new InstancedBufferAttribute(new Float32Array(MAX_PORTALS).fill(NO_RIPPLE), 1);
+  /**
+   * @param portalClip Where the enemies' shaders hide what is still behind a
+   *   portal's plane (portal-clip.ts, ThreeTilesEngine.portalClip): written
+   *   here whenever a portal is added, moved, turned or removed
+   */
+  constructor(
+    private readonly overlayGroup: Group,
+    private readonly portalClip: PortalClipUniforms = createPortalClipUniforms(),
+  ) {
+    this.colorAttr = new InstancedBufferAttribute(new Float32Array(MAX_SPAWN_PORTALS * 3), 3);
+    this.phaseAttr = new InstancedBufferAttribute(new Float32Array(MAX_SPAWN_PORTALS), 1);
+    this.rippleAttr = new InstancedBufferAttribute(new Float32Array(MAX_SPAWN_PORTALS).fill(NO_RIPPLE), 1);
 
     const look = SPAWN_PORTAL_LOOK;
     // The two void surfaces until the frame's asset arrives (setFrame)
@@ -98,7 +105,7 @@ export class SpawnPortalManager {
     this.gateMat = createPortalGateMaterial(
       PORTAL_SHADER_LAYOUT, look.palette, look.frameExposure, look.frameGlints, look.glyphs, look.idleEnergy, look.rippleLife,
     );
-    this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_PORTALS);
+    this.gateMesh = new InstancedMesh(gateGeom, this.gateMat, MAX_SPAWN_PORTALS);
     this.gateMesh.count = 0;
     this.gateMesh.frustumCulled = false;
     this.gateMesh.name = 'spawnPortalGates';
@@ -108,13 +115,13 @@ export class SpawnPortalManager {
     this.glowMat = createPortalGlowMaterial(
       PORTAL_SHADER_LAYOUT, look.palette, look.idleEnergy, look.rippleLife, look.circle, look,
     );
-    this.glowMesh = new InstancedMesh(glowGeom, this.glowMat, MAX_PORTALS);
+    this.glowMesh = new InstancedMesh(glowGeom, this.glowMat, MAX_SPAWN_PORTALS);
     this.glowMesh.count = 0;
     this.glowMesh.frustumCulled = false;
     this.glowMesh.renderOrder = 5;
     this.glowMesh.name = 'spawnPortalGlow';
 
-    for (let i = MAX_PORTALS - 1; i >= 0; i--) this.freeIndices.push(i);
+    for (let i = MAX_SPAWN_PORTALS - 1; i >= 0; i--) this.freeIndices.push(i);
 
     overlayGroup.add(this.gateMesh);
     overlayGroup.add(this.glowMesh);
@@ -125,7 +132,7 @@ export class SpawnPortalManager {
     if (this.portals.has(id)) this.remove(id);
     const index = this.freeIndices.pop();
     if (index === undefined) {
-      console.warn(`[SpawnPortals] No free slot for ${id} (max ${MAX_PORTALS})`);
+      console.warn(`[SpawnPortals] No free slot for ${id} (max ${MAX_SPAWN_PORTALS})`);
       return;
     }
 
@@ -142,6 +149,7 @@ export class SpawnPortalManager {
     this.writeMatrix(index, pose);
     this.recount();
     this.updateBurstReady();
+    this.updateClip();
   }
 
   /**
@@ -168,6 +176,7 @@ export class SpawnPortalManager {
     if (!entry) return;
     entry.pose = { ...pose };
     this.writeMatrix(entry.index, pose);
+    this.updateClip();
   }
 
   /** Current pose of a portal, or null if there is none with that id. */
@@ -196,6 +205,7 @@ export class SpawnPortalManager {
     this.portals.delete(id);
     this.recount();
     this.updateBurstReady();
+    this.updateClip();
   }
 
   clear(): void {
@@ -311,6 +321,13 @@ export class SpawnPortalManager {
     this.glowMesh.setMatrixAt(index, this.tmpMatrix);
     this.gateMesh.instanceMatrix.needsUpdate = true;
     this.glowMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /** Hand the portals' poses to the enemies' clip (setPortalClips). */
+  private updateClip(): void {
+    const poses: SpawnPortalPose[] = [];
+    for (const entry of this.portals.values()) poses.push(entry.pose);
+    setPortalClips(this.portalClip, poses);
   }
 
   private updateBurstReady(): void {

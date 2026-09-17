@@ -6,6 +6,7 @@ import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import type { GooSplash } from '../ground-decals';
 import { buildOozeBandGeometry, refreshOozeBandHeights, type OozeGround } from './ooze-band-geometry';
 import { createOozeBandMaterial } from './ooze-band-material';
+import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import type { OozeDebrisRenderer } from './ooze-debris.renderer';
 import { planOozeDeath, type OozeMessEvent } from './ooze-death-plan';
 
@@ -68,7 +69,7 @@ interface OozeBand {
 export class OozeBandRenderer {
   private readonly bands = new Map<string, OozeBand>();
   private readonly geometries = new Map<RouteBodyStations, { geometry: BufferGeometry; users: number }>();
-  private readonly baseMaterial = createOozeBandMaterial();
+  private readonly baseMaterial: ShaderMaterial;
   /** Blood moon uniforms every band shares, see setBloodMoon() */
   private readonly bloodMoonGlow: IUniform<number> = { value: 0 };
   private readonly bloodMoonTint: IUniform<Vector3> = { value: new Vector3(1, 1, 1) };
@@ -79,11 +80,17 @@ export class OozeBandRenderer {
   /** Filled anew for each splash, see letGo() */
   private readonly splash: GooSplash = { size: 0, stretch: 1, rotation: 0, variation: 0, color: OOZE_DEATH_LOOK.goo };
 
-  /** @param mess Where a killed ooze's mess goes; without it a collapse makes none */
+  /**
+   * @param mess Where a killed ooze's mess goes; without it a collapse makes none
+   * @param portalClip The spawn portals' clip, shared with the other enemies (portal-clip.ts)
+   */
   constructor(
     private readonly scene: Scene,
     private readonly mess: OozeMess | null = null,
-  ) {}
+    private readonly portalClip: PortalClipUniforms = createPortalClipUniforms(),
+  ) {
+    this.baseMaterial = createOozeBandMaterial(portalClip);
+  }
 
   /** Bands drawn, the sinking ones included. */
   get count(): number {
@@ -104,9 +111,10 @@ export class OozeBandRenderer {
     shared.users++;
     const material = this.baseMaterial.clone();
     material.uniforms['uTime'].value = this.time;
-    // clone() copied the uniforms; the blood moon ones are shared again
+    // clone() copied the uniforms; the blood moon and the portal clip ones are shared again
     material.uniforms['uBloodMoonGlow'] = this.bloodMoonGlow;
     material.uniforms['uBloodMoonTint'] = this.bloodMoonTint;
+    Object.assign(material.uniforms, this.portalClip);
     const mesh = new Mesh(shared.geometry, material);
     mesh.name = `ooze-${id}`;
     this.scene.add(mesh);
