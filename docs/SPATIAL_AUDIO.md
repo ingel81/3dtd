@@ -472,6 +472,31 @@ kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
   erst nach dem Einschlag an, stoppt der Service ihn sofort. `game:reset`, ein Sprung im
   Replay (`clearAbilitySounds`) und `destroy()` beenden sie. Abnahme wie beim Knall
   (`refDistance` 150, `rolloffFactor` 0,6), `volume` 1.
+- **Rakete aus dem Silo** (`GAME_SOUNDS.nuclearStrike.launch`, `AbilityLaunchSound`, seit
+  2026-09-17): nur, wenn `ability:used` einen Startort trägt (`launch`). Drei Dateien, mit
+  ElevenLabs erzeugt, je drei Varianten, gewählt nach Hüllkurve und Spektrum (nicht angehört),
+  auf -14,5 LUFS gebracht (Abschnitt [Assets](#assets)); Abnahme wie beim Knall (`refDistance`
+  150, `rolloffFactor` 0,6).
+
+  | ID, Datei | Länge | Wo und wann | Klang |
+  |---|---|---|---|
+  | `nuclear_strike_launch`, `abilities/missile_launch.mp3` | 5 s | One-Shot am Silo beim `ability:used`, `volume` 1,3, `priority`, bis 1500 m | Zündknall und krachendes Tosen des Triebwerks, 0 bis 0,8 s hell, dann tiefes Tosen, ab etwa 3,5 s ausklingend |
+  | `nuclear_strike_engine`, `abilities/missile_engine.mp3` | 3 s | Loop an der Rakete vom `ability:used` bis zum `ability:impact`, `volume` 0,8, blendet über 2 s Spielzeit ein (`fadeInMs`) | gleichmäßiges Dröhnen des Triebwerks, Pegel über die 3 s innerhalb von etwa 3 dB, Naht ohne Sprung |
+  | `nuclear_strike_dive`, `abilities/missile_dive.mp3` | 2,55 s | One-Shot am Ziel, 2500 ms Spielzeit vor dem Einschlag (`leadMs`), `volume` 1, `priority`, bis 1500 m | fallendes Pfeifen (von etwa 2 kHz auf 600 Hz), das anschwillt, an der lautesten Stelle geschnitten |
+
+  Der `AudioService` plant beim `ability:used` dieselbe Flugbahn wie der Renderer
+  (`planMissileLaunch`, `utils/missile-flight.ts`, aus den lokalen Koordinaten von Silo und Ziel
+  und `warningMs`) und setzt den Triebwerks-Loop je Sub-Step (`update()`) dorthin, wo die
+  Bahn die Rakete zu dieser Spielzeit hat. Der Loop startet stumm (`volumeMultiplier` 0) und
+  kommt über `setLoopVolume` hoch, während die Zündung ausklingt. Beim `ability:impact`
+  desselben `strikeId` endet der Loop, und ein noch spielendes Pfeifen stoppt
+  (`stopOneShot`), bevor der Knall kommt: bei 4x dauert der Flug ein Viertel, das Pfeifen nicht.
+  Ohne Einschlag endet der Loop am Ende der Flugzeit. Pause hält Loop und Weg, `game:reset`,
+  ein Sprung im Replay (`clearAbilitySounds`) und `destroy()` beenden beides. Als Loop ist das
+  Triebwerk nur bis 500 m zu hören: Steht die Rakete am Scheitel weiter weg, pausiert er dort
+  und setzt wieder ein, wenn sie näher kommt. Im Wave-Replay reicht das Replay `ability:used`
+  an seinen AudioService weiter: Zündung und Pfeifen sind bei 1x zu hören, der Loop wartet,
+  weil das Spiel pausiert ist.
 
 ### Orbitallaser (Einschlag synthetisiert, Brennen als Loop am Strahlfuß)
 `GAME_SOUNDS.orbitalLaser` (`audio.config.ts`).
@@ -602,6 +627,9 @@ public/assets/sounds/
 │   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound
 ├── abilities/                         # mit ElevenLabs erzeugt (E18, 2026-09-15)
 │   ├── nuke_siren.mp3                 # Warnsirene des Nuklearschlags (Loop)
+│   ├── missile_launch.mp3             # Zündung der Rakete am Silo (2026-09-17)
+│   ├── missile_engine.mp3             # Triebwerk der Rakete (Loop an der Rakete)
+│   ├── missile_dive.mp3               # Pfeifen im Anflug, am Ziel vor dem Einschlag
 │   ├── frost_bomb.mp3                 # Einschlag der Frostbombe
 │   ├── emp.mp3                        # Einschlag des EMP
 │   └── orbital_laser_beam.mp3         # Brennen des Orbitallasers (Loop am Strahlfuß)

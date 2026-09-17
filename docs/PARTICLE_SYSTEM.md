@@ -508,6 +508,76 @@ Bildschirmblitz in `CloudBlast` (`mushroom-cloud-blast.ts`), die Puffer-Helfer i
 
 ---
 
+## Raketenstart (Nuklearschlag)
+
+`MissileLaunchRenderer` (`three-engine/renderers/missile-launch.renderer.ts`), Werte in
+`MISSILE_LAUNCH_LOOK`, seit 2026-09-17. `VFXService` ruft `engine.missileLaunches.launch`
+beim `ability:used` des Nuklearschlags, wenn das Event einen Startort trägt (`launch`), und
+`land` beim `ability:impact`; Ablauf und Zeiten in
+[ABILITIES.md](ABILITIES.md#darstellung). Die Flugbahn rechnet `MissileFlight`
+(`utils/missile-flight.ts`), die Teile: Modell (`missile-model.ts`), Flamme, Düsenglühen,
+Blitz, Bodenlicht, Feuer und Fahne (`MissileExhaust`, `missile-exhaust.ts`), Startwolke und
+Spur (`MissileSmoke`, `missile-smoke.ts`), der Zustand eines Starts in
+`missile-launch-state.ts`.
+
+- **Spielzeit:** wie der Atompilz. Das Alter eines Starts ist die Summe der Frames in
+  Spielzeit; die Rakete steht, wo die Bahn zu diesem Alter ist, jedes Sprite ist eine Funktion
+  daraus und aus Zufallszahlen vom Start. Ein Puff der Spur entsteht, wenn die Rakete seinen
+  Punkt passiert (`MissileFlight.timeAtDistance`), Punkte und Zeiten werden beim Start
+  ausgelegt. Ein langer Frame und viele kurze ergeben dasselbe Bild
+  (`missile-launch.renderer.spec.ts`).
+- **Bahn:** eine Kurve über einen Parameter in der senkrechten Ebene durch Silo und Ziel, an
+  128 Punkten vermessen; das Tempo an 256 Punkten gleichen Abstands, eine Form entlang des Wegs,
+  deren Faktor per Halbierung so gesucht wird, dass die Rakete zum Ende der Vorwarnung ankommt.
+  Renderer und Triebwerkston planen dieselbe Bahn (`planMissileLaunch`). Getestet in
+  `missile-flight.spec.ts`: Start und Ziel exakt, Scheitel über beiden Enden, am Ende fast
+  senkrecht, stets vorwärts, höchstens 8 Grad Drehung je Frame bei 60 fps, auch bei 0 und 30 m
+  Entfernung.
+- **Rakete:** ein Mesh aus Grundkörpern mit Vertexfarben (`MeshStandardMaterial`, beleuchtet wie
+  die Tower, doppelseitig), zusammengeführt zu einer Geometrie, je Start ein Klon. Ursprung an
+  der Düse, Spitze +y; die Bahn setzt den Ursprung und dreht +y entlang ihrer Richtung.
+- **Flamme:** Quad (2 × 1, 16 Segmente längs) mit eigenem ShaderMaterial samt Log-Depth-Chunks,
+  im Vertex-Shader um die Flugachse zur Kamera gedreht, additiv, Licht in Anzeigewerten
+  (`displayLight`), mit Tiefentest: Gebäude davor und das Silo verdecken sie. Weißer Kern,
+  gelb-oranger Körper, zur Spitze rot, Breite und Helligkeit flackern mit Rauschen in Spielzeit.
+  Blickt die Kamera genau entlang der Achse, bleibt das Quad eine Linie; Düsenglühen und Fahne
+  decken das. Düsenglühen (18 m), Blitz über dem Schacht (90 m) und Bodenlicht (45 m) sind
+  eingebaute Materialien mit `radialTexture`, additiv, Tiefentest aus; die Tiles nehmen kein
+  Licht an.
+- **Billboards:** Rauch und Glut sind `SpriteBuffer` des Atompilzes mit dessen Materialien und
+  Billow-Atlas (`MushroomCloudRenderer.spriteMaterials`), kein zweites Rauchsystem. Der Rauch ist
+  beleuchtet und wird jeden Frame von hinten nach vorn sortiert (Insertion Sort über die
+  Reihenfolge des Vorframes), `renderOrder` 994, vor dem Rauch des Pilzes. Schaltet das
+  Low-Preset die Beleuchtung des Pilzrauchs ab (`uLit`), gilt das auch hier.
+- **Startwolke:** 72 Puffs, geboren von 0,15 bis 3 s oben am Schacht, 2 bis 8 m hochgeworfen,
+  rollen bis 42 m aus und sinken auf 2 bis 9 m über dem Boden, 5 bis 20 m groß und wachsend,
+  8 bis 12 s. Früh geborene glühen vom Feuer orange.
+- **Spur:** bis 280 Puffs, höchstens alle 3 m des Wegs, sonst gleichmäßig über den ganzen Weg
+  verteilt (1000 m Entfernung: 1622 m Weg, alle 5,8 m). Bei der Geburt mindestens 0,9, nach
+  0,6 s mindestens 1,6 Abstände groß, damit die Spur geschlossen bleibt; sie treiben mit dem
+  Wind (0,9 m/s), steigen, blenden ab einem Viertel ihrer 10 bis 15 s aus und sind die ersten
+  0,4 s von der Flamme angestrahlt. Ein Puff blendet zum Boden am näheren Ende hin aus
+  (Silo oder Ziel).
+- **Budget und Messwerte** (`missile-launch.renderer.spec.ts`, "peak": zwei Starts über etwa
+  1000 m, der zweite 0,5 s später, Frames von 16 ms): Puffer für 704 Rauch-Puffs (2 × (72 +
+  280)) und 52 Glut-Sprites (2 × (18 Feuer + 8 Fahne)); Spitze 704 Rauch und 28 Glut, gleich
+  nach dem zweiten Einschlag stehen beide Spuren und Wolken voll. Höchstens 11 Draw Calls: je
+  Start Rakete, Flamme, Düsenglühen und Bodenlicht, ein Blitz, die zwei geteilten Puffer. In
+  jsdom kostete `update()` in einem Lauf über diese 24 s im Mittel etwa 0,05 ms je Frame;
+  GPU-Kosten (Überdeckung der Rauch-Sprites) sind im Browser nicht gemessen.
+- **VFX-Einstellungen:** Impact Effects aus (`setFull(false)`, ab dem nächsten Start): 24 Puffs
+  Startwolke, größer (`lowSizeBoost`), bis 90 Puffs Spur (weiter auseinander, dadurch größer);
+  kein Feuer aus dem Schacht, keine Fahne, kein Bodenlicht. Rakete, Flamme, Düsenglühen und
+  Blitz bleiben.
+- **Draw Gates und Picking:** alle Objekte an `DrawGate`s, ohne Start steht nichts in der
+  Render-Liste; das Warm-up beim Laden kompiliert die Programme. Alle sind `unpickable`, die
+  Kamera zoomt nicht auf die Rakete. Shader-Check: Fall "missile launch" in
+  `tools/shader-check/shader-check.spec.ts`.
+- **Reset:** `game:reset` leert die Starts (`VFXService`), ebenso ein Sprung im Replay und sein
+  Verlassen, wenn das Replay eine Rakete gestartet hat.
+
+---
+
 ## Frostbombe
 
 `FrostBurstRenderer` (`three-engine/renderers/frost-burst.renderer.ts`), Werte in
@@ -721,7 +791,8 @@ Durchmesser der Aufrufer sind so gewählt, dass die Fläche gleich bleibt
 ## Screen Shake
 
 `ScreenShakeService` (`game-engine/`) wählt Stärke und Dauer, `ThreeTilesEngine`
-zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG` und `ABILITY_IMPACT_SHAKE`, Stand 2026-09-15:
+zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG`, `ABILITY_IMPACT_SHAKE` und `ABILITY_LAUNCH_SHAKE`,
+Stand 2026-09-17:
 
 - **Umsetzung:** ein Versatz der Projektionsmatrix im Bildraum, nur für den Draw eines
   Frames (`drawFrame`). Er wird nach `tilesRenderer.update()` gesetzt und danach mit
@@ -733,8 +804,10 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG` und `ABILITY_IMPACT_SHAKE`, Stand 2
 - **Stärke:** Anteil der Bildhöhe (0,005 ≈ 5 px bei 1080p), linear auf 0 über die
   Dauer, nach Wanduhr statt pro Frame (der alte Abbau pro Frame nahm 60 FPS an).
   Cannon 0,0025 / 150 ms, Rocket 0,005 / 200 ms, HQ-Schaden 0,0025 × 0,5 bis 2 /
-  300 ms, Boss-Tod 0,004 / 400 ms. Fähigkeiten beim `ability:impact`: Nuklearschlag
-  0,017 / 2200 ms, etwa so lang wie sein Donner (2,4 s, `utils/nuke-sound.ts`; bis
+  300 ms, Boss-Tod 0,004 / 400 ms. Start der Rakete des Nuklearschlags beim `ability:used`
+  mit Startort (`ABILITY_LAUNCH_SHAKE`): 0,0045 / 2000 ms am Silo. Fähigkeiten beim
+  `ability:impact`: Nuklearschlag 0,017 / 2200 ms, etwa so lang wie sein Donner (2,4 s,
+  `utils/nuke-sound.ts`; bis
   2026-09-13 0,008 / 700 ms, bis zum Playtest 2 0,014 / 1600 ms), Frostbombe
   0,004 / 350 ms, EMP 0,005 / 450 ms, Orbitallaser 0,006 / 1400 ms (bis Playtest 636
   am 2026-09-15 0,003 / 1200 ms).
@@ -754,7 +827,9 @@ zeichnet ihn. Werte in `SCREEN_SHAKE_CONFIG` und `ABILITY_IMPACT_SHAKE`, Stand 2
   Nuklearschlag nimmt mit eigener Reichweite ab: voll bis 350 m, keiner ab 1500 m
   (`strikeNearDistance`, `strikeFarDistance`), aus der Übersichtskamera (etwa 425 m) gut
   90 %. Die anderen Fähigkeiten: voll bis 150 m, keiner ab 700 m (`abilityNearDistance`,
-  `abilityFarDistance`), aus der Übersichtskamera etwa die Hälfte.
+  `abilityFarDistance`), aus der Übersichtskamera etwa die Hälfte. Der Start der Rakete: voll bis
+  200 m, keiner ab 1100 m (`launchNearDistance`, `launchFarDistance`), aus der Übersichtskamera
+  etwa drei Viertel.
 - **Überlagerung:** Der stärkere laufende Shake gewinnt, ein schwächerer, der
   währenddessen kommt, entfällt (`ScreenShake.trigger` in `three-engine/screen-shake.ts`).
 
@@ -787,7 +862,7 @@ Status-Effekte und Events laufen gleich, Training und Headless-Betrieb auch.
 |----------|---------|-----------|
 | Muzzle Flash | an | `spawnMuzzleFlash` erzeugt keine Partikel, `ThreeTowerRenderer.triggerMuzzleFlash` zündet das Licht nicht. Das PointLight bleibt dunkel in der Szene, sonst bräuchten alle beleuchteten Materialien ein neues Shader-Programm. |
 | Projectile Trails | an | `TrailStreakRenderer.create` vergibt keinen Streak, laufende fallen weg (je Projektil ein eigenes Mesh mit eigenem Draw Call, Geometrie jeden Frame neu). `spawnConfigurableTrail` erzeugt keine Trail-Partikel. |
-| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch, keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags kommt mit weniger, größeren Sprites, unbeleuchtetem Rauch und ohne Glutbrocken. |
+| Impact Effects | an | Keine Feuer-Atlas-Explosionen samt Rauch, keine Funken-Bursts (Eis, Arcane, Chaos, Poison), keine Blutspritzer. Der Atompilz des Nuklearschlags kommt mit weniger, größeren Sprites, unbeleuchtetem Rauch und ohne Glutbrocken, seine Rakete mit weniger Rauch-Puffs, ohne Feuer, Fahne und Bodenlicht. |
 | Ground Marks | an | Keine Blut-, Eis-, Brand- und Goo-Decals. Beim Ausschalten werden die liegenden gelöscht, die leeren Pools fallen per `DrawGate` aus der Render-Liste. `VFXService` und `CombatVfxService` sparen die Terrain-Raycasts für ein Decal (einer pro Blut-Decal, bis zu vier pro Eis-Explosion). |
 | Bloom | aus | `UnrealBloomPass` aus. Sind Bloom und Color Grading beide aus, zeichnet die Engine ohne Composer. |
 | Color Grading | None | LUT-Pass aus. |
@@ -835,11 +910,13 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
   [Tod der Ooze](#tod-der-ooze). Ein blutender Elternteil spritzt zusätzlich in seiner
   Blutfarbe, wo jedes Kind landet
 - `ability:used` / `ability:impact` → je Fähigkeit (`abilityVfx`): beim Einsatz der
-  Zielmarker (beim Orbitallaser mit dem Band der Route, die er fegt); beim Einschlag
+  Zielmarker (beim Orbitallaser mit dem Band der Route, die er fegt), beim Nuklearschlag mit
+  Startort dazu die Rakete vom Silo (siehe [Raketenstart](#raketenstart-nuklearschlag)), die der
+  Einschlag landet; beim Einschlag
   Atompilz und Brandflecken (Nuklearschlag), Frostausbruch und Eis-Decals (Frostbombe),
   Puls (EMP) oder Strahl mit Brandspur (Orbitallaser). Abläufe in
   [ABILITIES.md](ABILITIES.md)
-- `game:reset` → Marker, Pilze, Frostausbrüche, Pulse und Strahlen weg (`clearStrikes`)
+- `game:reset` → Marker, Raketen, Pilze, Frostausbrüche, Pulse und Strahlen weg (`clearStrikes`)
 - `hero:level-up` → "LEVEL N" in Gold als Floating Text über dem Kopf des Helden
   (`HERO_LEVEL_UP_TEXT`)
 - `vfx:chain-lightning` → ein Blitz pro aufeinanderfolgendem Punktpaar
@@ -876,6 +953,9 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
 | `three-engine/renderers/mushroom-cloud-shape.ts`, `-sprites.ts`, `-fireball.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Teile des Atompilzes: Form, Billboards und Billow-Atlas, Feuerball, Glut, Rauch, Bodenlicht/Ring/Kuppel/Blitz |
+| `three-engine/renderers/missile-launch.renderer.ts` | Rakete des Nuklearschlags vom Silo aufs Ziel, in Spielzeit |
+| `three-engine/renderers/missile-model.ts`, `missile-exhaust.ts`, `missile-smoke.ts`, `missile-launch-state.ts` | Teile der Rakete: Modell, Flamme/Düsenglühen/Blitz/Bodenlicht/Feuer/Fahne, Startwolke und Spur, Zustand eines Starts |
+| `utils/missile-flight.ts` | Flugbahn der Rakete (`MissileFlight`, `planMissileLaunch`), auch für den Triebwerkston |
 | `three-engine/post-processing/bloom-kick.ts` | `BloomKick`: kurzes Aufhellen des Bloom-Passes beim Blitz des Atompilzes, danach die alten Werte zurück |
 | `three-engine/renderers/frost-burst.renderer.ts` | Frostbombe: Blitz, Ring, Reif, Eissplitter, Nebel |
 | `three-engine/renderers/emp-pulse.renderer.ts` | EMP: Blitz, zwei Fronten, Hülle, Funken |
