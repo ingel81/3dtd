@@ -31,8 +31,9 @@ Stages (the later ones read the earlier ones' results from WORK):
 The game shades the frame with its own unlit shader (createPortalGateMaterial
 in spawn-portal-gate-material.ts), not with Blender's lights: judge the look there.
 
-Headless:
-    blender --background --python tools/blender/spawn_portal.py -- all
+Headless, without the add-ons of the user's settings (the Blender MCP would open
+its server a second time):
+    blender --background --factory-startup --python tools/blender/spawn_portal.py -- all
 From a running Blender (Blender MCP):
     REPO = r'D:/Source/3dtd'
     exec(open(REPO + '/tools/blender/spawn_portal.py').read()); run('all')
@@ -68,11 +69,9 @@ OPEN_H = LAYOUT['opening']['height']
 FRAME_TOP = LAYOUT['frameTop']
 RADIUS = LAYOUT['radius']
 # The portal's plane, its void surface, at z = HALF_DEPTH: the enemies start
-# HALF_DEPTH behind it and come out through it; the arch's front face
-# stands WALL in front of it
+# HALF_DEPTH behind it and come out through it
 DEPTH = LAYOUT['depth']
 HALF_DEPTH = DEPTH / 2
-WALL = 0.3
 SIGIL = LAYOUT['sigil']
 
 BURY = 2.0
@@ -89,11 +88,16 @@ LINTEL_JOINTS = (-4.0, -2.0, 0.0, 2.0, 4.0)
 LINTEL_TILT = 0.05
 # Blocks reach this far into their neighbours, so a jitter opens no gap
 OVERLAP = 0.02
-# A single arch round the plane, GATE_DEPTH deep, its middle at GATE_Z; no
-# walls or roof behind it: the enemies' own shaders drop what is still
-# behind the plane (portal-clip.ts in the game)
+# A single arch round the plane, GATE_DEPTH deep, its middle in the plane
+# (GATE_Z); no walls or roof behind it: the enemies' own shaders drop what
+# is still behind the plane (portal-clip.ts in the game)
 GATE_DEPTH = 2.6
-GATE_Z = HALF_DEPTH + WALL - GATE_DEPTH / 2
+GATE_Z = HALF_DEPTH
+# What the textures read at a depth in portal space (the noise fields, the
+# rivets' spacing) they read LOOK_BACK further back, where the arch's middle
+# stood when its look was settled (its front face 0.3 m ahead of the plane,
+# until 2026-09-17): moved into the plane, the stones kept their look
+LOOK_BACK = 1.0
 
 STONE, IRON, HORN = 0, 1, 2
 # Role of a piece: GLYPH carries sigils on the arch's front and back face,
@@ -770,8 +774,8 @@ def check(ob):
           f'depth {float(z.min()):.2f} to {float(z.max()):.2f} (plane at {HALF_DEPTH:.2f})')
     assert abs(top - FRAME_TOP) < 1e-4, top
     assert radius <= RADIUS - 0.005, radius
-    # One arch round the plane, in front of the enemies' start: nothing of it behind
-    assert 0 < z.min() < HALF_DEPTH - 2 and z.max() > HALF_DEPTH + 0.2, (z.min(), z.max())
+    # One arch with its middle in the plane, in front of the enemies' start: nothing of it behind
+    assert 0 < z.min() and abs((z.min() + z.max()) / 2 - HALF_DEPTH) < 0.3, (z.min(), z.max())
     for p in me.polygons:
         c = p.center
         px, py = c.x, c.z
@@ -874,8 +878,13 @@ def math_node(nt, op, a, b=None):
 
 
 def object_coords(nt, scale=(1, 1, 1), warp=0.0, warp_scale=1.0):
+    """Object coordinates for a noise field, LOOK_BACK further back."""
     tc = nt.nodes.new('ShaderNodeTexCoord')
-    vec = tc.outputs['Object']
+    back = nt.nodes.new('ShaderNodeVectorMath')
+    back.operation = 'ADD'
+    nt.links.new(tc.outputs['Object'], back.inputs[0])
+    back.inputs[1].default_value = P(0, 0, -LOOK_BACK)
+    vec = back.outputs['Vector']
     if warp:
         wn = nt.nodes.new('ShaderNodeTexNoise')
         wn.inputs['Scale'].default_value = warp_scale
@@ -1253,7 +1262,7 @@ def compose():
     # ── Distance to the opening, soot and scorch round it; the arch's front
     # and back face alike, its inner faces as in the opening ──
     d_open = (np.hypot(np.maximum(np.abs(x) - HALF, 0), np.maximum(y - OPEN_H, 0))
-              + 0.3 * np.maximum(np.abs(z - GATE_Z) - GATE_DEPTH / 2 + WALL, 0))
+              + 0.3 * np.maximum(np.abs(z - GATE_Z) - GATE_DEPTH / 2 + 0.3, 0))
     near_open = np.exp(-d_open * 0.6)
 
     # ── Cracks: a few deep ones in patches and round the opening, hairlines,
@@ -1293,7 +1302,7 @@ def compose():
           - 0.014 * flute - 0.02 * breaks)
     h = np.where(stone, hs, h)
     # Iron: rivets on the bands round the pillars and at the cramps' ends
-    along = np.where(np.abs(nz) > np.abs(nx), x, z)
+    along = np.where(np.abs(nz) > np.abs(nx), x, z - LOOK_BACK)
     band_rivet = np.hypot(np.mod(along, 0.3) - 0.15, y - 2.25)
     joints = np.array(LINTEL_JOINTS)
     jx = joints[np.argmin(np.abs(x[..., None] - joints), axis=-1)]

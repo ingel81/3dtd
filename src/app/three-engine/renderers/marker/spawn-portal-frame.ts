@@ -10,8 +10,8 @@ const ANISOTROPY = 4;
  * The frame out of its GLB, in portal space at scale 1 (x across the
  * street, y up from the ground, z the way the enemies walk out): stone
  * blocks shaded flat, the horns smooth, tangents for the normal map, and
- * four textures on one UV set. One arch round the portal's plane
- * (PORTAL_DEPTH / 2 ahead of the route start), nothing behind it. The gate shader
+ * four textures on one UV set. One arch with its middle in the portal's
+ * plane (PORTAL_DEPTH / 2 ahead of the route start), nothing behind it. The gate shader
  * reads the textures (createPortalGateMaterial); SpawnPortalManager adds
  * the void and draws the frame instanced, the placement preview draws its
  * geometry.

@@ -126,7 +126,7 @@ export function createPortalGateMaterial(
       uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
       uHalfDepth: { value: layout.halfDepth },
-      uCoreBack: { value: layout.coreBack },
+      uCoreReach: { value: layout.coreReach },
       uExposure: { value: exposure },
       uGlints: { value: glints },
       // Between waves until the first update
@@ -194,7 +194,7 @@ export function createPortalGateMaterial(
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
       uniform float uHalfDepth; // the plane's distance from the route start
-      uniform float uCoreBack;  // how far behind the plane the core's light runs
+      uniform float uCoreReach; // how far before and behind the plane the core's light runs
       uniform float uExposure;  // gain on the stone's base colour
       uniform float uGlints;    // strength of the key light's glints
       uniform vec3 uGlyphDrive;  // glow level, chance to wake, surge (portalGlyphDrive)
@@ -258,7 +258,7 @@ export function createPortalGateMaterial(
         // through the arch, strongest on the faces round the opening, on the
         // front and the back alike; the lighter worn edges catch more of it
         // than the soot
-        vec3 toCore = vec3(0.0, uOpening.y * 0.45, clamp(p.z, uHalfDepth - uCoreBack, uHalfDepth)) - p;
+        vec3 toCore = vec3(0.0, uOpening.y * 0.45, clamp(p.z, uHalfDepth - uCoreReach, uHalfDepth + uCoreReach)) - p;
         float dCore = length(toCore) + 1e-3;
         float wrap = clamp(dot(n, toCore / dCore) * 0.6 + 0.4, 0.0, 1.0);
         float catchLight = 0.35 + 8.0 * dot(base, vec3(0.3333));
