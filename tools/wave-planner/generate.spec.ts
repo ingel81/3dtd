@@ -162,8 +162,9 @@ function summariseEffect(effects: { kind: string; towerId?: string; perkId?: str
 }
 
 function buildPayload(): Payload {
+  // Combat towers only: the passive buildings (Research Center, Missile Silo) deal no damage
   const towers: PayloadTower[] = Object.values(TOWER_TYPES)
-    .filter((t) => t.id !== 'research-center')
+    .filter((t) => t.attackType !== 'passive')
     .map((t) => ({
       id: t.id,
       name: t.name,
