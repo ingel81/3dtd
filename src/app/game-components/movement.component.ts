@@ -4,7 +4,11 @@ import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { StatusEffect, StatusEffectType } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { RouteProfile, getRouteProfile } from '../utils/route-corridor';
+import { RouteProfile, SideLimits, getRouteProfile } from '../utils/route-corridor';
+import type { RouteCorners } from '../utils/route-corners';
+
+/** The piece of the path place() reports on a corner's arc, see the heading hold in advance(). */
+const ARC_PIECE = 3;
 
 /**
  * MovementComponent handles path-following movement
@@ -17,13 +21,33 @@ export class MovementComponent extends Component {
   progress = 0; // 0-1 within current segment
 
   /**
-   * Segment lengths, their prefix sums and the lateral limits of `path`,
-   * computed once per path and shared by every enemy walking it
-   * (getRouteProfile). The prefix sums let getPathProgress run O(1) instead
-   * of summing completed segments every call (it's hit per candidate in
-   * 'first'-strategy targeting).
+   * Segment lengths, their prefix sums, the lateral limits and the corner
+   * arcs of `path`, computed once per path and shared by every enemy
+   * walking it (getRouteProfile). The prefix sums let getPathProgress run
+   * O(1) instead of summing completed segments every call (it's hit per
+   * candidate in 'first'-strategy targeting).
    */
   private profile: RouteProfile = getRouteProfile(this.path);
+  /** The profile's corner arcs, null without `roundsCorners`. */
+  private corners: RouteCorners | null = null;
+  /**
+   * Per segment, the metres from its start and before its end that lie on a
+   * corner's arc (RouteCorners.arcIn, arcOut): all 0 without `roundsCorners`.
+   */
+  private arcIn: Float64Array = new Float64Array(0);
+  private arcOut: Float64Array = new Float64Array(0);
+  /**
+   * The lateral limits on the side of the lateral factor (right for 0): of
+   * the sharp route, and with the corners rounded per waypoint and where
+   * the straight part of each segment starts and ends (ArcLimits; without
+   * `roundsCorners` the sharp route's at the waypoints). Chosen by setPath()
+   * and setLateralFactor().
+   */
+  private laneSide: SideLimits = this.profile.right;
+  private laneSign = 1;
+  private laneArc: Float64Array = this.profile.right.node;
+  private laneEntry: Float64Array = this.profile.right.node;
+  private laneExit: Float64Array = this.profile.right.node;
   paused = false;
 
   // Status effects (slow, freeze, etc.)
@@ -57,6 +81,13 @@ export class MovementComponent extends Component {
   private cachedPerpSegIdx = -1;
   private cachedPerpValid = false;
 
+  // Where place() put the enemy, and on a corner's arc the direction it
+  // faces there, degrees per metre
+  private placedLat = 0;
+  private placedLon = 0;
+  private facingLat = 0;
+  private facingLon = 0;
+
   // Reusable lookAt target (avoid object literal allocation per frame)
   private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
 
@@ -76,7 +107,16 @@ export class MovementComponent extends Component {
   // so the component stays constructible before a transform exists.
   private _transform: TransformComponent | null = null;
 
-  constructor(gameObject: GameObject) {
+  /**
+   * @param roundsCorners Walk the corners of the path on arcs
+   *   (RouteCorners). The hero does not: he re-plans from the nearest point
+   *   of the route graph every quarter second, and a position on an arc
+   *   would snap back to the sharp line each time.
+   */
+  constructor(
+    gameObject: GameObject,
+    readonly roundsCorners = true,
+  ) {
     super(gameObject);
   }
 
@@ -95,8 +135,27 @@ export class MovementComponent extends Component {
    */
   setLateralFactor(factor: number): void {
     this.lateralFactor = Math.max(-1, Math.min(1, factor));
+    this.chooseLane();
     // The next position is shifted sideways relative to the previous one.
     this.breakHeadingContinuity();
+  }
+
+  /** The lateral limits of the side the lateral factor puts the enemy on, see `laneSide`. */
+  private chooseLane(): void {
+    const right = this.lateralFactor >= 0;
+    const side = right ? this.profile.right : this.profile.left;
+    this.laneSide = side;
+    this.laneSign = right ? 1 : -1;
+    if (this.corners) {
+      const limits = right ? this.corners.right : this.corners.left;
+      this.laneArc = limits.arc;
+      this.laneEntry = limits.entry;
+      this.laneExit = limits.exit;
+    } else {
+      this.laneArc = side.node;
+      this.laneEntry = side.node;
+      this.laneExit = side.node.subarray(1);
+    }
   }
 
   /**
@@ -119,24 +178,33 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Set the path. Its lengths and lateral limits come from the route
-   * profile every enemy on this path shares.
+   * Set the path. Its lengths, lateral limits and corner arcs come from the
+   * route profile every enemy on this path shares.
    *
    * `startIndex` and `startProgress` put the enemy part-way along it, on
    * segment `startIndex` at `startProgress` (0-1) of its length, instead of
    * on path[0]: a split child joins where its parent died. The path is not
-   * copied, so the child keeps sharing the parent's route profile.
+   * copied, so the child keeps sharing the parent's route profile. The
+   * enemy stands where advance() would put it there, on a corner's arc
+   * inside one, in the lane of its lateral factor (0 for a new enemy).
    */
   setPath(path: RouteWaypoint[], startIndex = 0, startProgress = 0): void {
     this.path = path;
     this.profile = getRouteProfile(path);
+    this.corners = this.roundsCorners ? this.profile.corners : null;
+    if (this.corners) {
+      this.arcIn = this.corners.arcIn;
+      this.arcOut = this.corners.arcOut;
+    } else {
+      this.arcIn = this.arcOut = new Float64Array(path.length);
+    }
+    this.chooseLane();
     this.currentIndex = Math.min(Math.max(0, startIndex), Math.max(0, path.length - 2));
     this.progress = Math.min(Math.max(0, startProgress), 1);
     this.cachedPerpSegIdx = -1;
     this.cachedPerpValid = false;
     this.breakHeadingContinuity();
 
-    // Set initial position, on the centre line like move() before its offset
     const transform = this.transformRef;
     if (transform && path.length > 0) {
       const from = path[this.currentIndex];
@@ -146,19 +214,26 @@ export class MovementComponent extends Component {
         from.height !== undefined && to.height !== undefined
           ? from.height + (to.height - from.height) * t
           : from.height;
-      transform.setPosition(
-        from.lat + (to.lat - from.lat) * t,
-        from.lon + (to.lon - from.lon) * t,
-        height,
-      );
+      let lat = from.lat;
+      let lon = from.lon;
+      let onArc = false;
+      if (path.length > 1) {
+        onArc = this.place() === ARC_PIECE;
+        lat = this.placedLat;
+        lon = this.placedLon;
+      }
+      transform.setPosition(lat, lon, height);
       if (height !== undefined) {
         // Seed only — replaced by the grid read on the first update tick.
         transform.terrainHeight = height;
       }
-      // Face along the segment from the start, not only from the first
-      // step: an enemy that stands still at first (debug placement, a
-      // delayed start) would otherwise show heading 0, north.
-      transform.lookAt(to);
+      // Face along the path from the start, not only from the first step:
+      // an enemy that stands still at first (debug placement, a delayed
+      // start) would otherwise show heading 0, north.
+      const target = MovementComponent._lookAtTarget;
+      target.lat = lat + (onArc ? this.facingLat : to.lat - from.lat);
+      target.lon = lon + (onArc ? this.facingLon : to.lon - from.lon);
+      transform.lookAt(target);
     }
   }
 
@@ -448,85 +523,43 @@ export class MovementComponent extends Component {
       }
     }
 
-    // Interpolate position
-    const current = this.path[this.currentIndex];
-    const next = this.path[this.currentIndex + 1];
+    // Past the end of the path (a body still flowing into the base, see
+    // OozeBodies): nothing to place
+    if (this.currentIndex >= this.path.length - 1) return 'moving';
 
-    if (current && next) {
-      let newLat = current.lat + (next.lat - current.lat) * this.progress;
-      let newLon = current.lon + (next.lon - current.lon) * this.progress;
+    const piece = this.place();
+    const newLat = this.placedLat;
+    const newLon = this.placedLon;
+    transform.setPosition(newLat, newLon);
 
-      // Apply lateral offset perpendicular to movement direction. `piece`
-      // says which linear piece of the lateral limit the position is on,
-      // for the heading hold below.
-      let piece = 0;
-      if (this.lateralFactor !== 0) {
-        const i = this.currentIndex;
-        // Cache the perpendicular per segment (recalc only on segment change).
-        // Built in metres (east, north) and turned into degrees per metre,
-        // with only the longitude scaled by cos(lat): the offset is a right
-        // angle of the stated length on every heading, which the coverage of
-        // the route cells relies on.
-        if (!this.cachedPerpValid || this.cachedPerpSegIdx !== i) {
-          const cosLat = Math.cos(current.lat * DEG_TO_RAD);
-          const east = (next.lon - current.lon) * cosLat;
-          const north = next.lat - current.lat;
-          const len = Math.sqrt(east * east + north * north);
-          if (len > 0) {
-            this.cachedOffsetLatPerM = -east / len / METERS_PER_DEGREE_LAT;
-            this.cachedOffsetLonPerM = north / len / (METERS_PER_DEGREE_LAT * cosLat);
-          } else {
-            this.cachedOffsetLatPerM = 0;
-            this.cachedOffsetLonPerM = 0;
-          }
-          this.cachedPerpSegIdx = i;
-          this.cachedPerpValid = true;
-        }
+    // Height is NOT derived here. Interpolating the path's baked heights
+    // was a second ground model beside the route grid, and the stale one:
+    // the grid re-samples as tiles refine, the bake never did. EnemyManager
+    // reads the grid per frame instead and applies `heightVariationMeters`
+    // there, so air units keep their spread without this accumulating it
+    // into `terrainHeight` on every step.
 
-        // Lateral limit here, on the side the enemy walks: the segment's
-        // own, or less on the taper towards a narrower stretch before or
-        // after it (route-corridor.ts). The offset below points right of
-        // the direction of travel, a negative factor to the left.
-        const profile = this.profile;
-        const side = this.lateralFactor < 0 ? profile.left : profile.right;
-        const segLen = profile.segmentLengths[i];
-        const s = this.progress * segLen;
-        let limit = side.segment[i];
-        const entry = side.node[i] + profile.taper * s;
-        if (entry < limit) {
-          limit = entry;
-          piece = 1;
-        }
-        const exit = side.node[i + 1] + profile.taper * (segLen - s);
-        if (exit < limit) {
-          limit = exit;
-          piece = 2;
-        }
-        const offsetM = this.lateralFactor * limit;
-        newLat += this.cachedOffsetLatPerM * offsetM;
-        newLon += this.cachedOffsetLonPerM * offsetM;
-      }
-
-      transform.setPosition(newLat, newLon);
-
-      // Height is NOT derived here. Interpolating the path's baked heights
-      // was a second ground model beside the route grid, and the stale one:
-      // the grid re-samples as tiles refine, the bake never did. EnemyManager
-      // reads the grid per frame instead and applies `heightVariationMeters`
-      // there, so air units keep their spread without this accumulating it
-      // into `terrainHeight` on every step.
-
-      // Update rotation based on actual movement direction (not next waypoint)
-      // This prevents sudden heading jumps at segment transitions: the step
-      // that crosses a waypoint faces along its chord.
+    if (piece === ARC_PIECE) {
+      // On a corner's arc the direction turns with every step: face along
+      // the arc, also in a lane that turns on the spot and shows no step.
+      const target = MovementComponent._lookAtTarget;
+      target.lat = newLat + this.facingLat;
+      target.lon = newLon + this.facingLon;
+      transform.lookAt(target);
+      this.headingLocked = false;
+      this.hasMovedOnce = true;
+    } else {
+      // Update rotation based on actual movement direction (not next
+      // waypoint): the step that comes off an arc or crosses a sharp
+      // waypoint faces along its chord.
       //
       // Within one piece of a segment that direction is constant: the
       // interpolation runs along one line, the perpendicular is fixed per
       // segment and the lateral limit is linear on each piece (flat, or a
       // taper towards a narrower stretch). So once a step that began and
       // ended on the current piece has set the heading, it is held until the
-      // next discontinuity: a waypoint crossing, a taper starting or ending,
-      // setPath() or setLateralFactor().
+      // next discontinuity: a waypoint crossing, the end of an arc, a taper
+      // starting or ending, setPath() or setLateralFactor().
       // Recomputing it every step only produced lat/lon rounding noise
       // (~1e-8 rad), and that noise kept TransformComponent's rotation lerp,
       // which runs only while rotation !== target, busy for every enemy.
@@ -554,15 +587,152 @@ export class MovementComponent extends Component {
           this.hasMovedOnce = true;
         }
       }
-
-      // Store current position for next frame's direction calculation
-      this.previousLat = newLat;
-      this.previousLon = newLon;
-      this.previousSegIdx = this.currentIndex;
-      this.previousPiece = piece;
     }
 
+    // Store current position for next frame's direction calculation
+    this.previousLat = newLat;
+    this.previousLon = newLon;
+    this.previousSegIdx = this.currentIndex;
+    this.previousPiece = piece;
+
     return 'moving';
+  }
+
+  /**
+   * Where the enemy stands at its segment and progress, into `placedLat`
+   * and `placedLon`: on the centre line, or on the arc of a corner
+   * (RouteCorners), moved across by its lateral factor times the lateral
+   * limit there. Returns the piece of the path that is, for the heading
+   * hold in advance(): 0 where the limit is flat, 1 and 2 on the taper from
+   * the arc or waypoint before or after, ARC_PIECE on an arc, with the
+   * direction along it in `facingLat` and `facingLon`.
+   */
+  private place(): number {
+    const i = this.currentIndex;
+    const current = this.path[i];
+    const next = this.path[i + 1];
+    const profile = this.profile;
+    const segLen = profile.segmentLengths[i];
+    const s = this.progress * segLen;
+
+    // The arc of the waypoint at either end of the segment, where the
+    // progress lies on its stretch
+    const before = this.arcIn[i];
+    const after = this.arcOut[i];
+    if (s < before) return this.placeOnArc(i, i, s);
+    if (segLen - s < after) return this.placeOnArc(i + 1, i, s);
+
+    let lat = current.lat + (next.lat - current.lat) * this.progress;
+    let lon = current.lon + (next.lon - current.lon) * this.progress;
+
+    // Apply lateral offset perpendicular to movement direction. `piece`
+    // says which linear piece of the lateral limit the position is on.
+    let piece = 0;
+    if (this.lateralFactor !== 0) {
+      // Cache the perpendicular per segment (recalc only on segment change).
+      // Built in metres (east, north) and turned into degrees per metre,
+      // with only the longitude scaled by cos(lat): the offset is a right
+      // angle of the stated length on every heading, which the coverage of
+      // the route cells relies on.
+      if (!this.cachedPerpValid || this.cachedPerpSegIdx !== i) {
+        const cosLat = Math.cos(current.lat * DEG_TO_RAD);
+        const east = (next.lon - current.lon) * cosLat;
+        const north = next.lat - current.lat;
+        const len = Math.sqrt(east * east + north * north);
+        if (len > 0) {
+          this.cachedOffsetLatPerM = -east / len / METERS_PER_DEGREE_LAT;
+          this.cachedOffsetLonPerM = north / len / (METERS_PER_DEGREE_LAT * cosLat);
+        } else {
+          this.cachedOffsetLatPerM = 0;
+          this.cachedOffsetLonPerM = 0;
+        }
+        this.cachedPerpSegIdx = i;
+        this.cachedPerpValid = true;
+      }
+
+      // Lateral limit here, on the side the enemy walks: the segment's
+      // own, or less on the taper from the arc or waypoint before or after
+      // it towards a narrower stretch (route-corridor.ts). The offset below
+      // points right of the direction of travel, a negative factor to the
+      // left.
+      let limit = this.laneSide.segment[i];
+      const entry = this.laneEntry[i] + profile.taper * (s - before);
+      if (entry < limit) {
+        limit = entry;
+        piece = 1;
+      }
+      const exit = this.laneExit[i] + profile.taper * (segLen - after - s);
+      if (exit < limit) {
+        limit = exit;
+        piece = 2;
+      }
+      const offsetM = this.lateralFactor * limit;
+      lat += this.cachedOffsetLatPerM * offsetM;
+      lon += this.cachedOffsetLonPerM * offsetM;
+    }
+
+    this.placedLat = lat;
+    this.placedLon = lon;
+    return piece;
+  }
+
+  /**
+   * place() on the arc waypoint `k` lies on, `s` m into segment `i`. The
+   * progress over the arc's stretch maps linearly onto its angle. The lane
+   * keeps the lateral limit at its place along the route, as on a straight
+   * stretch (ArcLimits), at most the arc's cap on its side
+   * (RouteCorners.capLeft, capRight) and less its shave there, and runs about
+   * the arc's centre, `inside` m further in than the centre line. It faces
+   * along the arc: a lane moving in or out as its limit changes would turn
+   * the heading by up to a right angle where it barely goes round.
+   */
+  private placeOnArc(k: number, i: number, s: number): number {
+    const profile = this.profile;
+    const corners = this.corners!;
+    const arc = corners.arcOf[k];
+    const from = corners.from[arc];
+    const radius = corners.radius[arc];
+    const phi = ((profile.cumulativeLength[i] + s - from) * corners.turn[arc]) / (corners.to[arc] - from);
+    const cos = Math.cos(phi);
+    const sin = Math.sin(phi);
+
+    // Offset towards the inside
+    let inside = 0;
+    if (this.lateralFactor !== 0) {
+      const taper = profile.taper;
+      const segLen = profile.segmentLengths[i];
+      // The limit from the places on this segment it is known at: its
+      // waypoints and where its straight part starts and ends
+      let limit = Math.min(
+        this.laneSide.segment[i],
+        this.laneArc[i] + taper * s,
+        this.laneArc[i + 1] + taper * (segLen - s),
+        this.laneEntry[i] + taper * Math.abs(s - Math.min(this.arcIn[i], segLen)),
+        this.laneExit[i] + taper * Math.abs(s - Math.max(0, segLen - this.arcOut[i])),
+        // The arc's cap on this side: its radius on the inside, where a
+        // lane further in would run backwards
+        this.laneSign > 0 ? corners.capRight[arc] : corners.capLeft[arc],
+      );
+      // Less its shave, rising from the arc's ends by the taper
+      const shave = this.laneSign > 0 ? corners.shaveRight[arc] : corners.shaveLeft[arc];
+      if (shave > 0) {
+        const along = profile.cumulativeLength[i] + s;
+        limit -= Math.min(shave, taper * Math.max(0, Math.min(along - from, corners.to[arc] - along)));
+      }
+      inside = this.lateralFactor * corners.inside[arc] * Math.max(0, limit);
+    }
+    // From where the arc starts: along the segment into its first waypoint
+    // and towards the inside of the turn
+    const r = radius - inside;
+    const alongLat = corners.alongLat[arc];
+    const alongLon = corners.alongLon[arc];
+    const insideLat = corners.insideLat[arc];
+    const insideLon = corners.insideLon[arc];
+    this.placedLat = corners.startLat[arc] + alongLat * r * sin + insideLat * (radius - r * cos);
+    this.placedLon = corners.startLon[arc] + alongLon * r * sin + insideLon * (radius - r * cos);
+    this.facingLat = alongLat * cos + insideLat * sin;
+    this.facingLon = alongLon * cos + insideLon * sin;
+    return ARC_PIECE;
   }
 
   /**

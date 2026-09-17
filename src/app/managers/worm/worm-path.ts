@@ -274,9 +274,10 @@ export class WormPath {
 }
 
 /**
- * Lateral limit on `side` at `s` m into segment `i`: the envelope
- * MovementComponent.advance() keeps enemies in, the segment's own limit or
- * less on the taper towards a narrower stretch (SideLimits).
+ * Lateral limit on `side` at `s` m into segment `i`: the envelope of the
+ * sharp route, the segment's own limit or less on the taper towards a
+ * narrower stretch (SideLimits.node). MovementComponent.advance() keeps
+ * other enemies within it, a little less around its corner arcs.
  */
 function limitAt(profile: RouteProfile, side: SideLimits, i: number, s: number): number {
   const segLen = profile.segmentLengths[i];

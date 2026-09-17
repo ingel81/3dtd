@@ -32,6 +32,7 @@ import { EnemyDebugService } from './enemy-debug.service';
 import { createTestManagers, TestManagers, tickEngine } from '../../integration/test-helpers';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import type { Enemy } from '../../entities/enemy.entity';
+import { getRouteProfile } from '../../utils/route-corridor';
 
 // North 111 m, then east 149 m to the HQ
 const route = [
@@ -113,12 +114,18 @@ describe('Enemy Debug places on the route and walks on from there (playtest 329)
     expect(enemy.transform.rotation).toBeCloseTo(0, 6);
     service.onStartEnemyMovement(enemy.id);
 
+    // It turns on the corner's arc (RouteCorners); off its stretch of route
+    // it keeps to the line
+    const { corners } = getRouteProfile(route);
+    const arc = corners.arcOf[1];
     let worst = 0;
     let nearestCorner = Infinity;
     const clock = { now: 0 };
     for (let t = 0; t < 20_000; t += 100) {
       tickEngine(m, 100, clock);
-      worst = Math.max(worst, offRoute(enemy.position));
+      const along = enemy.movement.getDistanceAlongPath();
+      const onArc = along > corners.from[arc] && along < corners.to[arc];
+      if (!onArc) worst = Math.max(worst, offRoute(enemy.position));
       const toCorner = Math.hypot(
         (enemy.position.lat - 48.001) * METERS_PER_DEGREE_LAT,
         (enemy.position.lon - 9.0) * M_PER_DEG_LON,
@@ -127,7 +134,9 @@ describe('Enemy Debug places on the route and walks on from there (playtest 329)
     }
 
     expect(enemy.movement.currentIndex).toBe(1);
-    expect(nearestCorner).toBeLessThan(0.5);
+    expect(arc).toBeGreaterThanOrEqual(0);
+    // The middle of the arc: radius times (1 / cos 45 degrees - 1) inside the corner
+    expect(nearestCorner).toBeCloseTo(corners.radius[arc] * (Math.SQRT2 - 1), 1);
     expect(worst).toBeLessThan(0.05);
   });
 });
