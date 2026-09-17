@@ -21,6 +21,15 @@ describe('AutoWaveCountdown', () => {
     expect(c.secondsLeft(12_000)).toBe(0);
   });
 
+  it('shows the full delay right after arming at any game clock value', () => {
+    // The clock after 391 sub-steps of 16.667 ms: deadline minus now is 10000.000000000002
+    let now = 0;
+    for (let i = 0; i < 391; i++) now += 16.667;
+    const c = new AutoWaveCountdown(10_000);
+    c.arm(now);
+    expect(c.secondsLeft(now)).toBe(10);
+  });
+
   it('stands while the game clock stands (pause)', () => {
     const c = new AutoWaveCountdown(10_000);
     c.arm(1_000);
