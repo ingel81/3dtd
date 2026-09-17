@@ -9,7 +9,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 ### Nachtests und Befunde aus dem Playtest vom 16. und 17. September
 
 Vom User im Spiel abgenommen; Punkte und Ergebnisse in `docs/archive/PLAYTEST_2026-09.md` (K2 bis K6). Gebaut von den
-Workern plinthedge, cornerarc, hqleg und innerfold, Gate grün auf `28f91f24` (5042 Tests).
+Workern plinthedge, cornerarc, hqleg, innerfold, portalclip und portalcentre, Gate grün auf `0c0b4570` (5045 Tests).
 
 - [x] **Nachtests K2 und K3**: Laden, Eichung und Rückfall (744, 746) ok; Skarnax mit Stimme, Textur, Beinen und
       Schwanz ok, Tank-Modell ok, Kragsteine an der Dachkante ok (Sockel dazu siehe C10).
@@ -25,6 +25,12 @@ Workern plinthedge, cornerarc, hqleg und innerfold, Gate grün auf `28f91f24` (5
       Boden. Audi NSU und Erlenbach BBH als Snapshot-Spec.
 - [x] **C14 Gegnerlinie faltet sich an Innenecken** (`28f91f24`): `bandPath` verwirft Stationen innen hinter dem
       Gehrungspunkt. Rest: Zwei Knicke auf einem sehr kurzen Stück können noch kurz zurückgehen.
+- [x] **C15 Flaches Spawn-Portal** (`d7c80697` bis `df27ba7d`, `9eb07e31` bis `0c0b4570`): Der Rahmen ist nur noch
+      der Bogen mit den großen Hörnern, mittig um die Portalebene, Sigillen vorn und hinten; Asset aus
+      `tools/blender/spawn_portal.py` neu gebacken. Gegner, Healthbars und Ooze werden hinter der Ebene in einer
+      Clip-Box per Shader verworfen und treten mit leuchtendem Saum heraus; rote Linie, Routen-Animation und Grid-Overlay
+      enden an der Ebene. Nur Optik. Grenzen: Drache ragt unter Skala 1,5 kurz aus der Box; eine Route, die hinter der
+      Ebene zurückläuft, verschwindet dort erneut.
 
 ## 2026-09-16
 
