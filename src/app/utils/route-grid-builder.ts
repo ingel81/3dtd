@@ -113,8 +113,10 @@ export interface SegmentCaps {
  * in route-corridor.ts). A cell holding such an enemy has its centre at
  * most half a cell diagonal away from it, and past the end of the enemy's
  * segment that is never further from the joint than the limit there plus
- * half a cell diagonal times hypot(1, taper). Those cells need the round
- * end, the rest past the joint is the other segment's.
+ * half a cell diagonal times hypot(1, taper). An enemy rounding the corner
+ * on an arc (RouteCorners) passes the joint on its outside within that
+ * limit of it. Those cells need the round end, the rest past the joint is
+ * the other segment's.
  *
  * At most `own`, the radius every end had before. With `own` at a joint
  * where the corridor narrows (a front garden ends at a house, a parking bay

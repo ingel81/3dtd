@@ -345,41 +345,63 @@ describe('MovementComponent', () => {
       movement.speedMps = 50; // ~0.83 m per step, ~27 steps on the first segment
     });
 
-    /** Steps `n` times; per step, whether lookAt ran and whether a waypoint was crossed. */
-    function walk(n: number): { looked: boolean; crossed: boolean }[] {
+    /** The step is on the arc of the corner (RouteCorners), from the distance along the path. */
+    const onArc = (): boolean => {
+      const { corners } = getRouteProfile(corner);
+      const arc = corners.arcOf[1];
+      const along = movement.getDistanceAlongPath();
+      return arc >= 0 && along > corners.from[arc] && along < corners.to[arc];
+    };
+
+    /** Steps `n` times; per step, whether lookAt ran and whether it ended on the corner's arc. */
+    function walk(n: number): { looked: boolean; arc: boolean }[] {
       const spy = vi.spyOn(transform, 'lookAt');
-      const steps: { looked: boolean; crossed: boolean }[] = [];
+      const steps: { looked: boolean; arc: boolean }[] = [];
       for (let i = 0; i < n; i++) {
         const calls = spy.mock.calls.length;
-        const idx = movement.currentIndex;
         movement.move(STEP_MS, 0);
-        steps.push({ looked: spy.mock.calls.length > calls, crossed: movement.currentIndex !== idx });
+        steps.push({ looked: spy.mock.calls.length > calls, arc: onArc() });
       }
       spy.mockRestore();
       return steps;
     }
 
-    it('derives the heading on the first two steps and around a waypoint, and holds it in between', () => {
+    it('derives the heading on the first two steps, along the corner\'s arc and off it, and holds it in between', () => {
       const steps = walk(50);
-      const cross = steps.findIndex((s) => s.crossed);
-      expect(cross).toBeGreaterThan(2);
+      const first = steps.findIndex((s) => s.arc);
+      const last = steps.length - 1 - [...steps].reverse().findIndex((s) => s.arc);
+      expect(first).toBeGreaterThan(2);
+      expect(last).toBeGreaterThan(first + 3);
 
       // Second step (first movement direction; setPath already faced the
-      // waypoint, so the first step does not), the crossing step (chord)
-      // and the first step that stays on the new segment.
+      // waypoint, so the first step does not), every step on the arc (its
+      // direction turns), the step off it (chord) and the first step that
+      // stays on the new segment.
+      const arc = Array.from({ length: last - first + 1 }, (_, k) => first + k);
       const looked = steps.flatMap((s, i) => (s.looked ? [i] : []));
-      expect(looked).toEqual([1, cross, cross + 1]);
+      expect(looked).toEqual([1, ...arc, last + 1, last + 2]);
     });
 
-    it('holds what a per-step derivation gives, up to lat/lon rounding', () => {
+    it('holds what a per-step derivation gives, up to lat/lon rounding, and faces along the arc on it', () => {
       movement.setLateralFactor(0.5); // 1.5 m of the default 3 m
+      const { corners } = getRouteProfile(corner);
+      const arc = corners.arcOf[1];
+      /** The target facing along the arc, `along` m from the start of the path. */
+      const alongArc = (along: number, lat: number, lon: number) => {
+        const phi = ((along - corners.from[arc]) * corners.turn[arc]) / (corners.to[arc] - corners.from[arc]);
+        const dLat = corners.alongLat[arc] * Math.cos(phi) + corners.insideLat[arc] * Math.sin(phi);
+        const dLon = corners.alongLon[arc] * Math.cos(phi) + corners.insideLon[arc] * Math.sin(phi);
+        return -geoHeading({ lat, lon }, { lat: lat + dLat, lon: lon + dLon });
+      };
       let prevLat = transform.position.lat;
       let prevLon = transform.position.lon;
-      let crossedAt = -1;
+      let offArcAt = -1;
+      let wasOnArc = false;
       for (let i = 0; i < 50; i++) {
-        const idx = movement.currentIndex;
         movement.move(STEP_MS, 0);
-        if (movement.currentIndex !== idx) crossedAt = i;
+        const arc = onArc();
+        if (wasOnArc && !arc) offArcAt = i;
+        wasOnArc = arc;
         const { lat, lon } = transform.position;
         if (i > 0) {
           // The target move() used to set on every step.
@@ -387,7 +409,10 @@ describe('MovementComponent', () => {
           const dLon = lon - prevLon;
           // Metric like lookAt since the cos(lat) fix; this used to pin the raw degree-delta angle
           const perStep = -geoHeading({ lat, lon }, { lat: lat + dLat, lon: lon + dLon });
-          if (i === crossedAt || i === crossedAt + 1) {
+          if (arc) {
+            // Along the arc where the step ends, not along the chord of the step
+            expect(target()).toBeCloseTo(alongArc(movement.getDistanceAlongPath(), lat, lon), 9);
+          } else if (i === offArcAt || i === offArcAt + 1) {
             expect(target()).toBe(perStep); // derived on this step, bit for bit
           } else {
             expect(Math.abs(target() - perStep)).toBeLessThan(1e-6);
@@ -396,7 +421,7 @@ describe('MovementComponent', () => {
         prevLat = lat;
         prevLon = lon;
       }
-      expect(crossedAt).toBeGreaterThan(0);
+      expect(offArcAt).toBeGreaterThan(0);
     });
 
     it('derives the heading again after the position jumps (setLateralFactor, setPath)', () => {
@@ -602,6 +627,465 @@ describe('MovementComponent', () => {
       expect(movement.getLateralFactor()).toBe(-0.4);
       movement.setLateralFactor(3);
       expect(movement.getLateralFactor()).toBe(1);
+    });
+  });
+
+  describe('corner arcs', () => {
+    const LAT = 48.776;
+    const LON = 9.183;
+    const COS = Math.cos(LAT * DEG_TO_RAD);
+    const STEP_MS = 16.667;
+    const SPEED = 5; // 8.3 cm per step
+    const LANES = [-1, -0.5, 0, 0.5, 1];
+
+    /** A waypoint `east`/`north` metres from (LAT, LON), half widths left and right of the segment it starts. */
+    const at = (east: number, north: number, left?: number, right = left): RouteWaypoint => ({
+      lat: LAT + north / METERS_PER_DEGREE_LAT,
+      lon: LON + east / (METERS_PER_DEGREE_LAT * COS),
+      corridorLeft: left,
+      corridorRight: right,
+    });
+
+    /** Metres east and north of (LAT, LON), flat, as the lanes are offset. */
+    const metres = (p: { lat: number; lon: number }) => ({
+      e: (p.lon - LON) * METERS_PER_DEGREE_LAT * COS,
+      n: (p.lat - LAT) * METERS_PER_DEGREE_LAT,
+    });
+
+    /** A route through the `points` (metres east, north), each segment `left`/`right` wide. */
+    const route = (points: [number, number][], left?: number, right = left): RouteWaypoint[] =>
+      points.map(([e, n]) => at(e, n, left, right));
+
+    /** Points from (east, north) on, `lengths` apart, each turning `turns` degrees (right positive) from the heading before. */
+    function polyline(east: number, north: number, heading: number, lengths: number[], turns: number[]): [number, number][] {
+      const points: [number, number][] = [[east, north]];
+      let h = heading;
+      lengths.forEach((length, i) => {
+        h += ((turns[i] ?? 0) * Math.PI) / 180;
+        east += length * Math.sin(h);
+        north += length * Math.cos(h);
+        points.push([east, north]);
+      });
+      return points;
+    }
+
+    /** How far apart two headings are, radians, 0 to pi. */
+    const turned = (a: number, b: number) => {
+      let d = a - b;
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d <= -Math.PI) d += 2 * Math.PI;
+      return Math.abs(d);
+    };
+
+    const targetOf = (transform: TransformComponent) =>
+      (transform as unknown as { targetRotation: number }).targetRotation;
+
+    interface Walk {
+      /** Per step: how far it moved (m), how far its progress along the path went (m), how far its heading target turned (rad) */
+      steps: { moved: number; progress: number; turned: number }[];
+      positions: { e: number; n: number }[];
+      rotation: number;
+    }
+
+    /** Walk `path` in lane `factor` at SPEED to the end. */
+    function walkLane(path: RouteWaypoint[], factor: number, roundsCorners = true): Walk {
+      const walker = new TestGameObject();
+      const walking = new MovementComponent(walker, roundsCorners);
+      const transform = walker.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+      walking.setLateralFactor(factor);
+      walking.setPath(path);
+      walking.speedMps = SPEED;
+      // The first step moves from the centre line into the lane
+      walking.move(STEP_MS, 0);
+      let last = metres(transform.position);
+      let heading = targetOf(transform);
+      let distance = walking.getDistanceAlongPath();
+      const result: Walk = { steps: [], positions: [last], rotation: 0 };
+      for (let i = 0; i < 100_000 && walking.move(STEP_MS, 0) === 'moving'; i++) {
+        const here = metres(transform.position);
+        result.steps.push({
+          moved: Math.hypot(here.e - last.e, here.n - last.n),
+          progress: walking.getDistanceAlongPath() - distance,
+          turned: turned(targetOf(transform), heading),
+        });
+        result.positions.push(here);
+        last = here;
+        heading = targetOf(transform);
+        distance = walking.getDistanceAlongPath();
+      }
+      result.rotation = heading;
+      return result;
+    }
+
+    /**
+     * The heading a step may turn at once beyond what the arcs turn it. On an
+     * arc an enemy faces along it; the step off the arc faces along its
+     * chord, which a lane still moving in or out, by up to the taper, tilts.
+     */
+    const jolt = (path: RouteWaypoint[]) => Math.atan(getRouteProfile(path).taper);
+
+    /**
+     * The steps of `walk` that move further than `speed` or turn further
+     * than `turn` per metre of progress, `jolt` rad of turn at once aside.
+     * Per metre of progress, not per step: advance() carries the share of a
+     * segment it overshoots onto the next one, so a step onto a longer
+     * segment goes further along the path, as it did before the arcs.
+     */
+    function beyond(walk: Walk, speed: number, turn: number, jolt = 0): string[] {
+      return walk.steps.flatMap(({ moved, progress, turned: t }, i) => [
+        ...(moved > speed * progress + 1e-9 ? [`step ${i} moved ${moved.toFixed(3)} m for ${progress.toFixed(3)} m`] : []),
+        ...(t > turn * progress + jolt + 1e-9 ? [`step ${i} turned ${t.toFixed(3)} rad for ${progress.toFixed(3)} m`] : []),
+      ]);
+    }
+
+    /**
+     * Fastest a lane may move per metre of progress on `path`. On an arc a
+     * lane `e` m inside runs (R - e) times the angle per metre and changes
+     * its offset by at most the taper: at most (R + o) * turn / length +
+     * taper, with `o` the widest outer limit over the arc. Off the arcs
+     * hypot(1, taper). All up to the flat metres of the lanes against the
+     * haversine ones of progress.
+     */
+    function speedBound(path: RouteWaypoint[]): number {
+      const profile = getRouteProfile(path);
+      const { corners, segmentLengths, cumulativeLength, taper } = profile;
+      let bound = Math.hypot(1, taper);
+      for (let g = 0; g < corners.radius.length; g++) {
+        const outer = corners.inside[g] > 0 ? profile.left : profile.right;
+        let widest = 0;
+        for (let i = 0; i < segmentLengths.length; i++) {
+          if (cumulativeLength[i + 1] >= corners.from[g] && cumulativeLength[i] <= corners.to[g]) {
+            widest = Math.max(widest, outer.segment[i]);
+          }
+        }
+        const rate = corners.turn[g] / (corners.to[g] - corners.from[g]);
+        bound = Math.max(bound, (corners.radius[g] + widest) * rate + taper);
+      }
+      return bound * 1.002;
+    }
+
+    /** Fastest the heading may turn per metre of progress: on an arc its turn over its stretch of route. */
+    function turnBound(path: RouteWaypoint[]): number {
+      const { corners } = getRouteProfile(path);
+      let bound = 0;
+      for (let g = 0; g < corners.radius.length; g++) {
+        bound = Math.max(bound, corners.turn[g] / (corners.to[g] - corners.from[g]));
+      }
+      return bound * 1.01;
+    }
+
+    it('rounds a right angle to either side without a jump, in every lane', () => {
+      // 40 m north, then 40 m east (a right turn) or west (a left turn)
+      for (const east of [40, -40]) {
+        const path = route([[0, 0], [0, 40], [east, 40]]);
+        const { corners } = getRouteProfile(path);
+        expect(corners.arcOf[1]).toBe(0);
+        expect(corners.inside[0]).toBe(east > 0 ? 1 : -1);
+        for (const factor of LANES) {
+          const walk = walkLane(path, factor);
+          // Before: a lane 3 m off the line jumped 4.2 m at the waypoint, and
+          // the heading turned by up to 90 degrees in one step.
+          expect(beyond(walk, speedBound(path), turnBound(path), jolt(path)), `${east} ${factor}`).toEqual([]);
+          expect(turned(walk.rotation, east > 0 ? -Math.PI / 2 : Math.PI / 2), `${east} ${factor}`).toBeLessThan(1e-6);
+        }
+      }
+    });
+
+    it('holds the formation: every lane goes round the same centre, the inner one the short way, the outer one the long way', () => {
+      const path = route([[0, 0], [0, 40], [40, 40]]);
+      const { corners } = getRouteProfile(path);
+      const limit = lateralLimit(corridorConfig.defaultHalfWidth);
+      // Even widths: the radius at least the inner limit, and the outside keeps all of its room
+      expect(corners.radius[0]).toBeGreaterThanOrEqual(limit - 1e-9);
+      expect(corners.shaveLeft[0]).toBe(0);
+
+      const onArc = (factor: number) => {
+        const walker = new TestGameObject();
+        const walking = new MovementComponent(walker);
+        const transform = walker.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+        walking.setLateralFactor(factor);
+        walking.setPath(path);
+        walking.advance(corners.from[0]);
+        const start = targetOf(transform);
+        let last = metres(transform.position);
+        let length = 0;
+        // Up to the end of the arc; the straight after it starts 21 um further
+        // east, where the waypoint's cos(lat) scales the longitude
+        const stepM = (corners.to[0] - corners.from[0]) / 200;
+        for (let i = 0; i < 199; i++) {
+          walking.advance(stepM);
+          const here = metres(transform.position);
+          length += Math.hypot(here.e - last.e, here.n - last.n);
+          last = here;
+        }
+        return { length, turn: turned(targetOf(transform), start) };
+      };
+      // Right is the inside. Turned by the angle of 199 of 200 steps, in every lane.
+      const turn = (Math.PI / 2) * (199 / 200);
+      const radius = corners.radius[0];
+      for (const factor of [-1, 0, 1]) expect(onArc(factor).turn).toBeCloseTo(turn, 6);
+      expect(onArc(0).length).toBeCloseTo(turn * radius, 3);
+      expect(onArc(-1).length).toBeCloseTo(turn * (radius + limit), 3);
+      // The inner lane gives up its shave in the middle of the arc, and moves
+      // out to the limit again towards its ends
+      const inner = onArc(1).length;
+      expect(inner).toBeGreaterThanOrEqual(turn * (radius - limit) - 1e-9);
+      expect(inner).toBeLessThan(onArc(0).length);
+    });
+
+    it('leaves the progress along the path as it was, every step', () => {
+      const path = route([[0, 0], [0, 40], [40, 40], [40, 80], [0, 110]], 3, 6);
+      for (const factor of [-1, 0, 1]) {
+        const rounding = new MovementComponent(new TestGameObject());
+        const sharp = new MovementComponent(new TestGameObject(), false);
+        for (const walking of [rounding, sharp]) {
+          walking.setLateralFactor(factor);
+          walking.setPath(path);
+          walking.speedMps = SPEED;
+        }
+        let steps = 0;
+        for (;;) {
+          const a = rounding.move(STEP_MS, 0);
+          const b = sharp.move(STEP_MS, 0);
+          expect(a).toBe(b);
+          expect(rounding.currentIndex).toBe(sharp.currentIndex);
+          expect(rounding.progress).toBe(sharp.progress);
+          expect(rounding.getPathProgress()).toBe(sharp.getPathProgress());
+          if (a === 'reached_end') break;
+          steps++;
+        }
+        expect(steps).toBeGreaterThan(1000);
+      }
+    });
+
+    it('stands where the progress puts it, whatever the steps that led there', () => {
+      const path = route([[0, 0], [0, 40], [30, 45]], 4, 6);
+      const { cumulativeLength } = getRouteProfile(path);
+      const to = cumulativeLength[1] + 0.7; // on the arc
+      const places = [0.01, 0.37, 2.5].map((stepM) => {
+        const walker = new TestGameObject();
+        const walking = new MovementComponent(walker);
+        walking.setLateralFactor(-0.8);
+        walking.setPath(path);
+        const whole = Math.floor(to / stepM);
+        for (let i = 0; i < whole; i++) walking.advance(stepM);
+        walking.advance(to - walking.getDistanceAlongPath());
+        return metres(walker.getComponent<TransformComponent>(ComponentType.TRANSFORM)!.position);
+      });
+      for (const place of places.slice(1)) {
+        expect(place.e).toBeCloseTo(places[0].e, 6);
+        expect(place.n).toBeCloseTo(places[0].n, 6);
+      }
+    });
+
+    it('rounds a corner the band lays, with pieces of 1 m and small wiggles around it, on one wide arc', () => {
+      // Stations every 2 m wiggling by half a degree either way, 1 m from the
+      // corner to the stations beside it (bandPath)
+      const wiggles = (n: number) => Array.from({ length: n }, (_, i) => (i % 2 ? 0.5 : -0.5));
+      const points = polyline(0, 0, 0, [...new Array(15).fill(2), 1, 1, ...new Array(15).fill(2)], [
+        ...wiggles(15), 0, 90, ...wiggles(15),
+      ]);
+      const path = route(points);
+      const { corners, segmentLengths } = getRouteProfile(path);
+      const corner = 16;
+      const arc = corners.arcOf[corner];
+      expect(arc).toBeGreaterThanOrEqual(0);
+      // One arc over the pieces beside the corner, not half of a 1 m piece
+      expect(corners.arcOf[corner - 1]).toBe(arc);
+      expect(corners.arcOf[corner + 1]).toBe(arc);
+      expect(corners.turn[arc]).toBeCloseTo(Math.PI / 2, 1);
+      const halfPiece = (segmentLengths[corner] / 2) / Math.tan(Math.PI / 4);
+      expect(corners.radius[arc]).toBeGreaterThan(4 * halfPiece);
+      expect(outsideLimits(path)).toEqual([]);
+      for (const factor of LANES) {
+        expect(beyond(walkLane(path, factor), speedBound(path), turnBound(path), jolt(path)), `${factor}`).toEqual([]);
+      }
+      // The outer lane runs at most about two and a half times as fast through it
+      expect(speedBound(path)).toBeLessThan(2.6);
+    });
+
+    it('follows a curve of small kinks on arcs wider than the limit', () => {
+      // 90 degrees to the right in twelve kinks of 7.5 degrees, 4 m apart: a
+      // curve of about 30 m radius
+      const path = route(polyline(0, 0, 0, [20, ...new Array(12).fill(4), 20], [0, ...new Array(12).fill(7.5), 0]), 4, 6);
+      const { corners } = getRouteProfile(path);
+      expect(corners.radius.length).toBeGreaterThan(0);
+      expect(corners.radius.length).toBeLessThan(12);
+      expect(Math.max(...corners.radius)).toBeGreaterThan(4 * lateralLimit(6));
+      for (const factor of LANES) {
+        // Before: 0.3 to 0.6 m sideways at each kink in one step
+        expect(beyond(walkLane(path, factor), speedBound(path), turnBound(path), jolt(path)), `${factor}`).toEqual([]);
+      }
+    });
+
+    it('keeps the arcs of an S-bend apart', () => {
+      // 45 degrees right, 3 m on, 45 degrees left
+      const path = route(polyline(0, 0, 0, [30, 3, 30], [0, 45, -45]));
+      const { corners } = getRouteProfile(path);
+      expect(corners.radius.length).toBe(2);
+      expect(corners.arcOf[1]).not.toBe(corners.arcOf[2]);
+      expect(corners.inside[corners.arcOf[1]]).toBe(1);
+      expect(corners.inside[corners.arcOf[2]]).toBe(-1);
+      expect(corners.to[corners.arcOf[1]]).toBeLessThanOrEqual(corners.from[corners.arcOf[2]] + 1e-9);
+    });
+
+    it('fits the arcs of two corners onto a short segment between them', () => {
+      // North 30 m, 2 m east, north again: a right and a left turn
+      const path = route([[0, 0], [0, 30], [2, 30], [2, 60]]);
+      const profile = getRouteProfile(path);
+      const { corners } = profile;
+      const half = profile.segmentLengths[1] / 2;
+      expect(corners.arcIn[1]).toBeCloseTo(half, 9);
+      expect(corners.arcOut[1]).toBeCloseTo(half, 9);
+      // The clamp leaves a radius of about half the segment, 1 m, and the
+      // lanes on the inside that much room over the arc
+      const [right, left] = [corners.arcOf[1], corners.arcOf[2]];
+      expect(corners.radius[right]).toBeCloseTo(1, 2);
+      expect(corners.capRight[right]).toBe(corners.radius[right]);
+      expect(corners.capLeft[left]).toBe(corners.radius[left]);
+
+      for (const factor of LANES) {
+        // Where the taper towards the arcs starts and ends, a lane turns by up
+        // to atan(taper) at once, as at any taper
+        expect(beyond(walkLane(path, factor), speedBound(path), turnBound(path), jolt(path)), `${factor}`).toEqual([]);
+      }
+    });
+
+    /**
+     * Places on the arcs of `path` no limit of the sharp route holds, for
+     * every lane: beside a segment, over a point of it, within the limit
+     * there on its side, or past a waypoint within the limit of the outside
+     * of its turn.
+     */
+    function outsideLimits(path: RouteWaypoint[]): string[] {
+      const profile = getRouteProfile(path);
+      const { corners, segmentLengths, cumulativeLength, taper } = profile;
+      const limitAt = (side: 'left' | 'right', i: number, s: number) => Math.min(
+        profile[side].segment[i], profile[side].node[i] + taper * s, profile[side].node[i + 1] + taper * (segmentLengths[i] - s),
+      );
+      const points = path.map(metres);
+      const found: string[] = [];
+      for (let g = 0; g < corners.radius.length; g++) {
+        for (const factor of [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]) {
+          const walker = new TestGameObject();
+          const walking = new MovementComponent(walker);
+          const transform = walker.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+          walking.setLateralFactor(factor);
+          for (let j = 0; j <= 40; j++) {
+            const s = corners.from[g] + ((corners.to[g] - corners.from[g]) * j) / 40;
+            let i = 0;
+            while (i < segmentLengths.length - 1 && s > cumulativeLength[i + 1]) i++;
+            walking.setPath(path, i, (s - cumulativeLength[i]) / segmentLengths[i]);
+            const q = metres(transform.position);
+            let held = false;
+            for (let seg = 0; seg < segmentLengths.length && !held; seg++) {
+              const a = points[seg];
+              const b = points[seg + 1];
+              const length = Math.hypot(b.e - a.e, b.n - a.n);
+              const ue = (b.e - a.e) / length;
+              const un = (b.n - a.n) / length;
+              const along = (q.e - a.e) * ue + (q.n - a.n) * un;
+              const right = (q.e - a.e) * un - (q.n - a.n) * ue;
+              // Up to a tenth of a millimetre past its ends: an arc that starts or ends where the path does
+              if (along < -1e-4 || along > length + 1e-4) continue;
+              const foot = (Math.min(length, Math.max(0, along)) / length) * segmentLengths[seg];
+              held = Math.abs(right) <= limitAt(right < 0 ? 'left' : 'right', seg, foot) + 1e-3;
+            }
+            for (let k = 1; k < path.length - 1 && !held; k++) {
+              const [a, w, b] = [points[k - 1], points[k], points[k + 1]];
+              const inE = w.e - a.e;
+              const inN = w.n - a.n;
+              const outE = b.e - w.e;
+              const outN = b.n - w.n;
+              // Past the end of the segment into it and before the start of the one out of it
+              const beyondIn = (q.e - w.e) * inE + (q.n - w.n) * inN >= 0;
+              const beforeOut = (q.e - w.e) * outE + (q.n - w.n) * outN <= 0;
+              // A right turn has its outside on the left
+              const outside = inE * outN - inN * outE < 0 ? 'left' : 'right';
+              held = beyondIn && beforeOut && Math.hypot(q.e - w.e, q.n - w.n) <= profile[outside].node[k] + 1e-3;
+            }
+            if (!held) found.push(`arc ${g} lane ${factor} at ${s.toFixed(2)} m`);
+          }
+        }
+      }
+      return found;
+    }
+
+    it('keeps every lane within the lateral limit of the sharp route through a corner', () => {
+      // Place by place: angles from 10 to 170 degrees both ways, the inner
+      // side narrower and wider, no room inside at all, a short and a long
+      // segment into the corner after a stretch that narrows both sides.
+      const problems: string[] = [];
+      let arcs = 0;
+      for (const degrees of [10, 45, 90, 135, 170]) {
+        for (const sign of [1, -1]) {
+          for (const [inner, outer] of [[2, 7], [4.5, 4.5], [7, 2], [1.5, 6]]) {
+            for (const lengthIn of [3, 12]) {
+              // A right turn (sign 1) has its inside on the right
+              const [left, right] = sign > 0 ? [outer, inner] : [inner, outer];
+              const path = route(polyline(0, -40, 0, [40, lengthIn, 30], [0, 0, sign * degrees]), left, right);
+              path[0].corridorLeft = 3;
+              path[0].corridorRight = 3;
+              arcs += getRouteProfile(path).corners.radius.length;
+              problems.push(...outsideLimits(path).map((p) => `${degrees * sign} ${inner}/${outer} ${lengthIn}: ${p}`));
+            }
+          }
+        }
+      }
+      expect(problems).toEqual([]);
+      expect(arcs).toBe(60); // all but the corners without room inside
+    });
+
+    it('keeps every lane within the lateral limit of the sharp route along curves and wiggles', () => {
+      // Deterministic pseudo-random polylines of short pieces, as the band lays them
+      let seed = 4242;
+      const random = () => {
+        seed = (seed * 1103515245 + 12345) % 2147483648;
+        return seed / 2147483648;
+      };
+      const problems: string[] = [];
+      let arcs = 0;
+      for (let r = 0; r < 12; r++) {
+        const lengths = Array.from({ length: 30 }, () => 0.5 + random() * 2.5);
+        const bend = (random() - 0.5) * 30;
+        const turns = lengths.map(() => bend * random() + (random() - 0.5) * 6);
+        const path = route(polyline(0, 0, random() * 6, lengths, turns));
+        path.forEach((w) => {
+          w.corridorLeft = 1 + random() * 6;
+          w.corridorRight = 1 + random() * 6;
+        });
+        arcs += getRouteProfile(path).corners.radius.length;
+        problems.push(...outsideLimits(path).map((p) => `route ${r}: ${p}`));
+      }
+      expect(problems).toEqual([]);
+      expect(arcs).toBeGreaterThan(50);
+    });
+
+    it('puts a start part-way along the path on the arc, where walking there puts it', () => {
+      const path = route([[0, 0], [0, 40], [40, 40]], 5);
+      const { cumulativeLength } = getRouteProfile(path);
+      const walker = new TestGameObject();
+      const walking = new MovementComponent(walker);
+      walking.setLateralFactor(0.6);
+      walking.setPath(path);
+      walking.advance(cumulativeLength[1] + 1);
+
+      const child = new TestGameObject();
+      const split = new MovementComponent(child);
+      split.setLateralFactor(0.6);
+      split.setPath(path, walking.currentIndex, walking.progress);
+      const a = walker.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+      const b = child.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+      expect(b.position.lat).toBe(a.position.lat);
+      expect(b.position.lon).toBe(a.position.lon);
+      expect(targetOf(b)).toBe(targetOf(a));
+    });
+
+    it('walks the sharp line where it does not round corners (the hero)', () => {
+      const path = route([[0, 0], [0, 40], [40, 40]]);
+      const walk = walkLane(path, 0, false);
+      const corner = Math.min(...walk.positions.map((p) => Math.hypot(p.e, p.n - 40)));
+      expect(corner).toBeLessThan(SPEED * (STEP_MS / 1000));
     });
   });
 
