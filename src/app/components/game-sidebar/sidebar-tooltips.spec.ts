@@ -5,8 +5,8 @@ import { EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.con
 import { EnemyTypeId } from '../../configs/enemy-types.config';
 import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 
-const noResearch: TowerCardTooltipContext = { researchCenterPlaced: false, airTargetingUnlocked: false };
-const aaUnlocked: TowerCardTooltipContext = { researchCenterPlaced: true, airTargetingUnlocked: true };
+const noResearch: TowerCardTooltipContext = { alreadyPlaced: false, airTargetingUnlocked: false };
+const aaUnlocked: TowerCardTooltipContext = { alreadyPlaced: true, airTargetingUnlocked: true };
 
 function group(enemyType: EnemyTypeId, overrides: Partial<WaveGroupDisplay> = {}): WaveGroupDisplay {
   return {

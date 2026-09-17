@@ -13,9 +13,10 @@ import { TdTooltipData } from '../tooltip/tooltip-data.types';
  * die Komponente ihn aus dem Store liest und OnPush die Abhängigkeit sieht.
  */
 
-/** Research-Zustand, von dem der Tower-Karten-Tooltip abhängt. */
+/** Spielzustand, von dem der Tower-Karten-Tooltip abhängt. */
 export interface TowerCardTooltipContext {
-  researchCenterPlaced: boolean;
+  /** A one-per-map building of the card's type stands already (isPlacedUnique) */
+  alreadyPlaced: boolean;
   airTargetingUnlocked: boolean;
   /** Number key that picks the card, null or absent past the ninth card */
   hotkey?: string | null;
@@ -61,15 +62,14 @@ export function towerCardTooltip(
   tower: TowerTypeConfig,
   ctx: TowerCardTooltipContext,
 ): TdTooltipData {
-  if (tower.id === 'research-center') {
+  // A passive building has no combat stats: what it does, or that it stands
+  if (tower.attackType === 'passive') {
     return {
-      title: 'Research Center',
+      title: tower.name,
       category: 'STRUCTURE',
       hotkey: ctx.hotkey ?? undefined,
       accent: 'gold',
-      flavor: ctx.researchCenterPlaced
-        ? 'Already placed.'
-        : 'Unlocks new towers and upgrade tiers.',
+      flavor: ctx.alreadyPlaced ? 'Already placed.' : tower.description,
     };
   }
   const dmgUi = DAMAGE_TYPE_UI[tower.damageType];

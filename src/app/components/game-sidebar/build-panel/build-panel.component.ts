@@ -18,7 +18,7 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
 import { TOWER_TYPES, TowerTypeConfig, TowerTypeId } from '../../../configs/tower-types.config';
 import { canTargetAirEffective } from '../../../entities/tower-targeting.util';
-import { canPickTowerCard } from '../../../utils/player-actions';
+import { canPickTowerCard, isPlacedUnique } from '../../../utils/player-actions';
 import { towerSlotKey } from '../../../services/hotkey-map';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
 import { TowerDebugService } from '../../../services/debug/tower-debug.service';
@@ -86,7 +86,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
     return canPickTowerCard(tower, {
       credits: this.store.credits(),
       gameOver: this.isGameOver(),
-      researchCenterPlaced: this.isResearchCenterPlaced(),
+      placedUnique: this.store.placedUniqueTypes(),
       isUnlocked: (id) => this.isTowerUnlocked(id),
     });
   }
@@ -158,14 +158,15 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   /** Rich tooltip of a tower card, built in sidebar-tooltips.ts. */
   getTowerCardTooltipData(tower: TowerTypeConfig, index: number): TdTooltipData {
     return towerCardTooltip(tower, {
-      researchCenterPlaced: this.isResearchCenterPlaced(),
+      alreadyPlaced: this.isPlacedUnique(tower),
       airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
       hotkey: towerSlotKey(index),
     });
   }
 
-  isResearchCenterPlaced(): boolean {
-    return this.researchStore.centerPlaced();
+  /** A one-per-map building of this type stands already: its card looks disabled. */
+  isPlacedUnique(tower: TowerTypeConfig): boolean {
+    return isPlacedUnique(tower, this.store.placedUniqueTypes());
   }
 
   // Canvas refs for previews

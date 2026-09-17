@@ -118,6 +118,7 @@ function createStubService(name: string): Record<string, unknown> {
 import { effect, signal } from '@angular/core';
 import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { TOWER_TYPES } from '../configs/tower-types.config';
 import { getResearch } from '../configs/research/research-tree.config';
 import { GameEventBus } from '../game-engine';
 import { skippedWavesGold } from '../services/economy.service';
@@ -413,6 +414,19 @@ describe('GameStateManager', () => {
           [position, 'archer', 0.5, 1.5, [3, 4]],
           [position, 'archer', 0, 0, []],
         ]);
+      });
+
+      it('refuses a second one-per-map building while the first stands, and takes no credits for it', () => {
+        const typeId = 'research-center';
+        expect(TOWER_TYPES[typeId].unique).toBe(true);
+        const first = gsm.placeTower(BASE_POSITION, typeId);
+        expect(first).not.toBeNull();
+        const credits = gsm.credits();
+        expect(gsm.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, typeId)).toBeNull();
+        expect(gsm.credits()).toBe(credits);
+
+        gsm.sellTower(first!);
+        expect(gsm.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, typeId)).not.toBeNull();
       });
 
       it('towerCount counts the towers standing now, also when read before the first one', () => {

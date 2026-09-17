@@ -20,7 +20,7 @@
           @if (isTowerUnlocked(tower.id)) {
             <!-- Unlocked tower, normal card -->
             <button class="td-tower-card"
-                    [class.disabled]="store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
+                    [class.disabled]="store.credits() < tower.cost || isPlacedUnique(tower)"
                     [disabled]="!canPick(tower)"
                     [attr.aria-keyshortcuts]="slotKey(i)"
                     (click)="selectTower.emit(tower.id)"

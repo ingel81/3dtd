@@ -33,9 +33,6 @@ export class ResearchStore {
   /** Maximum concurrent research slots */
   readonly researchSlots = signal<number>(1);
 
-  /** Whether the Research Center has been placed */
-  readonly centerPlaced = computed(() => this.centerLevel() > 0);
-
   /** Number of available (free) research slots */
   readonly availableSlots = computed(() =>
     Math.max(0, this.researchSlots() - this.activeResearches().length)

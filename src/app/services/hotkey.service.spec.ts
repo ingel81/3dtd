@@ -116,6 +116,7 @@ describe('HotkeyService', () => {
     credits: signal(10_000),
     canStartWave: signal(true),
     isGameOver: signal(false),
+    placedUniqueTypes: signal(new Set<string>()),
     baseCoords: signal({ lat: 48.7, lon: 9.1 }),
     spawnPoints: signal([{ lat: 48.71, lon: 9.1 }, { lat: 48.69, lon: 9.12 }]),
   };
@@ -127,7 +128,6 @@ describe('HotkeyService', () => {
     selectedTowerType: signal<string | null>(null),
   };
   const research = {
-    centerPlaced: signal(false),
     maxUpgradeTier: signal(1),
     isTowerUnlocked: (id: string) => id === 'archer' || id === 'research-center',
   };

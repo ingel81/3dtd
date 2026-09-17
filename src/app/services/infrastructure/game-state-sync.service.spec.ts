@@ -24,6 +24,7 @@ import { GameStore } from '../../store/game.store';
 import { UIStore } from '../../store/ui.store';
 import { EngineStore } from '../../store/engine.store';
 import { LocationStore } from '../../store/location.store';
+import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
 
 /**
  * Echter Service-Test: instantiates GameStateSyncService und prüft, dass die
@@ -208,11 +209,14 @@ describe('GameStateSyncService (real service)', () => {
 
   // ── Tower lifecycle ────────────────────────────────────────────
   describe('tower events', () => {
+    const towerOf = (id: string, typeId: TowerTypeId = 'archer') =>
+      ({ id, typeConfig: TOWER_TYPES[typeId] }) as never;
+
     it('tower:placed → towerCount++', () => {
       expect(store.towerCount()).toBe(0);
       eventBus.emit({
         type: 'tower:placed',
-        tower: {} as never,
+        tower: towerOf('t1'),
         position: { lat: 0, lon: 0 },
         cost: 100,
       });
@@ -221,20 +225,37 @@ describe('GameStateSyncService (real service)', () => {
 
     it('tower:sold → towerCount--', () => {
       store.towerCount.set(3);
-      eventBus.emit({ type: 'tower:sold', tower: { id: 't1' } as never, refund: 50 });
+      eventBus.emit({ type: 'tower:sold', tower: towerOf('t1'), refund: 50 });
       expect(store.towerCount()).toBe(2);
     });
 
+    it('tracks the one-per-map buildings standing, and only those', () => {
+      const place = (id: string, typeId: TowerTypeId) =>
+        eventBus.emit({ type: 'tower:placed', tower: towerOf(id, typeId), position: { lat: 0, lon: 0 }, cost: 0 });
+      place('a1', 'archer');
+      place('rc', 'research-center');
+      expect([...store.placedUniqueTypes()]).toEqual(['research-center']);
+
+      eventBus.emit({ type: 'tower:sold', tower: towerOf('a1'), refund: 0 });
+      expect([...store.placedUniqueTypes()]).toEqual(['research-center']);
+      eventBus.emit({ type: 'tower:sold', tower: towerOf('rc', 'research-center'), refund: 0 });
+      expect(store.placedUniqueTypes().size).toBe(0);
+
+      place('rc2', 'research-center');
+      eventBus.emit({ type: 'game:reset' });
+      expect(store.placedUniqueTypes().size).toBe(0);
+    });
+
     it('tower:sold clears selectedTower if it matches', () => {
-      const tower = { id: 'sold-1' } as never;
+      const tower = towerOf('sold-1');
       store.selectedTower.set(tower);
       eventBus.emit({ type: 'tower:sold', tower, refund: 50 });
       expect(store.selectedTower()).toBeNull();
     });
 
     it('tower:sold leaves selectedTower if a different tower was selected', () => {
-      const selected = { id: 'keep-me' } as never;
-      const sold = { id: 'sell-me' } as never;
+      const selected = towerOf('keep-me');
+      const sold = towerOf('sell-me');
       store.selectedTower.set(selected);
       eventBus.emit({ type: 'tower:sold', tower: sold, refund: 50 });
       expect(store.selectedTower()).toBe(selected);
@@ -242,7 +263,7 @@ describe('GameStateSyncService (real service)', () => {
 
     it('towerCount cannot go below 0', () => {
       store.towerCount.set(0);
-      eventBus.emit({ type: 'tower:sold', tower: {} as never, refund: 0 });
+      eventBus.emit({ type: 'tower:sold', tower: towerOf('t1'), refund: 0 });
       expect(store.towerCount()).toBe(0);
     });
 

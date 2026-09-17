@@ -115,6 +115,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
             credits: signal(10_000),
             canStartWave: signal(true),
             isGameOver: signal(false),
+            placedUniqueTypes: signal(new Set()),
             baseCoords: signal(HQ),
             spawnPoints: signal([{ lat: 48.71, lon: 9.1 }]),
           },
@@ -133,7 +134,6 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
         {
           provide: ResearchStore,
           useValue: {
-            centerPlaced: signal(false),
             maxUpgradeTier: signal(1),
             isTowerUnlocked: (id: string) => id === 'archer' || id === 'research-center',
           },

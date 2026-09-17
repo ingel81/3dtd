@@ -128,6 +128,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
             credits: ledger.credits,
             canStartWave: signal(false),
             isGameOver: signal(false),
+            placedUniqueTypes: signal(new Set()),
           },
         },
         { provide: GameStore, useValue: { paused: signal(false), trainingTimescale: signal(1) } },
@@ -138,7 +139,6 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
         {
           provide: ResearchStore,
           useValue: {
-            centerPlaced: () => research.centerLevel > 0,
             maxUpgradeTier: () => research.getMaxUpgradeTier(),
             isTowerUnlocked: () => true,
           },

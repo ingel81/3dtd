@@ -70,10 +70,9 @@ export class TowerLifecycle {
       return null;
     }
 
-    // Research Center: only one allowed
-    if (typeId === 'research-center') {
-      const existing = this.towerManager.getAll().find(t => t.typeConfig.id === 'research-center');
-      if (existing) return null;
+    // A one-per-map building (the Research Center): not while one stands
+    if (config.unique && this.towerManager.getAll().some(t => t.typeConfig.id === typeId)) {
+      return null;
     }
 
     // Check if player has enough credits

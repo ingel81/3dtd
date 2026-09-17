@@ -9,15 +9,21 @@ import { TowerTypeConfig, TowerTypeId, UpgradeId, requiredUpgradeTier } from '..
 export interface TowerCardContext {
   credits: number;
   gameOver: boolean;
-  researchCenterPlaced: boolean;
+  /** The one-per-map buildings standing on the map (GameStore.placedUniqueTypes) */
+  placedUnique: ReadonlySet<TowerTypeId>;
   isUnlocked: (id: TowerTypeId) => boolean;
 }
 
-/** A build card can be picked: unlocked, affordable, and at most one Research Center. */
+/** A build card can be picked: unlocked, affordable, and a one-per-map building only while none stands. */
 export function canPickTowerCard(tower: TowerTypeConfig, ctx: TowerCardContext): boolean {
   if (ctx.gameOver || !ctx.isUnlocked(tower.id)) return false;
   if (ctx.credits < tower.cost) return false;
-  return !(tower.id === 'research-center' && ctx.researchCenterPlaced);
+  return !isPlacedUnique(tower, ctx.placedUnique);
+}
+
+/** A one-per-map building (TowerTypeConfig.unique) of this type stands already. */
+export function isPlacedUnique(tower: TowerTypeConfig, placedUnique: ReadonlySet<TowerTypeId>): boolean {
+  return tower.unique === true && placedUnique.has(tower.id);
 }
 
 /** The parts of a tower that upgrade picking reads (the entity, or a stub in tests). */
