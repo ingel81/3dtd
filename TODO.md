@@ -21,6 +21,10 @@ Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
 
 ## Später (Backlog)
 
+- [ ] **C16 Zufalls-Spawn-Portal noch schräg** (User, 2026-09-17, Amsterdam "Westerstraat", nicht reproduziert): Trotz
+      Verschieben auf ein gerades Stück (`cbdec4e5`) stand ein Portal schräg. Vermutungen: gerades Stück zu kurz (nur
+      bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
+      zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
 - [ ] **C11 Tank in der Sidebar-Vorschau** nicht zu erkennen und nicht einstellbar, nachrangig (Nachtest K3.3).
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
