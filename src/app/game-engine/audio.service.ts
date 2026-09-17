@@ -1,10 +1,16 @@
-import { Vector3 } from 'three';
+import { Vector3, type PositionalAudio } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
-import { ABILITY_IMPACT_SOUNDS, type AbilityBeamSound, type AbilityImpactSample } from '../configs/audio.config';
+import {
+  ABILITY_IMPACT_SOUNDS,
+  type AbilityBeamSound,
+  type AbilityImpactSample,
+  type AbilityLaunchSound,
+} from '../configs/audio.config';
 import { ABILITIES, abilityBeamBurnMs, type AbilityId } from '../configs/abilities.config';
 import type { SpatialSoundConfig } from '../managers/audio/spatial-audio.manager';
 import type { GeoPosition } from '../models/game.types';
+import { MissileFlight, planMissileLaunch } from '../utils/missile-flight';
 
 /** A repeat of an impact sound still to come (AbilityImpactSound.tail) */
 interface PendingRepeat {
@@ -39,6 +45,22 @@ interface BeamLoop extends AbilityLoop {
   elapsedMs: number;
 }
 
+/** A missile on its way from its launch site: its engine loop and its dive (AbilityImpactSound.launch) */
+interface LaunchLoop extends AbilityLoop {
+  readonly strikeId: number;
+  /** The flight the renderer flies, local */
+  readonly flight: MissileFlight;
+  readonly sound: AbilityLaunchSound;
+  readonly target: GeoPosition;
+  /** Game ms since the command, and from the command to the impact */
+  elapsedMs: number;
+  readonly flightMs: number;
+  /** The dive has been asked to play */
+  dived: boolean;
+  /** The dive while it plays */
+  diveVoice: PositionalAudio | null;
+}
+
 /** Ground the ability loops stand on: the route grid (GameStateManager). */
 export interface AbilitySoundGround {
   getGroundLocalYAt(localX: number, localZ: number): number | null;
@@ -52,8 +74,9 @@ export interface AbilitySoundGround {
  *
  * Event-driven: Subscribes to `audio:play` events from GameEventBus, and
  * plays each ability's sounds (ABILITY_IMPACT_SOUNDS): its warning loop from
- * `ability:used` to `ability:impact`, its impact sound on `ability:impact`,
- * its tail and a beam's burn in game time (update())
+ * `ability:used` to `ability:impact`, a missile's launch, engine and dive
+ * from its launch site onto the target, its impact sound on
+ * `ability:impact`, its tail and a beam's burn in game time (update())
  */
 export class AudioService {
   private readonly subs = new SubscriptionBag();
@@ -62,6 +85,8 @@ export class AudioService {
   private readonly warnings = new Map<number, AbilityLoop>();
   /** Burn loops of the beams still burning or fading, see AbilityImpactSound.beam */
   private readonly beams: BeamLoop[] = [];
+  /** Missiles on their way, see AbilityImpactSound.launch */
+  private readonly launches: LaunchLoop[] = [];
   private ground: AbilitySoundGround | null = null;
   private readonly local = new Vector3();
   private readonly foot = new Vector3();
@@ -96,7 +121,15 @@ export class AudioService {
         const url = typeof sample.url === 'string' ? sample.url : sample.url();
         audio.registerSound(sample.id, url, spatialConfig(sample));
       }
-      for (const loop of [sound.warning, sound.beam]) {
+      if (sound.launch) {
+        for (const sample of [sound.launch.ignition, sound.launch.dive]) {
+          if (registered.has(sample.id)) continue;
+          registered.add(sample.id);
+          const url = typeof sample.url === 'string' ? sample.url : sample.url();
+          audio.registerSound(sample.id, url, spatialConfig(sample));
+        }
+      }
+      for (const loop of [sound.warning, sound.beam, sound.launch?.engine]) {
         if (!loop || registered.has(loop.id)) continue;
         registered.add(loop.id);
         const { refDistance, rolloffFactor, volume } = loop;
@@ -114,17 +147,21 @@ export class AudioService {
     }));
 
     // The warning of a strike on its way (the nuclear strike's siren), at
-    // its target until it lands
-    this.subs.add(this.eventBus.on('ability:used', ({ abilityId, strikeId, target }) => {
-      const warning = ABILITY_IMPACT_SOUNDS[abilityId]?.warning;
-      if (!warning) return;
-      this.warnings.set(strikeId, this.startLoop({ handle: null, ended: false }, warning.id, this.localOnGround(target)));
+    // its target until it lands; fired from a building, its launch there and
+    // the missile's engine and dive, see update()
+    this.subs.add(this.eventBus.on('ability:used', ({ abilityId, strikeId, target, warningMs, launch }) => {
+      const sound = ABILITY_IMPACT_SOUNDS[abilityId];
+      if (sound?.warning) {
+        this.warnings.set(strikeId, this.startLoop({ handle: null, ended: false }, sound.warning.id, this.localOnGround(target)));
+      }
+      if (sound?.launch && launch) this.startLaunch(strikeId, sound.launch, launch.position, target, warningMs);
     }));
 
     // The ability's own impact sound at the impact point, then its tail
     // (the nuclear strike's rolls of rumble) and a beam's burn, see update()
     this.subs.add(this.eventBus.on('ability:impact', ({ abilityId, strikeId, target, path }) => {
       this.endWarning(strikeId);
+      this.endLaunch(strikeId);
       const sound = ABILITY_IMPACT_SOUNDS[abilityId];
       if (!sound) return;
       const { lat, lon } = target;
@@ -147,6 +184,7 @@ export class AudioService {
    */
   update(stepMs: number): void {
     if (this.beams.length !== 0) this.moveBeams(stepMs);
+    if (this.launches.length !== 0) this.moveLaunches(stepMs);
     if (this.pendingTail.length === 0) return;
     let kept = 0;
     for (const repeat of this.pendingTail) {
@@ -170,6 +208,92 @@ export class AudioService {
     for (const strikeId of [...this.warnings.keys()]) this.endWarning(strikeId);
     for (const beam of this.beams) this.endLoop(beam);
     this.beams.length = 0;
+    for (const launch of this.launches) this.stopLaunch(launch);
+    this.launches.length = 0;
+  }
+
+  /**
+   * A missile lifts off the building at `site` onto `target` in `flightMs`
+   * of game time: the ignition there, the engine as a loop at the missile,
+   * which update() moves along the flight the renderer flies.
+   */
+  private startLaunch(
+    strikeId: number,
+    sound: AbilityLaunchSound,
+    site: GeoPosition,
+    target: GeoPosition,
+    flightMs: number,
+  ): void {
+    const audio = this.tilesEngine.spatialAudio;
+    if (!audio) return;
+    this.handleAudioPlay({ sound: sound.ignition.id, lat: site.lat, lon: site.lon, height: site.height ?? 0, volume: 1 });
+    const from = audio.geoToLocalPosition(site.lat, site.lon, site.height ?? 0, new Vector3());
+    const onto = audio.geoToLocalPosition(target.lat, target.lon, target.height ?? 0, new Vector3());
+    if (!from || !onto) return;
+    const flight = planMissileLaunch(new MissileFlight(), from, onto, flightMs / 1000);
+    const launch: LaunchLoop = {
+      handle: null, ended: false, strikeId, flight, sound, target, elapsedMs: 0, flightMs, dived: false, diveVoice: null,
+    };
+    flight.at(0, this.foot);
+    this.launches.push(this.startLoop(launch, sound.engine.id, this.foot, sound.engine.fadeInMs > 0 ? 0 : 1));
+  }
+
+  /**
+   * Each missile one sub-step on: its engine where the flight has it,
+   * fading in; its dive at the target once the impact is `leadMs` away;
+   * over at the end of its flight, if no impact came first.
+   */
+  private moveLaunches(stepMs: number): void {
+    const audio = this.tilesEngine.spatialAudio;
+    let kept = 0;
+    for (const launch of this.launches) {
+      launch.elapsedMs += stepMs;
+      if (launch.elapsedMs >= launch.flightMs) {
+        this.stopLaunch(launch);
+        continue;
+      }
+      const { engine, dive } = launch.sound;
+      if (launch.handle !== null && audio) {
+        launch.flight.at(launch.elapsedMs / launch.flightMs, this.foot);
+        audio.updateLoopPosition(launch.handle, this.foot);
+        if (engine.fadeInMs > 0) audio.setLoopVolume(launch.handle, Math.min(1, launch.elapsedMs / engine.fadeInMs));
+      }
+      if (!launch.dived && launch.elapsedMs >= launch.flightMs - dive.leadMs) this.playDive(launch);
+      this.launches[kept++] = launch;
+    }
+    this.launches.length = kept;
+  }
+
+  /** The dive of `launch` at its target, kept to be stopped at the impact. */
+  private playDive(launch: LaunchLoop): void {
+    launch.dived = true;
+    const audio = this.tilesEngine.spatialAudio;
+    if (!audio) return;
+    const { lat, lon } = launch.target;
+    audio
+      .playAtGeo(launch.sound.dive.id, lat, lon, launch.target.height ?? 0, 1)
+      .then((voice) => {
+        if (!voice) return;
+        if (launch.ended) audio.stopOneShot(voice);
+        else launch.diveVoice = voice;
+      })
+      .catch((err) => {
+        console.warn(`[AudioService] Failed to play sound '${launch.sound.dive.id}':`, err);
+      });
+  }
+
+  /** The missile of `strikeId` landed: its engine ends, its dive stops if it still plays. */
+  private endLaunch(strikeId: number): void {
+    const index = this.launches.findIndex((launch) => launch.strikeId === strikeId);
+    if (index < 0) return;
+    this.stopLaunch(this.launches[index]);
+    this.launches.splice(index, 1);
+  }
+
+  private stopLaunch(launch: LaunchLoop): void {
+    this.endLoop(launch);
+    if (launch.diveVoice) this.tilesEngine.spatialAudio?.stopOneShot(launch.diveVoice);
+    launch.diveVoice = null;
   }
 
   /**
@@ -226,15 +350,16 @@ export class AudioService {
     this.beams.length = kept;
   }
 
-  /** `loop` of `soundId` at `position`; without audio or a position it comes back ended. */
-  private startLoop<T extends AbilityLoop>(loop: T, soundId: string, position: Vector3 | null): T {
+  /** `loop` of `soundId` at `position`, at `volume` of its sound's; without audio or a position it comes back ended. */
+  private startLoop<T extends AbilityLoop>(loop: T, soundId: string, position: Vector3 | null, volume = 1): T {
     const audio = this.tilesEngine.spatialAudio;
     if (!audio || !position) {
       loop.ended = true;
       return loop;
     }
     // createLoop copies the position before it awaits
-    void audio.createLoop(soundId, position).then((handle) => {
+    const created = volume === 1 ? audio.createLoop(soundId, position) : audio.createLoop(soundId, position, { volumeMultiplier: volume });
+    void created.then((handle) => {
       if (handle === null) return;
       if (loop.ended) audio.stopLoop(handle);
       else loop.handle = handle;

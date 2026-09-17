@@ -4,7 +4,8 @@ import { GameEventBus } from './game-event-bus';
 import { AudioService } from './audio.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SOUNDS, GAME_SOUNDS, type AbilityImpactSound } from '../configs/audio.config';
-import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { MISSILE_LAUNCH_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { MissileFlight, planMissileLaunch } from '../utils/missile-flight';
 import { ABILITIES, abilityBeamReachM, type AbilityEffect } from '../configs/abilities.config';
 import { NUKE_BLAST_S, NUKE_RUMBLE_S, NUKE_RUMBLES } from '../utils/nuke-sound';
 
@@ -376,6 +377,189 @@ describe('AudioService orbital laser burn', () => {
     await settle();
     service.clearAbilitySounds();
     expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1'], ['loop_2']]);
+    service.destroy();
+  });
+});
+
+describe('AudioService nuclear strike missile', () => {
+  const launchSounds = GAME_SOUNDS.nuclearStrike.launch;
+  const SITE = { lat: 0, lon: 0, height: 20 };
+  const TARGET = { lat: 300, lon: 400, height: 10 };
+  const WARNING_MS = 6500;
+
+  function setup() {
+    let handles = 0;
+    const eventBus = new GameEventBus();
+    /** Where the engine loop was put, per update */
+    const moves: Vector3[] = [];
+    const voices: object[] = [];
+    const spatialAudio = {
+      registerSound: vi.fn(),
+      playAtGeo: vi.fn((soundId: string) => {
+        const voice = { soundId };
+        voices.push(voice);
+        return Promise.resolve(voice);
+      }),
+      stopOneShot: vi.fn(),
+      // Stand-in for the engine's conversion: x lon, y height, z lat
+      geoToLocalPosition: vi.fn((lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat)),
+      createLoop: vi.fn((soundId: string, _position: Vector3, _config?: object) => Promise.resolve(`${soundId}_${++handles}`)),
+      stopLoop: vi.fn(),
+      updateLoopPosition: vi.fn((_handle: string, position: Vector3) => {
+        moves.push(position.clone());
+      }),
+      setLoopVolume: vi.fn(),
+    };
+    const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
+    const used = (strikeId = 1, launch = true, abilityId: 'nuclear-strike' | 'frost-bomb' = 'nuclear-strike') =>
+      eventBus.emit({
+        type: 'ability:used', abilityId, strikeId, target: TARGET, radiusM: 25, warningMs: WARNING_MS,
+        ...(launch ? { launch: { towerId: 'silo', position: SITE } } : {}),
+      });
+    const impact = (strikeId = 1) => eventBus.emit({
+      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId, target: TARGET, radiusM: 25,
+    });
+    /** `ms` of game time in sub-steps */
+    const run = (ms: number) => {
+      for (let k = Math.round(ms / STEP_MS); k > 0; k--) service.update(STEP_MS);
+    };
+    const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
+    const played = (soundId: string) => spatialAudio.playAtGeo.mock.calls.filter((args: unknown[]) => args[0] === soundId);
+    /** Engine loops stopped, in order */
+    const engineStops = () =>
+      spatialAudio.stopLoop.mock.calls.map((args: unknown[]) => args[0] as string).filter((h) => h.startsWith(launchSounds.engine.id));
+    return { eventBus, spatialAudio, service, used, impact, run, settle, moves, voices, played, engineStops };
+  }
+
+  it('registers the ignition and the dive as one-shots heard as far as the blast, the engine as a loop', () => {
+    const { spatialAudio, service } = setup();
+    const config = (soundId: string) =>
+      spatialAudio.registerSound.mock.calls.filter((args: unknown[]) => args[0] === soundId).map((args: unknown[]) => args.slice(1));
+    for (const sample of [launchSounds.ignition, launchSounds.dive]) {
+      expect(config(sample.id)).toEqual([[sample.url, {
+        refDistance: sample.refDistance,
+        rolloffFactor: sample.rolloffFactor,
+        volume: sample.volume,
+        maxInstances: 2,
+        priority: true,
+        audibleDistance: SCREEN_SHAKE_CONFIG.strikeFarDistance,
+      }]]);
+    }
+    const { engine } = launchSounds;
+    expect(config(engine.id)).toEqual([[engine.url, {
+      refDistance: engine.refDistance, rolloffFactor: engine.rolloffFactor, volume: engine.volume, loop: true,
+    }]]);
+    service.destroy();
+  });
+
+  it('ignites at the silo and starts the engine there, silent at first, only for a strike with a launch site', async () => {
+    const { spatialAudio, service, used, settle, played } = setup();
+    used(1, false);
+    used(2, true, 'frost-bomb');
+    await settle();
+    expect(played(launchSounds.ignition.id)).toEqual([]);
+    expect(spatialAudio.createLoop.mock.calls.some((args: unknown[]) => args[0] === launchSounds.engine.id)).toBe(false);
+
+    used(3);
+    await settle();
+    expect(played(launchSounds.ignition.id)).toEqual([[launchSounds.ignition.id, SITE.lat, SITE.lon, SITE.height, 1]]);
+    const engine = spatialAudio.createLoop.mock.calls.filter((args: unknown[]) => args[0] === launchSounds.engine.id);
+    expect(engine).toEqual([[
+      launchSounds.engine.id,
+      new Vector3(SITE.lon, SITE.height + MISSILE_LAUNCH_LOOK.missile.baseHeight, SITE.lat),
+      { volumeMultiplier: 0 },
+    ]]);
+    service.destroy();
+  });
+
+  it('moves the engine along the flight the renderer flies, fading it in, in game time', async () => {
+    const { spatialAudio, service, used, run, settle, moves } = setup();
+    used();
+    await settle();
+    run(3000);
+    const flight = planMissileLaunch(
+      new MissileFlight(),
+      new Vector3(SITE.lon, SITE.height, SITE.lat),
+      new Vector3(TARGET.lon, TARGET.height, TARGET.lat),
+      WARNING_MS / 1000,
+    );
+    const expected = new Vector3();
+    flight.at((Math.round(3000 / STEP_MS) * STEP_MS) / WARNING_MS, expected);
+    expect(moves.at(-1)!.distanceTo(expected)).toBeLessThan(1e-3);
+    expect(moves.at(-1)!.y).toBeGreaterThan(SITE.height + 50);
+    const volumes = spatialAudio.setLoopVolume.mock.calls.map((args: unknown[]) => args[1] as number);
+    expect(volumes[0]).toBeLessThan(0.02);
+    expect(volumes.at(-1)).toBe(1);
+    service.destroy();
+  });
+
+  it('stands while no sub-step runs, as in a pause', async () => {
+    vi.useFakeTimers();
+    const { spatialAudio, service, used, run } = setup();
+    used();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(spatialAudio.updateLoopPosition).not.toHaveBeenCalled();
+    expect(spatialAudio.playAtGeo.mock.calls.map((args: unknown[]) => args[0])).toEqual([launchSounds.ignition.id]);
+    run(500);
+    expect(spatialAudio.updateLoopPosition).toHaveBeenCalled();
+    service.destroy();
+    vi.useRealTimers();
+  });
+
+  it('dives at the target its lead before the impact; the impact ends the engine and cuts the dive', async () => {
+    const { spatialAudio, service, used, impact, run, settle, played, voices, engineStops } = setup();
+    used();
+    await settle();
+    run(WARNING_MS - launchSounds.dive.leadMs - 2 * STEP_MS);
+    expect(played(launchSounds.dive.id)).toEqual([]);
+    run(4 * STEP_MS);
+    expect(played(launchSounds.dive.id)).toEqual([[launchSounds.dive.id, TARGET.lat, TARGET.lon, TARGET.height, 1]]);
+    await settle();
+
+    impact();
+    expect(engineStops()).toHaveLength(1);
+    const dive = voices.find((voice) => (voice as { soundId: string }).soundId === launchSounds.dive.id);
+    expect(spatialAudio.stopOneShot.mock.calls).toEqual([[dive]]);
+    // Before the blast plays
+    expect(spatialAudio.stopOneShot.mock.invocationCallOrder[0]).toBeLessThan(
+      spatialAudio.playAtGeo.mock.invocationCallOrder.at(-1)!,
+    );
+    run(1000);
+    expect(played(launchSounds.dive.id)).toHaveLength(1);
+    service.destroy();
+  });
+
+  it('ends only the missile of the strike that landed', async () => {
+    const { spatialAudio, service, used, impact, settle, engineStops } = setup();
+    used(1);
+    used(2);
+    await settle();
+    const [first, second] = spatialAudio.createLoop.mock.results
+      .map((result) => result.value as Promise<string>)
+      .filter((_, k) => spatialAudio.createLoop.mock.calls[k][0] === launchSounds.engine.id);
+    impact(2);
+    expect(engineStops()).toEqual([await second]);
+    service.destroy();
+    expect(engineStops()).toEqual([await second, await first]);
+  });
+
+  it('ends at the end of its flight if no impact comes, and on a restart and a replay jump', async () => {
+    const { eventBus, service, used, run, settle, engineStops } = setup();
+    used(1);
+    await settle();
+    run(WARNING_MS + STEP_MS);
+    expect(engineStops()).toHaveLength(1);
+
+    used(2);
+    await settle();
+    eventBus.emit({ type: 'game:reset' });
+    expect(engineStops()).toHaveLength(2);
+    run(1000);
+
+    used(3);
+    await settle();
+    service.clearAbilitySounds();
+    expect(engineStops()).toHaveLength(3);
     service.destroy();
   });
 });

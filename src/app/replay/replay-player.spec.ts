@@ -702,6 +702,26 @@ describe('ReplayPlayer', () => {
       expect(playAtGeo).toHaveBeenCalledTimes(1 + nuke.tail.length);
     });
 
+    it('plays a missile\'s ignition at its silo and its dive before the impact at 1x', () => {
+      const rec = impactRecording();
+      const launchSounds = ABILITY_IMPACT_SOUNDS['nuclear-strike']!.launch!;
+      const warningMs = 3000;
+      const silo = { lat: 48.002, lon: 9.001, height: 3 };
+      rec.pushEvent(0, {
+        type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 48, lon: 9 }, radiusM: 10,
+        warningMs, launch: { towerId: 'silo-1', position: silo },
+      });
+      fake.engine.spatialAudio['geoToLocalPosition'] = vi.fn((lat: number, lon: number, height: number, out: Vector3) =>
+        out.set(lon, height, lat));
+      fake.engine.spatialAudio['createLoop'] = vi.fn(() => Promise.resolve('loop'));
+      const p = new ReplayPlayer(rec, fake.engine as never);
+      p.enter();
+      advance(p, warningMs);
+      const calls = playAtGeo.mock.calls as unknown[][];
+      expect(calls.map((call) => call[0])).toEqual(expect.arrayContaining([launchSounds.ignition.id, launchSounds.dive.id]));
+      expect(calls.find((call) => call[0] === launchSounds.ignition.id)!.slice(1, 4)).toEqual([silo.lat, silo.lon, silo.height]);
+    });
+
     it('plays neither the impact nor its tail above 1x', () => {
       const p = entered();
       p.setSpeed(2);
