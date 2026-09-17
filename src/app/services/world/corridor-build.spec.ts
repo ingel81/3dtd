@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { CorridorBuild, type CorridorBuildDeps, type CorridorMeasurement } from './corridor-build';
 import { MUTED_CAMERA_ERROR_TARGET, QUIET_MS } from '../../three-engine/tiles-lod-debug';
 import { ROUTE_CORRIDOR_COARSE_ERROR_TARGET, ROUTE_CORRIDOR_ERROR_TARGET } from '../../three-engine/route-corridor-region';
-import { resetCorridorConfig, setCorridorConfig } from '../../utils/route-corridor';
+import { getRouteProfile, resetCorridorConfig, setCorridorConfig, sizeRouteCorners } from '../../utils/route-corridor';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import type { RouteWaypoint } from '../../models/game.types';
 import { corridorTrace } from '../../utils/corridor-trace';
 
 /**
@@ -46,6 +48,9 @@ describe('CorridorBuild', () => {
     animation: boolean;
     /** Active tiles the region reports; null: no region, the build waits for none. */
     regionTiles: () => number | null;
+    /** The routes the route service hands out, and how far the clock moves each time the build reads it, ms. */
+    paths: Map<string, RouteWaypoint[]>;
+    tick: number;
   };
   let corridor: CorridorBuild;
 
@@ -125,7 +130,7 @@ describe('CorridorBuild', () => {
         expect(spawns).toBe(SPAWNS);
         calls.push('routes');
       },
-      getCachedPaths: () => PATHS,
+      getCachedPaths: () => state.paths,
     };
     const gameState = {
       towerCount: () => state.towers,
@@ -143,7 +148,7 @@ describe('CorridorBuild', () => {
       nextFrame: async () => {
         clock += FRAME_MS;
       },
-      now: () => clock,
+      now: () => (clock += state.tick),
     } as unknown as CorridorBuildDeps);
   }
 
@@ -156,7 +161,7 @@ describe('CorridorBuild', () => {
     state = {
       towers: 0, enemies: 0, phase: 'setup', engine: true, tiles: true, loadingUntil: 0, epoch: 1, slices: 1,
       unmeasured: [0], bare: 0, promoted: 0, animation: false,
-      regionTiles: () => null,
+      regionTiles: () => null, paths: PATHS, tick: 0,
     };
     corridor = create();
   });
@@ -190,7 +195,7 @@ describe('CorridorBuild', () => {
       // The tiles loaded until 100 ms, then half a second of quiet
       expect(clock).toBeGreaterThanOrEqual(100 + QUIET_MS);
       expect(vi.mocked(console.log)).toHaveBeenCalledWith(expect.stringMatching(
-        /^\[Corridor\] build: reason=location load tiles=\d+\.\d measure=\d+\.\d fallback=0\.0 band=30 \(\d+\.\d\) lines=\d+\.\d wall=\d+\.\dms stations=3 unmeasured=0 cells=42$/,
+        /^\[Corridor\] build: reason=location load tiles=\d+\.\d measure=\d+\.\d fallback=0\.0 band=30 \(\d+\.\d\) corners=\d+\.\d lines=\d+\.\d wall=\d+\.\dms stations=3 unmeasured=0 cells=42$/,
       ));
     });
 
@@ -392,6 +397,46 @@ describe('CorridorBuild', () => {
       expect(calls).toEqual(['clearColumns', 'measure', 'commit', 'routes', 'band', 'routes', 'cells', 'routes', 'overlays']);
       expect(clock).toBe(0);
       expect(result).toMatchObject({ unmeasured: 4, fallbackStations: 0, fallbackCells: 0 });
+    });
+
+    it('sizes the corner arcs of the routes it hands out before the freeze, in slices of SLICE_MS a frame', async () => {
+      state.tiles = false;
+      // Ten right angles 20 m apart, twice: arcs to size for a while
+      const zigzag = (east: number): RouteWaypoint[] =>
+        Array.from({ length: 12 }, (_, i) => ({
+          lat: (20 * Math.ceil(i / 2)) / METERS_PER_DEGREE_LAT,
+          lon: (east + 20 * Math.floor(i / 2)) / METERS_PER_DEGREE_LAT,
+        }));
+      state.paths = new Map([['spawn-1', zigzag(0)], ['spawn-2', zigzag(100)]]);
+      // Each look at the clock takes 4 ms, so slices end
+      state.tick = 4;
+      const steps: string[] = [];
+
+      await corridor.build('location load', ({ step, percent }) => steps.push(percent === null ? step : `${step} ${percent}`));
+
+      expect(steps.filter((step) => step.startsWith('Rounding the corners')).length).toBeGreaterThan(1);
+      // After the route line, before the overlays
+      expect(calls.slice(-2)).toEqual(['routes', 'overlays']);
+      for (const path of state.paths.values()) {
+        // They stand: nothing left to size, not even a step
+        expect(sizeRouteCorners(path, -1)).toBe(true);
+        expect(getRouteProfile(path).corners.radius.length).toBe(10);
+      }
+    });
+
+    it('stops sizing the corner arcs when the routes are replaced in the middle of it', async () => {
+      state.tiles = false;
+      const zigzag: RouteWaypoint[] = Array.from({ length: 22 }, (_, i) => ({
+        lat: (20 * Math.ceil(i / 2)) / METERS_PER_DEGREE_LAT,
+        lon: (20 * Math.floor(i / 2)) / METERS_PER_DEGREE_LAT,
+      }));
+      state.paths = new Map([['spawn-1', zigzag]]);
+      state.tick = 4;
+      const building = corridor.build('location load', ({ step }) => {
+        if (step === 'Rounding the corners') state.epoch++;
+      });
+      expect(await building).toBeNull();
+      expect(calls).not.toContain('overlays');
     });
 
     it('restarts a running route animation on the frozen routes', async () => {
