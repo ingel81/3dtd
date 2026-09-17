@@ -328,6 +328,31 @@ describe('OsmStreetService', () => {
       expect(findPath).toHaveBeenCalledOnce();
       expect(findPath.mock.calls[0].slice(1, 3)).toEqual([48.00457, 9]);
     });
+
+    it('moves a spawn off a bend along its route until the route runs straight through the portal', () => {
+      // A stub 2 m east from j0 to the corner j1, then a street south past the HQ.
+      const j0 = { id: 0, lat: 48.0, lon: 9.0 };
+      const j1 = { id: 1, lat: 48.0, lon: 9.0000268 };
+      const j2 = { id: 2, lat: 47.99955, lon: 9.0000268 };
+      const j3 = { id: 3, lat: 47.995, lon: 9.0000268 };
+      const network: StreetNetwork = {
+        streets: [
+          { id: 100, name: 'Stub', type: 'residential', nodes: [j0, j1] },
+          { id: 200, name: 'South', type: 'residential', nodes: [j1, j2, j3] },
+        ],
+        nodes: new Map([j0, j1, j2, j3].map((n) => [n.id, n])),
+        bounds: { minLat: 47.995, maxLat: 48.0, minLon: 9.0, maxLon: 9.0000268 },
+      };
+      // The shuffle keeps the order, so j0 on the stub is drawn first
+      const random = vi.spyOn(Math, 'random').mockReturnValue(0.5);
+
+      const spawn = service.findRandomStreetPoint(network, 47.9952, 9.0000268, 300, 1000);
+      random.mockRestore();
+
+      // At j0 the route turns south 2 m on; the spawn stands on the corner, rounded
+      expect(spawn).toMatchObject({ lat: 48, lon: 9.00003, streetName: 'Stub' });
+      expect(spawn?.nodeId).toBeUndefined();
+    });
   });
 
   describe('loadStreets', () => {
