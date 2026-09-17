@@ -12,6 +12,7 @@ import {
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { ABILITIES, type AbilityId } from '../configs/abilities.config';
+import { createMissileStart, missileStartAt } from '../three-engine/renderers/missile-silo';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
 import type { GameEvent } from './game-event-bus';
@@ -41,6 +42,8 @@ export class VFXService {
   // Scratch vectors to avoid per-event allocations (chain lightning, scorch marks).
   private readonly tmpA = new Vector3();
   private readonly tmpB = new Vector3();
+  /** Where the last missile stood in its silo, see handleLaunch */
+  private readonly missileStart = createMissileStart();
 
   /**
    * Effects per ability, picked by the event's ability id. Complete per
@@ -52,7 +55,7 @@ export class VFXService {
     'nuclear-strike': {
       used: (event) => {
         this.handleStrikeUsed(event.strikeId, event.target, event.radiusM, event.warningMs);
-        if (event.launch) this.handleLaunch(event.strikeId, event.launch.position, event.target, event.warningMs);
+        if (event.launch) this.handleLaunch(event.abilityId, event.strikeId, event.launch, event.target, event.warningMs);
       },
       impact: (event) => this.handleStrikeImpact(event.strikeId, event.target, event.radiusM),
     },
@@ -176,14 +179,25 @@ export class VFXService {
   }
 
   /**
-   * The missile lifts off the silo whose base is `site` and flies onto
-   * `target` in the warning's game time (MISSILE_LAUNCH_LOOK, the engine
-   * runs it in game time); the impact lands it.
+   * The missile lifts off its silo and flies onto `target` in the warning's
+   * game time (MISSILE_LAUNCH_LOOK, the engine runs it in game time); the
+   * impact lands it. It starts where the silo's own missile stands
+   * (missileStartAt).
    */
-  private handleLaunch(strikeId: number, site: GeoPosition, target: GeoPosition, warningMs: number): void {
-    const from = this.tilesEngine.sync.geoToLocalSimpleInto(site.lat, site.lon, site.height ?? 0, this.tmpA);
+  private handleLaunch(
+    abilityId: AbilityId,
+    strikeId: number,
+    launch: { towerId: string; position: GeoPosition },
+    target: GeoPosition,
+    warningMs: number,
+  ): void {
+    const from = ABILITIES[abilityId].launchFrom;
+    if (!from) return;
+    const { lat, lon, height } = launch.position;
+    const site = this.tilesEngine.sync.geoToLocalSimpleInto(lat, lon, height ?? 0, this.tmpA);
+    const start = missileStartAt(this.tilesEngine.towers.get(launch.towerId), from, site, this.missileStart);
     const onto = this.tilesEngine.sync.geoToLocalSimpleInto(target.lat, target.lon, target.height ?? 0, this.tmpB);
-    this.tilesEngine.missileLaunches.launch(strikeId, from, onto, warningMs / 1000);
+    this.tilesEngine.missileLaunches.launch(strikeId, start, onto, warningMs / 1000);
   }
 
   /** `path` in local coordinates, a new array (a beam's handful of points, once per use). */

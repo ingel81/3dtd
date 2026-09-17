@@ -1,20 +1,33 @@
-import { MathUtils, Vector3, type BufferGeometry, type Mesh, type MeshStandardMaterial, type PerspectiveCamera, type Scene } from 'three';
+import { MathUtils, Quaternion, Vector3, type Object3D, type PerspectiveCamera, type Scene } from 'three';
 import { MISSILE_LAUNCH_LOOK as LOOK } from '../../configs/visual-effects.config';
-import { MissileFlight, planMissileLaunch } from '../../utils/missile-flight';
+import { MissileFlight } from '../../utils/missile-flight';
 import { DrawGate } from './draw-gate';
 import { unpickable } from './effect-buffers';
 import { MissileExhaust } from './missile-exhaust';
 import type { Launch } from './missile-launch-state';
-import { createMissileModel } from './missile-model';
+import type { MissileStart } from './missile-silo';
 import { MissileSmoke } from './missile-smoke';
 import { TAU } from './mushroom-cloud-shape';
 import type { CloudSpriteMaterials } from './mushroom-cloud-sprites';
 
 const UP = new Vector3(0, 1, 0);
 
+/**
+ * The missile model a launch clones: the silo model's missile node (origin
+ * on its nozzle, nose up +y), or null while it is not loaded.
+ */
+export type MissileModelSource = () => Object3D | null;
+
 /** Game seconds after the command when the last smoke of a launch of `durationS` is gone */
 function smokeEnd(durationS: number): number {
   return Math.max(durationS + LOOK.trail.life[1], LOOK.cloud.emit[1] + LOOK.cloud.life[1]);
+}
+
+/** The missile of a launch slot: a clone of the model it was made from */
+interface Body {
+  readonly model: Object3D;
+  readonly object: Object3D;
+  readonly gate: DrawGate;
 }
 
 /**
@@ -31,10 +44,15 @@ function smokeEnd(durationS: number): number {
  * goes, and so the flight never runs past the impact, and a frame that got
  * ahead of the simulation shows it gone on the target.
  *
+ * The missile is the silo model's own (MissileModelSource), cloned per
+ * launch slot and kept for the next launch from the same model. It starts
+ * as it stood in the silo (MissileStart: pose, turn, size) and turns along
+ * its way from there. Without a model at the launch no missile is drawn;
+ * flame, fire and smoke run all the same. The clones share geometry and
+ * materials with the model, which the asset cache owns.
+ *
  * The smoke shares the mushroom clouds' sprite materials and atlas: the
- * Low preset's unlit smoke takes it too. The missile is a mesh of its own,
- * cloned per launch from one model (createMissileModel); another model with
- * the same convention can take its place.
+ * Low preset's unlit smoke takes it too.
  *
  * Fixed buffers, nothing allocated per frame.
  */
@@ -44,29 +62,23 @@ export class MissileLaunchRenderer {
   private sequence = 0;
   private full = true;
 
-  private readonly model: Mesh<BufferGeometry, MeshStandardMaterial>;
-  private readonly bodies: Mesh<BufferGeometry, MeshStandardMaterial>[] = [];
-  private readonly bodyGates: DrawGate[] = [];
+  private readonly bodies: (Body | null)[] = [];
   private readonly exhaust: MissileExhaust;
   private readonly smoke: MissileSmoke;
+  private readonly bend = new Quaternion();
 
   constructor(
     private readonly scene: Scene,
     materials: CloudSpriteMaterials,
+    private readonly missileModel: MissileModelSource,
   ) {
-    this.model = createMissileModel();
     for (let i = 0; i < LOOK.launches; i++) {
       this.launches.push({
         active: false, strikeId: -1, t: 0, landed: false, end: 0, flight: new MissileFlight(), site: new Vector3(),
-        targetY: 0, full: true, windX: 1, windZ: 0, born: 0, position: new Vector3(), direction: new Vector3(0, 1, 0),
-        scale: 1, thrust: 0, speed: 0,
+        shaftTop: LOOK.shaftTop, turn: new Quaternion(), baseScale: 1, targetY: 0, full: true, windX: 1, windZ: 0,
+        born: 0, position: new Vector3(), direction: new Vector3(0, 1, 0), scale: 1, thrust: 0, speed: 0,
       });
-      const body = unpickable(this.model.clone());
-      body.name = `missile-body-${i}`;
-      body.frustumCulled = false;
-      scene.add(body);
-      this.bodies.push(body);
-      this.bodyGates.push(new DrawGate([body]));
+      this.bodies.push(null);
     }
     this.exhaust = new MissileExhaust(scene, materials.glow);
     this.smoke = new MissileSmoke(scene, materials.smoke);
@@ -83,11 +95,11 @@ export class MissileLaunchRenderer {
   }
 
   /**
-   * Strike `strikeId`'s missile lifts off the silo whose base is `site` and
-   * lands on `target` (local) `durationS` game seconds later. Another launch
-   * takes the place of the oldest when all are in use.
+   * Strike `strikeId`'s missile lifts off where `start` has it standing in
+   * its silo and lands on `target` (local) `durationS` game seconds later.
+   * Another launch takes the place of the oldest when all are in use.
    */
-  launch(strikeId: number, site: Vector3, target: Vector3, durationS: number): void {
+  launch(strikeId: number, start: MissileStart, target: Vector3, durationS: number): void {
     let slot = 0;
     for (let i = 0; i < this.launches.length; i++) {
       if (!this.launches[i].active) {
@@ -104,15 +116,19 @@ export class MissileLaunchRenderer {
     launch.strikeId = strikeId;
     launch.t = 0;
     launch.landed = false;
-    launch.site.copy(site);
+    launch.site.copy(start.site);
+    launch.shaftTop = start.shaftTop;
+    launch.turn.copy(start.turn);
+    launch.baseScale = start.scale;
     launch.targetY = target.y;
     launch.full = this.full;
     launch.windX = Math.cos(wind);
     launch.windZ = Math.sin(wind);
     launch.born = ++this.sequence;
-    planMissileLaunch(launch.flight, site, target, durationS);
+    launch.flight.plan(start.nozzle, target, durationS);
     launch.end = smokeEnd(launch.flight.duration);
 
+    this.takeBody(slot);
     this.exhaust.seed(slot);
     this.smoke.seed(launch, slot);
   }
@@ -148,7 +164,7 @@ export class MissileLaunchRenderer {
         }
       }
       if (!launch.active) {
-        this.bodyGates[slot].setCount(0);
+        this.bodies[slot]?.gate.setCount(0);
         this.exhaust.hide(slot);
         this.smoke.hide(slot);
         continue;
@@ -165,41 +181,72 @@ export class MissileLaunchRenderer {
   clear(): void {
     for (const launch of this.launches) launch.active = false;
     this.activeCount = 0;
-    for (const gate of this.bodyGates) gate.setCount(0);
+    for (const body of this.bodies) body?.gate.setCount(0);
     this.exhaust.clear();
     this.smoke.clear();
   }
 
-  /** Remove and free all of it but the sprite materials, which belong to the mushroom clouds. */
+  /** Remove all of it and free what is its own: not the sprite materials (the mushroom clouds') nor the model (the asset cache's). */
   dispose(): void {
     this.clear();
-    for (const body of this.bodies) this.scene.remove(body);
-    this.model.geometry.dispose();
-    this.model.material.dispose();
+    for (const body of this.bodies) if (body) this.scene.remove(body.object);
+    this.bodies.fill(null);
     this.exhaust.dispose(this.scene);
     this.smoke.dispose(this.scene);
   }
 
-  /** Where the missile is at its launch's age, its size and thrust; the body there, or gone once landed. */
+  /**
+   * The missile of launch `slot`: a clone of the model, the one from the
+   * last launch if it was made from the same model; none without a model.
+   */
+  private takeBody(slot: number): void {
+    const model = this.missileModel();
+    const body = this.bodies[slot];
+    if (body && body.model === model) return;
+    if (body) {
+      body.gate.setCount(0);
+      this.scene.remove(body.object);
+    }
+    if (!model) {
+      this.bodies[slot] = null;
+      return;
+    }
+    const object = model.clone();
+    object.name = `missile-body-${slot}`;
+    object.traverse((node) => {
+      unpickable(node);
+      node.frustumCulled = false;
+    });
+    this.scene.add(object);
+    this.bodies[slot] = { model, object, gate: new DrawGate([object]) };
+  }
+
+  /**
+   * Where the missile is at its launch's age, its growth and thrust; the
+   * body there, turned from its stand in the silo along its way, or gone
+   * once landed.
+   */
   private pose(launch: Launch, slot: number): void {
     const { flight, t } = launch;
     const { missile, flame } = LOOK;
-    const gate = this.bodyGates[slot];
+    const body = this.bodies[slot];
     launch.scale = MathUtils.lerp(1, missile.flightScale, MathUtils.smoothstep(t, missile.grow[0], missile.grow[1]));
     if (launch.landed) {
       launch.thrust = 0;
       launch.speed = 0;
       flight.at(1, launch.position, launch.direction);
-      gate.setCount(0);
+      body?.gate.setCount(0);
       return;
     }
     flight.at(t / flight.duration, launch.position, launch.direction);
     launch.thrust = MathUtils.smoothstep(t, 0, flame.ignite);
     launch.speed = flight.speedAt(t);
-    const body = this.bodies[slot];
-    body.position.copy(launch.position);
-    body.quaternion.setFromUnitVectors(UP, launch.direction);
-    body.scale.setScalar(launch.scale);
-    gate.setCount(1);
+    if (!body) return;
+    const object = body.object;
+    object.position.copy(launch.position);
+    // Upright in the silo it stands as the model stood there; the flight bends that along its way
+    object.quaternion.multiplyQuaternions(this.bend.setFromUnitVectors(UP, launch.direction), launch.turn);
+    object.scale.setScalar(launch.baseScale * launch.scale);
+    body.gate.setCount(1);
   }
 }

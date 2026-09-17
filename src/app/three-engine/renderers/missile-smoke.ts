@@ -158,7 +158,8 @@ export class MissileSmoke {
    * the fire at first.
    */
   private stageCloud(launch: Launch, slot: number): void {
-    const { cloud, shaftTop, colors } = LOOK;
+    const { cloud, colors } = LOOK;
+    const shaftTop = launch.shaftTop;
     const counts = launch.full ? FULL : LOW;
     const boost = lowSizeBoost(FULL.cloud, counts.cloud);
     const r = this.seeds;

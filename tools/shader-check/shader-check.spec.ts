@@ -338,9 +338,9 @@ const CASES: ShaderCase[] = [
     build: (scene) => new MushroomCloudRenderer(scene),
   },
   {
-    name: 'missile launch (flame, missile, smoke and fire sprites)',
+    name: 'missile launch (flame, smoke and fire sprites)',
     file: 'three-engine/renderers/missile-launch.renderer.ts, missile-*.ts',
-    build: (scene) => new MissileLaunchRenderer(scene, createCloudSpriteMaterials()),
+    build: (scene) => new MissileLaunchRenderer(scene, createCloudSpriteMaterials(), () => null),
   },
   // Enemies, projectiles and effects on the tiles
   {

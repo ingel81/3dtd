@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { Vector3 } from 'three';
+import { Group, Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { VFXService } from './vfx.service';
 import type { ThreeTilesEngine } from '../three-engine';
@@ -8,13 +8,15 @@ import {
   BURST_PALETTES,
   EXPLOSION_PRESETS,
   FROST_BOMB_ICE_RINGS,
+  MISSILE_LAUNCH_LOOK,
   MUZZLE_FLASH_PROFILES,
   NUCLEAR_STRIKE_SCORCH_RINGS,
   PARTICLE_LIMITS,
 } from '../configs/visual-effects.config';
 import { geoDistanceFast } from '../utils/geo-utils';
-import type { TowerTypeId } from '../configs/tower-types.config';
+import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../configs/projectile-types.config';
+import type { TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
 
 function setup() {
   const eventBus = new GameEventBus();
@@ -217,6 +219,9 @@ describe('VFXService nuclear strike', () => {
       effects: { spawnExplosion: vi.fn(), markScorch: vi.fn(), spawnIceDecal: vi.fn(), groundMarksEnabled: true },
       abilityMarkers: { showStrike: vi.fn(), removeStrike: vi.fn(), clear: vi.fn() },
       missileLaunches: { launch: vi.fn(), land: vi.fn(), clear: vi.fn() },
+      towers: {
+        get: vi.fn((_id: string): TowerRenderData | undefined => undefined),
+      },
       mushroomClouds: { detonate: vi.fn(), clear: vi.fn() },
       frostBursts: { burst: vi.fn(), clear: vi.fn() },
       empPulses: { pulse: vi.fn(), clear: vi.fn() },
@@ -253,9 +258,12 @@ describe('VFXService nuclear strike', () => {
       launch: { towerId: 'silo-1', position: SILO },
     });
     expect(tilesEngine.missileLaunches.launch).toHaveBeenCalledTimes(1);
-    const [strikeId, site, target, durationS] = tilesEngine.missileLaunches.launch.mock.calls[0];
+    const [strikeId, start, target, durationS] = tilesEngine.missileLaunches.launch.mock.calls[0];
     expect([strikeId, durationS]).toEqual([4, 6.5]);
-    expect(site.y).toBe(SILO.height);
+    expect(tilesEngine.towers.get).toHaveBeenCalledWith('silo-1');
+    // No render object for the silo: the look values
+    expect(start.site).toEqual(new Vector3(7, SILO.height, 9));
+    expect(start.nozzle).toEqual(new Vector3(7, SILO.height + MISSILE_LAUNCH_LOOK.missile.baseHeight, 9));
     expect(target.y).toBe(TARGET.height);
     // The marker still goes up on the target
     const [markerId, , markerRadius, markerMs] = tilesEngine.abilityMarkers.showStrike.mock.lastCall!;
@@ -267,6 +275,32 @@ describe('VFXService nuclear strike', () => {
       launch: { towerId: 'silo-1', position: SILO },
     });
     expect(tilesEngine.missileLaunches.launch).toHaveBeenCalledTimes(1);
+    service.destroy();
+  });
+
+  it('starts the missile where the placed silo\'s missile node stands, turned and sized as there', () => {
+    const { eventBus, tilesEngine, service } = strikeSetup();
+    const mesh = new Group();
+    mesh.position.set(40, 5, -12);
+    mesh.rotation.y = 0.7;
+    mesh.scale.setScalar(7.36);
+    const node = new Group();
+    node.name = MISSILE_LAUNCH_LOOK.missile.node;
+    node.position.set(0, 0.3126, 0);
+    mesh.add(node);
+    tilesEngine.towers.get.mockImplementation((id: string) =>
+      id === 'silo-1' ? ({ mesh, typeConfig: TOWER_TYPES['missile-silo'] } as unknown as TowerRenderData) : undefined);
+
+    eventBus.emit({
+      type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 4, target: TARGET, radiusM: 25, warningMs: 6500,
+      launch: { towerId: 'silo-1', position: { lat: 48.01, lon: 9.01, height: 5 } },
+    });
+    const [, start] = tilesEngine.missileLaunches.launch.mock.calls[0];
+    expect(start.nozzle.x).toBeCloseTo(40, 6);
+    expect(start.nozzle.y).toBeCloseTo(5 + 0.3126 * 7.36, 6);
+    expect(start.nozzle.z).toBeCloseTo(-12, 6);
+    expect(start.turn.angleTo(mesh.quaternion)).toBeLessThan(1e-6);
+    expect(start.scale).toBeCloseTo(7.36, 6);
     service.destroy();
   });
 

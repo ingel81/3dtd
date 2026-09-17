@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { Vector3 } from 'three';
+import { Group, Vector3 } from 'three';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { TIMING } from '../configs/timing.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
@@ -822,6 +822,36 @@ describe('ReplayPlayer', () => {
       expect(missiles['clear']).toHaveBeenCalledTimes(cleared + 1);
       player.exit();
       expect(missiles['clear']).toHaveBeenCalledTimes(cleared + 2);
+    });
+
+    it('launches from a silo sold during the wave off its replay model', () => {
+      const rec = new ReplayRecording();
+      rec.reset(5, 0, 100, 0, null);
+      rec.addTower({
+        id: 'silo-1', typeId: 'missile-silo', lat: 48.001, lon: 9, height: 2, customRotation: 0, plinthHeight: 0,
+        plinthOverhang: [], placedMs: -1, soldMs: 800,
+      });
+      rec.beginFrame(0);
+      rec.endFrame();
+      rec.beginFrame(1000);
+      rec.endFrame();
+      const target = { lat: 48, lon: 9 };
+      const launch = { towerId: 'silo-1', position: { lat: 48.001, lon: 9, height: 2 } };
+      rec.pushEvent(20, { type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 3, target, radiusM: 25, warningMs: 500, launch });
+      rec.finish(1000, 'completed');
+      (GameEventBus.prototype.emit as unknown as { mockRestore(): void }).mockRestore();
+      const f = fakeEngine();
+      const player = new ReplayPlayer(rec, f.engine as never);
+      player.enter();
+      // The replay's own silo model, as ThreeTowerRenderer would build it
+      const replaySilo = f.towers.get('replay-tower-0')! as unknown as { mesh: Group };
+      replaySilo.mesh = new Group();
+      const get = vi.spyOn(f.engine.towers, 'get');
+
+      advance(player, 100);
+      expect(f.engine.missileLaunches['launch']).toHaveBeenCalledTimes(1);
+      expect(get).toHaveBeenCalledWith('replay-tower-0');
+      expect(get).not.toHaveBeenCalledWith('silo-1');
     });
   });
 });
