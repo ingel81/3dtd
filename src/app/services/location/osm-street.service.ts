@@ -6,6 +6,7 @@ import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } f
 import { METERS_PER_DEGREE_LAT, canonicalCoords } from '../../utils/geo-utils';
 import { SegmentRoutes, type RouteTail } from '../../utils/route-start';
 import { PORTAL_DEPTH, PORTAL_MAX_SCALE, portalDepthScale } from '../../configs/marker-geometry.config';
+import { closestPointOnSegment } from '../../utils/route-geometry';
 import {
   DEFAULT_ROAD_WEIGHT,
   MinHeap,
@@ -31,6 +32,9 @@ export interface BuildingData {
  * Street types suitable for enemy spawning (exclude footpaths)
  */
 const SPAWNABLE_STREET_TYPES = ['residential', 'primary', 'secondary', 'tertiary', 'unclassified', 'living_street'];
+
+/** Id A* gives the end of a route beyond the ends of its last segment; OSM ids are positive, -1 is a route start. */
+const ROUTE_END_ID = -2;
 
 /** A random spawn's route may turn this much (rad, 5°) up to the portal's plane and still count as straight. */
 const SPAWN_STRAIGHT_TURN = (5 * Math.PI) / 180;
@@ -467,8 +471,9 @@ export class OsmStreetService {
   /**
    * Path along the streets from start to end, A* on the street network. It
    * starts at the foot of the start on its nearest segment (SegmentRoutes)
-   * and ends on the first node of the segment nearest to the end, from
-   * where PathAndRouteService leads it to the HQ (leavePathForBase).
+   * and ends on the end of the segment nearest to the end that reaches the
+   * end's foot on it for less, from where PathAndRouteService leads it to
+   * the HQ (leavePathForBase).
    */
   findPath(
     network: StreetNetwork,
@@ -503,12 +508,20 @@ export class OsmStreetService {
 
     // Get or build adjacency graph (cached for performance)
     const graph = this.getOrBuildGraph(network);
-    const end = endPoint.street.nodes[endPoint.nodeIndex];
+    // Both ends of the end's segment, each with the piece of it up to the
+    // end's foot: the route goes to whichever reaches the foot for less. Until
+    // 2026-09-17 it went to the segment's first node, round a square to the
+    // far side of a way drawn towards the HQ (Plaça de Catalunya).
+    const a = endPoint.street.nodes[endPoint.nodeIndex];
+    const b = endPoint.street.nodes[endPoint.nodeIndex + 1];
+    const foot = closestPointOnSegment(a, b, { lat: endLat, lon: endLon });
+    const weight = ROAD_TYPE_WEIGHTS[endPoint.street.type] ?? DEFAULT_ROAD_WEIGHT;
+    const ends = [a, b].map((node) => ({ node, cost: this.haversineDistance(node.lat, node.lon, foot.lat, foot.lon) * weight }));
     return new SegmentRoutes(
       start.street.nodes[start.nodeIndex],
       start.street.nodes[start.nodeIndex + 1],
       ROAD_TYPE_WEIGHTS[start.street.type] ?? DEFAULT_ROAD_WEIGHT,
-      (node) => this.astar(graph, node, end, endLat, endLon),
+      (node) => this.astar(graph, node, ends, endLat, endLon),
     );
   }
 
@@ -663,10 +676,15 @@ export class OsmStreetService {
     return graph;
   }
 
+  /**
+   * A* from `start` to the cheapest of `ends`, each node with the cost still
+   * to pay from it to the end of the route. The path ends on that node, its
+   * cost includes it.
+   */
   private astar(
     graph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }>,
     start: StreetNode,
-    end: StreetNode,
+    ends: readonly { node: StreetNode; cost: number }[],
     endLat: number,
     endLon: number
   ): RouteTail | null {
@@ -688,10 +706,10 @@ export class OsmStreetService {
       // Skip if already processed (stale heap entry)
       if (!openSetTracker.has(current)) continue;
 
-      if (current === end.id) {
+      if (current === ROUTE_END_ID) {
         // Reconstruct path
         const path: StreetNode[] = [];
-        let curr: number | undefined = current;
+        let curr: number | undefined = cameFrom.get(current);
 
         while (curr !== undefined) {
           const entry = graph.get(curr);
@@ -703,6 +721,18 @@ export class OsmStreetService {
       }
 
       openSetTracker.delete(current);
+
+      // An end of the route leads on to it at its remaining cost
+      for (const end of ends) {
+        if (end.node.id !== current) continue;
+        const tentativeEnd = (gScore.get(current) ?? Infinity) + end.cost;
+        if (tentativeEnd < (gScore.get(ROUTE_END_ID) ?? Infinity)) {
+          cameFrom.set(ROUTE_END_ID, current);
+          gScore.set(ROUTE_END_ID, tentativeEnd);
+          openHeap.push(ROUTE_END_ID, tentativeEnd);
+          openSetTracker.add(ROUTE_END_ID);
+        }
+      }
       const currentEntry = graph.get(current);
 
       if (!currentEntry) continue;
