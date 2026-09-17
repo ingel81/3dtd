@@ -395,7 +395,9 @@ davon der Typ höchstens nutzt: `1.0` bis zum Rand, `0.5` nur die innere Hälfte
 (Panzer, Bosse). Kein Gegner läuft dadurch außerhalb der Route-Cells, die Tower
 sehen ihn also immer. Vorher war es `lateralOffset` in festen Metern (3,0 m
 entspricht heute 1.0). Wie die Korridorbreite entsteht, steht in
-[ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md).
+[ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md). An einem Knick der Route laufen alle
+Bahnen auf Bögen um einen Mittelpunkt, außen schneller, innen langsamer, bei
+gleichem Fortschritt ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#ecken)).
 
 **Verwendung:**
 - Verhindert "Gänsemarsch"-Effekt
