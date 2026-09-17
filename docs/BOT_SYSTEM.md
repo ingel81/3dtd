@@ -456,7 +456,10 @@ das Ziel wie einen Klick auf die Route snappt.
 
 **Grenzen des Modells.** Das Tempo gilt als konstant: ein Freeze, der in den
 6,5 s endet, ein Slow, der ausläuft, und ein Gegner, der erst in der Zeit
-angehalten wird, sind nicht vorhergesagt. Gegner laufen auf der Mittellinie,
+angehalten wird, sind nicht vorhergesagt. Ein Wurm zählt je Glied mit dessen
+eigenem Tempo, obwohl die Kette steht, solange ihr Kopf angehalten ist: Glieder
+hinter einem eingefrorenen Kopf sagt das Modell zu weit vorn voraus, ein
+betäubtes Glied zu weit hinten, höchstens um Restdauer mal Tempo. Gegner laufen auf der Mittellinie,
 die seitliche Lage in der Straße zählt nicht.
 
 Die Gegner liest die Strategie aus dem GameStateManager, nicht aus dem

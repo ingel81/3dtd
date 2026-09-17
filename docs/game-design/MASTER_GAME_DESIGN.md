@@ -456,7 +456,8 @@ hat die Fähigkeit keinen Knopf und lässt sich nicht einsetzen.
 **Einmal-Gebäude.** Ob ein Gebäudetyp nur einmal stehen darf, steht als
 `unique` am `TowerTypeConfig`, nicht mehr als Prüfung auf die ID des
 Research Centers. Es prüfen `TowerLifecycle.place` (Befehl, auch des Bots) und
-`canPickTowerCard` (Karte im BUILD-Panel und Zifferntaste); was steht, führt
+`canPickTowerCard` (Karte im BUILD-Panel, dazu ihre Zifferntaste, falls sie
+unter den ersten neun Karten liegt; Research Center und Silo liegen dahinter); was steht, führt
 `GameStore.placedUniqueTypes`, geschrieben aus `tower:placed` und
 `tower:sold`. Der Tooltip einer gebauten Karte sagt "Already placed.", sonst
 den Text aus `description`.
