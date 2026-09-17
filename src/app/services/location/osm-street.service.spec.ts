@@ -295,6 +295,25 @@ describe('OsmStreetService', () => {
         expect(path.slice(1).map((node) => node.id)).toEqual([21, 22]);
       });
 
+      it('ends on a street the start connects to where a cut-off way lies nearest to the HQ', () => {
+        // A passage p-q beside the HQ joins no other way (as inside the
+        // Colosseum); the street w-j 30 m off does
+        const w = { id: 30, lat: 48.0, lon: 8.99 };
+        const j = { id: 31, lat: 48.0, lon: 9.0 };
+        const p = { id: 32, lat: 48.0003, lon: 9.0001 };
+        const q = { id: 33, lat: 48.0003, lon: 9.0002 };
+        const cutOff: StreetNetwork = {
+          streets: [
+            { id: 900, name: 'Street', type: 'residential', nodes: [w, j] },
+            { id: 910, name: 'Passage', type: 'footway', nodes: [p, q] },
+          ],
+          nodes: new Map([w, j, p, q].map((node) => [node.id, node])),
+          bounds: { minLat: 48.0, maxLat: 48.0003, minLon: 8.99, maxLon: 9.0002 },
+        };
+        const path = service.findPath(cutOff, 48.0, 8.995, 48.00025, 9.00015);
+        expect(path.slice(1).map((node) => node.id)).toEqual([31]);
+      });
+
       it('starts a click 11 m short of a junction at its foot, not on the far end of the segment', () => {
         const path = service.findPath(straight, 48.0029, 9.0001, hq.lat, hq.lon);
         expect(path[0].id).toBe(ROUTE_START_NODE_ID);
