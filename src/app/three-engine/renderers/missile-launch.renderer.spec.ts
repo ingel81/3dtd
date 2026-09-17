@@ -119,8 +119,9 @@ describe('MissileLaunchRenderer', () => {
     expect(flame.visible).toBe(true);
     expect(nozzle.visible).toBe(true);
     expect(flash.visible).toBe(false);
-    // Grown to read from the overview camera
-    expect(body.scale.x).toBeGreaterThan(1.5);
+    // Growing out of the shaft, to read from the overview camera
+    expect(body.scale.x).toBeGreaterThan(1.2);
+    expect(body.scale.x).toBeLessThan(LOOK.missile.flightScale);
 
     // Paused: nothing moves
     const held = body.position.clone();
@@ -132,6 +133,7 @@ describe('MissileLaunchRenderer', () => {
     const { launches, body, flame, run } = setup();
     launches.launch(STRIKE, SITE, TARGET, WARNING_S);
     run(5200, 20);
+    expect(body.scale.x).toBeCloseTo(LOOK.missile.flightScale, 6);
     const nose = new Vector3(0, 1, 0).applyQuaternion(body.quaternion);
     const ahead = flightAt(5.21).sub(flightAt(5.2)).normalize();
     expect(nose.dot(ahead)).toBeGreaterThan(0.99);

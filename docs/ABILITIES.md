@@ -279,18 +279,20 @@ genau zum Einschlag ankommt. Zeiten bei 6,5 s Vorwarnung:
 | Zeit | Phase (Höhen über dem Silo) |
 |---|---|
 | 0 bis 0,45 s | Zündung: Blitz über dem Schacht (90 m), Licht am Boden um das Silo (45 m, solange die Flamme tiefer als 70 m steht), bis 2,6 s schlägt Feuer aus dem Schacht |
-| 0,15 bis 3 s | Startwolke: Rauch quillt 10 m über der Basis aus dem Schacht, rollt am Boden bis 42 m aus und bleibt 8 bis 12 s |
-| 0,4 bis 1,8 s | Abheben, langsam: die Düse verlässt den 10 m hohen Schacht nach 1,6 s |
-| bis etwa 3,5 s | senkrechter Aufstieg, immer schneller; bei 1000 m Entfernung bei 3 s gut 200 m hoch, bei 30 m Entfernung 40 m. Die Rakete wächst von 1,8 bis 3,8 s auf das 2,2-Fache |
-| etwa 3,5 bis 5,5 s | neigt sich zum Ziel und zieht über den Scheitel, dort langsamer: bei 1000 m knapp 500 m hoch bei 4,9 s, bei 30 m 224 m hoch bei 5 s |
+| 0,15 bis 3 s | Startwolke: Rauch quillt 10,4 m über der Basis aus dem Schacht, rollt am Boden bis 42 m aus und bleibt 8 bis 12 s |
+| 0,4 bis 1,8 s | Abheben, langsam: die Düse verlässt den 10,4 m hohen Schacht nach 1,7 s |
+| bis etwa 3,5 s | senkrechter Aufstieg, immer schneller; bei 1000 m Entfernung bei 3 s gut 200 m hoch, bei 30 m Entfernung 40 m. Die Rakete wächst von 2,2 bis 4 s auf das Doppelte |
+| etwa 3,5 bis 5,5 s | neigt sich zum Ziel und zieht über den Scheitel, dort langsamer: bei 1000 m knapp 500 m hoch bei 4,9 s, bei 30 m 222 m hoch bei 5 s |
 | bis 6,5 s | Sturzflug, immer schneller (bei 1000 m zuletzt gut 900 m/s); die letzten 30 m Höhe höchstens 10 Grad neben der Senkrechten, so schneidet sie keine Gebäude |
 | danach | Rakete weg, die Rauchspur steht, breitet sich aus, treibt mit dem Wind und blendet über 10 bis 15 s aus |
 
 Aussehen: die Rakete prozedural aus Grundkörpern (weiße Spitze, roter Ring,
-grauer und schwarzer Körper, vier Finnen, Düse), 6 m lang, die Düse im Schacht
-3,5 m über der Basis (`missile.baseHeight`), entlang der Bahn gedreht. Ein
-anderes Modell mit derselben Konvention (Ursprung an der Düse, Spitze +y)
-kann sie ersetzen. Flamme: additives Quad von der Düse zurück, zur Kamera
+grauer und schwarzer Körper, vier Finnen, Düse), so groß wie die Rakete im
+Silo-Modell (`missile_silo.glb` bei Skala 7,36): 6,59 m lang, Rumpf 2 m dick,
+2,53 m über die Finnen, die Düse im Schacht 2,3 m über der Basis
+(`missile.baseHeight`, dort steht der Node `missile`), entlang der Bahn
+gedreht. Ein anderes Modell mit derselben Konvention (Ursprung an der Düse,
+Spitze +y) kann sie ersetzen. Flamme: additives Quad von der Düse zurück, zur Kamera
 gedreht, weißer Kern über Gelb-Orange, zur Spitze rot, flackernd, mit
 Tiefentest; länger mit dem Tempo. Dazu ein Glüh-Sprite an der Düse und eine
 Fahne aus acht Glut-Billboards. Rauch aus den Billboards des Atompilzes
@@ -614,7 +616,7 @@ während einer Welle.
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
 `gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`, `replay-player.spec.ts` (Rakete und Startton im Replay),
+`vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `missile-model.spec.ts`, `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`, `replay-player.spec.ts` (Rakete und Startton im Replay),
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,

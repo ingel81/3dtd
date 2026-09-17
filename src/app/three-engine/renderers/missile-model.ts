@@ -42,8 +42,8 @@ function band(radius: number, length: number, from: number, to: number, hex: num
 /**
  * The missile of the nuclear strike, built from primitives (Phase 1, until
  * the silo model brings its own): a nozzle bell, a dark lower and a grey
- * upper body, a red ring, a white nose and four black fins at the tail.
- * One mesh, vertex colours, lit like the towers.
+ * upper body, a red ring, a white nose and four black fins at the tail,
+ * `span` m across. One mesh, vertex colours, lit like the towers.
  *
  * The convention any missile model keeps, so another can take its place:
  * the origin on the nozzle's exit, the nose up +y, `length` m long. The
@@ -52,6 +52,7 @@ function band(radius: number, length: number, from: number, to: number, hex: num
 export function createMissileModel(
   length: number = LOOK.missile.length,
   radius: number = LOOK.missile.radius,
+  span: number = LOOK.missile.span,
 ): Mesh<BufferGeometry, MeshStandardMaterial> {
   const colors = LOOK.colors.missile;
   const parts: BufferGeometry[] = [];
@@ -83,11 +84,12 @@ export function createMissileModel(
   }
   parts.push(painted(new LatheGeometry(nose, SEGMENTS), colors.nose));
 
-  // Fins: trapezoids swept back along the tail
+  // Fins: trapezoids swept back along the tail, their root inside the body
+  const reach = Math.max(radius * 0.15, span / 2 - radius * 0.95);
   const fin = new Shape();
   fin.moveTo(0, 0);
-  fin.lineTo(radius * 1.1, -length * 0.03);
-  fin.lineTo(radius * 1.1, length * 0.08);
+  fin.lineTo(reach, -length * 0.03);
+  fin.lineTo(reach, length * 0.08);
   fin.lineTo(0, length * 0.24);
   fin.closePath();
   const thickness = radius * 0.08;

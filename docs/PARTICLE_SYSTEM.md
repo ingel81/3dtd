@@ -534,8 +534,10 @@ Spur (`MissileSmoke`, `missile-smoke.ts`), der Zustand eines Starts in
   senkrecht, stets vorwärts, höchstens 8 Grad Drehung je Frame bei 60 fps, auch bei 0 und 30 m
   Entfernung.
 - **Rakete:** ein Mesh aus Grundkörpern mit Vertexfarben (`MeshStandardMaterial`, beleuchtet wie
-  die Tower, doppelseitig), zusammengeführt zu einer Geometrie, je Start ein Klon. Ursprung an
-  der Düse, Spitze +y; die Bahn setzt den Ursprung und dreht +y entlang ihrer Richtung.
+  die Tower, doppelseitig), zusammengeführt zu einer Geometrie, je Start ein Klon, in den Maßen
+  der Rakete des Silo-Modells (6,59 m lang, 2 m Rumpf, 2,53 m über die Finnen,
+  `missile-model.spec.ts`). Ursprung an der Düse, Spitze +y; die Bahn setzt den Ursprung und
+  dreht +y entlang ihrer Richtung.
 - **Flamme:** Quad (2 × 1, 16 Segmente längs) mit eigenem ShaderMaterial samt Log-Depth-Chunks,
   im Vertex-Shader um die Flugachse zur Kamera gedreht, additiv, Licht in Anzeigewerten
   (`displayLight`), mit Tiefentest: Gebäude davor und das Silo verdecken sie. Weißer Kern,
