@@ -78,13 +78,14 @@ src/app/ai/training/
 └── strategies/
     ├── tower-strategy.interface.ts  # ITowerStrategy, BaseStrategy (+ Tower-Bewertung)
     ├── ability/
-    │   ├── ability-aim.ts                          # Zielhilfen (densestCenter), geteilt
+    │   ├── ability-aim.ts                          # Zielhilfen (densestCenter, enemyAhead), geteilt
     │   ├── nuclear-strike.strategy.ts              # 97
     │   ├── frost-bomb.strategy.ts                  # 96
     │   ├── emp.strategy.ts                         # 94
     │   └── orbital-laser.strategy.ts               # 93
     ├── placement/
     │   ├── research-center-placement.strategy.ts   # 95
+    │   ├── missile-silo-placement.strategy.ts      # 91
     │   ├── anti-air-placement.strategy.ts          # 90
     │   ├── anti-ethereal-placement.strategy.ts     # 88
     │   ├── splash-defense-placement.strategy.ts    # 85
@@ -145,7 +146,7 @@ export interface ITowerStrategy {
 
 | Helfer | Zweck |
 |---|---|
-| `getAffordableTowers(credits, knownTypes, state?)` | filtert nach Kosten, wirft `attackType === 'passive'` (Research-Center) raus und respektiert `state.research.towerUnlocked` |
+| `getAffordableTowers(credits, knownTypes, state?)` | filtert nach Kosten, wirft `attackType === 'passive'` (Research Center, Missile Silo) raus und respektiert `state.research.towerUnlocked` |
 | `getTowerValue(type)` | DPS pro Credit über `computeTowerDPSFromLevels`, **nicht** `damage × fireRate`. Die Abkürzung liefert 0 für Beam-Tower (Fire hat `damage: 0` und trägt seinen Output in `damagePerSecond`) und ignoriert Chain-Falloff, Splash und DoT |
 | `getTowerValueVsArmor(type, armor)` | effektive DPS pro Credit gegen eine Rüstungsklasse. Notwendig, weil die Damage-Matrix schief ist: Archer schlägt Magic auf dem Papier, landet aber bei 0.1× gegen Ethereal, wo Magic 2.0× macht |
 
@@ -227,6 +228,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 | 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
 | 94 | Emp | ✓ | ✓ | ✓ | ✓ |
 | 93 | OrbitalLaser | ✓ | ✓ | ✓ | ✓ |
+| 91 | MissileSiloPlacement | ✓ | ✓ | ✓ | ✓ |
 | 90 | AntiAirPlacement | | ✓ | ✓ | ✓ |
 | 88 | AntiEtherealPlacement | | ✓ | ✓ | ✓ |
 | 85 | SplashDefensePlacement | | ✓ | ✓ | ✓ |
@@ -240,9 +242,9 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 `(✓)` = wird nur angehängt, wenn `createBot(skill, autoStartWaves = true)`.
 
 NuclearStrike steht in jedem Set, feuert aber nur mit erforschtem
-`nuclear-strike`, und das erforschen nur strategist und meta (ResearchPick).
-Dasselbe gilt für FrostBomb und `frost-bomb`, Emp und `emp`, OrbitalLaser und
-`orbital-laser`.
+`nuclear-strike` und stehendem Missile Silo, und das erforschen nur strategist
+und meta (ResearchPick). Dasselbe gilt für MissileSiloPlacement, für FrostBomb
+und `frost-bomb`, Emp und `emp`, OrbitalLaser und `orbital-laser`.
 
 **casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
 Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
@@ -267,6 +269,24 @@ bereits validierte straßennahe Punkte.
 
 Höchste Priorität, weil ohne Center kein Tower-Unlock passiert und damit fast
 das gesamte Spiel verschlossen bleibt.
+
+### MissileSiloPlacement (91)
+
+Baut das Missile Silo, von dem der Nuklearschlag startet
+([ABILITIES.md](ABILITIES.md#nuklearschlag-in-zahlen)): sobald
+`state.research.towerUnlocked['missile-silo']` gilt (Forschung
+`nuclear-strike` fertig) und keines steht
+(`state.defense.towerDistribution['missile-silo']`). Goldregel wie beim
+Research Center: Silo **plus** ein Archer (400 + 45). Position über
+`findStrategicPositions` mit dem Typ `missile-silo`, der beste Kandidat: ohne
+Reichweite in 60 m bewertet, 15 bis 25 m neben der Straße und nach den
+Platzierungsregeln, also nicht auf der Route.
+
+Priorität 91: über den Kampf-Platzierungen, damit die 1.000 Gold der Forschung
+nicht ohne Silo liegen bleiben, unter dem Research Center und den Fähigkeiten.
+Wie das Research Center ignoriert die Strategie `maxTowers`, das Silo zählt
+aber wie das Center in `defense.towerCount` und damit gegen den Turm-Cap der
+anderen Platzierungen.
 
 ### AntiAirPlacement (90)
 
@@ -417,13 +437,27 @@ billigsten. Erster Turm: der billigste. Gleicher Archer-Cap.
 ### NuclearStrike (97)
 
 Feuert den Nuklearschlag ([ABILITIES.md](ABILITIES.md)): während einer Welle,
-sobald die Fähigkeit bereit ist (`AbilityManager.checkUse`), und nur, wenn
-mindestens 10 Gegner im letzten Fünftel ihrer Route stehen (Pfadfortschritt ab
-0,8). Ziel ist der Gegner in diesem Abschnitt mit den meisten anderen im
-Strike-Radius von 25 m. Geprüft werden höchstens 48 Kandidaten, gleichmäßig
-über den Abschnitt verteilt, damit ein Mega-Schwarm billig bleibt. Die Aktion
-`use-ability` geht als `command:use-ability` an den AbilityManager, der das
-Ziel wie einen Klick auf die Route snappt.
+sobald die Fähigkeit bereit ist (`AbilityManager.checkUse`: erforscht,
+geladen, Missile Silo steht), und nur, wenn beim Einschlag mindestens 10
+Gegner im letzten Fünftel ihrer Route stehen werden (Pfadfortschritt ab 0,8).
+
+**Vorhalten.** Die Rakete landet 6,5 s nach dem Befehl (`warningMs`), ein
+Zombie läuft in der Zeit 32 m. Jeder Gegner zählt deshalb dort, wo er beim
+Einschlag steht: sein Tempo dieses Moments (`getEffectiveSpeed`, Slow, Freeze
+und Stun eingerechnet) mal 6,5 s weiter auf der Mittellinie seines Pfads
+(`enemyAhead` in `ability-aim.ts`, derselbe Helfer, mit dem der Orbitallaser
+seinen Aufsetzpunkt vorhersagt). Wer bis dahin über das Pfadende hinaus wäre,
+hat die HQ erreicht und zählt nicht; die Gruppe, auf die der Bot feuert, liegt
+also vor der HQ. Ziel ist unter diesen vorhergesagten Punkten der mit den
+meisten anderen im Strike-Radius von 25 m. Geprüft werden höchstens 48
+Kandidaten, gleichmäßig verteilt, damit ein Mega-Schwarm billig bleibt. Die
+Aktion `use-ability` geht als `command:use-ability` an den AbilityManager, der
+das Ziel wie einen Klick auf die Route snappt.
+
+**Grenzen des Modells.** Das Tempo gilt als konstant: ein Freeze, der in den
+6,5 s endet, ein Slow, der ausläuft, und ein Gegner, der erst in der Zeit
+angehalten wird, sind nicht vorhergesagt. Gegner laufen auf der Mittellinie,
+die seitliche Lage in der Straße zählt nicht.
 
 Die Gegner liest die Strategie aus dem GameStateManager, nicht aus dem
 Snapshot: der trägt keine Positionen und geht unverändert ans Backend.
@@ -438,6 +472,11 @@ wächst also nicht durch den Einsatz. Das Encoder-Merkmal `research_progress`
 (abgeschlossen durch gesamt) zählt seit 2026-09-14 nur die elf Knoten, die das
 Modell kennt (`ENCODER_RESEARCH_IDS`); neue Knoten wie dieser verschieben es
 nicht ([AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), Abschnitt 7).
+Seit 2026-09-17 bauen strategist und meta dafür zusätzlich das Silo (400 Gold)
+und zielen mit Vorhalt auf die Gruppe beim Einschlag; Läufe davor sind in
+allem, was vom Nuklearschlag abhängt, nicht direkt vergleichbar. Das Silo zählt
+in `defense.towerCount` (Encoder-Merkmal `towerCount`) wie das Research
+Center.
 
 ### FrostBomb (96)
 
@@ -747,6 +786,15 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 ---
 
 ## Changelog
+
+### 2026-09-17: Missile Silo und Vorhalt
+- Neue Strategie MissileSiloPlacement (91) in allen Skill-Stufen: baut das
+  Silo nach `nuclear-strike`, ohne das der Nuklearschlag nicht feuert.
+- NuclearStrike zählt und zielt mit den Positionen beim Einschlag (6,5 s
+  Vorwarnung statt 1,5 s) statt mit den aktuellen; Gegner, die bis dahin die
+  HQ erreichen, zählen nicht. `pointAhead` aus OrbitalLaser heißt jetzt
+  `enemyAhead` und liegt in `ability-aim.ts`; `densestCenter` nimmt alles mit
+  einer Position.
 
 ### 2026-09-16: Kandidaten mit Grundfläche
 - `findStrategicPositions` und `findDistributedPositions` nehmen den Tower-Typ

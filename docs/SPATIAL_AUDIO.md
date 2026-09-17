@@ -466,8 +466,8 @@ kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
   (`AbilityImpactSound.warning`), den der `AudioService` beim `ability:used` am Ziel
   anlegt, wo der Zielmarker die Vorwarnung zeigt, auf dem Boden des Route-Grids
   (`AudioService.setGround`), und beim `ability:impact` desselben `strikeId` vor dem
-  Knall stoppt. Die Vorwarnung dauert 1,5 s Spielzeit: Bei 1x ist der Anstieg zu hören,
-  bei 4x ein Viertel davon. Als Loop steht sie in der Pause (`holdLoops`) und ist nur bis
+  Knall stoppt. Die Vorwarnung dauert seit 2026-09-17 6,5 s Spielzeit (vorher 1,5 s): Bei 1x
+  läuft der 2-s-Loop gut dreimal, bei 4x ein Viertel davon. Als Loop steht sie in der Pause (`holdLoops`) und ist nur bis
   `maxAudibleDistance` (500 m) zu hören, nicht bis 1500 m wie der Knall. Kommt der Loop
   erst nach dem Einschlag an, stoppt der Service ihn sofort. `game:reset`, ein Sprung im
   Replay (`clearAbilitySounds`) und `destroy()` beenden sie. Abnahme wie beim Knall

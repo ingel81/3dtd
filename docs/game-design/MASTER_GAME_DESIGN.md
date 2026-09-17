@@ -17,6 +17,9 @@
 >
 > **Erweitert 2026-09-12:** Schadenstyp **Chaos** (9. Typ, 1,0 gegen jede
 > Rüstung) und der **Chaos Tower** als teurer Generalist, §2.1 / §2.3 / §3.13.
+>
+> **Erweitert 2026-09-17:** das **Missile Silo** als zweites Gebäude, von dem
+> der Nuklearschlag startet, und das Einmal-Flag `unique`, §6.1b.
 
 ## 1. Design-Philosophie
 - **Einfach zu lernen, schwer zu meistern**: klare Basisregeln + Veteranen-Tiefe (Matrix, Status, Flags).
@@ -413,7 +416,7 @@ ist ein schwerer, aber überlebbarer Treffer.
 | **Typ** | Platzierbares Gebäude, ein Eintrag in `TOWER_TYPES` mit `attackType: 'passive'` |
 | **Kosten** | 75 Credits |
 | **Verfügbar** | Sofort (ab Spielstart) |
-| **Anzahl** | Genau eines erlaubt |
+| **Anzahl** | Genau eines erlaubt (`unique: true`, siehe 6.1b) |
 | **Angriff** | Keiner |
 | **Platzierung** | Gleiche Mechanik wie Tower |
 | **Zerstörbar** | Nein, Gegner greifen nur die Basis an |
@@ -432,6 +435,31 @@ Basis 120, `costScaling` 1,8, `getUpgradeCost`); die Slots je Stufe stehen in
 
 Die Felder `upgradeCost` (180, 350) und `baseCost` (150) in
 `research-center.config.ts` liest kein Code.
+
+### 6.1b Missile Silo (Gebäude, seit 2026-09-17)
+
+Das zweite passive Gebäude. Von ihm startet der Nuklearschlag
+([ABILITIES.md](../ABILITIES.md#nuklearschlag-in-zahlen)); ohne stehendes Silo
+hat die Fähigkeit keinen Knopf und lässt sich nicht einsetzen.
+
+| Eigenschaft | Wert |
+|---|---|
+| **Typ** | `TOWER_TYPES['missile-silo']`, `attackType: 'passive'`, ohne Upgrades |
+| **Kosten** | 400 Credits |
+| **Verfügbar** | nach der Forschung `nuclear-strike` (Effekt `unlock-tower`, neben ihrem `global-perk`) |
+| **Anzahl** | Genau eines erlaubt (`unique: true`) |
+| **Angriff** | Keiner; der Nuklearschlag ist eine Fähigkeit des Spielers |
+| **Platzierung** | Gleiche Mechanik wie Tower |
+| **Verkaufen** | derselbe Weg wie bei Towern (`TowerLifecycle.sell`), 75 % zurück (300). Ladung und Nachladen des Schlags laufen weiter, eine Rakete im Flug schlägt ein |
+| **3D-Modell** | `assets/models/buildings/missile_silo.glb` (Nodes `silo`, `missile`) |
+
+**Einmal-Gebäude.** Ob ein Gebäudetyp nur einmal stehen darf, steht als
+`unique` am `TowerTypeConfig`, nicht mehr als Prüfung auf die ID des
+Research Centers. Es prüfen `TowerLifecycle.place` (Befehl, auch des Bots) und
+`canPickTowerCard` (Karte im BUILD-Panel und Zifferntaste); was steht, führt
+`GameStore.placedUniqueTypes`, geschrieben aus `tower:placed` und
+`tower:sold`. Der Tooltip einer gebauten Karte sagt "Already placed.", sonst
+den Text aus `description`.
 
 ### 6.2 Forschungsmechanik
 
@@ -474,7 +502,7 @@ Frei wählbar mit Voraussetzungen, 20 Knoten in drei Kategorien
 | ID | Name | Kosten | Dauer | Voraussetzung | Effekt |
 |---|---|---:|---:|---|---|
 | `aa-retrofit` | AA Retrofit | 450 | 12 s | Rocketry | Dual-Gatling trifft Luft |
-| `nuclear-strike` | Nuclear Strike | 1.000 | 40 s | Advanced Weaponry | Fähigkeit Nuklearschlag |
+| `nuclear-strike` | Nuclear Strike | 1.000 | 40 s | Advanced Weaponry | Fähigkeit Nuklearschlag und das Missile Silo, von dem sie startet |
 | `frost-bomb` | Frost Bomb | 700 | 25 s | Arcane Studies | Fähigkeit Frostbombe |
 | `emp` | EMP | 800 | 30 s | Storm Mastery | Fähigkeit EMP |
 | `orbital-laser` | Orbital Laser | 1.500 | 45 s | Master Engineering | Fähigkeit Orbitallaser |

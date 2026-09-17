@@ -181,6 +181,7 @@ poison:           { projectileType: 'poison-glob' }
 lightning:        { projectileType: 'arrow',    attackType: 'chain' }   // Chain-Tower, kein Projektil
 chaos:            { projectileType: 'chaos-orb' }
 'research-center':{ projectileType: 'arrow',    attackType: 'passive' } // Passive Building, kein Combat
+'missile-silo':   { projectileType: 'arrow',    attackType: 'passive' } // Passive Building, kein Combat
 ```
 
 ## Sound

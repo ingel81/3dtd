@@ -80,7 +80,7 @@ kommt ein Frame dazu, im selben Sub-Step direkt nach dem Turret-Aim:
 | Körper entlang der Route (Ooze) | Tabellenindex, Schwanz und Spitze in Metern ab `path[0]` (`RouteBody.tailM`, `tipM`) | 12 |
 | Held (je Frame, nicht je Körper) | Pose (idle, run, shoot, run-shoot; 0 = kein Held), lokale x und z, Blickrichtung | 13 |
 
-Jeder Turm außer einem passiven Gebäude (dem Research Center) bekommt je
+Jeder Turm außer einem passiven Gebäude (Research Center, Missile Silo) bekommt je
 Frame eine Stichprobe, auch ohne Turret-Teil: Archer, Lightning und Tentacle
 drehen ihre Zielrichtung wie die anderen, nur dreht sich am Modell nichts,
 und ihr Blutmond-Scheinwerfer folgt ihr. Eine Stichprobe nur bei geänderter
