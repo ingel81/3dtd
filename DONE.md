@@ -4,6 +4,28 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-17
+
+### Nachtests und Befunde aus dem Playtest vom 16. und 17. September
+
+Vom User im Spiel abgenommen; Punkte und Ergebnisse in `docs/archive/PLAYTEST_2026-09.md` (K2 bis K6). Gebaut von den
+Workern plinthedge, cornerarc, hqleg und innerfold, Gate grün auf `28f91f24` (5042 Tests).
+
+- [x] **Nachtests K2 und K3**: Laden, Eichung und Rückfall (744, 746) ok; Skarnax mit Stimme, Textur, Beinen und
+      Schwanz ok, Tank-Modell ok, Kragsteine an der Dachkante ok (Sockel dazu siehe C10).
+- [x] **C10 Sockel an Dachkanten und Wänden** (`0b25c534` bis `0889daa0`, K4): Der Sockel reicht an einer Kante
+      höchstens 3 m hinab, darunter Kragsteine, an einer flachen Kante als Platte; Mitte oder innerer Ring über einem
+      Abbruch ("Too far over the edge") oder an einer Wand ("Not enough room"): rot. Der Trainings-Bot nimmt den ersten
+      Kandidaten, an dem ein Tower stehen kann.
+- [x] **C12 Gegner springen an Knicken** (`f2cc178f` bis `1276d1ff`, K5): Ecken im Bewegungsmodell auf einem Bogen
+      über die ganze Knick-Gruppe, Radius so weich, wie die seitliche Grenze erlaubt; Formation, Fortschritt und
+      Ankunft unverändert, Wurm und Held unverändert. Die Bögen entstehen beim Einfrieren in Zeitscheiben.
+- [x] **C13 Endstück zum HQ steigt aufs Dach** (`d81bad5c` bis `4707e72e`, K6): Das Endstück trägt die Straßenhöhe
+      weiter wie das Brückenende (`carried-height.ts`); ein Treffer mehr als 1,5 m über der getragenen Höhe ist kein
+      Boden. Audi NSU und Erlenbach BBH als Snapshot-Spec.
+- [x] **C14 Gegnerlinie faltet sich an Innenecken** (`28f91f24`): `bandPath` verwirft Stationen innen hinter dem
+      Gehrungspunkt. Rest: Zwei Knicke auf einem sehr kurzen Stück können noch kurz zurückgehen.
+
 ## 2026-09-16
 
 ### Korridor vom User abgenommen
