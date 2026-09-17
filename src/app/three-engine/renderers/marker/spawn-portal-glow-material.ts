@@ -12,7 +12,7 @@ import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 
 /** The summoning circle on the street, see SPAWN_PORTAL_LOOK.circle. */
 export interface PortalCircleLook {
-  /** Centre ahead of the front surface and outer radius (m, scale 1) */
+  /** Centre ahead of the portal's plane and outer radius (m, scale 1) */
   centre: number;
   radius: number;
   /** Turn (rad/s, wall time) */
@@ -30,7 +30,7 @@ const CIRCLE_CENTRE_SIGIL = PORTAL_SIGILS.findIndex((s) => s.name === 'haloed mo
  * red tinted with the spawn's colour, additive, in one draw call. aRipple
  * is the wall time (s) of the portal's last spawn burst: a ring runs out
  * from the portal's foot over the street. A summoning circle lies on the
- * street ahead of the front surface, drawn in the frame's sigils
+ * street ahead of the portal's plane, drawn in the frame's sigils
  * (portalCircle): dim, turning very slowly, flaring with the surge of a
  * wave start. Street light and circle are additive light in display values,
  * written for the target (displayLight, display-output.ts): as before on
@@ -94,8 +94,8 @@ export function createPortalGlowMaterial(
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
       uniform vec3 uGround;  // half width, depth behind, depth in front
-      uniform float uHalfDepth; // half the volume's depth
-      uniform vec4 uCircle;  // centre ahead of the front surface, radius (m), spin (rad/s), glow
+      uniform float uHalfDepth; // the plane's distance from the route start
+      uniform vec4 uCircle;  // centre ahead of the plane, radius (m), spin (rad/s), glow
       uniform vec3 uFlare;   // wave energy, surge, flare at the surge's peak
       ${PORTAL_PALETTE_GLSL}
 
@@ -147,9 +147,8 @@ export function createPortalGlowMaterial(
         float progress = 1.0 - ripple;
 
         // Strongest at the portal's foot, fading to the patch's edges,
-        // weaker behind the portal; along the route measured from the front
-        // and the back surface, 0 inside the volume
-        float zOut = sign(vLocal.z) * max(abs(vLocal.z) - uHalfDepth, 0.0);
+        // weaker behind the portal; along the route measured from the plane
+        float zOut = vLocal.z - uHalfDepth;
         float dx = max(abs(vLocal.x) - uOpening.x, 0.0);
         float d = length(vec2(dx, zOut));
         float side = 1.0 - smoothstep(0.55, 1.0, abs(vLocal.x) / uGround.x);
@@ -163,7 +162,7 @@ export function createPortalGlowMaterial(
         vec3 light = mix(uEmber, vColor, 0.25) * exp(-d * 0.3) * side * along * (0.2 + 0.35 * uEnergy) * flicker
           + mix(uEmber, uHot, 0.5) * ring * side * along * 0.6;
 
-        // Summoning circle ahead of the front surface: fine lines with a
+        // Summoning circle ahead of the portal's plane: fine lines with a
         // soft halo, faded where a pixel covers so much street that they
         // would break up into noise
         vec2 onStreet = vec2(vLocal.x, (vLocal.z - uHalfDepth) * vDepthRatio - uCircle.x);

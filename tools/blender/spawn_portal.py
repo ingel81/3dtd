@@ -1,6 +1,6 @@
 """Spawn portal frame: public/assets/models/structures/spawn_portal.glb.
 
-Builds the stone gate the spawn portals stand in (SpawnPortalManager), bakes
+Builds the stone arch round the spawn portals' plane (SpawnPortalManager), bakes
 its textures and exports the GLB. Everything is made here, no external
 inputs: the blocks from bmesh, the noise from Cycles' procedural textures,
 the sigils from tools/blender/spawn_portal_layout.json, which
@@ -67,8 +67,9 @@ HALF = LAYOUT['opening']['width'] / 2
 OPEN_H = LAYOUT['opening']['height']
 FRAME_TOP = LAYOUT['frameTop']
 RADIUS = LAYOUT['radius']
-# The volume the enemies start in: a void surface at z = ±HALF_DEPTH, the
-# pillars and the lintel run WALL past each
+# The portal's plane, its void surface, at z = HALF_DEPTH: the enemies start
+# HALF_DEPTH behind it and come out through it; the arch's front face
+# stands WALL in front of it
 DEPTH = LAYOUT['depth']
 HALF_DEPTH = DEPTH / 2
 WALL = 0.3
@@ -88,26 +89,16 @@ LINTEL_JOINTS = (-4.0, -2.0, 0.0, 2.0, 4.0)
 LINTEL_TILT = 0.05
 # Blocks reach this far into their neighbours, so a jitter opens no gap
 OVERLAP = 0.02
-# A double gate round the volume: a gate at the front and one at the back,
-# GATE_DEPTH deep each, their outer faces WALL past the void surfaces;
-# between them lower side walls set back to WALL_X and a gable roof, its
-# eaves at EAVE_Y, its ridge at RIDGE_Y with a glowing slot SLOT to each
-# side of it
-# The side walls and the eaves hold the widest and tallest ground enemy
-# (the stone golem, 12.6 m wide, 12.4 m tall at scale 1) between the gates,
-# see spawn-portal-frame.spec.ts
+# A single arch round the plane, GATE_DEPTH deep, its middle at GATE_Z; no
+# walls or roof behind it: the enemies' own shaders drop what is still
+# behind the plane (portal-clip.ts in the game)
 GATE_DEPTH = 2.6
-GATE_IN = HALF_DEPTH + WALL - GATE_DEPTH
 GATE_Z = HALF_DEPTH + WALL - GATE_DEPTH / 2
-WALL_X = HALF + 2.6
-EAVE_Y = OPEN_H + 1.6
-RIDGE_Y = 14.6
-SLOT = 0.28
 
 STONE, IRON, HORN = 0, 1, 2
-# Role of a piece: GLYPH carries sigils on its gate's outer face, SPIKE is
-# a shard with flutes and breaks, GLOW the glowing slot along the ridge
-PLAIN, GLYPH, SPIKE, GLOW = 0, 1, 2, 3
+# Role of a piece: GLYPH carries sigils on the arch's front and back face,
+# SPIKE is a shard with flutes and breaks
+PLAIN, GLYPH, SPIKE = 0, 1, 2
 
 # ── Texture look (linear colours): dark grey-brown basalt, no black; the
 # game's frameExposure sets how bright it shows against the tiles ──
@@ -252,7 +243,7 @@ def catmull_rom(points, samples):
     return out
 
 
-# The horns on the front gate's cornice ends, in the plane z = GATE_Z
+# The horns on the arch's cornice ends, in the plane z = GATE_Z
 HORN_PATH = ((6.6, 14.3), (7.6, 16.2), (7.9, 18.0), (7.3, 19.3))
 HORN_RADII = (1.15, 0.78, 0.45, 0.0)
 HORN_RINGS = 24
@@ -342,19 +333,18 @@ def horn_band_bmesh(side, u0, z0):
 def pillar_at(y):
     """Centre x, width and depth of the right pillar at height y: the inner
     face stands plumb on the opening's edge, the outer one leans in a little,
-    standing proud of the side wall between the gates; WALL deeper than the
-    volume at each surface (a gate takes its part of the depth)."""
+    front and back lean in a little too, round GATE_Z."""
     t = (y + BURY) / (PILLAR_TOP + BURY)
     w = 3.2 - 0.5 * t
-    d = DEPTH + 2 * WALL + 0.2 * (1 - t)
+    d = GATE_DEPTH + 0.2 * (1 - t)
     return HALF + w / 2, w, d
 
 
 def pillar_block(y0, y1, grow=0.0):
     x0, w0, d0 = pillar_at(y0)
     x1, w1, d1 = pillar_at(y1)
-    return box_corners(x0 + grow / 2, y0, 0, w0 + grow, d0 + 2 * grow,
-                       x1 + grow / 2, y1, 0, w1 + grow, d1 + 2 * grow)
+    return box_corners(x0 + grow / 2, y0, GATE_Z, w0 + grow, d0 + 2 * grow,
+                       x1 + grow / 2, y1, GATE_Z, w1 + grow, d1 + 2 * grow)
 
 
 def lintel_joint_x(j, y):
@@ -362,20 +352,9 @@ def lintel_joint_x(j, y):
 
 
 def lintel_half_depth(y):
-    """Half the lintel's depth at height y: the volume's roof, WALL past each surface."""
-    return HALF_DEPTH + WALL + 0.1 * (y - OPEN_H) / (LINTEL_TOP - OPEN_H)
-
-
-def cut_z(corners, z0, z1):
-    """The part of a block between the planes z = z0 and z = z1 (portal z)."""
-    return [(x, y, min(max(z, z0), z1)) for x, y, z in corners]
-
-
-def gate_keep(gz, inward=0.0):
-    """The z range of the front (gz 1) or the back gate (gz -1), reaching
-    `inward` further toward the middle, for cut_z."""
-    z = GATE_IN - inward - OVERLAP
-    return (z, math.inf) if gz > 0 else (-math.inf, -z)
+    """Half the lintel's depth at height y round GATE_Z: its front and back
+    face lean out a little toward the top."""
+    return GATE_DEPTH / 2 + 0.1 * (y - OPEN_H) / (LINTEL_TOP - OPEN_H)
 
 
 def z_ranges(cuts):
@@ -398,7 +377,7 @@ def lintel_stone(xa, xb):
         d = lintel_half_depth(y)
         xl = at(xa, y, -1) - (OVERLAP if xa is not None else 0)
         xr = at(xb, y, 1) + (OVERLAP if xb is not None else 0)
-        corners += [(xl, y, -d), (xr, y, -d), (xr, y, d), (xl, y, d)]
+        corners += [(xl, y, GATE_Z - d), (xr, y, GATE_Z - d), (xr, y, GATE_Z + d), (xl, y, GATE_Z + d)]
     return corners
 
 
@@ -439,66 +418,47 @@ def frame_pieces():
             m = [(-x, y, z) for x, y, z in corners]
             return [m[1], m[0], m[3], m[2], m[5], m[4], m[7], m[6]]
 
-        def split(name, corners, cuts, bevel, outer_role=PLAIN, **kw):
-            """A block cut along the depth at `cuts`, as laid in stones: the
-            outer ones carry the front and the back face (outer_role)."""
-            ranges = z_ranges(cuts)
-            for i, (z0, z1) in enumerate(ranges):
-                role = outer_role if i in (0, len(ranges) - 1) else PLAIN
-                pieces.append(block(f'{name}_{i}', mirror(cut_z(corners, z0, z1)), bevel, role=role, **kw))
+        def split(name, corners, cuts, bevel, **kw):
+            """A block cut along the depth at `cuts`, as laid in stones."""
+            for i, (z0, z1) in enumerate(z_ranges(cuts)):
+                cut = [(x, y, min(max(z, z0), z1)) for x, y, z in corners]
+                pieces.append(block(f'{name}_{i}', mirror(cut), bevel, **kw))
 
-        # Plinth: two steps, each laid in four stones along the depth
+        # Plinth under the pillar: two steps, each laid in two stones along
+        # the depth, as far out in front and behind as the arch is deep
         px = HALF + 0.05 + 1.875
-        c = box_corners(px, -BURY, 0, 3.75, DEPTH + 1.8, px, 0.8, 0, 3.75, DEPTH + 1.6)
-        split(f'plinth_low_{s}', c, (-3.0, 0.2, 3.2), 0.07, chip_count=2, jitter=(0.25, 0.006), protect=(0, 1, 2, 3))
-        c = box_corners(HALF + 0.05 + 1.6, 0.8 - OVERLAP, 0, 3.2, DEPTH + 1.1,
-                        HALF + 0.05 + 1.65, PLINTH_TOP, 0, 3.1, DEPTH + 0.8)
-        split(f'plinth_up_{s}', c, (-2.5, 0.9, 3.3), 0.06, chip_count=2, jitter=(0.25, 0.006), protect=(0, 1, 2, 3))
+        c = box_corners(px, -BURY, GATE_Z, 3.75, GATE_DEPTH + 1.2, px, 0.8, GATE_Z, 3.75, GATE_DEPTH + 1.0)
+        split(f'plinth_low_{s}', c, (GATE_Z + 0.3,), 0.07, chip_count=2, jitter=(0.25, 0.006), protect=(0, 1, 2, 3))
+        c = box_corners(HALF + 0.05 + 1.6, 0.8 - OVERLAP, GATE_Z, 3.2, GATE_DEPTH + 1.1,
+                        HALF + 0.05 + 1.65, PLINTH_TOP, GATE_Z, 3.1, GATE_DEPTH + 0.2)
+        split(f'plinth_up_{s}', c, (GATE_Z - 0.4,), 0.06, chip_count=2, jitter=(0.25, 0.006), protect=(0, 1, 2, 3))
 
-        for gz in (1, -1):
-            g = 'F' if gz > 0 else 'B'
-            keep = gate_keep(gz)
+        # Pillar: the foot down into the ground, five courses as tall as a
+        # sigil cell, the impost under the lintel
+        pieces.append(block(f'pillar_foot_F_{s}', mirror(pillar_block(-BURY, COURSE_BOTTOM + OVERLAP)), 0.05,
+                            jitter=None, plumb=side, protect=range(8)))
+        for k in range(COURSES):
+            y0 = COURSE_BOTTOM + COURSE_H * k - OVERLAP
+            y1 = COURSE_BOTTOM + COURSE_H * (k + 1) + OVERLAP
+            pieces.append(block(f'pillar_{k}_F_{s}', mirror(pillar_block(y0, y1)), 0.05 + 0.01 * (k % 3), role=GLYPH,
+                                chip_count=1 + k % 2, jitter=(0.35, 0.012), plumb=side))
+        c = pillar_block(COURSE_BOTTOM + COURSE_H * COURSES - OVERLAP, OPEN_H + 0.1, grow=0.14)
+        # The impost's inner face stays on the opening's edge
+        c = [(HALF if i in (0, 3, 4, 7) else x, y, z) for i, (x, y, z) in enumerate(c)]
+        pieces.append(block(f'impost_F_{s}', mirror(c), 0.045, chip_count=1, jitter=(0.2, 0.008), plumb=side,
+                            protect=(4, 5, 6, 7)))
+        # Iron band round the pillar's foot
+        c = pillar_block(2.05, 2.45, grow=0.09)
+        c = [(HALF - 0.045 if i in (0, 3, 4, 7) else x, y, z) for i, (x, y, z) in enumerate(c)]
+        pieces.append(block(f'band_F_{s}', mirror(c), 0.012, kind=IRON, jitter=None, poke=False))
 
-            def gate_stone(name, corners, bevel, **kw):
-                pieces.append(block(f'{name}_{g}_{s}', mirror(cut_z(corners, *keep)), bevel, **kw))
-
-            # Gate pillar: the foot down into the ground, five courses as tall
-            # as a sigil cell, the impost under the lintel
-            gate_stone('pillar_foot', pillar_block(-BURY, COURSE_BOTTOM + OVERLAP), 0.05, jitter=None,
-                       plumb=side, protect=range(8))
-            for k in range(COURSES):
-                y0 = COURSE_BOTTOM + COURSE_H * k - OVERLAP
-                y1 = COURSE_BOTTOM + COURSE_H * (k + 1) + OVERLAP
-                gate_stone(f'pillar_{k}', pillar_block(y0, y1), 0.05 + 0.01 * (k % 3), role=GLYPH,
-                           chip_count=1 + k % 2, jitter=(0.35, 0.012), plumb=side)
-            c = pillar_block(COURSE_BOTTOM + COURSE_H * COURSES - OVERLAP, OPEN_H + 0.1, grow=0.14)
-            # The impost's inner face stays on the opening's edge
-            c = [(HALF if i in (0, 3, 4, 7) else x, y, z) for i, (x, y, z) in enumerate(c)]
-            gate_stone('impost', c, 0.045, chip_count=1, jitter=(0.2, 0.008), plumb=side, protect=(4, 5, 6, 7))
-            # Iron band round the pillar's foot
-            c = pillar_block(2.05, 2.45, grow=0.09)
-            c = [(HALF - 0.045 if i in (0, 3, 4, 7) else x, y, z) for i, (x, y, z) in enumerate(c)]
-            gate_stone('band', c, 0.012, kind=IRON, jitter=None, poke=False)
-
-        # Side wall between the gates, the volume's side: lower than the
-        # gates and set back from their faces, in large courses
-        wz = GATE_IN + OVERLAP
-        heights = (-BURY, COURSE_BOTTOM, COURSE_BOTTOM + 3.2, COURSE_BOTTOM + 6.4, EAVE_Y)
-        for k, (y0, y1) in enumerate(zip(heights, heights[1:])):
-            w = WALL_X - HALF
-            c = box_corners(HALF + w / 2, y0 - (OVERLAP if k else 0), 0, w, 2 * wz,
-                            HALF + w / 2 - 0.05, y1 + OVERLAP, 0, w - 0.1, 2 * wz)
-            pieces.append(block(f'wall_{k}_{s}', mirror(c), 0.05, chip_count=1 if k else 0, jitter=(0.2, 0.01),
-                                plumb=side, protect=range(4) if k == 0 else ()))
-
-        # Horn out of the front gate's cornice, and its hoops
+        # Horn out of the cornice, and its hoops
         pieces.append(Piece(f'horn_{s}', horn_bmesh(side, GATE_Z), kind=HORN, poke=False))
         for n, u in enumerate(HORN_BANDS):
             pieces.append(Piece(f'hoop_{n}_{s}', horn_band_bmesh(side, u, GATE_Z), kind=IRON, poke=False))
 
-        # Spikes along the front gate's cornice between the crown and the
-        # horns, a shard on the crown's base; a spike on each corner and
-        # beside the crown of the back gate
+        # Spikes along the cornice between the crown and the horns, a shard
+        # on the crown's base
         rng = rng_for(7, side)
         pieces.append(spike(f'spike_{s}', (side * 2.9, GATE_Z), 0.8, 0.9, CORNICE_TOP - OVERLAP,
                             (side * 3.5, 18.3, GATE_Z + 0.2), 5, (0.28, 0.52, 0.76), rng))
@@ -506,89 +466,47 @@ def frame_pieces():
                             (side * 5.3, 16.9, GATE_Z + 0.9), 5, (0.35, 0.65), rng))
         pieces.append(spike(f'shard_{s}', (side * 1.35, GATE_Z), 0.5, 0.55, 15.9,
                             (side * 2.0, 17.4, GATE_Z + 0.05), 5, (0.35, 0.65), rng))
-        pieces.append(spike(f'corner_spike_{s}', (side * 6.3, -GATE_Z), 0.7, 0.8, CORNICE_TOP - OVERLAP,
-                            (side * 7.0, 17.3, -GATE_Z - 0.4), 5, (0.3, 0.58, 0.8), rng))
-        pieces.append(spike(f'back_spike_{s}', (side * 2.6, -GATE_Z), 0.65, 0.75, CORNICE_TOP - OVERLAP,
-                            (side * 3.1, 16.9, -GATE_Z - 0.2), 5, (0.3, 0.6, 0.8), rng))
 
+    # Lintel: six stones across, their joints between the sigil columns; its
+    # front and back face carry the sigils
+    bounds = (None, *LINTEL_JOINTS, None)
+    for i, (xa, xb) in enumerate(zip(bounds, bounds[1:])):
+        pieces.append(block(f'lintel_{i}_F', lintel_stone(xa, xb), 0.06, role=GLYPH,
+                            chip_count=1 if i in (0, 5) else 0, jitter=(0.15, 0.008), protect=(0, 1, 2, 3)))
+    # Iron cramps across the joints on the front and the back face, above the sigils
     for gz in (1, -1):
         g = 'F' if gz > 0 else 'B'
-        keep = gate_keep(gz)
-        # Lintel: six stones across, their joints between the sigil columns;
-        # the gate's outer face carries the sigils
-        bounds = (None, *LINTEL_JOINTS, None)
-        for i, (xa, xb) in enumerate(zip(bounds, bounds[1:])):
-            pieces.append(block(f'lintel_{i}_{g}', cut_z(lintel_stone(xa, xb), *keep), 0.06, role=GLYPH,
-                                chip_count=1 if i in (0, 5) else 0, jitter=(0.15, 0.008), protect=(0, 1, 2, 3)))
-        # Iron cramps across the joints on the outer face, above the sigils
         for j in LINTEL_JOINTS:
             y0, y1 = 13.42, 13.68
             face = lintel_half_depth((y0 + y1) / 2)
             x = lintel_joint_x(j, (y0 + y1) / 2)
-            c = box_corners(x, y0, gz * (face - 0.02), 0.62, 0.11, x, y1, gz * (face - 0.02), 0.62, 0.11)
+            z = GATE_Z + gz * (face - 0.02)
+            c = box_corners(x, y0, z, 0.62, 0.11, x, y1, z, 0.62, 0.11)
             pieces.append(block(f'cramp_{j}_{g}', c, 0.01, kind=IRON, jitter=None, poke=False))
 
-        # Bed moulding and cornice slabs, overhanging the roof a little
-        over = gate_keep(gz, inward=0.35)
-        for i, (xa, xb) in enumerate(((-7.2, -3.0), (-3.0, 3.0), (3.0, 7.2))):
-            c = box_corners((xa + xb) / 2, 13.8, 0, xb - xa + OVERLAP, DEPTH + 0.95,
-                            (xa + xb) / 2, 14.02, 0, xb - xa + OVERLAP, DEPTH + 0.95)
-            pieces.append(block(f'moulding_{i}_{g}', cut_z(c, *over), 0.04, jitter=(0.1, 0.006), poke=False))
-        joints = (-7.7, -5.775, -1.925, 1.925, 5.775, 7.7)
-        for i, (xa, xb) in enumerate(zip(joints, joints[1:])):
-            wa = xa - (OVERLAP if i > 0 else 0)
-            wb = xb + (OVERLAP if i < 4 else 0)
-            ta = wa if i > 0 else -7.5
-            tb = wb if i < 4 else 7.5
-            bd = HALF_DEPTH + 0.7
-            td = HALF_DEPTH + 0.6
-            c = [(wa, 14.0, -bd), (wb, 14.0, -bd), (wb, 14.0, bd), (wa, 14.0, bd),
-                 (ta, CORNICE_TOP, -td), (tb, CORNICE_TOP, -td), (tb, CORNICE_TOP, td), (ta, CORNICE_TOP, td)]
-            pieces.append(block(f'cornice_{i}_{g}', cut_z(c, *over), 0.07, chip_count=2 if i in (0, 4) else 1,
-                                jitter=(0.25, 0.012)))
+    # Bed moulding and cornice slabs, overhanging the lintel a little
+    for i, (xa, xb) in enumerate(((-7.2, -3.0), (-3.0, 3.0), (3.0, 7.2))):
+        c = box_corners((xa + xb) / 2, 13.8, GATE_Z, xb - xa + OVERLAP, GATE_DEPTH + 0.35,
+                        (xa + xb) / 2, 14.02, GATE_Z, xb - xa + OVERLAP, GATE_DEPTH + 0.35)
+        pieces.append(block(f'moulding_{i}_F', c, 0.04, jitter=(0.1, 0.006), poke=False))
+    joints = (-7.7, -5.775, -1.925, 1.925, 5.775, 7.7)
+    for i, (xa, xb) in enumerate(zip(joints, joints[1:])):
+        wa = xa - (OVERLAP if i > 0 else 0)
+        wb = xb + (OVERLAP if i < 4 else 0)
+        ta = wa if i > 0 else -7.5
+        tb = wb if i < 4 else 7.5
+        bd = GATE_DEPTH / 2 + 0.4
+        td = GATE_DEPTH / 2 + 0.3
+        c = [(wa, 14.0, GATE_Z - bd), (wb, 14.0, GATE_Z - bd), (wb, 14.0, GATE_Z + bd), (wa, 14.0, GATE_Z + bd),
+             (ta, CORNICE_TOP, GATE_Z - td), (tb, CORNICE_TOP, GATE_Z - td), (tb, CORNICE_TOP, GATE_Z + td),
+             (ta, CORNICE_TOP, GATE_Z + td)]
+        pieces.append(block(f'cornice_{i}_F', c, 0.07, chip_count=2 if i in (0, 4) else 1, jitter=(0.25, 0.012)))
 
-        # Crown: a base on the cornice and a jagged spike on it; the front
-        # gate's is the top of the frame
-        front = gz > 0
-        zc = gz * GATE_Z
-        w0, d0, w1, d1, h = (5.0, 2.4, 4.0, 1.9, 16.1) if front else (3.6, 2.0, 2.8, 1.6, 15.6)
-        c = box_corners(0, CORNICE_TOP - OVERLAP, zc, w0, d0, 0, h, zc, w1, d1)
-        pieces.append(block(f'crown_base_{g}', c, 0.06, chip_count=2, jitter=None, protect=(0, 1, 2, 3)))
-        pieces.append(spike(f'crown_spike_{g}', (0.0, zc), 1.9 if front else 1.3, 1.1 if front else 0.85, h - 0.05,
-                            (0.0, FRAME_TOP if front else 17.9, zc), 6, (0.22, 0.44, 0.64, 0.82),
-                            rng_for(11, gz), twist=0.2))
-
-    # The volume's ceiling between the side walls, and a gable roof over it:
-    # a glowing slot along the ridge under iron grates, spikes along the
-    # ridge and on the eaves' corners
-    rz = GATE_IN + OVERLAP
-    c = box_corners(0, OPEN_H - OVERLAP, 0, 2 * HALF + 0.3, 2 * rz, 0, EAVE_Y, 0, 2 * HALF + 0.3, 2 * rz)
-    pieces.append(block('ceiling', c, 0.04, jitter=None, poke=False))
-    xo = WALL_X + 0.35
-    for side in (1, -1):
-        for n, (z0, z1) in enumerate(z_ranges((-1.0, 1.1))):
-            z0, z1 = max(z0, -rz), min(z1, rz)
-            c = [(SLOT, RIDGE_Y - 0.45, z0), (xo, EAVE_Y - 0.05, z0), (xo, EAVE_Y - 0.05, z1), (SLOT, RIDGE_Y - 0.45, z1),
-                 (SLOT, RIDGE_Y, z0), (xo, EAVE_Y + 0.4, z0), (xo, EAVE_Y + 0.4, z1), (SLOT, RIDGE_Y, z1)]
-            if side < 0:
-                m = [(-x, y, z) for x, y, z in c]
-                c = [m[1], m[0], m[3], m[2], m[5], m[4], m[7], m[6]]
-            pieces.append(block(f'roof_{n}_{side}', c, 0.05, chip_count=1, jitter=(0.1, 0.006), protect=(0, 1, 2, 3)))
-    c = box_corners(0, EAVE_Y - OVERLAP, 0, 2 * SLOT + 0.06, 2 * rz, 0, RIDGE_Y - 0.35, 0, 2 * SLOT + 0.06, 2 * rz)
-    pieces.append(block('slot', c, 0.02, role=GLOW, jitter=None, poke=False))
-    for n in range(7):
-        z = -2.4 + 0.8 * n
-        c = box_corners(0, RIDGE_Y - 0.15, z, 2 * SLOT + 0.5, 0.1, 0, RIDGE_Y + 0.05, z, 2 * SLOT + 0.5, 0.1)
-        pieces.append(block(f'grate_{n}', c, 0.01, kind=IRON, jitter=None, poke=False))
-    rng = rng_for(23)
-    for n, z in enumerate((-2.1, -0.7, 0.8, 2.2)):
-        side = 1 if n % 2 else -1
-        pieces.append(spike(f'ridge_spike_{n}', (side * (SLOT + 0.3), z), 0.32, 0.4, RIDGE_Y - 0.35,
-                            (side * (SLOT + 0.55), RIDGE_Y + 1.3 + 0.35 * (n % 3), z + 0.15), 5, (0.35, 0.68), rng))
-    for sx in (1, -1):
-        for sz in (1, -1):
-            pieces.append(spike(f'eave_spike_{sx}_{sz}', (sx * (WALL_X - 0.1), sz * (GATE_IN - 0.45)), 0.35, 0.4,
-                                EAVE_Y, (sx * (WALL_X + 0.5), EAVE_Y + 1.6, sz * (GATE_IN - 0.7)), 5, (0.4, 0.72), rng))
+    # Crown: a base on the cornice and a jagged spike on it, the top of the frame
+    c = box_corners(0, CORNICE_TOP - OVERLAP, GATE_Z, 5.0, 2.4, 0, 16.1, GATE_Z, 4.0, 1.9)
+    pieces.append(block('crown_base_F', c, 0.06, chip_count=2, jitter=None, protect=(0, 1, 2, 3)))
+    pieces.append(spike('crown_spike_F', (0.0, GATE_Z), 1.9, 1.1, 16.1 - 0.05, (0.0, FRAME_TOP, GATE_Z), 6,
+                        (0.22, 0.44, 0.64, 0.82), rng_for(11, 1), twist=0.2))
     return pieces
 
 
@@ -702,27 +620,15 @@ def build():
     return ob
 
 
-def in_tunnel(p):
-    """A face inside the volume, behind the void surfaces: the pillars' inner
-    faces and the lintel's underside there, seen only at a slant through the
-    strip of stone before the surfaces."""
-    cx, cy, cz = p.center.x, p.center.z, -p.center.y
-    inward = (abs(cx) < HALF + 0.1 and p.normal.x * cx < -0.6 * abs(cx)) or (p.normal.z < -0.6 and cy < OPEN_H + 0.1)
-    return inward and abs(cx) < HALF + 0.1 and cy < OPEN_H + 0.1 and abs(cz) < HALF_DEPTH - 0.3
-
-
 def mark_hidden(me, hulls):
     """Face attributes 'hidden', faces nobody sees, under the ground or
-    inside another piece (2 for the inside of the volume, see in_tunnel)."""
+    inside another piece."""
     piece = me.attributes['piece'].data
     hidden = me.attributes.new('hidden', 'INT', 'FACE').data
     for p in me.polygons:
         c = p.center
         if max(me.vertices[v].co.z for v in p.vertices) < -0.05:
             hidden[p.index].value = 1
-            continue
-        if in_tunnel(p):
-            hidden[p.index].value = 2
             continue
         probe = c + p.normal * 0.02
         own = piece[p.index].value
@@ -752,7 +658,7 @@ def prune(me, hulls):
     bm.faces.ensure_lookup_table()
     drop = []
     for p in me.polygons:
-        if hidden[p.index].value != 1:
+        if not hidden[p.index].value:
             continue
         corners = [me.vertices[v].co for v in p.vertices]
         if max(c.z for c in corners) < -0.05:
@@ -771,15 +677,12 @@ def prune(me, hulls):
 
 # Texel density of an island relative to the rest: the sigil faces get
 # more, the back and the undersides less, hidden faces next to nothing
-UV_WEIGHT = {'glyph_front': 1.7, 'glyph_back': 1.15, 'top': 1.25, 'back': 0.8, 'under': 0.6, 'tunnel': 0.15,
-             'hidden': 0.03}
+UV_WEIGHT = {'glyph_front': 1.7, 'glyph_back': 1.15, 'top': 1.25, 'back': 0.8, 'under': 0.6, 'hidden': 0.03}
 
 
 def island_weight(island, lay):
-    if all(f[lay['hidden']] == 1 for f in island):
-        return UV_WEIGHT['hidden']
     if all(f[lay['hidden']] for f in island):
-        return UV_WEIGHT['tunnel']
+        return UV_WEIGHT['hidden']
     n = Vector()
     for f in island:
         n += f.normal * f.calc_area()
@@ -850,7 +753,7 @@ def unwrap(ob, angle=66, margin=0.002, rotate='AXIS_ALIGNED'):
 
 
 def check(ob):
-    """The extents the game holds the frame to (see spawn-portal-geometry.spec.ts)."""
+    """The extents the game holds the frame to (see spawn-portal-frame.spec.ts)."""
     me = ob.data
     co = np.empty(len(me.vertices) * 3, np.float32)
     me.vertices.foreach_get('co', co)
@@ -864,11 +767,11 @@ def check(ob):
           f'smallest face {smallest * 1e4:.2f} cm2')
     assert smallest > 1e-5, f'sliver face of {smallest} m2'
     print(f'[portal] top {top:.4f} (want {FRAME_TOP}), radius {radius:.3f} (max {RADIUS}), '
-          f'depth {float(z.min()):.2f} to {float(z.max()):.2f} (volume ±{HALF_DEPTH:.2f})')
+          f'depth {float(z.min()):.2f} to {float(z.max()):.2f} (plane at {HALF_DEPTH:.2f})')
     assert abs(top - FRAME_TOP) < 1e-4, top
     assert radius <= RADIUS - 0.005, radius
-    # Pillars and lintel run past both void surfaces
-    assert z.min() < -HALF_DEPTH - 0.2 and z.max() > HALF_DEPTH + 0.2, (z.min(), z.max())
+    # One arch round the plane, in front of the enemies' start: nothing of it behind
+    assert 0 < z.min() < HALF_DEPTH - 2 and z.max() > HALF_DEPTH + 0.2, (z.min(), z.max())
     for p in me.polygons:
         c = p.center
         px, py = c.x, c.z
@@ -1245,15 +1148,14 @@ def load(name):
     return np.load(os.path.join(WORK, f'{name}.npy'))
 
 
-def rust_run(x, y, z, ny, streak):
+def rust_run(x, y, ny, streak):
     """Rust washed down the stone below the iron: under the lintels' cramps
     and under the bands round the pillars' feet."""
     upright = 1 - smoothstep(0.3, 0.6, np.abs(ny))
     joints = np.array(LINTEL_JOINTS)
     jx = joints[np.argmin(np.abs(x[..., None] - joints), axis=-1)]
     below = 13.42 - y
-    cramp = ((1 - smoothstep(0.15, 0.32, np.abs(x - jx))) * np.exp(-np.maximum(below, 0) / 0.7) * (below > -0.02)
-             * (np.abs(z) > GATE_IN))
+    cramp = (1 - smoothstep(0.15, 0.32, np.abs(x - jx))) * np.exp(-np.maximum(below, 0) / 0.7) * (below > -0.02)
     below = 2.05 - y
     band = np.exp(-np.maximum(below, 0) / 0.5) * (below > -0.02) * (np.abs(x) > HALF - 0.1) * (np.abs(x) < 7.0)
     return np.clip((cramp + band) * upright * (0.4 + 0.8 * streak), 0, 1)
@@ -1278,7 +1180,6 @@ def compose():
     iron = cov & (kind == IRON)
     horn = cov & (kind == HORN)
     spiky = stone & (role == SPIKE)
-    glowing = cov & (role == GLOW)
 
     fbm, big_vor, fine = n1m[..., 0], n1m[..., 1], n1m[..., 2]
     streak, small_vor, speck = n2m[..., 0], n2m[..., 1], n2m[..., 2]
@@ -1302,8 +1203,8 @@ def compose():
     order = np.zeros(cov.shape, np.float32)
     stain = np.zeros(cov.shape, np.float32)
     in_cell = np.zeros(cov.shape, bool)
-    # Only the gates' outer faces: their inner faces show above the side walls
-    faces = stone & (role == GLYPH) & (nz * np.sign(z) > 0.6) & (np.abs(z) > HALF_DEPTH)
+    # The arch's front and back face
+    faces = stone & (role == GLYPH) & (nz * np.sign(z - GATE_Z) > 0.6)
     idx = np.flatnonzero(faces)
     xs, ys = x.ravel()[idx], y.ravel()[idx]
     wearing = (0.6 * patches + 0.4 * fine).ravel()[idx]
@@ -1349,10 +1250,10 @@ def compose():
         stain.ravel()[ii] = np.maximum(st, 0.8 * cover)
         in_cell.ravel()[ii] = True
 
-    # ── Distance to the opening, soot and scorch round it; the volume's
-    # inner walls count as in the opening ──
+    # ── Distance to the opening, soot and scorch round it; the arch's front
+    # and back face alike, its inner faces as in the opening ──
     d_open = (np.hypot(np.maximum(np.abs(x) - HALF, 0), np.maximum(y - OPEN_H, 0))
-              + 0.3 * np.maximum(np.abs(z) - HALF_DEPTH, 0))
+              + 0.3 * np.maximum(np.abs(z - GATE_Z) - GATE_DEPTH / 2 + WALL, 0))
     near_open = np.exp(-d_open * 0.6)
 
     # ── Cracks: a few deep ones in patches and round the opening, hairlines,
@@ -1433,14 +1334,12 @@ def compose():
     # The grooves dark inside, their cut edge a little lighter
     col *= (1 - 0.75 * groove)[..., None]
     col = col + (col * 0.5 + 0.005) * (0.4 * lip)[..., None]
-    col = col + (RUST_STAIN - col) * (0.6 * rust_run(x, y, z, ny, streak))[..., None]
+    col = col + (RUST_STAIN - col) * (0.6 * rust_run(x, y, ny, streak))[..., None]
     col *= (1 - 0.85 * crack - 0.5 * hair)[..., None]
     # Spikes: the flutes' ridges rubbed lighter, the breaks dark, soot toward the tip
     col = col + (WORN - col) * (0.35 * (1 - flute) * spiky * smoothstep(0.3, 0.7, fine))[..., None]
     col *= (1 - 0.7 * breaks - 0.3 * flute)[..., None]
     col = col + (SOOT - col) * (0.75 * smoothstep(0.45, 1.0, rise) * spiky)[..., None]
-    # The slot along the ridge: sooted stone round the glow
-    col = np.where(glowing[..., None], SOOT * (0.6 + 0.4 * fbm)[..., None], col)
     rust = smoothstep(0.45, 0.7, patches + 0.25 * fine)
     iron_col = IRON_COL * (0.8 + 0.4 * fbm)[..., None]
     iron_col = iron_col + (RUST - iron_col) * rust[..., None]
@@ -1469,7 +1368,6 @@ def compose():
 
     # ── Emissive data ──
     crack_glow = crack_core * crack_area * smoothstep(0.4, 0.85, near_open)
-    crack_glow = np.maximum(crack_glow, glowing * (0.45 + 0.55 * smoothstep(0.3, 0.8, fbm)))
     emis = np.stack([blur(glow, 1), order, crack_glow], -1)
 
     # ── Write ──

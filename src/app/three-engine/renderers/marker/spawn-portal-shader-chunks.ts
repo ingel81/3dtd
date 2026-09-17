@@ -37,6 +37,7 @@ export interface PortalShaderLayout {
   halfOpening: number;
   openingHeight: number;
   halfDepth: number;
+  coreBack: number;
   groundHalfWidth: number;
   groundBack: number;
   groundFront: number;

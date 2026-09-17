@@ -4,8 +4,8 @@ import { resolve } from 'node:path';
 import { BufferGeometry, DoubleSide, Mesh, MeshBasicMaterial, Object3D, Raycaster, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SPAWN_PORTAL_FRAME_URL } from './spawn-portal-frame';
-import { createPortalGateGeometry } from './spawn-portal-geometry';
 import { SIGIL_LAYOUT, frameSigilCells } from './spawn-portal-sigils';
+import { createPortalClipUniforms, setPortalClips } from '../portal-clip';
 import {
   PORTAL_DEPTH,
   PORTAL_FRAME_TOP,
@@ -14,8 +14,8 @@ import {
   PORTAL_OPENING_HEIGHT,
   PORTAL_OPENING_WIDTH,
   PORTAL_RADIUS,
-  portalDepthScale,
 } from '../../../configs/marker-geometry.config';
+import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { lateralLimit } from '../../../utils/route-corridor';
 
 /** The frame asset as the game serves it (tools/blender/spawn_portal.py). */
@@ -120,105 +120,6 @@ function stones(geometry: BufferGeometry): Int32Array {
   return at.map((i) => find(i));
 }
 
-/**
- * Any-hit ray casts against a triangle soup, its triangles binned in a
- * uniform grid and the ray walked through it cell by cell: the volume
- * specs cast tens of thousands of rays at the frame's thousands of
- * triangles, too many for three's Raycaster, which tests every triangle.
- */
-class TriangleGrid {
-  private readonly min: number[];
-  private readonly max: number[];
-  private readonly dims: number[];
-  private readonly cells: number[][];
-
-  /** `tri` holds 9 numbers per triangle; `cell` is the grid's pitch (m). */
-  constructor(private readonly tri: Float32Array, private readonly cell = 1) {
-    this.min = [Infinity, Infinity, Infinity];
-    this.max = [-Infinity, -Infinity, -Infinity];
-    for (let i = 0; i < tri.length; i++) {
-      this.min[i % 3] = Math.min(this.min[i % 3], tri[i]);
-      this.max[i % 3] = Math.max(this.max[i % 3], tri[i]);
-    }
-    for (let k = 0; k < 3; k++) {
-      this.min[k] -= 1e-3;
-      this.max[k] += 1e-3;
-    }
-    this.dims = [0, 1, 2].map((k) => Math.max(1, Math.ceil((this.max[k] - this.min[k]) / cell)));
-    this.cells = Array.from({ length: this.dims[0] * this.dims[1] * this.dims[2] }, () => []);
-    for (let t = 0; t < tri.length / 9; t++) {
-      const lo = [0, 1, 2].map((k) => this.index(k, Math.min(tri[9 * t + k], tri[9 * t + 3 + k], tri[9 * t + 6 + k])));
-      const hi = [0, 1, 2].map((k) => this.index(k, Math.max(tri[9 * t + k], tri[9 * t + 3 + k], tri[9 * t + 6 + k])));
-      for (let x = lo[0]; x <= hi[0]; x++) {
-        for (let y = lo[1]; y <= hi[1]; y++) {
-          for (let z = lo[2]; z <= hi[2]; z++) this.cells[(z * this.dims[1] + y) * this.dims[0] + x].push(t);
-        }
-      }
-    }
-  }
-
-  private index(axis: number, value: number): number {
-    return Math.min(this.dims[axis] - 1, Math.max(0, Math.floor((value - this.min[axis]) / this.cell)));
-  }
-
-  /** Whether the ray from `o` along `d` (unit) hits a triangle within `far`. */
-  hits(o: Vector3, d: Vector3, far: number): boolean {
-    const origin = [o.x, o.y, o.z];
-    const dir = [d.x, d.y, d.z];
-    let t0 = 0;
-    let t1 = far;
-    for (let k = 0; k < 3; k++) {
-      if (Math.abs(dir[k]) < 1e-12) {
-        if (origin[k] < this.min[k] || origin[k] > this.max[k]) return false;
-        continue;
-      }
-      const a = (this.min[k] - origin[k]) / dir[k];
-      const b = (this.max[k] - origin[k]) / dir[k];
-      t0 = Math.max(t0, Math.min(a, b));
-      t1 = Math.min(t1, Math.max(a, b));
-      if (t0 > t1) return false;
-    }
-    const cell = [0, 1, 2].map((k) => this.index(k, origin[k] + dir[k] * t0));
-    const step = dir.map((v) => (v > 0 ? 1 : v < 0 ? -1 : 0));
-    const next = [0, 1, 2].map((k) => {
-      if (step[k] === 0) return Infinity;
-      const edge = this.min[k] + (cell[k] + (step[k] > 0 ? 1 : 0)) * this.cell;
-      return (edge - origin[k]) / dir[k];
-    });
-    const delta = dir.map((v) => (v === 0 ? Infinity : this.cell / Math.abs(v)));
-    for (;;) {
-      for (const t of this.cells[(cell[2] * this.dims[1] + cell[1]) * this.dims[0] + cell[0]]) {
-        const hit = this.rayTriangle(origin, dir, t);
-        if (hit > 1e-6 && hit <= far) return true;
-      }
-      const k = next[0] < next[1] ? (next[0] < next[2] ? 0 : 2) : next[1] < next[2] ? 1 : 2;
-      if (next[k] > t1) return false;
-      cell[k] += step[k];
-      if (cell[k] < 0 || cell[k] >= this.dims[k]) return false;
-      next[k] += delta[k];
-    }
-  }
-
-  /** Distance along the ray to triangle `t` (Möller-Trumbore, both sides), -1 without a hit. */
-  private rayTriangle(o: number[], d: number[], t: number): number {
-    const p = this.tri;
-    const i = 9 * t;
-    const e1 = [p[i + 3] - p[i], p[i + 4] - p[i + 1], p[i + 5] - p[i + 2]];
-    const e2 = [p[i + 6] - p[i], p[i + 7] - p[i + 1], p[i + 8] - p[i + 2]];
-    const h = [d[1] * e2[2] - d[2] * e2[1], d[2] * e2[0] - d[0] * e2[2], d[0] * e2[1] - d[1] * e2[0]];
-    const det = e1[0] * h[0] + e1[1] * h[1] + e1[2] * h[2];
-    if (Math.abs(det) < 1e-12) return -1;
-    const inv = 1 / det;
-    const s = [o[0] - p[i], o[1] - p[i + 1], o[2] - p[i + 2]];
-    const u = (s[0] * h[0] + s[1] * h[1] + s[2] * h[2]) * inv;
-    if (u < 0 || u > 1) return -1;
-    const q = [s[1] * e1[2] - s[2] * e1[1], s[2] * e1[0] - s[0] * e1[2], s[0] * e1[1] - s[1] * e1[0]];
-    const v = (d[0] * q[0] + d[1] * q[1] + d[2] * q[2]) * inv;
-    if (v < 0 || u + v > 1) return -1;
-    return (e2[0] * q[0] + e2[1] * q[1] + e2[2] * q[2]) * inv;
-  }
-}
-
 let frame: BufferGeometry;
 
 beforeAll(async () => {
@@ -256,16 +157,17 @@ describe('Spawn-Portal-Rahmen (GLB)', () => {
     expect(inOpening).toEqual([]);
   });
 
-  it('macht Pfeiler und Sturz tiefer als das Volumen: sie stehen vor und hinter den Flächen', () => {
+  it('ist ein Bogen um die Ebene, vor dem Routenstart: nichts reicht tiefer zurück', () => {
     const position = frame.getAttribute('position');
-    let minZ = 0;
-    let maxZ = 0;
+    let minZ = Infinity;
+    let maxZ = -Infinity;
     for (let i = 0; i < position.count; i++) {
       minZ = Math.min(minZ, position.getZ(i));
       maxZ = Math.max(maxZ, position.getZ(i));
     }
     expect(maxZ).toBeGreaterThan(PORTAL_DEPTH / 2 + 0.2);
-    expect(minZ).toBeLessThan(-PORTAL_DEPTH / 2 - 0.2);
+    expect(minZ).toBeLessThan(PORTAL_DEPTH / 2 - 2);
+    expect(minZ).toBeGreaterThan(0);
   });
 
   it('dreht die Flächen nach außen und trägt Tangenten für die Normal-Map', () => {
@@ -340,11 +242,12 @@ describe('Spawn-Portal-Rahmen (GLB)', () => {
 
 /**
  * Bodies of the ground enemies at their config scale (m): width across,
- * height, length along the way they walk (+z of the model). Bounding boxes
- * of their GLBs times `scale` in enemy-types.config.ts, measured
- * 2026-09-13, the tank 2026-09-15 (new model, rounded up). The air units (bat, dragon, hornet) come through the middle
- * of the opening and climb away (utils/air-portal-exit.ts); the dragon is
- * wider than even the largest opening and, up to scale 1, taller.
+ * height, length along the way they walk (+z of the model), taken as
+ * centred on their origin. Bounding boxes of their GLBs times `scale` in
+ * enemy-types.config.ts, measured 2026-09-13, the tank 2026-09-15 (new
+ * model, rounded up). The air units (bat, dragon, hornet) come through the
+ * middle of the opening and climb away (utils/air-portal-exit.ts); the
+ * dragon is wider than even the largest opening and, up to scale 1, taller.
  */
 const GROUND_BODIES: Record<string, readonly [number, number, number]> = {
   zombie: [2.2, 4.2, 1.9],
@@ -366,103 +269,27 @@ const GROUND_BODIES: Record<string, readonly [number, number, number]> = {
   wraith: [1.5, 3.4, 1.3],
 };
 
-describe('Spawn-Portal: Gegner stehen im Volumen, bis sie vorn heraustreten', () => {
-  /** Das Tor aus Rahmen und Leere wie im Spiel: auf der Pose, die Tiefe nicht unter Skala 1. */
-  function gate(scale: number): TriangleGrid {
-    const geometry = createPortalGateGeometry(frame).toNonIndexed();
-    const position = geometry.getAttribute('position');
-    const soup = new Float32Array(position.count * 3);
-    const depth = portalDepthScale(scale);
-    for (let i = 0; i < position.count; i++) {
-      soup[3 * i] = position.getX(i) * scale;
-      soup[3 * i + 1] = position.getY(i) * scale;
-      soup[3 * i + 2] = position.getZ(i) * depth;
-    }
-    return new TriangleGrid(soup);
-  }
-
-  /**
-   * Punkte eines Körpers am Spawn, der Mitte des Portals: seine Box um die
-   * Spur `lane` quer zur Öffnung, vom Boden bis zu seiner Höhe, über seine
-   * Länge vor und hinter der Mitte.
-   */
-  function bodyPoints([width, height, length]: readonly [number, number, number], lane: number): Vector3[] {
-    const points: Vector3[] = [];
-    for (const x of [lane - width / 2, lane, lane + width / 2]) {
-      for (const y of [0.2, height / 2, height]) {
-        for (const z of [-length / 2, 0, length / 2]) points.push(new Vector3(x, y, z));
-      }
-    }
-    return points;
-  }
-
-  /** Blickrichtungen rundum: vorn, seitlich, hinten, flach bis steil von oben. */
-  function allAround(): Vector3[] {
-    const dirs: Vector3[] = [];
-    for (let azimuth = 0; azimuth < 360; azimuth += 45) {
-      for (const elevation of [5, 30, 60, 85]) {
-        const a = (azimuth * Math.PI) / 180;
-        const e = (elevation * Math.PI) / 180;
-        dirs.push(new Vector3(Math.sin(a) * Math.cos(e), Math.sin(e), Math.cos(a) * Math.cos(e)));
-      }
-    }
-    dirs.push(new Vector3(0, 1, 0));
-    return dirs;
-  }
-
-  /** Gegner, die von irgendwo zu sehen wären, bevor sie vorn heraustreten. */
-  function seen(scale: number): string[] {
-    const grid = gate(scale);
+describe('Spawn-Portal: Gegner stecken beim Start ganz hinter der Ebene, in der Clip-Box', () => {
+  it.each([PORTAL_MIN_SCALE, 1, PORTAL_MAX_SCALE])('Skala %s: jeder Bodengegner mit Healthbar, auf jeder Spur seines Typs', (scale) => {
+    // Das Portal auf dem Routenstart im Ursprung, nach +z gewandt
+    const clip = createPortalClipUniforms();
+    setPortalClips(clip, [{ x: 0, y: 0, z: 0, heading: 0, scale }]);
+    const plane = clip.uPortalClipPlane.value[0].y;
+    const [halfWidth, depth, bottom, top] = clip.uPortalClipBox.value[0].toArray();
     // Spuren wie EnemyManager und MovementComponent sie legen: bis zur
-    // seitlichen Grenze des Korridors, dessen Breite die Skala gab
-    const lane = lateralLimit((PORTAL_OPENING_WIDTH / 2) * scale);
-    const out = new Set<string>();
-    for (const [type, body] of Object.entries(GROUND_BODIES)) {
-      // Breite Körper gehen mittig heraus, schmale auf jeder Spur
-      const lanes = body[0] / 2 + lane <= (PORTAL_OPENING_WIDTH / 2) * scale ? [-lane, 0, lane] : [0];
-      for (const x of lanes) {
-        for (const point of bodyPoints(body, x)) {
-          for (const dir of allAround()) {
-            if (!grid.hits(point, dir, 300)) out.add(type);
-          }
-        }
-      }
+    // seitlichen Grenze des Korridors, dessen Breite die Skala gab, so weit
+    // der Typ streut
+    const room = lateralLimit((PORTAL_OPENING_WIDTH / 2) * scale);
+    const outside: string[] = [];
+    for (const [type, [width, height, length]] of Object.entries(GROUND_BODIES)) {
+      const config = ENEMY_TYPES[type];
+      const lane = room * (config.lateralSpread ?? 0);
+      const lift = config.heightOffset;
+      const inside = lane + width / 2 <= halfWidth
+        && -length / 2 >= plane - depth && length / 2 <= plane
+        && lift >= bottom && lift + Math.max(height, config.healthBarOffset) <= top;
+      if (!inside) outside.push(type);
     }
-    return [...out].sort();
-  }
-
-  it('prüft mit dem Gitter dasselbe wie three: Treffer und Fehlschüsse am Tor', () => {
-    const geometry = createPortalGateGeometry(frame);
-    const mesh = new Mesh(geometry, new MeshBasicMaterial({ side: DoubleSide }));
-    const grid = gate(1);
-    const raycaster = new Raycaster();
-    raycaster.far = 300;
-    let hits = 0;
-    let misses = 0;
-    for (const origin of [new Vector3(0, 3, 0), new Vector3(9, 2, 9), new Vector3(-3, 12, -8), new Vector3(0, 25, 0)]) {
-      for (const dir of allAround()) {
-        raycaster.set(origin, dir);
-        const three = raycaster.intersectObject(mesh).length > 0;
-        expect(grid.hits(origin, dir, 300), `${origin.toArray()} -> ${dir.toArray()}`).toBe(three);
-        if (three) hits++;
-        else misses++;
-      }
-    }
-    expect(hits).toBeGreaterThan(20);
-    expect(misses).toBeGreaterThan(20);
-  });
-
-  it('verbirgt jeden Bodengegner von allen Seiten, auch von hinten (Skala 1)', () => {
-    expect(seen(1)).toEqual([]);
-  });
-
-  it('verbirgt jeden Bodengegner von allen Seiten, auch von hinten (größtes Portal)', () => {
-    expect(seen(PORTAL_MAX_SCALE)).toEqual([]);
-  });
-
-  it('verbirgt im kleinsten Portal alle bis auf die, die breiter oder höher sind als das Tor', () => {
-    // Skala 0,75 (Gasse): Öffnung 6 × 8,25 m, Sturzoberkante 10,5 m; die
-    // Tiefe bleibt die von Skala 1
-    expect(seen(PORTAL_MIN_SCALE)).toEqual(['mammoth', 'mech', 'stone-golem', 'wallsmasher']);
+    expect(outside).toEqual([]);
   });
 });

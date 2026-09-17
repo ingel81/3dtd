@@ -201,8 +201,8 @@ export class MarkerVisualizationService {
 
   /**
    * Load the portals' stone frame, once. A failed load leaves the portals
-   * without their frame: the two void surfaces still close the volume and
-   * hide the enemies until they step out.
+   * without their frame: the void surface still stands in the plane, and
+   * the enemies' shaders still hide them until they come through it.
    */
   private loadPortalFrame(): Promise<SpawnPortalFrame | null> {
     this.portalFrameLoad ??= this.assetManager
@@ -264,7 +264,7 @@ export class MarkerVisualizationService {
     const pose = portals.getPose(id)!;
     const palette = this.portalPalettes.get(id);
     if (!palette) return;
-    // Out of the front surface, half the volume's depth ahead of the centre
+    // Out of the portal's plane, half the portal's depth ahead of the centre
     const forwardX = Math.sin(pose.heading);
     const forwardZ = Math.cos(pose.heading);
     const front = (PORTAL_DEPTH / 2) * portalDepthScale(pose.scale);
@@ -694,8 +694,8 @@ export class MarkerVisualizationService {
 
   /**
    * Create a spawn portal Group for the spawn placement preview
-   * (non-instanced): the frame and a flat surface in the opening, at
-   * scale 1, standing on its origin and facing +z. Plain Phong/Basic
+   * (non-instanced): the frame and a flat surface in its opening, in the
+   * portal's plane, at scale 1, standing on its origin and facing +z. Plain Phong/Basic
    * materials, so MapPlacementService can tint and fade it. The frame is
    * a copy of the asset's geometry, so disposing the preview leaves the
    * asset alone; while the asset still loads, the frame joins the group
@@ -721,7 +721,7 @@ export class MarkerVisualizationService {
     }
 
     const surfaceGeom = new PlaneGeometry(PORTAL_OPENING_WIDTH, PORTAL_OPENING_HEIGHT);
-    surfaceGeom.translate(0, PORTAL_OPENING_HEIGHT / 2, 0);
+    surfaceGeom.translate(0, PORTAL_OPENING_HEIGHT / 2, PORTAL_DEPTH / 2);
     const surfaceMat = new MeshBasicMaterial({ color, transparent: true, opacity: 0.6, side: DoubleSide });
     const surface = new Mesh(surfaceGeom, surfaceMat);
     surface.renderOrder = 4;

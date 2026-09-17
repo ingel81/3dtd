@@ -35,14 +35,15 @@ interface PortalEntry {
 }
 
 /**
- * GPU-instanced spawn portals: a stone gate on the route start, facing the
- * way the enemies walk, with a swirling surface in the spawn's colour.
+ * GPU-instanced spawn portals: a stone arch ahead of the route start,
+ * facing the way the enemies walk, with a swirling surface in its plane.
  * Two draw calls for all portals:
- * - gate: the stone frame (its asset, see setFrame) with the portal's
+ * - gate: the stone arch (its asset, see setFrame) with the portal's
  *   light on the faces round the opening and its carved sigils glowing,
- *   and the void, a surface in front of the portal's volume and one behind
- *   it. The void writes depth: the enemies appear between the two and stay
- *   hidden until they step out through the front.
+ *   and the void, the surface in the plane, seen from both sides. The
+ *   enemies appear behind the plane and stay hidden until they come
+ *   through it: their own shaders drop what is still behind it, in the
+ *   clip boxes this manager writes (portal-clip.ts).
  * - glow: the light the portal throws on the street in front, and the
  *   summoning circle on it
  *

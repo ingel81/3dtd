@@ -11,7 +11,7 @@ const ALIVE = 1;
 const GONE = 2;
 
 /**
- * Metres over which the sway fades in after the portal's front face
+ * Metres over which the sway fades in after the portal's plane
  * (PORTAL_DEPTH / 2 past where the worm comes out, at scale 1): the worm
  * comes out straight and starts to snake once clear of the gate.
  */
