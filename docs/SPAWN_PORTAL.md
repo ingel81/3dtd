@@ -1,6 +1,7 @@
 # Spawn-Portal
 
-**Stand:** 2026-09-17 (ein Bogen statt des Doppeltors, die Gegner verbirgt ein Clip in ihren Shadern)
+**Stand:** 2026-09-17 (ein Bogen mittig um die Ebene statt des Doppeltors; was hinter der Ebene liegt,
+verwirft ein Clip in den Shadern der Gegner, der Routenlinie und des Route Grid Overlay)
 
 Ein Steinbogen vor dem Routenstart jedes Spawns: Gegner treten durch seine Ebene heraus, der
 Spieler kann ihn beim Setzen des Spawns drehen. Code in `three-engine/renderers/marker/`
@@ -113,6 +114,12 @@ Nur Optik: Zielwahl und Schaden kennen den Clip nicht, das Portal ist Sperrzone 
   Fragment, mit Saum), das Band der Ooze (je Fragment, mit Saum, dort in linearem Licht) und die
   Healthbars (je Bar im Vertex-Shader über ihre Mitte, ohne Saum: eine Bar erscheint ganz, sobald
   der Ursprung ihres Gegners durch die Ebene ist, bei den meisten Modellen die Körpermitte).
+- **Routen, ohne Saum:** die rote Routenlinie (`RouteLineLayer`), die Routen-Animation
+  (`RouteAnimationService`, beide `LineMaterial`, gepatcht von `clipLineMaterial`) und die Platten
+  des Route Grid Overlay am Boden und in der Luft (`RouteGridAggregateViz`, `PORTAL_CLIP_DISCARD`).
+  Route und Zellen reichen weiter bis `path[0]`, die Gegner laufen darauf; gezeigt werden sie nur
+  vor der Ebene. Das gelbe Straßen-Overlay (OSM) und die LOS-Anzeige eines Towers bleiben ohne
+  Clip.
 - **Ohne Clip:** was ein Gegner auslöst, das nicht sein Körper ist: Blut- und Schleimspritzer und
   andere Decals, Frost- und Giftauren, Eiskristalle, Schadenszahlen, die Trümmer einer getöteten
   Ooze (`OozeDebrisRenderer`), die Funken des Spawns. Im Portal wird nicht direkt geschossen,
@@ -120,11 +127,13 @@ Nur Optik: Zielwahl und Schaden kennen den Clip nicht, das Portal ist Sperrzone 
 - **Uniforms:** ein Objekt für alle diese Materialien (`ThreeTilesEngine.portalClip`,
   `PortalClipUniforms`): die Anzahl, je Portal die Mitte der Ebene am Boden und die Richtung
   hinaus, halbe Breite, Tiefe, Unter- und Oberkante, in Szenenkoordinaten wie Pose und Gegner
-  (`geoToLocalSimple`). `SpawnPortalManager` schreibt sie beim Hinzufügen, Setzen, Drehen und
-  Entfernen eines Portals (`setPortalClips`), nicht je Frame; höchstens `MAX_SPAWN_PORTALS` (8),
-  so viele zeichnet er.
+  (`geoToLocalSimple`; Routenlinie und Animation hängen wie die Portale in der Overlay-Gruppe und
+  prüfen ihre eigenen Koordinaten). `SpawnPortalManager` schreibt sie beim Hinzufügen, Setzen,
+  Drehen und Entfernen eines Portals (`setPortalClips`), nicht je Frame; höchstens
+  `MAX_SPAWN_PORTALS` (8), so viele zeichnet er.
 - **Kosten:** je Fragment eines Gegners eine Schleife über die Portale, die nach dem letzten und
-  im ersten Quader endet, ohne Portal sofort, dazu ein `fwidth` für die Breite des Saums.
+  im ersten Quader endet, ohne Portal sofort, dazu ein `fwidth` für die Breite des Saums; dieselbe
+  Schleife ohne `fwidth` je Fragment der Routenlinien und der Platten des Overlays.
   Early-Z hatten die Gegner schon vorher nicht, ihre Shader setzen `gl_FragDepth`
   (logarithmische Tiefe).
 
@@ -157,14 +166,20 @@ Straßenlicht. Farben in `SPAWN_PORTAL_LOOK.palette`, Maße in `configs/marker-g
 ## Rahmen (Asset)
 
 `spawn-portal-frame.ts` lädt ein Asset, `public/assets/models/structures/spawn_portal.glb`,
-gebaut und gebacken von `tools/blender/spawn_portal.py` (Blender, headless oder über das MCP).
+gebaut und gebacken von `tools/blender/spawn_portal.py` (Blender, headless mit
+`--factory-startup`, sonst öffnet das MCP-Addon aus den Einstellungen einen zweiten Server, oder
+über das MCP).
 3 772 Dreiecke, 1,96 MB: Basisfarbe und Normal-Map 2048 px JPEG, Verdeckung/Rauheit/Metall
 1024 px JPEG, Emissive-Daten 1024 px PNG (R Glühmaske der Sigillen: weich über jede Zelle, wie
 viel der Sigille noch glühen kann, weniger wo sie abgewittert oder verrußt ist; G Strichfolge 0
 bis 1 je Sigille; B glühende Risse).
 
 Ein Bogen um die Ebene, dahinter nichts: Pfeiler auf zweistufigen Plinthen, Sturz, Gesims und
-Krone, 2,6 m tief, die Vorderseite 0,3 m vor der Ebene, die Rückseite 2,3 m hinter ihr. Krone,
+Krone, 2,6 m tief, mittig um die Ebene, Vorder- und Rückseite je 1,3 m davor und dahinter (bis
+2026-09-17 stand die Vorderseite 0,3 m vor der Ebene). Die Ecken der Plinthen liegen damit bis
+10,54 m vom Routenstart (`PORTAL_RADIUS` 10,6 statt 10). Rauschfelder und Nietabstand liest das
+Skript 1 m weiter hinten (`LOOK_BACK`), wo sie vor dem Umzug lagen: Die Steine behielten ihre
+Töne. Krone,
 große Hörner mit Eisenringen und Spitzen stehen auf dem Gesims; Sigillen und Eisenklammern trägt
 der Bogen vorn und hinten. Bis 2026-09-17 ein Doppeltor mit Seitenwänden und Satteldach um das
 Volumen (Ebene und Ausrichtung, oben). Stein dunkel graubraun, kein Schwarz, Ton je Block,
@@ -176,7 +191,7 @@ jedem `SpawnPortalManager` (`setFrame`); bis es da ist oder wenn es nicht lädt,
 Fläche der Leere, die Gegner verbirgt der Clip auch dann.
 
 `spawn-portal-frame.spec.ts` liest das GLB und prüft Maße, freie Öffnung, dass der Bogen vor dem
-Routenstart um die Ebene steht, Flächen nach außen, saubere Tangenten, die vier Texturen und
+Routenstart mittig um die Ebene steht, Flächen nach außen, saubere Tangenten, die vier Texturen und
 jede Sigille auf genau einem Stein, vorn und hinten. Das Layout (Öffnung, Tiefe, Sigillen samt
 Pose je Zelle) liest das Skript aus `tools/blender/spawn_portal_layout.json`, das
 `tools/blender/spawn-portal-layout.spec.ts` bei `npm test` aus den Configs schreibt; ändert sich
@@ -192,8 +207,8 @@ und Color Grading aus, der Standard) mehrfach zu dunkel an, mit Bloom dagegen he
 bis zum Playtest 2026-09-13 abends.
 
 Hauptlicht fest in der Welt, umhüllt (eine abgewandte Fläche behält ihr Relief), Himmel, das
-dunkelrote Licht des Kerns vom nächsten Punkt der Achse der Öffnung zwischen der Ebene und 2 m
-dahinter (`coreBack`, so fängt die Rückseite des Bogens es wie die Vorderseite), alles auf der
+dunkelrote Licht des Kerns vom nächsten Punkt der Achse der Öffnung zwischen 1 m vor und 1 m
+hinter der Ebene (`coreReach`, so fangen Vorder- und Rückseite des Bogens es gleich), alles auf der
 Normal-Map, dazu die gebackene Verdeckung und Glanzlichter auf Obsidian und Eisen. Die Leere ist
 in Anzeigewerten gebaut und wird vor der Kodierung zurückgewandelt, sie sieht mit und ohne
 Nachbearbeitung gleich aus. Helligkeit über `SPAWN_PORTAL_LOOK.frameExposure` (Verstärkung der
