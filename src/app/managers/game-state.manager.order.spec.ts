@@ -646,6 +646,38 @@ describe('GameStateManager order of operations (characterization)', () => {
       ]);
     });
 
+    it('places and sells the missile silo with the ability snapshot last, after the tower list changed', () => {
+      const snapshots: boolean[] = [];
+      bus.on('ability:state-changed', (e) => snapshots.push(e.abilities.find((a) => a.id === 'nuclear-strike')!.launchSite));
+      log.length = 0;
+      bus.emit({ type: 'command:place-tower', position: { ...BASE_POSITION, lat: 48.771 }, typeId: 'missile-silo' });
+      const silo = gsm.towerManager.getAll().find((t) => t.typeConfig.id === 'missile-silo')!;
+      expect(log).toEqual([
+        'event:command:place-tower',
+        'corridorPending',
+        'tower.placeTower',
+        'tower.refreshGuardHeading',
+        'event:tower:placed',
+        'event:audio:play',
+        'event:credits:changed',
+        'event:ability:state-changed',
+      ]);
+
+      log.length = 0;
+      bus.emit({ type: 'command:sell-tower', towerId: silo.id });
+      expect(log).toEqual([
+        'event:command:sell-tower',
+        'placement.unregisterTowerFromGrid',
+        'tower.selectTower',
+        'tower.sell',
+        'event:tower:sold',
+        'event:audio:play',
+        'event:credits:changed',
+        'event:ability:state-changed',
+      ]);
+      expect(snapshots).toEqual([true, false]);
+    });
+
     it('max-upgrades every tower through the debug command', () => {
       log.length = 0;
       bus.emit({ type: 'debug:max-upgrade-all-towers' });

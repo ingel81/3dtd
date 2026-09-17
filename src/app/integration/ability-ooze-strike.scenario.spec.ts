@@ -87,6 +87,8 @@ describe('Nuclear strike on the ooze body, playtest 361 replayed', () => {
       showDamage: () => undefined,
       halt: () => undefined,
       routeSweep: () => null,
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
     };
     manager = new AbilityManager(bus, world);
     manager.setPhaseProvider(() => 'wave');

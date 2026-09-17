@@ -15,6 +15,8 @@ const FROST = ABILITIES['frost-bomb'];
 const EMP = ABILITIES['emp'];
 const LASER = ABILITIES['orbital-laser'];
 const TARGET: GeoPosition = { lat: 48.1, lon: 9.1, height: 0 };
+/** The missile silo the nuclear strike launches from */
+const SILO = { towerId: 'tower-7', position: { lat: 48.09, lon: 9.08, height: 12 } };
 
 function enemyOf(id: string, type: string): Enemy {
   return { id, typeConfig: ENEMY_TYPES[type] } as unknown as Enemy;
@@ -31,6 +33,8 @@ describe('AbilityManager', () => {
   let sweep: RouteSweep | null;
   let strikeKills: number;
   let numbers: { id: string; fraction: number; damageType: string | null }[];
+  /** The building standing of each type, as the tower list has it */
+  let sites: Partial<Record<string, typeof SILO>>;
   let world: AbilityWorld;
 
   const unlock = (perkId: string = NUKE.perkId) =>
@@ -55,7 +59,9 @@ describe('AbilityManager', () => {
     sweep = null;
     strikeKills = 0;
     numbers = [];
+    sites = { 'missile-silo': SILO };
     world = {
+      launchSite: vi.fn((typeId: string) => sites[typeId] ?? null),
       snapToRoute: vi.fn((target: GeoPosition) => (routeInReach ? { ...target, height: 5 } : null)),
       enemiesInRadius: vi.fn((_center: GeoPosition, _radius: number, out: Enemy[]) => {
         out.length = 0;
@@ -93,6 +99,7 @@ describe('AbilityManager', () => {
         maxCharges: 1,
         wavesUntilCharge: 0,
         pending: false,
+        launchSite: true,
       });
     });
 
@@ -177,6 +184,78 @@ describe('AbilityManager', () => {
       tick(90);
       expect(world.strike).not.toHaveBeenCalled();
       expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: 0, pending: false });
+    });
+  });
+
+  describe('launch site', () => {
+    beforeEach(() => unlock());
+
+    it('refuses without a missile silo before charge and wave, and keeps the charge', () => {
+      sites = {};
+      expect(NUKE.launchFrom).toBe('missile-silo');
+      expect(manager.checkUse('nuclear-strike')).toBe('no-launch-site');
+      phase = 'setup';
+      expect(manager.use('nuclear-strike', TARGET)).toEqual({ ok: false, reason: 'no-launch-site' });
+      expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: 1, launchSite: false });
+      expect(world.snapToRoute).not.toHaveBeenCalled();
+
+      sites = { 'missile-silo': SILO };
+      phase = 'wave';
+      expect(manager.use('nuclear-strike', TARGET).ok).toBe(true);
+    });
+
+    it('keeps recharging while no silo stands', () => {
+      manager.use('nuclear-strike', TARGET);
+      sites = {};
+      completeWave();
+      completeWave();
+      completeWave();
+      expect(manager.getStatus('nuclear-strike')).toMatchObject({ charges: 1, launchSite: false });
+      sites = { 'missile-silo': SILO };
+      expect(manager.checkUse('nuclear-strike')).toBeNull();
+    });
+
+    it('needs no building for an ability without launchFrom', () => {
+      sites = {};
+      unlock(FROST.perkId);
+      expect(FROST.launchFrom).toBeUndefined();
+      expect(manager.getStatus('frost-bomb').launchSite).toBe(true);
+      expect(manager.checkUse('frost-bomb')).toBeNull();
+    });
+
+    it('announces the silo it leaves from with the use, as a copy', () => {
+      const used: GameEvent[] = [];
+      bus.on('ability:used', (e) => used.push(e));
+      const result = manager.use('nuclear-strike', TARGET);
+      expect(result.ok && result.strike.launch).toEqual(SILO);
+      expect(used).toMatchObject([{ launch: SILO }]);
+      expect((used[0] as Extract<GameEvent, { type: 'ability:used' }>).launch!.position).not.toBe(SILO.position);
+      expect(world.launchSite).toHaveBeenCalledWith('missile-silo');
+
+      unlock(FROST.perkId);
+      manager.use('frost-bomb', TARGET);
+      expect(used[1]).not.toHaveProperty('launch');
+    });
+
+    it('lands a strike on its way when the silo is sold meanwhile', () => {
+      inRadius = [enemyOf('z1', 'zombie')];
+      manager.use('nuclear-strike', TARGET);
+      sites = {};
+      manager.buildingChanged('missile-silo');
+      tick(90);
+      expect(world.strike).toHaveBeenCalledTimes(1);
+    });
+
+    it('sends a snapshot when a silo is built or sold, none for another building', () => {
+      const snapshots: boolean[] = [];
+      bus.on('ability:state-changed', (e) => snapshots.push(e.abilities.find((a) => a.id === 'nuclear-strike')!.launchSite));
+      sites = {};
+      manager.buildingChanged('missile-silo');
+      manager.buildingChanged('research-center');
+      manager.buildingChanged('archer');
+      sites = { 'missile-silo': SILO };
+      manager.buildingChanged('missile-silo');
+      expect(snapshots).toEqual([false, true]);
     });
   });
 
@@ -461,6 +540,7 @@ describe('AbilityManager', () => {
         target: { ...TARGET, height: 5 },
         radiusM: 25,
         warningMs: 1500,
+        launch: SILO,
       }]);
     });
 

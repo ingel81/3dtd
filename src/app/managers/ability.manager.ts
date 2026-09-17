@@ -10,14 +10,16 @@
  * when it is done. Nothing here draws a random number, so the same command
  * at the same sub-step gives the same strike at every timescale.
  *
- * Framework-agnostic like the other managers. The route grid and the damage
- * path come in through `AbilityWorld`, so the manager runs without a grid or
- * the combat services.
+ * Framework-agnostic like the other managers. The route grid, the damage
+ * path and the buildings an ability launches from come in through
+ * `AbilityWorld`, so the manager runs without a grid, the combat services or
+ * the towers.
  *
  * Emits `ability:used` and `ability:rejected` for every use, `ability:impact`
  * when a strike lands, `ability:resolved` with its hits and kills when it is
- * over, and an `ability:state-changed` snapshot after every mutation, like
- * the ResearchManager's `research:state-changed`.
+ * over, and an `ability:state-changed` snapshot after every mutation and
+ * after a launch site was built or sold (buildingChanged), like the
+ * ResearchManager's `research:state-changed`.
  */
 
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
@@ -40,6 +42,7 @@ import {
 } from '../configs/abilities.config';
 import type { ResearchEffect } from '../configs/research/research.types';
 import type { DamageType } from '../configs/combat/combat.types';
+import type { TowerTypeId } from '../configs/tower-types.config';
 import type { GeoPosition, GamePhase } from '../models/game.types';
 import type { Enemy } from '../entities/enemy.entity';
 import { pointAlongSweep, type RouteSweep } from '../utils/route-sweep';
@@ -52,8 +55,17 @@ import { pointAlongSweep, type RouteSweep } from '../utils/route-sweep';
  */
 export const BEAM_NUMBER_EVERY_MS = 1000;
 
-/** What the manager needs from the world: route grid and damage path. */
+/** Where a strike launches from: a building of the ability's `launchFrom` type. */
+export interface AbilityLaunchSite {
+  towerId: string;
+  /** Its base, `height` the top of its plinth (Tower.position) */
+  position: GeoPosition;
+}
+
+/** What the manager needs from the world: route grid, damage path, launch sites. */
 export interface AbilityWorld {
+  /** A building of `typeId` standing on the map, or null; the first placed of several */
+  launchSite(typeId: TowerTypeId): AbilityLaunchSite | null;
   /** Centre of the nearest route cell within `maxDistanceM` of `target`, or null */
   snapToRoute(target: GeoPosition, maxDistanceM: number): GeoPosition | null;
   /** Alive enemies within `radiusM` (2D) of `center`, ground and air, written into `out` */
@@ -82,6 +94,8 @@ export interface PendingStrike {
   readonly abilityId: AbilityId;
   /** Impact point, already snapped to the route */
   readonly target: GeoPosition;
+  /** The building it left from at the command, null for an ability that launches from none */
+  readonly launch: AbilityLaunchSite | null;
   /** Game time left until the impact, ms */
   remainingMs: number;
   /** A beam: the route stretch it burns along, from `target` on; null for a strike that acts at once */
@@ -154,7 +168,8 @@ export class AbilityManager implements IGameManager {
 
   getStatus(id: AbilityId): AbilityStatus {
     const state = this.states.get(id);
-    if (!state?.unlocked) return lockedAbilityStatus(id);
+    const launchSite = this.launchSiteOf(id) !== undefined;
+    if (!state?.unlocked) return { ...lockedAbilityStatus(id), launchSite };
     const config = ABILITIES[id];
     const full = state.charges >= config.maxCharges;
     return {
@@ -164,6 +179,7 @@ export class AbilityManager implements IGameManager {
       maxCharges: config.maxCharges,
       wavesUntilCharge: full ? 0 : config.rechargeWaves - state.wavesTowardCharge,
       pending: this.pending.some((s) => s.abilityId === id && !s.done),
+      launchSite,
     };
   }
 
@@ -171,14 +187,29 @@ export class AbilityManager implements IGameManager {
     return ABILITY_IDS.map((id) => this.getStatus(id));
   }
 
-  /** Why `id` cannot fire right now, or null when it can. The target is checked by use(). */
+  /**
+   * Why `id` cannot fire right now, or null when it can. The target is
+   * checked by use(). Without the building it launches from nothing else
+   * matters, so that comes right after the research.
+   */
   checkUse(id: AbilityId): AbilityRejectReason | null {
     if (!ABILITIES[id]) return 'unknown';
     const state = this.states.get(id);
     if (!state?.unlocked) return 'locked';
+    if (this.launchSiteOf(id) === undefined) return 'no-launch-site';
     if (state.charges <= 0) return 'no-charge';
     if (this.getPhase() !== 'wave') return 'no-wave';
     return null;
+  }
+
+  /**
+   * Where `id` launches from: the building of its `launchFrom` type, null
+   * for an ability that needs none, undefined while none stands.
+   */
+  private launchSiteOf(id: AbilityId): AbilityLaunchSite | null | undefined {
+    const from = ABILITIES[id].launchFrom;
+    if (!from) return null;
+    return this.world.launchSite(from) ?? undefined;
   }
 
   /**
@@ -236,9 +267,19 @@ export class AbilityManager implements IGameManager {
       radiusM: config.radiusM,
       warningMs: config.warningMs,
       ...(strike.sweep ? { path: strike.sweep.points } : {}),
+      ...(strike.launch ? { launch: strike.launch } : {}),
     });
     this.emitStateSnapshot();
     return result;
+  }
+
+  /**
+   * A building of `typeId` was placed or sold (TowerLifecycle, after the
+   * tower list changed): a snapshot for the abilities that launch from it,
+   * whose button comes or goes. A strike on its way is not touched.
+   */
+  buildingChanged(typeId: TowerTypeId): void {
+    if (ABILITY_IDS.some((id) => ABILITIES[id].launchFrom === typeId)) this.emitStateSnapshot();
   }
 
   /**
@@ -262,10 +303,12 @@ export class AbilityManager implements IGameManager {
     if (!snapped) return { ok: false, reason: 'no-route' };
 
     this.states.get(id)!.charges--;
+    const site = this.launchSiteOf(id);
     const strike: PendingStrike = {
       id: this.nextStrikeId++,
       abilityId: id,
       target: snapped,
+      launch: site ? { towerId: site.towerId, position: { ...site.position } } : null,
       remainingMs: ABILITIES[id].warningMs,
       sweep,
       burntMs: -1,

@@ -139,6 +139,7 @@ import { signal } from '@angular/core';
 import { GameStateManager } from './game-state.manager';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import { ABILITIES } from '../configs/abilities.config';
+import { Tower } from '../entities/tower.entity';
 import { abilityButtonView } from '../components/ability-bar/ability-button';
 import { skippedWavesGold } from '../services/economy.service';
 import { RunStatsTracker } from '../services/infrastructure/run-stats';
@@ -216,6 +217,8 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
     gsm = new GameStateManager();
     gsm.initialize(createMockEngine(), { ...HQ, height: 0 }, [{ id: 'sp-1', name: 'North', lat: 48.78, lon: 9.18, height: 0 }] as never[], new Map());
     bus = gsm.getEventBus();
+    // The strike's launch site
+    gsm.towerManager.add(new Tower({ ...HQ, height: 0 }, 'missile-silo'));
   });
 
   it('381: the strike used in W1, W1 over, a jump over 3 waves: the bar shows the charge full again', () => {

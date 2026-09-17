@@ -58,6 +58,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
   let phase: GamePhase;
   let credits: number;
   let bot: boolean;
+  let siloStands: boolean;
   const aiming = signal<AbilityId | null>(null);
   const abilityStatuses = signal({} as Record<AbilityId, AbilityStatus>);
   const storeCredits = signal(0);
@@ -77,6 +78,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
     phase = 'setup';
     credits = 400;
     bot = false;
+    siloStands = true;
     abilities = new AbilityManager(bus, {
       snapToRoute: () => ON_ROUTE,
       enemiesInRadius: (_c: GeoPosition, _r: number, out: unknown[]) => {
@@ -86,6 +88,8 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
       strike: () => 0,
       halt: () => undefined,
       routeSweep: () => null,
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => (siloStands ? { towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } } : null),
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => phase);
     hero = new HeroManager(bus, {
@@ -148,6 +152,20 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
 
     vi.advanceTimersByTime(UPGRADE_HINT_MS);
     expect(refusals.refusal()).toBeNull();
+  });
+
+  it('K or the button in a wave without a missile silo: nothing arms, "Build a Missile Silo first"', () => {
+    research(ABILITIES['nuclear-strike'].perkId);
+    siloStands = false;
+    phase = 'wave';
+    targeting.toggle('nuclear-strike');
+    expect(targeting.targeting()).toBeNull();
+    expect(refusals.refusal()).toEqual({ subject: 'Nuclear Strike', reason: 'Build a Missile Silo first' });
+    // Between waves too: the missing silo comes first
+    phase = 'setup';
+    targeting.toggle('nuclear-strike');
+    expect(refusals.refusal()).toEqual({ subject: 'Nuclear Strike', reason: 'Build a Missile Silo first' });
+    expect(abilities.getStatus('nuclear-strike').charges).toBe(1);
   });
 
   it('after the strike, K again in the same wave: "No charges, recharges in 3 waves"', () => {

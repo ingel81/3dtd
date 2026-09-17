@@ -31,6 +31,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
+  addMissileSilo,
   createTestCachedPaths,
   createAbilityTestEngine,
   withAutoStubs,
@@ -106,7 +107,7 @@ interface Outcome {
   goldPopups: string[];
 }
 
-/** A game in setup with the strike researched, the grid stubbed and the real damage path. */
+/** A game in setup with a missile silo, the strike researched, the grid stubbed and the real damage path. */
 function createGame(timescale: number) {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   GameObject.resetIdCounter();
@@ -137,13 +138,14 @@ function createGame(timescale: number) {
   const engine = createEngine() as unknown as EngineWithTexts;
   gsm.initialize(engine as never, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.trainingTimescale.set(timescale);
+  const silo = addMissileSilo(gsm.towerManager);
 
   gsm.getEventBus().emit({
     type: 'research:completed',
     researchId: NUKE.researchId,
     effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
   });
-  return { gsm, strike, texts: engine.effects.spawnFloatingText };
+  return { gsm, strike, silo, texts: engine.effects.spawnFloatingText };
 }
 
 /** The floating texts of a run as "text colour": damage numbers start with "-", gold with "+" */
@@ -298,6 +300,24 @@ describe('Nuclear strike through the sub-step loop', () => {
     const paused = run(1, 600);
     expect(paused.impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
     expect(paused).toEqual(straight);
+  });
+
+  it('launches from the missile silo: its tower id and base in ability:used, refused without one', () => {
+    const { gsm, silo } = createGame(1);
+    const bus = gsm.getEventBus();
+    const used: unknown[] = [];
+    const rejected: unknown[] = [];
+    bus.on('ability:used', (event) => used.push(event.launch));
+    bus.on('ability:rejected', (event) => rejected.push(event.reason));
+    gsm.beginWave();
+
+    gsm.towerManager.remove(silo);
+    expect(gsm.abilityManager.use('nuclear-strike', TARGET).ok).toBe(false);
+    expect(rejected).toEqual(['no-launch-site']);
+
+    gsm.towerManager.add(silo);
+    expect(gsm.abilityManager.use('nuclear-strike', TARGET).ok).toBe(true);
+    expect(used).toEqual([{ towerId: silo.id, position: silo.position }]);
   });
 
   it('keeps the wave open until a pending strike has landed', () => {

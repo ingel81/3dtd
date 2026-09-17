@@ -36,6 +36,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
+  addMissileSilo,
   createMockTilesEngine,
   createTestCachedPaths,
   withAutoStubs,
@@ -92,6 +93,16 @@ const NUKE_WARNING_STEPS = 90;
 const TAIL = GAME_SOUNDS.nuclearStrike.tail;
 /** Sub-steps until the last repeat of the tail, and a few more */
 const TAIL_STEPS = Math.ceil(Math.max(...TAIL.map((r) => r.delayMs)) / 16.667) + 5;
+/** The missile's one-shots, from the silo (a silo stands in every game here) */
+const MISSILE_SOUNDS: readonly string[] = [
+  GAME_SOUNDS.nuclearStrike.launch.ignition.id,
+  GAME_SOUNDS.nuclearStrike.launch.dive.id,
+];
+
+/** The one-shots played at the impact and after it: the blast and its tail, not the missile's */
+function strikeSounds(played: Mock): unknown[][] {
+  return played.mock.calls.filter((call) => !MISSILE_SOUNDS.includes(call[0] as string));
+}
 
 /** A game in setup with `researched` done, the grid stubbed and the real damage path. */
 function createGame(timescale: number, researched: AbilityId[]) {
@@ -123,6 +134,7 @@ function createGame(timescale: number, researched: AbilityId[]) {
   const { engine, parts } = createEngine();
   gsm.initialize(engine, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.trainingTimescale.set(timescale);
+  addMissileSilo(gsm.towerManager);
   for (const id of researched) {
     gsm.getEventBus().emit({
       type: 'research:completed',
@@ -170,6 +182,9 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
       gsm.beginWave();
       expect(gsm.abilityManager.use('nuclear-strike', TARGET).ok).toBe(true);
       expect(parts['abilityMarkers']['showStrike']).toHaveBeenCalledTimes(1);
+      const played = parts['spatialAudio']['playAtGeo'];
+      // The ignition at the silo with the command
+      expect(played.mock.calls.map((call) => call[0])).toEqual([GAME_SOUNDS.nuclearStrike.launch.ignition.id]);
       runSteps(gsm, clock, NUKE_WARNING_STEPS / 2);
 
       bus.emit({ type: 'command:restart-game' });
@@ -178,12 +193,13 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
       expect(parts['mushroomClouds']['clear']).toHaveBeenCalled();
       expect(gsm.abilityManager.hasPendingStrikes()).toBe(false);
 
-      // No impact: no cloud, no sound, and no ability shake, which comes only
-      // with ability:impact (ScreenShakeService; the switch is ability-shake.scenario.spec.ts)
+      // No impact: no cloud, no blast or tail, and no ability shake, which
+      // comes only with ability:impact (ScreenShakeService; the switch is
+      // ability-shake.scenario.spec.ts)
       runSteps(gsm, clock, 2 * NUKE_WARNING_STEPS + TAIL_STEPS);
       expect(impacts).toBe(0);
       expect(parts['mushroomClouds']['detonate']).not.toHaveBeenCalled();
-      expect(parts['spatialAudio']['playAtGeo']).not.toHaveBeenCalled();
+      expect(strikeSounds(played)).toEqual([]);
     });
 
     it('right after the impact: the rumbling tail is cut', () => {
@@ -194,11 +210,11 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
       gsm.abilityManager.use('nuclear-strike', TARGET);
       while (impacts === 0) frame(gsm, clock);
       const played = parts['spatialAudio']['playAtGeo'];
-      expect(played).toHaveBeenCalledTimes(1);
+      expect(strikeSounds(played)).toHaveLength(1);
 
       bus.emit({ type: 'command:restart-game' });
       runSteps(gsm, clock, TAIL_STEPS);
-      expect(played).toHaveBeenCalledTimes(1);
+      expect(strikeSounds(played)).toHaveLength(1);
     });
   });
 
@@ -217,20 +233,20 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
       while (impacts === 0) frame(gsm, clock);
 
       const played = parts['spatialAudio']['playAtGeo'];
-      const atImpact = played.mock.calls.length;
+      const atImpact = strikeSounds(played).length;
       let heardInPause = 0;
       if (pauseFrames > 0) {
         gsm.paused.set(true);
         for (let i = 0; i < pauseFrames; i++) frame(gsm, clock);
-        heardInPause = played.mock.calls.length - atImpact;
+        heardInPause = strikeSounds(played).length - atImpact;
         gsm.paused.set(false);
       }
       let frames = 0;
-      while (played.mock.calls.length < 1 + TAIL.length && frames < 1000) {
+      while (strikeSounds(played).length < 1 + TAIL.length && frames < 1000) {
         frame(gsm, clock);
         frames++;
       }
-      return { atImpact, heardInPause, frames, volumes: played.mock.calls.map((call) => call[4]) };
+      return { atImpact, heardInPause, frames, volumes: strikeSounds(played).map((call) => call[4]) };
     };
 
     it('plays the impact, then the quieter pieces of its tail', () => {

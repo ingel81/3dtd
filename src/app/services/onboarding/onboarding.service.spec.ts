@@ -65,13 +65,17 @@ describe('OnboardingService', () => {
     expect(service.tip()?.title).toBe('Start a research');
   });
 
-  it('shows the ability tip with its key once researched, gone when used', () => {
+  it('shows the ability tip with its key once it has a button, gone when used', () => {
     storeCompleted('build-tower', 'start-wave', 'upgrade-tower', 'research-center', 'start-research');
     start();
     expect(service.tip()).toBeNull();
+    const nuke = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1 };
+    // Researched, but no missile silo stands: no button yet, no tip
+    bus.emit({ type: 'ability:state-changed', abilities: [nuke, lockedAbilityStatus('emp')] });
+    expect(service.tip()).toBeNull();
     bus.emit({
       type: 'ability:state-changed',
-      abilities: [{ ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1 }, lockedAbilityStatus('emp')],
+      abilities: [{ ...nuke, launchSite: true }, lockedAbilityStatus('emp')],
     });
     expect(service.tip()).toMatchObject({ title: 'Use an ability', keys: [{ key: 'K', description: 'Nuclear Strike' }] });
     bus.emit({ type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 0, lon: 0 }, radiusM: 25, warningMs: 1500 });

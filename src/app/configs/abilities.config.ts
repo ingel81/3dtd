@@ -15,6 +15,7 @@ import type { EnemyTypeConfig } from './enemy-types.config';
 import type { ArmorType, DamageType } from './combat/combat.types';
 import { DAMAGE_MATRIX } from './combat/damage-matrix.config';
 import type { TdIconName } from '../components/icon/icon.component';
+import type { TowerTypeId } from './tower-types.config';
 
 export type AbilityId = 'nuclear-strike' | 'frost-bomb' | 'emp' | 'orbital-laser';
 
@@ -83,6 +84,14 @@ export interface AbilityConfig {
   researchId: ResearchId;
   /** Global perk that research grants; the manager unlocks on it */
   perkId: string;
+  /**
+   * The building it launches from (the nuclear strike: the missile silo).
+   * While none of that type stands, the ability has no button and refuses
+   * with `no-launch-site`; its charges and recharge go on regardless. A
+   * strike already on its way lands when the building goes. Without it the
+   * ability needs no building.
+   */
+  launchFrom?: TowerTypeId;
   maxCharges: number;
   /** Completed waves per charge */
   rechargeWaves: number;
@@ -105,13 +114,14 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',
     description:
-      'Strike a spot on the route: 1.5 s later everything within 25 m loses 60% of its max HP, bosses 20%. '
-      + 'One charge, a new one every 3 waves.',
+      'Launch a missile from your Missile Silo at a spot on the route: 1.5 s later everything within 25 m '
+      + 'loses 60% of its max HP, bosses 20%. One charge, a new one every 3 waves.',
     icon: 'radiation',
     aimHint: 'Strike',
     hotkey: 'K',
     researchId: 'nuclear-strike',
     perkId: 'nuclear-strike',
+    launchFrom: 'missile-silo',
     maxCharges: 1,
     rechargeWaves: 3,
     radiusM: 25,
@@ -258,12 +268,20 @@ export interface AbilityStatus {
   wavesUntilCharge: number;
   /** A strike is on its way: commanded, not yet landed */
   pending: boolean;
+  /** The building it launches from stands (AbilityConfig.launchFrom); true for an ability that needs none */
+  launchSite: boolean;
 }
 
-/** Why a use was refused. */
-export type AbilityRejectReason = 'unknown' | 'locked' | 'no-charge' | 'no-wave' | 'no-route';
+/**
+ * Why a use was refused. `no-launch-site`: the building it launches from
+ * (AbilityConfig.launchFrom) does not stand.
+ */
+export type AbilityRejectReason = 'unknown' | 'locked' | 'no-launch-site' | 'no-charge' | 'no-wave' | 'no-route';
 
-/** Status of an ability before its research is done. */
+/**
+ * Status of an ability before its research is done, as at the start of a
+ * run: an ability that launches from a building has none standing.
+ */
 export function lockedAbilityStatus(id: AbilityId): AbilityStatus {
   return {
     id,
@@ -272,5 +290,6 @@ export function lockedAbilityStatus(id: AbilityId): AbilityStatus {
     maxCharges: ABILITIES[id].maxCharges,
     wavesUntilCharge: 0,
     pending: false,
+    launchSite: ABILITIES[id].launchFrom === undefined,
   };
 }

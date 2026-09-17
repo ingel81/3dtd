@@ -15,7 +15,9 @@
 @include panel.tower-header;
 
 /* === Passive building ===
- * Kopf wie das Tower-Detail, darunter nur der Text, was das Gebäude tut. */
+ * Kopf wie das Tower-Detail, darunter der Text, was das Gebäude tut, und je
+ * Fähigkeit, die von ihm startet, eine Zeile: Name, Tastenkappe wie im
+ * Helden-Panel, Zustand wie ihr Knopf in der Leiste. */
 .td-building-section {
   display: flex;
   flex-direction: column;
@@ -28,5 +30,39 @@
   font-family: var(--td-font-body);
   font-size: 11px;
   line-height: 1.5;
+  color: var(--td-text-secondary);
+}
+
+.td-building-ability {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 6px 8px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 3px;
+  font-size: 11px;
+}
+
+.td-building-ability-name {
+  color: var(--td-text-primary);
+  font-weight: 600;
+}
+
+.td-building-key {
+  display: inline-block;
+  padding: 1px 5px;
+  background: var(--td-panel-shadow);
+  border-radius: 3px;
+  color: var(--td-gold-light);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 12px;
+}
+
+.td-building-ability-status {
+  flex: 1;
+  min-width: 0;
+  text-align: right;
   color: var(--td-text-secondary);
 }

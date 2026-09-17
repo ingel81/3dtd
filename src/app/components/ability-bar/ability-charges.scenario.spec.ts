@@ -54,6 +54,8 @@ describe('Ability buttons through a strike and its recharge, playtest 318 and 31
       strike: () => 0,
       halt: () => undefined,
       routeSweep: () => null,
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => (waveActive() ? 'wave' : 'setup'));
     new GameCommandsHandler(

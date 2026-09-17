@@ -65,6 +65,8 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
       strike: () => 0,
       halt: () => undefined,
       routeSweep: () => null,
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => 'setup');
     const heroWorld = {

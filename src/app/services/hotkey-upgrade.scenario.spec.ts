@@ -84,6 +84,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     lifecycle = new TowerLifecycle(
       { getAll: () => towers, refreshGuardHeading: vi.fn() } as never,
       research,
+      { buildingChanged: vi.fn() },
       { phase: () => 'setup' } as never,
       {} as never,
       { recomputeTowerLOS: vi.fn() } as never,

@@ -3,11 +3,12 @@ import type { TdIconName } from '../icon/icon.component';
 import type { TdTooltipData } from '../tooltip/tooltip-data.types';
 
 /**
- * The abilities the bar has a button for: those whose research is done, in
+ * The abilities the bar has a button for: those whose research is done and
+ * whose launch site stands (the nuclear strike: a missile silo), in
  * ABILITIES order. Until then an ability has no button at all.
  */
 export function abilityBarIds(statuses: Readonly<Record<AbilityId, AbilityStatus>>): AbilityId[] {
-  return ABILITY_IDS.filter((id) => statuses[id].unlocked);
+  return ABILITY_IDS.filter((id) => statuses[id].unlocked && statuses[id].launchSite);
 }
 
 /** What an ability button in the ability bar shows, derived outside the template. */

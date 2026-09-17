@@ -145,6 +145,7 @@ describe('Tower veterans, playtest 347 to 351 and 404', () => {
     const lifecycle = new TowerLifecycle(
       m.towerManager,
       { getMaxUpgradeTier: () => 5 } as never,
+      {} as never,
       m.waveManager,
       m.enemyManager,
       {} as never,

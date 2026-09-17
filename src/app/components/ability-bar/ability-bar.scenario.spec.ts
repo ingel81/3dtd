@@ -44,12 +44,15 @@ describe('Ability bar after the research, playtest 510, 511 and 513 replayed', (
   let hero: HeroManager;
   let bar: AbilityBarComponent;
   const abilityStatuses = signal({} as Record<AbilityId, AbilityStatus>);
+  /** A missile silo stands, as the tower list has it */
+  let siloStands: boolean;
   const waveActive = signal(false);
 
   beforeEach(() => {
     bus = new GameEventBus();
     waveActive.set(false);
     research = new ResearchManager(bus);
+    siloStands = true;
     const abilityWorld = {
       snapToRoute: () => null,
       enemiesInRadius: (_center: GeoPosition, _radius: number, out: unknown[]) => {
@@ -59,6 +62,8 @@ describe('Ability bar after the research, playtest 510, 511 and 513 replayed', (
       strike: () => 0,
       halt: () => undefined,
       routeSweep: () => null,
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => (siloStands ? { towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } } : null),
     } as unknown as AbilityWorld;
     abilities = new AbilityManager(bus, abilityWorld);
     abilities.setPhaseProvider(() => (waveActive() ? 'wave' : 'setup'));
@@ -153,5 +158,24 @@ describe('Ability bar after the research, playtest 510, 511 and 513 replayed', (
       ['emp', 'E'],
       ['orbital-laser', 'L'],
     ]);
+  });
+
+  it('the strike has a button only while a missile silo stands; built or sold, the bar follows at once', () => {
+    siloStands = false;
+    for (const abilityId of ABILITY_IDS) bus.emitDeferred({ type: 'debug:ready-ability', abilityId });
+    bus.processQueue();
+    expect(bar.buttons().map((b) => b.id)).toEqual(['frost-bomb', 'emp', 'orbital-laser']);
+
+    // TowerLifecycle.place: the silo is in the tower list, then the manager hears of it
+    siloStands = true;
+    abilities.buildingChanged('missile-silo');
+    expect(bar.buttons().map((b) => b.id)).toEqual(['nuclear-strike', 'frost-bomb', 'emp', 'orbital-laser']);
+    expect(bar.buttons()[0].view.state).toBe('waiting');
+
+    // TowerLifecycle.sell: the charge stays, the button goes
+    siloStands = false;
+    abilities.buildingChanged('missile-silo');
+    expect(bar.buttons().map((b) => b.id)).toEqual(['frost-bomb', 'emp', 'orbital-laser']);
+    expect(abilities.getStatus('nuclear-strike').charges).toBe(1);
   });
 });

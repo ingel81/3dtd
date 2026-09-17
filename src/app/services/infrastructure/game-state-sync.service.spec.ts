@@ -392,6 +392,7 @@ describe('GameStateSyncService (real service)', () => {
       maxCharges: 1,
       wavesUntilCharge: 0,
       pending: false,
+      launchSite: true,
     };
 
     it('starts with every ability locked', () => {

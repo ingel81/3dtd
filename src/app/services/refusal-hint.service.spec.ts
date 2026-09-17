@@ -31,6 +31,12 @@ describe('abilityRefusalText', () => {
     expect(abilityNoRouteText('orbital-laser')).toBe('No route within 30 m');
   });
 
+  it('names the building a strike launches from when none stands', () => {
+    expect(abilityRefusalText('nuclear-strike', 'no-launch-site')).toBe('Build a Missile Silo first');
+    // An ability without a launch site never gets this reason; nothing to say
+    expect(abilityRefusalText('emp', 'no-launch-site')).toBeNull();
+  });
+
   it('keeps quiet before the research and for an unknown ability', () => {
     expect(abilityRefusalText('nuclear-strike', 'locked')).toBeNull();
     expect(abilityRefusalText('nuclear-strike', 'unknown')).toBeNull();

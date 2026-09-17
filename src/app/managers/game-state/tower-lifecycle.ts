@@ -1,6 +1,7 @@
 import type { GameEventBus } from '../../game-engine';
 import type { TowerManager } from '../tower.manager';
 import type { ResearchManager } from '../research.manager';
+import type { AbilityManager } from '../ability.manager';
 import type { WaveManager } from '../wave.manager';
 import type { EnemyManager } from '../enemy.manager';
 import type { TowerPlacementService } from '../../services/tower-placement.service';
@@ -30,6 +31,7 @@ export class TowerLifecycle {
   constructor(
     private readonly towerManager: TowerManager,
     private readonly researchManager: ResearchManager,
+    private readonly abilityManager: Pick<AbilityManager, 'buildingChanged'>,
     private readonly waveManager: WaveManager,
     private readonly enemyManager: EnemyManager,
     private readonly placement: TowerPlacementService,
@@ -70,7 +72,7 @@ export class TowerLifecycle {
       return null;
     }
 
-    // A one-per-map building (the Research Center): not while one stands
+    // A one-per-map building (Research Center, Missile Silo): not while one stands
     if (config.unique && this.towerManager.getAll().some(t => t.typeConfig.id === typeId)) {
       return null;
     }
@@ -96,6 +98,9 @@ export class TowerLifecycle {
       if (typeId === 'research-center') {
         this.researchManager.onCenterPlaced();
       }
+
+      // An ability that launches from it (the silo) gets its button
+      this.abilityManager.buildingChanged(typeId);
     }
     return tower;
   }
@@ -122,6 +127,9 @@ export class TowerLifecycle {
     // Sell tower (emits tower:sold event, returns refund)
     const refund = this.towerManager.sell(tower);
     this.creditsLedger.add(refund);
+
+    // Gone from the tower list: an ability that launched from it loses its button
+    this.abilityManager.buildingChanged(tower.typeConfig.id);
     return refund;
   }
 

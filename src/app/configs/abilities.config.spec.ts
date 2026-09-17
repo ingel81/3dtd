@@ -191,6 +191,9 @@ describe('abilities config', () => {
       maxCharges: 1,
       wavesUntilCharge: 0,
       pending: false,
+      // Launches from a missile silo, none stands at the start
+      launchSite: false,
     });
+    expect(lockedAbilityStatus('frost-bomb').launchSite).toBe(true);
   });
 });
