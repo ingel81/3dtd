@@ -7,6 +7,7 @@ import { METERS_PER_DEGREE_LAT, canonicalCoords } from '../../utils/geo-utils';
 import { SegmentRoutes, type RouteTail } from '../../utils/route-start';
 import { PORTAL_DEPTH, PORTAL_MAX_SCALE, portalDepthScale } from '../../configs/marker-geometry.config';
 import { closestPointOnSegment } from '../../utils/route-geometry';
+import { MAX_HQ_STREET_DISTANCE } from '../../configs/map-constants.config';
 import {
   DEFAULT_ROAD_WEIGHT,
   MinHeap,
@@ -135,6 +136,26 @@ function streetQuery(boxes: readonly GeoBox[]): string {
     `;
 }
 
+/** The street graph's connected pieces: a number per node id, the same for nodes a route can join. */
+function connectedComponents(graph: ReadonlyMap<number, { neighbors: { nodeId: number }[] }>): Map<number, number> {
+  const components = new Map<number, number>();
+  let next = 0;
+  for (const id of graph.keys()) {
+    if (components.has(id)) continue;
+    const piece = next++;
+    const open = [id];
+    components.set(id, piece);
+    while (open.length > 0) {
+      for (const { nodeId } of graph.get(open.pop()!)?.neighbors ?? []) {
+        if (components.has(nodeId)) continue;
+        components.set(nodeId, piece);
+        open.push(nodeId);
+      }
+    }
+  }
+  return components;
+}
+
 type StreetTags = Pick<Street, 'width' | 'lanes' | 'bridge' | 'tunnel' | 'covered' | 'layer'>;
 
 /**
@@ -178,6 +199,8 @@ export class OsmStreetService {
   // neighbors now include streetType for weighted pathfinding
   private cachedGraph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }> | null = null;
   private cachedGraphNetworkId: string | null = null;
+  /** Connected piece of the cached graph per node id, see connectedComponents. */
+  private cachedComponents: Map<number, number> | null = null;
 
   /**
    * The streets loaded last, from Overpass or the IndexedDB cache. The next
@@ -434,7 +457,8 @@ export class OsmStreetService {
   findNearestStreetPoint(
     network: StreetNetwork,
     lat: number,
-    lon: number
+    lon: number,
+    accept?: (node: StreetNode) => boolean
   ): { street: Street; nodeIndex: number; distance: number } | null {
     let nearest: { street: Street; nodeIndex: number; distance: number } | null = null;
 
@@ -443,6 +467,7 @@ export class OsmStreetService {
       for (let i = 0; i < street.nodes.length - 1; i++) {
         const node1 = street.nodes[i];
         const node2 = street.nodes[i + 1];
+        if (accept && !accept(node1)) continue;
         const dist = this.distanceToSegment(lat, lon, node1.lat, node1.lon, node2.lat, node2.lon);
 
         if (!nearest || dist < nearest.distance) {
@@ -503,11 +528,20 @@ export class OsmStreetService {
     endLat: number,
     endLon: number
   ): SegmentRoutes | null {
-    const endPoint = this.findNearestStreetPoint(network, endLat, endLon);
-    if (!endPoint) return null;
-
     // Get or build adjacency graph (cached for performance)
     const graph = this.getOrBuildGraph(network);
+
+    // The end's segment among those the start's streets connect to: a way cut
+    // off from them (a passage mapped inside the Colosseum, playtest
+    // 2026-09-17) can lie nearest to the HQ, and A* never reaches it. A
+    // connected one only up to MAX_HQ_STREET_DISTANCE farther than the
+    // nearest of all, so a start on a cut-off piece far off gets no route.
+    const components = this.cachedComponents!;
+    const reachable = components.get(start.street.nodes[start.nodeIndex].id);
+    const nearest = this.findNearestStreetPoint(network, endLat, endLon);
+    const endPoint = this.findNearestStreetPoint(network, endLat, endLon, (node) => components.get(node.id) === reachable);
+    if (!nearest || !endPoint || endPoint.distance > nearest.distance + MAX_HQ_STREET_DISTANCE) return null;
+
     // Both ends of the end's segment, each with the piece of it up to the
     // end's foot: the route goes to whichever reaches the foot for less. Until
     // 2026-09-17 it went to the segment's first node, round a square to the
@@ -539,6 +573,7 @@ export class OsmStreetService {
 
     // Build and cache new graph
     this.cachedGraph = this.buildGraph(network);
+    this.cachedComponents = connectedComponents(this.cachedGraph);
     this.cachedGraphNetworkId = networkId;
 
     return this.cachedGraph;
