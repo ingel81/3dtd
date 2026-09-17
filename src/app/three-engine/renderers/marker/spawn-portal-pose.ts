@@ -47,7 +47,7 @@ export function portalCorridorWidth(start: RouteWaypoint): number {
   );
 }
 
-/** Distance from a portal's centre to its front surface, for a portal of `scale` (m). */
+/** Distance from a portal's centre to its plane, for a portal of `scale` (m). */
 export function portalFrontDistance(scale: number): number {
   return (PORTAL_DEPTH / 2) * portalDepthScale(scale);
 }
@@ -95,15 +95,15 @@ export function routeExitPoint(
 
 /**
  * Pose of a spawn portal from the start of its route: centred on the first
- * waypoint, on the ground, where the enemies appear. They start inside the
- * portal's volume (PORTAL_DEPTH) and step out through its front surface.
- * The opening is as wide as the corridor there.
+ * waypoint, on the ground, where the enemies appear. They start behind the
+ * portal's plane, in its clip space (PORTAL_DEPTH, PORTAL_CLIP), and step
+ * out through it. The opening is as wide as the corridor there.
  *
- * It faces where the route leaves its volume: the point where the route
- * first gets as far from the start as the front surface
+ * It faces where the route comes through its plane: the point where the
+ * route first gets as far from the start as the plane
  * (portalFrontDistance), so the route runs out through the middle of the
  * opening. A route that opens on a bend (on a roundabout, a stub of a metre
- * before a corner) runs sideways inside the portal; facing along its first
+ * before a corner) runs sideways behind the plane; facing along its first
  * segment, or at a waypoint beyond the bend, put the enemies through a
  * pillar.
  *
@@ -144,11 +144,13 @@ export function portalLaneOffset(start: RouteWaypoint): number {
 /**
  * Whether the enemies leave a portal turned to `heading` through its
  * opening: the route and the lanes `lane` metres either side of it
- * (portalLaneOffset) each stay between the pillars, less
- * PORTAL_TURN_CLEARANCE, and in front of the back surface until they cross
- * the front surface. A lane is every segment shifted square to itself, as
- * MovementComponent shifts an enemy. A route that never gets as far as the
- * front surface only has to stay inside.
+ * (portalLaneOffset) each stay within the opening's width, less
+ * PORTAL_TURN_CLEARANCE, and in the clip space's depth behind the plane
+ * until they cross the plane, which puts them through the opening and keeps
+ * them hidden until then (the clip space is wider than the opening). A lane
+ * is every segment shifted square to itself, as MovementComponent shifts an
+ * enemy. A route that never gets as far as the plane only has to stay
+ * inside.
  *
  * @param points Route waypoints in scene space, from the start on
  * @param pose Where the portal stands and its scale; its heading is not read
@@ -232,7 +234,7 @@ export function portalTurnRange(
 
 /**
  * The heading closest to `heading` in the portal's turn range
- * (portalTurnRange): a turn through a pillar or the back surface stops
+ * (portalTurnRange): a turn through a pillar or out of the clip space stops
  * where the outermost enemies still get out.
  */
 export function clampPortalHeading(

@@ -5,13 +5,13 @@ import { PORTAL_DEPTH, PORTAL_OPENING_HEIGHT, PORTAL_OPENING_WIDTH } from '../..
 /**
  * Geometry of the spawn portal at scale 1, in portal space: x across the
  * street, y up from the ground, z the way the enemies walk out, the origin
- * on the route start. The opening spans x = ±HALF_OPENING from the ground
- * to OPENING_HEIGHT; it is a volume PORTAL_DEPTH deep, closed by a surface
- * at z = ±HALF_DEPTH, by the pillars on the sides and the lintel above.
- * The stone frame round it is an asset (spawn-portal-frame.ts, built by
+ * on the route start. The portal's plane stands at z = HALF_DEPTH, the
+ * opening in it spans x = ±HALF_OPENING from the ground to OPENING_HEIGHT.
+ * The stone arch round it is an asset (spawn-portal-frame.ts, built by
  * tools/blender/spawn_portal.py); its top and radius are in
  * marker-geometry.config.ts, spawn-portal-frame.spec.ts holds the asset to
- * them and to the volume.
+ * them and to the opening. What of an enemy is still behind the plane its
+ * own shader drops (portal-clip.ts).
  */
 
 const HALF_OPENING = PORTAL_OPENING_WIDTH / 2;
@@ -28,9 +28,9 @@ const VOID_BOTTOM = -0.6;
 const FRAME_ATTRIBUTES = ['position', 'normal', 'uv', 'tangent'] as const;
 
 /**
- * The void: a quad in front of the volume at z = +HALF_DEPTH facing the
- * way the enemies walk out, one behind it at z = -HALF_DEPTH facing back,
- * with the attributes of the frame, indexed like it.
+ * The void: a quad in the plane at z = HALF_DEPTH facing the way the
+ * enemies walk out, and the same quad facing back, so the surface shows
+ * from both sides; with the attributes of the frame, indexed like it.
  */
 function createVoidGeometry(): BufferGeometry {
   const sx = HALF_OPENING + VOID_OVERLAP;
@@ -38,12 +38,12 @@ function createVoidGeometry(): BufferGeometry {
   const y1 = OPENING_HEIGHT + VOID_OVERLAP;
   const sz = HALF_DEPTH;
   const positions = [
-    // In front, facing +z
+    // Facing +z
     -sx, y0, sz, sx, y0, sz, sx, y1, sz,
     -sx, y0, sz, sx, y1, sz, -sx, y1, sz,
-    // Behind, facing -z
-    -sx, y0, -sz, sx, y1, -sz, sx, y0, -sz,
-    -sx, y0, -sz, -sx, y1, -sz, sx, y1, -sz,
+    // Facing -z
+    -sx, y0, sz, sx, y1, sz, sx, y0, sz,
+    -sx, y0, sz, -sx, y1, sz, sx, y1, sz,
   ];
   const vertices = positions.length / 3;
   const normals: number[] = [];
@@ -64,13 +64,12 @@ function createVoidGeometry(): BufferGeometry {
 }
 
 /**
- * The gate the portal manager draws: the stone frame (aPart 0) and the
- * void (aPart 1), see createVoidGeometry. Both void surfaces are opaque
- * and write depth: an enemy on the route start stands between them with
- * its health bar, hidden from every side, until it steps out through the
- * front, and the street behind the portal does not show through. Without
- * a frame (its asset still loading or failed) the gate is the void alone;
- * the frame's geometry is copied, not changed.
+ * The gate the portal manager draws: the stone arch (aPart 0) and the
+ * void (aPart 1), see createVoidGeometry. The void is opaque and writes
+ * depth: from either side it hides what stands beyond it in the opening.
+ * The enemies behind the plane need no cover, their shaders drop them
+ * (portal-clip.ts). Without a frame (its asset still loading or failed)
+ * the gate is the void alone; the frame's geometry is copied, not changed.
  */
 export function createPortalGateGeometry(frame: BufferGeometry | null): BufferGeometry {
   const voidGeometry = createVoidGeometry();
@@ -87,13 +86,16 @@ export function createPortalGateGeometry(frame: BufferGeometry | null): BufferGe
 
 /**
  * Layout of the portal at scale 1 (m), handed to its shaders: the opening,
- * half the volume's depth, and the patch of street the portal lights (half
- * width, depth behind the back surface and in front of the front one).
+ * the plane's distance from the route start, how far behind the plane the
+ * core's light runs along the opening's axis (through the arch, its back
+ * face catches it as its front face does), and the patch of street the
+ * portal lights (half width, depth behind and in front of the plane).
  */
 export const PORTAL_SHADER_LAYOUT = {
   halfOpening: HALF_OPENING,
   openingHeight: OPENING_HEIGHT,
   halfDepth: HALF_DEPTH,
+  coreBack: 2,
   groundHalfWidth: HALF_OPENING * 1.6,
   groundBack: HALF_OPENING * 0.8,
   groundFront: HALF_OPENING * 2.2,
@@ -106,7 +108,7 @@ const GROUND_LIFT = 0.25;
 export function createPortalGlowGeometry(): BufferGeometry {
   const L = PORTAL_SHADER_LAYOUT;
   const gx = L.groundHalfWidth;
-  const gz0 = -(L.halfDepth + L.groundBack);
+  const gz0 = L.halfDepth - L.groundBack;
   const gz1 = L.halfDepth + L.groundFront;
   const y = GROUND_LIFT;
   const positions = [

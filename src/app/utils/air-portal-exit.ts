@@ -7,8 +7,8 @@ import {
 
 /**
  * An air unit's way out of its spawn portal (EnemyManager): from path[0],
- * inside the portal's volume, level through the opening and on past the
- * front surface, then up to its cruise altitude. Heights are
+ * behind the portal's plane, level through the opening and on past the
+ * plane, then up to its cruise altitude. Heights are
  * Enemy.heightOffset values (m above `transform.terrainHeight`), distances
  * metres along the route from path[0].
  */
@@ -35,8 +35,8 @@ export interface AirPortalExit {
  * keeps in its terrainHeight. It is taken out here: every unit of a type
  * comes through the same height and spreads out on the climb.
  *
- * The front surface stands PORTAL_DEPTH / 2 (times the depth scale) ahead
- * of path[0]; the climb starts AIR_PORTAL_EXIT.holdPastFront beyond it.
+ * The plane stands PORTAL_DEPTH / 2 (times the depth scale) ahead of
+ * path[0]; the climb starts AIR_PORTAL_EXIT.holdPastFront beyond it.
  */
 export function airPortalExit(
   scale: number,

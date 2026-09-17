@@ -82,7 +82,7 @@ export function setPortalGateTextures(
 }
 
 /**
- * Gate of the spawn portals: the stone frame (aPart 0) and the void (aPart
+ * Gate of the spawn portals: the stone arch (aPart 0) and the void (aPart
  * 1), opaque, in one draw call. Unlike the other marker shaders it works
  * in linear light and encodes its output for the canvas
  * (colorspace_fragment): it reads an sRGB base colour texture, which the
@@ -101,10 +101,11 @@ export function setPortalGateTextures(
  * (uGlyphDrive, portalGlyphDrive); now and then one wakes in an uneven
  * glimmer crawling along its strokes, tinted with the spawn's colour.
  * `exposure` is the gain on the stone's base colour, `glints` the strength
- * of the glints. The void, a surface in front of the portal's volume and
- * one behind it, is a slow, smouldering swirl around a black eye, drawn in
- * display values; it writes depth, so whatever stands between the two (the
- * enemies at their start) stays hidden. aRipple is the wall time (s) of the
+ * of the glints. The void, the surface in the portal's plane, seen from
+ * both sides, is a slow, smouldering swirl around a black eye, drawn in
+ * display values; it writes depth, so it hides what stands beyond it in the
+ * opening. The enemies still behind the plane drop out in their own
+ * shaders (portal-clip.ts). aRipple is the wall time (s) of the
  * portal's last spawn burst: a ring runs out from the eye. The
  * Photorealistic Tiles around it take no scene light either way.
  */
@@ -125,6 +126,7 @@ export function createPortalGateMaterial(
       uRippleLife: { value: rippleLife },
       uOpening: { value: new Vector2(layout.halfOpening, layout.openingHeight) },
       uHalfDepth: { value: layout.halfDepth },
+      uCoreBack: { value: layout.coreBack },
       uExposure: { value: exposure },
       uGlints: { value: glints },
       // Between waves until the first update
@@ -191,7 +193,8 @@ export function createPortalGateMaterial(
       uniform float uEnergy;
       uniform float uRippleLife;
       uniform vec2 uOpening; // half width, height
-      uniform float uHalfDepth; // half the volume's depth
+      uniform float uHalfDepth; // the plane's distance from the route start
+      uniform float uCoreBack;  // how far behind the plane the core's light runs
       uniform float uExposure;  // gain on the stone's base colour
       uniform float uGlints;    // strength of the key light's glints
       uniform vec3 uGlyphDrive;  // glow level, chance to wake, surge (portalGlyphDrive)
@@ -225,7 +228,7 @@ export function createPortalGateMaterial(
       // linear light: a wrapped key light and the sky on the normal map, so
       // a face turned from the key keeps its relief, the baked occlusion,
       // glints on the glossy obsidian and the iron, the core's dark red
-      // light from the volume. p in portal space, footprint in metres per
+      // light from the opening. p in portal space, footprint in metres per
       // pixel.
       vec3 portalStone(vec3 p, float footprint, float flicker) {
         vec3 N = normalize(vLocalNormal);
@@ -251,10 +254,11 @@ export function createPortalGateMaterial(
         float spec = pow(max(dot(n, normalize(L + normalize(vView))), 0.0), 4.0 + 120.0 * gloss * gloss) * gloss * gloss;
         vec3 tint = mix(vec3(0.05), base * 8.0 + 0.02, orm.b);
         col += tint * spec * key * orm.r * uGlints * (1.0 - smoothstep(0.03, 0.12, footprint));
-        // The core's light from the nearest point of the volume's axis,
-        // strongest on the faces round the opening; the lighter worn edges
-        // catch more of it than the soot
-        vec3 toCore = vec3(0.0, uOpening.y * 0.45, clamp(p.z, -uHalfDepth, uHalfDepth)) - p;
+        // The core's light from the nearest point of the opening's axis
+        // through the arch, strongest on the faces round the opening, on the
+        // front and the back alike; the lighter worn edges catch more of it
+        // than the soot
+        vec3 toCore = vec3(0.0, uOpening.y * 0.45, clamp(p.z, uHalfDepth - uCoreBack, uHalfDepth)) - p;
         float dCore = length(toCore) + 1e-3;
         float wrap = clamp(dot(n, toCore / dCore) * 0.6 + 0.4, 0.0, 1.0);
         float catchLight = 0.35 + 8.0 * dot(base, vec3(0.3333));

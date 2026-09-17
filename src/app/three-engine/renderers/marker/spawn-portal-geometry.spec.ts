@@ -13,10 +13,10 @@ import {
 } from '../../../configs/marker-geometry.config';
 
 // The frame is an asset: spawn-portal-frame.spec.ts reads it and holds it
-// to the extents, the opening and the volume.
+// to the extents, the opening and the plane.
 
 describe('Spawn-Portal-Geometrie', () => {
-  it('schließt die Öffnung vorn und hinten mit der Leere (aPart 1), PORTAL_DEPTH auseinander, bis in den Stein', () => {
+  it('füllt die Öffnung in der Ebene mit der Leere (aPart 1), von beiden Seiten zu sehen, bis in den Stein', () => {
     const geometry = createPortalGateGeometry(null);
     const position = geometry.getAttribute('position');
     const normal = geometry.getAttribute('normal');
@@ -30,15 +30,10 @@ describe('Spawn-Portal-Geometrie', () => {
       maxX = Math.max(maxX, position.getX(i));
       minY = Math.min(minY, position.getY(i));
       maxY = Math.max(maxY, position.getY(i));
-      // Die vordere Fläche schaut nach vorn, die hintere nach hinten
-      if (normal.getZ(i) > 0.99) {
-        expect(position.getZ(i)).toBeCloseTo(PORTAL_DEPTH / 2);
-        front++;
-      }
-      if (normal.getZ(i) < -0.99) {
-        expect(position.getZ(i)).toBeCloseTo(-PORTAL_DEPTH / 2);
-        back++;
-      }
+      // Eine Fläche in der Ebene, nach vorn und nach hinten gewandt
+      expect(position.getZ(i)).toBeCloseTo(PORTAL_DEPTH / 2);
+      if (normal.getZ(i) > 0.99) front++;
+      if (normal.getZ(i) < -0.99) back++;
     }
     expect(front).toBe(6);
     expect(back).toBe(6);
@@ -60,7 +55,7 @@ describe('Spawn-Portal-Geometrie', () => {
     expect(frame.getAttribute('aPart')).toBeUndefined();
   });
 
-  it('legt das Bodenlicht knapp über den Boden, vor die vordere und hinter die hintere Fläche', () => {
+  it('legt das Bodenlicht knapp über den Boden, vor und hinter die Ebene', () => {
     const position = createPortalGlowGeometry().getAttribute('position');
     let minZ = Infinity;
     let maxZ = -Infinity;
@@ -70,11 +65,11 @@ describe('Spawn-Portal-Geometrie', () => {
       maxZ = Math.max(maxZ, position.getZ(i));
     }
     expect(maxZ).toBeGreaterThan(PORTAL_DEPTH / 2 + 5);
-    expect(minZ).toBeLessThan(-PORTAL_DEPTH / 2 - 2);
+    expect(minZ).toBeLessThan(PORTAL_DEPTH / 2 - 2);
   });
 
   it('legt den Beschwörungskreis ganz in das Bodenlicht vor der vorderen Fläche', () => {
-    // Der Kreis misst ab der vorderen Fläche; die Tiefe wächst nie
+    // Der Kreis misst ab der Ebene; die Tiefe wächst nie
     // langsamer als die Breite (portalDepthScale), so bleibt er auf jeder
     // Skala im Fleck
     const L = PORTAL_SHADER_LAYOUT;

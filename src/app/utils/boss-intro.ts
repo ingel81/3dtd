@@ -28,10 +28,11 @@ export const BOSS_INTRO_BODY_OUT_M = 6;
 
 /**
  * Route distance at which a boss out of a portal of `portalScale` stands in
- * front of it (m): the front face, half the portal's depth from the route
- * start, plus BOSS_INTRO_CLEAR_MARGIN_M, or BOSS_INTRO_BODY_OUT_M for a
- * `type` with a body along the route. Before that it is inside the portal's
- * volume and hidden from every side (PORTAL_DEPTH).
+ * front of it (m): the portal's plane, half the portal's depth from the
+ * route start, plus BOSS_INTRO_CLEAR_MARGIN_M, or BOSS_INTRO_BODY_OUT_M for
+ * a `type` with a body along the route. Before that it is at least partly
+ * behind the plane, where the enemies' shaders hide it (PORTAL_DEPTH,
+ * PORTAL_CLIP).
  */
 export function bossClearDistance(portalScale: number, type?: Pick<EnemyTypeConfig, 'ooze'>): number {
   const margin = type?.ooze ? BOSS_INTRO_BODY_OUT_M : BOSS_INTRO_CLEAR_MARGIN_M;

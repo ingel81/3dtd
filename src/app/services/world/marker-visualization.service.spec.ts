@@ -670,8 +670,8 @@ describe('MarkerVisualizationService', () => {
       for (let i = 0; i < 1000; i++) enemyAt(route[0]);
       expect(sparks).toHaveBeenCalledTimes(1);
 
-      // Out of the front surface: the portal's centre on the route start, on
-      // the cell, facing south, the surface half the volume's depth ahead
+      // Out of the portal's plane: the portal's centre on the route start, on
+      // the cell, facing south, the plane half the portal's depth ahead
       const [x, y, z, forwardX, forwardZ] = sparks.mock.calls[0] as number[];
       expect(x).toBeCloseTo(0);
       expect(y).toBe(12);
@@ -834,6 +834,8 @@ describe('MarkerVisualizationService', () => {
       expect(box.min.y).toBeCloseTo(0);
       expect(box.max.y).toBeCloseTo(PORTAL_OPENING_HEIGHT);
       expect(box.max.x).toBeCloseTo(PORTAL_OPENING_WIDTH / 2);
+      // In the arch, in the portal's plane
+      expect(box.max.z).toBeCloseTo(PORTAL_DEPTH / 2);
     });
 
     it('works without initialize and disposes every geometry and material', async () => {
