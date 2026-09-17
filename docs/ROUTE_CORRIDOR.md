@@ -24,7 +24,7 @@ Route (vom Spawn zum HQ).
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`), `utils/carried-height.ts` | Boden, Brückendeck und die Strecke hinter seinem Ende, Endstück zum HQ, Tunnelsohle, Straße unter einer fremden Brücke |
 | Band | `buildBand`, `bandPath` (`utils/corridor-band.ts`), `PathAndRouteService.buildBands`, Schritt 4 in `CorridorBuild.build` | Je Station das Rückgrat, das begehbare Band beiderseits und die Gegnerlinie darin; die Waypoints laufen in seiner Mitte, ihre Halbbreiten sind seine Kanten |
 | Laufweg | `judgeWalk`, `cellWalkable` (`utils/corridor-walk.ts`) | Nur noch Diagnose für `__corridor.pick()`: warum eine Zelle im Band liegt oder daneben (Auto, Traufe, Hecke, Böschung) |
-| Gegner | `MovementComponent.advance` (`movement.component.ts`), `getRouteProfile` (`route-corridor.ts`) | Seitenversatz innerhalb der Zellen |
+| Gegner | `MovementComponent.advance`, `place` (`movement.component.ts`), `getRouteProfile`, `sizeRouteCorners` (`route-corridor.ts`), `RouteCornerBuilder` (`route-corners.ts`), `ArcCheck` (`route-corner-check.ts`) | Seitenversatz innerhalb der Zellen, Bögen an Ecken |
 | Auslöser | `CorridorBuild` (`services/world/corridor-build.ts`), den `VisualizationFacadeService` hält | Wann gemessen und neu gebaut wird |
 
 ## Einstellungen
@@ -1124,7 +1124,9 @@ Jeder Gegner bekommt beim Spawn einen Faktor in [-1, 1]: Zufall mal
 rechts der Fahrtrichtung, 0 die Mittellinie.
 
 Der Versatz in Metern ist Faktor mal die seitliche Grenze an der aktuellen
-Stelle, auf der Seite, auf der der Gegner läuft (`MovementComponent.advance`).
+Stelle, auf der Seite, auf der der Gegner läuft (`MovementComponent.place`,
+aufgerufen aus `advance` und `setPath`). An einem Knick der Route laufen
+Mittellinie und Bahnen auf Bögen (siehe Ecken).
 
 - **Grenze eines Segments:** `lateralLimit(H) = max(0, H - edgeMargin)`
   (`route-corridor.ts`). `edgeMargin` ist mindestens die halbe Diagonale
@@ -1139,14 +1141,273 @@ Stelle, auf der Seite, auf der der Gegner läuft (`MovementComponent.advance`).
   angrenzenden Segmente. Danach darf sie entlang der Route höchstens um
   `taper` (0,5 m pro m) steigen (`buildSideLimits`, `route-corridor.ts`).
   Vor einer Engstelle rücken Gegner so allmählich ein, statt am ersten
-  schmalen Waypoint seitlich zu springen.
+  schmalen Waypoint seitlich zu springen. Diese Hülle der spitzen Route ist
+  `SideLimits.node`; die Gegner halten sich an die Grenzen, die an Ecken
+  daraus entstehen (`RouteCorners.left`, `right`, siehe Ecken).
 - **Mittellinie:** Unter 1,5 m Halbbreite ist die Grenze 0. An einer
   einzelligen Engstelle laufen alle Gegner auf der Mittellinie.
-- **Kosten:** Die Grenzen werden einmal je Pfad-Array berechnet und geteilt
-  (`getRouteProfile`, WeakMap). Im Sub-Step bleiben ein Index-Lookup und
-  drei Vergleiche.
-- **Richtung:** Der Versatz steht in Metern senkrecht zur Laufrichtung;
-  nur die Länge wird mit cos(Breite) skaliert (`MovementComponent.advance`).
+- **Kosten:** Grenzen werden einmal je Pfad-Array berechnet und geteilt
+  (`getRouteProfile`, WeakMap), die Bögen beim ersten Lesen von
+  `RouteProfile.corners`. Im Sub-Step bleiben auf geraden Stücken
+  Index-Lookups und vier Vergleiche, auf einem Bogen dazu Kosinus, Sinus,
+  sechs Grenzen und die Blickrichtung (siehe Ecken, Kosten).
+- **Richtung:** Der Versatz steht in Metern senkrecht zur Laufrichtung, auf
+  einem Bogen radial; nur die Länge wird mit cos(Breite) skaliert
+  (`MovementComponent.place`, `RouteCorners.insideLon`).
+
+### Ecken
+
+Seit 2026-09-16 (TODO C12, Nutzerentscheidung Variante A), ein Bogen je
+Gruppe von Knicken seit 2026-09-17. Code: `utils/route-corners.ts`
+(`RouteCorners`, `ArcLimits`, `RouteCornerBuilder`: Gruppen und Radius),
+`utils/route-corner-check.ts` (`ArcCheck`: die Prüfung eines Bogens),
+`RouteProfile.corners` und `sizeRouteCorners` (`route-corridor.ts`),
+`MovementComponent.place` und `placeOnArc`.
+
+**Anlass** (Playtest 2026-09-16, Stuttgart, Horde von rechts, Rechtskurve um
+90° nach oben): Ein Gegner auf der Außenbahn sprang an der Ecke nach vorn.
+Der Versatz stand senkrecht zum aktuellen Segment; am Waypoint wechselte die
+Senkrechte schlagartig. Außen sprang eine Bahn um Versatz mal
+`2 sin(Knick / 2)` schräg nach vorn (bei 90° das 1,41-Fache des Versatzes,
+bei 5,5 m also 7,8 m), innen überlappten die Parallelen und sie sprang
+zurück, und der Schritt über den Waypoint richtete die Blickrichtung auf
+diesen Sprung. Kleine OSM-Knicke gaben dasselbe im Kleinen.
+
+**Mechanismus:** Eine Ecke ist eine Gruppe aufeinanderfolgender Waypoints,
+an denen die Route abknickt (je mehr als 1e-4 rad), die insgesamt in eine
+Richtung dreht. Ihr Bogen beginnt auf dem Segment vor dem ersten und endet auf
+dem Segment nach dem letzten Knick, tangential an beide, und dreht um die
+Summe der Knicke (höchstens π − 1e-3). Die Mittellinie läuft dort auf einem
+Kreisbogen mit Radius `R`, jede Bahn auf einem Bogen um denselben
+Mittelpunkt. Korridor, Zellen, Band, Waypoints und Fingerprint bleiben, wie
+sie sind. `RouteCorners` hält je Waypoint seinen Bogen (`arcOf`, -1 für
+keinen), je Segment die Meter auf Bögen an Anfang und Ende (`arcIn`,
+`arcOut`) und je Bogen Strecke (`from`, `to`), Radius, Drehung, Innenseite,
+Kappen, Rücknahmen und die Richtungen in Grad je Meter für die Platzierung.
+
+- **Gruppen:** Die Knicke werden nach Größe genommen. Jeder beginnt eine
+  Gruppe und nimmt den Waypoint davor, danach oder beide dazu, solange der
+  Radius dadurch um mehr als 0,1 % wächst. Waypoints, die insgesamt nicht in
+  eine Richtung drehen (S-Kurve, Schleife), passen in keinen gemeinsamen
+  Bogen. Ein Bogen bleibt von den Strecken schon gesetzter Bögen fern und
+  lässt einem noch nicht gesetzten Knick am anderen Ende eines Segments, was
+  dessen eigener Bogen bräuchte, höchstens die halbe Segmentlänge; am Anfang
+  und Ende der Route darf er das ganze Segment nehmen. Eine Ecke, die das
+  Band mit Stücken von 0,5 bis 1 m und kleinen Wacklern legt, wird so ein
+  Bogen über diese Stücke; eine Kurve aus vielen kleinen Knicken wird zu
+  Bögen, die sich etwa in der Mitte der Stücke treffen und dem Kreis der
+  Kurve folgen.
+- **Formation:** Der Fortschritt bleibt `currentIndex` und `progress`, die
+  Strecke entlang der spitzen Mittellinie. Auf dem Bogen wird er linear auf
+  den Winkel abgebildet: Alle Bahnen gehen im selben Sub-Step in die Ecke und
+  aus ihr heraus. Außen läuft eine Bahn schneller, innen langsamer, die
+  innerste dreht bei gleich breiten Seiten an einem einzelnen Knick auf der
+  Stelle. `getPathProgress`, `getDistanceAlongPath`, Ankunft am HQ,
+  Targeting "first", Wellen-Timing, Bots und Balance lesen dieselben Zahlen
+  wie vorher (Test vergleicht Schritt für Schritt mit einem Gegner ohne
+  Bögen).
+- **Blickrichtung:** auf dem Bogen jeden Sub-Step die Tangente des Bogens an
+  der Stelle, in jeder Bahn dieselbe, auch dort, wo eine Bahn nicht
+  vorankommt oder ein- und ausrückt (die Richtung ihrer Bewegung dort
+  drehte den Gegner um bis zu einen rechten Winkel). Der Heading-Hold hält
+  sie auf geraden Stücken wie bisher; der Bogen ist ein eigenes Stück, der
+  erste Schritt danach nimmt die Richtung wieder aus der Bewegung. Rückt die
+  Bahn am Bogenende noch ein oder aus, dreht sie dort um bis zu
+  `atan(taper)` auf einmal, wie an jedem Taper (der Transform glättet es).
+- **Überall gleich:** `setPath(path, index, progress)` stellt den Gegner
+  dorthin, wohin `advance` ihn bei diesem Fortschritt stellt, in der Bahn
+  seines Faktors: Split-Kinder, auch die der Ooze, und die Platzierung im
+  Enemy Debug stehen auf dem Bogen. Die Stelle hängt nur vom Fortschritt ab,
+  nicht von den Schritten dorthin (fester Sub-Step, gleich bei 1x bis 75x).
+
+**Grenze einer Bahn** (`ArcLimits` in `RouteCorners.left` und `right`,
+`placeOnArc`): Eine Bahn hält die Grenze an ihrer Stelle entlang der Route
+wie auf einem geraden Stück, aus den Werten je Waypoint (`arc`) und am
+Anfang und Ende des geraden Teils jedes Segments (`entry`, `exit`) mit dem
+Taper dazwischen. Diese Werte sind die Grenze der spitzen Route, an den
+Waypoints und Enden eines Bogens höchstens seine Kappe, danach per
+Min-Plus-Transformation höchstens um `taper` je Meter steigend
+(`arcLimits`). Dazu:
+
+- **Kappe innen:** höchstens `R`, weiter innen liefe die Bahn rückwärts.
+- **Kappe außen:** Hinter einem Knick läuft eine Außenbahn durch die Rundung
+  der Zellen, deren Raum die Grenze am Knick ist. Steigt die Grenze danach
+  an (die Straße nach dem Knick breiter), wird die Außenseite auf die
+  kleinste Außengrenze der Knicke des Bogens gekappt, wenn der Bogen erst
+  damit passt (`capLeft`, `capRight`).
+- **Rücknahme** (`shaveLeft`, `shaveRight`, höchstens `ARC_SHAVE_M` =
+  0,2 m): Fehlen den äußersten Bahnen nur Zentimeter Raum (ein Bogen über
+  den Sehnen einer Kurve, ein Radius etwas über der inneren Grenze), geben
+  sie das in der Mitte des Bogens her, von seinen Enden an um `taper` je
+  Meter ansteigend.
+- `SideLimits.node` bleibt die Hülle der spitzen Route: an ihr wird jeder
+  Bogen geprüft, der Wurm liest sie.
+
+**Radiusregel** (`RouteCornerBuilder`): der größte Bogen, bei dem jede Bahn
+von Faktor -1 bis 1 innerhalb der Grenze der spitzen Route bleibt
+(`SideLimits.node`, je Seite) und damit in den Zellen.
+
+- **Ein Knick, gleiche Grenzen:** `R` ist die innere Grenze, bis auf die
+  Rücknahme. Eine Bahn `e` m innen steht beim Winkel `phi` ab Bogenanfang
+  `R - (R - e) cos(phi)` innen neben dem Segment in die Ecke, also höchstens
+  `R`; ein größerer Radius legt die inneren Bahnen hinter den Punkt, an dem
+  sich die inneren Kanten beider Segmente treffen. Eine Bahn `o` m außen
+  steht höchstens `o` außen neben einem Segment und hinter dem Waypoint
+  höchstens `o` von ihm, in der Rundung der Zellen dort (`jointCap`,
+  `route-grid-builder.ts`).
+- **Prüfung** (`ArcCheck.fits`): An jeder geprüften Stelle liegen die Bahnen auf
+  einer radialen Linie. Jedes Segment der Gruppe hält davon ein Intervall
+  (neben dem Segment, innerhalb seiner Grenze auf der Seite), jeder Knick
+  eines (hinter ihm, in der Rundung seiner Außengrenze); zusammen müssen sie
+  die ganze Linie von der äußeren bis zur inneren Bahn halten. Außerdem muss
+  die spitze Mittellinie an derselben Stelle der Route innerhalb des Raums
+  der spitzen Route dort (breitere Seite) von der Mittellinie des Bogens
+  liegen. So schneidet ein Bogen keine Haarnadel ab, deren Schenkel im Raum
+  des anderen liegen, wo ein Gegner für die Länge der Kurve stehen bliebe.
+- **Stellen:** alle 2° des Bogens und alle 0,5 m seiner äußersten Bahn; wo
+  die Grenze der Bahnen einen Knick hat (Taper, Kappe, Rücknahme); 0,2 mm vor
+  und nach jeder Stelle, an der eine Bahn oder die Mittellinie eine Linie
+  kreuzt, an der sich ändert, was sie hält (Enden eines Segments, Knicke der
+  Grenze neben ihm, die Winkelhalbierenden, wo sich die Raumkanten zweier
+  Segmente an einem Knick treffen); wo zwei Enden der Intervalle
+  aneinander vorbeigehen oder eines eine Bahn oder die Mittellinie passiert
+  (`findPasses`). Beides mit Regula falsi. Zwischen den Stellen ändert sich
+  glatt, was einer Bahn an Raum fehlt: `judgeBetween` schätzt aus der
+  Krümmung von Bahn und Grenze, wie weit es zwischen zwei Stellen über der
+  Geraden zwischen ihnen liegen kann, prüft, wo die Schätzung die Bahn
+  draußen sieht, und teilt bis zu dreimal.
+- **Suche:** zuerst die größte Tangente, die der Platz erlaubt, dann (bei
+  einem Knick ab der Schranke `knickBound`) Halbieren bis auf 1 cm oder 1 %
+  des Radius.
+
+**In Zahlen** (Snapshots vom 2026-09-16, `corridor-stuttgart-nav-152029`,
+`corridor-berlin-cold-150556`, `corridor-paris-cold-150811`, die
+Gegnerlinie aus `bandPath`; Messung nicht eingecheckt). Vorher: ein Bogen je
+Waypoint, geklemmt auf die halbe Segmentlänge. Außenbahn: Meter je Meter
+Fortschritt auf dem Bogen, vorher geschätzt, jetzt gelaufen, schnellste der
+Bahnen -1 bis 1.
+
+| Ort | Knick | Stücke am Knick | R vorher | R jetzt | Waypoints | Außenbahn vorher, jetzt |
+|-----|-------|-----------------|----------|---------|-----------|-------------------------|
+| Stuttgart 48 m | 46° | 1,24 / 1,31 m | 1,46 m | 6,96 m | 4 | 4,0; 1,7 |
+| Stuttgart 74 m | -51° | 0,95 / 0,93 m | 0,99 m | 7,26 m | 5 | 6,1; 1,7 |
+| Stuttgart 574 m | -87° | 1,21 / 0,79 m | 0,41 m | 3,00 m | 4 | 10,1; 1,8 |
+| Stuttgart 589 m | -56° | 1,53 / 1,65 m | 1,44 m | 5,96 m | 3 | 3,6; 1,6 |
+| Berlin 110 m | 113° | 0,84 / 0,82 m | 0,27 m | 5,28 m | 9 | 14,1; 1,4 |
+| Berlin 428 m | 88° | 1,02 / 1,04 m | 0,53 m | 5,88 m | 7 | 8,9; 1,6 |
+| Paris 244 m | 89° | 0,97 / 1,04 m | 0,49 m | 5,98 m | 7 | 9,6; 1,5 |
+| Paris 467 m | -121° | 1,00 / 1,05 m | 0,28 m | 3,02 m | 7 | 7,2; 1,8 |
+
+Auf allen drei Routen steht keine Stelle einer Bahn (-1, -0,5, 0, 0,5, 1,
+alle 5 cm) außerhalb der Zellen des Snapshots. Sub-Steps, in denen die
+Blickrichtung um mehr als 0,3 rad dreht (5 m/s, Bahnen -1, -0,5, 0,5, 1):
+Stuttgart 1068 spitz, 286 mit Bögen; Berlin 485, 135; Paris 326, 52.
+
+**Was bleibt:**
+
+- **Kein Innenraum:** Ist die innere Grenze 0 (Halbbreite innen bis
+  `edgeMargin`), bleibt die Ecke spitz. In den Zickzack-Strecken der
+  Snapshots ist die Grenze auf beiden Seiten 0 (Stuttgart bei 190, 282 und
+  386 bis 403 m, Berlin bei 326 und 441 m, Paris bei 134 m): Alle Bahnen
+  laufen dort auf der Mittellinie, ohne seitlichen Sprung; die
+  Blickrichtung springt am Waypoint.
+- **Sehr kurze Stücke:** Stuttgart 88° 0,15 m vor dem Ende der Route (R
+  0,08 m, Außenbahn 6,3 m je m); 47° direkt hinter der Gruppe der 87°-Ecke,
+  deren Bogen sich das Stück davor genommen hat (R 0,79 m, 4,4 m je m);
+  Berlin ein Zickzack aus Stücken von 5 cm bei 250 m (121°, -95°, -113°,
+  R 0,02 m, 2,1 m je m auf 16 cm Route) und 149° am Spawn (R 0,21 m, 2,3 m
+  je m).
+- **Rest der Prüfung:** 72 Zufallsrouten (Stücke 0,2 bis 6 m, Halbbreiten
+  0,3 bis 8 m, Knicke bis etwa 45°), jede Bahn von -1 bis 1 in Viertelschritten
+  an 400 Stellen je Bogen: höchstens 0,05 mm über der Grenze der spitzen
+  Route, an den Enden der Bögen (Rechengenauigkeit der Messung, flache Meter
+  gegen Grad). Die Zellen reichen um `edgeMargin` weniger eine halbe
+  Zellendiagonale (1,414 m) über die Grenze hinaus: beim kleinsten erlaubten
+  `edgeMargin` von 1,42 m um 5,8 mm, beim Standard von 1,5 m um 8,6 cm
+  (Kommentar an `CorridorConfig.edgeMargin`).
+- **Held:** läuft die spitze Linie (`new MovementComponent(hero, false)`,
+  `roundsCorners`). Er plant alle 250 ms vom nächsten Punkt des Routengraphen
+  neu, eine Stelle auf einem Bogen spränge dabei zurück auf die Linie. Er
+  liest `RouteProfile.corners` nie, seine Pfade bauen keine Bögen.
+- **Wurm:** unverändert. Er stellt sich mit `seekDistance` und
+  `WormPath.place` selbst hin, mit eigenen Bögen bis 20 m, und liest
+  `SideLimits.node`; `advance` ruft er nicht auf.
+- **Nicht umgestellt, weil kein Gegnerort daraus wird:** der Körper der Ooze
+  (`RouteBodyStations`, Stationen auf der spitzen Mittellinie; nur ihre
+  Spitze folgt dem Bogen), die Kamera des Boss-Intros (`pointAlongRoute`
+  rahmt auf der spitzen Mittellinie ohne Seitenversatz, neben dem Boss um
+  höchstens den Abstand der Mittellinie des Bogens von der spitzen), der
+  Vorhalt des Orbital-Laser-Bots (`pointAhead`: Mittellinie, Meter voraus,
+  ohne Seitenversatz), Offscreen-Marker und Zielwahl des Helden (lesen den
+  Fortschritt), das Replay (zeichnet die Position auf).
+- **Bekannt, nicht geändert:** `advance` trägt den Überschuss über ein
+  Segmentende als Anteil ins nächste Segment. Ein Schritt auf ein längeres
+  Segment geht daher um bis zu das Längenverhältnis weiter, auf Band-Routen
+  mit Stücken von 1 und 2 m bis zu einem Schritt mehr. Das war vorher so und
+  ist von den Bögen unabhängig.
+
+**Kosten** (Node ohne DOM, nicht eingecheckt; der Heap im Spiel verhält sich
+anders, ein Chrome-Trace entscheidet):
+
+- **Bögen bauen:** einmal je Pfad-Array. `CorridorBuild` baut sie in
+  Schritt 6 für die Routen, die er einfriert, in Scheiben von `SLICE_MS`
+  (32 ms) je Frame (`sizeRouteCorners`): `RouteCornerBuilder.step` hört
+  nach jedem geprüften Bogen auf, wenn die Scheibe um ist. Die Gegner einer
+  Welle, ihre Split-Kinder und die Segmente eines Wurms bekommen genau diese
+  Arrays (`WaveManager` liest die Map von `PathAndRouteService`, ein
+  Split-Kind den Pfad des Elternteils), HQ- und Spawn-Umzug bauen über
+  `CorridorBuild`. Wer `RouteProfile.corners` vorher liest, baut den Rest
+  am Stück. Snapshots, am Stück: Stuttgart (369 Waypoints, 650 m, 190
+  Bögen) 140 bis 170 ms, Berlin (259 Waypoints, 445 m) 80 ms, Paris (258
+  Waypoints, 477 m) 63 ms. In Scheiben: 6, 3 und 2 Scheiben, die längste
+  33 bis 34 ms (die Scheibe plus ein Bogen; der teuerste einzelne Bogen 9,
+  14 und 7 ms).
+- **Nicht über `CorridorBuild`:** "Refresh terrain" in der DevWorld baut die
+  Routen neu, ohne den Korridor zu bauen; deren Bögen baut der erste Gegner.
+- **Sub-Step:** 10.000 Gegner, 300 Sub-Steps, Median aus sechs Läufen, auf
+  der Stuttgarter Gegnerlinie (74 % der Strecke auf Bögen): 0,51 ms ohne
+  Bögen (`roundsCorners` aus), 0,69 ms mit.
+
+**Tests:**
+
+- `utils/route-corners.spec.ts`: Radius gleich innerer Grenze, Innenseite
+  entscheidet, spitze Ecken ohne Innenraum, fast gerade und bei Umkehr, ein
+  Bogen über die Stücke einer Band-Ecke, Kurve aus zwölf Knicken von 7,5°,
+  S-Kurve in zwei Bögen, kurzes Segment zwischen zwei Bögen geteilt, Kappen
+  und Grenzen je Waypoint und Bogenende, Rücknahme höchstens `ARC_SHAVE_M`,
+  gerade Route, einmal je Pfad und gleich für gleiche Waypoints, Bogen für
+  Bogen dieselben Bögen wie am Stück.
+- `services/world/corridor-build.spec.ts`: Schritt 6 baut die Bögen der
+  Routen, die der Routenservice ausgibt, in mehreren Scheiben, und hört auf,
+  wenn die Routen dabei ersetzt werden.
+- `integration/route-corners-wave.scenario.spec.ts`: Gegner aus dem Portal,
+  die Minions eines getöteten Skeletts und die Segmente eines Wurms laufen
+  genau das Array, dessen Bögen vorher gebaut wurden, und die Bögen bleiben
+  dasselbe Objekt.
+- `game-components/movement.component.spec.ts`, "corner arcs": 90° nach
+  rechts und links mit Faktoren -1, -0,5, 0, 0,5, 1 (Weg je Meter Fortschritt
+  höchstens die Außenbahn des Bogens, Blickrichtung je Meter höchstens die
+  Drehung des Bogens plus `atan(taper)` am Bogenende; vorher 4,3 m und 45°
+  in einem Schritt), Formation (Mitte und Außenbahn laufen `π/2 · R` und
+  `π/2 · (R + Grenze)`, alle drehen gleich), Fortschritt Schritt für Schritt
+  gleich dem ohne Bögen, Stelle unabhängig von der Schrittlänge, Band-Ecke
+  und Kurve ohne Sprung, S-Kurve, zwei Ecken an einem 2-m-Segment, jede Bahn
+  Punkt für Punkt in der Grenze der spitzen Route an 60 Ecken (10° bis 170°,
+  beide Richtungen, innen schmaler und breiter, 3 und 12 m Anlauf) und auf
+  zwölf Zufallsrouten aus Stücken von 0,5 bis 3 m, Start auf dem Bogen,
+  Held.
+- `integration/route-corridor-coverage.spec.ts`, "on the arcs of corners":
+  jede Stelle in einer Zelle des echten Grids an 40 Ecken (20° bis 160°,
+  beide Richtungen, gleiche, einseitig schmale und wechselnde Breiten), an
+  kurzen Segmenten (2-m-Versatz, drei Knicke von 45° im Abstand von 3 m,
+  eine Ecke wie im Band mit 1-m-Stücken, Haarnadel), an zwei Ecken aus den
+  Snapshots (Stuttgart 87°, Berlin 113°: je ein Bogen über mehrere Stücke,
+  Radius mindestens die kleinste innere Grenze über seine Waypoints, keine
+  Bahn schneller als das 2,5-Fache des Fortschritts; vorher 0,41 und 0,27 m
+  Radius) und auf einer Kurve aus 20 Knicken von 6° alle 2 m.
+- `services/debug/enemy-debug-placement.scenario.spec.ts`: Der platzierte
+  Gegner läuft bis zum Bogen auf der Linie und geht `R · (√2 - 1)` an der Ecke
+  vorbei.
 
 ## Wann gemessen und neu gebaut wird
 
@@ -1194,9 +1455,10 @@ Ein Bau (`build`) läuft in dieser Reihenfolge:
    feinste Stufe über zwei Nachbarn oder drei (siehe Zellhöhe, Lücken
    füllen) oder über die Straße des Bands (Portal ohne Treffer) füllt, zählt
    als Zelle mit Höhe und schickt den Bau nicht mehr auf die grobe Stufe.
-6. **Einfrieren:** rote Linie auf den fertigen Zellen, Overlays, laufende
-   Routenanimation neu; Kamera zurück, Region auf die grobe Stufe (5 m,
-   siehe "Feine Tiles im Korridor").
+6. **Einfrieren:** rote Linie auf den fertigen Zellen, die Bögen an den
+   Ecken dieser Routen in Scheiben von `SLICE_MS` (siehe "Ecken", Kosten),
+   Overlays, laufende Routenanimation neu; Kamera zurück, Region auf die
+   grobe Stufe (5 m, siehe "Feine Tiles im Korridor").
 
 Danach ändert nichts mehr Routen, Waypoints, Zellen oder Höhen: kein
 Tile-Schub, keine Kamerafahrt, kein Tower. Erst der nächste Bau tut es.
@@ -1313,7 +1575,7 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
 (`utils/perf-trace.ts`). Die `[Corridor]`-Zeilen unten bleiben an.
 
 ```
-[Corridor] build: reason= tiles= measure= fallback= passes=N () lines= wall=ms stations= unmeasured= cells= [tiles timed out]
+[Corridor] build: reason= tiles= measure= fallback= band=N () corners= lines= wall=ms stations= unmeasured= cells= [tiles timed out]
 [Corridor] build: no station found a tile (N stations[, and the tiles never settled]). ...   (console.warn)
 [Corridor] build: no cell got a height (N cells[, and the tiles never settled]). ...         (console.warn)
 [Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms [noTile=x,z;x,z;...]
@@ -1349,7 +1611,8 @@ echte Probleme. Die `[PerfTrace]`-Zeilen je Tile-Schub
   Region, `measure` die Rechenzeit aller Messscheiben, `fallback` die
   Wechsel auf die gröbere Stufe (für Stationen hin und zurück, für Zellen
   nur hin), `band=N ()` die Stationen des Bands samt
-  der Zeit für Band, Routen und Zellen, `lines` die rote Linie am Ende,
+  der Zeit für Band, Routen und Zellen, `corners` die Rechenzeit aller
+  Scheiben der Bögen an den Ecken, `lines` die rote Linie am Ende,
   `wall` die ganze Dauer vom Aufruf bis zum Einfrieren; dazu `stations`,
   `unmeasured`, `cells` und, wenn die Tiles nicht ruhig wurden,
   `tiles timed out`. Ein Bau, der aufhört, ohne einzufrieren, schreibt keine
@@ -1412,7 +1675,7 @@ vitest (Specs schalten ihn selbst ein).
 | `build.notiles` | der Bau maß auf nichts: keine Station mit Tile oder keine Zelle mit Höhe; der Korridor friert mit den OSM-Breiten ein | `stations`, `unmeasured`, `cells`, `bare` (Zellen ohne eigene Höhe), `timedOut` |
 | `build.revisit` | die Seite wurde sichtbar und der Korridor war auf nichts gebaut (`rebuildAfterBlindBuild`) | `built`: ob ein Bau startete; `blocked`: die Sperre, wenn nicht |
 | `build.cancel` | der Bau hört auf, ohne einzufrieren | `reason`: `superseded` oder `routes replaced` |
-| `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `bandStations`, `passages`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `cellsWithoutHeight`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `buildMs`; nur wenn Zellen ohne Höhe bleiben `why` (Gründe, unten) und `at` (lokale `x,z` der ersten zehn, `;+N` für den Rest) |
+| `build.freeze` | Ende eines Baus, der eingefroren hat | wie die `[Corridor] build`-Zeile: `stations`, `unmeasured`, `bandStations`, `passages`, `timedOut`, `fallbackStations`, `fallbackCells`, `cells`, `cellsWithoutHeight`, `ms`, dazu `tilesMs`, `measureMs`, `fallbackMs`, `buildMs`, `cornersMs`; nur wenn Zellen ohne Höhe bleiben `why` (Gründe, unten) und `at` (lokale `x,z` der ersten zehn, `;+N` für den Rest) |
 | `build.change` | `__corridor.set()` und `reset()` | `remeasure` (die Änderung braucht eine neue Messung) |
 | `routes.refresh` | jeder Neuaufbau der roten Linie (`PathAndRouteService.refreshRouteLines`) | `spawns`, `waypoints`, `ms` |
 | `routeAnimation.start` | jeder Start der Routen-Animation (`RouteAnimationService.startAnimation`), der ihren Strich-Versatz zurücksetzt | `routes`, `restart` (lief schon) |

@@ -295,7 +295,7 @@ vergleichbar.
 | `configs/hero.config.ts` | Werte, Munition, Stufen, Status, Gate-Profil |
 | `utils/route-graph.ts` | Routengraph, Dijkstra, Leine |
 | `utils/hero-body-contact.ts` | nächster Punkt eines Körpers entlang der Route, für Reichweite und Ziel |
-| `entities/hero.entity.ts` | Transform, Movement, Combat |
+| `entities/hero.entity.ts` | Transform, Movement (Ecken spitz, `roundsCorners` aus, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md#ecken)), Combat |
 | `managers/hero.manager.ts` | Anheuern, Befehle, Sub-Step, Kills, Präsentation |
 | `managers/game-commands.handler.ts` | `command:hire-hero`, `command:hero-move`, `command:hero-ammo`, `debug:ready-hero` |
 | `managers/projectile.manager.ts` | `spawnShot`, mit `aimPoint` für Körper entlang der Route |
