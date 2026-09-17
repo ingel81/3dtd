@@ -703,15 +703,17 @@ export const MISSILE_LAUNCH_LOOK = {
   /** Launches drawn at once, each with its smoke; another takes the place of the oldest */
   launches: 2,
   /**
-   * The missile, `length` and `radius` m (the procedural model,
-   * missile-model.ts). Its nozzle stands `baseHeight` m above the silo's
-   * base, where the flight starts. It grows to `flightScale` between the
-   * two `grow` seconds, when it is out of the shaft, so it still reads from
-   * the overview camera (about 425 m).
+   * The missile, `length` m long, `radius` m round the body and `span` m
+   * across the fins, as the silo model's missile (missile_silo.glb at the
+   * building's scale 7.36); drawn by the procedural model (missile-model.ts).
+   * Its nozzle stands `baseHeight` m above the silo's base, where the
+   * missile node stands in the model and where the flight starts. It grows
+   * to `flightScale` between the two `grow` seconds, once it is out of the
+   * shaft, so it still reads from the overview camera (about 425 m).
    */
-  missile: { length: 6, radius: 0.42, baseHeight: 3.5, flightScale: 2.2, grow: [1.8, 3.8] },
-  /** Top of the shaft over the silo's base: the smoke wells out and the flash goes up there */
-  shaftTop: 10,
+  missile: { length: 6.59, radius: 1, span: 2.53, baseHeight: 2.3, flightScale: 2, grow: [2.2, 4] },
+  /** Top of the shaft over the silo's base (the model's height): the smoke wells out and the flash goes up there */
+  shaftTop: 10.4,
   /**
    * The flight (MissileFlight). Apex above the higher of start and target:
    * `base` plus `perM` times the ground distance, within min and max.
@@ -742,7 +744,7 @@ export const MISSILE_LAUNCH_LOOK = {
    * missile and by up to `stretch` of its length towards `stretchSpeed`
    * m/s.
    */
-  flame: { length: 9, width: 2.6, intensity: 2.2, ignite: 0.3, stretch: 0.8, stretchSpeed: 300 },
+  flame: { length: 11, width: 3.2, intensity: 2.2, ignite: 0.3, stretch: 0.8, stretchSpeed: 300 },
   /** Glow sprite `size` m across on the nozzle, additive at `intensity`, with the flame */
   nozzleGlow: { size: 18, intensity: 1.6 },
   /** Sprite of `size` m over the shaft, additive at `intensity`, fading out over `duration` */
@@ -792,7 +794,7 @@ export const MISSILE_LAUNCH_LOOK = {
    * lit by the flame for `lit` s; faded out by the end of their `life`
    */
   trail: {
-    from: 7, spacing: 3, size: [2.5, 9], expandTime: 0.6, growth: 0.45, spread: 2.5,
+    from: 9, spacing: 3, size: [2.5, 9], expandTime: 0.6, growth: 0.45, spread: 2.5,
     rise: 0.35, drift: 0.9, lit: 0.4, life: [10, 15], alpha: 0.5,
   },
   /**
