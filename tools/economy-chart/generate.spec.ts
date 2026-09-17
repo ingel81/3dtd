@@ -155,6 +155,8 @@ interface RosterBudget {
   towers: number;
   research: number;
   researchCenter: number;
+  /** The Missile Silo, once; the nuclear strike fires only while it stands */
+  missileSilo: number;
   /** The mercenary's hire, once (HERO.cost); his research is in `research` */
   hero: number;
   total: number;
@@ -170,8 +172,8 @@ const ROSTER_TOWER_COUNT: Partial<Record<TowerTypeId, number>> = { archer: 3 };
 /**
  * Das Roster, gegen das WAVE_CURRICULUM budgetiert ist: jeder Combat-Tower
  * einmal (Archer dreimal), alle Upgrade-Tracks auf L20 (kürzere Tracks auf
- * ihrem Maximum), alle Forschungen, Research Center Stufe 3 und das
- * Anheuern des Söldners (HERO.cost, einmal). Preise aus
+ * ihrem Maximum), alle Forschungen, Research Center Stufe 3, das Missile
+ * Silo und das Anheuern des Söldners (HERO.cost, einmal). Preise aus
  * TOWER_TYPES, auch für das Research Center (RESEARCH_CENTER_CONFIG zählt nur
  * Slots).
  */
@@ -195,11 +197,13 @@ function buildRosterBudget(): RosterBudget {
   const rcConfig = TOWER_TYPES['research-center'];
   const researchCenter = rcConfig.cost + rcConfig.upgrades.reduce((sum, u) => sum + trackCost(u, u.maxLevel), 0);
 
+  const missileSilo = TOWER_TYPES['missile-silo'].cost;
+
   const hero = HERO.cost;
 
-  const total = towers + research + researchCenter + hero;
+  const total = towers + research + researchCenter + missileSilo + hero;
   const income = WAVE_CURRICULUM.reduce((sum, w) => sum + w.goldKill + w.goldComplete, 0);
-  return { towers, research, researchCenter, hero, total, income, buffer: income / total - 1 };
+  return { towers, research, researchCenter, missileSilo, hero, total, income, buffer: income / total - 1 };
 }
 
 function renderHtml(
@@ -499,7 +503,8 @@ ${upgradeMilestones
     <p class="note">
       The roster the curriculum is budgeted against: every combat tower once
       (archer ×3), all upgrade tracks at L${ROSTER_TRACK_LEVEL} (shorter tracks at
-      their maximum), every research, Research Center level 3. Income =
+      their maximum), every research, Research Center level 3, the Missile Silo,
+      the mercenary's hire. Income =
       goldKill + goldComplete over W1–W30, no skill bonuses, no start credits.
     </p>
     <table>
@@ -508,6 +513,7 @@ ${upgradeMilestones
         <tr><td class="l">Towers incl. upgrades</td><td>${fmt(roster.towers)}</td></tr>
         <tr><td class="l">Research (all nodes)</td><td>${fmt(roster.research)}</td></tr>
         <tr><td class="l">Research Center L3</td><td>${fmt(roster.researchCenter)}</td></tr>
+        <tr><td class="l">Missile Silo</td><td>${fmt(roster.missileSilo)}</td></tr>
         <tr><td class="l">Mercenary hire (once)</td><td>${fmt(roster.hero)}</td></tr>
         <tr class="milestone"><td class="l">Roster total</td><td>${fmt(roster.total)}</td></tr>
         <tr><td class="l">Curriculum income W1–W30</td><td>${fmt(roster.income)}</td></tr>
