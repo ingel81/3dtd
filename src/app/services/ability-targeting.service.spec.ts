@@ -25,7 +25,7 @@ import type { GameEvent } from '../game-engine/game-event-bus';
 import type { GeoPosition } from '../models/game.types';
 
 const ON_ROUTE: GeoPosition = { lat: 48.1, lon: 9.1, height: 300 };
-const CHARGED: AbilityStatus = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1 };
+const CHARGED: AbilityStatus = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1, launchSite: true };
 
 describe('AbilityTargetingService', () => {
   let service: AbilityTargetingService;
@@ -154,5 +154,18 @@ describe('AbilityTargetingService', () => {
     ui.buildMode.set(true);
     onPointerModes();
     expect(service.targeting()).toBeNull();
+  });
+
+  it('leaves the mode when the missile silo it launches from is sold while aiming', () => {
+    const [onAbility] = effects;
+    service.start('nuclear-strike');
+    onAbility();
+    expect(service.targeting()).toBe('nuclear-strike');
+
+    // GameStateSyncService writes the snapshot TowerLifecycle.sell asked for
+    store.abilities.update((all) => ({ ...all, 'nuclear-strike': { ...CHARGED, launchSite: false } }));
+    onAbility();
+    expect(service.targeting()).toBeNull();
+    expect(markers.hideAim).toHaveBeenCalled();
   });
 });

@@ -56,6 +56,8 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
       strike: () => 0,
       halt: () => undefined,
       routeSweep: () => null,
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => 'wave');
     bus.emit({
@@ -92,11 +94,16 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
     expect(loadDisplayOptions().screenShake).toBe(false);
   });
 
-  it('counter-check: switched back on, the next strike shakes with its own preset', () => {
+  it('counter-check: switched back on, the next strike shakes with its own presets, at the lift-off and the impact', () => {
     facade.onScreenShakeToggled(false);
     facade.onScreenShakeToggled(true);
     strike();
-    const { amplitude, duration } = SCREEN_SHAKE_CONFIG.presets.nuclearStrike;
-    expect(engine.triggerScreenShake.mock.calls).toEqual([[amplitude, duration]]);
+    // The silo stands at the camera's feet too
+    const launch = SCREEN_SHAKE_CONFIG.presets.missileLaunch;
+    const impact = SCREEN_SHAKE_CONFIG.presets.nuclearStrike;
+    expect(engine.triggerScreenShake.mock.calls).toEqual([
+      [launch.amplitude, launch.duration],
+      [impact.amplitude, impact.duration],
+    ]);
   });
 });

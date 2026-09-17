@@ -3,14 +3,14 @@ import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX, abilityBarIds, abilityButtonView, 
 import { ABILITIES, ABILITY_IDS, lockedAbilityStatus, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
 
 const NUKE = ABILITIES['nuclear-strike'];
-const CHARGED: AbilityStatus = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1 };
+const CHARGED: AbilityStatus = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1, launchSite: true };
 const view = (status: AbilityStatus, waveActive = true, targeting = false) =>
   abilityButtonView(NUKE, status, waveActive, targeting);
 
 describe('abilityBarIds', () => {
-  const statuses = (researched: AbilityId[]) => Object.fromEntries(ABILITY_IDS.map((id) => [
+  const statuses = (researched: AbilityId[], launchSites = true) => Object.fromEntries(ABILITY_IDS.map((id) => [
     id,
-    { ...lockedAbilityStatus(id), unlocked: researched.includes(id) },
+    { ...lockedAbilityStatus(id), unlocked: researched.includes(id), launchSite: launchSites || !ABILITIES[id].launchFrom },
   ])) as Record<AbilityId, AbilityStatus>;
 
   it('has no button before any research', () => {
@@ -20,6 +20,11 @@ describe('abilityBarIds', () => {
   it('adds a button once its research is done, in ABILITIES order', () => {
     expect(abilityBarIds(statuses(['orbital-laser', 'nuclear-strike']))).toEqual(['nuclear-strike', 'orbital-laser']);
     expect(abilityBarIds(statuses([...ABILITY_IDS]))).toEqual(ABILITY_IDS);
+  });
+
+  it('has no button for the nuclear strike while no missile silo stands, the others keep theirs', () => {
+    expect(abilityBarIds(statuses([...ABILITY_IDS], false))).toEqual(ABILITY_IDS.filter((id) => id !== 'nuclear-strike'));
+    expect(abilityBarIds(statuses(['nuclear-strike'], false))).toEqual([]);
   });
 });
 

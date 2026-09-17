@@ -1,6 +1,7 @@
 import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { ABILITIES, type AbilityId, type AbilityRejectReason } from '../configs/abilities.config';
 import { HERO, type HeroRejectReason } from '../configs/hero.config';
+import { TOWER_TYPES } from '../configs/tower-types.config';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
@@ -28,6 +29,10 @@ export function abilityNoRouteText(id: AbilityId): string {
  */
 export function abilityRefusalText(id: AbilityId, reason: AbilityRejectReason, wavesUntilCharge = 0): string | null {
   switch (reason) {
+    case 'no-launch-site': {
+      const from = ABILITIES[id].launchFrom;
+      return from ? `Build a ${TOWER_TYPES[from].name} first` : null;
+    }
     case 'no-wave': return 'Only during a wave';
     case 'no-charge':
       return wavesUntilCharge > 0

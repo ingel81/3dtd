@@ -75,8 +75,9 @@ export class OnboardingService {
     // Dev cheat: the waves it skipped count as done
     this.subs.add(bus.on('wave:jumped', (e) => this.updateProgress({ wavesCompleted: e.wave - 1 })));
     this.subs.add(bus.on('research:state-changed', (e) => this.updateProgress({ centerPlaced: e.centerLevel > 0 })));
+    // The abilities with a button in the bar: researched, and launch site standing
     this.subs.add(bus.on('ability:state-changed', (e) => {
-      this.updateProgress({ abilities: e.abilities.filter((a) => a.unlocked).map((a) => a.id) });
+      this.updateProgress({ abilities: e.abilities.filter((a) => a.unlocked && a.launchSite).map((a) => a.id) });
     }));
     this.subs.add(bus.on('game:reset', () => this.newGame()));
   }

@@ -101,6 +101,8 @@ describe('Frost bomb and EMP on the worm, playtest 398 replayed', () => {
     damage.initialize(m.towerManager, m.enemyManager, m.eventBus);
     const vfx = { emitDeathBlood: vi.fn() } as unknown as CombatVfxService;
     abilities = new AbilityManager(m.eventBus, {
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
       snapToRoute: (target) => ({ ...target }),
       // The route grid's query for enemies without a body: 2D distance
       enemiesInRadius: (center, radiusM, out) => {

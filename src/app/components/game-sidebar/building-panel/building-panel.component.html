@@ -21,5 +21,12 @@
     @if (tower().typeConfig.description; as description) {
       <p class="td-building-info">{{ description }}</p>
     }
+    @for (ability of abilities(); track ability.id) {
+      <div class="td-building-ability" [attr.aria-label]="ability.name + ': ' + ability.status">
+        <span class="td-building-ability-name">{{ ability.name }}</span>
+        <span class="td-building-key" aria-hidden="true">{{ ability.hotkey }}</span>
+        <span class="td-building-ability-status">{{ ability.status }}</span>
+      </div>
+    }
   </div>
 </section>

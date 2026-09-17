@@ -26,7 +26,8 @@ const FIRST_RESEARCH = Object.values(RESEARCH_TREE).find((r) => r.prerequisites.
 class Game {
   readonly bus = new GameEventBus();
   readonly research = new ResearchManager(this.bus);
-  readonly abilities = new AbilityManager(this.bus, {} as AbilityWorld);
+  // A missile silo stands from the start: the strike of the walk needs one since 2026-09-17
+  readonly abilities = new AbilityManager(this.bus, { launchSite: () => ({ towerId: 't-silo', position: AT }) } as unknown as AbilityWorld);
   readonly hero = new HeroManager(this.bus, {} as HeroWorld);
 
   /** TowerLifecycle.placeTower: tower:placed, then the research center reports to research */

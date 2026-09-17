@@ -590,7 +590,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 0,
     projectileType: 'arrow', // Fallback, unused
 
-    // Unlocked by the research `nuclear-strike`
+    // Unlocked by the research `nuclear-strike`; the strike fires only while
+    // it stands (AbilityConfig.launchFrom)
     cost: 400,
     unique: true,
     description: 'Launches the Nuclear Strike. Without a silo the strike cannot fire.',

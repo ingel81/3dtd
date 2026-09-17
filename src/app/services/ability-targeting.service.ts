@@ -44,11 +44,12 @@ export class AbilityTargetingService {
 
   constructor() {
     // Leave the mode once the ability cannot fire any more: the wave ended,
-    // or the charge is gone
+    // the charge is gone, or the building it launches from was sold
     effect(() => {
       const id = this.targeting();
       if (!id) return;
-      if (!this.store.waveActive() || this.store.abilities()[id].charges <= 0) this.cancel();
+      const status = this.store.abilities()[id];
+      if (!this.store.waveActive() || status.charges <= 0 || !status.launchSite) this.cancel();
     });
     // Build mode and map placement take over the pointer
     effect(() => {

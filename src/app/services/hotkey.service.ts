@@ -146,7 +146,8 @@ export class HotkeyService {
 
   /**
    * Like the ability's button: arms the targeting mode when it can fire (a
-   * wave runs, a charge is there), a second press leaves the mode.
+   * wave runs, a charge is there, its launch site stands), a second press
+   * leaves the mode. When it cannot, the context hint box says why.
    */
   private toggleAbility(id: AbilityId): boolean {
     // Photo mode hides the ability button; an aiming reticle would end up in the picture

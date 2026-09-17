@@ -35,6 +35,7 @@ vi.mock('@angular/core', async () => {
 
 import { signal } from '@angular/core';
 import {
+  addMissileSilo,
   createMockTilesEngine,
   createTestCachedPaths,
   withAutoStubs,
@@ -121,6 +122,7 @@ function createGame() {
   ref.gsm = gsm;
   gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.trainingTimescale.set(1);
+  addMissileSilo(gsm.towerManager);
   gsm.getEventBus().emit({
     type: 'research:completed',
     researchId: NUKE.researchId,

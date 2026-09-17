@@ -105,7 +105,7 @@ export const ONBOARDING_TIPS: Record<OnboardingStep, OnboardingTip> = {
 export interface OnboardingProgress {
   wavesCompleted: number;
   centerPlaced: boolean;
-  /** Abilities whose research is done, in the order of the bar */
+  /** Abilities with a button in the bar (research done, launch site standing), in its order */
   abilities: AbilityId[];
   heroUnlocked: boolean;
 }

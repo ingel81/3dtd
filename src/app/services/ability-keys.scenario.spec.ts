@@ -44,6 +44,8 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
       strike: () => 0,
       halt: () => undefined,
       routeSweep: () => null,
+      // A missile silo stands: the nuclear strike has its launch site
+      launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
     } as unknown as AbilityWorld);
     // A wave runs: only the missing research can stop the keys
     abilities.setPhaseProvider(() => 'wave');

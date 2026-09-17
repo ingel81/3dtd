@@ -5,11 +5,13 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { TdIconComponent } from '../../icon/icon.component';
+import { buildingAbilityRows } from './building-panel';
 
 /**
  * Panel eines gewählten passiven Gebäudes ohne eigenes Panel (das Research
- * Center hat eins): Name, was es tut, Verkauf. Keine Stats, kein Targeting,
- * keine Upgrades.
+ * Center hat eins): Name, was es tut, die Fähigkeiten, die von ihm starten,
+ * mit Taste und Zustand, Verkauf. Keine Stats, kein Targeting, keine
+ * Upgrades.
  */
 @Component({
   selector: 'app-sidebar-building-panel',
@@ -29,6 +31,11 @@ export class SidebarBuildingPanelComponent {
 
   /** The first click on Sell only arms it, see SellConfirmService. */
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
+
+  /** Die Fähigkeiten, die von diesem Gebäude starten (Missile Silo: Nuclear Strike) */
+  readonly abilities = computed(() =>
+    buildingAbilityRows(this.tower().typeConfig.id, this.store.abilities(), this.store.waveActive()),
+  );
 
   /** Verkaufswert, wie im Tower-Detail an `selectedTowerRevision` gebunden. */
   readonly sellValue = computed(() => {

@@ -84,6 +84,10 @@ export class GameStateManager {
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
   readonly researchManager = new ResearchManager(this.eventBus);
   readonly abilityManager = new AbilityManager(this.eventBus, {
+    launchSite: (typeId) => {
+      const tower = this.towerManager.getAll().find((t) => t.typeConfig.id === typeId);
+      return tower ? { towerId: tower.id, position: tower.position } : null;
+    },
     snapToRoute: (target, maxDistanceM) => this.globalRouteGrid.snapToRouteCell(target, maxDistanceM),
     enemiesInRadius: (center, radiusM, out) =>
       this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
@@ -175,6 +179,7 @@ export class GameStateManager {
   private readonly towerLifecycle = new TowerLifecycle(
     this.towerManager,
     this.researchManager,
+    this.abilityManager,
     this.waveManager,
     this.enemyManager,
     this.towerPlacement,

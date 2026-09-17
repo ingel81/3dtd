@@ -15,6 +15,7 @@ import { EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
+import { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { ResearchStore } from '../store/research.store';
 
@@ -76,6 +77,17 @@ export const TEST_SPAWN_POINTS: SpawnPoint[] = [
     height: 300,
   },
 ];
+
+/**
+ * A Missile Silo in the tower manager's list, as a placed one stands: the
+ * launch site of the nuclear strike (AbilityConfig.launchFrom). Added past
+ * TowerLifecycle, so it takes no credits and needs no research.
+ */
+export function addMissileSilo(towerManager: Pick<TowerManager, 'add'>, at: GeoPosition = TEST_TOWER_POSITION): Tower {
+  const silo = new Tower(at, 'missile-silo');
+  towerManager.add(silo);
+  return silo;
+}
 
 /** Cached paths mapping spawn → path */
 export function createTestCachedPaths(): Map<string, GeoPosition[]> {
