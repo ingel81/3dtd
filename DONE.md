@@ -31,6 +31,12 @@ Workern plinthedge, cornerarc, hqleg, innerfold, portalclip und portalcentre, Ga
       Clip-Box per Shader verworfen und treten mit leuchtendem Saum heraus; rote Linie, Routen-Animation und Grid-Overlay
       enden an der Ebene. Nur Optik. Grenzen: Drache ragt unter Skala 1,5 kurz aus der Box; eine Route, die hinter der
       Ebene zurückläuft, verschwindet dort erneut.
+- [x] **Zufalls-Spawn auf geradem Stück** (`cbdec4e5`): Ein Zufalls-Spawn rückt entlang seiner Route Richtung HQ, in
+      Schritten von 0,5 m und höchstens 30 m, bis die Route bis zur Portalebene um weniger als 5° abknickt; das Portal
+      steht dann nicht mehr schräg in einer Einmündung (Slip Street). Offener Rest: C16.
+- [x] **Route endet am günstigeren Ende des HQ-Segments** (`2ff5d843`): A* nimmt beide Enden des Segments am HQ als
+      Ziel statt des ersten Knotens des OSM-Ways; auf der Plaça de Catalunya läuft die Route über den Platz statt außen
+      herum. Vom User abgenommen.
 
 ## 2026-09-16
 
