@@ -86,16 +86,17 @@ export function createPortalGateGeometry(frame: BufferGeometry | null): BufferGe
 
 /**
  * Layout of the portal at scale 1 (m), handed to its shaders: the opening,
- * the plane's distance from the route start, how far behind the plane the
- * core's light runs along the opening's axis (through the arch, its back
- * face catches it as its front face does), and the patch of street the
- * portal lights (half width, depth behind and in front of the plane).
+ * the plane's distance from the route start, how far before and behind the
+ * plane the core's light runs along the opening's axis (through the arch,
+ * whose middle stands in the plane: its front and back face, 0.3 m beyond
+ * that, catch it alike), and the patch of street the portal lights (half
+ * width, depth behind and in front of the plane).
  */
 export const PORTAL_SHADER_LAYOUT = {
   halfOpening: HALF_OPENING,
   openingHeight: OPENING_HEIGHT,
   halfDepth: HALF_DEPTH,
-  coreBack: 2,
+  coreReach: 1,
   groundHalfWidth: HALF_OPENING * 1.6,
   groundBack: HALF_OPENING * 0.8,
   groundFront: HALF_OPENING * 2.2,

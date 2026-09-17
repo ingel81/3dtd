@@ -8,7 +8,7 @@
  * Runs as a vitest spec on `npm test`, like the AI schema: a change to the
  * configs rewrites tools/blender/spawn_portal_layout.json, and the dirty
  * file says the asset needs a new bake
- * (`blender --background --python tools/blender/spawn_portal.py -- all`).
+ * (`blender --background --factory-startup --python tools/blender/spawn_portal.py -- all`).
  */
 
 import { describe, it, expect } from 'vitest';

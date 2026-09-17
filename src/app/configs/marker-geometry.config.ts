@@ -46,7 +46,7 @@ export const PORTAL_FRAME_TOP = 19.5;
  * Horizontal radius around the portal centre that holds the whole frame at
  * scale 1 (m), whichever way the portal faces: the plinths' outer corners.
  */
-export const PORTAL_RADIUS = 10;
+export const PORTAL_RADIUS = 10.6;
 
 /**
  * Scale range. A portal's opening spans the corridor at the route start

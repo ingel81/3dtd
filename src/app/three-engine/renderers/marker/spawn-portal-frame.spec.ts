@@ -157,17 +157,31 @@ describe('Spawn-Portal-Rahmen (GLB)', () => {
     expect(inOpening).toEqual([]);
   });
 
-  it('ist ein Bogen um die Ebene, vor dem Routenstart: nichts reicht tiefer zurück', () => {
+  it('ist ein Bogen mittig um die Ebene, vor dem Routenstart: nichts reicht tiefer zurück', () => {
     const position = frame.getAttribute('position');
+    const plane = PORTAL_DEPTH / 2;
     let minZ = Infinity;
     let maxZ = -Infinity;
     for (let i = 0; i < position.count; i++) {
       minZ = Math.min(minZ, position.getZ(i));
       maxZ = Math.max(maxZ, position.getZ(i));
     }
-    expect(maxZ).toBeGreaterThan(PORTAL_DEPTH / 2 + 0.2);
-    expect(minZ).toBeLessThan(PORTAL_DEPTH / 2 - 2);
     expect(minZ).toBeGreaterThan(0);
+    expect(Math.abs((minZ + maxZ) / 2 - plane)).toBeLessThan(0.3);
+    // Die Stirnseiten mit den Sigillen: vorn so weit vor der Ebene wie hinten dahinter
+    const mesh = new Mesh(frame, new MeshBasicMaterial({ side: DoubleSide }));
+    const raycaster = new Raycaster();
+    let middle = 0;
+    const cells = frameSigilCells();
+    for (const { x, y } of cells) {
+      const [front, back] = [1, -1].map((side) => {
+        raycaster.set(new Vector3(x, y, plane + 30 * side), new Vector3(0, 0, -side));
+        return raycaster.intersectObject(mesh)[0].point.z;
+      });
+      expect(front - plane).toBeGreaterThan(1);
+      middle += (front + back) / 2 / cells.length;
+    }
+    expect(middle).toBeCloseTo(plane, 1);
   });
 
   it('dreht die Flächen nach außen und trägt Tangenten für die Normal-Map', () => {
