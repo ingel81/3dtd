@@ -9,19 +9,19 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-16 abends, Branch `next`. Nichts in Arbeit.
+Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
 
 ---
 
 ## Vor dem Merge nach `main`
 
-- [ ] **A5 Merge-Ablauf**: Code-Stopp; Nachtests K2 und K3 ([docs/PLAYTEST.md](docs/PLAYTEST.md)), danach nach DONE:
-      Kragsteine an der Dachkante, Skarnax mit Textur, Beinen, Schwanz und Stimme, Tank-Modell; Build aus frischem
-      Klon mit dem CI-Befehl, dann Gate; Tag auf dem heutigen `main` als Rückweg; `next` sichern (liegt nur lokal).
-      Ein Push auf `main` deployt ohne Tests sofort nach `/play/`.
+- [ ] **A5 Merge-Ablauf**: Code-Stopp; Nachtests K2 bis K6 abgenommen (DONE 2026-09-17). Offen: Build aus frischem
+      Klon mit dem CI-Befehl, dann Gate; Tag auf dem heutigen `main` als Rückweg; `next` sichern (liegt nur lokal). Ein
+      Push auf `main` deployt ohne Tests sofort nach `/play/`.
 
 ## Später (Backlog)
 
+- [ ] **C11 Tank in der Sidebar-Vorschau** nicht zu erkennen und nicht einstellbar, nachrangig (Nachtest K3.3).
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
