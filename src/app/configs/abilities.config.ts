@@ -114,8 +114,8 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',
     description:
-      'Launch a missile from your Missile Silo at a spot on the route: 1.5 s later everything within 25 m '
-      + 'loses 60% of its max HP, bosses 20%. One charge, a new one every 3 waves.',
+      'Launch a missile from your Missile Silo at a spot on the route: it hits 6.5 s later, lead the enemies. '
+      + 'Everything within 25 m loses 60% of its max HP, bosses 20%. One charge, a new one every 3 waves.',
     icon: 'radiation',
     aimHint: 'Strike',
     hotkey: 'K',
@@ -125,7 +125,9 @@ export const ABILITIES: Record<AbilityId, AbilityConfig> = {
     maxCharges: 1,
     rechargeWaves: 3,
     radiusM: 25,
-    warningMs: 1500,
+    // The missile's flight from the silo, the same from any distance (390
+    // sub-steps); a zombie (5 m/s) walks 32 m meanwhile
+    warningMs: 6500,
     effect: { kind: 'max-hp-fraction', fraction: 0.6, bossFraction: 0.2 },
     snapRadiusM: 30,
   },

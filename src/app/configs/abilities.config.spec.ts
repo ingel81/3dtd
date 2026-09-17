@@ -20,7 +20,9 @@ describe('abilities config', () => {
     expect(nuke.maxCharges).toBe(1);
     expect(nuke.rechargeWaves).toBe(3);
     expect(nuke.radiusM).toBe(25);
-    expect(nuke.warningMs).toBe(1500);
+    // The missile's flight from the silo, user's decision 2026-09-17: 6.5 s from any distance
+    expect(nuke.warningMs).toBe(6500);
+    expect(nuke.launchFrom).toBe('missile-silo');
     expect(nuke.effect).toEqual({ kind: 'max-hp-fraction', fraction: 0.6, bossFraction: 0.2 });
     expect(nuke.snapRadiusM).toBe(30);
     expect(nuke.researchId).toBe('nuclear-strike');

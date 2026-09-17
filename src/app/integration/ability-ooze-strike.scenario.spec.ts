@@ -29,8 +29,8 @@ import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 
 /** GameClock.FIXED_STEP_MS */
 const STEP_MS = 16.667;
-/** 1500 ms of warning in sub-steps */
-const WARNING_STEPS = 90;
+/** 6500 ms of warning in sub-steps */
+const WARNING_STEPS = 390;
 const NUKE = ABILITIES['nuclear-strike'];
 
 // At the equator a degree of longitude is as long as one of latitude

@@ -88,8 +88,8 @@ const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** The fourth waypoint, about 33 m down the path */
 const TARGET: GeoPosition = TEST_PATH[3];
 const SEGMENT_M = geoDistanceFast(TEST_PATH[0], TEST_PATH[1]);
-/** 1500 ms of warning in sub-steps of 16.667 ms */
-const NUKE_WARNING_STEPS = 90;
+/** 6500 ms of warning in sub-steps of 16.667 ms */
+const NUKE_WARNING_STEPS = 390;
 const TAIL = GAME_SOUNDS.nuclearStrike.tail;
 /** Sub-steps until the last repeat of the tail, and a few more */
 const TAIL_STEPS = Math.ceil(Math.max(...TAIL.map((r) => r.delayMs)) / 16.667) + 5;

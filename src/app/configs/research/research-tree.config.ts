@@ -170,8 +170,8 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     id: 'nuclear-strike',
     name: 'Nuclear Strike',
     description:
-      'Unlocks the Missile Silo and the Nuclear Strike: aim at the route, 1.5 s later everything within 25 m loses '
-      + '60% of its max HP (bosses 20%). One charge, a new one every 3 waves',
+      'Unlocks the Missile Silo and the Nuclear Strike it launches: aim at the route, 6.5 s later everything '
+      + 'within 25 m loses 60% of its max HP (bosses 20%). One charge, a new one every 3 waves',
     category: 'global-perk',
     icon: 'radiation',
     cost: 1000,
