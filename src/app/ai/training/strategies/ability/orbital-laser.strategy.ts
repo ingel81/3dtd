@@ -33,9 +33,8 @@ import {
 import type { Enemy } from '../../../../entities/enemy.entity';
 import type { GeoPosition } from '../../../../models/game.types';
 import { geoDistanceFast } from '../../../../utils/geo-utils';
-import { getRouteProfile } from '../../../../utils/route-corridor';
-import { pointAlongSweep, sweepOffset, type RouteSweep } from '../../../../utils/route-sweep';
-import { DecisionAim, MAX_AIM_CANDIDATES, enemiesFromProgress } from './ability-aim';
+import { sweepOffset, type RouteSweep } from '../../../../utils/route-sweep';
+import { DecisionAim, MAX_AIM_CANDIDATES, enemiesFromProgress, enemyAhead } from './ability-aim';
 
 const LASER = ABILITIES['orbital-laser'];
 const BEAM = LASER.effect.kind === 'beam' ? LASER.effect : null;
@@ -109,7 +108,7 @@ export class OrbitalLaserStrategy extends BaseStrategy {
     let best: LaserAim | null = null;
     for (let i = 0; i < candidates.length; i += stride) {
       const candidate = candidates[i];
-      const point = pointAhead(candidate, candidate.movement.getEffectiveSpeed(now) * WARNING_S);
+      const point = enemyAhead(candidate, candidate.movement.getEffectiveSpeed(now) * WARNING_S).position;
       const sweep = this.gameState.abilityManager.previewSweep(LASER.id, point, lookM);
       if (!sweep) continue;
       const aim = beamOutcome(BEAM, sweep, alive, speeds, point);
@@ -118,18 +117,6 @@ export class OrbitalLaserStrategy extends BaseStrategy {
     }
     return best;
   }
-}
-
-/**
- * The point `aheadM` further along `enemy`'s path centre line than it
- * stands, clamped to the path's end. The path with its profile's lengths is
- * a stretch like a sweep, so pointAlongSweep walks it.
- */
-function pointAhead(enemy: Enemy, aheadM: number): GeoPosition {
-  const path = enemy.movement.path;
-  const profile = getRouteProfile(path);
-  const route: RouteSweep = { points: path, cumulative: profile.cumulativeLength, length: profile.totalLength };
-  return pointAlongSweep(route, enemy.movement.getDistanceAlongPath() + aheadM, { lat: 0, lon: 0 });
 }
 
 /**

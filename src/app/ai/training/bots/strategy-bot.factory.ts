@@ -18,6 +18,7 @@ import { SplashDefensePlacementStrategy } from '../strategies/placement/splash-d
 import { CoverageFillStrategy } from '../strategies/placement/coverage-fill.strategy';
 import { DistributedPlacementStrategy } from '../strategies/placement/distributed-placement.strategy';
 import { ResearchCenterPlacementStrategy } from '../strategies/placement/research-center-placement.strategy';
+import { MissileSiloPlacementStrategy } from '../strategies/placement/missile-silo-placement.strategy';
 import { ResearchPickStrategy } from '../strategies/research/research-pick.strategy';
 import { PathCoverageUpgradeStrategy } from '../strategies/upgrade/path-coverage-upgrade.strategy';
 import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperformer.strategy';
@@ -129,8 +130,10 @@ export class StrategyBotFactory {
         break;
     }
 
-    // Every skill level fires a nuclear strike it has. Only strategist and
-    // meta research it (ResearchPick), for beginner and casual it stays inert.
+    // Every skill level builds the strike's missile silo and fires a nuclear
+    // strike it has. Only strategist and meta research it (ResearchPick), for
+    // beginner and casual both stay inert.
+    strategies.push(new MissileSiloPlacementStrategy(this.strategicPlacement, this.gameState));
     strategies.push(new NuclearStrikeStrategy(this.gameState));
     strategies.push(new FrostBombStrategy(this.gameState));
     strategies.push(new EmpStrategy(this.gameState));
