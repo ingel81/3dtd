@@ -144,6 +144,12 @@ export interface ScreenShakePreset {
  * less: full up to abilityNearDistance, none from abilityFarDistance on,
  * so the overview camera (about 425 m) keeps about half.
  *
+ * The nuclear strike's missile shakes the camera a little where it lifts
+ * off from its silo (ABILITY_LAUNCH_SHAKE): far below the impact, but long
+ * like the roar of its engine, full up to launchNearDistance, none from
+ * launchFarDistance on, so the overview camera (about 425 m) keeps about
+ * three quarters.
+ *
  * HQ damage shakes at most once per hqDamageMinIntervalMs of wall time,
  * unless a hit costing more HP than the last shake's comes in: an ooze
  * flowing in loses HP point by point, at 4x about seven times a second, and
@@ -157,6 +163,8 @@ export const SCREEN_SHAKE_CONFIG = {
   strikeFarDistance: 1500,  // m
   abilityNearDistance: 150,  // m
   abilityFarDistance: 700,  // m
+  launchNearDistance: 200,  // m
+  launchFarDistance: 1100,  // m
   hqDamageMinIntervalMs: 900,
   presets: {
     cannon:    { amplitude: 0.0025, duration: 150 },
@@ -169,6 +177,8 @@ export const SCREEN_SHAKE_CONFIG = {
     emp: { amplitude: 0.005, duration: 450 },
     /** Harder than the EMP where the beam comes down, fading over its first third (until playtest 636: 0.003 for 1200 ms) */
     orbitalLaser: { amplitude: 0.006, duration: 1400 },
+    /** The missile lifting off its silo: a low rumble while the ignition roars loudest (missile_launch.mp3), shorter than the impact's */
+    missileLaunch: { amplitude: 0.0045, duration: 2000 },
   },
 } as const satisfies {
   nearDistance: number;
@@ -177,12 +187,14 @@ export const SCREEN_SHAKE_CONFIG = {
   strikeFarDistance: number;
   abilityNearDistance: number;
   abilityFarDistance: number;
+  launchNearDistance: number;
+  launchFarDistance: number;
   hqDamageMinIntervalMs: number;
   presets: Record<string, ScreenShakePreset>;
 };
 
-/** Screen shake of an ability's impact and the camera distances it fades over */
-export interface AbilityImpactShake {
+/** Screen shake of an ability's moment (launch, impact) and the camera distances it fades over */
+export interface AbilityShake {
   preset: ScreenShakePreset;
   /** Full strength up to this distance from the camera, m */
   nearDistance: number;
@@ -191,11 +203,27 @@ export interface AbilityImpactShake {
 }
 
 /**
+ * Screen shake per ability on `ability:used` with a launch site, where the
+ * strike leaves its building (ScreenShakeService), null for one that does
+ * not shake there. Complete per AbilityId, so a new ability decides here.
+ */
+export const ABILITY_LAUNCH_SHAKE: Record<AbilityId, AbilityShake | null> = {
+  'nuclear-strike': {
+    preset: SCREEN_SHAKE_CONFIG.presets.missileLaunch,
+    nearDistance: SCREEN_SHAKE_CONFIG.launchNearDistance,
+    farDistance: SCREEN_SHAKE_CONFIG.launchFarDistance,
+  },
+  'frost-bomb': null,
+  emp: null,
+  'orbital-laser': null,
+};
+
+/**
  * Screen shake per ability on `ability:impact` (ScreenShakeService), null
  * for one that does not shake. Complete per AbilityId, so a new ability
  * decides here.
  */
-export const ABILITY_IMPACT_SHAKE: Record<AbilityId, AbilityImpactShake | null> = {
+export const ABILITY_IMPACT_SHAKE: Record<AbilityId, AbilityShake | null> = {
   'nuclear-strike': {
     preset: SCREEN_SHAKE_CONFIG.presets.nuclearStrike,
     nearDistance: SCREEN_SHAKE_CONFIG.strikeNearDistance,
