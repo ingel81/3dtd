@@ -683,7 +683,8 @@ export const MUSHROOM_CLOUD_LOOK = {
  *
  * Ignition: a flash over the shaft, fire bursting out of it and light on
  * the ground around the silo (an additive disc, the tiles take no light);
- * smoke wells out of the shaft and rolls out along the ground. The missile
+ * smoke wells out of the shaft and rolls out along the ground. The missile,
+ * the silo model's own, takes the place of the one standing in the silo. It
  * stands on its fire for `flight.ignition`, lifts off slowly, climbs
  * straight up and ever faster, pitches over towards the target, tops out
  * high above it and dives, faster still, almost straight down onto it
@@ -703,16 +704,21 @@ export const MISSILE_LAUNCH_LOOK = {
   /** Launches drawn at once, each with its smoke; another takes the place of the oldest */
   launches: 2,
   /**
-   * The missile, `length` m long, `radius` m round the body and `span` m
-   * across the fins, as the silo model's missile (missile_silo.glb at the
-   * building's scale 7.36); drawn by the procedural model (missile-model.ts).
-   * Its nozzle stands `baseHeight` m above the silo's base, where the
-   * missile node stands in the model and where the flight starts. It grows
-   * to `flightScale` between the two `grow` seconds, once it is out of the
-   * shaft, so it still reads from the overview camera (about 425 m).
+   * The missile: the node `node` of the silo model (missile_silo.glb, origin
+   * on its nozzle, nose up +y), cloned for the flight. It starts where that
+   * node stands in the placed silo, turned and sized as there
+   * (missile-silo.ts); without the node its nozzle `baseHeight` m above the
+   * silo's base (where the node stands at the building's scale 7.36). It
+   * grows to `flightScale` times that size between the two `grow` seconds,
+   * once it is out of the shaft, so it still reads from the overview camera
+   * (about 425 m).
    */
-  missile: { length: 6.59, radius: 1, span: 2.53, baseHeight: 2.3, flightScale: 2, grow: [2.2, 4] },
-  /** Top of the shaft over the silo's base (the model's height): the smoke wells out and the flash goes up there */
+  missile: { node: 'missile', baseHeight: 2.3, flightScale: 2, grow: [2.2, 4] },
+  /**
+   * Top of the shaft over the silo's base, where the smoke wells out and the
+   * flash goes up: the top of the placed silo's model, this value without it
+   * (the model's height at scale 7.36)
+   */
   shaftTop: 10.4,
   /**
    * The flight (MissileFlight). Apex above the higher of start and target:
@@ -797,12 +803,8 @@ export const MISSILE_LAUNCH_LOOK = {
     from: 9, spacing: 3, size: [2.5, 9], expandTime: 0.6, growth: 0.45, spread: 2.5,
     rise: 0.35, drift: 0.9, lit: 0.4, life: [10, 15], alpha: 0.5,
   },
-  /**
-   * Tints, linear. Smoke is the albedo the sprite shader lights; exhaustLit
-   * the flame's light on it. The missile's parts are sRGB hex colours.
-   */
+  /** Tints, linear. Smoke is the albedo the sprite shader lights; exhaustLit the flame's light on it. */
   colors: {
-    missile: { nose: 0xefeee9, ring: 0xb3261e, upper: 0x8c8f93, lower: 0x26282b, fins: 0x1b1c1e, nozzle: 0x3a3b3d },
     flameCore: { r: 1, g: 0.96, b: 0.85 },
     flameHot: { r: 1, g: 0.62, b: 0.22 },
     flameOuter: { r: 0.95, g: 0.3, b: 0.06 },

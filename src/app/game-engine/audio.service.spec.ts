@@ -1,11 +1,13 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { Vector3 } from 'three';
+import { Group, Vector3 } from 'three';
 import { GameEventBus } from './game-event-bus';
 import { AudioService } from './audio.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SOUNDS, GAME_SOUNDS, type AbilityImpactSound } from '../configs/audio.config';
 import { MISSILE_LAUNCH_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
-import { MissileFlight, planMissileLaunch } from '../utils/missile-flight';
+import { MissileFlight } from '../utils/missile-flight';
+import { TOWER_TYPES } from '../configs/tower-types.config';
+import type { TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
 import { ABILITIES, abilityBeamReachM, type AbilityEffect } from '../configs/abilities.config';
 import { NUKE_BLAST_S, NUKE_RUMBLE_S, NUKE_RUMBLES } from '../utils/nuke-sound';
 
@@ -410,7 +412,9 @@ describe('AudioService nuclear strike missile', () => {
       }),
       setLoopVolume: vi.fn(),
     };
-    const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
+    /** The silo's render object, none unless a test puts one there */
+    const towers = { get: vi.fn((_id: string): TowerRenderData | undefined => undefined) };
+    const service = new AudioService(eventBus, { spatialAudio, towers } as unknown as ThreeTilesEngine);
     const used = (strikeId = 1, launch = true, abilityId: 'nuclear-strike' | 'frost-bomb' = 'nuclear-strike') =>
       eventBus.emit({
         type: 'ability:used', abilityId, strikeId, target: TARGET, radiusM: 25, warningMs: WARNING_MS,
@@ -428,7 +432,7 @@ describe('AudioService nuclear strike missile', () => {
     /** Engine loops stopped, in order */
     const engineStops = () =>
       spatialAudio.stopLoop.mock.calls.map((args: unknown[]) => args[0] as string).filter((h) => h.startsWith(launchSounds.engine.id));
-    return { eventBus, spatialAudio, service, used, impact, run, settle, moves, voices, played, engineStops };
+    return { eventBus, spatialAudio, towers, service, used, impact, run, settle, moves, voices, played, engineStops };
   }
 
   it('registers the ignition and the dive as one-shots heard as far as the blast, the engine as a loop', () => {
@@ -477,9 +481,8 @@ describe('AudioService nuclear strike missile', () => {
     used();
     await settle();
     run(3000);
-    const flight = planMissileLaunch(
-      new MissileFlight(),
-      new Vector3(SITE.lon, SITE.height, SITE.lat),
+    const flight = new MissileFlight().plan(
+      new Vector3(SITE.lon, SITE.height + MISSILE_LAUNCH_LOOK.missile.baseHeight, SITE.lat),
       new Vector3(TARGET.lon, TARGET.height, TARGET.lat),
       WARNING_MS / 1000,
     );
@@ -490,6 +493,24 @@ describe('AudioService nuclear strike missile', () => {
     const volumes = spatialAudio.setLoopVolume.mock.calls.map((args: unknown[]) => args[1] as number);
     expect(volumes[0]).toBeLessThan(0.02);
     expect(volumes.at(-1)).toBe(1);
+    service.destroy();
+  });
+
+  it('starts the engine where the placed silo\'s missile node stands, as the renderer starts the missile', async () => {
+    const { spatialAudio, towers, service, used, settle } = setup();
+    const mesh = new Group();
+    mesh.position.set(3, 21, -4);
+    mesh.scale.setScalar(7.36);
+    const node = new Group();
+    node.name = MISSILE_LAUNCH_LOOK.missile.node;
+    node.position.set(0.01, 0.3126, 0);
+    mesh.add(node);
+    towers.get.mockImplementation((id: string) =>
+      id === 'silo' ? ({ mesh, typeConfig: TOWER_TYPES['missile-silo'] } as unknown as TowerRenderData) : undefined);
+    used();
+    await settle();
+    const [, position] = spatialAudio.createLoop.mock.calls.find((args: unknown[]) => args[0] === launchSounds.engine.id)!;
+    expect(position.distanceTo(new Vector3(3 + 0.01 * 7.36, 21 + 0.3126 * 7.36, -4))).toBeLessThan(1e-6);
     service.destroy();
   });
 

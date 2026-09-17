@@ -71,7 +71,9 @@ import { logTileMaterialTypes } from './tile-material-log';
 import { instrumentRaycasts } from '../utils/raycast-stats';
 import { ScreenShake, offsetProjection } from './screen-shake';
 import { ShakeBenchmark, type ShakeBenchResult } from './screen-shake-benchmark';
-import { MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
+import { ABILITIES } from '../configs/abilities.config';
+import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { GeoPosition } from '../models/game.types';
 
 /**
@@ -365,8 +367,13 @@ export class ThreeTilesEngine {
     this.lightningBolts = new LightningBoltRenderer(this.scene);
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene);
-    // Its smoke and fire take the mushroom clouds' sprite materials
-    this.missileLaunches = new MissileLaunchRenderer(this.scene, this.mushroomClouds.spriteMaterials);
+    // Its smoke and fire take the mushroom clouds' sprite materials; the missile is the silo model's,
+    // loaded with the silo it launches from
+    const assets = this.assetManager;
+    const siloType = ABILITIES['nuclear-strike'].launchFrom;
+    const siloUrl = siloType ? TOWER_TYPES[siloType].modelUrl : null;
+    this.missileLaunches = new MissileLaunchRenderer(this.scene, this.mushroomClouds.spriteMaterials, () =>
+      (siloUrl ? assets.getCachedModel(siloUrl)?.scene.getObjectByName(MISSILE_LAUNCH_LOOK.missile.node) : null) ?? null);
     // A killed ooze's bubbles and splashes go through the effects, its debris to a renderer of its own
     this.oozes = new OozeBandRenderer(
       this.scene, { effects: this.effects, debris: new OozeDebrisRenderer(this.scene) }, this.portalClip,

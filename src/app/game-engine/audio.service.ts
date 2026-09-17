@@ -10,7 +10,8 @@ import {
 import { ABILITIES, abilityBeamBurnMs, type AbilityId } from '../configs/abilities.config';
 import type { SpatialSoundConfig } from '../managers/audio/spatial-audio.manager';
 import type { GeoPosition } from '../models/game.types';
-import { MissileFlight, planMissileLaunch } from '../utils/missile-flight';
+import { MissileFlight } from '../utils/missile-flight';
+import { createMissileStart, missileStartAt } from '../three-engine/renderers/missile-silo';
 
 /** A repeat of an impact sound still to come (AbilityImpactSound.tail) */
 interface PendingRepeat {
@@ -154,7 +155,7 @@ export class AudioService {
       if (sound?.warning) {
         this.warnings.set(strikeId, this.startLoop({ handle: null, ended: false }, sound.warning.id, this.localOnGround(target)));
       }
-      if (sound?.launch && launch) this.startLaunch(strikeId, sound.launch, launch.position, target, warningMs);
+      if (sound?.launch && launch) this.startLaunch(abilityId, strikeId, sound.launch, launch, target, warningMs);
     }));
 
     // The ability's own impact sound at the impact point, then its tail
@@ -213,29 +214,34 @@ export class AudioService {
   }
 
   /**
-   * A missile lifts off the building at `site` onto `target` in `flightMs`
+   * A missile lifts off its building (`launch`) onto `target` in `flightMs`
    * of game time: the ignition there, the engine as a loop at the missile,
-   * which update() moves along the flight the renderer flies.
+   * which update() moves along the flight the renderer flies, from where the
+   * building's missile stands (missileStartAt).
    */
   private startLaunch(
+    abilityId: AbilityId,
     strikeId: number,
     sound: AbilityLaunchSound,
-    site: GeoPosition,
+    launch: { towerId: string; position: GeoPosition },
     target: GeoPosition,
     flightMs: number,
   ): void {
     const audio = this.tilesEngine.spatialAudio;
-    if (!audio) return;
+    const from = ABILITIES[abilityId].launchFrom;
+    if (!audio || !from) return;
+    const site = launch.position;
     this.handleAudioPlay({ sound: sound.ignition.id, lat: site.lat, lon: site.lon, height: site.height ?? 0, volume: 1 });
-    const from = audio.geoToLocalPosition(site.lat, site.lon, site.height ?? 0, new Vector3());
+    const base = audio.geoToLocalPosition(site.lat, site.lon, site.height ?? 0, new Vector3());
     const onto = audio.geoToLocalPosition(target.lat, target.lon, target.height ?? 0, new Vector3());
-    if (!from || !onto) return;
-    const flight = planMissileLaunch(new MissileFlight(), from, onto, flightMs / 1000);
-    const launch: LaunchLoop = {
+    if (!base || !onto) return;
+    const start = missileStartAt(this.tilesEngine.towers.get(launch.towerId), from, base, createMissileStart());
+    const flight = new MissileFlight().plan(start.nozzle, onto, flightMs / 1000);
+    const loop: LaunchLoop = {
       handle: null, ended: false, strikeId, flight, sound, target, elapsedMs: 0, flightMs, dived: false, diveVoice: null,
     };
     flight.at(0, this.foot);
-    this.launches.push(this.startLoop(launch, sound.engine.id, this.foot, sound.engine.fadeInMs > 0 ? 0 : 1));
+    this.launches.push(this.startLoop(loop, sound.engine.id, this.foot, sound.engine.fadeInMs > 0 ? 0 : 1));
   }
 
   /**

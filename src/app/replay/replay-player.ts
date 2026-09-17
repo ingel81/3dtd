@@ -1040,12 +1040,22 @@ export class ReplayPlayer {
           }
           break;
         }
-        case 'ability:used':
+        case 'ability:used': {
           this.pendingStrikes.add(event.strikeId);
-          if (event.launch) this.missileLaunched = true;
+          let used = event;
+          if (event.launch) {
+            this.missileLaunched = true;
+            // A silo sold during the wave launches from its replay model
+            const view = this.viewById.get(event.launch.towerId);
+            if (view && view.renderId !== event.launch.towerId) {
+              used = { ...event, launch: { ...event.launch, towerId: view.renderId } };
+            }
+          }
           // Its launch sounds (AudioService): the ignition and the dive; its loops wait, the game is paused
-          audioBus?.emit(event);
-          break;
+          audioBus?.emit(used);
+          bus.emit(used);
+          continue;
+        }
         case 'ability:impact':
           this.pendingStrikes.delete(event.strikeId);
           this.abilityLanded = true;

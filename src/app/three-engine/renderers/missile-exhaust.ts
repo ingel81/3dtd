@@ -257,7 +257,7 @@ export class MissileExhaust {
       const fade = 1 - t / flash.duration;
       const size = flash.size * (0.5 + 0.5 * MathUtils.smoothstep(t, 0, 0.06));
       const sprite = this.flashes[slot];
-      sprite.position.set(launch.site.x, launch.site.y + LOOK.shaftTop, launch.site.z);
+      sprite.position.set(launch.site.x, launch.site.y + launch.shaftTop, launch.site.z);
       sprite.scale.set(size, size, 1);
       sprite.material.opacity = fade * fade;
       flashGate.setCount(1);
@@ -352,7 +352,7 @@ export class MissileExhaust {
       this.put(
         n++,
         launch.site.x + Math.cos(angle) * out,
-        launch.site.y + LOOK.shaftTop + rise,
+        launch.site.y + launch.shaftTop + rise,
         launch.site.z + Math.sin(angle) * out,
         launch.site.y,
         diameter,

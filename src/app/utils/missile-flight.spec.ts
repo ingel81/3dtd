@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { Vector3 } from 'three';
-import { MissileFlight, planMissileLaunch } from './missile-flight';
+import { MissileFlight } from './missile-flight';
 import { MISSILE_LAUNCH_LOOK } from '../configs/visual-effects.config';
 
 /** The nuclear strike's warning with the silo, game seconds */
@@ -178,14 +178,6 @@ describe('MissileFlight', () => {
       last = d;
     }
     expect(last).toBe(flight.length);
-  });
-
-  it('starts a launch at the nozzle in the shaft, above the silo base', () => {
-    const site = new Vector3(5, 12, 8);
-    const flight = planMissileLaunch(new MissileFlight(), site, new Vector3(300, 10, 8), WARNING_S);
-    const position = new Vector3();
-    flight.at(0, position);
-    expect(position).toEqual(new Vector3(5, 12 + MISSILE_LAUNCH_LOOK.missile.baseHeight, 8));
   });
 
   it('plans the same flight from the same start, target and time', () => {

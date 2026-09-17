@@ -24,7 +24,7 @@ export interface MissileFlightShape {
  * time: where it is and which way it flies at any moment. Pure geometry in
  * local coordinates (y up), nothing random: the same start, target and
  * time give the same flight, so the renderer and the sound that follows the
- * missile agree.
+ * missile agree (both start it at MissileStart.nozzle, missile-silo.ts).
  *
  * The path, over a parameter s from 0 to 1, lies in the vertical plane
  * through start and target: across it eases from the start to the target
@@ -311,17 +311,4 @@ export class MissileFlight {
     if (length > 1e-9) direction.divideScalar(length);
     else direction.set(0, 1, 0);
   }
-}
-
-const launchStart = new Vector3();
-
-/**
- * The flight of the missile from a silo whose base is `site` onto `target`
- * (local), `durationS` game seconds, into `flight`: from its nozzle in the
- * shaft (MISSILE_LAUNCH_LOOK.missile.baseHeight). The renderer and the
- * sound that follows the missile both plan it here.
- */
-export function planMissileLaunch(flight: MissileFlight, site: Vector3, target: Vector3, durationS: number): MissileFlight {
-  launchStart.set(site.x, site.y + MISSILE_LAUNCH_LOOK.missile.baseHeight, site.z);
-  return flight.plan(launchStart, target, durationS);
 }
