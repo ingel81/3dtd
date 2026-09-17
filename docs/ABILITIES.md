@@ -185,7 +185,7 @@ GameStateManager.runSubStep
 
 | Event | Abnehmer |
 |---|---|
-| `ability:used` | VFXService (Zielmarker), AudioService (Warnsirene des Nuklearschlags), je `abilityId` |
+| `ability:used` | VFXService (Zielmarker; Rakete ab dem Silo, nur mit `launch`), AudioService (Warnsirene des Nuklearschlags; mit `launch` Zündung, Triebwerks-Loop und Pfeifen im Sturzflug), ScreenShakeService (Start-Shake am Silo, nur mit `launch`, `ABILITY_LAUNCH_SHAKE`), je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:impact` | VFXService, AudioService, ScreenShakeService, je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
 | `ability:rejected` | RefusalHintService: Name und Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots. Die UI prüft vor dem Scharfschalten und vor dem Klick selbst; was ihre eigene Prüfung ablehnt, meldet sie dort genauso ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
