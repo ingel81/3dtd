@@ -6,6 +6,29 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-17
 
+### Raketensilo für den Nuklearschlag
+
+Vom User im Spiel abgenommen (K7 in `docs/archive/PLAYTEST_2026-09.md`). Gebaut von den Workern silo-asset, silo-game
+und silo-vfx (`7872ddd4` bis `923e2ecb`), Gate grün auf `7e258f79` (5135 Tests), Review ohne Code-Befund.
+
+- [x] **Missile Silo** (`681a057c`, `2c05bba3`, `cfefbed1`): Die Forschung Nuclear Strike schaltet das Gebäude frei, 400
+      Credits, eines je Karte, verkaufbar. Einmal-Gebäude generisch über `TowerTypeConfig.unique` statt der Prüfung auf
+      die ID des Research Center; gewählt zeigt das Silo das neue `building-panel` (Text, Fähigkeit, Verkauf).
+- [x] **Nuklearschlag startet vom Silo** (`0b9e5e86`, `af3cfdf3`): `AbilityConfig.launchFrom`, ohne Silo kein Knopf
+      und Ablehnung `no-launch-site` (Hinweis bei K), Ladungen laufen weiter; `ability:used` trägt `launch`.
+      Vorwarnung fest 6,5 s (390 Sub-Steps) statt 1,5 s, Wirkung unverändert.
+- [x] **Rakete im Bogen** (`7809f4b2` bis `e33ad84d`, `97d400da` bis `242de00d`): Der GLB-Node `missile` hebt
+      dort ab, wo er im Silo steht, mit Zündblitz, Feuer und Rauch aus dem Schacht, Startwolke, Triebwerksflamme,
+      Rauchspur und Start-Shake, steigt auf einen hohen Scheitel und stürzt genau mit dem Atompilz ein
+      (`MissileFlight`, `MissileLaunchRenderer`, in Spielzeit).
+      Ton mit ElevenLabs: Zündung, Triebwerks-Loop an der Rakete, Pfeifen im Sturzflug. Im Silo steht die Rakete nur,
+      solange eine Ladung bereit ist (`ThreeTowerRenderer.setPartShown`).
+- [x] **Asset** (`87fb8ab1`, `75adb909`): `missile_silo.glb` (1 MB) mit den Nodes `silo` und `missile`, gebaut von
+      `tools/blender/missile_silo.py` aus dem Meshy-Modell; für eine neue Modellversion das Skript neu laufen lassen.
+- [x] **Bot** (`a0150968`): baut das Silo nach der Forschung und hält den Schlag über 6,5 s vor (`enemyAhead`).
+- [x] **Auto-Wave-Countdown** (`48601372`): zeigte bei manchen Uhrwerten einen Frame lang 11 statt 10 s
+      (Gleitkomma beim Aufrunden).
+
 ### Nachtests und Befunde aus dem Playtest vom 16. und 17. September
 
 Vom User im Spiel abgenommen; Punkte und Ergebnisse in `docs/archive/PLAYTEST_2026-09.md` (K2 bis K6). Gebaut von den
