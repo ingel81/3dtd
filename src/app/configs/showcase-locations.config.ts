@@ -30,7 +30,7 @@ export const SHOWCASE_LOCATIONS: readonly ShowcaseLocation[] = [
   { id: 'sf-union-square', name: 'San Francisco, Union Square', hint: 'From Mission Street in SoMa across Market Street', lat: 37.78794, lon: -122.40752, spawn: { lat: 37.78902, lon: -122.39853 } },
   { id: 'paris-iena', name: 'Paris, Pont d\'Iéna', hint: 'From the Trocadéro to the Eiffel Tower bridge', lat: 48.85889, lon: 2.29320, spawn: { lat: 48.86239, lon: 2.29190 } },
   { id: 'london-bank', name: 'London, Bank', hint: 'From Eastcheap through narrow City streets', lat: 51.51339, lon: -0.08900, spawn: { lat: 51.51068, lon: -0.08398 } },
-  { id: 'rome-colosseum', name: 'Rome, Colosseum', hint: 'From Viale Aventino up to the Colosseum', lat: 41.89024, lon: 12.49234, spawn: { lat: 41.88421, lon: 12.48885 } },
+  { id: 'rome-colosseum', name: 'Rome, Colosseum', hint: 'From Via dei Cerchi up to the Colosseum', lat: 41.89024, lon: 12.49234, spawn: { lat: 41.88571, lon: 12.48684 } },
   { id: 'barcelona-catalunya', name: 'Barcelona, Plaça de Catalunya', hint: 'From the Arc de Triomf promenade to the square', lat: 41.38687, lon: 2.17008, spawn: { lat: 41.39107, lon: 2.18067 } },
   { id: 'madrid-sol', name: 'Madrid, Puerta del Sol', hint: 'From Calle de Toledo up into the old centre', lat: 40.41686, lon: -3.70388, spawn: { lat: 40.41312, lon: -3.70754 } },
   { id: 'prague-old-town', name: 'Prague, Old Town Square', hint: 'From Klárov in the Lesser Town over the Vltava', lat: 50.08743, lon: 14.42077, spawn: { lat: 50.09230, lon: 14.40944 } },
