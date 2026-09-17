@@ -247,6 +247,13 @@ export type GameEvent =
       warningMs: number;
       /** A beam: the route stretch it will burn along, from `target` toward the spawn */
       path?: readonly GeoPosition[];
+      /**
+       * A strike fired from a building (the nuclear strike from the missile
+       * silo): the tower id of that building and its base position, `height`
+       * the top of its plinth. The missile leaves there at the command and
+       * lands on `target` after `warningMs`.
+       */
+      launch?: { towerId: string; position: GeoPosition };
     }
   | {
       // The strike landed: drives its effects, sound and screen shake. A
