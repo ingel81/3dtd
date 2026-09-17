@@ -10,6 +10,7 @@
  */
 import { RouteWaypoint } from '../models/game.types';
 import { haversineDistance } from './geo-utils';
+import { RouteCornerBuilder, type RouteCorners } from './route-corners';
 import type { ColumnSample } from '../three-engine/column-sample';
 
 /**
@@ -857,7 +858,9 @@ export interface SideLimits {
   /**
    * Lateral limit at each waypoint once the taper is applied: never more
    * than an adjacent segment allows, and at most `taper` per metre above
-   * any other point of the route.
+   * any other point of the route. The envelope of the sharp route, which
+   * the worm's sway keeps to (worm-path.ts) and the arcs are sized by
+   * (route-corners.ts).
    */
   node: Float64Array;
 }
@@ -875,11 +878,21 @@ export interface RouteProfile {
   /** Lateral limits left and right of the direction of travel. */
   left: SideLimits;
   right: SideLimits;
+  /**
+   * The arcs enemies round the corners on, and the lateral limits they keep
+   * to with them. Sized on first read, or before in slices
+   * (sizeRouteCorners), which costs far more than the rest: the hero walks
+   * the corners sharp and never reads it.
+   */
+  readonly corners: RouteCorners;
   /** The taper the node limits were built with, metres sideways per metre. */
   taper: number;
 }
 
 const profiles = new WeakMap<readonly RouteWaypoint[], RouteProfile>();
+
+/** Per profile: sizes its corner arcs on until `timeUp` says so, true once they stand. */
+const cornerSizing = new WeakMap<RouteProfile, (timeUp: () => boolean) => boolean>();
 
 /** The profile of `path`, computed on first use. The path must not change afterwards. */
 export function getRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
@@ -905,14 +918,42 @@ function buildRouteProfile(path: readonly RouteWaypoint[]): RouteProfile {
     cumulativeLength[i + 1] = cumulativeLength[i] + segmentLengths[i];
   }
 
-  return {
+  const left = buildSideLimits(path, segmentLengths, segmentLeft, taper);
+  const right = buildSideLimits(path, segmentLengths, segmentRight, taper);
+  let corners: RouteCorners | null = null;
+  let builder: RouteCornerBuilder | null = null;
+  const size = (timeUp: () => boolean): boolean => {
+    if (corners) return true;
+    builder ??= new RouteCornerBuilder(path, segmentLengths, cumulativeLength, left, right, taper);
+    corners = builder.step(timeUp);
+    if (corners) builder = null;
+    return corners !== null;
+  };
+  const profile: RouteProfile = {
     segmentLengths,
     cumulativeLength,
     totalLength: cumulativeLength[segments],
-    left: buildSideLimits(path, segmentLengths, segmentLeft, taper),
-    right: buildSideLimits(path, segmentLengths, segmentRight, taper),
+    left,
+    right,
+    get corners(): RouteCorners {
+      size(() => false);
+      return corners!;
+    },
     taper,
   };
+  cornerSizing.set(profile, size);
+  return profile;
+}
+
+/**
+ * Size the corner arcs of `path` (RouteProfile.corners) for about
+ * `budgetMs`, a group of knicks at a time and at least one, for a caller
+ * that spreads them over frames (CorridorBuild). True once they stand, at
+ * once where they already do.
+ */
+export function sizeRouteCorners(path: readonly RouteWaypoint[], budgetMs: number, now: () => number = () => performance.now()): boolean {
+  const start = now();
+  return cornerSizing.get(getRouteProfile(path))!(() => now() - start >= budgetMs);
 }
 
 function buildSideLimits(
