@@ -535,8 +535,10 @@ Spur (`MissileSmoke`, `missile-smoke.ts`), der Zustand eines Starts in
   Entfernung.
 - **Rakete:** der Node `missile` des Silo-Modells aus dem Modell-Cache (die Engine reicht ihn als
   `MissileModelSource` herein), je Start-Slot einmal geklont und für den nächsten Start aus
-  demselben Modell behalten; Geometrie und Material gehören dem Cache, der Renderer gibt sie
-  nicht frei. Ursprung an der Düse, Spitze +y. Der Start setzt Position, Drehung und Größe aus
+  demselben Modell behalten; Geometrie und Material gehören dem Cache, dieser Renderer gibt sie
+  nicht frei. Der Verkauf eines Silos gibt sie über `ThreeTowerRenderer.remove` frei wie bei
+  jedem Tower; three lädt sie beim nächsten Zeichnen neu hoch, eine fliegende Rakete bleibt
+  sichtbar (möglich ist ein kurzer Ruckler). Ursprung an der Düse, Spitze +y. Der Start setzt Position, Drehung und Größe aus
   der Weltmatrix des Nodes im platzierten Silo (`MissileStart`, `missileStartAt`); im Flug
   setzt die Bahn den Ursprung und dreht +y aus dieser Stellung entlang ihrer Richtung, die Größe
   wächst bis aufs Doppelte. Ohne geladenes Modell keine Rakete, der Rest läuft

@@ -211,8 +211,8 @@ export interface TowerTypeConfig {
 
   /**
    * One per map: while one stands, another cannot be placed. Checked by
-   * TowerLifecycle.place and, for the build card and its number key, by
-   * canPickTowerCard.
+   * TowerLifecycle.place and, for the build card (and its number key, for
+   * one of the first nine cards), by canPickTowerCard.
    */
   unique?: boolean;
   /** What a passive building does, the flavor of its build card's tooltip */

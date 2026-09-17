@@ -53,8 +53,8 @@ gesperrt, mit dem Namen der Forschung im Tooltip.
 **Passive Gebäude.** Ein Gebäude ist ein Eintrag in `TOWER_TYPES` mit `attackType: 'passive'`:
 kein Grid- und LOS-Eintrag beim Bau, kein Suchscheinwerfer, nicht in den Kampf-Listen
 (`AI_TOWER_ORDER`, `ALL_COMBAT_TOWERS`, Schadensmatrix-Dialog, DPS-Modell). `unique: true` erlaubt
-eines je Karte: `TowerLifecycle.place` lehnt ein zweites ab, die Karte im BUILD-Panel und ihre
-Zifferntaste sind aus, solange eines steht (`canPickTowerCard`, `GameStore.placedUniqueTypes`).
+eines je Karte: `TowerLifecycle.place` lehnt ein zweites ab, die Karte im BUILD-Panel (und ihre
+Zifferntaste, falls sie unter den ersten neun Karten liegt) ist aus, solange eines steht (`canPickTowerCard`, `GameStore.placedUniqueTypes`).
 `description` ist der Text im Tooltip der Karte. Gewählt zeigt das Research Center sein
 Research-Panel, jedes andere Gebäude das Panel `building-panel/` (Text, Fähigkeiten, die von ihm
 starten, Verkauf).
