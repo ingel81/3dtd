@@ -333,7 +333,7 @@ export class GameStateManager {
     tilesEngine.spatialAudio.holdLoops(this.paused());
 
     // Initialize defense-reach debug visualization (orange marker)
-    this.globalRouteGrid.initDebugViz(tilesEngine.getScene());
+    this.globalRouteGrid.initDebugViz(tilesEngine.getScene(), tilesEngine.portalClip);
 
     // Initialize entity managers (no callbacks - use events)
     this.enemyManager.initialize(tilesEngine);

@@ -50,6 +50,9 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 
 import { capturePrograms, GAME_SETUPS, type CapturedProgram } from './capture-renderer';
 import { compileProgram, findGlslang, preprocess, unmatchedFragmentInputs } from './glslang';
@@ -71,6 +74,8 @@ import type { VATData } from '../../src/app/three-engine/renderers/instanced-ene
 import type { VATAlphaMode } from '../../src/app/three-engine/renderers/instanced-enemy/vat-surface';
 import { SpawnPortalManager } from '../../src/app/three-engine/renderers/marker/spawn-portal.manager';
 import { SpawnDistanceRings } from '../../src/app/three-engine/renderers/spawn-distance-rings';
+import { clipLineMaterial, createPortalClipUniforms } from '../../src/app/three-engine/renderers/portal-clip';
+import { RouteLineLayer } from '../../src/app/services/world/route-line-layer';
 import {
   createDiamondMaterial,
   createGroundGlowMaterial,
@@ -188,6 +193,9 @@ function vatPool(mode: VATAlphaMode, side: Side): InstancedMesh {
   return mesh;
 }
 
+/** The spawn portals' clip in an overlay along the routes (portal-clip.ts), without the seam */
+const ROUTE_CLIP_MARKS = ['vPortalClipPos = ', 'if (portalClipAhead(vPortalClipPos) < 0.0) discard;'];
+
 /** The plinth patch (plinth-material.ts), one line after each chunk it hooks onto */
 const PLINTH_MARKS = [
   'vPlinthWorld = ( modelMatrix * vec4( transformed, 1.0 ) ).xyz;',
@@ -275,6 +283,24 @@ const CASES: ShaderCase[] = [
       };
       scene.add(new SpawnDistanceRings(ground, { lat: 0, lon: 0 }, [{ radiusM: 200, color: 0xc96a3a }]).group);
     },
+  },
+  {
+    name: 'route line and route animation (LineMaterial, clipped at the spawn portals)',
+    file: 'services/world/route-line-layer.ts, services/world/route-animation.service.ts',
+    // The route line in pixels (RouteLineLayer), the animation's dashed line
+    // and its halo in metres (RouteAnimationService), each with the clip patch
+    build: (scene) => {
+      const clip = createPortalClipUniforms();
+      new RouteLineLayer().add(scene, [new Vector3(0, 1, 0), new Vector3(10, 1, 0)], 0xff0000, true, clip);
+      for (const dashed of [true, false]) {
+        const material = new LineMaterial({ color: 0xff2020, linewidth: 1, transparent: true, dashed, worldUnits: true });
+        clipLineMaterial(material, clip);
+        const geometry = new LineGeometry();
+        geometry.setPositions([0, 1, 0, 10, 1, 0]);
+        scene.add(new Line2(geometry, material));
+      }
+    },
+    marks: ROUTE_CLIP_MARKS,
   },
   {
     name: 'HQ markers (diamond, ring, ground glow, label)',
@@ -413,6 +439,7 @@ const CASES: ShaderCase[] = [
       const viz = new RouteGridAggregateViz(new Map([[1, routeCell()]]), 4, (cell) => cell.terrainHeight);
       scene.add(viz.createVisualization(), viz.createAirVisualization());
     },
+    marks: ROUTE_CLIP_MARKS,
   },
   {
     name: 'air route tubes',

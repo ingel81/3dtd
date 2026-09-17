@@ -9,6 +9,13 @@ import {
   DynamicDrawUsage,
 } from 'three';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
+import {
+  createPortalClipUniforms,
+  PORTAL_CLIP_DISCARD,
+  PORTAL_CLIP_GLSL,
+  PORTAL_CLIP_VARYING,
+  type PortalClipUniforms,
+} from '../three-engine/renderers/portal-clip';
 import { RouteCell } from './route-cell';
 
 /**
@@ -52,8 +59,9 @@ export function overlayCellKind(cell: RouteCell): number {
  *   4 → enemyInCell (enemy hier, kein Tower sieht ihn)
  *   5 → enemyVisible(enemy + sichtbar = aktives Ziel)
  *
- * Dazu `aCellKind` (overlayCellKind) für die Kontur und `vPlate`, die
- * Lage des Fragments auf der Platte, für den Abstand zum Plattenrand.
+ * Dazu `aCellKind` (overlayCellKind) für die Kontur, `vPlate`, die
+ * Lage des Fragments auf der Platte, für den Abstand zum Plattenrand, und
+ * `vPortalClipPos` für den Clip der Spawn-Portale (portal-clip.ts).
  */
 const LOS_CELL_VERTEX = /* glsl */ `
 attribute float aCellState;
@@ -61,6 +69,7 @@ attribute float aCellKind;
 varying float vCellState;
 varying float vCellKind;
 varying vec2 vPlate;
+${PORTAL_CLIP_VARYING}
 
 #include <common>
 #include <logdepthbuf_pars_vertex>
@@ -77,6 +86,7 @@ void main() {
   #endif
 
   vec4 worldPos = modelMatrix * localPos;
+  vPortalClipPos = worldPos.xyz;
   gl_Position = projectionMatrix * viewMatrix * worldPos;
   #include <logdepthbuf_vertex>
 }
@@ -111,6 +121,9 @@ void main() {
  *
  * Kontur: am Plattenrand, `gridOverlay.borderWidthMeters` breit, aber nie
  * schmaler als 1,5 Pixel, in der Farbe des Zell-Zustands.
+ *
+ * Hinter der Ebene eines Spawn-Portals fällt die Platte weg wie die Gegner,
+ * ohne Saum (PORTAL_CLIP_DISCARD); die Cells selbst bleiben.
  */
 function buildLosCellFragment(opts: { airLayer: boolean }): string {
   const s = LOS_VIZ_CONFIG.states;
@@ -141,8 +154,11 @@ uniform float uHalfSize;
 varying float vCellState;
 varying float vCellKind;
 varying vec2 vPlate;
+${PORTAL_CLIP_GLSL}
+${PORTAL_CLIP_VARYING}
 
 void main() {
+  ${PORTAL_CLIP_DISCARD}
   #include <logdepthbuf_fragment>
   vec3 color;
   float alpha;
@@ -263,14 +279,19 @@ export class RouteGridAggregateViz {
     this.displayHeight = displayHeight;
   }
 
-  /** Material of either layer; they differ in fragment shader and depth handling. */
-  private createMaterial(airLayer: boolean): ShaderMaterial {
+  /**
+   * Material of either layer; they differ in fragment shader and depth
+   * handling. `portalClip`: the spawn portals' clip the enemies share
+   * (ThreeTilesEngine.portalClip).
+   */
+  private createMaterial(airLayer: boolean, portalClip: PortalClipUniforms): ShaderMaterial {
     const material = new ShaderMaterial({
       vertexShader: LOS_CELL_VERTEX,
       fragmentShader: airLayer ? LOS_CELL_FRAGMENT_AIR : LOS_CELL_FRAGMENT,
       uniforms: {
         uTime: { value: 0 },
         uHalfSize: { value: (this.cellSize * LOS_VIZ_CONFIG.gridOverlay.plateScale) / 2 },
+        ...portalClip,
       },
       defines: {
         USE_INSTANCING: '',
@@ -303,14 +324,15 @@ export class RouteGridAggregateViz {
 
   /**
    * Create visualization mesh (InstancedMesh with shader)
-   * Call once, then use updateVisualization() each frame for color updates only
+   * Call once, then use updateVisualization() each frame for color updates only.
+   * Its plates end at the spawn portals' planes (`portalClip`).
    */
-  createVisualization(): InstancedMesh {
+  createVisualization(portalClip: PortalClipUniforms = createPortalClipUniforms()): InstancedMesh {
     this.disposeVisualization();
 
     const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS_HARDLIMIT);
     const geometry = this.createGeometry(maxCells);
-    this.visualizationMaterial = this.createMaterial(false);
+    this.visualizationMaterial = this.createMaterial(false, portalClip);
     this.visualization = new InstancedMesh(geometry, this.visualizationMaterial, maxCells);
     this.visualization.frustumCulled = false;
     this.visualization.renderOrder = 3;
@@ -345,14 +367,15 @@ export class RouteGridAggregateViz {
    *
    * Lazily created on first toggle; if `createVisualization()` has not
    * been called yet (no ground layer), the state attribute is created
-   * here and re-used when the ground layer comes online later.
+   * here and re-used when the ground layer comes online later. Its plates
+   * end at the spawn portals' planes (`portalClip`) as well.
    */
-  createAirVisualization(): InstancedMesh {
+  createAirVisualization(portalClip: PortalClipUniforms = createPortalClipUniforms()): InstancedMesh {
     this.disposeAirVisualization();
 
     const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS_HARDLIMIT);
     const geometry = this.createGeometry(maxCells);
-    this.airVisualizationMaterial = this.createMaterial(true);
+    this.airVisualizationMaterial = this.createMaterial(true, portalClip);
     this.airVisualization = new InstancedMesh(geometry, this.airVisualizationMaterial, maxCells);
     this.airVisualization.frustumCulled = false;
     this.airVisualization.renderOrder = 4;

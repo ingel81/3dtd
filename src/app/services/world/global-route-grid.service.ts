@@ -7,6 +7,7 @@ import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
 import type { ColumnSampler, TerrainPeekLOD } from '../../three-engine/column-sample';
+import type { PortalClipUniforms } from '../../three-engine/renderers/portal-clip';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
 import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry, Vector3 } from 'three';
 import { UIStore } from '../../store/ui.store';
@@ -28,6 +29,9 @@ export class GlobalRouteGridService {
 
   // Debug: defense reach marker (orange sphere)
   private scene: Scene | null = null;
+
+  // The spawn portals' clip (ThreeTilesEngine.portalClip): the Route Grid Overlay ends at their planes
+  private portalClip: PortalClipUniforms | undefined;
   private defenseReachMarker: Mesh | null = null;
 
   // Spatial grid debug visualization mesh (owned by this service)
@@ -352,7 +356,7 @@ export class GlobalRouteGridService {
    * Create visualization mesh
    */
   createVisualization(): InstancedMesh {
-    return this.grid.createVisualization();
+    return this.grid.createVisualization(this.portalClip);
   }
 
   /**
@@ -416,7 +420,7 @@ export class GlobalRouteGridService {
     if (visible) {
       // Create and add visualization mesh to scene
       if (!this.spatialGridVizMesh && this.scene && this.initialized) {
-        this.spatialGridVizMesh = this.grid.createVisualization();
+        this.spatialGridVizMesh = this.grid.createVisualization(this.portalClip);
         this.scene.add(this.spatialGridVizMesh);
       }
       if (this.spatialGridVizMesh) {
@@ -478,7 +482,7 @@ export class GlobalRouteGridService {
 
     if (visible) {
       if (!this.airSpatialGridVizMesh && this.scene && this.initialized) {
-        this.airSpatialGridVizMesh = this.grid.createAirVisualization();
+        this.airSpatialGridVizMesh = this.grid.createAirVisualization(this.portalClip);
         this.scene.add(this.airSpatialGridVizMesh);
       }
       if (this.airSpatialGridVizMesh) {
@@ -621,9 +625,11 @@ export class GlobalRouteGridService {
   /**
    * Initialize debug visualization with a Three.js scene reference.
    * Must be called before getDefenseReachPercent() can show the orange marker.
+   * `portalClip`: the spawn portals' clip, which the Route Grid Overlay takes.
    */
-  initDebugViz(scene: Scene): void {
+  initDebugViz(scene: Scene, portalClip?: PortalClipUniforms): void {
     this.scene = scene;
+    this.portalClip = portalClip;
   }
 
   /**

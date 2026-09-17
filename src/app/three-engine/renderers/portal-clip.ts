@@ -1,4 +1,5 @@
-import { Vector4, type IUniform } from 'three';
+import { Vector4, type IUniform, type WebGLProgramParametersWithUniforms } from 'three';
+import type { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import {
   MAX_SPAWN_PORTALS,
   PORTAL_CLIP,
@@ -13,8 +14,10 @@ import { portalFrontDistance, type SpawnPortalPose } from './marker/spawn-portal
  * Where the spawn portals hide the enemies still behind their plane
  * (PORTAL_CLIP): one box per portal, in scene space like the poses and the
  * enemies (geoToLocalSimple). One object for all enemy materials (the VAT
- * types, the health bars, the oozes); SpawnPortalManager writes it when a
- * portal is added, moved, turned or removed (setPortalClips), not per frame.
+ * types, the health bars, the oozes) and the overlays along the routes (the
+ * route lines and their animation, the Route Grid Overlay);
+ * SpawnPortalManager writes it when a portal is added, moved, turned or
+ * removed (setPortalClips), not per frame.
  */
 export interface PortalClipUniforms {
   /** Portals in the lists, the first ones */
@@ -115,3 +118,49 @@ export const PORTAL_CLIP_GLSL = /* glsl */ `
     return 1.0 - smoothstep(0.0, max(PORTAL_SEAM_WIDTH, 1.5 * footprint), ahead);
   }
 `;
+
+/**
+ * GLSL for an overlay drawn along the routes that ends at the portals'
+ * planes like the enemies, without the seam: the routes and their cells run
+ * on to path[0] behind the plane, where the enemies start, but show only in
+ * front of it. The vertex shader sets PORTAL_CLIP_VARYING
+ * (vPortalClipPos) to the scene point of the vertex, the fragment shader
+ * takes PORTAL_CLIP_GLSL and the varying and starts main with
+ * PORTAL_CLIP_DISCARD.
+ */
+export const PORTAL_CLIP_VARYING = /* glsl */ `
+  varying vec3 vPortalClipPos;
+`;
+
+export const PORTAL_CLIP_DISCARD = /* glsl */ `
+  if (portalClipAhead(vPortalClipPos) < 0.0) discard;
+`;
+
+/**
+ * Clip a line of three's LineMaterial (Line2) at the portals' planes, as
+ * PORTAL_CLIP_DISCARD does: the route lines (RouteLineLayer) and the route
+ * animation (RouteAnimationService). The line's ends in its own coordinates
+ * are the scene points: its points come from geoToLocalSimple like the
+ * poses, and it hangs in the overlay group like the portals. LineMaterial
+ * brings its log depth chunks.
+ */
+export function clipLineMaterial(material: LineMaterial, uniforms: PortalClipUniforms): void {
+  Object.assign(material.uniforms, uniforms);
+  material.onBeforeCompile = clipLineShader;
+}
+
+function clipLineShader(shader: WebGLProgramParametersWithUniforms): void {
+  shader.vertexShader = shader.vertexShader.replace(
+    'void main() {',
+    `${PORTAL_CLIP_VARYING}
+    void main() {
+      vPortalClipPos = position.y < 0.5 ? instanceStart : instanceEnd;`,
+  );
+  shader.fragmentShader = shader.fragmentShader.replace(
+    'void main() {',
+    `${PORTAL_CLIP_GLSL}
+    ${PORTAL_CLIP_VARYING}
+    void main() {
+      ${PORTAL_CLIP_DISCARD}`,
+  );
+}

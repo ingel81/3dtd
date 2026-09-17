@@ -2,6 +2,7 @@ import { Object3D, Vector2, Vector3 } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
+import { clipLineMaterial, type PortalClipUniforms } from '../../three-engine/renderers/portal-clip';
 
 /**
  * The route lines PathAndRouteService draws, one Line2 per spawn route, in
@@ -18,9 +19,11 @@ export class RouteLineLayer {
 
   /**
    * Draw a route through `points` (local coordinates, already lifted above
-   * the ground) in the spawn's colour.
+   * the ground) in the spawn's colour, ending at the plane of the spawn
+   * portals (`portalClip`, ThreeTilesEngine.portalClip): its start behind
+   * the plane does not show.
    */
-  add(overlayGroup: Object3D, points: readonly Vector3[], color: number, visible: boolean): void {
+  add(overlayGroup: Object3D, points: readonly Vector3[], color: number, visible: boolean, portalClip: PortalClipUniforms): void {
     // Convert points to flat array for LineGeometry
     const positions: number[] = [];
     for (const pt of points) {
@@ -40,6 +43,7 @@ export class RouteLineLayer {
       worldUnits: false, // Use screen pixels, not world units
       resolution: new Vector2(window.innerWidth, window.innerHeight),
     });
+    clipLineMaterial(material, portalClip);
 
     const routeLine = new Line2(geometry, material);
     routeLine.computeLineDistances(); // Required for Line2

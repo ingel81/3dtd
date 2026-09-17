@@ -4,6 +4,7 @@ import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { ThreeTilesEngine } from '../../three-engine';
+import { clipLineMaterial } from '../../three-engine/renderers/portal-clip';
 import { GeoPosition } from '../../models/game.types';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
 import { SpawnPoint } from './marker-visualization.service';
@@ -350,6 +351,8 @@ export class RouteAnimationService {
     if (this.engine) {
       const size = this.engine.getRenderer().getSize(new Vector2());
       mat.resolution.set(size.x, size.y);
+      // Behind a spawn portal's plane the route does not show
+      clipLineMaterial(mat, this.engine.portalClip);
     }
 
     return mat;
@@ -373,6 +376,7 @@ export class RouteAnimationService {
     if (this.engine) {
       const size = this.engine.getRenderer().getSize(new Vector2());
       mat.resolution.set(size.x, size.y);
+      clipLineMaterial(mat, this.engine.portalClip);
     }
 
     return mat;
