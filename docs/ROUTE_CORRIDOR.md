@@ -1086,7 +1086,11 @@ Lagen eine Zelle der Deckung auf der Linie.
 
 **In der Route** (`bandPath`, `laidInBand`): Knoten sind der Routenstart, jede
 Station um ihren Versatz zur Seite gesetzt, jeder Punkt der Route entlang der
-Gehrung seiner beiden Segmente und das Routenende. Die Halbbreiten eines Stücks
+Gehrung seiner beiden Segmente und das Routenende. Auf der Innenseite eines Knicks
+entfällt jede Station, die entlang ihres Segments hinter dem Gehrungspunkt liegt
+(vor dem Knick darüber hinaus, danach noch davor); der Gehrungspunkt übernimmt
+ihre Halbbreiten. Sonst liefe die Linie dort ein Stück rückwärts (Erlenbach,
+2026-09-17: 0,3 m bei 95 Grad und 1,23 m Versatz). Die Halbbreiten eines Stücks
 sind die Bandkanten ab der Linie, das Schmalere seiner beiden Enden; in einem
 Durchgang die OSM-Halbbreite. Ein Stück abseits der OSM-Linie trägt `detour`, ein
 Durchgang `passage` und `inTunnel`. Zellen, Seitenversatz, Wurm, Ooze, Held und

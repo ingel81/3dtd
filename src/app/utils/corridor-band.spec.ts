@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BandColumn, BandRoute, CorridorBand, PASSAGE_SPAN_M, bandPath, buildBand, smoothCentre } from './corridor-band';
+import { BandColumn, BandRoute, BandStation, CorridorBand, PASSAGE_SPAN_M, bandPath, buildBand, smoothCentre } from './corridor-band';
 import { corridorConfig } from './route-corridor';
 import { segmentTouchesCell } from './route-grid-builder';
 
@@ -375,6 +375,38 @@ describe('buildBand', () => {
             expect(edge, `${st.segment}:${st.k}`).toBeGreaterThanOrEqual(wall - 1);
           }
         });
+      }
+    }
+  });
+});
+
+describe('bandPath', () => {
+  /**
+   * Erlenbach, corridor snapshot of 2026-09-17: at a turn of 95 degrees the
+   * line lay 1.23 m inside it, the last station before the joint 0.31 m past
+   * the mitre and the first after it 0.27 m short of it. The line stepped
+   * back twice, and the enemies turned on the spot.
+   */
+  it('does not step back against its segment round the inside of a turn', () => {
+    for (const deg of [95, -95, 135]) {
+      const turn = (deg * Math.PI) / 180;
+      const points = [{ x: 0, z: 0 }, { x: 20, z: 0 }, { x: 20 + 20 * Math.cos(turn), z: 20 * Math.sin(turn) }];
+      // Stations every 2 m, the line 1.2 m inside the turn: right of travel where it turns towards +z.
+      const centre = Math.sign(deg) * 1.2;
+      const stations = [0, 1].flatMap((segment) => {
+        const [a, b] = [points[segment], points[segment + 1]];
+        const [dx, dz] = [(b.x - a.x) / 20, (b.z - a.z) / 20];
+        return Array.from({ length: 10 }, (_, k): BandStation => ({
+          segment, k, n: 10, s: 20 * segment + 2 * k + 1, x: a.x + dx * (2 * k + 1), z: a.z + dz * (2 * k + 1), rx: -dz, rz: dx,
+          kind: 'band', backbone: { offset: centre, y: 0 }, street: 0, left: -3, right: 3, centre,
+        }));
+      });
+      const route: BandRoute = { points, open: [true, true], covered: [false, false], streetHalfWidth: [3, 3], wallLeft: [], wallRight: [] };
+      const path = bandPath(route, { stations, passages: [], maxSlope: 0, maxCurvature: 0 });
+      for (let i = 0; i + 1 < path.length; i++) {
+        const [a, b] = [points[path[i].segment], points[path[i].segment + 1]];
+        const along = ((path[i + 1].x - path[i].x) * (b.x - a.x) + (path[i + 1].z - path[i].z) * (b.z - a.z)) / 20;
+        expect(along, `${deg} degrees, piece ${i}`).toBeGreaterThanOrEqual(-1e-9);
       }
     }
   });
