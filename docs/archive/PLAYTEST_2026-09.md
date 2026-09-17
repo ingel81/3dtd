@@ -895,3 +895,97 @@ aber größer", Dachkante so lassen, Replay als eigenes Thema.
   Körpern weicht sie ab, wie das Gold in E11) und 1x wie 4x beim Ooze-Tod, Tower nehmen Klumpen als Ziel
   (Wächter-Szenario), Atompilz und Grollen in Pause und bei 4x, Held in der Pause nach einem Routen-Neubau,
   Blickrichtung der Gegner auf Diagonalen. Letztes Gate `994badd4`: 4596 Tests grün.
+
+## Nachtests aus docs/PLAYTEST.md (2026-09-16)
+
+### K2: Laden, Eichung, Rückfall (744, 746)
+
+URLs: Tokyo `?l=35.65924,139.70049&s=35.65208,139.69853`, Rothenburg `?l=49.37721,10.17904&s=49.37944,10.18365`,
+Paris `?l=48.85889,2.29320&s=48.86239,2.29190`.
+
+- **K2.1** Tokyo-URL, F5: 10 Ladeschritte, immer genau einer aktiv, kein "Waiting for 3D Tiles"? Nach `[Corridor]
+  build` eine Zeile `[Camera] ... corridor.cameraCorrection`, Kamera nach der Landung über der Route?
+  `__corridor.fingerprint()` und `tileSet` aus der Zeile `[CorridorTrace] ... build.tiles` notieren. Zweites F5: beides
+  gleich?
+- **K2.2** Erlenbach `?l=49.17337,9.26851&s=49.17556,9.26401` laden, Header "Change location", Tab "Showcase", "Tokyo,
+  Shibuya Crossing": dreht nach "Loading Street Network" sofort "Placing Headquarters"? Fingerprint und `tileSet` gleich
+  K2.1? Dann `__corridor.reset()`, warten auf `[Corridor] Corridor rebuilt`: weiter gleich?
+- **K2.3** Rothenburg-URL, F5: keine Zeile `build.fallback what=cells`, in `build.freeze` `cellsWithoutHeight=0` und
+  `fallbackMs=0`? Overlay an, am Rathaus `__corridor.pick()` auf die Randreihe vor dem Laubengang: `state: 'filled'`?
+  Paris-URL, F5: `build.fallback what=stations` mit 4 gefunden, keine Zeile `what=cells`?
+- **K2.4** Straßen aus (Vorgabe), `__raycastStats()` notieren, zoomen, bis Tiles nachladen, erneut: wächst `streets`
+  nicht? Layers "Show streets" an: erscheinen gelbe Linien? "Route Grid Overlay" an, F5: erscheint das Overlay mit dem
+  Ende von "Measuring the Corridor" und bleibt beim Zoomen gleich?
+
+**K2.1 bis K2.4 ok (2026-09-16).** Werte der Eichtabelle nicht notiert.
+
+### K3: Assets nach Runde 22 (734, 735, 736, E18)
+
+Beliebiger Ort, Ton an, Cheat "Credits".
+
+- **K3.1** Custom Wave "Skarnax", Count 1, Kamera an den Kopf: knurrt er ab und zu unregelmäßig statt in gleichmäßiger
+  Schleife?
+  **ok (2026-09-16)**
+- **K3.2** Gleiche Welle, nah heran: Chitin-Textur, Beine bewegen sich mit dem Boden, Kiefer am Kopf, Schwanzstück am
+  letzten Ring? Ein Archer an die Wurmmitte: trägt nach dem Zerfall jedes Teil Kopf und Schwanz?
+  **ok (2026-09-16)**
+- **K3.3** Enemy Debug, Tank setzen und starten: Tarnanstrich, abgewetzte Kanten, Staub? Vorschau in der Sidebar ganz
+  im Bild?
+  **Modell ok (2026-09-16). Befund:** In der Sidebar-Vorschau ist der Panzer nicht zu erkennen und lässt sich nicht
+  einstellen, nachrangig (TODO C11).
+- **K3.4** Archer wählen, die Bauvorschau so an eine Hochhauskante, dass sie übersteht: gestufte Kragsteine statt
+  dünner Streben? Bauen: Kragsteine an der Fassade? Mitte eines Flachdachs: keine? Tower wählen, zweimal Sell:
+  Kragsteine weg?
+  **Kragsteine ok (2026-09-16), gutes Beispiel: Sockel rund 3 m, Achse über dem Dach, Kragsteine darunter. Befund
+  (TODO C10):** An gestuften Gebäuden hängt der Sockel oft 10 bis 20 m an der Fassade herab und endet in der Luft, wo
+  früh Kragsteine abschließen sollten. Ein Tower an der Kante kann mit der Achse fast über der Straße stehen, dann
+  hängt ein langer Sockel ohne Kragsteine vor der Fassade. Ein Tower lässt sich zur Hälfte in eine höhere Wand bauen.
+
+### K4: Sockel an Kanten und Wänden (C10, `0889daa0`)
+
+Archer, Cheat "Credits". Vorschau jeweils kurz ruhig halten, dann erst urteilen. Bilder aus K3.4 als Vorlage.
+
+- **K4.1** Gestuftes Gebäude, Stelle aus Bild 12: Vorschau so an die Kante, dass nur der Rand übersteht. Grün, Sockel
+  höchstens etwa 3 m (oft nur eine flache Platte), Kragsteine an der Fassade, nichts hängt bis zur tieferen Stufe?
+  Bauen: sieht der Tower aus wie die Vorschau?
+- **K4.2** Gleiche Stelle, Vorschau 1 bis 2 m weiter über die Kante: rot mit "Too far over the edge", Klick baut
+  nichts?
+- **K4.3** Tokyo, gerade Hochhauskante mit flachem Dach (wie Bild 10): nur der Rand steht über. Platte mit Kragsteinen
+  darunter? Flimmert die Oberseite der Platte mit dem Dach?
+- **K4.4** Stelle aus Bild 13, Tower an die höhere Fassade schieben: rot mit "Not enough room", sobald er etwa
+  ein Viertel in der Wand steckt, grün, solange nur der Rand streift? Danach neben eine Baumkrone: wird es dort zu oft
+  rot?
+
+**K4.1 bis K4.4 ok (2026-09-16).** Vom User abgenommen ("passt so mal vorerst").
+
+### K5: Gegner an Knicken (C12, Bögen über Knick-Gruppen)
+
+Gegner laufen um Ecken jetzt auf einem Bogen statt am Waypoint seitlich zu springen, die Formation bleibt (außen
+schneller, innen langsamer). Wave Debug: "T", Developer options, "Waves".
+
+- **K5.1** Stuttgart `?l=48.77895,9.17875&s=48.78353,9.17791`, Wave Debug "Single", Type Zombie, Count 100, "Start
+  Custom Wave". Die Rechtskurve aus Bild 19 (A nach B): läuft die Außenbahn einen weiten Bogen ohne Sprung und ohne
+  hektischen Schwenk?
+- **K5.2** Dieselbe Welle, die Kurve aus vielen kleinen Knicken kurz nach dem Spawn: ein ruhiger Bogen statt vieler
+  kleiner Schwenks?
+- **K5.3** Rothenburg `?l=49.37721,10.17904&s=49.37944,10.18365`, dieselbe Welle, enge Gasse: laufen die Gegner an
+  Knicken ohne Platz auf der Mittellinie, ohne seitlichen Sprung? (Die Blickrichtung darf dort am Knick umspringen.)
+- **K5.4** Beim Laden eines der Orte: ruckelt der Ladescreen gegen Ende des Korridor-Baus sichtbar? (Die Bögen werden
+  dort in Zeitscheiben gebaut.)
+
+**K5.1 bis K5.4 ok (2026-09-17).** Vom User abgenommen ("abgenommen und für gut befunden").
+
+### K6: Endstück zum HQ (C13)
+
+Das letzte Stück zum HQ trägt die Straßenhöhe weiter: im Gebäude ebenerdig statt auf dem Dach. F5 kalt laden,
+Layers "Route Grid Overlay" an, Custom Wave wie K5 mit Count 5, Kamera an den HQ-Marker.
+
+- **K6.1** Audi NSU `?l=49.19489,9.22041&s=49.18659,9.22281`: Zellen des Endstücks mit blauer Kontur auf Straßenhöhe,
+  keine auf dem Hallendach (vorher Bild 20)? Rote Linie flach zur Fassade? Gegner laufen ebenerdig hinein, keiner
+  erscheint auf dem Dach?
+- **K6.2** Erlenbach BBH `?l=49.17337,9.26851&s=49.17434,9.25915`: keine Zellen auf dem Schuldach, rote Linie nicht mehr
+  schräg die Fassade hinauf (vorher Bild 21), Gegner ebenerdig hinein?
+- **K6.3** Berlin Pariser Platz `?l=52.51630,13.37759&s=52.51861,13.37529` (HQ auf freier Fläche): Endstück blau,
+  Zellen und Gegner auf dem Pflaster wie bisher, kein Höhensprung am HQ?
+
+**K6.1 bis K6.3 ok (2026-09-17).** Vom User abgenommen ("abgenommen und für gut befunden").
