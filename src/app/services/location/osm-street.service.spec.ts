@@ -265,10 +265,34 @@ describe('OsmStreetService', () => {
       });
 
       it('leaves the foot towards the HQ, whichever end of the segment that is', () => {
+        // The HQ beside the middle of Süd: the route ends on n1, the end of
+        // Süd it reaches first, not on n0 beyond the HQ's foot
         const south = { lat: 47.9995, lon: 9.00027 };
         const path = service.findPath(straight, 48.0015, 9.0001, south.lat, south.lon);
         expect(path[0].id).toBe(ROUTE_START_NODE_ID);
-        expect(path.slice(1).map((n) => n.id)).toEqual([1, 0]);
+        expect(path.slice(1).map((n) => n.id)).toEqual([1]);
+      });
+
+      it('ends on the end of the HQ\'s segment that reaches its foot for less, not on the segment\'s first node', () => {
+        // A path across a square drawn from its north edge n to its middle m;
+        // the HQ stands beside it near m. From the west the route reaches m
+        // straight over the east link j-m, n only round the ring.
+        const w = { id: 20, lat: 48.0, lon: 8.99 };
+        const j = { id: 21, lat: 48.0, lon: 9.0 };
+        const m = { id: 22, lat: 48.0, lon: 9.001 };
+        const n = { id: 23, lat: 48.002, lon: 9.001 };
+        const square: StreetNetwork = {
+          streets: [
+            { id: 500, name: 'West', type: 'residential', nodes: [w, j] },
+            { id: 600, name: 'Radial', type: 'footway', nodes: [n, m] },
+            { id: 700, name: 'East link', type: 'footway', nodes: [j, m] },
+            { id: 800, name: 'Ring', type: 'footway', nodes: [j, n] },
+          ],
+          nodes: new Map([w, j, m, n].map((node) => [node.id, node])),
+          bounds: { minLat: 48.0, maxLat: 48.002, minLon: 8.99, maxLon: 9.001 },
+        };
+        const path = service.findPath(square, 48.0, 8.995, 48.0004, 9.0011);
+        expect(path.slice(1).map((node) => node.id)).toEqual([21, 22]);
       });
 
       it('starts a click 11 m short of a junction at its foot, not on the far end of the segment', () => {
