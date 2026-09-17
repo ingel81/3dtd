@@ -571,15 +571,16 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'missile-silo',
     name: 'Missile Silo',
     // Nodes `silo` and `missile`; the missile of the nuclear strike leaves
-    // from the middle of the building (ABILITIES.md). The model is 1.903
-    // units wide and 1.411 high with its origin at the base centre, its
-    // widest vertex 1.311 from the origin: at scale 7.36 a building 14 m wide
-    // and 10.4 m high, its footprint 9.65 m.
+    // from the middle of the building (ABILITIES.md), its nozzle 2.30 m and
+    // its tip 8.89 m above the base. The model is 1.903 units wide and 1.411
+    // high with y = 0 its lowest point, its widest vertex 1.311 from the
+    // origin: at scale 7.36 a building 14 m wide and 10.4 m high, its
+    // footprint 9.65 m. The entrance faces glTF +Z, the doors fold to ±X.
     modelUrl: 'assets/models/buildings/missile_silo.glb',
     scale: 7.36,
-    previewScale: 5.3, // As wide in its card as the Research Center (1.0 units at 10)
+    previewScale: 5, // The preview fits the bounding box
     heightOffset: 0,
-    shootHeight: 10.4, // The roof
+    shootHeight: 8, // Unused by a passive building but for the text over it (U)
     footprintRadius: 9.7,
     rotationY: 0,
 
