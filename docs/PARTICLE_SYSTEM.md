@@ -515,7 +515,7 @@ Bildschirmblitz in `CloudBlast` (`mushroom-cloud-blast.ts`), die Puffer-Helfer i
 beim `ability:used` des Nuklearschlags, wenn das Event einen Startort trägt (`launch`), und
 `land` beim `ability:impact`; Ablauf und Zeiten in
 [ABILITIES.md](ABILITIES.md#darstellung). Die Flugbahn rechnet `MissileFlight`
-(`utils/missile-flight.ts`), die Teile: Modell (`missile-model.ts`), Flamme, Düsenglühen,
+(`utils/missile-flight.ts`), Start und Rakete im Silo `missile-silo.ts`, die Teile: Flamme, Düsenglühen,
 Blitz, Bodenlicht, Feuer und Fahne (`MissileExhaust`, `missile-exhaust.ts`), Startwolke und
 Spur (`MissileSmoke`, `missile-smoke.ts`), der Zustand eines Starts in
 `missile-launch-state.ts`.
@@ -529,15 +529,19 @@ Spur (`MissileSmoke`, `missile-smoke.ts`), der Zustand eines Starts in
 - **Bahn:** eine Kurve über einen Parameter in der senkrechten Ebene durch Silo und Ziel, an
   128 Punkten vermessen; das Tempo an 256 Punkten gleichen Abstands, eine Form entlang des Wegs,
   deren Faktor per Halbierung so gesucht wird, dass die Rakete zum Ende der Vorwarnung ankommt.
-  Renderer und Triebwerkston planen dieselbe Bahn (`planMissileLaunch`). Getestet in
+  Renderer und Triebwerkston planen dieselbe Bahn (vom selben Start, `missileStartAt`). Getestet in
   `missile-flight.spec.ts`: Start und Ziel exakt, Scheitel über beiden Enden, am Ende fast
   senkrecht, stets vorwärts, höchstens 8 Grad Drehung je Frame bei 60 fps, auch bei 0 und 30 m
   Entfernung.
-- **Rakete:** ein Mesh aus Grundkörpern mit Vertexfarben (`MeshStandardMaterial`, beleuchtet wie
-  die Tower, doppelseitig), zusammengeführt zu einer Geometrie, je Start ein Klon, in den Maßen
-  der Rakete des Silo-Modells (6,59 m lang, 2 m Rumpf, 2,53 m über die Finnen,
-  `missile-model.spec.ts`). Ursprung an der Düse, Spitze +y; die Bahn setzt den Ursprung und
-  dreht +y entlang ihrer Richtung.
+- **Rakete:** der Node `missile` des Silo-Modells aus dem Modell-Cache (die Engine reicht ihn als
+  `MissileModelSource` herein), je Start-Slot einmal geklont und für den nächsten Start aus
+  demselben Modell behalten; Geometrie und Material gehören dem Cache, der Renderer gibt sie
+  nicht frei. Ursprung an der Düse, Spitze +y. Der Start setzt Position, Drehung und Größe aus
+  der Weltmatrix des Nodes im platzierten Silo (`MissileStart`, `missileStartAt`); im Flug
+  setzt die Bahn den Ursprung und dreht +y aus dieser Stellung entlang ihrer Richtung, die Größe
+  wächst bis aufs Doppelte. Ohne geladenes Modell keine Rakete, der Rest läuft
+  (`missile-launch.renderer.spec.ts`). Die Rakete im Silo selbst blendet der `VFXService` über
+  `ThreeTowerRenderer.setPartShown` aus und ein, siehe [ABILITIES.md](ABILITIES.md#darstellung).
 - **Flamme:** Quad (2 × 1, 16 Segmente längs) mit eigenem ShaderMaterial samt Log-Depth-Chunks,
   im Vertex-Shader um die Flugachse zur Kamera gedreht, additiv, Licht in Anzeigewerten
   (`displayLight`), mit Tiefentest: Gebäude davor und das Silo verdecken sie. Weißer Kern,
@@ -565,16 +569,18 @@ Spur (`MissileSmoke`, `missile-smoke.ts`), der Zustand eines Starts in
   280)) und 52 Glut-Sprites (2 × (18 Feuer + 8 Fahne)); Spitze 704 Rauch und 28 Glut, gleich
   nach dem zweiten Einschlag stehen beide Spuren und Wolken voll. Höchstens 11 Draw Calls: je
   Start Rakete, Flamme, Düsenglühen und Bodenlicht, ein Blitz, die zwei geteilten Puffer. In
-  jsdom kostete `update()` in einem Lauf über diese 24 s im Mittel etwa 0,05 ms je Frame;
+  jsdom kostete `update()` über diese 24 s im Mittel 0,04 bis 0,05 ms je Frame (drei Läufe,
+  2026-09-17, mit geklontem Modell);
   GPU-Kosten (Überdeckung der Rauch-Sprites) sind im Browser nicht gemessen.
 - **VFX-Einstellungen:** Impact Effects aus (`setFull(false)`, ab dem nächsten Start): 24 Puffs
   Startwolke, größer (`lowSizeBoost`), bis 90 Puffs Spur (weiter auseinander, dadurch größer);
   kein Feuer aus dem Schacht, keine Fahne, kein Bodenlicht. Rakete, Flamme, Düsenglühen und
   Blitz bleiben.
 - **Draw Gates und Picking:** alle Objekte an `DrawGate`s, ohne Start steht nichts in der
-  Render-Liste; das Warm-up beim Laden kompiliert die Programme. Alle sind `unpickable`, die
-  Kamera zoomt nicht auf die Rakete. Shader-Check: Fall "missile launch" in
-  `tools/shader-check/shader-check.spec.ts`.
+  Render-Liste; das Warm-up beim Laden kompiliert Flamme und Sprites. Die Rakete entsteht erst
+  beim ersten Start, mit den Materialien des Silo-Modells, deren Programme das Vorkompilieren der
+  Tower-Modelle schon gebaut hat. Alle sind `unpickable`, die Kamera zoomt nicht auf die Rakete.
+  Shader-Check: Fall "missile launch" in `tools/shader-check/shader-check.spec.ts`.
 - **Reset:** `game:reset` leert die Starts (`VFXService`), ebenso ein Sprung im Replay und sein
   Verlassen, wenn das Replay eine Rakete gestartet hat.
 
@@ -956,8 +962,9 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 | `three-engine/renderers/mushroom-cloud.renderer.ts` | Atompilz des Nuklearschlags, in Spielzeit |
 | `three-engine/renderers/mushroom-cloud-shape.ts`, `-sprites.ts`, `-fireball.ts`, `-glow.ts`, `-smoke.ts`, `-blast.ts` | Teile des Atompilzes: Form, Billboards und Billow-Atlas, Feuerball, Glut, Rauch, Bodenlicht/Ring/Kuppel/Blitz |
 | `three-engine/renderers/missile-launch.renderer.ts` | Rakete des Nuklearschlags vom Silo aufs Ziel, in Spielzeit |
-| `three-engine/renderers/missile-model.ts`, `missile-exhaust.ts`, `missile-smoke.ts`, `missile-launch-state.ts` | Teile der Rakete: Modell, Flamme/Düsenglühen/Blitz/Bodenlicht/Feuer/Fahne, Startwolke und Spur, Zustand eines Starts |
-| `utils/missile-flight.ts` | Flugbahn der Rakete (`MissileFlight`, `planMissileLaunch`), auch für den Triebwerkston |
+| `three-engine/renderers/missile-silo.ts` | Rakete am Silo: Sichtbarkeit im Silo (`launchSiteLoaded`), Start aus dem Node des Modells (`missileStartAt`) |
+| `three-engine/renderers/missile-exhaust.ts`, `missile-smoke.ts`, `missile-launch-state.ts` | Teile der Rakete: Flamme/Düsenglühen/Blitz/Bodenlicht/Feuer/Fahne, Startwolke und Spur, Zustand eines Starts |
+| `utils/missile-flight.ts` | Flugbahn der Rakete (`MissileFlight`), auch für den Triebwerkston |
 | `three-engine/post-processing/bloom-kick.ts` | `BloomKick`: kurzes Aufhellen des Bloom-Passes beim Blitz des Atompilzes, danach die alten Werte zurück |
 | `three-engine/renderers/frost-burst.renderer.ts` | Frostbombe: Blitz, Ring, Reif, Eissplitter, Nebel |
 | `three-engine/renderers/emp-pulse.renderer.ts` | EMP: Blitz, zwei Fronten, Hülle, Funken |
