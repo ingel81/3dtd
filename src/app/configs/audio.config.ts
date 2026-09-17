@@ -171,6 +171,39 @@ export const GAME_SOUNDS = {
       rolloffFactor: NUKE_SPATIAL.rolloffFactor,
       volume: 1,
     },
+    /**
+     * The missile from its silo, all three generated with ElevenLabs and
+     * rolling off like the blast. The ignition at the silo (5 s: a boom and
+     * the crackling roar of the engine, fading from about 3.5 s), heard as
+     * far as the blast, with priority. The engine as a loop at the missile
+     * through its flight (3 s, a steady roar), fading in over 2 s under the
+     * ignition. The dive at the target, starting 2.5 s before the impact
+     * (2.55 s: a falling whistle that swells and drops in pitch, cut at its
+     * loudest), heard as far as the blast, with priority.
+     */
+    launch: {
+      ignition: {
+        id: 'nuclear_strike_launch',
+        url: 'assets/sounds/abilities/missile_launch.mp3',
+        ...NUKE_SPATIAL,
+        volume: 1.3,
+      },
+      engine: {
+        id: 'nuclear_strike_engine',
+        url: 'assets/sounds/abilities/missile_engine.mp3',
+        refDistance: NUKE_SPATIAL.refDistance,
+        rolloffFactor: NUKE_SPATIAL.rolloffFactor,
+        volume: 0.8,
+        fadeInMs: 2000,
+      },
+      dive: {
+        id: 'nuclear_strike_dive',
+        url: 'assets/sounds/abilities/missile_dive.mp3',
+        ...NUKE_SPATIAL,
+        volume: 1,
+        leadMs: 2500,
+      },
+    },
   },
   /**
    * Frost bomb burst, its own sample (generated with ElevenLabs, 2.5 s): an
@@ -305,6 +338,11 @@ export interface AbilityImpactSound extends AbilityImpactSample {
    */
   warning?: AbilityLoopSample;
   /**
+   * A strike fired from a building (the nuclear strike's missile), played on
+   * `ability:used` when it carries a launch site, see AbilityLaunchSound.
+   */
+  launch?: AbilityLaunchSound;
+  /**
    * A beam's burn (the orbital laser): a loop from `ability:impact` on that
    * follows the beam's foot along the event's `path` in game time, as fast
    * and as long as the beam burns (ABILITIES, abilityBeamBurnMs), then fades
@@ -312,6 +350,22 @@ export interface AbilityImpactSound extends AbilityImpactSample {
    * ends it.
    */
   beam?: AbilityBeamSound;
+}
+
+/**
+ * The sounds of a strike on its way from its launch site to the target:
+ * `ignition` at the launch site on `ability:used`; `engine`, a loop that
+ * follows the missile along its flight in game time (MissileFlight, as the
+ * renderer flies it), fading in over `fadeInMs` of game time, until the
+ * impact; `dive` at the target, `leadMs` of game time before the impact,
+ * stopped at the impact if it still plays (a higher game speed shortens the
+ * flight, not the sample). Held by a pause like the flight; a restart ends
+ * them.
+ */
+export interface AbilityLaunchSound {
+  ignition: AbilityImpactSample;
+  engine: AbilityLoopSample & { fadeInMs: number };
+  dive: AbilityImpactSample & { leadMs: number };
 }
 
 /** A beam's burn, see AbilityImpactSound.beam */

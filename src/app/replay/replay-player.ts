@@ -1043,6 +1043,8 @@ export class ReplayPlayer {
         case 'ability:used':
           this.pendingStrikes.add(event.strikeId);
           if (event.launch) this.missileLaunched = true;
+          // Its launch sounds (AudioService): the ignition and the dive; its loops wait, the game is paused
+          audioBus?.emit(event);
           break;
         case 'ability:impact':
           this.pendingStrikes.delete(event.strikeId);
