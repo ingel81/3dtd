@@ -3,6 +3,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import type { ColumnSample, ColumnSampler, TerrainPeekLOD } from '../three-engine/column-sample';
+import type { PortalClipUniforms } from '../three-engine/renderers/portal-clip';
 import { LosResolveContext } from './gpu-cube-resolve';
 import { RouteCell } from './route-cell';
 import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
@@ -1061,13 +1062,13 @@ export class GlobalRouteGrid {
    * Create visualization mesh (InstancedMesh with shader)
    * Call once, then use updateVisualization() each frame for color updates only
    */
-  createVisualization(): InstancedMesh {
-    return this.aggregateViz.createVisualization();
+  createVisualization(portalClip?: PortalClipUniforms): InstancedMesh {
+    return this.aggregateViz.createVisualization(portalClip);
   }
 
   /** Create the air-layer mirror of the global aggregate viz. */
-  createAirVisualization(): InstancedMesh {
-    return this.aggregateViz.createAirVisualization();
+  createAirVisualization(portalClip?: PortalClipUniforms): InstancedMesh {
+    return this.aggregateViz.createAirVisualization(portalClip);
   }
 
   /**

@@ -650,7 +650,7 @@ export class PathAndRouteService {
     // The spawn portal stands on the route's first cell, facing along it
     this.onRouteBuilt?.(spawn.id, pathWithHeights, startCellY);
 
-    this.routeLines.add(overlayGroup, points, spawn.color, this.routesVisible?.() ?? false);
+    this.routeLines.add(overlayGroup, points, spawn.color, this.routesVisible?.() ?? false, this.engine.portalClip);
   }
 
   /**
