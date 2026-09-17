@@ -12,6 +12,7 @@ import {
 import { InstanceSlotAllocator } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
 import { DISPLAY_OUTPUT_GLSL } from '../display-output';
+import { createPortalClipUniforms, PORTAL_CLIP_GLSL, type PortalClipUniforms } from '../portal-clip';
 
 const MAX_HEALTH_BARS = 20000;
 
@@ -21,7 +22,9 @@ const MAX_HEALTH_BARS = 20000;
 // per-instance attributes; the quad is oriented to face the camera via the
 // uCameraRight / uCameraUp uniforms (same pattern as FloatingText). Per frame
 // the manager only writes 2 uniforms + the moving aCenter buffer — no Matrix4
-// compose and no full instanceMatrix upload per instance.
+// compose and no full instanceMatrix upload per instance. A bar whose centre
+// is still behind a spawn portal's plane is collapsed like a hidden one
+// (portal-clip.ts): it shows once its enemy is half out.
 const HEALTH_BAR_VERTEX = /* glsl */ `
   attribute vec3 aCenter;   // world-space (scene-local) bar center
   attribute vec2 aSize;     // bar width / height; aSize.x <= 0 → hidden slot
@@ -38,9 +41,12 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
   #include <common>
   #include <logdepthbuf_pars_vertex>
 
+  ${PORTAL_CLIP_GLSL}
+
   void main() {
-    // Hidden / free slots collapse to a clipped vertex so they never rasterize.
-    if (aSize.x <= 0.0) {
+    // Hidden / free slots and bars behind a portal's plane collapse to a
+    // clipped vertex so they never rasterize.
+    if (aSize.x <= 0.0 || portalClipAhead(aCenter) < 0.0) {
       gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
       vUv = vec2(0.0);
       vHealth = 0.0;
@@ -176,7 +182,11 @@ export class HealthBarInstanceManager {
    */
   private readonly hiddenFlags = new Uint8Array(MAX_HEALTH_BARS);
 
-  constructor(private readonly scene: Scene) {
+  /** @param portalClip The spawn portals' clip, shared with the enemies (portal-clip.ts) */
+  constructor(
+    private readonly scene: Scene,
+    private readonly portalClip: PortalClipUniforms = createPortalClipUniforms(),
+  ) {
     // Unit quad for the billboard; the shaders read only position and uv.
     const plane = new PlaneGeometry(1, 1);
     const geometry = new InstancedBufferGeometry();
@@ -431,6 +441,8 @@ export class HealthBarInstanceManager {
         // Shared Vector3 instances → one set per frame updates both passes.
         uCameraRight: { value: this.cameraRight },
         uCameraUp: { value: this.cameraUp },
+        // The same objects as the enemies' materials
+        ...this.portalClip,
       },
       vertexShader: HEALTH_BAR_VERTEX,
       fragmentShader: /* glsl */ `

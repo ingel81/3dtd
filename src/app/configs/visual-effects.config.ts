@@ -928,10 +928,18 @@ export const SPAWN_PORTAL_LOOK = {
   /**
    * Summoning circle on the street ahead of the portal, drawn in the
    * frame's sigils (spawn-portal-glow-material.ts, portalCircle): centre ahead of the
-   * front surface and outer radius (m, scale 1), turn (rad/s), glow between
+   * portal's plane and outer radius (m, scale 1), turn (rad/s), glow between
    * and during waves, and on top of it at the peak of a wave start's surge.
    */
   circle: { centre: 4.6, radius: 3.9, spin: 0.02, glow: 0.12, flare: 0.8 },
+  /**
+   * Seam where an enemy comes through the portal's plane
+   * (three-engine/renderers/portal-clip.ts): a glowing band on its body,
+   * `width` metres in front of the plane and at least about a pixel and a
+   * half, in the swirl's colours, `heat` of the way from the palette's ember
+   * to its hot, times `gain`, in display values.
+   */
+  seam: { width: 0.06, heat: 0.5, gain: 1.6 },
 } as const;
 
 /** RGB colour, channels 0-1 (linear, as the particle pools store it). */

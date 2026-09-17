@@ -48,6 +48,7 @@ import { AbilityMarkerRenderer } from './renderers/ability-marker.renderer';
 import { MushroomCloudRenderer } from './renderers/mushroom-cloud.renderer';
 import { OozeBandRenderer } from './renderers/ooze/ooze-band.renderer';
 import { OozeDebrisRenderer } from './renderers/ooze/ooze-debris.renderer';
+import { createPortalClipUniforms } from './renderers/portal-clip';
 import { BloodMoonLook } from './blood-moon/blood-moon-look';
 import { BloodMoonMood } from './blood-moon/blood-moon-mood';
 import { SearchlightRenderer } from './renderers/searchlight/searchlight.renderer';
@@ -153,6 +154,13 @@ export class ThreeTilesEngine {
    * clearance, line of sight, tile-LOD peek. Reached as `engine.terrain`.
    */
   readonly terrain: TerrainQueries;
+
+  /**
+   * Where the spawn portals hide the enemies still behind their plane
+   * (portal-clip.ts): shared by the enemies, their health bars and the
+   * oozes, written by the SpawnPortalManager (MarkerVisualizationService).
+   */
+  readonly portalClip = createPortalClipUniforms();
 
   // Entity renderers
   readonly enemies: InstancedEnemyRenderer;
@@ -338,7 +346,7 @@ export class ThreeTilesEngine {
       throw new Error('[ThreeTilesEngine] AssetManagerService is required');
     }
 
-    this.enemies = new InstancedEnemyRenderer(this.scene, coordinateSync, this.assetManager);
+    this.enemies = new InstancedEnemyRenderer(this.scene, coordinateSync, this.assetManager, this.portalClip);
     // A restored WebGL context comes back empty and three uploads every texture
     // again from its CPU copy, which the VATs drop after their first upload.
     this.enemies.rebakeOnContextRestore(this.renderer.domElement);
@@ -355,7 +363,9 @@ export class ThreeTilesEngine {
     this.abilityMarkers = new AbilityMarkerRenderer(this.scene);
     this.mushroomClouds = new MushroomCloudRenderer(this.scene);
     // A killed ooze's bubbles and splashes go through the effects, its debris to a renderer of its own
-    this.oozes = new OozeBandRenderer(this.scene, { effects: this.effects, debris: new OozeDebrisRenderer(this.scene) });
+    this.oozes = new OozeBandRenderer(
+      this.scene, { effects: this.effects, debris: new OozeDebrisRenderer(this.scene) }, this.portalClip,
+    );
     this.searchlights = new SearchlightRenderer(this.scene, coordinateSync, this.towers);
     // Takes the fog colour set above as the one to return to
     this.bloodMoon = new BloodMoonLook({

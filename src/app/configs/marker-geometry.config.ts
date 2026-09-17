@@ -56,21 +56,55 @@ export const PORTAL_RADIUS = 10;
 export const PORTAL_MIN_SCALE = 0.75;
 export const PORTAL_MAX_SCALE = 1.75;
 
+/** Spawn portals drawn at most (SpawnPortalManager), and so the clip boxes the enemies' shaders hold. */
+export const MAX_SPAWN_PORTALS = 8;
+
 /**
- * Depth of the portal's volume at scale 1 (m): an opaque surface in front
- * and one behind, PORTAL_DEPTH apart, the pillars on the sides and the
- * lintel above. The portal's centre stands on the route start, where the
- * enemies appear, so an enemy starts inside the volume, hidden from every
- * side, and steps out through the front surface. Deep enough for the
- * longest ground enemies (mech and tank, about 9.3 m; the measured sizes
- * are in spawn-portal-geometry.spec.ts).
+ * Depth of the portal's clip space at scale 1 (m), see PORTAL_CLIP. The
+ * portal's centre stands on the route start, where the enemies appear, in
+ * the middle of that depth; the portal's plane, the void surface in the
+ * arch's opening, stands PORTAL_DEPTH / 2 ahead of it. An enemy starts
+ * behind the plane, hidden, and steps out through it. Deep enough for the
+ * longest ground enemy (the mech, 9.3 m; the measured sizes are in
+ * spawn-portal-frame.spec.ts).
  */
 export const PORTAL_DEPTH = 10.5;
 
 /**
+ * The space behind a spawn portal's plane where the enemies' shaders drop
+ * their fragments (three-engine/renderers/portal-clip.ts): a box
+ * PORTAL_DEPTH deep behind the plane (times portalDepthScale), `side`
+ * wider than the opening on either side, from `below` under the ground at
+ * the route start up to `top`. What of an enemy lies in it does not show:
+ * at the start the whole enemy with its health bar; walking out, its body
+ * appears where it comes through the plane, with a glowing seam
+ * (SPAWN_PORTAL_LOOK.seam). Outside the box nothing changes. Visual only:
+ * targeting and damage do not know it, towers stand clear of the portal
+ * anyway. spawn-portal-frame.spec.ts holds the measured bodies of the
+ * ground enemies to it.
+ */
+export const PORTAL_CLIP = {
+  /**
+   * Room beside the opening on either side (m, not scaled): the widest
+   * ground body, the stone golem (12.6 m), on the outermost lane its type
+   * walks (lateralSpread) in the corridor of the smallest portal, with
+   * over 0.2 m to spare
+   */
+  side: 4.5,
+  /**
+   * Top above the ground at scale 1 (m), times portalDepthScale: above the
+   * golem's health bar (15.5 m) and the dragon's coming out of the largest
+   * portal (17.7 m)
+   */
+  top: 20,
+  /** Bottom below the ground at the route start (m), where the ground behind the plane falls away */
+  below: 3,
+} as const;
+
+/**
  * Room left when the player turns a spawn portal with R (m). The outermost
  * enemies walk as far off the route as the corridor at the start lets them
- * (portalLaneOffset); turned, their lanes still cross the front surface at
+ * (portalLaneOffset); turned, their lanes still cross the portal's plane at
  * least this far inside the pillars. At the route's own heading the room is
  * the corridor's edge margin (1.5 m); half a metre keeps a narrow body's
  * centre clear of the stone and leaves 6 to 10.5 degrees to turn either way
@@ -80,8 +114,9 @@ export const PORTAL_TURN_CLEARANCE = 0.5;
 
 /**
  * Scale of the portal's depth for a portal of `scale`: the opening follows
- * the corridor, the volume keeps at least its depth at scale 1, as an enemy
- * is as long in an alley as on an avenue.
+ * the corridor, the clip space keeps at least its depth at scale 1, as an
+ * enemy is as long in an alley as on an avenue. The arch and the plane's
+ * distance from the centre take it too.
  */
 export function portalDepthScale(scale: number): number {
   return Math.max(1, scale);
@@ -89,16 +124,16 @@ export function portalDepthScale(scale: number): number {
 
 /**
  * How an air unit of a wave comes out of its spawn portal
- * (utils/air-portal-exit.ts, EnemyManager): from path[0] inside the volume,
+ * (utils/air-portal-exit.ts, EnemyManager): from path[0] behind the plane,
  * its body centred in the opening (PORTAL_OPENING_HEIGHT * scale / 2 above
- * the ground), level through the front surface and on, then up to its
+ * the ground), level through the plane and on, then up to its
  * cruise altitude. Both are distances along the route, so the climb is the
  * same at every frame rate and timescale. Debug spawns and split children
  * start at their altitude.
  */
 export const AIR_PORTAL_EXIT = {
   /**
-   * Level flight past the front surface (m). The dragon, the longest air
+   * Level flight past the portal's plane (m). The dragon, the longest air
    * body, reaches 7.8 m behind its origin: at 8 m its tail is out of the
    * gate before the climb lifts it. 0.9 to 1.3 s at the air units' 6 to
    * 9 m/s.

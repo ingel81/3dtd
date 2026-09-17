@@ -1,6 +1,7 @@
 import { DoubleSide, ShaderMaterial, Vector3 } from 'three';
 import { OOZE_LOOK } from '../../../configs/visual-effects.config';
 import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
+import { createPortalClipUniforms, PORTAL_CLIP_GLSL, type PortalClipUniforms } from '../portal-clip';
 
 /**
  * Material of an ooze's body (OozeBandRenderer), on the band geometry of
@@ -21,6 +22,10 @@ import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
  *   open, see OOZE_LOOK.collapse.
  * - uBloodMoonGlow, uBloodMoonTint: the blood moon look, see
  *   OozeBandRenderer.setBloodMoon; 0 and 1 outside it.
+ * - PortalClipUniforms (portal-clip.ts): the body behind a spawn portal's
+ *   plane is dropped, a glowing seam runs where it comes through. The
+ *   renderer puts the one object all enemies share in place of `portalClip`
+ *   (clone() copies uniforms).
  *
  * Toxic green and translucent, deeper where it is thick, a slow swirl of
  * lighter slime, bubbles rising and popping, bone remnants blurred inside,
@@ -30,7 +35,7 @@ import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
  * canvas without post-processing, linear into the post-processing target.
  * Logarithmic depth like every material over the tiles.
  */
-export function createOozeBandMaterial(): ShaderMaterial {
+export function createOozeBandMaterial(portalClip: PortalClipUniforms = createPortalClipUniforms()): ShaderMaterial {
   const vec = (c: readonly [number, number, number]) => new Vector3(c[0], c[1], c[2]);
   const glow = BLOOD_MOON_LOOK.glow;
   return new ShaderMaterial({
@@ -58,6 +63,7 @@ export function createOozeBandMaterial(): ShaderMaterial {
       uBloodMoonGlowColor: { value: new Vector3(glow.color.r, glow.color.g, glow.color.b) },
       uBloodMoonRim: { value: glow.rim },
       uBloodMoonBase: { value: glow.base },
+      ...portalClip,
     },
     vertexShader: /* glsl */ `
       attribute vec3 aSide;
@@ -157,6 +163,8 @@ export function createOozeBandMaterial(): ShaderMaterial {
 
       #include <logdepthbuf_pars_fragment>
 
+      ${PORTAL_CLIP_GLSL}
+
       float oozeHash(vec2 p) {
         return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453);
       }
@@ -222,7 +230,12 @@ export function createOozeBandMaterial(): ShaderMaterial {
 
       void main() {
         #include <logdepthbuf_fragment>
+        // Metres per pixel, before any branch: derivatives need uniform control flow
+        float footprint = length(fwidth(vWorldPos));
         if (vS > uTip + 0.02 || vS < uTail - 0.02) discard;
+        // Still behind a spawn portal's plane: not out yet
+        float portalAhead = portalClipAhead(vWorldPos);
+        if (portalAhead < 0.0) discard;
 
         vec3 V = normalize(cameraPosition - vWorldPos);
         vec3 N = normalize(vNormal);
@@ -268,11 +281,15 @@ export function createOozeBandMaterial(): ShaderMaterial {
         // 1 outside a blood moon)
         col += uBloodMoonGlowColor * (uBloodMoonRim * rim + uBloodMoonBase) * uBloodMoonGlow;
         col *= uBloodMoonTint;
+        // The seam where the body comes through a spawn portal's plane, its
+        // display colour as linear light
+        float seam = portalSeam(portalAhead, footprint);
+        col = mix(col, sRGBTransferEOTF(vec4(PORTAL_SEAM_COLOR, 1.0)).rgb, seam);
 
         float alpha = clamp(0.6 + 0.25 * vDome + 0.3 * rim + 0.3 * bone + 0.2 * gloss, 0.0, 0.96);
         // A collapsing body keeps its colour until the last of it tears away
         float fade = mix(1.0 - uDissolve, 1.0 - smoothstep(0.7, 1.0, uDissolve), uCollapse);
-        gl_FragColor = vec4(col, alpha * fade);
+        gl_FragColor = vec4(col, max(alpha, seam) * fade);
         #include <tonemapping_fragment>
         #include <colorspace_fragment>
       }

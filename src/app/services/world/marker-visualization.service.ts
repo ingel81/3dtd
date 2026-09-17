@@ -194,7 +194,7 @@ export class MarkerVisualizationService {
 
     const overlayGroup = engine.getOverlayGroup();
     this.markerManager = new MarkerInstanceManager(overlayGroup);
-    this.portalManager = new SpawnPortalManager(overlayGroup);
+    this.portalManager = new SpawnPortalManager(overlayGroup, engine.portalClip);
     this.labelManager = new MarkerLabelManager(overlayGroup);
     this.frameTo(this.portalManager);
   }

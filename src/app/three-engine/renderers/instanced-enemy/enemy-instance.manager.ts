@@ -11,6 +11,7 @@ import {
 } from 'three';
 import { VATData } from './vat-baker';
 import { createVATBloodMoonUniforms, createVATMaterial, setVATTexture } from './vat-material';
+import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator } from '../instance-slot-allocator';
@@ -202,7 +203,11 @@ export class EnemyInstanceManager {
   private static readonly _tempPos = new Vector3();
   private static readonly _carriedMatrix = new Matrix4();
 
-  constructor(private readonly scene: Scene) {}
+  /** @param portalClip The spawn portals' clip every pool's material shares (portal-clip.ts) */
+  constructor(
+    private readonly scene: Scene,
+    private readonly portalClip: PortalClipUniforms = createPortalClipUniforms(),
+  ) {}
 
   /**
    * Create a pool for an enemy type with baked VAT data.
@@ -217,6 +222,7 @@ export class EnemyInstanceManager {
       emissiveColor: config.emissiveColor,
       colorMultiplier: config.colorMultiplier,
       bloodMoon: this.bloodMoon,
+      portalClip: this.portalClip,
     });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
