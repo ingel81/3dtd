@@ -45,7 +45,7 @@ describe('TrainingSession connect (playtest 565)', () => {
     vi.useRealTimers();
   });
 
-  it('sends the build version the sidebar shows, v0.2.0 today', async () => {
+  it('sends the build version the sidebar shows, v0.3.0 today', async () => {
     const injector = Injector.create({
       providers: [
         { provide: AIDataCollectorService, useValue: {} },
@@ -61,7 +61,7 @@ describe('TrainingSession connect (playtest 565)', () => {
     await expect(connected).resolves.toBe(true);
 
     expect(socket.sent[0]).toMatchObject({ type: 'connect', gameVersion: BUILD_VERSION });
-    expect(BUILD_VERSION).toBe('v0.2.0');
+    expect(BUILD_VERSION).toBe('v0.3.0');
     session.disconnect();
   });
 });
