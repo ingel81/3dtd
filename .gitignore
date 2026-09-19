@@ -80,3 +80,9 @@ public/draco/
 
 # Debug-Mitschnitt der Landing Page: 15 MB, ebenfalls per FTP
 /landing/media/raw-gameplay.mp4
+
+# Desktop build (desktop/.gitignore says the same; this also covers branches
+# without desktop/ and git tools that ignore nested .gitignore files)
+/desktop/node_modules/
+/desktop/app/
+/desktop/release/
