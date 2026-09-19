@@ -64,6 +64,22 @@
   color: var(--td-text-primary);
 }
 
+/* The version opens "What's new"; it reads as text until hovered */
+.td-version {
+  padding: 0;
+  background: none;
+  border: none;
+  font: inherit;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+}
+
+.td-version:hover,
+.td-version:focus-visible {
+  color: var(--td-text-primary);
+  text-decoration: underline dotted;
+}
+
 /* Both footer actions share one row: two stacked full-width bars ate more
    vertical space than the sidebar can spare. */
 .td-footer-links {

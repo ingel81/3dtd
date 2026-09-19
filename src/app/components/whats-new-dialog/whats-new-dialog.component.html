@@ -1,0 +1,53 @@
+<div class="whats-new-dialog">
+  <div class="dialog-header">
+    <td-icon class="header-icon" name="sparkle" [size]="20"></td-icon>
+    <h2 [id]="titleId">What's new</h2>
+  </div>
+
+  <div class="dialog-content">
+    @for (release of releases; track release.version) {
+      <ng-container *ngTemplateOutlet="releaseSection; context: { $implicit: release }" />
+    } @empty {
+      <p class="empty">No notes for this version.</p>
+    }
+    @if (earlier.length > 0) {
+      <details class="earlier">
+        <summary>Earlier versions</summary>
+        @for (release of earlier; track release.version) {
+          <ng-container *ngTemplateOutlet="releaseSection; context: { $implicit: release }" />
+        }
+      </details>
+    }
+  </div>
+
+  <div class="dialog-actions">
+    <a class="full-link" [href]="changelogUrl" target="_blank" rel="noopener">Full changelog</a>
+    <button class="close-btn" type="button" (click)="close()">Close</button>
+  </div>
+</div>
+
+<ng-template #releaseSection let-release>
+  <section class="release" [class.current]="release.version === current">
+    <div class="release-header">
+      <span class="release-version">v{{ release.version }}</span>
+      @if (release.version === current) {
+        <span class="release-tag">This version</span>
+      }
+      @if (release.date) {
+        <span class="release-date">{{ release.date }}</span>
+      }
+    </div>
+    <div class="release-body">
+      @for (group of release.groups; track $index) {
+        @if (group.title) {
+          <span class="group-title">{{ group.title }}</span>
+        }
+        <ul>
+          @for (item of group.items; track $index) {
+            <li>{{ item }}</li>
+          }
+        </ul>
+      }
+    </div>
+  </section>
+</ng-template>

@@ -142,7 +142,8 @@ real player data instead of against a scripted bot.
 
 There's more written down than is usual for a project this size, mostly because I keep
 forgetting how my own systems work. [docs/INDEX.md](docs/INDEX.md) is the entry point.
-[TODO.md](TODO.md) is what's still open, [DONE.md](DONE.md) is the changelog.
+[CHANGELOG.md](CHANGELOG.md) is what changed for players, release by release. [TODO.md](TODO.md) is what's still
+open, [DONE.md](DONE.md) is the detailed log of the work.
 
 ## Status and caveats
 

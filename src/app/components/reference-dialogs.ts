@@ -9,3 +9,4 @@
 export { DamageMatrixDialogComponent } from './damage-matrix-dialog/damage-matrix-dialog.component';
 export { AttributionsDialogComponent } from './attributions-dialog/attributions-dialog.component';
 export { HotkeyHelpDialogComponent } from './hotkey-help-dialog/hotkey-help-dialog.component';
+export { WhatsNewDialogComponent } from './whats-new-dialog/whats-new-dialog.component';
