@@ -37,6 +37,7 @@ scripts/copy-web.js         dist/3DTD/browser -> app/, with the key guard
 scripts/build-guard.js      refuses a build that contains a local tile key
 scripts/make-icon.sh        build/icon.ico from the logo (ImageMagick)
 scripts/check-version.js    release guard: the tag has to name the root version
+scripts/changelog.js        release guard and release text: the CHANGELOG.md section
 build/icon.ico              app and installer icon, 16 to 256 px
 electron-builder.config.js  NSIS target, fuses, version from the root
 test/                       node:test suites
@@ -44,12 +45,18 @@ test/                       node:test suites
 
 ## Releases
 
+`/release X.Y.Z` in Claude Code walks through it (`.claude/commands/release.md`). A
+release needs a section `## X.Y.Z (date)` in the root `CHANGELOG.md`, written for players;
+the game shows it as "What's new" and the update hint shows its first items.
+
 Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: it checks the tag against
-the root version, runs both test suites, builds the installer and puts it on a draft
-GitHub release with `latest.yml` and the blockmap. Download the draft installer, try it,
-then publish the draft as a normal release (not a pre-release); only then do installed
-copies see it. To test the update path locally, serve the output folder of a build with
-a higher version and start the app with `DTD_UPDATE_FEED=http://127.0.0.1:<port>`.
+the root version and the changelog, runs both test suites, builds the installer and puts
+it on a draft GitHub release with `latest.yml`, the blockmap and the changelog section as
+its text. Download the draft installer, try it, then publish the draft as a normal
+release (not a pre-release). Publishing hands the update to installed copies and runs
+`deploy.yml`, which puts the same version of the web game and the landing page live. To
+test the update path locally, serve the output folder of a build with a higher version
+and start the app with `DTD_UPDATE_FEED=http://127.0.0.1:<port>`.
 
 ## Things to know
 
