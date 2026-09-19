@@ -54,10 +54,8 @@ Stand 2026-09-19, Branch `electron`. In Arbeit: das erste Desktop-Release (H10),
 - [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px,
       `aria-label` an allen Icon-Buttons.
 - [ ] **H10** Electron-Desktop-Build mit Installer und Auto-Update ([ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md)).
-      Auf Branch `electron` Schritte 1 bis 7 fertig (2026-09-19): Installer, Updates, Release-Workflow, Changelog mit
-      "What's new", Web-Deploy mit dem Release. Text für 0.3.1 freigegeben. Offen: Nachtest K8 (docs/PLAYTEST.md), dann
-      das erste Release mit `/release 0.3.1` nach Plan, Abschnitt "Reihenfolge", Punkt 8 (vor dem Veröffentlichen
-      `electron` per Fast-Forward nach `main`).
+      Release 0.3.1 am 2026-09-19 veröffentlicht, Web und Landing mit ihm deployt; `main` = `next` = `electron`.
+      Offen nur K8.4 (Hybrid-Laptop, optional). Weitere Releases mit `/release X.Y.Z`.
 - [ ] **H13** Straßen parallel zu den Tiles laden, kleinere Box.
 - [ ] **H14** Raumindex für `findNearestStreetPoint`.
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
