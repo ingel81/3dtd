@@ -31,9 +31,12 @@ describe('UIStore', () => {
       expect(store.audioMenuExpanded()).toBe(false);
     });
 
+    it('routes start visible', () => {
+      expect(store.routesVisible()).toBe(true);
+    });
+
     it('all debug visibility flags start as false', () => {
       expect(store.streetsVisible()).toBe(false);
-      expect(store.routesVisible()).toBe(false);
       expect(store.heightDebugVisible()).toBe(false);
       expect(store.specialPointsDebugVisible()).toBe(false);
       expect(store.infoOverlayVisible()).toBe(false);
@@ -194,7 +197,7 @@ describe('UIStore', () => {
       store.debugMode.set(true);
       store.toggleMenu('dev');
       store.streetsVisible.set(true);
-      store.routesVisible.set(true);
+      store.routesVisible.set(false);
       store.heightDebugVisible.set(true);
       store.specialPointsDebugVisible.set(true);
       store.infoOverlayVisible.set(true);
@@ -212,7 +215,7 @@ describe('UIStore', () => {
       expect(store.openMenu()).toBeNull();
       expect(store.devMenuExpanded()).toBe(false);
       expect(store.streetsVisible()).toBe(false);
-      expect(store.routesVisible()).toBe(false);
+      expect(store.routesVisible()).toBe(true);
       expect(store.heightDebugVisible()).toBe(false);
       expect(store.specialPointsDebugVisible()).toBe(false);
       expect(store.infoOverlayVisible()).toBe(false);
