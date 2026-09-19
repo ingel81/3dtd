@@ -9,6 +9,7 @@ import {
 } from '../configs/audio.config';
 import { ABILITIES, abilityBeamBurnMs, type AbilityId } from '../configs/abilities.config';
 import type { SpatialSoundConfig } from '../managers/audio/spatial-audio.manager';
+import type { LoopHandle } from '../managers/audio/spatial-audio-loops';
 import type { GeoPosition } from '../models/game.types';
 import { MissileFlight } from '../utils/missile-flight';
 import { createMissileStart, missileStartAt } from '../three-engine/renderers/missile-silo';
@@ -27,7 +28,7 @@ interface PendingRepeat {
 /** A loop this service runs for an ability (AbilityImpactSound.warning, .beam) */
 interface AbilityLoop {
   /** Set once createLoop gave it */
-  handle: string | null;
+  handle: LoopHandle | null;
   /** Ended before createLoop came back: stopped as soon as it arrives */
   ended: boolean;
 }

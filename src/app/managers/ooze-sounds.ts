@@ -1,4 +1,5 @@
 import { Vector3 } from 'three';
+import type { LoopHandle } from './audio/spatial-audio-loops';
 import type { GameEventBus } from '../game-engine';
 import type { SpatialAudioManager } from './audio/spatial-audio.manager';
 import { OOZE_SOUNDS } from '../configs/audio.config';
@@ -6,7 +7,7 @@ import { oozeSoundUrls } from '../utils/ooze-sound';
 
 /** The bubbling loop of one ooze */
 interface OozeLoop {
-  handle: string | null;
+  handle: LoopHandle | null;
   /** createLoop is still in flight */
   pending: boolean;
   /** createLoop gave nothing (no buffer): not asked again */

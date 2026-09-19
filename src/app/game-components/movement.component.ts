@@ -393,7 +393,9 @@ export class MovementComponent extends Component {
         }
       }
     }
-    this.statusEffects.length = writeIdx; // In-place compact, no allocation
+    // In-place compact, no allocation. Written only when an effect expired;
+    // almost every call has nothing to change.
+    if (writeIdx !== this.statusEffects.length) this.statusEffects.length = writeIdx;
 
     if (result.isHalted) result.slowMultiplier = 0;
     return result;

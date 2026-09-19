@@ -12,7 +12,7 @@ import { GameEventBus } from '../../game-engine';
 import { AudioBufferCache } from './audio-buffer-cache';
 import { AudioPoolManager } from './audio-pool.manager';
 import { SpatialAudioPlayback, RegisteredSound, SoundDebugEvent } from './spatial-audio-playback';
-import { SpatialAudioLoops } from './spatial-audio-loops';
+import { SpatialAudioLoops, type LoopHandle } from './spatial-audio-loops';
 import { EnemySoundBudget, isEnemySoundId } from './enemy-sound-budget';
 
 export type { SoundDebugEvent };
@@ -345,32 +345,32 @@ export class SpatialAudioManager {
     soundId: string,
     position: Vector3,
     config?: { volumeMultiplier?: number; randomStart?: boolean }
-  ): Promise<string | null> {
+  ): Promise<LoopHandle | null> {
     return this.loops.create(soundId, position, config);
   }
 
-  updateLoopPosition(handle: string, position: Vector3): void {
+  updateLoopPosition(handle: LoopHandle, position: Vector3): void {
     this.loops.updatePosition(handle, position);
   }
 
-  pauseLoop(handle: string): void {
+  pauseLoop(handle: LoopHandle): void {
     this.loops.pause(handle);
   }
 
-  resumeLoop(handle: string): boolean {
+  resumeLoop(handle: LoopHandle): boolean {
     return this.loops.resume(handle);
   }
 
-  stopLoop(handle: string): void {
+  stopLoop(handle: LoopHandle): void {
     this.loops.stop(handle);
   }
 
   /** Loop `handle` at `volumeMultiplier` times its sound's volume from now on, see SpatialAudioLoops.setVolume(). */
-  setLoopVolume(handle: string, volumeMultiplier: number): void {
+  setLoopVolume(handle: LoopHandle, volumeMultiplier: number): void {
     this.loops.setVolume(handle, volumeMultiplier);
   }
 
-  isLoopPaused(handle: string): boolean {
+  isLoopPaused(handle: LoopHandle): boolean {
     return this.loops.isPaused(handle);
   }
 
