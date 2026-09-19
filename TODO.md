@@ -26,7 +26,8 @@ K8.4 (optional).
       Modelle.
 - [ ] **B5 Straßen-Overlay und Intro-Flug auf die eingefrorenen Zellhöhen umstellen?** Beide haben eine eigene
       Höhenabfrage neben dem Korridor (`getStreetHeightEstimate`, Flugprofil).
-- [ ] **E1 Run-Dump**: ein ganzer Lauf als Datei fürs Balancing, [docs/RUN_DUMP_PLAN.md](docs/RUN_DUMP_PLAN.md).
+- [ ] **E1 Balancing aufrollen**: Begriffe, eine Wellenquelle, Seeds, Datensammlung von Menschen und Bots (Run-Log),
+      Zielwerte und Tuning von Wellenplan, Director und Economy, [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
 - [ ] **E2 Replay als Neu-Simulation** statt Aufzeichnung, vollständig korrekt (User, Playtest 553). Blocker und
       Lücken: [docs/REPLAY.md](docs/REPLAY.md).
 - [ ] **E4 Stone Golem: Laufgeräusch und Beben**: schwere Schritte, leichter Screen Shake in Kameranähe.
@@ -69,7 +70,8 @@ K8.4 (optional).
 Vom User am 2026-09-16 entschieden, festgehalten in DONE.md (2026-09-16, "Entscheidungen des Users") und in der
 jeweiligen Fach-Doku.
 
-- **B1** ONNX-Modell und Training bleiben.
+- **B1** ~~ONNX-Modell und Training bleiben.~~ Am 2026-09-19 revidiert: PPO, ONNX und die Python-Directors fallen
+  weg, das Backend bleibt als Bot-Server ([BALANCING_PLAN.md](docs/BALANCING_PLAN.md), D12 bis D16).
 - **B4** Kette und Knick-Rahmen aus Playtest 748 bleiben.
 - **B6** Skarnax-Ringe, die neben einem Transporter schräg stehen, stören nicht.
 - **B8** Der Suchscheinwerfer bleibt, wie er ist.
