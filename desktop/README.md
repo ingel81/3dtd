@@ -36,10 +36,20 @@ src/updater.js              electron-updater: check, background download, instal
 scripts/copy-web.js         dist/3DTD/browser -> app/, with the key guard
 scripts/build-guard.js      refuses a build that contains a local tile key
 scripts/make-icon.sh        build/icon.ico from the logo (ImageMagick)
+scripts/check-version.js    release guard: the tag has to name the root version
 build/icon.ico              app and installer icon, 16 to 256 px
 electron-builder.config.js  NSIS target, fuses, version from the root
 test/                       node:test suites
 ```
+
+## Releases
+
+Pushing a tag `vX.Y.Z` runs `.github/workflows/release.yml`: it checks the tag against
+the root version, runs both test suites, builds the installer and puts it on a draft
+GitHub release with `latest.yml` and the blockmap. Download the draft installer, try it,
+then publish the draft as a normal release (not a pre-release); only then do installed
+copies see it. To test the update path locally, serve the output folder of a build with
+a higher version and start the app with `DTD_UPDATE_FEED=http://127.0.0.1:<port>`.
 
 ## Things to know
 

@@ -276,30 +276,42 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 
 - **E38 Muss** Eine Versionsquelle: die Root-`package.json`. Der Desktop-Build
   übernimmt sie (`extraMetadata.version`), `desktop/package.json` führt keine eigene
-  Version. Passt der Tag `vX.Y.Z` nicht zur Version, bricht CI ab.
+  Version. Passt der Tag `vX.Y.Z` nicht zur Version, bricht CI ab
+  (`desktop/scripts/check-version.js`, mit Test).
 - **E39 Muss** `npm run dist` in `desktop/` baut lokal einen Installer, ohne etwas zu
-  veröffentlichen.
+  veröffentlichen. **Geprüft 2026-09-19:** `release/3DTD-Setup-0.3.0.exe`, Blockmap und
+  `latest.yml`; die Installation läuft pro Nutzer ohne Admin-Abfrage und legt Desktop-
+  und Startmenü-Verknüpfung an.
 - **E40 Muss** `.github/workflows/release.yml`: Trigger Tag `v*` und
-  `workflow_dispatch` mit Tag-Eingabe (damit sich auch das schon getaggte `v0.3.0`
-  bauen lässt), `windows-latest`. Schritte: `environment.ts` mit leeren Schlüsseln
+  `workflow_dispatch` mit Tag-Eingabe, `windows-latest`. (`v0.3.0` lässt sich damit
+  nicht bauen: der Tag liegt vor `desktop/`. Das erste Desktop-Release braucht eine
+  neue Version.) Schritte: `environment.ts` mit leeren Schlüsseln
   anlegen wie in `deploy.yml` (die Datei ist gitignored), Root `npm ci`,
   Production-Build mit `--base-href=/`, `desktop` `npm ci`, Tests, electron-builder mit
   `--publish always`. Ergebnis: Release-Entwurf mit `3DTD-Setup-X.Y.Z.exe`,
-  `.blockmap` und `latest.yml`.
+  `.blockmap` und `latest.yml`. **Geschrieben 2026-09-19**, YAML geprüft, aber noch nie
+  gelaufen: das geht erst mit einem gepushten Tag. Die Spiel-Tests laufen dort mit
+  (`npx vitest run`), anders als im Web-Deploy.
 - **E41 Muss** `LICENSE` liegt im Installationsordner, dazu
   `dist/3DTD/3rdpartylicenses.txt` aus dem Angular-Build (Lizenzen der gebündelten
   Abhängigkeiten). Attributions-Dialog und Tiles-Attribution bleiben im Spiel
-  erreichbar (CC-BY- und Google-Pflicht).
+  erreichbar (CC-BY- und Google-Pflicht). **Umgesetzt 2026-09-19** über `extraFiles`:
+  `LICENSE.txt` und `THIRD-PARTY-LICENSES.txt` neben `3DTD.exe`, die Lizenzen von
+  Electron und Chromium bringt Electron mit.
 - **E42 Soll** Installergröße messen und hier festhalten. Was nicht ins Paket gehört
   (etwa `public/assets/images/logo/logo.psd`, 650 KB), fliegt über die
   `ignore`-Liste der Production-Config raus. Stand 2026-09-18, `win-unpacked`:
   440 MB, davon `3DTD.exe` 235 MB (Chromium), `app.asar` 119 MB (Spiel),
   Rest Chromium-Bibliotheken. Die Chromium-Sprachdateien sind auf `en-US` und `de`
-  beschränkt (`electronLanguages`), das spart 47 MB. Installergröße folgt mit dem
-  ersten `npm run dist`.
+  beschränkt (`electronLanguages`), das spart 47 MB. **Installer 2026-09-19: 195 MB**
+  (186 MiB). `*.psd` steht jetzt in der `ignore`-Liste der Production-Config, für Web
+  und Desktop.
 - **E43 Soll** README bekommt die Zeile "Download for Windows" mit SmartScreen-Hinweis
   (*Weitere Informationen → Trotzdem ausführen*). Der Knopf "Desktop app soon" in
-  `landing/index.html` wird ein Link auf `releases/latest`.
+  `landing/index.html` wird ein Link auf `releases/latest`. **Umgesetzt 2026-09-19**,
+  mit dem Hinweis aus E28 zu beschränkten Schlüsseln. **Achtung:** ein Push auf `main`
+  deployt die Landing Page sofort. Diese Änderung darf erst nach `main`, wenn das erste
+  Release veröffentlicht ist, sonst zeigt der Knopf auf eine leere Release-Seite.
 - **E44 Muss** Kein lokaler Schlüssel im Installer. `scripts/copy-web.js` liest
   `cesiumIonToken` und `googleMapsApiKey` aus `environment.ts` und
   `environment.prod.ts` und bricht ab, wenn einer dieser Werte im Build steht. Die
@@ -376,7 +388,8 @@ desktop/                       Unterprojekt, eigene package.json ohne Version
 ├── scripts/
 │   ├── copy-web.js            dist/3DTD/browser → desktop/app/, mit Schlüssel-Sperre
 │   ├── build-guard.js         findet lokale Schlüssel im Build (E44)
-│   └── make-icon.sh           build/icon.ico aus dem Logo (ImageMagick)
+│   ├── make-icon.sh           build/icon.ico aus dem Logo (ImageMagick)
+│   └── check-version.js       Tag gegen Version, bricht den Release-Build ab (E38)
 ├── build/icon.ico             App- und Installer-Icon, 16 bis 256 px
 ├── test/                      node:test, reine Funktionen aus src/ und scripts/
 ├── electron-builder.config.js NSIS, Fuses, Sprachen, Version aus der Root
@@ -386,7 +399,8 @@ desktop/                       Unterprojekt, eigene package.json ohne Version
 
 Die Aufteilung dient den Tests: Pfadauflösung, MIME, Ranges, Navigationsregeln,
 Berechtigungen, Fenster-Rückfall und Maskierung sind reine Funktionen, die ohne
-Electron unter `node --test` laufen. Die Config ist JavaScript statt YAML, weil sie die Version aus der Root-`package.json`
+Electron unter `node --test` laufen. Der Release-Workflow liegt in
+`.github/workflows/release.yml` (E40). Die Config ist JavaScript statt YAML, weil sie die Version aus der Root-`package.json`
 liest.
 
 | Script | Zweck |
@@ -418,8 +432,30 @@ liest.
 5. Update und Hinweis-Komponente (E30 bis E33). **Erledigt 2026-09-19**, bis auf den
    sichtbaren Hinweis: der erscheint erst mit einem echten Update, also im Durchlauf von
    E34 (Schritt 6)
-6. Release-CI, Update-Durchlauf, README und Landing (E38 bis E43, E34)
-7. Nachtest, danach das erste Release
+6. Release-CI, Update-Durchlauf, README und Landing (E38 bis E43, E34). **Erledigt
+   2026-09-19**, bis auf den ersten echten Lauf von `release.yml`.
+   Update-Durchlauf (E34) gegen einen lokalen Feed (`DTD_UPDATE_FEED`, `http-server`
+   mit dem Ausgabeordner eines Builds mit höherer Version):
+   - 0.3.0 still installiert (`/S`), 0.3.1 angeboten: geladen, Hinweis im Spiel, beim
+     Beenden still installiert (`--updated /S`), danach 0.3.1 registriert, Token noch da
+     (E23).
+   - 0.3.2 angeboten, "Restart now" gedrückt: installiert und neu gestartet. Die neu
+     gestartete App fragte ohne Test-Feed bei GitHub nach, bekam "Unable to find latest
+     version" (noch kein Release) und schrieb nur eine Warnzeile (E33).
+   - Deinstalliert (`/S`): Programm, Registry-Eintrag und Verknüpfungen weg,
+     `%APPDATA%\3DTD` mit dem Token bleibt (E24).
+   - Gefunden: Der Hinweis lag zuerst unter dem Ladebildschirm (`z-index` 10) und war
+     unsichtbar; jetzt 21. electron-updater warnte vor dem Web-Installer, der ist jetzt
+     aus (`disableWebInstaller`). Ein `--dir`-Build hat keine `app-update.yml`; ohne sie
+     scheitern Prüfung und Download (nur Log, beim Download als "Unhandled rejection",
+     weil electron-updater ihn selbst startet).
+7. Nachtest K8 in `docs/PLAYTEST.md`, danach das erste Release:
+   1. Version in `package.json` (und `build-info.config.ts`) anheben, committen.
+   2. Tag `vX.Y.Z` pushen; `release.yml` baut den Entwurf.
+   3. Den Installer aus dem Entwurf herunterladen und prüfen (K8.1), dann den Entwurf
+      als normales Release veröffentlichen.
+   4. Erst danach `electron` nach `main` bringen: README und Landing zeigen auf das
+      Release, und ein Push auf `main` deployt die Landing Page.
 
 ## Bewusst nicht
 
