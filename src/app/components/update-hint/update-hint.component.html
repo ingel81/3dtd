@@ -1,0 +1,16 @@
+@if (update(); as u) {
+  @if (!hidden()) {
+    <div class="uh" role="status">
+      <td-icon class="uh-icon" name="refresh" [size]="18"></td-icon>
+      <div class="uh-text">
+        <span class="uh-title">Update ready</span>
+        <span class="uh-line">Version {{ u.version }} installs when you quit.</span>
+        <span class="uh-line">Restarting now ends this game.</span>
+        <span class="uh-actions">
+          <button class="uh-action uh-restart" type="button" (click)="restart()">Restart now</button>
+          <button class="uh-action" type="button" (click)="hide()">Later</button>
+        </span>
+      </div>
+    </div>
+  }
+}

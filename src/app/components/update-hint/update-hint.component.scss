@@ -1,0 +1,76 @@
+@use '../../styles/td-mixins' as td;
+
+/* Top right of the map, under the compass (12px from the top, 88px high).
+   Only the chip takes clicks. */
+:host {
+  position: absolute;
+  top: 112px;
+  right: 12px;
+  pointer-events: none;
+  z-index: 6;
+}
+
+/* Glass chip like the relocation status, the icon in gold */
+.uh {
+  @include td.bevel-glass;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  max-width: 260px;
+  padding: 8px 14px 10px 12px;
+  border-radius: 4px;
+  pointer-events: auto;
+}
+
+.uh-icon {
+  margin-top: 1px;
+  color: var(--td-gold);
+}
+
+.uh-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.uh-title {
+  font: 600 12px/14px var(--td-font-body);
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--td-text-primary);
+}
+
+.uh-line {
+  font: 10px/13px var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
+/* Text buttons like the actions of the context hint box */
+.uh-actions {
+  display: flex;
+  gap: 16px;
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid var(--td-frame-dark);
+}
+
+.uh-action {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--td-text-muted);
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.uh-action:hover,
+.uh-action:focus-visible {
+  color: var(--td-text-primary);
+}
+
+.uh-restart {
+  color: var(--td-gold);
+}
