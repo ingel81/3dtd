@@ -203,6 +203,9 @@ Weil die Anpassung adaptiv bleibt (D8), hängen die Wellen am Spielverlauf: Übe
 lesen Verteidigung und Lecks. Gleicher Seed heißt deshalb gleiche Wellen, solange der Spielverlauf gleich ist; für
 Replay und Multiplayer ist das kein Hindernis, weil dort auch der Verlauf gleich ist. Der Seed bleibt intern (D11).
 
+Welche Pakete dieses Plans zugleich das Fundament für Coop im Lockstep sind, steht in
+[MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Abschnitt "Bezug zum Balancing-Plan".
+
 Dieser Plan baut Stufe 1 und legt das Run-Log so an, dass es für Stufe 2 und 3 als Eingabe taugt (Seed, Weltbezug,
 Befehle je Sub-Step). Damit das Befehls-Log als Eingabe taugt, laufen alle Aktionen über `command:*`; heute setzen
 und verkaufen Bots Tower direkt am `GameStateManager` vorbei (2b).
@@ -255,6 +258,8 @@ Ein Format für Menschen und Bots, versioniert und dokumentiert (`docs/RUN_LOG.m
 **Ereignisse, die ergänzt werden:**
 
 - `credits:changed` mit Quelle: Kill, Abschluss, Bau, Upgrade, Verkauf, Forschung, Erstattung, Held, Cheat, Sprung.
+  Das baut `CreditsLedger` um; Gold je Spieler (Coop, `MULTIPLAYER_CONCEPT.md`) dabei gleich mitdenken, damit das
+  Ledger nur einmal umgebaut wird.
 - Aufteilung des Abschlussgolds (Basis, Perfect, Combo, Close Call, Comeback, Meilenstein);
   `wave:completed.credits` mit dem echten Betrag.
 - `tower:upgraded` mit Zweig; `research:started` mit "aus der Warteschlange"; `research:completed` mit "Cheat".
