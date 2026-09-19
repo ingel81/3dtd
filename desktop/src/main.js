@@ -12,7 +12,8 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { existsSync, mkdirSync } = require('node:fs');
-const { app, BrowserWindow, Menu, Notification, nativeTheme, protocol, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, ipcMain, nativeTheme, protocol, screen, session, shell } = require('electron');
+const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
 const { APP_ID } = require('./app-id');
 const { uniqueDownloadPath } = require('./downloads');
@@ -21,6 +22,7 @@ const { MAX_LOG_BYTES, createRepeatFilter, describeGpus, maskValue, rendererLine
 const { APP_ORIGIN, APP_SCHEME, createAppProtocolHandler } = require('./protocol');
 const { classifyNavigation, isPermissionAllowed } = require('./security');
 const { shortcutFor } = require('./shortcuts');
+const { startUpdater } = require('./updater');
 const { identifiedUrlPatterns, identifyingUserAgent } = require('./user-agent');
 const {
   createStateTracker,
@@ -258,6 +260,38 @@ function createWindow() {
   return window;
 }
 
+/**
+ * Updates (E30 to E33). Packaged builds check GitHub Releases; an unpackaged
+ * run only with DTD_UPDATE_FEED set, a generic update server for testing the
+ * update path locally. The game hears of a downloaded update through the
+ * preload and may ask to install it at once; the request is taken only from
+ * the app's own page.
+ */
+function setUpUpdates(getWindow) {
+  const feedUrl = process.env.DTD_UPDATE_FEED || undefined;
+  if (!app.isPackaged && !feedUrl) return;
+
+  const updater = startUpdater({
+    autoUpdater,
+    log,
+    feedUrl,
+    onReady: (update) => getWindow()?.webContents.send('desktop:update-ready', update),
+  });
+
+  // A reloaded page has a fresh preload; tell it again.
+  getWindow()?.webContents.on('did-finish-load', () => {
+    if (updater.ready) getWindow()?.webContents.send('desktop:update-ready', updater.ready);
+  });
+
+  ipcMain.on('desktop:install-update', (event) => {
+    const from = event.senderFrame?.url ?? '';
+    if (classifyNavigation(from, appOrigin) !== 'allow' || !updater.ready) return;
+    log.info(`[updater] installing ${updater.ready.version} at the player's request`);
+    // Silent install, then start the new version.
+    autoUpdater.quitAndInstall(true, true);
+  });
+}
+
 if (!app.requestSingleInstanceLock()) {
   // A copy is already running; it brings itself to the front (second-instance).
   app.quit();
@@ -305,6 +339,7 @@ if (!app.requestSingleInstanceLock()) {
     );
 
     mainWindow = createWindow();
+    setUpUpdates(() => mainWindow);
 
     // Which GPU draws belongs in every performance report.
     app
