@@ -63,7 +63,7 @@ Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
       Anforderungen E1 bis E44 stehen (2026-09-18), Reihenfolge und Abnahme im Plan.
 - [ ] **H13** Straßen parallel zu den Tiles laden, kleinere Box.
 - [ ] **H14** Raumindex für `findNearestStreetPoint`.
-- [ ] **H15** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
+- [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
       plus Knopf "In der Desktop-App öffnen" in der Web-Version. Erst nach dem ersten Desktop-Release, geteilte Links
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
 

@@ -406,7 +406,7 @@ liest.
 - Telemetrie und Crash-Upload
 - Steam und itch.io (dort erwartet man "klicken, spielen", das beißt sich mit dem
   eigenen Token)
-- Deep-Link in die App (TODO H15), vorerst. Skizze: der Installer registriert ein
+- Deep-Link in die App (TODO H16), vorerst. Skizze: der Installer registriert ein
   Schema wie `threedtd://open?l=...&s=...` (electron-builder `protocols`; `3dtd://`
   geht nicht, ein Schema muss mit einem Buchstaben beginnen). Der Link kommt beim
   Start über `process.argv` oder bei laufender App über `second-instance`; der
