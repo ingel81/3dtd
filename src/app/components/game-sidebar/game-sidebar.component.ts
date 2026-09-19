@@ -20,6 +20,7 @@ import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
 import { openAttributionsDialog } from '../attributions-dialog/open-attributions-dialog';
+import { WhatsNewService } from '../../services/onboarding/whats-new.service';
 import { openHotkeyHelpDialog } from '../hotkey-help-dialog/open-hotkey-help-dialog';
 import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
@@ -66,6 +67,7 @@ export class GameSidebarComponent implements OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
+  private readonly whatsNew = inject(WhatsNewService);
   private readonly onboarding = inject(OnboardingService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
 
@@ -137,5 +139,10 @@ export class GameSidebarComponent implements OnDestroy {
 
   openAttributions(): void {
     void openAttributionsDialog(this.dialog);
+  }
+
+  /** The version in the footer opens "What's new" with every release */
+  openWhatsNew(): void {
+    this.whatsNew.open();
   }
 }

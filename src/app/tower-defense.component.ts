@@ -10,6 +10,8 @@ import {
   signal,
   HostListener,
   ChangeDetectionStrategy,
+  effect,
+  untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
@@ -105,6 +107,7 @@ import { BossIntroService } from './services/boss-intro.service';
 import { ReplayService } from './services/replay.service';
 import { ReplayBarComponent } from './components/replay-bar/replay-bar.component';
 import { OnboardingService } from './services/onboarding/onboarding.service';
+import { WhatsNewService } from './services/onboarding/whats-new.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
@@ -439,6 +442,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.facade.initEffects(this);
+
+    // "What's new" once after an update, when the game is up: not over the
+    // loading screen, an error or the token dialog
+    const whatsNew = inject(WhatsNewService);
+    let whatsNewChecked = false;
+    effect(() => {
+      if (whatsNewChecked || this.loading() || this.error() || this.awaitingCredentials()) return;
+      whatsNewChecked = true;
+      untracked(() => whatsNew.showAfterUpdate());
+    });
   }
 
   async ngAfterViewInit(): Promise<void> {
