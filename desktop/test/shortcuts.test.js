@@ -12,6 +12,14 @@ describe('shortcutFor', () => {
     assert.equal(shortcutFor(key('F12')), 'toggle-devtools');
   });
 
+  it('opens the log folder on Ctrl+Shift+L', () => {
+    assert.equal(shortcutFor(key('L', { control: true, shift: true })), 'open-logs');
+    assert.equal(shortcutFor(key('l', { control: true, shift: true })), 'open-logs');
+    assert.equal(shortcutFor(key('l', { control: true })), null);
+    assert.equal(shortcutFor(key('L', { shift: true })), null);
+    assert.equal(shortcutFor(key('L', { control: true, shift: true, alt: true })), null);
+  });
+
   it('leaves every other key to the game', () => {
     for (const name of ['Escape', 'r', 'F5', ' ', '1', 'Tab']) assert.equal(shortcutFor(key(name)), null, name);
     assert.equal(shortcutFor(key('F11', { control: true })), null);
