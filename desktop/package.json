@@ -1,0 +1,29 @@
+{
+  "name": "3dtd",
+  "productName": "3DTD",
+  "description": "Tower defense on photorealistic 3D tiles",
+  "author": "ingel81",
+  "license": "AGPL-3.0-only",
+  "private": true,
+  "main": "src/main.js",
+  "scripts": {
+    "dev": "concurrently -k -n web,app \"npm --prefix .. start\" \"wait-on http://localhost:4200 && electron . --dev\"",
+    "start": "npm run web:build && electron .",
+    "web:build": "npm --prefix .. run build && node scripts/copy-web.js",
+    "dist": "npm run web:build && electron-builder --config electron-builder.config.js --publish never",
+    "test": "node --test \"test/**/*.test.js\""
+  },
+  "dependencies": {
+    "electron-log": "5.4.4",
+    "electron-updater": "6.8.9"
+  },
+  "devDependencies": {
+    "concurrently": "10.0.5",
+    "electron": "44.4.2",
+    "electron-builder": "26.15.3",
+    "wait-on": "9.1.0"
+  },
+  "allowScripts": {
+    "electron-winstaller": false
+  }
+}
