@@ -29,6 +29,8 @@ function startUpdater({ autoUpdater, log, onReady, feedUrl }) {
   autoUpdater.logger = log;
   autoUpdater.autoDownload = true;
   autoUpdater.autoInstallOnAppQuit = true;
+  // The installer is a full NSIS package, never a web installer
+  autoUpdater.disableWebInstaller = true;
   if (feedUrl) {
     autoUpdater.forceDevUpdateConfig = true;
     autoUpdater.setFeedURL({ provider: 'generic', url: feedUrl });
