@@ -14,17 +14,18 @@ class TestGameObject extends GameObject {
 }
 
 /** AudioComponent with a loop sound and a stubbed SpatialAudioManager handing out `handle`. */
-function createAudio(handle: string | null) {
+function createAudio(handle: number | null) {
   return createAudioWith(() => Promise.resolve(handle));
 }
 
-function createAudioWith(createLoop: () => Promise<string | null>) {
+function createAudioWith(createLoop: () => Promise<number | null>) {
   const spatial = {
     registerSound: vi.fn(),
     geoToLocalPosition: vi.fn((_lat: number, _lon: number, _h: number, target?: Vector3) => target ?? new Vector3()),
     createLoop: vi.fn(createLoop),
     stopLoop: vi.fn(),
-    updateLoopPosition: vi.fn(),
+    // True: the loop plays; see the waiting-loop test for false
+    updateLoopPosition: vi.fn((_handle: number, _position: Vector3) => true),
     playAtGeo: vi.fn(() => Promise.resolve(null)),
   };
   const sink: LoopFlagSink = { hasAudioLoops: false };
@@ -36,7 +37,7 @@ function createAudioWith(createLoop: () => Promise<string | null>) {
 
 describe('AudioComponent loop flag', () => {
   it('rises once the async loop handle arrives and falls on stop', async () => {
-    const { audio, sink, spatial } = createAudio('loop_1');
+    const { audio, sink, spatial } = createAudio(1);
     const pending = audio.play('moving', true);
     expect(sink.hasAudioLoops).toBe(false); // createLoop has not resolved yet
     await pending;
@@ -58,7 +59,7 @@ describe('AudioComponent loop flag', () => {
   });
 
   it('moves its loop through one vector of its own, none per update', async () => {
-    const { audio, spatial } = createAudio('loop_1');
+    const { audio, spatial } = createAudio(1);
     await audio.play('moving', true);
     audio.update(16);
     audio.update(16);
@@ -68,13 +69,27 @@ describe('AudioComponent loop flag', () => {
     expect(second).toBe(first);
   });
 
+  it('moves a loop that waits only every third sub-step', async () => {
+    const { audio, spatial } = createAudio(1);
+    spatial.updateLoopPosition.mockReturnValue(false);
+    await audio.play('moving', true);
+
+    for (let i = 0; i < 6; i++) audio.update(16);
+    expect(spatial.updateLoopPosition).toHaveBeenCalledTimes(2);
+
+    // Once it plays, every sub-step
+    spatial.updateLoopPosition.mockReturnValue(true);
+    for (let i = 0; i < 3; i++) audio.update(16);
+    expect(spatial.updateLoopPosition).toHaveBeenCalledTimes(5);
+  });
+
   it('falls on stopAll and on destroy', async () => {
-    const a = createAudio('loop_1');
+    const a = createAudio(1);
     await a.audio.play('moving', true);
     a.audio.stopAll();
     expect(a.sink.hasAudioLoops).toBe(false);
 
-    const b = createAudio('loop_2');
+    const b = createAudio(2);
     await b.audio.play('moving', true);
     b.audio.onDestroy();
     expect(b.sink.hasAudioLoops).toBe(false);
@@ -90,49 +105,49 @@ function deferred<T>() {
 
 describe('AudioComponent loop that resolves after its owner let go', () => {
   it('stops the loop when the component is destroyed while createLoop is pending', async () => {
-    const loop = deferred<string | null>();
+    const loop = deferred<number | null>();
     const { audio, sink, spatial } = createAudioWith(() => loop.promise);
 
     const pending = audio.play('moving', true);
     audio.onDestroy();
-    loop.resolve('loop_1');
+    loop.resolve(1);
     await pending;
 
-    expect(spatial.stopLoop).toHaveBeenCalledWith('loop_1');
+    expect(spatial.stopLoop).toHaveBeenCalledWith(1);
     expect(sink.hasAudioLoops).toBe(false);
     audio.update(16);
     expect(spatial.updateLoopPosition).not.toHaveBeenCalled();
   });
 
   it('stops the loop when stop() ran while createLoop was pending', async () => {
-    const loop = deferred<string | null>();
+    const loop = deferred<number | null>();
     const { audio, sink, spatial } = createAudioWith(() => loop.promise);
 
     const pending = audio.play('moving', true);
     audio.stop('moving');
-    loop.resolve('loop_1');
+    loop.resolve(1);
     await pending;
 
-    expect(spatial.stopLoop).toHaveBeenCalledWith('loop_1');
+    expect(spatial.stopLoop).toHaveBeenCalledWith(1);
     expect(sink.hasAudioLoops).toBe(false);
   });
 
   it('keeps only the newer of two overlapping plays', async () => {
-    const loops = [deferred<string | null>(), deferred<string | null>()];
+    const loops = [deferred<number | null>(), deferred<number | null>()];
     let call = 0;
     const { audio, sink, spatial } = createAudioWith(() => loops[call++].promise);
 
     const first = audio.play('moving', true);
     const second = audio.play('moving', true);
-    loops[0].resolve('loop_1');
-    loops[1].resolve('loop_2');
+    loops[0].resolve(1);
+    loops[1].resolve(2);
     await Promise.all([first, second]);
 
     expect(spatial.stopLoop).toHaveBeenCalledTimes(1);
-    expect(spatial.stopLoop).toHaveBeenCalledWith('loop_1');
+    expect(spatial.stopLoop).toHaveBeenCalledWith(1);
     expect(sink.hasAudioLoops).toBe(true);
 
     audio.stop('moving');
-    expect(spatial.stopLoop).toHaveBeenLastCalledWith('loop_2');
+    expect(spatial.stopLoop).toHaveBeenLastCalledWith(2);
   });
 });

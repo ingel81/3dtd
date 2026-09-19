@@ -144,9 +144,9 @@ describe('AudioService nuclear strike siren', () => {
   const siren = GAME_SOUNDS.nuclearStrike.warning;
   const TARGET = { lat: 48, lon: 9, height: 310 };
 
-  function setup(loopArrives?: () => Promise<string | null>) {
+  function setup(loopArrives?: () => Promise<number | null>) {
     let handles = 0;
-    const arrives = loopArrives ?? (() => Promise.resolve(`loop_${++handles}`));
+    const arrives = loopArrives ?? (() => Promise.resolve(++handles));
     const eventBus = new GameEventBus();
     const spatialAudio = {
       registerSound: vi.fn(),
@@ -197,7 +197,7 @@ describe('AudioService nuclear strike siren', () => {
     used('nuclear-strike', 1);
     await settle();
     impact(1);
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[1]]);
     expect(spatialAudio.stopLoop.mock.invocationCallOrder[0])
       .toBeLessThan(spatialAudio.playAtGeo.mock.invocationCallOrder[0]);
     service.destroy();
@@ -209,22 +209,22 @@ describe('AudioService nuclear strike siren', () => {
     used('nuclear-strike', 2);
     await settle();
     impact(2);
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_2']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[2]]);
     service.destroy();
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_2'], ['loop_1']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[2], [1]]);
   });
 
   it('stops a siren whose loop arrives after the strike landed', async () => {
-    let arrive: (handle: string) => void = () => undefined;
+    let arrive: (handle: number) => void = () => undefined;
     const { spatialAudio, service, used, impact, settle } = setup(
-      () => new Promise<string | null>((resolve) => (arrive = resolve)),
+      () => new Promise<number | null>((resolve) => (arrive = resolve)),
     );
     used('nuclear-strike', 1);
     impact(1);
     expect(spatialAudio.stopLoop).not.toHaveBeenCalled();
-    arrive('late');
+    arrive(77); // a loop that arrives after the impact
     await settle();
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['late']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[77]]);
     service.destroy();
   });
 
@@ -233,12 +233,12 @@ describe('AudioService nuclear strike siren', () => {
     used('nuclear-strike', 1);
     await settle();
     eventBus.emit({ type: 'game:reset' });
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[1]]);
 
     used('nuclear-strike', 2);
     await settle();
     service.clearAbilitySounds();
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1'], ['loop_2']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[1], [2]]);
     service.destroy();
   });
 
@@ -269,9 +269,9 @@ describe('AudioService orbital laser burn', () => {
       registerSound: vi.fn(),
       playAtGeo: vi.fn(() => Promise.resolve(null)),
       geoToLocalPosition: vi.fn((lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat)),
-      createLoop: vi.fn((_soundId: string, _position: Vector3) => Promise.resolve(`loop_${++handles}`)),
+      createLoop: vi.fn((_soundId: string, _position: Vector3) => Promise.resolve(++handles)),
       stopLoop: vi.fn(),
-      updateLoopPosition: vi.fn((_handle: string, position: Vector3) => {
+      updateLoopPosition: vi.fn((_handle: number, position: Vector3) => {
         moves.push(position.clone());
       }),
       setLoopVolume: vi.fn(),
@@ -350,7 +350,7 @@ describe('AudioService orbital laser burn', () => {
     expect(spatialAudio.stopLoop).not.toHaveBeenCalled();
 
     run(burn.fadeOutMs);
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[1]]);
     service.destroy();
     expect(spatialAudio.stopLoop).toHaveBeenCalledTimes(1);
   });
@@ -371,14 +371,14 @@ describe('AudioService orbital laser burn', () => {
     impact();
     await settle();
     eventBus.emit({ type: 'game:reset' });
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[1]]);
     run(1000);
     expect(spatialAudio.updateLoopPosition).not.toHaveBeenCalled();
 
     impact(PATH, 2);
     await settle();
     service.clearAbilitySounds();
-    expect(spatialAudio.stopLoop.mock.calls).toEqual([['loop_1'], ['loop_2']]);
+    expect(spatialAudio.stopLoop.mock.calls).toEqual([[1], [2]]);
     service.destroy();
   });
 });
@@ -407,7 +407,7 @@ describe('AudioService nuclear strike missile', () => {
       geoToLocalPosition: vi.fn((lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat)),
       createLoop: vi.fn((soundId: string, _position: Vector3, _config?: object) => Promise.resolve(`${soundId}_${++handles}`)),
       stopLoop: vi.fn(),
-      updateLoopPosition: vi.fn((_handle: string, position: Vector3) => {
+      updateLoopPosition: vi.fn((_handle: number, position: Vector3) => {
         moves.push(position.clone());
       }),
       setLoopVolume: vi.fn(),
@@ -556,7 +556,7 @@ describe('AudioService nuclear strike missile', () => {
     used(2);
     await settle();
     const [first, second] = spatialAudio.createLoop.mock.results
-      .map((result) => result.value as Promise<string>)
+      .map((result) => result.value as Promise<number>)
       .filter((_, k) => spatialAudio.createLoop.mock.calls[k][0] === launchSounds.engine.id);
     impact(2);
     expect(engineStops()).toEqual([await second]);
