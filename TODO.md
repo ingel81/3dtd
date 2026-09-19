@@ -59,7 +59,8 @@ Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
 - [ ] **H8** Bloom nur für ausgewählte Objekte (Render-Layers, zweiter Composer).
 - [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px,
       `aria-label` an allen Icon-Buttons.
-- [ ] **H10** Electron-Desktop-Build ([ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md)).
+- [ ] **H10** Electron-Desktop-Build mit Installer und Auto-Update ([ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md)).
+      Anforderungen E1 bis E44 stehen (2026-09-18), Reihenfolge und Abnahme im Plan.
 - [ ] **H13** Straßen parallel zu den Tiles laden, kleinere Box.
 - [ ] **H14** Raumindex für `findNearestStreetPoint`.
 
