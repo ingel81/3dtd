@@ -17,13 +17,19 @@ describe('isFatalLoadFailure', () => {
 });
 
 describe('errorPageHtml', () => {
-  const content = { heading: 'The game stopped', detail: 'renderer crashed, exit code 5', retryUrl: 'app://app/?l=1,2&s=3,4' };
+  const content = {
+    heading: 'The game stopped',
+    detail: 'renderer crashed, exit code 5',
+    retryUrl: 'app://app/?l=1,2&s=3,4',
+    logDir: 'C:\\Users\\player\\AppData\\Roaming\\3DTD\\logs',
+  };
 
   it('shows heading, detail and a link back to the game', () => {
     const html = errorPageHtml(content);
     assert.ok(html.includes('<h1>The game stopped</h1>'));
     assert.ok(html.includes('<code>renderer crashed, exit code 5</code>'));
     assert.ok(html.includes('<a href="app://app/?l=1,2&amp;s=3,4">Reload</a>'));
+    assert.ok(html.includes('AppData\\Roaming\\3DTD\\logs; Ctrl+Shift+L opens the folder.'));
   });
 
   it('escapes what comes from outside', () => {
@@ -42,7 +48,7 @@ describe('errorPageHtml', () => {
 
 describe('errorPageUrl', () => {
   it('is a data URL that decodes to the page', () => {
-    const content = { heading: 'H', detail: 'D', retryUrl: 'app://app/' };
+    const content = { heading: 'H', detail: 'D', retryUrl: 'app://app/', logDir: 'L' };
     const url = errorPageUrl(content);
     assert.ok(url.startsWith('data:text/html;charset=utf-8,'));
     assert.equal(decodeURIComponent(url.slice('data:text/html;charset=utf-8,'.length)), errorPageHtml(content));

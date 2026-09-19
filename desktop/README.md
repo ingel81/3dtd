@@ -28,6 +28,7 @@ src/security.js             navigation and permission rules
 src/preload.js              window.desktop, the only bridge to the game
 src/downloads.js            where and under which name downloads are saved
 src/error-page.js           page shown when loading fails or the renderer dies
+src/log.js                  log lines, key masking, repeats, GPU line
 src/shortcuts.js            F11 fullscreen, F12 DevTools, nothing else
 src/window-state.js         size, position, maximized, fullscreen across starts
 src/user-agent.js           identifies the app to OpenStreetMap and Wikidata
@@ -41,6 +42,9 @@ test/                       node:test suites
 
 ## Things to know
 
+- **Log file:** `%APPDATA%\3DTD\logs\main.log` (rotated at 5 MB into `main.old.log`).
+  Ctrl+Shift+L opens the folder, F12 the DevTools. Keys and tokens in URLs are masked
+  before a line is written, so the file can go into a public issue.
 - **No keys in the installer.** `copy-web.js` reads `cesiumIonToken` and
   `googleMapsApiKey` from `src/environments/environment.ts` and
   `environment.prod.ts` and stops when one of those values appears in the build.

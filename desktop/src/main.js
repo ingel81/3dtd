@@ -8,13 +8,16 @@
  * does not know which of the two it runs in.
  */
 
+const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { existsSync } = require('node:fs');
+const { existsSync, mkdirSync } = require('node:fs');
 const { app, BrowserWindow, Menu, Notification, nativeTheme, protocol, screen, session, shell } = require('electron');
+const log = require('electron-log/main');
 const { APP_ID } = require('./app-id');
 const { uniqueDownloadPath } = require('./downloads');
 const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
+const { MAX_LOG_BYTES, createRepeatFilter, describeGpus, maskValue, rendererLine } = require('./log');
 const { APP_ORIGIN, APP_SCHEME, createAppProtocolHandler } = require('./protocol');
 const { classifyNavigation, isPermissionAllowed } = require('./security');
 const { shortcutFor } = require('./shortcuts');
@@ -35,6 +38,25 @@ const webRoot = path.join(__dirname, '..', 'app');
 // Packaged builds carry the version of the root package.json (see
 // electron-builder.config.js); unpackaged runs read it from there directly.
 const version = app.isPackaged ? app.getVersion() : require('../../package.json').version;
+
+/** %APPDATA%\3DTD\logs; main.log and, after rotation, main.old.log. */
+const logsDir = path.join(app.getPath('userData'), 'logs');
+
+/**
+ * Everything the main process logs, console included, goes to the file,
+ * through maskSecrets on the way (see log.js). The page's warnings and
+ * errors are added in logPageMessages().
+ */
+function setUpLogging() {
+  log.transports.file.resolvePathFn = () => path.join(logsDir, 'main.log');
+  log.transports.file.maxSize = MAX_LOG_BYTES;
+  log.transports.file.level = 'info';
+  log.transports.console.level = app.isPackaged ? false : 'info';
+  log.hooks.push((message) => ({ ...message, data: message.data.map(maskValue) }));
+  log.errorHandler.startCatching({ showDialog: false });
+  Object.assign(console, log.functions);
+}
+setUpLogging();
 
 /** Resizing and moving fire continuously; write the state once things settle. */
 const WINDOW_STATE_SAVE_DELAY_MS = 500;
@@ -78,7 +100,10 @@ function showErrorPages(contents) {
   contents.on('did-navigate', remember);
   // The game moves between places with history.replaceState (UrlLocationService).
   contents.on('did-navigate-in-page', remember);
-  const show = (heading, detail) => void contents.loadURL(errorPageUrl({ heading, detail, retryUrl: lastAppUrl }));
+  const show = (heading, detail) => {
+    log.error(`[error page] ${heading}: ${detail}`);
+    void contents.loadURL(errorPageUrl({ heading, detail, retryUrl: lastAppUrl, logDir: logsDir }));
+  };
 
   contents.on('did-fail-load', (_event, errorCode, errorDescription, url, isMainFrame) => {
     if (!isFatalLoadFailure(errorCode, isMainFrame) || url.startsWith('data:')) return;
@@ -88,6 +113,17 @@ function showErrorPages(contents) {
     if (details.reason === 'clean-exit') return;
     show('The game stopped', `renderer ${details.reason}, exit code ${details.exitCode}, 3DTD ${version}`);
   });
+}
+
+/** The page's warnings and errors into the log, repeats collapsed. */
+function logPageMessages(contents) {
+  const repeats = createRepeatFilter();
+  const write = (lines) => lines.forEach((line) => log[line.level](line.text));
+  contents.on('console-message', (event) => {
+    const line = rendererLine(event);
+    if (line) write(repeats.accept(line));
+  });
+  contents.once('destroyed', () => write(repeats.flush()));
 }
 
 /**
@@ -132,6 +168,10 @@ function handleShortcuts(window) {
     event.preventDefault();
     if (action === 'toggle-fullscreen') window.setFullScreen(!window.isFullScreen());
     if (action === 'toggle-devtools') window.webContents.toggleDevTools();
+    if (action === 'open-logs') {
+      mkdirSync(logsDir, { recursive: true });
+      void shell.openPath(logsDir);
+    }
   });
 }
 
@@ -195,6 +235,7 @@ function createWindow() {
 
   hardenContents(window.webContents);
   showErrorPages(window.webContents);
+  logPageMessages(window.webContents);
   lockZoom(window.webContents);
   handleShortcuts(window);
   // Tracking starts once the window has reached its start state. On the way
@@ -222,6 +263,15 @@ if (!app.requestSingleInstanceLock()) {
   app.quit();
 } else {
   let mainWindow = null;
+
+  log.info(
+    `3DTD ${version} starting (${isDev ? 'dev server' : 'app://'}), Electron ${process.versions.electron}, ` +
+      `Chrome ${process.versions.chrome}, Windows ${os.release()}`
+  );
+  app.on('child-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit') return;
+    log.warn(`[process] ${details.type}${details.name ? ` (${details.name})` : ''} ${details.reason}, exit code ${details.exitCode}`);
+  });
 
   app.on('second-instance', () => {
     if (!mainWindow || mainWindow.isDestroyed()) return;
@@ -255,6 +305,12 @@ if (!app.requestSingleInstanceLock()) {
     );
 
     mainWindow = createWindow();
+
+    // Which GPU draws belongs in every performance report.
+    app
+      .getGPUInfo('complete')
+      .then((info) => log.info(describeGpus(info)))
+      .catch((error) => log.warn('[gpu] no GPU info:', error));
   });
 
   app.on('window-all-closed', () => app.quit());

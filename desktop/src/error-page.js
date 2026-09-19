@@ -18,7 +18,7 @@ function isFatalLoadFailure(errorCode, isMainFrame) {
 const escapeHtml = (text) =>
   String(text).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
-function errorPageHtml({ heading, detail, retryUrl }) {
+function errorPageHtml({ heading, detail, retryUrl, logDir }) {
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -33,6 +33,7 @@ function errorPageHtml({ heading, detail, retryUrl }) {
   main { max-width: 34rem; padding: 2rem; }
   h1 { font-size: 1.4rem; margin: 0 0 0.75rem; color: #c2a055; }
   p { margin: 0 0 1rem; }
+  p.log { margin: 1rem 0 0; font-size: 0.85rem; color: #b6c0b3; }
   code { display: block; padding: 0.6rem 0.8rem; background: #1a201c; border-radius: 4px;
     font-size: 0.85rem; color: #b6c0b3; overflow-wrap: anywhere; }
   a { display: inline-block; margin-top: 0.5rem; padding: 0.5rem 1.2rem; border-radius: 4px;
@@ -44,6 +45,7 @@ function errorPageHtml({ heading, detail, retryUrl }) {
   <h1>${escapeHtml(heading)}</h1>
   <p>Reloading usually helps. If it keeps happening, please open an issue on GitHub with what you did and this line:</p>
   <code>${escapeHtml(detail)}</code>
+  <p class="log">The log file is in ${escapeHtml(logDir)}; Ctrl+Shift+L opens the folder.</p>
   <a href="${escapeHtml(retryUrl)}">Reload</a>
 </main>
 </body>
