@@ -175,7 +175,8 @@ Das `+ 0.5` ist Texel-Center-Sampling (NearestFilter).
   freigegebenen Typen aus dem Asset-Cache neu und tauscht die Textur im Material, bevor ein
   Frame zeichnet (Listener aus `ThreeTilesEngine`, er läuft nach dem von three). Das kostet
   die Bake-Zeit dieser Typen; vor der Blender-Runde vom 2026-09-13 (19 Typen, 264 MB VAT)
-  waren das in Node rund 5 s.
+  waren das in Node rund 5 s. Die ersetzte VAT-Textur fällt nur weg
+  (`EnemyInstanceManager.replaceVATAfterContextLoss`), `dispose()` ruft niemand auf ihr.
 - Einen zweiten Upload gibt es sonst nicht: Nur `createPositionTexture` setzt `needsUpdate`.
   Frames, Tints, Sichtbarkeit und `clear()` fassen die Textur nicht an (Spec), ein zweites
   `createPool` für denselben Typ wird ignoriert. Pools entstehen nur beim Bake; von außen

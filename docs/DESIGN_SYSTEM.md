@@ -573,6 +573,7 @@ Sieben kurze Tipps in der Context-Hint-Box, entlang des Spielablaufs: Tower baue
 - Nicht über Ladescreen, Token-Screen, Fehler, Intro-Flug, Game Over, Photo Mode und Replay
 - Die Tipp-Box sitzt 56px über der Unterkante statt 20px wie die Build-Hinweise: oberhalb des Bands der Offscreen-Pfeile (26px vom Rand, Chips bis 26px), damit kein Pfeil darunter verschwindet
 - "Tips" links im Sidebar-Footer startet die Tipps von vorn, ohne die Schritte, die das laufende Spiel schon getan hat (ohne Skips): in Welle 12 kommt nicht "Build a tower". Hat das Spiel alle sieben getan, kommt die ganze Runde ab 1/7. Neues Spiel oder Reload setzen den gespeicherten Stand nicht zurück, nur den Spielfortschritt
+  Grenzen: "Tips" kennt nur, was der Dienst in diesem Spiel über Events gesehen hat. Der Forschungs-Cheat sendet kein `research:started`; wer cheatet, ohne vorher selbst eine Forschung gestartet zu haben, bekommt nach "Tips" wieder "Start a research" (wenn ein Center steht). Wartet der nächste offene Schritt noch auf seinen Moment (während Welle 1, oder nach gestarteter Forschung ohne erforschte Fähigkeit), erscheint nach dem Klick zunächst kein Tipp.
 
 ### Damage-vs-Armor-Dialog
 

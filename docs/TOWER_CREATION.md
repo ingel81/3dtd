@@ -995,8 +995,16 @@ steht oder über einem Abbruch hängt (Wand und Abbruch in den Regeln oben):
   [LOS_PIPELINE.md](LOS_PIPELINE.md)).
 - **Grenzen der Stützen:** Sie setzen voraus, dass die Fassade unter der Dachkante steht; unter
   einem vorkragenden Dach oder vor einem zurückgesetzten Geschoss kann ein Kragstein vor der
-  Fassade frei enden. Liegt der Grund hinter der Kante höchstens `MAX_DROP` tiefer (Balkon,
-  niedrige Terrasse), reicht der Sockel bis zu ihm hinab und braucht dort keine Stütze.
+  Fassade frei enden; liegt die Fassade zurück, hängt ein Kragstein mit flachem Rücken sichtbar
+  in der Luft. Liegt der Grund hinter der Kante höchstens `MAX_DROP` tiefer (Balkon,
+  niedrige Terrasse), reicht der Sockel bis zu ihm hinab und braucht dort keine Stütze. Eine
+  Probe ohne Treffer zählt als Überhang: Ein Loch im Mesh auf dem äußeren Ring kann einen
+  Kragstein setzen, wo dahinter noch Dach ist (abgeleitet, nicht beobachtet). Die Stirn ist
+  flach, die Wand rund: Bei einem seitlich versetzten Kragstein liegt die innere Ecke der Stirn
+  bis etwa 0,5 m hinter der Wand, unter der Bodenfläche des Sockels. Liegen Mitte und innerer
+  Ring eben (flaches Dach), probt die Bauvorschau den äußeren Ring erst, wenn der Cursor ruht
+  (`settleFootprint`); Sockel an der Kante und Kragsteine erscheinen dann erst. Der Klick setzt
+  sie immer.
 - **Grenzen von Kante und Ausschluss:** `MAX_SLOPE` misst zwischen Nachbarproben, bei den meisten
   Towern bis 2,5 m auseinander: eine senkrechte Stufe von bis zu etwa 3,75 m zählt dort noch als
   Hang, beim Research Center (Proben bis 6,25 m auseinander) bis etwa 9 m. Probenpaare, die fast

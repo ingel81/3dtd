@@ -654,6 +654,17 @@ Einstellung in `utils/boss-intro.ts`, Schleier und Titelkarte in
   (`[Camera] bossIntro.shot` mit `shot`, `clear`, `score`, `rays`). Die Suche
   sieht die Tiles, die die Ansicht des Spielers geladen hat; um ein Portal
   weit weg vom Blick können das grobe Stufen sein.
+- **Grenzen der Einstellung:** Nur Tile-Geometrie zählt; Tower, Held,
+  andere Gegner und Marker können die Sicht weiter verdecken. Die Sichtpunkte
+  liegen auf der Routenmitte, nicht auf der seitlichen Position des Bosses.
+  Die Säulenprüfung ist vorsichtig: Eine Brücke, ein Vordach oder ein Ast
+  über der Kamera verwirft den Kandidaten. In Gassen unter etwa 5 m kann die
+  Seitenprüfung (2 m frei) alle Kandidaten über der Straße verwerfen; dann
+  gewinnt eine höhere Einstellung über den Dächern oder der beste
+  Teiltreffer. Den Abstand für die Krone rechnet `portalShot` entlang der
+  Route, als liefe sie gerade: In einer Kurve steht das Portal waagerecht
+  näher, die Krone kann oben angeschnitten sein. Die Specs nutzen
+  synthetische Szenen, keine echten Tiles.
 - Solange es läuft: Kamera-Controls aus, ein laufender Schnellsprung (Pos1, N)
   und gehaltene Pan-Tasten enden, die Spieltasten warten. Die obere HUD-Spalte
   blendet aus, die Boss-Leiste bleibt dabei bestehen.

@@ -1942,9 +1942,13 @@ __corridor.snapshot()                                   // alles zum Korridor al
     Route Grid Overlay und auch ohne es (`RouteGridSelectionViz`,
     `GlobalRouteGridService.showCellSelection`).
   - Das Panel oben in der Mitte zeigt die Zahl der Zellen, nimmt eine Notiz
-    und hat Copy JSON, Clear und Done. Esc oder Done beenden den Bericht,
-    Auswahl und Notiz bleiben bis Clear, bis zu einem HQ an anderer Stelle
-    oder bis zum Neuladen.
+    und hat Copy JSON, Clear und Done. Esc (auch im Notizfeld) oder Done
+    beenden den Bericht, Auswahl und Notiz bleiben bis Clear, bis zu einem
+    HQ an anderer Stelle oder bis zum Neuladen.
+  - Grenzen: Touch ist nicht behandelt. Copy JSON liest die Zellen im
+    Hauptthread (je Zelle zwei Cover-Strahlen, eine frische Säule und
+    `explainCorridorAt` über alle Stationen); wie lange das für 100 Zellen
+    dauert, ist nicht gemessen.
 
   Copy JSON liest jede Zelle so, wie `pick` einen Klick auf ihre Mitte liest
   (`CorridorConsole.describeCells`), und legt das Ergebnis in die
@@ -2528,3 +2532,43 @@ archive/REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Towers während der Messung und der Flush vor einer Welle sind mit
   `CorridorBuild` entfallen: Der Korridor wird je Routensatz einmal gebaut
   und eingefroren (siehe "Wann gemessen und neu gebaut wird").
+- Zellhöhe, zurückgestellt (Stand 2026-09-16, im Spiel nicht aufgefallen):
+  - **Füllregel über Gitterlagen:** In der Szene "Marktplatz" (ein 4 m
+    breiter Streifen ohne Treffer) bleibt in 10 von 65 Gitterlagen eine
+    Zelle ohne Höhe: Sie liegt zwischen keinem Paar stabiler Zellen und
+    berührt keine drei. Wie viele Zellen blind bleiben, hängt von der Lage
+    des Gitters ab.
+  - **Loch zwischen Dachzellen:** Berühren eine Zelle ohne Höhe vor allem
+    stabile Zellen auf einem Dach (jenseits des Bandrands, etwa an einem
+    Knick), nimmt sie deren Median (`fillGaps`) und liegt auf dem Dach. Die
+    Paar-Regel hat dasselbe Risiko. Nicht beobachtet, nicht getestet.
+  - **Stationen ohne Tile:** In Erlenbach (Playtest 2026-09-15) blieben
+    zwei Stationen ohne Tile-Treffer, vermutlich an einer Naht zwischen
+    Tiles; sie bekommen die gröbere Stufe (Rückfall für Stationen). Der
+    User will das erst wieder aufmachen, wenn es sich häuft.
+  - **Rückfall-Sekunde:** Der Rückfall für Stationen kostet weiter rund
+    1 s Ladezeit, auch für wenige Stationen (Paris, vier Stationen): Er
+    wartet auf die gröbere Stufe und danach wieder auf die feinste (siehe
+    "Wann gemessen und neu gebaut wird", Schritt 3). Für den User ist die
+    Ladezeit billig.
+- Die Kette der Wege quer (`chainSections` in `corridor-band.ts`):
+  - Sie überbrückt Stationen ohne Weg quer, ohne Grenze für die Länge der
+    Lücke; im Berliner Snapshot verbindet sie Stationen über 14 m ohne Weg.
+    Eine Kette endet nur an Strecken ohne Zellen quer (Brücke, Tunnel,
+    Endstück).
+  - Ihre Kosten vergleicht sie der Reihe nach (`ChainCost`: Wechsel durch
+    ein Objekt, dann Meter auf Erhöhtem, dann Abstand zur OSM-Linie). Ein
+    langer erhöhter Weg, der überlappt, schlägt deshalb einen einzigen
+    Wechsel durch ein Objekt. In den Snapshots gibt es dafür kein Beispiel.
+  - Die Klemme am Rückgrat in `taperEdges` greift auch zwischen
+    überlappenden Nachbarn und lässt dort Band stehen, das der Taper
+    schneiden wollte: in den Snapshots bis 6,1 m ohne Säule (Stuttgart,
+    Station 137) und bis 4,9 m als Straße (Shibuya, Station 205), je
+    nachdem, wo die tiefste Zelle liegt.
+- Die Gegnerlinie zielt auf die Bandmitte. Jedes Auto am Rand verschiebt
+  diese Mitte, nach dem Entwurf um 0,5 bis 1 m; die Glättung (`smoothCentre`)
+  dämpft das, weg ist es nicht.
+- Auf Plätzen mit verstreuten kleinen Objekten endet das Band je Station an
+  einem anderen Objekt (Entscheidung: kein Umfließen); die Kante springt von
+  Station zu Station (Sägezahn). `cutShortBulges` nimmt kurze Ausbuchtungen
+  weg und macht das Band damit schmaler.

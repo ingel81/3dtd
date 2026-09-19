@@ -739,3 +739,9 @@ Nominatim hat strikte Rate-Limits. Der GeocodingService verwendet:
 - Debouncing (300ms) bei Suchanfragen
 - Kein Retry bei HTTP 429
 - Cache (Memory + localStorage) nur in `reverseGeocodeWithCache()` (Favoriten-Namen); `setLocation()` fragt `reverseGeocodeDetailed()` ohne Cache
+
+### Umzug im Hintergrund-Tab
+Der Fast Path wartet vor dem Umbau zwei Animation-Frames (`RelocationStatusService.painted()`), damit der Hinweis gezeichnet ist. In einem Hintergrund-Tab laufen keine Animation-Frames: Der Umbau beginnt erst, wenn der Tab wieder vorne ist, bis dahin steht der Hinweis.
+
+### Ladeschritte beim ersten Laden
+`VisualizationFacadeService` setzt "grid" auf aktuell, während "routes" noch läuft (`EngineInitializationService.setStepCurrent` hält nur einen Schritt aktuell). "routes" fällt dabei kurz auf `pending` zurück; es fehlt nichts, die Liste ordnet sich nur um.
