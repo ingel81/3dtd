@@ -171,6 +171,10 @@ describe('cell report JSON', () => {
       expect(reportUrl('https://user:secret@example.org/game?key=1')).toBe('https://example.org/game');
       expect(reportUrl('not a url')).toBe('');
     });
+
+    it('points a report from the desktop build at the web version', () => {
+      expect(reportUrl('app://app/?l=49.17327,9.26859&token=abc')).toBe('https://3dtd.sgeht.net/play/?l=49.17327,9.26859');
+    });
   });
 
   describe('corridorChanges', () => {
