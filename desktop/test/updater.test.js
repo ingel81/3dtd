@@ -3,7 +3,7 @@
 const assert = require('node:assert/strict');
 const { EventEmitter } = require('node:events');
 const { describe, it, mock } = require('node:test');
-const { CHECK_INTERVAL_MS, startUpdater } = require('../src/updater');
+const { CHECK_INTERVAL_MS, releaseNotesText, startUpdater } = require('../src/updater');
 
 function fakeUpdater(check = () => Promise.resolve(null)) {
   const updater = new EventEmitter();
@@ -56,10 +56,11 @@ describe('startUpdater', () => {
     const updater = startUpdater({ autoUpdater, log: fakeLog(), onReady });
     assert.equal(updater.ready, null);
 
-    autoUpdater.emit('update-downloaded', { version: '0.4.0', releaseNotes: 'x' });
+    const notes = ['### New', '- x'].join('\n');
+    autoUpdater.emit('update-downloaded', { version: '0.4.0', releaseNotes: notes });
     assert.equal(onReady.mock.callCount(), 1);
-    assert.deepEqual(onReady.mock.calls[0].arguments[0], { version: '0.4.0' });
-    assert.deepEqual(updater.ready, { version: '0.4.0' });
+    assert.deepEqual(onReady.mock.calls[0].arguments[0], { version: '0.4.0', notes });
+    assert.deepEqual(updater.ready, { version: '0.4.0', notes });
     updater.stop();
   });
 
@@ -85,6 +86,13 @@ describe('startUpdater', () => {
     await flush();
     assert.equal(log.warn.mock.calls[0].arguments[0], '[updater] check failed: boom');
     updater.stop();
+  });
+
+  it('reads release notes as a text or as a list per version', () => {
+    assert.equal(releaseNotesText({ version: '1', releaseNotes: 'text' }), 'text');
+    assert.equal(releaseNotesText({ version: '2', releaseNotes: [{ version: '1', note: 'a' }, { version: '2', note: 'b' }] }), 'b');
+    assert.equal(releaseNotesText({ version: '3', releaseNotes: null }), '');
+    assert.equal(releaseNotesText(undefined), '');
   });
 
   it('uses a generic feed for a local update test', () => {

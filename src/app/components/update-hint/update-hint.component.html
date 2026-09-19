@@ -5,6 +5,16 @@
       <div class="uh-text">
         <span class="uh-title">Update ready</span>
         <span class="uh-line">Version {{ u.version }} installs when you quit.</span>
+        @if (noteItems().shown.length) {
+          <ul class="uh-notes">
+            @for (item of noteItems().shown; track $index) {
+              <li>{{ item }}</li>
+            }
+            @if (noteItems().more) {
+              <li class="uh-more">and more, see What's new after the restart</li>
+            }
+          </ul>
+        }
         <span class="uh-line">Restarting now ends this game.</span>
         <span class="uh-actions">
           <button class="uh-action uh-restart" type="button" (click)="restart()">Restart now</button>

@@ -48,6 +48,24 @@
   color: var(--td-text-muted);
 }
 
+/* The first items of the release notes, in the chip's small print */
+.uh-notes {
+  margin: 4px 0 0;
+  padding-left: 14px;
+  font: 10px/13px var(--td-font-body);
+  color: var(--td-text-secondary);
+}
+
+.uh-notes li {
+  margin: 2px 0;
+}
+
+.uh-more {
+  list-style: none;
+  margin-left: -14px;
+  color: var(--td-text-muted);
+}
+
 /* Text buttons like the actions of the context hint box */
 .uh-actions {
   display: flex;

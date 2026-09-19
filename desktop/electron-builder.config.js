@@ -10,6 +10,7 @@
 
 const rootPackage = require('../package.json');
 const { APP_ID } = require('./src/app-id');
+const { changelogSection, readChangelog } = require('./scripts/changelog');
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
@@ -17,6 +18,9 @@ module.exports = {
   productName: '3DTD',
   copyright: 'Copyright © 2026 ingel81',
   extraMetadata: { version: rootPackage.version },
+  // The CHANGELOG.md section of this version: the text of the GitHub release
+  // and the release notes in latest.yml, which the update hint lists.
+  releaseInfo: { releaseNotes: changelogSection(readChangelog(), rootPackage.version) },
 
   directories: { output: 'release', buildResources: 'build' },
   files: ['src/**/*', 'app/**/*', 'package.json'],
