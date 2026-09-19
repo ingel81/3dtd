@@ -21,6 +21,12 @@ module.exports = {
   directories: { output: 'release', buildResources: 'build' },
   files: ['src/**/*', 'app/**/*', 'package.json'],
   asar: true,
+  // Next to 3DTD.exe: the game's licence and those of the libraries bundled into
+  // it (Angular's build lists them). Electron's and Chromium's come with Electron.
+  extraFiles: [
+    { from: '../LICENSE', to: 'LICENSE.txt' },
+    { from: '../dist/3DTD/3rdpartylicenses.txt', to: 'THIRD-PARTY-LICENSES.txt' },
+  ],
   // Chromium's own strings (native dialogs). The game is English; the
   // other ~50 locales are 47 MB nobody reads.
   electronLanguages: ['en-US', 'de'],

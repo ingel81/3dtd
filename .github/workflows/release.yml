@@ -1,0 +1,97 @@
+name: Desktop release
+
+# Builds the Windows installer for a version tag and puts it on a draft
+# GitHub release, with latest.yml and the blockmap for the updater. Someone
+# installs the draft, plays it and publishes it; only a published release
+# (not a pre-release) reaches the updater of installed copies.
+# See docs/ELECTRON_DESKTOP_PLAN.md (E38 to E41).
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to build, e.g. v0.4.0; it must match the version in package.json'
+        required: true
+
+concurrency:
+  group: desktop-release-${{ github.event.inputs.tag || github.ref_name }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write # create the draft release and upload to it
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          # Angular 22 needs >= 22.22.3 or >= 24.15; Node 24 also brings npm 11.
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - name: Tag matches the version
+        shell: bash
+        run: node desktop/scripts/check-version.js "$TAG"
+
+      - name: Install dependencies (game)
+        run: npm ci
+
+      # The installer ships without keys, like the web build: each player
+      # enters their own Cesium Ion token (or Google Maps key) in the game.
+      - name: Create environment files
+        shell: bash
+        run: |
+          echo "export const environment = {
+            production: false,
+            tileProvider: 'cesium' as 'cesium' | 'google',
+            googleMapsApiKey: '',
+            cesiumIonToken: '',
+            cesiumAssetId: '2275207',
+          };" > src/environments/environment.ts
+          echo "export const environment = {
+            production: true,
+            tileProvider: 'cesium' as 'cesium' | 'google',
+            googleMapsApiKey: '',
+            cesiumIonToken: '',
+            cesiumAssetId: '2275207',
+          };" > src/environments/environment.prod.ts
+
+      - name: Test the game
+        run: npx vitest run
+
+      # The app serves the build at app://app/, so no /play/ here.
+      - name: Build the game
+        run: npm run build -- --base-href=/
+
+      - name: Install dependencies (desktop)
+        working-directory: desktop
+        run: npm ci
+
+      - name: Copy the build into the app
+        working-directory: desktop
+        run: node scripts/copy-web.js
+
+      - name: Test the desktop shell
+        working-directory: desktop
+        run: npm test
+
+      - name: Build the installer and draft the release
+        working-directory: desktop
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: npx electron-builder --config electron-builder.config.js --publish always
