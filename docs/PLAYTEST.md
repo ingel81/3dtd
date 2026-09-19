@@ -34,6 +34,7 @@ Installer lokal: `cd desktop && npm run dist`, dann `desktop/release/3DTD-Setup-
 - **K8.1 SmartScreen:** den Installer aus dem ersten Release-Entwurf auf GitHub herunterladen (nicht den lokalen, der
   trägt keine Download-Markierung) und starten. Erwartung: "Der Computer wurde durch Windows geschützt", unter
   "Weitere Informationen" der Knopf "Trotzdem ausführen", danach Installation ohne Admin-Abfrage.
+  **ok (2026-09-19)**, SmartScreen kam, Installation klappt (Installer aus dem Entwurf v0.3.1).
 - **K8.2 Eine Partie in der installierten App:** Ort laden, Tower setzen, zwei Wellen. F12, Konsole: keine Zeile mit
   "Content Security Policy". Danach Ctrl+Shift+L, `main.log` öffnen: dein Token kommt darin nicht vor.
   **ok (2026-09-19)**, mit Installation per Doppelklick, Update auf 0.3.1 über den lokalen Feed und Deinstallation.
@@ -42,6 +43,10 @@ Installer lokal: `cd desktop && npm run dist`, dann `desktop/release/3DTD-Setup-
   **ok (2026-09-19)**
 - **K8.4 Hybrid-Laptop** (nur falls einer da ist): App starten, Task-Manager, Spalte "GPU-Modul" beim 3DTD-Prozess.
   Erwartung: die dedizierte GPU (E14). Die GPU-Zeile im Log (`[info] GPU: ... (active)`) nennt sie ebenfalls.
+- **K8.5 What's new** (mit K8.1, derselbe Installer): einen Ort laden. Erwartung: unten in der Sidebar steht `v0.3.1`.
+  Hat das Profil schon einen Token, öffnet sich nach dem Laden einmal "What's new" mit 0.3.1, und nach einem Neustart
+  der App nicht noch einmal. Klick auf `v0.3.1` öffnet es jederzeit. Text und Aussehen prüfen (E45).
+  **ok (2026-09-19)**: Sidebar passt, der Dialog kam, "Full changelog" öffnet.
 
 ## Eichtabelle
 
