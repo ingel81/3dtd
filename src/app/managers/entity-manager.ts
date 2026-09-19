@@ -3,6 +3,58 @@ import { IGameManager } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 
 /**
+ * An array in insertion order that callers may iterate while entries come
+ * and go. get() hands out the current array; the first change after that
+ * copies it (slice, a plain memory copy), so an array already handed out
+ * never changes under its reader: clear() and every loop that removes while
+ * it iterates rely on that.
+ *
+ * Replaces rebuilding the array with Array.from on every add and remove. In
+ * a wave enemies spawn and die every sub-step, and the rebuild over
+ * thousands of entities ran through the iterator protocol, which
+ * SpiderMonkey implements in self-hosted JS (Firefox profile 2026-09-19,
+ * 5000 enemies: 12 ms/s in Array.from, plus the garbage of each old array).
+ */
+class SnapshotList<T> {
+  private items: T[] = [];
+  private handedOut = false;
+
+  get(): T[] {
+    this.handedOut = true;
+    return this.items;
+  }
+
+  add(item: T): void {
+    this.writable().push(item);
+  }
+
+  /** Put `next` where `previous` was, keeping the order. */
+  replace(previous: T, next: T): void {
+    const index = this.items.indexOf(previous);
+    if (index < 0) this.add(next);
+    else this.writable()[index] = next;
+  }
+
+  remove(item: T): void {
+    const index = this.items.indexOf(item);
+    if (index >= 0) this.writable().splice(index, 1);
+  }
+
+  clear(): void {
+    this.items = [];
+    this.handedOut = false;
+  }
+
+  private writable(): T[] {
+    if (this.handedOut) {
+      this.items = this.items.slice();
+      this.handedOut = false;
+    }
+    return this.items;
+  }
+}
+
+/**
  * Abstract base class for all entity managers
  *
  * Implements IGameManager lifecycle interface.
@@ -12,9 +64,9 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
   protected activeEntities = new Set<T>();
   protected tilesEngine: ThreeTilesEngine | null = null;
 
-  /** Cached arrays — rebuilt only when entities change */
-  private _cachedAll: T[] | null = null;
-  private _cachedActive: T[] | null = null;
+  /** The arrays getAll() and getAllActive() hand out, kept in step with the two collections above */
+  private readonly allList = new SnapshotList<T>();
+  private readonly activeList = new SnapshotList<T>();
 
   /**
    * Initialize with ThreeTilesEngine
@@ -27,10 +79,14 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
    * Add an entity to the manager
    */
   add(entity: T): void {
+    const previous = this.entities.get(entity.id);
+    if (previous === undefined) this.allList.add(entity);
+    else if (previous !== entity) this.allList.replace(previous, entity);
     this.entities.set(entity.id, entity);
-    this.activeEntities.add(entity);
-    this._cachedAll = null;
-    this._cachedActive = null;
+    if (!this.activeEntities.has(entity)) {
+      this.activeEntities.add(entity);
+      this.activeList.add(entity);
+    }
   }
 
   /**
@@ -38,10 +94,12 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
    */
   remove(entity: T): void {
     entity.destroy();
-    this.entities.delete(entity.id);
-    this.activeEntities.delete(entity);
-    this._cachedAll = null;
-    this._cachedActive = null;
+    const stored = this.entities.get(entity.id);
+    if (stored !== undefined) {
+      this.entities.delete(entity.id);
+      this.allList.remove(stored);
+    }
+    if (this.activeEntities.delete(entity)) this.activeList.remove(entity);
   }
 
   /**
@@ -52,23 +110,16 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
   }
 
   /**
-   * Get all entities (cached, rebuilt only on add/remove)
+   * All entities in insertion order. The array does not change once handed
+   * out; add and remove work on a copy (SnapshotList).
    */
   getAll(): T[] {
-    if (this._cachedAll === null) {
-      this._cachedAll = Array.from(this.entities.values());
-    }
-    return this._cachedAll;
+    return this.allList.get();
   }
 
-  /**
-   * Get all active entities (cached, rebuilt only on add/remove)
-   */
+  /** All active entities in insertion order, same guarantee as getAll(). */
   getAllActive(): T[] {
-    if (this._cachedActive === null) {
-      this._cachedActive = Array.from(this.activeEntities);
-    }
-    return this._cachedActive;
+    return this.activeList.get();
   }
 
   /**
@@ -78,8 +129,8 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
     this.getAll().forEach((e) => this.remove(e));
     this.entities.clear();
     this.activeEntities.clear();
-    this._cachedAll = null;
-    this._cachedActive = null;
+    this.allList.clear();
+    this.activeList.clear();
   }
 
   /**
