@@ -24,7 +24,8 @@ function createAudioWith(createLoop: () => Promise<number | null>) {
     geoToLocalPosition: vi.fn((_lat: number, _lon: number, _h: number, target?: Vector3) => target ?? new Vector3()),
     createLoop: vi.fn(createLoop),
     stopLoop: vi.fn(),
-    updateLoopPosition: vi.fn(),
+    // True: the loop plays; see the waiting-loop test for false
+    updateLoopPosition: vi.fn((_handle: number, _position: Vector3) => true),
     playAtGeo: vi.fn(() => Promise.resolve(null)),
   };
   const sink: LoopFlagSink = { hasAudioLoops: false };
@@ -66,6 +67,20 @@ describe('AudioComponent loop flag', () => {
     const [first, second] = spatial.updateLoopPosition.mock.calls.map((call) => call[1]);
     expect(first).toBeInstanceOf(Vector3);
     expect(second).toBe(first);
+  });
+
+  it('moves a loop that waits only every third sub-step', async () => {
+    const { audio, spatial } = createAudio(1);
+    spatial.updateLoopPosition.mockReturnValue(false);
+    await audio.play('moving', true);
+
+    for (let i = 0; i < 6; i++) audio.update(16);
+    expect(spatial.updateLoopPosition).toHaveBeenCalledTimes(2);
+
+    // Once it plays, every sub-step
+    spatial.updateLoopPosition.mockReturnValue(true);
+    for (let i = 0; i < 3; i++) audio.update(16);
+    expect(spatial.updateLoopPosition).toHaveBeenCalledTimes(5);
   });
 
   it('falls on stopAll and on destroy', async () => {

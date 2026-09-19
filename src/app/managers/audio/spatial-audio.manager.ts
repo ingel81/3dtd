@@ -349,8 +349,9 @@ export class SpatialAudioManager {
     return this.loops.create(soundId, position, config);
   }
 
-  updateLoopPosition(handle: LoopHandle, position: Vector3): void {
-    this.loops.updatePosition(handle, position);
+  /** Move a loop, see SpatialAudioLoops.updatePosition; true while it plays. */
+  updateLoopPosition(handle: LoopHandle, position: Vector3): boolean {
+    return this.loops.updatePosition(handle, position);
   }
 
   pauseLoop(handle: LoopHandle): void {

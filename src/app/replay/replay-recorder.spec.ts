@@ -23,6 +23,7 @@ function fakeEnemy(typeId = 'zombie', lat = 0, lon = 0) {
       speedMps: 2,
       speedMultiplier: 1,
       statusEffects: [] as unknown[],
+      hasStatusEffects: false,
       getSlowMultiplier: () => 0.5,
       isSlowed: () => true,
       isPoisoned: () => false,
@@ -160,6 +161,7 @@ describe('ReplayRecorder', () => {
     const h = new Harness();
     const enemy = fakeEnemy('rat', 0.01, 0.02);
     enemy.movement.statusEffects.push({});
+    enemy.movement.hasStatusEffects = true;
     enemy.rush = { running: true };
     enemy.health.healthPercent = 0.25;
     h.enemies.push(enemy);
@@ -332,6 +334,7 @@ describe('ReplayRecorder', () => {
     const h = new Harness();
     const enemy = fakeEnemy();
     enemy.movement.statusEffects.push({});
+    enemy.movement.hasStatusEffects = true;
     enemy.movement.isSlowed = () => false;
     enemy.movement.isBurning = () => false;
     enemy.movement.isFrozen = () => true;
