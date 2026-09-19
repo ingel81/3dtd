@@ -36,8 +36,10 @@ Installer lokal: `cd desktop && npm run dist`, dann `desktop/release/3DTD-Setup-
   "Weitere Informationen" der Knopf "Trotzdem ausführen", danach Installation ohne Admin-Abfrage.
 - **K8.2 Eine Partie in der installierten App:** Ort laden, Tower setzen, zwei Wellen. F12, Konsole: keine Zeile mit
   "Content Security Policy". Danach Ctrl+Shift+L, `main.log` öffnen: dein Token kommt darin nicht vor.
+  **ok (2026-09-19)**, mit Installation per Doppelklick, Update auf 0.3.1 über den lokalen Feed und Deinstallation.
 - **K8.3 Kleines Fenster:** das Fenster auf die Mindestgröße ziehen (1024 × 600). Erwartung: Sidebar, Header und
   Schnellaktionen bleiben bedienbar, nichts überlappt so, dass ein Knopf nicht mehr erreichbar ist.
+  **ok (2026-09-19)**
 - **K8.4 Hybrid-Laptop** (nur falls einer da ist): App starten, Task-Manager, Spalte "GPU-Modul" beim 3DTD-Prozess.
   Erwartung: die dedizierte GPU (E14). Die GPU-Zeile im Log (`[info] GPU: ... (active)`) nennt sie ebenfalls.
 
