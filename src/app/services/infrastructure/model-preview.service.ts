@@ -3,6 +3,7 @@ import {
   Scene,
   PerspectiveCamera,
   Group,
+  AnimationClip,
   AnimationMixer,
   WebGLRenderer,
   SRGBColorSpace,
@@ -36,6 +37,32 @@ export interface PreviewConfig {
    * animating but skips the render + copy, since nothing could show it.
    */
   isHidden?: () => boolean;
+}
+
+/**
+ * Start the configured clip on `model` and measure the model in the clip's
+ * first frame, the pose the preview shows; the requested clip or else the
+ * first one, none without `animationName`. A fresh SkeletonUtils clone keeps
+ * stale bone world matrices until updateMatrixWorld(true): measured before
+ * it, the tank came out 88 x 194 x 139 m with its centre 43 m to the side,
+ * so the preview turned it on a wide circle out of view.
+ */
+export function measurePreviewModel(
+  model: Object3D,
+  clips: readonly AnimationClip[],
+  config: Pick<PreviewConfig, 'animationName' | 'animationTimeScale'>
+): { box: Box3; mixer: AnimationMixer | null } {
+  let mixer: AnimationMixer | null = null;
+  if (config.animationName && clips.length > 0) {
+    mixer = new AnimationMixer(model);
+    const clip = clips.find((a) => a.name === config.animationName) ?? clips[0];
+    const action = mixer.clipAction(clip);
+    action.timeScale = config.animationTimeScale ?? 1.0;
+    action.play();
+    mixer.update(0);
+  }
+  model.updateMatrixWorld(true);
+  return { box: new Box3().setFromObject(model), mixer };
 }
 
 interface PreviewInstance {
@@ -194,8 +221,9 @@ export class ModelPreviewService {
       const scale = preview.config.scale ?? 1;
       model.scale.set(scale, scale, scale);
 
-      // Calculate bounding box after scaling
-      const box = new Box3().setFromObject(model);
+      // Measure after scaling, in the pose the preview shows
+      const { box, mixer } = measurePreviewModel(model, cachedModel.animations, preview.config);
+      preview.mixer = mixer;
       const center = box.getCenter(new Vector3());
       const size = box.getSize(new Vector3());
 
@@ -235,27 +263,6 @@ export class ModelPreviewService {
         Math.cos(angle) * finalDistance
       );
       preview.camera.lookAt(0, targetY, 0);
-
-      // Setup animation if specified
-      if (preview.config.animationName && cachedModel.animations.length > 0) {
-        preview.mixer = new AnimationMixer(model);
-
-        // Find the requested animation
-        let clip = cachedModel.animations.find(
-          (a) => a.name === preview.config.animationName
-        );
-
-        // Fallback to first animation if not found
-        if (!clip && cachedModel.animations.length > 0) {
-          clip = cachedModel.animations[0];
-        }
-
-        if (clip) {
-          const action = preview.mixer.clipAction(clip);
-          action.timeScale = preview.config.animationTimeScale ?? 1.0;
-          action.play();
-        }
-      }
     } catch (error) {
       console.error(`[ModelPreview] Failed to load model: ${modelUrl}`, error);
     }

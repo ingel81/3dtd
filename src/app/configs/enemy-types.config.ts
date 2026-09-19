@@ -360,7 +360,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 5,
     previewCameraDistance: 12.5,
     previewCameraAngle: 0.12,
-    previewOffsetY: 5,
+    previewOffsetY: 0.7,
   },
 
   tank: {
@@ -474,7 +474,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 2.149,
     previewCameraDistance: 6,
     previewCameraAngle: 0.26,
-    previewOffsetY: 1.9,
+    previewOffsetY: -0.1,
   },
 
   bat: {
@@ -524,7 +524,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 0.008,
     previewCameraDistance: 7,
     previewCameraAngle: 0,
-    previewOffsetY: 1.8,
+    previewOffsetY: 0,
   },
 
   herbert: {
@@ -575,7 +575,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 1.05,
     previewCameraDistance: 3,
     previewCameraAngle: 0,
-    previewOffsetY: 0.8,
+    previewOffsetY: -0.1,
   },
 
   'zombie-soldier': {
@@ -611,7 +611,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 2.571,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
-    previewOffsetY: 2.4,
+    previewOffsetY: 0.3,
   },
 
   rat: {
@@ -641,7 +641,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 3.473,
     previewCameraDistance: 6,
     previewCameraAngle: 0,
-    previewOffsetY: -0.2,
+    previewOffsetY: 0,
   },
 
   skeleton: {
@@ -734,7 +734,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 1.901,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
-    previewOffsetY: 1,
+    previewOffsetY: 0,
   },
 
   mammoth: {
@@ -767,7 +767,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 0.882,
     previewCameraDistance: 6,
     previewCameraAngle: 0.26,
-    previewOffsetY: 1,
+    previewOffsetY: -0.3,
   },
 
   bear: {
@@ -804,7 +804,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 0.075,
     previewCameraDistance: 6,
     previewCameraAngle: 0.26,
-    previewOffsetY: 1,
+    previewOffsetY: -0.2,
   },
 
   dragon: {
@@ -840,7 +840,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 1,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
-    previewOffsetY: 3,
+    previewOffsetY: 0.6,
   },
 
   ghost: {
@@ -946,7 +946,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 2.732,
     previewCameraDistance: 6.5,
     previewCameraAngle: 0,
-    previewOffsetY: 1.9,
+    previewOffsetY: 0.1,
   },
 
   worm: {
@@ -1030,7 +1030,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 1.4,
     previewCameraDistance: 6,
     previewCameraAngle: 0.35,
-    previewOffsetY: 0.6,
+    previewOffsetY: 0.8,
   },
 
   'slime-clump': {
@@ -1063,7 +1063,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 1.2,
     previewCameraDistance: 5,
     previewCameraAngle: 0.3,
-    previewOffsetY: 0.5,
+    previewOffsetY: 0.7,
   },
 };
 

@@ -71,19 +71,23 @@ interface PreviewConfig {
 ### Zentrierung
 - **groundModel: false** (default): Modell komplett zentriert (gut für Gebäude/Türme)
 - **groundModel: true**: Modell steht auf y=0, Kamera schaut auf Körpermitte (gut für Charaktere)
-- **Box auf dem frischen Klon:** `loadModel()` misst die Box direkt nach
-  `SkeletonUtils.clone`, bevor die Welt-Matrizen der Knochen stehen. Steht im
-  Modell das SkinnedMesh vor seinen Knochen, misst `Box3.setFromObject` das
-  Skinning mit veralteten Matrizen: bei zombie_v2 2 cm statt 1,7 m hoch, die
-  Kamera zielt dann auf die Füße. Betroffen sind laut Messung (jsdom, alle
-  Gegnertypen, 2026-09-14) zombie_v2, stone-golem, penguin, herbert,
-  zombie-soldier, rat, spider, mammoth, bear, dragon, mech und wraith. Elf
-  davon haben ein `previewOffsetY` in `enemy-types.config.ts`, eingestellt
-  gegen diese Messung (zombie_v2 seit Playtest 515 mit 5 bei Skala 5, im
-  Enemy Debugger eingestellt); mech hat keine Vorschau-Werte und läuft mit
-  den Vorgaben aus `initEnemyOverrides()` (Offset 0). Die Messung zu
-  korrigieren (`model.updateMatrixWorld(true)` vor der Box) verschiebt alle
-  zwölf Vorschauen und verlangt, die elf Offsets neu einzustellen.
+- **Box in der gezeigten Pose:** `measurePreviewModel()` startet den Clip
+  (`animationName`, sonst der erste), stellt ihn auf Frame 0, ruft
+  `model.updateMatrixWorld(true)` und misst erst dann. Ein frischer
+  `SkeletonUtils.clone` hat veraltete Welt-Matrizen der Knochen; bis
+  2026-09-19 maß die Vorschau damit (TODO C11): der Tank kam auf
+  88 × 194 × 139 m mit der Mitte 43 m daneben und kreiste aus dem Bild, der
+  Pinguin 169 m daneben, zombie_v2 (Skala 5) 8 cm statt 8,5 m hoch. Die Ruhepose allein
+  reicht nicht: die Spinne steht darin 5,3 m hoch, im Laufen ist sie flach.
+  Die `previewOffsetY` in `enemy-types.config.ts` waren gegen die falsche
+  Messung eingestellt und sind so umgerechnet, dass der Blickpunkt relativ
+  zum Modell bleibt (neu = alt + alte Box-Mitte y − neue Box-Mitte y); bei
+  Tank und Pinguin, deren Vorschau kaputt war, zielt die Kamera auf die
+  Körpermitte (0). Um die Hochachse dreht jetzt jedes Modell um seine echte
+  Mitte statt um die falsche, das verschiebt die Vorschauen etwas.
+  `model-preview.service.spec.ts` misst Tank und Spinne aus den echten GLBs.
+  Tower-Vorschauen laufen ohne Clip und ohne `preserveSkeleton`; bei ihnen
+  ändert das nichts.
 
 ### Animation & Caching
 - **Alle Modelle**: Werden via `AssetManager.loadModel()` gecached und geklont
