@@ -60,7 +60,8 @@ Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
 - [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px,
       `aria-label` an allen Icon-Buttons.
 - [ ] **H10** Electron-Desktop-Build mit Installer und Auto-Update ([ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md)).
-      Anforderungen E1 bis E44 stehen (2026-09-18), Reihenfolge und Abnahme im Plan.
+      Auf Branch `electron` Schritte 1 bis 6 fertig (2026-09-19): Installer, Updates, Release-Workflow. Offen:
+      Nachtest K8 (docs/PLAYTEST.md), dann das erste Release nach Plan, Abschnitt "Reihenfolge", Punkt 7.
 - [ ] **H13** Straßen parallel zu den Tiles laden, kleinere Box.
 - [ ] **H14** Raumindex für `findNearestStreetPoint`.
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
