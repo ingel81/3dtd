@@ -229,12 +229,24 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 
 - **E35 Muss** `electron-log`: Main-Prozess vollständig, Renderer-Konsole ab Warnung
   (über `console-message`). Datei `%APPDATA%\3DTD\logs\main.log`, rotiert (Richtwert
-  5 MB, eine Vorgängerdatei).
+  5 MB, eine Vorgängerdatei). **Umgesetzt 2026-09-19** (`desktop/src/log.js`, Verdrahtung
+  in `main.js`): Startzeile mit Version, Electron, Chrome und Windows; eine Zeile mit
+  allen GPUs und der aktiven (gehört in jeden Performance-Bericht); `console` des
+  Main-Prozesses und ungefangene Fehler landen in der Datei; Abstürze von Renderer
+  und GPU-Prozess (`child-process-gone`) ebenso. Die Seite schreibt nur Warnungen und
+  Fehler, weil sie auf Info-Ebene so viel loggt ([Camera], [Corridor]), dass der
+  Anfang einer Sitzung sonst binnen Minuten herausrotiert; direkt wiederholte
+  Meldungen werden zu einer Zeile plus "repeated N times". In Electron 44 trägt das
+  `console-message`-Event die Felder selbst (`level` als Text), das alte zweite
+  Argument ist veraltet; der Smoke-Test fand das, weil zuerst keine Seiten-Zeile ankam.
 - **E36 Muss** Kein Schlüssel im Log. Werte von `access_token=` und `key=` werden vor
-  dem Schreiben maskiert. Nutzer hängen Logs öffentlich an Issues.
+  dem Schreiben maskiert. Nutzer hängen Logs öffentlich an Issues. **Umgesetzt
+  2026-09-19**: maskiert werden `access_token`, `key`, `api_key`/`apiKey`, `token`,
+  `session`, `sig`, `signature` und `Bearer`-Werte, in jeder Zeile und in Fehlern.
 - **E37 Muss** F12 öffnet die DevTools. Eine Tastenkombination öffnet den Log-Ordner
-  im Explorer; welche, wird beim Umsetzen gegen die Spieltasten
-  (`input-handler.service.ts`) abgeglichen.
+  im Explorer. **Umgesetzt 2026-09-19**: Ctrl+Shift+L; das Spiel wertet keine
+  Kombination mit Ctrl aus (`hotkey-map.ts` verwirft sie). Die Fehlerseite nennt
+  Ordner und Taste.
 
 ### Build und Release
 
@@ -336,7 +348,7 @@ desktop/                       Unterprojekt, eigene package.json ohne Version
 │   ├── user-agent.js          App-User-Agent für OSM und Wikidata (E27)
 │   ├── window-state.js        Fenster merken und wiederherstellen
 │   ├── updater.js             (Schritt 5) electron-updater, Status an den Preload
-│   └── log.js                 (Schritt 4) electron-log, Maskierung
+│   └── log.js                 Log-Zeilen, Maskierung, Wiederholungen, GPU (E35, E36)
 ├── scripts/
 │   ├── copy-web.js            dist/3DTD/browser → desktop/app/, mit Schlüssel-Sperre
 │   ├── build-guard.js         findet lokale Schlüssel im Build (E44)
@@ -376,7 +388,9 @@ liest.
    (Taste O) mit Windows-Benachrichtigung, auch im Vollbild; "Copy link" öffnet
    denselben Ort in der Web-Version; GitHub- und Attributions-Links öffnen im
    Browser
-4. Diagnose (E35 bis E37)
+4. Diagnose (E35 bis E37). **Erledigt 2026-09-19**, im Smoke-Test geprüft: Start- und
+   GPU-Zeile, maskierte Tile-URL, zusammengefasste Wiederholungen, keine Info-Zeilen,
+   Absturz im Log, Ctrl+Shift+L öffnet den Ordner, Fehlerseite nennt ihn
 5. Update und Hinweis-Komponente (E30 bis E33)
 6. Release-CI, Update-Durchlauf, README und Landing (E38 bis E43, E34)
 7. Nachtest, danach das erste Release
