@@ -46,7 +46,7 @@ Installer lokal: `cd desktop && npm run dist`, dann `desktop/release/3DTD-Setup-
 - **K8.5 What's new** (mit K8.1, derselbe Installer): einen Ort laden. Erwartung: unten in der Sidebar steht `v0.3.1`.
   Hat das Profil schon einen Token, öffnet sich nach dem Laden einmal "What's new" mit 0.3.1, und nach einem Neustart
   der App nicht noch einmal. Klick auf `v0.3.1` öffnet es jederzeit. Text und Aussehen prüfen (E45).
-  **ok (2026-09-19)**: Sidebar passt, der Dialog kam, "Full changelog" öffnet.
+  **ok (2026-09-19)**: Sidebar passt, der Dialog kam, "Full changelog" öffnet GitHub (404, bis `CHANGELOG.md` auf `main` liegt).
 
 ## Eichtabelle
 
