@@ -38,6 +38,11 @@ module.exports = {
     artifactName: '${productName}-Setup-${version}.${ext}',
   },
 
+  // Where electron-updater looks for new versions: the releases of the
+  // public repository, no token needed. Written into the app as
+  // app-update.yml; `--publish never` builds still carry it.
+  publish: [{ provider: 'github', owner: 'ingel81', repo: '3dtd' }],
+
   electronFuses: {
     runAsNode: false,
     enableNodeOptionsEnvironmentVariable: false,
