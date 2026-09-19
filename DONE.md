@@ -6,6 +6,11 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-19
 
+- [x] **H10 Electron-Desktop-Build** (auf Zuruf verschoben): Windows-App mit NSIS-Installer und Auto-Update aus GitHub
+      Releases, Plan E1 bis E46 in [ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md). Erstes Release **v0.3.1**
+      am 2026-09-19 veröffentlicht; dazu Changelog für Spieler mit "What's new" (E45), Web und Landing deployen mit dem
+      Release statt bei jedem Push (E46), Ablauf `/release`. Nachtests K8.1 bis K8.3 und K8.5 ok, K8.4 (Hybrid-Laptop)
+      optional offen in `docs/PLAYTEST.md`.
 - [x] **A5 Merge-Ablauf** (auf Zuruf verschoben): `next` ist als v0.3.0 auf `main` (`7675a23d`, 2026-09-17), `main`
       und `next` stehen auf GitHub auf diesem Commit; am 2026-09-19 mit `git ls-remote` festgestellt, TODO führte den
       Punkt noch als offen. Die Einzelschritte (Build aus frischem Klon, Gate, Rückweg-Tag) sind hier nicht belegt.

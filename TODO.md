@@ -9,7 +9,7 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-19, Branch `electron`. In Arbeit: das erste Desktop-Release (H10), offener Nachtest K8.
+Stand 2026-09-19, `main` = `next` = `electron` (v0.3.1). Nichts in Arbeit, offen nur der Nachtest K8.4 (optional).
 
 ---
 
@@ -45,6 +45,10 @@ Stand 2026-09-19, Branch `electron`. In Arbeit: das erste Desktop-Release (H10),
 - [ ] **J1 Doku-Reste**: `MULTIPLAYER_CONCEPT.md` nachziehen; bekannte Grenzen aus den Worker-Berichten in die
       Fach-Doku (Korridor-Nebenbefunde: Dachzellen an Routenecken, Überdeckung über 30 m, Füllregel über Gitterlagen,
       Loch im Mesh in Erlenbach, Rückfall-Sekunde bei Stationen; Review-Randfälle; schwebende Ooze-Trümmer am Hang).
+- [ ] **J2 GitHub-Actions auf Node 24**: `release.yml` und `deploy.yml` warnen, dass Node 20 ausläuft
+      (`actions/checkout@v4`, `actions/setup-node@v4`, `SamKirkland/FTP-Deploy-Action@v4.3.5`; der Runner zwingt sie
+      schon auf Node 24). Auf Hauptversionen mit Node 24 heben, für die FTP-Action erst prüfen, ob es eine gibt.
+      Dazu: `ubuntu-latest` in `deploy.yml` wird ab 2026-10-19 Ubuntu 26.
 - [ ] **H3** Object-Pooling für Projektile, erst prüfen, ob GC-Druck messbar ist.
 - [ ] **H4** Tower-LOD (High, Medium, Low).
 - [ ] **H5** Tower-Instancing (schwierig wegen der Rotationen).
@@ -53,9 +57,6 @@ Stand 2026-09-19, Branch `electron`. In Arbeit: das erste Desktop-Release (H10),
 - [ ] **H8** Bloom nur für ausgewählte Objekte (Render-Layers, zweiter Composer).
 - [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px,
       `aria-label` an allen Icon-Buttons.
-- [ ] **H10** Electron-Desktop-Build mit Installer und Auto-Update ([ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md)).
-      Release 0.3.1 am 2026-09-19 veröffentlicht, Web und Landing mit ihm deployt; `main` = `next` = `electron`.
-      Offen nur K8.4 (Hybrid-Laptop, optional). Weitere Releases mit `/release X.Y.Z`.
 - [ ] **H13** Straßen parallel zu den Tiles laden, kleinere Box.
 - [ ] **H14** Raumindex für `findNearestStreetPoint`.
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
