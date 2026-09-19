@@ -67,6 +67,7 @@ function createStubService(name: string): Record<string, unknown> {
       updateMeleeTowers: vi.fn(),
       updateChainTowers: vi.fn(),
       stopAllBeams: vi.fn(),
+      stopTowerBeam: vi.fn(),
       stopAllMelee: vi.fn(),
     },
     OsmStreetService: {},
@@ -453,6 +454,32 @@ describe('GameStateManager', () => {
         // An unknown tower (sold meanwhile) changes nothing
         bus.emit({ type: 'command:set-targeting', towerId: 'gone', strategy: 'first' });
         expect(tower.targetingStrategy).toBe('air-priority');
+      });
+    });
+
+    describe('command:set-hold-fire', () => {
+      it('holds fire of a fighting tower and greys it out, not of a passive building', () => {
+        const archer = { id: 't1', holdFire: false, typeConfig: { id: 'archer', attackType: 'projectile' } };
+        const center = { id: 't2', holdFire: false, typeConfig: { id: 'research-center', attackType: 'passive' } };
+        const towers: Record<string, unknown> = { t1: archer, t2: center };
+        vi.spyOn(gsm.towerManager, 'getById').mockImplementation((id) => (towers[id] ?? null) as never);
+        const setHoldFire = (gsm.tilesEngine as unknown as { towers: { setHoldFire: Mock } }).towers.setHoldFire;
+
+        bus.emit({ type: 'command:set-hold-fire', towerId: 't1', holdFire: true });
+        expect(archer.holdFire).toBe(true);
+        expect(setHoldFire).toHaveBeenLastCalledWith('t1', true);
+        // A flame goes out at once, not only at the next sub-step
+        expect((mockServices['TowerCombatService'] as Record<string, Mock>)['stopTowerBeam']).toHaveBeenCalledWith('t1');
+
+        bus.emit({ type: 'command:set-hold-fire', towerId: 't1', holdFire: false });
+        expect(archer.holdFire).toBe(false);
+        expect(setHoldFire).toHaveBeenLastCalledWith('t1', false);
+
+        setHoldFire.mockClear();
+        bus.emit({ type: 'command:set-hold-fire', towerId: 't2', holdFire: true });
+        bus.emit({ type: 'command:set-hold-fire', towerId: 'gone', holdFire: true });
+        expect(center.holdFire).toBe(false);
+        expect(setHoldFire).not.toHaveBeenCalled();
       });
     });
 

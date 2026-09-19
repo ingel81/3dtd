@@ -94,6 +94,13 @@
           <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
         </button>
       }
+      <button class="td-targeting-btn td-hold-fire-btn" [class.active]="tower().holdFire"
+              [matTooltip]="tower().holdFire ? 'Holding fire: click to attack again' : 'Hold fire: the tower stops attacking'"
+              matTooltipPosition="above"
+              aria-label="Hold fire" [attr.aria-pressed]="tower().holdFire"
+              (click)="onToggleHoldFire()">
+        <td-icon name="pause" [size]="18"></td-icon>
+      </button>
     </div>
 
     <!-- Air Sub-Strategy (only when air-priority active) -->

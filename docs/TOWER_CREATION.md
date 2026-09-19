@@ -598,6 +598,10 @@ Combat-Tower wählen ihr Ziel über eine `TargetingStrategy`. `defaultTargeting`
 
 `AirSubStrategy` (`closest` / `lowest-hp` / `highest-hp`) entscheidet, welches Air-Target gewählt wird, wenn `air-priority` aktiv ist und mehrere Air-Units in Reichweite sind.
 
+### Feuerpause
+
+Der letzte Knopf der Zielwahl-Zeile im Tower-Panel ("Hold fire", Icon `pause`, aktiv rot) schaltet `Tower.holdFire` über `command:set-hold-fire` ([EVENT_SYSTEM.md](EVENT_SYSTEM.md)). Solange er an ist, findet `Tower.findTarget()` nichts und lässt das gehaltene Ziel los; alle Kampfschleifen (Projektil, Strahl, Nahkampf, Kette) laufen damit in ihren Zweig ohne Ziel: kein Schuss, die Flamme geht aus, der Turm behält seine Richtung und schläft wie ohne Gegner ein. Verkaufen und Upgraden gehen weiter. `TowerLifecycle.setHoldFire` löscht eine Flamme sofort (auch in der Pause) und lässt `ThreeTowerRenderer.setHoldFire` das Modell ausgrauen (`tower-hold-fire.ts`: jede Materialfarbe wird ein Grau aus 45 % ihrer Helligkeit, Leuchten aus; die Originalfarben liegen im `userData` des Materials und kommen beim Einschalten exakt zurück). Sockel, Rang-Abzeichen und Ringe behalten ihre Farbe. Passive Gebäude (`attackType: 'passive'`) haben ein eigenes Panel ohne den Knopf, der Befehl lässt sie unverändert.
+
 ---
 
 ## Veteranen-Ränge

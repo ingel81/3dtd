@@ -134,6 +134,21 @@ export class TowerLifecycle {
   }
 
   /**
+   * Hold fire on or off. On hold the combat finds no target for the tower
+   * (Tower.findTarget), so it stops attacking from the next sub-step; a
+   * flame stops at once, also while the game is paused. The model is greyed
+   * out while it holds. A passive tower has nothing to hold.
+   * @returns false for a passive tower
+   */
+  setHoldFire(tower: Tower, holdFire: boolean): boolean {
+    if (tower.typeConfig.attackType === 'passive') return false;
+    tower.holdFire = holdFire;
+    if (holdFire) this.combat.stopTowerBeam(tower.id);
+    this.engine()?.towers.setHoldFire(tower.id, holdFire);
+    return true;
+  }
+
+  /**
    * Upgrade one track of a tower by one level and emit tower:upgraded.
    * @returns false if refused: maxed out, tier not researched, credits short
    */

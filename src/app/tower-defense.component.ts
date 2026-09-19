@@ -649,6 +649,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.emitCommand({ type: 'command:set-targeting', towerId: tower.id, airSubStrategy: strategy });
   }
 
+  /** Hold fire of a tower on or off, through the command bus */
+  setHoldFire(tower: Tower, holdFire: boolean): void {
+    this.facade.emitCommand({ type: 'command:set-hold-fire', towerId: tower.id, holdFire });
+  }
+
   onStartResearch(researchId: string): void {
     this.facade.emitCommand({ type: 'command:start-research', researchId });
   }

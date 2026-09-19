@@ -66,6 +66,11 @@ export class GameCommandsHandler {
       if (event.strategy) tower.targetingStrategy = event.strategy;
       if (event.airSubStrategy) tower.airSubStrategy = event.airSubStrategy;
     }));
+
+    this.subs.add(this.eventBus.on('command:set-hold-fire', (event) => {
+      const tower = this.gsm.towerManager.getById(event.towerId);
+      if (tower) this.gsm.setTowerHoldFire(tower, event.holdFire);
+    }));
   }
 
   private attachResearchCommands(): void {

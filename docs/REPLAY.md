@@ -225,6 +225,7 @@ gezeigten Moment, Tab bleibt in ihr.
 - Den Zustand des HQ-Feuers: er bleibt, wie die Welle ihn hinterlassen hat. Die Leck-Vignette und die Boss-Leiste sind mit dem HUD ausgeblendet; der Screen-Shake beim Tod eines Bosses fehlt, weil `enemy:died` nicht wiederholt wird
 - Das Innenfeuer eines Feuerturms und das Knistern eines Blitzturms bei Türmen, die während oder nach der Welle gebaut oder verkauft wurden: sie folgen der Sichtbarkeit des Modells nicht
 - Türme haben im Replay ihr heutiges Modell, Upgrades der Welle sind nicht Schritt für Schritt zu sehen
+- Die Feuerpause eines Turms (`command:set-hold-fire`) steht im Befehlslog, grau ist der Turm im Replay nicht; dass er nicht schießt, zeigen die fehlenden Schüsse
 - Ein Gegner, der zwischen zwei Frames spawnt und stirbt, hat keine Stichprobe und fehlt; nach dem Ausdünnen werden Kurven gröber
 - Eine Todesanimation, in deren Mitte gesprungen wird, beginnt von vorn. Zielmarker einer Fähigkeit erscheinen nur, wenn das `ability:used` abgespielt wurde, nicht nach einem Sprung; ebenso Atompilz, Frost-Explosion, EMP-Welle und Laser nur, wenn ihr `ability:impact` abgespielt wurde
 - Landet im Replay eine Fähigkeit, räumen jeder Sprung und `exit()` alle Atompilze, Frost-Explosionen, EMP-Wellen und Orbitallaser ab, auch einen, der im Spiel noch lief
