@@ -151,22 +151,28 @@ export class SpatialAudioLoops {
     }
   }
 
-  updatePosition(handle: LoopHandle, position: Vector3): void {
+  /**
+   * Move a loop; it pauses out of earshot and joins or resumes in earshot
+   * (budget permitting). True while it plays afterwards, false while it
+   * waits, which lets a caller update a waiting loop less often.
+   */
+  updatePosition(handle: LoopHandle, position: Vector3): boolean {
     const loop = this.activeLoops.get(handle);
-    if (!loop) return;
+    if (!loop) return false;
 
     loop.position.copy(position);
     loop.voice?.container.position.copy(position);
-    if (this.held) return;
+    if (this.held) return !loop.paused;
 
     if (loop.paused) {
       // No slot to take: the distance check can wait. The common case with
       // many enemies near the camera, every one of them asking each sub-step.
-      if (loop.isEnemySound && !this.enemyBudget.canReserve()) return;
+      if (loop.isEnemySound && !this.enemyBudget.canReserve()) return false;
       if (this.playback.isWithinAudibleDistance(position)) this.resumeLoop(loop);
     } else if (!this.playback.isWithinAudibleDistance(position)) {
       this.pauseLoop(loop);
     }
+    return !loop.paused;
   }
 
   pause(handle: LoopHandle): void {

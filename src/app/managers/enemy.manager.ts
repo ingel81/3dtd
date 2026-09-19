@@ -2,6 +2,7 @@ import { signal } from '@angular/core';
 import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
+import { MovementComponent } from '../game-components/movement.component';
 import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration } from '../configs/enemy-types.config';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
@@ -649,8 +650,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       // share the enemy-sound budget, so the order of updateLoopPosition()
       // calls decides which paused or waiting loop gets a free slot.
       if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
-      // Single-pass: remove expired effects + get the status flags (game-time)
-      const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
+      // Single-pass: remove expired effects + get the status flags (game-time).
+      // Without effects the array is not loaded at all (hasStatusEffects).
+      const statusFlags = enemy.movement.hasStatusEffects
+        ? enemy.movement.updateStatusEffects(gameTimeMs)
+        : MovementComponent.NO_STATUS;
       // Walk/run alternation (wallsmasher). Ticked before move() so the
       // multiplier takes effect in the sub-step that sets it. Only enemies
       // that carry the state pay for it; everyone else keeps multiplier 1.
@@ -915,7 +919,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       // skipped when it cannot be true: `.some` over an empty effect list and
       // a lookup in an empty Set both answer false.
       const isSlowed =
-        enemy.movement.statusEffects.length !== 0 && enemy.movement.isSlowed(gameTimeMs);
+        enemy.movement.hasStatusEffects && enemy.movement.isSlowed(gameTimeMs);
       const hasFrost =
         this.frozenVisualEnemies.size !== 0 && this.frozenVisualEnemies.has(enemy.id);
       if (isSlowed && !hasFrost) {
@@ -932,7 +936,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
       // Frozen solid: icy tint and ice crystals, over the slow look if both are on
       const isFrozen =
-        enemy.movement.statusEffects.length !== 0 && enemy.movement.isFrozen(gameTimeMs);
+        enemy.movement.hasStatusEffects && enemy.movement.isFrozen(gameTimeMs);
       const hasIce =
         this.icedVisualEnemies.size !== 0 && this.icedVisualEnemies.has(enemy.id);
       if (isFrozen && !hasIce) {
@@ -950,7 +954,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Stunned: violet-blue tint and a burst of sparks every STUN_SPARKS.intervalMs
       // of game time, at most perFrame bursts per frame
       const isStunned =
-        enemy.movement.statusEffects.length !== 0 && enemy.movement.isStunned(gameTimeMs);
+        enemy.movement.hasStatusEffects && enemy.movement.isStunned(gameTimeMs);
       const sparkAt = this.stunSparkAt.size !== 0 ? this.stunSparkAt.get(enemy.id) : undefined;
       if (isStunned) {
         if (sparkAt === undefined) engine.enemies.setStunVisual(enemy.id, true);
@@ -974,7 +978,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
 
       const isPoisoned =
-        enemy.movement.statusEffects.length !== 0 && enemy.movement.isPoisoned(gameTimeMs);
+        enemy.movement.hasStatusEffects && enemy.movement.isPoisoned(gameTimeMs);
       const hasPoison =
         this.poisonVisualEnemies.size !== 0 && this.poisonVisualEnemies.has(enemy.id);
       if (isPoisoned && !hasPoison) {
@@ -990,7 +994,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
 
       const isBurning =
-        enemy.movement.statusEffects.length !== 0 && enemy.movement.isBurning(gameTimeMs);
+        enemy.movement.hasStatusEffects && enemy.movement.isBurning(gameTimeMs);
       const hasBurn =
         this.burnVisualEnemies.size !== 0 && this.burnVisualEnemies.has(enemy.id);
       if (isBurning !== hasBurn) {

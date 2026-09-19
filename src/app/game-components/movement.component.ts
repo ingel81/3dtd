@@ -7,6 +7,18 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { RouteProfile, SideLimits, getRouteProfile } from '../utils/route-corridor';
 import type { RouteCorners } from '../utils/route-corners';
 
+/** What updateStatusEffects() reports for one enemy and sub-step. */
+export interface StatusFlags {
+  isSlowed: boolean;
+  isPoisoned: boolean;
+  isBurning: boolean;
+  isFrozen: boolean;
+  isStunned: boolean;
+  /** No movement, no walk cycle, no walk/run switch this sub-step */
+  isHalted: boolean;
+  slowMultiplier: number;
+}
+
 /** The piece of the path place() reports on a corner's arc, see the heading hold in advance(). */
 const ARC_PIECE = 3;
 
@@ -50,8 +62,17 @@ export class MovementComponent extends Component {
   private laneExit: Float64Array = this.profile.right.node;
   paused = false;
 
-  // Status effects (slow, freeze, etc.)
+  // Status effects (slow, freeze, etc.). Written only by applyStatusEffect,
+  // refreshStatusEffect, updateStatusEffects and removeExpiredEffects, which
+  // keep hasStatusEffects in step.
   statusEffects: StatusEffect[] = [];
+  /**
+   * `statusEffects.length !== 0`, kept on the component so the checks that
+   * run per enemy every sub-step and every frame do not load the array.
+   * Almost no enemy carries an effect, and the array is an object of its own
+   * that cost a memory access per enemy each time.
+   */
+  hasStatusEffects = false;
 
   // Place across the corridor for path variety, as a share of the local
   // lateral limit: -1 left, 0 centre line, 1 right of the movement direction
@@ -91,8 +112,19 @@ export class MovementComponent extends Component {
   // Reusable lookAt target (avoid object literal allocation per frame)
   private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
 
+  /** updateStatusEffects() for an enemy without effects; never written. */
+  static readonly NO_STATUS: Readonly<StatusFlags> = {
+    isSlowed: false,
+    isPoisoned: false,
+    isBurning: false,
+    isFrozen: false,
+    isStunned: false,
+    isHalted: false,
+    slowMultiplier: 1.0,
+  };
+
   // Reusable status result object (avoid per-enemy allocation in updateStatusEffects)
-  private static readonly _statusResult = {
+  private static readonly _statusResult: StatusFlags = {
     isSlowed: false,
     isPoisoned: false,
     isBurning: false,
@@ -301,6 +333,7 @@ export class MovementComponent extends Component {
     const idx = this.findEffectSlot(effect.type, effect.sourceId);
     if (idx < 0) {
       this.statusEffects.push(effect);
+      this.hasStatusEffects = true;
       return;
     }
     effect.tickAccumMs = this.statusEffects[idx].tickAccumMs;
@@ -322,6 +355,7 @@ export class MovementComponent extends Component {
     const idx = this.findEffectSlot(type, sourceId);
     if (idx < 0) {
       this.statusEffects.push({ type, value, duration, startTime, sourceId });
+      this.hasStatusEffects = true;
       return;
     }
     const effect = this.statusEffects[idx];
@@ -351,16 +385,7 @@ export class MovementComponent extends Component {
    * compared in game-time, so it stays constant across all training timescales
    * without any compensation.
    */
-  updateStatusEffects(gameTimeMs: number): {
-    isSlowed: boolean;
-    isPoisoned: boolean;
-    isBurning: boolean;
-    isFrozen: boolean;
-    isStunned: boolean;
-    /** No movement, no walk cycle, no walk/run switch this sub-step */
-    isHalted: boolean;
-    slowMultiplier: number;
-  } {
+  updateStatusEffects(gameTimeMs: number): StatusFlags {
     let writeIdx = 0;
     const result = MovementComponent._statusResult;
     result.isSlowed = false;
@@ -396,6 +421,7 @@ export class MovementComponent extends Component {
     // In-place compact, no allocation. Written only when an effect expired;
     // almost every call has nothing to change.
     if (writeIdx !== this.statusEffects.length) this.statusEffects.length = writeIdx;
+    this.hasStatusEffects = writeIdx !== 0;
 
     if (result.isHalted) result.slowMultiplier = 0;
     return result;
@@ -412,6 +438,7 @@ export class MovementComponent extends Component {
       }
     }
     this.statusEffects.length = writeIdx;
+    this.hasStatusEffects = writeIdx !== 0;
   }
 
   /**
@@ -422,6 +449,8 @@ export class MovementComponent extends Component {
    * running at full speed. A halt wins over a slow in any order.
    */
   getSlowMultiplier(gameTimeMs: number): number {
+    // presentFrame asks for every enemy every frame; almost none has an effect
+    if (!this.hasStatusEffects) return 1.0;
     let multiplier = 1.0;
     for (const effect of this.statusEffects) {
       if (gameTimeMs - effect.startTime >= effect.duration) continue;

@@ -190,7 +190,7 @@ export class WormChains {
       const movement = enemy.movement;
       // A frozen or stunned head stands its worm; a ring behind it is dragged
       // along at the pace of the others, its halt only shows
-      if (movement.statusEffects.length !== 0 && movement.isHalted(gameTimeMs)) {
+      if (movement.hasStatusEffects && movement.isHalted(gameTimeMs)) {
         if (slot === chain.first) halted = true;
         continue;
       }

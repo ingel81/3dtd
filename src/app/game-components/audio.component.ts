@@ -44,6 +44,16 @@ export interface LoopFlagSink {
  * All loop management (audio pooling, distance culling, enemy budget)
  * is delegated to SpatialAudioManager.
  */
+/**
+ * Sub-steps a component skips after an update in which none of its loops
+ * played: a waiting loop gets its position every third sub-step (20 Hz at
+ * 1x) and takes a free enemy-sound slot, or the way back into earshot, up to
+ * two steps late. With thousands of enemies nearly every loop waits for one
+ * of the few enemy-sound slots, and each wait was a call chain per enemy per
+ * sub-step.
+ */
+const WAITING_LOOP_SKIPS = 2;
+
 export class AudioComponent extends Component {
   private spatialAudio: SpatialAudioManager | null = null;
   private sounds = new Map<string, { url: string; config: AudioConfig }>();
@@ -63,6 +73,11 @@ export class AudioComponent extends Component {
   private pendingLoops = new Map<string, number>();
   private loopRequestCounter = 0;
   private destroyed = false;
+  /**
+   * Sub-steps update() still skips because none of this object's loops
+   * played at the last update, see WAITING_LOOP_SKIPS.
+   */
+  private waitingSkips = 0;
   /** Local position for update(), which runs every sub-step: no vector per call */
   private readonly localPos = new Vector3();
 
@@ -204,6 +219,10 @@ export class AudioComponent extends Component {
    */
   update(_deltaTime: number): void {
     if (this.loopHandles.size === 0 || !this.spatialAudio) return;
+    if (this.waitingSkips > 0) {
+      this.waitingSkips--;
+      return;
+    }
 
     const pos = this.getPosition();
     if (!pos) return;
@@ -212,9 +231,13 @@ export class AudioComponent extends Component {
     if (!localPos) return;
 
     // Update position for all active loops (SpatialAudioManager handles pause/resume)
+    let playing = false;
     for (const handle of this.loopHandleList) {
-      this.spatialAudio.updateLoopPosition(handle, localPos);
+      if (this.spatialAudio.updateLoopPosition(handle, localPos)) playing = true;
     }
+    // A loop that waits (out of earshot or for an enemy-budget slot) only
+    // needs its position now and then; one that plays is moved every step.
+    if (!playing) this.waitingSkips = WAITING_LOOP_SKIPS;
   }
 
   /**

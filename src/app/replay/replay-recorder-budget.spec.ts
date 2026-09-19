@@ -30,7 +30,7 @@ describe('ReplayRecorder under the memory budget', () => {
       transform: { terrainHeight: 0, rotation: 0 },
       health: { healthPercent: 1 },
       movement: {
-        speedMps: 1, speedMultiplier: 1, statusEffects: [],
+        speedMps: 1, speedMultiplier: 1, statusEffects: [], hasStatusEffects: false,
         getSlowMultiplier: () => 1, isSlowed: () => false, isPoisoned: () => false, isBurning: () => false,
         isFrozen: () => false, isStunned: () => false,
       },

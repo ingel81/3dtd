@@ -387,10 +387,26 @@ describe('EnemyManager', () => {
     ];
 
     const enemy = manager.spawn(path, 'zombie');
+    enemy.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 1000, startTime: 0 });
     const statusSpy = vi.spyOn(enemy.movement, 'updateStatusEffects');
 
-    manager.update(16, 1234); // gameTimeMs=1234
+    manager.update(16, 1234); // gameTimeMs=1234, past the slow's end
     expect(statusSpy).toHaveBeenCalledWith(1234);
+    expect(enemy.movement.statusEffects).toHaveLength(0);
+    expect(enemy.movement.hasStatusEffects).toBe(false);
+  });
+
+  it('does not look at the status effects of an enemy without any', () => {
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0.001, lon: 0, height: 0 },
+    ];
+
+    const enemy = manager.spawn(path, 'zombie');
+    const statusSpy = vi.spyOn(enemy.movement, 'updateStatusEffects');
+
+    manager.update(16, 1234);
+    expect(statusSpy).not.toHaveBeenCalled();
   });
 
   describe('hot-path shortcuts', () => {

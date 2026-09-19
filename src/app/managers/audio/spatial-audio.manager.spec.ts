@@ -1007,8 +1007,9 @@ describe('SpatialAudioManager around the pause (playtest 546, 548)', () => {
     audio.update(16);
     expect(reg.positional).toHaveLength(0);
 
+    // A waiting loop is moved every third sub-step (AudioComponent)
     flyTo(camera, 3 * D - 10);
-    audio.update(16);
+    for (let i = 0; i < 3; i++) audio.update(16);
     expect(lastPositional().isPlaying).toBe(true);
     expect(lastPositional().parent?.position.x).toBe(3 * D);
   });

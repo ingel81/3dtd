@@ -20,6 +20,7 @@ export interface RecordableEnemy {
     readonly speedMps: number;
     readonly speedMultiplier: number;
     readonly statusEffects: readonly unknown[];
+    readonly hasStatusEffects: boolean;
     getSlowMultiplier(gameTimeMs: number): number;
     isSlowed(gameTimeMs: number): boolean;
     isPoisoned(gameTimeMs: number): boolean;
@@ -340,7 +341,7 @@ export class ReplayRecorder {
       const movement = enemy.movement;
       let flags = 0;
       let slow = 1;
-      if (movement.statusEffects.length !== 0) {
+      if (movement.hasStatusEffects) {
         slow = movement.getSlowMultiplier(now);
         if (movement.isSlowed(now)) flags |= ENEMY_FLAG.SLOWED;
         if (movement.isPoisoned(now)) flags |= ENEMY_FLAG.POISONED;
