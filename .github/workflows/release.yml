@@ -48,6 +48,12 @@ jobs:
         shell: bash
         run: node desktop/scripts/check-version.js "$TAG"
 
+      # The section becomes the release text and the notes of the update hint;
+      # a release without one would announce nothing.
+      - name: CHANGELOG.md has this version
+        shell: bash
+        run: node desktop/scripts/changelog.js check "$TAG"
+
       - name: Install dependencies (game)
         run: npm ci
 
