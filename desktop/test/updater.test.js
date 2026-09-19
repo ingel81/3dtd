@@ -27,6 +27,7 @@ describe('startUpdater', () => {
     const updater = startUpdater({ autoUpdater, log, onReady: () => {} });
     assert.equal(autoUpdater.autoDownload, true);
     assert.equal(autoUpdater.autoInstallOnAppQuit, true);
+    assert.equal(autoUpdater.disableWebInstaller, true);
     assert.equal(autoUpdater.logger, log);
     assert.equal(autoUpdater.setFeedURL.mock.callCount(), 0);
     updater.stop();
