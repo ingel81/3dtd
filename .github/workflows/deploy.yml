@@ -1,9 +1,19 @@
 name: Build and Deploy
 
+# The web version goes live with a release: publishing the GitHub release
+# (the draft release.yml builds from a tag) deploys that tag to /play/ and
+# the landing page, the moment the desktop update reaches installed copies.
+# A merge to main deploys nothing. workflow_dispatch deploys any ref by hand,
+# for a hotfix.
 on:
-  push:
-    branches: [main]
+  release:
+    types: [published]
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit to deploy'
+        required: true
+        default: 'main'
 
 # Zwei Deploys gleichzeitig schreiben dieselbe .ftp-deploy-sync-state.json
 # auf dem Server und hinterlassen einen inkonsistenten Stand.
@@ -18,6 +28,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name || github.event.inputs.ref }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
