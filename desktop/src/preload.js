@@ -16,7 +16,7 @@ const versionArg = process.argv.find((arg) => arg.startsWith(VERSION_ARG));
 let readyUpdate = null;
 const listeners = new Set();
 ipcRenderer.on('desktop:update-ready', (_event, update) => {
-  readyUpdate = { version: String(update?.version ?? '') };
+  readyUpdate = { version: String(update?.version ?? ''), notes: String(update?.notes ?? '') };
   for (const listener of listeners) listener(readyUpdate);
 });
 

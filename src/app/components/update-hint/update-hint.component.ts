@@ -1,6 +1,10 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, NgZone, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, NgZone, computed, inject, signal } from '@angular/core';
 import { TdIconComponent } from '../icon/icon.component';
 import { readDesktopBridge, type DesktopUpdate } from '../../core/desktop-bridge';
+import { parseReleaseBody } from '../../utils/changelog';
+
+/** Items of the release notes the hint lists; the rest shows in "What's new" after the restart. */
+const NOTE_ITEMS = 3;
 
 /**
  * Desktop build only: a downloaded update and a way to install it now. The
@@ -24,6 +28,11 @@ export class UpdateHintComponent {
   private readonly bridge = readDesktopBridge();
   readonly update = signal<DesktopUpdate | null>(null);
   readonly hidden = signal(false);
+  /** The first items of the update's release notes, "New" first as written. */
+  readonly noteItems = computed(() => {
+    const items = parseReleaseBody(this.update()?.notes ?? '').flatMap((group) => group.items);
+    return { shown: items.slice(0, NOTE_ITEMS), more: items.length > NOTE_ITEMS };
+  });
 
   constructor() {
     const bridge = this.bridge;

@@ -18,6 +18,21 @@ const CHECK_INTERVAL_MS = 6 * 60 * 60 * 1000;
 const message = (error) => (error && error.message) || String(error);
 
 /**
+ * The release notes of an update as one text. electron-builder writes the
+ * CHANGELOG.md section into latest.yml (a string); some providers deliver a
+ * list of { version, note } instead.
+ */
+function releaseNotesText(info) {
+  const notes = info?.releaseNotes;
+  if (typeof notes === 'string') return notes;
+  if (Array.isArray(notes)) {
+    const own = notes.find((entry) => entry?.version === info?.version);
+    return String((own ?? notes[0])?.note ?? '');
+  }
+  return '';
+}
+
+/**
  * @param {object} options
  * @param {import('electron-updater').AppUpdater} options.autoUpdater
  * @param {{ info: Function, warn: Function }} options.log
@@ -39,7 +54,7 @@ function startUpdater({ autoUpdater, log, onReady, feedUrl }) {
 
   let ready = null;
   autoUpdater.on('update-downloaded', (info) => {
-    ready = { version: String(info?.version ?? '') };
+    ready = { version: String(info?.version ?? ''), notes: releaseNotesText(info) };
     log.info(`[updater] ${ready.version} downloaded, installs on quit`);
     onReady(ready);
   });
@@ -66,4 +81,4 @@ function startUpdater({ autoUpdater, log, onReady, feedUrl }) {
   };
 }
 
-module.exports = { CHECK_INTERVAL_MS, startUpdater };
+module.exports = { CHECK_INTERVAL_MS, releaseNotesText, startUpdater };

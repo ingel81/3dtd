@@ -7,6 +7,8 @@
 /** A downloaded update, installed when the player quits. */
 export interface DesktopUpdate {
   version: string;
+  /** Its CHANGELOG.md section (markdown), empty without one. */
+  notes?: string;
 }
 
 export interface DesktopBridge {
