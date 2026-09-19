@@ -312,15 +312,43 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 - **E43 Soll** README bekommt die Zeile "Download for Windows" mit SmartScreen-Hinweis
   (*Weitere Informationen → Trotzdem ausführen*). Der Knopf "Desktop app soon" in
   `landing/index.html` wird ein Link auf `releases/latest`. **Umgesetzt 2026-09-19**,
-  mit dem Hinweis aus E28 zu beschränkten Schlüsseln. **Achtung:** ein Push auf `main`
-  deployt die Landing Page sofort. Diese Änderung darf erst nach `main`, wenn das erste
-  Release veröffentlicht ist, sonst zeigt der Knopf auf eine leere Release-Seite.
+  mit dem Hinweis aus E28 zu beschränkten Schlüsseln. Auf dem Telefon ist der Knopf
+  ausgeblendet wie "Play". Die Landing Page geht mit dem Veröffentlichen des Releases
+  live (E46), der Knopf zeigt also nie auf eine leere Release-Seite.
 - **E44 Muss** Kein lokaler Schlüssel im Installer. `scripts/copy-web.js` liest
   `cesiumIonToken` und `googleMapsApiKey` aus `environment.ts` und
   `environment.prod.ts` und bricht ab, wenn einer dieser Werte im Build steht. Die
   Dateien sind gitignored und können den eigenen Schlüssel des Entwicklers
   enthalten; eine falsche Zeile in `environment.prod.ts` würde ihn sonst in jede
   Kopie des Installers schreiben.
+- **E45 Soll** Ein Changelog für Spieler, ohne laufende Pflege (Wunsch des Users
+  2026-09-19; jeder Commit wäre zu viel, ein Sprint hatte 1000). `CHANGELOG.md` im Root,
+  ein Abschnitt pro Release (`## X.Y.Z (Datum)`, Gruppen New, Better, Fixed), Englisch,
+  3 bis 8 Punkte. Er entsteht erst beim Release aus Commits und `DONE.md` (Befehl
+  `/release`, `.claude/commands/release.md`), **der User sieht und gibt jeden Text frei**.
+  `release.yml` bricht ab, wenn der Abschnitt zur Version fehlt
+  (`desktop/scripts/changelog.js`, mit Test); electron-builder schreibt ihn als Text
+  des GitHub-Releases und in `latest.yml`. Das Spiel baut die Datei ein (`.md`-Loader
+  im Build, Plugin in `vitest.config.ts`):
+  - "What's new" öffnet einmal nach einem Update, im Web wie in der App, sobald das
+    Spiel geladen ist. Es zeigt alle Versionen seit der zuletzt gesehenen
+    (`td_seen_version` im localStorage), übersprungene inklusive, ältere eingeklappt.
+    Ein Erstbesuch sieht nichts; wer schon spielte, bevor es den Schlüssel gab, sieht
+    alles.
+  - Ein Klick auf die Versionsnummer unten in der Sidebar zeigt alle Versionen.
+  - Der Update-Hinweis der App (E31) zeigt die ersten drei Punkte der neuen Version
+    und verweist für den Rest auf "What's new" nach dem Neustart.
+
+  **Umgesetzt 2026-09-19**. Im Build geprüft: Hinweis mit den Notizen aus einem lokalen
+  Feed, Dialog eingeklappt und aufgeklappt mit einem Test-Changelog über drei
+  Versionen. Text für 0.3.1 vom User am 2026-09-19 freigegeben.
+- **E46 Soll** Die Web-Version geht mit dem Release live, nicht mit jedem Push:
+  `deploy.yml` läuft bei `release: published` und baut den Tag des Releases, von Hand
+  (`workflow_dispatch`) jeden Ref, etwa für einen Hotfix. Web, Landing Page und
+  Installer tragen so dieselbe Version, und ein Merge nach `main` deployt nichts.
+  Ein `release`-Ereignis nimmt die Workflow-Datei vom Standard-Branch: die neue
+  `deploy.yml` muss auf `main` liegen, bevor das erste Release veröffentlicht wird.
+  **Umgesetzt 2026-09-19**, noch nie gelaufen.
 
 ## Abnahme
 
@@ -452,13 +480,20 @@ liest.
      aus (`disableWebInstaller`). Ein `--dir`-Build hat keine `app-update.yml`; ohne sie
      scheitern Prüfung und Download (nur Log, beim Download als "Unhandled rejection",
      weil electron-updater ihn selbst startet).
-7. Nachtest K8 in `docs/PLAYTEST.md`, danach das erste Release:
-   1. Version in `package.json` anheben (`npm version X.Y.Z --no-git-tag-version`), committen.
-   2. Tag `vX.Y.Z` pushen; `release.yml` baut den Entwurf.
-   3. Den Installer aus dem Entwurf herunterladen und prüfen (K8.1), dann den Entwurf
-      als normales Release veröffentlichen.
-   4. Erst danach `electron` nach `main` bringen: README und Landing zeigen auf das
-      Release, und ein Push auf `main` deployt die Landing Page.
+7. Changelog und "What's new" (E45), Deploy mit dem Release (E46). **Erledigt
+   2026-09-19.**
+8. Nachtest K8 in `docs/PLAYTEST.md`, danach das erste Release mit `/release X.Y.Z`
+   (`.claude/commands/release.md`):
+   1. Changelog-Text entwerfen und dem User vorlegen; erst nach seinem OK weiter.
+   2. Release-Commit: Abschnitt in `CHANGELOG.md`, `npm version X.Y.Z
+      --no-git-tag-version`.
+   3. Tag `vX.Y.Z` pushen (nur auf Zuruf); `release.yml` baut den Entwurf.
+   4. Den Installer aus dem Entwurf herunterladen und prüfen (K8.1).
+   5. `electron` nach `main` bringen und `main` pushen, damit die neue `deploy.yml` dort
+      liegt (E46). Der Push deployt nichts. Für 0.3.1 ist das der Merge von `next`
+      nach `main` (TODO A5), denn `electron` enthält `next`.
+   6. Den Entwurf als normales Release veröffentlichen: Installierte Apps bekommen das
+      Update, `deploy.yml` bringt Web-Version und Landing Page live.
 
 ## Bewusst nicht
 

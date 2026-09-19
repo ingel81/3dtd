@@ -16,8 +16,9 @@ Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
 ## Vor dem Merge nach `main`
 
 - [ ] **A5 Merge-Ablauf**: Code-Stopp; Nachtests K2 bis K6 abgenommen (DONE 2026-09-17). Offen: Build aus frischem
-      Klon mit dem CI-Befehl, dann Gate; Tag auf dem heutigen `main` als Rückweg; `next` sichern (liegt nur lokal). Ein
-      Push auf `main` deployt ohne Tests sofort nach `/play/`.
+      Klon mit dem CI-Befehl, dann Gate; Tag auf dem heutigen `main` als Rückweg; `next` sichern (liegt nur lokal). Auf
+      dem heutigen `main` deployt ein Push ohne Tests sofort nach `/play/`; mit der `deploy.yml` aus `electron` erst
+      das Veröffentlichen eines Releases (E46). Das erste Desktop-Release braucht diesen Merge vor dem Veröffentlichen.
 
 ## Später (Backlog)
 
@@ -60,8 +61,10 @@ Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
 - [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px,
       `aria-label` an allen Icon-Buttons.
 - [ ] **H10** Electron-Desktop-Build mit Installer und Auto-Update ([ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md)).
-      Auf Branch `electron` Schritte 1 bis 6 fertig (2026-09-19): Installer, Updates, Release-Workflow. Offen:
-      Nachtest K8 (docs/PLAYTEST.md), dann das erste Release nach Plan, Abschnitt "Reihenfolge", Punkt 7.
+      Auf Branch `electron` Schritte 1 bis 7 fertig (2026-09-19): Installer, Updates, Release-Workflow, Changelog mit
+      "What's new", Web-Deploy mit dem Release. Text für 0.3.1 freigegeben. Offen: Nachtest K8 (docs/PLAYTEST.md), dann
+      das erste Release mit `/release 0.3.1` nach Plan, Abschnitt "Reihenfolge", Punkt 8 (braucht A5 vor dem
+      Veröffentlichen).
 - [ ] **H13** Straßen parallel zu den Tiles laden, kleinere Box.
 - [ ] **H14** Raumindex für `findNearestStreetPoint`.
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
