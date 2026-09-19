@@ -5,6 +5,7 @@ import { TrainingClientService, type TrainingDeps } from './training-client.serv
 import { AIDataCollectorService } from '../core/ai-data-collector.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { BUILD_VERSION } from '../../configs/build-info.config';
+import { version as packageVersion } from '../../../../package.json';
 
 /**
  * Playtest 565 (fix session 2026-09-14), client side: the connect message
@@ -45,7 +46,7 @@ describe('TrainingSession connect (playtest 565)', () => {
     vi.useRealTimers();
   });
 
-  it('sends the build version the sidebar shows, v0.3.0 today', async () => {
+  it('sends the build version the sidebar shows, the one in package.json', async () => {
     const injector = Injector.create({
       providers: [
         { provide: AIDataCollectorService, useValue: {} },
@@ -61,7 +62,7 @@ describe('TrainingSession connect (playtest 565)', () => {
     await expect(connected).resolves.toBe(true);
 
     expect(socket.sent[0]).toMatchObject({ type: 'connect', gameVersion: BUILD_VERSION });
-    expect(BUILD_VERSION).toBe('v0.3.0');
+    expect(BUILD_VERSION).toBe(`v${packageVersion}`);
     session.disconnect();
   });
 });

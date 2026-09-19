@@ -278,6 +278,9 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   übernimmt sie (`extraMetadata.version`), `desktop/package.json` führt keine eigene
   Version. Passt der Tag `vX.Y.Z` nicht zur Version, bricht CI ab
   (`desktop/scripts/check-version.js`, mit Test).
+  Seit 2026-09-19 liest auch das Spiel die Version dort (`BUILD_VERSION` in
+  `build-info.config.ts`, JSON-Import; esbuild übernimmt nur das Feld `version`). Ein
+  Release-Commit ändert damit nur noch `package.json` und das Lockfile.
 - **E39 Muss** `npm run dist` in `desktop/` baut lokal einen Installer, ohne etwas zu
   veröffentlichen. **Geprüft 2026-09-19:** `release/3DTD-Setup-0.3.0.exe`, Blockmap und
   `latest.yml`; die Installation läuft pro Nutzer ohne Admin-Abfrage und legt Desktop-
@@ -450,7 +453,7 @@ liest.
      scheitern Prüfung und Download (nur Log, beim Download als "Unhandled rejection",
      weil electron-updater ihn selbst startet).
 7. Nachtest K8 in `docs/PLAYTEST.md`, danach das erste Release:
-   1. Version in `package.json` (und `build-info.config.ts`) anheben, committen.
+   1. Version in `package.json` anheben (`npm version X.Y.Z --no-git-tag-version`), committen.
    2. Tag `vX.Y.Z` pushen; `release.yml` baut den Entwurf.
    3. Den Installer aus dem Entwurf herunterladen und prüfen (K8.1), dann den Entwurf
       als normales Release veröffentlichen.
