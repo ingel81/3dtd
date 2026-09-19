@@ -148,7 +148,7 @@ export class OozeBodies {
     for (const { enemy, body } of this.oozes) {
       if (!enemy.alive) continue;
       const movement = enemy.movement;
-      const effects = movement.statusEffects.length !== 0;
+      const effects = movement.hasStatusEffects;
       engine.oozes.setFrame(
         enemy.id,
         body.tailM,

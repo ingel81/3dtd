@@ -258,7 +258,7 @@ describe('SpatialAudioLoops', () => {
     loops.hold(false);
     expect(audios[0].volume).toBeCloseTo(0.8 * 0.5 * 0.5);
 
-    loops.setVolume('loop_unknown', 0);
+    loops.setVolume(999, 0); // no such loop
   });
 
   it('stops every loop and returns their slots', async () => {

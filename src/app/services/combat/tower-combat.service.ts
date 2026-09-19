@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import type { LoopHandle } from '../../managers/audio/spatial-audio-loops';
 import { Vector3 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
@@ -43,8 +44,8 @@ export class TowerCombatService {
   private lastBeamBloodEffect = new Map<string, number>();
   private readonly BEAM_BLOOD_EFFECT_INTERVAL = COMBAT_TUNING.beamBloodEffectIntervalMs;
 
-  // Active flame sound loops per tower (towerId -> soundHandle)
-  private activeFlameSounds = new Map<string, string>();
+  // Active flame sound loops per tower (towerId -> soundHandle, FLAME_PENDING while created)
+  private activeFlameSounds = new Map<string, LoopHandle>();
 
   // Reusable vectors for cone collision
   private readonly tempDirection = new Vector3();
@@ -939,7 +940,7 @@ export class TowerCombatService {
    * If the entry is gone (= we got cancelled mid-await), stop the freshly
    * created loop immediately.
    */
-  private static readonly FLAME_PENDING = '<pending>';
+  private static readonly FLAME_PENDING: LoopHandle = -1; // real handles count up from 1
   private async startFlameSound(towerId: string, position: Vector3): Promise<void> {
     if (!this.tilesEngine?.spatialAudio) return;
 
@@ -956,9 +957,9 @@ export class TowerCombatService {
     );
 
     const current = this.activeFlameSounds.get(towerId);
-    if (current === TowerCombatService.FLAME_PENDING && handle) {
+    if (current === TowerCombatService.FLAME_PENDING && handle !== null) {
       this.activeFlameSounds.set(towerId, handle);
-    } else if (handle) {
+    } else if (handle !== null) {
       // We were cancelled mid-await. The loop is already playing into
       // the void — stop it now or it leaks forever.
       this.tilesEngine.spatialAudio.stopLoop(handle);
@@ -970,7 +971,7 @@ export class TowerCombatService {
    */
   private updateFlameSoundPosition(towerId: string, position: Vector3): void {
     const handle = this.activeFlameSounds.get(towerId);
-    if (!handle || !this.tilesEngine?.spatialAudio) return;
+    if (handle === undefined || handle === TowerCombatService.FLAME_PENDING || !this.tilesEngine?.spatialAudio) return;
 
     this.tempSoundPos.copy(position);
     this.tilesEngine.spatialAudio.updateLoopPosition(handle, this.tempSoundPos);
@@ -981,7 +982,7 @@ export class TowerCombatService {
    */
   private stopFlameSound(towerId: string): void {
     const handle = this.activeFlameSounds.get(towerId);
-    if (!handle) return;
+    if (handle === undefined) return;
 
     // Pending: clear the slot so the in-flight startFlameSound knows
     // to stop the loop itself once the await resolves.

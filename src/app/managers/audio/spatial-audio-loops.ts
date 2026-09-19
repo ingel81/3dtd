@@ -3,6 +3,14 @@ import { AudioPoolManager } from './audio-pool.manager';
 import { RegisteredSound, SpatialAudioPlayback } from './spatial-audio-playback';
 import { EnemySoundBudget, isEnemySoundId } from './enemy-sound-budget';
 
+/**
+ * Addresses a loop. A number rather than a string: SpiderMonkey atomizes a
+ * string on every Map lookup, and a moving enemy looks its loop up once per
+ * sub-step (Firefox profile 2026-09-19, 5000 enemies: about 55 ms/s in the
+ * atoms table along the loop updates; numbers hash directly).
+ */
+export type LoopHandle = number;
+
 /** The audio of a loop that has played, in its container in the scene */
 interface LoopVoice {
   audio: PositionalAudio;
@@ -13,7 +21,7 @@ interface LoopVoice {
  * Active looping sound (managed centrally)
  */
 interface ActiveLoop {
-  handle: string;
+  handle: LoopHandle;
   soundId: string;
   buffer: AudioBuffer;
   config: RegisteredSound['config'];
@@ -37,7 +45,7 @@ interface ActiveLoop {
  * free. While the game is paused every loop stands (hold).
  */
 export class SpatialAudioLoops {
-  private activeLoops = new Map<string, ActiveLoop>();
+  private activeLoops = new Map<LoopHandle, ActiveLoop>();
   private loopHandleCounter = 0;
   private masterVolume = 1.0;
   /** The game is paused, see hold() */
@@ -81,7 +89,7 @@ export class SpatialAudioLoops {
     soundId: string,
     position: Vector3,
     config?: { volumeMultiplier?: number; randomStart?: boolean }
-  ): Promise<string | null> {
+  ): Promise<LoopHandle | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
@@ -100,7 +108,7 @@ export class SpatialAudioLoops {
       return null;
     }
 
-    const handle = `loop_${++this.loopHandleCounter}`;
+    const handle: LoopHandle = ++this.loopHandleCounter;
     const loop: ActiveLoop = {
       handle,
       soundId,
@@ -143,25 +151,31 @@ export class SpatialAudioLoops {
     }
   }
 
-  updatePosition(handle: string, position: Vector3): void {
+  /**
+   * Move a loop; it pauses out of earshot and joins or resumes in earshot
+   * (budget permitting). True while it plays afterwards, false while it
+   * waits, which lets a caller update a waiting loop less often.
+   */
+  updatePosition(handle: LoopHandle, position: Vector3): boolean {
     const loop = this.activeLoops.get(handle);
-    if (!loop) return;
+    if (!loop) return false;
 
     loop.position.copy(position);
     loop.voice?.container.position.copy(position);
-    if (this.held) return;
+    if (this.held) return !loop.paused;
 
     if (loop.paused) {
       // No slot to take: the distance check can wait. The common case with
       // many enemies near the camera, every one of them asking each sub-step.
-      if (loop.isEnemySound && !this.enemyBudget.canReserve()) return;
+      if (loop.isEnemySound && !this.enemyBudget.canReserve()) return false;
       if (this.playback.isWithinAudibleDistance(position)) this.resumeLoop(loop);
     } else if (!this.playback.isWithinAudibleDistance(position)) {
       this.pauseLoop(loop);
     }
+    return !loop.paused;
   }
 
-  pause(handle: string): void {
+  pause(handle: LoopHandle): void {
     const loop = this.activeLoops.get(handle);
     if (loop && !loop.paused) {
       this.pauseLoop(loop);
@@ -169,14 +183,14 @@ export class SpatialAudioLoops {
   }
 
   /** False while held (see hold()) or the enemy budget is full. */
-  resume(handle: string): boolean {
+  resume(handle: LoopHandle): boolean {
     const loop = this.activeLoops.get(handle);
     if (!loop || !loop.paused) return true;
     if (this.held) return false;
     return this.resumeLoop(loop);
   }
 
-  stop(handle: string): void {
+  stop(handle: LoopHandle): void {
     const loop = this.activeLoops.get(handle);
     if (!loop) return;
 
@@ -198,7 +212,7 @@ export class SpatialAudioLoops {
     }
   }
 
-  isPaused(handle: string): boolean {
+  isPaused(handle: LoopHandle): boolean {
     return this.activeLoops.get(handle)?.paused ?? false;
   }
 
@@ -206,7 +220,7 @@ export class SpatialAudioLoops {
    * Loop `handle` at `volumeMultiplier` times its sound's volume from now on
    * (a fade the caller steps). A paused loop takes it when it resumes.
    */
-  setVolume(handle: string, volumeMultiplier: number): void {
+  setVolume(handle: LoopHandle, volumeMultiplier: number): void {
     const loop = this.activeLoops.get(handle);
     if (!loop) return;
     loop.baseVolume = loop.config.volume * volumeMultiplier;

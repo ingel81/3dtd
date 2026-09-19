@@ -135,6 +135,8 @@ vi.mock('three', async (importOriginal) => {
 
 const NEAR = new Vector3(10, 0, 0);
 const FAR = new Vector3(AUDIO_LIMITS.maxAudibleDistance + 1, 0, 0);
+/** A loop handle nothing was created under */
+const NO_LOOP = 999_999;
 let now = 1000;
 
 function setup() {
@@ -651,7 +653,9 @@ describe('SpatialAudioManager', () => {
       const audio = lastPositional();
       const h2 = await manager.createLoop('fire', NEAR);
 
-      expect(typeof h1).toBe('string');
+      // A number, and never 0: callers may test a handle for truthiness
+      expect(typeof h1).toBe('number');
+      expect(h1).toBeGreaterThan(0);
       expect(h2).not.toBe(h1);
       expect(audio.isPlaying).toBe(true);
       expect(audio.loop).toBe(true);
@@ -696,7 +700,7 @@ describe('SpatialAudioManager', () => {
       expect(manager.isEnemySound('arrow')).toBe(false);
       await ready('zombie_walk', 'walk.mp3');
 
-      const handles: (string | null)[] = [];
+      const handles: (number | null)[] = [];
       for (let i = 0; i < AUDIO_LIMITS.maxEnemySounds; i++) {
         handles.push(await manager.createLoop('zombie_walk', NEAR));
       }
@@ -737,7 +741,7 @@ describe('SpatialAudioManager', () => {
       await ready('zombie_walk', 'walk.mp3');
       const paused = (await manager.createLoop('zombie_walk', NEAR))!;
       manager.pauseLoop(paused);
-      const others: string[] = [];
+      const others: number[] = [];
       for (let i = 0; i < AUDIO_LIMITS.maxEnemySounds; i++) {
         others.push((await manager.createLoop('zombie_walk', NEAR))!);
       }
@@ -756,12 +760,12 @@ describe('SpatialAudioManager', () => {
       const a = (await manager.createLoop('zombie_walk', NEAR))!;
       const b = (await manager.createLoop('zombie_walk', NEAR))!;
 
-      expect(manager.resumeLoop('nope')).toBe(true);
+      expect(manager.resumeLoop(NO_LOOP)).toBe(true);
       expect(manager.resumeLoop(b)).toBe(true);
-      expect(manager.isLoopPaused('nope')).toBe(false);
-      manager.pauseLoop('nope');
-      manager.updateLoopPosition('nope', FAR);
-      manager.stopLoop('nope');
+      expect(manager.isLoopPaused(NO_LOOP)).toBe(false);
+      manager.pauseLoop(NO_LOOP);
+      manager.updateLoopPosition(NO_LOOP, FAR);
+      manager.stopLoop(NO_LOOP);
 
       // A paused enemy loop already gave its budget back; stopping it must not again.
       manager.pauseLoop(a);
@@ -1003,8 +1007,9 @@ describe('SpatialAudioManager around the pause (playtest 546, 548)', () => {
     audio.update(16);
     expect(reg.positional).toHaveLength(0);
 
+    // A waiting loop is moved every third sub-step (AudioComponent)
     flyTo(camera, 3 * D - 10);
-    audio.update(16);
+    for (let i = 0; i < 3; i++) audio.update(16);
     expect(lastPositional().isPlaying).toBe(true);
     expect(lastPositional().parent?.position.x).toBe(3 * D);
   });
@@ -1073,7 +1078,7 @@ describe('SpatialAudioManager: waiting enemy loops each sub-step', () => {
   async function waitingZombies() {
     const context = setup();
     await context.ready('zombie_walk', 'walk.mp3');
-    const handles: string[] = [];
+    const handles: number[] = [];
     for (let i = 0; i < ENEMIES; i++) handles.push((await context.manager.createLoop('zombie_walk', THERE))!);
     const subStep = () => {
       for (const handle of handles) context.manager.updateLoopPosition(handle, THERE);

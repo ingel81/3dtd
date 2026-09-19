@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import { Component } from '../core/component';
 import { GameObject } from '../core/game-object';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
+import type { LoopHandle } from '../managers/audio/spatial-audio-loops';
 import { TransformComponent } from './transform.component';
 import { ComponentType } from '../core/component';
 
@@ -43,10 +44,26 @@ export interface LoopFlagSink {
  * All loop management (audio pooling, distance culling, enemy budget)
  * is delegated to SpatialAudioManager.
  */
+/**
+ * Sub-steps a component skips after an update in which none of its loops
+ * played: a waiting loop gets its position every third sub-step (20 Hz at
+ * 1x) and takes a free enemy-sound slot, or the way back into earshot, up to
+ * two steps late. With thousands of enemies nearly every loop waits for one
+ * of the few enemy-sound slots, and each wait was a call chain per enemy per
+ * sub-step.
+ */
+const WAITING_LOOP_SKIPS = 2;
+
 export class AudioComponent extends Component {
   private spatialAudio: SpatialAudioManager | null = null;
   private sounds = new Map<string, { url: string; config: AudioConfig }>();
-  private loopHandles = new Map<string, string>(); // localId → SpatialAudioManager handle
+  private loopHandles = new Map<string, LoopHandle>(); // localId → SpatialAudioManager handle
+  /**
+   * The values of `loopHandles` as an array, for update(): it runs for every
+   * moving enemy every sub-step, and iterating the Map there made an
+   * iterator object each time. Rebuilt in syncLoopFlag(), after each write.
+   */
+  private loopHandleList: LoopHandle[] = [];
   /**
    * localId → token of the loop whose `createLoop` is still in flight.
    * stop(), stopAll() and a newer play() of the same id drop or replace the
@@ -56,6 +73,11 @@ export class AudioComponent extends Component {
   private pendingLoops = new Map<string, number>();
   private loopRequestCounter = 0;
   private destroyed = false;
+  /**
+   * Sub-steps update() still skips because none of this object's loops
+   * played at the last update, see WAITING_LOOP_SKIPS.
+   */
+  private waitingSkips = 0;
   /** Local position for update(), which runs every sub-step: no vector per call */
   private readonly localPos = new Vector3();
 
@@ -138,7 +160,7 @@ export class AudioComponent extends Component {
 
       const stillWanted = !this.destroyed && this.pendingLoops.get(id) === token;
       if (stillWanted) this.pendingLoops.delete(id);
-      if (!handle) return;
+      if (handle === null) return;
 
       if (!stillWanted) {
         this.spatialAudio.stopLoop(handle);
@@ -158,7 +180,7 @@ export class AudioComponent extends Component {
   stop(id: string): void {
     this.pendingLoops.delete(id);
     const handle = this.loopHandles.get(id);
-    if (handle && this.spatialAudio) {
+    if (handle !== undefined && this.spatialAudio) {
       this.spatialAudio.stopLoop(handle);
       this.loopHandles.delete(id);
       this.syncLoopFlag();
@@ -197,6 +219,10 @@ export class AudioComponent extends Component {
    */
   update(_deltaTime: number): void {
     if (this.loopHandles.size === 0 || !this.spatialAudio) return;
+    if (this.waitingSkips > 0) {
+      this.waitingSkips--;
+      return;
+    }
 
     const pos = this.getPosition();
     if (!pos) return;
@@ -205,9 +231,13 @@ export class AudioComponent extends Component {
     if (!localPos) return;
 
     // Update position for all active loops (SpatialAudioManager handles pause/resume)
-    for (const handle of this.loopHandles.values()) {
-      this.spatialAudio.updateLoopPosition(handle, localPos);
+    let playing = false;
+    for (const handle of this.loopHandleList) {
+      if (this.spatialAudio.updateLoopPosition(handle, localPos)) playing = true;
     }
+    // A loop that waits (out of earshot or for an enemy-budget slot) only
+    // needs its position now and then; one that plays is moved every step.
+    if (!playing) this.waitingSkips = WAITING_LOOP_SKIPS;
   }
 
   /**
@@ -230,8 +260,12 @@ export class AudioComponent extends Component {
     this.stopAll();
   }
 
-  /** Runs after every `loopHandles` write, so the sink tracks `size > 0` exactly. */
+  /**
+   * Runs after every `loopHandles` write, so the sink tracks `size > 0`
+   * exactly and update() iterates the current handles.
+   */
   private syncLoopFlag(): void {
+    this.loopHandleList = Array.from(this.loopHandles.values());
     if (this.loopSink !== null) this.loopSink.hasAudioLoops = this.loopHandles.size > 0;
   }
 }
