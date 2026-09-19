@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import type { SavedSpawn } from '../../models/location.types';
 import { COORD_DECIMALS } from '../../utils/geo-utils';
+import { shareableUrl } from '../../utils/public-url';
 
 /**
  * URL Location Service
@@ -62,10 +63,11 @@ export class UrlLocationService {
   }
 
   /**
-   * Get current URL for sharing (just returns current URL)
+   * The current place as a link for someone else: this page, or from the
+   * desktop build the same place on the web version (shareableUrl).
    */
   getShareUrl(): string {
-    return window.location.href;
+    return shareableUrl(window.location.href);
   }
 
   private formatSpawn(spawn: SavedSpawn): string {

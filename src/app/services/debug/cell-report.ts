@@ -1,5 +1,6 @@
 import type { CorridorConfig } from '../../utils/route-corridor';
 import type { CorridorExplanation } from '../world/path-route.service';
+import { shareableUrl } from '../../utils/public-url';
 
 /**
  * Most cells one report holds. Copying reads every cell the way
@@ -84,7 +85,8 @@ const SECRET_PARAM = /token|key|secret|cred|auth|pass|sig/i;
 /**
  * The page URL for a report: origin, path and the query parameters (`l`,
  * `s`, `devworld` and so on) except those whose name suggests a key or a
- * token. No user info, no fragment.
+ * token. No user info, no fragment. A report from the desktop build points
+ * at the web version (shareableUrl), where the place can be opened.
  */
 export function reportUrl(href: string): string {
   let url: URL;
@@ -94,7 +96,8 @@ export function reportUrl(href: string): string {
     return '';
   }
   const kept = url.search.slice(1).split('&').filter((part) => part !== '' && !SECRET_PARAM.test(part.split('=')[0]));
-  return `${url.origin}${url.pathname}${kept.length > 0 ? `?${kept.join('&')}` : ''}`;
+  // protocol and host rather than url.origin, which is "null" for app:// outside the desktop build
+  return shareableUrl(`${url.protocol}//${url.host}${url.pathname}${kept.length > 0 ? `?${kept.join('&')}` : ''}`);
 }
 
 /** The corridor settings that differ from `defaults`; of the highway table only the widths that differ. */

@@ -1,4 +1,5 @@
 import { TD_FONTS, TD_THEME } from '../styles/td-theme';
+import { SITE_URL } from './public-url';
 import { downloadBlob, fileSlug } from './download';
 
 /**
@@ -8,7 +9,7 @@ import { downloadBlob, fileSlug } from './download';
  */
 
 /** The site a saved picture points to */
-export const SCREENSHOT_URL = 'https://3dtd.sgeht.net';
+export const SCREENSHOT_URL = SITE_URL;
 
 /** Watermark logo height in font sizes of the stamp: about 48 px on a 1080 p picture */
 const WATERMARK_HEIGHT = 4;
