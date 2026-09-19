@@ -80,7 +80,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
-| [RUN_DUMP_PLAN.md](RUN_DUMP_PLAN.md) | Plan | Ein ganzer Lauf als Datei fürs Balancing: Inhalt, Bestand im Code, Anforderungen des Users, Balance-Fragen, die darauf warten |
+| [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan | Balancing aufrollen: Begriffe (Wellenplan statt Curriculum), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. Anforderungen E1 bis E44 festgelegt (2026-09-18), Umsetzung auf Branch `electron` |
 
