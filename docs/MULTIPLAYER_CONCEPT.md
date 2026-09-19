@@ -2,7 +2,7 @@
 
 > **Status:** Konzept / Entscheidungsvorlage, noch kein Code.
 > **Stand:** 2026-08-26 · Branch `claude/multiplayer-pve-pvp-architecture-amu0x7`;
-> Commands, Korridor und Stellen im Code nachgeführt 2026-09-15
+> Commands, Korridor und Stellen im Code nachgeführt 2026-09-15; Bezug zum Balancing-Plan 2026-09-19
 >
 > Bewertet den Ist-Zustand der Engine gegen die Anforderungen von
 > Netzwerk-Multiplayer und schlägt eine Architektur plus Ausbaureihenfolge vor.
@@ -31,6 +31,35 @@ aus **14 Command-Events** besteht und pro Match unter 100 KB bleibt.
 verteidigen die *gleiche* Stadt gegen die *gleiche* Welle in getrennten Sims,
 verglichen wird nur Leak/Score). Der braucht **kein** Lockstep und umgeht damit
 alle drei Blocker: nur World-Snapshot und Wave-Schedule-Sharing.
+
+---
+
+## Bezug zum Balancing-Plan (2026-09-19)
+
+Eingeordnet mit dem User am 2026-09-19, rein zur Orientierung; entschieden ist für Multiplayer nichts. Der
+[Balancing-Plan](BALANCING_PLAN.md) legt Teile des Determinismus-Fundaments (Abschnitt 6, Punkte 1 und 4) ohnehin:
+
+- **Schon heute:** Die Höhen der Korridorzellen frieren nach dem Korridor-Bau ein; danach verändert kein Tile-Load
+  sie mehr. Vom World Seal (2.2) fehlt damit nur noch das Serialisieren und Übernehmen der Host-Höhen.
+- **Aus dem Plan zuerst:** 1c (geseedete Zufallsströme, fortlaufender Sub-Step-Zähler als späterer Tick) und 1a
+  (eine Wellenquelle, der Director im Spiel). Der adaptive Director (D8 im Plan) ist im Coop kein Problem: Er liest
+  die eine gemeinsame Verteidigung und rechnet auf jedem Client gleich. Im Versus bekämen zwei Spieler dagegen
+  verschiedene Wellen; dort braucht es feste Wellen oder einen Host, der sie verteilt.
+- **Befehle vollständig:** Bots setzen und verkaufen Tower heute direkt am `GameStateManager` vorbei. Im Plan laufen
+  alle Aktionen über `command:*`; das ist die Voraussetzung für die Command-Pipeline (4.3).
+- **Gold-Ledger nur einmal umbauen:** Der Plan gibt jeder Buchung in `CreditsLedger` eine Quelle, Coop braucht Gold
+  je Spieler (Modus B). Beides in einem Umbau planen.
+- **Config-Hash** im Kopf des Run-Logs taugt für den Balance-Hash-Check der Lobby (Punkt 14).
+- **Sichtlinie hängt am Frame, auch in DevWorld:** Wann ein Tower nach dem Bau schießen darf, entscheidet der
+  GPU-Readback. Mit der Turmdrehung im Renderer (11.1, Punkt 2) ist das der Kern von Stufe 2.
+- **Abnahme im Einzelspieler:** Spielt ein aufgezeichneter Lauf lokal als Neu-Simulation (E2, [REPLAY.md](REPLAY.md))
+  bit-genau nach, ist die Simulation auf einem Rechner lockstep-fähig. Das liefert zugleich Replay und
+  reproduzierbare Bugs, bevor ein Netz-Layer existiert.
+- **Reihenfolge, falls Coop zuerst käme:** Plan 1a und 1c mit vollständigen Befehlen, dann Determinismus im
+  Einzelspieler mit E2 als Abnahme, dann Sichtlinie vom Host, Welt teilen und Resync, zuletzt Netz, Lobby, Gold je
+  Spieler und Tower-Besitz.
+- **Vorher offen, nicht technisch:** Backend ja oder nein (9.1) und Kosten und Nutzungsbedingungen der 3D-Tiles bei
+  mehreren Clients (9.2).
 
 ---
 
