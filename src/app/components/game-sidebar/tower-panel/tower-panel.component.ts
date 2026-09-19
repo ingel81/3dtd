@@ -76,6 +76,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
+  readonly setHoldFire = output<{ tower: Tower; holdFire: boolean }>();
 
   readonly damageTypeUI = DAMAGE_TYPE_UI;
   readonly damageTypeIcon = damageTypeIcon;
@@ -152,6 +153,10 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
 
   onChangeAirSubStrategy(strategy: AirSubStrategy): void {
     this.changeAirSubStrategy.emit({ tower: this.tower(), strategy });
+  }
+
+  onToggleHoldFire(): void {
+    this.setHoldFire.emit({ tower: this.tower(), holdFire: !this.tower().holdFire });
   }
 
   onSell(): void {

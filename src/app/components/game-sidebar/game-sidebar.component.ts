@@ -93,6 +93,7 @@ export class GameSidebarComponent implements OnDestroy {
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
+  readonly setHoldFire = output<{ tower: Tower; holdFire: boolean }>();
   readonly startResearch = output<ResearchId>();
   readonly cancelResearch = output<ResearchId>();
   readonly queueResearch = output<ResearchId>();

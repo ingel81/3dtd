@@ -296,6 +296,15 @@ describe('TowerCombatService', () => {
       expect(engine.flameBeams.stopBeam).not.toHaveBeenCalled();
     });
 
+    it('burns nothing and puts the flame out on hold fire', () => {
+      const { tower, engine, run } = setup(18);
+      tower.holdFire = true;
+
+      run();
+      expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
+      expect(engine.flameBeams.stopBeam).toHaveBeenCalledWith(tower.id);
+    });
+
     it('range upgrades lengthen the flame and the query', () => {
       const { tower, engine, getEnemiesInRadius, run } = setup(21);
       for (let i = 0; i < 3; i++) tower.applyUpgrade('range');

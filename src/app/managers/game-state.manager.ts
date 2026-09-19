@@ -887,6 +887,14 @@ export class GameStateManager {
     return this.towerLifecycle.upgrade(tower, upgradeId);
   }
 
+  /**
+   * Hold fire of a tower on or off, see TowerLifecycle.setHoldFire.
+   * @returns false for a passive tower
+   */
+  setTowerHoldFire(tower: Tower, holdFire: boolean): boolean {
+    return this.towerLifecycle.setHoldFire(tower, holdFire);
+  }
+
   /** Debug: every track of every tower to its max level, free of charge. */
   maxUpgradeAllTowers(): void {
     this.towerLifecycle.maxUpgradeAll();

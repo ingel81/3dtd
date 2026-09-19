@@ -437,6 +437,12 @@ export type GameEvent =
       airSubStrategy?: AirSubStrategy;
     }
   | {
+      /** Hold fire of a tower on or off (Tower.holdFire); a passive tower ignores it */
+      type: 'command:set-hold-fire';
+      towerId: string;
+      holdFire: boolean;
+    }
+  | {
       type: 'command:start-wave';
       config?: WaveConfig;
     }

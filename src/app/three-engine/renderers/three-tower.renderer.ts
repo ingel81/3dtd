@@ -29,6 +29,7 @@ import { createLosRing, createTipMarker } from './tower-overlays';
 import { RangeRingKit, placeRangeRing } from './range-ring';
 import { headingToLocalRotation, localRotationToHeading, stepTurretAim, turretAimError } from './tower-turret-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
+import { setTowerGreyedOut } from './tower-hold-fire';
 
 /**
  * Tower render data - stored per tower
@@ -43,6 +44,8 @@ export interface TowerRenderData {
   losRing: LineLoop | null; // Debug ring showing LOS origin circle
   typeConfig: TowerTypeConfig;
   isSelected: boolean;
+  /** Greyed out on hold fire (Tower.holdFire) */
+  holdFire: boolean;
   // Geo coordinates for terrain sampling
   lat: number;
   lon: number;
@@ -402,6 +405,7 @@ export class ThreeTowerRenderer {
       losRing,
       typeConfig: config,
       isSelected: false,
+      holdFire: false,
       lat,
       lon,
       height,
@@ -621,6 +625,14 @@ export class ThreeTowerRenderer {
     // Keep debug markers visible when enabled
     if (data.tipMarker) data.tipMarker.visible = this.showShootHeight;
     if (data.losRing) data.losRing.visible = this.debugMode;
+  }
+
+  /** Grey out the tower's model on hold fire, or give it its colours back (TowerLifecycle.setHoldFire). */
+  setHoldFire(id: string, holdFire: boolean): void {
+    const data = this.towers.get(id);
+    if (!data || data.holdFire === holdFire) return;
+    data.holdFire = holdFire;
+    setTowerGreyedOut(data.mesh, holdFire);
   }
 
   /**

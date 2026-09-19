@@ -35,6 +35,13 @@ export class Tower extends GameObject {
 
   selected = false;
 
+  /**
+   * Hold fire, switched by the player (TowerLifecycle.setHoldFire):
+   * findTarget() finds nothing, so the tower neither turns to an enemy nor
+   * attacks. It can still be sold and upgraded.
+   */
+  holdFire = false;
+
   /** Whether this tower is sleeping (no enemies in range) */
   isSleeping = false;
 
@@ -217,6 +224,10 @@ export class Tower extends GameObject {
     losCheck?: (enemy: Enemy) => boolean,
     bodyDistSq?: (enemy: Enemy) => number,
   ): Enemy | null {
+    if (this.holdFire) {
+      this.clearTarget();
+      return null;
+    }
     // Squared range for all distance comparisons below (range is stable within
     // a frame; comparisons against distance² avoid sqrt in the hot path).
     const rangeSq = this.combat.range * this.combat.range;

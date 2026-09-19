@@ -51,6 +51,18 @@ describe('Tower.findTarget with a body along the route', () => {
     expect(t.findTarget([ooze()], false, undefined, () => far * far)).toBeNull();
   });
 
+  it('finds nothing and drops its target on hold fire, and finds again after it', () => {
+    const t = tower();
+    const zombie = zombieAt(8);
+    expect(t.findTarget([zombie], false)).toBe(zombie);
+
+    t.holdFire = true;
+    expect(t.findTarget([zombie], false)).toBeNull();
+
+    t.holdFire = false;
+    expect(t.findTarget([zombie], false)).toBe(zombie);
+  });
+
   it('picks the nearer of a body and another enemy by the aim point', () => {
     const t = tower();
     t.targetingStrategy = 'closest';

@@ -212,6 +212,17 @@
   box-shadow: 0 0 6px rgba(0, 188, 212, 0.3);
 }
 
+.td-hold-fire-btn {
+  margin-left: 4px;
+}
+
+.td-hold-fire-btn.active {
+  border-color: var(--td-health-red);
+  background: color-mix(in srgb, var(--td-health-red) 15%, transparent);
+  color: var(--td-health-red);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--td-health-red) 30%, transparent);
+}
+
 .td-sub-targeting-row {
   padding-top: 2px;
   border-top: 1px dashed var(--td-frame-dark);
