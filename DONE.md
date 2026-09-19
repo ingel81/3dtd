@@ -4,6 +4,12 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-19
+
+- [x] **A5 Merge-Ablauf** (auf Zuruf verschoben): `next` ist als v0.3.0 auf `main` (`7675a23d`, 2026-09-17), `main`
+      und `next` stehen auf GitHub auf diesem Commit; am 2026-09-19 mit `git ls-remote` festgestellt, TODO führte den
+      Punkt noch als offen. Die Einzelschritte (Build aus frischem Klon, Gate, Rückweg-Tag) sind hier nicht belegt.
+
 ## 2026-09-17
 
 ### Raketensilo für den Nuklearschlag

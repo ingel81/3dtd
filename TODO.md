@@ -9,16 +9,9 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-17, Branch `next`. Nichts in Arbeit, keine offenen Nachtests.
+Stand 2026-09-19, Branch `electron`. In Arbeit: das erste Desktop-Release (H10), offener Nachtest K8.
 
 ---
-
-## Vor dem Merge nach `main`
-
-- [ ] **A5 Merge-Ablauf**: Code-Stopp; Nachtests K2 bis K6 abgenommen (DONE 2026-09-17). Offen: Build aus frischem
-      Klon mit dem CI-Befehl, dann Gate; Tag auf dem heutigen `main` als Rückweg; `next` sichern (liegt nur lokal). Auf
-      dem heutigen `main` deployt ein Push ohne Tests sofort nach `/play/`; mit der `deploy.yml` aus `electron` erst
-      das Veröffentlichen eines Releases (E46).
 
 ## Später (Backlog)
 
