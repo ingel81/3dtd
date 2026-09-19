@@ -40,7 +40,7 @@ describe('OffscreenClusterer', () => {
   it('puts a point right of the view on the right edge, pointing right', () => {
     c.add(3, 0, false, false);
     expect(c.build(6)).toEqual([
-      { x: 780, y: 300, angle: 0, labelX: -20, labelY: 0, count: 1, boss: false },
+      { x: 780, y: 300, angle: 0, labelX: -20, labelY: 0, count: 1, boss: false, target: -1 },
     ]);
   });
 
@@ -100,13 +100,40 @@ describe('OffscreenClusterer', () => {
     c.begin(800, 600, 20);
     expect(c.build(6)).toEqual([]);
   });
+
+  it('leads to the enemy furthest along its route, not to one on screen', () => {
+    c.add(0, 0, false, false, 0.99, 0);
+    c.add(3, 0.1, false, false, 0.9, 1);
+    c.add(3, -0.1, false, false, 0.95, 2);
+    c.add(3, 0, false, false, 0.86, 3);
+    expect(c.build(6)[0]).toMatchObject({ count: 3, target: 2 });
+  });
+
+  it('leads to a boss before any enemy further along', () => {
+    c.add(3, 0, false, false, 0.99, 0);
+    c.add(3, 0.1, false, true, 0.2, 1);
+    c.add(3, -0.1, false, true, 0.4, 2);
+    c.add(3, 0, false, false, 1, 3);
+    expect(c.build(6)[0]).toMatchObject({ boss: true, target: 2 });
+  });
+
+  it('keeps a target per direction and forgets it each pass', () => {
+    c.add(3, 0, false, false, 0.9, 7);
+    c.add(-3, 0, false, false, 0.9, 4);
+    const byX = c.build(6).sort((a, b) => a.x - b.x);
+    expect(byX.map((a) => a.target)).toEqual([4, 7]);
+    c.begin(800, 600, 20);
+    c.add(-3, 0, false, false, 0.5);
+    expect(c.build(6)[0].target).toBe(-1);
+  });
 });
 
 describe('sameArrows', () => {
-  const arrow = { x: 1, y: 2, angle: 0, labelX: 0, labelY: 0, count: 1, boss: false };
+  const arrow = { x: 1, y: 2, angle: 0, labelX: 0, labelY: 0, count: 1, boss: false, target: 0 };
 
   it('compares what the view shows', () => {
     expect(sameArrows([arrow], [{ ...arrow }])).toBe(true);
+    expect(sameArrows([arrow], [{ ...arrow, target: 3 }])).toBe(true);
     expect(sameArrows([arrow], [{ ...arrow, count: 2 }])).toBe(false);
     expect(sameArrows([arrow], [])).toBe(false);
   });

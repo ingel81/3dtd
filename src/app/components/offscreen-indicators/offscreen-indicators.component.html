@@ -1,5 +1,7 @@
 @for (arrow of arrows(); track $index) {
-  <div class="osi" [class.osi-boss]="arrow.boss" [style.left.px]="arrow.x" [style.top.px]="arrow.y" aria-hidden="true">
+  <button type="button" class="osi" [class.osi-boss]="arrow.boss" [style.left.px]="arrow.x" [style.top.px]="arrow.y"
+          [attr.aria-label]="arrow.boss ? 'Camera to the boss' : 'Camera to the enemy closest to the HQ'"
+          (click)="goTo($index)">
     <span class="osi-chip">
       <td-icon name="caretR" [size]="14" [strokeWidth]="2.5"
                [style.transform]="'rotate(' + arrow.angle + 'deg)'"></td-icon>
@@ -8,5 +10,5 @@
       <span class="osi-count"
             [style.transform]="'translate(' + arrow.labelX + 'px, ' + arrow.labelY + 'px)'">{{ arrow.count }}</span>
     }
-  </div>
+  </button>
 }

@@ -101,6 +101,8 @@ function indicators(enemies: Enemy[], paused: boolean): Indicators {
     arrows: signal([]),
     clusterer: new OffscreenClusterer(8),
     threats: [],
+    progress: [],
+    latest: [],
     point: new Vector3(),
   });
   // Paused, the tick re-projects the threats of the last scan

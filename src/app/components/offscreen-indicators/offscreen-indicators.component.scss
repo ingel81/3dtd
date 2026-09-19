@@ -1,4 +1,4 @@
-/* Over the canvas like the hints, never in the way of a click. */
+/* Over the canvas like the hints; only the arrows take a click. */
 :host {
   position: absolute;
   inset: 0;
@@ -12,6 +12,25 @@
 .osi {
   position: absolute;
   transform: translate(-50%, -50%);
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
+  pointer-events: auto;
+}
+
+.osi:hover .osi-chip {
+  transform: scale(1.15);
+}
+
+.osi:focus-visible {
+  outline: none;
+}
+
+.osi:focus-visible .osi-chip {
+  outline: 1px solid var(--td-gold-light);
+  outline-offset: 2px;
 }
 
 .osi-chip {
@@ -25,6 +44,7 @@
   border: 1px solid var(--td-health-red);
   color: var(--td-health-red);
   box-shadow: var(--td-shadow-soft);
+  transition: transform 0.12s ease;
 }
 
 .osi-boss .osi-chip {

@@ -4,7 +4,8 @@
  * projected points, so the component only projects and draws.
  *
  * Points are clustered by direction into a few sectors around the view
- * centre; each non-empty sector becomes one arrow with a count.
+ * centre; each non-empty sector becomes one arrow with a count, and leads
+ * to one of its points (a click takes the camera there).
  */
 
 /** Share of its route after which an enemy counts as close to the HQ */
@@ -45,6 +46,12 @@ export interface OffscreenArrow {
   count: number;
   /** A boss among them */
   boss: boolean;
+  /**
+   * The point a click leads to, by the `index` it was added with (-1 for
+   * none): the boss furthest along its route, else the enemy furthest
+   * along. Not compared by sameArrows, the view does not show it.
+   */
+  target: number;
 }
 
 /**
@@ -57,6 +64,10 @@ export class OffscreenClusterer {
   private readonly bosses: Int32Array;
   private readonly sumX: Float64Array;
   private readonly sumY: Float64Array;
+  /** Per sector the point a click leads to (-1 none), whether a boss, its route progress */
+  private readonly target: Int32Array;
+  private readonly targetBoss: Uint8Array;
+  private readonly targetProgress: Float64Array;
   private readonly step: number;
   private halfW = 0;
   private halfH = 0;
@@ -68,6 +79,9 @@ export class OffscreenClusterer {
     this.bosses = new Int32Array(sectors);
     this.sumX = new Float64Array(sectors);
     this.sumY = new Float64Array(sectors);
+    this.target = new Int32Array(sectors);
+    this.targetBoss = new Uint8Array(sectors);
+    this.targetProgress = new Float64Array(sectors);
     this.step = (2 * Math.PI) / sectors;
   }
 
@@ -81,6 +95,7 @@ export class OffscreenClusterer {
     this.bosses.fill(0);
     this.sumX.fill(0);
     this.sumY.fill(0);
+    this.target.fill(-1);
     this.halfW = width / 2;
     this.halfH = height / 2;
     this.margin = margin;
@@ -90,10 +105,12 @@ export class OffscreenClusterer {
   /**
    * One point in normalised device coordinates (x right, y up, -1..1 on
    * screen). A point behind the camera comes in mirrored back, with
-   * `behind` set; it counts as off-screen wherever it lands.
+   * `behind` set; it counts as off-screen wherever it lands. `progress` is
+   * the share of its route behind the enemy and `index` the caller's name
+   * for it, for the arrow's target.
    * @returns false when the point is on screen and adds nothing
    */
-  add(ndcX: number, ndcY: number, behind: boolean, boss: boolean): boolean {
+  add(ndcX: number, ndcY: number, behind: boolean, boss: boolean, progress = 0, index = -1): boolean {
     if (!behind && ndcX >= -1 && ndcX <= 1 && ndcY >= -1 && ndcY <= 1) return false;
     // Direction in pixels, so a wide view does not squash the angles
     let dx = ndcX * this.halfW;
@@ -112,6 +129,14 @@ export class OffscreenClusterer {
     if (boss) this.bosses[s]++;
     this.sumX[s] += ux;
     this.sumY[s] += uy;
+    // A boss beats any other enemy, then the one further along
+    const was = this.target[s];
+    const wasBoss = this.targetBoss[s] === 1;
+    if (was < 0 || (boss && !wasBoss) || (boss === wasBoss && progress > this.targetProgress[s])) {
+      this.target[s] = index;
+      this.targetBoss[s] = boss ? 1 : 0;
+      this.targetProgress[s] = progress;
+    }
     return true;
   }
 
@@ -154,6 +179,7 @@ export class OffscreenClusterer {
         labelY: round(uy * LABEL_OFFSET_PX),
         count: this.count[s],
         boss: this.bosses[s] > 0,
+        target: this.target[s],
       });
     }
     return arrows;
