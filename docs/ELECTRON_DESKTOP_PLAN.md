@@ -495,6 +495,13 @@ liest.
    6. Den Entwurf als normales Release veröffentlichen: Installierte Apps bekommen das
       Update, `deploy.yml` bringt Web-Version und Landing Page live.
 
+   **0.3.1 veröffentlicht am 2026-09-19.** Der erste Lauf von `release.yml` scheiterte an
+   einem Test-Timeout auf dem Windows-Runner (`80d04855`, Tag danach verschoben), der
+   zweite baute den Entwurf in 8 Minuten. K8.1 und K8.5 mit dem Installer aus dem
+   Entwurf ok. `main` und `next` per Fast-Forward auf `3a43c0e7`, der Push deployte
+   nichts. Das Veröffentlichen startete `deploy.yml` (1 min 19 s); danach trug `/play/`
+   `v0.3.1` samt Changelog, die Landing Page den Download-Link.
+
 ## Bewusst nicht
 
 - macOS und Linux
