@@ -93,6 +93,7 @@ import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
 import { BloodMoonBannerComponent } from './components/blood-moon-banner/blood-moon-banner.component';
 import { RelocationStatusComponent } from './components/relocation-status/relocation-status.component';
+import { UpdateHintComponent } from './components/update-hint/update-hint.component';
 import { CellReportPanelComponent } from './components/cell-report-panel/cell-report-panel.component';
 import { AbilityBarComponent } from './components/ability-bar/ability-bar.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
@@ -148,6 +149,7 @@ import { RefusalHintService } from './services/refusal-hint.service';
     OffscreenIndicatorsComponent,
     BloodMoonBannerComponent,
     RelocationStatusComponent,
+    UpdateHintComponent,
     CellReportPanelComponent,
     AbilityBarComponent,
     RunSummaryComponent,
