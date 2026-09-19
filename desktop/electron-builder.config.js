@@ -9,12 +9,11 @@
  */
 
 const rootPackage = require('../package.json');
+const { APP_ID } = require('./src/app-id');
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  // Identifies the installation to Windows and to the updater. Never change
-  // it once a release is out, or installed copies stop receiving updates.
-  appId: 'net.sgeht.3dtd',
+  appId: APP_ID,
   productName: '3DTD',
   copyright: 'Copyright © 2026 ingel81',
   extraMetadata: { version: rootPackage.version },

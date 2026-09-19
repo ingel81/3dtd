@@ -22,9 +22,12 @@ purpose.
 
 ```
 src/main.js                 window, security wiring, dev or app://
+src/app-id.js               appId for installer, notifications and updater
 src/protocol.js             app:// handler: paths, MIME types, ranges, CSP
 src/security.js             navigation and permission rules
 src/preload.js              window.desktop, the only bridge to the game
+src/downloads.js            where and under which name downloads are saved
+src/error-page.js           page shown when loading fails or the renderer dies
 src/shortcuts.js            F11 fullscreen, F12 DevTools, nothing else
 src/window-state.js         size, position, maximized, fullscreen across starts
 src/user-agent.js           identifies the app to OpenStreetMap and Wikidata

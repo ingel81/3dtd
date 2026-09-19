@@ -10,7 +10,11 @@
 
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { app, BrowserWindow, Menu, nativeTheme, protocol, screen, session, shell } = require('electron');
+const { existsSync } = require('node:fs');
+const { app, BrowserWindow, Menu, Notification, nativeTheme, protocol, screen, session, shell } = require('electron');
+const { APP_ID } = require('./app-id');
+const { uniqueDownloadPath } = require('./downloads');
+const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
 const { APP_ORIGIN, APP_SCHEME, createAppProtocolHandler } = require('./protocol');
 const { classifyNavigation, isPermissionAllowed } = require('./security');
 const { shortcutFor } = require('./shortcuts');
@@ -59,6 +63,54 @@ function hardenContents(contents) {
     if (verdict === 'external') void shell.openExternal(url);
   });
   contents.on('will-attach-webview', (event) => event.preventDefault());
+}
+
+/**
+ * A failed load or a dead renderer shows the error page with a Reload link
+ * instead of a blank or frozen window. Reload returns to the address the
+ * game had, so a crash mid-game comes back to the same place.
+ */
+function showErrorPages(contents) {
+  let lastAppUrl = `${appOrigin}/`;
+  const remember = (_event, url) => {
+    if (classifyNavigation(url, appOrigin) === 'allow') lastAppUrl = url;
+  };
+  contents.on('did-navigate', remember);
+  // The game moves between places with history.replaceState (UrlLocationService).
+  contents.on('did-navigate-in-page', remember);
+  const show = (heading, detail) => void contents.loadURL(errorPageUrl({ heading, detail, retryUrl: lastAppUrl }));
+
+  contents.on('did-fail-load', (_event, errorCode, errorDescription, url, isMainFrame) => {
+    if (!isFatalLoadFailure(errorCode, isMainFrame) || url.startsWith('data:')) return;
+    show('The game could not be loaded', `${errorDescription} (${errorCode}) at ${url}, 3DTD ${version}`);
+  });
+  contents.on('render-process-gone', (_event, details) => {
+    if (details.reason === 'clean-exit') return;
+    show('The game stopped', `renderer ${details.reason}, exit code ${details.exitCode}, 3DTD ${version}`);
+  });
+}
+
+/**
+ * Files the game saves go to Downloads without a dialog, as in a browser.
+ * The page gives no feedback of its own (the browser's download bar does
+ * that on the web), so a notification says where the file went; clicking it
+ * shows the file in Explorer.
+ */
+function saveDownloads(targetSession) {
+  targetSession.on('will-download', (_event, item) => {
+    const target = uniqueDownloadPath(app.getPath('downloads'), item.getFilename(), existsSync);
+    item.setSavePath(target);
+    item.once('done', (_doneEvent, state) => {
+      if (state !== 'completed') {
+        console.warn(`[downloads] ${path.basename(target)}: ${state}`);
+        return;
+      }
+      if (!Notification.isSupported()) return;
+      const notification = new Notification({ title: 'Saved to Downloads', body: path.basename(target), silent: true });
+      notification.on('click', () => shell.showItemInFolder(target));
+      notification.show();
+    });
+  });
 }
 
 /**
@@ -142,6 +194,7 @@ function createWindow() {
   });
 
   hardenContents(window.webContents);
+  showErrorPages(window.webContents);
   lockZoom(window.webContents);
   handleShortcuts(window);
   // Tracking starts once the window has reached its start state. On the way
@@ -180,6 +233,8 @@ if (!app.requestSingleInstanceLock()) {
     // A game has no use for File/Edit/View, and dropping the menu also drops
     // its accelerators: no Ctrl+R reload or Ctrl+W close in the middle of a wave.
     Menu.setApplicationMenu(null);
+    // Notifications need it; the installed app gets the same id from the installer.
+    app.setAppUserModelId(APP_ID);
     // Dark native title bar; the game's own theme is dark and fixed.
     nativeTheme.themeSource = 'dark';
 
@@ -191,6 +246,8 @@ if (!app.requestSingleInstanceLock()) {
       callback(isPermissionAllowed(permission))
     );
     session.defaultSession.setPermissionCheckHandler((_contents, permission) => isPermissionAllowed(permission));
+
+    saveDownloads(session.defaultSession);
 
     const userAgent = identifyingUserAgent(version);
     session.defaultSession.webRequest.onBeforeSendHeaders({ urls: identifiedUrlPatterns() }, (details, callback) =>
