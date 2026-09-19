@@ -219,10 +219,34 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   sie rendert nichts.
 - **E33 Muss** Keine Verbindung, GitHub nicht erreichbar, kaputtes `latest.yml`: nur
   ein Log-Eintrag, kein Dialog, das Spiel startet normal.
+
+  **E30 bis E33 umgesetzt 2026-09-19.**
+  - `desktop/src/updater.js` startet electron-updater mit `autoDownload` und
+    `autoInstallOnAppQuit`, prüft beim Start und alle 6 Stunden und meldet ein
+    geladenes Update einmal weiter. Ein fehlgeschlagener Check ist eine Warnzeile im
+    Log; Fehler beim Herunterladen schreibt electron-updater selbst über denselben
+    Logger.
+  - Die Feed-Angabe steht in `electron-builder.config.js` (`publish`, GitHub). Die
+    daraus erzeugte `app-update.yml` gibt es nur im NSIS-Installer, nicht in
+    `--dir`-Builds; dort meldet das Log "check failed: ENOENT ... app-update.yml", und
+    sonst passiert nichts (so im Smoke-Test gesehen).
+  - Preload: `window.desktop.onUpdateReady(listener)` (merkt sich ein Update, das
+    kommt, bevor das Spiel zuhört) und `installUpdateNow()`. Der Main-Prozess nimmt
+    diese Bitte nur von einer Seite der App-Origin an und installiert dann still und
+    startet neu (`quitAndInstall(true, true)`). Lädt die Seite neu, bekommt sie das
+    Update noch einmal gemeldet.
+  - Im Spiel: `src/app/core/desktop-bridge.ts` liest `window.desktop` mit Prüfung der
+    Form, `components/update-hint/` zeigt unter dem Kompass einen Glas-Chip "Update
+    ready" mit "Version X installs when you quit. Restarting now ends this game." und
+    den Textknöpfen "Restart now" und "Later". Er hängt außerhalb der Lade- und
+    Fehlerblöcke, weil ein Update gerade einen Fehler beheben kann; Fotomodus und
+    Replay blenden ihn wie das übrige HUD aus.
+  - `DTD_UPDATE_FEED=<url>` setzt einen generischen Update-Server statt GitHub und
+    erlaubt auch einem nicht gepackten Start die Prüfung; gedacht für E34.
 - **E34 Muss** Der Update-Weg ist vor dem ersten öffentlichen Release einmal
   durchgespielt: Version N installieren, N+1 bereitstellen, Download, Hinweis,
   Installation beim Beenden, Token danach noch da. Getestet gegen einen lokalen
-  `generic`-Provider (`dev-app-update.yml`) oder ein Test-Repo, nicht gegen die echten
+  `generic`-Provider (`DTD_UPDATE_FEED`) oder ein Test-Repo, nicht gegen die echten
   Releases.
 
 ### Diagnose
@@ -347,7 +371,7 @@ desktop/                       Unterprojekt, eigene package.json ohne Version
 │   ├── shortcuts.js           F11, F12, sonst nichts
 │   ├── user-agent.js          App-User-Agent für OSM und Wikidata (E27)
 │   ├── window-state.js        Fenster merken und wiederherstellen
-│   ├── updater.js             (Schritt 5) electron-updater, Status an den Preload
+│   ├── updater.js             electron-updater, meldet ein geladenes Update (E30 bis E33)
 │   └── log.js                 Log-Zeilen, Maskierung, Wiederholungen, GPU (E35, E36)
 ├── scripts/
 │   ├── copy-web.js            dist/3DTD/browser → desktop/app/, mit Schlüssel-Sperre
@@ -391,7 +415,9 @@ liest.
 4. Diagnose (E35 bis E37). **Erledigt 2026-09-19**, im Smoke-Test geprüft: Start- und
    GPU-Zeile, maskierte Tile-URL, zusammengefasste Wiederholungen, keine Info-Zeilen,
    Absturz im Log, Ctrl+Shift+L öffnet den Ordner, Fehlerseite nennt ihn
-5. Update und Hinweis-Komponente (E30 bis E33)
+5. Update und Hinweis-Komponente (E30 bis E33). **Erledigt 2026-09-19**, bis auf den
+   sichtbaren Hinweis: der erscheint erst mit einem echten Update, also im Durchlauf von
+   E34 (Schritt 6)
 6. Release-CI, Update-Durchlauf, README und Landing (E38 bis E43, E34)
 7. Nachtest, danach das erste Release
 
