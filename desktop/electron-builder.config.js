@@ -1,0 +1,50 @@
+'use strict';
+
+/**
+ * electron-builder configuration.
+ *
+ * JavaScript instead of YAML so the version can come from the root
+ * package.json: the game, the installer and the updater all read that one
+ * number, and desktop/package.json deliberately has none to forget.
+ */
+
+const rootPackage = require('../package.json');
+
+/** @type {import('electron-builder').Configuration} */
+module.exports = {
+  // Identifies the installation to Windows and to the updater. Never change
+  // it once a release is out, or installed copies stop receiving updates.
+  appId: 'net.sgeht.3dtd',
+  productName: '3DTD',
+  copyright: 'Copyright © 2026 ingel81',
+  extraMetadata: { version: rootPackage.version },
+
+  directories: { output: 'release', buildResources: 'build' },
+  files: ['src/**/*', 'app/**/*', 'package.json'],
+  asar: true,
+  // Chromium's own strings (native dialogs). The game is English; the
+  // other ~50 locales are 47 MB nobody reads.
+  electronLanguages: ['en-US', 'de'],
+
+  win: {
+    target: [{ target: 'nsis', arch: ['x64'] }],
+    // build/icon.ico, electron-builder's default; made by scripts/make-icon.sh.
+  },
+  nsis: {
+    oneClick: true,
+    perMachine: false,
+    createDesktopShortcut: true,
+    createStartMenuShortcut: true,
+    deleteAppDataOnUninstall: false,
+    artifactName: '${productName}-Setup-${version}.${ext}',
+  },
+
+  electronFuses: {
+    runAsNode: false,
+    enableNodeOptionsEnvironmentVariable: false,
+    enableNodeCliInspectArguments: false,
+    enableEmbeddedAsarIntegrityValidation: true,
+    onlyLoadAppFromAsar: true,
+    grantFileProtocolExtraPrivileges: false,
+  },
+};

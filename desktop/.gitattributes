@@ -1,0 +1,2 @@
+# Shell scripts keep LF on Windows checkouts; bash stops at a CR.
+*.sh text eol=lf
