@@ -95,7 +95,8 @@
                   "input": "public",
                   "ignore": [
                     "**/candidates/**",
-                    "**/onnx-wasm/**"
+                    "**/onnx-wasm/**",
+                    "**/*.psd"
                   ]
                 }
               ]
