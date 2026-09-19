@@ -170,6 +170,7 @@ describe('plinthBraces (E18, stone corbels under a plinth at a roof edge)', () =
 
     const radii = [...new Set(Object.values(TOWER_TYPES).map((type) => type.footprintRadius))];
 
+    // Exhaustive: 1.2 s on a desktop, 5.4 s on the Windows runner of release.yml
     it('at a straight edge or a corner, whatever its direction and wherever past the inner ring it runs', () => {
       for (const radius of radii) {
         const offsets = footprintSampleOffsets(radius);
@@ -194,7 +195,7 @@ describe('plinthBraces (E18, stone corbels under a plinth at a roof edge)', () =
           }
         }
       }
-    });
+    }, 30_000);
 
     it('under a ragged rim: holes in the mesh, balconies, any stretches of the outer ring', () => {
       let seed = 7;
