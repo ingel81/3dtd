@@ -24,6 +24,23 @@ liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Li
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
 
+## K8 Desktop-Build (Branch `electron`)
+
+Gebaut und per Smoke-Test geprüft (Protokoll, Fenster, Tasten, Downloads, Fehlerseite, Log, Update-Durchlauf
+0.3.0 → 0.3.1 beim Beenden und 0.3.1 → 0.3.2 über "Restart now", Deinstallieren), siehe
+[ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), Abschnitt "Abnahme". Offen ist, was nur ein echter Rechner zeigt.
+Installer lokal: `cd desktop && npm run dist`, dann `desktop/release/3DTD-Setup-<Version>.exe`.
+
+- **K8.1 SmartScreen:** den Installer aus dem ersten Release-Entwurf auf GitHub herunterladen (nicht den lokalen, der
+  trägt keine Download-Markierung) und starten. Erwartung: "Der Computer wurde durch Windows geschützt", unter
+  "Weitere Informationen" der Knopf "Trotzdem ausführen", danach Installation ohne Admin-Abfrage.
+- **K8.2 Eine Partie in der installierten App:** Ort laden, Tower setzen, zwei Wellen. F12, Konsole: keine Zeile mit
+  "Content Security Policy". Danach Ctrl+Shift+L, `main.log` öffnen: dein Token kommt darin nicht vor.
+- **K8.3 Kleines Fenster:** das Fenster auf die Mindestgröße ziehen (1024 × 600). Erwartung: Sidebar, Header und
+  Schnellaktionen bleiben bedienbar, nichts überlappt so, dass ein Knopf nicht mehr erreichbar ist.
+- **K8.4 Hybrid-Laptop** (nur falls einer da ist): App starten, Task-Manager, Spalte "GPU-Modul" beim 3DTD-Prozess.
+  Erwartung: die dedizierte GPU (E14). Die GPU-Zeile im Log (`[info] GPU: ... (active)`) nennt sie ebenfalls.
+
 ## Eichtabelle
 
 Fingerprints aus `__corridor.fingerprint()` für K2.1 und K2.2. Alle Werte vor 748 (Rothenburg `d8050177`, Tokyo
