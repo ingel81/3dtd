@@ -71,7 +71,6 @@ describe('RouteCellSampler.sampleCellY', () => {
     expect(sampler.sampleCellY(cell)).toBe(false);
 
     expect(columns).not.toHaveBeenCalled();
-    expect(sampler.peekSkipCount).toBe(2);
     expect(cell.sample.state).toBe('unsampled');
     expect(sampler.lastMiss).toBe('noColumn');
   });

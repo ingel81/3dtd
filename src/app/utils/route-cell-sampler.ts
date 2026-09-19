@@ -37,7 +37,7 @@ interface CellHit {
  * Grid liegt: `sampleCellY`, dazu der Debug-Reset `resetToUnsampled`.
  *
  * Hält die beiden Terrain-Proben, die `GlobalRouteGrid.initialize` setzt,
- * und Diagnose-Zähler (`sampleFrame` liest `GlobalRouteGrid.dumpStats`). Die
+ * und den Diagnose-Zähler `sampleFrame` (liest `GlobalRouteGrid.dumpStats`). Die
  * Nachbarschaft einer Cell kennt nur das Grid, darum kommt der
  * Nachbar-Median für den Ausreißer-Test als Funktion herein.
  */
@@ -56,12 +56,6 @@ export class RouteCellSampler {
    * every call casts its column.
    */
   terrainPeekLOD: TerrainPeekLOD | null = null;
-
-  // ── Diagnostic counters, incremented from `sampleCellY` ─────────────
-  // Columns skipped because no tile mesh was loaded at the point, and
-  // columns actually cast.
-  peekSkipCount = 0;
-  raycastCount = 0;
 
   /** Monotonic counter incremented on each successful sample (debug only). */
   sampleFrame = 0;
@@ -147,7 +141,6 @@ export class RouteCellSampler {
 
       // No usable LOD info at this point → raycast cannot succeed.
       if (peek === null || peek.depth === 0 || peek.geometricError === Infinity) {
-        this.peekSkipCount++;
         return false;
       }
     }
@@ -162,7 +155,6 @@ export class RouteCellSampler {
     // portals instead. A cell on an approach compares with the height the
     // route carries there from its start (carriedY), and like a tunnel cell
     // waits for a column at that start.
-    this.raycastCount++;
     const sampler = this.columnSampler;
     if (sampler === null) return false;
 
