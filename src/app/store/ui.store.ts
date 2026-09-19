@@ -99,8 +99,8 @@ export class UIStore {
   /** Street network layer visibility */
   readonly streetsVisible = signal<boolean>(false);
 
-  /** Route paths visibility */
-  readonly routesVisible = signal<boolean>(false);
+  /** Route paths visibility (the red enemy route). On by default, persisted. */
+  readonly routesVisible = signal<boolean>(true);
 
   /** Height debug markers visibility */
   readonly heightDebugVisible = signal<boolean>(false);
@@ -299,7 +299,7 @@ export class UIStore {
     this.debugMode.set(false);
     this.openMenu.set(null);
     this.streetsVisible.set(false);
-    this.routesVisible.set(false);
+    this.routesVisible.set(true);
     this.heightDebugVisible.set(false);
     this.specialPointsDebugVisible.set(false);
     this.infoOverlayVisible.set(false);
