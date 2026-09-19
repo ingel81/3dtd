@@ -14,6 +14,24 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 - [x] **A5 Merge-Ablauf** (auf Zuruf verschoben): `next` ist als v0.3.0 auf `main` (`7675a23d`, 2026-09-17), `main`
       und `next` stehen auf GitHub auf diesem Commit; am 2026-09-19 mit `git ls-remote` festgestellt, TODO führte den
       Punkt noch als offen. Die Einzelschritte (Build aus frischem Klon, Gate, Rückweg-Tag) sind hier nicht belegt.
+- [x] **Firefox-Performance bei großen Wellen** (`0e015ef7`, `a19fc291`, auf Zuruf nachgetragen): Bei 5000 Gegnern (x1)
+      Firefox von etwa 22 auf 59 FPS, die Simulation kostet 258 statt 527 ms je Sekunde (Produktions-Build gegen
+      Produktions-Build). Sound-Loop-Handles sind Zahlen statt String-Keys einer Map (SpiderMonkey atomisiert je
+      Lookup), `EntityManager` führt Copy-on-write-Listen statt `Array.from` bei jedem Hinzufügen und Entfernen,
+      Statuseffekte laufen nur für Gegner mit Effekten (`hasStatusEffects`), ein Objekt ohne spielenden Loop setzt zwei
+      Sub-Steps aus; ein wartender Loop übernimmt einen freien Slot dadurch bis zu zwei Schritte später. In v0.3.1.
+- [x] **Showcase-Orte mit festen Spawns** (`461ccfb0`, `6d43f623`, `363bc29a`, vom 2026-09-17, vom User gewählt und im
+      Spiel abgenommen, auf Zuruf nachgetragen): New York, San Francisco, London, Barcelona, Madrid, Prag, Amsterdam und
+      Sydney mit festem Spawn; Paris von der Place de l'Opéra an den Pont d'Iéna unter dem Eiffelturm, Spawn am Trocadéro;
+      Rom von der Piazza Venezia ins Kolosseum, Spawn an der Via dei Cerchi am Circus Maximus. Die Hinweise nennen den
+      Start der Route (Nominatim-Rückwärtssuche am Spawn). Tokyo und Rio unverändert.
+- [x] **Route endet auf einer mit dem Start verbundenen Straße** (`3797ae5f`, vom 2026-09-17, auf Zuruf nachgetragen):
+      Das Segment am nächsten zum HQ konnte auf einem abgeschnittenen Weg liegen (im Kolosseum eine Passage 29,5 m vom
+      HQ ohne geladene Verbindung), jeder A*-Lauf dorthin scheiterte, es gab weder Zufalls-Spawn noch Route. Der
+      Straßengraph nummeriert seine zusammenhängenden Teile einmal, das Routenende ist das nächste Segment im Teil des
+      Starts, höchstens `MAX_HQ_STREET_DISTANCE` weiter als das nächste überhaupt.
+- [x] **I3 Zähler ohne Leser** (auf Zuruf verschoben): `peekSkipCount` und `raycastCount` aus
+      `route-cell-sampler.ts` entfernt; `sampleFrame` bleibt, `GlobalRouteGrid.dumpStats` liest ihn.
 
 ## 2026-09-17
 
