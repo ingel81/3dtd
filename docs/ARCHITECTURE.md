@@ -1818,6 +1818,8 @@ const material = new THREE.ShaderMaterial({
 
 **Regel:** Der Hochpass ist die einzige Stelle, an der ein einzelner Pixel großflächig wirkt. Wer einen weiteren Pass einbaut, der Nachbarn über große Radien mischt, muss dieselbe Prüfung vorschalten.
 
+**Grenzen:** Sehr helle, aber endliche Pixel (nahe 65504) deckelt der Guard nicht; sie gäben weiter einen großen hellen Hof, keinen schwarzen. Nicht angefasst, weil nie beobachtet und ein Deckel echte Effekte verändern könnte. Solange `__bloom.marks()` an ist, ersetzen die Marken die schlechten Pixel vor dem Bloom; der Block erscheint dann auch mit `guard(false)` nicht.
+
 ### Eigene Shader: Farben in Anzeigewerten, für das Ziel geschrieben
 
 **Problem:** Bloom und Color Grading sind standardmäßig aus, dann rendert die Engine direkt auf den sRGB-Canvas. Ein `ShaderMaterial`, das `gl_FragColor` selbst schreibt, zeigt dort genau diese Werte; die meisten eigenen Shader sind so abgestimmt, in Anzeigewerten. Mit Bloom oder Grading geht die Szene erst in das lineare Half-Float-Ziel des Composers, der Output-Pass kodiert das Bild nach sRGB. Ein Anzeigewert, unkodiert in dieses Ziel geschrieben, kommt heller und blasser an (0,2 als 0,48).

@@ -245,6 +245,9 @@ NuclearStrike steht in jedem Set, feuert aber nur mit erforschtem
 `nuclear-strike` und stehendem Missile Silo, und das erforschen nur strategist
 und meta (ResearchPick). Dasselbe gilt für MissileSiloPlacement, für FrostBomb
 und `frost-bomb`, Emp und `emp`, OrbitalLaser und `orbital-laser`.
+Frostbombe, EMP und Orbitallaser suchen ihre Kandidaten je für sich
+(`enemiesFromProgress` in `ability-aim.ts`, der EMP zweimal): Im selben Zug
+geht die Liste der Gegner mehrmals durch. Nicht gemessen, nicht geteilt.
 
 **casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
 Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).

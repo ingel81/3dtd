@@ -335,3 +335,7 @@ Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`, `hero-body-contact.spec.ts
 - Die Bewegung misst Segmente auf der Kugel, der Graph auf der flachen
   Projektion; auf 250 m liegen die Längen etwa 0,1 % auseinander. Ankunft
   und Leine vertragen das.
+- Neue Routen nimmt er erst im nächsten Sub-Step (`ensureGraph` in
+  `update`). Wird der Routengraph in der Pause neu gebaut, stellt ihn der
+  Renderer erst nach dem Fortsetzen auf die neuen Routen (Review-Befund,
+  im Spiel nicht nachgestellt).

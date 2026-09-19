@@ -432,6 +432,8 @@ der Hörweite von 500 m (Playtest 649). Seine Hörweite ist 1500 m wie beim
 Nuklearschlag, damit der Treffer auch aus der weiten Übersicht zu hören ist; der Shake
 kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
 `rolloffFactor` 1): Aus 1000 m kommt er mit 4 % der Lautstärke von 40 m.
+Vor dem ersten Tile an der HQ liefern Cache und Raycast nichts; dann bleibt die Höhe 0
+(wie beim Feuer).
 
 ### Nuklearschlag (synthetisiert, Nachhall in Spielzeit)
 `GAME_SOUNDS.nuclearStrike` (`audio.config.ts`), im Code synthetisiert in
@@ -607,6 +609,18 @@ Assets auf etwa -14 LUFS gebracht, lineare Verstärkung mit True Peak höchstens
 
 4. **Sound Budget**: Max. 12 gleichzeitige Enemy-Sounds, max. 25 Projektil-Sounds,
    max. 30 globale One-Shots. Enemy-Budget wird bei Distance-Culling temporär freigegeben.
+
+5. **Loops aus mp3**: Lückenlos ist die Naht eines Loops nur, wenn der Browser die
+   Encoder-Verzögerung der mp3 abschneidet; das hängt vom Browser ab. Mit ElevenLabs
+   erzeugte Loops (`loop: true`) kamen nicht gleichmäßig heraus (Zündphase, Wechsel laut
+   und leise); passend ist so ein Stück nur, wo es wie das Brennen des Orbitallasers etwa
+   einmal durchläuft.
+
+6. **Wartende Loops**: `getActiveSoundCount()`, `getSoundPoolStats().activeLoops` und
+   `debugLogActiveSounds()` zählen Loops mit, die noch auf ihren Einstieg warten (als
+   pausiert). Wirft `audio.play()` beim Einstieg, bleibt der Loop wartend und versucht es
+   beim nächsten Update erneut, mit einer Warnung je Versuch. Einen Vorrang naher Gegner
+   gibt es nicht (bräuchte Sortieren je Frame).
 
 ## Assets
 

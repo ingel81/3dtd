@@ -153,7 +153,9 @@ durch die hintere Fläche und über die Seitenwände hinaus.
 Smoothstep auf ihre Flughöhe. Die Höhe folgt der geflogenen Strecke, bei jeder Timescale gleich;
 sie steht je Gegner in `Enemy.heightOffset`, das alle Leser nehmen. Debug-Spawns und
 Split-Kinder starten auf Flughöhe. Die Air-LOS der Tower tastet weiter nur die Flughöhe ab
-(`getAirTargetY`), auf den ersten 43 bis 47 m liegt die echte Höhe darunter.
+(`getAirTargetY`), auf den ersten 43 bis 47 m liegt die echte Höhe darunter. Der Ausflug und
+die Einstellung des Boss-Intros rechnen mit Strecken entlang der Route; an einer Kurve direkt
+hinter dem Portal ist die Strecke bis zur Vorderfläche länger als 5,25 m. Nicht nachgemessen.
 
 ## Look
 

@@ -610,6 +610,10 @@ eingefrorene Gegner waren nicht mehr zu unterscheiden, auf Dächern im Radius
 blieben die Sprenkel des Reifs stehen. Die Werte davor stehen im Kommentar von
 `FROST_BURST_LOOK`.
 
+Der Reif ist eine ebene Fläche 0,3 m über dem Boden an der Mitte (`RIME_LIFT`): Auf
+geneigten oder gewölbten Straßen verschwinden Teile im Boden, über tieferem Boden schwebt
+er (von der Seite sichtbar), wie die Eis-Decals. Ring und Blitz zeichnen ohne Tiefentest.
+
 Zwei Ausbrüche gleichzeitig, ein dritter nimmt den Platz des ältesten. Mit Impact
 Effects aus (VFX-Einstellungen) nur Blitz, Ring und Reif, wie vorher höchstens drei
 Draw Calls je Ausbruch. `game:reset` leert sie.
@@ -673,6 +677,12 @@ Puffer. Vorher 4 Draw Calls je Strahl, ein Funkenpuffer mit 2 × 122.
 Blitz; kein Bodenlicht, keine Funken, Brocken, Rauch oder Glut, also 4 Draw Calls je
 Strahl wie vorher. Die Brandflecken hängen an Ground Marks.
 
+**Grenzen:** Eine echte Hitze-Verzerrung gibt es nicht, sie bräuchte einen
+Refraktions-Pass mit Bildschirmtextur; statt dessen flimmern die Ränder der Korona. Im
+Wave-Replay glühen die Glutflecken mit (sie gehören zum Strahl), die schwarzen
+Brandflecken nicht (Bodenmarken hält das Replay an, [REPLAY.md](REPLAY.md)). Die GPU-Last
+der Säule ist nicht gemessen: Nah an der Kamera deckt das additive Quad viel Bild ab.
+
 ---
 
 ## Tod der Ooze
@@ -712,7 +722,9 @@ Seed für sein Aussehen (Größe der Pfütze, Wurf des Trümmerstücks). Ein Tr�
 fliegt in geschlossener Form seines Alters (`pose()`: Bogen, ein Aufprall, Liegen,
 Einsinken); lässt ein Frame bei hoher Geschwindigkeit es verspätet los, startet es um
 diese Verspätung älter. Bei 4x liegen Pfützen und Trümmer daher dort, wo sie bei 1x
-lägen. Der Replay führt eigene Ids (`replay-enemy-<n>`): sein Satz sieht anders aus als
+lägen. Nicht geseedet sind Funken und Spritzer der platzenden Blasen: Die streuen die
+Partikel-Pools mit `Math.random` (`emitColorBurst`), sie sehen bei jedem Kill anders aus.
+Der Replay führt eigene Ids (`replay-enemy-<n>`): sein Satz sieht anders aus als
 live, aber bei jedem Abspielen gleich. Eine Art, deren Stücke alle still liegen,
 schreibt und lädt keine Matrizen hoch.
 
@@ -753,7 +765,10 @@ denselben Satz noch einmal (gleiche Replay-Id, gleicher Seed), der alte ist dann
 weg. Jedes Trümmerstück landet auf der Bodenhöhe
 seines Abwurfpunkts, einmal beim Loslassen gelesen (`letGo()`); am Hang oder an
 Gehsteigkanten kann es daher bis zu den etwa 11 m entlang und 6 m quer seines Auswurfs
-schweben oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht.
+schweben oder einsinken. Mit Gebäuden oder Tiles kollidiert es nicht. Pfützen reichen
+quer bis 1,2 der bedeckten Halbbreite, also etwas über den Korridor hinaus; außerhalb der
+Zellen des Route-Grids nehmen sie die Höhe des Bands unter der Station und können an
+Gehsteigkanten oder Hängen teilweise im Boden verschwinden.
 
 ---
 
