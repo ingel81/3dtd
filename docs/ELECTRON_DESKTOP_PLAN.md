@@ -490,8 +490,8 @@ liest.
    3. Tag `vX.Y.Z` pushen (nur auf Zuruf); `release.yml` baut den Entwurf.
    4. Den Installer aus dem Entwurf herunterladen und prüfen (K8.1).
    5. `electron` nach `main` bringen und `main` pushen, damit die neue `deploy.yml` dort
-      liegt (E46). Der Push deployt nichts. Für 0.3.1 ist das der Merge von `next`
-      nach `main` (TODO A5), denn `electron` enthält `next`.
+      liegt (E46). Der Push deployt nichts. Für 0.3.1 ein Fast-Forward: `main` steht
+      auf v0.3.0, `electron` baut darauf auf.
    6. Den Entwurf als normales Release veröffentlichen: Installierte Apps bekommen das
       Update, `deploy.yml` bringt Web-Version und Landing Page live.
 
