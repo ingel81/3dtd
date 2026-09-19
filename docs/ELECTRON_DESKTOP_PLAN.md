@@ -159,12 +159,22 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   Token wieder.
 - **E25 Muss** Downloads aus dem Spiel (Screenshot im Fotomodus, State-Dumps über
   `utils/download.ts`) landen ohne Dialog im Downloads-Ordner, wie in Chrome. Die
-  Dateinamen tragen schon einen Zeitstempel.
-- **E26 Muss** Teilen-Link: `getShareUrl()` (`url-location.service.ts`) liefert heute
+  Dateinamen tragen schon einen Zeitstempel. **Umgesetzt 2026-09-19**
+  (`desktop/src/downloads.js`): ein belegter Name wird wie im Browser nummeriert
+  ("name (1).png"), Pfadteile und unter Windows verbotene Zeichen fallen weg. Das
+  Spiel meldet selbst nicht, dass etwas gespeichert wurde (im Web tut das die
+  Download-Leiste des Browsers), deshalb zeigt eine Windows-Benachrichtigung
+  "Saved to Downloads" mit dem Dateinamen; ein Klick darauf zeigt die Datei im
+  Explorer. Die Benachrichtigung läuft unter der `appId` (`desktop/src/app-id.js`,
+  auch vom Installer benutzt).
+- **E26 Muss** Teilen-Link: `getShareUrl()` (`url-location.service.ts`) lieferte
   `window.location.href`, im Desktop also `app://app/?...`, das niemand öffnen kann.
-  Neu: ist die Origin nicht `http(s)`, zeigt der Link auf die Web-Version
+  Ist die Origin nicht `http(s)`, zeigt der Link auf die Web-Version
   (`https://3dtd.sgeht.net/play/` plus Query). Eine Regel über das Protokoll, keine
-  Electron-Prüfung. Web und `localhost` bleiben unverändert.
+  Electron-Prüfung. Web und `localhost` bleiben unverändert. **Umgesetzt 2026-09-19**
+  als `shareableUrl()` in `src/app/utils/public-url.ts`; dieselbe Regel gilt für die
+  Adresse in Korridor-Reports und Snapshots (`reportUrl`), damit man die Stelle aus
+  einem Desktop-Report im Browser öffnen kann.
 
 ### Externe Dienste
 
@@ -187,7 +197,12 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   Cesium-Ion-Token ohne URL-Beschränkung.
 - **E29 Muss** Ohne Netz dasselbe Fehlerbild wie im Web (der Token-Test meldet "Could
   not reach the provider"). `did-fail-load` und `render-process-gone` zeigen eine
-  Fehlerseite mit Neu-laden-Knopf statt eines weißen Fensters.
+  Fehlerseite mit Neu-laden-Knopf statt eines weißen Fensters. **Umgesetzt
+  2026-09-19** (`desktop/src/error-page.js`): eine `data:`-Seite ohne Skript, die
+  weder eine Datei noch den `app://`-Handler braucht, falls genau der ausgefallen ist.
+  Sie nennt Grund, Fehlercode und Version für ein Issue. "Reload" führt zur letzten
+  Adresse des Spiels zurück, auch zu einer per `history.replaceState` gesetzten, ein
+  Absturz mitten in der Partie landet also wieder am selben Ort.
 
 ### Update
 
@@ -288,6 +303,9 @@ nicht, Ctrl+R und F5 laden nicht neu, zweiter Start beendet sich und das erste
 Fenster lebt weiter, Neustart stellt maximiert und Vollbild wieder her, Verlassen des
 Vollbilds landet im vorherigen Zustand, gespeicherte Größe bleibt über drei Starts
 gleich. Zuletzt grün am 2026-09-18.
+Schritt 3 (2026-09-19): ein Download aus der Seite landet ohne Dialog in `Downloads`;
+nach `Page.crash` zeigt das Fenster die Fehlerseite mit Grund und Version, "Reload"
+führt zu der zuletzt per `replaceState` gesetzten Adresse zurück.
 
 **Nachtest** (kommt nach der Umsetzung in `docs/PLAYTEST.md`):
 
@@ -308,9 +326,12 @@ desktop/                       Unterprojekt, eigene package.json ohne Version
 ├── README.md                  Befehle und Stolperstellen
 ├── src/
 │   ├── main.js                Start, Fenster, Sicherheits-Verdrahtung, dev oder app://
+│   ├── app-id.js              appId für Installer, Benachrichtigungen, Updater
 │   ├── protocol.js            app://-Handler: Pfade, MIME, Ranges, CSP
 │   ├── security.js            Navigations- und Berechtigungsregeln
 │   ├── preload.js             window.desktop
+│   ├── downloads.js           Speicherort und Name für Downloads (E25)
+│   ├── error-page.js          Fehlerseite bei Ladefehler oder Absturz (E29)
 │   ├── shortcuts.js           F11, F12, sonst nichts
 │   ├── user-agent.js          App-User-Agent für OSM und Wikidata (E27)
 │   ├── window-state.js        Fenster merken und wiederherstellen
@@ -349,8 +370,12 @@ liest.
    brauchbar ist (Nachtest)
    Spieltest des Users am 2026-09-18 mit eigenem Token: läuft, 144 FPS in New York
    (erster Versuch mit dem Stand vor E27 lief ohne Straßen, siehe E27)
-3. Daten und Dienste, dazu der Teilen-Link (E23 bis E29). E27 (User-Agent) ist
-   vorgezogen und erledigt, der Rest offen
+3. Daten und Dienste, dazu der Teilen-Link (E23 bis E29). **Erledigt 2026-09-19.**
+   E23 und E24 prüft erst der Installer-Nachtest, E28 ist Text für README und
+   Release (Schritt 6). Vom User am 2026-09-19 angespielt: Screenshot im Fotomodus
+   (Taste O) mit Windows-Benachrichtigung, auch im Vollbild; "Copy link" öffnet
+   denselben Ort in der Web-Version; GitHub- und Attributions-Links öffnen im
+   Browser
 4. Diagnose (E35 bis E37)
 5. Update und Hinweis-Komponente (E30 bis E33)
 6. Release-CI, Update-Durchlauf, README und Landing (E38 bis E43, E34)
@@ -367,6 +392,16 @@ liest.
 - Telemetrie und Crash-Upload
 - Steam und itch.io (dort erwartet man "klicken, spielen", das beißt sich mit dem
   eigenen Token)
+- Deep-Link in die App (TODO H15), vorerst. Skizze: der Installer registriert ein
+  Schema wie `threedtd://open?l=...&s=...` (electron-builder `protocols`; `3dtd://`
+  geht nicht, ein Schema muss mit einem Buchstaben beginnen). Der Link kommt beim
+  Start über `process.argv` oder bei laufender App über `second-instance`; der
+  Main-Prozess nimmt daraus nur `l` und `s`, prüft sie als Koordinaten und lädt
+  `app://app/?l=...&s=...`, nie einen Pfad oder eine fremde URL. Weil Messenger
+  eigene Schemata oft nicht klickbar machen und eine Webseite nicht erkennen kann,
+  ob die App installiert ist, bleibt der geteilte Link https (E26); die Web-Version
+  bekäme einen Knopf "In der Desktop-App öffnen". Echte https-App-Links gibt es unter
+  Windows nur für Apps mit Paket-Identität (MSIX), nicht für einen NSIS-Installer.
 
 ## Code-Signing
 
