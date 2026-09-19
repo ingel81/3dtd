@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-09-17, Code-Stand `next` @ `923e2ecb`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-09-19, Code-Stand v0.3.1 (`main` = `next`). Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die Punkte bis 748 samt Ergebnissen
 liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -24,29 +24,13 @@ liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Li
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
 
-## K8 Desktop-Build (Branch `electron`)
+## K8 Desktop-Build
 
-Gebaut und per Smoke-Test geprüft (Protokoll, Fenster, Tasten, Downloads, Fehlerseite, Log, Update-Durchlauf
-0.3.0 → 0.3.1 beim Beenden und 0.3.1 → 0.3.2 über "Restart now", Deinstallieren), siehe
-[ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), Abschnitt "Abnahme". Offen ist, was nur ein echter Rechner zeigt.
-Installer lokal: `cd desktop && npm run dist`, dann `desktop/release/3DTD-Setup-<Version>.exe`.
+K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei
+GPUs zeigt. Installer: [Releases](https://github.com/ingel81/3dtd/releases/latest).
 
-- **K8.1 SmartScreen:** den Installer aus dem ersten Release-Entwurf auf GitHub herunterladen (nicht den lokalen, der
-  trägt keine Download-Markierung) und starten. Erwartung: "Der Computer wurde durch Windows geschützt", unter
-  "Weitere Informationen" der Knopf "Trotzdem ausführen", danach Installation ohne Admin-Abfrage.
-  **ok (2026-09-19)**, SmartScreen kam, Installation klappt (Installer aus dem Entwurf v0.3.1).
-- **K8.2 Eine Partie in der installierten App:** Ort laden, Tower setzen, zwei Wellen. F12, Konsole: keine Zeile mit
-  "Content Security Policy". Danach Ctrl+Shift+L, `main.log` öffnen: dein Token kommt darin nicht vor.
-  **ok (2026-09-19)**, mit Installation per Doppelklick, Update auf 0.3.1 über den lokalen Feed und Deinstallation.
-- **K8.3 Kleines Fenster:** das Fenster auf die Mindestgröße ziehen (1024 × 600). Erwartung: Sidebar, Header und
-  Schnellaktionen bleiben bedienbar, nichts überlappt so, dass ein Knopf nicht mehr erreichbar ist.
-  **ok (2026-09-19)**
 - **K8.4 Hybrid-Laptop** (nur falls einer da ist): App starten, Task-Manager, Spalte "GPU-Modul" beim 3DTD-Prozess.
   Erwartung: die dedizierte GPU (E14). Die GPU-Zeile im Log (`[info] GPU: ... (active)`) nennt sie ebenfalls.
-- **K8.5 What's new** (mit K8.1, derselbe Installer): einen Ort laden. Erwartung: unten in der Sidebar steht `v0.3.1`.
-  Hat das Profil schon einen Token, öffnet sich nach dem Laden einmal "What's new" mit 0.3.1, und nach einem Neustart
-  der App nicht noch einmal. Klick auf `v0.3.1` öffnet es jederzeit. Text und Aussehen prüfen (E45).
-  **ok (2026-09-19)**: Sidebar passt, der Dialog kam, "Full changelog" öffnet GitHub (404, bis `CHANGELOG.md` auf `main` liegt).
 
 ## Eichtabelle
 

@@ -1027,3 +1027,27 @@ Zombie, Count 30, "Start Custom Wave". Nach jedem Schuss für den nächsten Punk
   eine Zielhilfe?
 
 **K7.1 bis K7.8 ok (2026-09-17).** Vom User abgenommen ("Alles gut. Abgenommen.").
+
+## Nachtests aus docs/PLAYTEST.md (2026-09-19)
+
+### K8: Desktop-Build (Branch `electron`, als v0.3.1 veröffentlicht)
+
+Installer aus dem Release-Entwurf v0.3.1. K8.4 (Hybrid-Laptop, optional) bleibt in `docs/PLAYTEST.md`.
+
+- **K8.1 SmartScreen:** den Installer aus dem ersten Release-Entwurf auf GitHub herunterladen (nicht den lokalen, der
+  trägt keine Download-Markierung) und starten. Erwartung: "Der Computer wurde durch Windows geschützt", unter
+  "Weitere Informationen" der Knopf "Trotzdem ausführen", danach Installation ohne Admin-Abfrage.
+  **ok (2026-09-19)**, SmartScreen kam, Installation klappt (Installer aus dem Entwurf v0.3.1).
+- **K8.2 Eine Partie in der installierten App:** Ort laden, Tower setzen, zwei Wellen. F12, Konsole: keine Zeile mit
+  "Content Security Policy". Danach Ctrl+Shift+L, `main.log` öffnen: dein Token kommt darin nicht vor.
+  **ok (2026-09-19)**, mit Installation per Doppelklick, Update auf 0.3.1 über den lokalen Feed und Deinstallation.
+- **K8.3 Kleines Fenster:** das Fenster auf die Mindestgröße ziehen (1024 × 600). Erwartung: Sidebar, Header und
+  Schnellaktionen bleiben bedienbar, nichts überlappt so, dass ein Knopf nicht mehr erreichbar ist.
+  **ok (2026-09-19)**
+- **K8.5 What's new** (mit K8.1, derselbe Installer): einen Ort laden. Erwartung: unten in der Sidebar steht `v0.3.1`.
+  Hat das Profil schon einen Token, öffnet sich nach dem Laden einmal "What's new" mit 0.3.1, und nach einem Neustart
+  der App nicht noch einmal. Klick auf `v0.3.1` öffnet es jederzeit. Text und Aussehen prüfen (E45).
+  **ok (2026-09-19)**: Sidebar passt, der Dialog kam, "Full changelog" öffnet GitHub (404, bis `CHANGELOG.md` auf `main` liegt).
+  Seit dem ff-Merge liegt `CHANGELOG.md` auf `main`, der Link geht (per `gh api` geprüft, 2026-09-19).
+
+**K8.1, K8.2, K8.3 und K8.5 ok (2026-09-19).**

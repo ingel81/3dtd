@@ -9,7 +9,8 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-19, `main` = `next` = `electron` (v0.3.1). Nichts in Arbeit, offen nur der Nachtest K8.4 (optional).
+Stand 2026-09-19, `main` = `next` (v0.3.1). Nichts in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest
+K8.4 (optional).
 
 ---
 
@@ -41,14 +42,12 @@ Stand 2026-09-19, `main` = `next` = `electron` (v0.3.1). Nichts in Arbeit, offen
 - [ ] **G4 Konzept Explosivmunition des Helden mit Flächenschaden** (`hero.config.ts`).
 - [ ] **D1 Spawn-Portal an engen Stellen und Hängen**: Pfeiler in Fassaden, Lichtfleck am Hang schief. Nur im Browser
       an echten Gassen zu beurteilen.
-- [ ] **I3 Zähler ohne Leser**: `peekSkipCount` und `raycastCount` in `route-cell-sampler.ts`.
 - [ ] **J1 Doku-Reste**: `MULTIPLAYER_CONCEPT.md` nachziehen; bekannte Grenzen aus den Worker-Berichten in die
       Fach-Doku (Korridor-Nebenbefunde: Dachzellen an Routenecken, Überdeckung über 30 m, Füllregel über Gitterlagen,
       Loch im Mesh in Erlenbach, Rückfall-Sekunde bei Stationen; Review-Randfälle; schwebende Ooze-Trümmer am Hang).
-- [ ] **J2 GitHub-Actions auf Node 24**: `release.yml` und `deploy.yml` warnen, dass Node 20 ausläuft
-      (`actions/checkout@v4`, `actions/setup-node@v4`, `SamKirkland/FTP-Deploy-Action@v4.3.5`; der Runner zwingt sie
-      schon auf Node 24). Auf Hauptversionen mit Node 24 heben, für die FTP-Action erst prüfen, ob es eine gibt.
-      Dazu: `ubuntu-latest` in `deploy.yml` wird ab 2026-10-19 Ubuntu 26.
+- [ ] **J2 GitHub-Actions auf Node 24**: gebaut 2026-09-19 (`actions/checkout@v7`, `actions/setup-node@v7`,
+      `SamKirkland/FTP-Deploy-Action@v4.4.0`, alle auf Node 24; `ubuntu-latest` bleibt, Node ist gepinnt). Der erste
+      echte Lauf ist das nächste Release (`release.yml`, dann `deploy.yml`); danach nach DONE.
 - [ ] **H3** Object-Pooling für Projektile, erst prüfen, ob GC-Druck messbar ist.
 - [ ] **H4** Tower-LOD (High, Medium, Low).
 - [ ] **H5** Tower-Instancing (schwierig wegen der Rotationen).
