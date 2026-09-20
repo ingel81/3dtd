@@ -32,7 +32,7 @@ src/error-page.js           page shown when loading fails or the renderer dies
 src/log.js                  log lines, key masking, repeats, GPU line
 src/shortcuts.js            F11 fullscreen, F12 DevTools, nothing else
 src/window-state.js         size, position, maximized, fullscreen across starts
-src/user-agent.js           identifies the app to OpenStreetMap and Wikidata
+src/user-agent.js           identifies the app to the OpenStreetMap services
 src/updater.js              electron-updater: check, background download, install on quit
 scripts/copy-web.js         dist/3DTD/browser -> app/, with the key guard
 scripts/build-guard.js      refuses a build that contains a local tile key

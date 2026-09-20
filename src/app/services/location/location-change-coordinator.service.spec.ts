@@ -33,7 +33,7 @@ import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
-import { WorldDiceService } from './world-dice.service';
+import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
 import { UIStore } from '../../store/ui.store';
 import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
 import {
@@ -597,6 +597,18 @@ describe('LocationChangeCoordinatorService', () => {
 
       expect(console.error).toHaveBeenCalledWith('[LocationCoordinator] Location dialog failed to open:', bug);
       expect(uiStore.notice()).toBe(LOCATION_DIALOG_OPEN_FAILED);
+      expect(engineInit.loading()).toBe(false);
+    });
+
+    it('says over the game that a world dice roll brought no city', async () => {
+      worldDice.rollRandomCity.mockResolvedValue(null);
+      worldDice.error.set(WORLD_DICE_FAILED);
+      coordinator.initializeFlow(delegate);
+
+      await coordinator.onWorldDice();
+
+      // It used to close the loading overlay without a word
+      expect(uiStore.notice()).toBe(WORLD_DICE_FAILED);
       expect(engineInit.loading()).toBe(false);
     });
 

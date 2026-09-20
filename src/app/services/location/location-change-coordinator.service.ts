@@ -6,7 +6,7 @@ import { EngineInitializationService } from '../infrastructure/engine-initializa
 import { HeightUpdateService } from '../world/height-update.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
-import { WorldDiceService } from './world-dice.service';
+import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
 import {
   LOCATION_DIALOG_LOAD_FAILED,
   LOCATION_DIALOG_OPEN_FAILED,
@@ -230,9 +230,11 @@ export class LocationChangeCoordinatorService {
     this.worldDice.onStepDetail = null;
 
     if (!city) {
-      callbacks?.appendDebugLog('World Dice: Failed - ' + (this.worldDice.error() || 'Unknown error'));
-      // Hide loading overlay on error
+      const reason = this.worldDice.error();
+      callbacks?.appendDebugLog('World Dice: Failed - ' + (reason || 'Unknown error'));
+      // Hide loading overlay on error and say so: it used to close without a word
       this.engineInit.setLoading(false);
+      this.uiStore.notice.set(WORLD_DICE_FAILED);
       return;
     }
 
