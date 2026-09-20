@@ -36,10 +36,10 @@ export interface DirectorParams {
   /**
    * Headroom over the survivability cap, as a factor.
    *
-   * 1 is what the game plays: the wave is cut to what the defense can
-   * plausibly kill, which is also why it is never quite in danger. Above 1
-   * the cap stops being the size of the wave and becomes the line below which
-   * a wave would be unwinnable.
+   * At 1 the wave is cut to exactly what the defense can plausibly kill,
+   * which is why it is never quite in danger. Above 1 the cap stops being the
+   * size of the wave and becomes the line below which a wave would be
+   * unwinnable. 1.5 since the first tuning round (BALANCING_PLAN.md).
    */
   capSlack: number;
 }
@@ -50,7 +50,12 @@ export const DEFAULT_DIRECTOR_PARAMS: DirectorParams = {
   leakTargetHi: 0.16,
   leakGain: 0.35,
   dpsRampWeight: 1,
-  capSlack: 1,
+  // 1.5 out of the first tuning round, 749 runs over four settings: at 1 the
+  // weaker bot outlived the stronger one and twelve mid-game waves in a row
+  // cost nothing; at 2 both bots collapse to wave 13. At 1.5 the expert
+  // reaches wave 26 against the beginner's 19, 27% of its waves 10 to 20 cost
+  // HP instead of 17%, and the run gets no shorter (BALANCING_PLAN.md).
+  capSlack: 1.5,
 };
 
 /**
@@ -64,12 +69,18 @@ export const DIRECTOR_PARAM_SETS: Record<string, DirectorParams> = {
   'steep-ramp': { ...DEFAULT_DIRECTOR_PARAMS, rampFullWave: 40 },
   'wide-band': { ...DEFAULT_DIRECTOR_PARAMS, leakTargetLo: 0.12, leakTargetHi: 0.24 },
   'fast-loop': { ...DEFAULT_DIRECTOR_PARAMS, leakGain: 0.6 },
+  /** The neighbours of the current `capSlack`, for the next round. */
+  'cap-tight': { ...DEFAULT_DIRECTOR_PARAMS, capSlack: 1.25 },
+  'cap-loose': { ...DEFAULT_DIRECTOR_PARAMS, capSlack: 2.0 },
   /**
-   * The answer to the first baseline: the wave follows the campaign, and the
-   * defense only keeps it from being unwinnable. Revises D8, which kept both
-   * regulators at full strength before the numbers were in.
+   * The wave follows the campaign instead of the player's DPS.
+   *
+   * Measured once over 430 runs and it changed almost nothing, because the
+   * survivability cap binds in nearly every wave and sits below the ramp's
+   * ceiling anyway. Kept so the next round can ask again once the cap is
+   * looser, which is where the ramp would start to matter.
    */
-  'campaign-size': { ...DEFAULT_DIRECTOR_PARAMS, dpsRampWeight: 0, capSlack: 1.25 },
+  'campaign-size': { ...DEFAULT_DIRECTOR_PARAMS, dpsRampWeight: 0 },
 };
 
 let active: DirectorParams = DEFAULT_DIRECTOR_PARAMS;

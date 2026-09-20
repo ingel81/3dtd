@@ -55,9 +55,12 @@ describe('director parameter sets', () => {
     expect(dpsScaledCountMax(range, strongDps)).toBe(range[1]);
   });
 
-  it('campaign-size gives the survivability cap headroom', () => {
-    expect(DIRECTOR_PARAM_SETS['campaign-size'].capSlack).toBeGreaterThan(1);
-    expect(DEFAULT_DIRECTOR_PARAMS.capSlack).toBe(1);   // the game plays the cap as it is
+  it('the game plays the cap with the headroom the first tuning round settled on', () => {
+    // 749 runs over four settings: at 1 the weaker bot outlived the stronger
+    // one, at 2 both collapse to wave 13 (BALANCING_PLAN.md, Tuning-Runde 1)
+    expect(DEFAULT_DIRECTOR_PARAMS.capSlack).toBe(1.5);
+    expect(DIRECTOR_PARAM_SETS['cap-tight'].capSlack).toBeLessThan(1.5);
+    expect(DIRECTOR_PARAM_SETS['cap-loose'].capSlack).toBeGreaterThan(1.5);
   });
 
   it('reaches the director: a steeper ramp is further along at the same wave', () => {
