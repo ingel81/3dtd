@@ -395,6 +395,73 @@ TODO.md.
 **Die Baseline selbst ist keine Codeaufgabe:** Einsteiger und Könner je etwa 50 Läufe in DevWorld (`/bots`), dazu
 Läufe auf echten Karten, dann `analyze_runs.py`. Das ist der nächste Schritt vor Phase 3.
 
+**Erster Probelauf (2026-09-20, 15 Läufe):** Der Stapel war unbrauchbar, hat aber drei echte Fehler gezeigt, alle
+drei sind behoben:
+
+1. **Jedem Bot-Lauf fehlten seine letzte Welle und sein Ende.** Das Game Over erreicht zwei Zuhörer: Die Facade
+   schließt den Lauf, die Bot-Session schickt den Rest. Der Sammler setzte beim Schließen seinen Kopf auf `null`,
+   also fand die Session nichts mehr und schickte gar nichts. Kein Lauf auf dem Server hatte einen `end`-Datensatz,
+   also war auch nicht zu sehen, ob er gewonnen oder verloren hat. Ein geschlossener Lauf bleibt jetzt lesbar, bis
+   der nächste öffnet.
+2. **Der Kopf beschriftete den Lauf falsch.** Der Client startete nach dem Game Over sofort neu, das `run_config`
+   des Servers kam erst danach: Der Kopf trug den Bot des vorigen Laufs, und der Seed im Kopf war nicht der, mit
+   dem gespielt wurde, weil `rng.reset` ihn gleich darauf überschrieb. Die ersten vier Läufe je Tab hatten gar
+   keinen Bot. Damit war weder die Gruppierung nach Bot noch die Wiederholbarkeit zu gebrauchen. Der Client wartet
+   jetzt auf das `run_config`, und der Seed wird als Wunsch hinterlegt (`GameRng.useNextSeed`), den erst der
+   Neustart einlöst.
+3. **Der Körper-Abgleich zählte eine Leiche zu viel.** Ein Block läuft über das Wellenende hinaus, Gegner leben
+   über diese Naht. Was die letzte Welle übrig ließ, starb in der nächsten, und die meldete `killed = spawned + 1`.
+   Acht Meldungen in 15 Läufen, alle falsch. Der Block hält jetzt `enemiesAtStart` fest und rechnet damit.
+
+Der Parametersatz stand außerdem in keinem Kopf: Die Facade reichte ihn nie durch, die Auswertung sah überall
+`default`. Jetzt steht `directorParamsName()` im Kopf.
+
+Weitere vier Fehler zeigten sich erst in den Stapeln danach, alle im Zusammenhang mit dem Ende eines Laufs und
+dem, was er über sich schreibt: das `end` erreichte den Server auch nach dem ersten Fix nicht, weil die Reihenfolge
+zweier Zuhörer entschied (jetzt beendet die Bot-Session den Lauf selbst, `endRun()`); die Todeswelle verlor ihre
+Gegner, weil `triggerGameOver()` das Feld räumte, bevor es `game:over` meldete; Gegner in der Sterbeanimation
+zählten als lebend **und** als Kill (jetzt `getAliveCount()`); und der erste Lauf jedes Tabs stand als
+`player: human` im Kopf, weil das Bot-Modul noch lud. Der letzte wäre der teuerste gewesen: Bot-Läufe in der
+Spielergruppe.
+
+### Baseline (2026-09-20, 113 Läufe, ohne Leck-Deckel)
+
+| | Einsteiger | Könner |
+|---|---|---|
+| Läufe | 60 | 53 |
+| Erreichte Welle, Median | **28** | **25** |
+| Spanne | 15 bis 42 | 15 bis 52 |
+| Golddruck bei W25 | 4,34 | 0,51 |
+
+**Das Können-Gefälle steht auf dem Kopf.** Der schwächere Bot kommt weiter. Ursache ist der
+Überlebbarkeits-Deckel: Er bemisst jede Welle an der Verteidigung, die dasteht, also bekommt eine schwache
+Verteidigung kleine Wellen und eine starke große. Beim Einsteiger lecken in Welle 25 rund 30 % der Gegner und
+kosten 4,4 HP, beim Könner lecken 8,5 % und kosten 18,8 HP. Ein Wellenblock zeigt es in Reinform (W12, Einsteiger,
+Dragon Elite): *"Survivability cap holds the count at 5"*, dazu der Leck-Regler auf ×0,61, und von fünf Gegnern
+kommen drei durch, weil dem Bot die Luft-Antwort fehlt. Zwei Regler arbeiten gegen eine Lücke, die sie nicht
+schließen können.
+
+**Die Todeszone ist ein Konter-Block bei Welle 22 bis 26.** Wo die Läufe des Könners enden: Ghost Surge (W23, 14
+Läufe), Hornet Strike (W26, 14), Mammoth Siege (W25, 11), Tank Column (W22, 8), Dragon Elite (W24, 7). Fünf
+Wellen, die je eine andere Antwort verlangen, direkt hintereinander. Ohne Leck-Deckel kostet eine fehlende Antwort
+dort nicht eine Welle, sondern den Lauf: W26 nimmt im Mittel 46,6 HP.
+
+**Der Deckel hielt das vorher zusammen.** Mit ihm lag der Median des Könners bei 36 und der weiteste Lauf bei 49;
+ohne ihn bei 25 und 26. Die langen Läufe gibt es nicht mehr.
+
+**Was daraus folgt, in dieser Reihenfolge:**
+
+1. **`survivableCount` in den Wellenblock schreiben.** Er steht heute nur als Fließtext in `reason`, weil
+   `DecisionExplanation` nur `summary` und `reasons` durchreicht und die `sizing`-Daten verwirft. Ohne die Zahl
+   ist "wie oft bindet der Deckel" nicht zählbar und keine Tuning-Runde beurteilbar.
+2. **Der Deckel hört auf, die Wellengröße zu bestimmen, und wird zum Notnagel.** Die Größe kommt aus der
+   Kampagnenkurve; der Deckel greift nur noch gegen die nachweislich unspielbare Welle, mit Luft dazwischen. Erst
+   dann zahlt sich gutes Bauen in Fortschritt aus statt in einer proportional größeren Welle, und erst dann sind
+   Zielbänder überhaupt sinnvoll.
+3. **Den Konter-Block bei 22 bis 26 auseinanderziehen.** Kampagnenarbeit, kein Director. Nach Punkt 2, weil ein
+   Konter-Block sich anders anfühlt, sobald ein passendes Roster belohnt wird.
+4. Erst danach die Zielbänder (3b), nach jeder Runde mit demselben Stapel gemessen.
+
 ## 7. Phase 3: Kampagnenende und Tuning
 
 ### 3a Kampagnenende (D2, D9)
@@ -409,7 +476,7 @@ Zyklus kommen aus der Baseline; bis dahin gilt ab W31 das heutige Verhalten.
 | Kennzahl | Messung | Richtung |
 |---|---|---|
 | Druck | Anteil der Wellen mit HQ-Schaden (Bots am 2026-08-28: 22 %) | deutlich höher, ohne frühen Tod |
-| Beinahe-Niederlagen | Wellen, die mehr als die Hälfte des Leck-Deckels (18 HP) kosten | ab und zu, nicht nie |
+| Beinahe-Niederlagen | Wellen, die mehr als 10 HP kosten | ab und zu, nicht nie |
 | Gold-Druck | ungenutztes Gold zu Wellenstart gegen das Wellengold | kein Horten über mehrere Wellen |
 | Laufdauer | erreichte Welle je Bot, deine Läufe als Maßstab | Einsteiger früh, Könner spät |
 | Partiedauer (D10) | Spielzeit bis zum Kampagnenende | ergibt sich aus der Baseline |

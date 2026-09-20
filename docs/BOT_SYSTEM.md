@@ -855,6 +855,15 @@ beim Könner greifen beide, bei den anderen Skill-Levels nur die erste.
 ### 2026-09-20: zwei Bots, der Held und das Run-Log
 - Aus vier Skill-Stufen werden zwei: `beginner` und `expert` (D15). `casual`
   und `meta` hatten dieselben Strategie-Sets wie ihre Nachbarn.
+- **Einsteiger (2026-09-20, nach der ersten Baseline):** Er hatte keine
+  Upgrade-Strategie und nur `gatling-tech` als Forschung. Folge, gemessen über
+  163 Läufe: Nach Welle fünf (später zwölf) war jeder Zweig jedes Towers am
+  Tier-1-Deckel von Stufe 5, es gab nichts mehr zu kaufen, die Entscheidungen
+  fielen auf 0 je Welle und das Gold lief auf 143.000 auf. Er starb an einer
+  eingefrorenen Verteidigung, nicht an der Balance. Neu: die Strategie
+  **FavouriteTowerUpgrade (70)** (bester Tower, billigster Zweig, Polster über
+  dem Preis) und die Tier-Linie in der Forschung bis Tier 4. Die Breite bleibt
+  dem Könner: keine Luft-, keine Ethereal-Antwort, kein Verkaufen, kein Held.
 - Neue Strategie **Hero (85)**, nur beim Könner: anheuern, Munition nach dem
   Rüstungsmix, Stellung beim Pulk. Vorher nutzte kein Bot den Helden.
 - Der Bot handelt nur noch über `command:*`; Bau und Verkauf gingen vorher
@@ -863,7 +872,11 @@ beim Könner greifen beide, bei den anderen Skill-Levels nur die erste.
   nach `runs/<config-hash>/<lauf>.jsonl` schreibt. `result` und `game_start`
   sind entfallen.
 - Der Server sagt jedem Client vor jedem Lauf, was er spielt (`run_config`:
-  Bot, Seed, Director-Parametersatz).
+  Bot, Seed, Director-Parametersatz). Der Client **wartet darauf**: Nach dem
+  Game Over startet er den nächsten Lauf erst, wenn die Antwort da ist, sonst
+  nach fünf Sekunden mit der letzten. Sofort neu zu starten hieß, den Kopf des
+  nächsten Laufs mit dem Bot des vorigen zu beschriften und mit einem Seed, den
+  `rng.reset` einen Wimpernschlag später überschrieb.
 
 ### 2026-09-13: Nuklearschlag
 - Neue Aktion `use-ability`, neue Strategie NuclearStrike (97) in allen

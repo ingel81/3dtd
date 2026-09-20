@@ -21,6 +21,7 @@ import { ResearchCenterPlacementStrategy } from '../strategies/placement/researc
 import { MissileSiloPlacementStrategy } from '../strategies/placement/missile-silo-placement.strategy';
 import { ResearchPickStrategy } from '../strategies/research/research-pick.strategy';
 import { PathCoverageUpgradeStrategy } from '../strategies/upgrade/path-coverage-upgrade.strategy';
+import { FavouriteTowerUpgradeStrategy } from '../strategies/upgrade/favourite-tower-upgrade.strategy';
 import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperformer.strategy';
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
 import { NuclearStrikeStrategy } from '../strategies/ability/nuclear-strike.strategy';
@@ -81,11 +82,13 @@ export class StrategyBotFactory {
     const researchPick = new ResearchPickStrategy(config);
 
     if (skillLevel === 'beginner') {
-      // The beginner keeps to the research centre, the basic research and a
-      // coverage fill: slow, few towers, no selling, no hero.
+      // The beginner keeps to the research centre, the basic research, a
+      // coverage fill and upgrades of its best tower: slow, few towers, no
+      // selling, no hero, no answer to what a wave brings.
       strategies.push(
         researchCenterPlacement,
         researchPick,
+        new FavouriteTowerUpgradeStrategy(this.gameState),
         new CoverageFillStrategy(this.strategicPlacement, this.gameState, config),
       );
     } else {
