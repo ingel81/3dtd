@@ -21,9 +21,9 @@ import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
-import { WaveDirectorService } from '../../ai/core/wave-director.service';
-import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
-import { TrainingClientService } from '../../ai/training/training-client.service';
+import { WaveDirector } from '../../director/wave-director';
+import { StateSnapshotService } from '../../director/state-snapshot.service';
+import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
@@ -41,6 +41,8 @@ import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StreetNetwork } from '../location/osm-street.service';
+import { GameRng } from '../../utils/game-rng';
+import { RunLogFacade } from '../../run-log/run-log.facade';
 
 const HQ = { lat: 48.9, lon: 9.2 };
 const BOUNDS = { minLat: HQ.lat - 0.01, maxLat: HQ.lat + 0.01, minLon: HQ.lon - 0.01, maxLon: HQ.lon + 0.01 };
@@ -112,15 +114,15 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
       phase: signal('setup'),
       spawnPoints: signal([{}]),
       waveNumber: signal(0),
-      useStaticCurriculum: signal(false),
-      useAIDirector: signal(false),
-      aiExplanation: signal(null),
-      aiError: signal(null),
+      directorEnabled: signal(false),
+      waveExplanation: signal(null),
+      directorError: signal(null),
       paused: signal(true),
     };
     const injector = Injector.create({
       providers: [
         { provide: EngineStore, useValue: {} },
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: CameraControlService, useValue: { update: vi.fn() } },
         { provide: TowerPlacementService, useValue: { updateRotation: vi.fn(), tickBuildPreviewViz: vi.fn() } },
         { provide: MapPlacementService, useValue: mapPlacement },
@@ -132,9 +134,9 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
         { provide: SoundDebugService, useValue: {} },
         { provide: DebugWindowService, useValue: {} },
         { provide: EnemyDebugService, useValue: {} },
-        { provide: WaveDirectorService, useValue: {} },
-        { provide: AIDataCollectorService, useValue: {} },
-        { provide: TrainingClientService, useValue: { botEnabled: () => false } },
+        { provide: WaveDirector, useValue: {} },
+        { provide: StateSnapshotService, useValue: {} },
+        { provide: BotClientService, useValue: { botEnabled: () => false } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: PerformanceProfilerService, useValue: { tick: vi.fn() } },
         { provide: StreetRenderingService, useValue: { continueStreetRender: vi.fn() } },
@@ -161,6 +163,7 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
           updateAnimation: vi.fn(),
         }),
         towerManager: { tickSelectionViz: vi.fn(), syncVeteranBadges: vi.fn() },
+        rng: new GameRng(1),
       } as unknown as GameStateManager,
     );
   });

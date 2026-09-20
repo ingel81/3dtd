@@ -199,7 +199,7 @@ function hireIntoCluster(game: Game): void {
     researchId: HERO.researchId,
     effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
   });
-  game.gsm.addCredits(HERO.cost);
+  game.gsm.addCredits(HERO.cost, 'cheat');
   bus.emit({ type: 'command:hire-hero' });
   expect(game.gsm.heroManager.getHero()).not.toBeNull();
   walkHero(game, POST);

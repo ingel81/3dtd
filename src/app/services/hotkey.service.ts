@@ -226,7 +226,7 @@ export class HotkeyService {
 
   private stepSpeed(step: 1 | -1): boolean {
     if (this.store.isGameOver()) return false;
-    this.gameStore.trainingTimescale.set(stepGameSpeed(this.gameStore.trainingTimescale(), step));
+    this.gameStore.gameSpeed.set(stepGameSpeed(this.gameStore.gameSpeed(), step));
     return true;
   }
 

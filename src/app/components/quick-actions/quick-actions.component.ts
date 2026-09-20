@@ -56,9 +56,6 @@ export class QuickActionsComponent {
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
 
-  // Static curriculum fallback state (game-store driven, parent passes in)
-  readonly useStaticCurriculum = input.required<boolean>();
-
   // Display settings: shared signals in DebugFacadeService (single source of
   // truth, also shown by the Display debug window), changed through its on*() methods
   readonly screenShakeEnabled = this.debugFacade.screenShakeEnabled;
@@ -96,7 +93,6 @@ export class QuickActionsComponent {
   readonly heightDebugToggled = output<void>();
   readonly cameraFramingDebugToggled = output<void>();
   readonly specialPointsDebugToggled = output<void>();
-  readonly staticCurriculumToggled = output<void>();
   readonly spatialGridDebugToggled = output<void>();
   readonly airSpatialGridDebugToggled = output<void>();
   readonly airRouteToggled = output<void>();

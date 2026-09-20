@@ -6,14 +6,14 @@
  * center) the player should have available at the START of every wave; the
  * tool computes the cost-delta between consecutive waves and turns that into
  * the gold-income each wave must produce. Side-by-side diff against the
- * current `wave-curriculum.config.ts` shows where reality and plan diverge.
+ * current `campaign.config.ts` shows where reality and plan diverge.
  *
  * Knobs (sandbox): upgrade base cost, upgrade scaling, per-stat
  * multipliers, per-tower base cost, per-research cost. Knobs only live in
  * the browser — the actual configs are never written by this tool.
  *
  * The tool feeds itself entirely from the live configs (TOWER_TYPES,
- * RESEARCH_TREE, RESEARCH_CENTER_*, WAVE_CURRICULUM, GAME_BALANCE) — no
+ * RESEARCH_TREE, RESEARCH_CENTER_*, CAMPAIGN, GAME_BALANCE) — no
  * duplicated values, no duplicated formulas. Persistence is browser
  * localStorage; JSON export/import lets the designer version their plan
  * in git.
@@ -42,16 +42,16 @@ import {
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
 import { RESEARCH_CENTER_LEVELS } from '../../src/app/configs/research/research-center.config';
 import {
-  WAVE_CURRICULUM,
-} from '../../src/app/configs/wave-curriculum.config';
+  CAMPAIGN,
+} from '../../src/app/configs/campaign.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/wave-planner.html');
 
 // =====================================================================
-// Wave-Gate metadata. Maps every template that appears in the curriculum
-// to its design-intent gate tags. Kept here (not in the curriculum config)
+// Wave-Gate metadata. Maps every template that appears in the campaign
+// to its design-intent gate tags. Kept here (not in the campaign config)
 // because gates are designer commentary, not gameplay-load-bearing data.
 // =====================================================================
 const TEMPLATE_GATES: Record<string, string[]> = {
@@ -69,13 +69,13 @@ const TEMPLATE_GATES: Record<string, string[]> = {
   dragon_elite: ['air', 'heavy'],
   ghost_surge: ['ethereal'],
   mammoth_siege: ['fortified'],
-  golem_squad: ['fortified'], // Stone Golem — sehr stark, kein Boss (Template noch nicht im Curriculum, siehe TODO 2.2)
+  golem_squad: ['fortified'], // Stone Golem — sehr stark, kein Boss (Template noch nicht im Campaign, siehe TODO 2.2)
   mech_army: ['heavy'],
   chaos_wave: ['air', 'mixed'],
   wraith_storm: ['ethereal', 'swarm'],
   armor_gauntlet: ['mixed'],
-  boss_golem: ['boss', 'fortified'], // nur nach dem Curriculum (jede 5. Welle)
-  boss_dragon: ['boss', 'air', 'heavy'], // nur nach dem Curriculum (jede 5. Welle)
+  boss_golem: ['boss', 'fortified'], // nur nach dem Campaign (jede 5. Welle)
+  boss_dragon: ['boss', 'air', 'heavy'], // nur nach dem Campaign (jede 5. Welle)
   skeleton_swarm: ['swarm'],
 };
 
@@ -129,11 +129,11 @@ interface PayloadRcLevel {
   upgradeCost: number;
   slots: number;
 }
-interface PayloadCurriculumWave {
+interface PayloadCampaignWave {
   wave: number;
   template: string;
-  goldKill: number;
-  goldComplete: number;
+  killGold: number;
+  completionGold: number;
   gates: string[];
 }
 interface Payload {
@@ -146,7 +146,7 @@ interface Payload {
   towers: PayloadTower[];
   researches: PayloadResearch[];
   rc: { baseCost: number; levels: PayloadRcLevel[] };
-  curriculum: PayloadCurriculumWave[];
+  campaign: PayloadCampaignWave[];
 }
 
 function summariseEffect(effects: { kind: string; towerId?: string; perkId?: string; tier?: number; capability?: string }[]): string {
@@ -209,11 +209,11 @@ function buildPayload(): Payload {
     })),
   };
 
-  const curriculum: PayloadCurriculumWave[] = WAVE_CURRICULUM.map((w, i) => ({
+  const campaign: PayloadCampaignWave[] = CAMPAIGN.map((w, i) => ({
     wave: i + 1,
     template: w.template,
-    goldKill: w.goldKill,
-    goldComplete: w.goldComplete,
+    killGold: w.killGold,
+    completionGold: w.completionGold,
     gates: TEMPLATE_GATES[w.template] ?? [],
   }));
 
@@ -227,7 +227,7 @@ function buildPayload(): Payload {
     towers,
     researches,
     rc,
-    curriculum,
+    campaign,
   };
 }
 
@@ -323,7 +323,7 @@ function renderHtml(payload: Payload): string {
 <div class="meta">
   Generated <code>${generatedAt}</code> from
   <code>tower-types.config.ts</code>, <code>research-tree.config.ts</code>,
-  <code>research-center.config.ts</code>, <code>wave-curriculum.config.ts</code>,
+  <code>research-center.config.ts</code>, <code>campaign.config.ts</code>,
   <code>game-balance.config.ts</code>. Regenerate via
   <code>npm run wave-planner</code>.
 </div>
@@ -333,7 +333,7 @@ function renderHtml(payload: Payload): string {
   <em>Start</em> dieser Welle deployed haben soll. Das Tool rechnet die
   Kostendifferenz zwischen aufeinanderfolgenden Wellen aus — das ist das Gold,
   das die jeweils vorhergehende Welle erwirtschaften muss. Diff zur aktuellen
-  <code>wave-curriculum.config.ts</code> in der letzten Spalte. Knöpfe oben
+  <code>campaign.config.ts</code> in der letzten Spalte. Knöpfe oben
   (Upgrade-Scaling, Tower-Kosten, Forschungskosten) sind eine Sandbox — sie
   ändern nur die Berechnung im Browser, niemals die Configs.
 </div>
@@ -392,9 +392,8 @@ function renderHtml(payload: Payload): string {
     Gold, das der Spieler bis hier ausgegeben hat (Aufstellungs-Wert). „Δ" =
     Differenz zum vorigen Welle (= Gold das ZWISCHEN den Wellen ausgegeben
     wird). „Required" = was die <em>vorige</em> Welle einbringen muss
-    (Buffer eingerechnet). „Curriculum" = aktuelle goldKill+goldComplete
-    der jeweils vorigen Welle. „Diff" = Required minus Curriculum.
-  </p>
+    (Buffer eingerechnet). „Campaign" = aktuelle killGold+completionGold
+    der jeweils vorigen Welle. „Diff" = Required minus Campaign.   </p>
   <table>
     <thead>
       <tr>
@@ -405,7 +404,7 @@ function renderHtml(payload: Payload): string {
         <th>Cost</th>
         <th>Δ Vorwelle</th>
         <th>Required<br><span style="font-weight:400;font-size:10px;">(Welle W−1 muss einbringen)</span></th>
-        <th>Curriculum<br><span style="font-weight:400;font-size:10px;">(W−1 Gold heute)</span></th>
+        <th>Campaign<br><span style="font-weight:400;font-size:10px;">(W−1 Gold heute)</span></th>
         <th>Diff</th>
       </tr>
     </thead>
@@ -414,11 +413,11 @@ function renderHtml(payload: Payload): string {
 </div>
 
 <div class="section">
-  <h2>Gold-Kurve — Required vs. Curriculum</h2>
+  <h2>Gold-Kurve — Required vs. Campaign</h2>
   <p class="note">
     <span style="color:#6FB7A5;">●</span> Required-Earning pro Welle (aus deinem Plan)
     &nbsp;&nbsp;
-    <span style="color:#c9a44c;">●</span> Aktuelle Curriculum-Werte
+    <span style="color:#c9a44c;">●</span> Aktuelle Campaign-Werte
     &nbsp;&nbsp;
     <span style="color:#C04B3F;">●</span> Diff (Required − Current)
   </p>
@@ -636,16 +635,16 @@ function metrics() {
     const prevCost = (w === 1) ? PAYLOAD.startCredits : costs[w - 2];
     const delta = cost - prevCost;
     const required = Math.max(0, Math.round(delta * buffer));
-    // Curriculum income for wave (w-1) -- the wave that had to earn this.
-    const curr = (w === 1) ? null : PAYLOAD.curriculum[w - 2];
-    const curriculumIncome = curr ? curr.goldKill + curr.goldComplete : null;
-    const diff = curriculumIncome === null ? null : required - curriculumIncome;
+    // Campaign income for wave (w-1) -- the wave that had to earn this.
+    const curr = (w === 1) ? null : PAYLOAD.campaign[w - 2];
+    const campaignIncome = curr ? curr.killGold + curr.completionGold : null;
+    const diff = campaignIncome === null ? null : required - campaignIncome;
     rows.push({
       wave: w,
       cost: cost,
       deltaFromPrev: delta,
       requiredFromPrevWave: required,
-      curriculumIncome: curriculumIncome,
+      campaignIncome: campaignIncome,
       diff: diff,
     });
   }
@@ -653,13 +652,13 @@ function metrics() {
   const endCost = costs[NUM_WAVES];
   const endDelta = endCost - costs[NUM_WAVES - 1];
   const endRequired = Math.max(0, Math.round(endDelta * buffer));
-  const lastCurriculum = PAYLOAD.curriculum[NUM_WAVES - 1];
+  const lastCampaign = PAYLOAD.campaign[NUM_WAVES - 1];
   const endgame = {
     cost: endCost,
     deltaFromW30: endDelta,
     requiredFromW30: endRequired,
-    w30CurriculumIncome: lastCurriculum.goldKill + lastCurriculum.goldComplete,
-    diff: endRequired - (lastCurriculum.goldKill + lastCurriculum.goldComplete),
+    w30CampaignIncome: lastCampaign.killGold + lastCampaign.completionGold,
+    diff: endRequired - (lastCampaign.killGold + lastCampaign.completionGold),
   };
   return { rows: rows, endgame: endgame };
 }
@@ -828,7 +827,7 @@ function renderTable() {
   const m = metrics();
   for (let i = 0; i < m.rows.length; i++) {
     const r = m.rows[i];
-    const cw = PAYLOAD.curriculum[r.wave - 1];
+    const cw = PAYLOAD.campaign[r.wave - 1];
     const tr = document.createElement('tr');
     const rowClasses = (cw.gates || []).slice();
     tr.className = rowClasses.join(' ');
@@ -842,7 +841,7 @@ function renderTable() {
       '<td>' + fmt(r.cost) + '</td>' +
       '<td>' + fmt(r.deltaFromPrev) + '</td>' +
       '<td><strong>' + fmt(r.requiredFromPrevWave) + '</strong></td>' +
-      '<td>' + fmt(r.curriculumIncome) + '</td>' +
+      '<td>' + fmt(r.campaignIncome) + '</td>' +
       '<td class="' + diffClass(r.diff) + '">' + diffText(r.diff) + '</td>';
     tbody.appendChild(tr);
   }
@@ -860,7 +859,7 @@ function renderTable() {
     '<td>' + fmt(eg.cost) + '</td>' +
     '<td>' + fmt(eg.deltaFromW30) + '</td>' +
     '<td><strong>' + fmt(eg.requiredFromW30) + '</strong></td>' +
-    '<td>' + fmt(eg.w30CurriculumIncome) + '</td>' +
+    '<td>' + fmt(eg.w30CampaignIncome) + '</td>' +
     '<td class="' + diffClass(eg.diff) + '">' + diffText(eg.diff) + '</td>';
   tbody.appendChild(tr);
 }
@@ -878,7 +877,7 @@ function renderChart() {
     // Show the "required" for wave i+1 paired with wave i (the one that has to earn it).
     if (i === 0) continue;
     required.push(m.rows[i].requiredFromPrevWave);
-    current.push(m.rows[i].curriculumIncome);
+    current.push(m.rows[i].campaignIncome);
     diff.push(m.rows[i].diff || 0);
   }
   // Chart labels = wave that MUST earn (so length = m.rows.length - 1).
@@ -901,7 +900,7 @@ function renderChart() {
           pointRadius: 2,
         },
         {
-          label: 'Curriculum (heute)',
+          label: 'Campaign (heute)',
           data: current,
           borderColor: '#c9a44c',
           fill: false,
@@ -909,7 +908,7 @@ function renderChart() {
           pointRadius: 2,
         },
         {
-          label: 'Diff (Required − Curriculum)',
+          label: 'Diff (Required − Campaign)',
           data: diff,
           borderColor: '#C04B3F',
           borderDash: [4, 3],
@@ -1086,7 +1085,7 @@ function openEditor(planIdx) {
   if (isEndgame) {
     document.getElementById('editorMeta').innerHTML = 'Plant das Endspiel-Setup. Die Differenz zum W30-Plan bestimmt, was Welle 30 mindestens an Gold abwerfen muss.';
   } else {
-    const cw = PAYLOAD.curriculum[planIdx];
+    const cw = PAYLOAD.campaign[planIdx];
     document.getElementById('editorMeta').innerHTML =
       'Template: <code>' + cw.template + '</code>. Gates: ' + (cw.gates.length ? cw.gates.join(', ') : '—');
   }
@@ -1330,7 +1329,7 @@ describe('wave planner generator', () => {
     mkdirSync(dirname(OUT_PATH), { recursive: true });
     writeGeneratedFile(OUT_PATH, html, GENERATED_AT_STAMP);
 
-    expect(payload.curriculum.length).toBe(30);
+    expect(payload.campaign.length).toBe(30);
     expect(payload.towers.length).toBeGreaterThanOrEqual(10);
     expect(payload.researches.length).toBeGreaterThan(0);
     expect(html).toContain('chart.js@4.4.4');

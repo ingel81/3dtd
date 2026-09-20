@@ -1,11 +1,11 @@
 <div class="td-container" [class.td-fullscreen]="!isDialog" [class.td-photo-mode]="photoMode.active()"
      [class.td-replay-mode]="replay.active()"
      (contextmenu)="$event.preventDefault()">
-  @if (store.aiError(); as aiErr) {
+  @if (store.directorError(); as aiErr) {
     <div class="ai-error-banner" role="alert">
       <strong>AI error:</strong>
       <span>{{ aiErr }}</span>
-      <button type="button" (click)="store.aiError.set(null)" aria-label="Close">×</button>
+      <button type="button" (click)="store.directorError.set(null)" aria-label="Close">×</button>
     </div>
   }
   @if (uiStore.notice(); as notice) {
@@ -132,7 +132,7 @@
           <app-wave-debugger [eventBus]="gameState.getEventBus()" />
           <app-sound-debugger />
           <app-event-debugger [eventBus]="gameState.getEventBus()" />
-          <app-training-debugger
+          <app-bot-debugger
             [botEnabled]="botEnabled()"
             [botSkillLevel]="botSkillLevel()"
             [botStats]="botStats()"
@@ -202,7 +202,6 @@
         <!-- Quick Actions (bottom right) -->
         <app-quick-actions
           [cameraFramingDebug]="cameraFramingDebug()"
-          [useStaticCurriculum]="store.useStaticCurriculum()"
           (resetCamera)="resetCamera()"
           (buildingsToggled)="onBuildingsToggled()"
           (streetsToggled)="onStreetsToggled()"
@@ -210,7 +209,6 @@
           (heightDebugToggled)="toggleHeightDebug()"
           (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
           (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
-          (staticCurriculumToggled)="onStaticCurriculumToggled()"
           (spatialGridDebugToggled)="onSpatialGridDebugToggled()"
           (airSpatialGridDebugToggled)="onAirSpatialGridDebugToggled()"
           (airRouteToggled)="onAirRouteToggled()"
@@ -299,6 +297,11 @@
             <button class="td-btn td-btn-green" (click)="restartGame()">
               <td-icon name="refresh" [size]="18"></td-icon>
               RESTART
+            </button>
+            <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
+            <button type="button" class="td-gameover-replay" (click)="exportRunLog()">
+              <td-icon name="filing" [size]="14"></td-icon>
+              <span>{{ runLogExported() ? 'Run saved' : 'Save the run' }}</span>
             </button>
             <!-- The wave that broke the HQ, once more, while the replay is offered -->
             @if (replay.offered()) {

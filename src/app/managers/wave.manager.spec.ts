@@ -469,7 +469,7 @@ describe('WaveManager', () => {
 
       // Phase 5.16: a 'debug' kill pays no gold, so the player can't farm
       // gold via the dev shortcut, and splits nothing.
-      expect(enemyManager.kill).toHaveBeenCalledWith(mockEnemy, 'debug');
+      expect(enemyManager.kill).toHaveBeenCalledWith(mockEnemy, 'debug', { kind: 'debug' });
     });
 
     it('stops further spawning after kill-all', () => {

@@ -17,7 +17,7 @@ export interface DebugWindowState {
   size: WindowSize;
 }
 
-export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'training' | 'tower' | 'enemy' | 'display' | 'performance' | 'los';
+export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'bots' | 'tower' | 'enemy' | 'display' | 'performance' | 'los';
 
 /** Shared lower bound for every debug panel, used by CSS, resize and storage. */
 export const DEBUG_PANEL_MIN_SIZE: Readonly<WindowSize> = { width: 300, height: 200 };
@@ -32,7 +32,7 @@ const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   sound: { x: 20, y: 200 },
   events: { x: 380, y: 80 },
   devworld: { x: 20, y: 80 },
-  training: { x: 380, y: 300 },
+  bots: { x: 380, y: 300 },
   tower: { x: 20, y: 80 },
   enemy: { x: 340, y: 80 },
   display: { x: 20, y: 300 },
@@ -48,7 +48,7 @@ const DEFAULT_SIZES: Record<DebugWindowId, WindowSize> = {
   sound: { width: 320, height: 400 },
   events: { width: 450, height: 400 },
   devworld: { width: 300, height: 400 },
-  training: { width: 320, height: 540 },
+  bots: { width: 320, height: 540 },
   tower: { width: 320, height: 550 },
   enemy: { width: 340, height: 600 },
   display: { width: 300, height: 520 },
@@ -85,7 +85,7 @@ export class DebugWindowService {
   readonly soundWindow = computed(() => this.windowStates()['sound']);
   readonly eventsWindow = computed(() => this.windowStates()['events']);
   readonly devworldWindow = computed(() => this.windowStates()['devworld']);
-  readonly trainingWindow = computed(() => this.windowStates()['training']);
+  readonly botWindow = computed(() => this.windowStates()['bots']);
   readonly towerWindow = computed(() => this.windowStates()['tower']);
   readonly enemyWindow = computed(() => this.windowStates()['enemy']);
   readonly displayWindow = computed(() => this.windowStates()['display']);

@@ -79,7 +79,6 @@ describe('bossIntroBlock', () => {
     enabled: true,
     photoMode: false,
     botEnabled: false,
-    trainingConnected: false,
     timescale: 1,
     renderingEnabled: true,
     introFlight: false,
@@ -95,7 +94,6 @@ describe('bossIntroBlock', () => {
     expect(bossIntroBlock({ ...play, enabled: false })).toBe('disabled');
     expect(bossIntroBlock({ ...play, photoMode: true })).toBe('photo-mode');
     expect(bossIntroBlock({ ...play, botEnabled: true })).toBe('bot');
-    expect(bossIntroBlock({ ...play, trainingConnected: true })).toBe('training');
     expect(bossIntroBlock({ ...play, timescale: 10 })).toBe('timescale');
     expect(bossIntroBlock({ ...play, renderingEnabled: false })).toBe('no-rendering');
     expect(bossIntroBlock({ ...play, introFlight: true })).toBe('intro-flight');

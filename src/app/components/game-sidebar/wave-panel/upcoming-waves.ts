@@ -1,14 +1,14 @@
-import { dpsScaledCountMax, type Template } from '../../../ai/core/templates';
+import { dpsScaledCountMax, type Template } from '../../../director/templates';
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import type { ArmorType, DamageType } from '../../../configs/combat/combat.types';
 import { bestDamageTypesAgainst } from '../../../configs/combat/damage-matrix.config';
 import { EnemyTypeId, ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import {
-  BOSS_WAVE_INTERVAL_AFTER_CURRICULUM,
-  CURRICULUM_FORCED_THROUGH_WAVE,
+  BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,
+  CAMPAIGN_LENGTH,
   isBossWave,
   templateObjectForWave,
-} from '../../../configs/wave-curriculum.config';
+} from '../../../configs/campaign.config';
 import { bossVariantForWave, type BossVariant } from '../../../configs/boss-variants.config';
 import { BLOOD_MOON_INTERVAL, isBloodMoonWave } from '../../../configs/blood-moon.config';
 import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
@@ -19,7 +19,7 @@ export const BLOOD_MOON_NOTE =
 
 /**
  * Marks on the NEXT timeline of the WAVE panel. Five consecutive waves hold
- * a boss wave past the curriculum (every fifth), so the next one is always
+ * a boss wave past the campaign (every fifth), so the next one is always
  * on the line.
  */
 export const NEXT_WAVE_MARKS = 5;
@@ -28,7 +28,7 @@ export const NEXT_WAVE_MARKS = 5;
 export interface WavePeek {
   wave: number;
   name: string;
-  /** The curriculum pins the template. Past it the director picks at wave start. */
+  /** The campaign pins the template. Past it the director picks at wave start. */
   known: boolean;
   boss: boolean;
   /** "20–218": template minimum to the most the director sends at the given DPS; null when unknown */
@@ -116,7 +116,7 @@ function variantPeek(wave: number, variant: BossVariant): WavePeek {
     tooltip: [
       variant.description,
       ...(weakTo ? [`Weak to ${weakTo}.`] : []),
-      `Past W${CURRICULUM_FORCED_THROUGH_WAVE} some boss waves go to bosses the director does not pick.`,
+      `Past W${CAMPAIGN_LENGTH} some boss waves go to bosses the director does not pick.`,
     ].join(' '),
   };
 }
@@ -166,7 +166,7 @@ function knownPeek(wave: number, template: Template, towerDps: number): WavePeek
   };
 }
 
-/** Past the curriculum: whether it is a boss wave; the tooltip names the next one. */
+/** Past the campaign: whether it is a boss wave; the tooltip names the next one. */
 function unknownPeek(wave: number): WavePeek {
   const boss = isBossWave(wave);
   const nextBoss = nextBossWave(wave);
@@ -184,8 +184,8 @@ function unknownPeek(wave: number): WavePeek {
     weakTo: '',
     note: 'Template picked at wave start',
     tooltip: boss
-      ? `From W${CURRICULUM_FORCED_THROUGH_WAVE + 1} every ${BOSS_WAVE_INTERVAL_AFTER_CURRICULUM}th wave is a boss wave. The director picks which boss when the wave starts.`
-      : `Past W${CURRICULUM_FORCED_THROUGH_WAVE} the director picks the template when the wave starts, so its enemies are not known yet. Next boss wave: W${nextBoss}.`,
+      ? `From W${CAMPAIGN_LENGTH + 1} every ${BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN}th wave is a boss wave. The director picks which boss when the wave starts.`
+      : `Past W${CAMPAIGN_LENGTH} the director picks the template when the wave starts, so its enemies are not known yet. Next boss wave: W${nextBoss}.`,
   };
 }
 

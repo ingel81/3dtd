@@ -402,22 +402,13 @@
         <span>Waves</span>
       </button>
       <button class="td-dev-tile"
-              [class.active]="useStaticCurriculum()"
-              (click)="staticCurriculumToggled.emit()"
-              matTooltip="Static curriculum waves (AI-off fallback)"
+              [class.active]="debugWindows.botWindow().isOpen"
+              (click)="debugWindows.toggle('bots')"
+              matTooltip="Bots"
               matTooltipPosition="left"
-              aria-label="Static curriculum waves">
-        <td-icon name="filing" [size]="18"></td-icon>
-        <span>Static</span>
-      </button>
-      <button class="td-dev-tile"
-              [class.active]="debugWindows.trainingWindow().isOpen"
-              (click)="debugWindows.toggle('training')"
-              matTooltip="AI Training"
-              matTooltipPosition="left"
-              aria-label="AI Training">
+              aria-label="Bots">
         <td-icon name="bulb" [size]="18"></td-icon>
-        <span>AI</span>
+        <span>Bots</span>
       </button>
       <button class="td-dev-tile"
               [class.active]="debugWindows.towerWindow().isOpen"

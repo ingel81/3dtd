@@ -132,7 +132,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
             placedUniqueTypes: signal(new Set()),
           },
         },
-        { provide: GameStore, useValue: { paused: signal(false), trainingTimescale: signal(1) } },
+        { provide: GameStore, useValue: { paused: signal(false), gameSpeed: signal(1) } },
         {
           provide: UIStore,
           useValue: { openMenu: signal(null), mapPlacementMode: signal(null), buildMode: signal(false), selectedTowerType: signal(null) },
@@ -175,7 +175,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
   };
   /** A click on the tile of `upgradeId`: TowerDefenseComponent.upgradeTower */
   const clickTile = (tower: Tower, upgradeId: UpgradeId) => towerUpgrade.buy(tower, upgradeId);
-  const setCredits = (credits: number) => ledger.add(credits - ledger.credits());
+  const setCredits = (credits: number) => ledger.add(credits - ledger.credits(), 'cheat');
   const levels = (tower: Tower) => tower.typeConfig.upgrades.map((u) => tower.getUpgradeLevel(u.id));
   /** Text and colour of the last text over the tower */
   const lastText = () => {

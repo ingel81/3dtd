@@ -11,7 +11,7 @@ export { WaveDebuggerComponent } from './wave-debugger.component';
 export { SoundDebuggerComponent } from './sound-debugger.component';
 export { EventDebuggerComponent } from './event-debugger.component';
 export { DevWorldDebuggerComponent } from '../../devworld/devworld-debugger.component';
-export { TrainingDebuggerComponent } from './training-debugger.component';
+export { BotDebuggerComponent } from './bot-debugger.component';
 export { TowerDebuggerComponent } from './tower-debugger.component';
 export { EnemyDebuggerComponent } from './enemy-debugger.component';
 export { DisplayOptionsComponent } from './display-options.component';

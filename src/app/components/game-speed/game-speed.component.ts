@@ -102,14 +102,14 @@ import { TdIconComponent } from '../icon/icon.component';
 export class GameSpeedComponent {
   private gameStore = inject(GameStore);
 
-  readonly currentSpeed = this.gameStore.trainingTimescale;
+  readonly currentSpeed = this.gameStore.gameSpeed;
   readonly paused = this.gameStore.paused;
 
   cycleSpeed(): void {
     const current = this.currentSpeed();
     const idx = GAME_SPEEDS.indexOf(current);
     const next = GAME_SPEEDS[(idx + 1) % GAME_SPEEDS.length];
-    this.gameStore.trainingTimescale.set(next);
+    this.gameStore.gameSpeed.set(next);
   }
 
   togglePause(): void {

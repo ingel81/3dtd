@@ -27,7 +27,7 @@ import {
   makeSingleTypeWaveConfig,
 } from './test-helpers';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import { enemyBaseDamageForWave } from '../configs/campaign.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 
 describe('Game State Flow Integration', () => {

@@ -2,7 +2,12 @@ import { describe, expect, it, vi } from 'vitest';
 import { readDesktopBridge } from './desktop-bridge';
 
 describe('readDesktopBridge', () => {
-  const bridge = () => ({ version: '0.3.0', onUpdateReady: vi.fn(() => () => undefined), installUpdateNow: vi.fn() });
+  const bridge = () => ({
+    version: '0.3.0',
+    onUpdateReady: vi.fn(() => () => undefined),
+    installUpdateNow: vi.fn(),
+    saveRun: vi.fn(async () => true),
+  });
 
   it('is null in a browser', () => {
     expect(readDesktopBridge({})).toBeNull();

@@ -3,20 +3,20 @@ import {
   AirAlertAnnouncer,
   airAlertView,
   countAntiAirTowers,
-  curriculumWaveHasAir,
+  campaignWaveHasAir,
   upcomingAirAlert,
 } from './air-alert';
-import { CURRICULUM_FORCED_THROUGH_WAVE } from '../../../configs/wave-curriculum.config';
+import { CAMPAIGN_LENGTH } from '../../../configs/campaign.config';
 
-describe('curriculumWaveHasAir', () => {
-  it('reads the air units from the curriculum template', () => {
-    expect(curriculumWaveHasAir(7)).toBe(true); // Bat Swarm
-    expect(curriculumWaveHasAir(16)).toBe(true); // Chaos Wave, hornets in the mix
-    expect(curriculumWaveHasAir(6)).toBe(false); // Spider Swarm
+describe('campaignWaveHasAir', () => {
+  it('reads the air units from the campaign template', () => {
+    expect(campaignWaveHasAir(7)).toBe(true); // Bat Swarm
+    expect(campaignWaveHasAir(16)).toBe(true); // Chaos Wave, hornets in the mix
+    expect(campaignWaveHasAir(6)).toBe(false); // Spider Swarm
   });
 
-  it('knows nothing past the curriculum', () => {
-    expect(curriculumWaveHasAir(CURRICULUM_FORCED_THROUGH_WAVE + 1)).toBe(false);
+  it('knows nothing past the campaign', () => {
+    expect(campaignWaveHasAir(CAMPAIGN_LENGTH + 1)).toBe(false);
   });
 });
 

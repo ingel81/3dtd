@@ -17,6 +17,41 @@ import type { WormGroup } from '../managers/worm/worm-group';
  * IMPORTANT: Only for broadcast events!
  * For spatial queries → use GlobalRouteGrid!
  */
+/**
+ * Where a gold change came from. Every booking names one, so the run log can
+ * split income and spending by source without guessing from the sign
+ * (docs/RUN_LOG.md).
+ */
+export type CreditsSource =
+  | 'kill'            // an enemy died and paid its share of the wave budget
+  | 'wave-bonus'      // the wave's completion gold, bonuses included
+  | 'build'           // a tower was placed
+  | 'upgrade'         // a tower was upgraded
+  | 'sell'            // a tower was sold
+  | 'research'        // a research was started
+  | 'research-refund' // a running research was cancelled
+  | 'hero'            // the hero was hired or re-armed
+  | 'cheat'           // the dev menu handed gold out or took it away
+  | 'wave-jump'       // the gold of the waves a dev jump skipped
+  | 'reset';          // back to the starting gold of a new run
+
+/** Who killed an enemy. `null` for a death nobody is credited with. */
+export type KilledBy =
+  | { kind: 'tower'; towerId: string }
+  | { kind: 'hero' }
+  | { kind: 'ability' }
+  | { kind: 'debug' };
+
+/** The parts of a wave's completion gold. */
+export interface WaveGoldBreakdown {
+  base: number;
+  perfect: number;
+  combo: number;
+  closeCall: number;
+  comeback: number;
+  milestone: number;
+}
+
 export type GameEvent =
   // ==================== Enemy Lifecycle ====================
   | {
@@ -32,6 +67,8 @@ export type GameEvent =
       type: 'enemy:died';
       enemy: Enemy;
       credits: number;
+      /** Who gets the kill; null when nobody does (a leak that dies on arrival). */
+      killedBy: KilledBy | null;
     }
   | {
       type: 'enemy:reached-base';
@@ -86,6 +123,8 @@ export type GameEvent =
       tower: Tower;
       level: number;
       cost: number;
+      /** The branch that was upgraded, so the run log can tell them apart. */
+      upgradeId: string;
     }
   | {
       type: 'tower:sold';
@@ -124,7 +163,10 @@ export type GameEvent =
   | {
       type: 'wave:completed';
       wave: number;
+      /** The completion gold that was actually booked, bonuses included. */
       credits: number;
+      /** How that gold came about, for the run log and the debug window. */
+      creditsBreakdown?: WaveGoldBreakdown;
       /** True wenn keine HP in dieser Wave verloren wurde (triggers PerfectBonus) */
       perfect: boolean;
       /** True wenn HP am Wave-Ende <= closeCallHpThreshold (triggers CloseCallBonus) */
@@ -161,6 +203,7 @@ export type GameEvent =
       type: 'credits:changed';
       credits: number;
       delta: number;
+      source: CreditsSource;
     }
   | {
       type: 'health:changed';
@@ -268,7 +311,7 @@ export type GameEvent =
     }
   | {
       // The strike is over, it hits and kills nothing more. `kills` count
-      // as leaks for the fairness gate (GateController), `hits` includes the
+      // as leaks for the fairness gate (LeakController), `hits` includes the
       // survivors. Right after ability:impact for a strike that acts at once.
       type: 'ability:resolved';
       abilityId: AbilityId;

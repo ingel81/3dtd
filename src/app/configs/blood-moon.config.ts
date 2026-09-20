@@ -7,7 +7,7 @@
 
 /** First blood moon wave */
 export const BLOOD_MOON_FIRST_WAVE = 14;
-/** Waves from one blood moon to the next, past the curriculum and in endless play alike */
+/** Waves from one blood moon to the next, past the campaign and in endless play alike */
 export const BLOOD_MOON_INTERVAL = 7;
 
 /** Is `wave` a blood moon wave? W14, W21, W28, W35, ... without end. */

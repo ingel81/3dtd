@@ -143,7 +143,7 @@ function createGame(timescale: number) {
   ref.gsm = gsm;
   const engine = createEngine() as unknown as EngineWithTexts;
   gsm.initialize(engine as never, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
-  gsm.trainingTimescale.set(timescale);
+  gsm.gameSpeed.set(timescale);
   const silo = addMissileSilo(gsm.towerManager);
 
   gsm.getEventBus().emit({

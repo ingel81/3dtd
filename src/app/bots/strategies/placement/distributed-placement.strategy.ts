@@ -1,0 +1,178 @@
+/**
+ * Distributed Placement Strategy
+ *
+ * Priority: 65 (above CoverageFill)
+ * Purpose: Spread towers evenly across the entire path for AI training.
+ * Uses zone-based scoring to fill under-defended path segments.
+ * Saves up for expensive tower types to ensure variety.
+ */
+
+import { BaseStrategy } from '../tower-strategy.interface';
+import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
+import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
+import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
+import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
+import { GameStateManager } from '../../../managers/game-state.manager';
+import { Tower } from '../../../entities/tower.entity';
+import { canExecutePlacement } from './placement-budget';
+
+export class DistributedPlacementStrategy extends BaseStrategy {
+  private savingForType: TowerTypeId | null = null;
+
+  constructor(
+    private strategicPlacement: StrategicPlacementService,
+    private gameState: GameStateManager,
+    private config: BotConfig
+  ) {
+    super('DistributedPlacement', 65);
+  }
+
+  /** The run's bot stream (GameRng): a bot's choices must not move the enemies. */
+  private rnd(): number {
+    return this.gameState.rng.stream('bot')();
+  }
+
+
+  canExecute(state: GameStateSnapshot): boolean {
+    return canExecutePlacement(state, this.config.maxTowers, this.savingForType);
+  }
+
+  execute(state: GameStateSnapshot): TowerAction | null {
+    const existingTowers = this.gameState.towerManager.getAll();
+    const existingTypes = new Set(existingTowers.map(t => t.typeConfig.id));
+
+    // If we were saving for a type that now exists, clear goal
+    if (this.savingForType && existingTypes.has(this.savingForType)) {
+      this.savingForType = null;
+    }
+
+    // If saving: wait until we can afford it
+    if (this.savingForType) {
+      const target = TOWER_TYPES[this.savingForType];
+      if (state.player.credits >= target.cost) {
+        const result = this.placeTower(this.savingForType, existingTowers, 'saved up');
+        if (result) this.savingForType = null;
+        return result;
+      }
+      return {
+        type: 'wait',
+        reason: `Saving for ${target.name} (${state.player.credits}/${target.cost})`,
+        confidence: 0.7
+      } as TowerAction;
+    }
+
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
+    if (affordable.length === 0) return null;
+
+    const missingTypes = this.config.knownTowerTypes.filter(t => !existingTypes.has(t));
+    const missingAffordable = affordable.filter(t => !existingTypes.has(t));
+
+    // Count existing tower types
+    const typeCounts = new Map<string, number>();
+    for (const t of existingTowers) {
+      typeCounts.set(t.typeConfig.id, (typeCounts.get(t.typeConfig.id) || 0) + 1);
+    }
+
+    let chosen: TowerTypeId;
+    let reason: string;
+
+    if (existingTowers.length < 2) {
+      // First 2 towers: cheapest (bootstrap defense)
+      chosen = affordable.reduce((best, current) =>
+        TOWER_TYPES[current].cost < TOWER_TYPES[best].cost ? current : best
+      );
+      reason = 'bootstrap';
+    } else if (missingAffordable.length > 0) {
+      // Can afford a new type: build it
+      chosen = missingAffordable[Math.floor(this.rnd() * missingAffordable.length)];
+      reason = 'new type';
+    } else if (missingTypes.length > 0 && existingTowers.length >= 2) {
+      // Missing types exist but too expensive - save with 30% probability (was 60%)
+      if (this.rnd() < 0.3) {
+        // Pick cheapest missing type to save for
+        const target = missingTypes.reduce((best, current) =>
+          TOWER_TYPES[current].cost < TOWER_TYPES[best].cost ? current : best
+        );
+        this.savingForType = target;
+        return {
+          type: 'wait',
+          reason: `Saving for ${TOWER_TYPES[target].name} (${state.player.credits}/${TOWER_TYPES[target].cost})`,
+          confidence: 0.7
+        } as TowerAction;
+      }
+      // 70%: reinforce with what we have
+      chosen = affordable.reduce((best, current) =>
+        (typeCounts.get(current) || 0) < (typeCounts.get(best) || 0) ? current : best
+      );
+      reason = 'reinforce';
+    } else {
+      // All types placed: reinforce least-represented
+      chosen = affordable.reduce((best, current) =>
+        (typeCounts.get(current) || 0) < (typeCounts.get(best) || 0) ? current : best
+      );
+      reason = 'reinforce';
+    }
+
+    // Archer dominance guard: archers are cheap so without this the bot
+    // spams them whenever credits are tight, ending up with e.g. 92 archers
+    // and 1 of everything else. Block archer builds when the ratio would
+    // grow past 2:1 vs the second-most-common type — forces the bot to
+    // save up for diverse builds instead.
+    const archerCount = existingTowers.filter(t => t.typeConfig.id === 'archer').length;
+    if (chosen === 'archer' && archerCount > 0) {
+      let maxNonArcher = 0;
+      for (const [type, count] of typeCounts) {
+        if (type !== 'archer' && count > maxNonArcher) maxNonArcher = count;
+      }
+      const archerCap = Math.max(4, maxNonArcher * 2);
+      if (archerCount >= archerCap) {
+        const alternatives = affordable.filter(t => t !== 'archer');
+        if (alternatives.length > 0) {
+          chosen = alternatives[Math.floor(this.rnd() * alternatives.length)];
+          reason = 'archer-ratio-cap';
+        } else {
+          // Only archer is affordable and cap reached — save for a non-archer type.
+          const target = this.config.knownTowerTypes
+            .filter(t => t !== 'archer')
+            .reduce<TowerTypeId | null>(
+              (best, current) =>
+                best === null || TOWER_TYPES[current].cost < TOWER_TYPES[best].cost
+                  ? current
+                  : best,
+              null,
+            );
+          if (target) {
+            this.savingForType = target;
+            return {
+              type: 'wait',
+              reason: `Saving for ${TOWER_TYPES[target].name} (archer cap ${archerCap} hit)`,
+              confidence: 0.7,
+            } as TowerAction;
+          }
+        }
+      }
+    }
+
+    return this.placeTower(chosen, existingTowers, reason);
+  }
+
+  onReset(): void {
+    this.savingForType = null;
+  }
+
+  private placeTower(chosen: TowerTypeId, existingTowers: Tower[], reason: string): TowerAction | null {
+    const spawnPoints = this.gameState.getSpawnPoints();
+    const paths = this.gameState.getCachedPaths();
+    // Candidates already obey the placement rules; take the best one.
+    const [best] = this.strategicPlacement.findDistributedPositions(spawnPoints, paths, chosen, existingTowers);
+    if (!best) return null;
+
+    return {
+      type: 'place',
+      position: { x: best.position.lon, z: best.position.lat },
+      towerType: chosen,
+      confidence: 0.8,
+      reason: `Distributed: ${TOWER_TYPES[chosen].name} (${reason}) - ${best.reason}`
+    };
+  }
+}

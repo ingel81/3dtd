@@ -85,8 +85,8 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     const gsm = {
       researchManager: research,
       credits: () => ledger.credits(),
-      spendCredits: (amount: number) => ledger.spend(amount),
-      addCredits: (amount: number) => ledger.add(amount),
+      spendCredits: (amount: number) => ledger.spend(amount, 'research'),
+      addCredits: (amount: number) => ledger.add(amount, 'research-refund'),
     };
     new GameCommandsHandler(gsm as unknown as GameStateManager, bus);
   });
@@ -94,7 +94,7 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
   /** One gameplay sub-step, research part (game-state.manager.ts runSubStep) */
   const subStep = () => {
     research.update(STEP_MS);
-    research.startQueued(() => ledger.credits(), (cost) => ledger.spend(cost));
+    research.startQueued(() => ledger.credits(), (cost) => ledger.spend(cost, 'research'));
   };
   const click = (id: ResearchId) => panel.onResearchClick(getResearch(id)!);
   const status = (id: ResearchId) => panel.getResearchStatus(id);
@@ -102,7 +102,7 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
   /** New game, cheat Credits, Research Center built (TowerLifecycle charges it and opens the slot) */
   const newGameWithCenter = () => {
     bus.emit({ type: 'debug:add-credits', amount: 1000 });
-    expect(ledger.spend(TOWER_TYPES['research-center'].cost)).toBe(true);
+    expect(ledger.spend(TOWER_TYPES['research-center'].cost, 'build')).toBe(true);
     research.onCenterPlaced();
   };
 

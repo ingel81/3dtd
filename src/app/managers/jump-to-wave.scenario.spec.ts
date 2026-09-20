@@ -29,7 +29,7 @@ const ROUTE_CELL = { lat: 48.771, lon: 9.181 };
 function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
     GameStore: {
-      trainingTimescale: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
+      gameSpeed: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
     },
     UIStore: {
       specialPointsDebugVisible: vi.fn().mockReturnValue(false),
@@ -142,7 +142,8 @@ import { ABILITIES } from '../configs/abilities.config';
 import { Tower } from '../entities/tower.entity';
 import { abilityButtonView } from '../components/ability-bar/ability-button';
 import { skippedWavesGold } from '../services/economy.service';
-import { RunStatsTracker } from '../services/infrastructure/run-stats';
+import { RunLogCollector } from '../run-log/run-log.service';
+import { runSummary } from '../run-log/run-summary';
 import { BestWaveService } from '../services/location/best-wave.service';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
@@ -204,7 +205,7 @@ function createMockEngine(): never {
  * Playtest 381 and 382 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed with the
  * real GameStateManager: its jumpToWave, its AbilityManager, and the
  * `wave:jumped` and `credits:changed` it sends read by the real run tally
- * (RunStatsTracker, the game-over summary) and the real BestWaveService (the
+ * (the run log behind the game-over summary) and the real BestWaveService (the
  * world map's records).
  */
 describe('Dev wave jump, playtest 381 and 382 replayed', () => {
@@ -259,9 +260,18 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
   });
 
   it('382: a place with W5, restart, jump to 35, game over: no record hint, the map keeps W5, "Earned" leaves the jump gold out', () => {
-    const tally = new RunStatsTracker();
+    const log = new RunLogCollector();
     const bag = new SubscriptionBag();
-    tally.attach(bus, bag);
+    log.attach(bus, bag);
+    log.open({ seed: 1, map: 'devworld', player: 'human' }, {
+      step: () => 0,
+      timeMs: () => 0,
+      credits: () => gsm.credits(),
+      baseHealth: () => gsm.baseHealth(),
+      enemiesAlive: () => 0,
+      dps: () => 0,
+      towers: () => [],
+    });
     const best = new BestWaveService();
     best.connect(bus, () => true);
 
@@ -278,13 +288,15 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
 
     bus.emit({ type: 'wave:started', wave: 35, enemyCount: 1 });
     // A kill reward of the run's own
-    bus.emit({ type: 'credits:changed', credits: credits + jumpGold + 40, delta: 40 });
+    bus.emit({ type: 'credits:changed', credits: credits + jumpGold + 40, delta: 40 , source: 'kill' });
     bus.emit({ type: 'game:over', reason: 'base-destroyed' });
 
     expect(best.newRecord()).toBeNull();
     expect(best.records()).toHaveLength(1);
     expect(best.records()[0].bestWave).toBe(5);
-    expect(tally.summary(0)).toMatchObject({ waveReached: 35, goldEarned: 40 });
+    log.flushOpenWave();
+    expect(runSummary(log.current(), 0, (type) => type))
+      .toMatchObject({ waveReached: 35, goldEarned: 40 });
 
     bag.disposeAll();
     best.disconnect();

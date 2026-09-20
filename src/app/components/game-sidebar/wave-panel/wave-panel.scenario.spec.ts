@@ -39,9 +39,9 @@ import { WaveDebugService } from '../../../services/debug/wave-debug.service';
 import { SoundDebugService } from '../../../services/debug/sound-debug.service';
 import { DebugWindowService } from '../../../services/debug/debug-window.service';
 import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
-import { WaveDirectorService } from '../../../ai/core/wave-director.service';
-import { AIDataCollectorService } from '../../../ai/core/ai-data-collector.service';
-import { TrainingClientService } from '../../../ai/training/training-client.service';
+import { WaveDirector } from '../../../director/wave-director';
+import { StateSnapshotService } from '../../../director/state-snapshot.service';
+import { BotClientService } from '../../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { PerformanceProfilerService } from '../../../services/debug/performance-profiler.service';
 import { StreetRenderingService } from '../../../services/world/street-rendering.service';
@@ -53,6 +53,7 @@ import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import type { FacadeComponentBridge } from '../../../services/facade/tower-defense-facade.service';
 import type { GameStateManager } from '../../../managers/game-state.manager';
+import { RunLogFacade } from '../../../run-log/run-log.facade';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
@@ -72,7 +73,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
     EngineStore, CameraControlService, TowerPlacementService, MapPlacementService, KeyboardPanService,
     MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
     WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
-    WaveDirectorService, AIDataCollectorService, PerformanceProfilerService,
+    WaveDirector, StateSnapshotService, PerformanceProfilerService,
     StreetRenderingService, BossIntroService, ReplayService,
   ];
 
@@ -121,10 +122,11 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: UIStore, useValue: { autoStartWaves: signal(true) } },
-        { provide: TrainingClientService, useValue: { botEnabled: signal(false) } },
+        { provide: BotClientService, useValue: { botEnabled: signal(false) } },
       ],
     });
     const facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
@@ -220,7 +222,7 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
     const peeks = peekUpcomingWaves(5, 0, NEXT_WAVE_MARKS, true);
     const next = timeline(peeks);
     expect(peeks.map((p) => p.wave)).toEqual([6, 7, 8, 9, 10]);
-    // W7 Bat Swarm is the air debut, W8 Hornet Strike brings more air (wave-curriculum.config.ts)
+    // W7 Bat Swarm is the air debut, W8 Hornet Strike brings more air (campaign.config.ts)
     expect(peeks.filter((p) => p.air).map((p) => p.wave)).toEqual([7, 8]);
     expect(peeks.filter((p) => p.boss).map((p) => p.wave)).toEqual([10]);
     expect(peeks.some((p) => p.bloodMoon)).toBe(false);

@@ -8,6 +8,7 @@ import { calculateDamage } from '../../utils/damage-calculator';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { enemyBloodColor, enemyHitSpot } from '../../utils/enemy-hit-spot';
 import { HERO_SOURCE_ID } from '../../configs/hero.config';
+import type { KilledBy } from '../../game-engine/game-event-bus';
 
 /**
  * DamageApplicationService - Applies damage to enemies and handles kills
@@ -144,7 +145,7 @@ export class DamageApplicationService {
 
     const killed = enemy.health.takeDamage(enemy.health.maxHp * fraction);
     // kill() ignores an enemy that is already dying
-    if (!killed || !this.enemyManager.kill(enemy)) return false;
+    if (!killed || !this.enemyManager.kill(enemy, 'combat', { kind: 'ability' })) return false;
 
     if (showDeathBlood) {
       vfx.emitDeathBlood(enemy);
@@ -170,7 +171,10 @@ export class DamageApplicationService {
     if (!this.towerManager || !this.enemyManager) return;
 
     // kill() ignores an enemy that is already dying; only credit real kills
-    if (!this.enemyManager.kill(enemy)) return;
+    const killedBy: KilledBy = sourceTowerId === HERO_SOURCE_ID
+      ? { kind: 'hero' }
+      : { kind: 'tower', towerId: sourceTowerId };
+    if (!this.enemyManager.kill(enemy, 'combat', killedBy)) return;
 
     // The hero's shots: HeroManager counts the kill toward his levels
     if (sourceTowerId === HERO_SOURCE_ID) {

@@ -9,7 +9,7 @@ import {
 const STORAGE_KEY = 'td_debug_windows_v6';
 
 const ALL_IDS: DebugWindowId[] = [
-  'camera', 'wave', 'sound', 'events', 'devworld', 'training',
+  'camera', 'wave', 'sound', 'events', 'devworld', 'bots',
   'tower', 'enemy', 'display', 'performance', 'los',
 ];
 

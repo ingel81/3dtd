@@ -24,7 +24,7 @@ describe('GameEventBus', () => {
   describe('Basics', () => {
     it('on() registers handler and emit() calls it', () => {
       const handler = vi.fn();
-      const event = { type: 'enemy:died', enemy: mockEnemy, credits: 100 } as const;
+      const event = { type: 'enemy:died', enemy: mockEnemy, credits: 100 , killedBy: null } as const;
 
       bus.on('enemy:died', handler);
       bus.emit(event);
@@ -35,7 +35,7 @@ describe('GameEventBus', () => {
 
     it('off() removes handler', () => {
       const handler = vi.fn();
-      const event = { type: 'enemy:died', enemy: mockEnemy, credits: 100 } as const;
+      const event = { type: 'enemy:died', enemy: mockEnemy, credits: 100 , killedBy: null } as const;
 
       bus.on('enemy:died', handler);
       bus.off('enemy:died', handler);
@@ -201,7 +201,7 @@ describe('GameEventBus', () => {
       bus.onAny(anyHandler);
       bus.on('credits:changed', typedHandler);
 
-      bus.emit({ type: 'credits:changed', credits: 200, delta: 50 });
+      bus.emit({ type: 'credits:changed', credits: 200, delta: 50 , source: 'kill' });
       bus.emit({ type: 'health:changed', health: 80, delta: -10 });
 
       expect(anyHandler).toHaveBeenCalledTimes(2);
@@ -264,7 +264,7 @@ describe('GameEventBus', () => {
       bus.on('enemy:died', vi.fn());
       bus.on('audio:play', vi.fn());
 
-      bus.emit({ type: 'enemy:died', enemy: mockEnemy, credits: 100 });
+      bus.emit({ type: 'enemy:died', enemy: mockEnemy, credits: 100 , killedBy: null });
       bus.emitDeferred({ type: 'audio:play', sound: 'sfx', lat: 1, lon: 1, height: 0 });
 
       let metrics = bus.getMetrics();

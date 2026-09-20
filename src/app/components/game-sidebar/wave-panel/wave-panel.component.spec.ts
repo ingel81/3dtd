@@ -22,7 +22,7 @@ import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
 import { DebugFacadeService } from '../../../services/debug/debug-facade.service';
 import { ReplayService } from '../../../services/replay.service';
 import { Tower } from '../../../entities/tower.entity';
-import { calculateTotalDPS } from '../../../ai/core/defense-analyzer';
+import { calculateTotalDPS } from '../../../director/defense-analyzer';
 
 /**
  * The tower DPS the NEXT timeline sizes the coming waves by (towerDps). The

@@ -203,7 +203,7 @@ describe('ReplayRecorder', () => {
     h.emit({ type: 'enemy:spawned', enemy: a as never });
     h.emit({ type: 'enemy:spawned', enemy: b as never });
     h.steps(3);
-    h.emit({ type: 'enemy:died', enemy: a as never, credits: 1 });
+    h.emit({ type: 'enemy:died', enemy: a as never, credits: 1 , killedBy: null });
     a.alive = false;
     h.emit({ type: 'enemy:reached-base', enemy: b as never, damage: 5 });
     h.enemies.splice(1, 1);
@@ -416,7 +416,7 @@ describe('ReplayRecorder', () => {
     const impact: GameEvent = { type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 3, projectileType: 'cannonball', targetLost: false };
     h.emit(impact);
     h.emit({ type: 'health:changed', health: 70, delta: -10 });
-    h.emit({ type: 'credits:changed', credits: 5, delta: 5 });
+    h.emit({ type: 'credits:changed', credits: 5, delta: 5 , source: 'kill' });
     h.recorder.finish('completed');
 
     const rec = h.recorder.recording!;

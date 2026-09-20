@@ -53,12 +53,12 @@ export function createHeroTestGame(
   const gsm = new GameStateManager();
   ref.gsm = gsm;
   gsm.initialize(engine, HERO_TEST_BASE_POSITION, TEST_SPAWN_POINTS, paths);
-  gsm.trainingTimescale.set(timescale);
+  gsm.gameSpeed.set(timescale);
   gsm.getEventBus().emit({
     type: 'research:completed',
     researchId: HERO.researchId,
     effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
   });
-  gsm.addCredits(HERO.cost);
+  gsm.addCredits(HERO.cost, 'cheat');
   return gsm;
 }

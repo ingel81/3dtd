@@ -17,7 +17,7 @@ import {
   TestManagers,
   TEST_PATH,
 } from './test-helpers';
-import { enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import { enemyBaseDamageForWave } from '../configs/campaign.config';
 
 describe('Enemy Movement Path Integration', () => {
   let m: TestManagers;

@@ -30,7 +30,7 @@ import {
   SoundDebuggerComponent,
   EventDebuggerComponent,
   DevWorldDebuggerComponent,
-  TrainingDebuggerComponent,
+  BotDebuggerComponent,
   TowerDebuggerComponent,
   EnemyDebuggerComponent,
   DisplayOptionsComponent,
@@ -82,11 +82,11 @@ import { TD_CSS_VARS } from './styles/td-theme';
 import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId, TargetingStrategy, AirSubStrategy } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
 // AI Wave Director (optional)
-import { WaveDirectorService } from './ai/core/wave-director.service';
-import { AIDataCollectorService } from './ai/core/ai-data-collector.service';
-import { TrainingClientService } from './ai/training/training-client.service';
+import { WaveDirector } from './director/wave-director';
+import { StateSnapshotService } from './director/state-snapshot.service';
+import { BotClientService } from './bots/bot-client.service';
 // AI Bot Training
-import type { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
+import type { BotSkillLevel } from './bots/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
 import { LosLegendComponent } from './components/los-legend/los-legend.component';
 import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
@@ -116,6 +116,7 @@ import { BUILD_VERSION } from './configs/build-info.config';
 import { isLocationDialogFailure } from './components/location-dialog/open-location-dialog';
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
+import { RunLogFacade } from './run-log/run-log.facade';
 
 @Component({
   selector: 'app-tower-defense',
@@ -133,7 +134,7 @@ import { RefusalHintService } from './services/refusal-hint.service';
     SoundDebuggerComponent,
     EventDebuggerComponent,
     DevWorldDebuggerComponent,
-    TrainingDebuggerComponent,
+    BotDebuggerComponent,
     TowerDebuggerComponent,
     EnemyDebuggerComponent,
     DisplayOptionsComponent,
@@ -166,9 +167,9 @@ import { RefusalHintService } from './services/refusal-hint.service';
     GameStateManager,
     ModelPreviewService,
     // AI services (optional - game works without them)
-    AIDataCollectorService,
-    WaveDirectorService,
-    TrainingClientService,
+    StateSnapshotService,
+    WaveDirector,
+    BotClientService,
     // Facade services (depend on component-scoped providers above)
     TowerDefenseFacadeService,
     GameLoopFacadeService,
@@ -198,6 +199,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   readonly gameState = inject(GameStateManager);
+  private readonly runLog = inject(RunLogFacade);
   protected readonly uiStore = inject(UIStore);
   readonly configService = inject(ConfigService);
 
@@ -265,12 +267,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     () => this.uiStore.devMenuExpanded() || this.debugWindows.hasOpenWindows()
   );
 
-  // AI Bot Training (delegated to TrainingClientService)
-  private readonly trainingClient = inject(TrainingClientService);
+  // AI Bot Training (delegated to BotClientService)
+  private readonly botClient = inject(BotClientService);
   // Expose bot signals from service for template bindings
-  readonly botEnabled = this.trainingClient.botEnabled;
-  readonly botSkillLevel = this.trainingClient.botSkillLevel;
-  readonly botStats = this.trainingClient.botStats;
+  readonly botEnabled = this.botClient.botEnabled;
+  readonly botSkillLevel = this.botClient.botSkillLevel;
+  readonly botStats = this.botClient.botStats;
 
   // Expose Math and tower config for template
   readonly Math = Math;
@@ -679,13 +681,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Toggle static-curriculum fallback (debug button in quick-actions).
-   */
-  onStaticCurriculumToggled(): void {
-    this.facade.toggleStaticCurriculum();
-  }
-
-  /**
    * Start custom wave, delegates to facade
    */
   startCustomWave(): void {
@@ -693,17 +688,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Enable StrategyBot for automated training, delegates to TrainingClientService
+   * Enable StrategyBot for automated bot runs, delegates to BotClientService
    */
   enableBot(skillLevel: BotSkillLevel): void {
-    this.trainingClient.enableBot(skillLevel);
+    this.botClient.enableBot(skillLevel);
   }
 
   /**
-   * Disable StrategyBot, delegates to TrainingClientService
+   * Disable StrategyBot, delegates to BotClientService
    */
   disableBot(): void {
-    this.trainingClient.disableBot();
+    this.botClient.disableBot();
   }
 
   /**
@@ -842,6 +837,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   get isDialog(): boolean {
     return !!this.dialogRef;
+  }
+
+  /** The run log of the run that just ended was handed to the player. */
+  readonly runLogExported = signal(false);
+
+  /**
+   * Save the run as a JSONL file (docs/RUN_LOG.md). The game-over screen
+   * offers it; the file is what an analysis or another player reads.
+   */
+  exportRunLog(): void {
+    if (this.runLog.export()) this.runLogExported.set(true);
   }
 
   /**

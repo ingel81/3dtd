@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { RunSummary, formatRunTime } from '../../services/infrastructure/run-stats';
+import { RunSummary, formatRunTime } from '../../run-log/run-summary';
 import { formatCompact } from '../../utils/format-compact';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 

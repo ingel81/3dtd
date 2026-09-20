@@ -1,0 +1,34 @@
+<h2 mat-dialog-title>
+  <td-icon name="filing" [size]="18"></td-icon>
+  Runs
+</h2>
+
+<mat-dialog-content class="runs-content">
+  <p class="runs-hint">
+    The last {{ maxRuns }} runs of this browser. Saving gives you the run as a
+    file; nothing is uploaded.
+  </p>
+
+  @if (loading()) {
+    <p class="runs-empty">Reading…</p>
+  } @else if (runs().length === 0) {
+    <p class="runs-empty">No run kept yet. One is written per finished wave.</p>
+  } @else {
+    <ul class="runs-list">
+      @for (run of runs(); track run.runId) {
+        <li class="runs-row">
+          <div class="runs-text">
+            <span class="runs-when">{{ run.startedAt | date: 'short' }}</span>
+            <span class="runs-where">{{ subtitle(run) }}</span>
+          </div>
+          <button mat-button class="runs-action" (click)="save(run)">Save</button>
+          <button mat-button class="runs-action runs-remove" (click)="remove(run)">Delete</button>
+        </li>
+      }
+    </ul>
+  }
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button mat-button (click)="close()">Close</button>
+</mat-dialog-actions>

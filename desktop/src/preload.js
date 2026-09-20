@@ -3,7 +3,7 @@
 /**
  * The only bridge between the game and Electron. The page runs sandboxed with
  * context isolation; whatever it may know about the desktop build is listed
- * here and nowhere else. The game reads it in one place, its update hint.
+ * here and nowhere else: the update hint, and writing a run log to disk.
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
@@ -36,6 +36,19 @@ contextBridge.exposeInMainWorld(
     /** Quit now and install the downloaded update; the app starts again afterwards. */
     installUpdateNow() {
       ipcRenderer.send('desktop:install-update');
+    },
+
+    /**
+     * Write a run log next to the app's own logs (`userData/runs`). The page
+     * hands over the file name and the JSONL text; the main process decides
+     * where it lands, so the page never learns a path
+     * (docs/RUN_LOG.md).
+     *
+     * Returns true when the file was written.
+     */
+    saveRun(fileName, text) {
+      if (typeof fileName !== 'string' || typeof text !== 'string') return Promise.resolve(false);
+      return ipcRenderer.invoke('desktop:save-run', { fileName, text });
     },
   })
 );

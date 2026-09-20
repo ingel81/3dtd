@@ -2,8 +2,8 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { EnemyTypeId, getDebugEnemyTypes, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { UIStore } from '../../store/ui.store';
 import { DebugStore } from '../../store/debug.store';
-import { WaveConfig as AIWaveConfig } from '../../ai/core/models/wave-config';
-import { SpawnPattern, ALL_SPAWN_PATTERNS } from '../../ai/core/spawn-schedule-builder';
+import { WaveConfig as DirectorWave } from '../../director/models/wave-config';
+import { SpawnPattern, ALL_SPAWN_PATTERNS } from '../../director/spawn-schedule-builder';
 
 /** Configuration for a single enemy group in a mixed wave */
 export interface MixedGroupConfig {
@@ -176,14 +176,14 @@ export class WaveDebugService {
   }
 
   /**
-   * Build an AIWaveConfig from the current debug-panel settings.
+   * Build an DirectorWave from the current debug-panel settings.
    *
    * Returns a multi-group config when mixed-mode is active, otherwise a
    * single-group config built from the single-type debug values. The Facade
-   * pipes this through `adaptAIWaveConfig` to get the runtime WaveConfig —
+   * pipes this through `adaptDirectorWave` to get the runtime WaveConfig —
    * single source of truth for wave-spawning, no parallel pipelines.
    */
-  toAIWaveConfig(): AIWaveConfig {
+  toAIWaveConfig(): DirectorWave {
     if (this.mixedMode()) {
       const groups = this.mixedGroups().map((g) => ({
         type: g.enemyType,

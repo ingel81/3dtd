@@ -12,9 +12,10 @@ import { PerformanceProfilerService } from '../debug/performance-profiler.servic
 import { ModelPreviewService } from '../infrastructure/model-preview.service';
 import { StrategicPlacementService } from '../world/strategic-placement.service';
 import { GameStateManager } from '../../managers/game-state.manager';
-import { TrainingClientService } from '../../ai/training/training-client.service';
+import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameStateSyncService } from '../infrastructure/game-state-sync.service';
+import { RunLogFacade } from '../../run-log/run-log.facade';
 import { RefusalHintService } from '../refusal-hint.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { BestWaveService } from '../location/best-wave.service';
@@ -97,8 +98,9 @@ export class TowerDefenseFacadeService {
   private readonly profiler = inject(PerformanceProfilerService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
-  private readonly trainingClient = inject(TrainingClientService);
+  private readonly botClient = inject(BotClientService);
   private readonly gameStateSync = inject(GameStateSyncService);
+  private readonly runLog = inject(RunLogFacade);
   private readonly refusals = inject(RefusalHintService);
   private readonly onboarding = inject(OnboardingService);
   private readonly bestWaves = inject(BestWaveService);
@@ -166,15 +168,19 @@ export class TowerDefenseFacadeService {
       buildCorridor: (reason, report) => this.vizFacade.buildCorridor(reason, report),
     });
 
-    // Initialize training client
-    this.trainingClient.initialize({
+    // Initialize the bot client
+    this.botClient.initialize({
       gameState: this.gameState,
       towerPlacement: this.towerPlacement,
       strategicPlacement: this.strategicPlacement,
       osmService: this.osmService,
+      // The bot sends its run log to the server; the log itself is the data
+      runLog: {
+        current: () => this.runLog.current(),
+        drain: () => this.runLog.collector.drain(),
+      },
       callbacks: {
         startWave: () => this.startWave(),
-        upgradeTower: (tower: Tower, upgradeId: UpgradeId) => this.upgradeTower(tower, upgradeId),
         restartGame: () => this.restartGame(),
       }
     });
@@ -183,24 +189,24 @@ export class TowerDefenseFacadeService {
     const botMode = params.get('bot');
 
     if (this.devWorld.isActive) {
-      this.store.useAIDirector.set(true);
-      this.trainingClient.connectToBackend();
+      this.store.directorEnabled.set(true);
+      this.botClient.connectToBackend();
       // DevWorld exists to train against the backend, so the bot runs waves on
       // its own unless explicitly told not to (`?bot=manual`). Requiring
       // `?bot=auto` on top of `?devworld` was a silent trap: the bot built
       // towers, never started a wave, and the run produced no training data at
       // all while still looking connected and healthy on the dashboard.
-      this.trainingClient.botAutoMode.set(botMode !== 'manual');
+      this.botClient.botAutoMode.set(botMode !== 'manual');
       // ...and it plays on its own too. Waiting for the dashboard's `start`
       // meant a tab that reloaded, whether by hand or via the `reload` control
       // command, sat in setup forever: `start` had already been broadcast, and
       // nothing broadcasts it again. `enableBot` is safe to call before
       // `initialize()`; it queues the request until the factory exists.
       if (botMode !== 'manual') {
-        this.trainingClient.enableBot('strategist');
+        this.botClient.enableBot('expert');
       }
     } else if (botMode === 'auto') {
-      this.trainingClient.botAutoMode.set(true);
+      this.botClient.botAutoMode.set(true);
     }
 
     // Start main theme music as early as possible (uses HTMLAudioElement, no engine needed)
@@ -364,19 +370,25 @@ export class TowerDefenseFacadeService {
 
     // Initialize GSM→Store sync (EventBus events → Store signals)
     this.gameStateSync.initialize(this.gameState.getEventBus(), () => this.gameState.gameTimeMs);
+    // The run log listens to the same bus and opens the run (docs/RUN_LOG.md)
+    this.runLog.initialize(this.gameState, this.gameState.getEventBus(), () =>
+      this.botClient.botEnabled()
+        ? { player: 'bot', botSkill: this.botClient.botSkillLevel() }
+        : { player: 'human' },
+    );
     // First-run tips follow the same events
     this.onboarding.connect(this.gameState.getEventBus());
     // Best wave per place for the world map; runs the bot plays do not count
-    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.trainingClient.botEnabled());
+    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
     // Refused hires and abilities in the context hint box; the bot's commands get none
-    this.refusals.connect(this.gameState.getEventBus(), () => !this.trainingClient.botEnabled());
+    this.refusals.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
 
     // Let sub-facades subscribe to their own EventBus events
     this.vizFacade.subscribeToEventBus();
     this.gameLoopFacade.subscribeToEventBus({
       onGameOverExtra: () => {
-        this.trainingClient.resetBot();
-        if (this.trainingClient.botAutoMode()) {
+        this.botClient.resetBot();
+        if (this.botClient.botAutoMode()) {
           this.autoRestartTimeout = setTimeout(() => {
             this.autoRestartTimeout = null;
             this.restartGame();
@@ -400,11 +412,6 @@ export class TowerDefenseFacadeService {
   /** Start a custom wave using debug panel settings. */
   startCustomWave(): void {
     this.gameLoopFacade.startCustomWave();
-  }
-
-  /** Toggle static-curriculum fallback (debug; used when AI is off). */
-  toggleStaticCurriculum(): void {
-    this.gameLoopFacade.toggleStaticCurriculum();
   }
 
   /** Upgrade a tower with the specified upgrade. */

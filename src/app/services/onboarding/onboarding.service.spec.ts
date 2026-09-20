@@ -117,7 +117,7 @@ describe('OnboardingService', () => {
     bus.emit({ type: 'tower:placed', tower: tower('archer'), position: { lat: 0, lon: 0 }, cost: 0 });
     bus.emit({ type: 'wave:started', wave: 1, enemyCount: 5 });
     bus.emit(waveCompleted(1));
-    bus.emit({ type: 'tower:upgraded', tower: tower('archer'), level: 1, cost: 0 });
+    bus.emit({ type: 'tower:upgraded', tower: tower('archer'), level: 1, cost: 0 , upgradeId: 'damage' });
     bus.emit({ type: 'wave:started', wave: 2, enemyCount: 5 });
     bus.emit(waveCompleted(2));
     bus.emit({ type: 'wave:started', wave: 3, enemyCount: 5 });

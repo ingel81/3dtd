@@ -5,8 +5,8 @@
  * through the middle of the opening, all of a type at the same height, level
  * for a stretch in front of the gate, then climbing to their cruise height.
  *
- * The waves come from the real WaveDirectorService rule path and the
- * adapter the facade's AI start uses (adaptAIWaveConfig), into the real
+ * The waves come from the real WaveDirector rule path and the
+ * adapter the facade's AI start uses (adaptDirectorWave), into the real
  * WaveManager and EnemyManager with mocked rendering (createTestManagers).
  * AI waves bring no spawn mode, so every entry draws its spawn at random;
  * Math.random is seeded, so both portals get their share. Not covered: the
@@ -17,12 +17,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
 import { Injector, runInInjectionContext } from '@angular/core';
-import { WaveDirectorService } from '../ai/core/wave-director.service';
-import { AIDataCollectorService } from '../ai/core/ai-data-collector.service';
-import { adaptAIWaveConfig } from '../ai/core/wave-config-adapter';
-import { TEMPLATES } from '../ai/core/templates';
-import { createEmptySnapshot, type GameStateSnapshot } from '../ai/core/models/game-state-snapshot';
-import type { WaveConfig } from '../ai/core/models/wave-config';
+import { WaveDirector } from '../director/wave-director';
+import { StateSnapshotService } from '../director/state-snapshot.service';
+import { adaptDirectorWave } from '../director/wave-config-adapter';
+import { TEMPLATES } from '../director/templates';
+import { createEmptySnapshot, type GameStateSnapshot } from '../director/models/game-state-snapshot';
+import type { WaveConfig } from '../director/models/wave-config';
 import { createTestManagers, TEST_SPAWN_POINTS, type TestManagers } from '../integration/test-helpers';
 import { geoDistanceFast, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
@@ -63,7 +63,7 @@ class StubCollector {
   }
 }
 
-/** A defense strong enough that the fairness gate has no finite cap, as in wave-director.service.spec.ts */
+/** A defense strong enough that the fairness gate has no finite cap, as in wave-director.spec.ts */
 function overwhelmingDefense(snapshot: GameStateSnapshot, waveNumber: number): void {
   const dps = { unarmored: 1e6, light: 1e6, heavy: 1e6, fortified: 1e6, ethereal: 1e6 };
   snapshot.waveNumber = waveNumber;
@@ -105,14 +105,14 @@ interface Tracked {
 }
 
 describe('Regular air waves at two portals, playtest 238 (night 1) replayed', () => {
-  let director: WaveDirectorService;
+  let director: WaveDirector;
   let collector: StubCollector;
   let m: TestManagers;
 
   beforeEach(() => {
     collector = new StubCollector();
-    const injector = Injector.create({ providers: [{ provide: AIDataCollectorService, useValue: collector }] });
-    director = runInInjectionContext(injector, () => new WaveDirectorService());
+    const injector = Injector.create({ providers: [{ provide: StateSnapshotService, useValue: collector }] });
+    director = runInInjectionContext(injector, () => new WaveDirector());
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     seededRandom();
   });
@@ -126,7 +126,7 @@ describe('Regular air waves at two portals, playtest 238 (night 1) replayed', ()
   async function play(wave: number) {
     overwhelmingDefense(collector.snapshot, wave - 1);
     const planned = await director.getNextWave();
-    const config = adaptAIWaveConfig(planned);
+    const config = adaptDirectorWave(planned);
 
     m = createTestManagers();
     m.waveManager.initialize(SPAWNS, new Map(SPAWNS.map((s, i) => [s.id, ROUTES[i] as GeoPosition[]])));

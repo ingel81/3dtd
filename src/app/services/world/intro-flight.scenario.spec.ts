@@ -120,7 +120,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
             spawnPoints: signal([{ lat: 48.71, lon: 9.1 }]),
           },
         },
-        { provide: GameStore, useValue: { paused, trainingTimescale: signal(1) } },
+        { provide: GameStore, useValue: { paused, gameSpeed: signal(1) } },
         {
           provide: UIStore,
           useValue: {

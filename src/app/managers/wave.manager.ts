@@ -4,6 +4,16 @@ import { EnemyTypeId, splitBodyCount } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import type { WaveGoldBreakdown } from '../game-engine/game-event-bus';
+import { waveGoldTotal } from '../services/economy.service';
+
+/** What a finished wave came to. */
+export interface WaveEndResult {
+  wave: number;
+  perfect: boolean;
+  closeCall: boolean;
+  hpLost: number;
+}
 
 export interface SpawnPoint extends GeoPosition {
   id: string;
@@ -43,8 +53,8 @@ export interface SpawnSchedule {
 
 /**
  * Runtime wave configuration. Schedule-only — no parallel single-type path.
- * Producers (AI Director, static curriculum, debug-panel) all funnel through
- * `adaptAIWaveConfig` which always emits a Schedule.
+ * Producers (AI Director, static campaign, debug-panel) all funnel through
+ * `adaptDirectorWave` which always emits a Schedule.
  */
 export interface WaveConfig {
   schedule: SpawnSchedule;
@@ -64,6 +74,18 @@ export class WaveManager implements IGameManager {
 
   spawnPoints: SpawnPoint[] = [];
   private cachedPaths = new Map<string, GeoPosition[]>();
+
+  /**
+   * The run's spawn stream (GameRng). Default `Math.random` so a WaveManager
+   * built in a spec without a seed still works; the game wires the stream in
+   * `GameStateManager.initialize()`.
+   */
+  private random: () => number = () => Math.random();
+
+  /** The seeded stream the run's spawns draw from. */
+  setRandom(random: () => number): void {
+    this.random = random;
+  }
 
   /**
    * Active spawn controller — driven by tickSpawn() each sub-step in game-time.
@@ -95,6 +117,7 @@ export class WaveManager implements IGameManager {
   // Track Perfect/CloseCall signals per wave
   private damageTakenThisWave = 0;
   private currentHealthProvider: (() => number) | null = null;
+  private waveGoldProvider: ((result: WaveEndResult) => WaveGoldBreakdown) | null = null;
 
   /** EventBus subscriptions — disposed in destroy(). */
   private readonly subs = new SubscriptionBag();
@@ -140,6 +163,18 @@ export class WaveManager implements IGameManager {
   }
 
   /**
+   * Books the wave's completion gold and hands back how it came about.
+   *
+   * Set by the GameStateManager, which owns the economy. The booking happens
+   * inside `endWave()` so `wave:completed` can carry the real amount and its
+   * parts instead of a zero the listeners had to guess around
+   * (docs/RUN_LOG.md).
+   */
+  setWaveGoldProvider(provider: (result: WaveEndResult) => WaveGoldBreakdown): void {
+    this.waveGoldProvider = provider;
+  }
+
+  /**
    * Expected number of enemies the current wave's schedule spawns. Wave
    * completion waits for them; split children are not in it.
    */
@@ -164,7 +199,7 @@ export class WaveManager implements IGameManager {
       // kill-all has to leave nothing of the wave.
       for (const enemy of this.enemyManager.getAlive()) {
         if (enemy.alive) {
-          this.enemyManager.kill(enemy, 'debug');
+          this.enemyManager.kill(enemy, 'debug', { kind: 'debug' });
         }
       }
     }));
@@ -329,7 +364,7 @@ export class WaveManager implements IGameManager {
     if (mode === 'each') {
       return this.spawnPoints[index % this.spawnPoints.length];
     } else {
-      return this.spawnPoints[Math.floor(Math.random() * this.spawnPoints.length)];
+      return this.spawnPoints[Math.floor(this.random() * this.spawnPoints.length)];
     }
   }
 
@@ -461,7 +496,7 @@ export class WaveManager implements IGameManager {
   /**
    * End the current wave
    */
-  endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number } {
+  endWave(): WaveEndResult {
     const waveNum = this.waveNumber();
     this.enemyManager.clear();
     this.phase.set('setup');
@@ -472,17 +507,22 @@ export class WaveManager implements IGameManager {
     const hpAtEnd = this.currentHealthProvider ? this.currentHealthProvider() : 100;
     const closeCall = !perfect && hpAtEnd <= GAME_BALANCE.economy.closeCallHpThreshold;
 
-    // Emit wave:completed event (credits are added by GameStateManager)
+    const result: WaveEndResult = { wave: waveNum, perfect, closeCall, hpLost };
+    // Book the completion gold here, so the event carries what was paid.
+    const creditsBreakdown = this.waveGoldProvider?.(result);
+    const credits = creditsBreakdown ? waveGoldTotal(creditsBreakdown) : 0;
+
     this.eventBus.emitDeferred({
       type: 'wave:completed',
       wave: waveNum,
-      credits: 0, // Credits are handled separately via GAME_BALANCE
+      credits,
+      creditsBreakdown,
       perfect,
       closeCall,
       hpLost,
     });
 
-    return { wave: waveNum, perfect, closeCall, hpLost };
+    return result;
   }
 
   /**

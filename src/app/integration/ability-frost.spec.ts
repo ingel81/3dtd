@@ -111,7 +111,7 @@ function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + FREEZE_ST
   const gsm = new GameStateManager();
   ref.gsm = gsm;
   gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
-  gsm.trainingTimescale.set(timescale);
+  gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({
     type: 'research:completed',

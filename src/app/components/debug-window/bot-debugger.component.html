@@ -1,0 +1,133 @@
+@if (windowService.botWindow().isOpen) {
+  <app-draggable-debug-panel
+    windowId="bots"
+    title="Bots"
+    icon="bulb"
+    [position]="windowService.botWindow().position"
+    [zIndex]="windowService.botWindow().zIndex"
+    (closed)="windowService.close('bots')"
+    (positionChange)="windowService.updatePosition('bots', $event)"
+    (focused)="windowService.bringToFront('bots')"
+  >
+    <div class="bot-debug-content">
+      <!-- Timescale Control -->
+      <div class="section">
+        <div class="section-title">Game Speed</div>
+
+        <div class="slider-row">
+          <span class="label">Timescale</span>
+          <input type="range" min="0.1" max="75" step="0.1"
+                 [value]="gameState.gameSpeed()"
+                 (input)="onTimescaleChange($event)" />
+          <input type="number" class="number-input" min="0.1" max="75" step="0.1"
+                 [value]="gameState.gameSpeed()"
+                 (change)="onTimescaleChange($event)" />
+          <span class="unit">{{ gameState.gameSpeed() }}x</span>
+        </div>
+
+        <div class="quick-buttons">
+          <button class="quick-btn" (click)="setTimescale(1)">1x</button>
+          <button class="quick-btn" (click)="setTimescale(10)">10x</button>
+          <button class="quick-btn" (click)="setTimescale(25)">25x</button>
+          <button class="quick-btn" (click)="setTimescale(50)">50x</button>
+          <button class="quick-btn" (click)="setTimescale(75)">75x</button>
+        </div>
+      </div>
+
+      <!-- Backend Connection -->
+      <div class="section">
+        <div class="section-title">Backend</div>
+
+        <div class="info-row">
+          <span class="label">Status</span>
+          <span class="value" [class.connected]="botClient.isConnected()" [class.disconnected]="!botClient.isConnected()">
+            {{ botClient.isConnected() ? 'Connected' : 'Disconnected' }}
+          </span>
+        </div>
+
+        @if (botClient.sessionError(); as sessionError) {
+          <div class="info-row">
+            <span class="label">Code</span>
+            <span class="value error">{{ sessionError }}</span>
+          </div>
+        }
+
+        @if (botClient.isConnected()) {
+          <div class="info-row">
+            <span class="label">Client ID</span>
+            <span class="value">#{{ botClient.displayId() ?? '?' }}</span>
+          </div>
+        }
+
+        <button class="action-btn" (click)="toggleConnection()">
+          {{ botClient.isConnected() ? 'Disconnect' : 'Connect' }}
+        </button>
+      </div>
+
+      <!-- Wave Director -->
+      <div class="section">
+        <div class="section-title">Wave Director</div>
+
+        <div class="info-row">
+          <span class="label">Gate ×</span>
+          <span class="value">{{ waveDirector.leak.leakMultiplier.toFixed(2) }}</span>
+        </div>
+      </div>
+
+      <!-- Visualization -->
+      <div class="section">
+        <div class="section-title">Visualization</div>
+        <label class="checkbox-row">
+          <input type="checkbox"
+                 [checked]="showDpsBins()"
+                 (change)="toggleDpsBins()" />
+          <span>Show DPS Bins</span>
+        </label>
+      </div>
+
+      <!-- Bot -->
+      <div class="section">
+        <div class="section-title">Bot</div>
+
+        <div class="info-row">
+          <span class="label">Status</span>
+          <span class="value" [class.active]="botEnabled()" [class.inactive]="!botEnabled()">
+            {{ botEnabled() ? 'Active' : 'Inactive' }}
+          </span>
+        </div>
+
+        @if (botEnabled()) {
+          <div class="info-row">
+            <span class="label">Skill Level</span>
+            <span class="value">{{ botSkillLevel() }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Towers Placed</span>
+            <span class="value">{{ botStats().towersPlaced }}</span>
+          </div>
+
+          <div class="info-row">
+            <span class="label">Gold Spent</span>
+            <span class="value">{{ botStats().goldSpent }}</span>
+          </div>
+        }
+
+        <div class="bot-buttons">
+          @if (!botEnabled()) {
+            <button class="bot-btn" (click)="enableBot('beginner')">
+              <span class="bot-icon">🎯</span> Beginner
+            </button>
+            <button class="bot-btn" (click)="enableBot('expert')">
+              <span class="bot-icon">🧠</span> Expert
+            </button>
+          } @else {
+            <button class="bot-btn danger" (click)="disableBot()">
+              <span class="bot-icon">🛑</span> Disable Bot
+            </button>
+          }
+        </div>
+      </div>
+    </div>
+  </app-draggable-debug-panel>
+}

@@ -21,13 +21,13 @@ import { fileURLToPath } from 'node:url';
 import { GENERATED_AT_STAMP, writeGeneratedFile } from '../generated-file';
 
 import {
-  WAVE_CURRICULUM,
-  goldBudgetForWave,
+  CAMPAIGN,
+  waveGold,
   endgameHpMultiplier,
   enemyBaseDamageForWave,
   templateForWave,
   isBossWave,
-} from '../../src/app/configs/wave-curriculum.config';
+} from '../../src/app/configs/campaign.config';
 import {
   TOWER_TYPES,
   getUpgradeCost,
@@ -42,7 +42,7 @@ import { HERO } from '../../src/app/configs/hero.config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/economy-chart.html');
-const NUM_WAVES = 50; // extend visualisation past curriculum to show extrapolation + difficulty ramp
+const NUM_WAVES = 50; // extend visualisation past campaign to show extrapolation + difficulty ramp
 
 interface WaveRow {
   wave: number;
@@ -82,7 +82,7 @@ function buildWaveRows(): WaveRow[] {
 
   const rows: WaveRow[] = [];
   for (let w = 1; w <= NUM_WAVES; w++) {
-    const { kill, complete } = goldBudgetForWave(w);
+    const { kill, complete } = waveGold(w);
     const milestone = milestones[w] ?? 0;
     const total = kill + complete + milestone;
     cumul += total;
@@ -98,7 +98,7 @@ function buildWaveRows(): WaveRow[] {
     const boss = isBossWave(w);
     rows.push({
       wave: w,
-      // Past the curriculum the director picks the template; boss waves come
+      // Past the campaign the director picks the template; boss waves come
       // every fifth wave there (isBossWave).
       template: templateForWave(w) ?? (boss ? 'boss (director)' : '(director)'),
       boss,
@@ -160,7 +160,7 @@ interface RosterBudget {
   /** The mercenary's hire, once (HERO.cost); his research is in `research` */
   hero: number;
   total: number;
-  /** goldKill + goldComplete über das Curriculum, ohne Skill-Boni. */
+  /** killGold + completionGold über das Campaign, ohne Skill-Boni. */
   income: number;
   buffer: number;
 }
@@ -170,7 +170,7 @@ const ROSTER_TRACK_LEVEL = 20;
 const ROSTER_TOWER_COUNT: Partial<Record<TowerTypeId, number>> = { archer: 3 };
 
 /**
- * Das Roster, gegen das WAVE_CURRICULUM budgetiert ist: jeder Combat-Tower
+ * Das Roster, gegen das CAMPAIGN budgetiert ist: jeder Combat-Tower
  * einmal (Archer dreimal), alle Upgrade-Tracks auf L20 (kürzere Tracks auf
  * ihrem Maximum), alle Forschungen, Research Center Stufe 3, das Missile
  * Silo und das Anheuern des Söldners (HERO.cost, einmal). Preise aus
@@ -202,7 +202,7 @@ function buildRosterBudget(): RosterBudget {
   const hero = HERO.cost;
 
   const total = towers + research + researchCenter + missileSilo + hero;
-  const income = WAVE_CURRICULUM.reduce((sum, w) => sum + w.goldKill + w.goldComplete, 0);
+  const income = CAMPAIGN.reduce((sum, w) => sum + w.killGold + w.completionGold, 0);
   return { towers, research, researchCenter, missileSilo, hero, total, income, buffer: income / total - 1 };
 }
 
@@ -338,10 +338,10 @@ function renderHtml(
 </style>
 </head>
 <body>
-<h1>3DTD Economy Chart — Phase 5.16 (Wave-Curriculum Budget)</h1>
+<h1>3DTD Economy Chart — Phase 5.16 (Wave-Campaign Budget)</h1>
 <div class="meta">
   Generated <code>${new Date().toISOString()}</code> from
-  <code>wave-curriculum.ts</code>, <code>tower-types.config.ts</code>,
+  <code>campaign.ts</code>, <code>tower-types.config.ts</code>,
   <code>research-tree.config.ts</code>, <code>research-center.config.ts</code>,
   <code>game-balance.config.ts</code>.
   Regenerate via <code>npm run economy-chart</code>.
@@ -499,13 +499,13 @@ ${upgradeMilestones
   </div>
 
   <div class="chart-container">
-    <h2>Design-Roster vs. Curriculum-Budget (W1–W30)</h2>
+    <h2>Design-Roster vs. Campaign-Budget (W1–W30)</h2>
     <p class="note">
-      The roster the curriculum is budgeted against: every combat tower once
+      The roster the campaign is budgeted against: every combat tower once
       (archer ×3), all upgrade tracks at L${ROSTER_TRACK_LEVEL} (shorter tracks at
       their maximum), every research, Research Center level 3, the Missile Silo,
       the mercenary's hire. Income =
-      goldKill + goldComplete over W1–W30, no skill bonuses, no start credits.
+      killGold + completionGold over W1–W30, no skill bonuses, no start credits.
     </p>
     <table>
       <thead><tr><th class="l">Item</th><th>Gold</th></tr></thead>
@@ -516,7 +516,7 @@ ${upgradeMilestones
         <tr><td class="l">Missile Silo</td><td>${fmt(roster.missileSilo)}</td></tr>
         <tr><td class="l">Mercenary hire (once)</td><td>${fmt(roster.hero)}</td></tr>
         <tr class="milestone"><td class="l">Roster total</td><td>${fmt(roster.total)}</td></tr>
-        <tr><td class="l">Curriculum income W1–W30</td><td>${fmt(roster.income)}</td></tr>
+        <tr><td class="l">Campaign income W1–W30</td><td>${fmt(roster.income)}</td></tr>
         <tr class="milestone"><td class="l">Buffer (income / roster − 1)</td><td>${Math.round(roster.buffer * 100)}%</td></tr>
       </tbody>
     </table>
@@ -850,6 +850,6 @@ describe('economy chart generator', () => {
     expect(towerRows.length).toBeGreaterThan(0);
     expect(researchRows.length).toBeGreaterThan(0);
     expect(roster.total).toBeGreaterThan(0);
-    expect(html).toContain('Design-Roster vs. Curriculum-Budget');
+    expect(html).toContain('Design-Roster vs. Campaign-Budget');
   });
 });

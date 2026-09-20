@@ -2,7 +2,7 @@
  * Playtest 360, 362, 363, 420 and 421 (night 2026-09-14): the ooze in a wave
  * through the real WaveManager and EnemyManager, its leaks through the HQ's
  * leak budget (BaseHealthLedger, subscribed as GameStateManager subscribes
- * it) into ScreenShakeService and the run summary (RunStatsTracker).
+ * it) into ScreenShakeService and the run summary (the run log).
  * Rendering mocked. The wall clock the shake throttles by runs at game time
  * divided by the timescale, as it does in the game.
  */
@@ -25,10 +25,11 @@ import {
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { ScreenShakeService } from '../game-engine/screen-shake.service';
 import { BaseHealthLedger } from '../managers/game-state/base-health-ledger';
-import { RunStatsTracker } from '../services/infrastructure/run-stats';
+import { RunLogCollector } from '../run-log/run-log.service';
+import { runSummary } from '../run-log/run-summary';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
-import { enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import { enemyBaseDamageForWave } from '../configs/campaign.config';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { Enemy } from '../entities/enemy.entity';
@@ -41,7 +42,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   let m: TestManagers;
   let ledger: BaseHealthLedger;
   let shake: ScreenShakeService;
-  let stats: RunStatsTracker;
+  let log: RunLogCollector;
   let clock: { now: number };
   let wall: number;
   /** Wall-clock times of the HQ shakes */
@@ -81,8 +82,17 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     m.eventBus.on('health:changed', (e) => hurt.push({ delta: e.delta, wall }));
     m.eventBus.on('enemy:leaking', (e) => leaking.push({ damage: e.damage, wall }));
     m.eventBus.on('enemy:reached-base', (e) => reached.push(e.damage));
-    stats = new RunStatsTracker();
-    stats.attach(m.eventBus, new SubscriptionBag());
+    log = new RunLogCollector();
+    log.attach(m.eventBus, new SubscriptionBag());
+    log.open({ seed: 1, map: 'devworld', player: 'human' }, {
+      step: () => 0,
+      timeMs: () => clock.now,
+      credits: () => 0,
+      baseHealth: () => ledger.baseHealth(),
+      enemiesAlive: () => m.enemyManager.getAlive().length,
+      dps: () => 0,
+      towers: () => [],
+    });
   });
 
   afterEach(() => {
@@ -211,7 +221,8 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     run(3_000);
     expect(m.waveManager.checkWaveComplete()).toBe(true);
 
-    const summary = stats.summary(clock.now);
+    log.flushOpenWave();
+    const summary = runSummary(log.current(), clock.now, (type) => type);
     expect(summary.waveReached).toBe(45);
     expect(summary.leaksPerWave[44]).toBe(1);
     expect(summary.kills).toBe(clumps.length);

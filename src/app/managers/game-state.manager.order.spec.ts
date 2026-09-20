@@ -51,7 +51,7 @@ let waveCompleteAnswers: boolean[] = [];
 function createStub(name: string): Record<string, unknown> {
   switch (name) {
     case 'GameStore':
-      return { trainingTimescale: Object.assign(vi.fn(() => 1), { set: vi.fn() }) };
+      return { gameSpeed: Object.assign(vi.fn(() => 1), { set: vi.fn() }) };
     case 'UIStore':
       return { specialPointsDebugVisible: () => false };
     case 'PathAndRouteService':
@@ -305,11 +305,13 @@ describe('GameStateManager order of operations (characterization)', () => {
         ...WAVE_STEP,
         'wave.endWave',
         'enemy.clear',
+        // The wave books its own completion gold (WaveManager.endWave through
+        // the gold provider), so wave:completed can carry the real amount.
+        'economy.computeWaveCompletionBonus',
+        'event:credits:changed',
         'combat.stopAllBeams',
         'combat.stopAllMelee',
         'enemyDebug.clearDebugEnemies',
-        'economy.computeWaveCompletionBonus',
-        'event:credits:changed',
         ...STEP_HEAD,
         'event:wave:completed',
         'combat.turnTowersToGuard',
@@ -366,7 +368,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     });
 
     it('syncs active research to the store once per frame, after the present', () => {
-      gsm.addCredits(100_000);
+      gsm.addCredits(100_000, 'cheat');
       gsm.researchManager.onCenterPlaced();
       bus.emit({ type: 'command:start-research', researchId: 'gatling-tech' });
       gsm.update(1000, onSubStep);
@@ -429,7 +431,7 @@ describe('GameStateManager order of operations (characterization)', () => {
 
   describe('timescale', () => {
     it('runs the same sub-step sequence at 10x, only more of them per frame', () => {
-      gsm.setTrainingTimescale(10, false);
+      gsm.setGameSpeed(10, false);
       gsm.waveManager.phase.set('wave');
       gsm.update(1000, onSubStep); // 16 ms x 10: nine steps
       gsm.update(1020, onSubStep); // 20 ms x 10 + ~10 ms carried: twelve steps
@@ -459,7 +461,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         present(now);
       };
 
-      gsm.setTrainingTimescale(10, false);
+      gsm.setGameSpeed(10, false);
       gsm.waveManager.phase.set('wave');
       gsm.update(1000, (stepMs) => seen.push(`hook ${gsm.gameTimeMs} ${stepMs}`));
 
@@ -527,6 +529,7 @@ describe('GameStateManager order of operations (characterization)', () => {
           heightOffset: 0,
         } as never,
         credits: 5,
+        killedBy: null,
       });
 
       expect(log).toEqual([
@@ -538,7 +541,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     });
 
     it('queues an LOS recompute when research unlocks air targeting', () => {
-      gsm.addCredits(10_000);
+      gsm.addCredits(10_000, 'cheat');
       const gatling = gsm.placeTower(BASE_POSITION, 'dual-gatling');
       expect(gatling).not.toBeNull();
       log.length = 0;
@@ -556,7 +559,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     let archer: Tower;
 
     beforeEach(() => {
-      gsm.addCredits(100_000);
+      gsm.addCredits(100_000, 'cheat');
       log.length = 0;
       bus.emit({ type: 'command:place-tower', position: BASE_POSITION, typeId: 'archer' });
       archer = gsm.towerManager.getAll()[0];
@@ -729,7 +732,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     });
 
     it('resets in this order', () => {
-      gsm.spendCredits(10);
+      gsm.spendCredits(10, 'cheat');
       log.length = 0;
       gsm.reset();
 

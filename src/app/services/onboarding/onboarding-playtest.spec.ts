@@ -39,7 +39,7 @@ class Game {
   /** TowerLifecycle.upgrade: the Research Wing adds a slot first, then tower:upgraded */
   upgrade(id: string): void {
     if (id === 'research-center') this.research.upgradeCenter();
-    this.bus.emit({ type: 'tower:upgraded', tower: tower(id), level: 1, cost: 0 });
+    this.bus.emit({ type: 'tower:upgraded', tower: tower(id), level: 1, cost: 0 , upgradeId: 'damage' });
   }
 
   startWave(wave: number): void {

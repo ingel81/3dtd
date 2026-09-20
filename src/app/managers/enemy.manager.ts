@@ -11,7 +11,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
-import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import { waveGold, enemyBaseDamageForWave } from '../configs/campaign.config';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
@@ -21,6 +21,7 @@ import { WormChains, stepWormSegment } from './worm/worm-chains';
 import type { WormGroup, WormLink } from './worm/worm-group';
 import { OozeBodies } from './ooze-bodies';
 import { WormSounds } from './worm/worm-sounds';
+import type { KilledBy } from '../game-engine/game-event-bus';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -86,6 +87,18 @@ export type SpawnEntry = SpawnStart | 'portal';
 export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies being killed to prevent double-kill
   private killingEnemies = new Set<string>();
+
+  /**
+   * The run's enemy stream (GameRng): lane offset and flight altitude. Default
+   * `Math.random` for specs that build a manager without a seed; the game
+   * wires the stream in `GameStateManager.initialize()`.
+   */
+  private random: () => number = () => Math.random();
+
+  /** The seeded stream the enemies' lane and altitude draw from. */
+  setRandom(random: () => number): void {
+    this.random = random;
+  }
 
   // Game-time pending removals: replaces wall-clock setTimeout for death-anim
   // delays so behavior is identical at every training timescale.
@@ -286,13 +299,13 @@ export class EnemyManager extends EntityManager<Enemy> {
       // room the street leaves, up to how far this type strays.
       const spread = enemy.typeConfig.lateralSpread ?? 0;
       if (spread > 0) {
-        enemy.movement.setLateralFactor((Math.random() * 2 - 1) * spread);
+        enemy.movement.setLateralFactor((this.random() * 2 - 1) * spread);
       }
 
       // Apply random height variation for air units
       if (enemy.typeConfig.heightVariation && enemy.typeConfig.heightVariation > 0) {
         const maxVar = enemy.typeConfig.heightVariation;
-        const randomVar = (Math.random() * 2 - 1) * maxVar;
+        const randomVar = (this.random() * 2 - 1) * maxVar;
         enemy.movement.setHeightVariation(randomVar);
       }
     }
@@ -419,7 +432,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   /**
    * Calculate kill reward from the wave's deterministic kill-budget
-   * (Phase 5.16): the curriculum pins a total per-wave gold amount which
+   * (Phase 5.16): the campaign pins a total per-wave gold amount which
    * we split deterministically across the expected bodies. Effect:
    *  - Income predictable wave-by-wave → balanceable against tower/research costs
    *  - Independent of NN's count/hp_mult choices (no swarm-flood, no boring-dribble)
@@ -441,7 +454,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     if (wave !== this.rewardWaveNumber) {
       this.rewardWaveNumber = wave;
-      this.remainingKillBudget = goldBudgetForWave(wave).kill;
+      this.remainingKillBudget = waveGold(wave).kill;
       this.paidRewardSlots = 0;
     }
 
@@ -466,10 +479,13 @@ export class EnemyManager extends EntityManager<Enemy> {
    * splitOnDeath. A 'debug' kill (kill-all) does neither, so the player can't
    * farm gold via the dev shortcut and nothing of the wave is left.
    *
+   * `killedBy` says who gets the kill; the run log counts kills by source
+   * from it (docs/RUN_LOG.md). null means nobody is credited.
+   *
    * Returns false if the enemy is already dying; nothing happens then, so
    * callers that credit the kill must check the result.
    */
-  kill(enemy: Enemy, cause: KillCause = 'combat'): boolean {
+  kill(enemy: Enemy, cause: KillCause = 'combat', killedBy: KilledBy | null = null): boolean {
     if (this.killingEnemies.has(enemy.id)) return false;
     this.killingEnemies.add(enemy.id);
 
@@ -492,7 +508,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       if (!combat) worm.group.dropPending();
     }
     const credits = combat ? this.calculateDynamicReward(enemy) : 0;
-    this.eventBus.emit({ type: 'enemy:died', enemy, credits });
+    this.eventBus.emit({ type: 'enemy:died', enemy, credits, killedBy });
     // A dying ooze stops bubbling and splats (OozeBodies)
     if (enemy.body !== null) this.oozes.died(enemy, this.tilesEngine);
 

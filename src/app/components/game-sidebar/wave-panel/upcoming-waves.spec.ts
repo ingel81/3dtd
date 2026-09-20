@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, peekUpcomingWaves, shownPeek } from './upcoming-waves';
-import { CURRICULUM_FORCED_THROUGH_WAVE, isBossWave, templateObjectForWave } from '../../../configs/wave-curriculum.config';
-import { DPS_RAMP_COUNT } from '../../../ai/core/templates';
+import { CAMPAIGN_LENGTH, isBossWave, templateObjectForWave } from '../../../configs/campaign.config';
+import { DPS_RAMP_COUNT } from '../../../director/templates';
 
 describe('peekUpcomingWaves', () => {
   it('shows the waves after the current one, as many as asked for', () => {
@@ -58,8 +58,8 @@ describe('peekUpcomingWaves', () => {
     expect(w19.tooltip).toContain('Skeleton: Splits into 2 minions on death.');
   });
 
-  it('shows what is known past the curriculum instead of nothing', () => {
-    const last = CURRICULUM_FORCED_THROUGH_WAVE;
+  it('shows what is known past the campaign instead of nothing', () => {
+    const last = CAMPAIGN_LENGTH;
     const [w30, w31] = peekUpcomingWaves(last - 1, 0, 2);
     expect(w30.known).toBe(true);
     expect(w31).toMatchObject({
@@ -75,7 +75,7 @@ describe('peekUpcomingWaves', () => {
     expect(w31.tooltip).toContain('Next boss wave: W35.');
   });
 
-  it('marks the boss waves past the curriculum, every fifth from W31', () => {
+  it('marks the boss waves past the campaign, every fifth from W31', () => {
     const [w34] = peekUpcomingWaves(33, 0, 1);
     expect(w34).toMatchObject({ boss: false, note: 'Template picked at wave start' });
     const [, w40] = peekUpcomingWaves(38, 0, 2);
@@ -100,7 +100,7 @@ describe('peekUpcomingWaves', () => {
     expect(w14.tooltip).toContain(BLOOD_MOON_NOTE);
     expect(peeks.find((p) => p.wave === 13)!.tooltip).not.toContain(BLOOD_MOON_NOTE);
 
-    // Past the curriculum as well: W35 is the worm's boss wave and a blood moon at once
+    // Past the campaign as well: W35 is the worm's boss wave and a blood moon at once
     const [, w35] = peekUpcomingWaves(33, 0, 2);
     expect(w35).toMatchObject({ wave: 35, name: 'Boss: Skarnax', boss: true, bloodMoon: true });
     expect(w35.tooltip).toContain('splits the worm in two');
@@ -113,8 +113,8 @@ describe('peekUpcomingWaves', () => {
     expect(w14.tooltip).not.toContain(BLOOD_MOON_NOTE);
   });
 
-  it('always has the next boss wave on the line past the curriculum', () => {
-    for (let current = CURRICULUM_FORCED_THROUGH_WAVE; current < CURRICULUM_FORCED_THROUGH_WAVE + 20; current++) {
+  it('always has the next boss wave on the line past the campaign', () => {
+    for (let current = CAMPAIGN_LENGTH; current < CAMPAIGN_LENGTH + 20; current++) {
       const peeks = peekUpcomingWaves(current, 0, NEXT_WAVE_MARKS);
       expect(peeks.some((p) => p.boss && isBossWave(p.wave))).toBe(true);
     }

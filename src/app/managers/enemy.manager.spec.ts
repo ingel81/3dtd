@@ -15,7 +15,7 @@ import { SpatialGridService } from '../services/world/spatial-grid.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { Enemy } from '../entities/enemy.entity';
 import type { OozeBody } from '../entities/ooze-body';
-import { goldBudgetForWave } from '../configs/wave-curriculum.config';
+import { waveGold } from '../configs/campaign.config';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
@@ -167,7 +167,7 @@ describe('EnemyManager', () => {
     );
     // Single-slot wave on W1 → the one paid kill picks up the full budget.
     const call = diedSpy.mock.calls[0][0];
-    expect(call.credits).toBe(goldBudgetForWave(1).kill);
+    expect(call.credits).toBe(waveGold(1).kill);
     expect(manager.getById(enemy.id)).toBeNull();
     expect(tilesEngine.enemies.remove).toHaveBeenCalledWith(enemy.id);
     expect(manager.getAliveCount()).toBe(0);
@@ -237,7 +237,7 @@ describe('EnemyManager', () => {
       }
 
       const sum = credits.reduce((a, b) => a + b, 0);
-      expect(sum).toBe(goldBudgetForWave(1).kill);
+      expect(sum).toBe(waveGold(1).kill);
     });
 
     it('handles mega-swarm without overshooting (W19 rat_tide regression)', () => {
@@ -253,7 +253,7 @@ describe('EnemyManager', () => {
       }
 
       const sum = credits.reduce((a, b) => a + b, 0);
-      const budget = goldBudgetForWave(19).kill;
+      const budget = waveGold(19).kill;
       const fairShare = Math.ceil((budget * 300) / 5000);
       expect(sum).toBeLessThanOrEqual(fairShare);
     });
@@ -270,7 +270,7 @@ describe('EnemyManager', () => {
       expect(credits[3]).toBe(0);
       expect(credits[4]).toBe(0);
       const sum = credits.reduce((a, b) => a + b, 0);
-      expect(sum).toBe(goldBudgetForWave(1).kill);
+      expect(sum).toBe(waveGold(1).kill);
     });
 
     it('wave change resets the accumulator', () => {
@@ -283,7 +283,7 @@ describe('EnemyManager', () => {
       manager.kill(manager.spawn(straightPath, 'zombie'));
       manager.kill(manager.spawn(straightPath, 'zombie'));
       const wave1Sum = credits.reduce((a, b) => a + b, 0);
-      expect(wave1Sum).toBe(goldBudgetForWave(1).kill);
+      expect(wave1Sum).toBe(waveGold(1).kill);
 
       // Switch to wave 2 — fresh budget regardless of wave-1 state
       waveNum = 2;
@@ -291,7 +291,7 @@ describe('EnemyManager', () => {
       manager.kill(manager.spawn(straightPath, 'zombie'));
       manager.kill(manager.spawn(straightPath, 'zombie'));
       const wave2Sum = credits.reduce((a, b) => a + b, 0);
-      expect(wave2Sum).toBe(goldBudgetForWave(2).kill);
+      expect(wave2Sum).toBe(waveGold(2).kill);
     });
 
     it('a debug kill does not consume slots from the budget', () => {
@@ -309,11 +309,11 @@ describe('EnemyManager', () => {
 
       expect(credits[0]).toBe(0);
       const paidSum = credits.slice(1).reduce((a, b) => a + b, 0);
-      expect(paidSum).toBe(goldBudgetForWave(1).kill);
+      expect(paidSum).toBe(waveGold(1).kill);
     });
 
     it('zero gold budget pays zero per kill', () => {
-      // waveNum=0 returns { kill: 0, complete: 0 } from goldBudgetForWave
+      // waveNum=0 returns { kill: 0, complete: 0 } from waveGold
       manager.setWaveNumberProvider(() => 0);
       manager.setWaveSizeProvider(() => 5);
       const credits = collectCredits();
@@ -335,7 +335,7 @@ describe('EnemyManager', () => {
       manager.kill(manager.spawn(straightPath, 'zombie'));
 
       const earned = credits.reduce((a, b) => a + b, 0);
-      const fullBudget = goldBudgetForWave(1).kill;
+      const fullBudget = waveGold(1).kill;
       expect(earned).toBeLessThan(fullBudget);
       expect(earned).toBeGreaterThanOrEqual(0);
     });

@@ -20,6 +20,7 @@ import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
 import { openAttributionsDialog } from '../attributions-dialog/open-attributions-dialog';
+import { openRunsDialog } from '../runs-dialog/open-runs-dialog';
 import { WhatsNewService } from '../../services/onboarding/whats-new.service';
 import { openHotkeyHelpDialog } from '../hotkey-help-dialog/open-hotkey-help-dialog';
 import { ConfigService } from '../../core/services/config.service';
@@ -140,6 +141,11 @@ export class GameSidebarComponent implements OnDestroy {
 
   openAttributions(): void {
     void openAttributionsDialog(this.dialog);
+  }
+
+  /** The runs this browser kept, each one to save as a file (docs/RUN_LOG.md). */
+  openRuns(): void {
+    void openRunsDialog(this.dialog);
   }
 
   /** The version in the footer opens "What's new" with every release */

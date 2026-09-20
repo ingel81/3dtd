@@ -11,7 +11,7 @@ const dpsViz = vi.hoisted(() => ({
     disposed: boolean;
   }[],
 }));
-vi.mock('../../ai/core/dps-profile-visualizer', () => ({
+vi.mock('../../director/dps-profile-visualizer', () => ({
   DpsProfileVisualizer: class {
     mesh = { parent: null as unknown };
     updates: unknown[] = [];
@@ -54,7 +54,7 @@ describe('DpsBinsOverlay', () => {
     coordSync = { sync: true };
     const deps = {
       gameState: () => ({ getGlobalRouteGrid: () => ({ getCoordinateSync: () => coordSync }), getEventBus: () => bus }),
-      aiDataCollector: { getCurrentDPSProfile: vi.fn(() => profile) },
+      stateSnapshots: { getCurrentDPSProfile: vi.fn(() => profile) },
     };
     overlay = new DpsBinsOverlay(deps as unknown as DpsBinsOverlayDeps);
   });
