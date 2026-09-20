@@ -148,3 +148,62 @@ describe('BotSession bot actions', () => {
     });
   });
 });
+
+describe('BotSession run config', () => {
+  /** A session whose seed source and restart are observable. */
+  function configSession() {
+    const injector = Injector.create({
+      providers: [
+        { provide: StateSnapshotService, useValue: {} },
+        { provide: TowerDefenseStore, useValue: { phase: signal('setup') } },
+      ],
+    });
+    const client = runInInjectionContext(injector, () => new BotClientService());
+    const rng = { useNextSeed: vi.fn(), reset: vi.fn() };
+    const restartGame = vi.fn();
+    const deps = {
+      gameState: { corridorPending: () => false, rng },
+      callbacks: { restartGame },
+    } as unknown as BotDeps;
+    const session = runInInjectionContext(injector, () => new BotSession(client, deps));
+    client.botEnabled.set(true);
+    return { session, client, rng, restartGame };
+  }
+
+  /** applyRunConfig is what the `run_config` message lands in. */
+  function apply(session: BotSession, config: Record<string, unknown>) {
+    (session as unknown as { applyRunConfig(c: unknown): void }).applyRunConfig(config);
+  }
+
+  it('asks the source for the seed instead of resetting it, and starts the run', () => {
+    const { session, rng, restartGame } = configSession();
+
+    apply(session, { seed: 4242 });
+
+    // reset() here would be drawn over by the restart's own reset
+    expect(rng.reset).not.toHaveBeenCalled();
+    expect(rng.useNextSeed).toHaveBeenCalledWith(4242);
+    expect(restartGame).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts the run only after the config, so the head names what the run plays', () => {
+    const { session, restartGame } = configSession();
+
+    (session as unknown as { awaitRunConfig(): void }).awaitRunConfig();
+    expect(restartGame).not.toHaveBeenCalled();     // the run waits
+
+    apply(session, { seed: 7 });
+    expect(restartGame).toHaveBeenCalledTimes(1);
+  });
+
+  it('starts the run anyway when no config arrives', () => {
+    vi.useFakeTimers();
+    const { session, restartGame } = configSession();
+
+    (session as unknown as { awaitRunConfig(): void }).awaitRunConfig();
+    vi.advanceTimersByTime(5000);
+
+    expect(restartGame).toHaveBeenCalledTimes(1);
+    vi.useRealTimers();
+  });
+});

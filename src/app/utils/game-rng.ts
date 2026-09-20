@@ -58,6 +58,7 @@ export function newRunSeed(): number {
 export class GameRng {
   private _seed: number;
   private streams = new Map<RngStream, () => number>();
+  private pendingSeed: number | null = null;
 
   constructor(seed: number = newRunSeed()) {
     this._seed = seed >>> 0;
@@ -80,9 +81,25 @@ export class GameRng {
     return next;
   }
 
-  /** New run: a fresh seed unless one is given, and every stream starts over. */
-  reset(seed: number = newRunSeed()): void {
-    this._seed = seed >>> 0;
+  /**
+   * The seed the next reset takes, instead of a fresh one.
+   *
+   * The bot server names the seed of a run before that run starts, and the
+   * restart in between resets the source. Setting the seed by hand and then
+   * restarting threw it away again, so the log's head and the dice went
+   * separate ways. The wish is kept here until the reset picks it up.
+   */
+  useNextSeed(seed: number): void {
+    this.pendingSeed = seed >>> 0;
+  }
+
+  /**
+   * New run: the seed that was given, else the one asked for with
+   * `useNextSeed`, else a fresh one. Every stream starts over.
+   */
+  reset(seed?: number): void {
+    this._seed = (seed ?? this.pendingSeed ?? newRunSeed()) >>> 0;
+    this.pendingSeed = null;
     this.streams.clear();
   }
 }

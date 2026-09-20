@@ -61,6 +61,16 @@ nachher, je Tower Typ, Stufen, Schaden und Kills, und die Dauer.
 Die Welle, in der die Basis fällt, bekommt ihren Block ebenfalls: `wave:completed` kommt dort nie, deshalb schreibt
 `flushOpenWave()` ihn beim Game Over.
 
+Gegner leben über die Naht hinweg. Ein Block hält deshalb beides fest: `enemiesAtStart`, was zu Blockbeginn noch
+stand, und `enemiesAlive`, was am Ende übrig ist. Was die letzte Welle übrig ließ, stirbt in dieser.
+
+Gezählt wird über `EnemyManager.getAliveCount()`, nicht über die Länge der Gegnerliste: Ein Gegner in seiner
+Sterbeanimation steht noch in der Liste, obwohl er längst als Kill gebucht ist, und die Welle zählte ihn doppelt.
+
+Ist der Lauf geschlossen, bleibt er lesbar, bis der nächste öffnet. Das Game Over erreicht zwei Zuhörer: Das Log
+schließt den Lauf, die Bot-Session schickt den Rest an den Server. Wer zweiter war, fand früher einen leeren
+Sammler vor, und jedem Bot-Lauf auf dem Server fehlten seine letzte Welle und sein Ende.
+
 ### Die Abgleiche
 
 Jeder Block prüft sich selbst (`reconcileWave`). Was nicht aufgeht, steht als `mismatches` **im Block**, statt eine
@@ -70,7 +80,7 @@ was die Auswertung sehen muss.
 | Prüfung | Regel |
 |---|---|
 | Gold | Startgold plus Einnahmen minus Ausgaben ist das Endgold |
-| Körper | gespawnt ist gleich getötet plus geleckt plus noch lebend |
+| Körper | was zu Beginn stand plus gespawnt ist getötet plus geleckt plus noch lebend |
 | Tower | die Kills der Tower übersteigen nicht die Tower-Kills der Welle |
 
 ## 3. Woher die Daten kommen
@@ -123,7 +133,6 @@ Nichts je Treffer, nichts je Sub-Step. Die Stichprobe liest die Gesamt-DPS über
 
 ## 7. Offen
 
-- Die Auswertung der Läufe (HTML-Bericht, Gruppierung nach Config-Hash) ist Phase 2c.
-- Die Bots schicken ihr Log noch nicht an den Server; das ist Phase 2b (`run_log`-Nachricht).
-- Der Korridor-Fingerprint und der Director-Parametersatz stehen im Kopf als optionale Felder, werden aber noch
-  nicht gefüllt.
+- Der Korridor-Fingerprint steht im Kopf als optionales Feld, wird aber noch nicht gefüllt.
+- Schaden je Gold je Tower-Typ fehlt im Bericht: Der Wellenblock kennt die Ausgaben nach Zweck, nicht nach
+  Tower-Typ (TODO E10).

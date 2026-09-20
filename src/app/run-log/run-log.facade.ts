@@ -18,6 +18,7 @@ import { DevWorldService } from '../devworld/devworld.service';
 import { GameStore } from '../store/game.store';
 import { HERO } from '../configs/hero.config';
 import { calculateTotalDPS } from '../director/defense-analyzer';
+import { directorParamsName } from '../director/director-params';
 import { RunLogCollector, type RunLogWorld } from './run-log.service';
 import { RunLogStore } from './run-log.store';
 import { loadBuildCommit } from './build-commit';
@@ -128,6 +129,16 @@ export class RunLogFacade {
     return run ? downloadRun(run) : false;
   }
 
+  /**
+   * End the run as a defeat, unless it is already ended.
+   *
+   * For the bot session, which sends the log to the server and must not
+   * depend on whether this service heard `game:over` first.
+   */
+  endRun(): void {
+    this.close('defeat');
+  }
+
   dispose(): void {
     this.close('abandoned');
     this.subs.disposeAll();
@@ -142,7 +153,10 @@ export class RunLogFacade {
       timeMs: () => gameState.gameTimeMs,
       credits: () => gameState.credits(),
       baseHealth: () => gameState.baseHealth(),
-      enemiesAlive: () => gameState.enemyManager.getAll().length,
+      // Not `getAll().length`: an enemy in its death animation is still in
+      // that list although it already counted as a kill, so the wave booked
+      // it twice and its bodies came out one too many.
+      enemiesAlive: () => gameState.enemyManager.getAliveCount(),
       dps: () => calculateTotalDPS(gameState.towerManager.getAll()),
       towers: () => gameState.towerManager.getAll(),
     };
@@ -154,6 +168,7 @@ export class RunLogFacade {
         seed: gameState.rng.seed,
         map: this.devWorld.isActive ? 'devworld' : 'world',
         player: who.player,
+        directorParams: directorParamsName(),
         ...(who.botSkill ? { botSkill: who.botSkill } : {}),
         ...(home ? { location: { name: home.name, lat: home.lat, lon: home.lon } } : {}),
       },
