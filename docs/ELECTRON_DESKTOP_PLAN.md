@@ -491,9 +491,12 @@ liest.
    1. Changelog-Text entwerfen und dem User vorlegen; erst nach seinem OK weiter.
    2. Release-Commit: Abschnitt in `CHANGELOG.md`, `npm version X.Y.Z
       --no-git-tag-version`.
-   3. Tag `vX.Y.Z` pushen (nur auf Zuruf); `release.yml` baut Installer und AppImage
-      und veröffentlicht das Release selbst (Job `publish`). Damit bekommen installierte
-      Apps das Update, und `deploy.yml` bringt Web-Version und Landing Page live.
+   3. Tag `vX.Y.Z` pushen (nur auf Zuruf); `release.yml` baut Installer und AppImage,
+      veröffentlicht das Release (Job `publish`) und ruft `deploy.yml` mit dem Tag auf
+      (Job `deploy`). Damit bekommen installierte Apps das Update, und Web-Version und
+      Landing Page gehen mit derselben Version live. Der Aufruf ist nötig, weil GitHub
+      aus einem Ereignis des eigenen `GITHUB_TOKEN` keinen Workflow startet: Bei 0.3.2
+      blieb `release: published` wirkungslos, das Deploy lief von Hand nach.
    4. Den Installer aus dem Release herunterladen und prüfen (K8.1), das AppImage unter
       Linux ebenso.
    5. `main` auf den Tag nachziehen, damit die Workflows des Standard-Branches aktuell
