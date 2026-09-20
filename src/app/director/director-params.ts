@@ -22,6 +22,26 @@ export interface DirectorParams {
   leakTargetHi: number;
   /** Proportional gain of the leak loop, per adapt window. */
   leakGain: number;
+  /**
+   * How far the count follows the defense's DPS rather than the campaign.
+   *
+   * 1 is what the game plays: the top of a template's count range opens up
+   * with the player's DPS, so a stronger defense meets a bigger wave and the
+   * leaks stay where they were. The first baseline showed what that costs —
+   * the weaker bot outlived the stronger one (BALANCING_PLAN.md, Baseline).
+   * 0 takes the whole range from the template and leaves the answer to the
+   * defense entirely to the survivability cap.
+   */
+  dpsRampWeight: number;
+  /**
+   * Headroom over the survivability cap, as a factor.
+   *
+   * 1 is what the game plays: the wave is cut to what the defense can
+   * plausibly kill, which is also why it is never quite in danger. Above 1
+   * the cap stops being the size of the wave and becomes the line below which
+   * a wave would be unwinnable.
+   */
+  capSlack: number;
 }
 
 export const DEFAULT_DIRECTOR_PARAMS: DirectorParams = {
@@ -29,6 +49,8 @@ export const DEFAULT_DIRECTOR_PARAMS: DirectorParams = {
   leakTargetLo: 0.08,
   leakTargetHi: 0.16,
   leakGain: 0.35,
+  dpsRampWeight: 1,
+  capSlack: 1,
 };
 
 /**
@@ -42,6 +64,12 @@ export const DIRECTOR_PARAM_SETS: Record<string, DirectorParams> = {
   'steep-ramp': { ...DEFAULT_DIRECTOR_PARAMS, rampFullWave: 40 },
   'wide-band': { ...DEFAULT_DIRECTOR_PARAMS, leakTargetLo: 0.12, leakTargetHi: 0.24 },
   'fast-loop': { ...DEFAULT_DIRECTOR_PARAMS, leakGain: 0.6 },
+  /**
+   * The answer to the first baseline: the wave follows the campaign, and the
+   * defense only keeps it from being unwinnable. Revises D8, which kept both
+   * regulators at full strength before the numbers were in.
+   */
+  'campaign-size': { ...DEFAULT_DIRECTOR_PARAMS, dpsRampWeight: 0, capSlack: 1.25 },
 };
 
 let active: DirectorParams = DEFAULT_DIRECTOR_PARAMS;

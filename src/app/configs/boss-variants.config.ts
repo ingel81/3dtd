@@ -10,6 +10,7 @@
  */
 
 import type { WaveConfig as DirectorWave } from '../director/models/wave-config';
+import type { WaveSizing } from '../director/decision-explainer';
 import type { EnemyTypeId } from './enemy-types.config';
 import {
   BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,
@@ -69,6 +70,20 @@ export function bossVariantForWave(wave: number): BossVariant | null {
  * ramp, endgame multiplier); a worm takes it per segment. Its size is the
  * variant's own, the fairness gate does not size it.
  */
+/** What a boss wave reports when the director handed over no numbers. */
+const EMPTY_SIZING: WaveSizing = {
+  countRange: [1, 1],
+  dpsScaledMax: 1,
+  totalDps: 0,
+  cap: null,
+  countFactor: 1,
+  count: 1,
+  hpMult: 1,
+  endgameHpMult: 1,
+  spawnDelay: 0,
+  durationCapped: false,
+};
+
 export function bossVariantWave(variant: BossVariant, directed: DirectorWave, wave: number): DirectorWave {
   const hpMult = directed.templateStrength ?? 1;
   return {
@@ -85,6 +100,14 @@ export function bossVariantWave(variant: BossVariant, directed: DirectorWave, wa
           + `in place of the director's ${directed.templateName ?? 'boss template'}.`,
         `HP ×${hpMult} as the director planned it for this wave.`,
       ],
+      // The numbers the director came to, with this wave's own size: one boss,
+      // and no cap, because the fairness gate did not size this one.
+      sizing: {
+        ...(directed.explanation?.sizing ?? EMPTY_SIZING),
+        cap: null,
+        count: 1,
+        hpMult,
+      },
     },
   };
 }

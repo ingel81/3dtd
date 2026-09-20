@@ -70,6 +70,18 @@ export interface DecisionExplanation {
   summary: string;
   /** Short sentences, template choice first, then size. */
   reasons: string[];
+  /**
+   * The numbers the sentences were written from.
+   *
+   * The run log needs the survivability cap as a number, not as the sentence
+   * "Survivability cap holds the count at 5": how often the cap binds is the
+   * figure the tuning rounds are judged by, and prose cannot be counted
+   * (docs/BALANCING_PLAN.md, Baseline).
+   *
+   * Optional: an explanation written by hand, as a boss rotation or a test
+   * does, has sentences but no numbers behind them.
+   */
+  sizing?: WaveSizing;
 }
 
 const CAPABILITY_LABEL: Record<NonNullable<TemplateCapability>, string> = {
@@ -82,6 +94,7 @@ export function explainWaveDecision(trace: WaveDecisionTrace): DecisionExplanati
   return {
     summary: `Wave ${wave}: ${templateName} · ${sizing.count} enemies · HP ×${sizing.hpMult.toFixed(2)}`,
     reasons: [...templateReasons(trace), ...sizeReasons(trace)],
+    sizing,
   };
 }
 
