@@ -109,7 +109,8 @@ describe('levelWithCursor', () => {
     expect(levelWithCursor(12, [{ groundY: 12, topY: 12.1 }, { groundY: 11.95, topY: 11.95 }])).toBe(true);
     expect(levelWithCursor(12, [])).toBe(true);
     expect(levelWithCursor(12, [{ groundY: 12, topY: 12 + PLINTH_CONFIG.MIN_UNEVENNESS * 1.1 }])).toBe(false);
-    expect(levelWithCursor(12, [{ groundY: 12, topY: 12.15 }, { groundY: 11.9, topY: 11.9 }])).toBe(false);
+    const spread = PLINTH_CONFIG.MIN_UNEVENNESS;
+    expect(levelWithCursor(12, [{ groundY: 12, topY: 12 + spread * 0.6 }, { groundY: 12 - spread * 0.6, topY: 12 - spread * 0.6 }])).toBe(false);
   });
 
   it('does not hold where a probe hit nothing: that may be a drop (C10)', () => {
@@ -411,6 +412,17 @@ describe('resolveTowerFootprint', () => {
       const onGround = decideTowerFootprint(12, R, columns(byCar), surroundings(byCar));
       expect(onGround).toMatchObject({ rule: 'ground', bottom: 12, groundTop: 12, roofTop: 13.5 });
       expect(onGround.surroundings).toHaveLength(8);
+    });
+
+    it('leaves a street without a plinth: camber, kerbs and noise stay under MIN_UNEVENNESS', () => {
+      // Playtest 2026-09-20, Salem: the probes lay 0.23 m apart, 0.15 m of it
+      // above the cursor surface, and the archer stood on a plinth nobody wanted
+      const street = (x: number) => 24.9 + (x > 1 ? 0.15 : x < -1 ? -0.08 : 0);
+      expect(resolveTowerFootprint(24.9, R, columns(street))).toEqual({ footY: 24.9, plinthHeight: 0 });
+
+      // A kerb of a full step still gets one
+      const step = (x: number) => (x > 1 ? 25.4 : 24.9);
+      expect(resolveTowerFootprint(24.9, R, columns(step))).toEqual({ footY: 25.4, plinthHeight: 0.5 });
     });
   });
 

@@ -883,7 +883,7 @@ steht oder über einem Abbruch hängt (Wand und Abbruch in den Regeln oben):
   (`footprintSampleOffsets`, 19 bis 27 Proben je nach Tower, 49 beim Research Center). Neu
   geprobt wird wie die Validierung erst, wenn der Cursor 1 m gewandert ist.
 - **Bauvorschau:** Sie probt zuerst die Mitte und den inneren Ring. Haben alle etwas getroffen und
-  liegen weniger als 0,2 m neben der Cursor-Fläche (`levelWithCursor`), gilt vorläufig ebener
+  liegen weniger als `MIN_UNEVENNESS` (0,35 m) neben der Cursor-Fläche (`levelWithCursor`), gilt vorläufig ebener
   Grund, und der äußere Ring folgt erst, wenn der Cursor einen Frame lang innerhalb dieses Meters
   bleibt (`tickBuildPreviewViz`), spätestens beim Klick. Beim Überstreichen ebenen Grunds kostet
   eine Validierung damit 7 bis 10 statt 19 bis 27 Säulen (Research Center 17 statt 49). Uneben
@@ -894,9 +894,12 @@ steht oder über einem Abbruch hängt (Wand und Abbruch in den Regeln oben):
   bevor er die Regeln mit dem vollständigen Footprint prüft. Der Trainings-Bot probt immer alles
   (`placementAt`).
 - **Entscheidung** (`resolveTowerFootprint`, Werte in `PLINTH_CONFIG`): Jede Probe zählt mit der
-  obersten Fläche ihrer Säule. Weichen die Proben weniger als 0,2 m voneinander ab
+  obersten Fläche ihrer Säule. Weichen die Proben weniger als 0,35 m voneinander ab
   (`MIN_UNEVENNESS`), bleibt der Tower auf der Fläche unter dem Cursor, ohne Sockel, wie früher,
-  außer er hängt über einem Abbruch (Stützen, unten).
+  außer er hängt über einem Abbruch (Stützen, unten). Der Wert stand bis zum Playtest vom
+  2026-09-20 auf 0,2 m; auf einer geraden Straße in Salem lagen die Proben des Archers 0,23 m
+  auseinander (Wölbung, Bordstein, Rauschen über 7 m Grundfläche) und er bekam einen Sockel, den
+  niemand wollte. Die Modelle stecken ohnehin bis 0,36 m tief im Boden (Median 0,1 m).
   Sonst steht sein Fuß auf der höchsten Probe, die ihn heben darf (unten), und ein Sockel reicht
   bis zur tiefsten Probe, die ihn trägt. Proben mehr als 5 m über der Cursor-Fläche (`MAX_RISE`:
   Fassade, hohe Krone) zählen nicht, ebenso Proben hinter einer Kante (`carryingHeights`, C10):
