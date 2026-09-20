@@ -58,18 +58,16 @@ venv/
 __pycache__/
 *.pyc
 
-# AI Training (generated artifacts)
-training-backend/checkpoints/
-training-backend/logs/
-training-backend/.server.log
-training-backend/.server.pid
+# Bot-Server (generated artifacts)
+bot-server/logs/
+bot-server/runs/
+bot-server/.server.log
+bot-server/.server.pid
+bot-server/venv/
 logs/
 
-# AI Model intermediate files (ONNX model is committed)
-# public/assets/ai/wave-director/*.onnx  # Keep ONNX model in repo
-
-# ONNX Runtime WASM files (too large to commit - copy from node_modules)
-public/assets/onnx-wasm/
+# Build-Info: wird vor build/start aus git erzeugt (Commit im Run-Log)
+public/build-info.json
 
 # Draco-Decoder: wird beim postinstall aus node_modules kopiert
 public/draco/
