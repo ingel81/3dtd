@@ -863,11 +863,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralSpread: 0.65,
     spawnStartDelay: 400,
-    previewScale: 0.312,
+    previewScale: 0.271,
     previewCameraDistance: 15,
     previewCameraAngle: 0,
     // His body starts at 58 % of his height, so the camera aims below the middle of the box
-    previewOffsetY: 5.5,
+    previewOffsetY: 1.1,
   },
 
   hornet: {
