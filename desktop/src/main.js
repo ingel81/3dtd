@@ -300,9 +300,12 @@ if (!app.requestSingleInstanceLock()) {
 } else {
   let mainWindow = null;
 
+  // The system by its own name: the line said "Windows 7.1.8-arch1-3" on the
+  // first Linux run (playtest 2026-09-20)
+  const systemName = process.platform === 'win32' ? 'Windows' : process.platform === 'darwin' ? 'macOS' : 'Linux';
   log.info(
     `3DTD ${version} starting (${isDev ? 'dev server' : 'app://'}), Electron ${process.versions.electron}, ` +
-      `Chrome ${process.versions.chrome}, Windows ${os.release()}`
+      `Chrome ${process.versions.chrome}, ${systemName} ${os.release()}`
   );
   app.on('child-process-gone', (_event, details) => {
     if (details.reason === 'clean-exit') return;
