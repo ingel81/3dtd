@@ -178,3 +178,13 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest
+
+  # The web version and the landing page carry the same tag. deploy.yml is
+  # called, not left to its `release: published` trigger: GitHub starts no
+  # workflow from an event its own GITHUB_TOKEN caused.
+  deploy:
+    needs: publish
+    uses: ./.github/workflows/deploy.yml
+    with:
+      ref: ${{ github.event.inputs.tag || github.ref_name }}
+    secrets: inherit

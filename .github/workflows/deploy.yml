@@ -1,13 +1,23 @@
 name: Build and Deploy
 
-# The web version goes live with a release: publishing the GitHub release
-# (the draft release.yml builds from a tag) deploys that tag to /play/ and
-# the landing page, the moment the desktop update reaches installed copies.
-# A merge to main deploys nothing. workflow_dispatch deploys any ref by hand,
-# for a hotfix.
+# The web version goes live with a release: release.yml calls this workflow
+# once it has published the release, so /play/ and the landing page carry the
+# tag the desktop update carries. A merge to main deploys nothing.
+# workflow_dispatch deploys any ref by hand, for a hotfix.
+#
+# `release: published` stays for a release published by hand. It does not fire
+# for the one release.yml publishes: GitHub starts no workflow from an event
+# its own GITHUB_TOKEN caused (seen with 0.3.2, whose deploy had to be started
+# by hand), hence the call.
 on:
   release:
     types: [published]
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Branch, tag or commit to deploy'
+        required: true
+        type: string
   workflow_dispatch:
     inputs:
       ref:
@@ -29,7 +39,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v7
         with:
-          ref: ${{ github.event.release.tag_name || github.event.inputs.ref }}
+          ref: ${{ inputs.ref || github.event.release.tag_name }}
 
       - name: Setup Node.js
         uses: actions/setup-node@v7
