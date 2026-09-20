@@ -226,7 +226,6 @@ describe('GameStateManager order of operations (characterization)', () => {
     trace(gsm.heroManager, 'hero', ['update', 'reset', 'presentFrame']);
     trace(bus, 'bus', ['processQueue']);
     trace(gsm.waveManager, 'wave', ['tickSpawn', 'endWave', 'reset', 'startWave', 'beginWave']);
-    trace((gsm as unknown as { healthLedger: object }).healthLedger, 'ledger', ['refillLeakBudget']);
     (gsm.waveManager as unknown as { checkWaveComplete: () => boolean }).checkWaveComplete = () => {
       log.push('wave.checkWaveComplete');
       return waveCompleteAnswers.shift() ?? false;
@@ -352,11 +351,14 @@ describe('GameStateManager order of operations (characterization)', () => {
       expect(log).toEqual([
         'engine.setTimescale(1)',
         ...SETUP_STEP,
+        // The event goes out before the field is cleared: the run log writes
+        // the block of the wave the base fell in, and it can only count the
+        // enemies that were standing while they are still there.
+        'event:game:over',
         'enemy.clear',
         'enemyDebug.clearDebugEnemies',
         'tower.selectTower',
         'hq.triggerGameOverEffects',
-        'event:game:over',
         ...PRESENT,
       ]);
       expect(gsm.waveManager.phase()).toBe('gameover');
@@ -494,7 +496,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
-        // GameStateManager: leak budget, AA retrofit, guard turns, kill reward
+        // GameStateManager: AA retrofit, guard turns, kill reward
         'enemy:reached-base', 'enemy:leaking', 'research:completed', 'wave:completed',
         'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'enemy:died',
         // GameCommandsHandler
@@ -698,7 +700,7 @@ describe('GameStateManager order of operations (characterization)', () => {
   });
 
   describe('lifecycle', () => {
-    it('starts the first wave: corridor lock, preview, game:started, a fresh leak budget, then the wave', () => {
+    it('starts the first wave: corridor lock, preview, game:started, then the wave', () => {
       gsm.startWave({
         schedule: {
           entries: [
@@ -713,19 +715,17 @@ describe('GameStateManager order of operations (characterization)', () => {
         'corridorPending',
         'waveDebug.setCurrentWaveGroups',
         'event:game:started',
-        'ledger.refillLeakBudget',
         'wave.startWave',
         'event:wave:started',
       ]);
     });
 
-    it('begins a manual wave: corridor lock, game:started, a fresh leak budget, then the wave', () => {
+    it('begins a manual wave: corridor lock, game:started, then the wave', () => {
       gsm.beginWave();
 
       expect(log).toEqual([
         'corridorPending',
         'event:game:started',
-        'ledger.refillLeakBudget',
         'wave.beginWave',
         'event:wave:started',
       ]);

@@ -59,7 +59,7 @@ export interface OozeConfig {
    * What a whole body costs flowing into the HQ, in leaks of the wave
    * (enemyBaseDamageForWave), spread over maxLengthM: each metre that
    * enters costs its share, so a shorter body costs less. Capped per wave
-   * like every leak (maxLeakDamagePerWave).
+   * like every leak.
    */
   leakDamageFactor: number;
 }

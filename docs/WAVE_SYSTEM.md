@@ -513,9 +513,9 @@ multipliziert sich:
 
 Nach oben gedeckelt wird die Kurve durch den Überlebbarkeits-Deckel und den
 Leck-Regler (siehe [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md),
-Abschnitte 5 und 6)
-sowie durch `GAME_BALANCE.combat.maxLeakDamagePerWave`: eine einzelne Welle
-kann den Spieler nie mehr als 18 HP kosten.
+Abschnitte 5 und 6). Was ein Durchkommen kostet, ist seit dem 2026-09-20
+ungedeckelt: Laufen fünfhundert Gegner ins HQ, kostet das fünfhundert Lecks
+und nicht mehr 18 HP wie zwei.
 
 ### Boss Waves
 

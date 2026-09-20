@@ -155,16 +155,16 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     expect(warn.mock.calls.filter((call) => String(call[0]).includes('STUCK'))).toEqual([]);
   });
 
-  it('421: at W45 and 4x it shakes at most every 900 ms of wall time, until the leak budget of the wave is spent', () => {
+  it('421: at W45 and 4x it shakes at most every 900 ms of wall time, and every metre costs', () => {
     expect(enemyBaseDamageForWave(45)).toBe(5);
     startOoze(45);
     runToWaveEnd(4);
 
-    // 80 m at 5 x 10 / 80 = 0.625 HP a metre: 50 points, the budget lets 18 through
-    const cap = GAME_BALANCE.combat.maxLeakDamagePerWave;
+    // 80 m at 5 x 10 / 80 = 0.625 HP a metre: 50 points, and all 50 land. A
+    // wave used to stop costing at 18 HP however much flowed in (2026-09-20).
     expect(leaking.reduce((sum, l) => sum + l.damage, 0) + reached.reduce((a, b) => a + b, 0)).toBe(50);
-    expect(hurt.map((h) => h.delta)).toEqual(new Array(cap).fill(-1));
-    expect(ledger.baseHealth()).toBe(START_HEALTH - cap);
+    expect(hurt.map((h) => h.delta)).toEqual(new Array(50).fill(-1));
+    expect(ledger.baseHealth()).toBe(START_HEALTH - 50);
 
     // A point every 133 ms of wall time: the first one after each 900 ms shakes
     expect(shakes.length).toBeGreaterThan(1);
@@ -173,12 +173,6 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
       expect(shakes[i] - shakes[i - 1]).toBeGreaterThanOrEqual(hqDamageMinIntervalMs);
       expect(shakes[i] - shakes[i - 1]).toBeLessThan(hqDamageMinIntervalMs + 150);
     }
-
-    // With the budget spent the HQ loses nothing more and nothing shakes,
-    // while the ooze keeps flowing in (the red edge pulses on enemy:leaking)
-    const lastHurt = hurt.at(-1)!.wall;
-    expect(shakes.at(-1)!).toBeLessThanOrEqual(lastHurt);
-    expect(leaking.filter((l) => l.wall > lastHurt).length).toBeGreaterThan(20);
   });
 
   it('421: a zombie leak at W45 costs 5 HP, not 10, and shakes at once, inside the 900 ms', () => {

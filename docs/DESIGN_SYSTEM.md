@@ -430,7 +430,7 @@ Der Lesezeichen-Knopf klappt unter sich ein Panel auf (`.fav-dropdown`, 300px br
 
 ### Leak-Vignette (Canvas)
 
-Erreicht ein Gegner das HQ (`enemy:reached-base`), blendet `app-leak-vignette` (`components/leak-vignette/`) einen roten Rand über dem Canvas ein und wieder aus: radialer Verlauf von transparent (58 %) zu `rgba(184,62,50,0.42)` an den Rändern, 650 ms, `pointer-events: none`, `z-index` 4 unter den HUD-Elementen. Ein neuer Puls startet höchstens alle 900 ms (`PulseThrottle`, Wanduhr); ein Schwarm, der auf einmal durchbricht, pulsiert also etwa im Sekundentakt, statt dauerhaft zu glühen. Der Handler läuft im Game-Loop außerhalb von Angular und macht pro Leak nur einen Zeitvergleich. Er reagiert auch, wenn der Leak-Deckel der Welle (`maxLeakDamagePerWave`) erreicht ist und das HQ nichts mehr verliert.
+Erreicht ein Gegner das HQ (`enemy:reached-base`), blendet `app-leak-vignette` (`components/leak-vignette/`) einen roten Rand über dem Canvas ein und wieder aus: radialer Verlauf von transparent (58 %) zu `rgba(184,62,50,0.42)` an den Rändern, 650 ms, `pointer-events: none`, `z-index` 4 unter den HUD-Elementen. Ein neuer Puls startet höchstens alle 900 ms (`PulseThrottle`, Wanduhr); ein Schwarm, der auf einmal durchbricht, pulsiert also etwa im Sekundentakt, statt dauerhaft zu glühen. Der Handler läuft im Game-Loop außerhalb von Angular und macht pro Leak nur einen Zeitvergleich. Er reagiert auch, wenn das HQ schon bei 0 steht und nichts mehr zu verlieren ist.
 
 ### Blutmond-Banner (Canvas)
 

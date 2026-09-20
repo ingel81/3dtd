@@ -448,9 +448,10 @@ export const FAIRNESS_MIN_COUNT = 5;
  * The gate sizes a wave from armor-weighted DPS, so a bad matchup does not make
  * a wave hard, it makes it small: gatlings against tanks simply got fewer tanks,
  * and a wider damage matrix would have been absorbed by the gate almost
- * entirely. With the floor a wrong roster is felt as leaks, which
- * `maxLeakDamagePerWave` (18 HP) still caps, and the gate controller answers
- * with smaller waves afterwards. Ethereal and air keep the plain matrix: they
+ * entirely. With the floor a wrong roster is felt as leaks, and the leak
+ * controller answers with smaller waves afterwards. Since 2026-09-20 nothing
+ * caps what those leaks cost, so `survivableCount` is the only thing standing
+ * between a wrong roster and the end of the run. Ethereal and air keep the plain matrix: they
  * are hard gates with their own capability check.
  *
  * Applied per tower in the defense analyzer (`gateDpsPerArmor`); survivableCount

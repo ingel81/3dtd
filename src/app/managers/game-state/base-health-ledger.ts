@@ -3,55 +3,46 @@ import { GameEventBus } from '../../game-engine';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 
 /**
- * The HQ's health and the per-wave leak budget. Damage and debug changes are
- * announced as `health:changed` (HQDamageService, ScreenShakeService and the
- * store listen); a heal or a reset sets the value silently.
+ * The HQ's health. Damage and debug changes are announced as `health:changed`
+ * (HQDamageService, ScreenShakeService and the store listen); a heal or a
+ * reset sets the value silently.
  *
  * Owned by the GameStateManager, which exposes the signal as `baseHealth`.
  */
 export class BaseHealthLedger {
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
-  /** HP already lost to leaks in the current wave; capped per wave. */
-  private waveLeakDamage = 0;
 
   constructor(private readonly eventBus: GameEventBus) {}
 
   /**
-   * A leak reached the base. Cap the damage a single wave can do. See
-   * `maxLeakDamagePerWave`: late-game leaks cost 10 HP each and nothing
-   * heals, so one wave with a missing counter could otherwise erase half a
-   * run in ninety seconds.
+   * A leak reached the base, and it costs what it costs.
+   *
+   * A wave used to cost at most 18 HP however many enemies walked in, so five
+   * hundred of them did the same damage as two. The wave the player loses is
+   * the one that decides the run, and it has to be allowed to decide it
+   * (decision of 2026-09-20; the wave director's survivability cap is what
+   * keeps a wave winnable, not a ceiling on the consequences).
    */
   applyLeak(damage: number): void {
-    const budgetLeft = Math.max(
-      0,
-      GAME_BALANCE.combat.maxLeakDamagePerWave - this.waveLeakDamage,
-    );
-    const applied = Math.min(damage, budgetLeft);
-    this.waveLeakDamage += applied;
-    if (applied <= 0) return;
-
-    this.change(Math.max(0, this.baseHealth() - applied));
+    if (damage <= 0) return;
+    this.change(Math.max(0, this.baseHealth() - damage));
   }
 
-  /** Debug: add (or take) HP, bounded below by 0 only, outside the leak budget. */
+  /** Debug: add (or take) HP, bounded below by 0 only. */
   adjust(amount: number): void {
     this.change(Math.max(0, this.baseHealth() + amount));
   }
 
-  /** Fresh leak budget for the new wave (see maxLeakDamagePerWave). */
-  refillLeakBudget(): void {
-    this.waveLeakDamage = 0;
-  }
-
-  /** Full health and a fresh leak budget, without health:changed. */
+  /** Full health again, without health:changed. */
   resetToStart(): void {
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
-    this.waveLeakDamage = 0;
   }
 
   private change(newHealth: number): void {
     const oldHealth = this.baseHealth();
+    // A base at zero is hit by everything still walking in; announcing each of
+    // those as a change of nothing only shakes the screen for free.
+    if (newHealth === oldHealth) return;
     this.baseHealth.set(newHealth);
     this.eventBus.emit({
       type: 'health:changed',

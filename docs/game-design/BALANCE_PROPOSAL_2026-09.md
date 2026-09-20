@@ -542,7 +542,9 @@ Vorschlag: `FAIRNESS_MATCHUP_FLOOR = 0,6`. Das Gate rechnet für unarmored,
 light, heavy und fortified mit `max(Matrix, 0,6)`. Ethereal und Luft bleiben
 ausgenommen, sie sind harte Gates mit eigener Capability-Prüfung. Der Schaden
 einer schlecht gekonterten Welle bleibt durch `maxLeakDamagePerWave = 18`
-begrenzt (`game-balance.config.ts:36`). Umsetzung: zweites Feld
+begrenzt (`game-balance.config.ts:36`). **Überholt:** Dieser Deckel ist am
+2026-09-20 entfallen, der Überlebbarkeits-Deckel steht allein
+([MASTER_GAME_DESIGN.md](MASTER_GAME_DESIGN.md), Abschnitt 5). Umsetzung: zweites Feld
 `gateDpsPerArmor` in `DefenseAnalysis`, berechnet neben
 `calculateEffectiveDPSPerArmor`, gelesen von `survivableCount`. Der Python-Spiegel
 `schema.fair_max_count` muss mitziehen.

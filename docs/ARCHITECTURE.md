@@ -737,7 +737,7 @@ ohne Angular-DI, und delegiert an sie. Seine öffentliche API (`placeTower`, `se
 |--------|---------|
 | `GameClock` | Sub-Step-Takt: Wanduhr-Delta begrenzen, mit dem Timescale multiplizieren, Rest übertragen, Spielzeit führen (`FIXED_STEP_MS` und die Deckel) |
 | `CreditsLedger` | `credits`-Signal; einzige Stelle, die bucht und `credits:changed` emittiert |
-| `BaseHealthLedger` | `baseHealth`-Signal und Leck-Budget pro Welle; emittiert `health:changed` |
+| `BaseHealthLedger` | `baseHealth`-Signal; emittiert `health:changed` |
 | `TowerLifecycle` | Bauen, Verkaufen, Upgraden (Prüfungen, Kosten, Tier-Gating, `tower:upgraded`), Range-Refresh, AA-Retrofit, Wachrichtung |
 
 Außerdem hält er den `ReplayRecorder`, der die laufende Welle für das Replay aufnimmt
