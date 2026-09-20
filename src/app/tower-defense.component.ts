@@ -38,7 +38,7 @@ import {
   LosDebuggerComponent,
 } from './components/debug-window/debug-windows';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
-import { debugHealthAmount } from './components/quick-actions/debug-health';
+import { DEBUG_CREDITS_STEPS, DEBUG_HEALTH_STEPS, debugCheatAmount } from './components/quick-actions/debug-cheat-amount';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
@@ -815,10 +815,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.debugFacade.killAllEnemies(this.gameState);
   }
   addDebugCredits(event: MouseEvent): void {
-    this.debugFacade.addDebugCredits(this.gameState, event.shiftKey ? 100000 : 1000);
+    this.debugFacade.addDebugCredits(this.gameState, debugCheatAmount(event, DEBUG_CREDITS_STEPS));
   }
   addDebugHealth(event: MouseEvent): void {
-    this.debugFacade.addDebugHealth(this.gameState, debugHealthAmount(event));
+    this.debugFacade.addDebugHealth(this.gameState, debugCheatAmount(event, DEBUG_HEALTH_STEPS));
   }
   completeAllResearch(): void {
     this.debugFacade.completeAllResearch(this.gameState);

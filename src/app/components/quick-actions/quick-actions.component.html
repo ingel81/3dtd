@@ -340,9 +340,11 @@
       </button>
       <button class="td-dev-tile td-dev-cheat td-dev-cheat-credits"
               (click)="addCredits.emit($event)"
-              matTooltip="+1000 Credits (Shift+Click: +100k)"
+              (contextmenu)="$event.preventDefault(); addCredits.emit($event)"
+              (wheel)="$event.preventDefault(); addCredits.emit($event)"
+              matTooltip="+1000 Credits (Shift: +100k). Right-click: -10 (Shift: -1000). Wheel: ±100 (Shift: ±1000)"
               matTooltipPosition="left"
-              aria-label="Add 1000 credits">
+              aria-label="Add 1000 credits, right-click takes 10, the wheel dials 100">
         <td-icon name="coin" [size]="18"></td-icon>
         <span>Credits</span>
       </button>
