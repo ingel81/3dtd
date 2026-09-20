@@ -17,5 +17,10 @@
     "src/**/*.d.ts",
     "src/**/*.spec.ts",
     "tools/**/*.ts"
+  ],
+  /* tools/google3d is a one-shot job with its own package.json, dependencies and
+     Google Maps types; it never runs with the game or its tests. */
+  "exclude": [
+    "tools/google3d/**/*.ts"
   ]
 }

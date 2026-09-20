@@ -86,3 +86,6 @@ public/draco/
 /desktop/node_modules/
 /desktop/app/
 /desktop/release/
+
+# One-shot tools with their own dependencies
+tools/google3d/node_modules

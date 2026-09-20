@@ -56,7 +56,6 @@ const CONNECT_HOSTS = [
   'https://overpass.kumi.systems',
   'https://overpass-api.de',
   'https://overpass.private.coffee',
-  'https://query.wikidata.org',
 ];
 
 /**

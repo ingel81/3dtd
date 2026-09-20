@@ -1,7 +1,7 @@
 'use strict';
 
 /**
- * Who the game says it is to the free OpenStreetMap and Wikimedia services.
+ * Who the game says it is to the free OpenStreetMap services.
  *
  * Their usage policies ask for a User-Agent or a Referer that identifies the
  * application. On the web the page's Referer does that. Under app:// there is
@@ -17,7 +17,6 @@ const IDENTIFIED_HOSTS = [
   'https://overpass-api.de',
   'https://overpass.private.coffee',
   'https://nominatim.openstreetmap.org',
-  'https://query.wikidata.org',
 ];
 
 const PROJECT_URL = 'https://github.com/ingel81/3dtd';

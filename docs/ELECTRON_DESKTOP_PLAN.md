@@ -129,7 +129,7 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   connect-src 'self' blob: data: https://api.cesium.com https://assets.ion.cesium.com
     https://tile.googleapis.com https://nominatim.openstreetmap.org
     https://overpass.kumi.systems https://overpass-api.de
-    https://overpass.private.coffee https://query.wikidata.org;
+    https://overpass.private.coffee;
   object-src 'none'; base-uri 'self'; frame-ancestors 'none'
   ```
 
@@ -179,7 +179,7 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 
 ### Externe Dienste
 
-- **E27 Muss** Anfragen an Nominatim, Overpass und Wikidata tragen einen User-Agent,
+- **E27 Muss** Anfragen an Nominatim und Overpass tragen einen User-Agent,
   der die App ausweist, etwa `3DTD/0.3.0 (+https://github.com/ingel81/3dtd)`.
   Gesetzt im Main-Prozess über `session.webRequest.onBeforeSendHeaders`, nur für diese
   Hosts. Grund: Nominatims Nutzungsbedingungen verlangen einen identifizierenden
@@ -413,7 +413,7 @@ desktop/                       Unterprojekt, eigene package.json ohne Version
 │   ├── downloads.js           Speicherort und Name für Downloads (E25)
 │   ├── error-page.js          Fehlerseite bei Ladefehler oder Absturz (E29)
 │   ├── shortcuts.js           F11, F12, sonst nichts
-│   ├── user-agent.js          App-User-Agent für OSM und Wikidata (E27)
+│   ├── user-agent.js          App-User-Agent für die OSM-Dienste (E27)
 │   ├── window-state.js        Fenster merken und wiederherstellen
 │   ├── updater.js             electron-updater, meldet ein geladenes Update (E30 bis E33)
 │   └── log.js                 Log-Zeilen, Maskierung, Wiederholungen, GPU (E35, E36)

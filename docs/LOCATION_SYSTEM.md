@@ -36,7 +36,7 @@ services/location/geocoding.service.ts                      - Nominatim Forward/
 services/location/geolocation.service.ts                    - Browser-Geolocation (kein IP-Lookup)
 services/location/osm-street.service.ts                     - Straßen via Overpass, A*, Random-Spawn-Suche
 services/location/street-cache.service.ts                   - IndexedDB-Cache für Straßennetze
-services/location/world-dice.service.ts                     - Zufällige Stadt via Wikidata
+services/location/world-dice.service.ts                     - Zufällige Stadt aus der mitgelieferten Liste
 services/world/path-route.service.ts                        - Routen je Spawn (Cache, Routenlinie)
 services/world/map-placement.service.ts                     - HQ/Spawn per Klick auf die Karte
 services/location/best-waves.ts                             - Beste Welle je Ort: Liste, Rekord, localStorage (reine Funktionen)
@@ -530,7 +530,7 @@ Der Coordinator bietet auch UI-Flow-Methoden:
 ```typescript
 openLocationDialog(initialMode?): void  // Dialog öffnen (optional auf einem Tab), bei Bestätigung applyNewLocation()
 onShareLocation(): void          // URL in Clipboard kopieren
-onWorldDice(): Promise<void>     // Zufällige Stadt via Wikidata, URL-Reload
+onWorldDice(): Promise<void>     // Zufällige Stadt aus der Liste, URL-Reload
 onAddFavorite(name?): void       // Aktuelle Location als Favorit
 onRenameFavorite(id, name): void // Favorit umbenennen
 onMoveFavorite(id, offset): void // Favorit hoch (-1) oder runter (1)
@@ -726,6 +726,45 @@ SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 `LocationManagementService.isApplyingLocation` `true` ist (gesetzt in STEP 1,
 zurückgesetzt in STEP 7 oder im Fehlerfall). `VisualizationFacadeService` unterscheidet
 damit das erste Laden vom Ortswechsel. Keine UI-Komponente liest das Flag.
+
+## Zufallsstadt (World Dice)
+
+Der Würfel im Header wählt eine Stadt aus einer **mitgelieferten Liste**
+(`public/assets/data/cities.json`), lädt sie einmal je Sitzung und lädt die Seite
+mit den neuen Koordinaten neu (ohne `s=`, den Spawn setzt der Randomizer).
+Gewürfelt wird nur unter den Städten, die Google mit photorealistischen 3D-Daten
+abdeckt (`google3d`, Stand 2026-09-20: 1100 von 4063); ohne Abdeckung wäre der Ort
+eine graue Fläche. Trägt eine Liste gar keine Antworten, sind alle Städte im Spiel.
+
+- **Warum eine Liste:** Bis 2026-09-20 fragte der erste Wurf den Wikidata Query
+  Service selbst. Gemessen an dem Tag: 13,4 s für eine erfolgreiche Antwort, direkt
+  danach zweimal Abbruch nach 60 s. Der Spieler sah nur, wie der Ladeschirm nach dem
+  Timeout verschwand. Die Liste ändert sich ein paarmal im Jahr, der Dienst ist also
+  keine Laufzeit-Abhängigkeit wert. Die Desktop-App fragt Wikidata damit gar nicht
+  mehr an (Host raus aus CSP und User-Agent-Liste).
+- **Inhalt:** alle Städte (`Q515` samt Unterklassen) über 100.000 Einwohnern, je
+  Stadt `id` (Wikidata-Q-Nummer), `name`, `country`, `countryCode` (ISO 3166-1
+  alpha-2), `continent`, `lat`, `lon`, `population`, `area` (km²), `elevation` (m)
+  `capital` und `google3d`. Eine Zeile je Stadt, Felder in der Reihenfolge von
+  `fields`; `area` und `elevation` sind `null`, wo Wikidata nichts hat, `google3d`
+  ist `null`, solange niemand geprüft hat. Nach Einwohnern sortiert. Die Felder
+  jenseits von Name, Koordinaten und `google3d` braucht heute niemand; sie liegen
+  bereit, falls der Wurf später gefiltert werden soll (Land, Größe, Höhe).
+- **3D-Abdeckung:** `tools/google3d` fährt Googles eigene Coverage-Karte mit
+  Playwright ab und trägt `google3d` ein (1, 0 oder `null` bei Fehler), ohne
+  eigenen Key und ohne Tiles zu laden; Entscheidung ist der Blau-Anteil einer
+  Fläche von 320 px um die Bildmitte. Der Lauf ist wiedereintrittsfähig und
+  braucht ein sichtbares Browserfenster, headless zeichnet die Abdeckung nicht.
+  Einzelheiten in [tools/google3d/README.md](../tools/google3d/README.md).
+- **Erzeugen:** `node tools/wikidata/fetch-cities.mjs` (Optionen `--min`, `--out`).
+  Vorhandene `google3d`-Antworten übernimmt der Lauf über die Wikidata-Id.
+  Zwei Durchgänge, weil eine Abfrage mit allen Feldern in das 60-s-Limit des
+  Endpunkts läuft: erst Koordinaten, Einwohner und Land aller Städte, dann Namen und
+  Extras in Blöcken über `VALUES`. Mit Wiederholungen und Pausen, weil der Dienst
+  Bursts drosselt.
+- **Fehlschlag:** Lädt die Liste nicht, steht der Grund als Banner über dem Spiel
+  (`WORLD_DICE_FAILED`), der Ladeschirm geht weg. Ein gescheiterter Ladeversuch wird
+  nicht gemerkt: der nächste Wurf versucht es neu.
 
 ## Bekannte Einschränkungen
 
