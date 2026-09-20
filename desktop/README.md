@@ -1,7 +1,8 @@
 # 3DTD Desktop
 
-Windows build of 3DTD on Electron. The game is the regular Angular build from the
-repository root; this folder only wraps it. Requirements, decisions and the plan:
+Desktop build of 3DTD on Electron: a Windows installer and a Linux AppImage, both
+x64. The game is the regular Angular build from the repository root; this folder
+only wraps it. Requirements, decisions and the plan:
 [docs/ELECTRON_DESKTOP_PLAN.md](../docs/ELECTRON_DESKTOP_PLAN.md).
 
 ## Commands
@@ -12,7 +13,7 @@ Run from `desktop/`, after `npm install` here and in the repository root.
 |---------|--------------|
 | `npm run dev` | Angular dev server plus Electron on `localhost:4200`, with live reload |
 | `npm start` | Production build of the game, copied to `app/`, started over `app://` |
-| `npm run dist` | Same build, then the NSIS installer in `release/` |
+| `npm run dist` | Same build, then the package for this platform in `release/`: the NSIS installer on Windows, the AppImage on Linux |
 | `npm test` | Tests of the main-process logic (`node --test`) |
 
 The version comes from the root `package.json`; this `package.json` has none on
