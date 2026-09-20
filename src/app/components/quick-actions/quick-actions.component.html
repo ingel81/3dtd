@@ -349,9 +349,10 @@
       <button class="td-dev-tile td-dev-cheat td-dev-cheat-health"
               (click)="addHealth.emit($event)"
               (contextmenu)="$event.preventDefault(); addHealth.emit($event)"
-              matTooltip="+1000 HP (Shift+Click: +100k). Right-click: -10 HP (Shift: -50)"
+              (wheel)="$event.preventDefault(); addHealth.emit($event)"
+              matTooltip="+1000 HP (Shift: +100k). Right-click: -10 HP (Shift: -1000). Wheel: ±100 HP (Shift: ±1000)"
               matTooltipPosition="left"
-              aria-label="Add 1000 HP, right-click takes 10 HP">
+              aria-label="Add 1000 HP, right-click takes 10 HP, the wheel dials 100 HP">
         <td-icon name="heart" [size]="18"></td-icon>
         <span>+HP</span>
       </button>
