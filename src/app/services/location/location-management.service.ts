@@ -83,6 +83,7 @@ export class LocationManagementService {
       address: street,
       postal: addr?.postcode ?? '',
       city,
+      country: addr?.country ?? '',
       lat: hq.lat,
       lng: hq.lon,
     };

@@ -727,6 +727,19 @@ SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 zurückgesetzt in STEP 7 oder im Fehlerfall). `VisualizationFacadeService` unterscheidet
 damit das erste Laden vom Ortswechsel. Keine UI-Komponente liest das Flag.
 
+## Anzeigename des Orts
+
+`GeocodingService.formatAddressShort` baut ihn aus der Nominatim-Antwort:
+"Straße Hausnummer, Stadt, Land", jeder Teil nur, wenn die Antwort ihn nennt,
+sonst "Unknown location". Seit 2026-09-20 gehört das Land dazu, denn der Würfel
+setzt den Spieler überall auf der Welt ab und ein Stadtname allein sagt dann
+wenig. Denselben Namen zeigen die Kopfzeile ("DEFEND …"), die Weltkarte, die
+Favoriten und die Debug-Ausgaben (`LocationManagementService.displayName`).
+
+Der Ladeschirm zeigt dieselben Teile einzeln (`MissionInfo`: `address`,
+`postal`, `city`, `country`, Koordinaten, Höhe), gefüllt aus derselben Antwort;
+`country` bleibt leer, solange das Reverse-Geocoding nicht geantwortet hat.
+
 ## Zufallsstadt (World Dice)
 
 Der Würfel im Header wählt eine Stadt aus einer **mitgelieferten Liste**

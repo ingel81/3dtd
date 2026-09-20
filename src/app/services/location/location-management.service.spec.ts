@@ -33,6 +33,25 @@ describe('LocationManagementService', () => {
     expect(service.hasLocation()).toBe(false);
   });
 
+  it('puts the country of the resolved address into the mission strip', () => {
+    service.hq.set({ lat: 48.77, lon: 9.18 });
+    service.address.set({ road: 'Marktplatz', house_number: '1', city: 'Stuttgart', postcode: '70173', country: 'Germany' });
+
+    expect(service.missionInfo()).toEqual({
+      address: 'Marktplatz 1',
+      postal: '70173',
+      city: 'Stuttgart',
+      country: 'Germany',
+      lat: 48.77,
+      lng: 9.18,
+    });
+  });
+
+  it('leaves the country of the mission strip empty until the address answers', () => {
+    service.hq.set({ lat: 48.77, lon: 9.18 });
+    expect(service.missionInfo()).toMatchObject({ country: '', city: '' });
+  });
+
   it('hands the portal bearing of each spawn on to the spawns the game creates from them', () => {
     service.spawns.set([{ lat: 48.86, lon: 2.29, portalBearing: 12 }, { lat: 48.87, lon: 2.3 }]);
     expect(service.editableSpawnLocations()).toEqual([

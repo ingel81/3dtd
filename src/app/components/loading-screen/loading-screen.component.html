@@ -34,6 +34,10 @@
         <span class="td-loading__mission-addr">{{ mission.address || '—' }}</span>
         <span class="td-loading__mission-sep" aria-hidden="true"></span>
         <span class="td-loading__mission-addr">{{ mission.postal }} {{ mission.city }}</span>
+        @if (mission.country) {
+          <span class="td-loading__mission-sep" aria-hidden="true"></span>
+          <span class="td-loading__mission-addr">{{ mission.country }}</span>
+        }
         <span class="td-loading__mission-sep" aria-hidden="true"></span>
         <span class="td-loading__mission-coords">
           {{ mission.lat | number:'1.4-4' }}° N ·

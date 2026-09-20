@@ -300,7 +300,10 @@ export class GeocodingService {
   }
 
   /**
-   * Format address as "Street 123, City" (same format everywhere)
+   * Format address as "Street 123, City, Country" (same format everywhere).
+   * The country is part of it since 2026-09-20: a city name alone says little
+   * about where in the world the player stands, and the dice sends them
+   * anywhere.
    */
   formatAddressShort(addr: NominatimAddress): string {
     const parts: string[] = [];
@@ -314,6 +317,10 @@ export class GeocodingService {
     const city = addr.city || addr.town || addr.village || addr.municipality;
     if (city) {
       parts.push(city);
+    }
+
+    if (addr.country) {
+      parts.push(addr.country);
     }
 
     return parts.length > 0 ? parts.join(', ') : UNKNOWN_LOCATION_NAME;
