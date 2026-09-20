@@ -50,6 +50,25 @@ describe('GameRng', () => {
     }
   });
 
+  it('takes the seed asked for before the reset, so a restart cannot draw over it', () => {
+    const rng = new GameRng(9);
+
+    rng.useNextSeed(4242);
+    rng.reset();                 // the restart's own reset, without a seed
+
+    expect(rng.seed).toBe(4242);
+  });
+
+  it('forgets the wish once it was used', () => {
+    const rng = new GameRng(9);
+    rng.useNextSeed(4242);
+    rng.reset();
+
+    rng.reset();
+
+    expect(rng.seed).not.toBe(4242);
+  });
+
   it('mulberry32 is the documented sequence, so a reference run keeps its numbers', () => {
     // Pinned: a change here silently rewrites every seeded run and every
     // reference file built from one.

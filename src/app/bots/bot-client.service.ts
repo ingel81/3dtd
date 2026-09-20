@@ -48,6 +48,15 @@ export interface BotCallbacks {
 export interface BotRunLog {
   current(): RunLog | null;
   drain(): RunLogRecord[];
+  /**
+   * End the open run now, if nobody has yet.
+   *
+   * Game over reaches the run log and the bot session as two independent
+   * listeners, in whatever order they subscribed. The session calls this
+   * before it drains, so the end record is written either way. Ending twice
+   * does nothing.
+   */
+  endRun(): void;
 }
 
 /** Abhängigkeiten, die nicht per DI kommen (component-scoped oder erst beim Start bekannt). */

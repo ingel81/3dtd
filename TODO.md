@@ -31,6 +31,13 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
 - [ ] **E10 Schaden je Gold je Tower-Typ** im Run-Bericht: Der Wellenblock kennt die Ausgaben nach Zweck, nicht nach
       Tower-Typ. Bau- und Upgrade-Preise je Typ aus den Ereignissen summieren
       ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), Stand 2c).
+- [ ] **E11 Eine Leiche zu viel im Körper-Abgleich** (Bot-Läufe, 2026-09-20): In einem Teil der Wellen meldet das
+      Run-Log `killed = spawned + 1`, bei `stood 0`, `alive 0` und ohne Lecks. Eine Ursache ist gefunden und weg
+      (Gegner in der Sterbeanimation wurden als lebend **und** als Kill gezählt, jetzt `getAliveCount()`), ein Rest
+      bleibt: ein `enemy:died` ohne zugehöriges `enemy:spawned` im selben Block. Verdacht: ein Gegner, der an der
+      Wellengrenze leckt und danach stirbt (Ooze), oder ein Split-Kind. Braucht eine Spur je Gegner-Id, nicht
+      weiteres Lesen. Verfälscht keine Kennzahl, fällt im Bericht als Spalte auf
+      ([docs/RUN_LOG.md](docs/RUN_LOG.md), Die Abgleiche).
 - [ ] **E2 Replay als Neu-Simulation** statt Aufzeichnung, vollständig korrekt (User, Playtest 553). Blocker und
       Lücken: [docs/REPLAY.md](docs/REPLAY.md).
 - [ ] **E4 Stone Golem: Laufgeräusch und Beben**: schwere Schritte, leichter Screen Shake in Kameranähe.

@@ -178,6 +178,7 @@ export class TowerDefenseFacadeService {
       runLog: {
         current: () => this.runLog.current(),
         drain: () => this.runLog.collector.drain(),
+        endRun: () => this.runLog.endRun(),
       },
       callbacks: {
         startWave: () => this.startWave(),
@@ -371,8 +372,12 @@ export class TowerDefenseFacadeService {
     // Initialize GSM→Store sync (EventBus events → Store signals)
     this.gameStateSync.initialize(this.gameState.getEventBus(), () => this.gameState.gameTimeMs);
     // The run log listens to the same bus and opens the run (docs/RUN_LOG.md)
+    // `botAutoMode` as well as `botEnabled`: the bot module loads on demand,
+    // and until it is there `botEnabled` is still false although the tab was
+    // opened to play bot runs. The first run of every tab was written as a
+    // human one and would have landed in the players' numbers.
     this.runLog.initialize(this.gameState, this.gameState.getEventBus(), () =>
-      this.botClient.botEnabled()
+      this.botClient.botEnabled() || this.botClient.botAutoMode()
         ? { player: 'bot', botSkill: this.botClient.botSkillLevel() }
         : { player: 'human' },
     );

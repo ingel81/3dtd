@@ -148,6 +148,15 @@ export interface RunLogWave {
   /** Killed with nobody credited, e.g. a wave that was cleared by a script. */
   killsByOther: number;
   leaked: number;
+  /**
+   * Enemies still standing when the block began, and when it ended.
+   *
+   * A block runs from the end of one wave to the end of the next, and enemies
+   * live across that seam: what the last wave left over dies in this one. Both
+   * numbers are needed to check the bodies, see `reconcileWave`.
+   */
+  enemiesAtStart: number;
+  enemiesAlive: number;
   healthStart: number;
   healthEnd: number;
   towers: RunLogTowerWave[];
@@ -178,10 +187,12 @@ export interface RunLog {
  * and the hole is what the analysis needs to see.
  *
  * - gold: start plus income minus spending is the end
- * - bodies: spawned equals killed plus leaked plus what is still alive
+ * - bodies: what stood at the start plus what spawned is killed, leaked or
+ *   still standing. The leftovers matter: a wave that hands two enemies to
+ *   the next block kills more than it spawned, and that is correct.
  * - towers: the towers' kills do not exceed the wave's tower kills
  */
-export function reconcileWave(wave: RunLogWave, enemiesAlive: number): string[] {
+export function reconcileWave(wave: RunLogWave): string[] {
   const mismatches: string[] = [];
 
   const income = sum(Object.values(wave.income));
@@ -193,9 +204,13 @@ export function reconcileWave(wave: RunLogWave, enemiesAlive: number): string[] 
 
   const kills = wave.killsByTower + wave.killsByHero + wave.killsByAbility
     + wave.killsByDebug + wave.killsByOther;
-  const accounted = kills + wave.leaked + enemiesAlive;
-  if (wave.enemiesSpawned !== accounted) {
-    mismatches.push(`bodies: spawned ${wave.enemiesSpawned}, killed ${kills} + leaked ${wave.leaked} + alive ${enemiesAlive}`);
+  const bodies = wave.enemiesAtStart + wave.enemiesSpawned;
+  const accounted = kills + wave.leaked + wave.enemiesAlive;
+  if (bodies !== accounted) {
+    mismatches.push(
+      `bodies: stood ${wave.enemiesAtStart} + spawned ${wave.enemiesSpawned}`
+      + ` = ${bodies}, killed ${kills} + leaked ${wave.leaked} + alive ${wave.enemiesAlive} = ${accounted}`,
+    );
   }
 
   const towerKills = sum(wave.towers.map((t) => t.kills));

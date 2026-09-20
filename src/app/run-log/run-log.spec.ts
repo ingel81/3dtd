@@ -211,10 +211,48 @@ describe('the run log', () => {
       // No wave:completed: the run ends inside the wave
       const run = log.close('defeat');
 
-      expect(waves()).toHaveLength(0);              // the log is closed
       const closedWaves = run!.records.filter((r): r is RunLogWave => r.kind === 'wave');
       expect(closedWaves.map((w) => w.wave)).toEqual([7]);
       expect(run!.records.at(-1)).toMatchObject({ kind: 'end', reason: 'defeat', waveReached: 7 });
+      expect(log.isOpen).toBe(false);
+    });
+
+    it('hands the last wave and the end record to a drain after the close', () => {
+      open();
+      bus.emit({ type: 'wave:started', wave: 3, enemyCount: 1 });
+      bus.emit({ type: 'wave:completed', wave: 3, credits: 0, perfect: false, closeCall: false, hpLost: 0 });
+      log.drain();                                  // the bot sent wave 3
+      bus.emit({ type: 'wave:started', wave: 4, enemyCount: 1 });
+
+      // Game over reaches the log first, the bot session second
+      log.close('defeat');
+      const fresh = log.drain();
+
+      expect(fresh.filter((r) => r.kind === 'wave').map((r) => (r as RunLogWave).wave)).toEqual([4]);
+      expect(fresh.at(-1)).toMatchObject({ kind: 'end', reason: 'defeat' });
+    });
+
+    it('ends the run once, whoever asks first', () => {
+      open();
+      bus.emit({ type: 'wave:started', wave: 2, enemyCount: 1 });
+
+      expect(log.close('defeat')).not.toBeNull();
+      expect(log.close('defeat')).toBeNull();      // the bot session, a moment later
+
+      const ends = log.current()!.records.filter((r) => r.kind === 'end');
+      expect(ends).toHaveLength(1);
+    });
+
+    it('writes nothing more once the run is closed', () => {
+      open();
+      bus.emit({ type: 'wave:started', wave: 2, enemyCount: 1 });
+      log.close('defeat');
+      const after = log.current()!.records.length;
+
+      kill('e1');
+      bus.emit({ type: 'wave:completed', wave: 2, credits: 10, perfect: false, closeCall: false, hpLost: 0 });
+
+      expect(log.current()!.records).toHaveLength(after);
     });
   });
 
@@ -292,10 +330,11 @@ describe('the run log', () => {
         income: { kill: 10 }, spending: { build: 60 },
         enemiesSpawned: 3, killsByTower: 3, killsByHero: 0, killsByAbility: 0,
         killsByDebug: 0, killsByOther: 0, leaked: 0,
+        enemiesAtStart: 0, enemiesAlive: 0,
         healthStart: 100, healthEnd: 100, towers: [],
       } as RunLogWave;
 
-      expect(reconcileWave(wave, 0)).toEqual(['gold: 100 + 10 - 60 = 50, end 500']);
+      expect(reconcileWave(wave)).toEqual(['gold: 100 + 10 - 60 = 50, end 500']);
     });
 
     it('names a wave whose bodies do not add up', () => {
@@ -304,12 +343,26 @@ describe('the run log', () => {
         creditsStart: 0, creditsEnd: 0, income: {}, spending: {},
         enemiesSpawned: 10, killsByTower: 4, killsByHero: 0, killsByAbility: 0,
         killsByDebug: 0, killsByOther: 0, leaked: 2,
+        enemiesAtStart: 0, enemiesAlive: 1,
         healthStart: 100, healthEnd: 90, towers: [],
       } as RunLogWave;
 
-      expect(reconcileWave(wave, 1)).toEqual([
-        'bodies: spawned 10, killed 4 + leaked 2 + alive 1',
+      expect(reconcileWave(wave)).toEqual([
+        'bodies: stood 0 + spawned 10 = 10, killed 4 + leaked 2 + alive 1 = 7',
       ]);
+    });
+
+    it('lets a wave kill what the one before it left standing', () => {
+      const wave = {
+        kind: 'wave', wave: 2, step: 0, timeMs: 0, durationMs: 0,
+        creditsStart: 0, creditsEnd: 0, income: {}, spending: {},
+        enemiesSpawned: 10, killsByTower: 12, killsByHero: 0, killsByAbility: 0,
+        killsByDebug: 0, killsByOther: 0, leaked: 0,
+        enemiesAtStart: 2, enemiesAlive: 0,
+        healthStart: 100, healthEnd: 100, towers: [],
+      } as RunLogWave;
+
+      expect(reconcileWave(wave)).toEqual([]);
     });
 
     it('passes a wave that adds up, and the collector then writes no mismatches', () => {

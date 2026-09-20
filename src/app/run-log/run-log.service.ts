@@ -79,6 +79,8 @@ export class RunLogCollector {
   private income: Partial<Record<CreditsSource, number>> = {};
   private spending: Partial<Record<CreditsSource, number>> = {};
   private enemiesSpawned = 0;
+  /** Enemies still standing when the block began; the last wave's leftovers. */
+  private enemiesAtStart = 0;
   private killsByTower = 0;
   private killsByHero = 0;
   private killsByAbility = 0;
@@ -96,6 +98,15 @@ export class RunLogCollector {
   private waveOpen = false;
   /** Records already handed to the bot server. */
   private drained = 0;
+  /**
+   * The run ended, but its records are still here to be picked up.
+   *
+   * Game over reaches two listeners: this log closes the run, and the bot
+   * session sends what is left to the server. Whoever runs second used to
+   * find an empty collector, so every bot run on the server lacked its last
+   * wave and its end record. The run stays readable until the next one opens.
+   */
+  private closed = false;
 
   /** The run so far, or null before one was opened. */
   current(): RunLog | null {
@@ -114,9 +125,9 @@ export class RunLogCollector {
     return fresh;
   }
 
-  /** True while a run is open. */
+  /** True while a run is open. A closed run can still be read and drained. */
   get isOpen(): boolean {
-    return this.head !== null;
+    return this.head !== null && !this.closed;
   }
 
   /**
@@ -127,6 +138,7 @@ export class RunLogCollector {
     this.world = world;
     this.records = [];
     this.drained = 0;
+    this.closed = false;
     this.wave = 0;
     this.beginBlock();
     this.nextSampleAtMs = 0;
@@ -158,7 +170,7 @@ export class RunLogCollector {
    */
   close(reason: RunEndReason): RunLog | null {
     const head = this.head;
-    if (!head) return null;
+    if (!head || this.closed) return null;
     this.flushOpenWave();
     this.records.push({
       kind: 'end',
@@ -167,7 +179,7 @@ export class RunLogCollector {
       waveReached: this.wave,
       reason,
     });
-    this.head = null;
+    this.closed = true;
     return { head, records: [...this.records] };
   }
 
@@ -272,7 +284,7 @@ export class RunLogCollector {
    * Reading the world costs a loop over the towers, so it stays at 1 Hz.
    */
   tick(): void {
-    if (!this.head || !this.world) return;
+    if (!this.isOpen || !this.world) return;
     const timeMs = this.timeMs();
     if (timeMs < this.nextSampleAtMs) return;
     this.nextSampleAtMs = timeMs + SAMPLE_INTERVAL_MS;
@@ -332,7 +344,7 @@ export class RunLogCollector {
   }
 
   private event(event: RunLogEventKind, fields: Partial<RunLogEvent> = {}): void {
-    if (!this.head) return;
+    if (!this.isOpen) return;
     this.records.push({
       kind: 'event',
       event,
@@ -344,7 +356,7 @@ export class RunLogCollector {
   }
 
   private book(delta: number, source: CreditsSource): void {
-    if (!this.head || delta === 0) return;
+    if (!this.isOpen || delta === 0) return;
     const into = delta > 0 ? this.income : this.spending;
     into[source] = (into[source] ?? 0) + Math.abs(delta);
   }
@@ -376,6 +388,7 @@ export class RunLogCollector {
     this.income = {};
     this.spending = {};
     this.enemiesSpawned = 0;
+    this.enemiesAtStart = this.world?.enemiesAlive() ?? 0;
     this.killsByTower = 0;
     this.killsByHero = 0;
     this.killsByAbility = 0;
@@ -414,7 +427,7 @@ export class RunLogCollector {
   }
 
   private onWaveCompleted(): void {
-    if (!this.head || this.wave <= 0) return;
+    if (!this.isOpen || this.wave <= 0) return;
     this.waveOpen = false;
 
     const towers = [
@@ -441,12 +454,14 @@ export class RunLogCollector {
       killsByDebug: this.killsByDebug,
       killsByOther: this.killsByOther,
       leaked: this.leaked,
+      enemiesAtStart: this.enemiesAtStart,
+      enemiesAlive: this.world?.enemiesAlive() ?? 0,
       healthStart: this.waveStartHealth,
       healthEnd: this.world?.baseHealth() ?? 0,
       towers,
     };
 
-    const mismatches = reconcileWave(record, this.world?.enemiesAlive() ?? 0);
+    const mismatches = reconcileWave(record);
     if (mismatches.length > 0) record.mismatches = mismatches;
 
     this.records.push(record);

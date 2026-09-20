@@ -37,6 +37,9 @@ const DEFAULT_BACKEND_URL = 'ws://localhost:3001';
 /** Connection timeout in ms */
 const CONNECTION_TIMEOUT = 5000;
 
+/** How long a client waits for the `run_config` of its next run. */
+const RUN_CONFIG_TIMEOUT_MS = 5000;
+
 /** Message types for WebSocket protocol */
 type ClientMessage =
   | { type: 'connect'; clientId: string; gameVersion: string }
@@ -96,6 +99,10 @@ export class BotSession {
 
   // === EVENT SUBSCRIPTIONS (cleanup on disconnect/re-connect) ===
   private eventSubscriptions: EventSubscription[] = [];
+
+  /** A run ended and the config of the next one has not arrived yet. */
+  private pendingRunConfig = false;
+  private runConfigTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor(private readonly signals: BotSignals, deps: BotDeps) {
     this.gameState = deps.gameState;
@@ -385,19 +392,21 @@ export class BotSession {
         this.eventSubscriptions.push(this.gameState.getEventBus().on('game:over', () => {
           if (this.signals.isConnected()) {
             // The wave the base fell in has no wave:completed; the run log
-            // writes its block at game over, and this send carries it.
+            // writes its block when the run ends, and this send carries it.
+            // Ending it here rather than waiting for the log's own listener:
+            // the two run in subscription order, and a send that came first
+            // left the end record behind in the collector.
+            this.runLog.endRun();
             this.sendRunLog(true);
             this.notifyGameOver(false, this.store.waveNumber());
 
-            // Start the next run. Nothing else does: `restartGame` was only
-            // wired to the backend's episode reset, which fires at wave 100 and
-            // therefore never, since runs end far earlier. Clients sat in the
-            // game-over phase indefinitely — three of four at one point — so
-            // most of the training capacity was idle, and `game_start` never
-            // fired again either, which left the deterministic-eval cadence
-            // stuck at the first game forever.
+            // The next run waits for its `run_config`. Restarting right here
+            // opened the next run log before the server's answer arrived, so
+            // its head carried the previous run's bot and a seed that
+            // `rng.reset` overwrote a moment later: every bot run was labelled
+            // one run late and none of them was reproducible.
             if (this.signals.botEnabled()) {
-              this.callbacks.restartGame();
+              this.awaitRunConfig();
             }
           }
         }));
@@ -502,6 +511,11 @@ export class BotSession {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
+    if (this.runConfigTimer !== null) {
+      clearTimeout(this.runConfigTimer);
+      this.runConfigTimer = null;
+    }
+    this.pendingRunConfig = false;
     if (this.socket) {
       this.socket.close();
     }
@@ -618,11 +632,50 @@ export class BotSession {
       if (this.signals.botEnabled()) this.enableBot(config.bot);
     }
     if (typeof config.seed === 'number') {
-      this.gameState.rng.reset(config.seed);
+      // Not `reset`: the restart below resets the source itself and would
+      // draw its own seed over this one.
+      this.gameState.rng.useNextSeed(config.seed);
     }
     if (config.directorParams && !useDirectorParams(config.directorParams)) {
       console.warn(`[Bots] unknown director parameter set '${config.directorParams}', keeping the current one`);
     }
+    // Everything the head has to name is set now, so the run starts here. The
+    // first config of a tab lands in a game that `?devworld` already started;
+    // restarting it throws away nothing but an empty board.
+    this.startConfiguredRun();
+  }
+
+  /**
+   * Wait for the config of the next run, then start it.
+   *
+   * The server answers a `game_over` with a `run_config`, so the wait is one
+   * round trip. If it never comes, the tab must not sit in the game-over
+   * screen for the rest of the batch: after the timeout the run starts with
+   * what the client has, which is a repeat of the last config.
+   */
+  private awaitRunConfig(): void {
+    this.pendingRunConfig = true;
+    if (this.runConfigTimer !== null) clearTimeout(this.runConfigTimer);
+    this.runConfigTimer = setTimeout(() => {
+      if (!this.pendingRunConfig) return;
+      console.warn('[Bots] no run_config within 5s, starting the next run with the last one');
+      this.startConfiguredRun();
+    }, RUN_CONFIG_TIMEOUT_MS);
+  }
+
+  /** Start the run the last `run_config` describes. */
+  private startConfiguredRun(): void {
+    this.pendingRunConfig = false;
+    if (this.runConfigTimer !== null) {
+      clearTimeout(this.runConfigTimer);
+      this.runConfigTimer = null;
+    }
+    // `botAutoMode` too, not only `botEnabled`: the first config of a tab can
+    // arrive while the bot is still being loaded, and that first run then kept
+    // a head without a bot and with the wrong seed. A human who connected by
+    // hand has neither flag set and keeps playing undisturbed.
+    if (!this.signals.botEnabled() && !this.signals.botAutoMode()) return;
+    this.callbacks.restartGame();
   }
 
   /**
