@@ -24,6 +24,7 @@ import {
   type CandidateReason,
 } from './templates';
 import type { DirectorDecision } from './director-rules';
+import { directorParams } from './director-params';
 import type { LeakStatus } from './leak-controller';
 import {
   ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
@@ -132,11 +133,17 @@ export function buildWaveConfig(
     // the defense cannot handle even the smallest wave the designer wrote,
     // and shipping the minimum anyway makes early runs far more lethal than
     // intended. Collapse the range onto the cap instead.
+    //
+    // `capSlack` is the headroom over it. At 1 the wave is exactly what the
+    // defense can plausibly kill, which is why it is never quite in danger;
+    // above 1 the cap only keeps a wave from being unwinnable
+    // (director-params.ts, and BALANCING_PLAN.md, Baseline).
+    const allowed = cap === null ? null : Math.max(1, Math.round(cap * directorParams().capSlack));
     let lo = countLo;
     let hi = dpsScaledMax;
-    if (cap !== null) {
-      lo = Math.min(lo, cap);
-      hi = Math.max(lo, Math.min(hi, cap));
+    if (allowed !== null) {
+      lo = Math.min(lo, allowed);
+      hi = Math.max(lo, Math.min(hi, allowed));
     }
     return { count: Math.max(1, Math.round(lo + (hi - lo) * countFactor)), cap };
   };

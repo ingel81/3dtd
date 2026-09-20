@@ -8,6 +8,7 @@ import {
   useDirectorParams,
 } from './director-params';
 import { decideWave } from './director-rules';
+import { dpsScaledCountMax } from './templates';
 
 describe('director parameter sets', () => {
   afterEach(() => resetDirectorParams());
@@ -27,6 +28,36 @@ describe('director parameter sets', () => {
     useDirectorParams('wide-band');
     expect(useDirectorParams('typo')).toBe(false);
     expect(directorParamsName()).toBe('wide-band');
+  });
+
+  it('campaign-size opens the whole count range to a weak defense', () => {
+    const range: [number, number] = [5, 85];
+    const weakDps = 40;
+
+    const withDefault = dpsScaledCountMax(range, weakDps);
+    useDirectorParams('campaign-size');
+    const withCampaign = dpsScaledCountMax(range, weakDps);
+
+    // Today a weak defense is handed the bottom of the range, whatever the
+    // campaign says the wave should be
+    expect(withDefault).toBeLessThan(20);
+    expect(withCampaign).toBe(range[1]);
+  });
+
+  it('campaign-size leaves a strong defense where it was', () => {
+    const range: [number, number] = [5, 85];
+    const strongDps = 100_000;
+
+    const withDefault = dpsScaledCountMax(range, strongDps);
+    useDirectorParams('campaign-size');
+
+    expect(withDefault).toBe(range[1]);
+    expect(dpsScaledCountMax(range, strongDps)).toBe(range[1]);
+  });
+
+  it('campaign-size gives the survivability cap headroom', () => {
+    expect(DIRECTOR_PARAM_SETS['campaign-size'].capSlack).toBeGreaterThan(1);
+    expect(DEFAULT_DIRECTOR_PARAMS.capSlack).toBe(1);   // the game plays the cap as it is
   });
 
   it('reaches the director: a steeper ramp is further along at the same wave', () => {

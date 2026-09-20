@@ -13,6 +13,7 @@
  */
 
 import { type ArmorType } from '../configs/combat/combat.types';
+import { directorParams } from './director-params';
 
 export type TemplateSpawnPattern = 'interleaved' | 'sequential' | 'clustered' | null;
 export type TemplateCapability = 'antiAir' | 'antiEthereal' | null;
@@ -607,9 +608,15 @@ export function lerpRange(range: NumberRange, t: number): number {
  * weak defense gets DPS_RAMP_FLOOR of the range, DPS_RAMP_COUNT DPS and more
  * the whole of it. The director never sends more, the fairness gate only
  * lowers it; NEXT in the WAVE panel shows it as the top of its range.
+ *
+ * `dpsRampWeight` decides how much of that is left. At 1 it is the rule
+ * above; at 0 the whole range is open whatever the defense does, and the wave
+ * follows the campaign instead of the player (director-params.ts).
  */
 export function dpsScaledCountMax(countRange: NumberRange, totalDps: number): number {
-  const frac = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDps / DPS_RAMP_COUNT));
+  const weight = directorParams().dpsRampWeight;
+  const byDps = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDps / DPS_RAMP_COUNT));
+  const frac = byDps + (1 - byDps) * (1 - weight);
   return lerpRange(countRange, frac);
 }
 

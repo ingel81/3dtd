@@ -347,6 +347,7 @@ export class GameLoopFacadeService {
       this.runLog.collector.noteDirectorDecision({
         template: aiConfig.templateName,
         reason: aiConfig.explanation?.reasons,
+        survivableCount: aiConfig.explanation?.sizing?.cap ?? null,
         leakMultiplier: this.waveDirector.leak.leakMultiplier,
         composition: aiConfig.enemies.map((group) => ({
           type: group.type,
