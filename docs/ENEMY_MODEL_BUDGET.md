@@ -653,18 +653,18 @@ mit allem, was ein Kill abspaltet.
 | Template | Kampagne | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
 | `rat_tide` | W2 | 5.000 | rat 100 % | 5,0 |
-| `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 3,6 |
+| `zombie_horde` | W1, W26 | 2.000 | zombie 90 %, zombie-v2 10 % | 3,6 |
 | `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
-| `wraith_storm` | W17, W27 | 300 | wraith 100 % | 2,4 |
+| `wraith_storm` | W17 | 300 | wraith 100 % | 2,4 |
 | `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,4 |
 | `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
 | `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 1,9 |
-| `ghost_surge` | W13, W23 | 350 | ghost 80 %, wraith 20 % | 1,8 |
-| `spider_swarm` | W6 | 800 | spider 100 % | 1,7 |
-| `hornet_strike` | W8, W26 | 300 | hornet 70 %, bat 30 % | 1,4 |
+| `ghost_surge` | W13, W24 | 350 | ghost 80 %, wraith 20 % | 1,8 |
+| `spider_swarm` | W6, W23 | 800 | spider 100 % | 1,7 |
+| `hornet_strike` | W8 | 300 | hornet 70 %, bat 30 % | 1,4 |
 | `light_mix` | W4 | 400 | wallsmasher 50 %, spider 50 % | 1,1 |
 | `penguin_rush` | W3 | 500 | penguin 90 %, rat 10 % | 0,9 |
-| `dragon_elite` | W12, W24 | 100 | dragon 60 %, hornet 40 % | 0,9 |
+| `dragon_elite` | W12, W27 | 100 | dragon 60 %, hornet 40 % | 0,9 |
 | `golem_squad` | W15 | 60 | stone-golem 100 % | 0,8 |
 | `tank_column` | W9, W22 | 150 | tank 60 %, zombie-soldier 40 % | 0,7 |
 | `wallsmasher_crew` | W5 | 200 | wallsmasher 100 % | 0,7 |
@@ -677,12 +677,12 @@ mit allem, was ein Kill abspaltet.
 
 | Gegner | Kampagnen-Wellen | max. in einer Kampagnenwelle |
 | --- | --- | ---: |
-| Bat | W7, W8, W21, W26 | 600 |
+| Bat | W7, W8, W21 | 600 |
 | Bear | W11, W16, W29 | 120 |
-| Dragon | W12, W24 | 60 |
-| Ghost | W13, W18, W23 | 280 |
+| Dragon | W12, W27 | 60 |
+| Ghost | W13, W18, W24 | 280 |
 | Herbert | W10, W20, W30 | 3 |
-| Hornet | W8, W12, W16, W24, W26, W29 | 210 |
+| Hornet | W8, W12, W16, W27, W29 | 210 |
 | Mammoth | W14, W18, W25 | 150 |
 | Mech | W28 | 100 |
 | Ooze | – | 0 |
@@ -691,16 +691,16 @@ mit allem, was ein Kill abspaltet.
 | Skeleton | W19 | 940 |
 | Skeleton Minion | W19 | 1.880 |
 | Slime Clump | – | 0 |
-| Spider | W4, W6 | 800 |
+| Spider | W4, W6, W23 | 800 |
 | Stone Golem | W15 | 60 |
 | Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 150 |
 | Wallsmasher | W4, W5, W14, W25 | 200 |
 | Skarnax | – | 0 |
 | Skarnax Segment | – | 0 |
 | Skarnax Tail | – | 0 |
-| Wraith | W13, W17, W23, W27 | 300 |
-| Zombie | W1, W10, W16, W20, W29, W30 | 1.800 |
+| Wraith | W13, W17, W24 | 300 |
+| Zombie | W1, W10, W16, W20, W26, W29, W30 | 1.800 |
 | Zombie Soldier | W9, W22 | 60 |
-| Zombie v2 | W1 | 200 |
+| Zombie v2 | W1, W26 | 200 |
 
 <!-- model-budget:end -->

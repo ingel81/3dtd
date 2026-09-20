@@ -284,28 +284,27 @@
   },
   {
     "wave": 23,
-    "template": "Ghost Surge",
-    "count": 81,
-    "spawnDelay": 211,
-    "variation": 0.3,
-    "strength": 3.017,
-    "pattern": "interleaved",
+    "template": "Spider Swarm",
+    "count": 455,
+    "spawnDelay": 182,
+    "variation": 0.25,
+    "strength": 2.474,
+    "pattern": null,
     "enemies": [
-      "ghostx65@3.017",
-      "wraithx16@3.017"
+      "spiderx455@2.474"
     ]
   },
   {
     "wave": 24,
-    "template": "Dragon Elite",
-    "count": 13,
-    "spawnDelay": 318,
+    "template": "Ghost Surge",
+    "count": 57,
+    "spawnDelay": 152,
     "variation": 0.254,
-    "strength": 5.173,
+    "strength": 3.344,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx8@5.173",
-      "hornetx5@5.173"
+      "ghostx46@3.344",
+      "wraithx11@3.344"
     ]
   },
   {
@@ -323,27 +322,28 @@
   },
   {
     "wave": 26,
-    "template": "Hornet Strike",
-    "count": 208,
-    "spawnDelay": 182,
-    "variation": 0.25,
-    "strength": 3.79,
+    "template": "Zombie Horde",
+    "count": 458,
+    "spawnDelay": 133,
+    "variation": 0.225,
+    "strength": 4.488,
     "pattern": "interleaved",
     "enemies": [
-      "hornetx146@3.79",
-      "batx62@3.79"
+      "zombiex412@4.488",
+      "zombie-v2x46@4.488"
     ]
   },
   {
     "wave": 27,
-    "template": "Wraith Storm",
-    "count": 112,
-    "spawnDelay": 179,
-    "variation": 0.241,
-    "strength": 3.924,
-    "pattern": null,
+    "template": "Dragon Elite",
+    "count": 27,
+    "spawnDelay": 427,
+    "variation": 0.291,
+    "strength": 5.106,
+    "pattern": "interleaved",
     "enemies": [
-      "wraithx112@3.924"
+      "dragonx16@5.106",
+      "hornetx11@5.106"
     ]
   },
   {
@@ -389,15 +389,15 @@
   },
   {
     "wave": 31,
-    "template": "Penguin Rush",
-    "count": 336,
-    "spawnDelay": 140,
-    "variation": 0.209,
-    "strength": 3.421,
+    "template": "Light Mix",
+    "count": 271,
+    "spawnDelay": 241,
+    "variation": 0.235,
+    "strength": 4.177,
     "pattern": "interleaved",
     "enemies": [
-      "penguinx302@3.421",
-      "ratx34@3.421"
+      "wallsmasherx136@4.177",
+      "spiderx135@4.177"
     ]
   },
   {
