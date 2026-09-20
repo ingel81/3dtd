@@ -866,7 +866,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewScale: 0.312,
     previewCameraDistance: 15,
     previewCameraAngle: 0,
-    previewOffsetY: 7,
+    // His body starts at 58 % of his height, so the camera aims below the middle of the box
+    previewOffsetY: 5.5,
   },
 
   hornet: {
