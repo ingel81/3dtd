@@ -463,23 +463,32 @@ describe('GameStateManager', () => {
         const center = { id: 't2', holdFire: false, typeConfig: { id: 'research-center', attackType: 'passive' } };
         const towers: Record<string, unknown> = { t1: archer, t2: center };
         vi.spyOn(gsm.towerManager, 'getById').mockImplementation((id) => (towers[id] ?? null) as never);
-        const setHoldFire = (gsm.tilesEngine as unknown as { towers: { setHoldFire: Mock } }).towers.setHoldFire;
+        const engine = gsm.tilesEngine as unknown as {
+          towers: { setHoldFire: Mock };
+          towerBadges: { setHoldFire: Mock };
+        };
+        const setHoldFire = engine.towers.setHoldFire;
+        const badge = engine.towerBadges.setHoldFire;
 
         bus.emit({ type: 'command:set-hold-fire', towerId: 't1', holdFire: true });
         expect(archer.holdFire).toBe(true);
         expect(setHoldFire).toHaveBeenLastCalledWith('t1', true);
         // A flame goes out at once, not only at the next sub-step
         expect((mockServices['TowerCombatService'] as Record<string, Mock>)['stopTowerBeam']).toHaveBeenCalledWith('t1');
+        // The pause sign over the tower comes with the grey model
+        expect(badge).toHaveBeenLastCalledWith('t1', true);
 
         bus.emit({ type: 'command:set-hold-fire', towerId: 't1', holdFire: false });
         expect(archer.holdFire).toBe(false);
         expect(setHoldFire).toHaveBeenLastCalledWith('t1', false);
 
         setHoldFire.mockClear();
+        badge.mockClear();
         bus.emit({ type: 'command:set-hold-fire', towerId: 't2', holdFire: true });
         bus.emit({ type: 'command:set-hold-fire', towerId: 'gone', holdFire: true });
         expect(center.holdFire).toBe(false);
         expect(setHoldFire).not.toHaveBeenCalled();
+        expect(badge).not.toHaveBeenCalled();
       });
     });
 

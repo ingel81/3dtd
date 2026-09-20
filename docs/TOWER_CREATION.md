@@ -600,7 +600,8 @@ Combat-Tower wählen ihr Ziel über eine `TargetingStrategy`. `defaultTargeting`
 
 ### Feuerpause
 
-Der letzte Knopf der Zielwahl-Zeile im Tower-Panel ("Hold fire", Icon `pause`, aktiv rot) schaltet `Tower.holdFire` über `command:set-hold-fire` ([EVENT_SYSTEM.md](EVENT_SYSTEM.md)). Solange er an ist, findet `Tower.findTarget()` nichts und lässt das gehaltene Ziel los; alle Kampfschleifen (Projektil, Strahl, Nahkampf, Kette) laufen damit in ihren Zweig ohne Ziel: kein Schuss, die Flamme geht aus, der Turm behält seine Richtung und schläft wie ohne Gegner ein. Verkaufen und Upgraden gehen weiter. `TowerLifecycle.setHoldFire` löscht eine Flamme sofort (auch in der Pause) und lässt `ThreeTowerRenderer.setHoldFire` das Modell ausgrauen (`tower-hold-fire.ts`: jede Materialfarbe wird ein Grau aus 22 % ihrer Helligkeit, Leuchten aus; die Originalfarben liegen im `userData` des Materials und kommen beim Einschalten exakt zurück). Sockel, Rang-Abzeichen und Ringe behalten ihre Farbe. Passive Gebäude (`attackType: 'passive'`) haben ein eigenes Panel ohne den Knopf, der Befehl lässt sie unverändert.
+Der letzte Knopf der Zielwahl-Zeile im Tower-Panel ("Hold fire", Icon `pause`, aktiv rot) schaltet `Tower.holdFire` über `command:set-hold-fire` ([EVENT_SYSTEM.md](EVENT_SYSTEM.md)). Solange er an ist, findet `Tower.findTarget()` nichts und lässt das gehaltene Ziel los; alle Kampfschleifen (Projektil, Strahl, Nahkampf, Kette) laufen damit in ihren Zweig ohne Ziel: kein Schuss, die Flamme geht aus, der Turm behält seine Richtung und schläft wie ohne Gegner ein. Verkaufen und Upgraden gehen weiter. `TowerLifecycle.setHoldFire` löscht eine Flamme sofort (auch in der Pause) und lässt `ThreeTowerRenderer.setHoldFire` das Modell ausgrauen (`tower-hold-fire.ts`: jede Materialfarbe wird ein Grau aus 22 % ihrer Helligkeit, Leuchten aus; die Originalfarben liegen im `userData` des Materials und kommen beim Einschalten exakt zurück). Sockel und Ringe behalten ihre Farbe. Über dem Tower steht dazu ein rotes Pause-Zeichen an der Stelle seines
+Rang-Abzeichens (`TowerBadgeRenderer.setHoldFire`, siehe [Veteranen-Ränge](#veteranen-ränge)). Passive Gebäude (`attackType: 'passive'`) haben ein eigenes Panel ohne den Knopf, der Befehl lässt sie unverändert.
 
 ---
 
@@ -648,8 +649,11 @@ sie nicht. Jeder Tower-Typ bekommt sie ohne eigene Config.
 - **Weg:** Die `GameLoopFacadeService` ruft jeden Frame `TowerManager.syncVeteranBadges`, der
   für jeden Tower den Rang aus `combat.kills` an `towerBadges.setRank` gibt; gleicher Rang ändert
   nichts. Das Abzeichen folgt damit den Kills, auch wenn sie ohne `tower:kill` gesetzt werden.
-  Ein Tower unter dem ersten Rang belegt keinen Slot. `TowerManager.remove` und `clear` nehmen die Abzeichen weg, der
+  Ein Tower unter dem ersten Rang und ohne Feuerpause belegt keinen Slot. `TowerManager.remove` und `clear` nehmen die Abzeichen weg, der
   Photo Mode blendet sie aus.
+- **Feuerpause:** Solange ein Tower pausiert (`Tower.holdFire`, siehe [Feuerpause](#feuerpause)), steht an der Stelle
+  seines Abzeichens ein Pause-Zeichen in `--td-health-red` (`towerBadges.setHoldFire`). Ein Tower ohne Rang bekommt
+  dafür einen Slot, nach dem Einschalten verschwindet sein Abzeichen wieder; mit Rang kommt der Rang zurück.
 - **Tower-Panel:** Rangzeile unter den Stat-Kacheln, siehe
   [DESIGN_SYSTEM.md → Veteranen-Rang](DESIGN_SYSTEM.md#veteranen-rang).
 

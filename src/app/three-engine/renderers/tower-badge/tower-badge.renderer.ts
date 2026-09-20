@@ -22,8 +22,10 @@ const MAX_BADGES = 512;
 const RENDER_ORDER = 998;
 
 interface Badge {
-  /** Rank level, 1 or higher */
+  /** Rank level, 0 for a tower that only holds fire */
   level: number;
+  /** The tower holds fire: the pause sign stands in for its rank */
+  hold: boolean;
   slot: number;
   /** Anchor written: the tower's model was there */
   anchored: boolean;
@@ -41,12 +43,13 @@ export function badgeStyle(level: number): [number, number, number] {
 
 /**
  * TowerBadgeRenderer: the veteran insignia above towers with a rank
- * (veteran-ranks.config.ts), all in one draw call. Built like the enemy
+ * (veteran-ranks.config.ts) and the pause sign over a tower holding fire
+ * (Tower.holdFire), all in one draw call. Built like the enemy
  * health bars: one InstancedBufferGeometry under a plain Mesh, the billboard
  * turned to the camera in the vertex shader, the chevrons and the star drawn
  * as distance fields in the fragment shader.
  *
- * A tower below the first rank takes no slot. The anchor is the top of the
+ * A tower below the first rank and not holding fire takes no slot. The anchor is the top of the
  * tower model's bounding box, which stands on the plinth and heightOffset,
  * measured once when the badge first shows; a model still loading is
  * measured on a later frame. Per frame only the two camera axes and the
@@ -90,7 +93,7 @@ export class TowerBadgeRenderer {
 
     // A zero style marks a free slot, so fresh and released slots draw nothing
     this.anchorAttribute = new InstancedBufferAttribute(new Float32Array(MAX_BADGES * 3), 3);
-    this.styleAttribute = new InstancedBufferAttribute(new Float32Array(MAX_BADGES * 3), 3);
+    this.styleAttribute = new InstancedBufferAttribute(new Float32Array(MAX_BADGES * 4), 4);
     geometry.setAttribute('aAnchor', this.anchorAttribute);
     geometry.setAttribute('aStyle', this.styleAttribute);
     this.geometry = geometry;
@@ -111,25 +114,48 @@ export class TowerBadgeRenderer {
   }
 
   /**
-   * Show rank `level` above tower `id`, 0 takes its badge down. A new rank
-   * rewrites only the insignia, the anchor stays.
+   * Show rank `level` above tower `id`, 0 takes its badge down unless it
+   * holds fire. A new rank rewrites only the insignia, the anchor stays.
    */
   setRank(id: string, level: number): void {
     const badge = this.badges.get(id);
-    if (level <= 0) {
-      if (badge) this.remove(id);
-      return;
-    }
     if (badge) {
       if (badge.level === level) return;
       badge.level = level;
+      if (level <= 0 && !badge.hold) {
+        this.remove(id);
+        return;
+      }
       if (badge.anchored) this.writeStyle(badge);
       return;
     }
+    if (level > 0) this.add(id, level, false);
+  }
 
+  /**
+   * The pause sign over tower `id` while it holds fire, in place of its
+   * rank; switching it off shows the rank again, or takes the badge down.
+   */
+  setHoldFire(id: string, hold: boolean): void {
+    const badge = this.badges.get(id);
+    if (!badge) {
+      if (hold) this.add(id, 0, true);
+      return;
+    }
+    if (badge.hold === hold) return;
+    badge.hold = hold;
+    if (!hold && badge.level <= 0) {
+      this.remove(id);
+      return;
+    }
+    if (badge.anchored) this.writeStyle(badge);
+  }
+
+  /** A badge with a fresh slot, anchored on the tower's model. */
+  private add(id: string, level: number, hold: boolean): void {
     const slot = this.slots.alloc();
     if (slot < 0) return;
-    const fresh: Badge = { level, slot, anchored: false };
+    const fresh: Badge = { level, hold, slot, anchored: false };
     this.badges.set(id, fresh);
     this.syncDrawCount();
     this.anchor(id, fresh);
@@ -140,7 +166,7 @@ export class TowerBadgeRenderer {
     const badge = this.badges.get(id);
     if (!badge) return;
     // Zero style before the release: uploadSlot wants a slot in use
-    this.styleAttribute.setXYZ(badge.slot, 0, 0, 0);
+    this.styleAttribute.setXYZW(badge.slot, 0, 0, 0, 0);
     this.slots.uploadSlot(this.styleAttribute, badge.slot);
     this.slots.release(badge.slot);
     this.badges.delete(id);
@@ -225,8 +251,8 @@ export class TowerBadgeRenderer {
   }
 
   private writeStyle(badge: Badge): void {
-    const [chevrons, star, gold] = badgeStyle(badge.level);
-    this.styleAttribute.setXYZ(badge.slot, chevrons, star, gold);
+    const [chevrons, star, gold] = badge.hold ? [0, 0, 0] : badgeStyle(badge.level);
+    this.styleAttribute.setXYZW(badge.slot, chevrons, star, gold, badge.hold ? 1 : 0);
     this.slots.uploadSlot(this.styleAttribute, badge.slot);
   }
 

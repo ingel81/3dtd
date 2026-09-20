@@ -25,8 +25,11 @@ function setup() {
   const renderer = new TowerBadgeRenderer(scene, (id) => models[id] ?? null);
   const mesh = scene.children[0] as Mesh;
   const geometry = mesh.geometry as InstancedBufferGeometry;
-  const triple = (name: string, slot: number) =>
-    Array.from(geometry.getAttribute(name).array.slice(slot * 3, slot * 3 + 3));
+  const items = (name: string, slot: number) => {
+    const attribute = geometry.getAttribute(name);
+    const size = attribute.itemSize;
+    return Array.from(attribute.array.slice(slot * size, slot * size + size));
+  };
   return {
     scene,
     models,
@@ -34,8 +37,8 @@ function setup() {
     mesh,
     geometry,
     material: mesh.material as ShaderMaterial,
-    anchorOf: (slot: number) => triple('aAnchor', slot),
-    styleOf: (slot: number) => triple('aStyle', slot),
+    anchorOf: (slot: number) => items('aAnchor', slot),
+    styleOf: (slot: number) => items('aStyle', slot),
   };
 }
 
@@ -73,7 +76,7 @@ describe('TowerBadgeRenderer', () => {
     renderer.setRank('t1', 1);
 
     expect(anchorOf(0)).toEqual([5, 13, 7]);
-    expect(styleOf(0)).toEqual([1, 0, 0]);
+    expect(styleOf(0)).toEqual([1, 0, 0, 0]);
     expect(geometry.instanceCount).toBe(1);
     expect(mesh.visible).toBe(true);
   });
@@ -86,7 +89,7 @@ describe('TowerBadgeRenderer', () => {
     models['t1'].position.y = 100;
     renderer.setRank('t1', 4);
 
-    expect(styleOf(0)).toEqual([3, 0, 1]);
+    expect(styleOf(0)).toEqual([3, 0, 1, 0]);
     expect(anchorOf(0)).toEqual([5, 13, 7]);
   });
 
@@ -94,13 +97,13 @@ describe('TowerBadgeRenderer', () => {
     const { models, renderer, anchorOf, styleOf } = setup();
     renderer.setRank('t1', 2);
     expect(renderer.count).toBe(1);
-    expect(styleOf(0)).toEqual([0, 0, 0]);
+    expect(styleOf(0)).toEqual([0, 0, 0, 0]);
 
     models['t1'] = towerModel(1, 2, 3, 4);
     renderer.update(new PerspectiveCamera(), 800);
 
     expect(anchorOf(0)).toEqual([1, 6, 3]);
-    expect(styleOf(0)).toEqual([2, 0, 0]);
+    expect(styleOf(0)).toEqual([2, 0, 0, 0]);
   });
 
   it('takes the badge down with its tower and hands the slot to the next one', () => {
@@ -111,13 +114,13 @@ describe('TowerBadgeRenderer', () => {
 
     renderer.remove('t1');
     renderer.remove('never-had-one');
-    expect(styleOf(0)).toEqual([0, 0, 0]);
+    expect(styleOf(0)).toEqual([0, 0, 0, 0]);
     expect(renderer.count).toBe(1);
     // Slot 1 is still in use
     expect(geometry.instanceCount).toBe(2);
 
     renderer.setRank('t3', 5);
-    expect(styleOf(0)).toEqual([0, 1, 1]);
+    expect(styleOf(0)).toEqual([0, 1, 1, 0]);
     expect(renderer.count).toBe(2);
   });
 
@@ -131,6 +134,48 @@ describe('TowerBadgeRenderer', () => {
     expect(mesh.visible).toBe(false);
   });
 
+  it('puts the pause sign over a tower holding fire, in place of its rank', () => {
+    const { models, renderer, mesh, styleOf } = setup();
+    models['t1'] = towerModel(0, 0, 0, 5);
+    renderer.setRank('t1', 2);
+
+    renderer.setHoldFire('t1', true);
+    expect(styleOf(0)).toEqual([0, 0, 0, 1]);
+    expect(mesh.visible).toBe(true);
+
+    renderer.setHoldFire('t1', false);
+    expect(styleOf(0)).toEqual([2, 0, 0, 0]);
+  });
+
+  it('gives a tower without a rank a badge while it holds fire, and takes it down after', () => {
+    const { models, renderer, mesh, styleOf } = setup();
+    models['t1'] = towerModel(0, 0, 0, 5);
+
+    renderer.setHoldFire('t1', true);
+    expect(renderer.count).toBe(1);
+    expect(styleOf(0)).toEqual([0, 0, 0, 1]);
+
+    renderer.setHoldFire('t1', false);
+    expect(renderer.count).toBe(0);
+    expect(mesh.visible).toBe(false);
+  });
+
+  it('keeps the badge of a tower holding fire while its rank stays none', () => {
+    const { models, renderer, styleOf } = setup();
+    models['t1'] = towerModel(0, 0, 0, 5);
+    renderer.setHoldFire('t1', true);
+
+    // The tower manager hands it every rank each frame
+    renderer.setRank('t1', 0);
+    expect(renderer.count).toBe(1);
+    expect(styleOf(0)).toEqual([0, 0, 0, 1]);
+
+    renderer.setRank('t1', 3);
+    expect(styleOf(0)).toEqual([0, 0, 0, 1]);
+    renderer.setHoldFire('t1', false);
+    expect(styleOf(0)).toEqual([3, 0, 0, 0]);
+  });
+
   it('clears every badge', () => {
     const { models, renderer, mesh, geometry, styleOf } = setup();
     models['t1'] = towerModel(0, 0, 0, 5);
@@ -139,7 +184,7 @@ describe('TowerBadgeRenderer', () => {
 
     expect(renderer.count).toBe(0);
     expect(geometry.instanceCount).toBe(0);
-    expect(styleOf(0)).toEqual([0, 0, 0]);
+    expect(styleOf(0)).toEqual([0, 0, 0, 0]);
     expect(mesh.visible).toBe(false);
   });
 
@@ -151,7 +196,7 @@ describe('TowerBadgeRenderer', () => {
     renderer.setRank('t1', 2);
 
     expect(mesh.visible).toBe(false);
-    expect(styleOf(0)).toEqual([2, 0, 0]);
+    expect(styleOf(0)).toEqual([2, 0, 0, 0]);
 
     renderer.setVisible(true);
     expect(mesh.visible).toBe(true);

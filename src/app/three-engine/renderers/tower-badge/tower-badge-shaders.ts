@@ -18,7 +18,7 @@ export const BADGE_FADE_END_M = 1100;
 
 const BADGE_VERTEX = /* glsl */ `
   attribute vec3 aAnchor; // top of the tower model, scene-local
-  attribute vec3 aStyle;  // chevrons (0..3), star (0/1), gold (0/1); neither chevron nor star = free slot
+  attribute vec4 aStyle;  // chevrons (0..3), star (0/1), gold (0/1), hold fire (0/1); all zero = free slot
 
   uniform vec3 uCameraRight;
   uniform vec3 uCameraUp;
@@ -27,7 +27,7 @@ const BADGE_VERTEX = /* glsl */ `
   uniform vec2 uFade;           // fade start, fade end (m)
 
   varying vec2 vP;
-  varying vec3 vStyle;
+  varying vec4 vStyle;
   varying float vFade;
 
   #include <common>
@@ -38,10 +38,10 @@ const BADGE_VERTEX = /* glsl */ `
     vFade = 1.0 - smoothstep(uFade.x, uFade.y, dist);
 
     // Free slots and badges faded out collapse to a clipped vertex
-    if (aStyle.x + aStyle.y <= 0.0 || vFade <= 0.0) {
+    if (aStyle.x + aStyle.y + aStyle.w <= 0.0 || vFade <= 0.0) {
       gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
       vP = vec2(0.0);
-      vStyle = vec3(0.0);
+      vStyle = vec4(0.0);
       vFade = 0.0;
       return;
     }
@@ -68,10 +68,11 @@ const BADGE_FRAGMENT = /* glsl */ `
 
   uniform vec3 uSilver;
   uniform vec3 uGold;
+  uniform vec3 uHold;
   uniform vec3 uOutline;
 
   varying vec2 vP;
-  varying vec3 vStyle;
+  varying vec4 vStyle;
   varying float vFade;
 
   #include <logdepthbuf_pars_fragment>
@@ -83,6 +84,10 @@ const BADGE_FRAGMENT = /* glsl */ `
   const float CHEVRON_GAP = 0.46;
   const float OUTLINE = 0.11;
   const float RIM = 0.07;
+  // Pause sign of a tower holding fire: two upright bars
+  const float PAUSE_HALF_GAP = 0.3;
+  const float PAUSE_HALF_HEIGHT = 0.5;
+  const float PAUSE_HALF_WIDTH = 0.17;
 
   float sdSegment(vec2 p, vec2 a, vec2 b) {
     vec2 pa = p - a;
@@ -118,7 +123,11 @@ const BADGE_FRAGMENT = /* glsl */ `
     float aa = length(fwidth(vP)) * 0.7;
 
     float d;
-    if (vStyle.y > 0.5) {
+    if (vStyle.w > 0.5) {
+      vec2 p = vP;
+      p.x = abs(p.x) - PAUSE_HALF_GAP;
+      d = sdSegment(p, vec2(0.0, -PAUSE_HALF_HEIGHT), vec2(0.0, PAUSE_HALF_HEIGHT)) - PAUSE_HALF_WIDTH;
+    } else if (vStyle.y > 0.5) {
       d = sdStar5(vP - vec2(0.0, -0.08), 0.86, 0.45);
     } else {
       float n = floor(vStyle.x + 0.5);
@@ -134,7 +143,7 @@ const BADGE_FRAGMENT = /* glsl */ `
     if (alpha < 0.01) discard;
 
     // Metal with a darker rim inside the dark outline: a step, not a gradient
-    vec3 metal = mix(uSilver, uGold, vStyle.z);
+    vec3 metal = mix(mix(uSilver, uGold, vStyle.z), uHold, vStyle.w);
     float rim = smoothstep(-aa, aa, d + RIM);
     vec3 color = mix(uOutline, mix(metal, metal * 0.62, rim), fill);
 
@@ -160,6 +169,7 @@ export function createBadgeMaterial(cameraRight: Vector3, cameraUp: Vector3): Sh
       uFade: { value: new Vector2(BADGE_FADE_START_M, BADGE_FADE_END_M) },
       uSilver: { value: new Color(TD_THEME.edgeHighlight) },
       uGold: { value: new Color(TD_THEME.goldLight) },
+      uHold: { value: new Color(TD_THEME.healthRed) },
       uOutline: { value: new Color(TD_THEME.panelShadow) },
     },
     vertexShader: BADGE_VERTEX,
