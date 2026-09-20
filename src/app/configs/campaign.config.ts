@@ -59,13 +59,19 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   { template: 'armor_gauntlet',   killGold:  6000, completionGold:  3000 }, // 18 — multi-armor mix
   { template: 'skeleton_swarm',   killGold:  8000, completionGold:  4000 }, // 19: mega-swarm checkpoint (skeletons, was a second rat_tide)
   { template: 'boss_herbert',     killGold: 12000, completionGold:  6000 }, // 20 — BOSS 2 (bonus peak)
+  // W21-29 used to be nine waves in a row that each demanded a different
+  // counter, with no wave in between to build in. Measured over 107 expert
+  // runs: 85% of them ended in waves 23 to 26, four of those nine. A missing
+  // answer did not cost a wave, it cost the chain. Two waves that ask for
+  // nothing but damage now sit between the specialists, and no two waves in a
+  // row ask for the same thing (BALANCING_PLAN.md, Tuning-Runde 2).
   { template: 'bat_swarm',        killGold: 10667, completionGold:  5333 }, // 21 — air pressure
   { template: 'tank_column',      killGold: 14667, completionGold:  7333 }, // 22 — heavy pressure
-  { template: 'ghost_surge',      killGold: 18667, completionGold:  9333 }, // 23 — ethereal pressure
-  { template: 'dragon_elite',     killGold: 24000, completionGold: 12000 }, // 24 — flying-heavy pressure
+  { template: 'spider_swarm',     killGold: 18667, completionGold:  9333 }, // 23 — breather: mass, no counter needed
+  { template: 'ghost_surge',      killGold: 24000, completionGold: 12000 }, // 24 — ethereal pressure
   { template: 'mammoth_siege',    killGold: 30000, completionGold: 15000 }, // 25 — fortified pressure
-  { template: 'hornet_strike',    killGold: 40000, completionGold: 20000 }, // 26 — air mass
-  { template: 'wraith_storm',     killGold: 53333, completionGold: 26667 }, // 27 — ethereal mass
+  { template: 'zombie_horde',     killGold: 40000, completionGold: 20000 }, // 26 — breather: mass, no counter needed
+  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667 }, // 27 — flying-heavy pressure
   { template: 'mech_army',        killGold: 73333, completionGold: 36667 }, // 28 — heavy mass
   { template: 'chaos_wave',       killGold: 93333, completionGold: 46667 }, // 29 — final mix
   { template: 'boss_herbert',     killGold:120000, completionGold: 60000 }, // 30 — BOSS 3 (season finale, bonus peak)

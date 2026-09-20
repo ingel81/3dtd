@@ -490,6 +490,55 @@ Golddruck bleibt bei 0,45. Bei 2,0 bricht auch der Könner ein.
 **Revidiert D8** ("Überlebbarkeits-Deckel und Leck-Regler behalten ihre volle Wirkung"): Der Deckel behält seine
 Wirkung, bekommt aber Luft. Entschieden vom User am 2026-09-21 auf diese Zahlen hin.
 
+### Tuning-Runde 1, bestätigt (190 Läufe)
+
+Die dünne Stichprobe von 37 und 39 Läufen durch je 83 und 107 ersetzt, alles auf `capSlack: 1,5`:
+
+| | Einsteiger | Könner |
+|---|---|---|
+| Läufe | 83 | 107 |
+| Median | 18 | 25 |
+| Spanne | 1 bis 26 | 17 bis 36 |
+| Wellen W10-20 mit Schaden | 43 % | **26 %** |
+| Entscheidungen je Welle | 6,0 | 17,8 |
+| Partiedauer | 30 min | 49 min |
+
+Der Abstand von sieben Wellen hält, das Mittelspiel des Könners kostet 26 % statt 17 %, und die Partie bleibt bei
+49 Minuten. Der Überlebbarkeits-Deckel bindet weiterhin in 92 bis 100 % der Wellen.
+
+**Woran die Läufe enden** (neue Tabelle im Bericht):
+
+| Könner | Einsteiger |
+|---|---|
+| W26 Hornet Strike, 31 Läufe | W21 Bat Swarm, 28 Läufe |
+| W24 Dragon Elite, 26 | W17 Wraith Storm, 19 |
+| W25 Mammoth Siege, 20 | W15 Golem Squad, 17 |
+| W23 Ghost Surge, 14 | W24 Dragon Elite, 7 |
+
+**85 % der Könner-Läufe enden in den Wellen 23 bis 26.** Der Einsteiger stirbt an Luft und Ethereal, also genau an
+den beiden Antworten, die er per Definition nicht erforscht. Das ist bei ihm gewollt; beim Könner nicht.
+
+### Tuning-Runde 2 (2026-09-21): Rhythmus der Kampagne ab W21
+
+W21 bis W29 waren neun Spezialwellen hintereinander, jede mit einer anderen Anforderung, und keine Welle
+dazwischen, in der nur gebaut wird. Neu, mit zwei Atempausen und ohne zwei gleiche Anforderungen in Folge:
+
+| Welle | vorher | neu | verlangt |
+|---|---|---|---|
+| 21 | Bat Swarm | Bat Swarm | Luft |
+| 22 | Tank Column | Tank Column | schwer |
+| 23 | Ghost Surge | **Spider Swarm** | nichts |
+| 24 | Dragon Elite | **Ghost Surge** | ethereal |
+| 25 | Mammoth Siege | Mammoth Siege | fortified |
+| 26 | Hornet Strike | **Zombie Horde** | nichts |
+| 27 | Wraith Storm | **Dragon Elite** | Luft, schwer |
+| 28 | Mech Army | Mech Army | schwer |
+| 29 | Chaos Wave | Chaos Wave | Mix |
+
+Hornet Strike und Wraith Storm entfallen in diesem Block; Luft bleibt bei 21, 27 und 29, Ethereal bei 24 (und bei
+W13 und W17 davor), schwer bei 22, 25 und 28. Das Wellengold je Wellennummer bleibt unverändert, es ist eine Kurve
+über die Wellennummer, nicht über das Template.
+
 ## 7. Phase 3: Kampagnenende und Tuning
 
 ### 3a Kampagnenende (D2, D9)
