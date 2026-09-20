@@ -13,25 +13,6 @@ export const GAME_BALANCE = {
     startCredits: 100, // Phase 5.16 playtest: enough for 2× Archer or 1× Research-Center + 25 reserve
   },
 
-  /** Combat values */
-  combat: {
-    /**
-     * Most HP a single wave may cost, however many enemies get through.
-     *
-     * Leak damage scales with the wave number (`enemyBaseDamageForWave`), so by
-     * wave 91 one leak is 10 HP — a tenth of the player's entire lifetime
-     * budget, and there is no healing anywhere in the game. Without a cap, one
-     * badly-countered wave (a ghost swarm against a roster with no magic, say)
-     * can take 30-50 HP and end a run outright, with nothing the player could
-     * still do about it.
-     *
-     * Capping turns the death spiral into a death slope: a catastrophic wave is
-     * a heavy, recoverable blow rather than the end. It also lets the wave
-     * director's OVERKILL penalty relax, since the rule now forbids the unfair
-     * wipe structurally instead of asking the AI to learn not to attempt it.
-     */
-    maxLeakDamagePerWave: 18,
-  },
 
   /** Status effects */
   effects: {

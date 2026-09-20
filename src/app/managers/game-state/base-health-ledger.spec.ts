@@ -4,7 +4,6 @@ import { GameEventBus } from '../../game-engine';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 
 const START = GAME_BALANCE.player.startHealth;
-const CAP = GAME_BALANCE.combat.maxLeakDamagePerWave;
 
 describe('BaseHealthLedger', () => {
   it('takes a leak and announces it', () => {
@@ -19,23 +18,20 @@ describe('BaseHealthLedger', () => {
     expect(changed).toHaveBeenCalledWith({ type: 'health:changed', health: START - 10, delta: -10 });
   });
 
-  it('caps the leak damage per wave until the budget is refilled', () => {
+  it('lets a wave take everything it walks in for', () => {
     const bus = new GameEventBus();
     const changed = vi.fn();
     bus.on('health:changed', changed);
     const ledger = new BaseHealthLedger(bus);
 
-    ledger.applyLeak(9999);
-    ledger.applyLeak(5); // budget spent: no damage, no event
-    expect(ledger.baseHealth()).toBe(START - CAP);
-    expect(changed).toHaveBeenCalledTimes(1);
+    // 500 enemies through the gate used to cost the same 18 HP as two
+    for (let i = 0; i < 20; i++) ledger.applyLeak(10);
 
-    ledger.refillLeakBudget();
-    ledger.applyLeak(5);
-    expect(ledger.baseHealth()).toBe(START - CAP - 5);
+    expect(ledger.baseHealth()).toBe(0);
+    expect(changed).toHaveBeenCalledTimes(10);   // the rest hits a base at zero
   });
 
-  it('adjusts outside the budget and above the start value', () => {
+  it('adjusts above the start value', () => {
     const ledger = new BaseHealthLedger(new GameEventBus());
     ledger.adjust(1000);
     expect(ledger.baseHealth()).toBe(START + 1000);

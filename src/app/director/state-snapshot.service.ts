@@ -296,17 +296,14 @@ export class StateSnapshotService {
 
   private onEnemyReachedBase(event: { enemy: { id: string; typeConfig: { id: string } }; damage: number }): void {
     // NOTE: `event.damage` is the NOMINAL leak cost. What the player actually
-    // loses is capped per wave (GAME_BALANCE.combat.maxLeakDamagePerWave), so
-    // the real figure is accumulated in `onHealthChanged` from the health
-    // delta. Counting the nominal value here reported 74% HP lost on waves
-    // that cost at most 18%, and the wave director would have been trained on
-    // damage that never happened.
+    // loses is accumulated in `onHealthChanged` from the health delta, which
+    // is also what a base already at zero stops paying.
     this.currentWave.enemyReachedBase(event.enemy.id, event.enemy.typeConfig.id, Date.now());
   }
 
   private onHealthChanged(event: { health: number; delta: number }): void {
-    // Actual HP lost, after the per-wave leak cap. This is the figure the
-    // reward is computed from; the nominal per-enemy cost is not.
+    // Actual HP lost. This is the figure the analysis is computed from; the
+    // nominal per-enemy cost is not.
     this.currentWave.healthChanged(event.health, event.delta);
   }
 

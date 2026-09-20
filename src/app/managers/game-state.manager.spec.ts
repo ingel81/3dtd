@@ -284,53 +284,28 @@ describe('GameStateManager', () => {
         expect(gsm.baseHealth()).toBe(initialHealth - 10);
       });
 
-      it('an ooze flowing in costs HP inside the same leak budget', () => {
-        const cap = GAME_BALANCE.combat.maxLeakDamagePerWave;
+      it('an ooze flowing in costs HP for every metre of it', () => {
         const before = gsm.baseHealth();
         bus.emit({ type: 'enemy:leaking', enemy: { id: 'ooze' } as never, damage: 2 });
         expect(gsm.baseHealth()).toBe(before - 2);
-        bus.emit({ type: 'enemy:leaking', enemy: { id: 'ooze' } as never, damage: 9999 });
+        bus.emit({ type: 'enemy:leaking', enemy: { id: 'ooze' } as never, damage: 3 });
         bus.emit({ type: 'enemy:reached-base', enemy: { id: 'ooze' } as never, damage: 1 });
-        expect(gsm.baseHealth()).toBe(before - cap);
+        expect(gsm.baseHealth()).toBe(before - 6);
       });
 
-      it('a single wave cannot cost more than the leak budget', () => {
-        // Late-game leaks are 10 HP each and nothing heals, so one wave with a
-        // missing counter could otherwise erase half a run. See
-        // GAME_BALANCE.combat.maxLeakDamagePerWave.
+      it('a wave costs what walks in, however much that is', () => {
+        // A wave used to cost at most 18 HP however many enemies got through,
+        // so five hundred of them did the same damage as two. The wave the
+        // player loses has to be allowed to decide the run (2026-09-20).
         const before = gsm.baseHealth();
-        bus.emit({
-          type: 'enemy:reached-base',
-          enemy: { id: 'e1' } as never,
-          damage: 9999,
-        });
-        expect(gsm.baseHealth()).toBe(before - GAME_BALANCE.combat.maxLeakDamagePerWave);
+        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e1' } as never, damage: 30 });
+        expect(gsm.baseHealth()).toBe(before - 30);
+        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e2' } as never, damage: 30 });
+        expect(gsm.baseHealth()).toBe(before - 60);
       });
 
-      it('the leak budget refills when the next wave starts', () => {
-        const cap = GAME_BALANCE.combat.maxLeakDamagePerWave;
-        const before = gsm.baseHealth();
+      it('health does not go below 0', () => {
         bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e1' } as never, damage: 9999 });
-        gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
-        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e2' } as never, damage: 9999 });
-        expect(gsm.baseHealth()).toBe(before - 2 * cap);
-      });
-
-      it('the leak budget refills when a manual wave begins, too', () => {
-        const cap = GAME_BALANCE.combat.maxLeakDamagePerWave;
-        const before = gsm.baseHealth();
-        vi.spyOn(gsm.waveManager, 'beginWave').mockImplementation(() => undefined);
-        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e1' } as never, damage: 9999 });
-        gsm.beginWave();
-        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e2' } as never, damage: 9999 });
-        expect(gsm.baseHealth()).toBe(before - 2 * cap);
-      });
-
-      it('health does not go below 0 across repeated waves', () => {
-        for (let w = 0; w < 20; w++) {
-          gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
-          bus.emit({ type: 'enemy:reached-base', enemy: { id: `e${w}` } as never, damage: 9999 });
-        }
         expect(gsm.baseHealth()).toBe(0);
       });
 
@@ -926,7 +901,6 @@ describe('GameStateManager', () => {
 
     describe('healBase()', () => {
       it('restores health to 100', () => {
-        // Within the per-wave leak cap, so the damage lands in full.
         bus.emit({
           type: 'enemy:reached-base',
           enemy: { id: 'e1' } as never,
@@ -977,7 +951,6 @@ describe('GameStateManager', () => {
       });
 
       it('debug:add-health changes health (clamped)', () => {
-        // 15 is inside the per-wave leak cap, so it lands in full.
         bus.emit({
           type: 'enemy:reached-base',
           enemy: { id: 'e1' } as never,

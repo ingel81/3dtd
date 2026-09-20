@@ -695,18 +695,23 @@ export class GameStateManager {
     // The last frame of the replay still has the enemies that broke through
     this.replayRecorder.finish('gameover');
     this.waveManager.phase.set('gameover');
+
+    // Before the field is cleared: the run log writes the block of the wave
+    // the base fell in, and its bodies only add up while the enemies that
+    // were standing can still be counted. `clear()` removes them without an
+    // `enemy:died`, so a log that looked afterwards found dozens of enemies
+    // vanished (docs/RUN_LOG.md, Die Abgleiche).
+    this.eventBus.emit({
+      type: 'game:over',
+      reason: 'base-destroyed',
+    });
+
     this.enemyManager.clear();
     this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
     this.towerManager.selectTower(null);
 
     // Delegate visual effects to HQDamageService
     this.hqDamage.triggerGameOverEffects();
-
-    // Emit game:over event
-    this.eventBus.emit({
-      type: 'game:over',
-      reason: 'base-destroyed',
-    });
   }
 
   // ============================================
@@ -732,7 +737,6 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
-    this.healthLedger.refillLeakBudget();
     this.waveManager.startWave(config);
   }
 
@@ -749,8 +753,6 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
-    // A manual wave is a wave all the same: its leaks get their own budget.
-    this.healthLedger.refillLeakBudget();
     this.waveManager.beginWave();
   }
 
@@ -762,7 +764,7 @@ export class GameStateManager {
     this.hqDamage.healBase();
   }
 
-  /** Debug: add (or take) base HP outside the leak budget, emits health:changed. */
+  /** Debug: add (or take) base HP, emits health:changed. */
   adjustBaseHealth(amount: number): void {
     this.healthLedger.adjust(amount);
   }

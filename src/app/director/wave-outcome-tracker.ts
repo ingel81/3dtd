@@ -144,8 +144,7 @@ export class WaveOutcomeTracker {
 
   /**
    * Health changed by `delta`. Only losses count as damage: this is the HP
-   * actually lost after the per-wave leak cap, the figure the reward is
-   * computed from.
+   * actually lost, the figure the analysis is computed from.
    */
   healthChanged(health: number, delta: number): void {
     if (delta < 0) {

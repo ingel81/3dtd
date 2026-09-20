@@ -393,14 +393,16 @@ Directors. Sie sind Design-Parameter, keine gelernten Werte:
 |---|---|---|
 | `endgameHpMultiplier(wave)` | `campaign.config.ts` | 1.0× bis W20, danach +5%/Wave, Cap 4.0× (W30 ≈ 1.5×, W50 ≈ 2.5×) |
 | `enemyBaseDamageForWave(wave)` | `campaign.config.ts` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
-| `maxLeakDamagePerWave` | `game-balance.config.ts` | **18**, Obergrenze dessen, was eine einzelne Welle kostet |
+Eine Welle kostet, was durchkommt. Der Spieler hat 100 Start-HP und **heilt
+nie**; ab W91 kostet ein einzelnes Durchkommen 10 HP.
 
-Der Leck-Cap ist die wichtigste der drei. Der Spieler hat 100 Start-HP und
-**heilt nie**; ab W91 kostet ein einzelnes Durchkommen 10 HP. Ohne Cap kann eine
-schlecht gekonterte Welle (Ghost-Swarm gegen ein Roster ohne Magic) 30–50 HP
-nehmen und den Run beenden, ohne dass der Spieler noch etwas hätte tun können.
-Der Cap macht aus der Todesspirale eine Todesschräge: eine katastrophale Welle
-ist ein schwerer, aber überlebbarer Treffer.
+Bis zum 2026-09-20 deckelte `maxLeakDamagePerWave` das bei 18 HP je Welle, aus
+Sorge vor der Todesspirale. Der Deckel ist weg (Entscheidung des Users): Er
+machte die verlorene Welle folgenlos, fünfhundert Gegner im HQ kosteten so viel
+wie zwei, und die Welle, die einen Lauf entscheidet, konnte ihn nicht mehr
+entscheiden. Was eine Welle winnbar hält, ist jetzt allein der
+Überlebbarkeits-Deckel des Wave-Directors, der sie nach der Verteidigung
+bemisst, bevor sie losläuft.
 
 ---
 
