@@ -1,10 +1,10 @@
 name: Desktop release
 
-# Builds the Windows installer and the Linux AppImage for a version tag and
-# puts them on one draft GitHub release, with latest.yml, latest-linux.yml and
-# the blockmap for the updater. Someone installs the draft, plays it and
-# publishes it; only a published release (not a pre-release) reaches the
-# updater of installed copies.
+# Builds the Windows installer and the Linux AppImage for a version tag, puts
+# them on one GitHub release with latest.yml, latest-linux.yml and the
+# blockmap for the updater, and publishes it once both are up. Publishing is
+# what reaches the updater of installed copies and what starts deploy.yml for
+# the web version and the landing page.
 # See docs/ELECTRON_DESKTOP_PLAN.md (E38 to E41).
 
 on:
@@ -164,3 +164,17 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: npx electron-builder --linux --config electron-builder.config.js --publish always
+
+  # Both files are up, so the draft goes live: the updater of installed copies
+  # and deploy.yml (web version and landing page) both hang on this moment.
+  publish:
+    needs: [release, appimage]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+    steps:
+      - name: Publish the release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest

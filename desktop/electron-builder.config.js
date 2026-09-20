@@ -59,7 +59,7 @@ module.exports = {
     },
   },
   appImage: {
-    artifactName: '${productName}-${version}.${ext}',
+    artifactName: '${productName}-${version}-linux-x64.${ext}',
   },
   nsis: {
     oneClick: true,
@@ -67,7 +67,8 @@ module.exports = {
     createDesktopShortcut: true,
     createStartMenuShortcut: true,
     deleteAppDataOnUninstall: false,
-    artifactName: '${productName}-Setup-${version}.${ext}',
+    // Name, version, platform, architecture: the releases list several files
+    artifactName: '${productName}-${version}-win-x64-setup.${ext}',
   },
 
   // Where electron-updater looks for new versions: the releases of the

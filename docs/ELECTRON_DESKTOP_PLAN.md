@@ -25,7 +25,7 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 | Diagnose | `electron-log` in eine Datei, DevTools per F12, Taste für "Log-Ordner öffnen" | Sporadische Bugs lassen sich nur mit Logs belegen. Open Source, DevTools verbergen nichts |
 | Tile-Zugang | Nur der Token-Dialog. **Keine** zweite Quelle `userData/config.json` | `localStorage` liegt unter Electron ohnehin in `userData` und überlebt Updates. Eine zweite Ablage wäre ein paralleles System ohne Mehrwert. Die mitgelieferte `runtime-config.json` (leerer Token) wird normal ausgeliefert |
 | Code-Signing | Erstes Release unsigniert, SmartScreen-Hinweis in Release-Text und README | Kosten siehe [Code-Signing](#code-signing). SignPath.io ist für AGPL-Projekte kostenlos, später |
-| Release-Ablauf | CI baut auf Tag `v*` einen **Release-Entwurf**. Nach dem Smoke-Test wird er von Hand veröffentlicht, als normales Release, nicht als Pre-release | Der Updater sieht nur veröffentlichte Nicht-Pre-releases. Der Entwurf verhindert, dass ein kaputter Build an alle Installationen geht |
+| Release-Ablauf | CI baut auf Tag `v*` Installer und AppImage in einen Entwurf und **veröffentlicht ihn selbst**, sobald beide oben liegen (Job `publish`), als normales Release, nicht als Pre-release | Der Updater sieht nur veröffentlichte Nicht-Pre-releases. Bis 0.3.1 blieb der Entwurf liegen und wurde nach einem Smoke-Test von Hand veröffentlicht; seit 0.3.2 auf Wunsch des Users automatisch, der Smoke-Test folgt dem Release. Die Tests des Spiels und der Desktop-Hülle laufen vorher im Build, ein roter Lauf veröffentlicht nichts |
 | Repo-Struktur | Unterprojekt `desktop/` mit eigener `package.json` und eigenem Lockfile | Hält die Electron-Abhängigkeiten aus dem Angular-Baum heraus |
 | App-Laden | Eigenes `app://`-Protokoll, registriert als `standard` + `secure` + `supportFetchAPI` + `stream` | Echte sichere Origin: Routing, Worker und WASM lösen sauber auf, kein `file://`-Sonderverhalten |
 | Cross-Origin-Isolation | Aus | `COEP: require-corp` blockiert die Tile-Fetches. ONNX wäre damit nur single-threaded, ist seit dem Regel-Director (2026-09-07) aber ohnehin Opt-in im Debug-Fenster |
@@ -292,8 +292,11 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   neue Version.) Schritte: `environment.ts` mit leeren Schlüsseln
   anlegen wie in `deploy.yml` (die Datei ist gitignored), Root `npm ci`,
   Production-Build mit `--base-href=/`, `desktop` `npm ci`, Tests, electron-builder mit
-  `--publish always`. Ergebnis: Release-Entwurf mit `3DTD-Setup-X.Y.Z.exe`,
-  `.blockmap` und `latest.yml`. **Geschrieben 2026-09-19**, YAML geprüft, aber noch nie
+  `--publish always`. Ergebnis: Release-Entwurf mit `3DTD-X.Y.Z-win-x64-setup.exe`,
+  `.blockmap` und `latest.yml`, dazu aus dem zweiten Job `3DTD-X.Y.Z-linux-x64.AppImage`
+  und `latest-linux.yml`. Die Namen tragen seit 0.3.2 Plattform und Architektur,
+  weil in einem Release mehrere Dateien liegen; bis 0.3.1 hießen sie
+  `3DTD-Setup-X.Y.Z.exe`. **Geschrieben 2026-09-19**, YAML geprüft, aber noch nie
   gelaufen: das geht erst mit einem gepushten Tag. Die Spiel-Tests laufen dort mit
   (`npx vitest run`), anders als im Web-Deploy.
 - **E41 Muss** `LICENSE` liegt im Installationsordner, dazu
@@ -488,13 +491,13 @@ liest.
    1. Changelog-Text entwerfen und dem User vorlegen; erst nach seinem OK weiter.
    2. Release-Commit: Abschnitt in `CHANGELOG.md`, `npm version X.Y.Z
       --no-git-tag-version`.
-   3. Tag `vX.Y.Z` pushen (nur auf Zuruf); `release.yml` baut den Entwurf.
-   4. Den Installer aus dem Entwurf herunterladen und prüfen (K8.1).
-   5. `electron` nach `main` bringen und `main` pushen, damit die neue `deploy.yml` dort
-      liegt (E46). Der Push deployt nichts. Für 0.3.1 ein Fast-Forward: `main` steht
-      auf v0.3.0, `electron` baut darauf auf.
-   6. Den Entwurf als normales Release veröffentlichen: Installierte Apps bekommen das
-      Update, `deploy.yml` bringt Web-Version und Landing Page live.
+   3. Tag `vX.Y.Z` pushen (nur auf Zuruf); `release.yml` baut Installer und AppImage
+      und veröffentlicht das Release selbst (Job `publish`). Damit bekommen installierte
+      Apps das Update, und `deploy.yml` bringt Web-Version und Landing Page live.
+   4. Den Installer aus dem Release herunterladen und prüfen (K8.1), das AppImage unter
+      Linux ebenso.
+   5. `main` auf den Tag nachziehen, damit die Workflows des Standard-Branches aktuell
+      sind (E46). Der Push deployt nichts.
 
    **0.3.1 veröffentlicht am 2026-09-19.** Der erste Lauf von `release.yml` scheiterte an
    einem Test-Timeout auf dem Windows-Runner (`80d04855`, Tag danach verschoben), der
