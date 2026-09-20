@@ -518,6 +518,19 @@ Zweige; dazugekommen sind das Ziel `linux` in `electron-builder.config.js`, das
 512-px-`build/icon.png` aus `scripts/make-icon.sh` und dasselbe PNG als Fensterbild
 im unverpackten Lauf (`.ico` versteht nur Windows).
 
+**Getestet am 2026-09-20** auf EndeavourOS (Arch, Kernel 7.1.8, Wayland, NVIDIA
+neben AMD): `chmod +x`, Start per Doppelklick aus dem Downloads-Ordner, Tiles,
+Straßen von Overpass und eine Partie liefen; der Updater meldete "Update for
+version 0.3.2 is not available", Fenstergröße und Token überlebten den Neustart.
+Zwei Befunde:
+
+- Chromium schreibt beim Start unter Wayland eine Fehlerzeile
+  (`'--ozone-platform=wayland' is not compatible with Vulkan`) und läuft weiter.
+  Sie kommt aus Chromium selbst, nicht aus dem Spiel; die Sitzung wählt Wayland
+  über die Umgebung. Nicht angefasst, solange nichts fehlt.
+- Die Startzeile im Log nannte jedes System "Windows"; seit `main.js` den
+  Namen aus `process.platform` bildet, steht dort Linux, macOS oder Windows.
+
 Bekannte Stolpersteine, beim ersten Test zu prüfen:
 
 - **FUSE:** Ein AppImage braucht FUSE 2. Ubuntu ab 22.04 und Arch installieren es
