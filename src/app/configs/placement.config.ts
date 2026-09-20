@@ -32,12 +32,17 @@ export const PLINTH_CONFIG = {
   /**
    * Height difference (m) under the footprint from which the tower stands on
    * its highest point with a plinth below. Less than that and it stays on the
-   * surface under the cursor, as before the plinth existed. 0.2 m keeps
-   * photogrammetry noise on paved ground (a few cm) and kerbs (10-15 cm)
-   * below it; the tower models sit up to 0.36 m deep in the ground anyway
-   * (median 0.1 m, min Y + heightOffset), which hides a step of that size.
+   * surface under the cursor, as before the plinth existed.
+   *
+   * 0.35 m since the playtest of 2026-09-20: on a straight street in Salem
+   * the archer's probes lay 0.23 m apart (`rule=agree`, 0.15 m of it above
+   * the cursor surface) and the tower got a plinth nobody wanted. A footprint
+   * of 7 m collects that much from the camber of the road, its kerbs and the
+   * noise of the photogrammetry; the old 0.2 m were set against "a few cm".
+   * The tower models sit up to 0.36 m deep in the ground anyway (median
+   * 0.1 m, min Y + heightOffset), so they hide a step of this size.
    */
-  MIN_UNEVENNESS: 0.2,
+  MIN_UNEVENNESS: 0.35,
 
   /**
    * A surface this far (m) above the one under the cursor is not ground under
