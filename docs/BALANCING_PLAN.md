@@ -462,6 +462,34 @@ ohne ihn bei 25 und 26. Die langen Läufe gibt es nicht mehr.
    Konter-Block sich anders anfühlt, sobald ein passendes Roster belohnt wird.
 4. Erst danach die Zielbänder (3b), nach jeder Runde mit demselben Stapel gemessen.
 
+### Tuning-Runde 1 (2026-09-21): Luft über dem Überlebbarkeits-Deckel
+
+749 Läufe über vier Einstellungen von `capSlack`, dem Faktor, mit dem der Deckel multipliziert wird, bevor er die
+Wellengröße beschneidet.
+
+| `capSlack` | Einsteiger | Könner | Abstand | Wellen W10-20 mit Schaden (Könner) | Partiedauer Könner |
+|---|---|---|---|---|---|
+| 1,0 (vorher) | 27 | 25 | **−2** | 17 % | 47 min |
+| 1,25 | 24 | 25 | +1 | 19 % | 49 min |
+| **1,5 (neu)** | **19** | **26** | **+7** | **27 %** | **50 min** |
+| 2,0 | 13 | 13 | 0 | 32 % | 29 min |
+
+Bei 1,5 stimmen die Kennzahlen des Plans zum ersten Mal gleichzeitig: Das Können-Gefälle zeigt in die richtige
+Richtung, das Mittelspiel kostet mehr als die angepeilten 22 %, die Partie wird dabei nicht kürzer, und der
+Golddruck bleibt bei 0,45. Bei 2,0 bricht auch der Könner ein.
+
+**Was die Runde nebenbei ergab:**
+
+- Der Deckel bindet in **nahezu jeder Welle** (100 % bis Welle 25). Die Wellengröße war damit keine
+  Designentscheidung mehr, sondern das Ergebnis einer Formel über die Verteidigung.
+- `dpsRampWeight` ist deshalb ein Knopf an nichts: Die DPS-Rampe legt eine Obergrenze fest, die der Deckel ohnehin
+  unterschreitet. Der Parametersatz `campaign-size` bleibt für die Runde, in der der Deckel lockerer sitzt.
+- Der Konter-Block bei Welle 22 bis 26 bewegte sich in **keiner** Einstellung. Er hängt an fehlenden Kontern, nicht
+  an der Wellengröße, und ist der nächste Punkt.
+
+**Revidiert D8** ("Überlebbarkeits-Deckel und Leck-Regler behalten ihre volle Wirkung"): Der Deckel behält seine
+Wirkung, bekommt aber Luft. Entschieden vom User am 2026-09-21 auf diese Zahlen hin.
+
 ## 7. Phase 3: Kampagnenende und Tuning
 
 ### 3a Kampagnenende (D2, D9)

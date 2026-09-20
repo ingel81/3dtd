@@ -170,9 +170,15 @@ Weitere Regeln, die gemessen wurden:
    `DPS_RAMP_FLOOR = 0.10` (`DPS_RAMP_COUNT = 500`, `DPS_RAMP_HP_MULT = 1000`).
 4. **Endgame-Multiplikator**: `hpMult *= endgameHpMultiplier(wave)`, W1 bis W20 ×1.0, danach +5 % je Welle,
    Deckel ×4.0 ab W80.
-5. **Überlebbarkeits-Deckel** (`survivableCount`, mit `leakMultiplier`). Der Deckel **interpoliert, statt zu
-   clampen**: Er wird in die Anzahl-Range hineingefaltet, sodass der Faktor "wie weit in das aktuell Erlaubte"
-   bedeutet. Liegt der Deckel *unter* `countRange[0]`, gewinnt der Deckel.
+5. **Überlebbarkeits-Deckel** (`survivableCount`, mit `leakMultiplier`), mal `capSlack` (heute **1,5**). Der
+   Deckel **interpoliert, statt zu clampen**: Er wird in die Anzahl-Range hineingefaltet, sodass der Faktor "wie
+   weit in das aktuell Erlaubte" bedeutet. Liegt der Deckel *unter* `countRange[0]`, gewinnt der Deckel.
+
+   `capSlack` ist die Luft darüber. Bei 1 ist die Welle genau das, was die Verteidigung töten kann, und deshalb
+   nie gefährlich: Gemessen über 749 Bot-Läufe kostete das Mittelspiel des Könners zwölf Wellen am Stück gar
+   nichts, und der schwächere Bot kam weiter als der stärkere. Bei 2 bricht beides zusammen, beide Bots sterben
+   im Median bei Welle 13. 1,5 ist das Maximum dazwischen
+   ([BALANCING_PLAN.md](BALANCING_PLAN.md), Tuning-Runde 1).
 6. **Dauer-Deckel.** `count × spawnDelay > 180_000 ms` komprimiert den Spawn-Abstand (`MIN_SPAWN_DELAY_MS = 5`).
    Danach **zweiter Pass** über den Überlebbarkeits-Deckel: Eine langsame Mega-Welle passiert ihn gerade *weil* ihr
    langes Spawn-Fenster der Verteidigung Zeit gibt, und die Kompression vervielfacht danach die Spawn-Rate.
