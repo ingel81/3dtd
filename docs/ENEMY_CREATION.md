@@ -37,7 +37,7 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
 | penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
-| skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, `animationSpeed: 0.93` (Beine passend zu 6 m/s), Template `skeleton_swarm` (Curriculum W19), `splitOnDeath`: ein Kill teilt ihn in 2 `skeleton-minion` (2026-09-13) |
+| skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, `animationSpeed: 0.93` (Beine passend zu 6 m/s), Template `skeleton_swarm` (Kampagne W19), `splitOnDeath`: ein Kill teilt ihn in 2 `skeleton-minion` (2026-09-13) |
 | skeleton-minion | unarmored | 6 | 7 | – | Nur aus dem Split eines Skeletons, kein Template. Gleiches Modell bei `scale: 2.4` in eigenem VAT-Pool, `animationSpeed: 1.82`, teilt sich nicht weiter |
 | wallsmasher | light | 200 | 4 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` (rennt 10 m/s, im Mittel 7 m/s), **silent-spawn** (kein `spawnSound`) |
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
@@ -58,8 +58,8 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | slime-clump | unarmored | 15 | 4.5 | – | Nur aus dem Split der Ooze, kein Template. `slime.glb` bei `scale: 0.9` (Hüpfer `Wobble`, Tod `Splat`), grünes Blut (`bloodColor`) |
 
 > **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden: Template
-> `golem_squad` (`src/app/ai/core/templates.ts`, `minWave: 14`) steht auf Wave 15
-> des Curriculums (`configs/wave-curriculum.config.ts`).
+> `golem_squad` (`src/app/director/templates.ts`, `minWave: 14`) steht auf Wave 15
+> des Curriculums (`configs/campaign.config.ts`).
 
 ---
 
@@ -442,7 +442,7 @@ Ooze; die Ooze teilt sich entlang ihres Körpers statt an einer Stelle (siehe
   verteilt sich auf alle Körper (`WaveManager.getExpectedBodyCount()`), ein Split
   erhöht es nicht. Ein durchgelaufenes Kind ist ein Leck. `enemy:split` erhöht
   Rest und Gesamtzahl im Wave-Panel und löst den Knochen-Burst aus.
-- **Fairness-Gate:** `fairMaxCount` rechnet mit der HP der ganzen Linie
+- **Überlebbarkeits-Deckel:** `survivableCount` rechnet mit der HP der ganzen Linie
   (`lineageHp`), einem Kill pro Körper (`splitBodyCount`) und bis zu einem Leck
   pro Ende des Split-Baums (`splitLeafCount`; Skeleton: 2).
 - **Kind-Typ:** ein eigener Eintrag in `ENEMY_TYPES` (eigener VAT-Pool, eigene
@@ -530,8 +530,7 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
   hinten (Front, bei gleicher Stelle der ältere Wurm zuerst). Eine Kette, die noch Segmente
   herausbringen muss, endet für die dahinter an ihrem Ursprung: Ein Wurm aus dem Portal wartet
   hinter einem platzierten, bis der ganz draußen ist.
-- **Director:** kein Template, kein Curriculum-Slot, nicht in `AI_ENEMY_ORDER`;
-  `ai-schema.json` und Encoder bleiben gleich. In Wellen kommt der Wurm über die
+- **Director:** kein Template, kein Kampagne-Slot. In Wellen kommt der Wurm über die
   Boss-Rotation ab W35 (`configs/boss-variants.config.ts`, siehe
   [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves)).
 - **Modelle:** `worm_head.glb`, `worm_segment.glb` und `worm_tail.glb`
@@ -612,7 +611,7 @@ außerdem über Custom Wave und das Enemy-Debug-Fenster.
 Grenzen:
 
 - Zielpunkte liegen auf den 2-m-Stationen, die Spitze wird auf die nächste Station gerundet.
-- Der Fairness-Gate dimensioniert eine Boss-Welle ohne den Gast.
+- Der Überlebbarkeits-Deckel dimensioniert eine Boss-Welle ohne den Gast.
 - Die Länge entlang der Route rechnen die Stationen wie die Bewegung mit Haversine, quer im
   lokalen Rahmen; Unterschiede im Zentimeterbereich.
 - Die Balance (3000 HP, Leck-Faktor 10, 80 m) ist nicht im Spiel getestet.
@@ -809,7 +808,7 @@ wallsmasher: {
 - [ ] Bei Boss: `isBoss: true`, nur wenn der Typ in keiner normalen Welle vorkommt (das Flag gilt pro Typ); optional `healthBarColor` (`immunityPercent` wird derzeit nicht ausgewertet)
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu groß/klein
 - [ ] `npm run model-budget` gelaufen, Zeile in [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md) liegt im Budget der Klasse
-- [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst, `npm run ai-schema` gelaufen (`lineageHp`, `bodies`, `maxLeaks`)
+- [ ] Bei `splitOnDeath`: Kind-Typ in `ENEMY_TYPES`, kein Zyklus, `countRange` der Templates an die HP der ganzen Linie angepasst
 - [ ] Bei `chain`: `segmentModel` als eigener Typ in `ENEMY_TYPES` (gleiche Werte, nur das Modell), `spacing` passend zur Segmentlänge, `maxSegments` im Blick auf Gegnerzahl und Wellendauer
 - [ ] Bei `ooze`: `lateralSpread: 0`, `modelUrl` nur für die Sidebar-Vorschau, `isBoss` nur ohne Template
 
@@ -819,15 +818,12 @@ wallsmasher: {
 
 Siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md) für Wave-Konfiguration.
 
-Gegner kommen über Wave-Templates in die Wellen: `ai/core/templates.ts`, Feld `enemies` mit
-Anteilen, dazu `minWave` und die Bereiche für Anzahl, Spawn-Delay und HP. Das Curriculum
-(`configs/wave-curriculum.config.ts`) legt fest, welches Template in welcher Welle läuft. Im
-Debug-Pfad ohne Director erscheint ein Typ nur, wenn ein Eintrag in `STATIC_WAVE_PROFILES`
-(gleiche Datei) ihn nennt. Nach Änderungen an den Templates `npm run ai-schema` laufen lassen, das spiegelt sie
-nach `training-backend/generated/ai-schema.json`.
+Gegner kommen über Wave-Templates in die Wellen: `director/templates.ts`, Feld `enemies` mit
+Anteilen, dazu `minWave` und die Bereiche für Anzahl, Spawn-Delay und HP. Das Kampagne
+(`configs/campaign.config.ts`) legt fest, welches Template in welcher Welle läuft.
 
 ```typescript
-// ai/core/templates.ts
+// director/templates.ts
 {
   id: 'skeleton_swarm',
   name: 'Skeleton Swarm',

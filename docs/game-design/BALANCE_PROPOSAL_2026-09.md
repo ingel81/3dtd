@@ -30,7 +30,7 @@ Rechenwege stehen jeweils dabei, Abschnitt 8 fasst sie zusammen.
    Basisreichweite 80 → 70 m.
 3. **Matrix:** Zielspreizung pro Rüstungsart von heute 1,5× bis 11,7× auf 3×
    bis 20×. Jede Schadensart bekommt mindestens eine Paarung ≤ 0,5, jede
-   Rüstungsart mindestens zwei Konter ≥ 1,2. Damit das Fairness-Gate die
+   Rüstungsart mindestens zwei Konter ≥ 1,2. Damit das Überlebbarkeits-Deckel die
    Spreizung nicht wegrechnet, bekommt es eine Untergrenze für den
    Matchup-Faktor (0,6, außer bei Ethereal).
 4. **Boss-Takt:** Ab W31 kommen heute praktisch keine Bosse mehr (0,7 pro
@@ -289,8 +289,8 @@ Schaden = DPS. Neu verlängert der Range-Track auch die Flamme: 20 m → 26,9 m 
 ### 2.5 Folge für die Economy
 
 Die Range-Tracks enden bei L10 und kosten dann 1.664 statt 17.148 (L20)
-Gold. Rechnung für den Ausbau, gegen den das Curriculum budgetiert ist
-(`wave-curriculum.config.ts:39-44`: jeder Tower einmal, Archer dreimal, alle
+Gold. Rechnung für den Ausbau, gegen den die Kampagne budgetiert ist
+(`campaign.config.ts:39-44`: jeder Tower einmal, Archer dreimal, alle
 Tracks L20, alle Forschungen, Research Center Stufe 3):
 
 | Posten | heute | neu |
@@ -299,17 +299,17 @@ Tracks L20, alle Forschungen, Research Center Stufe 3):
 | Forschung (Summe `research-tree.config.ts`) | 13.950 | 13.950 |
 | Research Center 75 + 120 + 216 (`tower-types.config.ts:445-452`) | 411 | 411 |
 | **Summe** | **632.834** | **431.542** |
-| Curriculum W1-30 (`wave-curriculum.config.ts:45-74`) | 791.000 | 791.000 |
+| Kampagne W1-30 (`campaign.config.ts:45-74`) | 791.000 | 791.000 |
 | Puffer | 25 % | 83 % |
 
 Etwa 200.000 Gold bis W30 werden frei. Die Spieler kaufen davon mehr Tower,
-das Fairness-Gate und der Gate-Controller vergrößern die Wellen
+das Überlebbarkeits-Deckel und der Leck-Regler vergrößern die Wellen
 entsprechend. Empfehlung: für den ersten Playtest nicht nachsteuern, aber
 messen. Wenn Spieler W30 mit mehr als 150.000 unverbrauchtem Gold oder mehr
-als 20 Towern erreichen, `goldKill`/`goldComplete` für W16 bis W30 um 20 %
+als 20 Towern erreichen, `killGold`/`completionGold` für W16 bis W30 um 20 %
 senken.
 
-Nebenbei: Der Kommentar in `wave-curriculum.config.ts:342-346` beziffert das
+Nebenbei: Der Kommentar in `campaign.config.ts:342-346` beziffert das
 Design-Roster mit „alle Tracks maxed“ auf 1,39 Mio. Gold. Nachgerechnet
 kostet es mit L25 1,90 Mio., mit L20 0,63 Mio.
 
@@ -341,11 +341,11 @@ Spitze schon tot ist, zählen beide Seiten.
 | 6 m, max. 8 Ziele | 3,5 / 5,7 | 2,0 / 3,0 | 1,5 / 2,0 | 1,2 / 1,3 |
 
 **Welche Abstände real vorkommen:** `s = Tempo × Spawn-Delay` pro Pfad. W2
-`rat_tide`: `spawnFactor ≈ 0,55 − 0,25 × 2/60 = 0,54` (`rule-director.ts:88`),
+`rat_tide`: `spawnFactor ≈ 0,55 − 0,25 × 2/60 = 0,54` (`director-rules.ts`),
 Delay `10 + 190 × 0,54 ≈ 113 ms` (`templates.ts:64`), Ratten 10 m/s
 (`enemy-types.config.ts:406`), also 1,1 m. Ab W60 fällt der Faktor auf 0,30,
 das Delay auf 67 ms, `s` auf 0,7 m. Der Wave-Duration-Cap komprimiert große
-Wellen zusätzlich (`wave-director.service.ts:475-485`). Verteilen sich die
+Wellen zusätzlich (`wave-director.ts`). Verteilen sich die
 Gegner auf mehrere Spawnpunkte, wird `s` pro Pfad größer, am Zusammenlauf vor
 dem HQ wieder kleiner. Abstände zwischen 0,5 und 3 m sind der Normalfall.
 
@@ -378,7 +378,7 @@ angewendet, in Klammern DPS pro Gold):
 4. **Splash trifft Luft**, obwohl die Cannon Luft nicht anvisieren kann.
 5. **Der Preis bremst nicht.** Bis W9 hat der Spieler 4.800 Gold eingenommen
    (100 Start, `game-balance.config.ts:13`, plus W1-8 aus
-   `wave-curriculum.config.ts:45-52`). Cannon samt Forschung (75 + 400 + 500 +
+   `campaign.config.ts:45-52`). Cannon samt Forschung (75 + 400 + 500 +
    150) kostet 1.125.
 
 Pro Gold ist die Cannon gegen unarmored nicht vorne. Der Playtest nimmt aber
@@ -450,9 +450,9 @@ keine unter 0,7 (siehe 3.2).
 3. **Jede Schadensart außer `physical` hat mindestens eine Paarung ≥ 1,3.**
    `physical` bleibt der Allrounder ohne Stärke, er ist der Starttower.
 4. **Jede Rüstungsart hat mindestens zwei Konter ≥ 1,2,** und beide sind
-   erforschbar, bevor das Curriculum die Rüstung zum ersten Mal schickt
+   erforschbar, bevor die Kampagne die Rüstung zum ersten Mal schickt
    (unarmored W1, light W4, heavy W9, fortified W10, ethereal W13;
-   `wave-curriculum.config.ts:45-57`).
+   `campaign.config.ts:45-57`).
 
 ### 4.3 Neue Matrix
 
@@ -527,15 +527,15 @@ Die Sidebar rechnet mit eigenen, hart codierten Schwellen
 **Capability-Gates.** `isAntiEtherealTower` gilt ab Ethereal-Multiplikator
 1,0 (`defense-analyzer.ts:35`, `:296-300`). Magic, Ice und Lightning bleiben
 darüber, alle anderen darunter: keine Änderung. Anti-Air hängt nicht an der
-Matrix. Der Regel-Director liest die Matrix nicht (`rule-director.ts`).
+Matrix. Der Regel-Director liest die Matrix nicht (`director-rules.ts`).
 
-**Fairness-Gate.** `fairMaxCount` rechnet mit `effectiveDPSPerArmor`, also
+**Überlebbarkeits-Deckel.** `survivableCount` rechnet mit `effectiveDPSPerArmor`, also
 Tower-DPS × Matrix (`defense-analyzer.ts:325-355`, `templates.ts:455-460`).
 Eine schlechte Paarung schrumpft die Welle, bis hinunter auf
 `FAIRNESS_MIN_COUNT = 5` plus Leck-Toleranz (`templates.ts:396`, `:507-510`).
 Die größere Spreizung würde also nicht zu harten Wellen führen, sondern zu
-kleinen. Der Gate-Controller regelt anschließend auf 8 bis 16 % Leck
-(`gate-controller.ts:52-53`). Wer mit Gatlings gegen Panzer antritt, bekäme
+kleinen. Der Leck-Regler regelt anschließend auf 8 bis 16 % Leck
+(`leak-controller.ts`). Wer mit Gatlings gegen Panzer antritt, bekäme
 ohne Gegenmaßnahme einfach weniger Panzer.
 
 Vorschlag: `FAIRNESS_MATCHUP_FLOOR = 0,6`. Das Gate rechnet für unarmored,
@@ -544,14 +544,14 @@ ausgenommen, sie sind harte Gates mit eigener Capability-Prüfung. Der Schaden
 einer schlecht gekonterten Welle bleibt durch `maxLeakDamagePerWave = 18`
 begrenzt (`game-balance.config.ts:36`). Umsetzung: zweites Feld
 `gateDpsPerArmor` in `DefenseAnalysis`, berechnet neben
-`calculateEffectiveDPSPerArmor`, gelesen von `fairMaxCount`. Der Python-Spiegel
+`calculateEffectiveDPSPerArmor`, gelesen von `survivableCount`. Der Python-Spiegel
 `schema.fair_max_count` muss mitziehen.
 
 Nebenwirkung: Eine Welle mit schlechter Paarung leckt mehr, der
-Gate-Controller nimmt daraufhin das Budget für alle folgenden Wellen zurück,
-nicht nur für diese Rüstung (`gate-controller.ts:99-110`).
+Leck-Regler nimmt daraufhin das Budget für alle folgenden Wellen zurück,
+nicht nur für diese Rüstung (`leak-controller.ts`).
 
-**DPS-Ramp** rechnet mit roher DPS (`wave-director.service.ts:409-411`),
+**DPS-Ramp** rechnet mit roher DPS (`wave-director.ts`),
 unverändert.
 
 **Trainings-Bots.**
@@ -563,14 +563,14 @@ unverändert.
   (`splash-defense-placement.strategy.ts:46-48`, `tower-strategy.interface.ts:97-101`)
   und würde die Cannon gegen Schwärme bauen, wo sie neu schwach ist. Ändern
   auf `getTowerValueVsArmor` gegen die erwartete Rüstungsverteilung.
-- Die A/B-Werte in `AI_WAVE_DIRECTOR_PLAN.md` gelten für die alte Matrix.
+- Die A/B-Werte in `WAVE_DIRECTOR.md` gelten für die alte Matrix.
   Vor und nach der Änderung einen Bot-Baseline-Lauf fahren (mittlere
   Runlänge, Leck-Quote, Near-Miss).
 - Das generierte Schema für das Backend enthält die Matrix nicht
   (`tools/ai-schema/generate.spec.ts`), der State-Encoder normiert
   effektive DPS mit 500 (`ai-schema.ts:174`). Keine Änderung nötig.
 
-**Economy.** Das Gold pro Welle ist fest (`goldBudgetForWave`), die Matrix
+**Economy.** Das Gold pro Welle ist fest (`waveGold`), die Matrix
 ändert es nicht. Das Design-Roster enthält bereits jeden Tower-Typ, die
 Spreizung verlangt also keinen Ausbau, den das Budget nicht vorsieht.
 `npm run economy-chart` kennt die Matrix nicht, `npm run tower-stats-chart`
@@ -599,35 +599,35 @@ wäre für die Feinabstimmung nützlich (optional).
 ### 5.1 Befund
 
 - W1 bis W30 sind die Bosse gepinnt: W10, W20, W30 `boss_herbert`
-  (`wave-curriculum.config.ts:54`, `:64`, `:74`).
-- Ab W31 liefert `templateForWave()` `null` (`wave-curriculum.config.ts:136-139`),
-  der Director wählt frei. Die TODO-Notiz „Curriculum loopt mod-30“ ist
+  (`campaign.config.ts:54`, `:64`, `:74`).
+- Ab W31 liefert `templateForWave()` `null` (`campaign.config.ts:136-139`),
+  der Director wählt frei. Die TODO-Notiz „Kampagne loopt mod-30“ ist
   überholt, nur `staticWaveProfileForWave` loopt noch (`:298-301`).
 - Die Maske erlaubt `bossOnly`-Templates nur bei `wave % 10 === 0`
   (`templates.ts:567`), sie **erzwingt** sie aber nicht. Der Regel-Director
   nimmt das älteste erlaubte Template, Gleichstand zufällig
-  (`rule-director.ts:112-125`), bei einer Historie von 5 Wellen
-  (`wave-director.service.ts:499-502`). An W40 steht der Boss im Gleichstand
+  (`director-rules.ts`), bei einer Historie von 5 Wellen
+  (`wave-director.ts`). An W40 steht der Boss im Gleichstand
   mit rund 14 anderen Templates.
-- **Simulation** (2.000 Läufe W1 bis W130 mit `getAvailableTemplateMask` und
-  `RuleDirector`, alle Capabilities vorhanden): 0,72 Bosswellen zwischen W31
+- **Simulation** (2.000 Läufe W1 bis W130 mit `candidateTemplates` und
+  `decideWave()`, alle Capabilities vorhanden): 0,72 Bosswellen zwischen W31
   und W130. Gedacht waren 10.
 - Es gibt genau ein Boss-Template (`templates.ts:282-295`).
 
 ### 5.2 Umsetzung
 
 1. `isBossWave(wave)` neben `templateForWave` in
-   `wave-curriculum.config.ts`: bis W30 `wave % 10 === 0`, danach
+   `campaign.config.ts`: bis W30 `wave % 10 === 0`, danach
    `wave % 5 === 0`.
-2. `getAvailableTemplateMask` bekommt das Ergebnis als Parameter (wie heute
-   `forcedTemplateId`, weil `templates.ts` die Curriculum-Datei nicht
+2. `candidateTemplates` bekommt das Ergebnis als Parameter (wie heute
+   `forcedTemplateId`, weil `templates.ts` die Kampagne-Datei nicht
    importieren darf, `templates.ts:536-538`). An Boss-Wellen jenseits des
    Curriculums kollabiert die Maske auf die `bossOnly`-Templates, die die
    Capability-Gates bestehen. An allen anderen Wellen bleiben sie gesperrt.
    Fallback wie heute, falls kein Boss-Template passt.
-3. Python-Spiegel `training-backend/schema.py:372-394` (`current_wave % 10`)
+3. Python-Spiegel `bot-server/schema.py:372-394` (`current_wave % 10`)
    anpassen, danach `npm run ai-schema`. Der Test
-   `tools/ai-schema/generate.spec.ts:257-268` prüft nur die Curriculum-Pins
+   `tools/ai-schema/generate.spec.ts:257-268` prüft nur die Kampagne-Pins
    und bleibt grün.
 4. Zwei weitere Boss-Templates, damit nicht jede fünfte Welle gleich
    aussieht: `boss_golem` (Stone Golem mit Mammut-Eskorte, fortified) und
@@ -638,15 +638,15 @@ wäre für die Feinabstimmung nützlich (optional).
 ### 5.3 Folgen
 
 - **Schwierigkeit:** Boss-Wellen tragen `hpMultRange` bis 6 × Endgame-Faktor
-  (`templates.ts:289`, `wave-curriculum.config.ts:101-104`). Alle fünf statt
+  (`templates.ts:289`, `campaign.config.ts:101-104`). Alle fünf statt
   praktisch nie macht das Late Game spürbar härter und kürzt die Runs.
 - **Gold:** Ab W35 zahlt jede Welle den Boden von 6.000 + 3.000 Gold
-  (`wave-curriculum.config.ts:337-386`), Bosse bekommen keinen Aufschlag.
+  (`campaign.config.ts:337-386`), Bosse bekommen keinen Aufschlag.
   Meilensteinbonus gibt es nur für W10/20/30/40 (`game-balance.config.ts:74`).
   Vorschlag: Boss-Wellen ab W31 zahlen das doppelte Budget.
-- **Fairness-Gate:** gewichtet Herbert mit seinem Anteil 0,0334, die
+- **Überlebbarkeits-Deckel:** gewichtet Herbert mit seinem Anteil 0,0334, die
   Wellengröße passt sich an. Keine Änderung nötig.
-- **Gate-Controller:** Boss-Wellen lecken voraussichtlich mehr, der Regler
+- **Leck-Regler:** Boss-Wellen lecken voraussichtlich mehr, der Regler
   nimmt danach für alle Wellen zurück. Alternative: Boss-Wellen nicht ins
   Leck-Fenster aufnehmen (offene Entscheidung 5).
 - **Bots:** keine neue Strategie nötig.
@@ -677,8 +677,8 @@ wäre für die Feinabstimmung nützlich (optional).
 | `combat-effect.service.ts:170-186` | Kandidaten nach Abstand sortieren, auf `splashMaxTargets` kürzen |
 | `tower-types.config.ts:264` | Cannon `range: 70` |
 | `templates.ts` (neben `:362`) | `FAIRNESS_MATCHUP_FLOOR = 0.6` |
-| `defense-analyzer.ts:325-355`, `models/game-state-snapshot.ts` | `gateDpsPerArmor` mit Floor, `fairMaxCount` liest es |
-| `training-backend/schema.py` | Floor in `fair_max_count` spiegeln |
+| `defense-analyzer.ts:325-355`, `models/game-state-snapshot.ts` | `gateDpsPerArmor` mit Floor, `survivableCount` liest es |
+| `bot-server/schema.py` | Floor in `fair_max_count` spiegeln |
 | `splash-defense-placement.strategy.ts:46-48` | Wert gegen erwartete Rüstungsverteilung |
 | `docs/game-design/MASTER_GAME_DESIGN.md` §2.3, §3 | Tabellen nachziehen |
 
@@ -699,7 +699,7 @@ wäre für die Feinabstimmung nützlich (optional).
 `requiredUpgradeTier` bleibt unverändert. Der Range-Track endet in Tier 2.
 
 **Schritt 3: Boss-Takt** (S bis M): Abschnitt 5.2, plus doppeltes Budget für
-Boss-Wellen ab W31 in `goldBudgetForWave` (`wave-curriculum.config.ts:368-386`).
+Boss-Wellen ab W31 in `waveGold` (`campaign.config.ts:368-386`).
 
 **Schritt 4: Economy** nach dem Playtest, siehe 2.5.
 
@@ -735,11 +735,11 @@ Boss-Wellen ab W31 in `goldBudgetForWave` (`wave-curriculum.config.ts:368-386`).
 3. Umgesetzt: degressive Stufen über `lateFromLevel` und `lateMultiplier`
    (`tower-types.config.ts`).
 4. Der Range-Track mit 10 Stufen ist umgesetzt. Das Gold ist nicht
-   nachgesteuert, der Kommentar am Curriculum hält das bis zum Playtest
+   nachgesteuert, der Kommentar am Kampagne hält das bis zum Playtest
    bewusst so.
-5. Boss-Wellen sind im Leck-Fenster geblieben; der `GateController`
+5. Boss-Wellen sind im Leck-Fenster geblieben; der `LeakController`
    behandelt sie nicht gesondert.
-6. Umgesetzt: `BOSS_GOLD_MULTIPLIER = 2` in `goldBudgetForWave`.
+6. Umgesetzt: `BOSS_GOLD_MULTIPLIER = 2` in `waveGold`.
 7. Halb: Tentacle True Damage gibt es im Code nicht, MASTER_GAME_DESIGN
    §3.10 nennt es gestrichen. Herbert trägt weiter `immunityPercent: 100`
    (`enemy-types.config.ts`), gelesen wird das Feld im Spiel nicht.
@@ -758,9 +758,9 @@ Boss-Wellen ab W31 in `goldBudgetForWave` (`wave-curriculum.config.ts:368-386`).
   Summe, mit Cap nur die ersten 8 Summanden (nächste zuerst). Abrunden des
   Splash-Schadens (`Math.floor`) vernachlässigt.
 - **Pulk-DPS:** Einzelziel-DPS × Splash-Faktor (nur Cannon) × Matrix.
-- **Boss-Simulation:** 2.000 Läufe, pro Welle `getAvailableTemplateMask(w,
-  true, true, recent, templateForWave(w))`, dann `RuleDirector.decide`,
-  Historie auf 5 gekürzt wie in `wave-director.service.ts:499-502`.
+- **Boss-Simulation:** 2.000 Läufe, pro Welle `candidateTemplates(w,
+  true, true, recent, templateForWave(w))`, dann `decideWave().decide`,
+  Historie auf 5 gekürzt wie in `wave-director.ts`.
 
 Das Rechenskript lag unter `tmp/balance-calc.ts` (nicht eingecheckt, `/tmp`
 steht in `.gitignore`). Es importiert die Configs direkt, die Zahlen lassen

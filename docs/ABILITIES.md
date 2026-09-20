@@ -38,7 +38,7 @@ Alle Werte stehen in `configs/abilities.config.ts` (`ABILITIES['nuclear-strike']
 | Wirkung | Radius 25 m, gemessen in 2D, also Boden und Luft; 60 % der Max-HP, Bosse (`isBoss`) 20 %; an der Schadensmatrix vorbei (`effect` der Art `max-hp-fraction`) |
 | Gold | jeder Kill zahlt seinen Anteil am Kill-Budget der Welle wie jeder andere, mit Gold-Popup, und zählt in KILLS und EARNED der Game-Over-Übersicht; kein Tower bekommt ihn gutgeschrieben, auch keinen Veteranenrang. Ein getötetes Skeleton splittet wie bei jedem Kill |
 | Schadenszahl | je getroffenem Gegner eine, die getöteten eingeschlossen: sein Anteil an den Max-HP, rot wie ein normaler Tower-Treffer (matrixfrei, `EFFECTIVENESS_COLORS.normal`). Der Schalter Damage Numbers gilt auch hier |
-| Wave-Director | Kills zählen im Fairness-Gate als Leck (siehe unten) |
+| Wave-Director | Kills zählen im Überlebbarkeits-Deckel als Leck (siehe unten) |
 
 Bosse: `isBoss` tragen `herbert`, der Wurm und die Ooze (Boss-Varianten ab W35). Steingolem und
 Drache führen die späteren Boss-Wellen an, laufen aber auch in `golem_squad` und
@@ -88,7 +88,7 @@ kein Wellengewinn. Der Radius liegt unter dem des Nuklearschlags (20 statt
 25 m). Die Forschung setzt Arcane Studies voraus: Mit Ice Magic (400) und
 Arcane Studies (650) kostet der Weg dahin 1.750 Gold Forschung, frühestens um
 W5 bis W6, praktisch nach dem ersten Luftangriff (W7), also nicht in den
-ersten Wellen, die das Curriculum ohne Fähigkeiten austariert. Bosse bleiben
+ersten Wellen, die die Kampagne ohne Fähigkeiten austariert. Bosse bleiben
 nur 1 s stehen, damit ein Boss-Lauf nicht mit einer Taste halbiert wird.
 
 ---
@@ -114,7 +114,7 @@ Maschinenwelle ist das EMP die stärkere Kontrolle, gegen alles andere eine
 kurze. Der Radius ist deshalb größer als bei der Frostbombe (30 statt 20 m).
 Die Forschung hängt an Storm Mastery (Lightning Tower); mit Ice Magic, Arcane
 Studies und Storm Mastery kostet der Weg 2.550 Gold Forschung, sie kommt also
-nach den ersten Wellen. Im Curriculum laufen Maschinen sicher in W9 und W22
+nach den ersten Wellen. Im Kampagne laufen Maschinen sicher in W9 und W22
 (`tank_column`) und W28 (`mech_army`).
 
 ---
@@ -187,7 +187,7 @@ GameStateManager.runSubStep
 |---|---|
 | `ability:used` | VFXService (Zielmarker; Rakete ab dem Silo, nur mit `launch`, die im Silo ist sofort weg), AudioService (Warnsirene des Nuklearschlags; mit `launch` Zündung, Triebwerks-Loop und Pfeifen im Sturzflug), ScreenShakeService (Start-Shake am Silo, nur mit `launch`, `ABILITY_LAUNCH_SHAKE`), je `abilityId` (siehe [Darstellung](#darstellung)) |
 | `ability:impact` | VFXService, AudioService, ScreenShakeService, je `abilityId` (siehe [Darstellung](#darstellung)) |
-| `ability:resolved` | AIDataCollectorService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
+| `ability:resolved` | StateSnapshotService (`abilityKills`, alle Fähigkeiten). Beim Nuklearschlag im selben Sub-Step direkt nach `ability:impact` |
 | `ability:rejected` | RefusalHintService: Name und Grund in der Kontext-Hinweis-Box, nicht für Befehle des Bots. Die UI prüft vor dem Scharfschalten und vor dem Klick selbst; was ihre eigene Prüfung ablehnt, meldet sie dort genauso ([DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#context-hint-box)) |
 | `ability:state-changed` | GameStateSyncService → `GameStore.abilities`; VFXService: Rakete im Silo sichtbar, solange eine Ladung bereit und kein Schlag unterwegs ist (`launchSiteLoaded`). Auch nach Bau und Verkauf eines Missile Silo: `TowerLifecycle.place` und `sell` rufen `AbilityManager.buildingChanged` auf, nachdem die Tower-Liste sich geändert hat, im Sub-Step des Befehls |
 
@@ -243,9 +243,9 @@ Entscheidung 6.1 b: Kills durch Fähigkeiten zählen für den Leck-Regler als
 Leck. Der Einsatz rettet HP und Gold in seiner Welle, macht aber die Wellen
 danach nicht größer.
 
-- `AIDataCollectorService` addiert die `kills` jedes `ability:resolved` einer
+- `StateSnapshotService` addiert die `kills` jedes `ability:resolved` einer
   Welle in `WaveOutcome.abilityKills`.
-- `gateLeakRatio(progress, abilityKills)` (`ai/core/gate-controller.ts`) zählt
+- `leakRatio(progress, abilityKills)` (`director/leak-controller.ts`) zählt
   sie zu den Ankünften. Ein getroffener Gegner hat als Fortschritt die Stelle,
   an der er starb, also unter 1, und zählt dadurch genau einmal.
 - Split: Ein Skeleton, das der Schlag tötet, geht durch `EnemyManager.kill()`
@@ -654,7 +654,7 @@ der Nuklearschlag seinen Knopf.
 | `services/refusal-hint.service.ts` | Warum ein Druck nichts tat, in der Kontext-Hinweis-Box (auch für den Helden) |
 | `services/combat/damage-application.service.ts` | `applyMaxHpFraction`, der matrixfreie Schadensweg |
 | `services/world/global-route-grid.service.ts`, `utils/global-route-grid.ts` | `snapToRouteCell`, `findNearestCell` |
-| `ai/core/gate-controller.ts` | `gateLeakRatio` |
+| `director/leak-controller.ts` | `leakRatio` |
 | `services/ability-targeting.service.ts` | Zielmodus |
 | `components/ability-bar/` | Fähigkeitenleiste; `ability-button.ts`: Zustand und Tooltip der Knöpfe |
 | `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
@@ -674,15 +674,15 @@ der Nuklearschlag seinen Knopf.
 | `utils/nuke-sound.ts` | Ton des Nuklearschlags, im Code synthetisiert: Knall und drei Stücke Grollen |
 | `utils/laser-sound.ts` | Einschlag des Orbitallasers, im Code synthetisiert; das Brennen ist ein Asset-Loop (`abilities/orbital_laser_beam.mp3`, AudioService) |
 | `utils/synth.ts` | Seed-Zufall, Tiefpass-Koeffizient und Normalisieren, geteilt mit den Ooze-Sounds |
-| `ai/training/strategies/ability/nuclear-strike.strategy.ts` | Bot, hält über die Vorwarnung vor |
-| `ai/training/strategies/placement/missile-silo-placement.strategy.ts` | Bot baut das Silo |
-| `ai/training/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
-| `ai/training/strategies/ability/emp.strategy.ts` | Bot des EMP |
-| `ai/training/strategies/ability/orbital-laser.strategy.ts` | Bot des Orbitallasers |
+| `bots/strategies/ability/nuclear-strike.strategy.ts` | Bot, hält über die Vorwarnung vor |
+| `bots/strategies/placement/missile-silo-placement.strategy.ts` | Bot baut das Silo |
+| `bots/strategies/ability/frost-bomb.strategy.ts` | Bot der Frostbombe; `ability-aim.ts`: Zielhilfen der Fähigkeits-Strategien |
+| `bots/strategies/ability/emp.strategy.ts` | Bot des EMP |
+| `bots/strategies/ability/orbital-laser.strategy.ts` | Bot des Orbitallasers |
 
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
-`integration/ability-strike.spec.ts`, `gate-controller.spec.ts`,
-`gate-wiring.spec.ts`, `ai-data-collector.ability-kills.spec.ts`,
+`integration/ability-strike.spec.ts`, `leak-controller.spec.ts`,
+`leak-wiring.spec.ts`, `state-snapshot.ability-kills.spec.ts`,
 `vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `missile-silo.spec.ts`, `integration/silo-missile.scenario.spec.ts`, `three-tower.renderer.spec.ts` (Nodes ein- und ausblenden), `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`, `replay-player.spec.ts` (Rakete und Startton im Replay),
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,

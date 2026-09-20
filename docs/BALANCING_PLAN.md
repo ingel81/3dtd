@@ -1,7 +1,7 @@
 # Balancing: Plan
 
-**Status:** Plan, nicht gebaut. Stand 2026-09-19. Ersetzt `RUN_DUMP_PLAN.md`, dessen Inhalt in Phase 2 aufgegangen
-ist. Der Eintrag E1 in [TODO.md](../TODO.md) verweist hierher. Entscheidungen stehen in Abschnitt 9.
+**Status:** Phase 1 und 2 gebaut (2026-09-20), Phase 3 ist Plan, der Rest ist Plan. Stand 2026-09-20. Ersetzt
+`RUN_DUMP_PLAN.md`, dessen Inhalt in Phase 2 aufgegangen ist. Der Eintrag E1 in [TODO.md](../TODO.md) verweist hierher. Entscheidungen stehen in Abschnitt 9.
 
 ## Ziel
 
@@ -117,7 +117,7 @@ unten). Vier Pakete; 1a bis 1c bauen aufeinander auf, 1d betrifft nur das Backen
 
 ### 1a Eine Wellenquelle, ONNX und Static-Profile raus
 
-- **ONNX:** `onnx-policy.ts` samt Spec, die ONNX-Teile von `wave-director.service.ts` (Modellzustand, Laden,
+- **ONNX:** `onnx-policy.ts` samt Spec, die ONNX-Teile von `wave-director.ts` (Modellzustand, Laden,
   Inferenz, `setEnabled`, `forceRuleMode`), die Begründung `by: 'model'` in Director und Explainer,
   `public/assets/ai/wave-director/` (in Git), `onnxruntime-web` in `package.json` samt Postinstall-Kopie der
   WASM-Dateien und Skript `export-ai`, der Ausschluss in `angular.json`, die Zeilen in `.gitignore`.
@@ -169,10 +169,52 @@ unten). Vier Pakete; 1a bis 1c bauen aufeinander auf, 1d betrifft nur das Backen
   `manage_server.py`, Start-Skripte, Logger, Dashboard mit Clients, Status und Steuerung.
 - **Umbenennen:** Ordner, Skill `/training` wird `/bots`, `scripts/start-training.*`, Konsolen-Tags `[Training]`.
 
+**Stand 1a (2026-09-20, gebaut):** ONNX-Policy, State-Encoder, `ai-schema.ts`, `tools/ai-schema/`, die Skripte
+`export-ai` und `ai-schema`, `onnxruntime-web` samt Postinstall und WASM-Ordner, der Wellen-Pfad des Backends
+(`state`, `wave_config`, `reset`, `model_exported`, `stats`), die Gegner-Aliase des Adapters, der Sperrgrund
+`trainingConnected` im Boss-Intro und die Static-Profile samt Dev-Kachel und `useStaticCurriculum` sind entfernt.
+`computeDpsByDamageType` liegt jetzt in `defense-analyzer.ts` und liefert rohe DPS statt des auf 0..1 normierten
+Werts, den nur das Netz brauchte. Mit `calculateWaveThreat` sind auch `lastWaveThreat` und die Forschungsquote
+(`ENCODER_RESEARCH_IDS`, `completedCount`, `totalCount`) gefallen, die nur der Encoder las. `tools/model-budget`
+zeigt statt des Static-Maximums das Maximum je Kampagnenwelle. `STATIC_WAVE_FALLBACK.md` ist gelöscht.
+
+**Stand 1b (2026-09-20, gebaut):** Die Namen aus Abschnitt 1 sind im Code, in den UI-Texten und in der Doku
+umgesetzt. `src/app/ai/core` ist `src/app/director/`, `src/app/ai/training` ist `src/app/bots/`. Die Maske aus 32
+Slots ist eine Kandidatenliste (`candidateTemplates()` liefert Indizes plus Begründung), `MAX_TEMPLATE_SLOTS` ist
+weg. `RuleDirector` ist die Funktion `decideWave()` in `director-rules.ts`, die vier Faktoren sind als
+`DirectorFactors` gebündelt. `WaveDirectorService` heißt `WaveDirector`, `AIDataCollectorService` heißt
+`StateSnapshotService` (er liefert den ganzen Snapshot, nicht nur die Verteidigung), `TrainingClientService` und
+`TrainingSession` heißen `BotClientService` und `BotSession`, `trainingTimescale` heißt `gameSpeed` (localStorage
+`game-speed`), das Debug-Fenster heißt "Bots". `WAVE_DIRECTOR.md` ist als `WAVE_DIRECTOR.md` neu
+geschrieben, ohne die RL-Geschichte. Offen aus 1b: das Backend und der Skill `/training` folgen in 1d.
+
+**Stand 1c (2026-09-20, gebaut):** `utils/game-rng.ts` (mulberry32) mit den Strömen `director`, `spawn`, `enemy`
+und `bot`; ein Lauf-Seed je Partie liegt als `GameStateManager.rng` und wird bei jedem Reset neu gezogen. Geseedet
+sind jetzt: Spawnpunkt (`WaveManager.setRandom`), Seitenversatz und Flughöhe (`EnemyManager.setRandom`), Jitter und
+Mischen im Spawn-Plan (`adaptDirectorWave(config, random)`), die Entscheidung des Directors
+(`getNextWave(random)`) und die Bot-Strategien samt Konfigurations-Jitter (`gameState.rng.stream('bot')`). VFX und
+Audio behalten `Math.random`. `GameClock` zählt Sub-Steps fortlaufend (`subStep`), weil die Spielzeit als Summe von
+16,667 ms driftet und als Index nicht taugt. Zwei Specs sichern das ab: `utils/game-rng.spec.ts` (Ströme
+unabhängig, Sequenz von mulberry32 gepinnt) und `director/determinism.spec.ts` (gleicher Seed, gleiche Wellen und
+Spawns; anderer Seed, andere Wellen; der Bot-Strom bewegt die Gegner nicht). Nicht geseedet und bewusst offen: die
+Auswahl der Spawnpunkte beim Laden eines Orts (`osm-street.service.ts`) und der Zufallsort im Würfel, beides
+Weltaufbau vor dem Lauf.
+
+**Stand 1d (2026-09-20, gebaut):** Aus `training-backend/` ist `bot-server/` geworden. Weg sind `core/` (Modell,
+PPO, Reward), `directors.py`, `schema.py`, `generated/ai-schema.json`, der ONNX-Export, der Trainings-Inspector,
+die Log-Analyse (die auf Reward-Einträgen rechnete; die neue kommt in 2c) und die Pytests für Director, Encoder,
+Leck-Regler, Reward und Schema. `torch`, `numpy` und `onnx` sind aus `requirements.txt`. `server.py` ist von 1573
+auf rund 260 Zeilen geschrumpft und nur noch Transport, Log und Fernbedienung: `connect`, `result`, `game_start`,
+`game_over`, `status` herein, `connected` und `control` hinaus. Das Dashboard zeigt Clients, Bot, Welle, lebende
+Gegner, Phase, Läufe je Stunde und Fehler, ohne Kurven (D13). Der Skill `/training` heißt `/bots` und beschreibt
+keinen Trainingslauf mehr. Im Protokoll heißt `trainingState` jetzt `runState`, und `game_start` trägt die
+Basis-HP der Gegner nicht mehr mit, die nur der Server-Decoder brauchte.
+
 ### Abnahme Phase 1
 
-- Vor dem Umbau schreibt ein Spec eine Referenzdatei: Wellen 1 bis 60 aus festen Zuständen mit fest injiziertem
-  Zufall. Nach jedem Paket liefert derselbe Spec dieselben Wellen.
+- `director/wave-reference.spec.ts` schreibt und prüft `wave-reference.json`: Wellen 1 bis 60 aus festen
+  Zuständen mit fest injiziertem Zufall, inklusive Boss-Rotation. Nach jedem Paket liefert derselbe Spec dieselben
+  Wellen; neu erzeugt wird die Datei nur mit `UPDATE_WAVE_REFERENCE=1`, der Diff ist dann das Review.
 - Specs, Build und Lint grün; `npm test` schreibt nichts mehr ins Backend.
 - Im Spiel: eine Partie mit Director, eine mit "Director aus", DevWorld mit Bot am Bot-Server.
 
@@ -283,6 +325,20 @@ Korridor-Fingerprint), Format-Version, Seed.
   neue Preload-Funktion; heute gibt die App dem Spiel nur Version und Update-Hinweis.
 - Kein Upload (D6). Andere Spieler exportieren ihren Lauf und schicken die Datei.
 
+**Stand 2a (2026-09-20, gebaut):** Das Run-Log liegt in `src/app/run-log/`, das Format in
+[RUN_LOG.md](RUN_LOG.md). Der Sammler hängt am Event-Bus, stempelt jeden Eintrag mit dem Sub-Step und schreibt je
+Welle einen Block; die Welle, in der die Basis fällt, bekommt ihren Block beim Game Over. Ein Block läuft vom Ende
+der letzten Welle bis zum Ende der nächsten, damit die Ausgaben der Aufbauphase zu der Welle gehören, die sie
+vorbereitet. Erweitert wurden `credits:changed` (Quelle), `enemy:died` (Verursacher), `tower:upgraded` (Zweig) und
+`wave:completed` (echter Betrag plus Aufteilung); Tempo und Pause liest das Log aus den Store-Signalen. Die
+Abgleiche (Gold, Körper, Tower) stehen als `mismatches` im Block, statt zu werfen. Gespeichert wird nach jeder
+Welle in IndexedDB (letzte 20 Läufe), auf dem Desktop zusätzlich als Datei in `%APPDATA%/3DTD/runs/`; Export über
+den Game-Over-Bildschirm und die Liste "Runs" in der Sidebar. `RunStatsTracker` ist entfallen, die
+Game-Over-Zahlen werden aus dem Log gefaltet (`run-summary.ts`). Der Commit im Kopf kommt aus
+`public/build-info.json` (`tools/build-info.mjs`, läuft vor `npm run build` und `npm start`).
+
+Offen aus 2a: Korridor-Fingerprint und Director-Parametersatz sind im Kopf vorgesehen, aber noch nicht gefüllt.
+
 ### 2b Bots und Bot-Server
 
 - **Zwei Bots (D15)** aus den heutigen Strategien:
@@ -300,6 +356,21 @@ Korridor-Fingerprint), Format-Version, Seed.
 - **Dashboard (D13):** Clients, laufender Bot, Welle, Läufe je Stunde, Fehler. Keine Kurven.
 - `BOT_SYSTEM.md` neu schreiben.
 
+**Stand 2b (2026-09-20, gebaut):** Aus vier Bots sind zwei geworden, `beginner` und `expert`
+(`bots/bots/tower-bot.interface.ts`); `casual` und `meta` hatten dieselben Strategie-Sets wie ihre Nachbarn. Der
+Könner hat eine neue Held-Strategie (`bots/strategies/hero/hero.strategy.ts`): anheuern, sobald der Vertrag
+erforscht und bezahlbar ist, Munition nach dem Rüstungsmix der Welle, Stellung beim dichtesten Pulk. Der Bot
+handelt nur noch über `command:*`, auch Bau, Verkauf und Held. Das Protokoll trägt jetzt `run_log` (Client zum
+Server, je Welle und am Ende) und `run_config` (Server zum Client: Bot, Seed, Parametersatz); `result` und
+`game_start` sind entfallen. Der Server schreibt die Zeilen nach `bot-server/runs/<config-hash>/<lauf>.jsonl` und
+vergibt vor jedem Lauf einen eigenen Seed je Client. Die Parametersätze stehen in `director/director-params.ts`
+(`default`, `steep-ramp`, `wide-band`, `fast-loop`); der Leck-Regler und die Rampe lesen sie, eine Partie eines
+Spielers läuft immer auf `default`.
+
+Abweichung vom Plan: Der Seed kommt nicht mit `control start`, sondern in einer eigenen Nachricht `run_config`.
+`control` ist ein Broadcast an alle Clients; ein Seed darin wäre für alle derselbe, und ein Batch hätte vier
+identische Läufe.
+
 ### 2c Auswertung
 
 - Ein Skript in `bot-server/` liest Bot-Läufe und exportierte menschliche Läufe gleich. Es gruppiert nach
@@ -308,6 +379,21 @@ Korridor-Fingerprint), Format-Version, Seed.
   Deckel, ungenutztes Gold, Ausgaben nach Zweck, Anteil und Schaden je Gold je Tower-Typ, Wellendauer, Entscheidungen
   je Welle.
 - **Baseline:** Einsteiger und Könner mit je etwa 50 festen Seeds in DevWorld, dazu deine Läufe auf echten Karten.
+
+**Stand 2c (2026-09-20, gebaut):** `bot-server/analyze_runs.py` macht aus einem Stapel Läufe einen HTML-Bericht.
+Es liest Bot-Läufe und exportierte Spieler-Läufe gleich (`analysis/run_reader.py`), gruppiert nach Balance-Stand,
+Parametersatz und Spieler, und nennt zwei Balance-Stände im Stapel oben im Bericht, statt sie zu mitteln. Der
+Bericht (`analysis/report.py`) ist eine Seite ohne Netz und ohne Skript, die Kurven sind eingebettetes SVG: HP-
+Verlust, Anteil der Wellen mit Schaden, Leck-Quote, Golddruck, Ausgaben, Entscheidungen, Wellendauer und
+überlebende Läufe je Welle, dazu die Tower-Anteile je Gruppe. Die Abgleiche aus dem Run-Log stehen als Spalte in
+der Übersicht, damit ein Lauf mit Loch in der Buchführung auffällt.
+
+Offen aus 2c: Schaden je Gold je Tower-Typ fehlt noch. Der Wellenblock kennt die Ausgaben nach Zweck, aber nicht
+nach Tower-Typ; dafür müsste der Bau- und Upgrade-Preis je Typ aus den Ereignissen summiert werden. Steht in
+TODO.md.
+
+**Die Baseline selbst ist keine Codeaufgabe:** Einsteiger und Könner je etwa 50 Läufe in DevWorld (`/bots`), dazu
+Läufe auf echten Karten, dann `analyze_runs.py`. Das ist der nächste Schritt vor Phase 3.
 
 ## 7. Phase 3: Kampagnenende und Tuning
 
@@ -387,6 +473,8 @@ Vom User am 2026-09-19:
 - **D17 Rhythmus:** Die Kampagne legt je Welle die Rolle fest (Einführung, Druck, Atempause, Boss), der Director
   setzt sie um: Atempause heißt Faktoren unten im Spielraum, Druck oben.
 
-Offen:
+Vom User am 2026-09-20:
 
-- **D7 Arbeitsweise:** Der User liest zuerst den ganzen Plan; danach wird entschieden, wie gebaut wird.
+- **D7 Arbeitsweise:** Paket für Paket, gebaut im Hauptthread, kein Worker-Team und keine Worktrees. Alles auf
+  einem Branch (`next`). Nach jedem Paket ein Zwischenbericht und die Abnahme des Users, bevor das nächste
+  beginnt.

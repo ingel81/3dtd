@@ -115,7 +115,7 @@ src/app/
 ├── replay/            replay of the last wave
 └── devworld/          offline dev environment
 
-training-backend/      optional Python side, PPO training for the wave director
+bot-server/            optional Python side: bot runs, their log and a dashboard
 desktop/               the desktop app: Electron shell around the same build
 ```
 
@@ -129,17 +129,16 @@ Waves aren't a fixed table. A director picks a template and four shape factors (
 many, how fast, how tough, how mixed) each wave, and a closed loop on the fraction of
 enemies that actually reach your base keeps the size honest.
 
-That director used to be a small neural net, trained with PPO in `training-backend/`
-and run in the browser through onnxruntime-web. It got replaced by a page of rules,
-because an A/B against a uniform random sampler said the net wasn't doing
-anything: three runs, statistically indistinguishable, and two trivial heuristics beat
-both. The interesting part is *why*, the curriculum and the fairness cap between them
-had left almost nothing to decide. Full write-up in
-[docs/AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md).
+That director used to be a small neural net, trained with PPO and run in the browser
+through onnxruntime-web. It got replaced by a page of rules, because an A/B against a
+uniform random sampler said the net wasn't doing anything: three runs, statistically
+indistinguishable, and two trivial heuristics beat both. The interesting part is *why*,
+the campaign and the survivability cap between them had left almost nothing to decide.
+Full write-up in [docs/WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md).
 
 So the game needs no Python, no model file and no ONNX runtime to run. The model path
-is still there behind a button in the debug window, kept for a future run trained on
-real player data instead of against a scripted bot.
+was removed with the rest of the training stack on 2026-09-20; the rules are the only
+director there is.
 
 ## Docs
 

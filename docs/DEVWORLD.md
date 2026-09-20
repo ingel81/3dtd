@@ -12,7 +12,7 @@ DevWorld ist eine alternative Spielwelt die ohne Google 3D Tiles funktioniert. S
 - **Schnelles Laden** (keine Tiles, kein Netzwerk)
 - **Offline-Development** (kein Netzwerk nötig)
 - **Deterministische Welten** (Seed-basiert reproduzierbar)
-- **AI Training** (schnelle Iterationen ohne API-Kosten)
+- **Bot-Läufe** (schnelle Iterationen ohne API-Kosten)
 
 ---
 
@@ -245,7 +245,7 @@ Regenerieren: `LocationFacadeService.refreshTerrainHeights()` räumt die Szene
 ## Training
 
 Mit `?devworld` schaltet `TowerDefenseFacadeService` den AI-Director ein
-(`useAIDirector`), verbindet `TrainingClientService` mit dem Backend und startet den Bot
+(`directorEnabled`), verbindet `BotClientService` mit dem Backend und startet den Bot
 `strategist` mit Auto-Waves, außer bei `?bot=manual`. Die Engine läuft auch im
 Hintergrund-Tab weiter (`setBackgroundLoopEnabled`), und nur in DevWorld zeigt der Header
 den Rendering-Schalter (headless). Trainings-Tabs öffnen `http://localhost:4200/?devworld`,

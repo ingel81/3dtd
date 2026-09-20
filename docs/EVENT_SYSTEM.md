@@ -62,10 +62,10 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `research:progress` | ResearchManager | GameStateSyncService | Vergangene Spielzeit je laufender Forschung (`elapsed`), höchstens alle 100 ms Wanduhr. Füllt `ResearchStore.researchElapsed`, das den Fortschrittsbalken treibt |
 | `ability:used` | AbilityManager (`use()`) | VFXService (je `abilityId`, etwa der Zielmarker; mit `launch` die Rakete ab dem Silo, die im Silo ist sofort weg), AudioService (Sirene des Nuklearschlags; mit `launch` Zündung, Triebwerks-Loop und Pfeifen), ScreenShakeService (Start-Shake, nur mit `launch`), OnboardingService | Ein Schlag ist unterwegs, die Ladung ist verbraucht (`abilityId`, `strikeId`, `target` auf die Route gesnappt, `radiusM`, `warningMs`; bei einem Strahl `path`, der Weg, den er brennen wird; beim Nuklearschlag `launch`, Tower-ID und Grundposition des Missile Silo, von dem die Rakete startet). Siehe [ABILITIES.md](ABILITIES.md) |
 | `ability:impact` | AbilityManager (im Sub-Step des Einschlags) | VFXService, AudioService, ScreenShakeService (je `abilityId` aus einer Tabelle, siehe [ABILITIES.md](ABILITIES.md#darstellung)) | Einschlag (`abilityId`, `strikeId`, `target`, `radiusM`; bei einem Strahl `path`, der Weg, den er brennt) |
-| `ability:resolved` | AbilityManager (wenn der Schlag vorbei ist; bei einem Schlag, der sofort wirkt, direkt nach `ability:impact`) | AIDataCollector | Treffer und Kills eines Schlags (`abilityId`, `strikeId`, `hits`, `kills`). Die Kills bucht das Fairness-Gate als Leck |
+| `ability:resolved` | AbilityManager (wenn der Schlag vorbei ist; bei einem Schlag, der sofort wirkt, direkt nach `ability:impact`) | AIDataCollector | Treffer und Kills eines Schlags (`abilityId`, `strikeId`, `hits`, `kills`). Die Kills bucht das Überlebbarkeits-Deckel als Leck |
 | `ability:rejected` | AbilityManager (`use()`) | RefusalHintService (Hinweis, nur bei einem Einsatz des Spielers) | Einsatz abgelehnt (`abilityId`, `reason`: `locked`, `no-launch-site`, `no-charge`, `no-wave`, `no-route`, `unknown`; `no-launch-site`: kein Missile Silo steht) |
 | `ability:state-changed` | AbilityManager | GameStateSyncService, OnboardingService, VFXService (Rakete im Silo sichtbar, solange eine Ladung bereit und kein Schlag unterwegs ist) | **Snapshot-Event** nach Freischaltung, Einsatz, Einschlag und Nachladen, und nach Bau und Verkauf eines Gebäudes, von dem eine Fähigkeit startet (`AbilityManager.buildingChanged`, aufgerufen von `TowerLifecycle`) (`abilities`). Füllt `GameStore.abilities` |
-| `hero:kill` | DamageApplicationService (Kill eines Schusses mit Quelle `hero`, nach dessen `enemy:died`) | HeroManager (Kills, Stufe) | Der Held hat getötet (`enemy`). Für das Fairness-Gate ein Kill wie der eines Towers, kein Leck. Siehe [HERO.md](HERO.md) |
+| `hero:kill` | DamageApplicationService (Kill eines Schusses mit Quelle `hero`, nach dessen `enemy:died`) | HeroManager (Kills, Stufe) | Der Held hat getötet (`enemy`). Für das Überlebbarkeits-Deckel ein Kill wie der eines Towers, kein Leck. Siehe [HERO.md](HERO.md) |
 | `hero:level-up` | HeroManager | VFXService ("LEVEL N") | Neue Stufe durch Kills (`level`, `position`) |
 | `hero:rejected` | HeroManager | RefusalHintService (Hinweis, nur bei einem Befehl des Spielers) | Befehl abgelehnt (`reason`: `locked`, `hired`, `credits`, `no-hero`, `no-route`, `unknown-ammo`) |
 | `hero:state-changed` | HeroManager | GameStateSyncService, OnboardingService | **Snapshot-Event** nach Freischaltung, Anheuern, Befehl, Ankunft, Kill und Munitionswechsel (`hero`). Füllt `GameStore.hero` |
@@ -89,8 +89,8 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 >    die Welle regulär fertig wird. Fällt die Basis, setzt
 >    `GameStateManager.triggerGameOver()` die Phase direkt auf `gameover`. Wer
 >    *jede* Welle sehen muss, auch die, die den Run beendet hat, muss
->    an `AIDataCollectorService.onWaveResult()` hängen; das ist der einzige
->    Punkt, den beide Pfade passieren. Der `GateController` ist daran fast
+>    an `StateSnapshotService.onWaveResult()` hängen; das ist der einzige
+>    Punkt, den beide Pfade passieren. Der `LeakController` ist daran fast
 >    gescheitert: sein Death-Backoff war über das Event schlicht unerreichbar.
 > 2. **Reihenfolge gegen `game:over`.** Zerstört der letzte Leaker einer Welle
 >    die Basis, feuern beide für dieselbe Wave-Nummer. Der Wave-Complete-Check

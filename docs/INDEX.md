@@ -30,9 +30,9 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | Aktuell | Status-Effekt-System (Slow, Burn, Poison, Freeze als Halt, Stun) |
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Aktuell | Wave-Management, Sub-Step-Spawner, Mixed Waves, Game Phases |
 | [ABILITIES.md](ABILITIES.md) | Aktuell | Spieler-Fähigkeiten (Nuklearschlag aus dem Missile Silo, Frostbombe, EMP, Orbitallaser), Fähigkeitenleiste: Ladungen, Zielmodus, Einschlag in Sub-Steps, Leck-Buchung im Gate, Bot-Strategie |
-| [HERO.md](HERO.md) | Aktuell | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition als Schadensart, Stufen, virtueller Tower im Fairness-Gate, Modell-Naht, Bedienung (G, V) |
+| [HERO.md](HERO.md) | Aktuell | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition als Schadensart, Stufen, virtueller Tower im Überlebbarkeits-Deckel, Modell-Naht, Bedienung (G, V) |
+| [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay der letzten Welle: warum Präsentations-Aufnahme statt Re-Simulation, Aufnahme in Typed Arrays mit Speichergrenze, Player über die Live-Renderer, Bedienung, Grenzen |
-| [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Aktuell | Debug-Pfad ohne Director: `STATIC_WAVE_PROFILES`, UI-Toggle, Post-W30-Loop |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
 | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Laufweg (Korridor endet vor Autos, Traufen, Hecken), Brücken, Tunnel, Bau hinter dem Ladescreen und Einfrieren (`CorridorBuild`), Seitenversatz der Gegner und ihre Bögen an Ecken, `__corridor.*`, `__routes.describe()` |
 | [PROJECTILES.md](PROJECTILES.md) | Aktuell | Projektil-System, Flugbahnen, Konfiguration |
@@ -56,19 +56,16 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 ## Wave Director & AI
 
-> Der Wave-Director ist **regelbasiert und vollständig clientseitig**. Das
-> ONNX-Modell ist Opt-in im Debug-Fenster (nur mit einem Modell passender
-> Eingangsbreite), kein Python-Server im Spielbetrieb.
-> Begründung und Messungen: AI_WAVE_DIRECTOR_PLAN.md.
+> Der Wave-Director ist **regelbasiert, clientseitig und die einzige
+> Wellenquelle**. ONNX-Modell, State-Encoder und der Wellen-Pfad des Backends
+> sind am 2026-09-20 entfallen ([BALANCING_PLAN.md](BALANCING_PLAN.md), Phase
+> 1a). Begründung und Messungen: [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md).
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| **[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** Regel-Director, Gate-Controller, warum das Modell ersetzt wurde, was vom RL-Aufbau bleibt |
-| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Gegenspieler im Training |
-| [training-backend/README.md](../training-backend/README.md) | Aktuell | Backend starten, Ordner, Befehle |
-| [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Aktuell | Python Training Backend: PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
-| [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) | Aktuell | ONNX-Export (`npm run export-ai`), nur für den Opt-in-Pfad nötig |
-| [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Historisch/Log | Entwicklungsgeschichte v1 → v3.5 + Phase-5.x-Index |
+| **[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)** | **Aktuell** | **Einstiegspunkt:** Regel-Director, Kandidaten, Leck-Regler, Überlebbarkeits-Deckel, Begründung im Debug-Fenster |
+| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Spieler in Bot-Läufen |
+| [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
 
 ## Analysen & Berichte
 
@@ -80,7 +77,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
-| [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan | Balancing aufrollen: Begriffe (Wellenplan statt Curriculum), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
+| [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. Anforderungen E1 bis E44 festgelegt (2026-09-18), Umsetzung auf Branch `electron` |
 
@@ -95,7 +92,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [ROUTE_GEOMETRY_ANALYSIS.md](archive/ROUTE_GEOMETRY_ANALYSIS.md) | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md); Herleitung des Korridors aus den Playtests 2026-09-10 bis -12 |
 | [HANDOVER_ROUTE_GRID_GPU_LOS.md](archive/HANDOVER_ROUTE_GRID_GPU_LOS.md) | [LOS_PIPELINE.md](LOS_PIPELINE.md); Sackgassen, Diagnose-Werkzeuge und GPU-Probe der LOS-Anläufe (2026-05-15) |
 | [TILES_LOADING_BUG.md](archive/TILES_LOADING_BUG.md) | Untersuchung der Tile-Ladefehler (2026-05-08); der Ablauf heute steht in ARCHITECTURE.md (`tile-loading-tracker.ts`) |
-| [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Range-Templates und Decoder, die Mechanik gilt weiter |
+| [PHASE_5.11_RANGES.md](archive/PHASE_5.11_RANGES.md) | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md); Range-Templates und Decoder, die Mechanik gilt weiter |
 | [HANDOVER_PLAYTEST_PHASE5.16.md](archive/HANDOVER_PLAYTEST_PHASE5.16.md) | [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md); Balance-Pass von Phase 5.16 |
 | [UX_DISCUSSION_NOTES.md](archive/UX_DISCUSSION_NOTES.md) | Diskussionsnotizen zu Turmdrehung und Color Grading, beide entschieden |
 | [ENGINE_DEEP_REVIEW_2026-05-16.md](archive/ENGINE_DEEP_REVIEW_2026-05-16.md) | Engine-Review über `src/app/`, Dependencies, Tests (Stand 2026-05-16) |
@@ -106,11 +103,10 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | [REVIEW_SPRINT_2026-09-13.md](archive/REVIEW_SPRINT_2026-09-13.md) | Nachtschicht 1: Änderungen, Entscheidungen, Review-Befunde, Playtest-Liste 101 bis 258 |
 | [REVIEW_SPRINT_2026-09-12.md](archive/REVIEW_SPRINT_2026-09-12.md) | Zweite Sprint-Runde: Änderungen, Review-Befunde, Playtest-Liste 1 bis 56 mit Ergebnissen |
 | [REVIEW_SPRINT_2026-09-11.md](archive/REVIEW_SPRINT_2026-09-11.md) | Erste Sprint-Runde: Änderungen, Entscheidungen, TODO-Stand (in DONE.md 2026-09-12 übernommen) |
-| [HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07), die Messreihe dahinter, Einstieg für ein späteres Training |
-| [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md) | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md); Refresh des Trainings-Backends bis 2026-09-07: Befunde, Grundsatzentscheidungen, Messhistorie |
+| [HANDOVER_RULE_DIRECTOR.md](archive/HANDOVER_RULE_DIRECTOR.md) | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md); Umstellung vom ONNX-Netz auf den Regel-Director (2026-09-07), die Messreihe dahinter, Einstieg für ein späteres Training |
+| [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md) | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md); Refresh des Trainings-Backends bis 2026-09-07: Befunde, Grundsatzentscheidungen, Messhistorie |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](archive/PERF_BUG_ANALYSIS_2026-05-28.md) | [ARCHITECTURE.md](ARCHITECTURE.md) (Raycast-Messung, Benchmarks); Performance- und Bug-Deep-Dive vom 2026-05-28 mit Nachträgen bis 2026-09-14 |
 | [PLAYER_AGENCY_CONCEPT_2026-09-11.md](archive/PLAYER_AGENCY_CONCEPT_2026-09-11.md) | [ABILITIES.md](ABILITIES.md), [HERO.md](HERO.md), [PLAYER_AGENCY_CONCEPT.md](game-design/PLAYER_AGENCY_CONCEPT.md) (Abschnitte 7 bis 9); das Konzept Abschnitte 0 bis 6 mit Varianten, Vergleich, MVP und offenen Fragen |
-| `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), historisches Restart-Runbook, liegt bewusst unter `training-backend/` |
 
 ## Werkzeuge (HTML, lokal im Browser öffnen)
 
@@ -144,14 +140,12 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...die Fähigkeiten (Nuklearschlag, Frost, EMP, Laser) verstehen | [ABILITIES.md](ABILITIES.md) |
 | ...den Helden (Söldner) verstehen | [HERO.md](HERO.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
-| ...verstehen, wer die Wellen aussucht | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) |
-| ...den Fairness-Cap / das Gate verstehen | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) → Gate-Controller |
-| ...wissen, warum das ONNX-Modell nicht mehr läuft | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) → Warum die Regeln |
-| ...ohne Director durchspielen (Static-Fallback) | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) |
+| ...verstehen, wer die Wellen aussucht | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
+| ...den Überlebbarkeits-Deckel und den Leck-Regler verstehen | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
+| ...wissen, warum das ONNX-Modell weg ist | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) → Warum die Regeln, [BALANCING_PLAN.md](BALANCING_PLAN.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 | ...den Balance-Stand verstehen | [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md), [economy-chart.html](economy-chart.html), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
-| ...ein Training fahren | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) |
-| ...ein neues Modell exportieren | [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) |
+| ...Bot-Läufe fahren | [bot-server/README.md](../bot-server/README.md), Skill `/bots` |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | ...verstehen, wie breit Route und Zellkorridor sind | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | ...das Spawn-Portal verstehen (Drehen, Look, Sigillen) | [SPAWN_PORTAL.md](SPAWN_PORTAL.md) |

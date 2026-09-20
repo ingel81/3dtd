@@ -24,7 +24,7 @@ aus **14 Command-Events** besteht und pro Match unter 100 KB bleibt.
    → World-Snapshot mit eingefrorenem Höhenfeld ("World Seal").
 3. **Ungeseedete `Math.random()` in fünf Gameplay-Dateien.** → Seeded RNG.
    *(Der Wave-Director stand hier ursprünglich mit drin. Seit dem Wechsel auf
-   `rule-director.ts` ist er reines TypeScript und nimmt seine Zufallsquelle
+   `director-rules.ts` ist er reines TypeScript und nimmt seine Zufallsquelle
    bereits als Parameter, siehe 2.3.)*
 
 **Günstigster erster Modus ist nicht Coop, sondern "Versus Race"** (beide
@@ -73,7 +73,7 @@ typischen Singleplayer-Codebase.
 | **Fixed-Timestep-Sub-Step-Loop** | `managers/game-state/game-clock.ts`: `GameClock.FIXED_STEP_MS = 16.667` | Die wichtigste Voraussetzung für Lockstep ist schon da. Gameplay läuft bereits in festen Game-Time-Schritten, unabhängig von der Framerate. |
 | **Command-Bus mit 15 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | Tower: `place-tower`, `sell-tower`, `upgrade-tower`, `set-targeting`, `set-hold-fire`; Welle und Spiel: `start-wave`, `restart-game`; Forschung: `start-research`, `cancel-research`, `queue-research`, `unqueue-research`; Fähigkeiten: `use-ability`; Held: `hire-hero`, `hero-move`, `hero-ammo` (beim Schreiben des Konzepts waren es sieben). Das ist die *komplette* Input-Oberfläche: genau das, was über die Leitung muss. |
 | **Command-Handler ist bereits vom Game-Loop-Owner getrennt** | `game-commands.handler.ts` | Der Netzwerk-Layer hängt sich zwischen Bus und Handler, ohne Manager anzufassen. |
-| **WebSocket-Client-Präzedenz** | `ai/training/training-session.ts` | Reconnect, Message-Typing, Lifecycle: als Vorlage für den Netzwerk-Client wiederverwendbar. |
+| **WebSocket-Client-Präzedenz** | `bots/bot-session.ts` | Reconnect, Message-Typing, Lifecycle: als Vorlage für den Netzwerk-Client wiederverwendbar. |
 | **Deterministische Bewegung** | `movement.component.ts` | Gegner folgen vorberechneten Geo-Pfaden mit Prefix-Summen. Gleicher Pfad + gleicher Step = gleiche Position. |
 | **Timescale-Konzept** | `trainingTimescale` | Muss im MP auf 1.0 gepinnt (oder mitsynchronisiert) werden: der Hebel dafür existiert. |
 
@@ -128,7 +128,7 @@ Stale-LOS-Bugs, weil Höhen nach dem Seal nicht mehr still wandern.
 ### 2.3 RNG und Wave-Director
 
 > **Stand 2026-09-07: Dieser Blocker ist weitgehend entfallen.** Der
-> Wave-Director ist seit dem Wechsel auf `ai/core/rule-director.ts` kein
+> Wave-Director ist seit dem Wechsel auf `director/director-rules.ts` kein
 > neuronales Netz mehr, sondern eine Regelfunktion: reines TypeScript, keine
 > WASM-Backends, keine Float-Divergenz zwischen Clients. Der ursprüngliche Text
 > steht darunter, weil die Begründung für den Command-Broadcast weiterhin
@@ -141,25 +141,25 @@ Gameplay-relevante `Math.random()`-Aufrufe (der Rest ist VFX und darf bleiben):
 | `managers/enemy.manager.ts` | `spawnOne` | Seitenversatz (`lateralSpread`), Höhenvarianz der Luftgegner |
 | `managers/wave.manager.ts` | `selectSpawnPoint` | Spawn-Point-Auswahl |
 | `entities/enemy.entity.ts` | `scheduleNextRandomSound`, `playRandomSound`, `refillRandomSoundsQueue`, `scheduleNextPoolSound` | Audio-Timing, Shuffle |
-| `ai/core/spawn-schedule-builder.ts` | `getDelay` (`delayVariation`), `buildRandom` | Delay-Jitter, Shuffle |
-| `ai/core/rule-director.ts` | `RuleDirector.decide` | Template-Wahl und Faktor-Jitter |
-| `ai/core/gate-controller.ts` | – | keiner: rein arithmetisch, kein RNG |
+| `director/spawn-schedule-builder.ts` | `getDelay` (`delayVariation`), `buildRandom` | Delay-Jitter, Shuffle |
+| `director/director-rules.ts` | `decideWave().decide` | Template-Wahl und Faktor-Jitter |
+| `director/leak-controller.ts` | – | keiner: rein arithmetisch, kein RNG |
 
 **Lösung:** Ein `DeterministicRng` (mulberry32/xorshift128, seed pro Match aus
 dem Room) wird injiziert; VFX/Audio behalten `Math.random()`.
 
-Für den Director ist das bereits vorbereitet: `RuleDirector.decide()` nimmt die
+Für den Director ist das bereits vorbereitet: `decideWave().decide()` nimmt die
 Zufallsquelle als vierten Parameter (`random: () => number = Math.random`), weil
 die Tests sie ohnehin ersetzen müssen. Für den Mehrspielerbetrieb genügt es,
 dort dieselbe geseedete Quelle zu übergeben wie überall sonst. Der
-`GateController` braucht gar nichts: er rechnet nur mit der Leak-Quote
+`LeakController` braucht gar nichts: er rechnet nur mit der Leak-Quote
 vergangener Wellen, ist also deterministisch, sobald diese Wellen es sind.
 
-**Der ONNX-Pfad** existiert noch als Opt-in hinter einem Knopf im Debug-Fenster
-und wäre tatsächlich nicht synchronisierbar (WASM- vs. WebGPU-Backend liefern
-unterschiedliche Floats). Das ist im Mehrspielerbetrieb kein Problem, sondern
-eine Regel: **Modell im MP gesperrt.** Falls er dort je gebraucht wird, gilt die
-alte Lösung weiter: der Host läuft die Inferenz und broadcastet den fertigen
+**Der ONNX-Pfad** ist am 2026-09-20 entfallen
+([BALANCING_PLAN.md](BALANCING_PLAN.md), Phase 1a); es gibt nur noch den
+Regel-Director. Käme je wieder ein Modell dazu, wäre es nicht synchronisierbar
+(WASM- und WebGPU-Backend liefern unterschiedliche Floats), und es gälte die
+alte Lösung: der Host läuft die Inferenz und broadcastet den fertigen
 Spawn-Schedule als Command.
 
 ### 2.4 Restrisiko: Float-Determinismus über Browser hinweg
@@ -341,7 +341,7 @@ Ein Spieler baut Türme. Der andere **ist der Wave-Director**: kauft von einem
 Angriffsbudget Gegnergruppen, wählt Zusammensetzung, Spawn-Punkt und Timing.
 
 Der Clou: **Die Action-Space dafür existiert bereits.** Der Wave-Director
-arbeitet in `ai/core/` (`rule-director.ts`, Templates, `spawn-schedule-builder.ts`) genau mit diesen Größen (Range-Based Templates,
+arbeitet in `director/` (`director-rules.ts`, Templates, `spawn-schedule-builder.ts`) genau mit diesen Größen (Range-Based Templates,
 Spawn-Schedules, Constraints, siehe `docs/archive/PHASE_5.11_RANGES.md`). Ein
 Angreifer-UI ist im Kern ein Human-Frontend für die gleiche Action-Space, mit
 den gleichen Constraints als Balance-Leitplanke.
@@ -349,7 +349,7 @@ den gleichen Constraints als Balance-Leitplanke.
 Nebeneffekt: Der Director wird zum **Bot-Gegner** für diesen Modus und zum
 Balance-Maßstab ("schlägst du die AI auf Level 5?"). Seit 2026-09-07 ist das der
 Regel-Director; das trainierte Modell ist nur noch ein Opt-in im Debug-Fenster
-([AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)).
+([WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)).
 
 Netzwerktechnisch ist das der einfachste PvP-Modus überhaupt: der Angreifer
 schickt Wave-Schedules, ansonsten läuft eine einzige Sim beim Verteidiger.
@@ -373,7 +373,7 @@ Re-Simulation, und braucht nichts davon ([REPLAY.md](REPLAY.md)).
 4. Checksum-Funktion + Divergenz-Log
 
 **Netzwerk-Layer (neu, `src/app/net/`)**
-5. `NetworkClient` (WS, Reconnect), Vorlage: `ai/training/training-session.ts`
+5. `NetworkClient` (WS, Reconnect), Vorlage: `bots/bot-session.ts`
 6. `NetworkCommandInterceptor` + `NetworkCommandQueue` (Tick-Stempel, stabile Ordnung)
 7. Tick-Barriere in `GameClock.nextSubStep()` (`managers/game-state/game-clock.ts`)
 8. `WorldSnapshot`-Serializer/Loader
@@ -437,7 +437,7 @@ lohnt, wenn Multiplayer nie kommt.
    Spieler zu einem potenziellen Bremsklotz. 4 ist ein vernünftiges Limit.
 5. **Wave-Director im MP:** *entschieden durch den Wechsel auf den Regel-Director*:
    er läuft auf jedem Client identisch, sobald er die geseedete Zufallsquelle
-   bekommt. Der ONNX-Pfad bleibt im MP gesperrt.
+   bekommt.
 6. **Performance-Budget:** Der Client rendert heute schon am Limit. Ein zweiter
    Spieler bringt kaum Sim-Kosten (Lockstep), aber Tick-Stalls machen
    Frame-Drops beim Peer sichtbar.
@@ -670,7 +670,7 @@ Serverprozess.
 | RNG-Seed, Match-ID | **besitzt** | – | – |
 | World-Snapshot (Straßen, Routen, World Seal) | speichert & verteilt | **erzeugt** | lädt |
 | LOS-Masken beim Turmbau | speichert & verteilt | **rechnet (GPU)** | übernimmt |
-| Wave-Schedule (Regel-Director oder Curriculum) | speichert & verteilt | **rechnet** | übernimmt |
+| Wave-Schedule (Regel-Director oder Kampagne) | speichert & verteilt | **rechnet** | übernimmt |
 | Regelprüfung der Commands | **führt aus** | – | – |
 | Checksum-Sammlung & Quorum | **führt aus** | meldet | meldet |
 | Match-Ergebnis, Ladder | **besitzt** | meldet | meldet |
@@ -865,7 +865,7 @@ sondern das Match abzubrechen.
 ## 20. Technik und Betrieb
 
 **Sprache: TypeScript**, obwohl Python im Projekt etabliert ist
-(`training-backend/server.py`, mit Multi-Client-Handling und
+(`bot-server/server.py`, mit Multi-Client-Handling und
 Broadcast: die Vorlage wäre da).
 
 Der Grund ist nicht Geschmack, sondern **geteilte Typen**: Das Relay muss die
@@ -1043,7 +1043,7 @@ Fünf Hebel, nach Wirkung sortiert:
 
 1. **Hartes Lane-Enemy-Budget.** Bei hoher Spielerzahl setzen die Wellen auf
    Stärke statt Masse. Das ist eine **Balance-Entscheidung, keine
-   Technikaufgabe**, und die Wave-Curriculum-Config ist der richtige Ort dafür.
+   Technikaufgabe**, und die Wave-Kampagne-Config ist der richtige Ort dafür.
 2. **Per-Instance-Culling prüfen.** Die Kamera hängt über der eigenen Lane,
    die anderen sind 500–1000 m entfernt und meist außerhalb des Frustums.
    Aber: `InstancedMesh` mit `frustumCulled = false` rendert trotzdem alles.
@@ -1133,7 +1133,7 @@ verstärkt alle künftigen Sends dieses Typs. Zwei Gründe, das genau so zu
 bauen:
 
 1. Die Mechanik ist im Code etabliert und den Spielern bereits vertraut.
-2. **Die Wave-Curriculum-Config liefert schon Skalierungskurven für
+2. **Die Wave-Kampagne-Config liefert schon Skalierungskurven für
    Gegnerstärke**: die Tier-Werte müssen nicht neu erfunden werden.
 
 Damit hat der Angreifer dieselbe Entscheidungstiefe wie der Verteidiger:
@@ -1243,7 +1243,7 @@ Der Teil, der über die zwei Modi hinaus Wert schafft:
    plausibel.* Ein A/B-Lauf mit vier Wave-Designern gegen dieselben Bots ergab,
    dass das trainierte Netz dreimal statistisch nicht von uniformem Zufall zu
    unterscheiden war; es wurde deshalb durch den Regel-Director ersetzt. Ein
-   Grund liegt im Aktionsraum (Curriculum und Fairness-Cap gaben fast alles
+   Grund liegt im Aktionsraum (Kampagne und Überlebbarkeits-Deckel gaben fast alles
    vor), der andere ist genau dieser: Wer gegen einen einzigen scripted Bot
    trainiert, lernt dessen Schwächen, und die hat ein Mensch nicht. Menschliche
    Sends sind damit nicht bloß besseres Material, sondern die Vorbedingung
