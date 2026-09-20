@@ -73,6 +73,11 @@
 
 .location-name {
   font-weight: 500;
+  /* Street, city and country; on a narrow window the end gives way */
+  max-width: 34vw;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .location-edit {

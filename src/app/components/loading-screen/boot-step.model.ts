@@ -26,6 +26,8 @@ export interface MissionInfo {
   address: string;
   postal: string;
   city: string;
+  /** Empty until the reverse geocoding answered, or where it knows no country */
+  country: string;
   lat: number;
   lng: number;
   alt?: number;

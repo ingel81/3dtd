@@ -188,7 +188,7 @@ Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. K
 
 | Bereich | Beschreibung |
 |---------|--------------|
-| **Info-Header** | Logo, Standort ("DEFEND …", Klick öffnet den Standort-Dialog) mit Aktionen (Link kopieren, Favoriten, Zufallsort, HQ versetzen, Spawn setzen), rechts die Stat-Leiste HQ / CREDITS / WAVE, während einer Welle links davon der Gegner-Chip |
+| **Info-Header** | Logo, Standort ("DEFEND Straße, Stadt, Land"; der Name kommt aus `formatAddressShort`, seit 2026-09-20 mit Land. Die Zeile wird höchstens 34 % der Fensterbreite breit, danach schneidet sie hinten ab; Klick öffnet den Standort-Dialog) mit Aktionen (Link kopieren, Favoriten, Zufallsort, HQ versetzen, Spawn setzen), rechts die Stat-Leiste HQ / CREDITS / WAVE, während einer Welle links davon der Gegner-Chip |
 | **Canvas** | 3D-Spielfeld mit Google Photorealistic Tiles |
 | **Sidebar** | Rechte Sidebar: WAVE-Panel, darunter BUILD, Tower-Detail oder Research (siehe [Sidebar-Panels](#sidebar-panels)) |
 | **Info-Overlay** | Oben links: FPS, per Caret aufklappbar um Tiles, Sounds und Streets. Misst seine Unterkante (`ResizeObserver`, `UIStore.infoOverlayBottom`), die Fähigkeitenleiste bleibt darunter |
