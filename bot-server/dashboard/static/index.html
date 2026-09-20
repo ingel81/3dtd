@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>3DTD Bots</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+  <header>
+    <h1>3DTD Bots</h1>
+    <div class="state">
+      <span id="run-state" class="pill">—</span>
+      <span id="uptime" class="muted"></span>
+    </div>
+  </header>
+
+  <section class="controls">
+    <button data-cmd="start">Start</button>
+    <button data-cmd="stop">Stop</button>
+    <button data-cmd="reload">Reload tabs</button>
+    <label>
+      Speed
+      <input id="timescale" type="number" min="1" max="75" step="1" value="75" />
+      <button data-cmd="set_timescale" data-from="timescale">Set</button>
+    </label>
+    <label>
+      <input id="rendering" type="checkbox" />
+      Draw the 3D scene
+    </label>
+  </section>
+
+  <section class="summary">
+    <div class="tile"><span id="client-count">0</span><label>clients</label></div>
+    <div class="tile"><span id="runs-finished">0</span><label>runs</label></div>
+    <div class="tile"><span id="runs-per-hour">0</span><label>runs / h</label></div>
+    <div class="tile"><span id="waves-per-hour">0</span><label>waves / h</label></div>
+  </section>
+
+  <table id="clients">
+    <thead>
+      <tr>
+        <th>Client</th><th>Bot</th><th>Wave</th><th>Alive</th>
+        <th>Phase</th><th>Runs</th><th>Best</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+
+  <section class="errors">
+    <h2>Errors</h2>
+    <ul id="error-list"><li class="muted">none</li></ul>
+  </section>
+
+  <footer>
+    <span id="logfile" class="muted"></span>
+  </footer>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+# Bot-Server dependencies
+# Install: pip install -r requirements.txt
+
+# WebSocket server
+websockets>=10.0
+
+# Web dashboard
+fastapi>=0.100.0
+uvicorn>=0.23.0
+
+# Tests
+pytest>=8.0.0
