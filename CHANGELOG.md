@@ -13,9 +13,13 @@ game shows it once after an update.
 - A click on an arrow at the screen edge takes the camera to its boss or enemy.
 
 ### Better
+- The random location rolls at once, out of a list in the game, and lands only on
+  cities Google covers in 3D.
+- Place names carry the country, in the header and on the loading screen.
 - The red enemy route is on from the start. If you switched it off, it stays off.
 
 ### Fixed
+- Towers on flat ground stood on a stone plinth they did not need.
 - The tank and the penguin were invisible in the sidebar preview.
 
 ## 0.3.1 (2026-09-19)
