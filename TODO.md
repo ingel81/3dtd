@@ -25,8 +25,12 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
       Modelle.
 - [ ] **B5 Straßen-Overlay und Intro-Flug auf die eingefrorenen Zellhöhen umstellen?** Beide haben eine eigene
       Höhenabfrage neben dem Korridor (`getStreetHeightEstimate`, Flugprofil).
-- [ ] **E1 Balancing aufrollen**: Begriffe, eine Wellenquelle, Seeds, Datensammlung von Menschen und Bots (Run-Log),
-      Zielwerte und Tuning von Wellenplan, Director und Economy, [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
+- [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut (Begriffe, eine Wellenquelle, Seeds, Run-Log, Bots,
+      Auswertung), offen sind die Baseline-Läufe und Phase 3 (Kampagnenende, Zielbänder, Tuning),
+      [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
+- [ ] **E10 Schaden je Gold je Tower-Typ** im Run-Bericht: Der Wellenblock kennt die Ausgaben nach Zweck, nicht nach
+      Tower-Typ. Bau- und Upgrade-Preise je Typ aus den Ereignissen summieren
+      ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), Stand 2c).
 - [ ] **E2 Replay als Neu-Simulation** statt Aufzeichnung, vollständig korrekt (User, Playtest 553). Blocker und
       Lücken: [docs/REPLAY.md](docs/REPLAY.md).
 - [ ] **E4 Stone Golem: Laufgeräusch und Beben**: schwere Schritte, leichter Screen Shake in Kameranähe.

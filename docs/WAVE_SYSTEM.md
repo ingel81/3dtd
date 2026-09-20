@@ -111,27 +111,22 @@ export interface SpawnEntry {
 ```
 
 **Producer:** Niemand baut `WaveConfig` direkt, alle gehen durch
-`adaptAIWaveConfig(AIWaveConfig)` in
-`src/app/ai/core/wave-config-adapter.ts`. Quellen für die `AIWaveConfig`:
+`adaptDirectorWave(DirectorWave)` in
+`src/app/director/wave-config-adapter.ts`. Quellen für die `DirectorWave`:
 
 | Quelle | Funktion |
 |---|---|
-| Wave Director (Default) | `WaveDirectorService.getNextWave()`, regelbasiert, siehe unten |
-| Training-Backend | `trainingClient.requestWaveConfig()`, solange die WebSocket-Verbindung steht |
-| Static Curriculum | `staticWaveResolvedFor(waveNum)` (siehe [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md)) |
+| Wave Director (Default) | `WaveDirector.getNextWave()`, regelbasiert, siehe unten |
 | Debug-Panel | `WaveDebugService.toAIWaveConfig()` |
 
 Welche Quelle die nächste Welle liefert, entscheidet
-`GameLoopFacadeService.startWave()` in dieser Reihenfolge: Ist der
-Static-Curriculum-Schalter an, kommt die Welle aus `staticWaveResolvedFor()`.
-Sonst, wenn der Director an ist (`useAIDirector`, Default an), fragt die Facade
-das Training-Backend, falls eine Verbindung steht, und andernfalls
-`WaveDirectorService.getNextWave()`. Ist der Director aus, gilt das
-Debug-Panel. Wirft der Director, schaltet die Facade ihn ab, setzt `aiError`
+`GameLoopFacadeService.startWave()`: Ist der Director an (`directorEnabled`,
+Default an), kommt die Welle aus `WaveDirector.getNextWave()`, sonst aus
+dem Debug-Panel. Wirft der Director, schaltet die Facade ihn ab, setzt `aiError`
 und startet eine Debug-Panel-Welle. Alle Pfade senden `command:start-wave` mit
 fertiger `WaveConfig`. Auf einer Boss-Welle der Rotation (siehe
-[Boss Waves](#boss-waves)) ersetzt die Facade die Welle des lokalen Directors durch die
-der Boss-Variante; Wellen aus dem Training-Backend bleiben unverändert.
+[Boss Waves](#boss-waves)) ersetzt die Facade die Welle des Directors durch die
+der Boss-Variante.
 
 `SpawnPoint` steht unter [Spawn Points](#spawn-points).
 
@@ -167,35 +162,35 @@ Spawn Point C: Enemy 2, 6, 8, 11, ...
 
 Der WaveManager bekommt eine fertige `WaveConfig` und kennt keine
 Schwierigkeitskurve. Die Welle entsteht im Wave-Director
-(`WaveDirectorService.getNextWave()`, regelbasiert, im Client) aus fünf Zahlen:
+(`WaveDirector.getNextWave()`, regelbasiert, im Client) aus fünf Zahlen:
 einem Template-Index und vier Formfaktoren. Regel-Director, Maske und
-Curriculum, Decoder, Fairness-Cap und Gate-Controller beschreibt nur
-[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) (Abschnitte 4 bis 6).
+Kampagne, Decoder, Überlebbarkeits-Deckel und Leck-Regler beschreibt nur
+[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) (Abschnitte 4 bis 6).
 
 ```
-getStateSnapshot()        ai/core/ai-data-collector.service.ts
+getStateSnapshot()        director/state-snapshot.service.ts
    │
    ▼
-buildWaveContext()        ai/core/wave-context.ts          Maske, Ranges, Fairness-Headroom
+buildWaveContext()        director/wave-context.ts          Kandidaten, Ranges, Deckel-Vorschau
    │
    ▼
-RuleDirector.decide()     ai/core/rule-director.ts         Template + 4 Faktoren
+decideWave().decide()     director/director-rules.ts         Template + 4 Faktoren
    │
    ▼
-buildWaveConfig()         ai/core/wave-config-builder.ts   DPS-Ramp, Endgame-HP, Fairness-Cap, Dauer-Cap, Gruppen
+buildWaveConfig()         director/wave-config-builder.ts   DPS-Ramp, Endgame-HP, Überlebbarkeits-Deckel, Dauer-Cap, Gruppen
    │
    ▼
-AIWaveConfig ──adaptAIWaveConfig()──► WaveConfig (SpawnSchedule) ──► WaveManager
+DirectorWave ──adaptDirectorWave()──► WaveConfig (SpawnSchedule) ──► WaveManager
 ```
 
 Für den WaveManager zählt davon:
 
 - Jede Welle kommt als `command:start-wave` mit fertiger `WaveConfig`, egal
   aus welcher Quelle (siehe [Wave-Konfiguration](#wave-konfiguration)).
-- Das Ergebnis jeder Welle geht über `AIDataCollectorService.onWaveResult()` an
-  den Gate-Controller, nicht über `wave:completed`: beim Game Over wird
+- Das Ergebnis jeder Welle geht über `StateSnapshotService.onWaveResult()` an
+  den Leck-Regler, nicht über `wave:completed`: beim Game Over wird
   `wave:completed` nicht emittiert (siehe [Game Over Integration](#base-destroyed)).
-- Kills durch Spieler-Fähigkeiten zählen für den Gate-Controller als Leck
+- Kills durch Spieler-Fähigkeiten zählen für den Leck-Regler als Leck
   ([ABILITIES.md](ABILITIES.md)).
 
 ---
@@ -231,9 +226,9 @@ beginWave(): void {
 Startet eine Wave MIT automatischem Spawning gemäß `WaveConfig`.
 
 ```typescript
-import { adaptAIWaveConfig } from './ai/core/wave-config-adapter';
+import { adaptDirectorWave } from './director/wave-config-adapter';
 
-const waveConfig = adaptAIWaveConfig({
+const waveConfig = adaptDirectorWave({
   enemies: [{ type: 'zombie', count: 10 }],
   totalCount: 10,
   spawnDelay: 500,
@@ -511,13 +506,13 @@ multipliziert sich:
 
 | Ebene | Wo | Wirkung |
 |---|---|---|
-| Content/Pacing | `WAVE_CURRICULUM` in `configs/wave-curriculum.config.ts` | pinnt Template + Gold-Budget pro Wave (W1-W30). Danach wählt der Director das Template, das Gold halbiert sich pro Welle bis auf 5 % des W30-Budgets (Boss-Wellen doppelt, `goldBudgetForWave`) |
-| Formfaktoren | `RuleDirector` (`RAMP_FULL_WAVE = 60`) | Count/HP hoch, Spawn-Delay runter |
+| Content/Pacing | `CAMPAIGN` in `configs/campaign.config.ts` | pinnt Template + Gold-Budget pro Wave (W1-W30). Danach wählt der Director das Template, das Gold halbiert sich pro Welle bis auf 5 % des W30-Budgets (Boss-Wellen doppelt, `waveGold`) |
+| Formfaktoren | `decideWave()` (`RAMP_FULL_WAVE = 60`) | Count/HP hoch, Spawn-Delay runter |
 | Endgame-HP | `endgameHpMultiplier(wave)` | ab W21 +5 % pro Welle auf `hpMult`, Cap 4× |
 | Leck-Schaden | `enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
 
-Nach oben gedeckelt wird die Kurve durch den Fairness-Cap und den
-Gate-Controller (siehe [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md),
+Nach oben gedeckelt wird die Kurve durch den Überlebbarkeits-Deckel und den
+Leck-Regler (siehe [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md),
 Abschnitte 5 und 6)
 sowie durch `GAME_BALANCE.combat.maxLeakDamagePerWave`: eine einzelne Welle
 kann den Spieler nie mehr als 18 HP kosten.
@@ -526,14 +521,14 @@ kann den Spieler nie mehr als 18 HP kosten.
 
 Boss-Wellen sind Templates mit `bossOnly: true` (`boss_herbert`, `boss_golem`,
 `boss_dragon`). Welche Welle eine Boss-Welle ist, sagt `isBossWave()`: im
-Curriculum W10/W20/W30, dort fest auf `boss_herbert` gepinnt, danach jede
+Kampagne W10/W20/W30, dort fest auf `boss_herbert` gepinnt, danach jede
 fünfte Welle (W35, W40, ...). An Boss-Wellen lässt die Maske nur Boss-Templates
 zu, an allen anderen sperrt sie sie; Details in
-[AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md#maske-und-curriculum). `boss_golem` und
+[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md#maske-und-curriculum). `boss_golem` und
 `boss_dragon` haben `minWave: 31`, `boss_dragon` braucht Anti-Air.
 
 **Boss-Varianten** (`configs/boss-variants.config.ts`): Bosse, die kein Template des
-Directors sind, kommen über eine Rotation über die Boss-Wellen nach dem Curriculum.
+Directors sind, kommen über eine Rotation über die Boss-Wellen nach der Kampagne.
 `BOSS_VARIANT_ROTATION` läuft über W35, W40, W45, ... und nennt je Welle eine Variante oder
 `null` für das Boss-Template des Directors; derzeit `['worm', null, 'ooze', null]`: W35,
 W55, W75, ... bringen Skarnax, den Wurm, W45, W65, W85, ... die Ooze (ENEMY_CREATION.md,
@@ -541,11 +536,10 @@ Körper entlang der Route), W40, W50, W60, ... die Director-Bosse. Der Director 
 Wellen wie bisher. `GameLoopFacadeService.startWaveWithAI()` ersetzt danach seine Welle durch
 `bossVariantWave()`: ein Gegner des Varianten-Typs (ein Wurm, also ein Enemy je Segment) mit
 dem HP-Multiplikator, den der Director für diese Welle gerechnet hat (Template-Range,
-DPS-Ramp, Endgame-Multiplikator); der Wurm nimmt ihn je Segment. Das Fairness-Gate bestimmt
+DPS-Ramp, Endgame-Multiplikator); der Wurm nimmt ihn je Segment. Das Überlebbarkeits-Deckel bestimmt
 die Größe nicht, die Länge des Wurms folgt der Route. „Why this wave“ nennt das ersetzte
-Template, der Collector speichert die Welle, die läuft. Templates, Curriculum, Encoder und
-`ai-schema.json` kennen die Varianten nicht; Wellen aus dem Training-Backend werden nie
-ersetzt. NEXT im Wave-Panel (Zeitleiste der kommenden Wellen, `wave-timeline.component`) zeigt
+Template, der Collector speichert die Welle, die läuft. Templates und Kampagne kennen die
+Varianten nicht. NEXT im Wave-Panel (Zeitleiste der kommenden Wellen, `wave-timeline.component`) zeigt
 eine Varianten-Welle vorab mit Namen, Rüstung und „weak to“.
 
 #### Boss-Intro
@@ -755,7 +749,7 @@ nur wenn gesetzt), `delay` aus dem `spawnDelay` der Gruppe und bei
 
 ### Spawn-Patterns
 
-7 Patterns stehen zur Verfügung (`src/app/ai/core/spawn-schedule-builder.ts`):
+7 Patterns stehen zur Verfügung (`src/app/director/spawn-schedule-builder.ts`):
 
 | Pattern | Verhalten | Beispiel (8Z, 4B, 2T) |
 |---------|-----------|------------------------|
@@ -770,7 +764,7 @@ nur wenn gesetzt), `delay` aus dem `spawnDelay` der Gruppe und bei
 ### SpawnScheduleBuilder
 
 ```typescript
-import { buildSpawnSchedule, SpawnPattern } from '../ai/core/spawn-schedule-builder';
+import { buildSpawnSchedule, SpawnPattern } from '../director/spawn-schedule-builder';
 
 const schedule = buildSpawnSchedule({
   groups: [
@@ -801,25 +795,25 @@ jede Welle gleich.
 
 ### Director Integration
 
-`adaptAIWaveConfig()` (`src/app/ai/core/wave-config-adapter.ts`) ist der einzige
+`adaptDirectorWave()` (`src/app/director/wave-config-adapter.ts`) ist der einzige
 Adapter; seit dem Schedule-only-Umbau (2026-05-23) gibt es keine
 Single/Mixed-Weiche mehr. Er baut aus den Enemy-Gruppen über
 `buildSpawnSchedule()` immer einen `SpawnSchedule`; eine Single-Type-Welle ist
 dabei schlicht ein Schedule mit einer Gruppe.
 
 ```typescript
-import { adaptAIWaveConfig } from '../ai/core/wave-config-adapter';
+import { adaptDirectorWave } from '../director/wave-config-adapter';
 
-const waveConfig = adaptAIWaveConfig(aiConfig);
+const waveConfig = adaptDirectorWave(aiConfig);
 // -> WaveConfig { schedule }
 ```
 
 ### Debug Panel: Mixed Wave Designer
 
 Oben im Wave-Debug-Panel (`wave-debugger.component.ts`) steht **Why this wave**:
-die Begründung des Directors für die laufende Welle (`GameStore.aiExplanation`,
-Herkunft der Gründe in [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md)).
-Custom-, Static-Curriculum- und Backend-Wellen haben keine Begründung.
+die Begründung des Directors für die laufende Welle (`GameStore.waveExplanation`,
+Herkunft der Gründe in [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)).
+Custom-Wellen aus dem Debug-Panel haben keine Begründung.
 
 Darunter bietet das Panel einen **Mode-Toggle** (Single/Mixed):
 
@@ -845,22 +839,22 @@ readonly clusterSize = signal(3);
 readonly subWavePause = signal(3000);
 readonly delayVariation = signal(0);
 
-// Baut die AIWaveConfig: Mixed-Mode mit allen Gruppen und Pattern,
+// Baut die DirectorWave: Mixed-Mode mit allen Gruppen und Pattern,
 // Single-Mode als eine Gruppe mit Pattern 'sequential' und Spawn-Mode
-toAIWaveConfig(): AIWaveConfig { ... }
+toAIWaveConfig(): DirectorWave { ... }
 ```
 
 `GameLoopFacadeService.startCustomWave()` reicht das Ergebnis durch
-`adaptAIWaveConfig()` und sendet `command:start-wave`.
+`adaptDirectorWave()` und sendet `command:start-wave`.
 
 ### Dateien
 
 | Datei | Rolle |
 |-------|-------|
 | `managers/wave.manager.ts` | `SpawnEntry`, `SpawnSchedule`, `WaveConfig`, `startWave()`, `tickSpawn()` |
-| `ai/core/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, `ALL_SPAWN_PATTERNS`, `DEFAULT_SPAWN_PATTERN` |
-| `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfig()`, einziger Konverter AIWaveConfig → WaveManager-Config |
-| `ai/core/models/wave-config.ts` | `AIWaveConfig` (dort `WaveConfig`): Gruppen, `spawnDelay`, optional `pattern`, `spawnMode`, `explanation` |
+| `director/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, `ALL_SPAWN_PATTERNS`, `DEFAULT_SPAWN_PATTERN` |
+| `director/wave-config-adapter.ts` | `adaptDirectorWave()`, einziger Konverter DirectorWave → WaveManager-Config |
+| `director/models/wave-config.ts` | `DirectorWave` (dort `WaveConfig`): Gruppen, `spawnDelay`, optional `pattern`, `spawnMode`, `explanation` |
 | `services/debug/wave-debug.service.ts` | Mixed-Mode-Signale, Single-Mode-Werte aus dem `DebugStore`, `toAIWaveConfig()` |
 | `components/debug-window/wave-debugger.component.ts` | „Why this wave", Mixed Wave Designer UI |
 | `services/facade/game-loop-facade.service.ts` | Quellen-Reihenfolge in `startWave()`, `startCustomWave()` |
@@ -888,7 +882,7 @@ Dev-Cheat, um späte Wellen ohne 30 gespielte Wellen davor zu testen
 (Boss-Rotation W35 Wurm, W45 Ooze, Nachladen der Fähigkeiten). Im
 Wave-Debug-Fenster (Dev-Menü, Gruppe "Waves & Inspect", Kachel "Waves"),
 Abschnitt "Jump to wave": Wellennummer N (Standard 35), daneben was Welle N
-ist (Boss-Variante, Curriculum-Template, Boss-Welle oder Director-Welle),
+ist (Boss-Variante, Kampagnen-Template, Boss-Welle oder Director-Welle),
 Schalter "Gold of the skipped waves" (Standard an), Knopf.
 
 Weg: `debug:jump-to-wave` (`wave`, `grantGold`) → `GameCommandsHandler` →
@@ -903,11 +897,11 @@ Wellenstart direkt danach muss den neuen Zähler schon sehen.
 | Gold | mit Schalter `skippedWavesGold(from + 1, N - 1)` (`services/economy.service.ts`): Kill-Budget, Basis-Abschlussbonus und Meilenstein-Boni jeder übersprungenen Welle, also was ein Spieler bekommt, der jede Welle ganz abräumt. Keine Skill-Boni (Perfect, Close Call, Combo, Comeback); der Perfect-Streak bleibt, wie er war |
 | Fähigkeiten | laden nach, als wären die übersprungenen Wellen abgeschlossen (`AbilityManager.advanceWaves`, derselbe Pfad wie bei `wave:completed`), höchstens bis voll |
 | Forschung, Auto-Start-Countdown | bleiben, wie sie sind: sie laufen auf Spielzeit, und der Sprung verbraucht keine |
-| Wave-Director | behält Gate-Fenster, Multiplikator und Template-Historie. Übersprungene Wellen liefern keine Leck-Evidenz, und die Verteidigung ist dieselbe. Er plant aus dem Zähler (`waveNumber + 1` im Snapshot), Curriculum-Pin, Boss-Takt, DPS-Rampe, Endgame-HP und Boss-Rotation folgen also Welle N |
+| Wave-Director | behält Gate-Fenster, Multiplikator und Template-Historie. Übersprungene Wellen liefern keine Leck-Evidenz, und die Verteidigung ist dieselbe. Er plant aus dem Zähler (`waveNumber + 1` im Snapshot), Kampagne-Pin, Boss-Takt, DPS-Rampe, Endgame-HP und Boss-Rotation folgen also Welle N |
 | `game:started` | geht weiter genau einmal vor der ersten Welle eines Laufs raus. Der GameStateManager merkt sich das in einem Flag (`runStarted`, in `reset()` zurückgesetzt) statt an Welle 0, damit ein Sprung vor Welle 1 es nicht verschluckt |
 | Ankündigung | `wave:jumped` (`from`, `wave`, `skipped`, `credits`): der Store setzt `waveNumber` auf N - 1, die Game-Over-Bilanz bucht `credits` als Cheat-Gold (nicht unter Earned), `BestWaveService` schreibt für diesen Lauf keinen Rekord mehr und meldet keinen neuen ([LOCATION_SYSTEM.md](LOCATION_SYSTEM.md)) |
 
-Balance-Configs (Curriculum W1 bis W30, Gold-Budget, Boss-Rotation) ändert der
+Balance-Configs (Kampagne W1 bis W30, Gold-Budget, Boss-Rotation) ändert der
 Cheat nicht.
 
 ---
@@ -939,8 +933,8 @@ löst die Tower-Selektion, startet die HQ-Effekte und emittiert `game:over`.
 > **`wave:completed` wird beim Game Over NICHT emittiert.** `endWave()` läuft
 > nur, wenn die Welle regulär fertig wird; fällt die Basis, wird die Phase
 > direkt auf `gameover` gesetzt. Alles, was **jede** Welle sehen muss (der
-> Gate-Controller ist der Anlassfall), darf deshalb nicht am Event hängen,
-> sondern muss an `AIDataCollectorService.onWaveResult()` hängen. Details:
+> Leck-Regler ist der Anlassfall), darf deshalb nicht am Event hängen,
+> sondern muss an `StateSnapshotService.onWaveResult()` hängen. Details:
 > [EVENT_SYSTEM.md](EVENT_SYSTEM.md#event-typen).
 >
 > Der Sonderfall, in dem beides für dieselbe Welle feuert: der letzte Leaker
@@ -1008,14 +1002,13 @@ Nach einer DevWorld-Neugenerierung setzt `reseatWavePipeline()` beide neu, weil
 ### 1. Wave Difficulty Curve
 
 Keine eigene Count-Formel schreiben: Count, HP und Delay kommen aus
-Template-Ranges, Rule-Director-Rampe, Fairness-Cap und Gate-Controller (siehe
-[Progressive Difficulty](#progressive-difficulty)). Feste Wellen stehen in
-`STATIC_WAVE_PROFILES`.
+Template-Ranges, Rule-Director-Rampe, Überlebbarkeits-Deckel und Leck-Regler (siehe
+[Progressive Difficulty](#progressive-difficulty)).
 
 ### 2. Mixed Enemy Types
 
 Mischungen gehören in ein Template (`enemies: [[typ, anteil], ...]`) bzw. in
-die Gruppen einer `AIWaveConfig`; die Reihenfolge bestimmt das Spawn-Pattern.
+die Gruppen einer `DirectorWave`; die Reihenfolge bestimmt das Spawn-Pattern.
 
 ---
 
@@ -1059,8 +1052,7 @@ parallel gibt es nicht: `GameLoopFacadeService.startWave()` startet nur aus
 
 ## Siehe auch
 
-- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) - Regel-Director, Maske, Decoder, Fairness-Cap, Gate-Controller
-- [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) - AI-off Debug-Pfad: feste Per-Wave-Profile + UI-Toggle
+- [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) - Regel-Director, Maske, Decoder, Überlebbarkeits-Deckel, Leck-Regler
 - [ENEMY_CREATION.md](ENEMY_CREATION.md) - Enemy-Typen erstellen
 - [STATUS_EFFECTS.md](STATUS_EFFECTS.md) - Status-Effekte
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Manager-System Übersicht

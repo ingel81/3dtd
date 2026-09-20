@@ -14,7 +14,7 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 |---|---|---|
 | Tower (Bau, Upgrades, Sockel, Veteranen-Ränge) | `managers/tower.manager.ts`, `TowerPlacementService`, `TowerLifecycle` | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | Gegner, auch Luft, Ooze und Wurm (Skarnax) | `managers/enemy.manager.ts`, `managers/ooze-bodies.ts`, `managers/worm/` | [ENEMY_CREATION.md](ENEMY_CREATION.md), [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
-| Wellen, Director, Boss-Intro, Blutmond | `managers/wave.manager.ts`, `ai/core/` | [WAVE_SYSTEM.md](WAVE_SYSTEM.md), [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) |
+| Wellen, Director, Boss-Intro, Blutmond | `managers/wave.manager.ts`, `director/` | [WAVE_SYSTEM.md](WAVE_SYSTEM.md), [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
 | Route, Korridor, Zellen | `services/world/path-route.service.ts`, `utils/global-route-grid.ts`, `utils/route-corridor.ts` | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | Sichtlinien der Tower (Boden und Luft) | `three-engine/tower-shadow-mapper.ts`, `utils/route-grid-los.ts` | [LOS_PIPELINE.md](LOS_PIPELINE.md) |
 | Kampf, Schaden, Status-Effekte | `services/combat/` | [STATUS_EFFECTS.md](STATUS_EFFECTS.md), [PROJECTILES.md](PROJECTILES.md), [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
@@ -41,20 +41,15 @@ Server-Anteil und kein Modell:
 | Google Maps 3D Tiles / Cesium-Tiles | extern, Pflicht (Kartendaten) |
 | OSM Nominatim | extern, nur beim Location-Wechsel |
 | OSM Overpass | extern, Straßen und Gebäude beim Laden eines Orts (IndexedDB-Cache, siehe [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md)) |
-| Python-Training-Backend (`:3001`) | **nur Training**. Ohne Verbindung läuft das Spiel unverändert. |
-| Bots + WebSocket-Client (`ai/training/training-session.ts`) | **nur Training**. Eigener Lazy-Chunk, lädt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
-| ONNX-Modell + `onnxruntime-web` | **opt-in**. Wird nicht mehr beim Start geladen. |
+| Python-Backend (`:3001`) | **nur Bot-Läufe**. Ohne Verbindung läuft das Spiel unverändert; Wellen kommen immer aus dem Client. |
+| Bots + WebSocket-Client (`bots/bot-session.ts`) | **nur Bot-Läufe**. Eigener Lazy-Chunk, lädt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
 
-Der **Wave-Director sitzt im Client**. Standard ist der regelbasierte Director
-(`ai/core/rule-director.ts`), der weder Netzwerk noch Modell braucht; deshalb
+Der **Wave-Director sitzt im Client** und ist die einzige Wellenquelle
+(`director/director-rules.ts`). Er braucht weder Netzwerk noch Modell; deshalb
 gibt es kein Startfenster, in dem der Director nicht verfügbar wäre, und
-`useAIDirector` steht per Default auf `true`. Der ONNX-Pfad ist erhalten, wird
-aber nur durch einen expliziten `WaveDirectorService.loadModel()`-Aufruf aktiv
-(Button im Training-Debugger-Panel, nur sichtbar, wenn `metadata.json` des
-Modells die Eingangsbreite des Encoders nennt; `forceRuleMode()` schaltet zurück);
-`onnxruntime-web` (404 kB WASM) landet damit nicht im Cold Start. Das
-Training-Backend übernimmt die Wave-Wahl nur, solange der
-`TrainingClientService` verbunden ist.
+`directorEnabled` steht per Default auf `true`. ONNX-Modell, Encoder und der
+Wellen-Pfad des Backends sind am 2026-09-20 entfallen
+([BALANCING_PLAN.md](BALANCING_PLAN.md), Phase 1a).
 
 Details zum Weg vom Director zur fertigen Welle:
 [WAVE_SYSTEM.md](WAVE_SYSTEM.md#wave-erzeugung-director--waveconfig).
@@ -882,7 +877,7 @@ class HeroManager implements IGameManager {
 
 Der Held (Söldner) läuft auf dem Routengraph (`utils/route-graph.ts`), kämpft
 über `ProjectileManager.spawnShot` und `DamageApplicationService` mit Quelle
-`hero` und steht als virtueller Tower im Fairness-Gate. Siehe [HERO.md](HERO.md).
+`hero` und steht als virtueller Tower im Überlebbarkeits-Deckel. Siehe [HERO.md](HERO.md).
 
 ### 4.9 Replay der letzten Welle
 
@@ -1349,10 +1344,10 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | Ordner | Zweck | Einstieg |
 |---|---|---|
 | (Root) | Root-Component, Provider, Routing, Spielkomponente | `app.ts`, `tower-defense.component.ts` (Template mit den Debug-Fenstern in einem `@defer`-Block) |
-| `ai/core/` | Wave-Director (Regeln, optional ONNX), Gate-Controller, Templates, Encoder, Defense-Analyse | `wave-director.service.ts`, `rule-director.ts`, `gate-controller.ts`, `wave-config-builder.ts` |
-| `ai/training/` | Bots (Strategy Pattern), Strategien je Bereich, Trainings-Client | `training-session.ts`, `bots/`, `strategies/` |
+| `director/` | Wave-Director (Regeln), Leck-Regler, Templates, Defense-Analyse | `wave-director.ts`, `director-rules.ts`, `leak-controller.ts`, `wave-config-builder.ts` |
+| `bots/` | Bots (Strategy Pattern), Strategien je Bereich, Trainings-Client | `bot-session.ts`, `bots/`, `strategies/` |
 | `components/` | UI-Komponenten (Header, Sidebar-Panels, Dialoge, Leisten, Debug-Fenster) | siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#dateien) |
-| `configs/` | Tower, Gegner, Projektile, Effekte, Audio, Balance, Wellen-Curriculum, Forschung, Fähigkeiten, Held, LOS-Farben | `tower-types.config.ts`, `enemy-types.config.ts`, `wave-curriculum.config.ts`, `research/`, `combat/` |
+| `configs/` | Tower, Gegner, Projektile, Effekte, Audio, Balance, Wellen-Kampagne, Forschung, Fähigkeiten, Held, LOS-Farben | `tower-types.config.ts`, `enemy-types.config.ts`, `campaign.config.ts`, `research/`, `combat/` |
 | `core/` | `GameObject`, `Component`, `ConfigService` (Tile-Zugang) | `game-object.ts`, `services/config.service.ts` |
 | `devworld/` | Offline-Welt: Terrain, Straßen, Gebäude, Worker | siehe [DEVWORLD.md](DEVWORLD.md) |
 | `entities/` | Enemy, Tower, Projectile, Held, Körper der Ooze | `enemy.entity.ts`, `tower.entity.ts`, `enemy-rush.ts`, `tower-targeting.util.ts` |
@@ -1371,7 +1366,7 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | `workers/` | Web Worker: Heartbeat für den Loop im versteckten Tab (A* läuft im Main Thread) | `heartbeat.worker.ts` |
 
 Außerhalb von `src/app/`: `tools/` (Shader-Check, Blender-Skripte, Weltkarten-Umrisse,
-Modell-Budget, Charts, Benchmarks, AI-Schema), `training-backend/` (Python, nur Training), `docs/` (siehe
+Modell-Budget, Charts, Benchmarks, AI-Schema), `bot-server/` (Python, nur Bot-Läufe), `docs/` (siehe
 [INDEX.md](INDEX.md)).
 
 ---

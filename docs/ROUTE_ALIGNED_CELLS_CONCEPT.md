@@ -54,7 +54,7 @@ Die Zuordnung Gegner zu Zelle bräuchte also keinen Raster-Lookup.
 | Aggregat-Anzeige | `route-grid-aggregate-viz.ts`, Reihenfolge der Instanzen gleich der Map-Reihenfolge | Debug, pro Frame Farben | wie oben |
 | LOS-Debug | `services/debug/los-debug.service.ts` (ein Pixel je Mittelpunkt) | Debug | Mittelpunkt |
 | Kampfspuren | `three-engine/renderers/scorch-marks.ts` (eine Brandspur je Zellschlüssel) | pro Treffer | Schlüssel pro Ort |
-| Verteidigungsreichweite, KI | `services/world/global-route-grid.service.ts` (`getDefenseReachPercent`), `ai/core/dps-profile.ts` (Bins für den KI-Encoder) | KI-Schnappschuss | Punkt ergibt eine Zelle |
+| Verteidigungsreichweite, KI | `services/world/global-route-grid.service.ts` (`getDefenseReachPercent`), `director/dps-profile.ts` (Bins für den KI-Encoder) | KI-Schnappschuss | Punkt ergibt eine Zelle |
 | Platzierungsregeln | `utils/tower-placement-rules.ts` misst den Abstand zur Routenlinie | pro Platzierung | nicht zellbasiert, bleibt |
 | Diagnose | `__rg` (`global-route-grid.service.ts`), `__corridor.towerCells()` (`services/debug/corridor-console.ts`, Lochsuche `global-route-grid.ts`), `services/debug/enemy-debug.service.ts` | Debug | Raster, Nachbarn über Achsen |
 | Mehrere Routen | `claimRouteCells` vereinigt über den Schlüssel (`route-grid-builder.ts`), eine Zelle kennt keine Route; die Fläche einer geteilten Zelle wählt `claimSegmentCells` (`SURFACE_ORDER`) | pro Routenbau | ein Ort, eine Zelle |

@@ -646,11 +646,11 @@ die weggelassenen Frames.
 
 ### Vorkommen in Wellen
 
-Kurrikulum W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte
+Die Kampagne W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte
 Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`,
 mit allem, was ein Kill abspaltet.
 
-| Template | Kurrikulum | max. Anzahl | Mischung | Mio. Vertices |
+| Template | Kampagne | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
 | `rat_tide` | W2 | 5.000 | rat 100 % | 5,0 |
 | `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 3,6 |
@@ -675,32 +675,32 @@ mit allem, was ein Kill abspaltet.
 | `mech_army` | W28 | 100 | mech 100 % | 0,5 |
 | `boss_herbert` | W10, W20, W30 | 100 | herbert 3 %, tank 48 %, zombie 48 % | 0,4 |
 
-| Gegner | Kurrikulum-Wellen | max. im Static-Fallback |
+| Gegner | Kampagnen-Wellen | max. in einer Kampagnenwelle |
 | --- | --- | ---: |
-| Bat | W7, W8, W21, W26 | 150 |
-| Bear | W11, W16, W29 | 10 |
-| Dragon | W12, W24 | 9 |
-| Ghost | W13, W18, W23 | 40 |
+| Bat | W7, W8, W21, W26 | 600 |
+| Bear | W11, W16, W29 | 120 |
+| Dragon | W12, W24 | 60 |
+| Ghost | W13, W18, W23 | 280 |
 | Herbert | W10, W20, W30 | 3 |
-| Hornet | W8, W12, W16, W24, W26, W29 | 80 |
-| Mammoth | W14, W18, W25 | 12 |
-| Mech | W28 | 20 |
+| Hornet | W8, W12, W16, W24, W26, W29 | 210 |
+| Mammoth | W14, W18, W25 | 150 |
+| Mech | W28 | 100 |
 | Ooze | – | 0 |
-| Penguin | W3 | 25 |
-| Rat | W2, W3, W18 | 60 |
-| Skeleton | W19 | 310 |
-| Skeleton Minion | W19 | 620 |
+| Penguin | W3 | 450 |
+| Rat | W2, W3, W18 | 5.000 |
+| Skeleton | W19 | 940 |
+| Skeleton Minion | W19 | 1.880 |
 | Slime Clump | – | 0 |
-| Spider | W4, W6 | 35 |
-| Stone Golem | W15 | 6 |
-| Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 25 |
-| Wallsmasher | W4, W5, W14, W25 | 15 |
+| Spider | W4, W6 | 800 |
+| Stone Golem | W15 | 60 |
+| Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 150 |
+| Wallsmasher | W4, W5, W14, W25 | 200 |
 | Skarnax | – | 0 |
 | Skarnax Segment | – | 0 |
 | Skarnax Tail | – | 0 |
-| Wraith | W13, W17, W23, W27 | 80 |
-| Zombie | W1, W10, W16, W20, W29, W30 | 60 |
-| Zombie Soldier | W9, W22 | 6 |
-| Zombie v2 | W1 | 0 |
+| Wraith | W13, W17, W23, W27 | 300 |
+| Zombie | W1, W10, W16, W20, W29, W30 | 1.800 |
+| Zombie Soldier | W9, W22 | 60 |
+| Zombie v2 | W1 | 200 |
 
 <!-- model-budget:end -->

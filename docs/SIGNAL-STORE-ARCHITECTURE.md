@@ -1,6 +1,6 @@
 # Signal Store Architektur: TowerDefenseStore
 
-**Stand:** 2026-09-15 (`useAIDirector`-Ownership: 2026-09-07)
+**Stand:** 2026-09-15 (`directorEnabled`-Ownership: 2026-09-07)
 
 ## Überblick
 
@@ -166,22 +166,22 @@ expect(store.canStartWave()).toBe(false);
 | Kills/Stats des gewählten Towers | Store (GameStore `selectedTowerRevision`) | Sidebar (Tower-/Research-Panel) | GameStateSyncService (`tower:kill`, `tower:upgraded`) |
 | Debug-Panel (wave/tower/enemy overrides) | Store (DebugStore) | WaveDebug/TowerDebug/EnemyDebug Services | Services intern (delegieren an Store) |
 | Display-Optionen, VFX-Schalter | kein Store: DebugFacadeService-Signals, localStorage `td_display_options` | Quick Actions, Display-Debug-Fenster | DebugFacadeService |
-| Bot/AI (useAIDirector, aiExplanation) | Store (GameStore) | Component (Template) | Facade (Toggle, Fehlerpfad, DevWorld-Init; `aiExplanation` beim Wave-Start) |
-| Bot/AI (botEnabled, botSkillLevel, botAutoMode) | TrainingClientService | Component, Facade | TrainingClientService intern |
+| Bot/AI (directorEnabled, waveExplanation) | Store (GameStore) | Component (Template) | Facade (Toggle, Fehlerpfad, DevWorld-Init; `waveExplanation` beim Wave-Start) |
+| Bot/AI (botEnabled, botSkillLevel, botAutoMode) | BotClientService | Component, Facade | BotClientService intern |
 
-#### `useAIDirector`: Default `true`, kein Auto-Enable-Effect
+#### `directorEnabled`: Default `true`, kein Auto-Enable-Effect
 
-`useAIDirector` steht seit 2026-09-07 per Default auf `true` (auch in
+`directorEnabled` steht seit 2026-09-07 per Default auf `true` (auch in
 `resetAll()`). Der Wave-Director ist regelbasiert und braucht weder Modell noch
 Netzwerk, es gibt also kein Startfenster, in dem er nicht verfügbar wäre.
 
 Vorher war der Default `false` und ein `effect()` im `GameLoopFacadeService`
-schaltete ihn ein, sobald das ONNX-Modell geladen war. Dieser Effect ist
+schaltete ihn ein, sobald das damalige ONNX-Modell geladen war. Dieser Effect ist
 **ersatzlos entfernt**, und zwar nicht nur, weil er überflüssig wurde:
 
 > Ein `effect()`, der ein Signal liest **und** schreibt, das er selbst als
 > Bedingung auswertet, feuert auf den eigenen Schreibvorgang neu. Der Effect las
-> `useAIDirector()` neben dem Modell-Status; mit einem immer verfügbaren
+> `directorEnabled()` neben dem Modell-Status; mit einem immer verfügbaren
 > Director war die Bedingung permanent wahr und der Effect zwang das Flag
 > zurück auf `true`. Konsequenz: der UI-Toggle war wirkungslos, der Fehlerpfad
 > konnte den Director nicht abschalten, und ein Store-Reset wurde sofort

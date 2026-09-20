@@ -10,7 +10,7 @@ Der Held ist eine Einheit, die der Spieler einmal anheuert und dann entlang
 der Gegnerrouten schickt. Er kämpft von selbst auf kurze Distanz, hält den
 Posten, an den er geschickt wurde, und steigt über Kills auf. Anders als der
 Nuklearschlag ([ABILITIES.md](ABILITIES.md)) wirkt er dauernd und zählt
-deshalb im Fairness-Gate mit.
+deshalb im Überlebbarkeits-Deckel mit.
 
 ---
 
@@ -31,7 +31,7 @@ Alle Werte stehen in `configs/hero.config.ts` (`HERO`, `HERO_AMMO`, `HERO_LEVELS
 | Stufen | 5, erreicht bei 0, 30, 100, 250 und 500 Kills; Schaden je Schuss ×1,0 / 1,15 / 1,3 / 1,45 / 1,6. Reichweite, Tempo und Feuerrate bleiben |
 | Leben | unverwundbar, Gegner greifen ihn nicht an |
 | Gold | jeder seiner Kills zahlt seinen Anteil am Kill-Budget der Welle wie jeder Kill |
-| Wave-Director | virtueller Tower mit Präsenzfaktor 0,5, siehe [Fairness-Gate](#fairness-gate) |
+| Wave-Director | virtueller Tower mit Präsenzfaktor 0,5, siehe [Überlebbarkeits-Deckel](#fairness-gate) |
 | Bots | heuern ihn nie an, siehe [Bots](#bots) |
 
 ### Munition
@@ -51,7 +51,7 @@ Ein Lauf beginnt mit Standard rounds. Der Stufenbonus gilt für jede Munition.
 
 ## Herleitung von Preis und Forschung
 
-Einkommen laut Curriculum (`goldKill + goldComplete`, ohne Skill-Boni und ohne
+Einkommen laut Kampagne (`killGold + completionGold`, ohne Skill-Boni und ohne
 die 100 Start-Credits), kumuliert: W5 2.300, W6 3.000, W7 3.800, W8 4.700,
 W9 5.800, W10 7.200, W12 11.500.
 
@@ -168,7 +168,7 @@ Manager den Graphen neu und setzt Held und Posten auf den nächsten Punkt.
 
 ---
 
-## Fairness-Gate
+## Überlebbarkeits-Deckel
 
 Der Held wirkt dauernd, also zählt er im Defense-Modell (Konzept Abschnitt 2,
 Folgerung 1). `analyzeDefense(towers, airUnlocked, hero)` bekommt sein Profil
@@ -185,7 +185,7 @@ Folgerung 1). `analyzeDefense(towers, airUnlocked, hero)` bekommt sein Profil
   (3/s) × 0,5, Boden und Luft.
 - Nicht in `totalDPS` (DPS-Rampe, COMING UP), nicht in den Fähigkeiten
   (Anti-Air, Anti-Ethereal, Splash), nicht im AoE-Anteil und nicht im
-  DPS-Profil entlang des Pfads, das nur der ONNX-Pfad liest.
+  DPS-Profil entlang des Pfads, das nur die DPS-Bin-Anzeige liest.
 - Seine Kills sind Kills wie die eines Towers. Anders als Fähigkeits-Kills
   bucht der Leck-Regler sie nicht als Leck (Konzept 6.1: "Beim Held nicht").
   Die Folge laut Konzept Abschnitt 2: senkt er die Leck-Quote, werden die
@@ -300,8 +300,8 @@ vergleichbar.
 | `managers/game-commands.handler.ts` | `command:hire-hero`, `command:hero-move`, `command:hero-ammo`, `debug:ready-hero` |
 | `managers/projectile.manager.ts` | `spawnShot`, mit `aimPoint` für Körper entlang der Route |
 | `services/combat/damage-application.service.ts` | Quelle `hero` → `hero:kill` |
-| `ai/core/defense-analyzer.ts` | virtueller Tower im Gate |
-| `ai/training/strategies/research/research-pick.strategy.ts` | `BOT_SKIPPED_RESEARCH` |
+| `director/defense-analyzer.ts` | virtueller Tower im Gate |
+| `bots/strategies/research/research-pick.strategy.ts` | `BOT_SKIPPED_RESEARCH` |
 | `services/hero-control.service.ts` | Auswahl, Klick, Vorschau, Munition |
 | `services/input-handler.service.ts` | `setHeroCallbacks` |
 | `services/hotkey-map.ts`, `services/hotkey.service.ts` | G, V, Esc |
@@ -313,8 +313,8 @@ vergleichbar.
 Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`, `hero-body-contact.spec.ts`,
 `integration/hero.spec.ts`, `hero.config.spec.ts`,
 `damage-application.service.spec.ts`, `projectile.manager.spec.ts`,
-`defense-analyzer.spec.ts`, `ai-data-collector.service.spec.ts`,
-`ai-data-collector.ability-kills.spec.ts`, `research-pick.strategy.spec.ts`,
+`defense-analyzer.spec.ts`, `state-snapshot.service.spec.ts`,
+`state-snapshot.ability-kills.spec.ts`, `research-pick.strategy.spec.ts`,
 `hero-control.service.spec.ts`, `hotkey-map.spec.ts`,
 `hotkey.service.spec.ts`, `hero-panel.spec.ts`, `hero-bar.spec.ts`,
 `hero.renderer.spec.ts`, `vfx.service.spec.ts`,

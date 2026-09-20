@@ -1,7 +1,7 @@
 # Bot System: Dokumentation
 
-**Stand:** 2026-09-15
-**Code:** `src/app/ai/training/`
+**Stand:** 2026-09-20
+**Code:** `src/app/bots/`
 
 ## Überblick
 
@@ -9,11 +9,21 @@ Der Bot spielt die Verteidigerseite: er baut, upgradet, verkauft, forscht und
 startet Wellen. Er hat zwei Aufgaben, und die zweite bestimmt sein Design:
 
 1. Automatisiertes Spielen für Playtests und Headless-Läufe.
-2. **Der Bot ist der Gegner, gegen den der Wave Director bewertet wird.** Alles,
+2. **Der Bot ist der Gegner, gegen den der Wave Director gemessen wird.** Alles,
    was der Bot systematisch anders macht als ein Mensch, verschiebt die Messung
    des Wave-Designs. Das ist kein theoretisches Risiko: genau daran ist eine
    ganze Trainingsgeneration gescheitert (siehe [Warum die Platzierung so
    aussieht](#warum-die-platzierung-so-aussieht)).
+
+**Zwei Bots seit 2026-09-20** ([BALANCING_PLAN.md](BALANCING_PLAN.md), D15):
+`beginner` und `expert`. Vorher gab es vier Stufen, von denen zwei Paare
+dasselbe Strategie-Set hatten. Der Könner heuert seit demselben Tag auch den
+Helden an; vorher maß jeder Lauf ein Spiel ohne ihn.
+
+**Der Bot handelt nur über `command:*`.** Bauen, Upgraden, Verkaufen, Forschen,
+Fähigkeiten und der Held gehen denselben Weg wie ein Klick. Vorher riefen Bau
+und Verkauf direkt in den `GameStateManager`, und das Run-Log
+([RUN_LOG.md](RUN_LOG.md)) hätte diese Entscheidungen nie gesehen.
 
 Architektur: **Strategy Pattern mit Composition**. Ein `StrategyBot` hält eine
 nach Priorität sortierte Liste von `ITowerStrategy`-Objekten und führt pro
@@ -25,12 +35,12 @@ Entscheidung die erste aus, die kann und will.
 
 ```
 Sub-Step-Loop (game-loop-facade)
-  └─ TrainingClientService.updateBot(getSnapshot, deltaTime)   → ohne Session: false
-       └─ TrainingSession.updateBot(getSnapshot, deltaTime)
+  └─ BotClientService.updateBot(getSnapshot, deltaTime)   → ohne Session: false
+       └─ BotSession.updateBot(getSnapshot, deltaTime)
             ├─ bot.tickCooldown(deltaTime)      → false ⇒ Abbruch, KEIN Snapshot
             ├─ bot.update(getSnapshot(), 0)     → StrategyBot.decideAction(state)
             │    └─ Strategien in Prioritätsreihenfolge: canExecute() → execute()
-            └─ TrainingSession.executeBotAction(action)
+            └─ BotSession.executeBotAction(action)
 ```
 
 Drei Details, die man beim Lesen des Codes sonst falsch erwartet:
@@ -45,7 +55,7 @@ Drei Details, die man beim Lesen des Codes sonst falsch erwartet:
   Snapshot-Bau überspringen kann, solange der Bot in Reaktionszeit steht. Der
   Snapshot ist das mit Abstand teuerste in der Schleife (volle Defense-Analyse,
   effektive DPS pro Rüstung, Route-Grid-Reach-Query), und die Sub-Step-Loop
-  läuft bei Trainingsgeschwindigkeit ~200 Ticks pro gerendertem Frame. Wer
+  läuft bei hohem Spieltempo ~200 Ticks pro gerendertem Frame. Wer
   `tickCooldown` vorher ruft, übergibt danach `deltaTime = 0`, sonst tickt der
   Cooldown doppelt.
 - **`wait`-Actions blockieren nicht.** Gibt eine Strategie `wait` zurück (typisch:
@@ -65,9 +75,9 @@ verhungern.
 ## Verzeichnisstruktur
 
 ```
-src/app/ai/training/
-├── training-client.service.ts       # Einstieg: Signale für UI/Game-Loop, lädt die Session bei Bedarf
-├── training-session.ts              # WebSocket-Client + Bot-Steuerung + Action-Ausführung (Lazy-Chunk)
+src/app/bots/
+├── bot-client.service.ts       # Einstieg: Signale für UI/Game-Loop, lädt die Session bei Bedarf
+├── bot-session.ts              # WebSocket-Client + Bot-Steuerung + Action-Ausführung (Lazy-Chunk)
 │
 ├── bots/
 │   ├── tower-bot.interface.ts       # ITowerBot, TowerAction, BotConfig, BOT_CONFIGS
@@ -102,7 +112,7 @@ src/app/ai/training/
 
 Es gibt **keine** `index.ts`-Barrels in diesem Baum; importiert wird direkt aus
 den Dateien. `GameStateSnapshot` liegt in
-`src/app/ai/core/models/game-state-snapshot.ts`.
+`src/app/director/models/game-state-snapshot.ts`.
 
 ---
 
@@ -124,7 +134,7 @@ export interface ITowerBot {
   onWaveCompleted?(survived: boolean, damagePercent: number): void;
 }
 
-export type BotSkillLevel = 'beginner' | 'casual' | 'strategist' | 'meta';
+export type BotSkillLevel = 'beginner' | 'expert';
 ```
 
 ### ITowerStrategy
@@ -187,9 +197,7 @@ export interface BotConfig {
 | Skill | reactionTimeMs | maxTowers | adaptsToEnemies |
 |---|---|---|---|
 | beginner | 3000 | 10 | false |
-| casual | 1500 | 15 | true |
-| strategist | 800 | 20 | true |
-| meta | 400 | 20 | true |
+| expert | 800 | 20 | true |
 
 `knownTowerTypes` ist bei allen `ALL_COMBAT_TOWERS` (archer, dual-gatling,
 cannon, magic, rocket, ice, fire, tentacle, poison, lightning, chaos). Was ein Bot
@@ -204,7 +212,7 @@ Skill-Level unterscheiden sich in Reaktionszeit, Turm-Cap und Strategie-Set.
   ~7800 DPS über den ganzen Pfad, ab Welle 11 wurden 100 % jeder Welle getötet.
   Der Wave Director hatte damit nichts mehr zum Zielen: die Near-Miss-Quote lag
   über 15k Episoden flach bei 0.02, während er das einzig noch Erreichbare
-  optimierte, das Run-Pacing. Ein Training gegen eine Verteidigung, die das
+  optimierte, das Run-Pacing. Ein Lauf gegen eine Verteidigung, die das
   Spiel nie produziert, lehrt Wellen, die das Spiel nie braucht.
 - Bei 300 baute der Bot 298 Türme; die Kampfauflösung allein kostete 6 ms pro
   Sub-Step, was bei Timescale 75 (~225 Sub-Steps pro Frame) den Loop auf 2 FPS
@@ -213,7 +221,7 @@ Skill-Level unterscheiden sich in Reaktionszeit, Turm-Cap und Strategie-Set.
 Die Factory legt beim Erzeugen ±30 % Jitter auf `reactionTimeMs` und `maxTowers`
 (`jitterConfig()`, Faktor in [0.7, 1.3], Untergrenzen 100 ms und 5 Türme,
 `maxTowers = 0` bleibt 0), damit
-parallele Trainings-Tabs nicht identisch spielen.
+parallele Bot-Tabs nicht identisch spielen.
 
 ---
 
@@ -221,41 +229,44 @@ parallele Trainings-Tabs nicht identisch spielen.
 
 Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 
-| Priority | Strategie | beginner | casual | strategist | meta |
-|---:|---|:--:|:--:|:--:|:--:|
-| 97 | NuclearStrike | ✓ | ✓ | ✓ | ✓ |
-| 96 | FrostBomb | ✓ | ✓ | ✓ | ✓ |
-| 95 | ResearchCenterPlacement | ✓ | ✓ | ✓ | ✓ |
-| 94 | Emp | ✓ | ✓ | ✓ | ✓ |
-| 93 | OrbitalLaser | ✓ | ✓ | ✓ | ✓ |
-| 91 | MissileSiloPlacement | ✓ | ✓ | ✓ | ✓ |
-| 90 | AntiAirPlacement | | ✓ | ✓ | ✓ |
-| 88 | AntiEtherealPlacement | | ✓ | ✓ | ✓ |
-| 85 | SplashDefensePlacement | | ✓ | ✓ | ✓ |
-| 80 | ResearchPick | ✓ | ✓ | ✓ | ✓ |
-| 75 | PathCoverageUpgrade | | ✓ | ✓ | ✓ |
-| 72 | SellUnderperformer | | | ✓ | |
-| 65 | DistributedPlacement | | | ✓ | |
-| 60 | CoverageFill | ✓ | ✓ | | ✓ |
-| 30 | AutoStartWave | (✓) | (✓) | (✓) | (✓) |
+| Priority | Strategie | beginner | expert |
+|---:|---|:--:|:--:|
+| 97 | NuclearStrike | ✓ | ✓ |
+| 96 | FrostBomb | ✓ | ✓ |
+| 95 | ResearchCenterPlacement | ✓ | ✓ |
+| 94 | Emp | ✓ | ✓ |
+| 93 | OrbitalLaser | ✓ | ✓ |
+| 91 | MissileSiloPlacement | ✓ | ✓ |
+| 90 | AntiAirPlacement | | ✓ |
+| 88 | AntiEtherealPlacement | | ✓ |
+| 85 | SplashDefensePlacement | | ✓ |
+| 85 | Hero | | ✓ |
+| 80 | ResearchPick | ✓ | ✓ |
+| 75 | PathCoverageUpgrade | | ✓ |
+| 72 | SellUnderperformer | | ✓ |
+| 65 | DistributedPlacement | | ✓ |
+| 60 | CoverageFill | ✓ | |
+| 30 | AutoStartWave | (✓) | (✓) |
 
 `(✓)` = wird nur angehängt, wenn `createBot(skill, autoStartWaves = true)`.
 
-NuclearStrike steht in jedem Set, feuert aber nur mit erforschtem
-`nuclear-strike` und stehendem Missile Silo, und das erforschen nur strategist
-und meta (ResearchPick). Dasselbe gilt für MissileSiloPlacement, für FrostBomb
-und `frost-bomb`, Emp und `emp`, OrbitalLaser und `orbital-laser`.
+NuclearStrike steht in beiden Sets, feuert aber nur mit erforschtem
+`nuclear-strike` und stehendem Missile Silo, und das erforscht nur der Könner
+(ResearchPick). Dasselbe gilt für MissileSiloPlacement, für FrostBomb und
+`frost-bomb`, Emp und `emp`, OrbitalLaser und `orbital-laser`.
 Frostbombe, EMP und Orbitallaser suchen ihre Kandidaten je für sich
 (`enemiesFromProgress` in `ability-aim.ts`, der EMP zweimal): Im selben Zug
 geht die Liste der Gegner mehrmals durch. Nicht gemessen, nicht geteilt.
 
-**casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
-Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
+**Unterschied der beiden:** Der Einsteiger reagiert langsam (3000 ms gegen
+800 ms), baut höchstens 10 Tower (gegen 20), forscht nur `gatling-tech`, füllt
+die Route ohne Rücksicht auf die Gegnerart und verkauft nie. Der Könner
+antwortet auf das, was eine Welle bringt, forscht den ganzen Baum inklusive
+Söldner-Vertrag, rüstet entlang des Pfads auf, verkauft, was sich nicht trägt,
+und schickt den Helden dorthin, wo die Gegner stehen.
 
-Das Training fährt `strategist` (`TrainingSession` schaltet bei
-`control: start` auf Timescale 75 und `enableBot('strategist')`). Der
-Strategist ist damit der Build, gegen den das Wave-Design gemessen wird; bei
-Änderungen an seinen Strategien ändern sich alle Trainingszahlen mit.
+Ein Batch verteilt beide Bots gleich (`BOT_WEIGHTS` im Bot-Server); der Server
+sagt jedem Client vor jedem Lauf, welchen er spielt.
 
 ---
 
@@ -307,7 +318,7 @@ Aktiv bei `vulnerabilities.etherealGap`, ab Welle 9.
 
 Ethereal ist die eine Rüstungsklasse, die sich nicht mit Masse erschlagen lässt:
 physical, pierce und fire liegen alle bei 0.1×, nur magic (2.0×), ice (1.5×),
-lightning (1.5×) und chaos (1.0×) kommen durch. Das Curriculum forciert `ghost_surge` auf
+lightning (1.5×) und chaos (1.0×) kommen durch. Das Kampagne forciert `ghost_surge` auf
 W13 und `wraith_storm` auf W17, und ein forciertes Template ignoriert das
 Capability-Gate; ohne diese Strategie verliert der Bot dort schlicht. Vorher
 entstanden Ethereal-Konter nur zufällig über den „neuen Typ probieren"-Zweig der
@@ -331,9 +342,7 @@ Feuert, wenn ein Center steht, ein Slot frei ist und die nächste Node bezahlbar
 ist und ihre Prereqs erfüllt sind.
 
 - **beginner:** nur `gatling-tech`.
-- **casual:** `gatling-tech, ice-magic, toxic-compounds, siege-engineering,
-  fire-alchemy`.
-- **strategist / meta:** primär **adaptiv**: bewertet alle offenen Nodes gegen
+- **expert:** primär **adaptiv**: bewertet alle offenen Nodes gegen
   `state.expectedArmorDistribution` (effektive DPS pro Credit des freigeschalteten
   Turms gegen den erwarteten Rüstungsmix, Tier-Unlocks nach Bedarf). Nur wenn
   daraus nichts kommt, greift die statische Liste
@@ -341,7 +350,7 @@ ist und ihre Prereqs erfüllt sind.
   aa-retrofit → arcane-studies → toxic-compounds → fire-alchemy →
   advanced-weaponry → nuclear-strike → frost-bomb → storm-mastery → emp →
   master-engineering → orbital-laser → chaos-rift → advanced-engineering →
-  transcendent-tech`, `research-pick.strategy.ts`), die am Wave-Curriculum
+  transcendent-tech`, `research-pick.strategy.ts`), die am Wave-Kampagne
   ausgerichtet ist: AA fertig vor
   `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Magic vor `ghost_surge`
   (W13).
@@ -353,7 +362,7 @@ ist und ihre Prereqs erfüllt sind.
 
 Zwei Sonderregeln, beide aus konkreten Fehlern:
 
-- **Anti-Air-Dringlichkeit:** Enthält das Curriculum-Template der *nächsten*
+- **Anti-Air-Dringlichkeit:** Enthält das Kampagnen-Template der *nächsten*
   Welle Lufteinheiten und die Verteidigung hat keine Luftfähigkeit, bekommen
   `rocketry` und `aa-retrofit` +100 auf den Score. Ohne den Bump gewinnt die
   reine Matrix-Bewertung mit einem Turm, der Luft nicht trifft (Gatling ohne
@@ -403,7 +412,7 @@ lokale Kopie (Tier 2 schon ab Level 1, Tier 3 ab Level 2, darüber nichts) und
 lehnte damit Upgrades ab, die die Engine akzeptiert hätte; Tier 4 und 5 waren
 für ihn unerreichbar.
 
-### SellUnderperformer (72, nur Strategist)
+### SellUnderperformer (72, nur Könner)
 
 Verkauft **unaufgerüstete Archer**, wenn ≥ 2000 Credits da sind, ≥ 5 Türme
 stehen, der Sell-Cooldown (4 s Game-Time) abgelaufen ist und ein teurerer,
@@ -414,7 +423,7 @@ Verkaufsmechanismus entstanden 300k-Gold-Horte.
 Der Kommentar im Code beschreibt eine Auswahl „nächster am Pfadende"; implementiert
 ist bewusst `archers[0]`.
 
-### DistributedPlacement (65, nur Strategist)
+### DistributedPlacement (65, nur Könner)
 
 Zonenbasierte Platzierung über `findDistributedPositions` (5 Zonen entlang des
 Pfades, unterversorgte Zonen scoren höher). Auswahl-Logik:
@@ -429,6 +438,18 @@ Pfades, unterversorgte Zonen scoren höher). Auswahl-Logik:
 Deckel endete der Bot bei 92 Archern und je einem von allem anderen. Der Cap
 wächst mit dem Mix mit, verbietet aber reinen Archer-Spam; ist nur Archer
 bezahlbar und der Cap erreicht, spart der Bot auf den billigsten Nicht-Archer.
+
+### Hero (85, nur Könner)
+
+`strategies/hero/hero.strategy.ts`. Drei Entscheidungen in dieser Reihenfolge:
+
+1. **Anheuern**, sobald `mercenary-contract` erforscht und `HERO.cost` da ist. Er kostet anderthalb Tower und
+   stirbt nie, es gibt also keinen Grund zu warten.
+2. **Munition** nach dem, was die laufende Welle trägt: Sprenggeschosse gegen heavy und fortified, Runen gegen
+   ethereal, sonst Standard. Seine Schadensart ist das Einzige an ihm, das der Spieler wählt ([HERO.md](HERO.md)).
+3. **Stellung** beim Pulk: der Punkt unter den lebenden Gegnern, der die meisten anderen in seiner Reichweite hat
+   (`densestCenter`). Ein neuer Befehl erst, wenn der Pulk mehr als zwei Leinenlängen von seinem Posten weg ist,
+   sonst läuft er mehr als er schießt.
 
 ### CoverageFill (60)
 
@@ -466,23 +487,19 @@ betäubtes Glied zu weit hinten, höchstens um Restdauer mal Tempo. Gegner laufe
 die seitliche Lage in der Straße zählt nicht.
 
 Die Gegner liest die Strategie aus dem GameStateManager, nicht aus dem
-Snapshot: der trägt keine Positionen und geht unverändert ans Backend.
+Snapshot: der trägt keine Positionen.
 
-**Vergleichbarkeit:** Strategist (der Trainings-Bot) und meta erforschen die
-Fähigkeit für 1.000 Gold und setzen sie ein. Ihre Läufe sind mit Läufen vor dem
+**Vergleichbarkeit:** Der Könner erforscht die Fähigkeit für 1.000 Gold und
+setzt sie ein. Ihre Läufe sind mit Läufen vor dem
 2026-09-13 nicht direkt vergleichbar: anderes Gold, eine andere
-Forschungsfolge, weniger Lecks in Wellen mit Einsatz. Beginner und casual
-erforschen sie nie und spielen unverändert. Das Fairness-Gate bucht die Kills
-als Leck, im Frontend wie im Backend (`gate_leak_share`), die Wellengröße
-wächst also nicht durch den Einsatz. Das Encoder-Merkmal `research_progress`
-(abgeschlossen durch gesamt) zählt seit 2026-09-14 nur die elf Knoten, die das
-Modell kennt (`ENCODER_RESEARCH_IDS`); neue Knoten wie dieser verschieben es
-nicht ([AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md), Abschnitt 7).
-Seit 2026-09-17 bauen strategist und meta dafür zusätzlich das Silo (400 Gold)
-und zielen mit Vorhalt auf die Gruppe beim Einschlag; Läufe davor sind in
-allem, was vom Nuklearschlag abhängt, nicht direkt vergleichbar. Das Silo zählt
-in `defense.towerCount` (Encoder-Merkmal `towerCount`) wie das Research
-Center.
+Forschungsfolge, weniger Lecks in Wellen mit Einsatz. Der Einsteiger
+erforscht sie nie und spielt unverändert. Der Leck-Regler bucht die Kills
+einer Fähigkeit als Leck, die Wellengröße wächst also nicht durch den Einsatz
+([WAVE_DIRECTOR.md](WAVE_DIRECTOR.md), Abschnitt 6). Seit 2026-09-17 baut der
+Könner dafür zusätzlich das Silo (400 Gold) und zielt mit Vorhalt auf die
+Gruppe beim Einschlag; Läufe davor sind in allem, was vom Nuklearschlag
+abhängt, nicht direkt vergleichbar. Das Silo zählt in `defense.towerCount` wie
+das Research Center.
 
 ### FrostBomb (96)
 
@@ -494,9 +511,9 @@ beim Nuklearschlag (`densestCenter` in `strategies/ability/ability-aim.ts`,
 höchstens 48 Kandidaten). Steht beides bereit, geht der Nuklearschlag (97)
 vor.
 
-**Vergleichbarkeit:** strategist und meta erforschen `frost-bomb` direkt nach
+**Vergleichbarkeit:** Der Könner erforscht `frost-bomb` direkt nach
 `nuclear-strike` (700 Gold). Ihre Läufe sind mit Läufen vor dem 2026-09-14
-nicht direkt vergleichbar; beginner und casual spielen unverändert.
+nicht direkt vergleichbar; der Einsteiger spielt unverändert.
 
 ### Emp (94)
 
@@ -508,8 +525,8 @@ es sie 6 s; sonst, wenn mindestens 12 Gegner beliebiger Art in den letzten
 Maschine mit den meisten Maschinen im Radius, sonst der Gegner der Menge mit
 den meisten anderen (`densestCenter`).
 
-**Vergleichbarkeit:** strategist und meta erforschen `emp` direkt nach
-`storm-mastery` (800 Gold). Beginner und casual spielen unverändert.
+**Vergleichbarkeit:** Der Könner erforscht `emp` direkt nach
+`storm-mastery` (800 Gold). Der Einsteiger spielt unverändert.
 
 ### OrbitalLaser (93)
 
@@ -542,8 +559,8 @@ sagt das Modell falsch vorher. Liegen an einer engen Kehre zwei Abschnitte der
 Strecke näher als 5 m beieinander, zählt ein Gegner einmal, sein Schaden kann
 unterschätzt sein.
 
-**Vergleichbarkeit:** strategist und meta erforschen `orbital-laser` direkt
-nach `master-engineering` (1.500 Gold). Beginner und casual spielen
+**Vergleichbarkeit:** der Könner erforschen `orbital-laser` direkt
+nach `master-engineering` (1.500 Gold). Der Einsteiger spielt
 unverändert. Seit 2026-09-15 zielt der Bot mit dem Strahlmodell statt mit der
 Zählung "bis 72 m hinter einem Gegner derselben Route" (Entscheidung E2):
 Wann und wohin er den Laser feuert, hat sich geändert, Läufe davor sind in
@@ -659,23 +676,23 @@ Gleichverteilung. Genau das macht das U-Gewicht: es verschiebt die Reihenfolge
 Bot-Logik, Steuerung und Stats liegen nicht in der Component, sondern in zwei
 Teilen:
 
-- **`TrainingClientService`** (im Spiel-Chunk): die Signale, die Templates und
+- **`BotClientService`** (im Spiel-Chunk): die Signale, die Templates und
   Game-Loop lesen (`botEnabled`, `botStats`, `isConnected`, `stats`, ...), plus
-  Weiterleitungen. Die Facades und das Training-Debug-Fenster kennen nur ihn.
-- **`TrainingSession`** (eigener Lazy-Chunk `training-session`): WebSocket-Client,
+  Weiterleitungen. Die Facades und das Bot-Debug-Fenster kennen nur ihn.
+- **`BotSession`** (eigener Lazy-Chunk `bot-session`): WebSocket-Client,
   Bot, Strategien, Action-Ausführung. Der Service lädt sie per
-  `import('./training-session')` beim ersten `enableBot()`, `connect()` oder
+  `import('./bot-session')` beim ersten `enableBot()`, `connect()` oder
   `connectToBackend()` und legt sie über `runInInjectionContext` an. Sie schreibt
   in die Signale des Service.
 
 ```typescript
-// TrainingClientService
+// BotClientService
 enableBot(skillLevel: BotSkillLevel): void
 disableBot(): void
 updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean  // ohne Session: false
 ```
 
-`updateBot` läuft nur in Phase `setup` oder `wave`. `TrainingSession.executeBotAction`
+`updateBot` läuft nur in Phase `setup` oder `wave`. `BotSession.executeBotAction`
 prüft noch einmal gegen den echten Spielstand (Platzierungsregeln über
 `TowerPlacementService.placementAt`, mit Grundfläche und Sockel wie beim Klick; Kosten, Existenz des Turms,
 Max-Level des Upgrades) und führt dann aus: Platzieren und Verkaufen direkt am
@@ -694,7 +711,7 @@ Für die Verbindung gilt dasselbe: der letzte Wunsch gewinnt. Ein `disconnect()`
 während `connect()` oder `connectToBackend()` noch auf den Chunk warten, bricht
 den Aufbau ab (Zähler `connectionRequest`). Scheitert der Chunk-Import, versucht
 der Service es bis zu dreimal (1 s, 2 s Pause) und schreibt danach eine Meldung
-in `sessionError`, die das Training-Debug-Fenster anzeigt. Gepufferte Wünsche
+in `sessionError`, die das Bot-Debug-Fenster anzeigt. Gepufferte Wünsche
 bleiben stehen; der nächste Aufruf startet eine neue Runde. Ob ein erneuter
 Import im Browser wirklich neu lädt, ist nicht garantiert (fehlgeschlagene
 Module können gecacht bleiben), dann hilft nur ein Reload des Tabs.
@@ -709,10 +726,10 @@ Raw-Größen aus `ng build --stats-json`:
 |---|---:|---:|
 | Initial-Bundle | 358,5 kB | 358,5 kB |
 | Chunks, die der Spielstart statisch lädt | 2244,9 kB | 2217,1 kB |
-| davon Training-Code | 51,4 kB | 17,5 kB |
-| `training-session` (lazy, nur Training) | | 29,8 kB |
+| davon Bot-Code | 51,4 kB | 17,5 kB |
+| `bot-session` (lazy, nur Bot-Läufe) | | 29,8 kB |
 
-Die verbleibenden 17,5 kB sind das Training-Debug-Fenster (15 kB) und der
+Die verbleibenden 17,5 kB sind das Bot-Debug-Fenster (15 kB) und der
 Service. Das Fenster bleibt eager: es per `@defer` zu laden, zieht 8 kB
 Defer-Runtime aus `@angular/core` ins Initial-Bundle. Lohnt erst, wenn alle
 Debug-Fenster (zusammen rund 160 kB) gemeinsam deferred werden.
@@ -723,9 +740,9 @@ eigenen Shared-Chunk legt, und zwei gzip-Streams komprimieren etwas schlechter
 als einer. Gewonnen ist JS, das beim Spielstart nicht mehr geparst und
 ausgeführt wird.
 
-Die Trennung hält nur, solange außerhalb von `ai/training/` niemand einen Wert
+Die Trennung hält nur, solange außerhalb von `bots/` niemand einen Wert
 aus Session, `bots/` oder `strategies/` importiert (`import type` ist frei). Das
-prüft `training-client.service.spec.ts`; das Budget `training-session` in
+prüft `bot-client.service.spec.ts`; das Budget `bot-session` in
 `angular.json` warnt ab 48 kB.
 
 ### Wie der Bot angeschaltet wird
@@ -734,17 +751,17 @@ prüft `training-client.service.spec.ts`; das Budget `training-session` in
 
 | Kontext | Verhalten |
 |---|---|
-| `?devworld` (ohne `?bot=manual`) | `botAutoMode = true` **und** `enableBot('strategist')`: der Tab spielt sofort selbst |
+| `?devworld` (ohne `?bot=manual`) | `botAutoMode = true` **und** `enableBot('expert')`: der Tab spielt sofort selbst |
 | `?devworld&bot=manual` | kein Bot, kein Auto-Wave |
 | sonst mit `?bot=auto` | nur `botAutoMode = true`; der Bot selbst wird über die Debug-UI oder das Dashboard aktiviert |
-| Dashboard-Kommando `start` | Timescale 75 + `enableBot('strategist')` |
+| Dashboard-Kommando `start` | Timescale 75 + `enableBot('expert')` |
 
 DevWorld startet den Bot bewusst **selbst**, statt auf den `start`-Broadcast des
 Dashboards zu warten: Ein Tab, der neu lädt, verpasst diesen Broadcast (er wird
 nicht wiederholt) und saß danach dauerhaft in der Setup-Phase, während er sich
 weiter als verbunden und gesund meldete. Analog `?bot=auto` als Pflichtangabe
 zusätzlich zu `?devworld`: der Bot baute dann Türme, startete aber nie eine Welle,
-und der Lauf produzierte keine Trainingsdaten.
+und der Lauf schrieb keine Daten.
 
 `botAutoMode` steuert nur, ob `AutoStartWaveStrategy` überhaupt Teil des
 Strategie-Sets ist (`createBot(skill, autoStartWaves)`), und wird zum
@@ -787,7 +804,7 @@ Erzeugungszeitpunkt gelesen; eine spätere Änderung wirkt erst beim nächsten
 Erwartetes Symptom, wenn PathCoverageUpgrade nicht durchkommt (Tier-Gate, keine
 bezahlbaren Upgrades) und die Platzierungsstrategien am Turm-Cap hängen. Die
 90 %-Feuerrate ab 2000 Credits und SellUnderperformer sind die Gegenmaßnahmen;
-beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
+beim Könner greifen beide, bei den anderen Skill-Levels nur die erste.
 
 ---
 
@@ -811,9 +828,9 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
   Abbruch hängt, fallen weg (TOWER_CREATION.md, Platzierungsregeln). Geprobt
   wird nur bis zu diesem ersten, die übrigen nicht. Ohne das wählte die
   Strategie nach der neuen Regel immer wieder denselben abgelehnten Kandidaten.
-- `TrainingSession.executeBotAction` platziert über `placementAt`;
-  `getSurfaceHeightAt` und die Engine-Referenz von `TrainingClientService` und
-  `TrainingSession` (`setEngine`) entfallen.
+- `BotSession.executeBotAction` platziert über `placementAt`;
+  `getSurfaceHeightAt` und die Engine-Referenz von `BotClientService` und
+  `BotSession` (`setEngine`) entfallen.
 
 ### 2026-09-15: Orbitallaser mit dem echten Strahl
 - OrbitalLaser bewertet Kandidaten mit dem Strahl der Fähigkeit (Weg, Radius,
@@ -824,21 +841,34 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 
 ### 2026-09-14: Orbitallaser
 - Neue Strategie OrbitalLaser (93) in allen Skill-Stufen; `orbital-laser` in
-  den Forschungslisten von strategist und meta nach `master-engineering`.
+  den Forschungslisten von der Könner nach `master-engineering`.
 
 ### 2026-09-14: EMP
 - Neue Strategie Emp (94) in allen Skill-Stufen; `emp` in den Forschungslisten
-  von strategist und meta nach `storm-mastery`.
+  von der Könner nach `storm-mastery`.
 
 ### 2026-09-14: Frostbombe
 - Neue Strategie FrostBomb (96) in allen Skill-Stufen; `frost-bomb` in den
-  Forschungslisten von strategist und meta nach `nuclear-strike`. Die
+  Forschungslisten von der Könner nach `nuclear-strike`. Die
   Zielhilfen des Nuklearschlags liegen jetzt in `ability-aim.ts`.
+
+### 2026-09-20: zwei Bots, der Held und das Run-Log
+- Aus vier Skill-Stufen werden zwei: `beginner` und `expert` (D15). `casual`
+  und `meta` hatten dieselben Strategie-Sets wie ihre Nachbarn.
+- Neue Strategie **Hero (85)**, nur beim Könner: anheuern, Munition nach dem
+  Rüstungsmix, Stellung beim Pulk. Vorher nutzte kein Bot den Helden.
+- Der Bot handelt nur noch über `command:*`; Bau und Verkauf gingen vorher
+  direkt an den `GameStateManager`, und das Run-Log sah sie nicht.
+- Der Bot schickt sein **Run-Log** je Welle an den Server (`run_log`), der es
+  nach `runs/<config-hash>/<lauf>.jsonl` schreibt. `result` und `game_start`
+  sind entfallen.
+- Der Server sagt jedem Client vor jedem Lauf, was er spielt (`run_config`:
+  Bot, Seed, Director-Parametersatz).
 
 ### 2026-09-13: Nuklearschlag
 - Neue Aktion `use-ability`, neue Strategie NuclearStrike (97) in allen
-  Skill-Stufen; `nuclear-strike` in den Forschungslisten von strategist und
-  meta nach `advanced-weaponry`. Folgen für Messungen:
+  Skill-Stufen; `nuclear-strike` in der Forschungsliste des Könners nach
+  `advanced-weaponry`. Folgen für Messungen:
   [NuclearStrike (97)](#nuclearstrike-97).
 
 ### 2026-09-12: Platzierungsregeln aus einer Quelle
@@ -852,7 +882,7 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 
 ### 2026-09-12: Chaos Tower
 - `chaos` in `ALL_COMBAT_TOWERS`, `chaos-rift` in den Research-Listen von
-  strategist und meta, nach Master Engineering.
+  der Könner, nach Master Engineering.
 - Keine neue Strategie: Chaos zählt als Anti-Air und Anti-Ethereal
   (`isAntiEtherealTower`, Schwelle 1,0), die bestehenden Placement-Strategien
   wählen ihn nach Wert pro Credit. Gegen Ethereal (0,30) liegt er dort hinter
@@ -881,7 +911,7 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 
 ### Phase 5.16 (2026-04 ff.): Research-aware Bots
 - **ResearchCenterPlacement** (95), **ResearchPick** (80, curriculum-aligned,
-  strategist/meta adaptiv), **SellUnderperformer** (72, nur Strategist).
+  expert/expert adaptiv), **SellUnderperformer** (72, nur Könner).
 - Alle Skill-Level bekommen die Research-Strategien.
 - Factory-Jitter auf `reactionTimeMs` / `maxTowers`.
 
@@ -899,11 +929,11 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 
 ## Verwandte Dokumente
 
-- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md): die Wellenseite,
-  Regel-Director und Fairness-Gate, gegen die der Bot spielt
+- [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md): die Wellenseite,
+  Regel-Director und Überlebbarkeits-Deckel, gegen die der Bot spielt
 - [HANDOVER_TRAINING_REFRESH.md](archive/HANDOVER_TRAINING_REFRESH.md): Trainings- und
   Messhistorie, inklusive der Befunde, die zu dieser Platzierung geführt haben
 - [WAVE_SYSTEM.md](WAVE_SYSTEM.md): Wave-Management und Spawn-Pipeline
 - [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md): Damage-Matrix und
   Rüstungsklassen, auf denen die Turmauswahl rechnet
-- `training-backend/docs/AI_TRAINING_BACKEND.md`: Python-Trainingspfad
+- `bot-server/README.md`: der Server, sein Protokoll und sein Log

@@ -134,7 +134,7 @@ und neue Spalte kurz nebeneinander; der Speicher liegt in diesem Moment um
 die alte Spalte über dem Budget.
 
 Rechnung für den ungünstigsten Fall, 2 800 Körper gleichzeitig auf der Route
-(ein Skelett-Schwarm am Rand seiner Template-Spanne; die Curriculum-W19 hat
+(ein Skelett-Schwarm am Rand seiner Template-Spanne; die Kampagne-W19 hat
 310 Skelette mit je 2 Minions, höchstens 930 Körper):
 
 - 2 800 × 22 B × 10 Frames/s = 616 KB pro Sekunde Spielzeit, nur Gegner

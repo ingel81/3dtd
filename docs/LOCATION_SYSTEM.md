@@ -222,7 +222,7 @@ Ein Globus mit allen verteidigten Orten und der besten Welle je Ort; ein Klick l
 
 - Hängt am Event-Bus, verbunden in `TowerDefenseFacadeService` neben dem Onboarding
 - Geschrieben wird bei `wave:started`: Welle N gestartet heißt Welle N erreicht, dieselbe Zahl, die die Game-Over-Bilanz als Wave zeigt. So bleibt der Stand auch bei Läufen, die nicht mit Game Over enden (Restart, anderer Ort, World Dice mit Reload, Reload, Tab geschlossen), ohne einen Hook für jeden dieser Wege
-- Nichts in DevWorld und nichts, solange der Bot spielt (`TrainingClientService.botEnabled`). Cheats und Debug-Wellen zählen mit, ein Wellensprung (Dev-Cheat, `wave:jumped`) nicht: ab dem Sprung schreibt der Lauf keinen Rekord mehr und bekommt bei `game:over` keinen `newRecord`. Was vor dem Sprung erreicht war, bleibt stehen; `game:reset` hebt die Sperre auf
+- Nichts in DevWorld und nichts, solange der Bot spielt (`BotClientService.botEnabled`). Cheats und Debug-Wellen zählen mit, ein Wellensprung (Dev-Cheat, `wave:jumped`) nicht: ab dem Sprung schreibt der Lauf keinen Rekord mehr und bekommt bei `game:over` keinen `newRecord`. Was vor dem Sprung erreicht war, bleibt stehen; `game:reset` hebt die Sperre auf
 - Neuer Rekord: beim ersten Wellenstart eines Laufs merkt sich der Service den bisherigen Rekord des Ortes. Liegt die erreichte Welle bei `game:over` darüber, steht in `newRecord` Ort, Welle und der alte Rekord (0 beim ersten Lauf dort). `game:reset` und Skip leeren ihn
 
 ### Einstiege

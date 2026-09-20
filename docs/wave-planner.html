@@ -79,9 +79,9 @@
 
 <h1>3DTD Wave Planner — Aufstellung → Required Gold</h1>
 <div class="meta">
-  Generated <code>2026-09-17T13:50:59.329Z</code> from
+  Generated <code>2026-09-20T12:57:05.138Z</code> from
   <code>tower-types.config.ts</code>, <code>research-tree.config.ts</code>,
-  <code>research-center.config.ts</code>, <code>wave-curriculum.config.ts</code>,
+  <code>research-center.config.ts</code>, <code>campaign.config.ts</code>,
   <code>game-balance.config.ts</code>. Regenerate via
   <code>npm run wave-planner</code>.
 </div>
@@ -91,7 +91,7 @@
   <em>Start</em> dieser Welle deployed haben soll. Das Tool rechnet die
   Kostendifferenz zwischen aufeinanderfolgenden Wellen aus — das ist das Gold,
   das die jeweils vorhergehende Welle erwirtschaften muss. Diff zur aktuellen
-  <code>wave-curriculum.config.ts</code> in der letzten Spalte. Knöpfe oben
+  <code>campaign.config.ts</code> in der letzten Spalte. Knöpfe oben
   (Upgrade-Scaling, Tower-Kosten, Forschungskosten) sind eine Sandbox — sie
   ändern nur die Berechnung im Browser, niemals die Configs.
 </div>
@@ -150,9 +150,8 @@
     Gold, das der Spieler bis hier ausgegeben hat (Aufstellungs-Wert). „Δ" =
     Differenz zum vorigen Welle (= Gold das ZWISCHEN den Wellen ausgegeben
     wird). „Required" = was die <em>vorige</em> Welle einbringen muss
-    (Buffer eingerechnet). „Curriculum" = aktuelle goldKill+goldComplete
-    der jeweils vorigen Welle. „Diff" = Required minus Curriculum.
-  </p>
+    (Buffer eingerechnet). „Campaign" = aktuelle killGold+completionGold
+    der jeweils vorigen Welle. „Diff" = Required minus Campaign.   </p>
   <table>
     <thead>
       <tr>
@@ -163,7 +162,7 @@
         <th>Cost</th>
         <th>Δ Vorwelle</th>
         <th>Required<br><span style="font-weight:400;font-size:10px;">(Welle W−1 muss einbringen)</span></th>
-        <th>Curriculum<br><span style="font-weight:400;font-size:10px;">(W−1 Gold heute)</span></th>
+        <th>Campaign<br><span style="font-weight:400;font-size:10px;">(W−1 Gold heute)</span></th>
         <th>Diff</th>
       </tr>
     </thead>
@@ -172,11 +171,11 @@
 </div>
 
 <div class="section">
-  <h2>Gold-Kurve — Required vs. Curriculum</h2>
+  <h2>Gold-Kurve — Required vs. Campaign</h2>
   <p class="note">
     <span style="color:#6FB7A5;">●</span> Required-Earning pro Welle (aus deinem Plan)
     &nbsp;&nbsp;
-    <span style="color:#c9a44c;">●</span> Aktuelle Curriculum-Werte
+    <span style="color:#c9a44c;">●</span> Aktuelle Campaign-Werte
     &nbsp;&nbsp;
     <span style="color:#C04B3F;">●</span> Diff (Required − Current)
   </p>
@@ -227,7 +226,7 @@
 'use strict';
 
 // ===== Embedded payload (single source of truth from configs) =====
-const PAYLOAD = {"startCredits":100,"defaults":{"upgradeBaseCost":50,"upgradeCostScaling":1.25,"rcBaseCost":75},"towers":[{"id":"archer","name":"Archer Tower","cost":45,"attackType":"projectile","damageType":"physical","color":"#6FB7A5","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"dual-gatling","name":"Dual-Gatling Tower","cost":90,"attackType":"projectile","damageType":"pierce","color":"#C9A44C","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.06,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"cannon","name":"Cannon Tower","cost":150,"attackType":"projectile","damageType":"siege","color":"#C04B3F","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.07,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.02,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"magic","name":"Magic Tower","cost":140,"attackType":"projectile","damageType":"magic","color":"#9B7BD9","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"rocket","name":"Rocket Tower","cost":120,"attackType":"projectile","damageType":"siege","color":"#E68A4D","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.07,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"ice","name":"Ice Tower","cost":90,"attackType":"projectile","damageType":"ice","color":"#5FA8D3","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"fire","name":"Fire Tower","cost":110,"attackType":"beam","damageType":"fire","color":"#EE6C4D","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.06,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10},{"id":"beam-width","name":"Beam Width","stat":"beamWidth","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"tentacle","name":"Tentacle Tower","cost":80,"attackType":"melee","damageType":"physical","color":"#8FB339","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.07,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"poison","name":"Poison Tower","cost":100,"attackType":"projectile","damageType":"poison","color":"#5FBF8F","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"lightning","name":"Lightning Tower","cost":130,"attackType":"chain","damageType":"lightning","color":"#E8D44D","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"chaos","name":"Chaos Tower","cost":200,"attackType":"projectile","damageType":"chaos","color":"#D946EF","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]}],"researches":[{"id":"gatling-tech","name":"Gatling Technology","cost":400,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock dual-gatling"},{"id":"ice-magic","name":"Ice Magic","cost":400,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock ice"},{"id":"tentacle-biology","name":"Tentacle Biology","cost":450,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock tentacle"},{"id":"toxic-compounds","name":"Toxic Compounds","cost":450,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock poison"},{"id":"siege-engineering","name":"Siege Engineering","cost":500,"category":"tower-unlock","prerequisites":["gatling-tech"],"effectSummary":"unlock cannon"},{"id":"fire-alchemy","name":"Fire Alchemy","cost":550,"category":"tower-unlock","prerequisites":["toxic-compounds"],"effectSummary":"unlock fire"},{"id":"arcane-studies","name":"Arcane Studies","cost":650,"category":"tower-unlock","prerequisites":["ice-magic"],"effectSummary":"unlock magic"},{"id":"storm-mastery","name":"Storm Mastery","cost":700,"category":"tower-unlock","prerequisites":["arcane-studies"],"effectSummary":"unlock lightning"},{"id":"rocketry","name":"Rocketry","cost":600,"category":"tower-unlock","prerequisites":["gatling-tech"],"effectSummary":"unlock rocket"},{"id":"chaos-rift","name":"Chaos Rift","cost":1000,"category":"tower-unlock","prerequisites":["siege-engineering","storm-mastery"],"effectSummary":"unlock chaos"},{"id":"aa-retrofit","name":"AA Retrofit","cost":450,"category":"global-perk","prerequisites":["rocketry"],"effectSummary":"enable air"},{"id":"nuclear-strike","name":"Nuclear Strike","cost":1000,"category":"global-perk","prerequisites":["advanced-weaponry"],"effectSummary":"unlock missile-silo, perk nuclear-strike"},{"id":"mercenary-contract","name":"Mercenary Contract","cost":600,"category":"global-perk","prerequisites":["siege-engineering"],"effectSummary":"perk mercenary"},{"id":"frost-bomb","name":"Frost Bomb","cost":700,"category":"global-perk","prerequisites":["arcane-studies"],"effectSummary":"perk frost-bomb"},{"id":"emp","name":"EMP","cost":800,"category":"global-perk","prerequisites":["storm-mastery"],"effectSummary":"perk emp"},{"id":"orbital-laser","name":"Orbital Laser","cost":1500,"category":"global-perk","prerequisites":["master-engineering"],"effectSummary":"perk orbital-laser"},{"id":"advanced-weaponry","name":"Advanced Weaponry","cost":800,"category":"upgrade-tier","prerequisites":["siege-engineering","arcane-studies"],"effectSummary":"unlock T2"},{"id":"master-engineering","name":"Master Engineering","cost":1500,"category":"upgrade-tier","prerequisites":["advanced-weaponry"],"effectSummary":"unlock T3"},{"id":"advanced-engineering","name":"Advanced Engineering","cost":2500,"category":"upgrade-tier","prerequisites":["master-engineering"],"effectSummary":"unlock T4"},{"id":"transcendent-tech","name":"Transcendent Tech","cost":4000,"category":"upgrade-tier","prerequisites":["advanced-engineering"],"effectSummary":"unlock T5"}],"rc":{"baseCost":75,"levels":[{"level":1,"upgradeCost":0,"slots":1},{"level":2,"upgradeCost":120,"slots":2},{"level":3,"upgradeCost":216,"slots":3}]},"curriculum":[{"wave":1,"template":"zombie_horde","goldKill":133,"goldComplete":67,"gates":[]},{"wave":2,"template":"rat_tide","goldKill":267,"goldComplete":133,"gates":["swarm"]},{"wave":3,"template":"penguin_rush","goldKill":333,"goldComplete":167,"gates":["speed"]},{"wave":4,"template":"light_mix","goldKill":367,"goldComplete":183,"gates":[]},{"wave":5,"template":"wallsmasher_crew","goldKill":433,"goldComplete":217,"gates":[]},{"wave":6,"template":"spider_swarm","goldKill":467,"goldComplete":233,"gates":["swarm"]},{"wave":7,"template":"bat_swarm","goldKill":533,"goldComplete":267,"gates":["air"]},{"wave":8,"template":"hornet_strike","goldKill":600,"goldComplete":300,"gates":["air"]},{"wave":9,"template":"tank_column","goldKill":733,"goldComplete":367,"gates":["heavy"]},{"wave":10,"template":"boss_herbert","goldKill":933,"goldComplete":467,"gates":["boss"]},{"wave":11,"template":"bear_pack","goldKill":1200,"goldComplete":600,"gates":["heavy"]},{"wave":12,"template":"dragon_elite","goldKill":1667,"goldComplete":833,"gates":["air","heavy"]},{"wave":13,"template":"ghost_surge","goldKill":2000,"goldComplete":1000,"gates":["ethereal"]},{"wave":14,"template":"mammoth_siege","goldKill":2333,"goldComplete":1167,"gates":["fortified"]},{"wave":15,"template":"golem_squad","goldKill":3000,"goldComplete":1500,"gates":["fortified"]},{"wave":16,"template":"chaos_wave","goldKill":3667,"goldComplete":1833,"gates":["air","mixed"]},{"wave":17,"template":"wraith_storm","goldKill":4667,"goldComplete":2333,"gates":["ethereal","swarm"]},{"wave":18,"template":"armor_gauntlet","goldKill":6000,"goldComplete":3000,"gates":["mixed"]},{"wave":19,"template":"skeleton_swarm","goldKill":8000,"goldComplete":4000,"gates":["swarm"]},{"wave":20,"template":"boss_herbert","goldKill":12000,"goldComplete":6000,"gates":["boss"]},{"wave":21,"template":"bat_swarm","goldKill":10667,"goldComplete":5333,"gates":["air"]},{"wave":22,"template":"tank_column","goldKill":14667,"goldComplete":7333,"gates":["heavy"]},{"wave":23,"template":"ghost_surge","goldKill":18667,"goldComplete":9333,"gates":["ethereal"]},{"wave":24,"template":"dragon_elite","goldKill":24000,"goldComplete":12000,"gates":["air","heavy"]},{"wave":25,"template":"mammoth_siege","goldKill":30000,"goldComplete":15000,"gates":["fortified"]},{"wave":26,"template":"hornet_strike","goldKill":40000,"goldComplete":20000,"gates":["air"]},{"wave":27,"template":"wraith_storm","goldKill":53333,"goldComplete":26667,"gates":["ethereal","swarm"]},{"wave":28,"template":"mech_army","goldKill":73333,"goldComplete":36667,"gates":["heavy"]},{"wave":29,"template":"chaos_wave","goldKill":93333,"goldComplete":46667,"gates":["air","mixed"]},{"wave":30,"template":"boss_herbert","goldKill":120000,"goldComplete":60000,"gates":["boss"]}]};
+const PAYLOAD = {"startCredits":100,"defaults":{"upgradeBaseCost":50,"upgradeCostScaling":1.25,"rcBaseCost":75},"towers":[{"id":"archer","name":"Archer Tower","cost":45,"attackType":"projectile","damageType":"physical","color":"#6FB7A5","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"dual-gatling","name":"Dual-Gatling Tower","cost":90,"attackType":"projectile","damageType":"pierce","color":"#C9A44C","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.06,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"cannon","name":"Cannon Tower","cost":150,"attackType":"projectile","damageType":"siege","color":"#C04B3F","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.07,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.02,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"magic","name":"Magic Tower","cost":140,"attackType":"projectile","damageType":"magic","color":"#9B7BD9","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"rocket","name":"Rocket Tower","cost":120,"attackType":"projectile","damageType":"siege","color":"#E68A4D","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.07,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"ice","name":"Ice Tower","cost":90,"attackType":"projectile","damageType":"ice","color":"#5FA8D3","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"fire","name":"Fire Tower","cost":110,"attackType":"beam","damageType":"fire","color":"#EE6C4D","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.06,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10},{"id":"beam-width","name":"Beam Width","stat":"beamWidth","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"tentacle","name":"Tentacle Tower","cost":80,"attackType":"melee","damageType":"physical","color":"#8FB339","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.07,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"poison","name":"Poison Tower","cost":100,"attackType":"projectile","damageType":"poison","color":"#5FBF8F","canTargetAir":false,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"lightning","name":"Lightning Tower","cost":130,"attackType":"chain","damageType":"lightning","color":"#E8D44D","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]},{"id":"chaos","name":"Chaos Tower","cost":200,"attackType":"projectile","damageType":"chaos","color":"#D946EF","canTargetAir":true,"upgrades":[{"id":"damage","name":"Damage","stat":"damage","baseCost":50,"scaling":1.25,"multiplier":1.05,"maxLevel":25},{"id":"speed","name":"Fire Rate","stat":"fireRate","baseCost":50,"scaling":1.25,"multiplier":1.04,"maxLevel":25},{"id":"range","name":"Range","stat":"range","baseCost":50,"scaling":1.25,"multiplier":1.03,"maxLevel":10}]}],"researches":[{"id":"gatling-tech","name":"Gatling Technology","cost":400,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock dual-gatling"},{"id":"ice-magic","name":"Ice Magic","cost":400,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock ice"},{"id":"tentacle-biology","name":"Tentacle Biology","cost":450,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock tentacle"},{"id":"toxic-compounds","name":"Toxic Compounds","cost":450,"category":"tower-unlock","prerequisites":[],"effectSummary":"unlock poison"},{"id":"siege-engineering","name":"Siege Engineering","cost":500,"category":"tower-unlock","prerequisites":["gatling-tech"],"effectSummary":"unlock cannon"},{"id":"fire-alchemy","name":"Fire Alchemy","cost":550,"category":"tower-unlock","prerequisites":["toxic-compounds"],"effectSummary":"unlock fire"},{"id":"arcane-studies","name":"Arcane Studies","cost":650,"category":"tower-unlock","prerequisites":["ice-magic"],"effectSummary":"unlock magic"},{"id":"storm-mastery","name":"Storm Mastery","cost":700,"category":"tower-unlock","prerequisites":["arcane-studies"],"effectSummary":"unlock lightning"},{"id":"rocketry","name":"Rocketry","cost":600,"category":"tower-unlock","prerequisites":["gatling-tech"],"effectSummary":"unlock rocket"},{"id":"chaos-rift","name":"Chaos Rift","cost":1000,"category":"tower-unlock","prerequisites":["siege-engineering","storm-mastery"],"effectSummary":"unlock chaos"},{"id":"aa-retrofit","name":"AA Retrofit","cost":450,"category":"global-perk","prerequisites":["rocketry"],"effectSummary":"enable air"},{"id":"nuclear-strike","name":"Nuclear Strike","cost":1000,"category":"global-perk","prerequisites":["advanced-weaponry"],"effectSummary":"unlock missile-silo, perk nuclear-strike"},{"id":"mercenary-contract","name":"Mercenary Contract","cost":600,"category":"global-perk","prerequisites":["siege-engineering"],"effectSummary":"perk mercenary"},{"id":"frost-bomb","name":"Frost Bomb","cost":700,"category":"global-perk","prerequisites":["arcane-studies"],"effectSummary":"perk frost-bomb"},{"id":"emp","name":"EMP","cost":800,"category":"global-perk","prerequisites":["storm-mastery"],"effectSummary":"perk emp"},{"id":"orbital-laser","name":"Orbital Laser","cost":1500,"category":"global-perk","prerequisites":["master-engineering"],"effectSummary":"perk orbital-laser"},{"id":"advanced-weaponry","name":"Advanced Weaponry","cost":800,"category":"upgrade-tier","prerequisites":["siege-engineering","arcane-studies"],"effectSummary":"unlock T2"},{"id":"master-engineering","name":"Master Engineering","cost":1500,"category":"upgrade-tier","prerequisites":["advanced-weaponry"],"effectSummary":"unlock T3"},{"id":"advanced-engineering","name":"Advanced Engineering","cost":2500,"category":"upgrade-tier","prerequisites":["master-engineering"],"effectSummary":"unlock T4"},{"id":"transcendent-tech","name":"Transcendent Tech","cost":4000,"category":"upgrade-tier","prerequisites":["advanced-engineering"],"effectSummary":"unlock T5"}],"rc":{"baseCost":75,"levels":[{"level":1,"upgradeCost":0,"slots":1},{"level":2,"upgradeCost":120,"slots":2},{"level":3,"upgradeCost":216,"slots":3}]},"campaign":[{"wave":1,"template":"zombie_horde","killGold":133,"completionGold":67,"gates":[]},{"wave":2,"template":"rat_tide","killGold":267,"completionGold":133,"gates":["swarm"]},{"wave":3,"template":"penguin_rush","killGold":333,"completionGold":167,"gates":["speed"]},{"wave":4,"template":"light_mix","killGold":367,"completionGold":183,"gates":[]},{"wave":5,"template":"wallsmasher_crew","killGold":433,"completionGold":217,"gates":[]},{"wave":6,"template":"spider_swarm","killGold":467,"completionGold":233,"gates":["swarm"]},{"wave":7,"template":"bat_swarm","killGold":533,"completionGold":267,"gates":["air"]},{"wave":8,"template":"hornet_strike","killGold":600,"completionGold":300,"gates":["air"]},{"wave":9,"template":"tank_column","killGold":733,"completionGold":367,"gates":["heavy"]},{"wave":10,"template":"boss_herbert","killGold":933,"completionGold":467,"gates":["boss"]},{"wave":11,"template":"bear_pack","killGold":1200,"completionGold":600,"gates":["heavy"]},{"wave":12,"template":"dragon_elite","killGold":1667,"completionGold":833,"gates":["air","heavy"]},{"wave":13,"template":"ghost_surge","killGold":2000,"completionGold":1000,"gates":["ethereal"]},{"wave":14,"template":"mammoth_siege","killGold":2333,"completionGold":1167,"gates":["fortified"]},{"wave":15,"template":"golem_squad","killGold":3000,"completionGold":1500,"gates":["fortified"]},{"wave":16,"template":"chaos_wave","killGold":3667,"completionGold":1833,"gates":["air","mixed"]},{"wave":17,"template":"wraith_storm","killGold":4667,"completionGold":2333,"gates":["ethereal","swarm"]},{"wave":18,"template":"armor_gauntlet","killGold":6000,"completionGold":3000,"gates":["mixed"]},{"wave":19,"template":"skeleton_swarm","killGold":8000,"completionGold":4000,"gates":["swarm"]},{"wave":20,"template":"boss_herbert","killGold":12000,"completionGold":6000,"gates":["boss"]},{"wave":21,"template":"bat_swarm","killGold":10667,"completionGold":5333,"gates":["air"]},{"wave":22,"template":"tank_column","killGold":14667,"completionGold":7333,"gates":["heavy"]},{"wave":23,"template":"ghost_surge","killGold":18667,"completionGold":9333,"gates":["ethereal"]},{"wave":24,"template":"dragon_elite","killGold":24000,"completionGold":12000,"gates":["air","heavy"]},{"wave":25,"template":"mammoth_siege","killGold":30000,"completionGold":15000,"gates":["fortified"]},{"wave":26,"template":"hornet_strike","killGold":40000,"completionGold":20000,"gates":["air"]},{"wave":27,"template":"wraith_storm","killGold":53333,"completionGold":26667,"gates":["ethereal","swarm"]},{"wave":28,"template":"mech_army","killGold":73333,"completionGold":36667,"gates":["heavy"]},{"wave":29,"template":"chaos_wave","killGold":93333,"completionGold":46667,"gates":["air","mixed"]},{"wave":30,"template":"boss_herbert","killGold":120000,"completionGold":60000,"gates":["boss"]}]};
 const TOWER_INDEX = Object.fromEntries(PAYLOAD.towers.map(function (t) { return [t.id, t]; }));
 const RESEARCH_INDEX = Object.fromEntries(PAYLOAD.researches.map(function (r) { return [r.id, r]; }));
 const NUM_WAVES = 30;
@@ -394,16 +393,16 @@ function metrics() {
     const prevCost = (w === 1) ? PAYLOAD.startCredits : costs[w - 2];
     const delta = cost - prevCost;
     const required = Math.max(0, Math.round(delta * buffer));
-    // Curriculum income for wave (w-1) -- the wave that had to earn this.
-    const curr = (w === 1) ? null : PAYLOAD.curriculum[w - 2];
-    const curriculumIncome = curr ? curr.goldKill + curr.goldComplete : null;
-    const diff = curriculumIncome === null ? null : required - curriculumIncome;
+    // Campaign income for wave (w-1) -- the wave that had to earn this.
+    const curr = (w === 1) ? null : PAYLOAD.campaign[w - 2];
+    const campaignIncome = curr ? curr.killGold + curr.completionGold : null;
+    const diff = campaignIncome === null ? null : required - campaignIncome;
     rows.push({
       wave: w,
       cost: cost,
       deltaFromPrev: delta,
       requiredFromPrevWave: required,
-      curriculumIncome: curriculumIncome,
+      campaignIncome: campaignIncome,
       diff: diff,
     });
   }
@@ -411,13 +410,13 @@ function metrics() {
   const endCost = costs[NUM_WAVES];
   const endDelta = endCost - costs[NUM_WAVES - 1];
   const endRequired = Math.max(0, Math.round(endDelta * buffer));
-  const lastCurriculum = PAYLOAD.curriculum[NUM_WAVES - 1];
+  const lastCampaign = PAYLOAD.campaign[NUM_WAVES - 1];
   const endgame = {
     cost: endCost,
     deltaFromW30: endDelta,
     requiredFromW30: endRequired,
-    w30CurriculumIncome: lastCurriculum.goldKill + lastCurriculum.goldComplete,
-    diff: endRequired - (lastCurriculum.goldKill + lastCurriculum.goldComplete),
+    w30CampaignIncome: lastCampaign.killGold + lastCampaign.completionGold,
+    diff: endRequired - (lastCampaign.killGold + lastCampaign.completionGold),
   };
   return { rows: rows, endgame: endgame };
 }
@@ -586,7 +585,7 @@ function renderTable() {
   const m = metrics();
   for (let i = 0; i < m.rows.length; i++) {
     const r = m.rows[i];
-    const cw = PAYLOAD.curriculum[r.wave - 1];
+    const cw = PAYLOAD.campaign[r.wave - 1];
     const tr = document.createElement('tr');
     const rowClasses = (cw.gates || []).slice();
     tr.className = rowClasses.join(' ');
@@ -600,7 +599,7 @@ function renderTable() {
       '<td>' + fmt(r.cost) + '</td>' +
       '<td>' + fmt(r.deltaFromPrev) + '</td>' +
       '<td><strong>' + fmt(r.requiredFromPrevWave) + '</strong></td>' +
-      '<td>' + fmt(r.curriculumIncome) + '</td>' +
+      '<td>' + fmt(r.campaignIncome) + '</td>' +
       '<td class="' + diffClass(r.diff) + '">' + diffText(r.diff) + '</td>';
     tbody.appendChild(tr);
   }
@@ -618,7 +617,7 @@ function renderTable() {
     '<td>' + fmt(eg.cost) + '</td>' +
     '<td>' + fmt(eg.deltaFromW30) + '</td>' +
     '<td><strong>' + fmt(eg.requiredFromW30) + '</strong></td>' +
-    '<td>' + fmt(eg.w30CurriculumIncome) + '</td>' +
+    '<td>' + fmt(eg.w30CampaignIncome) + '</td>' +
     '<td class="' + diffClass(eg.diff) + '">' + diffText(eg.diff) + '</td>';
   tbody.appendChild(tr);
 }
@@ -636,7 +635,7 @@ function renderChart() {
     // Show the "required" for wave i+1 paired with wave i (the one that has to earn it).
     if (i === 0) continue;
     required.push(m.rows[i].requiredFromPrevWave);
-    current.push(m.rows[i].curriculumIncome);
+    current.push(m.rows[i].campaignIncome);
     diff.push(m.rows[i].diff || 0);
   }
   // Chart labels = wave that MUST earn (so length = m.rows.length - 1).
@@ -659,7 +658,7 @@ function renderChart() {
           pointRadius: 2,
         },
         {
-          label: 'Curriculum (heute)',
+          label: 'Campaign (heute)',
           data: current,
           borderColor: '#c9a44c',
           fill: false,
@@ -667,7 +666,7 @@ function renderChart() {
           pointRadius: 2,
         },
         {
-          label: 'Diff (Required − Curriculum)',
+          label: 'Diff (Required − Campaign)',
           data: diff,
           borderColor: '#C04B3F',
           borderDash: [4, 3],
@@ -844,7 +843,7 @@ function openEditor(planIdx) {
   if (isEndgame) {
     document.getElementById('editorMeta').innerHTML = 'Plant das Endspiel-Setup. Die Differenz zum W30-Plan bestimmt, was Welle 30 mindestens an Gold abwerfen muss.';
   } else {
-    const cw = PAYLOAD.curriculum[planIdx];
+    const cw = PAYLOAD.campaign[planIdx];
     document.getElementById('editorMeta').innerHTML =
       'Template: <code>' + cw.template + '</code>. Gates: ' + (cw.gates.length ? cw.gates.join(', ') : '—');
   }

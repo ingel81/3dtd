@@ -30,7 +30,7 @@ Vom Nutzer über den Entscheidungsbogen getroffen (Kurzform
 | Danach | **Held** (Stufe 1, nur auf den Gegnerrouten, unverwundbar) |
 
 Damit entspricht der MVP Abschnitt 5, ergänzt um die Bot-Strategie und die
-Leck-Buchung der Fähigkeits-Kills im `GateController`.
+Leck-Buchung der Fähigkeits-Kills im `LeakController`.
 
 ---
 

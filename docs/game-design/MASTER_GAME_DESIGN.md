@@ -80,7 +80,7 @@ Die Chaos-Zeile liegt in jeder Spalte innerhalb dieser Spannen und ändert sie n
 **Regeln** (als Test in `damage-calculator.spec.ts`):
 1. Jede Schadensart hat mindestens eine Paarung ≤ 0,5: dort beißt sich der Tower die Zähne aus.
 2. Jede Schadensart außer Physical hat mindestens eine Paarung ≥ 1,3. Physical bleibt der Allrounder ohne Stärke, er ist der Starttower.
-3. Jede Rüstungsart hat mindestens zwei Konter ≥ 1,2, beide erforschbar, bevor das Curriculum die Rüstung zum ersten Mal schickt.
+3. Jede Rüstungsart hat mindestens zwei Konter ≥ 1,2, beide erforschbar, bevor die Kampagne die Rüstung zum ersten Mal schickt.
 
 **Ausnahme Chaos** (seit 2026-09-12): Chaos bricht Regel 1 und 2 bewusst, die
 Zeile steht überall auf 1,0. Der Generalist bezahlt nicht mit einer
@@ -104,7 +104,7 @@ unverändert. Der Test prüft beides (`damage-calculator.spec.ts`).
 **Interpretation:**
 - **Ethereal** ist **hart, aber nicht unbesiegbar**. Magic/Ice/Lightning bleiben beste Konter, aber Notlösungen existieren.
 - **Luft:** Light-Flieger (Fledermaus, Hornisse) kontern Gatling mit AA Retrofit (1,6), Lightning (1,5) und Ice (1,3). Heavy-Flieger (Drache) kontern Rocket (1,75) und Lightning (1,2). Die Rocket ist damit der Anti-Drachen-Tower und gegen Schwärme schwach (0,5).
-- **Fairness-Gate:** Der Wave-Director würde eine schlechte Paarung sonst mit einer kleineren Welle beantworten. Deshalb zählt er gegen Boden-Gegner (außer Ethereal) jeden Tower mit mindestens 0,6 (`FAIRNESS_MATCHUP_FLOOR`), siehe §6.5.
+- **Überlebbarkeits-Deckel:** Der Wave-Director würde eine schlechte Paarung sonst mit einer kleineren Welle beantworten. Deshalb zählt er gegen Boden-Gegner (außer Ethereal) jeden Tower mit mindestens 0,6 (`FAIRNESS_MATCHUP_FLOOR`), siehe §6.5.
 
 ### 2.4 Status-Effekte (Schicht 2)
 
@@ -264,7 +264,7 @@ in §12.3.
 
 > HP und Tempo stehen in `enemy-types.config.ts` und in der Tabelle von
 > [ENEMY_CREATION.md](../ENEMY_CREATION.md); der Wave-Director skaliert die HP je
-> Welle. Hier stehen Rüstung, Eigenschaften (§2.5) und die Rolle im Curriculum.
+> Welle. Hier stehen Rüstung, Eigenschaften (§2.5) und die Rolle in der Kampagne.
 > Stand 2026-09-15: 24 Einträge in `ENEMY_TYPES`.
 
 | Enemy | Armor | Eigenschaften | Rolle |
@@ -304,7 +304,7 @@ Flags für Spider (Camo) und Mech (Shielded, immuneToBurn), siehe §12.4.
 
 ### 5.1 Kill-Reward: Kill-Budget je Welle
 
-Jede Welle hat ein festes Kill-Budget (`goldKill` aus `goldBudgetForWave`,
+Jede Welle hat ein festes Kill-Budget (`killGold` aus `waveGold`,
 §5.2). Der EnemyManager teilt es auf die Körper der Welle
 (`getExpectedBodyCount`, Split-Kinder und Wurm-Segmente zählen mit):
 
@@ -327,8 +327,8 @@ ist nicht gebaut; sie steht in §12.5.
 > **Superseded seit Phase 5.16.** Die früher hier stehende Formel
 > `WaveCompleteBase = 18 + round(2.6 * Wave)` ist **nicht mehr implementiert**.
 > Das Gold pro Wave ist jetzt **deterministisch pro Wave-Nummer** und steht als
-> `WAVE_CURRICULUM` in `src/app/configs/wave-curriculum.config.ts`, abgefragt
-> über `goldBudgetForWave()`.
+> `CAMPAIGN` in `src/app/configs/campaign.config.ts`, abgefragt
+> über `waveGold()`.
 
 Warum: die Formel band das Einkommen an das, was die Wave-Faktoren gerade
 ausspuckten. Mit einem festen Budget pro Wave ist das kumulative Einkommen
@@ -336,7 +336,7 @@ planbar; erst damit lassen sich Tower- und Forschungskosten überhaupt
 balancen.
 
 ```
-{ kill, complete } = goldBudgetForWave(Wave)     // W1-30 aus der Tabelle
+{ kill, complete } = waveGold(Wave)     // W1-30 aus der Tabelle
 PerfectBonus   = 0.35 * complete                 // 0 HP verloren
 CloseCallBonus = 0.12 * complete                 // HP <= 25 am Wave-Ende
 ComboBonus     = min(0.30, 0.05 * PerfectStreak) * complete
@@ -350,10 +350,10 @@ Boss-Wellen zahlen das Doppelte (`BOSS_GOLD_MULTIPLIER = 2`). Ein reiner Loop li
 zahlte über 100 Wellen 2,64 Mio. gegen ein Design-Roster von 1,39 Mio., die
 Verteidigung erreichte den Vollausbau und tötete ab W11 alles.
 
-### 5.3 Beispiel-Kurve (Ist-Werte aus dem Curriculum)
+### 5.3 Beispiel-Kurve (Ist-Werte aus der Kampagne)
 
-> `goldKill` + `goldComplete` je Wave, ohne Skill-Boni. Vollständige Tabelle:
-> `WAVE_CURRICULUM` in `configs/wave-curriculum.config.ts`.
+> `killGold` + `completionGold` je Wave, ohne Skill-Boni. Vollständige Tabelle:
+> `CAMPAIGN` in `configs/campaign.config.ts`.
 > Visualisierung: `npm run economy-chart` → `docs/economy-chart.html`.
 
 | Wave | Kill | Completion | Total/Wave |
@@ -376,7 +376,7 @@ Tower (2026-09-12) gehört er mit L20 und seiner Forschung zum Roster (+37.160),
 Summe damals 468.702 Gold, Puffer 69 %. Die eingecheckte
 `docs/economy-chart.html` (zuletzt generiert in `7d5992da`, 2026-09-14) nennt
 474.302 Gold und 67 % Puffer; den aktuellen Stand rechnet `npm run economy-chart`
-im Abschnitt „Design-Roster vs. Curriculum-Budget". Nachgesteuert wird bewusst
+im Abschnitt „Design-Roster vs. Kampagne-Budget". Nachgesteuert wird bewusst
 erst nach dem Playtest (BALANCE_PROPOSAL_2026-09 §2.5).
 
 ### 5.4 Anti-Snowball / Catch-Up
@@ -391,8 +391,8 @@ Directors. Sie sind Design-Parameter, keine gelernten Werte:
 
 | Knopf | Wo | Kurve |
 |---|---|---|
-| `endgameHpMultiplier(wave)` | `wave-curriculum.config.ts` | 1.0× bis W20, danach +5%/Wave, Cap 4.0× (W30 ≈ 1.5×, W50 ≈ 2.5×) |
-| `enemyBaseDamageForWave(wave)` | `wave-curriculum.config.ts` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
+| `endgameHpMultiplier(wave)` | `campaign.config.ts` | 1.0× bis W20, danach +5%/Wave, Cap 4.0× (W30 ≈ 1.5×, W50 ≈ 2.5×) |
+| `enemyBaseDamageForWave(wave)` | `campaign.config.ts` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
 | `maxLeakDamagePerWave` | `game-balance.config.ts` | **18**, Obergrenze dessen, was eine einzelne Welle kostet |
 
 Der Leck-Cap ist die wichtigste der drei. Der Spieler hat 100 Start-HP und
@@ -546,24 +546,24 @@ Research-Panel:
   mindestens 1,0 (`isAntiEtherealTower`: Magic 2,0, Ice und Lightning 1,5,
   Chaos 1,0).
 
-Im Curriculum (W1 bis W30) greift das Gate nicht: das gepinnte Template kommt
-auch ohne Konter, der Fairness-Cap hält die Welle überlebbar. Camo und
+Im Kampagne (W1 bis W30) greift das Gate nicht: das gepinnte Template kommt
+auch ohne Konter, der Überlebbarkeits-Deckel hält die Welle überlebbar. Camo und
 Detection sind nicht gebaut (§12.6).
 
 *Implementiert* als `requiresCapability` in der Template-Maske
-(`describeTemplateMask()`), zusammen mit `minWave` und der Boss-Kadenz.
+(`candidateTemplates()`), zusammen mit `minWave` und der Boss-Kadenz.
 
 **Regel 2: Größen-Gate.** Eine Welle darf nicht größer sein, als die
-Verteidigung sie plausibel bekämpfen kann. `fairMaxCount()` schätzt aus
+Verteidigung sie plausibel bekämpfen kann. `survivableCount()` schätzt aus
 Defense-DPS, Kill-Durchsatz und Gegnerwerten die tötbare Menge und addiert eine
 in HP bepreiste Leck-Toleranz (6 % der Rest-HP). Gegen Boden-Gegner (außer
 Ethereal) zählt jeder Tower dabei mit mindestens 0,6 seines Schadens
 (`FAIRNESS_MATCHUP_FLOOR`): ein falsch zusammengestelltes Roster soll als Leck
-spürbar werden, nicht als kleinere Welle. Der `GateController` korrigiert die
+spürbar werden, nicht als kleinere Welle. Der `LeakController` korrigiert die
 Schätzung laufend an der tatsächlichen Leck-Quote, Zielband 8 bis 16 % der
 Welle. Warum es den Regelkreis braucht (ohne ihn töteten 70 % der Wellen
 alles) und alle Konstanten:
-[AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md#fairness-cap-im-einzelnen),
+[WAVE_DIRECTOR.md](../WAVE_DIRECTOR.md#fairness-cap-im-einzelnen),
 Abschnitte 5 und 6.
 
 ---
@@ -572,12 +572,12 @@ Abschnitte 5 und 6.
 
 ### 7.1 Air-Design
 - **Air-Debüt bei Wave 7** (`bat_swarm`), Nachschlag W8 (`hornet_strike`),
-  danach Luft im Curriculum auf W12, W16, W21, W24, W26 und W29, so gepinnt in
-  `WAVE_CURRICULUM`.
-- Im Curriculum kommt Luft auch ohne Anti-Air (der Pin umgeht das Gate, §6.5).
+  danach Luft in der Kampagne auf W12, W16, W21, W24, W26 und W29, so gepinnt in
+  `CAMPAIGN`.
+- Im Kampagne kommt Luft auch ohne Anti-Air (der Pin umgeht das Gate, §6.5).
   Ab W31 wählt der Director Luft-Templates nur mit Anti-Air.
 - **Air-Alert** im Wave-Panel mit Ton, sobald die nächste oder übernächste
-  Welle Luft bringt (`AIR_ALERT_LOOKAHEAD = 2`). Er sieht nur Curriculum-Wellen:
+  Welle Luft bringt (`AIR_ALERT_LOOKAHEAD = 2`). Er sieht nur Kampagnenwellen:
   ab W31 steht das Template erst beim Wellenstart fest.
 - Einen festen Mindestabstand zwischen Luftwellen und eine eigene Vorwarnzeit
   im Director gibt es nicht (§12.6).
@@ -593,14 +593,15 @@ geplanten Luftpfade für Cannon und Fire stehen in §12.3.
 
 ## 8. Wave Director Regeln
 
-> **Stand 2026-09-07:** Der Director ist **regelbasiert und clientseitig**
-> (`ai/core/rule-director.ts`). Das ONNX-Modell ist nicht mehr im Betriebspfad.
-> Grund: gemessen über A/B-Runs mit identischen Bots, Curriculum und
-> Fairness-Gate war das trainierte Netz dreimal statistisch ununterscheidbar
+> **Stand 2026-09-20:** Der Director ist **regelbasiert und clientseitig**
+> (`director/director-rules.ts`) und die einzige Wellenquelle. Das ONNX-Modell ist
+> entfallen ([BALANCING_PLAN.md](../BALANCING_PLAN.md), Phase 1a).
+> Grund: gemessen über A/B-Runs mit identischen Bots, Kampagne und
+> Überlebbarkeits-Deckel war das trainierte Netz dreimal statistisch ununterscheidbar
 > von gleichverteiltem Zufall (mittlere Run-Länge 45,6 gegen 44,7), während
 > zwei triviale Heuristiken messbar mehr Spannung erzeugten (Near-Miss 0,067
-> gegen 0,045). Ursache lag vor dem Lernen: das Curriculum pinnt auf 49% der
-> Wellen das Template, der Fairness-Cap bindet auf 63% der Wellen, es gab
+> gegen 0,045). Ursache lag vor dem Lernen: die Kampagne pinnt auf 49% der
+> Wellen das Template, der Überlebbarkeits-Deckel bindet auf 63% der Wellen, es gab
 > kaum etwas zu entscheiden.
 
 ### 8.1 Was der Director tatsächlich entscheidet
@@ -623,7 +624,7 @@ Heuristik gegen Spieler-Schwächen sind nicht gebaut: der Regel-Director liest
 keine Spieler-Schwächen. Beides steht in §12.7.
 
 Mechanik, Konstanten und Messungen:
-[AI_WAVE_DIRECTOR_PLAN.md](../AI_WAVE_DIRECTOR_PLAN.md).
+[WAVE_DIRECTOR.md](../WAVE_DIRECTOR.md).
 
 ---
 
@@ -633,16 +634,16 @@ Mechanik, Konstanten und Messungen:
 - **Rüstung in NEXT:** das Wave-Panel zeigt Rüstung und „Weak to" der
   kommenden Welle (`wave-timeline.component`).
 - **Air-Alert:** Hinweis und Ton im Wave-Panel bis zwei Wellen vorher, nur für
-  Curriculum-Wellen (§7.1).
+  Kampagnenwellen (§7.1).
 
 Nicht gebaut: Rüstungs-Icons am Lebensbalken und ein eigener Shader für
 Ethereal-Gegner (§12.8).
 
 ---
 
-## 10. Progression im Curriculum (W1 bis W30)
+## 10. Progression in der Kampagne (W1 bis W30)
 
-> Verbindlich ist `WAVE_CURRICULUM` (`configs/wave-curriculum.config.ts`): es
+> Verbindlich ist `CAMPAIGN` (`configs/campaign.config.ts`): es
 > pinnt Template und Gold-Budget für W1 bis W30. Der Spieler startet mit
 > Archer und Research Center und 100 Credits
 > (`GAME_BALANCE.player.startCredits`); das Research Center kostet 75.
@@ -661,14 +662,14 @@ Ethereal-Gegner (§12.8).
 Danach wählt der Director das Template, jede fünfte Welle ist eine Boss-Welle,
 ab W35 mit Boss-Varianten ([WAVE_SYSTEM.md](../WAVE_SYSTEM.md#boss-waves)).
 
-Die frühere Wave-für-Wave-Planung aus der Zeit vor dem Curriculum steht in §12.9.
+Die frühere Wave-für-Wave-Planung aus der Zeit vor der Kampagne steht in §12.9.
 
 ---
 
 ## 11. Offene Entscheidungen
 1. **Ghost-Visuals** (Asset final).
 2. **Camo-Detection UI** (Radar-Icon vs. Tower-Halo). Hängt an Camo, das nicht gebaut ist (§12.2).
-3. **Exact DPS-Werte** je Tower für TargetCost-Validierung. Das DPS-Modell steht in `ai/core/tower-dps.util.ts`, die Kurven in `docs/tower-stats-chart.html`.
+3. **Exact DPS-Werte** je Tower für TargetCost-Validierung. Das DPS-Modell steht in `director/tower-dps.util.ts`, die Kurven in `docs/tower-stats-chart.html`.
 4. ~~**Poison-Schadenstyp**: eigener Typ oder Fire-Subtyp?~~ → **Entschieden: eigener Typ (Poison).**
 5. **Endless-Scaling** (HP/Speed-Kurven nach Wave 30). Die Mechanik steht (§5.2, §5.5, Boss jede fünfte Welle); die Bewertung ist offen.
 6. **Forschungszeiten balancen:** die Startwerte (15 bis 45 s) sind überholt, heute 12 bis 150 s (§6.3). Die Bewertung ist offen.
@@ -759,7 +760,7 @@ HP_Scale = WaveHP_Multiplier
 ```
 
 ### 12.6 Air-Pacing und Camo (aus §6.5 und §7.1)
-- Nach dem Curriculum sollte der Director Luft dynamisch setzen, mit
+- Nach der Kampagne sollte der Director Luft dynamisch setzen, mit
   - **MIN_AIR_GAP = 4** Waves
   - **AIR_WARNING_LEAD = 2** Waves
   - **Air nur wenn Anti-Air vorhanden** (Ice oder AA-Upgrades)
@@ -787,9 +788,9 @@ schaut zwei Wellen voraus (§7.1).
 - **Armor-Icons** am HP-Bar-Rahmen.
 - **Ethereal**: lila/transparenter Shader.
 
-### 12.9 Wave-für-Wave-Planung vor dem Curriculum (aus §10)
+### 12.9 Wave-für-Wave-Planung vor der Kampagne (aus §10)
 
-Die Design-Absicht vom Mai 2026. `WAVE_CURRICULUM` weicht davon ab, unter
+Die Design-Absicht vom Mai 2026. `CAMPAIGN` weicht davon ab, unter
 anderem: Luft ab W7, Herbert als Boss auf W10, W20 und W30, kein Lich, keine
 Camo- und Shield-Wellen.
 
