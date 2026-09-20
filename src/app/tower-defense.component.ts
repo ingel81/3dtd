@@ -38,6 +38,7 @@ import {
   LosDebuggerComponent,
 } from './components/debug-window/debug-windows';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
+import { debugHealthAmount } from './components/quick-actions/debug-health';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
@@ -817,10 +818,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.debugFacade.addDebugCredits(this.gameState, event.shiftKey ? 100000 : 1000);
   }
   addDebugHealth(event: MouseEvent): void {
-    // A right click takes HP instead, to walk the HQ fire through its stages
-    const take = event.type === 'contextmenu';
-    const amount = take ? (event.shiftKey ? -50 : -10) : (event.shiftKey ? 100000 : 1000);
-    this.debugFacade.addDebugHealth(this.gameState, amount);
+    this.debugFacade.addDebugHealth(this.gameState, debugHealthAmount(event));
   }
   completeAllResearch(): void {
     this.debugFacade.completeAllResearch(this.gameState);
