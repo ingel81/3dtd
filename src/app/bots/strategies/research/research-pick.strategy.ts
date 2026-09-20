@@ -9,7 +9,7 @@
  * - Next research in skill-specific order is affordable + prereqs met
  *
  * Skill-level pick order:
- * - beginner: ['gatling-tech']
+ * - beginner: gatling, then the upgrade-tier line up to tier 4
  * - casual: basic unlocks (gatling, ice, poison, cannon, fire)
  * - strategist: full tree + perks + tiers (adaptive: armor-gap aware)
  * - meta: same as strategist
@@ -44,7 +44,20 @@ export class ResearchPickStrategy extends BaseStrategy {
 
   /** Static fallback order per skill — used when no adaptive pick is available. */
   private readonly researchOrderBySkill: Record<BotSkillLevel, ResearchId[]> = {
-    beginner: ['gatling-tech'],
+    // A beginner researches what makes its towers stronger, not what answers
+    // a wave: the tier line, and the two unlocks that gate it. With only
+    // `gatling-tech` every branch of every tower stood at the tier-1 ceiling
+    // of level 5 by wave twelve, the bot had nothing left it was allowed to
+    // buy, and it sat on 143,000 credits until it died (measured over 51 runs,
+    // 2026-09-20). `transcendent-tech` stays out: the last tech is not where a
+    // beginner ends up.
+    beginner: [
+      'gatling-tech',
+      'siege-engineering', 'arcane-studies',   // what advanced-weaponry needs
+      'advanced-weaponry',                     // tier 2, levels 6-10
+      'master-engineering',                    // tier 3, levels 11-15
+      'advanced-engineering',                  // tier 4, levels 16-20
+    ],
     // Phase 5.16: order aligned to campaign so the bot has the
     // right counters by the time the campaign forces a new armor type.
     //   W7  bat_swarm     → needs Anti-Air → rocketry/aa-retrofit done by W6
