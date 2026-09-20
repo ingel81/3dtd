@@ -966,6 +966,14 @@ describe('GameStateManager', () => {
         expect(gsm.credits()).toBe(initial + 100);
       });
 
+      it('debug:add-credits takes credits, never past zero', () => {
+        bus.emit({ type: 'debug:add-credits', amount: -100 } as never);
+        expect(gsm.credits()).toBe(GAME_BALANCE.player.startCredits - 100);
+
+        bus.emit({ type: 'debug:add-credits', amount: -100000 } as never);
+        expect(gsm.credits()).toBe(0);
+      });
+
       it('debug:add-health changes health (clamped)', () => {
         // 15 is inside the per-wave leak cap, so it lands in full.
         bus.emit({

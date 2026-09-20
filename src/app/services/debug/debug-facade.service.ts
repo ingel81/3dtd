@@ -89,11 +89,12 @@ export class DebugFacadeService {
 
   /**
    * Add debug credits via EventBus command. Default 1000; pass a custom
-   * amount (e.g. 100000 for Shift+Click) to override.
+   * amount (e.g. 100000 for Shift+Click, negative to take credits, which
+   * stops at zero in the command) to override.
    */
   addDebugCredits(gameState: GameStateManager, amount = 1000): void {
     gameState.getEventBus().emit({ type: 'debug:add-credits', amount });
-    this.appendDebugLog(`+${amount.toLocaleString()} Credits (Debug)`);
+    this.appendDebugLog(`${amount >= 0 ? '+' : ''}${amount.toLocaleString()} Credits (Debug)`);
   }
 
   /**

@@ -151,7 +151,8 @@ export class GameCommandsHandler {
 
   private attachDebugCommands(): void {
     this.subs.add(this.eventBus.on('debug:add-credits', (event) => {
-      this.gsm.addCredits(event.amount);
+      // Taking more than there is would leave the player in the red
+      this.gsm.addCredits(Math.max(event.amount, -this.gsm.credits()));
     }));
 
     this.subs.add(this.eventBus.on('debug:add-health', (event) => {
