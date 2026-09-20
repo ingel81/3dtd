@@ -86,7 +86,7 @@ export class TowerLifecycle {
 
     if (tower) {
       // Deduct cost
-      this.creditsLedger.add(-config.cost);
+      this.creditsLedger.add(-config.cost, 'build');
 
       // Register tower on grid (LOS raycasting + grid registration + visualization)
       // Skip grid registration for passive buildings (no targeting/LOS needed)
@@ -126,7 +126,7 @@ export class TowerLifecycle {
 
     // Sell tower (emits tower:sold event, returns refund)
     const refund = this.towerManager.sell(tower);
-    this.creditsLedger.add(refund);
+    this.creditsLedger.add(refund, 'sell');
 
     // Gone from the tower list: an ability that launched from it loses its button
     this.abilityManager.buildingChanged(tower.typeConfig.id);
@@ -168,7 +168,7 @@ export class TowerLifecycle {
       if (this.researchManager.getMaxUpgradeTier() < requiredTier) return false;
     }
 
-    if (!this.creditsLedger.spend(cost)) return false;
+    if (!this.creditsLedger.spend(cost, 'upgrade')) return false;
 
     const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
     const previousLevel = tower.getUpgradeLevel(upgradeId);
@@ -190,6 +190,7 @@ export class TowerLifecycle {
       tower,
       level: previousLevel + 1,
       cost,
+      upgradeId,
     });
     return true;
   }
@@ -210,7 +211,7 @@ export class TowerLifecycle {
       if (rangeChanged) {
         this.recomputeRangeAfterUpgrade(tower);
       }
-      this.eventBus.emit({ type: 'tower:upgraded', tower, level: 0, cost: 0 });
+      this.eventBus.emit({ type: 'tower:upgraded', tower, level: 0, cost: 0, upgradeId: 'debug-max' });
     }
   }
 

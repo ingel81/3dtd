@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import type { Enemy } from '../entities/enemy.entity';
 import { OozeBody } from '../entities/ooze-body';
 import type { OozeConfig } from '../configs/enemy-types.config';
-import { enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import { enemyBaseDamageForWave } from '../configs/campaign.config';
 import { OOZE_SOUNDS } from '../configs/audio.config';
 import { routeBodyStations, type RouteBody, type RouteBodyContact } from '../utils/route-body';
 import { OozeSounds } from './ooze-sounds';

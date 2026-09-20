@@ -3,8 +3,8 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { GamePhase } from './tower-defense.store.types';
-import type { DecisionExplanation } from '../ai/core/decision-explainer';
-import type { RunSummary } from '../services/infrastructure/run-stats';
+import type { DecisionExplanation } from '../director/decision-explainer';
+import type { RunSummary } from '../run-log/run-summary';
 import {
   ABILITY_IDS,
   AbilityId,
@@ -98,7 +98,7 @@ export class GameStore {
   readonly runSummary = signal<RunSummary | null>(null);
 
   /** Training mode timescale (1.0 = normal, up to 75x) */
-  readonly trainingTimescale = signal<number>(1.0);
+  readonly gameSpeed = signal<number>(1.0);
 
   /**
    * Game time stands still: no sub-steps, so no spawns, combat, projectiles
@@ -121,38 +121,24 @@ export class GameStore {
    */
   readonly renderingEnabled = signal<boolean>(true);
 
-  // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by TrainingClientService
+  // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by BotClientService
   // (the writer). Component reads them directly from that service.
 
   /** AI Wave Director enabled */
   /**
-   * On by default: the rule-based wave director needs no model, no network and
-   * no ONNX runtime, so there is no startup window in which it is unavailable.
-   * It used to default to false and be switched on by an effect once the ONNX
-   * model finished loading.
+   * On by default: the rule-based wave director needs no model and no network,
+   * so there is no startup window in which it is unavailable.
    */
-  readonly useAIDirector = signal<boolean>(true);
-
-  /**
-   * Static curriculum fallback enabled.
-   *
-   * When true, `startWave()` spawns from `STATIC_WAVE_PROFILES` (one fixed
-   * enemy-count + hp_mult per wave), unconditionally ahead of the AI
-   * Director and the debug-panel custom-wave settings; `useAIDirector` does
-   * not need to be off (docs/STATIC_WAVE_FALLBACK.md). Used for offline
-   * playtests that want the same wave sequence every run. AI remains the
-   * production default, this is a debug toggle.
-   */
-  readonly useStaticCurriculum = signal<boolean>(false);
+  readonly directorEnabled = signal<boolean>(true);
 
   /**
    * Why the director planned the current wave, shown as "Why this wave" in the
    * wave debug window. Null when the wave did not come from the director.
    */
-  readonly aiExplanation = signal<DecisionExplanation | null>(null);
+  readonly waveExplanation = signal<DecisionExplanation | null>(null);
 
-  /** Fatal AI error message (shown as blocking banner, typically ONNX load fail) */
-  readonly aiError = signal<string | null>(null);
+  /** Fatal wave-director error (shown as blocking banner) */
+  readonly directorError = signal<string | null>(null);
 
   /** DevWorld is regenerating terrain */
   readonly isDevWorldRegenerating = signal<boolean>(false);
@@ -195,7 +181,7 @@ export class GameStore {
     this.placedUniqueTypes.set(new Set());
     this.showGameOverScreen.set(false);
     this.runSummary.set(null);
-    this.aiExplanation.set(null);
+    this.waveExplanation.set(null);
     this.paused.set(false);
     this.autoWaveSecondsLeft.set(null);
   }
@@ -206,8 +192,8 @@ export class GameStore {
    */
   resetAll(): void {
     this.resetGameState();
-    this.trainingTimescale.set(1.0);
-    this.useAIDirector.set(true);
+    this.gameSpeed.set(1.0);
+    this.directorEnabled.set(true);
     this.isDevWorldRegenerating.set(false);
   }
 }

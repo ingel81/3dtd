@@ -21,9 +21,9 @@ import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
-import { WaveDirectorService } from '../../ai/core/wave-director.service';
-import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
-import { TrainingClientService } from '../../ai/training/training-client.service';
+import { WaveDirector } from '../../director/wave-director';
+import { StateSnapshotService } from '../../director/state-snapshot.service';
+import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
@@ -33,7 +33,9 @@ import { GameEventBus } from '../../game-engine/game-event-bus';
 import { waveButtonView } from '../../components/game-sidebar/wave-panel/wave-button';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
-import type { WaveConfig } from '../../ai/core/models/wave-config';
+import type { WaveConfig } from '../../director/models/wave-config';
+import { GameRng } from '../../utils/game-rng';
+import { RunLogFacade } from '../../run-log/run-log.facade';
 
 /** Injected by the facade but not touched by the wave-start path. */
 const UNUSED = [
@@ -43,7 +45,7 @@ const UNUSED = [
   PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService,
 ];
 
-/** The director's plan for a boss wave past the curriculum */
+/** The director's plan for a boss wave past the campaign */
 const DIRECTED: WaveConfig = {
   enemies: [{ type: 'stone-golem', count: 24, healthMultiplier: 3.5 }],
   totalCount: 24,
@@ -69,16 +71,15 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     phase: signal<'setup' | 'wave' | 'gameover'>('setup'),
     spawnPoints: signal([{}]),
     waveNumber: signal(0),
-    useStaticCurriculum: signal(false),
-    useAIDirector: signal(true),
-    aiExplanation: signal<WaveConfig['explanation'] | null>(null),
-    aiError: signal<string | null>(null),
+    directorEnabled: signal(true),
+    waveExplanation: signal<WaveConfig['explanation'] | null>(null),
+    directorError: signal<string | null>(null),
     paused: signal(false),
     enemiesAlive: signal(0),
     waveEnemyTotal: signal(0),
     waveEnemiesLeft: signal(0),
   };
-  const director = { getNextWave: vi.fn(async () => DIRECTED) };
+  const director = { getNextWave: vi.fn(async () => DIRECTED), leak: { leakMultiplier: 1 } };
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -102,15 +103,16 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     bus.on('command:start-wave', (e) => started.push(e.config as unknown as WaveConfig));
     store.phase.set('setup');
     store.waveNumber.set(0);
-    store.aiExplanation.set(null);
+    store.waveExplanation.set(null);
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: ResearchStore, useValue: {} },
-        { provide: WaveDirectorService, useValue: director },
-        { provide: TrainingClientService, useValue: { isConnected: () => false } },
-        { provide: AIDataCollectorService, useValue: collector },
+        { provide: WaveDirector, useValue: director },
+        { provide: BotClientService, useValue: { isConnected: () => false } },
+        { provide: StateSnapshotService, useValue: collector },
         { provide: WaveDebugService, useValue: {} },
       ],
     });
@@ -118,7 +120,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
     facade.initialize(
       { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => bus, corridorPending: () => false } as unknown as GameStateManager,
+      { getEventBus: () => bus, corridorPending: () => false, rng: new GameRng(1) } as unknown as GameStateManager,
     );
   });
 
@@ -130,8 +132,8 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     facade.startWave();
     await settle();
     expect(startedTypes()).toEqual(['worm']);
-    expect(store.aiExplanation()?.summary).toBe('W35: Boss: Skarnax, HP ×3.5');
-    expect(store.aiExplanation()?.reasons[0]).toContain("in place of the director's Boss: Stone Golem");
+    expect(store.waveExplanation()?.summary).toBe('W35: Boss: Skarnax, HP ×3.5');
+    expect(store.waveExplanation()?.reasons[0]).toContain("in place of the director's Boss: Stone Golem");
 
     // The header reads the store's wave
     bus.emit({ type: 'wave:started', wave: 35, enemyCount: 1 });
@@ -147,7 +149,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     facade.startWave();
     await settle();
     expect(startedTypes()).toEqual(Array(24).fill('stone-golem'));
-    expect(store.aiExplanation()).toBe(DIRECTED.explanation);
+    expect(store.waveExplanation()).toBe(DIRECTED.explanation);
   });
 
   it('365 and 380: after W35 a jump to 45 starts the ooze wave', async () => {
@@ -159,6 +161,6 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     facade.startWave();
     await settle();
     expect(startedTypes()).toEqual(['ooze']);
-    expect(store.aiExplanation()?.summary).toBe('W45: Boss: Ooze, HP ×3.5');
+    expect(store.waveExplanation()?.summary).toBe('W45: Boss: Ooze, HP ×3.5');
   });
 });

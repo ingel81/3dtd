@@ -132,7 +132,7 @@ function run() {
     researchId: HERO.researchId,
     effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
   });
-  gsm.addCredits(HERO.cost);
+  gsm.addCredits(HERO.cost, 'cheat');
 
   let steps = 0;
   const shots: Shot[] = [];

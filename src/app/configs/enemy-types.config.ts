@@ -407,7 +407,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'light',
     baseHp: 200,
     // Walks 4, runs 10 m/s half the time (rush): mean 7 m/s, the speed the
-    // wave curriculum was tuned with while the rush was lost.
+    // wave campaign was tuned with while the rush was lost.
     baseSpeed: 4,
     hasAnimations: true,
     walkAnimation: 'CharacterArmature|Walk',

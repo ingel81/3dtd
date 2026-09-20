@@ -37,7 +37,7 @@ import {
   type TowerTypeId,
   type TowerTypeConfig,
 } from '../../src/app/configs/tower-types.config';
-import { computeTowerStatsAtLevel } from '../../src/app/ai/core/tower-dps.util';
+import { computeTowerStatsAtLevel } from '../../src/app/director/tower-dps.util';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/tower-stats-chart.html');

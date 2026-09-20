@@ -18,7 +18,7 @@ import {
   TEST_SPAWN_POINTS,
 } from '../../integration/test-helpers';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { goldBudgetForWave } from '../../configs/wave-curriculum.config';
+import { waveGold } from '../../configs/campaign.config';
 import { getRouteProfile } from '../../utils/route-corridor';
 import { wormSegmentCount, wormSway, type WormGroup } from './worm-group';
 import { straightPath, out, distance } from '../../../test/worm-test-helpers';
@@ -498,7 +498,7 @@ describe('Worm chains', () => {
 
       beatWave();
 
-      const budget = goldBudgetForWave(1).kill;
+      const budget = waveGold(1).kill;
       const worm = credits.slice(1);
       expect(credits.reduce((s, c) => s + c, 0)).toBe(budget);
       expect(Math.max(...worm) - Math.min(...worm)).toBeLessThanOrEqual(1);

@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // the partially compiled CDK needs the JIT compiler under vitest.
 vi.mock('@angular/cdk/a11y', () => ({ LiveAnnouncer: class LiveAnnouncer {} }));
 vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
-vi.mock('../ai/training/training-client.service', () => ({ TrainingClientService: class TrainingClientService {} }));
+vi.mock('../bots/bot-client.service', () => ({ BotClientService: class BotClientService {} }));
 vi.mock('./infrastructure/engine-initialization.service', () => ({
   EngineInitializationService: class EngineInitializationService {},
 }));
@@ -22,7 +22,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { BossIntroService } from './boss-intro.service';
 import { GameStateManager } from '../managers/game-state.manager';
-import { TrainingClientService } from '../ai/training/training-client.service';
+import { BotClientService } from '../bots/bot-client.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { CameraControlService } from './camera-control.service';
 import { KeyboardPanService } from './keyboard-pan.service';
@@ -116,9 +116,9 @@ describe('BossIntroService', () => {
     injector = Injector.create({
       providers: [
         { provide: GameStateManager, useValue: { getEventBus: () => bus, waveNumber: () => wave } },
-        { provide: GameStore, useValue: { trainingTimescale: signal(1), renderingEnabled: signal(true), paused } },
+        { provide: GameStore, useValue: { gameSpeed: signal(1), renderingEnabled: signal(true), paused } },
         { provide: UIStore, useValue: { photoMode } },
-        { provide: TrainingClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
+        { provide: BotClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
         { provide: EngineInitializationService, useValue: { getEngine: () => engine } },
         { provide: CameraControlService, useValue: { stopJump: vi.fn() } },
         { provide: KeyboardPanService, useValue: { clearKeys: vi.fn() } },

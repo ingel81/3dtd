@@ -43,11 +43,11 @@ import { GameObject } from '../core/game-object';
 import { ABILITIES } from '../configs/abilities.config';
 import { EnemyTypeId } from '../configs/enemy-types.config';
 import { geoDistanceFast } from '../utils/geo-utils';
-import { OrbitalLaserStrategy } from '../ai/training/strategies/ability/orbital-laser.strategy';
+import { OrbitalLaserStrategy } from '../bots/strategies/ability/orbital-laser.strategy';
 import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
-import type { GameStateSnapshot } from '../ai/core/models/game-state-snapshot';
+import type { GameStateSnapshot } from '../director/models/game-state-snapshot';
 
 const LASER = ABILITIES['orbital-laser'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -112,7 +112,7 @@ function run(timescale: number): Outcome {
   const gsm = new GameStateManager();
   ref.gsm = gsm;
   gsm.initialize(createAbilityTestEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
-  gsm.trainingTimescale.set(timescale);
+  gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({
     type: 'research:completed',

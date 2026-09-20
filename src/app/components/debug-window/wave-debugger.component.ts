@@ -6,9 +6,9 @@ import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
-import { isBossWave, templateObjectForWave } from '../../configs/wave-curriculum.config';
+import { isBossWave, templateObjectForWave } from '../../configs/campaign.config';
 import { bossVariantForWave } from '../../configs/boss-variants.config';
-import { SpawnPattern } from '../../ai/core/spawn-schedule-builder';
+import { SpawnPattern } from '../../director/spawn-schedule-builder';
 import { TdIconComponent } from '../icon/icon.component';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 
@@ -53,7 +53,7 @@ export class WaveDebuggerComponent {
   readonly waveDebug = inject(WaveDebugService);
   private readonly store = inject(TowerDefenseStore);
   /** Director's reasons for the wave in play; null for waves it did not plan. */
-  readonly explanation = this.store.aiExplanation;
+  readonly explanation = this.store.waveExplanation;
 
   readonly eventBus = input<GameEventBus>();
 

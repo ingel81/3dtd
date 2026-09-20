@@ -2,7 +2,9 @@ import { Injectable, inject } from '@angular/core';
 import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
-import { RunStatsTracker } from './run-stats';
+import { RunLogFacade } from '../../run-log/run-log.facade';
+import { runSummary } from '../../run-log/run-summary';
+import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
 
 /**
  * GameStateSyncService — Bridges GSM (GameStateManager) events to the Store.
@@ -26,8 +28,8 @@ export class GameStateSyncService {
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly subs = new SubscriptionBag();
-  /** Counts the run for the game-over screen */
-  private readonly runStats = new RunStatsTracker();
+  /** The run log the game-over screen reads its numbers from */
+  private readonly runLog = inject(RunLogFacade);
 
   /**
    * Subscribe to EventBus events and sync state changes to the Store.
@@ -40,8 +42,6 @@ export class GameStateSyncService {
     // Defensive: clear any prior subscriptions so a future re-init path can't
     // double-subscribe (consistent with combat-effect/hq-damage/game-state).
     this.subs.disposeAll();
-    this.runStats.reset();
-    this.runStats.attach(eventBus, this.subs);
     // ── Wave lifecycle ────────────────────────────────────────────
     this.subs.add(eventBus.on('wave:started', (event) => {
       this.store.phase.set('wave');
@@ -73,7 +73,13 @@ export class GameStateSyncService {
     // ── Game state events ─────────────────────────────────────────
     this.subs.add(eventBus.on('game:over', (_event) => {
       this.store.phase.set('gameover');
-      this.store.runSummary.set(this.runStats.summary(gameClock()));
+      // The fatal wave has no wave:completed; the log writes its block here
+      this.runLog.collector.flushOpenWave();
+      this.store.runSummary.set(runSummary(
+        this.runLog.current(),
+        gameClock(),
+        (type) => TOWER_TYPES[type as TowerTypeId]?.name ?? type,
+      ));
       this.store.showGameOverScreen.set(true);
     }));
 

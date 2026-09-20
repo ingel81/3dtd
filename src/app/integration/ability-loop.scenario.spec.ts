@@ -133,7 +133,7 @@ function createGame(timescale: number, researched: AbilityId[]) {
   ref.gsm = gsm;
   const { engine, parts } = createEngine();
   gsm.initialize(engine, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
-  gsm.trainingTimescale.set(timescale);
+  gsm.gameSpeed.set(timescale);
   addMissileSilo(gsm.towerManager);
   for (const id of researched) {
     gsm.getEventBus().emit({

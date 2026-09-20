@@ -20,9 +20,9 @@ import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
-import { WaveDirectorService } from '../../ai/core/wave-director.service';
-import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
-import { TrainingClientService } from '../../ai/training/training-client.service';
+import { WaveDirector } from '../../director/wave-director';
+import { StateSnapshotService } from '../../director/state-snapshot.service';
+import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
@@ -30,19 +30,21 @@ import { UIStore } from '../../store/ui.store';
 import { ReplayService } from '../replay.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
-import type { WaveConfig } from '../../ai/core/models/wave-config';
-import type { DecisionExplanation } from '../../ai/core/decision-explainer';
+import type { WaveConfig } from '../../director/models/wave-config';
+import type { DecisionExplanation } from '../../director/decision-explainer';
+import { GameRng } from '../../utils/game-rng';
+import { RunLogFacade } from '../../run-log/run-log.facade';
 
 /**
  * The store path of the director's explanation. The facade is the only writer
- * of `aiExplanation` and the wave debug window only reads it, so a director
+ * of `waveExplanation` and the wave debug window only reads it, so a director
  * wave has to land there and every wave the director did not plan has to
  * clear it; otherwise the window keeps explaining a wave that is not running.
  */
 
 const EXPLANATION: DecisionExplanation = {
   summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50',
-  reasons: ['Curriculum: wave 1 is always Zombie Horde (waves 1-30 are fixed).'],
+  reasons: ['Campaign: wave 1 is always Zombie Horde (waves 1-30 are fixed).'],
 };
 
 function wave(explanation?: DecisionExplanation): WaveConfig {
@@ -54,10 +56,9 @@ function makeStore() {
     phase: signal('setup'),
     spawnPoints: signal([{}]),
     waveNumber: signal(0),
-    useStaticCurriculum: signal(false),
-    useAIDirector: signal(true),
-    aiExplanation: signal<DecisionExplanation | null>(null),
-    aiError: signal<string | null>(null),
+    directorEnabled: signal(true),
+    waveExplanation: signal<DecisionExplanation | null>(null),
+    directorError: signal<string | null>(null),
     paused: signal(false),
   };
 }
@@ -70,16 +71,11 @@ const UNUSED = [
   PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService,
 ];
 
-describe('GameLoopFacadeService: aiExplanation', () => {
+describe('GameLoopFacadeService: waveExplanation', () => {
   let facade: GameLoopFacadeService;
   let store: ReturnType<typeof makeStore>;
-  let connected: boolean;
   let emitted: { type: string }[];
-  const director = { getNextWave: vi.fn(async () => wave(EXPLANATION)) };
-  const backend = {
-    isConnected: () => connected,
-    requestWaveConfig: vi.fn(async () => wave()),
-  };
+  const director = { getNextWave: vi.fn(async () => wave(EXPLANATION)), leak: { leakMultiplier: 1 } };
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
   /** Enemy types of the wave the facade started */
   const startedTypes = () =>
@@ -89,70 +85,53 @@ describe('GameLoopFacadeService: aiExplanation', () => {
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
   beforeEach(() => {
-    connected = false;
     emitted = [];
     store = makeStore();
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },
-        { provide: WaveDirectorService, useValue: director },
-        { provide: TrainingClientService, useValue: backend },
-        { provide: AIDataCollectorService, useValue: collector },
+        { provide: WaveDirector, useValue: director },
+        { provide: BotClientService, useValue: {} },
+        { provide: StateSnapshotService, useValue: collector },
         { provide: WaveDebugService, useValue: { toAIWaveConfig: () => wave() } },
       ],
     });
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
     facade.initialize(
       { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false } as unknown as GameStateManager,
+      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false, rng: new GameRng(1) } as unknown as GameStateManager,
     );
   });
 
   it('puts the explanation of a director wave into the store', async () => {
     facade.startWave();
     await settle();
-    expect(store.aiExplanation()).toBe(EXPLANATION);
+    expect(store.waveExplanation()).toBe(EXPLANATION);
     expect(emitted.map((e) => e.type)).toEqual(['command:start-wave']);
   });
 
   it('clears it for a custom wave from the debug window', () => {
-    store.aiExplanation.set(EXPLANATION);
+    store.waveExplanation.set(EXPLANATION);
     facade.startCustomWave();
-    expect(store.aiExplanation()).toBeNull();
-  });
-
-  it('clears it for a static-curriculum wave', () => {
-    store.aiExplanation.set(EXPLANATION);
-    store.useStaticCurriculum.set(true);
-    facade.startWave();
-    expect(store.aiExplanation()).toBeNull();
+    expect(store.waveExplanation()).toBeNull();
   });
 
   it('clears it for a manual wave with the director off', () => {
-    store.aiExplanation.set(EXPLANATION);
-    store.useAIDirector.set(false);
+    store.waveExplanation.set(EXPLANATION);
+    store.directorEnabled.set(false);
     facade.startWave();
-    expect(store.aiExplanation()).toBeNull();
+    expect(store.waveExplanation()).toBeNull();
   });
 
-  it('clears it when the training backend plans the wave', async () => {
-    // The backend picks the wave over the WebSocket and sends no reasons.
-    store.aiExplanation.set(EXPLANATION);
-    connected = true;
-    facade.startWave();
-    await settle();
-    expect(backend.requestWaveConfig).toHaveBeenCalled();
-    expect(store.aiExplanation()).toBeNull();
-  });
-
-  describe('boss rotation past the curriculum', () => {
+  describe('boss rotation past the campaign', () => {
     it('ships the variant in place of the director wave and explains that (W35: the worm)', async () => {
       store.waveNumber.set(34);
       facade.startWave();
       await settle();
       expect(startedTypes()).toEqual(['worm']);
-      expect(store.aiExplanation()?.summary).toContain('Boss: Skarnax');
+      expect(store.waveExplanation()?.summary).toContain('Boss: Skarnax');
       expect(collector.setCurrentWaveConfig).toHaveBeenCalledWith(
         expect.objectContaining({ templateName: 'Boss: Skarnax' }),
       );
@@ -163,16 +142,9 @@ describe('GameLoopFacadeService: aiExplanation', () => {
       facade.startWave();
       await settle();
       expect(startedTypes()).toEqual(Array(20).fill('zombie'));
-      expect(store.aiExplanation()).toBe(EXPLANATION);
+      expect(store.waveExplanation()).toBe(EXPLANATION);
     });
 
-    it('leaves a training wave alone', async () => {
-      connected = true;
-      store.waveNumber.set(34);
-      facade.startWave();
-      await settle();
-      expect(startedTypes()).toEqual(Array(20).fill('zombie'));
-    });
   });
 });
 
@@ -189,22 +161,23 @@ describe('GameLoopFacadeService: pause', () => {
   beforeEach(() => {
     emitted = [];
     store = makeStore();
-    store.useAIDirector.set(false);
+    store.directorEnabled.set(false);
     store.paused.set(true);
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },
-        { provide: WaveDirectorService, useValue: {} },
-        { provide: TrainingClientService, useValue: {} },
-        { provide: AIDataCollectorService, useValue: {} },
+        { provide: WaveDirector, useValue: {} },
+        { provide: BotClientService, useValue: {} },
+        { provide: StateSnapshotService, useValue: {} },
         { provide: WaveDebugService, useValue: { toAIWaveConfig: () => wave() } },
       ],
     });
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
     facade.initialize(
       { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false } as unknown as GameStateManager,
+      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false, rng: new GameRng(1) } as unknown as GameStateManager,
     );
   });
 

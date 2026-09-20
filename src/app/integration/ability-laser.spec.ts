@@ -131,7 +131,7 @@ function run(timescale: number): Outcome {
   const engine = createEngine() as unknown as { effects: { spawnFloatingText: ReturnType<typeof vi.fn> } };
   gsm.initialize(engine as never, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   const creditsBefore = gsm.credits();
-  gsm.trainingTimescale.set(timescale);
+  gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({
     type: 'research:completed',

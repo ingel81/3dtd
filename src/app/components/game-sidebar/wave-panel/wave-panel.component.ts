@@ -32,7 +32,7 @@ import { DebugFacadeService } from '../../../services/debug/debug-facade.service
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { enemyGroupTooltip, splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
-import { calculateTotalDPS } from '../../../ai/core/defense-analyzer';
+import { calculateTotalDPS } from '../../../director/defense-analyzer';
 import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
@@ -42,7 +42,7 @@ import { ReplayService } from '../../../services/replay.service';
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
  * Next-Wave-Button mit Auto-Start-Schalter und NEXT als Zeitleiste aus dem
- * Curriculum. Meldet die Enemy-Previews beim ModelPreviewService an und wieder
+ * Campaign. Meldet die Enemy-Previews beim ModelPreviewService an und wieder
  * ab. Die Fähigkeiten stehen in der Leiste am linken Rand des Spielfelds
  * (app-ability-bar).
  */
@@ -108,7 +108,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   );
 
   // Wave group display, only consumed by the template while a wave is active,
-  // so we don't need curriculum-derived or debug-panel fallbacks. The NEXT
+  // so we don't need campaign-derived or debug-panel fallbacks. The NEXT
   // timeline handles the preview of the coming waves separately.
   readonly currentWaveGroups = this.waveDebug.currentWaveGroups;
 

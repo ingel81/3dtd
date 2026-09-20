@@ -1,0 +1,175 @@
+/**
+ * Fairness-gate controller — closed loop on how much a wave lets through.
+ *
+ * `survivableCount` estimates how many enemies a defense can destroy, discounted
+ * by FAIRNESS_KILL_REALISM. That discount was measured on waves 1-10 and is
+ * wrong from wave 11 on, so the cap has a standing bias and no way to notice
+ * it. This corrects it from the only evidence that matters: what actually
+ * reached the base.
+ *
+ * WHY THIS EXISTS, measured over a full day of training runs:
+ *
+ * Without any correction the cap lands on "exactly what the towers can kill",
+ * which guarantees the towers kill it — 70% of waves killed everything, 80%
+ * dealt no damage, and near-miss ratio sat at 0.03 against a design target of
+ * 0.20. Four wave designers as different as a trained policy network and a
+ * uniform random sampler produced statistically indistinguishable runs, because
+ * the cap rather than the designer was choosing the wave size.
+ *
+ * TWO FAILURES THIS SHAPE AVOIDS, both of which shipped in the Python original:
+ *
+ * 1. Steering on kill-share ("the defense killed everything, allow more") reads
+ *    the loop's own caution as headroom: a small wave is cleared BECAUSE it is
+ *    small. That is one-way pressure, and it pinned the multiplier to whatever
+ *    ceiling it was given — at 40 it produced caps of 4761 enemies and turned
+ *    the gate off entirely. Steering on leak ratio is two-sided and settles.
+ *
+ * 2. A fixed step size cannot cover the distance. The multiplier has to reach
+ *    ~1.6 just to undo the stale realism discount, and further before anything
+ *    leaks. At 5% per window that is ~170 waves against runs of ~60 that start
+ *    from 1.0 — it never arrived (measured median 1.28). Proportional control
+ *    crosses it in a handful of windows and still settles, because the
+ *    correction shrinks to nothing inside the target band.
+ *
+ * State is per-run: {@link reset} on a new game. Leaving it to accumulate
+ * across runs made the multiplier a ratchet that climbed on every cleared wave
+ * and fell only on a death; median run length was 6 waves against a target of
+ * 80, and fresh runs opened against waves sized for a defense that had been
+ * dismantled several games earlier.
+ */
+
+import { directorParams } from './director-params';
+
+/** Waves of leak history before the loop steers at all. */
+export const LEAK_ADAPT_WINDOW = 4;
+
+/**
+ * Target band for the share of a wave that reaches the base.
+ *
+ * Below the floor the waves are not testing the defense; above the ceiling the
+ * run is being ended. The gate is meant to prevent the second, not to enforce
+ * the first — a cap that binds on most waves is not a safety limit, it is the
+ * difficulty curve wearing a disguise.
+ */
+export const LEAK_TARGET_LO = 0.08;
+export const LEAK_TARGET_HI = 0.16;
+
+/** Proportional gain on the relative leak error, applied once per wave. */
+export const LEAK_GAIN = 0.35;
+
+// The three above are the defaults; a bot batch may run a named parameter set
+// instead (director-params.ts), which is why the loop reads them through
+// `directorParams()` rather than using the constants directly.
+
+/** Multiplicative back-off when a run ends. Deliberately harsher than the gain. */
+export const LEAK_MULT_DOWN = 0.8;
+
+export const LEAK_MULT_MIN = 0.5;
+export const LEAK_MULT_MAX = 8;
+
+/**
+ * Share of a wave the loop counts as through: enemies that reached the base
+ * plus enemies an ability killed, over every enemy with a progress sample.
+ *
+ * Ability kills count as leaks (PLAYER_AGENCY_CONCEPT.md, section 7): a strike
+ * saves the player HP and gold in the wave it lands in, but must not read as
+ * defense strength and grow the waves after it. A struck enemy's progress
+ * sample is where it died, below 1, so it is counted once.
+ *
+ * null when the wave carries no per-enemy data, see recordWave.
+ */
+export function leakRatio(progress: readonly number[], abilityKills = 0): number | null {
+  if (progress.length === 0) return null;
+  let leaked = Math.max(0, abilityKills);
+  for (const p of progress) {
+    if (p >= 1) leaked++;
+  }
+  return Math.min(1, leaked / progress.length);
+}
+
+/** What the loop did with the most recent wave it saw. */
+export type LeakStep = 'warming-up' | 'opened' | 'closed' | 'held' | 'backed-off';
+
+/** Read-only view of the loop, for the decision explainer. */
+export interface LeakStatus {
+  multiplier: number;
+  /** Leak samples in the window, up to LEAK_ADAPT_WINDOW. */
+  samples: number;
+  /** Mean leak over the window, or null until the window is full. */
+  meanLeak: number | null;
+  lastStep: LeakStep;
+}
+
+export class LeakController {
+  private leakShares: number[] = [];
+  private multiplier = 1;
+  private lastStep: LeakStep = 'warming-up';
+
+  /** Current correction factor for `survivableCount`'s kill estimate. */
+  get leakMultiplier(): number {
+    return this.multiplier;
+  }
+
+  get status(): LeakStatus {
+    const full = this.leakShares.length >= LEAK_ADAPT_WINDOW;
+    return {
+      multiplier: this.multiplier,
+      samples: this.leakShares.length,
+      meanLeak: full ? this.leakShares.reduce((a, b) => a + b, 0) / this.leakShares.length : null,
+      lastStep: this.lastStep,
+    };
+  }
+
+  /** Clear per-run state. Must be called when a new game starts. */
+  reset(): void {
+    this.leakShares = [];
+    this.multiplier = 1;
+    this.lastStep = 'warming-up';
+  }
+
+  /**
+   * Fold one completed wave into the loop.
+   *
+   * @param leakRatio fraction of the wave that reached the base, 0..1, or null
+   *                  when the wave produced no per-enemy data at all. Null is
+   *                  NOT the same as zero: recording a phantom "nothing leaked"
+   *                  sample pushes the loop to open the budget on evidence that
+   *                  does not exist. The Python original guards this with
+   *                  `enemiesSpawned > 0` and still steers on the samples it
+   *                  already has, which is what this mirrors.
+   * @param survived  false if this wave ended the run
+   */
+  recordWave(leakRatio: number | null, survived: boolean): number {
+    const params = directorParams();
+    if (leakRatio !== null && Number.isFinite(leakRatio)) {
+      this.leakShares.push(Math.max(0, Math.min(1, leakRatio)));
+      if (this.leakShares.length > LEAK_ADAPT_WINDOW) this.leakShares.shift();
+    }
+
+    if (this.leakShares.length < LEAK_ADAPT_WINDOW) {
+      this.lastStep = 'warming-up';
+      return this.multiplier;
+    }
+
+    const leaked = this.leakShares.reduce((a, b) => a + b, 0) / this.leakShares.length;
+
+    if (!survived) {
+      // The one outcome the gate exists to prevent. Back off hard rather than
+      // proportionally — the cost of an over-large wave is asymmetric.
+      this.multiplier = Math.max(LEAK_MULT_MIN, this.multiplier * LEAK_MULT_DOWN);
+      this.lastStep = 'backed-off';
+    } else if (leaked < params.leakTargetLo || leaked > params.leakTargetHi) {
+      const target = (params.leakTargetLo + params.leakTargetHi) / 2;
+      const error = (target - leaked) / target;          // +1 = nothing leaks at all
+      const step = 1 + params.leakGain * Math.max(-1, Math.min(1, error));
+      this.multiplier = Math.max(LEAK_MULT_MIN, Math.min(LEAK_MULT_MAX, this.multiplier * step));
+      this.lastStep = leaked < params.leakTargetLo ? 'opened' : 'closed';
+    } else {
+      // Inside the band a little gets through and the player lives: that is
+      // the target state. Hold.
+      this.lastStep = 'held';
+    }
+
+    return this.multiplier;
+  }
+}

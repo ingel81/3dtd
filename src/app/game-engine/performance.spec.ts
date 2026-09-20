@@ -128,6 +128,7 @@ describe('Performance Regression Tests', () => {
           type: 'enemy:died',
           enemy: { id: `enemy-${i}` } as never,
           credits: 10,
+          killedBy: null,
         });
       }
       const elapsed = performance.now() - start;
@@ -149,6 +150,7 @@ describe('Performance Regression Tests', () => {
           type: 'enemy:died',
           enemy: { id: `enemy-${i}` } as never,
           credits: 10,
+          killedBy: null,
         });
       }
       const elapsed = performance.now() - start;
@@ -167,6 +169,7 @@ describe('Performance Regression Tests', () => {
           type: 'enemy:died',
           enemy: { id: `enemy-${i}` } as never,
           credits: 10,
+          killedBy: null,
         });
       }
 

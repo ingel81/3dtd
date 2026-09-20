@@ -33,8 +33,8 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../src/app/configs/enemy-types.config';
-import { TEMPLATES } from '../../src/app/ai/core/templates';
-import { WAVE_CURRICULUM, STATIC_WAVE_PROFILES } from '../../src/app/configs/wave-curriculum.config';
+import { TEMPLATES } from '../../src/app/director/templates';
+import { CAMPAIGN } from '../../src/app/configs/campaign.config';
 import { TIMING } from '../../src/app/configs/timing.config';
 import { bakeEnemyVAT, type VATData } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
 import { DEFAULT_BAKE_FPS, vatClips, vatFrameCount } from '../../src/app/three-engine/renderers/instanced-enemy/vat-clips';
@@ -88,7 +88,8 @@ interface Presence {
   /** Most enemies of this type one wave can bring (share x top of countRange). */
   perWave: number;
   waves: number[];
-  staticMax: number;
+  /** Most of this type one campaign wave can bring, over W1 to W30. */
+  campaignMax: number;
 }
 
 interface Row {
@@ -160,15 +161,20 @@ function presenceOf(id: string): Presence {
     }
     perWave = Math.max(perWave, n);
   }
-  const waves = WAVE_CURRICULUM.flatMap((entry, i) => {
+  const waves: number[] = [];
+  let campaignMax = 0;
+  CAMPAIGN.forEach((entry, i) => {
     const template = TEMPLATES.find((t) => t.id === entry.template);
-    return template?.enemies.some(([enemy]) => bodiesOf(enemy, id) > 0) ? [i + 1] : [];
+    if (!template) return;
+    let n = 0;
+    for (const [enemy, share] of template.enemies) {
+      n += Math.round(share * template.countRange[1]) * bodiesOf(enemy, id);
+    }
+    if (n === 0) return;
+    waves.push(i + 1);
+    campaignMax = Math.max(campaignMax, n);
   });
-  const staticMax = Math.max(
-    0,
-    ...STATIC_WAVE_PROFILES.map((p) => p.groups.reduce((s, g) => s + g.count * bodiesOf(g.enemyType, id), 0)),
-  );
-  return { perWave, waves, staticMax };
+  return { perWave, waves, campaignMax };
 }
 
 /** Loads a model with the game's loaders and bakes it as InstancedEnemyRenderer does. */
@@ -462,7 +468,7 @@ function render(rows: Row[]): string {
 
   out.push('### Vorkommen in Wellen');
   out.push('');
-  out.push('Kurrikulum W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte');
+  out.push('Die Kampagne W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte');
   out.push('Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`,');
   out.push('mit allem, was ein Kill abspaltet.');
   out.push('');
@@ -480,11 +486,11 @@ function render(rows: Row[]): string {
   const templateRows = TEMPLATES.map((t) => {
     const top = t.countRange[1];
     const load = t.enemies.reduce((s, [enemy, share]) => s + Math.round(share * top) * lineageVerts(enemy), 0);
-    const waves = WAVE_CURRICULUM.flatMap((entry, i) => (entry.template === t.id ? [i + 1] : []));
+    const waves = CAMPAIGN.flatMap((entry, i) => (entry.template === t.id ? [i + 1] : []));
     return { t, top, load, waves };
   }).sort((a, b) => b.load - a.load || a.t.id.localeCompare(b.t.id));
   out.push(table(
-    ['Template', 'Kurrikulum', 'max. Anzahl', 'Mischung', 'Mio. Vertices'],
+    ['Template', 'Kampagne', 'max. Anzahl', 'Mischung', 'Mio. Vertices'],
     'llrlr',
     templateRows.map(({ t, top, load, waves }) => [
       `\`${t.id}\``,
@@ -496,12 +502,12 @@ function render(rows: Row[]): string {
   ));
   out.push('');
   out.push(table(
-    ['Gegner', 'Kurrikulum-Wellen', 'max. im Static-Fallback'],
+    ['Gegner', 'Kampagnen-Wellen', 'max. in einer Kampagnenwelle'],
     'llr',
     [...rows].sort((a, b) => a.id.localeCompare(b.id)).map((r) => [
       r.config.name,
       wavesLabel(r.presence.waves),
-      int(r.presence.staticMax),
+      int(r.presence.campaignMax),
     ]),
   ));
   return out.join('\n');

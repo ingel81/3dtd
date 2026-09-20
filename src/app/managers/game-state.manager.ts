@@ -35,6 +35,9 @@ import { HERO_SOURCE_ID } from '../configs/hero.config';
 import { heroBodyContact } from '../utils/hero-body-contact';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
+import { GameRng } from '../utils/game-rng';
+import type { CreditsSource, WaveGoldBreakdown } from '../game-engine/game-event-bus';
+import { waveGoldTotal } from '../services/economy.service';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
 import { TowerLifecycle } from './game-state/tower-lifecycle';
@@ -124,7 +127,7 @@ export class GameStateManager {
         shot.aimPoint ?? undefined,
       );
     },
-    spend: (cost) => this.creditsLedger.spend(cost),
+    spend: (cost) => this.creditsLedger.spend(cost, 'hero'),
   });
 
   /**
@@ -194,7 +197,7 @@ export class GameStateManager {
   readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
 
   /** Training mode timescale (1.0 = normal, 3.0 = 3x speed) */
-  readonly trainingTimescale = signal<number>(1.0);
+  readonly gameSpeed = signal<number>(1.0);
 
   /** Command-Bus-Adapter — registriert sich bei initialize(). */
   private commandsHandler: GameCommandsHandler | null = null;
@@ -207,8 +210,8 @@ export class GameStateManager {
 
   /** Sync timescale from GameStore (UI source of truth) → local signal */
   private readonly timescaleSyncEffect = effect(() => {
-    const storeValue = this.gameStore.trainingTimescale();
-    this.trainingTimescale.set(storeValue);
+    const storeValue = this.gameStore.gameSpeed();
+    this.gameSpeed.set(storeValue);
   });
 
   /** Game time stands still, see GameStore.paused. */
@@ -255,10 +258,22 @@ export class GameStateManager {
   /** Sub-step accounting: accumulator, catch-up cap, game time. */
   private readonly clock = new GameClock();
 
+  /**
+   * The run's random source. One seed per run, one stream per system, so a
+   * different bot decision cannot shift the enemies (BALANCING_PLAN.md,
+   * section 5). Reset gives the next run a fresh seed.
+   */
+  readonly rng = new GameRng();
+
   /** Read-only access to the game-clock for any consumer that needs
    *  game-time (status effects, sleep checks, AI bot ticks, etc). */
   get gameTimeMs(): number {
     return this.clock.gameTimeMs;
+  }
+
+  /** Sub-steps since the run started; the stamp for every logged command. */
+  get subStep(): number {
+    return this.clock.subStep;
   }
 
   // Performance profiler (optional, set via setProfiler())
@@ -277,7 +292,7 @@ export class GameStateManager {
 
   /** Bound once for the research queue, which runs every sub-step (ResearchManager.startQueued) */
   private readonly creditsNow = (): number => this.credits();
-  private readonly spendForResearch = (cost: number): boolean => this.creditsLedger.spend(cost);
+  private readonly spendForResearch = (cost: number): boolean => this.creditsLedger.spend(cost, 'research');
 
   /**
    * Set performance profiler for frame timing instrumentation.
@@ -429,7 +444,7 @@ export class GameStateManager {
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
-        this.creditsLedger.add(event.credits);
+        this.creditsLedger.add(event.credits, 'kill');
 
         // Show reward popup with actual dynamic credits (not static typeConfig.reward)
         if (this.tilesEngine) {
@@ -462,6 +477,12 @@ export class GameStateManager {
     this.waveManager.initialize(spawnPoints, cachedPaths);
     // Wire health-provider for CloseCall detection at wave end
     this.waveManager.setCurrentHealthProvider(() => this.baseHealth());
+    // The wave books its completion gold through here, so wave:completed can
+    // carry the real amount and its parts.
+    this.waveManager.setWaveGoldProvider((result) => this.applyWaveCompletionBonus(result));
+    // Seeded streams for the spawn point and the enemies' lane and altitude.
+    this.waveManager.setRandom(this.rng.stream('spawn'));
+    this.enemyManager.setRandom(this.rng.stream('enemy'));
   }
 
   /**
@@ -507,7 +528,7 @@ export class GameStateManager {
 
     // Clamped wall-clock delta × timescale plus the carried remainder,
     // see GameClock.beginFrame().
-    const timescale = this.trainingTimescale();
+    const timescale = this.gameSpeed();
     this.clock.beginFrame(currentTime, timescale);
 
     // Sync timescale to renderer (turret-pulse / hover / shader-time only —
@@ -539,12 +560,11 @@ export class GameStateManager {
       const isWavePhase = this.waveManager.phase() === 'wave';
       // A pending strike lands in its own wave, never in the setup or the next one
       if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
-        const result = this.waveManager.endWave();
+        this.waveManager.endWave();
         this.replayRecorder.finish('completed');
         this.towerCombat.stopAllBeams();
         this.towerCombat.stopAllMelee();
         this.enemyDebug.clearDebugEnemies();
-        this.applyWaveCompletionBonus(result);
       }
       if (this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover') {
         this.triggerGameOver();
@@ -705,7 +725,7 @@ export class GameStateManager {
       this.waveDebug.setCurrentWaveGroups(groups);
     }
 
-    // Emit lifecycle event BEFORE startWave() so that AIDataCollector.clearHistory()
+    // Emit lifecycle event BEFORE startWave() so that StateSnapshotService.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (!this.runStarted) {
       this.runStarted = true;
@@ -722,7 +742,7 @@ export class GameStateManager {
   beginWave(): void {
     if (this.corridorPending()) return;
 
-    // Emit lifecycle event BEFORE beginWave() so that AIDataCollector.clearHistory()
+    // Emit lifecycle event BEFORE beginWave() so that StateSnapshotService.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (!this.runStarted) {
       this.runStarted = true;
@@ -764,7 +784,7 @@ export class GameStateManager {
     const skipped = wave - 1 - from;
     const credits = grantGold ? skippedWavesGold(from + 1, wave - 1) : 0;
     this.waveManager.jumpTo(wave - 1);
-    if (credits > 0) this.creditsLedger.add(credits);
+    if (credits > 0) this.creditsLedger.add(credits, 'wave-jump');
     this.abilityManager.advanceWaves(skipped);
     this.eventBus.emit({ type: 'wave:jumped', from, wave, skipped, credits });
     return true;
@@ -844,6 +864,9 @@ export class GameStateManager {
     this.healthLedger.resetToStart();
     this.creditsLedger.reset();
     this.clock.reset();
+    // A new run is a new seed: leaving the streams running would make the
+    // second run of a batch a different experiment than the first.
+    this.rng.reset();
     this.economy.reset();
     this.runStarted = false;
 
@@ -854,14 +877,15 @@ export class GameStateManager {
   }
 
   /** Apply Wave-Completion-Bonus via EconomyService (delegates the math). */
-  private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): void {
-    const total = this.economy.computeWaveCompletionBonus(result);
-    this.creditsLedger.add(total);
+  private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): WaveGoldBreakdown {
+    const breakdown = this.economy.computeWaveCompletionBonus(result);
+    this.creditsLedger.add(waveGoldTotal(breakdown), 'wave-bonus');
+    return breakdown;
   }
 
   /** Add credits to the player account (delta). Public for GameCommandsHandler. */
-  addCredits(amount: number): void {
-    this.creditsLedger.add(amount);
+  addCredits(amount: number, source: CreditsSource): void {
+    this.creditsLedger.add(amount, source);
   }
 
   /**
@@ -904,8 +928,8 @@ export class GameStateManager {
    * Spend credits (for upgrades etc.)
    * @returns true if credits were spent, false if not enough
    */
-  spendCredits(amount: number): boolean {
-    return this.creditsLedger.spend(amount);
+  spendCredits(amount: number, source: CreditsSource): boolean {
+    return this.creditsLedger.spend(amount, source);
   }
 
   /**
@@ -1049,13 +1073,13 @@ export class GameStateManager {
    * @param scale Timescale multiplier (1.0 = normal, 75.0 = 75x speed)
    * @param persist Whether to save to localStorage (default: true, set to false for automatic backend settings)
    */
-  setTrainingTimescale(scale: number, persist = true): void {
+  setGameSpeed(scale: number, persist = true): void {
     const clamped = Math.max(0.1, Math.min(75, scale));
-    this.trainingTimescale.set(clamped);
+    this.gameSpeed.set(clamped);
     // Also update the global store so UI components stay in sync
-    this.gameStore.trainingTimescale.set(clamped);
+    this.gameStore.gameSpeed.set(clamped);
     if (persist) {
-      localStorage.setItem('training-timescale', clamped.toString());
+      localStorage.setItem('game-speed', clamped.toString());
     }
   }
 }

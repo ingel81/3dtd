@@ -11,13 +11,13 @@ import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
-import { WaveDirectorService } from '../../ai/core/wave-director.service';
-import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
-import { TrainingClientService } from '../../ai/training/training-client.service';
-import { adaptAIWaveConfig } from '../../ai/core/wave-config-adapter';
+import { WaveDirector } from '../../director/wave-director';
+import { StateSnapshotService } from '../../director/state-snapshot.service';
+import { BotClientService } from '../../bots/bot-client.service';
+import { RunLogFacade } from '../../run-log/run-log.facade';
+import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { WaveConfig } from '../../managers/wave.manager';
-import { staticWaveResolvedFor } from '../../configs/wave-curriculum.config';
 import { bossVariantForWave, bossVariantWave } from '../../configs/boss-variants.config';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
@@ -57,9 +57,10 @@ export class GameLoopFacadeService {
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugWindows = inject(DebugWindowService);
   private readonly enemyDebug = inject(EnemyDebugService);
-  private readonly waveDirector = inject(WaveDirectorService);
-  private readonly aiDataCollector = inject(AIDataCollectorService);
-  private readonly trainingClient = inject(TrainingClientService);
+  private readonly waveDirector = inject(WaveDirector);
+  private readonly runLog = inject(RunLogFacade);
+  private readonly stateSnapshots = inject(StateSnapshotService);
+  private readonly botClient = inject(BotClientService);
   private readonly ngZone = inject(NgZone);
   private readonly store = inject(TowerDefenseStore);
   private readonly profiler = inject(PerformanceProfilerService);
@@ -138,12 +139,12 @@ export class GameLoopFacadeService {
 
     // No auto-enable effect here any more.
     //
-    // It existed to switch the director on once the ONNX model had loaded, and
-    // it read `useAIDirector()` as well as the model state. With the rule
+    // It existed to switch the director on once a model had loaded, and it
+    // read `directorEnabled()` as well as the model state. With the rule
     // director always available that condition is permanently true, so the
     // effect re-fired on its own write and forced the flag back on: the UI
     // toggle became inert, the error path could not disable the director, and
-    // a store reset was immediately overridden. `useAIDirector` now simply
+    // a store reset was immediately overridden. `directorEnabled` now simply
     // defaults to on.
 
     // Effect: Start paused debug enemies when wave starts
@@ -237,7 +238,7 @@ export class GameLoopFacadeService {
 
   private armAutoWave(): void {
     // A bot starts its own waves, a training run must not change behind it
-    if (!this.uiStore.autoStartWaves() || this.trainingClient.botEnabled()) return;
+    if (!this.uiStore.autoStartWaves() || this.botClient.botEnabled()) return;
     if (this.store.phase() === 'gameover') return;
     const now = this.gameState.gameTimeMs;
     this.autoWave.arm(now);
@@ -280,18 +281,7 @@ export class GameLoopFacadeService {
    * Shared helper to avoid duplication between startWave() and startCustomWave().
    */
   buildWaveConfig(): WaveConfig {
-    return adaptAIWaveConfig(this.waveDebug.toAIWaveConfig());
-  }
-
-  /**
-   * Build a WaveConfig from the static curriculum profile for `waveNum`.
-   * Used as the AI-off fallback when `useStaticCurriculum` is enabled.
-   * Returns null when the wave number is invalid.
-   */
-  buildStaticCurriculumWaveConfig(waveNum: number): WaveConfig | null {
-    const resolved = staticWaveResolvedFor(waveNum);
-    if (!resolved) return null;
-    return adaptAIWaveConfig(resolved);
+    return adaptDirectorWave(this.waveDebug.toAIWaveConfig(), this.gameState.rng.stream('spawn'));
   }
 
   /**
@@ -307,29 +297,16 @@ export class GameLoopFacadeService {
     this.store.paused.set(false);
 
     // Source priority for the wave config:
-    //   1. Static curriculum toggle (explicit debug override — beats AI even
-    //      if it's auto-enabled after the ONNX model loaded). Single-click UX.
-    //   2. AI Director (production default).
-    //   3. Debug panel's custom-wave settings (last fallback).
-    if (this.store.useStaticCurriculum()) {
-      const nextWave = this.store.waveNumber() + 1;
-      const waveConfig = this.buildStaticCurriculumWaveConfig(nextWave) ?? this.buildWaveConfig();
-      this.store.aiExplanation.set(null);
-      this.gameState.getEventBus().emit({
-        type: 'command:start-wave',
-        config: waveConfig,
-      });
-      return;
-    }
-
-    if (this.store.useAIDirector()) {
+    //   1. Wave Director (production default).
+    //   2. Debug panel's custom-wave settings (last fallback).
+    if (this.store.directorEnabled()) {
       if (this.pendingAIWaveRequest) return;
       this.startWaveWithAI(0);
       return;
     }
 
     const waveConfig = this.buildWaveConfig();
-    this.store.aiExplanation.set(null);
+    this.store.waveExplanation.set(null);
     this.gameState.getEventBus().emit({
       type: 'command:start-wave',
       config: waveConfig,
@@ -344,7 +321,7 @@ export class GameLoopFacadeService {
     if (retryCount >= GameLoopFacadeService.MAX_AI_RETRY) {
       console.error('[AI] Max retries reached, falling back to manual wave config');
       const waveConfig = this.buildWaveConfig();
-      this.store.aiExplanation.set(null);
+      this.store.waveExplanation.set(null);
       this.gameState.getEventBus().emit({
         type: 'command:start-wave',
         config: waveConfig,
@@ -355,26 +332,29 @@ export class GameLoopFacadeService {
     this.pendingAIWaveRequest = true;
 
     try {
-      let aiConfig;
-
-      if (this.trainingClient.isConnected()) {
-        const state = this.aiDataCollector.getStateSnapshot();
-        aiConfig = await this.trainingClient.requestWaveConfig(state);
-      } else {
-        aiConfig = await this.waveDirector.getNextWave();
-        // Past the curriculum some boss waves go to bosses that are no
-        // director template (boss-variants.config.ts). Training waves come
-        // from the backend above and never do.
-        const wave = this.store.waveNumber() + 1;
-        const variant = bossVariantForWave(wave);
-        if (variant) {
-          aiConfig = bossVariantWave(variant, aiConfig, wave);
-          this.aiDataCollector.setCurrentWaveConfig(aiConfig);
-        }
+      let aiConfig = await this.waveDirector.getNextWave(this.gameState.rng.stream('director'));
+      // Past the campaign some boss waves go to bosses that are no
+      // director template (boss-variants.config.ts).
+      const wave = this.store.waveNumber() + 1;
+      const variant = bossVariantForWave(wave);
+      if (variant) {
+        aiConfig = bossVariantWave(variant, aiConfig, wave);
+        this.stateSnapshots.setCurrentWaveConfig(aiConfig);
       }
 
-      this.store.aiExplanation.set(aiConfig.explanation ?? null);
-      const waveConfig = adaptAIWaveConfig(aiConfig);
+      this.store.waveExplanation.set(aiConfig.explanation ?? null);
+      // What the director decided, for the wave block of the run log
+      this.runLog.collector.noteDirectorDecision({
+        template: aiConfig.templateName,
+        reason: aiConfig.explanation?.reasons,
+        leakMultiplier: this.waveDirector.leak.leakMultiplier,
+        composition: aiConfig.enemies.map((group) => ({
+          type: group.type,
+          count: group.count,
+          hp: group.healthMultiplier ?? 1,
+        })),
+      });
+      const waveConfig = adaptDirectorWave(aiConfig, this.gameState.rng.stream('spawn'));
 
       this.gameState.getEventBus().emit({
         type: 'command:start-wave',
@@ -382,14 +362,14 @@ export class GameLoopFacadeService {
       });
     } catch (error) {
       console.error('[AI] Failed to generate wave', error);
-      // A missing ONNX model is no longer a failure mode: the rule director is
-      // the default and needs nothing to load. Anything that reaches here is a
-      // real bug, so surface it rather than silently dropping to manual waves.
-      this.store.aiError.set(
+      // The rule director needs nothing to load, so anything that reaches
+      // here is a real bug: surface it rather than silently dropping to
+      // manual waves.
+      this.store.directorError.set(
         'Could not generate a wave. Falling back to manual waves; see the console '
         + 'for details.'
       );
-      this.store.useAIDirector.set(false);
+      this.store.directorEnabled.set(false);
       this.pendingAIWaveRequest = false;
       this.startWaveWithAI(retryCount + 1);
       return;
@@ -412,22 +392,11 @@ export class GameLoopFacadeService {
 
     const waveConfig = this.buildWaveConfig();
 
-    this.store.aiExplanation.set(null);
+    this.store.waveExplanation.set(null);
     this.gameState.getEventBus().emit({
       type: 'command:start-wave',
       config: waveConfig,
     });
-  }
-
-  /**
-   * Toggle static-curriculum fallback (debug). When ON, `startWave()` spawns
-   * from `STATIC_WAVE_PROFILES` unconditionally, ahead of the AI Director
-   * and the debug panel's custom-wave settings (docs/STATIC_WAVE_FALLBACK.md);
-   * `useAIDirector` does not need to be off.
-   */
-  toggleStaticCurriculum(): void {
-    const newValue = !this.store.useStaticCurriculum();
-    this.store.useStaticCurriculum.set(newValue);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -467,7 +436,7 @@ export class GameLoopFacadeService {
     this.waveDirector.resetForNewGame();
 
     // Reset bot state
-    this.trainingClient.resetBot();
+    this.botClient.resetBot();
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -541,9 +510,9 @@ export class GameLoopFacadeService {
       // Bot decision tick per sub-step (game-time). The snapshot is passed as
       // a thunk so it is only built on the ticks where the bot's reaction
       // cooldown has actually elapsed.
-      if (this.trainingClient.botEnabled()) {
-        this.trainingClient.updateBot(
-          () => this.aiDataCollector.getStateSnapshot(),
+      if (this.botClient.botEnabled()) {
+        this.botClient.updateBot(
+          () => this.stateSnapshots.getStateSnapshot(),
           gameTimeStepMs,
         );
       }
@@ -555,6 +524,9 @@ export class GameLoopFacadeService {
     // The wave replay, while it is on. After the game's update: its pause
     // set the renderers' timescale to 0, the replay sets its own speed
     this.replay.update(deltaTime);
+
+    // One sample a second of game time, after the sub-steps of this frame
+    this.runLog.tick();
 
     this.tickAutoWave();
 

@@ -86,7 +86,7 @@
                 },
                 {
                   "type": "bundle",
-                  "name": "training-session",
+                  "name": "bot-session",
                   "maximumWarning": "48kB",
                   "maximumError": "96kB"
                 }
@@ -98,7 +98,6 @@
                   "input": "public",
                   "ignore": [
                     "**/candidates/**",
-                    "**/onnx-wasm/**",
                     "**/*.psd"
                   ]
                 }

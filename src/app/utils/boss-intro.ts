@@ -73,8 +73,6 @@ export interface BossIntroContext {
   photoMode: boolean;
   /** A training bot plays */
   botEnabled: boolean;
-  /** The training backend picks the waves */
-  trainingConnected: boolean;
   timescale: number;
   /** Headless training clients draw nothing */
   renderingEnabled: boolean;
@@ -88,7 +86,6 @@ export type BossIntroBlock =
   | 'disabled'
   | 'photo-mode'
   | 'bot'
-  | 'training'
   | 'timescale'
   | 'no-rendering'
   | 'intro-flight'
@@ -99,8 +96,8 @@ const MAX_PLAYER_TIMESCALE = Math.max(...GAME_SPEEDS);
 
 /**
  * Why the intro does not play now, null when it may. Photo mode keeps its
- * picture; bots and training runs have nobody watching, and above the HUD's
- * fastest speed the game is a training run too. A player in a dialog keeps
+ * picture; bots have nobody watching, and above the HUD's fastest speed the
+ * game is a bot run too. A player in a dialog keeps
  * the view behind it: no camera cut and no pause they did not ask for
  * (decided 2026-09-14).
  */
@@ -108,7 +105,6 @@ export function bossIntroBlock(ctx: BossIntroContext): BossIntroBlock | null {
   if (!ctx.enabled) return 'disabled';
   if (ctx.photoMode) return 'photo-mode';
   if (ctx.botEnabled) return 'bot';
-  if (ctx.trainingConnected) return 'training';
   if (ctx.timescale > MAX_PLAYER_TIMESCALE) return 'timescale';
   if (!ctx.renderingEnabled) return 'no-rendering';
   if (ctx.introFlight) return 'intro-flight';

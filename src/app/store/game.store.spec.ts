@@ -48,23 +48,23 @@ describe('GameStore', () => {
       expect(store.showGameOverScreen()).toBe(false);
     });
 
-    it('trainingTimescale starts at 1.0', () => {
-      expect(store.trainingTimescale()).toBe(1.0);
+    it('gameSpeed starts at 1.0', () => {
+      expect(store.gameSpeed()).toBe(1.0);
     });
 
-    // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by TrainingClientService
+    // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by BotClientService
 
-    it('useAIDirector starts as true', () => {
+    it('directorEnabled starts as true', () => {
       // On by default since the wave director became rule-based: it needs no
-      // model, no network and no ONNX runtime, so there is no startup window in
-      // which it cannot produce a wave. It previously defaulted to false and
-      // was switched on by an effect once the ONNX model had loaded — an effect
-      // that also re-fired on its own write and made the UI toggle inert.
-      expect(store.useAIDirector()).toBe(true);
+      // model and no network, so there is no startup window in which it cannot
+      // produce a wave. It previously defaulted to false and was switched on by
+      // an effect once a model had loaded — an effect that also re-fired on its
+      // own write and made the UI toggle inert.
+      expect(store.directorEnabled()).toBe(true);
     });
 
-    it('aiExplanation starts as null', () => {
-      expect(store.aiExplanation()).toBeNull();
+    it('waveExplanation starts as null', () => {
+      expect(store.waveExplanation()).toBeNull();
     });
 
     it('isDevWorldRegenerating starts as false', () => {
@@ -211,7 +211,7 @@ describe('GameStore', () => {
       store.waveEnemiesLeft.set(22);
       store.towerCount.set(8);
       store.showGameOverScreen.set(true);
-      store.aiExplanation.set({ summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50', reasons: [] });
+      store.waveExplanation.set({ summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50', reasons: [] });
       store.paused.set(true);
       store.autoWaveSecondsLeft.set(7);
 
@@ -227,18 +227,18 @@ describe('GameStore', () => {
       expect(store.selectedTower()).toBeNull();
       expect(store.towerCount()).toBe(0);
       expect(store.showGameOverScreen()).toBe(false);
-      expect(store.aiExplanation()).toBeNull();
+      expect(store.waveExplanation()).toBeNull();
       // A new game never starts frozen
       expect(store.paused()).toBe(false);
       expect(store.autoWaveSecondsLeft()).toBeNull();
     });
 
     it('does NOT reset training timescale', () => {
-      store.trainingTimescale.set(10);
+      store.gameSpeed.set(10);
 
       store.resetGameState();
 
-      expect(store.trainingTimescale()).toBe(10);
+      expect(store.gameSpeed()).toBe(10);
     });
   });
 
@@ -246,18 +246,18 @@ describe('GameStore', () => {
     it('resets everything including training settings', () => {
       store.credits.set(999);
       store.phase.set('gameover');
-      store.trainingTimescale.set(50);
-      store.useAIDirector.set(false);   // non-default, so the assert below bites
+      store.gameSpeed.set(50);
+      store.directorEnabled.set(false);   // non-default, so the assert below bites
       store.isDevWorldRegenerating.set(true);
 
       store.resetAll();
 
       expect(store.credits()).toBe(GAME_BALANCE.player.startCredits);
       expect(store.phase()).toBe('setup');
-      expect(store.trainingTimescale()).toBe(1.0);
+      expect(store.gameSpeed()).toBe(1.0);
       // Set to the NON-default before the reset in the arrange block, so this
       // fails if resetAll stops touching the field at all.
-      expect(store.useAIDirector()).toBe(true);
+      expect(store.directorEnabled()).toBe(true);
       expect(store.isDevWorldRegenerating()).toBe(false);
     });
   });

@@ -1,5 +1,5 @@
-import { DpsProfileVisualizer } from '../../ai/core/dps-profile-visualizer';
-import type { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
+import { DpsProfileVisualizer } from '../../director/dps-profile-visualizer';
+import type { StateSnapshotService } from '../../director/state-snapshot.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { ThreeTilesEngine } from '../../three-engine';
 
@@ -7,7 +7,7 @@ import type { ThreeTilesEngine } from '../../three-engine';
 export interface DpsBinsOverlayDeps {
   /** The game state, set by the facade's initialize(); read on each call. */
   gameState: () => Pick<GameStateManager, 'getGlobalRouteGrid' | 'getEventBus'>;
-  aiDataCollector: Pick<AIDataCollectorService, 'getCurrentDPSProfile'>;
+  stateSnapshots: Pick<StateSnapshotService, 'getCurrentDPSProfile'>;
 }
 
 /**
@@ -77,7 +77,7 @@ export class DpsBinsOverlay {
 
   private updateDpsViz(engine: ThreeTilesEngine): void {
     if (!this.dpsProfileViz) return;
-    const profile = this.deps.aiDataCollector.getCurrentDPSProfile();
+    const profile = this.deps.stateSnapshots.getCurrentDPSProfile();
     this.dpsProfileViz.update(profile);
     this.dpsProfileViz.setVisible(true);
     const mesh = this.dpsProfileViz.getMesh();

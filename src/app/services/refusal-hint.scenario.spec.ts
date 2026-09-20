@@ -216,7 +216,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
   it("the bot's refused strike shows nothing", () => {
     research(ABILITIES['nuclear-strike'].perkId);
     bot = true;
-    // TrainingSession sends the bot's use-ability as command:use-ability
+    // BotSession sends the bot's use-ability as command:use-ability
     bus.emit({ type: 'command:use-ability', abilityId: 'nuclear-strike', target: ON_ROUTE });
     expect(abilities.getStatus('nuclear-strike').charges).toBe(1);
     expect(refusals.refusal()).toBeNull();

@@ -176,7 +176,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     icon: 'radiation',
     cost: 1000,
     duration: 40,
-    // Comes after the first boss (W10), when the curriculum picks up; no wave
+    // Comes after the first boss (W10), when the campaign picks up; no wave
     // lock of its own (PLAYER_AGENCY_CONCEPT.md, section 7)
     prerequisites: ['advanced-weaponry'],
     effects: [

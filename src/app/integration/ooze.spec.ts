@@ -20,7 +20,7 @@ import {
   makeSingleTypeWaveConfig,
   tickEngine,
 } from './test-helpers';
-import { goldBudgetForWave, isBossWave } from '../configs/wave-curriculum.config';
+import { waveGold, isBossWave } from '../configs/campaign.config';
 import type { Enemy } from '../entities/enemy.entity';
 
 /** Managers wired as GameStateManager wires them for leaks and the kill budget. */
@@ -147,7 +147,7 @@ describe('Ooze integration', () => {
       killFullOoze();
 
       expect(credits).toHaveLength(21);
-      expect(paid()).toBe(goldBudgetForWave(1).kill);
+      expect(paid()).toBe(waveGold(1).kill);
       expect(Math.max(...credits) - Math.min(...credits)).toBeLessThanOrEqual(1);
       tickEngine(m, 3_000, clock); // the clumps' death animation is over
       expect(m.waveManager.checkWaveComplete()).toBe(true);
@@ -162,7 +162,7 @@ describe('Ooze integration', () => {
 
       // 8 of 21 slots paid; each paid slot floors its share and leaves the
       // remainder to the later slots, which stay unpaid
-      const budget = goldBudgetForWave(1).kill;
+      const budget = waveGold(1).kill;
       expect(credits).toHaveLength(8);
       expect(paid()).toBeGreaterThanOrEqual(8 * Math.floor(budget / 21));
       expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 8) / 21));
@@ -176,7 +176,7 @@ describe('Ooze integration', () => {
       killFullOoze();
 
       expect(credits).toHaveLength(21);
-      expect(paid()).toBe(goldBudgetForWave(45).kill);
+      expect(paid()).toBe(waveGold(45).kill);
     });
   });
 

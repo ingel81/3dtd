@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Only their DI tokens are needed, as in boss-intro.service.spec.ts
 vi.mock('@angular/cdk/a11y', () => ({ LiveAnnouncer: class LiveAnnouncer {} }));
 vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
-vi.mock('../ai/training/training-client.service', () => ({ TrainingClientService: class TrainingClientService {} }));
+vi.mock('../bots/bot-client.service', () => ({ BotClientService: class BotClientService {} }));
 vi.mock('./infrastructure/engine-initialization.service', () => ({
   EngineInitializationService: class EngineInitializationService {},
 }));
@@ -24,7 +24,7 @@ import { PerspectiveCamera, Quaternion, Vector3 } from 'three';
 import { BossIntroService } from './boss-intro.service';
 import { BossIntroComponent } from '../components/boss-intro/boss-intro.component';
 import { GameStateManager } from '../managers/game-state.manager';
-import { TrainingClientService } from '../ai/training/training-client.service';
+import { BotClientService } from '../bots/bot-client.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { CameraControlService } from './camera-control.service';
 import { KeyboardPanService } from './keyboard-pan.service';
@@ -141,9 +141,9 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
     injector = Injector.create({
       providers: [
         { provide: GameStateManager, useValue: { getEventBus: () => bus, waveNumber: () => wave } },
-        { provide: GameStore, useValue: { trainingTimescale: timescale, renderingEnabled: signal(true), paused } },
+        { provide: GameStore, useValue: { gameSpeed: timescale, renderingEnabled: signal(true), paused } },
         { provide: UIStore, useValue: { photoMode } },
-        { provide: TrainingClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
+        { provide: BotClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
         { provide: EngineInitializationService, useValue: { getEngine: () => engine } },
         { provide: CameraControlService, useValue: { stopJump: vi.fn() } },
         { provide: KeyboardPanService, useValue: { clearKeys: vi.fn() } },
@@ -410,7 +410,7 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
   });
 
   it('370: at 4x the intro plays, the game is back at 4x afterwards, the view exactly as before', () => {
-    // GameStore.trainingTimescale is the HUD speed; the intro only reads it
+    // GameStore.gameSpeed is the HUD speed; the intro only reads it
     timescale.set(4);
     const herbert = boss('herbert');
     herbert.walked = OUT_M;

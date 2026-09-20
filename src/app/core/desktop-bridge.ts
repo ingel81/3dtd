@@ -1,7 +1,8 @@
 /**
  * What the desktop build (Electron, desktop/src/preload.js) exposes to the
  * game as `window.desktop`. The web build has no such object; the game asks
- * for it in one place, the update hint, and renders nothing without it.
+ * for it where it matters (the update hint, the run log) and does without it
+ * everywhere else.
  */
 
 /** A downloaded update, installed when the player quits. */
@@ -18,6 +19,12 @@ export interface DesktopBridge {
   onUpdateReady(listener: (update: DesktopUpdate) => void): () => void;
   /** Quit, install the downloaded update and start the new version. */
   installUpdateNow(): void;
+  /**
+   * Write a run log into the app's `runs` folder. The page hands over the
+   * file name and the JSONL text; where it lands is the app's business
+   * (docs/RUN_LOG.md). Resolves false when it could not be written.
+   */
+  saveRun(fileName: string, text: string): Promise<boolean>;
 }
 
 /**
@@ -30,7 +37,8 @@ export function readDesktopBridge(host: unknown = typeof window === 'undefined' 
     !candidate ||
     typeof candidate.version !== 'string' ||
     typeof candidate.onUpdateReady !== 'function' ||
-    typeof candidate.installUpdateNow !== 'function'
+    typeof candidate.installUpdateNow !== 'function' ||
+    typeof candidate.saveRun !== 'function'
   ) {
     return null;
   }

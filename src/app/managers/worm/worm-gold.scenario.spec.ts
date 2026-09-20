@@ -20,9 +20,9 @@ import {
   TEST_SPAWN_POINTS,
 } from '../../integration/test-helpers';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { goldBudgetForWave } from '../../configs/wave-curriculum.config';
+import { waveGold } from '../../configs/campaign.config';
 import { bossVariantForWave } from '../../configs/boss-variants.config';
-import { EconomyService } from '../../services/economy.service';
+import { EconomyService, waveGoldTotal } from '../../services/economy.service';
 
 describe('Gold of the worm wave W35, playtest 357 replayed', () => {
   let m: TestManagers;
@@ -60,13 +60,15 @@ describe('Gold of the worm wave W35, playtest 357 replayed', () => {
 
     const kill = credits.reduce((sum, c) => sum + c, 0);
     expect(credits.length).toBeGreaterThan(1);
-    expect(goldBudgetForWave(35).kill).toBe(12_000);
+    expect(waveGold(35).kill).toBe(12_000);
     expect(kill).toBe(12_000);
     // Every segment its share, no segment much more than another
     expect(Math.max(...credits) - Math.min(...credits)).toBeLessThanOrEqual(1);
 
     // No perfect, close call, combo or comeback: those are the skill bonuses on top
-    const bonus = new EconomyService().computeWaveCompletionBonus({ wave: 35, perfect: false, closeCall: false, hpLost: 0 });
+    const bonus = waveGoldTotal(
+      new EconomyService().computeWaveCompletionBonus({ wave: 35, perfect: false, closeCall: false, hpLost: 0 }),
+    );
     expect(bonus).toBe(6_000);
     expect(kill + bonus).toBe(18_000);
   });

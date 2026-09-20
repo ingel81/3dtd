@@ -19,7 +19,7 @@ import {
   tickEngine,
   makeSingleTypeWaveConfig,
 } from './test-helpers';
-import { goldBudgetForWave } from '../configs/wave-curriculum.config';
+import { waveGold } from '../configs/campaign.config';
 
 const MINION = 'skeleton-minion';
 
@@ -89,7 +89,7 @@ describe('Split on death integration', () => {
     killAll(MINION);
 
     expect(credits).toHaveLength(15);
-    expect(paid()).toBe(goldBudgetForWave(1).kill);
+    expect(paid()).toBe(waveGold(1).kill);
   });
 
   it("forfeits a leaked skeleton's share and that of the minions it never became", () => {
@@ -102,7 +102,7 @@ describe('Split on death integration', () => {
     tickEngine(m, 30_000, clock); // the first skeleton walks into the base
     expect(reached).toEqual(['skeleton']);
     // 6 of 9 slots paid, the floor accumulator leaves at most one coin of rounding
-    const budget = goldBudgetForWave(1).kill;
+    const budget = waveGold(1).kill;
     expect(paid()).toBeGreaterThanOrEqual(Math.floor((budget * 6) / 9));
     expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 6) / 9));
   });

@@ -10,7 +10,7 @@ import {
 } from './tower-types.config';
 import { ARMOR_TYPES, ArmorType } from './combat/combat.types';
 import { DAMAGE_MATRIX } from './combat/damage-matrix.config';
-import { computeTowerDPSFromLevels } from '../ai/core/tower-dps.util';
+import { computeTowerDPSFromLevels } from '../director/tower-dps.util';
 import { getResearch, getResearchForTower } from './research/research-tree.config';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';

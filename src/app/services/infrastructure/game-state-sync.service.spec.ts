@@ -17,7 +17,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { GameStateSyncService } from './game-state-sync.service';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
 import { GameStore } from '../../store/game.store';
@@ -25,6 +25,7 @@ import { UIStore } from '../../store/ui.store';
 import { EngineStore } from '../../store/engine.store';
 import { LocationStore } from '../../store/location.store';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
+import { RunLogCollector } from '../../run-log/run-log.service';
 
 /**
  * Echter Service-Test: instantiates GameStateSyncService und prüft, dass die
@@ -40,10 +41,15 @@ describe('GameStateSyncService (real service)', () => {
   let researchStore: ResearchStore;
   let service: GameStateSyncService;
   let eventBus: GameEventBus;
+  let log: RunLogCollector;
+  let logSubs: SubscriptionBag;
+  let health = 100;
 
   beforeEach(() => {
     // TowerDefenseStore composes sub-stores via inject(). Register every
     // sub-store first, then the composite, then the service.
+    health = 100;
+    logSubs = new SubscriptionBag();
     injectionRegistry['GameStore'] = new GameStore();
     injectionRegistry['UIStore'] = new UIStore();
     injectionRegistry['EngineStore'] = new EngineStore();
@@ -59,13 +65,29 @@ describe('GameStateSyncService (real service)', () => {
     store = new TowerDefenseStore();
     injectionRegistry['TowerDefenseStore'] = store;
 
+    // The game-over summary is folded out of the run log, so the sync service
+    // needs one; it is attached to the same bus below.
+    log = new RunLogCollector();
+    injectionRegistry['RunLogFacade'] = { collector: log, current: () => log.current() };
+
     service = new GameStateSyncService();
     eventBus = new GameEventBus();
     service.initialize(eventBus);
+    log.attach(eventBus, logSubs);
+    log.open({ seed: 1, map: 'devworld', player: 'human' }, {
+      step: () => 0,
+      timeMs: () => 0,
+      credits: () => 0,
+      baseHealth: () => health,
+      enemiesAlive: () => 0,
+      dps: () => 0,
+      towers: () => [],
+    });
   });
 
   afterEach(() => {
     service.dispose();
+    logSubs.disposeAll();
     eventBus.clear();
   });
 
@@ -108,7 +130,7 @@ describe('GameStateSyncService (real service)', () => {
       eventBus.emit({ type: 'wave:started', wave: 4, enemyCount: 5 });
       eventBus.emit({ type: 'enemy:spawned', enemy: {} as never });
       eventBus.emit({ type: 'enemy:spawned', enemy: {} as never });
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10 , killedBy: null });
       eventBus.emit({ type: 'enemy:reached-base', enemy: {} as never, damage: 10 });
       // 3 still to spawn, both spawned ones are resolved
       expect(store.waveEnemiesLeft()).toBe(3);
@@ -117,8 +139,8 @@ describe('GameStateSyncService (real service)', () => {
 
     it('left cannot go below 0', () => {
       eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 });
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 });
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 , killedBy: null });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 , killedBy: null });
       expect(store.waveEnemiesLeft()).toBe(0);
     });
 
@@ -126,13 +148,13 @@ describe('GameStateSyncService (real service)', () => {
       eventBus.emit({ type: 'wave:started', wave: 2, enemyCount: 20 });
       eventBus.emit({ type: 'enemy:spawned', enemy: {} as never });
       eventBus.emit({ type: 'debug:kill-all' });
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 , killedBy: null });
       expect(store.waveEnemiesLeft()).toBe(0);
     });
 
     it('enemy:split → its children join total and left', () => {
       eventBus.emit({ type: 'wave:started', wave: 19, enemyCount: 3 });
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 1 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 1 , killedBy: null });
       eventBus.emit({ type: 'enemy:split', enemy: {} as never, children: [{}, {}] as never });
       expect(store.waveEnemyTotal()).toBe(5);
       expect(store.waveEnemiesLeft()).toBe(4);
@@ -167,8 +189,9 @@ describe('GameStateSyncService (real service)', () => {
       service.dispose();
       service.initialize(eventBus, () => 90_000);
       eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 2 });
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 5 });
-      eventBus.emit({ type: 'enemy:reached-base', enemy: {} as never, damage: 10 });
+      eventBus.emit({ type: 'enemy:died', enemy: { id: 'e1' } as never, credits: 5, killedBy: { kind: 'tower', towerId: 't1' } });
+      eventBus.emit({ type: 'enemy:reached-base', enemy: { id: 'e2' } as never, damage: 10 });
+      health = 90;
       eventBus.emit({ type: 'health:changed', health: 90, delta: -10 });
       eventBus.emit({ type: 'game:over', reason: 'base-destroyed' });
       expect(store.runSummary()).toMatchObject({
@@ -197,7 +220,7 @@ describe('GameStateSyncService (real service)', () => {
   // ── Credits / Health ───────────────────────────────────────────
   describe('credits + health events', () => {
     it('credits:changed → store.credits = event.credits', () => {
-      eventBus.emit({ type: 'credits:changed', credits: 750, delta: -50 });
+      eventBus.emit({ type: 'credits:changed', credits: 750, delta: -50 , source: 'kill' });
       expect(store.credits()).toBe(750);
     });
 
@@ -294,15 +317,15 @@ describe('GameStateSyncService (real service)', () => {
 
     it('tower:upgraded of the selected tower → selectedTowerRevision++', () => {
       store.selectedTower.set({ id: 'sel' } as never);
-      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50 });
+      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50, upgradeId: 'damage' });
       expect(store.selectedTowerRevision()).toBe(1);
     });
 
     it('tower:upgraded of any tower → towerUpgrades++, selected or not', () => {
       store.selectedTower.set({ id: 'sel' } as never);
       // Debug "Max Upgrade All" emits one per tower, level 0
-      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'other' } as never, level: 0, cost: 0 });
-      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50 });
+      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'other' } as never, level: 0, cost: 0 , upgradeId: 'damage' });
+      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50, upgradeId: 'damage' });
       expect(store.towerUpgrades()).toBe(2);
       expect(store.selectedTowerRevision()).toBe(1);
     });
@@ -318,7 +341,7 @@ describe('GameStateSyncService (real service)', () => {
 
     it('enemy:died → enemiesAlive--', () => {
       store.enemiesAlive.set(5);
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10 , killedBy: null });
       expect(store.enemiesAlive()).toBe(4);
     });
 
@@ -330,7 +353,7 @@ describe('GameStateSyncService (real service)', () => {
 
     it('enemy:died cannot push enemiesAlive below 0', () => {
       store.enemiesAlive.set(0);
-      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 , killedBy: null });
       expect(store.enemiesAlive()).toBe(0);
     });
   });
@@ -416,7 +439,7 @@ describe('GameStateSyncService (real service)', () => {
     it('detaches every subscription so subsequent events are ignored', () => {
       service.dispose();
       eventBus.emit({ type: 'wave:started', wave: 9, enemyCount: 99 });
-      eventBus.emit({ type: 'credits:changed', credits: 9999, delta: 0 });
+      eventBus.emit({ type: 'credits:changed', credits: 9999, delta: 0 , source: 'kill' });
       // Defaults remain — phase from a fresh store starts as 'setup'.
       expect(store.waveNumber()).toBe(0);
       expect(store.credits()).not.toBe(9999);

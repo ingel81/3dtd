@@ -1,0 +1,211 @@
+/**
+ * The run log: what a run did, as data.
+ *
+ * One format for human and bot runs (docs/RUN_LOG.md). JSONL, one record per
+ * line, in the order they happened: one head, then events, samples and one
+ * block per wave, and one end record.
+ *
+ * Every record carries the sub-step it belongs to. The game time is a sum of
+ * 16.667 ms steps and drifts in floating point; the step index does not, and a
+ * replay as a re-simulation (BALANCING_PLAN.md, section 5) needs the step, not
+ * the time.
+ */
+
+import type { CreditsSource } from '../game-engine/game-event-bus';
+
+/** Bumped when a reader would have to change. */
+export const RUN_LOG_FORMAT = 1;
+
+/** Where a run was played. */
+export type RunMap = 'devworld' | 'world';
+
+/** Who played it. */
+export type RunPlayer = 'human' | 'bot';
+
+/** Why a run ended. */
+export type RunEndReason = 'defeat' | 'restart' | 'location-change' | 'abandoned';
+
+/** The head: everything that is true for the whole run. */
+export interface RunLogHead {
+  kind: 'head';
+  format: number;
+  /** Unique per run, also the file name. */
+  runId: string;
+  /** Wall clock, only for sorting and naming; the run itself reasons in game time. */
+  startedAt: string;
+  gameVersion: string;
+  /** Git commit the build came from, with a dirty flag when the tree was not clean. */
+  commit: string;
+  /** Hash over every balance-relevant config, so runs of different balance never get mixed. */
+  configHash: string;
+  /** The run's seed (GameRng). Internal: players neither see nor share it (D11). */
+  seed: number;
+  player: RunPlayer;
+  /** Which bot played, when one did. */
+  botSkill?: string;
+  map: RunMap;
+  location?: { name: string; lat: number; lon: number };
+  /** Fingerprint of the route corridor, so runs on the same route can be compared. */
+  routeFingerprint?: string;
+  /** Named overrides of director constants, when a batch ran with one (phase 2b). */
+  directorParams?: string;
+}
+
+/** A moment in the run worth naming. */
+export type RunLogEventKind =
+  | 'run-opened'
+  | 'tower-built'
+  | 'tower-upgraded'
+  | 'tower-sold'
+  | 'research-started'
+  | 'research-completed'
+  | 'research-cancelled'
+  | 'ability-used'
+  | 'hero-hired'
+  | 'hero-level'
+  | 'leak'
+  | 'boss-spawned'
+  | 'wave-started'
+  | 'speed'
+  | 'pause'
+  | 'cheat'
+  | 'wave-jump';
+
+export interface RunLogEvent {
+  kind: 'event';
+  event: RunLogEventKind;
+  /** Sub-steps since the run started. */
+  step: number;
+  /** Game time in ms, for reading by eye. */
+  timeMs: number;
+  /** The wave that was running, 0 in the build phase before wave 1. */
+  wave: number;
+  /** Type id of a tower, research, ability, enemy — whatever the event is about. */
+  id?: string;
+  /** Gold it cost (negative) or paid (positive). */
+  credits?: number;
+  /** Free field per event: the upgrade branch, the speed, the HP a leak cost. */
+  value?: number | string | boolean;
+  /** Where it happened, for towers and abilities. */
+  at?: { lat: number; lon: number };
+}
+
+/** A snapshot once per second of game time. */
+export interface RunLogSample {
+  kind: 'sample';
+  step: number;
+  timeMs: number;
+  wave: number;
+  credits: number;
+  baseHealth: number;
+  enemiesAlive: number;
+  /** Total DPS of the defense, hero included. */
+  dps: number;
+}
+
+/** What one tower did in one wave. */
+export interface RunLogTowerWave {
+  id: string;
+  type: string;
+  /** Upgrade levels by branch. */
+  levels: Record<string, number>;
+  damage: number;
+  kills: number;
+  /** Sold in this wave; the numbers are the ones it had at the sale. */
+  sold?: true;
+}
+
+/** A finished wave, everything about it in one record. */
+export interface RunLogWave {
+  kind: 'wave';
+  wave: number;
+  step: number;
+  timeMs: number;
+  durationMs: number;
+  /** The campaign template that ran. */
+  template?: string;
+  /** What the director decided and why, as the debug window words it. */
+  reason?: string[];
+  /** The survivability cap it was sized against; null when none bound. */
+  survivableCount?: number | null;
+  /** The leak loop's multiplier at that point. */
+  leakMultiplier?: number;
+  /** Enemy types and counts as the wave shipped them. */
+  composition?: { type: string; count: number; hp: number }[];
+  creditsStart: number;
+  creditsEnd: number;
+  /** Income by source over the wave. */
+  income: Partial<Record<CreditsSource, number>>;
+  /** Spending by source over the wave, as positive numbers. */
+  spending: Partial<Record<CreditsSource, number>>;
+  /** How the completion gold came about. */
+  waveGold?: { base: number; perfect: number; combo: number; closeCall: number; comeback: number; milestone: number };
+  enemiesSpawned: number;
+  killsByTower: number;
+  killsByHero: number;
+  killsByAbility: number;
+  killsByDebug: number;
+  /** Killed with nobody credited, e.g. a wave that was cleared by a script. */
+  killsByOther: number;
+  leaked: number;
+  healthStart: number;
+  healthEnd: number;
+  towers: RunLogTowerWave[];
+  /** The checks of this wave, see `reconcileWave`. Empty when everything adds up. */
+  mismatches?: string[];
+}
+
+/** The last record of a run. */
+export interface RunLogEnd {
+  kind: 'end';
+  step: number;
+  timeMs: number;
+  waveReached: number;
+  reason: RunEndReason;
+}
+
+export type RunLogRecord = RunLogHead | RunLogEvent | RunLogSample | RunLogWave | RunLogEnd;
+
+/** A whole run, as it is kept and exported. */
+export interface RunLog {
+  head: RunLogHead;
+  records: RunLogRecord[];
+}
+
+/**
+ * The checks a wave has to pass. They are written into the wave record rather
+ * than thrown: a run with a hole in its bookkeeping is still worth keeping,
+ * and the hole is what the analysis needs to see.
+ *
+ * - gold: start plus income minus spending is the end
+ * - bodies: spawned equals killed plus leaked plus what is still alive
+ * - towers: the towers' kills do not exceed the wave's tower kills
+ */
+export function reconcileWave(wave: RunLogWave, enemiesAlive: number): string[] {
+  const mismatches: string[] = [];
+
+  const income = sum(Object.values(wave.income));
+  const spending = sum(Object.values(wave.spending));
+  const expected = wave.creditsStart + income - spending;
+  if (Math.round(expected) !== Math.round(wave.creditsEnd)) {
+    mismatches.push(`gold: ${wave.creditsStart} + ${income} - ${spending} = ${expected}, end ${wave.creditsEnd}`);
+  }
+
+  const kills = wave.killsByTower + wave.killsByHero + wave.killsByAbility
+    + wave.killsByDebug + wave.killsByOther;
+  const accounted = kills + wave.leaked + enemiesAlive;
+  if (wave.enemiesSpawned !== accounted) {
+    mismatches.push(`bodies: spawned ${wave.enemiesSpawned}, killed ${kills} + leaked ${wave.leaked} + alive ${enemiesAlive}`);
+  }
+
+  const towerKills = sum(wave.towers.map((t) => t.kills));
+  if (towerKills > wave.killsByTower) {
+    mismatches.push(`towers: ${towerKills} kills on the towers, ${wave.killsByTower} booked for the wave`);
+  }
+
+  return mismatches;
+}
+
+function sum(values: number[]): number {
+  return values.reduce((total, v) => total + v, 0);
+}

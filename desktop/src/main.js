@@ -285,6 +285,26 @@ function setUpUpdates(getWindow) {
     if (updater.ready) getWindow()?.webContents.send('desktop:update-ready', updater.ready);
   });
 
+  // The run log of a finished run, written to `userData/runs`. The page sends
+  // the text; the name is sanitised here, so it cannot escape that folder.
+  ipcMain.handle('desktop:save-run', async (event, payload) => {
+    const from = event.senderFrame?.url ?? '';
+    if (classifyNavigation(from, appOrigin) !== 'allow') return false;
+    const name = String(payload?.fileName ?? '').replace(/[^a-zA-Z0-9._-]/g, '_');
+    const text = String(payload?.text ?? '');
+    if (!name || !text) return false;
+    try {
+      const runsDir = path.join(app.getPath('userData'), 'runs');
+      await fs.mkdir(runsDir, { recursive: true });
+      await fs.writeFile(path.join(runsDir, name), text, 'utf8');
+      log.info(`[runs] wrote ${name}`);
+      return true;
+    } catch (error) {
+      log.warn(`[runs] could not write ${name}: ${error}`);
+      return false;
+    }
+  });
+
   ipcMain.on('desktop:install-update', (event) => {
     const from = event.senderFrame?.url ?? '';
     if (classifyNavigation(from, appOrigin) !== 'allow' || !updater.ready) return;

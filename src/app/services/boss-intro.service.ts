@@ -5,7 +5,7 @@ import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
 import { GameStateManager } from '../managers/game-state.manager';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
-import { TrainingClientService } from '../ai/training/training-client.service';
+import { BotClientService } from '../bots/bot-client.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { DebugFacadeService } from './debug/debug-facade.service';
 import { CameraControlService } from './camera-control.service';
@@ -101,7 +101,7 @@ export class BossIntroService {
   private readonly gameState = inject(GameStateManager);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
-  private readonly trainingClient = inject(TrainingClientService);
+  private readonly botClient = inject(BotClientService);
   private readonly engineInit = inject(EngineInitializationService);
   /** Holds the display option (Display menu, "Boss Intro") */
   private readonly displayOptions = inject(DebugFacadeService);
@@ -171,9 +171,8 @@ export class BossIntroService {
     return bossIntroBlock({
       enabled: this.displayOptions.bossIntroEnabled(),
       photoMode: this.uiStore.photoMode(),
-      botEnabled: this.trainingClient.botEnabled(),
-      trainingConnected: this.trainingClient.isConnected(),
-      timescale: this.gameStore.trainingTimescale(),
+      botEnabled: this.botClient.botEnabled(),
+      timescale: this.gameStore.gameSpeed(),
       renderingEnabled: this.gameStore.renderingEnabled(),
       introFlight: this.introFlight.active(),
       dialogOpen: this.dialog.openDialogs.length > 0,

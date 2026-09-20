@@ -120,7 +120,7 @@ describe('HotkeyService', () => {
     baseCoords: signal({ lat: 48.7, lon: 9.1 }),
     spawnPoints: signal([{ lat: 48.71, lon: 9.1 }, { lat: 48.69, lon: 9.12 }]),
   };
-  const gameStore = { paused: signal(false), trainingTimescale: signal(1) };
+  const gameStore = { paused: signal(false), gameSpeed: signal(1) };
   const uiStore = {
     openMenu: signal<string | null>(null),
     mapPlacementMode: signal<'hq' | 'spawn' | null>(null),
@@ -140,7 +140,7 @@ describe('HotkeyService', () => {
     store.canStartWave.set(true);
     store.isGameOver.set(false);
     gameStore.paused.set(false);
-    gameStore.trainingTimescale.set(1);
+    gameStore.gameSpeed.set(1);
     uiStore.openMenu.set(null);
     uiStore.mapPlacementMode.set(null);
     uiStore.buildMode.set(false);
@@ -223,7 +223,7 @@ describe('HotkeyService', () => {
       service.handleKeyDown(press('+'));
       service.handleKeyDown(press('-'));
       expect(replay.stepSpeed.mock.calls).toEqual([[1], [-1]]);
-      expect(gameStore.trainingTimescale()).toBe(1);
+      expect(gameStore.gameSpeed()).toBe(1);
     });
 
     it('Esc leaves the replay', () => {
@@ -436,9 +436,9 @@ describe('HotkeyService', () => {
   it('+ and - step the game speed', () => {
     service.handleKeyDown(press('+'));
     service.handleKeyDown(press('+'));
-    expect(gameStore.trainingTimescale()).toBe(4);
+    expect(gameStore.gameSpeed()).toBe(4);
     service.handleKeyDown(press('-'));
-    expect(gameStore.trainingTimescale()).toBe(2);
+    expect(gameStore.gameSpeed()).toBe(2);
   });
 
   describe('camera jumps', () => {

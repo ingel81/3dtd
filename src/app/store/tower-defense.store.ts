@@ -108,7 +108,7 @@ export class TowerDefenseStore {
   readonly runSummary = this.gameStore.runSummary;
 
   /** Training mode timescale (1.0 = normal, up to 75x) */
-  readonly trainingTimescale = this.gameStore.trainingTimescale;
+  readonly gameSpeed = this.gameStore.gameSpeed;
 
   /** Game time stands still, see GameStore.paused */
   readonly paused = this.gameStore.paused;
@@ -225,20 +225,19 @@ export class TowerDefenseStore {
   // BOT / AI
   // ════════════════════════════════════════════════════════════
 
-  // NOTE: botEnabled, botSkillLevel, botAutoMode owned by TrainingClientService.
+  // NOTE: botEnabled, botSkillLevel, botAutoMode owned by BotClientService.
   // Component reads directly from that service (it is the signal owner).
 
   /** AI Wave Director enabled */
-  readonly useAIDirector = this.gameStore.useAIDirector;
+  readonly directorEnabled = this.gameStore.directorEnabled;
 
-  /** Static curriculum fallback (debug toggle; used when AI is off). */
-  readonly useStaticCurriculum = this.gameStore.useStaticCurriculum;
+  /** Static campaign fallback (debug toggle; used when AI is off). */
 
   /** Why the director planned the current wave (wave debug window) */
-  readonly aiExplanation = this.gameStore.aiExplanation;
+  readonly waveExplanation = this.gameStore.waveExplanation;
 
-  /** Fatal AI error (blocking banner, e.g. ONNX model failed to load) */
-  readonly aiError = this.gameStore.aiError;
+  /** Fatal wave-director error (blocking banner) */
+  readonly directorError = this.gameStore.directorError;
 
   // ════════════════════════════════════════════════════════════
   // DEVWORLD

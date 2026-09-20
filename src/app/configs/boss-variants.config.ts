@@ -1,23 +1,21 @@
 /**
  * Boss variants: bosses that are no wave template of the director and come in
- * through a rotation over the boss waves past the curriculum instead.
+ * through a rotation over the boss waves past the campaign instead.
  *
  * The director stays as it is. It plans every wave as before, boss waves
  * included; on a boss wave the rotation names a variant for, the variant's
- * wave ships in place of the director's (GameLoopFacadeService). Templates,
- * curriculum, the encoder and ai-schema.json do not know the variants, so
- * neither the rule director nor a trained model can pick one, and training
- * runs (their waves come from the backend) never see them. W1 to W30 are
- * curriculum waves and stay untouched.
+ * wave ships in place of the director's (GameLoopFacadeService). Templates
+ * and campaign do not know the variants, so the director cannot pick one.
+ * W1 to W30 are campaign waves and stay untouched.
  */
 
-import type { WaveConfig as AIWaveConfig } from '../ai/core/models/wave-config';
+import type { WaveConfig as DirectorWave } from '../director/models/wave-config';
 import type { EnemyTypeId } from './enemy-types.config';
 import {
-  BOSS_WAVE_INTERVAL_AFTER_CURRICULUM,
-  CURRICULUM_FORCED_THROUGH_WAVE,
+  BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,
+  CAMPAIGN_LENGTH,
   isBossWave,
-} from './wave-curriculum.config';
+} from './campaign.config';
 
 export type BossVariantId = 'worm' | 'ooze';
 
@@ -50,7 +48,7 @@ export const BOSS_VARIANTS: Record<BossVariantId, BossVariant> = {
 };
 
 /**
- * The boss waves past the curriculum in order, W35, W40, W45, ...: the
+ * The boss waves past the campaign in order, W35, W40, W45, ...: the
  * variant that takes the wave, or null for the director's own boss template.
  * Repeats from the start once through: W35 the worm, W45 the ooze, W55 the
  * worm again, the waves between them the director's.
@@ -59,8 +57,8 @@ export const BOSS_VARIANT_ROTATION: readonly (BossVariantId | null)[] = ['worm',
 
 /** The variant that takes wave `wave`, null on every other wave. */
 export function bossVariantForWave(wave: number): BossVariant | null {
-  if (wave <= CURRICULUM_FORCED_THROUGH_WAVE || !isBossWave(wave)) return null;
-  const n = Math.floor((wave - CURRICULUM_FORCED_THROUGH_WAVE - 1) / BOSS_WAVE_INTERVAL_AFTER_CURRICULUM);
+  if (wave <= CAMPAIGN_LENGTH || !isBossWave(wave)) return null;
+  const n = Math.floor((wave - CAMPAIGN_LENGTH - 1) / BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN);
   const id = BOSS_VARIANT_ROTATION[n % BOSS_VARIANT_ROTATION.length];
   return id ? BOSS_VARIANTS[id] : null;
 }
@@ -71,7 +69,7 @@ export function bossVariantForWave(wave: number): BossVariant | null {
  * ramp, endgame multiplier); a worm takes it per segment. Its size is the
  * variant's own, the fairness gate does not size it.
  */
-export function bossVariantWave(variant: BossVariant, directed: AIWaveConfig, wave: number): AIWaveConfig {
+export function bossVariantWave(variant: BossVariant, directed: DirectorWave, wave: number): DirectorWave {
   const hpMult = directed.templateStrength ?? 1;
   return {
     enemies: [{ type: variant.enemyType, count: 1, healthMultiplier: hpMult }],
@@ -83,7 +81,7 @@ export function bossVariantWave(variant: BossVariant, directed: AIWaveConfig, wa
     explanation: {
       summary: `W${wave}: ${variant.name}, HP ×${hpMult}`,
       reasons: [
-        `Boss rotation past W${CURRICULUM_FORCED_THROUGH_WAVE}: ${variant.name} takes this boss wave `
+        `Boss rotation past W${CAMPAIGN_LENGTH}: ${variant.name} takes this boss wave `
           + `in place of the director's ${directed.templateName ?? 'boss template'}.`,
         `HP ×${hpMult} as the director planned it for this wave.`,
       ],

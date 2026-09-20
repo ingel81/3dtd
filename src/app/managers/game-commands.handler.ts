@@ -79,7 +79,7 @@ export class GameCommandsHandler {
       if (!validation.canStart) return;
 
       const research = getResearch(event.researchId);
-      if (research && this.gsm.spendCredits(research.cost)) {
+      if (research && this.gsm.spendCredits(research.cost, 'research')) {
         this.gsm.researchManager.startResearch(event.researchId);
       }
     }));
@@ -87,7 +87,7 @@ export class GameCommandsHandler {
     this.subs.add(this.eventBus.on('command:cancel-research', (event) => {
       const refund = this.gsm.researchManager.cancelResearch(event.researchId);
       if (refund > 0) {
-        this.gsm.addCredits(refund);
+        this.gsm.addCredits(refund, 'research-refund');
       }
     }));
 
@@ -152,7 +152,7 @@ export class GameCommandsHandler {
   private attachDebugCommands(): void {
     this.subs.add(this.eventBus.on('debug:add-credits', (event) => {
       // Taking more than there is would leave the player in the red
-      this.gsm.addCredits(Math.max(event.amount, -this.gsm.credits()));
+      this.gsm.addCredits(Math.max(event.amount, -this.gsm.credits()), 'cheat');
     }));
 
     this.subs.add(this.eventBus.on('debug:add-health', (event) => {

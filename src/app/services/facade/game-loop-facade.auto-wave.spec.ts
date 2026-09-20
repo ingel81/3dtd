@@ -20,9 +20,9 @@ import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
-import { WaveDirectorService } from '../../ai/core/wave-director.service';
-import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
-import { TrainingClientService } from '../../ai/training/training-client.service';
+import { WaveDirector } from '../../director/wave-director';
+import { StateSnapshotService } from '../../director/state-snapshot.service';
+import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
@@ -32,13 +32,15 @@ import { AUTO_WAVE_DELAY_MS } from '../../utils/auto-wave-countdown';
 import { ReplayService } from '../replay.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
+import { GameRng } from '../../utils/game-rng';
+import { RunLogFacade } from '../../run-log/run-log.facade';
 
 /** Injected by the facade but not touched by the auto-start. */
 const UNUSED = [
   EngineStore, CameraControlService, TowerPlacementService, MapPlacementService, KeyboardPanService,
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
-  WaveDirectorService, AIDataCollectorService, PerformanceProfilerService,
+  WaveDirector, StateSnapshotService, PerformanceProfilerService,
   StreetRenderingService, BossIntroService, ReplayService,
 ];
 
@@ -68,10 +70,11 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: UIStore, useValue: { autoStartWaves } },
-        { provide: TrainingClientService, useValue: { botEnabled } },
+        { provide: BotClientService, useValue: { botEnabled } },
       ],
     });
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
@@ -79,6 +82,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
       getEventBus: () => bus,
       get gameTimeMs() { return clock.gameTimeMs; },
       waveManager: { stopSpawning: vi.fn() },
+      rng: new GameRng(1),
     };
     facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
     facade.subscribeToEventBus({ onGameOverExtra: () => undefined });

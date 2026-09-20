@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { goldBudgetForWave } from '../configs/wave-curriculum.config';
+import { waveGold } from '../configs/campaign.config';
+import type { WaveGoldBreakdown } from '../game-engine/game-event-bus';
 
 /**
  * Gold that waves `first`..`last` pay a player who kills every enemy: the
@@ -13,7 +14,7 @@ export function skippedWavesGold(first: number, last: number): number {
   const milestones = GAME_BALANCE.economy.milestoneBonuses;
   let total = 0;
   for (let wave = Math.max(1, first); wave <= last; wave++) {
-    const budget = goldBudgetForWave(wave);
+    const budget = waveGold(wave);
     total += budget.kill + budget.complete + (milestones[wave] ?? 0);
   }
   return total;
@@ -27,10 +28,16 @@ export function skippedWavesGold(first: number, last: number): number {
  * und die Economy-Domäne separat testbar/balancebar ist.
  *
  * Phase 5.16:
- * - Base bonus aus dem Curriculum-Budget (deterministisch).
+ * - Base bonus aus dem Campaign-Budget (deterministisch).
  * - Skill-Bonusse stapeln: Perfect (no HP loss), CloseCall, Milestone,
  *   Combo (Perfect-Streak), Comeback (HP-Lost-Penalty-Trostpreis).
  */
+/** The sum of a wave's completion gold. */
+export function waveGoldTotal(breakdown: WaveGoldBreakdown): number {
+  return breakdown.base + breakdown.perfect + breakdown.combo
+    + breakdown.closeCall + breakdown.comeback + breakdown.milestone;
+}
+
 @Injectable({ providedIn: 'root' })
 export class EconomyService {
   private _perfectStreak = 0;
@@ -42,17 +49,18 @@ export class EconomyService {
 
   /**
    * Berechnet den Wave-Completion-Bonus inkl. aller Skill-Stacks und
-   * aktualisiert den Perfect-Streak. Liefert die Gesamt-Credit-Gutschrift
-   * — der Caller schreibt sie aufs Konto.
+   * aktualisiert den Perfect-Streak. Liefert die Teile einzeln; der Caller
+   * bucht ihre Summe (`waveGoldTotal`) und das Run-Log schreibt die
+   * Aufteilung mit (docs/RUN_LOG.md).
    */
   computeWaveCompletionBonus(result: {
     wave: number;
     perfect: boolean;
     closeCall: boolean;
     hpLost: number;
-  }): number {
+  }): WaveGoldBreakdown {
     const cfg = GAME_BALANCE.economy;
-    const base = goldBudgetForWave(result.wave).complete;
+    const base = waveGold(result.wave).complete;
     const perfectBonus = result.perfect ? Math.round(base * cfg.perfectBonusRatio) : 0;
     const closeCallBonus = result.closeCall ? Math.round(base * cfg.closeCallBonusRatio) : 0;
     const milestoneBonus = cfg.milestoneBonuses[result.wave] ?? 0;
@@ -65,7 +73,14 @@ export class EconomyService {
     const comboMultiplier = Math.min(cfg.comboBonusMax, this._perfectStreak * cfg.comboBonusPerStreak);
     const comboBonus = Math.round(base * comboMultiplier);
 
-    return base + perfectBonus + closeCallBonus + milestoneBonus + comebackBonus + comboBonus;
+    return {
+      base,
+      perfect: perfectBonus,
+      combo: comboBonus,
+      closeCall: closeCallBonus,
+      comeback: comebackBonus,
+      milestone: milestoneBonus,
+    };
   }
 
   /** Reset (z.B. bei Game-Restart). */

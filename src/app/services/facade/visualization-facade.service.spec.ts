@@ -16,7 +16,7 @@ const dpsViz = vi.hoisted(() => ({
     disposed: boolean;
   }[],
 }));
-vi.mock('../../ai/core/dps-profile-visualizer', () => ({
+vi.mock('../../director/dps-profile-visualizer', () => ({
   DpsProfileVisualizer: class {
     mesh = { parent: null as unknown };
     updates: unknown[] = [];
@@ -64,7 +64,7 @@ import { CorridorSnapshotService } from '../debug/corridor-snapshot.service';
 import { LosDebugService } from '../debug/los-debug.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
-import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
+import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EngineStore } from '../../store/engine.store';
 import { GameEventBus } from '../../game-engine/game-event-bus';
@@ -292,7 +292,7 @@ describe('VisualizationFacadeService', () => {
   const losDebug = { initialize: vi.fn() };
   const gridService = { name: 'grid service' };
   const locationMgmt = { isApplyingLocation: signal(false) };
-  const aiDataCollector = { getCurrentDPSProfile: vi.fn(() => ({ profile: 1 })) };
+  const stateSnapshots = { getCurrentDPSProfile: vi.fn(() => ({ profile: 1 })) };
   const mapPlacement = { initialize: vi.fn(), placementMode: vi.fn(() => null) };
   const engineStore = { cameraDebugEnabled: signal(false), cameraDebugInfo: signal<unknown>(null) };
   /** The hint over the map, as RelocationStatusService holds it. */
@@ -365,7 +365,7 @@ describe('VisualizationFacadeService', () => {
         { provide: LosDebugService, useValue: losDebug },
         { provide: GlobalRouteGridService, useValue: gridService },
         { provide: LocationManagementService, useValue: locationMgmt },
-        { provide: AIDataCollectorService, useValue: aiDataCollector },
+        { provide: StateSnapshotService, useValue: stateSnapshots },
         { provide: MapPlacementService, useValue: mapPlacement },
         { provide: TowerDefenseStore, useValue: store },
         { provide: EngineStore, useValue: engineStore },

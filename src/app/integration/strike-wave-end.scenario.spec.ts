@@ -109,7 +109,7 @@ function createGame() {
   mockServices['CombatEffectService'] = new CombatEffectService();
   // What the facade's auto-start reads: the "auto 10s" switch on, no bot
   mockServices['UIStore'] = withAutoStubs({ autoStartWaves: signal(true) });
-  mockServices['TrainingClientService'] = withAutoStubs({ botEnabled: signal(false) });
+  mockServices['BotClientService'] = withAutoStubs({ botEnabled: signal(false) });
   mockServices['NgZone'] = { run: (fn: () => unknown) => fn() };
   const store = withAutoStubs({
     phase: signal<string>('wave'),
@@ -121,7 +121,7 @@ function createGame() {
   const gsm = new GameStateManager();
   ref.gsm = gsm;
   gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
-  gsm.trainingTimescale.set(1);
+  gsm.gameSpeed.set(1);
   addMissileSilo(gsm.towerManager);
   gsm.getEventBus().emit({
     type: 'research:completed',

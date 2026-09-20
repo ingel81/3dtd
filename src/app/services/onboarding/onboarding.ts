@@ -27,7 +27,7 @@ export const ONBOARDING_STEPS: readonly OnboardingStep[] = [
 
 /**
  * Waves done before the research center tip shows. The cheapest research
- * costs 400 credits, about what wave 2 pays (wave-curriculum.config.ts); the
+ * costs 400 credits, about what wave 2 pays (campaign.config.ts); the
  * tip waits one wave longer than that, the user's call after the playtest of
  * 2026-09-15 (decision E1): the first credits belong in towers.
  */

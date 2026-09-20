@@ -39,6 +39,8 @@ export class GameClock {
   static readonly MAX_CATCHUP_MS = 50;
 
   private _gameTimeMs = 0;
+  /** Sub-steps since the run started; the run log stamps events with it. */
+  private _subStep = 0;
   /** Game-time left over from the last frame, below one sub-step unless capped. */
   private subStepRemainderMs = 0;
   /** Wall clock of the last frame; 0 means no frame yet. */
@@ -56,6 +58,19 @@ export class GameClock {
   /** Sub-steps taken since the last beginFrame(). */
   get stepsThisFrame(): number {
     return this._stepsThisFrame;
+  }
+
+  /**
+   * Sub-steps since the run started, counting up without gaps.
+   *
+   * The game time alone cannot serve as that index: it is a sum of 16.667 ms
+   * steps and drifts in floating point, so it neither compares nor sorts
+   * exactly. The run log stamps every command with this number, which is what
+   * a replay as a re-simulation needs to put commands back into the step they
+   * took effect in (BALANCING_PLAN.md, section 5).
+   */
+  get subStep(): number {
+    return this._subStep;
   }
 
   /**
@@ -122,6 +137,7 @@ export class GameClock {
       this._gameTimeMs += GameClock.FIXED_STEP_MS;
       this.pendingMs -= GameClock.FIXED_STEP_MS;
       this._stepsThisFrame++;
+      this._subStep++;
       return true;
     }
     return false;
@@ -132,10 +148,11 @@ export class GameClock {
     this.subStepRemainderMs = this.pendingMs;
   }
 
-  /** Back to game-time 0, no remainder, no previous frame. */
+  /** Back to game-time 0, no remainder, no previous frame, step count 0. */
   reset(): void {
     this.lastUpdateTime = 0;
     this._gameTimeMs = 0;
     this.subStepRemainderMs = 0;
+    this._subStep = 0;
   }
 }

@@ -58,8 +58,8 @@ describe('ScreenShakeService', () => {
     const { eventBus, engine, service } = setup();
     eventBus.emit({ type: 'health:changed', health: 90, delta: -10 });
     eventBus.emit({ type: 'health:changed', health: 95, delta: 5 });
-    eventBus.emit({ type: 'enemy:died', enemy: { typeConfig: { isBoss: false } } as never, credits: 0 });
-    eventBus.emit({ type: 'enemy:died', enemy: { typeConfig: { isBoss: true } } as never, credits: 0 });
+    eventBus.emit({ type: 'enemy:died', enemy: { typeConfig: { isBoss: false } } as never, credits: 0 , killedBy: null });
+    eventBus.emit({ type: 'enemy:died', enemy: { typeConfig: { isBoss: true } } as never, credits: 0 , killedBy: null });
     expect(engine.triggerScreenShake.mock.calls).toEqual([
       [presets.hqDamage.amplitude, presets.hqDamage.duration],
       [presets.bossDeath.amplitude, presets.bossDeath.duration],
@@ -124,10 +124,10 @@ describe('ScreenShakeService', () => {
     const { eventBus, engine, service } = setup();
     const segment = (remaining: number) =>
       ({ typeConfig: { isBoss: true }, worm: { group: { remaining } } }) as never;
-    eventBus.emit({ type: 'enemy:died', enemy: segment(40), credits: 0 });
-    eventBus.emit({ type: 'enemy:died', enemy: segment(1), credits: 0 });
+    eventBus.emit({ type: 'enemy:died', enemy: segment(40), credits: 0 , killedBy: null });
+    eventBus.emit({ type: 'enemy:died', enemy: segment(1), credits: 0 , killedBy: null });
     expect(engine.triggerScreenShake).not.toHaveBeenCalled();
-    eventBus.emit({ type: 'enemy:died', enemy: segment(0), credits: 0 });
+    eventBus.emit({ type: 'enemy:died', enemy: segment(0), credits: 0 , killedBy: null });
     expect(engine.triggerScreenShake.mock.calls).toEqual([[presets.bossDeath.amplitude, presets.bossDeath.duration]]);
     service.destroy();
   });

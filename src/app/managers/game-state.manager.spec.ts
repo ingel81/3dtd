@@ -24,7 +24,7 @@ vi.mock('@angular/core', async () => {
 function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
     GameStore: {
-      trainingTimescale: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
+      gameSpeed: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
     },
     UIStore: {
       specialPointsDebugVisible: vi.fn().mockReturnValue(false),
@@ -246,13 +246,13 @@ describe('GameStateManager', () => {
     describe('credits management', () => {
       it('spendCredits() deducts when sufficient', () => {
         const initial = gsm.credits();
-        const result = gsm.spendCredits(10);
+        const result = gsm.spendCredits(10, 'cheat');
         expect(result).toBe(true);
         expect(gsm.credits()).toBe(initial - 10);
       });
 
       it('spendCredits() returns false when insufficient', () => {
-        const result = gsm.spendCredits(999999);
+        const result = gsm.spendCredits(999999, 'cheat');
         expect(result).toBe(false);
         expect(gsm.credits()).toBe(GAME_BALANCE.player.startCredits);
       });
@@ -261,7 +261,7 @@ describe('GameStateManager', () => {
         const handler = vi.fn();
         bus.on('credits:changed', handler);
 
-        gsm.spendCredits(5);
+        gsm.spendCredits(5, 'cheat');
 
         expect(handler).toHaveBeenCalledWith(
           expect.objectContaining({
@@ -365,6 +365,7 @@ describe('GameStateManager', () => {
             heightOffset: 0,
           } as never,
           credits: 25,
+          killedBy: null,
         });
         expect(gsm.credits()).toBe(initial + 25);
       });
@@ -378,6 +379,7 @@ describe('GameStateManager', () => {
             transform: { terrainHeight: 0 },
           } as never,
           credits: 0,
+          killedBy: null,
         });
         expect(gsm.credits()).toBe(initial);
       });
@@ -385,7 +387,7 @@ describe('GameStateManager', () => {
 
     describe('placeTower()', () => {
       it('returns null if not enough credits', () => {
-        gsm.spendCredits(gsm.credits());
+        gsm.spendCredits(gsm.credits(), 'cheat');
         const result = gsm.placeTower(BASE_POSITION, 'archer');
         expect(result).toBeNull();
       });
@@ -688,7 +690,7 @@ describe('GameStateManager', () => {
         const present = vi.fn();
         gsm.heroManager.setView({ present, clear: vi.fn() });
         gsm.researchManager.completeResearch(getResearch('mercenary-contract')!.id);
-        gsm.addCredits(getResearch('mercenary-contract')!.cost + 1000);
+        gsm.addCredits(getResearch('mercenary-contract')!.cost + 1000, 'cheat');
         gsm.update(1, undefined);
         gsm.paused.set(true);
         const clock = gsm.gameTimeMs;
@@ -705,7 +707,7 @@ describe('GameStateManager', () => {
 
     describe('research:completed', () => {
       it('queues an LOS recompute for the towers the AA retrofit gives air targeting', () => {
-        gsm.addCredits(1000);
+        gsm.addCredits(1000, 'cheat');
         const gatling = gsm.placeTower(BASE_POSITION, 'dual-gatling');
         gsm.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, 'archer');
         expect(gatling).not.toBeNull();
@@ -728,7 +730,7 @@ describe('GameStateManager', () => {
       it('starts a queued research in the sub-step a slot frees, paid only then', () => {
         const first = getResearch('gatling-tech')!;
         const queued = getResearch('ice-magic')!;
-        gsm.addCredits(first.cost + queued.cost);
+        gsm.addCredits(first.cost + queued.cost, 'cheat');
         gsm.researchManager.onCenterPlaced(); // 1 slot
         bus.emit({ type: 'command:start-research', researchId: first.id });
         const afterStart = gsm.credits();
@@ -737,7 +739,7 @@ describe('GameStateManager', () => {
         expect(gsm.credits()).toBe(afterStart);
 
         // Run the game clock past the first research at the training speed
-        gsm.setTrainingTimescale(75, false);
+        gsm.setGameSpeed(75, false);
         let t = 1;
         gsm.update(t, undefined);
         while (!gsm.researchManager.isCompleted(first.id) && t < 10_000) {
@@ -750,7 +752,7 @@ describe('GameStateManager', () => {
       });
 
       it('does not start anything from the queue while paused', () => {
-        gsm.addCredits(1000);
+        gsm.addCredits(1000, 'cheat');
         gsm.researchManager.onCenterPlaced();
         bus.emit({ type: 'command:queue-research', researchId: 'ice-magic' });
         gsm.paused.set(true);
@@ -764,7 +766,7 @@ describe('GameStateManager', () => {
       });
 
       it('leaves command:start-research as it was: refused when every slot is busy', () => {
-        gsm.addCredits(1000);
+        gsm.addCredits(1000, 'cheat');
         gsm.researchManager.onCenterPlaced();
         bus.emit({ type: 'command:start-research', researchId: 'gatling-tech' });
         bus.emit({ type: 'command:start-research', researchId: 'ice-magic' });
@@ -838,11 +840,11 @@ describe('GameStateManager', () => {
         it('turns the towers to guard when the last one dies', () => {
           const [a, b] = [enemy('a'), enemy('b')];
           const alive = vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([b]);
-          bus.emit({ type: 'enemy:died', enemy: a, credits: 0 });
+          bus.emit({ type: 'enemy:died', enemy: a, credits: 0 , killedBy: null });
           expect(combat()['turnTowersToGuard']).not.toHaveBeenCalled();
 
           alive.mockReturnValue([]);
-          bus.emit({ type: 'enemy:died', enemy: b, credits: 0 });
+          bus.emit({ type: 'enemy:died', enemy: b, credits: 0 , killedBy: null });
           expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
         });
 
@@ -863,7 +865,7 @@ describe('GameStateManager', () => {
         it('leaves the turn to the wave end during a wave', () => {
           vi.spyOn(gsm.enemyManager, 'getAlive').mockReturnValue([]);
           gsm.waveManager.phase.set('wave');
-          bus.emit({ type: 'enemy:died', enemy: enemy('a'), credits: 0 });
+          bus.emit({ type: 'enemy:died', enemy: enemy('a'), credits: 0 , killedBy: null });
           expect(combat()['turnTowersToGuard']).not.toHaveBeenCalled();
         });
 
@@ -875,7 +877,7 @@ describe('GameStateManager', () => {
             alive: false,
             typeConfig: { splitOnDeath: { type: 'skeleton-minion', count: 2, spread: 0.3 } },
           } as never;
-          bus.emit({ type: 'enemy:died', enemy: skeleton, credits: 0 });
+          bus.emit({ type: 'enemy:died', enemy: skeleton, credits: 0 , killedBy: null });
           expect(combat()['turnTowersToGuard']).not.toHaveBeenCalled();
         });
 
@@ -899,7 +901,7 @@ describe('GameStateManager', () => {
       });
 
       it('resets credits to start value', () => {
-        gsm.spendCredits(20);
+        gsm.spendCredits(20, 'cheat');
         gsm.reset();
         expect(gsm.credits()).toBe(GAME_BALANCE.player.startCredits);
       });
@@ -936,20 +938,20 @@ describe('GameStateManager', () => {
       });
     });
 
-    describe('setTrainingTimescale()', () => {
+    describe('setGameSpeed()', () => {
       it('sets timescale within bounds', () => {
-        gsm.setTrainingTimescale(3.0, false);
-        expect(gsm.trainingTimescale()).toBe(3.0);
+        gsm.setGameSpeed(3.0, false);
+        expect(gsm.gameSpeed()).toBe(3.0);
       });
 
       it('clamps minimum to 0.1', () => {
-        gsm.setTrainingTimescale(0.01, false);
-        expect(gsm.trainingTimescale()).toBe(0.1);
+        gsm.setGameSpeed(0.01, false);
+        expect(gsm.gameSpeed()).toBe(0.1);
       });
 
       it('clamps maximum to 75', () => {
-        gsm.setTrainingTimescale(100, false);
-        expect(gsm.trainingTimescale()).toBe(75);
+        gsm.setGameSpeed(100, false);
+        expect(gsm.gameSpeed()).toBe(75);
       });
     });
 
@@ -1047,7 +1049,7 @@ describe('GameStateManager', () => {
 
       it('scales sub-step count by training timescale', () => {
         const baselineHits = vi.fn();
-        gsm.setTrainingTimescale(1.0, false);
+        gsm.setGameSpeed(1.0, false);
         gsm.update(0, baselineHits);
         gsm.update(100, baselineHits); // 100ms wall × 1× = 100ms game-time
         const baseline = baselineHits.mock.calls.length;
@@ -1057,7 +1059,7 @@ describe('GameStateManager', () => {
         const gsm2 = new GameStateManager();
         const engine = createMockEngine();
         gsm2.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-        gsm2.setTrainingTimescale(5.0, false);
+        gsm2.setGameSpeed(5.0, false);
         gsm2.update(0, sped);
         gsm2.update(100, sped); // 100ms wall × 5× = 500ms game-time
         // 5× timescale should yield ≥ 4× the sub-step count of 1×.
@@ -1132,7 +1134,7 @@ describe('GameStateManager', () => {
           const engine = createMockEngine() as unknown as { setTimescale: ReturnType<typeof vi.fn> };
           const paused = new GameStateManager();
           paused.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-          paused.setTrainingTimescale(2, false);
+          paused.setGameSpeed(2, false);
 
           paused.paused.set(true);
           paused.update(1, undefined);
@@ -1145,7 +1147,7 @@ describe('GameStateManager', () => {
 
         /** A game whose GameStore the test drives; Angular would run its effects on each change. */
         function withStore(pausedAtStart: boolean) {
-          const store = { trainingTimescale: signal(1), paused: signal(pausedAtStart), renderingEnabled: signal(true) };
+          const store = { gameSpeed: signal(1), paused: signal(pausedAtStart), renderingEnabled: signal(true) };
           mockServices['GameStore'] = store;
           const from = vi.mocked(effect).mock.calls.length;
           const game = new GameStateManager();

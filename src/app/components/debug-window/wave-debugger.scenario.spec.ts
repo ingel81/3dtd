@@ -33,7 +33,7 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
       providers: [
         { provide: DebugWindowService, useValue: {} },
         { provide: WaveDebugService, useValue: {} },
-        { provide: TowerDefenseStore, useValue: { waveNumber, phase, aiExplanation: signal(null) } },
+        { provide: TowerDefenseStore, useValue: { waveNumber, phase, waveExplanation: signal(null) } },
       ],
     });
     debuggerPanel = runInInjectionContext(injector, () => new WaveDebuggerComponent());
@@ -88,12 +88,12 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
     expect(jumps).toEqual([{ wave: 14, grantGold: false }]);
   });
 
-  it('names a wave between the bosses past the curriculum as the director\'s, W40 as a boss wave', () => {
+  it('names a wave between the bosses past the campaign as the director\'s, W40 as a boss wave', () => {
     enter('40');
     expect(debuggerPanel.jumpWaveName()).toBe('Boss wave');
     enter('41');
     expect(debuggerPanel.jumpWaveName()).toBe('Director wave');
-    // A curriculum wave by its template
+    // A campaign wave by its template
     enter('7');
     expect(debuggerPanel.jumpWaveName()).toBe('Bat Swarm');
   });

@@ -67,6 +67,20 @@ describe('GameClock', () => {
     frame(clock, 1050);
     clock.reset();
     expect(clock.gameTimeMs).toBe(0);
+    expect(clock.subStep).toBe(0);
     expect(frame(clock, 5000)).toBe(0);        // a first frame again
+  });
+
+  it('counts sub-steps across frames, so a command can name the step it ran in', () => {
+    // The game time is a sum of 16.667 ms steps and drifts in floating point;
+    // the step index does not, which is what the run log stamps with.
+    const clock = new GameClock();
+    frame(clock, 1000);
+    const first = frame(clock, 1050);
+    expect(clock.subStep).toBe(first);
+    const second = frame(clock, 1100);
+    expect(clock.subStep).toBe(first + second);
+    clock.holdFrame(1200);
+    expect(clock.subStep).toBe(first + second);   // a pause takes no step
   });
 });

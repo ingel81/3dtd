@@ -26,7 +26,7 @@ import { LosDebugService } from '../debug/los-debug.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
-import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
+import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { TowerTypeId } from '../../configs/tower-types.config';
@@ -102,7 +102,7 @@ export class VisualizationFacadeService {
   private readonly losDebug = inject(LosDebugService);
   private readonly globalRouteGridService = inject(GlobalRouteGridService);
   private readonly locationMgmt = inject(LocationManagementService);
-  private readonly aiDataCollector = inject(AIDataCollectorService);
+  private readonly stateSnapshots = inject(StateSnapshotService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly store = inject(TowerDefenseStore);
   private readonly engineStore = inject(EngineStore);
@@ -185,7 +185,7 @@ export class VisualizationFacadeService {
   /** DPS profile bins along the path, see DpsBinsOverlay. */
   private readonly dpsBins = new DpsBinsOverlay({
     gameState: () => this.gameState,
-    aiDataCollector: this.aiDataCollector,
+    stateSnapshots: this.stateSnapshots,
   });
 
   /** OSM building footprints near the routes, see BuildingOverlay. */
