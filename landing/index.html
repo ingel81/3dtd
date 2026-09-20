@@ -160,11 +160,11 @@
 /* Auf dem Telefon laeuft das Spiel nicht: es streamt Tiles, will eine GPU und
    eine Maus. Ein Play-Knopf waere dort ein Versprechen, das die Seite nicht
    halten kann, also verschwindet er im Hero, in der Kopfleiste und im Fuss,
-   und an seine Stelle tritt der Kasten. Der Windows-Download geht mit, der
+   und an seine Stelle tritt der Kasten. Die Downloads gehen mit, der
    GitHub-Knopf bleibt stehen. */
 .mobile-note{display:none}
 @media (max-width:760px){
-  .hero-copy .actions .btn--primary,.hero-copy .actions .btn--windows,.top nav .btn--primary,footer .row a[href="/play/"]{display:none}
+  .hero-copy .actions .btn--primary,.hero-copy .actions .btn--windows,.hero-copy .actions .btn--linux,.top nav .btn--primary,footer .row a[href="/play/"]{display:none}
   .need-desktop{display:none}
   .mobile-note{display:block;margin:22px 0 0;padding:14px 16px;border:1px solid var(--gold-dark);border-left-width:3px;background:rgba(194,160,85,.08);color:var(--text);font-size:15px;max-width:60ch}
   .mobile-note b{display:block;margin-bottom:4px;color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase}
@@ -207,8 +207,10 @@
       <div class="actions">
         <a class="btn btn--primary" href="/play/">Play in your browser</a>
         <a class="btn" href="https://github.com/ingel81/3dtd">Source on GitHub</a>
-        <!-- Die Seite geht mit dem Veröffentlichen eines Releases live (deploy.yml), der Link zeigt also nie ins Leere. -->
+        <!-- Die Seite geht mit dem Veröffentlichen eines Releases live (deploy.yml), der Link zeigt also nie ins Leere.
+             Beide zeigen auf dieselbe Seite: dort liegen Installer und AppImage nebeneinander, mit Version im Namen. -->
         <a class="btn btn--windows" href="https://github.com/ingel81/3dtd/releases/latest">Download for Windows</a>
+        <a class="btn btn--linux" href="https://github.com/ingel81/3dtd/releases/latest">Download for Linux</a>
       </div>
       <p class="mobile-note"><b>Desktop only</b>This does not run on a phone. It streams photorealistic 3D tiles and puts thousands of enemies on screen, so it wants a real GPU, a mouse and a keyboard. Open the page on a desktop and the play button is there.</p>
       <p class="need">Before you can play you need your own Cesium ion token. It is free and takes two minutes, no card. <a href="#key">How to get one</a>. <span class="need-desktop">Made for desktop: it needs a GPU and a mouse.</span></p>
