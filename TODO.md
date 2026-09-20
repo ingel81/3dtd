@@ -9,8 +9,8 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-19, `main` = `next` (v0.3.1). Nichts in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest
-K8.4 (optional).
+Stand 2026-09-20, `main` = v0.3.1, `next` elf Commits davor (C11, E8, E9, J1, Route-Standard, Cheat-Stufen). Nichts
+in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optional).
 
 ---
 
@@ -20,7 +20,6 @@ K8.4 (optional).
       Verschieben auf ein gerades Stück (`cbdec4e5`) stand ein Portal schräg. Vermutungen: gerades Stück zu kurz (nur
       bis zur Ebene geprüft, Mindestlänge etwa 25 bis 30 m fehlt) oder die Gegnerlinie schwenkt am Start vom OSM-Punkt
       zur Bandmitte. Erst mit URL oder Snapshot eines neuen Falls debuggen.
-- [ ] **C11 Tank in der Sidebar-Vorschau** nicht zu erkennen und nicht einstellbar, nachrangig (Nachtest K3.3).
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
@@ -32,8 +31,6 @@ K8.4 (optional).
       Lücken: [docs/REPLAY.md](docs/REPLAY.md).
 - [ ] **E4 Stone Golem: Laufgeräusch und Beben**: schwere Schritte, leichter Screen Shake in Kameranähe.
 - [ ] **E5 Raketen-Sound**: neues Asset nach `docs/PROJECTILES.md`, "Bekannte Einschränkungen".
-- [ ] **E8 Tower gezielt aus- und einschalten**, z. B. per Schalter im Tower-Panel.
-- [ ] **E9 Offscreen-Marker klickbar**: Klick fährt die Kamera zum Gegner.
 - [ ] **F4 Ungemessene Grafik- und CPU-Kosten**: Laser-Säule, drei Stencil-Pässe der Reichweitenringe, Kegel-Upload,
       Drehbereichssuche des Portals, `buildBand` im Spiel.
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,
@@ -43,9 +40,6 @@ K8.4 (optional).
 - [ ] **G4 Konzept Explosivmunition des Helden mit Flächenschaden** (`hero.config.ts`).
 - [ ] **D1 Spawn-Portal an engen Stellen und Hängen**: Pfeiler in Fassaden, Lichtfleck am Hang schief. Nur im Browser
       an echten Gassen zu beurteilen.
-- [ ] **J1 Doku-Reste**: `MULTIPLAYER_CONCEPT.md` nachziehen; bekannte Grenzen aus den Worker-Berichten in die
-      Fach-Doku (Korridor-Nebenbefunde: Dachzellen an Routenecken, Überdeckung über 30 m, Füllregel über Gitterlagen,
-      Loch im Mesh in Erlenbach, Rückfall-Sekunde bei Stationen; Review-Randfälle; schwebende Ooze-Trümmer am Hang).
 - [ ] **J2 GitHub-Actions auf Node 24**: gebaut 2026-09-19 (`actions/checkout@v7`, `actions/setup-node@v7`,
       `SamKirkland/FTP-Deploy-Action@v4.4.0`, alle auf Node 24; `ubuntu-latest` bleibt, Node ist gepinnt). Der erste
       echte Lauf ist das nächste Release (`release.yml`, dann `deploy.yml`); danach nach DONE.
