@@ -92,8 +92,9 @@ venv\Scripts\python.exe analyze_runs.py runs/3f2a91c7 ~/Downloads/3dtd-run-*.jso
 
 Liest Bot-Läufe und exportierte Spieler-Läufe gleich, gruppiert nach
 Balance-Stand, Parametersatz und Spieler, und schreibt `run-report.html`:
-HP-Verlust, Leck-Quote, Golddruck, Ausgaben, Entscheidungen und Wellendauer je
-Welle, dazu die Tower-Anteile. Eine Seite ohne Netz, die Kurven sind
+HP-Verlust, Leck-Quote, Golddruck, Ausgaben, Entscheidungen, Wellendauer und
+Bindung des Überlebbarkeits-Deckels je Welle, dazu die Tower-Anteile und eine
+Tabelle, in welcher Welle und an welchem Template die Läufe enden. Eine Seite ohne Netz, die Kurven sind
 eingebettetes SVG. Stehen zwei Balance-Stände im Stapel, sagt der Bericht das
 oben, statt sie zu mitteln.
 

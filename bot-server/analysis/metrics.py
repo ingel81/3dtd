@@ -45,6 +45,16 @@ class WaveStats:
 
 
 @dataclass
+class EndingStats:
+    """Where the runs of a group ended."""
+
+    wave: int
+    template: str
+    runs: int
+    share: float
+
+
+@dataclass
 class TowerStats:
     """What one tower type did over a group."""
 
@@ -71,6 +81,8 @@ class GroupStats:
     median_run_minutes: float
     per_wave: list[WaveStats]
     towers: list[TowerStats]
+    """The last wave of each run, most common first: what actually ends runs."""
+    endings: list[EndingStats]
     mismatches: int
     commits: set[str] = field(default_factory=set)
     game_versions: set[str] = field(default_factory=set)
@@ -144,6 +156,28 @@ def tower_stats(runs: list[Run]) -> list[TowerStats]:
     return stats
 
 
+def endings(runs: list[Run]) -> list[EndingStats]:
+    """
+    The wave each run died in, counted.
+
+    A median says how far a group gets; this says what stops it. Five
+    templates in a row that each want a different counter show up here as five
+    entries and nowhere else (docs/BALANCING_PLAN.md, Baseline).
+    """
+    counted: dict[tuple[int, str], int] = {}
+    for run in runs:
+        if not run.waves:
+            continue
+        last = run.waves[-1]
+        key = (last.wave, last.template or "?")
+        counted[key] = counted.get(key, 0) + 1
+    total = sum(counted.values())
+    return [
+        EndingStats(wave=wave, template=template, runs=count, share=_share(count, total))
+        for (wave, template), count in sorted(counted.items(), key=lambda kv: (-kv[1], kv[0]))
+    ]
+
+
 def group_stats(runs: list[Run]) -> GroupStats:
     """Everything one group comes to."""
     waves_reached = [run.wave_reached for run in runs]
@@ -172,6 +206,7 @@ def group_stats(runs: list[Run]) -> GroupStats:
         median_run_minutes=median(run_minutes) if run_minutes else 0.0,
         per_wave=per_wave,
         towers=tower_stats(runs),
+        endings=endings(runs),
         mismatches=sum(len(w.mismatches) for run in runs for w in run.waves),
         commits={run.commit for run in runs},
         game_versions={run.game_version for run in runs},
