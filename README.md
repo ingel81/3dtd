@@ -13,10 +13,13 @@ with the mechanics explained along the way.
 playable build under [/play/](https://3dtd.sgeht.net/play/). You bring your own
 Cesium Ion token; the game asks for it on first start and keeps it in your browser.
 
-**Windows app:** an installer is on the [releases page](https://github.com/ingel81/3dtd/releases/latest).
-It is not code-signed yet, so Windows SmartScreen warns on the first start: click
-*More info*, then *Run anyway*. The app keeps itself up to date. It needs your own
-Cesium Ion token as well; a token restricted to certain websites, or a Google Maps key
+**Desktop app:** the [releases page](https://github.com/ingel81/3dtd/releases/latest)
+has a Windows installer and a Linux AppImage (x64). Both keep themselves up to date.
+Windows: not code-signed yet, so SmartScreen warns on the first start: click *More info*,
+then *Run anyway*. Linux: make the AppImage executable (`chmod +x`) and keep it where you
+can write, since an update rewrites the file; it needs FUSE 2 (`libfuse2` on Ubuntu,
+`fuse2` on Arch), or start it with `--appimage-extract-and-run`. Both need your own
+Cesium Ion token; a token restricted to certain websites, or a Google Maps key
 with an HTTP referrer restriction, does not work in the app.
 
 A hobby project. It runs, it's playable, and it is nowhere near finished.
@@ -113,7 +116,7 @@ src/app/
 └── devworld/          offline dev environment
 
 training-backend/      optional Python side, PPO training for the wave director
-desktop/               the Windows app: Electron shell around the same build
+desktop/               the desktop app: Electron shell around the same build
 ```
 
 Managers talk to each other over an event bus rather than calling into each other

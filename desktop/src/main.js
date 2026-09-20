@@ -221,8 +221,10 @@ function createWindow() {
     show: false,
     backgroundColor: BACKGROUND_COLOR,
     title: '3DTD',
-    // Packaged, the window takes the icon embedded in 3DTD.exe.
-    icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.ico'),
+    // Packaged, the icon comes from 3DTD.exe or, on Linux, from the AppImage
+    // and its desktop entry; unpackaged the window needs one itself. The PNG
+    // works on both, .ico only on Windows.
+    icon: app.isPackaged ? undefined : path.join(__dirname, '..', 'build', 'icon.png'),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,

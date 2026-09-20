@@ -17,8 +17,9 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
 
 | Thema | Entscheidung | Begründung |
 |-------|--------------|------------|
-| Plattform | Nur Windows x64 | macOS braucht Notarisierung (99 $/Jahr), Linux erst auf Nachfrage |
-| Paket | NSIS-Installer, One-Click, pro Nutzer (kein Admin, keine UAC-Abfrage), Startmenü- und Desktop-Verknüpfung. **Kein Portable-ZIP** | Auto-Update geht nur mit Installer; eine ZIP bräuchte einen zweiten Update-Pfad. Wer nichts installieren will, hat die Web-Version. Nachrüsten ist ein zusätzliches `zip`-Target |
+| Plattform | Windows x64 und Linux x64 | macOS braucht Notarisierung (99 $/Jahr). Linux kam auf Nachfrage dazu (2026-09-20, ab v0.3.2) |
+| Paket Windows | NSIS-Installer, One-Click, pro Nutzer (kein Admin, keine UAC-Abfrage), Startmenü- und Desktop-Verknüpfung. **Kein Portable-ZIP** | Auto-Update geht nur mit Installer; eine ZIP bräuchte einen zweiten Update-Pfad. Wer nichts installieren will, hat die Web-Version. Nachrüsten ist ein zusätzliches `zip`-Target |
+| Paket Linux | **Nur AppImage x64**, kein deb, rpm, pacman, snap oder flatpak | Eine Datei für jede Distribution, ohne Root. `electron-updater` tauscht die Datei an Ort und Stelle, das Update läuft wie unter Windows. deb und rpm bräuchten bei jedem Update ein Passwort (`DebUpdater` und `RpmUpdater` rufen den Paketmanager über sudo), snap und flatpak je ein eigenes Manifest und beim Store ein Konto |
 | Update | `electron-updater` gegen GitHub Releases: Download im Hintergrund, Installation beim Beenden, Hinweis im Spiel mit "Jetzt neu starten" | Ohne Update bleiben Installationen auf dem Stand des ersten Downloads stehen |
 | Hintergrund | `backgroundThrottling` bleibt an (Default) | Verhält sich wie ein Browser-Tab: minimiert steht das Spiel, auf einem zweiten Monitor ohne Fokus läuft es weiter. Beim Zurückholen begrenzt `GameClock.MAX_CATCHUP_MS` (50 ms) den ersten Schritt, es gibt keinen Sprung |
 | Diagnose | `electron-log` in eine Datei, DevTools per F12, Taste für "Log-Ordner öffnen" | Sporadische Bugs lassen sich nur mit Logs belegen. Open Source, DevTools verbergen nichts |
@@ -502,9 +503,31 @@ liest.
    nichts. Das Veröffentlichen startete `deploy.yml` (1 min 19 s); danach trug `/play/`
    `v0.3.1` samt Changelog, die Landing Page den Download-Link.
 
+## Linux (ab v0.3.2)
+
+Ein AppImage x64, gebaut in derselben `release.yml`: Der Job `appimage` wartet auf
+den Windows-Job, damit nur einer den Release-Entwurf anlegt, und lädt seine Datei
+samt `latest-linux.yml` dazu. Der Desktop-Code hat keine plattformspezifischen
+Zweige; dazugekommen sind das Ziel `linux` in `electron-builder.config.js`, das
+512-px-`build/icon.png` aus `scripts/make-icon.sh` und dasselbe PNG als Fensterbild
+im unverpackten Lauf (`.ico` versteht nur Windows).
+
+Bekannte Stolpersteine, beim ersten Test zu prüfen:
+
+- **FUSE:** Ein AppImage braucht FUSE 2. Ubuntu ab 22.04 und Arch installieren es
+  nicht mehr von sich aus (`libfuse2` bzw. `fuse2`); sonst hilft der Start mit
+  `--appimage-extract-and-run`.
+- **Sandbox:** Ohne User-Namespaces (gehärtete Kernel) startet Chromium nicht; dann
+  braucht es `--no-sandbox`, was die Sandbox aufgibt.
+- **Wayland:** Electron läuft über XWayland, auf HiDPI wirkt das leicht unscharf.
+  `--ozone-platform-hint=auto` wäre der native Weg, ungetestet.
+- **Update:** Der `AppImageUpdater` schreibt die laufende Datei neu; sie muss im
+  Schreibzugriff des Nutzers liegen (Download-Ordner ja, `/opt` nein).
+
 ## Bewusst nicht
 
-- macOS und Linux
+- macOS
+- deb, rpm, pacman, snap und flatpak (Begründung in den Entscheidungen)
 - Portable-ZIP (nachrüstbar, siehe Entscheidungen)
 - Code-Signing im ersten Release
 - Training im Desktop-Build

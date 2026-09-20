@@ -39,6 +39,28 @@ module.exports = {
     target: [{ target: 'nsis', arch: ['x64'] }],
     // build/icon.ico, electron-builder's default; made by scripts/make-icon.sh.
   },
+
+  // One AppImage for every distribution: it needs no root, keeps the game in
+  // one file, and electron-updater replaces that file in place, so updates
+  // work as they do on Windows. A deb or rpm would need a password prompt at
+  // every update (DebUpdater runs the package manager under sudo).
+  linux: {
+    target: [{ target: 'AppImage', arch: ['x64'] }],
+    icon: 'build/icon.png',
+    category: 'Game',
+    synopsis: 'Tower defense on photorealistic 3D tiles',
+    description: 'Tower defense on Google photorealistic 3D tiles: defend your own address.',
+    maintainer: 'ingel81',
+    desktop: {
+      entry: {
+        // The window class Electron reports, so the panel matches window and icon
+        StartupWMClass: '3dtd',
+      },
+    },
+  },
+  appImage: {
+    artifactName: '${productName}-${version}.${ext}',
+  },
   nsis: {
     oneClick: true,
     perMachine: false,

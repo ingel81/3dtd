@@ -1,5 +1,9 @@
 #!/usr/bin/env bash
-# Builds desktop/build/icon.ico from public/assets/images/logo/logo_square.png.
+# Builds desktop/build/icon.ico and icon.png from
+# public/assets/images/logo/logo_square.png.
+#
+# The .ico goes into 3DTD.exe and the installer, the 512 px .png into the
+# AppImage, its desktop entry and the window of an unpackaged run.
 #
 # 256, 128 and 64 px show the full logo. 48 px and below show only the pin
 # with the tower: the full logo is a wide word mark, and at the sizes of the
@@ -28,3 +32,7 @@ magick "$work/pin.png" -filter Lanczos \
 mkdir -p build
 magick "$work/full.miff" "$work/small.miff" "$out"
 magick identify "$out"
+
+# Linux: one square 512 px image, the full logo on a transparent background
+magick "$logo" -filter Lanczos -resize 512x512 -background none   -gravity center -extent 512x512 build/icon.png
+magick identify build/icon.png
