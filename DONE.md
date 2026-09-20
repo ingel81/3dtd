@@ -4,6 +4,35 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-20
+
+- [x] **E8 Tower gezielt aus- und einschalten** (`1b07d35f`, `391f3589`, `99f3758c`): Knopf "Hold fire" am Ende der
+      Zielwahl-Zeile im Tower-Panel, über `command:set-hold-fire` (der Replay zeichnet ihn auf). `Tower.findTarget()`
+      findet dann nichts, alle vier Kampfschleifen laufen in ihren Zweig ohne Ziel: kein Schuss, die Flamme geht
+      sofort aus, Richtung bleibt, Verkaufen und Aufrüsten gehen weiter. Der Tower wird auf 22 % Helligkeit
+      ausgegraut und trägt ein rotes Pause-Zeichen an der Stelle seines Rang-Abzeichens (gleicher Draw Call).
+      Passive Gebäude haben den Knopf nicht.
+- [x] **E9 Offscreen-Marker klickbar** (`6c6ea689`): Ein Klick auf einen Pfeil fährt die Kamera mit `focusGeo` zum
+      Boss des Sektors, sonst zum Gegner mit dem größten Routenfortschritt, dorthin, wo er beim Klick steht. Die
+      Pfeile sind Buttons mit `aria-label`, nur sie nehmen Klicks; der Benchmark mit 20.000 Gegnern bleibt gleich.
+- [x] **C11 Tank in der Sidebar-Vorschau** (`fad251ca`, `2b378657`, `c3efe07c`, Nachtest K3.3): Die Vorschau maß den
+      frischen `SkeletonUtils`-Klon mit veralteten Knochen-Matrizen; der Tank kam auf 88 × 194 × 139 m mit der Mitte
+      43 m daneben und kreiste aus dem Bild, der Pinguin 169 m daneben. Sie misst jetzt in der gezeigten Pose
+      (Clip auf Frame 0, `updateMatrixWorld(true)`), belegt durch einen Test mit den echten GLB-Dateien. Die 13
+      betroffenen `previewOffsetY` sind umgerechnet, Tank und Pinguin zielen auf die Körpermitte, der Ghost trägt
+      die Werte aus dem Enemy Debug des Users.
+- [x] **J1 Doku-Reste** (`46a57f10`): Rund 30 bekannte Grenzen aus den Worker-Berichten stehen jetzt in 13 Fach-Docs,
+      jeder Punkt vorher im Code geprüft. Weggelassen, weil erledigt oder überholt: "Skarnax Tail" in den Debug-Listen,
+      die fehlende Portal-Shader-Spec, der `centreMode`-Schalter, Zellrahmen nach neuer Messung; weggelassen, weil
+      nicht belegbar: die Ooze über den Wellenwechsel. Der Multiplayer-Teil war mit `6e341130` erledigt.
+- [x] **Route als Standard sichtbar** (`9f77d13a`): Wer das Spiel zum ersten Mal öffnet, sieht die rote Gegnerroute
+      sofort; gespeicherte Einstellungen gewinnen weiter.
+- [x] **Cheat-Kacheln "+HP" und "Credits" feiner einstellbar** (`acf5e3fe`, `84e0922f`): Klick +1000 (Shift
+      +100.000), Rechtsklick -10 (Shift -1000), Mausrad ±100 je Raste (Shift ±1000), Stufen für beide Kacheln in
+      `debug-cheat-amount.ts`. Ein Abzug stoppt bei 0 Credits, das HQ bleibt bei 0 HP stehen.
+
+---
+
 ## 2026-09-19
 
 - [x] **H10 Electron-Desktop-Build** (auf Zuruf verschoben): Windows-App mit NSIS-Installer und Auto-Update aus GitHub
