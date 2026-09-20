@@ -139,6 +139,30 @@ def _tower_table(group: GroupStats) -> str:
     """
 
 
+def _endings_table(group: GroupStats) -> str:
+    """Where the runs of one group ended. The median says how far, this says what stopped them."""
+    rows = "".join(
+        f"""<tr>
+          <td>{ending.wave}</td>
+          <td>{html.escape(ending.template)}</td>
+          <td>{ending.runs}</td>
+          <td>{ending.share * 100:.0f}%</td>
+        </tr>"""
+        for ending in group.endings[:12]
+    )
+    return f"""
+    <section class="endings">
+      <h3>Where the runs end · {html.escape(group.label)}</h3>
+      <p class="sub">The last wave of each run. Several templates sharing the top says the campaign
+      asks for several counters in a row, and a roster missing one loses the chain, not a wave.</p>
+      <table>
+        <thead><tr><th>wave</th><th>template</th><th>runs</th><th>share</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </section>
+    """
+
+
 def render(groups: list[GroupStats], skipped: list[tuple], title: str = "3DTD runs") -> str:
     """The whole page."""
     mixed = mixed_balance(groups)
@@ -198,9 +222,16 @@ def render(groups: list[GroupStats], skipped: list[tuple], title: str = "3DTD ru
             "How many runs of the group reached this wave.",
             _series(groups, lambda w: w.runs),
         ),
+        _chart(
+            "Survivability cap binding",
+            "Share of the runs whose wave was cut by the cap. Near 1 the size of a wave is a"
+            " formula over the defense, not a decision of the campaign.",
+            _series(groups, lambda w: w.cap_bound),
+        ),
     ]
 
     towers = "".join(_tower_table(group) for group in groups)
+    endings = "".join(_endings_table(group) for group in groups)
 
     return f"""<!DOCTYPE html>
 <html lang="en">
@@ -237,6 +268,7 @@ def render(groups: list[GroupStats], skipped: list[tuple], title: str = "3DTD ru
   {warning}
   {_summary_table(groups)}
   {''.join(charts)}
+  {endings}
   {towers}
 </body>
 </html>

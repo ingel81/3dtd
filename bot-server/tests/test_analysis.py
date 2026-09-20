@@ -170,3 +170,33 @@ def test_the_report_is_one_self_contained_page(tmp_path):
     # No CDN, no script: the file has to open from disk years from now
     assert "http://" not in page and "https://" not in page
     assert "<script" not in page
+
+
+def test_where_the_runs_end_is_counted_by_wave_and_template(tmp_path):
+    def last(number, template):
+        w = wave(number)
+        w["template"] = template
+        return w
+
+    write(tmp_path / "a.jsonl", [head(), last(5, "Ghost Surge")])
+    write(tmp_path / "b.jsonl", [head(run_id="r2"), last(5, "Ghost Surge")])
+    write(tmp_path / "c.jsonl", [head(run_id="r3"), last(7, "Hornet Strike")])
+
+    [group] = group_runs(read_runs([tmp_path]).runs)
+
+    assert [(e.wave, e.template, e.runs) for e in group.endings] == [
+        (5, "Ghost Surge", 2),
+        (7, "Hornet Strike", 1),
+    ]
+    assert group.endings[0].share == pytest.approx(2 / 3)
+
+
+def test_the_endings_reach_the_report(tmp_path):
+    w = wave(9)
+    w["template"] = "Mammoth Siege"
+    write(tmp_path / "a.jsonl", [head(), w])
+
+    page = render(group_runs(read_runs([tmp_path]).runs), [])
+
+    assert "Where the runs end" in page
+    assert "Mammoth Siege" in page
