@@ -1,7 +1,7 @@
 import { Color, Material, Mesh, Object3D } from 'three';
 
 /** Share of its brightness a tower on hold fire keeps */
-export const HOLD_FIRE_BRIGHTNESS = 0.45;
+export const HOLD_FIRE_BRIGHTNESS = 0.22;
 
 /** A material with the colours the grey-out changes, when it has them */
 type Tinted = Material & { color?: Color; emissive?: Color };
