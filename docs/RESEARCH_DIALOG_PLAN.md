@@ -1,7 +1,8 @@
 # Forschung als Dialog mit echtem Graphen (TODO G3)
 
-**Stand 2026-09-21, geplant, noch nichts gebaut.** Entscheidungen des Users sind unten in Abschnitt 8
-festgehalten, offene Fragen in Abschnitt 9.
+**Stand 2026-09-21: gebaut.** Was am Ende anders kam als geplant, steht in Abschnitt 10; die
+Darstellung selbst beschreibt [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md), "Forschungsbaum (Dialog)".
+Entscheidungen des Users stehen in Abschnitt 8, die Fragen aus Abschnitt 9 sind beantwortet.
 
 Auslöser ist nicht die Optik. Am 2026-09-21 hing `aa-retrofit` (breite Flugabwehr, 450) hinter
 `rocketry` (Spezialist, 600), obwohl der Spezialist gegen die Luftgegner der Wellen 7 und 8 zehnmal
@@ -151,3 +152,37 @@ A und B sind unabhängig und können gleichzeitig laufen.
   beides als getrennte Aktionen anzubieten. Betrifft nur die Bedienung, nicht die Logik.
 - **Zoom und Verschieben von Anfang an?** Bei 20 Knoten passt der Graph vermutlich ohne Zoom in einen
   breiten Dialog. Erst messen, wie breit er wirklich wird, dann entscheiden.
+
+## 10. Was anders kam (2026-09-21)
+
+Gebaut in vier Schritten: `dag-layout.ts` und `moveQueued` (`c2ac9734`, `b030b88d`), die
+darstellende Komponente (`a803a4c8`), der Dialog mit dem Umzug aus der Sidebar (`8a177e7a`), dann
+die Umsetzung des Designs aus dem Claude-Designer (`ca38a937`, `54e94689`, `f641d0b3`, `96712b19`).
+
+**Die drei offenen Fragen aus Abschnitt 9:**
+
+- **Senkrecht**, nicht waagerecht. Der User hat es am Bild entschieden: oben die Wurzeln, nach unten
+  die Tiefe.
+- **Der Klick entscheidet weiter selbst** zwischen Starten und Vormerken (`researchClickAction`).
+  Dazu kam ein Detailpanel rechts, dessen Knopf dasselbe tut.
+- **Zoom nicht, Ziehen ja.** Der Graph ist breiter als jeder Dialog, deshalb füllt der Dialog den
+  Bildschirm und das Brett lässt sich ziehen und scrollen.
+
+**Was der Plan nicht vorhergesehen hat:**
+
+- **Die Warteschlange war schon fertig.** TODO G3 nannte sie als Teil des Umbaus; im
+  `ResearchManager` standen `queueResearch`, `unqueueResearch` und `startQueued` längst, und die
+  Sidebar zeigte sie. Es fehlte allein das Umsortieren.
+- **Die Knoten sind HTML, nicht SVG.** Das Icon-Set rendert sein SVG über `innerHTML` in einen
+  `<span>`, was innerhalb eines `<svg>` im falschen Namensraum landet. Kanten bleiben SVG, Knoten
+  sind Buttons darüber, beide aus denselben Koordinaten.
+- **Vier Datenänderungen**, die die Darstellung verlangt hat: das Tor `biology` mit der neuen
+  Kategorie `gate`, ein `branch` je Forschung, ein eigener Glyph je Forschung, und zwei Zustände,
+  die die Spiellogik nicht kennt (`poor`, `pending`).
+- **Der Dialog braucht einen Injector von außen**, weil `TowerDefenseFacadeService` an der
+  Spielkomponente hängt und ein Overlay außerhalb dieses Baums entsteht.
+- **Drei Layout-Fehler zeigte erst das laufende Spiel**, nicht die Vorschau: die zweite Scrollfläche
+  von `mat-dialog-content`, die des Surface, und ein fehlendes `border-box`.
+
+**Offen geblieben:** Umsortieren per Ziehen (jetzt Hoch/Runter-Knöpfe, weil das Repo kein
+`cdk/drag-drop` benutzt), und die Rubriken neben "Tower Tech", für die es noch keinen Inhalt gibt.
