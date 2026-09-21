@@ -69,9 +69,15 @@ export const DIRECTOR_PARAM_SETS: Record<string, DirectorParams> = {
   'steep-ramp': { ...DEFAULT_DIRECTOR_PARAMS, rampFullWave: 40 },
   'wide-band': { ...DEFAULT_DIRECTOR_PARAMS, leakTargetLo: 0.12, leakTargetHi: 0.24 },
   'fast-loop': { ...DEFAULT_DIRECTOR_PARAMS, leakGain: 0.6 },
-  /** The neighbours of the current `capSlack`, for the next round. */
-  'cap-tight': { ...DEFAULT_DIRECTOR_PARAMS, capSlack: 1.25 },
-  'cap-loose': { ...DEFAULT_DIRECTOR_PARAMS, capSlack: 2.0 },
+  /**
+   * The close neighbours of the current `capSlack`.
+   *
+   * 1.25 and 2.0 answered the first, coarse question; these two ask whether
+   * 1.5 is really the top of the curve now that the late campaign carries its
+   * own intensity factors.
+   */
+  'cap-tight': { ...DEFAULT_DIRECTOR_PARAMS, capSlack: 1.35 },
+  'cap-loose': { ...DEFAULT_DIRECTOR_PARAMS, capSlack: 1.65 },
   /**
    * The wave follows the campaign instead of the player's DPS.
    *
