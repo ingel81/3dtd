@@ -17,6 +17,10 @@
  * and the `FrontSide` of the distance material are kept: geometry nearer
  * than 0.1 m and a tip inside a block write nothing, as the real render does
  * (docs/LOS_PIPELINE.md, rules 5 to 8).
+ *
+ * The second block keeps the city and the harness and asks the next
+ * question instead: at the headroom the field cases had, what does the same
+ * defense do to each of the four templates they came from.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
@@ -47,7 +51,7 @@ import { GlobalRouteGridService } from '../services/world/global-route-grid.serv
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
 import { analyzeDefense } from '../director/defense-analyzer';
-import { survivableCount, TEMPLATES } from '../director/templates';
+import { FAIRNESS_MIN_COUNT, survivableCount, TEMPLATES } from '../director/templates';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import { LOS_VIZ_CONFIG, losCubeFarDistance } from '../configs/los-viz.config';
@@ -163,9 +167,13 @@ function blockEntry(
 }
 
 /** Nearest block face along the ray, or Infinity where nothing is hit. */
-function nearestBlock(ox: number, oy: number, oz: number, dx: number, dy: number, dz: number): number {
+function nearestBlock(
+  ox: number, oy: number, oz: number,
+  dx: number, dy: number, dz: number,
+  blocks: readonly Block[],
+): number {
   let best = Infinity;
-  for (const b of BLOCKS) {
+  for (const b of blocks) {
     const t = blockEntry(ox, oy, oz, dx, dy, dz, b);
     if (t < best) best = t;
   }
@@ -173,13 +181,18 @@ function nearestBlock(ox: number, oy: number, oz: number, dx: number, dy: number
 }
 
 /** Is the segment from the tip to the point clear of every block? The CPU fallback of the combat. */
-function segmentClear(tipX: number, tipY: number, tipZ: number, x: number, y: number, z: number): boolean {
+function segmentClear(
+  tipX: number, tipY: number, tipZ: number,
+  x: number, y: number, z: number,
+  blocks: readonly Block[],
+): boolean {
   const dx = x - tipX;
   const dy = y - tipY;
   const dz = z - tipZ;
   const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
   if (len < 1e-6) return true;
-  return nearestBlock(tipX, tipY, tipZ, dx / len, dy / len, dz / len) >= len - LOS_VIZ_CONFIG.visibilityBiasMeters;
+  const hit = nearestBlock(tipX, tipY, tipZ, dx / len, dy / len, dz / len, blocks);
+  return hit >= len - LOS_VIZ_CONFIG.visibilityBiasMeters;
 }
 
 /**
@@ -220,7 +233,11 @@ function packDepth(v: number, buf: Uint8Array, o: number): void {
  * A resolve asks for a few hundred of the 262144 texels of a 512 face; the
  * values are the ones a full render would leave there.
  */
-function lazyFace(face: number, size: number, tipX: number, tipY: number, tipZ: number, far: number): Uint8Array {
+function lazyFace(
+  face: number, size: number,
+  tipX: number, tipY: number, tipZ: number,
+  far: number, blocks: readonly Block[],
+): Uint8Array {
   const buf = new Uint8Array(size * size * 4);
   const filled = new Uint8Array(size * size);
   const dir = new Vector3();
@@ -233,7 +250,7 @@ function lazyFace(face: number, size: number, tipX: number, tipY: number, tipZ: 
         filled[texel] = 1;
         texelDirection(face, texel % size, Math.floor(texel / size), size, dir);
         const len = Math.sqrt(dir.x * dir.x + dir.y * dir.y + dir.z * dir.z);
-        const dist = nearestBlock(tipX, tipY, tipZ, dir.x / len, dir.y / len, dir.z / len);
+        const dist = nearestBlock(tipX, tipY, tipZ, dir.x / len, dir.y / len, dir.z / len, blocks);
         // Nothing hit, or a hit past the far plane: the cleared colour stays,
         // and `unpackTexel` reads it back as the far distance.
         if (dist < far) packDepth(dist / far, target, texel * 4);
@@ -244,9 +261,12 @@ function lazyFace(face: number, size: number, tipX: number, tipY: number, tipZ: 
 }
 
 /** The context `registerTower` resolves against, for a tip in this city. */
-function createCubeContext(tipX: number, tipY: number, tipZ: number, far: number): LosResolveContext {
+function createCubeContext(
+  tipX: number, tipY: number, tipZ: number,
+  far: number, blocks: readonly Block[] = BLOCKS,
+): LosResolveContext {
   const size = LOS_VIZ_CONFIG.cubeSize;
-  const faces = Array.from({ length: 6 }, (_, face) => lazyFace(face, size, tipX, tipY, tipZ, far));
+  const faces = Array.from({ length: 6 }, (_, face) => lazyFace(face, size, tipX, tipY, tipZ, far, blocks));
   return {
     cube: { width: size } as WebGLCubeRenderTarget,
     referencePos: new Vector3(tipX, tipY, tipZ),
@@ -283,6 +303,9 @@ const MAX_FRAMES = 240_000 / 16;
 /** Tips of the placed towers, for the CPU fallback of the combat. */
 const towerTips = new Map<string, { x: number; y: number; z: number }>();
 
+/** The blocks the running game stands in, what its CPU fallback casts against. */
+let activeBlocks: readonly Block[] = BLOCKS;
+
 function createEngine(): never {
   const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
   for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'oozes']) {
@@ -294,7 +317,7 @@ function createEngine(): never {
   // The CPU fallback of buildLosCheck, against the same blocks.
   engine['towers']['hasLineOfSight'] = (id: string, x: number, y: number, z: number) => {
     const tip = towerTips.get(id);
-    return tip ? segmentClear(tip.x, tip.y, tip.z, x, y, z) : true;
+    return tip ? segmentClear(tip.x, tip.y, tip.z, x, y, z, activeBlocks) : true;
   };
   engine['towers']['get'] = () => undefined;
   engine['hero'] = withAutoStubs({});
@@ -324,10 +347,14 @@ function createGrid(): GlobalRouteGridService {
   return grid;
 }
 
-function createGame(defense: { type: TowerTypeId; x: number; z: number }[] = DEFENSE): Game {
+function createGame(
+  defense: { type: TowerTypeId; x: number; z: number }[] = DEFENSE,
+  blocks: readonly Block[] = BLOCKS,
+): Game {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   GameObject.resetIdCounter();
   towerTips.clear();
+  activeBlocks = blocks;
 
   const grid = createGrid();
   const paths = new Map<string, GeoPosition[]>([['spawn-1', ROUTE]]);
@@ -353,7 +380,7 @@ function createGame(defense: { type: TowerTypeId; x: number; z: number }[] = DEF
     // The real registration path: cells in range, resolved against the cube.
     tower.visibleCells = grid.registerTower(
       tower.id, x, z, config.range,
-      createCubeContext(x, tipY, z, config.range),
+      createCubeContext(x, tipY, z, losCubeFarDistance(config.range), blocks),
       config.canTargetGround ?? true,
       config.canTargetAir ?? false,
     );
@@ -366,7 +393,7 @@ function createGame(defense: { type: TowerTypeId; x: number; z: number }[] = DEF
 }
 
 /** What `survivableCount` promises this defense against `templateId`. */
-function predict(towers: Tower[], templateId: string, spawnDelayMs: number): number | null {
+function predict(towers: Tower[], templateId: string, spawnDelayMs: number, hpRemaining = 100): number | null {
   const template = TEMPLATES.find((t) => t.id === templateId)!;
   const defense = analyzeDefense(towers, false, null);
   return survivableCount(
@@ -381,23 +408,50 @@ function predict(towers: Tower[], templateId: string, spawnDelayMs: number): num
     (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
     () => 1,
     () => 1,
-    100,
+    hpRemaining,
     1,
     1,
   );
 }
 
-/** Send `count` enemies of `type` down the route and run the wave out. */
-function fight(game: Game, type: EnemyTypeId, count: number): { killed: number; leaked: number } {
+/**
+ * How much of a cap is the kill estimate and how much the leak allowance.
+ *
+ * `survivableCount` returns `floor(killable + hpRemaining * k)`, so the cap
+ * at two HP levels separates the two terms without repeating the formula
+ * here. Below `FAIRNESS_MIN_COUNT` the answer is the floor, not a sum, and
+ * the split says nothing; that is what `atFloor` marks.
+ */
+function capParts(towers: Tower[], templateId: string): { cap: number; killable: number; atFloor: boolean } {
+  const cap = predict(towers, templateId, 0, 100)!;
+  const doubled = predict(towers, templateId, 0, 200)!;
+  return { cap, killable: 2 * cap - doubled, atFloor: cap <= FAIRNESS_MIN_COUNT };
+}
+
+/**
+ * Send `count` enemies down the route in the shares of `mix` and run the
+ * wave out. All of them at once, as the reference scenario does, so the wave
+ * manager sees a wave it can finish; `predict` is asked with the same spawn
+ * delay of zero.
+ */
+function fight(game: Game, mix: readonly [EnemyTypeId, number][], count: number): { killed: number; leaked: number } {
   let killed = 0;
   let leaked = 0;
   const bus = game.gsm.getEventBus();
   bus.on('enemy:died', () => { killed++; });
   bus.on('enemy:reached-base', () => { leaked++; });
 
-  const speed = ENEMY_TYPES[type].baseSpeed;
   game.gsm.beginWave();
-  for (let i = 0; i < count; i++) game.gsm.enemyManager.spawn(ROUTE, type, speed);
+  let left = count;
+  for (const [type, share] of mix) {
+    const n = Math.min(left, Math.round(count * share));
+    left -= n;
+    for (let i = 0; i < n; i++) game.gsm.enemyManager.spawn(ROUTE, type, ENEMY_TYPES[type].baseSpeed);
+  }
+  for (let i = 0; i < left; i++) {
+    const type = mix[0][0];
+    game.gsm.enemyManager.spawn(ROUTE, type, ENEMY_TYPES[type].baseSpeed);
+  }
   for (let f = 0; f < MAX_FRAMES && game.gsm.waveManager.phase() === 'wave'; f++) game.frame();
 
   return { killed, leaked };
@@ -504,13 +558,13 @@ describe('the line of sight of an air defense in a city', () => {
     const ground = createGame();
     const groundCap = predict(ground.towers, 'rat_tide', 0);
     const groundCount = Math.max(1, Math.round(groundCap! / FIELD_HEADROOM));
-    const groundResult = fight(ground, 'rat', groundCount);
+    const groundResult = fight(ground, [['rat', 1]], groundCount);
     console.log(`Boden: Deckel ${groundCap}, geschickt ${groundCount}, getoetet ${groundResult.killed}, durch ${groundResult.leaked}`);
 
     const air = createGame();
     const airCap = predict(air.towers, 'bat_swarm', 0);
     const airCount = Math.max(1, Math.round(airCap! / FIELD_HEADROOM));
-    const airResult = fight(air, 'bat', airCount);
+    const airResult = fight(air, [['bat', 1]], airCount);
     console.log(`Luft:  Deckel ${airCap}, geschickt ${airCount}, getoetet ${airResult.killed}, durch ${airResult.leaked}`);
 
     expect(groundResult.killed / groundCount).toBeGreaterThan(0.9);
@@ -539,7 +593,7 @@ describe('the line of sight of an air defense in a city', () => {
     ]);
     const cap = predict(game.towers, 'bat_swarm', 0);
     const count = Math.max(1, Math.round(cap! / FIELD_HEADROOM));
-    const { killed, leaked } = fight(game, 'bat', count);
+    const { killed, leaked } = fight(game, [['bat', 1]], count);
     console.log(`Luft (blind): Deckel ${cap}, geschickt ${count}, getoetet ${killed}, durch ${leaked}`);
 
     expect(killed / count).toBeGreaterThan(0.9);
@@ -590,6 +644,81 @@ describe('the far distance a tower cube is rendered with', () => {
       );
       expect(isCubeVisible(0, tip, 0, range, air, 0, tight)).toBe(false);
       console.log(`${type}: Reichweite ${range} m, ohne Zuschlag fehlten die aeusseren ${lost.toFixed(1)} m in der Luft`);
+    });
+  }
+});
+
+describe('the same headroom at field scale', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  /**
+   * The four templates the field cases come from. The mix is the template's
+   * own, so the wave the cap was asked about is the wave that walks.
+   */
+  const WAVES: { label: string; template: string; mix: [EnemyTypeId, number][] }[] = [
+    { label: 'rat_tide      (Boden)', template: 'rat_tide', mix: [['rat', 1]] },
+    { label: 'bat_swarm     (Luft) ', template: 'bat_swarm', mix: [['bat', 1]] },
+    { label: 'hornet_strike (Luft) ', template: 'hornet_strike', mix: [['hornet', 0.7], ['bat', 0.3]] },
+    { label: 'dragon_elite  (Luft) ', template: 'dragon_elite', mix: [['dragon', 0.6], ['hornet', 0.4]] },
+  ];
+
+  /**
+   * `count` towers spread over the whole route, every `airEvery`th of them
+   * an archer. The six-tower defense of the other block clusters its two
+   * archers near the spawn; this one gives the air defense the same spread
+   * along the route that the ground defense has.
+   */
+  function spreadDefense(count: number, airEvery: number): { type: TowerTypeId; x: number; z: number }[] {
+    const spots = spotsAlongRoute(1);
+    const step = Math.max(1, Math.floor(spots.length / count));
+    return Array.from({ length: count }, (_, i) => {
+      const spot = spots[(i * step) % spots.length];
+      return { type: (i % airEvery === 0 ? 'archer' : 'poison') as TowerTypeId, x: spot.x, z: spot.z };
+    });
+  }
+
+  for (const towers of [6, 24]) {
+    it(`kills what the cap allows with ${towers} towers, ground and air`, () => {
+      const shares: Record<string, number> = {};
+      const kills: Record<string, number> = {};
+      const caps: Record<string, number> = {};
+      for (const wave of WAVES) {
+        const game = createGame(spreadDefense(towers, 3));
+        const { cap, killable, atFloor } = capParts(game.towers, wave.template);
+        kills[wave.template] = killable;
+        caps[wave.template] = cap;
+        const count = Math.max(1, Math.round(cap / FIELD_HEADROOM));
+        const { killed, leaked } = fight(game, wave.mix, count);
+        shares[wave.template] = killed / count;
+        console.log(
+          `${towers} Tower, ${wave.label}: Deckel ${cap} (davon Toetungen ${killable}${atFloor ? ', am Mindestmass' : ''}), ` +
+          `geschickt ${count}, getoetet ${killed} (${((killed / count) * 100).toFixed(0)} %), durch ${leaked}`,
+        );
+      }
+      // What the same cap does once the wave is spread out. The closed form
+      // divides by `1 - killsPerSecond * REALISM * delay`, so a delay the
+      // defense can nearly keep up with sends the cap through the roof.
+      const game = createGame(spreadDefense(towers, 3));
+      for (const wave of WAVES) {
+        const template = TEMPLATES.find((t) => t.id === wave.template)!;
+        const delays = [0, template.spawnDelayRange[0], template.spawnDelayRange[1]];
+        console.log(
+          `${towers} Tower, ${wave.label}: Deckel nach Spawn-Abstand ` +
+          delays.map((d) => `${d} ms -> ${predict(game.towers, wave.template, d)}`).join(', '),
+        );
+      }
+
+      // Where the cap is a kill estimate, the defense delivers it: the ground
+      // wave and the cheap air wave die whole at the headroom the field cases
+      // had. Against dragons the same cap is almost entirely leak allowance,
+      // a term that does not grow with what an enemy costs to kill, and the
+      // wave is half killed by construction. That is the 100% against 50%
+      // the field measured, and 43 of its 51 cases are Dragon Elite.
+      expect(shares['rat_tide']).toBeGreaterThan(0.95);
+      expect(shares['bat_swarm']).toBeGreaterThan(0.95);
+      expect(shares['dragon_elite']).toBeLessThan(shares['rat_tide']);
+      expect(kills['dragon_elite']).toBeLessThan(caps['dragon_elite'] / 2);
+      expect(kills['rat_tide']).toBeGreaterThan(caps['rat_tide'] * 0.8);
     });
   }
 });
