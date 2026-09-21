@@ -18,12 +18,11 @@
     }
   </div>
   <div class="td-panel-content td-tower-section">
-    <!-- Active Research Slots -->
-    <div class="td-research-slots-header">
-      <span>Research Slots: {{ store.activeResearches().length }}/{{ researchStore.researchSlots() }}</span>
-      @if (queue().length > 0) {
-        <span class="td-research-queue-count">· {{ queue().length }} queued</span>
-      }
+    <!-- What the run has researched so far -->
+    <div class="td-research-summary">
+      <span class="td-research-summary-count">{{ researchDone() }}/{{ researchTotal }}</span>
+      <span class="td-research-summary-label">researched</span>
+      <span class="td-research-summary-slots">Slots {{ store.activeResearches().length }}/{{ researchStore.researchSlots() }}</span>
     </div>
 
     <!-- Active Researches -->
@@ -43,14 +42,24 @@
       </div>
     }
 
-    <!-- The tree and the queue live in the dialog; this stays the status. -->
-    <button class="td-research-open-btn" (click)="openTechTree()"
-            matTooltip="Open the research tree: pick what to research and order the queue"
+    @if (store.activeResearches().length === 0) {
+      <p class="td-research-idle">
+        @if (openCount() > 0) {
+          {{ openCount() }} {{ openCount() === 1 ? 'research is' : 'researches are' }} open right now.
+        } @else {
+          Nothing is open yet.
+        }
+      </p>
+    }
+
+    <!-- The tree, the queue and the picking live in the dialog -->
+    <button class="td-research-open-btn" (click)="openTechTree()" aria-keyshortcuts="q"
+            matTooltip="Pick what to research and order the queue (Q)"
             matTooltipPosition="left">
-      <td-icon name="layers" [size]="16"></td-icon>
-      <span>Research tree</span>
+      <td-icon name="layers" [size]="18"></td-icon>
+      <span class="td-research-open-label">Research tree</span>
       @if (queue().length > 0) {
-        <span class="td-research-open-queued">{{ queue().length }} queued</span>
+        <span class="td-research-open-queued">{{ queue().length }}</span>
       }
     </button>
 

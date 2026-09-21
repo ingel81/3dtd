@@ -30,7 +30,9 @@ export type HotkeyAction =
   /** Fly to the next spawn point, round the list */
   | { kind: 'camera-spawn' }
   /** Photo mode on or off */
-  | { kind: 'photo-mode' };
+  | { kind: 'photo-mode' }
+  /** The research tree, once a Research Center stands */
+  | { kind: 'research' };
 
 /** The parts of a KeyboardEvent the mapping reads. */
 export type HotkeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey' | 'repeat'>;
@@ -90,6 +92,10 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return { kind: 'camera-spawn' };
     case 'o':
       return { kind: 'photo-mode' };
+    case 'q':
+      // R rotates while building and T is the debug key; the ability keys are
+      // K, F, E and L, so Q is what is left near the camera hand.
+      return { kind: 'research' };
   }
   // After the fixed keys, so an ability cannot take one of them over
   const abilityId = ABILITY_BY_KEY.get(key.toLowerCase());
@@ -117,6 +123,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['P'], label: 'Pause and resume' },
       { keys: ['+', '-'], label: 'Game speed up and down' },
       { keys: ['Esc'], label: 'Skip the intro flight or the boss intro' },
+      { keys: ['Q'], label: 'Open the research tree, once a Research Center stands' },
       ...ABILITY_IDS.map((id) => ({
         keys: [ABILITIES[id].hotkey.toUpperCase()],
         label: `Aim the ${ABILITIES[id].name} once researched, press again to cancel`,

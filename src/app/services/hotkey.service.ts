@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { getAllTowerTypes } from '../configs/tower-types.config';
 import { stepGameSpeed } from '../configs/game-speed.config';
@@ -10,6 +10,7 @@ import { UIStore } from '../store/ui.store';
 import { canPickTowerCard } from '../utils/player-actions';
 import { ownsKey } from '../utils/keyboard-target';
 import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/open-hotkey-help-dialog';
+import { openResearchDialog } from '../components/research-dialog/open-research-dialog';
 import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
@@ -36,6 +37,9 @@ import { TowerUpgradeService } from './tower-upgrade.service';
 @Injectable()
 export class HotkeyService {
   private readonly facade = inject(TowerDefenseFacadeService);
+  // The research dialog emits commands through the facade, which lives in this
+  // injector rather than in root (openResearchDialog).
+  private readonly injector = inject(Injector);
   private readonly gameState = inject(GameStateManager);
   private readonly store = inject(TowerDefenseStore);
   private readonly gameStore = inject(GameStore);
@@ -114,7 +118,19 @@ export class HotkeyService {
       case 'photo-mode':
         this.photoMode.toggle();
         return true;
+      case 'research': return this.openResearch();
     }
+  }
+
+  /**
+   * The research tree, from anywhere. Nothing to research without a Research
+   * Center, so the key does nothing until one stands, exactly as the button
+   * in the sidebar is only there once it does.
+   */
+  private openResearch(): boolean {
+    if (this.researchStore.centerLevel() === 0) return false;
+    openResearchDialog(this.dialog, this.injector);
+    return true;
   }
 
   /**
