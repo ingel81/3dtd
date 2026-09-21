@@ -239,6 +239,29 @@ export class ResearchManager implements IGameManager {
   }
 
   /**
+   * Move a queued research to another position. The queue is the order
+   * startQueued() works through, so this is how a player puts something in
+   * front of what is already waiting.
+   *
+   * Nothing is charged and no active research is touched: the queue holds what
+   * has not started yet, and the credits are taken at the start either way.
+   * `toIndex` is clamped into the queue, so "move to the front" can be sent as
+   * 0 and "to the back" as any number past the end.
+   *
+   * @returns false when the id is not queued or it is already there
+   */
+  moveQueued(id: ResearchId, toIndex: number): boolean {
+    const from = this.queue.indexOf(id);
+    if (from < 0) return false;
+    const to = Math.max(0, Math.min(Math.trunc(toIndex), this.queue.length - 1));
+    if (to === from) return false;
+    this.queue.splice(from, 1);
+    this.queue.splice(to, 0, id);
+    this.emitStateSnapshot();
+    return true;
+  }
+
+  /**
    * Start queued researches while slots are free, in queue order. Runs in
    * the sub-step right after update(), so a slot a completion frees is taken
    * in the same game-time step at every timescale, and not at all while the

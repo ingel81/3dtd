@@ -406,6 +406,65 @@ describe('ResearchManager', () => {
       expect(credits).toBe(1000);
     });
 
+    describe('moveQueued', () => {
+      // Three that need nothing, so the queue can hold all of them at once.
+      const THIRD_ID = 'tentacle-biology';
+
+      const queueThree = () => {
+        rm.startResearch(NO_PREREQ_ID); // takes the only slot
+        rm.queueResearch(QUEUE_ID);
+        rm.queueResearch('toxic-compounds');
+        rm.queueResearch(THIRD_ID);
+      };
+
+      it('moves a research to the front, so it starts next', () => {
+        queueThree();
+        expect(rm.moveQueued(THIRD_ID, 0)).toBe(true);
+        expect(rm.getQueuedResearches()).toEqual([THIRD_ID, QUEUE_ID, 'toxic-compounds']);
+      });
+
+      it('moves one back without dropping the others', () => {
+        queueThree();
+        expect(rm.moveQueued(QUEUE_ID, 2)).toBe(true);
+        expect(rm.getQueuedResearches()).toEqual(['toxic-compounds', THIRD_ID, QUEUE_ID]);
+      });
+
+      it('clamps a position past either end instead of losing the entry', () => {
+        queueThree();
+        rm.moveQueued(QUEUE_ID, 99);
+        expect(rm.getQueuedResearches()).toEqual(['toxic-compounds', THIRD_ID, QUEUE_ID]);
+        rm.moveQueued(QUEUE_ID, -5);
+        expect(rm.getQueuedResearches()).toEqual([QUEUE_ID, 'toxic-compounds', THIRD_ID]);
+      });
+
+      it('refuses a research that is not queued, and a move that changes nothing', () => {
+        queueThree();
+        expect(rm.moveQueued('fire-alchemy', 0)).toBe(false); // not in the queue
+        expect(rm.moveQueued(QUEUE_ID, 0)).toBe(false); // already at 0
+        expect(rm.getQueuedResearches()).toEqual([QUEUE_ID, 'toxic-compounds', THIRD_ID]);
+      });
+
+      it('sends the new order in the snapshot and charges nothing', () => {
+        queueThree();
+        const snapshots = vi.fn();
+        bus.on('research:state-changed', snapshots);
+        rm.moveQueued(THIRD_ID, 0);
+        expect(snapshots).toHaveBeenLastCalledWith(
+          expect.objectContaining({ queuedResearches: [THIRD_ID, QUEUE_ID, 'toxic-compounds'] }),
+        );
+        expect(credits).toBe(1000);
+      });
+
+      it('decides what startQueued takes next', () => {
+        queueThree();
+        rm.moveQueued(THIRD_ID, 0);
+        rm.cancelResearch(NO_PREREQ_ID); // frees the slot
+        rm.startQueued(creditsNow, spend);
+        expect(rm.isActive(THIRD_ID)).toBe(true);
+        expect(rm.isActive(QUEUE_ID)).toBe(false);
+      });
+    });
+
     it('is emptied by reset, a sold Research Center and the debug cheat', () => {
       rm.queueResearch(QUEUE_ID);
       rm.reset();

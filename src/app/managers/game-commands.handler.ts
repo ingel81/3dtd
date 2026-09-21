@@ -100,6 +100,10 @@ export class GameCommandsHandler {
     this.subs.add(this.eventBus.on('command:unqueue-research', (event) => {
       this.gsm.researchManager.unqueueResearch(event.researchId);
     }));
+
+    this.subs.add(this.eventBus.on('command:move-queued-research', (event) => {
+      this.gsm.researchManager.moveQueued(event.researchId, event.toIndex);
+    }));
   }
 
   private attachAbilityCommands(): void {

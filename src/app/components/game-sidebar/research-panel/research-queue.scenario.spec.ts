@@ -169,4 +169,23 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     expect(research.getQueuedResearches()).toEqual([]);
     expect(ledger.credits()).toBe(0);
   });
+
+  it('a moved entry is what the next free slot takes, and nothing is charged for the move', () => {
+    newGameWithCenter();
+    click('gatling-tech');            // takes the only slot
+    click('ice-magic');               // queued
+    click('toxic-compounds');         // queued behind it
+    expect(research.getQueuedResearches()).toEqual(['ice-magic', 'toxic-compounds']);
+
+    const before = ledger.credits();
+    bus.emit({ type: 'command:move-queued-research', researchId: 'toxic-compounds', toIndex: 0 });
+    expect(research.getQueuedResearches()).toEqual(['toxic-compounds', 'ice-magic']);
+    expect(ledger.credits()).toBe(before);
+
+    // Gatling done, the slot opens: the entry that was moved to the front starts.
+    for (let i = 0; i < Math.ceil((getResearch('gatling-tech')!.duration * 1000) / STEP_MS) + 1; i++) subStep();
+    expect(research.isActive('toxic-compounds')).toBe(true);
+    expect(research.isActive('ice-magic')).toBe(false);
+    expect(research.getQueuedResearches()).toEqual(['ice-magic']);
+  });
 });

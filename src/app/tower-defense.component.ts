@@ -673,6 +673,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.emitCommand({ type: 'command:unqueue-research', researchId });
   }
 
+  onMoveQueuedResearch(researchId: string, toIndex: number): void {
+    this.facade.emitCommand({ type: 'command:move-queued-research', researchId, toIndex });
+  }
+
   /**
    * Start a new wave, delegates to facade
    */

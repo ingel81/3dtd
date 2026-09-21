@@ -276,6 +276,13 @@ export type GameEvent =
       type: 'command:unqueue-research';
       researchId: string;
     }
+  | {
+      // Player UI only: reorder what is waiting. startQueued() works through
+      // the queue in order, so this decides what starts next.
+      type: 'command:move-queued-research';
+      researchId: string;
+      toIndex: number;
+    }
 
   // ==================== Ability Events ====================
   | {
