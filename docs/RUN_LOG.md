@@ -143,3 +143,5 @@ Nichts je Treffer, nichts je Sub-Step. Die Stichprobe liest die Gesamt-DPS über
 ## 7. Offen
 
 - Der Korridor-Fingerprint steht im Kopf als optionales Feld, wird aber noch nicht gefüllt.
+- Läufe aus Format 1 haben `towerSpending` nicht. `bot-server/analysis/run_reader.py` summiert für sie die Bau-
+  und Upgrade-Ereignisse; der Zweig kann weg, sobald keine Format-1-Läufe mehr ausgewertet werden.

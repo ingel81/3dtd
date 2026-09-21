@@ -117,22 +117,40 @@ def _summary_table(groups: list[GroupStats]) -> str:
     """
 
 
+def _per_gold(value):
+    """Damage per gold, or a note when no gold was booked for the type."""
+    if value is None:
+        return '<span class="sub">no gold</span>'
+    # The real spread is between 0.3 and 4 damage per gold, so a whole number
+    # would put every type that matters on the same value.
+    return f"{value:,.2f}" if value < 10 else f"{value:,.1f}"
+
+
 def _tower_table(group: GroupStats) -> str:
     rows = "".join(
         f"""<tr>
           <td>{html.escape(tower.type)}</td>
           <td>{tower.towers:.1f}</td>
+          <td>{tower.gold:,.0f}</td>
+          <td>{tower.gold_share * 100:.1f}%</td>
           <td>{tower.damage_share * 100:.1f}%</td>
           <td>{tower.kill_share * 100:.1f}%</td>
+          <td>{_per_gold(tower.damage_per_gold)}</td>
         </tr>"""
         for tower in group.towers[:12]
     )
     return f"""
     <section class="towers">
       <h3>Towers · {html.escape(group.label)}</h3>
-      <p class="sub">Share of damage and kills per type. A type that carries everything is a balance problem.</p>
+      <p class="sub">Share of gold, damage and kills per type, and the damage one gold bought.
+      A type that carries the damage on the same share of the gold is simply picked often; one
+      that carries it on a much smaller share is stronger than the rest
+      (docs/BALANCING_PLAN.md, 3b).</p>
       <table>
-        <thead><tr><th>type</th><th>per run</th><th>damage</th><th>kills</th></tr></thead>
+        <thead><tr>
+          <th>type</th><th>per run</th><th>gold/run</th><th>gold</th>
+          <th>damage</th><th>kills</th><th>damage/gold</th>
+        </tr></thead>
         <tbody>{rows}</tbody>
       </table>
     </section>

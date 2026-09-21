@@ -60,6 +60,9 @@ class TowerStats:
 
     type: str
     towers: float
+    """Build and upgrade gold that went into this type, per run."""
+    gold: float
+    gold_share: float
     """Damage per gold that went into this type; None while nothing was spent."""
     damage_per_gold: float | None
     damage_share: float
@@ -126,13 +129,17 @@ def wave_stats(waves: list[Wave], wave_number: int) -> WaveStats:
 
 
 def tower_stats(runs: list[Run]) -> list[TowerStats]:
-    """Damage, kills and gold per tower type, over a group."""
+    """
+    Damage, kills and gold per tower type, over a group.
+
+    Damage per gold is the number that separates a type that is strong from a
+    type the player picks often: a share of the damage says nothing while the
+    shares of the gold are unknown (docs/BALANCING_PLAN.md, 3b).
+    """
     damage: dict[str, float] = {}
     kills: dict[str, float] = {}
+    gold: dict[str, float] = {}
     seen: dict[str, set[str]] = {}
-    # Gold per type is not in the wave block (spending has no type), so it is
-    # taken from the levels a tower reached: what it cost is the tower plus
-    # its upgrades. Without a cost table here, the count stands in for it.
     for run in runs:
         for wave in run.waves:
             for tower in wave.towers:
@@ -140,18 +147,26 @@ def tower_stats(runs: list[Run]) -> list[TowerStats]:
                 damage[type_id] = damage.get(type_id, 0) + float(tower.get("damage", 0) or 0)
                 kills[type_id] = kills.get(type_id, 0) + float(tower.get("kills", 0) or 0)
                 seen.setdefault(type_id, set()).add(str(tower.get("id")))
+            for type_id, spent in wave.tower_spending.items():
+                gold[type_id] = gold.get(type_id, 0) + spent
 
     total_damage = sum(damage.values())
     total_kills = sum(kills.values())
+    total_gold = sum(gold.values())
+    # A type that was bought but never fired still belongs in the table: it is
+    # gold that bought nothing.
+    types = set(damage) | set(gold)
     stats = [
         TowerStats(
             type=type_id,
             towers=len(seen.get(type_id, set())) / max(1, len(runs)),
-            damage_per_gold=None,
+            gold=gold.get(type_id, 0) / max(1, len(runs)),
+            gold_share=_share(gold.get(type_id, 0), total_gold),
+            damage_per_gold=(damage.get(type_id, 0) / gold[type_id]) if gold.get(type_id) else None,
             damage_share=_share(damage.get(type_id, 0), total_damage),
             kill_share=_share(kills.get(type_id, 0), total_kills),
         )
-        for type_id in sorted(damage, key=lambda t: damage[t], reverse=True)
+        for type_id in sorted(types, key=lambda t: damage.get(t, 0), reverse=True)
     ]
     return stats
 
