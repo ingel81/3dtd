@@ -79,6 +79,22 @@ input, textarea {
   font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
 }
 
+// Research tree: fills the window and scrolls nowhere but in its own board.
+// The surface of MatDialog scrolls by itself, which puts a second scrollbar
+// around a dialog that is already the size of the screen
+// (panelClass: 'td-research-panel', openResearchDialog).
+.td-research-panel .mdc-dialog__surface {
+  overflow: hidden;
+  border-radius: 0;
+}
+
+.td-research-panel .mat-mdc-dialog-container,
+.td-research-panel .mat-mdc-dialog-content {
+  overflow: hidden;
+  max-height: none;
+  padding: 0;
+}
+
 // Multiline tooltip — refined glass look + structured layout.
 // String content uses tabular spacing; mono face keeps the armor table aligned.
 .td-tooltip-multiline .mdc-tooltip__surface {

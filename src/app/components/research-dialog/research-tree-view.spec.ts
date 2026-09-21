@@ -2,9 +2,12 @@ import { describe, it, expect } from 'vitest';
 import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import type { ActiveResearch, ResearchId } from '../../configs/research/research.types';
 import {
+  buildResearchDetail,
   buildResearchEdges,
   buildResearchNodes,
+  researchBranchCounts,
   researchClickAction,
+  researchProgressCounts,
   type ResearchTreeState,
 } from './research-tree-view';
 
@@ -44,7 +47,8 @@ describe('buildResearchNodes', () => {
   it('shows cost and duration while a node is open, and the missing prerequisite while it is not', () => {
     const open = nodeFor('gatling-tech');
     expect(open.state).toBe('available');
-    expect(open.subtitle).toBe(`${RESEARCH_TREE['gatling-tech'].cost} · ${RESEARCH_TREE['gatling-tech'].duration}s`);
+    expect(open.subtitle).toBe(String(RESEARCH_TREE['gatling-tech'].cost));
+    expect(open.subtitleAside).toBe(`${RESEARCH_TREE['gatling-tech'].duration}s`);
 
     const shut = nodeFor('siege-engineering');
     expect(shut.state).toBe('locked');
@@ -62,7 +66,7 @@ describe('buildResearchNodes', () => {
     );
     expect(node.state).toBe('active');
     expect(node.progress).toBeCloseTo(0.25, 6);
-    expect(node.subtitle).toBe(`${Math.ceil(duration * 0.75)}s left`);
+    expect(node.subtitle).toBe(`${(duration * 0.75).toFixed(1)}s left`);
   });
 
   it('numbers a queued node by its place in the queue', () => {
@@ -74,18 +78,47 @@ describe('buildResearchNodes', () => {
     );
   });
 
-  it('says a click will queue when there is no slot or no credits', () => {
-    const noSlot = nodeFor('gatling-tech', state({ availableSlots: 0 }));
-    expect(noSlot.hint).toContain('Click to queue');
-    const noCredits = nodeFor('gatling-tech', state({ credits: 0 }));
-    expect(noCredits.hint).toContain('Click to queue');
+  it('says why a click will not start it right now', () => {
+    expect(nodeFor('gatling-tech', state({ availableSlots: 0 })).hint).toContain('Every slot is busy');
+    expect(nodeFor('gatling-tech', state({ credits: 0 })).hint).toContain('credits short');
     expect(nodeFor('gatling-tech').hint).toBe(RESEARCH_TREE['gatling-tech'].description);
   });
 
-  it('lets the status icon win over the config icon', () => {
-    expect(nodeFor('siege-engineering').icon).toBe('lock');
-    expect(nodeFor('gatling-tech', state({ completed: new Set(['gatling-tech']) })).icon).toBe('check');
+  it('is poor, not available, when the node is open but the purse is short', () => {
+    const node = nodeFor('gatling-tech', state({ credits: RESEARCH_TREE['gatling-tech'].cost - 1 }));
+    expect(node.state).toBe('poor');
+    expect(node.hint).toContain('1 credits short');
+  });
+
+  it('is pending, not locked, while every missing prerequisite is already under way', () => {
+    expect(nodeFor('siege-engineering', state({ queued: ['gatling-tech'] })).state).toBe('pending');
+    expect(nodeFor('siege-engineering', state({ active: [active('gatling-tech', 15)] })).state).toBe('pending');
+    // Nothing under way: shut is shut.
+    expect(nodeFor('siege-engineering').state).toBe('locked');
+  });
+
+  it('carries the strand of the tree, for the tint and the tally', () => {
+    expect(nodeFor('gatling-tech').branch).toBe('ballistics');
+    expect(nodeFor('ice-magic').branch).toBe('arcane');
+    expect(nodeFor('biology').branch).toBe('biology');
+    expect(nodeFor('mercenary-contract').branch).toBe('engineering');
+  });
+
+  it('keeps its own icon in every state and carries the state beside it', () => {
+    const locked = nodeFor('siege-engineering');
+    expect(locked.icon).toBe(RESEARCH_TREE['siege-engineering'].icon);
+    expect(locked.statusIcon).toBe('lock');
+
+    const done = nodeFor('gatling-tech', state({ completed: new Set(['gatling-tech']) }));
+    expect(done.icon).toBe(RESEARCH_TREE['gatling-tech'].icon);
+    expect(done.statusIcon).toBe('check');
+
     expect(nodeFor('gatling-tech').icon).toBe(RESEARCH_TREE['gatling-tech'].icon);
+  });
+
+  it('gives every research an icon of its own, none used twice', () => {
+    const icons = Object.values(RESEARCH_TREE).map((r) => r.icon);
+    expect(new Set(icons).size).toBe(icons.length);
   });
 });
 
@@ -115,5 +148,62 @@ describe('researchClickAction', () => {
 
   it('does nothing for an id the config does not know', () => {
     expect(researchClickAction('nope' as ResearchId, state())).toBe('none');
+  });
+});
+
+describe('buildResearchDetail', () => {
+  it('gathers what the panel shows, prerequisites with their state', () => {
+    const detail = buildResearchDetail('siege-engineering', state(), 1)!;
+    expect(detail).toMatchObject({
+      id: 'siege-engineering',
+      name: 'Siege Engineering',
+      branchLabel: 'Ballistics',
+      tier: 1,
+      state: 'locked',
+      stateLabel: 'Locked',
+      cost: RESEARCH_TREE['siege-engineering'].cost,
+      duration: RESEARCH_TREE['siege-engineering'].duration,
+      remaining: null,
+      action: 'none',
+    });
+    expect(detail.prerequisites).toEqual([
+      { id: 'gatling-tech', name: 'Gatling Technology', done: false },
+    ]);
+  });
+
+  it('counts what a node opens up', () => {
+    // gatling-tech opens siege-engineering and aa-retrofit
+    expect(buildResearchDetail('gatling-tech', state(), 0)!.opens).toBe(2);
+  });
+
+  it('names the credits still missing, and the place in the queue', () => {
+    const poor = buildResearchDetail('gatling-tech', state({ credits: 100 }), 0)!;
+    expect(poor.state).toBe('poor');
+    expect(poor.missingCredits).toBe(RESEARCH_TREE['gatling-tech'].cost - 100);
+
+    const queued = buildResearchDetail('ice-magic', state({ queued: ['biology', 'ice-magic'] }), 0)!;
+    expect(queued.queuePosition).toBe(2);
+    expect(queued.action).toBe('unqueue');
+  });
+
+  it('is null for an id the config does not know', () => {
+    expect(buildResearchDetail('nope' as ResearchId, state(), 0)).toBeNull();
+  });
+});
+
+describe('the readouts', () => {
+  it('counts researched against the whole tree', () => {
+    expect(researchProgressCounts(state())).toEqual({
+      done: 0,
+      total: Object.keys(RESEARCH_TREE).length,
+    });
+    expect(researchProgressCounts(state({ completed: new Set(['gatling-tech']) })).done).toBe(1);
+  });
+
+  it('tallies every strand, and they add up to the whole tree', () => {
+    const counts = researchBranchCounts(state({ completed: new Set(['gatling-tech']) }));
+    expect(counts.map((c) => c.branch)).toEqual(['ballistics', 'arcane', 'biology', 'engineering']);
+    expect(counts.reduce((sum, c) => sum + c.total, 0)).toBe(Object.keys(RESEARCH_TREE).length);
+    expect(counts.find((c) => c.branch === 'ballistics')!.done).toBe(1);
   });
 });
