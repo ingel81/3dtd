@@ -1,6 +1,10 @@
 // Tech tree: edges as one SVG layer, nodes as buttons on top of it. Both are
 // positioned from the same layout numbers, so nothing here may add offsets of
 // its own; padding and borders live inside the node box.
+//
+// Follows the research-tree design: a node is a plate with its icon, its name
+// and a state flag, cost and time underneath in the mono font, and the whole
+// signal for "you can take this" is the gold edge down its left side.
 
 .td-tech-tree {
   position: relative;
@@ -13,152 +17,407 @@
   pointer-events: none;
 }
 
+// === Edges ===
+// Each one reads from the pair it joins, so a finished chain stays visible as
+// a chain and a shut branch recedes into the board.
+
 .td-tech-edge {
   fill: none;
-  stroke: var(--td-frame-mid);
-  stroke-width: 2;
+  stroke-width: 1.5;
+  transition: opacity 160ms ease;
 
-  &.td-skip {
-    // An edge that runs past a level is thinner and dashed, so it reads as a
-    // detour instead of as a second connection between neighbours.
-    stroke-width: 1.5;
-    stroke-dasharray: 5 4;
+  &.td-edge-locked {
+    stroke: #2a312c;
+    stroke-dasharray: 3 5;
   }
 
-  &.td-dimmed {
-    stroke: var(--td-frame-dark);
+  &.td-edge-open {
+    stroke: var(--td-rune-amber-muted);
+  }
+
+  &.td-edge-done {
+    stroke: var(--td-teal-dark);
+  }
+
+  // Its source is running or queued: the path is coming, not open yet.
+  &.td-edge-pending {
+    stroke: var(--td-teal-dark);
+    stroke-dasharray: 4 6;
+    opacity: 0.75;
+  }
+
+  &.td-edge-active {
+    stroke: var(--td-teal);
+    stroke-dasharray: 7 9;
+    animation: td-tech-flow 1.1s linear infinite;
   }
 }
+
+@keyframes td-tech-flow {
+  to {
+    stroke-dashoffset: -16;
+  }
+}
+
+.td-tech-edge-cap {
+  fill: #2a312c;
+  transition: opacity 160ms ease;
+
+  &.td-edge-done,
+  &.td-edge-active,
+  &.td-edge-pending {
+    fill: var(--td-teal-dark);
+  }
+
+  &.td-edge-open {
+    fill: var(--td-rune-amber);
+  }
+}
+
+// === Node ===
 
 .td-tech-node {
   position: absolute;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  gap: 3px;
+  justify-content: space-between;
   box-sizing: border-box;
-  padding: 8px 10px;
+  padding: 10px 11px 9px;
   text-align: left;
-  font-family: inherit;
+  font-family: var(--td-font-body);
   color: var(--td-text-primary);
-  background: var(--td-panel-main);
-  border: 1px solid var(--td-frame-mid);
-  border-top-color: var(--td-frame-light);
-  border-bottom-color: var(--td-frame-dark);
-  border-radius: 4px;
-  cursor: pointer;
+  background: linear-gradient(180deg, #1c221e, #151a16);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(167, 179, 168, 0.08),
+    0 1px 0 var(--td-panel-shadow);
+  cursor: default;
+  transition:
+    border-color 130ms ease,
+    transform 90ms ease,
+    box-shadow 130ms ease,
+    opacity 160ms ease;
 
   &:focus-visible {
-    outline: 2px solid var(--td-edge-highlight);
+    outline: 1px solid var(--td-edge-highlight);
     outline-offset: 2px;
-  }
-
-  &:not(:disabled):hover {
-    border-color: var(--td-edge-highlight);
-  }
-
-  &:disabled {
-    cursor: default;
   }
 }
 
-.td-tech-node-head {
+.td-tech-node-top {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 9px;
   min-width: 0;
 }
 
-.td-tech-node-icon {
+// Icon plate: its own recessed square, tinted by the strand of the tree.
+.td-tech-node-plate {
   flex: none;
-  color: var(--td-text-secondary);
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  color: var(--td-text-disabled);
+  background: rgba(11, 15, 12, 0.5);
+  border: 1px solid var(--td-frame-dark);
 }
 
 .td-tech-node-title {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--td-text-secondary);
 }
 
-.td-tech-node-sub {
-  font-size: 11px;
-  color: var(--td-text-muted);
+.td-tech-node-flag {
+  flex: none;
+  display: inline-flex;
+  color: var(--td-text-disabled);
+}
+
+.td-tech-node-foot {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-family: var(--td-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.03em;
+  color: var(--td-text-disabled);
+
+  .td-sep {
+    color: #333a34;
+  }
+
+  .td-time {
+    color: var(--td-text-muted);
+  }
 }
 
 .td-tech-node-bar {
+  position: relative;
   display: block;
-  height: 3px;
-  margin-top: 1px;
-  background: var(--td-panel-shadow);
-  border-radius: 2px;
-  overflow: hidden;
+  height: 5px;
+  background: rgba(11, 15, 12, 0.75);
+  border: 1px solid var(--td-teal-dark);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.6);
+
+  i {
+    position: absolute;
+    inset: 0 auto 0 0;
+    background: linear-gradient(180deg, var(--td-teal-light), var(--td-teal) 60%, var(--td-teal-dark));
+    box-shadow: 0 0 8px rgba(107, 182, 164, 0.4);
+  }
 }
 
-.td-tech-node-bar-fill {
-  display: block;
-  height: 100%;
-  background: var(--td-teal);
-}
-
-.td-tech-node-badge {
+// Position in the queue, in the corner of the node.
+.td-tech-node-ord {
   position: absolute;
-  top: -7px;
-  right: -7px;
-  min-width: 18px;
-  padding: 0 5px;
-  font-size: 10px;
-  line-height: 18px;
+  top: -1px;
+  right: -1px;
+  min-width: 20px;
+  padding: 1px 5px;
+  font-family: var(--td-font-mono);
+  font-size: 11px;
+  font-weight: 500;
   text-align: center;
-  color: var(--td-bg-dark);
-  background: var(--td-gold);
-  border-radius: 9px;
+  color: #14180f;
+  background: linear-gradient(180deg, var(--td-gold), var(--td-gold-dark));
+  border: 1px solid var(--td-gold-dark);
 }
 
 // === States ===
-// Each one changes the frame and the title colour, never the box size: a node
-// that grows on hover or on completion would pull away from its edges.
 
-.td-state-completed {
-  border-color: var(--td-green-dark);
-  background: var(--td-panel-secondary);
+// Locked is the resting state: shut, but still readable.
+.td-state-locked,
+.td-state-pending {
+  background: linear-gradient(180deg, #141915, #101410);
+  border-color: #262c27;
 
-  .td-tech-node-title,
-  .td-tech-node-icon {
-    color: var(--td-green);
+  .td-tech-node-title {
+    color: #94a092;
+  }
+
+  .td-tech-node-foot {
+    color: #8a968a;
+
+    .td-sep {
+      color: var(--td-frame-mid);
+    }
+  }
+}
+
+// Open and affordable. The gold left edge carries the whole signal.
+.td-state-available {
+  background: linear-gradient(180deg, #232b25, #191e1a);
+  border-color: var(--td-frame-mid);
+  box-shadow:
+    inset 3px 0 0 var(--td-rune-amber),
+    inset 0 1px 0 rgba(167, 179, 168, 0.12),
+    0 1px 0 var(--td-panel-shadow);
+  cursor: pointer;
+
+  .td-tech-node-title {
+    color: var(--td-text-primary);
+  }
+
+  .td-tech-node-plate {
+    color: var(--td-gold);
+    border-color: var(--td-gold-dark);
+  }
+
+  .td-cost {
+    color: var(--td-gold-light);
+  }
+
+  &:hover {
+    border-color: var(--td-gold-dark);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
+}
+
+// Open, but the purse is short. Same shape, warmer and dimmer.
+.td-state-poor {
+  border-color: #3a332b;
+  box-shadow:
+    inset 3px 0 0 #5c3a24,
+    inset 0 1px 0 rgba(167, 179, 168, 0.1),
+    0 1px 0 var(--td-panel-shadow);
+  cursor: pointer;
+
+  .td-tech-node-title {
+    color: var(--td-text-secondary);
+  }
+
+  .td-tech-node-plate {
+    color: #9b6440;
+    border-color: #5c3a24;
+  }
+
+  .td-cost {
+    color: var(--td-warn-orange);
+  }
+
+  &:hover {
+    border-color: #6e462b;
   }
 }
 
 .td-state-active {
-  border-color: var(--td-teal-dark);
+  background: linear-gradient(180deg, #1b2723, #141d1a);
+  border-color: var(--td-teal);
+  box-shadow:
+    inset 0 1px 0 rgba(143, 217, 198, 0.18),
+    0 0 0 1px rgba(107, 182, 164, 0.14),
+    0 0 22px rgba(107, 182, 164, 0.1),
+    0 1px 0 var(--td-panel-shadow);
 
-  .td-tech-node-title,
-  .td-tech-node-icon {
+  .td-tech-node-title {
     color: var(--td-teal-light);
+  }
+
+  .td-tech-node-plate {
+    color: var(--td-teal-light);
+    background: rgba(107, 182, 164, 0.08);
+    border-color: var(--td-teal-dark);
+  }
+
+  .td-tech-node-foot {
+    color: var(--td-teal);
+  }
+
+  .td-tech-node-flag {
+    color: var(--td-teal-dark);
   }
 }
 
 .td-state-queued {
-  border-color: var(--td-rune-amber);
+  background: linear-gradient(180deg, #22201a, #181712);
+  border-color: var(--td-gold-dark);
+  border-style: dashed;
+  cursor: pointer;
 
   .td-tech-node-title {
     color: var(--td-gold-light);
   }
+
+  .td-tech-node-plate {
+    color: var(--td-gold);
+    border-color: var(--td-gold-dark);
+    border-style: dashed;
+  }
+
+  .td-tech-node-foot {
+    color: var(--td-rune-amber);
+  }
+
+  &:hover {
+    border-color: var(--td-gold);
+  }
+
+  &:active {
+    transform: translateY(1px);
+  }
 }
 
-.td-state-available {
-  border-color: var(--td-gold-dark);
+.td-state-completed {
+  background: linear-gradient(180deg, #18201d, #131916);
+  border-color: #2c3a35;
+
+  .td-tech-node-title {
+    color: #7e9a90;
+  }
+
+  .td-tech-node-plate {
+    color: var(--td-teal-dark);
+    border-color: #2c3a35;
+  }
+
+  .td-tech-node-foot {
+    font-size: 9.5px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: #93aca2;
+  }
 }
 
-.td-state-locked {
-  background: var(--td-panel-secondary);
-  border-color: var(--td-frame-dark);
+// Strand tint on the icon plate, for everything still in play.
+.td-tech-node:not(.td-state-locked):not(.td-state-pending):not(.td-state-completed) {
+  .td-tech-node-plate[data-branch='biology'] {
+    color: #8fa85c;
+    border-color: #4e5c37;
+  }
 
-  .td-tech-node-title,
-  .td-tech-node-sub,
-  .td-tech-node-icon {
-    color: var(--td-text-disabled);
+  .td-tech-node-plate[data-branch='engineering'] {
+    color: #8e9ba8;
+    border-color: #4a5460;
+  }
+
+  .td-tech-node-plate[data-branch='arcane'] {
+    color: var(--td-teal);
+    border-color: var(--td-teal-dark);
+  }
+}
+
+// The node the panel beside the tree is showing.
+.td-sel {
+  border-color: var(--td-frame-light);
+
+  &.td-state-available {
+    border-color: var(--td-gold);
+  }
+
+  &.td-state-active {
+    border-color: var(--td-teal-light);
+  }
+}
+
+// === Hover: light the chain back to the roots ===
+// Everything that is not on the way dims, so a deep research reads as the
+// steps it costs instead of as one price.
+
+.td-focus {
+  .td-tech-node {
+    opacity: 0.3;
+  }
+
+  .td-tech-node.td-rel {
+    opacity: 1;
+  }
+
+  .td-tech-node.td-chain {
+    box-shadow:
+      inset 0 0 0 1px rgba(194, 160, 85, 0.35),
+      inset 0 1px 0 rgba(167, 179, 168, 0.1);
+  }
+
+  .td-tech-edge {
+    opacity: 0.1;
+  }
+
+  .td-tech-edge.td-rel {
+    opacity: 1;
+    stroke: var(--td-gold);
+    stroke-width: 2;
+    stroke-dasharray: none;
+    animation: none;
+  }
+
+  .td-tech-edge-cap {
+    opacity: 0.12;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .td-tech-edge.td-edge-active {
+    animation: none;
   }
 }

@@ -69,29 +69,40 @@ describe('TechTreeComponent', () => {
 
   it('positions every node from the layout, never from the markup order', () => {
     const { buttons } = render();
-    // The completed root sits on level 0, the rest behind it.
-    const left = (b: HTMLButtonElement) => Number.parseFloat(b.style.left);
-    expect(left(buttons[0])).toBe(0);
-    expect(left(buttons[1])).toBeGreaterThan(left(buttons[0]));
+    // Top down: the root sits on the first level, everything else below it.
+    const top = (b: HTMLButtonElement) => Number.parseFloat(b.style.top);
+    expect(top(buttons[0])).toBe(0);
+    expect(top(buttons[1])).toBeGreaterThan(top(buttons[0]));
     expect(buttons.every((b) => b.style.width && b.style.height)).toBe(true);
   });
 
   it('carries the state in the class and in the spoken label', () => {
     const { buttons } = render();
     expect(buttons[0].className).toContain('td-state-completed');
-    expect(buttons[0].getAttribute('aria-label')).toBe('Gatling Technology, completed');
+    expect(buttons[0].getAttribute('aria-label')).toBe('Gatling Technology, researched');
     expect(buttons[1].getAttribute('aria-label')).toBe('Siege Engineering, in progress, 50 percent');
     expect(buttons[2].getAttribute('aria-label')).toBe('Rocketry, queued, position 1');
     expect(buttons[3].getAttribute('aria-label')).toBe('Chaos Rift, locked, Requires: Storm Mastery');
   });
 
-  it('disables what cannot be acted on and leaves the rest clickable', () => {
-    const { buttons } = render();
-    const byId = (id: string) => buttons.find((b) => b.getAttribute('aria-label')!.startsWith(id))!;
-    expect(byId('Gatling').disabled).toBe(true); // completed
-    expect(byId('Siege').disabled).toBe(true); // active
-    expect(byId('Rocketry').disabled).toBe(false); // queued, can be taken out again
-    expect(byId('Chaos').disabled).toBe(false); // locked, the click explains why
+  it('reports every click and leaves the decision to whoever listens', () => {
+    // No node is disabled: the caller decides what a click means, and a
+    // locked one still has to be able to say why it is locked.
+    const { fixture, buttons } = render();
+    const seen: string[] = [];
+    fixture.componentInstance.nodeActivated.subscribe((id) => seen.push(id));
+    for (const button of buttons) button.click();
+    expect(buttons.every((b) => !b.disabled)).toBe(true);
+    expect(seen).toEqual(['root', 'running', 'waiting', 'shut']);
+  });
+
+  it('tells the listener which node the pointer reached, and when it left', () => {
+    const { fixture, host, buttons } = render();
+    const seen: (string | null)[] = [];
+    fixture.componentInstance.nodeFocused.subscribe((id) => seen.push(id));
+    buttons[1].dispatchEvent(new PointerEvent('pointerenter', { bubbles: false }));
+    host.querySelector('.td-tech-tree')!.dispatchEvent(new PointerEvent('pointerleave', { bubbles: false }));
+    expect(seen).toEqual(['running', null]);
   });
 
   it('emits the id of the node that was activated', () => {
@@ -104,7 +115,7 @@ describe('TechTreeComponent', () => {
 
   it('draws the progress bar only while a node is active', () => {
     const { host } = render();
-    const bars = [...host.querySelectorAll('.td-tech-node-bar-fill')] as HTMLElement[];
+    const bars = [...host.querySelectorAll('.td-tech-node-bar i')] as HTMLElement[];
     expect(bars).toHaveLength(1);
     expect(bars[0].style.width).toBe('50%');
   });
