@@ -1,0 +1,164 @@
+// Tech tree: edges as one SVG layer, nodes as buttons on top of it. Both are
+// positioned from the same layout numbers, so nothing here may add offsets of
+// its own; padding and borders live inside the node box.
+
+.td-tech-tree {
+  position: relative;
+}
+
+.td-tech-tree-edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.td-tech-edge {
+  fill: none;
+  stroke: var(--td-frame-mid);
+  stroke-width: 2;
+
+  &.td-skip {
+    // An edge that runs past a level is thinner and dashed, so it reads as a
+    // detour instead of as a second connection between neighbours.
+    stroke-width: 1.5;
+    stroke-dasharray: 5 4;
+  }
+
+  &.td-dimmed {
+    stroke: var(--td-frame-dark);
+  }
+}
+
+.td-tech-node {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 3px;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  text-align: left;
+  font-family: inherit;
+  color: var(--td-text-primary);
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-mid);
+  border-top-color: var(--td-frame-light);
+  border-bottom-color: var(--td-frame-dark);
+  border-radius: 4px;
+  cursor: pointer;
+
+  &:focus-visible {
+    outline: 2px solid var(--td-edge-highlight);
+    outline-offset: 2px;
+  }
+
+  &:not(:disabled):hover {
+    border-color: var(--td-edge-highlight);
+  }
+
+  &:disabled {
+    cursor: default;
+  }
+}
+
+.td-tech-node-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.td-tech-node-icon {
+  flex: none;
+  color: var(--td-text-secondary);
+}
+
+.td-tech-node-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+
+.td-tech-node-sub {
+  font-size: 11px;
+  color: var(--td-text-muted);
+}
+
+.td-tech-node-bar {
+  display: block;
+  height: 3px;
+  margin-top: 1px;
+  background: var(--td-panel-shadow);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.td-tech-node-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--td-teal);
+}
+
+.td-tech-node-badge {
+  position: absolute;
+  top: -7px;
+  right: -7px;
+  min-width: 18px;
+  padding: 0 5px;
+  font-size: 10px;
+  line-height: 18px;
+  text-align: center;
+  color: var(--td-bg-dark);
+  background: var(--td-gold);
+  border-radius: 9px;
+}
+
+// === States ===
+// Each one changes the frame and the title colour, never the box size: a node
+// that grows on hover or on completion would pull away from its edges.
+
+.td-state-completed {
+  border-color: var(--td-green-dark);
+  background: var(--td-panel-secondary);
+
+  .td-tech-node-title,
+  .td-tech-node-icon {
+    color: var(--td-green);
+  }
+}
+
+.td-state-active {
+  border-color: var(--td-teal-dark);
+
+  .td-tech-node-title,
+  .td-tech-node-icon {
+    color: var(--td-teal-light);
+  }
+}
+
+.td-state-queued {
+  border-color: var(--td-rune-amber);
+
+  .td-tech-node-title {
+    color: var(--td-gold-light);
+  }
+}
+
+.td-state-available {
+  border-color: var(--td-gold-dark);
+}
+
+.td-state-locked {
+  background: var(--td-panel-secondary);
+  border-color: var(--td-frame-dark);
+
+  .td-tech-node-title,
+  .td-tech-node-sub,
+  .td-tech-node-icon {
+    color: var(--td-text-disabled);
+  }
+}

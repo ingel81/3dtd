@@ -1,0 +1,46 @@
+<div class="td-tech-tree" [style.width.px]="view().width" [style.height.px]="view().height"
+     role="group" [attr.aria-label]="label()">
+
+  <!-- Edges below the nodes. Decorative: the prerequisites are spoken at the node. -->
+  <svg class="td-tech-tree-edges" [attr.viewBox]="'0 0 ' + view().width + ' ' + view().height"
+       [attr.width]="view().width" [attr.height]="view().height" aria-hidden="true" focusable="false">
+    @for (edge of view().edges; track edge.from + '>' + edge.to) {
+      <path class="td-tech-edge" [class.td-dimmed]="edge.dimmed" [class.td-skip]="edge.skipsLevels"
+            [attr.d]="edge.path" />
+    }
+  </svg>
+
+  @for (node of view().nodes; track node.id) {
+    <button type="button"
+            class="td-tech-node"
+            [class]="'td-state-' + node.state"
+            [style.left.px]="node.x" [style.top.px]="node.y"
+            [style.width.px]="node.width" [style.height.px]="node.height"
+            [disabled]="node.state === 'completed' || node.state === 'active'"
+            [matTooltip]="node.hint ?? ''"
+            [attr.aria-label]="node.title + ', ' + stateLabel(node)"
+            (click)="nodeActivated.emit(node.id)">
+
+      <span class="td-tech-node-head">
+        @if (node.icon) {
+          <td-icon class="td-tech-node-icon" [name]="node.icon" [size]="18" />
+        }
+        <span class="td-tech-node-title">{{ node.title }}</span>
+      </span>
+
+      @if (node.subtitle) {
+        <span class="td-tech-node-sub">{{ node.subtitle }}</span>
+      }
+
+      @if (node.state === 'active') {
+        <span class="td-tech-node-bar" aria-hidden="true">
+          <span class="td-tech-node-bar-fill" [style.width.%]="progressPercent(node.progress)"></span>
+        </span>
+      }
+
+      @if (node.badge) {
+        <span class="td-tech-node-badge" aria-hidden="true">{{ node.badge }}</span>
+      }
+    </button>
+  }
+</div>
