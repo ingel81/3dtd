@@ -25,9 +25,18 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
       Modelle.
 - [ ] **B5 Straßen-Overlay und Intro-Flug auf die eingefrorenen Zellhöhen umstellen?** Beide haben eine eigene
       Höhenabfrage neben dem Korridor (`getStreetHeightEstimate`, Flugprofil).
-- [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut (Begriffe, eine Wellenquelle, Seeds, Run-Log, Bots,
-      Auswertung), offen sind die Baseline-Läufe und Phase 3 (Kampagnenende, Zielbänder, Tuning),
+- [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut, die Baseline steht (354 Läufe, 2026-09-21), sechs
+      Tuning-Runden sind gelaufen. Offen sind die Zielbänder (3b) und das Kampagnenende (3a),
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
+- [ ] **E12 Heilung oder kürzere Kampagne? (Entscheidung, User)** Der Könner verliert in W24-29 je 8 bis 14 HP und
+      nichts heilt; bei 100 Start-HP schließen sich Druck und ein erreichbares Kampagnenende gegenseitig aus. Drei
+      Antworten stehen im Plan (Heilung an Meilensteinen, kürzere Kampagne, so lassen), keine Empfehlung bis zu
+      deinen eigenen Läufen ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Was das Tuning nicht lösen kann").
+      Hängt an D10.
+- [ ] **E13 Ein Tower trägt die Hälfte**: Über 202 Könner-Läufe macht die Kanone 50 bis 54 % des Schadens, danach
+      Dual-Gatling 12-14 %, Gift und Eis je rund 10 %. Der Plan verlangt "kein Typ dominiert". Vor einer Änderung
+      an Preisen oder Werten klären, ob die Bot-Strategie die Kanone überwählt oder ob sie wirklich zu stark ist;
+      E10 (Schaden je Gold je Typ) ist die Zahl, die das entscheidet.
 - [ ] **E10 Schaden je Gold je Tower-Typ** im Run-Bericht: Der Wellenblock kennt die Ausgaben nach Zweck, nicht nach
       Tower-Typ. Bau- und Upgrade-Preise je Typ aus den Ereignissen summieren
       ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), Stand 2c).
