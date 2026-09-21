@@ -46,7 +46,8 @@ describe('researchNodeIcon', () => {
     expect(researchNodeIcon(gatling, 'active')).toBe('refresh');
     expect(researchNodeIcon(gatling, 'queued')).toBe('layers');
     expect(researchNodeIcon(gatling, 'locked')).toBe('lock');
-    expect(researchNodeIcon(gatling, 'available')).toBe('speed');
+    // Whatever glyph the config carries: the status only overrides the others.
+    expect(researchNodeIcon(gatling, 'available')).toBe(gatling.icon);
   });
 });
 

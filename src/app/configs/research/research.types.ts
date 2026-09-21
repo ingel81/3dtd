@@ -9,8 +9,29 @@ import { TowerTypeId } from '../tower-types.config';
 
 // ==================== Research Categories ====================
 
-export const RESEARCH_CATEGORIES = ['tower-unlock', 'global-perk', 'upgrade-tier'] as const;
+/**
+ * `gate` opens other researches and does nothing else: a cheap first step that
+ * gives a branch of the tree one trunk instead of several loose roots.
+ */
+export const RESEARCH_CATEGORIES = ['tower-unlock', 'global-perk', 'upgrade-tier', 'gate'] as const;
 export type ResearchCategory = typeof RESEARCH_CATEGORIES[number];
+
+// ==================== Research Branches ====================
+
+/**
+ * The strand of the tree a research belongs to. Purely how it reads: the tree
+ * tints a node by it and the footer counts per strand. `category` says what a
+ * research does, `branch` says where it lives.
+ */
+export const RESEARCH_BRANCHES = ['ballistics', 'arcane', 'biology', 'engineering'] as const;
+export type ResearchBranch = typeof RESEARCH_BRANCHES[number];
+
+export const RESEARCH_BRANCH_LABEL: Record<ResearchBranch, string> = {
+  ballistics: 'Ballistics',
+  arcane: 'Arcane',
+  biology: 'Biology',
+  engineering: 'Engineering',
+};
 
 // ==================== Research ID ====================
 
@@ -37,6 +58,7 @@ export interface ResearchConfig {
   name: string;
   description: string;
   category: ResearchCategory;
+  branch: ResearchBranch;
   icon: string;                    // Material icon name
   cost: number;                    // Credits
   duration: number;                // Seconds (real-time)

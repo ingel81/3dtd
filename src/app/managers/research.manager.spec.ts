@@ -356,7 +356,8 @@ describe('ResearchManager', () => {
     });
 
     it('lets the head wait for its credits, nothing behind it jumps ahead', () => {
-      const pricier = 'tentacle-biology'; // no prerequisites, costs more than QUEUE_ID
+      const pricier = 'tentacle-biology'; // costs more than QUEUE_ID
+      rm.completeResearch('biology'); // its gate, so it is queueable here
       rm.queueResearch(pricier);
       rm.queueResearch(QUEUE_ID);
       credits = getResearch(pricier)!.cost - 1;
@@ -407,10 +408,12 @@ describe('ResearchManager', () => {
     });
 
     describe('moveQueued', () => {
-      // Three that need nothing, so the queue can hold all of them at once.
+      // Three that are open at once: the biology gate is done, so both behind
+      // it are queueable next to QUEUE_ID.
       const THIRD_ID = 'tentacle-biology';
 
       const queueThree = () => {
+        rm.completeResearch('biology');
         rm.startResearch(NO_PREREQ_ID); // takes the only slot
         rm.queueResearch(QUEUE_ID);
         rm.queueResearch('toxic-compounds');

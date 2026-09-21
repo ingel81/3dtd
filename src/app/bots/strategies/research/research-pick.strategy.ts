@@ -21,6 +21,7 @@ import { TowerAction, BotConfig, BotSkillLevel } from '../../bots/tower-bot.inte
 import {
   getResearch,
   getAllResearchIds,
+  RESEARCH_TREE,
 } from '../../../configs/research/research-tree.config';
 import { ResearchId, ResearchEffect } from '../../../configs/research/research.types';
 import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
@@ -68,6 +69,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'gatling-tech',           // W1 — Dual-Gatling early DPS
       'aa-retrofit',            // by W6 — light air of W7 on the gatlings
       'ice-magic',              // W1-2 — Ice (slow, ethereal-decent later)
+      'biology',                // the gate in front of tentacle and poison
       'tentacle-biology',       // W2-3 — chokepoint melee
       'siege-engineering',      // by W10 — Cannon against heavy and the boss
       'rocketry',               // by W11 — the dragon of W12
@@ -167,6 +169,12 @@ export class ResearchPickStrategy extends BaseStrategy {
       for (const effect of cfg.effects) {
         score += this.scoreEffect(effect, dist, state);
       }
+      // A gate has no effects of its own, so it would score 0 and never be
+      // picked, which would put everything behind it out of reach. It is worth
+      // the best of what it opens, minus a little so a direct unlock wins.
+      if (cfg.effects.length === 0) {
+        score = 0.9 * this.bestScoreBehind(id, dist, state);
+      }
 
       // Anti-Air urgency bump. The retrofit is the broad answer: pierce deals
       // 1.6 against the light swarms that open the air campaign, where the
@@ -182,6 +190,25 @@ export class ResearchPickStrategy extends BaseStrategy {
     }
 
     return bestResearch;
+  }
+
+  /**
+   * The best score among the researches this one unlocks, one level down. Used
+   * for a gate, which carries no effect of its own.
+   */
+  private bestScoreBehind(
+    id: ResearchId,
+    dist: Record<ArmorType, number>,
+    state: GameStateSnapshot,
+  ): number {
+    let best = 0;
+    for (const candidate of Object.values(RESEARCH_TREE)) {
+      if (!candidate.prerequisites.includes(id)) continue;
+      let score = 0;
+      for (const effect of candidate.effects) score += this.scoreEffect(effect, dist, state);
+      best = Math.max(best, score);
+    }
+    return best;
   }
 
   /** True iff the upcoming wave carries air units the rocket is priced for. */
