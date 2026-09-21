@@ -33,17 +33,20 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
       Antworten stehen im Plan (Heilung an Meilensteinen, kürzere Kampagne, so lassen), keine Empfehlung bis zu
       deinen eigenen Läufen ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Was das Tuning nicht lösen kann").
       Hängt an D10.
-- [ ] **E14 Der Überlebbarkeits-Deckel überschätzt die Luftabwehr um rund das Doppelte** (gemessen 2026-09-21,
-      5085 Wellen plus ein Menschenlauf): Sieht man nur Wellen, in denen der Deckel Spielraum versprach (Deckel
-      x1,6 über der Wellengröße), töten Bodenverteidigungen **100 %** der Welle, Luftverteidigungen **50 %**, bei
-      10,9 statt 4,2 HP Verlust. Im Menschenlauf sagte der Deckel bei W8 Hornet Strike "645, not binding", getötet
-      wurden 68 von 175, der Lauf endete dort. Diagnose aus dem Code: `survivableCount` schränkt über
-      `gateDpsPerArmor.air` und `killThroughput.air` korrekt ein, **wer** schießt, aber nicht **wie lange** —
-      `engagementSeconds` rechnet für Luft mit demselben `FAIRNESS_ENGAGEMENT_REACH_M = 60`, obwohl nur die
-      Luftabwehr-Tower diesen Abschnitt überhaupt abdecken. (Nicht die Ursache: Luftgegner folgen derselben Route
-      wie Bodengegner, nur mit Höhenversatz.) Nächster Schritt: Szenario-Test, der eine bekannte Verteidigung gegen
-      eine Luft- und eine Bodenwelle gleicher Größe stellt und Vorhersage gegen echte Kills hält; dann die Reichweite
-      für Luft aus der Abdeckung der Luftabwehr ableiten (`getDefenseReachPercent` liefert das Muster).
+- [ ] **E14 Luftwellen kosten doppelt so viel wie der Deckel verspricht** (gemessen 2026-09-21, 5085 Bot-Wellen
+      plus ein Menschenlauf): In Wellen, in denen der Deckel Spielraum versprach (Deckel x1,6 über der
+      Wellengröße), töten Bodenverteidigungen **100 %** der Welle, Luftverteidigungen **50 %**, bei 10,9 statt
+      4,2 HP Verlust. Im Menschenlauf sagte der Deckel bei W8 Hornet Strike "645, not binding", getötet wurden 68
+      von 175, der Lauf endete dort.
+      **Zwei Erklärungen sind widerlegt**, nicht nur vermutet: Luftgegner fliegen dieselbe Route wie Bodengegner
+      (nur mit Höhenversatz), es liegt also nicht an der Flugbahn. Und die Rechnung des Deckels selbst stimmt:
+      `air-cap-estimate.scenario.spec.ts` stellt sechs Tower, von denen zwei Luft treffen, und der Deckel fordert
+      60 am Boden gegen 15 in der Luft; beide Wellen sterben vollständig. Der Fehler entsteht also nicht in
+      `survivableCount`.
+      **Was der Test wegnimmt und das Feld hat**, in der Reihenfolge, in der es zu prüfen lohnt: die Sichtlinie
+      (im Test als frei gestubbt, echte Luftziele laufen über die Air-LOS-Pipeline, und hohe Häuser brechen sie),
+      der Gegner (die Feldfälle sind zu 43 von 51 Dragon Elite, schnell und zäh zugleich), die Größenordnung
+      (Hunderte statt Dutzende) und die Aufstellung (im Test läuft jeder Gegner an beiden Bogenschützen vorbei).
 - [ ] **E13 Ein Tower trägt die Hälfte**: Über 202 Könner-Läufe macht die Kanone 50 bis 54 % des Schadens, danach
       Dual-Gatling 12-14 %, Gift und Eis je rund 10 %. Der Plan verlangt "kein Typ dominiert". Vor einer Änderung
       an Preisen oder Werten klären, ob die Bot-Strategie die Kanone überwählt oder ob sie wirklich zu stark ist;
