@@ -12,6 +12,27 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       der Dialog füllt den Bildschirm und bringt Warteschlange und Detailpanel mit. Erreichbar über den Knopf im
       Panel, den Knopf im Header und die Taste `Q`. Umsortieren der Warteschlange ist neu (`moveQueued`), der Rest
       war schon da. Design des Claude-Designers umgesetzt, ohne die drei leeren Reiter und die Chips als Filter.
+- [x] **E10 Schaden je Gold je Tower-Typ** (`de9ad71a`, `c7e1e11e`, Nachtest L8): `towerSpending` je Typ im
+      Wellenblock (Format 2), der Python-Bericht rechnet Gold je Lauf, Gold-Anteil und Schaden je Gold. Die
+      Kennzahl beantwortet E13: die Kanone macht 3,56 Schaden je Gold gegen 1,54 beim nächsten Breitband-Tower.
+      Altläufe (Format 1) wertet ein Fallback über die `tower-built`/`tower-upgraded`-Ereignisse aus.
+- [x] **E11 Eine Leiche zu viel im Körper-Abgleich** (`acc90570`, Nachtest L9): Nicht die vermutete
+      `aliveCount`-Drift, sondern deren Ursache: `remove()` nimmt einen geleckten Gegner aus dem Spiel, lässt ihm
+      aber seine HP, und jede Ziel-Prüfung fragt nur `alive`. Ein Tower, der ihn als Ziel hielt, traf ihn weiter,
+      und der letzte Treffer lief den ganzen Kill-Pfad auf einem Körper, der schon als Leck verbucht war. `kill()`
+      weist jetzt ab, was der Manager nicht mehr hält; der Schaden zählt weiter, nur der Kill fällt weg.
+- [x] **H14 Raumindex für `findNearestStreetPoint`** (`3aec8a5a`, `475767cd`, Nachtest L10): Gitter über die
+      Segmente statt linearer Suche, 0,784 ms auf 0,002 ms bei 16402 Segmenten. Antwort identisch, Tie-Break
+      erhalten; einzige Ausnahme ist eine `NaN`-Koordinate, die früher ein beliebiges Segment zurückgab und jetzt
+      `null`. Index je Netz-Objekt in einer `WeakMap`, also nach einem Ortswechsel zwangsläufig neu.
+- [x] **H9 (Teil) `aria-label` an allen Icon-Buttons** (`98c1ca67`, `c8b196ac`, Nachtest L11): Der Teilpunkt war
+      schon erfüllt, alle 53 Icon-Buttons hatten eins. Gebaut wurde, was fehlte: `aria-pressed` an 25 Umschaltern,
+      `role="group"` an sechs mehrdeutigen Gruppen, vier zu dünne Labels geschärft. Der Rest von H9 (Presets,
+      Breakpoints, Touch-Ziele) steht noch offen.
+- [x] **B5 Strassen-Overlay und Intro-Flug behalten ihre eigenen Höhenabfragen** (`5b881751`, Entscheidung): Das
+      Overlay zeichnet bis 100 m neben der Route, dort gibt es keine Korridorzellen, und seine Höhe ist der
+      Vergleichswert für `maxCellAboveStreetM`. Der Flug braucht die Oberkante, die eine Zelle nicht führt, und
+      liest die eingefrorenen Höhen ohnehin. Begründung in ROUTE_CORRIDOR.md.
 - [x] **Biology-Tor, Stränge und ein Glyph je Forschung** (`ca38a937`): Vier gleichwertige Wurzeln wurden drei, der
       organische Zweig hängt hinter `biology` (120, 8 s, neue Kategorie `gate`). Jede Forschung trägt jetzt einen
       Strang (Ballistics, Arcane, Biology, Engineering) und ein eigenes Symbol; vier Icons waren doppelt vergeben.
