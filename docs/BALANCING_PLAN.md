@@ -539,6 +539,53 @@ Hornet Strike und Wraith Storm entfallen in diesem Block; Luft bleibt bei 21, 27
 W13 und W17 davor), schwer bei 22, 25 und 28. Das Wellengold je Wellennummer bleibt unverändert, es ist eine Kurve
 über die Wellennummer, nicht über das Template.
 
+### Tuning-Runden 2 bis 4 (2026-09-21): der späte Kampagnenblock
+
+Gemessen wird nach jeder Änderung mit mindestens 80 Läufen je Bot, bei 50x und abgeschaltetem Rendering.
+
+| | Runde 1 | Runde 2 (Rhythmus) | Runde 3 (Intensität) | Runde 4 (nachgezogen) |
+|---|---|---|---|---|
+| Könner, Median | 25 | 25 | 25 | 25 |
+| Könner, weitester Lauf | 36 | 27 | 34 | **36** |
+| Läufe ab W30 | 0 | 0 | 3 (3 %) | **3 (4 %)** |
+| häufigstes Ende | W26, 29 % | W25, **45 %** | W24, 25 % | W24, **20 %** |
+| Wellen W10-20 mit Schaden | 26 % | 25 % | 24 % | 23 % |
+| Einsteiger, Median | 18 | 21 | 19 | 19 |
+
+**Runde 2, Rhythmus:** Zwei Atempausen in den Block W21-29 gelegt. Halb gelungen. Spider Swarm bei W23 kostete den
+Könner **0,0 HP**, genau wie gedacht. Zombie Horde bei W26, als dieselbe Art Pause gemeint, kostete **15,4 HP**.
+Der Grund ist der Überlebbarkeits-Deckel: Eine Welle, die keinen Konter verlangt, bekommt von ihm einfach eine
+größere Zahl, bis sie wieder wehtut. 458 Zombies sind keine Pause. Die Wand wanderte auf W25 und wurde dort
+schlimmer als vorher (45 % aller Enden auf einer einzigen Welle).
+
+**Runde 3, Intensität je Kampagnenwelle (D3).** Ein Faktor auf die Gegnerzahl, ganz zum Schluss angewendet, also
+auch auf eine Zahl, die der Deckel gesetzt hat. Damit kann die Kampagne zum ersten Mal sagen "diese Welle ist
+leichter gemeint". W25 fiel von 16,3 auf 9,0 HP, die Enden verteilten sich wieder über fünf Wellen, und drei Läufe
+erreichten überhaupt das Kampagnenende.
+
+**Runde 4:** W24 auf 0,85, W26 auf 0,5, W27 auf 0,7. Die Enden verteilen sich weiter (kein Ende über 20 %), die
+Kosten des Blocks W24-27 fallen von 47 auf 40 HP, der weiteste Lauf steigt auf 36.
+
+**Der Ertrag wird klein.** Von Runde 3 auf 4 hat sich der Anteil der Läufe, die W30 erreichen, von 3 % auf 4 %
+bewegt. Weiter zu senken macht das späte Spiel folgenlos, statt es gewinnbar zu machen.
+
+### Was das Tuning nicht lösen kann
+
+Der Könner verliert in W24 bis W29 je 8 bis 14 HP, und **nichts heilt**. Bei 100 Start-HP ist damit vorgezeichnet,
+dass die letzten zehn Wellen nicht alle überlebt werden können, egal wie die einzelnen Wellen eingestellt sind.
+Druck und Erreichbarkeit des Kampagnenendes schließen sich unter dieser Regel gegenseitig aus.
+
+Das ist eine Entwurfsfrage, keine Tuning-Frage, und sie gehört dem User: Der Plan führt Heilung unter den Hebeln
+("Belohnungen: sichtbare Boni, Heilung, Score"), und D10 (Partiedauer) ist offen. Drei mögliche Antworten, ohne
+Empfehlung bis dahin:
+
+1. **Heilung an Meilensteinen**, etwa nach jeder Boss-Welle ein fester Betrag. Macht den Block überlebbar, ohne
+   den Druck je Welle zu senken.
+2. **Kürzere Kampagne**, etwa 20 statt 30 Wellen, mit demselben Bogen.
+3. **So lassen.** Der Könner-Bot ist ein Bot: 20 Tower, kein Held, keine Sicht auf das, was kommt. Ein guter
+   Mensch spielt besser, und 4 % für den Bot können 30 % für einen Menschen heißen. Messbar nur mit deinen
+   eigenen Läufen.
+
 ## 7. Phase 3: Kampagnenende und Tuning
 
 ### 3a Kampagnenende (D2, D9)
