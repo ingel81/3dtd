@@ -33,6 +33,17 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
       Antworten stehen im Plan (Heilung an Meilensteinen, kürzere Kampagne, so lassen), keine Empfehlung bis zu
       deinen eigenen Läufen ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Was das Tuning nicht lösen kann").
       Hängt an D10.
+- [ ] **E14 Der Überlebbarkeits-Deckel überschätzt die Luftabwehr um rund das Doppelte** (gemessen 2026-09-21,
+      5085 Wellen plus ein Menschenlauf): Sieht man nur Wellen, in denen der Deckel Spielraum versprach (Deckel
+      x1,6 über der Wellengröße), töten Bodenverteidigungen **100 %** der Welle, Luftverteidigungen **50 %**, bei
+      10,9 statt 4,2 HP Verlust. Im Menschenlauf sagte der Deckel bei W8 Hornet Strike "645, not binding", getötet
+      wurden 68 von 175, der Lauf endete dort. Diagnose aus dem Code: `survivableCount` schränkt über
+      `gateDpsPerArmor.air` und `killThroughput.air` korrekt ein, **wer** schießt, aber nicht **wie lange** —
+      `engagementSeconds` rechnet für Luft mit demselben `FAIRNESS_ENGAGEMENT_REACH_M = 60`, obwohl nur die
+      Luftabwehr-Tower diesen Abschnitt überhaupt abdecken. (Nicht die Ursache: Luftgegner folgen derselben Route
+      wie Bodengegner, nur mit Höhenversatz.) Nächster Schritt: Szenario-Test, der eine bekannte Verteidigung gegen
+      eine Luft- und eine Bodenwelle gleicher Größe stellt und Vorhersage gegen echte Kills hält; dann die Reichweite
+      für Luft aus der Abdeckung der Luftabwehr ableiten (`getDefenseReachPercent` liefert das Muster).
 - [ ] **E13 Ein Tower trägt die Hälfte**: Über 202 Könner-Läufe macht die Kanone 50 bis 54 % des Schadens, danach
       Dual-Gatling 12-14 %, Gift und Eis je rund 10 %. Der Plan verlangt "kein Typ dominiert". Vor einer Änderung
       an Preisen oder Werten klären, ob die Bot-Strategie die Kanone überwählt oder ob sie wirklich zu stark ist;
