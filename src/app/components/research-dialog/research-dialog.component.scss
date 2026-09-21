@@ -1,52 +1,443 @@
-.td-research-dialog-title {
+@use '../../styles/td-mixins' as mix;
+
+// Research dialog, after the research-tree design: a head bar with the run's
+// numbers, a tier gutter, the tree in a sunken well, queue and detail beside
+// it, a legend below. Chrome bars carry the corner ticks and the bevel, and
+// the well is the only thing that scrolls.
+
+:host {
+  display: block;
+  height: 100%;
+}
+
+.td-rd {
+  box-sizing: border-box;
   display: flex;
-  align-items: baseline;
-  gap: 10px;
+  flex-direction: column;
+  gap: 12px;
+  height: 100%;
+  padding: 18px 20px 16px;
+  font-family: var(--td-font-body);
+  color: var(--td-text-primary);
 }
 
-.td-research-dialog-slots {
-  font-size: 12px;
-  font-weight: 400;
-  color: var(--td-text-muted);
+// Screen readers get the instructions; on screen the legend says it shorter.
+.td-rd-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
-.td-research-dialog-desc {
-  margin: 0 0 12px;
-  font-size: 12px;
-  color: var(--td-text-secondary);
+// === Chrome bar: the frame every strip and panel shares ===
+
+.td-rd-bar {
+  position: relative;
+  background: linear-gradient(180deg, var(--td-panel-main) 0%, var(--td-panel-secondary) 100%);
+  border: 1px solid var(--td-frame-mid);
+  box-shadow:
+    inset 0 1px 0 rgba(167, 179, 168, 0.16),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    0 1px 0 var(--td-panel-shadow);
+
+  // Corner ticks, top left and bottom right.
+  &::before,
+  &::after {
+    content: '';
+    position: absolute;
+    width: 10px;
+    height: 10px;
+    border: 1px solid var(--td-frame-light);
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  &::before {
+    top: -1px;
+    left: -1px;
+    border-right: 0;
+    border-bottom: 0;
+  }
+
+  &::after {
+    right: -1px;
+    bottom: -1px;
+    border-top: 0;
+    border-left: 0;
+  }
 }
 
-.td-research-dialog-columns {
+// === Head ===
+
+.td-rd-head {
+  flex: none;
   display: flex;
-  align-items: flex-start;
-  gap: 16px;
+  align-items: center;
+  gap: 20px;
+  height: 58px;
+  padding: 0 18px;
+
+  h2 {
+    margin: 0;
+    font-family: var(--td-font-display);
+    font-size: 18px;
+    font-weight: 600;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--td-gold-light);
+  }
 }
 
-// The graph keeps its own size, so a tree that outgrows the dialog scrolls
-// here instead of squeezing the nodes out of their edges.
-.td-research-dialog-graph {
-  flex: 1 1 auto;
-  min-width: 0;
-  overflow: auto;
-  padding: 10px 8px 14px;
+.td-rd-seam {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--td-rune-amber-muted), rgba(107, 83, 32, 0.25) 60%, transparent);
 }
 
-.td-research-dialog-queue {
-  flex: 0 0 232px;
-  padding: 10px 12px;
-  background: var(--td-panel-secondary);
+.td-rd-prog {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+
+  > span {
+    font-family: var(--td-font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+  }
+
+  > b {
+    font-family: var(--td-font-mono);
+    font-size: 13px;
+    font-weight: 500;
+  }
+}
+
+// One segment per research, in tree order.
+.td-rd-segs {
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  background: rgba(11, 15, 12, 0.55);
   border: 1px solid var(--td-frame-dark);
-  border-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5);
+
+  i {
+    width: 6px;
+    height: 12px;
+    background: var(--td-panel-main);
+    box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.08);
+  }
+
+  .td-seg-completed {
+    background: linear-gradient(180deg, var(--td-teal-light), var(--td-teal-dark));
+    box-shadow: 0 0 6px rgba(107, 182, 164, 0.35);
+  }
+
+  .td-seg-active {
+    background: linear-gradient(180deg, var(--td-gold-light), var(--td-gold-dark));
+    box-shadow: 0 0 7px rgba(194, 160, 85, 0.4);
+  }
+}
+
+.td-rd-readout {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 14px;
+  background: rgba(11, 15, 12, 0.55);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.1);
+
+  span {
+    font-family: var(--td-font-mono);
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+  }
+
+  b {
+    font-family: var(--td-font-mono);
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  &.td-gold b {
+    color: var(--td-gold-light);
+  }
+}
+
+.td-rd-dia {
+  width: 7px;
+  height: 7px;
+  transform: rotate(45deg);
+  background: var(--td-rune-amber);
+  box-shadow: 0 0 0 1px var(--td-gold-dark);
+}
+
+.td-rd-close {
+  padding: 10px 22px;
+  font-family: var(--td-font-display);
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--td-text-secondary);
+  background: linear-gradient(180deg, var(--td-panel-main), var(--td-panel-secondary));
+  border: 1px solid var(--td-frame-mid);
+  box-shadow:
+    inset 0 1px 0 rgba(167, 179, 168, 0.2),
+    0 2px 0 var(--td-panel-shadow);
+  cursor: pointer;
+  transition: border-color 130ms ease, color 130ms ease;
+
+  &:hover {
+    border-color: var(--td-frame-light);
+    color: var(--td-gold);
+  }
+}
+
+// === Rubric strip ===
+
+.td-rd-tabs {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 13px;
+}
+
+.td-rd-tab {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  font-family: var(--td-font-display);
+  font-size: 12.5px;
+  font-weight: 600;
+  letter-spacing: 0.11em;
+  text-transform: uppercase;
+  color: var(--td-text-secondary);
+  background: linear-gradient(180deg, #1c221e, #151a16);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.08);
+
+  &.td-on {
+    color: var(--td-gold-light);
+    background: linear-gradient(180deg, #242c26, #1a201c);
+    border-color: var(--td-frame-mid);
+    box-shadow:
+      inset 3px 0 0 var(--td-rune-amber),
+      inset 0 1px 0 rgba(167, 179, 168, 0.14);
+  }
+
+  td-icon {
+    color: var(--td-gold);
+  }
+}
+
+// === Body ===
+
+.td-rd-row {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 340px;
+  gap: 12px;
+}
+
+// The board holds both: the tier marks in a lane on the left and the tree
+// beside them. One element, so scrolling or dragging moves them together and
+// a mark can never drift off its row.
+.td-rd-board {
+  position: relative;
+  display: inline-block;
+  padding-left: 56px;
+}
+
+.td-rd-tiers {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 44px;
+  border-right: 1px solid var(--td-frame-dark);
+}
+
+.td-rd-tier {
+  position: absolute;
+  right: 10px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+
+  b {
+    font-family: var(--td-font-display);
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--td-frame-light);
+  }
+
+  i {
+    font-family: var(--td-font-mono);
+    font-size: 8.5px;
+    font-style: normal;
+    letter-spacing: 0.2em;
+    color: var(--td-text-disabled);
+  }
+
+  // The tick that ties the mark to its row.
+  &::after {
+    content: '';
+    position: absolute;
+    top: 9px;
+    right: -14px;
+    width: 9px;
+    height: 1px;
+    background: var(--td-frame-mid);
+  }
+
+  &.td-on b {
+    color: var(--td-gold);
+  }
+
+  &.td-on i {
+    color: var(--td-rune-amber);
+  }
+}
+
+.td-rd-dots {
+  display: flex;
+  gap: 2px;
+  margin-top: 2px;
+
+  u {
+    width: 4px;
+    height: 4px;
+    transform: rotate(45deg);
+    background: #2a312c;
+    text-decoration: none;
+  }
+
+  .td-dot-completed {
+    background: var(--td-teal-dark);
+  }
+
+  .td-dot-available,
+  .td-dot-poor,
+  .td-dot-active,
+  .td-dot-queued {
+    background: var(--td-rune-amber);
+  }
+}
+
+// The well: the tree lies in it, and it is the only thing that scrolls.
+.td-rd-well {
+  position: relative;
+  overflow: auto;
+  padding: 24px;
+  background-color: #0d110e;
+  // Blueprint grid, barely there: gives the board a surface to lie on.
+  background-image:
+    linear-gradient(rgba(167, 179, 168, 0.028) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(167, 179, 168, 0.028) 1px, transparent 1px);
+  background-size: 100% 40px, 40px 100%;
+  border: 1px solid var(--td-frame-mid);
+  box-shadow:
+    inset 0 2px 8px rgba(0, 0, 0, 0.6),
+    inset 0 1px 0 rgba(167, 179, 168, 0.06);
+  @include mix.scrollbar;
+
+  &::-webkit-scrollbar {
+    @include mix.webkit-scrollbar;
+  }
+
+  &::-webkit-scrollbar-track {
+    @include mix.webkit-scrollbar-track;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    @include mix.webkit-scrollbar-thumb;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    @include mix.webkit-scrollbar-thumb-hover;
+  }
+
+  &::-webkit-scrollbar-corner {
+    @include mix.webkit-scrollbar-corner;
+  }
+}
+
+// === Right column ===
+
+.td-rd-side {
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.td-rd-panhead {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 9px 13px;
+  background: linear-gradient(180deg, rgba(47, 54, 49, 0.55), rgba(26, 31, 27, 0.55));
+  border-bottom: 1px solid var(--td-panel-shadow);
+  box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.12);
 
   h3 {
     margin: 0;
-    font-size: 12px;
-    letter-spacing: 0.04em;
+    font-family: var(--td-font-display);
+    font-size: 12.5px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
     text-transform: uppercase;
-    color: var(--td-text-secondary);
+    color: var(--td-gold-light);
+  }
+}
+
+.td-rd-r {
+  margin-left: auto;
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.td-rd-panbody {
+  padding: 13px;
+}
+
+// Queue
+.td-rd-queue {
+  flex: none;
+  max-height: 46%;
+  display: flex;
+  flex-direction: column;
+
+  .td-rd-panbody {
+    min-height: 0;
+    overflow: auto;
+    @include mix.scrollbar;
   }
 
   ol {
+    display: flex;
+    flex-direction: column;
+    gap: 7px;
     margin: 0;
     padding: 0;
     list-style: none;
@@ -55,68 +446,495 @@
   li {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 4px 0;
-    font-size: 12px;
+    gap: 9px;
+    padding: 8px 9px;
+    background: rgba(11, 15, 12, 0.4);
+    border: 1px dashed var(--td-frame-dark);
+    box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.07);
+  }
+
+  // The glyph decides the box, not the other way round: a 12px icon needs
+  // more than 10px of height or it sits off centre.
+  button {
+    flex: none;
+    display: grid;
+    place-items: center;
+    width: 20px;
+    height: 13px;
+    padding: 0;
+    line-height: 0;
+    color: var(--td-text-muted);
+    background: rgba(11, 15, 12, 0.5);
+    border: 1px solid var(--td-frame-dark);
+    cursor: pointer;
+    transition: border-color 120ms ease, color 120ms ease;
+
+    &:hover:not(:disabled) {
+      border-color: var(--td-frame-light);
+      color: var(--td-gold);
+    }
+
+    &:disabled {
+      opacity: 0.35;
+      cursor: default;
+    }
   }
 }
 
-.td-research-dialog-queue-note {
-  margin: 2px 0 8px;
+.td-rd-hint {
+  margin: 0 0 10px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: var(--td-text-muted);
+}
+
+.td-rd-empty {
+  margin: 0;
+  padding: 14px 10px;
+  font-family: var(--td-font-mono);
   font-size: 11px;
-  color: var(--td-text-muted);
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+  color: var(--td-text-disabled);
+  border: 1px dashed var(--td-frame-dark);
 }
 
-.td-research-queue-pos {
+.td-rd-qn {
   flex: none;
-  width: 16px;
-  color: var(--td-text-muted);
+  width: 19px;
+  height: 19px;
+  display: grid;
+  place-items: center;
+  font-family: var(--td-font-mono);
+  font-size: 10.5px;
+  color: var(--td-gold);
+  background: rgba(11, 15, 12, 0.6);
+  border: 1px solid var(--td-gold-dark);
 }
 
-.td-research-queue-name {
-  flex: 1 1 auto;
+.td-rd-qi {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  display: grid;
+  place-items: center;
+  color: var(--td-rune-amber);
+  background: rgba(11, 15, 12, 0.5);
+  border: 1px solid var(--td-frame-dark);
+}
+
+.td-rd-qname {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  font-size: 12.5px;
+  color: var(--td-text-secondary);
 }
 
-.td-research-queue-cost {
-  flex: none;
-  color: var(--td-gold);
+.td-rd-qcost {
+  font-family: var(--td-font-mono);
+  font-size: 11.5px;
+  color: var(--td-rune-amber);
 
   &.td-short {
-    color: var(--td-health-red);
+    color: var(--td-warn-orange);
   }
 }
 
-.td-research-queue-btn {
-  flex: none;
-  display: inline-flex;
-  padding: 2px;
-  color: var(--td-text-muted);
-  background: none;
-  border: none;
-  cursor: pointer;
+.td-rd-qmove {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
 
-  &:hover:not(:disabled) {
-    color: var(--td-text-primary);
-  }
+.td-rd-queue .td-rd-qx {
+  // As tall as the two move buttons and the gap between them.
+  height: 27px;
+  width: 22px;
 
-  &:disabled {
-    opacity: 0.35;
-    cursor: default;
+  &:hover {
+    border-color: #6e462b;
+    color: var(--td-warn-orange);
   }
 }
 
-@media (max-width: 900px) {
-  .td-research-dialog-columns {
+// Detail panel
+.td-rd-insp {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+
+  .td-rd-panbody {
+    flex: 1;
+    min-height: 0;
+    display: flex;
     flex-direction: column;
+    gap: 12px;
+    overflow: auto;
+    @include mix.scrollbar;
+  }
+}
+
+.td-rd-id {
+  display: flex;
+  align-items: flex-start;
+  gap: 11px;
+
+  h4 {
+    margin: 0;
+    font-family: var(--td-font-display);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1.2;
+  }
+}
+
+.td-rd-idico {
+  flex: none;
+  width: 46px;
+  height: 46px;
+  display: grid;
+  place-items: center;
+  color: var(--td-gold);
+  background: rgba(11, 15, 12, 0.5);
+  border: 1px solid var(--td-frame-mid);
+  box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.1);
+
+  &[data-branch='arcane'] {
+    color: var(--td-teal);
   }
 
-  .td-research-dialog-queue {
-    flex: 1 1 auto;
-    width: 100%;
-    box-sizing: border-box;
+  &[data-branch='biology'] {
+    color: #8fa85c;
+  }
+
+  &[data-branch='engineering'] {
+    color: #8e9ba8;
+  }
+}
+
+.td-rd-idcat {
+  margin: 4px 0 0;
+  font-family: var(--td-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.td-rd-state {
+  display: inline-flex;
+  align-self: flex-start;
+  align-items: center;
+  gap: 7px;
+  padding: 4px 9px;
+  font-family: var(--td-font-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+  border: 1px solid var(--td-frame-dark);
+
+  .td-rd-dot {
+    width: 5px;
+    height: 5px;
+    transform: rotate(45deg);
+    background: currentcolor;
+  }
+
+  &[data-s='available'] {
+    color: var(--td-gold);
+    border-color: var(--td-gold-dark);
+  }
+
+  &[data-s='active'] {
+    color: var(--td-teal);
+    border-color: var(--td-teal-dark);
+  }
+
+  &[data-s='queued'] {
+    color: var(--td-rune-amber);
+    border-color: var(--td-gold-dark);
+  }
+
+  &[data-s='completed'] {
+    color: #6e8c82;
+    border-color: #2c3a35;
+  }
+
+  &[data-s='poor'] {
+    color: var(--td-warn-orange);
+    border-color: #5c3a24;
+  }
+}
+
+.td-rd-eff {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--td-text-secondary);
+}
+
+.td-rd-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1px;
+  background: var(--td-frame-dark);
+  border: 1px solid var(--td-frame-dark);
+
+  div {
+    padding: 9px 11px;
+    background: var(--td-panel-secondary);
+  }
+
+  span {
+    display: block;
+    font-family: var(--td-font-mono);
+    font-size: 9px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+  }
+
+  b {
+    display: block;
+    margin-top: 3px;
+    font-family: var(--td-font-mono);
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .td-gold {
+    color: var(--td-gold-light);
+  }
+
+  .td-warn {
+    color: var(--td-warn-orange);
+  }
+}
+
+.td-rd-lab {
+  margin: 0 0 6px;
+  font-family: var(--td-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.td-rd-req {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+
+  li {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 12.5px;
+    color: var(--td-text-muted);
+  }
+
+  b {
+    width: 12px;
+    text-align: center;
+    font-family: var(--td-font-mono);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  .td-ok {
+    color: var(--td-text-secondary);
+
+    b {
+      color: var(--td-teal);
+    }
+  }
+
+  .td-no b {
+    color: var(--td-warn-orange);
+  }
+}
+
+.td-rd-act {
+  margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.td-rd-btn {
+  width: 100%;
+  padding: 11px;
+  font-family: var(--td-font-display);
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  color: #14180f;
+  background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 52%, var(--td-gold-dark) 100%);
+  border: 1px solid var(--td-gold-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.5),
+    0 2px 0 #4a3a12;
+  cursor: pointer;
+  transition: filter 120ms ease, transform 90ms ease;
+
+  &:hover {
+    filter: brightness(1.08);
+  }
+
+  &:active {
+    transform: translateY(1px);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 244, 214, 0.4),
+      0 1px 0 #4a3a12;
+  }
+
+  &.td-ghost {
+    color: var(--td-text-secondary);
+    font-weight: 600;
+    background: linear-gradient(180deg, var(--td-panel-main), var(--td-panel-secondary));
+    border-color: var(--td-frame-mid);
+    box-shadow:
+      inset 0 1px 0 rgba(167, 179, 168, 0.2),
+      0 2px 0 var(--td-panel-shadow);
+
+    &:hover {
+      color: var(--td-gold);
+      border-color: var(--td-frame-light);
+      filter: none;
+    }
+  }
+}
+
+.td-rd-note {
+  margin: 0;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: var(--td-text-muted);
+}
+
+// === Footer ===
+
+.td-rd-foot {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  height: 46px;
+  padding: 0 18px;
+}
+
+.td-rd-legend {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+
+  i {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    font-family: var(--td-font-mono);
+    font-size: 9.5px;
+    font-style: normal;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+  }
+
+  i::before {
+    content: '';
+    width: 16px;
+    height: 2px;
+    background: var(--td-frame-mid);
+  }
+
+  .td-l-done::before {
+    background: var(--td-teal-dark);
+  }
+
+  .td-l-act::before {
+    background: var(--td-teal);
+  }
+
+  .td-l-open::before {
+    background: var(--td-rune-amber);
+  }
+
+  .td-l-lock::before {
+    background: repeating-linear-gradient(90deg, var(--td-frame-mid) 0 3px, transparent 3px 8px);
+  }
+}
+
+.td-rd-chips {
+  display: flex;
+  gap: 7px;
+  padding-left: 20px;
+  border-left: 1px solid var(--td-frame-dark);
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px;
+    font-family: var(--td-font-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+    background: rgba(11, 15, 12, 0.4);
+    border: 1px solid var(--td-frame-dark);
+    box-shadow: inset 0 1px 0 rgba(167, 179, 168, 0.07);
+  }
+
+  span::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    transform: rotate(45deg);
+    background: var(--td-gold);
+  }
+
+  span[data-branch='arcane']::before {
+    background: var(--td-teal);
+  }
+
+  span[data-branch='biology']::before {
+    background: #8fa85c;
+  }
+
+  span[data-branch='engineering']::before {
+    background: #8e9ba8;
+  }
+
+  b {
+    font-size: 10px;
+    font-weight: 400;
+    color: var(--td-text-secondary);
+  }
+}
+
+.td-rd-foothint {
+  margin-left: auto;
+  font-size: 12.5px;
+  color: var(--td-text-muted);
+}
+
+// Narrow window: the board keeps the room, the side column steps aside.
+@media (max-width: 1100px) {
+  .td-rd-row {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .td-rd-side {
+    display: none;
   }
 }

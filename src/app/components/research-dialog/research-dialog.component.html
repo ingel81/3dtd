@@ -1,50 +1,207 @@
-<h2 mat-dialog-title [id]="titleId" class="td-research-dialog-title">
-  Research
-  <span class="td-research-dialog-slots">Slots {{ slotsUsed() }}/{{ slotsTotal() }}</span>
-</h2>
+<div class="td-rd">
 
-<mat-dialog-content class="td-research-dialog-body">
-  <p [id]="descId" class="td-research-dialog-desc">
-    A research needs every one it is connected to on its left. Click an open node to start it, or to
-    put it in the queue when no slot is free; the credits are charged when it starts.
+  <!-- Head: what the run has done, and what it can spend -->
+  <header class="td-rd-bar td-rd-head">
+    <h2 [id]="titleId">Research</h2>
+    <div class="td-rd-prog">
+      <span>Researched</span>
+      <b>{{ progress().done }}/{{ progress().total }}</b>
+      <span class="td-rd-segs" aria-hidden="true">
+        @for (state of segments(); track $index) {
+          <i [class]="'td-seg-' + state"></i>
+        }
+      </span>
+    </div>
+    <span class="td-rd-seam"></span>
+    <div class="td-rd-readout"><span>Slots</span><b>{{ slotsUsed() }}/{{ slotsTotal() }}</b></div>
+    <div class="td-rd-readout td-gold">
+      <span class="td-rd-dia" aria-hidden="true"></span><span>Credits</span><b>{{ credits() }}</b>
+    </div>
+    <button type="button" class="td-rd-close" mat-dialog-close>Close</button>
+  </header>
+
+  <!-- One rubric so far. The strip is here because the tree is one of several
+       things a run researches, and the others get a tab beside this one. -->
+  <div class="td-rd-bar td-rd-tabs">
+    <span class="td-rd-tab td-on" aria-current="true">
+      <td-icon name="tower" [size]="17" />Tower Tech
+    </span>
+  </div>
+
+  <p [id]="descId" class="td-rd-sr">
+    A research needs every one connected above it. Click an open node to start it, or to put it in
+    the queue when no slot is free; the credits are charged when it starts. Drag the graph to move it.
   </p>
 
-  <div class="td-research-dialog-columns">
-    <div class="td-research-dialog-graph">
-      <td-tech-tree [nodes]="nodes()" [edges]="edges" label="Research tree"
-                    (nodeActivated)="onNodeActivated($event)" />
+  <div class="td-rd-row">
+
+    <!-- The board: tier marks and the tree scroll and drag as one -->
+    <div class="td-rd-well" tdDragScroll>
+      <div class="td-rd-board">
+        <div class="td-rd-tiers" aria-hidden="true">
+          @for (tier of tiers(); track $index) {
+            <div class="td-rd-tier" [class.td-on]="tier.open" [style.top.px]="tier.top">
+              <b>{{ tier.numeral }}</b>
+              <i>Tier</i>
+              <span class="td-rd-dots">
+                @for (dot of tier.dots; track $index) {
+                  <u [class]="'td-dot-' + dot"></u>
+                }
+              </span>
+            </div>
+          }
+        </div>
+        <td-tech-tree [nodes]="nodes()" [edges]="edges" [orientation]="orientation"
+                      [selectedId]="selectedId()" label="Research tree"
+                      (nodeActivated)="onNodeActivated($event)" (nodeFocused)="onNodeFocused($event)" />
+      </div>
     </div>
 
-    @if (queue().length > 0) {
-      <aside class="td-research-dialog-queue" aria-labelledby="td-research-queue-heading">
-        <h3 id="td-research-queue-heading">Queue</h3>
-        <p class="td-research-dialog-queue-note">Starts in this order, paid at the start.</p>
-        <ol>
-          @for (id of queue(); track id; let i = $index; let first = $first; let last = $last) {
-            <li>
-              <span class="td-research-queue-pos">{{ i + 1 }}</span>
-              <span class="td-research-queue-name">{{ researchName(id) }}</span>
-              <span class="td-research-queue-cost" [class.td-short]="tooShort(id)">{{ researchCost(id) }}</span>
-              <button type="button" class="td-research-queue-btn" [disabled]="first"
-                      [attr.aria-label]="'Move up: ' + researchName(id)" (click)="onMove(id, -1)">
-                <td-icon name="caretU" [size]="14" />
-              </button>
-              <button type="button" class="td-research-queue-btn" [disabled]="last"
-                      [attr.aria-label]="'Move down: ' + researchName(id)" (click)="onMove(id, 1)">
-                <td-icon name="caret" [size]="14" />
-              </button>
-              <button type="button" class="td-research-queue-btn"
-                      [attr.aria-label]="'Remove from queue: ' + researchName(id)" (click)="onUnqueue(id)">
-                <td-icon name="cross" [size]="14" />
-              </button>
-            </li>
+    <!-- Queue above, detail below -->
+    <div class="td-rd-side">
+      <section class="td-rd-bar td-rd-queue" aria-labelledby="td-research-queue-heading">
+        <div class="td-rd-panhead">
+          <h3 id="td-research-queue-heading">Queue</h3>
+          <span class="td-rd-r">{{ queue().length ? queue().length + ' pending' : 'empty' }}</span>
+        </div>
+        <div class="td-rd-panbody">
+          @if (queue().length === 0) {
+            <p class="td-rd-empty">Nothing queued</p>
+          } @else {
+            <p class="td-rd-hint">
+              Starts in this order. Credits are charged when a research begins, and an entry waits
+              until you can pay for it.
+            </p>
+            <ol>
+              @for (id of queue(); track id; let i = $index; let first = $first; let last = $last) {
+                <li>
+                  <span class="td-rd-qn">{{ i + 1 }}</span>
+                  <span class="td-rd-qi"><td-icon [name]="$any(researchIcon(id))" [size]="17" /></span>
+                  <span class="td-rd-qname">{{ researchName(id) }}</span>
+                  <span class="td-rd-qcost" [class.td-short]="tooShort(id)">{{ researchCost(id) }}</span>
+                  <span class="td-rd-qmove">
+                    <button type="button" [disabled]="first"
+                            [attr.aria-label]="'Move up: ' + researchName(id)" (click)="onMove(id, -1)">
+                      <td-icon name="caretU" [size]="12" />
+                    </button>
+                    <button type="button" [disabled]="last"
+                            [attr.aria-label]="'Move down: ' + researchName(id)" (click)="onMove(id, 1)">
+                      <td-icon name="caret" [size]="12" />
+                    </button>
+                  </span>
+                  <button type="button" class="td-rd-qx"
+                          [attr.aria-label]="'Remove from queue: ' + researchName(id)" (click)="onUnqueue(id)">
+                    <td-icon name="cross" [size]="13" />
+                  </button>
+                </li>
+              }
+            </ol>
           }
-        </ol>
-      </aside>
-    }
-  </div>
-</mat-dialog-content>
+        </div>
+      </section>
 
-<mat-dialog-actions align="end">
-  <button type="button" class="td-dialog-close-btn" mat-dialog-close>Close</button>
-</mat-dialog-actions>
+      <section class="td-rd-bar td-rd-insp" aria-live="polite">
+        <div class="td-rd-panhead">
+          <h3>Detail</h3>
+          @if (detail()) {
+            <span class="td-rd-r">Tier {{ tierNumeral() }}</span>
+          }
+        </div>
+        <div class="td-rd-panbody">
+          @if (detail(); as d) {
+            <div class="td-rd-id">
+              <span class="td-rd-idico" [attr.data-branch]="d.branch"><td-icon [name]="d.icon" [size]="27" /></span>
+              <div>
+                <h4>{{ d.name }}</h4>
+                <p class="td-rd-idcat">{{ d.branchLabel }} · Tier {{ tierNumeral() }}</p>
+              </div>
+            </div>
+
+            <span class="td-rd-state" [attr.data-s]="d.state">
+              <span class="td-rd-dot" aria-hidden="true"></span>{{ d.stateLabel }}
+            </span>
+
+            <p class="td-rd-eff">{{ d.effect }}</p>
+
+            <div class="td-rd-stats">
+              @if (d.state === 'active' && d.remaining !== null) {
+                <div><span>Remaining</span><b>{{ d.remaining.toFixed(1) }}s</b></div>
+                <div><span>Paid</span><b class="td-gold">{{ d.cost }}</b></div>
+              } @else {
+                <div>
+                  <span>Cost</span>
+                  <b [class.td-gold]="d.state !== 'poor'" [class.td-warn]="d.state === 'poor'">{{ d.cost }}</b>
+                </div>
+                <div><span>Time</span><b>{{ d.duration }}s</b></div>
+              }
+            </div>
+
+            @if (d.prerequisites.length > 0) {
+              <div>
+                <p class="td-rd-lab">Requires</p>
+                <ul class="td-rd-req">
+                  @for (req of d.prerequisites; track req.id) {
+                    <li [class.td-ok]="req.done" [class.td-no]="!req.done">
+                      <b>{{ req.done ? '✓' : '·' }}</b>{{ req.name }}
+                    </li>
+                  }
+                </ul>
+              </div>
+            }
+
+            <div class="td-rd-act">
+              @switch (d.action) {
+                @case ('start') {
+                  <button type="button" class="td-rd-btn" (click)="onDetailAction()">Start research</button>
+                }
+                @case ('queue') {
+                  <button type="button" class="td-rd-btn" (click)="onDetailAction()">Add to queue</button>
+                  @if (slotsUsed() >= slotsTotal()) {
+                    <p class="td-rd-note">Every slot is busy, so this starts once one is free.</p>
+                  } @else {
+                    <p class="td-rd-note">
+                      {{ d.missingCredits }} credits short. Costs are charged the moment a research starts.
+                    </p>
+                  }
+                }
+                @case ('unqueue') {
+                  <button type="button" class="td-rd-btn td-ghost" (click)="onDetailAction()">
+                    Remove from queue
+                  </button>
+                  <p class="td-rd-note">Position {{ d.queuePosition }} in the queue.</p>
+                }
+                @default {
+                  @if (d.state === 'active' && d.remaining !== null) {
+                    <p class="td-rd-note">Finishes in {{ d.remaining.toFixed(1) }} seconds.</p>
+                  } @else if (d.state === 'completed') {
+                    <p class="td-rd-note">Active for the rest of the run.</p>
+                  } @else {
+                    <p class="td-rd-note">Research everything connected above this node first.</p>
+                  }
+                }
+              }
+            </div>
+          } @else {
+            <p class="td-rd-note">Point at a node to see what it does.</p>
+          }
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <!-- Legend and the tally per strand -->
+  <footer class="td-rd-bar td-rd-foot">
+    <div class="td-rd-legend">
+      <i class="td-l-done">Researched</i>
+      <i class="td-l-act">In progress</i>
+      <i class="td-l-open">Open path</i>
+      <i class="td-l-lock">Locked</i>
+    </div>
+    <div class="td-rd-chips">
+      @for (branch of branches(); track branch.branch) {
+        <span [attr.data-branch]="branch.branch">{{ branch.label }} <b>{{ branch.done }}/{{ branch.total }}</b></span>
+      }
+    </div>
+    <p class="td-rd-foothint">Point at a node to trace its path</p>
+  </footer>
+</div>

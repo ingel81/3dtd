@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { MatDialogModule } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { getResearch } from '../../configs/research/research-tree.config';
@@ -8,16 +8,24 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { TechTreeComponent } from '../tech-tree/tech-tree.component';
+import { DragScrollDirective } from '../tech-tree/drag-scroll.directive';
+import { buildTechTreeView, TECH_TREE_METRICS } from '../tech-tree/tech-tree-view';
 import { RESEARCH_DIALOG_DESC_ID, RESEARCH_DIALOG_TITLE_ID } from './open-research-dialog';
 import {
+  buildResearchDetail,
   buildResearchEdges,
   buildResearchNodes,
+  researchBranchCounts,
   researchClickAction,
+  researchProgressCounts,
   type ResearchTreeState,
 } from './research-tree-view';
 
+/** Tier numerals for the gutter. Deeper than this is not in the tree. */
+const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
+
 /**
- * The research tree as a graph, with the queue beside it.
+ * The research tree as a graph, with the queue and a detail panel beside it.
  *
  * This is where a research is picked; the sidebar panel keeps the status and
  * the building itself. Everything it shows follows the store, so a research
@@ -30,7 +38,7 @@ import {
 @Component({
   selector: 'app-research-dialog',
   standalone: true,
-  imports: [MatDialogModule, TdIconComponent, TechTreeComponent],
+  imports: [MatDialogModule, TdIconComponent, TechTreeComponent, DragScrollDirective],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './research-dialog.component.html',
   styleUrl: './research-dialog.component.scss',
@@ -49,6 +57,11 @@ export class ResearchDialogComponent {
   readonly descId = RESEARCH_DIALOG_DESC_ID;
 
   readonly edges = buildResearchEdges();
+  /** Top down: the roots on top, every prerequisite above what it opens. */
+  readonly orientation = 'vertical' as const;
+
+  /** The node the detail panel shows. Follows the pointer, stays on leave. */
+  protected readonly selectedId = signal<ResearchId | null>(null);
 
   protected readonly treeState = computed<ResearchTreeState>(() => ({
     completed: this.research.completedResearches(),
@@ -61,11 +74,68 @@ export class ResearchDialogComponent {
 
   protected readonly nodes = computed(() => buildResearchNodes(this.treeState()));
   protected readonly queue = this.research.queuedResearches;
+  protected readonly credits = this.store.credits;
   protected readonly slotsUsed = computed(() => this.research.activeResearches().length);
   protected readonly slotsTotal = this.research.researchSlots;
+  protected readonly progress = computed(() => researchProgressCounts(this.treeState()));
+  protected readonly branches = computed(() => researchBranchCounts(this.treeState()));
+
+  /**
+   * The same layout the tree component builds. Computed once here because the
+   * tier gutter and the detail panel both need to know how deep a node sits.
+   */
+  private readonly view = computed(() => buildTechTreeView(this.nodes(), this.edges, this.orientation));
+
+  /** Levels of the laid-out graph, for the tier gutter beside the well. */
+  protected readonly tiers = computed(() => {
+    const view = this.view();
+    const byId = new Map(this.nodes().map((n) => [n.id, n]));
+    const pitch = TECH_TREE_METRICS.nodeHeight + TECH_TREE_METRICS.levelGap;
+    return view.levels.map((ids, index) => ({
+      numeral: ROMAN[index] ?? String(index + 1),
+      // Sits at the top of its own row, so the mark and the nodes line up
+      // however far the board is scrolled or dragged.
+      top: index * pitch,
+      // One diamond per node on the level, lit by what is going on there.
+      dots: ids.map((id) => byId.get(id)!.state),
+      open: ids.some((id) => {
+        const state = byId.get(id)!.state;
+        return state === 'available' || state === 'poor' || state === 'active' || state === 'queued';
+      }),
+    }));
+  });
+
+  /** One segment per research, in tree order: the run's progress at a glance. */
+  protected readonly segments = computed(() => this.nodes().map((n) => n.state));
+
+  protected readonly detail = computed(() => {
+    const id = this.selectedId();
+    if (!id) return null;
+    const tier = this.nodes().length ? this.tierOf(id) : 0;
+    return buildResearchDetail(id, this.treeState(), tier);
+  });
+
+  protected readonly tierNumeral = computed(() => {
+    const detail = this.detail();
+    return detail ? (ROMAN[detail.tier] ?? String(detail.tier + 1)) : '';
+  });
+
+  protected onNodeFocused(id: string | null): void {
+    if (id) this.selectedId.set(id as ResearchId);
+  }
 
   protected onNodeActivated(id: string): void {
-    const researchId = id as ResearchId;
+    this.selectedId.set(id as ResearchId);
+    this.runAction(id as ResearchId);
+  }
+
+  /** The button in the detail panel does what a click on the node would do. */
+  protected onDetailAction(): void {
+    const id = this.selectedId();
+    if (id) this.runAction(id);
+  }
+
+  private runAction(researchId: ResearchId): void {
     switch (researchClickAction(researchId, this.treeState())) {
       case 'start':
         this.facade.emitCommand({ type: 'command:start-research', researchId });
@@ -99,11 +169,19 @@ export class ResearchDialogComponent {
     return getResearch(id)?.name ?? id;
   }
 
+  protected researchIcon(id: ResearchId): string {
+    return getResearch(id)?.icon ?? 'flask';
+  }
+
   protected researchCost(id: ResearchId): number {
     return getResearch(id)?.cost ?? 0;
   }
 
   protected tooShort(id: ResearchId): boolean {
     return this.store.credits() < this.researchCost(id);
+  }
+
+  private tierOf(id: ResearchId): number {
+    return this.view().nodes.find((n) => n.id === id)?.level ?? 0;
   }
 }

@@ -7,11 +7,13 @@ export const RESEARCH_DIALOG_TITLE_ID = 'td-research-dialog-title';
 export const RESEARCH_DIALOG_DESC_ID = 'td-research-dialog-desc';
 
 /**
- * Wide enough for the deepest chain of the tree without scrolling sideways.
+ * The whole window. The tree is a map and gets dragged, so every pixel helps,
+ * and a capped pane on a wide screen leaves a frame of wasted board around it.
  * Has to be set in the dialog config: the overlay pane of MatDialog is capped
- * at 560px by its class, only the inline style of the config lifts that.
+ * at 560px by its class, only the inline style of the config lifts that. Fixed
+ * rather than grown, so the graph stays the only thing that scrolls.
  */
-const DIALOG_WIDTH = 'min(1180px, 94vw)';
+const DIALOG_SIZE = { width: '100vw', height: '100vh' } as const;
 
 const open = lazyDialog<ResearchDialogComponent>(
   () => import('./research-dialog.component').then((m) => m.ResearchDialogComponent),
@@ -30,9 +32,11 @@ export function openResearchDialog(
   injector: Injector,
 ): Promise<MatDialogRef<ResearchDialogComponent>> {
   return open(dialog, {
-    panelClass: 'td-dialog-panel',
-    width: DIALOG_WIDTH,
-    maxWidth: '94vw',
+    panelClass: ['td-dialog-panel', 'td-research-panel'],
+    width: DIALOG_SIZE.width,
+    maxWidth: DIALOG_SIZE.width,
+    height: DIALOG_SIZE.height,
+    maxHeight: DIALOG_SIZE.height,
     ariaLabelledBy: RESEARCH_DIALOG_TITLE_ID,
     ariaDescribedBy: RESEARCH_DIALOG_DESC_ID,
     autoFocus: 'dialog',

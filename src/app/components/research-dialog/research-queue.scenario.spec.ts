@@ -145,28 +145,28 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
 
     // Slot taken: both clicks queue, nothing is charged
     const beforeQueue = ledger.credits();
-    click('tentacle-biology');
-    click('toxic-compounds');
-    expect(research.getQueuedResearches()).toEqual(['tentacle-biology', 'toxic-compounds']);
+    click('biology');
+    click('aa-retrofit');
+    expect(research.getQueuedResearches()).toEqual(['biology', 'aa-retrofit']);
     expect(ledger.credits()).toBe(beforeQueue);
 
-    // X on Tentacle Biology in the queue
-    bus.emit({ type: 'command:unqueue-research', researchId: 'tentacle-biology' });
-    expect(research.getQueuedResearches()).toEqual(['toxic-compounds']);
+    // X on Biology in the queue
+    bus.emit({ type: 'command:unqueue-research', researchId: 'biology' });
+    expect(research.getQueuedResearches()).toEqual(['aa-retrofit']);
 
     // X on the running research: half the cost back, 425 in this flow
     bus.emit({ type: 'command:cancel-research', researchId: 'ice-magic' });
     expect(ledger.credits()).toBe(425);
-    expect(getResearch('toxic-compounds')!.cost).toBe(450);
+    expect(getResearch('aa-retrofit')!.cost).toBe(450);
     for (let i = 0; i < 60; i++) subStep();
     expect(research.getActiveResearches()).toEqual([]);
-    expect(research.getQueuedResearches()).toEqual(['toxic-compounds']);
+    expect(research.getQueuedResearches()).toEqual(['aa-retrofit']);
     expect(ledger.credits()).toBe(425);
 
     // With 450 the head takes the free slot in the next sub-step
     bus.emit({ type: 'debug:add-credits', amount: 25 });
     subStep();
-    expect(research.isActive('toxic-compounds')).toBe(true);
+    expect(research.isActive('aa-retrofit')).toBe(true);
     expect(research.getQueuedResearches()).toEqual([]);
     expect(ledger.credits()).toBe(0);
   });
@@ -175,17 +175,17 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     newGameWithCenter();
     click('gatling-tech');            // takes the only slot
     click('ice-magic');               // queued
-    click('toxic-compounds');         // queued behind it
-    expect(research.getQueuedResearches()).toEqual(['ice-magic', 'toxic-compounds']);
+    click('biology');                 // queued behind it
+    expect(research.getQueuedResearches()).toEqual(['ice-magic', 'biology']);
 
     const before = ledger.credits();
-    bus.emit({ type: 'command:move-queued-research', researchId: 'toxic-compounds', toIndex: 0 });
-    expect(research.getQueuedResearches()).toEqual(['toxic-compounds', 'ice-magic']);
+    bus.emit({ type: 'command:move-queued-research', researchId: 'biology', toIndex: 0 });
+    expect(research.getQueuedResearches()).toEqual(['biology', 'ice-magic']);
     expect(ledger.credits()).toBe(before);
 
     // Gatling done, the slot opens: the entry that was moved to the front starts.
     for (let i = 0; i < Math.ceil((getResearch('gatling-tech')!.duration * 1000) / STEP_MS) + 1; i++) subStep();
-    expect(research.isActive('toxic-compounds')).toBe(true);
+    expect(research.isActive('biology')).toBe(true);
     expect(research.isActive('ice-magic')).toBe(false);
     expect(research.getQueuedResearches()).toEqual(['ice-magic']);
   });
