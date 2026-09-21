@@ -569,6 +569,27 @@ Kosten des Blocks W24-27 fallen von 47 auf 40 HP, der weiteste Lauf steigt auf 3
 **Der Ertrag wird klein.** Von Runde 3 auf 4 hat sich der Anteil der Läufe, die W30 erreichen, von 3 % auf 4 %
 bewegt. Weiter zu senken macht das späte Spiel folgenlos, statt es gewinnbar zu machen.
 
+### Tuning-Runde 5: ist 1,5 noch der richtige Punkt?
+
+Dieselbe Frage wie in Runde 1, aber mit der neuen Kampagne und enger gesteckt.
+
+| `capSlack` | Einsteiger Median | Könner Median | Abstand | Einsteiger ab W30 | Könner ab W30 | Wellen W10-20 mit Schaden (Könner) |
+|---|---|---|---|---|---|---|
+| 1,35 | 21 | 25 | 4 | **12 %** | 8 % | 22 % |
+| **1,5** | 19 | 25 | 6 | **0 %** | 4 % | 23 % |
+| 1,65 | 16 | 25 | 9 | 0 % | 4 % | 24 % |
+
+**Der Median des Könners liegt bei allen drei Werten auf 25.** Seine Grenze ist der Konter-Block, nicht der
+Deckel. Was `capSlack` bewegt, ist fast nur der Einsteiger: 21, 19, 16.
+
+Damit ist 1,5 bestätigt, aus zwei Richtungen:
+
+- **1,35 ist zu locker.** Der Einsteiger erreicht das Kampagnenende in 12 % der Läufe, häufiger als der Könner mit
+  8 %. Dieselbe Umkehrung wie zu Beginn, nur ans Ende des Laufs verschoben: Wer schwach baut, bekommt kleine
+  Wellen und kriecht durch. Ein Ende, das man durch schlechtes Bauen erreicht, ist kein Ziel.
+- **1,65 kauft nichts.** Der Könner steht bei Median, W30-Quote und Druck genau wie bei 1,5; nur der Einsteiger
+  stirbt drei Wellen früher. Härte ohne Gegenleistung.
+
 ### Was das Tuning nicht lösen kann
 
 Der Könner verliert in W24 bis W29 je 8 bis 14 HP, und **nichts heilt**. Bei 100 Start-HP ist damit vorgezeichnet,
