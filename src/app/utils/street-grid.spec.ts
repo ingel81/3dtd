@@ -59,8 +59,9 @@ function network(streets: Street[]): StreetNetwork {
 /**
  * A network the size of a loaded box: a street every 100 m over 1600 m square,
  * a shape node every 20 m, every node nudged by up to 3 m so the segments do
- * not all lie on the same lines, plus a few long ways across the whole box
- * (the motorways whose nodes sit hundreds of metres apart).
+ * not all lie on the same lines, plus three long ways across the box (the
+ * motorways whose nodes sit hundreds of metres apart). The diagonal of them
+ * covers the whole grid and so lands in the list measured on every lookup.
  */
 function cityGrid(): StreetNetwork {
   const random = new SeededRandom(20260921);
@@ -96,7 +97,7 @@ function cityGrid(): StreetNetwork {
       streets.push({ id: streets.length + 1, name: '', type: 'residential', nodes: northSouth });
     }
   }
-  // Two ways with 800 m between their nodes: they land in the grid's wide list.
+  // Two ways with 800 m between their nodes, each crossing a row of cells.
   streets.push({
     id: streets.length + 1,
     name: '',
@@ -114,6 +115,17 @@ function cityGrid(): StreetNetwork {
     nodes: [
       { id: 900004, ...geoAt(-40, -HALF_M) },
       { id: 900005, ...geoAt(-40, HALF_M) },
+    ],
+  });
+  // A way across both corners: its box covers the whole grid, so it lands in
+  // the list the grid measures on every lookup instead of in cells.
+  streets.push({
+    id: streets.length + 1,
+    name: '',
+    type: 'trunk',
+    nodes: [
+      { id: 900006, ...geoAt(-HALF_M, -HALF_M) },
+      { id: 900007, ...geoAt(HALF_M, HALF_M) },
     ],
   });
   for (const street of streets) {
@@ -149,6 +161,17 @@ describe('StreetSegmentGrid', () => {
       const z = (random.next() - 0.5) * 1700;
       const p = geoAt(x, z);
       expectSame(grid.nearest(p.lat, p.lon), linearNearest(net, p.lat, p.lon), `inside at ${x},${z}`);
+    }
+
+    // On the way across both corners, which sits in the grid's wide list.
+    const across = net.streets[net.streets.length - 1];
+    expect(across.type).toBe('trunk');
+    for (const t of [0.1, 0.35, 0.5, 0.77]) {
+      const on = {
+        lat: across.nodes[0].lat + t * (across.nodes[1].lat - across.nodes[0].lat),
+        lon: across.nodes[0].lon + t * (across.nodes[1].lon - across.nodes[0].lon),
+      };
+      expectSame(grid.nearest(on.lat, on.lon), linearNearest(net, on.lat, on.lon), `on the wide way at ${t}`);
     }
   });
 
