@@ -5,7 +5,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
 import { UpgradeId } from '../../../configs/tower-types.config';
-import { getResearch } from '../../../configs/research/research-tree.config';
+import { RESEARCH_TREE, getResearch } from '../../../configs/research/research-tree.config';
 import { ActiveResearch, ResearchId } from '../../../configs/research/research.types';
 import { Tower } from '../../../entities/tower.entity';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
@@ -14,7 +14,7 @@ import { TdIconComponent } from '../../icon/icon.component';
 import { upgradeHintView } from '../tower-panel/tower-stats';
 import { upgradeTrackRefusal } from '../../../utils/player-actions';
 import { openResearchDialog } from '../../research-dialog/open-research-dialog';
-import { researchProgress, researchRemaining } from './research-status';
+import { researchProgress, researchRemaining, researchStatus } from './research-status';
 
 /**
  * Panel des gewählten Research Centers: laufende Forschungen mit Fortschritt,
@@ -55,6 +55,22 @@ export class SidebarResearchPanelComponent {
 
   /** Waiting for a slot and the credits, in start order */
   readonly queue = this.researchStore.queuedResearches;
+
+  readonly researchTotal = Object.keys(RESEARCH_TREE).length;
+  readonly researchDone = computed(() => this.researchStore.completedResearches().size);
+
+  /** How many could be started right now, the reason to open the tree. */
+  readonly openCount = computed(() =>
+    Object.values(RESEARCH_TREE).filter(
+      (research) =>
+        researchStatus(
+          research.id,
+          this.researchStore.completedResearches(),
+          this.researchStore.activeResearches(),
+          this.queue(),
+        ) === 'available',
+    ).length,
+  );
 
   /** Verkaufswert; ändert sich mit Upgrades, siehe `selectedTowerRevision`. */
   readonly sellValue = computed(() => {
