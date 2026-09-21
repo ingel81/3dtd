@@ -29,7 +29,7 @@ import type { LeakStatus } from './leak-controller';
 import {
   ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
 } from '../configs/enemy-types.config';
-import { endgameHpMultiplier, enemyBaseDamageForWave } from '../configs/campaign.config';
+import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../configs/campaign.config';
 
 /** What the wave sizing reads from the fairness gate. */
 export interface LeakReading {
@@ -161,7 +161,11 @@ export function buildWaveConfig(
     // backend has always done this second pass; the frontend did not.
     sized = countFor(spawnDelay);
   }
-  const totalCount = sized.count;
+  // The campaign's own say in how hard this wave leans (decision D3). Last,
+  // so it also lowers a count the survivability cap set: a wave meant as a
+  // breather cannot be one while the cap is free to fill it up again.
+  const intensity = campaignIntensity(upcomingWave);
+  const totalCount = Math.max(1, Math.round(sized.count * intensity));
 
   // Expand template → enemy groups
   const enemies: { type: string; count: number; healthMultiplier: number }[] = [];

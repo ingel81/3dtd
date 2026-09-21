@@ -91,3 +91,25 @@ describe('buildWaveConfig', () => {
     );
   });
 });
+
+describe('the campaign intensity', () => {
+  /** The same defense planning `wave`, so only the campaign's factor differs. */
+  function countAt(wave: number): number {
+    const state = defense(200);
+    state.waveNumber = wave - 1;
+    return build(decision(0), state).totalCount;
+  }
+
+  it('lowers the count of a wave the campaign marked as lighter', () => {
+    // W26 carries 0.6, W24 carries nothing
+    expect(countAt(26)).toBeLessThan(countAt(24));
+  });
+
+  it('leaves a wave without a factor to the director', () => {
+    const state = defense(200);
+    state.waveNumber = 23;
+    const shipped = build(decision(0), state);
+
+    expect(shipped.totalCount).toBe(shipped.explanation?.sizing?.count);
+  });
+});

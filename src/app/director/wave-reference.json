@@ -310,40 +310,40 @@
   {
     "wave": 25,
     "template": "Mammoth Siege",
-    "count": 13,
+    "count": 10,
     "spawnDelay": 598,
     "variation": 0.316,
     "strength": 8.297,
     "pattern": "interleaved",
     "enemies": [
-      "mammothx9@8.297",
-      "wallsmasherx4@8.297"
+      "mammothx7@8.297",
+      "wallsmasherx3@8.297"
     ]
   },
   {
     "wave": 26,
     "template": "Zombie Horde",
-    "count": 458,
+    "count": 275,
     "spawnDelay": 133,
     "variation": 0.225,
     "strength": 4.488,
     "pattern": "interleaved",
     "enemies": [
-      "zombiex412@4.488",
-      "zombie-v2x46@4.488"
+      "zombiex248@4.488",
+      "zombie-v2x27@4.488"
     ]
   },
   {
     "wave": 27,
     "template": "Dragon Elite",
-    "count": 27,
+    "count": 23,
     "spawnDelay": 427,
     "variation": 0.291,
     "strength": 5.106,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx16@5.106",
-      "hornetx11@5.106"
+      "dragonx14@5.106",
+      "hornetx9@5.106"
     ]
   },
   {
