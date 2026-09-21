@@ -3,7 +3,7 @@
   "version": "0.3.2",
   "scripts": {
     "ng": "ng",
-    "start": "node tools/build-info.mjs && ng serve",
+    "start": "node tools/build-info.mjs --serve",
     "build": "node tools/build-info.mjs && ng build",
     "watch": "ng build --watch --configuration development",
     "test": "vitest run",

@@ -25,6 +25,9 @@ function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
     GameStore: {
       gameSpeed: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
+      // initialize() hands the current value to the engine it attaches
+      paused: Object.assign(vi.fn().mockReturnValue(false), { set: vi.fn() }),
+      renderingEnabled: Object.assign(vi.fn().mockReturnValue(true), { set: vi.fn() }),
     },
     UIStore: {
       specialPointsDebugVisible: vi.fn().mockReturnValue(false),
@@ -1132,6 +1135,20 @@ describe('GameStateManager', () => {
           const engine = createMockEngine() as unknown as { spatialAudio: { holdLoops: Mock } };
           return { store, game, sync, engine };
         }
+
+        it('applies renderingEnabled to an engine that attaches after the flag was set', () => {
+          // A bot client sets the flag while connecting, long before the
+          // engine exists. The effect then ran against no engine and the
+          // signal never changed again, so the tab rendered the whole run.
+          const { store, game, sync, engine } = withStore(false);
+          store.renderingEnabled.set(false);
+          sync();
+
+          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+
+          const setRendering = (engine as unknown as { setRenderingEnabled: Mock }).setRenderingEnabled;
+          expect(setRendering).toHaveBeenLastCalledWith(false);
+        });
 
         it('holds every audio loop through GameStore.paused, which the boss intro sets as well (playtest 545 to 547)', () => {
           const { store, game, sync, engine } = withStore(false);

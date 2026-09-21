@@ -351,6 +351,12 @@ export class GameStateManager {
     this.basePosition = basePosition;
     // The pause sync above only reaches an engine that is already here
     tilesEngine.spatialAudio.holdLoops(this.paused());
+    // Same for the rendering sync, and it matters more: a bot client sets
+    // renderingEnabled to false while connecting, long before the engine
+    // exists, so the effect's `?.` swallowed it and the signal never changed
+    // again. The tab then rendered the whole run at full cost, and only
+    // toggling the switch twice by hand put it right.
+    tilesEngine.setRenderingEnabled(this.gameStore.renderingEnabled());
 
     // Initialize defense-reach debug visualization (orange marker)
     this.globalRouteGrid.initDebugViz(tilesEngine.getScene(), tilesEngine.portalClip);

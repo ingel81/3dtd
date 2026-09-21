@@ -30,6 +30,9 @@ function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
     GameStore: {
       gameSpeed: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
+      // initialize() hands the current value to the engine it attaches
+      paused: Object.assign(vi.fn().mockReturnValue(false), { set: vi.fn() }),
+      renderingEnabled: Object.assign(vi.fn().mockReturnValue(true), { set: vi.fn() }),
     },
     UIStore: {
       specialPointsDebugVisible: vi.fn().mockReturnValue(false),
