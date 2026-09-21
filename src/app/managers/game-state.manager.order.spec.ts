@@ -503,6 +503,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:set-targeting',
         'command:set-hold-fire',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',
+        'command:move-queued-research',
         'command:use-ability',
         'command:hire-hero', 'command:hero-move', 'command:hero-ammo',
         'command:start-wave', 'command:restart-game',
