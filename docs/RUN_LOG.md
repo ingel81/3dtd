@@ -36,7 +36,7 @@ eine Summe aus 16,667 ms und driftet im Float; der Schritt-Index tut das nicht. 
 ### Der Kopf
 
 ```json
-{"kind":"head","format":1,"runId":"2026-09-20T13-40-12-345Z-devworld","startedAt":"2026-09-20T13:40:12.345Z",
+{"kind":"head","format":2,"runId":"2026-09-20T13-40-12-345Z-devworld","startedAt":"2026-09-20T13:40:12.345Z",
  "gameVersion":"v0.3.2","commit":"d227323b-dirty","configHash":"3f2a91c7","seed":2748193746,
  "player":"bot","botSkill":"strategist","map":"devworld"}
 ```
@@ -54,12 +54,21 @@ Ein Block läuft **vom Ende der letzten Welle bis zum Ende der nächsten**. Die 
 die sie vorbereitet: Dort gibt der Spieler aus, und ein Block, der erst bei `wave:started` begann, verlor jede
 dieser Buchungen.
 
-Er enthält Gold zu Start und Ende, Einnahmen und Ausgaben je Quelle, die Aufteilung des Abschlussgolds, die
-Entscheidung des Directors mit Begründung, Zusammensetzung, Kills nach Verursacher, Lecks, HQ-HP vorher und
-nachher, je Tower Typ, Stufen, Schaden und Kills, und die Dauer.
+Er enthält Gold zu Start und Ende, Einnahmen und Ausgaben je Quelle, die Ausgaben je Tower-Typ, die Aufteilung
+des Abschlussgolds, die Entscheidung des Directors mit Begründung, Zusammensetzung, Kills nach Verursacher,
+Lecks, HQ-HP vorher und nachher, je Tower Typ, Stufen, Schaden und Kills, und die Dauer.
 
 Die Welle, in der die Basis fällt, bekommt ihren Block ebenfalls: `wave:completed` kommt dort nie, deshalb schreibt
 `flushOpenWave()` ihn beim Game Over.
+
+### Ausgaben je Tower-Typ
+
+`spending` sagt, wofür das Gold war, nicht, worauf. `towerSpending` schließt die Lücke: Bau- und Upgrade-Preis je
+Tower-Typ, brutto, so wie `spending` die Erstattung eines Verkaufs als Einnahme verbucht und nicht abzieht. Das
+ist der Nenner von **Schaden je Gold je Typ**, und die entscheidet, ob ein Typ stark ist oder nur oft gewählt
+wird (`BALANCING_PLAN.md`, 3b): Ein Anteil am Schaden sagt nichts, solange der Anteil am Gold unbekannt ist.
+
+Das kostenlose Max-Upgrade aus dem Dev-Menü steht nicht drin, genau wie es nicht in `spending` steht.
 
 Gegner leben über die Naht hinweg. Ein Block hält deshalb beides fest: `enemiesAtStart`, was zu Blockbeginn noch
 stand, und `enemiesAlive`, was am Ende übrig ist. Was die letzte Welle übrig ließ, stirbt in dieser.
@@ -134,5 +143,3 @@ Nichts je Treffer, nichts je Sub-Step. Die Stichprobe liest die Gesamt-DPS über
 ## 7. Offen
 
 - Der Korridor-Fingerprint steht im Kopf als optionales Feld, wird aber noch nicht gefüllt.
-- Schaden je Gold je Tower-Typ fehlt im Bericht: Der Wellenblock kennt die Ausgaben nach Zweck, nicht nach
-  Tower-Typ (TODO E10).
