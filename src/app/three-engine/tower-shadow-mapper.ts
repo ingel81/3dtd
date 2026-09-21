@@ -18,7 +18,7 @@ import {
   WebGLRenderTarget,
   Material,
 } from 'three';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
+import { LOS_VIZ_CONFIG, losCubeFarDistance } from '../configs/los-viz.config';
 import { losPerf } from '../utils/los-perf';
 
 /**
@@ -190,7 +190,8 @@ export class TowerShadowMapper {
    * bewegt wurde oder `invalidate()` aufgerufen wurde.
    *
    * @param tip Tower-Tip in World-Space
-   * @param range Tower-Reichweite (= far der Cubemap, kein Padding)
+   * @param range Tower-Reichweite; die far der Cubemap liegt darüber, siehe
+   *        `losCubeFarDistance`.
    * @param includeOnly Group die als einziges sichtbar bleibt während
    *        des Renders (typisch tilesRenderer.group). Regel 8.
    * @returns true wenn neu gerendert wurde, false wenn gegated.
@@ -207,19 +208,23 @@ export class TowerShadowMapper {
 
     const tUpdateStart = performance.now();
 
+    // Die Proben liegen über der waagerechten Reichweite, allen voran die
+    // Air-Probe; mit far = range las eine Zelle am Rand sich als verdeckt.
+    const far = losCubeFarDistance(range);
+
     this.cubeCamera.position.copy(tip);
     this.cubeCamera.updateMatrixWorld();
     // CubeCamera's 6 face cameras are PerspectiveCameras; aktualisiere far
     // pro Face.
     for (const face of this.cubeCamera.children) {
       if (face instanceof PerspectiveCamera) {
-        face.far = range;
+        face.far = far;
         face.updateProjectionMatrix();
       }
     }
 
     this.distanceMaterial.uniforms['uReferencePosition'].value.copy(tip);
-    this.distanceMaterial.uniforms['uFarDistance'].value = range;
+    this.distanceMaterial.uniforms['uFarDistance'].value = far;
     // Regel 4 — Material-State hart resetten, falls ein Plugin zuvor
     // transparent/opacity mutiert hat.
     this.distanceMaterial.transparent = false;
@@ -310,7 +315,7 @@ export class TowerShadowMapper {
     }
 
     this.lastRenderedTip.copy(tip);
-    this.lastEncodedFar = range;
+    this.lastEncodedFar = far;
     this.hasRendered = true;
     this.invalidated = false;
     this.renderVersion++;
