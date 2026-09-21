@@ -590,6 +590,43 @@ Damit ist 1,5 bestätigt, aus zwei Richtungen:
 - **1,65 kauft nichts.** Der Könner steht bei Median, W30-Quote und Druck genau wie bei 1,5; nur der Einsteiger
   stirbt drei Wellen früher. Härte ohne Gegenleistung.
 
+### Baseline nach den Runden 1 bis 5 (2026-09-21, 354 Läufe)
+
+Der Stand, der committet ist, mit je 150 Läufen gemessen. Das ist die Zahl, gegen die die nächste Änderung
+antritt.
+
+| | Einsteiger | Könner |
+|---|---|---|
+| Läufe | 152 | 202 |
+| Erreichte Welle, Median | **18** | **26** |
+| Spanne | bis 28 | bis 37 |
+| Läufe am Kampagnenende (W30+) | 0 % | **7 %** |
+| Wellen W10-20 mit Schaden | 44 % | **25 %** |
+| Entscheidungen je Welle | 6,0 | 17,8 |
+| Partiedauer, Median | 30 min | 53 min |
+| Golddruck bis W25 | ~2 | 0,45 |
+
+**Woran die Läufe enden:**
+
+| Könner | Läufe | Einsteiger | Läufe |
+|---|---|---|---|
+| W25 Mammoth Siege | 45 (22 %) | W21 Bat Swarm | 59 (39 %) |
+| W26 Zombie Horde | 40 (20 %) | W17 Wraith Storm | 41 (27 %) |
+| W24 Ghost Surge | 30 | W15 Golem Squad | 30 |
+| W27 Dragon Elite | 30 | W24 Ghost Surge | 8 |
+| W29 Chaos Wave | 17 | | |
+
+Beim Könner kommt keine Welle über 22 %; zu Beginn der Nacht lagen 85 % der Enden auf vier Wellen. Der Einsteiger
+stirbt an Luft und Ethereal, den beiden Antworten, die er per Definition nicht erforscht.
+
+**HP-Kosten der letzten zehn Wellen (Könner):**
+
+```
+W21:2  W22:1  W23:0  W24:5  W25:8  W26:9  W27:17  W28:1  W29:5  W30:0
+```
+
+W27 Dragon Elite ist die einzige verbliebene Spitze.
+
 ### Was das Tuning nicht lösen kann
 
 Der Könner verliert in W24 bis W29 je 8 bis 14 HP, und **nichts heilt**. Bei 100 Start-HP ist damit vorgezeichnet,
