@@ -300,7 +300,7 @@ Die Sidebar (`components/game-sidebar/`) liefert Rahmen, Footer und die Wahl des
 | `tower-panel/` | Detail des gewählten Towers: Stats, Targeting, Upgrades, Verkauf. Eine Upgrade-Kachel, die gerade nicht kaufbar ist (Gold fehlt, Stufe noch nicht erforscht), ist grau, bleibt aber klickbar (`aria-disabled`): der Klick kauft nichts und nennt den Grund wie U, siehe [Tastenkürzel](#tastenkürzel) |
 | `hero-panel/` | Held, solange er gewählt ist, an der Stelle des Tower-Details, siehe [Helden-Panel](#helden-panel-sidebar) |
 | `building-panel/` | Gewähltes passives Gebäude ohne eigenes Panel (Missile Silo): Kopf wie das Tower-Detail mit Verkauf, darunter `description` in `--td-font-body` 11px `--td-text-secondary`, dann je Fähigkeit, die von ihm startet, eine Zeile auf `--td-panel-secondary` mit 1px `--td-frame-dark`: Name, Tastenkappe (Gold auf `--td-panel-shadow` wie im Helden-Panel), rechtsbündig der Zustand ihres Knopfs ("ready", "recharges in 2 waves", `buildingAbilityRows`). Keine Stats, kein Targeting, keine Upgrades |
-| `research-panel/` | Research Center: laufende Forschungen, Warteschlange, Forschungsbaum, Upgrades, Verkauf. Ein verfügbarer Knoten startet mit freiem Slot und genug Gold, sonst reiht er sich ein ("· queue" in Teal in der Meta-Zeile); eingereihte Knoten gestrichelt in `--td-teal-dark`, die Schlange als gestrichelte Zeilen unter den laufenden mit Position, Name, Kosten (grau, solange das Gold fehlt) und Entfernen-Button, darüber "Queued · credits are paid when it starts". Die Upgrade-Kachel (Research Wing) verhält sich wie die im Tower-Detail |
+| `research-panel/` | Research Center: Zusammenfassung ("3/21 researched", Slots), laufende Forschungen mit Balken und Abbrechen-Knopf, der Knopf in den [Forschungsbaum](#forschungsbaum-dialog), Upgrades, Verkauf. Läuft nichts, steht dort, wie viele Forschungen gerade offen sind, statt einer leeren Fläche. Der Knopf folgt dem Gold-Rezept, weil er das Einzige ist, wofür dieses Panel da ist; alles andere darin ist Status. Baum, Warteschlange und die Wahl selbst liegen im Dialog. Die Upgrade-Kachel (Research Wing) verhält sich wie die im Tower-Detail |
 
 Die Host-Elemente haben `display: contents`, die `<section class="td-panel">` bleibt damit Flex-Item der Sidebar-Spalte. Regeln, die mehrere Panels brauchen (Section, Header, Content, Scroll-Fläche, Tower-Header mit Sell-Button, `i`-Button, Upgrade-Kacheln), stehen einmal als Mixins in `_sidebar-panel.scss`; ein Panel bindet per `@include panel.<name>` ein, was sein Template nutzt. Die 1px-Trennlinie trägt nur das WAVE-Panel, die übrigen sind immer die letzte sichtbare Sektion. Tooltip-Aufbereitung (Tower-Karten, Gegnergruppen) liegt als reine Funktionen in `sidebar-tooltips.ts`.
 
@@ -354,6 +354,47 @@ Unter der Linie steht eine Detailzeile für eine Marke (`shownPeek`): die unter 
 Die Werte liefert `heroPanelView()` (`hero-panel/hero-panel.ts`).
 
 Solange der Held gewählt ist, zeigt die Kontext-Hinweis-Box "Click Send", "V Ammo", "G Camera", "ESC Let go" und die Warnung "No route within 30 m", solange unter dem Cursor keine Route in Reichweite ist. Auf der Karte: goldener Ring unter ihm, kleinerer auf seinem Posten, Bewegungsring unter dem Cursor gold (`--td-gold`) auf dem Routenpunkt, rot (`--td-health-red`) ohne.
+
+### Forschungsbaum (Dialog)
+
+`components/research-dialog/` über `openResearchDialog`, Vollbild (`100vw` x `100vh`,
+`panelClass: ['td-dialog-panel', 'td-research-panel']`). Erreichbar an drei Stellen, sobald ein
+Research Center steht: Knopf im Panel des Centers, Knopf im Header neben dem Würfel (mit der Anzahl
+in der Warteschlange), Taste `Q`.
+
+Aufbau von oben nach unten: Kopfleiste mit "Researched n/21" und einem Segment je Forschung, Slots,
+Credits und Close; die Rubrik-Leiste (bisher nur "Tower Tech"); darunter das Brett mit der
+Tier-Spalte links, dem Graphen in der Mitte und Warteschlange plus Detail rechts; unten Legende und
+die Zählung je Strang.
+
+Der Graph ist `components/tech-tree/`, eine darstellende Komponente ohne Fachwissen: Knoten und
+Kanten rein, Klick und Hover raus. Die Geometrie rechnet `utils/dag-layout.ts` aus den
+Vorbedingungen (Ebene = längster Weg von einer Wurzel), es stehen keine Koordinaten in der Config.
+Der Heldenbaum (TODO G2) soll dieselben zwei Schichten benutzen.
+
+| Zustand eines Knotens | Aussehen |
+|---|---|
+| `completed` | Rahmen `#2C3A35`, Name in `#7E9A90`, Fuß "RESEARCHED" in Versalien |
+| `active` | Rahmen `--td-teal`, Teal-Glow, Restzeit und Balken im Fuß |
+| `queued` | gestrichelt in `--td-gold-dark`, Position als Gold-Kappe in der Ecke |
+| `available` | Gold-Kante links (`inset 3px 0 0 var(--td-rune-amber)`), Hover hebt den Knoten um 1 px |
+| `poor` | dieselbe Form in Warnorange: offen, aber die Credits fehlen |
+| `pending` | wie `locked`, aber jede fehlende Vorbedingung läuft oder wartet schon |
+| `locked` | versenkt, Rahmen `#262C27` |
+
+Kanten lesen sich aus dem Paar, das sie verbinden: `done` (Teal, Ziel erforscht), `active` (Teal,
+laufend, wandernde Strichelung), `open` (`--td-rune-amber`, Quelle erforscht), `pending`
+(gestrichelt Teal, Quelle läuft oder wartet), `locked` (grau gestrichelt). Am Ziel sitzt eine kleine
+Raute. Zeigt der Zeiger auf einen Knoten, leuchtet die Kette bis zur Wurzel in Gold und alles andere
+blendet auf 30 % ab.
+
+Das Brett scrollt in beide Richtungen und lässt sich ziehen (`tech-tree/drag-scroll.directive.ts`).
+Der Zeiger wird erst gefangen, wenn der Zug ein paar Pixel überschreitet: ein Fang beim Drücken
+leitet den folgenden Klick auf den Rahmen um und macht jeden Knoten unklickbar.
+
+Zwei Eigenheiten von MatDialog, die der Dialog ausräumen muss: `mat-dialog-content` bringt eine
+eigene Scrollfläche mit (`max-height: 65vh`), und der Surface scrollt ebenfalls. Beides steht in
+`styles.scss` unter `.td-research-panel`, weil der Surface über der Komponente liegt.
 
 ### Header (mit Stein-Textur)
 
@@ -553,6 +594,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Held-Knopf in der Fähigkeitenleiste, Klick auf den Helden (`HeroControlService.summon`) |
 | V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
+| Q | [Forschungsbaum](#forschungsbaum-dialog) als Dialog; still, solange kein Research Center steht | Knopf im Header und im Panel des Centers (`ResearchStore.centerLevel`) |
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Held loslassen, sonst Tower abwählen | |
 
 Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor InputHandler und HotkeyService den `BossIntroService`: Esc überspringt das Intro (vor Build- und Zielmodus), alle anderen Spieltasten warten, bis die Sicht zurück ist. Tippen in einem Feld und ein Esc, das ein Dialog schon genommen hat, bleiben unberührt.
