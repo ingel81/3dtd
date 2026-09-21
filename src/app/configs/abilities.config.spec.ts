@@ -35,7 +35,6 @@ describe('abilities config', () => {
     const research = getResearch(nuke.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      icon: 'radiation',
       cost: 1000,
       duration: 40,
       prerequisites: ['advanced-weaponry'],
@@ -53,7 +52,6 @@ describe('abilities config', () => {
       radiusM: 20,
       warningMs: 500,
       snapRadiusM: 30,
-      icon: 'snowflake',
       hotkey: 'F',
       effect: { kind: 'freeze', durationMs: 3000, bossDurationMs: 1000 },
     });
@@ -67,7 +65,6 @@ describe('abilities config', () => {
     const research = getResearch(frost.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      icon: 'snowflake',
       cost: 700,
       duration: 25,
       prerequisites: ['arcane-studies'],
@@ -85,7 +82,6 @@ describe('abilities config', () => {
       radiusM: 30,
       warningMs: 500,
       snapRadiusM: 30,
-      icon: 'bolt',
       hotkey: 'E',
       effect: { kind: 'stun', durationMs: 1500, mechanicalDurationMs: 6000, bossDurationMs: 750 },
     });
@@ -103,7 +99,6 @@ describe('abilities config', () => {
     const research = getResearch(emp.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      icon: 'bolt',
       cost: 800,
       duration: 30,
       prerequisites: ['storm-mastery'],
@@ -121,7 +116,6 @@ describe('abilities config', () => {
       radiusM: 5,
       warningMs: 1000,
       snapRadiusM: 30,
-      icon: 'laser',
       hotkey: 'L',
       effect: {
         kind: 'beam',
@@ -154,7 +148,6 @@ describe('abilities config', () => {
     const research = getResearch(laser.researchId)!;
     expect(research).toMatchObject({
       category: 'global-perk',
-      icon: 'laser',
       cost: 1500,
       duration: 45,
       prerequisites: ['master-engineering'],

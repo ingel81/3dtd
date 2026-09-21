@@ -37,6 +37,8 @@ export type TdIconName =
   | 'chevrons2' | 'chevrons3' | 'star'
   // orbital laser ability
   | 'laser'
+  // research tree, glyphs from the research-tree design
+  | 'gatling' | 'iceStar' | 'helix' | 'catapult' | 'flak' | 'arcaneStar' | 'tentacle' | 'hazardCone' | 'rocket' | 'frostRune' | 'rift' | 'mushroom' | 'pulse' | 'cogRing'
   // replay of the last wave
   | 'replay'
   // shortcut overview (sidebar footer)
@@ -154,6 +156,34 @@ const ICONS: Record<TdIconName, IconDef> = {
   replay: { body: '<path d="M4 12a8 8 0 1 0 2.3-5.7L4 9M4 4v5h5" /><path d="M10 9v6l5-3-5-3Z" />' },
   // Keyboard: a flat case with two rows of keys over a space bar. Shortcut overview.
   keyboard: { body: '<rect x="2.5" y="6" width="19" height="12" rx="1.5" /><path d="M6 9.5h.01M9 9.5h.01M12 9.5h.01M15 9.5h.01M18 9.5h.01M7.5 12h.01M10.5 12h.01M13.5 12h.01M16.5 12h.01M8 15h8" />' },
+  // Twin barrels either side of a feed box. Gatling technology.
+  gatling: { body: '<path d="M3 12h5M16 12h5M8 8h8v8H8z" />' },
+  // Six-point star, the rune of the arcane cold branch. Ice magic.
+  iceStar: { body: '<path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9" />' },
+  // Two strands crossing with rungs between them. Biology.
+  helix: { body: '<path d="M8 3c0 6 8 12 8 18M16 3c0 6-8 12-8 18M9 8h6M9 16h6" />' },
+  // A throwing arm with its shot leaving the top. Siege engineering.
+  catapult: { body: '<path d="M4 20L19 5M13 5h6v6" />' },
+  // An arrow off the ground, straight up. Anti-air retrofit.
+  flak: { body: '<path d="M12 21V4M6 10l6-6 6 6M5 21h14" />' },
+  // Eight-point star. Arcane studies.
+  arcaneStar: { body: '<path d="M12 3l2.2 6.8L21 12l-6.8 2.2L12 21l-2.2-6.8L3 12l6.8-2.2z" />' },
+  // A hood with three arms below it. Tentacle biology.
+  tentacle: { body: '<path d="M12 4a5 5 0 00-5 5v3h10V9a5 5 0 00-5-5zM8 12v8M12 12v8M16 12v8" />' },
+  // A cone with a drop inside. Toxic compounds.
+  hazardCone: { body: '<path d="M5 21h14L12 8zM12 13v4" />' },
+  // A nose cone over a body, flame beneath. Rocketry.
+  rocket: { body: '<path d="M12 2l4 6v8H8V8zM9 22l3-4 3 4" />' },
+  // The cold star with caps top and bottom. Frost bomb.
+  frostRune: { body: '<path d="M12 3v18M4.5 7.5l15 9M19.5 7.5l-15 9M9 5l3-2 3 2M9 19l3 2 3-2" />' },
+  // A ring torn open, its ends not meeting. Chaos rift.
+  rift: { body: '<path d="M12 3a9 9 0 109 9h-4a5 5 0 11-5-5z" />' },
+  // A cloud over a stem on the ground. Nuclear strike.
+  mushroom: { body: '<path d="M4 8c2-3 14-3 16 0M8 8v4a4 4 0 008 0V8M12 16v5M9 21h6" />' },
+  // A centre line between falling waves either side. EMP.
+  pulse: { body: '<path d="M12 3v18M7 7v10M17 7v10M3 11v2M21 11v2" />' },
+  // A core inside a ring of ticks. Advanced engineering.
+  cogRing: { body: '<path d="M12 4v3M12 17v3M4 12h3M17 12h3M12 9a3 3 0 110 6 3 3 0 010-6" />' },
 };
 
 @Component({
