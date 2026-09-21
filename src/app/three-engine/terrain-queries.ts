@@ -190,6 +190,11 @@ export class TerrainQueries {
    * other), interpolated, as the route cells of a tunnel stretch take it.
    * Otherwise, for `surface` null and without a column at the start of the
    * approach or at a portal, getGroundHeightEstimate.
+   *
+   * Own columns, not the frozen route cells: the overlay draws whole streets
+   * up to STREET_FILTER_RADIUS off the route, where no cell exists, and this
+   * height is what `__routes.describe()` holds the cells against. See
+   * docs/ROUTE_CORRIDOR.md, "Warum das Overlay seine eigenen Säulen behält".
    */
   getStreetHeightEstimate(
     lat: number, lon: number,

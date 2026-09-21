@@ -1020,7 +1020,11 @@ export class IntroCameraFlightService {
    * plus the tile error that decides whether the sample counts as reliable.
    *
    * Altitudes come from these samples; the curve itself is horizontal, and
-   * the route's own heights only serve as groundAt's fallback.
+   * the route's own heights only serve as groundAt's fallback. Those heights
+   * ARE the frozen route cells (routePathToLocalPoints over the cached path);
+   * the column stays because a cell carries no top and because the profile
+   * reaches back past the HQ, off the corridor. See docs/ROUTE_CORRIDOR.md,
+   * "Warum das Overlay seine eigenen Säulen behält".
    */
   private sampleIndex(i: number): void {
     const engine = this.engine;
