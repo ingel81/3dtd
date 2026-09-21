@@ -15,7 +15,7 @@
       <mat-spinner diameter="14" class="loading-spinner"></mat-spinner>
     }
     @if (currentValue() && !geocoding.isLoading()) {
-      <button class="clear-btn" (mousedown)="clearValue($event)" title="Clear" aria-label="Clear">
+      <button class="clear-btn" (mousedown)="clearValue($event)" title="Clear" aria-label="Clear the address">
         <td-icon name="cross" [size]="14"></td-icon>
       </button>
     }
