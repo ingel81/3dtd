@@ -84,7 +84,7 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   { template: 'ghost_surge',      killGold: 24000, completionGold: 12000, intensity: 0.85 }, // 24 — ethereal pressure
   { template: 'mammoth_siege',    killGold: 30000, completionGold: 15000, intensity: 0.75 }, // 25 — fortified pressure
   { template: 'zombie_horde',     killGold: 40000, completionGold: 20000, intensity: 0.5 },  // 26 — breather: mass, no counter needed
-  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667, intensity: 0.7 },  // 27 — flying-heavy pressure
+  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667, intensity: 0.55 }, // 27 — flying-heavy pressure
   { template: 'mech_army',        killGold: 73333, completionGold: 36667 }, // 28 — heavy mass
   { template: 'chaos_wave',       killGold: 93333, completionGold: 46667 }, // 29 — final mix
   { template: 'boss_herbert',     killGold:120000, completionGold: 60000 }, // 30 — BOSS 3 (season finale, bonus peak)

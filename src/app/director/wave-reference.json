@@ -336,14 +336,14 @@
   {
     "wave": 27,
     "template": "Dragon Elite",
-    "count": 19,
+    "count": 15,
     "spawnDelay": 427,
     "variation": 0.291,
     "strength": 5.106,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx11@5.106",
-      "hornetx8@5.106"
+      "dragonx9@5.106",
+      "hornetx6@5.106"
     ]
   },
   {
