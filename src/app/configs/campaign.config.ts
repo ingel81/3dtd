@@ -77,13 +77,14 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   { template: 'bat_swarm',        killGold: 10667, completionGold:  5333 }, // 21 — air pressure
   { template: 'tank_column',      killGold: 14667, completionGold:  7333 }, // 22 — heavy pressure
   { template: 'spider_swarm',     killGold: 18667, completionGold:  9333 }, // 23 — breather: mass, no counter needed
-  { template: 'ghost_surge',      killGold: 24000, completionGold: 12000 }, // 24 — ethereal pressure
-  // The three numbers below come from 85 expert runs of the block above:
-  // W25 took 16.3 HP and ended 38 of them, W26 was meant as a breather and
-  // still took 15.4, W27 damaged every run that reached it.
+  // The factors below are measured, not guessed: each round of 80+ expert runs
+  // reads the HP a wave costs and what share of runs it ends, and moves the
+  // wave that stands out. Nothing heals in this game, so the last ten waves
+  // have to be survivable for a defense that arrives worn down.
+  { template: 'ghost_surge',      killGold: 24000, completionGold: 12000, intensity: 0.85 }, // 24 — ethereal pressure
   { template: 'mammoth_siege',    killGold: 30000, completionGold: 15000, intensity: 0.75 }, // 25 — fortified pressure
-  { template: 'zombie_horde',     killGold: 40000, completionGold: 20000, intensity: 0.6 },  // 26 — breather: mass, no counter needed
-  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667, intensity: 0.85 }, // 27 — flying-heavy pressure
+  { template: 'zombie_horde',     killGold: 40000, completionGold: 20000, intensity: 0.5 },  // 26 — breather: mass, no counter needed
+  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667, intensity: 0.7 },  // 27 — flying-heavy pressure
   { template: 'mech_army',        killGold: 73333, completionGold: 36667 }, // 28 — heavy mass
   { template: 'chaos_wave',       killGold: 93333, completionGold: 46667 }, // 29 — final mix
   { template: 'boss_herbert',     killGold:120000, completionGold: 60000 }, // 30 — BOSS 3 (season finale, bonus peak)

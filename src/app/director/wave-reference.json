@@ -297,14 +297,14 @@
   {
     "wave": 24,
     "template": "Ghost Surge",
-    "count": 57,
+    "count": 48,
     "spawnDelay": 152,
     "variation": 0.254,
     "strength": 3.344,
     "pattern": "interleaved",
     "enemies": [
-      "ghostx46@3.344",
-      "wraithx11@3.344"
+      "ghostx38@3.344",
+      "wraithx10@3.344"
     ]
   },
   {
@@ -323,27 +323,27 @@
   {
     "wave": 26,
     "template": "Zombie Horde",
-    "count": 275,
+    "count": 229,
     "spawnDelay": 133,
     "variation": 0.225,
     "strength": 4.488,
     "pattern": "interleaved",
     "enemies": [
-      "zombiex248@4.488",
-      "zombie-v2x27@4.488"
+      "zombiex206@4.488",
+      "zombie-v2x23@4.488"
     ]
   },
   {
     "wave": 27,
     "template": "Dragon Elite",
-    "count": 23,
+    "count": 19,
     "spawnDelay": 427,
     "variation": 0.291,
     "strength": 5.106,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx14@5.106",
-      "hornetx9@5.106"
+      "dragonx11@5.106",
+      "hornetx8@5.106"
     ]
   },
   {

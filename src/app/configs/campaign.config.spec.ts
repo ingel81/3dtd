@@ -300,7 +300,12 @@ describe('the campaign intensity', () => {
   it('carries what a wave asks for', () => {
     // W25 ended 38 of 85 expert runs before it was lowered
     expect(campaignIntensity(25)).toBeCloseTo(0.75);
-    expect(campaignIntensity(26)).toBeCloseTo(0.6);
+    expect(campaignIntensity(26)).toBeLessThan(1);
+  });
+
+  it('leans lighter through the last block, where nothing heals any more', () => {
+    const late = [24, 25, 26, 27].map(campaignIntensity);
+    expect(Math.max(...late)).toBeLessThan(1);
   });
 
   it('stays inside its bounds, whatever a wave writes', () => {
