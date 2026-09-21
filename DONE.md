@@ -4,6 +4,21 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-21
+
+- [x] **G3 Forschung als Dialog mit echtem Graphen** (`c2ac9734`, `b030b88d`, `a803a4c8`, `8a177e7a`, `ca38a937`,
+      `54e94689`, `f641d0b3`, `96712b19`, `26398c6f`): Ebenen und Kanten rechnet `utils/dag-layout.ts` aus den
+      Vorbedingungen, die darstellende Baum-Komponente kennt nur Zustände (für den Heldenbaum G2 wiederverwendbar),
+      der Dialog füllt den Bildschirm und bringt Warteschlange und Detailpanel mit. Erreichbar über den Knopf im
+      Panel, den Knopf im Header und die Taste `Q`. Umsortieren der Warteschlange ist neu (`moveQueued`), der Rest
+      war schon da. Design des Claude-Designers umgesetzt, ohne die drei leeren Reiter und die Chips als Filter.
+- [x] **Biology-Tor, Stränge und ein Glyph je Forschung** (`ca38a937`): Vier gleichwertige Wurzeln wurden drei, der
+      organische Zweig hängt hinter `biology` (120, 8 s, neue Kategorie `gate`). Jede Forschung trägt jetzt einen
+      Strang (Ballistics, Arcane, Biology, Engineering) und ein eigenes Symbol; vier Icons waren doppelt vergeben.
+      Der Bot bewertet einen Torknoten mit 90 % des Besten dahinter, sonst wäre alles dahinter unerreichbar.
+
+---
+
 ## 2026-09-20
 
 - [x] **E8 Tower gezielt aus- und einschalten** (`1b07d35f`, `391f3589`, `99f3758c`): Knopf "Hold fire" am Ende der
