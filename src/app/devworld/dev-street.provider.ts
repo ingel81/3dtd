@@ -8,10 +8,8 @@ import {
 } from '../interfaces/street-network-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE } from './devworld.service';
 import { StreetSegment, SpawnPoint, DEV_STREET_WIDTHS } from './generators/street-generator';
-import {
-  haversineDistance as sharedHaversineDistance,
-  distanceToSegment as sharedDistanceToSegment,
-} from '../utils/street-astar';
+import { haversineDistance as sharedHaversineDistance } from '../utils/street-astar';
+import { nearestStreetSegment } from '../utils/street-grid';
 
 /**
  * Street type weights for A* pathfinding
@@ -304,32 +302,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     lat: number,
     lon: number
   ): NearestStreetPoint | null {
-    let nearest: NearestStreetPoint | null = null;
-
-    for (const street of network.streets) {
-      for (let i = 0; i < street.nodes.length - 1; i++) {
-        const node1 = street.nodes[i];
-        const node2 = street.nodes[i + 1];
-        const dist = this.distanceToSegment(lat, lon, node1.lat, node1.lon, node2.lat, node2.lon);
-
-        if (!nearest || dist < nearest.distance) {
-          nearest = { street, nodeIndex: i, distance: dist };
-        }
-      }
-    }
-
-    return nearest;
-  }
-
-  private distanceToSegment(
-    pLat: number,
-    pLon: number,
-    aLat: number,
-    aLon: number,
-    bLat: number,
-    bLon: number
-  ): number {
-    return sharedDistanceToSegment(pLat, pLon, aLat, aLon, bLat, bLon);
+    return nearestStreetSegment(network, lat, lon);
   }
 
   findPath(

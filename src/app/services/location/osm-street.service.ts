@@ -13,8 +13,8 @@ import {
   MinHeap,
   ROAD_TYPE_WEIGHTS,
   haversineDistance as sharedHaversineDistance,
-  distanceToSegment as sharedDistanceToSegment,
 } from '../../utils/street-astar';
+import { nearestStreetSegment } from '../../utils/street-grid';
 
 export type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 
@@ -452,7 +452,9 @@ export class OsmStreetService {
 
   /**
    * Find the nearest point on any street segment to given coordinates
-   * This checks distance to line segments, not just nodes
+   * This checks distance to line segments, not just nodes.
+   * Runs over the network's segment grid (StreetSegmentGrid), which is built
+   * on the first lookup of a network and dropped with it.
    */
   findNearestStreetPoint(
     network: StreetNetwork,
@@ -460,37 +462,7 @@ export class OsmStreetService {
     lon: number,
     accept?: (node: StreetNode) => boolean
   ): { street: Street; nodeIndex: number; distance: number } | null {
-    let nearest: { street: Street; nodeIndex: number; distance: number } | null = null;
-
-    for (const street of network.streets) {
-      // Check distance to each segment (line between consecutive nodes)
-      for (let i = 0; i < street.nodes.length - 1; i++) {
-        const node1 = street.nodes[i];
-        const node2 = street.nodes[i + 1];
-        if (accept && !accept(node1)) continue;
-        const dist = this.distanceToSegment(lat, lon, node1.lat, node1.lon, node2.lat, node2.lon);
-
-        if (!nearest || dist < nearest.distance) {
-          nearest = { street, nodeIndex: i, distance: dist };
-        }
-      }
-    }
-
-    return nearest;
-  }
-
-  /**
-   * Calculate perpendicular distance from a point to a line segment
-   */
-  private distanceToSegment(
-    pLat: number,
-    pLon: number,
-    aLat: number,
-    aLon: number,
-    bLat: number,
-    bLon: number
-  ): number {
-    return sharedDistanceToSegment(pLat, pLon, aLat, aLon, bLat, bLon);
+    return nearestStreetSegment(network, lat, lon, accept);
   }
 
   /**
