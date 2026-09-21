@@ -23,7 +23,7 @@ BOT_WEIGHTS = {"beginner": 1.0, "expert": 1.0}
 # The director parameter set every client plays. A batch that compares two
 # sets runs the server twice, once per name; the name lands in every run
 # log's head, so the analysis can tell the runs apart.
-DIRECTOR_PARAMS = "default"
+DIRECTOR_PARAMS = "cap-loose"
 
 # Where the run logs land: runs/<config-hash>/<run-id>.jsonl. The config hash
 # comes out of the log's own head, so runs of different balance never mix.
