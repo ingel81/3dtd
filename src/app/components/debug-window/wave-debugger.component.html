@@ -53,11 +53,11 @@
       </div>
 
       <!-- Mode Toggle -->
-      <div class="mode-toggle">
-        <button class="mode-btn" [class.active]="!waveDebug.mixedMode()" (click)="waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
+      <div class="mode-toggle" role="group" aria-label="Wave composition">
+        <button class="mode-btn" [class.active]="!waveDebug.mixedMode()" [attr.aria-pressed]="!waveDebug.mixedMode()" (click)="waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
           Single
         </button>
-        <button class="mode-btn" [class.active]="waveDebug.mixedMode()" (click)="!waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
+        <button class="mode-btn" [class.active]="waveDebug.mixedMode()" [attr.aria-pressed]="waveDebug.mixedMode()" (click)="!waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
           Mixed
         </button>
       </div>
@@ -197,9 +197,10 @@
         <div class="section">
           <div class="section-title">Pattern</div>
 
-          <div class="pattern-grid">
+          <div class="pattern-grid" role="group" aria-label="Spawn pattern">
             @for (pattern of waveDebug.allPatterns; track pattern) {
               <button class="pattern-btn" [class.active]="waveDebug.spawnPattern() === pattern"
+                      [attr.aria-pressed]="waveDebug.spawnPattern() === pattern"
                       (click)="waveDebug.setSpawnPattern(pattern)"
                       [title]="patternLabels[pattern]">
                 <td-icon [name]="$any(patternIcons[pattern])" [size]="14"></td-icon>

@@ -11,11 +11,12 @@
   >
     <div class="event-debug-content">
       <!-- Filter Buttons -->
-      <div class="filter-row">
+      <div class="filter-row" role="group" aria-label="Event categories">
         @for (cat of categories; track cat) {
           <button
             class="filter-btn"
             [class.active]="selectedCategory() === cat"
+            [attr.aria-pressed]="selectedCategory() === cat"
             (click)="selectCategory(cat)"
           >
             {{ cat | uppercase }}
@@ -42,6 +43,7 @@
           (click)="togglePause()"
           [title]="isPaused() ? 'Resume' : 'Pause'"
           [attr.aria-label]="isPaused() ? 'Resume' : 'Pause'"
+          [attr.aria-pressed]="isPaused()"
         >
           <td-icon [name]="isPaused() ? 'play' : 'pause'" [size]="14"></td-icon>
         </button>

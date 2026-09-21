@@ -25,6 +25,7 @@
             (click)="enemyDebug.togglePlacementMode()"
             title="Place enemy on route"
             aria-label="Place enemy on route"
+            [attr.aria-pressed]="enemyDebug.placementMode()"
           >
             <td-icon [name]="enemyDebug.placementMode() ? 'cross' : 'pin'" [size]="14"></td-icon>
           </button>
@@ -45,7 +46,8 @@
                    (click)="enemyDebug.toggleDebugEnemySelection(de.id)"
                    (keydown.enter)="enemyDebug.toggleDebugEnemySelection(de.id)"
                    tabindex="0"
-                   role="button">
+                   role="button"
+                   [attr.aria-pressed]="de.id === enemyDebug.selectedDebugEnemyId()">
                 <span class="enemy-info">
                   <td-icon class="enemy-icon" [size]="14"
                     [name]="de.enemy.alive ? (de.enemy.movement.paused ? 'pause' : 'run') : 'skull'"></td-icon>
