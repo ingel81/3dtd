@@ -36,11 +36,12 @@
 
   <div class="section">
     <div class="section-title">Buildings</div>
-    <div class="btn-row">
+    <div class="btn-row" role="group" aria-label="Buildings">
       @for (preset of buildingPresets; track preset) {
         <button
           class="building-btn"
           [class.active]="devWorld.config.buildings === preset"
+          [attr.aria-pressed]="devWorld.config.buildings === preset"
           (click)="selectBuildings(preset)"
         >
           {{ preset }}

@@ -19,9 +19,9 @@
         } @else {
           <span class="active-tower muted">No tower selected</span>
         }
-        <div class="layer-toggle">
-          <button [class.active]="layer() === 'ground'" (click)="setLayer('ground')">Ground</button>
-          <button [class.active]="layer() === 'air'" (click)="setLayer('air')">Air</button>
+        <div class="layer-toggle" role="group" aria-label="LOS layer">
+          <button [class.active]="layer() === 'ground'" [attr.aria-pressed]="layer() === 'ground'" (click)="setLayer('ground')">Ground</button>
+          <button [class.active]="layer() === 'air'" [attr.aria-pressed]="layer() === 'air'" (click)="setLayer('air')">Air</button>
         </div>
       </div>
 

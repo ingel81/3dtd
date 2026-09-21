@@ -231,7 +231,7 @@
               (click)="heightDebugToggled.emit()"
               matTooltip="Height markers"
               matTooltipPosition="left"
-              aria-label="Height markers">
+              aria-label="Height markers" [attr.aria-pressed]="uiStore.heightDebugVisible()">
         <td-icon name="terrain" [size]="18"></td-icon>
         <span>Height</span>
       </button>
@@ -240,7 +240,7 @@
               (click)="specialPointsDebugToggled.emit()"
               matTooltip="Special points"
               matTooltipPosition="left"
-              aria-label="Special points">
+              aria-label="Special points" [attr.aria-pressed]="uiStore.specialPointsDebugVisible()">
         <td-icon name="pin" [size]="18"></td-icon>
         <span>Points</span>
       </button>
@@ -268,7 +268,7 @@
               (click)="debugWindows.toggle('camera')"
               matTooltip="Camera info"
               matTooltipPosition="left"
-              aria-label="Camera info">
+              aria-label="Camera info" [attr.aria-pressed]="debugWindows.cameraWindow().isOpen">
         <td-icon name="eye" [size]="18"></td-icon>
         <span>Camera</span>
       </button>
@@ -277,7 +277,7 @@
               (click)="cameraFramingDebugToggled.emit()"
               matTooltip="Framing guides"
               matTooltipPosition="left"
-              aria-label="Framing guides">
+              aria-label="Framing guides" [attr.aria-pressed]="cameraFramingDebug()">
         <td-icon name="fullscreen" [size]="18"></td-icon>
         <span>Frame</span>
       </button>
@@ -286,7 +286,7 @@
               (click)="debugWindows.toggle('display')"
               matTooltip="Display options"
               matTooltipPosition="left"
-              aria-label="Display options">
+              aria-label="Display options" [attr.aria-pressed]="debugWindows.displayWindow().isOpen">
         <td-icon name="sliders" [size]="18"></td-icon>
         <span>Display</span>
       </button>
@@ -295,7 +295,7 @@
               (click)="debugWindows.toggle('performance')"
               matTooltip="Performance"
               matTooltipPosition="left"
-              aria-label="Performance">
+              aria-label="Performance" [attr.aria-pressed]="debugWindows.performanceWindow().isOpen">
         <td-icon name="speed" [size]="18"></td-icon>
         <span>Perf</span>
       </button>
@@ -304,7 +304,7 @@
               (click)="debugWindows.toggle('los')"
               matTooltip="LOS Cubemap"
               matTooltipPosition="left"
-              aria-label="LOS Cubemap">
+              aria-label="LOS Cubemap" [attr.aria-pressed]="debugWindows.losWindow().isOpen">
         <td-icon name="layers" [size]="18"></td-icon>
         <span>LOS</span>
       </button>
@@ -313,7 +313,7 @@
               (click)="debugWindows.toggle('sound')"
               matTooltip="Spatial audio"
               matTooltipPosition="left"
-              aria-label="Spatial audio">
+              aria-label="Spatial audio" [attr.aria-pressed]="debugWindows.soundWindow().isOpen">
         <td-icon name="audio" [size]="18"></td-icon>
         <span>Audio</span>
       </button>
@@ -323,7 +323,7 @@
                 (click)="debugWindows.toggle('devworld')"
                 matTooltip="DevWorld"
                 matTooltipPosition="left"
-                aria-label="DevWorld">
+                aria-label="DevWorld" [attr.aria-pressed]="debugWindows.devworldWindow().isOpen">
           <td-icon name="target" [size]="18"></td-icon>
           <span>DevWorld</span>
         </button>
@@ -397,7 +397,7 @@
               (click)="debugWindows.toggle('wave')"
               matTooltip="Wave spawner"
               matTooltipPosition="left"
-              aria-label="Wave spawner">
+              aria-label="Wave spawner" [attr.aria-pressed]="debugWindows.waveWindow().isOpen">
         <td-icon name="wave" [size]="18"></td-icon>
         <span>Waves</span>
       </button>
@@ -406,7 +406,7 @@
               (click)="debugWindows.toggle('bots')"
               matTooltip="Bots"
               matTooltipPosition="left"
-              aria-label="Bots">
+              aria-label="Bots" [attr.aria-pressed]="debugWindows.botWindow().isOpen">
         <td-icon name="bulb" [size]="18"></td-icon>
         <span>Bots</span>
       </button>
@@ -415,7 +415,7 @@
               (click)="debugWindows.toggle('tower')"
               matTooltip="Tower inspector"
               matTooltipPosition="left"
-              aria-label="Tower inspector">
+              aria-label="Tower inspector" [attr.aria-pressed]="debugWindows.towerWindow().isOpen">
         <td-icon name="tower" [size]="18"></td-icon>
         <span>Towers</span>
       </button>
@@ -424,7 +424,7 @@
               (click)="debugWindows.toggle('enemy')"
               matTooltip="Enemy inspector"
               matTooltipPosition="left"
-              aria-label="Enemy inspector">
+              aria-label="Enemy inspector" [attr.aria-pressed]="debugWindows.enemyWindow().isOpen">
         <td-icon name="bug" [size]="18"></td-icon>
         <span>Enemies</span>
       </button>
@@ -433,7 +433,7 @@
               (click)="debugWindows.toggle('events')"
               matTooltip="Event bus"
               matTooltipPosition="left"
-              aria-label="Event bus">
+              aria-label="Event bus" [attr.aria-pressed]="debugWindows.eventsWindow().isOpen">
         <td-icon name="share" [size]="18"></td-icon>
         <span>Events</span>
       </button>
