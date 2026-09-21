@@ -388,9 +388,15 @@ Verlust, Anteil der Wellen mit Schaden, Leck-Quote, Golddruck, Ausgaben, Entsche
 überlebende Läufe je Welle, dazu die Tower-Anteile je Gruppe. Die Abgleiche aus dem Run-Log stehen als Spalte in
 der Übersicht, damit ein Lauf mit Loch in der Buchführung auffällt.
 
-Offen aus 2c: Schaden je Gold je Tower-Typ fehlt noch. Der Wellenblock kennt die Ausgaben nach Zweck, aber nicht
-nach Tower-Typ; dafür müsste der Bau- und Upgrade-Preis je Typ aus den Ereignissen summiert werden. Steht in
-TODO.md.
+**Nachtrag 2026-09-21 (E10):** Schaden je Gold je Tower-Typ steht jetzt im Bericht. Der Wellenblock trägt die
+Bau- und Upgrade-Ausgaben je Typ (`towerSpending`, Run-Log-Format 2); die Tower-Tabelle zeigt Gold je Lauf,
+Gold-Anteil, Schadens- und Kill-Anteil und Schaden je Gold. Läufe aus Format 1 werden aus ihren Bau- und
+Upgrade-Ereignissen gelesen, damit die erste Baseline nicht verloren ist.
+
+Gemessen über die 248 lesbaren Läufe in `bot-server/runs/` (Balance 78e12fc6): Der Könner steckt 25,3 % des
+Tower-Golds in die Kanone und holt daraus 52,8 % des Schadens, also 3,56 Schaden je Gold. Dahinter Gift mit 3,17
+bei 5,5 % des Golds, Dual-Gatling 1,54, Bogenschütze 0,85, Eis 0,79, Tentakel 0,60, Rakete 0,27. Die Kanone wird
+also nicht nur oft gewählt, sie ist je Gold gut doppelt so ergiebig wie der nächste Breitband-Tower (E13).
 
 **Die Baseline selbst ist keine Codeaufgabe:** Einsteiger und Könner je etwa 50 Läufe in DevWorld (`/bots`), dazu
 Läufe auf echten Karten, dann `analyze_runs.py`. Das ist der nächste Schritt vor Phase 3.

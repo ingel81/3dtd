@@ -24,7 +24,7 @@ def head(config_hash="abc123", params="default", bot="expert", run_id="run-1"):
 
 
 def wave(number, *, hp_lost=0, leaked=0, spawned=10, credits_start=100, spend=0, towers=None,
-         duration_ms=30_000, mismatches=None):
+         duration_ms=30_000, mismatches=None, tower_spending=None):
     record = {
         "kind": "wave", "wave": number, "step": number * 100, "timeMs": number * 30_000,
         "durationMs": duration_ms, "creditsStart": credits_start,
@@ -33,6 +33,7 @@ def wave(number, *, hp_lost=0, leaked=0, spawned=10, credits_start=100, spend=0,
         "enemiesSpawned": spawned, "killsByTower": spawned - leaked, "killsByHero": 0,
         "killsByAbility": 0, "killsByDebug": 0, "killsByOther": 0, "leaked": leaked,
         "healthStart": 100, "healthEnd": 100 - hp_lost,
+        "towerSpending": tower_spending if tower_spending is not None else {},
         "towers": towers if towers is not None else [
             {"id": "t1", "type": "archer", "levels": {"damage": 2}, "damage": 500, "kills": 5},
         ],
@@ -42,8 +43,13 @@ def wave(number, *, hp_lost=0, leaked=0, spawned=10, credits_start=100, spend=0,
     return record
 
 
-def event(name):
-    return {"kind": "event", "event": name, "step": 1, "timeMs": 10, "wave": 1}
+def event(name, *, type_id=None, credits=None):
+    record = {"kind": "event", "event": name, "step": 1, "timeMs": 10, "wave": 1}
+    if type_id is not None:
+        record["id"] = type_id
+    if credits is not None:
+        record["credits"] = credits
+    return record
 
 
 def write(path, records):
@@ -200,3 +206,110 @@ def test_the_endings_reach_the_report(tmp_path):
 
     assert "Where the runs end" in page
     assert "Mammoth Siege" in page
+
+
+def test_the_gold_of_a_type_is_the_build_plus_its_upgrades(tmp_path):
+    """Damage per gold needs a divisor: what the wave block booked per type."""
+    towers = [
+        {"id": "t1", "type": "cannon", "levels": {"damage": 2}, "damage": 900, "kills": 4},
+        {"id": "t2", "type": "archer", "levels": {}, "damage": 100, "kills": 1},
+    ]
+    write(tmp_path / "a.jsonl", [
+        head(),
+        wave(1, towers=towers, tower_spending={"cannon": 200, "archer": 100}),
+    ])
+
+    [group] = group_runs(read_runs([tmp_path]).runs)
+    by_type = {t.type: t for t in group.towers}
+
+    assert by_type["cannon"].gold == 200
+    assert by_type["archer"].gold == 100
+    assert by_type["cannon"].gold_share == pytest.approx(2 / 3)
+    # The cannon carries 90 % of the damage on two thirds of the gold
+    assert by_type["cannon"].damage_per_gold == pytest.approx(4.5)
+    assert by_type["archer"].damage_per_gold == pytest.approx(1.0)
+
+
+def test_the_gold_of_a_type_adds_up_over_the_waves_of_a_run(tmp_path):
+    towers = [{"id": "t1", "type": "cannon", "levels": {}, "damage": 300, "kills": 2}]
+    write(tmp_path / "a.jsonl", [
+        head(),
+        wave(1, towers=towers, tower_spending={"cannon": 120}),
+        wave(2, towers=towers, tower_spending={"cannon": 80}),
+    ])
+
+    [group] = group_runs(read_runs([tmp_path]).runs)
+
+    assert group.towers[0].gold == 200
+    assert group.towers[0].damage_per_gold == pytest.approx(3.0)
+
+
+def test_a_type_that_was_bought_but_never_fired_still_shows_its_gold(tmp_path):
+    """Gold that bought nothing is the point of the number, so it may not drop out."""
+    write(tmp_path / "a.jsonl", [
+        head(),
+        wave(1, towers=[], tower_spending={"rocket": 500}),
+    ])
+
+    [group] = group_runs(read_runs([tmp_path]).runs)
+
+    assert [(t.type, t.gold, t.damage_per_gold) for t in group.towers] == [("rocket", 500, 0.0)]
+
+
+def test_a_type_without_gold_has_no_damage_per_gold(tmp_path):
+    """A debug-placed tower has damage and no price; the column says so instead of dividing by zero."""
+    towers = [{"id": "t1", "type": "cannon", "levels": {}, "damage": 300, "kills": 2}]
+    write(tmp_path / "a.jsonl", [head(), wave(1, towers=towers)])
+
+    [group] = group_runs(read_runs([tmp_path]).runs)
+
+    assert group.towers[0].damage_per_gold is None
+    assert "no gold" in render([group], [])
+
+
+def test_a_log_from_before_the_block_carried_the_gold_falls_back_to_its_events(tmp_path):
+    """Format 1 runs are the whole first baseline; their events name type and price."""
+    old = wave(1, towers=[{"id": "t1", "type": "cannon", "levels": {}, "damage": 400, "kills": 3}])
+    del old["towerSpending"]
+    write(tmp_path / "a.jsonl", [
+        head(),
+        event("tower-built", type_id="cannon", credits=-120),
+        event("tower-upgraded", type_id="cannon", credits=-80),
+        # A sale pays gold back; damage per gold counts what went in, gross
+        event("tower-sold", type_id="cannon", credits=60),
+        old,
+    ])
+
+    [group] = group_runs(read_runs([tmp_path]).runs)
+
+    assert group.towers[0].gold == 200
+    assert group.towers[0].damage_per_gold == pytest.approx(2.0)
+
+
+def test_the_gold_of_one_block_does_not_leak_into_the_next(tmp_path):
+    towers = [{"id": "t1", "type": "cannon", "levels": {}, "damage": 100, "kills": 1}]
+    first = wave(1, towers=towers)
+    second = wave(2, towers=towers)
+    for record in (first, second):
+        del record["towerSpending"]
+    write(tmp_path / "a.jsonl", [
+        head(),
+        event("tower-built", type_id="cannon", credits=-120),
+        first,
+        event("tower-upgraded", type_id="cannon", credits=-80),
+        second,
+    ])
+
+    run = read_runs([tmp_path]).runs[0]
+
+    assert [w.tower_spending for w in run.waves] == [{"cannon": 120}, {"cannon": 80}]
+
+
+def test_damage_per_gold_reaches_the_report(tmp_path):
+    towers = [{"id": "t1", "type": "cannon", "levels": {}, "damage": 900, "kills": 4}]
+    write(tmp_path / "a.jsonl", [head(), wave(1, towers=towers, tower_spending={"cannon": 200})])
+
+    page = render(group_runs(read_runs([tmp_path]).runs), [])
+
+    assert "damage/gold" in page
+    assert "4.50" in page

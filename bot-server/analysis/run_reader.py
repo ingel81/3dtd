@@ -38,6 +38,8 @@ class Wave:
     mismatches: list[str]
     #: Decisions the player made while this wave was prepared and played.
     decisions: int = 0
+    #: Build and upgrade gold per tower type, the divisor of damage per gold.
+    tower_spending: dict[str, float] = field(default_factory=dict)
 
 
 @dataclass
@@ -74,7 +76,11 @@ class ReadResult:
     skipped: list[tuple[Path, str]]
 
 
-def _wave(record: dict, decisions: int) -> Wave:
+#: Events that put gold into a tower type.
+TOWER_SPENDING_EVENTS = {"tower-built", "tower-upgraded"}
+
+
+def _wave(record: dict, decisions: int, tower_spending: dict[str, float]) -> Wave:
     kills = (
         int(record.get("killsByTower", 0) or 0)
         + int(record.get("killsByHero", 0) or 0)
@@ -100,7 +106,23 @@ def _wave(record: dict, decisions: int) -> Wave:
         towers=list(record.get("towers") or []),
         mismatches=list(record.get("mismatches") or []),
         decisions=decisions,
+        tower_spending=_tower_spending(record, tower_spending),
     )
+
+
+def _tower_spending(record: dict, from_events: dict[str, float]) -> dict[str, float]:
+    """
+    Build and upgrade gold per tower type.
+
+    The wave block carries it from run log format 2 on. Older logs are read
+    from their own build and upgrade events, which have always named the type
+    and the price; without that, every run of the first baseline would lose
+    its damage per gold. Drop the fallback once no format 1 log is left.
+    """
+    booked = record.get("towerSpending")
+    if booked is not None:
+        return {str(key): float(value or 0) for key, value in booked.items()}
+    return dict(from_events)
 
 
 #: Events that count as a decision of the player (or the bot).
@@ -116,6 +138,7 @@ def read_run(path: Path) -> Run | None:
     waves: list[Wave] = []
     end_reason: str | None = None
     decisions = 0
+    tower_spending: dict[str, float] = {}
 
     with path.open(encoding="utf-8") as handle:
         for line in handle:
@@ -131,11 +154,18 @@ def read_run(path: Path) -> Run | None:
             if kind == "head" and head is None:
                 head = record
             elif kind == "event":
-                if record.get("event") in DECISION_EVENTS:
+                event = record.get("event")
+                if event in DECISION_EVENTS:
                     decisions += 1
+                if event in TOWER_SPENDING_EVENTS:
+                    type_id = str(record.get("id") or "?")
+                    cost = -float(record.get("credits", 0) or 0)
+                    if cost > 0:
+                        tower_spending[type_id] = tower_spending.get(type_id, 0) + cost
             elif kind == "wave":
-                waves.append(_wave(record, decisions))
+                waves.append(_wave(record, decisions, tower_spending))
                 decisions = 0
+                tower_spending = {}
             elif kind == "end":
                 end_reason = record.get("reason")
 
