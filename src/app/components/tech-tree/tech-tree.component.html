@@ -1,12 +1,17 @@
-<div class="td-tech-tree" [style.width.px]="view().width" [style.height.px]="view().height"
-     role="group" [attr.aria-label]="label()">
+<div class="td-tech-tree" [class.td-focus]="hoveredId() !== null"
+     [style.width.px]="view().width" [style.height.px]="view().height"
+     role="group" [attr.aria-label]="label()" (pointerleave)="onLeaveGraph()">
 
   <!-- Edges below the nodes. Decorative: the prerequisites are spoken at the node. -->
   <svg class="td-tech-tree-edges" [attr.viewBox]="'0 0 ' + view().width + ' ' + view().height"
        [attr.width]="view().width" [attr.height]="view().height" aria-hidden="true" focusable="false">
     @for (edge of view().edges; track edge.from + '>' + edge.to) {
-      <path class="td-tech-edge" [class.td-dimmed]="edge.dimmed" [class.td-skip]="edge.skipsLevels"
+      <path class="td-tech-edge" [class]="'td-edge-' + edge.state"
+            [class.td-skip]="edge.skipsLevels" [class.td-rel]="edgeInChain(edge.from, edge.to)"
             [attr.d]="edge.path" />
+      <rect class="td-tech-edge-cap" [class]="'td-edge-' + edge.state"
+            [attr.x]="edge.capX - 2.5" [attr.y]="edge.capY - 2.5" width="5" height="5"
+            [attr.transform]="'rotate(45 ' + edge.capX + ' ' + edge.capY + ')'" />
     }
   </svg>
 
@@ -14,32 +19,46 @@
     <button type="button"
             class="td-tech-node"
             [class]="'td-state-' + node.state"
+            [class.td-rel]="inChain(node.id)"
+            [class.td-chain]="inChain(node.id) && node.id !== hoveredId()"
+            [class.td-sel]="node.id === selectedId()"
             [style.left.px]="node.x" [style.top.px]="node.y"
             [style.width.px]="node.width" [style.height.px]="node.height"
-            [disabled]="node.state === 'completed' || node.state === 'active'"
-            [matTooltip]="node.hint ?? ''"
             [attr.aria-label]="node.title + ', ' + stateLabel(node)"
+            [attr.title]="node.hint || null"
+            (pointerenter)="onEnter(node.id)"
+            (focus)="onEnter(node.id)"
             (click)="nodeActivated.emit(node.id)">
 
-      <span class="td-tech-node-head">
-        @if (node.icon) {
-          <td-icon class="td-tech-node-icon" [name]="node.icon" [size]="18" />
-        }
+      <span class="td-tech-node-top">
+        <span class="td-tech-node-plate" [attr.data-branch]="node.branch">
+          @if (node.icon) {
+            <td-icon [name]="node.icon" [size]="19" />
+          }
+        </span>
         <span class="td-tech-node-title">{{ node.title }}</span>
+        @if (node.statusIcon) {
+          <span class="td-tech-node-flag"><td-icon [name]="node.statusIcon" [size]="15" /></span>
+        }
       </span>
 
-      @if (node.subtitle) {
-        <span class="td-tech-node-sub">{{ node.subtitle }}</span>
-      }
-
       @if (node.state === 'active') {
+        <span class="td-tech-node-foot">{{ node.subtitle }}</span>
         <span class="td-tech-node-bar" aria-hidden="true">
-          <span class="td-tech-node-bar-fill" [style.width.%]="progressPercent(node.progress)"></span>
+          <i [style.width.%]="progressPercent(node.progress)"></i>
+        </span>
+      } @else {
+        <span class="td-tech-node-foot">
+          <span class="td-cost">{{ node.subtitle }}</span>
+          @if (node.subtitleAside) {
+            <span class="td-sep">·</span>
+            <span class="td-time">{{ node.subtitleAside }}</span>
+          }
         </span>
       }
 
       @if (node.badge) {
-        <span class="td-tech-node-badge" aria-hidden="true">{{ node.badge }}</span>
+        <span class="td-tech-node-ord" aria-hidden="true">{{ node.badge }}</span>
       }
     </button>
   }
