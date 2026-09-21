@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-09-19, Code-Stand v0.3.1 (`main` = `next`). Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-09-21, Code-Stand `balancing`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die Punkte bis 748 samt Ergebnissen
 liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -23,6 +23,45 @@ liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Li
   Enemies" anklicken, unter "Movement" "Start".
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
+
+## L Forschung und die Sitzung vom 2026-09-21
+
+Alles hier ist gebaut, gemessen und durch das Gate; was fehlt, sind Augen im Spiel. Reihenfolge egal,
+L1 bis L4 gehen in einem Lauf.
+
+- **L1 Forschungsbaum als Dialog** (G3): Research Center bauen, anklicken, im Panel "Research tree", oder Taste
+  `Q`, oder den Knopf im Header neben dem Würfel. Erwartung: Vollbild, drei Wurzeln oben (Gatling, Ice Magic,
+  Biology), Tier-Marken links auf Höhe ihrer Reihe, unten Legende und die Zählung je Strang. Ziehen mit der Maus
+  verschiebt den Graphen, ein Klick auf einen offenen Knoten startet ihn trotzdem.
+- **L2 Zustände am Knoten**: eine Forschung starten und eine zweite anklicken, während der Slot belegt ist.
+  Erwartung: die laufende teal mit Balken und Restzeit, die zweite gestrichelt gold mit Nummer in der Ecke, die
+  Warteschlange rechts mit derselben Reihenfolge. Credits unter den Preis bringen (nichts kaufen, warten):
+  offene Knoten färben sich orange (`poor`), der Detailknopf sagt, wie viel fehlt.
+- **L3 Kette und Detail**: mit dem Zeiger auf einen tiefen Knoten (etwa Transcendent Tech). Erwartung: der Weg
+  bis zur Wurzel leuchtet gold, alles andere blendet ab, und rechts steht Zustand, Wirkung, Kosten, Zeit und die
+  Vorbedingungen mit Haken.
+- **L4 Warteschlange umsortieren**: zwei Forschungen vormerken, im rechten Panel die Pfeile benutzen. Erwartung:
+  die Reihenfolge ändert sich, nichts wird abgebucht, und die frei werdende Slot nimmt den, der oben steht.
+- **L5 Biology-Tor**: am Anfang stehen nur Gatling Technology, Ice Magic und Biology offen. Tentacle und Toxic
+  öffnen sich erst, wenn Biology fertig ist (120, 8 s).
+- **L6 Raketen-Pfad** (Form B): `aa-retrofit` hängt jetzt direkt an `gatling-tech`, `rocketry` unter
+  `siege-engineering`. Erwartung im Spiel: die Flugabwehr fürs Gatling ist ab 850 erreichbar, die Rakete kostet
+  1500 und liegt beim Drachen in W12, nicht bei den Fledermäusen in W7. Ob die Rakete damit stark genug ist, ist
+  **nicht** geprüft, das ist ein eigener Punkt in TODO.md.
+- **L7 Panel des Research Centers**: Center anklicken, ohne dass etwas läuft. Erwartung: "n/21 researched",
+  Slots, eine Zeile wie "5 researches are open right now", darunter der goldene Knopf. Läuft etwas, steht dort
+  die laufende Forschung mit Balken und Abbrechen.
+- **L8 Schaden je Gold je Typ** (E10): einen Lauf spielen, zwei Tower-Typen bauen, einen zweimal aufrüsten, Lauf
+  exportieren. Erwartung: `"format":2` im Kopf, `"towerSpending":{...}` in jeder Wellenzeile, und die Summe
+  darin gleich `spending.build + spending.upgrade` derselben Zeile.
+- **L9 Kein Kill zu viel** (E11): Devworld, einen Archer ans HQ-Ende der Route, Welle laufen lassen, bis ein
+  Gegner durchkommt. Erwartung: das HQ nimmt einmal Schaden, der Tower bekommt dafür keinen Kill, und im
+  Wellenblock steht kein `bodies:`-Eintrag unter `mismatches`.
+- **L10 Straßensuche nach Ortswechsel** (H14): Ort laden, Spawn setzen, dann über den Standort-Dialog in eine
+  andere Stadt wechseln und wieder einen Spawn setzen. Erwartung: das Portal sitzt an einer Straße der **neuen**
+  Stadt, nicht an einer der alten (der Raumindex wird je Netz neu gebaut).
+- **L11 Nur für Screenreader** (H9, optional): die Dev-Kacheln der Quick Actions melden jetzt ihren Zustand
+  (`aria-pressed`). Optisch ändert sich nichts, also nur zu prüfen, wenn du magst.
 
 ## K8 Desktop-Build
 

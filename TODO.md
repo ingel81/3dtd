@@ -9,8 +9,9 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
   nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-20, `main` = v0.3.1, `next` elf Commits davor (C11, E8, E9, J1, Route-Standard, Cheat-Stufen). Nichts
-in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optional).
+Stand 2026-09-21, gearbeitet wird auf `balancing`. Erledigt und noch nicht im Spiel nachgesehen: der
+Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachtests in
+[docs/PLAYTEST.md](docs/PLAYTEST.md) unter L.
 
 ---
 
@@ -23,8 +24,6 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
-- [ ] **B5 Straßen-Overlay und Intro-Flug auf die eingefrorenen Zellhöhen umstellen?** Beide haben eine eigene
-      Höhenabfrage neben dem Korridor (`getStreetHeightEstimate`, Flugprofil).
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut, die Baseline steht (354 Läufe, 2026-09-21), sechs
       Tuning-Runden sind gelaufen. Offen sind die Zielbänder (3b) und das Kampagnenende (3a),
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
@@ -49,20 +48,25 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
       (Hunderte statt Dutzende) und die Aufstellung (im Test läuft jeder Gegner an beiden Bogenschützen vorbei).
 - [ ] **E13 Ein Tower trägt die Hälfte**: Über 202 Könner-Läufe macht die Kanone 50 bis 54 % des Schadens, danach
       Dual-Gatling 12-14 %, Gift und Eis je rund 10 %. Der Plan verlangt "kein Typ dominiert". Vor einer Änderung
-      an Preisen oder Werten klären, ob die Bot-Strategie die Kanone überwählt oder ob sie wirklich zu stark ist;
-      E10 (Schaden je Gold je Typ) ist die Zahl, die das entscheidet.
-- [ ] **E10 Schaden je Gold je Tower-Typ** im Run-Bericht: Der Wellenblock kennt die Ausgaben nach Zweck, nicht nach
-      Tower-Typ. Bau- und Upgrade-Preise je Typ aus den Ereignissen summieren
-      ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), Stand 2c).
-- [ ] **E11 Eine Leiche zu viel im Körper-Abgleich** (Bot-Läufe, 2026-09-21): In etwa 1 % der Wellen meldet das
-      Run-Log `killed = spawned + 1`. Eingegrenzt über 22 Fälle: Die Abweichung ist **immer genau +1**, immer ein
-      **Tower-Kill** (nie Held, Fähigkeit oder `killsByOther`), und sie trifft alle Templates und Gegnertypen
-      gleichermaßen, also kein Splitter-Effekt. Ausgeschlossen: Jeder Gegner entsteht über `EnemyManager.spawn()`,
-      und das emittiert immer `enemy:spawned`; ein zweiter `kill()` auf denselben Gegner wird von `killingEnemies`
-      abgewiesen. Offener Verdacht: `aliveCount` driftet um 1 nach unten (`Math.max(0, c - 1)` verschluckt eine
-      doppelte Dekrementierung dauerhaft), sodass `enemiesAtStart` an der Wellengrenze 0 liest, obwohl noch ein
-      Gegner lebt. Nächster Schritt ist eine Spur je Gegner-Id in einem Szenario-Test, kein weiteres Lesen.
-      Verfälscht keine Kennzahl, steht als Spalte im Bericht ([docs/RUN_LOG.md](docs/RUN_LOG.md), Die Abgleiche).
+      an Preisen oder Werten klären, ob die Bot-Strategie die Kanone überwählt oder ob sie wirklich zu stark ist.
+      **Gemessen am 2026-09-21** (E10, 125 Könner-Läufe): Die Kanone macht 52,8 % des Schadens für 25,3 % des Golds,
+      also 3,56 Schaden je Gold gegen 1,54 beim nächsten Breitband-Tower. Sie wird nicht nur überwählt. Gift liegt
+      je Gold fast gleichauf (3,17), bekommt aber nur 5,5 % des Golds. Offen ist damit nur noch, was daraus folgt.
+- [ ] **E15 Ist die Rakete jetzt stark genug?** (offen seit 2026-09-21): Der Pfad ist repariert (`aa-retrofit`
+      direkt an `gatling-tech`, `rocketry` unter `siege-engineering`), die Werte der Rakete sind unverändert. Sie
+      liegt je Gold auch gegen Drachen nur gleichauf mit einem 45-Gold-Archer (0,29 zu 0,28), und mit
+      `canTargetGround: false` tut sie in Bodenwellen nichts. Vor einer Änderung an `damage` oder `cost` ein
+      Bot-Lauf gegen die neue Baumform, sonst wird geraten. Zahlen in
+      [BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Die Raketen-Falle".
+- [ ] **E16 Warteschlange über die Wellennaht** (unbelegt, 2026-09-21): `RunLogCollector.beginBlock()` leert
+      `this.leaking`, während eine Ooze über die Naht hinweg weiterfließen kann. `WaveManager.endWave()` räumt am
+      Wellenende ab, was es unwahrscheinlich macht; belegt ist nichts. Ein Szenario-Test mit einer Ooze an der
+      Naht würde es entscheiden.
+- [ ] **E17 Der Menschenlauf mit Deckel 645** (offen seit 2026-09-21): E14 erklärt die Luftlücke für kleine
+      Deckel, in denen das Leck-Kontingent den Deckel trägt. Bei 645 ist es Rauschen, dort dominiert der
+      Tötungsterm, und 68 von 175 getötet bleibt unerklärt. Verdacht: der Spawn-Abstand im Nenner
+      (`1 - killsPerSecond * REALISM * delay`), bei 24 Towern geht hornet_strike von 20 (0 ms) auf 83 (400 ms).
+      Kein Beleg; dafür braucht es das Run-Log dieses Laufs.
 - [ ] **E2 Replay als Neu-Simulation** statt Aufzeichnung, vollständig korrekt (User, Playtest 553). Blocker und
       Lücken: [docs/REPLAY.md](docs/REPLAY.md).
 - [ ] **E4 Stone Golem: Laufgeräusch und Beben**: schwere Schritte, leichter Screen Shake in Kameranähe.
@@ -84,10 +88,9 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
 - [ ] **H6** Simulationsschritt und Frame entkoppeln (`microStep`/`frameStep`); lohnt nur bei extremen Speed-Faktoren.
 - [ ] **H7** Explosionen zweistufig staffeln.
 - [ ] **H8** Bloom nur für ausgewählte Objekte (Render-Layers, zweiter Composer).
-- [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px,
-      `aria-label` an allen Icon-Buttons.
+- [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px.
+      Der Teil "`aria-label` an allen Icon-Buttons" ist erledigt (2026-09-21), der Rest steht noch aus.
 - [ ] **H13** Straßen parallel zu den Tiles laden, kleinere Box.
-- [ ] **H14** Raumindex für `findNearestStreetPoint`.
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
       plus Knopf "In der Desktop-App öffnen" in der Web-Version. Erst nach dem ersten Desktop-Release, geteilte Links
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
