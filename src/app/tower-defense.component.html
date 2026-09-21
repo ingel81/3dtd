@@ -5,13 +5,13 @@
     <div class="ai-error-banner" role="alert">
       <strong>AI error:</strong>
       <span>{{ aiErr }}</span>
-      <button type="button" (click)="store.directorError.set(null)" aria-label="Close">×</button>
+      <button type="button" (click)="store.directorError.set(null)" aria-label="Close the error message">×</button>
     </div>
   }
   @if (uiStore.notice(); as notice) {
     <div class="ai-error-banner" role="alert">
       <span>{{ notice }}</span>
-      <button type="button" (click)="uiStore.notice.set(null)" aria-label="Close">×</button>
+      <button type="button" (click)="uiStore.notice.set(null)" aria-label="Close the message">×</button>
     </div>
   }
 
