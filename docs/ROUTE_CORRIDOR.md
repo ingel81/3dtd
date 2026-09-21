@@ -2210,6 +2210,39 @@ Layer "Show streets" im Layers-Menü der Quick-Actions
 Vorher lag das Overlay auf jeder Brücke auf Kai oder Fluss darunter
 (Playtest 2026-09-14, Paris).
 
+**Warum das Overlay seine eigenen Säulen behält** (geprüft 2026-09-21, B5):
+
+- **Abdeckung:** Gezeichnet wird jede Straße ganz, von der ein Knoten
+  höchstens `STREET_FILTER_RADIUS` (100 m) an einem Routenpunkt liegt
+  (`filterStreetsNearRoutes`, `osm-street.service.ts`). Zellen gibt es nur
+  bis zur Halbbreite neben der Route, höchstens `maxHalfWidth` (7 m).
+  `getGroundLocalYAt` gäbe für den größten Teil der Knoten null, die eigene
+  Abfrage bliebe also ohnehin stehen.
+- **Vergleichswert:** Die Höhe des Overlays ist der Wert, gegen den
+  `__routes.describe()` die Zellhöhe hält, um Zellen auf Dach oder Krone zu
+  finden (`maxCellAboveStreetM`, `route-way-report.ts`). Aus den Zellen
+  gespeist wäre er immer 0.
+- **Auffrischung:** Das Overlay wird bei jedem Tile-Stapel neu gezeichnet
+  (`VisualizationFacadeService.onTilesLoaded`) und folgt so den feineren
+  Tiles; die Zellen bleiben eingefroren. Beim Laden läuft es vor dem
+  Korridorbau (`scheduleOverlayHeightUpdate` vor
+  `buildCorridorBehindLoadingScreen`), es sähe die eingefrorenen Höhen erst
+  beim nächsten Stapel.
+- Die Regeln teilen beide ohnehin: Deck, getragene Höhe und Portale kommen
+  bei Zelle und Overlay aus `carried-height.ts` und `underpass.ts`.
+
+Der Intro-Flug ebenso: Sein Profil braucht je Stützstelle neben dem Boden
+die Oberkante (Dächer, Kronen), die eine Zelle nicht führt (`RouteCell`
+kennt nur `terrainHeight`); beide kommen aus derselben Säule
+(`IntroCameraFlightService.sampleIndex`), der Strahl bliebe also stehen.
+Das Profil beginnt zudem vor dem HQ, mindestens `standoffStart` (60 m)
+entlang der Anfangstangente nach hinten verlängert, und dieses Stück liegt
+neben dem Korridor. Die eingefrorenen Zellhöhen liest der Flug bereits: Die
+Routenpunkte tragen sie (`showPathFromSpawn` über `getGroundLocalYAt`, nach
+dem Bau noch einmal in Schritt 6 von `CorridorBuild`), `routeYAt` gibt sie
+zwischen den Punkten aus, und `safeGround` nimmt sie als Rückfallwert, wo
+kein verlässliches Sample in der Nähe liegt.
+
 ### Linie, Zellen und Gegner verschwinden (Brücken, Unterführungen)
 
 Befund Paris (TODO 1.10, alte Liste 14, Playtest 564): Route `spawn-1`
