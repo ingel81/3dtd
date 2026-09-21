@@ -72,7 +72,6 @@ in Arbeit, J2 wartet aufs nächste Release, offen nur der Nachtest K8.4 (optiona
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,
       `immunityPercent` geht im neuen Feld auf. Grundlage: `tmp/archive-2026-09/fix1/reports/bossresist.md`, `immunity.md`.
 - [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge in `tmp/archive-2026-09/fix1/reports/herotier2.md`.
-- [ ] **G3 Konzept Forschung als eigener Dialog** mit echtem Baum (Knoten, Kanten, Fortschritt, Queue).
 - [ ] **G4 Konzept Explosivmunition des Helden mit Flächenschaden** (`hero.config.ts`).
 - [ ] **D1 Spawn-Portal an engen Stellen und Hängen**: Pfeiler in Fassaden, Lichtfleck am Hang schief. Nur im Browser
       an echten Gassen zu beurteilen.
