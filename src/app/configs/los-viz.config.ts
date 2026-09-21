@@ -190,3 +190,23 @@ export const LOS_VIZ_CONFIG = {
     opacityOff: 0.05,
   },
 } as const;
+
+/**
+ * Far-Distanz, mit der der Cube eines Towers mit Reichweite `range`
+ * gerendert wird (`TowerShadowMapper.update`).
+ *
+ * Die Reichweite ist waagerecht (`Tower.findTarget`: flat-earth distance²),
+ * die Proben liegen darüber: die Air-Probe `airSampleYOffset` über dem Boden
+ * der Zelle. Ihre Distanz zum Tip ist damit größer als die Reichweite, und
+ * ein leerer Texel dekodiert auf genau `far`. Mit `far = range` galt eine
+ * Zelle am Rand der Reichweite als verdeckt, obwohl nichts im Weg stand:
+ * beim Archer (Reichweite 30 m, Tip 5,55 m) der Ring ab etwa 27,9 m, das
+ * sind 2,8 % seiner Luft-Zellen (air-los-city.scenario.spec.ts). Der Bias
+ * kommt dazu, weil `isCubeVisible` ihn von der Blocker-Distanz abzieht.
+ *
+ * Steht eine Zelle höher als der Tip, bleibt ein Rest: der Zuschlag deckt
+ * `airSampleYOffset` über dem Tip ab, nicht über der Zelle.
+ */
+export function losCubeFarDistance(range: number): number {
+  return Math.hypot(range, LOS_VIZ_CONFIG.airSampleYOffset) + LOS_VIZ_CONFIG.visibilityBiasMeters;
+}

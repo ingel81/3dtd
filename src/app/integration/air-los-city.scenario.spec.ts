@@ -50,8 +50,8 @@ import { analyzeDefense } from '../director/defense-analyzer';
 import { survivableCount, TEMPLATES } from '../director/templates';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-import type { LosResolveContext } from '../utils/gpu-cube-resolve';
+import { LOS_VIZ_CONFIG, losCubeFarDistance } from '../configs/los-viz.config';
+import { isCubeVisible, type LosResolveContext } from '../utils/gpu-cube-resolve';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
@@ -472,7 +472,7 @@ describe('the line of sight of an air defense in a city', () => {
     const spots = spotsAlongRoute(4);
     for (const type of ['archer', 'poison'] as const) {
       const range = TOWER_TYPES[type].range;
-      const reaching = Math.hypot(range, LOS_VIZ_CONFIG.airSampleYOffset) + LOS_VIZ_CONFIG.visibilityBiasMeters;
+      const reaching = losCubeFarDistance(range);
       const c = census(type, spots, reaching);
       console.log(
         `${type} (${range} m, Cube-far ${reaching.toFixed(1)}): ${c.cells} Zellen, ` +
@@ -488,7 +488,7 @@ describe('the line of sight of an air defense in a city', () => {
     }
   });
 
-  it('loses the outer ring to air targets when the cube stops at the range', () => {
+  it('lost the outer ring to air targets while the cube stopped at the range', () => {
     const spots = spotsAlongRoute(4);
     for (const type of ['archer', 'poison'] as const) {
       const c = census(type, spots);
@@ -544,4 +544,52 @@ describe('the line of sight of an air defense in a city', () => {
 
     expect(killed / count).toBeGreaterThan(0.9);
   });
+});
+
+describe('the far distance a tower cube is rendered with', () => {
+  /** A cube nothing was drawn into: every texel holds the cleared colour. */
+  function emptyCube(tipY: number, far: number): LosResolveContext {
+    const size = 8;
+    return {
+      cube: { width: size } as WebGLCubeRenderTarget,
+      referencePos: new Vector3(0, tipY, 0),
+      farDistance: far,
+      faces: Array.from({ length: 6 }, () => new Uint8Array(size * size * 4)),
+      visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
+      emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
+    };
+  }
+
+  /**
+   * Every air-capable tower, at the edge of its range, over open ground: the
+   * range is horizontal (`Tower.findTarget`), the air probe sits
+   * `airSampleYOffset` above the cell, and an empty texel decodes to `far`.
+   * With `far = range` the probe lay outside its own cube and the cell read
+   * as blocked with nothing in the way.
+   */
+  const AIR_TOWERS: { type: TowerTypeId; tip: number }[] = [
+    { type: 'archer', tip: 5.55 },
+    { type: 'rocket', tip: 4.3 },
+    { type: 'ice', tip: 3.5 },
+    { type: 'lightning', tip: 9.65 },
+    { type: 'chaos', tip: 5.8 },
+  ];
+
+  for (const { type, tip } of AIR_TOWERS) {
+    it(`sees the air sample at the edge of a ${type}'s range`, () => {
+      const range = TOWER_TYPES[type].range;
+      const ctx = emptyCube(tip, losCubeFarDistance(range));
+      const air = LOS_VIZ_CONFIG.airSampleYOffset;
+      expect(isCubeVisible(0, tip, 0, range, air, 0, ctx)).toBe(true);
+      expect(isCubeVisible(0, tip, 0, range, LOS_VIZ_CONFIG.groundSampleYOffset, 0, ctx)).toBe(true);
+
+      // What it did with far = range: the ring the air probe lost.
+      const tight = emptyCube(tip, range);
+      const lost = range - Math.sqrt(
+        Math.max(0, (range - LOS_VIZ_CONFIG.visibilityBiasMeters) ** 2 - (air - tip) ** 2),
+      );
+      expect(isCubeVisible(0, tip, 0, range, air, 0, tight)).toBe(false);
+      console.log(`${type}: Reichweite ${range} m, ohne Zuschlag fehlten die aeusseren ${lost.toFixed(1)} m in der Luft`);
+    });
+  }
 });
