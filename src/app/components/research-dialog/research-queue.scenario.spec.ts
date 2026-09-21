@@ -5,36 +5,39 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // Three.js is a transitive dependency via the game-engine imports
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
-import { DestroyRef, Injector, computed, runInInjectionContext, signal } from '@angular/core';
-import { GameEventBus } from '../../../game-engine';
-import { ResearchManager } from '../../../managers/research.manager';
-import { CreditsLedger } from '../../../managers/game-state/credits-ledger';
-import { GameCommandsHandler } from '../../../managers/game-commands.handler';
-import type { GameStateManager } from '../../../managers/game-state.manager';
-import { SidebarResearchPanelComponent } from './research-panel.component';
-import { TowerDefenseStore } from '../../../store/tower-defense.store';
-import { ResearchStore } from '../../../store/research.store';
-import { SellConfirmService } from '../../../services/sell-confirm.service';
-import { UpgradeHintService } from '../../../services/upgrade-hint.service';
-import { getResearch } from '../../../configs/research/research-tree.config';
-import type { ActiveResearch, ResearchId } from '../../../configs/research/research.types';
-import { TOWER_TYPES } from '../../../configs/tower-types.config';
-import { GAME_BALANCE } from '../../../configs/game-balance.config';
+import { signal } from '@angular/core';
+import { GameEventBus } from '../../game-engine';
+import { ResearchManager } from '../../managers/research.manager';
+import { CreditsLedger } from '../../managers/game-state/credits-ledger';
+import { GameCommandsHandler } from '../../managers/game-commands.handler';
+import type { GameStateManager } from '../../managers/game-state.manager';
+import { getResearch } from '../../configs/research/research-tree.config';
+import type { ActiveResearch, ResearchId } from '../../configs/research/research.types';
+import { TOWER_TYPES } from '../../configs/tower-types.config';
+import { GAME_BALANCE } from '../../configs/game-balance.config';
+import { buildResearchNodes, researchClickAction, type ResearchTreeState } from './research-tree-view';
+import { researchStatus } from '../game-sidebar/research-panel/research-status';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
 
 /**
- * Playtest 508 and 509 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: the
- * research panel decides between start and queue, its outputs go to the
- * bus as commands, GameCommandsHandler and ResearchManager do the rest,
- * sub-step by sub-step as GameStateManager.runSubStep runs them.
+ * Playtest 508 and 509 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: a
+ * click in the research tree decides between start and queue
+ * (researchClickAction), the dialog sends that as a command on the bus, and
+ * GameCommandsHandler and ResearchManager do the rest, sub-step by sub-step as
+ * GameStateManager.runSubStep runs them.
+ *
+ * The dialog itself is not built here, only the rule it follows and the
+ * command path behind it; what it draws is covered by tech-tree.component.spec
+ * and research-tree-view.spec.
  */
 describe('Research queue, playtest 508 and 509 replayed', () => {
   let bus: GameEventBus;
   let research: ResearchManager;
   let ledger: CreditsLedger;
-  let panel: SidebarResearchPanelComponent;
+  let treeState: () => ResearchTreeState;
+  let click: (id: ResearchId) => void;
 
   beforeEach(() => {
     bus = new GameEventBus();
@@ -57,30 +60,27 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
       researchStore.centerLevel.set(event.centerLevel);
       researchStore.researchSlots.set(event.maxSlots);
     });
-    const store = {
-      credits: ledger.credits,
-      activeResearches: researchStore.activeResearches,
-      availableResearchSlots: computed(() =>
-        Math.max(0, researchStore.researchSlots() - researchStore.activeResearches().length)),
-      selectedTowerRevision: signal(0),
-    };
+    const credits = () => ledger.credits();
+    const availableSlots = () =>
+      Math.max(0, researchStore.researchSlots() - researchStore.activeResearches().length);
 
-    const injector = Injector.create({
-      providers: [
-        { provide: TowerDefenseStore, useValue: store },
-        { provide: ResearchStore, useValue: researchStore },
-        { provide: SellConfirmService, useValue: new SellConfirmService() },
-        { provide: UpgradeHintService, useValue: new UpgradeHintService() },
-        { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },
-      ],
+    /** What the dialog hands researchClickAction, from the same signals. */
+    treeState = () => ({
+      completed: researchStore.completedResearches(),
+      active: researchStore.activeResearches(),
+      queued: researchStore.queuedResearches(),
+      elapsed: researchStore.researchElapsed(),
+      credits: credits(),
+      availableSlots: availableSlots(),
     });
-    panel = runInInjectionContext(injector, () => new SidebarResearchPanelComponent());
 
-    // The panel's outputs as the sidebar, the game component and the facade pass them on
-    panel.startResearch.subscribe((researchId) => bus.emit({ type: 'command:start-research', researchId }));
-    panel.queueResearch.subscribe((researchId) => bus.emit({ type: 'command:queue-research', researchId }));
-    panel.unqueueResearch.subscribe((researchId) => bus.emit({ type: 'command:unqueue-research', researchId }));
-    panel.cancelResearch.subscribe((researchId) => bus.emit({ type: 'command:cancel-research', researchId }));
+    // The command the dialog emits for a click, and the one the X emits
+    click = (id: ResearchId) => {
+      const action = researchClickAction(id, treeState());
+      if (action === 'start') bus.emit({ type: 'command:start-research', researchId: id });
+      if (action === 'queue') bus.emit({ type: 'command:queue-research', researchId: id });
+      if (action === 'unqueue') bus.emit({ type: 'command:unqueue-research', researchId: id });
+    };
 
     const gsm = {
       researchManager: research,
@@ -96,8 +96,8 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     research.update(STEP_MS);
     research.startQueued(() => ledger.credits(), (cost) => ledger.spend(cost, 'research'));
   };
-  const click = (id: ResearchId) => panel.onResearchClick(getResearch(id)!);
-  const status = (id: ResearchId) => panel.getResearchStatus(id);
+  const status = (id: ResearchId) =>
+    researchStatus(id, treeState().completed, treeState().active, treeState().queued);
 
   /** New game, cheat Credits, Research Center built (TowerLifecycle charges it and opens the slot) */
   const newGameWithCenter = () => {
@@ -110,7 +110,8 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     newGameWithCenter();
     click('siege-engineering');
     expect(status('siege-engineering')).toBe('locked');
-    expect(panel.nodeTooltip(getResearch('siege-engineering')!)).toBe('Requires: Gatling Technology');
+    const locked = buildResearchNodes(treeState()).find((n) => n.id === 'siege-engineering')!;
+    expect(locked.hint).toBe('Requires: Gatling Technology');
     expect(research.getQueuedResearches()).toEqual([]);
 
     click('gatling-tech');
@@ -150,11 +151,11 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     expect(ledger.credits()).toBe(beforeQueue);
 
     // X on Tentacle Biology in the queue
-    panel.unqueueResearch.emit('tentacle-biology');
+    bus.emit({ type: 'command:unqueue-research', researchId: 'tentacle-biology' });
     expect(research.getQueuedResearches()).toEqual(['toxic-compounds']);
 
     // X on the running research: half the cost back, 425 in this flow
-    panel.cancelResearch.emit('ice-magic');
+    bus.emit({ type: 'command:cancel-research', researchId: 'ice-magic' });
     expect(ledger.credits()).toBe(425);
     expect(getResearch('toxic-compounds')!.cost).toBe(450);
     for (let i = 0; i < 60; i++) subStep();
