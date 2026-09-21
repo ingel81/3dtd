@@ -627,6 +627,19 @@ W21:2  W22:1  W23:0  W24:5  W25:8  W26:9  W27:17  W28:1  W29:5  W30:0
 
 W27 Dragon Elite ist die einzige verbliebene Spitze.
 
+### Tuning-Runde 6: verworfen
+
+W27 von 0,7 auf 0,55, gegen die einzige verbliebene HP-Spitze. Gemessen über 125 Könner-Läufe: **kein Gewinn.**
+Die Läufe am Kampagnenende fielen von 7 % auf 5 %, der weiteste Lauf von 37 auf 34, und die Wellen davor wurden
+teurer statt billiger (W25 von 8 auf 11 HP, W26 von 9 auf 13), während W27 selbst nur von 17 auf 14 fiel.
+
+Das ist wieder der Deckel: Eine von Hand gesenkte Welle wird woanders aufgefüllt, weil die Last des Blocks vom
+Regler kommt und nicht von den Templates. Der Unterschied 5 % zu 7 % ist bei diesen Stichproben nicht belastbar;
+belastbar ist, dass es nichts zu behalten gab. Zurückgenommen (`5abe9947` revertiert `cf3f008f`).
+
+**Damit ist die Kampagne für diese Nacht fertig.** Weitere Einzelwellen zu senken bringt nichts mehr; was bleibt,
+steht unter "Was das Tuning nicht lösen kann".
+
 ### Was das Tuning nicht lösen kann
 
 Der Könner verliert in W24 bis W29 je 8 bis 14 HP, und **nichts heilt**. Bei 100 Start-HP ist damit vorgezeichnet,
