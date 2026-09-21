@@ -663,6 +663,50 @@ Empfehlung bis dahin:
    Mensch spielt besser, und 4 % für den Bot können 30 % für einen Menschen heißen. Messbar nur mit deinen
    eigenen Läufen.
 
+### Die Raketen-Falle (2026-09-21, Menschenlauf Binswangen)
+
+Ein Menschenlauf endete in W11 mit 27 % des Gesamtgolds in Raketentürmen, die 1,5 % des Schadens
+machten (1299 Gold, 0,08 DPS je Gold). Der Lauf war nicht falsch gespielt, der Forschungsbaum hat
+ihn so geführt.
+
+**Die Zahlen.** Luft besteht aus zwei Rüstungsklassen: `light` (Fledermaus W7, Hornisse W8) und
+`heavy` (Drache ab W12). Die Rakete macht `siege`, das ist 0,5 gegen light und 1,75 gegen heavy.
+
+| gegen `light` | eff. DPS | Gold | DPS/Gold |
+|---|---|---|---|
+| dual-gatling (pierce 1,6, mit Retrofit) | 80 | 90 | 0,89 |
+| archer (physical 1,0) | 25 | 45 | 0,56 |
+| rocket (siege 0,5) | 10 | 120 | 0,08 |
+
+| gegen `heavy` | eff. DPS | Gold | DPS/Gold |
+|---|---|---|---|
+| rocket (siege 1,75) | 35 | 120 | 0,29 |
+| archer (physical 0,5) | 12,5 | 45 | 0,28 |
+| dual-gatling (pierce 0,35) | 17,5 | 90 | 0,19 |
+
+**Der Strukturfehler.** `aa-retrofit` (450) setzte `rocketry` (600) voraus. Wer die breite
+Flugabwehr wollte, musste erst den Spezialisten kaufen, der gegen die Luftgegner der Wellen 7 und 8
+zehnmal schlechter ist als das nachgerüstete Gatling. Dazu hing `rocketry` an `gatling-tech`, also
+schaltete Schnellfeuer Lenkraketen frei, während `siege-engineering` (Sprengmunition) am selben
+Knoten daneben lag.
+
+**Entschieden (User, 2026-09-21): Form B.** Die Nachrüstung ist die Breite, die Rakete die Spitze.
+`aa-retrofit` hängt direkt an `gatling-tech`, `rocketry` unter `siege-engineering`. Beide Pfade
+stehen nebeneinander statt hintereinander. Verworfen wurde Form A (Retrofit streichen, Luft als
+eigene Investition), weil sie einem Turm eine Fähigkeit wegnimmt, die Spieler schon kennen.
+
+Ebenfalls verworfen: eine eigene Schadensart für die Rakete. Sie hätte `siege` für die Kanone
+unangetastet gelassen, aber "explosive" neben einer Kanone, die selbst Splittermunition verschießt
+(`splashRadius: 6`), ist ein logischer Bruch, und die Zahlen zeigten, dass die Matrix nicht der
+Hebel ist.
+
+**Offen.** Ob die Rakete mit der neuen Position stark genug ist, ist eine Messung und keine
+Entscheidung: Sie liegt je Gold auch gegen Drachen nur gleichauf mit einem 45-Gold-Starttower.
+Bevor an `damage` oder `cost` gedreht wird, braucht es einen Bot-Lauf gegen die neue Baumform.
+Und wenn das nachgerüstete Gatling die leichte Luft ohnehin erledigt, ist die Rakete ein Turm für
+zwei Kampagnenwellen (12 und 27) - ob das einen eigenen Turm plus 600 Forschung trägt, ist eine
+Entwurfsfrage wie die Heilung oben.
+
 ## 7. Phase 3: Kampagnenende und Tuning
 
 ### 3a Kampagnenende (D2, D9)

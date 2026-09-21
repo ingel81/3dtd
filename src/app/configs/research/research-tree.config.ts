@@ -123,15 +123,19 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
 
   // ==================== Tower Unlocks (Tier 2) ====================
 
+  // Rockets are explosive ordnance, so they follow the cannon's line, not the
+  // gatling's rapid fire. They answer armored air (dragon, heavy: siege 1.75);
+  // against the light swarms of waves 7 and 8 siege deals 0.5 and the
+  // retrofitted gatling is the better gold, which is what the description says.
   'rocketry': {
     id: 'rocketry',
     name: 'Rocketry',
-    description: 'Unlocks the Rocket Tower: air-only homing missiles',
+    description: 'Unlocks the Rocket Tower: heavy homing missiles against armored air',
     category: 'tower-unlock',
     icon: 'arrowUp',
     cost: 600,
     duration: 18,
-    prerequisites: ['gatling-tech'],
+    prerequisites: ['siege-engineering'],
     effects: [{ kind: 'unlock-tower', towerId: 'rocket' }],
   },
 
@@ -157,12 +161,15 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'aa-retrofit': {
     id: 'aa-retrofit',
     name: 'AA Retrofit',
-    description: 'Gatling towers gain air targeting capability',
+    description: 'Gatling towers gain air targeting capability: the broad answer to light air',
     category: 'global-perk',
     icon: 'arrowUp',
     cost: 450,
     duration: 12,
-    prerequisites: ['rocketry'],
+    // Straight off gatling-tech: this used to require rocketry, so the broad
+    // answer to air sat behind the specialist it outperforms against the light
+    // swarms that open the air campaign.
+    prerequisites: ['gatling-tech'],
     effects: [{ kind: 'enable-targeting', capability: 'air' }],
   },
 

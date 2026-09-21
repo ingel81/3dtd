@@ -346,14 +346,14 @@ ist und ihre Prereqs erfüllt sind.
   `state.expectedArmorDistribution` (effektive DPS pro Credit des freigeschalteten
   Turms gegen den erwarteten Rüstungsmix, Tier-Unlocks nach Bedarf). Nur wenn
   daraus nichts kommt, greift die statische Liste
-  (`gatling-tech → ice-magic → tentacle-biology → siege-engineering → rocketry →
-  aa-retrofit → arcane-studies → toxic-compounds → fire-alchemy →
+  (`gatling-tech → aa-retrofit → ice-magic → tentacle-biology → siege-engineering →
+  rocketry → arcane-studies → toxic-compounds → fire-alchemy →
   advanced-weaponry → nuclear-strike → frost-bomb → storm-mastery → emp →
   master-engineering → orbital-laser → chaos-rift → advanced-engineering →
   transcendent-tech`, `research-pick.strategy.ts`), die am Wave-Kampagne
   ausgerichtet ist: AA fertig vor
-  `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Magic vor `ghost_surge`
-  (W13).
+  `bat_swarm` (W7), Cannon vor `boss_herbert` (W10), Rocket vor `dragon_elite`
+  (W12), Magic vor `ghost_surge` (W13).
 - **Keine Stufe** erforscht `mercenary-contract` (Held, [HERO.md](HERO.md)):
   `BOT_SKIPPED_RESEARCH` nimmt die Node aus der adaptiven Wahl und der Liste.
   Bots heuern den Helden nie an, eine Aktion dafür gibt es nicht; ohne den
@@ -363,11 +363,15 @@ ist und ihre Prereqs erfüllt sind.
 Zwei Sonderregeln, beide aus konkreten Fehlern:
 
 - **Anti-Air-Dringlichkeit:** Enthält das Kampagnen-Template der *nächsten*
-  Welle Lufteinheiten und die Verteidigung hat keine Luftfähigkeit, bekommen
-  `rocketry` und `aa-retrofit` +100 auf den Score. Ohne den Bump gewinnt die
+  Welle Lufteinheiten und die Verteidigung hat keine Luftfähigkeit, bekommt
+  `aa-retrofit` +100 auf den Score. Ohne den Bump gewinnt die
   reine Matrix-Bewertung mit einem Turm, der Luft nicht trifft (Gatling ohne
   AA-Retrofit, 1,6× gegen light), gegen Rocket (0,5×), und der Bot geht
-  wehrlos in eine forcierte Luftwelle.
+  wehrlos in eine forcierte Luftwelle. `rocketry` bekommt den Bump getrennt
+  davon, sobald die nächste Welle **gepanzerte** Luft trägt (`heavy`, also
+  `dragon_elite`): Das ist der Gegner, für den die Rakete gebaut ist, während
+  gegen die leichten Schwärme das nachgerüstete Gatling die bessere Wahl je
+  Gold ist.
 - **`hasAntiAirCapability`** liest bevorzugt `defense.capabilities.hasAntiAir`
   (was wirklich gebaut ist und reicht) und fällt sonst auf die Unlock-Flags
   *aller* luftfähigen Türme zurück. Die alte Prüfung sah nur `rocket`, also galt

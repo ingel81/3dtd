@@ -64,8 +64,8 @@ describe('researchProgress / researchRemaining', () => {
 
 describe('missingPrereqNames', () => {
   it('names the prerequisites still missing', () => {
-    expect(missingPrereqNames('aa-retrofit', done())).toBe('Rocketry');
-    expect(missingPrereqNames('aa-retrofit', done('rocketry'))).toBe('');
+    expect(missingPrereqNames('aa-retrofit', done())).toBe('Gatling Technology');
+    expect(missingPrereqNames('aa-retrofit', done('gatling-tech'))).toBe('');
   });
 
   it('is empty for an unknown research', () => {
