@@ -78,6 +78,8 @@ export class RunLogCollector {
   private waveStartHealth = 0;
   private income: Partial<Record<CreditsSource, number>> = {};
   private spending: Partial<Record<CreditsSource, number>> = {};
+  /** Build and upgrade gold per tower type, for damage per gold per type. */
+  private towerSpending: Record<string, number> = {};
   private enemiesSpawned = 0;
   /** Enemies still standing when the block began; the last wave's leftovers. */
   private enemiesAtStart = 0;
@@ -251,6 +253,7 @@ export class RunLogCollector {
 
     bag.add(bus.on('tower:placed', (e) => {
       this.towerMarks.set(e.tower.id, { damage: e.tower.combat.damageDealt, kills: e.tower.combat.kills });
+      this.bookTower(e.tower.typeConfig.id, e.cost);
       this.event('tower-built', {
         id: e.tower.typeConfig.id,
         credits: -e.cost,
@@ -259,6 +262,7 @@ export class RunLogCollector {
     }));
     bag.add(bus.on('tower:upgraded', (e) => {
       if (e.cost <= 0) return;   // the dev max-upgrade is not a decision
+      this.bookTower(e.tower.typeConfig.id, e.cost);
       this.event('tower-upgraded', { id: e.tower.typeConfig.id, credits: -e.cost, value: e.upgradeId });
     }));
     bag.add(bus.on('tower:sold', (e) => {
@@ -361,6 +365,15 @@ export class RunLogCollector {
     into[source] = (into[source] ?? 0) + Math.abs(delta);
   }
 
+  /**
+   * Gold that went into one tower type. A build and an upgrade land in the
+   * same number: what a type cost is the tower plus everything bought on it.
+   */
+  private bookTower(type: string, cost: number): void {
+    if (!this.isOpen || cost <= 0) return;
+    this.towerSpending[type] = (this.towerSpending[type] ?? 0) + cost;
+  }
+
   private countLeak(enemyType: string | undefined, damage: number): void {
     this.leaked++;
     this.event('leak', { id: enemyType, value: damage });
@@ -387,6 +400,7 @@ export class RunLogCollector {
     this.waveStartHealth = this.world?.baseHealth() ?? 0;
     this.income = {};
     this.spending = {};
+    this.towerSpending = {};
     this.enemiesSpawned = 0;
     this.enemiesAtStart = this.world?.enemiesAlive() ?? 0;
     this.killsByTower = 0;
@@ -446,6 +460,7 @@ export class RunLogCollector {
       creditsEnd: this.world?.credits() ?? 0,
       income: this.income,
       spending: this.spending,
+      towerSpending: this.towerSpending,
       ...(this.waveGold ? { waveGold: this.waveGold } : {}),
       enemiesSpawned: this.enemiesSpawned,
       killsByTower: this.killsByTower,

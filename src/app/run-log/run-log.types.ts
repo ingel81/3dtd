@@ -14,7 +14,7 @@
 import type { CreditsSource } from '../game-engine/game-event-bus';
 
 /** Bumped when a reader would have to change. */
-export const RUN_LOG_FORMAT = 1;
+export const RUN_LOG_FORMAT = 2;
 
 /** Where a run was played. */
 export type RunMap = 'devworld' | 'world';
@@ -138,6 +138,15 @@ export interface RunLogWave {
   income: Partial<Record<CreditsSource, number>>;
   /** Spending by source over the wave, as positive numbers. */
   spending: Partial<Record<CreditsSource, number>>;
+  /**
+   * Build and upgrade gold per tower type over the wave, as positive numbers.
+   *
+   * `spending` knows what the gold was for, not what it was spent on, and
+   * damage per gold per type is the number that says whether a type is strong
+   * or just picked often (BALANCING_PLAN.md, 3b). Gross: what a sale gives
+   * back is not subtracted here, the same way `spending` counts it as income.
+   */
+  towerSpending: Record<string, number>;
   /** How the completion gold came about. */
   waveGold?: { base: number; perfect: number; combo: number; closeCall: number; comeback: number; milestone: number };
   enemiesSpawned: number;

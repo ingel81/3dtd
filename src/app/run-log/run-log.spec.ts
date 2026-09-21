@@ -120,6 +120,7 @@ describe('the run log', () => {
       standing = [archer];
       bus.emit({ type: 'tower:placed', tower: archer as never, position: { lat: 1, lon: 2 }, cost: 60 });
       book(-60, 'build');
+      bus.emit({ type: 'tower:upgraded', tower: archer as never, level: 1, cost: 40, upgradeId: 'damage' });
       book(-40, 'upgrade');
 
       bus.emit({ type: 'wave:started', wave: 1, enemyCount: 3 });
@@ -140,6 +141,7 @@ describe('the run log', () => {
         creditsStart: 100,
         creditsEnd: 40,
         spending: { build: 60, upgrade: 40 },
+        towerSpending: { archer: 100 },
         income: { kill: 10, 'wave-bonus': 30 },
         enemiesSpawned: 3,
         killsByTower: 2,
@@ -151,6 +153,59 @@ describe('the run log', () => {
         { id: 't1', type: 'archer', levels: { damage: 2 }, damage: 300, kills: 2 },
       ]);
       expect(wave.mismatches).toBeUndefined();
+    });
+
+    it('books build and upgrade gold per tower type, so damage per gold has a divisor', () => {
+      open();
+      const archer = tower('t1', 'archer');
+      const cannon = tower('t2', 'cannon');
+      standing = [archer, cannon];
+      bus.emit({ type: 'tower:placed', tower: archer as never, position: { lat: 1, lon: 2 }, cost: 45 });
+      book(-45, 'build');
+      bus.emit({ type: 'tower:placed', tower: cannon as never, position: { lat: 3, lon: 4 }, cost: 120 });
+      book(-120, 'build');
+      bus.emit({ type: 'tower:upgraded', tower: cannon as never, level: 1, cost: 80, upgradeId: 'damage' });
+      book(-80, 'upgrade');
+      bus.emit({ type: 'tower:upgraded', tower: cannon as never, level: 2, cost: 95, upgradeId: 'range' });
+      book(-95, 'upgrade');
+
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 });
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+
+      const [wave] = waves();
+      expect(wave.towerSpending).toEqual({ archer: 45, cannon: 295 });
+      // The types split exactly what the wave booked as build and upgrade gold
+      const perType = Object.values(wave.towerSpending).reduce((a, b) => a + b, 0);
+      expect(perType).toBe((wave.spending.build ?? 0) + (wave.spending.upgrade ?? 0));
+    });
+
+    it('leaves the free dev max-upgrade out, the same way the spending does', () => {
+      open();
+      const archer = tower('t1', 'archer');
+      standing = [archer];
+      bus.emit({ type: 'tower:placed', tower: archer as never, position: { lat: 1, lon: 2 }, cost: 45 });
+      book(-45, 'build');
+      bus.emit({ type: 'tower:upgraded', tower: archer as never, level: 1, cost: 0, upgradeId: 'damage' });
+
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 });
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+
+      expect(waves()[0].towerSpending).toEqual({ archer: 45 });
+    });
+
+    it('starts a fresh tower spending per block, so a type is not counted twice', () => {
+      open();
+      const archer = tower('t1', 'archer');
+      standing = [archer];
+      bus.emit({ type: 'tower:placed', tower: archer as never, position: { lat: 1, lon: 2 }, cost: 45 });
+      book(-45, 'build');
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 });
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+
+      bus.emit({ type: 'wave:started', wave: 2, enemyCount: 1 });
+      bus.emit({ type: 'wave:completed', wave: 2, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+
+      expect(waves().map((w) => w.towerSpending)).toEqual([{ archer: 45 }, {}]);
     });
 
     it('starts the next block where the last one ended, so nothing is booked twice', () => {
@@ -327,7 +382,7 @@ describe('the run log', () => {
       const wave = {
         kind: 'wave', wave: 1, step: 0, timeMs: 0, durationMs: 0,
         creditsStart: 100, creditsEnd: 500,
-        income: { kill: 10 }, spending: { build: 60 },
+        income: { kill: 10 }, spending: { build: 60 }, towerSpending: { archer: 60 },
         enemiesSpawned: 3, killsByTower: 3, killsByHero: 0, killsByAbility: 0,
         killsByDebug: 0, killsByOther: 0, leaked: 0,
         enemiesAtStart: 0, enemiesAlive: 0,
@@ -340,7 +395,7 @@ describe('the run log', () => {
     it('names a wave whose bodies do not add up', () => {
       const wave = {
         kind: 'wave', wave: 1, step: 0, timeMs: 0, durationMs: 0,
-        creditsStart: 0, creditsEnd: 0, income: {}, spending: {},
+        creditsStart: 0, creditsEnd: 0, income: {}, spending: {}, towerSpending: {},
         enemiesSpawned: 10, killsByTower: 4, killsByHero: 0, killsByAbility: 0,
         killsByDebug: 0, killsByOther: 0, leaked: 2,
         enemiesAtStart: 0, enemiesAlive: 1,
@@ -355,7 +410,7 @@ describe('the run log', () => {
     it('lets a wave kill what the one before it left standing', () => {
       const wave = {
         kind: 'wave', wave: 2, step: 0, timeMs: 0, durationMs: 0,
-        creditsStart: 0, creditsEnd: 0, income: {}, spending: {},
+        creditsStart: 0, creditsEnd: 0, income: {}, spending: {}, towerSpending: {},
         enemiesSpawned: 10, killsByTower: 12, killsByHero: 0, killsByAbility: 0,
         killsByDebug: 0, killsByOther: 0, leaked: 0,
         enemiesAtStart: 2, enemiesAlive: 0,
