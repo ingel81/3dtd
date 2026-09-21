@@ -657,24 +657,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.emitCommand({ type: 'command:set-hold-fire', towerId: tower.id, holdFire });
   }
 
-  onStartResearch(researchId: string): void {
-    this.facade.emitCommand({ type: 'command:start-research', researchId });
-  }
-
   onCancelResearch(researchId: string): void {
     this.facade.emitCommand({ type: 'command:cancel-research', researchId });
-  }
-
-  onQueueResearch(researchId: string): void {
-    this.facade.emitCommand({ type: 'command:queue-research', researchId });
-  }
-
-  onUnqueueResearch(researchId: string): void {
-    this.facade.emitCommand({ type: 'command:unqueue-research', researchId });
-  }
-
-  onMoveQueuedResearch(researchId: string, toIndex: number): void {
-    this.facade.emitCommand({ type: 'command:move-queued-research', researchId, toIndex });
   }
 
   /**

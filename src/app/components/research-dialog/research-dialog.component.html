@@ -1,0 +1,50 @@
+<h2 mat-dialog-title [id]="titleId" class="td-research-dialog-title">
+  Research
+  <span class="td-research-dialog-slots">Slots {{ slotsUsed() }}/{{ slotsTotal() }}</span>
+</h2>
+
+<mat-dialog-content class="td-research-dialog-body">
+  <p [id]="descId" class="td-research-dialog-desc">
+    A research needs every one it is connected to on its left. Click an open node to start it, or to
+    put it in the queue when no slot is free; the credits are charged when it starts.
+  </p>
+
+  <div class="td-research-dialog-columns">
+    <div class="td-research-dialog-graph">
+      <td-tech-tree [nodes]="nodes()" [edges]="edges" label="Research tree"
+                    (nodeActivated)="onNodeActivated($event)" />
+    </div>
+
+    @if (queue().length > 0) {
+      <aside class="td-research-dialog-queue" aria-labelledby="td-research-queue-heading">
+        <h3 id="td-research-queue-heading">Queue</h3>
+        <p class="td-research-dialog-queue-note">Starts in this order, paid at the start.</p>
+        <ol>
+          @for (id of queue(); track id; let i = $index; let first = $first; let last = $last) {
+            <li>
+              <span class="td-research-queue-pos">{{ i + 1 }}</span>
+              <span class="td-research-queue-name">{{ researchName(id) }}</span>
+              <span class="td-research-queue-cost" [class.td-short]="tooShort(id)">{{ researchCost(id) }}</span>
+              <button type="button" class="td-research-queue-btn" [disabled]="first"
+                      [attr.aria-label]="'Move up: ' + researchName(id)" (click)="onMove(id, -1)">
+                <td-icon name="caretU" [size]="14" />
+              </button>
+              <button type="button" class="td-research-queue-btn" [disabled]="last"
+                      [attr.aria-label]="'Move down: ' + researchName(id)" (click)="onMove(id, 1)">
+                <td-icon name="caret" [size]="14" />
+              </button>
+              <button type="button" class="td-research-queue-btn"
+                      [attr.aria-label]="'Remove from queue: ' + researchName(id)" (click)="onUnqueue(id)">
+                <td-icon name="cross" [size]="14" />
+              </button>
+            </li>
+          }
+        </ol>
+      </aside>
+    }
+  </div>
+</mat-dialog-content>
+
+<mat-dialog-actions align="end">
+  <button type="button" class="td-dialog-close-btn" mat-dialog-close>Close</button>
+</mat-dialog-actions>
