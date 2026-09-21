@@ -8,6 +8,7 @@ import {
   templateObjectForWave,
   isBossWave,
   CAMPAIGN_LENGTH,
+  campaignIntensity,
 } from './campaign.config';
 import { TEMPLATES } from '../director/templates';
 
@@ -284,4 +285,27 @@ describe('campaign.config', () => {
     });
   });
 
+});
+
+describe('the campaign intensity', () => {
+  it('is 1 where a wave says nothing', () => {
+    expect(campaignIntensity(1)).toBe(1);
+  });
+
+  it('is 1 outside the campaign', () => {
+    expect(campaignIntensity(0)).toBe(1);
+    expect(campaignIntensity(CAMPAIGN_LENGTH + 1)).toBe(1);
+  });
+
+  it('carries what a wave asks for', () => {
+    // W25 ended 38 of 85 expert runs before it was lowered
+    expect(campaignIntensity(25)).toBeCloseTo(0.75);
+    expect(campaignIntensity(26)).toBeCloseTo(0.6);
+  });
+
+  it('stays inside its bounds, whatever a wave writes', () => {
+    const wild = [...CAMPAIGN];
+    expect(Math.min(...wild.map((w) => w.intensity ?? 1))).toBeGreaterThanOrEqual(0.25);
+    expect(Math.max(...wild.map((w) => w.intensity ?? 1))).toBeLessThanOrEqual(2);
+  });
 });

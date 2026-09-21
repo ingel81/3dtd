@@ -21,6 +21,15 @@ export interface CampaignWave {
   killGold: number;
   /** Base wave-completion bonus (skill bonuses stack on top). */
   completionGold: number;
+  /**
+   * How hard this wave leans on the player, as a factor on the enemy count.
+   *
+   * The wave director sizes every wave against the defense, so a template
+   * alone cannot say "this one is meant to be easier": a wave that needs no
+   * counter simply gets a bigger count. This is the campaign's own say in it
+   * (decision D3, the room per campaign wave). 1 is the director's number.
+   */
+  intensity?: number;
 }
 
 /**
@@ -69,9 +78,12 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   { template: 'tank_column',      killGold: 14667, completionGold:  7333 }, // 22 — heavy pressure
   { template: 'spider_swarm',     killGold: 18667, completionGold:  9333 }, // 23 — breather: mass, no counter needed
   { template: 'ghost_surge',      killGold: 24000, completionGold: 12000 }, // 24 — ethereal pressure
-  { template: 'mammoth_siege',    killGold: 30000, completionGold: 15000 }, // 25 — fortified pressure
-  { template: 'zombie_horde',     killGold: 40000, completionGold: 20000 }, // 26 — breather: mass, no counter needed
-  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667 }, // 27 — flying-heavy pressure
+  // The three numbers below come from 85 expert runs of the block above:
+  // W25 took 16.3 HP and ended 38 of them, W26 was meant as a breather and
+  // still took 15.4, W27 damaged every run that reached it.
+  { template: 'mammoth_siege',    killGold: 30000, completionGold: 15000, intensity: 0.75 }, // 25 — fortified pressure
+  { template: 'zombie_horde',     killGold: 40000, completionGold: 20000, intensity: 0.6 },  // 26 — breather: mass, no counter needed
+  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667, intensity: 0.85 }, // 27 — flying-heavy pressure
   { template: 'mech_army',        killGold: 73333, completionGold: 36667 }, // 28 — heavy mass
   { template: 'chaos_wave',       killGold: 93333, completionGold: 46667 }, // 29 — final mix
   { template: 'boss_herbert',     killGold:120000, completionGold: 60000 }, // 30 — BOSS 3 (season finale, bonus peak)
@@ -137,6 +149,18 @@ export const CAMPAIGN_LENGTH = CAMPAIGN.length;
 export function templateForWave(waveNum: number): string | null {
   if (waveNum < 1 || waveNum > CAMPAIGN_LENGTH) return null;
   return CAMPAIGN[waveNum - 1].template;
+}
+
+/**
+ * The campaign's factor on the enemy count of this wave, 1 outside it.
+ *
+ * Bounded to 0.25 to 2: the campaign says how hard a wave leans, it does not
+ * take the sizing away from the director.
+ */
+export function campaignIntensity(waveNum: number): number {
+  if (waveNum < 1 || waveNum > CAMPAIGN_LENGTH) return 1;
+  const intensity = CAMPAIGN[waveNum - 1].intensity ?? 1;
+  return Math.min(2, Math.max(0.25, intensity));
 }
 
 /** Boss-Takt im Campaign (W10/W20/W30 sind dort gepinnt). */
