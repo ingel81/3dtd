@@ -482,11 +482,22 @@ export class EnemyManager extends EntityManager<Enemy> {
    * `killedBy` says who gets the kill; the run log counts kills by source
    * from it (docs/RUN_LOG.md). null means nobody is credited.
    *
-   * Returns false if the enemy is already dying; nothing happens then, so
-   * callers that credit the kill must check the result.
+   * Returns false if the enemy is already dying or has left the manager;
+   * nothing happens then, so callers that credit the kill must check the
+   * result.
+   *
+   * The second guard is the leak: remove() takes an enemy out of the game
+   * but leaves its HP, and every "is this target still valid" check asks
+   * `alive` (Tower.findTarget's sticky fast path, Projectile.targetLost).
+   * A tower that holds a leaked enemy, or a shot that was in the air when it
+   * went through, therefore still reaches it, and the hit that takes its
+   * last HP used to run this whole path on a body that was already booked as
+   * a leak: a second enemy:died for it and a second decrement of aliveCount,
+   * which Math.max(0, c - 1) then swallows for good (TODO E11).
    */
   kill(enemy: Enemy, cause: KillCause = 'combat', killedBy: KilledBy | null = null): boolean {
     if (this.killingEnemies.has(enemy.id)) return false;
+    if (this.getById(enemy.id) !== enemy) return false;
     this.killingEnemies.add(enemy.id);
 
     this.aliveCount.update(c => Math.max(0, c - 1));
