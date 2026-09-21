@@ -60,15 +60,17 @@ export class ResearchPickStrategy extends BaseStrategy {
     ],
     // Phase 5.16: order aligned to campaign so the bot has the
     // right counters by the time the campaign forces a new armor type.
-    //   W7  bat_swarm     → needs Anti-Air → rocketry/aa-retrofit done by W6
+    //   W7  bat_swarm     → light air → aa-retrofit done by W6
     //   W10 boss_herbert  → needs Cannon (Heavy/Boss) → siege-engineering
+    //   W12 dragon_elite  → heavy air → rocketry done by W11
     //   W13 ghost_surge   → needs Magic (Ethereal) → arcane-studies done by W12
     expert: [
       'gatling-tech',           // W1 — Dual-Gatling early DPS
+      'aa-retrofit',            // by W6 — light air of W7 on the gatlings
       'ice-magic',              // W1-2 — Ice (slow, ethereal-decent later)
       'tentacle-biology',       // W2-3 — chokepoint melee
       'siege-engineering',      // by W10 — Cannon against heavy and the boss
-      'rocketry', 'aa-retrofit',// by W6 — anti-air before the bats of W7
+      'rocketry',               // by W11 — the dragon of W12
       'arcane-studies',         // by W12 — Magic against the ethereal of W13
       'toxic-compounds', 'fire-alchemy',
       'advanced-weaponry', 'nuclear-strike', 'frost-bomb', 'storm-mastery', 'emp',
@@ -166,10 +168,12 @@ export class ResearchPickStrategy extends BaseStrategy {
         score += this.scoreEffect(effect, dist, state);
       }
 
-      // Anti-Air urgency bump
-      if (airUrgent && (id === 'rocketry' || id === 'aa-retrofit')) {
-        score += 100;
-      }
+      // Anti-Air urgency bump. The retrofit is the broad answer: pierce deals
+      // 1.6 against the light swarms that open the air campaign, where the
+      // rocket's siege deals 0.5. The rocket earns the bump only once armored
+      // air is coming, which is what it is priced for.
+      if (airUrgent && id === 'aa-retrofit') score += 100;
+      if (id === 'rocketry' && this.upcomingWaveHasHeavyAir(state)) score += 100;
 
       if (score > bestScore) {
         bestScore = score;
@@ -178,6 +182,16 @@ export class ResearchPickStrategy extends BaseStrategy {
     }
 
     return bestResearch;
+  }
+
+  /** True iff the upcoming wave carries air units the rocket is priced for. */
+  private upcomingWaveHasHeavyAir(state: GameStateSnapshot): boolean {
+    const forced = templateObjectForWave(state.waveNumber + 1);
+    if (!forced) return false;
+    return forced.enemies.some(([typeId]) => {
+      const cfg = ENEMY_TYPES[typeId as EnemyTypeId];
+      return !!cfg?.isAirUnit && cfg.armorType === 'heavy';
+    });
   }
 
   /** True iff the upcoming wave's enemy mix includes any air unit. */
