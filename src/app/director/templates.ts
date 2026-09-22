@@ -184,7 +184,10 @@ export const TEMPLATES: readonly Template[] = [
     description: 'Mechs only. A late-game stress test.',
     enemies: [['mech', 1.0]],
     countRange: [5, 100],
-    spawnDelayRange: [100, 900],
+    // Untere Grenze von 100 auf 450 ms (2026-09-22): Mechs sind große Modelle
+    // und liefen bei 100 ms praktisch ineinander. Bei 3 m/s sind 450 ms rund
+    // anderthalb Meter Abstand.
+    spawnDelayRange: [450, 1200],
     hpMultRange: [0.5, 10.0],
     variationRange: [0.10, 0.40],
     minWave: 20,
@@ -280,10 +283,16 @@ export const TEMPLATES: readonly Template[] = [
     id: 'boss_herbert',
     name: 'Boss: Herbert',
     description: 'Herbert, with support waves.',
-    enemies: [['herbert', 0.0334], ['tank', 0.4833], ['zombie', 0.4833]],
-    countRange: [10, 100],
-    spawnDelayRange: [100, 1200],
-    hpMultRange: [0.5, 6.0],
+    // Kein Horden-Template mehr (2026-09-22). Bei 3,34 % Herbert auf bis zu
+    // hundert Gegner kamen drei Bosse und siebenundneunzig Begleiter — eine
+    // Horde mit Boss-Etikett. Jetzt höchstens zwanzig Gegner, davon ein
+    // Viertel Herberts, und die Schwierigkeit wächst über die HP statt über
+    // die Menge: Die HP-Spanne reicht dafür bis ×20, und welchen Wert der
+    // Regler daraus nimmt, entscheidet er selbst.
+    enemies: [['herbert', 0.25], ['tank', 0.375], ['zombie', 0.375]],
+    countRange: [6, 20],
+    spawnDelayRange: [400, 1800],
+    hpMultRange: [0.5, 20.0],
     variationRange: [0.10, 0.30],
     minWave: 20,
     spawnPattern: 'clustered',
@@ -299,7 +308,10 @@ export const TEMPLATES: readonly Template[] = [
     description: 'Stone golems. Slow and fortified, a straight damage check.',
     enemies: [['stone-golem', 1.0]],
     countRange: [5, 60],
-    spawnDelayRange: [200, 1500],
+    // Untere Grenze von 200 auf 600 ms (2026-09-22): Der Stone Golem ist das
+    // größte Bodenmodell im Spiel und stand bei 200 ms und 2,5 m/s einen
+    // halben Meter hinter seinem Vordermann.
+    spawnDelayRange: [600, 1800],
     hpMultRange: [0.8, 6.0],
     variationRange: [0.10, 0.30],
     minWave: 14,
@@ -315,7 +327,8 @@ export const TEMPLATES: readonly Template[] = [
     description: 'Stone golems with a mammoth escort.',
     enemies: [['stone-golem', 0.3], ['mammoth', 0.7]],
     countRange: [8, 80],
-    spawnDelayRange: [150, 1200],
+    // Wie beim Golem Squad: große Modelle brauchen Luft zwischen sich.
+    spawnDelayRange: [600, 1800],
     hpMultRange: [0.8, 6.0],
     variationRange: [0.10, 0.30],
     minWave: 31,

@@ -516,7 +516,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 
 | Gegner | Klasse | max./Welle | VAT-Vertices | Dreiecke | Mio. Vertices | Bake-Pfad | VAT-Frames | VAT-Textur | Format | Half-Fehler mm | VAT-MB | Diffuse |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
-| Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
+| Herbert (`herbert`) | Elite/Boss | 5 | 30.831 | 31.949 | 0,2 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
 | Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 107 | 8192×214 | RGBA32F | 2,64 | 26,8 | 1024² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
 | Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
@@ -673,7 +673,7 @@ mit allem, was ein Kill abspaltet.
 | `mammoth_siege` | W14, W25 | 120 | mammoth 70 %, wallsmasher 30 % | 0,6 |
 | `bear_pack` | W11 | 120 | bear 100 % | 0,5 |
 | `mech_army` | W28 | 100 | mech 100 % | 0,5 |
-| `boss_herbert` | W10, W20, W30 | 100 | herbert 3 %, tank 48 %, zombie 48 % | 0,4 |
+| `boss_herbert` | W10, W20, W30 | 20 | herbert 25 %, tank 38 %, zombie 38 % | 0,2 |
 
 | Gegner | Kampagnen-Wellen | max. in einer Kampagnenwelle |
 | --- | --- | ---: |
@@ -681,7 +681,7 @@ mit allem, was ein Kill abspaltet.
 | Bear | W11, W16, W29 | 120 |
 | Dragon | W12, W27 | 60 |
 | Ghost | W13, W18, W24 | 280 |
-| Herbert | W10, W20, W30 | 3 |
+| Herbert | W10, W20, W30 | 5 |
 | Hornet | W8, W12, W16, W27, W29 | 210 |
 | Mammoth | W14, W18, W25 | 150 |
 | Mech | W28 | 100 |
