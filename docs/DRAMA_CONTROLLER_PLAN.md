@@ -465,3 +465,48 @@ einen der Faktoren.
 
 Zurückgebaut. `pressure-wiring.spec.ts` hält einen Test, der das Wiedereinbauen bemerkt, damit der naheliegende
 Griff nicht ein zweites Mal ohne diese Messung entsteht.
+
+## 10. Was ein menschlicher Lauf zeigte, den 3000 Bot-Läufe nicht zeigten
+
+66 Wellen, 177 Minuten, Heilbronn, gestorben an Ghost Surge. Der Lauf liegt als
+`tmp/runs/3dtd-run-2026-09-22T09-01-00-589Z-world.jsonl` vor und hat einen Fehler aufgedeckt, den keine
+Bot-Runde gefunden hat.
+
+**Nur 12 von 66 Wellen kosteten überhaupt HP.** Fünfzehn Wellen am Stück (18 bis 32) kosteten nichts, dann
+schlug Welle 38 mit 39 % zu. Der Spieler hatte einen Choke Point, an dem alles durch einen Trichter läuft, und
+ab Welle 21 war die Position voll: 35 Türme, danach 45 Wellen lang keine neuen mehr.
+
+### Der Fehler: ein Auswahlfilter, der den Regler blind machte
+
+Der Filter aus Runde 9 zählte eine billige Welle ohne bindenden Deckel nicht als Messwert. Bei einer starken
+Verteidigung bindet der Deckel aber fast nie:
+
+| Welle | gespawnt | Kosten | zählte der Regler das? | Multiplikator |
+|---|---|---|---|---|
+| 17 Wraith Storm | 300 | 14,6 % | ja | 5,75 |
+| 18 Armor Gauntlet | 600 | 0 % | **nein** | 4,08 |
+| 19 Skeleton Swarm | **2820** | 0 % | **nein** | 2,92 |
+| 21 Bat Swarm | 546 | 0 % | **nein** | 1,54 |
+| 24 Ghost Surge | **62** | 0 % | ja | **0,62** |
+| 25 Mammoth Siege | **21** | 0 % | ja | 0,62 |
+
+**14 von 29 Wellen waren für den Regler unsichtbar, und zwar genau die billigen.** Er hielt den Durchschnitt
+für 5,2 % während er real bei null lag, fuhr nach einer einzigen teuren Welle von ×5,75 auf ×0,62 herunter und
+schickte statt 2820 Gegnern noch 21.
+
+Ein Auswahlfehler, der in die genaue Gegenrichtung wirkt: Der Filter sollte falsches Öffnen verhindern und
+erzwang falsches Schließen. Seine Begründung war seit Runde 10 ohnehin hinfällig, denn seitdem verschiebt der
+Multiplikator bei nicht bindendem Deckel den Anzahl-Faktor und hat dort sehr wohl eine Handhabe. Gegen falsches
+Öffnen schützt das Anti-Windup, und das gehört an die Stellgröße, nicht an die Messung.
+
+Entfernt. Nachgerechnet über dieselben 66 Wellen hält der Regler ab Welle 22 das Fünf- bis Siebenfache.
+
+### Und was dahinter zum Vorschein kommt
+
+In derselben Nachrechnung läuft der reparierte Regler ab Welle 26 in den **oberen Anschlag** (×20) und die
+Wellen kosten trotzdem nichts. Voll geöffnet liefert er die größte Welle, die das Template hergibt, und gegen
+eine ausgebaute Stellung an einem Trichter reicht auch die nicht.
+
+Damit ist die Grenze sauber isoliert, und sie ist eine Design-Frage, keine Regelungsfrage: Entweder darf eine
+Welle über `countRange[1]` hinauswachsen, wenn die Verteidigung es hergibt, oder die Antwort auf eine
+Trichter-Stellung sind Gegner, die den Trichter umgehen oder beschädigen, statt mehr Gegner hindurch.
