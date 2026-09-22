@@ -435,3 +435,33 @@ erklärt zugleich, warum der Perfect-Bonus so viel ausschüttete: Er zahlte auf 
 
 Zwischen den beiden Spalten liegt auch die Reparatur der Knapp-Schwelle. Mit der absoluten 25 fiel sie nach dem
 Wechsel auf 500 HP auf 1,0 % der Wellen; relativ gerechnet sind es wieder 3,8 %.
+
+## 9. Der HP-Hebel: naheliegend, gebaut, verworfen
+
+Die Beobachtung war richtig und ist es immer noch: Welle 19 schickte 2820 Skelette und nahm dem Spieler 0,08 %
+seiner HP ab. Der Deckel band dort zu 4 %, die Welle stand am oberen Ende ihrer Template-Spanne. "Mehr Gegner"
+ist da keine Antwort mehr, also lag es nahe, sie zäher zu machen: der HP-Multiplikator als vierter Griff des
+Reglers.
+
+Über drei Runden mit zusammen 480 Läufen zahlt sich das nicht aus.
+
+| Runde | n | Median-Welle | tote Strecke | tot je Lauf |
+|---|---|---|---|---|
+| 14, ohne den Hebel | 236 | **48** | 9,0 | 19 % |
+| 15/16, Hebel ungedämpft | 136 | 37 | 7,1 | 19 % |
+| 17, Hebel gedämpft | 109 | 37 | 8,0 | 22 % |
+
+Ungedämpft machte er Welle 19 von der harmlosesten zur **tödlichsten** Einzelwelle: dieselben 2820 Skelette,
+nur alle so zäh wie das Template maximal zulässt, beendeten 6 % aller Läufe. Gedämpft (Wurzel des
+Multiplikators, höchstens ×1,5) verschwand die Wand und mit ihr der Nutzen.
+
+In beiden Fällen kostete er elf Wellen Runlänge für eine Welle weniger Durststrecke. Auf die Lauflänge bezogen
+war der Zustand davor sogar besser.
+
+**Warum es nicht funktioniert:** Zähigkeit und Anzahl multiplizieren sich. Derselbe Faktor ist bei 2820 Gegnern
+etwas völlig anderes als bei dreißig, und ein Regler, der eine einzige Zahl kennt, trifft beides nicht. Wer es
+noch einmal versuchen will, müsste auf die **Gesamthärte** regeln (Anzahl mal Zähigkeit mal Matchup) statt auf
+einen der Faktoren.
+
+Zurückgebaut. `pressure-wiring.spec.ts` hält einen Test, der das Wiedereinbauen bemerkt, damit der naheliegende
+Griff nicht ein zweites Mal ohne diese Messung entsteht.

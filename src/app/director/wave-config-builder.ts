@@ -32,6 +32,26 @@ import {
 } from '../configs/enemy-types.config';
 import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../configs/campaign.config';
 
+/**
+ * Der Druck-Regler fasst den HP-Multiplikator NICHT an, und das ist gemessen.
+ *
+ * Die Idee lag nahe: Steht die Welle am oberen Ende ihrer Template-Spanne und
+ * kostet trotzdem nichts (Welle 19 schickte 2820 Skelette für 0,08 % der HP),
+ * ist "mehr Gegner" keine Antwort mehr, also müssten sie zäher werden.
+ *
+ * Über drei Runden mit zusammen 480 Läufen zahlt sich das nicht aus. Ungedämpft
+ * machte es Welle 19 von der harmlosesten zur tödlichsten Einzelwelle (6 % aller
+ * Läufe endeten dort); gedämpft verschwand die Wand und mit ihr der Nutzen. In
+ * beiden Fällen fiel die mediane Runlänge von 48 auf 37, während die tote Strecke
+ * nur von 9,0 auf 8,0 zurückging — relativ zur Lauflänge war der Zustand davor
+ * sogar besser.
+ *
+ * Der Grund dürfte sein, dass Zähigkeit und Anzahl sich multiplizieren: Derselbe
+ * Faktor ist bei 2820 Gegnern etwas völlig anderes als bei dreißig, und ein
+ * Regler, der nur einen Skalar kennt, trifft beides nicht.
+ * (docs/DRAMA_CONTROLLER_PLAN.md, Runden 15 bis 17.)
+ */
+
 /** What the wave sizing reads from the fairness gate. */
 export interface PressureReading {
   /** Closed-loop correction on the kill estimate. */
@@ -91,11 +111,8 @@ export function buildWaveConfig(
   // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
   // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
   const endgameHpMult = endgameHpMultiplier(upcomingWave);
-  const hpMultFor = (factor: number): number => {
-    const base = lerpCapped(template.hpMultRange, factor, dpsFracHp);
-    return Math.round(base * endgameHpMult * 1000) / 1000;
-  };
-  let hpMult = hpMultFor(hpFactor);
+  const baseHpMult = lerpCapped(template.hpMultRange, hpFactor, dpsFracHp);
+  const hpMult = Math.round(baseHpMult * endgameHpMult * 1000) / 1000;
   const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
 
   // Fairness gate: never ship a wave the defense cannot plausibly fight.
@@ -173,27 +190,6 @@ export function buildWaveConfig(
   };
 
   let sized = countFor(spawnDelay);
-
-  // Der vierte Griff des Reglers: die Zähigkeit der Gegner.
-  //
-  // Die drei anderen stellen ein, wie *viele* kommen. Das läuft leer, sobald
-  // die Welle am oberen Ende ihrer Template-Spanne steht und trotzdem nichts
-  // kostet — gemessen schickte Welle 19 (Skeleton Swarm) 2820 Gegner und
-  // nahm dem Spieler 0,08 % seiner HP ab. Ungepanzerte Massen sind gegen eine
-  // ausgebaute Abwehr wirkungslos, in jeder Menge.
-  //
-  // Dann bleibt nur, sie zäher zu machen. Auch das nur innerhalb dessen, was
-  // das Template erlaubt: `hpMultRange` gehört dem Designer.
-  //
-  // Zweiter Durchlauf, weil der Deckel selbst vom HP-Multiplikator abhängt —
-  // zähere Gegner heißt weniger tötbare. Fängt er die Welle danach wieder,
-  // ist das erwünscht: Dann greift wieder der erste Griff und begrenzt die
-  // Anzahl (docs/DRAMA_CONTROLLER_PLAN.md, Runde 15).
-  const wantsHarder = pressure.pressureMultiplier > 1;
-  if (!sized.capBinds && wantsHarder) {
-    hpMult = hpMultFor(Math.max(0, Math.min(1, hpFactor * pressure.pressureMultiplier)));
-    sized = countFor(spawnDelay);
-  }
 
   // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
   const durationCapped = sized.count * spawnDelay > MAX_WAVE_DURATION_MS;

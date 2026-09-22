@@ -1,4 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
 import { Injector, runInInjectionContext } from '@angular/core';
 
 import { WaveDirector } from './wave-director';
@@ -239,31 +241,17 @@ describe('gate wiring', () => {
       expect(wide).toBeGreaterThan(tight);
     });
 
-    it('toughens the enemies when the count is already maxed out', async () => {
-      // Der vierte Griff. Steht die Welle am oberen Ende ihrer
-      // Template-Spanne und kostet trotzdem nichts, ist "mehr Gegner" keine
-      // Antwort mehr — gemessen schickte Welle 19 2820 Skelette für 0,08 %
-      // der HP. Dann müssen sie zäher werden.
-      const hpOf = async () => (await director.getNextWave()).enemies[0].healthMultiplier ?? 1;
-
-      // Eine Abwehr, gegen die kein Deckel bindet: Sie tötet schneller, als
-      // Gegner nachkommen.
-      const fast = collector.snapshot.defense;
-      fast.totalDPS = 100_000;
-      fast.killThroughput = { ground: 500, air: 500 };
-      const huge = { unarmored: 50_000, light: 50_000, heavy: 50_000, fortified: 50_000, ethereal: 50_000 };
-      fast.gateDpsPerArmor = { ground: huge, air: huge } as typeof fast.gateDpsPerArmor;
-
-      let before = 0;
-      for (let i = 0; i < 10; i++) before = Math.max(before, await hpOf());
-
-      director.resetForNewGame();
-      feed(waveResult(0), 40);                               // starve the gate
-      expect(director.pressure.pressureMultiplier).toBeGreaterThan(2);
-
-      let after = 0;
-      for (let i = 0; i < 10; i++) after = Math.max(after, await hpOf());
-      expect(after).toBeGreaterThan(before);
+    it('leaves the enemy toughness alone, even when the count is maxed out', () => {
+      // Gemessen über drei Runden und 480 Läufe: Den HP-Multiplikator an den
+      // Regler zu hängen, kostete elf Wellen Runlänge und brachte eine Welle
+      // weniger Durststrecke. Zähigkeit und Anzahl multiplizieren sich, und
+      // ein Regler mit einem einzigen Skalar trifft beides nicht
+      // (docs/DRAMA_CONTROLLER_PLAN.md, Runden 15 bis 17).
+      //
+      // Der Test steht hier, damit der naheliegende Griff nicht ein zweites
+      // Mal eingebaut wird, ohne die Messung zu kennen.
+      const src = readFileSync(resolve(__dirname, 'wave-config-builder.ts'), 'utf8');
+      expect(src).not.toMatch(/hpMult\s*=\s*hpMultFor/);
     });
 
     it('produces a shippable wave with no history at all', async () => {
