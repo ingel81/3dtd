@@ -115,15 +115,15 @@
   {
     "wave": 10,
     "template": "Boss: Herbert",
-    "count": 88,
-    "spawnDelay": 706,
+    "count": 7,
+    "spawnDelay": 1171,
     "variation": 0.214,
-    "strength": 2.915,
+    "strength": 7.688,
     "pattern": "clustered",
     "enemies": [
-      "herbertx3@2.915",
-      "tankx43@2.915",
-      "zombiex42@2.915"
+      "herbertx2@7.688",
+      "tankx3@7.688",
+      "zombiex2@7.688"
     ]
   },
   {
@@ -246,15 +246,15 @@
   {
     "wave": 20,
     "template": "Boss: Herbert",
-    "count": 2000,
-    "spawnDelay": 90,
+    "count": 400,
+    "spawnDelay": 450,
     "variation": 0.232,
-    "strength": 6,
+    "strength": 20,
     "pattern": "clustered",
     "enemies": [
-      "herbertx67@6",
-      "tankx967@6",
-      "zombiex966@6"
+      "herbertx100@20",
+      "tankx150@20",
+      "zombiex150@20"
     ]
   },
   {
@@ -376,15 +376,15 @@
   {
     "wave": 30,
     "template": "Boss: Herbert",
-    "count": 2000,
-    "spawnDelay": 90,
+    "count": 400,
+    "spawnDelay": 450,
     "variation": 0.232,
-    "strength": 9,
+    "strength": 30,
     "pattern": "clustered",
     "enemies": [
-      "herbertx67@9",
-      "tankx967@9",
-      "zombiex966@9"
+      "herbertx100@30",
+      "tankx150@30",
+      "zombiex150@30"
     ]
   },
   {
@@ -446,10 +446,10 @@
     "count": 1,
     "spawnDelay": 0,
     "variation": 0,
-    "strength": 10.326,
+    "strength": 34.382,
     "pattern": "sequential",
     "enemies": [
-      "wormx1@10.326"
+      "wormx1@34.382"
     ]
   },
   {
@@ -505,15 +505,15 @@
   {
     "wave": 40,
     "template": "Boss: Herbert",
-    "count": 2000,
-    "spawnDelay": 90,
+    "count": 400,
+    "spawnDelay": 450,
     "variation": 0.201,
-    "strength": 12,
+    "strength": 40,
     "pattern": "clustered",
     "enemies": [
-      "herbertx67@12",
-      "tankx967@12",
-      "zombiex966@12"
+      "herbertx100@40",
+      "tankx150@40",
+      "zombiex150@40"
     ]
   },
   {
@@ -759,15 +759,15 @@
   {
     "wave": 60,
     "template": "Boss: Herbert",
-    "count": 2000,
-    "spawnDelay": 90,
+    "count": 400,
+    "spawnDelay": 450,
     "variation": 0.219,
-    "strength": 18,
+    "strength": 60,
     "pattern": "clustered",
     "enemies": [
-      "herbertx67@18",
-      "tankx967@18",
-      "zombiex966@18"
+      "herbertx100@60",
+      "tankx150@60",
+      "zombiex150@60"
     ]
   }
 ]

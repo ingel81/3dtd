@@ -53,11 +53,15 @@ describe('enemy types config', () => {
     expect(ENEMY_TYPES['slime-clump'].splitOnDeath).toBeUndefined();
   });
 
-  it('keeps the clumps of a full ooze at a tenth of its HP, as the ten of 30 HP held before 2026-09-14', () => {
-    const split = ENEMY_TYPES['ooze'].splitOnDeath!;
-    expect(split.count * ENEMY_TYPES['slime-clump'].baseHp).toBe(10 * 30);
-    expect(split.count * ENEMY_TYPES['slime-clump'].baseHp).toBe(ENEMY_TYPES['ooze'].baseHp / 10);
-    expect(lineageHp('ooze')).toBe(3000 + 300);
+  it('keeps the clumps of a full ooze at a tenth of its HP', () => {
+    // Die Beziehung, nicht die Zahl: Der Ooze zog am 2026-09-22 von 3.000 auf
+    // 60.000, weil ihn als einzelnen Körper jeder Turm gleichzeitig trifft.
+    // Die Klumpen mussten mit, sonst wäre aus einem Zehntel ein Zweihundertstel
+    // geworden.
+    const ooze = ENEMY_TYPES['ooze'];
+    const split = ooze.splitOnDeath!;
+    expect(split.count * ENEMY_TYPES['slime-clump'].baseHp).toBe(ooze.baseHp / 10);
+    expect(lineageHp('ooze')).toBe(ooze.baseHp * 1.1);
   });
 
   it('lets a skeleton leak twice: both minions reach the base when it dies just before', () => {

@@ -287,8 +287,20 @@ export const WORM_MAX_SEGMENTS = 240;
 const WORM_STATS = {
   // Chitin: siege, lightning and magic get through, arrows and fire much less
   armorType: 'heavy',
-  // Per segment, 14 HP per metre of worm; 240 segments are 8,400 HP at HP multiplier 1
-  baseHp: 35,
+  // Per segment. 400 seit dem 2026-09-22, vorher 35.
+  //
+  // Der Grund ist die Geometrie: Ein Choke Point trifft immer nur die
+  // vordersten Segmente. Bei 35 HP waren das rund 175 HP gleichzeitig
+  // angreifbar, gegen eine ausgebaute Stellung mit 1600 DPS eine Zehntel
+  // Sekunde — der Wurm wurde am Kopf rasiert, ohne je eine Aufgabe zu sein.
+  // Gemessen an einem menschlichen Lauf über 66 Wellen forderte eine
+  // Skarnax-Welle die Abwehr mit 427 DPS, eine gewöhnliche Welle mit 1622.
+  //
+  // 240 Segmente sind damit 96.000 HP bei Multiplikator 1, in der
+  // Größenordnung dessen, was eine normale späte Welle an Schaden auf sich
+  // zieht. Die Feinjustierung darüber macht der Druck-Regler über den
+  // HP-Multiplikator der Welle (boss-variants.config.ts).
+  baseHp: 400,
   baseSpeed: 4.5,
   canBleed: true,
   // Only the worm, only in the boss rotation, Custom Wave and Enemy Debug
@@ -533,7 +545,12 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: 'assets/models/enemies/herbert_optimized.glb',
     scale: 2.625,
     armorType: 'fortified',
-    baseHp: 500,
+      // 4000 seit dem 2026-09-22, vorher 500. Herbert kommt zu bis zu hundert
+  // Stück; das waren 50.000 HP für eine Boss-Welle, während eine gewöhnliche
+  // späte Welle 380.000 Schaden auf sich zieht. Wie viele davon kommen,
+  // entscheidet weiter der Überlebbarkeits-Deckel: Zähere Gegner heißen
+  // automatisch weniger davon.
+  baseHp: 4000,
     baseSpeed: 4,
     hasAnimations: true,
     walkAnimation: 'Armature|walking_man|baselayer',
@@ -1006,7 +1023,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'unarmored',
     // One HP pool for the whole body, and every tower along it hits it at
     // once: six Herberts, pinned by no template (not in AI_ENEMY_ORDER).
-    baseHp: 3000,
+      // 60.000 seit dem 2026-09-22, vorher 3.000. Der Ooze ist EIN Körper, auf
+  // den jeder Turm gleichzeitig feuert; gemessen forderte eine Ooze-Welle die
+  // Abwehr mit 241 DPS gegen 1622 einer gewöhnlichen Welle. Er soll ein
+  // Körper bleiben (Entscheidung des Users), also ist die HP der einzige
+  // Hebel, und er muss die Zahl der Türme aufwiegen, die gleichzeitig
+  // draufhalten.
+  baseHp: 60000,
     baseSpeed: 3,
     hasAnimations: true,
     walkAnimation: 'Wobble',
@@ -1044,7 +1067,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     armorType: 'unarmored',
     // Twenty of them hold a tenth of the ooze's HP; the split scales them by
     // its HP multiplier. No template, not in AI_ENEMY_ORDER, no split of its own.
-    baseHp: 15,
+    // Ein Zwanzigstel des Ooze, damit die zwanzig Klumpen zusammen ein Zehntel
+    // seiner HP tragen. Zog mit ihm von 3.000 auf 60.000 mit (2026-09-22).
+    baseHp: 300,
     baseSpeed: 4.5,
     hasAnimations: true,
     walkAnimation: 'Wobble',

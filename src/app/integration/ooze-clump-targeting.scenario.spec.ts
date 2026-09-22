@@ -157,9 +157,19 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
   /** Fire, Poison and Ice along the body, as the ooze dies there with the layout below */
   const placeAlongTheBody = (): Tower[] => [place('fire', 50, 8), place('poison', 30, 15), place('ice', 70, 15)];
 
-  /** Spawns the ooze and runs until the towers have killed it */
+  /**
+   * Spawns the ooze and runs until the towers have killed it.
+   *
+   * Drei Tower brauchen für die vollen HP eines Ooze Minuten - seit dem
+   * 2026-09-22 hat er 60.000 statt 3.000, weil ihn als einzelnen Körper sonst
+   * jeder Turm gleichzeitig in Sekunden zerlegt. Hier geht es aber um die
+   * Klumpen nach seinem Tod, nicht um die Dauer bis dahin, also stirbt er mit
+   * einem Bruchteil davon. Das Aufteilen selbst hängt nicht an der HP.
+   */
   const killOoze = (timescale: number): void => {
     const ooze = enemies.spawn(ROUTE, 'ooze');
+    // Kein Setter für die HP: 99 % gleich wegnehmen ist derselbe Zustand.
+    ooze.health.takeDamage(ooze.health.hp * 0.99);
     for (let i = 0; ooze.alive && i < 90_000 / STEP; i++) step(timescale);
     expect(ooze.alive).toBe(false);
   };
