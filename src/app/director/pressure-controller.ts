@@ -247,22 +247,25 @@ export class PressureController {
       return this.multiplier;
     }
 
-    // Eine *billige* Welle, deren Größe der Deckel nicht bestimmt hat, ist
-    // kein Messwert für seine Einstellung: Sie kam aus der Template-Spanne,
-    // der Multiplikator hat sie nicht freigegeben, und dass sie nichts
-    // kostete, sagt nichts darüber, ob er zu niedrig steht. Gemessen war das
-    // der Grund, warum der Regler die toten Wellen nicht auffüllte — die
-    // wenigen sehr großen Wellen aus der Template-Spanne hielten den
-    // geglätteten Druck oben, während die Wellen, die er wirklich steuerte,
-    // gar nichts kosteten (docs/DRAMA_CONTROLLER_PLAN.md, Runde 9).
+    // JEDE Welle zählt, auch die, deren Größe der Deckel nicht bestimmt hat.
     //
-    // Eine *teure* zählt dagegen immer, auch ohne bindenden Deckel. Sonst
-    // könnte ein Lauf an Wellen sterben, die der Regler nie zu sehen bekommt,
-    // und Schließen wirkt auch dann: Es senkt den Deckel, bis er wieder
-    // bindet. Die Asymmetrie ist Absicht, die Kosten eines Fehlers sind es
-    // auch — zu leicht ist langweilig, zu schwer beendet den Lauf.
-    const dangerous = pressure !== null && pressure > target;
-    if ((capBinding || dangerous) && pressure !== null && Number.isFinite(pressure)) {
+    // Zwischen dem 2026-09-22 früh und mittag stand hier ein Filter: Eine
+    // billige Welle ohne bindenden Deckel sollte kein Messwert sein, weil der
+    // Multiplikator sie nicht beeinflusst hat. Ein menschlicher Lauf über 66
+    // Wellen hat gezeigt, wie falsch das ist. Bei einer starken Verteidigung
+    // bindet der Deckel fast nie, also waren 14 von 29 Wellen für den Regler
+    // unsichtbar — und zwar genau die billigen. Er hielt den Schnitt für
+    // 5,2 % während er real bei null lag, fuhr nach einer einzigen teuren
+    // Welle von ×5,75 auf ×0,62 herunter und schickte statt 2820 Gegnern noch
+    // 21. Ein Auswahlfehler, der genau in die falsche Richtung wirkt: Der
+    // Filter sollte falsches Öffnen verhindern und erzwang falsches Schließen.
+    //
+    // Die Begründung war ohnehin hinfällig: Seit der Multiplikator bei nicht
+    // bindendem Deckel den Anzahl-Faktor verschiebt (wave-config-builder.ts),
+    // hat er auch in diesen Wellen eine Handhabe. Gegen falsches Öffnen
+    // schützt weiter das Anti-Windup unten, und das greift an der richtigen
+    // Stelle: bei der Stellgröße, nicht bei der Messung.
+    if (pressure !== null && Number.isFinite(pressure)) {
       const value = Math.max(0, Math.min(1, pressure));
       this.smoothed = this.smoothed === null
         ? value

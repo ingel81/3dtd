@@ -183,23 +183,25 @@ describe('gate wiring', () => {
       expect(director.pressure.pressureMultiplier).toBe(atFull);
     });
 
-    it('ignores a cheap wave the cap did not size, and never opens on one', () => {
-      // Anti-Windup, beide Hälften. Bindet der Deckel nicht, kam die Welle
-      // aus der Template-Spanne: Der Multiplikator hat sie nicht freigegeben,
-      // also sagt ihr niedriger Preis nichts darüber, ob er zu niedrig steht.
-      // Sie zu zählen war gemessen der Grund, warum der Regler die toten
-      // Wellen nicht auffüllte; auf sie zu öffnen hieße, gegen eine Sättigung
-      // zu integrieren.
+    it('counts a cheap wave the cap did not size, but does not open on it', () => {
+      // Der Messwert zählt, die Stellgröße bewegt sich nicht: Anti-Windup
+      // gehört an die Stellgröße, nicht an die Messung.
+      //
+      // Andersherum ging es schief. Ein Filter, der solche Wellen gar nicht
+      // erst zählte, machte bei einer starken Verteidigung 14 von 29 Wellen
+      // unsichtbar - genau die billigen. Der Regler hielt den Schnitt für
+      // 5,2 % während er bei null lag und fuhr nach einer teuren Welle von
+      // ×5,75 auf ×0,62 herunter (docs/DRAMA_CONTROLLER_PLAN.md, Abschnitt 10).
       const loop = director.pressure;
       for (let i = 0; i < PRESSURE_MIN_SAMPLES * 6; i++) {
         loop.recordWave(0, PRESSURE_WARMUP_WAVES + 1 + i, false);
       }
-      expect(loop.pressureMultiplier).toBe(1);
-      expect(loop.status.samples).toBe(0);
+      expect(loop.pressureMultiplier).toBe(1);           // nicht geöffnet
+      expect(loop.status.samples).toBeGreaterThan(0);    // aber gesehen
+      expect(loop.status.meanPressure).toBe(0);
 
-      // Eine teure zählt dagegen auch ohne bindenden Deckel: Sonst stürbe der
-      // Lauf an Wellen, die der Regler nie zu sehen bekommt, und Schließen
-      // wirkt auch hier, weil es den Deckel senkt, bis er wieder bindet.
+      // Schließen wirkt auch ohne bindenden Deckel: Es senkt ihn, bis er
+      // wieder bindet.
       for (let i = 0; i < PRESSURE_MIN_SAMPLES * 6; i++) {
         loop.recordWave(0.4, PRESSURE_WARMUP_WAVES + 1 + i, false);
       }
