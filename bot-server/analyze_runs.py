@@ -22,6 +22,7 @@ from pathlib import Path
 from analysis.metrics import group_runs
 from analysis.report import render
 from analysis.run_reader import read_runs
+from analysis.summary import summarize
 from config import RUNS_DIR
 
 
@@ -31,6 +32,12 @@ def main() -> int:
     parser.add_argument("--out", type=Path, default=Path("run-report.html"), help="where the report lands")
     parser.add_argument("--title", default="3DTD runs")
     parser.add_argument("--open", action="store_true", help="open the report when it is written")
+    parser.add_argument(
+        "--text",
+        action="store_true",
+        help="print the whole picture to the terminal instead of only writing the HTML",
+    )
+    parser.add_argument("--no-html", action="store_true", help="skip the HTML report")
     args = parser.parse_args()
 
     paths = args.paths or [Path(RUNS_DIR)]
@@ -47,7 +54,15 @@ def main() -> int:
         return 1
 
     groups = group_runs(result.runs)
-    args.out.write_text(render(groups, result.skipped, args.title), encoding="utf-8")
+    if not args.no_html:
+        args.out.parent.mkdir(parents=True, exist_ok=True)
+        args.out.write_text(render(groups, result.skipped, args.title), encoding="utf-8")
+
+    if args.text:
+        print(summarize(groups, len(result.skipped)))
+        if not args.no_html:
+            print(f"HTML: {args.out}")
+        return 0
 
     print(f"{len(result.runs)} runs in {len(groups)} group(s) -> {args.out}")
     for group in groups:

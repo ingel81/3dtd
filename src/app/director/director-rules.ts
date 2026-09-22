@@ -47,6 +47,23 @@ import { directorParams } from './director-params';
 const JITTER = 0.12;
 
 /**
+ * Wie viele Wellen jünger als der älteste Kandidat ein Template sein darf und
+ * trotzdem in die Wahl kommt.
+ *
+ * Bis zum 2026-09-22 stand hier faktisch 0: Es gewann immer der älteste, und
+ * nur ein echter Gleichstand ließ eine Wahl zu. Das erzwingt Abwechslung
+ * perfekt, macht aber auch jede Anpassung an den Spieler unmöglich — wer
+ * immer den ältesten nimmt, spielt langfristig jedes Template gleich oft,
+ * ganz gleich wie der Gleichstand fällt.
+ *
+ * Mit 2 kann ein Template höchstens zwei Wellen früher oder später kommen als
+ * bisher. Die Rotation bleibt, sie wird nur atmungsfähig genug, dass der
+ * Druck-Regler in ihr etwas bewirken kann (docs/DRAMA_CONTROLLER_PLAN.md,
+ * Runde 16; Entscheidung des Users am 2026-09-22).
+ */
+export const STALENESS_SLACK = 2;
+
+/**
  * The four numbers that shape a wave, each 0..1 inside the template's ranges:
  * how many enemies, how fast they arrive, how tough they are, how mixed.
  */
@@ -69,7 +86,7 @@ export interface DirectorReason {
   lastRanWavesAgo: number | null;
   /** Length of the template history staleness was read from. */
   history: number;
-  /** Candidates that shared the pick's staleness; the tie was broken at random. */
+  /** Candidates that were exactly as stale as the oldest one. */
   tied: number;
   /** Position on the difficulty ramp, 0..1. */
   ramp: number;
@@ -79,6 +96,24 @@ export interface DirectorDecision {
   templateIdx: number;
   factors: DirectorFactors;
   why: DirectorReason;
+}
+
+/**
+ * Wie der Gleichstand zwischen gleich alten Kandidaten aufgelöst wird.
+ *
+ * `null` würfelt, wie bisher. Sonst entscheidet, wie viel Luft der Deckel dem
+ * Template lässt: `harder` nimmt das Template mit der wenigsten (die
+ * Verteidigung steht dagegen schlecht), `easier` das mit der meisten.
+ *
+ * Die Älteste-zuerst-Regel bleibt davon unberührt — Abwechslung wird weiter
+ * erzwungen, nur die Wahl *innerhalb* der gleich alten Kandidaten hört auf,
+ * zufällig zu sein. Sie ist häufig: Über die Kampagne hinaus stehen regelmäßig
+ * neun Templates gleichauf.
+ */
+export interface TieBreak {
+  prefer: 'harder' | 'easier';
+  /** Luft des Deckels je Template-Index, 0..1 (buildWaveContext). */
+  headroom: ReadonlyMap<number, number>;
 }
 
 /**
@@ -101,12 +136,16 @@ function staleness(idx: number, recent: readonly number[]): number {
  * @param waveNumber  the wave being planned (not the one just finished)
  * @param recent      recently shipped template indices, oldest first
  * @param random      injectable for deterministic tests
+ * @param tieBreak    resolves ties by how well the defense covers each
+ *                    template instead of by chance; omitted or null keeps the
+ *                    coin flip
  */
 export function decideWave(
   candidates: readonly number[],
   waveNumber: number,
   recent: readonly number[],
   random: () => number = Math.random,
+  tieBreak: TieBreak | null = null,
 ): DirectorDecision {
   // Ramp to full difficulty around the target run length, then hold.
   const ramp = Math.min(1, Math.max(0, waveNumber / directorParams().rampFullWave));
@@ -136,20 +175,21 @@ export function decideWave(
     };
   }
 
-  // Stalest candidate, ties broken at random.
+  // Die ältesten Kandidaten, plus die, die höchstens STALENESS_SLACK Wellen
+  // jünger sind. Unter ihnen entscheidet der Tie-Break.
   let bestAge = -1;
-  const tied: number[] = [];
   for (const idx of candidates) {
-    const age = staleness(idx, recent);
-    if (age > bestAge) {
-      bestAge = age;
-      tied.length = 0;
-      tied.push(idx);
-    } else if (age === bestAge) {
-      tied.push(idx);
-    }
+    bestAge = Math.max(bestAge, staleness(idx, recent));
   }
-  const best = tied[Math.floor(random() * tied.length) % tied.length];
+  // `max(1, ...)`: Das Template der letzten Welle kommt nie zweimal
+  // hintereinander, auch wenn der Slack es rechnerisch zuließe. Bei nur zwei
+  // Kandidaten wäre das sonst möglich, und eine direkte Wiederholung ist das
+  // eine, was die Regel auf jeden Fall verhindern soll.
+  const floor = Math.max(1, bestAge - STALENESS_SLACK);
+  const eligible = candidates.filter((idx) => staleness(idx, recent) >= floor);
+  // `tied` bleibt die Aussage über echten Gleichstand, für die Begründung.
+  const tied = candidates.filter((idx) => staleness(idx, recent) === bestAge);
+  const best = breakTie(eligible, tieBreak, random);
 
   return {
     templateIdx: best,
@@ -157,12 +197,49 @@ export function decideWave(
     why: {
       candidates: candidates.length,
       // staleness() puts anything outside the history one past its end.
-      lastRanWavesAgo: bestAge < recent.length ? bestAge + 1 : null,
+      // Das Alter des Gewählten, nicht das des ältesten: Seit dem Slack
+      // können die auseinanderfallen.
+      lastRanWavesAgo: (() => {
+        const age = staleness(best, recent);
+        return age < recent.length ? age + 1 : null;
+      })(),
       history: recent.length,
       tied: tied.length,
       ramp,
     },
   };
+}
+
+/**
+ * Einer aus den Kandidaten, die alt genug sind (siehe STALENESS_SLACK).
+ *
+ * Ohne `tieBreak` per Zufall, wie seit jeher. Mit ihm der, dessen Deckel am
+ * wenigsten (`harder`) oder am meisten (`easier`) Luft lässt. Der Zufall
+ * bleibt der Gleichstand des Gleichstands: Mehrere Templates mit demselben
+ * Wert werden weiter ausgewürfelt, sonst liefe dieselbe Reihenfolge in jedem
+ * Lauf.
+ */
+function breakTie(tied: readonly number[], tieBreak: TieBreak | null, random: () => number): number {
+  if (!tieBreak || tied.length < 2) {
+    return tied[Math.floor(random() * tied.length) % tied.length];
+  }
+  const harder = tieBreak.prefer === 'harder';
+  let bestValue = harder ? Infinity : -Infinity;
+  const bestOf: number[] = [];
+  for (const idx of tied) {
+    // Ein Template ohne Eintrag zählt als "die Verteidigung räumt es ab":
+    // Das ist die vorsichtige Annahme, sie macht es nicht zum Favoriten für
+    // `harder`.
+    const value = tieBreak.headroom.get(idx) ?? 1;
+    if (harder ? value < bestValue : value > bestValue) {
+      bestValue = value;
+      bestOf.length = 0;
+      bestOf.push(idx);
+    } else if (value === bestValue) {
+      bestOf.push(idx);
+    }
+  }
+  return bestOf[Math.floor(random() * bestOf.length) % bestOf.length];
 }
 
 function clamp01(v: number): number {

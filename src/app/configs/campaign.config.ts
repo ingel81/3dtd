@@ -122,15 +122,21 @@ export function endgameHpMultiplier(waveNum: number): number {
  * Per-leak HP-damage to player base scales with wave number — late-game
  * leaks should hurt more so the player can't just tank a steady trickle.
  *
- *  W1-10  → 1
- *  W11-20 → 2
- *  W21-30 → 3
- *  W31-40 → 4
+ *  W1-30   → 1
+ *  W31-60  → 2
+ *  W61-90  → 3
  *  ...
+ *
+ * Seit dem 2026-09-21 je 30 Wellen statt je 10. Der Grund ist die Auflösung,
+ * nicht die Härte: Die HP fallen über einen Lauf, während der Leck-Schaden
+ * stieg, und bei Welle 40 kostete ein einziger Durchbruch rund 17 % der
+ * Rest-HP. Damit war die Schwierigkeit nicht mehr steuerbar, weil zwischen
+ * "kostet nichts" und "kostet ein Sechstel" nichts lag. Dass späte Wellen
+ * härter sind, trägt jetzt die Spannungskurve des Druck-Reglers über die
+ * Wellengröße (docs/DRAMA_CONTROLLER_PLAN.md).
  */
 export function enemyBaseDamageForWave(waveNum: number): number {
-  if (waveNum < 11) return 1;
-  return 1 + Math.floor((waveNum - 1) / 10);
+  return 1 + Math.floor(Math.max(0, waveNum - 1) / 30);
 }
 
 /** Last wave the campaign pins a template to. Beyond this the AI chooses. */

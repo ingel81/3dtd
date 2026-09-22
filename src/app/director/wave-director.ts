@@ -21,11 +21,11 @@ import { StateSnapshotService } from './state-snapshot.service';
 import { GameStateSnapshot } from './models/game-state-snapshot';
 import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
-import { formatExplanation } from './decision-explainer';
+import { capIsBinding, formatExplanation } from './decision-explainer';
 import type { CandidateReason } from './templates';
 import { buildWaveContext } from './wave-context';
-import { decideWave, type DirectorDecision } from './director-rules';
-import { LeakController, leakRatio } from './leak-controller';
+import { decideWave, type DirectorDecision, type TieBreak } from './director-rules';
+import { PressureController, wavePressure } from './pressure-controller';
 import { buildWaveConfig } from './wave-config-builder';
 
 /** Templates the cooldown remembers. */
@@ -47,7 +47,16 @@ export class WaveDirector {
   private debugMode = signal(false);
 
 
-  readonly leak = new LeakController();
+  readonly pressure = new PressureController();
+
+  /**
+   * Hat der Deckel die zuletzt geplante Welle begrenzt?
+   *
+   * Der Regler bekommt es beim Abschluss dieser Welle als Anti-Windup. Es
+   * gehört hierher und nicht in den Regler, weil nur der Planungspfad weiß,
+   * was die Größe der Welle am Ende entschieden hat.
+   */
+  private lastCapBinding = true;
 
   constructor() {
     // Subscribe the fairness gate to completed waves.
@@ -108,13 +117,39 @@ export class WaveDirector {
       state.waveNumber + 1,
       this.recentTemplateIndices,
       random,
+      this.tieBreak(context.headroomByTemplate),
     );
     return this.ship(decision, state, context.candidateReason);
   }
 
+  /**
+   * Der dritte Griff des Druck-Reglers: die Wahl unter gleich alten
+   * Templates.
+   *
+   * Deckel und Anzahl-Faktor stellen ein, *wie groß* eine Welle wird. Was sie
+   * nicht können, ist die Streuung: Ein Template, das zur Abwehr passt,
+   * kostet auch groß nichts, und eines, das nicht passt, kostet auch klein
+   * viel. Genau daraus entsteht die tote Strecke — der Regler trifft den
+   * Erwartungswert und der Verlauf bleibt zackig
+   * (docs/DRAMA_CONTROLLER_PLAN.md, Runde 12).
+   *
+   * Steht der Regler auf "zu leicht", bekommt der Spieler unter den gleich
+   * alten Kandidaten den, gegen den seine Abwehr am schlechtesten steht, und
+   * umgekehrt. Hält er, bleibt es beim Zufall: Im Zielzustand soll nichts
+   * nachgeholfen werden.
+   */
+  private tieBreak(headroom: ReadonlyMap<number, number>): TieBreak | null {
+    const step = this.pressure.status.lastStep;
+    if (step === 'opened') return { prefer: 'harder', headroom };
+    if (step === 'closed') return { prefer: 'easier', headroom };
+    return null;
+  }
+
   /** The wave a decision describes; its template goes into the cooldown history. */
   private ship(decision: DirectorDecision, state: GameStateSnapshot, candidateReason: CandidateReason): WaveConfig {
-    const config = buildWaveConfig(decision, state, candidateReason, this.leak);
+    const config = buildWaveConfig(decision, state, candidateReason, this.pressure);
+    const sizing = config.explanation?.sizing;
+    this.lastCapBinding = sizing ? capIsBinding(sizing) : true;
     this.recentTemplateIndices.push(config.templateIdx);
     if (this.recentTemplateIndices.length > TEMPLATE_HISTORY) {
       this.recentTemplateIndices.shift();
@@ -128,18 +163,17 @@ export class WaveDirector {
   onWaveCompleted(result: WaveResult): void {
     // Feed the fairness gate. This is the loop that sizes the next wave, so it
     // has to see every completed wave — not just the ones a debug flag prints.
-    // null, not 0: a wave with no per-enemy data is no evidence either way.
-    // Ability kills count as leaks, see leakRatio.
-    const ratio = leakRatio(
-      result.outcome.enemyProgressValues ?? [],
-      result.outcome.abilityKills ?? 0,
+    // null, not 0: a wave that carries no HP reading is no evidence either way.
+    const pressure = wavePressure(
+      result.outcome.damageToPlayer ?? 0,
+      result.outcome.healthAtWaveStart ?? 0,
+      result.outcome.enemiesSpawned ?? 0,
     );
-    const survived = result.outcome.playerSurvived !== false;
-    this.leak.recordWave(ratio, survived);
+    this.pressure.recordWave(pressure, result.waveNumber, this.lastCapBinding);
 
     if (this.debugMode()) {
       console.log('[AI] Wave result:', result);
-      console.log('[AI] Leak ratio:', ratio, 'leak x', this.leak.leakMultiplier);
+      console.log('[AI] Pressure:', pressure, 'mult x', this.pressure.pressureMultiplier);
     }
   }
 
@@ -151,7 +185,8 @@ export class WaveDirector {
    * was 6 waves against a target of 80.
    */
   resetForNewGame(): void {
-    this.leak.reset();
+    this.pressure.reset();
+    this.lastCapBinding = true;
     this.recentTemplateIndices = [];
   }
 

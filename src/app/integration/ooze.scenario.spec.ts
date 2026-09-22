@@ -156,27 +156,33 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   });
 
   it('421: at W45 and 4x it shakes at most every 900 ms of wall time, and every metre costs', () => {
-    expect(enemyBaseDamageForWave(45)).toBe(5);
+    // Aus dem Leck-Schaden gerechnet statt gepinnt: ein Ooze kostet das
+    // Zehnfache eines gewöhnlichen Lecks, verteilt über seine 80 m.
+    const perLeak = enemyBaseDamageForWave(45);
+    const total = perLeak * 10;
     startOoze(45);
     runToWaveEnd(4);
 
-    // 80 m at 5 x 10 / 80 = 0.625 HP a metre: 50 points, and all 50 land. A
-    // wave used to stop costing at 18 HP however much flowed in (2026-09-20).
-    expect(leaking.reduce((sum, l) => sum + l.damage, 0) + reached.reduce((a, b) => a + b, 0)).toBe(50);
-    expect(hurt.map((h) => h.delta)).toEqual(new Array(50).fill(-1));
-    expect(ledger.baseHealth()).toBe(START_HEALTH - 50);
+    // 80 m at perLeak x 10 / 80 HP a metre, and every point lands. A wave used
+    // to stop costing at 18 HP however much flowed in (2026-09-20).
+    expect(leaking.reduce((sum, l) => sum + l.damage, 0) + reached.reduce((a, b) => a + b, 0)).toBe(total);
+    expect(hurt.map((h) => h.delta)).toEqual(new Array(total).fill(-1));
+    expect(ledger.baseHealth()).toBe(START_HEALTH - total);
 
-    // A point every 133 ms of wall time: the first one after each 900 ms shakes
+    // A point every 133 ms of wall time: the first one after each 900 ms
+    // shakes, so there are far fewer shakes than damage points. Wie viel
+    // weniger, sagt das Intervall und nicht die Punktzahl — die hängt am
+    // Leck-Schaden der Welle. Die Abstände selbst prüft die Schleife darunter.
     expect(shakes.length).toBeGreaterThan(1);
-    expect(shakes.length).toBeLessThan(hurt.length / 4);
+    expect(shakes.length).toBeLessThan(hurt.length);
     for (let i = 1; i < shakes.length; i++) {
       expect(shakes[i] - shakes[i - 1]).toBeGreaterThanOrEqual(hqDamageMinIntervalMs);
       expect(shakes[i] - shakes[i - 1]).toBeLessThan(hqDamageMinIntervalMs + 150);
     }
   });
 
-  it('421: a zombie leak at W45 costs 5 HP, not 10, and shakes at once, inside the 900 ms', () => {
-    expect(enemyBaseDamageForWave(45)).toBe(5);
+  it('421: a zombie leak at W45 costs one leak of that wave and shakes at once, inside the 900 ms', () => {
+    const perLeak = enemyBaseDamageForWave(45);
     startOoze(45);
     while (shakes.length === 0 && clock.now < 60_000) run(STEP, 4);
     const pointShake = shakes[0];
@@ -184,15 +190,17 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     const zombie = zombieAtTheHq();
     while (m.enemyManager.getById(zombie.id)) run(STEP, 4);
 
-    const zombieLeak = hurt.find((h) => h.delta === -5);
+    const zombieLeak = hurt.find((h) => h.delta === -perLeak);
     expect(zombieLeak).toBeDefined();
     expect(zombieLeak!.wall - pointShake).toBeLessThan(hqDamageMinIntervalMs);
-    // 5 HP shakes at the floor of 0.5 like 1 HP, but costs more HP: a harder hit
+    // Ein mehrfacher Treffer schüttelt am Boden von 0,5 wie ein einfacher,
+    // kostet aber mehr HP
     expect(shakes).toEqual([pointShake, zombieLeak!.wall]);
   });
 
-  it('421: from W91 on a zombie leak costs 10 HP and shakes at once, inside the 900 ms', () => {
-    expect(enemyBaseDamageForWave(91)).toBe(10);
+  it('421: from W91 on a zombie leak costs more than at W45 and shakes at once, inside the 900 ms', () => {
+    const perLeak = enemyBaseDamageForWave(91);
+    expect(perLeak).toBeGreaterThan(enemyBaseDamageForWave(45));
     startOoze(91);
     while (shakes.length === 0 && clock.now < 60_000) run(STEP, 4);
     const pointShake = shakes[0];
@@ -200,7 +208,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     const zombie = zombieAtTheHq();
     while (m.enemyManager.getById(zombie.id)) run(STEP, 4);
 
-    const zombieLeak = hurt.find((h) => h.delta === -10)!;
+    const zombieLeak = hurt.find((h) => h.delta === -perLeak)!;
     expect(zombieLeak.wall - pointShake).toBeLessThan(hqDamageMinIntervalMs);
     expect(shakes).toEqual([pointShake, zombieLeak.wall]);
   });

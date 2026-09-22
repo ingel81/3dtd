@@ -24,11 +24,13 @@ describe('BaseHealthLedger', () => {
     bus.on('health:changed', changed);
     const ledger = new BaseHealthLedger(bus);
 
-    // 500 enemies through the gate used to cost the same 18 HP as two
-    for (let i = 0; i < 20; i++) ledger.applyLeak(10);
+    // 500 enemies through the gate used to cost the same 18 HP as two.
+    // Aus den Start-HP gerechnet, damit die Zahl der Config folgt.
+    const leaks = START / 10;
+    for (let i = 0; i < leaks + 10; i++) ledger.applyLeak(10);
 
     expect(ledger.baseHealth()).toBe(0);
-    expect(changed).toHaveBeenCalledTimes(10);   // the rest hits a base at zero
+    expect(changed).toHaveBeenCalledTimes(leaks);   // the rest hits a base at zero
   });
 
   it('adjusts above the start value', () => {

@@ -78,6 +78,16 @@ export interface WaveOutcome {
   /** Lowest player health during the wave */
   lowestPlayerHealth: number;
 
+  /**
+   * Player health when the wave started.
+   *
+   * The denominator of the pressure loop (`wavePressure`). Deliberately the
+   * standing HP and not `startHealth`: a player who heals between waves has
+   * more to spend, and the loop must read that as headroom rather than as a
+   * defense that got worse.
+   */
+  healthAtWaveStart: number;
+
   /** Player health dropped below 30% during wave */
   wasCloseCall: boolean;
 

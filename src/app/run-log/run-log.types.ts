@@ -14,7 +14,7 @@
 import type { CreditsSource } from '../game-engine/game-event-bus';
 
 /** Bumped when a reader would have to change. */
-export const RUN_LOG_FORMAT = 2;
+export const RUN_LOG_FORMAT = 3;
 
 /** Where a run was played. */
 export type RunMap = 'devworld' | 'world';
@@ -128,8 +128,18 @@ export interface RunLogWave {
   reason?: string[];
   /** The survivability cap it was sized against; null when none bound. */
   survivableCount?: number | null;
-  /** The leak loop's multiplier at that point. */
-  leakMultiplier?: number;
+  /**
+   * Der Multiplikator des Druck-Reglers zu diesem Zeitpunkt. Hieß bis
+   * Format 2 `leakMultiplier` und regelte auf die Leck-Quote.
+   */
+  pressureMultiplier?: number;
+  /**
+   * Der Sollwert, auf den geregelt wurde: Anteil der HP, den die Welle kosten
+   * sollte. Was sie wirklich gekostet hat, steht als `healthStart` minus
+   * `healthEnd` schon in derselben Zeile, also führt das Log den Istwert
+   * nicht doppelt.
+   */
+  targetPressure?: number;
   /** Enemy types and counts as the wave shipped them. */
   composition?: { type: string; count: number; hp: number }[];
   creditsStart: number;

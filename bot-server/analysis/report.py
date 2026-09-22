@@ -157,6 +157,76 @@ def _tower_table(group: GroupStats) -> str:
     """
 
 
+def _loop_table(groups: list[GroupStats]) -> str:
+    """
+    The health of the closed loop, one row per group.
+
+    Read together these five say whether the loop regulates or swings. A
+    working loop keeps the cap inside one order of magnitude, sits off its
+    stops, and leaves no long stretch of waves that cost nothing.
+    """
+    rows = ""
+    for i, group in enumerate(groups):
+        loop = group.loop
+        if loop is None:
+            continue
+        rows += f"""<tr>
+          <td><span class="key"><i style="background:{_color(i)}"></i>{html.escape(group.label)}</span></td>
+          <td class="{'bad' if loop.longest_dead_streak > 4 else ''}">{loop.longest_dead_streak:.1f}</td>
+          <td>{loop.in_band * 100:.0f}%</td>
+          <td class="{'bad' if loop.pinned > 0.05 else ''}">{loop.pinned * 100:.0f}%</td>
+          <td class="{'bad' if loop.cap_spread_per_10 > 4 else ''}">×{loop.cap_spread_per_10:,.1f}</td>
+          <td>×{loop.median_multiplier:.2f}</td>
+        </tr>"""
+    if not rows:
+        return ""
+    return f"""
+    <section class="loop">
+      <h3>Pressure loop</h3>
+      <p class="sub">Whether the loop regulates or swings. Dead streak is the longest run of waves
+      that cost no HP at all; pinned is how often the multiplier sat on a stop instead of steering;
+      cap spread is how far the survivability cap travelled inside one run, normalised to ten waves so a longer
+      run is not punished for being longer. Red marks a value that
+      says the loop lost control (docs/DRAMA_CONTROLLER_PLAN.md).</p>
+      <table>
+        <thead><tr>
+          <th>group</th><th>dead streak</th><th>in band</th><th>pinned</th>
+          <th>cap spread /10</th><th>multiplier</th>
+        </tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </section>
+    """
+
+
+def _niche_table(group: GroupStats) -> str:
+    """A specialist inside the waves it exists for."""
+    if not group.air_niche:
+        return ""
+    rows = "".join(
+        f"""<tr>
+          <td>{html.escape(niche.type)}</td>
+          <td>{niche.damage_share * 100:.1f}%</td>
+          <td>{niche.kill_share * 100:.1f}%</td>
+          <td>{niche.present * 100:.0f}%</td>
+        </tr>"""
+        for niche in group.air_niche[:10]
+    )
+    return f"""
+    <section class="niche">
+      <h3>Pure air waves · {html.escape(group.label)}</h3>
+      <p class="sub">Every point of damage in these waves is damage against air, so this is the
+      only fair lens on an anti-air tower. Damage per gold over a whole run judges a specialist by
+      the waves it was never meant to fight. "standing" is the share of those waves the type was
+      even built in.</p>
+      <table>
+        <thead><tr><th>type</th><th>damage</th><th>kills</th><th>standing</th></tr></thead>
+        <tbody>{rows}</tbody>
+      </table>
+    </section>
+    """
+
+
 def _endings_table(group: GroupStats) -> str:
     """Where the runs of one group ended. The median says how far, this says what stopped them."""
     rows = "".join(
@@ -241,6 +311,36 @@ def render(groups: list[GroupStats], skipped: list[tuple], title: str = "3DTD ru
             _series(groups, lambda w: w.runs),
         ),
         _chart(
+            "Pressure: what a wave cost",
+            "Share of the standing HP the wave took. The loop's own metric, and the one that"
+            " survives a player who heals.",
+            _series(groups, lambda w: w.pressure),
+        ),
+        _chart(
+            "Pressure: what it was meant to cost",
+            "The target curve, out of the wanted run length. A flat gap between this and the"
+            " line above is a loop that is not reaching its setpoint.",
+            _series(groups, lambda w: w.target_pressure),
+        ),
+        _chart(
+            "Waves inside the target band",
+            "Share of the runs whose wave cost roughly what it was meant to. The headline number"
+            " for whether the loop works.",
+            _series(groups, lambda w: w.in_band),
+        ),
+        _chart(
+            "Loop multiplier",
+            "Median correction the loop applied. A line that walks from one stop to the other is"
+            " an oscillator, not a controller.",
+            _series(groups, lambda w: w.loop_multiplier),
+        ),
+        _chart(
+            "Enemies actually spawned",
+            "What the player faced. Together with the cap it shows whether the gate or the"
+            " template decided the size.",
+            _series(groups, lambda w: w.spawned),
+        ),
+        _chart(
             "Survivability cap binding",
             "Share of the runs whose wave was cut by the cap. Near 1 the size of a wave is a"
             " formula over the defense, not a decision of the campaign.",
@@ -248,7 +348,9 @@ def render(groups: list[GroupStats], skipped: list[tuple], title: str = "3DTD ru
         ),
     ]
 
+    loop = _loop_table(groups)
     towers = "".join(_tower_table(group) for group in groups)
+    niches = "".join(_niche_table(group) for group in groups)
     endings = "".join(_endings_table(group) for group in groups)
 
     return f"""<!DOCTYPE html>
@@ -285,9 +387,11 @@ def render(groups: list[GroupStats], skipped: list[tuple], title: str = "3DTD ru
   <p class="sub">{datetime.now().strftime('%Y-%m-%d %H:%M')} · {sum(g.runs for g in groups)} runs</p>
   {warning}
   {_summary_table(groups)}
+  {loop}
   {''.join(charts)}
   {endings}
   {towers}
+  {niches}
 </body>
 </html>
 """

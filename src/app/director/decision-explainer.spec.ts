@@ -8,7 +8,7 @@ import {
   type WaveSizing,
 } from './decision-explainer';
 import { TEMPLATES, type CandidateReason } from './templates';
-import type { LeakStatus } from './leak-controller';
+import type { PressureStatus } from './pressure-controller';
 import { WaveDirector } from './wave-director';
 import { StateSnapshotService } from './state-snapshot.service';
 import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
@@ -42,7 +42,9 @@ function sizing(overrides: Partial<WaveSizing> = {}): WaveSizing {
   };
 }
 
-const WARMING: LeakStatus = { multiplier: 1, samples: 2, meanLeak: null, lastStep: 'warming-up' };
+const WARMING: PressureStatus = {
+  multiplier: 1, samples: 2, meanPressure: null, target: 0.02, lastStep: 'warming-up',
+};
 
 function trace(overrides: Partial<WaveDecisionTrace> = {}): WaveDecisionTrace {
   return {
@@ -50,7 +52,7 @@ function trace(overrides: Partial<WaveDecisionTrace> = {}): WaveDecisionTrace {
     templateName: 'Tank Column',
     candidates: candidateReason(),
     director: { candidates: 14, lastRanWavesAgo: null, history: 5, tied: 9, ramp: 0.6 },
-    leak: WARMING,
+    pressure: WARMING,
     sizing: sizing(),
     ...overrides,
   };
@@ -78,20 +80,20 @@ describe('explainWaveDecision', () => {
       'Pinned although the defense has no anti-air.',
       'DPS ramp: 0 of 500 DPS narrows the count range to 30-87.',
       'Survivability cap is 5, below the template minimum of 30.',
-      'Leak loop still collecting (2 of 4 waves), leak loop at ×1.00.',
+      'Pressure loop still collecting (2 of 3 waves), at ×1.00.',
     ]);
   });
 
   it('a free pick past the campaign, sized by the survivability cap', () => {
     expect(reasonsOf(trace({
       candidates: candidateReason({ heldBack: { antiAir: [idx('bat_swarm'), idx('hornet_strike')], antiEthereal: [] } }),
-      leak: { multiplier: 1.42, samples: 4, meanLeak: 0.03, lastStep: 'opened' },
+      pressure: { multiplier: 1.42, samples: 8, meanPressure: 0.005, target: 0.04, lastStep: 'opened' },
       sizing: sizing({ cap: 212, count: 145, countFactor: 0.64, hpMult: 2.1, endgameHpMult: 1.85 }),
     }))).toEqual([
       'Oldest of 14 allowed templates: not used in the last 5 waves, random among 9 tied.',
       'Held back, no anti-air: Bat Swarm, Hornet Strike.',
       'Survivability cap holds the count at 212.',
-      'Leak loop: last 4 waves leaked 3%, under the 8%-16% target, so it opened to ×1.42.',
+      'Pressure loop: waves cost 0.5% of HP on average, under the 2.0%-6.0% target, so it opened to ×1.42.',
       'Ramp 60% (full at wave 60): count at 64% of 30-212.',
       'HP ×2.10 includes the endgame multiplier ×1.85.',
     ]);
@@ -124,11 +126,13 @@ describe('explainWaveDecision', () => {
     expect(pick({ candidates: 0 })).toBe('No template allowed: fell back to the first one with fixed mid-range factors.');
   });
 
-  it('leaves the leak loop out when the cap did not bind', () => {
-    const reasons = reasonsOf(trace({ leak: { multiplier: 2, samples: 4, meanLeak: 0.02, lastStep: 'opened' } }));
+  it('leaves the pressure loop out when the cap did not bind', () => {
+    const reasons = reasonsOf(trace({
+      pressure: { multiplier: 2, samples: 8, meanPressure: 0.002, target: 0.04, lastStep: 'opened' },
+    }));
     expect(reasons).toContain('Survivability cap 900, not binding.');
     expect(reasons).toContain('Ramp 60% (full at wave 60): count at 50% of 30-600.');
-    expect(reasons.some((r) => r.startsWith('Leak loop'))).toBe(false);
+    expect(reasons.some((r) => r.startsWith('Pressure loop'))).toBe(false);
   });
 
   it('says when there is no finite cap', () => {
@@ -136,15 +140,13 @@ describe('explainWaveDecision', () => {
       .toContain('Survivability cap: none, the defense kills faster than enemies spawn.');
   });
 
-  it('words each step of the leak loop', () => {
-    const loop = (leak: LeakStatus) =>
-      reasonsOf(trace({ leak, sizing: sizing({ cap: 100 }) })).find((r) => r.startsWith('Leak loop'));
-    expect(loop({ multiplier: 1.3, samples: 4, meanLeak: 0.11, lastStep: 'held' }))
-      .toBe('Leak loop: last 4 waves leaked 11%, inside the 8%-16% target, it holds at ×1.30.');
-    expect(loop({ multiplier: 0.9, samples: 4, meanLeak: 0.3, lastStep: 'closed' }))
-      .toBe('Leak loop: last 4 waves leaked 30%, over the 8%-16% target, so it closed to ×0.90.');
-    expect(loop({ multiplier: 0.8, samples: 4, meanLeak: 0.5, lastStep: 'backed-off' }))
-      .toBe('Leak loop: the last wave ended the run, it backed off to ×0.80.');
+  it('words each step of the pressure loop', () => {
+    const loop = (pressure: PressureStatus) =>
+      reasonsOf(trace({ pressure, sizing: sizing({ cap: 100 }) })).find((r) => r.startsWith('Pressure loop'));
+    expect(loop({ multiplier: 1.3, samples: 8, meanPressure: 0.04, target: 0.04, lastStep: 'held' }))
+      .toBe('Pressure loop: waves cost 4.0% of HP on average, inside the 2.0%-6.0% target, it holds at ×1.30.');
+    expect(loop({ multiplier: 0.9, samples: 8, meanPressure: 0.3, target: 0.04, lastStep: 'closed' }))
+      .toBe('Pressure loop: waves cost 30% of HP on average, over the 2.0%-6.0% target, so it closed to ×0.90.');
   });
 
   it('reports a compressed spawn delay', () => {

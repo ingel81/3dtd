@@ -52,12 +52,29 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       **Gemessen am 2026-09-21** (E10, 125 Könner-Läufe): Die Kanone macht 52,8 % des Schadens für 25,3 % des Golds,
       also 3,56 Schaden je Gold gegen 1,54 beim nächsten Breitband-Tower. Sie wird nicht nur überwählt. Gift liegt
       je Gold fast gleichauf (3,17), bekommt aber nur 5,5 % des Golds. Offen ist damit nur noch, was daraus folgt.
-- [ ] **E15 Ist die Rakete jetzt stark genug?** (offen seit 2026-09-21): Der Pfad ist repariert (`aa-retrofit`
-      direkt an `gatling-tech`, `rocketry` unter `siege-engineering`), die Werte der Rakete sind unverändert. Sie
-      liegt je Gold auch gegen Drachen nur gleichauf mit einem 45-Gold-Archer (0,29 zu 0,28), und mit
-      `canTargetGround: false` tut sie in Bodenwellen nichts. Vor einer Änderung an `damage` oder `cost` ein
-      Bot-Lauf gegen die neue Baumform, sonst wird geraten. Zahlen in
-      [BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Die Raketen-Falle".
+- [ ] **E15 Rakete: gemessen, offen bleibt nur das Gefühl** (2026-09-22): Pfad repariert (`aa-retrofit` an
+      `gatling-tech`), Wirkradius ergänzt (5 m, bis fünf Ziele) — sie war das einzige Sprenggeschoss ohne
+      einen. **Gemessen in der richtigen Linse** (reine Luftwellen, 42 Läufe gegen 360 der Baseline): Ihr
+      Schadensanteil dort stieg von 6,9 % auf 18,3 %, die Kills von 3,1 % auf 8,0 %, und sie steht in 55 %
+      statt 41 % dieser Wellen. Damit liegt sie gleichauf mit Archer (21,4 %) und Eis (18,5 %), während das
+      Gatling mit 41,4 % führt — ihre Schwäche gegen die Fledermaus bleibt als Preis erhalten, wie gewollt.
+      Offen ist nur noch, ob sie sich im Spiel richtig anfühlt, und eine größere Stichprobe.
+- [ ] **E18 Die tote Strecke beim Könner** (offen seit 2026-09-22): Der Druck-Regler hat die mediane Runlänge
+      von 25 auf 45 gehoben und den Multiplikator von 35 % auf 3 % Anschlagzeit gebracht, aber der Könner hat
+      weiter 8 bis 9 Wellen am Stück ohne HP-Verlust (der Anfänger nur 1,0). 26 von 71 langen Serien beginnen
+      bei W15 bis W19, weitere 15 bei W30 bis W34, also am Übergang von der Kampagne zum freien Director. Das
+      ist eine Grenze des Ansatzes, keine Fehleinstellung: Der Regler steuert den Erwartungswert, nicht die
+      Verteilung. Kosten vier Wellen nichts und die fünfte 15 %, stimmt der Mittelwert und der Verlauf ist
+      trotzdem zackig. Nächster Hebel wäre die Template-Wahl (siehe E19).
+- [ ] **E19 Abwechslung gegen Passung: eine Design-Entscheidung** (offen seit 2026-09-22, misst sich nicht
+      weg): `decideWave()` nimmt das älteste zulässige Template. Am 2026-09-22 löst der Druck-Regler den
+      Gleichstand zwischen gleich alten Kandidaten nach Passung auf (das Template, gegen das die Abwehr am
+      schlechtesten steht, wenn es zu leicht läuft). Gemessen bringt das fast nichts, und der Grund ist
+      strukturell: Wer immer den ältesten nimmt, spielt langfristig jedes Template gleich oft. Über W31 bis
+      W60 liegt jedes bei rund 5 %, mit und ohne Tie-Break. Der Gleichstand entscheidet nur das *Timing*.
+      **Die Frage an den Menschen:** Soll die Älteste-zuerst-Regel weichen, damit der Director öfter das
+      schickt, wogegen die Abwehr schlecht steht? Das ist der Hebel für die tote Strecke in E18, und es ist
+      ein Tausch: weniger garantierte Abwechslung gegen gleichmäßigere Spannung.
 - [ ] **E16 Warteschlange über die Wellennaht** (unbelegt, 2026-09-21): `RunLogCollector.beginBlock()` leert
       `this.leaking`, während eine Ooze über die Naht hinweg weiterfließen kann. `WaveManager.endWave()` räumt am
       Wellenende ab, was es unwahrscheinlich macht; belegt ist nichts. Ein Szenario-Test mit einer Ooze an der

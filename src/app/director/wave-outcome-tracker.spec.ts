@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { WaveOutcomeTracker } from './wave-outcome-tracker';
+import { GAME_BALANCE } from '../configs/game-balance.config';
+
+const START_HP = GAME_BALANCE.player.startHealth;
 
 /**
  * The running-wave bookkeeping on its own. The collector spec drives it
@@ -38,7 +41,9 @@ describe('WaveOutcomeTracker', () => {
     const outcome = tracker.finalize('completed', 0, 1);
 
     expect(outcome.damageToPlayer).toBe(15);
-    expect(outcome.damagePercent).toBe(0.15);
+    // Gegen die Start-HP der Config, nicht gegen den Stand zu Wellenbeginn.
+    // Der Druck-Regler rechnet bewusst anders (pressure-controller.ts).
+    expect(outcome.damagePercent).toBe(15 / START_HP);
     expect(outcome.lowestPlayerHealth).toBe(70);
   });
 
@@ -70,12 +75,15 @@ describe('WaveOutcomeTracker', () => {
   });
 
   it('calls a normal end a close call below 30% of the start health', () => {
-    tracker.start(0, 100, 0);
-    tracker.healthChanged(30, -70);
+    // Die Schwelle ist ein Anteil der Start-HP aus der Config, also rechnet
+    // der Test mit ihr statt mit einer eigenen Zahl.
+    const third = START_HP * 0.3;
+    tracker.start(0, START_HP, 0);
+    tracker.healthChanged(third, -(START_HP - third));
     expect(tracker.finalize('completed', 0, 1).wasCloseCall).toBe(false);
 
-    tracker.start(0, 30, 0);
-    tracker.healthChanged(29, -1);
+    tracker.start(0, third, 0);
+    tracker.healthChanged(third - 1, -1);
     expect(tracker.finalize('completed', 0, 1).wasCloseCall).toBe(true);
   });
 

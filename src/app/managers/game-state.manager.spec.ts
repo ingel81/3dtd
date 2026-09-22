@@ -903,15 +903,16 @@ describe('GameStateManager', () => {
     });
 
     describe('healBase()', () => {
-      it('restores health to 100', () => {
+      it('restores health to the start value', () => {
+        const start = GAME_BALANCE.player.startHealth;
         bus.emit({
           type: 'enemy:reached-base',
           enemy: { id: 'e1' } as never,
           damage: 10,
         });
-        expect(gsm.baseHealth()).toBe(90);
+        expect(gsm.baseHealth()).toBe(start - 10);
         gsm.healBase();
-        expect(gsm.baseHealth()).toBe(100);
+        expect(gsm.baseHealth()).toBe(start);
       });
     });
 
@@ -959,9 +960,10 @@ describe('GameStateManager', () => {
           enemy: { id: 'e1' } as never,
           damage: 15,
         });
-        expect(gsm.baseHealth()).toBe(85);
+        const start = GAME_BALANCE.player.startHealth;
+        expect(gsm.baseHealth()).toBe(start - 15);
         bus.emit({ type: 'debug:add-health', amount: 5 } as never);
-        expect(gsm.baseHealth()).toBe(90);
+        expect(gsm.baseHealth()).toBe(start - 10);
       });
 
       it('debug:add-health allows exceeding start health (debug)', () => {

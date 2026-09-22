@@ -79,7 +79,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     waveEnemyTotal: signal(0),
     waveEnemiesLeft: signal(0),
   };
-  const director = { getNextWave: vi.fn(async () => DIRECTED), leak: { leakMultiplier: 1 } };
+  const director = { getNextWave: vi.fn(async () => DIRECTED), pressure: { pressureMultiplier: 1, status: { target: null } } };
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));

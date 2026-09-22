@@ -170,44 +170,33 @@ describe('campaign.config', () => {
   // enemyBaseDamageForWave
   // ===================================================================
   describe('enemyBaseDamageForWave()', () => {
-    it('waves 1-10 return 1', () => {
-      for (const w of [1, 5, 10]) {
+    it('waves 1-30 return 1', () => {
+      for (const w of [1, 5, 10, 20, 30]) {
         expect(enemyBaseDamageForWave(w)).toBe(1);
       }
     });
 
-    it('wave 11 returns 2', () => {
-      expect(enemyBaseDamageForWave(11)).toBe(2);
+    it('wave 31 returns 2', () => {
+      expect(enemyBaseDamageForWave(31)).toBe(2);
     });
 
-    it('wave 20 returns 2', () => {
-      expect(enemyBaseDamageForWave(20)).toBe(2);
+    it('wave 61 returns 3', () => {
+      expect(enemyBaseDamageForWave(61)).toBe(3);
     });
 
-    it('wave 21 returns 3', () => {
-      expect(enemyBaseDamageForWave(21)).toBe(3);
-    });
-
-    it('wave 30 returns 3', () => {
-      expect(enemyBaseDamageForWave(30)).toBe(3);
-    });
-
-    it('wave 31 returns 4', () => {
-      expect(enemyBaseDamageForWave(31)).toBe(4);
-    });
-
-    it('damage steps up by 1 every 10 waves after wave 10', () => {
-      // Verify step boundaries: 11→2, 21→3, 31→4, 41→5, 51→6
+    it('damage steps up by 1 every 30 waves', () => {
+      // Flacher als die alten 10 Wellen, damit die Auflösung des HP-Budgets
+      // im Spätspiel nicht kollabiert: bei Welle 40 kostete ein einzelner
+      // Durchbruch vorher rund 17 % der Rest-HP
+      // (docs/DRAMA_CONTROLLER_PLAN.md).
       const expected: [number, number][] = [
-        [11, 2], [21, 3], [31, 4], [41, 5], [51, 6],
+        [30, 1], [31, 2], [60, 2], [61, 3], [91, 4],
       ];
       for (const [wave, dmg] of expected) {
         expect(enemyBaseDamageForWave(wave)).toBe(dmg);
       }
     });
 
-    // NOTE: wave 0 / negative not specified in the function docs. Observed behaviour: ≥1.
-    // Function uses `if (waveNum < 11) return 1`, so 0 and negative → 1.
     it('wave 0 returns 1 (robustness)', () => {
       expect(enemyBaseDamageForWave(0)).toBe(1);
     });

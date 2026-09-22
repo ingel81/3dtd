@@ -33,13 +33,34 @@ class Wave:
     health_start: int
     health_end: int
     survivable_count: int | None
-    leak_multiplier: float | None
+    #: Multiplier of the closed loop. `leakMultiplier` up to run log format 2,
+    #: `pressureMultiplier` from format 3 on; both mean the same correction on
+    #: the kill estimate, they differ in what the loop steers on.
+    loop_multiplier: float | None
+    #: Share of HP the wave was meant to cost. Format 3 on; None before.
+    target_pressure: float | None
     towers: list[dict]
     mismatches: list[str]
+    #: Enemy types and counts as the wave shipped them.
+    composition: list[dict] = field(default_factory=list)
     #: Decisions the player made while this wave was prepared and played.
     decisions: int = 0
     #: Build and upgrade gold per tower type, the divisor of damage per gold.
     tower_spending: dict[str, float] = field(default_factory=dict)
+
+
+    @property
+    def pressure(self) -> float | None:
+        """
+        Share of the standing HP this wave cost.
+
+        Derived rather than logged: `healthStart` and `healthEnd` have always
+        been in the block, and a second copy of the same number would only be
+        able to disagree with them. None when there was no HP to lose from.
+        """
+        if self.health_start <= 0:
+            return None
+        return max(0.0, (self.health_start - self.health_end) / self.health_start)
 
 
 @dataclass
@@ -102,12 +123,32 @@ def _wave(record: dict, decisions: int, tower_spending: dict[str, float]) -> Wav
         health_start=int(record.get("healthStart", 0) or 0),
         health_end=int(record.get("healthEnd", 0) or 0),
         survivable_count=record.get("survivableCount"),
-        leak_multiplier=record.get("leakMultiplier"),
+        loop_multiplier=record.get("pressureMultiplier", record.get("leakMultiplier")),
+        target_pressure=record.get("targetPressure") or _target_pressure(int(record.get("wave", 0) or 0)),
         towers=list(record.get("towers") or []),
         mismatches=list(record.get("mismatches") or []),
+        composition=list(record.get("composition") or []),
         decisions=decisions,
         tower_spending=_tower_spending(record, tower_spending),
     )
+
+
+#: The target curve, mirrored from `targetPressure` in pressure-controller.ts.
+#:
+#: Runs written before run log format 3 carry no target, and without one an
+#: A/B against the old loop could not say whether either run was on curve.
+#: Computing it here reads the old runs against the same yardstick as the new
+#: ones — the curve is a property of the design, not of the run.
+TARGET_RUN_WAVES = 80
+TARGET_RESIDUAL_HP = 0.05
+SHAPE_START = 0.5
+SHAPE_END = 1.5
+
+
+def _target_pressure(wave: int) -> float:
+    base = 1 - TARGET_RESIDUAL_HP ** (1 / TARGET_RUN_WAVES)
+    ramp = max(0.0, min(1.0, wave / TARGET_RUN_WAVES))
+    return base * (SHAPE_START + (SHAPE_END - SHAPE_START) * ramp)
 
 
 def _tower_spending(record: dict, from_events: dict[str, float]) -> dict[str, float]:

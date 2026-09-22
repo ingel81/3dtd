@@ -3,7 +3,7 @@ import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import { decideWave } from './director-rules';
-import { LeakController, leakRatio } from './leak-controller';
+import { PressureController, wavePressure } from './pressure-controller';
 import { buildWaveContext } from './wave-context';
 import { buildWaveConfig } from './wave-config-builder';
 import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
@@ -16,7 +16,7 @@ import { bossVariantForWave, bossVariantWave } from '../configs/boss-variants.co
  * This is the acceptance test of the balancing rebuild (BALANCING_PLAN.md,
  * Phase 1). Renaming, moving files and deleting the training leftovers must
  * not change a single wave; this spec is what says so. It deliberately drives
- * the pieces the way `GameLoopFacadeService` does — context, director, leak
+ * the pieces the way `GameLoopFacadeService` does — context, director, pressure
  * loop, builder, boss rotation — rather than the Angular service, so it needs no
  * injector and no DOM.
  *
@@ -68,10 +68,9 @@ function stateForWave(waveNumber: number): GameStateSnapshot {
   return snapshot;
 }
 
-/** Leak pattern fed back into the loop: fixed, so it moves reproducibly. */
-function leakValues(wave: number): number[] {
-  const leaked = wave % 4 === 0 ? 3 : wave % 3 === 0 ? 1 : 0;
-  return Array.from({ length: 10 }, (_, i) => (i < leaked ? 1 : 0.2));
+/** HP pattern fed back into the loop: fixed, so it moves reproducibly. */
+function hpLost(wave: number): number {
+  return wave % 4 === 0 ? 3 : wave % 3 === 0 ? 1 : 0;
 }
 
 interface ReferenceWave {
@@ -86,7 +85,7 @@ interface ReferenceWave {
 }
 
 function runReference(): ReferenceWave[] {
-  const leak = new LeakController();
+  const pressure = new PressureController();
   const random = rng(20260920);
   const recent: number[] = [];
   const waves: ReferenceWave[] = [];
@@ -95,7 +94,7 @@ function runReference(): ReferenceWave[] {
     const state = stateForWave(wave - 1);
     const context = buildWaveContext(state, recent);
     const decision = decideWave(context.candidates, wave, recent, random);
-    let config = buildWaveConfig(decision, state, context.candidateReason, leak);
+    let config = buildWaveConfig(decision, state, context.candidateReason, pressure);
 
     recent.push(config.templateIdx);
     if (recent.length > TEMPLATE_HISTORY) recent.shift();
@@ -116,7 +115,7 @@ function runReference(): ReferenceWave[] {
       enemies: config.enemies.map((e) => `${e.type}x${e.count}@${e.healthMultiplier}`),
     });
 
-    leak.recordWave(leakRatio(leakValues(wave), 0), true);
+    pressure.recordWave(wavePressure(hpLost(wave), 100, 10), wave);
   }
 
   return waves;

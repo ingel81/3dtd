@@ -25,18 +25,19 @@ import {
 } from './templates';
 import type { DirectorDecision } from './director-rules';
 import { directorParams } from './director-params';
-import type { LeakStatus } from './leak-controller';
+import type { PressureStatus } from './pressure-controller';
+import { targetPressure } from './pressure-controller';
 import {
   ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
 } from '../configs/enemy-types.config';
 import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../configs/campaign.config';
 
 /** What the wave sizing reads from the fairness gate. */
-export interface LeakReading {
+export interface PressureReading {
   /** Closed-loop correction on the kill estimate. */
-  readonly leakMultiplier: number;
+  readonly pressureMultiplier: number;
   /** Shown in the decision explanation. */
-  readonly status: LeakStatus;
+  readonly status: PressureStatus;
 }
 
 /**
@@ -49,9 +50,12 @@ export function buildWaveConfig(
   decision: DirectorDecision,
   state: GameStateSnapshot,
   candidateReason: CandidateReason,
-  leak: LeakReading,
+  pressure: PressureReading,
 ): WaveConfig & { templateIdx: number } {
   const upcomingWave = state.waveNumber + 1;
+  // Derselbe Sollwert, auf den der Regler regelt: der Deckel gibt genau so
+  // viel Leck frei, wie die Spannungskurve für diese Welle vorsieht.
+  const wantPressure = targetPressure(upcomingWave) * directorParams().pressureTargetScale;
   let bestIdx = decision.templateIdx;
   // The director simply decides; there is no distribution to read a
   // confidence out of.
@@ -86,9 +90,12 @@ export function buildWaveConfig(
   let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
   // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
   // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
-  const baseHpMult = lerpCapped(template.hpMultRange, hpFactor, dpsFracHp);
   const endgameHpMult = endgameHpMultiplier(upcomingWave);
-  const hpMult = Math.round(baseHpMult * endgameHpMult * 1000) / 1000;
+  const hpMultFor = (factor: number): number => {
+    const base = lerpCapped(template.hpMultRange, factor, dpsFracHp);
+    return Math.round(base * endgameHpMult * 1000) / 1000;
+  };
+  let hpMult = hpMultFor(hpFactor);
   const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
 
   // Fairness gate: never ship a wave the defense cannot plausibly fight.
@@ -109,7 +116,7 @@ export function buildWaveConfig(
   // signal for the model, this is the binding decision.
   const countLo = template.countRange[0];
   const dpsScaledMax = dpsScaledCountMax(template.countRange, totalDPS);
-  const countFor = (delay: number): { count: number; cap: number | null } => {
+  const countFor = (delay: number): { count: number; cap: number | null; capBinds: boolean } => {
     const cap = survivableCount(
       template,
       hpMult,
@@ -127,7 +134,8 @@ export function buildWaveConfig(
       // Closed-loop correction. FAIRNESS_KILL_REALISM was measured on waves
       // 1-10 and understates the defense from wave 11 on; this is the only
       // thing that notices.
-      leak.leakMultiplier,
+      pressure.pressureMultiplier,
+      wantPressure,
     );
     // The gate outranks the template minimum. A cap BELOW countRange[0] means
     // the defense cannot handle even the smallest wave the designer wrote,
@@ -145,10 +153,47 @@ export function buildWaveConfig(
       lo = Math.min(lo, allowed);
       hi = Math.max(lo, Math.min(hi, allowed));
     }
-    return { count: Math.max(1, Math.round(lo + (hi - lo) * countFactor)), cap };
+
+    // Der zweite Griff des Druck-Reglers, und der einzige, der greift, wenn
+    // der Deckel die Welle gar nicht begrenzt.
+    //
+    // Sein Multiplikator wirkt sonst ausschließlich über `allowed`. Bindet
+    // der Deckel nicht, weil die Verteidigung schneller tötet als Gegner
+    // nachkommen, ist er wirkungslos — und gemessen sind genau das die
+    // Wellen, die nichts kosten. Hier verschiebt er stattdessen den Faktor
+    // innerhalb dessen, was das Template ohnehin erlaubt: mehr als
+    // `countRange[1]` wird eine Welle dadurch nie
+    // (docs/DRAMA_CONTROLLER_PLAN.md, Runde 10).
+    const capBinds = allowed !== null && allowed < dpsScaledMax;
+    const factor = capBinds
+      ? countFactor
+      : Math.max(0, Math.min(1, countFactor * pressure.pressureMultiplier));
+
+    return { count: Math.max(1, Math.round(lo + (hi - lo) * factor)), cap, capBinds };
   };
 
   let sized = countFor(spawnDelay);
+
+  // Der vierte Griff des Reglers: die Zähigkeit der Gegner.
+  //
+  // Die drei anderen stellen ein, wie *viele* kommen. Das läuft leer, sobald
+  // die Welle am oberen Ende ihrer Template-Spanne steht und trotzdem nichts
+  // kostet — gemessen schickte Welle 19 (Skeleton Swarm) 2820 Gegner und
+  // nahm dem Spieler 0,08 % seiner HP ab. Ungepanzerte Massen sind gegen eine
+  // ausgebaute Abwehr wirkungslos, in jeder Menge.
+  //
+  // Dann bleibt nur, sie zäher zu machen. Auch das nur innerhalb dessen, was
+  // das Template erlaubt: `hpMultRange` gehört dem Designer.
+  //
+  // Zweiter Durchlauf, weil der Deckel selbst vom HP-Multiplikator abhängt —
+  // zähere Gegner heißt weniger tötbare. Fängt er die Welle danach wieder,
+  // ist das erwünscht: Dann greift wieder der erste Griff und begrenzt die
+  // Anzahl (docs/DRAMA_CONTROLLER_PLAN.md, Runde 15).
+  const wantsHarder = pressure.pressureMultiplier > 1;
+  if (!sized.capBinds && wantsHarder) {
+    hpMult = hpMultFor(Math.max(0, Math.min(1, hpFactor * pressure.pressureMultiplier)));
+    sized = countFor(spawnDelay);
+  }
 
   // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
   const durationCapped = sized.count * spawnDelay > MAX_WAVE_DURATION_MS;
@@ -197,7 +242,7 @@ export function buildWaveConfig(
       templateName: template.name,
       candidates: candidateReason,
       director: decision.why,
-      leak: leak.status,
+      pressure: pressure.status,
       sizing: {
         countRange: template.countRange,
         dpsScaledMax,

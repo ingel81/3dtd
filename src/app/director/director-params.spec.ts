@@ -25,9 +25,9 @@ describe('director parameter sets', () => {
   });
 
   it('keeps what is in force when the name is unknown, and says so', () => {
-    useDirectorParams('wide-band');
+    useDirectorParams('pressure-high');
     expect(useDirectorParams('typo')).toBe(false);
-    expect(directorParamsName()).toBe('wide-band');
+    expect(directorParamsName()).toBe('pressure-high');
   });
 
   it('campaign-size opens the whole count range to a weak defense', () => {

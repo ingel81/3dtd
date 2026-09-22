@@ -226,7 +226,7 @@ describe('the run log', () => {
       log.noteDirectorDecision({
         template: 'Zombie Horde',
         reason: ['Campaign: wave 1 is always Zombie Horde (waves 1-30 are fixed).'],
-        leakMultiplier: 1.3,
+        pressureMultiplier: 1.3,
         composition: [{ type: 'zombie', count: 20, hp: 0.8 }],
       });
       bus.emit({ type: 'wave:started', wave: 1, enemyCount: 20 });
@@ -234,7 +234,7 @@ describe('the run log', () => {
 
       expect(waves()[0]).toMatchObject({
         template: 'Zombie Horde',
-        leakMultiplier: 1.3,
+        pressureMultiplier: 1.3,
         composition: [{ type: 'zombie', count: 20, hp: 0.8 }],
       });
       expect(waves()[0].reason).toHaveLength(1);

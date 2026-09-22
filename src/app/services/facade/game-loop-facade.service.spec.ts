@@ -75,7 +75,7 @@ describe('GameLoopFacadeService: waveExplanation', () => {
   let facade: GameLoopFacadeService;
   let store: ReturnType<typeof makeStore>;
   let emitted: { type: string }[];
-  const director = { getNextWave: vi.fn(async () => wave(EXPLANATION)), leak: { leakMultiplier: 1 } };
+  const director = { getNextWave: vi.fn(async () => wave(EXPLANATION)), pressure: { pressureMultiplier: 1, status: { target: null } } };
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
   /** Enemy types of the wave the facade started */
   const startedTypes = () =>

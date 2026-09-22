@@ -409,13 +409,15 @@ export const DPS_RAMP_HP_MULT = 1000.0;
 export const FAIRNESS_KILL_REALISM = 0.65;
 
 /**
- * Share of the player's REMAINING HP a single wave may be expected to cost.
+ * Der Anteil der Rest-HP, den eine Welle kosten darf, kommt seit 2026-09-21
+ * aus `targetPressure(wave)` (pressure-controller.ts) und ist damit dieselbe
+ * Zahl, auf die der Druck-Regler regelt.
  *
- * Scaling by what is left rather than by max HP makes the gate tighten as a run
- * wears down, which is what stops the late-game death spiral without needing a
- * separate rule for it.
+ * Vorher standen hier feste 6 %, während der Regler auf ein Leck-Band zielte,
+ * das damit nichts zu tun hatte: zwei Sollwerte, die gegeneinander arbeiteten.
+ * Der Bezug auf die Rest-HP statt auf das Maximum bleibt, denn er lässt den
+ * Deckel mit dem Lauf enger werden und überlebt Heilung.
  */
-export const FAIRNESS_WAVE_HP_BUDGET = 0.06;
 
 /** ...but always at least this much, so a wave is never a guaranteed shutout. */
 export const FAIRNESS_MIN_LEAK_HP = 1.0;
@@ -439,7 +441,21 @@ export const FAIRNESS_ENGAGEMENT_REACH_M = 60;
 export const FAIRNESS_ENGAGEMENT_MIN_S = 2;
 export const FAIRNESS_ENGAGEMENT_MAX_S = 40;
 
-/** The gate never clamps below this; a wave of one enemy is not a wave. */
+/**
+ * The gate never clamps below this; a wave of one enemy is not a wave.
+ *
+ * Bewusst eine kleine Konstante und **nicht** an die Template-Untergrenze
+ * gekoppelt. Am 2026-09-21 einmal auf die halbe Untergrenze angehoben, weil
+ * der alte Leck-Regler unter fünf Gegnern blind wurde: Welle 2 spawnte
+ * daraufhin 75 statt 30 Gegner und kostete 45 % der HP, die mediane Runlänge
+ * des Könners fiel von 25 auf 9. Der Deckel ist die einzige Bremse gegen eine
+ * Welle, die eine junge Verteidigung nicht halten kann, und ein Boden darüber
+ * hebelt genau sie aus.
+ *
+ * Der Druck-Regler braucht den Boden ohnehin nicht: anders als die Leck-Quote
+ * ist der HP-Anteil auch bei sieben Gegnern stetig, weil jeder Gegnertyp
+ * anderen Leck-Schaden macht (docs/DRAMA_CONTROLLER_PLAN.md).
+ */
 export const FAIRNESS_MIN_COUNT = 5;
 
 /**
@@ -502,7 +518,8 @@ export function survivableCount(
   /** HP the player loses per enemy that reaches the base, at this wave. */
   leakDamage: number,
   /**
-   * Closed-loop correction on the kill estimate, from {@link LeakController}.
+   * Closed-loop correction on the kill estimate, from
+   * {@link PressureController}.
    *
    * FAIRNESS_KILL_REALISM was measured on waves 1-10, where defenses achieve
    * about 65% of what the DPS model predicts; from wave 11 they achieve
@@ -514,7 +531,14 @@ export function survivableCount(
    * uniform random sampler produced statistically identical runs, because the
    * cap and not the designer was choosing the wave size.
    */
-  leakMultiplier = 1,
+  pressureMultiplier = 1,
+  /**
+   * Anteil der Rest-HP, den diese Welle kosten soll: `targetPressure(wave)`.
+   *
+   * Derselbe Sollwert, auf den der Druck-Regler regelt. Der Deckel gibt
+   * genau so viel Leck frei, wie die Spannungskurve für diese Welle vorsieht.
+   */
+  targetPressure = 0.06,
 ): number | null {
   const ground = effectiveDps?.ground ?? {};
   const air = effectiveDps?.air ?? {};
@@ -578,7 +602,18 @@ export function survivableCount(
   // What the model says is killable, discounted by what defenses actually
   // manage. Without the discount the gate permits about twice the real capacity
   // through waves 1-10, which is where every run was ending.
-  const budget = killsPerSecond * FAIRNESS_KILL_REALISM * Math.max(0.01, leakMultiplier);
+  const budget = killsPerSecond * FAIRNESS_KILL_REALISM * Math.max(0.01, pressureMultiplier);
+  //
+  // Ein Nenner <= 0 heißt: Die Verteidigung tötet schneller, als Gegner
+  // nachkommen, also schafft sie jede Zahl und der Deckel ist unbegrenzt.
+  //
+  // Am 2026-09-22 einmal durch eine endliche Obergrenze ersetzt (was in
+  // `MAX_WAVE_DURATION_MS` tötbar ist), weil genau diese Wellen mit 584
+  // Gegnern kamen. Das Gegenteil trat ein: Die Grenze lag über der
+  // Template-Spanne, die Deckel-Spanne innerhalb eines Laufs stieg von ×115
+  // auf ×534 und die mediane Runlänge fiel von 53 auf 38. Die Formel hat
+  // recht; die großen Wellen kommen aus der Template-Spanne, nicht von hier
+  // (docs/DRAMA_CONTROLLER_PLAN.md, Runde 8).
   const denominator = 1 - budget * (Math.max(0, spawnDelayMs) / 1000);
   if (denominator <= 0) return null;
   const killable = (budget * engagementSeconds) / denominator;
@@ -587,7 +622,7 @@ export function survivableCount(
   // what make a wave dramatic; the budget is what stops them ending the run.
   // An enemy that splits can cost a leak per end of its split tree: a
   // skeleton killed just before the base sends both minions on.
-  const leakHpBudget = Math.max(FAIRNESS_MIN_LEAK_HP, hpRemaining * FAIRNESS_WAVE_HP_BUDGET);
+  const leakHpBudget = Math.max(FAIRNESS_MIN_LEAK_HP, hpRemaining * Math.max(0, targetPressure));
   const allowedLeaks = (leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget) / leaksPerEnemy;
 
   return Math.max(FAIRNESS_MIN_COUNT, Math.floor(killable + allowedLeaks));

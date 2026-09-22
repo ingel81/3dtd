@@ -17,11 +17,14 @@
 export interface DirectorParams {
   /** Wave at which the difficulty ramp reaches full strength. */
   rampFullWave: number;
-  /** Share of a wave that may reach the base before the loop closes. */
-  leakTargetLo: number;
-  leakTargetHi: number;
-  /** Proportional gain of the leak loop, per adapt window. */
-  leakGain: number;
+  /**
+   * Faktor auf den Zieldruck (`targetPressure`). 1 spielt die Kurve, die aus
+   * der Ziel-Lauflänge folgt; darunter wird der Lauf länger und milder,
+   * darüber kürzer und härter.
+   */
+  pressureTargetScale: number;
+  /** Proportionalverstärkung des Druck-Reglers, je Welle. */
+  pressureGain: number;
   /**
    * How far the count follows the defense's DPS rather than the campaign.
    *
@@ -46,9 +49,8 @@ export interface DirectorParams {
 
 export const DEFAULT_DIRECTOR_PARAMS: DirectorParams = {
   rampFullWave: 60,
-  leakTargetLo: 0.08,
-  leakTargetHi: 0.16,
-  leakGain: 0.35,
+  pressureTargetScale: 1,
+  pressureGain: 0.5,
   dpsRampWeight: 1,
   // 1.5 out of the first tuning round, 749 runs over four settings: at 1 the
   // weaker bot outlived the stronger one and twelve mid-game waves in a row
@@ -62,13 +64,18 @@ export const DEFAULT_DIRECTOR_PARAMS: DirectorParams = {
  * The sets a batch can ask for. `default` is what the game plays.
  *
  * The others are starting points for the first tuning rounds, not decisions:
- * a steeper ramp, a wider leak band, and a loop that reacts faster.
+ * a steeper ramp, a harder or milder target pressure, and a loop that reacts
+ * faster or slower.
  */
 export const DIRECTOR_PARAM_SETS: Record<string, DirectorParams> = {
   default: DEFAULT_DIRECTOR_PARAMS,
   'steep-ramp': { ...DEFAULT_DIRECTOR_PARAMS, rampFullWave: 40 },
-  'wide-band': { ...DEFAULT_DIRECTOR_PARAMS, leakTargetLo: 0.12, leakTargetHi: 0.24 },
-  'fast-loop': { ...DEFAULT_DIRECTOR_PARAMS, leakGain: 0.6 },
+  /** Härterer Lauf: jede Welle soll die Hälfte mehr kosten. */
+  'pressure-high': { ...DEFAULT_DIRECTOR_PARAMS, pressureTargetScale: 1.5 },
+  /** Milderer Lauf, zur Gegenprobe. */
+  'pressure-low': { ...DEFAULT_DIRECTOR_PARAMS, pressureTargetScale: 0.7 },
+  'fast-loop': { ...DEFAULT_DIRECTOR_PARAMS, pressureGain: 0.8 },
+  'slow-loop': { ...DEFAULT_DIRECTOR_PARAMS, pressureGain: 0.3 },
   /**
    * The close neighbours of the current `capSlack`.
    *

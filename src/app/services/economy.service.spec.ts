@@ -35,11 +35,17 @@ function comboBonus(base: number, streak: number): number {
   return Math.round(base * mul);
 }
 
-function comebackBonus(hpLost: number): number {
-  return Math.min(
+/**
+ * Trostpreis nach einer teuren Welle. Seit 2026-09-22 ein Anteil des
+ * Wellenbudgets und des verlorenen HP-Anteils; vorher absolute Gold-Zahlen,
+ * die gegen Budgets in Zehntausenden wirkungslos waren.
+ */
+function comebackBonus(hpLost: number, base: number): number {
+  const lostShare = hpLost / GAME_BALANCE.player.startHealth;
+  return Math.round(base * Math.min(
     GAME_BALANCE.economy.comebackBonusCap,
-    Math.round(hpLost * GAME_BALANCE.economy.comebackBonusSlope),
-  );
+    lostShare * GAME_BALANCE.economy.comebackBonusSlope,
+  ));
 }
 
 // Shorthand: wave n base completion credit
@@ -277,7 +283,7 @@ describe('EconomyService', () => {
         closeCall: false,
         hpLost: 10,
       }));
-      expect(result).toBe(base + comebackBonus(10));
+      expect(result).toBe(base + comebackBonus(10, base));
     });
 
     it('awards no comeback bonus when hpLost is 0', () => {
@@ -293,14 +299,14 @@ describe('EconomyService', () => {
 
     it('caps comeback bonus at comebackBonusCap even with high hpLost', () => {
       const base = waveBase(1);
-      const highHpLost = 9999;
       const result = waveGoldTotal(service.computeWaveCompletionBonus({
         wave: 1,
         perfect: false,
         closeCall: false,
-        hpLost: highHpLost,
+        hpLost: 9999,
       }));
-      expect(result).toBe(base + GAME_BALANCE.economy.comebackBonusCap);
+      // Der Deckel ist ein Anteil des Budgets, nicht mehr eine Gold-Zahl.
+      expect(result).toBe(base + Math.round(base * GAME_BALANCE.economy.comebackBonusCap));
     });
 
     it('comeback and closeCall are independent bonuses', () => {
@@ -311,7 +317,7 @@ describe('EconomyService', () => {
         closeCall: true,
         hpLost: 10,
       }));
-      expect(result).toBe(base + closeCallBonus(base) + comebackBonus(10));
+      expect(result).toBe(base + closeCallBonus(base) + comebackBonus(10, base));
     });
   });
 
@@ -386,7 +392,7 @@ describe('EconomyService', () => {
         perfectBonus(base) +
         closeCallBonus(base) +
         milestone +
-        comebackBonus(5) +
+        comebackBonus(5, base) +
         comboBonus(base, 3);
       expect(result).toBe(expected);
     });
@@ -403,10 +409,9 @@ describe('EconomyService', () => {
         closeCall: true,
         hpLost: 99,
       }));
-      // base = 0, perfect*0=0, closeCall*0=0, combo*0=0, comeback = comebackBonus(99) capped
-      // milestone[0] = undefined → ?? 0
-      const expected = comebackBonus(99); // only comeback (non-zero because hpLost > 0)
-      expect(result).toBe(expected);
+      // base = 0, und seit 2026-09-22 hängt auch der Comeback-Bonus am
+      // Budget statt an einer festen Gold-Zahl: kein Budget, kein Bonus.
+      expect(result).toBe(0);
     });
 
     it('returns 0 base for negative wave number (no throw)', () => {

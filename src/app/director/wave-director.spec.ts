@@ -4,13 +4,13 @@ import { Injector, runInInjectionContext } from '@angular/core';
 import { WaveDirector } from './wave-director';
 import { StateSnapshotService } from './state-snapshot.service';
 import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS, TEMPLATES } from './templates';
-import { LEAK_ADAPT_WINDOW } from './leak-controller';
+import { PRESSURE_MIN_SAMPLES, PRESSURE_WARMUP_WAVES, targetPressure } from './pressure-controller';
 import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
 import type { WaveConfig } from './models/wave-config';
 import type { WaveResult } from './models/wave-result';
 
 /**
- * Characterization of the director's public surface that leak-wiring.spec and
+ * Characterization of the director's public surface that pressure-wiring.spec and
  * decision-explainer.spec leave alone: the rule path's bookkeeping and the
  * knobs the debug window turns.
  */
@@ -39,13 +39,24 @@ function overwhelmingDefense(snapshot: GameStateSnapshot, waveNumber: number): v
   };
 }
 
-function waveResult(outcome: Partial<WaveResult['outcome']>): WaveResult {
+function waveResult(
+  outcome: Partial<WaveResult['outcome']>,
+  waveNumber = PRESSURE_WARMUP_WAVES + 1,
+): WaveResult {
   return {
-    waveNumber: 1,
+    waveNumber,
     timestamp: 0,
     config: { enemies: [], totalCount: 0, spawnDelay: 500 },
     outcome,
   } as WaveResult;
+}
+
+/** A wave that cost `hpLost` out of 100 HP and had enemies in it. */
+function costWave(hpLost: number, waveNumber = PRESSURE_WARMUP_WAVES + 1): WaveResult {
+  return waveResult(
+    { damageToPlayer: hpLost, healthAtWaveStart: 100, enemiesSpawned: 10, playerSurvived: true },
+    waveNumber,
+  );
 }
 
 describe('WaveDirector', () => {
@@ -120,17 +131,17 @@ describe('WaveDirector', () => {
 
     it('plans from the counter alone: after a dev jump to W35 a boss wave, gate and history kept', async () => {
       // The jump only moves the counter (snapshot waveNumber 34, next wave 35).
-      // The gate's leak window and the template history stay as they were.
-      director.onWaveCompleted(waveResult({ enemyProgressValues: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0], playerSurvived: true }));
+      // The gate's pressure window and the template history stay as they were.
+      director.onWaveCompleted(costWave(4));
       overwhelmingDefense(collector.snapshot, 12);
       const before = (await director.getNextWave()).templateIdx!;
-      const gateBefore = director.leak.status;
+      const gateBefore = director.pressure.status;
 
       overwhelmingDefense(collector.snapshot, 34);
       const config = await director.getNextWave();
       expect(TEMPLATES[config.templateIdx!].bossOnly).toBe(true);
       expect(config.templateIdx).not.toBe(before);
-      expect(director.leak.status).toEqual(gateBefore);
+      expect(director.pressure.status).toEqual(gateBefore);
     });
 
     it('does not log wave decisions outside debug mode', async () => {
@@ -140,31 +151,28 @@ describe('WaveDirector', () => {
   });
 
   describe('completed waves', () => {
-    /** Fill the gate's window with waves that leak 10%, inside the target band. */
+    /** Fill the gate's window with waves that cost exactly the target. */
     function fillInBand(): void {
-      const tenPercent = [1, 0, 0, 0, 0, 0, 0, 0, 0, 0];
-      for (let i = 0; i < LEAK_ADAPT_WINDOW; i++) {
-        director.onWaveCompleted(waveResult({ enemyProgressValues: tenPercent, playerSurvived: true }));
-      }
+      const onTarget = targetPressure(PRESSURE_WARMUP_WAVES + 1) * 100;
+      for (let i = 0; i < PRESSURE_MIN_SAMPLES; i++) director.onWaveCompleted(costWave(onTarget));
     }
 
-    it('treats a wave without per-enemy progress as no sample', () => {
+    it('treats a wave without an HP reading as no sample', () => {
       director.onWaveCompleted(waveResult({}));
-      expect(director.leak.status.samples).toBe(0);
+      expect(director.pressure.status.samples).toBe(0);
     });
 
-    it('counts a wave with no survival flag as survived', () => {
+    it('holds when the waves cost what they should', () => {
       fillInBand();
-      director.onWaveCompleted(waveResult({ enemyProgressValues: [1, 0, 0, 0, 0, 0, 0, 0, 0, 0] }));
-      expect(director.leak.status.lastStep).toBe('held');
-      expect(director.leak.leakMultiplier).toBe(1);
+      expect(director.pressure.status.lastStep).toBe('held');
+      expect(director.pressure.pressureMultiplier).toBe(1);
     });
 
     it('logs the result and the gate in debug mode', () => {
       director.setDebugMode(true);
       expect(director.isDebugMode()).toBe(true);
-      director.onWaveCompleted(waveResult({ enemyProgressValues: [1, 0] }));
-      expect(console.log).toHaveBeenCalledWith('[AI] Leak ratio:', 0.5, 'leak x', 1);
+      director.onWaveCompleted(costWave(50));
+      expect(console.log).toHaveBeenCalledWith('[AI] Pressure:', 0.5, 'mult x', 1);
     });
   });
 });
