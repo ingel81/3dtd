@@ -69,8 +69,12 @@
         <div class="section-title">Wave Director</div>
 
         <div class="info-row">
+          <span class="label">Source</span>
+          <span class="value">{{ waveDirector.source.name }}</span>
+        </div>
+        <div class="info-row">
           <span class="label">Gate ×</span>
-          <span class="value">{{ waveDirector.pressure.pressureMultiplier.toFixed(2) }}</span>
+          <span class="value">{{ gateMultiplier() ?? '—' }}</span>
         </div>
       </div>
 

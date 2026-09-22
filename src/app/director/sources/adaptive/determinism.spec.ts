@@ -1,12 +1,10 @@
 import { describe, it, expect } from 'vitest';
 
-import { decideWave } from './director-rules';
-import { PressureController, wavePressure } from './pressure-controller';
-import { buildWaveContext } from './wave-context';
-import { buildWaveConfig } from './wave-config-builder';
-import { adaptDirectorWave } from './wave-config-adapter';
-import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
-import { GameRng } from '../utils/game-rng';
+import { AdaptiveWaveSource } from './adaptive-source';
+import { adaptDirectorWave } from '../../wave-config-adapter';
+import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
+import type { WaveResult } from '../../models/wave-result';
+import { GameRng } from '../../../utils/game-rng';
 
 /**
  * Stage 1 of the determinism ladder (BALANCING_PLAN.md, section 5): the same
@@ -39,27 +37,33 @@ function stateForWave(waveNumber: number): GameStateSnapshot {
 /** One line per wave: what was decided, and the spawns it turned into. */
 function runChecksum(seed: number, waves = 25): string[] {
   const rng = new GameRng(seed);
-  const director = rng.stream('director');
+  const random = rng.stream('director');
   const spawn = rng.stream('spawn');
-  const pressure = new PressureController();
-  const recent: number[] = [];
+  // Through the source, not through the pieces: a checksum that rebuilds the
+  // pipeline by hand can drift away from the one the game runs, and it did
+  // (docs/WAVE_SOURCE_PLAN.md, R2 and the tie-break that followed).
+  const source = new AdaptiveWaveSource();
   const lines: string[] = [];
 
   for (let wave = 1; wave <= waves; wave++) {
-    const state = stateForWave(wave - 1);
-    const context = buildWaveContext(state, recent);
-    const decision = decideWave(context.candidates, wave, recent, director);
-    const config = buildWaveConfig(decision, state, context.candidateReason, pressure);
-
-    recent.push(config.templateIdx);
-    if (recent.length > 5) recent.shift();
+    const { config } = source.plan({ wave, state: stateForWave(wave - 1), random });
 
     const schedule = adaptDirectorWave(config, spawn).schedule;
     const entries = schedule.entries.map((e) => e.enemyType).join(',');
     const delays = Array.from({ length: 5 }, () => schedule.getDelay?.() ?? schedule.baseDelay).join('/');
     lines.push(`${wave}|${config.templateIdx}|${config.totalCount}|${config.spawnDelay}|${entries}|${delays}`);
 
-    pressure.recordWave(wavePressure(wave % 4, 100, 10), wave);
+    source.onWaveResult({
+      waveNumber: wave,
+      timestamp: 0,
+      config: { enemies: [], totalCount: 10, spawnDelay: 500 },
+      outcome: {
+        damageToPlayer: wave % 4,
+        healthAtWaveStart: 100,
+        enemiesSpawned: 10,
+        playerSurvived: true,
+      },
+    } as WaveResult);
   }
   return lines;
 }

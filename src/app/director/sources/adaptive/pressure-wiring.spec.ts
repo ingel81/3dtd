@@ -1,12 +1,15 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 
-import { WaveDirector } from './wave-director';
-import { StateSnapshotService } from './state-snapshot.service';
+import { WaveDirector } from '../../wave-director';
+import { AdaptiveWaveSource } from './adaptive-source';
+import { mulberry32 } from '../../../utils/game-rng';
+import { StateSnapshotService } from '../../state-snapshot.service';
 import { PRESSURE_MIN_SAMPLES, PRESSURE_WARMUP_WAVES, targetPressure } from './pressure-controller';
-import { survivableCount, TEMPLATES } from './templates';
-import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
-import type { WaveResult } from './models/wave-result';
+import { TEMPLATES } from '../../templates';
+import { survivableCount } from './wave-sizing';
+import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
+import type { WaveResult } from '../../models/wave-result';
 
 /**
  * Wiring tests, as opposed to unit tests.
@@ -99,10 +102,26 @@ function waveResult(
 describe('gate wiring', () => {
   let collector: StubCollector;
   let director: WaveDirector;
+  /** The wave the next plan is for: `ensurePlanned` is idempotent per number. */
+  let planWave: number;
 
   const feed = (result: WaveResult, times = PRESSURE_MIN_SAMPLES * 8) => {
     for (let i = 0; i < times; i++) collector.emitWaveResult(result);
   };
+
+  /** The loop of the active source. The director itself has none. */
+  const loop = () => (director.source as AdaptiveWaveSource).pressure;
+  /**
+   * A seeded director stream. Without it the factor jitter and the tie-break
+   * draw from `Math.random`, and a test that compares two batches of waves
+   * measures the dice instead of the loop.
+   */
+  const seedRandom = () => {
+    const next = mulberry32(20260922);
+    director.useRandomSource(() => next);
+  };
+  /** One more planned wave, past the campaign like the snapshot. */
+  const nextWave = async () => (await director.getNextWave(planWave++)).config;
 
   beforeEach(() => {
     collector = new StubCollector();
@@ -110,31 +129,33 @@ describe('gate wiring', () => {
       providers: [{ provide: StateSnapshotService, useValue: collector }],
     });
     director = runInInjectionContext(injector, () => new WaveDirector());
+    planWave = collector.snapshot.waveNumber + 1;
+    seedRandom();
   });
 
   describe('completed waves reach the gate', () => {
     it('subscribes to the collector on construction', () => {
       // Deleting the subscription in the constructor must fail this.
-      expect(director.pressure.pressureMultiplier).toBe(1);
+      expect(loop().pressureMultiplier).toBe(1);
       feed(waveResult(0));                                   // cost nothing
-      expect(director.pressure.pressureMultiplier).toBeGreaterThan(1);
+      expect(loop().pressureMultiplier).toBeGreaterThan(1);
     });
 
     it('closes the budget when the waves cost too much', () => {
       feed(waveResult(0));
-      const opened = director.pressure.pressureMultiplier;
+      const opened = loop().pressureMultiplier;
       expect(opened).toBeGreaterThan(1);
 
       feed(waveResult(40));                                  // 40% of HP a wave
-      expect(director.pressure.pressureMultiplier).toBeLessThan(opened);
+      expect(loop().pressureMultiplier).toBeLessThan(opened);
     });
 
     it('holds inside the band', () => {
       // A wave that costs exactly the target must not move the loop at all.
       const target = targetPressure(PRESSURE_WARMUP_WAVES + 1);
       feed(waveResult(target * 100));
-      expect(director.pressure.pressureMultiplier).toBe(1);
-      expect(director.pressure.status.lastStep).toBe('held');
+      expect(loop().pressureMultiplier).toBe(1);
+      expect(loop().status.lastStep).toBe('held');
     });
 
     it('ignores the warmup waves', () => {
@@ -143,8 +164,8 @@ describe('gate wiring', () => {
       for (let w = 1; w <= PRESSURE_WARMUP_WAVES; w++) {
         collector.emitWaveResult(waveResult(70, 100, w));
       }
-      expect(director.pressure.pressureMultiplier).toBe(1);
-      expect(director.pressure.status.samples).toBe(0);
+      expect(loop().pressureMultiplier).toBe(1);
+      expect(loop().status.samples).toBe(0);
     });
 
     it('takes a single brutal wave seriously but not as the whole picture', () => {
@@ -153,9 +174,9 @@ describe('gate wiring', () => {
       // two steps. Over eight it moves the loop by a step, no more: the wave
       // really did cost that HP, so ignoring it would be wrong too.
       feed(waveResult(0));
-      const opened = director.pressure.pressureMultiplier;
+      const opened = loop().pressureMultiplier;
       collector.emitWaveResult(waveResult(60));
-      const after = director.pressure.pressureMultiplier;
+      const after = loop().pressureMultiplier;
       expect(after).toBeLessThan(opened);
       expect(after).toBeGreaterThan(opened / 1.5);
     });
@@ -164,7 +185,7 @@ describe('gate wiring', () => {
       // No HP at wave start is "no sample", not "nothing was lost". Counting
       // it as zero opens the budget on evidence that does not exist.
       feed(waveResult(0, 0));
-      expect(director.pressure.pressureMultiplier).toBe(1);
+      expect(loop().pressureMultiplier).toBe(1);
     });
 
     it('reads a healed player as headroom, not as a weaker defense', () => {
@@ -174,11 +195,11 @@ describe('gate wiring', () => {
       // reads as exactly that, which is the point — the wave is allowed to
       // cost more in absolute HP once there is more to spend.
       feed(waveResult(4, 100));
-      const atFull = director.pressure.pressureMultiplier;
+      const atFull = loop().pressureMultiplier;
 
       director.resetForNewGame();
       feed(waveResult(8, 200));
-      expect(director.pressure.pressureMultiplier).toBe(atFull);
+      expect(loop().pressureMultiplier).toBe(atFull);
     });
 
     it('counts a cheap wave the cap did not size, but does not open on it', () => {
@@ -190,28 +211,28 @@ describe('gate wiring', () => {
       // unsichtbar - genau die billigen. Der Regler hielt den Schnitt für
       // 5,2 % während er bei null lag und fuhr nach einer teuren Welle von
       // ×5,75 auf ×0,62 herunter (docs/DRAMA_CONTROLLER_PLAN.md, Abschnitt 10).
-      const loop = director.pressure;
+      const gate = loop();
       for (let i = 0; i < PRESSURE_MIN_SAMPLES * 6; i++) {
-        loop.recordWave(0, PRESSURE_WARMUP_WAVES + 1 + i, false);
+        gate.recordWave(0, PRESSURE_WARMUP_WAVES + 1 + i, false);
       }
-      expect(loop.pressureMultiplier).toBe(1);           // nicht geöffnet
-      expect(loop.status.samples).toBeGreaterThan(0);    // aber gesehen
-      expect(loop.status.meanPressure).toBe(0);
+      expect(gate.pressureMultiplier).toBe(1);           // nicht geöffnet
+      expect(gate.status.samples).toBeGreaterThan(0);    // aber gesehen
+      expect(gate.status.meanPressure).toBe(0);
 
       // Schließen wirkt auch ohne bindenden Deckel: Es senkt ihn, bis er
       // wieder bindet.
       for (let i = 0; i < PRESSURE_MIN_SAMPLES * 6; i++) {
-        loop.recordWave(0.4, PRESSURE_WARMUP_WAVES + 1 + i, false);
+        gate.recordWave(0.4, PRESSURE_WARMUP_WAVES + 1 + i, false);
       }
-      expect(loop.pressureMultiplier).toBeLessThan(1);
+      expect(gate.pressureMultiplier).toBeLessThan(1);
     });
 
     it('clears the gate for a new run', () => {
       feed(waveResult(0));
-      expect(director.pressure.pressureMultiplier).toBeGreaterThan(1);
+      expect(loop().pressureMultiplier).toBeGreaterThan(1);
       director.resetForNewGame();
-      expect(director.pressure.pressureMultiplier).toBe(1);
-      expect(director.pressure.status.samples).toBe(0);
+      expect(loop().pressureMultiplier).toBe(1);
+      expect(loop().status.samples).toBe(0);
     });
   });
 
@@ -227,15 +248,20 @@ describe('gate wiring', () => {
       // count ranges, so any single pair can differ by template choice alone.
       const meanCount = async (waves: number) => {
         let total = 0;
-        for (let i = 0; i < waves; i++) total += (await director.getNextWave()).totalCount;
+        for (let i = 0; i < waves; i++) total += (await nextWave()).totalCount;
         return total / waves;
       };
 
       const tight = await meanCount(20);
 
       director.resetForNewGame();
+      // Same wave numbers as the first half: the endgame HP multiplier and the
+      // boss cadence both ride on the number, and they would otherwise drown
+      // out the only thing this measures.
+      planWave = collector.snapshot.waveNumber + 1;
+      seedRandom();
       feed(waveResult(0), 40);                               // starve the gate
-      expect(director.pressure.pressureMultiplier).toBeGreaterThan(2);
+      expect(loop().pressureMultiplier).toBeGreaterThan(2);
 
       const wide = await meanCount(20);
       expect(wide).toBeGreaterThan(tight);
@@ -248,7 +274,7 @@ describe('gate wiring', () => {
       // weil die Template-Obergrenze band
       // (docs/DRAMA_CONTROLLER_PLAN.md, Abschnitt 10).
       const wave = async () => {
-        const c = await director.getNextWave();
+        const c = await nextWave();
         return { count: c.totalCount, hp: c.enemies[0]?.healthMultiplier ?? 1 };
       };
 
@@ -268,8 +294,13 @@ describe('gate wiring', () => {
       }
 
       director.resetForNewGame();
+      // Same wave numbers as the first half: the endgame HP multiplier and the
+      // boss cadence both ride on the number, and they would otherwise drown
+      // out the only thing this measures.
+      planWave = collector.snapshot.waveNumber + 1;
+      seedRandom();
       feed(waveResult(0), 40);                               // starve the gate
-      expect(director.pressure.pressureMultiplier).toBeGreaterThan(2);
+      expect(loop().pressureMultiplier).toBeGreaterThan(2);
 
       let openCount = 0;
       let openHp = 0;
@@ -284,7 +315,7 @@ describe('gate wiring', () => {
     });
 
     it('produces a shippable wave with no history at all', async () => {
-      const config = await director.getNextWave();
+      const config = await nextWave();
       expect(config.totalCount).toBeGreaterThan(0);
       expect(config.enemies.length).toBeGreaterThan(0);
       expect(collector.lastConfig).toBe(config);

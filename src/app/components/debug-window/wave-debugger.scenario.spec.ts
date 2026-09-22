@@ -2,6 +2,8 @@
 import '@angular/compiler';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
+import { WaveDirector } from '../../director/wave-director';
+import { waveDirectorStub } from '../../director/wave-director.stub';
 import { WaveDebuggerComponent } from './wave-debugger.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { WaveDebugService } from '../../services/debug/wave-debug.service';
@@ -34,6 +36,7 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
         { provide: DebugWindowService, useValue: {} },
         { provide: WaveDebugService, useValue: {} },
         { provide: TowerDefenseStore, useValue: { waveNumber, phase, waveExplanation: signal(null) } },
+        { provide: WaveDirector, useValue: waveDirectorStub() },
       ],
     });
     debuggerPanel = runInInjectionContext(injector, () => new WaveDebuggerComponent());

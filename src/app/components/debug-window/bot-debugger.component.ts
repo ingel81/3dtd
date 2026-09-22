@@ -33,6 +33,18 @@ export class BotDebuggerComponent {
   readonly showDpsBins = signal(false);
   readonly dpsBinsToggled = output<boolean>();
 
+  /**
+   * The correction the active source applied to the last planned wave.
+   *
+   * Read off the committed plan rather than the source itself: a source
+   * without such a loop has none, and the panel must not know which one is
+   * running (docs/WAVE_SOURCE_PLAN.md, R1).
+   */
+  gateMultiplier(): string | null {
+    const mult = this.waveDirector.committed?.log.pressureMultiplier;
+    return mult === undefined ? null : mult.toFixed(2);
+  }
+
   onTimescaleChange(event: Event): void {
     const target = event.target as HTMLInputElement;
     const value = parseFloat(target.value);

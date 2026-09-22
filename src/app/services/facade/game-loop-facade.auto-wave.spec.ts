@@ -21,6 +21,7 @@ import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { WaveDirector } from '../../director/wave-director';
+import { waveDirectorStub } from '../../director/wave-director.stub';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -40,7 +41,7 @@ const UNUSED = [
   EngineStore, CameraControlService, TowerPlacementService, MapPlacementService, KeyboardPanService,
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
-  WaveDirector, StateSnapshotService, PerformanceProfilerService,
+  StateSnapshotService, PerformanceProfilerService,
   StreetRenderingService, BossIntroService, ReplayService,
 ];
 
@@ -70,6 +71,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: WaveDirector, useValue: waveDirectorStub() },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: TowerDefenseStore, useValue: store },

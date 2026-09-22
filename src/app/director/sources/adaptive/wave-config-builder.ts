@@ -9,28 +9,19 @@
  * trained model was indistinguishable from uniform random sampling.
  */
 
-import { GameStateSnapshot } from './models/game-state-snapshot';
-import { WaveConfig } from './models/wave-config';
+import { GameStateSnapshot } from '../../models/game-state-snapshot';
+import { WaveConfig } from '../../models/wave-config';
 import { explainWaveDecision } from './decision-explainer';
-import {
-  MAX_WAVE_DURATION_MS,
-  MIN_SPAWN_DELAY_MS,
-  DPS_RAMP_FLOOR,
-  DPS_RAMP_HP_MULT,
-  dpsScaledCountMax,
-  getTemplate,
-  lerpRange,
-  survivableCount,
-  type CandidateReason,
-} from './templates';
+import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS, getTemplate, type CandidateReason } from '../../templates';
+import { DPS_RAMP_FLOOR, DPS_RAMP_HP_MULT, dpsScaledCountMax, lerpRange, survivableCount } from './wave-sizing';
 import type { DirectorDecision } from './director-rules';
-import { directorParams } from './director-params';
+import { directorParams } from '../../director-params';
 import type { PressureStatus } from './pressure-controller';
 import { targetPressure } from './pressure-controller';
 import {
   ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
-} from '../configs/enemy-types.config';
-import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../configs/campaign.config';
+} from '../../../configs/enemy-types.config';
+import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../../../configs/campaign.config';
 
 /**
  * Wie weit der Regler den HP-Faktor anheben darf, wenn die Anzahl schon am
@@ -82,14 +73,20 @@ export interface PressureReading {
  *
  * `templateIdx` of the result is the template that actually ships: an index
  * the template table does not know falls back to slot 0.
+ *
+ * `wave` is the wave being planned, defaulting to `state.waveNumber + 1`. It
+ * is a parameter because a source may plan at the end of the previous wave,
+ * where the snapshot's counter is the wave that just finished
+ * (docs/WAVE_SOURCE_PLAN.md, section 3).
  */
 export function buildWaveConfig(
   decision: DirectorDecision,
   state: GameStateSnapshot,
   candidateReason: CandidateReason,
   pressure: PressureReading,
+  wave = state.waveNumber + 1,
 ): WaveConfig & { templateIdx: number } {
-  const upcomingWave = state.waveNumber + 1;
+  const upcomingWave = wave;
   // Derselbe Sollwert, auf den der Regler regelt: der Deckel gibt genau so
   // viel Leck frei, wie die Spannungskurve für diese Welle vorsieht.
   const wantPressure = targetPressure(upcomingWave) * directorParams().pressureTargetScale;

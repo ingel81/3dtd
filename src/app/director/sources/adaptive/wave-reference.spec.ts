@@ -2,16 +2,13 @@ import { describe, it, expect } from 'vitest';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
-import { decideWave } from './director-rules';
-import { PressureController, wavePressure } from './pressure-controller';
-import { buildWaveContext } from './wave-context';
-import { buildWaveConfig } from './wave-config-builder';
-import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
-import { bossVariantForWave, bossVariantWave } from '../configs/boss-variants.config';
+import { AdaptiveWaveSource } from './adaptive-source';
+import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
+import type { WaveResult } from '../../models/wave-result';
 
 /**
  * Reference run: waves 1 to 60 out of fixed states with an injected random
- * source, against the checked-in `wave-reference.json`.
+ * source, against the checked-in `wave-reference.adaptive.json`.
  *
  * This is the acceptance test of the balancing rebuild (BALANCING_PLAN.md,
  * Phase 1). Renaming, moving files and deleting the training leftovers must
@@ -20,6 +17,14 @@ import { bossVariantForWave, bossVariantWave } from '../configs/boss-variants.co
  * loop, builder, boss rotation — rather than the Angular service, so it needs no
  * injector and no DOM.
  *
+ * It only became able to say that on 2026-09-22. Until then it called
+ * `recordWave(pressure, wave)` without the third argument, so the loop ran
+ * with `capBinding = true` on every wave while production passes
+ * `capIsBinding(sizing)`. The difference is not cosmetic: the anti-windup
+ * holds the multiplier instead of opening it, and the reference described a
+ * controller that saturated at PRESSURE_MULT_MAX from W20 on. Making it
+ * faithful moved 7 of 60 waves, all downward (WAVE_SOURCE_PLAN.md, S0).
+ *
  * Regenerate deliberately, and only when a wave change is intended:
  *
  *   UPDATE_WAVE_REFERENCE=1 npx vitest run src/app/director/wave-reference.spec.ts
@@ -27,10 +32,7 @@ import { bossVariantForWave, bossVariantWave } from '../configs/boss-variants.co
  * The diff of the JSON is then the review: it shows every wave that moved.
  */
 
-const REFERENCE_PATH = resolve(__dirname, 'wave-reference.json');
-
-/** Templates the director's cooldown remembers, as WaveDirector keeps it. */
-const TEMPLATE_HISTORY = 5;
+const REFERENCE_PATH = resolve(__dirname, 'wave-reference.adaptive.json');
 
 /** mulberry32: small, seeded, and stable across engines. */
 function rng(seed: number): () => number {
@@ -85,24 +87,12 @@ interface ReferenceWave {
 }
 
 function runReference(): ReferenceWave[] {
-  const pressure = new PressureController();
+  const source = new AdaptiveWaveSource();
   const random = rng(20260920);
-  const recent: number[] = [];
   const waves: ReferenceWave[] = [];
 
   for (let wave = 1; wave <= 60; wave++) {
-    const state = stateForWave(wave - 1);
-    const context = buildWaveContext(state, recent);
-    const decision = decideWave(context.candidates, wave, recent, random);
-    let config = buildWaveConfig(decision, state, context.candidateReason, pressure);
-
-    recent.push(config.templateIdx);
-    if (recent.length > TEMPLATE_HISTORY) recent.shift();
-
-    // The facade swaps in a boss variant past the campaign, so the reference
-    // covers the rotation too.
-    const variant = bossVariantForWave(wave);
-    if (variant) config = { ...bossVariantWave(variant, config, wave), templateIdx: config.templateIdx };
+    const { config } = source.plan({ wave, state: stateForWave(wave - 1), random });
 
     waves.push({
       wave,
@@ -115,10 +105,25 @@ function runReference(): ReferenceWave[] {
       enemies: config.enemies.map((e) => `${e.type}x${e.count}@${e.healthMultiplier}`),
     });
 
-    pressure.recordWave(wavePressure(hpLost(wave), 100, 10), wave);
+    source.onWaveResult(waveResult(wave));
   }
 
   return waves;
+}
+
+/** The wave result the loop is fed, with the fixed HP pattern above. */
+function waveResult(wave: number): WaveResult {
+  return {
+    waveNumber: wave,
+    timestamp: 0,
+    config: { enemies: [], totalCount: 10, spawnDelay: 500 },
+    outcome: {
+      damageToPlayer: hpLost(wave),
+      healthAtWaveStart: 100,
+      enemiesSpawned: 10,
+      playerSurvived: true,
+    },
+  } as WaveResult;
 }
 
 describe('wave reference run', () => {

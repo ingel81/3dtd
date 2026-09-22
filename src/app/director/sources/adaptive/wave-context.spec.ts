@@ -3,11 +3,11 @@ import { describe, it, expect, vi } from 'vitest';
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
 import { buildWaveContext, deriveCapabilities } from './wave-context';
-import { analyzeDefense } from './defense-analyzer';
+import { analyzeDefense } from '../../defense-analyzer';
 import { explainWaveDecision } from './decision-explainer';
-import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
-import { Tower } from '../entities/tower.entity';
-import type { TowerTypeId } from '../configs/tower-types.config';
+import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
+import { Tower } from '../../../entities/tower.entity';
+import type { TowerTypeId } from '../../../configs/tower-types.config';
 
 describe('deriveCapabilities()', () => {
   /** A snapshot without analysed capabilities, so only the unlock fallback decides. */

@@ -10,6 +10,25 @@
     (focused)="windowService.bringToFront('wave')"
   >
     <div class="wave-debug-content">
+      <!-- Which wave source plays; the switch takes effect with the next run -->
+      <div class="section source">
+        <div class="section-title">Wave source</div>
+        <label class="source-row">
+          <select [value]="sourceNextRun()" (change)="onSourceChange($event)">
+            @for (option of sourceOptions; track option.id) {
+              <option [value]="option.id">{{ option.name }}</option>
+            }
+          </select>
+        </label>
+        <div class="source-note">
+          @if (sourceNextRun() === activeSourceId()) {
+            Playing {{ activeSourceName() }}.
+          } @else {
+            Playing {{ activeSourceName() }}; the choice applies from the next run.
+          }
+        </div>
+      </div>
+
       <!-- Director reasoning for the wave in play -->
       <div class="section why">
         <div class="section-title">Why this wave</div>

@@ -21,6 +21,7 @@ import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { WaveDirector } from '../../director/wave-director';
+import { waveDirectorStub } from '../../director/wave-director.stub';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -31,7 +32,8 @@ import { ReplayService } from '../replay.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { WaveConfig } from '../../director/models/wave-config';
-import type { DecisionExplanation } from '../../director/decision-explainer';
+import type { DecisionExplanation } from '../../director/wave-explanation';
+import type { PlannedWave } from '../../director/wave-source';
 import { GameRng } from '../../utils/game-rng';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 
@@ -49,6 +51,11 @@ const EXPLANATION: DecisionExplanation = {
 
 function wave(explanation?: DecisionExplanation): WaveConfig {
   return { enemies: [{ type: 'zombie', count: 20 }], totalCount: 20, spawnDelay: 400, explanation };
+}
+
+/** What a source hands back: the wave plus what the run log gets. */
+function planned(waveNumber: number, config = wave(EXPLANATION)): PlannedWave {
+  return { wave: waveNumber, config, explanation: config.explanation ?? null, log: {} };
 }
 
 function makeStore() {
@@ -75,7 +82,10 @@ describe('GameLoopFacadeService: waveExplanation', () => {
   let facade: GameLoopFacadeService;
   let store: ReturnType<typeof makeStore>;
   let emitted: { type: string }[];
-  const director = { getNextWave: vi.fn(async () => wave(EXPLANATION)), pressure: { pressureMultiplier: 1, status: { target: null } } };
+  /** Plans a plain zombie wave for whatever wave it is asked for. */
+  const director = waveDirectorStub({
+    getNextWave: vi.fn(async (waveNumber: number) => planned(waveNumber)),
+  });
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
   /** Enemy types of the wave the facade started */
   const startedTypes = () =>
@@ -87,6 +97,8 @@ describe('GameLoopFacadeService: waveExplanation', () => {
   beforeEach(() => {
     emitted = [];
     store = makeStore();
+    // Restored per test: one of them replaces it to plan a boss wave.
+    director.getNextWave = vi.fn(async (waveNumber: number) => planned(waveNumber));
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
@@ -125,26 +137,45 @@ describe('GameLoopFacadeService: waveExplanation', () => {
     expect(store.waveExplanation()).toBeNull();
   });
 
-  describe('boss rotation past the campaign', () => {
-    it('ships the variant in place of the director wave and explains that (W35: the worm)', async () => {
+  /**
+   * The facade ships the planned wave and changes nothing about it. Until the
+   * wave sources landed it substituted the boss variants of the rotation
+   * itself, so "which wave comes next" was decided in two places; that
+   * substitution is the source's now (AdaptiveWaveSource, WAVE_SOURCE_PLAN.md).
+   */
+  describe('what the source planned', () => {
+    it('ships it unchanged, whatever wave number it is', async () => {
+      const bossWave: WaveConfig = {
+        enemies: [{ type: 'worm', count: 1 }],
+        totalCount: 1,
+        spawnDelay: 0,
+        templateName: 'Boss: Skarnax',
+        explanation: { summary: 'W35: Boss: Skarnax, HP ×1', reasons: [] },
+      };
+      director.getNextWave = vi.fn(async (waveNumber: number) => planned(waveNumber, bossWave));
       store.waveNumber.set(34);
       facade.startWave();
       await settle();
       expect(startedTypes()).toEqual(['worm']);
       expect(store.waveExplanation()?.summary).toContain('Boss: Skarnax');
-      expect(collector.setCurrentWaveConfig).toHaveBeenCalledWith(
-        expect.objectContaining({ templateName: 'Boss: Skarnax' }),
-      );
     });
 
-    it('leaves the director its own boss waves', async () => {
-      store.waveNumber.set(39);
+    it('does not read the wave number to second-guess a boss wave', async () => {
+      // W35 is a boss wave of the rotation. The facade must still ship what
+      // it was handed, or the substitution would happen twice.
+      store.waveNumber.set(34);
       facade.startWave();
       await settle();
       expect(startedTypes()).toEqual(Array(20).fill('zombie'));
       expect(store.waveExplanation()).toBe(EXPLANATION);
     });
 
+    it('asks for the wave after the counter', async () => {
+      store.waveNumber.set(11);
+      facade.startWave();
+      await settle();
+      expect(director.getNextWave).toHaveBeenCalledWith(12);
+    });
   });
 });
 
@@ -168,7 +199,7 @@ describe('GameLoopFacadeService: pause', () => {
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },
-        { provide: WaveDirector, useValue: {} },
+        { provide: WaveDirector, useValue: waveDirectorStub() },
         { provide: BotClientService, useValue: {} },
         { provide: StateSnapshotService, useValue: {} },
         { provide: WaveDebugService, useValue: { toAIWaveConfig: () => wave() } },

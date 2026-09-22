@@ -46,6 +46,10 @@ eine Summe aus 16,667 ms und driftet im Float; der Schritt-Index tut das nicht. 
 - **`configHash`** ist ein fnv1a über alle balance-relevanten Configs (Tower, Gegner, Balance, Kampagne, Templates,
   Forschung, Fähigkeiten, Held, Boss-Varianten, Schadensmatrix). Die Auswertung gruppiert danach und warnt bei
   gemischten Ständen. Er deckt die Tabellen ab, nicht den Code; dafür steht der Commit daneben.
+- **`waveSource`** steht nur dort, wenn der Lauf **nicht** die Standard-Wellenquelle gespielt hat
+  (`adaptive`). Dann geht die Quelle auch in den `configHash` ein, damit zwei Läufe mit verschiedenen
+  Wellenquellen nie im gleichen Mittel landen. Fehlt das Feld, war es der adaptive Source, und der Hash liegt
+  dort, wo er bei allen bisher gemessenen Läufen lag (docs/WAVE_SOURCE_PLAN.md, Abschnitt 8).
 - **`seed`** ist der Lauf-Seed aus `GameRng` (Phase 1c).
 
 ### Ein Wellenblock
@@ -55,8 +59,14 @@ die sie vorbereitet: Dort gibt der Spieler aus, und ein Block, der erst bei `wav
 dieser Buchungen.
 
 Er enthält Gold zu Start und Ende, Einnahmen und Ausgaben je Quelle, die Ausgaben je Tower-Typ, die Aufteilung
-des Abschlussgolds, die Entscheidung des Directors mit Begründung, Zusammensetzung, Kills nach Verursacher,
+des Abschlussgolds, die Entscheidung der Wellenquelle mit Begründung, Zusammensetzung, Kills nach Verursacher,
 Lecks, HQ-HP vorher und nachher, je Tower Typ, Stufen, Schaden und Kills, und die Dauer.
+
+Zur Wellenquelle stehen im Block: `waveSource`, und was die Quelle über ihre Entscheidung sagt. Die drei
+typisierten Felder `survivableCount`, `pressureMultiplier` und `targetPressure` gehören dem adaptiven Source;
+eine Quelle ohne solche Zahlen lässt sie weg, wie eine Welle aus dem Debug-Panel. Eigene Zahlen einer Quelle
+stehen in `diagnostics` (der Tabellen-Source legt dort Zeile, Zyklusrunde und HP-Faktor ab), damit das Format
+nicht je Quelle wächst.
 
 Die Welle, in der die Basis fällt, bekommt ihren Block ebenfalls: `wave:completed` kommt dort nie, deshalb schreibt
 `flushOpenWave()` ihn beim Game Over.

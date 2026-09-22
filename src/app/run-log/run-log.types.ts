@@ -12,6 +12,7 @@
  */
 
 import type { CreditsSource } from '../game-engine/game-event-bus';
+import type { WaveSourceId } from '../director/wave-source';
 
 /** Bumped when a reader would have to change. */
 export const RUN_LOG_FORMAT = 3;
@@ -49,6 +50,14 @@ export interface RunLogHead {
   routeFingerprint?: string;
   /** Named overrides of director constants, when a batch ran with one (phase 2b). */
   directorParams?: string;
+  /**
+   * The wave source the run played, when it was not the default one.
+   *
+   * Absent means the adaptive source, which every run logged before the
+   * sources existed played. `configHash` follows the same rule, so those
+   * hashes stay where they were.
+   */
+  waveSource?: WaveSourceId;
 }
 
 /** A moment in the run worth naming. */
@@ -122,6 +131,14 @@ export interface RunLogWave {
   step: number;
   timeMs: number;
   durationMs: number;
+  /**
+   * Which wave source planned this wave.
+   *
+   * Absent on runs logged before the sources existed and on waves that came
+   * from the debug panel. Two sources are compared by grouping on it
+   * (docs/WAVE_SOURCE_PLAN.md, section 8).
+   */
+  waveSource?: WaveSourceId;
   /** The campaign template that ran. */
   template?: string;
   /** What the director decided and why, as the debug window words it. */
@@ -140,6 +157,14 @@ export interface RunLogWave {
    * nicht doppelt.
    */
   targetPressure?: number;
+  /**
+   * Numbers only the planning source knows, stored as they come.
+   *
+   * The three fields above stay typed because the format and the Python
+   * report already read them; anything a new source wants to record lands
+   * here instead of growing the format per source.
+   */
+  diagnostics?: Readonly<Record<string, number | string | boolean | null>>;
   /** Enemy types and counts as the wave shipped them. */
   composition?: { type: string; count: number; hp: number }[];
   creditsStart: number;

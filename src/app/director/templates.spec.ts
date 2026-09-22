@@ -1,11 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import {
-  TEMPLATES,
-  NUM_ACTIVE_TEMPLATES,
-  getTemplate,
-  candidateTemplates,
-  lerpRange,
-} from './templates';
+import { TEMPLATES, NUM_ACTIVE_TEMPLATES, getTemplate, candidateTemplates } from './templates';
+import { lerpRange } from './sources/adaptive/wave-sizing';
 
 describe('Phase 5.11 Range-Based Templates', () => {
   it('has exactly 22 active templates (incl. three boss templates)', () => {

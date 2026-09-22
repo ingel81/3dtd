@@ -1,9 +1,14 @@
 # Wave Director
 
-**Stand:** 2026-09-21. Der Wave Director ist regelbasiert, läuft vollständig im Client und ist die einzige
-Wellenquelle. Kein Python-Server, kein Modell, keine Runtime. Wie der WaveManager die fertige Welle abspielt, steht
-in [WAVE_SYSTEM.md](WAVE_SYSTEM.md); der Umbau, aus dem dieser Stand stammt, in
+**Stand:** 2026-09-22. Dieses Dokument beschreibt den **adaptiven Wave Source**: regelbasiert, vollständig im
+Client, kein Python-Server, kein Modell, keine Runtime. Er ist einer von mehreren austauschbaren Wellenquellen
+und der Standard. Der Rahmen darum, also der Vertrag und wie umgeschaltet wird, steht in
+[WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md); die Liste als Alternative dort ebenfalls. Wie der WaveManager die
+fertige Welle abspielt, steht in [WAVE_SYSTEM.md](WAVE_SYSTEM.md), der Umbau, aus dem dieser Stand stammt, in
 [BALANCING_PLAN.md](BALANCING_PLAN.md).
+
+Alle Dateien dieses Sources liegen in `src/app/director/sources/adaptive/`. Was er mit jedem anderen Source
+teilt, liegt im Wurzelordner `src/app/director/`: Templates, Snapshot, Verteidigungsanalyse, Adapter, Run-Log.
 
 ## 1. Kurzfassung
 
@@ -12,11 +17,13 @@ Mischung). Alles danach ist gemeinsamer Code.
 
 | Rolle | Wer | Datei |
 |-------|-----|-------|
-| Kandidaten bestimmen | `candidateTemplates()` | `src/app/director/templates.ts` |
-| Die fünf Zahlen wählen | `decideWave()` | `src/app/director/director-rules.ts` |
-| Überlebbarkeits-Deckel nachführen | `PressureController` | `src/app/director/pressure-controller.ts` |
-| Fünf Zahlen zur Welle machen | `buildWaveConfig()` | `src/app/director/wave-config-builder.ts` |
-| Das Ganze im Spiel | `WaveDirector` | `src/app/director/wave-director.ts` |
+| Kandidaten bestimmen | `candidateTemplates()` | `director/templates.ts` (geteilt) |
+| Die fünf Zahlen wählen | `decideWave()` | `sources/adaptive/director-rules.ts` |
+| Welle bemessen | `survivableCount()`, DPS-Rampe | `sources/adaptive/wave-sizing.ts` |
+| Überlebbarkeits-Deckel nachführen | `PressureController` | `sources/adaptive/pressure-controller.ts` |
+| Fünf Zahlen zur Welle machen | `buildWaveConfig()` | `sources/adaptive/wave-config-builder.ts` |
+| Das Ganze als Source | `AdaptiveWaveSource` | `sources/adaptive/adaptive-source.ts` |
+| Das Ganze im Spiel | `WaveDirector` | `director/wave-director.ts` (geteilt) |
 
 `GameStore.directorEnabled` steht auf `true`. Ist er aus, kommt die Welle aus dem Debug-Panel.
 
@@ -54,9 +61,10 @@ StateSnapshotService ──► GameStateSnapshot
                        · endgameHpMultiplier(wave)
                        · survivableCount(..., pressureMultiplier, targetPressure)
                        · Dauer-Deckel (180 s), danach zweiter Pass
+                       · Boss-Variante der Rotation, wenn eine dran ist
                                │
                                ▼
-                       adaptDirectorWave ──► WaveManager
+                       PlannedWave ──► WaveDirector ──► adaptDirectorWave ──► WaveManager
 ```
 
 Der Bot-Server (`bot-server/`, WebSocket `:3001`) ist für Bot-Läufe zuständig und liefert keine Wellen.
@@ -70,7 +78,8 @@ Abstand zum letzten Vorkommen in der History, unbenutzte Templates gelten als am
 gebrochen). Wiederholung wird dadurch unmöglich statt nur teuer.
 
 **Der Zufall ist geseedet.** Faktor-Jitter und der Gleichstand zwischen gleich alten Templates ziehen aus dem
-Strom `director` des Laufs (`utils/game-rng.ts`); `getNextWave(random)` bekommt ihn von der Facade. Gleicher Seed
+Strom `director` des Laufs (`utils/game-rng.ts`); der `WaveDirector` holt ihn je Planung, damit ein
+`GameRng.reset()` nicht an einer festgehaltenen Funktion vorbeiläuft. Gleicher Seed
 heißt gleiche Wellen, solange der Lauf gleich verläuft: Der Überlebbarkeits-Deckel und der Druck-Regler lesen die
 Verteidigung und die verlorenen HP. `director/determinism.spec.ts` prüft das.
 
@@ -106,8 +115,9 @@ Begründung:
   danach jede fünfte). An Boss-Wellen bleiben nur die Boss-Templates übrig, die die Regeln bestehen
   (`boss_herbert`, `boss_golem`, `boss_dragon`; die Älteste-zuerst-Regel rotiert sie), an allen anderen sind sie
   gesperrt. Vorher waren Bosse an Vielfachen von 10 nur erlaubt: über 2.000 simulierte Läufe kamen zwischen W31
-  und W130 0,7 statt 10 Boss-Wellen. Einen Teil der Boss-Wellen ersetzt die Facade danach durch eine Boss-Variante
-  (Skarnax, Ooze), siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves). Boss-Wellen nach W30 zahlen das doppelte
+  und W130 0,7 statt 10 Boss-Wellen. Einen Teil der Boss-Wellen ersetzt der Source selbst durch eine Boss-Variante
+  (Skarnax, Ooze), siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-waves). Bis zum 2026-09-22 tat das die Facade,
+  wodurch "welche Welle kommt" an zwei Stellen entschieden wurde. Boss-Wellen nach W30 zahlen das doppelte
   Gold (`BOSS_GOLD_MULTIPLIER` in `waveGold`).
 - **Fallbacks** in dieser Reihenfolge, damit die Liste nie leer ist: an einer Boss-Welle, deren Boss-Templates alle
   im Cooldown stehen, das erste davon trotz Cooldown; an einer Boss-Welle, die kein Boss-Template bedienen kann
@@ -165,19 +175,24 @@ im Deckel (früher feste `FAIRNESS_WAVE_HP_BUDGET = 0.06`).
 **Der Regler selbst:**
 
 ```
-PRESSURE_WARMUP_WAVES = 4      // Wellen, die gar nicht erst ins Fenster kommen
-PRESSURE_WINDOW       = 5      // Wellen, über die der Median läuft
+PRESSURE_WARMUP_WAVES = 4      // Wellen, die gar nicht erst gemessen werden
+PRESSURE_SMOOTHING    = 0.35   // Gewicht der neuen Welle in der Glättung
+PRESSURE_MIN_SAMPLES  = 3      // Messwerte, bevor der Regler stellt
 PRESSURE_GAIN         = 0.5    // auf den logarithmischen Fehler
 PRESSURE_MAX_STEP     = 0.7    // höchstens ×1,42 je Welle
 PRESSURE_BAND_LO/HI   = 0.5 / 1.5
 PRESSURE_MULT_MIN/MAX = 0.5 / 20
 
-measured = median(pressure über das Fenster)
+measured = PRESSURE_SMOOTHING * pressure + (1 - PRESSURE_SMOOTHING) * measured
 error    = ln(target / max(measured, PRESSURE_FLOOR))
 mult    *= exp(PRESSURE_GAIN * clamp(error, ±PRESSURE_MAX_STEP))
 ```
 
-- **Median statt Mittel** gegen die gepinnten Luftwellen.
+- **Exponentiell geglättet statt Fenster.** Bis zum 2026-09-22 stand hier ein Median über ein Fenster von fünf
+  Wellen und ein `PRESSURE_WINDOW = 5`; beides gibt es im Code nicht. Geglättet wird mit einem Gewicht von 0,35
+  auf die neue Welle, was etwa drei Wellen Gedächtnis entspricht, und gestellt wird erst ab drei Messwerten. Die
+  Aussage über die Totzeit bleibt davon unberührt, der Mechanismus war ein anderer als beschrieben
+  (docs/WAVE_SOURCE_PLAN.md, R6).
 - **Logarithmischer Fehler**, damit "halb so viel" und "doppelt so viel" gleich schwer wiegen. Der alte relative
   Fehler war nach oben auf +1 begrenzt und nach unten unbegrenzt.
 - **Warmup** als Anti-Windup: die Aufbauwellen messen einen Spieler ohne Türme.
@@ -254,7 +269,7 @@ Die Gründe stammen aus der Entscheidung selbst, nicht aus einer Analyse des Spi
 |--------|---------|
 | `candidateTemplates` (`templates.ts`) | Kampagnen-Pin, Boss-Regel, Templates, die eine fehlende Fähigkeit sperrt, Cooldown-Verzicht |
 | `DirectorDecision.why` (`director-rules.ts`) | Anzahl der Kandidaten, wann das gewählte Template zuletzt lief, Gleichstand, Rampen-Position |
-| `PressureController.status` | Median-Druck über das Fenster, letzter Schritt des Reglers, Multiplikator |
+| `PressureController.status` | geglätteter Druck, letzter Schritt des Reglers, Multiplikator |
 | `buildWaveConfig` | DPS-Rampe, Überlebbarkeits-Deckel (bindet, kollabiert, bindet nicht), Dauer-Deckel, Endgame-HP |
 
 `decision-explainer.ts` formt daraus nur Sätze. Der Druck-Regler wird nur genannt, wenn der Deckel die Welle
@@ -264,17 +279,19 @@ tatsächlich begrenzt hat.
 
 | Datei | Zweck |
 |-------|-------|
-| `director/templates.ts` | 22 Templates mit Ranges, `candidateTemplates()`, `survivableCount()`, DPS-Rampe |
-| `director/director-rules.ts` | `decideWave()`: Template-Wahl und die vier Faktoren |
-| `director/pressure-controller.ts` | Druck-Regelkreis, `targetPressure()`, `wavePressure()` |
-| `director/wave-config-builder.ts` | Fünf Zahlen zur `WaveConfig`, mit Begründung |
-| `director/wave-context.ts` | Kandidaten, Ranges und Deckel-Vorschau für eine Welle |
+| `director/templates.ts` | 22 Templates mit Ranges und `candidateTemplates()`, geteilt |
+| `sources/adaptive/adaptive-source.ts` | der Source selbst: plant, blickt voraus, nimmt Ergebnisse |
+| `sources/adaptive/director-rules.ts` | `decideWave()`: Template-Wahl und die vier Faktoren |
+| `sources/adaptive/wave-sizing.ts` | `survivableCount()`, DPS-Rampe, `lerpRange` |
+| `sources/adaptive/pressure-controller.ts` | Druck-Regelkreis, `targetPressure()`, `wavePressure()` |
+| `sources/adaptive/wave-config-builder.ts` | Fünf Zahlen zur `WaveConfig`, mit Begründung |
+| `sources/adaptive/wave-context.ts` | Kandidaten, Ranges und Deckel-Vorschau für eine Welle |
 | `director/wave-director.ts` | Angular-Service: plant die Welle, hält History und Druck-Regler |
-| `director/decision-explainer.ts` | Begründung als Sätze |
+| `sources/adaptive/decision-explainer.ts` | Begründung als Sätze |
 | `director/state-snapshot.service.ts` | `GameStateSnapshot` für Director und Bots, Wellen-History |
 | `director/defense-analyzer.ts` | Verteidigungs-Analyse, DPS je Rüstung und Schadensart |
-| `director/wave-reference.spec.ts` | Referenzlauf W1 bis W60 gegen `wave-reference.json` |
-| `director/determinism.spec.ts` | Gleicher Seed, gleiche Wellen und Spawns |
+| `sources/adaptive/wave-reference.spec.ts` | Referenzlauf W1 bis W60 gegen `wave-reference.adaptive.json` |
+| `sources/adaptive/determinism.spec.ts` | Gleicher Seed, gleiche Wellen und Spawns |
 | `utils/game-rng.ts` | Lauf-Seed und die Ströme `director`, `spawn`, `enemy`, `bot` |
 | `configs/campaign.config.ts` | Kampagne W1 bis W30: Template und Wellengold je Welle |
 

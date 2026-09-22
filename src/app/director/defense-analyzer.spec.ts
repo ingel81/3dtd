@@ -2,9 +2,8 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
-import { analyzeDefense, isSplashTower } from './defense-analyzer';
+import { analyzeDefense, isSplashTower, FAIRNESS_MATCHUP_FLOOR } from './defense-analyzer';
 import { computeTowerDPS } from './tower-dps.util';
-import { FAIRNESS_MATCHUP_FLOOR } from './templates';
 import { Tower } from '../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';

@@ -22,6 +22,7 @@ import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { WaveDirector } from '../../director/wave-director';
+import { waveDirectorStub } from '../../director/wave-director.stub';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -134,7 +135,7 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
         { provide: SoundDebugService, useValue: {} },
         { provide: DebugWindowService, useValue: {} },
         { provide: EnemyDebugService, useValue: {} },
-        { provide: WaveDirector, useValue: {} },
+        { provide: WaveDirector, useValue: waveDirectorStub() },
         { provide: StateSnapshotService, useValue: {} },
         { provide: BotClientService, useValue: { botEnabled: () => false } },
         { provide: TowerDefenseStore, useValue: store },

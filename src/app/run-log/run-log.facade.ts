@@ -19,6 +19,7 @@ import { GameStore } from '../store/game.store';
 import { HERO } from '../configs/hero.config';
 import { calculateTotalDPS } from '../director/defense-analyzer';
 import { directorParamsName } from '../director/director-params';
+import { WaveDirector } from '../director/wave-director';
 import { RunLogCollector, type RunLogWorld } from './run-log.service';
 import { RunLogStore } from './run-log.store';
 import { loadBuildCommit } from './build-commit';
@@ -31,6 +32,7 @@ export class RunLogFacade {
   private readonly locations = inject(LocationManagementService);
   private readonly devWorld = inject(DevWorldService);
   private readonly gameStore = inject(GameStore);
+  private readonly waveDirector = inject(WaveDirector);
 
   constructor() {
     // Speed and pause are store signals, not events; the log follows them so
@@ -169,6 +171,7 @@ export class RunLogFacade {
         map: this.devWorld.isActive ? 'devworld' : 'world',
         player: who.player,
         directorParams: directorParamsName(),
+        waveSource: this.waveDirector.source.id,
         ...(who.botSkill ? { botSkill: who.botSkill } : {}),
         ...(home ? { location: { name: home.name, lat: home.lat, lon: home.lon } } : {}),
       },

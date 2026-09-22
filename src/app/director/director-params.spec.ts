@@ -7,8 +7,8 @@ import {
   resetDirectorParams,
   useDirectorParams,
 } from './director-params';
-import { decideWave } from './director-rules';
-import { dpsScaledCountMax } from './templates';
+import { decideWave } from './sources/adaptive/director-rules';
+import { dpsScaledCountMax } from './sources/adaptive/wave-sizing';
 
 describe('director parameter sets', () => {
   afterEach(() => resetDirectorParams());

@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { decideWave, type TieBreak } from './director-rules';
-import { NUM_ACTIVE_TEMPLATES } from './templates';
+import { NUM_ACTIVE_TEMPLATES } from '../../templates';
 
 describe('decideWave', () => {
   /** The first `n` templates as candidates. */

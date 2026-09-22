@@ -125,8 +125,8 @@ describe('Regular air waves at two portals, playtest 238 (night 1) replayed', ()
   /** Plan wave `wave` as after wave - 1, play it at both portals until every air unit is out of its portal phase */
   async function play(wave: number) {
     overwhelmingDefense(collector.snapshot, wave - 1);
-    const planned = await director.getNextWave();
-    const config = adaptDirectorWave(planned);
+    const planned = await director.getNextWave(wave);
+    const config = adaptDirectorWave(planned.config);
 
     m = createTestManagers();
     m.waveManager.initialize(SPAWNS, new Map(SPAWNS.map((s, i) => [s.id, ROUTES[i] as GeoPosition[]])));
@@ -200,13 +200,13 @@ describe('Regular air waves at two portals, playtest 238 (night 1) replayed', ()
 
   it('W7 bat_swarm: every bat comes out of its portal and climbs, at both portals', async () => {
     const run = await play(7);
-    expect(TEMPLATES[run.planned.templateIdx!].id).toBe('bat_swarm');
+    expect(TEMPLATES[run.planned.config.templateIdx!].id).toBe('bat_swarm');
     expect([...expectOutOfTheirPortals(run)]).toEqual(['bat']);
   });
 
   it('W8 hornet_strike: hornets and bats alike, at both portals', async () => {
     const run = await play(8);
-    expect(TEMPLATES[run.planned.templateIdx!].id).toBe('hornet_strike');
+    expect(TEMPLATES[run.planned.config.templateIdx!].id).toBe('hornet_strike');
     expect([...expectOutOfTheirPortals(run)].sort()).toEqual(['bat', 'hornet']);
   });
 });

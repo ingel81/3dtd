@@ -219,16 +219,16 @@
   {
     "wave": 18,
     "template": "Armor Gauntlet",
-    "count": 109,
+    "count": 75,
     "spawnDelay": 36,
     "variation": 0.3,
     "strength": 6,
     "pattern": "interleaved",
     "enemies": [
-      "ratx27@6",
-      "tankx27@6",
-      "mammothx27@6",
-      "ghostx28@6"
+      "ratx19@6",
+      "tankx19@6",
+      "mammothx19@6",
+      "ghostx18@6"
     ]
   },
   {
@@ -246,15 +246,15 @@
   {
     "wave": 20,
     "template": "Boss: Herbert",
-    "count": 400,
-    "spawnDelay": 450,
+    "count": 232,
+    "spawnDelay": 775,
     "variation": 0.232,
     "strength": 20,
     "pattern": "clustered",
     "enemies": [
-      "herbertx100@20",
-      "tankx150@20",
-      "zombiex150@20"
+      "herbertx58@20",
+      "tankx87@20",
+      "zombiex87@20"
     ]
   },
   {
@@ -272,14 +272,14 @@
   {
     "wave": 22,
     "template": "Tank Column",
-    "count": 3000,
-    "spawnDelay": 60,
+    "count": 1738,
+    "spawnDelay": 103,
     "variation": 0.239,
     "strength": 7.837,
     "pattern": "interleaved",
     "enemies": [
-      "tankx1800@7.837",
-      "zombie-soldierx1200@7.837"
+      "tankx1043@7.837",
+      "zombie-soldierx695@7.837"
     ]
   },
   {
@@ -297,27 +297,27 @@
   {
     "wave": 24,
     "template": "Ghost Surge",
-    "count": 4250,
-    "spawnDelay": 36,
+    "count": 3448,
+    "spawnDelay": 44,
     "variation": 0.254,
     "strength": 6,
     "pattern": "interleaved",
     "enemies": [
-      "ghostx3400@6",
-      "wraithx850@6"
+      "ghostx2758@6",
+      "wraithx690@6"
     ]
   },
   {
     "wave": 25,
     "template": "Mammoth Siege",
-    "count": 1800,
-    "spawnDelay": 75,
+    "count": 42,
+    "spawnDelay": 129,
     "variation": 0.316,
     "strength": 12.5,
     "pattern": "interleaved",
     "enemies": [
-      "mammothx1260@12.5",
-      "wallsmasherx540@12.5"
+      "mammothx29@12.5",
+      "wallsmasherx13@12.5"
     ]
   },
   {
@@ -336,26 +336,26 @@
   {
     "wave": 27,
     "template": "Dragon Elite",
-    "count": 1400,
-    "spawnDelay": 90,
+    "count": 1151,
+    "spawnDelay": 109,
     "variation": 0.291,
     "strength": 9.536,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx840@9.536",
-      "hornetx560@9.536"
+      "dragonx691@9.536",
+      "hornetx460@9.536"
     ]
   },
   {
     "wave": 28,
     "template": "Mech Army",
-    "count": 2000,
-    "spawnDelay": 90,
+    "count": 1644,
+    "spawnDelay": 109,
     "variation": 0.261,
     "strength": 14,
     "pattern": null,
     "enemies": [
-      "mechx2000@14"
+      "mechx1644@14"
     ]
   },
   {
@@ -417,14 +417,14 @@
   },
   {
     "wave": 33,
-    "template": "Golem Squad",
-    "count": 1200,
-    "spawnDelay": 150,
-    "variation": 0.198,
-    "strength": 9.9,
+    "template": "Skeleton Swarm",
+    "count": 5000,
+    "spawnDelay": 36,
+    "variation": 0.197,
+    "strength": 8.25,
     "pattern": null,
     "enemies": [
-      "stone-golemx1200@9.9"
+      "skeletonx5000@8.25"
     ]
   },
   {
@@ -518,14 +518,14 @@
   },
   {
     "wave": 41,
-    "template": "Mech Army",
-    "count": 2000,
-    "spawnDelay": 90,
-    "variation": 0.247,
-    "strength": 20.5,
+    "template": "Bear Pack",
+    "count": 2400,
+    "spawnDelay": 75,
+    "variation": 0.223,
+    "strength": 14.35,
     "pattern": null,
     "enemies": [
-      "mechx2000@20.5"
+      "bearx2400@14.35"
     ]
   },
   {
@@ -656,14 +656,14 @@
   },
   {
     "wave": 52,
-    "template": "Wraith Storm",
-    "count": 5000,
-    "spawnDelay": 36,
-    "variation": 0.255,
-    "strength": 15.6,
+    "template": "Bear Pack",
+    "count": 2400,
+    "spawnDelay": 75,
+    "variation": 0.271,
+    "strength": 18.2,
     "pattern": null,
     "enemies": [
-      "wraithx5000@15.6"
+      "bearx2400@18.2"
     ]
   },
   {
