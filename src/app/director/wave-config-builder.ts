@@ -33,24 +33,41 @@ import {
 import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../configs/campaign.config';
 
 /**
- * Der Druck-Regler fasst den HP-Multiplikator NICHT an, und das ist gemessen.
+ * Wie weit der Regler den HP-Faktor anheben darf, wenn die Anzahl schon am
+ * Template-Anschlag steht.
  *
- * Die Idee lag nahe: Steht die Welle am oberen Ende ihrer Template-Spanne und
- * kostet trotzdem nichts (Welle 19 schickte 2820 Skelette für 0,08 % der HP),
- * ist "mehr Gegner" keine Antwort mehr, also müssten sie zäher werden.
+ * Bei den Massen-Templates ist mehr Anzahl keine Antwort mehr (Welle 19
+ * schickte 2820 Skelette für 0,08 % der HP), und bei den Elite-Templates ist
+ * die Anzahl auf 100 gedeckelt, während ihre HP-Spanne bis ×10 reicht. Genau
+ * dafür ist dieser Griff da.
  *
- * Über drei Runden mit zusammen 480 Läufen zahlt sich das nicht aus. Ungedämpft
- * machte es Welle 19 von der harmlosesten zur tödlichsten Einzelwelle (6 % aller
- * Läufe endeten dort); gedämpft verschwand die Wand und mit ihr der Nutzen. In
- * beiden Fällen fiel die mediane Runlänge von 48 auf 37, während die tote Strecke
- * nur von 9,0 auf 8,0 zurückging — relativ zur Lauflänge war der Zustand davor
- * sogar besser.
+ * Er war am 2026-09-22 schon einmal eingebaut und wurde nach drei Bot-Runden
+ * wieder verworfen. Dieses Urteil war wertlos: Der Regler lief damals mit dem
+ * Auswahlfilter, der ihn in genau den Wellen blind machte, in denen der Griff
+ * wirken sollte (siehe DRAMA_CONTROLLER_PLAN.md, Abschnitt 10). Mit
+ * repariertem Regler wird neu gemessen.
  *
- * Der Grund dürfte sein, dass Zähigkeit und Anzahl sich multiplizieren: Derselbe
- * Faktor ist bei 2820 Gegnern etwas völlig anderes als bei dreißig, und ein
- * Regler, der nur einen Skalar kennt, trifft beides nicht.
- * (docs/DRAMA_CONTROLLER_PLAN.md, Runden 15 bis 17.)
+ * Die Wurzel statt des Multiplikators selbst: Zähigkeit und Anzahl
+ * multiplizieren sich, derselbe Faktor ist bei 2820 Gegnern etwas anderes als
+ * bei dreißig.
  */
+const HP_LEVER_MAX = 2.0;
+
+/**
+ * Höchste Gegnerzahl, die der Regler über die Template-Obergrenze hinaus
+ * freigeben darf.
+ *
+ * `countRange[1]` gehört dem Designer, aber gegen eine ausgebaute Stellung an
+ * einem Trichter reicht auch die größte vorgesehene Welle nicht: Im
+ * menschlichen Lauf stand der Regler ab Welle 26 am oberen Anschlag und die
+ * Wellen kosteten trotzdem nichts. Darüber hinaus darf er nur, wenn der Deckel
+ * gar nicht bindet — also wenn die Verteidigung rechnerisch schneller tötet
+ * als Gegner nachkommen.
+ *
+ * 5000 ist die Grenze, die `rat_tide` ohnehin schon hat, und die Obergrenze
+ * dessen, was die Engine mit Instancing flüssig darstellt.
+ */
+const COUNT_OVERRIDE_MAX = 5000;
 
 /** What the wave sizing reads from the fairness gate. */
 export interface PressureReading {
@@ -111,8 +128,11 @@ export function buildWaveConfig(
   // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
   // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
   const endgameHpMult = endgameHpMultiplier(upcomingWave);
-  const baseHpMult = lerpCapped(template.hpMultRange, hpFactor, dpsFracHp);
-  const hpMult = Math.round(baseHpMult * endgameHpMult * 1000) / 1000;
+  const hpMultFor = (factor: number): number => {
+    const base = lerpCapped(template.hpMultRange, factor, dpsFracHp);
+    return Math.round(base * endgameHpMult * 1000) / 1000;
+  };
+  let hpMult = hpMultFor(hpFactor);
   const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
 
   // Fairness gate: never ship a wave the defense cannot plausibly fight.
@@ -186,10 +206,33 @@ export function buildWaveConfig(
       ? countFactor
       : Math.max(0, Math.min(1, countFactor * pressure.pressureMultiplier));
 
-    return { count: Math.max(1, Math.round(lo + (hi - lo) * factor)), cap, capBinds };
+    let count = Math.max(1, Math.round(lo + (hi - lo) * factor));
+
+    // Über die Template-Obergrenze hinaus, aber nur wenn der Deckel gar nicht
+    // bindet: Dann tötet die Verteidigung rechnerisch schneller als Gegner
+    // nachkommen, und die vorgesehene Welle ist für sie keine Aufgabe mehr.
+    if (!capBinds && factor >= 1 && pressure.pressureMultiplier > 1) {
+      const over = Math.round(count * pressure.pressureMultiplier);
+      count = Math.min(COUNT_OVERRIDE_MAX, Math.max(count, over));
+    }
+
+    return { count, cap, capBinds };
   };
 
   let sized = countFor(spawnDelay);
+
+  // Der zweite Griff für den Fall, dass die Anzahl nicht mehr trägt: zähere
+  // Gegner. Auch das nur innerhalb dessen, was das Template erlaubt, und nur
+  // wenn der Deckel die Welle ohnehin nicht begrenzt.
+  //
+  // Zweiter Durchlauf, weil der Deckel selbst vom HP-Multiplikator abhängt.
+  // Fängt er die Welle danach wieder ein, ist das erwünscht: Dann greift
+  // wieder der Deckel und begrenzt die Anzahl.
+  if (!sized.capBinds && pressure.pressureMultiplier > 1) {
+    const lever = Math.min(HP_LEVER_MAX, Math.sqrt(pressure.pressureMultiplier));
+    hpMult = hpMultFor(Math.max(0, Math.min(1, hpFactor * lever)));
+    sized = countFor(spawnDelay);
+  }
 
   // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
   const durationCapped = sized.count * spawnDelay > MAX_WAVE_DURATION_MS;

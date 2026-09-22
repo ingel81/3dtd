@@ -1,6 +1,4 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { Injector, runInInjectionContext } from '@angular/core';
 
 import { WaveDirector } from './wave-director';
@@ -243,17 +241,46 @@ describe('gate wiring', () => {
       expect(wide).toBeGreaterThan(tight);
     });
 
-    it('leaves the enemy toughness alone, even when the count is maxed out', () => {
-      // Gemessen über drei Runden und 480 Läufe: Den HP-Multiplikator an den
-      // Regler zu hängen, kostete elf Wellen Runlänge und brachte eine Welle
-      // weniger Durststrecke. Zähigkeit und Anzahl multiplizieren sich, und
-      // ein Regler mit einem einzigen Skalar trifft beides nicht
-      // (docs/DRAMA_CONTROLLER_PLAN.md, Runden 15 bis 17).
-      //
-      // Der Test steht hier, damit der naheliegende Griff nicht ein zweites
-      // Mal eingebaut wird, ohne die Messung zu kennen.
-      const src = readFileSync(resolve(__dirname, 'wave-config-builder.ts'), 'utf8');
-      expect(src).not.toMatch(/hpMult\s*=\s*hpMultFor/);
+    it('toughens the enemies and goes past the template ceiling when the cap is idle', async () => {
+      // Die beiden Griffe für den Fall, dass die Verteidigung den Deckel
+      // sprengt. Im menschlichen Lauf über 66 Wellen stand der Regler ab
+      // Welle 26 am oberen Anschlag und die Wellen kosteten trotzdem nichts,
+      // weil die Template-Obergrenze band
+      // (docs/DRAMA_CONTROLLER_PLAN.md, Abschnitt 10).
+      const wave = async () => {
+        const c = await director.getNextWave();
+        return { count: c.totalCount, hp: c.enemies[0]?.healthMultiplier ?? 1 };
+      };
+
+      // Eine Abwehr, gegen die kein Deckel bindet.
+      const fast = collector.snapshot.defense;
+      fast.totalDPS = 100_000;
+      fast.killThroughput = { ground: 500, air: 500 };
+      const huge = { unarmored: 50_000, light: 50_000, heavy: 50_000, fortified: 50_000, ethereal: 50_000 };
+      fast.gateDpsPerArmor = { ground: huge, air: huge } as typeof fast.gateDpsPerArmor;
+
+      let baseCount = 0;
+      let baseHp = 0;
+      for (let i = 0; i < 10; i++) {
+        const w = await wave();
+        baseCount = Math.max(baseCount, w.count);
+        baseHp = Math.max(baseHp, w.hp);
+      }
+
+      director.resetForNewGame();
+      feed(waveResult(0), 40);                               // starve the gate
+      expect(director.pressure.pressureMultiplier).toBeGreaterThan(2);
+
+      let openCount = 0;
+      let openHp = 0;
+      for (let i = 0; i < 10; i++) {
+        const w = await wave();
+        openCount = Math.max(openCount, w.count);
+        openHp = Math.max(openHp, w.hp);
+      }
+      expect(openCount).toBeGreaterThan(baseCount);
+      expect(openHp).toBeGreaterThan(baseHp);
+      expect(openCount).toBeLessThanOrEqual(5000);           // COUNT_OVERRIDE_MAX
     });
 
     it('produces a shippable wave with no history at all', async () => {
