@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { buildWaveConfig, type PressureReading } from './wave-config-builder';
 import { buildWaveContext } from './wave-context';
-import { MAX_WAVE_DURATION_MS, TEMPLATES } from './templates';
+import { MAX_WAVE_DURATION_MS, TEMPLATES } from '../../templates';
 import { PressureController } from './pressure-controller';
-import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
+import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { DirectorDecision, DirectorFactors } from './director-rules';
 
 /**

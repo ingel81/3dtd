@@ -1,17 +1,13 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 
-import {
-  explainWaveDecision,
-  formatExplanation,
-  type WaveDecisionTrace,
-  type WaveSizing,
-} from './decision-explainer';
-import { TEMPLATES, type CandidateReason } from './templates';
+import { explainWaveDecision, type WaveDecisionTrace } from './decision-explainer';
+import { formatExplanation, type WaveSizing } from '../../wave-explanation';
+import { TEMPLATES, type CandidateReason } from '../../templates';
 import type { PressureStatus } from './pressure-controller';
-import { WaveDirector } from './wave-director';
-import { StateSnapshotService } from './state-snapshot.service';
-import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
+import { WaveDirector } from '../../wave-director';
+import { StateSnapshotService } from '../../state-snapshot.service';
+import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
 
 const idx = (id: string) => TEMPLATES.findIndex((t) => t.id === id);
 
@@ -189,6 +185,9 @@ describe('explanations from the wave director', () => {
     director = runInInjectionContext(injector, () => new WaveDirector());
   });
 
+  /** The wave after the snapshot's counter, as the facade asks for it. */
+  const plan = () => director.getNextWave(snapshot.waveNumber + 1);
+
   /** Enough defense for a finite gate, but no anti-air. */
   function groundDefense(waveNumber: number): void {
     snapshot.waveNumber = waveNumber;
@@ -201,8 +200,8 @@ describe('explanations from the wave director', () => {
 
   it('explains the wave being planned, not the one that just finished', async () => {
     snapshot.waveNumber = 6;                                  // wave 6 done, planning 7
-    const { explanation, totalCount } = await director.getNextWave();
-    expect(explanation?.summary).toMatch(new RegExp(`^Wave 7: Bat Swarm · ${totalCount} enemies · HP ×`));
+    const { explanation, config } = await plan();
+    expect(explanation?.summary).toMatch(new RegExp(`^Wave 7: Bat Swarm · ${config.totalCount} enemies · HP ×`));
     expect(explanation?.reasons.slice(0, 2)).toEqual([
       'Campaign: wave 7 is always Bat Swarm (waves 1-30 are fixed).',
       'Pinned although the defense has no anti-air.',
@@ -212,7 +211,7 @@ describe('explanations from the wave director', () => {
 
   it('names the stalest pick and the templates held back past the campaign', async () => {
     groundDefense(40);                                        // planning 41, not a boss wave
-    const { explanation } = await director.getNextWave();
+    const { explanation } = await plan();
     const heldBack = TEMPLATES.filter((t) => !t.bossOnly && t.requires === 'antiAir' && t.minWave <= 41)
       .map((t) => t.name);
     expect(explanation?.reasons.some((r) => r.startsWith('Oldest of '))).toBe(true);
@@ -221,8 +220,11 @@ describe('explanations from the wave director', () => {
   });
 
   it('marks a boss wave and scopes the held-back list to boss templates', async () => {
-    groundDefense(44);                                        // planning 45
-    const { explanation } = await director.getNextWave();
+    // W40, not W45: the rotation gives W45 to the ooze, and a variant wave
+    // carries its own explanation instead of the template reasoning
+    // (AdaptiveWaveSource applies the substitution while planning).
+    groundDefense(39);                                        // planning 40
+    const { explanation } = await plan();
     expect(explanation?.reasons[0]).toBe('Boss wave (every 5 waves after wave 30): boss templates only.');
     expect(explanation?.reasons).toContain('Held back, no anti-air: Boss: Dragon Flight.');
   });
@@ -230,7 +232,7 @@ describe('explanations from the wave director', () => {
   it('prints the same text to the console in debug mode', async () => {
     const log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     director.setDebugMode(true);
-    const { explanation } = await director.getNextWave();
+    const { explanation } = await plan();
     expect(log).toHaveBeenCalledWith(`[AI] Why this wave:\n${formatExplanation(explanation!)}`);
     log.mockRestore();
   });

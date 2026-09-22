@@ -7,19 +7,13 @@
  * the ranges and the survivability cap all describe the same wave.
  */
 
-import {
-  TEMPLATES,
-  candidateTemplates,
-  survivableCount,
-  type NumberRange,
-  type Template,
-  type CandidateReason,
-} from './templates';
-import { templateForWave, isBossWave, enemyBaseDamageForWave } from '../configs/campaign.config';
+import { TEMPLATES, candidateTemplates, type NumberRange, type Template, type CandidateReason } from '../../templates';
+import { survivableCount } from './wave-sizing';
+import { templateForWave, isBossWave, enemyBaseDamageForWave } from '../../../configs/campaign.config';
 import {
   ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
-} from '../configs/enemy-types.config';
-import { GameStateSnapshot } from './models/game-state-snapshot';
+} from '../../../configs/enemy-types.config';
+import { GameStateSnapshot } from '../../models/game-state-snapshot';
 
 export interface WaveContext {
   /** Template indices the director may pick this wave, ascending. */
@@ -97,12 +91,17 @@ export function deriveCapabilities(state: GameStateSnapshot): {
  *
  * `recentTemplateIndices` drives the reuse cooldown; pass the director's
  * history when available. It only affects free choice past the campaign.
+ *
+ * `wave` is the wave being planned. It defaults to `state.waveNumber + 1`,
+ * which is what every caller meant before the wave source contract made the
+ * planning moment configurable (docs/WAVE_SOURCE_PLAN.md, section 3).
  */
 export function buildWaveContext(
   state: GameStateSnapshot,
   recentTemplateIndices: readonly number[] = [],
+  wave = (state.waveNumber ?? 0) + 1,
 ): WaveContext {
-  const upcomingWave = (state.waveNumber ?? 0) + 1;
+  const upcomingWave = wave;
   const { hasAntiAir, hasAntiEthereal } = deriveCapabilities(state);
 
   const { indices: candidates, reason: candidateReason } = candidateTemplates(

@@ -12,17 +12,16 @@
  * and printed heuristics like "no anti-air -> sending flying enemies" or "player
  * is struggling, sending an easier wave (mercy)". The rule director does none
  * of that, so those lines described decisions nobody made.
+ *
+ * These are the adaptive source's sentences. The types they fill
+ * (`DecisionExplanation`, `WaveSizing`) are shared, because the store, the
+ * debug window and the run log read them whatever planned the wave; they live
+ * in `wave-explanation.ts`.
  */
 
-import {
-  TEMPLATES,
-  TEMPLATE_COOLDOWN_WAVES,
-  DPS_RAMP_COUNT,
-  MAX_WAVE_DURATION_MS,
-  type NumberRange,
-  type TemplateCapability,
-  type CandidateReason,
-} from './templates';
+import { TEMPLATES, TEMPLATE_COOLDOWN_WAVES, MAX_WAVE_DURATION_MS, type TemplateCapability, type CandidateReason } from '../../templates';
+import { DPS_RAMP_COUNT } from './wave-sizing';
+import type { DecisionExplanation, WaveSizing } from '../../wave-explanation';
 import { RAMP_FULL_WAVE, type DirectorReason } from './director-rules';
 import {
   PRESSURE_MIN_SAMPLES,
@@ -33,7 +32,7 @@ import {
 import {
   CAMPAIGN_LENGTH,
   BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,
-} from '../configs/campaign.config';
+} from '../../../configs/campaign.config';
 
 /**
  * Hat der Überlebbarkeits-Deckel die Wellengröße bestimmt?
@@ -49,25 +48,6 @@ export function capIsBinding(sizing: WaveSizing): boolean {
   return sizing.cap !== null && sizing.cap < sizing.dpsScaledMax;
 }
 
-/** How the shared path sized the wave, as recorded by `buildWaveConfig`. */
-export interface WaveSizing {
-  /** The template's designer count range. */
-  countRange: NumberRange;
-  /** Upper end of the count range after the DPS ramp. */
-  dpsScaledMax: number;
-  totalDps: number;
-  /** Survivability cap at the shipped spawn delay; null means no finite cap. */
-  cap: number | null;
-  countFactor: number;
-  count: number;
-  hpMult: number;
-  /** Endgame share of `hpMult` (1 through wave 20). */
-  endgameHpMult: number;
-  spawnDelay: number;
-  /** The wave-duration cap compressed the spawn delay. */
-  durationCapped: boolean;
-}
-
 /** Everything the explainer is allowed to talk about. */
 export interface WaveDecisionTrace {
   /** The wave being planned, not the one just finished. */
@@ -77,25 +57,6 @@ export interface WaveDecisionTrace {
   director: DirectorReason;
   pressure: PressureStatus;
   sizing: WaveSizing;
-}
-
-export interface DecisionExplanation {
-  /** One line: wave, template, size, HP. */
-  summary: string;
-  /** Short sentences, template choice first, then size. */
-  reasons: string[];
-  /**
-   * The numbers the sentences were written from.
-   *
-   * The run log needs the survivability cap as a number, not as the sentence
-   * "Survivability cap holds the count at 5": how often the cap binds is the
-   * figure the tuning rounds are judged by, and prose cannot be counted
-   * (docs/BALANCING_PLAN.md, Baseline).
-   *
-   * Optional: an explanation written by hand, as a boss rotation or a test
-   * does, has sentences but no numbers behind them.
-   */
-  sizing?: WaveSizing;
 }
 
 const CAPABILITY_LABEL: Record<NonNullable<TemplateCapability>, string> = {
@@ -110,11 +71,6 @@ export function explainWaveDecision(trace: WaveDecisionTrace): DecisionExplanati
     reasons: [...templateReasons(trace), ...sizeReasons(trace)],
     sizing,
   };
-}
-
-/** Plain text for the debug-mode console, same wording as the debug window. */
-export function formatExplanation(explanation: DecisionExplanation): string {
-  return [explanation.summary, ...explanation.reasons.map((r) => `  - ${r}`)].join('\n');
 }
 
 function templateReasons({ wave, templateName, candidates, director }: WaveDecisionTrace): string[] {

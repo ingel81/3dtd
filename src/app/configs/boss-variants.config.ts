@@ -10,7 +10,7 @@
  */
 
 import type { WaveConfig as DirectorWave } from '../director/models/wave-config';
-import type { WaveSizing } from '../director/decision-explainer';
+import type { WaveSizing } from '../director/wave-explanation';
 import type { EnemyTypeId } from './enemy-types.config';
 import {
   BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,

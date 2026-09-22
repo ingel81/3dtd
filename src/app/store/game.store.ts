@@ -3,7 +3,7 @@ import { GAME_BALANCE, closeCallHp } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { GamePhase } from './tower-defense.store.types';
-import type { DecisionExplanation } from '../director/decision-explainer';
+import type { DecisionExplanation } from '../director/wave-explanation';
 import type { RunSummary } from '../run-log/run-summary';
 import {
   ABILITY_IDS,

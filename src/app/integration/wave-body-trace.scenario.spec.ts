@@ -8,13 +8,17 @@
  * and books every event by its id, so a body counted twice shows up as the
  * id it belongs to.
  *
- * What it pins down: an enemy that leaks is removed from the manager, but it
- * keeps its HP and with it `alive`. Every "is this target still valid" check
- * asks `alive` (Tower.findTarget's sticky fast path, Projectile.targetLost),
- * so a tower that holds it or a shot already in the air still reaches it.
- * The hit that takes its last HP then runs the full kill path on a body that
- * has left the game: a second `enemy:died` for it, and a second decrement of
- * `aliveCount`.
+ * What it pinned down: an enemy that leaks is removed from the manager, but
+ * it keeps its HP. While `alive` read the HP alone, every "is this target
+ * still valid" check (Tower.findTarget's sticky fast path,
+ * Projectile.targetLost) still said yes, so a tower that held it kept firing
+ * at the empty spot at the HQ, and the hit that took its last HP ran the full
+ * kill path on a body that had left the game: a second `enemy:died` for it,
+ * and a second decrement of `aliveCount`.
+ *
+ * `Enemy.alive` now also asks whether the enemy is still in the world, so a
+ * leaked body is nobody's target any more. `kill()` keeps its own guard
+ * against what the manager no longer holds.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -99,7 +103,7 @@ describe('the bodies of a wave, traced per id', () => {
     vi.restoreAllMocks();
   });
 
-  it('leaves a leaked enemy reachable for a tower that holds it', () => {
+  it('takes a leaked enemy off the tower that held it', () => {
     // The last stretch of the route, so the tower at the HQ has it in range
     const enemy = m.enemyManager.spawn(TEST_PATH.slice(9), 'zombie', 40, false);
     const tower = new Tower(TOWER_AT_BASE, 'archer');
@@ -112,10 +116,11 @@ describe('the bodies of a wave, traced per id', () => {
     // It is out of the game: removed from the manager and booked as a leak
     expect(m.enemyManager.getById(enemy.id)).toBeNull();
     expect(bodyOf(enemy.id).leaked).toBe(1);
-    // ... but it kept its HP, so `alive` still says yes and the sticky fast
-    // path of findTarget hands it back although no list holds it any more
-    expect(enemy.alive).toBe(true);
-    expect(tower.findTarget([], false)).toBe(enemy);
+    // It kept its HP — a leak is no kill — but it left the world, so `alive`
+    // says no and the sticky fast path of findTarget lets it go
+    expect(enemy.health.isDead).toBe(false);
+    expect(enemy.alive).toBe(false);
+    expect(tower.findTarget([], false)).toBeNull();
   });
 
   it('books a leaked body once, even when a tower shot still takes its HP', () => {

@@ -51,7 +51,8 @@ import { GlobalRouteGridService } from '../services/world/global-route-grid.serv
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
 import { analyzeDefense } from '../director/defense-analyzer';
-import { FAIRNESS_MIN_COUNT, survivableCount, TEMPLATES } from '../director/templates';
+import { TEMPLATES } from '../director/templates';
+import { FAIRNESS_MIN_COUNT, survivableCount } from '../director/sources/adaptive/wave-sizing';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import { LOS_VIZ_CONFIG, losCubeFarDistance } from '../configs/los-viz.config';

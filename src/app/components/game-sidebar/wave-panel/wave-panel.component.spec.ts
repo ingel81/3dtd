@@ -23,6 +23,8 @@ import { DebugFacadeService } from '../../../services/debug/debug-facade.service
 import { ReplayService } from '../../../services/replay.service';
 import { Tower } from '../../../entities/tower.entity';
 import { calculateTotalDPS } from '../../../director/defense-analyzer';
+import { WaveDirector } from '../../../director/wave-director';
+import { waveDirectorStub } from '../../../director/wave-director.stub';
 
 /**
  * The tower DPS the NEXT timeline sizes the coming waves by (towerDps). The
@@ -44,6 +46,7 @@ function setup() {
   const injector = Injector.create({
     providers: [
       { provide: TowerDefenseStore, useValue: store },
+      { provide: WaveDirector, useValue: waveDirectorStub() },
       { provide: UIStore, useValue: { autoStartWaves: signal(false) } },
       { provide: ResearchStore, useValue: { completedResearches: signal(new Set()), airTargetingUnlocked: signal(false) } },
       { provide: GameStateManager, useValue: { towerManager: { getAll: () => towers } } },

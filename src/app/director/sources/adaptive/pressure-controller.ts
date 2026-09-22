@@ -46,7 +46,7 @@
  * gegen Wellen, die für eine längst abgebaute Verteidigung bemessen waren.
  */
 
-import { directorParams } from './director-params';
+import { directorParams } from '../../director-params';
 
 /**
  * Wellen, die der Regler gar nicht erst ansieht.

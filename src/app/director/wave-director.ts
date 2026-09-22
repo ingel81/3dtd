@@ -1,43 +1,55 @@
 /**
- * Wave Director Service — template-based wave generation.
+ * Wave Director Service — the one door to whichever wave source a run plays.
  *
- * Decides the next wave and decodes that decision into a WaveConfig. The
- * decision comes from the rule director: it needs no model, no network and no
- * runtime, so there is no startup window in which the service cannot produce
- * a wave.
+ * It decides nothing about waves itself. It picks the source for the run
+ * (`configs/director.config.ts`, or the debug window's choice), holds the wave
+ * that source has committed, hands it finished waves, and clears it between
+ * runs. Everything about which wave comes next and how big it is lives in
+ * `sources/` (docs/WAVE_SOURCE_PLAN.md).
  *
- * Why rules and nothing else: measured across a day of A/B runs sharing the
- * same bots, campaign and fairness gate, a trained policy was three times
- * statistically indistinguishable from uniform random sampling, so the ONNX
- * path was removed with the rest of the training stack (BALANCING_PLAN.md,
- * Phase 1a). See `rule-director.ts` for the numbers.
- *
- * The decision is turned into a wave by `buildWaveConfig`
- * (wave-config-builder.ts).
+ * The measuring side is deliberately outside: `StateSnapshotService`, the
+ * defense analysis and the run log are the same whatever plans the waves,
+ * which is the only reason two sources are comparable at all.
  */
 
 import { Injectable, inject, signal } from '@angular/core';
 import { StateSnapshotService } from './state-snapshot.service';
-import { GameStateSnapshot } from './models/game-state-snapshot';
 import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
-import { capIsBinding, formatExplanation } from './decision-explainer';
-import type { CandidateReason } from './templates';
-import { buildWaveContext } from './wave-context';
-import { decideWave, type DirectorDecision, type TieBreak } from './director-rules';
-import { PressureController, wavePressure } from './pressure-controller';
-import { buildWaveConfig } from './wave-config-builder';
-
-/** Templates the cooldown remembers. */
-const TEMPLATE_HISTORY = 5;
+import { formatExplanation } from './wave-explanation';
+import { createWaveSource } from './wave-source.registry';
+import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
+import type {
+  PlannedWave,
+  WavePeekFacts,
+  WavePeekRequest,
+  WaveSource,
+  WaveSourceId,
+} from './wave-source';
 
 @Injectable() // Provided in TowerDefenseComponent alongside GameStateManager
 export class WaveDirector {
   private stateSnapshots = inject(StateSnapshotService);
 
-  // === STATE ===
-  /** Phase 5.10: template cooldown tracking (last TEMPLATE_HISTORY template indices) */
-  private recentTemplateIndices: number[] = [];
+  /** The source of the current run. Swapped only by `resetForNewGame`. */
+  private activeSource: WaveSource = createWaveSource(DEFAULT_WAVE_SOURCE);
+
+  /**
+   * Which source the NEXT run plays. The debug window writes it; a running
+   * game keeps the one it started with.
+   */
+  private nextSourceId: WaveSourceId = DEFAULT_WAVE_SOURCE;
+
+  /** The wave the source has committed, or null before the first one. */
+  private plannedWave: PlannedWave | null = null;
+
+  /**
+   * Where the director stream comes from, asked for per plan rather than held.
+   *
+   * `GameRng.reset()` throws its streams away, so a cached function would keep
+   * drawing from the previous run's sequence.
+   */
+  private randomSource: () => () => number = () => Math.random;
 
   // === SIGNALS ===
   readonly lastDecision = signal<WaveConfig | null>(null);
@@ -46,148 +58,158 @@ export class WaveDirector {
   // === DEBUG MODE ===
   private debugMode = signal(false);
 
-
-  readonly pressure = new PressureController();
-
-  /**
-   * Hat der Deckel die zuletzt geplante Welle begrenzt?
-   *
-   * Der Regler bekommt es beim Abschluss dieser Welle als Anti-Windup. Es
-   * gehört hierher und nicht in den Regler, weil nur der Planungspfad weiß,
-   * was die Größe der Welle am Ende entschieden hat.
-   */
-  private lastCapBinding = true;
-
   constructor() {
-    // Subscribe the fairness gate to completed waves.
+    // Subscribe the source to completed waves.
     //
-    // This wiring is the whole point of the controller and it was missing on
-    // first write: `onWaveCompleted` had no caller anywhere in the project, so
-    // the multiplier stayed at 1.0 forever and the cap sat back on "exactly
-    // what the towers can kill" — the 70%-killed-everything state the loop
-    // exists to break. Every unit test passed regardless, because they all
-    // exercised the controller in isolation.
+    // This wiring is the whole point of an adaptive source and it was missing
+    // on first write: `onWaveCompleted` had no caller anywhere in the project,
+    // so the pressure multiplier stayed at 1.0 forever and the cap sat back on
+    // "exactly what the towers can kill" — the 70%-killed-everything state the
+    // loop exists to break. Every unit test passed regardless, because they
+    // all exercised the controller in isolation. `pressure-wiring.spec.ts`
+    // exists against exactly that.
     //
-    // The collector's hook is used rather than the `wave:completed` event: that
-    // event is not emitted when the base falls, so the death back-off would
-    // have been unreachable.
+    // The collector's hook is used rather than the `wave:completed` event:
+    // that event is not emitted when the base falls, so a source would never
+    // hear about the wave that ended the run.
     this.stateSnapshots.onWaveResult((result) => this.onWaveCompleted(result));
   }
 
+  /** The source of the current run. Read-only from outside. */
+  get source(): WaveSource {
+    return this.activeSource;
+  }
+
+  /** The committed wave, for the preview and the debug window. */
+  get committed(): PlannedWave | null {
+    return this.plannedWave;
+  }
+
   /**
-   * Get next wave configuration
-   *
-   * This is the main entry point for wave generation. `random` is the run's
-   * director stream (GameRng): the factor jitter and the tie-break between
-   * equally stale templates draw from it, so the same seed plans the same
-   * waves as long as the run takes the same course.
+   * Where to get the run's `director` stream. Called once by the facade; the
+   * getter is called again for every plan so a reset is picked up.
    */
-  async getNextWave(random: () => number = Math.random): Promise<WaveConfig> {
+  useRandomSource(random: () => () => number): void {
+    this.randomSource = random;
+  }
+
+  /** What the next run will play. `resetForNewGame` puts it into service. */
+  useSourceNextRun(id: WaveSourceId): void {
+    this.nextSourceId = id;
+  }
+
+  /** What the next run will play, for the debug window's own display. */
+  get sourceNextRun(): WaveSourceId {
+    return this.nextSourceId;
+  }
+
+  /**
+   * The plan for `wave`, planning it if it is not the committed one.
+   *
+   * Idempotent, which is what makes the planning moment a property of the
+   * source rather than a second code path: a source that commits at the end of
+   * the previous wave finds its plan here and returns it, one that decides on
+   * the button plans here. It also covers the dev jump — a committed wave for
+   * another number is thrown away and replanned.
+   *
+   * `plannedWave` is written only after a successful plan, so a source that
+   * throws leaves the previous commitment standing instead of a half state.
+   */
+  ensurePlanned(wave: number): PlannedWave {
+    const committed = this.plannedWave;
+    if (committed && committed.wave === wave) return committed;
+
+    const planned = this.activeSource.plan({
+      wave,
+      state: this.stateSnapshots.getStateSnapshot(),
+      random: this.randomSource(),
+    });
+    this.plannedWave = planned;
+    return planned;
+  }
+
+  /**
+   * The wave to start now.
+   *
+   * Stays `async` although nothing in here is: the facade's retry path
+   * (`MAX_AI_RETRY`, `directorError`) hangs off the rejected promise, and
+   * unwinding that belongs to its own change (WAVE_SOURCE_PLAN.md, R5).
+   */
+  async getNextWave(wave: number): Promise<PlannedWave> {
     const startTime = performance.now();
+    const planned = this.ensurePlanned(wave);
 
-    const state = this.stateSnapshots.getStateSnapshot();
-    const config = this.plan(state, random);
-
-    this.lastDecision.set(config);
-    this.stateSnapshots.setCurrentWaveConfig(config);
+    this.lastDecision.set(planned.config);
+    this.stateSnapshots.setCurrentWaveConfig(planned.config);
     this.decisionTimeMs.set(performance.now() - startTime);
 
     if (this.debugMode()) {
-      console.log('[AI] Wave decision:', config);
-      if (config.explanation) {
-        console.log(`[AI] Why this wave:\n${formatExplanation(config.explanation)}`);
+      console.log('[AI] Wave decision:', planned.config);
+      if (planned.explanation) {
+        console.log(`[AI] Why this wave:\n${formatExplanation(planned.explanation)}`);
       }
     }
 
-    return config;
+    return planned;
+  }
+
+  /** NEXT in the wave panel: what the source says about the coming waves. */
+  peek(request: WavePeekRequest): WavePeekFacts[] {
+    return this.activeSource.peek(request);
   }
 
   /**
-   * Rule-based decision.
-   *
-   * The fairness cap is corrected by the gate controller, which is the piece
-   * that was previously server-only. Without it the cap sits on "exactly what
-   * the towers can kill" and therefore guarantees they kill it: measured over
-   * 1834 waves, 70% of waves killed everything and 80% dealt no damage at all.
-   */
-  private plan(state: GameStateSnapshot, random: () => number): WaveConfig {
-    const context = buildWaveContext(state, this.recentTemplateIndices);
-    const decision = decideWave(
-      context.candidates,
-      state.waveNumber + 1,
-      this.recentTemplateIndices,
-      random,
-      this.tieBreak(context.headroomByTemplate),
-    );
-    return this.ship(decision, state, context.candidateReason);
-  }
-
-  /**
-   * Der dritte Griff des Druck-Reglers: die Wahl unter gleich alten
-   * Templates.
-   *
-   * Deckel und Anzahl-Faktor stellen ein, *wie groß* eine Welle wird. Was sie
-   * nicht können, ist die Streuung: Ein Template, das zur Abwehr passt,
-   * kostet auch groß nichts, und eines, das nicht passt, kostet auch klein
-   * viel. Genau daraus entsteht die tote Strecke — der Regler trifft den
-   * Erwartungswert und der Verlauf bleibt zackig
-   * (docs/DRAMA_CONTROLLER_PLAN.md, Runde 12).
-   *
-   * Steht der Regler auf "zu leicht", bekommt der Spieler unter den gleich
-   * alten Kandidaten den, gegen den seine Abwehr am schlechtesten steht, und
-   * umgekehrt. Hält er, bleibt es beim Zufall: Im Zielzustand soll nichts
-   * nachgeholfen werden.
-   */
-  private tieBreak(headroom: ReadonlyMap<number, number>): TieBreak | null {
-    const step = this.pressure.status.lastStep;
-    if (step === 'opened') return { prefer: 'harder', headroom };
-    if (step === 'closed') return { prefer: 'easier', headroom };
-    return null;
-  }
-
-  /** The wave a decision describes; its template goes into the cooldown history. */
-  private ship(decision: DirectorDecision, state: GameStateSnapshot, candidateReason: CandidateReason): WaveConfig {
-    const config = buildWaveConfig(decision, state, candidateReason, this.pressure);
-    const sizing = config.explanation?.sizing;
-    this.lastCapBinding = sizing ? capIsBinding(sizing) : true;
-    this.recentTemplateIndices.push(config.templateIdx);
-    if (this.recentTemplateIndices.length > TEMPLATE_HISTORY) {
-      this.recentTemplateIndices.shift();
-    }
-    return config;
-  }
-
-  /**
-   * Called after wave completes
+   * A wave finished: the source hears about it, and one that commits early
+   * plans the next wave right away, so the preview can name it.
    */
   onWaveCompleted(result: WaveResult): void {
-    // Feed the fairness gate. This is the loop that sizes the next wave, so it
-    // has to see every completed wave — not just the ones a debug flag prints.
-    // null, not 0: a wave that carries no HP reading is no evidence either way.
-    const pressure = wavePressure(
-      result.outcome.damageToPlayer ?? 0,
-      result.outcome.healthAtWaveStart ?? 0,
-      result.outcome.enemiesSpawned ?? 0,
-    );
-    this.pressure.recordWave(pressure, result.waveNumber, this.lastCapBinding);
+    this.activeSource.onWaveResult(result);
 
     if (this.debugMode()) {
       console.log('[AI] Wave result:', result);
-      console.log('[AI] Pressure:', pressure, 'mult x', this.pressure.pressureMultiplier);
+    }
+
+    if (this.activeSource.plansAt === 'wave-end') {
+      this.planAhead(result.waveNumber + 1);
     }
   }
 
   /**
-   * Clear per-run state. Must be called when a new game starts: the gate
-   * multiplier is a per-RUN correction, and letting it survive into the next
-   * game made it a ratchet that opened fresh runs against waves sized for a
-   * defense that had already been dismantled. Median run length under that bug
-   * was 6 waves against a target of 80.
+   * Clear per-run state and put the chosen source into service.
+   *
+   * Must be called when a new game starts: an adaptive source's correction is
+   * a per-RUN figure, and letting it survive into the next game made it a
+   * ratchet that opened fresh runs against waves sized for a defense that had
+   * already been dismantled. Median run length under that bug was 6 waves
+   * against a target of 80.
    */
   resetForNewGame(): void {
-    this.pressure.reset();
-    this.lastCapBinding = true;
-    this.recentTemplateIndices = [];
+    if (this.nextSourceId !== this.activeSource.id) {
+      this.activeSource = createWaveSource(this.nextSourceId);
+    } else {
+      this.activeSource.reset();
+    }
+    this.plannedWave = null;
+    this.lastDecision.set(null);
+
+    if (this.activeSource.plansAt === 'wave-end') {
+      this.planAhead(1);
+    }
+  }
+
+  /**
+   * Commit a wave ahead of its start, for a source that wants it.
+   *
+   * Swallowing the failure is deliberate: nothing is waiting for this wave
+   * yet, and the same plan runs again through `ensurePlanned` when the wave
+   * actually starts, where the facade's error path is listening.
+   */
+  private planAhead(wave: number): void {
+    try {
+      this.ensurePlanned(wave);
+    } catch (error) {
+      console.error('[AI] Could not plan ahead for wave', wave, error);
+    }
   }
 
   // === PUBLIC API ===

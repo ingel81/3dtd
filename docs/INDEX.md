@@ -63,7 +63,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
-| **[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)** | **Aktuell** | **Einstiegspunkt:** Regel-Director, Kandidaten, Leck-Regler, Überlebbarkeits-Deckel, Begründung im Debug-Fenster |
+| **[WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** der Vertrag der Wellenquellen, Ordnerschnitt, Umschalten, die Wellenliste, Contract-Spec |
+| **[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)** | **Aktuell** | Der adaptive Source: Kandidaten, Druck-Regler, Überlebbarkeits-Deckel, Begründung im Debug-Fenster |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Spieler in Bot-Läufen |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
 

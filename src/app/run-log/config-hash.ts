@@ -21,6 +21,8 @@ import { ABILITIES } from '../configs/abilities.config';
 import { HERO } from '../configs/hero.config';
 import { BOSS_VARIANTS } from '../configs/boss-variants.config';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
+import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
+import type { WaveSourceId } from '../director/wave-source';
 
 /**
  * `JSON.stringify` with the keys of every object sorted, so a reordering in
@@ -52,15 +54,30 @@ function balanceParts(): unknown[] {
   ];
 }
 
-let cached: string | null = null;
+const cached = new Map<WaveSourceId, string>();
 
-/** The hash of the current balance. Computed once, the configs are constants. */
-export function balanceConfigHash(): string {
-  cached ??= fnv1a(balanceParts().map(stable).join('|'));
-  return cached;
+/**
+ * The hash of the current balance, for the run that plays `waveSource`.
+ *
+ * Two runs whose waves come from different sources must never land in the
+ * same average, so the source goes into the hash. Only a source other than
+ * the default does: the hashes of every run measured so far belong to the
+ * adaptive one, and moving them would throw that comparability away for a
+ * change that changed no balance (docs/WAVE_SOURCE_PLAN.md, section 8).
+ *
+ * Computed once per source; the configs are constants.
+ */
+export function balanceConfigHash(waveSource: WaveSourceId = DEFAULT_WAVE_SOURCE): string {
+  const known = cached.get(waveSource);
+  if (known) return known;
+  const parts = balanceParts();
+  if (waveSource !== DEFAULT_WAVE_SOURCE) parts.push(waveSource);
+  const hash = fnv1a(parts.map(stable).join('|'));
+  cached.set(waveSource, hash);
+  return hash;
 }
 
-/** Only for specs: forget the cached hash. */
+/** Only for specs: forget the cached hashes. */
 export function resetBalanceConfigHash(): void {
-  cached = null;
+  cached.clear();
 }

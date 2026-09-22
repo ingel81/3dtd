@@ -41,7 +41,7 @@
  */
 export const RAMP_FULL_WAVE = 60;
 
-import { directorParams } from './director-params';
+import { directorParams } from '../../director-params';
 
 /** Spread applied to each factor so successive waves are not identical. */
 const JITTER = 0.12;

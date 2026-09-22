@@ -20,10 +20,11 @@ npm run lint
 - **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
 - **Signal Store** - 6 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research, Debug)
 - Kein Backend im Spiel-Client - komplett clientseitig (`bot-server/` nur für Bot-Läufe)
-- **Wave-Director ist regelbasiert** (`director/director-rules.ts` + `leak-controller.ts`) und
-  die einzige Wellenquelle; er läuft ohne Server und ohne Modell. Begründung in
-  [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), Umbau in
-  [BALANCING_PLAN.md](docs/BALANCING_PLAN.md)
+- **Wellenquellen sind austauschbar** (`director/wave-source.ts`, ein Unterordner je Variante unter
+  `director/sources/`, Standard in `configs/director.config.ts`). Der adaptive Source ist regelbasiert und
+  läuft ohne Server und ohne Modell, der Tabellen-Source spielt eine editierbare Liste. Rahmen in
+  [WAVE_SOURCE_PLAN.md](docs/WAVE_SOURCE_PLAN.md), der adaptive in
+  [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), Umbau in [BALANCING_PLAN.md](docs/BALANCING_PLAN.md)
 - Tile-Zugang: Cesium-Ion-Token (Standard) oder Google-Maps-Key. `ConfigService` liest ihn aus drei Quellen, die
   spätere gewinnt: `environment.ts` (Vorlage `environment.template.ts`), `public/runtime-config.json`, Token-Dialog
   (localStorage `3dtd-tile-credentials`)
@@ -39,7 +40,8 @@ src/app/
 ├── bots/                       # Bot System (Strategy Pattern), Bot-Session, WebSocket-Client
 │   ├── bots/                   # StrategyBot, Factory
 │   └── strategies/             # Placement, Upgrade, Wave, Research, Ability Strategies
-├── director/                   # Wave Director: Regeln, Kandidaten, Leck-Regler, Templates, Decision-Explainer
+├── director/                   # Wellenquellen: Vertrag (wave-source.ts), WaveDirector, Templates,
+│                               # Snapshot, Verteidigungsanalyse; sources/adaptive + sources/table
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic/ScreenShake Services (Three.js-coupled, Angular-frei)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio + Kampagne (campaign.config.ts)
@@ -95,7 +97,8 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Trainin
 | Schaden, Rüstung, Balance | [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) |
 | Route, Korridor, Zellen | [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) |
 | Sichtlinien der Tower | [LOS_PIPELINE.md](docs/LOS_PIPELINE.md) |
-| Wellen: Director, Deckel, Spawning | [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md) (Einstieg), [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) |
+| Wellen: Quellen, Vertrag, Wellenliste | [WAVE_SOURCE_PLAN.md](docs/WAVE_SOURCE_PLAN.md) (Einstieg) |
+| Wellen: Regeln, Deckel, Spawning | [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) |
 | Daten eines Laufs, Export | [RUN_LOG.md](docs/RUN_LOG.md) |
 | Offene Nachtests im Spiel | [PLAYTEST.md](docs/PLAYTEST.md) |
 | Offene Arbeit und Entscheidungen, Changelog | [TODO.md](TODO.md), [DONE.md](DONE.md) |

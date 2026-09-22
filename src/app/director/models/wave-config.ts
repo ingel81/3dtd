@@ -8,7 +8,7 @@
  * (see src/app/director/templates.ts).
  */
 
-import type { DecisionExplanation } from '../decision-explainer';
+import type { DecisionExplanation } from '../wave-explanation';
 
 export type { SpawnPattern } from '../spawn-schedule-builder';
 

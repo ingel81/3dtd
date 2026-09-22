@@ -22,6 +22,8 @@ import { SoundDebugService } from '../debug/sound-debug.service';
 import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { WaveDirector } from '../../director/wave-director';
+import { waveDirectorStub } from '../../director/wave-director.stub';
+import { bossVariantForWave, bossVariantWave } from '../../configs/boss-variants.config';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -59,9 +61,10 @@ const DIRECTED: WaveConfig = {
  * Playtest 357, 365, 379 and 380 (docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed after the dev jump: the `wave:jumped` event GameStateManager
  * sends (game-state.manager.spec.ts) goes through the real
- * GameStateSyncService into the store, the real GameLoopFacadeService starts
- * the next wave from it with the director (a stub that plans a boss wave) and
- * the boss rotation. The wave button reads the store as the WAVE panel does.
+ * GameStateSyncService into the store, and the real GameLoopFacadeService
+ * starts the next wave from it. The director is a stub that plans a boss wave
+ * and applies the boss rotation to it, as the adaptive source does. The wave
+ * button reads the store as the WAVE panel does.
  */
 describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () => {
   let bus: GameEventBus;
@@ -79,7 +82,18 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     waveEnemyTotal: signal(0),
     waveEnemiesLeft: signal(0),
   };
-  const director = { getNextWave: vi.fn(async () => DIRECTED), pressure: { pressureMultiplier: 1, status: { target: null } } };
+  /**
+   * Stands in for the adaptive source: it plans `DIRECTED` and applies the
+   * boss rotation to it, which is what the source does inside `plan()`. The
+   * facade must not do it, or the substitution would happen twice.
+   */
+  const director = waveDirectorStub({
+    getNextWave: vi.fn(async (wave: number) => {
+      const variant = bossVariantForWave(wave);
+      const config = variant ? bossVariantWave(variant, DIRECTED, wave) : DIRECTED;
+      return { wave, config, explanation: config.explanation ?? null, log: {} };
+    }),
+  });
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));

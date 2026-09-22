@@ -13,6 +13,7 @@
 
 import type { GameEventBus, SubscriptionBag, CreditsSource } from '../game-engine/game-event-bus';
 import type { Tower } from '../entities/tower.entity';
+import type { WaveSourceId } from '../director/wave-source';
 import {
   RUN_LOG_FORMAT,
   reconcileWave,
@@ -58,6 +59,8 @@ export interface RunLogContext {
   location?: { name: string; lat: number; lon: number };
   routeFingerprint?: string;
   directorParams?: string;
+  /** The wave source this run plays; the config hash follows it. */
+  waveSource?: WaveSourceId;
 }
 
 /** A tower's numbers when a wave started, to subtract at its end. */
@@ -152,7 +155,7 @@ export class RunLogCollector {
       startedAt: now.toISOString(),
       gameVersion: BUILD_VERSION,
       commit: buildCommit(),
-      configHash: balanceConfigHash(),
+      configHash: balanceConfigHash(context.waveSource),
       seed: context.seed,
       player: context.player,
       ...(context.botSkill ? { botSkill: context.botSkill } : {}),
@@ -160,6 +163,7 @@ export class RunLogCollector {
       ...(context.location ? { location: context.location } : {}),
       ...(context.routeFingerprint ? { routeFingerprint: context.routeFingerprint } : {}),
       ...(context.directorParams ? { directorParams: context.directorParams } : {}),
+      ...(context.waveSource ? { waveSource: context.waveSource } : {}),
     };
     this.records.push(this.head);
     this.event('run-opened', { id: context.map });
@@ -306,11 +310,15 @@ export class RunLogCollector {
 
   /** What the director decided for the wave that is about to run. */
   noteDirectorDecision(decision: {
+    /** Which wave source planned it, so a run is attributable to one. */
+    waveSource?: WaveSourceId;
     template?: string;
     reason?: string[];
     survivableCount?: number | null;
     pressureMultiplier?: number;
     targetPressure?: number;
+    /** Numbers only this source knows; stored as they come. */
+    diagnostics?: Readonly<Record<string, number | string | boolean | null>>;
     composition?: { type: string; count: number; hp: number }[];
   }): void {
     this.pendingDecision = decision;

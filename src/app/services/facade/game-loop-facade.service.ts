@@ -18,7 +18,6 @@ import { RunLogFacade } from '../../run-log/run-log.facade';
 import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { WaveConfig } from '../../managers/wave.manager';
-import { bossVariantForWave, bossVariantWave } from '../../configs/boss-variants.config';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -103,6 +102,9 @@ export class GameLoopFacadeService {
     this.bridge = bridge;
     this.gameState = gameState;
     this.initialized = true;
+    // Asked for per plan, not held: GameRng.reset() throws its streams away,
+    // so a cached function would draw from the previous run's sequence.
+    this.waveDirector.useRandomSource(() => gameState.rng.stream('director'));
   }
 
   /**
@@ -332,29 +334,26 @@ export class GameLoopFacadeService {
     this.pendingAIWaveRequest = true;
 
     try {
-      let aiConfig = await this.waveDirector.getNextWave(this.gameState.rng.stream('director'));
-      // Past the campaign some boss waves go to bosses that are no
-      // director template (boss-variants.config.ts).
-      const wave = this.store.waveNumber() + 1;
-      const variant = bossVariantForWave(wave);
-      if (variant) {
-        aiConfig = bossVariantWave(variant, aiConfig, wave);
-        this.stateSnapshots.setCurrentWaveConfig(aiConfig);
-      }
+      // The source owns everything about the wave, the boss variants of the
+      // rotation past the campaign included: "which wave comes next" is
+      // decided in one place (docs/WAVE_SOURCE_PLAN.md).
+      const planned = await this.waveDirector.getNextWave(this.store.waveNumber() + 1);
+      const aiConfig = planned.config;
 
-      this.store.waveExplanation.set(aiConfig.explanation ?? null);
-      // What the director decided, for the wave block of the run log
+      this.store.waveExplanation.set(planned.explanation);
+      // What the source decided, for the wave block of the run log. The three
+      // numbers come from the plan, so they belong to the wave that ships
+      // rather than to whatever the service happens to hold now.
       this.runLog.collector.noteDirectorDecision({
+        waveSource: this.waveDirector.source.id,
         template: aiConfig.templateName,
-        reason: aiConfig.explanation?.reasons,
-        survivableCount: aiConfig.explanation?.sizing?.cap ?? null,
-        pressureMultiplier: this.waveDirector.pressure.pressureMultiplier,
-        targetPressure: this.waveDirector.pressure.status.target ?? undefined,
+        reason: planned.explanation?.reasons,
         composition: aiConfig.enemies.map((group) => ({
           type: group.type,
           count: group.count,
           hp: group.healthMultiplier ?? 1,
         })),
+        ...planned.log,
       });
       const waveConfig = adaptDirectorWave(aiConfig, this.gameState.rng.stream('spawn'));
 

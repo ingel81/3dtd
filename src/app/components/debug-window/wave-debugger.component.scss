@@ -6,6 +6,28 @@
   min-width: 340px;
 }
 
+/* Wave source */
+.source {
+  margin-bottom: 8px;
+}
+
+.source-row select {
+  width: 100%;
+  font-family: inherit;
+  font-size: inherit;
+  color: var(--td-text-primary);
+  background: var(--td-panel-dark);
+  border: 1px solid var(--td-frame-mid);
+  border-radius: 3px;
+  padding: 3px 4px;
+}
+
+.source-note {
+  margin-top: 3px;
+  color: var(--td-text-muted);
+  line-height: 1.4;
+}
+
 /* Why this wave */
 .why {
   margin-bottom: 8px;

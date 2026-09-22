@@ -20,9 +20,28 @@ import {
   VulnerabilityAnalysis,
 } from './models/game-state-snapshot';
 import { computeTowerDPS, canTargetAirEffective, armorMultipliersFor } from './tower-dps.util';
-import { FAIRNESS_MATCHUP_FLOOR } from './templates';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import type { HeroDefenseProfile } from '../configs/hero.config';
+
+
+/**
+ * Lowest matchup factor the gate credits a tower with against ground
+ * unarmored, light, heavy and fortified enemies.
+ *
+ * The gate sizes a wave from armor-weighted DPS, so a bad matchup does not make
+ * a wave hard, it makes it small: gatlings against tanks simply got fewer tanks,
+ * and a wider damage matrix would have been absorbed by the gate almost
+ * entirely. With the floor a wrong roster is felt as leaks, and the leak
+ * controller answers with smaller waves afterwards. Since 2026-09-20 nothing
+ * caps what those leaks cost, so `survivableCount` is the only thing standing
+ * between a wrong roster and the end of the run. Ethereal and air keep the plain matrix: they
+ * are hard gates with their own capability check.
+ *
+ * Applied per tower here, in `gateDpsPerArmor`; the survivability cap of the
+ * adaptive source reads the result and knows nothing about the floor. It lives
+ * with the analyzer because the analyzer is the only code that applies it.
+ */
+export const FAIRNESS_MATCHUP_FLOOR = 0.6;
 
 /**
  * Tower capabilities mapping

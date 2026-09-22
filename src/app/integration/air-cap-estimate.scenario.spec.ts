@@ -48,7 +48,8 @@ import { GlobalRouteGridService } from '../services/world/global-route-grid.serv
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
 import { analyzeDefense } from '../director/defense-analyzer';
-import { survivableCount, TEMPLATES } from '../director/templates';
+import { TEMPLATES } from '../director/templates';
+import { survivableCount } from '../director/sources/adaptive/wave-sizing';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { Tower } from '../entities/tower.entity';

@@ -11,6 +11,9 @@ import { bossVariantForWave } from '../../configs/boss-variants.config';
 import { SpawnPattern } from '../../director/spawn-schedule-builder';
 import { TdIconComponent } from '../icon/icon.component';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { WaveDirector } from '../../director/wave-director';
+import { WAVE_SOURCES } from '../../director/wave-source.registry';
+import type { WaveSourceId } from '../../director/wave-source';
 
 const PATTERN_LABELS: Record<SpawnPattern, string> = {
   'interleaved': 'Interleaved',
@@ -52,8 +55,36 @@ export class WaveDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
   readonly waveDebug = inject(WaveDebugService);
   private readonly store = inject(TowerDefenseStore);
+  private readonly waveDirector = inject(WaveDirector);
   /** Director's reasons for the wave in play; null for waves it did not plan. */
   readonly explanation = this.store.waveExplanation;
+
+  // === Wave source (docs/WAVE_SOURCE_PLAN.md, section 7) ===
+
+  /** Every source the registry knows, with the name it shows under. */
+  readonly sourceOptions = (Object.keys(WAVE_SOURCES) as WaveSourceId[])
+    .map((id) => ({ id, name: WAVE_SOURCES[id]().name }));
+
+  /**
+   * The choice for the next run, as a signal so the select follows it.
+   *
+   * A run never changes its source halfway: its numbers would then belong to
+   * two different wave generators. `WaveDirector.resetForNewGame` puts the
+   * choice into service.
+   */
+  readonly sourceNextRun = signal<WaveSourceId>(this.waveDirector.sourceNextRun);
+  readonly activeSourceId = signal<WaveSourceId>(this.waveDirector.source.id);
+  readonly activeSourceName = signal<string>(this.waveDirector.source.name);
+
+  onSourceChange(event: Event): void {
+    const id = (event.target as HTMLSelectElement).value as WaveSourceId;
+    this.waveDirector.useSourceNextRun(id);
+    this.sourceNextRun.set(id);
+    // The active one only changes with the next run; re-read so the note is
+    // right after a restart that happened while the window was open.
+    this.activeSourceId.set(this.waveDirector.source.id);
+    this.activeSourceName.set(this.waveDirector.source.name);
+  }
 
   readonly eventBus = input<GameEventBus>();
 

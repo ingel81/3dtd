@@ -18,6 +18,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
 import { ResearchStore } from '../../../store/research.store';
+import { WaveDirector } from '../../../director/wave-director';
 import { GameStateManager } from '../../../managers/game-state.manager';
 import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
 import { toneWavDataUrl } from '../../../utils/alert-tone';
@@ -58,6 +59,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly store = inject(TowerDefenseStore);
   private readonly uiStore = inject(UIStore);
   private readonly researchStore = inject(ResearchStore);
+  private readonly waveDirector = inject(WaveDirector);
   private readonly gameState = inject(GameStateManager);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
@@ -161,7 +163,14 @@ export class SidebarWavePanelComponent implements AfterViewInit {
    * Blutmond-Wellen tragen den Mond, solange der Look an ist.
    */
   readonly upcomingWaves = computed(() =>
-    peekUpcomingWaves(this.store.waveNumber(), this.towerDps(), NEXT_WAVE_MARKS, this.vfx().bloodMoon)
+    peekUpcomingWaves(
+      this.waveDirector.peek({
+        fromWave: this.store.waveNumber() + 1,
+        count: NEXT_WAVE_MARKS,
+        defense: { totalDps: this.towerDps() },
+      }),
+      this.vfx().bloodMoon,
+    )
   );
 
   /**

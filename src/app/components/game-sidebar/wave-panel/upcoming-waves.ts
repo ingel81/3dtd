@@ -1,17 +1,21 @@
-import { dpsScaledCountMax, type Template } from '../../../director/templates';
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import type { ArmorType, DamageType } from '../../../configs/combat/combat.types';
 import { bestDamageTypesAgainst } from '../../../configs/combat/damage-matrix.config';
 import { EnemyTypeId, ENEMY_TYPES } from '../../../configs/enemy-types.config';
-import {
-  BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,
-  CAMPAIGN_LENGTH,
-  isBossWave,
-  templateObjectForWave,
-} from '../../../configs/campaign.config';
-import { bossVariantForWave, type BossVariant } from '../../../configs/boss-variants.config';
 import { BLOOD_MOON_INTERVAL, isBloodMoonWave } from '../../../configs/blood-moon.config';
+import type { WavePeekFacts } from '../../../director/wave-source';
 import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
+
+/**
+ * NEXT in the WAVE panel: the coming waves as the player reads them.
+ *
+ * The facts come from whichever wave source the run plays
+ * (`WaveDirector.peek`); this module only turns them into labels, icons and
+ * tooltips. It used to derive them itself from the templates and the campaign,
+ * which meant the panel knew how the adaptive director sizes a wave and could
+ * only say "unknown" past the campaign for waves another source knows exactly
+ * (docs/WAVE_SOURCE_PLAN.md, section 9).
+ */
 
 /** Tooltip sentence of a blood moon wave */
 export const BLOOD_MOON_NOTE =
@@ -28,12 +32,12 @@ export const NEXT_WAVE_MARKS = 5;
 export interface WavePeek {
   wave: number;
   name: string;
-  /** The campaign pins the template. Past it the director picks at wave start. */
+  /** The source knows this wave. Past the campaign the adaptive one does not. */
   known: boolean;
   boss: boolean;
-  /** "20–218": template minimum to the most the director sends at the given DPS; null when unknown */
+  /** "20–218": the count the wave can hold; null when the source does not know */
   count: string | null;
-  /** Armor types in the wave, in template order */
+  /** Armor types in the wave, in the order the wave sends them */
   armors: string[];
   /** The first armor and "+N" for the others: "Unarmored +2"; "" when unknown */
   armorLabel: string;
@@ -45,33 +49,26 @@ export interface WavePeek {
   weakToTypes: DamageType[];
   /** The same as text, "Fire, Poison, Pierce"; "" when unknown */
   weakTo: string;
-  /** Unknown wave: what is known instead */
+  /** What the source adds about the wave, as a badge on the mark */
   note: string;
   tooltip: string;
 }
 
 /**
- * NEXT: the `count` waves after `currentWave`, so the player can prepare
- * (anti-air before W7 bat_swarm, siege before a heavy wave). `towerDps` is
- * the defense the director would size the wave by now. `bloodMoon`: the
- * blood moon look is on (display option), so its waves get their mark.
+ * The facts of the coming waves as marks on the timeline.
+ *
+ * `bloodMoon`: the blood moon look is on (display option), so its waves get
+ * their mark. The moon falls on any kind of wave, a boss variant's included.
  */
-export function peekUpcomingWaves(currentWave: number, towerDps: number, count: number, bloodMoon = true): WavePeek[] {
-  const peeks: WavePeek[] = [];
-  for (let wave = currentWave + 1; wave <= currentWave + count; wave++) {
-    const template = templateObjectForWave(wave);
-    const variant = template ? null : bossVariantForWave(wave);
-    const peek = template
-      ? knownPeek(wave, template, towerDps)
-      : variant ? variantPeek(wave, variant) : unknownPeek(wave);
-    // A blood moon falls on any kind of wave, a boss variant's included (W35: the worm)
-    if (bloodMoon && isBloodMoonWave(wave)) {
+export function peekUpcomingWaves(facts: readonly WavePeekFacts[], bloodMoon = true): WavePeek[] {
+  return facts.map((fact) => {
+    const peek = toPeek(fact);
+    if (bloodMoon && isBloodMoonWave(fact.wave)) {
       peek.bloodMoon = true;
       peek.tooltip = `${peek.tooltip} ${BLOOD_MOON_NOTE}`;
     }
-    peeks.push(peek);
-  }
-  return peeks;
+    return peek;
+  });
 }
 
 /**
@@ -94,103 +91,58 @@ export function markIconSize(peek: Pick<WavePeek, 'boss' | 'air' | 'bloodMoon'>)
   return icons > 2 ? 8 : 10;
 }
 
-/** A boss wave the rotation gives to a boss variant: known ahead, unlike the director's picks. */
-function variantPeek(wave: number, variant: BossVariant): WavePeek {
-  const cfg = ENEMY_TYPES[variant.enemyType];
-  const weights: [ArmorType, number][] = [[cfg.armorType, 1]];
-  const armor = ARMOR_TYPE_UI[cfg.armorType].label;
-  const weakTo = weakToLabel(weights);
-  return {
-    wave,
-    name: variant.name,
-    known: true,
-    boss: true,
-    count: null,
-    armors: [armor],
-    armorLabel: armor,
-    air: cfg.isAirUnit === true,
-    bloodMoon: false,
-    weakToTypes: bestDamageTypesAgainst(weights),
-    weakTo,
-    note: '',
-    tooltip: [
-      variant.description,
-      ...(weakTo ? [`Weak to ${weakTo}.`] : []),
-      `Past W${CAMPAIGN_LENGTH} some boss waves go to bosses the director does not pick.`,
-    ].join(' '),
-  };
-}
-
-function knownPeek(wave: number, template: Template, towerDps: number): WavePeek {
-  // HP each armor brings, so "weak to" answers what kills most of the wave
-  const hpByArmor = new Map<ArmorType, number>();
-  const traits: string[] = [];
-  let air = false;
-  for (const [enemyId, share] of template.enemies) {
-    const cfg = ENEMY_TYPES[enemyId as EnemyTypeId];
-    if (!cfg) continue;
-    hpByArmor.set(cfg.armorType, (hpByArmor.get(cfg.armorType) ?? 0) + share * cfg.baseHp);
-    if (cfg.isAirUnit) air = true;
-    const split = splitTraitLabel(enemyId);
-    if (split) traits.push(`${cfg.name}: ${split}.`);
-  }
-  const weights = [...hpByArmor];
+function toPeek(fact: WavePeekFacts): WavePeek {
+  const weights = fact.hpByArmor as [ArmorType, number][];
   const armors = weights.map(([armor]) => ARMOR_TYPE_UI[armor].label);
   const weakTo = weakToLabel(weights);
 
-  const [lo, full] = template.countRange;
-  const hi = Math.round(dpsScaledCountMax(template.countRange, towerDps));
-  const countNote = hi < full
-    ? `Up to ${hi} enemies with your tower DPS now, the template allows ${full}. A weak defense can get fewer than ${lo}.`
-    : `Up to ${hi} enemies. A weak defense can get fewer than ${lo}.`;
-  // The line shows the counters as icons only; the tooltip names them
-  const weakNote = weakTo ? [`Weak to ${weakTo}.`] : [];
-  const perArmor = weights.length > 1
-    ? weights.map(([armor]) => `${ARMOR_TYPE_UI[armor].label}: ${weakToLabel([[armor, 1]])}.`)
-    : [];
-
   return {
-    wave,
-    name: template.name,
-    known: true,
-    boss: template.bossOnly,
-    count: hi > lo ? `${lo}–${hi}` : `${lo}`,
+    wave: fact.wave,
+    name: fact.name,
+    known: fact.known,
+    boss: fact.boss,
+    count: countLabel(fact),
     armors,
     armorLabel: armors.length > 1 ? `${armors[0]} +${armors.length - 1}` : (armors[0] ?? ''),
-    air,
+    air: fact.air,
     bloodMoon: false,
     weakToTypes: bestDamageTypesAgainst(weights),
     weakTo,
-    note: '',
-    tooltip: [template.description, ...traits, countNote, ...weakNote, ...perArmor].join(' '),
+    note: fact.note,
+    tooltip: tooltip(fact, weights, weakTo),
   };
 }
 
-/** Past the campaign: whether it is a boss wave; the tooltip names the next one. */
-function unknownPeek(wave: number): WavePeek {
-  const boss = isBossWave(wave);
-  const nextBoss = nextBossWave(wave);
-  return {
-    wave,
-    name: boss ? 'Boss wave' : "Director's pick",
-    known: false,
-    boss,
-    count: null,
-    armors: [],
-    armorLabel: '',
-    air: false,
-    bloodMoon: false,
-    weakToTypes: [],
-    weakTo: '',
-    note: 'Template picked at wave start',
-    tooltip: boss
-      ? `From W${CAMPAIGN_LENGTH + 1} every ${BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN}th wave is a boss wave. The director picks which boss when the wave starts.`
-      : `Past W${CAMPAIGN_LENGTH} the director picks the template when the wave starts, so its enemies are not known yet. Next boss wave: W${nextBoss}.`,
-  };
+/** "20–218", or "20" when the defense already opens the whole range. */
+function countLabel(fact: WavePeekFacts): string | null {
+  if (!fact.count) return null;
+  const { lo, hi } = fact.count;
+  return hi > lo ? `${lo}–${hi}` : `${lo}`;
 }
 
-function nextBossWave(after: number): number {
-  let wave = after + 1;
-  while (!isBossWave(wave)) wave++;
-  return wave;
+function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: string): string {
+  const parts = [fact.description];
+
+  // What a type does beyond dying, e.g. a splitter
+  for (const [enemyId] of fact.enemies) {
+    const cfg = ENEMY_TYPES[enemyId as EnemyTypeId];
+    const split = cfg ? splitTraitLabel(enemyId) : null;
+    if (split) parts.push(`${cfg!.name}: ${split}.`);
+  }
+
+  if (fact.count) {
+    const { lo, hi, max } = fact.count;
+    parts.push(hi < max
+      ? `Up to ${hi} enemies with your tower DPS now, the wave allows ${max}. A weak defense can get fewer than ${lo}.`
+      : `Up to ${hi} enemies. A weak defense can get fewer than ${lo}.`);
+  }
+
+  // The line shows the counters as icons only; the tooltip names them
+  if (weakTo) parts.push(`Weak to ${weakTo}.`);
+  if (weights.length > 1) {
+    for (const [armor] of weights) {
+      parts.push(`${ARMOR_TYPE_UI[armor].label}: ${weakToLabel([[armor, 1]])}.`);
+    }
+  }
+  return parts.join(' ');
 }
