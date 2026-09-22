@@ -41,6 +41,17 @@ export interface WaveContext {
   fairnessHeadroom: number;
   /** Absolute enemy cap the gate will impose, or null when it does not bind. */
   survivableCount: number | null;
+  /**
+   * Je Kandidat, wie viel Luft der Deckel ihm lässt, auf derselben 0..1-Skala
+   * wie `fairnessHeadroom`.
+   *
+   * Klein heißt: Die Verteidigung steht gegen dieses Template schlecht, der
+   * Deckel würde die Welle stark zusammenstreichen. Groß heißt: Sie räumt es
+   * ab. Der Director nutzt das, um den Gleichstand zwischen gleich alten
+   * Kandidaten aufzulösen, statt zu würfeln (docs/DRAMA_CONTROLLER_PLAN.md,
+   * Runde 12).
+   */
+  headroomByTemplate: ReadonlyMap<number, number>;
 }
 
 function averageRange(templates: Template[], pick: (t: Template) => NumberRange): NumberRange {
@@ -112,6 +123,40 @@ export function buildWaveContext(
   // Evaluate the gate against a representative wave: the midpoint of the HP and
   // delay ranges. The exact factors are not known yet — they are what the model
   // is about to emit — so this is a signal about the ceiling, not a prediction.
+  //
+  // Für jeden Kandidaten, nicht nur den ersten: Die Zahl je Template ist das,
+  // woran der Director erkennt, gegen welche der erlaubten Wellen die
+  // Verteidigung schlecht steht.
+  const capFor = (template: Template): number | null => survivableCount(
+    template,
+    (template.hpMultRange[0] + template.hpMultRange[1]) / 2,
+    (template.spawnDelayRange[0] + template.spawnDelayRange[1]) / 2,
+    state.defense?.gateDpsPerArmor,
+    state.defense?.killThroughput,
+    (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
+    (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
+    (id) => lineageHp(id as EnemyTypeId),
+    (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
+    (id) => splitBodyCount(id as EnemyTypeId),
+    (id) => splitLeafCount(id as EnemyTypeId),
+    state.player?.lives ?? 100,
+    enemyBaseDamageForWave(upcomingWave),
+  );
+
+  const headroomOf = (template: Template, cap: number | null): number => {
+    // Kein Deckel heißt: Die Verteidigung räumt das Template ab, volle Luft.
+    if (cap === null) return 1;
+    const span = template.countRange[1] - template.countRange[0];
+    if (span <= 0) return 1;
+    return Math.max(0, Math.min(1, (cap - template.countRange[0]) / span));
+  };
+
+  const headroomByTemplate = new Map<number, number>();
+  for (let i = 0; i < candidates.length; i++) {
+    const template = allowed[i];
+    headroomByTemplate.set(candidates[i], headroomOf(template, capFor(template)));
+  }
+
   let cap: number | null = null;
   let headroom = 1;
   if (allowed.length > 0) {
@@ -147,5 +192,6 @@ export function buildWaveContext(
     spawnDelayRange,
     fairnessHeadroom: headroom,
     survivableCount: cap,
+    headroomByTemplate,
   };
 }

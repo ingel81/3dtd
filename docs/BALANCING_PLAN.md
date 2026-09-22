@@ -37,7 +37,7 @@ Vorschlag; die Code-Namen legt Phase 1 fest. Doku auf Deutsch, Code auf Englisch
 | Maske, Slot, `MAX_TEMPLATE_SLOTS`, `describeTemplateMask` | Kandidaten | `candidateTemplates()` | Maske und 32 Slots gab es nur als Ausgang des Netzes |
 | Capability-Gate (`antiAir`, `antiEthereal`) | Voraussetzung | `requires` | "Gate" ist dreifach belegt (auch Leck-Regler und `gate.sh`) |
 | Fairness-Cap, `fairMaxCount` | Überlebbarkeits-Deckel | `survivableCount` | sagt, was er misst: wie viele Gegner die Verteidigung noch halten kann |
-| `GateController`, `budgetMultiplier` | Leck-Regler | `LeakController`, `leakMultiplier` | das Wave-Debug-Fenster nennt ihn schon "Leak loop" |
+| `GateController`, `budgetMultiplier` | Druck-Regler | `PressureController`, `pressureMultiplier` | hieß bis 2026-09-21 Leck-Regler und regelte auf die Leck-Quote, siehe [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) |
 | `goldKill`, `goldComplete`, `goldBudgetForWave` | Wellengold (Kill-Gold, Abschlussgold) | `waveGold()` | |
 | `aiExplanation`, `AIWaveConfig` | Begründung, Director-Welle | `waveExplanation`, `DirectorWave` | |
 | Boss-Variante (Skarnax, Ooze) | Kampagnenwelle | | heute ein Tausch nach der Director-Entscheidung, künftig eine Kampagnenwelle wie jede andere |
@@ -767,7 +767,7 @@ Vom User am 2026-09-19:
 - **D4 Reihenfolge:** erst aufräumen (Phase 1), dann Daten sammeln (Phase 2).
 - **D5 Static-Profile:** gestrichen; "Director aus" spielt die Kampagne mit festen Mittelwerten.
 - **D6 Menschliche Läufe:** die eigenen automatisch, andere Spieler per exportierter Datei; kein Upload, kein Server.
-- **D8 Anpassung an den Spieler:** bleibt adaptiv wie heute; Überlebbarkeits-Deckel und Leck-Regler behalten ihre
+- **D8 Anpassung an den Spieler:** bleibt adaptiv wie heute; Überlebbarkeits-Deckel und Druck-Regler behalten ihre
   volle Wirkung. Folge für Abschnitt 5: Gleicher Seed ergibt gleiche Wellen nur bei gleichem Spielverlauf.
 - **D9 Ziel der Partie:** Sieg am Ende der Kampagne, danach Weiterspielen im Zyklus; gezählt wird die erreichte Welle.
 - **D10 Partiedauer:** noch offen, ergibt sich aus der Baseline.
@@ -790,3 +790,25 @@ Vom User am 2026-09-20:
 - **D7 Arbeitsweise:** Paket für Paket, gebaut im Hauptthread, kein Worker-Team und keine Worktrees. Alles auf
   einem Branch (`next`). Nach jedem Paket ein Zwischenbericht und die Abnahme des Users, bevor das nächste
   beginnt.
+
+
+## Der Druck-Regler (2026-09-21)
+
+Der Leck-Regler ist durch einen Regler auf den HP-Druck ersetzt. Plan, Messreihe und alle Iterationen stehen in
+[DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md); das Wesentliche in drei Sätzen:
+
+Der alte Regler schwang, statt zu regeln. Seine Regelgröße, die Leck-Quote, ließ sich bei kleinen Wellen gar
+nicht auflösen, die Aufbauwellen trieben ihn in die Sättigung, und eine einzelne gepinnte Luftwelle verzog ihn
+für den Rest des Laufs. Gemessen an 360 Könner-Läufen: zwölf Wellen am Stück ohne HP-Verlust, dann ein
+Überschwingen auf 365 Gegner und eine Wand, an der drei Viertel der Läufe starben.
+
+Die neue Regelgröße ist der Anteil des **aktuellen** HP-Bestands, den eine Welle kostet. Sie misst Spannung
+statt Lecks, löst auch bei fünf Gegnern auf, und sie überlebt Heilung: Wenn Pickups oder gekaufte Heilung
+dazukommen, steigt der Nenner, die Welle darf absolut mehr kosten, und der relative Druck bleibt gleich. Der
+Sollwert folgt aus der gewünschten Lauflänge (`1 - RESIDUAL_HP^(1/TARGET_RUN_WAVES)`), ist also ein
+Design-Parameter statt eines Tuning-Ergebnisses, und steuert zugleich den Leck-Spielraum des Deckels.
+
+Dazu kam eine Änderung an der Ökonomie, ohne die kein Regler etwas ausrichten kann: Bei 100 HP und 1 bis 4 HP
+je Leck hatte ein Lauf ein Budget von rund 40 Durchbrüchen, auf 80 Wellen also einen halben je Welle. In jeder
+zweiten Welle durfte damit nichts durchkommen. `startHealth` steht jetzt auf 500 und der Leck-Schaden wächst je
+30 statt je 10 Wellen; damit sind es drei bis vier Durchbrüche je Welle.

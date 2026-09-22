@@ -47,6 +47,10 @@ export class WaveOutcomeTracker {
       avgEnemyLifetimeMs: 0,
       avgPathProgressPercent: 0,
       lowestPlayerHealth: this.lowestHealth,
+      // Der Bezugswert des Druck-Reglers. Der Stand zu Wellenbeginn, nicht
+      // das Startmaximum: nur so bleibt die Messung richtig, wenn der Spieler
+      // zwischen zwei Wellen heilt.
+      healthAtWaveStart: baseHealth,
       wasCloseCall: false,
       playerSurvived: true,
       // Set from wave:completed by the collector; the fatal wave keeps false

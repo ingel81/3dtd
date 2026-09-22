@@ -1,5 +1,5 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { GAME_BALANCE } from '../configs/game-balance.config';
+import { GAME_BALANCE, closeCallHp } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { GamePhase } from './tower-defense.store.types';
@@ -159,7 +159,7 @@ export class GameStore {
 
   /** Health is critical — same threshold the close-call bonus uses */
   readonly healthCritical = computed(
-    () => this.healthPercent() <= GAME_BALANCE.economy.closeCallHpThreshold
+    () => this.baseHealth() <= closeCallHp()
   );
 
   /**

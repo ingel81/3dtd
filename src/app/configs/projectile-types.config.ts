@@ -189,6 +189,23 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 120,
     visualType: 'rocket',
     scale: 1.0,
+    // Ein Sprengkopf ohne Wirkradius war das einzige Geschoss im Spiel, das
+    // trotz Explosion nur ein Ziel traf; Kanonenkugel (6 m), Eissplitter und
+    // Giftklumpen (je 8 m) hatten von Anfang an einen.
+    //
+    // Das ist zugleich die einzige Nische, die dem Raketenturm bleibt.
+    // Gemessen über 360 Könner-Läufe trug er 6,2 % des Schadens in den reinen
+    // Luftwellen, hinter Gatling (35 %), Archer (32 %) und Eis (27 %): Als
+    // `siege` trifft er die Fledermaus, die 90 % aller Flieger stellt, mit
+    // dem halben Schaden. Ein Sprengkopf, der einen Schwarm aufreißt, macht
+    // ihn dort einzigartig, ohne dass er gegen Einzelziele stark wird, und
+    // seine Matrix-Schwäche bleibt als bewusster Preis bestehen.
+    //
+    // Kleinerer Radius und weniger Ziele als die Kanone: Die Rakete soll den
+    // Schwarm ausdünnen, nicht ersetzen, was der Nahbereichsturm tut.
+    splashRadius: 5,
+    splashMaxTargets: 5,
+    splashDamageFalloff: true,
     // The nozzle of the 4.2 m rocket mesh (createRocketGeometry) sits 2.1 m
     // behind its centre; smoke and streak start there, not mid-body.
     tailOffset: 2.1,

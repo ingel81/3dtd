@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 
 import { StateSnapshotService } from './state-snapshot.service';
 import { computePathDPSProfile, createEmptyDPSProfile, type PathDPSProfile } from './dps-profile';
@@ -47,6 +48,13 @@ function enemy(id: string, type = 'zombie', progress?: number): Enemy {
     getComponent: (t: ComponentType) => (t === ComponentType.MOVEMENT ? movement : undefined),
   } as unknown as Enemy;
 }
+
+/**
+ * Die Start-HP aus der Config, nicht 100: die Szenarien hier rechnen in
+ * Anteilen des HP-Budgets, damit eine Änderung daran (2026-09-21: 100 auf 500)
+ * nicht jedes Szenario zu einem Beinahe-Tod macht.
+ */
+const HP = GAME_BALANCE.player.startHealth;
 
 describe('StateSnapshotService', () => {
   let bus: GameEventBus;
@@ -127,7 +135,7 @@ describe('StateSnapshotService', () => {
     bus = new GameEventBus();
     timescale = 1;
     routes = [];
-    store = { waveNumber: signal(0), phase: signal('setup'), baseHealth: signal(100), credits: signal(250) };
+    store = { waveNumber: signal(0), phase: signal('setup'), baseHealth: signal(HP), credits: signal(250) };
     research = {
       airTargetingUnlocked: signal(false),
       completedResearches: signal(new Set<string>()),
@@ -182,13 +190,13 @@ describe('StateSnapshotService', () => {
 
   describe('a completed wave', () => {
     /**
-     * t=0 wave 3 starts at 80 HP, two zombies spawn; t=1000 two tanks spawn;
+     * t=0 wave 3 starts at 80 % HP, two zombies spawn; t=1000 two tanks spawn;
      * t=1500 zombie a dies at 40%; t=2500 zombie b dies at 90%; t=2800 tank c
-     * reaches the base and costs 5 HP (nominal 50); t=3000 the wave completes
+     * reaches the base and costs 5 % of the HP (nominal 50); t=3000 the wave completes
      * with tank d still alive.
      */
     function playScriptedWave(): void {
-      store.baseHealth.set(80);
+      store.baseHealth.set(HP * 0.8);
       emit({ type: 'wave:started', wave: 3, enemyCount: 4 });
       const [a, b, c, d] = [enemy('a', 'zombie', 0.4), enemy('b', 'zombie', 0.9), enemy('c', 'tank'), enemy('d', 'tank')];
       emit({ type: 'enemy:spawned', enemy: a });
@@ -202,9 +210,9 @@ describe('StateSnapshotService', () => {
       emit({ type: 'enemy:died', enemy: b, credits: 5 , killedBy: null });
       advance(300);
       emit({ type: 'enemy:reached-base', enemy: c, damage: 50 });
-      emit({ type: 'health:changed', health: 75, delta: -5 });
+      emit({ type: 'health:changed', health: HP * 0.75, delta: -HP * 0.05 });
       advance(200);
-      emit(completed(3, 5));
+      emit(completed(3, HP * 0.05));
     }
 
     it('records what happened', () => {
@@ -223,9 +231,9 @@ describe('StateSnapshotService', () => {
         enemiesSpawned: 4,
         enemiesKilled: 2,
         enemiesReachedBase: 1,
-        damageToPlayer: 5,                     // the health delta, not the nominal 50
+        damageToPlayer: HP * 0.05,             // the health delta, not the nominal 50
         damagePercent: 0.05,
-        lowestPlayerHealth: 75,
+        lowestPlayerHealth: HP * 0.75,
         wasCloseCall: false,
         playerSurvived: true,
         perfect: false,                        // wave:completed says 5 HP were lost
@@ -267,8 +275,8 @@ describe('StateSnapshotService', () => {
     });
 
     it('calls a wave a close call below 30% of start health', () => {
-      playWave(1, { hpLost: 70 });                  // ends at 30
-      playWave(2, { hpLost: 1 });                   // ends at 29
+      playWave(1, { hpLost: HP * 0.7 });            // ends exactly at 30 %
+      playWave(2, { hpLost: 1 });                   // one point below it
       expect(collector.getWaveHistory().map((r) => r.outcome.wasCloseCall)).toEqual([false, true]);
     });
 
@@ -340,8 +348,8 @@ describe('StateSnapshotService', () => {
       const e = enemy('e', 'zombie');
       emit({ type: 'enemy:spawned', enemy: e });
       advance(2000);
-      emit({ type: 'enemy:reached-base', enemy: e, damage: 100 });
-      emit({ type: 'health:changed', health: 0, delta: -100 });
+      emit({ type: 'enemy:reached-base', enemy: e, damage: HP });
+      emit({ type: 'health:changed', health: 0, delta: -HP });
       emit({ type: 'game:over', reason: 'base-destroyed' });
 
       expect(heard).toHaveLength(1);
@@ -358,7 +366,7 @@ describe('StateSnapshotService', () => {
         damagePercent: 1,
       });
 
-      emit(completed(5, 100));
+      emit(completed(5, HP));
       expect(collector.getWaveHistory()).toHaveLength(1);
       expect(collector.waveResultCount()).toBe(1);
 
@@ -436,7 +444,7 @@ describe('StateSnapshotService', () => {
       advance(90_000);
       store.waveNumber.set(4);
       store.phase.set('wave');
-      store.baseHealth.set(60);
+      store.baseHealth.set(HP * 0.6);
 
       const snapshot = collector.getStateSnapshot();
 
@@ -444,7 +452,7 @@ describe('StateSnapshotService', () => {
       expect(snapshot.waveNumber).toBe(4);
       expect(snapshot.phase).toBe('wave');
       expect(snapshot.gameTimeSeconds).toBe(90);
-      expect(snapshot.player).toEqual({ credits: 250, lives: 60, maxLives: 100, livesPercent: 0.6 });
+      expect(snapshot.player).toEqual({ credits: 250, lives: HP * 0.6, maxLives: HP, livesPercent: 0.6 });
       expect(snapshot.defense.defenseReachPercent).toBe(0.4);
       expect(grid.getDefenseReachPercent).toHaveBeenCalledWith(routes);
       expect(snapshot.dpsByDamageType).toBeDefined();
@@ -489,7 +497,7 @@ describe('StateSnapshotService', () => {
 
     it('summarises the recent waves', () => {
       const config: WaveConfig = { enemies: [{ type: 'tank', count: 2 }, { type: 'zombie', count: 8 }], totalCount: 10, spawnDelay: 400 };
-      playWave(1, { progress: [0.5, 0.85, 1], hpLost: 75 });   // ends at 25: close call
+      playWave(1, { progress: [0.5, 0.85, 1], hpLost: HP * 0.75 });   // ends at 25 %: close call
       playWave(2, { progress: [0.2] });
       playWave(3, { progress: [0.9, 0.95], config });
 
@@ -508,10 +516,10 @@ describe('StateSnapshotService', () => {
     });
 
     it('counts trailing close calls', () => {
-      playWave(1, { hpLost: 75 });
-      store.baseHealth.set(100);                  // debug heal: wave 2 starts healthy
+      playWave(1, { hpLost: HP * 0.75 });
+      store.baseHealth.set(HP);                   // debug heal: wave 2 starts healthy
       playWave(2);
-      store.baseHealth.set(20);
+      store.baseHealth.set(HP * 0.2);
       playWave(3);
       playWave(4);
       expect(collector.getStateSnapshot().recentHistory.closeCallStreak).toBe(2);

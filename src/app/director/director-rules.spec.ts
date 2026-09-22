@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { decideWave } from './director-rules';
+import { decideWave, type TieBreak } from './director-rules';
 import { NUM_ACTIVE_TEMPLATES } from './templates';
 
 describe('decideWave', () => {
@@ -32,15 +32,28 @@ describe('decideWave', () => {
     }
   });
 
-  it('avoids recently used templates', () => {
+  it('never repeats the template of the wave just played', () => {
     // Variety is enforced rather than rewarded: the old reward function had a
     // variation term and the candidate list has a cooldown, and waves still
     // came out repetitive.
+    //
+    // Seit STALENESS_SLACK darf ein etwas jüngeres Template mitspielen — aber
+    // nie das der letzten Welle. Index 1 lief zuletzt.
     const picks = new Set<number>();
     for (let i = 0; i < 200; i++) {
       picks.add(decideWave(first(4), 9, [0, 1]).templateIdx);
     }
-    expect(picks).toEqual(new Set([2, 3]));
+    expect(picks.has(1)).toBe(false);
+    expect(picks.has(2) && picks.has(3)).toBe(true);   // die Ältesten bleiben die Regel
+  });
+
+  it('prefers the oldest but lets the loop reach a slightly younger one', () => {
+    // Der Sinn des Slack: Wer immer nur den Ältesten nimmt, spielt jedes
+    // Template gleich oft, egal was der Regler will. Zwei Wellen Spielraum
+    // machen die Rotation atmungsfähig, ohne sie aufzugeben.
+    const headroom = new Map([[0, 0.1], [2, 0.9], [3, 0.9]]);
+    const d = decideWave(first(4), 40, [0, 1], () => 0, { prefer: 'harder', headroom });
+    expect(d.templateIdx).toBe(0);     // eine Welle jünger, aber die schlechteste Deckung
   });
 
   it('falls back to the oldest of the used templates when all are recent', () => {
@@ -102,8 +115,19 @@ describe('decideWave', () => {
 
   describe('reports how it picked, for the decision explainer', () => {
     it('counts the candidates and the tie among templates outside the history', () => {
+      // `tied` zählt weiter die exakt Ältesten (vier unbenutzte), auch wenn
+      // der Slack mehr zur Wahl stellt; `lastRanWavesAgo` gehört dagegen dem
+      // Gewählten, und der kann seit dem Slack ein etwas jüngerer sein.
       const { why } = decideWave(first(6), 40, [0, 1], () => 0);
-      expect(why).toMatchObject({ candidates: 6, lastRanWavesAgo: null, history: 2, tied: 4 });
+      expect(why).toMatchObject({ candidates: 6, history: 2, tied: 4 });
+    });
+
+    it('reports the age of the template it actually picked', () => {
+      const oldest = decideWave(first(6), 40, [0, 1], () => 0.99);
+      expect(oldest.why.lastRanWavesAgo).toBeNull();     // ein unbenutztes
+      const younger = decideWave(first(6), 40, [0, 1], () => 0);
+      expect(younger.templateIdx).toBe(0);
+      expect(younger.why.lastRanWavesAgo).toBe(2);       // lief vor zwei Wellen
     });
 
     it('says how long ago the pick last ran when every candidate is recent', () => {
@@ -125,6 +149,45 @@ describe('decideWave', () => {
     it('marks the empty-list fallback', () => {
       const d = decideWave([], 5, []);
       expect(d.why).toMatchObject({ candidates: 0 });
+    });
+  });
+
+  describe('the tie between equally stale candidates', () => {
+    // Vier unbenutzte Templates, also vier gleich alte Kandidaten. Ohne
+    // Gleichstand greift der Tie-Break nicht, und das ist der Punkt: Die
+    // Älteste-zuerst-Regel behält immer Vorrang.
+    const headroom = new Map([[0, 0.9], [1, 0.1], [2, 0.5], [3, 0.7]]);
+    const tie = (prefer: 'harder' | 'easier'): TieBreak => ({ prefer, headroom });
+
+    it('takes the template the defense covers worst when the loop wants harder', () => {
+      const d = decideWave(first(4), 40, [], () => 0, tie('harder'));
+      expect(d.templateIdx).toBe(1);          // headroom 0.1
+      expect(d.why.tied).toBe(4);             // die Staleness-Aussage bleibt
+    });
+
+    it('takes the one it covers best when the loop wants easier', () => {
+      const d = decideWave(first(4), 40, [], () => 0, tie('easier'));
+      expect(d.templateIdx).toBe(0);          // headroom 0.9
+    });
+
+    it('still rolls the dice without a tie break', () => {
+      const picks = new Set<number>();
+      for (let i = 0; i < 40; i++) picks.add(decideWave(first(4), 40, [], Math.random).templateIdx);
+      expect(picks.size).toBeGreaterThan(1);
+    });
+
+    it('never picks the template of the wave just played', () => {
+      // Template 1 hat die wenigste Luft, lief aber gerade. Template 0
+      // gewinnt, egal was der Regler lieber hätte.
+      const d = decideWave(first(2), 40, [1], () => 0, tie('harder'));
+      expect(d.templateIdx).toBe(0);
+    });
+
+    it('treats a template with no reading as fully covered', () => {
+      // Die vorsichtige Annahme: Ein unbekanntes Template wird nicht zum
+      // Favoriten für "härter".
+      const sparse: TieBreak = { prefer: 'harder', headroom: new Map([[0, 0.4]]) };
+      expect(decideWave(first(3), 40, [], () => 0, sparse).templateIdx).toBe(0);
     });
   });
 });

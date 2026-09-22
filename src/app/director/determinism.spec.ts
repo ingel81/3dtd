@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest';
 
 import { decideWave } from './director-rules';
-import { LeakController, leakRatio } from './leak-controller';
+import { PressureController, wavePressure } from './pressure-controller';
 import { buildWaveContext } from './wave-context';
 import { buildWaveConfig } from './wave-config-builder';
 import { adaptDirectorWave } from './wave-config-adapter';
@@ -14,7 +14,7 @@ import { GameRng } from '../utils/game-rng';
  * takes the same course.
  *
  * What this cannot promise: identical outcomes. The survivability cap and the
- * leak loop read the defense and the leaks, and line of sight hangs on the
+ * pressure loop read the defense and the HP lost, and line of sight hangs on the
  * frame, so two live runs diverge from the first difference on. Here the
  * course is fixed, which is exactly what makes the random source measurable.
  */
@@ -41,7 +41,7 @@ function runChecksum(seed: number, waves = 25): string[] {
   const rng = new GameRng(seed);
   const director = rng.stream('director');
   const spawn = rng.stream('spawn');
-  const leak = new LeakController();
+  const pressure = new PressureController();
   const recent: number[] = [];
   const lines: string[] = [];
 
@@ -49,7 +49,7 @@ function runChecksum(seed: number, waves = 25): string[] {
     const state = stateForWave(wave - 1);
     const context = buildWaveContext(state, recent);
     const decision = decideWave(context.candidates, wave, recent, director);
-    const config = buildWaveConfig(decision, state, context.candidateReason, leak);
+    const config = buildWaveConfig(decision, state, context.candidateReason, pressure);
 
     recent.push(config.templateIdx);
     if (recent.length > 5) recent.shift();
@@ -59,7 +59,7 @@ function runChecksum(seed: number, waves = 25): string[] {
     const delays = Array.from({ length: 5 }, () => schedule.getDelay?.() ?? schedule.baseDelay).join('/');
     lines.push(`${wave}|${config.templateIdx}|${config.totalCount}|${config.spawnDelay}|${entries}|${delays}`);
 
-    leak.recordWave(leakRatio(Array.from({ length: 10 }, (_, i) => (i < wave % 4 ? 1 : 0.2)), 0), true);
+    pressure.recordWave(wavePressure(wave % 4, 100, 10), wave);
   }
   return lines;
 }

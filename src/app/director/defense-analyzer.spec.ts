@@ -15,18 +15,21 @@ const POS = { lat: 10, lon: 20, height: 0 };
 
 describe('isSplashTower()', () => {
   it('matches what the game actually does', () => {
-    const splash: TowerTypeId[] = ['cannon', 'ice', 'poison', 'fire', 'lightning'];
-    const single: TowerTypeId[] = ['archer', 'dual-gatling', 'magic', 'rocket', 'tentacle', 'chaos', 'research-center', 'missile-silo'];
+    const splash: TowerTypeId[] = ['cannon', 'ice', 'poison', 'fire', 'lightning', 'rocket'];
+    const single: TowerTypeId[] = ['archer', 'dual-gatling', 'magic', 'tentacle', 'chaos', 'research-center', 'missile-silo'];
     for (const id of splash) expect(isSplashTower(id), id).toBe(true);
     for (const id of single) expect(isSplashTower(id), id).toBe(false);
   });
 });
 
 describe('analyzeDefense() kill throughput', () => {
-  it('counts a rocket as one target per shot, it has no splash', () => {
+  it('counts the rocket with its blast radius, and only against air', () => {
+    // Seit 2026-09-22 hat ihr Sprengkopf einen Wirkradius (5 m, bis zu fünf
+    // Ziele), also trifft ein Schuss mehr als ein Ziel. Boden bleibt null:
+    // `canTargetGround` ist false und das ist ihre Rolle.
     const rocket = new Tower(POS, 'rocket');
     const { killThroughput } = analyzeDefense([rocket], false);
-    expect(killThroughput.air).toBeCloseTo(TOWER_TYPES.rocket.fireRate, 6);
+    expect(killThroughput.air).toBeGreaterThan(TOWER_TYPES.rocket.fireRate);
     expect(killThroughput.ground).toBe(0);
   });
 

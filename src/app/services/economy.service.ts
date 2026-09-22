@@ -64,8 +64,13 @@ export class EconomyService {
     const perfectBonus = result.perfect ? Math.round(base * cfg.perfectBonusRatio) : 0;
     const closeCallBonus = result.closeCall ? Math.round(base * cfg.closeCallBonusRatio) : 0;
     const milestoneBonus = cfg.milestoneBonuses[result.wave] ?? 0;
+    // Trostpreis nach einer teuren Welle, als Anteil des Wellenbudgets und
+    // des verlorenen HP-Anteils. Beides war vorher absolut (Deckel 15 Gold,
+    // Steigung je HP-Punkt) und damit gegen Budgets in Zehntausenden
+    // wirkungslos: gemessen 0,02 % des Wellengolds.
+    const lostShare = result.hpLost / GAME_BALANCE.player.startHealth;
     const comebackBonus = result.hpLost > 0
-      ? Math.min(cfg.comebackBonusCap, Math.round(result.hpLost * cfg.comebackBonusSlope))
+      ? Math.round(base * Math.min(cfg.comebackBonusCap, lostShare * cfg.comebackBonusSlope))
       : 0;
 
     // Combo-Streak: Perfect-Wave erhöht Streak, Non-Perfect resettet.

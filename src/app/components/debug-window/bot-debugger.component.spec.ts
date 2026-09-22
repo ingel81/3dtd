@@ -25,7 +25,7 @@ function setup(connected = false) {
     enableBot: vi.fn(),
     disableBot: vi.fn(),
   };
-  const waveDirector = { leak: { leakMultiplier: 1 } };
+  const waveDirector = { pressure: { pressureMultiplier: 1 } };
   const botWindow = signal({ isOpen: false });
   TestBed.resetTestingModule();
   TestBed.configureTestingModule({

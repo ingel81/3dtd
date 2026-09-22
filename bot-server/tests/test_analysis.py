@@ -313,3 +313,108 @@ def test_damage_per_gold_reaches_the_report(tmp_path):
 
     assert "damage/gold" in page
     assert "4.50" in page
+
+
+# ===================================================================
+# Der Druck-Regler (docs/DRAMA_CONTROLLER_PLAN.md)
+# ===================================================================
+
+def loop_of(tmp_path, records, name="run.jsonl"):
+    write(tmp_path / name, records)
+    return group_runs(read_runs([tmp_path]).runs)[0].loop
+
+
+def test_the_pressure_of_a_wave_comes_from_the_health_it_cost(tmp_path):
+    # Anteil des Stands zu Wellenbeginn, nicht des Startmaximums: Das ist die
+    # Stelle, an der die Messung Heilung überlebt.
+    runs = read_runs([write(tmp_path / "r.jsonl", [head(), wave(1, hp_lost=10)])]).runs
+    assert runs[0].waves[0].pressure == pytest.approx(0.1)
+
+
+def test_a_wave_that_started_at_zero_health_carries_no_pressure(tmp_path):
+    record = wave(1)
+    record["healthStart"] = 0
+    runs = read_runs([write(tmp_path / "r.jsonl", [head(), record])]).runs
+    assert runs[0].waves[0].pressure is None
+
+
+def test_an_old_log_without_a_target_is_read_against_the_same_curve(tmp_path):
+    # Format 2 kennt `targetPressure` nicht. Ohne einen nachgerechneten Wert
+    # ließe sich eine Baseline nicht gegen den neuen Regler halten.
+    runs = read_runs([write(tmp_path / "r.jsonl", [head(), wave(1)])]).runs
+    assert runs[0].waves[0].target_pressure > 0
+
+
+def test_the_logged_target_wins_over_the_computed_one(tmp_path):
+    record = wave(1)
+    record["targetPressure"] = 0.42
+    runs = read_runs([write(tmp_path / "r.jsonl", [head(), record])]).runs
+    assert runs[0].waves[0].target_pressure == 0.42
+
+
+def test_the_loop_multiplier_is_read_from_either_format(tmp_path):
+    old, new = wave(1), wave(2)
+    old["leakMultiplier"] = 1.5          # Format 2
+    new["pressureMultiplier"] = 2.5      # Format 3
+    runs = read_runs([write(tmp_path / "r.jsonl", [head(), old, new])]).runs
+    assert [w.loop_multiplier for w in runs[0].waves] == [1.5, 2.5]
+
+
+def test_the_longest_dead_streak_counts_waves_that_cost_nothing(tmp_path):
+    loop = loop_of(tmp_path, [
+        head(),
+        wave(1, hp_lost=5), wave(2), wave(3), wave(4), wave(5, hp_lost=5), wave(6),
+    ])
+    assert loop.longest_dead_streak == 3
+
+
+def test_a_multiplier_on_its_stop_is_counted_as_pinned(tmp_path):
+    waves = []
+    for i in range(1, 5):
+        record = wave(i)
+        record["pressureMultiplier"] = 0.5 if i < 3 else 2.0
+        waves.append(record)
+    loop = loop_of(tmp_path, [head(), *waves])
+    assert loop.pinned == pytest.approx(0.5)
+
+
+def test_the_cap_spread_is_normalised_to_ten_waves(tmp_path):
+    # Roh wächst die Spanne mit der Lauflänge, weil die Verteidigung wächst
+    # und der Deckel ihr folgt. Ein längerer Lauf darf dafür nicht bestraft
+    # werden.
+    waves = []
+    for i in range(1, 21):
+        record = wave(i)
+        record["survivableCount"] = 10 if i == 1 else 1000
+        waves.append(record)
+    loop = loop_of(tmp_path, [head(), *waves])
+    assert loop.cap_spread == pytest.approx(100)
+    assert loop.cap_spread_per_10 == pytest.approx(10)
+
+
+def test_a_wave_inside_the_band_is_counted_as_on_target(tmp_path):
+    on_target = wave(1, hp_lost=4)
+    on_target["targetPressure"] = 0.04
+    way_over = wave(2, hp_lost=40)
+    way_over["targetPressure"] = 0.04
+    loop = loop_of(tmp_path, [head(), on_target, way_over])
+    assert loop.in_band == pytest.approx(0.5)
+
+
+def test_the_air_niche_reads_only_the_waves_made_of_flyers(tmp_path):
+    # Die Linse für einen Spezialisten: In einer reinen Luftwelle ist jeder
+    # Punkt Schaden Luftschaden, über einen ganzen Lauf gemittelt nicht.
+    air = wave(1, towers=[
+        {"id": "t1", "type": "rocket", "damage": 300, "kills": 3},
+        {"id": "t2", "type": "archer", "damage": 100, "kills": 1},
+    ])
+    air["composition"] = [{"type": "bat", "count": 10}]
+    ground = wave(2, towers=[{"id": "t3", "type": "cannon", "damage": 9000, "kills": 90}])
+    ground["composition"] = [{"type": "zombie", "count": 10}]
+
+    write(tmp_path / "r.jsonl", [head(), air, ground])
+    niche = {n.type: n for n in group_runs(read_runs([tmp_path]).runs)[0].air_niche}
+
+    assert set(niche) == {"rocket", "archer"}          # die Bodenwelle zählt nicht
+    assert niche["rocket"].damage_share == pytest.approx(0.75)
+    assert niche["rocket"].present == pytest.approx(1.0)

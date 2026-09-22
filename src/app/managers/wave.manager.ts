@@ -3,7 +3,7 @@ import { EnemyManager } from './enemy.manager';
 import { EnemyTypeId, splitBodyCount } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
-import { GAME_BALANCE } from '../configs/game-balance.config';
+import { closeCallHp } from '../configs/game-balance.config';
 import type { WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
 
@@ -505,7 +505,7 @@ export class WaveManager implements IGameManager {
     const hpLost = this.damageTakenThisWave;
     const perfect = hpLost === 0;
     const hpAtEnd = this.currentHealthProvider ? this.currentHealthProvider() : 100;
-    const closeCall = !perfect && hpAtEnd <= GAME_BALANCE.economy.closeCallHpThreshold;
+    const closeCall = !perfect && hpAtEnd <= closeCallHp();
 
     const result: WaveEndResult = { wave: waveNum, perfect, closeCall, hpLost };
     // Book the completion gold here, so the event carries what was paid.

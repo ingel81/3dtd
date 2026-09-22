@@ -348,7 +348,8 @@ export class GameLoopFacadeService {
         template: aiConfig.templateName,
         reason: aiConfig.explanation?.reasons,
         survivableCount: aiConfig.explanation?.sizing?.cap ?? null,
-        leakMultiplier: this.waveDirector.leak.leakMultiplier,
+        pressureMultiplier: this.waveDirector.pressure.pressureMultiplier,
+        targetPressure: this.waveDirector.pressure.status.target ?? undefined,
         composition: aiConfig.enemies.map((group) => ({
           type: group.type,
           count: group.count,

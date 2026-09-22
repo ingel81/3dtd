@@ -3,6 +3,7 @@ import { signal } from '@angular/core';
 import {
   expectedArmorDistribution, playerState, researchSnapshot, type ResearchReader,
 } from './state-snapshot-parts';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 
 const zeroes = { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 };
@@ -11,7 +12,8 @@ describe('state snapshot parts', () => {
   afterEach(() => vi.restoreAllMocks());
 
   it('describes the player against the start health', () => {
-    expect(playerState(60, 250)).toEqual({ credits: 250, lives: 60, maxLives: 100, livesPercent: 0.6 });
+    const max = GAME_BALANCE.player.startHealth;
+    expect(playerState(60, 250)).toEqual({ credits: 250, lives: 60, maxLives: max, livesPercent: 60 / max });
   });
 
   it('reads the research state and the tower unlocks', () => {

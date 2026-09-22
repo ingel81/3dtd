@@ -7,7 +7,7 @@
  * It only reads reasons the pipeline recorded while deciding: the mask
  * (campaign pin, boss rule, capability gates), how the director picked among
  * what the mask allowed, and how the shared path sized the wave (DPS ramp,
- * fairness cap, leak loop, duration cap, endgame HP). It never infers intent
+ * fairness cap, pressure loop, duration cap, endgame HP). It never infers intent
  * from the game state. The previous version did: it read the defense snapshot
  * and printed heuristics like "no anti-air -> sending flying enemies" or "player
  * is struggling, sending an easier wave (mercy)". The rule director does none
@@ -25,15 +25,29 @@ import {
 } from './templates';
 import { RAMP_FULL_WAVE, type DirectorReason } from './director-rules';
 import {
-  LEAK_ADAPT_WINDOW,
-  LEAK_TARGET_LO,
-  LEAK_TARGET_HI,
-  type LeakStatus,
-} from './leak-controller';
+  PRESSURE_MIN_SAMPLES,
+  PRESSURE_BAND_LO,
+  PRESSURE_BAND_HI,
+  type PressureStatus,
+} from './pressure-controller';
 import {
   CAMPAIGN_LENGTH,
   BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,
 } from '../configs/campaign.config';
+
+/**
+ * Hat der Überlebbarkeits-Deckel die Wellengröße bestimmt?
+ *
+ * Der Druck-Regler braucht die Antwort als Anti-Windup: Wenn die Welle ohnehin
+ * kleiner ist, als der Deckel erlauben würde, hat sein Multiplikator gar keine
+ * Wirkung, und weiter zu öffnen heißt, gegen eine Sättigung zu integrieren.
+ * Gemessen: Über die Wellen 20 bis 26 lief er so von ×1,04 auf ×8,6, und als
+ * der Deckel wieder griff, schickte er 673 Gegner
+ * (docs/DRAMA_CONTROLLER_PLAN.md).
+ */
+export function capIsBinding(sizing: WaveSizing): boolean {
+  return sizing.cap !== null && sizing.cap < sizing.dpsScaledMax;
+}
 
 /** How the shared path sized the wave, as recorded by `buildWaveConfig`. */
 export interface WaveSizing {
@@ -61,7 +75,7 @@ export interface WaveDecisionTrace {
   templateName: string;
   candidates: CandidateReason;
   director: DirectorReason;
-  leak: LeakStatus;
+  pressure: PressureStatus;
   sizing: WaveSizing;
 }
 
@@ -151,7 +165,7 @@ function pickReason(director: DirectorReason): string {
   return `Oldest of ${candidates} allowed templates: ${age}${tie}.`;
 }
 
-function sizeReasons({ director, leak, sizing }: WaveDecisionTrace): string[] {
+function sizeReasons({ director, pressure, sizing }: WaveDecisionTrace): string[] {
   const reasons: string[] = [];
   const [lo, hi] = sizing.countRange;
   const dpsMax = Math.round(sizing.dpsScaledMax);
@@ -165,7 +179,7 @@ function sizeReasons({ director, leak, sizing }: WaveDecisionTrace): string[] {
 
   // Mirrors the fold in buildWaveConfig: a cap below the template minimum
   // collapses the range onto the cap, a cap inside it becomes the new top.
-  const binding = cap !== null && cap < sizing.dpsScaledMax;
+  const binding = capIsBinding(sizing);
   if (cap === null) {
     reasons.push('Survivability cap: none, the defense kills faster than enemies spawn.');
   } else if (cap < lo) {
@@ -176,7 +190,7 @@ function sizeReasons({ director, leak, sizing }: WaveDecisionTrace): string[] {
     reasons.push(`Survivability cap ${cap}, not binding.`);
   }
   // The loop only shaped this wave if its cap did.
-  if (binding) reasons.push(leakLoopReason(leak));
+  if (binding) reasons.push(pressureLoopReason(pressure));
 
   if (cap === null || cap >= lo) {
     const top = binding ? cap : dpsMax;
@@ -201,26 +215,28 @@ function sizeReasons({ director, leak, sizing }: WaveDecisionTrace): string[] {
   return reasons;
 }
 
-function leakLoopReason(leak: LeakStatus): string {
-  const mult = `×${leak.multiplier.toFixed(2)}`;
-  const band = `${percent(LEAK_TARGET_LO)}-${percent(LEAK_TARGET_HI)}`;
-  const leaked = `last ${LEAK_ADAPT_WINDOW} waves leaked ${percent(leak.meanLeak ?? 0)}`;
-  switch (leak.lastStep) {
+function pressureLoopReason(pressure: PressureStatus): string {
+  const mult = `×${pressure.multiplier.toFixed(2)}`;
+  const target = pressure.target ?? 0;
+  const band = `${percent(target * PRESSURE_BAND_LO)}-${percent(target * PRESSURE_BAND_HI)}`;
+  const cost = `waves cost ${percent(pressure.meanPressure ?? 0)} of HP on average`;
+  switch (pressure.lastStep) {
     case 'warming-up':
-      return `Leak loop still collecting (${leak.samples} of ${LEAK_ADAPT_WINDOW} waves), leak loop at ${mult}.`;
+      return `Pressure loop still collecting (${pressure.samples} of ${PRESSURE_MIN_SAMPLES} waves), at ${mult}.`;
     case 'opened':
-      return `Leak loop: ${leaked}, under the ${band} target, so it opened to ${mult}.`;
+      return `Pressure loop: ${cost}, under the ${band} target, so it opened to ${mult}.`;
     case 'closed':
-      return `Leak loop: ${leaked}, over the ${band} target, so it closed to ${mult}.`;
+      return `Pressure loop: ${cost}, over the ${band} target, so it closed to ${mult}.`;
     case 'held':
-      return `Leak loop: ${leaked}, inside the ${band} target, it holds at ${mult}.`;
-    case 'backed-off':
-      return `Leak loop: the last wave ended the run, it backed off to ${mult}.`;
+      return `Pressure loop: ${cost}, inside the ${band} target, it holds at ${mult}.`;
   }
 }
 
 function percent(v: number): string {
-  return `${Math.round(v * 100)}%`;
+  const pct = v * 100;
+  // Der Zieldruck liegt bei wenigen Prozent; auf ganze Prozent gerundet
+  // stünde in der Begründung dreimal dieselbe Zahl.
+  return pct > 0 && pct < 10 ? `${pct.toFixed(1)}%` : `${Math.round(pct)}%`;
 }
 
 function plural(n: number, word: string): string {

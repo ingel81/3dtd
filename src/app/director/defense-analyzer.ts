@@ -342,9 +342,13 @@ function detectCapabilities(
 /**
  * Does this tower type deal area damage? Derived from the tower config, so the
  * model and the game cannot disagree: a projectile with a splash radius
- * (cannon, ice, poison), the fire cone and the lightning chain count. A
- * hand-kept list used to call the rocket a splash tower (it has none, x3 kill
- * throughput in the gate) and missed ice and poison.
+ * (cannon, ice, poison, and since 2026-09-22 the rocket), the fire cone and
+ * the lightning chain count.
+ *
+ * Es war einmal eine von Hand gepflegte Liste. Sie nannte die Rakete einen
+ * Splash-Tower, obwohl ihr Geschoss keinen Radius hatte — dreifacher
+ * Kill-Durchsatz im Deckel für eine Wirkung, die es nicht gab — und übersah
+ * Eis und Gift. Seitdem entscheidet die Config.
  */
 export function isSplashTower(typeId: TowerTypeId): boolean {
   const cfg = TOWER_TYPES[typeId];

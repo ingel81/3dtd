@@ -309,7 +309,8 @@ export class RunLogCollector {
     template?: string;
     reason?: string[];
     survivableCount?: number | null;
-    leakMultiplier?: number;
+    pressureMultiplier?: number;
+    targetPressure?: number;
     composition?: { type: string; count: number; hp: number }[];
   }): void {
     this.pendingDecision = decision;

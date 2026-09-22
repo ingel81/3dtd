@@ -58,7 +58,7 @@ describe('buildWaveContext() mask reason', () => {
       templateName: 'Any',
       candidates: candidateReason,
       director: { candidates: 3, lastRanWavesAgo: null, history: 0, tied: 3, ramp: 0.7 },
-      leak: { multiplier: 1, samples: 0, meanLeak: null, lastStep: 'warming-up' },
+      pressure: { multiplier: 1, samples: 0, meanPressure: null, target: null, lastStep: 'warming-up' },
       sizing: {
         countRange: [10, 100], dpsScaledMax: 100, totalDps: 120, cap: null, countFactor: 0.5,
         count: 55, hpMult: 1, endgameHpMult: 1, spawnDelay: 200, durationCapped: false,
