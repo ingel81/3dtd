@@ -214,9 +214,19 @@ export class Enemy extends GameObject {
     return this._audio;
   }
 
-  /** `!health.isDead`, read from the mirror so the check does not load the health component. */
+  /**
+   * `!health.isDead`, read from the mirror so the check does not load the
+   * health component, and still in the world.
+   *
+   * `active` goes false when the EnemyManager removes the enemy. Without it
+   * a leak at the HQ stayed "alive" for everyone holding a reference: a leak
+   * is no kill, so its HP is untouched. A tower that had it as its target
+   * kept it on findTarget's fast path — the mesh was gone, but the turret
+   * fired at the empty spot at the HQ, wave after wave, and never looked for
+   * a real enemy again.
+   */
   get alive(): boolean {
-    return !this.deadFlag;
+    return !this.deadFlag && this.active;
   }
   get position(): GeoPosition {
     return this.transform.position;

@@ -198,6 +198,29 @@ describe('Tower → Enemy Combat Integration', () => {
     expect(m.projectileManager.getAll()).toHaveLength(0);
   });
 
+  it('drops a target the manager removed at the HQ instead of shooting the empty spot', () => {
+    const tower = placeTower(TEST_TOWER_NEAR_SPAWN);
+    const enemy = spawnEnemy();
+    expect(tower.findTarget([enemy], false)).toBe(enemy);
+
+    // A leak is no kill: reaching the base removes the enemy with its HP intact
+    m.enemyManager.remove(enemy);
+    expect(enemy.health.isDead).toBe(false);
+
+    expect(tower.findTarget([], false)).toBeNull();
+    expect(tower.currentTarget).toBeNull();
+  });
+
+  it('takes the next wave\'s enemy instead of holding a removed one', () => {
+    const tower = placeTower(TEST_TOWER_NEAR_SPAWN);
+    const leaked = spawnEnemy();
+    tower.findTarget([leaked], false);
+    m.enemyManager.remove(leaked);
+
+    const fresh = spawnEnemy();
+    expect(tower.findTarget([fresh], false)).toBe(fresh);
+  });
+
   it('should emit tower:sold event and remove tower when sold', () => {
     const tower = placeTower();
     const soldHandler = vi.fn();
