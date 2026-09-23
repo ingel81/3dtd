@@ -4,6 +4,17 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-23
+
+- [x] **E22 Sound-Paket** (`c87f300b`, `4cf54995`, `6e520466`, `cd5ffed2`, `c73bcd0f`, `4222d1e2`, `83b97854`,
+      `b9b58a36`): acht Bugs (Zufallsrufe, Musik nach Neustart, Autoplay, Pegel des Hauptthemas u. a.),
+      Master-Regler und `M`, Tode, Treffer, stumme Gegner, Held, Spielmomente, UI-Töne mit eigenem Regler,
+      Boss-Signaturen, Musik für Boss, Blutmond und Game Over, Ducking. Plan und Stand:
+      [docs/SOUND_PLAN.md](docs/SOUND_PLAN.md).
+- [x] **E5 Raketen-Sound** (`6e520466`): neues Abschuss-Zischen statt des tiefen Knalls.
+- [x] **E4 Stone Golem: Schritte und Beben** (`6e520466`, `b9b58a36`): schwere Schritte im Takt der
+      Laufanimation, tiefer gespielt, mit Beben in Kameranähe.
+
 ## 2026-09-21
 
 - [x] **G3 Forschung als Dialog mit echtem Graphen** (`c2ac9734`, `b030b88d`, `a803a4c8`, `8a177e7a`, `ca38a937`,
