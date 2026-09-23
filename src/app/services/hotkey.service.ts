@@ -23,6 +23,7 @@ import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
+import { DebugFacadeService } from './debug/debug-facade.service';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -55,6 +56,7 @@ export class HotkeyService {
   private readonly heroControl = inject(HeroControlService);
   private readonly replay = inject(ReplayService);
   private readonly towerUpgrade = inject(TowerUpgradeService);
+  private readonly debugFacade = inject(DebugFacadeService);
 
   /** BUILD panel order, the number keys follow it */
   private readonly towerTypes = getAllTowerTypes();
@@ -66,6 +68,7 @@ export class HotkeyService {
   private spaceStartedWave = false;
 
   handleKeyDown(event: KeyboardEvent): void {
+    if (this.handleAlt(event, true)) return;
     // Held Space repeats its keydown; the first one decides
     if (event.key === ' ' && !event.repeat) this.spaceStartedWave = false;
     if (!this.acceptsKey(event)) return;
@@ -82,9 +85,28 @@ export class HotkeyService {
    * by accident). Any other Space press clicks the focused button as usual.
    */
   handleKeyUp(event: KeyboardEvent): void {
+    if (this.handleAlt(event, false)) return;
     if (event.key !== ' ' || !this.spaceStartedWave) return;
     this.spaceStartedWave = false;
     event.preventDefault();
+  }
+
+  /** Losing the window loses the keyup of a held Alt: the bars go back. */
+  handleWindowBlur(): void {
+    this.debugFacade.setHealthBarsInverted(false);
+  }
+
+  /**
+   * Alt held turns the health bars round (DebugFacadeService). Taken on
+   * keydown and keyup alike: a lone Alt released would otherwise move the
+   * focus to the browser's menu bar on Windows, and the next key goes there.
+   * @returns true when the key was Alt
+   */
+  private handleAlt(event: KeyboardEvent, down: boolean): boolean {
+    if (event.key !== 'Alt') return false;
+    event.preventDefault();
+    this.debugFacade.setHealthBarsInverted(down);
+    return true;
   }
 
   private acceptsKey(event: KeyboardEvent): boolean {

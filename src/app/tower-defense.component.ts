@@ -554,6 +554,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   @HostListener('window:blur')
   onWindowBlur(): void {
     this.inputHandler.handleWindowBlur();
+    this.hotkeys.handleWindowBlur();
   }
 
   /**

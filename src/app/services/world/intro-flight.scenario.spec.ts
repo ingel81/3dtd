@@ -45,6 +45,7 @@ import { ReplayService } from '../replay.service';
 import { UpgradeHintService } from '../upgrade-hint.service';
 import { TowerUpgradeService } from '../tower-upgrade.service';
 import { IntroSkipComponent } from '../../components/intro-skip/intro-skip.component';
+import { DebugFacadeService } from '../debug/debug-facade.service';
 
 const HQ = { lat: 48.7, lon: 9.1 };
 
@@ -150,6 +151,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
           useValue: { selected: signal(false), summon: vi.fn(() => false), cycleAmmo: vi.fn(() => false), deselect: vi.fn() },
         },
         { provide: ReplayService, useValue: { active: signal(false) } },
+        { provide: DebugFacadeService, useValue: { setHealthBarsInverted: () => undefined } },
         { provide: UpgradeHintService, useValue: new UpgradeHintService() },
         // U buys through it; no key here reaches a purchase
         { provide: TowerUpgradeService, useValue: { buyFirst: vi.fn(() => false) } },

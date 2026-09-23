@@ -124,6 +124,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['+', '-'], label: 'Game speed up and down' },
       { keys: ['Esc'], label: 'Skip the intro flight or the boss intro' },
       { keys: ['Q'], label: 'Open the research tree, once a Research Center stands' },
+      { keys: ['Alt'], label: 'Hold to show the health bars the other way round (option Health Bars)' },
       ...ABILITY_IDS.map((id) => ({
         keys: [ABILITIES[id].hotkey.toUpperCase()],
         label: `Aim the ${ABILITIES[id].name} once researched, press again to cancel`,

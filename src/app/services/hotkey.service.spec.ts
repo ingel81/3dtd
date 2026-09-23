@@ -44,6 +44,7 @@ import { ReplayService } from './replay.service';
 import { UpgradeHintService } from './upgrade-hint.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
+import { DebugFacadeService } from './debug/debug-facade.service';
 
 function press(key: string, init: KeyboardEventInit = {}): KeyboardEvent {
   const event = new KeyboardEvent('keydown', { key, cancelable: true, ...init });
@@ -55,6 +56,7 @@ function release(key: string): KeyboardEvent {
 }
 
 describe('HotkeyService', () => {
+  const setHealthBarsInverted = vi.fn();
   let service: HotkeyService;
   let facade: { startWave: ReturnType<typeof vi.fn>; upgradeTower: ReturnType<typeof vi.fn>; sellSelectedTower: ReturnType<typeof vi.fn> };
   let selectTower: ReturnType<typeof vi.fn>;
@@ -198,6 +200,7 @@ describe('HotkeyService', () => {
         { provide: PhotoModeService, useValue: photoMode },
         { provide: HeroControlService, useValue: heroControl },
         { provide: ReplayService, useValue: replay },
+        { provide: DebugFacadeService, useValue: { setHealthBarsInverted } },
         { provide: UpgradeHintService, useValue: upgradeHint },
         // The real one: U answers through it, on the facade and stores above
         { provide: TowerUpgradeService, useFactory: () => new TowerUpgradeService() },
@@ -344,6 +347,28 @@ describe('HotkeyService', () => {
     service.handleKeyDown(event);
     expect(facade.startWave).not.toHaveBeenCalled();
     expect(event.defaultPrevented).toBe(false);
+  });
+
+  describe('Alt', () => {
+    beforeEach(() => setHealthBarsInverted.mockClear());
+
+    it('turns the health bars round while held and takes the key from the browser menu', () => {
+      const down = press('Alt', { altKey: true });
+      service.handleKeyDown(down);
+      expect(setHealthBarsInverted).toHaveBeenLastCalledWith(true);
+      expect(down.defaultPrevented).toBe(true);
+
+      const up = release('Alt');
+      service.handleKeyUp(up);
+      expect(setHealthBarsInverted).toHaveBeenLastCalledWith(false);
+      expect(up.defaultPrevented).toBe(true);
+    });
+
+    it('puts them back when the window loses the keyup', () => {
+      service.handleKeyDown(press('Alt', { altKey: true }));
+      service.handleWindowBlur();
+      expect(setHealthBarsInverted).toHaveBeenLastCalledWith(false);
+    });
   });
 
   describe('number keys', () => {

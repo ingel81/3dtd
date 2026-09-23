@@ -67,7 +67,9 @@
                (change)="debugFacade.onBossIntroToggled(!bossIntroEnabled())">
         <span>Boss Intro</span>
       </label>
-      <label class="td-setting-row">
+      <label class="td-setting-row"
+             matTooltip="Hold Alt to show them the other way round: on while this is off, off while it is on"
+             matTooltipPosition="left">
         <input type="checkbox" [checked]="healthBarsVisible()"
                (change)="debugFacade.onHealthBarsToggled(!healthBarsVisible())">
         <span>Health Bars</span>
