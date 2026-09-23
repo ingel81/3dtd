@@ -19,7 +19,7 @@ import { GameStore } from '../store/game.store';
 import { HERO } from '../configs/hero.config';
 import { calculateTotalDPS } from '../director/defense-analyzer';
 import { directorParamsName } from '../director/director-params';
-import { WaveDirector } from '../director/wave-director';
+import type { WaveSourceId } from '../director/wave-source';
 import { RunLogCollector, type RunLogWorld } from './run-log.service';
 import { RunLogStore } from './run-log.store';
 import { loadBuildCommit } from './build-commit';
@@ -32,7 +32,6 @@ export class RunLogFacade {
   private readonly locations = inject(LocationManagementService);
   private readonly devWorld = inject(DevWorldService);
   private readonly gameStore = inject(GameStore);
-  private readonly waveDirector = inject(WaveDirector);
 
   constructor() {
     // Speed and pause are store signals, not events; the log follows them so
@@ -71,6 +70,9 @@ export class RunLogFacade {
    */
   private whoPlays: () => { player: RunPlayer; botSkill?: string } = () => ({ player: 'human' });
 
+  /** Which wave source plays, asked when a run opens. Handed in for the same reason: the WaveDirector is component-scoped too. */
+  private waveSource: () => WaveSourceId | undefined = () => undefined;
+
   /**
    * Wire the log to a running game. Called once the event bus exists; a
    * second call replaces the subscriptions rather than doubling them.
@@ -79,9 +81,11 @@ export class RunLogFacade {
     gameState: GameStateManager,
     bus: GameEventBus,
     whoPlays?: () => { player: RunPlayer; botSkill?: string },
+    waveSource?: () => WaveSourceId,
   ): void {
     this.gameState = gameState;
     if (whoPlays) this.whoPlays = whoPlays;
+    if (waveSource) this.waveSource = waveSource;
     this.subs.disposeAll();
     this.collector.attach(bus, this.subs);
 
@@ -171,7 +175,7 @@ export class RunLogFacade {
         map: this.devWorld.isActive ? 'devworld' : 'world',
         player: who.player,
         directorParams: directorParamsName(),
-        waveSource: this.waveDirector.source.id,
+        waveSource: this.waveSource(),
         ...(who.botSkill ? { botSkill: who.botSkill } : {}),
         ...(home ? { location: { name: home.name, lat: home.lat, lon: home.lon } } : {}),
       },
