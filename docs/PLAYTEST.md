@@ -33,15 +33,19 @@ L1 bis L4 gehen in einem Lauf.
   `Q`, oder den Knopf im Header neben dem Würfel. Erwartung: Vollbild, drei Wurzeln oben (Gatling, Ice Magic,
   Biology), Tier-Marken links auf Höhe ihrer Reihe, unten Legende und die Zählung je Strang. Ziehen mit der Maus
   verschiebt den Graphen, ein Klick auf einen offenen Knoten startet ihn trotzdem.
+  **ok (2026-09-23)**. Befund: der Header-Knopf passt nicht zu seinen Nachbarn (Ort, Würfel, HQ). Umgezogen, Nachtest O1.
 - **L2 Zustände am Knoten**: eine Forschung starten und eine zweite anklicken, während der Slot belegt ist.
   Erwartung: die laufende teal mit Balken und Restzeit, die zweite gestrichelt gold mit Nummer in der Ecke, die
   Warteschlange rechts mit derselben Reihenfolge. Credits unter den Preis bringen (nichts kaufen, warten):
   offene Knoten färben sich orange (`poor`), der Detailknopf sagt, wie viel fehlt.
+  **ok (2026-09-23)**. Befund: erforschte Knoten optisch deutlicher absetzen. Umgebaut, Nachtest O2.
 - **L3 Kette und Detail**: mit dem Zeiger auf einen tiefen Knoten (etwa Transcendent Tech). Erwartung: der Weg
   bis zur Wurzel leuchtet gold, alles andere blendet ab, und rechts steht Zustand, Wirkung, Kosten, Zeit und die
   Vorbedingungen mit Haken.
+  **ok (2026-09-23)**
 - **L4 Warteschlange umsortieren**: zwei Forschungen vormerken, im rechten Panel die Pfeile benutzen. Erwartung:
   die Reihenfolge ändert sich, nichts wird abgebucht, und die frei werdende Slot nimmt den, der oben steht.
+  **ok (2026-09-23)**
 - **L5 Biology-Tor**: am Anfang stehen nur Gatling Technology, Ice Magic und Biology offen. Tentacle und Toxic
   öffnen sich erst, wenn Biology fertig ist (120, 8 s).
 - **L6 Raketen-Pfad** (Form B): `aa-retrofit` hängt jetzt direkt an `gatling-tech`, `rocketry` unter
