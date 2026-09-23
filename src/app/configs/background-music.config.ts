@@ -39,6 +39,14 @@ export interface BackgroundMusicConfig {
   gameOver: MusicTrack[];
   /** Game over: the game-over track comes in this long after the wave music faded (ms), after the stinger */
   gameOverMusicDelayMs: number;
+  /**
+   * End of a wave: the wave music fades out over `fadeOutMs` under the
+   * wave-end horn (MOMENT_SOUNDS.waveComplete, 2.5 s), the horn rings out on
+   * its own, and the build music fades in over `buildFadeInMs` from
+   * `buildDelayMs` on. Until 2026-09-23 wave music crossfaded straight into
+   * build music with the horn in the middle of it: too abrupt.
+   */
+  waveEnd: { fadeOutMs: number; buildDelayMs: number; buildFadeInMs: number };
   /** Share of the volume while the game is paused */
   pauseDim: number;
   /**
@@ -81,6 +89,7 @@ export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   bloodMoon: [{ id: 'music-blood-moon-01', url: 'assets/music/blood_moon/blood_moon01.mp3' }],
   gameOver: [{ id: 'music-game-over-01', url: 'assets/music/game_over/game_over01.mp3', volume: 0.35 }],
   gameOverMusicDelayMs: 4000,
+  waveEnd: { fadeOutMs: 1200, buildDelayMs: 2800, buildFadeInMs: 3000 },
   pauseDim: 0.35,
   duck: {
     nuclearStrike: { factor: 0.35, holdMs: 3000 },
