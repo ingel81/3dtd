@@ -6,6 +6,8 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-23
 
+- [x] **Tower bemannen** (`669a0591`): mit `C` in einen Projektil-Tower steigen, aus der Egoperspektive zielen
+      und feuern, nach den Regeln des Towers; Fehlschüsse fliegen frei. Doku: [docs/TOWER_CONTROL.md](docs/TOWER_CONTROL.md).
 - [x] **E22 Sound-Paket** (`c87f300b`, `4cf54995`, `6e520466`, `cd5ffed2`, `c73bcd0f`, `4222d1e2`, `83b97854`,
       `b9b58a36`): acht Bugs (Zufallsrufe, Musik nach Neustart, Autoplay, Pegel des Hauptthemas u. a.),
       Master-Regler und `M`, Tode, Treffer, stumme Gegner, Held, Spielmomente, UI-Töne mit eigenem Regler,
