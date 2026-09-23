@@ -11,8 +11,6 @@ vi.mock('@angular/core', async () => {
 
 import { DestroyRef, ElementRef, Injector, runInInjectionContext, signal } from '@angular/core';
 import { GameHeaderComponent } from './game-header.component';
-import { MatDialog } from '@angular/material/dialog';
-import { ResearchStore } from '../../store/research.store';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
@@ -68,13 +66,6 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
         { provide: TowerDefenseStore, useValue: { renderingEnabled: signal(true) } },
         { provide: DevWorldService, useValue: { isActive: false } },
         { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },
-        // The header carries the way into the research tree, so it reads the
-        // research state and opens a dialog (game-header.component.ts).
-        {
-          provide: ResearchStore,
-          useValue: { centerLevel: signal(0), queuedResearches: signal([]) },
-        },
-        { provide: MatDialog, useValue: { open: () => undefined } },
       ],
     });
     header = runInInjectionContext(injector, () => new GameHeaderComponent());

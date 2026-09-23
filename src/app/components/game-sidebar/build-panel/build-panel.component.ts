@@ -2,10 +2,12 @@ import {
   AfterViewInit,
   ChangeDetectionStrategy,
   Component,
+  computed,
   DestroyRef,
   effect,
   ElementRef,
   inject,
+  Injector,
   input,
   output,
   QueryList,
@@ -23,6 +25,7 @@ import { towerSlotKey } from '../../../services/hotkey-map';
 import { ModelPreviewService } from '../../../services/infrastructure/model-preview.service';
 import { TowerDebugService } from '../../../services/debug/tower-debug.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
+import { openResearchDialog } from '../../research-dialog/open-research-dialog';
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { TdTooltipData } from '../../tooltip/tooltip-data.types';
@@ -48,6 +51,13 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   private readonly towerDebug = inject(TowerDebugService);
   private readonly researchStore = inject(ResearchStore);
   private readonly destroyRef = inject(DestroyRef);
+  // The dialog emits commands through the facade, which the game component
+  // provides rather than root (openResearchDialog).
+  private readonly injector = inject(Injector);
+
+  /** Nothing to research before the Center is built, so no way into the tree either. */
+  readonly hasResearchCenter = computed(() => this.researchStore.centerLevel() > 0);
+  readonly queuedResearches = computed(() => this.researchStore.queuedResearches().length);
 
   constructor() {
     // Update tower previews when debug overrides change
@@ -258,6 +268,10 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
   }
 
   /** Damage-vs-armor chart without a highlighted row. */
+  openResearch(): void {
+    openResearchDialog(this.dialog, this.injector);
+  }
+
   openDamageMatrix(): void {
     openDamageMatrixDialog(this.dialog);
   }

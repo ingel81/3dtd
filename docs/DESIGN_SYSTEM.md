@@ -359,8 +359,9 @@ Solange der Held gewählt ist, zeigt die Kontext-Hinweis-Box "Click Send", "V Am
 
 `components/research-dialog/` über `openResearchDialog`, Vollbild (`100vw` x `100vh`,
 `panelClass: ['td-dialog-panel', 'td-research-panel']`). Erreichbar an drei Stellen, sobald ein
-Research Center steht: Knopf im Panel des Centers, Knopf im Header neben dem Würfel (mit der Anzahl
-in der Warteschlange), Taste `Q`.
+Research Center steht: Knopf im Panel des Centers, Knopf "Research tree" fest unter dem Turmraster des
+BUILD-Panels (scrollt nicht mit, zeigt die Anzahl in der Warteschlange), Taste `Q`. Erforschte Knoten sind grün
+(`--td-green`), laufende teal, offene gold.
 
 Aufbau von oben nach unten: Kopfleiste mit "Researched n/21" und einem Segment je Forschung, Slots,
 Credits und Close; die Rubrik-Leiste (bisher nur "Tower Tech"); darunter das Brett mit der
@@ -594,7 +595,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | G | Held wählen; ist er gewählt, gleitet die Kamera zu ihm (nicht im Photo Mode, nicht während des Intro-Flugs) | Held-Knopf in der Fähigkeitenleiste, Klick auf den Helden (`HeroControlService.summon`) |
 | V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
-| Q | [Forschungsbaum](#forschungsbaum-dialog) als Dialog; still, solange kein Research Center steht | Knopf im Header und im Panel des Centers (`ResearchStore.centerLevel`) |
+| Q | [Forschungsbaum](#forschungsbaum-dialog) als Dialog; still, solange kein Research Center steht | Knopf im BUILD-Panel und im Panel des Centers (`ResearchStore.centerLevel`) |
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Held loslassen, sonst Tower abwählen | |
 
 Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor InputHandler und HotkeyService den `BossIntroService`: Esc überspringt das Intro (vor Build- und Zielmodus), alle anderen Spieltasten warten, bis die Sicht zurück ist. Tippen in einem Feld und ein Esc, das ein Dialog schon genommen hat, bleiben unberührt.

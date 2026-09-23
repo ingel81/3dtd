@@ -86,18 +86,6 @@
         </div>
       </div>
 
-      <!-- Research tree, reachable from anywhere once the Center stands -->
-      @if (hasResearchCenter()) {
-        <button class="action-btn" (click)="openResearch()"
-                matTooltip="Research tree (Q)" aria-keyshortcuts="q"
-                aria-label="Open the research tree">
-          <td-icon name="layers" [size]="22"></td-icon>
-          @if (queuedResearches() > 0) {
-            <span class="action-badge">{{ queuedResearches() }}</span>
-          }
-        </button>
-      }
-
       <!-- World Dice -->
       <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location"
               aria-label="Random location">

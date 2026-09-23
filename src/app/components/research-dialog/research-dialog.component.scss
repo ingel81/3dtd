@@ -135,8 +135,8 @@
   }
 
   .td-seg-completed {
-    background: linear-gradient(180deg, var(--td-teal-light), var(--td-teal-dark));
-    box-shadow: 0 0 6px rgba(107, 182, 164, 0.35);
+    background: linear-gradient(180deg, var(--td-green), var(--td-green-dark));
+    box-shadow: 0 0 6px rgba(158, 214, 160, 0.35);
   }
 
   .td-seg-active {
@@ -330,7 +330,7 @@
   }
 
   .td-dot-completed {
-    background: var(--td-teal-dark);
+    background: var(--td-green-dark);
   }
 
   .td-dot-available,
@@ -662,8 +662,8 @@
   }
 
   &[data-s='completed'] {
-    color: #6e8c82;
-    border-color: #2c3a35;
+    color: var(--td-green);
+    border-color: var(--td-green-dark);
   }
 
   &[data-s='poor'] {
@@ -858,7 +858,7 @@
   }
 
   .td-l-done::before {
-    background: var(--td-teal-dark);
+    background: var(--td-green-dark);
   }
 
   .td-l-act::before {
