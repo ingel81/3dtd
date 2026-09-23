@@ -75,6 +75,8 @@ export class SpatialAudioPlayback {
   /** The camera, which carries the AudioListener; see distanceSqToListener() */
   private camera: { readonly matrixWorld: Matrix4 };
   private _masterVolume = 1.0;
+  /** Volume of the UI cues (playUi), 0-1, independent of the sound effects' */
+  private _uiVolume = 1.0;
   /** Stretch of the anti-flood window, the game speed from 1 up (setTimescale). */
   private floodScale = 1;
 
@@ -90,6 +92,10 @@ export class SpatialAudioPlayback {
 
   setMasterVolume(vol: number): void {
     this._masterVolume = Math.max(0, Math.min(1, vol));
+  }
+
+  setUiVolume(vol: number): void {
+    this._uiVolume = Math.max(0, Math.min(1, vol));
   }
 
   /**
@@ -370,12 +376,21 @@ export class SpatialAudioPlayback {
   }
 
   async playGlobal(soundId: string, volumeMultiplier = 1.0): Promise<Audio | null> {
+    return this.playNonPositional(soundId, volumeMultiplier, this._masterVolume);
+  }
+
+  /** A UI cue: non-positional like playGlobal, at the UI volume instead of the sound effects'. */
+  async playUi(soundId: string, volumeMultiplier = 1.0): Promise<Audio | null> {
+    return this.playNonPositional(soundId, volumeMultiplier, this._uiVolume);
+  }
+
+  private async playNonPositional(soundId: string, volumeMultiplier: number, channelVolume: number): Promise<Audio | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
       return null;
     }
-    if (this._masterVolume === 0) return null;
+    if (channelVolume === 0) return null;
 
     await this.resumeContext();
 
@@ -388,7 +403,7 @@ export class SpatialAudioPlayback {
 
     const audio = new Audio(this.voices.getListener());
     audio.setBuffer(sound.buffer);
-    audio.setVolume(sound.config.volume * volumeMultiplier * this._masterVolume);
+    audio.setVolume(sound.config.volume * volumeMultiplier * channelVolume);
     audio.setLoop(sound.config.loop);
     audio.play();
 

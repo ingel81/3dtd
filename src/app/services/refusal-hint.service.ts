@@ -6,6 +6,7 @@ import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
+import { uiSound } from './ui-sound';
 
 /** A refused press on an ability or the hero: whose, and why. */
 export interface Refusal {
@@ -121,14 +122,18 @@ export class RefusalHintService {
   /** `id` did not arm or fire: say why, if the player can act on it. */
   ability(id: AbilityId, reason: AbilityRejectReason): void {
     const text = abilityRefusalText(id, reason, this.store.abilities()[id]?.wavesUntilCharge ?? 0);
-    if (text) this.show({ subject: ABILITIES[id].name, reason: text });
+    if (!text) return;
+    uiSound.play('denied');
+    this.show({ subject: ABILITIES[id].name, reason: text });
   }
 
   /** The hero was not hired or did not go: say why, if the player can act on it. */
   hero(reason: HeroRejectReason): void {
     const hired = this.store.hero().hired;
     const text = heroRefusalText(reason, this.store.credits(), hired);
-    if (text) this.show({ subject: hired ? HERO.name : `Hire ${HERO.name}`, reason: text });
+    if (!text) return;
+    uiSound.play(reason === 'credits' ? 'noMoney' : 'denied');
+    this.show({ subject: hired ? HERO.name : `Hire ${HERO.name}`, reason: text });
   }
 
   clear(): void {

@@ -24,6 +24,7 @@ import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { DebugFacadeService } from './debug/debug-facade.service';
+import { uiSound } from './ui-sound';
 
 /**
  * Runs the game hotkeys (see hotkey-map.ts). The component hands it every key
@@ -230,7 +231,10 @@ export class HotkeyService {
       placedUnique: this.store.placedUniqueTypes(),
       isUnlocked: (id) => this.researchStore.isTowerUnlocked(id),
     });
-    if (!pickable) return false;
+    if (!pickable) {
+      if (this.store.credits() < tower.cost && this.researchStore.isTowerUnlocked(tower.id)) uiSound.play('noMoney');
+      return false;
+    }
     // Already building this one: keep the preview where it is
     if (this.uiStore.buildMode() && this.uiStore.selectedTowerType() === tower.id) return true;
     this.towerPlacement.selectTowerType(tower.id);

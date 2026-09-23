@@ -111,7 +111,7 @@ export class QuickActionsComponent {
   // Computed: anything muted? The store's volumes reach the audio by
   // themselves (TowerDefenseComponent)
   readonly anyMuted = computed(() =>
-    this.uiStore.masterMuted() || this.uiStore.musicMuted() || this.uiStore.sfxMuted());
+    this.uiStore.masterMuted() || this.uiStore.musicMuted() || this.uiStore.sfxMuted() || this.uiStore.uiMuted());
 
   toggleVfx(key: VfxSwitch): void {
     const change: Partial<VfxSettings> = {};
@@ -138,6 +138,15 @@ export class QuickActionsComponent {
   onSfxSlider(event: Event): void {
     this.uiStore.sfxVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
     this.uiStore.sfxMuted.set(false);
+  }
+
+  onUiSlider(event: Event): void {
+    this.uiStore.uiVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
+    this.uiStore.uiMuted.set(false);
+  }
+
+  toggleUiMute(): void {
+    this.uiStore.uiMuted.update(v => !v);
   }
 
   toggleMasterMute(): void {
