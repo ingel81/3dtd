@@ -1051,3 +1051,31 @@ Installer aus dem Release-Entwurf v0.3.1. K8.4 (Hybrid-Laptop, optional) bleibt 
   Seit dem ff-Merge liegt `CHANGELOG.md` auf `main`, der Link geht (per `gh api` geprüft, 2026-09-19).
 
 **K8.1, K8.2, K8.3 und K8.5 ok (2026-09-19).**
+
+## N Wellenquellen und Geist-Fix (2026-09-22)
+
+Code-Stand `next` ab `00efe481`. Auf der Standardquelle "adaptive" soll sich nichts anders anfühlen. Ob der
+Umbau dieselben Wellen liefert, prüfen Referenz- und Contract-Specs. Hier geht es nur darum, ob die Anzeige
+stimmt und die Türme sich richtig verhalten. Vor dem Test fiel NG0201 auf (RunLogFacade injizierte den
+komponentengebundenen WaveDirector), behoben samt Wächter `integration/injector-scope.spec.ts`. N1 und N4 gehen in einem Lauf. N2 und N3 gehen in einem
+zweiten, mit den Sprüngen in dieser Reihenfolge: 33, 35, 43, 45.
+
+- **N1 Kein Turm schießt ins HQ**: Ort laden, einen einzelnen Turm direkt neben das HQ stellen. Im Wave Debug
+  "Single" wählen, einen schnellen Gegner (Rat) mit Count 40 einstellen und "Start Custom Wave" drücken, damit
+  einige durchkommen. Danach normal die nächste Welle starten. Erwartung: Kein Mündungsfeuer und keine Geschosse
+  zur Stelle am HQ, sobald dort nichts mehr steht. Der Turm nimmt den ersten Gegner der neuen Welle ins Visier.
+  **ok (2026-09-23)**
+- **N2 Boss-Wellen nach Sprung**: Im Wave Debug unter "Jump to wave" 35 eintragen und springen, die Welle
+  starten. Erwartung: "Boss: Skarnax", der Wurm kommt. Danach auf 45 springen und starten. Erwartung:
+  "Boss: Ooze", ein einzelner großer Schleim.
+  **ok (2026-09-23)**
+- **N3 NEXT-Leiste** (zeigt fünf Wellen voraus): Im WAVE-Panel die Zeitleiste "NEXT" ansehen, einmal bei Welle 1
+  bis 5, dann nach "Jump to wave" 33 und nach "Jump to wave" 43. Erwartung: Marken, Namen und
+  Tooltips wie gewohnt; bei 33 steht W35 als Skarnax, bei 43 steht W45 als Ooze, nicht als der normale Boss.
+  Keine leere Zeile, kein "undefined".
+  **ok (2026-09-23)**
+- **N4 Bot-Fenster "Gate ×"**: Developer options, Kachel "Bots". Erwartung: Vor der ersten Welle steht bei
+  "Gate ×" ein Strich, spätestens nach dem Start der ersten Welle eine Zahl wie 1.00.
+  **ok (2026-09-23)**
+
+**N1 bis N4 ok (2026-09-23).**
