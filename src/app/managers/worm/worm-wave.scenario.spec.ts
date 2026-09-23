@@ -91,7 +91,7 @@ describe('Worm in a Custom Wave and in Enemy Debug (playtest 354, 355)', () => {
     const startTwoWorms = (): void => {
       m.waveManager.initialize(TEST_SPAWN_POINTS, new Map([['spawn-1', PATH]]));
       m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
-      m.enemyManager.setWaveSizeProvider(() => m.waveManager.getExpectedBodyCount());
+      m.enemyManager.setWaveWeightProvider(() => m.waveManager.getExpectedBodyWeight());
       m.waveManager.startWave({
         schedule: {
           entries: [{ enemyType: 'worm', speed: SPEED }, { enemyType: 'worm', speed: SPEED }],

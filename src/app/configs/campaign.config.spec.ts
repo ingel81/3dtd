@@ -92,9 +92,10 @@ describe('campaign.config', () => {
     });
 
     it('boss waves past the campaign pay double', () => {
-      expect(waveGold(40).kill).toBe(waveGold(41).kill * 2);
-      expect(waveGold(40).complete).toBe(waveGold(41).complete * 2);
-      expect(waveGold(36)).toEqual(waveGold(37));
+      // On the sustain floor, where the taper no longer tells neighbours apart
+      expect(waveGold(100).kill).toBe(waveGold(101).kill * 2);
+      expect(waveGold(100).complete).toBe(waveGold(101).complete * 2);
+      expect(waveGold(101)).toEqual(waveGold(102));
     });
 
     it('income settles on a sustain floor rather than reaching zero', () => {

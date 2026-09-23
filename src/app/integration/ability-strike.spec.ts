@@ -43,7 +43,7 @@ import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { DamageApplicationService } from '../services/combat/damage-application.service';
 import { GameObject } from '../core/game-object';
 import { ABILITIES } from '../configs/abilities.config';
-import { ENEMY_TYPES, EnemyTypeId } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, enemyRewardWeight } from '../configs/enemy-types.config';
 import { EFFECTIVENESS_COLORS } from '../configs/combat/damage-matrix.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
@@ -175,8 +175,9 @@ function run(timescale: number, pauseFrames = 0, roster = ROSTER): Outcome {
   bus.on('ability:resolved', (event) => (abilityKills += event.kills));
 
   gsm.beginWave();
-  // The wave has no spawn plan: its size is the roster, so every kill has its slot of the kill budget
-  gsm.enemyManager.setWaveSizeProvider(() => roster.length);
+  // The wave has no spawn plan: its weight is the roster's, so every kill has its share of the kill budget
+  gsm.enemyManager.setWaveWeightProvider(() =>
+    roster.reduce((sum, { type }) => sum + enemyRewardWeight(ENEMY_TYPES[type].baseHp), 0));
   const enemies = roster.map(({ type, speed, preDamage }) => {
     const enemy = gsm.enemyManager.spawn(TEST_PATH, type, speed);
     enemy.health.takeDamage(enemy.health.maxHp * preDamage);

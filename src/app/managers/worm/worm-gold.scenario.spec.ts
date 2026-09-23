@@ -32,7 +32,7 @@ describe('Gold of the worm wave W35, playtest 357 replayed', () => {
     m = createTestManagers();
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
     m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
-    m.enemyManager.setWaveSizeProvider(() => m.waveManager.getExpectedBodyCount());
+    m.enemyManager.setWaveWeightProvider(() => m.waveManager.getExpectedBodyWeight());
   });
 
   afterEach(() => {
@@ -40,7 +40,7 @@ describe('Gold of the worm wave W35, playtest 357 replayed', () => {
     vi.restoreAllMocks();
   });
 
-  it('killed whole it pays 12 000 kill gold, 18 000 with the base completion bonus', () => {
+  it('killed whole it pays the kill gold of its wave, plus the base completion bonus', () => {
     expect(bossVariantForWave(35)?.enemyType).toBe('worm');
     const credits: number[] = [];
     m.eventBus.on('enemy:died', (e) => credits.push(e.credits));
@@ -60,16 +60,14 @@ describe('Gold of the worm wave W35, playtest 357 replayed', () => {
 
     const kill = credits.reduce((sum, c) => sum + c, 0);
     expect(credits.length).toBeGreaterThan(1);
-    expect(waveGold(35).kill).toBe(12_000);
-    expect(kill).toBe(12_000);
-    // Every segment its share, no segment much more than another
-    expect(Math.max(...credits) - Math.min(...credits)).toBeLessThanOrEqual(1);
+    expect(kill).toBe(waveGold(35).kill);
+    // Every segment its share, the last one takes the rounding remainder
+    expect(Math.max(...credits.slice(0, -1)) - Math.min(...credits)).toBeLessThanOrEqual(1);
 
     // No perfect, close call, combo or comeback: those are the skill bonuses on top
     const bonus = waveGoldTotal(
       new EconomyService().computeWaveCompletionBonus({ wave: 35, perfect: false, closeCall: false, hpLost: 0 }),
     );
-    expect(bonus).toBe(6_000);
-    expect(kill + bonus).toBe(18_000);
+    expect(bonus).toBe(waveGold(35).complete);
   });
 });

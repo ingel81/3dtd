@@ -267,7 +267,7 @@ describe('Frost bomb and EMP on the ooze, playtest 399 replayed', () => {
     m = createTestManagers();
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
     m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
-    m.enemyManager.setWaveSizeProvider(() => m.waveManager.getExpectedBodyCount());
+    m.enemyManager.setWaveWeightProvider(() => m.waveManager.getExpectedBodyWeight());
     clock = 0;
     status = new StatusEffectService();
     status.setGameClockProvider(() => clock);

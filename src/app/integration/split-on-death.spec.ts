@@ -20,6 +20,7 @@ import {
   makeSingleTypeWaveConfig,
 } from './test-helpers';
 import { waveGold } from '../configs/campaign.config';
+import { lineageRewardWeight } from '../configs/enemy-types.config';
 
 const MINION = 'skeleton-minion';
 
@@ -28,7 +29,7 @@ function createWiredManagers(): TestManagers {
   const m = createTestManagers();
   m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
   m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
-  m.enemyManager.setWaveSizeProvider(() => m.waveManager.getExpectedBodyCount());
+  m.enemyManager.setWaveWeightProvider(() => m.waveManager.getExpectedBodyWeight());
   return m;
 }
 
@@ -63,7 +64,8 @@ describe('Split on death integration', () => {
   it('sizes the kill-gold slots by every body the wave can field', () => {
     m.waveManager.startWave(skeletonWave(4));
     expect(m.waveManager.getExpectedEnemyCount()).toBe(4);
-    expect(m.waveManager.getExpectedBodyCount()).toBe(12); // 4 skeletons + 8 minions
+    // 4 skeletons + 8 minions, each at its own weight
+    expect(m.waveManager.getExpectedBodyWeight()).toBeCloseTo(4 * lineageRewardWeight('skeleton'));
   });
 
   it('keeps the wave open until the minions are gone', () => {
@@ -101,10 +103,10 @@ describe('Split on death integration', () => {
 
     tickEngine(m, 30_000, clock); // the first skeleton walks into the base
     expect(reached).toEqual(['skeleton']);
-    // 6 of 9 slots paid, the floor accumulator leaves at most one coin of rounding
+    // Two of three skeleton lineages paid, the floor accumulator leaves a coin of rounding per kill
     const budget = waveGold(1).kill;
-    expect(paid()).toBeGreaterThanOrEqual(Math.floor((budget * 6) / 9));
-    expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 6) / 9));
+    expect(paid()).toBeGreaterThanOrEqual(Math.floor((budget * 2) / 3) - 6);
+    expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 2) / 3));
   });
 
   it('counts a minion that reaches the base as a leak', () => {
