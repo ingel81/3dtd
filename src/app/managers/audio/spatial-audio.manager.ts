@@ -344,6 +344,16 @@ export class SpatialAudioManager {
     return this.playback.playGlobal(soundId, volumeMultiplier);
   }
 
+  /** A UI cue, at the UI volume (setUiVolume). */
+  async playUi(soundId: string, volumeMultiplier = 1.0): Promise<Audio | null> {
+    return this.playback.playUi(soundId, volumeMultiplier);
+  }
+
+  /** Volume of the UI cues (0-1), apart from the sound effects'. */
+  setUiVolume(vol: number): void {
+    this.playback.setUiVolume(vol);
+  }
+
   // ─── Loop management (delegated) ────────────────────────
 
   async createLoop(
@@ -380,12 +390,12 @@ export class SpatialAudioManager {
     return this.loops.isPaused(handle);
   }
 
-  /** The game paused (true) or went on: every loop stands with it, see SpatialAudioLoops.hold(). */
   /** Enemy loop slots to the nearest enemies, throttled (SpatialAudioLoops.rebalanceEnemyLoops). */
   rebalanceEnemyLoops(nowMs = performance.now()): void {
     this.loops.rebalanceEnemyLoops(nowMs);
   }
 
+  /** The game paused (true) or went on: every loop stands with it, see SpatialAudioLoops.hold(). */
   holdLoops(held: boolean): void {
     this.loops.hold(held);
   }

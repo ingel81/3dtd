@@ -12,6 +12,7 @@ import {
 } from '../utils/player-actions';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { UpgradeHintService } from './upgrade-hint.service';
+import { uiSound } from './ui-sound';
 
 /**
  * Text rising over the tower after a purchase: --td-gold-light for what it
@@ -96,6 +97,7 @@ export class TowerUpgradeService {
   }
 
   private refuse(tower: Tower, refusal: UpgradeRefusal): void {
+    uiSound.play(refusal.kind === 'credits' ? 'noMoney' : 'denied');
     this.upgradeHint.refused(tower.id, refusal);
     this.floatOverTower(tower, refusalLabel(refusal), UPGRADE_TEXT.refused);
   }

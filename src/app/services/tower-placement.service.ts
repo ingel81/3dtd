@@ -33,6 +33,7 @@ import {
 } from '../utils/tower-footprint';
 import { TowerPlinthPreview } from './tower-plinth-preview';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { uiSound } from './ui-sound';
 
 /** One row of `__footprintDebug()`: how the last preview footprint was decided, heights in m. */
 export interface FootprintDebugRow {
@@ -284,6 +285,7 @@ export class TowerPlacementService {
 
     this.selectedTowerType.set(typeId);
     this.buildMode.set(true);
+    uiSound.play('selectBuild');
 
     // Deselect any previously selected tower (hides its LOS visualization)
     this.gameState?.towerManager.selectTower(null);
@@ -835,6 +837,7 @@ export class TowerPlacementService {
     const footprint = position.footprint;
     const validation = this.validateTowerPosition(position.lat, position.lon, footprint);
     if (!validation.valid) {
+      uiSound.play('denied');
       return false;
     }
 

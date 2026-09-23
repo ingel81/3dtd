@@ -11,6 +11,7 @@ import { HERO, HeroAmmoId, nextHeroAmmo } from '../configs/hero.config';
 import type { GeoPosition } from '../models/game.types';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GameStateManager } from '../managers/game-state.manager';
+import { uiSound } from './ui-sound';
 
 /** Warning while no route point is in reach of the cursor */
 const NO_ROUTE_WARNING = `No route within ${HERO.orderSnapM} m`;
@@ -152,9 +153,11 @@ export class HeroControlService {
     if (!this.selected() || !this.gameState) return;
     if (!this.gameState.heroManager.resolveMoveTarget({ lat, lon, height })) {
       this.warning.set(NO_ROUTE_WARNING);
+      uiSound.play('denied');
       return;
     }
     this.warning.set(null);
+    uiSound.play('heroMove');
     this.gameState.getEventBus().emit({ type: 'command:hero-move', target: { lat, lon, height } });
   }
 

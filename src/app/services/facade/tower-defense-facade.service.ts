@@ -19,6 +19,7 @@ import { GameStateSyncService } from '../infrastructure/game-state-sync.service'
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { WaveDirector } from '../../director/wave-director';
 import { RefusalHintService } from '../refusal-hint.service';
+import { uiSound } from '../ui-sound';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { BestWaveService } from '../location/best-wave.service';
 import { ThreeTilesEngine } from '../../three-engine';
@@ -238,6 +239,7 @@ export class TowerDefenseFacadeService {
     this.onboarding.disconnect();
     this.bestWaves.disconnect();
     this.refusals.disconnect();
+    uiSound.disconnect();
     this.gameState.dispose();
     this.gameLoopFacade.dispose();
     this.locationFacade.dispose();
@@ -392,6 +394,7 @@ export class TowerDefenseFacadeService {
     this.bestWaves.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
     // Refused hires and abilities in the context hint box; the bot's commands get none
     this.refusals.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
+    uiSound.connect(() => this.gameState.tilesEngine?.spatialAudio ?? null);
 
     // Let sub-facades subscribe to their own EventBus events
     this.vizFacade.subscribeToEventBus();

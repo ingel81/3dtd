@@ -25,6 +25,8 @@ interface PersistedUIState {
   openMenu?: QuickMenu | null;
   masterVolume?: number;
   masterMuted?: boolean;
+  uiVolume?: number;
+  uiMuted?: boolean;
   musicVolume?: number;
   sfxVolume?: number;
   musicMuted?: boolean;
@@ -98,6 +100,12 @@ export class UIStore {
   /** SFX muted */
   readonly sfxMuted = signal<boolean>(false);
 
+  /** UI cues volume (0-1): build pick, dialogs, refusals */
+  readonly uiVolume = signal<number>(0.5);
+
+  /** UI cues muted */
+  readonly uiMuted = signal<boolean>(false);
+
   /** Music volume as it plays: channel times master, 0 when either is muted */
   readonly effectiveMusicVolume = computed(() =>
     this.masterMuted() || this.musicMuted() ? 0 : this.masterVolume() * this.musicVolume());
@@ -105,6 +113,10 @@ export class UIStore {
   /** Sound-effect volume as it plays: channel times master, 0 when either is muted */
   readonly effectiveSfxVolume = computed(() =>
     this.masterMuted() || this.sfxMuted() ? 0 : this.masterVolume() * this.sfxVolume());
+
+  /** UI cue volume as it plays: channel times master, 0 when either is muted */
+  readonly effectiveUiVolume = computed(() =>
+    this.masterMuted() || this.uiMuted() ? 0 : this.masterVolume() * this.uiVolume());
 
   /**
    * Start the next wave by itself after a countdown once a wave is done.
@@ -216,6 +228,8 @@ export class UIStore {
         this.openMenu.set(storedOpenMenu(state));
         if (state.masterVolume !== undefined) this.masterVolume.set(state.masterVolume);
         if (state.masterMuted !== undefined) this.masterMuted.set(state.masterMuted);
+        if (state.uiVolume !== undefined) this.uiVolume.set(state.uiVolume);
+        if (state.uiMuted !== undefined) this.uiMuted.set(state.uiMuted);
         if (state.musicVolume !== undefined) this.musicVolume.set(state.musicVolume);
         if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
         if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
@@ -245,6 +259,8 @@ export class UIStore {
           openMenu: this.openMenu(),
           masterVolume: this.masterVolume(),
           masterMuted: this.masterMuted(),
+          uiVolume: this.uiVolume(),
+          uiMuted: this.uiMuted(),
           musicVolume: this.musicVolume(),
           sfxVolume: this.sfxVolume(),
           musicMuted: this.musicMuted(),

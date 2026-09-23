@@ -158,6 +158,21 @@
           <td-icon [name]="uiStore.sfxMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
         </button>
       </div>
+      <div class="td-audio-row">
+        <td-icon class="td-audio-label" name="gamepad" [size]="14"></td-icon>
+        <input type="range" class="td-audio-slider"
+               min="0" max="100" step="1"
+               aria-label="Interface sounds volume"
+               [value]="uiStore.uiVolume() * 100"
+               (input)="onUiSlider($event)">
+        <button class="td-audio-mute"
+                [class.muted]="uiStore.uiMuted()"
+                (click)="toggleUiMute()"
+                matTooltip="Mute interface sounds" matTooltipPosition="left"
+                aria-label="Mute interface sounds" [attr.aria-pressed]="uiStore.uiMuted()">
+          <td-icon [name]="uiStore.uiMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
+        </button>
+      </div>
     </div>
     <button class="td-quick-btn td-audio-toggle-btn"
             [class.active]="uiStore.audioMenuExpanded()"

@@ -14,7 +14,8 @@ import {
   untracked,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StreetNetwork } from './services/location/osm-street.service';
@@ -117,6 +118,7 @@ import { isLocationDialogFailure } from './components/location-dialog/open-locat
 import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { RunLogFacade } from './run-log/run-log.facade';
+import { uiSound } from './services/ui-sound';
 
 @Component({
   selector: 'app-tower-defense',
@@ -455,12 +457,18 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.facade.initEffects(this);
+    // Every dialog sounds as it opens and closes
+    inject(MatDialog).afterOpened.pipe(takeUntilDestroyed()).subscribe((ref) => {
+      uiSound.play('dialogOpen');
+      ref.afterClosed().subscribe(() => uiSound.play('dialogClose'));
+    });
 
     // Volumes from the audio menu and M as they change, silent while a bot
     // plays; applyAudioVolumes() once more when the engine is up
     effect(() => {
       this.uiStore.effectiveMusicVolume();
       this.uiStore.effectiveSfxVolume();
+      this.uiStore.effectiveUiVolume();
       this.botEnabled();
       untracked(() => this.applyAudioVolumes());
     });
@@ -537,6 +545,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     const bot = this.botEnabled();
     this.gameState.backgroundMusic?.setVolume(bot ? 0 : this.uiStore.effectiveMusicVolume());
     this.engine?.spatialAudio.setMasterVolume(bot ? 0 : this.uiStore.effectiveSfxVolume());
+    this.engine?.spatialAudio.setUiVolume(bot ? 0 : this.uiStore.effectiveUiVolume());
   }
 
   /**

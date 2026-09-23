@@ -24,6 +24,7 @@ import {
   MAX_HQ_STREET_DISTANCE,
   MAX_SPAWN_STREET_DISTANCE,
 } from '../../configs/map-constants.config';
+import { uiSound } from '../ui-sound';
 
 /**
  * Result of a successful placement click
@@ -297,7 +298,11 @@ export class MapPlacementService {
    */
   handlePlacementClick(): PlacementResult | null {
     const mode = this.uiStore.mapPlacementMode();
-    if (!mode || !this.currentPosition || !this.currentValid) return null;
+    if (!mode || !this.currentPosition) return null;
+    if (!this.currentValid) {
+      uiSound.play('denied');
+      return null;
+    }
 
     const result: PlacementResult = {
       mode,
