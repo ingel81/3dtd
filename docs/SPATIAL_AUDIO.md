@@ -13,7 +13,7 @@ fallen One-Shots weg und Loops pausieren.
 ThreeTilesEngine
     └── spatialAudio: SpatialAudioManager  (Facade)
             ├── AudioListener (an Kamera)
-            ├── pool: AudioPoolManager           (PositionalAudio Lifecycle, Panner-Updates)
+            ├── voices: PositionalVoiceFactory   (PositionalAudio Lifecycle, Panner-Updates)
             ├── bufferCache: AudioBufferCache    (LRU Cache, 50 Buffers)
             ├── playback: SpatialAudioPlayback   (playAt, playAtGeo, playGlobal, One-Shots,
             │                                     Projektil-Budget, Voice-Stealing)
@@ -30,7 +30,7 @@ GameObject (Enemy, Tower, ...)
 Facade-Klasse für 3D-Audio. Delegiert an fünf Helper:
 
 - `AudioBufferCache` (`audio-buffer-cache.ts`): LRU-Cache, Buffer-Loading.
-- `AudioPoolManager` (`audio-pool.manager.ts`): `PositionalAudio` erzeugen und
+- `PositionalVoiceFactory` (`positional-voice-factory.ts`, bis 2026-09-23 `AudioPoolManager`): `PositionalAudio` erzeugen und
   aufräumen, Panner-Updates.
 - `SpatialAudioPlayback` (`spatial-audio-playback.ts`): `playAt`, `playAtGeo`,
   `playGlobal`, One-Shot-Verwaltung, Anti-Flood-Fenster, Polyphony-Caps,
@@ -220,9 +220,11 @@ getSoundPoolStats(): SoundPoolStats    // Gesamtstatistik (Debug)
   ohne Buffer.
 - Bei Distance-Culling Pause: Budget wird freigegeben
 - Bei Resume: Budget wird erneut angefragt (kann fehlschlagen, dann beim nächsten
-  Positions-Update wieder). Einen Vorrang für nahe Gegner gibt es nicht: Den freien Slot
-  bekommt der Loop, dessen Positions-Update zuerst kommt, bei Gegnern also in der
-  Reihenfolge des `EnemyManager`.
+  Positions-Update wieder). Den freien Slot bekommt der Loop, dessen Positions-Update zuerst
+  kommt. Deshalb verteilt `rebalanceEnemyLoops()` (seit 2026-09-23, aus
+  `EnemyManager.update()`, höchstens alle `AUDIO_LIMITS.enemyLoopRebalanceMs` = 250 ms) die
+  Slots neu an die nächsten Gegner in Hörweite: Weiter entfernte, die einen Slot halten,
+  pausieren, dann steigen die nächsten ein. Nicht während `holdLoops(true)`.
 - Bei `stopLoop()`: Budget wird freigegeben, sofern der Loop nicht pausiert war
 
 ## LRU Buffer Cache
@@ -271,7 +273,19 @@ Hintergrundmusik läuft separat zu Spatial Audio und ist **nicht-positional**
   (es läuft mit `loop: false`), folgt nach der Stille direkt die Build-Musik.
 - **Track-Auswahl**: `pickRandom()` schließt den zuletzt gespielten Track aus,
   sodass beim Wechsel ein neuer Track gewählt wird.
-- **Persistenz**: `td_music_enabled` (localStorage) merkt User-Toggle.
+- **Lautstärke**: Stumm und die Regler Master und Musik greifen auch beim Main Theme:
+  `playMainTheme(volume)` bekommt die wirksame Musiklautstärke (`UIStore.effectiveMusicVolume`),
+  `setVolume()` stellt es nach. Es spielt außerhalb des Web-Audio-Graphen und ist deshalb mit
+  dessen Vorverstärkung (`MASTER_BUS_PRE_GAIN`, 0,6) skaliert, sonst lag es rund 4 dB über der
+  Build-Musik. Verweigert der Browser Autoplay, startet es beim ersten Klick oder Tastendruck.
+- **Stumm heißt still**: Bei Lautstärke 0 startet kein Track, auch kein Wechsel je Welle (ein
+  Bot bei 75x); kommt die Lautstärke zurück, spielt der Track der Phase.
+- **Neustart und Ortswechsel** (`game:reset`): zurück zur Build-Musik, außer das Main Theme ist
+  noch da oder blendet aus; dann übernimmt das Ende des Ladens.
+- **Übergang vom Main Theme**: Ein Phasenwechsel bricht ihn ab, damit der Timer der Stille nicht
+  später Build-Musik über die Wellenmusik legt.
+- **Loop**: Der Kanal läuft zusätzlich mit nativem Loop. Das Überblenden in sich selbst hängt an
+  einem Timer, den ein versteckter Tab drosselt; ohne den Loop endete der Track dann in Stille.
 - **Tracks**: `configs/background-music.config.ts` (1 Main, 1 Build, 4 Wave).
   Lautstärke = Track-`volume` (Default 0,5) × `masterVolume` 0,4 × Nutzer-Lautstärke
   (`setVolume`).
@@ -476,7 +490,7 @@ Vor dem ersten Tile an der HQ liefern Cache und Raycast nichts; dann bleibt die 
   (`refDistance` 150, `rolloffFactor` 0,6), `volume` 1.
 - **Rakete aus dem Silo** (`GAME_SOUNDS.nuclearStrike.launch`, `AbilityLaunchSound`, seit
   2026-09-17): nur, wenn `ability:used` einen Startort trägt (`launch`). Drei Dateien, mit
-  ElevenLabs erzeugt, je drei Varianten, gewählt nach Hüllkurve und Spektrum (nicht angehört),
+  ElevenLabs erzeugt, je drei Varianten, gewählt nach Hüllkurve und Spektrum, im Playtest K7.4 angehört,
   auf -14,5 LUFS gebracht (Abschnitt [Assets](#assets)); Abnahme wie beim Knall (`refDistance`
   150, `rolloffFactor` 0,6).
 
@@ -654,9 +668,6 @@ public/assets/sounds/
 │   ├── hornet/hornet.mp3              # Hornet-Summ-Loop
 │   ├── rat/rat_swarm.mp3              # Ratten-Schwarm-Loop
 │   ├── wallsmasher/attack.mp3         # Wallsmasher-Angriff-Sound
-│   ├── wallsmasher/spawn.mp3          # Wallsmasher-Spawn-Sound
-│   ├── herbert/spawn.mp3              # Herbert-Spawn-Sound
-│   ├── herbert/random-01..13.mp3      # Herbert-Random-Sounds
 │   ├── mammouth/mammouth01.mp3        # Mammouth-Random-Sound
 │   ├── bear/bear01.mp3                # Bear-Random-Sound
 │   ├── dragon/dragon01.mp3            # Dragon-Random-Sound
@@ -684,7 +695,7 @@ Tiefpass-Koeffizient und Normalisieren teilen sich die Synthesen in `utils/synth
 
 2. Sound registrieren (z.B. in einem Manager):
 ```typescript
-engine.spatialAudio.registerSound('explosion', '/assets/sounds/explosion.mp3', {
+engine.spatialAudio.registerSound('explosion', 'assets/sounds/effects/explosion.mp3', {
   refDistance: 100,
   rolloffFactor: 0.5,
   volume: 0.8,
@@ -697,6 +708,6 @@ engine.spatialAudio.registerSound('explosion', '/assets/sounds/explosion.mp3', {
 engine.spatialAudio.playAtGeo('explosion', lat, lon, height);
 
 // Loop (über AudioComponent)
-this.audio.registerSound('engine', '/assets/sounds/engine.mp3', { loop: true });
+this.audio.registerSound('engine', 'assets/sounds/enemies/tank/moving.mp3', { loop: true });
 this.audio.play('engine', true);
 ```

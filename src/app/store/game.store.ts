@@ -108,6 +108,13 @@ export class GameStore {
   readonly paused = signal<boolean>(false);
 
   /**
+   * The pause leaves the sound loops running: the boss intro pauses the game
+   * to show the boss, whose walk and voice loops should be heard meanwhile.
+   * Set only by BossIntroService, together with `paused`.
+   */
+  readonly pauseKeepsLoops = signal<boolean>(false);
+
+  /**
    * Whole seconds of game time until the auto-started next wave, null while
    * nothing counts down. Written by GameLoopFacadeService.
    */
@@ -183,6 +190,7 @@ export class GameStore {
     this.runSummary.set(null);
     this.waveExplanation.set(null);
     this.paused.set(false);
+    this.pauseKeepsLoops.set(false);
     this.autoWaveSecondsLeft.set(null);
   }
 

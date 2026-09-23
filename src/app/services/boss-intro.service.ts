@@ -236,6 +236,8 @@ export class BossIntroService {
     const epithet = names.length === 1 ? boss.enemy.typeConfig.epithet : undefined;
     this.ngZone.run(() => {
       this.card.set({ name: names.join(' & '), epithet, wave: boss.wave });
+      // The boss is heard while it is shown: its loops keep running
+      this.gameStore.pauseKeepsLoops.set(true);
       this.gameStore.paused.set(true);
     });
     this.setStage('dip-in');
@@ -343,7 +345,10 @@ export class BossIntroService {
     camera.updateMatrixWorld();
     const controls = engine.getControls();
     if (controls) controls.enabled = run.controlsWereEnabled;
-    this.ngZone.run(() => this.gameStore.paused.set(run.pausedBefore));
+    this.ngZone.run(() => {
+      this.gameStore.pauseKeepsLoops.set(false);
+      this.gameStore.paused.set(run.pausedBefore);
+    });
     cameraTimeline.record('bossIntro.return', { boss: run.boss.enemy.typeConfig.id }, true);
   }
 

@@ -14,6 +14,7 @@ import { StrategicPlacementService } from '../world/strategic-placement.service'
 import { GameStateManager } from '../../managers/game-state.manager';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { UIStore } from '../../store/ui.store';
 import { GameStateSyncService } from '../infrastructure/game-state-sync.service';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { WaveDirector } from '../../director/wave-director';
@@ -82,6 +83,7 @@ export interface FacadeComponentBridge {
 export class TowerDefenseFacadeService {
   // Store, single source of truth for UI state
   private readonly store = inject(TowerDefenseStore);
+  private readonly uiStore = inject(UIStore);
 
   // Sub-facades
   private readonly gameLoopFacade = inject(GameLoopFacadeService);
@@ -213,7 +215,7 @@ export class TowerDefenseFacadeService {
     }
 
     // Start main theme music as early as possible (uses HTMLAudioElement, no engine needed)
-    BackgroundMusicService.playMainTheme();
+    BackgroundMusicService.playMainTheme(this.uiStore.effectiveMusicVolume());
 
     // Location detection (delegated to LocationFacade). Without a location
     // (component gone, location dialog did not load) there is nothing to start.

@@ -75,6 +75,7 @@ describe('BossIntroService', () => {
   let startQuaternion: Quaternion;
   let announce: ReturnType<typeof vi.fn>;
   let paused: ReturnType<typeof signal<boolean>>;
+  let pauseKeepsLoops: ReturnType<typeof signal<boolean>>;
   let bossIntroEnabled: ReturnType<typeof signal<boolean>>;
   /** MatDialog.openDialogs */
   let openDialogs: unknown[];
@@ -99,6 +100,7 @@ describe('BossIntroService', () => {
     photoMode = signal(false);
     announce = vi.fn();
     paused = signal(false);
+    pauseKeepsLoops = signal(false);
     bossIntroEnabled = signal(true);
     openDialogs = [];
     const engine = {
@@ -116,7 +118,7 @@ describe('BossIntroService', () => {
     injector = Injector.create({
       providers: [
         { provide: GameStateManager, useValue: { getEventBus: () => bus, waveNumber: () => wave } },
-        { provide: GameStore, useValue: { gameSpeed: signal(1), renderingEnabled: signal(true), paused } },
+        { provide: GameStore, useValue: { gameSpeed: signal(1), renderingEnabled: signal(true), paused, pauseKeepsLoops } },
         { provide: UIStore, useValue: { photoMode } },
         { provide: BotClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
         { provide: EngineInitializationService, useValue: { getEngine: () => engine } },
@@ -347,6 +349,16 @@ describe('BossIntroService', () => {
     play(bossIntroReturnMs());
     expect(service.stage()).toBe('reveal');
     expect(paused()).toBe(false);
+  });
+
+  it('keeps the sound loops running while the intro pauses the game, so the boss is heard', () => {
+    const boss = fakeBoss();
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    expect(pauseKeepsLoops()).toBe(true);
+    play(bossIntroReturnMs());
+    expect(pauseKeepsLoops()).toBe(false);
   });
 
   it('leaves a game the player had paused paused', () => {

@@ -27,6 +27,7 @@ function createStubService(name: string): Record<string, unknown> {
       gameSpeed: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
       // initialize() hands the current value to the engine it attaches
       paused: Object.assign(vi.fn().mockReturnValue(false), { set: vi.fn() }),
+      pauseKeepsLoops: vi.fn().mockReturnValue(false),
       renderingEnabled: Object.assign(vi.fn().mockReturnValue(true), { set: vi.fn() }),
     },
     UIStore: {
@@ -1125,7 +1126,9 @@ describe('GameStateManager', () => {
 
         /** A game whose GameStore the test drives; Angular would run its effects on each change. */
         function withStore(pausedAtStart: boolean) {
-          const store = { gameSpeed: signal(1), paused: signal(pausedAtStart), renderingEnabled: signal(true) };
+          const store = {
+            gameSpeed: signal(1), paused: signal(pausedAtStart), pauseKeepsLoops: signal(false), renderingEnabled: signal(true),
+          };
           mockServices['GameStore'] = store;
           const from = vi.mocked(effect).mock.calls.length;
           const game = new GameStateManager();
@@ -1152,7 +1155,7 @@ describe('GameStateManager', () => {
           expect(setRendering).toHaveBeenLastCalledWith(false);
         });
 
-        it('holds every audio loop through GameStore.paused, which the boss intro sets as well (playtest 545 to 547)', () => {
+        it('holds every audio loop through GameStore.paused (playtest 545 to 547)', () => {
           const { store, game, sync, engine } = withStore(false);
           game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
           const holdLoops = engine.spatialAudio.holdLoops;
@@ -1166,6 +1169,15 @@ describe('GameStateManager', () => {
           store.paused.set(false);
           sync();
           expect(holdLoops).toHaveBeenLastCalledWith(false);
+        });
+
+        it('keeps the loops running in the pause of the boss intro, so the boss is heard', () => {
+          const { store, game, sync, engine } = withStore(false);
+          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+          store.pauseKeepsLoops.set(true);
+          store.paused.set(true);
+          sync();
+          expect(engine.spatialAudio.holdLoops).toHaveBeenLastCalledWith(false);
         });
 
         it('holds the loops of an engine that arrives while the game is paused', () => {

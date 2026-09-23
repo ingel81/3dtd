@@ -1,6 +1,7 @@
 # Sound-Paket
 
-**Status:** Plan, abgestimmt am 2026-09-23 (vier AUQ-Runden). Noch nichts gebaut.
+**Status:** abgestimmt am 2026-09-23 (vier AUQ-Runden). Phase 1 gebaut (2026-09-23), Phase 2 erzeugt und wartet
+auf die Auswahl, Phase 3 und 4 offen.
 **Grundlage:** Bestandsaufnahme vom 2026-09-23 über Code, Assets, Doku und `tmp/`. Das System selbst beschreibt
 [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md).
 
@@ -14,14 +15,20 @@ Hauptthema, Bauphase und Welle.
 
 | Phase | Inhalt | Braucht Assets |
 |-------|--------|----------------|
-| 1 | Bugs und Technik (Abschnitt 1 und 2) | nein |
-| 2 | Assets erzeugen: SFX per ElevenLabs Sound Effects, Musik per Eleven Music; Auswahlseite zum Anhören | ja |
+| 1 | Bugs und Technik (Abschnitt 1 und 2), **gebaut** | nein |
+| 2 | Assets erzeugen: SFX per ElevenLabs Sound Effects, Musik per Eleven Music; Auswahlseite zum Anhören, **erzeugt** | ja |
 | 3 | Einbau der gewählten SFX (Abschnitt 3 bis 5) | ja |
 | 4 | Musikzustände und Ducking (Abschnitt 6) | ja |
 
 Phase 1 läuft unabhängig. Phase 2 erzeugt je Sound mehrere Varianten, schneidet und normalisiert sie und legt sie
 auf eine Auswahlseite; der User wählt, erst dann kommen sie ins Repo. Der API-Key liegt außerhalb des Repos
 (`~/.claude/skills/video-use/.env`), in kein Skript und keinen Commit.
+
+**Phase 2, Werkzeug:** `tmp/sound-audition/` (nicht im Repo). `specs.py` beschreibt jeden Sound (Prompt, Dauer,
+Art), `generate.py` erzeugt je Sound drei Varianten (Musik zwei), schneidet Stille, normalisiert die Spitze und
+schreibt `manifest.json`; bereits erzeugte Dateien überspringt es. `python server.py` startet die Auswahlseite auf
+http://localhost:8765, die Wahl landet in `choices.json` (Variante, "neu erzeugen", Notiz). Der Tarif erlaubt zwei
+gleichzeitige Anfragen an die Musik-API.
 
 ---
 
@@ -38,6 +45,10 @@ auf eine Auswahlseite; der User wählt, erst dann kommen sie ins Repo. Der API-K
 | 1.7 | Lücke im Musik-Loop bei verstecktem Tab: das Überblenden hängt an `setTimeout`, der im Hintergrund gedrosselt wird. Auf AudioContext-Zeit umstellen | `music-mixer.ts:246-259` |
 | 1.8 | Der Boss ist in seinem eigenen Intro stumm: das Intro nutzt die Pause, die Pause hält seine Loops und seine Stimme an | `boss-intro.service.ts:231-239` |
 
+**Gebaut (2026-09-23):** alle acht. 1.3 und 1.4 sind nur per Test belegt, im Spiel nachzuhören. Zu 1.7 läuft der
+Kanal zusätzlich mit nativem Loop, statt das Überblenden umzubauen. Zu 1.8 lässt `GameStore.pauseKeepsLoops` die
+Loops in der Pause des Intros laufen; die Stimme des Wurms zählt Spielzeit und bleibt dort still.
+
 ## 2. Technik und Einstellungen
 
 - **Master-Regler und Stumm-Taste.** Gesamtlautstärke neben Musik und SFX; eine Taste schaltet alles stumm
@@ -46,6 +57,10 @@ auf eine Auswahlseite; der User wählt, erst dann kommen sie ins Repo. Der API-K
   Musikwechsel je Welle.
 - **Budget nach Nähe.** Die 12 Plätze für Gegner-Sounds gehen an die nächsten Gegner statt an die, deren Update
   zuerst kommt.
+- **Gebaut (2026-09-23):** alle vier Punkte. Master-Regler und `M` hängen an `UIStore.effectiveMusicVolume` und
+  `effectiveSfxVolume`, die Komponente gibt sie per Effect an Musik und Spatial Audio. Bei SFX-Lautstärke 0 entsteht
+  keine Stimme mehr. Das Ausdünnen dehnt das Flood-Fenster jedes Samples mit der Spielgeschwindigkeit. C6 war ein
+  Rest: `destroy()` hat einen Aufrufer (Abbau), räumt jetzt ebenfalls ab.
 - **Aufräumen.**
   - `AudioPoolManager` umbenennen (er poolt nicht).
   - Doku-Pfade in ENEMY_CREATION.md und SPATIAL_AUDIO.md, die auf nicht vorhandene Dateien zeigen, sowie

@@ -85,7 +85,11 @@ export class MusicMixer {
     this.stopChannel(inChannel);
     inChannel.buffer = buffer;
     inChannel.audio.setBuffer(buffer);
-    inChannel.audio.setLoop(false);
+    // Looped natively as a fallback: the crossfade into itself (nearEnd) runs
+    // on a timer that a hidden tab throttles, and a track that ended before it
+    // fired left the music silent. Visible, the crossfade comes first and
+    // stops this channel before it ever wraps.
+    inChannel.audio.setLoop(true);
 
     inChannel.targetVolume = trackVolume;
     // fadeInTargetVol includes user volume for actual playback
@@ -144,6 +148,11 @@ export class MusicMixer {
     this.fadeStartTime = performance.now();
     this.fadeRafId = requestAnimationFrame(this.fadeStep);
     return true;
+  }
+
+  /** Whether a track plays on the active channel. */
+  get playing(): boolean {
+    return this.getActiveChannel().audio.isPlaying;
   }
 
   /** Stop both channels immediately (no fade) and drop pending callbacks. */

@@ -12,6 +12,7 @@ interface FakeAudioShape {
   isPlaying: boolean;
   buffer: { duration: number } | null;
   volume: number;
+  loop: boolean;
   disconnected: boolean;
 }
 
@@ -23,12 +24,13 @@ vi.mock('three', async (importOriginal) => {
     isPlaying = false;
     buffer: { duration: number } | null = null;
     volume = 1;
+    loop = false;
     disconnected = false;
     constructor(_listener: unknown) {
       reg.audios.push(this);
     }
     setBuffer(buffer: { duration: number }) { this.buffer = buffer; return this; }
-    setLoop() { return this; }
+    setLoop(loop: boolean) { this.loop = loop; return this; }
     setVolume(volume: number) { this.volume = volume; return this; }
     play() { this.isPlaying = true; return this; }
     stop() { this.isPlaying = false; return this; }
@@ -161,6 +163,12 @@ describe('MusicMixer', () => {
     expect(onNearEnd).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(1);
     expect(onNearEnd).toHaveBeenCalledOnce();
+  });
+
+  it('loops the playing track natively, so a late near-end timer in a hidden tab leaves no silence', async () => {
+    const { mixer, first } = setup();
+    await mixer.crossfadeTo(track(), 0.4, 1000, noLoop);
+    expect(first.loop).toBe(true);
   });
 
   it('drops the near-end callback of a track that was replaced or stopped', async () => {

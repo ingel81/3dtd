@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { GameEventBus } from './game-event-bus';
 import { BackgroundMusicService } from './background-music.service';
 import { BACKGROUND_MUSIC, BackgroundMusicConfig } from '../configs/background-music.config';
+import { MASTER_BUS_PRE_GAIN } from '../configs/audio.config';
 import type { ThreeTilesEngine } from '../three-engine';
 
 /**
@@ -148,8 +149,7 @@ async function flush(): Promise<void> {
   for (let i = 0; i < 10; i++) await Promise.resolve();
 }
 
-function setup(opts: { stored?: string; suspended?: boolean } = {}) {
-  if (opts.stored !== undefined) localStorage.setItem('td_music_enabled', opts.stored);
+function setup(opts: { suspended?: boolean } = {}) {
   const eventBus = new GameEventBus();
   const context = {
     state: opts.suspended ? 'suspended' : 'running',
@@ -227,7 +227,7 @@ describe('BackgroundMusicService.playMainTheme', () => {
     const audio = FakeHtmlAudio.instances[0];
     expect(audio.src).toBe('main.mp3');
     expect(audio.loop).toBe(false);
-    expect(audio.volume).toBeCloseTo(0.5 * BACKGROUND_MUSIC.masterVolume);
+    expect(audio.volume).toBeCloseTo(0.5 * BACKGROUND_MUSIC.masterVolume * MASTER_BUS_PRE_GAIN);
     expect(audio.play).not.toHaveBeenCalled();
 
     audio.dispatch('loadedmetadata');
@@ -243,13 +243,13 @@ describe('BackgroundMusicService.playMainTheme', () => {
     expect(audio.play).toHaveBeenCalledOnce();
     expect(audio.currentTime).toBe(0);
     expect(audio.loop).toBe(true);
-    expect(audio.volume).toBeCloseTo(0.5 * BACKGROUND_MUSIC.masterVolume);
+    expect(audio.volume).toBeCloseTo(0.5 * BACKGROUND_MUSIC.masterVolume * MASTER_BUS_PRE_GAIN);
   });
 
-  it('stays silent when the player turned music off', () => {
-    localStorage.setItem('td_music_enabled', 'false');
-    BackgroundMusicService.playMainTheme();
-    expect(FakeHtmlAudio.instances).toHaveLength(0);
+  it('plays at the music volume of the player, 0 when muted', () => {
+    BACKGROUND_MUSIC.main[0] = { id: 'main', url: 'main.mp3' };
+    BackgroundMusicService.playMainTheme(0.5);
+    expect(FakeHtmlAudio.instances[0].volume).toBeCloseTo(0.5 * BACKGROUND_MUSIC.masterVolume * MASTER_BUS_PRE_GAIN * 0.5);
   });
 
   it('swallows a blocked autoplay', async () => {
@@ -258,47 +258,32 @@ describe('BackgroundMusicService.playMainTheme', () => {
     expect(() => BackgroundMusicService.playMainTheme()).not.toThrow();
     await flush();
   });
+
+  it('starts a blocked main theme on the first click or key, once', async () => {
+    BACKGROUND_MUSIC.main[0] = { id: 'main', url: 'main.mp3' };
+    FakeHtmlAudio.rejectPlay = true;
+    BackgroundMusicService.playMainTheme();
+    await flush();
+    const audio = FakeHtmlAudio.instances[0];
+    expect(audio.play).toHaveBeenCalledOnce();
+
+    FakeHtmlAudio.rejectPlay = false;
+    window.dispatchEvent(new Event('pointerdown'));
+    expect(audio.play).toHaveBeenCalledTimes(2);
+    expect(audio.paused).toBe(false);
+
+    window.dispatchEvent(new Event('keydown'));
+    expect(audio.play).toHaveBeenCalledTimes(2);
+  });
 });
 
 describe('BackgroundMusicService', () => {
-  describe('music switch', () => {
-    it('is on by default and remembers a stored choice', () => {
-      expect(setup().service.enabled).toBe(true);
-      expect(setup({ stored: 'false' }).service.enabled).toBe(false);
-    });
-
-    it('toggle persists the choice and silences the running track when turned off', async () => {
-      const { service, playing, startBuild } = setup();
-      await startBuild();
-      expect(playing()).toHaveLength(1);
-
-      expect(service.toggle()).toBe(false);
-      expect(localStorage.getItem('td_music_enabled')).toBe('false');
-      expect(playing()).toHaveLength(0);
-
-      expect(service.toggle()).toBe(true);
-      expect(localStorage.getItem('td_music_enabled')).toBe('true');
-      // Turning it back on does not restart anything by itself.
-      expect(playing()).toHaveLength(0);
-    });
-
-    it('disable also stops the main theme', () => {
-      BackgroundMusicService.playMainTheme();
-      const main = FakeHtmlAudio.instances[0];
-      const { service } = setup();
-
-      service.disable();
-
-      expect(main.pause).toHaveBeenCalled();
-      expect(main.src).toBe('');
-    });
-
-    it('ignores phase events while music is off', async () => {
-      const { playing, waveStarted, waveCompleted } = setup({ stored: 'false' });
-      await waveStarted();
-      await waveCompleted();
-      expect(playing()).toHaveLength(0);
-    });
+  it('sets the main theme to the music volume while it plays', () => {
+    BACKGROUND_MUSIC.main[0] = { id: 'main', url: 'main.mp3' };
+    BackgroundMusicService.playMainTheme();
+    const { service } = setup();
+    service.setVolume(0.25);
+    expect(FakeHtmlAudio.instances[0].volume).toBeCloseTo(0.5 * BACKGROUND_MUSIC.masterVolume * MASTER_BUS_PRE_GAIN * 0.25);
   });
 
   describe('end of loading', () => {
@@ -314,7 +299,8 @@ describe('BackgroundMusicService', () => {
       await flush();
       const [build] = playing();
       expect(build.buffer?.url).toBe('b1.mp3');
-      expect(build.loop).toBe(false);
+      // Looped natively only as a fallback for a late crossfade timer (MusicMixer)
+      expect(build.loop).toBe(true);
       expect(build.volume).toBe(0);
 
       frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration / 2);
@@ -344,19 +330,6 @@ describe('BackgroundMusicService', () => {
       await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.mainThemeGapDuration);
       await flush();
       expect(playing()).toHaveLength(1);
-    });
-
-    it('with music off, drops the main theme and starts nothing', async () => {
-      BackgroundMusicService.playMainTheme();
-      const main = FakeHtmlAudio.instances[0];
-      const { service, playing } = setup({ stored: 'false' });
-
-      service.onLoadingComplete();
-      await vi.advanceTimersByTimeAsync(10_000);
-      await flush();
-
-      expect(main.pause).toHaveBeenCalled();
-      expect(playing()).toHaveLength(0);
     });
 
     it('stop() during the gap cancels the build start', async () => {
@@ -433,17 +406,40 @@ describe('BackgroundMusicService', () => {
       expect(playing()).toHaveLength(0);
     });
 
-    it('stops everything at once on game reset, even mid crossfade', async () => {
+    it('goes back to build music on a game reset (restart), even after game over', async () => {
       const { eventBus, playing, startBuild, waveStarted } = setup();
       await startBuild();
       await waveStarted();
-      expect(playing()).toHaveLength(2);
-
-      eventBus.emit({ type: 'game:reset' });
-      expect(playing()).toHaveLength(0);
-
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      eventBus.emit({ type: 'game:over', wave: 1, reason: 'hq-destroyed' } as never);
       frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
       expect(playing()).toHaveLength(0);
+
+      eventBus.emit({ type: 'game:reset' });
+      await flush();
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      expect(playing()).toHaveLength(1);
+      expect(playing()[0].buffer?.url).toMatch(/^b\d\.mp3$/);
+    });
+
+    it('leaves a game reset during loading to the hand-over from the main theme', async () => {
+      BackgroundMusicService.playMainTheme();
+      const { eventBus, playing } = setup();
+      eventBus.emit({ type: 'game:reset' });
+      await flush();
+      expect(playing()).toHaveLength(0);
+      expect(FakeHtmlAudio.instances[0].pause).not.toHaveBeenCalled();
+    });
+
+    it('keeps the wave track when a wave starts during the gap after the main theme', async () => {
+      const { service, playing, waveStarted } = setup();
+      service.onLoadingComplete();
+      await waveStarted();
+      await vi.advanceTimersByTimeAsync(10_000);
+      await flush();
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      expect(playing()).toHaveLength(1);
+      expect(playing()[0].buffer?.url).toMatch(/^w\d\.mp3$/);
     });
 
     it('resumes a suspended audio context before playing', async () => {
@@ -520,6 +516,25 @@ describe('BackgroundMusicService', () => {
       expect(wave.volume).toBeCloseTo(trackVolume('w1') * 0.5);
     });
 
+    it('starts nothing at volume 0 and brings the phase track back when it is raised', async () => {
+      const { service, playing, startBuild, waveStarted, waveCompleted } = setup();
+      await startBuild();
+      service.setVolume(0);
+      expect(playing()).toHaveLength(0);
+
+      // A bot at 75x: wave after wave, no crossfade into silence
+      await waveStarted();
+      await waveCompleted();
+      await waveStarted();
+      expect(playing()).toHaveLength(0);
+
+      service.setVolume(0.5);
+      await flush();
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      expect(playing()).toHaveLength(1);
+      expect(playing()[0].buffer?.url).toMatch(/^w\d\.mp3$/);
+    });
+
     it('applies to tracks that start later', async () => {
       const { service, playing, startBuild } = setup();
       service.setVolume(0.5);
@@ -574,9 +589,9 @@ describe('BackgroundMusicService', () => {
 
     it('drops a phase change that was stopped while its track was still loading', async () => {
       reg.manual = true;
-      const { eventBus, playing, waveStarted } = setup();
+      const { service, playing, waveStarted } = setup();
       await waveStarted();
-      eventBus.emit({ type: 'game:reset' });
+      service.stop();
 
       reg.pending.forEach((p) => p.onLoad(reg.bufferFor(p.url)));
       await flush();
