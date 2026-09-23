@@ -12,13 +12,17 @@
 /** Height of the HQ diamond centre above the ground (m). */
 export const MARKER_FLOAT_HEIGHT = 30;
 
-/** Octahedron radius of the opaque core at scale 1 (m), stretched in Y by MARKER_Y_STRETCH. */
+/**
+ * Radius of the HQ crystal at its girdle (m); its tips reach
+ * MARKER_CORE_RADIUS * MARKER_Y_STRETCH above and below the centre
+ * (hq-marker-geometry.ts).
+ */
 export const MARKER_CORE_RADIUS = 8;
 export const MARKER_Y_STRETCH = 1.8;
 
 /**
  * Horizontal extent of the diamond at scale 1 (m): the outer ring of the
- * placement preview. The instanced marker's ring is smaller (14 m plus tube).
+ * placement preview. The instanced marker's rings are 14 and 15.7 m, plus tube.
  */
 export const MARKER_RING_RADIUS = 16;
 

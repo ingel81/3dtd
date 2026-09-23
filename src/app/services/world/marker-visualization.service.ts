@@ -4,11 +4,9 @@ import {
   Mesh,
   MeshBasicMaterial,
   MeshPhongMaterial,
-  OctahedronGeometry,
   PlaneGeometry,
   TorusGeometry,
   DoubleSide,
-  BackSide,
   Vector3,
   SphereGeometry,
   Color,
@@ -21,6 +19,15 @@ import { AssetManagerService } from '../infrastructure/asset-manager.service';
 import { UIStore } from '../../store/ui.store';
 import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
 import { MarkerLabelManager } from '../../three-engine/renderers/marker/marker-label.manager';
+import {
+  createCrystalGeometry,
+  createPillarGeometry,
+  HQ_CRYSTAL_HALF_HEIGHT,
+  HQ_GROUND_LIFT,
+  HQ_OUTER_RING_SCALE,
+  HQ_RING_RADIUS,
+  HQ_RING_TUBE,
+} from '../../three-engine/renderers/marker/hq-marker-geometry';
 import { SpawnPortalManager } from '../../three-engine/renderers/marker/spawn-portal.manager';
 import {
   SPAWN_PORTAL_FRAME_URL,
@@ -626,9 +633,11 @@ export class MarkerVisualizationService {
   // ========================================
 
   /**
-   * Create a diamond marker Group for the HQ placement preview
-   * (non-instanced). Used by MapPlacementService for the cursor-following
-   * preview; the spawn preview is createPortalPreview().
+   * Create the HQ crystal Group for the HQ placement preview (non-instanced):
+   * the crystal's shell and core, its two rings and the light pillar down to
+   * the ground, in the shapes of the placed HQ (hq-marker-geometry.ts) at
+   * `size`. Plain Phong/Basic materials, so MapPlacementService can tint and
+   * fade it; the pillar reaches the ground at every size.
    */
   createDiamondMarker(options: DiamondMarkerOptions): Group {
     const { color, size = 1, glowIntensity = 1 } = options;
@@ -637,57 +646,43 @@ export class MarkerVisualizationService {
     const baseColor = new Color(color);
     const lighterColor = baseColor.clone().lerp(new Color(0xffffff), 0.4);
     const emissiveColor = baseColor.clone().multiplyScalar(0.3);
+    const add = (mesh: Mesh, renderOrder: number) => {
+      mesh.renderOrder = renderOrder;
+      group.add(mesh);
+      return mesh;
+    };
 
-    const coreGeom = new OctahedronGeometry(8 * size, 0);
-    coreGeom.scale(1, 1.8, 1);
-    const coreMat = new MeshPhongMaterial({
-      color, emissive: emissiveColor, shininess: 100,
-      transparent: true, opacity: 0.9, side: DoubleSide,
-    });
-    const coreMesh = new Mesh(coreGeom, coreMat);
-    coreMesh.renderOrder = 3;
-    group.add(coreMesh);
+    // Core first, then the glass shell over it
+    add(new Mesh(
+      createCrystalGeometry({ shell: false }),
+      new MeshBasicMaterial({ color: lighterColor, transparent: true, opacity: 0.9 }),
+    ), 3).scale.setScalar(size);
+    add(new Mesh(
+      createCrystalGeometry({ core: false }),
+      new MeshPhongMaterial({
+        color, emissive: emissiveColor, shininess: 100, flatShading: true,
+        transparent: true, opacity: 0.6,
+      }),
+    ), 4).scale.setScalar(size);
 
-    const wireGeom = new OctahedronGeometry(9 * size, 0);
-    wireGeom.scale(1, 1.8, 1);
-    const wireMat = new MeshBasicMaterial({
-      color: lighterColor, wireframe: true,
-      transparent: true, opacity: 0.6 * glowIntensity,
-    });
-    const wireMesh = new Mesh(wireGeom, wireMat);
-    wireMesh.renderOrder = 4;
-    group.add(wireMesh);
+    const ring = new TorusGeometry(HQ_RING_RADIUS, HQ_RING_TUBE, 6, 96);
+    ring.rotateX(Math.PI / 2);
+    add(new Mesh(ring, new MeshBasicMaterial({
+      color: lighterColor, transparent: true, opacity: 0.8 * glowIntensity,
+    })), 2).scale.setScalar(size);
+    const outer = add(new Mesh(ring.clone(), new MeshBasicMaterial({
+      color: lighterColor, transparent: true, opacity: 0.5 * glowIntensity,
+    })), 2);
+    outer.scale.set(size * HQ_OUTER_RING_SCALE, size, size * HQ_OUTER_RING_SCALE);
+    outer.rotation.z = Math.PI / 6;
 
-    const glowGeom = new OctahedronGeometry(12 * size, 0);
-    glowGeom.scale(1, 1.8, 1);
-    const glowMat = new MeshBasicMaterial({
-      color, transparent: true,
-      opacity: 0.15 * glowIntensity, side: BackSide,
-    });
-    const glowMesh = new Mesh(glowGeom, glowMat);
-    glowMesh.renderOrder = 2;
-    group.add(glowMesh);
-
-    const ringGeom = new TorusGeometry(14 * size, 0.8 * size, 8, 32);
-    const ringMat = new MeshBasicMaterial({
-      color: lighterColor, transparent: true,
-      opacity: 0.7 * glowIntensity,
-    });
-    const ringMesh = new Mesh(ringGeom, ringMat);
-    ringMesh.rotation.x = Math.PI / 2;
-    ringMesh.renderOrder = 2;
-    group.add(ringMesh);
-
-    const ring2Geom = new TorusGeometry(16 * size, 0.5 * size, 8, 32);
-    const ring2Mat = new MeshBasicMaterial({
-      color: lighterColor, transparent: true,
-      opacity: 0.4 * glowIntensity,
-    });
-    const ring2Mesh = new Mesh(ring2Geom, ring2Mat);
-    ring2Mesh.rotation.x = Math.PI / 2;
-    ring2Mesh.rotation.z = Math.PI / 6;
-    ring2Mesh.renderOrder = 2;
-    group.add(ring2Mesh);
+    // From the ground up to the crystal's lower tip
+    const tip = HQ_CRYSTAL_HALF_HEIGHT * size;
+    const ground = MARKER_FLOAT_HEIGHT - HQ_GROUND_LIFT;
+    add(new Mesh(
+      createPillarGeometry(Math.max(ground - tip, 0.1)),
+      new MeshBasicMaterial({ color: lighterColor, transparent: true, opacity: 0.4 * glowIntensity }),
+    ), 1).position.y = -ground;
 
     return group;
   }
