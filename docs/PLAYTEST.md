@@ -34,6 +34,7 @@ Lead aus der Datei nach, mitzählen ist nicht nötig.
   (bis W30), 2 (bis W60), 3 (bis W90). Erwartung: Die Anzeige bleibt lesbar, der Balken fühlt sich nicht
   belanglos an, und ein einzelner Durchbruch tut weh, ohne den Lauf zu entscheiden. Wenn 500 als Zahl komisch
   wirkt: Es geht nur um die Auflösung, jede andere Zahl mit demselben Verhältnis täte es auch.
+  **ok (2026-09-23)**
 - **M2 Keine toten Strecken**: Über die Wellen 10 bis 30 mitzählen, wie viele gar nichts kosten. Erwartung:
   keine lange Serie mehr, in der man nur zusieht. Vorher waren es im Schnitt elf Wellen am Stück.
   **Befund (2026-09-23, New York, bis W34)**: W18 bis W29 zwölf Wellen ohne jeden HP-Verlust. Folge von M3: bei 19 HP
@@ -59,6 +60,7 @@ Aus M2/M3 und der Gold-Auswertung. Ein Lauf bis mindestens W31, am Ende über "R
 - **Q1 Keine Wand in W15**: Golem Squad bleibt beim Überlebbarkeits-Deckel. Erwartung: keine Welle, die auf einen
   Schlag den Großteil der HP nimmt. Im Wave Debug steht bei W15 keine Anzahl über dem Deckel.
 - **Q2 Ein Herbert in W10**: Erwartung: genau ein Herbert, dazu Tanks und Zombies.
+  **ok (2026-09-23)**
 - **Q3 Bosse der Kampagne**: W20 der Ooze, W30 Skarnax (per "Jump to wave" 20 und 30 prüfbar). Erwartung:
   beide schaffbar, aber spürbar. Ihre HP entsprechen der Welle, die der Director dort geplant hätte.
 - **Q4 Gold**: Ein Herbert, Mammut oder Golem bringt sichtbar mehr als ein Zombie derselben Welle (Kopfgeld nach
@@ -66,6 +68,7 @@ Aus M2/M3 und der Gold-Auswertung. Ein Lauf bis mindestens W31, am Ende über "R
   um ×0,85 statt ×0,5. Die Auswertung macht der Lead aus der Datei.
 - **Q5 Alt**: Option "Health Bars" aus, Alt halten: Balken erscheinen, loslassen: weg. Option an: Alt blendet
   sie aus. Danach tippt die nächste Taste ins Spiel, nicht in die Menüleiste des Browsers.
+  **ok (2026-09-23)**
 
 ## K8 Desktop-Build
 
