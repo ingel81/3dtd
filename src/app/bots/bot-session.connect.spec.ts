@@ -65,4 +65,29 @@ describe('BotSession connect (playtest 565)', () => {
     expect(BUILD_VERSION).toBe(`v${packageVersion}`);
     session.disconnect();
   });
+
+  it.each([
+    [true, false],
+    [false, true],
+  ])('with botAutoMode %s the connected client renders: %s (?bot=manual keeps the view)', async (auto, rendering) => {
+    const renderingEnabled = signal(true);
+    const injector = Injector.create({
+      providers: [
+        { provide: StateSnapshotService, useValue: {} },
+        { provide: TowerDefenseStore, useValue: { phase: signal('setup'), renderingEnabled } },
+      ],
+    });
+    const client = runInInjectionContext(injector, () => new BotClientService());
+    client.botAutoMode.set(auto);
+    const session = runInInjectionContext(injector, () => new BotSession(client, {} as BotDeps));
+
+    const connected = session.connect('ws://localhost:3001');
+    const socket = FakeSocket.last!;
+    socket.onopen!();
+    await connected;
+    socket.onmessage!({ data: JSON.stringify({ type: 'connected', sessionId: 's1', runState: 'idle' }) });
+
+    expect(renderingEnabled()).toBe(rendering);
+    session.disconnect();
+  });
 });
