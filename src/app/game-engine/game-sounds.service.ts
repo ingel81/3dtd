@@ -4,6 +4,7 @@ import type { SpatialSoundConfig } from '../managers/audio/spatial-audio.manager
 import {
   ABILITY_CAST_SOUNDS,
   BOSS_INTRO_SOUNDS,
+  CHEAT_QUIET_MS,
   DEATH_SOUNDS,
   GAME_OVER_STINGER_DELAY_MS,
   GOLEM_FOOTSTEP,
@@ -37,6 +38,8 @@ export class GameSoundsService {
   private abilities = new Map<string, AbilityStatus>();
   private hero: HeroStatus | null = null;
   private stingerTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Wall time until which the consequences of a cheat stay silent (CHEAT_QUIET_MS) */
+  private quietUntilMs = -Infinity;
 
   constructor(
     private readonly eventBus: GameEventBus,
@@ -74,6 +77,14 @@ export class GameSoundsService {
 
   private setupEventHandlers(): void {
     const bus = this.eventBus;
+
+    // The cheat buttons: silent, and so is what follows from them. This
+    // service subscribes before GameCommandsHandler, which runs them
+    const quiet = () => { this.quietUntilMs = performance.now() + CHEAT_QUIET_MS; };
+    for (const cheat of ['debug:kill-all', 'debug:complete-all-research', 'debug:max-upgrade-all-towers',
+      'debug:ready-ability', 'debug:ready-hero'] as const) {
+      this.subs.add(bus.on(cheat, quiet));
+    }
 
     // Where a tower or the hero kills it; a leak that dies on arrival is silent
     this.subs.add(bus.on('enemy:died', ({ enemy, credits, killedBy }) => {
@@ -163,13 +174,19 @@ export class GameSoundsService {
     else if (hero.hired && before.ammo !== hero.ammo) this.playGlobal(MOMENT_SOUNDS.heroAmmo);
   }
 
+  private get quiet(): boolean {
+    return performance.now() < this.quietUntilMs;
+  }
+
   private playAt(id: string, position: GeoPosition): void {
+    if (this.quiet) return;
     this.tilesEngine.spatialAudio
       ?.playAtGeo(id, position.lat, position.lon, position.height ?? 0)
       .catch(() => undefined);
   }
 
   private playGlobal(cue: GlobalCue): void {
+    if (this.quiet) return;
     this.tilesEngine.spatialAudio?.playGlobal(cue.id).catch(() => undefined);
   }
 
