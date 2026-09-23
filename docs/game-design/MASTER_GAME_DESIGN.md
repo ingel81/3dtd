@@ -286,7 +286,7 @@ in §12.3.
 | **Wraith** | Ethereal | schnell | Ethereal-Schwarm (`wraith_storm`, W17) |
 | **Mammoth** | Fortified | langsam | DPS-Check (`mammoth_siege`, W14) |
 | **Stone Golem** | Fortified | langsam | DPS-Check (`golem_squad`, W15); ab W31 im Boss-Template `boss_golem` |
-| **Herbert** | Fortified | Boss | Boss W10, W20, W30 (`boss_herbert`), danach einer der Director-Bosse |
+| **Herbert** | Fortified | Boss | Boss W10 (`boss_herbert`, genau ein Herbert), danach einer der Director-Bosse. W20 und W30 plant der Director als Herbert-Welle, geschickt werden Ooze und Skarnax |
 | **Skeleton** | Unarmored | Schwarm, Split: ein Kill teilt ihn in 2 Skeleton Minions, ein Leck nicht | Mega-Schwarm (`skeleton_swarm`, W19), Split seit 2026-09-13 |
 | **Skeleton Minion** | Unarmored | schnell, entsteht nur aus dem Split, teilt sich nicht weiter | kein eigenes Template |
 | **Skarnax** (Wurm) | Heavy | Boss, Kette aus 16 bis 240 Segmenten, die Länge folgt der Route | Boss-Variante W35, W55, W75, … |
@@ -305,16 +305,18 @@ Flags für Spider (Camo) und Mech (Shielded, immuneToBurn), siehe §12.4.
 ### 5.1 Kill-Reward: Kill-Budget je Welle
 
 Jede Welle hat ein festes Kill-Budget (`killGold` aus `waveGold`,
-§5.2). Der EnemyManager teilt es auf die Körper der Welle
-(`getExpectedBodyCount`, Split-Kinder und Wurm-Segmente zählen mit):
+§5.2). Der EnemyManager teilt es auf die Körper der Welle, jeder nach seinem
+Gewicht, der Wurzel seiner Basis-HP (`enemyRewardWeight`; Summe über die Welle
+aus `getExpectedBodyWeight`, Split-Kinder und Wurm-Segmente zählen mit):
 
 ```
-Reward = floor(Restbudget / offene Slots)      // je bezahltem Kill
+Reward = floor(Restbudget × Gewicht / offenes Gewicht)      // je bezahltem Kill
 ```
 
-Der letzte Slot bekommt den Rundungsrest, eine ganz geräumte Welle zahlt also
-genau das Budget. Ein durchgelaufener Gegner verliert seinen Slot und die
-seiner nie entstandenen Kinder, ein Split erhöht das Gold der Welle nicht, ein
+Ein Herbert zahlt so etwa sechs Zombies derselben Welle (seit 2026-09-23,
+vorher gleich je Kopf). Der letzte Körper bekommt den Rundungsrest, eine ganz
+geräumte Welle zahlt also genau das Budget. Ein durchgelaufener Gegner verliert
+seinen Anteil und den seiner nie entstandenen Kinder, ein Split erhöht das Gold der Welle nicht, ein
 Debug-Kill zahlt nichts (`calculateDynamicReward` in `enemy.manager.ts`). Die
 Größe der Welle liest er bei jedem Kill neu, weil ein Wurm seine Segmente erst
 beim Spawn zur Welle bringt.
@@ -344,7 +346,7 @@ Milestones (Wave 10/20/30/40) = 45 / 80 / 120 / 170
 ```
 
 Nach W30 wählt der Director das Template, und das Gold-Budget wird ab dort
-**getapert**: ×0,5 je Welle (`GOLD_TAPER_PER_WAVE`) bis auf 5 % des
+**getapert**: ×0,85 je Welle (`GOLD_TAPER_PER_WAVE`, bis 2026-09-23 ×0,5) bis auf 5 % des
 W30-Budgets (`GOLD_SUSTAIN_FRACTION`), statt neu bei W1 zu beginnen;
 Boss-Wellen zahlen das Doppelte (`BOSS_GOLD_MULTIPLIER = 2`). Ein reiner Loop ließ Wave 31 von 180.000 auf 200 Gold fallen und
 zahlte über 100 Wellen 2,64 Mio. gegen ein Design-Roster von 1,39 Mio., die
