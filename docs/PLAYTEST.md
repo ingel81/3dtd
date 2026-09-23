@@ -63,6 +63,7 @@ Aus M2/M3 und der Gold-Auswertung. Ein Lauf bis mindestens W31, am Ende über "R
   **ok (2026-09-23)**
 - **Q3 Bosse der Kampagne**: W20 der Ooze, W30 Skarnax (per "Jump to wave" 20 und 30 prüfbar). Erwartung:
   beide schaffbar, aber spürbar. Ihre HP entsprechen der Welle, die der Director dort geplant hätte.
+  **ok (2026-09-23)**
 - **Q4 Gold**: Ein Herbert, Mammut oder Golem bringt sichtbar mehr als ein Zombie derselben Welle (Kopfgeld nach
   Wurzel der Basis-HP). W21 bis W30 wachsen je Welle um ×1,2, nach W30 fällt das Einkommen je Welle nur noch
   um ×0,85 statt ×0,5. Die Auswertung macht der Lead aus der Datei.
