@@ -51,6 +51,7 @@ const reg = vi.hoisted(() => ({
       bloodMoon: [{ id: 'moon', url: 'moon.mp3' }],
       gameOver: [{ id: 'over', url: 'over.mp3', volume: 0.35 }],
       gameOverMusicDelayMs: 4000,
+      waveEnd: { fadeOutMs: 1200, buildDelayMs: 2800, buildFadeInMs: 3000 },
       pauseDim: 0.35,
       duck: {
         nuclearStrike: { factor: 0.35, holdMs: 3000 },
@@ -375,18 +376,36 @@ describe('BackgroundMusicService', () => {
       expect(wave.volume).toBeCloseTo(trackVolume('w1'));
     });
 
-    it('goes back to build music when the wave completes', async () => {
+    it('fades the wave music out when the wave completes, then brings build music in after the horn', async () => {
       const { playing, startBuild, waveStarted, waveCompleted } = setup();
       await startBuild();
       await waveStarted();
       frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      const { fadeOutMs, buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
 
       await waveCompleted();
-      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      frame(NOW + fadeOutMs);
+      expect(playing()).toHaveLength(0);
 
+      await vi.advanceTimersByTimeAsync(buildDelayMs);
+      await flush();
+      frame(NOW + buildFadeInMs);
       expect(playing()).toHaveLength(1);
       // b1 was the last build track, so the other one comes next.
       expect(playing()[0].buffer?.url).toBe('b2.mp3');
+    });
+
+    it('drops the build music after the horn when the next wave starts first', async () => {
+      const { playing, startBuild, waveStarted, waveCompleted } = setup();
+      await startBuild();
+      await waveStarted();
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      await waveCompleted();
+      await waveStarted();
+      await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveEnd.buildDelayMs);
+      await flush();
+      frame(NOW + BACKGROUND_MUSIC.waveEnd.buildFadeInMs);
+      expect(playing().map((c) => c.buffer?.url)).toEqual([expect.stringMatching(/^w\d\.mp3$/)]);
     });
 
     it('never repeats the previous wave track back to back', async () => {

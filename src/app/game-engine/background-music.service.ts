@@ -39,6 +39,8 @@ export class BackgroundMusicService {
   private currentWave = 0;
   /** Game over: the timer that brings in the game-over track */
   private gameOverTimer: ReturnType<typeof setTimeout> | null = null;
+  /** End of a wave: the timer that brings in the build music after the horn */
+  private waveEndTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Main theme HTMLAudioElement slow fade-out before the build phase starts
   private mainThemeFadeRafId: number | null = null;
@@ -183,7 +185,7 @@ export class BackgroundMusicService {
 
   /** Stop all music immediately (no fade) */
   stop(): void {
-    this.clearGameOverTimer();
+    this.clearPhaseTimers();
     this.mixer.stop();
     this.cancelMainThemeFade();
     this.currentPhase = 'stopped';
@@ -295,10 +297,10 @@ export class BackgroundMusicService {
       }),
     );
 
-    // Wave completed → back to build music
+    // Wave completed → the wave music fades under the horn, then build music (waveEnd)
     this.subs.add(
       this.eventBus.on('wave:completed', () => {
-        this.playBuildPhase();
+        this.endWavePhase();
       }),
     );
 
@@ -307,7 +309,7 @@ export class BackgroundMusicService {
     this.subs.add(
       this.eventBus.on('game:over', () => {
         this.fadeOutAndStop();
-        this.clearGameOverTimer();
+        this.clearPhaseTimers();
         this.gameOverTimer = setTimeout(() => {
           this.gameOverTimer = null;
           this.playGameOverPhase();
@@ -344,9 +346,29 @@ export class BackgroundMusicService {
     this.mixer.setDim(dimmed ? BACKGROUND_MUSIC.pauseDim : 1);
   }
 
-  private clearGameOverTimer(): void {
+  /** The timers that bring in a phase's music later: game over and wave end. */
+  private clearPhaseTimers(): void {
     if (this.gameOverTimer !== null) clearTimeout(this.gameOverTimer);
     this.gameOverTimer = null;
+    if (this.waveEndTimer !== null) clearTimeout(this.waveEndTimer);
+    this.waveEndTimer = null;
+  }
+
+  /**
+   * The wave is done: its music fades out under the wave-end horn, and the
+   * build music comes in once the horn has rung out (BACKGROUND_MUSIC.waveEnd).
+   * The phase is build from now on, so a volume raised meanwhile brings the
+   * build music at once.
+   */
+  private endWavePhase(): void {
+    const { fadeOutMs, buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
+    this.clearPhaseTimers();
+    this.mixer.fadeOut(fadeOutMs);
+    this.currentPhase = 'build';
+    this.waveEndTimer = setTimeout(() => {
+      this.waveEndTimer = null;
+      this.playBuildPhase(buildFadeInMs);
+    }, buildDelayMs);
   }
 
   private playGameOverPhase(): void {
@@ -355,21 +377,21 @@ export class BackgroundMusicService {
     if (track) this.crossfadeToTrack(track, BACKGROUND_MUSIC.phaseFadeDuration);
   }
 
-  private playBuildPhase(): void {
+  private playBuildPhase(fadeMs = BACKGROUND_MUSIC.phaseFadeDuration): void {
     // A phase change ends the hand-over from the main theme: its pending
     // gap timer would otherwise start build music over this track later
     this.cancelMainThemeFade();
-    this.clearGameOverTimer();
+    this.clearPhaseTimers();
     this.currentPhase = 'build';
     const track = this.pickRandom(BACKGROUND_MUSIC.build, this.lastBuildTrackId);
     if (!track) return;
     this.lastBuildTrackId = track.id;
-    this.crossfadeToTrack(track, BACKGROUND_MUSIC.phaseFadeDuration);
+    this.crossfadeToTrack(track, fadeMs);
   }
 
   private playWavePhase(): void {
     this.cancelMainThemeFade();
-    this.clearGameOverTimer();
+    this.clearPhaseTimers();
     this.currentPhase = 'wave';
     const track = this.pickRandom(this.waveTracks(this.currentWave), this.lastWaveTrackId);
     if (!track) return;

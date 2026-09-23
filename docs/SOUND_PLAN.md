@@ -91,7 +91,7 @@ Loops in der Pause des Intros laufen; die Stimme des Wurms zählt Spielzeit und 
 
 ## 5. Spielmomente und UI
 
-- Wellenstart (tiefes Horn und ein Stampfer, aus der Herbert-Runde), Wellenende (ruhiger Blech-Akkord); die erste Runde (Horn, Fanfare) war zu comichaft, ersetzt in Runde 3
+- Wellenstart (tiefes Horn und ein Stampfer, aus der Herbert-Runde), Wellenende (tiefes Horn, absteigend, Runde 6; die Musik blendet dafür aus und kommt danach); die erste Runde (Horn, Fanfare) war zu comichaft
 - Game Over: HQ-Zerstörung hörbar, kurzer Niederlage-Stinger
 - Blutmond-Sting; im Boss-Intro der Signatur-Sound des jeweiligen Bosses (Runde 4, statt eines allgemeinen Brüllens)
 - Forschung fertig

@@ -294,6 +294,10 @@ Hintergrundmusik läuft separat zu Spatial Audio und ist **nicht-positional**
   Boss-Track, auf einer Blutmond-Welle den Blutmond-Track, sonst einen Wellen-Track. Nach
   `game:over` blendet die Musik aus, `gameOverMusicDelayMs` (4 s) nach dem Ausblenden kommt der
   Game-Over-Track, nach Zerstörung und Stinger (`GameSoundsService`). `game:reset` bricht ihn ab.
+- **Wellenende (seit 2026-09-23)**: Die Wellenmusik blendet über 1,2 s aus, das Horn des Wellenendes
+  klingt allein aus, ab 2,8 s blendet die Build-Musik über 3 s ein (`waveEnd`). Vorher ging es in
+  1,5 s direkt von Welle auf Build, das Horn mitten in der Überblendung. Startet die nächste
+  Welle vorher, entfällt die Build-Musik.
 - **Pause**: `setDimmed()` aus dem Pausen-Sync des `GameStateManager` senkt die Musik auf
   `pauseDim` (0,35), nicht in der Pause des Boss-Intros.
 - **Ducking**: Große Effekte senken die Musik kurz (`MusicMixer.duck`), statt über den gemeinsamen
@@ -481,7 +485,7 @@ Sound-Paket Phase 3 ([SOUND_PLAN.md](SOUND_PLAN.md)), Samples und Mischung in
 | `ability:used` | Auslösen am Ziel (`ABILITY_CAST_SOUNDS`: Frostbombe, EMP, Orbitallaser) |
 | `hero:level-up` | am Helden |
 | `wave:started` | tiefes Horn und ein schwerer Stampfer, auf Blutmond-Wellen stattdessen der Blutmond-Sting (global) |
-| `wave:completed`, `research:completed` | ruhiger tiefer Blech-Akkord, Signal (global) |
+| `wave:completed`, `research:completed` | tiefes Horn, absteigend (Rückzug), Signal (global) |
 | `ability:state-changed` | Signal, wenn eine Fähigkeit von 0 wieder eine Ladung hat (nicht beim Freischalten) |
 | `hero:state-changed` | Anheuern, Munitionswechsel (global) |
 | `game:over` | HQ-Zerstörung, nach `GAME_OVER_STINGER_DELAY_MS` der Niederlage-Stinger (global); `game:reset` bricht den Stinger ab |
