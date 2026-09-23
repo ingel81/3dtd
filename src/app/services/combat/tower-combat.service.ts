@@ -20,6 +20,17 @@ import type { GeoPosition } from '../../models/game.types';
 import { ROUTE_BODY_AIM_HEIGHT_M, type RouteBodyContact } from '../../utils/route-body';
 import { bodyPointInCone, coneContains, type Cone } from '../../utils/body-cone';
 import { BodyAim, type BodyAimPoint } from './body-aim';
+import { TOWER_CONTROL } from '../../configs/tower-control.config';
+import { aimDirectionInto, eyeBackAt, eyeInto, rayHitDistance } from '../../utils/manual-aim';
+
+/** A shot of the manned tower: at `target`, or a miss when null */
+export interface ManualShot {
+  tower: Tower;
+  target: Enemy | null;
+}
+
+/** How far along the aim the guns of a manned tower tilt to, m */
+const MANNED_PITCH_POINT_M = 50;
 
 /**
  * TowerCombatService - Handles tower targeting, rotation, and shooting
@@ -72,6 +83,14 @@ export class TowerCombatService {
   private readonly bodyAim = new BodyAim(this.globalRouteGrid);
   private readonly bodyDistSq = (enemy: Enemy): number => this.bodyAim.distSq(enemy);
   private readonly _aimPoint: BodyAimPoint = { lat: 0, lon: 0, height: 0, x: 0, y: 0, z: 0 };
+
+  // The manned tower (updateMannedTower): what its crosshair is on, and scratch
+  private _mannedAimTarget: Enemy | null = null;
+  private readonly _mannedMuzzle = new Vector3();
+  private readonly _mannedEye = new Vector3();
+  private readonly _mannedDir = new Vector3();
+  private readonly _mannedEnemyPos = new Vector3();
+  private readonly _mannedPitchPoint = new Vector3();
 
   /**
    * Initialize with engine reference
@@ -262,18 +281,24 @@ export class TowerCombatService {
    * visual centre.
    */
   private aimLocalPosition(target: Enemy): Vector3 {
+    return this.aimLocalInto(target, new Vector3());
+  }
+
+  /** aimLocalPosition() into `out`, without allocating. */
+  private aimLocalInto(target: Enemy, out: Vector3): Vector3 {
     const engine = this.tilesEngine!;
     if (target.body && this.bodyAim.aim(target, this._aimPoint)) {
       const p = this._aimPoint;
-      return engine.sync.geoToLocalSimple(p.lat, p.lon, p.height + ROUTE_BODY_AIM_HEIGHT_M);
+      return engine.sync.geoToLocalSimpleInto(p.lat, p.lon, p.height + ROUTE_BODY_AIM_HEIGHT_M, out);
     }
-    const pos = engine.sync.geoToLocalSimple(
+    engine.sync.geoToLocalSimpleInto(
       target.position.lat,
       target.position.lon,
       target.transform.terrainHeight + target.heightOffset,
+      out,
     );
-    pos.y += getEnemyAimOffsetY(target); // aim at the model's visual centre
-    return pos;
+    out.y += getEnemyAimOffsetY(target); // aim at the model's visual centre
+    return out;
   }
 
   /** Tilt the guns of a tower with pitchNodes towards `target` (visual only). */
@@ -332,6 +357,8 @@ export class TowerCombatService {
       // each tower gets its cooldown drained N× per sub-step, with N = number
       // of update*Towers methods, which inflates the effective fire rate.
       if (tower.typeConfig.attackType && tower.typeConfig.attackType !== 'projectile') continue;
+      // The player aims and fires it, and its cooldown ticks there (updateMannedTower)
+      if (tower.manned) continue;
 
       // Advance per-tower fire cooldown in game-time
       tower.combat.update(deltaTime);
@@ -406,6 +433,175 @@ export class TowerCombatService {
         this.tilesEngine?.towers.releaseTarget(tower.id);
       }
     }
+  }
+
+  /**
+   * The tower the player sits in (Tower.manned, docs/TOWER_CONTROL.md), once
+   * per sub-step instead of updateTowerShooting. The turret turns to the
+   * player's aim at its own speed. It fires while the trigger is held, also
+   * between waves (at nothing, or at debug enemies), by the tower's rules: its fire rate, the turret close
+   * to the aim (TOWER_CONTROL.alignToleranceRad), its projectile, damage and
+   * upgrades. The shot goes to the first enemy the aim ray passes that the
+   * tower may attack (Tower.mayEngage: air or ground, range, sight); with
+   * none on it, it is a miss: the same projectile, flying along the aim to
+   * the tower's range and gone there without a hit (ProjectileManager.fireBlank).
+   *
+   * @returns the shot, null when it did not fire this sub-step
+   */
+  updateMannedTower(
+    tower: Tower,
+    gameTimeMs: number,
+    deltaTime: number,
+    enemyManager: EnemyManager,
+    projectileManager: ProjectileManager,
+  ): ManualShot | null {
+    tower.combat.update(deltaTime);
+    const { heading, pitch } = tower.manualAim;
+    const engine = this.tilesEngine;
+    if (engine) {
+      engine.towers.updateRotation(tower.id, heading);
+      if (tower.typeConfig.pitchNodes) {
+        const muzzle = this.muzzleLocal(tower, this._mannedMuzzle);
+        aimDirectionInto(heading, pitch, this._mannedDir);
+        this._mannedPitchPoint.set(
+          muzzle.x + this._mannedDir.x * MANNED_PITCH_POINT_M,
+          muzzle.y + this._mannedDir.y * MANNED_PITCH_POINT_M,
+          muzzle.z + this._mannedDir.z * MANNED_PITCH_POINT_M,
+        );
+        engine.towers.updatePitch(tower.id, this._mannedPitchPoint);
+      }
+    }
+
+    this._mannedAimTarget = tower.losReady ? this.manualTarget(tower, enemyManager) : null;
+    if (!tower.losReady || !tower.triggerHeld || !tower.combat.canFire()) return null;
+    if (!(engine?.towers.isTurretAligned(tower.id, TOWER_CONTROL.alignToleranceRad) ?? true)) return null;
+
+    tower.combat.fire();
+    tower.lastTargetTime = gameTimeMs;
+    const target = this._mannedAimTarget;
+    if (target) {
+      projectileManager.spawn(tower, target, heading, this.projectileAim(target));
+    } else {
+      projectileManager.fireBlank(tower, this.freeShotEnd(tower), heading);
+    }
+    return { tower, target };
+  }
+
+  /**
+   * Where a manned tower's miss flies: the point on the aim ray at the
+   * tower's range from the eye, so it passes the crosshair. Geo, relative
+   * to the muzzle (METERS_PER_DEGREE_LAT at the tower's latitude, as the
+   * projectile moves). Without an engine: straight ahead at muzzle height.
+   */
+  private freeShotEnd(tower: Tower): GeoPosition {
+    const { heading, pitch } = tower.manualAim;
+    const muzzleHeight = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
+    const range = tower.combat.range;
+    const dir = aimDirectionInto(heading, pitch, this._mannedDir);
+    let dx = dir.x * range;
+    let dy = dir.y * range;
+    let dz = dir.z * range;
+    if (this.tilesEngine) {
+      const eye = this.mannedEyeInto(tower, this._mannedEye);
+      const muzzle = this.muzzleLocal(tower, this._mannedMuzzle);
+      dx += eye.x - muzzle.x;
+      dy += eye.y - muzzle.y;
+      dz += eye.z - muzzle.z;
+    }
+    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
+    return {
+      lat: tower.position.lat + dz / METERS_PER_DEGREE_LAT,
+      lon: tower.position.lon - dx / mPerDegLon,
+      height: muzzleHeight + dy,
+    };
+  }
+
+  /**
+   * The enemy the manned tower's crosshair is on and it may shoot, from the
+   * last sub-step; null for none. The HUD colours the crosshair by it.
+   */
+  get mannedAimTarget(): Enemy | null {
+    return this._mannedAimTarget;
+  }
+
+  /**
+   * The player's eye in `tower` (utils/manual-aim.ts eyeInto), local. The
+   * camera sits there and the aim ray starts there: over the muzzle, and at
+   * least TOWER_CONTROL.eyeOverModelM over the top of the model, so it is
+   * never inside a roof.
+   */
+  mannedEyeInto(tower: Tower, out: Vector3): Vector3 {
+    const muzzle = this.muzzleLocal(tower, this._mannedMuzzle);
+    const { heading, pitch } = tower.manualAim;
+    const back = eyeBackAt(pitch, TOWER_CONTROL.pitchMin, TOWER_CONTROL.eyeBackM, TOWER_CONTROL.eyeForwardDownM);
+    const top = this.tilesEngine?.towers.modelTopY(tower.id) ?? null;
+    const up = top !== null
+      ? Math.max(TOWER_CONTROL.eyeUpM, top + TOWER_CONTROL.eyeOverModelM - muzzle.y)
+      : TOWER_CONTROL.eyeUpM;
+    eyeInto(muzzle, heading, up, back, out);
+    return out;
+  }
+
+  /**
+   * First enemy along the aim ray of the manned tower within its hit radius
+   * that the tower may attack. Candidates as for its automatic fire.
+   */
+  private manualTarget(tower: Tower, enemyManager: EnemyManager): Enemy | null {
+    const engine = this.tilesEngine;
+    if (!engine) return null;
+    const candidates = this.collectCandidates(
+      tower,
+      tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
+      enemyManager,
+    );
+    this.beginBodyAim(tower);
+    const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
+    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+
+    const eye = this.mannedEyeInto(tower, this._mannedEye);
+    const dir = aimDirectionInto(tower.manualAim.heading, tower.manualAim.pitch, this._mannedDir);
+    let best: Enemy | null = null;
+    let bestAlong = Infinity;
+    for (const enemy of candidates) {
+      if (!enemy.alive) continue;
+      const point = this.rayTestPoint(enemy, this._mannedEnemyPos);
+      if (!point) continue;
+      const radius = enemy.body
+        ? TOWER_CONTROL.bodyHitRadiusM
+        : Math.min(TOWER_CONTROL.hitRadiusMaxM, Math.max(TOWER_CONTROL.hitRadiusMinM, getEnemyAimOffsetY(enemy)))
+          + TOWER_CONTROL.hitAssistM;
+      const along = rayHitDistance(eye, dir, point, radius);
+      if (along >= bestAlong) continue;
+      // The rules last: they may raycast
+      if (!tower.mayEngage(enemy, airTargetingUnlocked, losCheck, this.bodyDistSq)) continue;
+      best = enemy;
+      bestAlong = along;
+    }
+    return best;
+  }
+
+  /**
+   * Where the aim ray of the manned tower tests `enemy`, local: the model's
+   * visual centre, for a body along the route the tower's aim point on it
+   * (BodyAim.peekLocal, which leaves the body's hit alone: the test runs
+   * every sub-step, the shot is not fired yet). Null for a body without one.
+   */
+  private rayTestPoint(enemy: Enemy, out: Vector3): Vector3 | null {
+    if (!enemy.body) return this.aimLocalInto(enemy, out);
+    if (!this.bodyAim.peekLocal(enemy, out)) return null;
+    out.y += ROUTE_BODY_AIM_HEIGHT_M;
+    return out;
+  }
+
+  /** The player left the tower: its crosshair is on nothing. */
+  clearMannedAim(): void {
+    this._mannedAimTarget = null;
+  }
+
+  /** Where a tower's shots start, local: its position at muzzle height (as ProjectileManager.spawn). */
+  private muzzleLocal(tower: Tower, out: Vector3): Vector3 {
+    const height = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
+    return this.tilesEngine!.sync.geoToLocalSimpleInto(tower.position.lat, tower.position.lon, height, out);
   }
 
   /**

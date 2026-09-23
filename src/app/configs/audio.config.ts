@@ -103,6 +103,21 @@ export const UI_SOUNDS = {
     ],
     volume: 0.35,
   },
+  /** A shot of the manned tower hit (docs/TOWER_CONTROL.md): one short high tick */
+  towerHit: {
+    id: 'ui_tower_hit',
+    notes: [{ freq: 1760, ms: 35 }],
+    volume: 0.3,
+  },
+  /** A shot of the manned tower killed: two rising ticks */
+  towerKill: {
+    id: 'ui_tower_kill',
+    notes: [
+      { freq: 1319, ms: 45 },
+      { freq: 1976, ms: 90 },
+    ],
+    volume: 0.4,
+  },
 } as const;
 
 /**

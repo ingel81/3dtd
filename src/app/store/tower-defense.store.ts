@@ -89,6 +89,9 @@ export class TowerDefenseStore {
   /** Selected tower ID shortcut */
   readonly selectedTowerId = this.gameStore.selectedTowerId;
 
+  /** The tower the player sits in, null when none (see GameStore) */
+  readonly mannedTowerId = this.gameStore.mannedTowerId;
+
   /** Revision of the selected tower's kills and stats (see GameStore) */
   readonly selectedTowerRevision = this.gameStore.selectedTowerRevision;
 

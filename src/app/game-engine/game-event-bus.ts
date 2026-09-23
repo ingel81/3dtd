@@ -154,6 +154,23 @@ export type GameEvent =
       type: 'tower:kill';
       tower: Tower;
     }
+  | {
+      /**
+       * The player got into a tower or out of it (TowerLifecycle.man,
+       * docs/TOWER_CONTROL.md); null when nobody sits in one any more.
+       */
+      type: 'tower:manned';
+      towerId: string | null;
+    }
+  | {
+      /**
+       * A manned tower fired: at `target`, or a miss when null (muzzle flash
+       * and sound, no projectile). Deferred, for the crosshair's feedback.
+       */
+      type: 'tower:manual-shot';
+      towerId: string;
+      target: Enemy | null;
+    }
 
   // ==================== Combat Events ====================
   | {
@@ -409,6 +426,12 @@ export type GameEvent =
       lon: number;
       height: number;
       volume?: number;
+      /**
+       * Played where the listener is instead of at lat/lon: heard without a
+       * direction, as the shots of the tower the player sits in
+       * (docs/TOWER_CONTROL.md). The limits of a one-shot still apply.
+       */
+      atListener?: boolean;
     }
   | {
       type: 'vfx:blood';
@@ -500,6 +523,20 @@ export type GameEvent =
       type: 'command:set-hold-fire';
       towerId: string;
       holdFire: boolean;
+    }
+  | {
+      /** Get into a tower and aim it by hand; a tower that cannot be manned ignores it */
+      type: 'command:man-tower';
+      towerId: string;
+    }
+  | {
+      /** Get out of the manned tower; it fires by itself again */
+      type: 'command:leave-tower';
+    }
+  | {
+      /** Trigger of the manned tower pressed or let go */
+      type: 'command:tower-trigger';
+      held: boolean;
     }
   | {
       type: 'command:start-wave';

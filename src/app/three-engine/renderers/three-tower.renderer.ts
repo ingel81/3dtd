@@ -22,6 +22,7 @@ import {
   Texture,
   Vector3,
   WebGLRenderer,
+  Box3,
 } from 'three';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
@@ -105,6 +106,9 @@ export class ThreeTowerRenderer {
 
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
+  /** modelTopY() per tower, measured once */
+  private readonly modelTops = new Map<string, number>();
+  private readonly topBox = new Box3();
 
   /** Tower under the pointer, shows its range like a selected one, see setHovered */
   private hoveredId: string | null = null;
@@ -590,6 +594,28 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Top of tower `id`'s model, in the frame its position is in (the local
+   * frame of geoToLocalSimple), measured once from its bounding box; null
+   * while it loads. The eye of a manned tower sits above it, not inside
+   * (TowerCombatService.mannedEyeInto).
+   */
+  modelTopY(id: string): number | null {
+    const cached = this.modelTops.get(id);
+    if (cached !== undefined) return cached;
+    const data = this.towers.get(id);
+    if (!data) return null;
+    const mesh = data.mesh;
+    // The whole subtree first: a model not yet rendered has stale world matrices
+    mesh.updateMatrixWorld(true);
+    this.topBox.setFromObject(mesh);
+    if (this.topBox.isEmpty()) return null;
+    // World to the mesh's own frame: its parent may stand on an offset
+    const top = this.topBox.max.y - (mesh.matrixWorld.elements[13] - mesh.position.y);
+    this.modelTops.set(id, top);
+    return top;
+  }
+
+  /**
    * The tower has no target any more. The turret finishes its current turn
    * and then holds that heading.
    */
@@ -748,6 +774,7 @@ export class ThreeTowerRenderer {
 
     if (this.hoveredId === id) this.hoveredId = null;
     this.towers.delete(id);
+    this.modelTops.delete(id);
   }
 
   /**
@@ -1019,5 +1046,6 @@ export class ThreeTowerRenderer {
 
     // Clear map reference to allow GC
     this.towers.clear();
+    this.modelTops.clear();
   }
 }

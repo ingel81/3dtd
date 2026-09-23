@@ -26,6 +26,8 @@ export interface GameSoundSample {
   audibleDistance?: number;
   /** Below 1 the sample plays lower and slower (and above 1 higher); default 1 */
   playbackRate?: number;
+  /** A feedback cue, not a sound of the fight: damped when the camera is close (SpatialSoundConfig.feedback) */
+  feedback?: boolean;
 }
 
 const DEATH = 'assets/sounds/deaths/';
@@ -121,10 +123,10 @@ export const WORLD_SOUNDS = {
     id: 'worm_segment', url: 'assets/sounds/enemies/skarnax/split.mp3', volume: 0.8, refDistance: 70,
     rolloffFactor: 1, minIntervalMs: 200, maxInstances: 2,
   },
-  /** Kill gold, at the enemy: a clink, thinned out hard */
+  /** Kill gold, at the enemy: a clink, thinned out hard; a feedback cue, quiet in a manned tower */
   coin: {
     id: 'coin_bounty', url: 'assets/sounds/game/coin.mp3', volume: 0.25, refDistance: 30, rolloffFactor: 1.5,
-    minIntervalMs: 140, maxInstances: 2,
+    minIntervalMs: 140, maxInstances: 2, feedback: true,
   },
   heroLevelUp: {
     id: 'hero_levelup', url: 'assets/sounds/hero/levelup.mp3', volume: 0.8, refDistance: 80, rolloffFactor: 1,

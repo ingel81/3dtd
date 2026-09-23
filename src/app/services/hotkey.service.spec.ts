@@ -23,6 +23,7 @@ vi.mock('./ability-targeting.service', () => ({
 vi.mock('./photo-mode.service', () => ({ PhotoModeService: class PhotoModeService {} }));
 vi.mock('./hero-control.service', () => ({ HeroControlService: class HeroControlService {} }));
 vi.mock('./replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('./tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -41,6 +42,7 @@ import { AbilityTargetingService } from './ability-targeting.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
+import { TowerControlService } from './tower-control.service';
 import { UpgradeHintService } from './upgrade-hint.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
@@ -95,6 +97,13 @@ describe('HotkeyService', () => {
     togglePlay: vi.fn(),
     stepSpeed: vi.fn(),
     exit: vi.fn(() => replayActive.set(false)),
+  };
+  const mannedActive = signal(false);
+  const towerControl = {
+    active: mannedActive,
+    toggle: vi.fn(() => true),
+    exit: vi.fn(() => mannedActive.set(false)),
+    update: vi.fn(),
   };
 
   /** Level per track; facade.upgradeTower raises it like the real command */
@@ -179,6 +188,9 @@ describe('HotkeyService', () => {
     replay.togglePlay.mockClear();
     replay.stepSpeed.mockClear();
     replay.exit.mockClear();
+    mannedActive.set(false);
+    towerControl.toggle.mockClear();
+    towerControl.exit.mockClear();
 
     const injector = Injector.create({
       providers: [
@@ -200,6 +212,7 @@ describe('HotkeyService', () => {
         { provide: PhotoModeService, useValue: photoMode },
         { provide: HeroControlService, useValue: heroControl },
         { provide: ReplayService, useValue: replay },
+        { provide: TowerControlService, useValue: towerControl },
         { provide: DebugFacadeService, useValue: { setHealthBarsInverted } },
         { provide: UpgradeHintService, useValue: upgradeHint },
         // The real one: U answers through it, on the facade and stores above
@@ -207,6 +220,49 @@ describe('HotkeyService', () => {
       ],
     });
     service = runInInjectionContext(injector, () => new HotkeyService());
+  });
+
+  describe('in a manned tower', () => {
+    beforeEach(() => mannedActive.set(true));
+
+    it('C and Esc get out', () => {
+      service.handleKeyDown(press('c'));
+      mannedActive.set(true);
+      service.handleKeyDown(press('Escape'));
+      expect(towerControl.exit).toHaveBeenCalledTimes(2);
+      expect(towerControl.toggle).not.toHaveBeenCalled();
+    });
+
+    it('the wave, pause and speed go on', () => {
+      service.handleKeyDown(press(' '));
+      service.handleKeyDown(press('p'));
+      service.handleKeyDown(press('+'));
+      expect(facade.startWave).toHaveBeenCalledTimes(1);
+      expect(gameStore.paused()).toBe(true);
+      expect(gameStore.gameSpeed()).toBe(2);
+    });
+
+    it('builds, upgrades, sells, aims, photographs, moves the camera and opens nothing', () => {
+      store.selectedTower.set(tower);
+      for (const key of ['1', 'u', 'Delete', 'k', 'o', 'g', 'Home', 'h']) {
+        const event = press(key);
+        service.handleKeyDown(event);
+        expect(event.defaultPrevented).toBe(false);
+      }
+      expect(selectTowerType).not.toHaveBeenCalled();
+      expect(facade.upgradeTower).not.toHaveBeenCalled();
+      expect(facade.sellSelectedTower).not.toHaveBeenCalled();
+      expect(abilityTargeting.start).not.toHaveBeenCalled();
+      expect(photoMode.toggle).not.toHaveBeenCalled();
+      expect(heroControl.summon).not.toHaveBeenCalled();
+      expect(focusGeo).not.toHaveBeenCalled();
+      expect(openDialog).not.toHaveBeenCalled();
+    });
+  });
+
+  it('C outside a tower asks TowerControlService to get into the selected one', () => {
+    service.handleKeyDown(press('c'));
+    expect(towerControl.toggle).toHaveBeenCalledTimes(1);
   });
 
   describe('during the replay of the last wave', () => {

@@ -205,6 +205,23 @@ export class BodyAim {
     return true;
   }
 
+  /**
+   * The tower's aim point on `enemy`, local (ground height there), written
+   * into `out` without putting the body's hit there, unlike aim(). For a
+   * test that may not shoot (the manned tower's aim ray). False without one.
+   */
+  peekLocal(enemy: Enemy, out: { x: number; y: number; z: number }): boolean {
+    const slot = this.resolve(enemy);
+    if (slot < 0 || this.resolvedIndex[slot] < 0) return false;
+    const view = this.resolvedViews[slot]!;
+    const i = this.resolvedIndex[slot];
+    out.x = view.x[i];
+    out.y = this.grid.getGroundLocalYAt(view.x[i], view.z[i])
+      ?? enemy.transform.terrainHeight - enemy.body!.stations.originHeight;
+    out.z = view.z[i];
+    return true;
+  }
+
   /** Slot of `enemy` in this turn's results, resolving it first; -1 for an enemy without a body or turn. */
   private resolve(enemy: Enemy): number {
     const tower = this.tower;

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { Group, Mesh, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
+import { BoxGeometry, Group, Mesh, Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { ThreeTowerRenderer, type TowerRenderData } from './three-tower.renderer';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 
@@ -429,5 +429,42 @@ describe('ThreeTowerRenderer range ring', () => {
 
     renderer.dispose();
     expect(scene.children.some((child) => child.name === 'range-ring')).toBe(false);
+  });
+});
+
+describe('ThreeTowerRenderer model top', () => {
+  /** A 4 m tall box standing on the model's origin */
+  const assetManager = {
+    loadModel: async () => ({ animations: [] }),
+    cloneModel: () => {
+      const model = new Group();
+      model.add(new Mesh(new BoxGeometry(1, 4, 1).translate(0, 2, 0)));
+      return model;
+    },
+  };
+  const sync = {
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
+  };
+
+  it('measures the top of the model once, in its own frame, and forgets it with the tower', async () => {
+    const scene = new Scene();
+    // The towers' parent stands 100 m up: the top is read in the frame of the tower's position
+    const parent = new Group();
+    parent.position.y = 100;
+    scene.add(parent);
+    const renderer = new ThreeTowerRenderer(scene, sync as never, assetManager as never);
+    expect(renderer.modelTopY('t1')).toBeNull();
+
+    const data = (await renderer.create('t1', 'archer', 0, 0, 30, 0, null))!;
+    parent.add(data.mesh);
+    const top = renderer.modelTopY('t1')!;
+    expect(top).toBeCloseTo(data.mesh.position.y + 4 * data.mesh.scale.y);
+
+    // Measured once: a model moved afterwards keeps it
+    data.mesh.position.y += 50;
+    expect(renderer.modelTopY('t1')).toBe(top);
+
+    renderer.remove('t1');
+    expect(renderer.modelTopY('t1')).toBeNull();
   });
 });

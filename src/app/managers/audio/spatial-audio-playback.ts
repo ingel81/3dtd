@@ -79,6 +79,7 @@ export class SpatialAudioPlayback {
   private _uiVolume = 1.0;
   /** Stretch of the anti-flood window, the game speed from 1 up (setTimescale). */
   private floodScale = 1;
+  private feedbackMinDistance = 0;
 
   constructor(
     voices: PositionalVoiceFactory,
@@ -105,6 +106,11 @@ export class SpatialAudioPlayback {
    */
   setTimescale(scale: number): void {
     this.floodScale = Math.max(1, scale);
+  }
+
+  /** Feedback cues sound as from at least this far off, 0 for off (SpatialAudioManager.setFeedbackMinDistance) */
+  setFeedbackMinDistance(meters: number): void {
+    this.feedbackMinDistance = Math.max(0, meters);
   }
 
   // --- Event bus ---
@@ -293,7 +299,10 @@ export class SpatialAudioPlayback {
     audio.setRefDistance(sound.config.refDistance);
     audio.setRolloffFactor(sound.config.rolloffFactor);
     audio.setDistanceModel(sound.config.distanceModel);
-    audio.setVolume(sound.config.volume * volumeMultiplier * this._masterVolume);
+    const distanceScale = sound.config.feedback && this.feedbackMinDistance > 0
+      ? feedbackDistanceScale(sound.config, this.getDistanceToCamera(position), this.feedbackMinDistance)
+      : 1;
+    audio.setVolume(sound.config.volume * volumeMultiplier * distanceScale * this._masterVolume);
     audio.setLoop(sound.config.loop);
     if (playbackRate !== 1) audio.setPlaybackRate(playbackRate);
 
@@ -373,6 +382,16 @@ export class SpatialAudioPlayback {
     }
     const position = this.geoToLocal(lat, lon, height, new Vector3());
     return this.playAt(soundId, position, volumeMultiplier);
+  }
+
+  /**
+   * A one-shot where the listener is, the camera: no direction to hear and
+   * full volume inside refDistance, with every limit of playAt (anti-flood,
+   * polyphony, projectile budget, voice stealing), which playGlobal has not.
+   */
+  async playAtListener(soundId: string, volumeMultiplier = 1.0): Promise<PositionalAudio | null> {
+    const e = this.camera.matrixWorld.elements;
+    return this.playAt(soundId, new Vector3(e[12], e[13], e[14]), volumeMultiplier);
   }
 
   async playGlobal(soundId: string, volumeMultiplier = 1.0): Promise<Audio | null> {
@@ -501,4 +520,40 @@ export class SpatialAudioPlayback {
     if (cnt <= 1) this.activeCountByBuffer.delete(buffer);
     else this.activeCountByBuffer.set(buffer, cnt - 1);
   }
+}
+
+/** Distance gain of the Web Audio distance models (PannerNode), clamped to refDistance as there. */
+function distanceGain(
+  config: Pick<Required<SpatialSoundConfig>, 'refDistance' | 'rolloffFactor' | 'maxDistance' | 'distanceModel'>,
+  distance: number,
+): number {
+  const ref = config.refDistance;
+  const rolloff = config.rolloffFactor;
+  switch (config.distanceModel) {
+    case 'linear': {
+      const max = config.maxDistance > 0 ? config.maxDistance : 10000;
+      const d = Math.min(Math.max(distance, ref), max);
+      return 1 - (rolloff * (d - ref)) / Math.max(max - ref, 1e-6);
+    }
+    case 'exponential':
+      return Math.pow(Math.max(distance, ref) / ref, -rolloff);
+    default:
+      return ref / (ref + rolloff * (Math.max(distance, ref) - ref));
+  }
+}
+
+/**
+ * Volume factor that makes a feedback cue at `distance` sound as from
+ * `minDistance` when it is closer: the panner's own gain at the real
+ * distance stays, this scales it down to the gain at minDistance. 1 at or
+ * beyond it.
+ */
+export function feedbackDistanceScale(
+  config: Pick<Required<SpatialSoundConfig>, 'refDistance' | 'rolloffFactor' | 'maxDistance' | 'distanceModel'>,
+  distance: number,
+  minDistance: number,
+): number {
+  if (distance >= minDistance) return 1;
+  const near = distanceGain(config, distance);
+  return near > 0 ? distanceGain(config, minDistance) / near : 1;
 }

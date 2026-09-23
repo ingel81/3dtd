@@ -211,5 +211,6 @@ function spatialConfig(sample: GameSoundSample): SpatialSoundConfig {
   if (sample.maxInstances !== undefined) config.maxInstances = sample.maxInstances;
   if (sample.priority !== undefined) config.priority = sample.priority;
   if (sample.audibleDistance !== undefined) config.audibleDistance = sample.audibleDistance;
+  if (sample.feedback !== undefined) config.feedback = sample.feedback;
   return config;
 }

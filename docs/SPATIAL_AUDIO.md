@@ -199,6 +199,21 @@ wäre sein Knall als ältester One-Shot der erste, den das Voice-Stealing stoppt
 weit wie sein Shake reicht, der HQ-Schadenston ebenso weit (siehe unten). Loops pausieren
 weiter ab `maxAudibleDistance`.
 
+**Am Hörer.** `playAtListener(id)` spielt einen One-Shot an der Kamera, ohne hörbare Richtung, aber mit den
+Grenzen von `playAt` (Anti-Flood, Polyphonie, Projektil-Budget, Voice-Stealing), die `playGlobal` nicht hat.
+`audio:play` mit `atListener: true` nimmt diesen Weg; so klingen die Schüsse des bemannten Towers, weil HRTF eine
+Quelle hinter dem Kopf beim Blick nach oben hörbar umfärbte.
+
+**Rückmelde-Sounds im Nahblick.** Ein Sound mit `feedback: true` ist eine Rückmeldung,
+kein Geräusch des Kampfs, Stand heute nur das Kill-Gold (`WORLD_SOUNDS.coin`). Sitzt der
+Spieler in einem Tower ([TOWER_CONTROL.md](TOWER_CONTROL.md)), hängt die Kamera und damit
+der Hörer wenige Meter über den Kills statt 100 bis 400 m darüber; unterhalb der
+`refDistance` dämpft der Panner nicht, der Coin war dort rund 14-mal lauter (etwa +23 dB).
+`SpatialAudioManager.setFeedbackMinDistance(m)` (dort 150 m, 0 = aus) skaliert die
+Lautstärke solcher Sounds näher als `m` auf den Wert, den das Distanzmodell bei `m` gäbe
+(`feedbackDistanceScale`). Schüsse, Einschläge und Gegner bleiben bei ihrer echten
+Entfernung.
+
 **Methoden in SpatialAudioManager:**
 ```typescript
 canPlayEnemySound(): boolean           // Prüfen ob Enemy-Budget verfügbar

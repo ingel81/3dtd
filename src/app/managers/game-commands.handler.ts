@@ -71,6 +71,21 @@ export class GameCommandsHandler {
       const tower = this.gsm.towerManager.getById(event.towerId);
       if (tower) this.gsm.setTowerHoldFire(tower, event.holdFire);
     }));
+
+    // Manning a tower (docs/TOWER_CONTROL.md). The aim is no command, see
+    // GameStateManager.setMannedAim; the trigger is.
+    this.subs.add(this.eventBus.on('command:man-tower', (event) => {
+      const tower = this.gsm.towerManager.getById(event.towerId);
+      if (tower) this.gsm.manTower(tower);
+    }));
+
+    this.subs.add(this.eventBus.on('command:leave-tower', () => {
+      this.gsm.leaveTower();
+    }));
+
+    this.subs.add(this.eventBus.on('command:tower-trigger', (event) => {
+      this.gsm.setMannedTrigger(event.held);
+    }));
   }
 
   private attachResearchCommands(): void {

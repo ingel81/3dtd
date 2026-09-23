@@ -358,6 +358,15 @@
   display: none !important;
 }
 
+/* === Manned tower (TowerControlService) ===
+ * The view is the tower's aim: the sidebar and the overlays of the canvas
+ * area go, the header (wave, HQ, credits) and the info overlay (FPS) stay,
+ * the crosshair HUD comes. */
+.td-tower-control app-game-sidebar,
+.td-tower-control .td-canvas-area > :not(canvas):not(.td-logo-attribution):not(.td-map-attribution):not(app-tower-control-hud):not(app-info-overlay):not(.td-error-overlay):not(td-loading-screen):not(td-token-setup) {
+  display: none !important;
+}
+
 /* === Replay of the last wave ===
  * As in photo mode header, sidebar and the overlays of the canvas area go,
  * the game-over screen as well: the replay can start from it. The replay

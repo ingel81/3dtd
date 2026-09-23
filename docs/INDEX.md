@@ -31,6 +31,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Aktuell | Wave-Management, Sub-Step-Spawner, Mixed Waves, Game Phases |
 | [ABILITIES.md](ABILITIES.md) | Aktuell | Spieler-Fähigkeiten (Nuklearschlag aus dem Missile Silo, Frostbombe, EMP, Orbitallaser), Fähigkeitenleiste: Ladungen, Zielmodus, Einschlag in Sub-Steps, Leck-Buchung im Gate, Bot-Strategie |
 | [HERO.md](HERO.md) | Aktuell | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition als Schadensart, Stufen, virtueller Tower im Überlebbarkeits-Deckel, Modell-Naht, Bedienung (G, V) |
+| [TOWER_CONTROL.md](TOWER_CONTROL.md) | Aktuell (MVP) | Tower bemannen: Egoperspektive, Zielen und Feuern von Hand nach den Regeln des Towers (Strahltest, Fehlschuss), Commands und warum das Zielen keiner ist, Kamera, HUD, Grenzen |
 | [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay der letzten Welle: warum Präsentations-Aufnahme statt Re-Simulation, Aufnahme in Typed Arrays mit Speichergrenze, Player über die Live-Renderer, Bedienung, Grenzen |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
@@ -141,6 +142,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...Status-Effekte verstehen | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
 | ...die Fähigkeiten (Nuklearschlag, Frost, EMP, Laser) verstehen | [ABILITIES.md](ABILITIES.md) |
 | ...den Helden (Söldner) verstehen | [HERO.md](HERO.md) |
+| ...einen Tower selbst steuern (Egoperspektive) | [TOWER_CONTROL.md](TOWER_CONTROL.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
 | ...verstehen, wer die Wellen aussucht | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
 | ...den Überlebbarkeits-Deckel und den Leck-Regler verstehen | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |

@@ -27,7 +27,11 @@ describe('AudioService nuclear strike', () => {
 
   function setup() {
     const eventBus = new GameEventBus();
-    const spatialAudio = { registerSound: vi.fn(), playAtGeo: vi.fn(() => Promise.resolve(null)) };
+    const spatialAudio = {
+      registerSound: vi.fn(),
+      playAtGeo: vi.fn(() => Promise.resolve(null)),
+      playAtListener: vi.fn(() => Promise.resolve(null)),
+    };
     const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
     const impact = () => eventBus.emit({
       type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1,
@@ -71,6 +75,15 @@ describe('AudioService nuclear strike', () => {
       GAME_SOUNDS.frostBomb.id, url, { refDistance, rolloffFactor, volume, maxInstances },
     ]);
     service.destroy();
+  });
+
+  it('plays a sound at the listener when audio:play asks for it (the manned tower), else at its position', () => {
+    const { eventBus, spatialAudio } = setup();
+    eventBus.emit({ type: 'audio:play', sound: 'bullet', lat: 1, lon: 2, height: 3, atListener: true });
+    eventBus.emit({ type: 'audio:play', sound: 'bullet', lat: 1, lon: 2, height: 3 });
+
+    expect(spatialAudio.playAtListener.mock.calls).toEqual([['bullet', 1]]);
+    expect(spatialAudio.playAtGeo.mock.calls).toEqual([['bullet', 1, 2, 3, 1]]);
   });
 
   it('plays the blast at the impact point, then the rolls of rumble, quieter, in game time', () => {

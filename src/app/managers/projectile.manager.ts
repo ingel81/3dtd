@@ -20,6 +20,14 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
  * - Constructor injection
  * - Emits events instead of callbacks
  */
+/** Where a shot's sound plays: at a geo position, or at the listener (audio:play atListener) */
+interface ShotSound {
+  lat: number;
+  lon: number;
+  height: number;
+  atListener?: boolean;
+}
+
 /**
  * Spawn one trail-particle burst per this many meters travelled.
  * Distance-based gating gives uniform trails at any framerate / speed.
@@ -72,46 +80,93 @@ export class ProjectileManager extends EntityManager<Projectile> {
    *   (a body along the route, see Projectile.aimPoint)
    */
   spawn(tower: Tower, targetEnemy: Enemy, heading?: number, aimPoint?: GeoPosition): Projectile {
-    // Calculate spawn height: tower terrain height + tower model offset + shooting position
-    const terrainHeight = tower.position.height ?? 0;
-    const spawnHeight = terrainHeight + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
-
-    // Calculate spawn position with optional fire point offset
-    let spawnLat = tower.position.lat;
-    let spawnLon = tower.position.lon;
-
-    const firePoint = tower.getNextFirePoint();
-    if (firePoint && heading !== undefined) {
-      const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
-      const cosH = Math.cos(heading);
-      const sinH = Math.sin(heading);
-      // Rotate fire point offset by heading (x=lateral, z=forward)
-      spawnLat += (-firePoint.x * sinH + firePoint.z * cosH) / METERS_PER_DEGREE_LAT;
-      spawnLon += (firePoint.x * cosH + firePoint.z * sinH) / metersPerDegreeLon;
-    }
-
+    const start = this.muzzlePosition(tower, heading);
     const projectile = this.launch(
-      { lat: spawnLat, lon: spawnLon, height: tower.position.height },
-      spawnHeight,
+      start.position,
+      start.height,
       targetEnemy,
       tower.typeConfig.projectileType,
       tower.combat.damage,
       tower.typeConfig.damageType,
       tower.id,
       tower.typeConfig.id,
-      // Sound at the tower's position, on its model
-      { lat: tower.position.lat, lon: tower.position.lon, height: (tower.position.height ?? 0) + tower.typeConfig.heightOffset },
+      this.towerSoundPosition(tower),
       aimPoint,
     );
 
-    // Muzzle flash VFX (deferred, handled by VFXService)
+    this.muzzleFlash(tower);
+    return projectile;
+  }
+
+  /**
+   * A shot of a manned tower that has no enemy on the crosshair
+   * (TowerCombatService.updateMannedTower): the tower's projectile, muzzle
+   * flash and sound as spawn(), flying to `aimPoint` (where the crosshair
+   * points, at the tower's range), where it is gone without a hit.
+   * @param heading turret heading, for the fire point as in spawn()
+   */
+  fireBlank(tower: Tower, aimPoint: GeoPosition, heading: number): Projectile {
+    const start = this.muzzlePosition(tower, heading);
+    const projectile = this.launch(
+      start.position,
+      start.height,
+      null,
+      tower.typeConfig.projectileType,
+      tower.combat.damage,
+      tower.typeConfig.damageType,
+      tower.id,
+      tower.typeConfig.id,
+      this.towerSoundPosition(tower),
+      aimPoint,
+    );
+    this.muzzleFlash(tower);
+    return projectile;
+  }
+
+  /**
+   * Where a tower's next shot starts: its position at muzzle height (terrain
+   * height + model offset + shooting position), moved to its next fire
+   * point turned by `heading` (dual barrels take turns).
+   */
+  private muzzlePosition(tower: Tower, heading?: number): { position: GeoPosition; height: number } {
+    const terrainHeight = tower.position.height ?? 0;
+    const height = terrainHeight + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
+    let lat = tower.position.lat;
+    let lon = tower.position.lon;
+    const firePoint = tower.getNextFirePoint();
+    if (firePoint && heading !== undefined) {
+      const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
+      const cosH = Math.cos(heading);
+      const sinH = Math.sin(heading);
+      // Rotate fire point offset by heading (x=lateral, z=forward)
+      lat += (-firePoint.x * sinH + firePoint.z * cosH) / METERS_PER_DEGREE_LAT;
+      lon += (firePoint.x * cosH + firePoint.z * sinH) / metersPerDegreeLon;
+    }
+    return { position: { lat, lon, height: tower.position.height }, height };
+  }
+
+  /**
+   * A tower's shot sounds at its position, on its model. The shots of the
+   * tower the player sits in sound at the listener, without a direction: the
+   * model is below and in front of the eye, and a look up would turn the
+   * shot behind the head, where HRTF panning colours it (docs/TOWER_CONTROL.md).
+   */
+  private towerSoundPosition(tower: Tower): ShotSound {
+    return {
+      lat: tower.position.lat,
+      lon: tower.position.lon,
+      height: (tower.position.height ?? 0) + tower.typeConfig.heightOffset,
+      atListener: tower.manned,
+    };
+  }
+
+  /** Muzzle flash VFX (deferred, handled by VFXService) */
+  private muzzleFlash(tower: Tower): void {
     this.eventBus.emitDeferred({
       type: 'vfx:muzzle-flash',
       towerId: tower.id,
       towerTypeId: tower.typeConfig.id,
     });
-
-    return projectile;
   }
 
   /**
@@ -146,13 +201,13 @@ export class ProjectileManager extends EntityManager<Projectile> {
   private launch(
     start: GeoPosition,
     startHeight: number,
-    targetEnemy: Enemy,
+    targetEnemy: Enemy | null,
     typeId: ProjectileTypeId,
     damage: number,
     damageType: DamageType,
     sourceId: string,
     sourceTowerType: TowerTypeId | null,
-    sound: { lat: number; lon: number; height: number },
+    sound: ShotSound,
     aimPoint?: GeoPosition,
   ): Projectile {
     if (!this.tilesEngine) {
@@ -189,7 +244,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
     this.add(projectile);
 
     // Play spatial sound (fire-and-forget, errors logged)
-    this.playProjectileSound(projectile.typeConfig.id, sound.lat, sound.lon, sound.height);
+    this.playProjectileSound(projectile.typeConfig.id, sound);
 
     return projectile;
   }
@@ -204,8 +259,13 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
     for (const projectile of this.getAllActive()) {
       const hit = projectile.updateTowardsTarget(deltaTime);
+      const target = projectile.targetEnemy;
 
-      if (hit) {
+      if (hit && !target) {
+        // A free shot (a manned tower's miss) ends where it was aimed: no
+        // hit, no splash, no impact
+        this.toRemove.push(projectile);
+      } else if (hit && target) {
         // Emit projectile:hit when the target is still alive, OR when the
         // projectile carries splash — splash must still detonate at the impact
         // point even if the primary target died mid-flight (otherwise AoE
@@ -218,7 +278,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
           this.eventBus.emit({
             type: 'projectile:hit',
             projectile,
-            target: projectile.targetEnemy,
+            target,
             damage: projectile.damage,
             damageType: projectile.damageType,
           });
@@ -330,7 +390,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * Emit audio event for projectile sound at the given position
    * Uses deferred events (processed at frame end)
    */
-  private playProjectileSound(projectileType: string, lat: number, lon: number, height: number): void {
+  private playProjectileSound(projectileType: string, sound: ShotSound): void {
     // Map projectile types to sound IDs
     const soundId = projectileType in PROJECTILE_SOUNDS ? projectileType : 'arrow'; // Fallback to arrow sound
 
@@ -338,9 +398,10 @@ export class ProjectileManager extends EntityManager<Projectile> {
     this.eventBus.emitDeferred({
       type: 'audio:play',
       sound: soundId,
-      lat,
-      lon,
-      height,
+      lat: sound.lat,
+      lon: sound.lon,
+      height: sound.height,
+      atListener: sound.atListener,
     });
   }
 

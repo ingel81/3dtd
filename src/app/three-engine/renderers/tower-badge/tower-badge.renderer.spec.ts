@@ -202,6 +202,26 @@ describe('TowerBadgeRenderer', () => {
     expect(mesh.visible).toBe(true);
   });
 
+  it('hides the badge of the manned tower only, keeps its rank and hold fire current and shows it again', () => {
+    const { models, renderer, styleOf } = setup();
+    models['t1'] = towerModel(0, 0, 0, 5);
+    models['t2'] = towerModel(9, 0, 0, 5);
+    renderer.setRank('t1', 1);
+    renderer.setRank('t2', 2);
+
+    renderer.hideFor('t1');
+    expect(styleOf(0)).toEqual([0, 0, 0, 0]);
+    expect(styleOf(1)).toEqual([2, 0, 0, 0]);
+    renderer.setRank('t1', 3);
+    renderer.setHoldFire('t1', true);
+    expect(styleOf(0)).toEqual([0, 0, 0, 0]);
+
+    renderer.hideFor(null);
+    expect(styleOf(0)).toEqual([0, 0, 0, 1]);
+    renderer.setHoldFire('t1', false);
+    expect(styleOf(0)).toEqual([3, 0, 0, 0]);
+  });
+
   it('turns the badges to the camera and sizes a CSS pixel from the field of view', () => {
     const { models, renderer, material } = setup();
     models['t1'] = towerModel(0, 0, 0, 5);

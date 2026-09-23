@@ -17,6 +17,7 @@ vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 // Only their DI tokens are needed, as in game-loop-facade.auto-wave.spec.ts
 vi.mock('../services/boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
 vi.mock('../services/replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('../services/tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 const mockServices: Record<string, unknown> = {};
 vi.mock('@angular/core', async () => {

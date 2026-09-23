@@ -4,11 +4,13 @@ import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 // Only their DI tokens are needed; the real modules pull in the game state manager
 vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
 vi.mock('../replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('../tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { GameStateSyncService } from '../infrastructure/game-state-sync.service';
 import { BossIntroService } from '../boss-intro.service';
 import { ReplayService } from '../replay.service';
+import { TowerControlService } from '../tower-control.service';
 import { EngineStore } from '../../store/engine.store';
 import { CameraControlService } from '../camera-control.service';
 import { TowerPlacementService } from '../tower-placement.service';
@@ -44,7 +46,7 @@ const UNUSED = [
   EngineStore, CameraControlService, TowerPlacementService, MapPlacementService, KeyboardPanService,
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   SoundDebugService, DebugWindowService, EnemyDebugService, NgZone,
-  PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService,
+  PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService, TowerControlService,
 ];
 
 /** The director's plan for a boss wave past the campaign */

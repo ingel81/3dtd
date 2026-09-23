@@ -30,6 +30,7 @@ import { UIStore } from '../../store/ui.store';
 import { AutoWaveCountdown } from '../../utils/auto-wave-countdown';
 import { BossIntroService } from '../boss-intro.service';
 import { ReplayService } from '../replay.service';
+import { TowerControlService } from '../tower-control.service';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -67,6 +68,7 @@ export class GameLoopFacadeService {
   private readonly uiStore = inject(UIStore);
   private readonly bossIntro = inject(BossIntroService);
   private readonly replay = inject(ReplayService);
+  private readonly towerControl = inject(TowerControlService);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -529,6 +531,8 @@ export class GameLoopFacadeService {
     // The wave replay, while it is on. After the game's update: its pause
     // set the renderers' timescale to 0, the replay sets its own speed
     this.replay.update(deltaTime);
+    // The view from the manned tower, after the sub-steps turned it to the aim
+    this.towerControl.update(deltaTime);
 
     // One sample a second of game time, after the sub-steps of this frame
     this.runLog.tick();

@@ -34,7 +34,9 @@ export type HotkeyAction =
   /** The research tree, once a Research Center stands */
   | { kind: 'research' }
   /** All sound on or off */
-  | { kind: 'mute' };
+  | { kind: 'mute' }
+  /** Into the selected tower to aim it by hand, or out of the manned one */
+  | { kind: 'tower-control' };
 
 /** The parts of a KeyboardEvent the mapping reads. */
 export type HotkeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey' | 'repeat'>;
@@ -96,6 +98,8 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return { kind: 'photo-mode' };
     case 'm':
       return { kind: 'mute' };
+    case 'c':
+      return { kind: 'tower-control' };
     case 'q':
       // R rotates while building and T is the debug key; the ability keys are
       // K, F, E and L, so Q is what is left near the camera hand.
@@ -143,6 +147,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['R'], label: 'Hold to rotate while building, or the portal while placing a spawn' },
       { keys: ['U'], label: 'Upgrade the selected tower: the first upgrade you can afford' },
       { keys: ['Del'], label: 'Sell the selected tower, press twice' },
+      { keys: ['C'], label: 'Get into the selected tower and fire it yourself: mouse aims, left button fires, right button zooms; C or Esc gets out' },
       { keys: ['Esc'], label: 'Cancel building, close a menu, deselect' },
     ],
   },

@@ -20,6 +20,7 @@ vi.mock('@angular/core', async (importOriginal) => {
 // Only their DI tokens are needed; the real modules pull in the game state manager
 vi.mock('../../../services/boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
 vi.mock('../../../services/replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('../../../services/tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, peekUpcomingWaves, type WavePeek } from './upcoming-waves';
@@ -49,6 +50,7 @@ import { PerformanceProfilerService } from '../../../services/debug/performance-
 import { StreetRenderingService } from '../../../services/world/street-rendering.service';
 import { BossIntroService } from '../../../services/boss-intro.service';
 import { ReplayService } from '../../../services/replay.service';
+import { TowerControlService } from '../../../services/tower-control.service';
 import { GameEventBus } from '../../../game-engine/game-event-bus';
 import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
@@ -76,7 +78,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
     MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
     WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
     StateSnapshotService, PerformanceProfilerService,
-    StreetRenderingService, BossIntroService, ReplayService,
+    StreetRenderingService, BossIntroService, ReplayService, TowerControlService,
   ];
 
   beforeEach(() => {

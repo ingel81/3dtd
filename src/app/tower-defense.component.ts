@@ -107,7 +107,9 @@ import { BestWaveService } from './services/location/best-wave.service';
 import { PhotoModeService } from './services/photo-mode.service';
 import { BossIntroService } from './services/boss-intro.service';
 import { ReplayService } from './services/replay.service';
+import { TowerControlService } from './services/tower-control.service';
 import { ReplayBarComponent } from './components/replay-bar/replay-bar.component';
+import { TowerControlHudComponent } from './components/tower-control-hud/tower-control-hud.component';
 import { OnboardingService } from './services/onboarding/onboarding.service';
 import { WhatsNewService } from './services/onboarding/whats-new.service';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
@@ -162,6 +164,7 @@ import { uiSound } from './services/ui-sound';
     RunSummaryComponent,
     BossIntroComponent,
     ReplayBarComponent,
+    TowerControlHudComponent,
     // Used only inside @defer on the game-over screen, so it loads with the globe as a lazy chunk
     WorldRecordComponent,
   ],
@@ -185,6 +188,8 @@ import { uiSound } from './services/ui-sound';
     BossIntroService,
     // Plays the GameStateManager's recording; the game loop and the hotkeys drive it
     ReplayService,
+    // Manning a tower: drives the GameStateManager, ticked by the game loop, keyed by the hotkeys
+    TowerControlService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -233,6 +238,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly bossIntro = inject(BossIntroService);
   /** Replay of the last wave: HUD hidden, replay bar at the bottom */
   readonly replay = inject(ReplayService);
+  readonly towerControl = inject(TowerControlService);
 
   // Build / tiles version chips shown in the loading screen corners.
   readonly buildVersion = BUILD_VERSION;

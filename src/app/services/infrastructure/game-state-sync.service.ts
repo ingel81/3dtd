@@ -126,6 +126,10 @@ export class GameStateSyncService {
       this.store.selectedTower.set(event.tower);
     }));
 
+    this.subs.add(eventBus.on('tower:manned', (event) => {
+      this.store.mannedTowerId.set(event.towerId);
+    }));
+
     this.subs.add(eventBus.on('tower:deselected', () => {
       this.store.selectedTower.set(null);
     }));

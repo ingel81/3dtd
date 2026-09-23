@@ -22,6 +22,11 @@ describe('resolveHotkey', () => {
     expect(resolveHotkey(key('Escape'))).toEqual({ kind: 'cancel' });
   });
 
+  it('gets into the selected tower or out of it on C', () => {
+    expect(resolveHotkey(key('c'))).toEqual({ kind: 'tower-control' });
+    expect(resolveHotkey(key('C', { shiftKey: true }))).toEqual({ kind: 'tower-control' });
+  });
+
   it('mutes all sound on M', () => {
     expect(resolveHotkey(key('m'))).toEqual({ kind: 'mute' });
     expect(resolveHotkey(key('M', { shiftKey: true }))).toEqual({ kind: 'mute' });

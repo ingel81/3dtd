@@ -20,6 +20,7 @@ vi.mock('../ability-targeting.service', () => ({ AbilityTargetingService: class 
 vi.mock('../photo-mode.service', () => ({ PhotoModeService: class PhotoModeService {} }));
 vi.mock('../hero-control.service', () => ({ HeroControlService: class HeroControlService {} }));
 vi.mock('../replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('../tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -42,6 +43,7 @@ import { AbilityTargetingService } from '../ability-targeting.service';
 import { PhotoModeService } from '../photo-mode.service';
 import { HeroControlService } from '../hero-control.service';
 import { ReplayService } from '../replay.service';
+import { TowerControlService } from '../tower-control.service';
 import { UpgradeHintService } from '../upgrade-hint.service';
 import { TowerUpgradeService } from '../tower-upgrade.service';
 import { IntroSkipComponent } from '../../components/intro-skip/intro-skip.component';
@@ -151,6 +153,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
           useValue: { selected: signal(false), summon: vi.fn(() => false), cycleAmmo: vi.fn(() => false), deselect: vi.fn() },
         },
         { provide: ReplayService, useValue: { active: signal(false) } },
+        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn() } },
         { provide: DebugFacadeService, useValue: { setHealthBarsInverted: () => undefined } },
         { provide: UpgradeHintService, useValue: new UpgradeHintService() },
         // U buys through it; no key here reaches a purchase
