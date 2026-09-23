@@ -1,8 +1,4 @@
 .context-hint-container {
-  position: fixed;
-  bottom: 20px;
-  left: 50%;
-  transform: translateX(-50%);
   background: var(--td-glass-tint);
   backdrop-filter: blur(8px) saturate(1.1);
   -webkit-backdrop-filter: blur(8px) saturate(1.1);
@@ -11,7 +7,6 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  z-index: 1000;
   pointer-events: none;
   font-family: var(--td-font-body);
 
@@ -33,7 +28,7 @@
    longer than a build hint, so it sits above the band of the off-screen
    arrows (26px from the edge, chips up to 26px): no arrow hides under it. */
 .context-hint-container.interactive {
-  bottom: 56px;
+  margin-bottom: 36px;
   pointer-events: auto;
   width: max-content;
   max-width: min(460px, calc(100vw - 32px));
@@ -124,6 +119,15 @@
   box-shadow:
     inset 0 1px 2px rgba(0, 0, 0, 0.5),
     inset 0 -1px 0 rgba(74, 84, 77, 0.13);
+}
+
+// A mouse instead of a word: same cap, the icon sits in it
+.hint-mouse {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  line-height: 0;
 }
 
 .hint-desc {

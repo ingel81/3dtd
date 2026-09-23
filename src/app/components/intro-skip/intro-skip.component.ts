@@ -22,18 +22,16 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   `,
   styles: [`
     /*
-     * Bottom-centre, same anchor as the LOS legend. Right-aligning put it
-     * underneath the sidebar. No collision with the legend or the context
-     * hint: neither is up during the intro (both need build mode or a
-     * selected tower).
+     * Placed by the bottom stack of the game component, with the LOS legend
+     * and the hint box (.td-bottom-stack). Right-aligning put it underneath
+     * the sidebar.
      */
     :host {
       ${TD_CSS_VARS}
-      position: fixed;
-      bottom: 88px;
-      left: 50%;
-      transform: translateX(-50%);
-      z-index: 1000;
+      display: block;
+      /* Clickable, so above the band of the off-screen arrows */
+      margin-bottom: 36px;
+      pointer-events: auto;
     }
 
     .intro-skip-btn {
