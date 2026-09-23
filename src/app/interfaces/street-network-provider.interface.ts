@@ -11,6 +11,9 @@ export interface StreetNode {
   lon: number;
 }
 
+/** Name of an OSM way without a `name` tag */
+export const UNNAMED_STREET = 'Unnamed Street';
+
 export interface Street {
   id: number;
   name: string;

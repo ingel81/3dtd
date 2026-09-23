@@ -31,6 +31,7 @@ import type { CorridorBuildResult, CorridorProgress } from '../world/corridor-bu
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { bearingToPortalHeading } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { canonicalCoords } from '../../utils/geo-utils';
+import { spawnLabel } from '../../utils/spawn-label';
 
 /**
  * Callbacks to visualization sub-facade methods,
@@ -406,6 +407,9 @@ export class LocationFacadeService {
    * Add a spawn point (delegates to services), at its canonical coordinates
    * (canonicalCoords): a random spawn on a street node comes with more
    * digits than the URL keeps of it.
+   * @param name Kept in DevWorld only. On a real map every spawn is named
+   *   after its street here (spawnLabel), whichever way it came about, so a
+   *   reload and a location change show the same label.
    * @param portalBearing Compass bearing the player turned its portal to
    *   (SavedSpawn); without one the portal faces along its route
    */
@@ -416,6 +420,7 @@ export class LocationFacadeService {
     const streetNetwork = ctx.bridge.getStreetNetwork();
     if (!engine || !streetNetwork) return;
 
+    if (!this.devWorld.isActive) name = spawnLabel(streetNetwork, lat, lon);
     const spawn: SpawnPoint = canonicalCoords({ id, name, lat, lon, color });
     this.store.spawnPoints.update((points) => [...points, spawn]);
 
