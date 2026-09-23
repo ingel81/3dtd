@@ -48,22 +48,28 @@ L1 bis L4 gehen in einem Lauf.
   **ok (2026-09-23)**
 - **L5 Biology-Tor**: am Anfang stehen nur Gatling Technology, Ice Magic und Biology offen. Tentacle und Toxic
   öffnen sich erst, wenn Biology fertig ist (120, 8 s).
+  **ok (2026-09-23)**
 - **L6 Raketen-Pfad** (Form B): `aa-retrofit` hängt jetzt direkt an `gatling-tech`, `rocketry` unter
   `siege-engineering`. Erwartung im Spiel: die Flugabwehr fürs Gatling ist ab 850 erreichbar, die Rakete kostet
   1500 und liegt beim Drachen in W12, nicht bei den Fledermäusen in W7. Ob die Rakete damit stark genug ist, ist
   **nicht** geprüft, das ist ein eigener Punkt in TODO.md.
+  **ok (2026-09-23)**
 - **L7 Panel des Research Centers**: Center anklicken, ohne dass etwas läuft. Erwartung: "n/21 researched",
   Slots, eine Zeile wie "5 researches are open right now", darunter der goldene Knopf. Läuft etwas, steht dort
   die laufende Forschung mit Balken und Abbrechen.
+  **ok (2026-09-23)**
 - **L8 Schaden je Gold je Typ** (E10): einen Lauf spielen, zwei Tower-Typen bauen, einen zweimal aufrüsten, Lauf
   exportieren. Erwartung: `"format":2` im Kopf, `"towerSpending":{...}` in jeder Wellenzeile, und die Summe
   darin gleich `spending.build + spending.upgrade` derselben Zeile.
+  **ok (2026-09-23)**: Kopf zeigt `"format":3`, richtig: seit `26100153` (2026-09-22) ist es 3, der Punkt war älter. W1 `towerSpending` 481 = build + upgrade 481.
 - **L9 Kein Kill zu viel** (E11): Devworld, einen Archer ans HQ-Ende der Route, Welle laufen lassen, bis ein
   Gegner durchkommt. Erwartung: das HQ nimmt einmal Schaden, der Tower bekommt dafür keinen Kill, und im
   Wellenblock steht kein `bodies:`-Eintrag unter `mismatches`.
+  **ok (2026-09-23)**: W1 14 geleckt, kein `mismatches` in der Wellenzeile (`tmp/runs/3dtd-run-2026-09-23T07-42-07-418Z-devworld.jsonl`).
 - **L10 Straßensuche nach Ortswechsel** (H14): Ort laden, Spawn setzen, dann über den Standort-Dialog in eine
   andere Stadt wechseln und wieder einen Spawn setzen. Erwartung: das Portal sitzt an einer Straße der **neuen**
   Stadt, nicht an einer der alten (der Raumindex wird je Netz neu gebaut).
+  **ok (2026-09-23)**. Frage: warum mal "Spawn", mal ein Straßenname über dem Portal (siehe Antwort im Chat, noch keine Arbeit).
 - **L11 Nur für Screenreader** (H9, optional): die Dev-Kacheln der Quick Actions melden jetzt ihren Zustand
   (`aria-pressed`). Optisch ändert sich nichts, also nur zu prüfen, wenn du magst.
 

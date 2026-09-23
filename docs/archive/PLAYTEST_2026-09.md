@@ -1119,3 +1119,11 @@ Aus dem Playtest von L1/L2 und zwei Wünschen am Rand. Alles in einem Lauf.
   **ok (2026-09-23)**
 
 **O1 bis O7 ok (2026-09-23).**
+
+## P Spawn-Namen (2026-09-23)
+
+- **P1 Ein Name je Stelle**: Ort laden und "Set spawn" auf eine Straße setzen, danach F5, danach über den
+  Standort-Dialog wieder denselben Ort. Erwartung: Über dem Portal steht jedes Mal derselbe Straßenname, nie
+  "Spawn 1" oder "Fallback Spawn". Auf einem Weg ohne Namen steht der Name der nächsten benannten Straße bis etwa
+  150 m, sonst "Spawn". In DevWorld bleibt es bei den DevWorld-Namen.
+  **ok (2026-09-23)**
