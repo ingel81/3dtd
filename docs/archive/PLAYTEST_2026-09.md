@@ -1079,3 +1079,43 @@ zweiten, mit den Sprüngen in dieser Reihenfolge: 33, 35, 43, 45.
   **ok (2026-09-23)**
 
 **N1 bis N4 ok (2026-09-23).**
+
+## O Sidebar und Dialoge (2026-09-23)
+
+Aus dem Playtest von L1/L2 und zwei Wünschen am Rand. Alles in einem Lauf.
+
+- **O1 Knopf zum Forschungsbaum**: Research Center bauen. Erwartung: Im Header neben dem Würfel ist kein Knopf
+  mehr. Unter dem Turmraster im BUILD-Panel steht "Research tree" mit goldenem Symbol, fest am unteren Rand der
+  Sektion, er scrollt nicht mit. Mit vorgemerkten Forschungen steht die Zahl rechts darin. Klick oder `Q` öffnet
+  den Baum.
+  **ok (2026-09-23)**
+- **O2 Erforschte Knoten**: eine Forschung abschließen, Baum öffnen. Erwartung: Der Knoten hat eine grüne Kante
+  links, einen grünen Haken, einen hellen Titel und "RESEARCHED" in Grün. Die Linie zum nächsten Knoten ist grün,
+  Legende und Zählung oben ebenso. Laufend bleibt teal, offen gold.
+  **ok (2026-09-23)**
+- **O3 Fußleiste der Sidebar**: Erwartung: sechs Knöpfe in zwei Reihen zu drei, alle Namen voll lesbar (World,
+  Tips, Keys, Map Key, Runs, Attributions), und jeder zeigt beim Überfahren einen Tooltip.
+  **ok (2026-09-23)**. Befund: die Warnzeile ("Too close to route") schob den Hinweis-Kasten in die LOS-Legende.
+  Behoben: Legende, Hinweis und "Skip intro" stapeln sich jetzt in einer Spalte (`.td-bottom-stack`), Nachtest O7.
+- **O4 Runs-Dialog**: Fußleiste, "Runs". Erwartung: Rahmen wie bei Attributions, oben rechts "n / 20". Je Zeile
+  links groß die erreichte Welle, daneben Ort und darunter Datum und "YOU" oder "BOT …". DevWorld-Läufe heißen
+  "DevWorld" statt "0.0000, 0.0000". Rechts zwei Symbolknöpfe (Speichern, Löschen) mit Tooltip. Unten links
+  "Delete all": Erst fragt die Fußleiste nach ("Delete all n runs?"), "Cancel" bricht ab, "Delete all" leert die
+  Liste.
+  **ok (2026-09-23)**
+- **O5 Steuerungs-Hinweis beim Start**: Ort kalt laden. Erwartung: Die Tasten erscheinen unten in der Mitte im
+  Hinweis-Kasten, nicht mehr unten links über "Google Maps" und der Cesium-Zeile. Maustasten als Maus-Symbol mit
+  gefüllter Taste (links Pan, rechts Rotate, Rad Zoom), dazu WASD und H. "Got it" blendet ihn aus, sonst nach
+  15 s. Im Build-Modus zeigt "Click" jetzt ebenfalls die Maus.
+  **ok (2026-09-23)**
+- **O6 Mitte ist die Spielfeld-Mitte**: Ort kalt laden, danach einen Tower wählen (Build-Modus) und über einen
+  Tower fahren. Erwartung: "Skip intro", der Steuerungs-Hinweis, die Build-Hinweise und die LOS-Legende stehen
+  mittig über der Karte, nicht über der Seitenmitte (also nicht nach rechts zur Sidebar verschoben). Der
+  Steuerungs-Hinweis kommt erst nach dem Intro-Flug, nicht darunter. Der Ladebildschirm ist schon mittig zur Karte.
+  **ok (2026-09-23)**
+- **O7 Legende und Hinweis stapeln sich**: Tower wählen, an eine Stelle zu nah an der Route fahren, sodass
+  "TOO CLOSE TO ROUTE" erscheint. Erwartung: Die LOS-Legende rückt über den höheren Kasten, nichts überdeckt sich.
+  Ohne Warnung sitzt sie wie bisher knapp darüber.
+  **ok (2026-09-23)**
+
+**O1 bis O7 ok (2026-09-23).**
