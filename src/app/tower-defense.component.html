@@ -1,5 +1,6 @@
 <div class="td-container" [class.td-fullscreen]="!isDialog" [class.td-photo-mode]="photoMode.active()"
      [class.td-replay-mode]="replay.active()"
+     [class.td-tower-control]="towerControl.active()"
      (contextmenu)="$event.preventDefault()">
   @if (store.directorError(); as aiErr) {
     <div class="ai-error-banner" role="alert">
@@ -339,6 +340,11 @@
         </div>
       }
 
+      <!-- In a manned tower: the crosshair over the map, header and attribution stay -->
+      @if (towerControl.active()) {
+        <app-tower-control-hud />
+      }
+
       <!-- Replay of the last wave: only the map, its attribution and the replay bar stay -->
       @if (replay.active()) {
         <app-replay-bar />
@@ -359,6 +365,7 @@
       (changeTargeting)="changeTargeting($event.tower, $event.strategy)"
       (changeAirSubStrategy)="changeAirSubStrategy($event.tower, $event.strategy)"
       (setHoldFire)="setHoldFire($event.tower, $event.holdFire)"
+      (takeControl)="towerControl.enter($event)"
       (cancelResearch)="onCancelResearch($event)"
     />
   </div>

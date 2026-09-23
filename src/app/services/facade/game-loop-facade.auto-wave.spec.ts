@@ -6,6 +6,7 @@ vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroServi
 import { BossIntroService } from '../boss-intro.service';
 // Only its DI token is needed; the real module pulls in services that need the JIT compiler
 vi.mock('../replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('../tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { EngineStore } from '../../store/engine.store';
@@ -31,6 +32,7 @@ import { UIStore } from '../../store/ui.store';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { AUTO_WAVE_DELAY_MS } from '../../utils/auto-wave-countdown';
 import { ReplayService } from '../replay.service';
+import { TowerControlService } from '../tower-control.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import { GameRng } from '../../utils/game-rng';
@@ -42,7 +44,7 @@ const UNUSED = [
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
   StateSnapshotService, PerformanceProfilerService,
-  StreetRenderingService, BossIntroService, ReplayService,
+  StreetRenderingService, BossIntroService, ReplayService, TowerControlService,
 ];
 
 const WAVE_DONE = { type: 'wave:completed', wave: 3, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as const;

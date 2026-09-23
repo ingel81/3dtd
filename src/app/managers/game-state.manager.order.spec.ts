@@ -506,7 +506,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:set-targeting',
-        'command:set-hold-fire',
+        'command:set-hold-fire', 'command:man-tower', 'command:leave-tower', 'command:tower-trigger',
         'command:start-research', 'command:cancel-research', 'command:queue-research', 'command:unqueue-research',
         'command:move-queued-research',
         'command:use-ability',

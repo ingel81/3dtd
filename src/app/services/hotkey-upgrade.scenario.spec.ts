@@ -18,6 +18,7 @@ vi.mock('./ability-targeting.service', () => ({ AbilityTargetingService: class A
 vi.mock('./photo-mode.service', () => ({ PhotoModeService: class PhotoModeService {} }));
 vi.mock('./hero-control.service', () => ({ HeroControlService: class HeroControlService {} }));
 vi.mock('./replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('./tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
@@ -37,6 +38,7 @@ import { AbilityTargetingService } from './ability-targeting.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
+import { TowerControlService } from './tower-control.service';
 import { UPGRADE_HINT_MS, UpgradeHintService } from './upgrade-hint.service';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { ResearchManager } from '../managers/research.manager';
@@ -154,6 +156,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
         { provide: PhotoModeService, useValue: { active: signal(false) } },
         { provide: HeroControlService, useValue: {} },
         { provide: ReplayService, useValue: { active: signal(false) } },
+        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn() } },
         { provide: DebugFacadeService, useValue: { setHealthBarsInverted: () => undefined } },
         { provide: UpgradeHintService, useValue: upgradeHint },
         { provide: TowerUpgradeService, useFactory: () => towerUpgrade },

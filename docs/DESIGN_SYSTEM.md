@@ -596,6 +596,7 @@ Zuordnung Taste → Aktion in `services/hotkey-map.ts` (`resolveHotkey`, reine F
 | V | Nächste Munition des Helden, reihum (auch ohne ihn zu wählen) | Segmente im Helden-Panel (`HeroControlService.cycleAmmo`) |
 | O | Photo Mode an und aus | Eintrag im Display-Panel (`PhotoModeService`) |
 | Q | [Forschungsbaum](#forschungsbaum-dialog) als Dialog; still, solange kein Research Center steht | Knopf im BUILD-Panel und im Panel des Centers (`ResearchStore.centerLevel`) |
+| C | In den gewählten Tower steigen und selbst feuern, im Tower: aussteigen (nur Projektil-Tower) | Gamepad-Knopf in der Zielwahl-Zeile des Tower-Panels (`TowerControlService`) |
 | Esc | Photo Mode verlassen, sonst Quick-Menü schließen, sonst Verkauf abbrechen, sonst Held loslassen, sonst Tower abwählen | |
 
 Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor InputHandler und HotkeyService den `BossIntroService`: Esc überspringt das Intro (vor Build- und Zielmodus), alle anderen Spieltasten warten, bis die Sicht zurück ist. Tippen in einem Feld und ein Esc, das ein Dialog schon genommen hat, bleiben unberührt.
@@ -603,6 +604,8 @@ Während eines [Boss-Intros](#boss-intro-canvas) fragt die Spielkomponente vor I
 Während des Intro-Flugs nach dem Laden gilt dasselbe über `IntroCameraFlightService.handleKeyDown`: Esc überspringt ihn wie "Skip Intro" und ein Klick oder das Mausrad auf der Karte, alle anderen Spieltasten wirken während des Flugs nicht, auch Pos1, N und WASD.
 
 Während des Replays der letzten Welle steuern Leertaste und P dessen Pause, + und - dessen Geschwindigkeit, Esc führt zurück ins Spiel; Kamera-Tasten und H bleiben, alles andere ruht (`HotkeyService.runInReplay`, siehe [Replay der letzten Welle](#replay-der-letzten-welle)).
+
+Im bemannten Tower wirken nur Leertaste, P, +/-, M, C und Esc (`HotkeyService.runInTower`, siehe [Tower bemannen](#tower-bemannen)); Esc gibt dort die gefangene Maus frei, das zählt als Aussteigen.
 
 S bleibt Kamera (WASD), deshalb verkauft Entf. Die Übersicht (`components/hotkey-help-dialog/`) liest `HOTKEY_HELP` aus derselben Datei wie die Zuordnung; H, ? und Esc schließen sie. Hinweise im UI: Tastenkappe im Rich-Tooltip der Tower-Karten (`TdTooltipData.hotkey`, Gold auf `--td-panel-shadow` wie in der Übersicht), "(P)" und "(+/-)" in den Tooltips des Game Speed, Tastenkappe im Tooltip der Knöpfe der Fähigkeitenleiste, `aria-keyshortcuts` an Wave-, Pause-, Sell-, Strike- und Kartenbuttons, "H: Shortcuts" im Controls Hint. Dauerhaft sichtbar öffnet "Keys" im Sidebar-Footer (Icon `keyboard`, rechts neben "Tips") dieselbe Übersicht. Das Helden-Panel zeigt V, G und Esc als Tastenkappen, seine Munitionswahl trägt `aria-keyshortcuts`.
 
@@ -654,6 +657,17 @@ Technik in [REPLAY.md](REPLAY.md). Zustand in `UIStore.replayMode`, Ablauf in `R
   - Unter 640px Breite rücken die Geschwindigkeiten in eine eigene Zeile
 - Tab bleibt in der Leiste; der Fokus liegt beim Einstieg auf Play/Pause
 
+### Tower bemannen
+
+Technik und Regeln in [TOWER_CONTROL.md](TOWER_CONTROL.md). Zustand in `GameStore.mannedTowerId`, Ablauf in `TowerControlService` (vom Spiel-Component bereitgestellt), HUD in `components/tower-control-hud/`.
+
+- Einstieg: Gamepad-Knopf (`gamepad`, 18px) rechts neben "Hold fire" in der Zielwahl-Zeile des Tower-Panels, nur bei Projektil-Towern, Tooltip mit Taste C; oder C
+- Sidebar und Overlays des Canvas gehen (`.td-tower-control`, wie im Photo Mode), Header (Welle, HQ, Credits) und Info-Overlay (FPS) bleiben. Auswahl- und Hover-Ring samt Reichweite sind weg (auch wenn die Maus beim Einsteigen über dem Tower stand), das Abzeichen (Rang, Hold-Fire-Pause) des eigenen Towers ist aus, die der anderen bleiben
+- Fadenkreuz mittig: vier Striche 2 × 9px mit 7px Lücke und ein 2px-Punkt, weiß mit 90 % Deckkraft und dunklem Schatten; `--td-gold-light`, solange ein angreifbarer Gegner auf dem Strahl liegt. Je Schuss springen die Striche auf 1,6-fach und gehen in 120 ms zurück (aus bei `prefers-reduced-motion`)
+- Treffer: weißes Kreuz, 45° gedreht, 22px, Mitte ausgespart, 160 ms, ein hoher Tick. Kill: dasselbe in `--td-health-red`, 30px, 420 ms, zwei steigende Ticks
+- Nachlade-Ring 14px unter dem Fadenkreuz, `conic-gradient` in der Farbe des Fadenkreuzes, verschwindet, sobald der Schuss bereit ist
+- Zeile unten mittig, 28px über der Unterkante, Glas wie "Skip Intro": Tower-Name (Versalien, `--td-gold-light`, 700), dann `LMB` fire, `RMB` zoom, `Esc` get out als Kappen; solange die Maus nicht gefangen ist "Click the map to aim" und `C` get out
+
 ### Game-Over-Bilanz
 
 `components/run-summary/` im Game-Over-Overlay zwischen Untertitel und Restart. Die Zahlen sammelt `RunStatsTracker` (`services/infrastructure/run-stats.ts`, Angular-frei) am Event-Bus, gehalten von `GameStateSyncService`; bei `game:over` landet die Zusammenfassung in `GameStore.runSummary`, `game:reset` leert sie.
@@ -679,7 +693,7 @@ Tower sammeln mit Kills kosmetische Ränge (Leiter und Technik in [TOWER_CREATIO
 
 Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().kills`, neu gerechnet mit `selectedTowerRevision`, die bei jedem Kill des gewählten Towers hochzählt.
 
-Über dem Tower in der Welt steht dasselbe Abzeichen, 24 CSS-Pixel groß: Winkel oder Stern in Silber (`--td-edge-highlight`) oder Gold (`--td-gold-light`) mit dunklerem Innenrand und dunklem Außenrand (`--td-panel-shadow`) für helle Tiles, ohne Plakette dahinter. Der Photo Mode blendet es aus.
+Über dem Tower in der Welt steht dasselbe Abzeichen, 24 CSS-Pixel groß: Winkel oder Stern in Silber (`--td-edge-highlight`) oder Gold (`--td-gold-light`) mit dunklerem Innenrand und dunklem Außenrand (`--td-panel-shadow`) für helle Tiles, ohne Plakette dahinter. Der Photo Mode blendet es aus, ein bemannter Tower nur sein eigenes (`TowerBadgeRenderer.hideFor`), auch die Hold-Fire-Pause.
 
 ---
 

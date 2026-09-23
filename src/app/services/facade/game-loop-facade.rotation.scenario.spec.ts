@@ -5,8 +5,10 @@ import { Group, Vector2 } from 'three';
 // Only their DI tokens are needed, as in game-loop-facade.service.spec.ts
 vi.mock('../boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
 vi.mock('../replay.service', () => ({ ReplayService: class ReplayService {} }));
+vi.mock('../tower-control.service', () => ({ TowerControlService: class TowerControlService {} }));
 import { BossIntroService } from '../boss-intro.service';
 import { ReplayService } from '../replay.service';
+import { TowerControlService } from '../tower-control.service';
 
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { EngineStore } from '../../store/engine.store';
@@ -144,6 +146,7 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
         { provide: UIStore, useValue: {} },
         { provide: BossIntroService, useValue: { update: vi.fn() } },
         { provide: ReplayService, useValue: { update: vi.fn() } },
+        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn() } },
         { provide: NgZone, useValue: { run: (fn: () => void) => fn() } },
       ],
     });

@@ -45,6 +45,9 @@ export class TowerLifecycle {
     private readonly corridorPending: () => boolean,
   ) {}
 
+  /** The tower the player sits in (man()), null when none */
+  private manned: Tower | null = null;
+
   /**
    * Place a new tower
    * @param position Geo position
@@ -109,6 +112,9 @@ export class TowerLifecycle {
    * Sell a tower and refund 50% of its cost
    */
   sell(tower: Tower): number {
+    // Nobody sits in a tower that is gone
+    if (tower.manned) this.leave();
+
     // Unregister from grid + dispose LOS visualization
     this.placement.unregisterTowerFromGrid(tower);
 
@@ -149,6 +155,62 @@ export class TowerLifecycle {
     engine?.towers.setHoldFire(tower.id, holdFire);
     engine?.towerBadges.setHoldFire(tower.id, holdFire);
     return true;
+  }
+
+  /**
+   * Whether the player can get into `tower`: a projectile tower (the MVP of
+   * docs/TOWER_CONTROL.md; beam, melee, chain and passive buildings not).
+   */
+  static canMan(tower: Tower): boolean {
+    const attack = tower.typeConfig.attackType;
+    return attack === undefined || attack === 'projectile';
+  }
+
+  /** The tower the player sits in, null when none. */
+  mannedTower(): Tower | null {
+    return this.manned;
+  }
+
+  /**
+   * The player gets into `tower`: out of the one they sat in, the tower
+   * drops its target, the automatic fire stops (Tower.findTarget) and the
+   * turret follows the aim, starting where it points now. Emits tower:manned.
+   * @returns false for a tower that cannot be manned
+   */
+  man(tower: Tower): boolean {
+    if (!TowerLifecycle.canMan(tower)) return false;
+    if (this.manned === tower) return true;
+    if (this.manned) this.release(this.manned);
+    tower.manned = true;
+    tower.triggerHeld = false;
+    tower.clearTarget();
+    const engine = this.engine();
+    engine?.towers.releaseTarget(tower.id);
+    tower.manualAim.heading = engine?.towers.aimHeading(tower.id) ?? tower.guardHeading ?? 0;
+    tower.manualAim.pitch = 0;
+    this.manned = tower;
+    this.eventBus.emit({ type: 'tower:manned', towerId: tower.id });
+    return true;
+  }
+
+  /** The player gets out; the tower fires by itself again. Emits tower:manned with null. */
+  leave(): void {
+    if (!this.manned) return;
+    this.release(this.manned);
+    this.manned = null;
+    this.eventBus.emit({ type: 'tower:manned', towerId: null });
+  }
+
+  /** Trigger of the manned tower; nothing without one. */
+  setTrigger(held: boolean): void {
+    if (this.manned) this.manned.triggerHeld = held;
+  }
+
+  private release(tower: Tower): void {
+    tower.manned = false;
+    tower.triggerHeld = false;
+    this.combat.clearMannedAim();
+    this.engine()?.towers.releaseTarget(tower.id);
   }
 
   /**
@@ -242,6 +304,9 @@ export class TowerLifecycle {
    * Called on reset to cleanup before starting fresh
    */
   clearAllOverlays(): void {
+    // Restart, new place: out of the tower before the towers go
+    this.leave();
+
     // First deselect any selected tower (hides its LOS visualization)
     this.towerManager.selectTower(null);
 

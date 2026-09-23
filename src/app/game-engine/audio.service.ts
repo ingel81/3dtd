@@ -405,16 +405,17 @@ export class AudioService {
     lon: number;
     height: number;
     volume?: number;
+    atListener?: boolean;
   }): void {
-    const { sound, lat, lon, height, volume } = event;
+    const { sound, lat, lon, height, volume, atListener } = event;
 
-    if (!this.tilesEngine.spatialAudio) {
+    const audio = this.tilesEngine.spatialAudio;
+    if (!audio) {
       console.warn('[AudioService] SpatialAudio not available');
       return;
     }
 
-    this.tilesEngine.spatialAudio
-      .playAtGeo(sound, lat, lon, height, volume ?? 1.0)
+    (atListener ? audio.playAtListener(sound, volume ?? 1.0) : audio.playAtGeo(sound, lat, lon, height, volume ?? 1.0))
       .catch((err) => {
         console.warn(`[AudioService] Failed to play sound '${sound}':`, err);
       });

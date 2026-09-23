@@ -69,6 +69,12 @@ export class GameStore {
   readonly selectedTowerId = computed(() => this.selectedTower()?.id ?? null);
 
   /**
+   * The tower the player sits in and aims by hand (docs/TOWER_CONTROL.md),
+   * null when none. Written from the TowerLifecycle's `tower:manned`.
+   */
+  readonly mannedTowerId = signal<string | null>(null);
+
+  /**
    * Zählt hoch, wenn der gewählte Tower einen Kill bekommt oder aufgewertet
    * wird. Tower sind mutable Entities ohne Signale; die Sidebar leitet Kills
    * und Stats aus dieser Revision ab.

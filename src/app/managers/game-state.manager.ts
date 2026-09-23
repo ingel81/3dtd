@@ -690,6 +690,13 @@ export class GameStateManager {
       if (profiling) timings.tCombat += performance.now() - t0;
     }
 
+    // The tower the player sits in: turns to the aim and fires, in and between waves
+    const manned = this.towerLifecycle.mannedTower();
+    if (manned) {
+      const shot = this.towerCombat.updateMannedTower(manned, now, stepMs, this.enemyManager, this.projectileManager);
+      if (shot) this.eventBus.emitDeferred({ type: 'tower:manual-shot', towerId: shot.tower.id, target: shot.target });
+    }
+
     // Hero: walks and fires in game time, after the enemies moved
     this.heroManager.update(stepMs);
   }
@@ -724,6 +731,7 @@ export class GameStateManager {
     this.enemyManager.clear();
     this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
     this.towerManager.selectTower(null);
+    this.towerLifecycle.leave();
 
     // Delegate visual effects to HQDamageService
     this.hqDamage.triggerGameOverEffects();
@@ -935,6 +943,44 @@ export class GameStateManager {
    */
   setTowerHoldFire(tower: Tower, holdFire: boolean): boolean {
     return this.towerLifecycle.setHoldFire(tower, holdFire);
+  }
+
+  /**
+   * The player gets into `tower` and aims it by hand, see TowerLifecycle.man.
+   * Not after the game is over.
+   * @returns false when it cannot be manned
+   */
+  manTower(tower: Tower): boolean {
+    if (this.waveManager.phase() === 'gameover') return false;
+    return this.towerLifecycle.man(tower);
+  }
+
+  /** Out of the manned tower, see TowerLifecycle.leave. */
+  leaveTower(): void {
+    this.towerLifecycle.leave();
+  }
+
+  /** Trigger of the manned tower (command:tower-trigger). */
+  setMannedTrigger(held: boolean): void {
+    this.towerLifecycle.setTrigger(held);
+  }
+
+  /** The tower the player sits in, null when none. */
+  getMannedTower(): Tower | null {
+    return this.towerLifecycle.mannedTower();
+  }
+
+  /**
+   * Where the player aims from the manned tower (Tower.manualAim). Input of
+   * every frame, set directly rather than as a command: a command per frame
+   * would flood the replay's command log. The shot itself goes by the
+   * trigger command and the tower's rules in the sub-step.
+   */
+  setMannedAim(heading: number, pitch: number): void {
+    const tower = this.towerLifecycle.mannedTower();
+    if (!tower) return;
+    tower.manualAim.heading = heading;
+    tower.manualAim.pitch = pitch;
   }
 
   /** Debug: every track of every tower to its max level, free of charge. */

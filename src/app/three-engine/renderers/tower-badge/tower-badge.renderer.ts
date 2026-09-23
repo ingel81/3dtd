@@ -73,6 +73,8 @@ export class TowerBadgeRenderer {
   private readonly badges = new Map<string, Badge>();
   /** Badges whose tower model was not in the scene yet */
   private readonly unanchored = new Set<string>();
+  /** Tower whose badge draws nothing while the player sits in it (hideFor) */
+  private hiddenId: string | null = null;
 
   // Billboard axes, shared by reference with the material's uniforms
   private readonly cameraRight = new Vector3(1, 0, 0);
@@ -126,7 +128,7 @@ export class TowerBadgeRenderer {
         this.remove(id);
         return;
       }
-      if (badge.anchored) this.writeStyle(badge);
+      if (badge.anchored) this.writeStyle(id, badge);
       return;
     }
     if (level > 0) this.add(id, level, false);
@@ -148,7 +150,7 @@ export class TowerBadgeRenderer {
       this.remove(id);
       return;
     }
-    if (badge.anchored) this.writeStyle(badge);
+    if (badge.anchored) this.writeStyle(id, badge);
   }
 
   /** A badge with a fresh slot, anchored on the tower's model. */
@@ -176,6 +178,7 @@ export class TowerBadgeRenderer {
 
   /** Remove every badge. */
   clear(): void {
+    this.hiddenId = null;
     this.badges.clear();
     this.unanchored.clear();
     this.slots.reset();
@@ -184,6 +187,21 @@ export class TowerBadgeRenderer {
     (this.styleAttribute.array as Float32Array).fill(0);
     this.styleAttribute.clearUpdateRanges();
     this.styleAttribute.needsUpdate = true;
+  }
+
+  /**
+   * Hide the badge of tower `id` only, null for none: the player sits in it
+   * and it would stand in the view (TowerControlService). Rank and hold fire
+   * keep updating and show again once it is shown.
+   */
+  hideFor(id: string | null): void {
+    if (id === this.hiddenId) return;
+    const before = this.hiddenId;
+    this.hiddenId = id;
+    for (const changed of [before, id]) {
+      const badge = changed !== null ? this.badges.get(changed) : undefined;
+      if (badge?.anchored) this.writeStyle(changed!, badge);
+    }
   }
 
   /** Show or hide all badges (photo mode). Ranks keep updating while hidden. */
@@ -247,12 +265,14 @@ export class TowerBadgeRenderer {
     this.slots.uploadSlot(this.anchorAttribute, badge.slot);
     badge.anchored = true;
     this.unanchored.delete(id);
-    this.writeStyle(badge);
+    this.writeStyle(id, badge);
   }
 
-  private writeStyle(badge: Badge): void {
-    const [chevrons, star, gold] = badge.hold ? [0, 0, 0] : badgeStyle(badge.level);
-    this.styleAttribute.setXYZW(badge.slot, chevrons, star, gold, badge.hold ? 1 : 0);
+  /** The badge's insignia; a zero style (nothing drawn) for the hidden tower. */
+  private writeStyle(id: string, badge: Badge): void {
+    const hidden = id === this.hiddenId;
+    const [chevrons, star, gold] = badge.hold || hidden ? [0, 0, 0] : badgeStyle(badge.level);
+    this.styleAttribute.setXYZW(badge.slot, chevrons, star, gold, badge.hold && !hidden ? 1 : 0);
     this.slots.uploadSlot(this.styleAttribute, badge.slot);
   }
 

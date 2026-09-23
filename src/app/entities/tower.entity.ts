@@ -42,6 +42,23 @@ export class Tower extends GameObject {
    */
   holdFire = false;
 
+  /**
+   * The player sits in it (TowerLifecycle.man, docs/TOWER_CONTROL.md): no
+   * automatic fire, the turret follows `manualAim` and fires while
+   * `triggerHeld`, by the tower's own rules (TowerCombatService.updateMannedTower).
+   */
+  manned = false;
+
+  /**
+   * Where the player aims from inside, heading (geoHeading convention) and
+   * pitch (up positive), rad. Input of every frame, not a command; read only
+   * while manned.
+   */
+  readonly manualAim = { heading: 0, pitch: 0 };
+
+  /** The player holds the trigger (command:tower-trigger); false unless manned */
+  triggerHeld = false;
+
   /** Whether this tower is sleeping (no enemies in range) */
   isSleeping = false;
 
@@ -224,7 +241,8 @@ export class Tower extends GameObject {
     losCheck?: (enemy: Enemy) => boolean,
     bodyDistSq?: (enemy: Enemy) => number,
   ): Enemy | null {
-    if (this.holdFire) {
+    // Hold fire, or the player aims it by hand
+    if (this.holdFire || this.manned) {
       this.clearTarget();
       return null;
     }
@@ -262,29 +280,12 @@ export class Tower extends GameObject {
     const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
     const canTargetGround = this.typeConfig.canTargetGround ?? true;
 
+    // LOS check only when selecting NEW target: the periodic recheck in
+    // updateTowerShooting drops air and ground targets that lose it, and
+    // checking at acquisition keeps both paths consistent (no
+    // acquire-then-drop loop).
     for (const enemy of enemies) {
-      if (!enemy.alive) continue;
-
-      // Air/Ground targeting filter
-      const isAirEnemy = enemy.typeConfig.isAirUnit ?? false;
-      if (isAirEnemy && !canTargetAir) continue;
-      if (!isAirEnemy && !canTargetGround) continue;
-
-      // Range is intentionally HORIZONTAL coverage (flat-earth distance²);
-      // air units' flight height does not shrink a tower's reach.
-      const distSq = this.targetDistSq(enemy);
-      if (distSq > rangeSq) continue;
-
-      // LOS check only when selecting NEW target. The predicate dispatches
-      // per-enemy on isAirUnit (buildLosCheck) — air targets resolve against
-      // the air-LOS pipeline, ground targets against ground-LOS. Air is NOT
-      // exempt: tall buildings break air LOS too, and the periodic recheck in
-      // updateTowerShooting drops air targets that lose it — checking at
-      // acquisition keeps both paths consistent (no acquire-then-drop loop).
-      // A body's distance already counts only points in sight.
-      if (!enemy.body && losCheck && !losCheck(enemy)) continue;
-
-      candidates.push(enemy);
+      if (this.canEngage(enemy, canTargetAir, canTargetGround, rangeSq, losCheck)) candidates.push(enemy);
     }
 
     if (candidates.length === 0) {
@@ -298,6 +299,49 @@ export class Tower extends GameObject {
     // Cache the new target
     this._currentTarget = bestTarget;
     return bestTarget;
+  }
+
+  /**
+   * Whether the tower may attack `enemy`: the rule of findTarget(), for a
+   * shot the player aims (TowerCombatService.updateMannedTower). Parameters
+   * as there; hold fire does not apply, the player fires by hand.
+   */
+  mayEngage(
+    enemy: Enemy,
+    airTargetingUnlocked: boolean,
+    losCheck?: (enemy: Enemy) => boolean,
+    bodyDistSq?: (enemy: Enemy) => number,
+  ): boolean {
+    this._bodyDistSq = bodyDistSq ?? null;
+    const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
+    const canTargetGround = this.typeConfig.canTargetGround ?? true;
+    return this.canEngage(enemy, canTargetAir, canTargetGround, this.combat.range * this.combat.range, losCheck);
+  }
+
+  /** One candidate of findTarget() and mayEngage(): alive, air or ground, in range, in sight. */
+  private canEngage(
+    enemy: Enemy,
+    canTargetAir: boolean,
+    canTargetGround: boolean,
+    rangeSq: number,
+    losCheck?: (enemy: Enemy) => boolean,
+  ): boolean {
+    if (!enemy.alive) return false;
+
+    // Air/Ground targeting filter
+    const isAirEnemy = enemy.typeConfig.isAirUnit ?? false;
+    if (isAirEnemy && !canTargetAir) return false;
+    if (!isAirEnemy && !canTargetGround) return false;
+
+    // Range is intentionally HORIZONTAL coverage (flat-earth distance²);
+    // air units' flight height does not shrink a tower's reach.
+    if (this.targetDistSq(enemy) > rangeSq) return false;
+
+    // The predicate dispatches per-enemy on isAirUnit (buildLosCheck) — air
+    // targets resolve against the air-LOS pipeline, ground targets against
+    // ground-LOS. Air is NOT exempt: tall buildings break air LOS too.
+    // A body's distance already counts only points in sight.
+    return !!enemy.body || !losCheck || losCheck(enemy);
   }
 
   /**

@@ -55,6 +55,13 @@ export interface SpatialSoundConfig {
    * played. Default AUDIO_LIMITS.maxAudibleDistance; loops keep that one.
    */
   audibleDistance?: number;
+  /**
+   * A feedback cue rather than a sound of the fight (the kill gold): while
+   * the listener is close to the ground, in a manned tower
+   * (setFeedbackMinDistance), it is heard as from at least that far off
+   * instead of at full volume. Default false.
+   */
+  feedback?: boolean;
 }
 
 const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
@@ -69,6 +76,7 @@ const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
   maxInstances: -1,
   priority: false,
   audibleDistance: AUDIO_LIMITS.maxAudibleDistance,
+  feedback: false,
 };
 
 /**
@@ -283,6 +291,16 @@ export class SpatialAudioManager {
     this.playback.setTimescale(scale);
   }
 
+  /**
+   * Feedback cues (SpatialSoundConfig.feedback) sound as from at least
+   * `meters` off, 0 for their real distance. Set while the player sits in a
+   * tower (TowerControlService): the camera is a few metres over the kills,
+   * where it looks down from hundreds otherwise.
+   */
+  setFeedbackMinDistance(meters: number): void {
+    this.playback.setFeedbackMinDistance(meters);
+  }
+
   // ─── Sound registration ──────────────────────────────────
 
   registerSound(id: string, url: string, config: SpatialSoundConfig = {}): void {
@@ -338,6 +356,11 @@ export class SpatialAudioManager {
 
   async playAtGeo(soundId: string, lat: number, lon: number, height: number, volumeMultiplier = 1.0): Promise<PositionalAudio | null> {
     return this.playback.playAtGeo(soundId, lat, lon, height, volumeMultiplier);
+  }
+
+  /** A one-shot at the listener: no direction, the limits of playAt (SpatialAudioPlayback.playAtListener). */
+  async playAtListener(soundId: string, volumeMultiplier = 1.0): Promise<PositionalAudio | null> {
+    return this.playback.playAtListener(soundId, volumeMultiplier);
   }
 
   async playGlobal(soundId: string, volumeMultiplier = 1.0): Promise<Audio | null> {

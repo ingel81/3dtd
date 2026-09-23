@@ -23,6 +23,7 @@ import {
 } from '../../../configs/tower-types.config';
 import { DAMAGE_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { Tower } from '../../../entities/tower.entity';
+import { TowerLifecycle } from '../../../managers/game-state/tower-lifecycle';
 import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { UpgradeHintService } from '../../../services/upgrade-hint.service';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/open-damage-matrix-dialog';
@@ -77,6 +78,10 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
   readonly setHoldFire = output<{ tower: Tower; holdFire: boolean }>();
+  /** Get into the tower and aim it by hand (TowerControlService) */
+  readonly takeControl = output<Tower>();
+  /** Only a projectile tower can be manned (TowerLifecycle.canMan) */
+  readonly canMan = computed(() => TowerLifecycle.canMan(this.tower()));
 
   readonly damageTypeUI = DAMAGE_TYPE_UI;
   readonly damageTypeIcon = damageTypeIcon;

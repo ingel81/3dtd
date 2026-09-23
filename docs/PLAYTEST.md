@@ -67,6 +67,40 @@ Aus M2/M3 und der Gold-Auswertung. Ein Lauf bis mindestens W31, am Ende über "R
 - **Q5 Alt**: Option "Health Bars" aus, Alt halten: Balken erscheinen, loslassen: weg. Option an: Alt blendet
   sie aus. Danach tippt die nächste Taste ins Spiel, nicht in die Menüleiste des Browsers.
 
+## T Tower bemannen (2026-09-23)
+
+Neu: in einen Tower steigen und selbst feuern ([TOWER_CONTROL.md](TOWER_CONTROL.md)). Die Regeln (Feuerrate,
+Reichweite, Sichtlinie, Fehlschuss, Kill-Credit) prüft ein Szenario-Test; hier geht es um Gefühl, Bild und Ton.
+Ort egal, etwas Credits über "Credits" in den Developer options.
+
+- **T1 Einsteigen**: Dual Gatling bauen, anklicken, `C` (oder der Gamepad-Knopf in der Zielwahl-Zeile). Erwartung:
+  Sidebar weg, Header und FPS-Anzeige bleiben, Blick aus dem Tower über die Rohre, Fadenkreuz in der Mitte, Maus gefangen. Unten eine
+  Zeile mit "DUAL GATLING", dann die Tastenkappen LMB fire, RMB zoom, Esc get out.
+- **T2 Zielen und Feuern**: Welle starten, Maus bewegen, linke Taste halten. Erwartung: Turm und Rohre folgen dem
+  Blick mit kurzer Verzögerung, Fadenkreuz wird gold auf einem Gegner, Schüsse im Takt des Towers, weißes Kreuz und
+  Tick bei Treffer, rotes Kreuz und Doppel-Tick beim Kill. Daneben: Mündungsfeuer und Sound, kein Treffer.
+  **Befund (2026-09-23)**: Geschütz nimmt vor allem beim Blick nach unten zu viel Bild ein; Zoom beim Feuern
+  rastet mal ein, mal nicht; zwischen den Wellen kein Feuer; FPS weg. **Nachtest**: Blick steil nach unten zeigt
+  die Straße, nicht den Turm; RMB bei gehaltenem LMB zoomt jedes Mal und umgekehrt; zwischen den Wellen feuert
+  er; FPS oben links bleibt. **Befund**: Rang-Abzeichen des eigenen Towers im Bild. **Nachtest**: Tower mit Rang
+  bemannen, sein Abzeichen ist weg, die der anderen Tower bleiben; nach dem Aussteigen ist es wieder da.
+  **Befund**: Auswahl-Ring der Cannon im Bild. **Nachtest**: Maus auf den Tower, anklicken, `C`: kein Ring, keine
+  Reichweite im Bild. **Befund**: Reward-Sound (Kill-Gold) drinnen viel lauter. **Nachtest**: im Tower Gegner
+  töten, der Coin klingt etwa so laut wie in der Draufsicht, Schüsse und Einschläge bleiben nah.
+- **T3 Befund (2026-09-23)**: Archer: Blick im Inneren des Turms. **Nachtest**: Archer bemannen, Blick über dem Dach,
+  kein Innenraum; die anderen Tower wie vorher (höchstens etwas höher).
+- **T5 Freies Feuern (2026-09-23)**: Befund: zwischen den Wellen keine Projektile zu sehen. Nachtest: zwischen den
+  Wellen und in der Welle in alle Richtungen und steil nach oben feuern. Erwartung: die Projektile fliegen durchs
+  Fadenkreuz davon und verschwinden in Reichweite; ein Fehlschuss neben einem Gegner zieht ihm nichts ab, Treffer
+  wie vorher.
+- **T6 Schuss-Klang nach oben (2026-09-23)**: Befund: nach oben gefeuert klingen die Schüsse anders (HRTF, Quelle
+  hinter dem Kopf). Nachtest: waagerecht, steil nach oben und nach unten feuern, der Schuss klingt überall gleich.
+- **T3 Augenpunkt je Tower**: Archer, Cannon, Magic, Rocket, Ice, Poison, Chaos je einmal. Erwartung: Blick sitzt
+  nicht im Modell und nicht absurd hoch. Welcher Tower schlecht sitzt, bitte nennen (der Augenpunkt ist für alle
+  gleich).
+- **T4 Aussteigen**: `Esc`, dann erneut rein und `C`. Erwartung: beide Male Kamera zurück, wo sie beim Einsteigen
+  war, der Tower feuert wieder selbst. Photo Mode (`O`) und Fähigkeiten wirken drinnen nicht.
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei

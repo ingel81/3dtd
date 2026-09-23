@@ -80,6 +80,40 @@ describe('ProjectileManager', () => {
     expect(eventBus.getQueueSize()).toBe(2); // audio event + muzzle flash deferred
   });
 
+  it('plays the shots of a manned tower at the listener, the others at the tower', () => {
+    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
+    const enemy = new Enemy('zombie', [
+      { lat: 0.001, lon: 0, height: 0 },
+      { lat: 0.002, lon: 0, height: 0 },
+    ]);
+    const sounds: (boolean | undefined)[] = [];
+    eventBus.on('audio:play', (event) => sounds.push(event.atListener));
+
+    manager.spawn(tower, enemy);
+    tower.manned = true;
+    manager.spawn(tower, enemy);
+    manager.fireBlank(tower, { lat: 0.0003, lon: 0, height: 5 }, 0);
+    eventBus.processQueue();
+
+    expect(sounds).toEqual([false, true, true]);
+  });
+
+  it('flies a free shot of a manned tower to its aim point and removes it there without a hit', () => {
+    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
+    tower.manned = true;
+    const hits = vi.fn();
+    eventBus.on('projectile:hit', hits);
+
+    const shot = manager.fireBlank(tower, { lat: 0.0003, lon: 0, height: 5 }, 0);
+    expect(shot.targetEnemy).toBeNull();
+    for (let i = 0; i < 600 && manager.getAll().length > 0; i++) manager.update(16);
+
+    expect(manager.getAll()).toHaveLength(0);
+    expect(tilesEngine.projectiles.remove).toHaveBeenCalledWith(shot.id);
+    eventBus.processQueue();
+    expect(hits).not.toHaveBeenCalled();
+  });
+
   it('flies a shot no tower fires at a body to its aim point', () => {
     const enemy = new Enemy('zombie', [
       { lat: 0.0001, lon: 0, height: 0 },

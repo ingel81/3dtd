@@ -97,6 +97,7 @@ export class GameSidebarComponent implements OnDestroy {
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
   readonly setHoldFire = output<{ tower: Tower; holdFire: boolean }>();
+  readonly takeControl = output<Tower>();
   readonly cancelResearch = output<ResearchId>();
 
   /** Das Research Center bekommt statt des Tower-Details sein eigenes Panel. */

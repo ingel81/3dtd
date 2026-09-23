@@ -634,6 +634,15 @@ export class InputHandlerService {
     this.lastHoverPickY = NaN;
   }
 
+  /**
+   * Something else takes the pointer (TowerControlService, getting into a
+   * tower): the hover ring and range go, and so does a pick still pending.
+   * The next move over a tower after it picks again.
+   */
+  clearHover(): void {
+    this.holdHover();
+  }
+
   /** The button came up over the canvas: the tower under the pointer shows its range again. */
   private resumeHover(event: PointerEvent): void {
     if (!this.pointerOwnedByMode()) this.scheduleHoverPick(event);

@@ -127,6 +127,23 @@ describe('InputHandlerService tower hover', () => {
     expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
   });
 
+  it('clearHover drops the ring of the tower under the pointer and a pick still pending (getting into it)', () => {
+    move(10, 10);
+    vi.advanceTimersByTime(0);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith('t1');
+    move(20, 20);
+
+    service.clearHover();
+    vi.advanceTimersByTime(200);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith(null);
+    expect(engine.picker.raycastTowers).toHaveBeenCalledTimes(1);
+
+    // Back out, the next move over it picks again, also at the same spot
+    move(10, 10);
+    vi.advanceTimersByTime(200);
+    expect(engine.towers.setHovered).toHaveBeenLastCalledWith('t1');
+  });
+
   it('shows the range again where the button comes up after a drag', () => {
     move(10, 10);
     vi.advanceTimersByTime(0);

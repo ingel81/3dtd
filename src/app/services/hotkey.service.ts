@@ -22,6 +22,7 @@ import { TowerPlacementService } from './tower-placement.service';
 import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { ReplayService } from './replay.service';
+import { TowerControlService } from './tower-control.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { DebugFacadeService } from './debug/debug-facade.service';
 import { uiSound } from './ui-sound';
@@ -56,6 +57,7 @@ export class HotkeyService {
   private readonly photoMode = inject(PhotoModeService);
   private readonly heroControl = inject(HeroControlService);
   private readonly replay = inject(ReplayService);
+  private readonly towerControl = inject(TowerControlService);
   private readonly towerUpgrade = inject(TowerUpgradeService);
   private readonly debugFacade = inject(DebugFacadeService);
 
@@ -122,6 +124,7 @@ export class HotkeyService {
   /** @returns true when the key did something */
   private run(action: HotkeyAction): boolean {
     if (this.replay.active()) return this.runInReplay(action);
+    if (this.towerControl.active()) return this.runInTower(action);
     switch (action.kind) {
       case 'select-tower': return this.selectTower(action.slot);
       case 'upgrade': return this.upgrade();
@@ -145,6 +148,30 @@ export class HotkeyService {
       case 'mute':
         this.uiStore.masterMuted.update((muted) => !muted);
         return true;
+      case 'tower-control': return this.towerControl.toggle();
+    }
+  }
+
+  /**
+   * In a manned tower (TowerControlService) the game goes on around the
+   * player: waves, pause, speed and sound stay. C and Esc get out.
+   * Building, selling, upgrading, abilities, the hero, the camera keys,
+   * photo mode and the dialogs wait: the view is the tower's aim, and the
+   * captured mouse could not click a dialog.
+   */
+  private runInTower(action: HotkeyAction): boolean {
+    switch (action.kind) {
+      case 'tower-control':
+      case 'cancel':
+        this.towerControl.exit();
+        return true;
+      case 'start-wave': return this.startWave();
+      case 'pause': return this.togglePause();
+      case 'speed': return this.stepSpeed(action.step);
+      case 'mute':
+        this.uiStore.masterMuted.update((muted) => !muted);
+        return true;
+      default: return false;
     }
   }
 

@@ -277,6 +277,36 @@ describe('SpatialAudioManager', () => {
   });
 
   describe('one-shots', () => {
+    it('damps a feedback cue close by to its volume at the feedback distance, only while one is set', async () => {
+      const { manager, ready } = setup();
+      await ready('coin', 'coin.mp3', { volume: 1, refDistance: 30, rolloffFactor: 1.5, feedback: true });
+      await ready('shot', 'shot.mp3', { volume: 1, refDistance: 30, rolloffFactor: 1.5 });
+
+      // Off: the panner alone, full volume inside refDistance
+      expect(((await manager.playAt('coin', NEAR)) as unknown as FakeAudio).volume).toBe(1);
+
+      // In a tower: 10 m off sounds as from 150 m, inverse model 30 / (30 + 1.5 × 120)
+      manager.setFeedbackMinDistance(150);
+      // Past the flood window of the first coin
+      now += 1000;
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(((await manager.playAt('coin', NEAR)) as unknown as FakeAudio).volume).toBeCloseTo(30 / 210);
+      // A sound of the fight keeps its real distance
+      expect(((await manager.playAt('shot', NEAR)) as unknown as FakeAudio).volume).toBe(1);
+    });
+
+    it('plays at the listener where the camera is, with the one-shot limits', async () => {
+      const { camera, manager, ready } = setup();
+      await ready('shot', 'shot.mp3', { volume: 1, minIntervalMs: 100 });
+      camera.position.set(5, 20, -3);
+      camera.updateMatrixWorld();
+
+      const audio = (await manager.playAtListener('shot')) as unknown as FakeAudio;
+      expect(audio.parent?.position.toArray()).toEqual([5, 20, -3]);
+      // Anti-flood as for playAt
+      await expect(manager.playAtListener('shot')).resolves.toBeNull();
+    });
+
     it('plays at a position and cleans up once the sample is over', async () => {
       const { scene, manager, debugEvents, ready } = setup();
       await ready('hit', 'hit.mp3', { volume: 0.8 });
