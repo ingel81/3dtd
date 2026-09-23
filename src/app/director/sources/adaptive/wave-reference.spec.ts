@@ -27,7 +27,7 @@ import type { WaveResult } from '../../models/wave-result';
  *
  * Regenerate deliberately, and only when a wave change is intended:
  *
- *   UPDATE_WAVE_REFERENCE=1 npx vitest run src/app/director/wave-reference.spec.ts
+ *   UPDATE_WAVE_REFERENCE=1 npx vitest run src/app/director/sources/adaptive/wave-reference.spec.ts
  *
  * The diff of the JSON is then the review: it shows every wave that moved.
  */

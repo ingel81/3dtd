@@ -6,7 +6,7 @@ import {
   bossVariantWave,
   type BossVariantId,
 } from './boss-variants.config';
-import { ENEMY_TYPES } from './enemy-types.config';
+import { ENEMY_TYPES, WORM_MAX_SEGMENTS, lineageHp } from './enemy-types.config';
 import { CAMPAIGN_LENGTH, CAMPAIGN } from './campaign.config';
 import { TEMPLATES } from '../director/templates';
 import { adaptDirectorWave } from '../director/wave-config-adapter';
@@ -15,8 +15,11 @@ import type { WaveConfig as DirectorWave } from '../director/models/wave-config'
 const variants = Object.values(BOSS_VARIANTS);
 
 describe('bossVariantForWave', () => {
-  it('leaves the campaign and every wave that is no boss wave alone', () => {
-    for (let wave = 1; wave <= CAMPAIGN_LENGTH; wave++) expect(bossVariantForWave(wave)).toBeNull();
+  it('takes W20 for the ooze and W30 for the worm, and leaves the rest of the campaign alone', () => {
+    for (let wave = 1; wave <= CAMPAIGN_LENGTH; wave++) {
+      const expected = wave === 20 ? 'ooze' : wave === 30 ? 'worm' : null;
+      expect(bossVariantForWave(wave)?.id ?? null).toBe(expected);
+    }
     for (const wave of [31, 34, 36, 39, 41, 99]) expect(bossVariantForWave(wave)).toBeNull();
   });
 
@@ -74,6 +77,23 @@ describe('bossVariantWave', () => {
     expect(entries).toHaveLength(1);
     // The schedule rounds each entry's HP
     expect(entries[0]).toMatchObject({ enemyType: 'worm', health: Math.round(ENEMY_TYPES['worm'].baseHp * 3.5) });
+  });
+
+  it('in the campaign gives the boss as much HP as the wave the director planned', () => {
+    // 24 golems at x3.5; the ooze with its slime clumps at x1 is lineageHp('ooze')
+    const planned = 24 * lineageHp('stone-golem') * 3.5;
+    const wave = bossVariantWave(BOSS_VARIANTS.ooze, directed, 20);
+    expect(wave.enemies).toHaveLength(1);
+    expect(wave.enemies[0].type).toBe('ooze');
+    expect(wave.enemies[0].healthMultiplier * lineageHp('ooze')).toBeCloseTo(planned, -2);
+    expect(wave.explanation?.reasons[0]).toContain('Campaign boss W20');
+  });
+
+  it('in the campaign counts a worm at its longest, so a short route never makes it stronger', () => {
+    const planned = 24 * lineageHp('stone-golem') * 3.5;
+    const wave = bossVariantWave(BOSS_VARIANTS.worm, directed, 30);
+    expect(wave.enemies[0].healthMultiplier * ENEMY_TYPES['worm'].baseHp * WORM_MAX_SEGMENTS)
+      .toBeCloseTo(planned, -2);
   });
 
   it('says why in place of the director explanation', () => {

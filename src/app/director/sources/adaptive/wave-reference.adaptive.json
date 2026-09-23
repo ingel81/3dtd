@@ -121,9 +121,9 @@
     "strength": 7.688,
     "pattern": "clustered",
     "enemies": [
-      "herbertx2@7.688",
+      "herbertx1@7.688",
       "tankx3@7.688",
-      "zombiex2@7.688"
+      "zombiex3@7.688"
     ]
   },
   {
@@ -180,13 +180,13 @@
   {
     "wave": 15,
     "template": "Golem Squad",
-    "count": 345,
+    "count": 63,
     "spawnDelay": 521,
     "variation": 0.199,
     "strength": 6,
     "pattern": null,
     "enemies": [
-      "stone-golemx345@6"
+      "stone-golemx63@6"
     ]
   },
   {
@@ -207,13 +207,13 @@
   {
     "wave": 17,
     "template": "Wraith Storm",
-    "count": 2450,
+    "count": 467,
     "spawnDelay": 73,
     "variation": 0.196,
     "strength": 4.83,
     "pattern": null,
     "enemies": [
-      "wraithx2450@4.83"
+      "wraithx467@4.83"
     ]
   },
   {
@@ -234,27 +234,25 @@
   {
     "wave": 19,
     "template": "Skeleton Swarm",
-    "count": 5000,
+    "count": 2058,
     "spawnDelay": 36,
     "variation": 0.211,
     "strength": 4.79,
     "pattern": null,
     "enemies": [
-      "skeletonx5000@4.79"
+      "skeletonx2058@4.79"
     ]
   },
   {
     "wave": 20,
-    "template": "Boss: Herbert",
-    "count": 232,
-    "spawnDelay": 775,
-    "variation": 0.232,
-    "strength": 20,
-    "pattern": "clustered",
+    "template": "Boss: Ooze",
+    "count": 1,
+    "spawnDelay": 0,
+    "variation": 0,
+    "strength": 2.388,
+    "pattern": "sequential",
     "enemies": [
-      "herbertx58@20",
-      "tankx87@20",
-      "zombiex87@20"
+      "oozex1@2.388"
     ]
   },
   {
@@ -272,14 +270,14 @@
   {
     "wave": 22,
     "template": "Tank Column",
-    "count": 1738,
+    "count": 390,
     "spawnDelay": 103,
     "variation": 0.239,
     "strength": 7.837,
     "pattern": "interleaved",
     "enemies": [
-      "tankx1043@7.837",
-      "zombie-soldierx695@7.837"
+      "tankx234@7.837",
+      "zombie-soldierx156@7.837"
     ]
   },
   {
@@ -297,14 +295,14 @@
   {
     "wave": 24,
     "template": "Ghost Surge",
-    "count": 3448,
+    "count": 522,
     "spawnDelay": 44,
     "variation": 0.254,
     "strength": 6,
     "pattern": "interleaved",
     "enemies": [
-      "ghostx2758@6",
-      "wraithx690@6"
+      "ghostx418@6",
+      "wraithx104@6"
     ]
   },
   {
@@ -336,55 +334,53 @@
   {
     "wave": 27,
     "template": "Dragon Elite",
-    "count": 1151,
+    "count": 281,
     "spawnDelay": 109,
     "variation": 0.291,
     "strength": 9.536,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx691@9.536",
-      "hornetx460@9.536"
+      "dragonx169@9.536",
+      "hornetx112@9.536"
     ]
   },
   {
     "wave": 28,
     "template": "Mech Army",
-    "count": 1644,
+    "count": 119,
     "spawnDelay": 109,
     "variation": 0.261,
     "strength": 14,
     "pattern": null,
     "enemies": [
-      "mechx1644@14"
+      "mechx119@14"
     ]
   },
   {
     "wave": 29,
     "template": "Chaos Wave",
-    "count": 5000,
+    "count": 1820,
     "spawnDelay": 36,
     "variation": 0.338,
     "strength": 7.25,
     "pattern": "interleaved",
     "enemies": [
-      "zombiex1500@7.25",
-      "tankx1500@7.25",
-      "hornetx1000@7.25",
-      "bearx1000@7.25"
+      "zombiex546@7.25",
+      "tankx546@7.25",
+      "hornetx364@7.25",
+      "bearx364@7.25"
     ]
   },
   {
     "wave": 30,
-    "template": "Boss: Herbert",
-    "count": 400,
-    "spawnDelay": 450,
-    "variation": 0.232,
-    "strength": 30,
-    "pattern": "clustered",
+    "template": "Boss: Skarnax",
+    "count": 1,
+    "spawnDelay": 0,
+    "variation": 0,
+    "strength": 3.391,
+    "pattern": "sequential",
     "enemies": [
-      "herbertx100@30",
-      "tankx150@30",
-      "zombiex150@30"
+      "wormx1@3.391"
     ]
   },
   {
@@ -430,14 +426,14 @@
   {
     "wave": 34,
     "template": "Mammoth Siege",
-    "count": 2400,
+    "count": 174,
     "spawnDelay": 75,
     "variation": 0.25,
     "strength": 17,
     "pattern": "interleaved",
     "enemies": [
-      "mammothx1680@17",
-      "wallsmasherx720@17"
+      "mammothx122@17",
+      "wallsmasherx52@17"
     ]
   },
   {
@@ -505,52 +501,51 @@
   {
     "wave": 40,
     "template": "Boss: Herbert",
-    "count": 400,
-    "spawnDelay": 450,
+    "count": 116,
+    "spawnDelay": 1054,
     "variation": 0.201,
     "strength": 40,
     "pattern": "clustered",
     "enemies": [
-      "herbertx100@40",
-      "tankx150@40",
-      "zombiex150@40"
+      "herbertx1@40",
+      "tankx58@40",
+      "zombiex57@40"
     ]
   },
   {
     "wave": 41,
-    "template": "Bear Pack",
-    "count": 2400,
-    "spawnDelay": 75,
-    "variation": 0.223,
-    "strength": 14.35,
+    "template": "Mech Army",
+    "count": 143,
+    "spawnDelay": 90,
+    "variation": 0.247,
+    "strength": 20.5,
     "pattern": null,
     "enemies": [
-      "bearx2400@14.35"
+      "mechx143@20.5"
     ]
   },
   {
     "wave": 42,
-    "template": "Dragon Elite",
-    "count": 2000,
-    "spawnDelay": 90,
-    "variation": 0.271,
-    "strength": 16.8,
-    "pattern": "interleaved",
+    "template": "Bear Pack",
+    "count": 216,
+    "spawnDelay": 75,
+    "variation": 0.243,
+    "strength": 14.7,
+    "pattern": null,
     "enemies": [
-      "dragonx1200@16.8",
-      "hornetx800@16.8"
+      "bearx216@14.7"
     ]
   },
   {
     "wave": 43,
     "template": "Wallsmasher Crew",
-    "count": 4000,
+    "count": 1950,
     "spawnDelay": 45,
     "variation": 0.25,
     "strength": 12.9,
     "pattern": null,
     "enemies": [
-      "wallsmasherx4000@12.9"
+      "wallsmasherx1950@12.9"
     ]
   },
   {
@@ -580,14 +575,14 @@
   {
     "wave": 46,
     "template": "Tank Column",
-    "count": 3000,
+    "count": 491,
     "spawnDelay": 60,
     "variation": 0.261,
     "strength": 18.4,
     "pattern": "interleaved",
     "enemies": [
-      "tankx1800@18.4",
-      "zombie-soldierx1200@18.4"
+      "tankx295@18.4",
+      "zombie-soldierx196@18.4"
     ]
   },
   {
@@ -618,14 +613,14 @@
   {
     "wave": 49,
     "template": "Dragon Elite",
-    "count": 2000,
+    "count": 302,
     "spawnDelay": 90,
     "variation": 0.288,
     "strength": 19.6,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx1200@19.6",
-      "hornetx800@19.6"
+      "dragonx181@19.6",
+      "hornetx121@19.6"
     ]
   },
   {
@@ -644,38 +639,38 @@
   {
     "wave": 51,
     "template": "Mammoth Siege",
-    "count": 2400,
+    "count": 174,
     "spawnDelay": 75,
     "variation": 0.304,
     "strength": 25.5,
     "pattern": "interleaved",
     "enemies": [
-      "mammothx1680@25.5",
-      "wallsmasherx720@25.5"
+      "mammothx122@25.5",
+      "wallsmasherx52@25.5"
     ]
   },
   {
     "wave": 52,
     "template": "Bear Pack",
-    "count": 2400,
+    "count": 216,
     "spawnDelay": 75,
     "variation": 0.271,
     "strength": 18.2,
     "pattern": null,
     "enemies": [
-      "bearx2400@18.2"
+      "bearx216@18.2"
     ]
   },
   {
     "wave": 53,
     "template": "Golem Squad",
-    "count": 1200,
+    "count": 381,
     "spawnDelay": 150,
     "variation": 0.229,
     "strength": 15.9,
     "pattern": null,
     "enemies": [
-      "stone-golemx1200@15.9"
+      "stone-golemx381@15.9"
     ]
   },
   {
@@ -705,27 +700,27 @@
   {
     "wave": 56,
     "template": "Tank Column",
-    "count": 3000,
+    "count": 489,
     "spawnDelay": 60,
     "variation": 0.233,
     "strength": 22.4,
     "pattern": "interleaved",
     "enemies": [
-      "tankx1800@22.4",
-      "zombie-soldierx1200@22.4"
+      "tankx293@22.4",
+      "zombie-soldierx196@22.4"
     ]
   },
   {
     "wave": 57,
     "template": "Ghost Surge",
-    "count": 5000,
+    "count": 3171,
     "spawnDelay": 36,
     "variation": 0.294,
     "strength": 14.25,
     "pattern": "interleaved",
     "enemies": [
-      "ghostx4000@14.25",
-      "wraithx1000@14.25"
+      "ghostx2537@14.25",
+      "wraithx634@14.25"
     ]
   },
   {
@@ -759,15 +754,15 @@
   {
     "wave": 60,
     "template": "Boss: Herbert",
-    "count": 400,
-    "spawnDelay": 450,
+    "count": 83,
+    "spawnDelay": 980,
     "variation": 0.219,
     "strength": 60,
     "pattern": "clustered",
     "enemies": [
-      "herbertx100@60",
-      "tankx150@60",
-      "zombiex150@60"
+      "herbertx1@60",
+      "tankx41@60",
+      "zombiex41@60"
     ]
   }
 ]
