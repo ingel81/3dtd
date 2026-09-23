@@ -141,17 +141,19 @@ const LASER_SPATIAL = {
 /** Game state sounds configuration */
 export const GAME_SOUNDS = {
   /**
-   * The HQ taking a hit. Heard up to 1500 m like the nuclear strike, where
-   * the common limit would cull it at 500 m: it has to reach the wide
-   * overview too, as its shake does. The rolloff keeps it quiet out there,
-   * at 1000 m 4 % of its level at 40 m.
+   * The HQ taking a hit, which is an enemy leaking in: an alarm blip over a
+   * heavy impact (ElevenLabs, 2026-09-23; until then a generic explosion).
+   * Heard up to 1500 m like the nuclear strike, where the common limit would
+   * cull it at 500 m: it has to reach the wide overview too, as its shake
+   * does. The rolloff keeps it quiet out there, at 1000 m 4 % of its level
+   * at 40 m.
    */
   hqDamage: {
     id: 'hq_damage',
-    url: 'assets/sounds/effects/explosion.mp3',
+    url: 'assets/sounds/game/leak.mp3',
     refDistance: 40,
     rolloffFactor: 1,
-    volume: 1.4,
+    volume: 1.1,
     audibleDistance: 1500,
   },
   /**
@@ -292,8 +294,20 @@ export const OOZE_SOUNDS = {
  * from a seed per worm, so a run repeats. `gain` evens out the samples (the
  * clack is quieter). At the head nearest the listener, `liftM` above the
  * ground.
+ *
+ * `slither`: the worm's body grinding through the dirt, one loop per worm at
+ * the same head (ElevenLabs, 2026-09-23), not one per segment: 240 loops
+ * would fill the enemy budget. Its id matches no ENEMY_SOUND_PATTERNS entry,
+ * so it stays out of that budget like the ooze's bubbling.
  */
 export const WORM_SOUNDS = {
+  slither: {
+    id: 'worm_slither',
+    url: 'assets/sounds/enemies/skarnax/slither_loop.mp3',
+    refDistance: 50,
+    rolloffFactor: 1,
+    volume: 0.6,
+  },
   voice: {
     samples: [
       { id: 'skarnax_growl_1', url: 'assets/sounds/enemies/skarnax/growl_1.mp3', gain: 1 },

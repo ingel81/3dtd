@@ -130,6 +130,14 @@ export class ScreenShakeService {
 
     // Enemy died → extra shake for bosses; a worm shakes once, with its last segment
     this.subs.add(
+      this.eventBus.on('enemy:footstep', ({ enemy }) => {
+        if (!enemy.typeConfig.footstep?.shake) return;
+        const { lat, lon, height } = enemy.position;
+        this.shakeAt(presets.footstep, lat, lon, height ?? 0);
+      }),
+    );
+
+    this.subs.add(
       this.eventBus.on('enemy:died', (event) => {
         const worm = event.enemy?.worm;
         if (event.enemy?.typeConfig?.isBoss && (!worm || worm.group.remaining === 0)) {

@@ -87,6 +87,14 @@ export type GameEvent =
       damage: number;
     }
   | {
+      /**
+       * A heavy step of an enemy with EnemyTypeConfig.footstep, every
+       * `everyM` metres it walks (EnemyManager). Deferred: sound and shake.
+       */
+      type: 'enemy:footstep';
+      enemy: Enemy;
+    }
+  | {
       /** A killed enemy split (EnemyTypeConfig.splitOnDeath), after its enemy:died */
       type: 'enemy:split';
       /** The killed enemy */

@@ -489,11 +489,14 @@ describe('GameStateManager order of operations (characterization)', () => {
         'research:completed', 'hero:kill',
         // ReplayRecorder: its triggers; every other event only while it records a wave (onAny)
         'command:start-wave', 'wave:started', 'wave:jumped',
-        // VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService
+        // VFXService, AudioService, GameSoundsService, ScreenShakeService, BackgroundMusicService, BloodMoonService
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
         'enemy:split', 'ability:used', 'ability:impact', 'ability:state-changed', 'game:reset', 'hero:level-up',
         'audio:play', 'ability:used', 'ability:impact', 'game:reset',
-        'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:died',
+        'enemy:died', 'enemy:split', 'projectile:hit', 'enemy:footstep', 'tower:upgraded', 'ability:used',
+        'hero:level-up', 'wave:started', 'wave:completed', 'research:completed', 'ability:state-changed',
+        'hero:state-changed', 'game:over', 'game:reset',
+        'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:footstep', 'enemy:died',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
         // GameStateManager: AA retrofit, guard turns, kill reward
