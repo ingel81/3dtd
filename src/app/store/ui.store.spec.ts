@@ -228,4 +228,22 @@ describe('UIStore', () => {
       expect(store.buildValidationReason()).toBeNull();
     });
   });
+
+  describe('effective volumes', () => {
+    it('scale music and sound effects by the master volume', () => {
+      store.masterVolume.set(0.5);
+      store.musicVolume.set(0.4);
+      store.sfxVolume.set(0.8);
+      expect(store.effectiveMusicVolume()).toBeCloseTo(0.2);
+      expect(store.effectiveSfxVolume()).toBeCloseTo(0.4);
+    });
+
+    it('are 0 when the channel or everything is muted', () => {
+      store.musicMuted.set(true);
+      expect(store.effectiveMusicVolume()).toBe(0);
+      expect(store.effectiveSfxVolume()).toBeGreaterThan(0);
+      store.masterMuted.set(true);
+      expect(store.effectiveSfxVolume()).toBe(0);
+    });
+  });
 });

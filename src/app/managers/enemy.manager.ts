@@ -373,9 +373,6 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.startMoving();
     }
 
-    // Play spawn sound (always, even if paused)
-    enemy.playSpawnSound();
-
     this.add(enemy);
     this.aliveCount.update(c => c + 1);
     this.cachedAliveEnemies = null; // Invalidate cache
@@ -680,9 +677,12 @@ export class EnemyManager extends EntityManager<Enemy> {
       // `loopHandles.size > 0`, so skipping on it is exactly the early-out
       // update() takes, without loading the component. The call stays here
       // rather than in a separate pass over the looping enemies: the loops
-      // share the enemy-sound budget, so the order of updateLoopPosition()
-      // calls decides which paused or waiting loop gets a free slot.
+      // share the enemy-sound budget, and a free slot goes to the first
+      // waiting loop that updates. rebalanceEnemyLoops() after this loop
+      // hands the slots to the nearest enemies again a few times a second.
       if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
+      // Random calls count game time: none in the pause, faster at speed
+      if (enemy.randomSoundLeftMs >= 0) enemy.tickRandomSound(deltaTime);
       // Single-pass: remove expired effects + get the status flags (game-time).
       // Without effects the array is not loaded at all (hasStatusEffects).
       const statusFlags = enemy.movement.hasStatusEffects
@@ -798,6 +798,8 @@ export class EnemyManager extends EntityManager<Enemy> {
         this.tickDamageOverTime(enemy, deltaTime);
       }
     }
+
+    this.tilesEngine?.spatialAudio?.rebalanceEnemyLoops();
 
     // The oozes' bodies follow their tips; those fully in the base leak
     this.oozes.update(deltaTime, gameTimeMs, this.toRemove);
@@ -1229,6 +1231,10 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.pendingDeaths.length = 0;
     this.pendingStarts.length = 0;
     this.killingEnemies.clear();
+    // The ooze's bubbling and the worm's voice live outside the enemies'
+    // audio components; clear() stops them, and so must a teardown
+    this.oozes.clear(this.tilesEngine);
+    this.wormSounds.clear(this.tilesEngine?.spatialAudio ?? null);
     super.destroy();
   }
 }

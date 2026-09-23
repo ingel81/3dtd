@@ -9,10 +9,22 @@ import type { AbilityId } from './abilities.config';
 import { nukeSoundUrls } from '../utils/nuke-sound';
 import { laserSoundUrls } from '../utils/laser-sound';
 
+/**
+ * Gain in front of the master bus's soft limiter (listener.gain → pre-gain →
+ * limiter, SpatialAudioManager): -4.4 dB of headroom. The main theme plays
+ * outside that graph and is scaled by it instead (BackgroundMusicService).
+ */
+export const MASTER_BUS_PRE_GAIN = 0.6;
+
 /** Sound budget limits to prevent audio overload */
 export const AUDIO_LIMITS = {
   /** Loop-only budget for enemy ambient sounds (walk/roar). */
   maxEnemySounds: 12,
+  /**
+   * How often the enemy loop slots go to the nearest enemies again (ms, wall
+   * clock), see SpatialAudioLoops.rebalanceEnemyLoops().
+   */
+  enemyLoopRebalanceMs: 250,
   /**
    * Per-category cap for projectile-class one-shots
    * (arrow/bullet/rocket/...). Tightened from 40 → 25.

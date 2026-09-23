@@ -23,6 +23,8 @@ interface PersistedUIState {
   airRouteVisible?: boolean;
   perTowerLosFilter?: 'both' | 'ground' | 'air';
   openMenu?: QuickMenu | null;
+  masterVolume?: number;
+  masterMuted?: boolean;
   musicVolume?: number;
   sfxVolume?: number;
   musicMuted?: boolean;
@@ -78,6 +80,12 @@ export class UIStore {
   /** Audio settings menu expanded */
   readonly audioMenuExpanded = computed(() => this.openMenu() === 'audio');
 
+  /** Overall volume (0-1), on top of music and sound effects */
+  readonly masterVolume = signal<number>(1.0);
+
+  /** Everything muted (M) */
+  readonly masterMuted = signal<boolean>(false);
+
   /** Music volume (0-1), default matches BACKGROUND_MUSIC.masterVolume */
   readonly musicVolume = signal<number>(0.4);
 
@@ -89,6 +97,14 @@ export class UIStore {
 
   /** SFX muted */
   readonly sfxMuted = signal<boolean>(false);
+
+  /** Music volume as it plays: channel times master, 0 when either is muted */
+  readonly effectiveMusicVolume = computed(() =>
+    this.masterMuted() || this.musicMuted() ? 0 : this.masterVolume() * this.musicVolume());
+
+  /** Sound-effect volume as it plays: channel times master, 0 when either is muted */
+  readonly effectiveSfxVolume = computed(() =>
+    this.masterMuted() || this.sfxMuted() ? 0 : this.masterVolume() * this.sfxVolume());
 
   /**
    * Start the next wave by itself after a countdown once a wave is done.
@@ -198,6 +214,8 @@ export class UIStore {
         if (state.airRouteVisible !== undefined) this.airRouteVisible.set(state.airRouteVisible);
         if (state.perTowerLosFilter !== undefined) this.perTowerLosFilter.set(state.perTowerLosFilter);
         this.openMenu.set(storedOpenMenu(state));
+        if (state.masterVolume !== undefined) this.masterVolume.set(state.masterVolume);
+        if (state.masterMuted !== undefined) this.masterMuted.set(state.masterMuted);
         if (state.musicVolume !== undefined) this.musicVolume.set(state.musicVolume);
         if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
         if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
@@ -225,6 +243,8 @@ export class UIStore {
           airRouteVisible: this.airRouteVisible(),
           perTowerLosFilter: this.perTowerLosFilter(),
           openMenu: this.openMenu(),
+          masterVolume: this.masterVolume(),
+          masterMuted: this.masterMuted(),
           musicVolume: this.musicVolume(),
           sfxVolume: this.sfxVolume(),
           musicMuted: this.musicMuted(),

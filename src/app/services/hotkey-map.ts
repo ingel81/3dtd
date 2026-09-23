@@ -32,7 +32,9 @@ export type HotkeyAction =
   /** Photo mode on or off */
   | { kind: 'photo-mode' }
   /** The research tree, once a Research Center stands */
-  | { kind: 'research' };
+  | { kind: 'research' }
+  /** All sound on or off */
+  | { kind: 'mute' };
 
 /** The parts of a KeyboardEvent the mapping reads. */
 export type HotkeyEvent = Pick<KeyboardEvent, 'key' | 'shiftKey' | 'ctrlKey' | 'altKey' | 'metaKey' | 'repeat'>;
@@ -92,6 +94,8 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
       return { kind: 'camera-spawn' };
     case 'o':
       return { kind: 'photo-mode' };
+    case 'm':
+      return { kind: 'mute' };
     case 'q':
       // R rotates while building and T is the debug key; the ability keys are
       // K, F, E and L, so Q is what is left near the camera hand.
@@ -124,6 +128,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['+', '-'], label: 'Game speed up and down' },
       { keys: ['Esc'], label: 'Skip the intro flight or the boss intro' },
       { keys: ['Q'], label: 'Open the research tree, once a Research Center stands' },
+      { keys: ['M'], label: 'All sound on and off' },
       { keys: ['Alt'], label: 'Hold to show the health bars the other way round (option Health Bars)' },
       ...ABILITY_IDS.map((id) => ({
         keys: [ABILITIES[id].hotkey.toUpperCase()],

@@ -21,7 +21,7 @@ export type TdIconName =
   | 'flask' | 'shield' | 'skull' | 'bug' | 'pin' | 'flag' | 'home' | 'search'
   | 'caret' | 'caretL' | 'caretR' | 'caretU' | 'play' | 'pause' | 'stop'
   | 'cog' | 'eye' | 'eyeOff' | 'speed' | 'fullscreen' | 'layers' | 'grid'
-  | 'audio' | 'audioOff' | 'build' | 'refresh' | 'text' | 'bulb' | 'user'
+  | 'audio' | 'audioOff' | 'music' | 'build' | 'refresh' | 'text' | 'bulb' | 'user'
   | 'sliders' | 'chart' | 'share' | 'filing' | 'case' | 'cross' | 'check'
   | 'info' | 'warn' | 'random' | 'manual' | 'edit'
   // additions for full mat-icon migration
@@ -82,6 +82,7 @@ const ICONS: Record<TdIconName, IconDef> = {
   grid: { body: '<path d="M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z" />' },
   audio: { body: '<path d="M5 9v6h4l5 4V5L9 9H5ZM17 9c1 1 1 5 0 6M19.5 6.5c2.5 2.5 2.5 8.5 0 11" />' },
   audioOff: { body: '<path d="M5 9v6h4l5 4V5L9 9H5ZM16 9l5 6M21 9l-5 6" />' },
+  music: { body: '<path d="M9 18V5l11-2v13M9 18a3 3 0 1 1-6 0 3 3 0 0 1 6 0ZM20 16a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />' },
   build: { body: '<path d="m14 6 4 4-9 9-4 1 1-4 9-10ZM13 7l4 4M3 21h18" />' },
   refresh: { body: '<path d="M3 12a9 9 0 0 1 15-6.7L21 8M21 4v4h-4M21 12a9 9 0 0 1-15 6.7L3 16M3 20v-4h4" />' },
   text: { body: '<path d="M5 6h14M12 6v14M8 20h8" />' },

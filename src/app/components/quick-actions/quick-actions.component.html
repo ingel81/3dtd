@@ -117,6 +117,21 @@
         <td-icon class="td-audio-label" name="audio" [size]="14"></td-icon>
         <input type="range" class="td-audio-slider"
                min="0" max="100" step="1"
+               aria-label="Master volume"
+               [value]="uiStore.masterVolume() * 100"
+               (input)="onMasterSlider($event)">
+        <button class="td-audio-mute"
+                [class.muted]="uiStore.masterMuted()"
+                (click)="toggleMasterMute()"
+                matTooltip="Mute all (M)" matTooltipPosition="left"
+                aria-label="Mute all" [attr.aria-pressed]="uiStore.masterMuted()">
+          <td-icon [name]="uiStore.masterMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
+        </button>
+      </div>
+      <div class="td-audio-row">
+        <td-icon class="td-audio-label" name="music" [size]="14"></td-icon>
+        <input type="range" class="td-audio-slider"
+               min="0" max="100" step="1"
                aria-label="Music volume"
                [value]="uiStore.musicVolume() * 100"
                (input)="onMusicSlider($event)">

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Vector3 } from 'three';
 import { SpatialAudioLoops } from './spatial-audio-loops';
 import { EnemySoundBudget } from './enemy-sound-budget';
-import type { AudioPoolManager } from './audio-pool.manager';
+import type { PositionalVoiceFactory } from './positional-voice-factory';
 import type { RegisteredSound, SpatialAudioPlayback } from './spatial-audio-playback';
 import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
 
@@ -80,12 +80,14 @@ describe('SpatialAudioLoops', () => {
     };
     const playback = {
       isWithinAudibleDistance: () => audible,
+      // The listener stands at the origin
+      distanceSqToListener: (p: Vector3) => p.lengthSq(),
       resumeContext: vi.fn(async () => undefined),
     };
     sounds = new Map([['zombie_walk', registered()], ['fire', registered(0.8)]]);
     budget = new EnemySoundBudget();
     loops = new SpatialAudioLoops(
-      pool as unknown as AudioPoolManager,
+      pool as unknown as PositionalVoiceFactory,
       playback as unknown as SpatialAudioPlayback,
       sounds,
       budget,
@@ -273,5 +275,39 @@ describe('SpatialAudioLoops', () => {
     expect(loops.size).toBe(0);
     expect(budget.stats().current).toBe(0);
     expect(loops.describe()).toEqual([]);
+  });
+
+  it('gives the enemy slots to the nearest enemies, pausing the far ones that held them', async () => {
+    const max = AUDIO_LIMITS.maxEnemySounds;
+    // The far ones come first and take every slot
+    const far: number[] = [];
+    for (let i = 0; i < max; i++) far.push((await loops.create('zombie_walk', new Vector3(200 + i, 0, 0)))!);
+    const near = (await loops.create('zombie_walk', new Vector3(5, 0, 0)))!;
+    expect(loops.isPaused(near)).toBe(true);
+
+    loops.rebalanceEnemyLoops(1000);
+
+    expect(loops.isPaused(near)).toBe(false);
+    expect(loops.isPaused(far[max - 1])).toBe(true);
+    expect(far.slice(0, max - 1).every((h) => !loops.isPaused(h))).toBe(true);
+    expect(budget.stats().current).toBe(max);
+  });
+
+  it('rebalances at most every enemyLoopRebalanceMs and not while held', async () => {
+    const max = AUDIO_LIMITS.maxEnemySounds;
+    for (let i = 0; i < max; i++) await loops.create('zombie_walk', new Vector3(200 + i, 0, 0));
+    loops.rebalanceEnemyLoops(1000);
+    const near = (await loops.create('zombie_walk', new Vector3(5, 0, 0)))!;
+
+    loops.rebalanceEnemyLoops(1000 + AUDIO_LIMITS.enemyLoopRebalanceMs - 1);
+    expect(loops.isPaused(near)).toBe(true);
+
+    loops.hold(true);
+    loops.rebalanceEnemyLoops(5000);
+    expect(loops.isPaused(near)).toBe(true);
+
+    loops.hold(false);
+    loops.rebalanceEnemyLoops(10000);
+    expect(loops.isPaused(near)).toBe(false);
   });
 });

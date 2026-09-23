@@ -448,6 +448,7 @@ export class ThreeTilesEngine {
 
   setTimescale(scale: number): void {
     this.gameTimescale = scale;
+    this.spatialAudio.setTimescale(scale);
   }
 
   /**
