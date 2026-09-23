@@ -1,7 +1,7 @@
 import { Component, inject, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
-import { MatButtonModule } from '@angular/material/button';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { RunLogFacade } from '../../run-log/run-log.facade';
@@ -18,7 +18,7 @@ import { MAX_RUNS } from '../../run-log/run-log.store';
 @Component({
   selector: 'app-runs-dialog',
   standalone: true,
-  imports: [CommonModule, MatDialogModule, MatButtonModule, TdIconComponent],
+  imports: [CommonModule, MatDialogModule, MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './runs-dialog.component.html',
   styleUrl: './runs-dialog.component.scss',
@@ -35,6 +35,8 @@ export class RunsDialogComponent {
   readonly runs = signal<StoredRun[]>([]);
   readonly loading = signal(true);
   readonly maxRuns = MAX_RUNS;
+  /** "Delete all" asks once, in the footer, before it deletes. */
+  readonly confirmingClear = signal(false);
 
   constructor() {
     void this.reload();
@@ -46,11 +48,15 @@ export class RunsDialogComponent {
     this.loading.set(false);
   }
 
-  /** Waves the run reached, and where it was played. */
-  subtitle(run: StoredRun): string {
-    const where = run.head.location?.name ?? (run.head.map === 'devworld' ? 'DevWorld' : 'a place');
-    const who = run.head.player === 'bot' ? `bot ${run.head.botSkill ?? ''}`.trim() : 'you';
-    return `${where} · wave ${run.waveReached} · ${who}`;
+  /** Where it was played. DevWorld first: its HQ sits at 0,0 and would read as coordinates. */
+  place(run: StoredRun): string {
+    if (run.head.map === 'devworld') return 'DevWorld';
+    return run.head.location?.name ?? 'Unknown place';
+  }
+
+  /** Who played it. */
+  who(run: StoredRun): string {
+    return run.head.player === 'bot' ? `bot ${run.head.botSkill ?? ''}`.trim() : 'you';
   }
 
   save(run: StoredRun): void {
@@ -59,6 +65,12 @@ export class RunsDialogComponent {
 
   async remove(run: StoredRun): Promise<void> {
     await this.runLog.store.remove(run.runId);
+    await this.reload();
+  }
+
+  async clearAll(): Promise<void> {
+    this.confirmingClear.set(false);
+    await this.runLog.store.clear();
     await this.reload();
   }
 

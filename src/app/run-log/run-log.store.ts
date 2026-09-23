@@ -122,6 +122,21 @@ export class RunLogStore {
     }
   }
 
+  /** Delete every kept run. */
+  async clear(): Promise<void> {
+    try {
+      const db = await this.connect();
+      const tx = db.transaction(STORE, 'readwrite');
+      tx.objectStore(STORE).clear();
+      await new Promise<void>((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+      });
+    } catch {
+      // nothing to do: the runs simply stay
+    }
+  }
+
   /** Keep only the newest MAX_RUNS. */
   private async trim(): Promise<void> {
     const all = await this.list();
