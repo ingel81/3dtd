@@ -4,14 +4,15 @@ import { AudioListener, Object3D, PositionalAudio, Scene, Vector3 } from 'three'
 const _pannerVec3 = new Vector3();
 
 /**
- * Manages PositionalAudio object lifecycle: creation, cleanup, and panner updates.
+ * Makes and cleans up the PositionalAudio voices: creation, the container
+ * that places them, cleanup and panner updates.
  *
- * NOTE: PositionalAudio pooling is DISABLED because Three.js Audio objects
- * don't properly support reuse after play/stop cycles. The internal WebAudio
- * node connections can get into inconsistent states.
- * We always create fresh objects and properly disconnect+cleanup when done.
+ * No pooling: Three.js Audio objects do not support reuse after play/stop
+ * cycles, their WebAudio node connections get into inconsistent states.
+ * Every voice is made fresh and disconnected when done. (This class was
+ * AudioPoolManager, from the pooling it no longer does.)
  */
-export class AudioPoolManager {
+export class PositionalVoiceFactory {
   private listener: AudioListener;
   private scene: Scene;
 

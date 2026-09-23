@@ -141,6 +141,9 @@ export class HotkeyService {
         this.photoMode.toggle();
         return true;
       case 'research': return this.openResearch();
+      case 'mute':
+        this.uiStore.masterMuted.update((muted) => !muted);
+        return true;
     }
   }
 

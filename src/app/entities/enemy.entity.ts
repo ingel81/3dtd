@@ -34,13 +34,7 @@ export class Enemy extends GameObject {
   private _movement!: MovementComponent;
   private _audio!: AudioComponent;
 
-  // Random sound timer
-  private randomSoundTimer: ReturnType<typeof setTimeout> | null = null;
   private isMoving = false;
-
-  // Random sounds pool (shuffle ohne Wiederholung)
-  private randomSoundsQueue: number[] = [];
-  private randomSoundsPlaying = false;
 
   // ── Hot-path mirrors and caches ─────────────────────────────────
   // EnemyManager touches every enemy several times a frame. These plain
@@ -53,6 +47,13 @@ export class Enemy extends GameObject {
   deadFlag = false;
   /** Whether the audio component holds loop handles. Written only by AudioComponent (LoopFlagSink). */
   hasAudioLoops = false;
+  /**
+   * Game time to the next random call (ms), -1 while none is due: the enemy
+   * has no randomSound or does not move. Written only by the enemy itself;
+   * EnemyManager ticks it (tickRandomSound) in game time, so the calls stop
+   * in the pause and follow the game speed.
+   */
+  randomSoundLeftMs = -1;
   /** Whether the transform still turns toward its heading. Written only by TransformComponent (TurningFlagSink). */
   isTurning = false;
   /** GlobalRouteGrid's memo of this enemy's last cell evaluation, see updateEnemyPosition(). */
@@ -151,44 +152,15 @@ export class Enemy extends GameObject {
       });
     }
 
-    // Register random sound (not looped, played via timer)
+    // Register random sound (not looped, played in game time, see
+    // tickRandomSound). At volume 1: each call picks its own volume between
+    // randomSoundVolumeMin and Max, which would otherwise be scaled twice.
     if (this.typeConfig.randomSound) {
       this._audio.registerSound('randomSound', this.typeConfig.randomSound, {
-        volume: this.typeConfig.randomSoundVolumeMax ?? 0.5,
+        volume: 1,
         refDistance: this.typeConfig.randomSoundRefDistance ?? 30,
         loop: false,
       });
-    }
-
-    // Register spawn sound (once at spawn)
-    if (this.typeConfig.spawnSound) {
-      this._audio.registerSound('spawn', this.typeConfig.spawnSound, {
-        volume: this.typeConfig.spawnSoundVolume ?? 0.5,
-        refDistance: this.typeConfig.spawnSoundRefDistance ?? 30,
-        loop: false,
-      });
-    }
-
-    // Register random sounds pool (mehrere Sounds ohne Wiederholung)
-    if (this.typeConfig.randomSounds && this.typeConfig.randomSounds.length > 0) {
-      const volume = this.typeConfig.randomSoundsVolume ?? 0.5;
-      const refDistance = this.typeConfig.randomSoundsRefDistance ?? 30;
-      this.typeConfig.randomSounds.forEach((sound, index) => {
-        this._audio.registerSound(`randomSounds_${index}`, sound, {
-          volume,
-          refDistance,
-          loop: false,
-        });
-      });
-    }
-  }
-
-  /**
-   * Play spawn sound (call once when enemy spawns)
-   */
-  playSpawnSound(): void {
-    if (this.typeConfig.spawnSound) {
-      this.audio.play('spawn', false);
     }
   }
 
@@ -244,14 +216,8 @@ export class Enemy extends GameObject {
       this.audio.play('moving', true);
     }
 
-    // Random sound timer for enemies with randomSound
     if (this.typeConfig.randomSound) {
-      this.scheduleNextRandomSound();
-    }
-
-    // Random sounds pool (shuffle without repetition)
-    if (this.typeConfig.randomSounds && this.typeConfig.randomSounds.length > 0) {
-      this.startRandomSoundsPool();
+      this.randomSoundLeftMs = this.nextRandomSoundInterval();
     }
   }
 
@@ -272,121 +238,33 @@ export class Enemy extends GameObject {
     this.movement.pause();
     this.isMoving = false;
     this.audio.stop('moving');
-    this.clearRandomSoundTimer();
+    this.randomSoundLeftMs = -1;
   }
 
   /**
-   * Schedule next random sound playback
+   * Advance the random call by `deltaMs` of game time and play it when due.
+   * EnemyManager calls this only while randomSoundLeftMs >= 0.
    */
-  private scheduleNextRandomSound(): void {
-    if (!this.isMoving || !this.active) return;
-
-    // Clear any existing timer first to prevent accumulation
-    this.clearRandomSoundTimer();
-
-    const minInterval = this.typeConfig.randomSoundMinInterval ?? 2000;
-    const maxInterval = this.typeConfig.randomSoundMaxInterval ?? 5000;
-    const delay = minInterval + Math.random() * (maxInterval - minInterval);
-
-    this.randomSoundTimer = setTimeout(() => {
-      if (this.isMoving && this.active && this.alive) {
-        this.playRandomSound();
-        this.scheduleNextRandomSound();
-      }
-    }, delay);
-  }
-
-  /**
-   * Play random sound with varying volume
-   */
-  private playRandomSound(): void {
+  tickRandomSound(deltaMs: number): void {
+    this.randomSoundLeftMs -= deltaMs;
+    if (this.randomSoundLeftMs > 0) return;
     const minVol = this.typeConfig.randomSoundVolumeMin ?? 0.2;
     const maxVol = this.typeConfig.randomSoundVolumeMax ?? 0.6;
-    const volumeMultiplier = minVol + Math.random() * (maxVol - minVol);
-
-    this.audio.play('randomSound', false, volumeMultiplier);
+    this.audio.play('randomSound', false, minVol + Math.random() * (maxVol - minVol));
+    this.randomSoundLeftMs = this.nextRandomSoundInterval();
   }
 
-  /**
-   * Clear random sound timer
-   */
-  private clearRandomSoundTimer(): void {
-    if (this.randomSoundTimer) {
-      clearTimeout(this.randomSoundTimer);
-      this.randomSoundTimer = null;
-    }
-  }
-
-  /**
-   * Start random sounds pool playback (shuffle without repetition)
-   */
-  private startRandomSoundsPool(): void {
-    if (!this.typeConfig.randomSounds || this.randomSoundsPlaying) return;
-    this.randomSoundsPlaying = true;
-    this.scheduleNextPoolSound();
-  }
-
-  /**
-   * Shuffle and refill the random sounds queue
-   */
-  private refillRandomSoundsQueue(): void {
-    const count = this.typeConfig.randomSounds?.length ?? 0;
-    // Create array [0, 1, 2, ..., count-1]
-    this.randomSoundsQueue = Array.from({ length: count }, (_, i) => i);
-    // Fisher-Yates shuffle
-    for (let i = this.randomSoundsQueue.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [this.randomSoundsQueue[i], this.randomSoundsQueue[j]] =
-        [this.randomSoundsQueue[j], this.randomSoundsQueue[i]];
-    }
-  }
-
-  /**
-   * Schedule next sound from the pool
-   */
-  private scheduleNextPoolSound(): void {
-    if (!this.isMoving || !this.active || !this.alive) {
-      this.randomSoundsPlaying = false;
-      return;
-    }
-
-    // Refill queue if empty
-    if (this.randomSoundsQueue.length === 0) {
-      this.refillRandomSoundsQueue();
-    }
-
-    const minInterval = this.typeConfig.randomSoundsMinInterval ?? 3000;
-    const maxInterval = this.typeConfig.randomSoundsMaxInterval ?? 8000;
-    const delay = minInterval + Math.random() * (maxInterval - minInterval);
-
-    this.randomSoundTimer = setTimeout(() => {
-      if (this.isMoving && this.active && this.alive) {
-        this.playNextPoolSound();
-        this.scheduleNextPoolSound();
-      } else {
-        this.randomSoundsPlaying = false;
-      }
-    }, delay);
-  }
-
-  /**
-   * Play next sound from the shuffled queue
-   */
-  private playNextPoolSound(): void {
-    if (this.randomSoundsQueue.length === 0) {
-      this.refillRandomSoundsQueue();
-    }
-    const index = this.randomSoundsQueue.pop()!;
-    this.audio.play(`randomSounds_${index}`, false);
+  private nextRandomSoundInterval(): number {
+    const minInterval = this.typeConfig.randomSoundMinInterval ?? 2000;
+    const maxInterval = this.typeConfig.randomSoundMaxInterval ?? 5000;
+    return minInterval + Math.random() * (maxInterval - minInterval);
   }
 
   /**
    * Cleanup on destroy
    */
   override destroy(): void {
-    // Stop all sound scheduling
-    this.clearRandomSoundTimer();
-    this.randomSoundsPlaying = false;
+    this.randomSoundLeftMs = -1;
     this.isMoving = false;
 
     super.destroy();

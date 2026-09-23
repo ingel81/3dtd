@@ -1,7 +1,10 @@
 import { Object3D, PositionalAudio, Vector3 } from 'three';
-import { AudioPoolManager } from './audio-pool.manager';
+import { PositionalVoiceFactory } from './positional-voice-factory';
 import { RegisteredSound, SpatialAudioPlayback } from './spatial-audio-playback';
 import { EnemySoundBudget, isEnemySoundId } from './enemy-sound-budget';
+import { AUDIO_LIMITS } from '../../configs/audio.config';
+
+const MAX_AUDIBLE_DISTANCE_SQ = AUDIO_LIMITS.maxAudibleDistance ** 2;
 
 /**
  * Addresses a loop. A number rather than a string: SpiderMonkey atomizes a
@@ -50,9 +53,15 @@ export class SpatialAudioLoops {
   private masterVolume = 1.0;
   /** The game is paused, see hold() */
   private held = false;
+  /** Wall time of the last rebalanceEnemyLoops() that ran */
+  private lastRebalanceMs = -Infinity;
+  /** Scratch lists of rebalanceEnemyLoops(), kept to spare allocations */
+  private readonly nearest: ActiveLoop[] = [];
+  private readonly nearestDistSq: number[] = [];
+  private readonly nearestSet = new Set<ActiveLoop>();
 
   constructor(
-    private readonly pool: AudioPoolManager,
+    private readonly voices: PositionalVoiceFactory,
     private readonly playback: SpatialAudioPlayback,
     private readonly sounds: Map<string, RegisteredSound>,
     private readonly enemyBudget: EnemySoundBudget,
@@ -175,6 +184,51 @@ export class SpatialAudioLoops {
     return !loop.paused;
   }
 
+  /**
+   * Give the enemy-budget slots to the enemy loops nearest the listener, at
+   * most every AUDIO_LIMITS.enemyLoopRebalanceMs of wall time. Without it a
+   * free slot went to whichever waiting enemy updated first, and the twelve
+   * that sounded could be far off while the one in front of the camera was
+   * silent. Playing loops beyond the nearest pause and give their slot back
+   * first, then the nearest waiting ones resume. Not while held.
+   */
+  rebalanceEnemyLoops(nowMs: number): void {
+    if (this.held || nowMs - this.lastRebalanceMs < AUDIO_LIMITS.enemyLoopRebalanceMs) return;
+    this.lastRebalanceMs = nowMs;
+
+    const max = AUDIO_LIMITS.maxEnemySounds;
+    const nearest = this.nearest;
+    const dist = this.nearestDistSq;
+    nearest.length = 0;
+    dist.length = 0;
+    for (const loop of this.activeLoops.values()) {
+      if (!loop.isEnemySound) continue;
+      const d = this.playback.distanceSqToListener(loop.position);
+      if (d > MAX_AUDIBLE_DISTANCE_SQ) continue;
+      if (nearest.length === max && d >= dist[max - 1]) continue;
+      // Insert into the sorted top `max`
+      let i = Math.min(nearest.length, max - 1);
+      while (i > 0 && dist[i - 1] > d) {
+        nearest[i] = nearest[i - 1];
+        dist[i] = dist[i - 1];
+        i--;
+      }
+      nearest[i] = loop;
+      dist[i] = d;
+    }
+
+    const keep = this.nearestSet;
+    keep.clear();
+    for (const loop of nearest) keep.add(loop);
+    for (const loop of this.activeLoops.values()) {
+      if (loop.isEnemySound && !loop.paused && !keep.has(loop)) this.pauseLoop(loop);
+    }
+    for (const loop of nearest) {
+      if (loop.paused) this.resumeLoop(loop);
+    }
+    keep.clear();
+  }
+
   pause(handle: LoopHandle): void {
     const loop = this.activeLoops.get(handle);
     if (loop && !loop.paused) {
@@ -199,8 +253,8 @@ export class SpatialAudioLoops {
     }
 
     if (loop.voice !== null) {
-      this.pool.cleanupAudio(loop.voice.audio);
-      this.pool.removeContainer(loop.voice.container);
+      this.voices.cleanupAudio(loop.voice.audio);
+      this.voices.removeContainer(loop.voice.container);
     }
     this.activeLoops.delete(handle);
   }
@@ -250,7 +304,7 @@ export class SpatialAudioLoops {
     try {
       const voice = loop.voice ?? (loop.voice = this.makeVoice(loop));
       voice.container.updateMatrixWorld(true);
-      this.pool.updatePannerPosition(voice.audio);
+      this.voices.updatePannerPosition(voice.audio);
       // setMasterVolume() skips paused loops: one changed meanwhile applies now
       voice.audio.setVolume(loop.baseVolume * this.masterVolume);
 
@@ -269,7 +323,7 @@ export class SpatialAudioLoops {
   /** The audio of a loop about to play for the first time, at its position. */
   private makeVoice(loop: ActiveLoop): LoopVoice {
     const { buffer, config } = loop;
-    const audio = this.pool.createAudio();
+    const audio = this.voices.createAudio();
     audio.setBuffer(buffer);
     audio.setRefDistance(config.refDistance);
     audio.setRolloffFactor(config.rolloffFactor);
@@ -284,6 +338,6 @@ export class SpatialAudioLoops {
       audio.offset = Math.random() * buffer.duration;
     }
 
-    return { audio, container: this.pool.createContainerAtPosition(audio, loop.position) };
+    return { audio, container: this.voices.createContainerAtPosition(audio, loop.position) };
   }
 }

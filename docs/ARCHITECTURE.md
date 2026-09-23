@@ -851,7 +851,7 @@ ResearchEffects sind in `configs/research/research.types.ts` definiert und werde
 // Framework-agnostic (kein @Injectable)
 class SpatialAudioManager {
   // 3D Audio mit Sound-Budget-Verwaltung
-  // Delegiert an AudioPoolManager, AudioBufferCache, SpatialAudioPlayback
+  // Delegiert an PositionalVoiceFactory, AudioBufferCache, SpatialAudioPlayback
   playAtGeo(soundId: string, lat: number, lon: number, height: number, volumeMultiplier?: number): Promise<PositionalAudio | null>;
   stopAll(): void;
 }

@@ -159,4 +159,38 @@ describe('Enemy entity', () => {
     expect(wasKilled).toBe(true);
     expect(enemy.health.hp).toBe(0);
   });
+
+  describe('Zufallsrufe', () => {
+    it('zählen Spielzeit und rufen mit einer Lautstärke zwischen Min und Max, nicht doppelt skaliert', () => {
+      const enemy = new Enemy('wallsmasher', path);
+      const config = getEnemyType('wallsmasher');
+      const play = vi.spyOn(enemy.audio, 'play').mockResolvedValue();
+      enemy.startMoving();
+      play.mockClear();
+
+      expect(enemy.randomSoundLeftMs).toBeGreaterThanOrEqual(config.randomSoundMinInterval!);
+      enemy.tickRandomSound(config.randomSoundMinInterval! - 1);
+      expect(play).not.toHaveBeenCalled();
+
+      enemy.tickRandomSound(config.randomSoundMaxInterval!);
+      expect(play).toHaveBeenCalledTimes(1);
+      const [, , volume] = play.mock.calls[0];
+      expect(volume).toBeGreaterThanOrEqual(config.randomSoundVolumeMin!);
+      expect(volume).toBeLessThanOrEqual(config.randomSoundVolumeMax!);
+      expect(enemy.randomSoundLeftMs).toBeGreaterThan(0);
+    });
+
+    it('hören auf, sobald der Gegner steht', () => {
+      const enemy = new Enemy('wallsmasher', path);
+      enemy.startMoving();
+      enemy.stopMoving();
+      expect(enemy.randomSoundLeftMs).toBe(-1);
+    });
+
+    it('gibt es nur für Gegner mit randomSound', () => {
+      const enemy = new Enemy('zombie', path);
+      enemy.startMoving();
+      expect(enemy.randomSoundLeftMs).toBe(-1);
+    });
+  });
 });

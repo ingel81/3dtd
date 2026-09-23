@@ -156,6 +156,7 @@ export function createMockTilesEngine() {
       pauseLoop: vi.fn(),
       resumeLoop: vi.fn(),
       holdLoops: vi.fn(),
+      rebalanceEnemyLoops: vi.fn(),
       isWithinAudibleDistance: vi.fn(() => true),
       getListener: vi.fn(() => ({
         getWorldPosition: (target: { set: (x: number, y: number, z: number) => unknown }) => target.set(0, 0, 0),

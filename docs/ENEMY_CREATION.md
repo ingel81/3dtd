@@ -39,7 +39,7 @@ generierten Tabellen von [ENEMY_MODEL_BUDGET.md](ENEMY_MODEL_BUDGET.md#messwerte
 | penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
 | skeleton | unarmored | 20 | 6 | – | Swarm (2026-09-12), Kenney-Modell aus starren Teilen mit Node-Animation (`bakeObjectAnimVAT`), `canBleed: false`, `animationSpeed: 0.93` (Beine passend zu 6 m/s), Template `skeleton_swarm` (Kampagne W19), `splitOnDeath`: ein Kill teilt ihn in 2 `skeleton-minion` (2026-09-13) |
 | skeleton-minion | unarmored | 6 | 7 | – | Nur aus dem Split eines Skeletons, kein Template. Gleiches Modell bei `scale: 2.4` in eigenem VAT-Pool, `animationSpeed: 1.82`, teilt sich nicht weiter |
-| wallsmasher | light | 200 | 4 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` (rennt 10 m/s, im Mittel 7 m/s), **silent-spawn** (kein `spawnSound`) |
+| wallsmasher | light | 200 | 4 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` (rennt 10 m/s, im Mittel 7 m/s), Spawn ohne Sound |
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
 | hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |
 | dragon | heavy | 450 | 6 | ✓ | Air-Boss-Tier, `heightOffset: 20` |
@@ -115,7 +115,7 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
   randomAnimationStart: true, // Start bei zufälligem Frame
 
   // Audio (optional)
-  movingSound: '/assets/sounds/enemy_move.mp3',
+  movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
   movingSoundVolume: 0.4,
   movingSoundRefDistance: 30,
   randomSoundStart: true, // Sound-Position zufällig
@@ -223,7 +223,7 @@ Nur Typen mit `animationVariation: true` **und** `runAnimation` bekommen `Enemy.
 Spielt kontinuierlich während der Bewegung:
 
 ```typescript
-movingSound: '/assets/sounds/zombie-sound.mp3',
+movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
 movingSoundVolume: 0.4,         // 0.0 - 1.0
 movingSoundRefDistance: 25,     // Distanz für volle Lautstärke
 randomSoundStart: true,         // Start bei zufälliger Position
@@ -231,44 +231,21 @@ randomSoundStart: true,         // Start bei zufälliger Position
 
 ### 2. Random Sound (Single)
 
-Spielt in zufälligen Intervallen:
+Spielt in zufälligen Intervallen, solange der Gegner läuft:
 
 ```typescript
-randomSound: '/assets/sounds/big_arm_01.mp3',
-randomSoundMinInterval: 8000,   // Min. 8s zwischen Sounds
-randomSoundMaxInterval: 25000,  // Max. 25s
-randomSoundVolumeMin: 0.2,      // Min. Lautstärke
-randomSoundVolumeMax: 0.6,      // Max. Lautstärke
+randomSound: 'assets/sounds/enemies/wallsmasher/attack.mp3',
+randomSoundMinInterval: 8000,   // Min. 8 s Spielzeit zwischen Sounds
+randomSoundMaxInterval: 25000,  // Max. 25 s
+randomSoundVolumeMin: 0.2,      // Lautstärke je Ruf, zufällig zwischen Min und Max
+randomSoundVolumeMax: 0.6,
 randomSoundRefDistance: 35,
 ```
 
-### 3. Random Sounds Pool (Shuffle)
-
-Mehrere Sounds ohne Wiederholung (Fisher-Yates Shuffle):
-
-```typescript
-randomSounds: [
-  '/assets/sounds/herbert_02.mp3',
-  '/assets/sounds/herbert_03.mp3',
-  '/assets/sounds/herbert_04.mp3',
-],
-randomSoundsMinInterval: 10000,
-randomSoundsMaxInterval: 25000,
-randomSoundsVolume: 0.6,
-randomSoundsRefDistance: 40,
-```
-
-**Verhalten:** Spielt alle Sounds in zufälliger Reihenfolge, dann neu shufflen.
-
-### 4. Spawn Sound
-
-Spielt einmalig beim Spawnen:
-
-```typescript
-spawnSound: '/assets/sounds/herbert_01.mp3',
-spawnSoundVolume: 0.6,
-spawnSoundRefDistance: 40,
-```
+Die Abstände zählen Spielzeit (`Enemy.tickRandomSound()`, von `EnemyManager.update()` je
+Sub-Step): In der Pause ruft niemand, bei 4x ruft jeder viermal so oft. Der Sound ist mit
+Lautstärke 1 registriert, jeder Ruf nimmt seine eigene zwischen Min und Max (bis 2026-09-23
+wirkte das Max doppelt, alle Rufe waren zu leise).
 
 ### Audio-Typen Vergleich
 
@@ -276,8 +253,9 @@ spawnSoundRefDistance: 40,
 |-----|----------|----------|
 | `movingSound` | Kontinuierlicher Sound | Panzer-Motor, Zombie-Stöhnen |
 | `randomSound` | Gelegentliche Sounds | Wallsmasher Brüllen |
-| `randomSounds` | Variierte Sounds (Pool) | Herbert Voice Lines |
-| `spawnSound` | Einmaliger Spawn-Sound | Boss Spawn Roar |
+
+Einen Spawn-Sound und einen Pool mehrerer Zufallsrufe gibt es seit 2026-09-23 nicht mehr: Ihr
+einziger Nutzer war Herbert, dessen Sprachdateien gelöscht sind.
 
 Die Ooze nutzt keines dieser Felder: Ihr Körper liegt entlang der Route, ihre
 Sounds (Blubber-Loop am nächsten Körperpunkt, Splat, Schlürfen) spielt
@@ -615,7 +593,7 @@ Grenzen:
 - Die Länge entlang der Route rechnen die Stationen wie die Bewegung mit Haversine, quer im
   lokalen Rahmen; Unterschiede im Zentimeterbereich.
 - Die Balance (3000 HP, Leck-Faktor 10, 80 m) ist nicht im Spiel getestet.
-- Die Sounds sind nur per Test geprüft (Länge, Pegel, nahtloser Loop), nicht im Browser angehört.
+- Die Sounds sind per Test geprüft (Länge, Pegel, nahtloser Loop) und im Playtest vom 2026-09-14 angehört (Blubbern, Splat; das Schlürfen gesondert).
 
 ---
 
@@ -703,8 +681,7 @@ herbert: {
   walkAnimation: 'Armature|walking_man|baselayer',
   animationSpeed: 1.0,
 
-  // Speech-Sounds aktuell auskommentiert (siehe Datei).
-  // Random Sounds Pool (Shuffle ohne Wiederholung) wäre die Vorlage für künftige Voice Lines.
+  // Ohne Sounds: die Sprachdateien sind seit 2026-09-23 gelöscht.
 
   heightOffset: 0.5,
   healthBarOffset: 7,
@@ -770,9 +747,7 @@ wallsmasher: {
   animationVariation: true,    // Wechselt zwischen Walk/Run
   runSpeedMultiplier: 2.5,     // 2.5x Speed bei Run
 
-  // Kein spawnSound: Wallsmasher-Rush ist als visuelle Überraschung gedacht.
-  // `enemy.entity.ts` gateet beide Pfade (Register + Play) durch
-  // `if (this.typeConfig.spawnSound)`, also bleibt der Spawn ohne Property lautlos.
+  // Spawn ohne Sound: der Rush ist als visuelle Überraschung gedacht.
   randomSound: 'assets/sounds/enemies/wallsmasher/attack.mp3',
   randomSoundMinInterval: 8000,
   randomSoundMaxInterval: 25000,

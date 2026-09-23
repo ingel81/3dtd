@@ -7,10 +7,10 @@ import {
   Vector3,
   Audio,
 } from 'three';
-import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
+import { AUDIO_LIMITS, MASTER_BUS_PRE_GAIN, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
 import { GameEventBus } from '../../game-engine';
 import { AudioBufferCache } from './audio-buffer-cache';
-import { AudioPoolManager } from './audio-pool.manager';
+import { PositionalVoiceFactory } from './positional-voice-factory';
 import { SpatialAudioPlayback, RegisteredSound, SoundDebugEvent } from './spatial-audio-playback';
 import { SpatialAudioLoops, type LoopHandle } from './spatial-audio-loops';
 import { EnemySoundBudget, isEnemySoundId } from './enemy-sound-budget';
@@ -89,7 +89,7 @@ export interface SoundPoolStats {
  *
  * Facade that delegates to:
  * - AudioBufferCache: LRU buffer caching and loading
- * - AudioPoolManager: PositionalAudio lifecycle and panner updates
+ * - PositionalVoiceFactory: PositionalAudio lifecycle and panner updates
  * - SpatialAudioPlayback: playAt, playAtGeo, playGlobal, one-shot management
  * - SpatialAudioLoops: looping sounds by handle, paused out of range
  * - EnemySoundBudget: cap on audible enemy sounds
@@ -98,7 +98,7 @@ export interface SoundPoolStats {
  * context recovery and EventBus wiring.
  */
 export class SpatialAudioManager {
-  private pool: AudioPoolManager;
+  private voices: PositionalVoiceFactory;
   private bufferCache: AudioBufferCache;
   private playback: SpatialAudioPlayback;
   private loops: SpatialAudioLoops;
@@ -126,7 +126,7 @@ export class SpatialAudioManager {
     // soft limiter that tames residual peaks without pumping perceptibly.
     const ctx = listener.context;
     const preGain = ctx.createGain();
-    preGain.gain.setValueAtTime(0.6, ctx.currentTime); // -4.4 dB headroom
+    preGain.gain.setValueAtTime(MASTER_BUS_PRE_GAIN, ctx.currentTime);
     const limiter = ctx.createDynamicsCompressor();
     limiter.threshold.setValueAtTime(-6, ctx.currentTime);
     limiter.knee.setValueAtTime(6, ctx.currentTime);
@@ -163,10 +163,10 @@ export class SpatialAudioManager {
 
     const loader = new AudioLoader();
 
-    this.pool = new AudioPoolManager(listener, scene);
+    this.voices = new PositionalVoiceFactory(listener, scene);
     this.bufferCache = new AudioBufferCache(loader);
-    this.playback = new SpatialAudioPlayback(this.pool, this.sounds, camera);
-    this.loops = new SpatialAudioLoops(this.pool, this.playback, this.sounds, this.enemyBudget);
+    this.playback = new SpatialAudioPlayback(this.voices, this.sounds, camera);
+    this.loops = new SpatialAudioLoops(this.voices, this.playback, this.sounds, this.enemyBudget);
   }
 
   // ─── Geo converter ───────────────────────────────────────
@@ -252,11 +252,11 @@ export class SpatialAudioManager {
   // ─── Scene / Listener access ─────────────────────────────
 
   getScene(): Scene {
-    return this.pool.getScene();
+    return this.voices.getScene();
   }
 
   getListener(): AudioListener {
-    return this.pool.getListener();
+    return this.voices.getListener();
   }
 
   // ─── Audio context ───────────────────────────────────────
@@ -276,6 +276,11 @@ export class SpatialAudioManager {
     this._masterVolume = Math.max(0, Math.min(1, vol));
     this.playback.setMasterVolume(this._masterVolume);
     this.loops.setMasterVolume(this._masterVolume);
+  }
+
+  /** Game speed: one-shots thin out with it (SpatialAudioPlayback.setTimescale). */
+  setTimescale(scale: number): void {
+    this.playback.setTimescale(scale);
   }
 
   // ─── Sound registration ──────────────────────────────────
@@ -376,6 +381,11 @@ export class SpatialAudioManager {
   }
 
   /** The game paused (true) or went on: every loop stands with it, see SpatialAudioLoops.hold(). */
+  /** Enemy loop slots to the nearest enemies, throttled (SpatialAudioLoops.rebalanceEnemyLoops). */
+  rebalanceEnemyLoops(nowMs = performance.now()): void {
+    this.loops.rebalanceEnemyLoops(nowMs);
+  }
+
   holdLoops(held: boolean): void {
     this.loops.hold(held);
   }
@@ -405,7 +415,7 @@ export class SpatialAudioManager {
   dispose(): void {
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.stopAll();
-    const listener = this.pool.getListener();
+    const listener = this.voices.getListener();
     if (listener.parent) {
       listener.parent.remove(listener);
     }

@@ -1,7 +1,7 @@
 import { Audio, Matrix4, Object3D, PositionalAudio, Vector3 } from 'three';
 import { AUDIO_LIMITS, PROJECTILE_SOUND_IDS } from '../../configs/audio.config';
 import { GameEventBus } from '../../game-engine';
-import { AudioPoolManager } from './audio-pool.manager';
+import { PositionalVoiceFactory } from './positional-voice-factory';
 import { SpatialSoundConfig } from './spatial-audio.manager';
 
 /** AUDIO_LIMITS.maxAudibleDistance squared, for the distance checks */
@@ -45,7 +45,7 @@ export interface SoundDebugEvent {
  * Handles playAt, playAtGeo, playGlobal, and panner update logic.
  */
 export class SpatialAudioPlayback {
-  private pool: AudioPoolManager;
+  private voices: PositionalVoiceFactory;
   private sounds: Map<string, RegisteredSound>;
   private activeSounds: ActiveSound[] = [];
   private projectileSoundCount = 0;
@@ -75,19 +75,30 @@ export class SpatialAudioPlayback {
   /** The camera, which carries the AudioListener; see distanceSqToListener() */
   private camera: { readonly matrixWorld: Matrix4 };
   private _masterVolume = 1.0;
+  /** Stretch of the anti-flood window, the game speed from 1 up (setTimescale). */
+  private floodScale = 1;
 
   constructor(
-    pool: AudioPoolManager,
+    voices: PositionalVoiceFactory,
     sounds: Map<string, RegisteredSound>,
     camera: { readonly matrixWorld: Matrix4 }
   ) {
-    this.pool = pool;
+    this.voices = voices;
     this.sounds = sounds;
     this.camera = camera;
   }
 
   setMasterVolume(vol: number): void {
     this._masterVolume = Math.max(0, Math.min(1, vol));
+  }
+
+  /**
+   * Game speed, from 1 up. The anti-flood window of each sample stretches by
+   * it: at 4x four times as many shots fall into a second of wall time, and
+   * the same sample now plays as densely as at 1x instead of four times over.
+   */
+  setTimescale(scale: number): void {
+    this.floodScale = Math.max(1, scale);
   }
 
   // --- Event bus ---
@@ -144,7 +155,7 @@ export class SpatialAudioPlayback {
    * (SpatialAudioLoops.updatePosition), so that was work per enemy per
    * sub-step for a position that changes once a frame.
    */
-  private distanceSqToListener(position: Vector3): number {
+  distanceSqToListener(position: Vector3): number {
     const e = this.camera.matrixWorld.elements;
     const dx = position.x - e[12];
     const dy = position.y - e[13];
@@ -168,7 +179,7 @@ export class SpatialAudioPlayback {
     // Always check current state. The browser can suspend the context
     // again later (tab-switch, audio focus loss, idle policies), so a
     // one-shot flag would leave us stuck silent on the second suspension.
-    const context = this.pool.getListener().context;
+    const context = this.voices.getListener().context;
     if (context.state === 'suspended') {
       await context.resume().catch(() => { /* needs user gesture */ });
     }
@@ -192,6 +203,8 @@ export class SpatialAudioPlayback {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
       return null;
     }
+    // Muted (sound effects at 0, or a bot plays): no voice at all
+    if (this._masterVolume === 0) return null;
 
     await this.resumeContext();
 
@@ -217,9 +230,9 @@ export class SpatialAudioPlayback {
     // (spawn, boss roar) get strict throttling and low polyphony so they
     // can't pile up into mush.
     const durationMs = sound.buffer.duration * 1000;
-    const minIntervalMs = sound.config.minIntervalMs >= 0
+    const minIntervalMs = (sound.config.minIntervalMs >= 0
       ? sound.config.minIntervalMs
-      : Math.min(80, Math.max(10, durationMs * 0.05));
+      : Math.min(80, Math.max(10, durationMs * 0.05))) * this.floodScale;
     const maxInstances = sound.config.maxInstances >= 0
       ? sound.config.maxInstances
       : durationMs < 500 ? 8 : durationMs < 1500 ? 4 : 2;
@@ -269,7 +282,7 @@ export class SpatialAudioPlayback {
     }
 
     // Create audio + container
-    const audio = this.pool.createAudio();
+    const audio = this.voices.createAudio();
     audio.setBuffer(sound.buffer);
     audio.setRefDistance(sound.config.refDistance);
     audio.setRolloffFactor(sound.config.rolloffFactor);
@@ -282,7 +295,7 @@ export class SpatialAudioPlayback {
       audio.setMaxDistance(sound.config.maxDistance);
     }
 
-    const container = this.pool.createContainerAtPosition(audio, position);
+    const container = this.voices.createContainerAtPosition(audio, position);
 
     // Track active sound
     const activeSound: ActiveSound = {
@@ -305,8 +318,8 @@ export class SpatialAudioPlayback {
         }
         this.activeSounds.pop(); // we just pushed it on line above
         this.decrementActiveBuffer(sound.buffer);
-        this.pool.cleanupAudio(audio);
-        this.pool.removeContainer(container);
+        this.voices.cleanupAudio(audio);
+        this.voices.removeContainer(container);
         return null;
       }
       this.emitDebug('play', soundId, isProjectile ? 'projectile' : 'one-shot');
@@ -318,8 +331,8 @@ export class SpatialAudioPlayback {
       }
       this.activeSounds.pop();
       this.decrementActiveBuffer(sound.buffer);
-      this.pool.cleanupAudio(audio);
-      this.pool.removeContainer(container);
+      this.voices.cleanupAudio(audio);
+      this.voices.removeContainer(container);
       return null;
     }
 
@@ -362,6 +375,7 @@ export class SpatialAudioPlayback {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
       return null;
     }
+    if (this._masterVolume === 0) return null;
 
     await this.resumeContext();
 
@@ -372,7 +386,7 @@ export class SpatialAudioPlayback {
       return null;
     }
 
-    const audio = new Audio(this.pool.getListener());
+    const audio = new Audio(this.voices.getListener());
     audio.setBuffer(sound.buffer);
     audio.setVolume(sound.config.volume * volumeMultiplier * this._masterVolume);
     audio.setLoop(sound.config.loop);
@@ -461,9 +475,9 @@ export class SpatialAudioPlayback {
     if (active.audio.buffer) {
       this.decrementActiveBuffer(active.audio.buffer);
     }
-    this.pool.cleanupAudio(active.audio);
+    this.voices.cleanupAudio(active.audio);
     if (active.container) {
-      this.pool.removeContainer(active.container);
+      this.voices.removeContainer(active.container);
     }
   }
 

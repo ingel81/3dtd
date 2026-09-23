@@ -22,6 +22,11 @@ describe('resolveHotkey', () => {
     expect(resolveHotkey(key('Escape'))).toEqual({ kind: 'cancel' });
   });
 
+  it('mutes all sound on M', () => {
+    expect(resolveHotkey(key('m'))).toEqual({ kind: 'mute' });
+    expect(resolveHotkey(key('M', { shiftKey: true }))).toEqual({ kind: 'mute' });
+  });
+
   it('pauses on P and leaves Shift+P to the debug toggle', () => {
     expect(resolveHotkey(key('p'))).toEqual({ kind: 'pause' });
     expect(resolveHotkey(key('P'))).toEqual({ kind: 'pause' }); // Caps Lock

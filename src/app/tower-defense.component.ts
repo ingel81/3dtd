@@ -456,6 +456,15 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   constructor() {
     this.facade.initEffects(this);
 
+    // Volumes from the audio menu and M as they change, silent while a bot
+    // plays; applyAudioVolumes() once more when the engine is up
+    effect(() => {
+      this.uiStore.effectiveMusicVolume();
+      this.uiStore.effectiveSfxVolume();
+      this.botEnabled();
+      untracked(() => this.applyAudioVolumes());
+    });
+
     // The controls hint waits for the intro flight: it shares the bottom
     // centre with "Skip intro", and 15 s under a flight would be 15 s unseen.
     effect(() => {
@@ -515,16 +524,19 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private async startGameSequence(): Promise<void> {
     this.gameStarted = true;
     await this.facade.startGame(this.gameCanvas.nativeElement);
-    this.applyPersistedAudioSettings();
+    this.applyAudioVolumes();
     this.controlsHintArmed.set(true);
   }
 
-  /** Apply persisted audio volume/mute settings after engine init */
-  private applyPersistedAudioSettings(): void {
-    const musicVol = this.uiStore.musicMuted() ? 0 : this.uiStore.musicVolume();
-    const sfxVol = this.uiStore.sfxMuted() ? 0 : this.uiStore.sfxVolume();
-    this.gameState.backgroundMusic?.setVolume(musicVol);
-    this.engine?.spatialAudio.setMasterVolume(sfxVol);
+  /**
+   * Hand the store's effective volumes to the music and the spatial audio,
+   * where they exist yet. A bot plays silent: at up to 75x its sound is noise,
+   * and a muted voice is not even created.
+   */
+  private applyAudioVolumes(): void {
+    const bot = this.botEnabled();
+    this.gameState.backgroundMusic?.setVolume(bot ? 0 : this.uiStore.effectiveMusicVolume());
+    this.engine?.spatialAudio.setMasterVolume(bot ? 0 : this.uiStore.effectiveSfxVolume());
   }
 
   /**
@@ -781,14 +793,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   onDpsBinsToggled(visible: boolean): void {
     this.facade.onDpsBinsToggled(visible);
-  }
-
-  onMusicVolumeChanged(volume: number): void {
-    this.gameState.backgroundMusic?.setVolume(volume);
-  }
-
-  onSfxVolumeChanged(volume: number): void {
-    this.engine?.spatialAudio.setMasterVolume(volume);
   }
 
   onPlayRouteAnimation(): void {

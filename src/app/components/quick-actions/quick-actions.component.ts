@@ -108,12 +108,10 @@ export class QuickActionsComponent {
   readonly readyHero = output<void>();
   readonly photoModeRequested = output<void>();
 
-  // Audio outputs
-  readonly musicVolumeChanged = output<number>();
-  readonly sfxVolumeChanged = output<number>();
-
-  // Computed: any channel muted?
-  readonly anyMuted = computed(() => this.uiStore.musicMuted() || this.uiStore.sfxMuted());
+  // Computed: anything muted? The store's volumes reach the audio by
+  // themselves (TowerDefenseComponent)
+  readonly anyMuted = computed(() =>
+    this.uiStore.masterMuted() || this.uiStore.musicMuted() || this.uiStore.sfxMuted());
 
   toggleVfx(key: VfxSwitch): void {
     const change: Partial<VfxSettings> = {};
@@ -126,28 +124,31 @@ export class QuickActionsComponent {
     this.debugFacade.onVfxSettingsChanged({ colorGrading: preset });
   }
 
-  // Audio controls
+  // Audio controls: they set the store only
+  onMasterSlider(event: Event): void {
+    this.uiStore.masterVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
+    this.uiStore.masterMuted.set(false);
+  }
+
   onMusicSlider(event: Event): void {
-    const val = (event.target as HTMLInputElement).valueAsNumber / 100;
-    this.uiStore.musicVolume.set(val);
-    if (this.uiStore.musicMuted()) this.uiStore.musicMuted.set(false);
-    this.musicVolumeChanged.emit(val);
+    this.uiStore.musicVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
+    this.uiStore.musicMuted.set(false);
   }
 
   onSfxSlider(event: Event): void {
-    const val = (event.target as HTMLInputElement).valueAsNumber / 100;
-    this.uiStore.sfxVolume.set(val);
-    if (this.uiStore.sfxMuted()) this.uiStore.sfxMuted.set(false);
-    this.sfxVolumeChanged.emit(val);
+    this.uiStore.sfxVolume.set((event.target as HTMLInputElement).valueAsNumber / 100);
+    this.uiStore.sfxMuted.set(false);
+  }
+
+  toggleMasterMute(): void {
+    this.uiStore.masterMuted.update(v => !v);
   }
 
   toggleMusicMute(): void {
     this.uiStore.musicMuted.update(v => !v);
-    this.musicVolumeChanged.emit(this.uiStore.musicMuted() ? 0 : this.uiStore.musicVolume());
   }
 
   toggleSfxMute(): void {
     this.uiStore.sfxMuted.update(v => !v);
-    this.sfxVolumeChanged.emit(this.uiStore.sfxMuted() ? 0 : this.uiStore.sfxVolume());
   }
 }

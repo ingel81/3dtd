@@ -359,6 +359,28 @@ describe('SpatialAudioManager', () => {
       expect(await manager.playAt('s', NEAR)).not.toBeNull();
     });
 
+    it('stretches the flood window with the game speed, so 4x plays a sample as densely as 1x', async () => {
+      const { manager, ready } = setup();
+      await ready('s', 's.mp3', { minIntervalMs: 50 });
+      manager.setTimescale(4);
+
+      expect(await manager.playAt('s', NEAR)).not.toBeNull();
+      now += 199;
+      expect(await manager.playAt('s', NEAR)).toBeNull();
+      now += 1;
+      expect(await manager.playAt('s', NEAR)).not.toBeNull();
+    });
+
+    it('creates no voice at all while sound effects are at 0', async () => {
+      const { manager, ready } = setup();
+      await ready('s', 's.mp3');
+      manager.setMasterVolume(0);
+      expect(await manager.playAt('s', NEAR)).toBeNull();
+      expect(await manager.playGlobal('s')).toBeNull();
+      manager.setMasterVolume(0.5);
+      expect(await manager.playAt('s', NEAR)).not.toBeNull();
+    });
+
     it('caps concurrent instances of one sample and frees the slot when one ends', async () => {
       const { manager, ready } = setup();
       await ready('s', 's.mp3', { maxInstances: 2, minIntervalMs: 0 });
