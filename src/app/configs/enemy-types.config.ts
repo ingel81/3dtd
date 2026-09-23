@@ -1129,6 +1129,28 @@ const MAX_SPLIT_DEPTH = 4;
  * Bodies one enemy of `id` can put on the route: itself plus everything a
  * kill splits it into, recursively. 1 for a type without splitOnDeath.
  */
+/**
+ * A body's share of its wave's kill gold, from its base HP. The square root:
+ * a Herbert (4000 HP) pays about six zombies, not forty, so a boss is worth
+ * hunting without one enemy carrying half the wave's gold.
+ */
+export function enemyRewardWeight(baseHp: number): number {
+  return Math.sqrt(Math.max(1, baseHp));
+}
+
+/**
+ * Reward weight of one enemy of `id` and everything a kill splits it into,
+ * recursively: what it adds to its wave's total (WaveManager).
+ */
+export function lineageRewardWeight(id: EnemyTypeId, depth = 0): number {
+  const type = ENEMY_TYPES[id];
+  if (!type) return 1;
+  const own = enemyRewardWeight(type.baseHp);
+  const split = type.splitOnDeath;
+  if (!split || depth >= MAX_SPLIT_DEPTH) return own;
+  return own + split.count * lineageRewardWeight(split.type, depth + 1);
+}
+
 export function splitBodyCount(id: EnemyTypeId, depth = 0): number {
   const split = ENEMY_TYPES[id]?.splitOnDeath;
   if (!split || depth >= MAX_SPLIT_DEPTH) return 1;

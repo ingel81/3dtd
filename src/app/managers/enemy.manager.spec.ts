@@ -20,7 +20,10 @@ import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 import { TIMING } from '../configs/timing.config';
-import { enemyDeathDuration } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, type EnemyTypeId } from '../configs/enemy-types.config';
+
+/** Reward weight of `n` bodies of `type`: what the wave manager reports for them. */
+const bodies = (n: number, type: EnemyTypeId = 'zombie') => n * enemyRewardWeight(ENEMY_TYPES[type].baseHp);
 
 const createMockTilesEngine = () => ({
   enemies: {
@@ -150,7 +153,7 @@ describe('EnemyManager', () => {
     // Wire wave-context so the kill-budget accumulator pays out a real reward
     // (default providers return 0 → goldBudget 0 → credits 0).
     manager.setWaveNumberProvider(() => 1);
-    manager.setWaveSizeProvider(() => 1);
+    manager.setWaveWeightProvider(() => bodies(1, 'tank'));
 
     const path: GeoPosition[] = [
       { lat: 0, lon: 0, height: 0 },
@@ -227,9 +230,21 @@ describe('EnemyManager', () => {
       return credits;
     };
 
+    it('pays a heavy body more than a light one of the same wave, by base HP', () => {
+      manager.setWaveNumberProvider(() => 10);
+      manager.setWaveWeightProvider(() => bodies(1, 'herbert') + bodies(1, 'zombie'));
+      const credits = collectCredits();
+
+      manager.kill(manager.spawn(straightPath, 'zombie'));
+      manager.kill(manager.spawn(straightPath, 'herbert'));
+
+      expect(credits[1]).toBeGreaterThan(credits[0] * 3);
+      expect(credits[0] + credits[1]).toBe(waveGold(10).kill);
+    });
+
     it('per-kill rewards sum exactly to the wave budget when every enemy dies', () => {
       manager.setWaveNumberProvider(() => 1);
-      manager.setWaveSizeProvider(() => 10);
+      manager.setWaveWeightProvider(() => bodies(10));
       const credits = collectCredits();
 
       for (let i = 0; i < 10; i++) {
@@ -244,7 +259,7 @@ describe('EnemyManager', () => {
       // The bug: Math.max(1, round(8000/5000)) × 5000 = 5000 (or 8000 with round=2)
       // capped at floor → still ≥ budget. Accumulator must clamp at exactly budget.
       manager.setWaveNumberProvider(() => 19);
-      manager.setWaveSizeProvider(() => 5000);
+      manager.setWaveWeightProvider(() => bodies(5000, 'rat'));
       const credits = collectCredits();
 
       // Use a fraction of the wave (300 kills) — sum must stay ≤ proportional share
@@ -260,7 +275,7 @@ describe('EnemyManager', () => {
 
     it('extra kills past expected wave size pay 0 gold', () => {
       manager.setWaveNumberProvider(() => 1);
-      manager.setWaveSizeProvider(() => 3);
+      manager.setWaveWeightProvider(() => bodies(3));
       const credits = collectCredits();
 
       for (let i = 0; i < 5; i++) {
@@ -276,7 +291,7 @@ describe('EnemyManager', () => {
     it('wave change resets the accumulator', () => {
       let waveNum = 1;
       manager.setWaveNumberProvider(() => waveNum);
-      manager.setWaveSizeProvider(() => 2);
+      manager.setWaveWeightProvider(() => bodies(2));
       const credits = collectCredits();
 
       // Drain wave 1 completely
@@ -296,7 +311,7 @@ describe('EnemyManager', () => {
 
     it('a debug kill does not consume slots from the budget', () => {
       manager.setWaveNumberProvider(() => 1);
-      manager.setWaveSizeProvider(() => 3);
+      manager.setWaveWeightProvider(() => bodies(3));
       const credits = collectCredits();
 
       // Debug-kill first — must not eat into the budget
@@ -315,7 +330,7 @@ describe('EnemyManager', () => {
     it('zero gold budget pays zero per kill', () => {
       // waveNum=0 returns { kill: 0, complete: 0 } from waveGold
       manager.setWaveNumberProvider(() => 0);
-      manager.setWaveSizeProvider(() => 5);
+      manager.setWaveWeightProvider(() => bodies(5));
       const credits = collectCredits();
 
       for (let i = 0; i < 5; i++) {
@@ -327,7 +342,7 @@ describe('EnemyManager', () => {
 
     it('leaks reduce earned gold (uncollected kills = lost budget)', () => {
       manager.setWaveNumberProvider(() => 1);
-      manager.setWaveSizeProvider(() => 4);
+      manager.setWaveWeightProvider(() => bodies(4));
       const credits = collectCredits();
 
       // Only 2 of 4 enemies die — accumulator should pay out partial budget

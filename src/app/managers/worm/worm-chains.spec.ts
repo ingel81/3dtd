@@ -17,7 +17,7 @@ import {
   tickEngine,
   TEST_SPAWN_POINTS,
 } from '../../integration/test-helpers';
-import { ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { ENEMY_TYPES, enemyRewardWeight } from '../../configs/enemy-types.config';
 import { waveGold } from '../../configs/campaign.config';
 import { getRouteProfile } from '../../utils/route-corridor';
 import { wormSegmentCount, wormSway, type WormGroup } from './worm-group';
@@ -440,7 +440,7 @@ describe('Worm chains', () => {
     beforeEach(() => {
       m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
       m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
-      m.enemyManager.setWaveSizeProvider(() => m.waveManager.getExpectedBodyCount());
+      m.enemyManager.setWaveWeightProvider(() => m.waveManager.getExpectedBodyWeight());
     });
 
     const startWorm = (): WormGroup => {
@@ -460,7 +460,7 @@ describe('Worm chains', () => {
     it('counts every segment as a body of the wave', () => {
       const group = startWorm();
       expect(m.waveManager.getExpectedEnemyCount()).toBe(1);
-      expect(m.waveManager.getExpectedBodyCount()).toBe(group.size);
+      expect(m.waveManager.getExpectedBodyWeight()).toBeCloseTo(group.size * enemyRewardWeight(ENEMY_TYPES['worm'].baseHp));
     });
 
     it('lasts while segments are still in the portal', () => {
@@ -501,7 +501,8 @@ describe('Worm chains', () => {
       const budget = waveGold(1).kill;
       const worm = credits.slice(1);
       expect(credits.reduce((s, c) => s + c, 0)).toBe(budget);
-      expect(Math.max(...worm) - Math.min(...worm)).toBeLessThanOrEqual(1);
+      // Every segment weighs the same; the last one takes the rounding remainder
+      expect(Math.max(...worm.slice(0, -1)) - Math.min(...worm)).toBeLessThanOrEqual(1);
     });
   });
 });

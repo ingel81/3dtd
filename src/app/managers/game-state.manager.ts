@@ -363,9 +363,9 @@ export class GameStateManager {
 
     // Initialize entity managers (no callbacks - use events)
     this.enemyManager.initialize(tilesEngine);
-    // Wire wave-number + wave-size providers for the kill-reward formula
+    // Wire wave-number + wave-weight providers for the kill-reward formula
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
-    this.enemyManager.setWaveSizeProvider(() => this.waveManager.getExpectedBodyCount());
+    this.enemyManager.setWaveWeightProvider(() => this.waveManager.getExpectedBodyWeight());
     // Abilities fire during a wave only
     this.abilityManager.setPhaseProvider(() => this.waveManager.phase());
 
@@ -417,7 +417,8 @@ export class GameStateManager {
     this.bloodMoonService = new BloodMoonService(this.eventBus, tilesEngine.bloodMoon);
 
     // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
-    // Leaks cost HP, capped per wave; emits health:changed (HQDamageService)
+    // Leaks cost HP in full, no cap per wave (9cae86cc): the survivability cap
+    // sizes a wave before it walks. Emits health:changed (HQDamageService)
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
       this.healthLedger.applyLeak(event.damage);
     }));

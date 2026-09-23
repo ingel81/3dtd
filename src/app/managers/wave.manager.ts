@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
-import { EnemyTypeId, splitBodyCount } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, enemyRewardWeight, lineageRewardWeight } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import { closeCallHp } from '../configs/game-balance.config';
@@ -103,8 +103,9 @@ export class WaveManager implements IGameManager {
   // Track spawning state to prevent premature wave completion
   private expectedEnemyCount = 0;
   private spawnedEnemyCount = 0;
-  // Bodies the wave can field, split children included (kill-gold slots)
-  private expectedBodyCount = 0;
+  // Reward weight of every body the wave can field, split children and worm
+  // segments included: EnemyManager spreads the kill gold by it
+  private expectedBodyWeight = 0;
 
   /**
    * Maximum number of enemies that may be spawned in a single tickSpawn() call
@@ -183,12 +184,13 @@ export class WaveManager implements IGameManager {
   }
 
   /**
-   * Bodies the current wave can field: every scheduled enemy plus everything
-   * a kill splits it into (splitBodyCount). EnemyManager spreads the kill
-   * budget over them, so a split never raises the wave's gold.
+   * Reward weight of every body the current wave can field: each scheduled
+   * enemy plus everything a kill splits it into (lineageRewardWeight), and a
+   * worm's segments once it is out. EnemyManager spreads the kill budget by
+   * it, so a split never raises the wave's gold.
    */
-  getExpectedBodyCount(): number {
-    return this.expectedBodyCount;
+  getExpectedBodyWeight(): number {
+    return this.expectedBodyWeight;
   }
 
   private registerDebugHandlers(): void {
@@ -225,7 +227,7 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking (manual mode - unlimited spawning)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
-    this.expectedBodyCount = 0;
+    this.expectedBodyWeight = 0;
     this.damageTakenThisWave = 0;
     this._waveCheckDirty = true;
     this._cachedWaveComplete = false;
@@ -257,9 +259,9 @@ export class WaveManager implements IGameManager {
     this.phase.set('wave');
 
     this.expectedEnemyCount = entries.length;
-    let bodies = 0;
-    for (const entry of entries) bodies += splitBodyCount(entry.enemyType);
-    this.expectedBodyCount = bodies;
+    let weight = 0;
+    for (const entry of entries) weight += lineageRewardWeight(entry.enemyType);
+    this.expectedBodyWeight = weight;
     this.spawnedEnemyCount = 0;
     this.damageTakenThisWave = 0;
     this._waveCheckDirty = true;
@@ -298,7 +300,9 @@ export class WaveManager implements IGameManager {
       if (path && path.length > 1) {
         const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal');
         // A worm puts all its segments on the route from this one entry
-        if (enemy.worm !== null) this.expectedBodyCount += enemy.worm.group.size - 1;
+        if (enemy.worm !== null) {
+          this.expectedBodyWeight += (enemy.worm.group.size - 1) * enemyRewardWeight(ENEMY_TYPES[entry.enemyType].baseHp);
+        }
         spawnIndex++;
         this.spawnedEnemyCount++;
         consecutiveFailures = 0;
@@ -557,7 +561,7 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking counters (prevents stale state after game over mid-wave)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
-    this.expectedBodyCount = 0;
+    this.expectedBodyWeight = 0;
     this._waveCheckDirty = true;
     this._cachedWaveComplete = false;
     this._resetStuckDetector();

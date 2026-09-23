@@ -21,6 +21,7 @@ import {
   tickEngine,
 } from './test-helpers';
 import { waveGold, isBossWave } from '../configs/campaign.config';
+import { ENEMY_TYPES, enemyRewardWeight, lineageRewardWeight } from '../configs/enemy-types.config';
 import type { Enemy } from '../entities/enemy.entity';
 
 /** Managers wired as GameStateManager wires them for leaks and the kill budget. */
@@ -28,7 +29,7 @@ function createWiredManagers(): TestManagers {
   const m = createTestManagers(); // resets the id counter
   m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
   m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
-  m.enemyManager.setWaveSizeProvider(() => m.waveManager.getExpectedBodyCount());
+  m.enemyManager.setWaveWeightProvider(() => m.waveManager.getExpectedBodyWeight());
   return m;
 }
 
@@ -140,7 +141,7 @@ describe('Ooze integration', () => {
     it('counts the ooze and its twenty clumps as bodies of the wave', () => {
       startOoze();
       expect(m.waveManager.getExpectedEnemyCount()).toBe(1);
-      expect(m.waveManager.getExpectedBodyCount()).toBe(21);
+      expect(m.waveManager.getExpectedBodyWeight()).toBeCloseTo(lineageRewardWeight('ooze'));
     });
 
     it('pays exactly the wave budget when the ooze and all its clumps die', () => {
@@ -148,7 +149,10 @@ describe('Ooze integration', () => {
 
       expect(credits).toHaveLength(21);
       expect(paid()).toBe(waveGold(1).kill);
-      expect(Math.max(...credits) - Math.min(...credits)).toBeLessThanOrEqual(1);
+      // The ooze weighs its own HP, each clump a clump's
+      const [oozeCredit, ...clumpCredits] = credits;
+      expect(oozeCredit).toBeGreaterThan(Math.max(...clumpCredits));
+      expect(Math.max(...clumpCredits.slice(0, -1)) - Math.min(...clumpCredits)).toBeLessThanOrEqual(1);
       tickEngine(m, 3_000, clock); // the clumps' death animation is over
       expect(m.waveManager.checkWaveComplete()).toBe(true);
     });
@@ -160,12 +164,14 @@ describe('Ooze integration', () => {
       expect(alive(CLUMP)).toHaveLength(7);
       for (const clump of alive(CLUMP)) m.enemyManager.kill(clump);
 
-      // 8 of 21 slots paid; each paid slot floors its share and leaves the
-      // remainder to the later slots, which stay unpaid
+      // The ooze and 7 of 20 clumps paid; each floors its share and leaves the
+      // remainder to the later bodies, which stay unpaid
       const budget = waveGold(1).kill;
+      const share = (enemyRewardWeight(ENEMY_TYPES.ooze.baseHp) + 7 * enemyRewardWeight(ENEMY_TYPES[CLUMP].baseHp))
+        / lineageRewardWeight('ooze');
       expect(credits).toHaveLength(8);
-      expect(paid()).toBeGreaterThanOrEqual(8 * Math.floor(budget / 21));
-      expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 8) / 21));
+      expect(paid()).toBeGreaterThanOrEqual(Math.floor(budget * share) - 8);
+      expect(paid()).toBeLessThanOrEqual(Math.ceil(budget * share));
       tickEngine(m, 3_000, clock);
       expect(m.waveManager.checkWaveComplete()).toBe(true);
     });

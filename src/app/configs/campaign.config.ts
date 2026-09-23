@@ -67,27 +67,31 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   { template: 'wraith_storm',     killGold:  4667, completionGold:  2333 }, // 17 — ethereal swarm
   { template: 'armor_gauntlet',   killGold:  6000, completionGold:  3000 }, // 18 — multi-armor mix
   { template: 'skeleton_swarm',   killGold:  8000, completionGold:  4000 }, // 19: mega-swarm checkpoint (skeletons, was a second rat_tide)
-  { template: 'boss_herbert',     killGold: 12000, completionGold:  6000 }, // 20 — BOSS 2 (bonus peak)
+  { template: 'boss_herbert',     killGold: 12000, completionGold:  6000 }, // 20 — BOSS 2, ships as the Ooze (CAMPAIGN_BOSS_VARIANTS; bonus peak)
+  // W21-30 grow by x1.2 a wave from W20's 12,000 (User, 2026-09-23). At
+  // about x1.3 a player sat on 350,000 unspent gold by W28 and the income
+  // fell off a cliff past W30; the gold moved into the taper (waveGold).
+  //
   // W21-29 used to be nine waves in a row that each demanded a different
   // counter, with no wave in between to build in. Measured over 107 expert
   // runs: 85% of them ended in waves 23 to 26, four of those nine. A missing
   // answer did not cost a wave, it cost the chain. Two waves that ask for
   // nothing but damage now sit between the specialists, and no two waves in a
   // row ask for the same thing (BALANCING_PLAN.md, Tuning-Runde 2).
-  { template: 'bat_swarm',        killGold: 10667, completionGold:  5333 }, // 21 — air pressure
-  { template: 'tank_column',      killGold: 14667, completionGold:  7333 }, // 22 — heavy pressure
-  { template: 'spider_swarm',     killGold: 18667, completionGold:  9333 }, // 23 — breather: mass, no counter needed
+  { template: 'bat_swarm',        killGold:  14400, completionGold:   7200 }, // 21 — air pressure
+  { template: 'tank_column',      killGold:  17300, completionGold:   8650 }, // 22 — heavy pressure
+  { template: 'spider_swarm',     killGold:  20700, completionGold:  10350 }, // 23 — breather: mass, no counter needed
   // The factors below are measured, not guessed: each round of 80+ expert runs
   // reads the HP a wave costs and what share of runs it ends, and moves the
   // wave that stands out. Nothing heals in this game, so the last ten waves
   // have to be survivable for a defense that arrives worn down.
-  { template: 'ghost_surge',      killGold: 24000, completionGold: 12000, intensity: 0.85 }, // 24 — ethereal pressure
-  { template: 'mammoth_siege',    killGold: 30000, completionGold: 15000, intensity: 0.75 }, // 25 — fortified pressure
-  { template: 'zombie_horde',     killGold: 40000, completionGold: 20000, intensity: 0.5 },  // 26 — breather: mass, no counter needed
-  { template: 'dragon_elite',     killGold: 53333, completionGold: 26667, intensity: 0.7 },  // 27 — flying-heavy pressure
-  { template: 'mech_army',        killGold: 73333, completionGold: 36667 }, // 28 — heavy mass
-  { template: 'chaos_wave',       killGold: 93333, completionGold: 46667 }, // 29 — final mix
-  { template: 'boss_herbert',     killGold:120000, completionGold: 60000 }, // 30 — BOSS 3 (season finale, bonus peak)
+  { template: 'ghost_surge',      killGold:  24900, completionGold:  12450, intensity: 0.85 }, // 24 — ethereal pressure
+  { template: 'mammoth_siege',    killGold:  29900, completionGold:  14950, intensity: 0.75 }, // 25 — fortified pressure
+  { template: 'zombie_horde',     killGold:  35800, completionGold:  17900, intensity: 0.5 },  // 26 — breather: mass, no counter needed
+  { template: 'dragon_elite',     killGold:  43000, completionGold:  21500, intensity: 0.7 },  // 27 — flying-heavy pressure
+  { template: 'mech_army',        killGold:  51600, completionGold:  25800 }, // 28 — heavy mass
+  { template: 'chaos_wave',       killGold:  61900, completionGold:  30950 }, // 29 — final mix
+  { template: 'boss_herbert',     killGold:  77400, completionGold:  38700 }, // 30 — BOSS 3, ships as Skarnax (CAMPAIGN_BOSS_VARIANTS; season finale, bonus peak)
 ] as const;
 
 // Past W30 the campaign pins no template (templateForWave returns null,
@@ -209,7 +213,11 @@ export function templateObjectForWave(waveNum: number): Template | null {
  *
  * Applied per wave past the campaign, down to GOLD_SUSTAIN_FRACTION.
  */
-const GOLD_TAPER_PER_WAVE = 0.5;
+// 0.85 since 2026-09-23, before 0.5. Halving per wave took a human run from
+// 99,600 gold at W31 to 25,650 at W33 while the waves kept growing; the
+// campaign's flatter W21-30 hands the difference to the taper, and a 100-wave
+// run still totals ~1.7M against the 1.39M roster.
+const GOLD_TAPER_PER_WAVE = 0.85;
 
 /**
  * Floor on post-campaign income, as a fraction of the last authored wave.

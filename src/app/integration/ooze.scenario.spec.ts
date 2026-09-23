@@ -58,7 +58,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     m = createTestManagers();
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
     m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
-    m.enemyManager.setWaveSizeProvider(() => m.waveManager.getExpectedBodyCount());
+    m.enemyManager.setWaveWeightProvider(() => m.waveManager.getExpectedBodyWeight());
     // Leaks cost HP inside the wave's budget, as in GameStateManager.initialize
     ledger = new BaseHealthLedger(m.eventBus);
     m.eventBus.on('enemy:reached-base', (e) => ledger.applyLeak(e.damage));

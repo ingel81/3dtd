@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { MovementComponent } from '../game-components/movement.component';
-import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration, enemyRewardWeight } from '../configs/enemy-types.config';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
@@ -143,14 +143,13 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Set via setWaveNumberProvider() after construction (loose coupling).
   private getWaveNumber: () => number = () => 0;
 
-  // Deterministic kill-reward accumulator. Splits the wave's gold-budget
-  // exactly across expected enemy slots — last paid kill picks up the
+  // Deterministic kill-reward accumulator. Splits the wave's gold budget
+  // across its bodies by their base HP — the last paid kill picks up the
   // floor-rounding remainder so the total never exceeds the budget.
-  // Tracked across kills via remainingKillBudget/Slots; rewardWaveNumber
-  // triggers a reset when the wave changes.
+  // rewardWaveNumber triggers a reset when the wave changes.
   private rewardWaveNumber = -1;
   private remainingKillBudget = 0;
-  private paidRewardSlots = 0;
+  private paidRewardWeight = 0;
 
   /** EventBus subscriptions — disposed in destroy(). */
   private readonly subs = new SubscriptionBag();
@@ -420,15 +419,15 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Set the wave-size provider from WaveManager: the bodies the wave can
-   * field, split children included (getExpectedBodyCount). It sizes the
-   * kill-reward slots.
+   * Set the wave-weight provider from WaveManager: the reward weight of every
+   * body the wave can field, split children included (getExpectedBodyWeight).
+   * Kill gold is spread by it.
    */
-  setWaveSizeProvider(provider: () => number): void {
-    this.getWaveSize = provider;
+  setWaveWeightProvider(provider: () => number): void {
+    this.getWaveWeight = provider;
   }
 
-  private getWaveSize: () => number = () => 1;
+  private getWaveWeight: () => number = () => 1;
 
   /**
    * Calculate kill reward from the wave's deterministic kill-budget
@@ -438,36 +437,43 @@ export class EnemyManager extends EntityManager<Enemy> {
    *  - Independent of NN's count/hp_mult choices (no swarm-flood, no boring-dribble)
    *  - Leaks naturally reduce earnings (uncollected kills = lost gold)
    *
-   * Accumulator pattern: `floor(remainingBudget / remainingSlots)` per paid
-   * kill, then decrement both. The last slot picks up the rounding remainder
-   * so the SUM of rewards equals the budget exactly when every enemy dies —
-   * fixes the W19 rat_tide bug where `Math.max(1, round(305/5000))` × 5000
-   * paid out 5000g instead of the budgeted 305g. Extra kills past the slot
-   * count pay 0g.
+   * Each body weighs its base HP (enemyRewardWeight): a Herbert pays for
+   * what it takes to kill it, a zombie of the same wave a fraction of that
+   * (User, 2026-09-23; before, every body paid the same share).
    *
-   * Split children have slots of their own: a skeleton and each of its two
-   * minions pay one slot, a leaked skeleton forfeits all three, and a split
-   * never raises the wave's gold.
+   * Accumulator pattern: `floor(remainingBudget × weight / remainingWeight)`
+   * per paid kill, then decrement both. The last body picks up the rounding
+   * remainder so the SUM of rewards equals the budget exactly when every
+   * enemy dies — the W19 rat_tide bug paid 5000g for a 305g budget. Kills
+   * past the wave's weight pay 0g.
+   *
+   * Split children weigh their own base HP: a skeleton and its two minions
+   * pay each, a leaked skeleton forfeits all three, and a split never raises
+   * the wave's gold.
    */
-  private calculateDynamicReward(_enemy: Enemy): number {
+  private calculateDynamicReward(enemy: Enemy): number {
     const wave = this.getWaveNumber();
 
     if (wave !== this.rewardWaveNumber) {
       this.rewardWaveNumber = wave;
       this.remainingKillBudget = waveGold(wave).kill;
-      this.paidRewardSlots = 0;
+      this.paidRewardWeight = 0;
     }
 
-    // The wave size is read on every kill: a worm adds its segments to the
-    // wave when it spawns, which can be after the wave's first kill.
-    const slots = Math.max(1, this.getWaveSize()) - this.paidRewardSlots;
-    if (slots <= 0 || this.remainingKillBudget <= 0) {
+    // The wave's weight is read on every kill: a worm adds its segments to
+    // the wave when it spawns, which can be after the wave's first kill.
+    const weight = enemyRewardWeight(enemy.typeConfig.baseHp);
+    const left = Math.max(1, this.getWaveWeight()) - this.paidRewardWeight;
+    if (left <= 0 || this.remainingKillBudget <= 0) {
       return 0;
     }
 
-    const reward = Math.floor(this.remainingKillBudget / slots);
+    // The last body takes the remainder; the tolerance absorbs float drift in the weights
+    const reward = weight >= left - 1e-9
+      ? this.remainingKillBudget
+      : Math.floor((this.remainingKillBudget * weight) / left);
     this.remainingKillBudget -= reward;
-    this.paidRewardSlots += 1;
+    this.paidRewardWeight += weight;
     return reward;
   }
 
