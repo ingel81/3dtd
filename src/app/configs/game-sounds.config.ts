@@ -24,6 +24,8 @@ export interface GameSoundSample {
   /** Not stolen by other one-shots when the voices run out */
   priority?: boolean;
   audibleDistance?: number;
+  /** Below 1 the sample plays lower and slower (and above 1 higher); default 1 */
+  playbackRate?: number;
 }
 
 const DEATH = 'assets/sounds/deaths/';
@@ -132,10 +134,16 @@ export const WORLD_SOUNDS = {
 
 export type WorldSoundId = keyof typeof WORLD_SOUNDS;
 
-/** An enemy's heavy steps (EnemyTypeConfig.footstep): one every `everyM` metres walked. */
+/**
+ * An enemy's heavy steps (EnemyTypeConfig.footstep), in step with its walk
+ * clip: the renderer reports a step where the clip's phase passes one of
+ * `phases` (EnemyInstanceManager.onFootstep), so the sound falls on the foot
+ * that lands. Nothing while the clip stands (pause, frozen, headless).
+ */
 export interface FootstepConfig {
   sound: GameSoundSample;
-  everyM: number;
+  /** Phases of the walk clip (0-1) where a foot touches down */
+  phases: readonly number[];
   /** Shakes the camera near it (ScreenShakeService, SCREEN_SHAKE_CONFIG.presets.footstep) */
   shake: boolean;
 }
@@ -144,8 +152,12 @@ export const GOLEM_FOOTSTEP: FootstepConfig = {
   sound: {
     id: 'golem_footstep', url: 'assets/sounds/enemies/golem/footstep.mp3', volume: 0.75, refDistance: 45,
     rolloffFactor: 1.1, minIntervalMs: 120, maxInstances: 3,
+    // Deeper, as heavy as the golem looks (playtest 2026-09-23)
+    playbackRate: 0.75,
   },
-  everyM: 3.2,
+  // Heels down in Casual_Walk (1.33 s): right at 0.34, left at 0.85, measured
+  // from the lowest point of the foot bones (three AnimationMixer over the GLB, 2026-09-23)
+  phases: [0.34, 0.85],
   shake: true,
 };
 

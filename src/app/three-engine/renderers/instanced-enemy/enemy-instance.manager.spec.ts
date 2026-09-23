@@ -117,6 +117,43 @@ describe('EnemyInstanceManager', () => {
     }
   });
 
+  it('reports a step where the walk clip passes a footfall phase, once per phase and loop', () => {
+    const golem = ENEMY_TYPES['stone-golem'];
+    const [first, second] = golem.footstep!.phases;
+    const steps: string[] = [];
+    manager.onFootstep = (id) => steps.push(id);
+    manager.createPool('stone-golem', fakeVat([golem.walkAnimation!]), golem);
+    const state = manager.addEnemy('g', 'stone-golem', new Vector3(), 0)!;
+    state.animTime = 0;
+    state.speedMultiplier = 1;
+    // The fake clip lasts 1 s of clip time
+    const clipSeconds = (clip: number) => clip / state.animSpeed;
+
+    manager.updateAnimations(clipSeconds(first - 0.01));
+    expect(steps).toEqual([]);
+    manager.updateAnimations(clipSeconds(0.02));
+    expect(steps).toEqual(['g']);
+    manager.updateAnimations(clipSeconds(second - first));
+    expect(steps).toEqual(['g', 'g']);
+    // A whole loop in quarter frames: both feet once more. At most one step
+    // per frame: a frame that skips a whole loop (extreme speed) reports one
+    for (let i = 0; i < 4; i++) manager.updateAnimations(clipSeconds(0.25));
+    expect(steps).toHaveLength(4);
+  });
+
+  it('reports no step while the clip stands (pause, frozen) and none for types without footsteps', () => {
+    const golem = ENEMY_TYPES['stone-golem'];
+    const steps: string[] = [];
+    manager.onFootstep = (id) => steps.push(id);
+    manager.createPool('stone-golem', fakeVat([golem.walkAnimation!]), golem);
+    const g = manager.addEnemy('g', 'stone-golem', new Vector3(), 0)!;
+    g.speedMultiplier = 0;
+    manager.addEnemy('w', 'wallsmasher', new Vector3(), 0);
+    manager.updateAnimations(10);
+    manager.updateAnimations(0);
+    expect(steps).toEqual([]);
+  });
+
   it('ignores a run request on a dying instance', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     manager.playDeathAnimation('a');

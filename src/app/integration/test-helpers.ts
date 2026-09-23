@@ -205,6 +205,7 @@ export function createMockTilesEngine() {
       setVisible: vi.fn(),
     },
     enemies: {
+      setFootstepListener: vi.fn(),
       create: vi.fn(() => Promise.resolve({})),
       remove: vi.fn(),
       clear: vi.fn(),

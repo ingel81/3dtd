@@ -88,8 +88,9 @@ export type GameEvent =
     }
   | {
       /**
-       * A heavy step of an enemy with EnemyTypeConfig.footstep, every
-       * `everyM` metres it walks (EnemyManager). Deferred: sound and shake.
+       * A heavy step of an enemy with EnemyTypeConfig.footstep, as its walk
+       * clip lands a foot (the renderer, EnemyManager). Deferred: sound and
+       * shake.
        */
       type: 'enemy:footstep';
       enemy: Enemy;
