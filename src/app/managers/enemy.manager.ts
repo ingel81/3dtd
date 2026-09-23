@@ -227,6 +227,11 @@ export class EnemyManager extends EntityManager<Enemy> {
    */
   override initialize(tilesEngine: ThreeTilesEngine): void {
     super.initialize(tilesEngine);
+    // Heavy steps as the walk clip lands a foot (EnemyTypeConfig.footstep)
+    tilesEngine.enemies?.setFootstepListener((id) => {
+      const enemy = this.getById(id);
+      if (enemy?.alive) this.eventBus.emitDeferred({ type: 'enemy:footstep', enemy });
+    });
   }
 
   /**
@@ -701,15 +706,6 @@ export class EnemyManager extends EntityManager<Enemy> {
         ? enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier)
         : stepWormSegment(enemy, enemy.worm);
       if (sample) tMove += performance.now() - t0;
-
-      // Heavy steps (EnemyTypeConfig.footstep): one every everyM walked
-      if (enemy.footstepAtM >= 0) {
-        const walked = enemy.movement.getDistanceAlongPath();
-        if (walked >= enemy.footstepAtM) {
-          enemy.footstepAtM = walked + enemy.typeConfig.footstep!.everyM;
-          this.eventBus.emitDeferred({ type: 'enemy:footstep', enemy });
-        }
-      }
 
       // An ooze flows into the base over many sub-steps (OozeBodies.update)
       if (moveResult === 'reached_end' && enemy.body === null) {

@@ -357,6 +357,11 @@ export class InstancedEnemyRenderer {
   // VISUAL EFFECTS
   // =====================================================
 
+  /** Called with the enemy id where a walk clip lands a foot (EnemyTypeConfig.footstep). */
+  setFootstepListener(listener: ((id: string) => void) | null): void {
+    this.instanceManager.onFootstep = listener;
+  }
+
   setFreezeVisual(id: string, active: boolean): void {
     this.instanceManager.setFreezeVisual(id, active);
   }

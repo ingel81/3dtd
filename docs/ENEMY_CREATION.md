@@ -263,7 +263,7 @@ einziger Nutzer war Herbert, dessen Sprachdateien gelöscht sind.
 deathSound: 'zombie',        // DEATH_SOUNDS (game-sounds.config.ts), wo ein Tower oder der Held tötet
 hitSound: 'flesh',           // HIT_SOUNDS, bei Einzelschüssen (HIT_SOUND_PROJECTILES); ohne: stumme Treffer
 splitSound: 'skeletonSplit', // WORLD_SOUNDS, statt des Todes, wenn der Kill den Gegner teilt
-footstep: GOLEM_FOOTSTEP,    // schwerer Schritt alle everyM Meter, mit Beben in Kameranähe
+footstep: GOLEM_FOOTSTEP,    // schwerer Schritt, wo der Laufclip einen Fuß aufsetzt (phases), mit Beben in Kameranähe
 ```
 
 Gespielt vom `GameSoundsService`, siehe [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md), "Spiel-Sounds".

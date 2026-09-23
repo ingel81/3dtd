@@ -6,6 +6,7 @@ import {
   CHEAT_QUIET_MS,
   DEATH_SOUNDS,
   GAME_OVER_STINGER_DELAY_MS,
+  GOLEM_FOOTSTEP,
   HIT_SOUNDS,
   MOMENT_SOUNDS,
   WORLD_SOUNDS,
@@ -27,6 +28,8 @@ function setup() {
     registerSound: vi.fn(),
     playAtGeo: vi.fn(() => Promise.resolve(null)),
     playGlobal: vi.fn(() => Promise.resolve(null)),
+    playAt: vi.fn(() => Promise.resolve(null)),
+    geoToLocalPosition: vi.fn(() => ({ x: 1, y: 2, z: 3 })),
   };
   const service = new GameSoundsService(bus, { spatialAudio: audio } as unknown as ThreeTilesEngine);
   const at = () => audio.playAtGeo.mock.calls.map((c) => (c as unknown[])[0]);
@@ -92,6 +95,14 @@ describe('GameSoundsService', () => {
     bus.emit({ type: 'wave:started', wave: BLOOD_MOON_FIRST_WAVE, enemyCount: 10 });
     bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
     expect(global()).toEqual([MOMENT_SOUNDS.waveStart.id, MOMENT_SOUNDS.bloodMoon.id, MOMENT_SOUNDS.waveComplete.id]);
+  });
+
+  it('plays the golem step lower, at its playback rate', () => {
+    const { bus, audio } = setup();
+    bus.emit({ type: 'enemy:footstep', enemy: enemy('stone-golem') });
+    const { id, playbackRate } = GOLEM_FOOTSTEP.sound;
+    expect(playbackRate).toBeLessThan(1);
+    expect(audio.playAt).toHaveBeenCalledWith(id, { x: 1, y: 2, z: 3 }, 1, playbackRate);
   });
 
   it('plays the cast of an ability at its target', () => {

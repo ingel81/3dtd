@@ -550,12 +550,20 @@ export class EnemyInstanceManager {
   }
 
   /**
+   * Called with the enemy id where its walk clip passes one of the phases in
+   * EnemyTypeConfig.footstep: a foot lands (the stone golem's heavy steps).
+   */
+  onFootstep: ((id: string) => void) | null = null;
+
+  /**
    * Update all animation frames. Called once per render frame.
    */
   updateAnimations(deltaTime: number): void {
     for (const pool of this.pools.values()) {
       if (pool.instances.size === 0) continue;
       const gaitStride = pool.config.gaitStride;
+      const stepPhases = this.onFootstep !== null ? pool.config.footstep?.phases : undefined;
+      const walkClip = pool.config.walkAnimation;
 
       for (const state of pool.instances.values()) {
         const entry = pool.vatData.animations.get(state.currentAnim);
@@ -583,7 +591,17 @@ export class EnemyInstanceManager {
           );
         } else {
           // Loop
+          const loopsBefore = state.animTime / totalTime;
           state.animTime += deltaTime * state.animSpeed * state.speedMultiplier;
+          if (stepPhases && state.currentAnim === walkClip) {
+            const loopsAfter = state.animTime / totalTime;
+            for (const phase of stepPhases) {
+              if (Math.floor(loopsAfter - phase) > Math.floor(loopsBefore - phase)) {
+                this.onFootstep!(state.id);
+                break;
+              }
+            }
+          }
           const normalizedTime = (state.animTime / totalTime) % 1.0;
           localFrame = Math.floor(normalizedTime * entry.frameCount) % entry.frameCount;
         }

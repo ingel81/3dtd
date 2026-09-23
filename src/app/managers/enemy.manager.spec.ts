@@ -27,6 +27,7 @@ const bodies = (n: number, type: EnemyTypeId = 'zombie') => n * enemyRewardWeigh
 
 const createMockTilesEngine = () => ({
   enemies: {
+    setFootstepListener: vi.fn(),
     create: vi.fn(() => Promise.resolve({})),
     startWalkAnimation: vi.fn(),
     startRunAnimation: vi.fn(),

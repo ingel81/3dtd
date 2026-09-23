@@ -104,7 +104,7 @@ export class GameSoundsService {
     }));
     this.subs.add(bus.on('enemy:footstep', ({ enemy }) => {
       const footstep = enemy.typeConfig.footstep;
-      if (footstep) this.playAt(footstep.sound.id, enemy.position);
+      if (footstep) this.playAt(footstep.sound.id, enemy.position, footstep.sound.playbackRate);
     }));
     this.subs.add(bus.on('tower:upgraded', ({ tower }) => {
       this.playAt(WORLD_SOUNDS.towerUpgrade.id, tower.position);
@@ -178,11 +178,17 @@ export class GameSoundsService {
     return performance.now() < this.quietUntilMs;
   }
 
-  private playAt(id: string, position: GeoPosition): void {
+  /** At `position`, at `playbackRate` (below 1 lower and slower). */
+  private playAt(id: string, position: GeoPosition, playbackRate = 1): void {
     if (this.quiet) return;
-    this.tilesEngine.spatialAudio
-      ?.playAtGeo(id, position.lat, position.lon, position.height ?? 0)
-      .catch(() => undefined);
+    const audio = this.tilesEngine.spatialAudio;
+    if (!audio) return;
+    if (playbackRate === 1) {
+      audio.playAtGeo(id, position.lat, position.lon, position.height ?? 0).catch(() => undefined);
+      return;
+    }
+    const local = audio.geoToLocalPosition(position.lat, position.lon, position.height ?? 0);
+    if (local) audio.playAt(id, local, 1, playbackRate).catch(() => undefined);
   }
 
   private playGlobal(cue: GlobalCue): void {
