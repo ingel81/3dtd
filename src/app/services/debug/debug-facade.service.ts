@@ -206,8 +206,25 @@ export class DebugFacadeService {
    */
   onHealthBarsToggled(visible: boolean): void {
     this.healthBarsVisible.set(visible);
-    this.engine?.enemies.setHealthBarsVisible(visible);
+    this.applyHealthBars();
     persistDisplayOptions({ healthBars: visible });
+  }
+
+  /** Alt is held: the health bars show the other way round, as in an RTS. */
+  private healthBarsInverted = false;
+
+  /**
+   * Alt held down turns the health bar option round while it is held: with
+   * the bars off it shows them, with them on it hides them. Not persisted.
+   */
+  setHealthBarsInverted(held: boolean): void {
+    if (held === this.healthBarsInverted) return;
+    this.healthBarsInverted = held;
+    this.applyHealthBars();
+  }
+
+  private applyHealthBars(): void {
+    this.engine?.enemies.setHealthBarsVisible(this.healthBarsVisible() !== this.healthBarsInverted);
   }
 
   /**
@@ -312,7 +329,7 @@ export class DebugFacadeService {
   applyDisplayOptions(): void {
     this.engine?.renderLoop.setFpsLimit(this.fpsLimit());
     this.engine?.applyVfxSettings(this.vfx());
-    if (!this.healthBarsVisible()) this.engine?.enemies.setHealthBarsVisible(false);
+    if (!this.healthBarsVisible()) this.applyHealthBars();
     if (!this.damageNumbersVisible()) this.combatEffect.damageNumbersEnabled = false;
     if (!this.screenShakeEnabled()) this.gameState?.screenShakeService.disable();
 

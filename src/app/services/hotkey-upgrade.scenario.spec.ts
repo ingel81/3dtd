@@ -46,6 +46,7 @@ import { GameCommandsHandler } from '../managers/game-commands.handler';
 import { Tower } from '../entities/tower.entity';
 import { upgradeHintView } from '../components/game-sidebar/tower-panel/tower-stats';
 import type { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
+import { DebugFacadeService } from './debug/debug-facade.service';
 
 const POSITION = { lat: 48.7, lon: 9.1, height: 300 };
 /** Colours of the text over the tower (tower-upgrade.service.ts UPGRADE_TEXT) */
@@ -153,6 +154,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
         { provide: PhotoModeService, useValue: { active: signal(false) } },
         { provide: HeroControlService, useValue: {} },
         { provide: ReplayService, useValue: { active: signal(false) } },
+        { provide: DebugFacadeService, useValue: { setHealthBarsInverted: () => undefined } },
         { provide: UpgradeHintService, useValue: upgradeHint },
         { provide: TowerUpgradeService, useFactory: () => towerUpgrade },
       ],
