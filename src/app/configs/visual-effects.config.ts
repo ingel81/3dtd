@@ -177,6 +177,8 @@ export const SCREEN_SHAKE_CONFIG = {
     emp: { amplitude: 0.005, duration: 450 },
     /** Harder than the EMP where the beam comes down, fading over its first third (until playtest 636: 0.003 for 1200 ms) */
     orbitalLaser: { amplitude: 0.006, duration: 1400 },
+    /** A heavy enemy's step (EnemyTypeConfig.footstep, the stone golem), near the camera only */
+    footstep: { amplitude: 0.0018, duration: 160 },
     /** The missile lifting off its silo: a low rumble while the ignition roars loudest (missile_launch.mp3), shorter than the impact's */
     missileLaunch: { amplitude: 0.0045, duration: 2000 },
   },

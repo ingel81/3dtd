@@ -34,6 +34,7 @@ import { GameEventBus } from '../game-engine/game-event-bus';
 import { BOSS_INTRO_TIMING, bossIntroCutMs, bossIntroReturnMs } from '../utils/boss-intro';
 import type { Enemy } from '../entities/enemy.entity';
 import type { RouteWaypoint } from '../models/game.types';
+import { BOSS_INTRO_SOUNDS } from '../configs/game-sounds.config';
 
 /** 1e-5 degrees are one metre in the fake sync; origin height 100, so height 100 is ground 0. */
 const ROUTE: RouteWaypoint[] = [
@@ -76,6 +77,7 @@ describe('BossIntroService', () => {
   let announce: ReturnType<typeof vi.fn>;
   let paused: ReturnType<typeof signal<boolean>>;
   let pauseKeepsLoops: ReturnType<typeof signal<boolean>>;
+  let playGlobal: ReturnType<typeof vi.fn>;
   let bossIntroEnabled: ReturnType<typeof signal<boolean>>;
   /** MatDialog.openDialogs */
   let openDialogs: unknown[];
@@ -103,7 +105,9 @@ describe('BossIntroService', () => {
     pauseKeepsLoops = signal(false);
     bossIntroEnabled = signal(true);
     openDialogs = [];
+    playGlobal = vi.fn(() => Promise.resolve(null));
     const engine = {
+      spatialAudio: { playGlobal },
       getCamera: () => camera,
       getControls: () => controls,
       getTerrainHeightAtGeo: () => 0,
@@ -349,6 +353,14 @@ describe('BossIntroService', () => {
     play(bossIntroReturnMs());
     expect(service.stage()).toBe('reveal');
     expect(paused()).toBe(false);
+  });
+
+  it('plays the signature sound of the boss that comes, none for a boss without one', () => {
+    const boss = fakeBoss('worm', true, 'Skarnax');
+    boss.walked = 20;
+    spawn(boss);
+    frame();
+    expect(playGlobal).toHaveBeenCalledWith(BOSS_INTRO_SOUNDS['worm'].id);
   });
 
   it('keeps the sound loops running while the intro pauses the game, so the boss is heard', () => {

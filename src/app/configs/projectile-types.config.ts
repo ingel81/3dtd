@@ -416,30 +416,30 @@ export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> 
     rolloffFactor: 1,
     volume: 0.4,
   },
-  // Chaos Tower: the magic cast until it has a sound of its own.
+  // Chaos Tower: a distorted, unstable bolt of its own
   'chaos-orb': {
-    url: 'assets/sounds/towers/magic/cast.mp3',
+    url: 'assets/sounds/towers/chaos/cast.mp3',
     refDistance: 55,
     rolloffFactor: 1.1,
     volume: 0.5,
   },
-  // The hero's rifle: the gatling sample, quieter, it fires three times a second
+  // The hero's rifle, quiet: it fires three times a second
   'hero-round': {
-    url: 'assets/sounds/towers/gatling/shoot.mp3',
+    url: 'assets/sounds/hero/round_shot.mp3',
     refDistance: 35,
     rolloffFactor: 1.2,
     volume: 0.22,
   },
-  // Explosive rounds: the cannon's thump, well below the cannon's own volume
+  // Explosive rounds: a grenade launcher's thump
   'hero-shell': {
-    url: 'assets/sounds/towers/cannon/shoot.mp3',
+    url: 'assets/sounds/hero/shell_shot.mp3',
     refDistance: 40,
     rolloffFactor: 1.2,
     volume: 0.3,
   },
-  // Rune rounds: the magic cast, quieter than the magic tower
+  // Rune rounds: a shot with an arcane shimmer
   'hero-rune': {
-    url: 'assets/sounds/towers/magic/cast.mp3',
+    url: 'assets/sounds/hero/rune_shot.mp3',
     refDistance: 40,
     rolloffFactor: 1.2,
     volume: 0.3,

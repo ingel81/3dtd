@@ -51,6 +51,9 @@ function setup(listener = new Vector3(0, 0, 0)) {
       return new Promise((resolve) => (held = resolve));
     }),
     stopOneShot: vi.fn(),
+    createLoop: vi.fn(() => Promise.resolve(7)),
+    updateLoopPosition: vi.fn(),
+    stopLoop: vi.fn(),
     getListener: () => ({ getWorldPosition: (target: Vector3) => target.copy(listener) }),
   };
   const engine = {
@@ -85,9 +88,23 @@ describe('WormSounds', () => {
     present([worm([segment(10, 0)])]);
     present([worm([segment(10, 0)], undefined, 2)]);
     const { refDistance, rolloffFactor, volume } = WORM_SOUNDS.voice;
-    expect(audio.registerSound.mock.calls).toEqual(
-      samples.map((s) => [s.id, s.url, { refDistance, rolloffFactor, volume: volume * s.gain }]),
-    );
+    const slither = WORM_SOUNDS.slither;
+    expect(audio.registerSound.mock.calls).toEqual([
+      [slither.id, slither.url, { refDistance: slither.refDistance, rolloffFactor: slither.rolloffFactor, volume: slither.volume, loop: true }],
+      ...samples.map((s) => [s.id, s.url, { refDistance, rolloffFactor, volume: volume * s.gain }]),
+    ]);
+  });
+
+  it('slithers with one loop per worm at its head, stopped when the worm goes', async () => {
+    const { audio, present, settle } = setup();
+    const group = worm([segment(10, 0)]);
+    present([group]);
+    await settle();
+    expect(audio.createLoop).toHaveBeenCalledOnce();
+    present([group]);
+    expect(audio.updateLoopPosition).toHaveBeenCalledWith(7, expect.anything());
+    present([]);
+    expect(audio.stopLoop).toHaveBeenCalledWith(7);
   });
 
   it('registers nothing and plays nothing while there is no worm', () => {

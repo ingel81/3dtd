@@ -35,6 +35,7 @@ import {
   type PortalShot,
   type ShotProbe,
 } from '../utils/boss-intro';
+import { BOSS_INTRO_SOUNDS } from '../configs/game-sounds.config';
 
 /** Route the shot may stand on, from the portal (m); the framing needs about 60 at most. */
 const SHOT_ROUTE_M = 150;
@@ -241,6 +242,9 @@ export class BossIntroService {
       this.gameStore.paused.set(true);
     });
     this.setStage('dip-in');
+    // The boss's own sound, registered by GameSoundsService with the engine's sounds
+    const signature = BOSS_INTRO_SOUNDS[boss.enemy.typeConfig.id];
+    if (signature) engine.spatialAudio?.playGlobal(signature.id).catch(() => undefined);
     const said = names.length > 1 ? `Bosses: ${names.join(' and ')}` : `Boss: ${names[0]}`;
     this.announcer.announce(`${said}, wave ${boss.wave}. Escape skips.`);
     return true;

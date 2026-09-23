@@ -702,6 +702,15 @@ export class EnemyManager extends EntityManager<Enemy> {
         : stepWormSegment(enemy, enemy.worm);
       if (sample) tMove += performance.now() - t0;
 
+      // Heavy steps (EnemyTypeConfig.footstep): one every everyM walked
+      if (enemy.footstepAtM >= 0) {
+        const walked = enemy.movement.getDistanceAlongPath();
+        if (walked >= enemy.footstepAtM) {
+          enemy.footstepAtM = walked + enemy.typeConfig.footstep!.everyM;
+          this.eventBus.emitDeferred({ type: 'enemy:footstep', enemy });
+        }
+      }
+
       // An ooze flows into the base over many sub-steps (OozeBodies.update)
       if (moveResult === 'reached_end' && enemy.body === null) {
         // Emit enemy:reached-base event — leak damage scales with wave-number

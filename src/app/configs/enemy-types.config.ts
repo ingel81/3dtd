@@ -7,6 +7,13 @@
 
 import { ArmorType } from '../configs/combat/combat.types';
 import { TIMING } from './timing.config';
+import {
+  GOLEM_FOOTSTEP,
+  type DeathSoundId,
+  type FootstepConfig,
+  type HitSoundId,
+  type WorldSoundId,
+} from './game-sounds.config';
 
 /**
  * What an enemy splits into when a tower kills it (EnemyManager.kill). A leak
@@ -120,6 +127,16 @@ export interface EnemyTypeConfig {
   randomSoundVolumeMin?: number; // Min volume (0.0 - 1.0)
   randomSoundVolumeMax?: number; // Max volume (0.0 - 1.0)
   randomSoundRefDistance?: number; // Distance for full volume
+
+  // Death, hit, split and steps (game-sounds.config.ts, GameSoundsService)
+  /** Played where a tower or the hero kills it; none on a leak. Unset: silent death. */
+  deathSound?: DeathSoundId;
+  /** Played on the hits of single shots (HIT_SOUND_PROJECTILES). Unset: silent hits (the ghosts). */
+  hitSound?: HitSoundId;
+  /** Played where a kill splits it (enemy:split), instead of its death sound */
+  splitSound?: WorldSoundId;
+  /** Heavy single steps as it walks, with a shake near the camera */
+  footstep?: FootstepConfig;
 
   // Visual
   heightOffset: number; // Model height above ground
@@ -296,12 +313,18 @@ const WORM_STATS = {
   randomAnimationStart: true,
   // The chain sways the whole worm (EnemyChain.sway), no lane of its own
   lateralSpread: 0,
+  // A segment lost while the worm lives on sounds as WORLD_SOUNDS.wormSegment,
+  // the last one as the boss's death (GameSoundsService)
+  deathSound: 'skarnax',
+  hitSound: 'stone',
 } satisfies Partial<EnemyTypeConfig>;
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
     name: 'Zombie',
+    deathSound: 'zombie',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie.glb',
     scale: 0.984,
     armorType: 'unarmored',
@@ -327,6 +350,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'zombie-v2': {
     id: 'zombie-v2',
     name: 'Zombie v2',
+    deathSound: 'zombie',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie_v2.glb',
     scale: 2.432,
     armorType: 'unarmored',
@@ -366,6 +391,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   tank: {
     id: 'tank',
     name: 'Tank',
+    deathSound: 'mech',
+    hitSound: 'metal',
     // Quaternius tank in metres, gun along +z, standing on the origin
     // (tools/blender/optimize_enemy.py, recipe `tank`)
     modelUrl: 'assets/models/enemies/tank.glb',
@@ -401,6 +428,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   wallsmasher: {
     id: 'wallsmasher',
     name: 'Wallsmasher',
+    deathSound: 'wallsmasher',
+    hitSound: 'flesh',
     // GLB in metres (the FBX was in centimetres, scale 0.037), only Walk, Run and Death.
     modelUrl: 'assets/models/enemies/wallsmasher.glb',
     scale: 3.7,
@@ -440,6 +469,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'stone-golem': {
     id: 'stone-golem',
     name: 'Stone Golem',
+    deathSound: 'golem',
+    hitSound: 'stone',
+    footstep: GOLEM_FOOTSTEP,
     modelUrl: 'assets/models/enemies/stone_golem.glb',
     scale: 7.312,
 
@@ -480,6 +512,12 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   bat: {
     id: 'bat',
     name: 'Bat',
+    deathSound: 'bat',
+    hitSound: 'flesh',
+    movingSound: 'assets/sounds/enemies/bat/flap_loop.mp3',
+    movingSoundVolume: 0.3,
+    movingSoundRefDistance: 25,
+    randomSoundStart: true,
     modelUrl: 'assets/models/enemies/bat.glb',
     scale: 3.958,
     armorType: 'light',
@@ -505,6 +543,14 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   penguin: {
     id: 'penguin',
     name: 'Penguin',
+    deathSound: 'penguin',
+    hitSound: 'flesh',
+    randomSound: 'assets/sounds/enemies/penguin/call.mp3',
+    randomSoundMinInterval: 6000,
+    randomSoundMaxInterval: 18000,
+    randomSoundVolumeMin: 0.25,
+    randomSoundVolumeMax: 0.5,
+    randomSoundRefDistance: 25,
     modelUrl: 'assets/models/enemies/penguin.glb',
     scale: 0.005,
     armorType: 'unarmored',
@@ -530,6 +576,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   herbert: {
     id: 'herbert',
     name: 'Herbert',
+    deathSound: 'herbert',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/herbert_optimized.glb',
     scale: 2.625,
     armorType: 'fortified',
@@ -562,6 +610,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'zombie-soldier': {
     id: 'zombie-soldier',
     name: 'Zombie Soldier',
+    deathSound: 'zombie_soldier',
+    hitSound: 'metal',
     modelUrl: 'assets/models/enemies/zombie_soldier.glb',
     scale: 2.492,
     armorType: 'heavy',
@@ -598,6 +648,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   rat: {
     id: 'rat',
     name: 'Rat',
+    deathSound: 'rat',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/rat.glb',
     scale: 1.5,
     armorType: 'unarmored',
@@ -628,6 +680,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   skeleton: {
     id: 'skeleton',
     name: 'Skeleton',
+    // A kill splits it: its split sound instead of a death
+    splitSound: 'skeletonSplit',
+    hitSound: 'bone',
+    movingSound: 'assets/sounds/enemies/skeleton/rattle_loop.mp3',
+    movingSoundVolume: 0.3,
+    movingSoundRefDistance: 25,
+    randomSoundStart: true,
     // Kenney "character-skeleton" (CC0, Graveyard Kit): six rigid parts moved
     // by node animation, baked through bakeObjectAnimVAT like mech and hornet.
     // 0.70 units tall, about 2.8 m at scale 4 (the zombie stands about 4.4 m).
@@ -664,6 +723,12 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'skeleton-minion': {
     id: 'skeleton-minion',
     name: 'Skeleton Minion',
+    deathSound: 'bone',
+    hitSound: 'bone',
+    movingSound: 'assets/sounds/enemies/skeleton/rattle_loop.mp3',
+    movingSoundVolume: 0.25,
+    movingSoundRefDistance: 20,
+    randomSoundStart: true,
     // What a killed skeleton splits into (splitOnDeath): the same Kenney model
     // at 0.6 of its size, about 1.7 m tall, in a VAT pool of its own.
     modelUrl: 'assets/models/enemies/skeleton.glb',
@@ -696,6 +761,12 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   spider: {
     id: 'spider',
     name: 'Spider',
+    deathSound: 'spider',
+    hitSound: 'flesh',
+    movingSound: 'assets/sounds/enemies/spider/skitter_loop.mp3',
+    movingSoundVolume: 0.3,
+    movingSoundRefDistance: 25,
+    randomSoundStart: true,
     modelUrl: 'assets/models/enemies/spider.glb',
     scale: 1.5,
     armorType: 'light',
@@ -721,6 +792,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   mammoth: {
     id: 'mammoth',
     name: 'Mammoth',
+    deathSound: 'mammoth',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/mammoth.glb',
     scale: 2.206,
     armorType: 'fortified',
@@ -754,6 +827,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   bear: {
     id: 'bear',
     name: 'Bear',
+    deathSound: 'bear',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/bear.glb',
     scale: 0.1,
     armorType: 'heavy',
@@ -791,6 +866,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   dragon: {
     id: 'dragon',
     name: 'Dragon',
+    deathSound: 'dragon',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/dragon.glb',
     scale: 2.5,
     armorType: 'heavy',
@@ -827,6 +904,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   ghost: {
     id: 'ghost',
     name: 'Ghost',
+    deathSound: 'ghost',
+    movingSound: 'assets/sounds/enemies/ghost/wail_loop.mp3',
+    movingSoundVolume: 0.3,
+    movingSoundRefDistance: 30,
+    randomSoundStart: true,
     modelUrl: 'assets/models/enemies/ghost.glb',
     scale: 0.099,
     armorType: 'ethereal',
@@ -854,6 +936,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   hornet: {
     id: 'hornet',
     name: 'Hornet',
+    deathSound: 'hornet',
+    hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/hornet.glb',
     scale: 0.063,
     armorType: 'light',
@@ -885,6 +969,12 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   mech: {
     id: 'mech',
     name: 'Mech',
+    deathSound: 'mech',
+    hitSound: 'metal',
+    movingSound: 'assets/sounds/enemies/mech/servo_loop.mp3',
+    movingSoundVolume: 0.35,
+    movingSoundRefDistance: 30,
+    randomSoundStart: true,
     modelUrl: 'assets/models/enemies/mech.glb',
     scale: 0.885,
     armorType: 'heavy',
@@ -908,6 +998,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   wraith: {
     id: 'wraith',
     name: 'Wraith',
+    deathSound: 'wraith',
+    randomSound: 'assets/sounds/enemies/wraith/whisper.mp3',
+    randomSoundMinInterval: 7000,
+    randomSoundMaxInterval: 20000,
+    randomSoundVolumeMin: 0.3,
+    randomSoundVolumeMax: 0.6,
+    randomSoundRefDistance: 30,
     modelUrl: 'assets/models/enemies/wraith.glb',
     scale: 2.0,
     armorType: 'ethereal',
@@ -979,6 +1076,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   ooze: {
     id: 'ooze',
     name: 'Ooze',
+    deathSound: 'ooze',
+    hitSound: 'slime',
     // The body is a band of slime along the route, drawn by the engine's
     // ooze renderer; no model instance spawns. The procedural blob
     // (tools/slime-model) stands in for it in the sidebar preview.
@@ -1024,6 +1123,12 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'slime-clump': {
     id: 'slime-clump',
     name: 'Slime Clump',
+    deathSound: 'slime',
+    hitSound: 'slime',
+    movingSound: 'assets/sounds/enemies/slime/squelch_loop.mp3',
+    movingSoundVolume: 0.25,
+    movingSoundRefDistance: 20,
+    randomSoundStart: true,
     // What a killed ooze breaks into (splitOnDeath): the procedural slime
     // blob (tools/slime-model) hopping along, about 1.2 m tall at scale 0.9.
     modelUrl: 'assets/models/enemies/slime.glb',

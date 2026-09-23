@@ -54,6 +54,12 @@ export class Enemy extends GameObject {
    * in the pause and follow the game speed.
    */
   randomSoundLeftMs = -1;
+  /**
+   * Distance along the path (m) of the next heavy step, -1 without
+   * EnemyTypeConfig.footstep or while it does not move. EnemyManager checks
+   * it after each move and emits enemy:footstep.
+   */
+  footstepAtM = -1;
   /** Whether the transform still turns toward its heading. Written only by TransformComponent (TurningFlagSink). */
   isTurning = false;
   /** GlobalRouteGrid's memo of this enemy's last cell evaluation, see updateEnemyPosition(). */
@@ -219,6 +225,8 @@ export class Enemy extends GameObject {
     if (this.typeConfig.randomSound) {
       this.randomSoundLeftMs = this.nextRandomSoundInterval();
     }
+    const footstep = this.typeConfig.footstep;
+    if (footstep) this.footstepAtM = this.movement.getDistanceAlongPath() + footstep.everyM;
   }
 
   /**
@@ -239,6 +247,7 @@ export class Enemy extends GameObject {
     this.isMoving = false;
     this.audio.stop('moving');
     this.randomSoundLeftMs = -1;
+    this.footstepAtM = -1;
   }
 
   /**

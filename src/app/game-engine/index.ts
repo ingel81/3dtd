@@ -19,6 +19,7 @@ export {
 // Services
 export { VFXService } from './vfx.service';
 export { AudioService } from './audio.service';
+export { GameSoundsService } from './game-sounds.service';
 export { ScreenShakeService } from './screen-shake.service';
 export { BackgroundMusicService } from './background-music.service';
 export { BloodMoonService } from './blood-moon.service';

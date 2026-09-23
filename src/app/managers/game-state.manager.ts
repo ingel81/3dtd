@@ -26,7 +26,7 @@ import { raycastStats } from '../utils/raycast-stats';
 import { EconomyService, skippedWavesGold } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, IGameManager, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, BloodMoonService, SubscriptionBag } from '../game-engine';
+import { GameEventBus, IGameManager, VFXService, AudioService, GameSoundsService, ScreenShakeService, BackgroundMusicService, BloodMoonService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
 import { ResearchManager } from './research.manager';
 import { AbilityManager } from './ability.manager';
@@ -73,6 +73,7 @@ export class GameStateManager {
   private readonly eventBus = new GameEventBus();
   private vfxService!: VFXService;
   private audioService!: AudioService;
+  private gameSounds: GameSoundsService | null = null;
   screenShakeService!: ScreenShakeService;
   backgroundMusic!: BackgroundMusicService;
   private bloodMoonService: BloodMoonService | null = null;
@@ -331,6 +332,7 @@ export class GameStateManager {
     // Destroy old game-engine service instances (they register event handlers in constructors)
     this.vfxService?.destroy();
     this.audioService?.destroy();
+    this.gameSounds?.destroy();
     this.screenShakeService?.destroy();
     this.backgroundMusic?.destroy();
     this.bloodMoonService?.destroy();
@@ -406,6 +408,8 @@ export class GameStateManager {
     this.audioService = new AudioService(this.eventBus, tilesEngine);
     // Its ability loops (the siren) stand on the route grid's ground
     this.audioService.setGround(this.globalRouteGrid);
+    // Deaths, hits, upgrades, the moments of a run (game-sounds.config.ts)
+    this.gameSounds = new GameSoundsService(this.eventBus, tilesEngine);
 
     // Initialize Screen Shake service (subscribes to explosion/impact events)
     this.screenShakeService = new ScreenShakeService(this.eventBus, tilesEngine);
@@ -813,6 +817,7 @@ export class GameStateManager {
     this.combatEffect.destroy();
     this.vfxService?.destroy();
     this.audioService?.destroy();
+    this.gameSounds?.destroy();
     this.screenShakeService?.destroy();
     this.backgroundMusic?.destroy();
     this.bloodMoonService?.destroy();
