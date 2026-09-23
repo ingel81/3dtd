@@ -16,6 +16,7 @@ import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameStateSyncService } from '../infrastructure/game-state-sync.service';
 import { RunLogFacade } from '../../run-log/run-log.facade';
+import { WaveDirector } from '../../director/wave-director';
 import { RefusalHintService } from '../refusal-hint.service';
 import { OnboardingService } from '../onboarding/onboarding.service';
 import { BestWaveService } from '../location/best-wave.service';
@@ -101,6 +102,7 @@ export class TowerDefenseFacadeService {
   private readonly botClient = inject(BotClientService);
   private readonly gameStateSync = inject(GameStateSyncService);
   private readonly runLog = inject(RunLogFacade);
+  private readonly waveDirector = inject(WaveDirector);
   private readonly refusals = inject(RefusalHintService);
   private readonly onboarding = inject(OnboardingService);
   private readonly bestWaves = inject(BestWaveService);
@@ -380,6 +382,7 @@ export class TowerDefenseFacadeService {
       this.botClient.botEnabled() || this.botClient.botAutoMode()
         ? { player: 'bot', botSkill: this.botClient.botSkillLevel() }
         : { player: 'human' },
+      () => this.waveDirector.source.id,
     );
     // First-run tips follow the same events
     this.onboarding.connect(this.gameState.getEventBus());
