@@ -8,6 +8,7 @@ import {
   ChangeDetectionStrategy,
 } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import {
   TowerTypeConfig,
@@ -46,6 +47,7 @@ import { UIStore } from '../../store/ui.store';
   selector: 'app-game-sidebar',
   standalone: true,
   imports: [
+    MatTooltipModule,
     TdIconComponent,
     SidebarWavePanelComponent,
     SidebarBuildPanelComponent,

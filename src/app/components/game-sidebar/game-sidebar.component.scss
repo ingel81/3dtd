@@ -80,32 +80,31 @@
   text-decoration: underline dotted;
 }
 
-/* Both footer actions share one row: two stacked full-width bars ate more
-   vertical space than the sidebar can spare. */
+/* Six actions in two rows of three: in one row the labels were cut to
+   "Wor…" and "Ke…" at 9px. The 1px gap over the frame colour draws the
+   dividers between the cells. */
 .td-footer-links {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1px;
+  background: var(--td-frame-dark);
   border-top: 1px solid var(--td-frame-dark);
 }
 
-/* Widths follow the labels, the rest is shared: five equal cells would cut
-   "Attributions" at 9px mono. The five labels fill about 280 of the 299px
-   with Consolas and 290 with the wider Menlo; a label that still does not
-   fit ends in an ellipsis instead of running into its neighbour. */
 .td-attributions-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  flex: 1 1 auto;
+  gap: 6px;
   min-width: 0;
-  padding: 5px 4px;
-  background: none;
+  padding: 6px 4px;
+  background: var(--td-bg-dark);
   border: none;
-  color: var(--td-text-muted);
+  color: var(--td-text-secondary);
   font-family: 'JetBrains Mono', monospace;
-  font-size: 9px;
+  font-size: 10.5px;
   cursor: pointer;
-  opacity: 0.6;
+  opacity: 0.85;
   transition: all 0.15s ease;
 }
 
@@ -116,12 +115,8 @@
   white-space: nowrap;
 }
 
-.td-footer-links .td-attributions-btn + .td-attributions-btn {
-  border-left: 1px solid var(--td-frame-dark);
-}
-
 .td-attributions-btn:hover {
   opacity: 1;
-  color: var(--td-text-secondary);
+  color: var(--td-text-primary);
   background: var(--td-panel-secondary);
 }
