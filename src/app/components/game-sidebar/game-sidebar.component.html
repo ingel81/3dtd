@@ -45,28 +45,34 @@
     <!-- Footer -->
     <div class="td-sidebar-footer">
       <div class="td-footer-links">
-        <button class="td-attributions-btn" (click)="openWorldMap()" aria-label="World map of the places you defended">
+        <button class="td-attributions-btn" (click)="openWorldMap()" aria-label="World map of the places you defended"
+                matTooltip="World map of the places you defended" matTooltipPosition="above">
           <td-icon name="globe" [size]="10"></td-icon>
           <span>World</span>
         </button>
-        <button class="td-attributions-btn" (click)="showTips()" aria-label="Show the first-run tips again">
+        <button class="td-attributions-btn" (click)="showTips()" aria-label="Show the first-run tips again"
+                matTooltip="Show the first-run tips again" matTooltipPosition="above">
           <td-icon name="bulb" [size]="10"></td-icon>
           <span>Tips</span>
         </button>
         <button class="td-attributions-btn" (click)="openHotkeys()" aria-label="Keyboard shortcuts"
-                aria-keyshortcuts="H" title="Keyboard shortcuts (H or ?)">
+                aria-keyshortcuts="H"
+                matTooltip="Keyboard shortcuts (H or ?)" matTooltipPosition="above">
           <td-icon name="keyboard" [size]="10"></td-icon>
           <span>Keys</span>
         </button>
-        <button class="td-attributions-btn" (click)="openTokenSetup()">
+        <button class="td-attributions-btn" (click)="openTokenSetup()" aria-label="Map access: Cesium Ion token or Google Maps key"
+                matTooltip="Map access: Cesium Ion token or Google Maps key" matTooltipPosition="above">
           <td-icon name="lock" [size]="10"></td-icon>
           <span>Map Key</span>
         </button>
-        <button class="td-attributions-btn" (click)="openRuns()" aria-label="The runs this browser kept">
+        <button class="td-attributions-btn" (click)="openRuns()" aria-label="The runs this browser kept"
+                matTooltip="The runs this browser kept, with export" matTooltipPosition="above">
           <td-icon name="filing" [size]="10"></td-icon>
           <span>Runs</span>
         </button>
-        <button class="td-attributions-btn" (click)="openAttributions()">
+        <button class="td-attributions-btn" (click)="openAttributions()" aria-label="Credits for models, sounds, music and map data"
+                matTooltip="Credits for models, sounds, music and map data" matTooltipPosition="above">
           <td-icon name="copyright" [size]="10"></td-icon>
           <span>Attributions</span>
         </button>
