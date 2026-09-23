@@ -222,8 +222,8 @@ export class GameStateManager {
     const paused = this.gameStore.paused();
     this.paused.set(paused);
     // No sub-step runs while paused; every loop (walk cycles, flames, the
-    // ooze's bubbling) stands with the game
-    this.tilesEngine?.spatialAudio.holdLoops(paused);
+    // ooze's bubbling) stands with the game, except in the boss intro
+    this.tilesEngine?.spatialAudio.holdLoops(paused && !this.gameStore.pauseKeepsLoops());
   });
 
   /** Phase 5.14: sync renderingEnabled signal → ThreeTilesEngine. Gameplay
@@ -350,7 +350,7 @@ export class GameStateManager {
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
     // The pause sync above only reaches an engine that is already here
-    tilesEngine.spatialAudio.holdLoops(this.paused());
+    tilesEngine.spatialAudio.holdLoops(this.paused() && !this.gameStore.pauseKeepsLoops());
     // Same for the rendering sync, and it matters more: a bot client sets
     // renderingEnabled to false while connecting, long before the engine
     // exists, so the effect's `?.` swallowed it and the signal never changed

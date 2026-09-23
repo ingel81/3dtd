@@ -141,7 +141,7 @@ describe('Boss intro, night-2 playtest 366 to 371 and 423 replayed', () => {
     injector = Injector.create({
       providers: [
         { provide: GameStateManager, useValue: { getEventBus: () => bus, waveNumber: () => wave } },
-        { provide: GameStore, useValue: { gameSpeed: timescale, renderingEnabled: signal(true), paused } },
+        { provide: GameStore, useValue: { gameSpeed: timescale, renderingEnabled: signal(true), paused, pauseKeepsLoops: signal(false) } },
         { provide: UIStore, useValue: { photoMode } },
         { provide: BotClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
         { provide: EngineInitializationService, useValue: { getEngine: () => engine } },

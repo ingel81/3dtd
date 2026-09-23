@@ -3,8 +3,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { BACKGROUND_MUSIC, MusicTrack } from '../configs/background-music.config';
 import { MusicBufferLoader } from './music-buffer-loader';
 import { MusicMixer } from './music-mixer';
-
-const STORAGE_KEY = 'td_music_enabled';
+import { MASTER_BUS_PRE_GAIN } from '../configs/audio.config';
 
 /**
  * BackgroundMusicService — Event-driven background music with crossfade
@@ -40,9 +39,6 @@ export class BackgroundMusicService {
   // Mini-pause timer between the main-theme fade-out and the build fade-in
   private mainThemeGapTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // Enable/disable
-  private _enabled: boolean;
-
   // User-controlled volume multiplier (0-1), applied on top of track + master volume
   private _userVolume = 1.0;
 
@@ -51,27 +47,31 @@ export class BackgroundMusicService {
   // =====================================================
 
   private static mainThemeAudio: HTMLAudioElement | null = null;
+  /** The main theme's volume at user volume 1, see playMainTheme(). */
+  private static mainThemeBaseVolume = 0;
 
   /**
-   * Start the main theme as early as possible (during loading).
+   * Start the main theme as early as possible (during loading), at the
+   * player's music volume `userVolume` (0 when muted).
    * Uses plain HTMLAudioElement — no Three.js dependency.
    * Call this from the facade/component before the engine is initialized.
-   * The service constructor will crossfade it out when build music starts.
+   * onLoadingComplete() fades it out when build music starts.
+   *
+   * The element plays outside the Web Audio graph, so it does not pass the
+   * master bus's pre-gain that the build and wave tracks get; it is scaled
+   * by that gain here to sit at their level. A browser that refuses
+   * autoplay starts it on the first click or key instead.
    */
-  static playMainTheme(): void {
-    // Respect stored preference
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored === 'false') return;
-    } catch { /* ignore */ }
-
+  static playMainTheme(userVolume = 1): void {
     if (BackgroundMusicService.mainThemeAudio) return;
     const track = BACKGROUND_MUSIC.main[0];
     if (!track) return;
 
     const audio = new window.Audio(track.url);
     audio.loop = track.loop ?? true;
-    audio.volume = (track.volume ?? 0.5) * BACKGROUND_MUSIC.masterVolume;
+    BackgroundMusicService.mainThemeBaseVolume =
+      (track.volume ?? 0.5) * BACKGROUND_MUSIC.masterVolume * MASTER_BUS_PRE_GAIN;
+    audio.volume = BackgroundMusicService.mainThemeBaseVolume * userVolume;
 
     const startOffset = track.startOffset ?? 0;
     const begin = () => {
@@ -82,9 +82,7 @@ export class BackgroundMusicService {
           /* seek not ready — falls back to start */
         }
       }
-      audio.play().catch(() => {
-        // Autoplay blocked — will be silent until user interaction
-      });
+      audio.play().catch(() => BackgroundMusicService.retryOnGesture(audio));
     };
 
     // Seeking needs the duration metadata. Wait for it so we don't briefly
@@ -98,7 +96,20 @@ export class BackgroundMusicService {
     BackgroundMusicService.mainThemeAudio = audio;
   }
 
-  /** Stop the main theme immediately (used on disable/destroy) */
+  /**
+   * Autoplay was refused: play `audio` on the first click or key, unless the
+   * main theme was stopped or replaced by then.
+   */
+  private static retryOnGesture(audio: HTMLAudioElement): void {
+    const events = ['pointerdown', 'keydown'] as const;
+    const retry = () => {
+      events.forEach((e) => window.removeEventListener(e, retry, true));
+      if (BackgroundMusicService.mainThemeAudio === audio) audio.play().catch(() => undefined);
+    };
+    events.forEach((e) => window.addEventListener(e, retry, true));
+  }
+
+  /** Stop the main theme immediately */
   private static stopMainTheme(): void {
     const audio = BackgroundMusicService.mainThemeAudio;
     if (audio) {
@@ -117,7 +128,6 @@ export class BackgroundMusicService {
     tilesEngine: ThreeTilesEngine,
   ) {
     this.mixer = new MusicMixer(tilesEngine.spatialAudio.getListener());
-    this._enabled = this.loadPreference();
     this.preloadAll();
     this.setupEventHandlers();
 
@@ -130,39 +140,28 @@ export class BackgroundMusicService {
   // PUBLIC API
   // =====================================================
 
-  get enabled(): boolean {
-    return this._enabled;
-  }
-
-  enable(): void {
-    this._enabled = true;
-    this.savePreference(true);
-  }
-
-  disable(): void {
-    this._enabled = false;
-    this.savePreference(false);
-    this.stop();
-    BackgroundMusicService.stopMainTheme();
-  }
-
-  toggle(): boolean {
-    if (this._enabled) {
-      this.disable();
-    } else {
-      this.enable();
-    }
-    return this._enabled;
-  }
-
   get volume(): number {
     return this._userVolume;
   }
 
-  /** Set user volume (0-1). Immediately updates currently playing channels. */
+  /** Set user volume (0-1). Immediately updates the playing channels and the main theme. */
   setVolume(vol: number): void {
+    const wasSilent = this._userVolume === 0;
     this._userVolume = Math.max(0, Math.min(1, vol));
     this.mixer.setUserVolume(this._userVolume);
+    // Silent, nothing plays (see crossfadeToTrack); audible again, the phase's
+    // track comes back
+    if (this._userVolume === 0) {
+      this.mixer.stop();
+    } else if (wasSilent && !this.mixer.playing) {
+      if (this.currentPhase === 'build') this.playBuildPhase();
+      else if (this.currentPhase === 'wave') this.playWavePhase();
+    }
+    const main = BackgroundMusicService.mainThemeAudio;
+    // A running fade-out owns the element's volume
+    if (main && this.mainThemeFadeRafId === null) {
+      main.volume = BackgroundMusicService.mainThemeBaseVolume * this._userVolume;
+    }
   }
 
   /**
@@ -170,11 +169,7 @@ export class BackgroundMusicService {
    * Transitions from the static main theme to build phase music.
    */
   onLoadingComplete(): void {
-    if (this._enabled) {
-      this.transitionFromMainTheme();
-    } else {
-      BackgroundMusicService.stopMainTheme();
-    }
+    this.transitionFromMainTheme();
   }
 
   /** Stop all music immediately (no fade) */
@@ -288,10 +283,12 @@ export class BackgroundMusicService {
       }),
     );
 
-    // Game reset → stop immediately
+    // Game reset (restart, new location) → back to build music. Not while
+    // the main theme is still up: the end of loading hands over from it.
     this.subs.add(
       this.eventBus.on('game:reset', () => {
-        this.stop();
+        if (this.mainThemePending()) return;
+        this.playBuildPhase();
       }),
     );
   }
@@ -300,8 +297,17 @@ export class BackgroundMusicService {
   // PHASE TRANSITIONS
   // =====================================================
 
+  /** Whether the main theme still plays, fades out or waits for the gap before build. */
+  private mainThemePending(): boolean {
+    return BackgroundMusicService.mainThemeAudio !== null
+      || this.mainThemeFadeRafId !== null
+      || this.mainThemeGapTimer !== null;
+  }
+
   private playBuildPhase(): void {
-    if (!this._enabled) return;
+    // A phase change ends the hand-over from the main theme: its pending
+    // gap timer would otherwise start build music over this track later
+    this.cancelMainThemeFade();
     this.currentPhase = 'build';
     const track = this.pickRandom(BACKGROUND_MUSIC.build, this.lastBuildTrackId);
     if (!track) return;
@@ -310,7 +316,7 @@ export class BackgroundMusicService {
   }
 
   private playWavePhase(): void {
-    if (!this._enabled) return;
+    this.cancelMainThemeFade();
     this.currentPhase = 'wave';
     const track = this.pickRandom(BACKGROUND_MUSIC.wave, this.lastWaveTrackId);
     if (!track) return;
@@ -333,8 +339,10 @@ export class BackgroundMusicService {
     const buffer = await this.buffers.load(track.url);
     if (!buffer) return;
 
-    // If phase changed while loading, abort
-    if (this.currentPhase === 'stopped') return;
+    // If phase changed while loading, abort. At volume 0 nothing starts: a
+    // muted player or a bot at 75x would otherwise crossfade every few
+    // seconds into silence; setVolume() brings the phase's track back.
+    if (this.currentPhase === 'stopped' || this._userVolume === 0) return;
 
     const trackVol = (track.volume ?? 0.5) * BACKGROUND_MUSIC.masterVolume;
     const loopFade = BACKGROUND_MUSIC.loopCrossfadeDuration;
@@ -362,26 +370,5 @@ export class BackgroundMusicService {
     const candidates = tracks.filter(t => t.id !== lastId);
     const pool = candidates.length > 0 ? candidates : tracks;
     return pool[Math.floor(Math.random() * pool.length)];
-  }
-
-  // =====================================================
-  // PERSISTENCE
-  // =====================================================
-
-  private loadPreference(): boolean {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      return stored !== null ? stored === 'true' : true;
-    } catch {
-      return true;
-    }
-  }
-
-  private savePreference(enabled: boolean): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, String(enabled));
-    } catch {
-      /* ignore */
-    }
   }
 }

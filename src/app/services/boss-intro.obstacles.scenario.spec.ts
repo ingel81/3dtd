@@ -213,7 +213,7 @@ describe('Boss intro shot, night-2 playtest 366 on a narrow street replayed', ()
         { provide: GameStateManager, useValue: { getEventBus: () => bus, waveNumber: () => 10 } },
         {
           provide: GameStore,
-          useValue: { gameSpeed: signal(1), renderingEnabled: signal(true), paused: signal(false) },
+          useValue: { gameSpeed: signal(1), renderingEnabled: signal(true), paused: signal(false), pauseKeepsLoops: signal(false) },
         },
         { provide: UIStore, useValue: { photoMode: signal(false) } },
         { provide: BotClientService, useValue: { botEnabled: signal(false), isConnected: signal(false) } },
