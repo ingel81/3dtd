@@ -208,9 +208,14 @@ export function buildWaveConfig(
     // Über die Template-Obergrenze hinaus, aber nur wenn der Deckel gar nicht
     // bindet: Dann tötet die Verteidigung rechnerisch schneller als Gegner
     // nachkommen, und die vorgesehene Welle ist für sie keine Aufgabe mehr.
+    //
+    // Nie über den Deckel selbst: "bindet nicht" vergleicht ihn mit der
+    // Template-Obergrenze, nicht mit der vergrößerten Anzahl. Ohne diese Grenze
+    // schickte W15 im menschlichen Lauf vom 2026-09-23 489 Golems gegen einen
+    // Deckel von 221 (×8,15 auf 60) und nahm 88 % der HP.
     if (!capBinds && factor >= 1 && pressure.pressureMultiplier > 1) {
       const over = Math.round(count * pressure.pressureMultiplier);
-      count = Math.min(COUNT_OVERRIDE_MAX, Math.max(count, over));
+      count = Math.min(COUNT_OVERRIDE_MAX, allowed ?? Infinity, Math.max(count, over));
     }
 
     return { count, cap, capBinds };
@@ -249,13 +254,26 @@ export function buildWaveConfig(
   const totalCount = Math.max(1, Math.round(sized.count * intensity));
 
   // Expand template → enemy groups
+  // A template with a leader (a boss wave's boss) sends exactly that many of
+  // its first entry; the rest share what is left by their own shares.
   const enemies: { type: string; count: number; healthMultiplier: number }[] = [];
+  const leader = template.leaderCount;
   let allocated = 0;
-  for (let i = 0; i < template.enemies.length; i++) {
+  let shareLeft = 1;
+  let countLeft = totalCount;
+  if (leader !== undefined && template.enemies.length > 1) {
+    const [type, share] = template.enemies[0];
+    const count = Math.max(1, Math.min(leader, totalCount - (template.enemies.length - 1)));
+    enemies.push({ type, count, healthMultiplier: hpMult });
+    shareLeft -= share;
+    countLeft -= count;
+  }
+  const start = enemies.length;
+  for (let i = start; i < template.enemies.length; i++) {
     const [type, share] = template.enemies[i];
     const count = i === template.enemies.length - 1
-      ? Math.max(1, totalCount - allocated)
-      : Math.max(1, Math.round(totalCount * share));
+      ? Math.max(1, countLeft - allocated)
+      : Math.max(1, Math.round(countLeft * (share / shareLeft)));
     allocated += count;
     enemies.push({ type, count, healthMultiplier: hpMult });
   }

@@ -5,6 +5,7 @@ import { MAX_WAVE_DURATION_MS, TEMPLATES } from '../../templates';
 import { PressureController } from './pressure-controller';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { DirectorDecision, DirectorFactors } from './director-rules';
+import { directorParams } from '../../director-params';
 
 /**
  * The decoder shared by both directors, from a decision to the wave that
@@ -83,6 +84,24 @@ describe('buildWaveConfig', () => {
 
     expect(tight.totalCount).toBeLessThan(HORDE.countRange[1]);
     expect(wide.totalCount).toBeGreaterThan(tight.totalCount);
+  });
+
+  // W15 of the human run on 2026-09-23: the cap did not bind against the
+  // template maximum (60), the controller stood at ×8.15, and the push past
+  // countRange[1] sent 489 golems against a cap of 221. The push may grow a
+  // wave up to the cap, never through it.
+  it('never pushes a wave past its survivability cap, however far the controller opened', () => {
+    const golems = TEMPLATES.findIndex((t) => t.id === 'golem_squad');
+    let checked = 0;
+    for (const dps of [200, 500, 1000, 2000, 5000, 10_000, 50_000]) {
+      const config = build(decision(golems, { count: 1, hp: 1 }), defense(dps), gate(8.15));
+      const reasons = config.explanation!.reasons.join(' ');
+      const cap = /Survivability cap (?:is |holds the count at )?(\d+)/.exec(reasons);
+      if (!cap) continue;
+      checked++;
+      expect(config.totalCount).toBeLessThanOrEqual(Math.ceil(Number(cap[1]) * directorParams().capSlack));
+    }
+    expect(checked).toBeGreaterThan(0);
   });
 
   it('compresses the spawn delay of a wave that would run past three minutes', () => {

@@ -31,6 +31,12 @@ export interface Template {
   spawnPattern: TemplateSpawnPattern;
   requires: TemplateCapability;
   bossOnly: boolean;
+  /**
+   * Exactly this many of the first entry in `enemies`, however large the wave:
+   * the boss of a boss wave. The other entries share the rest by their shares.
+   * Without it every entry is a share of the count.
+   */
+  leaderCount?: number;
 }
 
 export const TEMPLATES: readonly Template[] = [
@@ -289,6 +295,9 @@ export const TEMPLATES: readonly Template[] = [
     // die Menge: Die HP-Spanne reicht dafür bis ×20, und welchen Wert der
     // Regler daraus nimmt, entscheidet er selbst.
     enemies: [['herbert', 0.25], ['tank', 0.375], ['zombie', 0.375]],
+    // Ein Herbert, der Rest Begleiter (User, 2026-09-23): Bei einem Viertel
+    // kamen in W10 vier, und der erste Boss war zu stark.
+    leaderCount: 1,
     countRange: [6, 20],
     spawnDelayRange: [400, 1800],
     hpMultRange: [0.5, 20.0],
