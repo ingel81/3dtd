@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal, type WritableSignal } from '@angular/core';
 import {
+  Box3,
   BoxGeometry,
   BufferGeometry,
   Float32BufferAttribute,
@@ -11,7 +12,6 @@ import {
   MeshBasicMaterial,
   MeshPhongMaterial,
   MeshStandardMaterial,
-  OctahedronGeometry,
   PerspectiveCamera,
   Quaternion,
   ShaderMaterial,
@@ -34,6 +34,7 @@ import {
   portalDepthScale,
   portalLabelHeight,
 } from '../../configs/marker-geometry.config';
+import { HQ_GROUND_LIFT } from '../../three-engine/renderers/marker/hq-marker-geometry';
 import { portalLaneOffset, portalTurnRange } from '../../three-engine/renderers/marker/spawn-portal-pose';
 import { MovementComponent } from '../../game-components/movement.component';
 import { TransformComponent } from '../../game-components/transform.component';
@@ -802,18 +803,25 @@ describe('MarkerVisualizationService', () => {
   });
 
   describe('placement previews', () => {
-    it('builds the HQ diamond from core, wireframe, glow and two rings', () => {
+    it('builds the HQ preview from core, crystal, two rings and the light pillar', () => {
       const marker = service.createDiamondMarker({ color: 0xff0000 });
       expect(marker.children).toHaveLength(5);
       expect(marker.children.every((c) => c instanceof Mesh)).toBe(true);
     });
 
-    it('scales the diamond with size', () => {
-      const small = service.createDiamondMarker({ color: 0xff0000 });
-      const big = service.createDiamondMarker({ color: 0xff0000, size: 2 });
+    it('scales the crystal with size and lets the pillar reach the ground at every size', () => {
+      for (const size of [0.8, 2]) {
+        const marker = service.createDiamondMarker({ color: 0xff0000, size });
+        const [core, shell, , , pillar] = marker.children as Mesh[];
+        expect(core.scale.x).toBe(size);
+        expect(shell.scale.y).toBe(size);
 
-      const coreRadius = (g: Group) => ((g.children[0] as Mesh).geometry as OctahedronGeometry).parameters.radius;
-      expect(coreRadius(big)).toBe(2 * coreRadius(small));
+        marker.updateMatrixWorld(true);
+        const pillarBox = new Box3().setFromObject(pillar);
+        const shellBox = new Box3().setFromObject(shell);
+        expect(pillarBox.min.y).toBeCloseTo(-(MARKER_FLOAT_HEIGHT - HQ_GROUND_LIFT));
+        if (size < 1.5) expect(pillarBox.max.y).toBeCloseTo(shellBox.min.y);
+      }
     });
 
     it('builds the spawn preview as a portal standing on its origin, in tintable materials', async () => {
@@ -851,7 +859,7 @@ describe('MarkerVisualizationService', () => {
         service.disposePreviewMarker(preview);
       }
 
-      // Diamond 5 meshes, portal 2, a geometry and a material each
+      // HQ 5 meshes, portal 2, a geometry and a material each
       expect(disposed).toHaveBeenCalledTimes(14);
     });
 

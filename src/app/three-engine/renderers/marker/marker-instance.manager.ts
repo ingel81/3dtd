@@ -1,9 +1,7 @@
 import {
   InstancedMesh,
   InstancedBufferAttribute,
-  OctahedronGeometry,
   TorusGeometry,
-  PlaneGeometry,
   ShaderMaterial,
   Matrix4,
   Vector3,
@@ -12,9 +10,21 @@ import {
   Group,
 } from 'three';
 import { createDiamondMaterial, createRingMaterial, createGroundGlowMaterial } from './marker-shaders';
+import {
+  createCrystalGeometry,
+  createGroundGeometry,
+  HQ_GROUND_LIFT,
+  HQ_OUTER_RING_SCALE,
+  HQ_RING_RADIUS,
+  HQ_RING_TUBE,
+} from './hq-marker-geometry';
+import { MARKER_FLOAT_HEIGHT } from '../../../configs/marker-geometry.config';
 
 const MAX_MARKERS = 8;
 const MAX_RINGS = 8; // 2 per HQ marker, up to 4 HQs during transitions
+
+/** Ground disc below the crystal centre (m): on the terrain, lifted a little. */
+const GROUND_DROP = MARKER_FLOAT_HEIGHT - HQ_GROUND_LIFT;
 
 interface MarkerEntry {
   id: string;
@@ -27,10 +37,10 @@ interface MarkerEntry {
 /**
  * GPU-instanced HQ marker renderer.
  *
- * Manages 3 InstancedMesh objects for the HQ diamond:
- * - Diamond bodies (holographic octahedron with Fresnel/scan line shader)
- * - Rings (two tori with glow)
- * - Ground glow discs (radial pulse projection)
+ * Manages 3 InstancedMesh objects for the HQ crystal:
+ * - Crystal bodies (cut glass shell with an energy core inside, one geometry)
+ * - Rings (two thin segmented bands, one tilted)
+ * - Ground emblem with the light pillar up to the crystal (one geometry)
  *
  * Produces 3 draw calls total. The spawns stand as portals, see
  * SpawnPortalManager.
@@ -57,6 +67,8 @@ export class MarkerInstanceManager {
   private readonly rTiltAttr: InstancedBufferAttribute;
   private readonly rRotSpeedAttr: InstancedBufferAttribute;
   private readonly rPhaseAttr: InstancedBufferAttribute;
+  private readonly rRadiusAttr: InstancedBufferAttribute;
+  private readonly rStyleAttr: InstancedBufferAttribute;
 
   // Ground per-instance attributes
   private readonly gColorAttr: InstancedBufferAttribute;
@@ -78,8 +90,7 @@ export class MarkerInstanceManager {
 
   constructor(private readonly overlayGroup: Group) {
     // ── Diamond InstancedMesh ──
-    const diamondGeom = new OctahedronGeometry(8, 0);
-    diamondGeom.scale(1, 1.8, 1);
+    const diamondGeom = createCrystalGeometry();
     this.diamondMat = createDiamondMaterial();
 
     this.dColorAttr = new InstancedBufferAttribute(new Float32Array(MAX_MARKERS * 3), 3);
@@ -98,7 +109,7 @@ export class MarkerInstanceManager {
     this.diamondMesh.renderOrder = 5;
 
     // ── Ring InstancedMesh ──
-    const ringGeom = new TorusGeometry(14, 0.8, 8, 32);
+    const ringGeom = new TorusGeometry(HQ_RING_RADIUS, HQ_RING_TUBE, 6, 128);
     ringGeom.rotateX(Math.PI / 2); // Lay flat by default
     this.ringMat = createRingMaterial();
 
@@ -106,20 +117,23 @@ export class MarkerInstanceManager {
     this.rTiltAttr = new InstancedBufferAttribute(new Float32Array(MAX_RINGS), 1);
     this.rRotSpeedAttr = new InstancedBufferAttribute(new Float32Array(MAX_RINGS), 1);
     this.rPhaseAttr = new InstancedBufferAttribute(new Float32Array(MAX_RINGS), 1);
+    this.rRadiusAttr = new InstancedBufferAttribute(new Float32Array(MAX_RINGS), 1);
+    this.rStyleAttr = new InstancedBufferAttribute(new Float32Array(MAX_RINGS), 1);
 
     ringGeom.setAttribute('aColor', this.rColorAttr);
     ringGeom.setAttribute('aTiltAngle', this.rTiltAttr);
     ringGeom.setAttribute('aRotationSpeed', this.rRotSpeedAttr);
     ringGeom.setAttribute('aPhaseOffset', this.rPhaseAttr);
+    ringGeom.setAttribute('aRadiusScale', this.rRadiusAttr);
+    ringGeom.setAttribute('aStyle', this.rStyleAttr);
 
     this.ringMesh = new InstancedMesh(ringGeom, this.ringMat, MAX_RINGS);
     this.ringMesh.count = 0;
     this.ringMesh.frustumCulled = false;
     this.ringMesh.renderOrder = 5;
 
-    // ── Ground Glow InstancedMesh ──
-    const groundGeom = new PlaneGeometry(30, 30);
-    groundGeom.rotateX(-Math.PI / 2); // Lay flat
+    // ── Ground emblem and light pillar InstancedMesh ──
+    const groundGeom = createGroundGeometry();
     this.groundMat = createGroundGlowMaterial();
 
     this.gColorAttr = new InstancedBufferAttribute(new Float32Array(MAX_MARKERS * 3), 3);
@@ -179,8 +193,7 @@ export class MarkerInstanceManager {
 
     // ── Ground glow instance ──
     const gi = this.groundFree.pop()!;
-    // Ground disc sits at terrain level (Y = marker position - 30 offset, but we place at markerY - 28 to be slightly above terrain)
-    this.tmpMatrix.makeTranslation(position.x, position.y - 28, position.z);
+    this.tmpMatrix.makeTranslation(position.x, position.y - GROUND_DROP, position.z);
     this.groundMesh.setMatrixAt(gi, this.tmpMatrix);
 
     this.gColorAttr.setXYZ(gi, this.tmpColor.r, this.tmpColor.g, this.tmpColor.b);
@@ -190,7 +203,7 @@ export class MarkerInstanceManager {
     this.groundMesh.count = this.groundCount;
 
     // ── Ring instances ──
-    // Ring 1: horizontal, moderate speed
+    // Ring 1: horizontal, three long arcs, moderate speed
     const ri1 = this.ringFree.pop()!;
     this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
     this.ringMesh.setMatrixAt(ri1, this.tmpMatrix);
@@ -198,8 +211,10 @@ export class MarkerInstanceManager {
     this.rTiltAttr.setX(ri1, 0); // No additional tilt
     this.rRotSpeedAttr.setX(ri1, 0.0008);
     this.rPhaseAttr.setX(ri1, phaseOffset);
+    this.rRadiusAttr.setX(ri1, 1);
+    this.rStyleAttr.setX(ri1, 0);
 
-    // Ring 2: tilted 30°, slower, slightly larger handled by shader
+    // Ring 2: tilted 30°, fine dashes, slower and a little wider
     const ri2 = this.ringFree.pop()!;
     this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
     this.ringMesh.setMatrixAt(ri2, this.tmpMatrix);
@@ -207,6 +222,8 @@ export class MarkerInstanceManager {
     this.rTiltAttr.setX(ri2, Math.PI / 6); // 30° tilt
     this.rRotSpeedAttr.setX(ri2, -0.0006);
     this.rPhaseAttr.setX(ri2, phaseOffset);
+    this.rRadiusAttr.setX(ri2, HQ_OUTER_RING_SCALE);
+    this.rStyleAttr.setX(ri2, 1);
 
     this.markRingDirty();
     this.ringCount = Math.max(this.ringCount, Math.max(ri1, ri2) + 1);
@@ -273,8 +290,8 @@ export class MarkerInstanceManager {
     this.tmpMatrix.makeTranslation(position.x, position.y, position.z);
     this.diamondMesh.setMatrixAt(entry.diamondIndex, this.tmpMatrix);
 
-    // Update ground (slightly below marker)
-    this.tmpMatrix.makeTranslation(position.x, position.y - 28, position.z);
+    // Update ground (on the terrain below the marker)
+    this.tmpMatrix.makeTranslation(position.x, position.y - GROUND_DROP, position.z);
     this.groundMesh.setMatrixAt(entry.groundIndex, this.tmpMatrix);
 
     // Update rings
@@ -304,6 +321,7 @@ export class MarkerInstanceManager {
     this.ringMat.uniforms['uCameraPos'].value.copy(camPos);
 
     this.groundMat.uniforms['uTime'].value = now;
+    this.groundMat.uniforms['uCameraPos'].value.copy(camPos);
   }
 
   /**
@@ -370,6 +388,8 @@ export class MarkerInstanceManager {
     this.rTiltAttr.needsUpdate = true;
     this.rRotSpeedAttr.needsUpdate = true;
     this.rPhaseAttr.needsUpdate = true;
+    this.rRadiusAttr.needsUpdate = true;
+    this.rStyleAttr.needsUpdate = true;
   }
 
   private markGroundDirty(): void {
