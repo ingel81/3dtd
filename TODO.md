@@ -94,6 +94,9 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Lücken: [docs/REPLAY.md](docs/REPLAY.md).
 - [ ] **E4 Stone Golem: Laufgeräusch und Beben**: schwere Schritte, leichter Screen Shake in Kameranähe.
 - [ ] **E5 Raketen-Sound**: neues Asset nach `docs/PROJECTILES.md`, "Bekannte Einschränkungen".
+- [ ] **E21 Abstand großer Gegner (Entscheidung, User)**: Golems überlappen trotz 600 ms Template-Grenze, weil
+      das 3-min-Limit den Delay weiter drückt (W15 New York: 368 ms). Vorschlag: Mindestabstand in Metern je Typ
+      aus der Modellgröße, den auch das 3-min-Limit nicht unterschreitet. Der User denkt noch darüber nach.
 - [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen (User, 2026-09-23): Ctrl+Zahl speichert,
       Zahl springt. Kollidiert: 1 bis 9 wählen heute Tower (`hotkey-map.ts`), Ctrl wird bewusst durchgelassen
       (Ctrl+1 wechselt im Browser den Tab). Tastenbelegung erst entscheiden.
