@@ -79,6 +79,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
 | [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
+| [SOUND_PLAN.md](SOUND_PLAN.md) | Plan | Sound-Paket vom 2026-09-23: Bugs, Technik, neue SFX per ElevenLabs, Musikzustände, Ducking; was bewusst nicht dazugehört |
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. Anforderungen E1 bis E44 festgelegt (2026-09-18), Umsetzung auf Branch `electron` |
 
