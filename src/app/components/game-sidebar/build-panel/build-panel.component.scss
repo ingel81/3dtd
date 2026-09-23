@@ -309,4 +309,25 @@
   background: rgba(244, 67, 54, 0.2);
 }
 
+/* Secondary: the towers are what this panel is for, the gold button lives in
+ * the Research Center's own panel. */
+.td-research-btn {
+  flex: none;
+  width: auto;
+  margin: 6px 8px 8px;
+
+  td-icon { color: var(--td-gold); }
+}
+.td-research-btn-label { flex: 1; text-align: left; }
+.td-research-btn-queued {
+  min-width: 18px;
+  padding: 1px 5px;
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  text-align: center;
+  color: #1A140A;
+  background: var(--td-gold);
+  border-radius: 2px;
+}
+
 @include panel.matrix-btn;

@@ -36,7 +36,7 @@
   }
 
   &.td-edge-done {
-    stroke: var(--td-teal-dark);
+    stroke: var(--td-green-dark);
   }
 
   // Its source is running or queued: the path is coming, not open yet.
@@ -63,7 +63,10 @@
   fill: #2a312c;
   transition: opacity 160ms ease;
 
-  &.td-edge-done,
+  &.td-edge-done {
+    fill: var(--td-green-dark);
+  }
+
   &.td-edge-active,
   &.td-edge-pending {
     fill: var(--td-teal-dark);
@@ -328,24 +331,36 @@
   }
 }
 
+// Done: green, the theme's colour for "positive". Green edge on the left like
+// the gold one on an open node, so a finished chain reads at a glance and
+// never looks like a locked one.
 .td-state-completed {
-  background: linear-gradient(180deg, #18201d, #131916);
-  border-color: #2c3a35;
+  background: linear-gradient(180deg, #1a261c, #141c15);
+  border-color: #3b5a3e;
+  box-shadow:
+    inset 3px 0 0 var(--td-green-dark),
+    inset 0 1px 0 rgba(158, 214, 160, 0.1),
+    0 1px 0 var(--td-panel-shadow);
 
   .td-tech-node-title {
-    color: #7e9a90;
+    color: var(--td-text-primary);
   }
 
   .td-tech-node-plate {
-    color: var(--td-teal-dark);
-    border-color: #2c3a35;
+    color: var(--td-green);
+    background: rgba(158, 214, 160, 0.08);
+    border-color: var(--td-green-dark);
+  }
+
+  .td-tech-node-flag {
+    color: var(--td-green);
   }
 
   .td-tech-node-foot {
     font-size: 9.5px;
     letter-spacing: 0.14em;
     text-transform: uppercase;
-    color: #93aca2;
+    color: var(--td-green);
   }
 }
 

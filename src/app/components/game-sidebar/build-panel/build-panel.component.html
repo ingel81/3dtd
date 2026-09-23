@@ -83,4 +83,16 @@
       </div>
     }
   </div>
+  <!-- The way into the research tree, once the Center stands. Outside the
+       scrolling content, so it stays in view below the tower grid. -->
+  @if (hasResearchCenter()) {
+    <button class="td-action-btn td-research-btn" type="button" (click)="openResearch()"
+            aria-keyshortcuts="q" matTooltip="Research tree (Q)" matTooltipPosition="left">
+      <td-icon name="layers" [size]="16"></td-icon>
+      <span class="td-research-btn-label">Research tree</span>
+      @if (queuedResearches() > 0) {
+        <span class="td-research-btn-queued" [attr.aria-label]="queuedResearches() + ' queued'">{{ queuedResearches() }}</span>
+      }
+    </button>
+  }
 </section>

@@ -19,10 +19,6 @@ import { FavoriteLocation } from '../../models/location.types';
 import { LOADING_NAME, NO_LOCATION_NAME } from '../../services/location/location-management.service';
 import { FAVORITE_NAME_MAX_LENGTH } from '../../services/location/favorite-locations';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { MatDialog } from '@angular/material/dialog';
-import { Injector } from '@angular/core';
-import { ResearchStore } from '../../store/research.store';
-import { openResearchDialog } from '../research-dialog/open-research-dialog';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { PulseThrottle } from '../../utils/pulse-throttle';
@@ -58,20 +54,6 @@ export class GameHeaderComponent {
   /** True when the app runs in DevWorld mode (URL `?devworld`). Used to gate
    *  the headless-rendering toggle, which is a training-only debug control. */
   readonly isDevWorld = inject(DevWorldService).isActive;
-  private readonly researchStore = inject(ResearchStore);
-  private readonly dialog = inject(MatDialog);
-  // The dialog emits commands through the facade, which is provided by the
-  // game component rather than in root (openResearchDialog).
-  private readonly injector = inject(Injector);
-
-  /** Nothing to research before the Center is built, so no button either. */
-  readonly hasResearchCenter = computed(() => this.researchStore.centerLevel() > 0);
-  readonly queuedResearches = computed(() => this.researchStore.queuedResearches().length);
-
-  openResearch(): void {
-    openResearchDialog(this.dialog, this.injector);
-  }
-
   /** Phase 5.14: headless rendering toggle (readable for template binding). */
   readonly renderingEnabled = this.store.renderingEnabled;
 
