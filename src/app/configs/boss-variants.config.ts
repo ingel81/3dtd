@@ -1,17 +1,17 @@
 /**
- * Boss variants: bosses that are no wave template of the director and come in
- * through a rotation over the boss waves past the campaign instead.
+ * Boss variants: bosses that are no wave template of the director. They come
+ * in on two campaign boss waves (W20 the ooze, W30 Skarnax) and through a
+ * rotation over the boss waves past the campaign.
  *
  * The director stays as it is. It plans every wave as before, boss waves
- * included; on a boss wave the rotation names a variant for, the variant's
- * wave ships in place of the director's (GameLoopFacadeService). Templates
- * and campaign do not know the variants, so the director cannot pick one.
- * W1 to W30 are campaign waves and stay untouched.
+ * included; on a boss wave a variant is named for, the variant's wave ships in
+ * place of the director's (AdaptiveSource). Templates do not know the
+ * variants, so the director cannot pick one.
  */
 
 import type { WaveConfig as DirectorWave } from '../director/models/wave-config';
 import type { WaveSizing } from '../director/wave-explanation';
-import type { EnemyTypeId } from './enemy-types.config';
+import { ENEMY_TYPES, WORM_MAX_SEGMENTS, lineageHp, type EnemyTypeId } from './enemy-types.config';
 import {
   BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,
   CAMPAIGN_LENGTH,
@@ -56,9 +56,19 @@ export const BOSS_VARIANTS: Record<BossVariantId, BossVariant> = {
  */
 export const BOSS_VARIANT_ROTATION: readonly (BossVariantId | null)[] = ['worm', null, 'ooze', null];
 
+/**
+ * Campaign boss waves a variant takes (User, 2026-09-23): three Herberts in
+ * thirty waves were too many. W10 stays Herbert, the first boss of a run.
+ */
+export const CAMPAIGN_BOSS_VARIANTS: Readonly<Record<number, BossVariantId>> = { 20: 'ooze', 30: 'worm' };
+
 /** The variant that takes wave `wave`, null on every other wave. */
 export function bossVariantForWave(wave: number): BossVariant | null {
-  if (wave <= CAMPAIGN_LENGTH || !isBossWave(wave)) return null;
+  if (wave <= CAMPAIGN_LENGTH) {
+    const id = CAMPAIGN_BOSS_VARIANTS[wave];
+    return id ? BOSS_VARIANTS[id] : null;
+  }
+  if (!isBossWave(wave)) return null;
   const n = Math.floor((wave - CAMPAIGN_LENGTH - 1) / BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN);
   const id = BOSS_VARIANT_ROTATION[n % BOSS_VARIANT_ROTATION.length];
   return id ? BOSS_VARIANTS[id] : null;
@@ -84,8 +94,41 @@ const EMPTY_SIZING: WaveSizing = {
   durationCapped: false,
 };
 
+/**
+ * HP of one variant at multiplier 1, splits included. A worm counts at its
+ * longest; on a shorter route it has fewer segments and so less HP, never more.
+ */
+function variantNominalHp(variant: BossVariant): number {
+  const type = ENEMY_TYPES[variant.enemyType];
+  return type?.chain ? type.baseHp * WORM_MAX_SEGMENTS : lineageHp(variant.enemyType);
+}
+
+/** HP of the wave the director planned, splits included. */
+function directedTotalHp(directed: DirectorWave): number {
+  return directed.enemies.reduce(
+    (sum, e) => sum + e.count * lineageHp(e.type as EnemyTypeId) * (e.healthMultiplier ?? 1), 0);
+}
+
 export function bossVariantWave(variant: BossVariant, directed: DirectorWave, wave: number): DirectorWave {
-  const hpMult = directed.templateStrength ?? 1;
+  // In the campaign the director plans a Herbert wave here, sized by the
+  // survivability cap; the variant takes that wave's HP as a whole. Its own
+  // multiplier would not fit: the Herbert range reaches x20, and at W20 that
+  // made a 500,000 HP ooze against a defense dealing 76,000 a wave.
+  const inCampaign = wave <= CAMPAIGN_LENGTH;
+  const hpMult = inCampaign
+    ? Math.max(0.05, Math.round((directedTotalHp(directed) / variantNominalHp(variant)) * 1000) / 1000)
+    : directed.templateStrength ?? 1;
+  const reasons = inCampaign
+    ? [
+      `Campaign boss W${wave}: ${variant.name} takes this boss wave `
+        + `in place of the director's ${directed.templateName ?? 'boss template'}.`,
+      `HP ×${hpMult}: as much HP as the wave the director planned for it.`,
+    ]
+    : [
+      `Boss rotation past W${CAMPAIGN_LENGTH}: ${variant.name} takes this boss wave `
+        + `in place of the director's ${directed.templateName ?? 'boss template'}.`,
+      `HP ×${hpMult} as the director planned it for this wave.`,
+    ];
   return {
     enemies: [{ type: variant.enemyType, count: 1, healthMultiplier: hpMult }],
     totalCount: 1,
@@ -95,11 +138,7 @@ export function bossVariantWave(variant: BossVariant, directed: DirectorWave, wa
     templateStrength: hpMult,
     explanation: {
       summary: `W${wave}: ${variant.name}, HP ×${hpMult}`,
-      reasons: [
-        `Boss rotation past W${CAMPAIGN_LENGTH}: ${variant.name} takes this boss wave `
-          + `in place of the director's ${directed.templateName ?? 'boss template'}.`,
-        `HP ×${hpMult} as the director planned it for this wave.`,
-      ],
+      reasons,
       // The numbers the director came to, with this wave's own size: one boss,
       // and no cap, because the fairness gate did not size this one.
       sizing: {
