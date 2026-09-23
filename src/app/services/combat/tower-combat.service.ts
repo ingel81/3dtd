@@ -276,6 +276,12 @@ export class TowerCombatService {
     return pos;
   }
 
+  /** Tilt the guns of a tower with pitchNodes towards `target` (visual only). */
+  private aimPitch(tower: Tower, target: Enemy): void {
+    if (!tower.typeConfig.pitchNodes || !this.tilesEngine) return;
+    this.tilesEngine.towers.updatePitch(tower.id, this.aimLocalPosition(target));
+  }
+
   /** Where a shot at a body along the route flies to (its aim point); undefined for any other target. */
   private projectileAim(target: Enemy): GeoPosition | undefined {
     if (!target.body || !this.bodyAim.aim(target, this._aimPoint)) return undefined;
@@ -358,6 +364,7 @@ export class TowerCombatService {
         // Always rotate turret towards target (rotation advances per sub-step)
         const heading = this.calculateHeading(tower.position, this.targetPoint(target));
         this.tilesEngine?.towers.updateRotation(tower.id, heading);
+        this.aimPitch(tower, target);
 
         // Fire if cooldown is ready AND turret is aligned
         const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
@@ -377,6 +384,7 @@ export class TowerCombatService {
               // Update rotation to new target, don't fire this sub-step
               const newHeading = this.calculateHeading(tower.position, this.targetPoint(target));
               this.tilesEngine?.towers.updateRotation(tower.id, newHeading);
+              this.aimPitch(tower, target);
               continue;
             }
           }

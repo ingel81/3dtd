@@ -199,6 +199,15 @@ export interface TowerTypeConfig {
   rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
   turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point +Z)
   turretNode?: string; // Node that turns to the target. Replaces turret_top/tower_top/top, no fallback to them
+  /**
+   * Nodes under the turret that tilt towards the target's height, about the
+   * axis across the barrels (turretBarrelOffset), with their origin on the
+   * trunnion. Only the model shows it: firing waits for the turn, never for
+   * the tilt. Muzzle up is positive; `pitchRange` in radians keeps the
+   * barrels out of the turret plate.
+   */
+  pitchNodes?: string[];
+  pitchRange?: { min: number; max: number };
 
   damageType: DamageType; // Damage type for the damage matrix
   damage: number;
@@ -246,7 +255,7 @@ export interface TowerTypeConfig {
 
 // Tower model URLs
 const ARCHER_MODEL_URL = 'assets/models/towers/archer.glb';
-const TURRET_MODEL_URL = 'assets/models/towers/gatling.glb';
+const TURRET_MODEL_URL = 'assets/models/towers/gatling_tilt.glb';
 const ROCKET_MODEL_URL = 'assets/models/towers/rocket.glb';
 const CANNON_MODEL_URL = 'assets/models/towers/cannon.glb';
 const ICE_MODEL_URL = 'assets/models/towers/ice.glb';
@@ -297,6 +306,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
       { x: -0.9, z: 0 }, // Left barrel cluster
       { x: 0.9, z: 0 },  // Right barrel cluster
     ],
+    // gatling_tilt.glb (tools/blender/gatling_tilt.py): the guns tilt on
+    // their saddles. Past +40° the ammo box cuts into the saddle, past -25°
+    // the barrels touch the plate.
+    pitchNodes: ['gun_left', 'gun_right'],
+    pitchRange: { min: -0.436, max: 0.698 },
     damageType: 'pierce',
     damage: 10,
     range: 50,

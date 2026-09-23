@@ -20,6 +20,7 @@ import {
   Camera,
   Sphere,
   Texture,
+  Vector3,
   WebGLRenderer,
 } from 'three';
 import { CoordinateSync } from './index';
@@ -27,7 +28,7 @@ import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-t
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { createLosRing, createTipMarker } from './tower-overlays';
 import { RangeRingKit, placeRangeRing } from './range-ring';
-import { headingToLocalRotation, localRotationToHeading, stepTurretAim, turretAimError } from './tower-turret-aim';
+import { TurretPitch, createTurretPitch, headingToLocalRotation, localRotationToHeading, pitchTowards, stepTurretAim, turretAimError } from './tower-turret-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
 
@@ -66,6 +67,8 @@ export interface TowerRenderData {
   scanPhase: number; // 0=inactive, 1=going left, 2=going right, 3=returning to center
   scanStartRotation: number; // Rotation at start of scan
   scanDelayRemaining: number; // Delay before scan starts (ms)
+  /** Guns that tilt towards the target's height (TowerTypeConfig.pitchNodes) */
+  pitch?: TurretPitch;
   // GLTF animation support
   mixer: AnimationMixer | null;
   animations: Map<string, AnimationClip>;
@@ -425,6 +428,10 @@ export class ThreeTowerRenderer {
       currentAction,
     };
 
+    if (config.pitchNodes && turretPart) {
+      renderData.pitch = createTurretPitch(config, turretPart);
+    }
+
     this.applyParts(renderData);
     this.towers.set(id, renderData);
     return renderData;
@@ -546,8 +553,21 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Tilt the guns of tower `id` towards local point `target` (its aim point),
+   * seen from the tower tip. Towers without pitchNodes ignore it; the tilt
+   * itself is interpolated in advanceTurretAim().
+   */
+  updatePitch(id: string, target: Vector3): void {
+    const data = this.towers.get(id);
+    if (!data?.pitch) return;
+    const dx = target.x - data.mesh.position.x;
+    const dz = target.z - data.mesh.position.z;
+    data.pitch.target = pitchTowards(data.pitch, target.y - data.tipY, Math.sqrt(dx * dx + dz * dz));
+  }
+
+  /**
    * Turn the turret to a heading without a target (the guard heading between
-   * waves), at the same speed as aiming.
+   * waves), at the same speed as aiming. The guns level out.
    */
   setIdleHeading(id: string, heading: number): void {
     const data = this.towers.get(id);
@@ -555,6 +575,7 @@ export class ThreeTowerRenderer {
 
     data.targetLocalRotation = headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
     data.hasTarget = false;
+    if (data.pitch) data.pitch.target = 0;
   }
 
   /**
