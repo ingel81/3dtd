@@ -173,17 +173,18 @@ export class StreetSegmentGrid {
    * The segment of any street nearest to the point, or null without one.
    * `accept` skips a segment by its first node, as the flat loop did.
    */
-  nearest(lat: number, lon: number, accept?: (node: StreetNode) => boolean): NearestStreetPoint | null {
+  nearest(lat: number, lon: number, accept?: (node: StreetNode, street: Street) => boolean): NearestStreetPoint | null {
     if (this.segStreet.length === 0) return null;
 
     const stamp = this.nextEpoch();
     let bestSeg = -1;
     let bestDistance = Infinity;
     const measure = (candidate: number): void => {
-      const nodes = this.streets[this.segStreet[candidate]].nodes;
+      const street = this.streets[this.segStreet[candidate]];
+      const nodes = street.nodes;
       const i = this.segNode[candidate];
       const a = nodes[i];
-      if (accept && !accept(a)) return;
+      if (accept && !accept(a, street)) return;
       const b = nodes[i + 1];
       const dist = distanceToSegment(lat, lon, a.lat, a.lon, b.lat, b.lon);
       // On a tie the lower segment number wins: that is the one the flat loop
@@ -297,7 +298,7 @@ export function nearestStreetSegment(
   network: StreetNetwork,
   lat: number,
   lon: number,
-  accept?: (node: StreetNode) => boolean
+  accept?: (node: StreetNode, street: Street) => boolean
 ): NearestStreetPoint | null {
   let grid = grids.get(network);
   if (!grid) {

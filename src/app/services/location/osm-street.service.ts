@@ -1,5 +1,5 @@
 import { inject, Injectable, isDevMode } from '@angular/core';
-import type { Street, StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
+import { UNNAMED_STREET, type Street, type StreetNetwork, type StreetNode } from '../../interfaces/street-network-provider.interface';
 import { RandomSpawnCandidate } from '../../models/location.types';
 import { StreetCacheService } from './street-cache.service';
 import { GeoBox, boxAreaKm2, boxAround, boxMinus, boxesOverlap, mergeStreets } from './street-box';
@@ -438,7 +438,7 @@ export class OsmStreetService {
         if (streetNodes.length >= 2) {
           streets.push({
             id: element.id,
-            name: element.tags?.['name'] || 'Unnamed Street',
+            name: element.tags?.['name'] || UNNAMED_STREET,
             type: element.tags?.['highway'] || 'unknown',
             nodes: streetNodes,
             ...parseStreetTags(element.tags),
@@ -460,7 +460,7 @@ export class OsmStreetService {
     network: StreetNetwork,
     lat: number,
     lon: number,
-    accept?: (node: StreetNode) => boolean
+    accept?: (node: StreetNode, street: Street) => boolean
   ): { street: Street; nodeIndex: number; distance: number } | null {
     return nearestStreetSegment(network, lat, lon, accept);
   }

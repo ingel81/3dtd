@@ -15,6 +15,10 @@ vi.mock('../../components/location-dialog/location-dialog.component', () => ({
   },
 }));
 
+// The street lookup has its own spec; the network here is a stub without real
+// streets, so every real-map spawn reads as the street 'Damrak'.
+vi.mock('../../utils/spawn-label', () => ({ spawnLabel: vi.fn(() => 'Damrak') }));
+
 import { LocationFacadeService, VizCallbacks } from './location-facade.service';
 import { MapRelocationService } from './map-relocation.service';
 import { OsmStreetService } from '../location/osm-street.service';
@@ -60,7 +64,7 @@ const HQ = { lat: 48.7758, lon: 9.1829 };
 const BOUNDS = { minLat: 48.7, maxLat: 48.9, minLon: 9.1, maxLon: 9.3 };
 const INSIDE = { lat: 48.78, lon: 9.19 };
 const OUTSIDE = { lat: 49.5, lon: 9.19 };
-const OLD_SPAWN: SpawnPoint = { id: 'spawn-1', name: 'Old Spawn', lat: 48.79, lon: 9.2, color: SPAWN_COLORS[0] };
+const OLD_SPAWN: SpawnPoint = { id: 'spawn-1', name: 'Damrak', lat: 48.79, lon: 9.2, color: SPAWN_COLORS[0] };
 
 interface Spawn { lat: number; lon: number }
 
@@ -504,13 +508,19 @@ describe('LocationFacadeService', () => {
   });
 
   describe('addSpawnPoint', () => {
-    it('stores the spawn, draws its marker and asks for its path', () => {
+    it('stores the spawn, named after its street, draws its marker and asks for its path', () => {
       facade.addSpawnPoint('s1', 'North', 48.8, 9.2, 0xff0000);
 
-      const spawn = { id: 's1', name: 'North', lat: 48.8, lon: 9.2, color: 0xff0000 };
+      const spawn = { id: 's1', name: 'Damrak', lat: 48.8, lon: 9.2, color: 0xff0000 };
       expect(store.spawnPoints()).toEqual([spawn]);
-      expect(markerViz.addSpawnMarker).toHaveBeenCalledWith('s1', 'North', 48.8, 9.2, 0xff0000);
+      expect(markerViz.addSpawnMarker).toHaveBeenCalledWith('s1', 'Damrak', 48.8, 9.2, 0xff0000);
       expect(pathRoute.showPathFromSpawn).toHaveBeenCalledWith(spawn);
+    });
+
+    it('keeps the name it was given in DevWorld, whose streets carry ids, not names', () => {
+      devWorld.isActive = true;
+      facade.addSpawnPoint('s1', 'North', 48.8, 9.2, 0xff0000);
+      expect(markerViz.addSpawnMarker).toHaveBeenCalledWith('s1', 'North', 48.8, 9.2, 0xff0000);
     });
 
     it('falls back to the engine of the init service', () => {
@@ -559,8 +569,8 @@ describe('LocationFacadeService', () => {
 
       expect(facade.addPredefinedSpawns()).toBe(2);
       expect(store.spawnPoints().map((s) => [s.id, s.name, s.color])).toEqual([
-        ['a', 'Alpha', SPAWN_COLORS[0]],
-        ['b', 'Spawn 2', SPAWN_COLORS[1]],
+        ['a', 'Damrak', SPAWN_COLORS[0]],
+        ['b', 'Damrak', SPAWN_COLORS[1]],
       ]);
     });
 
@@ -596,7 +606,7 @@ describe('LocationFacadeService', () => {
       expect(locationMgmt.setGeneratedSpawns).toHaveBeenCalledWith([{ lat: 48.781, lon: 9.19 }]);
       expect(urlLocation.updateUrl).toHaveBeenCalled();
       expect(store.spawnPoints()).toEqual([
-        { id: 'spawn-1', name: 'Spawn', lat: 48.781, lon: 9.19, color: SPAWN_COLORS[0] },
+        { id: 'spawn-1', name: 'Damrak', lat: 48.781, lon: 9.19, color: SPAWN_COLORS[0] },
       ]);
     });
 
@@ -705,7 +715,7 @@ describe('LocationFacadeService', () => {
 
         expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(streetNetwork, INSIDE.lat, INSIDE.lon, 500, 1000);
         expect(store.spawnPoints()).toEqual([
-          { id: 'spawn-1', name: 'Neckarstraße', lat: 48.785, lon: 9.195, color: SPAWN_COLORS[0] },
+          { id: 'spawn-1', name: 'Damrak', lat: 48.785, lon: 9.195, color: SPAWN_COLORS[0] },
         ]);
       });
 
@@ -835,7 +845,7 @@ describe('LocationFacadeService', () => {
         expect(pathRoute.clearCachedPaths).toHaveBeenCalled();
         expect(gameState.reset).toHaveBeenCalled();
         expect(store.spawnPoints()).toEqual([
-          { id: 'spawn-1', name: 'Spawn', ...INSIDE, color: SPAWN_COLORS[0] },
+          { id: 'spawn-1', name: 'Damrak', ...INSIDE, color: SPAWN_COLORS[0] },
         ]);
         expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [INSIDE]);
         expect(urlLocation.updateUrl).toHaveBeenCalledWith(HQ, [INSIDE]);
@@ -865,7 +875,7 @@ describe('LocationFacadeService', () => {
 
         expect(osm.findPath).toHaveBeenCalledWith(streetNetwork, OUTSIDE.lat, OUTSIDE.lon, HQ.lat, HQ.lon);
         expect(store.spawnPoints()).toEqual([
-          { id: 'spawn-1', name: 'Spawn', ...OUTSIDE, color: SPAWN_COLORS[0] },
+          { id: 'spawn-1', name: 'Damrak', ...OUTSIDE, color: SPAWN_COLORS[0] },
         ]);
         expect(osm.loadStreets).not.toHaveBeenCalled();
         expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
@@ -1033,6 +1043,7 @@ describe('LocationFacadeService', () => {
     } as unknown as DevTerrainProvider;
 
     it('re-creates HQ and the first generated spawn and hands them to the wave pipeline', () => {
+      devWorld.isActive = true;
       facade.onDevWorldRegenerated(provider);
 
       const spawn = { id: 'dev-n', name: 'North', lat: 0.4, lon: 0.1, color: SPAWN_COLORS[0] };
