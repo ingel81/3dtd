@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { Object3D } from 'three';
+import { Object3D, Vector3 } from 'three';
 import type { TowerTypeConfig } from '../../configs/tower-types.config';
 import type { TowerRenderData } from './three-tower.renderer';
-import { headingToLocalRotation, localRotationToHeading, stepTurretAim, turretAimError } from './tower-turret-aim';
+import { createTurretPitch, headingToLocalRotation, localRotationToHeading, pitchTowards, stepTurretAim, turretAimError } from './tower-turret-aim';
 
 const STEP_MS = 1000 / 60;
 
@@ -99,5 +99,57 @@ describe('localRotationToHeading', () => {
 describe('turretAimError', () => {
   it('measures the short way round', () => {
     expect(turretAimError(turret({ currentLocalRotation: 3, targetLocalRotation: -3 }))).toBeCloseTo(2 * Math.PI - 6, 12);
+  });
+});
+
+describe('turret pitch', () => {
+  const config = {
+    turretBarrelOffset: -Math.PI / 2,
+    pitchNodes: ['gun_left', 'gun_right'],
+    pitchRange: { min: -0.4, max: 0.7 },
+  } as TowerTypeConfig;
+
+  function gatling() {
+    const top = new Object3D();
+    for (const name of ['gun_left', 'gun_right', 'saddle']) {
+      const node = new Object3D();
+      node.name = name;
+      top.add(node);
+    }
+    return top;
+  }
+
+  it('finds only the configured nodes under the turret', () => {
+    const pitch = createTurretPitch(config, gatling())!;
+    expect(pitch.nodes.map((n) => n.name)).toEqual(['gun_left', 'gun_right']);
+    expect(createTurretPitch({ ...config, pitchNodes: ['missing'] }, gatling())).toBeUndefined();
+  });
+
+  it('raises the muzzle for a positive pitch, barrels along -X', () => {
+    const top = gatling();
+    const data = turret({ turretPart: top, pitch: createTurretPitch(config, top) });
+    data.pitch!.target = 0.5;
+    run(data, 1000);
+    expect(data.pitch!.current).toBe(0.5);
+    const muzzle = new Vector3(-1, 0, 0).applyQuaternion(data.pitch!.nodes[0].quaternion);
+    expect(muzzle.y).toBeCloseTo(Math.sin(0.5), 12);
+    expect(muzzle.x).toBeCloseTo(-Math.cos(0.5), 12);
+    expect(data.pitch!.nodes[1].quaternion.equals(data.pitch!.nodes[0].quaternion)).toBe(true);
+  });
+
+  it('tilts at π rad/s and leaves the turn alone', () => {
+    const top = gatling();
+    const data = turret({ turretPart: top, pitch: createTurretPitch(config, top) });
+    data.pitch!.target = -0.4;
+    stepTurretAim(data, 100);
+    expect(data.pitch!.current).toBeCloseTo(-Math.PI * 0.1, 12);
+    expect(top.rotation.y).toBe(0);
+  });
+
+  it('clamps the angle to the target to the gun range', () => {
+    const pitch = createTurretPitch(config, gatling())!;
+    expect(pitchTowards(pitch, 1, 1)).toBe(0.7);
+    expect(pitchTowards(pitch, -10, 1)).toBe(-0.4);
+    expect(pitchTowards(pitch, -1, 10)).toBeCloseTo(Math.atan2(-1, 10), 12);
   });
 });

@@ -1,3 +1,4 @@
+import { Object3D, Vector3 } from 'three';
 import type { TowerTypeConfig } from '../../configs/tower-types.config';
 import type { TowerRenderData } from './three-tower.renderer';
 
@@ -17,6 +18,62 @@ const TURRET_TURN_SPEED = Math.PI;
 
 /** How far the reference sweep after placement turns either side: 75° in radians. */
 const SCAN_ANGLE = 1.309;
+
+/** Gun tilt rate, rad/s game-time: as fast as the turn. */
+const PITCH_SPEED = Math.PI;
+
+/**
+ * The guns of a turret that tilt towards the target's height
+ * (TowerTypeConfig.pitchNodes). Purely visual: firing never waits for it.
+ */
+export interface TurretPitch {
+  nodes: Object3D[];
+  /** Axis across the barrels in turret space: turning about it by +angle raises the muzzle */
+  axis: Vector3;
+  min: number;
+  max: number;
+  current: number;
+  target: number;
+}
+
+/**
+ * Find the pitch nodes under `turretPart`. The axis runs across the barrels:
+ * barrels along d = (sin o, 0, cos o) for turretBarrelOffset o tilt up about
+ * d × up = (-cos o, 0, sin o).
+ */
+export function createTurretPitch(typeConfig: TowerTypeConfig, turretPart: Object3D): TurretPitch | undefined {
+  const names = typeConfig.pitchNodes ?? [];
+  const nodes: Object3D[] = [];
+  turretPart.traverse((node) => {
+    if (names.includes(node.name)) nodes.push(node);
+  });
+  if (nodes.length === 0) return undefined;
+  const o = typeConfig.turretBarrelOffset ?? 0;
+  const range = typeConfig.pitchRange ?? { min: -Math.PI / 4, max: Math.PI / 4 };
+  return {
+    nodes,
+    axis: new Vector3(-Math.cos(o), 0, Math.sin(o)),
+    min: range.min,
+    max: range.max,
+    current: 0,
+    target: 0,
+  };
+}
+
+/** Pitch towards a point `dy` above the tower tip and `horizontal` away, clamped to the gun's range. */
+export function pitchTowards(pitch: TurretPitch, dy: number, horizontal: number): number {
+  const angle = Math.atan2(dy, horizontal);
+  return Math.min(pitch.max, Math.max(pitch.min, angle));
+}
+
+/** Tilt the guns for `gameTimeStepMs` of game-time towards their target pitch. */
+function stepTurretPitch(pitch: TurretPitch, gameTimeStepMs: number): void {
+  const diff = pitch.target - pitch.current;
+  if (diff === 0) return;
+  const maxStep = PITCH_SPEED * (gameTimeStepMs / 1000);
+  pitch.current += Math.sign(diff) * Math.min(Math.abs(diff), maxStep);
+  for (const node of pitch.nodes) node.quaternion.setFromAxisAngle(pitch.axis, pitch.current);
+}
 
 /** Wrap an angle difference into [-π, π]. */
 function wrapAngle(diff: number): number {
@@ -73,6 +130,7 @@ export function localRotationToHeading(
  * only its aim, no node.
  */
 export function stepTurretAim(data: TowerRenderData, gameTimeStepMs: number): void {
+  if (data.pitch) stepTurretPitch(data.pitch, gameTimeStepMs);
   const maxRotationThisStep = TURRET_TURN_SPEED * (gameTimeStepMs / 1000);
 
   // Cancel scan if tower acquires a target
