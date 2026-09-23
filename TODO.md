@@ -92,18 +92,17 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Kein Beleg; dafür braucht es das Run-Log dieses Laufs.
 - [ ] **E2 Replay als Neu-Simulation** statt Aufzeichnung, vollständig korrekt (User, Playtest 553). Blocker und
       Lücken: [docs/REPLAY.md](docs/REPLAY.md).
-- [ ] **E4 Stone Golem: Laufgeräusch und Beben**: schwere Schritte, leichter Screen Shake in Kameranähe. Teil des
-      Sound-Pakets (E22).
-- [ ] **E5 Raketen-Sound**: neues Asset nach `docs/PROJECTILES.md`, "Bekannte Einschränkungen". Teil des
-      Sound-Pakets (E22).
+- [ ] **E4 Stone Golem: Laufgeräusch und Beben**: gebaut mit dem Sound-Paket (E22), im Spiel nachzuhören.
+- [ ] **E5 Raketen-Sound**: neues Asset gebaut mit dem Sound-Paket (E22), im Spiel nachzuhören.
 - [ ] **E21 Abstand großer Gegner (Entscheidung, User)**: Golems überlappen trotz 600 ms Template-Grenze, weil
       das 3-min-Limit den Delay weiter drückt (W15 New York: 368 ms). Vorschlag: Mindestabstand in Metern je Typ
       aus der Modellgröße, den auch das 3-min-Limit nicht unterschreitet. Der User denkt noch darüber nach.
 - [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen (User, 2026-09-23): Ctrl+Zahl speichert,
       Zahl springt. Kollidiert: 1 bis 9 wählen heute Tower (`hotkey-map.ts`), Ctrl wird bewusst durchgelassen
       (Ctrl+1 wechselt im Browser den Tab). Tastenbelegung erst entscheiden.
-- [ ] **E22 Sound-Paket** (abgestimmt 2026-09-23, nichts gebaut): acht Bugs, Master-Regler und Stumm-Taste, neue
-      SFX per ElevenLabs, Musikzustände und Ducking, in vier Phasen. [docs/SOUND_PLAN.md](docs/SOUND_PLAN.md).
+- [ ] **E22 Sound-Paket** (2026-09-23, alle vier Phasen gebaut): acht Bugs, Master-Regler und Stumm-Taste, neue
+      SFX per ElevenLabs, Musikzustände und Ducking. Offen: im Spiel nachhören und die Mischung (`volume` in
+      `game-sounds.config.ts`). [docs/SOUND_PLAN.md](docs/SOUND_PLAN.md).
 - [ ] **F4 Ungemessene Grafik- und CPU-Kosten**: Laser-Säule, drei Stencil-Pässe der Reichweitenringe, Kegel-Upload,
       Drehbereichssuche des Portals, `buildBand` im Spiel.
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,

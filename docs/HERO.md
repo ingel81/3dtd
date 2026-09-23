@@ -41,9 +41,9 @@ Die Munition ist seine Schadensart. Alle drei machen vor der Matrix dieselben
 
 | Sorte | Schadensart | Schaden × Rate | am besten gegen (von seinen drei) | Tracer | Schuss-Sound |
 |---|---|---|---|---|---|
-| Standard rounds | physical | 16 × 3/s | Unarmored, Light | goldener Tracer (`hero-round`, visuell `bullet`) | `towers/gatling/shoot.mp3`, 0,22 |
-| Explosive rounds | siege | 32 × 1,5/s | Heavy, Fortified | orange-roter Tracer (`hero-shell`, visuell `shell`), kleine Explosion beim Treffer, kein Splash | `towers/cannon/shoot.mp3`, 0,3 |
-| Rune rounds | magic | 24 × 2/s | Ethereal | kleiner violetter Plasma-Orb (`hero-rune`, visuell `magic`) mit violett-cyanen Funken | `towers/magic/cast.mp3`, 0,3 |
+| Standard rounds | physical | 16 × 3/s | Unarmored, Light | goldener Tracer (`hero-round`, visuell `bullet`) | `hero/round_shot.mp3`, 0,22 |
+| Explosive rounds | siege | 32 × 1,5/s | Heavy, Fortified | orange-roter Tracer (`hero-shell`, visuell `shell`), kleine Explosion beim Treffer, kein Splash | `hero/shell_shot.mp3`, 0,3 |
+| Rune rounds | magic | 24 × 2/s | Ethereal | kleiner violetter Plasma-Orb (`hero-rune`, visuell `magic`) mit violett-cyanen Funken | `hero/rune_shot.mp3`, 0,3 |
 
 Ein Lauf beginnt mit Standard rounds. Der Stufenbonus gilt für jede Munition.
 
@@ -325,8 +325,8 @@ Tests: `route-graph.spec.ts`, `hero.manager.spec.ts`, `hero-body-contact.spec.ts
 ## Bewusst nicht gemacht
 
 - Kein Splash für Explosive rounds, die Explosion ist nur Optik.
-- Kein Mündungsfeuer, keine eigenen Sounds; die drei Schüsse benutzen
-  vorhandene Tower-Samples.
+- Kein Mündungsfeuer. Eigene Sounds hat er seit 2026-09-23 (Sound-Paket E22): drei Schüsse,
+  Anheuern, Stufenaufstieg, Munitionswechsel, Laufbefehl ([SPATIAL_AUDIO.md](SPATIAL_AUDIO.md)).
 - Keine Sichtlinie: er schießt auf 18 m auch durch Häuser, wie im Konzept
   vorgesehen.
 - Nicht in `totalDPS`: DPS-Rampe und COMING UP sehen ihn nicht.

@@ -47,6 +47,17 @@ const reg = vi.hoisted(() => ({
         { id: 'w2', url: 'w2.mp3' },
         { id: 'w3', url: 'w3.mp3' },
       ],
+      boss: [{ id: 'boss', url: 'boss.mp3' }],
+      bloodMoon: [{ id: 'moon', url: 'moon.mp3' }],
+      gameOver: [{ id: 'over', url: 'over.mp3', volume: 0.35 }],
+      gameOverMusicDelayMs: 4000,
+      pauseDim: 0.35,
+      duck: {
+        nuclearStrike: { factor: 0.35, holdMs: 3000 },
+        abilityImpact: { factor: 0.6, holdMs: 1200 },
+        hqDamage: { factor: 0.65, holdMs: 600 },
+        releaseMs: 800,
+      },
       loopCrossfadeDuration: 2000,
       phaseFadeDuration: 1500,
       mainThemeFadeOutDuration: 3000,
@@ -197,7 +208,7 @@ beforeEach(() => {
   FakeHtmlAudio.rejectPlay = false;
   localStorage.clear();
   frames = new Map();
-  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+  vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'setInterval', 'clearInterval'] });
   vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
     const id = nextFrameId++;
     frames.set(id, cb);
@@ -391,7 +402,7 @@ describe('BackgroundMusicService', () => {
       expect(waveTracks).toEqual(['w1.mp3', 'w2.mp3', 'w1.mp3']);
     });
 
-    it('fades out on game over without starting a new track', async () => {
+    it('fades out on game over, then brings in the game-over track after the stinger', async () => {
       const { eventBus, playing, startBuild } = setup();
       await startBuild();
       const [build] = playing();
@@ -404,6 +415,42 @@ describe('BackgroundMusicService', () => {
 
       frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
       expect(playing()).toHaveLength(0);
+
+      await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.phaseFadeDuration + BACKGROUND_MUSIC.gameOverMusicDelayMs);
+      await flush();
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      expect(playing().map((c) => c.buffer?.url)).toEqual(['over.mp3']);
+    });
+
+    it('plays the boss track on a boss wave and the blood-moon track on a blood-moon wave', async () => {
+      const { eventBus, playing, startBuild } = setup();
+      await startBuild();
+      const start = async (wave: number) => {
+        eventBus.emit({ type: 'wave:started', wave, enemyCount: 10 });
+        await flush();
+        frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+        return playing().map((c) => c.buffer?.url);
+      };
+      expect(await start(10)).toEqual(['boss.mp3']);
+      expect(await start(14)).toEqual(['moon.mp3']);
+      expect(await start(15)).toEqual([expect.stringMatching(/^w\d\.mp3$/)]);
+    });
+
+    it('goes down in the pause and ducks under big sounds, then comes back', async () => {
+      const { eventBus, service, playing, startBuild } = setup();
+      await startBuild();
+      const [build] = playing();
+      const full = trackVolume('b1');
+
+      service.setDimmed(true);
+      expect(build.volume).toBeCloseTo(full * BACKGROUND_MUSIC.pauseDim);
+      service.setDimmed(false);
+      expect(build.volume).toBeCloseTo(full);
+
+      eventBus.emit({ type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 0, lon: 0 }, radiusM: 1 });
+      expect(build.volume).toBeCloseTo(full * BACKGROUND_MUSIC.duck.nuclearStrike.factor);
+      await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.duck.nuclearStrike.holdMs + BACKGROUND_MUSIC.duck.releaseMs);
+      expect(build.volume).toBeCloseTo(full);
     });
 
     it('goes back to build music on a game reset (restart), even after game over', async () => {
@@ -420,6 +467,20 @@ describe('BackgroundMusicService', () => {
       frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
       expect(playing()).toHaveLength(1);
       expect(playing()[0].buffer?.url).toMatch(/^b\d\.mp3$/);
+    });
+
+    it('keeps the build music of a location change playing when its loading ends', async () => {
+      const { eventBus, service, playing, startBuild } = setup();
+      await startBuild();
+      eventBus.emit({ type: 'game:reset' });
+      await flush();
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      const [build] = playing();
+
+      service.onLoadingComplete();
+      await vi.advanceTimersByTimeAsync(10_000);
+      await flush();
+      expect(playing()).toEqual([build]);
     });
 
     it('leaves a game reset during loading to the hand-over from the main theme', async () => {
@@ -581,10 +642,10 @@ describe('BackgroundMusicService', () => {
       expect(playing().map((c) => c.buffer?.url)).toEqual(['w1.mp3']);
     });
 
-    it('loads every build and wave track once up front', () => {
+    it('loads every track but the main theme once up front', () => {
       reg.manual = true;
       setup();
-      expect(reg.pending.map((p) => p.url).sort()).toEqual(['b1.mp3', 'b2.mp3', 'w1.mp3', 'w2.mp3', 'w3.mp3']);
+      expect(reg.pending.map((p) => p.url).sort()).toEqual(['b1.mp3', 'b2.mp3', 'boss.mp3', 'moon.mp3', 'over.mp3', 'w1.mp3', 'w2.mp3', 'w3.mp3']);
     });
 
     it('drops a phase change that was stopped while its track was still loading', async () => {

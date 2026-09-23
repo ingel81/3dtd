@@ -4,6 +4,8 @@ import { BACKGROUND_MUSIC, MusicTrack } from '../configs/background-music.config
 import { MusicBufferLoader } from './music-buffer-loader';
 import { MusicMixer } from './music-mixer';
 import { MASTER_BUS_PRE_GAIN } from '../configs/audio.config';
+import { isBossWave } from '../configs/campaign.config';
+import { isBloodMoonWave } from '../configs/blood-moon.config';
 
 /**
  * BackgroundMusicService — Event-driven background music with crossfade
@@ -32,7 +34,11 @@ export class BackgroundMusicService {
   // Track selection state
   private lastBuildTrackId: string | null = null;
   private lastWaveTrackId: string | null = null;
-  private currentPhase: 'main' | 'build' | 'wave' | 'stopped' = 'stopped';
+  private currentPhase: 'main' | 'build' | 'wave' | 'gameover' | 'stopped' = 'stopped';
+  /** The wave whose music plays, for a phase's track to come back to (setVolume) */
+  private currentWave = 0;
+  /** Game over: the timer that brings in the game-over track */
+  private gameOverTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Main theme HTMLAudioElement slow fade-out before the build phase starts
   private mainThemeFadeRafId: number | null = null;
@@ -156,6 +162,7 @@ export class BackgroundMusicService {
     } else if (wasSilent && !this.mixer.playing) {
       if (this.currentPhase === 'build') this.playBuildPhase();
       else if (this.currentPhase === 'wave') this.playWavePhase();
+      else if (this.currentPhase === 'gameover') this.playGameOverPhase();
     }
     const main = BackgroundMusicService.mainThemeAudio;
     // A running fade-out owns the element's volume
@@ -169,11 +176,14 @@ export class BackgroundMusicService {
    * Transitions from the static main theme to build phase music.
    */
   onLoadingComplete(): void {
+    // A location change: the reset went back to build music, which plays on
+    if (BackgroundMusicService.mainThemeAudio === null && this.currentPhase === 'build' && this.mixer.playing) return;
     this.transitionFromMainTheme();
   }
 
   /** Stop all music immediately (no fade) */
   stop(): void {
+    this.clearGameOverTimer();
     this.mixer.stop();
     this.cancelMainThemeFade();
     this.currentPhase = 'stopped';
@@ -192,7 +202,8 @@ export class BackgroundMusicService {
 
   /** Preload all music buffers in the background */
   private preloadAll(): void {
-    const allTracks = [...BACKGROUND_MUSIC.build, ...BACKGROUND_MUSIC.wave];
+    const { build, wave, boss, bloodMoon, gameOver } = BACKGROUND_MUSIC;
+    const allTracks = [...build, ...wave, ...boss, ...bloodMoon, ...gameOver];
     for (const track of allTracks) {
       this.buffers.load(track.url);
     }
@@ -262,10 +273,25 @@ export class BackgroundMusicService {
   // =====================================================
 
   private setupEventHandlers(): void {
-    // Wave started → switch to a wave-phase track
+    // Wave started → a wave track, the boss's on a boss wave, the blood moon's on its waves
     this.subs.add(
-      this.eventBus.on('wave:started', () => {
+      this.eventBus.on('wave:started', ({ wave }) => {
+        this.currentWave = wave;
         this.playWavePhase();
+      }),
+    );
+
+    // Big sounds duck the music instead of pumping the shared limiter
+    const { duck } = BACKGROUND_MUSIC;
+    this.subs.add(
+      this.eventBus.on('ability:impact', ({ abilityId }) => {
+        const d = abilityId === 'nuclear-strike' ? duck.nuclearStrike : duck.abilityImpact;
+        this.mixer.duck(d.factor, d.holdMs, duck.releaseMs);
+      }),
+    );
+    this.subs.add(
+      this.eventBus.on('health:changed', ({ delta }) => {
+        if (delta < 0) this.mixer.duck(duck.hqDamage.factor, duck.hqDamage.holdMs, duck.releaseMs);
       }),
     );
 
@@ -276,10 +302,16 @@ export class BackgroundMusicService {
       }),
     );
 
-    // Game over → fade out
+    // Game over → the wave music fades, the HQ's destruction and the stinger
+    // play (GameSoundsService), then the game-over track
     this.subs.add(
       this.eventBus.on('game:over', () => {
         this.fadeOutAndStop();
+        this.clearGameOverTimer();
+        this.gameOverTimer = setTimeout(() => {
+          this.gameOverTimer = null;
+          this.playGameOverPhase();
+        }, BACKGROUND_MUSIC.phaseFadeDuration + BACKGROUND_MUSIC.gameOverMusicDelayMs);
       }),
     );
 
@@ -304,10 +336,30 @@ export class BackgroundMusicService {
       || this.mainThemeGapTimer !== null;
   }
 
+  /**
+   * The game is paused (not by the boss intro): the music goes down to
+   * BACKGROUND_MUSIC.pauseDim of its volume, and back up when it runs.
+   */
+  setDimmed(dimmed: boolean): void {
+    this.mixer.setDim(dimmed ? BACKGROUND_MUSIC.pauseDim : 1);
+  }
+
+  private clearGameOverTimer(): void {
+    if (this.gameOverTimer !== null) clearTimeout(this.gameOverTimer);
+    this.gameOverTimer = null;
+  }
+
+  private playGameOverPhase(): void {
+    this.currentPhase = 'gameover';
+    const track = this.pickRandom(BACKGROUND_MUSIC.gameOver, null);
+    if (track) this.crossfadeToTrack(track, BACKGROUND_MUSIC.phaseFadeDuration);
+  }
+
   private playBuildPhase(): void {
     // A phase change ends the hand-over from the main theme: its pending
     // gap timer would otherwise start build music over this track later
     this.cancelMainThemeFade();
+    this.clearGameOverTimer();
     this.currentPhase = 'build';
     const track = this.pickRandom(BACKGROUND_MUSIC.build, this.lastBuildTrackId);
     if (!track) return;
@@ -317,11 +369,20 @@ export class BackgroundMusicService {
 
   private playWavePhase(): void {
     this.cancelMainThemeFade();
+    this.clearGameOverTimer();
     this.currentPhase = 'wave';
-    const track = this.pickRandom(BACKGROUND_MUSIC.wave, this.lastWaveTrackId);
+    const track = this.pickRandom(this.waveTracks(this.currentWave), this.lastWaveTrackId);
     if (!track) return;
     this.lastWaveTrackId = track.id;
     this.crossfadeToTrack(track, BACKGROUND_MUSIC.phaseFadeDuration);
+  }
+
+  /** The tracks for `wave`: the boss's, the blood moon's or the wave's; a list without tracks falls back to the wave's. */
+  private waveTracks(wave: number): MusicTrack[] {
+    const { boss, bloodMoon } = BACKGROUND_MUSIC;
+    if (isBossWave(wave) && boss.length > 0) return boss;
+    if (isBloodMoonWave(wave) && bloodMoon.length > 0) return bloodMoon;
+    return BACKGROUND_MUSIC.wave;
   }
 
   private fadeOutAndStop(): void {
