@@ -3,6 +3,7 @@ import { GameEventBus } from './game-event-bus';
 import { GameSoundsService } from './game-sounds.service';
 import {
   ABILITY_CAST_SOUNDS,
+  CHEAT_QUIET_MS,
   DEATH_SOUNDS,
   GAME_OVER_STINGER_DELAY_MS,
   HIT_SOUNDS,
@@ -85,7 +86,7 @@ describe('GameSoundsService', () => {
     expect(at()).toEqual([HIT_SOUNDS.metal.id]);
   });
 
-  it('plays the horn and stomp at a wave start, the blood moon on its waves, the chord at the end', () => {
+  it('plays the horn and stomp at a wave start, the blood moon on its waves, the falling horn at the end', () => {
     const { bus, global } = setup();
     bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
     bus.emit({ type: 'wave:started', wave: BLOOD_MOON_FIRST_WAVE, enemyCount: 10 });
@@ -124,6 +125,19 @@ describe('GameSoundsService', () => {
     bus.emit({ type: 'game:reset' });
     vi.advanceTimersByTime(GAME_OVER_STINGER_DELAY_MS);
     expect(global()).toHaveLength(3);
+  });
+
+  it('keeps the cheat buttons and what follows from them silent, then sounds again', () => {
+    const { bus, global } = setup();
+    let now = 1000;
+    vi.spyOn(performance, 'now').mockImplementation(() => now);
+    bus.emit({ type: 'debug:complete-all-research' });
+    bus.emit({ type: 'research:completed', researchId: 'x' } as never);
+    expect(global()).toEqual([]);
+
+    now += CHEAT_QUIET_MS;
+    bus.emit({ type: 'research:completed', researchId: 'y' } as never);
+    expect(global()).toEqual([MOMENT_SOUNDS.researchComplete.id]);
   });
 
   it('stops listening on destroy', () => {

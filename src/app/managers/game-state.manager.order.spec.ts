@@ -493,6 +493,8 @@ describe('GameStateManager order of operations (characterization)', () => {
         'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
         'enemy:split', 'ability:used', 'ability:impact', 'ability:state-changed', 'game:reset', 'hero:level-up',
         'audio:play', 'ability:used', 'ability:impact', 'game:reset',
+        'debug:kill-all', 'debug:complete-all-research', 'debug:max-upgrade-all-towers', 'debug:ready-ability',
+        'debug:ready-hero',
         'enemy:died', 'enemy:split', 'projectile:hit', 'enemy:footstep', 'tower:upgraded', 'ability:used',
         'hero:level-up', 'wave:started', 'wave:completed', 'research:completed', 'ability:state-changed',
         'hero:state-changed', 'game:over', 'game:reset',

@@ -54,7 +54,8 @@ export const DEATH_SOUNDS = {
   wraith: smallDeath('wraith'),
   bone: smallDeath('bone'),
   slime: smallDeath('slime', 0.4),
-  rat: smallDeath('rat', 0.35),
+  // Rats die in swarms: quiet and one at a time, or they chatter (playtest 2026-09-23)
+  rat: { ...smallDeath('rat', 0.2), minIntervalMs: 250, maxInstances: 1 },
   penguin: smallDeath('penguin', 0.45),
   spider: smallDeath('spider'),
   bat: smallDeath('bat', 0.45),
@@ -63,7 +64,8 @@ export const DEATH_SOUNDS = {
   mammoth: bigDeath('mammoth'),
   dragon: bigDeath('dragon'),
   golem: bigDeath('golem'),
-  wallsmasher: bigDeath('wallsmasher', 0.7),
+  // A long roar: quieter and one at a time (playtest 2026-09-23)
+  wallsmasher: { ...bigDeath('wallsmasher', 0.45), minIntervalMs: 400, maxInstances: 1 },
   mech: bigDeath('mech', 0.7),
   skarnax: bossDeath('skarnax'),
   ooze: bossDeath('ooze'),
@@ -194,6 +196,15 @@ export const BOSS_INTRO_SOUNDS: Readonly<Record<string, GlobalCue>> = {
   ooze: { id: 'boss_intro_ooze', url: 'assets/sounds/bosses/ooze.mp3', volume: 0.85 },
   herbert: { id: 'boss_intro_herbert', url: 'assets/sounds/bosses/herbert.mp3', volume: 0.85 },
 };
+
+/**
+ * The cheat buttons of the dev menu (kill all, research, max upgrade,
+ * abilities, hero) make no sound: what follows from them within this many
+ * ms of wall time stays silent (GameSoundsService), deferred events
+ * included. Otherwise "complete all research" rang the research chime once
+ * per research.
+ */
+export const CHEAT_QUIET_MS = 500;
 
 /** The defeat stinger follows the HQ's destruction by this much (ms, wall clock). */
 export const GAME_OVER_STINGER_DELAY_MS = 1200;
