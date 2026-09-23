@@ -1,34 +1,62 @@
-<h2 mat-dialog-title>
-  <td-icon name="filing" [size]="18"></td-icon>
-  Runs
-</h2>
+<div class="runs-dialog">
+  <div class="dialog-header">
+    <td-icon class="header-icon" name="filing" [size]="18"></td-icon>
+    <h2 id="td-runs-dialog-title">Runs</h2>
+    @if (!loading()) {
+      <span class="runs-count">{{ runs().length }} / {{ maxRuns }}</span>
+    }
+  </div>
 
-<mat-dialog-content class="runs-content">
-  <p class="runs-hint">
-    The last {{ maxRuns }} runs of this browser. Saving gives you the run as a
-    file; nothing is uploaded.
-  </p>
+  <div class="dialog-content">
+    <p class="runs-hint">
+      The last {{ maxRuns }} runs of this browser. Saving gives you the run as a file; nothing is uploaded.
+    </p>
 
-  @if (loading()) {
-    <p class="runs-empty">Reading…</p>
-  } @else if (runs().length === 0) {
-    <p class="runs-empty">No run kept yet. One is written per finished wave.</p>
-  } @else {
-    <ul class="runs-list">
-      @for (run of runs(); track run.runId) {
-        <li class="runs-row">
-          <div class="runs-text">
-            <span class="runs-when">{{ run.startedAt | date: 'short' }}</span>
-            <span class="runs-where">{{ subtitle(run) }}</span>
-          </div>
-          <button mat-button class="runs-action" (click)="save(run)">Save</button>
-          <button mat-button class="runs-action runs-remove" (click)="remove(run)">Delete</button>
-        </li>
-      }
-    </ul>
-  }
-</mat-dialog-content>
+    @if (loading()) {
+      <p class="runs-empty">Reading…</p>
+    } @else if (runs().length === 0) {
+      <p class="runs-empty">No run kept yet. One is written per finished wave.</p>
+    } @else {
+      <ul class="runs-list">
+        @for (run of runs(); track run.runId) {
+          <li class="runs-row">
+            <span class="runs-wave" [attr.aria-label]="'Wave ' + run.waveReached">
+              <span class="runs-wave-label">W</span>{{ run.waveReached }}
+            </span>
+            <div class="runs-text">
+              <span class="runs-where" [title]="place(run)">{{ place(run) }}</span>
+              <span class="runs-meta">
+                {{ run.startedAt | date: 'short' }}
+                <span class="runs-who" [class.runs-bot]="run.head.player === 'bot'">{{ who(run) }}</span>
+              </span>
+            </div>
+            <button class="icon-btn" type="button" (click)="save(run)"
+                    matTooltip="Save as file" aria-label="Save run as file">
+              <td-icon name="download" [size]="16"></td-icon>
+            </button>
+            <button class="icon-btn icon-btn-danger" type="button" (click)="remove(run)"
+                    matTooltip="Delete" aria-label="Delete run">
+              <td-icon name="trash" [size]="16"></td-icon>
+            </button>
+          </li>
+        }
+      </ul>
+    }
+  </div>
 
-<mat-dialog-actions align="end">
-  <button mat-button (click)="close()">Close</button>
-</mat-dialog-actions>
+  <div class="dialog-footer">
+    @if (confirmingClear()) {
+      <span class="confirm-text" role="alert">Delete all {{ runs().length }} runs? This cannot be undone.</span>
+      <button class="footer-btn" type="button" (click)="confirmingClear.set(false)">Cancel</button>
+      <button class="footer-btn footer-btn-danger" type="button" (click)="clearAll()">Delete all</button>
+    } @else {
+      <button class="footer-btn footer-btn-quiet-danger" type="button" (click)="confirmingClear.set(true)"
+              [disabled]="loading() || runs().length === 0">
+        <td-icon name="trash" [size]="13"></td-icon>
+        Delete all
+      </button>
+      <span class="footer-spacer"></span>
+      <button class="footer-btn" type="button" (click)="close()">Close</button>
+    }
+  </div>
+</div>

@@ -8,5 +8,5 @@ const open = lazyDialog<RunsDialogComponent>(
 
 /** Opens the list of kept runs (docs/RUN_LOG.md). */
 export function openRunsDialog(dialog: MatDialog): Promise<MatDialogRef<RunsDialogComponent>> {
-  return open(dialog, { panelClass: 'td-dialog-panel' });
+  return open(dialog, { panelClass: 'td-dialog-panel', ariaLabelledBy: 'td-runs-dialog-title' });
 }
