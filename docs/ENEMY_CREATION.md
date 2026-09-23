@@ -257,6 +257,17 @@ wirkte das Max doppelt, alle Rufe waren zu leise).
 Einen Spawn-Sound und einen Pool mehrerer Zufallsrufe gibt es seit 2026-09-23 nicht mehr: Ihr
 einziger Nutzer war Herbert, dessen Sprachdateien gelöscht sind.
 
+### 3. Tod, Treffer, Teilung, Schritte
+
+```typescript
+deathSound: 'zombie',        // DEATH_SOUNDS (game-sounds.config.ts), wo ein Tower oder der Held tötet
+hitSound: 'flesh',           // HIT_SOUNDS, bei Einzelschüssen (HIT_SOUND_PROJECTILES); ohne: stumme Treffer
+splitSound: 'skeletonSplit', // WORLD_SOUNDS, statt des Todes, wenn der Kill den Gegner teilt
+footstep: GOLEM_FOOTSTEP,    // schwerer Schritt alle everyM Meter, mit Beben in Kameranähe
+```
+
+Gespielt vom `GameSoundsService`, siehe [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md), "Spiel-Sounds".
+
 Die Ooze nutzt keines dieser Felder: Ihr Körper liegt entlang der Route, ihre
 Sounds (Blubber-Loop am nächsten Körperpunkt, Splat, Schlürfen) spielt
 `OozeSounds`, siehe [Körper entlang der Route](#körper-entlang-der-route-ooze).

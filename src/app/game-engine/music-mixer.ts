@@ -1,5 +1,8 @@
 import { Audio, AudioListener } from 'three';
 
+/** Steps of a duck's release (ms, wall clock) */
+const DUCK_RELEASE_STEP_MS = 50;
+
 /**
  * Represents one of two crossfade audio channels.
  * Each channel holds a Three.js non-positional Audio instance.
@@ -48,6 +51,12 @@ export class MusicMixer {
 
   // User-controlled volume multiplier (0-1), applied on top of track + master volume
   private userVolume = 1.0;
+
+  /** Pause dim (setDim) and duck (duck), multiplied onto every volume the channels get */
+  private dim = 1;
+  private ducked = 1;
+  private duckTimer: ReturnType<typeof setTimeout> | null = null;
+  private duckRelease: ReturnType<typeof setInterval> | null = null;
 
   /** A refused context resume is reported once, not on every crossfade and loop. */
   private resumeFailureLogged = false;
@@ -150,6 +159,46 @@ export class MusicMixer {
     return true;
   }
 
+  /**
+   * Share of the volume while the game is paused (1 when it runs). Applies
+   * to the playing channels at once.
+   */
+  setDim(dim: number): void {
+    this.dim = dim;
+    this.applyGain();
+  }
+
+  /**
+   * Duck under a big sound: to `factor` of the volume at once, held for
+   * `holdMs`, then back to full over `releaseMs` (wall clock). A duck while
+   * one runs takes the deeper factor and the later end.
+   */
+  duck(factor: number, holdMs: number, releaseMs: number): void {
+    if (this.duckRelease !== null) {
+      clearInterval(this.duckRelease);
+      this.duckRelease = null;
+    }
+    if (this.duckTimer !== null) clearTimeout(this.duckTimer);
+    this.ducked = Math.min(this.ducked, factor);
+    this.applyGain();
+    this.duckTimer = setTimeout(() => {
+      this.duckTimer = null;
+      const from = this.ducked;
+      const steps = Math.max(1, Math.round(releaseMs / DUCK_RELEASE_STEP_MS));
+      let step = 0;
+      this.duckRelease = setInterval(() => {
+        step++;
+        this.ducked = from + (1 - from) * (step / steps);
+        if (step >= steps) {
+          this.ducked = 1;
+          clearInterval(this.duckRelease!);
+          this.duckRelease = null;
+        }
+        this.applyGain();
+      }, DUCK_RELEASE_STEP_MS);
+    }, holdMs);
+  }
+
   /** Whether a track plays on the active channel. */
   get playing(): boolean {
     return this.getActiveChannel().audio.isPlaying;
@@ -175,19 +224,21 @@ export class MusicMixer {
     const active = this.getActiveChannel();
     if (active.audio.isPlaying) {
       const v = active.targetVolume * this.userVolume;
-      active.audio.setVolume(v);
+      active.audio.setVolume(this.out(v));
       active.currentVolume = v;
     }
     const inactive = this.getInactiveChannel();
     if (inactive.audio.isPlaying) {
       const v = inactive.targetVolume * this.userVolume;
-      inactive.audio.setVolume(v);
+      inactive.audio.setVolume(this.out(v));
       inactive.currentVolume = v;
     }
   }
 
   /** Disconnect both channels from the audio graph. Call stop() first. */
   dispose(): void {
+    if (this.duckTimer !== null) clearTimeout(this.duckTimer);
+    if (this.duckRelease !== null) clearInterval(this.duckRelease);
     this.channelA.audio.disconnect();
     this.channelB.audio.disconnect();
   }
@@ -212,14 +263,14 @@ export class MusicMixer {
     if (this.fadeOutChannel) {
       const vol = this.fadeOutStartVol * (1 - t);
       this.fadeOutChannel.currentVolume = vol;
-      this.fadeOutChannel.audio.setVolume(vol);
+      this.fadeOutChannel.audio.setVolume(this.out(vol));
     }
 
     // Fade in
     if (this.fadeInChannel) {
       const vol = this.fadeInTargetVol * t;
       this.fadeInChannel.currentVolume = vol;
-      this.fadeInChannel.audio.setVolume(vol);
+      this.fadeInChannel.audio.setVolume(this.out(vol));
     }
 
     if (t < 1) {
@@ -231,13 +282,25 @@ export class MusicMixer {
       }
       if (this.fadeInChannel) {
         this.fadeInChannel.currentVolume = this.fadeInTargetVol;
-        this.fadeInChannel.audio.setVolume(this.fadeInTargetVol);
+        this.fadeInChannel.audio.setVolume(this.out(this.fadeInTargetVol));
       }
       this.fadeRafId = null;
       this.fadeOutChannel = null;
       this.fadeInChannel = null;
     }
   };
+
+  /** A channel volume as it goes out: times the pause dim and the duck. */
+  private out(volume: number): number {
+    return volume * this.dim * this.ducked;
+  }
+
+  /** The dim or duck changed: the playing channels take it at their current volume. */
+  private applyGain(): void {
+    for (const channel of [this.channelA, this.channelB]) {
+      if (channel.audio.isPlaying) channel.audio.setVolume(this.out(channel.currentVolume));
+    }
+  }
 
   private cancelFade(): void {
     if (this.fadeRafId !== null) {

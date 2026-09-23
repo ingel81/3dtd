@@ -255,7 +255,7 @@ in §12.3.
 
   Die Stärke ist, dass eine gemischte Welle (`chaos_wave`, `armor_gauntlet`) keine Lücke findet, nicht die Menge. Der Test `tower-types.config.spec.ts` hält Preis und DPS pro Gold fest.
 - **Upgrades:** Damage 1,05, Fire Rate 1,04, L25 ×5,35 wie Archer und Lightning (§3.2).
-- **Modell:** Kenney „tower-round-crystals“ (CC0, Tower Defense Kit). Der mittlere Kristall dreht sich zum Ziel (`turretNode`), aus ihm kommt der Orb. Der Sound ist vorerst der Magic-Cast.
+- **Modell:** Kenney „tower-round-crystals“ (CC0, Tower Defense Kit). Der mittlere Kristall dreht sich zum Ziel (`turretNode`), aus ihm kommt der Orb. Der Sound ist ein eigener, verzerrter Chaos-Schuss (`towers/chaos/cast.mp3`, seit 2026-09-23).
 - **Wave-Director:** zählt als Anti-Air und als Anti-Ethereal (Ethereal-Multiplikator 1,0 erreicht die Schwelle von `isAntiEtherealTower`).
 
 ---

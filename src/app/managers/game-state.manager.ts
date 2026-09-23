@@ -225,6 +225,8 @@ export class GameStateManager {
     // No sub-step runs while paused; every loop (walk cycles, flames, the
     // ooze's bubbling) stands with the game, except in the boss intro
     this.tilesEngine?.spatialAudio.holdLoops(paused && !this.gameStore.pauseKeepsLoops());
+    // The music goes down in the pause, not in the boss intro's
+    this.backgroundMusic?.setDimmed(paused && !this.gameStore.pauseKeepsLoops());
   });
 
   /** Phase 5.14: sync renderingEnabled signal → ThreeTilesEngine. Gameplay
@@ -416,6 +418,8 @@ export class GameStateManager {
 
     // Initialize Background Music service (subscribes to wave/game events)
     this.backgroundMusic = new BackgroundMusicService(this.eventBus, tilesEngine);
+    // The pause sync above only reaches music that is already here
+    this.backgroundMusic.setDimmed(this.paused() && !this.gameStore.pauseKeepsLoops());
 
     // Blood moon look on every seventh wave from W14 (subscribes to wave/game events)
     this.bloodMoonService = new BloodMoonService(this.eventBus, tilesEngine.bloodMoon);

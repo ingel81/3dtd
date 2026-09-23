@@ -1,7 +1,7 @@
 # Sound-Paket
 
-**Status:** abgestimmt am 2026-09-23 (vier AUQ-Runden). Phase 1 gebaut (2026-09-23), Phase 2 erzeugt und wartet
-auf die Auswahl, Phase 3 und 4 offen.
+**Status:** abgestimmt am 2026-09-23 (vier AUQ-Runden). Alle vier Phasen gebaut (2026-09-23). Offen: die
+Todes-Sounds von Mammut und Ratte (dritte Runde, noch nicht gewählt), Nachhören im Spiel, die Mischung.
 **Grundlage:** Bestandsaufnahme vom 2026-09-23 über Code, Assets, Doku und `tmp/`. Das System selbst beschreibt
 [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md).
 
@@ -17,8 +17,8 @@ Hauptthema, Bauphase und Welle.
 |-------|--------|----------------|
 | 1 | Bugs und Technik (Abschnitt 1 und 2), **gebaut** | nein |
 | 2 | Assets erzeugen: SFX per ElevenLabs Sound Effects, Musik per Eleven Music; Auswahlseite zum Anhören, **erzeugt** | ja |
-| 3 | Einbau der gewählten SFX (Abschnitt 3 bis 5) | ja |
-| 4 | Musikzustände und Ducking (Abschnitt 6) | ja |
+| 3 | Einbau der gewählten SFX (Abschnitt 3 bis 5), **gebaut** | ja |
+| 4 | Musikzustände und Ducking (Abschnitt 6), **gebaut** | ja |
 
 Phase 1 läuft unabhängig. Phase 2 erzeugt je Sound mehrere Varianten, schneidet und normalisiert sie und legt sie
 auf eine Auswahlseite; der User wählt, erst dann kommen sie ins Repo. Der API-Key liegt außerhalb des Repos
@@ -91,9 +91,9 @@ Loops in der Pause des Intros laufen; die Stimme des Wurms zählt Spielzeit und 
 
 ## 5. Spielmomente und UI
 
-- Wellenstart (Horn), Wellenende (Fanfare)
+- Wellenstart (tiefes Horn und ein Stampfer, aus der Herbert-Runde), Wellenende (ruhiger Blech-Akkord); die erste Runde (Horn, Fanfare) war zu comichaft, ersetzt in Runde 3
 - Game Over: HQ-Zerstörung hörbar, kurzer Niederlage-Stinger
-- Blutmond-Sting, Brüllen beim Boss-Intro
+- Blutmond-Sting; im Boss-Intro der Signatur-Sound des jeweiligen Bosses (Runde 4, statt eines allgemeinen Brüllens)
 - Forschung fertig
 - Kopfgeld (stark gedrosselt), "zu wenig Geld"
 - Fehlerton bei abgelehnter Aktion und ungültiger Platzierung
@@ -119,10 +119,14 @@ Loops in der Pause des Intros laufen; die Stimme des Wurms zählt Spielzeit und 
 - Countdown-Ticken vor der automatischen Welle, Low-HP-Warnung
 - Weitere Build-Musik
 
-## Offene Detailfragen (vor Phase 3 klären)
+## Entscheidungen zu Phase 3 (2026-09-23)
 
-1. Gegnerklassen für die Todes-Sounds: passt die Einteilung in Abschnitt 3, wer gehört wohin?
-2. Treffer-Sounds: je Gegnerklasse oder je Schadenstyp (Pfeil, Kugel, Magie)?
-3. UI-Sounds: welche Elemente genau, und startet der Regler bei 0,5?
-4. Game Over: Zerstörung und Stinger nacheinander, und die Musik davor ganz aus?
-5. Stumm-Taste `M` bestätigen.
+1. Todes-Sounds je Typ; Klassen nur für Mech (Panzer, Mech), Knochen (Skelett, Minion) und Schleim.
+2. Treffer-Sounds je Körper (Fleisch, Metall, Knochen, Stein, Schleim), nur bei Einzelschüssen
+   (Archer, Kanone, Held, `HIT_SOUND_PROJECTILES`); Geist und Wraith ohne.
+3. UI-Sounds nur für Bauauswahl und Dialoge auf/zu, dazu Laufbefehl und die Ablehnungen; eigener
+   Regler, Start 0,5.
+4. Game Over: Zerstörung, dann Stinger, dann der Game-Over-Track.
+5. `M` gebaut.
+
+Umsetzung: [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md), "Spiel-Sounds" und "Hintergrundmusik".

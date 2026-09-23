@@ -200,10 +200,10 @@ hierher.
 | bullet | `assets/sounds/towers/gatling/shoot.mp3` | 0.25 | 40 | 1.2 |
 | rocket | `assets/sounds/towers/rocket/launch.mp3` | 0.7 | 60 | 1 |
 | poison-glob | `assets/sounds/towers/poison/poison_spit.mp3` | 0.4 | 50 | 1 |
-| chaos-orb | `assets/sounds/towers/magic/cast.mp3` (bis Chaos einen eigenen hat) | 0.5 | 55 | 1.1 |
-| hero-round | `assets/sounds/towers/gatling/shoot.mp3` | 0.22 | 35 | 1.2 |
-| hero-shell | `assets/sounds/towers/cannon/shoot.mp3` | 0.3 | 40 | 1.2 |
-| hero-rune | `assets/sounds/towers/magic/cast.mp3` | 0.3 | 40 | 1.2 |
+| chaos-orb | `assets/sounds/towers/chaos/cast.mp3` | 0.5 | 55 | 1.1 |
+| hero-round | `assets/sounds/hero/round_shot.mp3` | 0.22 | 35 | 1.2 |
+| hero-shell | `assets/sounds/hero/shell_shot.mp3` | 0.3 | 40 | 1.2 |
+| hero-rune | `assets/sounds/hero/rune_shot.mp3` | 0.3 | 40 | 1.2 |
 
 Der `ProjectileManager` registriert jeden Eintrag beim `SpatialAudioManager` mit
 `minIntervalMs: 10` und `maxInstances: 12` und spielt ihn beim Schuss über ein
@@ -240,7 +240,8 @@ public/assets/
 
 ## Bekannte Einschränkungen
 
-- [ ] Raketen-Sound: `rocket/launch.mp3` ist ein tiefer Knall (87 % der Energie unter 150 Hz,
+- [x] Raketen-Sound (2026-09-23 ersetzt durch ein mit ElevenLabs erzeugtes Abschuss-Zischen, Sound-Paket E22,
+  im Spiel nachzuhören). Vorher: `rocket/launch.mp3` war ein tiefer Knall (87 % der Energie unter 150 Hz,
   spektraler Schwerpunkt ~200 Hz), fast wie `cannon/shoot.mp3`. Pitch oder Filter machen
   daraus kein Zischen, weil der Datei die Höhen fehlen. Gesucht ist ein CC0-Asset:
   Zischen/Fauchen mit Schwerpunkt 1-6 kHz, Attack unter 20 ms, 0,6-0,9 s, optional ein kurzer

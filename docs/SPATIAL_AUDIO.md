@@ -286,9 +286,20 @@ Hintergrundmusik läuft separat zu Spatial Audio und ist **nicht-positional**
   später Build-Musik über die Wellenmusik legt.
 - **Loop**: Der Kanal läuft zusätzlich mit nativem Loop. Das Überblenden in sich selbst hängt an
   einem Timer, den ein versteckter Tab drosselt; ohne den Loop endete der Track dann in Stille.
-- **Tracks**: `configs/background-music.config.ts` (1 Main, 1 Build, 4 Wave).
+- **Tracks**: `configs/background-music.config.ts` (1 Main, 1 Build, 4 Wave, je 1 Boss,
+  Blutmond, Game Over; die drei letzten mit Eleven Music erzeugt, 2026-09-23).
   Lautstärke = Track-`volume` (Default 0,5) × `masterVolume` 0,4 × Nutzer-Lautstärke
   (`setVolume`).
+- **Zustände (seit 2026-09-23)**: `wave:started` spielt auf einer Boss-Welle (`isBossWave`) den
+  Boss-Track, auf einer Blutmond-Welle den Blutmond-Track, sonst einen Wellen-Track. Nach
+  `game:over` blendet die Musik aus, `gameOverMusicDelayMs` (4 s) nach dem Ausblenden kommt der
+  Game-Over-Track, nach Zerstörung und Stinger (`GameSoundsService`). `game:reset` bricht ihn ab.
+- **Pause**: `setDimmed()` aus dem Pausen-Sync des `GameStateManager` senkt die Musik auf
+  `pauseDim` (0,35), nicht in der Pause des Boss-Intros.
+- **Ducking**: Große Effekte senken die Musik kurz (`MusicMixer.duck`), statt über den gemeinsamen
+  Limiter zu pumpen: der Nuklearschlag auf 0,35 für 3 s, andere Fähigkeiten auf 0,6 für 1,2 s,
+  HQ-Schaden auf 0,65 für 0,6 s, danach zurück über 0,8 s. Dim und Duck multiplizieren sich
+  auf jede Kanal-Lautstärke.
 
 ## Distanz-Modelle
 
@@ -433,8 +444,8 @@ und emittiert bei `health:changed` mit negativem `delta` ein `audio:play`-Event 
 Basis, höchstens alle 150 ms (`DAMAGE_SOUND_COOLDOWN`). Leck und Debug-Knopf ("+HP",
 Rechtsklick) laufen beide über `BaseHealthLedger` und dasselbe `health:changed`.
 ```typescript
-spatialAudio.registerSound('hq_damage', 'assets/sounds/effects/explosion.mp3', {
-  refDistance: 40, rolloffFactor: 1, volume: 1.4, audibleDistance: 1500,
+spatialAudio.registerSound('hq_damage', 'assets/sounds/game/leak.mp3', {
+  refDistance: 40, rolloffFactor: 1, volume: 1.1, audibleDistance: 1500,
 });
 eventBus.emitDeferred({ type: 'audio:play', sound: 'hq_damage', lat, lon, height });
 ```
@@ -448,6 +459,46 @@ kommt ohnehin überall. Die Abnahme bleibt (`inverse`, `refDistance` 40,
 `rolloffFactor` 1): Aus 1000 m kommt er mit 4 % der Lautstärke von 40 m.
 Vor dem ersten Tile an der HQ liefern Cache und Raycast nichts; dann bleibt die Höhe 0
 (wie beim Feuer).
+
+Seit 2026-09-23 ist der Ton ein eigener Leck-Sound (Alarm-Blip über einem schweren Aufprall),
+vorher eine allgemeine Explosion (`effects/explosion.mp3`, gelöscht).
+
+### Spiel-Sounds (GameSoundsService, uiSound, seit 2026-09-23)
+
+Sound-Paket Phase 3 ([SOUND_PLAN.md](SOUND_PLAN.md)), Samples und Mischung in
+`configs/game-sounds.config.ts`.
+
+`GameSoundsService` (`game-engine/`, framework-agnostisch, eine Instanz je Engine im
+`GameStateManager` neben dem `AudioService`) hört auf den Bus:
+
+| Event | Sound |
+|-------|-------|
+| `enemy:died` mit `killedBy` | Tod des Typs (`EnemyTypeConfig.deathSound`, `DEATH_SOUNDS`), dazu das Kopfgeld (`WORLD_SOUNDS.coin`) bei `credits > 0`. Ein Leck ohne Kill bleibt still. Ein Wurm-Segment, solange der Wurm lebt, klingt als `wormSegment`, sein letztes als Tod des Bosses. Ein Typ mit `splitSound` spielt statt des Todes seine Teilung |
+| `enemy:split` | `splitSound` des Typs (das Skelett) |
+| `projectile:hit` | Treffer des Körpers (`hitSound`, `HIT_SOUNDS`), nur für die Einzelschüsse in `HIT_SOUND_PROJECTILES` (Archer, Kanone, Held). Geist und Wraith haben keinen |
+| `enemy:footstep` | Schritt des Typs (`EnemyTypeConfig.footstep`, der Golem); `EnemyManager` emittiert ihn alle `everyM` Meter Weg, `ScreenShakeService` bebt dazu in Kameranähe |
+| `tower:upgraded` | `towerUpgrade` am Tower |
+| `ability:used` | Auslösen am Ziel (`ABILITY_CAST_SOUNDS`: Frostbombe, EMP, Orbitallaser) |
+| `hero:level-up` | am Helden |
+| `wave:started` | tiefes Horn und ein schwerer Stampfer, auf Blutmond-Wellen stattdessen der Blutmond-Sting (global) |
+| `wave:completed`, `research:completed` | ruhiger tiefer Blech-Akkord, Signal (global) |
+| `ability:state-changed` | Signal, wenn eine Fähigkeit von 0 wieder eine Ladung hat (nicht beim Freischalten) |
+| `hero:state-changed` | Anheuern, Munitionswechsel (global) |
+| `game:over` | HQ-Zerstörung, nach `GAME_OVER_STINGER_DELAY_MS` der Niederlage-Stinger (global); `game:reset` bricht den Stinger ab |
+
+Das Boss-Intro spielt den Signatur-Sound des jeweiligen Bosses (`BOSS_INTRO_SOUNDS` je Gegnertyp, `BossIntroService`, global); ein gemeinsames Intro mehrerer Bosse den des ersten.
+
+`uiSound` (`services/ui-sound.ts`, ein Objekt für die App wie `cameraTimeline`, verbunden vom Facade) spielt die UI-Töne (`UI_CUES`) über
+`SpatialAudioManager.playUi()`: nicht positional wie `playGlobal`, aber mit der UI-Lautstärke
+(`setUiVolume`, Regler im Audio-Menü, Start 0,5) statt der SFX-Lautstärke. Aufrufer: Bauauswahl
+(`TowerPlacementService.selectTowerType`), ungültiger Bauklick und ungültige HQ-/Spawn-Platzierung
+(Fehlerton), abgelehntes Upgrade, abgelehnte Fähigkeit oder Held (`RefusalHintService`; zu wenig
+Credits: eigener Ton), Hotkey auf einen zu teuren Tower, Laufbefehl an den Helden. Jeder
+Material-Dialog klingt beim Öffnen und Schließen (`MatDialog.afterOpened`).
+
+Stumme Gegner sind vertont: Fledermaus, Skelett, Minion, Spinne, Geist, Mech und Schleimklumpen
+mit Loop (`movingSound`), Pinguin und Wraith mit Zufallsrufen. Der Wurm kriecht mit einem Loop
+je Wurm am Kopf (`WORM_SOUNDS.slither`, `WormSounds`), nicht einem je Segment.
 
 ### Nuklearschlag (synthetisiert, Nachhall in Spielzeit)
 `GAME_SOUNDS.nuclearStrike` (`audio.config.ts`), im Code synthetisiert in
@@ -672,11 +723,22 @@ public/assets/sounds/
 │   ├── bear/bear01.mp3                # Bear-Random-Sound
 │   ├── dragon/dragon01.mp3            # Dragon-Random-Sound
 │   └── skarnax/growl_1.mp3, growl_2.mp3, clack.mp3  # Skarnax-Stimme am Kopf (ElevenLabs, E18)
+├── deaths/                            # Tode je Typ oder Klasse (ElevenLabs, 2026-09-23)
+├── hits/                              # Treffer je Körper: flesh, metal, bone, stone, slime
+├── hero/                              # Schüsse und Aktionen des Helden
+├── game/                              # Spielmomente, Leck (HQ-Schaden), Fehlertöne
+├── ui/                                # Bauauswahl, Dialog auf und zu
 └── effects/
-    ├── explosion.mp3                  # HQ-Schadens-Sound
+    ├── tower_upgrade.mp3              # Tower-Upgrade
     ├── building_placed.mp3            # Tower-Platziert-Sound
     └── building_selled.mp3            # Tower-Verkauft-Sound
 ```
+
+Die Sounds des Pakets vom 2026-09-23 (`deaths/`, `hits/`, `hero/`, `game/`, `ui/` und die
+neuen unter `enemies/`, `abilities/`, `towers/chaos/`) sind anders aufbereitet als unten
+beschrieben: Stille vorn und hinten geschnitten, die Spitze auf -2 dBFS normalisiert (UI und
+Loops -6 dBFS), kein LUFS-Ziel. Die Mischung macht das `volume` in `game-sounds.config.ts`;
+im Spiel nachzuhören. Werkzeug und Auswahl: `tmp/sound-audition/` (nicht im Repo).
 
 Neue Datei-Sounds von ElevenLabs (Text-to-Sound-Effects) werden linear auf etwa
 -14 LUFS verstärkt, begrenzt auf True Peak -1 dBFS, und als mp3 mit 44,1 kHz, Stereo,
@@ -695,7 +757,7 @@ Tiefpass-Koeffizient und Normalisieren teilen sich die Synthesen in `utils/synth
 
 2. Sound registrieren (z.B. in einem Manager):
 ```typescript
-engine.spatialAudio.registerSound('explosion', 'assets/sounds/effects/explosion.mp3', {
+engine.spatialAudio.registerSound('upgrade', 'assets/sounds/effects/tower_upgrade.mp3', {
   refDistance: 100,
   rolloffFactor: 0.5,
   volume: 0.8,
@@ -705,7 +767,7 @@ engine.spatialAudio.registerSound('explosion', 'assets/sounds/effects/explosion.
 3. Sound abspielen:
 ```typescript
 // One-Shot
-engine.spatialAudio.playAtGeo('explosion', lat, lon, height);
+engine.spatialAudio.playAtGeo('upgrade', lat, lon, height);
 
 // Loop (über AudioComponent)
 this.audio.registerSound('engine', 'assets/sounds/enemies/tank/moving.mp3', { loop: true });
