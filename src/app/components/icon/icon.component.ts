@@ -27,7 +27,7 @@ export type TdIconName =
   // additions for full mat-icon migration
   | 'lock' | 'bookmark' | 'plus' | 'minus' | 'terrain' | 'copyright'
   | 'vibration' | 'fastForward' | 'gamepad' | 'trash' | 'copy' | 'dragHandle'
-  | 'externalLink' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
+  | 'externalLink' | 'download' | 'mouseLeft' | 'mouseRight' | 'mouseWheel' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
   | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir' | 'radiation' | 'plane' | 'camera' | 'moon'
   // damage types without an icon of their own (DAMAGE_TYPE_ICON)
   | 'sparkle' | 'snowflake' | 'burst'
@@ -111,6 +111,11 @@ const ICONS: Record<TdIconName, IconDef> = {
   vibration: { body: '<rect x="9" y="5" width="6" height="14" rx="1" /><path d="M5 9v6M3 11v2M19 9v6M21 11v2" />' },
   fastForward: { body: '<path d="M4 5l8 7-8 7V5ZM12 5l8 7-8 7V5Z" />' },
   gamepad: { body: '<rect x="3" y="7" width="18" height="10" rx="3" /><path d="M7 12h3M8.5 10.5v3M14 11h.01M16 13h.01" />' },
+  // Mouse buttons for the key hints: the pressed button is filled
+  mouseLeft: { body: '<rect x="6" y="3" width="12" height="18" rx="6" /><path d="M6 10h12M12 3v7" /><path d="M12 3a6 6 0 0 0-6 6v1h6Z" fill="currentColor" stroke="none" />' },
+  mouseRight: { body: '<rect x="6" y="3" width="12" height="18" rx="6" /><path d="M6 10h12M12 3v7" /><path d="M12 3a6 6 0 0 1 6 6v1h-6Z" fill="currentColor" stroke="none" />' },
+  mouseWheel: { body: '<rect x="6" y="3" width="12" height="18" rx="6" /><rect x="10.8" y="5.5" width="2.4" height="4.5" rx="1.2" fill="currentColor" stroke="none" />' },
+  download: { body: '<path d="M12 4v11M7 10l5 5 5-5M5 20h14" />' },
   trash: { body: '<path d="M5 7h14M9 7V5h6v2M7 7l1 13h8l1-13M10 11v6M14 11v6" />' },
   copy: { body: '<rect x="8" y="8" width="12" height="12" rx="1" /><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" />' },
   dragHandle: { body: '<circle cx="9" cy="6" r="1.4" fill="currentColor" /><circle cx="15" cy="6" r="1.4" fill="currentColor" /><circle cx="9" cy="12" r="1.4" fill="currentColor" /><circle cx="15" cy="12" r="1.4" fill="currentColor" /><circle cx="9" cy="18" r="1.4" fill="currentColor" /><circle cx="15" cy="18" r="1.4" fill="currentColor" />' },

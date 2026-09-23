@@ -436,7 +436,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Controls hint auto-hide
   readonly controlsHintVisible = signal(true);
+  readonly controlsHints: HintItem[] = [
+    { key: 'LMB', description: 'Pan' },
+    { key: 'RMB', description: 'Rotate' },
+    { key: 'Wheel', description: 'Zoom' },
+    { key: 'WASD', description: 'Move' },
+    { key: 'H', description: 'Shortcuts' },
+  ];
+  readonly controlsHintActions: HintAction[] = [{ id: 'hide', label: 'Got it' }];
   private controlsHintTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Set once the game started; the hint's 15 s count only after the intro flight. */
+  private readonly controlsHintArmed = signal(false);
 
   // Location name for header display - delegates to service for consistent formatting
   readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
@@ -445,6 +455,13 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   constructor() {
     this.facade.initEffects(this);
+
+    // The controls hint waits for the intro flight: it shares the bottom
+    // centre with "Skip intro", and 15 s under a flight would be 15 s unseen.
+    effect(() => {
+      if (!this.controlsHintArmed() || this.introFlightActive() || this.controlsHintTimer) return;
+      this.controlsHintTimer = setTimeout(() => this.controlsHintVisible.set(false), 15000);
+    });
 
     // "What's new" once after an update, when the game is up: not over the
     // loading screen, an error or the token dialog
@@ -499,7 +516,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.gameStarted = true;
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyPersistedAudioSettings();
-    this.controlsHintTimer = setTimeout(() => this.controlsHintVisible.set(false), 15000);
+    this.controlsHintArmed.set(true);
   }
 
   /** Apply persisted audio volume/mute settings after engine init */

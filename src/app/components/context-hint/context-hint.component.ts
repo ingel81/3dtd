@@ -1,6 +1,7 @@
 import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TdIconComponent, type TdIconName } from '../icon/icon.component';
 
 /**
  * A single hint item to display
@@ -19,6 +20,18 @@ export interface HintAction {
 }
 
 /**
+ * Mouse keys drawn as a mouse with the pressed button filled instead of as a
+ * word. Every hint box gets them, not only the camera controls.
+ */
+const MOUSE_ICON: Readonly<Record<string, TdIconName>> = {
+  LMB: 'mouseLeft',
+  Click: 'mouseLeft',
+  RMB: 'mouseRight',
+  Wheel: 'mouseWheel',
+  Scroll: 'mouseWheel',
+};
+
+/**
  * ContextHintComponent
  *
  * Reusable hint box displayed at the bottom center of the screen.
@@ -34,7 +47,7 @@ export interface HintAction {
 @Component({
   selector: 'app-context-hint',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './context-hint.component.html',
   styleUrl: './context-hint.component.scss',
@@ -45,6 +58,11 @@ export interface HintAction {
   `,
 })
 export class ContextHintComponent {
+  /** The mouse icon for a hint key, or null for a keyboard key. */
+  mouseIcon(key: string): TdIconName | null {
+    return MOUSE_ICON[key] ?? null;
+  }
+
   /** Array of hint items to display */
   hints = input<HintItem[]>([]);
 

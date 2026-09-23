@@ -187,17 +187,6 @@
         <app-boss-intro />
       }
 
-      <!-- Controls Hint (auto-hides after 15s, click to dismiss). Not while a
-           first-run tip shows: the first tip carries the camera keys. -->
-      @if (!loading() && !error() && controlsHintVisible() && !onboardingTip()) {
-        <div class="td-controls-hint"
-             (click)="controlsHintVisible.set(false)"
-             (keydown.enter)="controlsHintVisible.set(false)"
-             (keydown.space)="controlsHintVisible.set(false)"
-             tabindex="0"
-             role="button">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move | H: Shortcuts</div>
-      }
-
       @if (!loading() && !error()) {
         <!-- Quick Actions (bottom right) -->
         <app-quick-actions
@@ -232,58 +221,71 @@
         <app-ability-bar [hero]="heroBar()" [topInset]="uiStore.infoOverlayBottom()" (heroPressed)="onHeroBarPressed()" />
       }
 
-      <!-- Intro camera flight skip control -->
-      @if (introFlightActive()) {
-        <app-intro-skip />
-      }
+      <!-- Bottom centre of the map: skip intro, LOS legend and the hint box
+           share one column, so a box that grows (a warning row) pushes the
+           legend up instead of running into it. -->
+      <div class="td-bottom-stack">
+        <!-- Intro camera flight skip control -->
+        @if (introFlightActive()) {
+          <app-intro-skip />
+        }
 
-      <!-- LOS Coverage Legend (Build Preview + Tower Selection) -->
-      @if (losLegendVisible()) {
-        <app-los-legend
-          [canTargetGround]="losLegendCanGround()"
-          [canTargetAir]="losLegendCanAir()"
-        />
-      }
+        <!-- LOS Coverage Legend (Build Preview + Tower Selection) -->
+        @if (losLegendVisible()) {
+          <app-los-legend
+            [canTargetGround]="losLegendCanGround()"
+            [canTargetAir]="losLegendCanAir()"
+          />
+        }
 
-      <!-- Context hint box, one at a time: why the last press on an ability or
-           the hero did nothing, build mode, map placement, ability targeting,
-           the selected hero, else the first-run tip -->
-      @if (refusal(); as refused) {
-        <app-context-hint
-          [title]="refused.subject"
-          [warning]="refused.reason"
-          [live]="true"
-        />
-      } @else if (buildMode()) {
-        <app-context-hint
-          [hints]="buildModeHints"
-          [warning]="buildModeWarning()"
-        />
-      } @else if (mapPlacementMode()) {
-        <app-context-hint
-          [hints]="placementModeHints()"
-          [warning]="placementModeWarning()"
-        />
-      } @else if (abilityTargetingActive()) {
-        <app-context-hint
-          [hints]="abilityTargetingHints()"
-          [warning]="abilityTargetingWarning()"
-        />
-      } @else if (heroSelected()) {
-        <app-context-hint
-          [hints]="heroHints"
-          [warning]="heroWarning()"
-        />
-      } @else if (onboardingTip(); as tip) {
-        <app-context-hint
-          [title]="tip.title"
-          [counter]="tip.index + '/' + tip.total"
-          [message]="tip.text"
-          [hints]="tip.keys"
-          [actions]="onboardingActions"
-          (actionClicked)="onOnboardingAction($event)"
-        />
-      }
+        <!-- Context hint box, one at a time: why the last press on an ability or
+             the hero did nothing, build mode, map placement, ability targeting,
+             the selected hero, else the first-run tip -->
+        @if (refusal(); as refused) {
+          <app-context-hint
+            [title]="refused.subject"
+            [warning]="refused.reason"
+            [live]="true"
+          />
+        } @else if (buildMode()) {
+          <app-context-hint
+            [hints]="buildModeHints"
+            [warning]="buildModeWarning()"
+          />
+        } @else if (mapPlacementMode()) {
+          <app-context-hint
+            [hints]="placementModeHints()"
+            [warning]="placementModeWarning()"
+          />
+        } @else if (abilityTargetingActive()) {
+          <app-context-hint
+            [hints]="abilityTargetingHints()"
+            [warning]="abilityTargetingWarning()"
+          />
+        } @else if (heroSelected()) {
+          <app-context-hint
+            [hints]="heroHints"
+            [warning]="heroWarning()"
+          />
+        } @else if (onboardingTip(); as tip) {
+          <app-context-hint
+            [title]="tip.title"
+            [counter]="tip.index + '/' + tip.total"
+            [message]="tip.text"
+            [hints]="tip.keys"
+            [actions]="onboardingActions"
+            (actionClicked)="onOnboardingAction($event)"
+          />
+        } @else if (controlsHintVisible() && !introFlightActive() && !loading() && !error()) {
+          <!-- Camera controls at the start, auto-hidden after 15 s. In the hint
+               slot rather than bottom left, where it covered the map credits. -->
+          <app-context-hint
+            [hints]="controlsHints"
+            [actions]="controlsHintActions"
+            (actionClicked)="controlsHintVisible.set(false)"
+          />
+        }
+      </div>
 
       <!-- Game Over Overlay -->
       @if (store.showGameOverScreen()) {

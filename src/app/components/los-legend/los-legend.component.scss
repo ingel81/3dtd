@@ -1,9 +1,5 @@
 :host {
-  position: fixed;
-  bottom: 88px;
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: 999;
+  display: block;
   pointer-events: none;
 }
 
