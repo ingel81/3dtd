@@ -248,5 +248,7 @@ Mit `?devworld` schaltet `TowerDefenseFacadeService` den AI-Director ein
 (`directorEnabled`), verbindet `BotClientService` mit dem Backend und startet den Bot
 `strategist` mit Auto-Waves, außer bei `?bot=manual`. Die Engine läuft auch im
 Hintergrund-Tab weiter (`setBackgroundLoopEnabled`), und nur in DevWorld zeigt der Header
-den Rendering-Schalter (headless). Trainings-Tabs öffnen `http://localhost:4200/?devworld`,
+den Rendering-Schalter (headless). Verbindet sich der Tab mit dem Bot-Server, geht er headless,
+mit `?bot=manual` nicht: Dort spielt der Mensch und das Bild bleibt an (seit 2026-09-23, vorher
+wurde auch der manuelle Tab dunkel). Trainings-Tabs öffnen `http://localhost:4200/?devworld`,
 Details in [BOT_SYSTEM.md](BOT_SYSTEM.md).

@@ -594,8 +594,10 @@ export class BotSession {
         // Phase 5.14: Training clients go headless by default. GPU/CPU cost
         // drops to near-zero for the 3D scene, so many more tabs can train
         // in parallel on one machine. User can re-enable via Game-Header
-        // toggle or dashboard per-client control.
-        this.store.renderingEnabled.set(false);
+        // toggle or dashboard per-client control. Not a tab the player plays
+        // themselves (`?bot=manual`, botAutoMode off): DevWorld connects to a
+        // running bot server all the same, and their view went dark.
+        if (this.signals.botAutoMode()) this.store.renderingEnabled.set(false);
 
         // Apply backend-authoritative training state. If backend says 'running',
         // auto-enable bot; otherwise stay paused until Dashboard Start.
