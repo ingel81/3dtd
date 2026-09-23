@@ -42,7 +42,7 @@ export class WaveManager implements IGameManager {
   getPaths(): Iterable<GeoPosition[]>; // die Routen der Gegner, eine je Spawn-Point
   setCurrentHealthProvider(provider: () => number): void; // für CloseCall-Detection
   getExpectedEnemyCount(): number; // Gegner laut Schedule, auf sie wartet die Wave-Completion
-  getExpectedBodyCount(): number; // dazu die Split-Kinder: Kill-Gold-Slots des EnemyManager
+  getExpectedBodyWeight(): number; // Gold-Gewicht aller Körper, Split-Kinder eingerechnet (EnemyManager)
   beginWave(): void;
   startWave(config: WaveConfig): void;
   /** Sub-step-driven spawner, called per sub-step from GameStateManager */
@@ -248,13 +248,13 @@ this.waveManager.startWave(waveConfig);
 
 Verbindet den `WaveManager` mit dem aktuellen Base-Health-Wert aus `GameStateManager`. Wird am Wave-Ende für CloseCall-Detection ausgewertet.
 
-### getExpectedEnemyCount() / getExpectedBodyCount()
+### getExpectedEnemyCount() / getExpectedBodyWeight()
 
 `getExpectedEnemyCount()` gibt die Anzahl Enemies zurück, die der Schedule dieser Wave spawnt (post-Validation); auf sie wartet `checkWaveComplete()`.
 
-`getExpectedBodyCount()` zählt dazu, was ein Kill abspaltet (`splitBodyCount`, ein Skeleton zählt 3). Damit teilt der `EnemyManager` das Kill-Gold der Welle in Slots: Jeder Körper zahlt einen Slot, ein durchgelaufener Gegner verliert seinen und die seiner nie entstandenen Kinder, und ein Split erhöht das Gold der Welle nicht.
+`getExpectedBodyWeight()` summiert das Gold-Gewicht aller Körper, die die Welle stellen kann, samt dem, was ein Kill abspaltet (`lineageRewardWeight`; das Gewicht eines Körpers ist die Wurzel seiner Basis-HP). Danach teilt der `EnemyManager` das Kill-Gold der Welle: Jeder Körper zahlt seinen Anteil, ein durchgelaufener Gegner verliert seinen und den seiner nie entstandenen Kinder, und ein Split erhöht das Gold der Welle nicht.
 
-Ein Wurm (`chain`, [ENEMY_CREATION.md](ENEMY_CREATION.md#kette-chain-der-wurm)) ist ein Eintrag im Schedule, bringt aber ein Enemy je Segment. Seine Länge hängt von der Route ab, die er bekommt; beim Spawn erhöht der `WaveManager` die Körper um `size - 1`. Der `EnemyManager` liest die Wellengröße deshalb bei jedem Kill neu und zählt die schon bezahlten Slots, statt die Slots beim ersten Kill der Welle festzulegen.
+Ein Wurm (`chain`, [ENEMY_CREATION.md](ENEMY_CREATION.md#kette-chain-der-wurm)) ist ein Eintrag im Schedule, bringt aber ein Enemy je Segment. Seine Länge hängt von der Route ab, die er bekommt; beim Spawn erhöht der `WaveManager` das Gewicht der Welle um `size - 1` Segmente. Der `EnemyManager` liest das Gewicht deshalb bei jedem Kill neu und zählt das schon bezahlte, statt es beim ersten Kill der Welle festzulegen.
 
 Split-Kinder leben, also wartet die Wave-Completion ohne eigenen Zähler auf sie.
 
@@ -506,7 +506,7 @@ multipliziert sich:
 
 | Ebene | Wo | Wirkung |
 |---|---|---|
-| Content/Pacing | `CAMPAIGN` in `configs/campaign.config.ts` | pinnt Template + Gold-Budget pro Wave (W1-W30). Danach wählt der Director das Template, das Gold halbiert sich pro Welle bis auf 5 % des W30-Budgets (Boss-Wellen doppelt, `waveGold`) |
+| Content/Pacing | `CAMPAIGN` in `configs/campaign.config.ts` | pinnt Template + Gold-Budget pro Wave (W1-W30). Danach wählt der Director das Template, das Gold fällt um ×0,85 je Welle bis auf 5 % des W30-Budgets (Boss-Wellen doppelt, `waveGold`) |
 | Formfaktoren | `decideWave()` (`RAMP_FULL_WAVE = 60`) | Count/HP hoch, Spawn-Delay runter |
 | Endgame-HP | `endgameHpMultiplier(wave)` | ab W21 +5 % pro Welle auf `hpMult`, Cap 4× |
 | Leck-Schaden | `enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
@@ -522,7 +522,10 @@ und nicht mehr 18 HP wie zwei.
 Boss-Wellen sind Templates mit `bossOnly: true` (`boss_herbert`, `boss_golem`,
 `boss_dragon`). Welche Welle eine Boss-Welle ist, sagt `isBossWave()`: im
 Kampagne W10/W20/W30, dort fest auf `boss_herbert` gepinnt, danach jede
-fünfte Welle (W35, W40, ...). An Boss-Wellen lässt die Maske nur Boss-Templates
+fünfte Welle (W35, W40, ...). W20 und W30 schickt statt der geplanten
+Herbert-Welle der Ooze bzw. Skarnax, mit der Gesamt-HP der geplanten Welle
+(`CAMPAIGN_BOSS_VARIANTS` in `boss-variants.config.ts`). Eine Herbert-Welle
+schickt genau einen Herbert (`leaderCount`). An Boss-Wellen lässt die Maske nur Boss-Templates
 zu, an allen anderen sperrt sie sie; Details in
 [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md#maske-und-curriculum). `boss_golem` und
 `boss_dragon` haben `minWave: 31`, `boss_dragon` braucht Anti-Air.

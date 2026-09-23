@@ -70,13 +70,14 @@ Namenskollisionen, die dabei aufgelöst werden: zwei `WaveConfig` (Director und 
 
 - Startgold 100, HQ 100 HP, keine Heilung. Leck-Schaden 1 bis W10, dann +1 je 10 Wellen, höchstens 18 HP je Welle.
   Endlos, kein Sieg, kein Score.
-- **Kill-Gold** ist ein festes Budget je Welle, gleichmäßig auf die Körper verteilt. Ein Boss zahlt so viel wie ein
-  Zombie derselben Welle, ein geleckter Gegner nichts.
+- **Kill-Gold** ist ein festes Budget je Welle, verteilt nach der Wurzel der Basis-HP je Körper (seit 2026-09-23,
+  vorher gleich je Kopf). Ein Herbert zahlt etwa sechs Zombies derselben Welle, ein geleckter Gegner nichts.
 - **Abschlussgold** mit Boni: Perfect +35 %, Combo bis +30 %, Close Call +12 %, Comeback höchstens 15 Gold,
   Meilensteine 45 bis 170 Gold. Die Aufteilung sieht der Spieler nirgends, `wave:completed.credits` ist immer 0.
 - **Kurve** ohne Boni: W10 7.200, W20 74.000, W30 791.000 Gold kumuliert. Der Ziel-Endausbau (jeder Tower einmal,
   Upgrades L20, alle Forschung, RC 3, Silo, Held) kostet 474.702: 67 % Puffer, bewusst "erst nach dem Playtest"
-  nachgesteuert. Nach W30 halbiert sich das Wellengold je Welle, ab W35 bleibt es bei 9.000 (Boss 18.000).
+  nachgesteuert. Seit 2026-09-23 wachsen W21 bis W30 um ×1,2 je Welle (W30 77.400 statt 120.000 Kill-Gold), und
+  nach W30 fällt das Wellengold um ×0,85 je Welle statt es zu halbieren, bis auf 5 % des W30-Budgets.
 - Upgrades für alle Tower gleich teuer (`50 × 1,25^Stufe`), Verkauf 75 %, Forschung zusammen 19.550 Gold.
 - Nichts wird über die Wellennummer freigeschaltet; der Forschungsbaum ist der einzige Weg.
 
