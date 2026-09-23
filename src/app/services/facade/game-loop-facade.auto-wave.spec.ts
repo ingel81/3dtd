@@ -52,6 +52,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
   let bus: GameEventBus;
   let clock: { gameTimeMs: number };
   let startWave: ReturnType<typeof vi.spyOn>;
+  let resetDirector: ReturnType<typeof vi.fn>;
   const autoStartWaves = signal(true);
   const botEnabled = signal(false);
   const store = {
@@ -63,6 +64,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
   beforeEach(() => {
     bus = new GameEventBus();
     clock = { gameTimeMs: 50_000 };
+    resetDirector = vi.fn();
     autoStartWaves.set(true);
     botEnabled.set(false);
     store.phase.set('setup');
@@ -71,7 +73,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
-        { provide: WaveDirector, useValue: waveDirectorStub() },
+        { provide: WaveDirector, useValue: waveDirectorStub({ resetForNewGame: resetDirector }) },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: TowerDefenseStore, useValue: store },
@@ -89,6 +91,14 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
     facade.subscribeToEventBus({ onGameOverExtra: () => undefined });
     startWave = vi.spyOn(facade, 'startWave').mockImplementation(() => undefined);
+  });
+
+  // A location change resets the game without restartGame. The director's
+  // per-run correction and a wave source switched in the debug window have to
+  // start over there as well (docs/PLAYTEST.md M5).
+  it('resets the wave director on every game reset, not only on the restart button', () => {
+    bus.emit({ type: 'game:reset' });
+    expect(resetDirector).toHaveBeenCalledTimes(1);
   });
 
   it('counts down on the game clock after a wave and starts the next once', () => {

@@ -232,6 +232,15 @@ export class GameLoopFacadeService {
     this.eventBusSubs.add(eventBus.on('wave:started', () => this.cancelAutoWave()));
     this.eventBusSubs.add(eventBus.on('game:over', () => this.cancelAutoWave()));
     this.eventBusSubs.add(eventBus.on('game:reset', () => this.cancelAutoWave()));
+
+    // Every new run resets the wave director, the restart button as well as a
+    // location change, which resets the game without going through
+    // restartGame. The fairness gate's multiplier is a per-RUN correction;
+    // carrying it into the next game made it a ratchet that opened fresh runs
+    // against waves sized for a defense that no longer existed (median run
+    // length 6 waves against a target of 80). A wave source switched in the
+    // debug window also takes effect here.
+    this.eventBusSubs.add(eventBus.on('game:reset', () => this.waveDirector.resetForNewGame()));
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -429,12 +438,7 @@ export class GameLoopFacadeService {
     // Reset pending AI wave request flag
     this.pendingAIWaveRequest = false;
 
-    // Reset the wave director's per-run state. The fairness gate's multiplier
-    // is a per-RUN correction; carrying it into the next game made it a ratchet
-    // that climbed on every cleared wave and fell only on a death, so fresh
-    // runs opened against waves sized for a defense that no longer existed.
-    // That bug held median run length at 6 waves against a target of 80.
-    this.waveDirector.resetForNewGame();
+    // The wave director resets on the game:reset the restart emits (subscribeToEventBus).
 
     // Reset bot state
     this.botClient.resetBot();
