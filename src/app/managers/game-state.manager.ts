@@ -493,11 +493,17 @@ export class GameStateManager {
    * the wave spreads over the spawn points by its spawn mode.
    */
   setLanes(lanes: ReadonlyMap<string, string>): void {
+    this.laneOf.clear();
     this.lanes = this.players.flatMap((playerId) => {
       const spawnId = lanes.get(playerId);
-      return spawnId === undefined ? [] : [spawnId];
+      if (spawnId === undefined) return [];
+      this.laneOf.set(playerId, spawnId);
+      return [spawnId];
     });
   }
+
+  /** Coop: each player's lane spawn */
+  private readonly laneOf = new Map<string, string>();
 
   /** The spawn point ids of the lanes, roster order. */
   get laneSpawns(): readonly string[] {
@@ -522,9 +528,32 @@ export class GameStateManager {
     });
   }
 
-  /** Every player of the run is ready for the next wave. */
+  /** Every player still in the run is ready for the next wave. */
   allReady(): boolean {
-    return this.players.every((playerId) => this.ready.has(playerId));
+    return this.players.every((playerId) => this.left.has(playerId) || this.ready.has(playerId));
+  }
+
+  /** Coop: players who left the game (command:leave-game) */
+  private readonly left = new Set<string>();
+
+  /**
+   * Coop: `playerId` left the game (command:leave-game, put in a tick by
+   * the relay). Their lane closes, no more spawns there (D22, lane
+   * collapse); their towers stay and keep shooting, their hero and account
+   * stay as they are. They get out of a manned tower and count as ready.
+   */
+  playerLeft(playerId: string): void {
+    if (!this.players.includes(playerId) || this.left.has(playerId)) return;
+    this.left.add(playerId);
+    const index = this.players.indexOf(playerId);
+    const lane = this.laneOf.get(playerId);
+    if (lane !== undefined) {
+      this.lanes = this.lanes.filter((spawnId) => spawnId !== lane);
+      this.laneOf.delete(playerId);
+    }
+    this.towerLifecycle.leave(playerId);
+    this.ready.delete(playerId);
+    this.eventBus.emit({ type: 'coop:player-left', playerId, index, local: playerId === this.localPlayerId });
   }
 
   /** The wave phase, for the abilities (they fire only during a wave) */
@@ -1494,8 +1523,9 @@ export class GameStateManager {
   /**
    * Reset game to initial state (restart).
    * Does NOT dispose EventBus subscriptions — handlers stay active for the next game.
+   * @param seed The run seed; a coop room hands every client the same one. A new one by default.
    */
-  reset(): void {
+  reset(seed?: number): void {
     // Reset HQ damage service (clears fires, timeouts, game over screen)
     this.hqDamage.reset();
 
@@ -1535,7 +1565,8 @@ export class GameStateManager {
     this.lockstepTickRun = -1;
     // A new run is a new seed: leaving the streams running would make the
     // second run of a batch a different experiment than the first.
-    this.rng.reset();
+    this.rng.reset(seed);
+    this.left.clear();
     this.economy.reset();
     this.runStarted = false;
 

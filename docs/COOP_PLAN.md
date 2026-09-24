@@ -290,6 +290,33 @@ Ursprünglicher Plan:
 - Test `coop-server/src/session.spec.ts`: zwei Sitzungen gegen das echte Relay von der Lobby bis zum gemeinsamen
   Tick, Ablehnung, Hostwechsel.
 
+**C4c gebaut (2026-09-24):** Coop im Spiel, mit C1b. Noch nicht im Browser gespielt.
+
+- `services/coop.service.ts` (`CoopService`, im Scope der Spielkomponente, optional über das Token `COOP`):
+  Raum öffnen mit dem geladenen Ort (Host schickt das Welt-Paket), beitreten, Lane, bereit, Start. Beim Start setzt
+  jeder Client den Lauf mit dem Seed des Raums zurück (`GameStateManager.reset(seed)`), setzt Spieler, Lanes,
+  Sicht-Rolle und den Link.
+- Beitritt (C1b): Steht hier ein anderer Ort als der des Hosts, lädt die Seite den Ort des Hosts mit `?room=` in der
+  URL neu und tritt danach von selbst bei; das ist zugleich der Einladungslink. Steht der Ort, übernimmt der
+  Beitretende Routen (`PathAndRouteService.adoptPaths`), Wave-Pipeline, Zellen und Höhen (`restoreHeights` jetzt
+  exakt: Zellen ohne Höhe beim Host haben auch hier keine) und prüft den Welt-Schlüssel. Der eigene Korridor-Bau
+  läuft dabei einmal umsonst mit; Messpunkt für die Ladezeit.
+- Wellenstart (D15): Im Coop ist der Wellenknopf „bereit“; der Host startet die Welle, sobald alle bereit sind.
+  Keine Auto-Welle im Coop.
+- Tempo und Pause (D15): Eine Änderung im Store, per Knopf oder Taste, geht beim Host als `speed` ans Relay, beim
+  Gast wird sie zurückgenommen; die Antwort des Raums setzt den Store.
+- Verlassen: `command:leave-game` (das Relay legt es in den nächsten Tick) schließt die Lane, der Spieler zählt als
+  bereit, seine Tower bleiben. Hostwechsel: der neue Host übernimmt die Sichtlinien.
+- Wellenplanung: Der Director liest im Coop nur, was alle Clients gleich haben (Luftziele, wenn irgendein Spieler sie
+  hat; der erste angeheuerte Held; die Summe aller Konten), sonst liefe der Strom `director` auseinander. Der
+  Forschungs-Teil des Snapshots kommt weiter aus dem eigenen Store; er ist nur Rückfall, wenn die Verteidigung
+  keine Fähigkeiten nennt, und `analyzeDefense` nennt sie immer.
+- Relay-Adresse: `coopRelay` in `runtime-config.json`, sonst `ws://localhost:3003`.
+- UI: Knopf „Coop“ in der Seitenleiste, Dialog `components/coop-dialog/` (Name, Raum öffnen oder beitreten,
+  Einladungslink, Spieler, Lanes in Spawn-Farbe, bereit, Start; im Spiel Chat). Mit Einladungslink öffnet er sich,
+  sobald die Karte des Hosts steht.
+- Abnahme per Spec: Verlassen in der Lockstep-Spec. Der Browser-Test mit zwei Fenstern steht aus.
+
 - Neuer Ordner `coop-server/` (TypeScript, Node, `ws`), getrennt vom Python-`bot-server/`. Die Logik ist eine
   Bibliothek mit zwei Einstiegen (D18): ein npm-Skript und der Electron-Main ("LAN-Spiel hosten", Beitritt per IP
   oder Link). Keine eigene exe.

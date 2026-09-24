@@ -416,6 +416,16 @@ export class PathAndRouteService {
   }
 
   /**
+   * Coop: take the routes of the host's world over (docs/COOP_PLAN.md, C1b),
+   * after this client's own corridor build froze: the cells and the waves go
+   * by these. The route lines drawn stay this client's.
+   */
+  adoptPaths(paths: ReadonlyMap<string, RouteWaypoint[]>): void {
+    this.cachedPaths = new Map(paths);
+    this.hasRoutes.set(this.cachedPaths.size > 0);
+  }
+
+  /**
    * Clear all cached paths (alias for clearCache)
    */
   clearCachedPaths(): void {

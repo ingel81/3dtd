@@ -376,10 +376,16 @@ export class GlobalRouteGrid {
 
   /**
    * Take the heights of exportHeights() over, for a grid generated from the
-   * same routes. Returns the keys it had no cell for; empty when the cells
-   * match. A cell not in `heights` stays as generation left it.
+   * same routes: exactly, a cell not in `heights` goes back to no height, as
+   * it had none where they were taken. Returns the keys it had no cell for;
+   * empty when the cells match.
    */
   restoreHeights(heights: readonly (readonly [number, number, number])[]): number[] {
+    const listed = new Set<number>();
+    for (const [key] of heights) listed.add(key);
+    for (const cell of this.cells.values()) {
+      if (!listed.has(cell.key) && cell.heightSampled) this.sampler.resetToUnsampled(cell);
+    }
     const missing: number[] = [];
     for (const [key, y, state] of heights) {
       const cell = this.cells.get(key);

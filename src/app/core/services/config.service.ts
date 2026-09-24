@@ -7,6 +7,8 @@ interface RuntimeConfig {
   googleMapsApiKey?: string;
   cesiumIonToken?: string;
   cesiumAssetId?: string;
+  /** Coop relay, ws:// or wss:// (docs/COOP_PLAN.md, C7) */
+  coopRelay?: string;
 }
 
 /**
@@ -33,6 +35,8 @@ export class ConfigService {
   readonly cesiumAssetId = signal(environment.cesiumAssetId ?? '2275207');
   readonly tileProvider = signal<'cesium' | 'google'>(environment.tileProvider ?? 'cesium');
   readonly loaded = signal(false);
+  /** Where the coop relay is: runtime-config.json, else the one `npm run coop-server` starts here */
+  readonly coopRelay = signal('ws://localhost:3003');
   readonly isBrowserPlayback = signal(true);
 
   /** Set when the tile server rejected the credentials we had. */
@@ -163,6 +167,7 @@ export class ConfigService {
       if (config.googleMapsApiKey) this.googleMapsApiKey.set(config.googleMapsApiKey);
       if (config.cesiumIonToken) this.cesiumIonToken.set(config.cesiumIonToken);
       if (config.cesiumAssetId) this.cesiumAssetId.set(config.cesiumAssetId);
+      if (config.coopRelay) this.coopRelay.set(config.coopRelay);
     } catch {
       /* no file, offline, or not JSON, the other two sources still apply */
     }
