@@ -45,6 +45,7 @@ import { ContextHintComponent, HintAction, HintItem } from './components/context
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopPlayersComponent } from './components/coop-players/coop-players.component';
+import { CoopChatComponent } from './components/coop-chat/coop-chat.component';
 import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
 import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
@@ -154,6 +155,7 @@ import { COOP } from './services/coop.token';
     GameSpeedComponent,
     BossBarComponent,
     CoopPlayersComponent,
+    CoopChatComponent,
     LoadingScreenComponent,
     TdIconComponent,
     LosLegendComponent,

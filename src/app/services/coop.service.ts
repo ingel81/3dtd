@@ -661,7 +661,8 @@ export class CoopService {
     });
     session.onChat = inZone((from, text) => {
       this.chat.update((lines) => [...lines.slice(-49), { from, text }]);
-      if (from !== this.playerId()) this.notify(`${this.nameOf(from)}: ${text}`, 'chat');
+      // In the game the chat has its own place (CoopChatComponent); in the lobby a notice shows it
+      if (from !== this.playerId() && !this.inGame()) this.notify(`${this.nameOf(from)}: ${text}`, 'chat');
     });
     session.onRefused = inZone((reason) => {
       // Taken out of the room: this player is out of it here too

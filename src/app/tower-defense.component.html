@@ -227,6 +227,8 @@
         <!-- Coop (right of the ability bar): the players, their gold and
              readiness, the notices below; empty outside a coop game -->
         <app-coop-players [topInset]="uiStore.infoOverlayBottom()" />
+        <!-- Coop chat (bottom left, Enter to write); empty outside a coop game -->
+        <app-coop-chat />
       }
 
       <!-- Bottom centre of the map: skip intro, LOS legend and the hint box
