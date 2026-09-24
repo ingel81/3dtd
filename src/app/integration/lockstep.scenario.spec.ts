@@ -584,3 +584,67 @@ describe('Coop hero, abilities and manned towers per player (COOP_PLAN C2c)', ()
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 });
+
+describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  it('runs the whole wave on every lane, each on its own spawn', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+    a.gsm.setLanes(lanes);
+    b.gsm.setLanes(lanes);
+    // Route 1 runs north at 0 m east, route 2 at 200 m east (sim-world.ts)
+    const perLane = [0, 0];
+    let announced = 0;
+    a.gsm.getEventBus().on('wave:started', (e) => { announced = e.enemyCount; });
+    a.gsm.getEventBus().on('enemy:spawned', (e) => {
+      if (e.viaPortal) perLane[e.enemy.position.lon * M < 100 ? 0 : 1]++;
+    });
+
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    let waved = false;
+    for (let f = 0; f < 20000; f++) {
+      relay.closeTick();
+      a.frame(40);
+      b.frame(40);
+      if (a.gsm.waveManager.phase() === 'wave') waved = true;
+      else if (waved) break;
+    }
+    const total = directorWave().totalCount;
+    expect(announced).toBe(2 * total);
+    expect(perLane).toEqual([total, total]);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+  });
+
+  it('tells everyone once every player is ready, and forgets it when the wave starts', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const heard: { playerId: string; ready: boolean; allReady: boolean; local: boolean }[] = [];
+    b.gsm.getEventBus().on('coop:ready-changed', (e) => heard.push({ playerId: e.playerId, ready: e.ready, allReady: e.allReady, local: e.local }));
+    const step = () => { relay.closeTick(); a.frame(40); b.frame(40); };
+
+    a.emit({ type: 'command:set-ready', ready: true });
+    step();
+    expect(b.gsm.allReady()).toBe(false);
+    b.emit({ type: 'command:set-ready', ready: true });
+    step();
+    expect(a.gsm.allReady()).toBe(true);
+    expect(heard).toEqual([
+      { playerId: 'a', ready: true, allReady: false, local: false },
+      { playerId: 'b', ready: true, allReady: true, local: true },
+    ]);
+
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    step();
+    expect(a.gsm.allReady()).toBe(false);
+    expect(b.gsm.allReady()).toBe(false);
+  });
+});

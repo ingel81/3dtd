@@ -300,6 +300,10 @@ export class GameCommandsHandler {
       }
     });
 
+    this.on('command:set-ready', (event) => {
+      this.gsm.setReady(this.gsm.actingPlayerId, event.ready);
+    });
+
     this.on('command:restart-game', () => {
       this.gsm.reset();
     });

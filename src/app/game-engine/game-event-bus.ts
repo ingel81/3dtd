@@ -657,6 +657,19 @@ export type GameEvent =
   | {
       type: 'command:restart-game';
     }
+  | {
+      /** Coop: the giving player is ready for the next wave, or no longer (docs/COOP_PLAN.md, D15) */
+      type: 'command:set-ready';
+      ready: boolean;
+    }
+  | {
+      /** Coop: a player's readiness for the next wave changed; `allReady` once everybody is */
+      type: 'coop:ready-changed';
+      playerId: string;
+      ready: boolean;
+      local: boolean;
+      allReady: boolean;
+    }
 
   // ==================== Debug Command Events ====================
   | {

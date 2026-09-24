@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
-import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
+import { WaveManager, SpawnPoint, WaveConfig, laneSchedule } from './wave.manager';
 import { UIStore } from '../store/ui.store';
 import { GameStore } from '../store/game.store';
 import { PathAndRouteService } from '../services/world/path-route.service';
@@ -465,6 +465,51 @@ export class GameStateManager {
     }
     // Only the local hero is drawn for now
     if (this.heroView) this.heroManager.setView(this.heroView);
+  }
+
+  /** Coop lanes: the spawn point of each player's lane, roster order; empty in the single player game */
+  private lanes: string[] = [];
+  /** Coop: the players who are ready for the next wave (D15) */
+  private readonly ready = new Set<string>();
+
+  /**
+   * Coop: which spawn point is whose lane (D1). Every wave then runs once
+   * on each lane (laneSchedule). An empty map is the single player game:
+   * the wave spreads over the spawn points by its spawn mode.
+   */
+  setLanes(lanes: ReadonlyMap<string, string>): void {
+    this.lanes = this.players.flatMap((playerId) => {
+      const spawnId = lanes.get(playerId);
+      return spawnId === undefined ? [] : [spawnId];
+    });
+  }
+
+  /** The spawn point ids of the lanes, roster order. */
+  get laneSpawns(): readonly string[] {
+    return this.lanes;
+  }
+
+  /**
+   * A player is ready for the next wave, or no longer (command:set-ready).
+   * Cleared when a wave starts. Announced as coop:ready-changed; the host
+   * starts the wave once allReady() (D15).
+   */
+  setReady(playerId: string, ready: boolean): void {
+    if (!this.players.includes(playerId) || this.ready.has(playerId) === ready) return;
+    if (ready) this.ready.add(playerId);
+    else this.ready.delete(playerId);
+    this.eventBus.emit({
+      type: 'coop:ready-changed',
+      playerId,
+      ready,
+      local: playerId === this.localPlayerId,
+      allReady: this.allReady(),
+    });
+  }
+
+  /** Every player of the run is ready for the next wave. */
+  allReady(): boolean {
+    return this.players.every((playerId) => this.ready.has(playerId));
   }
 
   /** The wave phase, for the abilities (they fire only during a wave) */
@@ -1319,6 +1364,12 @@ export class GameStateManager {
    */
   startWave(config: WaveConfig): void {
     if (this.corridorPending()) return;
+    // Coop: the wave on every lane (D13). A config that already names its
+    // spawn points (a replayed one) is laid out already.
+    if (this.lanes.length > 0 && !config.schedule.entries.some((entry) => entry.spawnPointId !== undefined)) {
+      config = { ...config, schedule: laneSchedule(config.schedule, this.lanes) };
+    }
+    this.ready.clear();
     if (!this.replaying && config.schedule.entries.length > 0) this.recordWaveStart(config);
 
     // Wave preview in the sidebar, see summarizeWaveGroups(); the live wave's only
