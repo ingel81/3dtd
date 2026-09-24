@@ -123,6 +123,7 @@ import { RefusalHintService } from './services/refusal-hint.service';
 import { RunLogFacade } from './run-log/run-log.facade';
 import { uiSound } from './services/ui-sound';
 import { CoopService } from './services/coop.service';
+import { openCoopDialog } from './components/coop-dialog/open-coop-dialog';
 import { COOP } from './services/coop.token';
 
 @Component({
@@ -212,6 +213,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   @ViewChild('gameCanvas') gameCanvas!: ElementRef<HTMLCanvasElement>;
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
+  private readonly dialog = inject(MatDialog);
   readonly gameState = inject(GameStateManager);
   private readonly runLog = inject(RunLogFacade);
   protected readonly uiStore = inject(UIStore);
@@ -943,14 +945,19 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.startMapPlacement('hq');
   }
 
-  /** Enter spawn placement mode */
-  onPlaceSpawn(): void {
-    this.facade.startMapPlacement('spawn');
+  /** Enter spawn placement mode: move spawn `move`, or with null one spawn in place of all */
+  onPlaceSpawn(move: number | null = null): void {
+    this.facade.startMapPlacement('spawn', false, move);
   }
 
   /** Enter spawn placement mode for one more spawn */
   onAddSpawn(): void {
     this.facade.startMapPlacement('spawn', true);
+  }
+
+  /** The header's coop button: open a room or join one (docs/COOP_PLAN.md, C4). */
+  openCoop(): void {
+    void openCoopDialog(this.dialog, this.injector, !this.coop.inGame());
   }
 
   /**

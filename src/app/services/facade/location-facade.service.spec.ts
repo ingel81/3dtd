@@ -657,7 +657,7 @@ describe('LocationFacadeService', () => {
 
     it('starts the placement mode through the map placement service', () => {
       facade.startMapPlacement('spawn');
-      expect(mapPlacement.startPlacement).toHaveBeenCalledWith('spawn', false);
+      expect(mapPlacement.startPlacement).toHaveBeenCalledWith('spawn', false, null);
     });
 
     it('does nothing when the placement service rejects the click', async () => {
@@ -831,6 +831,30 @@ describe('LocationFacadeService', () => {
           .toBeLessThan(routeAnimation.startAnimation.mock.invocationCallOrder[0]);
       });
 
+      it('moves one spawn and keeps the others with their ids (coop host, lobby)', async () => {
+        facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
+        const second = { lat: 48.77, lon: 9.17 };
+        locationMgmt.setLocation(HQ, [{ lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }, second]);
+        mapPlacement.handlePlacementClick.mockReturnValue({ mode: 'spawn', move: 0, ...INSIDE });
+        await facade.handleMapPlacementClick(INSIDE.lat, INSIDE.lon, 0);
+
+        expect(locationMgmt.setLocation).toHaveBeenLastCalledWith(HQ, [{ ...INSIDE, portalBearing: undefined }, second]);
+        expect(store.spawnPoints().map((s) => [s.id, s.lat, s.lon])).toEqual([
+          ['spawn-1', INSIDE.lat, INSIDE.lon], ['spawn-2', second.lat, second.lon],
+        ]);
+        expect(vizCallbacks.buildCorridor).toHaveBeenCalledTimes(1);
+      });
+
+      it('takes one spawn away, the ones after it move up, never the last one', async () => {
+        facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
+        const second = { lat: 48.77, lon: 9.17 };
+        locationMgmt.setLocation(HQ, [{ lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }, second]);
+
+        expect(await facade.removeSpawn(0)).toBe(true);
+        expect(store.spawnPoints().map((s) => [s.id, s.lat, s.lon])).toEqual([['spawn-1', second.lat, second.lon]]);
+        expect(await facade.removeSpawn(0)).toBe(false);
+      });
+
       it('replaces the spawn in place when it has a route to the HQ', async () => {
         facade.initializeCoordinator(vizCallbacks as unknown as VizCallbacks);
         store.spawnPoints.set([OLD_SPAWN]);
@@ -850,7 +874,7 @@ describe('LocationFacadeService', () => {
         expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [INSIDE]);
         expect(urlLocation.updateUrl).toHaveBeenCalledWith(HQ, [INSIDE]);
         expect(gameState.initialize).toHaveBeenCalledWith(
-          engine, HQ, [{ id: 'spawn-1', name: 'Spawn', ...INSIDE }], cachedPaths,
+          engine, HQ, [{ id: 'spawn-1', name: 'Damrak', ...INSIDE }], cachedPaths,
         );
         expect(gameState.initializeGlobalRouteGrid).toHaveBeenCalled();
         expect(mapPlacement.updateDependencies).toHaveBeenCalledWith(streetNetwork, HQ);

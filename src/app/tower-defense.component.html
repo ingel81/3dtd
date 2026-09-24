@@ -40,8 +40,11 @@
     (selectFavoriteClick)="onSelectFavorite($event)"
     (deleteFavoriteClick)="onDeleteFavorite($event)"
     (placeHqClick)="onPlaceHq()"
-    (placeSpawnClick)="onPlaceSpawn()"
+    (placeSpawnClick)="onPlaceSpawn($event)"
+    [spawnCount]="store.spawnPoints().length"
     (addSpawnClick)="onAddSpawn()"
+    [coopRoom]="coop.room()?.code ?? null"
+    (coopClick)="openCoop()"
   />
 
   <!-- Main Content: Canvas + Sidebar -->
@@ -183,8 +186,6 @@
             <app-game-speed />
           }
           <app-boss-bar />
-          <!-- Coop: the players, their gold and readiness; empty outside a coop game -->
-          <app-coop-players />
         </div>
 
         <!-- Boss intro: dark veil around the camera cuts, the boss's name
@@ -222,6 +223,10 @@
         <!-- Ability bar (left edge): the hero on top once there is one, then
              one button per ability; below the info overlay -->
         <app-ability-bar [hero]="heroBar()" [topInset]="uiStore.infoOverlayBottom()" (heroPressed)="onHeroBarPressed()" />
+
+        <!-- Coop (right of the ability bar): the players, their gold and
+             readiness, the notices below; empty outside a coop game -->
+        <app-coop-players [topInset]="uiStore.infoOverlayBottom()" />
       }
 
       <!-- Bottom centre of the map: skip intro, LOS legend and the hint box

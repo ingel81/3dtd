@@ -442,9 +442,9 @@ export class TowerDefenseFacadeService {
   }
 
   /** Start map placement mode for HQ or Spawn. */
-  startMapPlacement(mode: 'hq' | 'spawn', add = false): void {
+  startMapPlacement(mode: 'hq' | 'spawn', add = false, move: number | null = null): void {
     this.towerPlacement.exitBuildMode();
-    this.locationFacade.startMapPlacement(mode, add);
+    this.locationFacade.startMapPlacement(mode, add, move);
   }
 
   /** Handle map placement click (delegates to LocationFacade). */

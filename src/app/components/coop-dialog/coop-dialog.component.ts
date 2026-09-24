@@ -46,6 +46,8 @@ export class CoopDialogComponent {
   };
   readonly relaySetting = signal(this.coop.relaySetting);
   readonly relayInvalid = signal(false);
+  /** The last check of the server field, null before one */
+  readonly relayProbe = signal<{ ok: boolean; text: string; busy: boolean } | null>(null);
 
   readonly me = computed(() => this.coop.room()?.players.find((p) => p.id === this.coop.playerId()) ?? null);
   /**
@@ -60,12 +62,12 @@ export class CoopDialogComponent {
     if (noLane.length > 0) return `Waiting for ${noLane.join(', ')} to take a lane.`;
     const notReady = room.players.filter((p) => p.id !== room.hostId && !p.ready).map((p) => p.name);
     if (notReady.length > 0) return `Waiting for ${notReady.join(', ')} to be ready.`;
-    if (room.players.length === 1) return this.coop.isHost() ? 'Alone so far: send the invite link, or start alone.' : null;
+    if (room.players.length === 1) return this.coop.isHost() ? 'Alone so far: send the invite link to a second player.' : null;
     return this.coop.isHost() ? 'Everyone is ready: start when you like.' : 'Everyone is ready: waiting for the host to start.';
   });
   readonly canStart = computed(() => {
     const room = this.coop.room();
-    return !!room && this.coop.isHost() && this.coop.worldReady()
+    return !!room && this.coop.isHost() && this.coop.worldReady() && room.players.length > 1
       && room.players.every((p) => p.spawnId !== null && (p.ready || p.id === room.hostId));
   });
   readonly inviteLink = computed(() => (this.coop.room() ? this.coop.inviteLink() : ''));
@@ -114,10 +116,38 @@ export class CoopDialogComponent {
     }
   }
 
+  /** Saved and checked at once (playtest T14); an invalid address is not tried */
+  /** "2:44", the time a standard enemy walks a lane */
+  walkTime(seconds: number): string {
+    return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
+  }
+
+  /** Who has the lane, "" for a free one */
+  laneOwner(spawnId: string): string {
+    const owner = this.coop.room()?.players.find((p) => p.spawnId === spawnId);
+    return owner ? (owner.id === this.coop.playerId() ? 'you' : owner.name) : '';
+  }
+
+  /** Host: set spawn `index` anew on the map; the panel stays open beside it */
+  moveSpawn(index: number): void {
+    this.coop.moveSpawn(index);
+  }
+
   saveRelay(value: string): void {
     const ok = this.coop.setRelaySetting(value);
     this.relayInvalid.set(!ok);
-    if (ok) this.relaySetting.set(this.coop.relaySetting);
+    this.relayProbe.set(null);
+    if (!ok) return;
+    this.relaySetting.set(this.coop.relaySetting);
+    void this.testRelay();
+  }
+
+  /** Whether a relay answers where the game would look now: the field's address, or the automatic ones */
+  async testRelay(): Promise<void> {
+    if (this.relayInvalid()) return;
+    this.relayProbe.set({ ok: true, text: 'Trying…', busy: true });
+    const result = await this.coop.probeRelay();
+    this.relayProbe.set({ ...result, busy: false });
   }
 
   sendChat(): void {

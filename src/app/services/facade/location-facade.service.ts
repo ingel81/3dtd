@@ -18,7 +18,7 @@ import {
   LocationDialogLoadError,
   openLocationDialog,
 } from '../../components/location-dialog/open-location-dialog';
-import { LocationDialogData, LocationDialogResult } from '../../models/location.types';
+import { LocationDialogData, LocationDialogResult, SavedSpawn } from '../../models/location.types';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 import { LocationChangeCoordinatorService, LocationFlowDelegate } from '../location/location-change-coordinator.service';
@@ -438,9 +438,22 @@ export class LocationFacadeService {
    * Start map placement mode for HQ or Spawn.
    * Build mode should be exited by the caller before invoking this.
    */
-  /** @param add a spawn in addition to the ones there, not in place of them */
-  startMapPlacement(mode: 'hq' | 'spawn', add = false): void {
-    this.mapPlacement.startPlacement(mode, add);
+  /**
+   * @param add a spawn in addition to the ones there, not in place of them
+   * @param move the index of the one spawn to move, the others stay
+   */
+  startMapPlacement(mode: 'hq' | 'spawn', add = false, move: number | null = null): void {
+    this.mapPlacement.startPlacement(mode, add, move);
+  }
+
+  /** Take a spawn away, never the last (MapRelocationService.removeSpawn). */
+  removeSpawn(index: number): Promise<boolean> {
+    return this.mapRelocation.removeSpawn(index, this.relocationHost);
+  }
+
+  /** Set these spawns in place of the ones there, same HQ (MapRelocationService.replaceSpawns). */
+  replaceSpawns(spawns: SavedSpawn[]): Promise<boolean> {
+    return this.mapRelocation.replaceSpawns(spawns, this.relocationHost);
   }
 
   /** Add a spawn at a given place (MapRelocationService.addSpawnAt). */

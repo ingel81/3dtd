@@ -27,7 +27,8 @@ import {
   LocationChangeContext,
   LocationChangeInput,
 } from './location-change-executor.service';
-import { COORD_DECIMALS, canonicalCoords } from '../../utils/geo-utils';
+import { canonicalCoords } from '../../utils/geo-utils';
+import type { NominatimAddress } from './geocoding.service';
 
 /**
  * Delegate interface for component-specific state the coordinator needs
@@ -145,20 +146,36 @@ export class LocationChangeCoordinatorService {
       .pipe(take(1))
       .subscribe(async (result: LocationDialogResult | null | undefined) => {
       if (!result?.confirmed) return;
+      await this.moveTo(
+        { lat: result.hq.lat, lon: result.hq.lon, name: result.hq.displayName, address: result.hq.address },
+        result.spawn.isRandom ? null : result.spawn,
+      );
+    });
+  }
 
+  /**
+   * Go to another place in this page, no reload: the location dialog and
+   * the world dice. `spawn` null draws a random street spawn 500 to 1000 m
+   * from the HQ. In place, so a coop room survives it and the guests follow
+   * (docs/COOP_PLAN.md, D35).
+   */
+  private async moveTo(
+    target: { lat: number; lon: number; name: string; address?: NominatimAddress },
+    spawn: { lat: number; lon: number; name?: string; portalBearing?: number } | null,
+  ): Promise<void> {
       // Show loading overlay IMMEDIATELY before any async operations
       this.engineInit.loading.set(true);
       this.engineInit.resetLoadingSteps();
 
       // Canonical already here (see applyNewLocation): the streets for a
       // random spawn load around the HQ the change moves to
-      const hq = canonicalCoords(result.hq);
-      let spawnLat = result.spawn.lat;
-      let spawnLon = result.spawn.lon;
-      let spawnName = result.spawn.name;
+      const hq = canonicalCoords(target);
+      let spawnLat = spawn?.lat ?? 0;
+      let spawnLon = spawn?.lon ?? 0;
+      let spawnName = spawn ? spawn.name : '';
 
       // Generate random spawn if requested
-      if (result.spawn.isRandom) {
+      if (!spawn) {
         // Load streets for the new location to find spawn
         const newNetwork = await this.osmService.loadStreets(hq.lat, hq.lon, 2000);
 
@@ -188,17 +205,16 @@ export class LocationChangeCoordinatorService {
         hq: {
           lat: hq.lat,
           lon: hq.lon,
-          name: result.hq.displayName,
-          address: result.hq.address,
+          name: target.name,
+          address: target.address,
         },
         spawn: {
           lat: spawnLat,
           lon: spawnLon,
           name: spawnName,
-          portalBearing: result.spawn.portalBearing,
+          portalBearing: spawn?.portalBearing,
         },
       });
-    });
   }
 
   /**
@@ -211,7 +227,7 @@ export class LocationChangeCoordinatorService {
   }
 
   /**
-   * Roll for a random city from Wikidata and navigate there
+   * Roll for a random city from Wikidata and go there, in this page
    */
   async onWorldDice(): Promise<void> {
     if (this.uiStore.coopMapLocked()) return;
@@ -243,19 +259,9 @@ export class LocationChangeCoordinatorService {
     const displayName = city.country ? `${city.name}, ${city.country}` : city.name;
     callbacks?.appendDebugLog(`World Dice: ${displayName} (${city.lat.toFixed(4)}, ${city.lon.toFixed(4)})`);
 
-    // Show "Loading Map..." step before reload
-    this.engineInit.finishWorldDiceLoading(displayName);
-
-    // Update URL with only HQ (l=), no spawn (s=) -> randomizer will create spawn
-    const url = new URL(window.location.href);
-    url.searchParams.set('l', `${city.lat.toFixed(COORD_DECIMALS)},${city.lon.toFixed(COORD_DECIMALS)}`);
-    url.searchParams.delete('s'); // Remove spawn so randomizer kicks in
-
-    // Small delay so user sees the "Loading Map..." step
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Navigate to new location (full reload for clean state)
-    window.location.href = url.toString();
+    // In place with a random spawn, as the location dialog goes there: a
+    // reload would end a coop room (the host's socket) and its lanes
+    await this.moveTo({ lat: city.lat, lon: city.lon, name: displayName }, null);
   }
 
   /**

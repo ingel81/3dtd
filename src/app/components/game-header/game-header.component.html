@@ -114,17 +114,40 @@
         <td-icon name="pin" [size]="22"></td-icon>
       </button>
 
-      <button class="action-btn" [class.active]="placementMode() === 'spawn'"
-              (click)="placeSpawnClick.emit()" matTooltip="Set spawn"
-              aria-label="Set spawn" [attr.aria-pressed]="placementMode() === 'spawn'"
-              [disabled]="!canPlace()">
-        <td-icon name="flag" [size]="22"></td-icon>
-      </button>
+      <!-- With several spawns: which one to move, or one in place of all -->
+      <div class="spawn-wrapper">
+        <button class="action-btn" [class.active]="placementMode() === 'spawn' || spawnMenuOpen()"
+                (click)="onSpawnFlag()" [matTooltip]="spawnCount() > 1 ? 'Move a spawn' : 'Set spawn'"
+                [attr.aria-label]="spawnCount() > 1 ? 'Move a spawn' : 'Set spawn'"
+                [attr.aria-expanded]="spawnCount() > 1 ? spawnMenuOpen() : null"
+                [attr.aria-pressed]="placementMode() === 'spawn'" [disabled]="!canPlace()">
+          <td-icon name="flag" [size]="22"></td-icon>
+        </button>
+        @if (spawnMenuOpen()) {
+          <div class="spawn-menu" role="menu">
+            @for (i of spawnIndexes(); track i) {
+              <button class="spawn-menu-item" type="button" role="menuitem" (click)="pickSpawn(i)">Move spawn {{ i + 1 }}</button>
+            }
+            <button class="spawn-menu-item" type="button" role="menuitem" (click)="pickSpawn(null)">One spawn in place of all</button>
+          </div>
+        }
+      </div>
 
       <button class="action-btn" (click)="addSpawnClick.emit()"
               matTooltip="Add a spawn (up to four; one lane per coop player)"
               aria-label="Add a spawn" [disabled]="!canPlace()">
         <td-icon name="plus" [size]="22"></td-icon>
+      </button>
+
+      <!-- Coop: open a room or join one; the room code while in one -->
+      <span class="action-divider"></span>
+      <button class="action-btn coop-btn" [class.active]="coopRoom()" (click)="coopClick.emit()"
+              [matTooltip]="coopRoom() ? 'Coop room ' + coopRoom() + ': players, lanes, chat' : 'Coop: play one map together'"
+              [attr.aria-label]="coopRoom() ? 'Coop room ' + coopRoom() : 'Coop: play one map together'">
+        <td-icon name="users" [size]="22"></td-icon>
+        @if (coopRoom(); as room) {
+          <span class="coop-room">{{ room }}</span>
+        }
       </button>
     </div>
   </div>
