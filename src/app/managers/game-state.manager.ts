@@ -41,6 +41,7 @@ import { waveGoldTotal } from '../services/economy.service';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
 import { TowerLifecycle } from './game-state/tower-lifecycle';
+import { CommandLog, type CommandLogEntry } from './game-state/command-log';
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
 import { ReplayRecorder } from '../replay/replay-recorder';
@@ -280,6 +281,21 @@ export class GameStateManager {
     return this.clock.subStep;
   }
 
+  /**
+   * Every command of the run with the sub-step boundary it took effect at,
+   * written by the GameCommandsHandler (docs/EVENT_SYSTEM.md). Cleared with
+   * a new run, a new place and a new DevWorld.
+   */
+  readonly commandLog = new CommandLog(() => this.clock.subStep);
+
+  /**
+   * Execute a logged command again, the same way as the live one (boundary,
+   * log, handler). For a re-simulation that has reached `entry.step`.
+   */
+  replayCommand(entry: CommandLogEntry): void {
+    this.commandsHandler?.replay(entry);
+  }
+
   // Performance profiler (optional, set via setProfiler())
   private profiler: PerformanceProfilerService | null = null;
   /** Profiler sums of one frame, filled by runSubStep() */
@@ -351,6 +367,7 @@ export class GameStateManager {
 
     // A replay of the previous place is in the previous place's coordinates
     this.replayRecorder.clear();
+    this.commandLog.clear();
 
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
@@ -486,7 +503,7 @@ export class GameStateManager {
     // ══════════════════════════════════════════════════════════════
     // Command-Bus-Adapter (UI → Game Engine) — extrahiert in eigene Klasse.
     // ══════════════════════════════════════════════════════════════
-    this.commandsHandler = new GameCommandsHandler(this, this.eventBus);
+    this.commandsHandler = new GameCommandsHandler(this, this.eventBus, this.commandLog);
 
     // Initialize projectile manager (no callback - uses events)
     this.projectileManager.initialize(tilesEngine);
@@ -515,6 +532,7 @@ export class GameStateManager {
     this.waveManager.initialize(spawnPoints, cachedPaths);
     // The last wave ran through the previous world
     this.replayRecorder.clear();
+    this.commandLog.clear();
   }
 
   /**
@@ -526,7 +544,14 @@ export class GameStateManager {
    *
    * `onSubStep` is invoked once per sub-step with the step length in game-time
    * ms — used by AI bots so their decision cadence matches game-time rather
-   * than wall-clock at high training timescales.
+   * than wall-clock at high training timescales. It runs at the boundary
+   * after the step and its checks, so a command it emits takes effect at
+   * once; after the step that ends the game it does not run.
+   *
+   * Commands take effect only between two complete sub-steps: one emitted
+   * during a step (a listener reacting to a sim event) waits in the
+   * GameCommandsHandler until the step and its wave-end and game-over checks
+   * are done (docs/EVENT_SYSTEM.md, "Befehlsgrenze und Befehlslog").
    */
   update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void): void {
     // Paused: no sub-step runs, so nothing in the simulation moves and the
@@ -561,15 +586,13 @@ export class GameStateManager {
     timings.tEvents = 0;
     const stepMs = GameClock.FIXED_STEP_MS;
 
+    const commands = this.commandsHandler;
+
     // nextSubStep() advances the game clock before the step runs
     while (this.clock.nextSubStep()) {
+      // From here to endStep() a command waits for the boundary
+      commands?.beginStep();
       this.runSubStep(stepMs, profiling);
-
-      // Notify per-sub-step listeners (AI bot, etc.)
-      onSubStep?.(stepMs);
-
-      // After the turret aim (runSubStep), so a frame shows where the turrets point
-      this.replayRecorder.onSubStep();
 
       // Wave-completion / game-over checks belong INSIDE the sub-step loop
       // so they catch state transitions mid-frame (otherwise a wave might
@@ -583,10 +606,19 @@ export class GameStateManager {
         this.towerCombat.stopAllMelee();
         this.enemyDebug.clearDebugEnemies();
       }
-      if (this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover') {
-        this.triggerGameOver();
-        break; // no point running more sub-steps after game-over
-      }
+      const gameOver = this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover';
+      if (gameOver) this.triggerGameOver();
+
+      // The boundary: what came in during the step takes effect now
+      commands?.endStep();
+      if (gameOver) break; // no point running more sub-steps after game-over
+
+      // Per-sub-step listeners (AI bot) at the boundary: a bot decides on
+      // the state after the checks, its command acts at once
+      onSubStep?.(stepMs);
+
+      // After the turret aim (runSubStep), so a frame shows where the turrets point
+      this.replayRecorder.onSubStep();
     }
     this.clock.endFrame();
     const stepsExecuted = this.clock.stepsThisFrame;
@@ -881,6 +913,7 @@ export class GameStateManager {
     this.abilityManager.reset();
     this.heroManager.reset();
     this.replayRecorder.clear();
+    this.commandLog.clear();
 
     // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
     // and won't be re-initialized on a game-over restart. Tower visibility

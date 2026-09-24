@@ -350,9 +350,9 @@ describe('Nuclear strike through the sub-step loop', () => {
 
     const single = phases(1);
     expect(single.impactPhases).toEqual(['wave']);
-    expect(single.seen.slice(0, WARNING_STEPS)).toEqual(Array(WARNING_STEPS).fill('wave'));
-    // Ends on the impact sub-step, not later
-    expect(single.seen[WARNING_STEPS]).toBe('setup');
+    expect(single.seen.slice(0, WARNING_STEPS - 1)).toEqual(Array(WARNING_STEPS - 1).fill('wave'));
+    // Ends on the impact sub-step, not later; its hook runs after the check
+    expect(single.seen[WARNING_STEPS - 1]).toBe('setup');
     expect(phases(10)).toEqual(single);
   });
 });
