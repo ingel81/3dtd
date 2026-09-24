@@ -114,9 +114,17 @@ export class StateSnapshotService {
    */
   getStateSnapshot(): GameStateSnapshot {
     const towers = this.gameState.towerManager.getAll();
-    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    // In coop every client plans the next wave from what they all share, so
+    // the plan and the director stream stay the same on each
+    // (docs/COOP_PLAN.md, C4): air targeting when any player has it, the
+    // first hired hero in roster order, the credits of all players. The
+    // single player game reads the same as before.
+    const players = this.gameState.players;
+    const airTargetingUnlocked = players.some((id) => this.gameState.researchOf(id).airTargetingUnlocked);
+    const hero = players.map((id) => this.gameState.heroOf(id).getDefenseProfile()).find((profile) => profile) ?? null;
+    const credits = players.reduce((sum, id) => sum + this.gameState.creditsOf(id), 0);
     // The hired hero counts as a virtual tower at half presence (docs/HERO.md)
-    const defense = analyzeDefense(towers, airTargetingUnlocked, this.gameState.heroManager.getDefenseProfile());
+    const defense = analyzeDefense(towers, airTargetingUnlocked, hero);
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
@@ -135,7 +143,7 @@ export class StateSnapshotService {
       gameTimeSeconds: (this.now() - this.gameStartTime) / 1000,
       phase: this.store.phase() as GamePhase,
 
-      player: playerState(this.store.baseHealth(), this.store.credits()),
+      player: playerState(this.store.baseHealth(), credits),
       defense,
       vulnerabilities,
       recentHistory: this.history.summary(),

@@ -305,6 +305,10 @@ export class GameCommandsHandler {
       this.gsm.applyCoopLosMask(event.towerId, event.mask);
     });
 
+    this.on('command:leave-game', () => {
+      this.gsm.playerLeft(this.gsm.actingPlayerId);
+    });
+
     this.on('command:set-ready', (event) => {
       this.gsm.setReady(this.gsm.actingPlayerId, event.ready);
     });

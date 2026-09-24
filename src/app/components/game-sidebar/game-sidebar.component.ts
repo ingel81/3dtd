@@ -1,5 +1,8 @@
 import {
   Component,
+  Injector,
+  effect,
+  untracked,
   input,
   output,
   OnDestroy,
@@ -37,6 +40,8 @@ import { SidebarResearchPanelComponent } from './research-panel/research-panel.c
 import { SidebarHeroPanelComponent } from './hero-panel/hero-panel.component';
 import { SidebarBuildingPanelComponent } from './building-panel/building-panel.component';
 import { UIStore } from '../../store/ui.store';
+import { openCoopDialog } from '../coop-dialog/open-coop-dialog';
+import { COOP } from '../../services/coop.service';
 
 /**
  * Rechte Sidebar: Rahmen, Footer und die Wahl des Panels. Die Sektionen sind
@@ -68,6 +73,22 @@ import { UIStore } from '../../store/ui.store';
 })
 export class GameSidebarComponent implements OnDestroy {
   private readonly dialog = inject(MatDialog);
+  private readonly injector = inject(Injector);
+  private readonly coop = inject(COOP, { optional: true });
+
+  /**
+   * Opened with an invite link (?room=): once the host's map stands here,
+   * the coop dialog opens for the lane and "ready".
+   */
+  private readonly openCoopFromLink = (() => {
+    let opened = false;
+    effect(() => {
+      const coop = this.coop;
+      if (!coop?.roomFromUrl || opened || !coop.worldReady()) return;
+      opened = true;
+      untracked(() => this.openCoop());
+    });
+  })();
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);
@@ -141,6 +162,11 @@ export class GameSidebarComponent implements OnDestroy {
 
   openAttributions(): void {
     void openAttributionsDialog(this.dialog);
+  }
+
+  /** Coop: open a room or join one (docs/COOP_PLAN.md, C4). */
+  openCoop(): void {
+    void openCoopDialog(this.dialog, this.injector);
   }
 
   /** The runs this browser kept, each one to save as a file (docs/RUN_LOG.md). */

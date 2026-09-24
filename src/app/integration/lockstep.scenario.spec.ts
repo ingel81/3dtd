@@ -707,3 +707,37 @@ describe('Coop line of sight from the host (COOP_PLAN C3)', () => {
     expect(compared).toBeGreaterThan(500);
   });
 });
+
+describe('Coop player leaving (COOP_PLAN C4)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  it('closes the lane of who left, and does not wait for them to be ready', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+    a.gsm.setLanes(lanes);
+    b.gsm.setLanes(lanes);
+    const step = () => { relay.closeTick(); a.frame(40); b.frame(40); };
+
+    // The relay sends it for B when B's socket closes; here B's link does
+    b.link.send({ type: 'command:leave-game' });
+    step();
+    expect(a.gsm.laneSpawns).toEqual(['spawn-1']);
+    expect(b.gsm.laneSpawns).toEqual(['spawn-1']);
+    a.emit({ type: 'command:set-ready', ready: true });
+    step();
+    expect(a.gsm.allReady()).toBe(true);
+
+    let announced = 0;
+    a.gsm.getEventBus().on('wave:started', (e) => { announced = e.enemyCount; });
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    step();
+    expect(announced).toBe(directorWave().totalCount);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+  });
+});

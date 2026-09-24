@@ -668,6 +668,18 @@ export type GameEvent =
       mask: import('../utils/los-mask').LosMaskJson;
     }
   | {
+      /** Coop: the giving player left the game; the relay puts it in a tick for them (docs/COOP_PLAN.md, C4) */
+      type: 'command:leave-game';
+    }
+  | {
+      /** Coop: a player left the game, their lane is closed */
+      type: 'coop:player-left';
+      playerId: string;
+      /** Their place in the roster */
+      index: number;
+      local: boolean;
+    }
+  | {
       /** Coop: the giving player is ready for the next wave, or no longer (docs/COOP_PLAN.md, D15) */
       type: 'command:set-ready';
       ready: boolean;

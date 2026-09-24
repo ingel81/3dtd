@@ -121,6 +121,7 @@ import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { RunLogFacade } from './run-log/run-log.facade';
 import { uiSound } from './services/ui-sound';
+import { COOP, CoopService } from './services/coop.service';
 
 @Component({
   selector: 'app-tower-defense',
@@ -190,6 +191,9 @@ import { uiSound } from './services/ui-sound';
     ReplayService,
     // Manning a tower: drives the GameStateManager, ticked by the game loop, keyed by the hotkeys
     TowerControlService,
+    // Coop: the relay session and what the game does with it (docs/COOP_PLAN.md, C4)
+    CoopService,
+    { provide: COOP, useExisting: CoopService },
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',

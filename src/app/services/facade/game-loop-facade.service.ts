@@ -31,6 +31,7 @@ import { AutoWaveCountdown } from '../../utils/auto-wave-countdown';
 import { BossIntroService } from '../boss-intro.service';
 import { ReplayService } from '../replay.service';
 import { TowerControlService } from '../tower-control.service';
+import { COOP } from '../coop.service';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -69,6 +70,8 @@ export class GameLoopFacadeService {
   private readonly bossIntro = inject(BossIntroService);
   private readonly replay = inject(ReplayService);
   private readonly towerControl = inject(TowerControlService);
+  /** Coop, where the game runs one (component scope); the wave button means "ready" there */
+  private readonly coop = inject(COOP, { optional: true });
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -107,6 +110,8 @@ export class GameLoopFacadeService {
     // The run's director stream; GameRng keeps a stream's function across a
     // reset, so asking per plan and holding it come to the same.
     this.waveDirector.useRandomSource(() => gameState.rng.stream('director'));
+    // Coop: the host starts the wave once everyone is ready (D15)
+    this.coop?.setWaveStarter(() => this.startWaveNow());
   }
 
   /**
@@ -254,8 +259,9 @@ export class GameLoopFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   private armAutoWave(): void {
-    // A bot starts its own waves, a training run must not change behind it
-    if (!this.uiStore.autoStartWaves() || this.botClient.botEnabled()) return;
+    // A bot starts its own waves, a training run must not change behind it;
+    // in coop the players say when (D15)
+    if (!this.uiStore.autoStartWaves() || this.botClient.botEnabled() || this.coop?.inGame()) return;
     if (this.store.phase() === 'gameover') return;
     const now = this.gameState.gameTimeMs;
     this.autoWave.arm(now);
@@ -306,6 +312,16 @@ export class GameLoopFacadeService {
    * and the auto-start come here; each lifts the pause.
    */
   startWave(): void {
+    // Coop: the button says "ready"; the host starts once everyone is
+    if (this.coop?.inGame()) {
+      this.coop.toggleReady();
+      return;
+    }
+    this.startWaveNow();
+  }
+
+  /** Start the next wave: the button in the single player game, the host in coop once all are ready. */
+  private startWaveNow(): void {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;

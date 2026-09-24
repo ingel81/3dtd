@@ -51,15 +51,17 @@ export class UrlLocationService {
    * Update browser URL without reload (replaceState)
    */
   updateUrl(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[]): void {
+    window.history.replaceState({}, '', this.urlFor(hq, spawns));
+  }
+
+  /** This page at `hq` with `spawns`, as a path with query (what updateUrl writes). */
+  urlFor(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[]): string {
     const hqStr = `${hq.lat.toFixed(COORD_DECIMALS)},${hq.lon.toFixed(COORD_DECIMALS)}`;
-
     let url = `${window.location.pathname}?l=${hqStr}`;
-
     if (spawns.length > 0) {
       url += `&s=${spawns.map((s) => this.formatSpawn(s)).join(';')}`;
     }
-
-    window.history.replaceState({}, '', url);
+    return url;
   }
 
   /**

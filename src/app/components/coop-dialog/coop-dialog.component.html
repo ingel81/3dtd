@@ -1,0 +1,119 @@
+<div class="coop-dialog">
+  <div class="dialog-header">
+    <td-icon class="header-icon" name="user" [size]="18"></td-icon>
+    <h2 id="td-coop-dialog-title">Coop</h2>
+    @if (coop.room(); as room) {
+      <span class="room-code" [attr.aria-label]="'Room ' + room.code">{{ room.code }}</span>
+    }
+  </div>
+
+  <div class="dialog-content">
+    @switch (coop.status()) {
+      @case ('connecting') {
+        <p class="coop-hint">Connecting to the relay…</p>
+      }
+      @case ('loading-world') {
+        <p class="coop-hint">Loading the host's map…</p>
+      }
+      @default {
+        @if (!coop.room()) {
+          <p class="coop-hint">
+            Play one map together: every player defends their own lane, the HQ is shared.
+            Everyone needs a map key of their own.
+          </p>
+          <label class="field">
+            <span>Name</span>
+            <input type="text" maxlength="32" [value]="name()" (input)="name.set($any($event.target).value)" />
+          </label>
+          <div class="row">
+            <button class="footer-btn footer-btn-primary" type="button" (click)="host()">Open a room with this map</button>
+          </div>
+          <div class="row">
+            <label class="field field-inline">
+              <span>Room</span>
+              <input type="text" maxlength="6" placeholder="ABC123" [value]="code()"
+                     (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
+            </label>
+            <button class="footer-btn" type="button" (click)="join()" [disabled]="!code().trim()">Join</button>
+          </div>
+        } @else {
+          @let room = coop.room()!;
+          @if (!room.started) {
+            <div class="invite">
+              <input class="invite-link" type="text" readonly [value]="inviteLink()" aria-label="Invite link" />
+              <button class="icon-btn" type="button" (click)="copyInvite()" matTooltip="Copy the invite link"
+                      aria-label="Copy the invite link">
+                <td-icon [name]="copied() ? 'check' : 'copy'" [size]="15"></td-icon>
+              </button>
+            </div>
+            @if (!coop.worldReady()) {
+              <p class="coop-hint">Waiting for the host's map…</p>
+            }
+          }
+
+          <ul class="players">
+            @for (player of room.players; track player.id) {
+              <li class="player-row">
+                <span class="lane-dot" [style.background]="laneColor(player.spawnId)"></span>
+                <span class="player-name">
+                  {{ player.name }}
+                  @if (player.id === room.hostId) { <span class="tag">host</span> }
+                  @if (player.id === coop.playerId()) { <span class="tag tag-me">you</span> }
+                </span>
+                @if (!room.started) {
+                  <span class="player-ready" [class.is-ready]="player.ready">{{ player.ready ? 'ready' : 'not ready' }}</span>
+                }
+              </li>
+            }
+          </ul>
+
+          @if (!room.started && coop.worldReady()) {
+            <div class="lanes" role="group" aria-label="Your lane">
+              <span class="lanes-label">Your lane</span>
+              @for (spawnId of room.spawnIds; track spawnId; let i = $index) {
+                <button class="lane-btn" type="button" [class.is-mine]="me()?.spawnId === spawnId"
+                        [disabled]="laneTaken(spawnId)" (click)="coop.pick(me()?.spawnId === spawnId ? null : spawnId)">
+                  <span class="lane-dot" [style.background]="laneColor(spawnId)"></span>
+                  Spawn {{ i + 1 }}
+                </button>
+              }
+            </div>
+            <label class="check">
+              <input type="checkbox" [checked]="me()?.ready ?? false" [disabled]="!me()?.spawnId"
+                     (change)="coop.setLobbyReady($any($event.target).checked)" />
+              Ready
+            </label>
+          }
+
+          @if (room.started) {
+            <div class="chat" aria-live="polite">
+              @for (line of coop.chat(); track $index) {
+                <p class="chat-line"><span class="chat-from">{{ nameOf(line.from) }}</span> {{ line.text }}</p>
+              }
+            </div>
+            <input class="chat-input" type="text" maxlength="200" placeholder="Say something, Enter sends"
+                   [value]="chatLine()" (input)="chatLine.set($any($event.target).value)" (keydown.enter)="sendChat()" />
+          }
+        }
+      }
+    }
+    @if (coop.error(); as error) {
+      <p class="coop-error" role="alert">{{ error }}</p>
+    }
+  </div>
+
+  <div class="dialog-footer">
+    @if (coop.room(); as room) {
+      <button class="footer-btn footer-btn-quiet-danger" type="button" (click)="coop.leave()">Leave</button>
+      <span class="footer-spacer"></span>
+      @if (coop.isHost() && !room.started) {
+        <button class="footer-btn" type="button" (click)="coop.shareWorld()"
+                matTooltip="Send the map loaded now to the room again">Send map</button>
+        <button class="footer-btn footer-btn-primary" type="button" (click)="coop.start(); close()" [disabled]="!canStart()">Start</button>
+      }
+    } @else {
+      <span class="footer-spacer"></span>
+    }
+    <button class="footer-btn" type="button" (click)="close()">Close</button>
+  </div>
+</div>

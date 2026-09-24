@@ -98,10 +98,16 @@ describe('StateSnapshotService', () => {
   let heroProfile: HeroDefenseProfile | null = null;
 
   function createCollector(): StateSnapshotService {
+    const hero = { getDefenseProfile: () => heroProfile };
     const gameState = {
       getEventBus: () => bus,
       towerManager: { getAll: () => [] },
-      heroManager: { getDefenseProfile: () => heroProfile },
+      heroManager: hero,
+      // One player: the snapshot reads the shared state of all of them (COOP_PLAN C4)
+      players: ['local'],
+      researchOf: () => ({ get airTargetingUnlocked() { return research.airTargetingUnlocked(); } }),
+      heroOf: () => hero,
+      creditsOf: () => store.credits(),
       get gameTimeMs() { return gameTimeMs; },
       getCachedRoutes: () => routes,
     };
