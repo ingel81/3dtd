@@ -19,6 +19,18 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
+// TowerControlService's own services: stubs by name through the inject mock below
+vi.mock('../services/tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
+vi.mock('../services/world/map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
+vi.mock('../services/ability-targeting.service', () => ({ AbilityTargetingService: class AbilityTargetingService {} }));
+vi.mock('../services/hero-control.service', () => ({ HeroControlService: class HeroControlService {} }));
+vi.mock('../services/camera-control.service', () => ({ CameraControlService: class CameraControlService {} }));
+vi.mock('../services/keyboard-pan.service', () => ({ KeyboardPanService: class KeyboardPanService {} }));
+vi.mock('../services/input-handler.service', () => ({ InputHandlerService: class InputHandlerService {} }));
+vi.mock('../services/world/intro-camera-flight.service', () => ({ IntroCameraFlightService: class IntroCameraFlightService {} }));
+vi.mock('../services/boss-intro.service', () => ({ BossIntroService: class BossIntroService {} }));
+vi.mock('../services/infrastructure/engine-initialization.service', () => ({ EngineInitializationService: class EngineInitializationService {} }));
+vi.mock('@angular/cdk/a11y', () => ({ LiveAnnouncer: class LiveAnnouncer {} }));
 
 const mockServices: Record<string, unknown> = {};
 vi.mock('@angular/core', async () => {
@@ -46,6 +58,11 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../utils/enemy-aim.util';
 import { headingOfLocal } from '../utils/manual-aim';
 import { Vector3 } from 'three';
+import { signal } from '@angular/core';
+import { TowerControlService } from '../services/tower-control.service';
+import { LocalRelay } from '../coop/local-relay';
+import { TICK_SUB_STEPS } from '../coop/lockstep';
+import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 import type { Enemy } from '../entities/enemy.entity';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition } from '../models/game.types';
@@ -358,5 +375,96 @@ describe('Manning a tower, through the sub-step loop', () => {
     gsm.getEventBus().emit({ type: 'command:man-tower', towerId: flame.id });
     expect(gsm.getMannedTower()).toBeNull();
     expect(flame.manned).toBe(false);
+  });
+});
+
+/** TowerControlService on the game above: an engine stub with a camera and a canvas, the store's manned tower from the bus */
+function createControl(gsm: GameStateManager) {
+  const canvas = { requestPointerLock: vi.fn(() => Promise.resolve()), contains: () => false };
+  const controls = { enabled: true };
+  const camera = {
+    position: new Vector3(), up: new Vector3(0, 1, 0), fov: 60,
+    quaternion: { clone: () => ({}), copy: vi.fn() },
+    lookAt: vi.fn(), updateMatrixWorld: vi.fn(), updateProjectionMatrix: vi.fn(),
+  };
+  const engine = withAutoStubs({
+    getCamera: () => camera,
+    getControls: () => controls,
+    getRenderer: () => ({ domElement: canvas }),
+    towerBadges: withAutoStubs({}),
+    spatialAudio: withAutoStubs({}),
+  });
+  const mannedTowerId = signal<string | null>(null);
+  gsm.getEventBus().on('tower:manned', (event) => {
+    if (event.local) mannedTowerId.set(event.towerId);
+  });
+  mockServices['GameStateManager'] = gsm;
+  mockServices['UIStore'] = withAutoStubs({ openMenu: signal(null), viewOnly: () => false, mapPlacementMode: () => null });
+  mockServices['EngineInitializationService'] = withAutoStubs({ getEngine: () => engine });
+  mockServices['TowerDefenseStore'] = withAutoStubs({ mannedTowerId, isGameOver: () => false, loading: () => false, error: () => null });
+  return { control: new TowerControlService(), canvas, controls, camera, mannedTowerId };
+}
+
+describe('Getting into a tower in coop (C18)', () => {
+  it('takes the seat, the camera and the mouse when the command acts at its tick, not at the click', () => {
+    const gsm = createGame();
+    const tower = placeTower(gsm);
+    const relay = new LocalRelay(true);
+    gsm.setLockstep(relay.connect(LOCAL_PLAYER_ID));
+    const { control, canvas, controls } = createControl(gsm);
+    const clock = { now: 1000 };
+
+    expect(control.enter(tower)).toBe(true);
+    // The command is on its way: nobody sits in the tower yet, the view is the map's
+    expect(gsm.getMannedTower()).toBeNull();
+    expect(control.active()).toBe(false);
+    expect(canvas.requestPointerLock).not.toHaveBeenCalled();
+    expect(controls.enabled).toBe(true);
+
+    relay.closeTick();
+    steps(gsm, clock, 1);
+    expect(gsm.getMannedTower()).toBe(tower);
+    expect(control.active()).toBe(true);
+    expect(canvas.requestPointerLock).toHaveBeenCalled();
+    expect(controls.enabled).toBe(false);
+  });
+
+  it('sends the aim at most once a tick, and looks along the local aim in between', () => {
+    const gsm = createGame();
+    const tower = placeTower(gsm);
+    const relay = new LocalRelay(true);
+    gsm.setLockstep(relay.connect(LOCAL_PLAYER_ID));
+    const { control } = createControl(gsm);
+    const aims: number[] = [];
+    const sentAt: number[] = [];
+    gsm.getEventBus().on('command:tower-aim', (event) => {
+      aims.push(event.heading);
+      sentAt.push(gsm.subStep);
+    });
+    const clock = { now: 1000 };
+    control.enter(tower);
+    relay.closeTick();
+    steps(gsm, clock, 1);
+
+    // What the mouse gives (onPointerMove), frame by frame
+    const local = control as unknown as { aimHeading: number; aimMoved: boolean };
+    for (let frame = 1; frame <= 2 * TICK_SUB_STEPS; frame++) {
+      local.aimHeading = frame * 0.01;
+      local.aimMoved = true;
+      control.flushAim();
+      relay.closeTick();
+      steps(gsm, clock, 1);
+    }
+    // Fewer aims than frames, never two within one tick; the local aim is the latest
+    expect(aims.length).toBeGreaterThan(0);
+    expect(aims.length).toBeLessThan(2 * TICK_SUB_STEPS);
+    for (let i = 1; i < sentAt.length; i++) expect(sentAt[i] - sentAt[i - 1]).toBeGreaterThanOrEqual(TICK_SUB_STEPS);
+    expect(local.aimHeading).toBeCloseTo(0.08);
+    // The tower follows once the aims' ticks came
+    for (let i = 0; i < 40; i++) {
+      relay.closeTick();
+      steps(gsm, clock, 1);
+    }
+    expect(tower.manualAim.heading).toBeCloseTo(aims[aims.length - 1]);
   });
 });
