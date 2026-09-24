@@ -1,4 +1,5 @@
 import type { LockstepLink, StampedCommand } from './lockstep';
+import type { ClientInfo } from './client-info';
 import {
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -71,6 +72,10 @@ export class WebSocketLink implements LockstepLink {
     this.received.delete(tick);
   }
 
+  reportHash(tick: number, hash: number): void {
+    this.out({ t: 'hash', tick, hash });
+  }
+
   /** From the session: a tick closed at the relay. Ticks come in order over the one socket. */
   receive(tick: number, commands: readonly StampedCommand[]): void {
     if (commands.length > 0) this.received.set(tick, commands);
@@ -104,16 +109,18 @@ export class CoopSession {
   onLeft: ((playerId: string) => void) | null = null;
   onChat: ((from: string, text: string) => void) | null = null;
   onPing: ((from: string, lat: number, lon: number) => void) | null = null;
+  /** The relay found the simulations apart (C5): the first tick, player id and hash each */
+  onDesync: ((tick: number, hashes: [string, number][]) => void) | null = null;
   onRefused: ((reason: RefusalReason) => void) | null = null;
   onClosed: (() => void) | null = null;
 
   private readonly url: string;
-  private readonly hello: { name: string; gameVersion: string; configHash: string };
+  private readonly hello: { name: string; gameVersion: string; configHash: string; client?: ClientInfo };
   private readonly openSocket: (url: string) => CoopSocket;
 
   constructor(
     url: string,
-    hello: { name: string; gameVersion: string; configHash: string },
+    hello: { name: string; gameVersion: string; configHash: string; client?: ClientInfo },
     openSocket: (url: string) => CoopSocket = (to) => new WebSocket(to) as unknown as CoopSocket,
   ) {
     this.url = url;
@@ -130,18 +137,33 @@ export class CoopSession {
     return this.room !== null && this.room.hostId === this.playerId;
   }
 
-  /** Connect and say hello; resolves with this player's id. */
-  connect(): Promise<string> {
-    return new Promise((resolve, reject) => {
+  /** Connect and say hello; resolves with this player's id, rejects after `timeoutMs` without a welcome. */
+  connect(timeoutMs = 5000): Promise<string> {
+    return new Promise((done, reject) => {
       const socket = this.openSocket(this.url);
       this.socket = socket;
+      const timer = setTimeout(() => {
+        this.fail(new Error(`no answer from ${this.url}`), reject);
+        this.close();
+      }, timeoutMs);
+      const resolve = (id: string) => {
+        clearTimeout(timer);
+        done(id);
+      };
       socket.onopen = () => {
-        this.expect('welcome', resolve as (value: unknown) => void, reject);
+        this.expect('welcome', resolve as (value: unknown) => void, (err) => {
+          clearTimeout(timer);
+          reject(err);
+        });
         this.out({ t: 'hello', protocol: PROTOCOL_VERSION, ...this.hello });
       };
       socket.onmessage = (event) => this.receive(String(event.data));
-      socket.onerror = () => this.fail(new Error(`no coop relay at ${this.url}`), reject);
+      socket.onerror = () => {
+        clearTimeout(timer);
+        this.fail(new Error(`no coop relay at ${this.url}`), reject);
+      };
       socket.onclose = () => {
+        clearTimeout(timer);
         this.fail(new Error('the connection to the coop relay closed'), reject);
         this.socket = null;
         this.onClosed?.();
@@ -167,6 +189,11 @@ export class CoopSession {
 
   pick(spawnId: string | null): void {
     this.out({ t: 'pick', spawnId });
+  }
+
+  /** Lobby: another name for this player. */
+  rename(name: string): void {
+    this.out({ t: 'rename', name });
   }
 
   ready(ready: boolean): void {
@@ -273,6 +300,8 @@ export class CoopSession {
         return this.onChat?.(message.from, message.text);
       case 'ping':
         return this.onPing?.(message.from, message.lat, message.lon);
+      case 'desync':
+        return this.onDesync?.(message.tick, message.hashes);
     }
   }
 }

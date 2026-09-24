@@ -43,10 +43,37 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('d', 'room')!.room.players.map((p) => p.id)).toEqual(['a', 'b', 'c', 'd']);
   });
 
+  it('shows and logs what each player plays with', () => {
+    const lines: string[] = [];
+    room = new Room('CLIENT', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { log: (line) => lines.push(line) });
+    room.join(player('b', { client: { engine: 'Firefox', version: '143.0', family: 'gecko', os: 'Linux' } }));
+    expect(last('a', 'room')!.room.players.map((p) => p.client)).toEqual([
+      null, { engine: 'Firefox', version: '143.0', family: 'gecko', os: 'Linux' },
+    ]);
+    expect(lines[1]).toBe('B (b) joined (2 players), on Firefox 143.0, Linux');
+  });
+
   it('numbers a name that is in the room already', () => {
     room.join(player('b', { name: 'A' }));
     room.join(player('c', { name: 'A' }));
     expect(last('c', 'room')!.room.players.map((p) => p.name)).toEqual(['A', 'A 2', 'A 3']);
+  });
+
+  it('lets a player change their name in the lobby, numbered where it is taken, not after the start', () => {
+    room.join(player('b'));
+    room.receive('b', { t: 'rename', name: '  Bea  ' });
+    expect(last('a', 'room')!.room.players.map((p) => p.name)).toEqual(['A', 'Bea']);
+    room.receive('a', { t: 'rename', name: 'Bea' });
+    expect(last('b', 'room')!.room.players.map((p) => p.name)).toEqual(['Bea 2', 'Bea']);
+    room.receive('b', { t: 'rename', name: '' }); // empty: nothing
+    expect(last('b', 'room')!.room.players[1].name).toBe('Bea');
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('b', { t: 'rename', name: 'Late' });
+    expect(last('b', 'refused')!.reason).toBe('started');
   });
 
   it('hands the host world to everyone, also to who joins later', () => {
@@ -103,6 +130,11 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(all('b', 'tick')).toEqual(ticks);
     // The half tick left over counts toward the next
     expect(room.advance(TICK_MS / 2)).toBe(1);
+    // The dev tools' commands and anything that is no game command stay out (R3)
+    room.receive('a', { t: 'cmd', command: { type: 'debug:add-credits' } });
+    room.receive('a', { t: 'cmd', command: {} as never });
+    room.advance(TICK_MS);
+    expect(all('a', 'tick').at(-1)!.commands).toEqual([]);
   });
 
   it('follows the host speed, and stands still at 0', () => {
@@ -131,5 +163,47 @@ describe('Room (COOP_PLAN C4)', () => {
     ]);
     room.leave('b');
     expect(room.isEmpty).toBe(true);
+  });
+
+  it('compares the hashes of a tick and tells everyone the first one that differs, once (C5)', () => {
+    lobby();
+    room.receive('a', { t: 'hash', tick: 0, hash: 1 }); // before the start: ignored
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'hash', tick: 15, hash: 7 });
+    room.receive('b', { t: 'hash', tick: 15, hash: 7 });
+    expect(all('a', 'desync')).toHaveLength(0);
+    room.receive('a', { t: 'hash', tick: 30, hash: 8 });
+    room.receive('b', { t: 'hash', tick: 30, hash: 9 });
+    room.receive('a', { t: 'hash', tick: 45, hash: 10 });
+    room.receive('b', { t: 'hash', tick: 45, hash: 11 });
+    expect(all('a', 'desync')).toEqual([{ t: 'desync', tick: 30, hashes: [['a', 8], ['b', 9]] }]);
+    expect(all('b', 'desync')).toHaveLength(1);
+    const status = room.status();
+    expect(status).toMatchObject({ started: true, desyncs: 2, firstDesync: 30 });
+    expect(status.players.map((p) => p.lastHash)).toEqual([{ tick: 45, hash: 10 }, { tick: 45, hash: 11 }]);
+  });
+
+  it('logs what happens in the room, one line each', () => {
+    const lines: string[] = [];
+    room = new Room('LOGGED', player('a'), () => undefined, { log: (line) => lines.push(line) });
+    lobby();
+    room.receive('a', { t: 'start', seed: 5 });
+    room.receive('a', { t: 'speed', speed: 0 });
+    room.receive('b', { t: 'cmd', command: { type: 'command:x' } });
+    room.leave('a', 'no heartbeat');
+    expect(lines).toEqual([
+      'opened by A (a), game v1, balance h',
+      'B (b) joined (2 players)',
+      'world from the host, 0 kB, spawns s1, s2',
+      'A (a) took lane s1',
+      'B (b) took lane s2',
+      'A (a) ready',
+      'B (b) ready',
+      'started, seed 5, speed 1, lanes A (a) on s1, B (b) on s2',
+      'paused',
+      'A (a) left (no heartbeat), lane closes after tick -1',
+      'host is now B (b)',
+    ]);
+    expect(room.status().commands).toBe(1);
   });
 });
