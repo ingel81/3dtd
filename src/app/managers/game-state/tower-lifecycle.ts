@@ -14,6 +14,7 @@ import type { GeoPosition } from '../../models/game.types';
 import type { ResearchEffect } from '../../configs/research/research.types';
 import type { CreditsLedger } from './credits-ledger';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
+import { releaseAim } from '../../entities/tower-aim';
 import { TowerTypeId, TOWER_TYPES, UpgradeId, requiredUpgradeTier } from '../../configs/tower-types.config';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
@@ -184,9 +185,8 @@ export class TowerLifecycle {
     tower.manned = true;
     tower.triggerHeld = false;
     tower.clearTarget();
-    const engine = this.engine();
-    engine?.towers.releaseTarget(tower.id);
-    tower.manualAim.heading = engine?.towers.aimHeading(tower.id) ?? tower.guardHeading ?? 0;
+    releaseAim(tower.aim);
+    tower.manualAim.heading = tower.aim.current;
     tower.manualAim.pitch = 0;
     this.manned = tower;
     this.eventBus.emit({ type: 'tower:manned', towerId: tower.id });
@@ -210,7 +210,7 @@ export class TowerLifecycle {
     tower.manned = false;
     tower.triggerHeld = false;
     this.combat.clearMannedAim();
-    this.engine()?.towers.releaseTarget(tower.id);
+    releaseAim(tower.aim);
   }
 
   /**

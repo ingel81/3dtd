@@ -15,6 +15,8 @@ import { MapPlacementService } from './world/map-placement.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { ThreeTowerRenderer, type TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
+import { createTowerAim } from '../entities/tower-aim';
+import { TOWER_TYPES } from '../configs/tower-types.config';
 
 /**
  * Playtest 522 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: the real input
@@ -44,7 +46,7 @@ describe('Deselect with the pointer left on the tower, playtest 522 replayed', (
       { geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat) } as never,
       { loadModel: async () => ({ animations: [] }), cloneModel: () => new Group() } as never,
     );
-    tower = (await renderer.create('t1', 'archer', 0, 0, 0, 0, null))!;
+    tower = (await renderer.create('t1', 'archer', 0, 0, 0, 0, createTowerAim(TOWER_TYPES.archer, 0)))!;
     vi.useFakeTimers();
 
     canvas = document.createElement('canvas');

@@ -1010,8 +1010,8 @@ export class ThreeTilesEngine {
    * - Enemy walking animation runs in GAME-TIME so feet match foot-speed at
    *   every training timescale (sub-stepping is invisible at the renderer).
    * - Tower visuals (selection ring, magic hover, GLTF mixer) run in real-time;
-   *   gameplay-affecting turret aim is driven separately per sub-step from
-   *   GameStateManager via towers.advanceTurretAim().
+   *   the turret aim is simulation state (Tower.aim), turned per sub-step in
+   *   GameStateManager.runSubStep; the tower renderer only draws it.
    */
   update(deltaTime: number): void {
     // Phase 5.14: Gameplay MUST run even in headless mode, it's driven by

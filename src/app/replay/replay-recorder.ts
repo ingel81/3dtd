@@ -59,6 +59,8 @@ export interface RecordableTower {
   readonly customRotation: number;
   readonly plinthHeight: number;
   readonly plinthOverhang: readonly number[];
+  /** Where it aims (Tower.aim), heading rad */
+  readonly aim: { readonly current: number };
 }
 
 /** The engine parts the recorder reads; ThreeTilesEngine has all of them. */
@@ -66,9 +68,6 @@ export interface ReplayRecorderEngine {
   readonly renderingEnabled: boolean;
   readonly sync: {
     geoToLocalSimpleInto(lat: number, lon: number, height: number, target: Vector3): Vector3;
-  };
-  readonly towers: {
-    get(id: string): { readonly currentLocalRotation: number; readonly turretPart: object | null } | undefined;
   };
   readonly flameBeams: {
     getBeam(towerId: string): { readonly targetPosition: Vector3; readonly beamWidth: number } | null;
@@ -406,8 +405,7 @@ export class ReplayRecorder {
     for (const tower of towers) {
       const index = this.towerIndex.get(tower.id);
       if (index === undefined) continue;
-      const data = engine.towers.get(tower.id);
-      const rotation = data ? data.currentLocalRotation : 0;
+      const rotation = tower.aim.current;
 
       const beam = engine.flameBeams.getBeam(tower.id);
       if (beam) {
@@ -425,7 +423,7 @@ export class ReplayRecorder {
       // (its blood moon searchlight follows it), so it gets a sample in
       // every frame: the player shows the samples of the frame it is at, a
       // sample only on change would leave a jump back with a later aim.
-      if (data && (data.turretPart || tower.typeConfig.attackType !== 'passive')) {
+      if (tower.typeConfig.attackType !== 'passive') {
         rec.pushTower(index, rotation, 0, 0, 0, 0, 0);
       }
     }

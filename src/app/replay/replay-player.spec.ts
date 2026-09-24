@@ -10,6 +10,7 @@ import type { HeroPresentation } from '../managers/hero.manager';
 import type { RouteBodyStations } from '../utils/route-body';
 import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG, heroPoseCode } from './replay-recording';
 import { ReplayPlayer, lerpAngle } from './replay-player';
+import type { TowerAim } from '../entities/tower-aim';
 
 type Spy = ReturnType<typeof vi.fn>;
 
@@ -21,15 +22,23 @@ function advance(p: ReplayPlayer, ms: number): void {
   for (let left = ms; left > 0; left -= FRAME_MS) p.update(Math.min(FRAME_MS, left));
 }
 
-function towerData(rotation: number) {
+/** A tower in the fake renderer; its aim is the live tower's (Tower.aim), which the renderer draws */
+function towerData(rotation: number, aim?: TowerAim) {
   return {
-    currentLocalRotation: rotation,
-    targetLocalRotation: 0.3,
-    hasTarget: false,
-    scanPhase: 2,
-    scanStartRotation: 0.1,
-    scanDelayRemaining: 5,
-    turretPart: { rotation: { y: rotation } },
+    aim: aim ?? {
+      turret: true,
+      current: rotation,
+      target: 0.3,
+      hasTarget: false,
+      scanPhase: 2,
+      scanStart: 0.1,
+      scanDelayRemaining: 5,
+      pitch: 0,
+      pitchTarget: 0,
+      pitchMin: 0,
+      pitchMax: 0,
+    },
+    turretPart: { rotation: { y: rotation } } as { rotation: { y: number } } | null,
     mesh: { visible: true },
   };
 }
@@ -89,8 +98,8 @@ function fakeEngine() {
     },
     towers: {
       get: (id: string) => towers.get(id),
-      create: vi.fn(async (id: string) => {
-        towers.set(id, towerData(0));
+      create: vi.fn(async (id: string, ...rest: unknown[]) => {
+        towers.set(id, towerData(0, rest[5] as TowerAim));
         return null;
       }),
       remove: vi.fn((id: string) => towers.delete(id)),
@@ -275,7 +284,10 @@ describe('ReplayPlayer', () => {
 
     it('hides a tower placed later and builds one sold during the wave', () => {
       expect(fake.towers.get('late-1')!.mesh.visible).toBe(false);
-      expect(fake.engine.towers.create).toHaveBeenCalledWith('replay-tower-2', 'tentacle', 48, 9, 200, 0, null);
+      // With an aim of its own, not bound to a live tower
+      expect(fake.engine.towers.create).toHaveBeenCalledWith(
+        'replay-tower-2', 'tentacle', 48, 9, 200, 0, expect.objectContaining({ turret: false }),
+      );
       expect(fake.engine.plinths['create']).toHaveBeenCalledWith('replay-tower-2', 48, 9, 200, 2, expect.any(Number), [5, 6]);
       expect(fake.engine.tentacles['create']).toHaveBeenCalledWith('replay-tower-2', expect.any(Vector3));
     });
@@ -417,17 +429,16 @@ describe('ReplayPlayer', () => {
   });
 
   describe('towers', () => {
-    it('turns the turrets to the recorded rotation, interpolated', () => {
+    it('turns the aims to the recorded heading, interpolated; the renderer draws the turrets from it', () => {
       advance(player, 150);
-      expect(fake.towers.get('archer-1')!.currentLocalRotation).toBeCloseTo(1.5);
-      expect(fake.towers.get('archer-1')!.turretPart.rotation.y).toBeCloseTo(1.5);
+      expect(fake.towers.get('archer-1')!.aim.current).toBeCloseTo(1.5);
     });
 
     it('turns the aim of a tower without a turret part as well, for its searchlight', () => {
-      const archer = fake.towers.get('archer-1')! as { turretPart: unknown; currentLocalRotation: number };
+      const archer = fake.towers.get('archer-1')!;
       archer.turretPart = null;
       advance(player, 150);
-      expect(archer.currentLocalRotation).toBeCloseTo(1.5);
+      expect(archer.aim.current).toBeCloseTo(1.5);
     });
 
     it('shows a tower from its placement and a sold one until it was sold', () => {
@@ -483,10 +494,10 @@ describe('ReplayPlayer', () => {
       advance(player, 150);
       player.exit();
       const archer = fake.towers.get('archer-1')!;
-      expect(archer.currentLocalRotation).toBe(0.2);
-      expect(archer.turretPart.rotation.y).toBe(0.2);
-      expect(archer.scanPhase).toBe(2);
-      expect(archer.scanDelayRemaining).toBe(5);
+      expect(archer.aim.current).toBe(0.2);
+      expect(archer.aim.target).toBe(0.3);
+      expect(archer.aim.scanPhase).toBe(2);
+      expect(archer.aim.scanDelayRemaining).toBe(5);
       expect(fake.towers.get('late-1')!.mesh.visible).toBe(true);
       expect(fake.towers.get('after-1')!.mesh.visible).toBe(true);
       expect(fake.engine.towers.remove).toHaveBeenCalledWith('replay-tower-2');

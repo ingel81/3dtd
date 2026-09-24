@@ -49,6 +49,7 @@ function fakeTower(id: string, typeConfig: { id: string; attackType?: string } =
     customRotation: 0.3,
     plinthHeight: 1.5,
     plinthOverhang: [4, 5],
+    aim: { current: 0 },
   };
 }
 
@@ -58,7 +59,6 @@ class Harness {
   readonly enemies: ReturnType<typeof fakeEnemy>[] = [];
   readonly projectiles: ReturnType<typeof fakeProjectile>[] = [];
   readonly towers: ReturnType<typeof fakeTower>[] = [];
-  readonly turrets = new Map<string, { currentLocalRotation: number; turretPart: object | null }>();
   readonly beams = new Map<string, { targetPosition: Vector3; beamWidth: number }>();
   readonly strikes = new Map<string, Vector3>();
   readonly engine = {
@@ -67,7 +67,6 @@ class Harness {
     sync: {
       geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3) => target.set(lon * 100, height, lat * 100),
     },
-    towers: { get: (id: string) => this.turrets.get(id) },
     flameBeams: { getBeam: (id: string) => this.beams.get(id) ?? null },
     tentacles: { getStrikeTarget: (id: string) => this.strikes.get(id) ?? null },
   };
@@ -115,8 +114,9 @@ describe('ReplayRecorder', () => {
 
   it('starts on wave:started with the towers standing and a first frame at 0', () => {
     const h = new Harness();
-    h.towers.push(fakeTower('tower-1'));
-    h.turrets.set('tower-1', { currentLocalRotation: 1.25, turretPart: {} });
+    const tower = fakeTower('tower-1');
+    tower.aim.current = 1.25;
+    h.towers.push(tower);
     h.startWave(7);
     h.recorder.finish('completed');
 
@@ -258,13 +258,10 @@ describe('ReplayRecorder', () => {
   it('follows towers placed and sold during the wave and their beams and strikes', () => {
     const h = new Harness();
     h.towers.push(fakeTower('fire-1'), fakeTower('research-1', { id: 'research-center', attackType: 'passive' }));
-    h.turrets.set('fire-1', { currentLocalRotation: 0, turretPart: {} });
-    h.turrets.set('research-1', { currentLocalRotation: 0, turretPart: null });
     h.startWave();
     h.steps(3);
     const tentacle = fakeTower('tentacle-1');
     h.towers.push(tentacle);
-    h.turrets.set('tentacle-1', { currentLocalRotation: 0, turretPart: null });
     h.emit({ type: 'tower:placed', tower: tentacle as never, position: tentacle.position, cost: 100 });
     h.beams.set('fire-1', { targetPosition: new Vector3(1, 2, 3), beamWidth: 8 });
     h.strikes.set('tentacle-1', new Vector3(4, 5, 6));
@@ -290,11 +287,11 @@ describe('ReplayRecorder', () => {
 
   it('samples the aim of a tower without a turret part in every frame, for its searchlight', () => {
     const h = new Harness();
-    const archer = { currentLocalRotation: 0.5, turretPart: null };
-    h.towers.push(fakeTower('archer-1'));
-    h.turrets.set('archer-1', archer);
+    const archer = fakeTower('archer-1');
+    archer.aim.current = 0.5;
+    h.towers.push(archer);
     h.startWave();
-    archer.currentLocalRotation = 0.9;
+    archer.aim.current = 0.9;
     h.steps(6);
     // Unchanged, still a sample: a jump back to this frame shows it
     h.steps(6);
@@ -510,8 +507,9 @@ describe('ReplayRecorder cost', () => {
     for (let i = 0; i < 2800; i++) h.enemies.push(fakeEnemy('skeleton', i * 1e-5, i * 2e-5));
     for (let i = 0; i < 300; i++) h.projectiles.push(fakeProjectile(i * 1e-5, 0));
     for (let i = 0; i < 60; i++) {
-      h.towers.push(fakeTower(`tower-${i}`));
-      h.turrets.set(`tower-${i}`, { currentLocalRotation: i, turretPart: {} });
+      const tower = fakeTower(`tower-${i}`);
+      tower.aim.current = i;
+      h.towers.push(tower);
     }
     const frames = 300;
 

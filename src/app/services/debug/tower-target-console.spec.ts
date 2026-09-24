@@ -13,6 +13,7 @@ vi.mock('three', () => ({
 
 import { explainTowerTarget, TowerTargetConsole, type TowerTargetLookup } from './tower-target-console';
 import { Tower } from '../../entities/tower.entity';
+import { aimAt } from '../../entities/tower-aim';
 import { Enemy } from '../../entities/enemy.entity';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { METERS_PER_DEGREE_LAT as M } from '../../utils/geo-utils';
@@ -39,9 +40,8 @@ const iceAt = (s: number, east: number): Tower => {
 const cellSeenBy = (tower: Tower, seen: boolean | undefined): RouteCell =>
   ({ towerVisibility: new Map(seen === undefined ? [] : [[tower.id, seen]]) }) as unknown as RouteCell;
 
-const lookup = (cell: RouteCell | undefined, aligned = true, isGridCell = (_cell: RouteCell) => true): TowerTargetLookup => ({
+const lookup = (cell: RouteCell | undefined, isGridCell = (_cell: RouteCell) => true): TowerTargetLookup => ({
   cellOf: () => cell,
-  aligned: () => aligned,
   isGridCell,
 });
 
@@ -56,8 +56,10 @@ describe('explainTowerTarget', () => {
     const clump = clumpAt(20);
     expect(tower.findTarget([clump], false)).toBe(clump);
     tower.combat.fire();
+    // The turret still turning to it
+    aimAt(tower.aim, tower.aim.current + 1);
 
-    expect(explainTowerTarget(tower, [clump], lookup(undefined, false))).toBe(
+    expect(explainTowerTarget(tower, [clump], lookup(undefined))).toBe(
       `${tower.id} ice: target slime-clump ${clump.id} at 15.0 m, cooldown 3.0 s, turret not aligned`,
     );
   });
@@ -81,7 +83,7 @@ describe('explainTowerTarget', () => {
     // The clump stands in a cell of the new grid, which has no answer for the tower
     const rebuilt = cellSeenBy(tower, undefined);
 
-    expect(explainTowerTarget(tower, [clumpAt(20)], lookup(rebuilt, true, (cell) => cell === live || cell === rebuilt))).toBe(
+    expect(explainTowerTarget(tower, [clumpAt(20)], lookup(rebuilt, (cell) => cell === live || cell === rebuilt))).toBe(
       `${tower.id} ice: no target, asleep, no candidate in visibleCells (1 near: 0 in cells it does not see, ` +
         '1 in cells without its LOS entry, 0 in cells it sees but missing from visibleCells, 0 off the grid), ' +
         '2 of 3 visibleCells not in the grid any more',
@@ -94,7 +96,7 @@ describe('explainTowerTarget', () => {
     const cells = [cellSeenBy(tower, false), cellSeenBy(tower, undefined), cellSeenBy(tower, true), undefined];
     const cellOf = new Map(clumps.map((clump, i) => [clump, cells[i]]));
 
-    expect(explainTowerTarget(tower, clumps, { cellOf: (enemy) => cellOf.get(enemy), aligned: () => true, isGridCell: () => true })).toBe(
+    expect(explainTowerTarget(tower, clumps, { cellOf: (enemy) => cellOf.get(enemy), isGridCell: () => true })).toBe(
       `${tower.id} ice: no target, no candidate in visibleCells (4 near: 1 in cells it does not see, ` +
         '1 in cells without its LOS entry, 1 in cells it sees but missing from visibleCells, 1 off the grid)',
     );
@@ -146,7 +148,7 @@ describe('TowerTargetConsole (__towerTargets)', () => {
           getEventBus: () => bus,
         }) as never,
       engineInit: {
-        getEngine: () => ({ sync: { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }) }, towers: { isTurretAligned: () => true } }) as never,
+        getEngine: () => ({ sync: { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }) }, towers: {} }) as never,
       },
     });
     probe.install();

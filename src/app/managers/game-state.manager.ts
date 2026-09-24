@@ -44,6 +44,7 @@ import { TowerLifecycle } from './game-state/tower-lifecycle';
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
 import { ReplayRecorder } from '../replay/replay-recorder';
+import { stepTowerAim } from '../entities/tower-aim';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -566,7 +567,7 @@ export class GameStateManager {
       // Notify per-sub-step listeners (AI bot, etc.)
       onSubStep?.(stepMs);
 
-      // After the turret aim above, so a frame shows where the turrets point
+      // After the turret aim (runSubStep), so a frame shows where the turrets point
       this.replayRecorder.onSubStep();
 
       // Wave-completion / game-over checks belong INSIDE the sub-step loop
@@ -699,6 +700,10 @@ export class GameStateManager {
 
     // Hero: walks and fires in game time, after the enemies moved
     this.heroManager.update(stepMs);
+
+    // Turrets turn in game time towards where the combat above aims them;
+    // alignment gates the next shot (isAimAligned)
+    for (const tower of this.towerManager.getAll()) stepTowerAim(tower.aim, stepMs);
   }
 
   /** Geo height of the ground under a position, from the route grid like the enemies' feet; 0 without it. */

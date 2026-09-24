@@ -314,7 +314,6 @@ function createEngine(): never {
   }
   engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['towers']['isTurretAligned'] = () => true;
   // The CPU fallback of buildLosCheck, against the same blocks.
   engine['towers']['hasLineOfSight'] = (id: string, x: number, y: number, z: number) => {
     const tip = towerTips.get(id);

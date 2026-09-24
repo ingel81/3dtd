@@ -261,7 +261,7 @@ describe('TowerCombatService', () => {
           geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }),
           geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target,
         },
-        towers: { updateRotation: vi.fn(), releaseTarget: vi.fn(), hasLineOfSight: () => true },
+        towers: { hasLineOfSight: () => true },
         flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn() },
       };
       service.initialize(engine as never);
@@ -392,7 +392,7 @@ describe('TowerCombatService', () => {
       service = new TowerCombatService();
       service.initialize({
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
-        towers: { releaseTarget: vi.fn() },
+        towers: {},
       } as never);
 
       const tower = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, 'archer');
@@ -424,13 +424,11 @@ describe('TowerCombatService', () => {
     function setup() {
       mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius: noEnemies, getBodyEnemies: () => [] };
       service = new TowerCombatService();
-      const towers = { releaseTarget: vi.fn(), updateRotation: vi.fn(), setIdleHeading: vi.fn() };
       service.initialize({
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
-        towers,
+        towers: {},
         flameBeams: { stopBeam: vi.fn() },
       } as never);
-      return towers;
     }
 
     const loops: {
@@ -445,28 +443,32 @@ describe('TowerCombatService', () => {
 
     for (const { kind, typeId, run } of loops) {
       it(`${kind}: keeps the heading when the tower has no target during a wave`, () => {
-        const towers = setup();
+        setup();
         const tower = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, typeId);
         tower.losReady = true;
         tower.guardHeading = 1.2;
+        tower.aim.hasTarget = true;
+        const heading = tower.aim.target;
 
         run({ getAllActive: () => [tower] } as never);
 
-        expect(towers.releaseTarget).toHaveBeenCalledWith(tower.id);
-        expect(towers.updateRotation).not.toHaveBeenCalled();
-        expect(towers.setIdleHeading).not.toHaveBeenCalled();
+        expect(tower.aim.hasTarget).toBe(false);
+        expect(tower.aim.target).toBe(heading);
       });
     }
 
     it('turnTowersToGuard turns the towers that have a guard heading', () => {
-      const towers = setup();
+      setup();
       const guarded = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, 'archer');
       guarded.guardHeading = 0.7;
       const unguarded = new Tower({ lat: 48.001, lon: 9.0, height: 0 }, 'archer');
+      const unguardedHeading = unguarded.aim.target;
 
       service.turnTowersToGuard({ getAllActive: () => [guarded, unguarded] } as never);
 
-      expect(towers.setIdleHeading.mock.calls).toEqual([[guarded.id, 0.7]]);
+      expect(guarded.aim.target).toBe(0.7);
+      expect(guarded.aim.hasTarget).toBe(false);
+      expect(unguarded.aim.target).toBe(unguardedHeading);
     });
   });
 
