@@ -3,6 +3,32 @@
 What changed for players, newest first. Every release adds a section here, and the
 game shows it once after an update.
 
+## 0.4.0 (2026-09-24)
+
+### New
+- Watch any wave of the run again, as it was played, with a free camera: pause, 0.25x
+  to 4x, jump anywhere, step to other waves. Save a run's replays as a file and watch
+  them again later on the same map.
+- Man a tower: press C in a projectile tower to aim and fire it yourself. C or Esc
+  gets you out.
+- Research opens as a full tree (Q or the button in the build panel), and the queue
+  can be reordered.
+- New music and sounds: tracks for bosses, blood moon and game over, deaths, hits, a
+  horn at the end of a wave. The music makes room before a wave's signals. A master
+  volume with M to mute, and a volume of its own for interface sounds.
+
+### Better
+- You start with 500 HP, and waves adapt to how hard your base is pressed. Tough
+  enemies pay a bigger bounty, and the campaign brings its own bosses: the Ooze in
+  wave 20, Skarnax in wave 30.
+- Hold Alt to show the health bars, or to hide them while they are on. The HQ is a
+  crystal with an energy core, and every spawn is named after its street.
+
+### Fixed
+- Towers no longer shoot at enemies that already reached the base.
+- A wave no longer grows with towers built just before you start it, and there is no
+  sudden wall of enemies in wave 15. A new place starts the waves fresh.
+
 ## 0.3.2 (2026-09-20)
 
 ### New
