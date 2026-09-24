@@ -1010,10 +1010,10 @@ export class GameStateManager {
   }
 
   /**
-   * Where the player aims from the manned tower (Tower.manualAim). Input of
-   * every frame, set directly rather than as a command: a command per frame
-   * would flood the replay's command log. The shot itself goes by the
-   * trigger command and the tower's rules in the sub-step.
+   * Where the player aims from the manned tower (Tower.manualAim), from
+   * command:tower-aim (TowerControlService sends one a frame at most, only
+   * when the mouse moved). The shot itself goes by the trigger command and
+   * the tower's rules in the sub-step.
    */
   setMannedAim(heading: number, pitch: number): void {
     const tower = this.towerLifecycle.mannedTower();

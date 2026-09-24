@@ -143,8 +143,7 @@ export class GameCommandsHandler {
       if (tower) this.gsm.setTowerHoldFire(tower, event.holdFire);
     });
 
-    // Manning a tower (docs/TOWER_CONTROL.md). The aim is no command, see
-    // GameStateManager.setMannedAim; the trigger is.
+    // Manning a tower (docs/TOWER_CONTROL.md): get in and out, aim, trigger
     this.on('command:man-tower', (event) => {
       const tower = this.gsm.towerManager.getById(event.towerId);
       if (tower) this.gsm.manTower(tower);
@@ -156,6 +155,10 @@ export class GameCommandsHandler {
 
     this.on('command:tower-trigger', (event) => {
       this.gsm.setMannedTrigger(event.held);
+    });
+
+    this.on('command:tower-aim', (event) => {
+      this.gsm.setMannedAim(event.heading, event.pitch);
     });
   }
 

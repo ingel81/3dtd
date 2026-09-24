@@ -155,7 +155,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
         { provide: PhotoModeService, useValue: { active: signal(false) } },
         { provide: HeroControlService, useValue: {} },
         { provide: ReplayService, useValue: { active: signal(false) } },
-        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn() } },
+        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn(), flushAim: vi.fn() } },
         { provide: DebugFacadeService, useValue: { setHealthBarsInverted: () => undefined } },
         { provide: UpgradeHintService, useValue: upgradeHint },
         { provide: TowerUpgradeService, useFactory: () => towerUpgrade },

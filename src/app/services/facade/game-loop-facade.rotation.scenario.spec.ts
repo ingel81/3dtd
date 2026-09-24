@@ -146,7 +146,7 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
         { provide: UIStore, useValue: {} },
         { provide: BossIntroService, useValue: { update: vi.fn() } },
         { provide: ReplayService, useValue: { update: vi.fn() } },
-        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn() } },
+        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn(), flushAim: vi.fn() } },
         { provide: NgZone, useValue: { run: (fn: () => void) => fn() } },
       ],
     });

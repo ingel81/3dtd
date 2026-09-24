@@ -53,10 +53,10 @@ const ZOOM_RATE = 12;
  * The game side is the TowerLifecycle's (command:man-tower, leave-tower,
  * tower-trigger) and TowerCombatService.updateMannedTower: the tower keeps
  * its rules. This service is the input and the view: pointer lock and mouse
- * look into GameStateManager.setMannedAim, the left button as trigger
- * command, the right button zooms, the camera on the tower's eye point every
- * frame (update(), from the game loop), and the crosshair's state for the
- * HUD (TowerControlHudComponent).
+ * look (gathered per frame, sent by flushAim() as command:tower-aim), the
+ * left button as trigger command, the right button zooms, the camera on the
+ * tower's eye point every frame (update(), from the game loop), and the
+ * crosshair's state for the HUD (TowerControlHudComponent).
  *
  * Provided by the game component: it drives the component-scoped
  * GameStateManager.
@@ -99,6 +99,10 @@ export class TowerControlService {
   private zoomHeld = false;
   private recoilMs = 0;
   private markerTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Aim the mouse moved to since the last flushAim(), valid while aimMoved */
+  private aimHeading = 0;
+  private aimPitch = 0;
+  private aimMoved = false;
   private readonly eye = new Vector3();
   private readonly dir = new Vector3();
   private readonly lookAt = new Vector3();
@@ -172,6 +176,7 @@ export class TowerControlService {
 
     this.gameState.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
     if (this.gameState.getMannedTower() !== tower) return false;
+    this.aimMoved = false;
 
     if (!this.pose) this.pose = this.saveCamera(engine);
     const controls = engine.getControls();
@@ -200,6 +205,20 @@ export class TowerControlService {
     }
     const tower = this.store.selectedTower();
     return this.canEnter(tower) && this.enter(tower);
+  }
+
+  /**
+   * Per frame, before the game's sub-steps: the aim the mouse moved to this
+   * frame goes out as one command:tower-aim, only when it changed. A command
+   * per mouse event would put several a frame into the command log.
+   */
+  flushAim(): void {
+    if (!this.aimMoved) return;
+    this.aimMoved = false;
+    const tower = this.gameState.getMannedTower();
+    if (!tower) return;
+    if (tower.manualAim.heading === this.aimHeading && tower.manualAim.pitch === this.aimPitch) return;
+    this.gameState.getEventBus().emit({ type: 'command:tower-aim', heading: this.aimHeading, pitch: this.aimPitch });
   }
 
   /**
@@ -269,9 +288,12 @@ export class TowerControlService {
     if (!tower) return;
     // Slower look while zoomed, so the crosshair moves as far on screen
     const scale = TOWER_CONTROL.lookRadPerPx * (this.zoomHeld ? TOWER_CONTROL.zoomFovDeg / (this.pose?.fov ?? 60) : 1);
-    const heading = tower.manualAim.heading + event.movementX * scale;
-    const pitch = Math.min(TOWER_CONTROL.pitchMax, Math.max(TOWER_CONTROL.pitchMin, tower.manualAim.pitch - event.movementY * scale));
-    this.gameState.setMannedAim(wrapAngle(heading), pitch);
+    // Several moves a frame add up here; flushAim() sends the sum
+    const fromHeading = this.aimMoved ? this.aimHeading : tower.manualAim.heading;
+    const fromPitch = this.aimMoved ? this.aimPitch : tower.manualAim.pitch;
+    this.aimHeading = wrapAngle(fromHeading + event.movementX * scale);
+    this.aimPitch = Math.min(TOWER_CONTROL.pitchMax, Math.max(TOWER_CONTROL.pitchMin, fromPitch - event.movementY * scale));
+    this.aimMoved = true;
   };
 
   private readonly onContextMenu = (event: MouseEvent): void => {

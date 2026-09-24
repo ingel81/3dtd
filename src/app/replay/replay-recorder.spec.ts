@@ -314,6 +314,8 @@ describe('ReplayRecorder', () => {
     h.emit({ type: 'command:hero-move', target: { lat: 4, lon: 5 } });
     h.emit({ type: 'command:hero-ammo', ammo: 'explosive' });
     h.emit({ type: 'command:not-there-yet', x: 1 } as never);
+    // The aim of a manned tower is no tick on the bar
+    h.emit({ type: 'command:tower-aim', heading: 1, pitch: 0 });
     h.recorder.finish('completed');
 
     const rec = h.recorder.recording!;

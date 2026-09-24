@@ -1,6 +1,6 @@
 # Tower bemannen (Egoperspektive)
 
-**Stand:** 2026-09-23, MVP. Der Spieler steigt in einen Tower, zielt mit der Maus aus der Egoperspektive und
+**Stand:** 2026-09-24 (Zielen als `command:tower-aim`), MVP vom 2026-09-23. Der Spieler steigt in einen Tower, zielt mit der Maus aus der Egoperspektive und
 feuert selbst. Solange er drin sitzt, feuert der Tower nicht von allein. Alle Regeln des Towers gelten weiter.
 
 ---
@@ -63,9 +63,9 @@ Zahlen: `configs/tower-control.config.ts` (`TOWER_CONTROL`). Geometrie (Richtung
 ```
 TowerControlService (UI: C, Panel-Knopf, Maus)
    command:man-tower { towerId }   command:tower-trigger { held }   command:leave-tower
-   GameStateManager.setMannedAim(heading, pitch)   pro Mausbewegung, kein Command
+   command:tower-aim { heading, pitch }   flushAim(), höchstens einmal je Frame, nur bei Änderung
                         │
-     GameCommandsHandler → GameStateManager.manTower / setMannedTrigger / leaveTower
+     GameCommandsHandler → GameStateManager.manTower / setMannedTrigger / setMannedAim / leaveTower
                         │                      → TowerLifecycle.man / setTrigger / leave
                         │                        tower:manned { towerId | null } → GameStore.mannedTowerId
 GameStateManager.runSubStep
@@ -78,10 +78,11 @@ GameStateManager.runSubStep
             enemy:died (killedBy tower)                        → HUD: Kill-Marker, zwei Ticks
 ```
 
-**Warum das Zielen kein Command ist:** Das Replay schreibt jedes `command:*` ins Befehlslog und setzt je Befehl
-eine Marke in die Leiste. Ein Command pro Frame würde beides fluten. Einsteigen, Aussteigen und der Abzug sind
-Commands; die Zielrichtung liegt als Eingabe am Tower (`Tower.manualAim`). Für eine spätere Re-Simulation oder
-Lockstep (MULTIPLAYER_CONCEPT) müsste sie als gedrosselter Command oder pro Schuss mitlaufen.
+**Zielen als Command:** Die Mausbewegungen eines Frames sammelt `TowerControlService` und schickt sie als ein
+`command:tower-aim` ab (`flushAim()`, aus `GameLoopFacade.onEngineUpdate` vor den Sub-Steps). Ohne Bewegung
+oder bei gleicher Richtung geht nichts raus. Damit steht die Zielrichtung wie Einsteigen, Aussteigen und Abzug im
+Befehlslog (`GameStateManager.commandLog`, siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md)) und lässt sich nachrechnen.
+Die Leiste des Replays setzt für `command:tower-aim` keine Marke, sonst zöge Zielen eine Linie.
 
 **Kamera:** `TowerControlService.update()` setzt die Kamera jeden Frame nach den Sub-Steps auf den Augenpunkt
 und richtet sie aus. Er liegt 2 m über der Mündungshöhe, mindestens aber 1,5 m über der Oberkante des Modells
