@@ -200,6 +200,27 @@ export interface TowerTypeConfig {
   turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point +Z)
   turretNode?: string; // Node that turns to the target. Replaces turret_top/tower_top/top, no fallback to them
   /**
+   * The model turns a turret part to the target: `turretNode`, without it a
+   * node named turret_top, tower_top or top. The simulation knows it before
+   * the model loads: only then does firing wait for the turn (isAimAligned)
+   * and does the tower sweep after placement. tower-model.spec.ts checks it
+   * against the model.
+   */
+  turnsTurret: boolean;
+  /**
+   * The turret part's rotation about y in the model file, rad (default 0):
+   * where the turret points when the tower is placed (createTowerAim).
+   * tower-model.spec.ts checks it against the model.
+   */
+  turretRestY?: number;
+  /**
+   * Top of the placed model above the tower's foot, m: its bounding box at
+   * `scale` and `rotationY`, `heightOffset` included, rest pose. The eye of
+   * a manned tower sits above it (TowerCombatService.mannedEyeInto).
+   * tower-model.spec.ts measures it from the model.
+   */
+  modelTop: number;
+  /**
    * Nodes under the turret that tilt towards the target's height, about the
    * axis across the barrels (turretBarrelOffset), with their origin on the
    * trunnion. Only the model shows it: firing waits for the turn, never for
@@ -277,6 +298,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 1.05,
     footprintRadius: 3.6,
     rotationY: 0,
+    turnsTurret: false,
+    modelTop: 9.22,
     damageType: 'physical',
     damage: 25,
     range: 30,
@@ -301,6 +324,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 2.1,
     footprintRadius: 3.1,
     rotationY: -1.5708, // -90° visual alignment (barrels face North in idle)
+    turnsTurret: true,
+    modelTop: 4.72,
     turretBarrelOffset: -1.5708, // Barrels point -X in model space (-90° from +Z)
     firePoints: [
       { x: -0.9, z: 0 }, // Left barrel cluster
@@ -331,6 +356,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 1.95,
     footprintRadius: 3.4,
     rotationY: 3.1416, // 180°
+    turnsTurret: true,
+    modelTop: 4.67,
     damageType: 'siege',
     damage: 55,
     range: 70, // Balance 2026-09: war 80, zweithöchste Basisreichweite
@@ -351,6 +378,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 8.85,
     footprintRadius: 3.5,
     rotationY: 3.1416, // 180°
+    turnsTurret: true,
+    modelTop: 9.91,
     damageType: 'magic',
     damage: 40,
     range: 70,
@@ -370,6 +399,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 1.7,
     footprintRadius: 3.6,
     rotationY: 3.1416, // 180°
+    turnsTurret: true,
+    modelTop: 5.17,
     damageType: 'siege',
     damage: 40,
     range: 100,
@@ -392,6 +423,9 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 3.4,
     footprintRadius: 2.4,
     rotationY: 3.1416, // 180°
+    turnsTurret: true,
+    turretRestY: -1.1244, // The turret part as the model file turns it
+    modelTop: 4.98,
     turretBarrelOffset: 1.047, // Barrels point ~60° from +Z in model space
     damageType: 'ice',
     damage: 5, // Phase 5.16: small damage so Ice isn't pure utility
@@ -415,6 +449,9 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 1.25,
     footprintRadius: 5.3,
     rotationY: 3.0892, // ~177°
+    turnsTurret: true,
+    turretRestY: -0.4897, // The turret part as the model file turns it
+    modelTop: 7.55,
     turretBarrelOffset: 0.436, // ~25° correction for barrel orientation in model space
 
     // Beam attack - continuous flame damage
@@ -452,6 +489,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: -2,
     footprintRadius: 4.0,
     rotationY: 0,
+    turnsTurret: false,
+    modelTop: 4.53,
 
     // Melee attack — direct hit, no projectile
     attackType: 'melee',
@@ -475,6 +514,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 1.4,
     footprintRadius: 4.0,
     rotationY: 3.1416, // 180°
+    turnsTurret: true,
+    modelTop: 6.05,
     damageType: 'poison',
     damage: 5,
     range: 55,
@@ -496,6 +537,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 9.65,
     footprintRadius: 3.7,
     rotationY: 0,
+    turnsTurret: false,
+    modelTop: 10.96,
 
     // Chain hitscan — primary + N jumps, damage falloff per hop
     attackType: 'chain',
@@ -530,6 +573,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 5.8, // Knapp unter der Kristallspitze (6,1 m), dort startet der Orb
     footprintRadius: 4.4, // Ecken des quadratischen Sockels
     rotationY: 0,
+    turnsTurret: true,
+    modelTop: 6.13,
     damageType: 'chaos',
     damage: 50,
     range: 60,
@@ -555,6 +600,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 4.65,
     footprintRadius: 10.0,
     rotationY: -3.1416,
+    turnsTurret: false,
+    modelTop: 10.29,
 
     attackType: 'passive',
     damageType: 'physical', // Unused — passive building
@@ -597,6 +644,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 8, // Unused by a passive building but for the text over it (U)
     footprintRadius: 9.7,
     rotationY: 0,
+    turnsTurret: false,
+    modelTop: 10.38,
 
     attackType: 'passive',
     damageType: 'physical', // Unused, passive building
