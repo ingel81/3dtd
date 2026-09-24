@@ -84,6 +84,8 @@ export interface RelayOptions {
   now?: () => number;
   /** How often a running room writes its status line, ms; STATUS_MS by default */
   statusEveryMs?: number;
+  /** Rooms let the dev tools' cheats through (RoomOptions.cheats); off by default */
+  cheats?: boolean;
 }
 
 /** Start the relay on `port` (0: any free port). */
@@ -183,7 +185,7 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
       if (message.t === 'create') {
         if (connection.room) return;
         const code = newCode();
-        const room = new Room(code, player, send, { log: (line) => log(`[${code}] ${line}`), now });
+        const room = new Room(code, player, send, { log: (line) => log(`[${code}] ${line}`), now, cheats: options.cheats });
         rooms.set(room.code, room);
         connection.room = room;
         return;
@@ -220,6 +222,8 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
   });
 
   const heartbeat = setInterval(() => {
+    // The round trips the last heartbeat measured, to each room
+    for (const room of rooms.values()) room.sendRtt(rttOf);
     for (const connection of connections.values()) {
       if (!connection.alive) {
         connection.dropReason = `no heartbeat for ${HEARTBEAT_MS / 1000} s`;

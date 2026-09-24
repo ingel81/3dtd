@@ -6,11 +6,12 @@
  * The relay knows rooms, players and ticks, nothing of the game: the
  * world package and the commands pass through it as opaque data.
  */
+import type { LockstepStatsReport } from './lockstep-stats';
 import type { StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 
 /** Bumped whenever a message changes shape; client and relay must agree. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 4;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
@@ -36,6 +37,8 @@ export interface CoopRoomInfo {
   /** The spawn points of the host's world, the lanes to pick from; empty until the host sent it */
   spawnIds: string[];
   started: boolean;
+  /** The relay lets the dev tools' cheats (debug:* commands) through; they act on every client alike */
+  cheats: boolean;
 }
 
 export type RefusalReason =
@@ -47,7 +50,9 @@ export type RefusalReason =
   | 'started'
   | 'not-host'
   | 'lane-taken'
-  | 'not-ready';
+  | 'not-ready'
+  /** A coop game needs a second player (User, 2026-09-24) */
+  | 'alone';
 
 export type ClientMessage =
   /** First message: who is there and with what game */
@@ -68,6 +73,8 @@ export type ClientMessage =
   | { t: 'cmd'; command: StampedCommand['command'] }
   /** In the game: the state hash at the boundary of `tick`, every HASH_EVERY_TICKS ticks (C5) */
   | { t: 'hash'; tick: number; hash: number }
+  /** In the game: how smoothly this client runs, every REPORT_EVERY_MS (coop/lockstep-stats.ts) */
+  | { t: 'stats'; stats: LockstepStatsReport }
   /** Host: game speed; 0 pauses */
   | { t: 'speed'; speed: number }
   | { t: 'chat'; text: string }
@@ -91,4 +98,6 @@ export type ServerMessage =
   /** A player left; in the game their lane closes with the command:leave-game the relay puts in a tick */
   | { t: 'left'; playerId: string }
   /** The host changed (D22) */
-  | { t: 'host'; hostId: string };
+  | { t: 'host'; hostId: string }
+  /** Each player's round trip to the relay, ms, null before the first; every few seconds */
+  | { t: 'rtt'; rtt: [string, number | null][] };

@@ -101,9 +101,17 @@ describe('Room (COOP_PLAN C4)', () => {
   });
 
   it('starts only when the host says so and everyone is ready, with roster and lanes', () => {
+    // Alone, even with a lane and ready: a coop game needs a second player
+    room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1', 's2'] });
+    room.receive('a', { t: 'pick', spawnId: 's1' });
+    room.receive('a', { t: 'ready', ready: true });
+    room.receive('a', { t: 'start', seed: 7 });
+    expect(last('a', 'refused')!.reason).toBe('alone');
+    room.join(player('b'));
     room.receive('a', { t: 'start', seed: 7 });
     expect(last('a', 'refused')!.reason).toBe('not-ready');
-    lobby();
+    room.receive('b', { t: 'pick', spawnId: 's2' });
+    room.receive('b', { t: 'ready', ready: true });
     room.receive('b', { t: 'start', seed: 7 });
     expect(last('b', 'refused')!.reason).toBe('not-host');
     room.receive('a', { t: 'start', seed: 7 });
@@ -135,6 +143,51 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('a', { t: 'cmd', command: {} as never });
     room.advance(TICK_MS);
     expect(all('a', 'tick').at(-1)!.commands).toEqual([]);
+    expect(last('a', 'room')!.room.cheats).toBe(false);
+  });
+
+  it('lets the cheats through where the relay allows them, and says so to the room', () => {
+    room = new Room('CHEATS', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { cheats: true });
+    lobby();
+    expect(last('b', 'room')!.room.cheats).toBe(true);
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'cmd', command: { type: 'debug:kill-all' } });
+    room.receive('a', { t: 'cmd', command: { type: 'lobby:anything' } as never });
+    room.advance(TICK_MS);
+    expect(all('b', 'tick').at(-1)!.commands.map((c) => c.command.type)).toEqual(['debug:kill-all']);
+  });
+
+  it('asks the guests for ready again when the host sends another map; lanes that remain stay', () => {
+    lobby();
+    room.receive('a', { t: 'world', world: { other: 'map' }, spawnIds: ['s1', 's2', 's3'] });
+    const b = last('b', 'room')!.room.players.find((p) => p.id === 'b')!;
+    expect(b).toMatchObject({ spawnId: 's2', ready: false });
+    expect(last('b', 'world')!.world).toEqual({ other: 'map' });
+  });
+
+  it("tells everyone each player's round trip to the relay", () => {
+    lobby();
+    room.sendRtt((id) => (id === 'a' ? 12 : null));
+    expect(last('b', 'rtt')!.rtt).toEqual([['a', 12], ['b', null]]);
+  });
+
+  it('logs how smoothly each client runs, in the game only', () => {
+    const lines: string[] = [];
+    room = new Room('STATS', player('a'), () => undefined, { log: (line) => lines.push(line) });
+    lobby();
+    const stats = {
+      frames: 600, blocked: 0.35, steps: [210, 300, 60, 30] as [number, number, number, number], behindAvg: 0.4, behindMin: 0,
+      tickGapAvg: 66, tickGapSd: 12, inputAvg: 95, inputMax: 140, inputs: 12,
+    };
+    room.receive('b', { t: 'stats', stats });
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('b', { t: 'stats', stats });
+    expect(lines.filter((l) => l.startsWith('stats'))).toEqual([
+      'stats B (b): 600 frames, blocked 35%, steps 0:210 1:300 2:60 3+:30, behind 0.4 (min 0), ticks 66±12 ms, input 95 ms (max 140, n 12)',
+    ]);
   });
 
   it('follows the host speed, and stands still at 0', () => {
@@ -149,6 +202,20 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(room.advance(5000)).toBe(0);
     room.receive('a', { t: 'speed', speed: 7 }); // not a speed: ignored
     expect(room.advance(TICK_MS)).toBe(0);
+  });
+
+  it('lets a guest pause and resume at the room speed, but not change it (playtest T12)', () => {
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'speed', speed: 2 });
+    room.receive('b', { t: 'speed', speed: 0 });
+    expect(last('a', 'speed')!.speed).toBe(0);
+    expect(room.advance(5000)).toBe(0);
+    room.receive('b', { t: 'speed', speed: 4 });
+    expect(last('b', 'refused')!.reason).toBe('not-host');
+    room.receive('b', { t: 'speed', speed: 2 });
+    expect(last('a', 'speed')!.speed).toBe(2);
+    expect(room.advance(TICK_MS)).toBe(2);
   });
 
   it('closes the lane of who leaves the game at the next tick, and passes the host on', () => {
@@ -200,7 +267,7 @@ describe('Room (COOP_PLAN C4)', () => {
       'A (a) ready',
       'B (b) ready',
       'started, seed 5, speed 1, lanes A (a) on s1, B (b) on s2',
-      'paused',
+      'paused by A (a)',
       'A (a) left (no heartbeat), lane closes after tick -1',
       'host is now B (b)',
     ]);
