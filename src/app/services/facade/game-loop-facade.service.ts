@@ -531,10 +531,12 @@ export class GameLoopFacadeService {
     // The view from the manned tower, after the sub-steps turned it to the aim
     this.towerControl.update(deltaTime);
 
-    // One sample a second of game time, after the sub-steps of this frame
-    this.runLog.tick();
-
-    this.tickAutoWave();
+    // One sample a second of game time, after the sub-steps of this frame.
+    // Not while a replay re-simulates: the clock is the replay's then
+    if (!this.gameState.isReplaying) {
+      this.runLog.tick();
+      this.tickAutoWave();
+    }
 
     // Performance profiler tick (console log timer)
     this.profiler.tick(deltaTime);

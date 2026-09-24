@@ -47,7 +47,8 @@ Abnahme per Spec: eine Welle rechnet bit-genau nach, auch aus einer Datei in ein
 - **Zellhöhen (2.2):** eingefroren; ein Welt-Schlüssel (`GameStateManager.worldKey`) prüft, dass zwei Seiten dieselbe
   Welt haben. Die Höhen selbst zu übertragen (World Seal über das Netz) fehlt noch.
 - **RNG (2.3):** geseedete Ströme mit lesbarem und setzbarem Zustand.
-- **Snapshot und Prüfsumme (4.5):** `SimSnapshot` zwischen den Wellen, `StateHasher` jede Spielsekunde. Ein Rejoin
+- **Snapshot und Prüfsumme (4.5):** `SimSnapshot` zwischen den Wellen, `StateHasher` jede Spielsekunde, solange eine
+  Welle mit Snapshot läuft oder nachgerechnet wird. Ein Rejoin
   mitten in einer Welle bräuchte einen Snapshot mit Gegnern und Projektilen; den gibt es nicht.
 - **Match-Log (18):** die Replay-Datei (`simulator/replay-file.ts`).
 - **Offen:** Netz, Relay, Tick-Barriere, Gold je Spieler, Tower-Besitz, Trigonometrie über Browser hinweg (2.4).

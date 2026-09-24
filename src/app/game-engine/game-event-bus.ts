@@ -244,12 +244,14 @@ export type GameEvent =
   | {
       /**
        * The simulation was put back to a snapshot (docs/SIMULATOR_PLAN.md,
-       * P4) without the events that got it there: mirrors (stores, HUD)
-       * read the state anew. `reason` says whether a replay is starting a
-       * wave or giving the live game back.
+       * P4) without the events that got it there: what shows the state from
+       * events (the HQ fire) reads it anew. `reason` says whether a replay is
+       * starting a wave or giving the live game back.
        */
       type: 'sim:restored';
       reason: 'replay' | 'live';
+      /** HQ health of the state put back */
+      baseHealth: number;
     }
   | {
       type: 'credits:changed';
@@ -983,6 +985,20 @@ export class GameEventBus {
    * }
    * ```
    */
+  /** Events waiting for the next processQueue(), see emitDeferred */
+  get hasDeferred(): boolean {
+    return this.deferredQueue.length > 0;
+  }
+
+  /**
+   * Drop the events waiting for processQueue(). A snapshot restore does: an
+   * event the state before it sent (a replayed wave's wave:completed) must
+   * not reach the state after it.
+   */
+  clearDeferred(): void {
+    this.deferredQueue.length = 0;
+  }
+
   processQueue(): void {
     // Index-walk instead of shift() (O(n) per element → O(n²)). Re-read
     // this.deferredQueue each iteration (don't capture it) so a re-entrant

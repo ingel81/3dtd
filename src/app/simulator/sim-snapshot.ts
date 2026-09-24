@@ -63,6 +63,7 @@ export interface SavedTower {
 /**
  * Why the state at a wave start cannot be re-simulated, or null when it can.
  * A snapshot is taken between waves, where nothing is in flight; a manned
- * tower's shot still flying or a debug enemy would be lost.
+ * tower's shot still flying, a debug enemy or an event still waiting for the
+ * next sub-step (a wave:completed right before the start) would be lost.
  */
-export type SnapshotRefusal = 'enemies' | 'projectiles' | 'pending-strike' | 'not-setup';
+export type SnapshotRefusal = 'enemies' | 'projectiles' | 'pending-strike' | 'pending-events' | 'not-setup';

@@ -65,7 +65,6 @@ export class WormChains {
   /** The chains of this sub-step, reused; see tick() */
   private readonly order: ChainRef[] = [];
   private readonly pathIds = new WeakMap<GeoPosition[], number>();
-  private nextPathId = 1;
   private nextSeq = 1;
 
   constructor(private readonly host: WormHost) {}
@@ -276,14 +275,33 @@ export class WormChains {
     return end;
   }
 
+  /**
+   * The id worms on `path` share: from the path itself (its ends and length),
+   * not from the order paths first saw a worm. That order depends on the
+   * session, and the id sorts the chains, which sets the ids their segments
+   * get: a replay from a file in a fresh session has to give the same.
+   */
   private pathIdOf(path: GeoPosition[]): number {
     let id = this.pathIds.get(path);
     if (id === undefined) {
-      id = this.nextPathId++;
+      id = pathKey(path);
       this.pathIds.set(path, id);
     }
     return id;
   }
+}
+
+/** FNV-1a over a path's first and last point and its length, never 0 (0 is "no path yet" in tick). */
+function pathKey(path: readonly GeoPosition[]): number {
+  const first = path[0];
+  const last = path[path.length - 1];
+  const text = `${path.length}|${first?.lat},${first?.lon}|${last?.lat},${last?.lon}`;
+  let h = 0x811c9dc5;
+  for (let i = 0; i < text.length; i++) {
+    h ^= text.charCodeAt(i);
+    h = Math.imul(h, 0x01000193);
+  }
+  return (h >>> 0) || 1;
 }
 
 /** Chains by path, then front to back, an older worm first where two wait at one origin. */

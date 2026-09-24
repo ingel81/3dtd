@@ -28,6 +28,13 @@ Gefunden und behoben auf dem Weg:
 - Das Kill-Gold-Budget setzte sich nur bei einer neuen Wellennummer zurück; eine nachgerechnete Welle zahlte aus dem
   Rest der Live-Welle.
 
+Aus dem Review nach dem Bau (2026-09-24, behoben, je mit Abnahme-Test):
+- Das `wave:completed` der nachgerechneten Welle lag nach dem Verlassen noch in der Event-Warteschlange und kam im
+  Live-Spiel an (Ladung für Fähigkeiten, doppelter Run-Log-Eintrag). Das Laden eines Snapshots leert sie jetzt.
+- Auto-Start und Run-Log-Stichprobe lasen während des Replays dessen Uhr; sie ruhen jetzt.
+- Die Pfad-Id der Wurmketten hing davon ab, auf welcher Route in der Sitzung der erste Wurm lief; sie kommt jetzt aus
+  dem Pfad selbst.
+
 Offen: Playtest ([PLAYTEST.md](PLAYTEST.md), Paket R). Nicht in diesem Plan: Netz, Lobby, Gold je Spieler,
 Tower-Besitz, Sicht vom Host über das Netz, Umgang mit Float-Abweichungen zwischen Browsern.
 
@@ -214,7 +221,7 @@ P3 das Format der Sichtdaten, zieht `markAllVisible()` im Harness mit.
 Nicht schlechter; die Basis lief neben vier Workern und streut entsprechend, ein Gewinn lässt sich daraus nicht
 ablesen. Prüfsumme (nur solange eine Welle mit Snapshot läuft, einmal je Spielsekunde): 0,05 / 0,16 / 0,51 ms bei
 200 / 1000 / 3000 Gegnern, also unter 0,01 ms je Sub-Step. Das Präsentations-Replay, das rund 0,8 ms je Spielsekunde
-und bis zu 48 MB kostete, ist weg; ein Snapshot sind wenige KB je Welle.
+und bis zu 48 MB kostete, ist weg; ein Snapshot sind einige KB je Welle, bei 60 Towern einige zehn KB.
 
 ## 6. Entscheidungen
 
