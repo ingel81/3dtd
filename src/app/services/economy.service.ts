@@ -92,4 +92,9 @@ export class EconomyService {
   reset(): void {
     this._perfectStreak = 0;
   }
+
+  /** Perfect waves in a row, for the wave-start snapshot (docs/SIMULATOR_PLAN.md, P4). */
+  restorePerfectStreak(streak: number): void {
+    this._perfectStreak = streak;
+  }
 }
