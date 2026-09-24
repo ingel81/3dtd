@@ -56,6 +56,7 @@ import type { LosMask } from '../utils/los-mask';
 import { mulberry32 } from '../utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { Resimulation } from '../simulator/resimulation';
+import { buildReplayFile, readReplayFile } from '../simulator/replay-file';
 import { noopStub } from './noop-stub';
 import { buildRoute, createBenchEngine, flatSync, markAllVisible } from './sim-step-bench';
 
@@ -254,5 +255,39 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
 
     expect(gsm.stateHash()).toBe(liveHash);
     expect(gsm.captureSnapshot()).toEqual(live);
+  });
+  it('re-simulates a wave from a replay file in a fresh game on the same world', () => {
+    world = buildWorld();
+    const played = world.gsm;
+    const liveEnd = playLive(world);
+    const head = { worldKey: played.worldKey(), configHash: 'balance', seed: played.rng.seed };
+    const text = JSON.stringify(buildReplayFile(played.simRecorder.records, played.commandLog.entries, head));
+    world.restoreMath();
+
+    // Another game on the same map, nothing played in it
+    world = buildWorld();
+    const fresh = world.gsm;
+    expect(fresh.worldKey()).toBe(head.worldKey);
+    const read = readReplayFile(text, { worldKey: fresh.worldKey(), configHash: 'balance' });
+    expect(read.refusal).toBeNull();
+
+    const resim = new Resimulation(fresh.resimHost, read.file!.waves[0], read.file!.log);
+    resim.start();
+    while (resim.step()) { /* to the end */ }
+    expect(resim.divergedAt).toBeNull();
+    expect(resim.checkedHashes).toBe(read.file!.waves[0].hashes.length);
+    expect(fresh.stateHash()).toBe(liveEnd);
+    resim.end();
+  });
+
+  it('refuses a replay file of another world or balance', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    playLive(world);
+    const head = { worldKey: gsm.worldKey(), configHash: 'balance', seed: 1 };
+    const text = JSON.stringify(buildReplayFile(gsm.simRecorder.records, gsm.commandLog.entries, head));
+    expect(readReplayFile(text, { worldKey: 'elsewhere', configHash: 'balance' }).refusal).toBe('other-world');
+    expect(readReplayFile(text, { worldKey: head.worldKey, configHash: 'changed' }).refusal).toBe('other-balance');
+    expect(readReplayFile('{"x":1}', { worldKey: head.worldKey, configHash: 'balance' }).refusal).toBe('not-a-replay');
   });
 });

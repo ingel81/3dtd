@@ -49,6 +49,7 @@ import { StateHasher, type StateHashSource } from '../simulator/state-hash';
 import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../simulator/sim-snapshot';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskToJson, type LosMask } from '../utils/los-mask';
+import { fnv1a } from '../utils/fnv1a';
 import { stepTowerAim } from '../entities/tower-aim';
 
 /**
@@ -947,6 +948,23 @@ export class GameStateManager {
       this.boundaryListener = listener;
     },
   };
+
+  /**
+   * A key of the world the simulation runs on: the frozen cell heights, the
+   * routes and the local origin, hashed. A snapshot or a replay file only
+   * re-simulates on the world with the same key (docs/SIMULATOR_PLAN.md,
+   * P4). Walks every cell, a few ms: for export and import, not per frame.
+   */
+  worldKey(): string {
+    const heights = [...this.globalRouteGrid.snapshotHeights()].sort((a, b) => a[0] - b[0]);
+    const parts: string[] = heights.map(([key, height]) => `${key}:${height.toFixed(2)}`);
+    for (const path of this.waveManager.getPaths()) {
+      parts.push(path.map((p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`).join(';'));
+    }
+    const origin = this.tilesEngine?.sync.getOrigin();
+    if (origin) parts.push(`o=${origin.lat.toFixed(7)},${origin.lon.toFixed(7)}`);
+    return fnv1a(parts.join('|'));
+  }
 
   /**
    * Hand the re-simulated state to the renderers, like the frame's present
