@@ -121,7 +121,7 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
 - [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht): C0 bis C4c gebaut, der erste Zwei-Fenster-Test
       klappt (User, 2026-09-24). Nächstes Paket C5 (Prüfsummen über das Relay, Abweichung melden, Chrome gegen
-      Firefox messen), dann die Wünsche aus dem Browser-Test (Name in der Lobby, Bereitschaft sichtbar, Spieler-Anzeige
+      Firefox messen, Diagnose am Relay: Log je Raum, Statusseite, Logdatei), dann die Wünsche aus dem Browser-Test (Name in der Lobby, Bereitschaft sichtbar, Spieler-Anzeige
       im Spiel, Dialog beim Gast schließen, Chat unten links; mit Prio im Plan), C6 (Oberfläche), C4d (Relay im
       Electron-Build), C7 (Betrieb).
       [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
