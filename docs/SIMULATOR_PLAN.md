@@ -1,0 +1,156 @@
+# Simulator: deterministische Simulation, Replay als Neu-Simulation, Unterbau für Coop
+
+**Stand:** 2026-09-24 · Branch `simulator` · Status: entschieden, im Bau
+
+Ziel: Die Simulation rechnet einen Lauf aus Startzustand, Seed und Befehlen auf einem Rechner bit-genau nach.
+Darauf stehen das Replay als Neu-Simulation (TODO E2) und später Coop im Lockstep
+([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Stufe 3 in [BALANCING_PLAN.md](BALANCING_PLAN.md) Abschnitt 5).
+Performance ist Randbedingung: Das laufende Spiel darf pro Sub-Step nicht teurer werden, das Nachrechnen muss schnell
+genug für Springen im Replay sein.
+
+---
+
+## 1. Stand heute (Stufe 1 fertig)
+
+| Baustein | Stand | Stelle |
+|----------|-------|--------|
+| Geseedeter Zufall | mulberry32, Ströme `director`, `spawn`, `enemy`, `bot`, Seed im Run-Log | `utils/game-rng.ts` |
+| Fester Takt | 16,667 ms je Sub-Step, fortlaufender Zähler `subStep` | `managers/game-state/game-clock.ts` |
+| Befehle | alle Spieler- und Bot-Aktionen als `command:*` | `managers/game-commands.handler.ts` |
+| Zellhöhen | nach dem Korridorbau eingefroren, Gegner, Held, Ooze lesen sie | `utils/global-route-grid.ts` |
+| Held, Fähigkeiten, Forschung | Spielzeit, kein Zufall | Kopfkommentare der Manager |
+| Koordinaten | `geoToLocalSimple` rein analytisch, Ursprung fest je Ort | `three-engine/ellipsoid-sync.ts:223` |
+| Test-Harness | `new GameStateManager()` mit Fake-Engine, rund 12 Specs treiben `gsm.update()` | `integration/test-helpers.ts` |
+
+## 2. Was fehlt (Befunde)
+
+| # | Lücke | Stelle | Folge |
+|---|-------|--------|-------|
+| L1 | Turmdrehung lebt im Renderer (`TowerRenderData`). Solange das GLTF lädt, gilt ein Tower als ausgerichtet; ob ein Modell ein Turret-Teil hat, weiß erst das geladene Modell | `three-tower.renderer.ts:868`, Aufruf aus der Facade `game-loop-facade.service.ts:515` | Feuern hängt an Ladezeit und Renderer, headless verhält sich anders als gerendert |
+| L2 | Sichtlinie aus GPU-Cube gegen die gerade geladenen Tiles; Reichweiten-Upgrade rechnet inkrementell (mischt Cubes verschiedener Zeitpunkte), Luft-Nachrüstung per `requestAnimationFrame` | `tower-los-registry.ts:155, 240` | Nachrechnen gibt nicht dieselbe Sicht |
+| L3 | Raycast-Rückgriff gegen Live-Tiles, wenn die Zelle keinen Eintrag hat: Reichweitenrand, Gegner neben dem Korridor, Fenster der Luft-Nachrüstung, blinde Tower; `body-aim` (Ooze) raycastet mit LOD-Cache | `tower-combat.service.ts:147`, `body-aim.ts:247` | abhängig von Kamera und LOD, teuer |
+| L4 | Befehle wirken sofort beim `emit`: UI zwischen Frames, Bots mitten in der Schleife vor dem Wellenende-Check; kein Log mit `subStep` | `game-state.manager.ts:563`, `replay-recorder.ts:246` | Reihenfolge nicht reproduzierbar |
+| L5 | Zielen im bemannten Tower direkt am Befehlsweg vorbei | `tower-control.service.ts:274` | nicht im Log |
+| L6 | Zufallsstand steckt in Closures, nicht lesbar | `game-rng.ts:28` | kein Snapshot mitten im Lauf |
+| L7 | Kein Snapshot, kein Serializer; `GameObject.idCounter` statisch (bestimmt Ids, Map-Reihenfolge und den Seed von `enemy-rush`) | `core/game-object.ts:108`, `entities/enemy-rush.ts:44` | kein Einstieg an einem Wellenstart |
+| L8 | Simulation liest Root-Stores: `ResearchStore.airTargetingUnlocked`, `completedResearches`, `EnemyDebugService.debugEnemies()` | `tower-combat.service.ts:351`, `tower-lifecycle.ts:74`, `game-state.manager.ts:649` | Zustand außerhalb der Simulation |
+| L9 | Director-Snapshot rechnet mit `Date.now()` | `director/state-snapshot.service.ts:67ff` | Wanduhr im Zustand |
+| L10 | `modelTopY` (Augenhöhe bemannter Tower) aus dem geladenen Modell | `tower-combat.service.ts:537` | Treffer hängen am Modell |
+| L11 | Keine Prüfsumme über den Zustand, kein Spec, der denselben Lauf zweimal rechnet, kein Benchmark des ganzen Sub-Steps | – | Divergenz bleibt unsichtbar |
+
+## 3. Kernidee: Ruhe-Snapshot
+
+Zwischen den Wellen ist die Simulation fast leer: keine Gegner, kein Spawner, keine offenen Schläge (eine Fähigkeit
+landet immer in ihrer eigenen Welle). Es bleiben Tower (mit Sicht als Daten, Upgrades, Drehung), Credits, HQ-Leben,
+Forschung, Fähigkeiten, Held, Wirtschaft (`_perfectStreak`), Director-Zustand, Uhr, Zufallsstand und Id-Zähler. Das
+sind wenige KB und in unter einer Millisekunde geschrieben.
+
+Ein Snapshot wird genau dort genommen, beim Befehl `command:start-wave`. Ist der Zustand nicht ruhig (Projektile
+eines bemannten Towers noch in der Luft, Debug-Gegner), wartet der Snapshot nicht, sondern die Welle gilt als nicht
+nachrechenbar und das Replay fällt weg; der Fall wird gezählt und geloggt.
+
+Damit gilt: **Welle N = Ruhe-Snapshot vor N + Befehle mit `subStep` + dieselbe Welt.** Derselbe Serializer sichert und
+stellt auch den Live-Zustand beim Betreten und Verlassen des Replays wieder her, denn das Replay startet nur zwischen
+den Wellen oder nach Game Over.
+
+## 4. Pakete
+
+Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
+
+### P1 Sim-Grenze und Befehlslog
+- Befehle wirken nur an der Grenze zwischen zwei Sub-Steps. Der Bot-Tick wandert ans Ende des Sub-Steps (nach
+  Wellenende- und Game-Over-Check); ein Befehl, der während eines Sub-Steps kommt, wird bis zur Grenze gepuffert.
+  UI-Befehle zwischen Frames liegen schon an einer Grenze und wirken weiter sofort (keine spürbare Latenz).
+- `CommandLog`: jeder `command:*` als Klartext mit dem `subStep`, vor dem er wirkt. Gehört zum Lauf, nicht zur Welle.
+- Zielen im bemannten Tower als Befehl `command:tower-aim` (nur bei Änderung, höchstens einmal je Sub-Step).
+- Director-Snapshot auf Spielzeit statt `Date.now()`.
+- Die Simulation liest Forschung aus dem `ResearchManager`, nicht aus dem `ResearchStore` (L8); Debug-Gegner über den
+  `EnemyManager`.
+
+### P2 Turmdrehung in der Simulation
+- Zustand (aktuelle und Zieldrehung, Suchschwenk, Neigung) wandert auf den Tower (`TowerAim`), `stepTurretAim` läuft in
+  `runSubStep` für alle Tower. Der Renderer liest die Drehung nur noch zum Zeichnen.
+- Ob ein Typ ein Turret dreht, steht in der Config (neues Feld), nicht im geladenen Modell. Ein Spec lädt die GLTFs und
+  prüft Config gegen Modell.
+- Augenhöhe des bemannten Towers aus der Config (L10).
+- Perf: ein Array-Durchlauf über Tower statt Map-Lookup je Tower-Id im Renderer.
+
+### P3 Sichtlinie als Daten
+- `LosMask`: das Ergebnis eines Towers als 2 Bit je Zelle (Boden, Luft) über die Zellen seines Reichweiten-Quadrats in
+  fester Reihenfolge, 240 bis 420 B je Tower. Wird bei Bau, Reichweiten-Upgrade und Luft-Nachrüstung erzeugt und steht
+  im Befehlslog als Ergebnis des Befehls; beim Nachrechnen wird die Maske angewendet statt gerechnet.
+- Luft-Nachrüstung ohne `requestAnimationFrame`: Warteschlange in Spielzeit, abgearbeitet an Sub-Step-Grenzen; das
+  Anwenden hat einen `subStep` und steht im Log.
+- Raycast-Rückgriff im Kampf fällt weg (D2): Die Maske nimmt jede Zelle auf, deren Fläche die Reichweite anschneidet,
+  nicht nur die mit Mittelpunkt darin; was dann noch keinen Eintrag hat (Gegner neben dem Korridor), gilt als nicht
+  sichtbar. `body-aim` fragt die Zellen statt zu raycasten.
+- Perf: keine Raycasts mehr im Kampf.
+- Das ist zugleich die Host-Maske für Coop (MULTIPLAYER_CONCEPT 2.1).
+
+### P4 Snapshot
+- `GameRng` mit lesbarem und setzbarem Zustand je Strom (mulberry32 hat 32 bit, bleibt dieselbe Folge).
+- `GameObject.idCounter` im Snapshot.
+- `SimSnapshot` (versioniert, reine Daten): Uhr, Zufall, Id-Zähler, Credits, HQ-Leben, Tower (Typ, Position, Drehung,
+  Sockel, Upgrades, Zielwahl, Feuerpause, Cooldown, Kills, Schaden, `TowerAim`, `LosMask`), Forschung (fertig, laufend,
+  Warteschlange), Fähigkeiten (Ladungen), Held, Wirtschaft, Director-Zustand (Wellenhistorie, Druck-Regler),
+  Wellennummer, Blutmond.
+- `capture()` und `restore()`: Restore baut Tower über denselben Weg wie ein Bau (ohne Kosten, ohne GPU, mit Maske).
+- Welt-Siegel (Zellhöhen, Routen, Spawns) als eigenes Artefakt je Ort; für das lokale Replay reicht ein Fingerprint,
+  weil die Welt gleich bleibt.
+
+### P5 Prüfsumme, Abnahme, Benchmark
+- `stateHash()`: Sub-Step, Credits, HQ-Leben, Wellennummer, Zufallsstand, je Gegner Id, quantisierte Position, Leben,
+  je Tower Cooldown und Drehung. Nur beim Aufnehmen und Prüfen, alle 60 Sub-Steps und am Wellenende; im normalen Spiel
+  nicht.
+- Abnahme-Spec: ein Lauf mit Bot über mehrere Wellen, Befehle aufgezeichnet; dann jede Welle aus ihrem Snapshot
+  nachgerechnet, Prüfsumme je 60 Sub-Steps gleich. Dazu dieselbe Welle bei Timescale 1 und 20.
+- Benchmark-Spec für den ganzen Sub-Step (Gegner, Tower, Projektile in festen Mengen), damit P1 bis P3 zeigen, dass nichts
+  teurer wurde.
+
+### P6 Replay als Neu-Simulation
+- Betreten: Live-Zustand per Snapshot sichern, Snapshot der Welle laden, Befehle der Welle abspielen, mit Renderern.
+  Verlassen: Live-Snapshot zurück.
+- Springen nach vorn: headless vorrechnen bis zum Ziel (Rendering aus). Springen zurück: Snapshot neu laden und vorrechnen.
+  Ziel: eine dreiminütige Welle (rund 10 800 Sub-Steps) in unter 2 s.
+- Das Replay zeigt dann alles, was das Spiel zeigt (Schadenszahlen, Sounds an Entities, Eis-Explosionen, Upgrades),
+  weil es das Spiel ist. Die Lücken aus REPLAY.md, Abschnitt "Was das Replay nicht zeigt", fallen weg.
+- Speicher: statt bis zu 48 MB Stichproben einige KB je Welle; damit sind alle Wellen des Laufs abspielbar, nicht nur die
+  letzte (D4). Wellenauswahl in der Replay-Leiste und auf dem Game-Over-Screen.
+- Export und Import (D4): eine Datei mit Welt-Fingerprint, Config-Hash, Seed, Snapshots je Welle und Befehlslog. Import
+  nur auf derselben Welt und mit demselben Config-Hash, sonst klare Ablehnung.
+- Die Präsentations-Aufnahme (`replay-recording`, `replay-recorder`, große Teile von `replay-player`) fällt weg,
+  sobald die Neu-Simulation läuft (Entscheidung D3). Die Leiste und der Replay-Modus bleiben.
+
+### P7 Unterbau Coop (Formate, kein Netz)
+- Match-Log = Welt-Fingerprint + Config-Hash (`run-log/config-hash.ts`) + Seed + Befehlslog mit Masken. Das ist das
+  Format, das ein Relay später durchreicht (MULTIPLAYER_CONCEPT, Abschnitt 18).
+- Befehle tragen ein Feld `playerId` (heute immer der lokale Spieler).
+- Kein Netz, keine Lobby, kein Gold je Spieler in diesem Plan.
+
+## 5. Performance
+
+| Punkt | Wirkung |
+|-------|---------|
+| Befehlslog | Klartext je Befehl, einige hundert Befehle je Lauf, außerhalb des Sub-Steps |
+| Turmdrehung in der Sim | gleiche Rechnung, ohne Map-Lookup je Tower im Renderer |
+| Sicht als Daten, kein Raycast-Rückgriff | Kampf wird billiger; Maske kodieren nur beim Bau (µs) |
+| Snapshot | nur an Wellenstart, wenige KB, unter 1 ms |
+| Prüfsumme | nur beim Aufnehmen und Prüfen, alle 60 Sub-Steps |
+| Präsentations-Aufnahme weg | spart rund 0,8 ms je Sekunde Spielzeit und bis zu 48 MB |
+| Vorrechnen beim Springen | headless, gemessen per Benchmark; Ziel 10 800 Sub-Steps unter 2 s bei typischer Welle |
+
+## 6. Entscheidungen
+
+| # | Frage | Entscheidung |
+|---|-------|--------------|
+| D1 | Architektur des Replays | Ruhe-Snapshot: eine Simulation, Live-Stand sichern, Wellenstart laden, nachrechnen, Live-Stand zurück (User, 2026-09-24) |
+| D2 | Raycast-Rückgriff im Kampf | Randzellen, die die Reichweite anschneiden, kommen mit in die Maske; was dann noch keine Antwort hat, gilt als nicht sichtbar (User, 2026-09-24) |
+| D3 | Präsentations-Replay | Ersetzen und löschen, sobald die Neu-Simulation das Replay trägt (User, 2026-09-24) |
+| D4 | Welche Wellen abspielbar | Alle Wellen des Laufs, dazu Export und Import als Datei (gleiche Welt vorausgesetzt) (User, 2026-09-24) |
+
+## 7. Abnahme
+
+- Abnahme-Spec aus P5 grün, Benchmark ohne Verschlechterung gegenüber `next`.
+- Specs, beide tsc, Lint, Build grün.
+- Im Spiel: Replay einer Welle auf einer echten Karte und in DevWorld, Springen vor und zurück, danach steht das Spiel
+  wie vorher.
