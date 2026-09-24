@@ -128,12 +128,16 @@ Paket 2, Datei und Grenzfälle:
 Paket 3, Spielgefühl nach dem Umbau:
 - **R9 Turrets**: Einen Cannon bauen, während sein Modell noch lädt. Erwartung: Er schießt erst, wenn der Turm zum
   Ziel gedreht ist (vorher schoss er in dieser Zeit sofort).
+  **ok (2026-09-24)**
 - **R10 Reichweitenrand**: Mit "Route Grid Overlay" einen Tower wählen. Erwartung: Die Sichtzellen reichen bis an den
   Rand des Reichweitenkreises; der Tower schießt auf Gegner am Rand wie bisher.
+  **ok (2026-09-24)**
 - **R11 Luft nach Forschung**: AA-Retrofit erforschen, während Fledermäuse laufen. Erwartung: Die Dual Gatling nimmt
   sie nach kurzer Zeit ins Ziel.
+  **ok (2026-09-24)**
 - **R12 Bemannter Tower**: Einen Archer bemannen (C), zielen, schießen, danach ein Replay dieser Welle. Erwartung:
   Die Schüsse im Replay gehen dorthin, wohin gezielt wurde.
+  **ok (2026-09-24)**
 
 ## K8 Desktop-Build
 

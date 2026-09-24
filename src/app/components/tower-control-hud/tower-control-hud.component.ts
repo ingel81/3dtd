@@ -37,10 +37,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       @if (control.aiming()) {
         <span class="tc-key"><kbd>LMB</kbd> fire</span>
         <span class="tc-key"><kbd>RMB</kbd> zoom</span>
-        <span class="tc-key"><kbd>Esc</kbd> get out</span>
+        <span class="tc-key"><kbd>C</kbd> / <kbd>Esc</kbd> get out</span>
       } @else {
         <span class="tc-key">Click the map to aim</span>
-        <span class="tc-key"><kbd>C</kbd> get out</span>
+        <span class="tc-key"><kbd>C</kbd> / <kbd>Esc</kbd> get out</span>
       }
     </div>
   `,

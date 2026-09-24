@@ -187,7 +187,7 @@ export class TowerControlService {
     engine.spatialAudio.setFeedbackMinDistance(TOWER_CONTROL.feedbackSoundMinDistanceM);
     this.attach(engine);
     this.capturePointer();
-    this.announcer.announce(`In the ${tower.typeConfig.name}. Left button fires, right button zooms, Esc gets out.`);
+    this.announcer.announce(`In the ${tower.typeConfig.name}. Left button fires, right button zooms, C or Esc gets out.`);
     return true;
   }
 
