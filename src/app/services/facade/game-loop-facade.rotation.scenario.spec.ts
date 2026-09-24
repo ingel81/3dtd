@@ -85,7 +85,7 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
     overlay = new Group();
     const placementInjector = Injector.create({
       providers: [
-        { provide: UIStore, useValue: { mapPlacementMode: signal<'hq' | 'spawn' | null>(null) } },
+        { provide: UIStore, useValue: { mapPlacementMode: signal<'hq' | 'spawn' | null>(null), coopMapLocked: signal(false) } },
         {
           provide: MarkerVisualizationService,
           useValue: { createPortalPreview: fakePortalPreview, createDiamondMarker: vi.fn(), disposePreviewMarker: vi.fn() },

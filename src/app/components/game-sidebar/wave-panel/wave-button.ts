@@ -16,6 +16,19 @@ export interface WaveButtonView {
   barPercent: number;
   /** "{n}s" while the auto-start counts down to this wave, otherwise null */
   countdown: string | null;
+  /** Coop between waves: "{ready}/{players} ready", otherwise null */
+  coopReady: string | null;
+  /** Coop between waves: this player said ready, the button stays pressed */
+  pressed: boolean;
+}
+
+/** Coop between waves: the wave starts once every player is ready (docs/COOP_PLAN.md, D15) */
+export interface CoopReadyState {
+  /** This player is ready */
+  ready: boolean;
+  /** Players ready, and players still in the game */
+  readyCount: number;
+  playerCount: number;
 }
 
 /**
@@ -26,6 +39,7 @@ export interface WaveButtonView {
  * @param left    enemies of it not yet killed or through to the HQ
  * @param countdownSeconds seconds until the auto-start, null when it is off
  * @param countdownTotal   full length of that countdown in seconds
+ * @param coop  coop readiness; the button then says ready instead of start
  */
 export function waveButtonView(
   wave: number,
@@ -34,12 +48,26 @@ export function waveButtonView(
   left: number,
   countdownSeconds: number | null = null,
   countdownTotal = 0,
+  coop: CoopReadyState | null = null,
 ): WaveButtonView {
   const label = `Wave ${wave}`;
+  const plain = { coopReady: null, pressed: false };
+  if (!running && coop) {
+    const count = `${coop.readyCount}/${coop.playerCount} ready`;
+    return {
+      label: coop.ready ? `Wave ${wave}: ready` : `Ready for wave ${wave}`,
+      ariaLabel: coop.ready ? `Not ready for wave ${wave} after all, ${count}` : `Ready for wave ${wave}, ${count}`,
+      left: null,
+      barPercent: coop.playerCount > 0 ? (coop.readyCount / coop.playerCount) * 100 : 0,
+      countdown: null,
+      coopReady: count,
+      pressed: coop.ready,
+    };
+  }
   if (!running) {
     const start = `Start wave ${wave}`;
     if (countdownSeconds === null || countdownTotal <= 0) {
-      return { label, ariaLabel: start, left: null, barPercent: 0, countdown: null };
+      return { label, ariaLabel: start, left: null, barPercent: 0, countdown: null, ...plain };
     }
     const seconds = Math.min(Math.max(countdownSeconds, 0), countdownTotal);
     return {
@@ -48,10 +76,11 @@ export function waveButtonView(
       left: null,
       barPercent: (seconds / countdownTotal) * 100,
       countdown: `${seconds}s`,
+      ...plain,
     };
   }
   if (total <= 0) {
-    return { label, ariaLabel: null, left: null, barPercent: 0, countdown: null };
+    return { label, ariaLabel: null, left: null, barPercent: 0, countdown: null, ...plain };
   }
   const remaining = Math.min(Math.max(left, 0), total);
   return {
@@ -60,5 +89,6 @@ export function waveButtonView(
     left: `${remaining} left`,
     barPercent: (remaining / total) * 100,
     countdown: null,
+    ...plain,
   };
 }

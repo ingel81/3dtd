@@ -44,6 +44,7 @@ import { InfoOverlayComponent } from './components/info-overlay/info-overlay.com
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
+import { CoopPlayersComponent } from './components/coop-players/coop-players.component';
 import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
 import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
@@ -151,6 +152,7 @@ import { COOP } from './services/coop.token';
     ContextHintComponent,
     GameSpeedComponent,
     BossBarComponent,
+    CoopPlayersComponent,
     LoadingScreenComponent,
     TdIconComponent,
     LosLegendComponent,
@@ -243,6 +245,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly bossIntro = inject(BossIntroService);
   /** Replay of the last wave: HUD hidden, replay bar at the bottom */
   readonly replay = inject(ReplayService);
+  /** Coop: the game-over screen restarts only at the host */
+  readonly coop = inject(CoopService);
   readonly towerControl = inject(TowerControlService);
 
   // Build / tiles version chips shown in the loading screen corners.
@@ -444,7 +448,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Map placement mode (HQ/Spawn)
   readonly mapPlacementMode = computed(() => this.uiStore.mapPlacementMode());
   readonly canPlaceOnMap = computed(() =>
-    this.store.phase() === 'setup' && !this.engineInit.loading(),
+    this.store.phase() === 'setup' && !this.engineInit.loading() && !this.uiStore.coopMapLocked(),
   );
 
   // Controls hint auto-hide

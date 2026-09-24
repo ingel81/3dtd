@@ -89,7 +89,7 @@ describe('MapPlacementService', () => {
     };
     const injector = Injector.create({
       providers: [
-        { provide: UIStore, useValue: { mapPlacementMode } },
+        { provide: UIStore, useValue: { mapPlacementMode, coopMapLocked: signal(false) } },
         { provide: MarkerVisualizationService, useValue: markerViz },
         { provide: OsmStreetService, useValue: osm },
       ],

@@ -1,9 +1,10 @@
-import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, inject, ChangeDetectionStrategy } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GameStore } from '../../store/game.store';
 import { GAME_SPEEDS } from '../../configs/game-speed.config';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
+import { COOP } from '../../services/coop.token';
 
 @Component({
   selector: 'app-game-speed',
@@ -16,7 +17,9 @@ import { TdIconComponent } from '../icon/icon.component';
         class="hud-btn pause-btn"
         [class.paused]="paused()"
         (click)="togglePause()"
-        [matTooltip]="paused() ? 'Resume (P)' : 'Pause (P)'"
+        [class.is-locked]="guest()"
+        [attr.aria-disabled]="guest()"
+        [matTooltip]="guest() ? GUEST_TIP : paused() ? 'Resume (P)' : 'Pause (P)'"
         [attr.aria-label]="paused() ? 'Resume game' : 'Pause game'"
         [attr.aria-pressed]="paused()"
         aria-keyshortcuts="P"
@@ -27,7 +30,9 @@ import { TdIconComponent } from '../icon/icon.component';
         class="hud-btn speed-btn"
         [class.fast]="currentSpeed() > 1"
         (click)="cycleSpeed()"
-        [matTooltip]="'Game Speed: ' + currentSpeed() + 'x (+/-)'"
+        [class.is-locked]="guest()"
+        [attr.aria-disabled]="guest()"
+        [matTooltip]="guest() ? GUEST_TIP : 'Game Speed: ' + currentSpeed() + 'x (+/-)'"
         [attr.aria-label]="'Game speed ' + currentSpeed() + 'x'"
         matTooltipPosition="below">
         <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="18"></td-icon>
@@ -67,7 +72,11 @@ import { TdIconComponent } from '../icon/icon.component';
       font-family: inherit;
       transition: all 0.15s;
     }
-    .hud-btn:hover {
+    .hud-btn.is-locked {
+      cursor: default;
+      opacity: 0.6;
+    }
+    .hud-btn:hover:not(.is-locked) {
       background: var(--td-frame-mid);
       color: var(--td-text-primary);
     }
@@ -102,10 +111,16 @@ import { TdIconComponent } from '../icon/icon.component';
 export class GameSpeedComponent {
   private gameStore = inject(GameStore);
 
+  /** Coop: speed and pause belong to the host (D15) */
+  private readonly coop = inject(COOP, { optional: true });
+  readonly guest = computed(() => !!this.coop?.inGame() && !this.coop.isHost());
+  readonly GUEST_TIP = 'The host sets speed and pause';
+
   readonly currentSpeed = this.gameStore.gameSpeed;
   readonly paused = this.gameStore.paused;
 
   cycleSpeed(): void {
+    if (this.guest()) return;
     const current = this.currentSpeed();
     const idx = GAME_SPEEDS.indexOf(current);
     const next = GAME_SPEEDS[(idx + 1) % GAME_SPEEDS.length];
@@ -113,6 +128,7 @@ export class GameSpeedComponent {
   }
 
   togglePause(): void {
+    if (this.guest()) return;
     this.gameStore.paused.update(p => !p);
   }
 }

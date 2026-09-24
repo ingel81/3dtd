@@ -35,8 +35,8 @@ export class ConfigService {
   readonly cesiumAssetId = signal(environment.cesiumAssetId ?? '2275207');
   readonly tileProvider = signal<'cesium' | 'google'>(environment.tileProvider ?? 'cesium');
   readonly loaded = signal(false);
-  /** Where the coop relay is: runtime-config.json, else the one `npm run coop-server` starts here */
-  readonly coopRelay = signal('ws://localhost:3003');
+  /** The site's coop relay from runtime-config.json; null lets the client find one (coop/relay-address.ts) */
+  readonly coopRelay = signal<string | null>(null);
   readonly isBrowserPlayback = signal(true);
 
   /** Set when the tile server rejected the credentials we had. */

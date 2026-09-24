@@ -3,7 +3,7 @@ import { waveButtonView } from './wave-button';
 
 describe('waveButtonView', () => {
   it('idle: "Wave N" with the upcoming wave, named as the action, no count, no bar', () => {
-    expect(waveButtonView(7, false, 0, 0)).toEqual({
+    expect(waveButtonView(7, false, 0, 0)).toMatchObject({
       label: 'Wave 7',
       ariaLabel: 'Start wave 7',
       left: null,
@@ -17,7 +17,7 @@ describe('waveButtonView', () => {
   });
 
   it('running: "Wave N", enemies left and the bar at their share', () => {
-    expect(waveButtonView(7, true, 40, 18)).toEqual({
+    expect(waveButtonView(7, true, 40, 18)).toMatchObject({
       label: 'Wave 7',
       ariaLabel: null,
       left: '18 left',
@@ -37,14 +37,14 @@ describe('waveButtonView', () => {
   });
 
   it('a manual debug wave without a known size shows no count and no bar', () => {
-    expect(waveButtonView(5, true, 0, 0)).toEqual({
+    expect(waveButtonView(5, true, 0, 0)).toMatchObject({
       label: 'Wave 5', ariaLabel: null, left: null, barPercent: 0, countdown: null,
     });
   });
 
   describe('auto-start countdown', () => {
     it('idle: the seconds left and the bar at the share of time left', () => {
-      expect(waveButtonView(6, false, 0, 0, 7, 10)).toEqual({
+      expect(waveButtonView(6, false, 0, 0, 7, 10)).toMatchObject({
         label: 'Wave 6',
         ariaLabel: 'Start wave 6 now, starts by itself in 7s',
         left: null,
@@ -60,6 +60,31 @@ describe('waveButtonView', () => {
 
     it('a running wave shows no countdown', () => {
       expect(waveButtonView(6, true, 10, 5, 7, 10).countdown).toBeNull();
+    });
+  });
+
+  describe('coop', () => {
+    it('between waves: ready instead of start, the count of ready players, pressed once this player is', () => {
+      expect(waveButtonView(3, false, 0, 0, 7, 10, { ready: false, readyCount: 1, playerCount: 2 })).toEqual({
+        label: 'Ready for wave 3',
+        ariaLabel: 'Ready for wave 3, 1/2 ready',
+        left: null,
+        barPercent: 50,
+        countdown: null,
+        coopReady: '1/2 ready',
+        pressed: false,
+      });
+      expect(waveButtonView(3, false, 0, 0, null, 0, { ready: true, readyCount: 2, playerCount: 3 })).toMatchObject({
+        label: 'Wave 3: ready',
+        pressed: true,
+        coopReady: '2/3 ready',
+      });
+    });
+
+    it('in a wave: as in the single player game', () => {
+      expect(waveButtonView(3, true, 10, 4, null, 0, { ready: false, readyCount: 0, playerCount: 2 })).toMatchObject({
+        label: 'Wave 3', left: '4 left', coopReady: null, pressed: false,
+      });
     });
   });
 });

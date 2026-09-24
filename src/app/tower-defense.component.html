@@ -29,6 +29,7 @@
     [favoriteNames]="favoriteNamesMap()"
     [placementMode]="mapPlacementMode()"
     [canPlace]="canPlaceOnMap()"
+    [locationLocked]="uiStore.coopMapLocked()"
     (locationClick)="openLocationDialog()"
     (closeClick)="close()"
     (shareClick)="onShareLocation()"
@@ -182,6 +183,8 @@
             <app-game-speed />
           }
           <app-boss-bar />
+          <!-- Coop: the players, their gold and readiness; empty outside a coop game -->
+          <app-coop-players />
         </div>
 
         <!-- Boss intro: dark veil around the camera cuts, the boss's name
@@ -296,10 +299,14 @@
             @if (store.runSummary(); as summary) {
               <app-run-summary [summary]="summary" />
             }
-            <button class="td-btn td-btn-green" (click)="restartGame()">
-              <td-icon name="refresh" [size]="18"></td-icon>
-              RESTART
-            </button>
+            @if (coop.inGame() && !coop.isHost()) {
+              <p class="td-gameover-wait">The host starts the next run.</p>
+            } @else {
+              <button class="td-btn td-btn-green" (click)="restartGame()">
+                <td-icon name="refresh" [size]="18"></td-icon>
+                RESTART
+              </button>
+            }
             <!-- The run as a file: the analysis reads it, and it can be sent (docs/RUN_LOG.md) -->
             <button type="button" class="td-gameover-replay" (click)="exportRunLog()">
               <td-icon name="filing" [size]="14"></td-icon>

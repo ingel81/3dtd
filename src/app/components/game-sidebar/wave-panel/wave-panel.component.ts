@@ -40,6 +40,7 @@ import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
 import { WaveTimelineComponent } from './wave-timeline.component';
 import { ReplayService } from '../../../services/replay.service';
+import { COOP } from '../../../services/coop.token';
 
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
@@ -68,6 +69,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   /** Display options; the blood moon marks follow its switch */
   private readonly vfx = inject(DebugFacadeService).vfx;
   private readonly destroyRef = inject(DestroyRef);
+  /** Coop, where the game runs one: the button means ready (D15) */
+  private readonly coop = inject(COOP, { optional: true });
   readonly replay = inject(ReplayService);
 
   constructor() {
@@ -111,7 +114,9 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   );
 
   /** A saved replay of this map can be loaded: between waves, while the replay is offered at all */
-  readonly canLoadReplay = computed(() => !this.waveActive() && !this.isGameOver() && REPLAY_CONFIG.offered);
+  readonly canLoadReplay = computed(() =>
+    !this.waveActive() && !this.isGameOver() && REPLAY_CONFIG.offered && !this.uiStore.coopMapLocked()
+  );
 
   onReplayFile(event: Event): void {
     const input = event.target as HTMLInputElement;
@@ -139,6 +144,20 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   readonly autoStart = this.uiStore.autoStartWaves;
   readonly autoStartSeconds = AUTO_WAVE_DELAY_MS / 1000;
 
+  /** Coop readiness for the button; null outside a coop game */
+  readonly coopReady = computed(() => {
+    const coop = this.coop;
+    if (!coop?.inGame()) return null;
+    const left = coop.leftIds();
+    const ready = coop.readyIds();
+    const players = coop.roster().filter((p) => !left.has(p.id));
+    return {
+      ready: ready.has(coop.playerId() ?? ''),
+      readyCount: players.filter((p) => ready.has(p.id)).length,
+      playerCount: players.length,
+    };
+  });
+
   /** Label, accessible name, "N left", countdown and bar width of the wave button. */
   readonly waveButton = computed(() =>
     waveButtonView(
@@ -148,6 +167,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       this.store.waveEnemiesLeft(),
       this.store.autoWaveSecondsLeft(),
       this.autoStartSeconds,
+      this.coopReady(),
     )
   );
 

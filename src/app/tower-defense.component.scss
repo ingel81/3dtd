@@ -320,6 +320,12 @@
 }
 
 /* Under Restart: the frame button recipe, quieter than the green Restart */
+.td-gameover-wait {
+  margin: 8px 0;
+  font-size: 13px;
+  color: var(--td-text-secondary);
+}
+
 .td-gameover-replay {
   display: flex;
   align-items: center;
