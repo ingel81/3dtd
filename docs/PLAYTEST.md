@@ -159,41 +159,129 @@ beim letzten Test. Nach dem Lauf reicht das Relay-Log (`logs/coop_*.log`).
   Erwartung: Die Kamera springt in den Tower, die Maus ist gefangen, Zielen folgt der Maus ohne Ruckeln, linke Taste
   schießt, rechte zoomt, C oder Esc steigt aus und die Kamera kommt zurück. Das andere Fenster sieht den Turm drehen.
   Dasselbe einmal im Einzelspieler ohne Coop.
+  **ok (2026-09-24), mit Befund:** Nach einem kurzen Klick feuerte der Archer weiter, bis die Maus sich bewegte. Ursache:
+  Der Abzug wurde mit dem Tower verglichen, der im Coop einen Tick nachläuft, und so ging das Loslassen nie raus.
+  Behoben, Nachtest T19. Zielen „etwas hakelig“ ist offen (TODO E29). Das Drehen im anderen Fenster und der
+  Einzelspieler sind ungetestet.
 - **T2 Name in der Lobby**: Vor dem Start im Dialog „Your name“ ändern, Enter. Erwartung: Das andere Fenster zeigt den
   neuen Namen; beide gleich benannt ergibt „Name 2“. Nach dem Start ist das Feld weg.
+  **ok (2026-09-24)**
 - **T3 Engine in der Lobby**: In der Spielerliste steht je Spieler Browser, Version und System (z. B. „Chrome 140.0.0.0,
   Windows“). Mit Chrome und Firefox im selben Raum steht darunter der Hinweis auf verschiedene Engines.
+  **ok (2026-09-24)**
 - **T4 Dialog beim Start**: Der Host drückt Start. Erwartung: Der Dialog geht in beiden Fenstern zu.
+  **ok (2026-09-24)**
 - **T5 Spieler-Leiste**: Oben mittig unter dem Tempo je Spieler ein Feld mit Lane-Farbe, Name, Gold und zwischen den
   Wellen „building“. Der Wellenknopf heißt im Coop „Ready for wave N“ mit „0/2 ready“ rechts, ohne Auto-Schalter.
   Ein Spieler klickt ihn: Der Knopf bleibt gedrückt („Wave N: ready“, 1/2), bei beiden steht bei ihm „ready“, bei ihm
   selbst zusätzlich „Waiting for …“ mit dem Namen des anderen. In der Welle verschwinden die Zustände.
+  **ok (2026-09-24)**, Wunsch: Die Leiste soll untereinander links neben den Fähigkeiten stehen, die Meldungen darunter.
+  Umgebaut, Nachtest T16.
 - **T6 Gold senden**: Neben dem Mitspieler der kleine Knopf, dann 100. Erwartung: Das eigene Gold sinkt um 100, das des
   anderen steigt in beiden Fenstern gleich, beim Empfänger steht kurz „… sent you 100 gold“. Beträge über dem eigenen
   Gold sind ausgegraut. Im Relay-Log keine `DESYNC`-Zeile.
+  **ok (2026-09-24)**, Wunsch: mehrfach senden können. Das Menü bleibt jetzt offen, Nachtest T16.
 - **T7 Zusammenfinden**: Host öffnet den Raum, Gast kommt per Einladungslink. Erwartung: Beim Gast öffnet sich der
   Dialog sofort mit „Loading the host's map…“. Beide bekommen von selbst eine freie Lane. Der Host hat keinen
   Bereit-Knopf, der Gast einen großen „I am ready“. Unter der Liste steht, worauf der Start wartet („Waiting for …
   to be ready“, dann „Everyone is ready“). Der Coop-Knopf in der Seitenleiste zeigt „Coop“ plus Raumcode.
+  **ok (2026-09-24)**. Offene Fragen in TODO E29: Soll man einen Raum allein starten können, soll der Host einen freien
+  Extra-Spawn bereithalten, und wo sitzt der Coop-Knopf?
 - **T8 Meldungen im Spiel**: Unter der Spieler-Leiste erscheinen für ein paar Sekunden: Chat aus dem Dialog des
   anderen, „… left the game“, wenn ein Fenster geschlossen wird, „… is the host now“. Relay beenden (Strg+C):
   „Connection to the coop server lost“ bleibt stehen.
+  **ok (2026-09-24)**, Wunsch: Chat links unten. Die Meldungen stehen jetzt links unter der Spieler-Leiste, Nachtest T16.
 - **T9 Relay aus**: Relay nicht starten, „Open a room“. Erwartung: „Found no coop server (tried ws://localhost:3003)…“.
+  **ok (2026-09-24)**
 - **T10 Neustart im Coop (R1)**: Game over herbeiführen (HQ fallen lassen). Beim Gast steht „The host starts the next
   run“ statt RESTART, beim Host RESTART. Danach bei beiden Welle 0, Startgold, unter der Leiste „New run started“,
   eine Welle spielen, im Relay-Log keine `DESYNC`-Zeile.
+  **ok (2026-09-24)**. Die Welle danach ist ungeprüft.
 - **T11 Aufholen (R2)**: Im Spiel das Fenster des Gasts 20 s minimieren, dann zurück. Erwartung: Das Spiel läuft kurz
   schneller und ist nach wenigen Sekunden wieder gleichauf; in der Statusseite des Relays liegen die Prüfsummen-
   Ticks beider Spieler danach wieder dicht beieinander.
+  **kaputt (2026-09-24):** Danach Abweichungen, Gegner unsichtbar. Das Log zeigt: Das Aufholen selbst klappte, der Gast
+  stand 2 min und war nach etwa 45 s gleichauf, danach stimmten die Prüfsummen noch 2 min. Die Abweichungen kamen später
+  von zwei Stellen am Kommando vorbei: Der Plan der eigenen Welle zog beim Absender aus dem Spawn-Zufall, und Kill all,
+  Gegner-Spawn und Gegner-Entfernen wirkten nur im eigenen Fenster. Beides behoben, Nachtest T15. „Gegner unsichtbar“
+  ist ungeklärt und kommt in T15 mit.
 - **T12 Sperren (R3 bis R5)**: Im Coop-Spiel Developer options „+1000 Credits“: nichts passiert, bei beiden. Ortsname,
   Würfel, HQ, Spawn und „+“ im Kopf sind ausgegraut (für den Gast schon in der Lobby). Beim Gast Tempo und Pause
   ausgegraut, Tooltip „The host sets speed and pause“. Kein Replay-Link unter dem Wellenknopf.
+  **ok (2026-09-24)**, Wünsche: Cheats im Coop, der Relay soll das erlauben. Gäste sollen pausieren dürfen, das Tempo
+  ist offen (TODO E29). Beides gebaut, Nachtest T17 und T18. Kill all ging, weil es am Kommando vorbeilief (siehe T11).
 - **T13 Relay per LAN (R6)**: `npm start -- --host 0.0.0.0`, der Host öffnet das Spiel selbst über `http://<IP>:4200`
   (nicht localhost, sonst zeigt der Einladungslink auf localhost), zweiter Rechner nimmt den Einladungslink. Erwartung: Der Gast findet den Relay unter `ws://<IP>:3003` von selbst; im Dialog steht
   „Server <IP>:3003“.
 - **T14 Server von Hand (R6)**: Startbildschirm des Dialogs, „Server“ aufklappen, Unsinn eintragen: Hinweis „no ws://
   or wss:// address“. Eine gültige, aber tote Adresse: „Can't reach the coop server at …“. Feld leeren: wieder
   automatisch.
+  **ok (2026-09-24)**, Wunsch: gleich beim Eintragen prüfen, dazu ein Test-Knopf. Gebaut, Nachtest T20.
+
+Nach dem Test vom 2026-09-24 (Relay neu starten, er kennt die Cheats und die Gast-Pause sonst nicht):
+
+- **T15 Viele Gegner bleiben gleich**: Im Coop eine Custom Wave mit vielen Gegnern starten (Wave Debug, „Start Custom
+  Wave“). Mitten darin einmal Kill all, dann noch eine Custom Wave, dazu einmal das Gast-Fenster 20 s minimieren.
+  Erwartung: In beiden Fenstern gleiche Abstände und gleiches Tempo der Gegner, Kill all wirkt in beiden, im Relay-Log
+  keine `DESYNC`-Zeile, nach dem Minimieren sind die Gegner sichtbar.
+  **ok (2026-09-25)**, Relay-Log: 1297 s, 1353 Kommandos, 0 Abweichungen.
+- **T16 Spieler-Leiste links**: Die Spieler stehen untereinander links neben der Fähigkeitenleiste, darunter „Waiting
+  for …“ und die Meldungen, Chat eingeschlossen. Nichts überdeckt das Info-Overlay oben links. Im Gold-Menü dreimal auf
+  100 klicken: 300 kommen an, das Menü bleibt offen, der Gold-Knopf schließt es.
+  **ok (2026-09-25)**; Position und Anordnung geht an einen Designer (TODO E29).
+- **T17 Cheats übers Relay**: Beim Start schreibt der Relay „cheats allowed“. Im Coop „+1000 Credits“: Gold +1000 bei
+  beiden gleich. Kill all, Max upgrade, Research: wirken in beiden Fenstern. Relay mit
+  `npm run coop-server -- --no-cheats`: Die Knöpfe tun nichts.
+  **ok (2026-09-25)** mit Cheats; der Teil mit `--no-cheats` später.
+- **T18 Pause für Gäste**: Der Gast drückt Pause (oder P): Beide stehen, im Relay-Log „paused by …“. Der Gast drückt
+  wieder: Es läuft im Tempo des Hosts weiter. Der Tempo-Knopf bleibt beim Gast gesperrt.
+  **ok (2026-09-25)**
+- **T19 Abzug im Coop**: Archer bemannen, einzelne kurze Klicks: je ein Schuss, kein Dauerfeuer. Gedrückt halten:
+  Dauerfeuer, Loslassen stoppt. Zum Vergleich einmal Gatling.
+  **teilweise (2026-09-25):** Bewegung und Gefühl in der Egoperspektive sind im Coop deutlich zäher und verzögerter. Verdacht
+  (unbelegt): Der Client hängt ohne Puffer an der Tick-Sperre und läuft in 4er-Sprüngen. Offen in TODO E29.
+- **T20 Server-Feld prüft sofort**: Im Dialog „Server“ aufklappen, `ws://localhost:3003` eintragen, Enter: „The coop
+  server at ws://localhost:3003 answers.“ `ws://localhost:9999`: „Can't reach …“. Feld leer, „Test“: prüft die
+  automatische Suche.
+  **ok (2026-09-25)**, Wunsch: grüner Haken bei Erfolg. Gebaut, sieht man beim nächsten Mal.
+- **T21 Nicht allein starten, freier Spawn**: Auf einer Karte mit einem Spawn einen Raum öffnen: Ein zweiter Spawn
+  kommt von selbst dazu. Allein ist Start ausgegraut, der Hinweis sagt „send the invite link to a second player“.
+  **ok (2026-09-25)**
+- **T22 Coop-Knopf im Kopf**: Rechts neben den Spawn-Knöpfen das Zwei-Personen-Icon, im Raum mit dem Raumcode
+  daneben. In der Seitenleiste ist der alte Knopf weg. Einladungslink öffnet das Panel weiterhin von selbst.
+  **ok (2026-09-25)**
+- **T23 Panel links, Karte frei**: Vor dem Start steht das Raum-Panel links ohne Abdunklung. Daneben klappen: auf
+  die Karte klicken, Kopfknöpfe, Hotkeys, Esc bricht ein Platzieren ab (und schließt das Panel nicht). Close schließt
+  es. Im Spiel öffnet der Kopf-Knopf es als normalen Dialog.
+  **ok (2026-09-25)**; das Panel überdeckt die FPS-Anzeige (TODO E29).
+- **T24 Spawn versetzen**: Host, zwei Spawns. Im Panel bei Spawn 2 die Flagge, auf der Karte neu setzen: Spawn 1 bleibt
+  stehen. Im Kopf öffnet die Flagge ein Menü „Move spawn 1/2“ und „One spawn in place of all“; mit nur einem Spawn
+  setzt sie direkt, ohne Menü.
+  **ok (2026-09-25)**
+- **T25 Gäste ziehen mit**: Host versetzt einen Spawn oder fügt mit + einen hinzu: Beim Gast ändern sich die Spawns
+  ohne Neuladen, er behält seine Lane, „ready“ ist wieder aus. Host würfelt einen neuen Ort: Der Gast lädt neu, ist
+  wieder im Raum und auf seiner alten Lane. Im Relay-Log kein `DESYNC` im Spiel danach.
+  **kaputt (2026-09-25):** Beim Würfeln flog der Host aus dem Raum, der Gast wurde Host. Ursache: Der Würfel lud die ganze
+  Seite neu. Er wechselt jetzt ohne Neuladen wie die Ortssuche; nochmal testen. Wunsch: Lanes auch wieder entfernen
+  können, gebaut (× je Lane im Panel). Nochmal testen: Spawn versetzen, +, ×, würfeln.
+- **T26 Lane-Länge**: Im Panel je Lane Balken, Meter und Laufzeit (m:ss). Die kürzere Lane hat den kürzeren Balken.
+  **ok (2026-09-25)**
+- **T27 Ping**: In Panel und Spieler-Leiste je Spieler „… ms“; beim eigenen Tooltip „round trip to the coop server“,
+  beim Mitspieler „about“. Zweimal Chrome lokal: wenige ms.
+  **kaputt (2026-09-25):** Im Panel keine ms. Ursache: Lokal misst der Relay 0 ms, und das Panel hat die 0 als „nichts“
+  behandelt. Behoben, nochmal testen.
+- **T28 Messlauf Ruckeln (T19)**: Relay neu starten (Protokoll 4), zwei Fenster, Coop starten. 1 min eine Welle
+  zuschauen, dann 1 min einen Tower bemannen, zielen und schießen. Nichts melden, der Relay loggt je Fenster alle 10 s
+  eine `stats`-Zeile (Frames an der Sperre, Sub-Steps je Frame, Rückstand, Tick-Abstand, Eingabe-Verzögerung).
+  **gemessen (2026-09-25):** Host an der Sperre in 62 bis 73 % der Frames, rechnet in 4er-Paketen (15 Hz), Rückstand 0;
+  Gast nie an der Sperre, aber 1 bis 2 Ticks zurück, Eingabe 112 bis 195 ms. Tick-Abstand bei beiden 67 ± 7 ms. Gebaut:
+  jeder Client hält einen Tick Vorrat (Tempo ±10 %), und das Auge im bemannten Tower folgt der eigenen Maus statt dem
+  verzögerten Tower. Nachtest T29.
+- **T29 Glatter im Coop (nach T28)**: Relay neu starten, derselbe Lauf wie T28 (1 min Welle, 1 min Tower, als Host
+  und als Gast). Erwartung: Gegner laufen bei beiden gleichmäßig, im Tower dreht die Sicht direkt mit der Maus ohne
+  Nachziehen. Im Log bei beiden `blocked` nahe 0 %, `behind` um 1, `input` bei beiden etwa 100 bis 130 ms.
+  **ok (2026-09-25):** „deutlich besser“, Gegner ruckeln nicht mehr, der Tower nur „etwas besser“. Log: bei beiden
+  `blocked` 0 %, `behind` 0,9, Eingabe 83 bis 98 ms bei Tempo 1, 0 Abweichungen.
 
 ## K8 Desktop-Build
 

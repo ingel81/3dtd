@@ -81,6 +81,13 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D27 | Bosse | Ein Boss je Lane, folgt aus D13; Intro und Musik einmal (User, 2026-09-24) |
 | D28 | Gegnerzahl | Erst ohne Deckel, messen, dann entscheiden (User, 2026-09-24) |
 | D29 | Gemischte Browser | Electron ist primär; die Abweichung Chrome gegen Firefox ist ein Randthema, erst eingrenzen, später entscheiden (User, 2026-09-24, TODO E28) |
+| D30 | Allein starten | Nein: ein Coop-Raum startet erst mit einem zweiten Spieler (User, 2026-09-24) |
+| D31 | Freier Spawn | Ein neuer Raum hat von selbst einen freien Spawn für den zweiten Spieler; kein ständiger Extra-Spawn (User, 2026-09-24) |
+| D32 | Tempo und Pause | Das Tempo setzt nur der Host, pausieren und weiterlaufen lassen darf jeder (User, 2026-09-24) |
+| D33 | Cheats | Der Relay entscheidet: `npm run coop-server` erlaubt sie zum Entwickeln, `--no-cheats` verbietet sie (User, 2026-09-24) |
+| D34 | Lobby | Das Raum-Panel dockt vor dem Start links an, ohne Schleier; die Karte bleibt bedienbar. Im Spiel ist es ein Dialog. Der Coop-Knopf sitzt im Kopf (User, 2026-09-24) |
+| D35 | Karte in der Lobby | Der Host darf Spawns setzen, versetzen (Move je Lane, Menü am Flaggen-Knopf bei mehr als einem Spawn), hinzufügen und den Ort wechseln. Die Karte geht von selbst an den Raum; Gäste behalten ihre Lane, die Bereitschaft verfällt, bei einem neuen Ort laden sie neu und kommen in denselben Raum zurück (User, 2026-09-24) |
+| D36 | Anzeige in der Lobby | Je Lane Länge in Metern, Balken zur längsten und Laufzeit eines Zombies; je Spieler der Ping (zum Relay, zu Mitspielern geschätzt über den Relay) (User, 2026-09-24) |
 
 ## 4. Pakete
 
@@ -434,7 +441,7 @@ nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht ander
   höchstens K Ticks vor dem langsamsten Client (der meldet, bis wohin er ist; die Prüfsummen tun das schon). **Gebaut 2026-09-24 (Client-Seite): im Lockstep läuft die Uhr bis 4× schneller, solange mehr als 3 Ticks offen sind (`lockstepCatchUp`). Das Relay wartet weiterhin auf niemanden; ein Deckel „höchstens K Ticks vor dem Langsamsten“ bleibt offen.**
 - R3 **Debug-Befehle laufen im Coop durch.** `debug:add-credits`, `debug:kill-all` usw. gehen über das Relay und
   wirken bei allen. Plan (C6) sagt „im Coop aus“. Lösung: Relay verwirft `debug:*`, die Simulation ignoriert sie bei
-  mehr als einem Spieler (auf allen Clients gleich). **Gebaut 2026-09-24: Relay nimmt nur `command:*`, die Simulation ignoriert `debug:*` bei `cheatsBlocked` (setzt jeder Client beim Start).**
+  mehr als einem Spieler (auf allen Clients gleich). **Gebaut 2026-09-24: Relay nimmt nur `command:*`, die Simulation ignoriert `debug:*` bei `cheatsBlocked` (setzt jeder Client beim Start).** Nach dem Playtest geändert: Der Relay entscheidet (`npm run coop-server` erlaubt Cheats zum Entwickeln, `--no-cheats` verbietet sie, der Raum meldet `cheats`). Kill all, Gegner-Spawn und Gegner-Entfernen laufen seitdem als Kommando, vorher wirkten sie nur im eigenen Fenster.
 - R4 **Ortswechsel und Replay im Coop.** Für HQ versetzen, Spawn neu setzen, Stadt wechseln und die Replay-Leiste
   fand ich keine Sperre im laufenden Coop-Spiel; jede davon baut Welt oder Simulation nur lokal um. Im Spiel sperren
   (Knopf aus, Tooltip „not in a coop game“). **Gebaut 2026-09-24: `UIStore.coopMapLocked` (im Spiel, und für Gäste in der Lobby) sperrt Ortsdialog, Würfel, Favoriten, HQ, Spawns und Replay.**
