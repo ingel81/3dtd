@@ -11,6 +11,7 @@ import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/route-cell';
+import type { LosMask } from '../utils/los-mask';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { canTargetAirEffective } from './tower-targeting.util';
 import { TowerAim, createTowerAim } from './tower-aim';
@@ -105,6 +106,14 @@ export class Tower extends GameObject {
 
   /** Whether LOS computation is complete (tower won't fire until true) */
   losReady = false;
+
+  /**
+   * The answers in `visibleCells` and the grid as data, current after each
+   * placement, range upgrade and air retrofit (TowerLosRegistry). null
+   * until the first one. Applying it again gives the same answers without a
+   * GPU (TowerLosRegistry.registerFromMask).
+   */
+  losMask: LosMask | null = null;
 
   /**
    * Heading (geoHeading convention) to where a route enters this tower's

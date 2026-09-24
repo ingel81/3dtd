@@ -623,6 +623,11 @@ export class GameStateManager {
     this.clock.endFrame();
     const stepsExecuted = this.clock.stepsThisFrame;
 
+    // Queued LOS recomputes (air retrofit after research), one tower per
+    // frame, between two sub-steps. Here rather than in a frame callback: the
+    // heartbeat of a hidden tab ticks update() as well.
+    this.towerPlacement.drainLosQueue();
+
     // ══════════════════════════════════════════════════════════════
     // ONCE PER RENDER-FRAME (visuals + UI sync)
     // ══════════════════════════════════════════════════════════════

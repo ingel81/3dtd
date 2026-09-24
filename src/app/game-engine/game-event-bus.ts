@@ -9,6 +9,7 @@ import type { HeroAmmoId, HeroRejectReason, HeroStatus } from '../configs/hero.c
 import { WaveConfig } from '../managers/wave.manager';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { WormGroup } from '../managers/worm/worm-group';
+import type { LosMask } from '../utils/los-mask';
 
 /**
  * Game Event Type Definitions
@@ -34,6 +35,9 @@ export type CreditsSource =
   | 'cheat'           // the dev menu handed gold out or took it away
   | 'wave-jump'       // the gold of the waves a dev jump skipped
   | 'reset';          // back to the starting gold of a new run
+
+/** What made a tower resolve its line of sight, see `tower:los-resolved`. */
+export type LosResolveReason = 'place' | 'upgrade' | 'retrofit';
 
 /** Who killed an enemy. `null` for a death nobody is credited with. */
 export type KilledBy =
@@ -134,6 +138,18 @@ export type GameEvent =
       cost: number;
       /** The branch that was upgraded, so the run log can tell them apart. */
       upgradeId: string;
+    }
+  | {
+      /**
+       * A tower's line of sight was resolved against its cube: at placement,
+       * after a range upgrade, or when research gave it air targets (drained
+       * from the game loop, one tower per frame). `mask` is the whole result,
+       * what a snapshot or re-simulation applies instead of a cube.
+       */
+      type: 'tower:los-resolved';
+      towerId: string;
+      mask: LosMask;
+      reason: LosResolveReason;
     }
   | {
       type: 'tower:sold';

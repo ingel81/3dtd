@@ -102,6 +102,7 @@ function createStubService(name: string): Record<string, unknown> {
       unregisterTowerFromGrid: vi.fn(),
       recomputeTowerLOS: vi.fn(),
       scheduleLosRecompute: vi.fn(),
+      drainLosQueue: vi.fn(),
     },
     SpatialGridService: {
       updateEnemy: vi.fn(),

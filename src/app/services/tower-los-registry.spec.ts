@@ -7,12 +7,14 @@ import type { GlobalRouteGridService } from './world/global-route-grid.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GameStateManager } from '../managers/game-state.manager';
 import type { RouteCell } from '../utils/route-cell';
+import type { LosMask } from '../utils/los-mask';
+import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
 
 /**
  * The registry against a fake grid and cubemap. The registration on the
  * frozen cells runs with the real grid in tower-placement-los.spec.ts and
  * through the service in tower-placement.service.spec.ts; these pin the
- * lifecycle and the recompute queue.
+ * lifecycle, the masks and events and the recompute queue.
  */
 describe('TowerLosRegistry', () => {
   /** Local frame: lon is x, lat is z, height is y. */
@@ -23,6 +25,8 @@ describe('TowerLosRegistry', () => {
     registerTower: ReturnType<typeof vi.fn>;
     registerTowerIncremental: ReturnType<typeof vi.fn>;
     unregisterTower: ReturnType<typeof vi.fn>;
+    encodeLosMask: ReturnType<typeof vi.fn>;
+    applyLosMask: ReturnType<typeof vi.fn>;
   };
   let towerManager: {
     getAll: () => Tower[];
@@ -31,15 +35,12 @@ describe('TowerLosRegistry', () => {
   };
   let towers: Tower[];
   let engine: ThreeTilesEngine;
-  let frames: Map<number, FrameRequestCallback>;
-  let nextFrame: number;
+  let bus: GameEventBus;
+  let resolved: Extract<GameEvent, { type: 'tower:los-resolved' }>[];
   let registry: TowerLosRegistry;
 
-  const runFrames = () => {
-    const due = [...frames.values()];
-    frames.clear();
-    for (const callback of due) callback(0);
-  };
+  /** One frame of the game loop: GameStateManager.update drains the queue. */
+  const runFrames = () => registry.drainLosQueue();
   const tower = (lon = 0, lat = 0) => {
     const t = new Tower({ lat, lon, height: 0 }, 'archer');
     towers.push(t);
@@ -47,24 +48,30 @@ describe('TowerLosRegistry', () => {
   };
   const cell = (x: number, z: number) =>
     ({ x, z, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
-  const attach = () => registry.attach(engine, { towerManager } as unknown as GameStateManager);
+  const gameState = () => ({ towerManager, getEventBus: () => bus }) as unknown as GameStateManager;
+  const attach = () => registry.attach(engine, gameState());
+  const maskOf = (range: number, ground: boolean, air: boolean): LosMask =>
+    ({ range, ground, air, bits: new Uint8Array([range & 0xff]) });
 
   beforeEach(() => {
-    frames = new Map();
-    nextFrame = 1;
-    vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
-      const id = nextFrame++;
-      frames.set(id, cb);
-      return id;
+    // The queue is drained by the game loop, never from a frame callback:
+    // a hidden tab runs the loop from the heartbeat worker without frames.
+    vi.stubGlobal('requestAnimationFrame', () => {
+      throw new Error('no frame callbacks');
     });
-    vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
 
     grid = {
       isInitialized: () => true,
       registerTower: vi.fn(() => [cell(0, 0)]),
       registerTowerIncremental: vi.fn(() => []),
       unregisterTower: vi.fn(),
+      encodeLosMask: vi.fn((_id: string, _x: number, _z: number, range: number, ground: boolean, air: boolean) =>
+        maskOf(range, ground, air)),
+      applyLosMask: vi.fn(() => [cell(1, 1), cell(2, 2)]),
     };
+    bus = new GameEventBus();
+    resolved = [];
+    bus.on('tower:los-resolved', (event) => resolved.push(event));
     towers = [];
     towerManager = { getAll: () => towers, refreshSelectionViz: vi.fn(), onTowerUnregistered: vi.fn() };
     const mapper = {
@@ -104,7 +111,54 @@ describe('TowerLosRegistry', () => {
     expect(t.visibleCells).toHaveLength(1);
   });
 
-  it('runs a scheduled recompute on the next frame, unless the tower was unregistered', () => {
+  it('keeps the answers of a placement as a mask on the tower and announces it', () => {
+    attach();
+    const t = tower(5, 7);
+    registry.register(t, t.position, 'archer');
+
+    expect(grid.encodeLosMask).toHaveBeenCalledWith(t.id, 5, 7, TOWER_TYPES.archer.range, true, true);
+    expect(t.losMask).toEqual(maskOf(TOWER_TYPES.archer.range, true, true));
+    expect(resolved).toEqual([{ type: 'tower:los-resolved', towerId: t.id, mask: t.losMask, reason: 'place' }]);
+  });
+
+  it('takes a new mask after a range upgrade, at the new range', () => {
+    attach();
+    const t = tower(5, 7);
+    registry.register(t, t.position, 'archer');
+    t.combat.range = 45;
+    registry.recompute(t);
+
+    expect(t.losMask?.range).toBe(45);
+    expect(resolved.map((e) => e.reason)).toEqual(['place', 'upgrade']);
+    expect(resolved[1].mask).toBe(t.losMask);
+  });
+
+  it('registers a tower from a mask without the cube and announces nothing', () => {
+    attach();
+    const t = tower(5, 7);
+    const mask = maskOf(30, true, true);
+    const mapper = engine.getTowerShadowMapper() as unknown as { update: ReturnType<typeof vi.fn> };
+
+    registry.registerFromMask(t, mask);
+
+    expect(grid.applyLosMask).toHaveBeenCalledWith(t.id, 5, 7, mask);
+    expect(mapper.update).not.toHaveBeenCalled();
+    expect(grid.registerTower).not.toHaveBeenCalled();
+    expect(t.visibleCells).toHaveLength(2);
+    expect(t.losReady).toBe(true);
+    expect(t.losMask).toBe(mask);
+    expect(resolved).toEqual([]);
+  });
+
+  it('drops the mask when the tower is unregistered', () => {
+    attach();
+    const t = tower();
+    registry.register(t, t.position, 'archer');
+    registry.unregister(t);
+    expect(t.losMask).toBeNull();
+  });
+
+  it('runs a scheduled recompute on the next drain, unless the tower was unregistered', () => {
     attach();
     const kept = tower();
     const sold = tower(50, 0);
@@ -121,6 +175,21 @@ describe('TowerLosRegistry', () => {
     expect(sold.visibleCells).toEqual([]);
   });
 
+  it('drains one tower per call, oldest first, each with a retrofit mask', () => {
+    attach();
+    const first = tower();
+    const second = tower(50, 0);
+    registry.scheduleRecompute(first);
+    registry.scheduleRecompute(second);
+
+    runFrames();
+    expect(grid.registerTowerIncremental.mock.calls.map(([id]) => id)).toEqual([first.id]);
+    runFrames();
+    runFrames();
+    expect(grid.registerTowerIncremental.mock.calls.map(([id]) => id)).toEqual([first.id, second.id]);
+    expect(resolved.map((e) => [e.towerId, e.reason])).toEqual([[first.id, 'retrofit'], [second.id, 'retrofit']]);
+  });
+
   it('forgets the queue of the old location on attach', () => {
     attach();
     const t = tower();
@@ -133,23 +202,26 @@ describe('TowerLosRegistry', () => {
 
   it('keeps a tower queued while its recompute cannot run', () => {
     const blocked = { ...engine, getLosBlockerGroup: () => null } as unknown as ThreeTilesEngine;
-    registry.attach(blocked, { towerManager } as unknown as GameStateManager);
+    registry.attach(blocked, gameState());
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     registry.scheduleRecompute(tower());
 
     runFrames();
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('no LOS blocker group'));
-    expect(frames.size).toBe(1);
+
+    // Still queued: the next drain tries it again
+    runFrames();
+    expect(warn).toHaveBeenCalledTimes(2);
   });
 
-  it('cancels a pending refresh on detach', () => {
+  it('drops the queue on detach', () => {
     attach();
     registry.scheduleRecompute(tower());
-    expect(frames.size).toBe(1);
-
     registry.detach();
+    attach();
+    runFrames();
 
-    expect(frames.size).toBe(0);
+    expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
   });
 
   describe('the log of a recompute that takes most cells away', () => {
