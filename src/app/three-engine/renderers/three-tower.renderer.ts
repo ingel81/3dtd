@@ -45,6 +45,11 @@ export interface TowerRenderData {
   losRing: LineLoop | null; // Debug ring showing LOS origin circle
   typeConfig: TowerTypeConfig;
   isSelected: boolean;
+  /**
+   * Coop (review R14): a partner's tower; its selection ring shows at all
+   * times, in the owner's lane colour, with a material of its own
+   */
+  ownerRing?: boolean;
   /** Greyed out on hold fire (Tower.holdFire) */
   holdFire: boolean;
   // Geo coordinates for terrain sampling
@@ -557,7 +562,32 @@ export class ThreeTowerRenderer {
 
   private setRangeVisible(data: TowerRenderData, visible: boolean): void {
     if (data.rangeIndicator) data.rangeIndicator.visible = visible;
-    if (data.selectionRing) data.selectionRing.visible = visible;
+    if (data.selectionRing) data.selectionRing.visible = visible || !!data.ownerRing;
+  }
+
+  /**
+   * Coop (review R14): a partner's tower wears its selection ring at all
+   * times in the owner's lane colour (`color`, 0xRRGGBB), so whose it is
+   * shows at a glance; null gives it the shared gold ring back.
+   */
+  setOwnerRing(id: string, color: number | null): void {
+    const data = this.towers.get(id);
+    const ring = data?.selectionRing;
+    const shared = ThreeTowerRenderer.sharedSelectionMaterial;
+    if (!data || !ring || !shared) return;
+    if (ring.material !== shared) (ring.material as Material).dispose();
+    if (color === null) {
+      ring.material = shared;
+      data.ownerRing = false;
+      ring.visible = data.isSelected || this.hoveredId === id;
+      return;
+    }
+    const material = shared.clone();
+    material.color.setHex(color);
+    material.opacity = 0.7;
+    ring.material = material;
+    data.ownerRing = true;
+    ring.visible = true;
   }
 
   /**
@@ -663,9 +693,13 @@ export class ThreeTowerRenderer {
       this.scene.remove(data.rangeIndicator);
     }
 
-    // Remove selection ring (geometry and material are shared — do NOT dispose)
+    // Remove selection ring (geometry and material are shared, do NOT dispose;
+    // a partner's coloured ring has a material of its own, see setOwnerRing)
     if (data.selectionRing) {
       this.scene.remove(data.selectionRing);
+      if (data.selectionRing.material !== ThreeTowerRenderer.sharedSelectionMaterial) {
+        (data.selectionRing.material as Material).dispose();
+      }
     }
 
     // Remove tip marker
