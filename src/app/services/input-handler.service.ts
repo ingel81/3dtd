@@ -276,6 +276,11 @@ export class InputHandlerService {
     this.pickCallback = callback;
   }
 
+  /** Drop a pick armed with armPick that no click took yet */
+  disarmPick(): void {
+    this.pickCallback = null;
+  }
+
   // ========================================
   // EVENT HANDLERS
   // ========================================

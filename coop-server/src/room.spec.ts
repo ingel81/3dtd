@@ -222,6 +222,15 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(room.join(player('c'))).toBeNull();
   });
 
+  it('passes a map ping on to everyone with its height, and drops one with no place (R13)', () => {
+    lobby();
+    room.receive('b', { t: 'ping', lat: 48.1, lon: 9.2, height: 240 });
+    expect(last('a', 'ping')).toEqual({ t: 'ping', from: 'b', lat: 48.1, lon: 9.2, height: 240 });
+    expect(last('b', 'ping')).toEqual({ t: 'ping', from: 'b', lat: 48.1, lon: 9.2, height: 240 });
+    room.receive('b', { t: 'ping', lat: NaN, lon: 9.2, height: 240 });
+    expect(all('a', 'ping')).toHaveLength(1);
+  });
+
   it('follows the host speed, and stands still at 0', () => {
     lobby();
     room.receive('a', { t: 'start', seed: 1 });

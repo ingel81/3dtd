@@ -90,7 +90,8 @@ export type ClientMessage =
   /** Host: game speed; 0 pauses */
   | { t: 'speed'; speed: number }
   | { t: 'chat'; text: string }
-  | { t: 'ping'; lat: number; lon: number };
+  /** A mark on the map for the others (D25, review R13); height of the ground there */
+  | { t: 'ping'; lat: number; lon: number; height: number };
 
 export type ServerMessage =
   | { t: 'welcome'; playerId: string }
@@ -106,7 +107,7 @@ export type ServerMessage =
   | { t: 'desync'; tick: number; hashes: [string, number][] }
   | { t: 'speed'; speed: number }
   | { t: 'chat'; from: string; text: string }
-  | { t: 'ping'; from: string; lat: number; lon: number }
+  | { t: 'ping'; from: string; lat: number; lon: number; height: number }
   /** A player left; in the game their lane closes with the command:leave-game the relay puts in a tick */
   | { t: 'left'; playerId: string }
   /** The host changed (D22) */

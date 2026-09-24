@@ -23,6 +23,10 @@ import {
 import type { CoopRoomInfo, RefusalReason } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
+import { InputHandlerService } from './input-handler.service';
+import { SPAWN_COLORS } from '../configs/map-constants.config';
+import { UI_SOUNDS } from '../configs/audio.config';
+import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { relayCandidates, relayForLink, validRelayUrl, type RelaySource } from '../coop/relay-address';
 import type { GeoPosition } from '../models/game.types';
@@ -51,6 +55,8 @@ const MAX_NOTICES = 4;
 const NAME_KEY = '3dtd-coop-name';
 /** The player's own relay (coop dialog, "Server"), kept in this browser; none means automatic */
 const RELAY_KEY = '3dtd-coop-relay';
+/** How long a ping mark stays on the map, ms */
+const PING_MS = 4000;
 /** The lobby's walking time of a lane: a zombie's pace, the standard enemy */
 const LANE_WALK_SPEED_MPS = ENEMY_TYPES['zombie'].baseSpeed;
 /** Host: how long a changed map waits before it checks that the rebuild is done, ms */
@@ -100,6 +106,7 @@ export class CoopService {
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
   private readonly engineInit = inject(EngineInitializationService);
+  private readonly inputHandler = inject(InputHandlerService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -149,6 +156,8 @@ export class CoopService {
   readonly leftIds = signal<ReadonlySet<string>>(new Set());
   /** Every player's gold in the running game */
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
+  /** G was pressed: the next click on the map is a ping (review R13) */
+  readonly pingArmed = signal(false);
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
   readonly lanes = signal<ReadonlyMap<string, LaneStat>>(new Map());
   /** This browser has no map key yet: the token screen asks for it first (review R8) */
@@ -451,6 +460,55 @@ export class CoopService {
     this.uiStore.notice.set('The coop game goes on as a single player game.');
   }
 
+  /**
+   * In the game (review R13): the next click on the map marks that place for
+   * everyone, this player included, in their lane colour. G arms it
+   * (CoopChatComponent); Esc or a click beside the map drops it.
+   */
+  armPing(): void {
+    if (!this.inGame() || !this.session) return;
+    this.pingArmed.set(true);
+    this.inputHandler.armPick((hit) => {
+      this.pingArmed.set(false);
+      const engine = this.engineInit.getEngine();
+      if (!engine || !this.session) return;
+      const at = engine.sync.localToGeo(hit);
+      this.session.ping(at.lat, at.lon, at.height ?? 0);
+    });
+  }
+
+  /** Drop an armed ping (Esc) */
+  cancelPing(): void {
+    if (!this.pingArmed()) return;
+    this.pingArmed.set(false);
+    this.inputHandler.disarmPick();
+  }
+
+  /** A player's mark on the map: their name over the place in their lane colour, a tone */
+  private showPing(from: string, lat: number, lon: number, height: number): void {
+    const engine = this.engineInit.getEngine();
+    if (!engine) return;
+    engine.effects.spawnFloatingText(`▼ ${this.nameOf(from)}`, lat, lon, height + 8, {
+      color: this.laneColorOf(from),
+      duration: PING_MS,
+      floatSpeed: 0.4,
+      scale: 1.3,
+    });
+    const tone = UI_SOUNDS.coopPing;
+    const audio = engine.spatialAudio;
+    if (!audio.getSoundConfig(tone.id)) audio.registerSound(tone.id, toneWavDataUrl(tone.notes), { volume: tone.volume });
+    audio.playGlobal(tone.id).catch(() => undefined);
+    if (from !== this.playerId()) this.notify(`${this.nameOf(from)} marked a place on the map`);
+  }
+
+  /** A player's lane colour as CSS, white without a lane */
+  laneColorOf(playerId: string): string {
+    const spawnId = this.roster().find((p) => p.id === playerId)?.spawnId
+      ?? this.room()?.players.find((p) => p.id === playerId)?.spawnId ?? null;
+    const index = spawnId === null ? -1 : (this.room()?.spawnIds ?? []).indexOf(spawnId);
+    return index < 0 ? '#ffffff' : `#${SPAWN_COLORS[index % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`;
+  }
+
   /** Host, lobby: take a player out of the room (review R9) */
   kick(playerId: string): void {
     if (this.isHost() && !this.inGame() && playerId !== this.playerId()) this.session?.kick(playerId);
@@ -646,6 +704,7 @@ export class CoopService {
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
     session.onRtt = inZone((rtt) => this.rtt.set(new Map(rtt)));
+    session.onPing = inZone((from, lat, lon, height) => this.showPing(from, lat, lon, height));
     session.onWaiting = inZone((playerId) => {
       this.waitingFor.set(playerId);
       if (playerId) {

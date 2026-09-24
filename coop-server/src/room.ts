@@ -292,7 +292,8 @@ export class Room {
       case 'chat':
         return this.broadcast({ t: 'chat', from: playerId, text: message.text.slice(0, 500) });
       case 'ping':
-        return this.broadcast({ t: 'ping', from: playerId, lat: message.lat, lon: message.lon });
+        if (![message.lat, message.lon, message.height].every(Number.isFinite)) return;
+        return this.broadcast({ t: 'ping', from: playerId, lat: message.lat, lon: message.lon, height: message.height });
       default:
         return;
     }
