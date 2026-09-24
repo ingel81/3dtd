@@ -68,7 +68,7 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
   `EnemyManager`.
 
 ### P2 Turmdrehung in der Simulation
-- Zustand (aktuelle und Zieldrehung, Suchschwenk, Neigung) wandert auf den Tower (`TowerAim`), `stepTurretAim` läuft in
+- Zustand (aktuelle und Zieldrehung, Suchschwenk, Neigung) wandert auf den Tower (`TowerAim`), `stepTowerAim` läuft in
   `runSubStep` für alle Tower. Der Renderer liest die Drehung nur noch zum Zeichnen.
 - Ob ein Typ ein Turret dreht, steht in der Config (neues Feld), nicht im geladenen Modell. Ein Spec lädt die GLTFs und
   prüft Config gegen Modell.

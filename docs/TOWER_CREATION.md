@@ -94,6 +94,8 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
   footprintRadius: 3.5,          // Radius der Grundfläche (m), siehe "Sockel auf unebenem Grund"
   rotationY: 0,                  // Initiale Y-Rotation in Radians (visuelles Alignment)
   turretBarrelOffset: 0,         // Optional: Turret-Barrel-Orientierung im Model Space (default: 0 = Barrels zeigen +Z)
+  turnsTurret: true,             // Das Modell hat einen Turret-Teil (turret_top/tower_top/top oder turretNode)
+  modelTop: 7.2,                 // Oberkante des platzierten Modells über dem Fuß (m), aus tower-model.spec.ts
   damage: 50,
   range: 60,
   fireRate: 1.0,                 // Schüsse pro Sekunde
@@ -134,6 +136,9 @@ const NEW_MODEL_URL = 'assets/models/towers/new_tower.glb';
 | `rotationY` | number | 0 | Y-Rotation in Radians (visuell) |
 | `turretBarrelOffset` | number | 0 | Barrel-Orientierung im Model Space |
 | `turretNode` | string | - | Name des Nodes, der sich zum Ziel dreht. Überschreibt die Standardnamen `turret_top`/`tower_top`/`top`, ohne Rückfall auf sie; fehlt der Node im Modell, dreht sich nichts und der Renderer warnt einmal pro Typ (Chaos: `crystal`) |
+| `turnsTurret` | boolean | - | Pflicht. Das Modell hat einen Turret-Teil (`turretNode` oder die Standardnamen). Nur dann wartet das Feuern auf die Drehung und der Tower schwenkt nach dem Platzieren. Die Simulation weiß es vor dem Laden des Modells |
+| `turretRestY` | number | 0 | Drehung des Turret-Teils um y in der GLB-Datei (rad): dorthin zeigt der Turm beim Platzieren (Ice, Fire) |
+| `modelTop` | number | - | Pflicht. Oberkante des platzierten Modells über dem Fuß in Metern (`scale`, `rotationY`, `heightOffset`, Ruhepose). Das Auge im bemannten Tower sitzt darüber |
 | `damage` | number | - | Schaden pro Schuss (0 bei beam) |
 | `range` | number | - | Erkennungsreichweite in Metern, bei Beam-Towern zugleich die Kegellänge |
 | `fireRate` | number | - | Schüsse pro Sekunde (0 bei beam) |
@@ -213,19 +218,29 @@ Das 3D-Modell braucht einen benannten Node, der sich dreht:
 - **Name:** `turret_top` (erkannt werden auch `tower_top` und `top`)
 - Heißt der Teil anders, benennt ihn die Tower-Config über `turretNode`, die GLB bleibt
   unverändert (Chaos: `turretNode: 'crystal'`). Dann gilt nur dieser Name, die Standardnamen
-  nicht mehr. Ein Test prüft, dass der Node im Modell existiert; fehlt er zur Laufzeit, warnt
-  der Renderer einmal pro Tower-Typ. Der Turm dreht sich dann nicht, schießt aber weiter:
-  `isTurretAligned` gilt ohne Turret-Teil als erfüllt.
+  nicht mehr.
+- **`turnsTurret` in der Config** sagt der Simulation, ob der Typ einen Turret-Teil hat, ohne
+  das Modell zu laden. `true` bei einem der Namen oben im Modell, sonst `false`. Steht der Teil
+  in der GLB nicht auf Drehung 0 um y, trägt `turretRestY` diese Drehung (Ice, Fire).
+  `configs/tower-model.spec.ts` lädt jede GLB und prüft beide Felder, die Pitch-Nodes und
+  `modelTop` gegen das Modell; nach einem Modelltausch zeigt er die neuen Werte. Fehlt ein
+  konfigurierter `turretNode` zur Laufzeit trotzdem, warnt der Renderer einmal pro Tower-Typ.
 - Dieses Teil rotiert automatisch in Richtung der Feinde
-- Ohne Turret-Teil (Archer, Lightning, Tentacle) dreht `advanceTurretAim()` die Zielrichtung
-  (`currentLocalRotation`) trotzdem mit, nur ohne Node. Ihr folgt der Blutmond-Scheinwerfer
-  (`aimHeading()`), aufs Feuern wartet sie nicht
+- Ohne Turret-Teil (Archer, Lightning, Tentacle) dreht die Simulation die Zielrichtung
+  (`Tower.aim`) trotzdem mit, nur zeigt kein Node sie. Ihr folgt der Blutmond-Scheinwerfer
+  (`aimHeading()`), aufs Feuern wartet sie nicht (`isAimAligned` gilt ohne Turret-Teil)
 
 ### Wie es funktioniert
 
 1. **Model-Struktur:** Das Modell besteht aus statischer Basis und rotierendem Teil
-2. **Mesh-Erkennung:** Der Renderer findet `turret_top` (oder, falls gesetzt, nur den `turretNode` der Config) beim Laden
-3. **Rotation:** `updateRotation()` setzt die Zielrichtung, `advanceTurretAim()` dreht den Turret-Teil pro Sub-Step mit π rad/s (Game-Time) dorthin
+2. **Zustand in der Simulation:** Jeder Tower trägt `aim: TowerAim` (`entities/tower-aim.ts`):
+   aktuelle und Zielrichtung als Geo-Heading, Suchschwenk, Neigung. Die Kampfschleife setzt das
+   Ziel (`aimAt`, `aimIdle`, `releaseAim`), `GameStateManager.runSubStep` dreht am Ende jedes
+   Sub-Steps alle Tower mit π rad/s Game-Time (`stepTowerAim`), mit oder ohne Renderer und
+   unabhängig davon, ob das Modell schon geladen ist
+3. **Zeichnen:** Der Renderer findet `turret_top` (oder, falls gesetzt, nur den `turretNode` der
+   Config) beim Laden und setzt jeden Render-Frame `rotation.y` und die Pitch-Nodes aus `Tower.aim`
+   (`drawTurretAim` in `three-engine/renderers/tower-turret-aim.ts`); er ändert die Richtung nie
 
 ### Koordinatensystem-Konvertierung
 
@@ -261,21 +276,21 @@ rotationY: -Math.PI / 2,         // -90° visuelles Alignment
 turretBarrelOffset: -Math.PI / 2, // Barrels zeigen -X im Model Space
 ```
 
-Der Renderer verwendet `turretBarrelOffset` für die Zielberechnung:
+Der Renderer verwendet `turretBarrelOffset` für die Zeichnung (`headingToLocalRotation` in
+`entities/tower-aim.ts`):
 
 ```typescript
-const turretModelOffset = -(data.typeConfig.turretBarrelOffset ?? 0);
-const threeJsTargetRotation = -heading + turretModelOffset;
-const localRotation = threeJsTargetRotation - parentRotation;
+const turretModelOffset = -(typeConfig.turretBarrelOffset ?? 0);
+const localRotation = -heading + turretModelOffset - parentRotation; // parentRotation = mesh.rotation.y
 ```
 
 ### Ohne Ziel: Richtung halten, nach der Welle Wachrichtung
 
-Ein Projektil-Tower schießt erst, wenn der Turm auf 15° ausgerichtet ist
-(`isTurretAligned`). Deshalb dreht er ohne Ziel nicht mehr in eine
+Ein Projektil-Tower mit Turret-Teil schießt erst, wenn der Turm auf 15° ausgerichtet ist
+(`isAimAligned`). Deshalb dreht er ohne Ziel nicht mehr in eine
 Grundstellung zurück:
 
-- **Während der Welle** ruft die Kampfschleife ohne Ziel `releaseTarget` auf.
+- **Während der Welle** ruft die Kampfschleife ohne Ziel `releaseAim` auf.
   Der Turm beendet die laufende Drehung und hält die Richtung des letzten
   Ziels.
 - **Wachrichtung:** `Tower.guardHeading` zeigt dorthin, wo eine Route in die
@@ -285,11 +300,13 @@ Grundstellung zurück:
   Richtung. Berechnet vom `TowerManager` bei Platzierung, Reichweiten-Upgrade
   und Routenänderung.
 - **Neu platziert** steht der Turm in der Pose, in der er platziert wurde (wie
-  in der Vorschau). Nach 800 ms schwenkt er 75° nach links und rechts um diese
-  Pose und dreht danach mit Zielgeschwindigkeit zur Wachrichtung
-  (`create(..., initialHeading)` setzt nur das Ziel dieser Drehung).
+  in der Vorschau): `createTowerAim` rechnet sie aus `rotationY`, der Drehung
+  beim Platzieren und `turretRestY`, ohne Modell. Nach 800 ms Spielzeit
+  schwenkt ein Turm mit Turret-Teil 75° zu beiden Seiten um diese Pose und
+  dreht danach mit Zielgeschwindigkeit zur Wachrichtung (`TowerManager.placeTower`
+  setzt sie mit `aimIdle` als Ziel). Ein Ziel bricht den Schwenk ab.
 - **Nach der Welle** dreht der `GameStateManager` auf `wave:completed` alle
-  Tower mit `turnTowersToGuard` zur Wachrichtung (`setIdleHeading`, gleiche
+  Tower mit `turnTowersToGuard` zur Wachrichtung (`aimIdle`, gleiche
   Drehgeschwindigkeit wie beim Zielen). Außerhalb einer Welle tut er das,
   sobald kein Gegner mehr lebt (nach `enemy:died`, `enemy:reached-base`,
   `debug:remove-enemy`), und nach einer Routenänderung.
@@ -297,17 +314,19 @@ Grundstellung zurück:
   neuen Wachrichtung, in einer Welle erst nach deren Ende.
 - **Magic** verhält sich seit 2026-09-13 wie die anderen Tower. Vorher drehte
   sich die Kugel ohne Ziel langsam weiter (0,3 rad/s, in Render-Frames statt
-  in Game-Time) und erreichte die Wachrichtung nie. Da `isTurretAligned`
+  in Game-Time) und erreichte die Wachrichtung nie. Da die Ausrichtung
   dieselbe Drehung liest, hing die Zeit bis zum ersten Schuss auf ein neues
   Ziel davon ab, wo die Kugel gerade stand.
 
 ```typescript
 // tower-combat.service.ts
 if (target) {
-  this.tilesEngine?.towers.updateRotation(tower.id, heading);
-  // ... fire
+  aimAt(tower.aim, heading);
+  if (tower.combat.canFire() && isAimAligned(tower.aim)) {
+    // ... fire
+  }
 } else {
-  this.tilesEngine?.towers.releaseTarget(tower.id);
+  releaseAim(tower.aim);
 }
 ```
 
@@ -699,6 +718,7 @@ fire: {
 - [ ] Bei `chain`: `maxJumps`, `chainFalloff`, `jumpRange` gesetzt
 - [ ] Sound-Datei in `/public/assets/sounds/` (optional)
 - [ ] Bei neuem Projektiltyp: Eintrag in `PROJECTILE_SOUNDS` (Pflicht, `Record<ProjectileTypeId, …>`)
+- [ ] `turnsTurret`, `modelTop` (und bei gedrehtem Turret-Teil `turretRestY`) gesetzt, `configs/tower-model.spec.ts` grün
 - [ ] Bei rotierendem Turret: `turret_top` Mesh im Model benannt, oder `turretNode` in der Config gesetzt
 - [ ] Bei rotierendem Turret: `turretBarrelOffset` für Barrel-Orientierung gesetzt
 - [ ] Bei Animationen: `hasAnimations` und ggf. `animationPingPong` gesetzt

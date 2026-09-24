@@ -898,7 +898,7 @@ Spiel-Component bereitgestellt) steuert den Modus, `app-replay-bar` die Leiste.
 ```typescript
 class ReplayRecorder {
   readonly readyWave: Signal<number | null>;  // Welle der fertigen Aufnahme
-  onSubStep(): void;                           // GameStateManager, nach dem Turret-Aim
+  onSubStep(): void;                           // GameStateManager, nach runSubStep (Turmdrehung inklusive)
   finish(outcome: 'completed' | 'gameover'): void;
   clear(): void;
 }
@@ -953,7 +953,8 @@ waveManager.tickSpawn(stepMs);             // nur in der Wave-Phase
 enemyManager.update(stepMs, gameTimeMs);   // Emits immediate events
 towerCombat.updateTowerShooting(...);      // + Beam/Melee/Chain, nur in der Wave-Phase oder mit Debug-Gegnern
 heroManager.update(stepMs);                // eigener Schritt des Helden
-// danach in update(): onSubStep (Turret-Aim, Bot), replayRecorder.onSubStep()
+stepTowerAim(tower.aim, stepMs);           // je Tower: Turmdrehung in Spielzeit, gibt das Feuern frei
+// danach in update(): onSubStep (Bot), replayRecorder.onSubStep()
 ```
 
 ---
@@ -1002,9 +1003,9 @@ class ThreeTowerRenderer {
   constructor(scene: THREE.Scene, sync: CoordinateSync, assetManager: AssetManagerService);
 
   preloadModel(typeId: TowerTypeId): Promise<void>;
-  create(id, typeId, lat, lon, height, customRotation?, initialHeading?): Promise<TowerRenderData | null>;
-  advanceTurretAim(gameTimeStepMs: number): void;  // pro Sub-Step, aus GameLoopFacadeService
-  setIdleHeading(id: string, heading: number): void;  // Guard-Richtung nach der Wave
+  create(id, typeId, lat, lon, height, customRotation, aim: TowerAim): Promise<TowerRenderData | null>;
+  updateAnimations(deltaTime, camera): void;  // pro Render-Frame, zeichnet u. a. Turret-Drehung aus Tower.aim
+  aimHeading(id: string): number | null;  // Richtung von Tower.aim, für den Blutmond-Scheinwerfer
   updateRangeIndicator(id: string, range?: number): void;  // Reichweitenring nach Range-Upgrade
   showPreviewRange(x, y, z, range): void;  // Reichweitenring der Bauvorschau (TowerPlacementService)
   hidePreviewRange(): void;
@@ -1263,7 +1264,7 @@ const animate = (currentTime: number) => {
 function onEngineUpdate(deltaTime: number) {
   // pro Frame: Build-Preview-Rotation, Street-Batches, Keyboard-Pan, Marker, Route-Animation, Intro-Flug
   gameState.update(performance.now(), (stepMs) => {
-    tilesEngine.towers.advanceTurretAim(stepMs);             // pro Sub-Step, Spielzeit
+    // Die Turmdrehung läuft in runSubStep (stepTowerAim je Tower), nicht hier
     if (botEnabled) trainingClient.updateBot(snapshot, stepMs);
   });
   bossIntro.update(deltaTime);  // Boss aus dem Portal: Kameraschnitt, Wanduhr, siehe WAVE_SYSTEM.md

@@ -501,11 +501,9 @@ Es blockieren also drei konkrete Dinge, nicht "das ganze Rendering":
 1. **Angular-DI im `GameStateManager`** → Plain-TS-Konstruktor mit expliziter
    Verdrahtung. Der Client injiziert weiterhin per DI, der Server konstruiert
    direkt.
-2. **`tilesEngine`-Aufrufe**: schon `| null`, aber `advanceTurretAim()` ist
-   gameplay-relevant (Turret-Alignment gated das Feuern, siehe
-   `advanceTurretAim` in `three-tower.renderer.ts`, je Sub-Step aus dem
-   `GameLoopFacadeService` aufgerufen). Muss aus dem Renderer in die Sim-Schicht
-   wandern; der Renderer liest die Rotation dann nur noch ab.
+2. **`tilesEngine`-Aufrufe**: schon `| null`. Die Turmdrehung, die das Feuern
+   freigibt, ist seit 2026-09-24 Simulationszustand (`Tower.aim`, je Sub-Step in
+   `GameStateManager.runSubStep`); der Renderer liest sie nur noch ab.
 3. **Occlusion**, siehe 11.2. Das ist die eigentliche Entscheidung.
 
 Struktureller Umbau: ein plattformneutrales `src/app/sim/` (oder eigenes
