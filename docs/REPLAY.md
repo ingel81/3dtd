@@ -106,6 +106,9 @@ Zellhöhen, Routen, Ursprung), Balance-Hash (`run-log/config-hash.ts`), Seed, di
 des Befehlslogs, den sie brauchen. Die Welt selbst steht nicht darin: Ein Replay rechnet auf der Welt nach, auf der es
 gespielt wurde. Abgelehnt wird mit einem Satz, warum: keine Replay-Datei, andere Version, andere Karte, andere
 Balance, keine Welle. Ein geladenes Replay zeigt „from file“ in der Leiste; der laufende Lauf bleibt unberührt.
+Die Datei trägt auch Spielversion und Commit: Der Balance-Hash deckt die Tabellen ab, nicht den Code. Eine Datei
+einer anderen Version lädt trotzdem, die Leiste sagt dann „from file, other version“ (Tooltip: gespeichert mit
+welcher Version), weil das Replay dort abweichen kann, wo sich die Spiellogik geändert hat.
 
 Das ist zugleich das Match-Log für Coop ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Abschnitt 18): Welt,
 Balance, Seed, Eingaben mit Sub-Step und Sicht-Masken, jeder Eintrag mit `playerId`.
