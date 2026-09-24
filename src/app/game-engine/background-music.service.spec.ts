@@ -116,7 +116,10 @@ vi.mock('three', async (importOriginal) => {
   return { ...three, Audio: FakeAudio, AudioLoader: FakeAudioLoader };
 });
 
-vi.mock('../configs/background-music.config', () => ({ BACKGROUND_MUSIC: reg.testConfig() }));
+vi.mock('../configs/background-music.config', async (importOriginal) => ({
+  cueLeadMs: (await importOriginal<typeof import('../configs/background-music.config')>()).cueLeadMs,
+  BACKGROUND_MUSIC: reg.testConfig(),
+}));
 
 /** Stand-in for the HTMLAudioElement the static main theme creates. */
 class FakeHtmlAudio {
@@ -360,6 +363,26 @@ describe('BackgroundMusicService', () => {
   });
 
   describe('phases', () => {
+    it('shortens the lead by the game speed: at 4x the wave music comes a quarter of the lead earlier', async () => {
+      const saved = BACKGROUND_MUSIC.waveStart;
+      (BACKGROUND_MUSIC as { waveStart: typeof saved }).waveStart = { leadMs: 1200, waveDelayMs: 1000, waveFadeInMs: 2500 };
+      try {
+        const { eventBus, service, playing, startBuild } = setup();
+        service.setGameSpeedSource(() => 4);
+        await startBuild();
+        eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
+        // 1200 / 4 + 1000, one ms short: no wave music yet
+        await vi.advanceTimersByTimeAsync(1299);
+        await flush();
+        expect(playing().some((c) => c.buffer?.url === 'w1.mp3')).toBe(false);
+        await vi.advanceTimersByTimeAsync(1);
+        await flush();
+        expect(playing().some((c) => c.buffer?.url === 'w1.mp3')).toBe(true);
+      } finally {
+        (BACKGROUND_MUSIC as { waveStart: typeof saved }).waveStart = saved;
+      }
+    });
+
     it('fades the build music out before the start signal and brings the wave music in as it rings out', async () => {
       const saved = BACKGROUND_MUSIC.waveStart;
       (BACKGROUND_MUSIC as { waveStart: typeof saved }).waveStart = { leadMs: 900, waveDelayMs: 1400, waveFadeInMs: 2500 };

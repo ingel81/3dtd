@@ -456,12 +456,14 @@ export class GameStateManager {
     this.audioService.setGround(this.globalRouteGrid);
     // Deaths, hits, upgrades, the moments of a run (game-sounds.config.ts)
     this.gameSounds = new GameSoundsService(this.eventBus, tilesEngine);
+    this.gameSounds.setGameSpeedSource(() => this.gameSpeed());
 
     // Initialize Screen Shake service (subscribes to explosion/impact events)
     this.screenShakeService = new ScreenShakeService(this.eventBus, tilesEngine);
 
     // Initialize Background Music service (subscribes to wave/game events)
     this.backgroundMusic = new BackgroundMusicService(this.eventBus, tilesEngine);
+    this.backgroundMusic.setGameSpeedSource(() => this.gameSpeed());
     // The pause sync above only reaches music that is already here
     this.backgroundMusic.setDimmed(this.paused() && !this.gameStore.pauseKeepsLoops());
 
