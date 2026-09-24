@@ -52,6 +52,8 @@ export interface CoopSummaryRow {
   kills: number;
   towers: number;
   goldGiven: number;
+  /** Enemies that got through their lane */
+  leaks: number;
   /** Gold at the end */
   gold: number;
 }
@@ -176,7 +178,9 @@ export class CoopService {
   /** Each player's part of the run, set at game over (review R16); null before */
   readonly summary = signal<CoopSummaryRow[] | null>(null);
   /** Kills, towers built and gold given per player in this run, see summary */
-  private readonly counts = new Map<string, { kills: number; towers: number; goldGiven: number }>();
+  private readonly counts = new Map<string, { kills: number; towers: number; goldGiven: number; leaks: number }>();
+  /** Enemies that got through each player's lane in the wave running or last run (review R15) */
+  readonly waveLeaks = signal<ReadonlyMap<string, number>>(new Map());
   /** G was pressed: the next click on the map is a ping (review R13) */
   readonly pingArmed = signal(false);
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
@@ -221,6 +225,7 @@ export class CoopService {
       if (!this.inGame()) return;
       this.counts.clear();
       this.summary.set(null);
+      this.waveLeaks.set(new Map());
       this.markRunAsCoop();
       this.readyNow = false;
       this.readyIds.set(new Set());
@@ -256,6 +261,17 @@ export class CoopService {
     bus.onLive('tower:placed', ({ tower }) => {
       if (this.inGame()) this.countFor(tower.ownerId).towers++;
     });
+    // Pressure per lane (review R15): whose lane an enemy leaked from
+    bus.onLive('enemy:reached-base', ({ enemy }) => {
+      if (!this.inGame()) return;
+      const owner = this.laneOwnerOf(enemy.movement.path);
+      if (!owner) return;
+      this.countFor(owner).leaks++;
+      this.waveLeaks.update((leaks) => new Map(leaks).set(owner, (leaks.get(owner) ?? 0) + 1));
+    });
+    bus.onLive('wave:started', () => {
+      if (this.waveLeaks().size > 0) this.waveLeaks.set(new Map());
+    });
     bus.onLive('game:over', () => {
       if (!this.inGame()) return;
       this.summary.set(this.roster().map((p) => ({
@@ -265,7 +281,7 @@ export class CoopService {
         left: this.leftIds().has(p.id),
         color: this.laneColorOf(p.id),
         gold: this.gameState.creditsOf(p.id),
-        ...(this.counts.get(p.id) ?? { kills: 0, towers: 0, goldGiven: 0 }),
+        ...(this.counts.get(p.id) ?? { kills: 0, towers: 0, goldGiven: 0, leaks: 0 }),
       })));
     });
 
@@ -528,13 +544,25 @@ export class CoopService {
     });
   }
 
-  private countFor(playerId: string): { kills: number; towers: number; goldGiven: number } {
+  private countFor(playerId: string): { kills: number; towers: number; goldGiven: number; leaks: number } {
     let count = this.counts.get(playerId);
     if (!count) {
-      count = { kills: 0, towers: 0, goldGiven: 0 };
+      count = { kills: 0, towers: 0, goldGiven: 0, leaks: 0 };
       this.counts.set(playerId, count);
     }
     return count;
+  }
+
+  /**
+   * The player whose lane `path` is: an enemy walks the route array of the
+   * spawn it came out of (its children too), the lane of that spawn is theirs
+   */
+  private laneOwnerOf(path: readonly unknown[]): string | null {
+    for (const [spawnId, route] of this.gameState.getCachedPaths()) {
+      if (route !== path) continue;
+      return this.roster().find((p) => p.spawnId === spawnId)?.id ?? null;
+    }
+    return null;
   }
 
   /** The run log marks this run as a coop one: it sets no record of the place (review R16) */
