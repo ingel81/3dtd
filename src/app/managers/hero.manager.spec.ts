@@ -572,4 +572,41 @@ describe('HeroManager', () => {
     expect(heroAt()).toEqual({ x: 10, z: 200 });
     expect(local(manager.getAnchor()!)).toEqual({ x: 10, z: 200 });
   });
+  describe('snapshot', () => {
+    /** A second manager on the same world, as a re-simulation gets it */
+    const twin = () => new HeroManager(new GameEventBus(), (manager as unknown as { world: HeroWorld }).world);
+    const trail = (m: HeroManager, steps: number) => {
+      const out: string[] = [];
+      for (let i = 0; i < steps; i++) {
+        m.update(STEP_MS);
+        const p = m.getHero()!.position;
+        out.push(`${p.lat},${p.lon},${m.getHero()!.transform.rotation}`);
+      }
+      return out;
+    };
+
+    it('goes on bit for bit the same from a restored state, also on his way somewhere', () => {
+      hired();
+      sendTo(-100, 150);
+      expect(manager.moveTo(at(0, 250))).toBe(true);
+      tick(90);
+      expect(manager.isWalking()).toBe(true);
+
+      const state = manager.captureState();
+      const copy = twin();
+      copy.restoreState(JSON.parse(JSON.stringify(state)));
+
+      expect(copy.getStatus()).toEqual(manager.getStatus());
+      expect(trail(copy, 900)).toEqual(trail(manager, 900));
+      expect(copy.captureState()).toEqual(manager.captureState());
+    });
+
+    it('restores a hero not hired yet as none', () => {
+      unlock();
+      const copy = twin();
+      copy.restoreState(manager.captureState());
+      expect(copy.getHero()).toBeNull();
+      expect(copy.getStatus()).toEqual(manager.getStatus());
+    });
+  });
 });

@@ -9,6 +9,13 @@ import { geoHeading } from '../utils/geo-utils';
  * the call without loading the component. EnemyManager would otherwise make
  * it for every enemy every sub-step while only those rounding a corner turn.
  */
+/** See TransformComponent.getRotationState. Plain data. */
+export interface TransformRotationState {
+  rotation: number;
+  target: number;
+  initialized: boolean;
+}
+
 export interface TurningFlagSink {
   isTurning: boolean;
 }
@@ -98,6 +105,19 @@ export class TransformComponent extends Component {
    * towards it: for an enemy whose heading follows from where it stands, a
    * worm segment (managers/worm/worm-path.ts).
    */
+  /** Heading, the heading it turns to and whether it has one, for a snapshot (docs/SIMULATOR_PLAN.md, P4). */
+  getRotationState(): TransformRotationState {
+    return { rotation: this._rotation, target: this.targetRotation, initialized: this.rotationInitialized };
+  }
+
+  /** Put the heading back where getRotationState() found it. */
+  setRotationState(state: TransformRotationState): void {
+    this._rotation = state.rotation;
+    this.targetRotation = state.target;
+    this.rotationInitialized = state.initialized;
+    this.syncTurningFlag();
+  }
+
   setHeading(heading: number): void {
     this.targetRotation = heading;
     this._rotation = heading;
