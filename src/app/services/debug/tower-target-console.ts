@@ -32,7 +32,8 @@ const metres = (m: number): string => `${m.toFixed(1)} m`;
  * Without a target the first reason that holds, in the order the combat
  * loop meets them (TowerCombatService.updateTowerShooting): LOS not
  * resolved yet, no near enemy in a cell of its visibleCells (and what those
- * cells say for it), candidates only beyond its range, or candidates in
+ * cells say for it; a cell without its answer and a spot off the grid count
+ * as not visible, there is no raycast), candidates only beyond its range, or candidates in
  * range not taken yet (a tower takes one in its next turn). A sleeping
  * tower gets the same analysis behind "asleep, ": one that wakes and finds
  * no target sleeps again in the same sub-step, so "asleep" alone says
@@ -95,7 +96,8 @@ export function explainTowerTarget(tower: Tower, enemies: readonly Enemy[], look
   }
   if (candidates.length === 0) {
     return `${why}no candidate in visibleCells (${near.length} near: ${blocked} in cells it does not see, ` +
-      `${noEntry} in cells without its LOS entry, ${unlisted} in cells it sees but missing from visibleCells, ${offGrid} off the grid)${gone}`;
+      `${noEntry} in cells without its LOS entry, ${unlisted} in cells it sees but missing from visibleCells, ` +
+      `${offGrid} off the grid; no entry and off the grid count as not visible)${gone}`;
   }
   const nearest = Math.min(...candidates);
   if (nearest > range) return `${why}candidates only beyond its range (nearest ${metres(nearest)} of ${metres(range)})${gone}`;

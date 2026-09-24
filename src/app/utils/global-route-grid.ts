@@ -1019,29 +1019,26 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Check if position is visible from tower for ground targets (uses pre-computed LOS)
+   * Whether the tower sees a ground target at the position, by the answer
+   * of the cell there (pre-computed LOS). No cell, or a cell without an
+   * answer of this tower (off the corridor, beyond its reach, not resolved
+   * yet), counts as not visible (D2 in SIMULATOR_PLAN.md).
    * @param towerId Tower ID
    * @param localX Target X (local coordinates)
    * @param localZ Target Z (local coordinates)
-   * @returns true if visible, false if blocked, undefined if not in grid
    */
-  isPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean | undefined {
-    const cell = this.getCellAt(localX, localZ);
-    if (!cell) return undefined;
-    return cell.towerVisibility.get(towerId);
+  isPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean {
+    return this.getCellAt(localX, localZ)?.towerVisibility.get(towerId) === true;
   }
 
   /**
-   * Check if position is visible from tower for air targets — pre-computed
-   * against {@link getAirTargetY}. Distinct from ground visibility because a
-   * tall building can block one altitude but not the other.
-   * @returns true if visible, false if blocked, undefined if not in grid /
-   *          tower has no air-LOS data registered
+   * isPositionVisibleFromTower for air targets, pre-computed against
+   * {@link getAirTargetY}. Distinct from ground visibility because a tall
+   * building can block one altitude but not the other. No answer counts as
+   * not visible.
    */
-  isAirPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean | undefined {
-    const cell = this.getCellAt(localX, localZ);
-    if (!cell) return undefined;
-    return cell.airVisibility.get(towerId);
+  isAirPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean {
+    return this.getCellAt(localX, localZ)?.airVisibility.get(towerId) === true;
   }
 
 

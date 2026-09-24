@@ -522,13 +522,6 @@ export class ThreeTilesEngine {
 
     // Every raycast into the tiles is timed per caller, see `__raycastStats()`.
     instrumentRaycasts(this.tilesRenderer.group);
-
-    // Set up Line-of-Sight raycaster for visibility checks
-    // Returns true if line of sight is BLOCKED
-    this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>
-      this.terrain.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
-    );
-
   }
 
   /** DevWorld group - contains terrain directly at local coordinates */
@@ -561,11 +554,6 @@ export class ThreeTilesEngine {
 
     // Setup EnvironmentControls - works with flat local terrain
     this.cameraRig.setupEnvironmentControls(this.scene, this.devWorldGroup);
-
-    // Set up Line-of-Sight raycaster
-    this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>
-      this.terrain.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
-    );
 
     // Mark as loaded immediately (no async tile loading in DevWorld)
     this.tileLoading.markFirstTilesLoaded();

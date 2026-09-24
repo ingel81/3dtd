@@ -316,11 +316,8 @@ export class TowerLifecycle {
    * research:completed. AA-Retrofit unlocks air targeting for towers that
    * were placed WITHOUT it. Their per-cell air visibility was never resolved
    * (registerTower ran with canTargetAir=false), so `cell.airVisibility` has
-   * no entry for them: air-only cells are missing from `visibleCells`
-   * entirely, and for the rest `buildLosCheck` finds no cached answer and
-   * falls back to a synchronous CPU raycast per candidate. Harmless while
-   * air LOS was not enforced in `findTarget` — now that it is, re-register
-   * the affected towers so the grid answers for them.
+   * no entry for them, and combat counts a missing answer as not visible:
+   * re-register the affected towers so the grid answers for them.
    * registerTowerIncremental only samples the entries that are actually
    * missing.
    *
@@ -328,7 +325,8 @@ export class TowerLifecycle {
    * flag from the ResearchStore, and the store learns about the unlock in
    * GameStateSyncService's research:completed handler, which subscribes
    * after this one. Run right here, the recompute still saw air targeting
-   * as locked and resolved no air entry at all.
+   * as locked and resolved no air entry at all. The game loop drains the
+   * queue, one tower per frame (TowerLosRegistry.drainLosQueue).
    */
   scheduleAirRetrofit(effects: ResearchEffect[]): void {
     const unlocksAir = effects.some(

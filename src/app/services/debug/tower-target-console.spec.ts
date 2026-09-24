@@ -69,7 +69,7 @@ describe('explainTowerTarget', () => {
     tower.isSleeping = true;
     expect(explainTowerTarget(tower, [clumpAt(20)], lookup(undefined))).toBe(
       `${tower.id} ice: no target, asleep, no candidate in visibleCells (1 near: 0 in cells it does not see, ` +
-        '0 in cells without its LOS entry, 0 in cells it sees but missing from visibleCells, 1 off the grid)',
+        '0 in cells without its LOS entry, 0 in cells it sees but missing from visibleCells, 1 off the grid; no entry and off the grid count as not visible)',
     );
     tower.losReady = false;
     expect(explainTowerTarget(tower, [clumpAt(20)], lookup(undefined))).toBe(`${tower.id} ice: no target, LOS not resolved yet`);
@@ -85,7 +85,7 @@ describe('explainTowerTarget', () => {
 
     expect(explainTowerTarget(tower, [clumpAt(20)], lookup(rebuilt, (cell) => cell === live || cell === rebuilt))).toBe(
       `${tower.id} ice: no target, asleep, no candidate in visibleCells (1 near: 0 in cells it does not see, ` +
-        '1 in cells without its LOS entry, 0 in cells it sees but missing from visibleCells, 0 off the grid), ' +
+        '1 in cells without its LOS entry, 0 in cells it sees but missing from visibleCells, 0 off the grid; no entry and off the grid count as not visible), ' +
         '2 of 3 visibleCells not in the grid any more',
     );
   });
@@ -98,7 +98,7 @@ describe('explainTowerTarget', () => {
 
     expect(explainTowerTarget(tower, clumps, { cellOf: (enemy) => cellOf.get(enemy), isGridCell: () => true })).toBe(
       `${tower.id} ice: no target, no candidate in visibleCells (4 near: 1 in cells it does not see, ` +
-        '1 in cells without its LOS entry, 1 in cells it sees but missing from visibleCells, 1 off the grid)',
+        '1 in cells without its LOS entry, 1 in cells it sees but missing from visibleCells, 1 off the grid; no entry and off the grid count as not visible)',
     );
   });
 

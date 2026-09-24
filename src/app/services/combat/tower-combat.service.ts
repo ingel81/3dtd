@@ -103,18 +103,12 @@ export class TowerCombatService {
 
   /**
    * Build a per-enemy LoS predicate for a tower. Air enemies resolve against
-   * air-LoS (skyline + clearance), ground enemies against ground-LoS — picked
-   * up from cell.airVisibility / cell.towerVisibility pre-compute, with a
-   * runtime raycast fallback for both.
-   *
-   * `useGridLookup=true` enables the pre-computed cell-visibility fast path
-   * (only safe when the tower's visibleCells set is populated). When false,
-   * we go straight to raycast — used by the radius-query fallback.
+   * air-LoS, ground enemies against ground-LoS: the tower's answer in
+   * cell.airVisibility / cell.towerVisibility of the cell the enemy stands
+   * in (its LosMask). No answer (off the corridor, beyond the reach) counts
+   * as not visible; there is no raycast (D2 in SIMULATOR_PLAN.md).
    */
-  private buildLosCheck(
-    tower: Tower,
-    useGridLookup: boolean,
-  ): ((enemy: Enemy) => boolean) | undefined {
+  private buildLosCheck(tower: Tower): ((enemy: Enemy) => boolean) | undefined {
     const engine = this.tilesEngine;
     if (!engine) return undefined;
     // Shared reusable vector — avoids both a per-enemy AND a per-predicate
@@ -131,27 +125,9 @@ export class TowerCombatService {
         enemy.transform.terrainHeight,
         pos,
       );
-      const isAir = enemy.typeConfig.isAirUnit ?? false;
-      if (useGridLookup) {
-        const visibility = isAir
-          ? this.globalRouteGrid.isAirPositionVisibleFromTower(tower.id, pos.x, pos.z)
-          : this.globalRouteGrid.isPositionVisibleFromTower(tower.id, pos.x, pos.z);
-        if (visibility !== undefined) {
-          return visibility;
-        }
-      }
-      // Raycast fallback. Air targets aim at the visual air altitude
-      // (terrainHeight already lifted to skyline + clearance for air enemies),
-      // ground targets at eye height.
-      const targetLocalY = isAir
-        ? pos.y + enemy.heightOffset
-        : pos.y + 1.5;
-      return engine.towers.hasLineOfSight(
-        tower.id,
-        pos.x,
-        targetLocalY,
-        pos.z,
-      );
+      return enemy.typeConfig.isAirUnit
+        ? this.globalRouteGrid.isAirPositionVisibleFromTower(tower.id, pos.x, pos.z)
+        : this.globalRouteGrid.isPositionVisibleFromTower(tower.id, pos.x, pos.z);
     };
   }
 
@@ -186,48 +162,33 @@ export class TowerCombatService {
   /**
    * Candidate enemies for one tower, written into `_candidateScratch`.
    * findTarget does the exact range check afterwards, so `radiusMeters`
-   * only has to cover it; it is ignored on the fast path.
+   * only has to cover it; only the path without an engine reads it.
    *
-   * FAST PATH: towers with visibleCells read the enemies of those cells from
+   * With an engine, the tower reads the enemies of its visibleCells from
    * the GlobalRouteGrid. Works for ground, air-only and dual-targeting towers:
    * visibleCells is the union of ground + air visible cells, so a "blue-only"
    * cell still produces candidates and buildLosCheck filters them per enemy.
+   * A tower that sees no cell has no candidates: an enemy anywhere else has
+   * no answer of the tower and would not pass buildLosCheck.
    *
-   * FALLBACK: GlobalRouteGrid radius query, O(cells_in_radius). Without an
-   * engine, a geo-distance filter over all alive enemies.
+   * Without an engine (no LOS at all), a geo-distance filter over all alive
+   * enemies.
    *
-   * Enemies whose body lies along the route are in no cell: the fast path
-   * adds each living one, the radius query takes those that reach into it.
-   * findTarget measures them at the tower's aim point (BodyAim).
+   * Enemies whose body lies along the route are in no cell: each living one
+   * is added, findTarget measures it at the tower's aim point (BodyAim).
    */
   private collectCandidates(
     tower: Tower,
     radiusMeters: number,
     enemyManager: EnemyManager,
   ): Enemy[] {
-    if (tower.visibleCells.length > 0) {
+    if (this.tilesEngine) {
       const out = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
+      if (tower.visibleCells.length === 0) return out;
       for (const enemy of this.globalRouteGrid.getBodyEnemies()) {
         if (enemy.alive) out.push(enemy);
       }
       return out;
-    }
-
-    const engine = this.tilesEngine;
-    if (engine) {
-      const towerLocal = engine.sync.geoToLocalSimpleInto(
-        tower.position.lat,
-        tower.position.lon,
-        0,
-        this._towerLocalScratch,
-      );
-      return this.globalRouteGrid.getEnemiesInRadius(
-        towerLocal.x,
-        towerLocal.z,
-        radiusMeters,
-        undefined,
-        this._candidateScratch,
-      );
     }
 
     // Ultimate fallback: geo-distance filter (no engine available).
@@ -263,8 +224,7 @@ export class TowerCombatService {
       0,
       this._towerLocalScratch,
     );
-    // The raycasts run against the tiles, which lodVersion follows
-    this.bodyAim.beginTower(tower, local.x, local.z, engine.towers, engine.terrain.lodVersion);
+    this.bodyAim.beginTower(tower, local.x, local.z);
   }
 
   /**
@@ -375,16 +335,15 @@ export class TowerCombatService {
       if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
       // losCheck dispatches per-enemy on isAirUnit so air targets resolve
-      // against air-LoS (skyline + clearance) and ground targets against
-      // ground-LoS, picked up from cell.airVisibility / cell.towerVisibility
-      // pre-compute, with a runtime raycast fallback for both.
+      // against air-LoS and ground targets against ground-LoS, the tower's
+      // answers in cell.airVisibility / cell.towerVisibility.
       const candidates = this.collectCandidates(
         tower,
         tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
         enemyManager,
       );
       this.beginBodyAim(tower);
-      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
+      const losCheck = this.buildLosCheck(tower);
 
       // Fast path: get cached target or find new one
       let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
@@ -549,7 +508,7 @@ export class TowerCombatService {
       enemyManager,
     );
     this.beginBodyAim(tower);
-    const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
+    const losCheck = this.buildLosCheck(tower);
     const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     const eye = this.mannedEyeInto(tower, this._mannedEye);
@@ -566,7 +525,7 @@ export class TowerCombatService {
           + TOWER_CONTROL.hitAssistM;
       const along = rayHitDistance(eye, dir, point, radius);
       if (along >= bestAlong) continue;
-      // The rules last: they may raycast
+      // The rules last: they are the most work per enemy
       if (!tower.mayEngage(enemy, airTargetingUnlocked, losCheck, this.bodyDistSq)) continue;
       best = enemy;
       bestAlong = along;
@@ -652,7 +611,7 @@ export class TowerCombatService {
       // as the projectile/melee/chain paths — beam towers must not acquire
       // targets behind buildings either.
       this.beginBodyAim(tower);
-      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
+      const losCheck = this.buildLosCheck(tower);
       let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
 
       // Periodic LOS recheck (throttled, same interval as the projectile
@@ -920,7 +879,7 @@ export class TowerCombatService {
         enemyManager,
       );
       this.beginBodyAim(tower);
-      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
+      const losCheck = this.buildLosCheck(tower);
       const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
 
       if (target) {
@@ -998,7 +957,7 @@ export class TowerCombatService {
         enemyManager,
       );
       this.beginBodyAim(tower);
-      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
+      const losCheck = this.buildLosCheck(tower);
       const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
 
       if (!target) {

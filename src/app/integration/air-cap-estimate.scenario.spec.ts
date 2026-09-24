@@ -110,7 +110,6 @@ function createEngine(): never {
   }
   engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['towers']['hasLineOfSight'] = () => true;
   engine['towers']['get'] = () => undefined;
   engine['hero'] = withAutoStubs({});
   engine['flameBeams'] = withAutoStubs({});
@@ -163,7 +162,11 @@ function createGame(): Game {
     )!;
     const local = flatSync.geoToLocalSimple(tower.position.lat, tower.position.lon, ORIGIN.height);
     const cells = grid.getCellsInRange(local.x, local.z, tower.combat.range);
-    for (const cell of cells) cell.towerVisibility.set(tower.id, true);
+    // Open ground: every cell in range answers visible, at ground and air height
+    for (const cell of cells) {
+      cell.towerVisibility.set(tower.id, true);
+      cell.airVisibility.set(tower.id, true);
+    }
     tower.visibleCells = cells;
     tower.losReady = true;
     return tower;

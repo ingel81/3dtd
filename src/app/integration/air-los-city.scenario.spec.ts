@@ -181,21 +181,6 @@ function nearestBlock(
   return best;
 }
 
-/** Is the segment from the tip to the point clear of every block? The CPU fallback of the combat. */
-function segmentClear(
-  tipX: number, tipY: number, tipZ: number,
-  x: number, y: number, z: number,
-  blocks: readonly Block[],
-): boolean {
-  const dx = x - tipX;
-  const dy = y - tipY;
-  const dz = z - tipZ;
-  const len = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (len < 1e-6) return true;
-  const hit = nearestBlock(tipX, tipY, tipZ, dx / len, dy / len, dz / len, blocks);
-  return hit >= len - LOS_VIZ_CONFIG.visibilityBiasMeters;
-}
-
 /**
  * Direction of the centre of texel (px, py) on `face`, the inverse of the
  * face and (s, t) arithmetic in `sampleCubeAtPoint`. Not normalized.
@@ -301,12 +286,6 @@ const FIELD_HEADROOM = 1.6;
 /** Longest a wave may take here, in 16 ms frames. */
 const MAX_FRAMES = 240_000 / 16;
 
-/** Tips of the placed towers, for the CPU fallback of the combat. */
-const towerTips = new Map<string, { x: number; y: number; z: number }>();
-
-/** The blocks the running game stands in, what its CPU fallback casts against. */
-let activeBlocks: readonly Block[] = BLOCKS;
-
 function createEngine(): never {
   const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
   for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'oozes']) {
@@ -314,11 +293,6 @@ function createEngine(): never {
   }
   engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  // The CPU fallback of buildLosCheck, against the same blocks.
-  engine['towers']['hasLineOfSight'] = (id: string, x: number, y: number, z: number) => {
-    const tip = towerTips.get(id);
-    return tip ? segmentClear(tip.x, tip.y, tip.z, x, y, z, activeBlocks) : true;
-  };
   engine['towers']['get'] = () => undefined;
   engine['hero'] = withAutoStubs({});
   engine['flameBeams'] = withAutoStubs({});
@@ -353,8 +327,6 @@ function createGame(
 ): Game {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   GameObject.resetIdCounter();
-  towerTips.clear();
-  activeBlocks = blocks;
 
   const grid = createGrid();
   const paths = new Map<string, GeoPosition[]>([['spawn-1', ROUTE]]);
@@ -376,8 +348,8 @@ function createGame(
     const config = TOWER_TYPES[type];
     const tower = gsm.towerManager.placeTower(localToGeo(x, z), type, 0)!;
     const tipY = config.heightOffset + config.shootHeight;
-    towerTips.set(tower.id, { x, y: tipY, z });
-    // The real registration path: cells in range, resolved against the cube.
+    // The real registration path: cells in reach, resolved against the cube.
+    // The combat reads only these answers, a cell without one is not visible.
     tower.visibleCells = grid.registerTower(
       tower.id, x, z, config.range,
       createCubeContext(x, tipY, z, losCubeFarDistance(config.range), blocks),

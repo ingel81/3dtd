@@ -92,8 +92,7 @@ function createEngine(terrain: Record<string, unknown>): never {
   engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
   engine['terrain'] = withAutoStubs(terrain);
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  // No model data; the CPU line of sight clear
-  engine['towers']['hasLineOfSight'] = () => true;
+  // No model data
   engine['towers']['get'] = () => undefined;
   engine['hero'] = withAutoStubs({});
   engine['flameBeams'] = withAutoStubs({});
