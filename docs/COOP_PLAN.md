@@ -358,6 +358,12 @@ Ursprünglicher Plan:
   - Resync: Host schickt den vollen Zustand. Braucht den Snapshot mitten in der Welle.
   - Hart machen: Trigonometrie aus dem Sim-Pfad, lokale Ebenen-Projektion statt Haversine.
 - Abnahme: absichtlich verfälschter Zustand auf einer Seite wird innerhalb von N Ticks gemeldet.
+- Diagnose am Relay (User, 2026-09-24), gehört zu C5, weil die Abweichungssuche davon lebt:
+  - Log je Raum mit Uhrzeit und Raum-Code: Anlegen, Beitritt und Austritt (mit Name, Grund: Schließen oder
+    Herzschlag), Welt empfangen (Größe, Spawns), Lanes, Bereit, Start (Seed, Roster), Tempo, Hostwechsel, Ende.
+  - Regelmäßige Zeile je laufendem Raum: Tick, Befehle je Sekunde, Spieler mit Ping-Laufzeit, letzte Prüfsummen.
+  - Statusseite des Relays (HTTP GET, JSON und lesbar): offene Räume, Spieler, Zustand, Tick, Alter.
+  - Log zusätzlich in eine Datei (`logs/coop_*.log`), damit ein Lauf danach nachlesbar ist.
 
 ### Nach C5: Wünsche aus dem Browser-Test (User, 2026-09-24)
 
