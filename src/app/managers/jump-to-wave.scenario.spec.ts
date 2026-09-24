@@ -292,7 +292,7 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
 
     bus.emit({ type: 'wave:started', wave: 35, enemyCount: 1 });
     // A kill reward of the run's own
-    bus.emit({ type: 'credits:changed', credits: credits + jumpGold + 40, delta: 40 , source: 'kill' });
+    bus.emit({ type: 'credits:changed', credits: credits + jumpGold + 40, delta: 40 , source: 'kill', playerId: 'local', local: true });
     bus.emit({ type: 'game:over', reason: 'base-destroyed' });
 
     expect(best.newRecord()).toBeNull();

@@ -49,6 +49,7 @@ import { buildWorldPackage, packagePaths, readWorldPackage } from '../coop/world
 import { buildSimWorld, type SimWorld, type SimWorldOptions } from './sim-world';
 
 const SEED = 0xc0de;
+const PLAYERS = ['a', 'b'];
 
 class Client {
   /** This simulation's GameObject id counter while the other one runs */
@@ -118,6 +119,9 @@ function buildClient(relay: LocalRelay, playerId: string, options: SimWorldOptio
   GameObject.resetIdCounter();
   const world = buildSimWorld(services, SEED, options);
   world.gsm.gameSpeed.set(3);
+  // Two players; the eight towers of the world belong to them in turn
+  world.gsm.setPlayers(PLAYERS, playerId);
+  world.towers.forEach((tower, i) => { tower.ownerId = PLAYERS[i % 2]; });
   return new Client(world, relay.connect(playerId));
 }
 
@@ -335,5 +339,89 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     expect(readWorldPackage(text, { ...HEAD, configHash: 'other' }).refusal).toBe('other-balance');
     expect(readWorldPackage('{"format":"3dtd-replay"}', HEAD).refusal).toBe('not-a-world');
     expect(readWorldPackage('not json', HEAD).refusal).toBe('not-a-world');
+  });
+});
+
+describe('Coop players in the simulation (COOP_PLAN C2a)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  it('books each player their own gold, owns what they build and refuses a partner tower', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const start = a.gsm.creditsOf('a');
+    const step = (frames = 3) => {
+      for (let i = 0; i < frames; i++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+      }
+    };
+
+    a.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: 300 / M, lon: 12 / M, height: 0 } });
+    step();
+    const built = a.gsm.towerManager.getAll().find((t) => !a.world.towers.includes(t))!;
+    expect(built.ownerId).toBe('a');
+    const cost = start - a.gsm.creditsOf('a');
+    expect(cost).toBeGreaterThan(0);
+    expect(a.gsm.creditsOf('b')).toBe(start);
+    // The same accounts on both clients, each showing its own
+    expect(b.gsm.creditsOf('a')).toBe(start - cost);
+    expect(a.gsm.credits()).toBe(start - cost);
+    expect(b.gsm.credits()).toBe(start);
+
+    // B may not sell or hold A's tower; A may
+    b.emit({ type: 'command:sell-tower', towerId: built.id });
+    b.emit({ type: 'command:set-hold-fire', towerId: built.id, holdFire: true });
+    step();
+    expect(a.gsm.towerManager.getById(built.id)).toBeTruthy();
+    expect(built.holdFire).toBe(false);
+    expect(a.gsm.creditsOf('b')).toBe(start);
+
+    // Selecting: each client only its own player's towers
+    expect(a.gsm.selectableTower(built.id)).toBe(built.id);
+    expect(b.gsm.selectableTower(built.id)).toBeNull();
+
+    a.emit({ type: 'command:sell-tower', towerId: built.id });
+    step();
+    expect(a.gsm.towerManager.getById(built.id)).toBeFalsy();
+    expect(a.gsm.creditsOf('a')).toBeGreaterThan(start - cost);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+  });
+
+  it('gives the gold of a kill to the owner of the tower that made it', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const earned = new Map<string, number>();
+    const byOwner = new Map<string, number>();
+    const bus = a.gsm.getEventBus();
+    bus.on('credits:changed', (e) => {
+      if (e.source === 'kill') earned.set(e.playerId, (earned.get(e.playerId) ?? 0) + e.delta);
+    });
+    bus.on('enemy:died', (e) => {
+      if (e.killedBy?.kind !== 'tower' || e.credits <= 0) return;
+      const owner = a.gsm.towerManager.getById(e.killedBy.towerId)!.ownerId;
+      byOwner.set(owner, (byOwner.get(owner) ?? 0) + e.credits);
+    });
+
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    let waved = false;
+    for (let f = 0; f < 20000; f++) {
+      relay.closeTick();
+      a.frame(40);
+      b.frame(40);
+      if (a.gsm.waveManager.phase() === 'wave') waved = true;
+      else if (waved) break;
+    }
+    expect(earned.get('a')).toBeGreaterThan(0);
+    expect(earned.get('b')).toBeGreaterThan(0);
+    expect(earned).toEqual(byOwner);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 });

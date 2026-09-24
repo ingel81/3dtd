@@ -75,7 +75,7 @@ describe('Deselect with the pointer left on the tower, playtest 522 replayed', (
     service.initialize(
       canvas,
       { picker: { raycastTowers, raycastTerrain: () => null }, towers: renderer } as never,
-      { towerManager: { selectTower } } as never,
+      { towerManager: { selectTower }, selectableTower: (id: string | null) => id } as never,
       signal(false),
       vi.fn(),
       vi.fn(),

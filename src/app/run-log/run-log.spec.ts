@@ -45,7 +45,7 @@ describe('the run log', () => {
   const open = () => log.open({ seed: 4711, map: 'devworld', player: 'bot', botSkill: 'expert' }, world());
   const book = (delta: number, source: string) => {
     credits += delta;
-    bus.emit({ type: 'credits:changed', credits, delta, source } as never);
+    bus.emit({ type: 'credits:changed', credits, delta, source, playerId: 'local', local: true } as never);
   };
   const kill = (id: string, towerId = 't1') =>
     bus.emit({ type: 'enemy:died', enemy: { id } as never, credits: 5, killedBy: { kind: 'tower', towerId } });

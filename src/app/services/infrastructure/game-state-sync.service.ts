@@ -89,7 +89,7 @@ export class GameStateSyncService {
 
     // ── Credits ───────────────────────────────────────────────────
     this.subs.add(eventBus.onLive('credits:changed', (event) => {
-      this.store.credits.set(event.credits);
+      if (event.local) this.store.credits.set(event.credits);
     }));
 
     // ── Health ────────────────────────────────────────────────────

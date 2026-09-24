@@ -25,6 +25,7 @@ import { getResearch } from '../../configs/research/research-tree.config';
 import type { ResearchId } from '../../configs/research/research.types';
 import type { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { singlePlayer } from '../../integration/single-player-parts';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
@@ -88,7 +89,7 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
     } as unknown as HeroWorld;
     hero = new HeroManager(bus, heroWorld);
     new GameCommandsHandler(
-      { researchManager: research, abilityManager: abilities, heroManager: hero } as unknown as GameStateManager,
+      singlePlayer({ researchManager: research, abilityManager: abilities, heroManager: hero }) as unknown as GameStateManager,
       bus,
     );
 

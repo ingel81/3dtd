@@ -69,7 +69,7 @@ describe('InputHandlerService tower hover', () => {
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());
-    service.initialize(canvas, engine as never, { towerManager: { selectTower } } as never, buildMode, vi.fn(), vi.fn());
+    service.initialize(canvas, engine as never, { towerManager: { selectTower }, selectableTower: (id: string | null) => id } as never, buildMode, vi.fn(), vi.fn());
   });
 
   afterEach(() => {

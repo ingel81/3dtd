@@ -18,13 +18,14 @@ function tower(id: string, cooldown: number): Tower {
     id,
     combat: { cooldownRemaining: cooldown, kills: 2, damageDealt: 40 },
     currentTarget: null,
+    ownerId: 'local',
   } as unknown as Tower;
 }
 
 function source(enemies: Enemy[], towers: Tower[] = [tower('tower-1', 10)]): StateHashSource {
   return {
     subStep: () => 600,
-    credits: () => 250,
+    credits: () => [250],
     baseHealth: () => 480,
     waveNumber: () => 3,
     idCounter: () => 42,

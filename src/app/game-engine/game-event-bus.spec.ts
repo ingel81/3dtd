@@ -201,7 +201,7 @@ describe('GameEventBus', () => {
       bus.onAny(anyHandler);
       bus.on('credits:changed', typedHandler);
 
-      bus.emit({ type: 'credits:changed', credits: 200, delta: 50 , source: 'kill' });
+      bus.emit({ type: 'credits:changed', credits: 200, delta: 50 , source: 'kill', playerId: 'local', local: true });
       bus.emit({ type: 'health:changed', health: 80, delta: -10 });
 
       expect(anyHandler).toHaveBeenCalledTimes(2);

@@ -128,6 +128,7 @@ import { TOWER_TYPES } from '../configs/tower-types.config';
 import { getResearch } from '../configs/research/research-tree.config';
 import { GameEventBus } from '../game-engine';
 import { skippedWavesGold } from '../services/economy.service';
+import { LOCAL_PLAYER_ID } from './game-state/command-log';
 
 function getEventBus(gsm: GameStateManager): GameEventBus {
   return gsm.getEventBus();
@@ -427,14 +428,14 @@ describe('GameStateManager', () => {
 
     describe('command:set-targeting', () => {
       it('sets the strategy and the air sub-strategy of the tower, each only when given', () => {
-        const tower = { targetingStrategy: 'closest', airSubStrategy: 'closest' };
+        const tower = { ownerId: LOCAL_PLAYER_ID, targetingStrategy: 'closest', airSubStrategy: 'closest' };
         vi.spyOn(gsm.towerManager, 'getById').mockImplementation((id) => (id === 't1' ? tower as never : null));
 
         bus.emit({ type: 'command:set-targeting', towerId: 't1', strategy: 'air-priority' });
-        expect(tower).toEqual({ targetingStrategy: 'air-priority', airSubStrategy: 'closest' });
+        expect(tower).toMatchObject({ targetingStrategy: 'air-priority', airSubStrategy: 'closest' });
 
         bus.emit({ type: 'command:set-targeting', towerId: 't1', airSubStrategy: 'lowest-hp' });
-        expect(tower).toEqual({ targetingStrategy: 'air-priority', airSubStrategy: 'lowest-hp' });
+        expect(tower).toMatchObject({ targetingStrategy: 'air-priority', airSubStrategy: 'lowest-hp' });
 
         // An unknown tower (sold meanwhile) changes nothing
         bus.emit({ type: 'command:set-targeting', towerId: 'gone', strategy: 'first' });
@@ -444,7 +445,7 @@ describe('GameStateManager', () => {
 
     describe('command:set-hold-fire', () => {
       it('holds fire of a fighting tower and greys it out, not of a passive building', () => {
-        const archer = { id: 't1', holdFire: false, typeConfig: { id: 'archer', attackType: 'projectile' } };
+        const archer = { id: 't1', ownerId: LOCAL_PLAYER_ID, holdFire: false, typeConfig: { id: 'archer', attackType: 'projectile' } };
         const center = { id: 't2', holdFire: false, typeConfig: { id: 'research-center', attackType: 'passive' } };
         const towers: Record<string, unknown> = { t1: archer, t2: center };
         vi.spyOn(gsm.towerManager, 'getById').mockImplementation((id) => (towers[id] ?? null) as never);
