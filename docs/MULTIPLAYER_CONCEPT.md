@@ -1,6 +1,7 @@
 # Multiplayer-Konzept: PvE-Coop & PvP
 
 > **Status:** Konzept / Entscheidungsvorlage, noch kein Code.
+> **2026-09-24:** PvP ist gestrichen, weiter geht es nur mit Coop "Vier Tore"; Plan in [COOP_PLAN.md](COOP_PLAN.md).
 > **Stand:** 2026-08-26 · Branch `claude/multiplayer-pve-pvp-architecture-amu0x7`;
 > Commands, Korridor und Stellen im Code nachgeführt 2026-09-15; Bezug zum Balancing-Plan 2026-09-19
 >
