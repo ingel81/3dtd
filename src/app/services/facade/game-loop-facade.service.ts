@@ -506,14 +506,9 @@ export class GameLoopFacadeService {
     this.introFlight.update(deltaTime);
 
     // Game logic tick — sub-step loop runs gameplay at fixed game-time
-    // granularity. Bot decisions and turret aim are per-sub-step so they
-    // stay framerate-independent at any training speed.
-    const tilesEngine = this.gameState.tilesEngine;
+    // granularity. Bot decisions are per-sub-step so they stay
+    // framerate-independent at any training speed.
     this.gameState.update(performance.now(), (gameTimeStepMs) => {
-      // Turret aim advances per sub-step in game-time (gameplay-relevant —
-      // alignment gates firing).
-      tilesEngine?.towers.advanceTurretAim(gameTimeStepMs);
-
       // Bot decision tick per sub-step (game-time). The snapshot is passed as
       // a thunk so it is only built on the ticks where the bot's reaction
       // cooldown has actually elapsed.

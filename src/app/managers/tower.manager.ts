@@ -13,6 +13,7 @@ import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
 import { computeGuardHeading } from '../utils/tower-guard-heading';
 import { veteranLevel } from '../configs/veteran-ranks.config';
+import { aimIdle } from '../entities/tower-aim';
 
 /**
  * Manages all tower entities
@@ -168,6 +169,8 @@ export class TowerManager extends EntityManager<Tower> {
 
     const tower = new Tower(position, typeId, customRotation, plinthHeight, plinthOverhang);
     this.refreshGuardHeading(tower);
+    // After its reference sweep the turret faces where the route comes in
+    if (tower.guardHeading !== null) aimIdle(tower.aim, tower.guardHeading);
 
     if (position.height === undefined) {
       console.error('[TowerManager] position.height is undefined! Terrain height must be sampled before placing tower.');
@@ -181,7 +184,7 @@ export class TowerManager extends EntityManager<Tower> {
       position.lon,
       terrainHeight,
       customRotation,
-      tower.guardHeading,
+      tower.aim,
     );
 
     // Stone plinth from the lowest point of the footprint up to the foot,

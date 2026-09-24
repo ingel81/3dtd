@@ -22,15 +22,13 @@ import { bodyPointInCone, coneContains, type Cone } from '../../utils/body-cone'
 import { BodyAim, type BodyAimPoint } from './body-aim';
 import { TOWER_CONTROL } from '../../configs/tower-control.config';
 import { aimDirectionInto, eyeBackAt, eyeInto, rayHitDistance } from '../../utils/manual-aim';
+import { aimAt, aimIdle, aimPitch, aimPitchTowards, isAimAligned, releaseAim } from '../../entities/tower-aim';
 
 /** A shot of the manned tower: at `target`, or a miss when null */
 export interface ManualShot {
   tower: Tower;
   target: Enemy | null;
 }
-
-/** How far along the aim the guns of a manned tower tilt to, m */
-const MANNED_PITCH_POINT_M = 50;
 
 /**
  * TowerCombatService - Handles tower targeting, rotation, and shooting
@@ -90,7 +88,9 @@ export class TowerCombatService {
   private readonly _mannedEye = new Vector3();
   private readonly _mannedDir = new Vector3();
   private readonly _mannedEnemyPos = new Vector3();
-  private readonly _mannedPitchPoint = new Vector3();
+  // Scratch of aimPitch
+  private readonly _pitchTarget = new Vector3();
+  private readonly _pitchMuzzle = new Vector3();
 
   /**
    * Initialize with engine reference
@@ -301,10 +301,14 @@ export class TowerCombatService {
     return out;
   }
 
-  /** Tilt the guns of a tower with pitchNodes towards `target` (visual only). */
+  /** Tilt the guns of a tower with pitchNodes towards `target` (only the model shows it). */
   private aimPitch(tower: Tower, target: Enemy): void {
     if (!tower.typeConfig.pitchNodes || !this.tilesEngine) return;
-    this.tilesEngine.towers.updatePitch(tower.id, this.aimLocalPosition(target));
+    const point = this.aimLocalInto(target, this._pitchTarget);
+    const muzzle = this.muzzleLocal(tower, this._pitchMuzzle);
+    const dx = point.x - muzzle.x;
+    const dz = point.z - muzzle.z;
+    aimPitchTowards(tower.aim, point.y - muzzle.y, Math.sqrt(dx * dx + dz * dz));
   }
 
   /** Where a shot at a body along the route flies to (its aim point); undefined for any other target. */
@@ -329,7 +333,7 @@ export class TowerCombatService {
   /** turnTowersToGuard for a single tower. */
   turnToGuardHeading(tower: Tower): void {
     if (tower.guardHeading === null) return;
-    this.tilesEngine?.towers.setIdleHeading(tower.id, tower.guardHeading);
+    aimIdle(tower.aim, tower.guardHeading);
   }
 
   /**
@@ -390,12 +394,11 @@ export class TowerCombatService {
 
         // Always rotate turret towards target (rotation advances per sub-step)
         const heading = this.calculateHeading(tower.position, this.targetPoint(target));
-        this.tilesEngine?.towers.updateRotation(tower.id, heading);
+        aimAt(tower.aim, heading);
         this.aimPitch(tower, target);
 
         // Fire if cooldown is ready AND turret is aligned
-        const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
-        if (tower.combat.canFire() && turretAligned) {
+        if (tower.combat.canFire() && isAimAligned(tower.aim)) {
           // Periodic LOS recheck (throttled to max ~3/sec per tower) — runs
           // for air targets too now that tall buildings can break air LOS.
           if (losCheck && tower.needsLosRecheck(gameTimeMs)) {
@@ -405,12 +408,12 @@ export class TowerCombatService {
               tower.clearTarget();
               target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
               if (!target) {
-                this.tilesEngine?.towers.releaseTarget(tower.id);
+                releaseAim(tower.aim);
                 continue;
               }
               // Update rotation to new target, don't fire this sub-step
               const newHeading = this.calculateHeading(tower.position, this.targetPoint(target));
-              this.tilesEngine?.towers.updateRotation(tower.id, newHeading);
+              aimAt(tower.aim, newHeading);
               this.aimPitch(tower, target);
               continue;
             }
@@ -430,7 +433,7 @@ export class TowerCombatService {
         // and a turret that swung back to a rest pose had to turn round again
         // (up to 1 s) before it was aligned and allowed to fire. The turn to
         // the guard heading waits for the end of the wave.
-        this.tilesEngine?.towers.releaseTarget(tower.id);
+        releaseAim(tower.aim);
       }
     }
   }
@@ -457,24 +460,13 @@ export class TowerCombatService {
   ): ManualShot | null {
     tower.combat.update(deltaTime);
     const { heading, pitch } = tower.manualAim;
-    const engine = this.tilesEngine;
-    if (engine) {
-      engine.towers.updateRotation(tower.id, heading);
-      if (tower.typeConfig.pitchNodes) {
-        const muzzle = this.muzzleLocal(tower, this._mannedMuzzle);
-        aimDirectionInto(heading, pitch, this._mannedDir);
-        this._mannedPitchPoint.set(
-          muzzle.x + this._mannedDir.x * MANNED_PITCH_POINT_M,
-          muzzle.y + this._mannedDir.y * MANNED_PITCH_POINT_M,
-          muzzle.z + this._mannedDir.z * MANNED_PITCH_POINT_M,
-        );
-        engine.towers.updatePitch(tower.id, this._mannedPitchPoint);
-      }
-    }
+    aimAt(tower.aim, heading);
+    // The guns tilt with the aim, as far as they go (types without pitchNodes keep 0)
+    aimPitch(tower.aim, pitch);
 
     this._mannedAimTarget = tower.losReady ? this.manualTarget(tower, enemyManager) : null;
     if (!tower.losReady || !tower.triggerHeld || !tower.combat.canFire()) return null;
-    if (!(engine?.towers.isTurretAligned(tower.id, TOWER_CONTROL.alignToleranceRad) ?? true)) return null;
+    if (!isAimAligned(tower.aim, TOWER_CONTROL.alignToleranceRad)) return null;
 
     tower.combat.fire();
     tower.lastTargetTime = gameTimeMs;
@@ -677,7 +669,7 @@ export class TowerCombatService {
       if (target) {
         // Rotate turret towards target
         const heading = this.calculateHeading(tower.position, this.targetPoint(target));
-        this.tilesEngine.towers.updateRotation(tower.id, heading);
+        aimAt(tower.aim, heading);
 
         // Get local positions
         const terrainHeight = tower.position.height ?? 0;
@@ -751,7 +743,7 @@ export class TowerCombatService {
         // No target - stop beam and sound, the turret keeps its heading
         this.tilesEngine?.flameBeams.stopBeam(tower.id);
         this.stopFlameSound(tower.id);
-        this.tilesEngine.towers.releaseTarget(tower.id);
+        releaseAim(tower.aim);
       }
     }
 
@@ -934,7 +926,7 @@ export class TowerCombatService {
         tower.isSleeping = false;
 
         const heading = this.calculateHeading(tower.position, this.targetPoint(target));
-        this.tilesEngine.towers.updateRotation(tower.id, heading);
+        aimAt(tower.aim, heading);
 
         if (tower.combat.canFire()) {
           tower.combat.fire();
@@ -955,7 +947,7 @@ export class TowerCombatService {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
           tower.isSleeping = true;
         }
-        this.tilesEngine.towers.releaseTarget(tower.id);
+        releaseAim(tower.aim);
       }
     }
   }

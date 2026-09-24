@@ -11,8 +11,10 @@ import { GameEventBus } from '../game-engine/game-event-bus';
 import { VFXService } from '../game-engine/vfx.service';
 import { AbilityManager, type AbilityWorld } from '../managers/ability.manager';
 import { ThreeTowerRenderer, type TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
+import { createTowerAim } from '../entities/tower-aim';
 import { ABILITIES } from '../configs/abilities.config';
 import { MISSILE_LAUNCH_LOOK } from '../configs/visual-effects.config';
+import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { ThreeTilesEngine } from '../three-engine';
 
 const STEP_MS = 1000 / 60;
@@ -40,7 +42,7 @@ describe('Missile silo: the missile standing in it', () => {
   };
 
   const build = async (id: string): Promise<TowerRenderData> => {
-    const data = (await towers.create(id, 'missile-silo', 48.09, 9.08, 12))!;
+    const data = (await towers.create(id, 'missile-silo', 48.09, 9.08, 12, 0, createTowerAim(TOWER_TYPES['missile-silo'], 0)))!;
     siloId = id;
     manager.buildingChanged('missile-silo');
     return data;

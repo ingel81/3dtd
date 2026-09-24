@@ -9,6 +9,7 @@ import { ENEMY_TYPES, enemyDeathDuration, type EnemyTypeId } from '../configs/en
 import { BURST_PALETTES, MISSILE_LAUNCH_LOOK, OOZE_LOOK, STUN_SPARKS } from '../configs/visual-effects.config';
 import { PROJECTILE_TYPES, type ProjectileTypeId } from '../configs/projectile-types.config';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
+import { createTowerAim, type TowerAim } from '../entities/tower-aim';
 import { ABILITIES, ABILITY_IDS } from '../configs/abilities.config';
 import { REPLAY_CONFIG } from '../configs/replay.config';
 import { GameClock } from '../managers/game-state/game-clock';
@@ -39,15 +40,10 @@ const SHOWN_NONE = 0;
 const SHOWN_ALIVE = 1;
 const SHOWN_DYING = 2;
 
-/** A tower's turret as the live game left it, put back on exit */
+/** A tower as the live game left it, put back on exit */
 interface SavedTower {
-  current: number;
-  target: number;
-  hasTarget: boolean;
-  scanPhase: number;
-  scanStart: number;
-  scanDelay: number;
-  turretY: number | null;
+  /** A copy of its aim (Tower.aim), which the replay turns meanwhile */
+  aim: TowerAim;
   meshVisible: boolean;
   /** Its tentacle's strike, null without a tentacle */
   tentacle: TentacleStrike | null;
@@ -79,8 +75,8 @@ const NEW_STRIKE_DISTANCE_SQ = 0.25;
  *
  * The live game stands still meanwhile (ReplayService pauses it), so the
  * renderers are free: replay enemies and projectiles get instances of their
- * own under `replay-*` ids, the live towers turn to the recorded turret
- * rotations and hide until they were placed, towers sold during the wave
+ * own under `replay-*` ids, the live towers turn to the recorded aims and
+ * hide until they were placed, towers sold during the wave
  * come back as replay models. The oozes get bands of their own, the hero
  * renderer shows the recorded hero, the blood moon look is the recorded
  * wave's. Effect events go out on a bus of the player's own, heard by its
@@ -90,8 +86,10 @@ const NEW_STRIKE_DISTANCE_SQ = 0.25;
  * and the blood moon look back as they were; the live hero is the caller's
  * to show again (HeroManager.presentFrame).
  *
- * The game state is never touched: the player writes to renderers only.
- * Between two frames it interpolates positions, headings and turrets.
+ * The game state is left alone but for the aims of the live towers
+ * (Tower.aim, which the tower renderer draws): the player turns them and
+ * puts them back on exit. Everything else it writes to renderers only.
+ * Between two frames it interpolates positions, headings and aims.
  */
 export class ReplayPlayer {
   private timeMs = 0;
@@ -882,12 +880,11 @@ export class ReplayPlayer {
 
       const n = this.towerNextStamp[i] === stamp ? this.towerNext[i] : s;
       const rotation = lerpAngle(rec.tRot[s], rec.tRot[n], alpha);
+      // The renderer draws the turret from the aim; also on a tower without
+      // a turret part: its searchlight follows the aim. The live game is
+      // paused, nothing else turns it meanwhile.
       const data = engine.towers.get(view.renderId);
-      if (data) {
-        // Also on a tower without a turret part: its searchlight follows the aim
-        data.currentLocalRotation = rotation;
-        if (data.turretPart) data.turretPart.rotation.y = rotation;
-      }
+      if (data) data.aim.current = rotation;
 
       const flags = rec.tFlags[s];
       const a = s * 4;
@@ -930,22 +927,20 @@ export class ReplayPlayer {
     let renderId = tower.id;
     if (live) {
       saved = {
-        current: live.currentLocalRotation,
-        target: live.targetLocalRotation,
-        hasTarget: live.hasTarget,
-        scanPhase: live.scanPhase,
-        scanStart: live.scanStartRotation,
-        scanDelay: live.scanDelayRemaining,
-        turretY: live.turretPart ? live.turretPart.rotation.y : null,
+        aim: { ...live.aim },
         meshVisible: live.mesh.visible,
         tentacle: engine.tentacles.captureStrike(tower.id),
       };
       // The replay turns the turret itself; no sweep of its own in between
-      live.scanPhase = 0;
+      live.aim.scanPhase = 0;
     } else {
       // Sold during the wave: a model of the replay's own while the replay runs
       renderId = `replay-tower-${index}`;
-      void engine.towers.create(renderId, tower.typeId, tower.lat, tower.lon, tower.height, tower.customRotation, null);
+      // With an aim of its own, which only the replay turns
+      if (config) {
+        const aim = createTowerAim(config, tower.customRotation);
+        void engine.towers.create(renderId, tower.typeId, tower.lat, tower.lon, tower.height, tower.customRotation, aim);
+      }
       if (tower.plinthHeight > 0 && config) {
         engine.plinths.create(
           renderId, tower.lat, tower.lon, tower.height, tower.plinthHeight, config.footprintRadius, tower.plinthOverhang,
@@ -992,13 +987,7 @@ export class ReplayPlayer {
     // A strike of the replay's own does not stay on the live tentacle
     if (saved.tentacle) this.engine.tentacles.restoreStrike(view.renderId, saved.tentacle);
     if (!data) return;
-    data.currentLocalRotation = saved.current;
-    data.targetLocalRotation = saved.target;
-    data.hasTarget = saved.hasTarget;
-    data.scanPhase = saved.scanPhase;
-    data.scanStartRotation = saved.scanStart;
-    data.scanDelayRemaining = saved.scanDelay;
-    if (data.turretPart && saved.turretY !== null) data.turretPart.rotation.y = saved.turretY;
+    Object.assign(data.aim, saved.aim);
     data.mesh.visible = saved.meshVisible;
   }
 

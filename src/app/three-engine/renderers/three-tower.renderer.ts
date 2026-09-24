@@ -20,7 +20,6 @@ import {
   Camera,
   Sphere,
   Texture,
-  Vector3,
   WebGLRenderer,
 } from 'three';
 import { CoordinateSync } from './index';
@@ -28,7 +27,8 @@ import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-t
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { createLosRing, createTipMarker } from './tower-overlays';
 import { RangeRingKit, placeRangeRing } from './range-ring';
-import { TurretPitch, createTurretPitch, headingToLocalRotation, localRotationToHeading, pitchTowards, stepTurretAim, turretAimError } from './tower-turret-aim';
+import { TurretPitch, createTurretPitch, drawTurretAim } from './tower-turret-aim';
+import type { TowerAim } from '../../entities/tower-aim';
 import { TowerMuzzleFlash } from './tower-muzzle-flash';
 import { setTowerGreyedOut } from './tower-hold-fire';
 
@@ -55,18 +55,15 @@ export interface TowerRenderData {
   tipY: number;
   // Custom rotation set by user during placement (radians)
   customRotation: number;
-  // Turret rotation animation; a tower without a turret part turns the aim
-  // all the same, nothing in the model shows it (see tower-turret-aim.ts)
-  currentLocalRotation: number; // Current turret rotation (local space)
-  targetLocalRotation: number; // Target turret rotation (local space)
+  /**
+   * The tower's aim (Tower.aim), turned by the simulation; drawn on the
+   * turret part every render frame. A tower without a turret part turns it
+   * all the same, nothing in the model shows it (see entities/tower-aim.ts).
+   */
+  aim: TowerAim;
   // Turret hover animation (e.g., magic tower orb)
   turretBaseY: number; // Original Y position of turret part
   hoverPhaseOffset: number; // Random phase offset for desynchronized hover
-  hasTarget: boolean; // Whether tower is currently targeting an enemy
-  // Scan animation after placement (turret looks left-right-center)
-  scanPhase: number; // 0=inactive, 1=going left, 2=going right, 3=returning to center
-  scanStartRotation: number; // Rotation at start of scan
-  scanDelayRemaining: number; // Delay before scan starts (ms)
   /** Guns that tilt towards the target's height (TowerTypeConfig.pitchNodes) */
   pitch?: TurretPitch;
   // GLTF animation support
@@ -252,8 +249,7 @@ export class ThreeTowerRenderer {
    * @param lon Longitude
    * @param height Terrain height
    * @param customRotation Custom rotation set by user during placement (radians)
-   * @param initialHeading Geo heading the turret starts at (the tower's guard
-   *   heading); null keeps the model's own turret pose
+   * @param aim The tower's aim (Tower.aim), which the turret shows
    */
   async create(
     id: string,
@@ -261,8 +257,8 @@ export class ThreeTowerRenderer {
     lat: number,
     lon: number,
     height: number,
-    customRotation = 0,
-    initialHeading: number | null = null,
+    customRotation: number,
+    aim: TowerAim,
   ): Promise<TowerRenderData | null> {
     const config = TOWER_TYPES[typeId];
     if (!config) {
@@ -301,12 +297,10 @@ export class ThreeTowerRenderer {
       : name === 'turret_top' || name === 'tower_top' || name === 'top';
     let turretPart: Object3D | null = null;
     let turretBaseY = 0;
-    let turretOriginalRotationY = 0; // Preserve model's original turret rotation
     mesh.traverse((node) => {
       if (isTurretNode(node.name) && !turretPart) {
         turretPart = node;
         turretBaseY = node.position.y;
-        turretOriginalRotationY = node.rotation.y;
       }
     });
     // A configured node that is missing is a config error; once per type, so
@@ -317,13 +311,6 @@ export class ThreeTowerRenderer {
     }
     // (Diagnostic removed — fires on every tower placement for types without
     // a named turret part, which was flooding the console during training.)
-
-    // A new turret first makes its reference sweep around the pose it was
-    // placed in (what the placement preview showed), then turns to the guard
-    // heading at aiming speed. Without one it keeps the model's pose.
-    const initialLocalRotation = initialHeading === null
-      ? turretOriginalRotationY
-      : headingToLocalRotation(config, mesh.rotation.y, initialHeading);
 
     // Position in local coordinates - terrain level (without height offset)
     const terrainPos = this.sync.geoToLocal(lat, lon, height);
@@ -414,15 +401,9 @@ export class ThreeTowerRenderer {
       height,
       tipY,
       customRotation,
-      currentLocalRotation: turretOriginalRotationY,
-      targetLocalRotation: initialLocalRotation,
+      aim,
       turretBaseY, // Store original Y for hover animation
       hoverPhaseOffset: Math.random() * Math.PI * 2, // Random start phase
-      hasTarget: false, // Start without target
-      // Start scan animation if tower has a turret (with short delay)
-      scanPhase: turretPart ? 1 : 0, // 1 = start scanning left
-      scanStartRotation: turretOriginalRotationY,
-      scanDelayRemaining: turretPart ? 800 : 0, // 800ms delay before scan starts
       mixer,
       animations,
       currentAction,
@@ -431,6 +412,8 @@ export class ThreeTowerRenderer {
     if (config.pitchNodes && turretPart) {
       renderData.pitch = createTurretPitch(config, turretPart);
     }
+    // Where the aim points already: the model loads while the simulation turns it
+    this.drawAim(renderData);
 
     this.applyParts(renderData);
     this.towers.set(id, renderData);
@@ -541,62 +524,12 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Aim the turret at a target. The node (turret_top) turns only on towers
-   * that have one; the actual rotation is interpolated in advanceTurretAim().
-   */
-  updateRotation(id: string, heading: number): void {
-    const data = this.towers.get(id);
-    if (!data) return;
-
-    data.targetLocalRotation = headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
-    data.hasTarget = true;
-  }
-
-  /**
-   * Tilt the guns of tower `id` towards local point `target` (its aim point),
-   * seen from the tower tip. Towers without pitchNodes ignore it; the tilt
-   * itself is interpolated in advanceTurretAim().
-   */
-  updatePitch(id: string, target: Vector3): void {
-    const data = this.towers.get(id);
-    if (!data?.pitch) return;
-    const dx = target.x - data.mesh.position.x;
-    const dz = target.z - data.mesh.position.z;
-    data.pitch.target = pitchTowards(data.pitch, target.y - data.tipY, Math.sqrt(dx * dx + dz * dz));
-  }
-
-  /**
-   * Turn the turret to a heading without a target (the guard heading between
-   * waves), at the same speed as aiming. The guns level out.
-   */
-  setIdleHeading(id: string, heading: number): void {
-    const data = this.towers.get(id);
-    if (!data) return;
-
-    data.targetLocalRotation = headingToLocalRotation(data.typeConfig, data.mesh.rotation.y, heading);
-    data.hasTarget = false;
-    if (data.pitch) data.pitch.target = 0;
-  }
-
-  /**
-   * Geo heading tower `id` aims at right now: where its turret points, for a
-   * tower without one where its aim has turned to. null while its model is
-   * still loading. The blood moon searchlight follows it.
+   * Geo heading tower `id` aims at right now (Tower.aim): where its turret
+   * points, for a tower without one where its aim has turned to. null while
+   * its model is still loading. The blood moon searchlight follows it.
    */
   aimHeading(id: string): number | null {
-    const data = this.towers.get(id);
-    if (!data) return null;
-    return localRotationToHeading(data.typeConfig, data.mesh.rotation.y, data.currentLocalRotation);
-  }
-
-  /**
-   * The tower has no target any more. The turret finishes its current turn
-   * and then holds that heading.
-   */
-  releaseTarget(id: string): void {
-    const data = this.towers.get(id);
-    if (!data) return;
-    data.hasTarget = false;
+    return this.towers.get(id)?.aim.current ?? null;
   }
 
   /**
@@ -752,8 +685,9 @@ export class ThreeTowerRenderer {
 
   /**
    * Visual update, once per RENDER frame. Drives the selection-ring pulse and
-   * the GLTF mixer (LOD). NO gameplay-affecting state here: turret aim flows
-   * through `advanceTurretAim()`, which is called per sub-step in game-time.
+   * the GLTF mixer (LOD) and draws each turret where its aim points. NO
+   * gameplay-affecting state here: the simulation turns the aim per sub-step
+   * in game-time (Tower.aim, GameStateManager.runSubStep).
    */
   updateAnimations(deltaTime: number, camera: Camera): void {
     this.animationTime += deltaTime * 0.001;
@@ -792,26 +726,20 @@ export class ThreeTowerRenderer {
       }
     }
 
-    // Visual-only per-render-frame extras (magic hover, debug arrow)
+    // Turret aim and the magic hover
     this.updateTurretVisuals();
   }
 
-  /**
-   * Gameplay-affecting turret aim — called per sub-step in game-time.
-   * Rotation speed is a constant ~PI rad/s game-time, so combat alignment
-   * advances at the same rate at every training timescale (sub-stepping
-   * provides the "more ticks per real-frame" at high speeds).
-   */
-  advanceTurretAim(gameTimeStepMs: number): void {
-    for (const data of this.towers.values()) {
-      stepTurretAim(data, gameTimeStepMs);
-    }
+  /** Turn and tilt the turret of `data` to its aim. */
+  private drawAim(data: TowerRenderData): void {
+    drawTurretAim(data.typeConfig, data.mesh.rotation.y, data.turretPart, data.pitch, data.aim);
   }
 
-  /** Visual-only per-render-frame extras: magic hover + debug aim arrow. */
+  /** Per render frame: every turret where its aim points, the magic hover. */
   updateTurretVisuals(): void {
     for (const data of this.towers.values()) {
       if (!data.turretPart) continue;
+      this.drawAim(data);
 
       // Magic tower orb: hover animation (always active, purely visual)
       if (data.typeConfig.id === 'magic') {
@@ -828,23 +756,6 @@ export class ThreeTowerRenderer {
    */
   get(id: string): TowerRenderData | undefined {
     return this.towers.get(id);
-  }
-
-  /**
-   * Check if tower's turret is aligned with its target (within tolerance)
-   * Returns true if:
-   * - Tower has no turret part (static tower, always aligned)
-   * - Turret rotation is within tolerance of target rotation
-   * @param id Tower ID
-   * @param toleranceRadians Maximum allowed deviation in radians (default: ~15°)
-   */
-  isTurretAligned(id: string, toleranceRadians = Math.PI / 12): boolean {
-    const data = this.towers.get(id);
-    if (!data) return true; // Unknown tower, assume aligned
-    if (!data.turretPart) return true; // No turret, always aligned
-
-    // Shortest angle difference
-    return turretAimError(data) <= toleranceRadians;
   }
 
   /**

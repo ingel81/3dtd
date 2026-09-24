@@ -228,7 +228,7 @@ export class ReplayRecording {
   // ── Tower samples (TOWER_SAMPLE_BYTES) ──────────────────────────
   towerSamples = 0;
   tIndex = new Uint16Array(INITIAL_SAMPLES);
-  /** Turret rotation relative to the tower model (TowerRenderData.currentLocalRotation) */
+  /** Aim heading of the tower (Tower.aim.current), rad */
   tRot = new Float32Array(INITIAL_SAMPLES);
   /** TOWER_FLAG */
   tFlags = new Uint8Array(INITIAL_SAMPLES);

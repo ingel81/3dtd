@@ -20,6 +20,7 @@ import { BLOOD_MOON_LOOK } from '../../../configs/blood-moon.config';
 import { TOWER_TYPES, type TowerTypeId } from '../../../configs/tower-types.config';
 import type { CoordinateSync } from '../index';
 import { ThreeTowerRenderer } from '../three-tower.renderer';
+import { aimAt, createTowerAim, stepTowerAim } from '../../../entities/tower-aim';
 import { EllipsoidSync } from '../../ellipsoid-sync';
 import { geoHeading } from '../../../utils/geo-utils';
 
@@ -292,7 +293,8 @@ describe('SearchlightRenderer beam on the tower\'s target', () => {
     };
     const scene = new Scene();
     const towers = new ThreeTowerRenderer(scene, coordinates as never, assetManager as never);
-    const data = (await towers.create('t1', typeId, TOWER.lat, TOWER.lon, 0, 0.4, null))!;
+    const aim = createTowerAim(config, 0.4);
+    const data = (await towers.create('t1', typeId, TOWER.lat, TOWER.lon, 0, 0.4, aim))!;
     const searchlights = new SearchlightRenderer(scene, coordinates, towers);
     searchlights.add('t1', TOWER.lat, TOWER.lon, 0, config);
     const mesh = scene.children.find((child) => child.name === 'searchlights') as Mesh;
@@ -309,10 +311,11 @@ describe('SearchlightRenderer beam on the tower\'s target', () => {
       const dz = to.z - lamp.getZ(0);
       return Math.abs(Math.atan2(axis.x * dz - axis.z * dx, axis.x * dx + axis.z * dz));
     };
+    // The sub-steps turn the aim (GameStateManager.runSubStep)
     const advance = (ms: number) => {
-      for (let t = 0; t < ms; t += STEP_MS) towers.advanceTurretAim(STEP_MS);
+      for (let t = 0; t < ms; t += STEP_MS) stepTowerAim(aim, STEP_MS);
     };
-    return { towers, searchlights, data, material, offTarget, advance };
+    return { aim, searchlights, data, material, offTarget, advance };
   }
 
   it('mirrors the vertex shader\'s aim()', async () => {
@@ -325,10 +328,10 @@ describe('SearchlightRenderer beam on the tower\'s target', () => {
   for (const typeId of lit) {
     for (const withTurret of [true, false]) {
       it(`${typeId} ${withTurret ? 'with' : 'without'} a turret part: the beam points at the target`, async () => {
-        const { towers, searchlights, offTarget, advance } = await setup(typeId, withTurret);
+        const { aim, searchlights, offTarget, advance } = await setup(typeId, withTurret);
         for (const target of TARGETS) {
           // As TowerCombatService aims
-          towers.updateRotation('t1', geoHeading(TOWER, target));
+          aimAt(aim, geoHeading(TOWER, target));
           advance(2000);
           searchlights.aim();
           expect(offTarget(target)).toBeLessThan(1e-6);
@@ -338,18 +341,17 @@ describe('SearchlightRenderer beam on the tower\'s target', () => {
   }
 
   it('follows the rotation the wave replay writes, the game paused', async () => {
-    const { towers, searchlights, data, offTarget, advance } = await setup('cannon', true);
-    towers.updateRotation('t1', geoHeading(TOWER, TARGETS[0]));
+    const { aim, searchlights, data, offTarget, advance } = await setup('cannon', true);
+    aimAt(aim, geoHeading(TOWER, TARGETS[0]));
     advance(2000);
-    const recorded = data.currentLocalRotation;
-    towers.updateRotation('t1', geoHeading(TOWER, TARGETS[1]));
+    const recorded = aim.current;
+    aimAt(aim, geoHeading(TOWER, TARGETS[1]));
     advance(2000);
     searchlights.aim();
     expect(offTarget(TARGETS[1])).toBeLessThan(1e-6);
 
-    // As ReplayPlayer writes a frame: the recorded rotation, no sub-step after it
-    data.currentLocalRotation = recorded;
-    data.turretPart!.rotation.y = recorded;
+    // As ReplayPlayer writes a frame: the recorded aim, no sub-step after it
+    data.aim.current = recorded;
     searchlights.aim();
     expect(offTarget(TARGETS[0])).toBeLessThan(1e-6);
   });

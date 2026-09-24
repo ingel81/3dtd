@@ -7,6 +7,7 @@ import type { TowerTypeId } from '../../configs/tower-types.config';
 import type { RouteCell } from '../../utils/route-cell';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
+import { isAimAligned } from '../../entities/tower-aim';
 
 /** How long `__towerTargets.watch()` logs after an ooze breaks up, s */
 const WATCH_SECONDS = 6;
@@ -15,8 +16,6 @@ const WATCH_SECONDS = 6;
 export interface TowerTargetLookup {
   /** The route cell under an enemy, undefined off the grid */
   cellOf(enemy: Enemy): RouteCell | undefined;
-  /** Whether the turret is within the firing tolerance (ThreeTowerRenderer.isTurretAligned) */
-  aligned(towerId: string): boolean;
   /** Whether `cell` is still the grid's cell at its place, false for one a rebuild replaced */
   isGridCell(cell: RouteCell): boolean;
 }
@@ -65,7 +64,7 @@ export function explainTowerTarget(tower: Tower, enemies: readonly Enemy[], look
     const cooldown = tower.combat.cooldownRemaining;
     if (cooldown > 0) holds.push(`cooldown ${(cooldown / 1000).toFixed(1)} s`);
     const projectile = (tower.typeConfig.attackType ?? 'projectile') === 'projectile';
-    if (projectile && !lookup.aligned(tower.id)) holds.push('turret not aligned');
+    if (projectile && !isAimAligned(tower.aim)) holds.push('turret not aligned');
     const at = target.body ? '' : ` at ${metres(geoDistanceFast(tower.position, target.position))}`;
     return `${head}: target ${target.typeConfig.id} ${target.id}${at}, ${holds.length > 0 ? holds.join(', ') : 'free to fire'}`;
   }
@@ -144,7 +143,7 @@ export class TowerTargetConsole {
     this.api = null;
   }
 
-  /** The route cell and turret gate as the live game answers them, null without a location. */
+  /** The route cells as the live game answers them, null without a location. */
   private lookup(): TowerTargetLookup | null {
     const engine = this.deps.engineInit.getEngine();
     if (!engine) return null;
@@ -154,7 +153,6 @@ export class TowerTargetConsole {
         const local = engine.sync.geoToLocalSimple(enemy.position.lat, enemy.position.lon, 0);
         return grid.getCellAt(local.x, local.z);
       },
-      aligned: (towerId) => engine.towers.isTurretAligned(towerId),
       isGridCell: (cell) => grid.getCellAt(cell.x, cell.z) === cell,
     };
   }

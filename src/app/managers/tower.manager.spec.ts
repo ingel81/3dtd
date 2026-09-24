@@ -89,8 +89,10 @@ describe('TowerManager', () => {
       position.lon,
       position.height,
       0.5,
-      null, // no routes, so no guard heading
+      tower.aim, // the renderer draws the tower's own aim
     );
+    // No routes, so no guard heading: the aim stays where it was placed
+    expect(tower.aim.target).toBe(tower.aim.current);
     expect(tilesEngine.effects.spawnTowerInnerFire).toHaveBeenCalledWith(
       tower.id,
       { x: 0, y: 0, z: 0 },
@@ -201,16 +203,16 @@ describe('TowerManager', () => {
     const southbound = [{ lat: 1.01, lon: 2.00005 }, { lat: 0.99, lon: 2.00005 }];
     const place = () => manager.placeTower({ lat: 1, lon: 2, height: 0 }, 'archer') as Tower;
 
-    it('is computed on placement and handed to the renderer', () => {
+    it('is computed on placement and the aim turns to it', () => {
       manager.setActiveRoutesGetter(() => [southbound]);
       const tower = place();
 
       // Entered from the north, slightly east of it.
       expect(tower.guardHeading).toBeGreaterThan(0);
       expect(tower.guardHeading).toBeLessThan(Math.PI / 4);
-      expect(tilesEngine.towers.create).toHaveBeenCalledWith(
-        tower.id, 'archer', 1, 2, 0, 0, tower.guardHeading,
-      );
+      expect(tower.aim.target).toBe(tower.guardHeading);
+      expect(tower.aim.hasTarget).toBe(false);
+      expect(tilesEngine.towers.create).toHaveBeenCalledWith(tower.id, 'archer', 1, 2, 0, 0, tower.aim);
     });
 
     it('is null when no route reaches the range', () => {

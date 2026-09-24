@@ -10,8 +10,8 @@
  * StatusEffectService and ProjectileManager, in GameStateManager's sub-step
  * order. Stubbed: the GPU line of sight (every cell in a tower's range is
  * visible to it, as registerTower resolves it with nothing in the way) and
- * the renderer (turrets count as aligned). The wall clock runs at game time
- * divided by the timescale.
+ * the renderer; the turrets turn as in the game (Tower.aim). The wall clock
+ * runs at game time divided by the timescale.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Vector3 } from 'three';
@@ -39,6 +39,7 @@ import { ProjectileManager } from '../managers/projectile.manager';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { GameObject } from '../core/game-object';
 import { Tower } from '../entities/tower.entity';
+import { stepTowerAim } from '../entities/tower-aim';
 import type { Enemy } from '../entities/enemy.entity';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { RouteWaypoint } from '../models/game.types';
@@ -84,11 +85,7 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
       sync: flatSync,
       terrain: { lodVersion: 1 },
       towers: {
-        updateRotation: vi.fn(),
-        isTurretAligned: () => true,
-        releaseTarget: vi.fn(),
         hasLineOfSight: () => true,
-        setIdleHeading: vi.fn(),
         get: () => undefined,
       },
       enemies: { ...mock.enemies, triggerHitFlash: vi.fn() },
@@ -144,6 +141,7 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
     enemies.update(STEP, now);
     combat.updateTowerShooting(now, STEP, towerManager as never, enemies, projectiles);
     combat.updateBeamTowers(STEP, towerManager as never, enemies, now);
+    for (const tower of towers) stepTowerAim(tower.aim, STEP);
   };
 
   const clumps = (): Enemy[] => enemies.getAlive().filter((e) => e.typeConfig.id === 'slime-clump');

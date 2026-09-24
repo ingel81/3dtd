@@ -81,7 +81,6 @@ function createEngine(): never {
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
   engine['hero'] = withAutoStubs({});
   engine['towers']['hasLineOfSight'] = () => true;
-  engine['towers']['isTurretAligned'] = () => true;
   engine['towers']['aimHeading'] = () => null;
   engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
   (engine as Record<string, unknown>)['renderingEnabled'] = false;

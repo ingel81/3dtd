@@ -13,6 +13,7 @@ import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/route-cell';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { canTargetAirEffective } from './tower-targeting.util';
+import { TowerAim, createTowerAim } from './tower-aim';
 
 /**
  * Tower entity - combines Transform, Combat, and Render components
@@ -113,6 +114,12 @@ export class Tower extends GameObject {
    */
   guardHeading: number | null = null;
 
+  /**
+   * Where the turret points and turns to (tower-aim.ts). Simulation state,
+   * stepped per sub-step for every tower; the renderer only draws it.
+   */
+  readonly aim: TowerAim;
+
   /** Cached current target - avoid re-searching every frame */
   private _currentTarget: Enemy | null = null;
 
@@ -135,6 +142,7 @@ export class Tower extends GameObject {
     super('tower');
     this.typeConfig = getTowerType(typeId);
     this.customRotation = customRotation;
+    this.aim = createTowerAim(this.typeConfig, customRotation);
     this.plinthHeight = plinthHeight;
     this.plinthOverhang = plinthOverhang;
     this.targetingStrategy = this.typeConfig.defaultTargeting ?? 'closest';

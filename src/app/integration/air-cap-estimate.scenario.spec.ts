@@ -110,7 +110,6 @@ function createEngine(): never {
   }
   engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['towers']['isTurretAligned'] = () => true;
   engine['towers']['hasLineOfSight'] = () => true;
   engine['towers']['get'] = () => undefined;
   engine['hero'] = withAutoStubs({});

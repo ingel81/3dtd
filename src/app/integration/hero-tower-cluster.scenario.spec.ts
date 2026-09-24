@@ -97,8 +97,7 @@ function createEngine(): never {
   }
   engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  // Turrets on target at once; no model data; the CPU line of sight clear
-  engine['towers']['isTurretAligned'] = () => true;
+  // No model data; the CPU line of sight clear
   engine['towers']['hasLineOfSight'] = () => true;
   engine['towers']['get'] = () => undefined;
   engine['hero'] = withAutoStubs({});

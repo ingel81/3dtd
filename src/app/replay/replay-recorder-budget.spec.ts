@@ -50,7 +50,6 @@ describe('ReplayRecorder under the memory budget', () => {
       engine: () => ({
         renderingEnabled: true,
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, t: Vector3) => t },
-        towers: { get: () => undefined },
         flameBeams: { getBeam: () => null },
         tentacles: { getStrikeTarget: () => null },
       }),
