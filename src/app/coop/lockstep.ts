@@ -42,6 +42,8 @@ export interface LockstepLink {
   commandsAt(tick: number): readonly StampedCommand[];
   /** The tick is done here; a link may drop what it kept for it. */
   release(tick: number): void;
+  /** The state hash at the boundary of `tick`, before its commands ran; every HASH_EVERY_TICKS ticks (C5). */
+  reportHash(tick: number, hash: number): void;
 }
 
 /** The tick whose commands act at sub-step boundary `boundary`, or -1 when none act there. */

@@ -7,9 +7,10 @@
  * world package and the commands pass through it as opaque data.
  */
 import type { StampedCommand } from './lockstep';
+import type { ClientInfo } from './client-info';
 
 /** Bumped whenever a message changes shape; client and relay must agree. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
@@ -22,6 +23,8 @@ export interface CoopPlayerInfo {
   spawnId: string | null;
   /** Ready to start (lobby) */
   ready: boolean;
+  /** What they play with (browser or desktop build, version, system); null when the client did not say */
+  client: ClientInfo | null;
 }
 
 /** What a room looks like to everyone in it. */
@@ -48,7 +51,7 @@ export type RefusalReason =
 
 export type ClientMessage =
   /** First message: who is there and with what game */
-  | { t: 'hello'; protocol: number; name: string; gameVersion: string; configHash: string }
+  | { t: 'hello'; protocol: number; name: string; gameVersion: string; configHash: string; client?: ClientInfo }
   /** Open a room and be its host */
   | { t: 'create' }
   | { t: 'join'; room: string }
@@ -56,11 +59,15 @@ export type ClientMessage =
   | { t: 'world'; world: unknown; spawnIds: string[] }
   /** Lobby: take a spawn as one's lane, or give it back (null) */
   | { t: 'pick'; spawnId: string | null }
+  /** Lobby: another name; the relay numbers it where someone has it already */
+  | { t: 'rename'; name: string }
   | { t: 'ready'; ready: boolean }
   /** Host: start the game once everyone has a lane and is ready */
   | { t: 'start'; seed: number }
   /** In the game: a command, stamped into the next tick by the relay */
   | { t: 'cmd'; command: StampedCommand['command'] }
+  /** In the game: the state hash at the boundary of `tick`, every HASH_EVERY_TICKS ticks (C5) */
+  | { t: 'hash'; tick: number; hash: number }
   /** Host: game speed; 0 pauses */
   | { t: 'speed'; speed: number }
   | { t: 'chat'; text: string }
@@ -76,6 +83,8 @@ export type ServerMessage =
   | { t: 'started'; seed: number; players: string[]; lanes: [string, string][]; speed: number }
   /** A closed tick with the commands that act at it */
   | { t: 'tick'; tick: number; commands: StampedCommand[] }
+  /** The simulations ran apart: the first tick with different hashes, player id and hash each (C5) */
+  | { t: 'desync'; tick: number; hashes: [string, number][] }
   | { t: 'speed'; speed: number }
   | { t: 'chat'; from: string; text: string }
   | { t: 'ping'; from: string; lat: number; lon: number }

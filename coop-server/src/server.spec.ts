@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, afterEach } from 'vitest';
 import { WebSocket } from 'ws';
-import { startRelay, type RelayServer } from './server.ts';
+import { startRelay, type RelayServer, type RelayStatus } from './server.ts';
 import { PROTOCOL_VERSION, type ClientMessage, type ServerMessage } from '../../src/app/coop/protocol.ts';
 
 /** A client on a real socket that keeps what it heard. */
@@ -66,6 +66,61 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     const leave = await b.until('tick', (m) => m.commands.some((c) => c.command.type === 'command:leave-game'));
     expect(leave.commands.find((c) => c.command.type === 'command:leave-game')!.playerId).toBe(a.playerId);
     b.close();
+  });
+
+  it('reports a desync to both, logs with the room code and shows the room on the status page (C5)', async () => {
+    const lines: string[] = [];
+    relay = await startRelay({ port: 0, log: (line) => lines.push(line) });
+    const a = await client(relay.port, 'Ann');
+    const b = await client(relay.port, 'Bob');
+    a.send({ t: 'create' });
+    const { room } = await a.until('room');
+    b.send({ t: 'join', room: room.code });
+    await b.until('room', (m) => m.room.players.length === 2);
+    a.send({ t: 'world', world: {}, spawnIds: ['s1', 's2'] });
+    a.send({ t: 'pick', spawnId: 's1' });
+    b.send({ t: 'pick', spawnId: 's2' });
+    a.send({ t: 'ready', ready: true });
+    b.send({ t: 'ready', ready: true });
+    await a.until('room', (m) => m.room.players.every((p) => p.ready));
+    a.send({ t: 'start', seed: 42 });
+    await b.until('started');
+
+    a.send({ t: 'hash', tick: 15, hash: 0xabc });
+    b.send({ t: 'hash', tick: 15, hash: 0xdef });
+    const desync = await a.until('desync');
+    expect(desync).toEqual({ t: 'desync', tick: 15, hashes: [[a.playerId, 0xabc], [b.playerId, 0xdef]] });
+    await b.until('desync');
+
+    const status = await (await fetch(`http://localhost:${relay.port}/status`)).json() as RelayStatus;
+    expect(status.rooms).toHaveLength(1);
+    expect(status.rooms[0]).toMatchObject({ code: room.code, started: true, firstDesync: 15, desyncs: 1 });
+    expect(status.rooms[0].players.map((p) => p.name)).toEqual(['Ann', 'Bob']);
+    const text = await (await fetch(`http://localhost:${relay.port}/`)).text();
+    expect(text).toContain(`${room.code}  in game`);
+    expect(text).toContain('DESYNC since tick 15');
+
+    expect(lines.some((l) => l.startsWith(`[${room.code}] opened by Ann`))).toBe(true);
+    expect(lines.some((l) => l.startsWith(`[${room.code}] DESYNC at tick 15`))).toBe(true);
+    a.close();
+    await b.until('left');
+    b.close();
+  });
+
+  it('drops what a client sends beyond the rate limit (R17)', async () => {
+    const lines: string[] = [];
+    relay = await startRelay({ port: 0, log: (line) => lines.push(line) });
+    const a = await client(relay.port, 'Ann');
+    a.send({ t: 'create' });
+    const { room } = await a.until('room');
+    // 300 chat lines at once: the relay passes some and drops the rest
+    for (let i = 0; i < 300; i++) a.send({ t: 'chat', text: `line ${i}` });
+    await a.until('chat', (m) => m.text === 'line 100');
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const chats = a.heard.filter((m) => m.t === 'chat').length;
+    expect(chats).toBeLessThan(300);
+    expect(lines.some((l) => l.startsWith(`[${room.code}]`) && l.includes('sends too fast'))).toBe(true);
+    a.close();
   });
 
   it('refuses a client of another protocol and a room that is not there', async () => {

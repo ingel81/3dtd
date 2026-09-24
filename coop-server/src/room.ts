@@ -9,9 +9,14 @@
  * barrier in the GameStateManager), so the next open tick is always safe
  * to put a command in.
  *
+ * In the game every client reports its state hash every HASH_EVERY_TICKS
+ * ticks; the room compares them (HashCheck) and tells everyone the first
+ * tick where they differ (C5).
+ *
  * Pure: messages come in through receive(), go out through `send`, time
  * comes in through advance(). The server (server.ts) wires sockets and a
- * timer to it; the spec drives it by hand.
+ * timer to it; the spec drives it by hand. What happens goes to `log`, one
+ * line per event, for the diagnosis of a run (C5).
  */
 import type {
   ClientMessage,
@@ -24,6 +29,8 @@ import type { StampedCommand } from '../../src/app/coop/lockstep.ts';
 import { MAX_PLAYERS } from '../../src/app/coop/protocol.ts';
 import { TICK_SUB_STEPS } from '../../src/app/coop/lockstep.ts';
 import { GameClock } from '../../src/app/managers/game-state/game-clock.ts';
+import { HashCheck } from '../../src/app/coop/hash-check.ts';
+import { clientLabel, type ClientInfo } from '../../src/app/coop/client-info.ts';
 
 /** Game time one tick stands for, ms. */
 export const TICK_MS = TICK_SUB_STEPS * GameClock.FIXED_STEP_MS;
@@ -39,12 +46,46 @@ export interface RoomPlayer {
   name: string;
   gameVersion: string;
   configHash: string;
+  client?: ClientInfo | null;
 }
 
 type Send = (playerId: string, message: ServerMessage) => void;
 
+export interface RoomOptions {
+  /** One line per event, without the room code (the server puts it in front) */
+  log?: (line: string) => void;
+  /** Wall clock, ms */
+  now?: () => number;
+}
+
+/** A room as the status page and the relay's status line show it. */
+export interface RoomStatus {
+  code: string;
+  hostId: string;
+  started: boolean;
+  speed: number;
+  /** The last tick closed, -1 before the first */
+  tick: number;
+  ageMs: number;
+  /** Commands stamped since the start */
+  commands: number;
+  /** Hash reports that disagreed, the first one included */
+  desyncs: number;
+  /** The first tick with different hashes, null while none */
+  firstDesync: number | null;
+  players: {
+    id: string;
+    name: string;
+    spawnId: string | null;
+    ready: boolean;
+    client: ClientInfo | null;
+    /** The last hash the player reported, null before the first */
+    lastHash: { tick: number; hash: number } | null;
+  }[];
+}
+
 export class Room {
-  private readonly players: (CoopPlayerInfo & { gameVersion: string; configHash: string })[] = [];
+  private readonly players: (Omit<CoopPlayerInfo, 'client'> & { client: ClientInfo | null; gameVersion: string; configHash: string })[] = [];
   private hostId: string;
   private world: unknown = null;
   private spawnIds: string[] = [];
@@ -57,14 +98,26 @@ export class Room {
   /** Game time run up and not yet closed into a tick, ms */
   private pending = 0;
 
+  private readonly hashCheck = new HashCheck();
+  private commandCount = 0;
+  private desyncCount = 0;
+  private firstDesync: number | null = null;
+
   readonly code: string;
   private readonly send: Send;
+  private readonly log: (line: string) => void;
+  private readonly now: () => number;
+  private readonly createdAt: number;
 
-  constructor(code: string, host: RoomPlayer, send: Send) {
+  constructor(code: string, host: RoomPlayer, send: Send, options: RoomOptions = {}) {
     this.code = code;
     this.send = send;
+    this.log = options.log ?? (() => undefined);
+    this.now = options.now ?? (() => performance.now());
+    this.createdAt = this.now();
     this.hostId = host.id;
-    this.players.push({ ...host, spawnId: null, ready: false });
+    this.players.push({ ...host, client: host.client ?? null, spawnId: null, ready: false });
+    this.log(`opened by ${this.who(host.id)}, game ${host.gameVersion}, balance ${host.configHash}${this.clientOf(host.id)}`);
     this.broadcastRoom();
   }
 
@@ -89,7 +142,8 @@ export class Room {
     const host = this.players.find((p) => p.id === this.hostId)!;
     if (player.gameVersion !== host.gameVersion) return 'version';
     if (player.configHash !== host.configHash) return 'balance';
-    this.players.push({ ...player, name: this.freeName(player.name), spawnId: null, ready: false });
+    this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnId: null, ready: false });
+    this.log(`${this.who(player.id)} joined (${this.players.length} players)${this.clientOf(player.id)}`);
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
     return null;
@@ -101,14 +155,16 @@ export class Room {
    * so every client closes it at the same boundary. The host goes to the
    * next player in join order (D22).
    */
-  leave(playerId: string): void {
+  leave(playerId: string, reason = 'closed'): void {
     const index = this.players.findIndex((p) => p.id === playerId);
     if (index < 0) return;
+    this.log(`${this.who(playerId)} left (${reason})${this.started ? `, lane closes after tick ${this.lastTick}` : ''}`);
     this.players.splice(index, 1);
     if (this.started) this.open.push({ playerId, command: { type: 'command:leave-game' } });
     this.broadcast({ t: 'left', playerId });
     if (playerId === this.hostId && this.players.length > 0) {
       this.hostId = this.players[0].id;
+      this.log(`host is now ${this.who(this.hostId)}`);
       this.broadcast({ t: 'host', hostId: this.hostId });
     }
     if (this.players.length > 0) this.broadcastRoom();
@@ -124,6 +180,7 @@ export class Room {
         if (this.started) return this.refuse(playerId, 'started');
         this.world = message.world;
         this.spawnIds = [...message.spawnIds];
+        this.log(`world from the host, ${Math.round(JSON.stringify(this.world).length / 1024)} kB, spawns ${this.spawnIds.join(', ') || 'none'}`);
         for (const p of this.players) {
           if (p.spawnId !== null && !this.spawnIds.includes(p.spawnId)) p.spawnId = null;
           if (p.id !== playerId) this.send(p.id, { t: 'world', world: this.world });
@@ -139,11 +196,22 @@ export class Room {
         }
         player.spawnId = spawnId;
         if (spawnId === null) player.ready = false;
+        this.log(`${this.who(playerId)} ${spawnId === null ? 'gave the lane back' : `took lane ${spawnId}`}`);
+        return this.broadcastRoom();
+      }
+      case 'rename': {
+        if (this.started) return this.refuse(playerId, 'started');
+        const before = this.who(playerId);
+        const name = String(message.name).trim().slice(0, 32);
+        if (!name || name === player.name) return;
+        player.name = this.freeName(name, playerId);
+        this.log(`${before} is now ${player.name}`);
         return this.broadcastRoom();
       }
       case 'ready':
         if (this.started) return;
         player.ready = message.ready && player.spawnId !== null;
+        this.log(`${this.who(playerId)} ${player.ready ? 'ready' : 'not ready'}`);
         return this.broadcastRoom();
       case 'start':
         if (!host) return this.refuse(playerId, 'not-host');
@@ -153,6 +221,7 @@ export class Room {
         }
         this.started = true;
         this.pending = 0;
+        this.log(`started, seed ${message.seed >>> 0}, speed ${this.speed}, lanes ${this.players.map((p) => `${this.who(p.id)} on ${p.spawnId}`).join(', ')}`);
         this.broadcast({
           t: 'started',
           seed: message.seed >>> 0,
@@ -162,13 +231,19 @@ export class Room {
         });
         return this.broadcastRoom();
       case 'cmd':
-        if (!this.started) return;
+        // Only game commands; the dev tools' debug:* are off in coop (review R3)
+        if (!this.started || typeof message.command?.type !== 'string' || !message.command.type.startsWith('command:')) return;
         this.open.push({ playerId, command: message.command });
+        this.commandCount++;
         return;
+      case 'hash':
+        if (!this.started) return;
+        return this.checkHash(playerId, message.tick, message.hash);
       case 'speed':
         if (!host) return this.refuse(playerId, 'not-host');
         if (!SPEEDS.has(message.speed)) return;
         this.speed = message.speed;
+        this.log(message.speed === 0 ? 'paused' : `speed ${message.speed}`);
         return this.broadcast({ t: 'speed', speed: this.speed });
       case 'chat':
         return this.broadcast({ t: 'chat', from: playerId, text: message.text.slice(0, 500) });
@@ -208,19 +283,63 @@ export class Room {
     this.broadcast({ t: 'tick', tick, commands });
   }
 
+  /**
+   * A player's hash for `tick`. The first tick where two players differ
+   * goes to everyone; later ones only count, since a divergence stays.
+   */
+  private checkHash(playerId: string, tick: number, hash: number): void {
+    const divergence = this.hashCheck.report(tick, playerId, hash >>> 0);
+    if (!divergence) return;
+    this.desyncCount++;
+    if (this.firstDesync !== null) return;
+    this.firstDesync = tick;
+    const hashes = divergence.hashes.map(([id, h]) => `${this.who(id)} ${hex(h)}`).join(', ');
+    this.log(`DESYNC at tick ${tick}: ${hashes}`);
+    this.broadcast({ t: 'desync', tick, hashes: divergence.hashes });
+  }
+
+  status(): RoomStatus {
+    return {
+      code: this.code,
+      hostId: this.hostId,
+      started: this.started,
+      speed: this.speed,
+      tick: this.lastTick,
+      ageMs: this.now() - this.createdAt,
+      commands: this.commandCount,
+      desyncs: this.desyncCount,
+      firstDesync: this.firstDesync,
+      players: this.players.map(({ id, name, spawnId, ready, client }) => ({
+        id, name, spawnId, ready, client, lastHash: this.hashCheck.last.get(id) ?? null,
+      })),
+    };
+  }
+
+  /** ", on Chrome 140, Windows" for the log; "" when the client did not say */
+  private clientOf(playerId: string): string {
+    const client = this.players.find((p) => p.id === playerId)?.client;
+    return client ? `, on ${clientLabel(client)}` : '';
+  }
+
+  /** "Ann (p1)" for the log */
+  who(playerId: string): string {
+    const name = this.players.find((p) => p.id === playerId)?.name;
+    return name ? `${name} (${playerId})` : playerId;
+  }
+
   info(): CoopRoomInfo {
     return {
       code: this.code,
       hostId: this.hostId,
-      players: this.players.map(({ id, name, spawnId, ready }) => ({ id, name, spawnId, ready })),
+      players: this.players.map(({ id, name, spawnId, ready, client }) => ({ id, name, spawnId, ready, client })),
       spawnIds: [...this.spawnIds],
       started: this.started,
     };
   }
 
   /** `name`, or with a number after it when someone in the room has it already ("Joerg 2") */
-  private freeName(name: string): string {
-    const taken = new Set(this.players.map((p) => p.name));
+  private freeName(name: string, self?: string): string {
+    const taken = new Set(this.players.filter((p) => p.id !== self).map((p) => p.name));
     if (!taken.has(name)) return name;
     let n = 2;
     while (taken.has(`${name} ${n}`)) n++;
@@ -238,4 +357,9 @@ export class Room {
   private broadcast(message: ServerMessage): void {
     for (const p of this.players) this.send(p.id, message);
   }
+}
+
+/** A hash as the log shows it, eight hex digits */
+export function hex(hash: number): string {
+  return (hash >>> 0).toString(16).padStart(8, '0');
 }

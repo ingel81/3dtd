@@ -1,4 +1,5 @@
 import type { LockstepLink, StampedCommand } from './lockstep';
+import { HashCheck, type Divergence } from './hash-check';
 
 type Command = StampedCommand['command'];
 
@@ -7,6 +8,9 @@ type Command = StampedCommand['command'];
  * it, and it is the reference for what the network relay does (C4). It keeps
  * the order commands arrive in, puts them into the next open tick when that
  * tick closes, and hands every closed tick to every link.
+ *
+ * The hashes the links report go through the same HashCheck as at the
+ * network relay; `divergences` keeps what it found.
  *
  * Nothing is timed here: whoever drives it closes the ticks. A link receives
  * a closed tick when its owner calls deliver(), which is how a spec holds a
@@ -17,6 +21,9 @@ export class LocalRelay {
   private open: { playerId: string; command: Command }[] = [];
   private closed = -1;
   private seq = 0;
+  private readonly hashCheck = new HashCheck();
+  /** Ticks at which the links reported different hashes, in the order found */
+  readonly divergences: Divergence[] = [];
 
   /** @param autoDeliver hand a closed tick to the links at once, no latency */
   constructor(private readonly autoDeliver = false) {}
@@ -27,7 +34,14 @@ export class LocalRelay {
   }
 
   connect(playerId: string): LocalLink {
-    const link = new LocalLink(playerId, (command) => this.submit(playerId, command));
+    const link = new LocalLink(
+      playerId,
+      (command) => this.submit(playerId, command),
+      (tick, hash) => {
+        const divergence = this.hashCheck.report(tick, playerId, hash);
+        if (divergence) this.divergences.push(divergence);
+      },
+    );
     this.links.push(link);
     return link;
   }
@@ -65,6 +79,7 @@ export class LocalLink implements LockstepLink {
   constructor(
     readonly playerId: string,
     private readonly submit: (command: Command) => void,
+    private readonly hashTo: (tick: number, hash: number) => void = () => undefined,
   ) {}
 
   send(command: Command): void {
@@ -81,6 +96,10 @@ export class LocalLink implements LockstepLink {
 
   release(tick: number): void {
     this.received.delete(tick);
+  }
+
+  reportHash(tick: number, hash: number): void {
+    this.hashTo(tick, hash);
   }
 
   /** Ticks closed at the relay that this link has not received yet. */

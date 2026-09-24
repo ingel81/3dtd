@@ -70,6 +70,17 @@ describe('CoopSession against the relay (COOP_PLAN C4b)', () => {
     expect(tickOf(a)).toBe(tickOf(b));
     expect(a.link!.commandsAt(tickOf(a))).toEqual(b.link!.commandsAt(tickOf(b)));
     expect(a.link!.commandsAt(tickOf(a))[0]).toMatchObject({ playerId: b.playerId, command: { type: 'command:upgrade-tower' } });
+
+    // The hashes go over the link; different ones come back as a desync (C5)
+    const desyncs: number[] = [];
+    a.onDesync = (tick) => desyncs.push(tick);
+    b.onDesync = (tick) => desyncs.push(tick);
+    a.link!.reportHash(15, 1);
+    b.link!.reportHash(15, 1);
+    a.link!.reportHash(30, 2);
+    b.link!.reportHash(30, 3);
+    await until(() => desyncs.length === 2);
+    expect(desyncs).toEqual([30, 30]);
   });
 
   it('turns a refusal into an error and tells who is host after the host left', async () => {
