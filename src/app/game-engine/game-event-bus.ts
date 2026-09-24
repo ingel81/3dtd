@@ -658,6 +658,16 @@ export type GameEvent =
       type: 'command:restart-game';
     }
   | {
+      /**
+       * Coop: the host's line of sight for a tower (docs/COOP_PLAN.md, C3),
+       * applied by every client at the tick it comes back
+       */
+      type: 'command:los-mask';
+      towerId: string;
+      reason: LosResolveReason;
+      mask: import('../utils/los-mask').LosMaskJson;
+    }
+  | {
       /** Coop: the giving player is ready for the next wave, or no longer (docs/COOP_PLAN.md, D15) */
       type: 'command:set-ready';
       ready: boolean;

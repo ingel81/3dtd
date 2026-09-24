@@ -648,3 +648,62 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
     expect(b.gsm.allReady()).toBe(false);
   });
 });
+
+describe('Coop line of sight from the host (COOP_PLAN C3)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  it('makes a new tower ready at the same boundary on host and guest, from the host mask', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay();
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    a.gsm.setLosRole('host');
+    b.gsm.setLosRole('guest');
+    const readyAt = new Map<string, number>();
+    const lag = mulberry32(3);
+
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    let placed: string | null = null;
+    let waved = false;
+    for (let f = 0; f < 20000; f++) {
+      const lead = Math.max(a.gsm.subStep, b.gsm.subStep) + 3 * TICK_SUB_STEPS;
+      while ((relay.lastClosed + 1) * TICK_SUB_STEPS <= lead) relay.closeTick();
+      a.link.deliver();
+      if (lag() < 0.5) b.link.deliver(1 + Math.floor(lag() * 3));
+      a.frame(40);
+      b.frame(40);
+      if (f === 30) b.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: 250 / M, lon: 10 / M, height: 0 } });
+      if (placed === null) {
+        placed = a.gsm.towerManager.getAll().find((t) => !a.world.towers.includes(t))?.id ?? null;
+      }
+      for (const [client, name] of [[a, 'a'], [b, 'b']] as const) {
+        const tower = placed ? client.gsm.towerManager.getById(placed) : null;
+        if (tower?.losReady && !readyAt.has(name)) readyAt.set(name, client.gsm.subStep);
+      }
+      if (a.gsm.waveManager.phase() === 'wave') waved = true;
+      else if (waved) break;
+    }
+    b.link.deliver();
+    for (let i = 0; i < 400; i++) { a.frame(40); b.frame(40); }
+
+    expect(placed).not.toBeNull();
+    expect(a.gsm.towerManager.getById(placed!)!.ownerId).toBe('b');
+    const masks = a.gsm.commandLog.entries.filter((e) => e.command.type === 'command:los-mask');
+    expect(masks.map((e) => e.playerId)).toEqual(['a']);
+    expect(b.gsm.commandLog.entries.filter((e) => e.command.type === 'command:los-mask').map((e) => e.step))
+      .toEqual(masks.map((e) => e.step));
+    expect(readyAt.get('a')).toBeDefined();
+    expect(a.gsm.towerManager.getById(placed!)!.combat.kills).toBe(b.gsm.towerManager.getById(placed!)!.combat.kills);
+    let compared = 0;
+    for (const [step, hash] of a.hashes) {
+      const other = b.hashes.get(step);
+      if (other === undefined) continue;
+      if (other !== hash) throw new Error(`diverged at sub-step boundary ${step}`);
+      compared++;
+    }
+    expect(compared).toBeGreaterThan(500);
+  });
+});

@@ -300,6 +300,11 @@ export class GameCommandsHandler {
       }
     });
 
+    // Coop: the host's line of sight, at its tick on every client (C3)
+    this.on('command:los-mask', (event) => {
+      this.gsm.applyCoopLosMask(event.towerId, event.mask);
+    });
+
     this.on('command:set-ready', (event) => {
       this.gsm.setReady(this.gsm.actingPlayerId, event.ready);
     });

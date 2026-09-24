@@ -970,6 +970,21 @@ export class TowerPlacementService {
   }
 
   /** Re-simulation: masks for place and upgrade from the log, see TowerLosRegistry.setMaskSource. */
+  /** Coop: whose GPU answers the lines of sight, see TowerLosRegistry.setCoopRole. */
+  setCoopLosRole(role: 'host' | 'guest' | null): void {
+    this.losRegistry.setCoopRole(role);
+  }
+
+  /** Coop: the host's mask for `tower` at its tick, see TowerLosRegistry.applyCoopMask. */
+  applyCoopLosMask(tower: Tower, mask: LosMask): void {
+    this.losRegistry.applyCoopMask(tower, mask);
+  }
+
+  /** Coop: towers waiting for the host's mask, oldest first. */
+  awaitingLosTowerIds(): string[] {
+    return this.losRegistry.awaitingTowerIds();
+  }
+
   setLosMaskSource(source: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
     this.losRegistry.setMaskSource(source);
   }
