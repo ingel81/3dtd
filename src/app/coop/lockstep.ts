@@ -12,8 +12,12 @@
  * client from running past a command it has not heard of yet.
  */
 
-/** Sub-steps per net tick: 4 × 16.667 ms, 15 ticks a second at speed 1. */
-export const TICK_SUB_STEPS = 4;
+/**
+ * Sub-steps per net tick: 2 × 16.667 ms, 30 ticks a second at speed 1. Was 4;
+ * half the tick halves the wait for a command to come back (PLAYTEST T28,
+ * TODO E29), for twice the ticks from the relay.
+ */
+export const TICK_SUB_STEPS = 2;
 
 /** A command as the relay stamped it. */
 export interface StampedCommand {

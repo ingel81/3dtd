@@ -794,7 +794,7 @@ describe('Coop restart in the room (review R1)', () => {
     a.emit({ type: 'command:start-wave', director: directorWave() });
     for (let t = 0; t < 60; t++) tick();
     const stepsBefore = a.gsm.subStep;
-    expect(stepsBefore).toBeGreaterThan(200);
+    expect(stepsBefore).toBeGreaterThan(50 * TICK_SUB_STEPS);
 
     // Each client's own Math.random differs: the seed has to come with the command
     Math.random = mulberry32(99);
