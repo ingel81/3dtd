@@ -35,6 +35,8 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 })
 export class TokenSetupComponent {
   readonly config = inject(ConfigService);
+  /** The coop room of an invite link this page came with (?room=), to say why a key is asked for (review R8) */
+  readonly coopRoom = new URLSearchParams(window.location.search).get('room');
 
   /** Emitted once credentials are stored, so the caller can start the engine. */
   readonly tokenSaved = output<void>();

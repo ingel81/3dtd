@@ -15,7 +15,14 @@
         </p>
       }
       @case ('loading-world') {
-        <p class="coop-hint">Loading the host's map; you join as soon as it stands…</p>
+        @if (coop.needsKey()) {
+          <p class="coop-hint">
+            Enter your map key first (every player needs one of their own); then the host's map loads and you
+            join by yourself.
+          </p>
+        } @else {
+          <p class="coop-hint">Loading the host's map; you join as soon as it stands…</p>
+        }
       }
       @default {
         @if (!coop.room()) {
