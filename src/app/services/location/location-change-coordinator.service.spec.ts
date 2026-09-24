@@ -162,7 +162,7 @@ describe('LocationChangeCoordinatorService', () => {
     rollRandomCity: vi.fn(),
     error: signal<string | null>(null),
   };
-  const uiStore = { routesVisible: signal(true), notice: signal<string | null>(null) };
+  const uiStore = { routesVisible: signal(true), notice: signal<string | null>(null), coopMapLocked: signal(false) };
   const routeGrid = {
     initSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirSpatialGridVisualizationIfEnabled: vi.fn(),

@@ -283,7 +283,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
         },
         { provide: MatDialog, useValue: dialog },
         { provide: TowerDefenseStore, useValue: store },
-        { provide: UIStore, useValue: { routesVisible: signal(true), notice: signal(null), mapPlacementMode: signal(null) } },
+        { provide: UIStore, useValue: { routesVisible: signal(true), notice: signal(null), mapPlacementMode: signal(null), coopMapLocked: signal(false) } },
         // The real services, as factories: a class provider would need the JIT compiler
         { provide: UrlLocationService, useFactory: () => new UrlLocationService() },
         { provide: LocationManagementService, useFactory: () => new LocationManagementService() },

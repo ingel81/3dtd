@@ -182,6 +182,7 @@ export class MapPlacementService {
    * @param mode 'hq' to place headquarters, 'spawn' to place spawn point
    */
   startPlacement(mode: 'hq' | 'spawn', add = false): void {
+    if (this.uiStore.coopMapLocked()) return;
     // Clean up any previous placement
     this.exitPlacementMode();
     this.addingSpawn = mode === 'spawn' && add;

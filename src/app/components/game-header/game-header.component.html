@@ -1,7 +1,8 @@
 <header class="header">
   <img class="logo" src="assets/images/logo/logo.png" alt="3DTD">
   <div class="header-left">
-    <button class="location-btn" (click)="locationClick.emit()" matTooltip="Change location">
+    <button class="location-btn" (click)="locationClick.emit()" [disabled]="locationLocked()"
+            [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Change location'">
       <span class="location-label">DEFEND</span>
       <span class="location-name">{{ locationName() }}</span>
       <td-icon class="location-edit" name="edit" [size]="16"></td-icon>
@@ -87,8 +88,9 @@
       </div>
 
       <!-- World Dice -->
-      <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location"
-              aria-label="Random location">
+      <button class="action-btn" (click)="diceClick.emit()"
+              [matTooltip]="locationLocked() ? 'The coop room plays this map' : 'Random location'"
+              aria-label="Random location" [disabled]="locationLocked()">
         <td-icon name="random" [size]="22"></td-icon>
       </button>
 

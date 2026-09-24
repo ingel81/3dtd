@@ -115,6 +115,12 @@
   white-space: nowrap;
 }
 
+/* In a coop room: the button carries the code and stands out */
+.td-attributions-btn.td-coop-active {
+  color: var(--td-gold-light);
+  opacity: 1;
+}
+
 .td-attributions-btn:hover {
   opacity: 1;
   color: var(--td-text-primary);

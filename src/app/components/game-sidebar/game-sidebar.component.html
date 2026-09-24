@@ -67,10 +67,12 @@
           <td-icon name="lock" [size]="10"></td-icon>
           <span>Map Key</span>
         </button>
-        <button class="td-attributions-btn" (click)="openCoop()" aria-label="Coop: play one map together"
-                matTooltip="Coop: play one map together" matTooltipPosition="above">
+        <button class="td-attributions-btn" [class.td-coop-active]="coopRoom()" (click)="openCoop()"
+                [attr.aria-label]="coopRoom() ? 'Coop room ' + coopRoom() : 'Coop: play one map together'"
+                [matTooltip]="coopRoom() ? 'Coop room ' + coopRoom() + ': players, lanes, chat' : 'Coop: play one map together'"
+                matTooltipPosition="above">
           <td-icon name="user" [size]="10"></td-icon>
-          <span>Coop</span>
+          <span>{{ coopRoom() ? 'Coop ' + coopRoom() : 'Coop' }}</span>
         </button>
         <button class="td-attributions-btn" (click)="openRuns()" aria-label="The runs this browser kept"
                 matTooltip="The runs this browser kept, with export" matTooltipPosition="above">

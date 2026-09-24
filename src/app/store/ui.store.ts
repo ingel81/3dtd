@@ -197,6 +197,14 @@ export class UIStore {
   /** Replay of the last wave: HUD hidden, camera free, replay bar at the bottom. Not persisted. */
   readonly replayMode = signal<boolean>(false);
 
+  /**
+   * Coop (docs/COOP_PLAN.md, R4): the map belongs to the room. In a running
+   * coop game nobody changes place, HQ or spawns, in the lobby only the host
+   * does; each of those rebuilds the world here only. The replay is off too.
+   * Set by CoopService. Not persisted.
+   */
+  readonly coopMapLocked = signal<boolean>(false);
+
   /** Photo mode or replay: the camera moves, clicks and hover pick nothing, game keys build nothing. */
   readonly viewOnly = computed(() => this.photoMode() || this.replayMode());
 

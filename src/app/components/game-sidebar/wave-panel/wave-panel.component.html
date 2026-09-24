@@ -45,8 +45,10 @@
         </div>
       </div>
     }
-    <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
+    <button class="td-wave-btn" [class.td-wave-running]="waveActive()" [class.td-wave-pressed]="waveButton().pressed"
+            (click)="startWave.emit()"
             [attr.aria-label]="waveButton().ariaLabel"
+            [attr.aria-pressed]="coopReady() ? waveButton().pressed : null"
             aria-keyshortcuts="Space"
             [disabled]="waveActive() || isGameOver()">
       @if (waveActive()) {
@@ -60,10 +62,13 @@
         }
       } @else {
         <span class="td-wave-btn-main">
-          <td-icon name="play" [size]="16"></td-icon>
+          <td-icon [name]="waveButton().pressed ? 'check' : 'play'" [size]="16"></td-icon>
           <span>{{ waveButton().label }}</span>
         </span>
-        @if (waveButton().countdown; as countdown) {
+        @if (waveButton().coopReady; as ready) {
+          <span class="td-wave-countdown">{{ ready }}</span>
+          <span class="td-wave-bar td-wave-bar-countdown" [style.width.%]="waveButton().barPercent"></span>
+        } @else if (waveButton().countdown; as countdown) {
           <span class="td-wave-countdown">{{ countdown }}</span>
           <span class="td-wave-bar td-wave-bar-countdown" [style.width.%]="waveButton().barPercent"></span>
         } @else if (!isGameOver()) {
@@ -75,15 +80,18 @@
     <!-- Right under the button: the auto-start switch, and between waves the
          replay of the last one -->
     <div class="td-wave-options">
-      <button type="button" class="td-auto-toggle"
-              [attr.aria-pressed]="autoStart()"
-              [attr.aria-label]="'Auto-start the next wave ' + autoStartSeconds + ' s after a wave'"
-              [matTooltip]="'Starts the next wave by itself ' + autoStartSeconds + ' s after a wave'"
-              matTooltipPosition="left"
-              (click)="toggleAutoStart()">
-        <span class="td-auto-switch" aria-hidden="true"></span>
-        <span>auto {{ autoStartSeconds }}s</span>
-      </button>
+      <!-- Coop: no auto-start, the players say when (D15) -->
+      @if (!coopReady()) {
+        <button type="button" class="td-auto-toggle"
+                [attr.aria-pressed]="autoStart()"
+                [attr.aria-label]="'Auto-start the next wave ' + autoStartSeconds + ' s after a wave'"
+                [matTooltip]="'Starts the next wave by itself ' + autoStartSeconds + ' s after a wave'"
+                matTooltipPosition="left"
+                (click)="toggleAutoStart()">
+          <span class="td-auto-switch" aria-hidden="true"></span>
+          <span>auto {{ autoStartSeconds }}s</span>
+        </button>
+      }
       @if (replayWave(); as wave) {
         <button type="button" class="td-replay-link"
                 [attr.aria-label]="'Replay wave ' + wave"

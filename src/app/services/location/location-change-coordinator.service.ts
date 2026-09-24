@@ -93,6 +93,7 @@ export class LocationChangeCoordinatorService {
    * @param initialMode tab to open on; the sidebar's World button opens the world map
    */
   async openLocationDialog(initialMode?: LocationDialogMode): Promise<void> {
+    if (this.uiStore.coopMapLocked()) return;
     if (!this.delegate) {
       console.error('[LocationCoordinator] No delegate registered');
       return;
@@ -213,6 +214,7 @@ export class LocationChangeCoordinatorService {
    * Roll for a random city from Wikidata and navigate there
    */
   async onWorldDice(): Promise<void> {
+    if (this.uiStore.coopMapLocked()) return;
     const callbacks = this.delegate?.getChangeCallbacks();
     callbacks?.appendDebugLog('World Dice: Rolling random city...');
 
@@ -284,6 +286,7 @@ export class LocationChangeCoordinatorService {
    * Apply a favorite location
    */
   async onSelectFavorite(fav: FavoriteLocation): Promise<void> {
+    if (this.uiStore.coopMapLocked()) return;
     const spawn: SavedSpawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
 
     // Update service and URL

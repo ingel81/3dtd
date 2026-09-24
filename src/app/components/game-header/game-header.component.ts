@@ -88,6 +88,8 @@ export class GameHeaderComponent {
   readonly favoriteNames = input<Record<string, string>>({});
   readonly placementMode = input<'hq' | 'spawn' | null>(null);
   readonly canPlace = input<boolean>(true);
+  /** Coop: the map belongs to the room, no other place (UIStore.coopMapLocked) */
+  readonly locationLocked = input<boolean>(false);
 
   // Outputs
   readonly locationClick = output<void>();

@@ -75,13 +75,17 @@ export class GameSidebarComponent implements OnDestroy {
   private readonly coop = inject(COOP, { optional: true });
 
   constructor() {
-    // Opened with an invite link (?room=): the host's map loads, the player
-    // joins as soon as it stands, and the dialog opens in the lobby
+    // Opened with an invite link (?room=): the dialog opens at once and says
+    // what happens, the host's map loads, the player joins as soon as it stands
     const coop = this.coop;
     if (coop?.roomFromUrl) {
-      void coop.joinFromUrl().then(() => this.openCoop());
+      this.openCoop();
+      void coop.joinFromUrl();
     }
   }
+
+  /** The Coop button: the room code while in one */
+  readonly coopRoom = computed(() => this.coop?.room()?.code ?? null);
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);

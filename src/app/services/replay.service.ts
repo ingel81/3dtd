@@ -85,6 +85,8 @@ export class ReplayService {
   /** A replay can start: a wave can be shown and the next one has not begun, or the game is over */
   readonly available = computed(() => {
     if (this.recordedWave() === null || this.store.loading() || this.store.error()) return false;
+    // Coop: a replay re-simulates here only (docs/COOP_PLAN.md, R4)
+    if (this.uiStore.coopMapLocked()) return false;
     const phase = this.store.phase();
     return phase === 'setup' || phase === 'gameover';
   });
@@ -344,6 +346,10 @@ export class ReplayService {
         this.fileProblem.set('A replay loads between waves.');
         return;
       }
+      if (this.uiStore.coopMapLocked()) {
+        this.fileProblem.set('Replays are off in a coop game.');
+        return;
+      }
       const read = readReplayFile(text, {
         worldKey: this.gameState.worldKey(),
         configHash: this.configHash(),
@@ -370,7 +376,7 @@ export class ReplayService {
 
   /** enter() without its gate on the run's own waves: a loaded file brings its own. */
   private enterAny(wave: number): void {
-    if (this.bossIntro.active() || this.store.loading() || this.store.error()) return;
+    if (this.bossIntro.active() || this.store.loading() || this.store.error() || this.uiStore.coopMapLocked()) return;
     const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'gameover') return;
     if (this.gameState.snapshotRefusal() !== null) {

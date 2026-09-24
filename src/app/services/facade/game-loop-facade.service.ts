@@ -32,6 +32,7 @@ import { BossIntroService } from '../boss-intro.service';
 import { ReplayService } from '../replay.service';
 import { TowerControlService } from '../tower-control.service';
 import { COOP } from '../coop.token';
+import { newRunSeed } from '../../utils/game-rng';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -447,6 +448,9 @@ export class GameLoopFacadeService {
    * @param cleanupDpsViz Callback to clean up DPS visualization (owned by VisualizationFacade)
    */
   restartGame(cleanupDpsViz: () => void): void {
+    // Coop: only the host restarts, with a seed for every client (docs/COOP_PLAN.md, R1)
+    const coop = this.coop?.inGame() ? this.coop : null;
+    if (coop && !coop.isHost()) return;
     // NOTE: Do NOT dispose the spatial grid visualization here. The grid itself
     // is preserved across restart (it's bound to the location), and the viz
     // mesh self-updates from live cell state. Disposing it here made the
@@ -455,7 +459,7 @@ export class GameLoopFacadeService {
     // Cleanup DPS profile visualization (delegated to VisualizationFacade)
     cleanupDpsViz();
 
-    this.gameState.getEventBus().emit({ type: 'command:restart-game' });
+    this.gameState.getEventBus().emit(coop ? { type: 'command:restart-game', seed: newRunSeed() } : { type: 'command:restart-game' });
 
     // Reset pending AI wave request flag
     this.pendingAIWaveRequest = false;

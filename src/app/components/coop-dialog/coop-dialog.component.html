@@ -10,10 +10,12 @@
   <div class="dialog-content">
     @switch (coop.status()) {
       @case ('connecting') {
-        <p class="coop-hint">Connecting to the relay…</p>
+        <p class="coop-hint">
+          Connecting to the coop server{{ coop.roomFromUrl ? ' to join room ' + coop.roomFromUrl : '' }}…
+        </p>
       }
       @case ('loading-world') {
-        <p class="coop-hint">Loading the host's map…</p>
+        <p class="coop-hint">Loading the host's map; you join as soon as it stands…</p>
       }
       @default {
         @if (!coop.room()) {
@@ -36,9 +38,25 @@
             </label>
             <button class="footer-btn" type="button" (click)="join()" [disabled]="!code().trim()">Join</button>
           </div>
+          <details class="advanced">
+            <summary>Server</summary>
+            <label class="field">
+              <span>Coop server (empty: find one by itself)</span>
+              <input type="text" placeholder="wss://relay.example.com or ws://192.168.1.5:3003" [value]="relaySetting()"
+                     (change)="saveRelay($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
+            </label>
+            @if (relayInvalid()) {
+              <p class="coop-error">That is no ws:// or wss:// address.</p>
+            }
+          </details>
         } @else {
           @let room = coop.room()!;
           @if (!room.started) {
+            <label class="field">
+              <span>Your name</span>
+              <input type="text" maxlength="32" [value]="me()?.name ?? name()"
+                     (change)="coop.rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
+            </label>
             <div class="invite">
               <input class="invite-link" type="text" readonly [value]="inviteLink()" aria-label="Invite link" />
               <button class="icon-btn" type="button" (click)="copyInvite()" matTooltip="Copy the invite link"
@@ -67,12 +85,21 @@
                   @if (player.id === room.hostId) { <span class="tag">host</span> }
                   @if (player.id === coop.playerId()) { <span class="tag tag-me">you</span> }
                 </span>
+                @if (player.client) {
+                  <span class="player-client">{{ clientLabel(player.client) }}</span>
+                }
                 @if (!room.started) {
                   <span class="player-ready" [class.is-ready]="player.ready">{{ player.ready ? 'ready' : 'not ready' }}</span>
                 }
               </li>
             }
           </ul>
+          @if (coop.mixedEngines()) {
+            <p class="coop-error">
+              Not everyone plays on the same engine (Chrome and Firefox, say). They compute the game slightly
+              differently and drift apart after a while; the desktop app or the same browser for all avoids it.
+            </p>
+          }
 
           @if (!room.started && coop.worldReady()) {
             <div class="lanes" role="group" aria-label="Your lane">
@@ -85,14 +112,26 @@
                 </button>
               }
             </div>
-            <label class="check">
-              <input type="checkbox" [checked]="me()?.ready ?? false" [disabled]="!me()?.spawnId"
-                     (change)="coop.setLobbyReady($any($event.target).checked)" />
-              Ready
-            </label>
+            @if (!coop.isHost()) {
+              <button class="footer-btn ready-btn" type="button" [class.is-ready]="me()?.ready"
+                      [attr.aria-pressed]="me()?.ready ?? false" [disabled]="!me()?.spawnId"
+                      (click)="coop.setLobbyReady(!me()?.ready)">
+                <td-icon [name]="me()?.ready ? 'check' : 'play'" [size]="13"></td-icon>
+                {{ me()?.ready ? 'Ready: waiting for the host to start' : 'I am ready' }}
+              </button>
+            }
+          }
+          @if (!room.started && startHint(); as hint) {
+            <p class="coop-hint" role="status">{{ hint }}</p>
           }
 
           @if (room.started) {
+            @if (coop.desync(); as desync) {
+              <p class="coop-error" role="alert">
+                The games ran apart at game second {{ desyncSecond(desync.tick) }}: from there on, what you see
+                may differ from what the others see.
+              </p>
+            }
             <div class="chat" aria-live="polite">
               @for (line of coop.chat(); track $index) {
                 <p class="chat-line"><span class="chat-from">{{ nameOf(line.from) }}</span> {{ line.text }}</p>
@@ -107,6 +146,9 @@
     @if (coop.error(); as error) {
       <p class="coop-error" role="alert">{{ error }}</p>
     }
+    @if (coop.room() && coop.relay(); as relay) {
+      <p class="coop-hint relay-line">Server {{ relayLabel(relay.url) }}{{ relaySourceText[relay.source] }}</p>
+    }
   </div>
 
   <div class="dialog-footer">
@@ -116,7 +158,7 @@
       @if (coop.isHost() && !room.started) {
         <button class="footer-btn" type="button" (click)="coop.shareWorld()"
                 matTooltip="Send the map loaded now to the room again">Send map</button>
-        <button class="footer-btn footer-btn-primary" type="button" (click)="coop.start(); close()" [disabled]="!canStart()">Start</button>
+        <button class="footer-btn footer-btn-primary" type="button" (click)="coop.start()" [disabled]="!canStart()">Start</button>
       }
     } @else {
       <span class="footer-spacer"></span>
