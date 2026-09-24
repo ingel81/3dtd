@@ -85,7 +85,9 @@ Lockstep (MULTIPLAYER_CONCEPT) müsste sie als gedrosselter Command oder pro Sch
 
 **Kamera:** `TowerControlService.update()` setzt die Kamera jeden Frame nach den Sub-Steps auf den Augenpunkt
 und richtet sie aus. Er liegt 2 m über der Mündungshöhe, mindestens aber 1,5 m über der Oberkante des Modells
-(`eyeOverModelM`, gemessen einmal an dessen Bounding Box, `ThreeTowerRenderer.modelTopY`): beim Archer sitzt die
+(`eyeOverModelM`; die Oberkante steht als `TowerTypeConfig.modelTop` in der Config, gemessen an der Bounding Box
+des Modells und von `configs/tower-model.spec.ts` gegen die GLB geprüft, so hängt der Treffer nicht am geladenen
+Modell): beim Archer sitzt die
 Mündung unter dem Dach, 2 m darüber war noch im Turm. Beim Blick waagerecht oder nach oben 1,6 m hinter dem
 Tower; beim Blick nach unten wandert er mit der Neigung (smoothstep) bis 1,8 m vor die Mündung bei -60°, damit
 das Geschütz aus dem Bild fällt (`eyeBackAt`). Die
