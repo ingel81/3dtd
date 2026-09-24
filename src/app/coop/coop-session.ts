@@ -124,6 +124,8 @@ export class CoopSession {
   onSpeed: ((speed: number) => void) | null = null;
   /** Each player's round trip to the relay, ms */
   onRtt: ((rtt: [string, number | null][]) => void) | null = null;
+  /** The room waits for this player to catch up; null once it goes on */
+  onWaiting: ((playerId: string | null) => void) | null = null;
   onHost: ((hostId: string) => void) | null = null;
   onLeft: ((playerId: string) => void) | null = null;
   onChat: ((from: string, text: string) => void) | null = null;
@@ -312,6 +314,8 @@ export class CoopSession {
         return this.onSpeed?.(message.speed);
       case 'rtt':
         return this.onRtt?.(message.rtt);
+      case 'waiting':
+        return this.onWaiting?.(message.playerId);
       case 'host':
         if (this.room) this.room = { ...this.room, hostId: message.hostId };
         return this.onHost?.(message.hostId);

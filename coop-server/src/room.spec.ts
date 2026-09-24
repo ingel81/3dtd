@@ -1,6 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Room, TICK_MS, type RoomPlayer } from './room.ts';
+import { Room, TICK_MS, MAX_AHEAD_TICKS, type RoomPlayer } from './room.ts';
+import { HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
 
 const player = (id: string, over: Partial<RoomPlayer> = {}): RoomPlayer => ({
@@ -188,6 +189,23 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(lines.filter((l) => l.startsWith('stats'))).toEqual([
       'stats B (b): 600 frames, blocked 35%, steps 0:210 1:300 2:60 3+:30, behind 0.4 (min 0), ticks 66±12 ms, input 95 ms (max 140, n 12)',
     ]);
+  });
+
+  it('waits for a client that falls too far behind, and goes on once it caught up (R2)', () => {
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    // A reports its hashes as it goes, B stays at the start
+    for (let t = 0; t < MAX_AHEAD_TICKS + 20; t++) {
+      room.advance(TICK_MS);
+      if ((t + 1) % HASH_EVERY_TICKS === 0) room.receive('a', { t: 'hash', tick: t + 1, hash: 7 });
+    }
+    expect(room.lastTick).toBe(MAX_AHEAD_TICKS);
+    expect(last('a', 'waiting')!.playerId).toBe('b');
+    expect(room.advance(TICK_MS * 10)).toBe(0);
+    // B reports where it is now: the room goes on
+    room.receive('b', { t: 'hash', tick: HASH_EVERY_TICKS * 2, hash: 7 });
+    expect(room.advance(TICK_MS)).toBe(1);
+    expect(last('a', 'waiting')!.playerId).toBeNull();
   });
 
   it('follows the host speed, and stands still at 0', () => {
