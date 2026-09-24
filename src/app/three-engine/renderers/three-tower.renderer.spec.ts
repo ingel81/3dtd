@@ -95,6 +95,24 @@ describe('ThreeTowerRenderer draws the tower aim', () => {
     expect(again.holdFire).toBe(false);
   });
 
+  it("wears a partner's ring in their lane colour at all times, and gives the gold one back (coop R14)", async () => {
+    const data = (await renderer.create('t4', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0)))!;
+    const ring = data.selectionRing!;
+    const gold = ring.material;
+    expect(ring.visible).toBe(false);
+    renderer.setOwnerRing('t4', 0x3fa7ff);
+    expect(ring.visible).toBe(true);
+    expect((ring.material as unknown as { color: { getHex(): number } }).color.getHex()).toBe(0x3fa7ff);
+    // A hover that ends keeps it; the shared gold material stays gold
+    renderer.setHovered('t4');
+    renderer.setHovered(null);
+    expect(ring.visible).toBe(true);
+    expect((gold as unknown as { color: { getHex(): number } }).color.getHex()).not.toBe(0x3fa7ff);
+    renderer.setOwnerRing('t4', null);
+    expect(ring.material).toBe(gold);
+    expect(ring.visible).toBe(false);
+  });
+
   it('shows the placed pose first, then the sweep, then the guard heading, never jumping', async () => {
     const aim = placedAim('cannon', 0.4, 1.0);
     const data = (await renderer.create('t1', 'cannon', 0, 0, 0, 0.4, aim))!;

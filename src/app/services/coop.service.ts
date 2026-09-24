@@ -186,6 +186,12 @@ export class CoopService {
     this.laneFromUrl = params.get('lane');
 
     const bus = this.gameState.getEventBus();
+    // A partner's tower wears its owner's lane colour (review R14)
+    bus.onLive('tower:placed', ({ tower }) => {
+      if (!this.inGame() || tower.ownerId === this.playerId()) return;
+      const color = this.laneColorNumberOf(tower.ownerId);
+      if (color !== null) this.engineInit.getEngine()?.towers.setOwnerRing(tower.id, color);
+    });
     bus.on('coop:ready-changed', (event) => {
       if (event.local) this.readyNow = event.ready;
       if (event.allReady && this.isHost() && this.inGame()) this.ngZone.run(() => this.waveStarter?.());
@@ -503,10 +509,23 @@ export class CoopService {
 
   /** A player's lane colour as CSS, white without a lane */
   laneColorOf(playerId: string): string {
+    const color = this.laneColorNumberOf(playerId);
+    return color === null ? '#ffffff' : `#${color.toString(16).padStart(6, '0')}`;
+  }
+
+  /** A player's lane colour (SPAWN_COLORS), null without a lane */
+  private laneColorNumberOf(playerId: string): number | null {
     const spawnId = this.roster().find((p) => p.id === playerId)?.spawnId
       ?? this.room()?.players.find((p) => p.id === playerId)?.spawnId ?? null;
     const index = spawnId === null ? -1 : (this.room()?.spawnIds ?? []).indexOf(spawnId);
-    return index < 0 ? '#ffffff' : `#${SPAWN_COLORS[index % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`;
+    return index < 0 ? null : SPAWN_COLORS[index % SPAWN_COLORS.length];
+  }
+
+  /** A click on a partner's tower: whose it is, rather than nothing (review R14) */
+  private sayWhoseTower(towerId: string): void {
+    const owner = this.gameState.towerManager.getById(towerId)?.ownerId;
+    if (!owner || owner === this.playerId()) return;
+    this.ngZone.run(() => this.notify(`That is ${this.nameOf(owner)}'s tower`));
   }
 
   /** Host, lobby: take a player out of the room (review R9) */
@@ -560,6 +579,7 @@ export class CoopService {
     this.notices.set([]);
     this.rtt.set(new Map());
     this.waitingFor.set(null);
+    this.inputHandler.setForeignTowerClick(null);
     this.pickedByHand = false;
     this.autoPicking = null;
   }
@@ -847,6 +867,7 @@ export class CoopService {
     gsm.setLockstep(start.link);
     // The relay decides: a cheat it lets through acts on every client alike
     gsm.cheatsBlocked = !(this.room()?.cheats ?? false);
+    this.inputHandler.setForeignTowerClick((towerId) => this.sayWhoseTower(towerId));
     this.readyNow = false;
     this.desync.set(null);
     const players = this.room()?.players ?? [];

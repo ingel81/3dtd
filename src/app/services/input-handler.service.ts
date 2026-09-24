@@ -276,6 +276,13 @@ export class InputHandlerService {
     this.pickCallback = callback;
   }
 
+  /** Coop: a click on a tower this player may not select, a partner's (review R14); null for none */
+  private foreignTowerClick: ((towerId: string) => void) | null = null;
+
+  setForeignTowerClick(callback: ((towerId: string) => void) | null): void {
+    this.foreignTowerClick = callback;
+  }
+
   /** Drop a pick armed with armPick that no click took yet */
   disarmPick(): void {
     this.pickCallback = null;
@@ -450,7 +457,10 @@ export class InputHandlerService {
     // First: Check tower selection via direct mesh raycast
     if (!this.buildModeSignal()) {
       // Only a tower this player may select (TowerPolicy); a partner's counts as a click beside
-      const clickedTowerId = this.gameState.selectableTower(this.engine.picker.raycastTowers(event.clientX, event.clientY));
+      const hitTowerId = this.engine.picker.raycastTowers(event.clientX, event.clientY);
+      const clickedTowerId = this.gameState.selectableTower(hitTowerId);
+      // Coop: say whose it is (review R14)
+      if (hitTowerId && !clickedTowerId) this.foreignTowerClick?.(hitTowerId);
 
       if (clickedTowerId) {
         if (this.store.selectedTowerId() === clickedTowerId) {
