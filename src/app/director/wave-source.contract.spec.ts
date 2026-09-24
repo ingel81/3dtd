@@ -54,7 +54,7 @@ function waveResult(wave: number): WaveResult {
       enemiesSpawned: 10,
       playerSurvived: true,
     },
-  } as WaveResult;
+  } as unknown as WaveResult;
 }
 
 /** Waves 1 to `last`, each planned and then reported as finished. */

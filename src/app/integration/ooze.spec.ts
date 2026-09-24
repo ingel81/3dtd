@@ -167,7 +167,7 @@ describe('Ooze integration', () => {
       // The ooze and 7 of 20 clumps paid; each floors its share and leaves the
       // remainder to the later bodies, which stay unpaid
       const budget = waveGold(1).kill;
-      const share = (enemyRewardWeight(ENEMY_TYPES.ooze.baseHp) + 7 * enemyRewardWeight(ENEMY_TYPES[CLUMP].baseHp))
+      const share = (enemyRewardWeight(ENEMY_TYPES['ooze'].baseHp) + 7 * enemyRewardWeight(ENEMY_TYPES[CLUMP].baseHp))
         / lineageRewardWeight('ooze');
       expect(credits).toHaveLength(8);
       expect(paid()).toBeGreaterThanOrEqual(Math.floor(budget * share) - 8);

@@ -94,7 +94,7 @@ function waveResult(waveNumber: number): WaveResult {
     timestamp: 0,
     config: { enemies: [], totalCount: 0, spawnDelay: 500 },
     outcome: { damageToPlayer: 0, healthAtWaveStart: 100, enemiesSpawned: 10, playerSurvived: true },
-  } as WaveResult;
+  } as unknown as WaveResult;
 }
 
 describe('WaveDirector', () => {

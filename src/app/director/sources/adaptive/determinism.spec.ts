@@ -63,7 +63,7 @@ function runChecksum(seed: number, waves = 25): string[] {
         enemiesSpawned: 10,
         playerSurvived: true,
       },
-    } as WaveResult);
+    } as unknown as WaveResult);
   }
   return lines;
 }
