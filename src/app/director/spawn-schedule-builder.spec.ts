@@ -8,6 +8,7 @@ import {
 } from './spawn-schedule-builder';
 import { WaveEnemyGroup } from './models/wave-config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
+import { drawSpawnGap } from '../managers/wave.manager';
 
 // ----------------------------------------------------------------
 // Helpers
@@ -106,23 +107,24 @@ describe('buildSpawnSchedule() — entry field correctness', () => {
     expect(schedule.baseDelay).toBe(500);
   });
 
-  it('without delayVariation, getDelay is undefined', () => {
+  it('without delayVariation, the schedule has none', () => {
     const schedule = buildSpawnSchedule(cfg([zombieGroup(1)], 'sequential'));
-    expect(schedule.getDelay).toBeUndefined();
+    expect(schedule.delayVariation).toBeUndefined();
   });
 
-  it('with delayVariation > 0, getDelay is a function', () => {
+  it('carries delayVariation as data, so the config survives the command log', () => {
     const schedule = buildSpawnSchedule(cfg([zombieGroup(1)], 'sequential', { delayVariation: 0.2 }));
-    expect(typeof schedule.getDelay).toBe('function');
+    expect(schedule.delayVariation).toBe(0.2);
+    expect(JSON.parse(JSON.stringify(schedule))).toEqual(schedule);
   });
 
-  it('getDelay stays within the variation range', () => {
+  it('the gaps stay within the variation range', () => {
     const base = 1000;
     const variation = 0.3;
     const schedule = buildSpawnSchedule(cfg([zombieGroup(1)], 'sequential', { baseDelay: base, delayVariation: variation }));
     const delays: number[] = [];
     for (let i = 0; i < 200; i++) {
-      delays.push(schedule.getDelay!());
+      delays.push(drawSpawnGap(schedule, Math.random));
     }
     const min = base * (1 - variation);
     const max = base * (1 + variation);

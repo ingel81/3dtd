@@ -75,17 +75,12 @@ export function buildSpawnSchedule(config: ScheduleBuildConfig): SpawnSchedule {
       entries = buildInterleaved(validGroups);
   }
 
-  // Build dynamic delay getter if variation is specified
+  // The gaps are drawn when the spawns come due (WaveManager.startWave),
+  // from the same spawn stream
   const variation = config.delayVariation ?? 0;
-  const getDelay = variation > 0
-    ? () => {
-        const min = config.baseDelay * (1 - variation);
-        const max = config.baseDelay * (1 + variation);
-        return Math.round(min + random() * (max - min));
-      }
-    : undefined;
-
-  return { entries, baseDelay: config.baseDelay, getDelay };
+  return variation > 0
+    ? { entries, baseDelay: config.baseDelay, delayVariation: variation }
+    : { entries, baseDelay: config.baseDelay };
 }
 
 /**
