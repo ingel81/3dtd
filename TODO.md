@@ -27,6 +27,15 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Kein `cameraCorrection` im Log; der Korridor-Aufbau lief dort als "unmeasured freeze" (452/452 Stationen,
       Fallback). Vermutung, unbelegt: die Korridor-Region hält grobe Tiles, der Abstands-Raycast der GlobeControls
       trifft zu hoch. Messen: Raycast-Treffer, Höhe, Tile-Tiefe am Limit, mit und ohne Region.
+- [ ] **C18 Tower bemannen wirkt kaputt** (User, 2026-09-24, Coop, im Einzelspieler ungeprüft; **gebaut 2026-09-24**,
+      Nachtest PLAYTEST T1): Fadenkreuz kommt,
+      Sidebar verschwindet, aber die Kamera bleibt, Zielen und Schießen gehen nicht. Ursache im Coop, aus dem Code:
+      `TowerControlService.enter()` prüft direkt nach `command:man-tower` mit `getMannedTower()`, ob man drin
+      sitzt; im Lockstep wirkt der Befehl erst am Tick, also bricht `enter()` ab (keine Kamera, kein Pointer-Lock,
+      kein Zielen). Das spätere `tower:manned` setzt den Store trotzdem, daher Fadenkreuz und leere Sidebar. Lösung:
+      Kamera und Eingabe erst auf das eigene `tower:manned` hin anschließen. Einzelspieler nachprüfen. So gebaut:
+      `takeSeat` beim eigenen `tower:manned`; die Kamera folgt dem lokalen Ziel, das Maus-Ziel rechnet nicht mehr vom
+      nachlaufenden Tower-Ziel aus, im Coop geht das Ziel höchstens einmal je Tick raus (D12).
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
@@ -119,12 +128,21 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
       plus Knopf "In der Desktop-App öffnen" in der Web-Version. Erst nach dem ersten Desktop-Release, geteilte Links
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
-- [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht): C0 bis C4c gebaut, der erste Zwei-Fenster-Test
-      klappt (User, 2026-09-24). Nächstes Paket C5 (Prüfsummen über das Relay, Abweichung melden, Chrome gegen
-      Firefox messen, Diagnose am Relay: Log je Raum, Statusseite, Logdatei), dann die Wünsche aus dem Browser-Test (Name in der Lobby, Bereitschaft sichtbar, Spieler-Anzeige
-      im Spiel, Dialog beim Gast schließen, Chat unten links; mit Prio im Plan), C6 (Oberfläche), C4d (Relay im
+- [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht): C0 bis C4c und C5a (Prüfsummen über das Relay,
+      Abweichung melden, Diagnose am Relay) gebaut, der erste Zwei-Fenster-Test klappt (User, 2026-09-24). Offen in
+      C5: Wiedereinstieg und Resync (C5b); die Wünsche A bis B aus dem Browser-Test sind gebaut (Name in der Lobby, Spieler-Leiste mit
+      Bereitschaft und Gold, Gold senden, Engine je Spieler, Dialog schließt beim Gast; Nachtest PLAYTEST T), offen
+      Chat unten links (C). Review mit Liste R1 bis R21 im Plan, Abschnitt „Review 2026-09-24“: R1 bis R7 und R17
+      gebaut (Neustart, Aufholen, Cheats aus, Sperren, Tempo beim Gast, Relay-Adresse, Relay-Limits; Nachtest
+      PLAYTEST T10 bis T14), offen R8 bis R16, R18 bis R21 und die Schutz-Punkte S2 bis S6; dann C6 (Oberfläche), C4d (Relay im
       Electron-Build), C7 (Betrieb).
       [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
+- [ ] **E28 Coop Chrome gegen Firefox: Abweichung eingrenzen** (low prio, Randthema; Electron ist primär, D29):
+      Gemessen am 2026-09-24: Chrome gegen Chrome bis W10 ohne Abweichung, Chrome gegen Firefox weicht 14 Spielsekunden
+      nach dem Start ab (Tick 210) und bleibt abweichend. Ursache unbelegt (Verdacht Trigonometrie im Sim-Pfad).
+      Erst eingrenzen: Prüfsumme in Teile zerlegen (Zufall, Gold, Gegner, Tower, Projektile, Held), Teile mitschicken,
+      bei Abweichung ersten abweichenden Teil und erstes Objekt ins Relay-Log. Danach entscheiden: hart machen oder
+      Raum nur mit gleicher Engine. [COOP_PLAN.md](docs/COOP_PLAN.md) C5.
 - [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` setzt keinen Seed, der Anteil getöteter Gegner streut
       um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
       fiel zweimal nur unter Volllast. Seed setzen bzw. Ursache suchen.
