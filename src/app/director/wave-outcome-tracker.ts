@@ -4,7 +4,7 @@
  * lifetimes, and a per-enemy-type breakdown.
  *
  * Fed by the AI data collector's event handlers; finalize() turns it into a
- * WaveOutcome. Times are wall-clock ms handed in by the caller, so the
+ * WaveOutcome. Times are game-time ms handed in by the caller, so the
  * tracker never reads a clock itself.
  */
 
@@ -95,7 +95,7 @@ export class WaveOutcomeTracker {
 
     // Calculate lifetime
     const spawnTime = this.spawnTimes.get(enemyId);
-    if (spawnTime) {
+    if (spawnTime !== undefined) {
       this.updateTypeLifetime(enemyType, now - spawnTime);
     }
     this.endLifetime(enemyId, now);
@@ -162,18 +162,18 @@ export class WaveOutcomeTracker {
   }
 
   /**
-   * The outcome of the running wave at `now`, time metrics divided by the
-   * training timescale. A normal end is a close call below 30% of the start
+   * The outcome of the running wave at `now`, times in game time, so the
+   * same at every timescale. A normal end is a close call below 30% of the start
    * health; a wave that destroyed the base is one by definition and did not
    * leave the player alive.
    *
    * Returns the tracker's own outcome object, which reset() and start()
    * replace rather than clear.
    */
-  finalize(end: WaveEnd, now: number, timescale: number): WaveOutcome {
+  finalize(end: WaveEnd, now: number): WaveOutcome {
     const outcome = this.outcome;
 
-    outcome.waveDurationMs = (now - this.startTime) / timescale;
+    outcome.waveDurationMs = now - this.startTime;
     outcome.lowestPlayerHealth = this.lowestHealth;
     if (end === 'base-destroyed') {
       outcome.playerSurvived = false;
@@ -182,7 +182,7 @@ export class WaveOutcomeTracker {
       outcome.wasCloseCall = this.lowestHealth / GAME_BALANCE.player.startHealth < CLOSE_CALL_THRESHOLD;
     }
 
-    outcome.avgEnemyLifetimeMs = this.averageLifetimeMs(now) / timescale;
+    outcome.avgEnemyLifetimeMs = this.averageLifetimeMs(now);
 
     // Calculate path progress metrics. The per-enemy list matters as much as
     // the average: the bot server derives its near-miss ratio and
@@ -199,16 +199,6 @@ export class WaveOutcomeTracker {
     } else {
       outcome.avgPathProgressPercent = 0;
       outcome.enemyProgressValues = [];
-    }
-
-    // Normalize per-enemy-type lifetimes
-    if (outcome.enemyPerformance) {
-      for (const enemyType in outcome.enemyPerformance) {
-        const perf = outcome.enemyPerformance[enemyType];
-        if (perf.avgLifetimeMs > 0) {
-          perf.avgLifetimeMs = perf.avgLifetimeMs / timescale;
-        }
-      }
     }
 
     return outcome as WaveOutcome;
