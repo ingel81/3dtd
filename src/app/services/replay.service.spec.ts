@@ -18,6 +18,11 @@ vi.mock('./infrastructure/engine-initialization.service', () => ({
   EngineInitializationService: class EngineInitializationService {},
 }));
 vi.mock('../replay/replay-bar-view', () => ({ commandMarkers: () => [] }));
+vi.mock('../director/wave-director', () => ({ WaveDirector: class WaveDirector {} }));
+vi.mock('./location/location-management.service', () => ({
+  LocationManagementService: class LocationManagementService {},
+}));
+vi.mock('../run-log/config-hash', () => ({ balanceConfigHash: () => 'hash' }));
 
 // The sessions the service builds, standing in for the re-simulating ReplaySession
 const players = vi.hoisted(() => [] as { enter: () => void }[]);
@@ -61,6 +66,8 @@ import { PhotoModeService } from './photo-mode.service';
 import { HeroControlService } from './hero-control.service';
 import { BossIntroService } from './boss-intro.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
+import { WaveDirector } from '../director/wave-director';
+import { LocationManagementService } from './location/location-management.service';
 
 /**
  * The gate of ReplayService.enter(): a replay starts only with a recorded
@@ -128,6 +135,8 @@ describe('ReplayService.enter gate', () => {
         { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: ElementRef, useValue: new ElementRef(host) },
+        { provide: WaveDirector, useValue: { source: { id: 'adaptive' } } },
+        { provide: LocationManagementService, useValue: { editableHqLocation: () => null } },
       ],
     });
     service = runInInjectionContext(injector, () => new ReplayService());

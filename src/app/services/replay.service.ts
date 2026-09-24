@@ -9,6 +9,12 @@ import { UIStore } from '../store/ui.store';
 import { REPLAY_CONFIG } from '../configs/replay.config';
 import { commandMarkers, type ReplayMarker } from '../replay/replay-bar-view';
 import { ReplaySession } from '../simulator/replay-session';
+import type { WaveRecord } from '../simulator/sim-recorder';
+import type { CommandLogEntry } from '../managers/game-state/command-log';
+import { buildReplayFile, readReplayFile, replayFileName, replayFileRefusalText } from '../simulator/replay-file';
+import { balanceConfigHash } from '../run-log/config-hash';
+import { WaveDirector } from '../director/wave-director';
+import { LocationManagementService } from './location/location-management.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { cameraTimeline } from '../utils/camera-timeline';
 import { cycleTab, focusedElement } from '../utils/focus-cycle';
@@ -68,6 +74,8 @@ export class ReplayService {
   /** The game component's element, whose template holds the replay bar */
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly announcer = inject(LiveAnnouncer);
+  private readonly waveDirector = inject(WaveDirector);
+  private readonly locations = inject(LocationManagementService);
 
   readonly active = this.uiStore.replayMode;
   /** The newest wave a replay can show, null while there is none */
@@ -98,8 +106,14 @@ export class ReplayService {
    * live run (a determinism bug), null while it matches
    */
   readonly divergedAtMs = signal<number | null>(null);
+  /** The replay shows a loaded file, not the run under way */
+  readonly fromFile = signal(false);
+  /** Why the last file did not load, shown next to the load button; null when it did */
+  readonly fileProblem = signal<string | null>(null);
 
   private session: ReplaySession | null = null;
+  /** The waves and log shown: a loaded replay file, else the run under way */
+  private file: { waves: readonly WaveRecord[]; log: readonly CommandLogEntry[] } | null = null;
   /** A click on replay that waits for a quiet field, see QUIET_WAIT_MS */
   private pending: { wave: number; since: number } | null = null;
   private camera: CameraPose | null = null;
@@ -130,8 +144,13 @@ export class ReplayService {
       this.pending = { wave, since: performance.now() };
       return;
     }
+    this.begin(wave);
+  }
+
+  /** Hide the game UI, keep camera and pause, and play `wave`. The gates are the caller's. */
+  private begin(wave: number): void {
     const engine = this.engineInit.getEngine();
-    if (!engine || !this.gameState.simRecorder.get(wave)) return;
+    if (!engine || !this.recordOf(wave)) return;
 
     if (this.photoMode.active()) this.photoMode.exit();
     this.focusBefore = focusedElement();
@@ -167,6 +186,8 @@ export class ReplayService {
     // The live game back as it was, before the session leaves replay mode
     this.session?.exit();
     this.session = null;
+    this.file = null;
+    this.fromFile.set(false);
     this.cameraControl.cancelJump();
     if (engine && this.camera) restoreCamera(engine, this.camera);
     this.camera = null;
@@ -275,16 +296,95 @@ export class ReplayService {
     cycleTab(event, this.barControls());
   }
 
+  /**
+   * The replayable waves of the run under way as a file (decision D4), for
+   * a download. False when there is nothing to save or no DOM to hang the
+   * link on.
+   */
+  saveFile(doc: Document | undefined = globalThis.document): boolean {
+    const records = this.file?.waves ?? this.gameState.simRecorder.records;
+    const log = this.file?.log ?? this.gameState.commandLog.entries;
+    const file = buildReplayFile(records, log, {
+      worldKey: this.gameState.worldKey(),
+      configHash: this.configHash(),
+      seed: this.gameState.rng.seed,
+    });
+    if (!doc || file.waves.length === 0) return false;
+    const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = doc.createElement('a');
+    link.href = url;
+    link.download = replayFileName(file, this.locations.editableHqLocation()?.name ?? 'map');
+    link.click();
+    URL.revokeObjectURL(url);
+    this.announcer.announce(`Replay of ${file.waves.length} waves saved.`);
+    return true;
+  }
+
+  /**
+   * Load a replay file and play its first wave. Only on the world and with
+   * the balance it was played with, between waves or after game over;
+   * otherwise fileProblem says why.
+   */
+  async loadFile(blob: Blob): Promise<void> {
+    const text = await blob.text();
+    this.ngZone.run(() => {
+      const phase = this.store.phase();
+      if (this.active() || (phase !== 'setup' && phase !== 'gameover')) {
+        this.fileProblem.set('A replay loads between waves.');
+        return;
+      }
+      const read = readReplayFile(text, { worldKey: this.gameState.worldKey(), configHash: this.configHash() });
+      if (read.refusal) {
+        this.fileProblem.set(replayFileRefusalText(read.refusal));
+        this.announcer.announce(replayFileRefusalText(read.refusal));
+        return;
+      }
+      this.fileProblem.set(null);
+      this.file = { waves: read.file.waves, log: read.file.log };
+      this.fromFile.set(true);
+      const first = read.file.waves[0].wave;
+      this.enterAny(first);
+      if (!this.active()) {
+        this.file = null;
+        this.fromFile.set(false);
+      }
+    });
+  }
+
+  /** enter() without its gate on the run's own waves: a loaded file brings its own. */
+  private enterAny(wave: number): void {
+    if (this.bossIntro.active() || this.store.loading() || this.store.error()) return;
+    const phase = this.store.phase();
+    if (phase !== 'setup' && phase !== 'gameover') return;
+    if (this.gameState.snapshotRefusal() !== null) {
+      this.fileProblem.set('The replay cannot start while shots are still flying.');
+      return;
+    }
+    this.begin(wave);
+  }
+
+  /** The record of `wave` in what is shown: the loaded file, else the run under way. */
+  private recordOf(wave: number): WaveRecord | null {
+    if (this.file) return this.file.waves.find((w) => w.wave === wave) ?? null;
+    return this.gameState.simRecorder.get(wave);
+  }
+
+  private configHash(): string {
+    return balanceConfigHash(this.waveDirector.source.id);
+  }
+
   /** A session for `wave` on the live game, at its start and playing. */
   private open(engine: ThreeTilesEngine, wave: number): void {
-    const record = this.gameState.simRecorder.get(wave);
+    const record = this.recordOf(wave);
     if (!record) return;
-    const session = new ReplaySession(this.gameState, engine, record);
+    const log = this.file?.log ?? this.gameState.commandLog.entries;
+    const session = new ReplaySession(this.gameState, engine, record, log);
     session.setSpeed(this.speed());
     session.enter();
     this.session = session;
-    this.waves.set(this.gameState.simRecorder.replayableWaves());
-    this.markers.set(commandMarkers(this.gameState.commandLog.entries, record.startStep, record.endStep ?? record.startStep));
+    this.waves.set(this.file ? this.file.waves.map((w) => w.wave) : this.gameState.simRecorder.replayableWaves());
+    this.markers.set(commandMarkers(log, record.startStep, record.endStep ?? record.startStep));
   }
 
   private syncBar(): void {

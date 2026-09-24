@@ -6,7 +6,7 @@
               [disabled]="!hasPrevious()" (click)="replay.switchWave(-1)">
         <td-icon name="caretL" [size]="12"></td-icon>
       </button>
-      <span class="td-replay-wave">Wave {{ replay.wave() }}</span>
+      <span class="td-replay-wave">Wave {{ replay.wave() }}@if (replay.fromFile()) { <span class="td-replay-file">from file</span> }</span>
       <button type="button" class="td-replay-wave-step" aria-label="Next wave"
               [disabled]="!hasNext()" (click)="replay.switchWave(1)">
         <td-icon name="caretR" [size]="12"></td-icon>
@@ -25,6 +25,13 @@
         <td-icon name="skull" [size]="12" ariaLabel="Enemies on the route"></td-icon>{{ replay.enemiesAlive() }}
       </span>
     </span>
+    <button type="button" class="td-replay-btn"
+            matTooltip="Save the replayable waves of this run as a file. It loads again on the same map."
+            matTooltipPosition="above"
+            (click)="replay.saveFile()">
+      <td-icon name="filing" [size]="12"></td-icon>
+      <span>Save</span>
+    </button>
     <button type="button" class="td-replay-btn" (click)="replay.exit()">
       <span>Exit</span>
       <kbd class="td-replay-key">Esc</kbd>

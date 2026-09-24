@@ -276,3 +276,10 @@
   color: var(--td-warn-orange);
   white-space: nowrap;
 }
+
+// A replay loaded from a file, not the run under way
+.td-replay-file {
+  margin-left: 4px;
+  color: var(--td-text-muted);
+  letter-spacing: 0.08em;
+}

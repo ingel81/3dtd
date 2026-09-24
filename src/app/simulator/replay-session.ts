@@ -4,6 +4,7 @@ import type { ThreeTilesEngine } from '../three-engine';
 import { Resimulation } from './resimulation';
 import type { SimSnapshot } from './sim-snapshot';
 import type { WaveRecord } from './sim-recorder';
+import type { CommandLogEntry } from '../managers/game-state/command-log';
 
 /**
  * A replay as a re-simulation (docs/SIMULATOR_PLAN.md, P6, decision D1):
@@ -30,8 +31,10 @@ export class ReplaySession {
     private readonly gameState: GameStateManager,
     private readonly engine: ThreeTilesEngine,
     readonly record: WaveRecord,
+    /** The log the record points into: the run's own, or one from a replay file */
+    log: readonly CommandLogEntry[] = gameState.commandLog.entries,
   ) {
-    this.resim = new Resimulation(gameState.resimHost, record, gameState.commandLog.entries);
+    this.resim = new Resimulation(gameState.resimHost, record, log);
   }
 
   get wave(): number {

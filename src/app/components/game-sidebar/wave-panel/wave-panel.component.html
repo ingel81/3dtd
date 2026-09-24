@@ -94,7 +94,22 @@
           <span>replay W{{ wave }}</span>
         </button>
       }
+      @if (canLoadReplay()) {
+        <button type="button" class="td-replay-link"
+                aria-label="Load a replay file"
+                matTooltip="Load a saved replay of this map"
+                matTooltipPosition="left"
+                (click)="replayFile.click()">
+          <td-icon name="filing" [size]="12"></td-icon>
+          <span>load</span>
+        </button>
+        <input #replayFile type="file" accept=".json,application/json" hidden
+               (change)="onReplayFile($event)">
+      }
     </div>
+    @if (replay.fileProblem(); as problem) {
+      <p class="td-replay-problem" role="status">{{ problem }}</p>
+    }
 
     <!-- NEXT: the coming waves on a timeline, one detail line for one of
          them; past W30 what is known before the director picks -->

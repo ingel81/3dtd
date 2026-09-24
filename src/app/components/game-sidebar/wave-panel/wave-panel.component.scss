@@ -271,6 +271,13 @@
   outline-offset: 2px;
 }
 
+/* Why a replay file did not load */
+.td-replay-problem {
+  margin: 4px 0 0;
+  color: var(--td-warn-orange);
+  font: 10px/1.3 var(--td-font-mono);
+}
+
 /* === Wave Section ===
  * Without a head line the content starts 12px under the top, like the
  * heads of the other panels */
