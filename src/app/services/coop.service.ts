@@ -139,6 +139,8 @@ export class CoopService {
     return room !== null && room.hostId === this.playerId();
   });
   readonly inGame = computed(() => this.status() === 'in-game');
+  /** The connection broke in a running game: it stands until the player goes on alone (review R10) */
+  readonly lostInGame = computed(() => this.status() === 'closed' && this.roster().length > 0);
   /** The players of the running game in roster order, with name and lane as the room had them at the start */
   readonly roster = signal<{ id: string; name: string; spawnId: string | null }[]>([]);
   /** Players ready for the next wave (in the game) */
@@ -432,6 +434,23 @@ export class CoopService {
     this.gameState.getEventBus().emit({ type: 'command:give-credits', to: playerId, amount: Math.floor(amount) });
   }
 
+  /**
+   * The connection broke in the game (review R10): go on as a single player
+   * game, until a rejoin exists (C5b). The barrier goes, commands act at
+   * once, the line of sight is this client's again, and the others count as
+   * gone as when a player leaves: their lanes close.
+   */
+  continueAlone(): void {
+    if (!this.lostInGame()) return;
+    const me = this.playerId();
+    const gsm = this.gameState;
+    gsm.setLockstep(null);
+    gsm.setLosRole(null);
+    for (const id of [...gsm.players]) if (id !== me) gsm.playerLeft(id);
+    this.leave();
+    this.uiStore.notice.set('The coop game goes on as a single player game.');
+  }
+
   /** Host, lobby: take a player out of the room (review R9) */
   kick(playerId: string): void {
     if (this.isHost() && !this.inGame() && playerId !== this.playerId()) this.session?.kick(playerId);
@@ -658,7 +677,7 @@ export class CoopService {
     session.onClosed = inZone(() => {
       if (this.session !== session) return;
       this.error.set('The connection to the coop server closed.');
-      if (this.inGame()) this.notify('Connection to the coop server lost: the game stands still', 'warn');
+      if (this.inGame()) this.notify('Connection to the coop server lost: the game stands still. Go on alone, or reload to leave', 'warn');
       this.status.set('closed');
     });
   }

@@ -84,6 +84,9 @@ const CHAT_NOTICE_MS = 10000;
         @for (notice of visibleNotices(); track notice.id) {
           <div class="notice" [class.is-warn]="notice.kind === 'warn'" [class.is-chat]="notice.kind === 'chat'">{{ notice.text }}</div>
         }
+        @if (coop.lostInGame()) {
+          <button class="amount-btn continue-btn" type="button" (click)="coop.continueAlone()">Continue alone</button>
+        }
       </div>
     }
   `,
@@ -224,6 +227,12 @@ const CHAT_NOTICE_MS = 10000;
     }
     .gift-label {
       margin-right: 2px;
+    }
+    .continue-btn {
+      pointer-events: auto;
+      padding: 5px 10px;
+      color: var(--td-gold-light);
+      border-color: var(--td-gold-dark);
     }
     .notices {
       display: flex;
