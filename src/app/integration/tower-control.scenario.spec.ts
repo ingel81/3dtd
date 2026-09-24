@@ -459,7 +459,7 @@ describe('Getting into a tower in coop (C18)', () => {
     expect(aims.length).toBeGreaterThan(0);
     expect(aims.length).toBeLessThan(2 * TICK_SUB_STEPS);
     for (let i = 1; i < sentAt.length; i++) expect(sentAt[i] - sentAt[i - 1]).toBeGreaterThanOrEqual(TICK_SUB_STEPS);
-    expect(local.aimHeading).toBeCloseTo(0.08);
+    expect(local.aimHeading).toBeCloseTo(2 * TICK_SUB_STEPS * 0.01);
     // The tower follows once the aims' ticks came
     for (let i = 0; i < 40; i++) {
       relay.closeTick();

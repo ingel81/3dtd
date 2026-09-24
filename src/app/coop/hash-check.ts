@@ -8,8 +8,8 @@
  * in-process relay of the specs (local-relay.ts) share it.
  */
 
-/** Ticks between two hash reports: 15 ticks are one game second. */
-export const HASH_EVERY_TICKS = 15;
+/** Ticks between two hash reports: 30 ticks are one game second. */
+export const HASH_EVERY_TICKS = 30;
 
 /** How many reports back a tick is kept while a player has not reported it yet. */
 const KEEP_REPORTS = 20;

@@ -62,8 +62,8 @@ import { OWNER_ONLY, type TowerPolicy } from '../coop/tower-policy';
 const LOCKSTEP_BUFFER_TICKS = 1;
 /** Coop: the most the pace bends to hold the buffer, either way (0.1 = 90 % to 110 %) */
 const LOCKSTEP_PACE_BEND = 0.1;
-/** Coop: ticks behind beyond which a client catches up fast, as after a hidden tab */
-const LOCKSTEP_LAG_TICKS = 3;
+/** Coop: ticks behind beyond which a client catches up fast, as after a hidden tab (200 ms) */
+const LOCKSTEP_LAG_TICKS = 6;
 /** Coop: the fastest a lagging client catches up, times the room's pace */
 const LOCKSTEP_MAX_CATCH_UP = 4;
 
@@ -1027,7 +1027,7 @@ export class GameStateManager {
   /**
    * Coop: this client's pace against the room's. The relay closes ticks by
    * the wall clock. A client right at the newest tick waits at the barrier
-   * each tick and then runs its four sub-steps at once, a stutter at 15 Hz
+   * each tick and then runs the tick's sub-steps at once, a stutter at the tick rate
    * (measured, PLAYTEST T28: the host 72 % of its frames); one further behind
    * runs smoothly but its input comes late (the guest up to 190 ms).
    *

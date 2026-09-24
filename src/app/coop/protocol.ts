@@ -11,7 +11,7 @@ import type { StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 
 /** Bumped whenever a message changes shape; client and relay must agree. */
-export const PROTOCOL_VERSION = 4;
+export const PROTOCOL_VERSION = 5;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
