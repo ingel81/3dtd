@@ -15,6 +15,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult } from '../utils/tower-placement-rules';
 import { ResearchStore } from '../store/research.store';
 import { TowerLosRegistry } from './tower-los-registry';
+import type { LosMask } from '../utils/los-mask';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import {
@@ -953,12 +954,22 @@ export class TowerPlacementService {
   }
 
   /**
-   * recomputeTowerLOS in one of the next frames instead of right away. For
-   * callers inside an event handler whose follow-up state the recompute has
-   * to see.
+   * recomputeTowerLOS on one of the next drainLosQueue calls instead of
+   * right away. For callers inside an event handler whose follow-up state
+   * the recompute has to see.
    */
   scheduleLosRecompute(tower: Tower): void {
     this.losRegistry.scheduleRecompute(tower);
+  }
+
+  /** Work off queued LOS recomputes, one tower per call; the game loop calls it once per frame. */
+  drainLosQueue(): void {
+    this.losRegistry.drainLosQueue();
+  }
+
+  /** Register a placed tower from a stored LosMask, no GPU work (snapshot restore, re-simulation). */
+  registerTowerFromMask(tower: Tower, mask: LosMask): void {
+    this.losRegistry.registerFromMask(tower, mask);
   }
 
   /**

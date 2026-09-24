@@ -23,6 +23,7 @@ vi.mock('../utils/gpu-cube-resolve', async (importOriginal) => ({
 
 import { TowerPlacementService } from './tower-placement.service';
 import { TowerLosRegistry } from './tower-los-registry';
+import { GameEventBus } from '../game-engine/game-event-bus';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { ResearchStore } from '../store/research.store';
 import { Tower } from '../entities/tower.entity';
@@ -52,7 +53,6 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
   let towers: Tower[];
   let column: ColumnSample;
   let peek: { depth: number; geometricError: number };
-  let frames: FrameRequestCallback[];
   let blockerGroup: object | null;
 
   /** Block-level hull: what the city looks like before refinement. Ground answers: blocked. */
@@ -66,14 +66,11 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
     peek = { depth: 21, geometricError: 2 };
   };
 
-  const runFrame = () => {
-    const due = frames;
-    frames = [];
-    for (const callback of due) callback(0);
-  };
-  /** Run frames until nothing is scheduled any more. */
+  /** One frame of the game loop: GameStateManager.update drains the LOS queue. */
+  const runFrame = () => service.drainLosQueue();
+  /** Enough frames to work off every queued tower. */
   const drainFrames = () => {
-    for (let i = 0; i < 100 && frames.length > 0; i++) runFrame();
+    for (let i = 0; i < 20; i++) runFrame();
   };
 
   const place = (lon: number, lat: number, typeId: TowerTypeId = 'archer'): Tower => {
@@ -94,9 +91,10 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
     );
 
   beforeEach(() => {
-    frames = [];
-    vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => frames.push(callback));
-    vi.stubGlobal('cancelAnimationFrame', () => undefined);
+    // The queue is drained by the game loop, never from a frame callback
+    vi.stubGlobal('requestAnimationFrame', () => {
+      throw new Error('no frame callbacks');
+    });
 
     // Only what the build-mode fields and dispose() touch.
     injectionRegistry['UIStore'] = {
@@ -141,6 +139,7 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
         refreshSelectionViz: vi.fn(),
         onTowerUnregistered: vi.fn(),
       },
+      getEventBus: () => new GameEventBus(),
     };
     service.initialize(engine as never, {} as never, {} as never, { lat: 0, lon: 0 }, gameState as never);
   });
@@ -159,7 +158,6 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
     expect(staleAnswers(a)).toEqual([]);
     // The hull at 85 m stands behind the wall at 10 m: every cell blocked.
     expect(cellsOf(a).every((c) => c.towerVisibility.get(a.id) === false)).toBe(true);
-    expect(frames).toHaveLength(0);
   });
 
   it('samples no cell and moves no answer when finer tiles come in under a standing tower', () => {
@@ -172,7 +170,6 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
 
     expect(cellsOf(a).map((c) => c.terrainHeight)).toEqual(heights);
     expect(staleAnswers(a)).toEqual([]);
-    expect(frames).toHaveLength(0);
   });
 
   it('leaves the cells of the towers standing alone when another tower is placed on finer tiles', () => {
@@ -209,7 +206,6 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
     expect(recompute).toHaveBeenCalledTimes(2);
     runFrame();
     expect(recompute).toHaveBeenCalledTimes(3);
-    expect(frames).toHaveLength(0);
     expect(new Set(recompute.mock.calls.map(([t]) => t))).toEqual(new Set(queued));
   });
 

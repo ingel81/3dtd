@@ -8,6 +8,8 @@ import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { LosResolveContext, cubeCoverage } from '../utils/gpu-cube-resolve';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
+import type { LosMask } from '../utils/los-mask';
+import type { LosResolveReason } from '../game-engine/game-event-bus';
 
 /**
  * Per-tower line of sight on the GlobalRouteGrid: registers a placed tower
@@ -16,6 +18,10 @@ import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
  * answers hold for as long as the tower stands; only a research retrofit or
  * a range upgrade asks for a recompute. TowerPlacementService owns one and
  * exposes these as its grid-registration API.
+ *
+ * Every resolve ends in a LosMask on the tower (`tower.losMask`) and a
+ * `tower:los-resolved` event carrying it. registerFromMask applies a stored
+ * mask instead of a cube, for a snapshot restore or a re-simulation.
  */
 export class TowerLosRegistry {
   private engine: ThreeTilesEngine | null = null;
@@ -23,19 +29,17 @@ export class TowerLosRegistry {
 
   /**
    * Towers a caller asked a recompute for (scheduleRecompute: the air
-   * retrofit of a research), worked off by drainLosRefresh. The old answers
-   * stay in the cells until the recompute replaces them: a stale answer for
-   * a second beats no answer, which would send every candidate in those
-   * cells down the CPU-raycast fallback of the combat loop.
+   * retrofit of a research), worked off by drainLosQueue from the game loop,
+   * in the order they were queued. The old answers stay in the cells until
+   * the recompute replaces them; the air answers the retrofit adds are
+   * missing until then, and combat counts a missing answer as not visible.
    */
   private readonly staleLos = new Set<Tower>();
-  private losRefreshRaf: number | null = null;
 
   /**
    * LOS recomputes per frame. Each one is a forced cubemap render plus the
-   * face readback; a big zoom-in refreshes hundreds of cells under every
-   * tower at once, and running all of those towers in one frame blocked the
-   * main thread for 1-2 s.
+   * face readback; running many towers in one frame blocked the main thread
+   * for 1-2 s.
    */
   private static readonly LOS_RECOMPUTES_PER_FRAME = 1;
 
@@ -75,12 +79,8 @@ export class TowerLosRegistry {
     this.staleLos.clear();
   }
 
-  /** Cancel a pending refresh and forget engine and game state. */
+  /** Drop the queue and forget engine and game state. */
   detach(): void {
-    if (this.losRefreshRaf !== null) {
-      cancelAnimationFrame(this.losRefreshRaf);
-      this.losRefreshRaf = null;
-    }
     this.staleLos.clear();
     this.engine = null;
     this.gameState = null;
@@ -127,12 +127,49 @@ export class TowerLosRegistry {
     );
     tower.visibleCells = visibleCells;
     tower.losReady = true;
+    this.recordMask(tower, terrainPos.x, terrainPos.z, config.range, canTargetGround, canTargetAir, 'place');
 
     // Wenn dieser Tower bereits selected ist (z.B. nach Auto-Select beim
     // Place), die Selection-Viz vom TowerManager refreshen lassen.
     if (tower.selected) {
       this.gameState?.towerManager.refreshSelectionViz(tower);
     }
+  }
+
+  /**
+   * Register a placed tower from a stored LosMask instead of its cube: the
+   * same cells, visibleCells and losReady as register() gave when the mask
+   * was taken, without GPU work. For a snapshot restore and a re-simulation
+   * (the mask comes from a `tower:los-resolved` event or `tower.losMask`).
+   * Emits no event: the mask is a recorded result, not a new one. Needs the
+   * engine only for the local position of the tower.
+   */
+  registerFromMask(tower: Tower, mask: LosMask): void {
+    if (!this.engine || !this.grid.isInitialized()) return;
+    const position = tower.position;
+    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
+    this.staleLos.delete(tower);
+    tower.visibleCells = this.grid.applyLosMask(tower.id, terrainPos.x, terrainPos.z, mask);
+    tower.losMask = mask;
+    tower.losReady = true;
+    if (tower.selected) {
+      this.gameState?.towerManager.refreshSelectionViz(tower);
+    }
+  }
+
+  /** Take the tower's answers as its LosMask and announce them (`tower:los-resolved`). */
+  private recordMask(
+    tower: Tower,
+    x: number,
+    z: number,
+    range: number,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+    reason: LosResolveReason,
+  ): void {
+    const mask = this.grid.encodeLosMask(tower.id, x, z, range, canTargetGround, canTargetAir);
+    tower.losMask = mask;
+    this.gameState?.getEventBus().emit({ type: 'tower:los-resolved', towerId: tower.id, mask, reason });
   }
 
   /**
@@ -144,15 +181,18 @@ export class TowerLosRegistry {
     this.grid.unregisterTower(tower.id);
     this.staleLos.delete(tower);
     tower.visibleCells = [];
+    tower.losMask = null;
   }
 
   /**
    * Recompute a tower's LOS after it gained air targets or its range grew.
    * Uses incremental registration: cells that still hold a cached entry for
-   * this tower keep it (no cube sample), cells new to its range and the
-   * capability it just gained are resolved against a fresh cubemap.
+   * this tower keep it (no cube sample), cells new to its reach and the
+   * capability it just gained are resolved against a fresh cubemap. The
+   * result mixes cubes of different moments, so it is kept as a mask
+   * (recordMask): a re-simulation applies that, it does not recompute.
    */
-  recompute(tower: Tower): void {
+  recompute(tower: Tower, reason: LosResolveReason = 'upgrade'): void {
     if (!this.engine || !this.grid.isInitialized()) return;
 
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
@@ -177,8 +217,8 @@ export class TowerLosRegistry {
 
     // The queue entry is settled only here, once the recompute can run. One
     // that bails above stays queued and the drain retries it next frame:
-    // dropped, its old answers would stay in the cells for good. A direct
-    // call (range upgrade) settles the entry as well.
+    // dropped, its air answers would stay missing for good. A direct call
+    // (range upgrade) settles the entry as well.
     const queued = this.staleLos.delete(tower);
 
     // Incremental: only sample cells that don't already have a cached entry
@@ -193,6 +233,7 @@ export class TowerLosRegistry {
       canTargetAir,
     );
     this.reportLosDrop(tower, before, queued, ctx);
+    this.recordMask(tower, terrainPos.x, terrainPos.z, tower.combat.range, canTargetGround, canTargetAir, reason);
 
     // Selection-Viz refreshen, falls dieser Tower selected ist.
     if (tower.selected) {
@@ -232,38 +273,31 @@ export class TowerLosRegistry {
   }
 
   /**
-   * recompute in one of the next frames instead of right away. For callers
-   * inside an event handler whose follow-up state the recompute has to see
-   * (the research that hands a tower air targets applies the unlock after
-   * its own handlers ran).
+   * recompute on one of the next drainLosQueue calls instead of right away.
+   * For callers inside an event handler whose follow-up state the recompute
+   * has to see (the research that hands a tower air targets applies the
+   * unlock after its own handlers ran).
    */
   scheduleRecompute(tower: Tower): void {
     this.staleLos.add(tower);
-    this.scheduleLosRefresh();
-  }
-
-  /** Schedule the next drainLosRefresh, at most one frame callback at a time. */
-  private scheduleLosRefresh(): void {
-    if (this.losRefreshRaf !== null) return;
-    this.losRefreshRaf = requestAnimationFrame(() => {
-      this.losRefreshRaf = null;
-      this.drainLosRefresh();
-    });
   }
 
   /**
-   * Recompute the towers queued in `staleLos`, one per frame
-   * (LOS_RECOMPUTES_PER_FRAME): each is a forced cubemap render plus the
-   * face readback.
+   * Recompute queued towers, at most LOS_RECOMPUTES_PER_FRAME (each is a
+   * forced cubemap render plus the face readback), oldest first. Called by
+   * the game loop once per frame after its sub-steps (GameStateManager
+   * .update), so it runs under the heartbeat of a hidden tab as well, and
+   * the answers change between two sub-steps. The `tower:los-resolved`
+   * event of each carries the mask; for an exact re-simulation the command
+   * log records the sub-step it came in.
    */
-  private drainLosRefresh(): void {
+  drainLosQueue(): void {
     let budget = TowerLosRegistry.LOS_RECOMPUTES_PER_FRAME;
     for (const tower of [...this.staleLos]) {
       // recompute takes the tower out of the queue.
-      this.recompute(tower);
+      this.recompute(tower, 'retrofit');
       if (--budget === 0) break;
     }
-    if (this.staleLos.size > 0) this.scheduleLosRefresh();
   }
 
   /**

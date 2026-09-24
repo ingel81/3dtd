@@ -113,6 +113,7 @@ describe('TowerPlacementService', () => {
     registerTower: ReturnType<typeof vi.fn>;
     registerTowerIncremental: ReturnType<typeof vi.fn>;
     unregisterTower: ReturnType<typeof vi.fn>;
+    encodeLosMask: ReturnType<typeof vi.fn>;
     rebuildAirRouteLayer: ReturnType<typeof vi.fn>;
   };
   let airTargetingUnlocked: ReturnType<typeof signal<boolean>>;
@@ -212,6 +213,7 @@ describe('TowerPlacementService', () => {
       registerTower: vi.fn(() => [{ x: 1, z: 1 } as RouteCell]),
       registerTowerIncremental: vi.fn(() => []),
       unregisterTower: vi.fn(),
+      encodeLosMask: vi.fn(() => ({ range: 0, ground: true, air: false, bits: new Uint8Array(0) })),
       rebuildAirRouteLayer: vi.fn(),
     };
     injectionRegistry['GlobalRouteGridService'] = grid;
@@ -1256,19 +1258,19 @@ describe('TowerPlacementService', () => {
   });
 
   describe('dispose', () => {
-    it('leaves build mode, unsubscribes and cancels a pending LOS refresh', async () => {
+    it('leaves build mode, unsubscribes and drops the queued LOS recomputes', async () => {
       init();
       await enterBuild();
       hover(FREE);
       service.scheduleLosRecompute(new Tower({ ...FREE, height: 0 }, 'archer'));
-      const [pending] = [...frames.keys()];
 
       service.dispose();
+      service.drainLosQueue();
 
       expect(service.buildMode()).toBe(false);
       expect(overlay.children).toHaveLength(0);
       expect(losViz.instances[0].disposed).toBe(true);
-      expect(cancelFrame).toHaveBeenCalledWith(pending);
+      expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
     });
 
     it('releases each loaded preview model once', async () => {
