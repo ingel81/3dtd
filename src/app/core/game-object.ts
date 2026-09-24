@@ -115,4 +115,18 @@ export abstract class GameObject {
   static resetIdCounter(): void {
     GameObject.idCounter = 0;
   }
+
+  /**
+   * The last id handed out. Part of the wave-start snapshot: ids decide the
+   * order of the entity maps and seed an enemy's rush (EnemyRush), so a
+   * re-simulated wave has to hand out the same ones (docs/SIMULATOR_PLAN.md, P4).
+   */
+  static getIdCounter(): number {
+    return GameObject.idCounter;
+  }
+
+  /** Continue handing out ids after `value`, see getIdCounter. */
+  static setIdCounter(value: number): void {
+    GameObject.idCounter = value;
+  }
 }

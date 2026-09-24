@@ -123,6 +123,12 @@ export type AbilityUseResult =
   | { ok: true; strike: PendingStrike }
   | { ok: false; reason: AbilityRejectReason };
 
+/** Charges of every ability, see AbilityManager.getState. Plain data. */
+export interface AbilitySaveState {
+  states: ({ id: AbilityId } & ChargeState)[];
+  nextStrikeId: number;
+}
+
 interface ChargeState {
   unlocked: boolean;
   charges: number;
@@ -555,6 +561,27 @@ export class AbilityManager implements IGameManager {
     this.states.clear();
     this.pending.length = 0;
     this.nextStrikeId = 1;
+  }
+
+  // ==================== Snapshot ====================
+
+  /**
+   * Charges of every ability, for the wave-start snapshot
+   * (docs/SIMULATOR_PLAN.md, P4). Taken between waves only, where no strike is
+   * pending: a strike always lands in its own wave.
+   */
+  getState(): AbilitySaveState {
+    const states: AbilitySaveState['states'] = [];
+    for (const [id, state] of this.states) states.push({ id, ...state });
+    return { states, nextStrikeId: this.nextStrikeId };
+  }
+
+  restoreState(state: AbilitySaveState): void {
+    this.reset();
+    for (const { id, unlocked, charges, wavesTowardCharge } of state.states) {
+      this.states.set(id, { unlocked, charges, wavesTowardCharge });
+    }
+    this.nextStrikeId = state.nextStrikeId;
   }
 
   destroy(): void {

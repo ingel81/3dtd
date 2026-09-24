@@ -622,4 +622,21 @@ describe('AbilityManager', () => {
       expect(manager.getStatus('nuclear-strike').unlocked).toBe(false);
     });
   });
+  describe('snapshot', () => {
+    it('puts charges and the waves toward the next one back after restoreState', () => {
+      unlock();
+      expect(manager.use('nuclear-strike', TARGET).ok).toBe(true);
+      tick(NUKE_STEPS + 1);
+      completeWave();
+      const state = manager.getState();
+      const before = manager.getStatus('nuclear-strike');
+
+      const other = new AbilityManager(new GameEventBus(), world);
+      other.setPhaseProvider(() => phase);
+      other.restoreState(JSON.parse(JSON.stringify(state)));
+
+      expect(other.getStatus('nuclear-strike')).toEqual(before);
+      expect(other.getState()).toEqual(state);
+    });
+  });
 });
