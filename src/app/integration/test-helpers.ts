@@ -337,6 +337,15 @@ export function createTestManagers(): TestManagers {
   enemyManager.initialize(engine);
   projectileManager.initialize(engine);
 
+  // The enemy debugger's cheats, run as GameCommandsHandler and
+  // GameStateManager.debugKillAll & co. run them in the game
+  eventBus.on('debug:kill-all', () => {
+    waveManager.killAll();
+    eventBus.emit({ type: 'wave:cleared' });
+  });
+  eventBus.on('debug:spawn-enemy', (event) => enemyManager.debugSpawn(event));
+  eventBus.on('debug:remove-enemy', (event) => enemyManager.debugRemove(event.enemyId));
+
   return {
     eventBus,
     enemyManager,

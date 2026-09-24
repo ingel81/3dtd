@@ -493,8 +493,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     it('subscribes in this order at construction and initialize()', () => {
       expect(subscriptions).toEqual([
         // EnemyManager, WaveManager, AbilityManager, HeroManager (constructors)
-        'debug:remove-enemy', 'debug:spawn-enemy',
-        'debug:kill-all', 'enemy:reached-base', 'enemy:leaking', 'enemy:died',
+        'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
         'research:completed', 'hero:kill',
         // VFXService, AudioService, GameSoundsService, ScreenShakeService, BackgroundMusicService, BloodMoonService
@@ -509,11 +508,11 @@ describe('GameStateManager order of operations (characterization)', () => {
         'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:footstep', 'enemy:died',
         'wave:started', 'ability:impact', 'health:changed', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
-        // GameStateManager: LOS masks and cheats for the re-simulation, AA retrofit, guard turns, kill reward
+        // GameStateManager: LOS masks for the re-simulation, AA retrofit, guard turns, kill reward
         'enemy:reached-base', 'enemy:leaking',
-        'tower:los-resolved', 'debug:spawn-enemy', 'debug:remove-enemy', 'debug:kill-all',
+        'tower:los-resolved',
         'research:completed', 'wave:completed',
-        'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'enemy:died',
+        'enemy:died', 'enemy:reached-base', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:set-targeting',
         'command:set-hold-fire', 'command:man-tower', 'command:leave-tower', 'command:tower-trigger',
@@ -524,7 +523,8 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:hire-hero', 'command:hero-move', 'command:hero-ammo',
         'command:start-wave', 'command:los-mask', 'command:leave-game', 'command:set-ready', 'command:give-credits',
         'command:restart-game',
-        'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:max-upgrade-all-towers',
+        'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:kill-all', 'debug:spawn-enemy',
+        'debug:remove-enemy', 'debug:max-upgrade-all-towers',
         'debug:ready-ability', 'debug:jump-to-wave', 'debug:ready-hero',
       ]);
     });

@@ -144,10 +144,10 @@ describe('GameStateSyncService (real service)', () => {
       expect(store.waveEnemiesLeft()).toBe(0);
     });
 
-    it('debug:kill-all → left = 0, the unspawned rest is dropped too', () => {
+    it('wave:cleared (the kill-all acted) → left = 0, the unspawned rest is dropped too', () => {
       eventBus.emit({ type: 'wave:started', wave: 2, enemyCount: 20 });
       eventBus.emit({ type: 'enemy:spawned', enemy: {} as never });
-      eventBus.emit({ type: 'debug:kill-all' });
+      eventBus.emit({ type: 'wave:cleared' });
       eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 0 , killedBy: null });
       expect(store.waveEnemiesLeft()).toBe(0);
     });

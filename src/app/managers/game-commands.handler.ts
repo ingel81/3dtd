@@ -340,6 +340,18 @@ export class GameCommandsHandler {
       this.gsm.researchOf(this.gsm.actingPlayerId).completeAllResearch();
     });
 
+    this.on('debug:kill-all', () => {
+      this.gsm.debugKillAll();
+    });
+
+    this.on('debug:spawn-enemy', (event) => {
+      this.gsm.debugSpawnEnemy(event);
+    });
+
+    this.on('debug:remove-enemy', (event) => {
+      this.gsm.debugRemoveEnemy(event.enemyId);
+    });
+
     this.on('debug:max-upgrade-all-towers', () => {
       this.gsm.maxUpgradeAllTowers();
     });

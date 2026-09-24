@@ -177,6 +177,11 @@ export class GameClock {
     this.lastUpdateTime = 0;
   }
 
+  /** The frame still holds a sub-step it may take (what nextSubStep would do, without taking it). */
+  hasDueStep(): boolean {
+    return this.pendingMs >= GameClock.FIXED_STEP_MS && this._stepsThisFrame < GameClock.MAX_SUBSTEPS_PER_FRAME;
+  }
+
   /** Closes the frame: whatever game-time is left carries into the next one. */
   endFrame(): void {
     this.subStepRemainderMs = this.pendingMs;

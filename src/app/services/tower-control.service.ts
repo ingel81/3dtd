@@ -112,6 +112,12 @@ export class TowerControlService {
   private aimMoved = false;
   /** Sub-step of the last aim that went out, for the coop pace */
   private aimSentStep = -Infinity;
+  /**
+   * The trigger as last sent. Not the tower's: in coop that one follows a
+   * tick later, and a short click would let go before it was down there, so
+   * the release never went out and the tower fired on (playtest T1).
+   */
+  private triggerSent = false;
   private readonly eye = new Vector3();
   private readonly dir = new Vector3();
   private readonly lookAt = new Vector3();
@@ -205,6 +211,7 @@ export class TowerControlService {
     this.aimPitch = tower.manualAim.pitch;
     this.aimMoved = false;
     this.aimSentStep = -Infinity;
+    this.triggerSent = tower.triggerHeld;
 
     if (!this.pose) this.pose = this.saveCamera(engine);
     const controls = engine.getControls();
@@ -262,7 +269,8 @@ export class TowerControlService {
     const camera = engine.getCamera();
     this.recoilMs = Math.max(0, this.recoilMs - deltaTime);
     const kick = RECOIL_KICK_RAD * (this.recoilMs / RECOIL_MS);
-    this.towerCombat.mannedEyeInto(tower, this.eye);
+    // The eye from the player's own aim, as the view: the tower's comes a tick later in coop
+    this.towerCombat.mannedEyeInto(tower, this.eye, { heading: this.aimHeading, pitch: this.aimPitch });
     aimDirectionInto(this.aimHeading, this.aimPitch + kick, this.dir);
     camera.position.copy(this.eye);
     camera.up.set(0, 1, 0);
@@ -398,8 +406,8 @@ export class TowerControlService {
   }
 
   private setTrigger(held: boolean): void {
-    const tower = this.gameState.getMannedTower();
-    if (!tower || tower.triggerHeld === held) return;
+    if (!this.gameState.getMannedTower() || this.triggerSent === held) return;
+    this.triggerSent = held;
     this.gameState.getEventBus().emit({ type: 'command:tower-trigger', held });
   }
 

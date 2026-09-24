@@ -37,7 +37,7 @@ import { heroBodyContact } from '../utils/hero-body-contact';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
 import { GameRng } from '../utils/game-rng';
-import type { CreditsSource, KilledBy, LosResolveReason, WaveGoldBreakdown } from '../game-engine/game-event-bus';
+import type { CreditsSource, GameEvent, KilledBy, LosResolveReason, WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
@@ -58,7 +58,11 @@ import { HASH_EVERY_TICKS } from '../coop/hash-check';
 import type { WorldSource } from '../coop/world-package';
 import { OWNER_ONLY, type TowerPolicy } from '../coop/tower-policy';
 
-/** Coop: ticks a client may lag behind the relay before it runs faster (lockstepCatchUp) */
+/** Coop: ticks a client keeps in hand behind the relay, so it never waits at the barrier (lockstepPace) */
+const LOCKSTEP_BUFFER_TICKS = 1;
+/** Coop: the most the pace bends to hold the buffer, either way (0.1 = 90 % to 110 %) */
+const LOCKSTEP_PACE_BEND = 0.1;
+/** Coop: ticks behind beyond which a client catches up fast, as after a hidden tab */
 const LOCKSTEP_LAG_TICKS = 3;
 /** Coop: the fastest a lagging client catches up, times the room's pace */
 const LOCKSTEP_MAX_CATCH_UP = 4;
@@ -782,13 +786,6 @@ export class GameStateManager {
     this.eventBusSubs.add(this.eventBus.on('tower:los-resolved', (event) => {
       (this.replayLog ?? this.commandLog).recordLos(event.towerId, event.mask, event.reason);
     }));
-    // Cheats that change the simulation past the command log: the running
-    // wave does not re-simulate any more
-    for (const type of ['debug:spawn-enemy', 'debug:remove-enemy', 'debug:kill-all'] as const) {
-      this.eventBusSubs.add(this.eventBus.on(type, () => {
-        if (!this.replaying) this.simRecorder.taint(type);
-      }));
-    }
 
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
       this.towerLifecycle.scheduleAirRetrofit(event.effects, event.playerId);
@@ -804,10 +801,6 @@ export class GameStateManager {
     // (see TowerLifecycle.turnToGuardIfClear)
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => this.towerLifecycle.turnToGuardIfClear(event.enemy)));
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => this.towerLifecycle.turnToGuardIfClear(event.enemy)));
-    // EnemyManager subscribed first and has removed the enemy by now
-    this.eventBusSubs.add(this.eventBus.on('debug:remove-enemy', () => this.towerLifecycle.turnToGuardIfClear()));
-    // WaveManager subscribed first and has killed them all by now, splitting types included
-    this.eventBusSubs.add(this.eventBus.on('debug:kill-all', () => this.towerLifecycle.turnToGuardIfClear()));
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
@@ -905,7 +898,7 @@ export class GameStateManager {
     // Clamped wall-clock delta × timescale plus the carried remainder,
     // see GameClock.beginFrame().
     const timescale = this.gameSpeed();
-    this.clock.beginFrame(currentTime, timescale * this.lockstepCatchUp());
+    this.clock.beginFrame(currentTime, timescale * this.lockstepPace());
 
     // Sync timescale to renderer (turret-pulse / hover / shader-time only —
     // gameplay rotation now flows through sub-step game-time).
@@ -921,13 +914,20 @@ export class GameStateManager {
     const stepMs = GameClock.FIXED_STEP_MS;
 
     // nextSubStep() advances the game clock before the step runs
-    while (this.lockstepOpen() && this.clock.nextSubStep()) {
+    let open: boolean;
+    while ((open = this.lockstepOpen()) && this.clock.nextSubStep()) {
       const gameOver = this.simulateStep(stepMs, profiling);
       if (gameOver) break; // no point running more sub-steps after game-over
 
       // Per-sub-step listeners (AI bot) at the boundary: a bot decides on
       // the state after the checks, its command acts at once
       onSubStep?.(stepMs);
+    }
+    // Coop: how smoothly this client runs (PLAYTEST T19)
+    const link = this.lockstep;
+    if (link?.noteFrame) {
+      const behind = link.confirmedTick() - (tickNeededAfter(this.clock.subStep) + this.lockstepTickBase);
+      link.noteFrame(this.clock.stepsThisFrame, !open && this.clock.hasDueStep(), Math.max(0, behind));
     }
     this.clock.endFrame();
     const stepsExecuted = this.clock.stepsThisFrame;
@@ -1025,19 +1025,27 @@ export class GameStateManager {
   }
 
   /**
-   * Coop (review R2): how much faster than the room's pace this client runs
-   * to catch up. The relay closes ticks by the wall clock; a client that fell
-   * behind (a slow frame, a hidden tab) would stay behind for good at the
-   * room's pace. Up to LOCKSTEP_MAX_CATCH_UP times while more than
-   * LOCKSTEP_LAG_TICKS ticks are closed and not yet run; 1 otherwise and alone.
+   * Coop: this client's pace against the room's. The relay closes ticks by
+   * the wall clock. A client right at the newest tick waits at the barrier
+   * each tick and then runs its four sub-steps at once, a stutter at 15 Hz
+   * (measured, PLAYTEST T28: the host 72 % of its frames); one further behind
+   * runs smoothly but its input comes late (the guest up to 190 ms).
+   *
+   * So each client holds LOCKSTEP_BUFFER_TICKS in hand: a little slower when
+   * it has less, a little faster when it has more, at most
+   * LOCKSTEP_PACE_BEND either way. Far behind (a slow frame, a hidden tab,
+   * review R2) it catches up at up to LOCKSTEP_MAX_CATCH_UP times. 1 alone.
    * Sub-steps are fixed, so this changes when they run, never what they do.
    */
-  private lockstepCatchUp(): number {
+  private lockstepPace(): number {
     const link = this.lockstep;
     if (!link) return 1;
     const behind = link.confirmedTick() - (tickNeededAfter(this.clock.subStep) + this.lockstepTickBase);
-    if (behind <= LOCKSTEP_LAG_TICKS) return 1;
-    return Math.min(LOCKSTEP_MAX_CATCH_UP, 1 + (behind - LOCKSTEP_LAG_TICKS) / LOCKSTEP_LAG_TICKS);
+    if (behind > LOCKSTEP_LAG_TICKS) {
+      return Math.min(LOCKSTEP_MAX_CATCH_UP, 1 + (behind - LOCKSTEP_LAG_TICKS) / LOCKSTEP_LAG_TICKS);
+    }
+    const bend = (behind - LOCKSTEP_BUFFER_TICKS) * LOCKSTEP_PACE_BEND;
+    return 1 + Math.max(-LOCKSTEP_PACE_BEND, Math.min(LOCKSTEP_PACE_BEND, bend));
   }
 
   /**
@@ -1533,6 +1541,35 @@ export class GameStateManager {
    * Announced as `wave:jumped`.
    * @returns false when refused: a wave running, game over, or `wave` not past the next wave
    */
+  /**
+   * The enemy debugger's cheats (debug:* commands, GameCommandsHandler), so
+   * in coop they act at their tick on every client. Each changes the
+   * simulation past the command log: the running wave does not re-simulate
+   * any more.
+   */
+  debugKillAll(): void {
+    this.taintByCheat('debug:kill-all');
+    this.waveManager.killAll();
+    this.eventBus.emit({ type: 'wave:cleared' });
+    // All dead by now, splitting types included
+    this.towerLifecycle.turnToGuardIfClear();
+  }
+
+  debugSpawnEnemy(event: Extract<GameEvent, { type: 'debug:spawn-enemy' }>): void {
+    this.taintByCheat(event.type);
+    this.enemyManager.debugSpawn(event);
+  }
+
+  debugRemoveEnemy(enemyId: string): void {
+    this.taintByCheat('debug:remove-enemy');
+    this.enemyManager.debugRemove(enemyId);
+    this.towerLifecycle.turnToGuardIfClear();
+  }
+
+  private taintByCheat(type: string): void {
+    if (!this.replaying) this.simRecorder.taint(type);
+  }
+
   jumpToWave(wave: number, grantGold: boolean): boolean {
     const from = this.waveManager.waveNumber();
     if (this.waveManager.phase() !== 'setup' || !Number.isInteger(wave) || wave <= from + 1) return false;

@@ -171,7 +171,6 @@ export class WaveManager implements IGameManager {
     private eventBus: GameEventBus,
     private enemyManager: EnemyManager
   ) {
-    this.registerDebugHandlers();
     // Accumulate damage-to-base during active waves (for Perfect-detection)
     this.subs.add(this.eventBus.on('enemy:reached-base', (e) => {
       if (this.phase() === 'wave') {
@@ -237,18 +236,19 @@ export class WaveManager implements IGameManager {
     return this.expectedBodyWeight;
   }
 
-  private registerDebugHandlers(): void {
-    this.subs.add(this.eventBus.on('debug:kill-all', () => {
-      this.stopSpawning();
-      // Phase 5.16: debug kill-all does NOT award credits — otherwise it'd be
-      // an instant gold farm during testing. Nor does it split a skeleton:
-      // kill-all has to leave nothing of the wave.
-      for (const enemy of this.enemyManager.getAlive()) {
-        if (enemy.alive) {
-          this.enemyManager.kill(enemy, 'debug', { kind: 'debug' });
-        }
+  /**
+   * Debug kill-all (the debug:kill-all command, GameStateManager.debugKillAll):
+   * nothing more spawns, every enemy dies. It does NOT award credits (Phase
+   * 5.16), otherwise it'd be an instant gold farm during testing. Nor does it
+   * split a skeleton: kill-all has to leave nothing of the wave.
+   */
+  killAll(): void {
+    this.stopSpawning();
+    for (const enemy of this.enemyManager.getAlive()) {
+      if (enemy.alive) {
+        this.enemyManager.kill(enemy, 'debug', { kind: 'debug' });
       }
-    }));
+    }
   }
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {

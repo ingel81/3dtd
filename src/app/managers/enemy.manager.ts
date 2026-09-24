@@ -9,6 +9,7 @@ import { GlobalRouteGridService } from '../services/world/global-route-grid.serv
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
+import type { GameEvent } from '../game-engine/game-event-bus';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { waveGold, enemyBaseDamageForWave } from '../configs/campaign.config';
@@ -174,44 +175,45 @@ export class EnemyManager extends EntityManager<Enemy> {
   ) {
     super();
     this.oozes = new OozeBodies(globalRouteGrid, eventBus, () => this.getWaveNumber());
-    this.registerDebugHandlers();
   }
 
-  private registerDebugHandlers(): void {
-    this.subs.add(this.eventBus.on('debug:remove-enemy', (event) => {
-      // A debug worm goes as a whole, the segments still in the portal with
-      // it, also when the head Enemy Debug lists is dead already
-      const worm = this.worms.groupSpawnedWith(event.enemyId);
-      if (worm) this.removeWorm(worm);
-      const enemy = this.getAll().find(e => e.id === event.enemyId);
-      if (enemy) {
-        this.remove(enemy);
-      }
-    }));
+  /**
+   * The enemy debugger's remove (the debug:remove-enemy command). A debug
+   * worm goes as a whole, the segments still in the portal with it, also
+   * when the head Enemy Debug lists is dead already.
+   */
+  debugRemove(enemyId: string): void {
+    const worm = this.worms.groupSpawnedWith(enemyId);
+    if (worm) this.removeWorm(worm);
+    const enemy = this.getAll().find(e => e.id === enemyId);
+    if (enemy) {
+      this.remove(enemy);
+    }
+  }
 
-    this.subs.add(this.eventBus.on('debug:spawn-enemy', (event) => {
-      if (!this.tilesEngine) {
-        console.warn('[EnemyManager] Debug spawn ignored - not initialized');
-        return;
-      }
+  /** The enemy debugger's spawn (the debug:spawn-enemy command). */
+  debugSpawn(event: Extract<GameEvent, { type: 'debug:spawn-enemy' }>): void {
+    if (!this.tilesEngine) {
+      console.warn('[EnemyManager] Debug spawn ignored - not initialized');
+      return;
+    }
 
-      if (!event.path || event.path.length < 2) {
-        console.warn('[EnemyManager] Debug spawn ignored - invalid path');
-        return;
-      }
+    if (!event.path || event.path.length < 2) {
+      console.warn('[EnemyManager] Debug spawn ignored - invalid path');
+      return;
+    }
 
-      const count = event.count ?? 1;
-      for (let i = 0; i < count; i++) {
-        this.spawn(
-          event.path,
-          event.enemyType as EnemyTypeId,
-          event.speed,
-          event.paused ?? false,
-          event.health,
-          event.start,
-        );
-      }
-    }));
+    const count = event.count ?? 1;
+    for (let i = 0; i < count; i++) {
+      this.spawn(
+        event.path,
+        event.enemyType as EnemyTypeId,
+        event.speed,
+        event.paused ?? false,
+        event.health,
+        event.start,
+      );
+    }
   }
 
   /** Remove every segment of `group` on the route; none comes out of the portal any more. */

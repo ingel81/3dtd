@@ -467,4 +467,46 @@ describe('Getting into a tower in coop (C18)', () => {
     }
     expect(tower.manualAim.heading).toBeCloseTo(aims[aims.length - 1]);
   });
+
+  it('puts the eye where the player aims, not where the tower still points (playtest T19)', () => {
+    const gsm = createGame();
+    const tower = placeTower(gsm);
+    const clock = { now: 1000 };
+    gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
+    steps(gsm, clock, 1);
+    const combat = mockServices['TowerCombatService'] as TowerCombatService;
+    // The player turned; the tower has not heard of it yet
+    const ahead = combat.mannedEyeInto(tower, new Vector3(), { heading: 1.2, pitch: 0.1 });
+    const trailing = combat.mannedEyeInto(tower, new Vector3());
+    expect(Math.hypot(ahead.x - trailing.x, ahead.z - trailing.z)).toBeGreaterThan(0.1);
+    // Once it has, the two are the same point
+    sendAim(gsm, 1.2, 0.1);
+    steps(gsm, clock, 1);
+    const caughtUp = combat.mannedEyeInto(tower, new Vector3());
+    expect(caughtUp.x).toBeCloseTo(ahead.x, 6);
+    expect(caughtUp.y).toBeCloseTo(ahead.y, 6);
+    expect(caughtUp.z).toBeCloseTo(ahead.z, 6);
+  });
+
+  it('lets go of the trigger after a click shorter than a tick (playtest T1)', () => {
+    const gsm = createGame();
+    const tower = placeTower(gsm);
+    const relay = new LocalRelay(true);
+    gsm.setLockstep(relay.connect(LOCAL_PLAYER_ID));
+    const { control } = createControl(gsm);
+    const clock = { now: 1000 };
+    control.enter(tower);
+    relay.closeTick();
+    steps(gsm, clock, 1);
+
+    // Down and up before the tick of the press came back (readButtons)
+    const trigger = control as unknown as { setTrigger(held: boolean): void };
+    trigger.setTrigger(true);
+    trigger.setTrigger(false);
+    for (let i = 0; i < 4; i++) {
+      relay.closeTick();
+      steps(gsm, clock, 1);
+    }
+    expect(tower.triggerHeld).toBe(false);
+  });
 });
