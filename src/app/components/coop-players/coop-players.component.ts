@@ -51,6 +51,10 @@ const CHAT_NOTICE_MS = 10000;
             } @else if (!waveActive()) {
               <span class="state" [class.is-ready]="player.ready">{{ player.ready ? 'ready' : 'building' }}</span>
             }
+            @if (player.leaks > 0) {
+              <span class="leaks" [matTooltip]="leaksTip(player)"
+                    matTooltipPosition="below">{{ player.leaks }} through</span>
+            }
             @if (!player.left && player.latency !== null) {
               <span class="ping" [matTooltip]="player.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'"
                     matTooltipPosition="below">{{ player.latency }} ms</span>
@@ -176,6 +180,10 @@ const CHAT_NOTICE_MS = 10000;
     .state.is-ready {
       color: var(--td-teal);
     }
+    .leaks {
+      font: 600 9px/1 var(--td-font-mono);
+      color: var(--td-warn-orange);
+    }
     .ping {
       font: 600 9px/1 var(--td-font-mono);
       color: var(--td-text-muted);
@@ -283,6 +291,7 @@ export class CoopPlayersComponent {
         me: p.id === me,
         host: p.id === hostId,
         slowing: p.id === this.coop.waitingFor(),
+        leaks: this.coop.waveLeaks().get(p.id) ?? 0,
         ready: ready.has(p.id),
         left: left.has(p.id),
         gold: gold.get(p.id) ?? 0,
@@ -323,6 +332,11 @@ export class CoopPlayersComponent {
       });
       onCleanup(() => timers.forEach((t) => t !== null && clearTimeout(t)));
     });
+  }
+
+  /** "3 enemies got through Bob's lane this wave" */
+  leaksTip(player: { me: boolean; name: string; leaks: number }): string {
+    return `${player.leaks} enemies got through ${player.me ? 'your' : `${player.name}'s`} lane this wave`;
   }
 
   nameOf(playerId: string): string {
