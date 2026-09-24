@@ -266,6 +266,22 @@ Ursprünglicher Plan:
 
 ### C4 Relay und Lobby
 
+**C4a gebaut (2026-09-24):** das Relay.
+
+- `coop-server/` (TypeScript, Node führt es direkt aus, `erasableSyntaxOnly`), `npm run coop-server [-- --port N]`,
+  Standard-Port 3003. `room.ts` sind die Regeln (rein, ohne Sockets), `server.ts` verbindet Sockets und Uhr,
+  `main.ts` ist der Einstieg für npm; die Desktop-App bekommt ihren in C4d.
+- Protokoll `src/app/coop/protocol.ts` (nur Typen und zwei Konstanten, das Relay importiert es als Typ):
+  hello, create/join, world, pick, ready, start, cmd, speed (0 hält an), chat, ping; zurück welcome, refused,
+  room, world, started, tick, speed, chat, ping, left, host.
+- Raum: höchstens vier (D16), Beitritt nur vor dem Start (D23) und nur mit gleicher Spielversion und Balance,
+  jede Lane einmal, bereit nur mit Lane, Start nur durch den Host und nur wenn alle bereit sind. Ticks schließen
+  nach Spielzeit im Tempo des Raums, Befehle in Ankunftsreihenfolge in den nächsten offenen Tick. Wer im Spiel geht,
+  bekommt ein `command:leave-game` in den nächsten Tick (seine Lane schließt bei allen gleich); der Host geht an
+  den nächsten in Beitrittsreihenfolge (D22).
+- Tests: `room.spec.ts` (Regeln, Takt, Tempo, Verlassen), `server.spec.ts` (zwei echte Sockets vom Anlegen bis zu
+  den Ticks, Hostwechsel).
+
 - Neuer Ordner `coop-server/` (TypeScript, Node, `ws`), getrennt vom Python-`bot-server/`. Die Logik ist eine
   Bibliothek mit zwei Einstiegen (D18): ein npm-Skript und der Electron-Main ("LAN-Spiel hosten", Beitritt per IP
   oder Link). Keine eigene exe.

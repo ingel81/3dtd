@@ -1,0 +1,6 @@
+{
+  "name": "3dtd-coop-server",
+  "private": true,
+  "type": "module",
+  "description": "Coop relay of 3DTD: rooms and ticks, run by Node as TypeScript (docs/COOP_PLAN.md, C4)"
+}

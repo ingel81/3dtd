@@ -13,6 +13,7 @@
     "bench": "vitest bench --run --no-file-parallelism --reporter=verbose --silent=false",
     "bench:sim": "vitest run src/app/integration/sim-step.perf.spec.ts --mode simbench --reporter=verbose --silent=false",
     "lint": "ng lint",
+    "coop-server": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON coop-server/src/main.ts",
     "postinstall": "node -e \"const fs=require('fs');const src='node_modules/three/examples/jsm/libs/draco/gltf';const dst='public/draco/gltf';fs.mkdirSync(dst,{recursive:true});['draco_decoder.js','draco_decoder.wasm','draco_wasm_wrapper.js'].forEach(f=>fs.copyFileSync(src+'/'+f,dst+'/'+f));console.log('Draco decoder copied')\"",
     "economy-chart": "vitest run tools/economy-chart/generate.spec.ts",
     "tower-stats-chart": "vitest run tools/tower-stats-chart/generate.spec.ts",
@@ -58,6 +59,7 @@
     "@angular/compiler-cli": "^22.1.6",
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.13.4",
+    "@types/ws": "^8.18.1",
     "@vitest/coverage-v8": "^5.0.0",
     "angular-eslint": "22.5.0",
     "eslint": "^10.10.0",
@@ -65,7 +67,8 @@
     "simplex-noise": "^4.0.3",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.70.0",
-    "vitest": "^5.0.0"
+    "vitest": "^5.0.0",
+    "ws": "^8.21.3"
   },
   "overrides": {
     "vitest": "$vitest"
