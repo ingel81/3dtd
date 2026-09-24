@@ -39,6 +39,8 @@ export interface CoopRoomInfo {
   started: boolean;
   /** The relay lets the dev tools' cheats (debug:* commands) through; they act on every client alike */
   cheats: boolean;
+  /** The host closed the room to further players */
+  locked: boolean;
 }
 
 export type RefusalReason =
@@ -54,7 +56,11 @@ export type RefusalReason =
   /** A coop game needs a second player (User, 2026-09-24) */
   | 'alone'
   /** The relay holds as many rooms as it takes (review R18) */
-  | 'busy';
+  | 'busy'
+  /** The host took this player out of the room (review R9) */
+  | 'kicked'
+  /** The host closed the room to further players (review R9) */
+  | 'locked';
 
 export type ClientMessage =
   /** First message: who is there and with what game */
@@ -68,6 +74,10 @@ export type ClientMessage =
   | { t: 'pick'; spawnId: string | null }
   /** Lobby: another name; the relay numbers it where someone has it already */
   | { t: 'rename'; name: string }
+  /** Host, lobby: take a player out of the room (review R9) */
+  | { t: 'kick'; playerId: string }
+  /** Host: no further players may join (review R9) */
+  | { t: 'lock'; locked: boolean }
   | { t: 'ready'; ready: boolean }
   /** Host: start the game once everyone has a lane and is ready */
   | { t: 'start'; seed: number }

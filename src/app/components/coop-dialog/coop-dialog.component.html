@@ -38,6 +38,9 @@
             </label>
             <button class="footer-btn" type="button" (click)="join()" [disabled]="!code().trim()">Join</button>
           </div>
+          <p class="coop-hint join-hint">
+            Joining loads the host's map: where it is another place, this page reloads there and joins by itself.
+          </p>
           <details class="advanced">
             <summary>Server</summary>
             <label class="field">
@@ -107,6 +110,12 @@
                 }
                 @if (!room.started) {
                   <span class="player-ready" [class.is-ready]="player.ready">{{ player.ready ? 'ready' : 'not ready' }}</span>
+                  @if (coop.isHost() && player.id !== coop.playerId()) {
+                    <button class="icon-btn" type="button" (click)="coop.kick(player.id)"
+                            [matTooltip]="'Take ' + player.name + ' out of the room'" [attr.aria-label]="'Take ' + player.name + ' out of the room'">
+                      <td-icon name="cross" [size]="12"></td-icon>
+                    </button>
+                  }
                 }
               </li>
             }
@@ -158,6 +167,14 @@
                 {{ me()?.ready ? 'Ready: waiting for the host to start' : 'I am ready' }}
               </button>
             }
+          }
+          @if (!room.started && coop.isHost()) {
+            <label class="lock-row">
+              <input type="checkbox" [checked]="room.locked" (change)="coop.setLocked($any($event.target).checked)" />
+              <span>Closed to new players</span>
+            </label>
+          } @else if (!room.started && room.locked) {
+            <p class="coop-hint">The host closed the room to new players.</p>
           }
           @if (!room.started && startHint(); as hint) {
             <p class="coop-hint" role="status">{{ hint }}</p>

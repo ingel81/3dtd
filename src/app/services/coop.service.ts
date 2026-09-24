@@ -71,6 +71,8 @@ const REFUSAL_TEXT: Record<RefusalReason, string> = {
   'not-ready': 'Not everyone has a lane and is ready yet.',
   alone: 'A coop game needs a second player.',
   busy: 'The coop server is full right now. Try again in a while.',
+  kicked: 'The host took you out of the room.',
+  locked: 'The host closed the room to new players.',
 };
 
 /**
@@ -428,6 +430,16 @@ export class CoopService {
     this.gameState.getEventBus().emit({ type: 'command:give-credits', to: playerId, amount: Math.floor(amount) });
   }
 
+  /** Host, lobby: take a player out of the room (review R9) */
+  kick(playerId: string): void {
+    if (this.isHost() && !this.inGame() && playerId !== this.playerId()) this.session?.kick(playerId);
+  }
+
+  /** Host: close the room to further players, or open it again (review R9) */
+  setLocked(locked: boolean): void {
+    if (this.isHost()) this.session?.lock(locked);
+  }
+
   setLobbyReady(ready: boolean): void {
     this.session?.ready(ready);
   }
@@ -630,7 +642,11 @@ export class CoopService {
       this.chat.update((lines) => [...lines.slice(-49), { from, text }]);
       if (from !== this.playerId()) this.notify(`${this.nameOf(from)}: ${text}`, 'chat');
     });
-    session.onRefused = inZone((reason) => this.error.set(REFUSAL_TEXT[reason]));
+    session.onRefused = inZone((reason) => {
+      // Taken out of the room: this player is out of it here too
+      if (reason === 'kicked') this.leave();
+      this.error.set(REFUSAL_TEXT[reason]);
+    });
     session.onDesync = inZone((tick, hashes) => {
       this.desync.set({ tick, hashes });
       const own = this.gameState.stateHash();

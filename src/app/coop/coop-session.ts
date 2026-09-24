@@ -217,6 +217,16 @@ export class CoopSession {
     this.out({ t: 'rename', name });
   }
 
+  /** Host, lobby: take `playerId` out of the room. */
+  kick(playerId: string): void {
+    this.out({ t: 'kick', playerId });
+  }
+
+  /** Host: close the room to further players, or open it again. */
+  lock(locked: boolean): void {
+    this.out({ t: 'lock', locked });
+  }
+
   ready(ready: boolean): void {
     this.out({ t: 'ready', ready });
   }
