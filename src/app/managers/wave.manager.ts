@@ -41,14 +41,32 @@ export interface SpawnEntry {
 export interface SpawnSchedule {
   entries: SpawnEntry[];
   baseDelay: number;
-  /** Optional dynamic delay getter (e.g. live-tunable debug delay). */
-  getDelay?: () => number;
+  /**
+   * Spread of the gap between spawns around baseDelay, 0..1: each gap is
+   * drawn from baseDelay * (1 ± delayVariation) out of the run's spawn
+   * stream, when the spawn comes due. Data, not a function, so a wave config
+   * goes into the command log and over the wire whole (SIMULATOR_PLAN.md).
+   */
+  delayVariation?: number;
   /**
    * Spawn-point selection mode. 'each' = round-robin across spawn points,
    * 'random' = uniform pick. Default 'random'. Maps with one spawn point
    * behave identically under both modes.
    */
   spawnMode?: 'each' | 'random';
+}
+
+/**
+ * The gap before the next spawn, ms: baseDelay, or with delayVariation drawn
+ * from baseDelay * (1 ± delayVariation) out of `random` (the spawn stream).
+ * Draws nothing without a variation.
+ */
+export function drawSpawnGap(schedule: SpawnSchedule, random: () => number): number {
+  const variation = schedule.delayVariation ?? 0;
+  if (variation <= 0) return schedule.baseDelay;
+  const min = schedule.baseDelay * (1 - variation);
+  const max = schedule.baseDelay * (1 + variation);
+  return Math.round(min + random() * (max - min));
 }
 
 /**
@@ -245,7 +263,7 @@ export class WaveManager implements IGameManager {
    *
    * The schedule is the single source of truth — entries determine count,
    * order, types, per-entry speed/health overrides; schedule.baseDelay (or
-   * getDelay()) determines the gap between spawns; schedule.spawnMode
+   * delayVariation) determines the gap between spawns; schedule.spawnMode
    * determines spawn-point selection.
    */
   startWave(config: WaveConfig): void {
@@ -273,7 +291,7 @@ export class WaveManager implements IGameManager {
       enemyCount: entries.length,
     });
 
-    const getDelay = schedule.getDelay ?? (() => schedule.baseDelay);
+    const getDelay = (): number => drawSpawnGap(schedule, this.random);
     const spawnMode = schedule.spawnMode ?? 'random';
     let spawnIndex = 0;
     let consecutiveFailures = 0;

@@ -5,6 +5,7 @@ import { adaptDirectorWave } from '../../wave-config-adapter';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { WaveResult } from '../../models/wave-result';
 import { GameRng } from '../../../utils/game-rng';
+import { drawSpawnGap } from '../../../managers/wave.manager';
 
 /**
  * Stage 1 of the determinism ladder (BALANCING_PLAN.md, section 5): the same
@@ -50,7 +51,7 @@ function runChecksum(seed: number, waves = 25): string[] {
 
     const schedule = adaptDirectorWave(config, spawn).schedule;
     const entries = schedule.entries.map((e) => e.enemyType).join(',');
-    const delays = Array.from({ length: 5 }, () => schedule.getDelay?.() ?? schedule.baseDelay).join('/');
+    const delays = Array.from({ length: 5 }, () => drawSpawnGap(schedule, spawn)).join('/');
     lines.push(`${wave}|${config.templateIdx}|${config.totalCount}|${config.spawnDelay}|${entries}|${delays}`);
 
     source.onWaveResult({
