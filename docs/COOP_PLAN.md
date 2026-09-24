@@ -359,6 +359,18 @@ Ursprünglicher Plan:
   - Hart machen: Trigonometrie aus dem Sim-Pfad, lokale Ebenen-Projektion statt Haversine.
 - Abnahme: absichtlich verfälschter Zustand auf einer Seite wird innerhalb von N Ticks gemeldet.
 
+### Nach C5: Wünsche aus dem Browser-Test (User, 2026-09-24)
+
+Reihenfolge nach Priorität (A zuerst):
+
+| Prio | Punkt |
+|------|-------|
+| A | In der Lobby kann jeder seinen Namen ändern, bevor es losgeht (heute nur vor dem Beitritt; braucht eine Nachricht `rename` am Relay) |
+| A | Klickt ein Spieler auf „Starte Welle“ (heißt im Coop „bereit“), sehen die anderen das |
+| A | Eine kleine dauerhafte Anzeige im Spiel mit allen Spielern, Namen und Zustand; der Coop-Dialog allein reicht nicht |
+| B | Beim Gast schließt sich der Coop-Dialog beim Start nicht von selbst (beim Host schon, weil sein Start-Knopf ihn schließt) |
+| C | Chat im Spiel unten links, ähnlich wie Minecraft, mit einer Taste zum Schreiben |
+
 ### C6 Coop-Oberfläche
 
 - Lane-Druck je Spieler (Lecks, HP-Anteil), Besitz an Towern (Farbe), Gold der Mitspieler, Bereit-Knopf vor dem

@@ -121,7 +121,9 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
 - [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht): C0 bis C4c gebaut, der erste Zwei-Fenster-Test
       klappt (User, 2026-09-24). Nächstes Paket C5 (Prüfsummen über das Relay, Abweichung melden, Chrome gegen
-      Firefox messen), dann C6 (Oberfläche), C4d (Relay im Electron-Build), C7 (Betrieb).
+      Firefox messen), dann die Wünsche aus dem Browser-Test (Name in der Lobby, Bereitschaft sichtbar, Spieler-Anzeige
+      im Spiel, Dialog beim Gast schließen, Chat unten links; mit Prio im Plan), C6 (Oberfläche), C4d (Relay im
+      Electron-Build), C7 (Betrieb).
       [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
 - [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` setzt keinen Seed, der Anteil getöteter Gegner streut
       um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
