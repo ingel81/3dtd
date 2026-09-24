@@ -22,6 +22,7 @@ import { aimDirectionInto } from '../utils/manual-aim';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { cameraTimeline } from '../utils/camera-timeline';
 import { TICK_SUB_STEPS } from '../coop/lockstep';
+import { projectileSoundId } from '../managers/projectile.manager';
 import type { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
 
@@ -41,6 +42,12 @@ export type TowerControlMarker = 'hit' | 'kill' | null;
 /** Visual kick of the view per shot, rad; it springs back over RECOIL_MS */
 const RECOIL_KICK_RAD = 0.012;
 const RECOIL_MS = 120;
+/**
+ * Coop: how long a shot shown at the click waits for the simulation's own
+ * shot, which then stays quiet (no second sound, flash or recoil), ms. The
+ * simulation's comes a tick and the way over the relay later.
+ */
+const PREDICTED_SHOT_WINDOW_MS = 400;
 /** How fast the zoom follows the right button, 1/s */
 const ZOOM_RATE = 12;
 
@@ -118,6 +125,10 @@ export class TowerControlService {
    * the release never went out and the tower fired on (playtest T1).
    */
   private triggerSent = false;
+  /** Coop: the shot shown at the click, waiting for the simulation's (PREDICTED_SHOT_WINDOW_MS) */
+  private predictedShot: { towerId: string; at: number } | null = null;
+  /** The simulation's shot matched a shown one: its tower:manual-shot gives no second recoil */
+  private swallowShot = false;
   private readonly eye = new Vector3();
   private readonly dir = new Vector3();
   private readonly lookAt = new Vector3();
@@ -212,6 +223,9 @@ export class TowerControlService {
     this.aimMoved = false;
     this.aimSentStep = -Infinity;
     this.triggerSent = tower.triggerHeld;
+    this.predictedShot = null;
+    this.swallowShot = false;
+    this.gameState.projectileManager.quietShot = (towerId) => this.takePrediction(towerId);
 
     if (!this.pose) this.pose = this.saveCamera(engine);
     const controls = engine.getControls();
@@ -409,12 +423,55 @@ export class TowerControlService {
     if (!this.gameState.getMannedTower() || this.triggerSent === held) return;
     this.triggerSent = held;
     this.gameState.getEventBus().emit({ type: 'command:tower-trigger', held });
+    if (held && this.gameState.lockstepActive) this.predictShot();
+  }
+
+  /**
+   * Coop: the press shows its shot at once, where the tower may fire now:
+   * recoil, muzzle flash and sound. The shot itself (projectile, hit, gold)
+   * comes with the simulation a tick and the relay's way later, then without
+   * a second sound and flash (takePrediction). Alone there is no wait.
+   */
+  private predictShot(): void {
+    const tower = this.gameState.getMannedTower();
+    if (!tower || !tower.losReady || !tower.combat.canFire()) return;
+    this.predictedShot = { towerId: tower.id, at: performance.now() };
+    this.showShot();
+    const bus = this.gameState.getEventBus();
+    bus.emit({ type: 'vfx:muzzle-flash', towerId: tower.id, towerTypeId: tower.typeConfig.id });
+    bus.emit({
+      type: 'audio:play',
+      sound: projectileSoundId(tower.typeConfig.projectileType),
+      lat: tower.position.lat,
+      lon: tower.position.lon,
+      height: (tower.position.height ?? 0) + tower.typeConfig.heightOffset,
+      atListener: true,
+    });
+  }
+
+  /** ProjectileManager.quietShot: whether this shot of `towerId` was shown at the click already */
+  private takePrediction(towerId: string): boolean {
+    const shown = this.predictedShot;
+    if (!shown || shown.towerId !== towerId) return false;
+    this.predictedShot = null;
+    if (performance.now() - shown.at > PREDICTED_SHOT_WINDOW_MS) return false;
+    this.swallowShot = true;
+    return true;
   }
 
   // ── Feedback ──────────────────────────────────────────────────
 
   private onShot(towerId: string): void {
     if (towerId !== this.store.mannedTowerId()) return;
+    if (this.swallowShot) {
+      this.swallowShot = false;
+      return;
+    }
+    this.showShot();
+  }
+
+  /** Recoil and the HUD's shot count */
+  private showShot(): void {
     this.recoilMs = RECOIL_MS;
     this.shots.update((n) => n + 1);
   }
@@ -441,6 +498,9 @@ export class TowerControlService {
   // ── Camera ────────────────────────────────────────────────────
 
   private cleanUp(): void {
+    this.gameState.projectileManager.quietShot = null;
+    this.predictedShot = null;
+    this.swallowShot = false;
     const engine = this.engineInit.getEngine();
     engine?.towerBadges.hideFor(null);
     engine?.spatialAudio.setFeedbackMinDistance(0);
