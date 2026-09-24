@@ -59,7 +59,7 @@ describe('OnboardingService', () => {
     bus.emit({ type: 'tower:placed', tower: tower('research-center'), position: { lat: 0, lon: 0 }, cost: 0 });
     expect(service.tip()).toBeNull();
     bus.emit({
-      type: 'research:state-changed', activeResearches: [], completedResearches: new Set(),
+      type: 'research:state-changed', playerId: 'local', local: true, activeResearches: [], completedResearches: new Set(),
       queuedResearches: [], centerLevel: 1, maxSlots: 1,
     });
     expect(service.tip()?.title).toBe('Start a research');

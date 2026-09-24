@@ -233,7 +233,7 @@ describe('GameStateSyncService (real service)', () => {
   // ── Tower lifecycle ────────────────────────────────────────────
   describe('tower events', () => {
     const towerOf = (id: string, typeId: TowerTypeId = 'archer') =>
-      ({ id, typeConfig: TOWER_TYPES[typeId] }) as never;
+      ({ id, ownerId: 'local', typeConfig: TOWER_TYPES[typeId] }) as never;
 
     it('tower:placed → towerCount++', () => {
       expect(store.towerCount()).toBe(0);
@@ -363,7 +363,7 @@ describe('GameStateSyncService (real service)', () => {
     it('research:state-changed → updates ResearchStore snapshot', () => {
       const completed = new Set(['gatling-tech']);
       eventBus.emit({
-        type: 'research:state-changed',
+        type: 'research:state-changed', playerId: 'local', local: true,
         activeResearches: [
           { researchId: 'ice-magic', startTime: 0, duration: 15, elapsed: 5, cost: 40 },
         ],
@@ -382,13 +382,13 @@ describe('GameStateSyncService (real service)', () => {
     });
 
     it('research:progress → researchElapsed = event.elapsed', () => {
-      eventBus.emit({ type: 'research:progress', elapsed: new Map([['ice-magic', 7.5]]) });
+      eventBus.emit({ type: 'research:progress', playerId: 'local', local: true, elapsed: new Map([['ice-magic', 7.5]]) });
       expect(researchStore.researchElapsed().get('ice-magic')).toBe(7.5);
     });
 
     it('research:completed → applyResearchEffects raises maxUpgradeTier', () => {
       eventBus.emit({
-        type: 'research:completed',
+        type: 'research:completed', playerId: 'local', local: true,
         researchId: 'tier-2-tech',
         effects: [{ kind: 'unlock-upgrade-tier', tier: 3 }],
       });
@@ -398,7 +398,7 @@ describe('GameStateSyncService (real service)', () => {
     it('research:completed → applies enable-targeting:air', () => {
       expect(researchStore.airTargetingUnlocked()).toBe(false);
       eventBus.emit({
-        type: 'research:completed',
+        type: 'research:completed', playerId: 'local', local: true,
         researchId: 'aa-retrofit',
         effects: [{ kind: 'enable-targeting', capability: 'air' }],
       });

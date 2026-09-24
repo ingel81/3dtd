@@ -5,6 +5,7 @@ import { ResearchStore } from '../../store/research.store';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { runSummary } from '../../run-log/run-summary';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
+import { LOCAL_PLAYER_ID } from '../../managers/game-state/command-log';
 
 /**
  * GameStateSyncService — Bridges GSM (GameStateManager) events to the Store.
@@ -28,6 +29,8 @@ export class GameStateSyncService {
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly subs = new SubscriptionBag();
+  /** The player at this client, see initialize() */
+  private localPlayer: () => string = () => LOCAL_PLAYER_ID;
   /** The run log the game-over screen reads its numbers from */
   private readonly runLog = inject(RunLogFacade);
 
@@ -37,8 +40,14 @@ export class GameStateSyncService {
    *
    * @param gameClock game time in ms (GameStateManager.gameTimeMs), read once
    *   at game over for the run's duration
+   * @param localPlayer the player at this client (GameStateManager.localPlayerId)
    */
-  initialize(eventBus: GameEventBus, gameClock: () => number = () => 0): void {
+  initialize(
+    eventBus: GameEventBus,
+    gameClock: () => number = () => 0,
+    localPlayer: () => string = () => LOCAL_PLAYER_ID,
+  ): void {
+    this.localPlayer = localPlayer;
     // Defensive: clear any prior subscriptions so a future re-init path can't
     // double-subscribe (consistent with combat-effect/hq-damage/game-state).
     this.subs.disposeAll();
@@ -101,13 +110,16 @@ export class GameStateSyncService {
     this.subs.add(eventBus.onLive('tower:placed', (event) => {
       this.store.towerCount.update(n => n + 1);
       const type = event.tower.typeConfig;
-      if (type.unique) this.store.placedUniqueTypes.update(set => new Set(set).add(type.id));
+      // One per player (COOP_PLAN D11, D20): only this player's own buildings block the card
+      if (type.unique && event.tower.ownerId === this.localPlayer()) {
+        this.store.placedUniqueTypes.update(set => new Set(set).add(type.id));
+      }
     }));
 
     this.subs.add(eventBus.onLive('tower:sold', (event) => {
       this.store.towerCount.update(n => Math.max(0, n - 1));
       const type = event.tower.typeConfig;
-      if (type.unique) {
+      if (type.unique && event.tower.ownerId === this.localPlayer()) {
         this.store.placedUniqueTypes.update(set => {
           const next = new Set(set);
           next.delete(type.id);
@@ -200,7 +212,9 @@ export class GameStateSyncService {
     // ── Research lifecycle ────────────────────────────────────────
     // research:state-changed ist der Single-Source-of-Truth-Sync-Pfad —
     // ResearchManager emittiert ihn nach jeder State-Mutation.
+    // Only this player's research; a coop partner's is theirs (COOP_PLAN D20)
     this.subs.add(eventBus.onLive('research:state-changed', (event) => {
+      if (!event.local) return;
       this.researchStore.activeResearches.set(event.activeResearches);
       this.researchStore.researchElapsed.set(
         new Map(event.activeResearches.map(a => [a.researchId, a.elapsed])),
@@ -213,13 +227,14 @@ export class GameStateSyncService {
 
     // Fortschritt zwischen den Snapshots, vom ResearchManager auf 10 Hz gedrosselt
     this.subs.add(eventBus.onLive('research:progress', (event) => {
+      if (!event.local) return;
       this.researchStore.researchElapsed.set(event.elapsed);
     }));
 
     // research:completed bleibt zusätzlich, um Effects auf den Store anzuwenden
     // (DamageMultiplier-Buffs etc.) — `state-changed` deckt nur die Pflicht-Felder ab.
     this.subs.add(eventBus.onLive('research:completed', (event) => {
-      this.researchStore.applyResearchEffects(event.effects);
+      if (event.local) this.researchStore.applyResearchEffects(event.effects);
     }));
   }
 

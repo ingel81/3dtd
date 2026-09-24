@@ -41,7 +41,7 @@ describe('AbilityManager', () => {
 
   const unlock = (perkId: string = NUKE.perkId) =>
     bus.emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: 'nuclear-strike',
       effects: [{ kind: 'global-perk', perkId, description: '' }],
     });

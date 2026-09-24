@@ -114,7 +114,7 @@ function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + FREEZE_ST
   gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({
-    type: 'research:completed',
+    type: 'research:completed', playerId: 'local', local: true,
     researchId: FROST.researchId,
     effects: [{ kind: 'global-perk', perkId: FROST.perkId, description: '' }],
   });

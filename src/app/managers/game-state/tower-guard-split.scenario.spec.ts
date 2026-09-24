@@ -38,7 +38,7 @@ describe('Guard heading after a debug skeleton outside a wave (playtest 336)', (
     turnTowersToGuard = vi.fn();
     const lifecycle = new TowerLifecycle(
       m.towerManager,
-      {} as never,
+      () => ({}) as never,
       {} as never,
       m.waveManager,
       m.enemyManager,

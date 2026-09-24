@@ -46,8 +46,10 @@ export class CombatEffectService {
   private readonly damageService = inject(DamageApplicationService);
 
   private tilesEngine: ThreeTilesEngine | null = null;
-  /** The game's ResearchManager once initialized */
+  /** The game's research once initialized */
   private research: SimResearch = NO_RESEARCH;
+  /** The game's towers once initialized: whose research a shot's splash follows */
+  private towerManager: TowerManager | null = null;
   private eventBus: GameEventBus | null = null;
   private readonly eventBusSubs = new SubscriptionBag();
 
@@ -61,6 +63,11 @@ export class CombatEffectService {
 
   /** Whether damage numbers are shown on hits (toggled via display options) */
   damageNumbersEnabled = true;
+
+  /** The owner of the tower that fired; '' (read as the first player) for one sold since. */
+  private ownerOf(towerId: string): string {
+    return this.towerManager?.getById(towerId)?.ownerId ?? '';
+  }
 
   /**
    * Dispose event subscriptions. Call from GameStateManager.dispose().
@@ -85,6 +92,7 @@ export class CombatEffectService {
     this.tilesEngine = tilesEngine;
     this.eventBus = eventBus;
     this.research = research;
+    this.towerManager = towerManager;
 
     // Initialize sub-services
     this.vfx.initialize(tilesEngine, eventBus);
@@ -211,7 +219,7 @@ export class CombatEffectService {
     // Ein Schuss ohne Tower (der Held) zielt auf Boden und Luft.
     const sourceType = projectile.sourceTowerType;
     const hitsAir = sourceType === null
-      || canTargetAirEffective(sourceType, this.research.airTargetingUnlocked);
+      || canTargetAirEffective(sourceType, this.research.airTargetingFor(this.ownerOf(projectile.sourceTowerId)));
     const hitsGround = sourceType === null || (TOWER_TYPES[sourceType].canTargetGround ?? true);
 
     // Treffbare Ziele samt Abstand nach vorne kompaktieren. Ein Körper entlang

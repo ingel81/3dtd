@@ -85,8 +85,8 @@ export class TowerLosRegistry {
    * Anti-air retrofit researched, from the simulation's ResearchManager
    * (not the UI store): read at resolve time, not cached.
    */
-  private airTargetingUnlocked(): boolean {
-    return this.gameState?.researchManager.airTargetingUnlocked ?? false;
+  private airTargetingUnlocked(tower: Tower): boolean {
+    return this.gameState?.researchOf(tower.ownerId).airTargetingUnlocked ?? false;
   }
 
   /**
@@ -132,7 +132,7 @@ export class TowerLosRegistry {
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(
       tower.typeConfig.id as TowerTypeId,
-      this.airTargetingUnlocked(),
+      this.airTargetingUnlocked(tower),
     );
 
     // The cells and their heights are the ones the corridor build froze
@@ -238,7 +238,7 @@ export class TowerLosRegistry {
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(
       tower.typeConfig.id as TowerTypeId,
-      this.airTargetingUnlocked(),
+      this.airTargetingUnlocked(tower),
     );
 
     const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);

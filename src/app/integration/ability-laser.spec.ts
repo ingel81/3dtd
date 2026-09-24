@@ -134,7 +134,7 @@ function run(timescale: number): Outcome {
   gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({
-    type: 'research:completed',
+    type: 'research:completed', playerId: 'local', local: true,
     researchId: LASER.researchId,
     effects: [{ kind: 'global-perk', perkId: LASER.perkId, description: '' }],
   });

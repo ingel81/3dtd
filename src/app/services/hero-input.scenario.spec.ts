@@ -228,7 +228,7 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     });
 
     bus.emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: HERO.researchId,
       effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
     });

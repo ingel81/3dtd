@@ -61,7 +61,7 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => 'wave');
     bus.emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: NUKE.researchId,
       effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
     });

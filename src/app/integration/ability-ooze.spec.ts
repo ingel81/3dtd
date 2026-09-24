@@ -103,7 +103,7 @@ describe('Frost bomb, EMP and orbital laser against the ooze body', () => {
     manager.setPhaseProvider(() => 'wave');
     for (const id of ['frost-bomb', 'emp', 'orbital-laser'] as AbilityId[]) {
       bus.emit({
-        type: 'research:completed',
+        type: 'research:completed', playerId: 'local', local: true,
         researchId: ABILITIES[id].researchId,
         effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId, description: '' }],
       });

@@ -137,7 +137,7 @@ function createGame(timescale: number, researched: AbilityId[]) {
   addMissileSilo(gsm.towerManager);
   for (const id of researched) {
     gsm.getEventBus().emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: ABILITIES[id].researchId,
       effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId, description: '' }],
     });

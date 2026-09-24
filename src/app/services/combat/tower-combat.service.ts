@@ -314,7 +314,6 @@ export class TowerCombatService {
     enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
   ): void {
-    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Skip non-projectile towers (beam, melee, chain) — they have their
@@ -346,7 +345,7 @@ export class TowerCombatService {
       const losCheck = this.buildLosCheck(tower);
 
       // Fast path: get cached target or find new one
-      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
+      let target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
 
       if (target) {
         // Target found - update sleep tracking (game-time)
@@ -367,7 +366,7 @@ export class TowerCombatService {
             if (!losCheck(target)) {
               // Target no longer visible - find new target
               tower.clearTarget();
-              target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
+              target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
               if (!target) {
                 releaseAim(tower.aim);
                 continue;
@@ -509,7 +508,6 @@ export class TowerCombatService {
     );
     this.beginBodyAim(tower);
     const losCheck = this.buildLosCheck(tower);
-    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     const eye = this.mannedEyeInto(tower, this._mannedEye);
     const dir = aimDirectionInto(tower.manualAim.heading, tower.manualAim.pitch, this._mannedDir);
@@ -526,7 +524,7 @@ export class TowerCombatService {
       const along = rayHitDistance(eye, dir, point, radius);
       if (along >= bestAlong) continue;
       // The rules last: they are the most work per enemy
-      if (!tower.mayEngage(enemy, airTargetingUnlocked, losCheck, this.bodyDistSq)) continue;
+      if (!tower.mayEngage(enemy, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq)) continue;
       best = enemy;
       bestAlong = along;
     }
@@ -587,7 +585,6 @@ export class TowerCombatService {
     const now = performance.now();
     // deltaTime is sub-step game-time ms — convert to seconds for DPS math.
     const dt = deltaTime / 1000;
-    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Skip towers with pending LOS computation
@@ -612,7 +609,7 @@ export class TowerCombatService {
       // targets behind buildings either.
       this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower);
-      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
+      let target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
 
       // Periodic LOS recheck (throttled, same interval as the projectile
       // path). A beam HOLDS its target: findTarget's fast path keeps the
@@ -623,7 +620,7 @@ export class TowerCombatService {
         tower.markLosChecked(gameTimeMs);
         if (!losCheck(target)) {
           tower.clearTarget();
-          target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
+          target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
         }
       }
 
@@ -859,7 +856,6 @@ export class TowerCombatService {
   ): void {
     if (!this.tilesEngine) return;
 
-    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Type-filter MUST be before combat.update — see comment in
@@ -880,7 +876,7 @@ export class TowerCombatService {
       );
       this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower);
-      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
+      const target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
 
       if (target) {
         tower.lastTargetTime = gameTimeMs;
@@ -937,7 +933,6 @@ export class TowerCombatService {
   ): void {
     if (!this.tilesEngine) return;
 
-    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Type-filter MUST be before combat.update — see comment in
@@ -958,7 +953,7 @@ export class TowerCombatService {
       );
       this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower);
-      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck, this.bodyDistSq);
+      const target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
 
       if (!target) {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {

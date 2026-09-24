@@ -285,16 +285,28 @@ export type GameEvent =
       researchId: string;
       cost: number;
       duration: number;
+      /** Whose research (docs/COOP_PLAN.md, D20) */
+      playerId: string;
+      /** The research of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       type: 'research:completed';
       researchId: string;
       effects: import('../configs/research/research.types').ResearchEffect[];
+      /** Whose research (docs/COOP_PLAN.md, D20) */
+      playerId: string;
+      /** The research of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       type: 'research:cancelled';
       researchId: string;
       refund: number;
+      /** Whose research (docs/COOP_PLAN.md, D20) */
+      playerId: string;
+      /** The research of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       // Snapshot-Event nach jeder ResearchManager-Mutation. Trägt den
@@ -307,12 +319,20 @@ export type GameEvent =
       queuedResearches: import('../configs/research/research.types').ResearchId[];
       centerLevel: number;
       maxSlots: number;
+      /** Whose research (docs/COOP_PLAN.md, D20) */
+      playerId: string;
+      /** The research of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       // Laufender Fortschritt: vergangene Spielzeit (s) je aktiver Forschung.
       // Der ResearchManager drosselt auf 10 Hz Wanduhr.
       type: 'research:progress';
       elapsed: ReadonlyMap<import('../configs/research/research.types').ResearchId, number>;
+      /** Whose research (docs/COOP_PLAN.md, D20) */
+      playerId: string;
+      /** The research of the player at this client, the one the UI shows */
+      local: boolean;
     }
 
   // ==================== Research Commands ====================

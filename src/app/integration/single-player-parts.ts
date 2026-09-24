@@ -8,6 +8,7 @@ import { OWNER_ONLY } from '../coop/tower-policy';
  */
 export function singlePlayer<T extends object>(gsm: T): T {
   const credits = (gsm as { credits?: () => number }).credits;
+  const research = (gsm as { researchManager?: unknown }).researchManager;
   return {
     players: [LOCAL_PLAYER_ID],
     actingPlayerId: LOCAL_PLAYER_ID,
@@ -16,6 +17,7 @@ export function singlePlayer<T extends object>(gsm: T): T {
     runAs: <R>(_playerId: string, fn: () => R): R => fn(),
     creditsOf: () => credits?.() ?? 0,
     selectableTower: (id: string | null) => id,
+    researchOf: () => research,
     ...gsm,
   };
 }

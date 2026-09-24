@@ -8,6 +8,8 @@
  */
 
 import { GameEventBus, IGameManager } from '../game-engine';
+import type { GameEvent } from '../game-engine/game-event-bus';
+import { LOCAL_PLAYER_ID } from './game-state/command-log';
 import {
   ResearchId,
   ActiveResearch,
@@ -28,14 +30,37 @@ import { TowerTypeId } from '../configs/tower-types.config';
  * ResearchStore, which mirrors it for the UI one event later.
  */
 export interface SimResearch {
-  /** A completed research enables air targeting (`enable-targeting`, `air`) */
-  readonly airTargetingUnlocked: boolean;
+  /**
+   * A completed research of `playerId` enables air targeting (`enable-targeting`,
+   * `air`) for that player's towers (docs/COOP_PLAN.md, D20). A player not in
+   * the run reads as the first player.
+   */
+  airTargetingFor(playerId: string): boolean;
 }
 
 /** Nothing researched, for a service that runs without a game. */
-export const NO_RESEARCH: SimResearch = { airTargetingUnlocked: false };
+export const NO_RESEARCH: SimResearch = { airTargetingFor: () => false };
 
-export class ResearchManager implements IGameManager, SimResearch {
+/** Whose research a ResearchManager keeps; its events carry it. */
+export interface ResearchOwner {
+  readonly playerId: string;
+  /** The player at this client: the UI shows only this research */
+  local(): boolean;
+}
+
+/** The single player, at this client. */
+export const LOCAL_RESEARCH_OWNER: ResearchOwner = { playerId: LOCAL_PLAYER_ID, local: () => true };
+
+/** What the ResearchManager emits, before owner and `local` go on. */
+type ResearchEvent = Extract<GameEvent, { type: `research:${string}` }>;
+type OwnerlessResearchEvent = ResearchEvent extends infer E ? E extends ResearchEvent ? Omit<E, 'playerId' | 'local'> : never : never;
+
+/**
+ * The research of one player (docs/COOP_PLAN.md, D20): tree, slots, queue
+ * and center. The GameStateManager keeps one per player; the single player
+ * game has one.
+ */
+export class ResearchManager implements IGameManager {
   private completedResearches = new Set<ResearchId>();
   private _airTargetingUnlocked = false;
   private activeResearches = new Map<ResearchId, ActiveResearch>();
@@ -48,7 +73,15 @@ export class ResearchManager implements IGameManager, SimResearch {
   private static readonly PROGRESS_INTERVAL_MS = 100;
   private lastProgressEmitAt = -Infinity;
 
-  constructor(private readonly eventBus: GameEventBus) {}
+  constructor(
+    private readonly eventBus: GameEventBus,
+    readonly owner: ResearchOwner = LOCAL_RESEARCH_OWNER,
+  ) {}
+
+  /** Emit a research event with the owner on it. */
+  private emit(event: OwnerlessResearchEvent): void {
+    this.eventBus.emit({ ...event, playerId: this.owner.playerId, local: this.owner.local() } as GameEvent);
+  }
 
   // ==================== Queries ====================
 
@@ -134,7 +167,7 @@ export class ResearchManager implements IGameManager, SimResearch {
 
   /** Emit a `research:state-changed` snapshot covering every store-relevant field. */
   private emitStateSnapshot(): void {
-    this.eventBus.emit({
+    this.emit({
       type: 'research:state-changed',
       activeResearches: this.getActiveResearches(),
       completedResearches: this.getCompletedResearches(),
@@ -210,7 +243,7 @@ export class ResearchManager implements IGameManager, SimResearch {
 
     this.activeResearches.set(id, active);
 
-    this.eventBus.emit({
+    this.emit({
       type: 'research:started',
       researchId: id,
       cost: config.cost,
@@ -321,7 +354,7 @@ export class ResearchManager implements IGameManager, SimResearch {
     this.activeResearches.delete(id);
     const refund = Math.floor(active.cost * RESEARCH_CENTER_CONFIG.cancellationRefundPercent);
 
-    this.eventBus.emit({
+    this.emit({
       type: 'research:cancelled',
       researchId: id,
       refund,
@@ -391,7 +424,7 @@ export class ResearchManager implements IGameManager, SimResearch {
 
       const config = getResearch(id);
       if (config) {
-        this.eventBus.emit({
+        this.emit({
           type: 'research:completed',
           researchId: id,
           effects: config.effects,
@@ -420,7 +453,7 @@ export class ResearchManager implements IGameManager, SimResearch {
     for (const [id, active] of this.activeResearches) {
       elapsed.set(id, active.elapsed);
     }
-    this.eventBus.emit({ type: 'research:progress', elapsed });
+    this.emit({ type: 'research:progress', elapsed });
   }
 
   /**
@@ -437,7 +470,7 @@ export class ResearchManager implements IGameManager, SimResearch {
       if (this.completedResearches.has(id)) continue;
       this.markCompleted(id);
       const config = RESEARCH_TREE[id];
-      this.eventBus.emit({
+      this.emit({
         type: 'research:completed',
         researchId: id,
         effects: config.effects,
@@ -465,7 +498,7 @@ export class ResearchManager implements IGameManager, SimResearch {
     this.activeResearches.delete(id);
     this.queue = this.queue.filter((queued) => queued !== id);
     this.markCompleted(id);
-    this.eventBus.emit({ type: 'research:completed', researchId: id, effects: config.effects });
+    this.emit({ type: 'research:completed', researchId: id, effects: config.effects });
     return true;
   }
 

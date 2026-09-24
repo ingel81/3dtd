@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a und C2a gebaut, Rest offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a, C2a und C2b gebaut, Rest offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -163,8 +163,22 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 - Abnahme in `integration/lockstep.scenario.spec.ts`: jeder zahlt, was er baut, und besitzt es; der Partner darf
   den Tower weder verkaufen noch anhalten noch auswählen; Kill-Gold je Spieler gleich der Summe der Kills seiner
   Tower; beide Clients mit gleicher Prüfsumme.
-- Offen in C2a: Die Forschung zahlt noch der handelnde Spieler und liest dessen Gold, die Warteschlange den ersten
-  Spieler; das ersetzt C2b.
+
+**C2b gebaut (2026-09-24):** Forschung je Spieler (D20).
+
+- Die Klasse `ResearchManager` ist die Forschung eines Spielers (`owner`); der `GameStateManager` hält eine je
+  Spieler in Roster-Reihenfolge, jede mit ihrem Gold für die Warteschlange (`researchSeats`). `researchOf(player)`
+  für die Simulation, `researchManager` ist die des Spielers an diesem Client (UI).
+- Wirkung beim Besitzer: freigeschaltete Tower beim Bauenden, Upgrade-Stufen und Luftziele beim Besitzer des
+  Towers (`SimResearch.airTargetingFor(ownerId)` in Kampf, Splash und Sichtlinie), die Luft-Nachrüstung nur für
+  dessen Tower. Forschungszentrum und Silo sind eins je Spieler statt eins je Karte; die Bau-Karte sperrt nur das
+  eigene.
+- `research:*`-Ereignisse tragen `playerId` und `local`; Store, Run-Log und Onboarding hören nur die eigene
+  Forschung. `TowerManager.placeTower` setzt den Besitzer vor `tower:placed`.
+- Snapshot mit `researchByPlayer` (optional, ältere laden weiter).
+- Abnahme: jeder baut ein eigenes Zentrum, A forscht, nur A zahlt und hat die Forschung, nur A darf den
+  freigeschalteten Tower bauen; jeder Client zeigt die eigene Forschung; beide Clients mit gleicher Prüfsumme.
+- Fähigkeiten und Held hören `research:completed` noch ohne Blick auf den Spieler; das kommt mit C2c.
 
 **Noch offen in C2 (Plan):**
 
