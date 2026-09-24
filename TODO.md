@@ -27,9 +27,6 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Kein `cameraCorrection` im Log; der Korridor-Aufbau lief dort als "unmeasured freeze" (452/452 Stationen,
       Fallback). Vermutung, unbelegt: die Korridor-Region hält grobe Tiles, der Abstands-Raycast der GlobeControls
       trifft zu hoch. Messen: Raycast-Treffer, Höhe, Tile-Tiefe am Limit, mit und ohne Region.
-- [ ] **C18 Wellenstart- und Wellenende-Sound zu abrupt zur Musik** (User, 2026-09-24): Beide setzen hart gegen die
-      laufende Musik. Stellschrauben: Überblendung beim Wellenstart (`BACKGROUND_MUSIC.phaseFadeDuration`), beim
-      Wellenende `BACKGROUND_MUSIC.waveEnd` (Ausblenden, Pause bis zur Aufbau-Musik) und die Lautstärke der Sounds.
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
