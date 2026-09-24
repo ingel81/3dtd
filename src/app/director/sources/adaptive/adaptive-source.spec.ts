@@ -52,8 +52,8 @@ describe('AdaptiveWaveSource', () => {
     random = mulberry32(20260922);
   });
 
-  it('decides at wave start, because its size reads the defense of that moment', () => {
-    expect(source.plansAt).toBe('wave-start');
+  it('decides at wave end, so towers built in the pause do not size the coming wave', () => {
+    expect(source.plansAt).toBe('wave-end');
   });
 
   describe('the wave it ships', () => {

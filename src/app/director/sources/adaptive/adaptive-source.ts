@@ -8,10 +8,13 @@
  * state snapshot, the templates and the campaign, all of which are shared
  * with every other source (docs/WAVE_SOURCE_PLAN.md).
  *
- * Why it plans at wave start: its size comes from the defense as it stands
- * when the wave begins, so committing a wave earlier would size it against a
- * defense the player is still building. A source whose waves are written down
- * has no such problem and declares `wave-end` instead.
+ * Why it plans at wave end: its size comes from the defense it reads, and
+ * read at the button it made the same wave bigger for a player who built
+ * before starting than for one who started and built afterwards (User,
+ * 2026-09-24). Committed when the wave before ends (wave 1 when the run
+ * starts), the towers built in the pause no longer size it; the cap sees
+ * them one wave later, and the pressure loop evens that out over the waves.
+ * The preview then names the real next wave.
  *
  * Why rules and no model: measured across a day of A/B runs sharing the same
  * bots, campaign and fairness gate, a trained policy was three times
@@ -58,7 +61,7 @@ const TEMPLATE_HISTORY = 5;
 export class AdaptiveWaveSource implements WaveSource {
   readonly id: WaveSourceId = 'adaptive';
   readonly name = 'Adaptive director';
-  readonly plansAt: WavePlanTiming = 'wave-start';
+  readonly plansAt: WavePlanTiming = 'wave-end';
 
   /**
    * The pressure loop. Public because a bot batch's A/B reads its multiplier

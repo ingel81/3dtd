@@ -104,8 +104,8 @@ export class GameLoopFacadeService {
     this.bridge = bridge;
     this.gameState = gameState;
     this.initialized = true;
-    // Asked for per plan, not held: GameRng.reset() throws its streams away,
-    // so a cached function would draw from the previous run's sequence.
+    // The run's director stream; GameRng keeps a stream's function across a
+    // reset, so asking per plan and holding it come to the same.
     this.waveDirector.useRandomSource(() => gameState.rng.stream('director'));
   }
 
@@ -243,6 +243,10 @@ export class GameLoopFacadeService {
     // length 6 waves against a target of 80). A wave source switched in the
     // debug window also takes effect here.
     this.eventBusSubs.add(eventBus.onLive('game:reset', () => this.waveDirector.resetForNewGame()));
+    // The first run of a session starts without a game:reset: a source that
+    // plans at wave end commits wave 1 now, before any tower stands. A later
+    // reset plans it again.
+    this.waveDirector.resetForNewGame();
   }
 
   // ══════════════════════════════════════════════════════════════

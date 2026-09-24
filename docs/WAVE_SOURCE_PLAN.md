@@ -570,8 +570,10 @@ und der Regler alle ihren Zustand als Parameter bekommen.
    braucht sie die Rotation nicht. Entscheidung fällt in S7, nicht vorher.
 2. **`directorParams` und der Tabellen-Source.** Die benannten Sets sind adaptiv. Ob ein Tabellen-Lauf im
    Bot-Batch stattdessen einen Tabellennamen mitloggt, entscheidet sich, wenn der erste Batch damit läuft.
-3. **`plansAt` für die adaptive Variante.** Nach S7 ist das ein Experiment: exakte Vorschau gegen einen
-   Deckel, der einen danach gebauten Turm nicht mehr sieht.
+3. **`plansAt` für die adaptive Variante.** Entschieden am 2026-09-24 (User): `wave-end`. Beim Klick geplant
+   machte ein vor dem Start gebauter Turm dieselbe Welle größer als einer, der nach dem Start kam. Jetzt legt das
+   Ende der Vorwelle die Welle fest (Welle 1 der Start des Laufs); der Deckel sieht in der Pause Gebautes eine Welle
+   später, der Druck-Regler gleicht das aus, die Vorschau nennt die echte nächste Welle.
 
 ## 16. Was beim Bauen anders kam
 

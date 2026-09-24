@@ -98,9 +98,10 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
   // A location change resets the game without restartGame. The director's
   // per-run correction and a wave source switched in the debug window have to
   // start over there as well (docs/PLAYTEST.md M5).
-  it('resets the wave director on every game reset, not only on the restart button', () => {
-    bus.emit({ type: 'game:reset' });
+  it('resets the wave director once when wired (the first run has no game:reset) and on every game reset', () => {
     expect(resetDirector).toHaveBeenCalledTimes(1);
+    bus.emit({ type: 'game:reset' });
+    expect(resetDirector).toHaveBeenCalledTimes(2);
   });
 
   it('counts down on the game clock after a wave and starts the next once', () => {
