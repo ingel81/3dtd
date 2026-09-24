@@ -59,6 +59,28 @@ describe('ThreeTowerRenderer draws the tower aim', () => {
     renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
   });
 
+  it('adds no model for a tower removed or built again while its model loaded (a snapshot restore)', async () => {
+    const scene = new Scene();
+    const local = new ThreeTowerRenderer(scene, sync as never, assetManager as never);
+    const aim = placedAim('cannon', 0, 0);
+
+    // Removed before the model arrived: nothing comes up
+    const gone = local.create('t1', 'cannon', 0, 0, 0, 0, aim);
+    local.remove('t1');
+    expect(await gone).toBeNull();
+    expect(local.get('t1')).toBeUndefined();
+
+    // Cleared and built again at once: only the second model stands
+    const first = local.create('t2', 'cannon', 0, 0, 0, 0, aim);
+    local.clear();
+    const second = local.create('t2', 'cannon', 0, 0, 0, 0, aim);
+    expect(await first).toBeNull();
+    const data = await second;
+    expect(local.get('t2')).toBe(data);
+    expect(scene.children.filter((child) => child === data!.mesh)).toHaveLength(1);
+    expect(local.count).toBe(1);
+  });
+
   it('shows the placed pose first, then the sweep, then the guard heading, never jumping', async () => {
     const aim = placedAim('cannon', 0.4, 1.0);
     const data = (await renderer.create('t1', 'cannon', 0, 0, 0, 0.4, aim))!;

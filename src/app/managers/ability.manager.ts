@@ -582,6 +582,16 @@ export class AbilityManager implements IGameManager {
       this.states.set(id, { unlocked, charges, wavesTowardCharge });
     }
     this.nextStrikeId = state.nextStrikeId;
+    // The silo shows its missile by the charges (VFXService)
+    this.emitStateSnapshot();
+  }
+
+  /**
+   * Send the charges again (ability:state-changed), for what shows them
+   * after a stretch it did not hear: a replay's seek mutes the show.
+   */
+  announceState(): void {
+    this.emitStateSnapshot();
   }
 
   destroy(): void {

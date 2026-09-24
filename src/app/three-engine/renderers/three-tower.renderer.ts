@@ -88,6 +88,14 @@ export class ThreeTowerRenderer {
   // Loaded model URLs for reference counting
   private loadedModelUrls = new Set<string>();
 
+  /**
+   * Towers whose model is still loading, by id, with the token of their
+   * create(). remove() and clear() drop the entry, so a model that arrives
+   * for a tower gone meanwhile is not added.
+   */
+  private readonly pendingCreates = new Map<string, number>();
+  private createToken = 0;
+
   /** Tower types whose configured turretNode the model lacks, warned about once. */
   private readonly missingTurretNodes = new Set<string>();
 
@@ -245,6 +253,9 @@ export class ThreeTowerRenderer {
       console.error(`[ThreeTowerRenderer] Unknown tower type: ${typeId}`);
       return null;
     }
+    // See pendingCreates: the model loads after this call returns
+    const token = ++this.createToken;
+    this.pendingCreates.set(id, token);
 
     // Load model via AssetManager (cached)
     let cachedModel;
@@ -255,6 +266,11 @@ export class ThreeTowerRenderer {
       console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
       return null;
     }
+    // The tower went (or came again) while its model loaded: a snapshot
+    // restore removes and builds towers in one go, and a replay switching
+    // waves does so twice in a frame. Its model must not stand orphaned.
+    if (this.pendingCreates.get(id) !== token) return null;
+    this.pendingCreates.delete(id);
 
     // Clone the model
     const mesh = this.assetManager.cloneModel(config.modelUrl);
@@ -617,6 +633,7 @@ export class ThreeTowerRenderer {
    * Remove tower from scene
    */
   remove(id: string): void {
+    this.pendingCreates.delete(id);
     const data = this.towers.get(id);
     if (!data) return;
 
@@ -761,6 +778,7 @@ export class ThreeTowerRenderer {
    * Clear all towers
    */
   clear(): void {
+    this.pendingCreates.clear();
     for (const id of this.towers.keys()) {
       this.remove(id);
     }

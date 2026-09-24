@@ -1,3 +1,4 @@
+import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
@@ -306,14 +307,9 @@ export class VFXService {
   }
 
   private clearStrikes(): void {
-    this.tilesEngine.abilityMarkers.clear();
-    this.tilesEngine.missileLaunches.clear();
+    clearStrikeEffects(this.tilesEngine);
     // A new game's silo stands loaded until a snapshot says otherwise
     for (const id of ABILITY_IDS) this.showLoaded(id, true);
-    this.tilesEngine.mushroomClouds.clear();
-    this.tilesEngine.frostBursts.clear();
-    this.tilesEngine.empPulses.clear();
-    this.tilesEngine.orbitalBeams.clear();
   }
 
   /**
