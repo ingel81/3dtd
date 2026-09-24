@@ -52,6 +52,8 @@ const reg = vi.hoisted(() => ({
       gameOver: [{ id: 'over', url: 'over.mp3', volume: 0.35 }],
       gameOverMusicDelayMs: 4000,
       waveEnd: { fadeOutMs: 1200, buildDelayMs: 2800, buildFadeInMs: 3000 },
+      // No delay and the phase fade here, so the phase specs stay about the tracks; the start's own spec sets real values
+      waveStart: { fadeOutMs: 900, waveDelayMs: 0, waveFadeInMs: 1500 },
       pauseDim: 0.35,
       duck: {
         nuclearStrike: { factor: 0.35, holdMs: 3000 },
@@ -173,8 +175,10 @@ function setup(opts: { suspended?: boolean } = {}) {
   const channels = reg.audios.slice(before);
   const playing = () => channels.filter((c) => c.isPlaying);
 
-  const waveStarted = async () => {
-    eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
+  /** Wave 1 starts; the wave music comes in once the start signal rang out (BACKGROUND_MUSIC.waveStart) */
+  const waveStarted = async (wave = 1) => {
+    eventBus.emit({ type: 'wave:started', wave, enemyCount: 10 });
+    await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveStart.waveDelayMs);
     await flush();
   };
   const waveCompleted = async () => {
@@ -356,6 +360,31 @@ describe('BackgroundMusicService', () => {
   });
 
   describe('phases', () => {
+    it('slides the build music out under the start signal and brings the wave music in as it rings out', async () => {
+      const saved = BACKGROUND_MUSIC.waveStart;
+      (BACKGROUND_MUSIC as { waveStart: typeof saved }).waveStart = { fadeOutMs: 900, waveDelayMs: 1400, waveFadeInMs: 2500 };
+      try {
+        const { eventBus, playing, startBuild } = setup();
+        await startBuild();
+        const [build] = playing();
+
+        eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
+        await flush();
+        frame(NOW + 900);
+        // Under the signal: the build music is gone, no wave music yet
+        expect(playing()).toHaveLength(0);
+        expect(build.isPlaying).toBe(false);
+
+        await vi.advanceTimersByTimeAsync(1400);
+        await flush();
+        const [wave] = playing();
+        expect(wave.buffer?.url).toBe('w1.mp3');
+        expect(wave.volume).toBe(0);
+      } finally {
+        (BACKGROUND_MUSIC as { waveStart: typeof saved }).waveStart = saved;
+      }
+    });
+
     it('follows a phase set by a restore, and leaves a track that fits alone', async () => {
       const { playing, service, startBuild } = setup();
       await startBuild();
@@ -469,6 +498,7 @@ describe('BackgroundMusicService', () => {
       await startBuild();
       const start = async (wave: number) => {
         eventBus.emit({ type: 'wave:started', wave, enemyCount: 10 });
+        await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveStart.waveDelayMs);
         await flush();
         frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
         return playing().map((c) => c.buffer?.url);
@@ -661,15 +691,17 @@ describe('BackgroundMusicService', () => {
       expect(warn).toHaveBeenCalledWith(expect.stringContaining('w1.mp3'), expect.anything());
     });
 
-    it('plays nothing when the phase change shares a preload that then fails', async () => {
+    it('plays nothing when the wave track fails to load, before and at the phase change', async () => {
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       reg.failing.add('w1.mp3');
       const { playing, waveStarted } = setup();
 
-      await waveStarted(); // the preload of w1 is still in flight
+      // The preload of w1 fails while the start signal plays; the wave music
+      // then tries once more (a failed track is loaded again) and fails as well
+      await waveStarted();
 
       expect(playing()).toHaveLength(0);
-      expect(warn).toHaveBeenCalledTimes(1);
+      expect(warn).toHaveBeenCalledTimes(2);
     });
 
     it('loads a track again after the loader reported an error synchronously', async () => {
