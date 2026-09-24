@@ -52,7 +52,9 @@ export type RefusalReason =
   | 'lane-taken'
   | 'not-ready'
   /** A coop game needs a second player (User, 2026-09-24) */
-  | 'alone';
+  | 'alone'
+  /** The relay holds as many rooms as it takes (review R18) */
+  | 'busy';
 
 export type ClientMessage =
   /** First message: who is there and with what game */
@@ -99,5 +101,7 @@ export type ServerMessage =
   | { t: 'left'; playerId: string }
   /** The host changed (D22) */
   | { t: 'host'; hostId: string }
+  /** In the game: the room waits for this player to catch up (review R2); null once it goes on */
+  | { t: 'waiting'; playerId: string | null }
   /** Each player's round trip to the relay, ms, null before the first; every few seconds */
   | { t: 'rtt'; rtt: [string, number | null][] };

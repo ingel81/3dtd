@@ -31,6 +31,11 @@ const HEARTBEAT_MS = 3000;
 /** A running room writes a status line this often, ms */
 const STATUS_MS = 10_000;
 
+/** A lobby not started after this long closes, its players are let go (review R18) */
+export const LOBBY_MAX_MS = 60 * 60 * 1000;
+/** Rooms at most at once; a create beyond is refused as busy (review R18) */
+export const MAX_ROOMS = 200;
+
 /** Largest message the relay takes, bytes: a world package is some 300 kB (review R17) */
 const MAX_MESSAGE_BYTES = 4 * 1024 * 1024;
 
@@ -86,6 +91,11 @@ export interface RelayOptions {
   statusEveryMs?: number;
   /** Rooms let the dev tools' cheats through (RoomOptions.cheats); off by default */
   cheats?: boolean;
+  /** LOBBY_MAX_MS and MAX_ROOMS by default; for the spec */
+  lobbyMaxMs?: number;
+  maxRooms?: number;
+  /** HEARTBEAT_MS by default; for the spec */
+  heartbeatMs?: number;
 }
 
 /** Start the relay on `port` (0: any free port). */
@@ -184,6 +194,10 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
       if (!player) return;
       if (message.t === 'create') {
         if (connection.room) return;
+        if (rooms.size >= (options.maxRooms ?? MAX_ROOMS)) {
+          send(id, { t: 'refused', reason: 'busy' });
+          return;
+        }
         const code = newCode();
         const room = new Room(code, player, send, { log: (line) => log(`[${code}] ${line}`), now, cheats: options.cheats });
         rooms.set(room.code, room);
@@ -224,6 +238,16 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
   const heartbeat = setInterval(() => {
     // The round trips the last heartbeat measured, to each room
     for (const room of rooms.values()) room.sendRtt(rttOf);
+    // A lobby open too long without a start closes: its players' sockets go
+    for (const room of rooms.values()) {
+      if (room.isStarted || room.status().ageMs < (options.lobbyMaxMs ?? LOBBY_MAX_MS)) continue;
+      log(`[${room.code}] lobby open too long, closing it`);
+      for (const connection of connections.values()) {
+        if (connection.room !== room) continue;
+        connection.dropReason = 'lobby open too long';
+        connection.socket.close();
+      }
+    }
     for (const connection of connections.values()) {
       if (!connection.alive) {
         connection.dropReason = `no heartbeat for ${HEARTBEAT_MS / 1000} s`;
@@ -234,7 +258,7 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
       connection.pingAt = now();
       connection.socket.ping();
     }
-  }, HEARTBEAT_MS);
+  }, options.heartbeatMs ?? HEARTBEAT_MS);
 
   // Per running room: commands at the last status line, for commands a second
   const commandsAtLine = new Map<string, number>();

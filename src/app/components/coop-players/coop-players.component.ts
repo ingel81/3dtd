@@ -46,6 +46,8 @@ const CHAT_NOTICE_MS = 10000;
             @if (player.host) { <span class="tag">host</span> }
             @if (player.left) {
               <span class="state">left</span>
+            } @else if (player.slowing) {
+              <span class="state is-slow" matTooltip="The room waits for them to catch up" matTooltipPosition="below">catching up</span>
             } @else if (!waveActive()) {
               <span class="state" [class.is-ready]="player.ready">{{ player.ready ? 'ready' : 'building' }}</span>
             }
@@ -165,6 +167,9 @@ const CHAT_NOTICE_MS = 10000;
       text-transform: uppercase;
       color: var(--td-text-muted);
     }
+    .state.is-slow {
+      color: var(--td-warn-orange);
+    }
     .state.is-ready {
       color: var(--td-teal);
     }
@@ -268,6 +273,7 @@ export class CoopPlayersComponent {
         name: p.name,
         me: p.id === me,
         host: p.id === hostId,
+        slowing: p.id === this.coop.waitingFor(),
         ready: ready.has(p.id),
         left: left.has(p.id),
         gold: gold.get(p.id) ?? 0,

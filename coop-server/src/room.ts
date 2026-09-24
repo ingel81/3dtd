@@ -30,11 +30,19 @@ import type { StampedCommand } from '../../src/app/coop/lockstep.ts';
 import { MAX_PLAYERS } from '../../src/app/coop/protocol.ts';
 import { TICK_SUB_STEPS } from '../../src/app/coop/lockstep.ts';
 import { GameClock } from '../../src/app/managers/game-state/game-clock.ts';
-import { HashCheck } from '../../src/app/coop/hash-check.ts';
+import { HashCheck, HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
 import { clientLabel, type ClientInfo } from '../../src/app/coop/client-info.ts';
 
 /** Game time one tick stands for, ms. */
 export const TICK_MS = TICK_SUB_STEPS * GameClock.FIXED_STEP_MS;
+
+/**
+ * Ticks the relay runs past the slowest client's last hash report at most
+ * (review R2): 3 game seconds. A client reports every HASH_EVERY_TICKS, so
+ * the room stops closing ticks once one is about 3 to 4 s behind, and goes
+ * on when they caught up.
+ */
+export const MAX_AHEAD_TICKS = 3 * HASH_EVERY_TICKS;
 
 /** Longest real time advance() catches up at once, ms: a stalled timer does not flood the clients. */
 const MAX_ADVANCE_MS = 1000;
@@ -95,6 +103,8 @@ export class Room {
   private started = false;
 
   private speed = 1;
+  /** The player the room waits for to catch up (MAX_AHEAD_TICKS), null while none */
+  private waitingFor: string | null = null;
   /** The speed a resume goes back to: the last one that was not 0 */
   private resumeSpeed = 1;
   private nextTick = 0;
@@ -279,6 +289,16 @@ export class Room {
    */
   advance(realMs: number): number {
     if (!this.started || this.speed === 0) return 0;
+    // No further than MAX_AHEAD_TICKS past the slowest client (review R2):
+    // the room waits for them rather than they trail on for good
+    const slowest = this.slowestPlayer();
+    const waitFor = slowest && this.nextTick - slowest.tick > MAX_AHEAD_TICKS ? slowest.id : null;
+    if (waitFor !== this.waitingFor) {
+      this.waitingFor = waitFor;
+      if (waitFor) this.log(`waiting for ${this.who(waitFor)} to catch up`);
+      this.broadcast({ t: 'waiting', playerId: waitFor });
+    }
+    if (waitFor) return 0;
     this.pending += Math.min(realMs, MAX_ADVANCE_MS) * this.speed;
     let closed = 0;
     while (this.pending >= TICK_MS) {
@@ -287,6 +307,16 @@ export class Room {
       closed++;
     }
     return closed;
+  }
+
+  /** The player whose last hash report is the oldest, with its tick (0 before any); null alone or empty */
+  private slowestPlayer(): { id: string; tick: number } | null {
+    let slowest: { id: string; tick: number } | null = null;
+    for (const p of this.players) {
+      const tick = this.hashCheck.last.get(p.id)?.tick ?? 0;
+      if (!slowest || tick < slowest.tick) slowest = { id: p.id, tick };
+    }
+    return slowest;
   }
 
   /** Close the next tick with everything that came in since the last. */

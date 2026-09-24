@@ -70,6 +70,7 @@ const REFUSAL_TEXT: Record<RefusalReason, string> = {
   'lane-taken': 'Someone else has that lane.',
   'not-ready': 'Not everyone has a lane and is ready yet.',
   alone: 'A coop game needs a second player.',
+  busy: 'The coop server is full right now. Try again in a while.',
 };
 
 /**
@@ -146,6 +147,8 @@ export class CoopService {
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
   readonly lanes = signal<ReadonlyMap<string, LaneStat>>(new Map());
+  /** The player the room waits for to catch up (the relay's cap, review R2), null while none */
+  readonly waitingFor = signal<string | null>(null);
   /** Each player's round trip to the relay, ms, as the relay last measured it */
   readonly rtt = signal<ReadonlyMap<string, number | null>>(new Map());
   /** Short notices for the players bar: joined, left, host, connection, divergence, chat, gold */
@@ -465,6 +468,7 @@ export class CoopService {
     this.roster.set([]);
     this.notices.set([]);
     this.rtt.set(new Map());
+    this.waitingFor.set(null);
     this.pickedByHand = false;
     this.autoPicking = null;
   }
@@ -609,6 +613,14 @@ export class CoopService {
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
     session.onRtt = inZone((rtt) => this.rtt.set(new Map(rtt)));
+    session.onWaiting = inZone((playerId) => {
+      this.waitingFor.set(playerId);
+      if (playerId) {
+        this.notify(playerId === this.playerId()
+          ? 'The others wait for your game to catch up'
+          : `Waiting for ${this.nameOf(playerId)} to catch up`);
+      }
+    });
     session.onHost = inZone((hostId) => {
       if (this.room()) this.room.set({ ...this.room()!, hostId });
       if (hostId === this.playerId() && this.inGame()) this.gameState.setLosRole('host');

@@ -123,6 +123,20 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     a.close();
   });
 
+  it('refuses a room beyond the cap and closes a lobby open too long (R18)', async () => {
+    relay = await startRelay({ port: 0, maxRooms: 1, lobbyMaxMs: 50, heartbeatMs: 30 });
+    const a = await client(relay.port, 'Ann');
+    const b = await client(relay.port, 'Bob');
+    a.send({ t: 'create' });
+    await a.until('room');
+    b.send({ t: 'create' });
+    expect((await b.until('refused')).reason).toBe('busy');
+    // Never started: after lobbyMaxMs the next heartbeat lets Ann go
+    await new Promise<void>((resolve) => a.socket.on('close', () => resolve()));
+    const status = await (await fetch(`http://localhost:${relay.port}/status`)).json() as RelayStatus;
+    expect(status.rooms).toEqual([]);
+  });
+
   it('refuses a client of another protocol and a room that is not there', async () => {
     relay = await startRelay({ port: 0 });
     const socket = new WebSocket(`ws://localhost:${relay.port}`);
