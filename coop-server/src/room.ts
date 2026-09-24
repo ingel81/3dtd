@@ -89,7 +89,7 @@ export class Room {
     const host = this.players.find((p) => p.id === this.hostId)!;
     if (player.gameVersion !== host.gameVersion) return 'version';
     if (player.configHash !== host.configHash) return 'balance';
-    this.players.push({ ...player, spawnId: null, ready: false });
+    this.players.push({ ...player, name: this.freeName(player.name), spawnId: null, ready: false });
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
     return null;
@@ -216,6 +216,15 @@ export class Room {
       spawnIds: [...this.spawnIds],
       started: this.started,
     };
+  }
+
+  /** `name`, or with a number after it when someone in the room has it already ("Joerg 2") */
+  private freeName(name: string): string {
+    const taken = new Set(this.players.map((p) => p.name));
+    if (!taken.has(name)) return name;
+    let n = 2;
+    while (taken.has(`${name} ${n}`)) n++;
+    return `${name} ${n}`;
   }
 
   private refuse(playerId: string, reason: RefusalReason): void {

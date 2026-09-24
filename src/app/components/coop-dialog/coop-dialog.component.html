@@ -49,6 +49,13 @@
             @if (!coop.worldReady()) {
               <p class="coop-hint">Waiting for the host's map…</p>
             }
+            @if (tooFewLanes()) {
+              <p class="coop-error">
+                The map has {{ room.spawnIds.length }} spawn{{ room.spawnIds.length === 1 ? '' : 's' }} for
+                {{ room.players.length }} players: every player needs a lane of their own.
+                @if (coop.isHost()) { Add spawns with the flag button, then Send map. }
+              </p>
+            }
           }
 
           <ul class="players">

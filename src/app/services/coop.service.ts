@@ -120,8 +120,6 @@ export class CoopService {
       untracked(() => this.followLocalSpeed(speed, paused));
     }, { injector: this.injector });
 
-    // Opened with ?room=: join once the place stands (the host's place, see takeWorld)
-    if (this.roomFromUrl) setTimeout(() => void this.joinFromUrl(), 0);
   }
 
   get name(): string {
@@ -216,12 +214,28 @@ export class CoopService {
     this.worldReady.set(false);
   }
 
-  /** Join the room of the URL (?room=) once this page's place stands. */
-  async joinFromUrl(): Promise<void> {
+  /**
+   * Opened with an invite link: it carries the host's place, so this page
+   * loaded that map; once it stands, join the room right away.
+   */
+  async joinFromUrl(): Promise<boolean> {
     const code = this.roomFromUrl;
-    if (!code || this.session) return;
-    if (!(await this.placeLoaded())) return;
+    if (!code || this.session) return false;
+    if (!(await this.placeLoaded())) return false;
     await this.join(this.name, code);
+    return this.room() !== null;
+  }
+
+  /**
+   * The invite link: this page at the host's place with the room, so a
+   * joiner loads the right map at once (and joins from the dialog).
+   */
+  inviteLink(): string {
+    const room = this.room();
+    const hq = this.locationMgmt.hq();
+    if (!room || !hq) return '';
+    const spawns = this.gameState.getSpawnPoints().map(({ lat, lon }) => ({ lat, lon }));
+    return `${window.location.origin}${this.urlLocation.urlFor(hq, spawns)}&room=${room.code}`;
   }
 
   private head(): { gameVersion: string; configHash: string } {
@@ -292,6 +306,9 @@ export class CoopService {
     if (!this.standsOn(world)) {
       const room = this.room()?.code ?? this.roomFromUrl;
       const url = this.urlLocation.urlFor(world.hq, world.spawns.map(({ lat, lon }) => ({ lat, lon })));
+      // Out of the room first: the browser closes the socket of a page it
+      // leaves late, and the relay kept this player in the list till then
+      this.leave();
       window.location.assign(`${url}&room=${encodeURIComponent(room ?? '')}`);
       return;
     }

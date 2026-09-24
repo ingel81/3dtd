@@ -39,9 +39,11 @@ export class CoopDialogComponent {
     return !!room && this.coop.isHost() && this.coop.worldReady()
       && room.players.length > 0 && room.players.every((p) => p.spawnId !== null && p.ready);
   });
-  readonly inviteLink = computed(() => {
+  readonly inviteLink = computed(() => (this.coop.room() ? this.coop.inviteLink() : ''));
+  /** Fewer spawns on the map than players in the room: someone has no lane */
+  readonly tooFewLanes = computed(() => {
     const room = this.coop.room();
-    return room ? `${window.location.origin}${window.location.pathname}?room=${room.code}` : '';
+    return !!room && room.spawnIds.length > 0 && room.spawnIds.length < room.players.length;
   });
 
   /** CSS colour of a lane: the spawn's colour, by its place in the host's list */

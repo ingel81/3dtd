@@ -43,6 +43,12 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('d', 'room')!.room.players.map((p) => p.id)).toEqual(['a', 'b', 'c', 'd']);
   });
 
+  it('numbers a name that is in the room already', () => {
+    room.join(player('b', { name: 'A' }));
+    room.join(player('c', { name: 'A' }));
+    expect(last('c', 'room')!.room.players.map((p) => p.name)).toEqual(['A', 'A 2', 'A 3']);
+  });
+
   it('hands the host world to everyone, also to who joins later', () => {
     room.join(player('b'));
     room.receive('a', { t: 'world', world: { w: 1 }, spawnIds: ['s1'] });
