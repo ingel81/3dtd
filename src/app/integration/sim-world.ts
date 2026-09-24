@@ -23,31 +23,73 @@ import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import type { SpawnPoint } from '../managers/wave.manager';
 import type { ColumnSample } from '../three-engine/column-sample';
-import type { LosMask } from '../utils/los-mask';
+import { losMaskToJson, type LosMask } from '../utils/los-mask';
+import type { GameEventBus } from '../game-engine/game-event-bus';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { noopStub } from './noop-stub';
 import { buildRoute, createBenchEngine, flatSync, markAllVisible } from './sim-step-bench';
 
-/** The line of sight side of TowerPlacementService, on the real grid, no GPU. */
-export function losPlacement(grid: GlobalRouteGridService) {
+/**
+ * The line of sight side of TowerPlacementService, on the real grid, no GPU.
+ * A tower placed in the single player game gets no line of sight (the
+ * specs mark theirs with markAllVisible). In coop it does what
+ * TowerLosRegistry does with the host's GPU answering "everything visible":
+ * every client waits, the host resolves after the frame and sends
+ * command:los-mask on `bus()`.
+ */
+export function losPlacement(grid: GlobalRouteGridService, bus: () => GameEventBus | null = () => null) {
   const queue: Tower[] = [];
+  let role: 'host' | 'guest' | null = null;
+  const awaiting: Tower[] = [];
+  const sent = new Set<Tower>();
+  const fromMask = (tower: Tower, mask: LosMask) => {
+    tower.visibleCells = grid.applyLosMask(tower.id, tower.position.lon * M, -tower.position.lat * M, mask);
+    tower.losMask = mask;
+    tower.losReady = true;
+  };
   const unregister = (tower: Tower) => {
     grid.unregisterTower(tower.id);
     tower.visibleCells = [];
     tower.losMask = null;
+    const i = awaiting.indexOf(tower);
+    if (i >= 0) awaiting.splice(i, 1);
+    sent.delete(tower);
   };
   return noopStub({
-    registerTowerFromMask: (tower: Tower, mask: LosMask) => {
-      tower.visibleCells = grid.applyLosMask(tower.id, tower.position.lon * M, -tower.position.lat * M, mask);
-      tower.losMask = mask;
-      tower.losReady = true;
+    registerTowerOnGrid: (tower: Tower) => {
+      if (!role) return;
+      tower.losReady = false;
+      awaiting.push(tower);
     },
+    registerTowerFromMask: fromMask,
     unregisterTowerFromGrid: unregister,
     clearAllTowerOverlays: (towers: Tower[]) => towers.forEach(unregister),
     queuedLosTowerIds: () => queue.map((t) => t.id),
     requeueLos: (towers: Tower[]) => queue.splice(0, queue.length, ...towers),
     setLosMaskSource: () => undefined,
-    drainLosQueue: () => undefined,
+    setCoopLosRole: (next: 'host' | 'guest' | null) => { role = next; },
+    awaitingLosTowerIds: () => awaiting.map((t) => t.id),
+    applyCoopLosMask: (tower: Tower, mask: LosMask) => {
+      const i = awaiting.indexOf(tower);
+      if (i < 0) return;
+      awaiting.splice(i, 1);
+      sent.delete(tower);
+      grid.unregisterTower(tower.id);
+      fromMask(tower, mask);
+    },
+    drainLosQueue: () => {
+      if (role !== 'host') return;
+      const tower = awaiting.find((t) => !sent.has(t));
+      if (!tower) return;
+      markAllVisible(grid, tower);
+      const mask = tower.losMask!;
+      grid.unregisterTower(tower.id);
+      tower.visibleCells = [];
+      tower.losMask = null;
+      tower.losReady = false;
+      sent.add(tower);
+      bus()?.emit({ type: 'command:los-mask', towerId: tower.id, reason: 'place', mask: losMaskToJson(mask) });
+    },
   });
 }
 
@@ -108,9 +150,11 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
   services['DamageApplicationService'] = new DamageApplicationService();
   services['CombatEffectService'] = new CombatEffectService();
   services['TowerCombatService'] = new TowerCombatService();
-  services['TowerPlacementService'] = losPlacement(grid);
+  let gameState: GameStateManager | null = null;
+  services['TowerPlacementService'] = losPlacement(grid, () => gameState?.getEventBus() ?? null);
 
   const gsm = new GameStateManager();
+  gameState = gsm;
   gsm.rng.reset(seed);
   gsm.initialize(createBenchEngine(), routes[0][routes[0].length - 1], spawnPoints, paths as Map<string, GeoPosition[]>);
   gsm.researchManager.completeResearch('aa-retrofit');

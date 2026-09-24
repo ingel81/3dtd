@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a und C2 gebaut, C1b und C3 bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a, C2 und C3 gebaut, C1b und C4 bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -236,7 +236,26 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 - Wellenstart (D15): `command:start-wave` erst, wenn alle bereit sind; der Bereit-Stand ist ein Befehl je Spieler.
 - Abnahme: Specs je Regel; C0-Spec mit zwei Spielern, die bauen, verkaufen, aufrüsten, Helden anheuern.
 
-### C3 Sicht vom Host
+### C3 Sicht vom Host (gebaut 2026-09-24)
+
+So gebaut:
+
+- Auch der Host wendet eine selbst gerechnete Sichtlinie nicht sofort an: Sonst wäre ein neuer Tower bei ihm früher
+  schussbereit als bei den anderen. `TowerLosRegistry.setCoopRole('host' | 'guest')`: Bau, Upgrade und
+  Luft-Nachrüstung setzen den Tower auf „wartet auf Sicht“ (auf jedem Client gleich, die Simulation fragt). Ein
+  neuer Tower ist bis dahin nicht bereit, ein aufgerüsteter behält seine alten Antworten.
+- Nur der Host rechnet nach dem Frame auf der GPU (einer je Frame), kodiert die Maske, stellt Zellen und Tower
+  wieder so her, wie alle anderen sie haben, und schickt `command:los-mask`. Alle wenden sie am Tick an
+  (`applyCoopMask`); ein zweites Senden verhindert `sent`.
+- Hostwechsel (D22): Die Warteliste ist auf allen Clients gleich, ein neuer Host rechnet, was offen ist.
+- Die GPU-Rechnung steckt in `resolveOnGpu`, die Einzelspieler und Host teilen; der Einzelspieler rechnet wie
+  vorher sofort.
+- Abnahme: `tower-los-registry.spec.ts` (Gast rechnet nichts, Host rechnet einmal und stellt zurück, Anwenden am
+  Tick, Upgrade behält alte Antworten, Nachrüstung wartet) und in der Lockstep-Spec ein Tower, den B mitten in der
+  Welle baut: Die Maske kommt vom Host, steht in beiden Logs am selben Sub-Step, die Prüfsummen bleiben gleich.
+- Offen für C5: Die Warteliste gehört in einen Snapshot mitten in der Welle.
+
+Ursprünglicher Plan:
 
 - Im Coop rechnet nur der Host die Sicht eines Towers (Bau, Upgrade, Luft-Nachrüstung) und schickt die Maske als
   Eingabe über den Relay; alle wenden sie am gestempelten Tick an. Das eigene GPU-Ergebnis der anderen wird nicht

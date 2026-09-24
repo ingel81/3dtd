@@ -49,7 +49,7 @@ import { SimRecorder } from '../simulator/sim-recorder';
 import { StateHasher, type StateHashSource } from '../simulator/state-hash';
 import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../simulator/sim-snapshot';
 import type { ResimHost } from '../simulator/resimulation';
-import { losMaskToJson, type LosMask } from '../utils/los-mask';
+import { losMaskFromJson, losMaskToJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
 import { fnv1a } from '../utils/fnv1a';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
@@ -465,6 +465,21 @@ export class GameStateManager {
     }
     // Only the local hero is drawn for now
     if (this.heroView) this.heroManager.setView(this.heroView);
+  }
+
+  /**
+   * Coop (C3): whose GPU answers the lines of sight. The host renders every
+   * tower's and sends the masks as command:los-mask; a guest renders none.
+   * Null for the single player game, which renders its own at once.
+   */
+  setLosRole(role: 'host' | 'guest' | null): void {
+    this.towerPlacement.setCoopLosRole(role);
+  }
+
+  /** Coop: the host's mask for a tower, at its tick (command:los-mask). */
+  applyCoopLosMask(towerId: string, mask: LosMaskJson): void {
+    const tower = this.towerManager.getById(towerId);
+    if (tower) this.towerPlacement.applyCoopLosMask(tower, losMaskFromJson(mask));
   }
 
   /** Coop lanes: the spawn point of each player's lane, roster order; empty in the single player game */

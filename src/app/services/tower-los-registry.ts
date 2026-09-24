@@ -8,7 +8,7 @@ import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { LosResolveContext, cubeCoverage } from '../utils/gpu-cube-resolve';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-import type { LosMask } from '../utils/los-mask';
+import { losMaskToJson, type LosMask } from '../utils/los-mask';
 import type { LosResolveReason } from '../game-engine/game-event-bus';
 
 /**
@@ -23,6 +23,16 @@ import type { LosResolveReason } from '../game-engine/game-event-bus';
  * `tower:los-resolved` event carrying it. registerFromMask applies a stored
  * mask instead of a cube, for a snapshot restore or a re-simulation.
  */
+/** A tower's answers as resolveOnGpu wrote them: what encoding a mask of them needs. */
+interface ResolvedLos {
+  x: number;
+  z: number;
+  range: number;
+  canTargetGround: boolean;
+  canTargetAir: boolean;
+  ctx: LosResolveContext;
+}
+
 export class TowerLosRegistry {
   private engine: ThreeTilesEngine | null = null;
   private gameState: GameStateManager | null = null;
@@ -69,7 +79,35 @@ export class TowerLosRegistry {
    */
   private maskSource: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null = null;
 
+  /**
+   * Coop (docs/COOP_PLAN.md, C3): no client applies a line of sight it
+   * rendered itself, the host's GPU answers for everyone. A tower that needs
+   * one waits here (place, upgrade, retrofit, in the order they came up; the
+   * same on every client, as the simulation asks). The host renders it after
+   * the frame, puts the cells back as they were and sends the mask as
+   * `command:los-mask`; every client applies it at the tick it comes back
+   * (applyCoopMask). Null in the single player game.
+   */
+  private coopRole: 'host' | 'guest' | null = null;
+  private readonly awaiting = new Map<Tower, LosResolveReason>();
+  /** Host: masks sent and not back yet, so a frame does not send one twice */
+  private readonly sent = new Set<Tower>();
+
+  /** Coop masks the host renders per frame: each is a cube render and readback, as LOS_RECOMPUTES_PER_FRAME */
+  private static readonly COOP_RESOLVES_PER_FRAME = 1;
+
   constructor(private readonly grid: GlobalRouteGridService) {}
+
+  /** Coop: 'host' renders and sends the masks, 'guest' waits for them; null for the single player game. See coopRole. */
+  setCoopRole(role: 'host' | 'guest' | null): void {
+    this.coopRole = role;
+    this.sent.clear();
+  }
+
+  /** Coop: the towers waiting for a mask from the host, oldest first. */
+  awaitingTowerIds(): string[] {
+    return [...this.awaiting.keys()].map((tower) => tower.id);
+  }
 
   /** See maskSource; null goes back to the GPU. */
   setMaskSource(source: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
@@ -122,13 +160,41 @@ export class TowerLosRegistry {
       if (mask) this.registerFromMask(tower, mask);
       return;
     }
+    if (this.coopRole) {
+      tower.losReady = false;
+      this.awaiting.set(tower, 'place');
+      return;
+    }
 
-    const config = TOWER_TYPES[typeId];
-    if (!config) return;
+    const resolved = this.resolveOnGpu(tower, TOWER_TYPES[typeId]?.range, false, position);
+    if (!resolved) return;
+    tower.losReady = true;
+    this.recordMask(tower, resolved, 'place');
+
+    // Wenn dieser Tower bereits selected ist (z.B. nach Auto-Select beim
+    // Place), die Selection-Viz vom TowerManager refreshen lassen.
+    if (tower.selected) {
+      this.gameState?.towerManager.refreshSelectionViz(tower);
+    }
+  }
+
+  /**
+   * Render the cube from the tower's tip and resolve its cells in `range`:
+   * all of them (a place), or incrementally, keeping the cached answers (a
+   * recompute). Writes the answers into the grid and `tower.visibleCells`.
+   * Null when there is nothing to render against.
+   */
+  private resolveOnGpu(
+    tower: Tower,
+    range: number | undefined,
+    incremental: boolean,
+    position: GeoPosition = tower.position,
+  ): ResolvedLos | null {
+    const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
+    if (!config || range === undefined || !this.engine) return null;
 
     const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
     const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(
       tower.typeConfig.id as TowerTypeId,
@@ -138,30 +204,15 @@ export class TowerLosRegistry {
     // The cells and their heights are the ones the corridor build froze
     // (CorridorBuild): the tower registers its answers on them once.
     const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);
-    const ctx = this.buildLosResolveContext(tipWorld, config.range);
+    const ctx = this.buildLosResolveContext(tipWorld, range);
     if (!ctx) {
-      console.warn('[TowerPlacementService] registerTowerOnGrid: no LOS blocker group');
-      return;
+      console.warn('[TowerLosRegistry] no LOS blocker group');
+      return null;
     }
-
-    const visibleCells = this.grid.registerTower(
-      tower.id,
-      terrainPos.x,
-      terrainPos.z,
-      config.range,
-      ctx,
-      canTargetGround,
-      canTargetAir,
-    );
-    tower.visibleCells = visibleCells;
-    tower.losReady = true;
-    this.recordMask(tower, terrainPos.x, terrainPos.z, config.range, canTargetGround, canTargetAir, 'place');
-
-    // Wenn dieser Tower bereits selected ist (z.B. nach Auto-Select beim
-    // Place), die Selection-Viz vom TowerManager refreshen lassen.
-    if (tower.selected) {
-      this.gameState?.towerManager.refreshSelectionViz(tower);
-    }
+    tower.visibleCells = incremental
+      ? this.grid.registerTowerIncremental(tower.id, terrainPos.x, terrainPos.z, range, ctx, canTargetGround, canTargetAir)
+      : this.grid.registerTower(tower.id, terrainPos.x, terrainPos.z, range, ctx, canTargetGround, canTargetAir);
+    return { x: terrainPos.x, z: terrainPos.z, range, canTargetGround, canTargetAir, ctx };
   }
 
   /**
@@ -186,24 +237,24 @@ export class TowerLosRegistry {
   }
 
   /** Take the tower's answers as its LosMask and announce them (`tower:los-resolved`). */
-  private recordMask(
-    tower: Tower,
-    x: number,
-    z: number,
-    range: number,
-    canTargetGround: boolean,
-    canTargetAir: boolean,
-    reason: LosResolveReason,
-  ): void {
-    const mask = this.grid.encodeLosMask(tower.id, x, z, range, canTargetGround, canTargetAir);
+  private recordMask(tower: Tower, resolved: ResolvedLos, reason: LosResolveReason): void {
+    const mask = this.encode(tower, resolved);
     tower.losMask = mask;
     this.gameState?.getEventBus().emit({ type: 'tower:los-resolved', towerId: tower.id, mask, reason });
+  }
+
+  private encode(tower: Tower, resolved: ResolvedLos): LosMask {
+    return this.grid.encodeLosMask(
+      tower.id, resolved.x, resolved.z, resolved.range, resolved.canTargetGround, resolved.canTargetAir,
+    );
   }
 
   /**
    * Unregister a tower from the GlobalRouteGrid.
    */
   unregister(tower: Tower): void {
+    this.awaiting.delete(tower);
+    this.sent.delete(tower);
     // Selection-Viz wird vom TowerManager bereinigt (Owner-Pattern).
     this.gameState?.towerManager.onTowerUnregistered(tower);
     this.grid.unregisterTower(tower.id);
@@ -227,51 +278,72 @@ export class TowerLosRegistry {
       if (mask) this.registerFromMask(tower, mask);
       return;
     }
-
-    const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
-    if (!config) return;
-
-    const position = tower.position;
-    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
-    const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-
-    const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = canTargetAirEffective(
-      tower.typeConfig.id as TowerTypeId,
-      this.airTargetingUnlocked(tower),
-    );
-
-    const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);
-    const ctx = this.buildLosResolveContext(tipWorld, tower.combat.range);
-    if (!ctx) {
-      console.warn('[TowerPlacementService] recomputeTowerLOS: no LOS blocker group');
+    if (this.coopRole) {
+      // The old answers stay until the host's mask comes back
+      if (!this.awaiting.has(tower)) this.awaiting.set(tower, reason);
       return;
     }
 
-    // The queue entry is settled only here, once the recompute can run. One
-    // that bails above stays queued and the drain retries it next frame:
-    // dropped, its air answers would stay missing for good. A direct call
-    // (range upgrade) settles the entry as well.
-    const queued = this.staleLos.delete(tower);
-
-    // Incremental: only sample cells that don't already have a cached entry
+    // Incremental: only sample cells that don't already have a cached entry.
+    // The queue entry is settled only once the recompute ran. One that bails
+    // stays queued and the drain retries it next frame: dropped, its air
+    // answers would stay missing for good. A direct call (range upgrade)
+    // settles the entry as well.
     const before = tower.visibleCells.length;
-    tower.visibleCells = this.grid.registerTowerIncremental(
-      tower.id,
-      terrainPos.x,
-      terrainPos.z,
-      tower.combat.range,
-      ctx,
-      canTargetGround,
-      canTargetAir,
-    );
-    this.reportLosDrop(tower, before, queued, ctx);
-    this.recordMask(tower, terrainPos.x, terrainPos.z, tower.combat.range, canTargetGround, canTargetAir, reason);
+    const resolved = this.resolveOnGpu(tower, tower.combat.range, true);
+    if (!resolved) return;
+    const queued = this.staleLos.delete(tower);
+    this.reportLosDrop(tower, before, queued, resolved.ctx);
+    this.recordMask(tower, resolved, reason);
 
     // Selection-Viz refreshen, falls dieser Tower selected ist.
     if (tower.selected) {
       this.gameState?.towerManager.refreshSelectionViz(tower);
     }
+  }
+
+  /**
+   * Coop host: render the line of sight of up to COOP_RESOLVES_PER_FRAME
+   * waiting towers, put the grid and the tower back as every client has
+   * them (the previous mask, or none), and send each mask as
+   * `command:los-mask`. Nothing of it acts here before it comes back.
+   */
+  private resolveForCoop(): void {
+    let budget = TowerLosRegistry.COOP_RESOLVES_PER_FRAME;
+    for (const [tower, reason] of this.awaiting) {
+      if (budget === 0) break;
+      if (this.sent.has(tower)) continue;
+      const previous = tower.losMask;
+      const range = reason === 'place' ? TOWER_TYPES[tower.typeConfig.id as TowerTypeId]?.range : tower.combat.range;
+      const resolved = this.resolveOnGpu(tower, range, reason !== 'place');
+      if (!resolved) break;
+      const mask = this.encode(tower, resolved);
+      this.grid.unregisterTower(tower.id);
+      if (previous) {
+        this.registerFromMask(tower, previous);
+      } else {
+        tower.visibleCells = [];
+        tower.losReady = false;
+      }
+      this.sent.add(tower);
+      budget--;
+      this.gameState?.getEventBus().emit({
+        type: 'command:los-mask', towerId: tower.id, reason, mask: losMaskToJson(mask),
+      });
+    }
+  }
+
+  /**
+   * Coop: the host's mask for `tower` came back at its tick; every client
+   * applies it here, at the same sub-step boundary. A tower that waits for
+   * nothing takes nothing.
+   */
+  applyCoopMask(tower: Tower, mask: LosMask): void {
+    if (!this.awaiting.has(tower)) return;
+    this.awaiting.delete(tower);
+    this.sent.delete(tower);
+    this.grid.unregisterTower(tower.id);
+    this.registerFromMask(tower, mask);
   }
 
   /**
@@ -311,6 +383,10 @@ export class TowerLosRegistry {
    * air targets to many towers at once (see LOS_RECOMPUTES_PER_FRAME).
    */
   scheduleRecompute(tower: Tower): void {
+    if (this.coopRole) {
+      if (!this.awaiting.has(tower)) this.awaiting.set(tower, 'retrofit');
+      return;
+    }
     this.staleLos.add(tower);
   }
 
@@ -331,6 +407,10 @@ export class TowerLosRegistry {
    */
   drainLosQueue(): void {
     if (this.maskSource) return;
+    if (this.coopRole) {
+      if (this.coopRole === 'host') this.resolveForCoop();
+      return;
+    }
     let budget = TowerLosRegistry.LOS_RECOMPUTES_PER_FRAME;
     for (const tower of [...this.staleLos]) {
       // recompute takes the tower out of the queue.

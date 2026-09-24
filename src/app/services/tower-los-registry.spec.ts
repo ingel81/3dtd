@@ -286,4 +286,94 @@ describe('TowerLosRegistry', () => {
       expect(warn).not.toHaveBeenCalled();
     });
   });
+  describe('in coop (COOP_PLAN C3)', () => {
+    let sent: Extract<GameEvent, { type: 'command:los-mask' }>[];
+    beforeEach(() => {
+      sent = [];
+      bus.on('command:los-mask', (event) => sent.push(event));
+    });
+
+    it('as a guest renders nothing: a placed tower waits for the host, not ready', () => {
+      attach();
+      registry.setCoopRole('guest');
+      const t = tower(5, 7);
+      registry.register(t, t.position, 'archer');
+      runFrames();
+
+      expect(grid.registerTower).not.toHaveBeenCalled();
+      expect(t.losReady).toBe(false);
+      expect(registry.awaitingTowerIds()).toEqual([t.id]);
+      expect(sent).toEqual([]);
+      expect(resolved).toEqual([]);
+    });
+
+    it('as the host renders after the frame, sends the mask once and leaves the cells as the guests have them', () => {
+      attach();
+      registry.setCoopRole('host');
+      const t = tower(5, 7);
+      registry.register(t, t.position, 'archer');
+      expect(grid.registerTower).not.toHaveBeenCalled();
+
+      runFrames();
+      expect(grid.registerTower).toHaveBeenCalledTimes(1);
+      expect(sent).toHaveLength(1);
+      expect(sent[0]).toMatchObject({ towerId: t.id, reason: 'place', mask: { range: TOWER_TYPES.archer.range } });
+      // Put back: not ready, no answers, nothing announced as resolved
+      expect(grid.unregisterTower).toHaveBeenCalledWith(t.id);
+      expect(t.losReady).toBe(false);
+      expect(t.visibleCells).toEqual([]);
+      expect(resolved).toEqual([]);
+
+      runFrames();
+      expect(sent).toHaveLength(1);
+    });
+
+    it('applies the host mask at its tick, on host and guest alike', () => {
+      attach();
+      registry.setCoopRole('guest');
+      const t = tower(5, 7);
+      registry.register(t, t.position, 'archer');
+      const mask = maskOf(TOWER_TYPES.archer.range, true, false);
+      registry.applyCoopMask(t, mask);
+
+      expect(t.losReady).toBe(true);
+      expect(t.losMask).toBe(mask);
+      expect(t.visibleCells).toHaveLength(2);
+      expect(registry.awaitingTowerIds()).toEqual([]);
+      // A second one for a tower that waits for nothing changes nothing
+      registry.applyCoopMask(t, maskOf(5, true, true));
+      expect(t.losMask).toBe(mask);
+    });
+
+    it('keeps the old answers of an upgraded tower until the new mask comes back', () => {
+      attach();
+      registry.setCoopRole('host');
+      const t = tower(5, 7);
+      const old = maskOf(30, true, false);
+      registry.registerFromMask(t, old);
+      t.combat.range = 45;
+      registry.recompute(t);
+      expect(t.losMask).toBe(old);
+
+      runFrames();
+      expect(grid.registerTowerIncremental).toHaveBeenCalledTimes(1);
+      expect(sent[0]).toMatchObject({ towerId: t.id, reason: 'upgrade', mask: { range: 45 } });
+      // The host is back on the old mask, as the guests are
+      expect(t.losMask).toBe(old);
+      expect(t.losReady).toBe(true);
+    });
+
+    it('queues a retrofit as waiting, not for the local drain', () => {
+      attach();
+      registry.setCoopRole('guest');
+      const t = tower(5, 7);
+      registry.registerFromMask(t, maskOf(30, true, false));
+      registry.scheduleRecompute(t);
+      runFrames();
+
+      expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
+      expect(registry.awaitingTowerIds()).toEqual([t.id]);
+      expect(registry.queuedTowerIds()).toEqual([]);
+    });
+  });
 });
