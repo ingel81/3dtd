@@ -33,7 +33,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [HERO.md](HERO.md) | Aktuell | Held (Söldner): Forschung und Anheuern, Routengraph mit Dijkstra, Posten und Leine, Munition als Schadensart, Stufen, virtueller Tower im Überlebbarkeits-Deckel, Modell-Naht, Bedienung (G, V) |
 | [TOWER_CONTROL.md](TOWER_CONTROL.md) | Aktuell (MVP) | Tower bemannen: Egoperspektive, Zielen und Feuern von Hand nach den Regeln des Towers (Strahltest, Fehlschuss), Commands und warum das Zielen keiner ist, Kamera, HUD, Grenzen |
 | [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
-| [REPLAY.md](REPLAY.md) | Aktuell | Replay der letzten Welle: warum Präsentations-Aufnahme statt Re-Simulation, Aufnahme in Typed Arrays mit Speichergrenze, Player über die Live-Renderer, Bedienung, Grenzen |
+| [REPLAY.md](REPLAY.md) | Aktuell | Replay jeder Welle als Neu-Simulation: Snapshot am Wellenstart, Befehlslog, Springen, Datei speichern und laden, Bedienung, Grenzen |
+| [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
 | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Laufweg (Korridor endet vor Autos, Traufen, Hecken), Brücken, Tunnel, Bau hinter dem Ladescreen und Einfrieren (`CorridorBuild`), Seitenversatz der Gegner und ihre Bögen an Ecken, `__corridor.*`, `__routes.describe()` |
 | [PROJECTILES.md](PROJECTILES.md) | Aktuell | Projektil-System, Flugbahnen, Konfiguration |

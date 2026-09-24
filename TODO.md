@@ -90,8 +90,9 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Tötungsterm, und 68 von 175 getötet bleibt unerklärt. Verdacht: der Spawn-Abstand im Nenner
       (`1 - killsPerSecond * REALISM * delay`), bei 24 Towern geht hornet_strike von 20 (0 ms) auf 83 (400 ms).
       Kein Beleg; dafür braucht es das Run-Log dieses Laufs.
-- [ ] **E2 Replay als Neu-Simulation** statt Aufzeichnung, vollständig korrekt (User, Playtest 553). Blocker und
-      Lücken: [docs/REPLAY.md](docs/REPLAY.md).
+- [ ] **E2 Replay als Neu-Simulation** statt Aufzeichnung, vollständig korrekt (User, Playtest 553). Gebaut auf dem
+      Branch `simulator` (2026-09-24, [docs/SIMULATOR_PLAN.md](docs/SIMULATOR_PLAN.md)), Nachtest
+      [docs/PLAYTEST.md](docs/PLAYTEST.md) Paket R.
 - [ ] **E21 Abstand großer Gegner (Entscheidung, User)**: Golems überlappen trotz 600 ms Template-Grenze, weil
       das 3-min-Limit den Delay weiter drückt (W15 New York: 368 ms). Vorschlag: Mindestabstand in Metern je Typ
       aus der Modellgröße, den auch das 3-min-Limit nicht unterschreitet. Der User denkt noch darüber nach.
