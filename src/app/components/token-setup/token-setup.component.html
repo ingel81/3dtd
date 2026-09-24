@@ -10,6 +10,12 @@
       The 3D tiles are billed per request, so this build ships without a key.
       A free account covers playing.
     </p>
+    @if (coopRoom) {
+      <p class="token-lead token-coop">
+        You are joining coop room {{ coopRoom }}. Every player needs a map key of their own; once yours is in,
+        the host's map loads and you join by yourself.
+      </p>
+    }
   }
 
   <div class="token-tabs" role="tablist">

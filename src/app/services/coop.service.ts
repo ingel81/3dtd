@@ -149,6 +149,8 @@ export class CoopService {
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
   readonly lanes = signal<ReadonlyMap<string, LaneStat>>(new Map());
+  /** This browser has no map key yet: the token screen asks for it first (review R8) */
+  readonly needsKey = computed(() => this.config.needsCredentials());
   /** The player the room waits for to catch up (the relay's cap, review R2), null while none */
   readonly waitingFor = signal<string | null>(null);
   /** Each player's round trip to the relay, ms, as the relay last measured it */
@@ -717,10 +719,16 @@ export class CoopService {
       && spawns.every((spawn, i) => samePlace(spawn, world.spawns[i]));
   }
 
-  /** Wait until the place stands here: loading screen gone, corridor frozen. */
+  /**
+   * Wait until the place stands here: an engine, loading screen gone,
+   * corridor frozen. While the player still has to enter a map key (review
+   * R8) there is no engine yet and no limit on the wait; the load itself has
+   * WORLD_LOAD_TIMEOUT_MS.
+   */
   private async placeLoaded(): Promise<boolean> {
-    const end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
-    while (this.engineInit.loading() || this.gameState.corridorPending()) {
+    let end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
+    while (this.needsKey() || !this.engineInit.getEngine() || this.engineInit.loading() || this.gameState.corridorPending()) {
+      if (this.needsKey()) end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
       if (performance.now() > end) return false;
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
