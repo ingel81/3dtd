@@ -133,6 +133,24 @@ describe('gate wiring', () => {
     seedRandom();
   });
 
+  it('sizes a wave by the defense at the end of the wave before, not by towers built in the pause', async () => {
+    // User, 2026-09-24: towers placed before pressing start made the same
+    // wave harder than towers placed after it. Planned at wave end, the pause
+    // no longer counts.
+    const next = collector.snapshot.waveNumber + 1;
+    collector.emitWaveResult(waveResult(3, 100, next - 1));
+    const committed = director.committed;
+    expect(committed?.wave).toBe(next);
+
+    // The pause: the player builds a lot before starting
+    const defense = collector.snapshot.defense;
+    defense.totalDPS *= 20;
+    defense.towerCount += 30;
+
+    const shipped = await director.getNextWave(next);
+    expect(shipped).toBe(committed);
+  });
+
   describe('completed waves reach the gate', () => {
     it('subscribes to the collector on construction', () => {
       // Deleting the subscription in the constructor must fail this.
@@ -280,10 +298,14 @@ describe('gate wiring', () => {
 
       // Eine Abwehr, gegen die kein Deckel bindet.
       const fast = collector.snapshot.defense;
-      fast.totalDPS = 100_000;
-      fast.killThroughput = { ground: 500, air: 500 };
+      const normal = { totalDPS: fast.totalDPS, killThroughput: fast.killThroughput, gateDpsPerArmor: fast.gateDpsPerArmor };
       const huge = { unarmored: 50_000, light: 50_000, heavy: 50_000, fortified: 50_000, ethereal: 50_000 };
-      fast.gateDpsPerArmor = { ground: huge, air: huge } as typeof fast.gateDpsPerArmor;
+      const overpower = () => {
+        fast.totalDPS = 100_000;
+        fast.killThroughput = { ground: 500, air: 500 };
+        fast.gateDpsPerArmor = { ground: huge, air: huge } as typeof fast.gateDpsPerArmor;
+      };
+      overpower();
 
       let baseCount = 0;
       let baseHp = 0;
@@ -299,8 +321,13 @@ describe('gate wiring', () => {
       // out the only thing this measures.
       planWave = collector.snapshot.waveNumber + 1;
       seedRandom();
-      feed(waveResult(0), 40);                               // starve the gate
+      // Starve the gate against a defense the cap binds on: planned at wave
+      // end, every fed wave is planned again right away, and against the
+      // overpowering defense the anti-windup would (rightly) keep it shut
+      Object.assign(fast, normal);
+      feed(waveResult(0), 40);
       expect(loop().pressureMultiplier).toBeGreaterThan(2);
+      overpower();
 
       let openCount = 0;
       let openHp = 0;
