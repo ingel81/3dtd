@@ -53,6 +53,7 @@ import { fnv1a } from '../utils/fnv1a';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
 import { tickAtBoundary, tickNeededAfter, type LockstepLink } from '../coop/lockstep';
+import type { WorldSource } from '../coop/world-package';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -1047,6 +1048,24 @@ export class GameStateManager {
     const origin = this.tilesEngine?.sync.getOrigin();
     if (origin) parts.push(`o=${origin.lat.toFixed(7)},${origin.lon.toFixed(7)}`);
     return fnv1a(parts.join('|'));
+  }
+
+  /**
+   * The finished world as a coop host packs it (coop/world-package.ts): HQ,
+   * spawns, the routes as the corridor build left them, the cells' heights
+   * and the world key. Null before the world stands. Walks every cell.
+   */
+  worldSource(): WorldSource | null {
+    const origin = this.tilesEngine?.sync.getOrigin();
+    if (!origin || !this.basePosition) return null;
+    return {
+      origin: { lat: origin.lat, lon: origin.lon, height: origin.height },
+      hq: this.basePosition,
+      spawns: this.waveManager.spawnPoints,
+      paths: this.pathRouteService.getCachedPaths(),
+      heights: this.globalRouteGrid.exportHeights(),
+      worldKey: this.worldKey(),
+    };
   }
 
   /**

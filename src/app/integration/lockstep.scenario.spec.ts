@@ -45,7 +45,8 @@ import { mulberry32 } from '../utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { LocalRelay, type LocalLink } from '../coop/local-relay';
 import { TICK_SUB_STEPS } from '../coop/lockstep';
-import { buildSimWorld, type SimWorld } from './sim-world';
+import { buildWorldPackage, packagePaths, readWorldPackage } from '../coop/world-package';
+import { buildSimWorld, type SimWorld, type SimWorldOptions } from './sim-world';
 
 const SEED = 0xc0de;
 
@@ -113,9 +114,9 @@ function directorWave(): DirectorWave {
   };
 }
 
-function buildClient(relay: LocalRelay, playerId: string): Client {
+function buildClient(relay: LocalRelay, playerId: string, options: SimWorldOptions = {}): Client {
   GameObject.resetIdCounter();
-  const world = buildSimWorld(services, SEED);
+  const world = buildSimWorld(services, SEED, options);
   world.gsm.gameSpeed.set(3);
   return new Client(world, relay.connect(playerId));
 }
@@ -251,5 +252,88 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     a.frame(40);
     expect(a.gsm.credits()).toBe(credits + 100);
     expect(a.gsm.commandLog.entries[0]).toMatchObject({ step: 0, playerId: 'a' });
+  });
+});
+
+/** Hills along the routes, and a strip without tiles where cells take their neighbours' height */
+function hills(x: number, z: number): number | null {
+  if (z < -300 && z > -320) return null;
+  return 4 * Math.sin(x / 37) + 2.5 * Math.cos(z / 23) + z * 0.01;
+}
+
+const HEAD = { gameVersion: 'v9.9.9', configHash: 'cfg' };
+
+describe('Coop world package (COOP_PLAN C1)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  /** The host's world, packed and sent as text, and a joiner built from it on tiles that give nothing */
+  function hostAndJoiner(relay: LocalRelay) {
+    Math.random = mulberry32(SEED + 1);
+    const host = buildClient(relay, 'a', { ground: hills });
+    const source = host.gsm.worldSource()!;
+    const text = JSON.stringify(buildWorldPackage(source, HEAD));
+    const read = readWorldPackage(text, HEAD);
+    if (!read.world) throw new Error(`refused: ${read.refusal}`);
+    const world = read.world;
+    const joiner = buildClient(relay, 'b', {
+      ground: () => null,
+      world: { paths: packagePaths(world), spawns: world.spawns, heights: world.heights },
+    });
+    return { host, joiner, world, source };
+  }
+
+  it('gives the joiner the host world: same cells, same heights, same world key', () => {
+    const { host, joiner, world, source } = hostAndJoiner(new LocalRelay(true));
+    const grid = joiner.gsm.getGlobalRouteGrid();
+    expect(source.heights.some(([, , state]) => state === 2)).toBe(true); // filled cells travel too
+    expect(joiner.gsm.worldKey()).toBe(world.worldKey);
+    expect(joiner.gsm.worldKey()).toBe(host.gsm.worldKey());
+    expect(grid.cellsWithoutHeight()).toBe(host.gsm.getGlobalRouteGrid().cellsWithoutHeight());
+    expect(grid.exportHeights()).toEqual(source.heights);
+
+    // Without the heights the same routes give another world
+    const bare = buildClient(new LocalRelay(true), 'c', {
+      ground: () => null,
+      world: { paths: packagePaths(world), spawns: world.spawns, heights: [] },
+    });
+    expect(bare.gsm.worldKey()).not.toBe(world.worldKey);
+  });
+
+  it('keeps host and joiner in step through a wave on the shared world', () => {
+    const relay = new LocalRelay(true);
+    const { host, joiner } = hostAndJoiner(relay);
+
+    host.emit({ type: 'command:start-wave', director: directorWave() });
+    joiner.emit({ type: 'command:upgrade-tower', towerId: host.world.towers[0].id, upgradeId: 'damage' });
+    let waved = false;
+    for (let f = 0; f < 20000; f++) {
+      relay.closeTick();
+      host.frame(40);
+      joiner.frame(40);
+      const phase = host.gsm.waveManager.phase();
+      if (phase === 'wave') waved = true;
+      else if (waved) break;
+    }
+    expect(waved).toBe(true);
+    let compared = 0;
+    for (const [step, hash] of host.hashes) {
+      const other = joiner.hashes.get(step);
+      if (other === undefined) continue;
+      if (other !== hash) throw new Error(`diverged at sub-step boundary ${step}`);
+      compared++;
+    }
+    expect(compared).toBeGreaterThan(500);
+  });
+
+  it('refuses a package of another game version, other balance or no world at all', () => {
+    const { source } = hostAndJoiner(new LocalRelay(true));
+    const text = JSON.stringify(buildWorldPackage(source, HEAD));
+    expect(readWorldPackage(text, { ...HEAD, gameVersion: 'v1.0.0' }).refusal).toBe('other-game');
+    expect(readWorldPackage(text, { ...HEAD, configHash: 'other' }).refusal).toBe('other-balance');
+    expect(readWorldPackage('{"format":"3dtd-replay"}', HEAD).refusal).toBe('not-a-world');
+    expect(readWorldPackage('not json', HEAD).refusal).toBe('not-a-world');
   });
 });

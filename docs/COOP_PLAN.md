@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0 gebaut, C1 bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0 und C1a gebaut, C1b bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -116,12 +116,30 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 
 ### C1 Welt teilen
 
-- `WorldSnapshot`: HQ, Spawns, Routen, eingefrorene Zellhöhen, Ursprung, Balance-Hash, Version. Der Host erzeugt
-  ihn nach dem Korridor-Bau, der Beitretende baut seine Welt daraus statt aus Overpass und Routensuche.
-- Beitritt nur bei gleichem `worldKey`, Balance-Hash und gleicher Spielversion; sonst eine klare Meldung.
+**C1a Paket und Zellen (gebaut 2026-09-24)**
+
+- `coop/world-package.ts`: `WorldPackage` mit Format, Version, Spielversion, Balance-Hash, `worldKey`, Ursprung,
+  HQ, Spawns, den Routen, wie der Korridor-Bau sie hinterlässt (Breiten, Brücken, Tunnel, Durchgänge), und den
+  Zellhöhen. `readWorldPackage` lehnt fremdes Format, andere Spielversion und andere Balance ab, wie die
+  Replay-Datei.
+- Aus den Tiles zählt für die Simulation nur das: Die Zellen folgen deterministisch aus den Routen
+  (`generateFromRoutes`), die Höhe und der Zustand je Zelle (stable, filled) kommen aus dem Paket.
+  `GlobalRouteGrid.exportHeights/restoreHeights`; geschrieben wird über `RouteCellSampler.restore`, der Sampler
+  bleibt der einzige, der Höhen schreibt.
+- `GameStateManager.worldSource()` liefert, was der Host packt.
+- Reihenfolge beim Beitretenden: Zellen erzeugen, Höhen übernehmen, erst dann Tower. Eine Sichtlinie, die auf
+  Zellen ohne Höhe eingetragen wird, weicht ab (in der Spec so gefunden).
+- Abnahme in `integration/lockstep.scenario.spec.ts`: Host mit Hügeln und einem Streifen ohne Tiles (gefüllte
+  Zellen), Paket als Text, Beitretender auf Tiles, die nichts liefern: gleicher `worldKey`, gleiche Zellen und
+  Höhen; ohne Höhen ein anderer Schlüssel; beide spielen eine Welle im Lockstep ohne Abweichung.
+
+**C1b Einstieg im Spiel (kommt mit C4)**
+
+- Ein Ort aus dem Paket statt aus Overpass, Routensuche und Korridor-Bau: Ursprung setzen, Marker, Spawns in den
+  Store, Routen in den `PathAndRouteService`, Zellen erzeugen und Höhen übernehmen, Korridor als eingefroren
+  markieren, Wave-Pipeline neu setzen. Straßen sind nur Bild und dürfen aus Overpass kommen.
+- Testbar, sobald die Lobby das Paket liefert; vorher als Export und Import über das Dev-Menü denkbar.
 - Tiles lädt jeder selbst, sie sind nach dem Einfrieren nur Bild.
-- Abnahme: Welt in einer Sitzung exportieren, in einer frischen laden, gleicher `worldKey`; die C0-Spec mit dieser
-  Welt.
 
 ### C2 Spieler im Spiel
 

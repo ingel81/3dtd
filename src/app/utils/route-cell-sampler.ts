@@ -34,7 +34,8 @@ interface CellHit {
 /**
  * Terrain-Sampling einer einzelnen Route-Cell. Einzige Stelle, die
  * `cell.terrainHeight` und `cell.sample` schreibt, nachdem die Cell im
- * Grid liegt: `sampleCellY`, dazu der Debug-Reset `resetToUnsampled`.
+ * Grid liegt: `sampleCellY`, dazu der Debug-Reset `resetToUnsampled` und
+ * `restore` für die Höhen aus dem Welt-Paket eines Coop-Hosts.
  *
  * Hält die beiden Terrain-Proben, die `GlobalRouteGrid.initialize` setzt,
  * und den Diagnose-Zähler `sampleFrame` (liest `GlobalRouteGrid.dumpStats`). Die
@@ -407,6 +408,23 @@ export class RouteCellSampler {
     cell.heightSampled = true;
     logGrid('SAMPLE', `fill key=${cell.key} y=${y.toFixed(2)}`);
     return true;
+  }
+
+  /**
+   * Takes over a height another client measured (the coop world package,
+   * docs/COOP_PLAN.md C1): height and state as the host's cell had them, no
+   * tile LOD, since no column of this client stands behind it. The corridor
+   * is frozen after that as after a build; nothing samples the cell again.
+   */
+  restore(cell: RouteCell, y: number, state: 'filled' | 'stable'): void {
+    cell.terrainHeight = y;
+    cell.sample = {
+      state,
+      sampledAt: cell.sample.sampledAt,
+      tileDepth: 0,
+      tileGeometricError: Infinity,
+    };
+    cell.heightSampled = true;
   }
 
   /**
