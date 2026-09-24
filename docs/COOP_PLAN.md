@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a, C2a bis C2c gebaut, Rest offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a und C2 gebaut, C1b und C3 bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -196,7 +196,21 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   Spieler ist die Summe der Kills seiner Tower, seines Helden und seiner Fähigkeiten. Beide sitzen gleichzeitig in
   ihren Towern, B kommt nicht in A's Tower, jeder zielt für sich.
 
-**Noch offen in C2 (Plan):**
+**C2d gebaut (2026-09-24):** Lanes und Bereitschaft (D1, D13, D15, D27).
+
+- `GameStateManager.setLanes(spieler → spawn)`: Jede Welle läuft einmal je Lane (`laneSchedule` in
+  `wave.manager.ts`): jeder Eintrag auf jedem Lane-Spawn, die Kopien direkt nacheinander, der Abstand danach wie
+  vorher; aus dem Spawn-Strom wird so oft gezogen wie ohne Lanes. Jede Lane bekommt die ganze Welle, auch ihren
+  Boss. `SpawnEntry.spawnPointId` legt den Spawn fest; eine schon verteilte Welle (Replay) wird nicht noch einmal
+  verteilt.
+- `command:set-ready`, `setReady`, `allReady`, Ereignis `coop:ready-changed` (mit `allReady`); ein Wellenstart
+  löscht die Bereitschaft. Den Start selbst schickt der Host, sobald alle bereit sind (C4, er hält die Wellenquelle
+  in der Facade).
+- Abnahme: zwei Lanes, eine Welle aus der Wellenquelle, jede Lane bekommt alle Gegner an ihrem Spawn; Bereitschaft
+  wird erst mit dem zweiten Spieler „alle bereit“ und ist nach dem Start weg. `lane-schedule.spec.ts` prüft
+  Verteilung, Abstände und Zufallszüge.
+
+**Plan von C2 (so gebaut):**
 
 - `CreditsLedger` wird zu Konten je Spieler (D6); der Einzelspieler ist ein Spieler. Jede Buchung hat Quelle und
   Spieler. Den Ledger nur einmal umbauen.

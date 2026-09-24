@@ -29,6 +29,32 @@ export interface SpawnEntry {
   delay?: number;
   /** Extra pause in ms after this spawn (for wave-in-wave pattern) */
   pauseAfter?: number;
+  /** Spawn at this spawn point, not by spawnMode: a coop lane (laneSchedule) */
+  spawnPointId?: string;
+}
+
+/**
+ * The schedule once per coop lane (docs/COOP_PLAN.md, D13): every entry
+ * spawns on each lane's spawn point, the copies right after each other,
+ * the gap after an entry as before. Every lane gets the whole wave, bosses
+ * included (D27); the gaps draw from the spawn stream as often as the
+ * schedule alone would.
+ */
+export function laneSchedule(schedule: SpawnSchedule, lanes: readonly string[]): SpawnSchedule {
+  if (lanes.length === 0) return schedule;
+  const last = lanes.length - 1;
+  const entries: SpawnEntry[] = [];
+  for (const entry of schedule.entries) {
+    lanes.forEach((spawnPointId, i) => {
+      const copy: SpawnEntry = { ...entry, spawnPointId };
+      if (i < last) {
+        copy.delay = 0;
+        delete copy.pauseAfter;
+      }
+      entries.push(copy);
+    });
+  }
+  return { ...schedule, entries };
 }
 
 /**
@@ -313,7 +339,9 @@ export class WaveManager implements IGameManager {
       if (spawnIndex >= entries.length) return false;
 
       const entry = entries[spawnIndex];
-      const spawn = this.selectSpawnPoint(spawnMode, spawnIndex);
+      const spawn = (entry.spawnPointId !== undefined
+        ? this.spawnPoints.find((point) => point.id === entry.spawnPointId)
+        : undefined) ?? this.selectSpawnPoint(spawnMode, spawnIndex);
       const path = this.cachedPaths.get(spawn.id);
       if (path && path.length > 1) {
         const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal');
