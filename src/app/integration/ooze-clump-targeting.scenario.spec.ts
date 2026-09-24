@@ -84,9 +84,7 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
     const engine = {
       ...mock,
       sync: flatSync,
-      terrain: { lodVersion: 1 },
       towers: {
-        hasLineOfSight: () => true,
         get: () => undefined,
       },
       enemies: { ...mock.enemies, triggerHitFlash: vi.fn() },

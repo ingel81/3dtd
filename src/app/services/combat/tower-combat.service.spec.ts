@@ -221,7 +221,7 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
-  // updateBeamTowers: flame reach, radius fallback (no visibleCells)
+  // updateBeamTowers: flame reach (enemy in a cell the tower sees)
   // ────────────────────────────────────────────────────────────────
   describe('updateBeamTowers flame reach', () => {
     const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
@@ -240,19 +240,21 @@ describe('TowerCombatService', () => {
     }
 
     /**
-     * The grid mock returns the enemy only if the queried radius reaches it,
-     * so a too-small fallback radius shows up as "no target".
+     * The enemy stands in a cell the tower sees (its visibleCells), so the
+     * exact range check of findTarget decides.
      */
     function setup(enemyDistance: number) {
       const enemy = enemyNorthOf(enemyDistance);
-      const getEnemiesInRadius = vi.fn(
-        (_x: number, _z: number, radius: number, _ex: unknown, out: unknown[]) => {
-          out.length = 0;
-          if (radius >= enemyDistance) out.push(enemy);
-          return out;
-        },
-      );
-      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius, getBodyEnemies: () => [] };
+      const getEnemiesForTower = vi.fn((_cells: unknown[], out: unknown[]) => {
+        out.length = 0;
+        out.push(enemy);
+        return out;
+      });
+      mockInjections['GlobalRouteGridService'] = {
+        getEnemiesForTower,
+        getBodyEnemies: () => [],
+        isPositionVisibleFromTower: () => true,
+      };
       mockInjections['CombatEffectService'] = { applyBeamDamage: vi.fn() };
       service = new TowerCombatService();
 
@@ -261,7 +263,7 @@ describe('TowerCombatService', () => {
           geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }),
           geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target,
         },
-        towers: { hasLineOfSight: () => true },
+        towers: {},
         flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn() },
       };
       service.initialize(engine as never, NO_RESEARCH);
@@ -270,9 +272,10 @@ describe('TowerCombatService', () => {
 
       const tower = new Tower(towerPos, 'fire');
       tower.losReady = true;
+      tower.visibleCells = [{} as never];
       const towerManager = { getAllActive: () => [tower] };
       const run = () => service.updateBeamTowers(16, towerManager as never, {} as never, 1000);
-      return { engine, tower, getEnemiesInRadius, run };
+      return { engine, tower, getEnemiesForTower, run };
     }
 
     it('does not acquire an enemy beyond the flame', () => {
@@ -305,13 +308,12 @@ describe('TowerCombatService', () => {
       expect(engine.flameBeams.stopBeam).toHaveBeenCalledWith(tower.id);
     });
 
-    it('range upgrades lengthen the flame and the query', () => {
-      const { tower, engine, getEnemiesInRadius, run } = setup(21);
+    it('range upgrades lengthen the flame', () => {
+      const { tower, engine, run } = setup(21);
       for (let i = 0; i < 3; i++) tower.applyUpgrade('range');
       expect(tower.combat.range).toBeGreaterThan(21);
 
       run();
-      expect(getEnemiesInRadius.mock.calls[0][2]).toBeGreaterThanOrEqual(tower.combat.range);
       expect(engine.flameBeams.startBeam.mock.calls[0][3]).toBeCloseTo(tower.combat.range, 6);
     });
 
@@ -379,16 +381,14 @@ describe('TowerCombatService', () => {
   // Range upgrades reach the wake check and the radius fallback
   // ────────────────────────────────────────────────────────────────
   describe('upgraded range', () => {
-    it('wakes and queries a sleeping tower with its upgraded range', () => {
+    it('wakes a sleeping tower with its upgraded range and reads its visible cells', () => {
       const hasEnemyInRadius = vi.fn((_x: number, _z: number, _r: number) => true);
-      const getEnemiesInRadius = vi.fn(
-        (_x: number, _z: number, _r: number, _ex: unknown, out: unknown[]) => {
-          out.length = 0;
-          return out;
-        },
-      );
+      const getEnemiesForTower = vi.fn((_cells: unknown[], out: unknown[]) => {
+        out.length = 0;
+        return out;
+      });
       mockInjections['SpatialGridService'] = { hasEnemyInRadius };
-      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius, getBodyEnemies: () => [] };
+      mockInjections['GlobalRouteGridService'] = { getEnemiesForTower, getBodyEnemies: () => [] };
       service = new TowerCombatService();
       service.initialize({
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
@@ -408,7 +408,7 @@ describe('TowerCombatService', () => {
       const radius = tower.combat.range * COMBAT_TUNING.rangeMargin.standard;
       expect(hasEnemyInRadius.mock.calls[0][2]).toBeCloseTo(radius, 6);
       expect(tower.isSleeping).toBe(false);
-      expect(getEnemiesInRadius.mock.calls[0][2]).toBeCloseTo(radius, 6);
+      expect(getEnemiesForTower).toHaveBeenCalledWith(tower.visibleCells, expect.any(Array));
     });
   });
 
@@ -416,13 +416,13 @@ describe('TowerCombatService', () => {
   // Turret heading without a target: held in a wave, guard heading after
   // ────────────────────────────────────────────────────────────────
   describe('turret heading without a target', () => {
-    const noEnemies = (_x: number, _z: number, _r: number, _ex: unknown, out: unknown[]) => {
+    const noEnemies = (_cells: unknown[], out: unknown[]) => {
       out.length = 0;
       return out;
     };
 
     function setup() {
-      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius: noEnemies, getBodyEnemies: () => [] };
+      mockInjections['GlobalRouteGridService'] = { getEnemiesForTower: noEnemies, getBodyEnemies: () => [] };
       service = new TowerCombatService();
       service.initialize({
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
@@ -485,6 +485,74 @@ describe('TowerCombatService', () => {
       const zombie = { id: 'z', alive: true, body: null, position: { lat: 48.0 + 5 / METERS_PER_DEGREE_LAT, lon: 9.0 } };
       // No tower turn has begun in BodyAim: no aim point on the ooze
       expect(find(from, [ooze, zombie], new Set(), 15)).toBe(zombie);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // Line of sight: the tower's answers in the cells, no raycast (D2)
+  // ────────────────────────────────────────────────────────────────
+  describe('line of sight from the cells', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+    const enemy = {
+      id: 'e-10',
+      alive: true,
+      body: null,
+      position: { lat: towerPos.lat + 10 / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+      typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+      heightOffset: 0,
+      transform: { terrainHeight: 0 },
+      movement: { getPathProgress: () => 0.5 },
+    };
+
+    function setup(answer: boolean, visibleCells: unknown[]) {
+      const isPositionVisibleFromTower = vi.fn(() => answer);
+      const getEnemiesForTower = vi.fn((cells: unknown[], out: unknown[]) => {
+        out.length = 0;
+        if (cells.length > 0) out.push(enemy);
+        return out;
+      });
+      // No radius query: a tower that sees no cell has no candidates
+      mockInjections['GlobalRouteGridService'] = { getEnemiesForTower, getBodyEnemies: () => [], isPositionVisibleFromTower };
+      service = new TowerCombatService();
+      // A tripwire: the renderer has no line-of-sight raycast any more
+      const towers = { hasLineOfSight: vi.fn(() => true) };
+      service.initialize({
+        sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
+        towers,
+      } as never, NO_RESEARCH);
+      const tower = new Tower(towerPos, 'archer');
+      tower.losReady = true;
+      tower.visibleCells = visibleCells as never;
+      // On cooldown: the test stops at the target, before a shot
+      tower.combat.fire();
+      const run = () => service.updateTowerShooting(1000, 16, { getAllActive: () => [tower] } as never, {} as never, {} as never);
+      return { towers, tower, run, isPositionVisibleFromTower, getEnemiesForTower };
+    }
+
+    it('takes an enemy whose cell answers visible', () => {
+      const { towers, tower, run } = setup(true, [{}]);
+      run();
+      expect(tower.currentTarget).toBe(enemy);
+      expect(tower.aim.hasTarget).toBe(true);
+      expect(towers.hasLineOfSight).not.toHaveBeenCalled();
+    });
+
+    it('does not take an enemy whose cell has no answer of the tower, and casts no ray', () => {
+      // The grid answers false for a cell without the tower's entry and for a spot off the grid
+      const { towers, tower, run, isPositionVisibleFromTower } = setup(false, [{}]);
+      run();
+      expect(isPositionVisibleFromTower).toHaveBeenCalled();
+      expect(tower.currentTarget).toBeNull();
+      expect(tower.aim.hasTarget).toBe(false);
+      expect(towers.hasLineOfSight).not.toHaveBeenCalled();
+    });
+
+    it('gives a tower that sees no cell no candidates', () => {
+      const { tower, run, getEnemiesForTower, towers } = setup(true, []);
+      run();
+      expect(getEnemiesForTower).toHaveBeenCalled();
+      expect(tower.currentTarget).toBeNull();
+      expect(towers.hasLineOfSight).not.toHaveBeenCalled();
     });
   });
 

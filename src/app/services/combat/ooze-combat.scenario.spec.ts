@@ -122,7 +122,7 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
 
     for (const [tower, s] of [[middle, 120], [behind, 40]] as const) {
       tower.combat.range = 30;
-      aim.beginTower(tower, 15, stations.z[s / 2], null, 0);
+      aim.beginTower(tower, 15, stations.z[s / 2]);
       expect(aim.aim(ooze, out)).toBe(true);
       expect(out.z).toBeCloseTo(stations.z[s / 2], 9);
       expect(out.x).toBeCloseTo(LATERAL, 6);
@@ -144,7 +144,7 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
     const ooze = oozeBetween(20, 200);
     const out = point();
     ice.combat.range = 30;
-    aim.beginTower(ice, 15, stations.z[25], null, 0);
+    aim.beginTower(ice, 15, stations.z[25]);
     expect(aim.aim(ooze, out)).toBe(true);
     expect(ooze.movement.isSlowed(5_000)).toBe(false);
 
@@ -183,7 +183,7 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
       getEnemiesInCone: (source: Vector3, target: Vector3, length: number, width: number, candidates: Enemy[]) => Enemy[];
     };
     const ooze = oozeBetween(105, 200);
-    combat.bodyAim.beginTower(fire, 10, -100, null, 0);
+    combat.bodyAim.beginTower(fire, 10, -100);
 
     // The tower's aim point on the ooze is its tail, nearest to the tower
     const aimed = point();

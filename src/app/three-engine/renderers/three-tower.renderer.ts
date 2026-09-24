@@ -73,15 +73,6 @@ export interface TowerRenderData {
 }
 
 /**
- * Function type for Line-of-Sight raycasting between two 3D points
- * Returns true if line of sight is BLOCKED (ray hits something before target)
- */
-export type LineOfSightRaycaster = (
-  originX: number, originY: number, originZ: number,
-  targetX: number, targetY: number, targetZ: number
-) => boolean;
-
-/**
  * ThreeTowerRenderer - Renders towers using Three.js
  *
  * Features:
@@ -123,9 +114,6 @@ export class ThreeTowerRenderer {
   // Muzzle flash (pooled - single reusable light)
   private readonly muzzleFlash: TowerMuzzleFlash;
 
-  // Line-of-Sight raycaster for visibility checks
-  private losRaycaster: LineOfSightRaycaster | null = null;
-
   // Debug mode - shows LOS rings and aim arrows for all towers
   private debugMode = false;
 
@@ -139,8 +127,8 @@ export class ThreeTowerRenderer {
   private boundingSphere = new Sphere();
   private _animFrameCount = 0;
 
-  // LOS offset configuration - raycast starts from tower edge, not center
-  private readonly LOS_OFFSET_MIN = 2.4; // Offset in meters from tower center
+  // Radius of the debug LOS ring around the tip, m
+  private readonly LOS_OFFSET_MIN = 2.4;
 
   constructor(scene: Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
@@ -169,14 +157,6 @@ export class ThreeTowerRenderer {
       ThreeTowerRenderer.sharedSelectionGeometry = new RingGeometry(8, 12, 48);
     }
     ThreeTowerRenderer.sharedRefCount++;
-  }
-
-  /**
-   * Set Line-of-Sight raycaster for visibility checks
-   * This raycaster checks if there's a clear line between two 3D points
-   */
-  setLineOfSightRaycaster(raycaster: LineOfSightRaycaster): void {
-    this.losRaycaster = raycaster;
   }
 
   /**
@@ -811,38 +791,6 @@ export class ThreeTowerRenderer {
   /** Hide the build preview's range ring. */
   hidePreviewRange(): void {
     this.previewRange.visible = false;
-  }
-
-  /**
-   * Check if there's line of sight from a tower to a specific position
-   * Uses runtime raycast (GlobalRouteGrid handles pre-computed LOS)
-   */
-  hasLineOfSight(towerId: string, targetX: number, targetY: number, targetZ: number): boolean {
-    const data = this.towers.get(towerId);
-    if (!data) return true; // Assume clear if can't check
-
-    if (!this.losRaycaster) return true;
-
-    const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
-    const towerX = terrainPos.x;
-    const towerZ = terrainPos.z;
-
-    // Fixed LOS offset (raycast from tower edge, not center)
-    const losOffset = this.LOS_OFFSET_MIN;
-
-    // Calculate direction from tower to target (XZ plane only)
-    const dirX = targetX - towerX;
-    const dirZ = targetZ - towerZ;
-    const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
-    // Offset origin point towards target (on tower edge)
-    const originX = towerX + (dirX / dist) * losOffset;
-    const originZ = towerZ + (dirZ / dist) * losOffset;
-
-    return !this.losRaycaster(
-      originX, data.tipY, originZ,
-      targetX, targetY, targetZ
-    );
   }
 
   /**

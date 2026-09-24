@@ -304,18 +304,19 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Check if position is visible from tower (ground LOS)
+   * Whether the tower sees a ground target at the position (ground LOS of
+   * the cell there); no answer counts as not visible.
    */
-  isPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean | undefined {
+  isPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean {
     return this.grid.isPositionVisibleFromTower(towerId, localX, localZ);
   }
 
   /**
-   * Check if position is visible from tower for air targets (raycast against
-   * cell skyline + clearance — distinct from ground because tall buildings
-   * may block one altitude but not the other).
+   * isPositionVisibleFromTower for air targets (air LOS of the cell there,
+   * distinct from ground because tall buildings may block one altitude but
+   * not the other).
    */
-  isAirPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean | undefined {
+  isAirPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean {
     return this.grid.isAirPositionVisibleFromTower(towerId, localX, localZ);
   }
 

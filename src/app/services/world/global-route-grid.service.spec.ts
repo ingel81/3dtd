@@ -162,15 +162,16 @@ describe('GlobalRouteGridService', () => {
       expect(service.getEnemiesForTower(visible)).toEqual([alive]);
     });
 
-    it('answers LOS inside the grid and nothing outside it until the tower is gone', () => {
+    it('answers LOS inside the grid, not visible outside it and once the tower is gone', () => {
       init();
       tower('t1', 5, 3);
 
       expect(service.isPositionVisibleFromTower('t1', 5, 0)).toBe(true);
-      expect(service.isPositionVisibleFromTower('t1', 5, 100)).toBeUndefined();
+      // No cell, no answer: not visible (D2, no raycast fallback)
+      expect(service.isPositionVisibleFromTower('t1', 5, 100)).toBe(false);
 
       service.unregisterTower('t1');
-      expect(service.isPositionVisibleFromTower('t1', 5, 0)).toBeUndefined();
+      expect(service.isPositionVisibleFromTower('t1', 5, 0)).toBe(false);
     });
   });
 

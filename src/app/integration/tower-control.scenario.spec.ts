@@ -50,6 +50,7 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition } from '../models/game.types';
 import type { TowerTypeId } from '../configs/tower-types.config';
+import type { RouteCell } from '../utils/route-cell';
 
 const BASE: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** 7 m east of the path, level with its sixth point */
@@ -80,7 +81,6 @@ function createEngine(): never {
   engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync() });
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
   engine['hero'] = withAutoStubs({});
-  engine['towers']['hasLineOfSight'] = () => true;
   engine['towers']['aimHeading'] = () => null;
   engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
   (engine as Record<string, unknown>)['renderingEnabled'] = false;
@@ -101,6 +101,10 @@ function createGame(): GameStateManager {
     getBodyEnemies: () => [],
     hasBodyWithin: () => false,
     getEnemiesInRadius: (_x: number, _z: number, _r: number, _exclude: unknown, out: Enemy[]) => alive(out),
+    // The tower sees every enemy: its one visible cell holds them all, and every cell answers visible
+    getEnemiesForTower: (_cells: unknown, out: Enemy[]) => alive(out),
+    isPositionVisibleFromTower: () => true,
+    isAirPositionVisibleFromTower: () => true,
     getEnemiesInRadiusGeo: (_c: GeoPosition, _r: number, _exclude: unknown, out: Enemy[]) => alive(out),
   });
   const paths = createTestCachedPaths();
@@ -122,6 +126,7 @@ function createGame(): GameStateManager {
 function placeTower(gsm: GameStateManager, typeId: TowerTypeId = 'archer'): Tower {
   const tower = gsm.towerManager.placeTower(TOWER_AT, typeId, 0)!;
   tower.losReady = true;
+  tower.visibleCells = [{} as RouteCell];
   return tower;
 }
 

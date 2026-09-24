@@ -67,7 +67,7 @@ export interface TerrainSources {
  *   `getGroundHeightEstimate()` und `raycastTerrainHeight()`
  * - `peekBestTileLODAtLocal()`, die LOD-Probe ohne Raycast, mit ihrem Bounds-Cache
  * - `measureStreetClearance()` für den Routen-Korridor
- * - `raycastLineOfSight()` für die Tower
+ * - `raycastLineOfSight()` für Boss-Intro und Korridor-Konsole (die Tower-LOS läuft über den Cube)
  *
  * Jede Abfrage bucht ihre Strahlen unter demselben Aufrufer wie zuvor im Engine
  * (`__raycastStats()`). In DevWorld beantwortet der DevTerrainProvider die Abfragen.
