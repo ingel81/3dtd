@@ -459,6 +459,20 @@ export class EnemyManager extends EntityManager<Enemy> {
    * changes; a snapshot restore can bring back a wave number that already
    * paid (a replay runs wave N again), so it calls this.
    */
+  /**
+   * Forget which enemies show a status look (frost and poison auras, ice
+   * crystals, burn, stun sparks), so the next presentFrame sets them again.
+   * After effects.clear() took the particles away (a replay's seek) the
+   * sets would still say they are shown.
+   */
+  resetStatusVisuals(): void {
+    this.frozenVisualEnemies.clear();
+    this.icedVisualEnemies.clear();
+    this.poisonVisualEnemies.clear();
+    this.burnVisualEnemies.clear();
+    this.stunSparkAt.clear();
+  }
+
   resetKillRewards(): void {
     this.rewardWaveNumber = -1;
     this.remainingKillBudget = 0;

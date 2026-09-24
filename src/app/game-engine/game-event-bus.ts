@@ -244,14 +244,12 @@ export type GameEvent =
   | {
       /**
        * The simulation was put back to a snapshot (docs/SIMULATOR_PLAN.md,
-       * P4) without the events that got it there: what shows the state from
-       * events (the HQ fire) reads it anew. `reason` says whether a replay is
-       * starting a wave or giving the live game back.
+       * P4) without the events that got it there. What shows the state is
+       * set anew by GameStateManager.resyncPresentation. `reason` says whether
+       * a replay is starting a wave or giving the live game back.
        */
       type: 'sim:restored';
       reason: 'replay' | 'live';
-      /** HQ health of the state put back */
-      baseHealth: number;
     }
   | {
       type: 'credits:changed';
@@ -390,6 +388,8 @@ export type GameEvent =
       // recharge). GameStateSyncService writes it into GameStore.abilities.
       type: 'ability:state-changed';
       abilities: AbilityStatus[];
+      /** Sent by a snapshot restore or a replay's seek: a new baseline, no change the player made */
+      restored?: true;
     }
 
   // ==================== Ability Commands ====================
@@ -425,6 +425,8 @@ export type GameEvent =
       // GameStore.hero.
       type: 'hero:state-changed';
       hero: HeroStatus;
+      /** Sent by a snapshot restore: a new baseline, no change the player made */
+      restored?: true;
     }
 
   // ==================== Hero Commands ====================

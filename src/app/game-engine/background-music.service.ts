@@ -1,3 +1,4 @@
+import type { GamePhase } from '../models/game.types';
 import { GameEventBus, SubscriptionBag } from './game-event-bus';
 import { ThreeTilesEngine } from '../three-engine';
 import { BACKGROUND_MUSIC, MusicTrack } from '../configs/background-music.config';
@@ -344,6 +345,25 @@ export class BackgroundMusicService {
    */
   setDimmed(dimmed: boolean): void {
     this.mixer.setDim(dimmed ? BACKGROUND_MUSIC.pauseDim : 1);
+  }
+
+  /**
+   * The music of `phase` and `wave`, unless it already plays: after a
+   * snapshot restore or a replay's seek, which change the phase without
+   * the events that bring its music (GameStateManager.resyncPresentation).
+   */
+  followPhase(phase: GamePhase, wave: number): void {
+    const want = phase === 'wave' ? 'wave' : phase === 'gameover' ? 'gameover' : 'build';
+    if (want === this.currentPhase && (want !== 'wave' || wave === this.currentWave)) return;
+    if (want === 'wave') {
+      this.currentWave = wave;
+      this.playWavePhase();
+    } else if (want === 'gameover') {
+      this.clearPhaseTimers();
+      this.playGameOverPhase();
+    } else {
+      this.playBuildPhase();
+    }
   }
 
   /** The timers that bring in a phase's music later: game over and wave end. */

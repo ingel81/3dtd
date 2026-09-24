@@ -81,6 +81,20 @@ describe('ThreeTowerRenderer draws the tower aim', () => {
     expect(local.count).toBe(1);
   });
 
+  it('greys out a tower held before its model arrived (a snapshot restore)', async () => {
+    const local = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    const pending = local.create('t3', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0));
+    local.setHoldFire('t3', true);
+    const data = (await pending)!;
+    expect(data.holdFire).toBe(true);
+    // Released after it came: back to its colours, and a new tower of that id starts unheld
+    local.setHoldFire('t3', false);
+    expect(data.holdFire).toBe(false);
+    local.remove('t3');
+    const again = (await local.create('t3', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0)))!;
+    expect(again.holdFire).toBe(false);
+  });
+
   it('shows the placed pose first, then the sweep, then the guard heading, never jumping', async () => {
     const aim = placedAim('cannon', 0.4, 1.0);
     const data = (await renderer.create('t1', 'cannon', 0, 0, 0, 0.4, aim))!;

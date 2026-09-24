@@ -107,7 +107,7 @@ describe('ReplayService.enter gate', () => {
           useValue: { replayMode: signal(false), openMenu: signal(null), mapPlacementMode: signal(false) },
         },
         { provide: TowerDefenseStore, useValue: { loading: signal(false), error: signal(null), phase } },
-        { provide: GameStore, useValue: { paused } },
+        { provide: GameStore, useValue: { paused, mannedTowerId: signal(null) } },
         {
           provide: GameStateManager,
           useValue: {

@@ -69,7 +69,12 @@ export class TowerLifecycle {
     if (saved.losMask && tower.typeConfig.attackType !== 'passive') {
       this.placement.registerTowerFromMask(tower, losMaskFromJson(saved.losMask));
     }
-    this.engine()?.towers.updateRangeIndicator(tower.id, tower.combat.range);
+    const engine = this.engine();
+    engine?.towers.updateRangeIndicator(tower.id, tower.combat.range);
+    if (tower.holdFire) {
+      engine?.towers.setHoldFire(tower.id, true);
+      engine?.towerBadges.setHoldFire(tower.id, true);
+    }
     return tower;
   }
 

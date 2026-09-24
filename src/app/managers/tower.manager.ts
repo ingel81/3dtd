@@ -226,21 +226,7 @@ export class TowerManager extends EntityManager<Tower> {
     }
 
     // Start inner fire for Fire Towers
-    if (typeId === 'fire') {
-      const localPos = this.tilesEngine.sync.geoToLocalSimple(
-        position.lat,
-        position.lon,
-        terrainHeight
-      );
-      // Fire center: deep inside the tower furnace
-      const fireHeight = tower.typeConfig.heightOffset - 1.5;
-      this.tilesEngine.effects.spawnTowerInnerFire(
-        tower.id,
-        localPos,
-        fireHeight,
-        0.5 // Medium intensity
-      );
-    }
+    if (typeId === 'fire') this.startInnerFire(tower);
 
     // Start permanent idle-crackle at tip for Lightning Towers
     if (typeId === 'lightning') {
@@ -474,6 +460,28 @@ export class TowerManager extends EntityManager<Tower> {
 
     this.remove(tower);
     return refund;
+  }
+
+  /**
+   * Light the furnace of every fire tower again, after effects.clear()
+   * put the fires out (a replay's seek, entering or leaving it).
+   */
+  refreshInnerFires(): void {
+    this.tilesEngine?.effects.stopAllTowerFires();
+    for (const tower of this.getAll()) {
+      if (tower.typeConfig.id === 'fire') this.startInnerFire(tower);
+    }
+  }
+
+  /** The glow deep inside a fire tower's furnace. */
+  private startInnerFire(tower: Tower): void {
+    const engine = this.tilesEngine;
+    if (!engine) return;
+    const { lat, lon } = tower.position;
+    const localPos = engine.sync.geoToLocalSimple(lat, lon, tower.transform.terrainHeight);
+    // Fire center: deep inside the tower furnace
+    const fireHeight = tower.typeConfig.heightOffset - 1.5;
+    engine.effects.spawnTowerInnerFire(tower.id, localPos, fireHeight, 0.5);
   }
 
   /**

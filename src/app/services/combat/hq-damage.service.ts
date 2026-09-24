@@ -62,9 +62,6 @@ export class HQDamageService {
       );
     }
 
-    // A snapshot restore (replay in, replay out) sets the HP without health:changed
-    this.eventBusSubs.add(this.eventBus.on('sim:restored', (event) => this.updateFireIntensity(event.baseHealth)));
-
     // Subscribe to health:changed events
     this.eventBusSubs.add(this.eventBus.on('health:changed', (event) => {
       this.updateFireIntensity(event.health);

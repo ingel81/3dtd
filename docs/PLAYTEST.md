@@ -95,6 +95,17 @@ Paket 1, das Replay selbst:
   startet normal; das HUD zeigt dieselben Zahlen wie vor dem Replay.
   **ok (2026-09-24)**
 
+Nachgebaut nach R2 und R3 (2026-09-24), zusammen mit R2 und R3 nachtesten. Ein Review fand weitere Reste derselben
+Art, alle behoben: Nach Springen oder Verlassen soll stimmen, was man sieht und hört.
+- **R2b Nach dem Springen**: Während Feuer-Tower brennen, Gegner eingefroren oder vergiftet sind, hin und her
+  springen. Erwartung: Die Glut in den Feuer-Towern bleibt, Frost- und Giftauren sind da, das HQ-Feuer (unter 50 % HP)
+  brennt, kein Glöckchen beim Zurückspringen über eine Fähigkeit.
+- **R4b Nach dem Verlassen**: Mitten in der Welle Esc. Erwartung: Aufbau-Musik statt Wellenmusik, kein roter Himmel
+  nach einer Blutmondwelle, ein Tower auf Feuerpause ist grau mit Pausenzeichen, Reichweitenringe nach
+  Reichweiten-Upgrade stimmen, kein Grollen eines Atomschlags aus dem Replay.
+- **R4c Aus dem bemannten Tower**: In einem Tower sitzen (C), dann "replay". Erwartung: Das Replay startet mit freier
+  Kamera; nach Esc steht man draußen.
+
 Paket 2, Datei und Grenzfälle:
 - **R5 Speichern und Laden**: Im Replay "Save". Seite neu laden (F5), denselben Ort, dann "load" im WAVE-Panel und die
   Datei wählen. Erwartung: Das Replay läuft, in der Leiste "from file", kein "differs from".

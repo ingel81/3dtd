@@ -50,6 +50,7 @@ import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotR
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskToJson, type LosMask } from '../utils/los-mask';
 import { fnv1a } from '../utils/fnv1a';
+import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
 
 /**
@@ -932,7 +933,7 @@ export class GameStateManager {
     this.rng.setState(snapshot.rng);
     GameObject.setIdCounter(snapshot.idCounter);
 
-    this.eventBus.emit({ type: 'sim:restored', reason, baseHealth: snapshot.baseHealth });
+    this.eventBus.emit({ type: 'sim:restored', reason });
   }
 
   /**
@@ -958,6 +959,39 @@ export class GameStateManager {
       this.boundaryListener = listener;
     },
   };
+
+  /**
+   * Take the show off the field before a snapshot restore or after a
+   * replay's seek: particles, marks, damage numbers, ability strikes and
+   * their sounds, the one-shot sounds. Loops stay with the entities they
+   * belong to. resyncPresentation() then sets up what the state shows.
+   */
+  clearShow(): void {
+    const engine = this.tilesEngine;
+    if (!engine) return;
+    engine.effects.clear();
+    clearStrikeEffects(engine);
+    this.audioService?.clearAbilitySounds();
+    engine.spatialAudio.stopOneShots();
+  }
+
+  /**
+   * Show what the simulation holds now, after a snapshot restore or a
+   * replay's seek, which change it without the events that normally bring
+   * its look and sound: the fire towers' furnaces, the HQ fire, the status
+   * looks of the enemies, music and blood moon of the phase, the silo's
+   * missile.
+   */
+  resyncPresentation(): void {
+    this.towerManager.refreshInnerFires();
+    this.hqDamage.updateFireIntensity(this.baseHealth());
+    this.enemyManager.resetStatusVisuals();
+    const phase = this.waveManager.phase();
+    const wave = this.waveManager.waveNumber();
+    this.backgroundMusic?.followPhase(phase, wave);
+    this.bloodMoonService?.follow(phase, wave);
+    this.abilityManager.announceState();
+  }
 
   /**
    * A key of the world the simulation runs on: the frozen cell heights, the
