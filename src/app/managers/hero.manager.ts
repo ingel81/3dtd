@@ -40,6 +40,7 @@ import type { ResearchEffect } from '../configs/research/research.types';
 import type { GeoPosition } from '../models/game.types';
 import type { Enemy } from '../entities/enemy.entity';
 import { Hero } from '../entities/hero.entity';
+import type { TransformRotationState } from '../game-components';
 import { GraphPoint, RouteGraph } from '../utils/route-graph';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, geoDistanceFastSq } from '../utils/geo-utils';
 import { ROUTE_BODY_AIM_HEIGHT_M } from '../utils/route-body';
@@ -103,6 +104,29 @@ export interface HeroView {
   present(hero: HeroPresentation): void;
   /** No hero any more (restart) */
   clear(): void;
+}
+
+/**
+ * The hero for the wave-start snapshot (docs/SIMULATOR_PLAN.md, P4). Plain
+ * data; `hired` is null until he is hired.
+ */
+export interface HeroSaveState {
+  unlocked: boolean;
+  ammo: HeroAmmoId;
+  kills: number;
+  level: number;
+  hired: {
+    lat: number;
+    lon: number;
+    height: number;
+    rotation: TransformRotationState;
+    cooldownMs: number;
+    mode: 'travel' | 'hold';
+    anchor: GraphPoint;
+    goal: GraphPoint | null;
+    replanMs: number;
+    clockMs: number;
+  } | null;
 }
 
 /** Closer than this to where he is going, he is there, metres. */
@@ -533,6 +557,88 @@ export class HeroManager implements IGameManager {
 
   private emitState(): void {
     this.eventBus.emit({ type: 'hero:state-changed', hero: this.getStatus() });
+  }
+
+  // ==================== Snapshot ====================
+
+  /**
+   * The hero for the wave-start snapshot. Taken between waves, where he has
+   * no target. A hero on his way is put on a freshly planned path from where
+   * he stands, the same one restoreState() plans: the path he walked is not
+   * part of the snapshot, so the live game and the re-simulation both go on
+   * from the new one.
+   */
+  captureState(): HeroSaveState {
+    const hero = this.hero;
+    const graph = hero ? this.ensureGraph() : null;
+    if (hero && graph) this.replanToGoal(graph);
+    return {
+      unlocked: this.unlocked,
+      ammo: this.ammo,
+      kills: this.kills,
+      level: this.level,
+      hired: hero && this.anchor ? {
+        lat: hero.position.lat,
+        lon: hero.position.lon,
+        height: hero.position.height ?? 0,
+        rotation: hero.transform.getRotationState(),
+        cooldownMs: hero.combat.cooldownRemaining,
+        mode: this.mode,
+        anchor: { edge: this.anchor.edge, t: this.anchor.t },
+        goal: this.goal ? { edge: this.goal.edge, t: this.goal.t } : null,
+        replanMs: this.replanMs,
+        clockMs: this.clockMs,
+      } : null,
+    };
+  }
+
+  /** Put the hero back as captureState() found him, on the current routes. */
+  restoreState(state: HeroSaveState): void {
+    this.hero?.destroy();
+    this.hero = null;
+    this.standing = null;
+    this.target = null;
+    this.unlocked = state.unlocked;
+    this.ammo = state.ammo;
+    this.kills = state.kills;
+    this.level = state.level;
+    this.mode = 'hold';
+    this.anchor = null;
+    this.goal = null;
+    this.replanMs = 0;
+    this.clockMs = 0;
+
+    const saved = state.hired;
+    const graph = saved ? this.ensureGraph() : null;
+    if (saved && graph) {
+      const hero = new Hero({ lat: saved.lat, lon: saved.lon, height: saved.height });
+      this.hero = hero;
+      hero.transform.setRotationState(saved.rotation);
+      hero.combat.kills = this.kills;
+      hero.combat.restoreCooldown(saved.cooldownMs);
+      this.anchor = { ...saved.anchor };
+      this.goal = saved.goal ? { ...saved.goal } : null;
+      this.mode = saved.mode;
+      this.replanMs = saved.replanMs;
+      this.clockMs = saved.clockMs;
+      this.applyStats();
+      this.replanToGoal(graph);
+    } else {
+      this.view?.clear();
+    }
+    this.emitState();
+    this.presentFrame();
+  }
+
+  /** On his way: a new path to the same goal from where he stands. See captureState. */
+  private replanToGoal(graph: RouteGraph): void {
+    this.standing = null;
+    if (!this.goal) return;
+    if (!this.walkTo(graph, this.goal)) this.goal = null;
+    if (!this.goal && this.mode === 'travel') {
+      this.mode = 'hold';
+      this.replanMs = 0;
+    }
   }
 
   // ==================== Lifecycle (IGameManager) ====================

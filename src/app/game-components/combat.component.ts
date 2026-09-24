@@ -50,6 +50,11 @@ export class CombatComponent extends Component {
     return this.cooldownRemainingMs;
   }
 
+  /** Set the remaining cooldown, for a snapshot restore (docs/SIMULATOR_PLAN.md, P4). */
+  restoreCooldown(ms: number): void {
+    this.cooldownRemainingMs = ms;
+  }
+
   canFire(): boolean {
     return this.fireRate > 0 && this.cooldownRemainingMs <= 0;
   }
