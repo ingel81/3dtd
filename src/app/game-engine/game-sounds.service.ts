@@ -57,6 +57,7 @@ export class GameSoundsService {
   destroy(): void {
     this.subs.disposeAll();
     this.clearStinger();
+    this.clearCue();
   }
 
   private registerSounds(): void {
@@ -208,7 +209,8 @@ export class GameSoundsService {
 
   private playGlobal(cue: GlobalCue): void {
     if (this.quiet) return;
-    this.tilesEngine.spatialAudio?.playGlobal(cue.id).catch(() => undefined);
+    // A cue can come after a lead (cue()): whatever the audio answers then, it must not throw
+    this.tilesEngine.spatialAudio?.playGlobal(cue.id)?.catch(() => undefined);
   }
 
   /** Where the game speed comes from (GameStateManager), see cueLeadMs. */
