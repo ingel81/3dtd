@@ -101,6 +101,14 @@ describe('GameSoundsService', () => {
     expect(global()).toEqual([MOMENT_SOUNDS.waveStart.id, MOMENT_SOUNDS.bloodMoon.id, MOMENT_SOUNDS.waveComplete.id]);
   });
 
+  it('waits a shorter lead at a higher game speed', () => {
+    const { bus, global, service } = setup();
+    service.setGameSpeedSource(() => 4);
+    bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
+    vi.advanceTimersByTime(Math.round(BACKGROUND_MUSIC.waveStart.leadMs / 4));
+    expect(global()).toEqual([MOMENT_SOUNDS.waveStart.id]);
+  });
+
   it('waits for the music to fade out before the signal, and drops it on a restore or a reset', () => {
     const { bus, global } = setup();
     bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });

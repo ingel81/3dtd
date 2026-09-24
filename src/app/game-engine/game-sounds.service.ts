@@ -16,7 +16,7 @@ import {
   type GlobalCue,
 } from '../configs/game-sounds.config';
 import { isBloodMoonWave } from '../configs/blood-moon.config';
-import { BACKGROUND_MUSIC } from '../configs/background-music.config';
+import { BACKGROUND_MUSIC, cueLeadMs } from '../configs/background-music.config';
 import type { AbilityStatus } from '../configs/abilities.config';
 import type { HeroStatus } from '../configs/hero.config';
 import type { Enemy } from '../entities/enemy.entity';
@@ -41,6 +41,8 @@ export class GameSoundsService {
   private stingerTimer: ReturnType<typeof setTimeout> | null = null;
   /** Start signal or wave-end horn waiting for the music to fade out, see cue() */
   private cueTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The game speed, for the lead before a wave's signals (cueLeadMs) */
+  private gameSpeed: () => number = () => 1;
   /** Wall time until which the consequences of a cheat stay silent (CHEAT_QUIET_MS) */
   private quietUntilMs = -Infinity;
 
@@ -123,9 +125,12 @@ export class GameSoundsService {
     // Start signal and wave-end horn sound into the quiet, once the music
     // faded out (BACKGROUND_MUSIC.waveStart / waveEnd, leadMs)
     this.subs.add(bus.onShow('wave:started', ({ wave }) => {
-      this.cue(isBloodMoonWave(wave) ? MOMENT_SOUNDS.bloodMoon : MOMENT_SOUNDS.waveStart, BACKGROUND_MUSIC.waveStart.leadMs);
+      const sound = isBloodMoonWave(wave) ? MOMENT_SOUNDS.bloodMoon : MOMENT_SOUNDS.waveStart;
+      this.cue(sound, cueLeadMs(BACKGROUND_MUSIC.waveStart.leadMs, this.gameSpeed()));
     }));
-    this.subs.add(bus.onShow('wave:completed', () => this.cue(MOMENT_SOUNDS.waveComplete, BACKGROUND_MUSIC.waveEnd.leadMs)));
+    this.subs.add(bus.onShow('wave:completed', () => {
+      this.cue(MOMENT_SOUNDS.waveComplete, cueLeadMs(BACKGROUND_MUSIC.waveEnd.leadMs, this.gameSpeed()));
+    }));
     // A restore (replay in, out, a seek) is another moment: a cue waiting for it goes
     this.subs.add(bus.on('sim:restored', () => this.clearCue()));
     this.subs.add(bus.onShow('research:completed', () => this.playGlobal(MOMENT_SOUNDS.researchComplete)));
@@ -204,6 +209,11 @@ export class GameSoundsService {
   private playGlobal(cue: GlobalCue): void {
     if (this.quiet) return;
     this.tilesEngine.spatialAudio?.playGlobal(cue.id).catch(() => undefined);
+  }
+
+  /** Where the game speed comes from (GameStateManager), see cueLeadMs. */
+  setGameSpeedSource(source: () => number): void {
+    this.gameSpeed = source;
   }
 
   /** Play `sound` after `delayMs`; a later cue replaces one still waiting. */

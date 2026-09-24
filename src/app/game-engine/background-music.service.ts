@@ -1,7 +1,7 @@
 import type { GamePhase } from '../models/game.types';
 import { GameEventBus, SubscriptionBag } from './game-event-bus';
 import { ThreeTilesEngine } from '../three-engine';
-import { BACKGROUND_MUSIC, MusicTrack } from '../configs/background-music.config';
+import { cueLeadMs, BACKGROUND_MUSIC, MusicTrack } from '../configs/background-music.config';
 import { MusicBufferLoader } from './music-buffer-loader';
 import { MusicMixer } from './music-mixer';
 import { MASTER_BUS_PRE_GAIN } from '../configs/audio.config';
@@ -44,6 +44,8 @@ export class BackgroundMusicService {
   private waveEndTimer: ReturnType<typeof setTimeout> | null = null;
   /** Start of a wave: the timer that brings in the wave music as the start signal rings out */
   private waveStartTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The game speed, for the lead before a wave's signals (cueLeadMs) */
+  private gameSpeed: () => number = () => 1;
 
   // Main theme HTMLAudioElement slow fade-out before the build phase starts
   private mainThemeFadeRafId: number | null = null;
@@ -368,6 +370,11 @@ export class BackgroundMusicService {
     }
   }
 
+  /** Where the game speed comes from (GameStateManager), see cueLeadMs. */
+  setGameSpeedSource(source: () => number): void {
+    this.gameSpeed = source;
+  }
+
   /** The timers that bring in a phase's music later: game over and wave end. */
   private clearPhaseTimers(): void {
     if (this.gameOverTimer !== null) clearTimeout(this.gameOverTimer);
@@ -385,7 +392,8 @@ export class BackgroundMusicService {
    * build music at once.
    */
   private endWavePhase(): void {
-    const { leadMs, buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
+    const { buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
+    const leadMs = cueLeadMs(BACKGROUND_MUSIC.waveEnd.leadMs, this.gameSpeed());
     this.clearPhaseTimers();
     this.mixer.fadeOut(leadMs);
     this.currentPhase = 'build';
@@ -419,7 +427,8 @@ export class BackgroundMusicService {
    * The phase is wave from now on.
    */
   private startWavePhase(): void {
-    const { leadMs, waveDelayMs, waveFadeInMs } = BACKGROUND_MUSIC.waveStart;
+    const { waveDelayMs, waveFadeInMs } = BACKGROUND_MUSIC.waveStart;
+    const leadMs = cueLeadMs(BACKGROUND_MUSIC.waveStart.leadMs, this.gameSpeed());
     this.cancelMainThemeFade();
     this.clearPhaseTimers();
     this.mixer.fadeOut(leadMs);

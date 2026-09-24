@@ -113,3 +113,14 @@ export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   mainThemeGapDuration: 600,
   masterVolume: 0.4,
 };
+
+/**
+ * The lead before a wave's start signal or end horn, real ms, at game speed
+ * `speed`: `leadMs` at 1x, shorter the faster the game runs, since the
+ * lead passes in real time while the enemies walk in game time (at 4x a
+ * 1.5 s lead let them walk 6 s before the signal). Music fade and signal
+ * both take it, so they stay together.
+ */
+export function cueLeadMs(leadMs: number, speed: number): number {
+  return Math.round(leadMs / Math.max(1, speed));
+}
