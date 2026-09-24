@@ -135,10 +135,10 @@ export class BossIntroService {
   constructor() {
     const bus = this.gameState.getEventBus();
     const subs = [
-      bus.on('enemy:spawned', (event) => this.onSpawned(event.enemy, event.viaPortal === true)),
+      bus.onLive('enemy:spawned', (event) => this.onSpawned(event.enemy, event.viaPortal === true)),
       // A worm is one boss out of the portal, its segments come without viaPortal
-      bus.on('worm:spawned', (event) => this.onSpawned(event.head, event.viaPortal === true)),
-      bus.on('game:reset', () => this.reset()),
+      bus.onLive('worm:spawned', (event) => this.onSpawned(event.head, event.viaPortal === true)),
+      bus.onLive('game:reset', () => this.reset()),
     ];
     inject(DestroyRef).onDestroy(() => {
       for (const sub of subs) sub.dispose();

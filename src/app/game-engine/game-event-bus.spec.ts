@@ -334,4 +334,21 @@ describe('GameEventBus', () => {
       expect(secondary).toHaveBeenCalledTimes(1);
     });
   });
+  describe('onLive', () => {
+    it('hears the live game, not a replay, and keeps its place among the listeners', () => {
+      const bus = new GameEventBus();
+      const heard: string[] = [];
+      bus.on('game:reset', () => heard.push('first'));
+      bus.onLive('game:reset', () => heard.push('live'));
+      bus.on('game:reset', () => heard.push('last'));
+
+      bus.emit({ type: 'game:reset' });
+      bus.setLiveMuted(true);
+      bus.emit({ type: 'game:reset' });
+      bus.setLiveMuted(false);
+      bus.emit({ type: 'game:reset' });
+
+      expect(heard).toEqual(['first', 'live', 'last', 'first', 'last', 'first', 'live', 'last']);
+    });
+  });
 });

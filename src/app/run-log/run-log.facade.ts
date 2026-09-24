@@ -95,23 +95,23 @@ export class RunLogFacade {
 
     // A wave is done: keep what there is, so a closed tab loses at most the
     // wave that is running.
-    this.subs.add(bus.on('wave:completed', () => void this.persist()));
-    this.subs.add(bus.on('game:over', () => this.close('defeat')));
+    this.subs.add(bus.onLive('wave:completed', () => void this.persist()));
+    this.subs.add(bus.onLive('game:over', () => this.close('defeat')));
     // The hero is hired once per run; his state event is the only signal
     let heroHired = false;
-    this.subs.add(bus.on('hero:state-changed', (e) => {
+    this.subs.add(bus.onLive('hero:state-changed', (e) => {
       if (e.hero.hired === heroHired) return;
       heroHired = e.hero.hired;
       if (heroHired) this.collector.noteHeroHired(HERO.cost);
     }));
-    this.subs.add(bus.on('enemy:spawned', (e) => {
+    this.subs.add(bus.onLive('enemy:spawned', (e) => {
       if (e.viaPortal && e.enemy.typeConfig.isBoss) {
         this.collector.noteBossSpawned(e.enemy.typeConfig.id);
       }
     }));
     // The reset comes on restart, location change and DevWorld rebuild; the
     // run that was open ends there and the next one opens right after.
-    this.subs.add(bus.on('game:reset', () => {
+    this.subs.add(bus.onLive('game:reset', () => {
       this.close('restart');
       this.open();
     }));

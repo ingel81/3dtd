@@ -42,11 +42,11 @@ export class BossBarComponent {
   constructor() {
     const bus = this.gameState.getEventBus();
     const subs = [
-      bus.on('enemy:spawned', (event) => {
+      bus.onLive('enemy:spawned', (event) => {
         // A worm's segments are bosses too; the worm has one bar for all of them
         if (event.enemy.typeConfig.isBoss && event.enemy.worm === null) this.bosses.push(event.enemy);
       }),
-      bus.on('worm:spawned', (event) => this.worms.push(event.group)),
+      bus.onLive('worm:spawned', (event) => this.worms.push(event.group)),
     ];
     const timer = inject(NgZone).runOutsideAngular(() => setInterval(() => this.poll(), POLL_MS));
     inject(DestroyRef).onDestroy(() => {

@@ -240,12 +240,12 @@ export class MarkerVisualizationService {
    */
   subscribeToEventBus(eventBus: GameEventBus): void {
     this.eventBusSubs.disposeAll();
-    this.eventBusSubs.add(eventBus.on('wave:started', () => this.portalManager?.startWave(performance.now())));
+    this.eventBusSubs.add(eventBus.onLive('wave:started', () => this.portalManager?.startWave(performance.now())));
     const calmDown = () => this.portalManager?.endWave();
-    this.eventBusSubs.add(eventBus.on('wave:completed', calmDown));
-    this.eventBusSubs.add(eventBus.on('game:over', calmDown));
-    this.eventBusSubs.add(eventBus.on('game:reset', calmDown));
-    this.eventBusSubs.add(eventBus.on('enemy:spawned', (event) => this.onEnemySpawned(event.enemy.position)));
+    this.eventBusSubs.add(eventBus.onLive('wave:completed', calmDown));
+    this.eventBusSubs.add(eventBus.onLive('game:over', calmDown));
+    this.eventBusSubs.add(eventBus.onLive('game:reset', calmDown));
+    this.eventBusSubs.add(eventBus.onLive('enemy:spawned', (event) => this.onEnemySpawned(event.enemy.position)));
   }
 
   /**

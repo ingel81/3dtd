@@ -110,17 +110,17 @@ export class TowerControlService {
   constructor() {
     const bus = this.gameState.getEventBus();
     const subs = [
-      bus.on('tower:manual-shot', (event) => this.onShot(event.towerId)),
-      bus.on('projectile:hit', (event) => {
+      bus.onLive('tower:manual-shot', (event) => this.onShot(event.towerId)),
+      bus.onLive('projectile:hit', (event) => {
         if (event.projectile.sourceTowerId === this.store.mannedTowerId()) this.showMarker('hit');
       }),
-      bus.on('enemy:died', (event) => {
+      bus.onLive('enemy:died', (event) => {
         const by = event.killedBy;
         if (by?.kind === 'tower' && by.towerId === this.store.mannedTowerId()) this.showMarker('kill');
       }),
       // Out of the tower, however that came (C, Esc, sold, game over, restart,
       // a new place): the camera comes back at once, before a new place frames it
-      bus.on('tower:manned', (event) => {
+      bus.onLive('tower:manned', (event) => {
         if (event.towerId === null && this.pose) this.cleanUp();
       }),
     ];

@@ -214,14 +214,14 @@ export class GameLoopFacadeService {
 
     // Subscribe to debug:start-custom-wave event
     this.eventBusSubs.add(
-      eventBus.on('debug:start-custom-wave', () => {
+      eventBus.onLive('debug:start-custom-wave', () => {
         this.startCustomWave();
       })
     );
 
     // Subscribe to game:over event
     this.eventBusSubs.add(
-      eventBus.on('game:over', () => {
+      eventBus.onLive('game:over', () => {
         this.onGameOver();
         callbacks.onGameOverExtra();
       })
@@ -230,10 +230,10 @@ export class GameLoopFacadeService {
     // Auto-start of the next wave: counts down after a completed wave. Any
     // start ends it, the auto-start itself included, and so do game over
     // and a restart.
-    this.eventBusSubs.add(eventBus.on('wave:completed', () => this.armAutoWave()));
-    this.eventBusSubs.add(eventBus.on('wave:started', () => this.cancelAutoWave()));
-    this.eventBusSubs.add(eventBus.on('game:over', () => this.cancelAutoWave()));
-    this.eventBusSubs.add(eventBus.on('game:reset', () => this.cancelAutoWave()));
+    this.eventBusSubs.add(eventBus.onLive('wave:completed', () => this.armAutoWave()));
+    this.eventBusSubs.add(eventBus.onLive('wave:started', () => this.cancelAutoWave()));
+    this.eventBusSubs.add(eventBus.onLive('game:over', () => this.cancelAutoWave()));
+    this.eventBusSubs.add(eventBus.onLive('game:reset', () => this.cancelAutoWave()));
 
     // Every new run resets the wave director, the restart button as well as a
     // location change, which resets the game without going through
@@ -242,7 +242,7 @@ export class GameLoopFacadeService {
     // against waves sized for a defense that no longer existed (median run
     // length 6 waves against a target of 80). A wave source switched in the
     // debug window also takes effect here.
-    this.eventBusSubs.add(eventBus.on('game:reset', () => this.waveDirector.resetForNewGame()));
+    this.eventBusSubs.add(eventBus.onLive('game:reset', () => this.waveDirector.resetForNewGame()));
   }
 
   // ══════════════════════════════════════════════════════════════

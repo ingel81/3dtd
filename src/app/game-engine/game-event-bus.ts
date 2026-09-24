@@ -755,6 +755,9 @@ export class GameEventBus {
   /** Catch-all listeners (onAny); a new array on every change, so an emit under way keeps its list */
   private debugListeners: readonly ((event: GameEvent) => void)[] = [];
 
+  /** See onLive() */
+  private liveMuted = false;
+
   /**
    * Subscribe to ALL events (for debugging/monitoring)
    *
@@ -806,6 +809,34 @@ export class GameEventBus {
     this.listeners.get(eventType)!.add(handler as StoredHandler);
 
     return new EventSubscription(() => this.off(eventType, handler));
+  }
+
+  /**
+   * Subscribe a listener that follows the live game only: while a replay
+   * re-simulates a wave (setLiveMuted), it hears nothing. For what records
+   * the run or mirrors it (run log, director history, stores, best wave,
+   * bot, boss intro, hints): the re-simulation sends the same events as the
+   * game, kills, credits and wave ends included, and none of that may count
+   * twice or move the live UI (docs/SIMULATOR_PLAN.md, P6). VFX, audio and
+   * screen shake subscribe with on(): they are what the replay shows.
+   * Same place in the order as on().
+   */
+  onLive<T extends GameEvent['type']>(
+    eventType: T,
+    handler: (event: GameEventMap[T]) => void
+  ): EventSubscription {
+    return this.on(eventType, (event) => {
+      if (!this.liveMuted) handler(event);
+    });
+  }
+
+  /** See onLive(): true while a replay re-simulates. */
+  setLiveMuted(muted: boolean): void {
+    this.liveMuted = muted;
+  }
+
+  get isLiveMuted(): boolean {
+    return this.liveMuted;
   }
 
   /**
