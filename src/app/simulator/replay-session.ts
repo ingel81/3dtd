@@ -70,6 +70,8 @@ export class ReplaySession {
    */
   enter(): void {
     this.live = this.gameState.captureSnapshot();
+    // Blood, scorch marks, damage numbers of the live game: the replay starts on a clean field
+    this.engine.effects.clear();
     this.resim.start();
     this.carryMs = 0;
     this._playing = true;
@@ -85,6 +87,8 @@ export class ReplaySession {
     if (live) this.gameState.restoreSnapshot(live, 'live');
     this.resim.end();
     this.engine.spatialAudio.stopAll();
+    // The replay's marks and numbers stay behind in it
+    this.engine.effects.clear();
     this.present();
   }
 
@@ -149,6 +153,8 @@ export class ReplaySession {
     }
     this.carryMs = 0;
     this.engine.spatialAudio.stopAll();
+    // Damage numbers, gold and particles of the stretch skipped would come all at once
+    this.engine.effects.clear();
     this.present();
   }
 

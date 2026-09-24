@@ -188,12 +188,13 @@ haben denselben Platz in der Reihenfolge wie `on()`.
 
 | Abo | Hört | Wer |
 |-----|------|-----|
-| `on()` | immer | Simulation (Manager, Kampf, Handler) |
+| `on()` | immer | Simulation (Manager, Kampf, Handler) und was im Replay ebenso laufen soll, auch beim Springen (HQ-Feuer, Debug-Overlays) |
 | `onLive()` | nur das Live-Spiel, nicht das Replay (`setLiveMuted`) | Was den Lauf festhält oder die Live-UI spiegelt: Run-Log, Director-Snapshot, Store-Sync, Bestwelle, Bot, Boss-Intro, Onboarding, Hinweise, Tower-Steuerung, Boss-Leiste, Leck-Vignette, Blutmond-Banner, Wellen der Loop-Facade, Portale, Debug-Gegnerliste, Auswahl |
 | `onShow()` | Live-Spiel und Replay, nicht beim Springen im Replay (`setShowMuted`) | Was das Spiel zeigt: VFX, Audio, Spielsounds, Screen-Shake, Musik, Blutmond-Look |
 
 Ein neuer Abonnent, der Zustand außerhalb der Simulation führt, nimmt `onLive()`; einer, der Bild oder Ton macht,
-`onShow()`.
+`onShow()`. Was nicht am Bus hängt, sondern je Frame die Uhr liest (`tickAutoWave`, `runLog.tick`), fragt
+`GameStateManager.isReplaying`.
 
 ---
 

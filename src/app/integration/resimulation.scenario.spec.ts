@@ -48,6 +48,7 @@ import { CombatVfxService } from '../services/combat/combat-vfx.service';
 import { DamageApplicationService } from '../services/combat/damage-application.service';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { TowerCombatService } from '../services/combat/tower-combat.service';
+import { EconomyService } from '../services/economy.service';
 import { GameObject } from '../core/game-object';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition } from '../models/game.types';
@@ -111,7 +112,7 @@ function buildWorld(): World {
   services['ResearchStore'] = noopStub();
   services['PathAndRouteService'] = noopStub({ getCachedPaths: () => paths });
   services['EnemyDebugService'] = noopStub({ debugEnemies: () => [], clearDebugEnemies: () => undefined });
-  services['EconomyService'] = noopStub({ computeWaveCompletionBonus: () => 0, perfectStreak: 0, restorePerfectStreak: () => undefined });
+  services['EconomyService'] = new EconomyService();
   services['CombatVfxService'] = new CombatVfxService();
   services['DamageApplicationService'] = new DamageApplicationService();
   services['CombatEffectService'] = new CombatEffectService();
@@ -322,6 +323,75 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(resim.divergedAt).toBeNull();
     expect(resim.checkedHashes).toBe(record.hashes.length);
     expect(gsm.subStep).toBe(record.endStep);
+    resim.end();
+  });
+  it('leaves nothing of the replay in the live game: the next 120 sub-steps come out as without it', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    playLive(world);
+    let now = 1e6;
+    for (let i = 0; i < 200 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+    const live = gsm.captureSnapshot();
+    const run = () => {
+      for (let i = 0; i < 120; i++) gsm.update((now += 16.667));
+      return gsm.captureSnapshot();
+    };
+    // Both runs from the restored state: a restore starts the frame bookkeeping over
+    gsm.restoreSnapshot(live, 'live');
+    const without = run();
+
+    gsm.restoreSnapshot(live, 'live');
+    const resim = new Resimulation(gsm.resimHost, gsm.simRecorder.get(1)!, gsm.commandLog.entries);
+    resim.start();
+    // To the very end: the wave's last step leaves wave:completed waiting in the bus
+    while (resim.step()) { /* to the end */ }
+    gsm.restoreSnapshot(live, 'live');
+    resim.end();
+    expect(gsm.getEventBus().hasDeferred).toBe(false);
+
+    expect(run()).toEqual(without);
+  });
+
+  it('re-simulates worms on two routes from a file in a fresh session', () => {
+    // delay 0 after the first entry: the next spawns in the same sub-step, so segments of
+    // worms on both routes come out in the same steps and the order of the paths shows
+    const worms = (types: readonly string[]): WaveConfig => ({
+      schedule: {
+        entries: types.map((enemyType, i) => ({ enemyType, speed: 1, health: 0.2, ...(i === 0 ? { delay: 0 } : {}) }) as SpawnEntry),
+        baseDelay: 400,
+        spawnMode: 'each',
+      },
+    });
+    const play = (gsm: GameStateManager, config: WaveConfig, from: number) => {
+      let now = from;
+      gsm.getEventBus().emit({ type: 'command:start-wave', config } as never);
+      for (let f = 0; f < 20000 && gsm.waveManager.phase() === 'wave'; f++) gsm.update((now += 10 + ((f * 11) % 23)));
+      for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+      return now;
+    };
+
+    world = buildWorld();
+    const played = world.gsm;
+    played.gameSpeed.set(4);
+    // Wave 1: the first worm of the session walks route 2; wave 2: worms on both routes
+    const t = play(played, worms(['zombie', 'worm']), 1000);
+    play(played, worms(['worm', 'worm', 'zombie', 'bat']), t);
+    const record = played.simRecorder.get(2)!;
+    expect(record.endStep).not.toBeNull();
+    const text = JSON.stringify(buildReplayFile(played.simRecorder.records, played.commandLog.entries, {
+      worldKey: played.worldKey(), configHash: 'balance', seed: played.rng.seed,
+    }));
+    world.restoreMath();
+
+    world = buildWorld();
+    const fresh = world.gsm;
+    const read = readReplayFile(text, { worldKey: fresh.worldKey(), configHash: 'balance' });
+    const wave2 = read.file!.waves.find((w) => w.wave === 2)!;
+    const resim = new Resimulation(fresh.resimHost, wave2, read.file!.log);
+    resim.start();
+    while (resim.step()) { /* to the end */ }
+    expect(resim.checkedHashes).toBe(wave2.hashes.length);
+    expect(resim.divergedAt).toBeNull();
     resim.end();
   });
 });

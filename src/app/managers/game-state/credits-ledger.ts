@@ -42,8 +42,8 @@ export class CreditsLedger {
 
   /**
    * Set the credits a snapshot saved, without a booking: a restore is no
-   * income or spending, the run log must not count it. The UI follows
-   * sim:restored.
+   * income or spending, the run log must not count it. The stores do not
+   * hear a replay (GameEventBus.onLive), so they still show the live value.
    */
   restore(credits: number): void {
     this.credits.set(credits);

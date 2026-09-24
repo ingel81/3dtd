@@ -288,6 +288,11 @@ export class GameStateManager {
   private replaying = false;
   /** What the re-simulation logs, so the run's own log stays as it was */
   private replayLog: CommandLog | null = null;
+  /** A replay re-simulates a wave: the live clock stands, what reads it waits (auto start, run log) */
+  get isReplaying(): boolean {
+    return this.replaying;
+  }
+
   /** See ResimHost.setBoundaryListener */
   private boundaryListener: ((boundaryStep: number, hash: () => number) => void) | null = null;
 
@@ -826,6 +831,7 @@ export class GameStateManager {
     if (this.enemyManager.getAll().length > 0 || this.enemyDebug.debugEnemies().length > 0) return 'enemies';
     if (this.projectileManager.getAll().length > 0) return 'projectiles';
     if (this.abilityManager.hasPendingStrikes()) return 'pending-strike';
+    if (this.eventBus.hasDeferred) return 'pending-events';
     return null;
   }
 
@@ -876,13 +882,17 @@ export class GameStateManager {
    * Put the simulation back to `snapshot`: towers with their line of sight
    * (no GPU), research, abilities, hero, credits, HQ, clock, random source
    * and id counter. What ran since goes: enemies, projectiles, a wave in
-   * progress. No event of the way there goes out; `sim:restored` tells the
-   * mirrors (stores, HUD) to read the state anew.
+   * progress. No event of the way there goes out: the stores do not hear the
+   * replay at all (GameEventBus.onLive), and what shows the state from events
+   * (the HQ fire) reads it anew on `sim:restored`.
    */
   restoreSnapshot(snapshot: SimSnapshot, reason: 'replay' | 'live' = 'replay'): void {
     if (snapshot.version !== SIM_SNAPSHOT_VERSION) {
       throw new Error(`Snapshot version ${snapshot.version}, expected ${SIM_SNAPSHOT_VERSION}`);
     }
+    // Nothing the state before sent may reach the state after (a replayed
+    // wave's wave:completed in the live game)
+    this.eventBus.clearDeferred();
     // Out of the tower and off the grid, then everything that moves
     this.towerLifecycle.clearAllOverlays();
     this.towerCombat.stopAllBeams();
@@ -922,7 +932,7 @@ export class GameStateManager {
     this.rng.setState(snapshot.rng);
     GameObject.setIdCounter(snapshot.idCounter);
 
-    this.eventBus.emit({ type: 'sim:restored', reason });
+    this.eventBus.emit({ type: 'sim:restored', reason, baseHealth: snapshot.baseHealth });
   }
 
   /**
@@ -1034,8 +1044,8 @@ export class GameStateManager {
     if (this.corridorPending()) return;
     if (!this.replaying && config.schedule.entries.length > 0) this.recordWaveStart(config);
 
-    // Wave preview in the sidebar, see summarizeWaveGroups()
-    const groups = summarizeWaveGroups(config);
+    // Wave preview in the sidebar, see summarizeWaveGroups(); the live wave's only
+    const groups = this.replaying ? [] : summarizeWaveGroups(config);
     if (groups.length > 0) {
       this.waveDebug.setCurrentWaveGroups(groups);
     }

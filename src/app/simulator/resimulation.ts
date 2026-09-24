@@ -46,7 +46,7 @@ export interface ResimHost {
  * just no longer matches.
  *
  * Nothing here reads the wall clock: stepTo() runs as fast as the
- * simulation does (a mid-game wave of 10 800 sub-steps in about a second,
+ * simulation does (a mid-game wave of 10 800 sub-steps in about 0.6 s,
  * docs/SIMULATOR_PLAN.md, section 5), which is what seeking in the replay is.
  */
 export class Resimulation {
