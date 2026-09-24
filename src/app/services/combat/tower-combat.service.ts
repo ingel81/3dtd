@@ -527,17 +527,17 @@ export class TowerCombatService {
   /**
    * The player's eye in `tower` (utils/manual-aim.ts eyeInto), local. The
    * camera sits there and the aim ray starts there: over the muzzle, and at
-   * least TOWER_CONTROL.eyeOverModelM over the top of the model, so it is
-   * never inside a roof.
+   * least TOWER_CONTROL.eyeOverModelM over the top of the model
+   * (TowerTypeConfig.modelTop), so it is never inside a roof.
    */
   mannedEyeInto(tower: Tower, out: Vector3): Vector3 {
     const muzzle = this.muzzleLocal(tower, this._mannedMuzzle);
     const { heading, pitch } = tower.manualAim;
     const back = eyeBackAt(pitch, TOWER_CONTROL.pitchMin, TOWER_CONTROL.eyeBackM, TOWER_CONTROL.eyeForwardDownM);
-    const top = this.tilesEngine?.towers.modelTopY(tower.id) ?? null;
-    const up = top !== null
-      ? Math.max(TOWER_CONTROL.eyeUpM, top + TOWER_CONTROL.eyeOverModelM - muzzle.y)
-      : TOWER_CONTROL.eyeUpM;
+    const config = tower.typeConfig;
+    // The model's top over the muzzle: both stand on the tower's foot
+    const topOverMuzzle = config.modelTop - config.heightOffset - config.shootHeight;
+    const up = Math.max(TOWER_CONTROL.eyeUpM, topOverMuzzle + TOWER_CONTROL.eyeOverModelM);
     eyeInto(muzzle, heading, up, back, out);
     return out;
   }
