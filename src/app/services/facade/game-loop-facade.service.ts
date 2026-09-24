@@ -31,7 +31,7 @@ import { AutoWaveCountdown } from '../../utils/auto-wave-countdown';
 import { BossIntroService } from '../boss-intro.service';
 import { ReplayService } from '../replay.service';
 import { TowerControlService } from '../tower-control.service';
-import { COOP } from '../coop.service';
+import { COOP } from '../coop.token';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.

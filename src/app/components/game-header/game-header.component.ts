@@ -103,6 +103,8 @@ export class GameHeaderComponent {
   readonly deleteFavoriteClick = output<string>();
   readonly placeHqClick = output<void>();
   readonly placeSpawnClick = output<void>();
+  /** Place one more spawn, in addition to the ones there */
+  readonly addSpawnClick = output<void>();
 
   // Internal state
   readonly favMenuExpanded = signal(false);

@@ -317,6 +317,18 @@ Ursprünglicher Plan:
   sobald die Karte des Hosts steht.
 - Abnahme per Spec: Verlassen in der Lockstep-Spec. Der Browser-Test mit zwei Fenstern steht aus.
 
+**Nach dem ersten Browser-Test (2026-09-24):**
+
+- Der Einladungslink trägt den Ort des Hosts (HQ, Spawns) und den Raum: Der Gast lädt einmal die richtige Karte
+  und tritt bei, sobald sie steht. Eine Seite, die doch neu laden muss, verlässt vorher den Raum; das Relay prüft
+  alle 3 s per Herzschlag und wirft stumme Clients hinaus (der Browser schließt den Socket einer verlassenen Seite
+  spät). Gleiche Namen bekommen eine Nummer.
+- Spawns: Bisher setzte die Flagge nur den einen Spawn neu. Neu ist der Knopf „+“ in der Kopfleiste (ein weiterer
+  Spawn, bis vier, `MapRelocationService.applySpawnAdded`), und im Coop füllt der Host fehlende Lanes selbst auf
+  (D26, `addRandomSpawn`: acht Straßenpunkte 500 bis 1000 m vom HQ, der mit dem größten Winkelabstand zu den
+  anderen Spawns gewinnt), dann schickt er die Karte neu. Der Gast setzt die neuen Spawns bei sich dazu, ohne neu zu
+  laden, und übernimmt dann das Paket.
+
 - Neuer Ordner `coop-server/` (TypeScript, Node, `ws`), getrennt vom Python-`bot-server/`. Die Logik ist eine
   Bibliothek mit zwei Einstiegen (D18): ein npm-Skript und der Electron-Main ("LAN-Spiel hosten", Beitritt per IP
   oder Link). Keine eigene exe.

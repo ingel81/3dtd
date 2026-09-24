@@ -657,7 +657,7 @@ describe('LocationFacadeService', () => {
 
     it('starts the placement mode through the map placement service', () => {
       facade.startMapPlacement('spawn');
-      expect(mapPlacement.startPlacement).toHaveBeenCalledWith('spawn');
+      expect(mapPlacement.startPlacement).toHaveBeenCalledWith('spawn', false);
     });
 
     it('does nothing when the placement service rejects the click', async () => {
