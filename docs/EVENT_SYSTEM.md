@@ -1,6 +1,6 @@
 # Event System - Framework-Agnostic Event Bus
 
-**Stand:** 2026-09-15, Listener per Grep nachgezogen (`wave:completed`-Semantik: 2026-09-07)
+**Stand:** 2026-09-24 (Befehlsgrenze, Befehlslog, `command:tower-aim`), Listener per Grep nachgezogen 2026-09-15 (`wave:completed`-Semantik: 2026-09-07)
 
 Das Event-System ermöglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren über Events statt direkter Methodenaufrufe oder Callbacks.
 
@@ -153,6 +153,29 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `command:hero-move` | HeroControlService (Klick bei gewähltem Helden) | GameCommandsHandler → HeroManager.moveTo() | Held zum nächsten Routenpunkt im Umkreis von 30 m schicken (`target`), der Weg wird im Befehl berechnet |
 | `command:hero-ammo` | HeroControlService (Taste V, Helden-Panel) | GameCommandsHandler → HeroManager.setAmmo() | Munition laden (`ammo`: `standard`, `explosive`, `rune`) |
 
+### Befehlsgrenze und Befehlslog
+
+Seit 2026-09-24 ([SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), P1). Ein Befehl wirkt nur zwischen zwei vollständigen
+Sub-Steps, nie mitten in einem. Damit lässt sich ein Lauf aus Startzustand, Seed und Befehlen nachrechnen.
+
+- **Grenze:** `GameStateManager.update()` ruft vor jedem Sub-Step `GameCommandsHandler.beginStep()` und nach dem
+  Step samt Wellenende- und Game-Over-Check `endStep()`. Ein Befehl, der dazwischen kommt (ein Listener, der auf ein
+  Sim-Event reagiert, etwa ein Ausstieg beim Game Over), wartet bis `endStep()` und wirkt dann in Ankunftsreihenfolge.
+  Auch nach dem Step, der das Spiel beendet, laufen die gewarteten Befehle noch, erst dann bricht die Schleife ab.
+- **UI:** Befehle zwischen zwei Frames (Klicks, Tasten, `tickAutoWave`, `flushAim` vor den Sub-Steps) liegen schon
+  an einer Grenze und wirken sofort, ohne Verzögerung.
+- **Bot:** Der `onSubStep`-Callback von `update()` (Bot-Tick; die Turmdrehung läuft seit P2 in `runSubStep`) läuft an der Grenze nach
+  `endStep()`. Der Bot entscheidet also auf dem Stand nach den Checks, sein Befehl wirkt sofort. Nach dem Step, der das
+  Spiel beendet, läuft er nicht mehr.
+- **Befehlslog:** `GameStateManager.commandLog` (`managers/game-state/command-log.ts`) hält jeden Befehl, den der
+  Handler ausführt, als Klartext (`toPlainData`) mit `step` (Wert von `GameClock.subStep` an der Grenze: der Befehl
+  wirkt nach Step `step` und vor Step `step + 1`) und `playerId` (heute immer `local`). Auch abgelehnte Befehle und
+  die Cheats des Handlers stehen darin, eine Neu-Simulation braucht dieselben Eingaben. Geschrieben im Handler, nicht
+  über `onAny`, damit `emit` auf seinem schnellen Pfad bleibt. Geleert bei `reset()` (Neustart), `initialize()`
+  (neuer Ort) und `reseatWavePipeline()` (neue DevWorld).
+- **Nachrechnen:** `GameStateManager.replayCommand(entry)` führt einen Eintrag denselben Weg aus wie live (Grenze,
+  Log, Handler) und schreibt ihn wieder ins Log.
+
 ---
 
 ## Quick Start
@@ -280,7 +303,7 @@ function gameLoop(deltaTime: number) {
 | **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `debug:kill-all` |
 | **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold`, `tower:selected`, `tower:deselected`, `audio:play` |
 | **ResearchManager** | Nein | Producer | Emittiert `research:*` |
-| **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und die sieben `debug:*`-Cheats (Credits, Health, Research, Max Up, Fähigkeiten, Held, Wellensprung), sucht den Tower heraus und ruft den GameStateManager; emittiert selbst nichts |
+| **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und die sieben `debug:*`-Cheats (Credits, Health, Research, Max Up, Fähigkeiten, Held, Wellensprung), sucht den Tower heraus und ruft den GameStateManager; hält Befehle bis zur Sub-Step-Grenze und schreibt das Befehlslog (siehe "Befehlsgrenze und Befehlslog"); emittiert selbst nichts |
 | **AbilityManager** | Nein | Mixed | Emittiert `ability:used`, `ability:impact`, `ability:resolved`, `ability:rejected`, `ability:state-changed`; reagiert auf `research:completed` (Freischaltung) und `wave:completed` (Ladungen) |
 | **CombatEffectService** | Ja | Mixed | Reagiert auf `projectile:hit`, `dot:damage`, emittiert `vfx:chain-lightning` |
 | **DamageApplicationService** | Ja | Producer | Emittiert `tower:kill`, bei Schüssen des Helden `hero:kill` |
