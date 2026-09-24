@@ -522,7 +522,8 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:move-queued-research',
         'command:use-ability',
         'command:hire-hero', 'command:hero-move', 'command:hero-ammo',
-        'command:start-wave', 'command:los-mask', 'command:leave-game', 'command:set-ready', 'command:restart-game',
+        'command:start-wave', 'command:los-mask', 'command:leave-game', 'command:set-ready', 'command:give-credits',
+        'command:restart-game',
         'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:max-upgrade-all-towers',
         'debug:ready-ability', 'debug:jump-to-wave', 'debug:ready-hero',
       ]);

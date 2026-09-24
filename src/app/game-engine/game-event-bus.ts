@@ -35,6 +35,7 @@ export type CreditsSource =
   | 'hero'            // the hero was hired or re-armed
   | 'cheat'           // the dev menu handed gold out or took it away
   | 'wave-jump'       // the gold of the waves a dev jump skipped
+  | 'gift'            // coop: gold one player sent another
   | 'reset';          // back to the starting gold of a new run
 
 /** What made a tower resolve its line of sight, see `tower:los-resolved`. */
@@ -656,6 +657,8 @@ export type GameEvent =
     }
   | {
       type: 'command:restart-game';
+      /** The new run's seed; coop gives one so every client starts the same run, alone a fresh one is drawn */
+      seed?: number;
     }
   | {
       /**
@@ -683,6 +686,21 @@ export type GameEvent =
       /** Coop: the giving player is ready for the next wave, or no longer (docs/COOP_PLAN.md, D15) */
       type: 'command:set-ready';
       ready: boolean;
+    }
+  | {
+      /** Coop: the giving player sends `amount` of their gold to player `to` */
+      type: 'command:give-credits';
+      to: string;
+      amount: number;
+    }
+  | {
+      /** Coop: gold went from one player to another (command:give-credits) */
+      type: 'coop:credits-given';
+      from: string;
+      to: string;
+      amount: number;
+      /** The gold came to the player at this client */
+      toLocal: boolean;
     }
   | {
       /** Coop: a player's readiness for the next wave changed; `allReady` once everybody is */
