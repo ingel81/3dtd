@@ -71,6 +71,42 @@ Aus M2/M3 und der Gold-Auswertung. Ein Lauf bis mindestens W31, am Ende über "R
   sie aus. Danach tippt die nächste Taste ins Spiel, nicht in die Menüleiste des Browsers.
   **ok (2026-09-23)**
 
+## R Replay als Neu-Simulation und Determinismus (2026-09-24, Branch `simulator`)
+
+Das Replay rechnet eine Welle jetzt noch einmal, statt eine Aufnahme abzuspielen ([REPLAY.md](REPLAY.md)). Dazu
+drehen sich Turrets in der Simulation, und die Sichtlinie kommt nur noch aus den gespeicherten Zellen
+([SIMULATOR_PLAN.md](SIMULATOR_PLAN.md)). Eine echte Karte, drei, vier Wellen mit ein paar Towern und dem Helden, dabei
+mitten in einer Welle upgraden, Zielwahl ändern, eine Fähigkeit werfen.
+
+Paket 1, das Replay selbst:
+- **R1 Abspielen**: Nach einer Welle "replay W3" unter dem Wellen-Knopf. Erwartung: Die Welle läuft wie gespielt,
+  mit Schadenszahlen, Gold, Sounds, Upgrades zur richtigen Zeit. In der Leiste steht **kein** "differs from".
+- **R2 Springen**: Im Fortschrittsbalken nach vorn und zurück ziehen. Erwartung: Nach dem Loslassen steht das Feld
+  sofort richtig da (höchstens etwa eine Sekunde Warten), kein Knall von hundert Sounds auf einmal.
+- **R3 Wellen wechseln**: In der Leiste die Pfeile neben "Wave 3". Erwartung: Welle 2 und 1 spielen ebenso.
+- **R4 Zurück ins Spiel**: Esc. Erwartung: Tower, Credits, HP, Forschung, Held, Kamera wie vorher; die nächste Welle
+  startet normal; das HUD zeigt dieselben Zahlen wie vor dem Replay.
+
+Paket 2, Datei und Grenzfälle:
+- **R5 Speichern und Laden**: Im Replay "Save". Seite neu laden (F5), denselben Ort, dann "load" im WAVE-Panel und die
+  Datei wählen. Erwartung: Das Replay läuft, in der Leiste "from file", kein "differs from".
+- **R6 Andere Karte**: Einen anderen Ort laden, dieselbe Datei laden. Erwartung: Unter den Knöpfen steht, dass das
+  Replay auf einer anderen Karte gespielt wurde; nichts startet.
+- **R7 Game Over**: Einen Lauf verlieren, "Replay wave N" auf dem Game-Over-Screen. Erwartung: Die letzte Welle bis
+  zum Fall des HQ; Esc führt zurück auf den Game-Over-Screen.
+- **R8 Klick direkt nach der Welle**: Sofort nach dem Wellenende auf "replay" klicken, während noch Schüsse fliegen.
+  Erwartung: Das Replay startet nach spätestens ein paar Sekunden von selbst.
+
+Paket 3, Spielgefühl nach dem Umbau:
+- **R9 Turrets**: Einen Cannon bauen, während sein Modell noch lädt. Erwartung: Er schießt erst, wenn der Turm zum
+  Ziel gedreht ist (vorher schoss er in dieser Zeit sofort).
+- **R10 Reichweitenrand**: Mit "Route Grid Overlay" einen Tower wählen. Erwartung: Die Sichtzellen reichen bis an den
+  Rand des Reichweitenkreises; der Tower schießt auf Gegner am Rand wie bisher.
+- **R11 Luft nach Forschung**: AA-Retrofit erforschen, während Fledermäuse laufen. Erwartung: Die Dual Gatling nimmt
+  sie nach kurzer Zeit ins Ziel.
+- **R12 Bemannter Tower**: Einen Archer bemannen (C), zielen, schießen, danach ein Replay dieser Welle. Erwartung:
+  Die Schüsse im Replay gehen dorthin, wohin gezielt wurde.
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei

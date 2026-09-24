@@ -1,6 +1,6 @@
 # Event System - Framework-Agnostic Event Bus
 
-**Stand:** 2026-09-24 (Befehlsgrenze, Befehlslog, `command:tower-aim`), Listener per Grep nachgezogen 2026-09-15 (`wave:completed`-Semantik: 2026-09-07)
+**Stand:** 2026-09-24 (Befehlsgrenze, Befehlslog, `command:tower-aim`, `onLive`/`onShow`), Listener per Grep nachgezogen 2026-09-15 (`wave:completed`-Semantik: 2026-09-07)
 
 Das Event-System ermöglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren über Events statt direkter Methodenaufrufe oder Callbacks.
 
@@ -174,7 +174,26 @@ Sub-Steps, nie mitten in einem. Damit lässt sich ein Lauf aus Startzustand, See
   über `onAny`, damit `emit` auf seinem schnellen Pfad bleibt. Geleert bei `reset()` (Neustart), `initialize()`
   (neuer Ort) und `reseatWavePipeline()` (neue DevWorld).
 - **Nachrechnen:** `GameStateManager.replayCommand(entry)` führt einen Eintrag denselben Weg aus wie live (Grenze,
-  Log, Handler) und schreibt ihn wieder ins Log.
+  Log, Handler) und schreibt ihn wieder ins Log. Im Replay-Modus (`Resimulation`) verwirft der Handler Befehle vom Bus;
+  es zählt nur der Log. Sonst liefe ein Befehl, den ein Listener auf ein nachgerechnetes Event hin sendet, doppelt.
+- **Sichtlinien im Log:** Jede Maske aus `tower:los-resolved` steht mit ihrem Sub-Step im Log (`recordLos`, Typ
+  `los:resolved`). Sie ist kein Befehl, sondern ein Ergebnis der GPU gegen die gerade geladenen Tiles: Das Nachrechnen
+  wendet sie an, statt einen Cube neu zu rendern.
+
+### onLive und onShow: wer im Replay mithört
+
+Seit 2026-09-24 ([REPLAY.md](REPLAY.md)). Das Replay rechnet eine Welle auf dem Live-Bus nach, Kills, Credits,
+Wellenende und Boss-Spawns gehen also noch einmal raus. Zwei Varianten von `on()` sagen, wer das hören darf. Beide
+haben denselben Platz in der Reihenfolge wie `on()`.
+
+| Abo | Hört | Wer |
+|-----|------|-----|
+| `on()` | immer | Simulation (Manager, Kampf, Handler) |
+| `onLive()` | nur das Live-Spiel, nicht das Replay (`setLiveMuted`) | Was den Lauf festhält oder die Live-UI spiegelt: Run-Log, Director-Snapshot, Store-Sync, Bestwelle, Bot, Boss-Intro, Onboarding, Hinweise, Tower-Steuerung, Boss-Leiste, Leck-Vignette, Blutmond-Banner, Wellen der Loop-Facade, Portale, Debug-Gegnerliste, Auswahl |
+| `onShow()` | Live-Spiel und Replay, nicht beim Springen im Replay (`setShowMuted`) | Was das Spiel zeigt: VFX, Audio, Spielsounds, Screen-Shake, Musik, Blutmond-Look |
+
+Ein neuer Abonnent, der Zustand außerhalb der Simulation führt, nimmt `onLive()`; einer, der Bild oder Ton macht,
+`onShow()`.
 
 ---
 

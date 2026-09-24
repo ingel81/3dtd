@@ -34,6 +34,24 @@ alle drei Blocker: nur World-Snapshot und Wave-Schedule-Sharing.
 
 ---
 
+## Stand Determinismus (2026-09-24)
+
+Auf dem Branch `simulator` ist das Determinismus-Fundament für einen Rechner gebaut ([SIMULATOR_PLAN.md](SIMULATOR_PLAN.md),
+Abnahme per Spec: eine Welle rechnet bit-genau nach, auch aus einer Datei in einem frisch gestarteten Spiel):
+
+- **Befehle:** wirken nur an Sub-Step-Grenzen, stehen mit Sub-Step und `playerId` im `CommandLog` (4.3, 18).
+- **Sichtlinie (2.1):** das Ergebnis eines Towers ist eine `LosMask` (2 Bit je Zelle, rund 100 bis 750 B), steht mit
+  im Log und wird beim Nachrechnen angewendet statt gerechnet. Das ist die Host-Maske, die im Coop über das Netz ginge.
+  Der Kampf raycastet nicht mehr gegen Live-Tiles.
+- **Turmdrehung** ist Simulationszustand, nicht mehr Renderer-Zustand.
+- **Zellhöhen (2.2):** eingefroren; ein Welt-Schlüssel (`GameStateManager.worldKey`) prüft, dass zwei Seiten dieselbe
+  Welt haben. Die Höhen selbst zu übertragen (World Seal über das Netz) fehlt noch.
+- **RNG (2.3):** geseedete Ströme mit lesbarem und setzbarem Zustand.
+- **Snapshot und Prüfsumme (4.5):** `SimSnapshot` zwischen den Wellen, `StateHasher` jede Spielsekunde. Ein Rejoin
+  mitten in einer Welle bräuchte einen Snapshot mit Gegnern und Projektilen; den gibt es nicht.
+- **Match-Log (18):** die Replay-Datei (`simulator/replay-file.ts`).
+- **Offen:** Netz, Relay, Tick-Barriere, Gold je Spieler, Tower-Besitz, Trigonometrie über Browser hinweg (2.4).
+
 ## Bezug zum Balancing-Plan (2026-09-19)
 
 Eingeordnet mit dem User am 2026-09-19, rein zur Orientierung; entschieden ist für Multiplayer nichts. Der

@@ -1,12 +1,35 @@
 # Simulator: deterministische Simulation, Replay als Neu-Simulation, Unterbau für Coop
 
-**Stand:** 2026-09-24 · Branch `simulator` · Status: entschieden, im Bau
+**Stand:** 2026-09-24 · Branch `simulator` · Status: P1 bis P7 gebaut, Playtest offen
 
 Ziel: Die Simulation rechnet einen Lauf aus Startzustand, Seed und Befehlen auf einem Rechner bit-genau nach.
 Darauf stehen das Replay als Neu-Simulation (TODO E2) und später Coop im Lockstep
 ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Stufe 3 in [BALANCING_PLAN.md](BALANCING_PLAN.md) Abschnitt 5).
 Performance ist Randbedingung: Das laufende Spiel darf pro Sub-Step nicht teurer werden, das Nachrechnen muss schnell
 genug für Springen im Replay sein.
+
+## Stand der Pakete (2026-09-24)
+
+| Paket | Stand | Wo |
+|-------|-------|----|
+| P1 Sim-Grenze, Befehlslog | gebaut | `GameCommandsHandler.beginStep/endStep`, `CommandLog`, `command:tower-aim`, Director in Spielzeit, Forschung aus dem `ResearchManager` |
+| P2 Turmdrehung | gebaut | `Tower.aim` (`entities/tower-aim.ts`), Config `turnsTurret`, `turretRestY`, `modelTop` |
+| P3 Sicht als Daten | gebaut | `LosMask`, Randzellen, kein Raycast im Kampf, Nachrüstung aus der Spielschleife |
+| P4 Snapshot | gebaut | `SimSnapshot`, `captureSnapshot`/`restoreSnapshot`, Zufallsstand, Id-Zähler, Held, Tower |
+| P5 Prüfsumme, Abnahme, Benchmark | gebaut | `StateHasher`, `integration/resimulation.scenario.spec.ts`, `npm run bench:sim` |
+| P6 Replay | gebaut | `ReplaySession`, `ReplayService`, alle Wellen, Datei; das Präsentations-Replay ist entfernt |
+| P7 Unterbau Coop | gebaut (Formate) | Replay-Datei = Match-Log (Welt-Schlüssel, Balance-Hash, Seed, Eingaben mit Masken, `playerId`) |
+
+Gefunden und behoben auf dem Weg:
+- Nach einem Neustart zogen Spawnpunkt und Seitenversatz aus den Strömen des vorigen Seeds (`GameRng.reset` warf die
+  Funktionen weg, die Manager hielten die alten).
+- Die Streuung des Spawn-Takts steckte als Funktion in der Wellen-Konfiguration und fiel beim Loggen weg; jetzt Daten
+  (`delayVariation`), dieselben Zahlen.
+- Das Kill-Gold-Budget setzte sich nur bei einer neuen Wellennummer zurück; eine nachgerechnete Welle zahlte aus dem
+  Rest der Live-Welle.
+
+Offen: Playtest ([PLAYTEST.md](PLAYTEST.md), Paket R). Nicht in diesem Plan: Netz, Lobby, Gold je Spieler,
+Tower-Besitz, Sicht vom Host über das Netz, Umgang mit Float-Abweichungen zwischen Browsern.
 
 ---
 
@@ -177,6 +200,22 @@ Renderer (heute die Turmdrehung, dazu `presentFrame`) und der Raycast-Rückgriff
 Turmdrehung in die Simulation, steigt der Sub-Step hier, die Ersparnis im Renderer sieht der Benchmark nicht. Ändert
 P3 das Format der Sichtdaten, zieht `markAllVisible()` im Harness mit.
 
+### Messung nach dem Umbau
+
+2026-09-24, derselbe PC, Stand `simulator` nach P6, zwei Läufe ohne parallele Worker:
+
+| Szenario | Median ms je Sub-Step | Basis |
+|----------|-----------------------|-------|
+| S (20 Tower, 200 Gegner) | 0,069 / 0,070 | 0,07 bis 0,11 |
+| M (60 / 1000) | 0,321 / 0,316 | 0,30 bis 0,51 |
+| L (120 / 3000) | 1,085 / 0,987 | 1,25 bis 2,32 |
+| Vorspulen 10 800 Sub-Steps | 625 / 628 ms | 790 bis 1040 ms |
+
+Nicht schlechter; die Basis lief neben vier Workern und streut entsprechend, ein Gewinn lässt sich daraus nicht
+ablesen. Prüfsumme (nur solange eine Welle mit Snapshot läuft, einmal je Spielsekunde): 0,05 / 0,16 / 0,51 ms bei
+200 / 1000 / 3000 Gegnern, also unter 0,01 ms je Sub-Step. Das Präsentations-Replay, das rund 0,8 ms je Spielsekunde
+und bis zu 48 MB kostete, ist weg; ein Snapshot sind wenige KB je Welle.
+
 ## 6. Entscheidungen
 
 | # | Frage | Entscheidung |
@@ -188,7 +227,7 @@ P3 das Format der Sichtdaten, zieht `markAllVisible()` im Harness mit.
 
 ## 7. Abnahme
 
-- Abnahme-Spec aus P5 grün, Benchmark ohne Verschlechterung gegenüber `next`.
-- Specs, beide tsc, Lint, Build grün.
+- Abnahme-Spec aus P5 grün, Benchmark ohne Verschlechterung gegenüber `next`. **Erfüllt 2026-09-24.**
+- Specs, beide tsc, Lint, Build grün. **Erfüllt 2026-09-24.**
 - Im Spiel: Replay einer Welle auf einer echten Karte und in DevWorld, Springen vor und zurück, danach steht das Spiel
   wie vorher.

@@ -250,8 +250,8 @@ Welche Pakete dieses Plans zugleich das Fundament für Coop im Lockstep sind, st
 [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Abschnitt "Bezug zum Balancing-Plan".
 
 Dieser Plan baut Stufe 1 und legt das Run-Log so an, dass es für Stufe 2 und 3 als Eingabe taugt (Seed, Weltbezug,
-Befehle je Sub-Step). Damit das Befehls-Log als Eingabe taugt, laufen alle Aktionen über `command:*`; heute setzen
-und verkaufen Bots Tower direkt am `GameStateManager` vorbei (2b).
+Befehle je Sub-Step). Damit das Befehls-Log als Eingabe taugt, laufen alle Aktionen über `command:*`, die der Bots
+eingeschlossen. Stufe 2 ist auf dem Branch `simulator` gebaut ([SIMULATOR_PLAN.md](SIMULATOR_PLAN.md)).
 
 Einschränkung: Der Kampf hängt bis Stufe 2 an der GPU-Sichtlinie, auch in DevWorld (`DEVWORLD.md`): Wann ein Tower
 schießen darf, hängt am Frame. Gleiche Seeds geben deshalb gleiche erste Wellen, aber nicht sicher gleiche Ausgänge;
