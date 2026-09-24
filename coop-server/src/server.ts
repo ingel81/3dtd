@@ -15,6 +15,13 @@ import { Room, type RoomPlayer } from './room.ts';
 /** How often the rooms' clocks run, ms. Ticks close at the room's pace, this only samples the wall clock. */
 const CLOCK_MS = 5;
 
+/**
+ * Heartbeat, ms: every client gets a ping this often and is dropped when it
+ * did not answer the last one. A browser that leaves a page may close its
+ * socket late; without this the room kept the player for a minute or more.
+ */
+const HEARTBEAT_MS = 3000;
+
 /** Room codes: no 0/O, 1/I/L, easy to read out */
 const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const CODE_LENGTH = 6;
@@ -23,6 +30,8 @@ interface Connection {
   socket: WebSocket;
   player: RoomPlayer | null;
   room: Room | null;
+  /** Answered the last heartbeat */
+  alive: boolean;
 }
 
 export interface RelayServer {
@@ -67,8 +76,11 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
 
   wss.on('connection', (socket) => {
     const id = `p${nextPlayer++}`;
-    const connection: Connection = { socket, player: null, room: null };
+    const connection: Connection = { socket, player: null, room: null, alive: true };
     connections.set(id, connection);
+    socket.on('pong', () => {
+      connection.alive = true;
+    });
 
     socket.on('message', (data) => {
       let message: ClientMessage;
@@ -133,6 +145,17 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
     });
   });
 
+  const heartbeat = setInterval(() => {
+    for (const connection of connections.values()) {
+      if (!connection.alive) {
+        connection.socket.terminate();
+        continue;
+      }
+      connection.alive = false;
+      connection.socket.ping();
+    }
+  }, HEARTBEAT_MS);
+
   let last = now();
   const clock = setInterval(() => {
     const at = now();
@@ -150,6 +173,7 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
         port,
         close: () => new Promise<void>((done) => {
           clearInterval(clock);
+          clearInterval(heartbeat);
           for (const { socket } of connections.values()) socket.terminate();
           wss.close(() => http.close(() => done()));
         }),

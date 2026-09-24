@@ -1,8 +1,6 @@
 import {
   Component,
   Injector,
-  effect,
-  untracked,
   input,
   output,
   OnDestroy,
@@ -76,19 +74,14 @@ export class GameSidebarComponent implements OnDestroy {
   private readonly injector = inject(Injector);
   private readonly coop = inject(COOP, { optional: true });
 
-  /**
-   * Opened with an invite link (?room=): once the host's map stands here,
-   * the coop dialog opens for the lane and "ready".
-   */
-  private readonly openCoopFromLink = (() => {
-    let opened = false;
-    effect(() => {
-      const coop = this.coop;
-      if (!coop?.roomFromUrl || opened || !coop.worldReady()) return;
-      opened = true;
-      untracked(() => this.openCoop());
-    });
-  })();
+  constructor() {
+    // Opened with an invite link (?room=): the host's map loads, the player
+    // joins as soon as it stands, and the dialog opens in the lobby
+    const coop = this.coop;
+    if (coop?.roomFromUrl) {
+      void coop.joinFromUrl().then(() => this.openCoop());
+    }
+  }
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);
