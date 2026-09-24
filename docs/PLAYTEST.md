@@ -144,9 +144,11 @@ Paket 3, Spielgefühl nach dem Umbau:
 - **S1 Signale zur Musik**: Wellen bei 1x und bei 4x starten und beenden. Erwartung: Erst blendet die Musik aus,
   dann kommt das Start-Signal oder das Horn in die Stille, danach die neue Musik. Bei 4x kommt das Signal, bevor die
   ersten Gegner weit gelaufen sind. Der Anfang der Signale klingt nicht mehr abgeschnitten.
+  **ok (2026-09-24)**
 - **S2 Bauen vor oder nach dem Start**: Neues Spiel, vor Welle 1 viele Tower bauen, Welle 1 starten, Anzahl der
   Gegner im WAVE-Panel merken. Neues Spiel am selben Ort, Welle 1 sofort starten, dann dieselben Tower bauen.
   Erwartung: dieselbe Anzahl. Ebenso ab Welle 2: Was in der Pause gebaut wird, macht die kommende Welle nicht größer.
+  **ok (2026-09-24)**
 
 ## K8 Desktop-Build
 

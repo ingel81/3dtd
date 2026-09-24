@@ -6,6 +6,11 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-24
 
+- [x] **C18 Wellenstart- und Wellenende-Sound zu abrupt** (`258b1d5c`, `11aad33a`, `113e2adb`): Erst blendet die
+      Musik aus, dann kommen Start-Signal oder Horn in die Stille, der Vorlauf wird mit dem Spieltempo kürzer; die
+      drei Sounds blenden ein statt abgeschnitten zu beginnen. Nachtest S1 ok.
+- [x] **Wellengröße unabhängig vom Bauzeitpunkt** (`6c2d3a6c`): Der adaptive Director plant eine Welle am Ende der
+      Vorwelle statt beim Start; in der Pause Gebautes macht sie nicht mehr größer. Nachtest S2 ok.
 - [x] **E2 Replay als Neu-Simulation** (Branch `simulator`, 1b2e275c..HEAD): jede Welle des Laufs wird aus ihrem
       Snapshot am Wellenstart und dem Befehlslog bit-genau nachgerechnet, mit Springen, Wellenwahl und Datei zum
       Speichern und Laden. Dafür deterministische Simulation (Befehle an Sub-Step-Grenzen, Turmdrehung in der Sim,
