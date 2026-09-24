@@ -135,6 +135,13 @@ function buildWorld(): World {
   return { gsm, towers, routes, restoreMath: () => { Math.random = mathRandom; } };
 }
 
+/** Bodies along the route, a chain of segments and splitting skeletons: the enemies with state of their own */
+function bossConfig(): WaveConfig {
+  const types = ['ooze', 'worm', 'skeleton', 'zombie', 'skeleton', 'bat'] as const;
+  const entries: SpawnEntry[] = types.map((enemyType) => ({ enemyType, speed: 1, health: 0.3 }));
+  return { schedule: { entries, baseDelay: 900, spawnMode: 'each' } };
+}
+
 function waveConfig(): WaveConfig {
   const types = ['zombie', 'rat', 'bat', 'zombie-soldier', 'skeleton', 'hornet'] as const;
   const entries: SpawnEntry[] = Array.from({ length: 70 }, (_, i) => ({
@@ -289,5 +296,32 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(readReplayFile(text, { worldKey: 'elsewhere', configHash: 'balance' }).refusal).toBe('other-world');
     expect(readReplayFile(text, { worldKey: head.worldKey, configHash: 'changed' }).refusal).toBe('other-balance');
     expect(readReplayFile('{"x":1}', { worldKey: head.worldKey, configHash: 'balance' }).refusal).toBe('not-a-replay');
+  });
+  it('re-simulates a wave of an ooze, a worm and splitting skeletons', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    const bus = gsm.getEventBus();
+    let now = 1000;
+    const spawned = new Map<string, number>();
+    bus.on('enemy:spawned', (e) => spawned.set(e.enemy.typeConfig.id, (spawned.get(e.enemy.typeConfig.id) ?? 0) + 1));
+    gsm.gameSpeed.set(4);
+    bus.emit({ type: 'command:start-wave', config: bossConfig() } as never);
+    for (let f = 0; f < 20000 && gsm.waveManager.phase() === 'wave'; f++) gsm.update((now += 10 + ((f * 13) % 29)));
+    expect(gsm.waveManager.phase()).not.toBe('wave');
+    const record = gsm.simRecorder.get(1)!;
+    expect(record.endStep).not.toBeNull();
+    // The ooze, the worm's segments and the skeletons' minions all came
+    expect(spawned.get('ooze')).toBe(1);
+    expect(spawned.get('worm')).toBeGreaterThan(3);
+    expect(spawned.get('skeleton-minion') ?? spawned.get('skeleton-warrior') ?? 0).toBeGreaterThan(0);
+    expect(record.hashes.length).toBeGreaterThan(10);
+
+    const resim = new Resimulation(gsm.resimHost, record, gsm.commandLog.entries);
+    resim.start();
+    while (resim.step()) { /* to the end */ }
+    expect(resim.divergedAt).toBeNull();
+    expect(resim.checkedHashes).toBe(record.hashes.length);
+    expect(gsm.subStep).toBe(record.endStep);
+    resim.end();
   });
 });

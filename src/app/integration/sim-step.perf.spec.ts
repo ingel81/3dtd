@@ -144,6 +144,26 @@ describe('Simulation sub-step benchmark', () => {
     console.log(`\nSub-step, ${STEPS} steps after ${WARMUP} warm-up, timescale 10\n${lines.join('\n')}`);
   });
 
+  it.runIf(HEAVY)('measures the state hash the recorder takes once per game second', { timeout: 300_000 }, () => {
+    const lines = ['| Szenario | Gegner | Tower | Hash ms | je Sub-Step (1/60) ms |', '|---|---|---|---|---|'];
+    for (const scenario of SCENARIOS) {
+      bench = createSimBench(scenario, services);
+      bench.run(WARMUP, 10);
+      const times: number[] = [];
+      for (let i = 0; i < 40; i++) {
+        const t0 = performance.now();
+        bench.gsm.stateHash();
+        times.push(performance.now() - t0);
+      }
+      times.sort((a, b) => a - b);
+      const median = times[times.length >> 1];
+      lines.push(`| ${scenario.name} | ${scenario.enemies} | ${scenario.towers} | ${f(median, 3)} | ${f(median / 60, 4)} |`);
+      bench.dispose();
+      bench = null;
+    }
+    console.log(`\nState hash (StateHasher), median of 40\n${lines.join('\n')}`);
+  });
+
   it.runIf(HEAVY)('measures the fast-forward of a mid-game wave', { timeout: 300_000 }, () => {
     bench = createSimBench(MID_WAVE, services);
     bench.run(WARMUP, 75);
