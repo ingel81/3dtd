@@ -6,6 +6,7 @@ import type { ColumnSample, ColumnSampler, TerrainPeekLOD } from '../three-engin
 import type { PortalClipUniforms } from '../three-engine/renderers/portal-clip';
 import { LosResolveContext } from './gpu-cube-resolve';
 import { RouteCell } from './route-cell';
+import { LOS_SLOT_AIR, LOS_SLOT_GROUND, LosMask, createLosBits, readLosSlot, writeLosSlot } from './los-mask';
 import { resolveTowerLos, resolveTowerLosIncremental } from './route-grid-los';
 import { RouteCellLattice, claimRouteCells } from './route-grid-builder';
 import {
@@ -36,6 +37,10 @@ import type { RouteBodyContact } from './route-body';
 
 /** Numeric ascending order for Array.prototype.sort, hoisted so hot paths allocate no comparator. */
 const ascending = (a: number, b: number): number => a - b;
+
+/** Distance from `v` to the span [start, start + size] along one axis, 0 inside it. */
+const gapToSpan = (v: number, start: number, size: number): number =>
+  v < start ? start - v : v > start + size ? v - start - size : 0;
 
 /**
  * GlobalRouteGrid - Unified Cell System for Enemy Tracking and LOS
@@ -514,37 +519,64 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Iterate only the grid cells whose centre can lie within `range` of
-   * (centerX, centerZ), using the integer cell-key index. Replaces a full
-   * Map scan (O(total cells), tens of thousands) with O(cells in the
-   * bounding box). Callers still do the exact squared-distance check. No
-   * margin needed: a cell's centre sits half a cell inside its own index, so
-   * a centre within range always has an index inside the floored box.
+   * Visit every grid spot in a tower's reach: the spots whose square reaches
+   * into the disc of `range` around (centerX, centerZ) (nearer than `range`;
+   * a square that only touches its rim is out, as the bounding box of the
+   * floored indices leaves it out on the low side), in a fixed order (grid x,
+   * then grid z, both ascending) that follows from position, range and cell
+   * size alone. `cell` is undefined for a spot without a cell; `slot`
+   * counts the spots visited so far (LosMask). Returns the number of slots.
+   * O(spots in the bounding box), not O(total cells).
    *
-   * Safe for both registerTower and registerTowerIncremental: tower range is
-   * monotonic non-decreasing (range upgrades only grow; terrain-promotion
-   * recompute keeps range), so the new range's box always covers every cell
-   * that previously held this tower's entry — there are no stale cells
-   * outside the box to clean up.
+   * A square rather than the centre: an enemy within range can stand in a
+   * cell whose centre lies up to half a diagonal beyond it, and that cell
+   * needs an answer (D2 in SIMULATOR_PLAN.md: combat treats a missing
+   * answer as not visible).
    */
-  private *cellsInRange(centerX: number, centerZ: number, range: number): IterableIterator<RouteCell> {
+  forEachSlotInReach(
+    centerX: number,
+    centerZ: number,
+    range: number,
+    visit: (cell: RouteCell | undefined, slot: number) => void,
+  ): number {
+    const size = this.CELL_SIZE;
+    const rangeSq = range * range;
     const gx0 = this.cellIndex(centerX - range);
     const gx1 = this.cellIndex(centerX + range);
     const gz0 = this.cellIndex(centerZ - range);
     const gz1 = this.cellIndex(centerZ + range);
+    let slot = 0;
     for (let gx = gx0; gx <= gx1; gx++) {
+      const dx = gapToSpan(centerX, gx * size, size);
+      const dxSq = dx * dx;
+      if (dxSq >= rangeSq) continue;
       for (let gz = gz0; gz <= gz1; gz++) {
-        const cell = this.cells.get(this.intCellKey(gx, gz));
-        if (cell) yield cell;
+        const dz = gapToSpan(centerZ, gz * size, size);
+        if (dxSq + dz * dz >= rangeSq) continue;
+        visit(this.cells.get(this.intCellKey(gx, gz)), slot++);
       }
     }
+    return slot;
   }
 
   /**
-   * Register a tower and compute LOS for all cells within range.
-   * Pre-computes ground LOS and/or air LOS depending on the tower's
-   * targeting capabilities. Samples terrain at registration time
-   * (tiles are expected to be loaded) for accurate LOS.
+   * The cells in a tower's reach (forEachSlotInReach), in slot order. The
+   * reach only grows with the range (range upgrades), so a larger range
+   * covers every cell a smaller one held an entry in.
+   */
+  private cellsInReach(centerX: number, centerZ: number, range: number): RouteCell[] {
+    const cells: RouteCell[] = [];
+    this.forEachSlotInReach(centerX, centerZ, range, (cell) => {
+      if (cell) cells.push(cell);
+    });
+    return cells;
+  }
+
+  /**
+   * Register a tower and compute LOS for all cells in its reach
+   * (forEachSlotInReach). Pre-computes ground LOS and/or air LOS depending
+   * on the tower's targeting capabilities, on the heights the corridor
+   * build froze.
    *
    * Visible cells are the UNION of ground- and air-visible cells: a cell
    * counts as visible if the tower can see *something* in it (ground level
@@ -570,7 +602,7 @@ export class GlobalRouteGrid {
     canTargetAir = false
   ): RouteCell[] {
     return resolveTowerLos(
-      this.cellsInRange(towerX, towerZ, range), towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+      this.cellsInReach(towerX, towerZ, range), towerId, towerX, towerZ, ctx, canTargetGround, canTargetAir,
       this.standHeight,
     );
   }
@@ -580,13 +612,9 @@ export class GlobalRouteGrid {
    * discarding existing LOS data.
    *
    * Behaves like `registerTower`, but for cells already having an entry for
-   * this tower (in either visibility map), the cached value is reused — no
-   * raycast. Except where the sampling in this very call moved the cell's
-   * height: that answer was for the old height and gets re-resolved. Cells
-   * outside the new range with a stale entry get cleaned up.
-   *
-   * This means a range-upgrade only raycasts the *new* cells (the annulus
-   * between old and new range), not the entire disc.
+   * this tower (in either visibility map), the cached value is reused, no
+   * cube sample. This means a range-upgrade only samples the *new* cells
+   * (the ring between old and new reach), not the entire disc.
    */
   registerTowerIncremental(
     towerId: string,
@@ -598,9 +626,62 @@ export class GlobalRouteGrid {
     canTargetAir = false,
   ): RouteCell[] {
     return resolveTowerLosIncremental(
-      this.cellsInRange(towerX, towerZ, range), towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir,
+      this.cellsInReach(towerX, towerZ, range), towerId, towerX, towerZ, ctx, canTargetGround, canTargetAir,
       this.standHeight,
     );
+  }
+
+  /**
+   * The tower's answers in its reach as a LosMask. Read after registerTower
+   * or registerTowerIncremental with the same position, range and
+   * capabilities.
+   */
+  encodeLosMask(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    range: number,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+  ): LosMask {
+    const slots = this.forEachSlotInReach(towerX, towerZ, range, () => undefined);
+    const bits = createLosBits(slots);
+    this.forEachSlotInReach(towerX, towerZ, range, (cell, slot) => {
+      if (!cell) return;
+      const value =
+        (canTargetGround && cell.towerVisibility.get(towerId) === true ? LOS_SLOT_GROUND : 0) |
+        (canTargetAir && cell.airVisibility.get(towerId) === true ? LOS_SLOT_AIR : 0);
+      if (value !== 0) writeLosSlot(bits, slot, value);
+    });
+    return { range, ground: canTargetGround, air: canTargetAir, bits };
+  }
+
+  /**
+   * Write the answers of `mask` into the cells of the tower's reach, no GPU
+   * work: every cell in reach gets a ground answer if the mask has ground
+   * answers and an air answer if it has air answers, an answer the mask
+   * lacks is removed. Returns the cells the tower sees something in, as
+   * registerTower does. Throws on a mask whose slot count does not fit the
+   * position and range: it was taken on another grid spot.
+   */
+  applyLosMask(towerId: string, towerX: number, towerZ: number, mask: LosMask): RouteCell[] {
+    const slots = this.forEachSlotInReach(towerX, towerZ, mask.range, () => undefined);
+    if (Math.ceil(slots / 4) !== mask.bits.length) {
+      throw new Error(`LosMask of ${towerId}: ${mask.bits.length} B for ${slots} slots at range ${mask.range}`);
+    }
+    const visibleCells: RouteCell[] = [];
+    this.forEachSlotInReach(towerX, towerZ, mask.range, (cell, slot) => {
+      if (!cell) return;
+      const value = readLosSlot(mask.bits, slot);
+      const ground = mask.ground && (value & LOS_SLOT_GROUND) !== 0;
+      const air = mask.air && (value & LOS_SLOT_AIR) !== 0;
+      if (mask.ground) cell.towerVisibility.set(towerId, ground);
+      else cell.towerVisibility.delete(towerId);
+      if (mask.air) cell.airVisibility.set(towerId, air);
+      else cell.airVisibility.delete(towerId);
+      if (ground || air) visibleCells.push(cell);
+    });
+    return visibleCells;
   }
 
   /**
@@ -1015,13 +1096,8 @@ export class GlobalRouteGrid {
 
   /** What the grid holds in a tower's range, see `summarizeTowerRange`. */
   describeTowerRange(towerId: string, x: number, z: number, range: number): TowerRangeReport {
-    const rangeSq = range * range;
-    const inRange: RouteCell[] = [];
-    for (const cell of this.cellsInRange(x, z, range)) {
-      if ((cell.x - x) ** 2 + (cell.z - z) ** 2 <= rangeSq) inRange.push(cell);
-    }
     return summarizeTowerRange(
-      inRange, towerId, this.findHolesInRange(x, z, range), (cell) => this.medianOfStableNeighbourY(cell), this.walkable,
+      this.cellsInReach(x, z, range), towerId, this.findHolesInRange(x, z, range), (cell) => this.medianOfStableNeighbourY(cell), this.walkable,
     );
   }
 
@@ -1106,17 +1182,23 @@ export class GlobalRouteGrid {
   // ========================================
 
   /**
-   * Liefert alle Cells deren Center innerhalb `range` von (x, z) liegt
-   * UND deren Terrain-Sample stabil ist. Wird von der GPU-LOS-Viz-
-   * Pipeline (TowerLosViz / TowerLosLayerBuilder) als Cell-Set genutzt.
+   * Die Cells in Reichweite (`forEachSlotInReach`: Fläche schneidet die
+   * Reichweite an, dieselben Zellen, für die ein Tower Antworten hat), deren
+   * Terrain-Sample eine Höhe hat. Wird von der GPU-LOS-Viz-Pipeline
+   * (TowerLosViz / TowerLosLayerBuilder) als Cell-Set genutzt.
    */
   getCellsInRange(x: number, z: number, range: number): RouteCell[] {
+    // A range far beyond the grid (a debug dump of every cell) scans the cells instead of the box
+    const span = 2 * range * this.INV_CELL_SIZE + 2;
+    if (span * span <= this.cells.size) return this.cellsInReach(x, z, range).filter((cell) => cell.heightSampled);
     const rangeSq = range * range;
     const result: RouteCell[] = [];
     for (const cell of this.cells.values()) {
       if (!cell.heightSampled) continue;
-      const distSq = (cell.x - x) ** 2 + (cell.z - z) ** 2;
-      if (distSq <= rangeSq) result.push(cell);
+      const size = this.CELL_SIZE;
+      const dx = gapToSpan(x, this.cellIndex(cell.x) * size, size);
+      const dz = gapToSpan(z, this.cellIndex(cell.z) * size, size);
+      if (dx * dx + dz * dz < rangeSq) result.push(cell);
     }
     return result;
   }

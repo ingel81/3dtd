@@ -9,6 +9,7 @@ import { CoordinateSync } from '../../three-engine/renderers';
 import type { ColumnSampler, TerrainPeekLOD } from '../../three-engine/column-sample';
 import type { PortalClipUniforms } from '../../three-engine/renderers/portal-clip';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
+import type { LosMask } from '../../utils/los-mask';
 import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry, Vector3 } from 'three';
 import { UIStore } from '../../store/ui.store';
 
@@ -173,12 +174,29 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Liefert alle Cells deren Center innerhalb \`range\` von (x, z) liegt
-   * UND deren Terrain-Sample stabil ist. Wird von der GPU-LOS-Viz-
-   * Pipeline (TowerLosViz / TowerLosLayerBuilder) als Cell-Set genutzt.
+   * Die Cells in Reichweite eines Towers (Fläche schneidet die Reichweite
+   * an) mit Höhe. Wird von der GPU-LOS-Viz-Pipeline (TowerLosViz /
+   * TowerLosLayerBuilder) als Cell-Set genutzt.
    */
   getCellsInRange(x: number, z: number, range: number): RouteCell[] {
     return this.grid.getCellsInRange(x, z, range);
+  }
+
+  /** A tower's answers as a LosMask, see GlobalRouteGrid.encodeLosMask. */
+  encodeLosMask(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    range: number,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+  ): LosMask {
+    return this.grid.encodeLosMask(towerId, towerX, towerZ, range, canTargetGround, canTargetAir);
+  }
+
+  /** Write a LosMask into the cells, no GPU work; returns the visible cells. See GlobalRouteGrid.applyLosMask. */
+  applyLosMask(towerId: string, towerX: number, towerZ: number, mask: LosMask): RouteCell[] {
+    return this.grid.applyLosMask(towerId, towerX, towerZ, mask);
   }
 
   /** Grid-Cell-Size in Metern. */

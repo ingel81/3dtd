@@ -4,9 +4,12 @@ import { RouteCell, getAirTargetY, getGroundTargetY } from './route-cell';
 /**
  * Per-tower LOS answers on the route cells, resolved against the GPU cube
  * of the tower (TowerShadowMapper). GlobalRouteGrid.registerTower and
- * registerTowerIncremental run these over the cells in the tower's range
- * box. The cells are frozen when a tower is placed (CorridorBuild), so their
- * heights are the ones the answers are for, once and for good.
+ * registerTowerIncremental run these over the cells in the tower's reach:
+ * every cell whose square touches the range disc, not only those whose
+ * centre lies in it, so an enemy in range always stands in a cell with an
+ * answer (decision D2, SIMULATOR_PLAN.md). The cells are frozen when a
+ * tower is placed (CorridorBuild), so their heights are the ones the
+ * answers are for, once and for good.
  *
  * `standY` is the height enemies stand on in a cell
  * (GlobalRouteGrid.getGroundLocalYAt at its centre). For a cell with a
@@ -15,7 +18,7 @@ import { RouteCell, getAirTargetY, getGroundTargetY } from './route-cell';
  */
 
 /**
- * Compute LOS for every cell of `candidates` within `range` of the tower.
+ * Compute LOS for every cell of `candidates`, the cells in the tower's reach.
  * Pre-computes ground LOS and/or air LOS depending on the tower's targeting
  * capabilities.
  *
@@ -24,7 +27,7 @@ import { RouteCell, getAirTargetY, getGroundTargetY } from './route-cell';
  * OR the air sample altitude), so the tower-targeting fast path picks up
  * enemies of either type.
  *
- * @param candidates Cells whose centre can lie in range (the range box)
+ * @param candidates Cells in the tower's reach (GlobalRouteGrid.cellsInReach)
  * @param ctx GPU-cube resolve context (built by caller via TowerShadowMapper)
  * @param standY Height enemies stand on in a cell
  * @returns the cells the tower can see something in
@@ -34,23 +37,18 @@ export function resolveTowerLos(
   towerId: string,
   towerX: number,
   towerZ: number,
-  range: number,
   ctx: LosResolveContext,
   canTargetGround: boolean,
   canTargetAir: boolean,
   standY: (cell: RouteCell) => number,
 ): RouteCell[] {
   const visibleCells: RouteCell[] = [];
-  const rangeSq = range * range;
   const tipX = ctx.referencePos.x;
   const tipY = ctx.referencePos.y;
   const tipZ = ctx.referencePos.z;
 
   for (const cell of candidates) {
-    const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-    if (distSq > rangeSq) continue;
-
-    const atTower = distSq < 0.01;
+    const atTower = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2 < 0.01;
 
     // Ground visibility — GPU-cube sample at getGroundTargetY (ground + 1.5m)
     let groundVisible = false;
@@ -90,41 +88,31 @@ export function resolveTowerLos(
  *
  * For cells already having an entry for this tower (in either visibility
  * map), the cached value is reused, no GPU sample: the cells and their
- * heights do not change while a tower stands. Cells in the box but outside
- * the new range with a stale entry get cleaned up.
+ * heights do not change while a tower stands. The reach only grows (range
+ * upgrades), so every earlier entry lies in `candidates`.
  *
- * This means a range-upgrade only samples the *new* cells (the annulus
- * between old and new range), not the entire disc.
+ * This means a range-upgrade only samples the *new* cells (the ring
+ * between old and new reach), not the entire disc. The answers then come
+ * from cubes of different moments; the tower's LosMask records the result,
+ * which is what a re-simulation applies.
  */
 export function resolveTowerLosIncremental(
   candidates: Iterable<RouteCell>,
   towerId: string,
   towerX: number,
   towerZ: number,
-  range: number,
   ctx: LosResolveContext,
   canTargetGround: boolean,
   canTargetAir: boolean,
   standY: (cell: RouteCell) => number,
 ): RouteCell[] {
   const visibleCells: RouteCell[] = [];
-  const rangeSq = range * range;
   const tipX = ctx.referencePos.x;
   const tipY = ctx.referencePos.y;
   const tipZ = ctx.referencePos.z;
 
   for (const cell of candidates) {
-    const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-    const inRange = distSq <= rangeSq;
-
-    if (!inRange) {
-      // In-box but outside the exact circle — clean up any stale entry.
-      cell.towerVisibility.delete(towerId);
-      cell.airVisibility.delete(towerId);
-      continue;
-    }
-
-    const atTower = distSq < 0.01;
+    const atTower = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2 < 0.01;
 
     // Ground visibility — reuse cached value if present, otherwise GPU-sample
     let groundVisible = false;
