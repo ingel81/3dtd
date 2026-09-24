@@ -42,6 +42,8 @@ export class BackgroundMusicService {
   private gameOverTimer: ReturnType<typeof setTimeout> | null = null;
   /** End of a wave: the timer that brings in the build music after the horn */
   private waveEndTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Start of a wave: the timer that brings in the wave music as the start signal rings out */
+  private waveStartTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Main theme HTMLAudioElement slow fade-out before the build phase starts
   private mainThemeFadeRafId: number | null = null;
@@ -280,7 +282,7 @@ export class BackgroundMusicService {
     this.subs.add(
       this.eventBus.onShow('wave:started', ({ wave }) => {
         this.currentWave = wave;
-        this.playWavePhase();
+        this.startWavePhase();
       }),
     );
 
@@ -372,6 +374,8 @@ export class BackgroundMusicService {
     this.gameOverTimer = null;
     if (this.waveEndTimer !== null) clearTimeout(this.waveEndTimer);
     this.waveEndTimer = null;
+    if (this.waveStartTimer !== null) clearTimeout(this.waveStartTimer);
+    this.waveStartTimer = null;
   }
 
   /**
@@ -409,14 +413,31 @@ export class BackgroundMusicService {
     this.crossfadeToTrack(track, fadeMs);
   }
 
-  private playWavePhase(): void {
+  /**
+   * A wave starts: the build music slides out under the start signal, the
+   * wave music comes in once the signal rings out (BACKGROUND_MUSIC.waveStart).
+   * The phase is wave from now on.
+   */
+  private startWavePhase(): void {
+    const { fadeOutMs, waveDelayMs, waveFadeInMs } = BACKGROUND_MUSIC.waveStart;
+    this.cancelMainThemeFade();
+    this.clearPhaseTimers();
+    this.mixer.fadeOut(fadeOutMs);
+    this.currentPhase = 'wave';
+    this.waveStartTimer = setTimeout(() => {
+      this.waveStartTimer = null;
+      this.playWavePhase(waveFadeInMs);
+    }, waveDelayMs);
+  }
+
+  private playWavePhase(fadeMs = BACKGROUND_MUSIC.phaseFadeDuration): void {
     this.cancelMainThemeFade();
     this.clearPhaseTimers();
     this.currentPhase = 'wave';
     const track = this.pickRandom(this.waveTracks(this.currentWave), this.lastWaveTrackId);
     if (!track) return;
     this.lastWaveTrackId = track.id;
-    this.crossfadeToTrack(track, BACKGROUND_MUSIC.phaseFadeDuration);
+    this.crossfadeToTrack(track, fadeMs);
   }
 
   /** The tracks for `wave`: the boss's, the blood moon's or the wave's; a list without tracks falls back to the wave's. */

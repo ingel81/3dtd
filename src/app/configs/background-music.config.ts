@@ -47,6 +47,15 @@ export interface BackgroundMusicConfig {
    * build music with the horn in the middle of it: too abrupt.
    */
   waveEnd: { fadeOutMs: number; buildDelayMs: number; buildFadeInMs: number };
+  /**
+   * Start of a wave: the build music slides out over `fadeOutMs` under the
+   * wave-start signal (MOMENT_SOUNDS.waveStart, 3 s, or the blood moon's
+   * call), which sets in at full level and decays from about 1.3 s; the wave
+   * music fades in over `waveFadeInMs` from `waveDelayMs` on, as the signal
+   * rings out. Until 2026-09-24 the wave music crossfaded in at once, right
+   * into the loudest part of the signal: too abrupt (TODO C18).
+   */
+  waveStart: { fadeOutMs: number; waveDelayMs: number; waveFadeInMs: number };
   /** Share of the volume while the game is paused */
   pauseDim: number;
   /**
@@ -89,7 +98,9 @@ export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   bloodMoon: [{ id: 'music-blood-moon-01', url: 'assets/music/blood_moon/blood_moon01.mp3' }],
   gameOver: [{ id: 'music-game-over-01', url: 'assets/music/game_over/game_over01.mp3', volume: 0.35 }],
   gameOverMusicDelayMs: 4000,
-  waveEnd: { fadeOutMs: 1200, buildDelayMs: 2800, buildFadeInMs: 3000 },
+  // The horn swells for about a second: the wave music slides out under it, not away from it
+  waveEnd: { fadeOutMs: 2000, buildDelayMs: 2800, buildFadeInMs: 3000 },
+  waveStart: { fadeOutMs: 900, waveDelayMs: 1400, waveFadeInMs: 2500 },
   pauseDim: 0.35,
   duck: {
     nuclearStrike: { factor: 0.35, holdMs: 3000 },
