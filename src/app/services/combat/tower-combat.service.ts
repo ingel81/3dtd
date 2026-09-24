@@ -5,7 +5,7 @@ import { ThreeTilesEngine } from '../../three-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { SpatialGridService } from '../world/spatial-grid.service';
 import { CombatEffectService } from './combat-effect.service';
-import { ResearchStore } from '../../store/research.store';
+import { NO_RESEARCH, type SimResearch } from '../../managers/research.manager';
 import { Enemy } from '../../entities/enemy.entity';
 import { Tower } from '../../entities/tower.entity';
 import { TowerManager } from '../../managers/tower.manager';
@@ -45,9 +45,10 @@ export class TowerCombatService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly spatialGrid = inject(SpatialGridService);
   private readonly combatEffectService = inject(CombatEffectService);
-  private readonly researchStore = inject(ResearchStore);
 
   private tilesEngine: ThreeTilesEngine | null = null;
+  /** The game's ResearchManager once initialized */
+  private research: SimResearch = NO_RESEARCH;
 
   // Throttle blood effects for beam damage (per-enemy)
   private lastBeamBloodEffect = new Map<string, number>();
@@ -93,10 +94,11 @@ export class TowerCombatService {
   private readonly _pitchMuzzle = new Vector3();
 
   /**
-   * Initialize with engine reference
+   * Initialize with engine reference and the research the combat reads
    */
-  initialize(tilesEngine: ThreeTilesEngine): void {
+  initialize(tilesEngine: ThreeTilesEngine, research: SimResearch): void {
     this.tilesEngine = tilesEngine;
+    this.research = research;
   }
 
   /**
@@ -352,7 +354,7 @@ export class TowerCombatService {
     enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
   ): void {
-    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Skip non-projectile towers (beam, melee, chain) — they have their
@@ -548,7 +550,7 @@ export class TowerCombatService {
     );
     this.beginBodyAim(tower);
     const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
-    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     const eye = this.mannedEyeInto(tower, this._mannedEye);
     const dir = aimDirectionInto(tower.manualAim.heading, tower.manualAim.pitch, this._mannedDir);
@@ -626,7 +628,7 @@ export class TowerCombatService {
     const now = performance.now();
     // deltaTime is sub-step game-time ms — convert to seconds for DPS math.
     const dt = deltaTime / 1000;
-    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Skip towers with pending LOS computation
@@ -898,7 +900,7 @@ export class TowerCombatService {
   ): void {
     if (!this.tilesEngine) return;
 
-    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Type-filter MUST be before combat.update — see comment in
@@ -976,7 +978,7 @@ export class TowerCombatService {
   ): void {
     if (!this.tilesEngine) return;
 
-    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    const airTargetingUnlocked = this.research.airTargetingUnlocked;
 
     for (const tower of towerManager.getAllActive()) {
       // Type-filter MUST be before combat.update — see comment in

@@ -41,7 +41,6 @@ describe('CombatEffectService splash', () => {
   let applyDamage: ReturnType<typeof vi.fn>;
   let applySlow: ReturnType<typeof vi.fn>;
   let applyPoison: ReturnType<typeof vi.fn>;
-  let airTargetingUnlocked = false;
 
   function hit(
     towerType: TowerTypeId,
@@ -70,14 +69,12 @@ describe('CombatEffectService splash', () => {
     applyDamage = vi.fn(() => null);
     applySlow = vi.fn();
     applyPoison = vi.fn();
-    airTargetingUnlocked = false;
     mockInjections['DamageApplicationService'] = { applyDamage };
     mockInjections['StatusEffectService'] = { applySlow, applyPoison };
     mockInjections['CombatVfxService'] = {
       emitIceExplosion: vi.fn(),
       emitIceDecal: vi.fn(),
     };
-    mockInjections['ResearchStore'] = { airTargetingUnlocked: () => airTargetingUnlocked };
   });
 
   it('cannon splash spares flyers the cannon cannot target', () => {
@@ -171,7 +168,6 @@ describe('CombatEffectService hits on a body along the route', () => {
     mockInjections['DamageApplicationService'] = { applyDamage };
     mockInjections['StatusEffectService'] = { applySlow: vi.fn(), applyPoison: vi.fn() };
     mockInjections['CombatVfxService'] = { emitIceExplosion: vi.fn(), emitIceDecal: vi.fn() };
-    mockInjections['ResearchStore'] = { airTargetingUnlocked: () => false };
   });
 
   it('puts the hit where the shot lands, on the ground under the aim point', () => {
@@ -201,7 +197,6 @@ describe('CombatEffectService DoT ticks on a body along the route', () => {
     Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
     mockInjections['StatusEffectService'] = {};
     mockInjections['CombatVfxService'] = {};
-    mockInjections['ResearchStore'] = {};
   });
 
   it('moves the hit onto the body before the tick, where the tail may have moved past it', () => {

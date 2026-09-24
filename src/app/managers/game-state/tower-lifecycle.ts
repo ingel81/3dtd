@@ -6,7 +6,6 @@ import type { WaveManager } from '../wave.manager';
 import type { EnemyManager } from '../enemy.manager';
 import type { TowerPlacementService } from '../../services/tower-placement.service';
 import type { TowerCombatService } from '../../services/combat/tower-combat.service';
-import type { ResearchStore } from '../../store/research.store';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { Tower } from '../../entities/tower.entity';
 import type { Enemy } from '../../entities/enemy.entity';
@@ -37,7 +36,6 @@ export class TowerLifecycle {
     private readonly enemyManager: EnemyManager,
     private readonly placement: TowerPlacementService,
     private readonly combat: TowerCombatService,
-    private readonly researchStore: ResearchStore,
     private readonly creditsLedger: CreditsLedger,
     private readonly eventBus: GameEventBus,
     /** The engine once the GameStateManager is initialized */
@@ -72,7 +70,7 @@ export class TowerLifecycle {
 
     // Research-gate: tower must be unlocked. Defense-in-depth against bots
     // or commands that bypass the UI's isTowerUnlocked() check.
-    if (!this.researchStore.isTowerUnlocked(typeId)) {
+    if (!this.researchManager.isTowerUnlocked(typeId)) {
       return null;
     }
 

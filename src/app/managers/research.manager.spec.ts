@@ -754,4 +754,37 @@ describe('ResearchManager', () => {
       expect(rm.isTowerUnlocked('dual-gatling')).toBe(true);
     });
   });
+
+  // The simulation reads this flag, not the ResearchStore (docs/SIMULATOR_PLAN.md, L8)
+  describe('airTargetingUnlocked', () => {
+    it('turns on with the research that enables air targeting, before research:completed goes out', () => {
+      const seen: boolean[] = [];
+      bus.on('research:completed', () => seen.push(rm.airTargetingUnlocked));
+      expect(rm.airTargetingUnlocked).toBe(false);
+
+      rm.completeResearch('gatling-tech');
+      expect(rm.airTargetingUnlocked).toBe(false);
+      rm.completeResearch('aa-retrofit');
+      expect(rm.airTargetingUnlocked).toBe(true);
+      expect(seen).toEqual([false, true]);
+    });
+
+    it('turns on when the running research finishes in a sub-step', () => {
+      rm.restoreState({ completed: ['gatling-tech'], active: [], slots: 1, centerLevel: 1, queued: [] });
+      expect(rm.startResearch('aa-retrofit')).toBe(true);
+      rm.update(getResearch('aa-retrofit')!.duration * 1000);
+      expect(rm.airTargetingUnlocked).toBe(true);
+    });
+
+    it('follows reset(), completeAllResearch() and restoreState()', () => {
+      rm.completeAllResearch();
+      expect(rm.airTargetingUnlocked).toBe(true);
+      rm.reset();
+      expect(rm.airTargetingUnlocked).toBe(false);
+      rm.restoreState({ completed: ['gatling-tech', 'aa-retrofit'], active: [], slots: 1, centerLevel: 0, queued: [] });
+      expect(rm.airTargetingUnlocked).toBe(true);
+      rm.restoreState({ completed: ['gatling-tech'], active: [], slots: 1, centerLevel: 0, queued: [] });
+      expect(rm.airTargetingUnlocked).toBe(false);
+    });
+  });
 });

@@ -550,6 +550,7 @@ describe('GameStateManager order of operations (characterization)', () => {
 
     it('queues an LOS recompute when research unlocks air targeting', () => {
       gsm.addCredits(10_000, 'cheat');
+      gsm.researchManager.completeResearch('gatling-tech');
       const gatling = gsm.placeTower(BASE_POSITION, 'dual-gatling');
       expect(gatling).not.toBeNull();
       log.length = 0;
@@ -659,6 +660,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     });
 
     it('places and sells the missile silo with the ability snapshot last, after the tower list changed', () => {
+      gsm.researchManager.completeResearch('nuclear-strike');
       const snapshots: boolean[] = [];
       bus.on('ability:state-changed', (e) => snapshots.push(e.abilities.find((a) => a.id === 'nuclear-strike')!.launchSite));
       log.length = 0;
