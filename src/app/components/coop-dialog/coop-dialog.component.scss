@@ -356,6 +356,15 @@ input[type='text']:focus {
   margin-bottom: 6px;
 }
 
+.lock-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+}
+
 .relay-test {
   display: flex;
   align-items: center;

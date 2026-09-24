@@ -208,6 +208,20 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('a', 'waiting')!.playerId).toBeNull();
   });
 
+  it('lets the host take a player out and close the room to new ones (R9)', () => {
+    lobby();
+    room.receive('b', { t: 'kick', playerId: 'a' });
+    expect(last('b', 'refused')!.reason).toBe('not-host');
+    room.receive('a', { t: 'kick', playerId: 'b' });
+    expect(last('b', 'refused')!.reason).toBe('kicked');
+    expect(last('a', 'room')!.room.players.map((p) => p.id)).toEqual(['a']);
+    room.receive('a', { t: 'lock', locked: true });
+    expect(last('a', 'room')!.room.locked).toBe(true);
+    expect(room.join(player('c'))).toBe('locked');
+    room.receive('a', { t: 'lock', locked: false });
+    expect(room.join(player('c'))).toBeNull();
+  });
+
   it('follows the host speed, and stands still at 0', () => {
     lobby();
     room.receive('a', { t: 'start', seed: 1 });

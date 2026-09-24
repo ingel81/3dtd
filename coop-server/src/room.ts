@@ -103,6 +103,8 @@ export class Room {
   private started = false;
 
   private speed = 1;
+  /** No further players may join (review R9) */
+  private locked = false;
   /** The player the room waits for to catch up (MAX_AHEAD_TICKS), null while none */
   private waitingFor: string | null = null;
   /** The speed a resume goes back to: the last one that was not 0 */
@@ -156,6 +158,7 @@ export class Room {
   join(player: RoomPlayer): RefusalReason | null {
     if (this.players.some((p) => p.id === player.id)) return null;
     if (this.started) return 'started';
+    if (this.locked) return 'locked';
     if (this.players.length >= MAX_PLAYERS) return 'full';
     const host = this.players.find((p) => p.id === this.hostId)!;
     if (player.gameVersion !== host.gameVersion) return 'version';
@@ -219,6 +222,18 @@ export class Room {
         this.log(`${this.who(playerId)} ${spawnId === null ? 'gave the lane back' : `took lane ${spawnId}`}`);
         return this.broadcastRoom();
       }
+      case 'kick': {
+        if (!host) return this.refuse(playerId, 'not-host');
+        if (this.started || message.playerId === playerId || !this.players.some((p) => p.id === message.playerId)) return;
+        this.send(message.playerId, { t: 'refused', reason: 'kicked' });
+        return this.leave(message.playerId, `taken out by ${this.who(playerId)}`);
+      }
+      case 'lock':
+        if (!host) return this.refuse(playerId, 'not-host');
+        if (this.locked === !!message.locked) return;
+        this.locked = !!message.locked;
+        this.log(this.locked ? 'closed to new players' : 'open to new players again');
+        return this.broadcastRoom();
       case 'rename': {
         if (this.started) return this.refuse(playerId, 'started');
         const before = this.who(playerId);
@@ -394,6 +409,7 @@ export class Room {
       spawnIds: [...this.spawnIds],
       started: this.started,
       cheats: this.cheats,
+      locked: this.locked,
     };
   }
 
