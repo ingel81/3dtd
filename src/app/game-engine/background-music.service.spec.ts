@@ -51,9 +51,9 @@ const reg = vi.hoisted(() => ({
       bloodMoon: [{ id: 'moon', url: 'moon.mp3' }],
       gameOver: [{ id: 'over', url: 'over.mp3', volume: 0.35 }],
       gameOverMusicDelayMs: 4000,
-      waveEnd: { fadeOutMs: 1200, buildDelayMs: 2800, buildFadeInMs: 3000 },
+      waveEnd: { leadMs: 1200, buildDelayMs: 2800, buildFadeInMs: 3000 },
       // No delay and the phase fade here, so the phase specs stay about the tracks; the start's own spec sets real values
-      waveStart: { fadeOutMs: 900, waveDelayMs: 0, waveFadeInMs: 1500 },
+      waveStart: { leadMs: 0, waveDelayMs: 0, waveFadeInMs: 1500 },
       pauseDim: 0.35,
       duck: {
         nuclearStrike: { factor: 0.35, holdMs: 3000 },
@@ -178,7 +178,7 @@ function setup(opts: { suspended?: boolean } = {}) {
   /** Wave 1 starts; the wave music comes in once the start signal rang out (BACKGROUND_MUSIC.waveStart) */
   const waveStarted = async (wave = 1) => {
     eventBus.emit({ type: 'wave:started', wave, enemyCount: 10 });
-    await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveStart.waveDelayMs);
+    await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveStart.leadMs + BACKGROUND_MUSIC.waveStart.waveDelayMs);
     await flush();
   };
   const waveCompleted = async () => {
@@ -360,9 +360,9 @@ describe('BackgroundMusicService', () => {
   });
 
   describe('phases', () => {
-    it('slides the build music out under the start signal and brings the wave music in as it rings out', async () => {
+    it('fades the build music out before the start signal and brings the wave music in as it rings out', async () => {
       const saved = BACKGROUND_MUSIC.waveStart;
-      (BACKGROUND_MUSIC as { waveStart: typeof saved }).waveStart = { fadeOutMs: 900, waveDelayMs: 1400, waveFadeInMs: 2500 };
+      (BACKGROUND_MUSIC as { waveStart: typeof saved }).waveStart = { leadMs: 900, waveDelayMs: 1400, waveFadeInMs: 2500 };
       try {
         const { eventBus, playing, startBuild } = setup();
         await startBuild();
@@ -375,7 +375,7 @@ describe('BackgroundMusicService', () => {
         expect(playing()).toHaveLength(0);
         expect(build.isPlaying).toBe(false);
 
-        await vi.advanceTimersByTimeAsync(1400);
+        await vi.advanceTimersByTimeAsync(900 + 1400);
         await flush();
         const [wave] = playing();
         expect(wave.buffer?.url).toBe('w1.mp3');
@@ -428,18 +428,18 @@ describe('BackgroundMusicService', () => {
       expect(wave.volume).toBeCloseTo(trackVolume('w1'));
     });
 
-    it('fades the wave music out when the wave completes, then brings build music in after the horn', async () => {
+    it('fades the wave music out before the horn when the wave completes, then brings build music in after it', async () => {
       const { playing, startBuild, waveStarted, waveCompleted } = setup();
       await startBuild();
       await waveStarted();
       frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
-      const { fadeOutMs, buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
+      const { leadMs, buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
 
       await waveCompleted();
-      frame(NOW + fadeOutMs);
+      frame(NOW + leadMs);
       expect(playing()).toHaveLength(0);
 
-      await vi.advanceTimersByTimeAsync(buildDelayMs);
+      await vi.advanceTimersByTimeAsync(leadMs + buildDelayMs);
       await flush();
       frame(NOW + buildFadeInMs);
       expect(playing()).toHaveLength(1);
@@ -454,7 +454,7 @@ describe('BackgroundMusicService', () => {
       frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
       await waveCompleted();
       await waveStarted();
-      await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveEnd.buildDelayMs);
+      await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveEnd.leadMs + BACKGROUND_MUSIC.waveEnd.buildDelayMs);
       await flush();
       frame(NOW + BACKGROUND_MUSIC.waveEnd.buildFadeInMs);
       expect(playing().map((c) => c.buffer?.url)).toEqual([expect.stringMatching(/^w\d\.mp3$/)]);
@@ -498,7 +498,7 @@ describe('BackgroundMusicService', () => {
       await startBuild();
       const start = async (wave: number) => {
         eventBus.emit({ type: 'wave:started', wave, enemyCount: 10 });
-        await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveStart.waveDelayMs);
+        await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.waveStart.leadMs + BACKGROUND_MUSIC.waveStart.waveDelayMs);
         await flush();
         frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
         return playing().map((c) => c.buffer?.url);

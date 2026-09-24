@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { BACKGROUND_MUSIC } from '../configs/background-music.config';
 import { GameEventBus } from './game-event-bus';
 import { GameSoundsService } from './game-sounds.service';
 import {
@@ -92,9 +93,28 @@ describe('GameSoundsService', () => {
   it('plays the horn and stomp at a wave start, the blood moon on its waves, the falling horn at the end', () => {
     const { bus, global } = setup();
     bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
+    vi.advanceTimersByTime(BACKGROUND_MUSIC.waveStart.leadMs);
     bus.emit({ type: 'wave:started', wave: BLOOD_MOON_FIRST_WAVE, enemyCount: 10 });
+    vi.advanceTimersByTime(BACKGROUND_MUSIC.waveStart.leadMs);
     bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+    vi.advanceTimersByTime(BACKGROUND_MUSIC.waveEnd.leadMs);
     expect(global()).toEqual([MOMENT_SOUNDS.waveStart.id, MOMENT_SOUNDS.bloodMoon.id, MOMENT_SOUNDS.waveComplete.id]);
+  });
+
+  it('waits for the music to fade out before the signal, and drops it on a restore or a reset', () => {
+    const { bus, global } = setup();
+    bus.emit({ type: 'wave:started', wave: 1, enemyCount: 10 });
+    vi.advanceTimersByTime(BACKGROUND_MUSIC.waveStart.leadMs - 1);
+    expect(global()).toEqual([]);
+    vi.advanceTimersByTime(1);
+    expect(global()).toEqual([MOMENT_SOUNDS.waveStart.id]);
+
+    bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+    bus.emit({ type: 'sim:restored', reason: 'live' });
+    bus.emit({ type: 'wave:started', wave: 2, enemyCount: 10 });
+    bus.emit({ type: 'game:reset' });
+    vi.advanceTimersByTime(10_000);
+    expect(global()).toEqual([MOMENT_SOUNDS.waveStart.id]);
   });
 
   it('plays the golem step lower, at its playback rate', () => {

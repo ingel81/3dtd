@@ -379,20 +379,20 @@ export class BackgroundMusicService {
   }
 
   /**
-   * The wave is done: its music fades out under the wave-end horn, and the
+   * The wave is done: its music fades out before the wave-end horn, and the
    * build music comes in once the horn has rung out (BACKGROUND_MUSIC.waveEnd).
    * The phase is build from now on, so a volume raised meanwhile brings the
    * build music at once.
    */
   private endWavePhase(): void {
-    const { fadeOutMs, buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
+    const { leadMs, buildDelayMs, buildFadeInMs } = BACKGROUND_MUSIC.waveEnd;
     this.clearPhaseTimers();
-    this.mixer.fadeOut(fadeOutMs);
+    this.mixer.fadeOut(leadMs);
     this.currentPhase = 'build';
     this.waveEndTimer = setTimeout(() => {
       this.waveEndTimer = null;
       this.playBuildPhase(buildFadeInMs);
-    }, buildDelayMs);
+    }, leadMs + buildDelayMs);
   }
 
   private playGameOverPhase(): void {
@@ -414,20 +414,20 @@ export class BackgroundMusicService {
   }
 
   /**
-   * A wave starts: the build music slides out under the start signal, the
+   * A wave starts: the build music fades out before the start signal, the
    * wave music comes in once the signal rings out (BACKGROUND_MUSIC.waveStart).
    * The phase is wave from now on.
    */
   private startWavePhase(): void {
-    const { fadeOutMs, waveDelayMs, waveFadeInMs } = BACKGROUND_MUSIC.waveStart;
+    const { leadMs, waveDelayMs, waveFadeInMs } = BACKGROUND_MUSIC.waveStart;
     this.cancelMainThemeFade();
     this.clearPhaseTimers();
-    this.mixer.fadeOut(fadeOutMs);
+    this.mixer.fadeOut(leadMs);
     this.currentPhase = 'wave';
     this.waveStartTimer = setTimeout(() => {
       this.waveStartTimer = null;
       this.playWavePhase(waveFadeInMs);
-    }, waveDelayMs);
+    }, leadMs + waveDelayMs);
   }
 
   private playWavePhase(fadeMs = BACKGROUND_MUSIC.phaseFadeDuration): void {

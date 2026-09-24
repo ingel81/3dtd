@@ -16,6 +16,7 @@ import {
   type GlobalCue,
 } from '../configs/game-sounds.config';
 import { isBloodMoonWave } from '../configs/blood-moon.config';
+import { BACKGROUND_MUSIC } from '../configs/background-music.config';
 import type { AbilityStatus } from '../configs/abilities.config';
 import type { HeroStatus } from '../configs/hero.config';
 import type { Enemy } from '../entities/enemy.entity';
@@ -38,6 +39,8 @@ export class GameSoundsService {
   private abilities = new Map<string, AbilityStatus>();
   private hero: HeroStatus | null = null;
   private stingerTimer: ReturnType<typeof setTimeout> | null = null;
+  /** Start signal or wave-end horn waiting for the music to fade out, see cue() */
+  private cueTimer: ReturnType<typeof setTimeout> | null = null;
   /** Wall time until which the consequences of a cheat stay silent (CHEAT_QUIET_MS) */
   private quietUntilMs = -Infinity;
 
@@ -117,10 +120,14 @@ export class GameSoundsService {
       this.playAt(WORLD_SOUNDS.heroLevelUp.id, position);
     }));
 
+    // Start signal and wave-end horn sound into the quiet, once the music
+    // faded out (BACKGROUND_MUSIC.waveStart / waveEnd, leadMs)
     this.subs.add(bus.onShow('wave:started', ({ wave }) => {
-      this.playGlobal(isBloodMoonWave(wave) ? MOMENT_SOUNDS.bloodMoon : MOMENT_SOUNDS.waveStart);
+      this.cue(isBloodMoonWave(wave) ? MOMENT_SOUNDS.bloodMoon : MOMENT_SOUNDS.waveStart, BACKGROUND_MUSIC.waveStart.leadMs);
     }));
-    this.subs.add(bus.onShow('wave:completed', () => this.playGlobal(MOMENT_SOUNDS.waveComplete)));
+    this.subs.add(bus.onShow('wave:completed', () => this.cue(MOMENT_SOUNDS.waveComplete, BACKGROUND_MUSIC.waveEnd.leadMs)));
+    // A restore (replay in, out, a seek) is another moment: a cue waiting for it goes
+    this.subs.add(bus.on('sim:restored', () => this.clearCue()));
     this.subs.add(bus.onShow('research:completed', () => this.playGlobal(MOMENT_SOUNDS.researchComplete)));
     this.subs.add(bus.onShow('ability:state-changed', ({ abilities, restored }) => this.onAbilities(abilities, restored)));
     this.subs.add(bus.onShow('hero:state-changed', ({ hero, restored }) => this.onHero(hero, restored)));
@@ -128,6 +135,7 @@ export class GameSoundsService {
     // The HQ goes, then the stinger; the game-over track follows (music)
     this.subs.add(bus.onShow('game:over', () => {
       this.playGlobal(MOMENT_SOUNDS.hqDestroyed);
+      this.clearCue();
       this.clearStinger();
       this.stingerTimer = setTimeout(() => {
         this.stingerTimer = null;
@@ -136,6 +144,7 @@ export class GameSoundsService {
     }));
     this.subs.add(bus.onShow('game:reset', () => {
       this.clearStinger();
+      this.clearCue();
       this.abilities.clear();
       this.hero = null;
     }));
@@ -195,6 +204,20 @@ export class GameSoundsService {
   private playGlobal(cue: GlobalCue): void {
     if (this.quiet) return;
     this.tilesEngine.spatialAudio?.playGlobal(cue.id).catch(() => undefined);
+  }
+
+  /** Play `sound` after `delayMs`; a later cue replaces one still waiting. */
+  private cue(sound: GlobalCue, delayMs: number): void {
+    this.clearCue();
+    this.cueTimer = setTimeout(() => {
+      this.cueTimer = null;
+      this.playGlobal(sound);
+    }, delayMs);
+  }
+
+  private clearCue(): void {
+    if (this.cueTimer !== null) clearTimeout(this.cueTimer);
+    this.cueTimer = null;
   }
 
   private clearStinger(): void {

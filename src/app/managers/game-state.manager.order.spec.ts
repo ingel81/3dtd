@@ -504,7 +504,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'debug:kill-all', 'debug:complete-all-research', 'debug:max-upgrade-all-towers', 'debug:ready-ability',
         'debug:ready-hero',
         'enemy:died', 'enemy:split', 'projectile:hit', 'enemy:footstep', 'tower:upgraded', 'ability:used',
-        'hero:level-up', 'wave:started', 'wave:completed', 'research:completed', 'ability:state-changed',
+        'hero:level-up', 'wave:started', 'wave:completed', 'sim:restored', 'research:completed', 'ability:state-changed',
         'hero:state-changed', 'game:over', 'game:reset',
         'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:footstep', 'enemy:died',
         'wave:started', 'ability:impact', 'health:changed', 'wave:completed', 'game:over', 'game:reset',
