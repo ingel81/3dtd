@@ -38,6 +38,7 @@ import { waveButtonView } from '../../components/game-sidebar/wave-panel/wave-bu
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { WaveConfig } from '../../director/models/wave-config';
+import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import { GameRng } from '../../utils/game-rng';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 
@@ -99,10 +100,9 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
-  /** Enemy types of the last wave the facade started */
+  /** Enemy types of the last wave the facade started; its schedule is built where the command acts */
   const startedTypes = () =>
-    (started[started.length - 1] as unknown as { schedule: { entries: { enemyType: string }[] } })
-      .schedule.entries.map((e) => e.enemyType);
+    adaptDirectorWave(started[started.length - 1]).schedule.entries.map((e) => e.enemyType);
   /** SidebarWavePanelComponent.waveButton between waves: the upcoming wave */
   const buttonLabel = () => waveButtonView(store.waveNumber() + 1, false, 0, 0).label;
   const jump = (from: number, wave: number) =>
@@ -116,7 +116,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
   beforeEach(() => {
     bus = new GameEventBus();
     started = [];
-    bus.on('command:start-wave', (e) => started.push(e.config as unknown as WaveConfig));
+    bus.on('command:start-wave', (e) => started.push(e.director!));
     store.phase.set('setup');
     store.waveNumber.set(0);
     store.waveExplanation.set(null);

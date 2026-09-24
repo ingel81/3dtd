@@ -370,11 +370,11 @@ export class GameLoopFacadeService {
         })),
         ...planned.log,
       });
-      const waveConfig = adaptDirectorWave(aiConfig, this.gameState.rng.stream('spawn'));
-
+      // The spawn schedule is built where the command acts: it draws from
+      // the spawn stream, which has to move on every coop client alike
       this.gameState.getEventBus().emit({
         type: 'command:start-wave',
-        config: waveConfig,
+        director: aiConfig,
       });
     } catch (error) {
       console.error('[AI] Failed to generate wave', error);
