@@ -15,7 +15,9 @@ const MAX_LINES = 6;
  * The coop chat in the game (docs/COOP_PLAN.md, review R12): the last lines
  * at the bottom left, right of the ability bar, for a while each; Enter opens
  * a line to write, Enter sends it, Esc closes it. The lobby has its chat in
- * the coop panel.
+ * the coop panel. X arms the map ping (review R13): the next click marks a
+ * place for everyone. Both keys are coop's, so they live here rather than in
+ * the global HotkeyService, which cannot see the game's CoopService.
  */
 @Component({
   selector: 'app-coop-chat',
@@ -36,8 +38,10 @@ const MAX_LINES = 6;
         <input #field class="field" type="text" maxlength="200" placeholder="Say something, Enter sends, Esc closes"
                (keydown.enter)="send($any($event.target).value); $event.stopPropagation()"
                (keydown.escape)="close(); $event.stopPropagation()" (blur)="close()" />
+      } @else if (coop.pingArmed()) {
+        <div class="hint is-armed">Click the map to mark a place for everyone</div>
       } @else {
-        <div class="hint">Enter: chat</div>
+        <div class="hint">Enter: chat · X: mark the map</div>
       }
     }
   `,
@@ -84,6 +88,10 @@ const MAX_LINES = 6;
       font: 500 12px/1.3 var(--td-font-body);
       outline: none;
     }
+    .hint.is-armed {
+      color: var(--td-gold-light);
+      opacity: 1;
+    }
     .hint {
       font: 600 9px/1 var(--td-font-mono);
       letter-spacing: 0.08em;
@@ -128,10 +136,17 @@ export class CoopChatComponent {
   }
 
   onKey(event: KeyboardEvent): void {
-    if (event.key !== 'Enter' || this.writing() || !this.coop.inGame()) return;
+    const key = event.key.toLowerCase();
+    if (key === 'escape' && this.coop.pingArmed()) {
+      this.coop.cancelPing();
+      return;
+    }
+    if ((key !== 'enter' && key !== 'x') || this.writing() || !this.coop.inGame()) return;
+    if (event.ctrlKey || event.altKey || event.metaKey) return;
     if (ownsKey(event.target, event.key) || modalDialogCount(this.dialog) > 0) return;
     event.preventDefault();
-    this.writing.set(true);
+    if (key === 'x') this.coop.armPing();
+    else this.writing.set(true);
   }
 
   send(text: string): void {

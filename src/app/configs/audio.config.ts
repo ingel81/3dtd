@@ -109,6 +109,15 @@ export const UI_SOUNDS = {
     notes: [{ freq: 1760, ms: 35 }],
     volume: 0.3,
   },
+  /** A coop player marked a place on the map (review R13): two soft rising notes */
+  coopPing: {
+    id: 'ui_coop_ping',
+    notes: [
+      { freq: 660, ms: 70 },
+      { freq: 990, ms: 130 },
+    ],
+    volume: 0.35,
+  },
   /** A shot of the manned tower killed: two rising ticks */
   towerKill: {
     id: 'ui_tower_kill',
