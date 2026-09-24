@@ -1,10 +1,12 @@
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { GameStateManager } from './game-state.manager';
-import { CommandLog, type CommandLogEntry } from './game-state/command-log';
+import { CommandLog, LOCAL_PLAYER_ID, toPlainData, type CommandLogEntry } from './game-state/command-log';
+import type { LockstepLink } from '../coop/lockstep';
 import { getResearch } from '../configs/research/research-tree.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO } from '../configs/hero.config';
+import { adaptDirectorWave } from '../director/wave-config-adapter';
 
 /**
  * GameCommandsHandler — Command-Bus-Adapter für GameStateManager.
@@ -24,6 +26,10 @@ import { HERO } from '../configs/hero.config';
  * the UI between frames is at a boundary already and runs at once. Every
  * command (and every cheat handled here) is written to the CommandLog as it
  * takes effect, refused ones as well.
+ *
+ * Lockstep (docs/COOP_PLAN.md, C0): with a link set, a command from the bus
+ * does not act here. It goes to the relay and acts when its tick comes back,
+ * on every client at the same boundary (runTick()).
  */
 export class GameCommandsHandler {
   private readonly subs = new SubscriptionBag();
@@ -35,6 +41,8 @@ export class GameCommandsHandler {
   private readonly pending: GameEvent[] = [];
   /** Re-simulating: only replay() gives commands, see setReplaying() */
   private replaying = false;
+  /** Coop: commands go to the relay and come back stamped, see setLockstep() */
+  private lockstep: LockstepLink | null = null;
 
   constructor(
     private readonly gsm: GameStateManager,
@@ -83,6 +91,28 @@ export class GameCommandsHandler {
     this.pending.length = 0;
   }
 
+  /**
+   * Coop: send every command from the bus to `link` instead of running it;
+   * runTick() runs what comes back. Null for the single player game.
+   */
+  setLockstep(link: LockstepLink | null): void {
+    this.lockstep = link;
+    this.pending.length = 0;
+  }
+
+  /**
+   * The commands the relay stamped for `tick`, at its boundary, in the
+   * relay's order, each logged with the player who gave it.
+   */
+  runTick(tick: number): void {
+    const link = this.lockstep;
+    if (!link) return;
+    for (const stamped of link.commandsAt(tick)) {
+      this.execute(stamped.command as unknown as GameEvent, stamped.playerId);
+    }
+    link.release(tick);
+  }
+
   /** Where executed commands are logged from now on; the re-simulation writes a log of its own. */
   setLog(log: CommandLog): void {
     this.log = log;
@@ -94,7 +124,7 @@ export class GameCommandsHandler {
    * so a faithful re-simulation writes the same log.
    */
   replay(entry: CommandLogEntry): void {
-    this.execute(entry.command as unknown as GameEvent);
+    this.execute(entry.command as unknown as GameEvent, entry.playerId);
   }
 
   /** Subscribe `type` to the boundary and the log, `run` is what it does. */
@@ -105,6 +135,10 @@ export class GameCommandsHandler {
 
   private readonly receive = (event: GameEvent): void => {
     if (this.replaying) return;
+    if (this.lockstep) {
+      this.lockstep.send(toPlainData(event) as Parameters<LockstepLink['send']>[0]);
+      return;
+    }
     if (this.inStep) {
       this.pending.push(event);
       return;
@@ -112,10 +146,10 @@ export class GameCommandsHandler {
     this.execute(event);
   };
 
-  private execute(event: GameEvent): void {
+  private execute(event: GameEvent, playerId: string = LOCAL_PLAYER_ID): void {
     const run = this.executors.get(event.type);
     if (!run) return;
-    this.log.record(event);
+    this.log.record(event, playerId);
     // Caught like a throwing listener on the bus: a held command runs from
     // the GSM's loop, and one bad command must not stop the frame
     try {
@@ -250,7 +284,9 @@ export class GameCommandsHandler {
 
   private attachWaveCommands(): void {
     this.on('command:start-wave', (event) => {
-      if (event.config) {
+      if (event.director) {
+        this.gsm.startWave(adaptDirectorWave(event.director, this.gsm.rng.stream('spawn')));
+      } else if (event.config) {
         this.gsm.startWave(event.config);
       } else {
         this.gsm.beginWave();

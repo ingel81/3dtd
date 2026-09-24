@@ -8,6 +8,7 @@ import type { AbilityId, AbilityRejectReason, AbilityStatus } from '../configs/a
 import type { HeroAmmoId, HeroRejectReason, HeroStatus } from '../configs/hero.config';
 import { WaveConfig } from '../managers/wave.manager';
 import type { SpawnStart } from '../managers/enemy.manager';
+import type { WaveConfig as DirectorWave } from '../director/models/wave-config';
 import type { WormGroup } from '../managers/worm/worm-group';
 import type { LosMask } from '../utils/los-mask';
 
@@ -581,6 +582,12 @@ export type GameEvent =
   | {
       type: 'command:start-wave';
       config?: WaveConfig;
+      /**
+       * A wave from the wave source, not yet turned into a spawn schedule. The
+       * schedule draws from the run's spawn stream; built where the command
+       * acts, every coop client draws the same (docs/COOP_PLAN.md, C0).
+       */
+      director?: DirectorWave;
     }
   | {
       type: 'command:restart-game';

@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Status: Plan, kein Code · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0 gebaut, C1 bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -28,7 +28,8 @@ Aus dem Simulator (Stand `next` = `main` = v0.4.0):
 | Mehrere Spawns mit eigener Route, vier Spawn-Farben | `WaveManager.spawnPoints`, `SPAWN_COLORS` | Die Lanes |
 
 Zufall und Uhr hängen am `GameStateManager`, nicht an Modulen: Zwei Simulationen laufen in einem Prozess
-nebeneinander. Darauf baut C0.
+nebeneinander. Darauf baut C0. Ausnahme ist der Id-Zähler der `GameObject`s, er ist statisch; im Spiel gibt es eine
+Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 
 ## 2. Was fehlt
 
@@ -84,19 +85,34 @@ nebeneinander. Darauf baut C0.
 
 Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay bringt.
 
-### C0 Lockstep im Prozess
+### C0 Lockstep im Prozess (gebaut 2026-09-24)
 
-- `CommandGateway` zwischen UI/Bus und `GameCommandsHandler`: im Einzelspieler wie heute (sofort bzw. an der
-  nächsten Grenze), im Coop an einen Transport. Befehle vom Transport kommen mit Tick, `playerId` und laufender
-  Nummer und werden am Tick in fester Reihenfolge (`playerId`, Nummer) ausgeführt.
-- Tick: vier Sub-Steps sind ein Netz-Tick (rund 67 ms bei Tempo 1). Ein Befehl wirkt drei Ticks nach dem Stempeln
-  (rund 200 ms), anpassbar an die schlechteste Laufzeit im Raum.
-- Tick-Barriere in `GameClock.nextSubStep()`: kein Sub-Step über einen Tick hinaus, den der Transport noch nicht
-  freigegeben hat.
-- Tempo und Pause als Befehle (`command:set-speed`, `command:pause`), im Einzelspieler lokal wie bisher, im Coop
-  nur vom Host (D15).
-- Abnahme: Spec mit zwei `GameStateManager` in einem Prozess und einem Test-Transport mit Verzögerung und Jitter.
-  Beide Seiten geben Befehle, die Prüfsummen bleiben über eine ganze Welle gleich.
+- `coop/lockstep.ts`: `LockstepLink` (das Client-Ende des Relays, egal worüber), `StampedCommand` mit Tick,
+  laufender Nummer und `playerId`, `TICK_SUB_STEPS = 4` (rund 67 ms bei Tempo 1).
+- `coop/local-relay.ts`: Relay im Prozess für Specs und als Vorbild für C4. Er hält die Ankunftsreihenfolge, legt
+  alles Eingegangene in den nächsten Tick, wenn der schließt, und gibt jeden geschlossenen Tick an jeden Link.
+- `GameCommandsHandler.setLockstep(link)`: Ein Befehl vom Bus wirkt nicht mehr dort, wo er gegeben wurde, sondern
+  geht an den Link; `runTick(tick)` führt die gestempelten Befehle in der Reihenfolge des Relays aus und loggt sie
+  mit der `playerId` des Absenders. Auch ein Replay führt einen Eintrag jetzt mit seiner `playerId` aus.
+- `GameStateManager.setLockstep(link)` und die Barriere in der Sub-Step-Schleife (`lockstepOpen`): ein Sub-Step
+  läuft erst, wenn der Tick der Grenze davor geschlossen und angekommen ist; an der Tick-Grenze laufen zuerst dessen
+  Befehle. Im Einzelspieler ist der Link null, der Weg ist derselbe wie vorher.
+- Kein fester Eingabe-Versatz wie im Konzept (T+3): Der Relay legt einen Befehl immer in den nächsten offenen Tick.
+  Das ist sicher, weil kein Client über einen offenen Tick hinaus rechnen darf. Die Verzögerung ist Laufzeit zum
+  Relay und zurück plus höchstens ein Tick.
+- **Wellenstart gefunden und behoben:** Die Facade baute den Spawn-Plan der Welle (`adaptDirectorWave`) beim Klick
+  und zog dabei aus dem `spawn`-Strom, im Coop also nur beim Klickenden. `command:start-wave` trägt jetzt die Welle
+  der Wellenquelle (`director`), gebaut wird der Plan dort, wo der Befehl wirkt. Die Planung selbst hängt schon am
+  Wellenende in der Simulation und läuft auf jedem Client gleich. Offen: die Debug-Welle aus dem Wave-Debug-Fenster
+  baut weiter beim Klick (im Coop sind Debug-Befehle aus, C6).
+- Abnahme `integration/lockstep.scenario.spec.ts`: zwei Simulationen, ein Relay; beide Spieler geben Befehle (Bau,
+  Verkauf, Upgrade, Zielwahl, Feuerpause, Gold, eine Welle mit festem Plan, eine aus der Wellenquelle), B hört den
+  Relay spät und in Schüben. Die Prüfsumme an jeder gemeinsamen Grenze ist gleich, das Log auch. Dazu: Barriere
+  hält, Befehl wirkt am Tick und nicht beim Geben, eine Änderung am Relay vorbei fällt als andere Prüfsumme auf.
+- Nach C4 verschoben: Tempo und Pause als Befehle (D15). Das Tempo gibt im Coop der Relay vor, der Client folgt;
+  das gehört zum Takt des Relays.
+- Offen für C4: Neustart im Coop. `reset()` zieht einen neuen Seed aus `Math.random`; im Raum muss der Seed vom
+  Relay kommen.
 
 ### C1 Welt teilen
 
