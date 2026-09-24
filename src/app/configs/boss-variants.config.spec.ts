@@ -85,14 +85,14 @@ describe('bossVariantWave', () => {
     const wave = bossVariantWave(BOSS_VARIANTS.ooze, directed, 20);
     expect(wave.enemies).toHaveLength(1);
     expect(wave.enemies[0].type).toBe('ooze');
-    expect(wave.enemies[0].healthMultiplier * lineageHp('ooze')).toBeCloseTo(planned, -2);
+    expect(wave.enemies[0].healthMultiplier! * lineageHp('ooze')).toBeCloseTo(planned, -2);
     expect(wave.explanation?.reasons[0]).toContain('Campaign boss W20');
   });
 
   it('in the campaign counts a worm at its longest, so a short route never makes it stronger', () => {
     const planned = 24 * lineageHp('stone-golem') * 3.5;
     const wave = bossVariantWave(BOSS_VARIANTS.worm, directed, 30);
-    expect(wave.enemies[0].healthMultiplier * ENEMY_TYPES['worm'].baseHp * WORM_MAX_SEGMENTS)
+    expect(wave.enemies[0].healthMultiplier! * ENEMY_TYPES['worm'].baseHp * WORM_MAX_SEGMENTS)
       .toBeCloseTo(planned, -2);
   });
 

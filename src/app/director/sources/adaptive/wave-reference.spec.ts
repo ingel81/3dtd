@@ -123,7 +123,7 @@ function waveResult(wave: number): WaveResult {
       enemiesSpawned: 10,
       playerSurvived: true,
     },
-  } as WaveResult;
+  } as unknown as WaveResult;
 }
 
 describe('wave reference run', () => {

@@ -54,7 +54,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
   let bus: GameEventBus;
   let clock: { gameTimeMs: number };
   let startWave: ReturnType<typeof vi.spyOn>;
-  let resetDirector: ReturnType<typeof vi.fn>;
+  let resetDirector: ReturnType<typeof vi.fn<() => void>>;
   const autoStartWaves = signal(true);
   const botEnabled = signal(false);
   const store = {
@@ -66,7 +66,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
   beforeEach(() => {
     bus = new GameEventBus();
     clock = { gameTimeMs: 50_000 };
-    resetDirector = vi.fn();
+    resetDirector = vi.fn<() => void>();
     autoStartWaves.set(true);
     botEnabled.set(false);
     store.phase.set('setup');

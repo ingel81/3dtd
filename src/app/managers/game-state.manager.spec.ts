@@ -160,7 +160,10 @@ function createDeepMock(): never {
         geoToLocalSimple: noopReturning({ x: 0, y: 0, z: 0 }),
         localToGeo: noopReturning({ lat: 48.77, lon: 9.18, height: 0 }),
       },
-      spatialAudio: new Proxy({} as Record<string, unknown>, {
+      // The music mixer resumes the listener's context before a crossfade
+      spatialAudio: new Proxy({
+        getListener: noopReturning({ context: { state: 'running', resume: () => Promise.resolve() } }),
+      } as Record<string, unknown>, {
         get(target, prop) {
           if (prop in target) return target[prop as string];
           // playAtGeo returns a Promise, all others return undefined

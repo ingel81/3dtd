@@ -38,7 +38,7 @@ function waveResult(waveNumber: number, hpLost: number): WaveResult {
     timestamp: 0,
     config: { enemies: [], totalCount: 10, spawnDelay: 500 },
     outcome: { damageToPlayer: hpLost, healthAtWaveStart: 100, enemiesSpawned: 10, playerSurvived: true },
-  } as WaveResult;
+  } as unknown as WaveResult;
 }
 
 describe('AdaptiveWaveSource', () => {
