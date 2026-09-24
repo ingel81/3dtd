@@ -35,6 +35,14 @@ interface ShotSound {
 const TRAIL_SPAWN_DISTANCE_M = 0.5;
 
 export class ProjectileManager extends EntityManager<Projectile> {
+  /**
+   * Presentation only: a manned tower's shot the player's client showed
+   * already, at the click (TowerControlService, coop). Such a shot flies
+   * and hits as any other, without a second sound and muzzle flash. What it
+   * returns must not change the simulation, only what is seen and heard.
+   */
+  quietShot: ((towerId: string) => boolean) | null = null;
+
   private soundsRegistered = false;
 
   /** Reused per-frame scratch buffers — avoids per-update allocation. */
@@ -80,6 +88,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    *   (a body along the route, see Projectile.aimPoint)
    */
   spawn(tower: Tower, targetEnemy: Enemy, heading?: number, aimPoint?: GeoPosition): Projectile {
+    const quiet = this.quietShot?.(tower.id) ?? false;
     const start = this.muzzlePosition(tower, heading);
     const projectile = this.launch(
       start.position,
@@ -90,11 +99,11 @@ export class ProjectileManager extends EntityManager<Projectile> {
       tower.typeConfig.damageType,
       tower.id,
       tower.typeConfig.id,
-      this.towerSoundPosition(tower),
+      quiet ? null : this.towerSoundPosition(tower),
       aimPoint,
     );
 
-    this.muzzleFlash(tower);
+    if (!quiet) this.muzzleFlash(tower);
     return projectile;
   }
 
@@ -106,6 +115,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * @param heading turret heading, for the fire point as in spawn()
    */
   fireBlank(tower: Tower, aimPoint: GeoPosition, heading: number): Projectile {
+    const quiet = this.quietShot?.(tower.id) ?? false;
     const start = this.muzzlePosition(tower, heading);
     const projectile = this.launch(
       start.position,
@@ -116,10 +126,10 @@ export class ProjectileManager extends EntityManager<Projectile> {
       tower.typeConfig.damageType,
       tower.id,
       tower.typeConfig.id,
-      this.towerSoundPosition(tower),
+      quiet ? null : this.towerSoundPosition(tower),
       aimPoint,
     );
-    this.muzzleFlash(tower);
+    if (!quiet) this.muzzleFlash(tower);
     return projectile;
   }
 
@@ -207,7 +217,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
     damageType: DamageType,
     sourceId: string,
     sourceTowerType: TowerTypeId | null,
-    sound: ShotSound,
+    sound: ShotSound | null,
     aimPoint?: GeoPosition,
   ): Projectile {
     if (!this.tilesEngine) {
@@ -243,8 +253,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
     this.add(projectile);
 
-    // Play spatial sound (fire-and-forget, errors logged)
-    this.playProjectileSound(projectile.typeConfig.id, sound);
+    // Play spatial sound (fire-and-forget, errors logged); none for a shot shown already
+    if (sound) this.playProjectileSound(projectile.typeConfig.id, sound);
 
     return projectile;
   }
@@ -391,8 +401,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * Uses deferred events (processed at frame end)
    */
   private playProjectileSound(projectileType: string, sound: ShotSound): void {
-    // Map projectile types to sound IDs
-    const soundId = projectileType in PROJECTILE_SOUNDS ? projectileType : 'arrow'; // Fallback to arrow sound
+    const soundId = projectileSoundId(projectileType);
 
     // Emit audio event (deferred, not critical)
     this.eventBus.emitDeferred({
@@ -422,4 +431,9 @@ export class ProjectileManager extends EntityManager<Projectile> {
     this.tilesEngine?.trailStreaks?.clear();
     super.clear();
   }
+}
+
+/** The sound a projectile type makes as it leaves, the arrow's for one without its own */
+export function projectileSoundId(projectileType: string): string {
+  return projectileType in PROJECTILE_SOUNDS ? projectileType : 'arrow';
 }

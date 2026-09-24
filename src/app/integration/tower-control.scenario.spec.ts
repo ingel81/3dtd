@@ -488,6 +488,40 @@ describe('Getting into a tower in coop (C18)', () => {
     expect(caughtUp.z).toBeCloseTo(ahead.z, 6);
   });
 
+  it('shows the shot at the click, and the simulation’s shot comes after it without a second sound (TODO E29)', () => {
+    const gsm = createGame();
+    const tower = placeTower(gsm);
+    const relay = new LocalRelay(true);
+    gsm.setLockstep(relay.connect(LOCAL_PLAYER_ID));
+    const { control } = createControl(gsm);
+    const clock = { now: 1000 };
+    control.enter(tower);
+    relay.closeTick();
+    steps(gsm, clock, 1);
+    const sounds: string[] = [];
+    const flashes: string[] = [];
+    gsm.getEventBus().on('audio:play', (event) => sounds.push(event.sound));
+    gsm.getEventBus().on('vfx:muzzle-flash', (event) => flashes.push(event.towerId));
+
+    const trigger = control as unknown as { setTrigger(held: boolean): void };
+    trigger.setTrigger(true);
+    // At once, before any tick: the sound and the flash of the shot
+    expect(sounds.length).toBe(1);
+    expect(flashes).toEqual([tower.id]);
+
+    // A click of about 100 ms: held over a few ticks, then let go
+    const projectiles = () => gsm.projectileManager.getAll().length;
+    for (let i = 0; i < 8; i++) {
+      if (i === 3) trigger.setTrigger(false);
+      relay.closeTick();
+      steps(gsm, clock, 1);
+    }
+    // The simulation fired: the projectile flies, heard and seen once only
+    expect(projectiles()).toBeGreaterThan(0);
+    expect(sounds.length).toBe(1);
+    expect(flashes).toEqual([tower.id]);
+  });
+
   it('lets go of the trigger after a click shorter than a tick (playtest T1)', () => {
     const gsm = createGame();
     const tower = placeTower(gsm);
