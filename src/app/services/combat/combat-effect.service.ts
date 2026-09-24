@@ -482,12 +482,12 @@ export class CombatEffectService {
    *
    * @returns the number of enemies the strike killed
    */
-  applyAbilityStrike(targets: readonly Enemy[], fractionOf: (enemy: Enemy) => number): number {
+  applyAbilityStrike(targets: readonly Enemy[], fractionOf: (enemy: Enemy) => number, ownerId?: string): number {
     let kills = 0;
     for (const enemy of targets) {
       if (!enemy.alive) continue;
       const showDeathBlood = kills < ABILITY_DEATH_BLOOD_CAP;
-      if (this.damageService.applyMaxHpFraction(this.vfx, enemy, fractionOf(enemy), showDeathBlood)) {
+      if (this.damageService.applyMaxHpFraction(this.vfx, enemy, fractionOf(enemy), showDeathBlood, ownerId)) {
         kills++;
       }
     }

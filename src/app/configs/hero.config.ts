@@ -16,6 +16,20 @@ import type { ProjectileTypeId } from './tower-types.config';
 /** Source id of the hero's shots in the damage path (DamageApplicationService). */
 export const HERO_SOURCE_ID = 'hero';
 
+/**
+ * The source id of a player's hero (docs/COOP_PLAN.md, D10): HERO_SOURCE_ID
+ * for the single player, `hero:<player>` in coop. What a shot carries as its
+ * source and what hero:kill names.
+ */
+export function heroSourceIdFor(playerId: string, single: boolean): string {
+  return single ? HERO_SOURCE_ID : `${HERO_SOURCE_ID}:${playerId}`;
+}
+
+/** A shot or damage source that is a hero, not a tower. */
+export function isHeroSource(sourceId: string): boolean {
+  return sourceId === HERO_SOURCE_ID || sourceId.startsWith(`${HERO_SOURCE_ID}:`);
+}
+
 export const HERO = {
   /** UI label; the game UI is English */
   name: 'Mercenary',

@@ -99,7 +99,7 @@ describe('RefusalHintService', () => {
   afterEach(() => vi.useRealTimers());
 
   it("shows a manager's refusal, the name over the reason, for as long as the U key's", () => {
-    bus.emit({ type: 'ability:rejected', abilityId: 'nuclear-strike', reason: 'no-wave' });
+    bus.emit({ type: 'ability:rejected', playerId: 'local', local: true, abilityId: 'nuclear-strike', reason: 'no-wave' });
     expect(service.refusal()).toEqual({ subject: 'Nuclear Strike', reason: 'Only during a wave' });
 
     vi.advanceTimersByTime(UPGRADE_HINT_MS - 1);
@@ -109,21 +109,21 @@ describe('RefusalHintService', () => {
   });
 
   it('reads the waves to the next charge from the store', () => {
-    bus.emit({ type: 'ability:rejected', abilityId: 'nuclear-strike', reason: 'no-charge' });
+    bus.emit({ type: 'ability:rejected', playerId: 'local', local: true, abilityId: 'nuclear-strike', reason: 'no-charge' });
     expect(service.refusal()?.reason).toBe('No charges, recharges in 2 waves');
   });
 
   it('a hire short of credits: "Hire Mercenary", the credits missing now', () => {
-    bus.emit({ type: 'hero:rejected', reason: 'credits' });
+    bus.emit({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'credits' });
     expect(service.refusal()).toEqual({ subject: 'Hire Mercenary', reason: 'Need 600 credits' });
 
-    bus.emit({ type: 'hero:rejected', reason: 'no-route' });
+    bus.emit({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'no-route' });
     expect(service.refusal()).toEqual({ subject: 'Hire Mercenary', reason: 'No route to stand on' });
   });
 
   it('an order of the hired hero no route leads to: "Mercenary", no way there', () => {
     store.hero.set({ ...initialHeroStatus(), unlocked: true, hired: true });
-    bus.emit({ type: 'hero:rejected', reason: 'no-route' });
+    bus.emit({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'no-route' });
     expect(service.refusal()).toEqual({ subject: 'Mercenary', reason: 'No way there along the routes' });
   });
 
@@ -139,13 +139,13 @@ describe('RefusalHintService', () => {
 
   it("shows nothing for a bot's commands and for reasons the player cannot act on", () => {
     player = false;
-    bus.emit({ type: 'ability:rejected', abilityId: 'nuclear-strike', reason: 'no-wave' });
-    bus.emit({ type: 'hero:rejected', reason: 'credits' });
+    bus.emit({ type: 'ability:rejected', playerId: 'local', local: true, abilityId: 'nuclear-strike', reason: 'no-wave' });
+    bus.emit({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'credits' });
     expect(service.refusal()).toBeNull();
 
     player = true;
-    bus.emit({ type: 'ability:rejected', abilityId: 'nuclear-strike', reason: 'locked' });
-    bus.emit({ type: 'hero:rejected', reason: 'unknown-ammo' });
+    bus.emit({ type: 'ability:rejected', playerId: 'local', local: true, abilityId: 'nuclear-strike', reason: 'locked' });
+    bus.emit({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'unknown-ammo' });
     expect(service.refusal()).toBeNull();
   });
 
@@ -177,7 +177,7 @@ describe('RefusalHintService', () => {
     service.ability('nuclear-strike', 'no-wave');
     service.disconnect();
     expect(service.refusal()).toBeNull();
-    bus.emit({ type: 'ability:rejected', abilityId: 'nuclear-strike', reason: 'no-wave' });
+    bus.emit({ type: 'ability:rejected', playerId: 'local', local: true, abilityId: 'nuclear-strike', reason: 'no-wave' });
     expect(service.refusal()).toBeNull();
   });
 });

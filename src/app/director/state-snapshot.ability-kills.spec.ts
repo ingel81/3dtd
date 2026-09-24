@@ -28,7 +28,7 @@ describe('StateSnapshotService ability kills', () => {
 
   const impact = (kills: number) =>
     bus.emit({
-      type: 'ability:resolved',
+      type: 'ability:resolved', playerId: 'local', local: true,
       abilityId: 'nuclear-strike',
       strikeId: 1,
       hits: kills + 1,

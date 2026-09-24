@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a, C2a und C2b gebaut, Rest offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a, C2a bis C2c gebaut, Rest offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -178,7 +178,23 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 - Snapshot mit `researchByPlayer` (optional, ältere laden weiter).
 - Abnahme: jeder baut ein eigenes Zentrum, A forscht, nur A zahlt und hat die Forschung, nur A darf den
   freigeschalteten Tower bauen; jeder Client zeigt die eigene Forschung; beide Clients mit gleicher Prüfsumme.
-- Fähigkeiten und Held hören `research:completed` noch ohne Blick auf den Spieler; das kommt mit C2c.
+
+**C2c gebaut (2026-09-24):** Held, Fähigkeiten, Silo und bemannter Tower je Spieler (D10 bis D12).
+
+- `PlayerOwner` (`managers/game-state/player-owner.ts`) für alles, was einem Spieler gehört; Forschung,
+  Fähigkeiten und Held tragen ihn, ihre Ereignisse `playerId` und `local`, die UI hört nur die eigenen.
+- Fähigkeiten: ein `AbilityManager` je Spieler (`abilityOf`), Startplatz ist das eigene Silo, Freischaltung durch
+  die eigene Forschung, Kills mit `ownerId`.
+- Held: ein `HeroManager` je Spieler (`heroOf`) mit eigener `heroId` (`hero` im Einzelspieler, `hero:<spieler>` im
+  Coop); Schüsse und `hero:kill` tragen sie, das Kill-Gold geht an ihren Besitzer. Das Modell nimmt nirgends an,
+  dass ein Spieler nur einen Helden hat. Gezeichnet wird vorerst nur der eigene (Renderer für mehrere: C6).
+- Bemannter Tower: einer je Spieler (`TowerLifecycle.mannedTowers`), `tower:manned` mit Spieler; ein Tower, in dem
+  schon jemand sitzt, nimmt keinen zweiten. Das Fadenkreuz liest das Ziel seines eigenen Towers.
+- Prüfsumme über alle Helden; im Einzelspieler bit-gleich wie vorher. Snapshot mit `abilitiesByPlayer`,
+  `heroesByPlayer`, `mannedByPlayer` (optional).
+- Abnahme: jeder heuert seinen Helden an, A setzt eine Fähigkeit ein, B behält seine Ladung; das Kill-Gold je
+  Spieler ist die Summe der Kills seiner Tower, seines Helden und seiner Fähigkeiten. Beide sitzen gleichzeitig in
+  ihren Towern, B kommt nicht in A's Tower, jeder zielt für sich.
 
 **Noch offen in C2 (Plan):**
 

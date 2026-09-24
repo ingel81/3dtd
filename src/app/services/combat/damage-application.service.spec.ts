@@ -218,7 +218,7 @@ describe('DamageApplicationService', () => {
       bus.on('tower:kill', towerKill);
       service.applyDamage(vfx as never, enemy as never, 100, 'physical' as DamageType, HERO_SOURCE_ID, false, false);
       expect(killedEnemyIds).toContain('shot');
-      expect(heroKill).toHaveBeenCalledWith({ type: 'hero:kill', enemy });
+      expect(heroKill).toHaveBeenCalledWith({ type: 'hero:kill', enemy, heroId: HERO_SOURCE_ID });
       expect(towerKill).not.toHaveBeenCalled();
     });
 

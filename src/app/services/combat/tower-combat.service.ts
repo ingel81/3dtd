@@ -84,7 +84,8 @@ export class TowerCombatService {
   private readonly _aimPoint: BodyAimPoint = { lat: 0, lon: 0, height: 0, x: 0, y: 0, z: 0 };
 
   // The manned tower (updateMannedTower): what its crosshair is on, and scratch
-  private _mannedAimTarget: Enemy | null = null;
+  /** The enemy each manned tower's crosshair is on, by tower id, see mannedAimTargetOf */
+  private readonly mannedAimTargets = new Map<string, Enemy | null>();
   private readonly _mannedMuzzle = new Vector3();
   private readonly _mannedEye = new Vector3();
   private readonly _mannedDir = new Vector3();
@@ -424,13 +425,14 @@ export class TowerCombatService {
     // The guns tilt with the aim, as far as they go (types without pitchNodes keep 0)
     aimPitch(tower.aim, pitch);
 
-    this._mannedAimTarget = tower.losReady ? this.manualTarget(tower, enemyManager) : null;
+    const aimTarget = tower.losReady ? this.manualTarget(tower, enemyManager) : null;
+    this.mannedAimTargets.set(tower.id, aimTarget);
     if (!tower.losReady || !tower.triggerHeld || !tower.combat.canFire()) return null;
     if (!isAimAligned(tower.aim, TOWER_CONTROL.alignToleranceRad)) return null;
 
     tower.combat.fire();
     tower.lastTargetTime = gameTimeMs;
-    const target = this._mannedAimTarget;
+    const target = aimTarget;
     if (target) {
       projectileManager.spawn(tower, target, heading, this.projectileAim(target));
     } else {
@@ -469,11 +471,11 @@ export class TowerCombatService {
   }
 
   /**
-   * The enemy the manned tower's crosshair is on and it may shoot, from the
-   * last sub-step; null for none. The HUD colours the crosshair by it.
+   * The enemy the crosshair of manned tower `towerId` is on and it may shoot,
+   * from the last sub-step; null for none. The HUD colours the crosshair by it.
    */
-  get mannedAimTarget(): Enemy | null {
-    return this._mannedAimTarget;
+  mannedAimTargetOf(towerId: string): Enemy | null {
+    return this.mannedAimTargets.get(towerId) ?? null;
   }
 
   /**
@@ -545,8 +547,8 @@ export class TowerCombatService {
   }
 
   /** The player left the tower: its crosshair is on nothing. */
-  clearMannedAim(): void {
-    this._mannedAimTarget = null;
+  clearMannedAim(towerId: string): void {
+    this.mannedAimTargets.delete(towerId);
   }
 
   /** Where a tower's shots start, local: its position at muzzle height (as ProjectileManager.spawn). */

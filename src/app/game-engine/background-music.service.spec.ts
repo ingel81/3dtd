@@ -542,7 +542,7 @@ describe('BackgroundMusicService', () => {
       service.setDimmed(false);
       expect(build.volume).toBeCloseTo(full);
 
-      eventBus.emit({ type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 0, lon: 0 }, radiusM: 1 });
+      eventBus.emit({ type: 'ability:impact', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 0, lon: 0 }, radiusM: 1 });
       expect(build.volume).toBeCloseTo(full * BACKGROUND_MUSIC.duck.nuclearStrike.factor);
       await vi.advanceTimersByTimeAsync(BACKGROUND_MUSIC.duck.nuclearStrike.holdMs + BACKGROUND_MUSIC.duck.releaseMs);
       expect(build.volume).toBeCloseTo(full);

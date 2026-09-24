@@ -23,7 +23,14 @@
  */
 
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
+import type { GameEvent } from '../game-engine/game-event-bus';
+import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
+
+/** What the HeroManager emits, before owner and `local` go on. */
+type HeroEvent = Extract<GameEvent, { type: 'hero:level-up' | 'hero:rejected' | 'hero:state-changed' }>;
+type OwnerlessHeroEvent = HeroEvent extends infer E ? E extends HeroEvent ? Omit<E, 'playerId' | 'local'> : never : never;
 import {
+  HERO_SOURCE_ID,
   HERO,
   HERO_AMMO,
   HeroAmmoConfig,
@@ -184,11 +191,23 @@ export class HeroManager implements IGameManager {
   constructor(
     private readonly eventBus: GameEventBus,
     private readonly world: HeroWorld,
+    /** Whose hero this is (docs/COOP_PLAN.md, D10); the single player's by default */
+    readonly owner: PlayerOwner = LOCAL_OWNER,
+    /** Source id of his shots and kills; one per hero, so a player may have several */
+    readonly heroId: string = HERO_SOURCE_ID,
   ) {
+    // The owner's research unlocks the owner's hero
     this.subs.add(this.eventBus.on('research:completed', (event) => {
-      this.onResearchCompleted(event.effects);
+      if (event.playerId === this.owner.playerId) this.onResearchCompleted(event.effects);
     }));
-    this.subs.add(this.eventBus.on('hero:kill', () => this.onKill()));
+    this.subs.add(this.eventBus.on('hero:kill', (event) => {
+      if ((event.heroId ?? HERO_SOURCE_ID) === this.heroId) this.onKill();
+    }));
+  }
+
+  /** Emit a hero event with the owner on it. */
+  private emit(event: OwnerlessHeroEvent): void {
+    this.eventBus.emit({ ...event, playerId: this.owner.playerId, local: this.owner.local() } as GameEvent);
   }
 
   // ==================== Queries ====================
@@ -493,7 +512,7 @@ export class HeroManager implements IGameManager {
     if (level > this.level) {
       this.level = level;
       this.applyStats();
-      this.eventBus.emit({ type: 'hero:level-up', level, position: { ...hero.position } });
+      this.emit({ type: 'hero:level-up', level, position: { ...hero.position } });
     }
     this.emitState();
   }
@@ -551,12 +570,12 @@ export class HeroManager implements IGameManager {
   }
 
   private reject(reason: HeroRejectReason): false {
-    this.eventBus.emit({ type: 'hero:rejected', reason });
+    this.emit({ type: 'hero:rejected', reason });
     return false;
   }
 
   private emitState(restored = false): void {
-    this.eventBus.emit({
+    this.emit({
       type: 'hero:state-changed',
       hero: this.getStatus(),
       ...(restored ? { restored: true as const } : {}),

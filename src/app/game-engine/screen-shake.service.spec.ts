@@ -136,7 +136,7 @@ describe('ScreenShakeService', () => {
     const { eventBus, engine, service } = setup();
     const { strikeNearDistance, strikeFarDistance } = SCREEN_SHAKE_CONFIG;
     const strike = (distance: number) => eventBus.emit({
-      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 1,
       target: { lat: distance, lon: 0 }, radiusM: 25,
     });
     strike(farDistance * 3);
@@ -165,7 +165,7 @@ describe('ScreenShakeService', () => {
       farDistance: abilityFarDistance,
     });
     const frost = (distance: number) => eventBus.emit({
-      type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 1,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'frost-bomb', strikeId: 1,
       target: { lat: distance, lon: 0 }, radiusM: 20,
     });
     frost(abilityNearDistance);
@@ -184,7 +184,7 @@ describe('ScreenShakeService', () => {
       farDistance: SCREEN_SHAKE_CONFIG.abilityFarDistance,
     });
     eventBus.emit({
-      type: 'ability:impact', abilityId: 'emp', strikeId: 1,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'emp', strikeId: 1,
       target: { lat: 0, lon: 0 }, radiusM: 30,
     });
     expect(engine.triggerScreenShake.mock.calls).toEqual([[presets.emp.amplitude, presets.emp.duration]]);
@@ -214,7 +214,7 @@ describe('ScreenShakeService', () => {
     });
     const used = (distance: number, abilityId: 'nuclear-strike' | 'frost-bomb' = 'nuclear-strike', launch = true) =>
       eventBus.emit({
-        type: 'ability:used', abilityId, strikeId: 1,
+        type: 'ability:used', playerId: 'local', local: true, abilityId, strikeId: 1,
         // The target far off, so only the launch site could shake
         target: { lat: 5000, lon: 0 }, radiusM: 25, warningMs: 6500,
         ...(launch ? { launch: { towerId: 'silo', position: { lat: distance, lon: 0 } } } : {}),
@@ -243,7 +243,7 @@ describe('ScreenShakeService', () => {
     });
     // Stands for an ability added later; the typed table would not compile without its entry
     eventBus.emit({
-      type: 'ability:impact', abilityId: 'later-ability' as never, strikeId: 1,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'later-ability' as never, strikeId: 1,
       target: { lat: 0, lon: 0 }, radiusM: 25,
     });
     expect(engine.triggerScreenShake).not.toHaveBeenCalled();

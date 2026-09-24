@@ -155,7 +155,10 @@ export class VFXService {
     this.subs.add(this.eventBus.onShow('game:reset', () => this.clearStrikes()));
 
     // Hero level-up: "LEVEL N" in gold rising from his head
-    this.subs.add(this.eventBus.onShow('hero:level-up', (event) => this.handleHeroLevelUp(event.level)));
+    // Drawn over the hero the renderer shows, the local one (COOP_PLAN C6 draws the others)
+    this.subs.add(this.eventBus.onShow('hero:level-up', (event) => {
+      if (event.local) this.handleHeroLevelUp(event.level);
+    }));
   }
 
   private handleHeroLevelUp(level: number): void {

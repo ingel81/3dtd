@@ -9,7 +9,7 @@
 
 import { GameEventBus, IGameManager } from '../game-engine';
 import type { GameEvent } from '../game-engine/game-event-bus';
-import { LOCAL_PLAYER_ID } from './game-state/command-log';
+import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import {
   ResearchId,
   ActiveResearch,
@@ -41,15 +41,6 @@ export interface SimResearch {
 /** Nothing researched, for a service that runs without a game. */
 export const NO_RESEARCH: SimResearch = { airTargetingFor: () => false };
 
-/** Whose research a ResearchManager keeps; its events carry it. */
-export interface ResearchOwner {
-  readonly playerId: string;
-  /** The player at this client: the UI shows only this research */
-  local(): boolean;
-}
-
-/** The single player, at this client. */
-export const LOCAL_RESEARCH_OWNER: ResearchOwner = { playerId: LOCAL_PLAYER_ID, local: () => true };
 
 /** What the ResearchManager emits, before owner and `local` go on. */
 type ResearchEvent = Extract<GameEvent, { type: `research:${string}` }>;
@@ -75,7 +66,7 @@ export class ResearchManager implements IGameManager {
 
   constructor(
     private readonly eventBus: GameEventBus,
-    readonly owner: ResearchOwner = LOCAL_RESEARCH_OWNER,
+    readonly owner: PlayerOwner = LOCAL_OWNER,
   ) {}
 
   /** Emit a research event with the owner on it. */

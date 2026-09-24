@@ -166,7 +166,7 @@ describe('Hero button after the Mercenary Contract, playtest 384 and 385 replaye
 
     bus.emit({ type: 'command:hire-hero' });
     expect(events.map((e) => e.type)).toEqual(['command:hire-hero', 'hero:rejected']);
-    expect(events[1]).toEqual({ type: 'hero:rejected', reason: 'credits' });
+    expect(events[1]).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'credits' });
     expect(credits).toBe(400);
     expect(hero.getHero()).toBeNull();
     expect(heroButton()!.action).toBe('hire');

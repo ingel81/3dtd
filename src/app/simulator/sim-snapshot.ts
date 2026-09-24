@@ -41,12 +41,20 @@ export interface SimSnapshot {
   research: ResearchSaveState;
   /** Every player's research in roster order; absent in a snapshot from before coop */
   researchByPlayer?: [string, ResearchSaveState][];
+  /** The first player's abilities (the single player's) */
   abilities: AbilitySaveState;
+  /** Every player's abilities in roster order; absent in a snapshot from before coop */
+  abilitiesByPlayer?: [string, AbilitySaveState][];
+  /** The first player's hero (the single player's) */
   hero: HeroSaveState;
+  /** Every player's hero in roster order; absent in a snapshot from before coop */
+  heroesByPlayer?: [string, HeroSaveState][];
   /** In the order the tower manager holds them, which is the order combat walks them */
   towers: SavedTower[];
-  /** Id of the tower the player sits in */
+  /** Id of the tower the first player (the single player) sits in */
   mannedTowerId: string | null;
+  /** Every manned tower as [player, tower id]; absent in a snapshot from before coop */
+  mannedByPlayer?: [string, string][];
   /** Towers waiting for their line of sight retrofit, oldest first */
   losQueue: string[];
 }

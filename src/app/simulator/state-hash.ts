@@ -21,7 +21,8 @@ export interface StateHashSource {
   enemies(): readonly Enemy[];
   towers(): readonly Tower[];
   projectiles(): readonly Projectile[];
-  hero(): Hero | null;
+  /** Every player's hero in roster order, null where none is hired; one in the single player game */
+  heroes(): readonly (Hero | null)[];
 }
 
 /**
@@ -81,13 +82,15 @@ export class StateHasher {
       this.num(projectile.position.lon);
     }
 
-    const hero = source.hero();
-    if (hero) {
-      this.num(hero.position.lat);
-      this.num(hero.position.lon);
-      this.num(hero.combat.cooldownRemaining);
-    } else {
-      this.num(-1);
+    // One hero hashes as the single one did before coop: old replays keep their hashes
+    for (const hero of source.heroes()) {
+      if (hero) {
+        this.num(hero.position.lat);
+        this.num(hero.position.lon);
+        this.num(hero.combat.cooldownRemaining);
+      } else {
+        this.num(-1);
+      }
     }
     return this.h >>> 0;
   }

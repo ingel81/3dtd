@@ -135,7 +135,7 @@ describe('GameSoundsService', () => {
 
   it('plays the cast of an ability at its target', () => {
     const { bus, at } = setup();
-    bus.emit({ type: 'ability:used', abilityId: 'emp', strikeId: 1, target: AT, radiusM: 10, warningMs: 500 });
+    bus.emit({ type: 'ability:used', playerId: 'local', local: true, abilityId: 'emp', strikeId: 1, target: AT, radiusM: 10, warningMs: 500 });
     expect(at()).toEqual([ABILITY_CAST_SOUNDS.emp!.id]);
   });
 
@@ -143,6 +143,8 @@ describe('GameSoundsService', () => {
     const { bus, global } = setup();
     const status = (unlocked: boolean, charges: number) => ({
       type: 'ability:state-changed' as const,
+      playerId: 'local',
+      local: true,
       abilities: [{ id: 'emp', unlocked, charges, maxCharges: 1, wavesUntilCharge: 0, pending: false, launchSite: true }] as never,
     });
     bus.emit(status(false, 0));
@@ -157,13 +159,15 @@ describe('GameSoundsService', () => {
     const { bus, global } = setup();
     const status = (charges: number, restored?: true) => ({
       type: 'ability:state-changed' as const,
+      playerId: 'local',
+      local: true,
       abilities: [{ id: 'emp', unlocked: true, charges, maxCharges: 1, wavesUntilCharge: 0, pending: false, launchSite: true }] as never,
       ...(restored ? { restored } : {}),
     });
     bus.emit(status(0));
     bus.emit(status(1, true));
     const hero = (hired: boolean, ammo: string, restored?: true) => ({
-      type: 'hero:state-changed' as const,
+      type: 'hero:state-changed' as const, playerId: 'local', local: true,
       hero: { unlocked: true, hired, ammo } as never,
       ...(restored ? { restored } : {}),
     });

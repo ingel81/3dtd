@@ -423,12 +423,12 @@ describe('GameStateSyncService (real service)', () => {
     });
 
     it('ability:state-changed → store.abilities', () => {
-      eventBus.emit({ type: 'ability:state-changed', abilities: [charged] });
+      eventBus.emit({ type: 'ability:state-changed', playerId: 'local', local: true, abilities: [charged] });
       expect(store.abilities()['nuclear-strike']).toEqual(charged);
     });
 
     it('game:reset → every ability locked again', () => {
-      eventBus.emit({ type: 'ability:state-changed', abilities: [charged] });
+      eventBus.emit({ type: 'ability:state-changed', playerId: 'local', local: true, abilities: [charged] });
       eventBus.emit({ type: 'game:reset' });
       expect(store.abilities()['nuclear-strike'].unlocked).toBe(false);
     });

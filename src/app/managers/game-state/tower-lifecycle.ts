@@ -35,7 +35,8 @@ export class TowerLifecycle {
     private readonly towerManager: TowerManager,
     /** A player's research (GameStateManager.researchOf): what the builder unlocked, the owner's center */
     private readonly research: (playerId: string) => ResearchManager,
-    private readonly abilityManager: Pick<AbilityManager, 'buildingChanged'>,
+    /** A player's abilities (GameStateManager.abilityOf): a launch site belongs to its owner's */
+    private readonly abilities: (playerId: string) => Pick<AbilityManager, 'buildingChanged'>,
     private readonly waveManager: WaveManager,
     private readonly enemyManager: EnemyManager,
     private readonly placement: TowerPlacementService,
@@ -55,8 +56,8 @@ export class TowerLifecycle {
     return this.creditsLedger.players[0];
   }
 
-  /** The tower the player sits in (man()), null when none */
-  private manned: Tower | null = null;
+  /** The tower each player sits in (man()), by player; one each at most (COOP_PLAN D12) */
+  private readonly manned = new Map<string, Tower>();
 
   /**
    * Put a tower back as a wave-start snapshot saved it (docs/SIMULATOR_PLAN.md,
@@ -88,9 +89,10 @@ export class TowerLifecycle {
     return tower;
   }
 
-  /** The tower the player sits in after a snapshot restore, without tower:manned. */
-  restoreManned(tower: Tower | null): void {
-    this.manned = tower;
+  /** The towers the players sit in after a snapshot restore, without tower:manned. */
+  restoreManned(manned: readonly (readonly [string, Tower])[]): void {
+    this.manned.clear();
+    for (const [playerId, tower] of manned) this.manned.set(playerId, tower);
   }
 
   /**
@@ -148,7 +150,7 @@ export class TowerLifecycle {
       }
 
       // An ability that launches from it (the silo) gets its button
-      this.abilityManager.buildingChanged(typeId);
+      this.abilities(player).buildingChanged(typeId);
     }
     return tower;
   }
@@ -158,7 +160,8 @@ export class TowerLifecycle {
    */
   sell(tower: Tower): number {
     // Nobody sits in a tower that is gone
-    if (tower.manned) this.leave();
+    const sitting = this.playerIn(tower);
+    if (sitting !== null) this.leave(sitting);
 
     // Unregister from grid + dispose LOS visualization
     this.placement.unregisterTowerFromGrid(tower);
@@ -180,7 +183,7 @@ export class TowerLifecycle {
     this.creditsLedger.add(refund, 'sell', tower.ownerId);
 
     // Gone from the tower list: an ability that launched from it loses its button
-    this.abilityManager.buildingChanged(tower.typeConfig.id);
+    this.abilities(tower.ownerId).buildingChanged(tower.typeConfig.id);
     return refund;
   }
 
@@ -211,9 +214,20 @@ export class TowerLifecycle {
     return attack === undefined || attack === 'projectile';
   }
 
-  /** The tower the player sits in, null when none. */
-  mannedTower(): Tower | null {
-    return this.manned;
+  /** The tower `playerId` sits in, null when none. */
+  mannedTower(playerId: string): Tower | null {
+    return this.manned.get(playerId) ?? null;
+  }
+
+  /** Every manned tower with its player, in the order they got in. */
+  mannedTowers(): IterableIterator<[string, Tower]> {
+    return this.manned.entries();
+  }
+
+  /** The player who sits in `tower`, null when nobody does. */
+  private playerIn(tower: Tower): string | null {
+    for (const [playerId, manned] of this.manned) if (manned === tower) return playerId;
+    return null;
   }
 
   /**
@@ -222,38 +236,52 @@ export class TowerLifecycle {
    * turret follows the aim, starting where it points now. Emits tower:manned.
    * @returns false for a tower that cannot be manned
    */
-  man(tower: Tower): boolean {
+  man(tower: Tower, playerId: string = this.actingPlayer()): boolean {
     if (!TowerLifecycle.canMan(tower)) return false;
-    if (this.manned === tower) return true;
-    if (this.manned) this.release(this.manned);
+    const current = this.manned.get(playerId);
+    if (current === tower) return true;
+    // Somebody else sits in it
+    if (tower.manned) return false;
+    if (current) this.release(current);
     tower.manned = true;
     tower.triggerHeld = false;
     tower.clearTarget();
     releaseAim(tower.aim);
     tower.manualAim.heading = tower.aim.current;
     tower.manualAim.pitch = 0;
-    this.manned = tower;
-    this.eventBus.emit({ type: 'tower:manned', towerId: tower.id });
+    this.manned.set(playerId, tower);
+    this.emitManned(tower.id, playerId);
     return true;
   }
 
   /** The player gets out; the tower fires by itself again. Emits tower:manned with null. */
-  leave(): void {
-    if (!this.manned) return;
-    this.release(this.manned);
-    this.manned = null;
-    this.eventBus.emit({ type: 'tower:manned', towerId: null });
+  leave(playerId: string = this.actingPlayer()): void {
+    const tower = this.manned.get(playerId);
+    if (!tower) return;
+    this.release(tower);
+    this.manned.delete(playerId);
+    this.emitManned(null, playerId);
   }
 
-  /** Trigger of the manned tower; nothing without one. */
-  setTrigger(held: boolean): void {
-    if (this.manned) this.manned.triggerHeld = held;
+  /** Every player out, e.g. at game over or a restart. */
+  leaveAll(): void {
+    for (const playerId of [...this.manned.keys()]) this.leave(playerId);
+  }
+
+  /** Trigger of the player's manned tower; nothing without one. */
+  setTrigger(held: boolean, playerId: string = this.actingPlayer()): void {
+    const tower = this.manned.get(playerId);
+    if (tower) tower.triggerHeld = held;
+  }
+
+  private emitManned(towerId: string | null, playerId: string): void {
+    this.eventBus.emit({ type: 'tower:manned', towerId, playerId, local: playerId === this.creditsLedger.localPlayer });
   }
 
   private release(tower: Tower): void {
     tower.manned = false;
     tower.triggerHeld = false;
-    this.combat.clearMannedAim();
+    this.combat.clearMannedAim(tower.id);
     releaseAim(tower.aim);
   }
 
@@ -348,8 +376,8 @@ export class TowerLifecycle {
    * Called on reset to cleanup before starting fresh
    */
   clearAllOverlays(): void {
-    // Restart, new place: out of the tower before the towers go
-    this.leave();
+    // Restart, new place: everybody out of their tower before the towers go
+    this.leaveAll();
 
     // First deselect any selected tower (hides its LOS visualization)
     this.towerManager.selectTower(null);

@@ -108,7 +108,7 @@ describe('VFXService hero level-up', () => {
       effects: { spawnFloatingText },
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
-    eventBus.emit({ type: 'hero:level-up', level: 3, position: { lat: 48.1, lon: 9.2 } });
+    eventBus.emit({ type: 'hero:level-up', playerId: 'local', local: true, level: 3, position: { lat: 48.1, lon: 9.2 } });
     expect(spawnFloatingText).toHaveBeenCalledWith('LEVEL 3', 48.1, 9.2, 310, expect.objectContaining({ color: '#D9BC68' }));
     service.destroy();
   });
@@ -118,7 +118,7 @@ describe('VFXService hero level-up', () => {
     const spawnFloatingText = vi.fn();
     const tilesEngine = { hero: { headPosition: () => null }, sync: {}, effects: { spawnFloatingText } };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
-    eventBus.emit({ type: 'hero:level-up', level: 2, position: { lat: 0, lon: 0 } });
+    eventBus.emit({ type: 'hero:level-up', playerId: 'local', local: true, level: 2, position: { lat: 0, lon: 0 } });
     expect(spawnFloatingText).not.toHaveBeenCalled();
     service.destroy();
   });
@@ -231,10 +231,10 @@ describe('VFXService nuclear strike', () => {
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
     const used = () => eventBus.emit({
-      type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25, warningMs: 1500,
+      type: 'ability:used', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25, warningMs: 1500,
     });
     const impact = () => eventBus.emit({
-      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 3, target: TARGET, radiusM: 25,
     });
     return { eventBus, tilesEngine, service, used, impact };
   }
@@ -256,7 +256,7 @@ describe('VFXService nuclear strike', () => {
     expect(tilesEngine.missileLaunches.launch).not.toHaveBeenCalled();
 
     eventBus.emit({
-      type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 4, target: TARGET, radiusM: 25, warningMs: 6500,
+      type: 'ability:used', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 4, target: TARGET, radiusM: 25, warningMs: 6500,
       launch: { towerId: 'silo-1', position: SILO },
     });
     expect(tilesEngine.missileLaunches.launch).toHaveBeenCalledTimes(1);
@@ -273,7 +273,7 @@ describe('VFXService nuclear strike', () => {
 
     // Another ability with a launch site shows no missile
     eventBus.emit({
-      type: 'ability:used', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20, warningMs: 500,
+      type: 'ability:used', playerId: 'local', local: true, abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20, warningMs: 500,
       launch: { towerId: 'silo-1', position: SILO },
     });
     expect(tilesEngine.missileLaunches.launch).toHaveBeenCalledTimes(1);
@@ -294,7 +294,7 @@ describe('VFXService nuclear strike', () => {
       id === 'silo-1' ? ({ mesh, typeConfig: TOWER_TYPES['missile-silo'] } as unknown as TowerRenderData) : undefined);
 
     eventBus.emit({
-      type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 4, target: TARGET, radiusM: 25, warningMs: 6500,
+      type: 'ability:used', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 4, target: TARGET, radiusM: 25, warningMs: 6500,
       launch: { towerId: 'silo-1', position: { lat: 48.01, lon: 9.01, height: 5 } },
     });
     const [, start] = tilesEngine.missileLaunches.launch.mock.calls[0];
@@ -312,7 +312,7 @@ describe('VFXService nuclear strike', () => {
   it('shows the missile in the silo while a charge is ready and no strike is on its way, as each snapshot says', () => {
     const { eventBus, tilesEngine, service } = strikeSetup();
     const snapshot = (charges: number, pending: boolean) => eventBus.emit({
-      type: 'ability:state-changed',
+      type: 'ability:state-changed', playerId: 'local', local: true,
       abilities: ABILITY_IDS.map((id) => ({ ...lockedAbilityStatus(id), unlocked: true, launchSite: true, charges, pending })),
     });
     const shown = () => tilesEngine.towers.setPartShown.mock.calls as unknown[][];
@@ -374,8 +374,8 @@ describe('VFXService nuclear strike', () => {
     const { eventBus, tilesEngine, service } = strikeSetup();
     // Stands for an ability added later; the typed table would not compile without its entry
     const abilityId = 'later-ability' as never;
-    eventBus.emit({ type: 'ability:used', abilityId, strikeId: 4, target: TARGET, radiusM: 25, warningMs: 1500 });
-    eventBus.emit({ type: 'ability:impact', abilityId, strikeId: 4, target: TARGET, radiusM: 25 });
+    eventBus.emit({ type: 'ability:used', playerId: 'local', local: true, abilityId, strikeId: 4, target: TARGET, radiusM: 25, warningMs: 1500 });
+    eventBus.emit({ type: 'ability:impact', playerId: 'local', local: true, abilityId, strikeId: 4, target: TARGET, radiusM: 25 });
     expect(tilesEngine.abilityMarkers.showStrike).not.toHaveBeenCalled();
     expect(tilesEngine.abilityMarkers.removeStrike).not.toHaveBeenCalled();
     expect(tilesEngine.mushroomClouds.detonate).not.toHaveBeenCalled();
@@ -399,13 +399,13 @@ describe('VFXService nuclear strike', () => {
   it('orbital laser: the marker with the band of its path, then the beam along it, scorching as it goes', () => {
     const { eventBus, tilesEngine, service } = strikeSetup();
     const path = [TARGET, { lat: TARGET.lat - 0.0005, lon: TARGET.lon, height: TARGET.height }];
-    eventBus.emit({ type: 'ability:used', abilityId: 'orbital-laser', strikeId: 7, target: TARGET, radiusM: 5, warningMs: 1000, path });
+    eventBus.emit({ type: 'ability:used', playerId: 'local', local: true, abilityId: 'orbital-laser', strikeId: 7, target: TARGET, radiusM: 5, warningMs: 1000, path });
     const [, center, radius, warning, band] = tilesEngine.abilityMarkers.showStrike.mock.calls[0];
     expect(center).toEqual(expect.objectContaining({ x: 7, y: 8, z: 9 }));
     expect([radius, warning]).toEqual([5, 1000]);
     expect(band).toHaveLength(2);
 
-    eventBus.emit({ type: 'ability:impact', abilityId: 'orbital-laser', strikeId: 7, target: TARGET, radiusM: 5, path });
+    eventBus.emit({ type: 'ability:impact', playerId: 'local', local: true, abilityId: 'orbital-laser', strikeId: 7, target: TARGET, radiusM: 5, path });
     expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(7);
     const [beamPath, beamRadius, speed, burnS, scorch] = tilesEngine.orbitalBeams.fire.mock.calls[0];
     expect(beamPath).toHaveLength(2);
@@ -417,10 +417,10 @@ describe('VFXService nuclear strike', () => {
 
   it('EMP: the marker, then the pulse on the ground point, no ground marks', () => {
     const { eventBus, tilesEngine, service } = strikeSetup();
-    eventBus.emit({ type: 'ability:used', abilityId: 'emp', strikeId: 6, target: TARGET, radiusM: 30, warningMs: 500 });
+    eventBus.emit({ type: 'ability:used', playerId: 'local', local: true, abilityId: 'emp', strikeId: 6, target: TARGET, radiusM: 30, warningMs: 500 });
     expect(tilesEngine.abilityMarkers.showStrike).toHaveBeenCalledWith(6, expect.objectContaining({ x: 7, y: 8, z: 9 }), 30, 500);
 
-    eventBus.emit({ type: 'ability:impact', abilityId: 'emp', strikeId: 6, target: TARGET, radiusM: 30 });
+    eventBus.emit({ type: 'ability:impact', playerId: 'local', local: true, abilityId: 'emp', strikeId: 6, target: TARGET, radiusM: 30 });
     expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(6);
     expect(tilesEngine.empPulses.pulse).toHaveBeenCalledWith(expect.objectContaining({ x: 7, y: 8, z: 9 }), 30);
     expect(tilesEngine.effects.markScorch).not.toHaveBeenCalled();
@@ -430,10 +430,10 @@ describe('VFXService nuclear strike', () => {
 
   it('frost bomb: the marker, then the burst with its rime held for the freeze and frost patches', () => {
     const { eventBus, tilesEngine, service } = strikeSetup();
-    eventBus.emit({ type: 'ability:used', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20, warningMs: 500 });
+    eventBus.emit({ type: 'ability:used', playerId: 'local', local: true, abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20, warningMs: 500 });
     expect(tilesEngine.abilityMarkers.showStrike).toHaveBeenCalledWith(5, expect.objectContaining({ x: 7, y: 8, z: 9 }), 20, 500);
 
-    eventBus.emit({ type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20 });
+    eventBus.emit({ type: 'ability:impact', playerId: 'local', local: true, abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20 });
     expect(tilesEngine.abilityMarkers.removeStrike).toHaveBeenCalledWith(5);
     expect(tilesEngine.frostBursts.burst).toHaveBeenCalledWith(expect.objectContaining({ x: 7, y: 8, z: 9 }), 20, 3);
     expect(tilesEngine.mushroomClouds.detonate).not.toHaveBeenCalled();
@@ -453,7 +453,7 @@ describe('VFXService nuclear strike', () => {
   it('frost bomb: no frost patches while ground marks are off', () => {
     const { eventBus, tilesEngine, service } = strikeSetup();
     tilesEngine.effects.groundMarksEnabled = false;
-    eventBus.emit({ type: 'ability:impact', abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20 });
+    eventBus.emit({ type: 'ability:impact', playerId: 'local', local: true, abilityId: 'frost-bomb', strikeId: 5, target: TARGET, radiusM: 20 });
     expect(tilesEngine.frostBursts.burst).toHaveBeenCalled();
     expect(tilesEngine.effects.spawnIceDecal).not.toHaveBeenCalled();
     service.destroy();

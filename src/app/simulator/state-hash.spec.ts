@@ -33,7 +33,7 @@ function source(enemies: Enemy[], towers: Tower[] = [tower('tower-1', 10)]): Sta
     enemies: () => enemies,
     towers: () => towers,
     projectiles: () => [],
-    hero: () => null,
+    heroes: () => [null],
   };
 }
 
