@@ -50,6 +50,8 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
   let service: TowerPlacementService;
   let grid: GlobalRouteGridService;
   let researchStore: ResearchStore;
+  /** The simulation's research, which the LOS registry reads */
+  let research: { airTargetingUnlocked: boolean };
   let towers: Tower[];
   let column: ColumnSample;
   let peek: { depth: number; geometricError: number };
@@ -107,6 +109,7 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
     injectionRegistry['TowerDefenseStore'] = {};
     injectionRegistry['PathAndRouteService'] = {};
     researchStore = new ResearchStore();
+    research = { airTargetingUnlocked: false };
     injectionRegistry['ResearchStore'] = researchStore;
     grid = new GlobalRouteGridService();
     injectionRegistry['GlobalRouteGridService'] = grid;
@@ -140,6 +143,7 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
         onTowerUnregistered: vi.fn(),
       },
       getEventBus: () => new GameEventBus(),
+      researchManager: research,
     };
     service.initialize(engine as never, {} as never, {} as never, { lat: 0, lon: 0 }, gameState as never);
   });
@@ -183,13 +187,13 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
     expect(staleAnswers(a)).toEqual([]);
   });
 
-  it('resolves air for a retrofitted tower with the flag the store has by then', () => {
+  it('resolves air for a retrofitted tower with the flag of the research manager', () => {
     const gatling = place(15, 10, 'dual-gatling');
     expect(cellsOf(gatling).some((c) => c.airVisibility.has(gatling.id))).toBe(false);
 
+    // ResearchManager sets the flag before research:completed goes out
+    research.airTargetingUnlocked = true;
     service.scheduleLosRecompute(gatling);
-    // The store applies the unlock in a later research:completed handler.
-    researchStore.airTargetingUnlocked.set(true);
     drainFrames();
 
     expect(cellsOf(gatling).every((c) => c.airVisibility.has(gatling.id))).toBe(true);

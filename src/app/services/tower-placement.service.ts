@@ -140,10 +140,7 @@ export class TowerPlacementService {
   // ========================================
 
   /** Per-tower LOS on the route grid: registration and refresh. */
-  private readonly losRegistry = new TowerLosRegistry(
-    this.globalRouteGrid,
-    () => this.researchStore.airTargetingUnlocked(),
-  );
+  private readonly losRegistry = new TowerLosRegistry(this.globalRouteGrid);
 
   /** GPU-LOS-Viz der Build-Preview. */
   private readonly buildPreviewLos = new BuildPreviewLos(
@@ -955,8 +952,7 @@ export class TowerPlacementService {
 
   /**
    * recomputeTowerLOS on one of the next drainLosQueue calls instead of
-   * right away. For callers inside an event handler whose follow-up state
-   * the recompute has to see.
+   * right away, one tower per frame.
    */
   scheduleLosRecompute(tower: Tower): void {
     this.losRegistry.scheduleRecompute(tower);

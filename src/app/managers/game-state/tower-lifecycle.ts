@@ -321,12 +321,10 @@ export class TowerLifecycle {
    * registerTowerIncremental only samples the entries that are actually
    * missing.
    *
-   * Queued rather than run in this handler: recomputeTowerLOS reads the air
-   * flag from the ResearchStore, and the store learns about the unlock in
-   * GameStateSyncService's research:completed handler, which subscribes
-   * after this one. Run right here, the recompute still saw air targeting
-   * as locked and resolved no air entry at all. The game loop drains the
-   * queue, one tower per frame (TowerLosRegistry.drainLosQueue).
+   * Queued rather than run in this handler: each recompute renders a cube,
+   * and the research can reach many towers at once. The game loop drains
+   * the queue, one tower per frame (TowerLosRegistry.drainLosQueue); the air
+   * flag comes from the ResearchManager, which sets it before the event.
    */
   scheduleAirRetrofit(effects: ResearchEffect[]): void {
     const unlocksAir = effects.some(
