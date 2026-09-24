@@ -143,6 +143,40 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
 | Präsentations-Aufnahme weg | spart rund 0,8 ms je Sekunde Spielzeit und bis zu 48 MB |
 | Vorrechnen beim Springen | headless, gemessen per Benchmark; Ziel 10 800 Sub-Steps unter 2 s bei typischer Welle |
 
+### Messung Basis
+
+Benchmark: `npm run bench:sim` (Spec `src/app/integration/sim-step.perf.spec.ts`, Harness `sim-step-bench.ts`). Der
+normale `npx vitest run` prüft nur, dass das kleinste Szenario läuft, jeder Towertyp Schaden macht und derselbe Seed
+dasselbe Ergebnis gibt, auch wenn `Math.random` anders zieht.
+
+Aufbau: echter `GameStateManager` mit echtem Route-Grid, Kampf, Schaden, Statuseffekten und Projektilen; Rendering aus
+(wie im Trainings-Tab), damit nimmt auch die Präsentations-Aufnahme des Replays nichts auf. Gestubbt: Engine und
+Renderer (Türme gelten als ausgerichtet) und die Sichtlinie (jede Routenzelle in Reichweite sichtbar, so wie
+`resolveTowerLos` ohne Hindernis schreibt). Tower aller kämpfenden Typen reihum (Projektil, Strahl, Nahkampf, Kette),
+Gegner gemischt mit Luft, 8-fache HP, nach jedem Sub-Step auf die Sollzahl aufgefüllt. Gemessen: 300 Sub-Steps
+Aufwärmen, dann drei Runden zu 600 Sub-Steps bei Timescale 10, die Runde mit dem kleinsten Median zählt. Die
+Aufschlüsselung kommt aus den Profiler-Summen des Loops; "Rest" ist der übrige Sub-Step (Gegner-Update, Wellen,
+Fähigkeiten, Held, Anteil des Frames).
+
+Gemessen am 2026-09-24 auf dem Windows-PC des Users, Stand `simulator` 1b2e275c (nur der Harness dazu), sieben Läufe.
+Ein Lauf als Beispiel, dahinter die Spanne der Mediane über alle sieben:
+
+| Szenario | Tower | Gegner | Median ms | p95 ms | Kampf ms | Projektile ms | Rest ms | Median über 7 Läufe |
+|----------|-------|--------|-----------|--------|----------|---------------|---------|---------------------|
+| S | 20 | 200 | 0,073 | 0,135 | 0,039 | 0,003 | 0,042 | 0,07 bis 0,11 |
+| M | 60 | 1000 | 0,345 | 0,599 | 0,161 | 0,009 | 0,232 | 0,30 bis 0,51 |
+| L | 120 | 3000 | 1,594 | 3,113 | 0,565 | 0,027 | 1,127 | 1,25 bis 2,32 |
+
+Vorrechnen einer Welle zur Mitte des Spiels (20 Tower, 150 Gegner gleichzeitig, Timescale 75): 10 800 Sub-Steps in
+0,79 bis 1,04 s, also 10 400 bis 13 700 Sub-Steps/s. Das Ziel aus P6 (unter 2 s) hält in dieser Umgebung.
+
+Grenzen: Die Zeiten streuen zwischen Läufen deutlich (L zwischen 1,25 und 2,32 ms), vermutlich weil nebenher andere
+Worker auf dem PC liefen. Vergleiche daher mit mehreren Läufen direkt hintereinander auf demselben Rechner. Die
+Spielergebnisse (Kills, aktive Projektile) sind dagegen in jedem Lauf gleich. Nicht im Benchmark sind die Kosten im
+Renderer (heute die Turmdrehung, dazu `presentFrame`) und der Raycast-Rückgriff der Sichtlinie. Holt P2 die
+Turmdrehung in die Simulation, steigt der Sub-Step hier, die Ersparnis im Renderer sieht der Benchmark nicht. Ändert
+P3 das Format der Sichtdaten, zieht `markAllVisible()` im Harness mit.
+
 ## 6. Entscheidungen
 
 | # | Frage | Entscheidung |
