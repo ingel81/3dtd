@@ -52,6 +52,7 @@ import { losMaskToJson, type LosMask } from '../utils/los-mask';
 import { fnv1a } from '../utils/fnv1a';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
+import { tickAtBoundary, tickNeededAfter, type LockstepLink } from '../coop/lockstep';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -194,6 +195,11 @@ export class GameStateManager {
 
   /** Command-Bus-Adapter — registriert sich bei initialize(). */
   private commandsHandler: GameCommandsHandler | null = null;
+
+  /** Coop: the relay link, see setLockstep(); null in the single player game */
+  private lockstep: LockstepLink | null = null;
+  /** Coop: the last tick whose commands ran */
+  private lockstepTickRun = -1;
 
   /**
    * A wave has started in this run; `game:started` goes out before the first.
@@ -544,6 +550,7 @@ export class GameStateManager {
     // Command-Bus-Adapter (UI → Game Engine) — extrahiert in eigene Klasse.
     // ══════════════════════════════════════════════════════════════
     this.commandsHandler = new GameCommandsHandler(this, this.eventBus, this.commandLog);
+    this.commandsHandler.setLockstep(this.lockstep);
 
     // Initialize projectile manager (no callback - uses events)
     this.projectileManager.initialize(tilesEngine);
@@ -627,7 +634,7 @@ export class GameStateManager {
     const stepMs = GameClock.FIXED_STEP_MS;
 
     // nextSubStep() advances the game clock before the step runs
-    while (this.clock.nextSubStep()) {
+    while (this.lockstepOpen() && this.clock.nextSubStep()) {
       const gameOver = this.simulateStep(stepMs, profiling);
       if (gameOver) break; // no point running more sub-steps after game-over
 
@@ -710,6 +717,36 @@ export class GameStateManager {
     // The boundary: what came in during the step takes effect now
     commands?.endStep();
     return gameOver;
+  }
+
+  /**
+   * Coop (docs/COOP_PLAN.md, C0): run commands from the relay into the
+   * simulation and follow the relay's pace. Every command from the bus goes
+   * to `link` and acts when its tick comes back; a sub-step runs only once
+   * the tick before it is closed. Null goes back to the single player game.
+   */
+  setLockstep(link: LockstepLink | null): void {
+    this.lockstep = link;
+    this.lockstepTickRun = -1;
+    this.commandsHandler?.setLockstep(link);
+  }
+
+  /**
+   * The lockstep barrier at the boundary the clock stands at: false while
+   * the relay has not closed the tick before the next sub-step. At a tick's
+   * boundary its commands run first, once. Always true without a link.
+   */
+  private lockstepOpen(): boolean {
+    const link = this.lockstep;
+    if (!link) return true;
+    const boundary = this.clock.subStep;
+    if (tickNeededAfter(boundary) > link.confirmedTick()) return false;
+    const tick = tickAtBoundary(boundary);
+    if (tick > this.lockstepTickRun) {
+      this.lockstepTickRun = tick;
+      this.commandsHandler?.runTick(tick);
+    }
+    return true;
   }
 
   /** A boundary between two sub-steps: the re-simulation's check, else the recorder's hash. */
@@ -1223,6 +1260,7 @@ export class GameStateManager {
     this.healthLedger.resetToStart();
     this.creditsLedger.reset();
     this.clock.reset();
+    this.lockstepTickRun = -1;
     // A new run is a new seed: leaving the streams running would make the
     // second run of a batch a different experiment than the first.
     this.rng.reset();

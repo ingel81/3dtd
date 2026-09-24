@@ -40,51 +40,18 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { GameStateManager } from '../managers/game-state.manager';
-import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
-import { SpatialGridService } from '../services/world/spatial-grid.service';
-import { StatusEffectService } from '../services/combat/status-effect.service';
-import { CombatVfxService } from '../services/combat/combat-vfx.service';
-import { DamageApplicationService } from '../services/combat/damage-application.service';
-import { CombatEffectService } from '../services/combat/combat-effect.service';
-import { TowerCombatService } from '../services/combat/tower-combat.service';
-import { EconomyService } from '../services/economy.service';
+import type { GameStateManager } from '../managers/game-state.manager';
 import { GameObject } from '../core/game-object';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition } from '../models/game.types';
 import type { WaveConfig, SpawnEntry } from '../managers/wave.manager';
-import type { LosMask } from '../utils/los-mask';
 import { mulberry32 } from '../utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { Resimulation } from '../simulator/resimulation';
 import { buildReplayFile, readReplayFile } from '../simulator/replay-file';
-import { noopStub } from './noop-stub';
-import { buildRoute, createBenchEngine, flatSync, markAllVisible } from './sim-step-bench';
+import { buildSimWorld } from './sim-world';
 
 const SEED = 0x51a1;
-
-/** The line of sight side of TowerPlacementService, on the real grid, no GPU. */
-function losPlacement(grid: GlobalRouteGridService) {
-  const queue: Tower[] = [];
-  const unregister = (tower: Tower) => {
-    grid.unregisterTower(tower.id);
-    tower.visibleCells = [];
-    tower.losMask = null;
-  };
-  return noopStub({
-    registerTowerFromMask: (tower: Tower, mask: LosMask) => {
-      tower.visibleCells = grid.applyLosMask(tower.id, tower.position.lon * M, -tower.position.lat * M, mask);
-      tower.losMask = mask;
-      tower.losReady = true;
-    },
-    unregisterTowerFromGrid: unregister,
-    clearAllTowerOverlays: (towers: Tower[]) => towers.forEach(unregister),
-    queuedLosTowerIds: () => queue.map((t) => t.id),
-    requeueLos: (towers: Tower[]) => queue.splice(0, queue.length, ...towers),
-    setLosMaskSource: () => undefined,
-    drainLosQueue: () => undefined,
-  });
-}
 
 interface World {
   gsm: GameStateManager;
@@ -94,45 +61,10 @@ interface World {
 }
 
 function buildWorld(): World {
-  for (const key of Object.keys(services)) delete services[key];
   GameObject.resetIdCounter();
   const mathRandom = Math.random;
   Math.random = mulberry32(SEED + 1);
-
-  const routes = [buildRoute(0, 600), buildRoute(200, 600)];
-  const grid = new GlobalRouteGridService();
-  grid.initialize((() => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 1 })) as never, flatSync as never);
-  grid.generateFromRoutes(routes);
-  const paths = new Map<string, GeoPosition[]>(routes.map((route, i) => [`spawn-${i + 1}`, route]));
-  const spawnPoints = routes.map((route, i) => ({ id: `spawn-${i + 1}`, name: `Spawn ${i + 1}`, ...route[0] }));
-
-  services['GlobalRouteGridService'] = grid;
-  services['SpatialGridService'] = new SpatialGridService();
-  services['StatusEffectService'] = new StatusEffectService();
-  services['ResearchStore'] = noopStub();
-  services['PathAndRouteService'] = noopStub({ getCachedPaths: () => paths });
-  services['EnemyDebugService'] = noopStub({ debugEnemies: () => [], clearDebugEnemies: () => undefined });
-  services['EconomyService'] = new EconomyService();
-  services['CombatVfxService'] = new CombatVfxService();
-  services['DamageApplicationService'] = new DamageApplicationService();
-  services['CombatEffectService'] = new CombatEffectService();
-  services['TowerCombatService'] = new TowerCombatService();
-  services['TowerPlacementService'] = losPlacement(grid);
-
-  const gsm = new GameStateManager();
-  gsm.rng.reset(SEED);
-  gsm.initialize(createBenchEngine(), routes[0][routes[0].length - 1], spawnPoints, paths);
-  gsm.researchManager.completeResearch('aa-retrofit');
-
-  const types = ['archer', 'cannon', 'ice', 'fire', 'lightning', 'rocket', 'magic', 'poison'] as const;
-  const towers = types.map((type, i) => {
-    const route = i % 2;
-    const s = 60 + Math.floor(i / 2) * 120;
-    const east = route * 200 + (i % 4 < 2 ? 9 : -11);
-    const tower = gsm.towerManager.placeTower({ lat: s / M, lon: east / M, height: 0 }, type, 0)!;
-    markAllVisible(grid, tower);
-    return tower;
-  });
+  const { gsm, towers, routes } = buildSimWorld(services, SEED);
   return { gsm, towers, routes, restoreMath: () => { Math.random = mathRandom; } };
 }
 
