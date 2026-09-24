@@ -558,10 +558,12 @@ Tower-Platzierung und Kamera-Bewegung lösten früher schwere Frame-Drops aus
   GPU-Cubemap-LOS auf den eingefrorenen Cells
   ([LOS_PIPELINE.md](LOS_PIPELINE.md)), danach `tower.losReady = true`
 - Combat-System überspringt Towers mit `!losReady`
-- Eine Neuberechnung fragen nur die Forschung, die einem Tower Luftziele gibt, und
-  ein Reichweiten-Upgrade an; sie landet in der Queue des `TowerLosRegistry`,
-  `drainLosRefresh()` rechnet höchstens einen Tower pro Frame
-  (`LOS_RECOMPUTES_PER_FRAME`)
+- Eine Neuberechnung fragen nur die Forschung, die einem Tower Luftziele gibt
+  (Queue des `TowerLosRegistry`, `drainLosQueue()` aus `GameStateManager.update`,
+  höchstens ein Tower pro Frame), und ein Reichweiten-Upgrade (sofort) an
+- Jede Auflösung endet in einer `LosMask` am Tower und dem Event
+  `tower:los-resolved`; der Kampf raycastet nicht, eine Zelle ohne Antwort gilt als
+  nicht sichtbar ([LOS_PIPELINE.md](LOS_PIPELINE.md))
 
 **Street Rendering:**
 - `renderStreets()` sammelt alle Nodes und gibt sofort zurück
