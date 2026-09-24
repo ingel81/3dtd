@@ -1,4 +1,5 @@
 import { GameObject } from '../core/game-object';
+import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 import { ComponentType } from '../core/component';
 import {
   TransformComponent,
@@ -57,6 +58,13 @@ export class Tower extends GameObject {
   airSubStrategy: AirSubStrategy;
 
   selected = false;
+
+  /**
+   * The player it belongs to (docs/COOP_PLAN.md, D7): who paid for it, gets
+   * the gold of its kills and may manage it (TowerPolicy). LOCAL_PLAYER_ID
+   * in the single player game.
+   */
+  ownerId = LOCAL_PLAYER_ID;
 
   /**
    * Hold fire, switched by the player (TowerLifecycle.setHoldFire):

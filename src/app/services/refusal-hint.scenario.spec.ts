@@ -30,6 +30,7 @@ import { HERO, initialHeroStatus } from '../configs/hero.config';
 import type { ResearchId } from '../configs/research/research.types';
 import type { GamePhase, GeoPosition } from '../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { singlePlayer } from '../integration/single-player-parts';
 
 const HQ: GeoPosition = { lat: 48.7758, lon: 9.1829 };
 /** A straight route from 300 m south up to the HQ, for the hero to stand on */
@@ -109,7 +110,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
         return true;
       },
     } as unknown as HeroWorld);
-    new GameCommandsHandler({ abilityManager: abilities, heroManager: hero } as unknown as GameStateManager, bus);
+    new GameCommandsHandler(singlePlayer({ abilityManager: abilities, heroManager: hero }) as unknown as GameStateManager, bus);
 
     // GameStateSyncService: GameStore.abilities, the hero and the credits follow the managers
     const mirror = () => abilityStatuses.set(

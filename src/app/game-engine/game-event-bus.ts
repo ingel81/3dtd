@@ -254,9 +254,14 @@ export type GameEvent =
     }
   | {
       type: 'credits:changed';
+      /** The new total of the player's account */
       credits: number;
       delta: number;
       source: CreditsSource;
+      /** Whose account (docs/COOP_PLAN.md, D6) */
+      playerId: string;
+      /** The account of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       type: 'health:changed';

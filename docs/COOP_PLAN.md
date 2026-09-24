@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0 und C1a gebaut, C1b bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a und C2a gebaut, Rest offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -142,6 +142,31 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 - Tiles lädt jeder selbst, sie sind nach dem Einfrieren nur Bild.
 
 ### C2 Spieler im Spiel
+
+**C2a gebaut (2026-09-24):** Spieler, Gold, Tower-Besitz, Kill-Gold.
+
+- `GameStateManager.setPlayers(players, local)`, `players`, `localPlayerId`, `actingPlayerId`, `runAs`. Der
+  Einzelspieler ist ein Spieler, `LOCAL_PLAYER_ID`; so startet der Manager. Der Handler führt jeden Befehl mit
+  `runAs(playerId)` aus; ein Befehl eines Spielers, der nicht im Lauf ist, steht im Log und tut nichts.
+- `CreditsLedger` mit einem Konto je Spieler (`balance`, `addEach` für Wellengold und Wellensprung, `saveAccounts`);
+  `credits` bleibt das Konto des Spielers an diesem Client. `credits:changed` trägt `playerId` und `local`; Store
+  und Run-Log hören nur das eigene Konto.
+- `Tower.ownerId`; bauen, aufrüsten zahlt der handelnde Spieler, der Verkauf erstattet dem Besitzer.
+- `coop/tower-policy.ts`: `TowerPolicy.may(playerId, tower, action)`, Standard `OWNER_ONLY`, am Manager als
+  `towerPolicy` austauschbar. Die Tower-Befehle prüfen sie (`GameCommandsHandler.towerFor`), die UI wählt über
+  `selectableTower` nur, was die Regel erlaubt.
+- Kill-Gold an den Besitzer des Towers mit dem tödlichen Treffer. Held, Fähigkeiten und Dev-Werkzeuge buchen bis
+  C2c auf den ersten Spieler; ebenso ein Tower, der vor dem Treffer verkauft wurde.
+- Snapshot mit `accounts` und `ownerId` je Tower (beide optional, ältere Snapshots laden weiter). Die Prüfsumme
+  nimmt alle Konten und den Besitzer, wenn er nicht der Einzelspieler ist: Im Einzelspieler bleibt sie bit-gleich,
+  gespeicherte Replays behalten ihre Prüfsummen.
+- Abnahme in `integration/lockstep.scenario.spec.ts`: jeder zahlt, was er baut, und besitzt es; der Partner darf
+  den Tower weder verkaufen noch anhalten noch auswählen; Kill-Gold je Spieler gleich der Summe der Kills seiner
+  Tower; beide Clients mit gleicher Prüfsumme.
+- Offen in C2a: Die Forschung zahlt noch der handelnde Spieler und liest dessen Gold, die Warteschlange den ersten
+  Spieler; das ersetzt C2b.
+
+**Noch offen in C2 (Plan):**
 
 - `CreditsLedger` wird zu Konten je Spieler (D6); der Einzelspieler ist ein Spieler. Jede Buchung hat Quelle und
   Spieler. Den Ledger nur einmal umbauen.

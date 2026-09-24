@@ -4,6 +4,7 @@ import type { Projectile } from '../entities/projectile.entity';
 import type { Hero } from '../entities/hero.entity';
 import type { GameRngState } from '../utils/game-rng';
 import { RNG_STREAMS } from '../utils/game-rng';
+import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 
 /**
  * What the state hash reads. The GameStateManager provides it
@@ -11,7 +12,8 @@ import { RNG_STREAMS } from '../utils/game-rng';
  */
 export interface StateHashSource {
   subStep(): number;
-  credits(): number;
+  /** Every player's credits in roster order; one in the single player game */
+  credits(): readonly number[];
   baseHealth(): number;
   waveNumber(): number;
   idCounter(): number;
@@ -40,7 +42,8 @@ export class StateHasher {
   hash(source: StateHashSource): number {
     this.h = 0x811c9dc5;
     this.num(source.subStep());
-    this.num(source.credits());
+    // One account hashes as the single number did before coop: old replays keep their hashes
+    for (const credits of source.credits()) this.num(credits);
     this.num(source.baseHealth());
     this.num(source.waveNumber());
     this.num(source.idCounter());
@@ -67,6 +70,8 @@ export class StateHasher {
       this.num(tower.combat.kills);
       this.num(tower.combat.damageDealt);
       this.str(tower.currentTarget?.id ?? '');
+      // The owner only when it is not the single player, for the same reason
+      if (tower.ownerId !== LOCAL_PLAYER_ID) this.str(tower.ownerId);
     }
 
     const projectiles = source.projectiles();

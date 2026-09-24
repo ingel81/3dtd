@@ -1,4 +1,5 @@
 import type { GameEventBus } from '../../game-engine';
+import { LOCAL_PLAYER_ID } from './command-log';
 import type { TowerManager } from '../tower.manager';
 import type { ResearchManager } from '../research.manager';
 import type { AbilityManager } from '../ability.manager';
@@ -44,6 +45,8 @@ export class TowerLifecycle {
     private readonly engine: () => ThreeTilesEngine | null,
     /** The route corridor is being built: no tower until it is done, see GameStateManager.corridorPending */
     private readonly corridorPending: () => boolean,
+    /** The player whose command runs (GameStateManager.actingPlayerId): pays, and owns what is built */
+    private readonly actingPlayer: () => string = () => LOCAL_PLAYER_ID,
   ) {}
 
   /** The tower the player sits in (man()), null when none */
@@ -64,6 +67,7 @@ export class TowerLifecycle {
       true,
     );
     if (!tower) return null;
+    if (saved.ownerId) tower.ownerId = saved.ownerId;
     tower.restoreUpgradeLevels(saved.upgrades);
     tower.restoreSimState(saved.state);
     if (saved.losMask && tower.typeConfig.attackType !== 'passive') {
@@ -115,16 +119,17 @@ export class TowerLifecycle {
       return null;
     }
 
-    // Check if player has enough credits
-    if (this.creditsLedger.credits() < config.cost) {
+    // Check if the player has enough credits
+    const player = this.actingPlayer();
+    if (this.creditsLedger.balance(player) < config.cost) {
       return null;
     }
 
     const tower = this.towerManager.placeTower(position, typeId, customRotation, plinthHeight, plinthOverhang);
 
     if (tower) {
-      // Deduct cost
-      this.creditsLedger.add(-config.cost, 'build');
+      tower.ownerId = player;
+      this.creditsLedger.add(-config.cost, 'build', player);
 
       // Register tower on grid (LOS raycasting + grid registration + visualization)
       // Skip grid registration for passive buildings (no targeting/LOS needed)
@@ -167,7 +172,7 @@ export class TowerLifecycle {
 
     // Sell tower (emits tower:sold event, returns refund)
     const refund = this.towerManager.sell(tower);
-    this.creditsLedger.add(refund, 'sell');
+    this.creditsLedger.add(refund, 'sell', tower.ownerId);
 
     // Gone from the tower list: an ability that launched from it loses its button
     this.abilityManager.buildingChanged(tower.typeConfig.id);
@@ -264,7 +269,7 @@ export class TowerLifecycle {
       if (this.researchManager.getMaxUpgradeTier() < requiredTier) return false;
     }
 
-    if (!this.creditsLedger.spend(cost, 'upgrade')) return false;
+    if (!this.creditsLedger.spend(cost, 'upgrade', this.actingPlayer())) return false;
 
     const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
     const previousLevel = tower.getUpgradeLevel(upgradeId);

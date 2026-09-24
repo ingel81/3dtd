@@ -42,6 +42,7 @@ import type { GameStateManager } from '../managers/game-state.manager';
 import { HERO, type HeroStatus } from '../configs/hero.config';
 import { heroPanelView } from '../components/game-sidebar/hero-panel/hero-panel';
 import { at, local, line } from '../../test/geo-test-points';
+import { singlePlayer } from '../integration/single-player-parts';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
@@ -166,12 +167,12 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     heroStatus.set(hero.getStatus());
     bus.on('hero:state-changed', (event) => heroStatus.set(event.hero));
 
-    const gameState = {
+    const gameState = singlePlayer({
       heroManager: hero,
       towerManager: { selectTower },
       getGlobalRouteGrid: () => ({ getGroundLocalYAt: () => 0 }),
       getEventBus: () => bus,
-    };
+    });
     new GameCommandsHandler(gameState as unknown as GameStateManager, bus);
 
     canvas = document.createElement('canvas');

@@ -253,7 +253,8 @@ export class RunLogCollector {
       this.countLeak(e.enemy.typeConfig?.id, e.damage);
     }));
 
-    bag.add(bus.onLive('credits:changed', (e) => this.book(e.delta, e.source)));
+    // The run log is this player's run: a coop partner's bookings are theirs
+    bag.add(bus.onLive('credits:changed', (e) => { if (e.local) this.book(e.delta, e.source); }));
 
     bag.add(bus.onLive('tower:placed', (e) => {
       this.towerMarks.set(e.tower.id, { damage: e.tower.combat.damageDealt, kills: e.tower.combat.kills });

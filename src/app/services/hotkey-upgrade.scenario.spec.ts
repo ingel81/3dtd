@@ -49,6 +49,8 @@ import { Tower } from '../entities/tower.entity';
 import { upgradeHintView } from '../components/game-sidebar/tower-panel/tower-stats';
 import type { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { DebugFacadeService } from './debug/debug-facade.service';
+import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
+import { singlePlayer } from '../integration/single-player-parts';
 
 const POSITION = { lat: 48.7, lon: 9.1, height: 300 };
 /** Colours of the text over the tower (tower-upgrade.service.ts UPGRADE_TEXT) */
@@ -98,7 +100,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
       () => false,
     );
     new GameCommandsHandler(
-      { towerManager: { getAll: () => towers }, upgradeTower: (t: Tower, id: UpgradeId) => lifecycle.upgrade(t, id) } as never,
+      singlePlayer({ towerManager: { getAll: () => towers, getById: (id: string) => towers.find((t) => t.id === id) }, upgradeTower: (t: Tower, id: UpgradeId) => lifecycle.upgrade(t, id) }) as never,
       bus,
     );
     // GameLoopFacadeService.upgradeTower: checks the credits and the last level, then the
@@ -179,7 +181,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
   };
   /** A click on the tile of `upgradeId`: TowerDefenseComponent.upgradeTower */
   const clickTile = (tower: Tower, upgradeId: UpgradeId) => towerUpgrade.buy(tower, upgradeId);
-  const setCredits = (credits: number) => ledger.add(credits - ledger.credits(), 'cheat');
+  const setCredits = (credits: number) => ledger.add(credits - ledger.credits(), 'cheat', LOCAL_PLAYER_ID);
   const levels = (tower: Tower) => tower.typeConfig.upgrades.map((u) => tower.getUpgradeLevel(u.id));
   /** Text and colour of the last text over the tower */
   const lastText = () => {

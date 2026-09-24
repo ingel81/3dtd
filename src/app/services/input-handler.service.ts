@@ -428,7 +428,7 @@ export class InputHandlerService {
         return;
       }
       if (this.heroInput.selected()) {
-        const towerId = this.engine.picker.raycastTowers(event.clientX, event.clientY);
+        const towerId = this.gameState.selectableTower(this.engine.picker.raycastTowers(event.clientX, event.clientY));
         if (towerId) {
           this.gameState.towerManager.selectTower(towerId);
           return;
@@ -443,7 +443,8 @@ export class InputHandlerService {
 
     // First: Check tower selection via direct mesh raycast
     if (!this.buildModeSignal()) {
-      const clickedTowerId = this.engine.picker.raycastTowers(event.clientX, event.clientY);
+      // Only a tower this player may select (TowerPolicy); a partner's counts as a click beside
+      const clickedTowerId = this.gameState.selectableTower(this.engine.picker.raycastTowers(event.clientX, event.clientY));
 
       if (clickedTowerId) {
         if (this.store.selectedTowerId() === clickedTowerId) {

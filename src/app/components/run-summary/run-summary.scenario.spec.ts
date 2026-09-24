@@ -86,7 +86,7 @@ describe('Game-over numbers, playtest 144 (night 1) replayed', () => {
   /** Credits in or out, as the credits ledger announces them */
   const credits = (delta: number, source = 'kill') => {
     gold += delta;
-    bus.emit({ type: 'credits:changed', credits: gold, delta, source } as never);
+    bus.emit({ type: 'credits:changed', credits: gold, delta, source, playerId: 'local', local: true } as never);
   };
   const kill = (id: string, towerId = 't1') =>
     bus.emit({ type: 'enemy:died', enemy: { id } as never, credits: 5, killedBy: { kind: 'tower', towerId } });

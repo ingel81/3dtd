@@ -75,7 +75,7 @@ describe('InputHandlerService with the cell report', () => {
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());
-    service.initialize(canvas, engine as never, { towerManager: { selectTower } } as never, signal(false), vi.fn(), vi.fn());
+    service.initialize(canvas, engine as never, { towerManager: { selectTower }, selectableTower: (id: string | null) => id } as never, signal(false), vi.fn(), vi.fn());
     service.setCellReportCallbacks(report);
     controlsDown = vi.fn<(event: PointerEvent) => void>();
     canvas.addEventListener('pointerdown', controlsDown);

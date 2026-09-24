@@ -3,6 +3,8 @@ import type { GameEvent } from '../game-engine/game-event-bus';
 import { GameStateManager } from './game-state.manager';
 import { CommandLog, LOCAL_PLAYER_ID, toPlainData, type CommandLogEntry } from './game-state/command-log';
 import type { LockstepLink } from '../coop/lockstep';
+import type { TowerAction } from '../coop/tower-policy';
+import type { Tower } from '../entities/tower.entity';
 import { getResearch } from '../configs/research/research-tree.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO } from '../configs/hero.config';
@@ -150,10 +152,12 @@ export class GameCommandsHandler {
     const run = this.executors.get(event.type);
     if (!run) return;
     this.log.record(event, playerId);
+    // A player not in the run gives no command; logged as an input all the same
+    if (!this.gsm.players.includes(playerId)) return;
     // Caught like a throwing listener on the bus: a held command runs from
     // the GSM's loop, and one bad command must not stop the frame
     try {
-      run(event);
+      this.gsm.runAs(playerId, () => run(event));
     } catch (err) {
       console.error(`[GameCommandsHandler] '${event.type}' threw:`, err);
     }
@@ -171,35 +175,31 @@ export class GameCommandsHandler {
     });
 
     this.on('command:sell-tower', (event) => {
-      const tower = this.gsm.towerManager.getAll().find(t => t.id === event.towerId);
-      if (tower) {
-        this.gsm.sellTower(tower);
-      }
+      const tower = this.towerFor(event.towerId, 'sell');
+      if (tower) this.gsm.sellTower(tower);
     });
 
     // Kosten, Tier-Gating und tower:upgraded: TowerLifecycle.upgrade()
     this.on('command:upgrade-tower', (event) => {
-      const tower = this.gsm.towerManager.getAll().find(t => t.id === event.towerId);
-      if (tower) {
-        this.gsm.upgradeTower(tower, event.upgradeId);
-      }
+      const tower = this.towerFor(event.towerId, 'upgrade');
+      if (tower) this.gsm.upgradeTower(tower, event.upgradeId);
     });
 
     this.on('command:set-targeting', (event) => {
-      const tower = this.gsm.towerManager.getById(event.towerId);
+      const tower = this.towerFor(event.towerId, 'targeting');
       if (!tower) return;
       if (event.strategy) tower.targetingStrategy = event.strategy;
       if (event.airSubStrategy) tower.airSubStrategy = event.airSubStrategy;
     });
 
     this.on('command:set-hold-fire', (event) => {
-      const tower = this.gsm.towerManager.getById(event.towerId);
+      const tower = this.towerFor(event.towerId, 'hold-fire');
       if (tower) this.gsm.setTowerHoldFire(tower, event.holdFire);
     });
 
     // Manning a tower (docs/TOWER_CONTROL.md): get in and out, aim, trigger
     this.on('command:man-tower', (event) => {
-      const tower = this.gsm.towerManager.getById(event.towerId);
+      const tower = this.towerFor(event.towerId, 'man');
       if (tower) this.gsm.manTower(tower);
     });
 
@@ -216,9 +216,16 @@ export class GameCommandsHandler {
     });
   }
 
+  /** The tower `towerId` if the player whose command runs may do `action` with it (TowerPolicy), else null. */
+  private towerFor(towerId: string, action: TowerAction): Tower | null {
+    const tower = this.gsm.towerManager.getById(towerId);
+    if (!tower || !this.gsm.towerPolicy.may(this.gsm.actingPlayerId, tower, action)) return null;
+    return tower;
+  }
+
   private attachResearchCommands(): void {
     this.on('command:start-research', (event) => {
-      const validation = this.gsm.researchManager.canStartResearch(event.researchId, this.gsm.credits());
+      const validation = this.gsm.researchManager.canStartResearch(event.researchId, this.gsm.creditsOf(this.gsm.actingPlayerId));
       if (!validation.canStart) return;
 
       const research = getResearch(event.researchId);
@@ -301,7 +308,7 @@ export class GameCommandsHandler {
   private attachDebugCommands(): void {
     this.on('debug:add-credits', (event) => {
       // Taking more than there is would leave the player in the red
-      this.gsm.addCredits(Math.max(event.amount, -this.gsm.credits()), 'cheat');
+      this.gsm.addCredits(Math.max(event.amount, -this.gsm.creditsOf(this.gsm.actingPlayerId)), 'cheat');
     });
 
     this.on('debug:add-health', (event) => {

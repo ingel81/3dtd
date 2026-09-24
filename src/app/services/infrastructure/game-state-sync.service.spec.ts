@@ -220,7 +220,7 @@ describe('GameStateSyncService (real service)', () => {
   // ── Credits / Health ───────────────────────────────────────────
   describe('credits + health events', () => {
     it('credits:changed → store.credits = event.credits', () => {
-      eventBus.emit({ type: 'credits:changed', credits: 750, delta: -50 , source: 'kill' });
+      eventBus.emit({ type: 'credits:changed', credits: 750, delta: -50 , source: 'kill', playerId: 'local', local: true });
       expect(store.credits()).toBe(750);
     });
 
@@ -439,7 +439,7 @@ describe('GameStateSyncService (real service)', () => {
     it('detaches every subscription so subsequent events are ignored', () => {
       service.dispose();
       eventBus.emit({ type: 'wave:started', wave: 9, enemyCount: 99 });
-      eventBus.emit({ type: 'credits:changed', credits: 9999, delta: 0 , source: 'kill' });
+      eventBus.emit({ type: 'credits:changed', credits: 9999, delta: 0 , source: 'kill', playerId: 'local', local: true });
       // Defaults remain — phase from a fresh store starts as 'setup'.
       expect(store.waveNumber()).toBe(0);
       expect(store.credits()).not.toBe(9999);

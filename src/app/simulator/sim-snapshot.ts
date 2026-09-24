@@ -27,7 +27,10 @@ export interface SimSnapshot {
   rng: GameRngState;
   /** GameObject id counter */
   idCounter: number;
+  /** The credits of the player at the client that took it */
   credits: number;
+  /** Every player's credits in roster order; absent in a snapshot from before coop, then `credits` is the one player's */
+  accounts?: [string, number][];
   baseHealth: number;
   waveNumber: number;
   phase: GamePhase;
@@ -47,6 +50,8 @@ export interface SimSnapshot {
 
 export interface SavedTower {
   id: string;
+  /** Tower.ownerId; absent in a snapshot from before coop, then the first player's */
+  ownerId?: string;
   typeId: TowerTypeId;
   lat: number;
   lon: number;

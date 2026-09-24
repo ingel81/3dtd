@@ -17,6 +17,8 @@ import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { buildResearchNodes, researchClickAction, type ResearchTreeState } from './research-tree-view';
 import { researchStatus } from '../game-sidebar/research-panel/research-status';
+import { LOCAL_PLAYER_ID } from '../../managers/game-state/command-log';
+import { singlePlayer } from '../../integration/single-player-parts';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
@@ -85,16 +87,16 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
     const gsm = {
       researchManager: research,
       credits: () => ledger.credits(),
-      spendCredits: (amount: number) => ledger.spend(amount, 'research'),
-      addCredits: (amount: number) => ledger.add(amount, 'research-refund'),
+      spendCredits: (amount: number) => ledger.spend(amount, 'research', LOCAL_PLAYER_ID),
+      addCredits: (amount: number) => ledger.add(amount, 'research-refund', LOCAL_PLAYER_ID),
     };
-    new GameCommandsHandler(gsm as unknown as GameStateManager, bus);
+    new GameCommandsHandler(singlePlayer(gsm) as unknown as GameStateManager, bus);
   });
 
   /** One gameplay sub-step, research part (game-state.manager.ts runSubStep) */
   const subStep = () => {
     research.update(STEP_MS);
-    research.startQueued(() => ledger.credits(), (cost) => ledger.spend(cost, 'research'));
+    research.startQueued(() => ledger.credits(), (cost) => ledger.spend(cost, 'research', LOCAL_PLAYER_ID));
   };
   const status = (id: ResearchId) =>
     researchStatus(id, treeState().completed, treeState().active, treeState().queued);
@@ -102,7 +104,7 @@ describe('Research queue, playtest 508 and 509 replayed', () => {
   /** New game, cheat Credits, Research Center built (TowerLifecycle charges it and opens the slot) */
   const newGameWithCenter = () => {
     bus.emit({ type: 'debug:add-credits', amount: 1000 });
-    expect(ledger.spend(TOWER_TYPES['research-center'].cost, 'build')).toBe(true);
+    expect(ledger.spend(TOWER_TYPES['research-center'].cost, 'build', LOCAL_PLAYER_ID)).toBe(true);
     research.onCenterPlaced();
   };
 

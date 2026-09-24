@@ -36,7 +36,7 @@ import { heroBodyContact } from '../utils/hero-body-contact';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
 import { GameRng } from '../utils/game-rng';
-import type { CreditsSource, LosResolveReason, WaveGoldBreakdown } from '../game-engine/game-event-bus';
+import type { CreditsSource, KilledBy, LosResolveReason, WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
@@ -54,6 +54,7 @@ import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
 import { tickAtBoundary, tickNeededAfter, type LockstepLink } from '../coop/lockstep';
 import type { WorldSource } from '../coop/world-package';
+import { OWNER_ONLY, type TowerPolicy } from '../coop/tower-policy';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -139,7 +140,7 @@ export class GameStateManager {
         shot.aimPoint ?? undefined,
       );
     },
-    spend: (cost) => this.creditsLedger.spend(cost, 'hero'),
+    spend: (cost) => this.creditsLedger.spend(cost, 'hero', this.actingPlayerId),
   });
 
   /**
@@ -187,6 +188,7 @@ export class GameStateManager {
     this.eventBus,
     () => this.tilesEngine,
     () => this.corridorPending(),
+    () => this.actingPlayerId,
   );
   /** Game over screen signal - delegated to HQDamageService */
   readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
@@ -307,7 +309,7 @@ export class GameStateManager {
   private readonly stateHasher = new StateHasher();
   private readonly hashSource: StateHashSource = {
     subStep: () => this.clock.subStep,
-    credits: () => this.credits(),
+    credits: () => this.creditsLedger.balances(),
     baseHealth: () => this.baseHealth(),
     waveNumber: () => this.waveManager.waveNumber(),
     idCounter: () => GameObject.getIdCounter(),
@@ -343,8 +345,71 @@ export class GameStateManager {
   private readonly eventBusSubs = new SubscriptionBag();
 
   /** Bound once for the research queue, which runs every sub-step (ResearchManager.startQueued) */
-  private readonly creditsNow = (): number => this.credits();
-  private readonly spendForResearch = (cost: number): boolean => this.creditsLedger.spend(cost, 'research');
+  private readonly creditsNow = (): number => this.creditsLedger.balance(this.actingPlayerId);
+  private readonly spendForResearch = (cost: number): boolean =>
+    this.creditsLedger.spend(cost, 'research', this.actingPlayerId);
+
+  /** The player whose command runs now, see runAs(); null outside a command */
+  private acting: string | null = null;
+
+  /**
+   * The player a booking or a new tower belongs to: the one whose command
+   * runs, else the first player of the run (the single player, the host).
+   */
+  get actingPlayerId(): string {
+    return this.acting ?? this.creditsLedger.players[0];
+  }
+
+  /** The players of the run in roster order (docs/COOP_PLAN.md, C2). */
+  get players(): readonly string[] {
+    return this.creditsLedger.players;
+  }
+
+  /**
+   * Coop: the players of the run and the one at this client. Every account
+   * starts with the start credits. The single player game is one player,
+   * LOCAL_PLAYER_ID, which is how the manager starts.
+   */
+  setPlayers(players: readonly string[], local: string): void {
+    this.creditsLedger.setPlayers(players, local);
+  }
+
+  /** What a player may do with a tower (D7); swap it to loosen the rule. */
+  towerPolicy: TowerPolicy = OWNER_ONLY;
+
+  /** The player at this client: whose credits `credits` shows, whose towers the UI selects. */
+  get localPlayerId(): string {
+    return this.creditsLedger.localPlayer;
+  }
+
+  /**
+   * `towerId` if the player at this client may select that tower
+   * (TowerPolicy), else null: the UI's gate, the same rule the commands check.
+   */
+  selectableTower(towerId: string | null): string | null {
+    if (!towerId) return null;
+    const tower = this.towerManager.getById(towerId);
+    return tower && this.towerPolicy.may(this.localPlayerId, tower, 'select') ? towerId : null;
+  }
+
+  /** Credits of one player; `credits` is the one at this client. */
+  creditsOf(playerId: string): number {
+    return this.creditsLedger.balance(playerId);
+  }
+
+  /**
+   * Run `fn` as `playerId`'s command: what it books and builds is theirs.
+   * The GameCommandsHandler wraps every command in it.
+   */
+  runAs<T>(playerId: string, fn: () => T): T {
+    const before = this.acting;
+    this.acting = playerId;
+    try {
+      return fn();
+    } finally {
+      this.acting = before;
+    }
+  }
 
   /**
    * Set performance profiler for frame timing instrumentation.
@@ -525,7 +590,7 @@ export class GameStateManager {
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
-        this.creditsLedger.add(event.credits, 'kill');
+        this.creditsLedger.add(event.credits, 'kill', this.killCreditPlayer(event.killedBy));
 
         // Show reward popup with actual dynamic credits (not static typeConfig.reward)
         if (this.tilesEngine) {
@@ -888,6 +953,7 @@ export class GameStateManager {
       rng: this.rng.getState(),
       idCounter: GameObject.getIdCounter(),
       credits: this.credits(),
+      accounts: this.creditsLedger.saveAccounts(),
       baseHealth: this.baseHealth(),
       waveNumber: this.waveManager.waveNumber(),
       phase: this.waveManager.phase(),
@@ -906,6 +972,7 @@ export class GameStateManager {
     const position = tower.position;
     return {
       id: tower.id,
+      ownerId: tower.ownerId,
       typeId: tower.typeConfig.id as TowerTypeId,
       lat: position.lat,
       lon: position.lon,
@@ -963,7 +1030,7 @@ export class GameStateManager {
       snapshot.losQueue.map((id) => this.towerManager.getById(id)).filter((tower): tower is Tower => !!tower),
     );
 
-    this.creditsLedger.restore(snapshot.credits);
+    this.creditsLedger.restore(snapshot.accounts ?? [[this.creditsLedger.players[0], snapshot.credits]]);
     this.healthLedger.restore(snapshot.baseHealth);
     this.economy.restorePerfectStreak(snapshot.economyPerfectStreak);
     this.waveManager.waveNumber.set(snapshot.waveNumber);
@@ -1198,7 +1265,7 @@ export class GameStateManager {
     const skipped = wave - 1 - from;
     const credits = grantGold ? skippedWavesGold(from + 1, wave - 1) : 0;
     this.waveManager.jumpTo(wave - 1);
-    if (credits > 0) this.creditsLedger.add(credits, 'wave-jump');
+    if (credits > 0) this.creditsLedger.addEach(credits, 'wave-jump');
     this.abilityManager.advanceWaves(skipped);
     this.eventBus.emit({ type: 'wave:jumped', from, wave, skipped, credits });
     return true;
@@ -1295,13 +1362,27 @@ export class GameStateManager {
   /** Apply Wave-Completion-Bonus via EconomyService (delegates the math). */
   private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): WaveGoldBreakdown {
     const breakdown = this.economy.computeWaveCompletionBonus(result);
-    this.creditsLedger.add(waveGoldTotal(breakdown), 'wave-bonus');
+    this.creditsLedger.addEach(waveGoldTotal(breakdown), 'wave-bonus');
     return breakdown;
   }
 
-  /** Add credits to the player account (delta). Public for GameCommandsHandler. */
-  addCredits(amount: number, source: CreditsSource): void {
-    this.creditsLedger.add(amount, source);
+  /**
+   * Who gets a kill's gold (D9): the owner of the tower with the killing
+   * hit. The hero, abilities and the dev tools book to the first player
+   * until they have owners of their own (COOP_PLAN C2c); so does a tower
+   * sold before its shot landed.
+   */
+  private killCreditPlayer(killedBy: KilledBy | null): string {
+    if (killedBy?.kind === 'tower') {
+      const tower = this.towerManager.getById(killedBy.towerId);
+      if (tower) return tower.ownerId;
+    }
+    return this.creditsLedger.players[0];
+  }
+
+  /** Add credits to a player's account (delta), the acting player's by default. */
+  addCredits(amount: number, source: CreditsSource, playerId: string = this.actingPlayerId): void {
+    this.creditsLedger.add(amount, source, playerId);
   }
 
   /**
@@ -1382,8 +1463,8 @@ export class GameStateManager {
    * Spend credits (for upgrades etc.)
    * @returns true if credits were spent, false if not enough
    */
-  spendCredits(amount: number, source: CreditsSource): boolean {
-    return this.creditsLedger.spend(amount, source);
+  spendCredits(amount: number, source: CreditsSource, playerId: string = this.actingPlayerId): boolean {
+    return this.creditsLedger.spend(amount, source, playerId);
   }
 
   /**

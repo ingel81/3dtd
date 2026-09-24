@@ -18,6 +18,7 @@ import { GameCommandsHandler } from '../../managers/game-commands.handler';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import { ABILITY_IDS, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
 import type { GeoPosition } from '../../models/game.types';
+import { singlePlayer } from '../../integration/single-player-parts';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
@@ -59,7 +60,7 @@ describe('Ability buttons through a strike and its recharge, playtest 318 and 31
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => (waveActive() ? 'wave' : 'setup'));
     new GameCommandsHandler(
-      { researchManager: research, abilityManager: abilities } as unknown as GameStateManager,
+      singlePlayer({ researchManager: research, abilityManager: abilities }) as unknown as GameStateManager,
       bus,
     );
 
