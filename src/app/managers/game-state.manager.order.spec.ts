@@ -36,6 +36,8 @@ import { GameEventBus } from '../game-engine';
 import { GameObject } from '../core/game-object';
 import { withAutoStubs } from '../integration/test-helpers';
 import type { Tower } from '../entities/tower.entity';
+import type { GameEvent } from '../game-engine/game-event-bus';
+import { LOCAL_PLAYER_ID } from './game-state/command-log';
 
 const log: string[] = [];
 const logged = (label: string, ret?: unknown) => vi.fn(() => {
@@ -182,10 +184,15 @@ const STEP_HEAD = [
 const SETUP_STEP = [...STEP_HEAD, 'enemy.update', 'hero.update', 'onSubStep'];
 /** One sub-step outside a wave with debug enemies: combat runs, no spawner */
 const DEBUG_STEP = [...STEP_HEAD, 'enemy.update', ...COMBAT, 'hero.update', 'onSubStep'];
-/** One sub-step in a wave: spawner, enemies, combat, hero, hook, then the wave-end check (no strike pending) */
+/**
+ * One sub-step in a wave: spawner, enemies, combat, hero, the wave-end check
+ * (no strike pending), then the hook at the boundary. The hook (bot tick)
+ * ran before the check until the command boundary (SIMULATOR_PLAN P1): a
+ * bot's command landed inside the step then.
+ */
 const WAVE_STEP = [
-  ...STEP_HEAD, 'wave.tickSpawn', 'enemy.update', ...COMBAT, 'hero.update', 'onSubStep',
-  'ability.hasPendingStrikes', 'wave.checkWaveComplete',
+  ...STEP_HEAD, 'wave.tickSpawn', 'enemy.update', ...COMBAT, 'hero.update',
+  'ability.hasPendingStrikes', 'wave.checkWaveComplete', 'onSubStep',
 ];
 /** Once per frame after the loop, when a sub-step ran and rendering is on */
 const PRESENT = ['enemy.presentFrame', 'projectile.presentFrame', 'hero.presentFrame'];
@@ -265,7 +272,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       ]);
     });
 
-    it('runs the spawner and combat in a wave and checks the wave end after the per-step hook', () => {
+    it('runs the spawner and combat in a wave and checks the wave end before the per-step hook', () => {
       gsm.waveManager.phase.set('wave');
       gsm.update(1000, onSubStep);
       gsm.update(1050, onSubStep);
@@ -301,7 +308,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       expect(log).toEqual([
         'engine.setTimescale(1)',
         ...WAVE_STEP,
-        ...WAVE_STEP,
+        ...WAVE_STEP.slice(0, -1),
         'wave.endWave',
         'enemy.clear',
         // The wave books its own completion gold (WaveManager.endWave through
@@ -311,6 +318,8 @@ describe('GameStateManager order of operations (characterization)', () => {
         'combat.stopAllBeams',
         'combat.stopAllMelee',
         'enemyDebug.clearDebugEnemies',
+        // The hook sees the setup the check just began
+        'onSubStep',
         ...STEP_HEAD,
         'event:wave:completed',
         'combat.turnTowersToGuard',
@@ -332,7 +341,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1000, onSubStep);
       gsm.update(1050, onSubStep);
 
-      const heldStep = WAVE_STEP.slice(0, -1);
+      const heldStep = WAVE_STEP.filter((call) => call !== 'wave.checkWaveComplete');
       expect(log).toEqual([
         'engine.setTimescale(1)',
         'engine.setTimescale(1)',
@@ -350,7 +359,8 @@ describe('GameStateManager order of operations (characterization)', () => {
 
       expect(log).toEqual([
         'engine.setTimescale(1)',
-        ...SETUP_STEP,
+        // No hook after the step that ends the game: the loop breaks first
+        ...SETUP_STEP.slice(0, -1),
         // The event goes out before the field is cleared: the run log writes
         // the block of the wave the base fell in, and it can only count the
         // enemies that were standing while they are still there.
@@ -771,6 +781,133 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.healBase();
 
       expect(log).toEqual(['event:debug:add-health', 'event:health:changed', 'hq.healBase']);
+    });
+  });
+
+  // Commands act between two complete sub-steps and land in the command log
+  // with that boundary (docs/EVENT_SYSTEM.md, "Befehlsgrenze und Befehlslog")
+  describe('command boundary and log', () => {
+    const ADD_5: GameEvent = { type: 'debug:add-credits', amount: 5 };
+
+    /** Emit `command` once from inside the next sub-step, after the hero, as a listener of a sim event would. */
+    function emitInStep(command: GameEvent): void {
+      const hero = gsm.heroManager as unknown as { update: (ms: number) => void };
+      const update = hero.update;
+      let sent = false;
+      hero.update = (ms) => {
+        update(ms);
+        if (sent) return;
+        sent = true;
+        bus.emit(command);
+      };
+    }
+
+    it('holds a command from inside a sub-step until the step and its checks are done', () => {
+      gsm.waveManager.phase.set('wave');
+      gsm.update(1000, onSubStep);
+      emitInStep(ADD_5);
+      log.length = 0;
+      gsm.update(1016, onSubStep); // 16 ms + 16 ms carried: one step
+
+      const step = WAVE_STEP.slice(0, -1);
+      expect(log).toEqual([
+        'engine.setTimescale(1)',
+        ...step.slice(0, step.indexOf('hero.update') + 1),
+        'event:debug:add-credits',
+        'ability.hasPendingStrikes',
+        'wave.checkWaveComplete',
+        // The boundary
+        'event:credits:changed',
+        'onSubStep',
+        ...PRESENT,
+      ]);
+      expect(gsm.commandLog.entries).toEqual([
+        { step: 1, playerId: LOCAL_PLAYER_ID, command: { type: 'debug:add-credits', amount: 5 } },
+      ]);
+    });
+
+    it('runs a command from between two frames at once, stamped with the steps run so far', () => {
+      gsm.update(1000, onSubStep);
+      gsm.update(1050, onSubStep); // three steps
+      log.length = 0;
+      bus.emit(ADD_5);
+
+      expect(log).toEqual(['event:debug:add-credits', 'event:credits:changed']);
+      expect(gsm.commandLog.entries.map((e) => e.step)).toEqual([3]);
+    });
+
+    it('runs the per-step hook at the boundary: a bot command acts before the next step', () => {
+      gsm.update(1000, onSubStep);
+      log.length = 0;
+      let sent = false;
+      gsm.update(1050, () => {
+        log.push('onSubStep');
+        if (sent) return;
+        sent = true;
+        bus.emit(ADD_5);
+      });
+
+      expect(log).toEqual([
+        'engine.setTimescale(1)',
+        ...SETUP_STEP,
+        'event:debug:add-credits',
+        'event:credits:changed',
+        ...SETUP_STEP,
+        ...SETUP_STEP,
+        ...PRESENT,
+      ]);
+      expect(gsm.commandLog.entries.map((e) => e.step)).toEqual([1]);
+    });
+
+    it('runs a command from the step that ends the game after the game over, before the loop breaks', () => {
+      gsm.update(1000, onSubStep);
+      gsm.baseHealth.set(0);
+      emitInStep(ADD_5);
+      log.length = 0;
+      gsm.update(1050, onSubStep);
+
+      expect(log).toEqual([
+        'engine.setTimescale(1)',
+        ...SETUP_STEP.slice(0, -1),
+        'event:debug:add-credits',
+        'event:game:over',
+        'enemy.clear',
+        'enemyDebug.clearDebugEnemies',
+        'tower.selectTower',
+        'hq.triggerGameOverEffects',
+        'event:credits:changed',
+        ...PRESENT,
+      ]);
+      expect(gsm.commandLog.entries.map((e) => e.step)).toEqual([1]);
+    });
+
+    it('logs a refused command as well: a re-simulation has to see the same inputs', () => {
+      bus.emit({ type: 'command:hire-hero' });
+
+      expect(log).toEqual(['event:command:hire-hero', 'event:hero:rejected']);
+      expect(gsm.commandLog.entries).toEqual([
+        { step: 0, playerId: LOCAL_PLAYER_ID, command: { type: 'command:hire-hero' } },
+      ]);
+    });
+
+    it('runs a logged command again through the same path and logs it again', () => {
+      bus.emit(ADD_5);
+      const credits = gsm.credits();
+      gsm.replayCommand(gsm.commandLog.entries[0]);
+
+      expect(gsm.credits()).toBe(credits + 5);
+      expect(gsm.commandLog.entries).toHaveLength(2);
+      expect(gsm.commandLog.entries[1]).toEqual(gsm.commandLog.entries[0]);
+    });
+
+    it('starts a new log with a new run', () => {
+      bus.emit(ADD_5);
+      bus.emit({ type: 'command:restart-game' });
+      expect(gsm.commandLog.entries).toEqual([]);
+
+      bus.emit(ADD_5);
+      gsm.reset();
+      expect(gsm.commandLog.entries).toEqual([]);
     });
   });
 });

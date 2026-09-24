@@ -198,12 +198,12 @@ describe('A strike behind the last zombie of a small wave, playtest 121 (night 1
     expect(leaks).toHaveLength(3);
     expect(Math.max(...leaks)).toBeLessThan(impactAt);
     expect(impactAt).toBe(WARNING_STEPS);
-    // A sub-step's hook sees the phase before its completion check: the wave
-    // ran through the impact sub-step, whose check ended it. wave:completed
-    // is deferred (WaveManager.endWave) and goes out with the next
-    // sub-step's event queue.
-    expect(phases.slice(0, impactAt)).toEqual(Array(impactAt).fill('wave'));
-    expect(phases[impactAt]).toBe('setup');
+    // A sub-step's hook runs after its completion check: the wave ran
+    // through the impact sub-step, whose check ended it, so that step's hook
+    // sees the setup. wave:completed is deferred (WaveManager.endWave) and
+    // goes out with the next sub-step's event queue.
+    expect(phases.slice(0, impactAt - 1)).toEqual(Array(impactAt - 1).fill('wave'));
+    expect(phases[impactAt - 1]).toBe('setup');
     expect(completedAt).toBe(impactAt + 1);
     expect(resolved).toEqual({ hits: 0, kills: 0 });
     // No countdown while the wave ran, 10 s once it was over

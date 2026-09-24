@@ -347,9 +347,11 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
       }
       // Nothing on the route: without the wait the wave would end on the first sub-step
       expect(resolvedAt).toBe(WARNING_STEPS + BURN_STEPS - 2);
-      expect(phases.slice(0, resolvedAt + 1)).toEqual(Array(resolvedAt + 1).fill('wave'));
-      expect(phases.indexOf('setup')).toBeGreaterThan(resolvedAt);
-      expect(phases.indexOf('setup')).toBeLessThanOrEqual(resolvedAt + 2);
+      // The hook runs after a sub-step's completion check, so the step the
+      // beam goes out in may already hand on the setup
+      expect(phases.slice(0, resolvedAt)).toEqual(Array(resolvedAt).fill('wave'));
+      expect(phases.indexOf('setup')).toBeGreaterThanOrEqual(resolvedAt);
+      expect(phases.indexOf('setup')).toBeLessThanOrEqual(resolvedAt + 1);
     });
 
     it('walking into it: unarmored at the 60 % cap, a tank loses a good quarter, a ghost hardly anything', () => {

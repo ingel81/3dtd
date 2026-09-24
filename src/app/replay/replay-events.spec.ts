@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
-import { isPresentationEvent, presentationEvent, toPlainData } from './replay-events';
+import { isPresentationEvent, presentationEvent } from './replay-events';
 import { GameObject } from '../core/game-object';
 import type { GameEvent } from '../game-engine/game-event-bus';
 
@@ -61,33 +61,5 @@ describe('presentationEvent', () => {
     // Later moves of the (pooled or dead) enemy do not reach the stub
     enemy.position.lat = 0;
     expect((kept as { enemy: { position: { lat: number } } }).enemy.position.lat).toBe(48.1);
-  });
-});
-
-describe('toPlainData', () => {
-  it('copies plain data, leaves functions out and keeps an entity as its id', () => {
-    const entity = new FakeEntity();
-    const command = {
-      type: 'command:hero-move',
-      target: { lat: 1, lon: 2 },
-      path: [{ x: 1 }, { x: 2 }],
-      onDone: () => undefined,
-      unit: entity,
-    };
-    const plain = toPlainData(command) as Record<string, unknown>;
-    expect(plain).toEqual({
-      type: 'command:hero-move',
-      target: { lat: 1, lon: 2 },
-      path: [{ x: 1 }, { x: 2 }],
-      unit: { id: entity.id },
-    });
-    expect(plain['target']).not.toBe(command.target);
-  });
-
-  it('stops at a depth no command reaches', () => {
-    let deep: Record<string, unknown> = { leaf: 1 };
-    for (let i = 0; i < 12; i++) deep = { next: deep };
-    const plain = JSON.stringify(toPlainData(deep));
-    expect(plain.includes('leaf')).toBe(false);
   });
 });

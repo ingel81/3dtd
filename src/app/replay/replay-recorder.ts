@@ -6,7 +6,8 @@ import type { WaveConfig } from '../managers/wave.manager';
 import type { RouteBodyStations } from '../utils/route-body';
 import { isBloodMoonWave } from '../configs/blood-moon.config';
 import { ENEMY_END, ENEMY_FLAG, ReplayRecording, TOWER_FLAG, heroPoseCode, type ReplayHeroPose } from './replay-recording';
-import { isPresentationEvent, presentationEvent, toPlainData } from './replay-events';
+import { isPresentationEvent, presentationEvent } from './replay-events';
+import { toPlainData } from '../managers/game-state/command-log';
 
 /** What the recorder reads of an enemy; Enemy has all of it. */
 export interface RecordableEnemy {

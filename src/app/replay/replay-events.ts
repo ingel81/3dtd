@@ -51,26 +51,3 @@ function holdsEntity(event: GameEvent): boolean {
   }
   return false;
 }
-
-/** How deep toPlainData() follows nested objects; a command is shallow. */
-const PLAIN_DATA_DEPTH = 8;
-
-/**
- * A command as plain data for the command log: numbers, strings, booleans,
- * plain objects and arrays are copied, functions left out, an entity is
- * kept as its id. Commands are few, so copying costs nothing of note, and
- * the log stays valid whatever happens to the objects later.
- */
-export function toPlainData(value: unknown, depth = 0): unknown {
-  if (typeof value === 'function') return undefined;
-  if (value === null || typeof value !== 'object') return value;
-  if (value instanceof GameObject) return { id: value.id };
-  if (depth >= PLAIN_DATA_DEPTH) return undefined;
-  if (Array.isArray(value)) return value.map((item) => toPlainData(item, depth + 1) ?? null);
-  const out: Record<string, unknown> = {};
-  for (const key of Object.keys(value)) {
-    const copy = toPlainData((value as Record<string, unknown>)[key], depth + 1);
-    if (copy !== undefined) out[key] = copy;
-  }
-  return out;
-}
