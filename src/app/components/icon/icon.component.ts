@@ -42,7 +42,9 @@ export type TdIconName =
   // replay of the last wave
   | 'replay'
   // shortcut overview (sidebar footer)
-  | 'keyboard';
+  | 'keyboard'
+  // coop (header)
+  | 'users';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -88,6 +90,7 @@ const ICONS: Record<TdIconName, IconDef> = {
   text: { body: '<path d="M5 6h14M12 6v14M8 20h8" />' },
   bulb: { body: '<path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-4 10c1 1 2 2 2 4h4c0-2 1-3 2-4a6 6 0 0 0-4-10Z" />' },
   user: { body: '<circle cx="12" cy="8" r="4" /><path d="M4 21c0-4 4-7 8-7s8 3 8 7" />' },
+  users: { body: '<circle cx="9" cy="8" r="3.5" /><path d="M2 20c0-3.5 3.2-6 7-6s7 2.5 7 6" /><path d="M15.5 4.6a3.5 3.5 0 0 1 0 6.8M18 14.4c2.4.8 4 2.9 4 5.6" />' },
   sliders: { body: '<path d="M4 8h12M18 8h2M4 16h4M10 16h10M16 6v4M8 14v4" />' },
   chart: { body: '<path d="M3 20h18M5 20V10M10 20V5M15 20v-8M20 20v-4" />' },
   share: { body: '<circle cx="6" cy="12" r="2.5" /><circle cx="18" cy="6" r="2.5" /><circle cx="18" cy="18" r="2.5" /><path d="m8.2 11 7.6-4M8.2 13l7.6 4" />' },

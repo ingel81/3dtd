@@ -33,6 +33,8 @@ export interface PlacementResult {
   mode: 'hq' | 'spawn';
   /** A spawn placed in addition to the ones there, not in place of them */
   add?: boolean;
+  /** The index of the one spawn this click moves, the others stay (coop host, lobby) */
+  move?: number;
   /** Where the click placed it, in its canonical form (canonicalCoords), as checked */
   lat: number;
   lon: number;
@@ -176,16 +178,19 @@ export class MapPlacementService {
 
   /** The spawn being placed goes in addition to the ones there (startPlacement with `add`) */
   private addingSpawn = false;
+  /** Index of the spawn the click moves, null for all of them or an added one */
+  private movingSpawn: number | null = null;
 
   /**
    * Enter placement mode. Creates a preview marker that follows the cursor.
    * @param mode 'hq' to place headquarters, 'spawn' to place spawn point
    */
-  startPlacement(mode: 'hq' | 'spawn', add = false): void {
+  startPlacement(mode: 'hq' | 'spawn', add = false, move: number | null = null): void {
     if (this.uiStore.coopMapLocked()) return;
     // Clean up any previous placement
     this.exitPlacementMode();
     this.addingSpawn = mode === 'spawn' && add;
+    this.movingSpawn = mode === 'spawn' && !add ? move : null;
 
     // Set mode signal
     this.uiStore.mapPlacementMode.set(mode);
@@ -314,6 +319,7 @@ export class MapPlacementService {
     const result: PlacementResult = {
       mode,
       ...(mode === 'spawn' && this.addingSpawn ? { add: true } : {}),
+      ...(mode === 'spawn' && this.movingSpawn !== null ? { move: this.movingSpawn } : {}),
       lat: this.currentPosition.lat,
       lon: this.currentPosition.lon,
       height: this.currentPosition.height,

@@ -77,7 +77,6 @@ function makeEngineInit() {
     setLoading: vi.fn(),
     startWorldDiceLoading: vi.fn(),
     updateWorldDiceDetail: vi.fn(),
-    finishWorldDiceLoading: vi.fn(),
   };
 }
 
@@ -818,22 +817,22 @@ describe('LocationChangeCoordinatorService', () => {
       expect(engineInit.updateWorldDiceDetail).toHaveBeenCalledWith('Querying Wikidata');
       expect(worldDice.onStepDetail).toBeNull();
       expect(engineInit.setLoading).toHaveBeenCalledWith(false);
-      expect(engineInit.finishWorldDiceLoading).not.toHaveBeenCalled();
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('World Dice: Failed - Timeout');
     });
 
-    it('announces the rolled city before it navigates', async () => {
-      vi.useFakeTimers();
+    it('goes to the rolled city in this page with a random street spawn (a coop room survives it)', async () => {
+      const loaded = network();
+      osm.loadStreets.mockResolvedValue(loaded);
+      osm.findRandomStreetPoint.mockReturnValue({ lat: 45.765, lon: 4.836, distance: 640, streetName: 'Rue de la République' });
       worldDice.rollRandomCity.mockResolvedValue({ name: 'Lyon', country: 'France', lat: 45.764, lon: 4.8357 });
       coordinator.initializeFlow(delegate);
 
-      // Stops before the 300 ms delay that ends in a full page navigation.
-      void coordinator.onWorldDice();
-      await vi.advanceTimersByTimeAsync(0);
+      await coordinator.onWorldDice();
+      await settle();
 
-      expect(engineInit.finishWorldDiceLoading).toHaveBeenCalledWith('Lyon, France');
       expect(callbacks.appendDebugLog).toHaveBeenCalledWith('World Dice: Lyon, France (45.7640, 4.8357)');
-      expect(engineInit.setLoading).not.toHaveBeenCalled();
+      expect(osm.findRandomStreetPoint).toHaveBeenCalledWith(loaded, 45.764, 4.8357, 500, 1000);
+      expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Rue de la République', 45.765, 4.836, SPAWN_COLORS[0], undefined);
     });
   });
 });

@@ -190,20 +190,6 @@ export class EngineInitializationService {
   }
 
   /**
-   * Mark World Dice step as done and show "Loading Map..." before reload
-   */
-  finishWorldDiceLoading(cityName: string): void {
-    this.loadingSteps.update(steps => steps.map(s =>
-      s.id === 'dice-city' ? { ...s, status: 'done' as const, meta: cityName } : s
-    ));
-    // Add "loading map" step that will be visible until page reloads
-    this.loadingSteps.update(steps => [
-      ...steps,
-      { id: 'dice-reload', title: 'Loading Map', status: 'current' as const }
-    ]);
-  }
-
-  /**
    * Reset all loading steps to 'pending' for a fresh start
    * Preserves 'location' step if already done (runs before initEngine)
    */

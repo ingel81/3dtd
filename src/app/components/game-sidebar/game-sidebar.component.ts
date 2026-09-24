@@ -84,8 +84,6 @@ export class GameSidebarComponent implements OnDestroy {
     }
   }
 
-  /** The Coop button: the room code while in one */
-  readonly coopRoom = computed(() => this.coop?.room()?.code ?? null);
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);
@@ -161,9 +159,9 @@ export class GameSidebarComponent implements OnDestroy {
     void openAttributionsDialog(this.dialog);
   }
 
-  /** Coop: open a room or join one (docs/COOP_PLAN.md, C4). */
+  /** Coop: open a room or join one (docs/COOP_PLAN.md, C4); the header's coop button opens it as well. */
   openCoop(): void {
-    void openCoopDialog(this.dialog, this.injector);
+    void openCoopDialog(this.dialog, this.injector, !this.coop?.inGame());
   }
 
   /** The runs this browser kept, each one to save as a file (docs/RUN_LOG.md). */

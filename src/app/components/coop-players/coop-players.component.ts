@@ -1,10 +1,11 @@
-import { Component, ChangeDetectionStrategy, computed, effect, inject, signal } from '@angular/core';
+import { Component, ChangeDetectionStrategy, computed, effect, inject, input, signal } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { CoopService } from '../../services/coop.service';
 import { GameStore } from '../../store/game.store';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
+import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-button';
 
 /** What the gold menu offers to send */
 const GIFT_AMOUNTS = [50, 100, 250, 500];
@@ -21,12 +22,19 @@ const CHAT_NOTICE_MS = 10000;
  * Under it the coop notices (joined, left, host, connection, chat, gold) for
  * a few seconds. Shown from the start of a coop game until the player leaves
  * the room, also after the connection dropped.
+ *
+ * At the left edge, one player a row, right of the ability bar and below the
+ * info overlay (playtest T5, T8); the gold menu stays open for more gifts.
  */
 @Component({
   selector: 'app-coop-players',
   standalone: true,
   imports: [MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  host: {
+    '[style.left.px]': 'left',
+    '[style.top.px]': 'topInset() + clear',
+  },
   template: `
     @if (coop.roster().length > 0) {
       <ul class="players" aria-label="Players">
@@ -38,6 +46,10 @@ const CHAT_NOTICE_MS = 10000;
               <span class="state">left</span>
             } @else if (!waveActive()) {
               <span class="state" [class.is-ready]="player.ready">{{ player.ready ? 'ready' : 'building' }}</span>
+            }
+            @if (!player.left && player.latency !== null) {
+              <span class="ping" [matTooltip]="player.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'"
+                    matTooltipPosition="below">{{ player.latency }} ms</span>
             }
             <span class="gold" [attr.aria-label]="player.gold + ' gold'">
               <td-icon name="coin" [size]="11"></td-icon>{{ player.gold }}
@@ -72,20 +84,27 @@ const CHAT_NOTICE_MS = 10000;
     }
   `,
   styles: `
-    /* Placed by .td-hud-top in the game component, under game speed and boss bar */
+    /* Left, right of the ability bar; left and top from the host bindings */
     :host {
+      position: absolute;
+      z-index: 6;
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       gap: 4px;
-      pointer-events: auto;
+      max-width: 260px;
+      pointer-events: none;
       ${TD_CSS_VARS}
+    }
+    .players,
+    .gift-menu {
+      pointer-events: auto;
     }
     .players {
       display: flex;
-      flex-wrap: wrap;
-      justify-content: center;
-      gap: 4px;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 3px;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -111,6 +130,9 @@ const CHAT_NOTICE_MS = 10000;
     .player.has-left .name {
       text-decoration: line-through;
     }
+    .name {
+      flex: 1;
+    }
     .lane-dot {
       width: 8px;
       height: 8px;
@@ -125,6 +147,10 @@ const CHAT_NOTICE_MS = 10000;
     }
     .state.is-ready {
       color: var(--td-teal);
+    }
+    .ping {
+      font: 600 9px/1 var(--td-font-mono);
+      color: var(--td-text-muted);
     }
     .gold {
       display: flex;
@@ -177,7 +203,7 @@ const CHAT_NOTICE_MS = 10000;
     .notices {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: flex-start;
       gap: 3px;
     }
     .notice.is-warn {
@@ -194,6 +220,13 @@ export class CoopPlayersComponent {
   private readonly gameStore = inject(GameStore);
 
   readonly amounts = GIFT_AMOUNTS;
+  /**
+   * Bottom edge of the info overlay, px from the top of the canvas area
+   * (UIStore.infoOverlayBottom), as the ability bar takes it
+   */
+  readonly topInset = input(0);
+  protected readonly left = ABILITY_BAR_EDGE_PX + ABILITY_BAR_PX.clear;
+  protected readonly clear = ABILITY_BAR_PX.clear;
   readonly waveActive = this.gameStore.waveActive;
   /** The partner the gold menu is open for */
   readonly giftTo = signal<string | null>(null);
@@ -214,6 +247,7 @@ export class CoopPlayersComponent {
         ready: ready.has(p.id),
         left: left.has(p.id),
         gold: gold.get(p.id) ?? 0,
+        latency: this.coop.latencyTo(p.id),
         color: index < 0 ? 'transparent' : `#${SPAWN_COLORS[index % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`,
       };
     });
@@ -260,8 +294,8 @@ export class CoopPlayersComponent {
     this.giftTo.set(this.giftTo() === playerId ? null : playerId);
   }
 
+  /** The menu stays open: several clicks send more; the gift button closes it */
   give(playerId: string, amount: number): void {
     this.coop.giveGold(playerId, amount);
-    this.giftTo.set(null);
   }
 }

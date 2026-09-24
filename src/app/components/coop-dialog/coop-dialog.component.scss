@@ -178,9 +178,39 @@ input[type='text']:focus {
 
 .lanes {
   display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.lane-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto 64px auto auto;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.lane-bar {
+  height: 4px;
+  background: var(--td-frame-dark);
+
+  span {
+    display: block;
+    height: 100%;
+  }
+}
+
+.lane-length,
+.lane-owner,
+.player-ping {
+  font-family: var(--td-font-mono);
+  font-size: 10.5px;
+  color: var(--td-text-muted);
+  white-space: nowrap;
+}
+
+.lane-owner {
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .lanes-label {
@@ -324,6 +354,29 @@ input[type='text']:focus {
 
 .advanced[open] summary {
   margin-bottom: 6px;
+}
+
+.relay-test {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+
+  p {
+    margin: 0;
+  }
+}
+
+.probe {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--td-text-muted);
+}
+
+.probe.is-ok {
+  color: var(--td-green);
 }
 
 .relay-line {

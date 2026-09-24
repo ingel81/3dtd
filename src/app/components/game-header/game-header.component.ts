@@ -66,6 +66,8 @@ export class GameHeaderComponent {
   // as inside.
   @HostListener('document:click', ['$event'])
   onDocumentClick(event: MouseEvent): void {
+    const spawnWrapper = this.elementRef.nativeElement.querySelector('.spawn-wrapper');
+    if (this.spawnMenuOpen() && spawnWrapper && !event.composedPath().includes(spawnWrapper)) this.spawnMenuOpen.set(false);
     if (!this.favMenuExpanded()) return;
 
     const favWrapper = this.elementRef.nativeElement.querySelector('.fav-wrapper');
@@ -104,9 +106,17 @@ export class GameHeaderComponent {
   readonly selectFavoriteClick = output<FavoriteLocation>();
   readonly deleteFavoriteClick = output<string>();
   readonly placeHqClick = output<void>();
-  readonly placeSpawnClick = output<void>();
+  /** Spawn placement: the index of the one spawn to move, null for one spawn in place of all */
+  readonly placeSpawnClick = output<number | null>();
   /** Place one more spawn, in addition to the ones there */
   readonly addSpawnClick = output<void>();
+  /** How many spawns stand; with more than one the flag asks which to move */
+  readonly spawnCount = input(1);
+  readonly spawnMenuOpen = signal(false);
+  readonly spawnIndexes = computed(() => Array.from({ length: this.spawnCount() }, (_, i) => i));
+  /** Coop: the room code while in one, null otherwise */
+  readonly coopRoom = input<string | null>(null);
+  readonly coopClick = output<void>();
 
   // Internal state
   readonly favMenuExpanded = signal(false);
@@ -157,6 +167,17 @@ export class GameHeaderComponent {
       field.focus();
       field.select();
     });
+  }
+
+  /** The flag: one spawn places at once, with several a menu asks which one to move */
+  onSpawnFlag(): void {
+    if (this.spawnCount() > 1) this.spawnMenuOpen.update((open) => !open);
+    else this.placeSpawnClick.emit(null);
+  }
+
+  pickSpawn(index: number | null): void {
+    this.spawnMenuOpen.set(false);
+    this.placeSpawnClick.emit(index);
   }
 
   /**

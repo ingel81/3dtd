@@ -47,6 +47,16 @@
             </label>
             @if (relayInvalid()) {
               <p class="coop-error">That is no ws:// or wss:// address.</p>
+            } @else {
+              <div class="relay-test">
+                <button class="footer-btn" type="button" (click)="testRelay()" [disabled]="relayProbe()?.busy">Test</button>
+                @if (relayProbe(); as probe) {
+                  <p class="probe" [class.coop-error]="!probe.ok" [class.is-ok]="probe.ok && !probe.busy" role="status">
+                    @if (!probe.busy) { <td-icon [name]="probe.ok ? 'check' : 'cross'" [size]="13"></td-icon> }
+                    {{ probe.text }}
+                  </p>
+                }
+              </div>
             }
           </details>
         } @else {
@@ -88,6 +98,13 @@
                 @if (player.client) {
                   <span class="player-client">{{ clientLabel(player.client) }}</span>
                 }
+                @let ms = coop.latencyTo(player.id);
+                @if (ms !== null) {
+                  <span class="player-ping"
+                        [matTooltip]="player.id === coop.playerId() ? 'Your round trip to the coop server' : 'Your commands to them and back over the coop server, about'">
+                    {{ ms }} ms
+                  </span>
+                }
                 @if (!room.started) {
                   <span class="player-ready" [class.is-ready]="player.ready">{{ player.ready ? 'ready' : 'not ready' }}</span>
                 }
@@ -102,14 +119,35 @@
           }
 
           @if (!room.started && coop.worldReady()) {
-            <div class="lanes" role="group" aria-label="Your lane">
-              <span class="lanes-label">Your lane</span>
+            <div class="lanes" role="group" aria-label="Lanes">
+              <span class="lanes-label">Lanes: pick yours; a short one leaves less time to shoot</span>
               @for (spawnId of room.spawnIds; track spawnId; let i = $index) {
-                <button class="lane-btn" type="button" [class.is-mine]="me()?.spawnId === spawnId"
-                        [disabled]="laneTaken(spawnId)" (click)="coop.pick(me()?.spawnId === spawnId ? null : spawnId)">
-                  <span class="lane-dot" [style.background]="laneColor(spawnId)"></span>
-                  Spawn {{ i + 1 }}
-                </button>
+                @let lane = coop.lanes().get(spawnId);
+                <div class="lane-row">
+                  <button class="lane-btn" type="button" [class.is-mine]="me()?.spawnId === spawnId"
+                          [disabled]="laneTaken(spawnId)" (click)="coop.pick(me()?.spawnId === spawnId ? null : spawnId)"
+                          [attr.aria-pressed]="me()?.spawnId === spawnId">
+                    <span class="lane-dot" [style.background]="laneColor(spawnId)"></span>
+                    Spawn {{ i + 1 }}
+                  </button>
+                  @if (lane) {
+                    <span class="lane-bar" aria-hidden="true"><span [style.width.%]="lane.share * 100" [style.background]="laneColor(spawnId)"></span></span>
+                    <span class="lane-length">{{ lane.meters }} m · {{ walkTime(lane.seconds) }}</span>
+                  }
+                  <span class="lane-owner">{{ laneOwner(spawnId) }}</span>
+                  @if (coop.isHost()) {
+                    <button class="icon-btn" type="button" (click)="moveSpawn(i)"
+                            [matTooltip]="'Move spawn ' + (i + 1) + ': click its new place on the map'"
+                            [attr.aria-label]="'Move spawn ' + (i + 1)">
+                      <td-icon name="flag" [size]="13"></td-icon>
+                    </button>
+                    <button class="icon-btn" type="button" (click)="coop.removeSpawn(i)" [disabled]="room.spawnIds.length < 2"
+                            [matTooltip]="'Take spawn ' + (i + 1) + ' away; the ones after it move up'"
+                            [attr.aria-label]="'Take spawn ' + (i + 1) + ' away'">
+                      <td-icon name="cross" [size]="13"></td-icon>
+                    </button>
+                  }
+                </div>
               }
             </div>
             @if (!coop.isHost()) {

@@ -79,6 +79,12 @@ input, textarea {
   font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
 }
 
+// Coop lobby docked at the left (openCoopDialog, docked): no veil, the map
+// stays usable beside it; it scrolls within the window's height
+.td-coop-docked .mdc-dialog__surface {
+  max-height: calc(100vh - 80px);
+}
+
 // Research tree: fills the window and scrolls nowhere but in its own board.
 // The surface of MatDialog scrolls by itself, which puts a second scrollbar
 // around a dialog that is already the size of the screen

@@ -17,6 +17,7 @@ import { portalHeadingToBearing } from '../../three-engine/renderers/marker/spaw
 import { corridorTrace } from '../../utils/corridor-trace';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { VizCallbacks } from './location-facade.service';
+import type { SavedSpawn } from '../../models/location.types';
 
 /** What a relocation needs from the location facade, read at the moment it is needed. */
 export interface RelocationHost {
@@ -74,6 +75,8 @@ export class MapRelocationService {
       await this.applyNewHqPosition(result.lat, result.lon, host);
     } else if (result.add) {
       await this.applySpawnAdded(result.lat, result.lon, host, result.heading);
+    } else if (result.move !== undefined) {
+      await this.applySpawnMoved(result.move, result.lat, result.lon, host, result.heading);
     } else {
       await this.applySpawnInPlace(result.lat, result.lon, host, result.heading);
     }
@@ -383,26 +386,62 @@ export class MapRelocationService {
   }
 
   /**
-   * Replace the spawn on the loaded street network, also where the click
-   * lies outside its box (on a way reaching out of it): no street reload,
-   * only paths and game state are rebuilt.
+   * Replace the spawns by one at `lat`, `lon` on the loaded street network,
+   * also where the click lies outside its box (on a way reaching out of it):
+   * no street reload, only paths and game state are rebuilt.
    * @param heading Portal heading the player turned the spawn to, see
    *   PlacementResult
    */
-  private async applySpawnInPlace(lat: number, lon: number, host: RelocationHost, heading?: number): Promise<void> {
+  private applySpawnInPlace(lat: number, lon: number, host: RelocationHost, heading?: number): Promise<boolean> {
+    const portalBearing = heading === undefined ? undefined : portalHeadingToBearing(heading);
+    return this.applySpawns([{ lat, lon, portalBearing }], host);
+  }
+
+  /**
+   * Move the spawn at `index` to `lat`, `lon`; the others stay where they
+   * are, and so do the ids (spawn-1, spawn-2, ...), the coop lanes with them.
+   */
+  private applySpawnMoved(index: number, lat: number, lon: number, host: RelocationHost, heading?: number): Promise<boolean> {
+    const spawns = this.locationMgmt.spawns();
+    if (index < 0 || index >= spawns.length) return Promise.resolve(false);
+    const portalBearing = heading === undefined ? undefined : portalHeadingToBearing(heading);
+    return this.applySpawns(spawns.map((spawn, i) => (i === index ? { lat, lon, portalBearing } : { ...spawn })), host);
+  }
+
+  /** Take the spawn at `index` away, the others move up (spawn-3 becomes spawn-2); never the last one. */
+  removeSpawn(index: number, host: RelocationHost): Promise<boolean> {
+    const spawns = this.locationMgmt.spawns();
+    if (spawns.length < 2 || index < 0 || index >= spawns.length) return Promise.resolve(false);
+    return this.applySpawns(spawns.filter((_, i) => i !== index).map((spawn) => ({ ...spawn })), host);
+  }
+
+  /** Set these spawns in place of the ones there, same HQ (a coop guest takes the host's), see applySpawns. */
+  replaceSpawns(spawns: SavedSpawn[], host: RelocationHost): Promise<boolean> {
+    return this.applySpawns(spawns, host);
+  }
+
+  /**
+   * Set these spawns in place of the ones there: routes, game state and the
+   * corridor are rebuilt, the street network stays. Refused when a spawn
+   * has no route to the HQ.
+   */
+  private async applySpawns(spawns: SavedSpawn[], host: RelocationHost): Promise<boolean> {
     const ctx = host.context();
     const engine = ctx?.bridge.getEngine();
     const streetNetwork = ctx?.bridge.getStreetNetwork();
-    if (!ctx || !engine || !streetNetwork) return;
+    if (!ctx || !engine || !streetNetwork) return false;
     const { gameState } = ctx;
 
     const hq = this.store.baseCoords();
 
-    // 1. Check if a route exists from new spawn to HQ
-    const path = this.osmService.findPath(streetNetwork, lat, lon, hq.lat, hq.lon);
-    if (!path || path.length < 2) {
-      console.warn('[MapPlacement] No route from new spawn to HQ — placement rejected');
-      return;
+    // 1. Check that a route exists from every spawn to HQ
+    if (spawns.length === 0 || spawns.length > SPAWN_COLORS.length) return false;
+    for (const spawn of spawns) {
+      const path = this.osmService.findPath(streetNetwork, spawn.lat, spawn.lon, hq.lat, hq.lon);
+      if (!path || path.length < 2) {
+        console.warn('[MapPlacement] No route from new spawn to HQ — placement rejected');
+        return false;
+      }
     }
 
     // 2. Stop animations and clear old visuals
@@ -415,18 +454,18 @@ export class MapRelocationService {
     // 3. Reset game state (towers, enemies, etc.)
     gameState.reset();
 
-    // 4. Add new spawn point; its portal faces along the route unless the
+    // 4. Add the spawn points; a portal faces along the route unless the
     // player turned it. The turn is kept as a compass bearing, in the
     // location and so in the URL and in favorites saved from here.
-    const portalBearing = heading === undefined ? undefined : portalHeadingToBearing(heading);
-    host.addSpawnPoint('spawn-1', 'Spawn', lat, lon, SPAWN_COLORS[0], portalBearing);
+    spawns.forEach((spawn, i) =>
+      host.addSpawnPoint(`spawn-${i + 1}`, 'Spawn', spawn.lat, spawn.lon, SPAWN_COLORS[i], spawn.portalBearing));
 
     // 5. Update location service + URL
-    this.locationMgmt.setLocation(hq, [{ lat, lon, portalBearing }]);
+    this.locationMgmt.setLocation(hq, spawns);
     host.syncUrlWithLocation();
 
     // 6. Re-initialize game state with new routes
-    const waveSpawns = [{ id: 'spawn-1', name: 'Spawn', lat, lon }];
+    const waveSpawns = this.store.spawnPoints().map((spawn) => ({ id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon }));
     gameState.initialize(
       engine,
       { lat: hq.lat, lon: hq.lon },
@@ -442,12 +481,13 @@ export class MapRelocationService {
     // segments it shares with the old route keep their measurement. The
     // route animation starts on the routes it froze.
     const viz = host.vizCallbacks();
-    if (!viz) return;
+    if (!viz) return true;
     this.relocationStatus.show(MOVING_SPAWN, 'Finding the route');
     const hint = this.relocationStatus.follow();
     const result = await viz.buildCorridor('spawn moved in place', hint.report);
     hint.end();
     if (result) this.startRouteAnimation();
+    return result !== null;
   }
 
   /** Add a spawn at `lat`, `lon` (a coop joiner takes the host's), see applySpawnAdded. */

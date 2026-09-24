@@ -22,6 +22,8 @@ import {
 } from '../coop/world-package';
 import type { CoopRoomInfo, RefusalReason } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
+import { laneStats, type LaneStat } from '../coop/lane-stats';
+import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { relayCandidates, relayForLink, validRelayUrl, type RelaySource } from '../coop/relay-address';
 import type { GeoPosition } from '../models/game.types';
 
@@ -49,6 +51,10 @@ const MAX_NOTICES = 4;
 const NAME_KEY = '3dtd-coop-name';
 /** The player's own relay (coop dialog, "Server"), kept in this browser; none means automatic */
 const RELAY_KEY = '3dtd-coop-relay';
+/** The lobby's walking time of a lane: a zombie's pace, the standard enemy */
+const LANE_WALK_SPEED_MPS = ENEMY_TYPES['zombie'].baseSpeed;
+/** Host: how long a changed map waits before it checks that the rebuild is done, ms */
+const SHARE_SETTLE_MS = 400;
 
 /** Longest wait for this client's own load of the host's place before taking the world over, ms */
 const WORLD_LOAD_TIMEOUT_MS = 120_000;
@@ -63,6 +69,7 @@ const REFUSAL_TEXT: Record<RefusalReason, string> = {
   'not-host': 'Only the host can do that.',
   'lane-taken': 'Someone else has that lane.',
   'not-ready': 'Not everyone has a lane and is ready yet.',
+  alone: 'A coop game needs a second player.',
 };
 
 /**
@@ -94,6 +101,10 @@ export class CoopService {
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly locationFacade = inject(LocationFacadeService);
+  /** Host: the map last sent to the room (mapSignature), see shareChangedMap */
+  private sharedMap = '';
+  /** Host: the latest shareChangedMap, an older one gives way */
+  private shareRun = 0;
   /** Host: adding a spawn for a lane the room lacks, see fillLanes */
   private filling = false;
   private readonly ngZone = inject(NgZone);
@@ -133,6 +144,10 @@ export class CoopService {
   readonly leftIds = signal<ReadonlySet<string>>(new Set());
   /** Every player's gold in the running game */
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
+  /** Each lane's length and walking time, spawn id to its stats (lobby) */
+  readonly lanes = signal<ReadonlyMap<string, LaneStat>>(new Map());
+  /** Each player's round trip to the relay, ms, as the relay last measured it */
+  readonly rtt = signal<ReadonlyMap<string, number | null>>(new Map());
   /** Short notices for the players bar: joined, left, host, connection, divergence, chat, gold */
   readonly notices = signal<CoopNotice[]>([]);
   /** The players in the room play on engines that compute differently (Chrome and Firefox) */
@@ -141,6 +156,8 @@ export class CoopService {
   readonly roomFromUrl: string | null;
   /** The relay the invite link named (&relay=), as it came */
   private readonly relayFromUrl: string | null;
+  /** The lane this player had before the host moved the room to another place (&lane=), taken again */
+  private readonly laneFromUrl: string | null;
   /** The relay this session talks to, and where the address came from */
   readonly relay = signal<{ url: string; source: RelaySource } | null>(null);
 
@@ -148,6 +165,7 @@ export class CoopService {
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
     this.relayFromUrl = params.get('relay');
+    this.laneFromUrl = params.get('lane');
 
     const bus = this.gameState.getEventBus();
     bus.on('coop:ready-changed', (event) => {
@@ -182,15 +200,25 @@ export class CoopService {
       if (event.toLocal) this.notify(`${this.nameOf(event.from)} sent you ${event.amount} gold`);
     });
 
+    // Host, lobby: a changed map goes to the room by itself
+    effect(() => {
+      const signature = this.mapSignature();
+      const room = this.room();
+      if (!room || room.started || !this.isHost() || !this.worldReady()) return;
+      untracked(() => {
+        if (signature !== this.sharedMap) void this.shareChangedMap();
+      });
+    }, { injector: this.injector });
+
     // The map belongs to the room (R4): locked in the game, and for a guest in the lobby
     effect(() => {
       const locked = this.inGame() || (this.room() !== null && !this.isHost());
       untracked(() => this.uiStore.coopMapLocked.set(locked));
     }, { injector: this.injector });
 
-    // Speed and pause belong to the host (D15): a change in the store, from
-    // the buttons or the keys, goes to the relay from the host and is taken
-    // back on a guest. The room's answer sets the store (applySpeed).
+    // The speed belongs to the host (D15), the pause to everyone: a change in
+    // the store, from the buttons or the keys, goes to the relay; a guest's
+    // speed is taken back. The room's answer sets the store (applySpeed).
     effect(() => {
       const speed = this.gameStore.gameSpeed();
       const paused = this.gameStore.paused();
@@ -247,6 +275,8 @@ export class CoopService {
     const session = await this.connect(name);
     if (!session) return;
     await this.guard(async () => {
+      // A new room has a lane free for the second player (User, 2026-09-24)
+      if (this.gameState.getSpawnPoints().length < 2) await this.locationFacade.addRandomSpawn();
       this.room.set(await session.create());
       this.shareWorld();
     });
@@ -270,7 +300,32 @@ export class CoopService {
     }
     const world = buildWorldPackage(source, this.head());
     this.session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
+    this.lanes.set(laneStats(this.gameState.getCachedPaths(), LANE_WALK_SPEED_MPS));
+    this.sharedMap = this.mapSignature();
     this.worldReady.set(true);
+  }
+
+  /** HQ and spawns of the place loaded here, to tell a changed map */
+  private mapSignature(): string {
+    const hq = this.locationMgmt.hq();
+    const spawns = this.locationMgmt.spawns();
+    const at = (p: { lat: number; lon: number }) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
+    return hq ? [at(hq), ...spawns.map(at)].join(';') : '';
+  }
+
+  /**
+   * Host, lobby: the map changed here (a spawn set, moved or added, the HQ
+   * moved, another place): once it stands, send it to the room (User,
+   * 2026-09-24). A guest takes the spawns in place or moves along.
+   */
+  private async shareChangedMap(): Promise<void> {
+    const run = ++this.shareRun;
+    // The rebuild starts after the location's signals change
+    await new Promise((resolve) => setTimeout(resolve, SHARE_SETTLE_MS));
+    if (!(await this.placeLoaded()) || run !== this.shareRun) return;
+    const room = this.room();
+    if (!this.session || !room || room.started || !this.isHost() || this.mapSignature() === this.sharedMap) return;
+    this.shareWorld();
   }
 
   /**
@@ -292,6 +347,18 @@ export class CoopService {
     }
   }
 
+  /** Host, lobby: set spawn `index` anew with a click on the map; the room gets the map by itself */
+  moveSpawn(index: number): void {
+    if (!this.isHost() || this.inGame()) return;
+    this.locationFacade.startMapPlacement('spawn', false, index);
+  }
+
+  /** Host, lobby: take spawn `index` away (never the last); its player gets a free lane */
+  removeSpawn(index: number): void {
+    if (!this.isHost() || this.inGame()) return;
+    void this.locationFacade.removeSpawn(index);
+  }
+
   /** Lobby: take a lane, or give it back. A lane taken by hand is not changed by autoPick. */
   pick(spawnId: string | null): void {
     this.pickedByHand = true;
@@ -307,11 +374,28 @@ export class CoopService {
     const room = this.room();
     const me = room?.players.find((p) => p.id === this.playerId());
     if (!room || !me || room.started || me.spawnId !== null || this.pickedByHand || !this.worldReady()) return;
-    const free = room.spawnIds.find((id) => !room.players.some((p) => p.spawnId === id));
+    const taken = (id: string) => room.players.some((p) => p.spawnId === id);
+    // The lane held before a move to another place, else the first free one
+    const wanted = this.laneFromUrl !== null && room.spawnIds.includes(this.laneFromUrl) && !taken(this.laneFromUrl)
+      ? this.laneFromUrl : null;
+    const free = wanted ?? room.spawnIds.find((id) => !taken(id));
     if (free !== undefined && free !== this.autoPicking) {
       this.autoPicking = free;
       this.session?.pick(free);
     }
+  }
+
+  /**
+   * Latency in ms as the lobby and the players bar show it: to the relay for
+   * this player, to another player the way a command goes (half of each
+   * round trip, all goes over the relay). Null while not measured.
+   */
+  latencyTo(playerId: string): number | null {
+    const rtt = this.rtt();
+    const mine = rtt.get(this.playerId() ?? '') ?? null;
+    if (playerId === this.playerId()) return mine;
+    const theirs = rtt.get(playerId) ?? null;
+    return mine === null || theirs === null ? null : Math.round((mine + theirs) / 2);
   }
 
   /** The name of a player in the room or the running game */
@@ -380,6 +464,7 @@ export class CoopService {
     this.desync.set(null);
     this.roster.set([]);
     this.notices.set([]);
+    this.rtt.set(new Map());
     this.pickedByHand = false;
     this.autoPicking = null;
   }
@@ -429,6 +514,39 @@ export class CoopService {
     this.name = name;
     this.error.set(null);
     this.status.set('connecting');
+    const reached = await this.reachRelay(name, (attempt) => this.wire(attempt));
+    if ('error' in reached) {
+      this.error.set(reached.error);
+      this.status.set('closed');
+      return null;
+    }
+    this.playerId.set(reached.playerId);
+    this.relay.set({ url: reached.url, source: reached.source });
+    this.session = reached.session;
+    this.status.set('lobby');
+    return reached.session;
+  }
+
+  /**
+   * The server field's check (playtest T14): whether a relay answers where
+   * this page would look for one now, without joining anything. The text
+   * for the dialog, and whether it is good news.
+   */
+  async probeRelay(): Promise<{ ok: boolean; text: string }> {
+    const reached = await this.reachRelay(this.name);
+    if ('error' in reached) return { ok: false, text: reached.error };
+    reached.session.close();
+    return { ok: true, text: `The coop server at ${reached.url} answers.` };
+  }
+
+  /**
+   * The first relay that answers and takes this game version: the one named
+   * (link, setting, runtime-config) or the automatic ones in turn
+   * (coop/relay-address.ts). `wire` hooks each attempt up before it connects.
+   */
+  private async reachRelay(name: string, wire?: (attempt: CoopSession) => void): Promise<
+    { session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string }
+  > {
     const client = clientInfoFrom(navigator.userAgent);
     const candidates = relayCandidates({
       fromLink: this.relayFromUrl,
@@ -436,38 +554,25 @@ export class CoopService {
       fromConfig: this.config.coopRelay(),
       page: { protocol: window.location.protocol, hostname: window.location.hostname },
     });
-    // The first relay that answers; the automatic ones in turn
-    let session: CoopSession | null = null;
     for (const url of candidates.urls) {
       const attempt = new CoopSession(url, { name, ...this.head(), client });
-      this.wire(attempt);
+      wire?.(attempt);
       try {
-        this.playerId.set(await attempt.connect());
-        this.relay.set({ url, source: candidates.source });
-        session = attempt;
-        break;
+        const playerId = await attempt.connect();
+        return { session: attempt, playerId, url, source: candidates.source };
       } catch (err) {
         attempt.onClosed = null;
         attempt.close();
-        if (err instanceof CoopRefusedError) {
-          this.error.set(REFUSAL_TEXT[err.reason]);
-          this.status.set('closed');
-          return null;
-        }
+        if (err instanceof CoopRefusedError) return { error: REFUSAL_TEXT[err.reason] };
         console.warn(`[Coop] no relay at ${url}`, err);
       }
     }
-    if (!session) {
-      const tried = candidates.urls.join(', ');
-      this.error.set(candidates.source === 'auto'
+    const tried = candidates.urls.join(', ');
+    return {
+      error: candidates.source === 'auto'
         ? `Found no coop server (tried ${tried}). Set one under Server, or start one with npm run coop-server.`
-        : `Can't reach the coop server at ${tried}. It may be down; check the address under Server.`);
-      this.status.set('closed');
-      return null;
-    }
-    this.session = session;
-    this.status.set('lobby');
-    return session;
+        : `Can't reach the coop server at ${tried}. It may be down; check the address under Server.`,
+    };
   }
 
   private async guard(run: () => Promise<void>): Promise<void> {
@@ -503,6 +608,7 @@ export class CoopService {
     session.onWorld = inZone((world) => void this.takeWorld(world));
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
+    session.onRtt = inZone((rtt) => this.rtt.set(new Map(rtt)));
     session.onHost = inZone((hostId) => {
       if (this.room()) this.room.set({ ...this.room()!, hostId });
       if (hostId === this.playerId() && this.inGame()) this.gameState.setLosRole('host');
@@ -540,19 +646,19 @@ export class CoopService {
       return;
     }
     const world = read.world;
-    // The host added spawns for the lanes (D26): add them here too, no reload
-    const missing = this.missingSpawns(world);
-    if (missing.length > 0) {
+    // Same HQ, other spawns (the host added, moved or took one away): set
+    // them here too, no reload; the street network is the same
+    if (this.sameHq(world) && !this.standsOn(world)) {
       this.status.set('loading-world');
       if (!(await this.placeLoaded())) return;
-      for (const spawn of missing) {
-        if (!(await this.locationFacade.addSpawnAt(spawn.lat, spawn.lon))) break;
-      }
+      await this.locationFacade.replaceSpawns(world.spawns.map(({ lat, lon }) => ({ lat, lon })));
     }
     if (!this.standsOn(world)) {
       const room = this.room()?.code ?? this.roomFromUrl ?? '';
       const url = this.urlLocation.urlFor(world.hq, world.spawns.map(({ lat, lon }) => ({ lat, lon })));
-      const params = this.roomParams(room);
+      // The lane goes along: autoPick takes it again after the reload
+      const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
+      const params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
       // Out of the room first: the browser closes the socket of a page it
       // leaves late, and the relay kept this player in the list till then
       this.leave();
@@ -568,16 +674,10 @@ export class CoopService {
     this.adoptWorld(world);
   }
 
-  /**
-   * The spawns of `world` this place lacks at its end, where it has the same
-   * HQ and its own spawns are the world's first ones; none otherwise.
-   */
-  private missingSpawns(world: WorldPackage): GeoPosition[] {
+  /** The place loaded here has the world's HQ */
+  private sameHq(world: WorldPackage): boolean {
     const hq = this.locationMgmt.hq();
-    const spawns = this.gameState.getSpawnPoints();
-    if (!hq || !samePlace(hq, world.hq) || spawns.length >= world.spawns.length) return [];
-    if (!spawns.every((spawn, i) => samePlace(spawn, world.spawns[i]))) return [];
-    return world.spawns.slice(spawns.length);
+    return hq !== null && samePlace(hq, world.hq);
   }
 
   /** The place loaded here is the world's: same HQ, same spawns in the same order. */
@@ -603,6 +703,7 @@ export class CoopService {
   private adoptWorld(world: WorldPackage): void {
     const paths = packagePaths(world);
     this.pathRoute.adoptPaths(paths);
+    this.lanes.set(laneStats(paths, LANE_WALK_SPEED_MPS));
     this.gameState.reseatWavePipeline(world.spawns, paths);
     this.gameState.rebuildRouteCells();
     this.gameState.getGlobalRouteGrid().restoreHeights(world.heights);
@@ -615,6 +716,9 @@ export class CoopService {
     }
     this.worldReady.set(true);
     this.status.set('lobby');
+    // The host took this player's lane away: a free one comes by itself again
+    const mine = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
+    if (mine === null || !world.spawns.some((spawn) => spawn.id === mine)) this.pickedByHand = false;
     this.autoPick();
   }
 
@@ -626,7 +730,8 @@ export class CoopService {
     gsm.setLanes(start.lanes);
     gsm.setLosRole(this.isHost() ? 'host' : 'guest');
     gsm.setLockstep(start.link);
-    gsm.cheatsBlocked = true;
+    // The relay decides: a cheat it lets through acts on every client alike
+    gsm.cheatsBlocked = !(this.room()?.cheats ?? false);
     this.readyNow = false;
     this.desync.set(null);
     const players = this.room()?.players ?? [];
@@ -650,13 +755,18 @@ export class CoopService {
     this.gameStore.gameSpeed.set(this.roomSpeed);
   }
 
-  /** The store changed here: in the game the host asks the room for it, a guest goes back to the room's. */
+  /**
+   * The store changed here: in the game the host asks the room for it. A
+   * guest asks for pause and resume only (the relay lets them) and goes back
+   * to the room's speed.
+   */
   private followLocalSpeed(speed: number, paused: boolean): void {
     if (!this.inGame() || (speed === this.roomSpeed && paused === this.roomPaused)) return;
     if (this.isHost()) {
       this.session?.setSpeed(paused ? 0 : speed);
       return;
     }
+    if (paused !== this.roomPaused) this.session?.setSpeed(paused ? 0 : this.roomSpeed);
     this.gameStore.paused.set(this.roomPaused);
     this.gameStore.gameSpeed.set(this.roomSpeed);
   }

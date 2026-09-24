@@ -17,9 +17,7 @@ import { COOP } from '../../services/coop.token';
         class="hud-btn pause-btn"
         [class.paused]="paused()"
         (click)="togglePause()"
-        [class.is-locked]="guest()"
-        [attr.aria-disabled]="guest()"
-        [matTooltip]="guest() ? GUEST_TIP : paused() ? 'Resume (P)' : 'Pause (P)'"
+        [matTooltip]="paused() ? 'Resume (P)' : 'Pause (P)'"
         [attr.aria-label]="paused() ? 'Resume game' : 'Pause game'"
         [attr.aria-pressed]="paused()"
         aria-keyshortcuts="P"
@@ -111,10 +109,10 @@ import { COOP } from '../../services/coop.token';
 export class GameSpeedComponent {
   private gameStore = inject(GameStore);
 
-  /** Coop: speed and pause belong to the host (D15) */
+  /** Coop: the speed belongs to the host (D15), the pause to everyone */
   private readonly coop = inject(COOP, { optional: true });
   readonly guest = computed(() => !!this.coop?.inGame() && !this.coop.isHost());
-  readonly GUEST_TIP = 'The host sets speed and pause';
+  readonly GUEST_TIP = 'The host sets the speed';
 
   readonly currentSpeed = this.gameStore.gameSpeed;
   readonly paused = this.gameStore.paused;
@@ -128,7 +126,6 @@ export class GameSpeedComponent {
   }
 
   togglePause(): void {
-    if (this.guest()) return;
     this.gameStore.paused.update(p => !p);
   }
 }
