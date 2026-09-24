@@ -9,6 +9,7 @@ import { getResearch } from '../configs/research/research-tree.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO } from '../configs/hero.config';
 import { adaptDirectorWave } from '../director/wave-config-adapter';
+import { commandProblem } from '../coop/command-guard';
 
 /**
  * GameCommandsHandler — Command-Bus-Adapter für GameStateManager.
@@ -158,6 +159,12 @@ export class GameCommandsHandler {
     if (!this.gsm.players.includes(playerId)) return;
     // Coop: a cheat from a changed client does nothing, on every client alike
     if (isDebugCommand(event) && this.gsm.cheatsBlocked) return;
+    // Values out of range act nowhere either (docs/COOP_PLAN.md, S4)
+    const problem = commandProblem(event as unknown as Parameters<typeof commandProblem>[0]);
+    if (problem) {
+      console.warn(`[GameCommandsHandler] '${event.type}' refused: ${problem}`);
+      return;
+    }
     // Caught like a throwing listener on the bus: a held command runs from
     // the GSM's loop, and one bad command must not stop the frame
     try {
