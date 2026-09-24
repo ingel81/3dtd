@@ -40,22 +40,22 @@ export interface BackgroundMusicConfig {
   /** Game over: the game-over track comes in this long after the wave music faded (ms), after the stinger */
   gameOverMusicDelayMs: number;
   /**
-   * End of a wave: the wave music fades out over `fadeOutMs` under the
-   * wave-end horn (MOMENT_SOUNDS.waveComplete, 2.5 s), the horn rings out on
-   * its own, and the build music fades in over `buildFadeInMs` from
-   * `buildDelayMs` on. Until 2026-09-23 wave music crossfaded straight into
-   * build music with the horn in the middle of it: too abrupt.
+   * End of a wave: the wave music fades out over `leadMs`, then the wave-end
+   * horn (MOMENT_SOUNDS.waveComplete, 2.5 s) sounds into the quiet
+   * (GameSoundsService waits `leadMs` for it), and the build music fades in
+   * over `buildFadeInMs`, `buildDelayMs` after the horn. Until 2026-09-24
+   * horn and fade started together (TODO C18): too abrupt.
    */
-  waveEnd: { fadeOutMs: number; buildDelayMs: number; buildFadeInMs: number };
+  waveEnd: { leadMs: number; buildDelayMs: number; buildFadeInMs: number };
   /**
-   * Start of a wave: the build music slides out over `fadeOutMs` under the
+   * Start of a wave: the build music fades out over `leadMs`, then the
    * wave-start signal (MOMENT_SOUNDS.waveStart, 3 s, or the blood moon's
-   * call), which sets in at full level and decays from about 1.3 s; the wave
-   * music fades in over `waveFadeInMs` from `waveDelayMs` on, as the signal
-   * rings out. Until 2026-09-24 the wave music crossfaded in at once, right
-   * into the loudest part of the signal: too abrupt (TODO C18).
+   * call) sounds into the quiet (GameSoundsService waits `leadMs` for it),
+   * and the wave music fades in over `waveFadeInMs`, `waveDelayMs` after the
+   * signal, as it rings out. Until 2026-09-24 the wave music crossfaded in
+   * together with the signal, into its loudest part (TODO C18).
    */
-  waveStart: { fadeOutMs: number; waveDelayMs: number; waveFadeInMs: number };
+  waveStart: { leadMs: number; waveDelayMs: number; waveFadeInMs: number };
   /** Share of the volume while the game is paused */
   pauseDim: number;
   /**
@@ -98,9 +98,8 @@ export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   bloodMoon: [{ id: 'music-blood-moon-01', url: 'assets/music/blood_moon/blood_moon01.mp3' }],
   gameOver: [{ id: 'music-game-over-01', url: 'assets/music/game_over/game_over01.mp3', volume: 0.35 }],
   gameOverMusicDelayMs: 4000,
-  // The horn swells for about a second: the wave music slides out under it, not away from it
-  waveEnd: { fadeOutMs: 2000, buildDelayMs: 2800, buildFadeInMs: 3000 },
-  waveStart: { fadeOutMs: 900, waveDelayMs: 1400, waveFadeInMs: 2500 },
+  waveEnd: { leadMs: 1500, buildDelayMs: 2800, buildFadeInMs: 3000 },
+  waveStart: { leadMs: 1500, waveDelayMs: 1400, waveFadeInMs: 2500 },
   pauseDim: 0.35,
   duck: {
     nuclearStrike: { factor: 0.35, holdMs: 3000 },
