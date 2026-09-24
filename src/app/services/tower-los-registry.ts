@@ -60,11 +60,15 @@ export class TowerLosRegistry {
   /** Towers whose drop is logged already, see reportLosDrop. */
   private readonly losDropLogged = new WeakSet<Tower>();
 
-  constructor(
-    private readonly grid: GlobalRouteGridService,
-    /** Anti-air retrofit researched: read at resolve time, not cached. */
-    private readonly airTargetingUnlocked: () => boolean,
-  ) {}
+  constructor(private readonly grid: GlobalRouteGridService) {}
+
+  /**
+   * Anti-air retrofit researched, from the simulation's ResearchManager
+   * (not the UI store): read at resolve time, not cached.
+   */
+  private airTargetingUnlocked(): boolean {
+    return this.gameState?.researchManager.airTargetingUnlocked ?? false;
+  }
 
   /**
    * Work against the engine and game state of a (new) location. The cells a
@@ -273,10 +277,9 @@ export class TowerLosRegistry {
   }
 
   /**
-   * recompute on one of the next drainLosQueue calls instead of right away.
-   * For callers inside an event handler whose follow-up state the recompute
-   * has to see (the research that hands a tower air targets applies the
-   * unlock after its own handlers ran).
+   * recompute on one of the next drainLosQueue calls instead of right away:
+   * each recompute is a cube render and readback, and a research can hand
+   * air targets to many towers at once (see LOS_RECOMPUTES_PER_FRAME).
    */
   scheduleRecompute(tower: Tower): void {
     this.staleLos.add(tower);

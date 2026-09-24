@@ -48,7 +48,8 @@ describe('TowerLosRegistry', () => {
   };
   const cell = (x: number, z: number) =>
     ({ x, z, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
-  const gameState = () => ({ towerManager, getEventBus: () => bus }) as unknown as GameStateManager;
+  const gameState = () =>
+    ({ towerManager, getEventBus: () => bus, researchManager: { airTargetingUnlocked: false } }) as unknown as GameStateManager;
   const attach = () => registry.attach(engine, gameState());
   const maskOf = (range: number, ground: boolean, air: boolean): LosMask =>
     ({ range, ground, air, bits: new Uint8Array([range & 0xff]) });
@@ -83,7 +84,7 @@ describe('TowerLosRegistry', () => {
       readFacesToCpu: () => [],
     };
     engine = { sync, getLosBlockerGroup: () => ({}), getTowerShadowMapper: () => mapper } as unknown as ThreeTilesEngine;
-    registry = new TowerLosRegistry(grid as unknown as GlobalRouteGridService, () => false);
+    registry = new TowerLosRegistry(grid as unknown as GlobalRouteGridService);
   });
 
   afterEach(() => {

@@ -117,6 +117,8 @@ describe('TowerPlacementService', () => {
     rebuildAirRouteLayer: ReturnType<typeof vi.fn>;
   };
   let airTargetingUnlocked: ReturnType<typeof signal<boolean>>;
+  /** The simulation's research, which the LOS registry reads */
+  let research: { airTargetingUnlocked: boolean };
   let overlay: Group;
   let scene: object;
   let blockerGroup: object | null;
@@ -163,7 +165,7 @@ describe('TowerPlacementService', () => {
       { streets, bounds } as never,
       { haversineDistance } as never,
       HQ,
-      { towerManager, getEventBus: () => ({ emit }) } as never,
+      { towerManager, getEventBus: () => ({ emit }), researchManager: research } as never,
     );
 
   /** Enter build mode for `typeId` and wait for its preview model. */
@@ -218,6 +220,7 @@ describe('TowerPlacementService', () => {
     };
     injectionRegistry['GlobalRouteGridService'] = grid;
     airTargetingUnlocked = signal(false);
+    research = { airTargetingUnlocked: false };
     injectionRegistry['ResearchStore'] = { airTargetingUnlocked };
     injectionRegistry['TowerDefenseStore'] = {
       spawnPoints: signal([{ id: 'sp-1', name: 'Spawn', color: '#f00', ...spawn }]),
@@ -1196,7 +1199,7 @@ describe('TowerPlacementService', () => {
       expect(flags('fire')).toEqual([true, false]);
       expect(flags('rocket')).toEqual([false, true]);
       expect(flags('dual-gatling')).toEqual([true, false]);
-      airTargetingUnlocked.set(true);
+      research.airTargetingUnlocked = true;
       expect(flags('dual-gatling')).toEqual([true, true]);
     });
 
