@@ -563,6 +563,25 @@ export class Tower extends GameObject {
   }
 
   /**
+   * Every upgrade track with a level above 0, for the wave-start snapshot
+   * (docs/SIMULATOR_PLAN.md, P4). Plain data.
+   */
+  getUpgradeLevels(): [UpgradeId, number][] {
+    return [...this.upgradeLevels];
+  }
+
+  /**
+   * Put the tracks back at `levels`, stats included, as if the upgrades had
+   * been bought: applyUpgrade computes every stat from the base value and
+   * the track's level, so the order they were bought in does not matter.
+   */
+  restoreUpgradeLevels(levels: readonly (readonly [UpgradeId, number])[]): void {
+    for (const [upgradeId, level] of levels) {
+      while (this.getUpgradeLevel(upgradeId) < level && this.applyUpgrade(upgradeId)) { /* next level */ }
+    }
+  }
+
+  /**
    * Get the current cost for the next level of a specific upgrade
    */
   getNextUpgradeCost(upgradeId: UpgradeId): number {
