@@ -11,11 +11,13 @@
  *
  * Stubbed on purpose:
  *  - Line of sight: markAllVisible() writes a clear view into the route cells
- *    in a tower's range, the answers resolveTowerLos (route-grid-los.ts) gives
- *    with nothing in the way. With the stub engine TowerLosRegistry never runs,
- *    so without it losReady stays false and no tower fires. When the sight
- *    data changes shape (SIMULATOR_PLAN.md, P3), only that function follows.
- *  - The renderer: turrets count as aligned, the raycast fallback sees.
+ *    in a tower's reach (every cell whose square reaches into its range), the
+ *    answers resolveTowerLos (route-grid-los.ts) gives with nothing in the
+ *    way, and keeps them as the tower's LosMask, as TowerLosRegistry does.
+ *    With the stub engine the registry never runs, so without it losReady
+ *    stays false and no tower fires. Combat reads only these answers; there
+ *    is no raycast fallback.
+ *  - The renderer: nothing. Turrets turn in the simulation (Tower.aim).
  *  - Rendering is off (renderingEnabled false), as in a training tab and the
  *    headless fast-forward of a replay: presentFrame does not run.
  *
@@ -98,10 +100,8 @@ function createBenchEngine(): never {
     // ScreenShakeService measures the impact's distance to it
     getCamera: () => ({ position: new Vector3(0, 500, 0) }),
     sync: noopStub({ ...flatSync }),
-    terrain: noopStub({ lodVersion: 1 }),
+    terrain: noopStub({}),
     towers: noopStub({
-      isTurretAligned: () => true,
-      hasLineOfSight: () => true,
       get: () => undefined,
     }),
     enemies: noopStub({ create: resolved }),
@@ -130,8 +130,9 @@ function buildRoute(eastM: number, lengthM: number): RouteWaypoint[] {
 }
 
 /**
- * A clear view for `tower`: every route cell in its range visible on the
- * layers it may target, as resolveTowerLos writes it with nothing in the way.
+ * A clear view for `tower`: every route cell in its reach visible on the
+ * layers it may target, as resolveTowerLos writes it with nothing in the way,
+ * taken as its LosMask like TowerLosRegistry.register.
  */
 function markAllVisible(grid: GlobalRouteGridService, tower: Tower): void {
   const x = tower.position.lon * M;
@@ -144,6 +145,7 @@ function markAllVisible(grid: GlobalRouteGridService, tower: Tower): void {
     if (air) cell.airVisibility.set(tower.id, true);
   }
   tower.visibleCells = cells;
+  tower.losMask = grid.encodeLosMask(tower.id, x, z, tower.combat.range, ground, air);
   tower.losReady = true;
 }
 
