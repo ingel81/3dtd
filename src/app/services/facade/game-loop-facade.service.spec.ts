@@ -34,6 +34,7 @@ import { TowerControlService } from '../tower-control.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import type { WaveConfig } from '../../director/models/wave-config';
+import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import type { DecisionExplanation } from '../../director/wave-explanation';
 import type { PlannedWave } from '../../director/wave-source';
 import { GameRng } from '../../utils/game-rng';
@@ -89,10 +90,10 @@ describe('GameLoopFacadeService: waveExplanation', () => {
     getNextWave: vi.fn(async (waveNumber: number) => planned(waveNumber)),
   });
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
-  /** Enemy types of the wave the facade started */
+  /** Enemy types of the wave the facade started; its schedule is built where the command acts */
   const startedTypes = () =>
-    (emitted as unknown as { config: { schedule: { entries: { enemyType: string }[] } } }[])[0]
-      .config.schedule.entries.map((e) => e.enemyType);
+    adaptDirectorWave((emitted as unknown as { director: WaveConfig }[])[0].director)
+      .schedule.entries.map((e) => e.enemyType);
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
