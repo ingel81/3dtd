@@ -21,6 +21,7 @@ import { UI_SOUNDS } from '../configs/audio.config';
 import { aimDirectionInto } from '../utils/manual-aim';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { cameraTimeline } from '../utils/camera-timeline';
+import { TICK_SUB_STEPS } from '../coop/lockstep';
 import type { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
 
@@ -57,6 +58,11 @@ const ZOOM_RATE = 12;
  * left button as trigger command, the right button zooms, the camera on the
  * tower's eye point every frame (update(), from the game loop), and the
  * crosshair's state for the HUD (TowerControlHudComponent).
+ *
+ * The view follows the player's own tower:manned, not the click: in coop
+ * the command acts at its tick, a moment later (docs/COOP_PLAN.md, D12).
+ * The camera looks along the aim the mouse gave here, which the tower
+ * follows one tick later; in coop the aim goes out at most once a tick.
  *
  * Provided by the game component: it drives the component-scoped
  * GameStateManager.
@@ -99,10 +105,13 @@ export class TowerControlService {
   private zoomHeld = false;
   private recoilMs = 0;
   private markerTimer: ReturnType<typeof setTimeout> | null = null;
-  /** Aim the mouse moved to since the last flushAim(), valid while aimMoved */
+  /** The aim the mouse gives, where the camera looks; set from the tower when the player gets in */
   private aimHeading = 0;
   private aimPitch = 0;
+  /** The mouse moved since the last aim that went out */
   private aimMoved = false;
+  /** Sub-step of the last aim that went out, for the coop pace */
+  private aimSentStep = -Infinity;
   private readonly eye = new Vector3();
   private readonly dir = new Vector3();
   private readonly lookAt = new Vector3();
@@ -121,7 +130,12 @@ export class TowerControlService {
       // Out of the tower, however that came (C, Esc, sold, game over, restart,
       // a new place): the camera comes back at once, before a new place frames it
       bus.onLive('tower:manned', (event) => {
-        if (event.local && event.towerId === null && this.pose) this.cleanUp();
+        if (!event.local) return;
+        if (event.towerId === null) {
+          if (this.pose) this.cleanUp();
+        } else {
+          this.takeSeat(event.towerId);
+        }
       }),
     ];
     inject(DestroyRef).onDestroy(() => {
@@ -154,8 +168,12 @@ export class TowerControlService {
 
   /**
    * Get into `tower`: build mode, placement, aiming and the hero's selection
-   * end, the tower is deselected, the camera goes to its eye point and the
-   * mouse is captured. Call it from a click or a key: pointer lock needs one.
+   * end, the tower is deselected, and the command goes out. Once the player
+   * sits in it (tower:manned, takeSeat) the camera goes to its eye point and
+   * the mouse is captured. Call it from a click or a key: pointer lock needs
+   * one, and in coop the seat comes a tick later, still within the gesture's
+   * activation.
+   * @returns whether the player asked to get in
    */
   enter(tower: Tower): boolean {
     const engine = this.engineInit.getEngine();
@@ -175,8 +193,18 @@ export class TowerControlService {
     this.keyboardPan.clearKeys();
 
     this.gameState.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
-    if (this.gameState.getMannedTower() !== tower) return false;
+    return true;
+  }
+
+  /** The player sits in the tower now (their own tower:manned): camera, mouse and HUD. */
+  private takeSeat(towerId: string): void {
+    const engine = this.engineInit.getEngine();
+    const tower = this.gameState.getMannedTower();
+    if (!engine || !tower || tower.id !== towerId) return;
+    this.aimHeading = tower.manualAim.heading;
+    this.aimPitch = tower.manualAim.pitch;
     this.aimMoved = false;
+    this.aimSentStep = -Infinity;
 
     if (!this.pose) this.pose = this.saveCamera(engine);
     const controls = engine.getControls();
@@ -188,7 +216,6 @@ export class TowerControlService {
     this.attach(engine);
     this.capturePointer();
     this.announcer.announce(`In the ${tower.typeConfig.name}. Left button fires, right button zooms, C or Esc gets out.`);
-    return true;
   }
 
   /** Get out of the tower; it fires by itself again. */
@@ -208,16 +235,18 @@ export class TowerControlService {
   }
 
   /**
-   * Per frame, before the game's sub-steps: the aim the mouse moved to this
-   * frame goes out as one command:tower-aim, only when it changed. A command
-   * per mouse event would put several a frame into the command log.
+   * Per frame, before the game's sub-steps: the aim the mouse moved to goes
+   * out as one command:tower-aim, only when it moved. A command per mouse
+   * event would put several a frame into the command log. In coop at most
+   * one per tick (D12): the relay stamps them into ticks anyway, and the
+   * camera looks along the local aim in between.
    */
   flushAim(): void {
-    if (!this.aimMoved) return;
+    if (!this.aimMoved || !this.gameState.getMannedTower()) return;
+    const step = this.gameState.subStep;
+    if (this.gameState.lockstepActive && step < this.aimSentStep + TICK_SUB_STEPS) return;
     this.aimMoved = false;
-    const tower = this.gameState.getMannedTower();
-    if (!tower) return;
-    if (tower.manualAim.heading === this.aimHeading && tower.manualAim.pitch === this.aimPitch) return;
+    this.aimSentStep = step;
     this.gameState.getEventBus().emit({ type: 'command:tower-aim', heading: this.aimHeading, pitch: this.aimPitch });
   }
 
@@ -234,7 +263,7 @@ export class TowerControlService {
     this.recoilMs = Math.max(0, this.recoilMs - deltaTime);
     const kick = RECOIL_KICK_RAD * (this.recoilMs / RECOIL_MS);
     this.towerCombat.mannedEyeInto(tower, this.eye);
-    aimDirectionInto(tower.manualAim.heading, tower.manualAim.pitch + kick, this.dir);
+    aimDirectionInto(this.aimHeading, this.aimPitch + kick, this.dir);
     camera.position.copy(this.eye);
     camera.up.set(0, 1, 0);
     camera.lookAt(this.lookAt.copy(this.eye).add(this.dir));
@@ -284,15 +313,12 @@ export class TowerControlService {
     }
     event.stopImmediatePropagation();
     this.readButtons(event);
-    const tower = this.gameState.getMannedTower();
-    if (!tower) return;
+    if (!this.gameState.getMannedTower()) return;
     // Slower look while zoomed, so the crosshair moves as far on screen
     const scale = TOWER_CONTROL.lookRadPerPx * (this.zoomHeld ? TOWER_CONTROL.zoomFovDeg / (this.pose?.fov ?? 60) : 1);
-    // Several moves a frame add up here; flushAim() sends the sum
-    const fromHeading = this.aimMoved ? this.aimHeading : tower.manualAim.heading;
-    const fromPitch = this.aimMoved ? this.aimPitch : tower.manualAim.pitch;
-    this.aimHeading = wrapAngle(fromHeading + event.movementX * scale);
-    this.aimPitch = Math.min(TOWER_CONTROL.pitchMax, Math.max(TOWER_CONTROL.pitchMin, fromPitch - event.movementY * scale));
+    // From the local aim, not the tower's: in coop that one comes a tick later
+    this.aimHeading = wrapAngle(this.aimHeading + event.movementX * scale);
+    this.aimPitch = Math.min(TOWER_CONTROL.pitchMax, Math.max(TOWER_CONTROL.pitchMin, this.aimPitch - event.movementY * scale));
     this.aimMoved = true;
   };
 
