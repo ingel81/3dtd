@@ -394,8 +394,8 @@ export class TowerDefenseFacadeService {
     );
     // First-run tips follow the same events
     this.onboarding.connect(this.gameState.getEventBus());
-    // Best wave per place for the world map; runs the bot plays do not count
-    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
+    // Best wave per place for the world map; runs the bot plays and coop runs (review R16) do not count
+    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled() && !this.gameState.lockstepActive);
     // Refused hires and abilities in the context hint box; the bot's commands get none
     this.refusals.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
     uiSound.connect(() => this.gameState.tilesEngine?.spatialAudio ?? null);

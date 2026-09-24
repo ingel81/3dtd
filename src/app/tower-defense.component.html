@@ -306,6 +306,25 @@
             @if (store.runSummary(); as summary) {
               <app-run-summary [summary]="summary" />
             }
+            <!-- Coop: each player's part of the run (docs/COOP_PLAN.md, R16) -->
+            @if (coop.summary(); as rows) {
+              <table class="td-coop-summary" aria-label="Players">
+                <thead>
+                  <tr><th>Player</th><th>Kills</th><th>Towers</th><th>Gold given</th><th>Gold</th></tr>
+                </thead>
+                <tbody>
+                  @for (row of rows; track row.id) {
+                    <tr [class.is-me]="row.me" [class.has-left]="row.left">
+                      <td><span class="td-coop-dot" [style.background]="row.color"></span>{{ row.name }}{{ row.me ? ' (you)' : '' }}</td>
+                      <td>{{ row.kills }}</td>
+                      <td>{{ row.towers }}</td>
+                      <td>{{ row.goldGiven }}</td>
+                      <td>{{ row.gold }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            }
             @if (coop.inGame() && !coop.isHost()) {
               <p class="td-gameover-wait">The host starts the next run.</p>
             } @else {

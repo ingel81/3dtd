@@ -56,6 +56,7 @@ export class RunsDialogComponent {
 
   /** Who played it. */
   who(run: StoredRun): string {
+    if (run.head.coop) return `coop: ${run.head.coop.players.join(', ')}`;
     return run.head.player === 'bot' ? `bot ${run.head.botSkill ?? ''}`.trim() : 'you';
   }
 

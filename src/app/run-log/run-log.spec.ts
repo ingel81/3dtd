@@ -71,6 +71,15 @@ describe('the run log', () => {
   });
 
   describe('the head', () => {
+    it('marks a coop run with its players, and only the open run (review R16)', () => {
+      open();
+      log.markCoop(['Ann', 'Bob'], 'Bob');
+      expect(log.close('defeat')!.head.coop).toEqual({ players: ['Ann', 'Bob'], you: 'Bob' });
+      log.markCoop(['Carl'], 'Carl');
+      open();
+      expect(log.close('defeat')!.head.coop).toBeUndefined();
+    });
+
     it('names the build, the balance, the seed and who played', () => {
       const head = open();
 

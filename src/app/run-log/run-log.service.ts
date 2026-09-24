@@ -202,6 +202,11 @@ export class RunLogCollector {
    * with. Only an `unknown` is replaced; a head that already names a commit
    * is never rewritten.
    */
+  /** Mark the open run as a coop run (review R16): the game starts it with a reset, before the players are known */
+  markCoop(players: string[], you: string): void {
+    if (this.head && !this.closed) this.head.coop = { players: [...players], you };
+  }
+
   setCommit(commit: string): void {
     if (this.head && this.head.commit === 'unknown' && commit !== 'unknown') {
       this.head.commit = commit;
