@@ -328,6 +328,8 @@ Ursprünglicher Plan:
   (D26, `addRandomSpawn`: acht Straßenpunkte 500 bis 1000 m vom HQ, der mit dem größten Winkelabstand zu den
   anderen Spawns gewinnt), dann schickt er die Karte neu. Der Gast setzt die neuen Spawns bei sich dazu, ohne neu zu
   laden, und übernimmt dann das Paket.
+- Zweiter Browser-Test (User, 2026-09-24): zwei Fenster auf einem Rechner, Link, Lobby, zwei Lanes, Start: klappt
+  grundsätzlich.
 
 - Neuer Ordner `coop-server/` (TypeScript, Node, `ws`), getrennt vom Python-`bot-server/`. Die Logik ist eine
   Bibliothek mit zwei Einstiegen (D18): ein npm-Skript und der Electron-Main ("LAN-Spiel hosten", Beitritt per IP
