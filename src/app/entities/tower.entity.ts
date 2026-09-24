@@ -52,8 +52,8 @@ export class Tower extends GameObject {
 
   /**
    * Where the player aims from inside, heading (geoHeading convention) and
-   * pitch (up positive), rad. Input of every frame, not a command; read only
-   * while manned.
+   * pitch (up positive), rad. Set by command:tower-aim; read only while
+   * manned.
    */
   readonly manualAim = { heading: 0, pitch: 0 };
 

@@ -504,6 +504,8 @@ export class GameLoopFacadeService {
     this.routeAnimation.update(deltaTime);
     // After keyboardPan so a scripted flight wins the frame if both run.
     this.introFlight.update(deltaTime);
+    // The mouse look of this frame, as a command before the sub-steps
+    this.towerControl.flushAim();
 
     // Game logic tick — sub-step loop runs gameplay at fixed game-time
     // granularity. Bot decisions are per-sub-step so they stay

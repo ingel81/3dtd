@@ -539,6 +539,16 @@ export type GameEvent =
       held: boolean;
     }
   | {
+      /**
+       * Where the player aims from the manned tower (Tower.manualAim): heading
+       * (geoHeading convention) and pitch (up positive), rad. Sent only when
+       * the mouse moved it, at most once a frame
+       */
+      type: 'command:tower-aim';
+      heading: number;
+      pitch: number;
+    }
+  | {
       type: 'command:start-wave';
       config?: WaveConfig;
     }

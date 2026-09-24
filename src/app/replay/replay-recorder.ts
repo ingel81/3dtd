@@ -244,7 +244,9 @@ export class ReplayRecorder {
     }
 
     if (event.type.startsWith('command:')) {
-      this.rec.pushCommand(ms, toPlainData(event) as Record<string, unknown>);
+      // The aim of a manned tower comes once a frame while the mouse moves;
+      // as bar ticks it would draw a line. The turret's turn shows it anyway.
+      if (event.type !== 'command:tower-aim') this.rec.pushCommand(ms, toPlainData(event) as Record<string, unknown>);
     } else if (isPresentationEvent(event.type)) {
       const kept = presentationEvent(event);
       if (kept) this.rec.pushEvent(ms, kept);

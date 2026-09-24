@@ -153,7 +153,7 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
           useValue: { selected: signal(false), summon: vi.fn(() => false), cycleAmmo: vi.fn(() => false), deselect: vi.fn() },
         },
         { provide: ReplayService, useValue: { active: signal(false) } },
-        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn() } },
+        { provide: TowerControlService, useValue: { active: () => false, update: vi.fn(), flushAim: vi.fn() } },
         { provide: DebugFacadeService, useValue: { setHealthBarsInverted: () => undefined } },
         { provide: UpgradeHintService, useValue: new UpgradeHintService() },
         // U buys through it; no key here reaches a purchase

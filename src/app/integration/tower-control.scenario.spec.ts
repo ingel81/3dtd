@@ -1,9 +1,9 @@
 /**
  * Scenario: the player mans a tower (docs/TOWER_CONTROL.md), through the
  * real GameStateManager sub-step loop with real enemies, projectiles and
- * the real damage path. Getting in, the trigger and getting out go over the
- * command bus as TowerControlService sends them; the aim is set every
- * sub-step as the mouse would.
+ * the real damage path. Getting in, the aim, the trigger and getting out go
+ * over the command bus as TowerControlService sends them; the aim at every
+ * sub-step boundary, as the mouse would move it.
  *
  * What it pins: a manned tower does not fire by itself; with the trigger
  * held it fires at its own fire rate at the enemy on the crosshair, which
@@ -143,10 +143,15 @@ function aimAt(gsm: GameStateManager, tower: Tower, enemy: Enemy): { heading: nu
   for (let pass = 0; pass < 3; pass++) {
     heading = headingOfLocal(target.x - eye.x, target.z - eye.z);
     pitch = Math.atan2(target.y - eye.y, Math.hypot(target.x - eye.x, target.z - eye.z));
-    gsm.setMannedAim(heading, pitch);
+    sendAim(gsm, heading, pitch);
     combat.mannedEyeInto(tower, eye);
   }
   return { heading, pitch };
+}
+
+/** The aim as TowerControlService.flushAim sends it */
+function sendAim(gsm: GameStateManager, heading: number, pitch: number): void {
+  gsm.getEventBus().emit({ type: 'command:tower-aim', heading, pitch });
 }
 
 /** Run `steps` sub-steps of 16 ms, calling `each` in every one */
@@ -197,13 +202,13 @@ describe('Manning a tower, through the sub-step loop', () => {
     gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
     // Aimed before the trigger goes down, as a player does
     const first = aimAt(gsm, tower, enemy);
-    gsm.setMannedAim(first.heading, first.pitch);
+    sendAim(gsm, first.heading, first.pitch);
     gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
     // 3 s of game time, aim kept on the enemy as the mouse would
     steps(gsm, clock, 188, () => {
       if (!enemy.alive) return;
       const aim = aimAt(gsm, tower, enemy);
-      gsm.setMannedAim(aim.heading, aim.pitch);
+      sendAim(gsm, aim.heading, aim.pitch);
     });
 
     expect(blank).not.toHaveBeenCalled();
@@ -216,10 +221,15 @@ describe('Manning a tower, through the sub-step loop', () => {
     steps(gsm, clock, 600, () => {
       if (!enemy.alive) return;
       const aim = aimAt(gsm, tower, enemy);
-      gsm.setMannedAim(aim.heading, aim.pitch);
+      sendAim(gsm, aim.heading, aim.pitch);
     });
     expect(enemy.alive).toBe(false);
     expect(tower.combat.kills).toBe(1);
+    // The aim is in the command log like the trigger, the last one is where the tower points
+    const aims = gsm.commandLog.entries.filter((entry) => entry.command.type === 'command:tower-aim');
+    expect(aims.at(-1)!.command).toEqual({ type: 'command:tower-aim', ...tower.manualAim });
+    expect(aims.at(-1)!.step).toBeLessThanOrEqual(gsm.subStep);
+    expect(gsm.commandLog.entries.some((entry) => entry.command.type === 'command:tower-trigger')).toBe(true);
   });
 
   it('a shot past the enemy flies along the aim to the tower range and hits nothing, the cooldown spent', () => {
@@ -236,7 +246,7 @@ describe('Manning a tower, through the sub-step loop', () => {
     gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
     gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
     // Away from the enemy (it stands to the west, the aim goes east), level
-    gsm.setMannedAim(Math.PI / 2, 0);
+    sendAim(gsm, Math.PI / 2, 0);
     let first = 0;
     while (gsm.projectileManager.getAll().length === 0 && first++ < 10) steps(gsm, clock, 1);
 
@@ -249,7 +259,7 @@ describe('Manning a tower, through the sub-step loop', () => {
     expect(eastM).toBeGreaterThan(tower.combat.range - 3);
     expect(Math.abs((end.lat - tower.position.lat) * METERS_PER_DEGREE_LAT)).toBeLessThan(1);
 
-    steps(gsm, clock, 125 - first, () => gsm.setMannedAim(Math.PI / 2, 0));
+    steps(gsm, clock, 125 - first, () => sendAim(gsm, Math.PI / 2, 0));
     expect(spawn).not.toHaveBeenCalled();
     // 2 s at 1 shot a second
     expect(blank.mock.calls.length).toBeGreaterThanOrEqual(2);
@@ -321,7 +331,7 @@ describe('Manning a tower, through the sub-step loop', () => {
     gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
     steps(gsm, clock, 70, () => {
       const aim = aimAt(gsm, tower, enemy);
-      gsm.setMannedAim(aim.heading, aim.pitch);
+      sendAim(gsm, aim.heading, aim.pitch);
     });
 
     expect(spawn).not.toHaveBeenCalled();
