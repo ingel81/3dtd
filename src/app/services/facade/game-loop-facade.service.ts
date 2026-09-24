@@ -15,9 +15,7 @@ import { WaveDirector } from '../../director/wave-director';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { RunLogFacade } from '../../run-log/run-log.facade';
-import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import { GameStateManager } from '../../managers/game-state.manager';
-import { WaveConfig } from '../../managers/wave.manager';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -301,11 +299,16 @@ export class GameLoopFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   /**
-   * Build a WaveConfig from current debug settings.
-   * Shared helper to avoid duplication between startWave() and startCustomWave().
+   * Start the wave the debug panel describes. Sent as the source's wave, not
+   * as a schedule: the schedule draws from the run's spawn stream where the
+   * command acts, so every coop client draws alike (docs/COOP_PLAN.md, C0).
    */
-  buildWaveConfig(): WaveConfig {
-    return adaptDirectorWave(this.waveDebug.toAIWaveConfig(), this.gameState.rng.stream('spawn'));
+  private emitDebugPanelWave(): void {
+    this.store.waveExplanation.set(null);
+    this.gameState.getEventBus().emit({
+      type: 'command:start-wave',
+      director: this.waveDebug.toAIWaveConfig(),
+    });
   }
 
   /**
@@ -339,12 +342,7 @@ export class GameLoopFacadeService {
       return;
     }
 
-    const waveConfig = this.buildWaveConfig();
-    this.store.waveExplanation.set(null);
-    this.gameState.getEventBus().emit({
-      type: 'command:start-wave',
-      config: waveConfig,
-    });
+    this.emitDebugPanelWave();
   }
 
   /**
@@ -354,12 +352,7 @@ export class GameLoopFacadeService {
   private async startWaveWithAI(retryCount: number): Promise<void> {
     if (retryCount >= GameLoopFacadeService.MAX_AI_RETRY) {
       console.error('[AI] Max retries reached, falling back to manual wave config');
-      const waveConfig = this.buildWaveConfig();
-      this.store.waveExplanation.set(null);
-      this.gameState.getEventBus().emit({
-        type: 'command:start-wave',
-        config: waveConfig,
-      });
+      this.emitDebugPanelWave();
       return;
     }
 
@@ -422,14 +415,7 @@ export class GameLoopFacadeService {
     // The corridor of a new location or a move is still being built (CorridorBuild).
     if (this.gameState.corridorPending()) return;
     this.store.paused.set(false);
-
-    const waveConfig = this.buildWaveConfig();
-
-    this.store.waveExplanation.set(null);
-    this.gameState.getEventBus().emit({
-      type: 'command:start-wave',
-      config: waveConfig,
-    });
+    this.emitDebugPanelWave();
   }
 
   // ══════════════════════════════════════════════════════════════

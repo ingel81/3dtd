@@ -44,6 +44,12 @@ export interface LockstepLink {
   release(tick: number): void;
   /** The state hash at the boundary of `tick`, before its commands ran; every HASH_EVERY_TICKS ticks (C5). */
   reportHash(tick: number, hash: number): void;
+  /**
+   * A frame ran `steps` sub-steps; `blocked` when the tick barrier held one
+   * that was due; `behind` ticks closed and not yet run. For the smoothness
+   * report (coop/lockstep-stats.ts); a link may ignore it.
+   */
+  noteFrame?(steps: number, blocked: boolean, behind: number): void;
 }
 
 /** The tick whose commands act at sub-step boundary `boundary`, or -1 when none act there. */

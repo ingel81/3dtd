@@ -793,8 +793,8 @@ describe('EnemyManager', () => {
     });
 
     it('gives the way out of the portal to wave spawns of air units only', () => {
-      // Debug spawn from the event, and spawn() without an entry
-      eventBus.emit({ type: 'debug:spawn-enemy', enemyType: 'bat', path: route });
+      // Debug spawn, and spawn() without an entry
+      manager.debugSpawn({ type: 'debug:spawn-enemy', enemyType: 'bat', path: route });
       const debugBat = manager.getAll()[0];
       const plainBat = manager.spawn(route, 'bat');
       // Split child: joins part-way along the path, where its parent was
@@ -1070,7 +1070,7 @@ describe('EnemyManager', () => {
   it('ignores debug spawn with invalid path', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-    eventBus.emit({
+    manager.debugSpawn({
       type: 'debug:spawn-enemy',
       enemyType: 'zombie',
       path: [{ lat: 0, lon: 0, height: 0 }],

@@ -587,6 +587,10 @@ export type GameEvent =
   | {
       type: 'debug:kill-all';
     }
+  | {
+      /** The debug kill-all has acted: nothing of the wave is left, the enemies still to spawn included */
+      type: 'wave:cleared';
+    }
   // ==================== Command Events (UI → Game Engine) ====================
   | {
       type: 'command:place-tower';

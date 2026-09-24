@@ -75,7 +75,7 @@ export class GameStateSyncService {
 
     // Kill-all also drops the enemies still to spawn (WaveManager.stopSpawning),
     // so nothing of the wave is left. The deaths it causes clamp at 0.
-    this.subs.add(eventBus.onLive('debug:kill-all', () => {
+    this.subs.add(eventBus.onLive('wave:cleared', () => {
       this.store.waveEnemiesLeft.set(0);
     }));
 

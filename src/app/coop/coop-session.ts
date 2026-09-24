@@ -1,3 +1,4 @@
+import { LockstepStats } from './lockstep-stats';
 import type { LockstepLink, StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 import {
@@ -56,7 +57,11 @@ export class WebSocketLink implements LockstepLink {
     this.out = out;
   }
 
+  /** How smoothly this client runs, reported to the relay (PLAYTEST T19) */
+  private readonly stats = new LockstepStats();
+
   send(command: Command): void {
+    this.stats.commandSent(performance.now());
     this.out({ t: 'cmd', command });
   }
 
@@ -64,8 +69,13 @@ export class WebSocketLink implements LockstepLink {
     return this.confirmed;
   }
 
+  /** Called once per tick, as its commands run: the own ones give the input delay */
   commandsAt(tick: number): readonly StampedCommand[] {
-    return this.received.get(tick) ?? [];
+    const commands = this.received.get(tick) ?? [];
+    for (const stamped of commands) {
+      if (stamped.playerId === this.playerId) this.stats.commandRan(performance.now());
+    }
+    return commands;
   }
 
   release(tick: number): void {
@@ -76,8 +86,15 @@ export class WebSocketLink implements LockstepLink {
     this.out({ t: 'hash', tick, hash });
   }
 
+  noteFrame(steps: number, blocked: boolean, behind: number): void {
+    this.stats.frame(steps, blocked, behind);
+    const report = this.stats.reportDue(performance.now());
+    if (report) this.out({ t: 'stats', stats: report });
+  }
+
   /** From the session: a tick closed at the relay. Ticks come in order over the one socket. */
   receive(tick: number, commands: readonly StampedCommand[]): void {
+    this.stats.tickArrived(performance.now());
     if (commands.length > 0) this.received.set(tick, commands);
     this.confirmed = tick;
   }
@@ -105,6 +122,8 @@ export class CoopSession {
   onWorld: ((world: unknown) => void) | null = null;
   onStarted: ((start: CoopStart) => void) | null = null;
   onSpeed: ((speed: number) => void) | null = null;
+  /** Each player's round trip to the relay, ms */
+  onRtt: ((rtt: [string, number | null][]) => void) | null = null;
   onHost: ((hostId: string) => void) | null = null;
   onLeft: ((playerId: string) => void) | null = null;
   onChat: ((from: string, text: string) => void) | null = null;
@@ -291,6 +310,8 @@ export class CoopSession {
         return this.linkNow?.receive(message.tick, message.commands);
       case 'speed':
         return this.onSpeed?.(message.speed);
+      case 'rtt':
+        return this.onRtt?.(message.rtt);
       case 'host':
         if (this.room) this.room = { ...this.room, hostId: message.hostId };
         return this.onHost?.(message.hostId);

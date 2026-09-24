@@ -458,14 +458,14 @@ describe('WaveManager', () => {
     });
   });
 
-  describe('debug:kill-all event', () => {
+  describe('killAll() (the debug:kill-all command)', () => {
     it('kills all alive enemies', () => {
       const mockEnemy = { alive: true } as never;
       (enemyManager.getAlive as ReturnType<typeof vi.fn>).mockReturnValue([mockEnemy]);
 
       wm.beginWave();
 
-      bus.emit({ type: 'debug:kill-all' });
+      wm.killAll();
 
       // Phase 5.16: a 'debug' kill pays no gold, so the player can't farm
       // gold via the dev shortcut, and splits nothing.
@@ -479,7 +479,7 @@ describe('WaveManager', () => {
       wm.tickSpawn(0);
       const callsBefore = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls.length;
 
-      bus.emit({ type: 'debug:kill-all' });
+      wm.killAll();
 
       wm.tickSpawn(1000);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(callsBefore);

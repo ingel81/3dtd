@@ -271,6 +271,43 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     expect(a.gsm.subStep - at).toBeLessThanOrEqual(TICK_SUB_STEPS + 1);
   });
 
+  it('keeps a tick in hand at the room pace and so never waits at the barrier (PLAYTEST T28)', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    a.gsm.gameSpeed.set(1);
+    let blocked = 0;
+    let frames = 0;
+    let behindSum = 0;
+    a.link.noteFrame = (_steps, wasBlocked, behind) => {
+      frames++;
+      if (wasBlocked) blocked++;
+      behindSum += behind;
+    };
+    // The relay closes a tick every TICK_SUB_STEPS steps of wall clock,
+    // after this client's frame, as the host measured it: at 144 fps
+    const tickMs = TICK_SUB_STEPS * 16.667;
+    const frameMs = 1000 / 144;
+    let relayMs = 0;
+    for (let f = 0; f < 3000; f++) {
+      if (f === 1500) {
+        frames = 0;
+        blocked = 0;
+        behindSum = 0;
+      }
+      a.frame(frameMs);
+      relayMs += frameMs;
+      while (relayMs >= tickMs) {
+        relay.closeTick();
+        relayMs -= tickMs;
+      }
+    }
+    // Settled: next to never at the barrier, about one tick in hand
+    expect(blocked / frames).toBeLessThan(0.02);
+    expect(behindSum / frames).toBeGreaterThan(0.5);
+    expect(behindSum / frames).toBeLessThan(2);
+  });
+
   it('holds the simulation at the barrier until the relay closes the tick', () => {
     Math.random = mulberry32(SEED + 1);
     const relay = new LocalRelay();
@@ -306,6 +343,31 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     }
     expect(a.gsm.creditsOf('a')).toBe(credits);
     expect(b.gsm.creditsOf('a')).toBe(credits);
+  });
+
+  it('keeps both alike through a debug-panel wave and a kill-all in it (playtest T11)', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    let killed = false;
+    // The debug panel's wave goes as the source's wave: its schedule draws
+    // from the spawn stream where it acts, on both sides
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    for (let t = 0; t < 400; t++) {
+      relay.closeTick();
+      if (!killed && b.gsm.enemyManager.getAlive().length > 3) {
+        b.emit({ type: 'debug:kill-all' });
+        killed = true;
+      }
+      a.frame(TICK_SUB_STEPS * 17);
+      b.frame(TICK_SUB_STEPS * 17);
+    }
+    expect(killed).toBe(true);
+    expect(a.gsm.enemyManager.getAlive().length).toBe(0);
+    expect(a.gsm.waveManager.phase()).not.toBe('wave');
+    expect(relay.divergences).toEqual([]);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 
   it('runs a command at its tick, not where it was given', () => {
