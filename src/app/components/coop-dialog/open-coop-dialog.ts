@@ -41,7 +41,9 @@ export async function openCoopDialog(
     panelClass: docked ? ['td-dialog-panel', 'td-coop-docked'] : 'td-dialog-panel',
     ariaLabelledBy: 'td-coop-dialog-title',
     injector,
-    // Docked: Esc is the game's (ending a placement), Close closes it
+    data: { docked },
+    // Docked: Esc is the game's (ending a placement), Close closes it; the
+    // dialog keeps itself below the info overlay (CoopDialogComponent)
     ...(docked ? { hasBackdrop: false, position: { left: '12px', top: '64px' }, autoFocus: false, disableClose: true } : {}),
   });
   if (docked) dockedRefs.add(ref);

@@ -1,5 +1,6 @@
 import { Component, computed, effect, inject, signal, untracked, ChangeDetectionStrategy } from '@angular/core';
-import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
+import { UIStore } from '../../store/ui.store';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
@@ -9,6 +10,9 @@ import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import { clientLabel } from '../../coop/client-info';
 import { relayLabel, type RelaySource } from '../../coop/relay-address';
 import { GameClock } from '../../managers/game-state/game-clock';
+
+/** Gap between the info overlay and the docked lobby, px */
+const DOCK_GAP_PX = 8;
 
 /**
  * Coop (docs/COOP_PLAN.md, C4): open a room or join one, then the lobby:
@@ -30,6 +34,8 @@ import { GameClock } from '../../managers/game-state/game-clock';
 })
 export class CoopDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<CoopDialogComponent>);
+  private readonly docked = inject<{ docked?: boolean } | null>(MAT_DIALOG_DATA, { optional: true })?.docked ?? false;
+  private readonly uiStore = inject(UIStore);
   readonly coop = inject(CoopService);
 
   readonly name = signal(this.coop.name);
@@ -78,6 +84,19 @@ export class CoopDialogComponent {
   });
 
   constructor() {
+    // Docked beside the map: below the info overlay (FPS and friends), which
+    // grows and folds; its bottom is measured from the top of the map area
+    if (this.docked) {
+      effect(() => {
+        const below = this.uiStore.infoOverlayBottom();
+        const mapTop = document.querySelector('.td-canvas-area')?.getBoundingClientRect().top ?? 56;
+        const top = Math.round(mapTop + below + DOCK_GAP_PX);
+        this.dialogRef.updatePosition({ left: '12px', top: `${top}px` });
+        // Its height ends above the window's bottom (styles.scss, .td-coop-docked)
+        document.documentElement.style.setProperty('--td-coop-dock-top', `${top}px`);
+      });
+    }
+
     // The game starts: the dialog steps aside, for the host (its Start button) and every guest alike
     let before = this.coop.status();
     effect(() => {
