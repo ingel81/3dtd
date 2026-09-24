@@ -4,6 +4,14 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-24
+
+- [x] **E2 Replay als Neu-Simulation** (Branch `simulator`, 1b2e275c..HEAD): jede Welle des Laufs wird aus ihrem
+      Snapshot am Wellenstart und dem Befehlslog bit-genau nachgerechnet, mit Springen, Wellenwahl und Datei zum
+      Speichern und Laden. Dafür deterministische Simulation (Befehle an Sub-Step-Grenzen, Turmdrehung in der Sim,
+      Sicht als Daten, Prüfsumme), das Präsentations-Replay ist entfernt. Playtest Paket R ok. Doku:
+      [docs/REPLAY.md](docs/REPLAY.md), [docs/SIMULATOR_PLAN.md](docs/SIMULATOR_PLAN.md).
+
 ## 2026-09-23
 
 - [x] **Tower bemannen** (`669a0591`): mit `C` in einen Projektil-Tower steigen, aus der Egoperspektive zielen
