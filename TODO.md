@@ -143,6 +143,17 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Erst eingrenzen: Prüfsumme in Teile zerlegen (Zufall, Gold, Gegner, Tower, Projektile, Held), Teile mitschicken,
       bei Abweichung ersten abweichenden Teil und erstes Objekt ins Relay-Log. Danach entscheiden: hart machen oder
       Raum nur mit gleicher Engine. [COOP_PLAN.md](docs/COOP_PLAN.md) C5.
+- [ ] **E29 Coop: Lobby nach dem Playtest vom 2026-09-24** (entschieden D30 bis D36 im Plan, **gebaut 2026-09-24**,
+      Nachtest PLAYTEST T21 bis T27). Offen: Egoperspektive im Coop deutlich zäher (T19, User 2026-09-25); Verdacht,
+      gemessen (PLAYTEST T28): Host an der Tick-Sperre in 4er-Sprüngen, Gast 1 bis 2 Ticks zurück mit bis 195 ms
+      Eingabe. Gebaut: ein Tick Vorrat je Client, Auge folgt der eigenen Maus; T29 ok (Eingabe jetzt ~95 ms bei
+      beiden, Tower nur „etwas besser“). **Als Nächstes (User, 2026-09-25):** (1) sofortige Rückmeldung beim Klick im
+      bemannten Tower: Mündungsfeuer, Schussgeräusch, Rückstoß lokal sofort, Schuss und Treffer weiter über den Relay;
+      (2) kürzere Ticks, 2 statt 4 Sub-Steps (Eingabe ~50 bis 60 ms; Tick-Konstanten, Prüfsummen-Takt, Tests). Später
+      vielleicht: Turm-Modell lokal vorausdrehen. Spieler-Leiste und Meldungen: Position und Anordnung an einen Designer (T16); dabei (User,
+      2026-09-25): man selbst immer oben, etwas größer und klar als „du“ kenntlich, der Host als Host markiert. Später
+      vielleicht: Ortswechsel beim Gast ohne Neuladen. Das angedockte Raum-Panel (`top: 64px` in
+      `open-coop-dialog.ts`) überdeckt die FPS-Anzeige oben links, muss weiter nach unten (User, 2026-09-24).
 - [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` setzt keinen Seed, der Anteil getöteter Gegner streut
       um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
       fiel zweimal nur unter Volllast. Seed setzen bzw. Ursache suchen.
