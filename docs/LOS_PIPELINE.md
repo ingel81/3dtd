@@ -1,6 +1,6 @@
 # LOS-Pipeline: Sichtlinien der Tower auf dem Route-Grid
 
-**Stand:** 2026-09-16
+**Stand:** 2026-09-24
 
 Wie ein Tower weiß, welche Route-Zellen er sieht: eine Cubemap je Tower-Tip auf
 der GPU, drei Leser derselben Cubemap und ein Cache in den Zellen, den der
@@ -27,7 +27,8 @@ drei Lesarten:
    (`resolveTowerLos`, `resolveTowerLosIncremental`) über einen
    CPU-`readRenderTargetPixels`-Pass gegen denselben Cube (`isCubeVisible`,
    `utils/gpu-cube-resolve.ts`). Der Kampf liest danach nur Map-Lookups,
-   O(1) je Tower und Gegner.
+   O(1) je Tower und Gegner. Das Ergebnis steht zusätzlich als Daten am
+   Tower (`LosMask`, siehe unten) und lässt sich ohne GPU wieder anwenden.
 
 Das Aggregat-Mesh der Debug-Layer (`grid`, `gridAir`) hat eigenes Mesh und
 eigenen Shader, liest aber dieselben Cache-Maps, keine eigene
@@ -87,9 +88,9 @@ Build-Vorschau. Mit diesem Panel wurde der Skybox-Leak (Lesson 11) gefunden.
                                           ┌────────────────────┐
                                           │ Kampf je Sub-Step  │
                                           │ Map-Lookup O(1),   │
-                                          │ hasLineOfSight()   │
-                                          │ als Rückfall für   │
-                                          │ Gegner ohne Zelle  │
+                                          │ keine Antwort =    │
+                                          │ nicht sichtbar,    │
+                                          │ kein Raycast       │
                                           └────────┬───────────┘
                                                    ▼
                                           ┌────────────────────┐
@@ -205,7 +206,8 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 | `three-engine/tower-shadow-mapper.ts` | Cube-Render, Move-Gate, `invalidate()`, Render-Version, `getFaceImageData` fürs Debug-Panel |
 | `utils/gpu-cube-resolve.ts` | `LosResolveContext`, `sampleCubeAtPoint`, `isCubeVisible`: der CPU-Pfad für den Kampf-Cache |
 | `utils/route-grid-los.ts` | `resolveTowerLos`, `resolveTowerLosIncremental`: Antworten je Zelle in Reichweite, auf den eingefrorenen Höhen |
-| `utils/global-route-grid.ts` | `GlobalRouteGrid`: Zellen, Gegner je Zelle und Umkreis (Hot Path), `registerTower`/`registerTowerIncremental` über die Box `cellsInRange`, `retryUnsampledCells` |
+| `utils/los-mask.ts` | `LosMask`: die Antworten eines Towers als 2 Bit je Slot, JSON-Form für Log und Snapshot |
+| `utils/global-route-grid.ts` | `GlobalRouteGrid`: Zellen, Gegner je Zelle und Umkreis (Hot Path), `forEachSlotInReach` (die Zellen in Reichweite), `registerTower`/`registerTowerIncremental`, `encodeLosMask`/`applyLosMask`, `retryUnsampledCells` |
 | `utils/route-grid-builder.ts` | welche Zellen ein Segment beansprucht (`claimRouteCells`), siehe ROUTE_CORRIDOR.md |
 | `utils/route-cell.ts` | `RouteCell`, `CellSample`, `getGroundTargetY`, `getAirTargetY` |
 | `utils/route-cell-sampler.ts` | `sampleCellY` (einziger Schreiber von `cell.terrainHeight`), Säulenprobe, LOD-Peek, Zähler für übersprungene und gecastete Säulen |
@@ -216,9 +218,10 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
 | `utils/route-altitude-tubes.ts` | Debug-Röhre der Air-Route |
 | `utils/los-perf.ts` | Phasen-Profiler (aus) |
 | `utils/los-debug-pixel-math.ts` | `directionToFacePixel` und Umkehrung, bitgleich zu `gpu-cube-resolve.ts` |
-| `services/tower-los-registry.ts` | `TowerLosRegistry`: `buildLosResolveContext`, `register`, `recompute`, `scheduleRecompute` und `drainLosRefresh` |
-| `services/tower-placement.service.ts` | Einstieg `registerTowerOnGrid`, `recomputeTowerLOS`, `scheduleLosRecompute`; Build-Vorschau in `build-preview-los.ts` |
-| `services/combat/tower-combat.service.ts` | `buildLosCheck`: Nachschlagen im Cache, CPU-Rückfall |
+| `services/tower-los-registry.ts` | `TowerLosRegistry`: `buildLosResolveContext`, `register`, `registerFromMask`, `recompute`, `scheduleRecompute` und `drainLosQueue`; Maske am Tower und Event `tower:los-resolved` |
+| `services/tower-placement.service.ts` | Einstieg `registerTowerOnGrid`, `registerTowerFromMask`, `recomputeTowerLOS`, `scheduleLosRecompute`, `drainLosQueue`; Build-Vorschau in `build-preview-los.ts` |
+| `services/combat/tower-combat.service.ts` | `buildLosCheck`: Nachschlagen im Cache, keine Antwort heißt nicht sichtbar |
+| `services/combat/body-aim.ts` | Zielpunkt auf einem Körper entlang der Route (Ooze): erster Punkt, dessen Zelle der Tower sieht |
 | `services/world/global-route-grid.service.ts` | Angular-Hülle um das Grid |
 | `services/world/corridor-build.ts` | `CorridorBuild`: baut den Korridor einmal je Routensatz und friert Zellen und Höhen ein, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | `services/facade/visualization-facade.service.ts` | `onTilesLoaded`, initialisiert den `LosDebugService` |
@@ -239,7 +242,8 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
       mapper.invalidate()                            ← Pflicht
       mapper.update(tipWorld, range, blockerGroup)   ← rendert den Cube
    b. globalRouteGrid.registerTower(towerId, x, z, range, ctx, …)
-      → resolveTowerLos über cellsInRange, auf den Höhen, die der
+      → resolveTowerLos über die Zellen in Reichweite (forEachSlotInReach:
+        Fläche schneidet die Reichweite an), auf den Höhen, die der
         Korridor-Bau eingefroren hat (keine Säulenprobe):
          canTargetGround: isCubeVisible(tip, getGroundTargetY(cell, standY), …)
                           → cell.towerVisibility
@@ -247,14 +251,18 @@ Sonst zählt jeder Tower seinen Cooldown einmal je Methode herunter (Befund
                           → cell.airVisibility
       danach Aggregat-Positionen auffrischen
    c. tower.losReady = true
-   d. ist der Tower gewählt: refreshSelectionViz(tower)
+   d. tower.losMask = encodeLosMask(…), Event tower:los-resolved
+      { towerId, mask, reason: 'place' }
+   e. ist der Tower gewählt: refreshSelectionViz(tower)
 ```
 
 ### Reichweiten-Upgrade (`recomputeTowerLOS`)
 
 Wie beim Bau, aber `registerTowerIncremental` behält die Antworten für
 schon registrierte Zellen. Gegen den Cube gehalten werden nur der neue Ring
-und Zellen, für die dieser Tower noch keine Antwort hat.
+und Zellen, für die dieser Tower noch keine Antwort hat. Das Ergebnis mischt
+Cubes verschiedener Zeitpunkte; neu gerechnet käme nicht dasselbe heraus.
+Deshalb gilt die Maske danach (`reason: 'upgrade'`), nicht eine Neurechnung.
 
 ### Luftziele durch Forschung (`research:completed`)
 
@@ -264,13 +272,23 @@ Warteschlange des Registers (`staleLos`). Nicht synchron: der `ResearchStore` se
 Handler des `GameStateSyncService`, und der läuft nach dem des
 GameStateManagers.
 
+Abgearbeitet wird die Warteschlange von der Spielschleife:
+`GameStateManager.update` ruft nach der Sub-Step-Schleife einmal je Frame
+`drainLosQueue`, ein Tower je Aufruf, in der Reihenfolge des Einreihens.
+Kein `requestAnimationFrame`: der Heartbeat eines versteckten Tabs tickt
+`update` ohne Frames, die Warteschlange läuft dort mit. Bis ein Tower dran
+ist, behält er seine Bodenantworten, Luftantworten fehlen ihm noch, und
+Luftgegner gelten für ihn so lange als nicht sichtbar. Jeder abgearbeitete
+Tower sendet `tower:los-resolved` mit `reason: 'retrofit'`. Für ein exaktes
+Nachrechnen muss das Befehlslog den Sub-Step festhalten, an dem das Event
+kam; die Maske steckt im Event.
+
 Sonst entwertet nichts die Registrierung eines platzierten Towers: Die
 Reichweite ändert sich nur per Upgrade (`recomputeRangeAfterUpgrade` in
 `TowerLifecycle`), Position und Höhe sind ab dem Bau fest, `canTargetGround`
 ist statisch, die übrigen Forschungseffekte berühren platzierte Tower nicht.
-Die Tower-Debug-Slider (`heightOffset`, `shootHeight`) verschieben Modell und
-den Tip des CPU-Rückfalls, nicht die gecachte LOS; als Tuning-Werkzeug so
-gelassen.
+Die Tower-Debug-Slider (`heightOffset`, `shootHeight`) verschieben das
+Modell, nicht die gecachte LOS; als Tuning-Werkzeug so gelassen.
 
 ### Tile-Schub (`onTilesLoaded`)
 
@@ -291,9 +309,8 @@ keine Routenlinie neu gebacken, kein Tower neu aufgelöst. Zellen und Höhen
 stehen, seit der Korridor-Bau sie eingefroren hat
 ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md)); bis zum nächsten Bau (Ortswechsel,
 HQ- oder Spawn-Umzug) bleibt die Antwort jedes Towers gültig. Die
-Warteschlange des Registers (`staleLos`, `drainLosRefresh`, ein Tower je
-Frame) bleibt für die Anfragen, die es noch gibt: Luftziele durch Forschung
-und Reichweiten-Upgrade.
+Warteschlange des Registers (`staleLos`, `drainLosQueue`, ein Tower je
+Frame) bleibt für die Anfrage, die es noch gibt: Luftziele durch Forschung.
 
 Bis zum 2026-09-16 lief hier ein Höhen-Sweep über alle Zellen, danach eine
 rAF-Konvergenzschleife mit Nachproben, ein Neubacken von Routenlinie,
@@ -322,18 +339,63 @@ für jeden Tower:
    tower.combat.update(deltaTime)
    !tower.losReady → weiter
    candidates = globalRouteGrid.getEnemiesForTower(tower.visibleCells)
-   losCheck = buildLosCheck(tower, …)
+   losCheck = buildLosCheck(tower)
       liest cell.towerVisibility / cell.airVisibility (O(1))
-      Rückfall: tilesEngine.towers.hasLineOfSight (CPU-Raycast) für
-      Gegner ohne Antwort in ihrer Zelle
+      keine Zelle oder keine Antwort des Towers → nicht sichtbar
    target = tower.findTarget(candidates, …, losCheck)
    canFire() und Turret ausgerichtet → combat.fire(), Projektil spawnen
 ```
 
+Ein Tower ohne sichtbare Zelle hat keine Kandidaten; eine Umkreisabfrage
+als Ersatz gibt es nicht mehr. Körper entlang der Route (Ooze) prüft
+`BodyAim` ebenso über die Bodenantwort der Zelle unter dem Zielpunkt.
+
+Bis zum 2026-09-24 raycastete der Kampf gegen die gerade geladenen Tiles,
+wenn die Zelle keine Antwort hatte: am Rand der Reichweite, für Gegner neben
+dem Korridor, im Fenster der Luft-Nachrüstung, für Tower ohne sichtbare
+Zelle, und `BodyAim` bis zu viermal je Auflösung. Das Ergebnis hing an
+Kamera und LOD und ließ sich nicht nachrechnen (Entscheidung D2 in
+[SIMULATOR_PLAN.md](SIMULATOR_PLAN.md)).
+
+## Reichweite in Zellen
+
+Ein Tower hat Antworten für jede Zelle, deren 2-m-Quadrat die Reichweite
+anschneidet (`GlobalRouteGrid.forEachSlotInReach`), nicht nur für die mit
+Mittelpunkt in der Reichweite. Ein Gegner in Reichweite steht damit immer in
+einer Zelle mit Antwort, sofern er auf dem Korridor steht. Der Cube reicht
+dafür eine halbe Zelldiagonale weiter (`reachBeyondRangeMeters`,
+`losCubeFarDistance`). Die Anzeigen (`getCellsInRange`) nehmen dieselben
+Zellen.
+
+## LosMask: Sicht als Daten
+
+`utils/los-mask.ts`. Nach jeder Auflösung (Bau, Reichweiten-Upgrade,
+Luft-Nachrüstung) liest `encodeLosMask` die Antworten des Towers zurück in
+eine Maske, die am Tower steht (`tower.losMask`) und mit dem Event
+`tower:los-resolved { towerId, mask, reason }` hinausgeht.
+
+- **Slots:** die Gitterplätze in Reichweite in fester Reihenfolge (Gitter-x,
+  dann Gitter-z, aufsteigend), abgeleitet nur aus Position, Reichweite und
+  Zellgröße. Ein Platz ohne Zelle hat auch einen Slot.
+- **Bits:** 2 je Slot (Boden sichtbar, Luft sichtbar), 4 Slots je Byte.
+  Welche Zellen eine Antwort haben, folgt aus dem eingefrorenen Grid und den
+  Flags `ground`/`air` der Maske: jede Zelle in Reichweite hat eine
+  Bodenantwort, wenn der Tower Boden zielt, eine Luftantwort, wenn er Luft
+  zielt.
+- **Größe mit Reichweite und Flags:** 98 B bei 20 m, 202 B bei 30 m, 344 B bei
+  40 m, 746 B bei 60 m. Kodieren 15 bis 65 µs, Anwenden 15 bis 70 µs je
+  Tower (jsdom, `los-mask.spec.ts`).
+- **Anwenden:** `applyLosMask` schreibt die Antworten ohne GPU in die Zellen
+  und gibt die sichtbaren Zellen zurück; `TowerLosRegistry.registerFromMask`
+  setzt damit `visibleCells`, `losReady` und die Maske wie ein Bau, sendet
+  aber kein Event. Für Snapshot-Restore und Neu-Simulation. Passt die Länge
+  nicht zu Position und Reichweite, wirft es.
+- **Text:** `losMaskToJson`/`losMaskFromJson`, Bits als Base64.
+
 ## Sonstiges
 
-- `setLineOfSightRaycaster` in `three-tower.renderer.ts` bleibt für den
-  CPU-Rückfall `hasLineOfSight`.
+- `TerrainQueries.raycastLineOfSight` bleibt für Boss-Intro und
+  Korridor-Konsole; die Tower nutzen es nicht mehr.
 - `MAX_VIZ_CELLS_HARDLIMIT` (50.000) in `route-grid-aggregate-viz.ts` ist nur
   eine Obergrenze; die Kapazität des InstancedMesh ist `min(Zellen, Grenze)`.
   Sie wächst nicht zur Laufzeit: Ändert sich das Grid (Ortswechsel,
