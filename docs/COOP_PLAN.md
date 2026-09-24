@@ -282,6 +282,14 @@ Ursprünglicher Plan:
 - Tests: `room.spec.ts` (Regeln, Takt, Tempo, Verlassen), `server.spec.ts` (zwei echte Sockets vom Anlegen bis zu
   den Ticks, Hostwechsel).
 
+**C4b gebaut (2026-09-24):** die Client-Seite ohne Spiel.
+
+- `coop/coop-session.ts`: `CoopSession` (verbinden, Raum anlegen oder beitreten, Welt, Lane, bereit, Start, Tempo,
+  Chat, Ping, Hostwechsel; Ablehnung als `CoopRefusedError`) und `WebSocketLink`, der `LockstepLink` über den
+  Socket. Frei von Angular, der Socket ist austauschbar.
+- Test `coop-server/src/session.spec.ts`: zwei Sitzungen gegen das echte Relay von der Lobby bis zum gemeinsamen
+  Tick, Ablehnung, Hostwechsel.
+
 - Neuer Ordner `coop-server/` (TypeScript, Node, `ws`), getrennt vom Python-`bot-server/`. Die Logik ist eine
   Bibliothek mit zwei Einstiegen (D18): ein npm-Skript und der Electron-Main ("LAN-Spiel hosten", Beitritt per IP
   oder Link). Keine eigene exe.
