@@ -55,6 +55,16 @@ export class StateSnapshotService {
     return this.gameState.getEventBus();
   }
 
+  /**
+   * Game time (ms) for every duration here: wave length, enemy lifetimes,
+   * run time. The wall clock would depend on the frame rate and the
+   * timescale, and a re-simulation would not get the same values. Only the
+   * `timestamp` labels stay on the wall clock; nothing reads them.
+   */
+  private now(): number {
+    return this.gameState.gameTimeMs;
+  }
+
   private subscriptions = new SubscriptionBag();
 
   // === DPS PROFILE CACHE ===
@@ -63,8 +73,8 @@ export class StateSnapshotService {
 
   // === CURRENT WAVE TRACKING ===
   private currentWaveNumber = 0;
-  /** Wall-clock start of the current run, for the encoder's gameTime feature. */
-  private gameStartTime = Date.now();
+  /** Game-time start of the current run (ms), for the encoder's gameTime feature. */
+  private gameStartTime = 0;
   private currentWaveConfig: WaveConfig | null = null;
   private readonly currentWave = new WaveOutcomeTracker();
 
@@ -122,7 +132,7 @@ export class StateSnapshotService {
       // Time since the RUN started, not since the current wave started — the
       // encoder normalises this against a one-hour horizon, so a per-wave value
       // made the feature a near-constant.
-      gameTimeSeconds: (Date.now() - this.gameStartTime) / 1000,
+      gameTimeSeconds: (this.now() - this.gameStartTime) / 1000,
       phase: this.store.phase() as GamePhase,
 
       player: playerState(this.store.baseHealth(), this.store.credits()),
@@ -196,7 +206,7 @@ export class StateSnapshotService {
     // An ooze is a leak from its first point that flows into the base on
     this.subscriptions.add(
       this.eventBus.on('enemy:leaking', (event) => {
-        this.currentWave.enemyLeaking(event.enemy.id, event.enemy.typeConfig.id, Date.now());
+        this.currentWave.enemyLeaking(event.enemy.id, event.enemy.typeConfig.id, this.now());
       })
     );
     this.subscriptions.add(
@@ -241,11 +251,11 @@ export class StateSnapshotService {
 
   private onWaveStarted(event: { wave: number; enemyCount: number }): void {
     this.currentWaveNumber = event.wave;
-    this.currentWave.start(event.enemyCount, this.store.baseHealth(), Date.now());
+    this.currentWave.start(event.enemyCount, this.store.baseHealth(), this.now());
   }
 
   private onEnemySpawned(event: { enemy: Enemy }): void {
-    this.currentWave.enemySpawned(event.enemy.id, event.enemy.typeConfig.id, Date.now());
+    this.currentWave.enemySpawned(event.enemy.id, event.enemy.typeConfig.id, this.now());
   }
 
   /**
@@ -273,8 +283,7 @@ export class StateSnapshotService {
       return;
     }
 
-    // Time metrics are divided by the training timescale.
-    const outcome = this.currentWave.finalize('completed', Date.now(), this.gameState.gameSpeed());
+    const outcome = this.currentWave.finalize('completed', this.now());
     // The WaveManager's verdict, the one the PerfectBonus pays on
     outcome.perfect = event.perfect;
     this.recordWave(event.wave, outcome);
@@ -290,7 +299,7 @@ export class StateSnapshotService {
       event.enemy.id,
       event.enemy.typeConfig.id,
       movement ? movement.getPathProgress() : undefined,
-      Date.now(),
+      this.now(),
     );
   }
 
@@ -298,7 +307,7 @@ export class StateSnapshotService {
     // NOTE: `event.damage` is the NOMINAL leak cost. What the player actually
     // loses is accumulated in `onHealthChanged` from the health delta, which
     // is also what a base already at zero stops paying.
-    this.currentWave.enemyReachedBase(event.enemy.id, event.enemy.typeConfig.id, Date.now());
+    this.currentWave.enemyReachedBase(event.enemy.id, event.enemy.typeConfig.id, this.now());
   }
 
   private onHealthChanged(event: { health: number; delta: number }): void {
@@ -309,8 +318,8 @@ export class StateSnapshotService {
 
   private onGameStarted(): void {
     this.clearHistory();
-    this.gameStartTime = Date.now();
-    this.currentWave.restartClock(Date.now());
+    this.gameStartTime = this.now();
+    this.currentWave.restartClock(this.gameStartTime);
   }
 
   private onGameOver(event: { reason: string }): void {
@@ -318,7 +327,7 @@ export class StateSnapshotService {
     // emitted on game over). Nothing to record before the first wave.
     if (event.reason !== 'base-destroyed' || this.currentWaveNumber <= 0) return;
 
-    const outcome = this.currentWave.finalize('base-destroyed', Date.now(), this.gameState.gameSpeed());
+    const outcome = this.currentWave.finalize('base-destroyed', this.now());
     this.finalizedWaveNumber = this.currentWaveNumber;
     this.recordWave(this.currentWaveNumber, outcome);
   }

@@ -59,7 +59,10 @@ const HP = GAME_BALANCE.player.startHealth;
 describe('StateSnapshotService', () => {
   let bus: GameEventBus;
   let collector: StateSnapshotService;
-  let timescale: number;
+  /** GameStateManager.gameTimeMs, the clock the collector measures with */
+  let gameTimeMs: number;
+  /** Wall-clock ms per game-time ms: 1 at 1x, 0.25 at 4x */
+  let wallPerGameMs: number;
   let routes: { lat: number; lon: number; height: number }[][];
   let store: {
     waveNumber: ReturnType<typeof signal<number>>;
@@ -83,7 +86,10 @@ describe('StateSnapshotService', () => {
     isInitialized: ReturnType<typeof vi.fn>;
   };
 
-  const advance = (ms: number) => vi.setSystemTime(Date.now() + ms);
+  const advance = (ms: number) => {
+    gameTimeMs += ms;
+    vi.setSystemTime(Date.now() + ms * wallPerGameMs);
+  };
   const emit = (event: GameEvent) => bus.emit(event);
   const completed = (wave: number, hpLost = 0): GameEvent =>
     ({ type: 'wave:completed', wave, credits: 0, perfect: hpLost === 0, closeCall: false, hpLost });
@@ -96,7 +102,7 @@ describe('StateSnapshotService', () => {
       getEventBus: () => bus,
       towerManager: { getAll: () => [] },
       heroManager: { getDefenseProfile: () => heroProfile },
-      gameSpeed: () => timescale,
+      get gameTimeMs() { return gameTimeMs; },
       getCachedRoutes: () => routes,
     };
     const injector = Injector.create({
@@ -133,7 +139,8 @@ describe('StateSnapshotService', () => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(1_000_000);
     bus = new GameEventBus();
-    timescale = 1;
+    gameTimeMs = 0;
+    wallPerGameMs = 1;
     routes = [];
     store = { waveNumber: signal(0), phase: signal('setup'), baseHealth: signal(HP), credits: signal(250) };
     research = {
@@ -250,14 +257,14 @@ describe('StateSnapshotService', () => {
       });
     });
 
-    it('divides the time metrics by the training timescale', () => {
-      timescale = 4;
+    it('measures in game time, so the wall clock at 4x changes nothing', () => {
+      wallPerGameMs = 0.25;
       playScriptedWave();
 
       const { outcome } = collector.getWaveHistory()[0];
-      expect(outcome.waveDurationMs).toBe(750);
-      expect(outcome.avgEnemyLifetimeMs).toBe(487.5);
-      expect(outcome.enemyPerformance['zombie'].avgLifetimeMs).toBe(500);
+      expect(outcome.waveDurationMs).toBe(3000);
+      expect(outcome.avgEnemyLifetimeMs).toBe(1950);
+      expect(outcome.enemyPerformance['zombie'].avgLifetimeMs).toBe(2000);
     });
 
     it('reports an empty wave with zeroed progress', () => {

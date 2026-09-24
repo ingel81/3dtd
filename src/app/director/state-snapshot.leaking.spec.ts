@@ -34,7 +34,7 @@ describe('StateSnapshotService oozes flowing in', () => {
 
   beforeEach(() => {
     bus = new GameEventBus();
-    injections['GameStateManager'] = { getEventBus: () => bus, gameSpeed: () => 1 };
+    injections['GameStateManager'] = { getEventBus: () => bus, gameTimeMs: 0 };
     injections['TowerDefenseStore'] = { baseHealth: () => 100 };
     const collector = new StateSnapshotService();
     results = [];
