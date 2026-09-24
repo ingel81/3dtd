@@ -54,8 +54,14 @@ import { fnv1a } from '../utils/fnv1a';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
 import { tickAtBoundary, tickNeededAfter, type LockstepLink } from '../coop/lockstep';
+import { HASH_EVERY_TICKS } from '../coop/hash-check';
 import type { WorldSource } from '../coop/world-package';
 import { OWNER_ONLY, type TowerPolicy } from '../coop/tower-policy';
+
+/** Coop: ticks a client may lag behind the relay before it runs faster (lockstepCatchUp) */
+const LOCKSTEP_LAG_TICKS = 3;
+/** Coop: the fastest a lagging client catches up, times the room's pace */
+const LOCKSTEP_MAX_CATCH_UP = 4;
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -265,6 +271,12 @@ export class GameStateManager {
   private lockstep: LockstepLink | null = null;
   /** Coop: the last tick whose commands ran */
   private lockstepTickRun = -1;
+  /**
+   * Coop: the relay tick of this run's sub-step 0. A restart in the room
+   * (command:restart-game) resets the clock while the relay counts on; the
+   * new run starts at the tick after the one that restarted it.
+   */
+  private lockstepTickBase = 0;
 
   /**
    * A wave has started in this run; `game:started` goes out before the first.
@@ -449,6 +461,8 @@ export class GameStateManager {
    */
   setPlayers(players: readonly string[], local: string): void {
     this.creditsLedger.setPlayers(players, local);
+    this.left.clear();
+    this.ready.clear();
     this.researchSeats.length = 0;
     for (const seat of this.abilitySeats) seat.destroy();
     this.abilitySeats.length = 0;
@@ -528,6 +542,20 @@ export class GameStateManager {
     });
   }
 
+  /**
+   * Coop: `from` sends `amount` of their gold to `to` (command:give-credits).
+   * Only whole gold, only what `from` has, only to another player still in
+   * the run; anything else does nothing. Booked as 'gift' on both accounts.
+   */
+  giveCredits(from: string, to: string, amount: number): boolean {
+    if (from === to || !this.players.includes(to) || this.left.has(to)) return false;
+    if (!Number.isInteger(amount) || amount <= 0) return false;
+    if (!this.creditsLedger.spend(amount, 'gift', from)) return false;
+    this.creditsLedger.add(amount, 'gift', to);
+    this.eventBus.emit({ type: 'coop:credits-given', from, to, amount, toLocal: to === this.localPlayerId });
+    return true;
+  }
+
   /** Every player still in the run is ready for the next wave. */
   allReady(): boolean {
     return this.players.every((playerId) => this.left.has(playerId) || this.ready.has(playerId));
@@ -558,6 +586,13 @@ export class GameStateManager {
 
   /** The wave phase, for the abilities (they fire only during a wave) */
   private readonly phaseNow = () => this.waveManager.phase();
+
+  /**
+   * The dev tools' commands (debug:*) do nothing. On in a coop game
+   * (docs/COOP_PLAN.md, R3): every client sets it at the start, so a cheat
+   * that still comes in does nothing anywhere.
+   */
+  cheatsBlocked = false;
 
   /** What a player may do with a tower (D7); swap it to loosen the rule. */
   towerPolicy: TowerPolicy = OWNER_ONLY;
@@ -870,7 +905,7 @@ export class GameStateManager {
     // Clamped wall-clock delta × timescale plus the carried remainder,
     // see GameClock.beginFrame().
     const timescale = this.gameSpeed();
-    this.clock.beginFrame(currentTime, timescale);
+    this.clock.beginFrame(currentTime, timescale * this.lockstepCatchUp());
 
     // Sync timescale to renderer (turret-pulse / hover / shader-time only —
     // gameplay rotation now flows through sub-step game-time).
@@ -977,28 +1012,55 @@ export class GameStateManager {
    * to `link` and acts when its tick comes back; a sub-step runs only once
    * the tick before it is closed. Null goes back to the single player game.
    */
+  /** Coop: commands run at the relay's ticks (setLockstep) */
+  get lockstepActive(): boolean {
+    return this.lockstep !== null;
+  }
+
   setLockstep(link: LockstepLink | null): void {
     this.lockstep = link;
     this.lockstepTickRun = -1;
+    this.lockstepTickBase = 0;
     this.commandsHandler?.setLockstep(link);
+  }
+
+  /**
+   * Coop (review R2): how much faster than the room's pace this client runs
+   * to catch up. The relay closes ticks by the wall clock; a client that fell
+   * behind (a slow frame, a hidden tab) would stay behind for good at the
+   * room's pace. Up to LOCKSTEP_MAX_CATCH_UP times while more than
+   * LOCKSTEP_LAG_TICKS ticks are closed and not yet run; 1 otherwise and alone.
+   * Sub-steps are fixed, so this changes when they run, never what they do.
+   */
+  private lockstepCatchUp(): number {
+    const link = this.lockstep;
+    if (!link) return 1;
+    const behind = link.confirmedTick() - (tickNeededAfter(this.clock.subStep) + this.lockstepTickBase);
+    if (behind <= LOCKSTEP_LAG_TICKS) return 1;
+    return Math.min(LOCKSTEP_MAX_CATCH_UP, 1 + (behind - LOCKSTEP_LAG_TICKS) / LOCKSTEP_LAG_TICKS);
   }
 
   /**
    * The lockstep barrier at the boundary the clock stands at: false while
    * the relay has not closed the tick before the next sub-step. At a tick's
-   * boundary its commands run first, once. Always true without a link.
+   * boundary its commands run first, once, and every HASH_EVERY_TICKS ticks
+   * the state hash goes to the relay. Always true without a link.
    */
   private lockstepOpen(): boolean {
     const link = this.lockstep;
     if (!link) return true;
-    const boundary = this.clock.subStep;
-    if (tickNeededAfter(boundary) > link.confirmedTick()) return false;
-    const tick = tickAtBoundary(boundary);
-    if (tick > this.lockstepTickRun) {
+    // Again after running a tick: a restart among its commands moved the clock to a new boundary
+    for (;;) {
+      const boundary = this.clock.subStep;
+      if (tickNeededAfter(boundary) + this.lockstepTickBase > link.confirmedTick()) return false;
+      const local = tickAtBoundary(boundary);
+      const tick = local < 0 ? -1 : local + this.lockstepTickBase;
+      if (tick <= this.lockstepTickRun) return true;
       this.lockstepTickRun = tick;
+      // The relay compares these across clients (C5): same boundary, before the tick's commands
+      if (tick % HASH_EVERY_TICKS === 0) link.reportHash(tick, this.stateHash());
       this.commandsHandler?.runTick(tick);
     }
-    return true;
   }
 
   /** A boundary between two sub-steps: the re-simulation's check, else the recorder's hash. */
@@ -1562,11 +1624,18 @@ export class GameStateManager {
     this.healthLedger.resetToStart();
     this.creditsLedger.reset();
     this.clock.reset();
-    this.lockstepTickRun = -1;
+    // Coop: the new run goes on at the relay's next tick (see lockstepTickBase)
+    if (this.lockstep) {
+      this.lockstepTickBase = this.lockstepTickRun + 1;
+    } else {
+      this.lockstepTickRun = -1;
+      this.lockstepTickBase = 0;
+    }
     // A new run is a new seed: leaving the streams running would make the
     // second run of a batch a different experiment than the first.
     this.rng.reset(seed);
-    this.left.clear();
+    // Who left the room stays gone; a new roster (setPlayers) clears it
+    this.ready.clear();
     this.economy.reset();
     this.runStarted = false;
 

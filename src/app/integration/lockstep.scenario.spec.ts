@@ -45,6 +45,7 @@ import { mulberry32 } from '../utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { LocalRelay, type LocalLink } from '../coop/local-relay';
 import { TICK_SUB_STEPS } from '../coop/lockstep';
+import { HASH_EVERY_TICKS } from '../coop/hash-check';
 import { buildWorldPackage, packagePaths, readWorldPackage } from '../coop/world-package';
 import { buildSimWorld, type SimWorld, type SimWorldOptions } from './sim-world';
 
@@ -204,6 +205,8 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     }
     expect(compared).toBeGreaterThan(1000);
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+    // The relay compared the hashes both sent every HASH_EVERY_TICKS ticks and found nothing
+    expect(relay.divergences).toEqual([]);
 
     // The same log on both sides, each command with who gave it
     expect(b.gsm.commandLog.entries).toEqual(a.gsm.commandLog.entries);
@@ -227,6 +230,47 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     expect(diverged.length).toBeGreaterThan(0);
   });
 
+  it('reports a state falsified on one side at the relay within HASH_EVERY_TICKS ticks (C5)', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const falsifyAt = 2 * HASH_EVERY_TICKS + 3;
+    for (let t = 0; t < 4 * HASH_EVERY_TICKS; t++) {
+      relay.closeTick();
+      if (t === falsifyAt) b.run(() => b.gsm.addCredits(1, 'reset'));
+      a.frame(TICK_SUB_STEPS * 17);
+      b.frame(TICK_SUB_STEPS * 17);
+    }
+    expect(relay.divergences.length).toBeGreaterThan(0);
+    const first = relay.divergences[0];
+    expect(first.tick).toBeGreaterThan(falsifyAt);
+    expect(first.tick).toBeLessThanOrEqual(falsifyAt + HASH_EVERY_TICKS);
+    expect(first.hashes.map(([player]) => player).sort()).toEqual(['a', 'b']);
+    expect(first.hashes[0][1]).not.toBe(first.hashes[1][1]);
+  });
+
+  it('catches up with the relay after falling behind, then keeps its pace (R2)', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    a.gsm.gameSpeed.set(1);
+    // 60 ticks closed at once, as after a hidden tab: four game seconds behind
+    for (let t = 0; t < 60; t++) relay.closeTick();
+    let frames = 0;
+    while (a.gsm.subStep < 59 * TICK_SUB_STEPS && frames < 1000) {
+      a.frame(16);
+      frames++;
+    }
+    // At the room's pace that is 240 frames; catching up takes well under that
+    expect(frames).toBeLessThan(120);
+    // Caught up: one tick a frame at the room's pace does not run it ahead again
+    const at = a.gsm.subStep;
+    relay.closeTick();
+    for (let i = 0; i < 4; i++) a.frame(16);
+    expect(a.gsm.subStep - at).toBeLessThanOrEqual(TICK_SUB_STEPS + 1);
+  });
+
   it('holds the simulation at the barrier until the relay closes the tick', () => {
     Math.random = mulberry32(SEED + 1);
     const relay = new LocalRelay();
@@ -242,6 +286,26 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     a.link.deliver();
     for (let i = 0; i < 10; i++) a.frame(40);
     expect(a.gsm.subStep).toBe(TICK_SUB_STEPS);
+  });
+
+  it('drops the commands of the dev tools once cheats are off, on every client alike (R3)', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    a.gsm.cheatsBlocked = true;
+    b.gsm.cheatsBlocked = true;
+    const credits = a.gsm.creditsOf('a');
+    a.emit({ type: 'debug:add-credits', amount: 1000 });
+    // A changed client that sends it anyway: the others ignore it too
+    a.link.send({ type: 'debug:add-credits', amount: 1000 });
+    for (let t = 0; t < 3; t++) {
+      relay.closeTick();
+      a.frame(TICK_SUB_STEPS * 17);
+      b.frame(TICK_SUB_STEPS * 17);
+    }
+    expect(a.gsm.creditsOf('a')).toBe(credits);
+    expect(b.gsm.creditsOf('a')).toBe(credits);
   });
 
   it('runs a command at its tick, not where it was given', () => {
@@ -646,6 +710,80 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
     step();
     expect(a.gsm.allReady()).toBe(false);
     expect(b.gsm.allReady()).toBe(false);
+  });
+});
+
+describe('Coop restart in the room (review R1)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  it('starts the same new run on every client, and commands after it act at once', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const tick = () => {
+      relay.closeTick();
+      a.frame(TICK_SUB_STEPS * 17);
+      b.frame(TICK_SUB_STEPS * 17);
+    };
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    for (let t = 0; t < 60; t++) tick();
+    const stepsBefore = a.gsm.subStep;
+    expect(stepsBefore).toBeGreaterThan(200);
+
+    // Each client's own Math.random differs: the seed has to come with the command
+    Math.random = mulberry32(99);
+    a.emit({ type: 'command:restart-game', seed: 4242 });
+    for (let t = 0; t < 3; t++) tick();
+    expect(a.gsm.subStep).toBeLessThan(stepsBefore);
+    expect(a.gsm.waveManager.waveNumber()).toBe(0);
+
+    const credits = a.gsm.creditsOf('a');
+    b.emit({ type: 'command:give-credits', to: 'a', amount: 7 });
+    for (let t = 0; t < 3; t++) tick();
+    // Acted within a few ticks, not after the ticks the old run had used up
+    expect(a.gsm.creditsOf('a')).toBe(credits + 7);
+    expect(b.gsm.creditsOf('a')).toBe(credits + 7);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+    expect(relay.divergences).toEqual([]);
+  });
+});
+
+describe('Coop gold from one player to another', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  it('moves the gold at the tick on both clients, and refuses more than the giver has', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const start = a.gsm.creditsOf('a');
+    const given: number[] = [];
+    b.gsm.getEventBus().on('coop:credits-given', (e) => { if (e.toLocal) given.push(e.amount); });
+
+    a.emit({ type: 'command:give-credits', to: 'b', amount: 60 });
+    a.emit({ type: 'command:give-credits', to: 'b', amount: start * 10 }); // more than A has
+    a.emit({ type: 'command:give-credits', to: 'a', amount: 5 }); // to oneself
+    b.emit({ type: 'command:give-credits', to: 'a', amount: 2.5 }); // not whole gold
+    expect(a.gsm.creditsOf('a')).toBe(start); // at the tick, not at the click
+    for (let t = 0; t < 3; t++) {
+      relay.closeTick();
+      a.frame(TICK_SUB_STEPS * 17);
+      b.frame(TICK_SUB_STEPS * 17);
+    }
+    for (const client of [a, b]) {
+      expect(client.gsm.creditsOf('a')).toBe(start - 60);
+      expect(client.gsm.creditsOf('b')).toBe(start + 60);
+    }
+    expect(b.gsm.credits()).toBe(start + 60);
+    expect(given).toEqual([60]);
+    expect(relay.divergences).toEqual([]);
   });
 });
 

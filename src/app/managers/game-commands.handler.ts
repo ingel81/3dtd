@@ -137,6 +137,8 @@ export class GameCommandsHandler {
 
   private readonly receive = (event: GameEvent): void => {
     if (this.replaying) return;
+    // Coop: cheats are off, they do not even go out (the relay drops them too)
+    if (isDebugCommand(event) && this.gsm.cheatsBlocked) return;
     if (this.lockstep) {
       this.lockstep.send(toPlainData(event) as Parameters<LockstepLink['send']>[0]);
       return;
@@ -154,6 +156,8 @@ export class GameCommandsHandler {
     this.log.record(event, playerId);
     // A player not in the run gives no command; logged as an input all the same
     if (!this.gsm.players.includes(playerId)) return;
+    // Coop: a cheat from a changed client does nothing, on every client alike
+    if (isDebugCommand(event) && this.gsm.cheatsBlocked) return;
     // Caught like a throwing listener on the bus: a held command runs from
     // the GSM's loop, and one bad command must not stop the frame
     try {
@@ -313,8 +317,12 @@ export class GameCommandsHandler {
       this.gsm.setReady(this.gsm.actingPlayerId, event.ready);
     });
 
-    this.on('command:restart-game', () => {
-      this.gsm.reset();
+    this.on('command:give-credits', (event) => {
+      this.gsm.giveCredits(this.gsm.actingPlayerId, event.to, event.amount);
+    });
+
+    this.on('command:restart-game', (event) => {
+      this.gsm.reset(event.seed);
     });
   }
 
@@ -356,4 +364,9 @@ export class GameCommandsHandler {
       if (hero.checkHire() === null) hero.hire(0);
     });
   }
+}
+
+/** A dev tool's command (debug:*): off in coop, see GameStateManager.cheatsBlocked */
+function isDebugCommand(event: GameEvent): boolean {
+  return event.type.startsWith('debug:');
 }

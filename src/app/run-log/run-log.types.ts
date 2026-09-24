@@ -78,7 +78,8 @@ export type RunLogEventKind =
   | 'speed'
   | 'pause'
   | 'cheat'
-  | 'wave-jump';
+  | 'wave-jump'
+  | 'gift';
 
 export interface RunLogEvent {
   kind: 'event';
