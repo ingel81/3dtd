@@ -42,6 +42,8 @@ const CHAT_NOTICE_MS = 10000;
           <li class="player" [class.is-me]="player.me" [class.has-left]="player.left">
             <span class="lane-dot" [style.background]="player.color"></span>
             <span class="name">{{ player.name }}</span>
+            @if (player.me) { <span class="tag tag-me">you</span> }
+            @if (player.host) { <span class="tag">host</span> }
             @if (player.left) {
               <span class="state">left</span>
             } @else if (!waveActive()) {
@@ -122,7 +124,25 @@ const CHAT_NOTICE_MS = 10000;
       color: var(--td-text-primary);
     }
     .player.is-me {
+      padding: 5px 8px 5px 10px;
+      font-size: 13px;
       border-color: var(--td-gold-dark);
+    }
+    .player.is-me .lane-dot {
+      width: 10px;
+      height: 10px;
+    }
+    .tag {
+      padding: 1px 4px;
+      border: 1px solid var(--td-frame-mid);
+      font: 600 8.5px/1 var(--td-font-mono);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--td-text-muted);
+    }
+    .tag-me {
+      border-color: var(--td-gold-dark);
+      color: var(--td-gold-light);
     }
     .player.has-left {
       opacity: 0.5;
@@ -238,12 +258,16 @@ export class CoopPlayersComponent {
     const left = this.coop.leftIds();
     const gold = this.coop.gold();
     const lanes = this.coop.room()?.spawnIds ?? [];
-    return this.coop.roster().map((p) => {
+    const hostId = this.coop.room()?.hostId ?? null;
+    // This player on top, the others in the room's order
+    const roster = [...this.coop.roster()].sort((a, b) => Number(b.id === me) - Number(a.id === me));
+    return roster.map((p) => {
       const index = p.spawnId === null ? -1 : lanes.indexOf(p.spawnId);
       return {
         id: p.id,
         name: p.name,
         me: p.id === me,
+        host: p.id === hostId,
         ready: ready.has(p.id),
         left: left.has(p.id),
         gold: gold.get(p.id) ?? 0,
