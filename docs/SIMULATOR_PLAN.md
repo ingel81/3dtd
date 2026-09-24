@@ -94,6 +94,8 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
   Sockel, Upgrades, Zielwahl, Feuerpause, Cooldown, Kills, Schaden, `TowerAim`, `LosMask`), Forschung (fertig, laufend,
   Warteschlange), Fähigkeiten (Ladungen), Held, Wirtschaft, Director-Zustand (Wellenhistorie, Druck-Regler),
   Wellennummer, Blutmond.
+- Der Held wird beim Sichern auf einen frisch geplanten Pfad gesetzt, derselbe, den das Laden plant; so braucht die
+  Bewegung keinen Serializer (gebaut, `HeroManager.captureState`).
 - `capture()` und `restore()`: Restore baut Tower über denselben Weg wie ein Bau (ohne Kosten, ohne GPU, mit Maske).
 - Welt-Siegel (Zellhöhen, Routen, Spawns) als eigenes Artefakt je Ort; für das lokale Replay reicht ein Fingerprint,
   weil die Welt gleich bleibt.
@@ -110,6 +112,8 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
 ### P6 Replay als Neu-Simulation
 - Betreten: Live-Zustand per Snapshot sichern, Snapshot der Welle laden, Befehle der Welle abspielen, mit Renderern.
   Verlassen: Live-Snapshot zurück.
+- Beobachter am Bus, die den Lauf festhalten (Run-Log, Wellenhistorie des Directors, Bot-Client, Statistik), hören
+  während des Replays nicht mit: Das Nachrechnen sendet dieselben Events wie das Spiel (Kills, Credits, Wellenende).
 - Springen nach vorn: headless vorrechnen bis zum Ziel (Rendering aus). Springen zurück: Snapshot neu laden und vorrechnen.
   Ziel: eine dreiminütige Welle (rund 10 800 Sub-Steps) in unter 2 s.
 - Das Replay zeigt dann alles, was das Spiel zeigt (Schadenszahlen, Sounds an Entities, Eis-Explosionen, Upgrades),
