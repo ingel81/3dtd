@@ -45,7 +45,6 @@ describe('Guard heading after a debug skeleton outside a wave (playtest 336)', (
       {} as never,
       { turnTowersToGuard } as never,
       {} as never,
-      {} as never,
       m.eventBus,
       () => null,
       () => false,

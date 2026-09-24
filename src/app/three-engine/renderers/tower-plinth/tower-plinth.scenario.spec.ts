@@ -24,6 +24,7 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { TowerManager } from '../../../managers/tower.manager';
+import { NO_RESEARCH } from '../../../managers/research.manager';
 import { TowerPlinthRenderer } from './tower-plinth.renderer';
 import { plinthBraces } from './plinth-braces';
 import { braceCourse, PLINTH_EMBED_M, type PlinthBrace } from './plinth-geometry';
@@ -31,7 +32,7 @@ import { ScreenPicker } from '../../screen-picker';
 import { TowerShadowMapper } from '../../tower-shadow-mapper';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { footprintSampleOffsets } from '../../../utils/tower-footprint';
-import { createTestManagers, createMockResearchStore, TEST_PATH } from '../../../integration/test-helpers';
+import { createTestManagers, TEST_PATH } from '../../../integration/test-helpers';
 import type { Tower } from '../../../entities/tower.entity';
 import type { ThreeTilesEngine } from '../../index';
 
@@ -81,7 +82,7 @@ function setup() {
     spatialAudio: { registerSound: vi.fn(), playAt: vi.fn(), playAtGeo: vi.fn(() => Promise.resolve()) },
   };
   const m = createTestManagers();
-  const manager = new TowerManager(m.eventBus, createMockResearchStore());
+  const manager = new TowerManager(m.eventBus, NO_RESEARCH);
   manager.initialize(engine as unknown as ThreeTilesEngine);
 
   // Side view at the height of the plinth, the canvas centre on its middle

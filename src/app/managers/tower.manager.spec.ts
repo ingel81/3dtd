@@ -9,6 +9,7 @@ vi.mock('three', async () => {
 });
 
 import { TowerManager } from './tower.manager';
+import { NO_RESEARCH } from './research.manager';
 import { GameEventBus } from '../game-engine';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
@@ -64,10 +65,7 @@ describe('TowerManager', () => {
   beforeEach(() => {
     eventBus = new GameEventBus();
     tilesEngine = createMockTilesEngine();
-    manager = new TowerManager(
-      eventBus,
-      { airTargetingUnlocked: () => false } as unknown as import('../store/research.store').ResearchStore,
-    );
+    manager = new TowerManager(eventBus, NO_RESEARCH);
     manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
   });
 

@@ -5,7 +5,7 @@ import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { StatusEffectService } from './status-effect.service';
 import { CombatVfxService } from './combat-vfx.service';
 import { DamageApplicationService } from './damage-application.service';
-import { ResearchStore } from '../../store/research.store';
+import { NO_RESEARCH, type SimResearch } from '../../managers/research.manager';
 import { Enemy } from '../../entities/enemy.entity';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
@@ -44,9 +44,10 @@ export class CombatEffectService {
   private readonly statusEffectService = inject(StatusEffectService);
   private readonly vfx = inject(CombatVfxService);
   private readonly damageService = inject(DamageApplicationService);
-  private readonly researchStore = inject(ResearchStore);
 
   private tilesEngine: ThreeTilesEngine | null = null;
+  /** The game's ResearchManager once initialized */
+  private research: SimResearch = NO_RESEARCH;
   private eventBus: GameEventBus | null = null;
   private readonly eventBusSubs = new SubscriptionBag();
 
@@ -76,12 +77,14 @@ export class CombatEffectService {
     eventBus: GameEventBus,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
+    research: SimResearch,
   ): void {
     // Clean up previous subscriptions on re-init
     this.eventBusSubs.disposeAll();
 
     this.tilesEngine = tilesEngine;
     this.eventBus = eventBus;
+    this.research = research;
 
     // Initialize sub-services
     this.vfx.initialize(tilesEngine, eventBus);
@@ -208,7 +211,7 @@ export class CombatEffectService {
     // Ein Schuss ohne Tower (der Held) zielt auf Boden und Luft.
     const sourceType = projectile.sourceTowerType;
     const hitsAir = sourceType === null
-      || canTargetAirEffective(sourceType, this.researchStore.airTargetingUnlocked());
+      || canTargetAirEffective(sourceType, this.research.airTargetingUnlocked);
     const hitsGround = sourceType === null || (TOWER_TYPES[sourceType].canTargetGround ?? true);
 
     // Treffbare Ziele samt Abstand nach vorne kompaktieren. Ein Körper entlang

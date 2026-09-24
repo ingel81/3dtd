@@ -79,15 +79,16 @@ export class GameStateManager {
   backgroundMusic!: BackgroundMusicService;
   private bloodMoonService: BloodMoonService | null = null;
   private readonly researchStore = inject(ResearchStore);
+  // Before the towers: they read the research (air targeting) from here
+  readonly researchManager = new ResearchManager(this.eventBus);
   readonly towerManager = (() => {
-    const mgr = new TowerManager(this.eventBus, this.researchStore);
+    const mgr = new TowerManager(this.eventBus, this.researchManager);
     mgr.setGlobalRouteGrid(this.globalRouteGrid);
     return mgr;
   })();
   readonly enemyManager = new EnemyManager(this.eventBus, this.globalRouteGrid, this.spatialGrid);
   readonly projectileManager = new ProjectileManager(this.eventBus);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
-  readonly researchManager = new ResearchManager(this.eventBus);
   readonly abilityManager = new AbilityManager(this.eventBus, {
     launchSite: (typeId) => {
       const tower = this.towerManager.getAll().find((t) => t.typeConfig.id === typeId);
@@ -189,7 +190,6 @@ export class GameStateManager {
     this.enemyManager,
     this.towerPlacement,
     this.towerCombat,
-    this.researchStore,
     this.creditsLedger,
     this.eventBus,
     () => this.tilesEngine,
@@ -389,13 +389,14 @@ export class GameStateManager {
       this.eventBus,
       this.towerManager,
       this.enemyManager,
+      this.researchManager,
     );
 
     // Initialize HQ damage service (handles fire, sounds, game over effects)
     this.hqDamage.initialize(tilesEngine, basePosition, this.eventBus);
 
     // Initialize tower combat service (handles targeting, rotation, shooting)
-    this.towerCombat.initialize(tilesEngine);
+    this.towerCombat.initialize(tilesEngine, this.researchManager);
 
     // Initialize VFX service (subscribes to vfx events)
     this.vfxService = new VFXService(this.eventBus, tilesEngine);

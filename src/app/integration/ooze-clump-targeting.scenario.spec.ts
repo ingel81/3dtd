@@ -36,6 +36,7 @@ import { GlobalRouteGridService } from '../services/world/global-route-grid.serv
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { EnemyManager } from '../managers/enemy.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
+import { NO_RESEARCH } from '../managers/research.manager';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { GameObject } from '../core/game-object';
 import { Tower } from '../entities/tower.entity';
@@ -108,12 +109,11 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
     mockInjections['StatusEffectService'] = status;
     mockInjections['CombatVfxService'] = new CombatVfxService();
     mockInjections['DamageApplicationService'] = new DamageApplicationService();
-    mockInjections['ResearchStore'] = { airTargetingUnlocked: () => false };
     const effects = new CombatEffectService();
-    effects.initialize(engine as never, bus, towerManager as never, enemies);
+    effects.initialize(engine as never, bus, towerManager as never, enemies, NO_RESEARCH);
     mockInjections['CombatEffectService'] = effects;
     combat = new TowerCombatService();
-    combat.initialize(engine as never);
+    combat.initialize(engine as never, NO_RESEARCH);
   });
 
   afterEach(() => {

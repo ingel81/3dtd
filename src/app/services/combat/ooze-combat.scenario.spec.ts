@@ -20,6 +20,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { TowerCombatService } from './tower-combat.service';
+import { NO_RESEARCH } from '../../managers/research.manager';
 import { CombatEffectService } from './combat-effect.service';
 import { StatusEffectService } from './status-effect.service';
 import { BodyAim, type BodyAimGrid, type BodyAimPoint } from './body-aim';
@@ -89,7 +90,6 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
     mockInjections['StatusEffectService'] = status;
     mockInjections['CombatVfxService'] = { emitIceExplosion: vi.fn(), emitIceDecal: vi.fn() };
     mockInjections['DamageApplicationService'] = { applyDamage: vi.fn(() => ({ finalDamage: 12, effectiveness: 'normal' })) };
-    mockInjections['ResearchStore'] = { airTargetingUnlocked: () => false };
     const service = new CombatEffectService();
     (service as unknown as { tilesEngine: unknown }).tilesEngine = { sync: flatSync, effects: { spawnFloatingText } };
     return service;
@@ -176,9 +176,8 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
   it('424: the flame on a zombie crosses the ooze beside it: the ooze is in the cone, hit where the flame crosses it', () => {
     const fire = towerAt('fire', 100, 10);
     mockInjections['GlobalRouteGridService'] = gridFor([fire]);
-    mockInjections['ResearchStore'] = { airTargetingUnlocked: () => false };
     const service = new TowerCombatService();
-    service.initialize({ sync: flatSync } as never);
+    service.initialize({ sync: flatSync } as never, NO_RESEARCH);
     const combat = service as unknown as {
       bodyAim: BodyAim;
       getEnemiesInCone: (source: Vector3, target: Vector3, length: number, width: number, candidates: Enemy[]) => Enemy[];

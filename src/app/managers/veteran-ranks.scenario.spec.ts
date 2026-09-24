@@ -150,7 +150,6 @@ describe('Tower veterans, playtest 347 to 351 and 404', () => {
       m.enemyManager,
       {} as never,
       {} as never,
-      {} as never,
       { spend: () => true } as never,
       m.eventBus,
       () => m.engine,

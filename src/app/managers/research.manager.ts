@@ -23,8 +23,21 @@ import {
 } from '../configs/research/research-center.config';
 import { TowerTypeId } from '../configs/tower-types.config';
 
-export class ResearchManager implements IGameManager {
+/**
+ * What the simulation reads of the research: the ResearchManager, not the
+ * ResearchStore, which mirrors it for the UI one event later.
+ */
+export interface SimResearch {
+  /** A completed research enables air targeting (`enable-targeting`, `air`) */
+  readonly airTargetingUnlocked: boolean;
+}
+
+/** Nothing researched, for a service that runs without a game. */
+export const NO_RESEARCH: SimResearch = { airTargetingUnlocked: false };
+
+export class ResearchManager implements IGameManager, SimResearch {
   private completedResearches = new Set<ResearchId>();
+  private _airTargetingUnlocked = false;
   private activeResearches = new Map<ResearchId, ActiveResearch>();
   /** Waiting for a slot and the credits, in start order, see startQueued(). */
   private queue: ResearchId[] = [];
@@ -53,6 +66,11 @@ export class ResearchManager implements IGameManager {
 
   get availableSlots(): number {
     return Math.max(0, this._maxSlots - this.activeResearches.size);
+  }
+
+  /** Read by the combat in every sub-step, hence a field and no search. */
+  get airTargetingUnlocked(): boolean {
+    return this._airTargetingUnlocked;
   }
 
   isCompleted(id: ResearchId): boolean {
@@ -369,7 +387,7 @@ export class ResearchManager implements IGameManager {
     // Process completions
     for (const id of completed) {
       this.activeResearches.delete(id);
-      this.completedResearches.add(id);
+      this.markCompleted(id);
 
       const config = getResearch(id);
       if (config) {
@@ -417,7 +435,7 @@ export class ResearchManager implements IGameManager {
     this.queue = [];
     for (const id of Object.keys(RESEARCH_TREE)) {
       if (this.completedResearches.has(id)) continue;
-      this.completedResearches.add(id);
+      this.markCompleted(id);
       const config = RESEARCH_TREE[id];
       this.eventBus.emit({
         type: 'research:completed',
@@ -446,9 +464,18 @@ export class ResearchManager implements IGameManager {
     for (const prerequisite of config.prerequisites) this.completeWithPrerequisites(prerequisite);
     this.activeResearches.delete(id);
     this.queue = this.queue.filter((queued) => queued !== id);
-    this.completedResearches.add(id);
+    this.markCompleted(id);
     this.eventBus.emit({ type: 'research:completed', researchId: id, effects: config.effects });
     return true;
+  }
+
+  /** Every completion goes through here, so the flags stay in step with the set. */
+  private markCompleted(id: ResearchId): void {
+    this.completedResearches.add(id);
+    const config = getResearch(id);
+    if (config?.effects.some((e) => e.kind === 'enable-targeting' && e.capability === 'air')) {
+      this._airTargetingUnlocked = true;
+    }
   }
 
   // ==================== Lifecycle (IGameManager) ====================
@@ -458,6 +485,7 @@ export class ResearchManager implements IGameManager {
 
   reset(): void {
     this.completedResearches.clear();
+    this._airTargetingUnlocked = false;
     this.activeResearches.clear();
     this.queue = [];
     this._centerLevel = 0;
@@ -486,7 +514,9 @@ export class ResearchManager implements IGameManager {
   }
 
   restoreState(state: ResearchSaveState): void {
-    this.completedResearches = new Set(state.completed);
+    this.completedResearches = new Set();
+    this._airTargetingUnlocked = false;
+    for (const id of state.completed) this.markCompleted(id);
     this._maxSlots = state.slots;
     this._centerLevel = state.centerLevel;
     this.queue = [...(state.queued ?? [])];

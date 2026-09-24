@@ -188,7 +188,7 @@ export function createSimBench(scenario: SimScenario, services: Record<string, u
   services['GlobalRouteGridService'] = grid;
   services['SpatialGridService'] = new SpatialGridService();
   services['StatusEffectService'] = new StatusEffectService();
-  services['ResearchStore'] = noopStub({ airTargetingUnlocked: () => true });
+  services['ResearchStore'] = noopStub();
   services['PathAndRouteService'] = noopStub({ getCachedPaths: () => paths });
   services['EnemyDebugService'] = noopStub({ debugEnemies: () => [] });
   services['EconomyService'] = noopStub({ computeWaveCompletionBonus: () => 0 });
@@ -202,6 +202,8 @@ export function createSimBench(scenario: SimScenario, services: Record<string, u
   gsm.rng.reset(BENCH_SEED);
   gsm.initialize(createBenchEngine(), routes[0][routes[0].length - 1], spawnPoints, paths);
   gsm.adjustBaseHealth(1e12);
+  // Air targeting for the retrofit types; the simulation reads it from the ResearchManager
+  gsm.researchManager.completeResearch('aa-retrofit');
 
   // Towers alternate sides, 8 to 14 m off the route
   const towers: Tower[] = [];

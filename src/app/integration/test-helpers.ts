@@ -9,6 +9,7 @@ import { GeoPosition } from '../models/game.types';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { EnemyManager } from '../managers/enemy.manager';
 import { TowerManager } from '../managers/tower.manager';
+import { NO_RESEARCH } from '../managers/research.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig, SpawnEntry } from '../managers/wave.manager';
 import { EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
@@ -17,7 +18,6 @@ import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
 import { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { ResearchStore } from '../store/research.store';
 
 // ─── vi.mock('@angular/core') helper ───────────────────────────────
 
@@ -301,12 +301,6 @@ export function createMockGlobalRouteGrid(): GlobalRouteGridService {
   } as unknown as GlobalRouteGridService;
 }
 
-export function createMockResearchStore(): ResearchStore {
-  return {
-    airTargetingUnlocked: vi.fn(() => false),
-  } as unknown as ResearchStore;
-}
-
 // ─── Factory: create wired-up managers ────────────────────────────
 
 export interface TestManagers {
@@ -332,7 +326,7 @@ export function createTestManagers(): TestManagers {
   const spatialGrid = new SpatialGridService();
 
   const enemyManager = new EnemyManager(eventBus, globalRouteGrid, spatialGrid);
-  const towerManager = new TowerManager(eventBus, createMockResearchStore());
+  const towerManager = new TowerManager(eventBus, NO_RESEARCH);
   const projectileManager = new ProjectileManager(eventBus);
   const waveManager = new WaveManager(eventBus, enemyManager);
 

@@ -16,6 +16,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { TowerCombatService } from './tower-combat.service';
+import { NO_RESEARCH } from '../../managers/research.manager';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { Tower } from '../../entities/tower.entity';
@@ -41,7 +42,6 @@ describe('TowerCombatService', () => {
     mockInjections['GlobalRouteGridService'] = {};
     mockInjections['SpatialGridService'] = {};
     mockInjections['CombatEffectService'] = {};
-    mockInjections['ResearchStore'] = { airTargetingUnlocked: () => false };
     service = new TowerCombatService();
   });
 
@@ -264,7 +264,7 @@ describe('TowerCombatService', () => {
         towers: { hasLineOfSight: () => true },
         flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn() },
       };
-      service.initialize(engine as never);
+      service.initialize(engine as never, NO_RESEARCH);
       // Cone geometry needs real Vector3 math, which the three mock lacks.
       (service as unknown as { getEnemiesInCone: () => unknown[] }).getEnemiesInCone = () => [];
 
@@ -393,7 +393,7 @@ describe('TowerCombatService', () => {
       service.initialize({
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
         towers: {},
-      } as never);
+      } as never, NO_RESEARCH);
 
       const tower = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, 'archer');
       tower.losReady = true;
@@ -428,7 +428,7 @@ describe('TowerCombatService', () => {
         sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
         towers: {},
         flameBeams: { stopBeam: vi.fn() },
-      } as never);
+      } as never, NO_RESEARCH);
     }
 
     const loops: {

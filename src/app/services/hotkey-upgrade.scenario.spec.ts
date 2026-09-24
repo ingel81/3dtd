@@ -92,7 +92,6 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
       {} as never,
       { recomputeTowerLOS: vi.fn() } as never,
       { turnToGuardHeading: vi.fn() } as never,
-      {} as never,
       ledger,
       bus,
       () => null,

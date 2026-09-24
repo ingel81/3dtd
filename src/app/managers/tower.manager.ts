@@ -10,7 +10,7 @@ import type { GlobalRouteGridService } from '../services/world/global-route-grid
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
-import { ResearchStore } from '../store/research.store';
+import type { SimResearch } from './research.manager';
 import { computeGuardHeading } from '../utils/tower-guard-heading';
 import { veteranLevel } from '../configs/veteran-ranks.config';
 import { aimIdle } from '../entities/tower-aim';
@@ -27,7 +27,7 @@ import { aimIdle } from '../entities/tower-aim';
 export class TowerManager extends EntityManager<Tower> {
   constructor(
     private eventBus: GameEventBus,
-    private researchStore: ResearchStore,
+    private research: SimResearch,
   ) {
     super();
   }
@@ -331,7 +331,7 @@ export class TowerManager extends EntityManager<Tower> {
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(
       tower.typeConfig.id as TowerTypeId,
-      this.researchStore.airTargetingUnlocked(),
+      this.research.airTargetingUnlocked,
     );
     const range = tower.combat.range;
 

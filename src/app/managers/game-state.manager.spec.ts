@@ -690,6 +690,7 @@ describe('GameStateManager', () => {
     describe('research:completed', () => {
       it('queues an LOS recompute for the towers the AA retrofit gives air targeting', () => {
         gsm.addCredits(1000, 'cheat');
+        gsm.researchManager.completeResearch('gatling-tech');
         const gatling = gsm.placeTower(BASE_POSITION, 'dual-gatling');
         gsm.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, 'archer');
         expect(gatling).not.toBeNull();
