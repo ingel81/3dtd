@@ -13,6 +13,8 @@ import type { WaveRecord } from '../simulator/sim-recorder';
 import type { CommandLogEntry } from '../managers/game-state/command-log';
 import { buildReplayFile, readReplayFile, replayFileName, replayFileRefusalText } from '../simulator/replay-file';
 import { balanceConfigHash } from '../run-log/config-hash';
+import { buildCommit } from '../run-log/build-commit';
+import { BUILD_VERSION } from '../configs/build-info.config';
 import { WaveDirector } from '../director/wave-director';
 import { LocationManagementService } from './location/location-management.service';
 import type { ThreeTilesEngine } from '../three-engine';
@@ -110,6 +112,8 @@ export class ReplayService {
   readonly fromFile = signal(false);
   /** Why the last file did not load, shown next to the load button; null when it did */
   readonly fileProblem = signal<string | null>(null);
+  /** A loaded file of another game version: shown in the bar, the replay may differ */
+  readonly fileNote = signal<string | null>(null);
 
   private session: ReplaySession | null = null;
   /** The waves and log shown: a loaded replay file, else the run under way */
@@ -191,6 +195,7 @@ export class ReplayService {
     this.session = null;
     this.file = null;
     this.fromFile.set(false);
+    this.fileNote.set(null);
     this.cameraControl.cancelJump();
     if (engine && this.camera) restoreCamera(engine, this.camera);
     this.camera = null;
@@ -311,6 +316,8 @@ export class ReplayService {
       worldKey: this.gameState.worldKey(),
       configHash: this.configHash(),
       seed: this.gameState.rng.seed,
+      gameVersion: BUILD_VERSION,
+      commit: buildCommit(),
     });
     if (!doc || file.waves.length === 0) return false;
     const blob = new Blob([JSON.stringify(file)], { type: 'application/json' });
@@ -337,13 +344,19 @@ export class ReplayService {
         this.fileProblem.set('A replay loads between waves.');
         return;
       }
-      const read = readReplayFile(text, { worldKey: this.gameState.worldKey(), configHash: this.configHash() });
+      const read = readReplayFile(text, {
+        worldKey: this.gameState.worldKey(),
+        configHash: this.configHash(),
+        gameVersion: BUILD_VERSION,
+      });
       if (read.refusal) {
         this.fileProblem.set(replayFileRefusalText(read.refusal));
         this.announcer.announce(replayFileRefusalText(read.refusal));
         return;
       }
       this.fileProblem.set(null);
+      // Another version loads; the bar says it may differ
+      this.fileNote.set(read.note);
       this.file = { waves: read.file.waves, log: read.file.log };
       this.fromFile.set(true);
       const first = read.file.waves[0].wave;

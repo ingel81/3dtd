@@ -6,7 +6,7 @@
               [disabled]="!hasPrevious()" (click)="replay.switchWave(-1)">
         <td-icon name="caretL" [size]="12"></td-icon>
       </button>
-      <span class="td-replay-wave">Wave {{ replay.wave() }}@if (replay.fromFile()) { <span class="td-replay-file">from file</span> }</span>
+      <span class="td-replay-wave">Wave {{ replay.wave() }}@if (replay.fromFile()) { <span class="td-replay-file" [matTooltip]="replay.fileNote() ?? ''" matTooltipPosition="above">from file{{ replay.fileNote() ? ', other version' : '' }}</span> }</span>
       <button type="button" class="td-replay-wave-step" aria-label="Next wave"
               [disabled]="!hasNext()" (click)="replay.switchWave(1)">
         <td-icon name="caretR" [size]="12"></td-icon>

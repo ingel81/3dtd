@@ -24,6 +24,14 @@ export interface ReplayFile {
   worldKey: string;
   /** run-log/config-hash.ts: the balance it was played with */
   configHash: string;
+  /**
+   * The game version (BUILD_VERSION) and commit it was played with. The
+   * config hash covers the balance tables, not the code: a replay of another
+   * version loads, but may differ where the code changed (readReplayFile
+   * says so in `note`).
+   */
+  gameVersion: string;
+  commit: string;
   /** The run's seed, for the record; the snapshots carry the streams */
   seed: number;
   createdAt: string;
@@ -36,7 +44,7 @@ export interface ReplayFile {
 export function buildReplayFile(
   records: readonly WaveRecord[],
   log: readonly CommandLogEntry[],
-  head: { worldKey: string; configHash: string; seed: number },
+  head: { worldKey: string; configHash: string; seed: number; gameVersion: string; commit: string },
   now: Date = new Date(),
 ): ReplayFile {
   const waves = records.filter(replayable);
@@ -58,11 +66,15 @@ export function buildReplayFile(
 /** Why a file cannot be replayed here, null when it can. */
 export type ReplayFileRefusal = 'not-a-replay' | 'version' | 'other-world' | 'other-balance' | 'empty';
 
-/** Parse `text` and check it against the world and balance loaded now. */
+/**
+ * Parse `text` and check it against the world and balance loaded now. A file
+ * of another game version loads, with `note` naming the version it was saved
+ * with: the code may have changed since, and the replay may then differ.
+ */
 export function readReplayFile(
   text: string,
-  here: { worldKey: string; configHash: string },
-): { file: ReplayFile; refusal: null } | { file: null; refusal: ReplayFileRefusal } {
+  here: { worldKey: string; configHash: string; gameVersion: string },
+): { file: ReplayFile; refusal: null; note: string | null } | { file: null; refusal: ReplayFileRefusal } {
   let data: Partial<ReplayFile>;
   try {
     data = JSON.parse(text) as Partial<ReplayFile>;
@@ -78,7 +90,10 @@ export function readReplayFile(
   if (data.worldKey !== here.worldKey) return { file: null, refusal: 'other-world' };
   if (data.configHash !== here.configHash) return { file: null, refusal: 'other-balance' };
   if (data.waves.length === 0) return { file: null, refusal: 'empty' };
-  return { file: data as ReplayFile, refusal: null };
+  const note = data.gameVersion && data.gameVersion !== here.gameVersion
+    ? `Saved with ${data.gameVersion}, this is ${here.gameVersion}: the replay may differ.`
+    : null;
+  return { file: data as ReplayFile, refusal: null, note };
 }
 
 /** What the player reads when a file does not load. */
