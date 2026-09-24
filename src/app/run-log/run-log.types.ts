@@ -58,6 +58,11 @@ export interface RunLogHead {
    * hashes stay where they were.
    */
   waveSource?: WaveSourceId;
+  /**
+   * A coop run (docs/COOP_PLAN.md, R16): who played, in roster order, and
+   * which of them at this client. Such runs set no record of the place.
+   */
+  coop?: { players: string[]; you: string };
 }
 
 /** A moment in the run worth naming. */

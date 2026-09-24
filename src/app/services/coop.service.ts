@@ -24,6 +24,7 @@ import type { CoopRoomInfo, RefusalReason } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
+import { RunLogFacade } from '../run-log/run-log.facade';
 import { SPAWN_COLORS } from '../configs/map-constants.config';
 import { UI_SOUNDS } from '../configs/audio.config';
 import { toneWavDataUrl } from '../utils/alert-tone';
@@ -40,6 +41,21 @@ function samePlace(a: GeoPosition, b: GeoPosition): boolean {
 export type CoopStatus = 'off' | 'connecting' | 'lobby' | 'loading-world' | 'in-game' | 'closed';
 
 /** A line the players bar shows for a few seconds */
+/** A player's part of a coop run, shown at game over (review R16) */
+export interface CoopSummaryRow {
+  id: string;
+  name: string;
+  me: boolean;
+  left: boolean;
+  /** Lane colour, CSS */
+  color: string;
+  kills: number;
+  towers: number;
+  goldGiven: number;
+  /** Gold at the end */
+  gold: number;
+}
+
 export interface CoopNotice {
   id: number;
   text: string;
@@ -107,6 +123,7 @@ export class CoopService {
   private readonly uiStore = inject(UIStore);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly inputHandler = inject(InputHandlerService);
+  private readonly runLog = inject(RunLogFacade);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -156,6 +173,10 @@ export class CoopService {
   readonly leftIds = signal<ReadonlySet<string>>(new Set());
   /** Every player's gold in the running game */
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
+  /** Each player's part of the run, set at game over (review R16); null before */
+  readonly summary = signal<CoopSummaryRow[] | null>(null);
+  /** Kills, towers built and gold given per player in this run, see summary */
+  private readonly counts = new Map<string, { kills: number; towers: number; goldGiven: number }>();
   /** G was pressed: the next click on the map is a ping (review R13) */
   readonly pingArmed = signal(false);
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
@@ -198,6 +219,9 @@ export class CoopService {
     });
     bus.onLive('game:reset', () => {
       if (!this.inGame()) return;
+      this.counts.clear();
+      this.summary.set(null);
+      this.markRunAsCoop();
       this.readyNow = false;
       this.readyIds.set(new Set());
       this.notify(this.isHost() ? 'New run started' : 'The host started a new run');
@@ -222,6 +246,27 @@ export class CoopService {
     });
     bus.onLive('coop:credits-given', (event) => {
       if (event.toLocal) this.notify(`${this.nameOf(event.from)} sent you ${event.amount} gold`);
+      this.countFor(event.from).goldGiven += event.amount;
+    });
+
+    // Each player's part of the run, for the game-over screen (review R16)
+    bus.onLive('enemy:died', ({ killedBy }) => {
+      if (this.inGame() && killedBy && killedBy.kind !== 'debug') this.countFor(this.gameState.killCreditPlayer(killedBy)).kills++;
+    });
+    bus.onLive('tower:placed', ({ tower }) => {
+      if (this.inGame()) this.countFor(tower.ownerId).towers++;
+    });
+    bus.onLive('game:over', () => {
+      if (!this.inGame()) return;
+      this.summary.set(this.roster().map((p) => ({
+        id: p.id,
+        name: p.name,
+        me: p.id === this.playerId(),
+        left: this.leftIds().has(p.id),
+        color: this.laneColorOf(p.id),
+        gold: this.gameState.creditsOf(p.id),
+        ...(this.counts.get(p.id) ?? { kills: 0, towers: 0, goldGiven: 0 }),
+      })));
     });
 
     // Host, lobby: a changed map goes to the room by itself
@@ -483,6 +528,21 @@ export class CoopService {
     });
   }
 
+  private countFor(playerId: string): { kills: number; towers: number; goldGiven: number } {
+    let count = this.counts.get(playerId);
+    if (!count) {
+      count = { kills: 0, towers: 0, goldGiven: 0 };
+      this.counts.set(playerId, count);
+    }
+    return count;
+  }
+
+  /** The run log marks this run as a coop one: it sets no record of the place (review R16) */
+  private markRunAsCoop(): void {
+    const me = this.roster().find((p) => p.id === this.playerId())?.name ?? this.name;
+    this.runLog.collector.markCoop(this.roster().map((p) => p.name), me);
+  }
+
   /** Drop an armed ping (Esc) */
   cancelPing(): void {
     if (!this.pingArmed()) return;
@@ -580,6 +640,8 @@ export class CoopService {
     this.rtt.set(new Map());
     this.waitingFor.set(null);
     this.inputHandler.setForeignTowerClick(null);
+    this.summary.set(null);
+    this.counts.clear();
     this.pickedByHand = false;
     this.autoPicking = null;
   }
@@ -881,6 +943,9 @@ export class CoopService {
     this.gold.set(new Map(start.players.map((id) => [id, gsm.creditsOf(id)])));
     this.notices.set([]);
     this.applySpeed(start.speed);
+    this.counts.clear();
+    this.summary.set(null);
+    this.markRunAsCoop();
     this.status.set('in-game');
   }
 

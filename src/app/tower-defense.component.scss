@@ -320,6 +320,48 @@
 }
 
 /* Under Restart: the frame button recipe, quieter than the green Restart */
+/* Coop: each player's part of the run (R16) */
+.td-coop-summary {
+  margin: 10px auto 4px;
+  border-collapse: collapse;
+  font-size: 12px;
+  color: var(--td-text-secondary);
+
+  th,
+  td {
+    padding: 3px 10px;
+    text-align: right;
+  }
+
+  th:first-child,
+  td:first-child {
+    text-align: left;
+  }
+
+  th {
+    font: 600 10px/1.2 var(--td-font-mono);
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+  }
+
+  tr.is-me td {
+    color: var(--td-gold-light);
+  }
+
+  tr.has-left td {
+    opacity: 0.5;
+  }
+}
+
+.td-coop-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  margin-right: 6px;
+  border-radius: 50%;
+}
+
 .td-gameover-wait {
   margin: 8px 0;
   font-size: 13px;

@@ -1694,7 +1694,7 @@ export class GameStateManager {
    * hit, the owner of the hero or the ability. The dev tools book to the
    * first player; so does a tower sold before its shot landed.
    */
-  private killCreditPlayer(killedBy: KilledBy | null): string {
+  killCreditPlayer(killedBy: KilledBy | null): string {
     if (killedBy?.kind === 'tower') {
       const tower = this.towerManager.getById(killedBy.towerId);
       if (tower) return tower.ownerId;
