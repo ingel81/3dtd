@@ -14,6 +14,7 @@ import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
 import type { ThreeTilesEngine } from '../three-engine';
+import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 
 /** HQ at the north end of the 111 m TEST_PATH. */
 export const HERO_TEST_BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -55,6 +56,8 @@ export function createHeroTestGame(
   gsm.initialize(engine, HERO_TEST_BASE_POSITION, TEST_SPAWN_POINTS, paths);
   gsm.gameSpeed.set(timescale);
   gsm.getEventBus().emit({
+    playerId: LOCAL_PLAYER_ID,
+    local: true,
     type: 'research:completed',
     researchId: HERO.researchId,
     effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],

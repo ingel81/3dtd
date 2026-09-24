@@ -93,7 +93,7 @@ describe('Nuclear strike on the ooze body, playtest 361 replayed', () => {
     manager = new AbilityManager(bus, world);
     manager.setPhaseProvider(() => 'wave');
     bus.emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: NUKE.researchId,
       effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
     });

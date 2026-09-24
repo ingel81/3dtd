@@ -84,7 +84,7 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
 
   it('counter-check: F arms once the Frost Bomb research is done', () => {
     bus.emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: 'frost-bomb',
       effects: [{ kind: 'global-perk', perkId: 'frost-bomb', description: '' }],
     });

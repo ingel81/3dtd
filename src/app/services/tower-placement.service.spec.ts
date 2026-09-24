@@ -165,7 +165,7 @@ describe('TowerPlacementService', () => {
       { streets, bounds } as never,
       { haversineDistance } as never,
       HQ,
-      { towerManager, getEventBus: () => ({ emit }), researchManager: research } as never,
+      { towerManager, getEventBus: () => ({ emit }), researchOf: () => research } as never,
     );
 
   /** Enter build mode for `typeId` and wait for its preview model. */

@@ -116,7 +116,7 @@ function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + MACHINE_S
   gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({
-    type: 'research:completed',
+    type: 'research:completed', playerId: 'local', local: true,
     researchId: EMP.researchId,
     effects: [{ kind: 'global-perk', perkId: EMP.perkId, description: '' }],
   });

@@ -225,17 +225,17 @@ export class GameCommandsHandler {
 
   private attachResearchCommands(): void {
     this.on('command:start-research', (event) => {
-      const validation = this.gsm.researchManager.canStartResearch(event.researchId, this.gsm.creditsOf(this.gsm.actingPlayerId));
+      const validation = this.gsm.researchOf(this.gsm.actingPlayerId).canStartResearch(event.researchId, this.gsm.creditsOf(this.gsm.actingPlayerId));
       if (!validation.canStart) return;
 
       const research = getResearch(event.researchId);
       if (research && this.gsm.spendCredits(research.cost, 'research')) {
-        this.gsm.researchManager.startResearch(event.researchId);
+        this.gsm.researchOf(this.gsm.actingPlayerId).startResearch(event.researchId);
       }
     });
 
     this.on('command:cancel-research', (event) => {
-      const refund = this.gsm.researchManager.cancelResearch(event.researchId);
+      const refund = this.gsm.researchOf(this.gsm.actingPlayerId).cancelResearch(event.researchId);
       if (refund > 0) {
         this.gsm.addCredits(refund, 'research-refund');
       }
@@ -244,15 +244,15 @@ export class GameCommandsHandler {
     // Queued researches are charged when they start (sub-step, see
     // ResearchManager.startQueued), so neither command touches the credits.
     this.on('command:queue-research', (event) => {
-      this.gsm.researchManager.queueResearch(event.researchId);
+      this.gsm.researchOf(this.gsm.actingPlayerId).queueResearch(event.researchId);
     });
 
     this.on('command:unqueue-research', (event) => {
-      this.gsm.researchManager.unqueueResearch(event.researchId);
+      this.gsm.researchOf(this.gsm.actingPlayerId).unqueueResearch(event.researchId);
     });
 
     this.on('command:move-queued-research', (event) => {
-      this.gsm.researchManager.moveQueued(event.researchId, event.toIndex);
+      this.gsm.researchOf(this.gsm.actingPlayerId).moveQueued(event.researchId, event.toIndex);
     });
   }
 
@@ -316,7 +316,7 @@ export class GameCommandsHandler {
     });
 
     this.on('debug:complete-all-research', () => {
-      this.gsm.researchManager.completeAllResearch();
+      this.gsm.researchOf(this.gsm.actingPlayerId).completeAllResearch();
     });
 
     this.on('debug:max-upgrade-all-towers', () => {
@@ -326,7 +326,7 @@ export class GameCommandsHandler {
     // The ability's research with its prerequisites (the research unlocks it
     // with full charges), then full charges again on every further click
     this.on('debug:ready-ability', (event) => {
-      this.gsm.researchManager.completeResearch(ABILITIES[event.abilityId].researchId);
+      this.gsm.researchOf(this.gsm.actingPlayerId).completeResearch(ABILITIES[event.abilityId].researchId);
       this.gsm.abilityManager.refillCharges(event.abilityId);
     });
 
@@ -338,7 +338,7 @@ export class GameCommandsHandler {
     // The hero's research with its prerequisites, then the hire for free;
     // once he is hired a further click changes nothing
     this.on('debug:ready-hero', () => {
-      this.gsm.researchManager.completeResearch(HERO.researchId);
+      this.gsm.researchOf(this.gsm.actingPlayerId).completeResearch(HERO.researchId);
       if (this.gsm.heroManager.checkHire() === null) this.gsm.heroManager.hire(0);
     });
   }

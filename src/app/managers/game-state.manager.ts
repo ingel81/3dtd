@@ -28,7 +28,7 @@ import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, IGameManager, VFXService, AudioService, GameSoundsService, ScreenShakeService, BackgroundMusicService, BloodMoonService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
-import { ResearchManager } from './research.manager';
+import { LOCAL_RESEARCH_OWNER, ResearchManager, type ResearchOwner, type SimResearch } from './research.manager';
 import { AbilityManager } from './ability.manager';
 import { HeroManager } from './hero.manager';
 import { HERO_SOURCE_ID } from '../configs/hero.config';
@@ -41,7 +41,7 @@ import { waveGoldTotal } from '../services/economy.service';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
 import { TowerLifecycle } from './game-state/tower-lifecycle';
-import { CommandLog, toPlainData, type CommandLogEntry } from './game-state/command-log';
+import { CommandLog, LOCAL_PLAYER_ID, toPlainData, type CommandLogEntry } from './game-state/command-log';
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
 import { SimRecorder } from '../simulator/sim-recorder';
@@ -62,6 +62,13 @@ import { OWNER_ONLY, type TowerPolicy } from '../coop/tower-policy';
  * Handles game lifecycle, wave progression, and provides a unified API
  * for the game component to interact with.
  */
+/** A player's research and their credits for its queue, see GameStateManager.researchSeats */
+interface ResearchSeat {
+  research: ResearchManager;
+  credits: () => number;
+  spend: (cost: number) => boolean;
+}
+
 @Injectable()
 export class GameStateManager {
   // Angular-injected services (UI & coordination)
@@ -89,10 +96,18 @@ export class GameStateManager {
   backgroundMusic!: BackgroundMusicService;
   private bloodMoonService: BloodMoonService | null = null;
   private readonly researchStore = inject(ResearchStore);
-  // Before the towers: they read the research (air targeting) from here
-  readonly researchManager = new ResearchManager(this.eventBus);
+  /**
+   * One research per player (docs/COOP_PLAN.md, D20), in roster order, each
+   * with its credits bound once for the queue that runs every sub-step
+   * (ResearchManager.startQueued). The single player game has one.
+   */
+  private readonly researchSeats: ResearchSeat[] = [this.researchSeat(LOCAL_PLAYER_ID, LOCAL_RESEARCH_OWNER)];
+  /** What the towers and combat read: air targeting of a tower's owner */
+  private readonly simResearch: SimResearch = {
+    airTargetingFor: (playerId) => this.researchOf(playerId).airTargetingUnlocked,
+  };
   readonly towerManager = (() => {
-    const mgr = new TowerManager(this.eventBus, this.researchManager);
+    const mgr = new TowerManager(this.eventBus, this.simResearch);
     mgr.setGlobalRouteGrid(this.globalRouteGrid);
     return mgr;
   })();
@@ -164,7 +179,6 @@ export class GameStateManager {
     this.enemyManager,
     this.projectileManager,
     this.waveManager,
-    this.researchManager,
     this.abilityManager,
     this.heroManager,
   ];
@@ -178,7 +192,7 @@ export class GameStateManager {
   /** Place, sell and upgrade rules, range refresh and guard heading of the towers */
   private readonly towerLifecycle = new TowerLifecycle(
     this.towerManager,
-    this.researchManager,
+    (playerId: string) => this.researchOf(playerId),
     this.abilityManager,
     this.waveManager,
     this.enemyManager,
@@ -344,10 +358,25 @@ export class GameStateManager {
   /** EventBus subscription bag — cleaned up in initialize() (re-init) and dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
-  /** Bound once for the research queue, which runs every sub-step (ResearchManager.startQueued) */
-  private readonly creditsNow = (): number => this.creditsLedger.balance(this.actingPlayerId);
-  private readonly spendForResearch = (cost: number): boolean =>
-    this.creditsLedger.spend(cost, 'research', this.actingPlayerId);
+  /** A player's research with its credits bound once, see researchSeats */
+  private researchSeat(playerId: string, owner: ResearchOwner): ResearchSeat {
+    return {
+      research: new ResearchManager(this.eventBus, owner),
+      credits: () => this.creditsLedger.balance(playerId),
+      spend: (cost) => this.creditsLedger.spend(cost, 'research', playerId),
+    };
+  }
+
+  /** The research of `playerId`; a player not in the run reads as the first one. */
+  researchOf(playerId: string): ResearchManager {
+    for (const seat of this.researchSeats) if (seat.research.owner.playerId === playerId) return seat.research;
+    return this.researchSeats[0].research;
+  }
+
+  /** The research of the player at this client, the one the UI shows. */
+  get researchManager(): ResearchManager {
+    return this.researchOf(this.localPlayerId);
+  }
 
   /** The player whose command runs now, see runAs(); null outside a command */
   private acting: string | null = null;
@@ -372,6 +401,10 @@ export class GameStateManager {
    */
   setPlayers(players: readonly string[], local: string): void {
     this.creditsLedger.setPlayers(players, local);
+    this.researchSeats.length = 0;
+    for (const id of players) {
+      this.researchSeats.push(this.researchSeat(id, { playerId: id, local: () => id === this.localPlayerId }));
+    }
   }
 
   /** What a player may do with a tower (D7); swap it to loosen the rule. */
@@ -503,14 +536,14 @@ export class GameStateManager {
       this.eventBus,
       this.towerManager,
       this.enemyManager,
-      this.researchManager,
+      this.simResearch,
     );
 
     // Initialize HQ damage service (handles fire, sounds, game over effects)
     this.hqDamage.initialize(tilesEngine, basePosition, this.eventBus);
 
     // Initialize tower combat service (handles targeting, rotation, shooting)
-    this.towerCombat.initialize(tilesEngine, this.researchManager);
+    this.towerCombat.initialize(tilesEngine, this.simResearch);
 
     // Initialize VFX service (subscribes to vfx events)
     this.vfxService = new VFXService(this.eventBus, tilesEngine);
@@ -570,7 +603,7 @@ export class GameStateManager {
     }
 
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
-      this.towerLifecycle.scheduleAirRetrofit(event.effects);
+      this.towerLifecycle.scheduleAirRetrofit(event.effects, event.playerId);
     }));
 
     // Once a wave is over, turn the towers to where the route enters their
@@ -839,8 +872,10 @@ export class GameStateManager {
     this.projectileManager.update(stepMs);
     if (profiling) timings.tProjectile += performance.now() - t0;
 
-    this.researchManager.update(stepMs);
-    this.researchManager.startQueued(this.creditsNow, this.spendForResearch);
+    for (const seat of this.researchSeats) {
+      seat.research.update(stepMs);
+      seat.research.startQueued(seat.credits, seat.spend);
+    }
     // The rumbling tail of a strike that already hit, then strike countdowns
     // and impacts, in game time like the research
     this.audioService?.update(stepMs);
@@ -959,7 +994,8 @@ export class GameStateManager {
       phase: this.waveManager.phase(),
       runStarted: this.runStarted,
       economyPerfectStreak: this.economy.perfectStreak,
-      research: this.researchManager.getState(),
+      research: this.researchSeats[0].research.getState(),
+      researchByPlayer: this.researchSeats.map((seat) => [seat.research.owner.playerId, seat.research.getState()]),
       abilities: this.abilityManager.getState(),
       hero: this.heroManager.captureState(),
       towers: this.towerManager.getAll().map((tower) => this.saveTower(tower)),
@@ -1020,7 +1056,11 @@ export class GameStateManager {
       this.towerLifecycle.restore(saved);
     }
     // After the towers: a research center built above counts its slots anew
-    this.researchManager.restoreState(snapshot.research);
+    if (snapshot.researchByPlayer) {
+      for (const [id, state] of snapshot.researchByPlayer) this.researchOf(id).restoreState(state);
+    } else {
+      this.researchSeats[0].research.restoreState(snapshot.research);
+    }
     this.abilityManager.restoreState(snapshot.abilities);
     this.heroManager.restoreState(snapshot.hero);
 
@@ -1326,7 +1366,7 @@ export class GameStateManager {
     this.towerManager.clear();
     this.projectileManager.clear();
     this.waveManager.reset();
-    this.researchManager.reset();
+    for (const seat of this.researchSeats) seat.research.reset();
     this.abilityManager.reset();
     this.heroManager.reset();
     this.commandLog.clear();

@@ -88,7 +88,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     // A range track also refreshes the tower's LOS and guard heading (recomputeRangeAfterUpgrade)
     lifecycle = new TowerLifecycle(
       { getAll: () => towers, refreshGuardHeading: vi.fn() } as never,
-      research,
+      () => research,
       { buildingChanged: vi.fn() },
       { phase: () => 'setup' } as never,
       {} as never,

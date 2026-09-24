@@ -276,10 +276,11 @@ export class RunLogCollector {
       this.event('tower-sold', { id: e.tower.typeConfig.id, credits: e.refund });
     }));
 
-    bag.add(bus.onLive('research:started', (e) => this.event('research-started', { id: e.researchId })));
-    bag.add(bus.onLive('research:completed', (e) => this.event('research-completed', { id: e.researchId })));
+    // This player's research, as with the credits
+    bag.add(bus.onLive('research:started', (e) => { if (e.local) this.event('research-started', { id: e.researchId }); }));
+    bag.add(bus.onLive('research:completed', (e) => { if (e.local) this.event('research-completed', { id: e.researchId }); }));
     bag.add(bus.onLive('research:cancelled', (e) => {
-      this.event('research-cancelled', { id: e.researchId, credits: e.refund });
+      if (e.local) this.event('research-cancelled', { id: e.researchId, credits: e.refund });
     }));
 
     bag.add(bus.onLive('ability:used', (e) => this.event('ability-used', { id: e.abilityId })));

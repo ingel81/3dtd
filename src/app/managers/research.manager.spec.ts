@@ -132,7 +132,7 @@ describe('ResearchManager', () => {
       const cfg = getResearch(NO_PREREQ_ID)!;
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'research:started',
+          type: 'research:started', playerId: 'local', local: true,
           researchId: NO_PREREQ_ID,
           cost: cfg.cost,
           duration: cfg.duration,
@@ -190,7 +190,7 @@ describe('ResearchManager', () => {
 
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'research:completed',
+          type: 'research:completed', playerId: 'local', local: true,
           researchId: NO_PREREQ_ID,
         }),
       );
@@ -295,7 +295,7 @@ describe('ResearchManager', () => {
 
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
-          type: 'research:cancelled',
+          type: 'research:cancelled', playerId: 'local', local: true,
           researchId: NO_PREREQ_ID,
           refund: expectedRefund,
         }),

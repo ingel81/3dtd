@@ -70,7 +70,7 @@ describe('HeroManager', () => {
 
   const unlock = () =>
     bus.emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: HERO.researchId,
       effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
     });

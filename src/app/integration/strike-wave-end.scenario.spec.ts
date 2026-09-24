@@ -125,7 +125,7 @@ function createGame() {
   gsm.gameSpeed.set(1);
   addMissileSilo(gsm.towerManager);
   gsm.getEventBus().emit({
-    type: 'research:completed',
+    type: 'research:completed', playerId: 'local', local: true,
     researchId: NUKE.researchId,
     effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
   });

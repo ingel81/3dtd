@@ -49,7 +49,7 @@ describe('TowerLosRegistry', () => {
   const cell = (x: number, z: number) =>
     ({ x, z, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
   const gameState = () =>
-    ({ towerManager, getEventBus: () => bus, researchManager: { airTargetingUnlocked: false } }) as unknown as GameStateManager;
+    ({ towerManager, getEventBus: () => bus, researchOf: () => ({ airTargetingUnlocked: false }) }) as unknown as GameStateManager;
   const attach = () => registry.attach(engine, gameState());
   const maskOf = (range: number, ground: boolean, air: boolean): LosMask =>
     ({ range, ground, air, bits: new Uint8Array([range & 0xff]) });

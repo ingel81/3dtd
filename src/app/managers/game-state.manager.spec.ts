@@ -398,8 +398,8 @@ describe('GameStateManager', () => {
         bus.emit({ type: 'command:place-tower', position, typeId: 'archer' });
 
         expect(place.mock.calls).toEqual([
-          [position, 'archer', 0.5, 1.5, [3, 4]],
-          [position, 'archer', 0, 0, []],
+          [position, 'archer', 0.5, 1.5, [3, 4], false, LOCAL_PLAYER_ID],
+          [position, 'archer', 0, 0, [], false, LOCAL_PLAYER_ID],
         ]);
       });
 
@@ -699,7 +699,7 @@ describe('GameStateManager', () => {
         const placement = mockServices['TowerPlacementService'] as Record<string, ReturnType<typeof vi.fn>>;
 
         bus.emit({
-          type: 'research:completed',
+          type: 'research:completed', playerId: 'local', local: true,
           researchId: 'aa-retrofit',
           effects: [{ kind: 'enable-targeting', capability: 'air' }],
         });

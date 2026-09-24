@@ -83,7 +83,7 @@ describe('Missile silo: the missile standing in it', () => {
     };
     new VFXService(bus, engine as unknown as ThreeTilesEngine);
     bus.emit({
-      type: 'research:completed',
+      type: 'research:completed', playerId: 'local', local: true,
       researchId: 'nuclear-strike',
       effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
     });

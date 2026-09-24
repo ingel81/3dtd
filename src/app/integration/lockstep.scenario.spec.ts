@@ -122,6 +122,8 @@ function buildClient(relay: LocalRelay, playerId: string, options: SimWorldOptio
   // Two players; the eight towers of the world belong to them in turn
   world.gsm.setPlayers(PLAYERS, playerId);
   world.towers.forEach((tower, i) => { tower.ownerId = PLAYERS[i % 2]; });
+  // Each player's research starts empty; the world's towers shoot at air as before
+  for (const id of PLAYERS) world.gsm.researchOf(id).completeResearch('aa-retrofit');
   return new Client(world, relay.connect(playerId));
 }
 
@@ -422,6 +424,62 @@ describe('Coop players in the simulation (COOP_PLAN C2a)', () => {
     expect(earned.get('a')).toBeGreaterThan(0);
     expect(earned.get('b')).toBeGreaterThan(0);
     expect(earned).toEqual(byOwner);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+  });
+});
+
+describe('Coop research per player (COOP_PLAN C2b)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  it('keeps each player research, center and unlocks to themselves', () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const step = (frames = 3) => {
+      for (let i = 0; i < frames; i++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+      }
+    };
+    const at = (south: number, east: number) => ({ lat: south / M, lon: east / M, height: 0 });
+    const ofType = (typeId: string) => a.gsm.towerManager.getAll().filter((t) => t.typeConfig.id === typeId);
+
+    a.emit({ type: 'debug:add-credits', amount: 5000 });
+    b.emit({ type: 'debug:add-credits', amount: 5000 });
+    // A center each: one per player, not one per map
+    a.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 80) });
+    b.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 130) });
+    step();
+    expect(ofType('research-center').map((t) => t.ownerId).sort()).toEqual(['a', 'b']);
+    expect(a.gsm.researchOf('a').centerLevel).toBe(1);
+    expect(a.gsm.researchOf('b').centerLevel).toBe(1);
+
+    const before = a.gsm.creditsOf('a');
+    expect(a.gsm.researchOf('a').isCompleted('ice-magic')).toBe(false);
+    a.emit({ type: 'command:start-research', researchId: 'ice-magic' });
+    step();
+    expect(a.gsm.creditsOf('a')).toBeLessThan(before);
+    expect(a.gsm.researchOf('a').isActive('ice-magic')).toBe(true);
+    expect(a.gsm.researchOf('b').isActive('ice-magic')).toBe(false);
+    for (let i = 0; i < 5000 && !a.gsm.researchOf('a').isCompleted('ice-magic'); i++) step(1);
+    expect(a.gsm.researchOf('a').isCompleted('ice-magic')).toBe(true);
+    expect(b.gsm.researchOf('a').isCompleted('ice-magic')).toBe(true);
+    expect(a.gsm.researchOf('b').isCompleted('ice-magic')).toBe(false);
+    // The UI of each client shows its own player's research
+    expect(a.gsm.researchManager.isCompleted('ice-magic')).toBe(true);
+    expect(b.gsm.researchManager.isCompleted('ice-magic')).toBe(false);
+
+    // A may build what A unlocked, B may not
+    a.emit({ type: 'command:place-tower', typeId: 'ice', position: at(160, 40) });
+    b.emit({ type: 'command:place-tower', typeId: 'ice', position: at(160, 160) });
+    step();
+    const placed = ofType('ice').filter((t) => !a.world.towers.includes(t));
+    expect(placed.map((t) => t.ownerId)).toEqual(['a']);
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 });

@@ -194,11 +194,11 @@ describe('GameSoundsService', () => {
     let now = 1000;
     vi.spyOn(performance, 'now').mockImplementation(() => now);
     bus.emit({ type: 'debug:complete-all-research' });
-    bus.emit({ type: 'research:completed', researchId: 'x' } as never);
+    bus.emit({ type: 'research:completed', playerId: 'local', local: true, researchId: 'x' } as never);
     expect(global()).toEqual([]);
 
     now += CHEAT_QUIET_MS;
-    bus.emit({ type: 'research:completed', researchId: 'y' } as never);
+    bus.emit({ type: 'research:completed', playerId: 'local', local: true, researchId: 'y' } as never);
     expect(global()).toEqual([MOMENT_SOUNDS.researchComplete.id]);
   });
 

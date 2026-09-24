@@ -11,6 +11,7 @@ import { TOWER_TYPES } from '../configs/tower-types.config';
 import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import type { SimResearch } from './research.manager';
+import { LOCAL_PLAYER_ID } from './game-state/command-log';
 import { computeGuardHeading } from '../utils/tower-guard-heading';
 import { veteranLevel } from '../configs/veteran-ranks.config';
 import { aimIdle } from '../entities/tower-aim';
@@ -161,6 +162,8 @@ export class TowerManager extends EntityManager<Tower> {
     plinthOverhang: readonly number[] = [],
     /** A tower put back by a snapshot restore: no tower:placed, no sound */
     silent = false,
+    /** Tower.ownerId, set before tower:placed goes out */
+    ownerId: string = LOCAL_PLAYER_ID,
   ): Tower | null {
     if (!this.tilesEngine) {
       throw new Error('TowerManager not initialized');
@@ -170,6 +173,7 @@ export class TowerManager extends EntityManager<Tower> {
     // We skip redundant validation here to allow rooftop placements etc.
 
     const tower = new Tower(position, typeId, customRotation, plinthHeight, plinthOverhang);
+    tower.ownerId = ownerId;
     this.refreshGuardHeading(tower);
     // After its reference sweep the turret faces where the route comes in
     if (tower.guardHeading !== null) aimIdle(tower.aim, tower.guardHeading);
@@ -320,7 +324,7 @@ export class TowerManager extends EntityManager<Tower> {
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(
       tower.typeConfig.id as TowerTypeId,
-      this.research.airTargetingUnlocked,
+      this.research.airTargetingFor(tower.ownerId),
     );
     const range = tower.combat.range;
 

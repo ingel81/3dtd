@@ -376,7 +376,11 @@ export class TowerDefenseFacadeService {
     const result = this.vizFacade.initializeGameState();
 
     // Initialize GSM→Store sync (EventBus events → Store signals)
-    this.gameStateSync.initialize(this.gameState.getEventBus(), () => this.gameState.gameTimeMs);
+    this.gameStateSync.initialize(
+      this.gameState.getEventBus(),
+      () => this.gameState.gameTimeMs,
+      () => this.gameState.localPlayerId,
+    );
     // The run log listens to the same bus and opens the run (docs/RUN_LOG.md)
     // `botAutoMode` as well as `botEnabled`: the bot module loads on demand,
     // and until it is there `botEnabled` is still false although the tab was

@@ -33,7 +33,8 @@ import { losMaskFromJson } from '../../utils/los-mask';
 export class TowerLifecycle {
   constructor(
     private readonly towerManager: TowerManager,
-    private readonly researchManager: ResearchManager,
+    /** A player's research (GameStateManager.researchOf): what the builder unlocked, the owner's center */
+    private readonly research: (playerId: string) => ResearchManager,
     private readonly abilityManager: Pick<AbilityManager, 'buildingChanged'>,
     private readonly waveManager: WaveManager,
     private readonly enemyManager: EnemyManager,
@@ -48,6 +49,11 @@ export class TowerLifecycle {
     /** The player whose command runs (GameStateManager.actingPlayerId): pays, and owns what is built */
     private readonly actingPlayer: () => string = () => LOCAL_PLAYER_ID,
   ) {}
+
+  /** The first player of the run: the owner of a tower from a snapshot saved before coop */
+  private firstPlayer(): string {
+    return this.creditsLedger.players[0];
+  }
 
   /** The tower the player sits in (man()), null when none */
   private manned: Tower | null = null;
@@ -65,9 +71,9 @@ export class TowerLifecycle {
       saved.plinthHeight,
       saved.plinthOverhang,
       true,
+      saved.ownerId ?? this.firstPlayer(),
     );
     if (!tower) return null;
-    if (saved.ownerId) tower.ownerId = saved.ownerId;
     tower.restoreUpgradeLevels(saved.upgrades);
     tower.restoreSimState(saved.state);
     if (saved.losMask && tower.typeConfig.attackType !== 'passive') {
@@ -108,27 +114,26 @@ export class TowerLifecycle {
     // The corridor build replaces the cells the tower would register its LOS in.
     if (this.corridorPending()) return null;
 
-    // Research-gate: tower must be unlocked. Defense-in-depth against bots
-    // or commands that bypass the UI's isTowerUnlocked() check.
-    if (!this.researchManager.isTowerUnlocked(typeId)) {
+    // Research-gate: the builder must have unlocked it. Defense-in-depth
+    // against bots or commands that bypass the UI's isTowerUnlocked() check.
+    const player = this.actingPlayer();
+    if (!this.research(player).isTowerUnlocked(typeId)) {
       return null;
     }
 
-    // A one-per-map building (Research Center, Missile Silo): not while one stands
-    if (config.unique && this.towerManager.getAll().some(t => t.typeConfig.id === typeId)) {
+    // A one-per-player building (Research Center, Missile Silo): not while the player's own stands
+    if (config.unique && this.towerManager.getAll().some(t => t.typeConfig.id === typeId && t.ownerId === player)) {
       return null;
     }
 
     // Check if the player has enough credits
-    const player = this.actingPlayer();
     if (this.creditsLedger.balance(player) < config.cost) {
       return null;
     }
 
-    const tower = this.towerManager.placeTower(position, typeId, customRotation, plinthHeight, plinthOverhang);
+    const tower = this.towerManager.placeTower(position, typeId, customRotation, plinthHeight, plinthOverhang, false, player);
 
     if (tower) {
-      tower.ownerId = player;
       this.creditsLedger.add(-config.cost, 'build', player);
 
       // Register tower on grid (LOS raycasting + grid registration + visualization)
@@ -139,7 +144,7 @@ export class TowerLifecycle {
 
       // Notify ResearchManager when Research Center is placed
       if (typeId === 'research-center') {
-        this.researchManager.onCenterPlaced();
+        this.research(player).onCenterPlaced();
       }
 
       // An ability that launches from it (the silo) gets its button
@@ -167,7 +172,7 @@ export class TowerLifecycle {
 
     // Notify ResearchManager when Research Center is sold
     if (tower.typeConfig.id === 'research-center') {
-      this.researchManager.onCenterRemoved();
+      this.research(tower.ownerId).onCenterRemoved();
     }
 
     // Sell tower (emits tower:sold event, returns refund)
@@ -266,7 +271,7 @@ export class TowerLifecycle {
     // use the same function so the three cannot drift apart.
     if (upgradeId !== 'research-slots') {
       const requiredTier = requiredUpgradeTier(tower.getUpgradeLevel(upgradeId));
-      if (this.researchManager.getMaxUpgradeTier() < requiredTier) return false;
+      if (this.research(tower.ownerId).getMaxUpgradeTier() < requiredTier) return false;
     }
 
     if (!this.creditsLedger.spend(cost, 'upgrade', this.actingPlayer())) return false;
@@ -277,7 +282,7 @@ export class TowerLifecycle {
 
     // Research Center slot upgrade
     if (upgrade?.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
-      this.researchManager.upgradeCenter();
+      this.research(tower.ownerId).upgradeCenter();
     }
 
     // Range changed: recompute the LOS cells so targeting uses the new
@@ -305,7 +310,7 @@ export class TowerLifecycle {
           if (!tower.applyUpgrade(upgrade.id)) break;
           if (upgrade.effect.stat === 'range') rangeChanged = true;
           if (upgrade.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
-            this.researchManager.upgradeCenter();
+            this.research(tower.ownerId).upgradeCenter();
           }
         }
       }
@@ -367,12 +372,14 @@ export class TowerLifecycle {
    * the queue, one tower per frame (TowerLosRegistry.drainLosQueue); the air
    * flag comes from the ResearchManager, which sets it before the event.
    */
-  scheduleAirRetrofit(effects: ResearchEffect[]): void {
+  scheduleAirRetrofit(effects: ResearchEffect[], playerId: string): void {
     const unlocksAir = effects.some(
       e => e.kind === 'enable-targeting' && e.capability === 'air',
     );
     if (!unlocksAir) return;
     for (const tower of this.towerManager.getAll()) {
+      // The research is the player's: only their towers get the retrofit
+      if (tower.ownerId !== playerId) continue;
       const typeId = tower.typeConfig.id as TowerTypeId;
       // Only the retrofit-gated types — everything else already registered
       // with its final air capability.

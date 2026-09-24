@@ -319,7 +319,7 @@ describe('the run log', () => {
       bus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 });
       step = 90;
       timeMs = 1500;
-      bus.emit({ type: 'research:started', researchId: 'gatling-tech' } as never);
+      bus.emit({ type: 'research:started', playerId: 'local', local: true, researchId: 'gatling-tech' } as never);
 
       expect(events().map((e) => [e.event, e.step, e.wave])).toEqual([
         ['run-opened', 0, 0],

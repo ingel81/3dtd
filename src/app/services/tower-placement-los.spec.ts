@@ -143,7 +143,7 @@ describe('TowerPlacementService tower LOS on the frozen cells', () => {
         onTowerUnregistered: vi.fn(),
       },
       getEventBus: () => new GameEventBus(),
-      researchManager: research,
+      researchOf: () => research,
     };
     service.initialize(engine as never, {} as never, {} as never, { lat: 0, lon: 0 }, gameState as never);
   });

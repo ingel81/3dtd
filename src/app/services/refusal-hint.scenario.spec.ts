@@ -67,7 +67,7 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
 
   /** The research of `perkId` is done (ResearchManager's research:completed) */
   const research = (perkId: string) => bus.emit({
-    type: 'research:completed',
+    type: 'research:completed', playerId: 'local', local: true,
     researchId: perkId as ResearchId,
     effects: [{ kind: 'global-perk', perkId, description: '' }],
   });

@@ -567,7 +567,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       log.length = 0;
 
       bus.emit({
-        type: 'research:completed',
+        type: 'research:completed', playerId: 'local', local: true,
         researchId: 'aa-retrofit',
         effects: [{ kind: 'enable-targeting', capability: 'air' }],
       });

@@ -37,7 +37,10 @@ export interface SimSnapshot {
   /** A wave has started in this run (game:started went out) */
   runStarted: boolean;
   economyPerfectStreak: number;
+  /** The first player's research (the single player's) */
   research: ResearchSaveState;
+  /** Every player's research in roster order; absent in a snapshot from before coop */
+  researchByPlayer?: [string, ResearchSaveState][];
   abilities: AbilitySaveState;
   hero: HeroSaveState;
   /** In the order the tower manager holds them, which is the order combat walks them */
