@@ -288,7 +288,7 @@ describe('AbilityManager', () => {
       inRadius = [enemyOf('z1', 'zombie'), enemyOf('z2', 'zombie')];
       manager.use('frost-bomb', TARGET);
       tick(30);
-      expect(resolved).toEqual([{ type: 'ability:resolved', abilityId: 'frost-bomb', strikeId: 1, hits: 2, kills: 0 }]);
+      expect(resolved).toEqual([{ type: 'ability:resolved', playerId: 'local', local: true, abilityId: 'frost-bomb', strikeId: 1, hits: 2, kills: 0 }]);
     });
 
     it('keeps its charge apart from the nuclear strike', () => {
@@ -393,7 +393,7 @@ describe('AbilityManager', () => {
       expect(manager.hasPendingStrikes()).toBe(true);
       expect(manager.getStatus('orbital-laser').pending).toBe(true);
       tick(1);
-      expect(resolved).toEqual([{ type: 'ability:resolved', abilityId: 'orbital-laser', strikeId: 1, hits: 3, kills: 0 }]);
+      expect(resolved).toEqual([{ type: 'ability:resolved', playerId: 'local', local: true, abilityId: 'orbital-laser', strikeId: 1, hits: 3, kills: 0 }]);
       expect(manager.hasPendingStrikes()).toBe(false);
 
       const total = (id: string) => strikes.reduce((sum, s) => sum + (s.fractions[s.ids.indexOf(id)] ?? 0), 0);
@@ -537,7 +537,7 @@ describe('AbilityManager', () => {
       unlock();
       manager.use('nuclear-strike', TARGET);
       expect(ofType('ability:used')).toEqual([{
-        type: 'ability:used',
+        type: 'ability:used', playerId: 'local', local: true,
         abilityId: 'nuclear-strike',
         strikeId: 1,
         target: { ...TARGET, height: 5 },
@@ -552,7 +552,7 @@ describe('AbilityManager', () => {
       phase = 'setup';
       manager.use('nuclear-strike', TARGET);
       expect(ofType('ability:rejected')).toEqual([
-        { type: 'ability:rejected', abilityId: 'nuclear-strike', reason: 'no-wave' },
+        { type: 'ability:rejected', playerId: 'local', local: true, abilityId: 'nuclear-strike', reason: 'no-wave' },
       ]);
       expect(ofType('ability:used')).toEqual([]);
     });
@@ -566,14 +566,14 @@ describe('AbilityManager', () => {
       expect(ofType('ability:impact')).toEqual([]);
       tick(1);
       expect(ofType('ability:impact')).toEqual([{
-        type: 'ability:impact',
+        type: 'ability:impact', playerId: 'local', local: true,
         abilityId: 'nuclear-strike',
         strikeId: 1,
         target: { ...TARGET, height: 5 },
         radiusM: 25,
       }]);
       expect(ofType('ability:resolved')).toEqual([{
-        type: 'ability:resolved',
+        type: 'ability:resolved', playerId: 'local', local: true,
         abilityId: 'nuclear-strike',
         strikeId: 1,
         hits: 3,

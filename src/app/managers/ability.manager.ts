@@ -23,6 +23,12 @@
  */
 
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
+import type { GameEvent } from '../game-engine/game-event-bus';
+import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
+
+/** What the AbilityManager emits, before owner and `local` go on. */
+type AbilityEvent = Extract<GameEvent, { type: `ability:${string}` }>;
+type OwnerlessAbilityEvent = AbilityEvent extends infer E ? E extends AbilityEvent ? Omit<E, 'playerId' | 'local'> : never : never;
 import {
   ABILITIES,
   ABILITY_IDS,
@@ -154,15 +160,23 @@ export class AbilityManager implements IGameManager {
   constructor(
     private readonly eventBus: GameEventBus,
     private readonly world: AbilityWorld,
+    /** Whose abilities these are (docs/COOP_PLAN.md, D11); the single player's by default */
+    readonly owner: PlayerOwner = LOCAL_OWNER,
   ) {
+    // The owner's research unlocks the owner's abilities
     this.subs.add(this.eventBus.on('research:completed', (event) => {
-      this.onResearchCompleted(event.effects);
+      if (event.playerId === this.owner.playerId) this.onResearchCompleted(event.effects);
     }));
     // Deferred event: delivered in the next sub-step's processQueue, at the
     // same sub-step at every timescale.
     this.subs.add(this.eventBus.on('wave:completed', () => {
       this.advanceWaves(1);
     }));
+  }
+
+  /** Emit an ability event with the owner on it. */
+  private emit(event: OwnerlessAbilityEvent): void {
+    this.eventBus.emit({ ...event, playerId: this.owner.playerId, local: this.owner.local() } as GameEvent);
   }
 
   /** Phase source (WaveManager); abilities only fire during a wave. */
@@ -259,13 +273,13 @@ export class AbilityManager implements IGameManager {
   use(id: AbilityId, target: GeoPosition): AbilityUseResult {
     const result = this.tryUse(id, target);
     if (!result.ok) {
-      this.eventBus.emit({ type: 'ability:rejected', abilityId: id, reason: result.reason });
+      this.emit({ type: 'ability:rejected', abilityId: id, reason: result.reason });
       return result;
     }
 
     const config = ABILITIES[id];
     const { strike } = result;
-    this.eventBus.emit({
+    this.emit({
       type: 'ability:used',
       abilityId: id,
       strikeId: strike.id,
@@ -371,7 +385,7 @@ export class AbilityManager implements IGameManager {
   private land(strike: PendingStrike, stepMs: number): void {
     const config = ABILITIES[strike.abilityId];
     const effect = config.effect;
-    this.eventBus.emit({
+    this.emit({
       type: 'ability:impact',
       abilityId: strike.abilityId,
       strikeId: strike.id,
@@ -490,7 +504,7 @@ export class AbilityManager implements IGameManager {
     strike.done = true;
     strike.dealt?.clear();
     strike.unshown?.clear();
-    this.eventBus.emit({
+    this.emit({
       type: 'ability:resolved',
       abilityId: strike.abilityId,
       strikeId: strike.id,
@@ -540,7 +554,7 @@ export class AbilityManager implements IGameManager {
   }
 
   private emitStateSnapshot(restored = false): void {
-    this.eventBus.emit({
+    this.emit({
       type: 'ability:state-changed',
       abilities: this.getStatuses(),
       ...(restored ? { restored: true as const } : {}),

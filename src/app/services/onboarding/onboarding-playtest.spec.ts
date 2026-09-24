@@ -61,12 +61,12 @@ class Game {
 
   useAbility(): void {
     this.bus.emit({
-      type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 1, target: AT, radiusM: 25, warningMs: 1500,
+      type: 'ability:used', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 1, target: AT, radiusM: 25, warningMs: 1500,
     });
   }
 
   hireHero(): void {
-    this.bus.emit({ type: 'hero:state-changed', hero: heroStatus(true, true, 0, 'standard', 'hold') });
+    this.bus.emit({ type: 'hero:state-changed', playerId: 'local', local: true, hero: heroStatus(true, true, 0, 'standard', 'hold') });
   }
 
   /** GameStateManager.reset: the managers start over, then game:reset */

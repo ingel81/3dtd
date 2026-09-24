@@ -283,8 +283,8 @@ export class RunLogCollector {
       if (e.local) this.event('research-cancelled', { id: e.researchId, credits: e.refund });
     }));
 
-    bag.add(bus.onLive('ability:used', (e) => this.event('ability-used', { id: e.abilityId })));
-    bag.add(bus.onLive('hero:level-up', (e) => this.event('hero-level', { value: e.level })));
+    bag.add(bus.onLive('ability:used', (e) => { if (e.local) this.event('ability-used', { id: e.abilityId }); }));
+    bag.add(bus.onLive('hero:level-up', (e) => { if (e.local) this.event('hero-level', { value: e.level }); }));
 
     bag.add(bus.onLive('debug:add-credits', (e) => this.event('cheat', { id: 'credits', credits: e.amount })));
   }

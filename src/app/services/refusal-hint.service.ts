@@ -106,10 +106,11 @@ export class RefusalHintService {
   connect(bus: GameEventBus, fromPlayer: () => boolean = () => true): void {
     this.subs.disposeAll();
     this.subs.add(bus.onLive('ability:rejected', (event) => {
+      if (!event.local) return;
       if (fromPlayer()) this.ability(event.abilityId, event.reason);
     }));
     this.subs.add(bus.onLive('hero:rejected', (event) => {
-      if (fromPlayer()) this.hero(event.reason);
+      if (event.local && fromPlayer()) this.hero(event.reason);
     }));
     this.subs.add(bus.onLive('game:reset', () => this.clear()));
   }

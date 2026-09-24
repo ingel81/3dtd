@@ -139,7 +139,7 @@ export class GameStateSyncService {
     }));
 
     this.subs.add(eventBus.onLive('tower:manned', (event) => {
-      this.store.mannedTowerId.set(event.towerId);
+      if (event.local) this.store.mannedTowerId.set(event.towerId);
     }));
 
     this.subs.add(eventBus.onLive('tower:deselected', () => {
@@ -195,7 +195,9 @@ export class GameStateSyncService {
 
     // ── Abilities ─────────────────────────────────────────────────
     // Snapshot after every AbilityManager mutation (unlock, use, impact, recharge)
+    // Only this player's abilities (COOP_PLAN D11)
     this.subs.add(eventBus.onLive('ability:state-changed', (event) => {
+      if (!event.local) return;
       this.store.abilities.update((current) => {
         const next = { ...current };
         for (const status of event.abilities) next[status.id] = status;
@@ -206,7 +208,7 @@ export class GameStateSyncService {
     // ── Hero ──────────────────────────────────────────────────────
     // Snapshot after every HeroManager change (unlock, hire, order, kill)
     this.subs.add(eventBus.onLive('hero:state-changed', (event) => {
-      this.store.hero.set(event.hero);
+      if (event.local) this.store.hero.set(event.hero);
     }));
 
     // ── Research lifecycle ────────────────────────────────────────

@@ -100,7 +100,7 @@ export class RunLogFacade {
     // The hero is hired once per run; his state event is the only signal
     let heroHired = false;
     this.subs.add(bus.onLive('hero:state-changed', (e) => {
-      if (e.hero.hired === heroHired) return;
+      if (!e.local || e.hero.hired === heroHired) return;
       heroHired = e.hero.hired;
       if (heroHired) this.collector.noteHeroHired(HERO.cost);
     }));

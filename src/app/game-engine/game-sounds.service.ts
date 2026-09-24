@@ -135,8 +135,13 @@ export class GameSoundsService {
     // A restore (replay in, out, a seek) is another moment: a cue waiting for it goes
     this.subs.add(bus.on('sim:restored', () => this.clearCue()));
     this.subs.add(bus.onShow('research:completed', () => this.playGlobal(MOMENT_SOUNDS.researchComplete)));
-    this.subs.add(bus.onShow('ability:state-changed', ({ abilities, restored }) => this.onAbilities(abilities, restored)));
-    this.subs.add(bus.onShow('hero:state-changed', ({ hero, restored }) => this.onHero(hero, restored)));
+    // The chime for a charge back is this player's, not a coop partner's (COOP_PLAN D11)
+    this.subs.add(bus.onShow('ability:state-changed', ({ abilities, restored, local }) => {
+      if (local) this.onAbilities(abilities, restored);
+    }));
+    this.subs.add(bus.onShow('hero:state-changed', ({ hero, restored, local }) => {
+      if (local) this.onHero(hero, restored);
+    }));
 
     // The HQ goes, then the stinger; the game-over track follows (music)
     this.subs.add(bus.onShow('game:over', () => {

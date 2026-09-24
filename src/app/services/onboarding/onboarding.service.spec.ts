@@ -71,23 +71,23 @@ describe('OnboardingService', () => {
     expect(service.tip()).toBeNull();
     const nuke = { ...lockedAbilityStatus('nuclear-strike'), unlocked: true, charges: 1 };
     // Researched, but no missile silo stands: no button yet, no tip
-    bus.emit({ type: 'ability:state-changed', abilities: [nuke, lockedAbilityStatus('emp')] });
+    bus.emit({ type: 'ability:state-changed', playerId: 'local', local: true, abilities: [nuke, lockedAbilityStatus('emp')] });
     expect(service.tip()).toBeNull();
     bus.emit({
-      type: 'ability:state-changed',
+      type: 'ability:state-changed', playerId: 'local', local: true,
       abilities: [{ ...nuke, launchSite: true }, lockedAbilityStatus('emp')],
     });
     expect(service.tip()).toMatchObject({ title: 'Use an ability', keys: [{ key: 'K', description: 'Nuclear Strike' }] });
-    bus.emit({ type: 'ability:used', abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 0, lon: 0 }, radiusM: 25, warningMs: 1500 });
+    bus.emit({ type: 'ability:used', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 1, target: { lat: 0, lon: 0 }, radiusM: 25, warningMs: 1500 });
     expect(service.tip()).toBeNull();
   });
 
   it('shows the hero tip once he can be hired, and ends the tips when he is', () => {
     storeCompleted('build-tower', 'start-wave', 'upgrade-tower', 'research-center', 'start-research', 'use-ability');
     start();
-    bus.emit({ type: 'hero:state-changed', hero: heroStatus(true, false, 0, 'standard', 'hold') });
+    bus.emit({ type: 'hero:state-changed', playerId: 'local', local: true, hero: heroStatus(true, false, 0, 'standard', 'hold') });
     expect(service.tip()).toMatchObject({ title: 'Hire the Mercenary', index: 7 });
-    bus.emit({ type: 'hero:state-changed', hero: heroStatus(true, true, 0, 'standard', 'hold') });
+    bus.emit({ type: 'hero:state-changed', playerId: 'local', local: true, hero: heroStatus(true, true, 0, 'standard', 'hold') });
     expect(service.tip()).toBeNull();
     expect(service.state().done).toBe(true);
   });

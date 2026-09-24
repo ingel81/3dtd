@@ -260,7 +260,7 @@ export class GameCommandsHandler {
     // The manager validates (research, charge, wave, route in reach) and
     // answers with ability:used or ability:rejected.
     this.on('command:use-ability', (event) => {
-      this.gsm.abilityManager.use(event.abilityId, {
+      this.gsm.abilityOf(this.gsm.actingPlayerId).use(event.abilityId, {
         lat: event.target.lat,
         lon: event.target.lon,
         height: event.target.height,
@@ -273,11 +273,11 @@ export class GameCommandsHandler {
     // with hero:state-changed or hero:rejected. The way to a move target is
     // computed here, inside the command, from the routes alone.
     this.on('command:hire-hero', () => {
-      this.gsm.heroManager.hire();
+      this.gsm.heroOf(this.gsm.actingPlayerId).hire();
     });
 
     this.on('command:hero-move', (event) => {
-      this.gsm.heroManager.moveTo({
+      this.gsm.heroOf(this.gsm.actingPlayerId).moveTo({
         lat: event.target.lat,
         lon: event.target.lon,
         height: event.target.height,
@@ -285,7 +285,7 @@ export class GameCommandsHandler {
     });
 
     this.on('command:hero-ammo', (event) => {
-      this.gsm.heroManager.setAmmo(event.ammo);
+      this.gsm.heroOf(this.gsm.actingPlayerId).setAmmo(event.ammo);
     });
   }
 
@@ -327,7 +327,7 @@ export class GameCommandsHandler {
     // with full charges), then full charges again on every further click
     this.on('debug:ready-ability', (event) => {
       this.gsm.researchOf(this.gsm.actingPlayerId).completeResearch(ABILITIES[event.abilityId].researchId);
-      this.gsm.abilityManager.refillCharges(event.abilityId);
+      this.gsm.abilityOf(this.gsm.actingPlayerId).refillCharges(event.abilityId);
     });
 
     // Between waves only; refused otherwise, see GameStateManager.jumpToWave
@@ -339,7 +339,8 @@ export class GameCommandsHandler {
     // once he is hired a further click changes nothing
     this.on('debug:ready-hero', () => {
       this.gsm.researchOf(this.gsm.actingPlayerId).completeResearch(HERO.researchId);
-      if (this.gsm.heroManager.checkHire() === null) this.gsm.heroManager.hire(0);
+      const hero = this.gsm.heroOf(this.gsm.actingPlayerId);
+      if (hero.checkHire() === null) hero.hire(0);
     });
   }
 }

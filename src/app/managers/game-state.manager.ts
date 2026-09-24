@@ -28,10 +28,11 @@ import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, IGameManager, VFXService, AudioService, GameSoundsService, ScreenShakeService, BackgroundMusicService, BloodMoonService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
-import { LOCAL_RESEARCH_OWNER, ResearchManager, type ResearchOwner, type SimResearch } from './research.manager';
+import { ResearchManager, type SimResearch } from './research.manager';
+import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import { AbilityManager } from './ability.manager';
-import { HeroManager } from './hero.manager';
-import { HERO_SOURCE_ID } from '../configs/hero.config';
+import { HeroManager, type HeroView } from './hero.manager';
+import { HERO_SOURCE_ID, heroSourceIdFor } from '../configs/hero.config';
 import { heroBodyContact } from '../utils/hero-body-contact';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
@@ -101,7 +102,7 @@ export class GameStateManager {
    * with its credits bound once for the queue that runs every sub-step
    * (ResearchManager.startQueued). The single player game has one.
    */
-  private readonly researchSeats: ResearchSeat[] = [this.researchSeat(LOCAL_PLAYER_ID, LOCAL_RESEARCH_OWNER)];
+  private readonly researchSeats: ResearchSeat[] = [this.researchSeat(LOCAL_PLAYER_ID, LOCAL_OWNER)];
   /** What the towers and combat read: air targeting of a tower's owner */
   private readonly simResearch: SimResearch = {
     airTargetingFor: (playerId) => this.researchOf(playerId).airTargetingUnlocked,
@@ -114,49 +115,98 @@ export class GameStateManager {
   readonly enemyManager = new EnemyManager(this.eventBus, this.globalRouteGrid, this.spatialGrid);
   readonly projectileManager = new ProjectileManager(this.eventBus);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
-  readonly abilityManager = new AbilityManager(this.eventBus, {
-    launchSite: (typeId) => {
-      const tower = this.towerManager.getAll().find((t) => t.typeConfig.id === typeId);
-      return tower ? { towerId: tower.id, position: tower.position } : null;
-    },
-    snapToRoute: (target, maxDistanceM) => this.globalRouteGrid.snapToRouteCell(target, maxDistanceM),
-    enemiesInRadius: (center, radiusM, out) =>
-      this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
-    strike: (targets, fractionOf) => this.combatEffect.applyAbilityStrike(targets, fractionOf),
-    showDamage: (enemy, fraction, damageType) => this.combatEffect.showAbilityDamage(enemy, fraction, damageType),
-    halt: (targets, status, durationMsOf, sourceId) =>
-      this.combatEffect.applyAbilityHalt(targets, status, durationMsOf, sourceId),
-    routeSweep: (target, maxDistanceM, lengthM) =>
-      routeSweepToward(this.waveManager.getPaths(), target, maxDistanceM, lengthM),
-  });
+  /**
+   * One set of abilities per player (docs/COOP_PLAN.md, D11), in roster
+   * order: charges, strikes, the player's own launch site. The single player
+   * game has one.
+   */
+  private readonly abilitySeats: AbilityManager[] = [this.abilitiesFor(LOCAL_OWNER)];
+
+  /** The abilities of `owner` on this game's world: their launch site, their kills. */
+  private abilitiesFor(owner: PlayerOwner): AbilityManager {
+    return new AbilityManager(this.eventBus, {
+      launchSite: (typeId) => {
+        const tower = this.towerManager.getAll().find((t) => t.typeConfig.id === typeId && t.ownerId === owner.playerId);
+        return tower ? { towerId: tower.id, position: tower.position } : null;
+      },
+      snapToRoute: (target, maxDistanceM) => this.globalRouteGrid.snapToRouteCell(target, maxDistanceM),
+      enemiesInRadius: (center, radiusM, out) =>
+        this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
+      strike: (targets, fractionOf) => this.combatEffect.applyAbilityStrike(targets, fractionOf, owner.playerId),
+      showDamage: (enemy, fraction, damageType) => this.combatEffect.showAbilityDamage(enemy, fraction, damageType),
+      halt: (targets, status, durationMsOf, sourceId) =>
+        this.combatEffect.applyAbilityHalt(targets, status, durationMsOf, sourceId),
+      routeSweep: (target, maxDistanceM, lengthM) =>
+        routeSweepToward(this.waveManager.getPaths(), target, maxDistanceM, lengthM),
+    }, owner);
+  }
+
+  /** The abilities of `playerId`; a player not in the run reads as the first one. */
+  abilityOf(playerId: string): AbilityManager {
+    for (const seat of this.abilitySeats) if (seat.owner.playerId === playerId) return seat;
+    return this.abilitySeats[0];
+  }
+
+  /** The abilities of the player at this client, the ones the UI shows. */
+  get abilityManager(): AbilityManager {
+    return this.abilityOf(this.localPlayerId);
+  }
+
+  /** A strike of any player is still on its way or burning. */
+  private hasPendingStrikes(): boolean {
+    return this.abilitySeats.some((seat) => seat.hasPendingStrikes());
+  }
   // The hero's measure on bodies along the route (HeroWorld.bodyContact)
   private readonly heroLocal = new Vector3();
   private readonly routeGroundY = (x: number, z: number): number | null => this.globalRouteGrid.getGroundLocalYAt(x, z);
-  readonly heroManager = new HeroManager(this.eventBus, {
-    routes: () => this.pathRouteService.getCachedPaths(),
-    base: () => this.basePosition,
-    enemiesInRadius: (center, radiusM, out) =>
-      this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
-    bodyContact: (enemy, from, out) => {
-      const body = enemy.body;
-      const engine = this.tilesEngine;
-      if (!body || !engine) return null;
-      const local = engine.sync.geoToLocalSimpleInto(from.lat, from.lon, 0, this.heroLocal);
-      return heroBodyContact(
-        body, local.x, local.z, this.routeGroundY,
-        enemy.transform.terrainHeight - body.stations.originHeight, out,
-      );
-    },
-    groundHeight: (lat, lon) => this.groundHeightAt(lat, lon),
-    fire: (shot) => {
-      this.projectileManager.spawnShot(
-        shot.origin, shot.originHeight, shot.target,
-        shot.ammo.projectileType, shot.damage, shot.ammo.damageType, HERO_SOURCE_ID,
-        shot.aimPoint ?? undefined,
-      );
-    },
-    spend: (cost) => this.creditsLedger.spend(cost, 'hero', this.actingPlayerId),
-  });
+  /**
+   * The heroes, one per player (docs/COOP_PLAN.md, D10), in roster order.
+   * Each has its own id, so nothing stops a player from having several.
+   */
+  private readonly heroSeats: HeroManager[] = [this.heroFor(LOCAL_OWNER, HERO_SOURCE_ID)];
+
+  /** A hero of `owner` on this game's world: their credits, shots under `heroId`. */
+  private heroFor(owner: PlayerOwner, heroId: string): HeroManager {
+    return new HeroManager(this.eventBus, {
+      routes: () => this.pathRouteService.getCachedPaths(),
+      base: () => this.basePosition,
+      enemiesInRadius: (center, radiusM, out) =>
+        this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
+      bodyContact: (enemy, from, out) => {
+        const body = enemy.body;
+        const engine = this.tilesEngine;
+        if (!body || !engine) return null;
+        const local = engine.sync.geoToLocalSimpleInto(from.lat, from.lon, 0, this.heroLocal);
+        return heroBodyContact(
+          body, local.x, local.z, this.routeGroundY,
+          enemy.transform.terrainHeight - body.stations.originHeight, out,
+        );
+      },
+      groundHeight: (lat, lon) => this.groundHeightAt(lat, lon),
+      fire: (shot) => {
+        this.projectileManager.spawnShot(
+          shot.origin, shot.originHeight, shot.target,
+          shot.ammo.projectileType, shot.damage, shot.ammo.damageType, heroId,
+          shot.aimPoint ?? undefined,
+        );
+      },
+      spend: (cost) => this.creditsLedger.spend(cost, 'hero', owner.playerId),
+    }, owner, heroId);
+  }
+
+  /** The (first) hero of `playerId`; a player not in the run reads as the first one. */
+  heroOf(playerId: string): HeroManager {
+    for (const seat of this.heroSeats) if (seat.owner.playerId === playerId) return seat;
+    return this.heroSeats[0];
+  }
+
+  /** The hero of the player at this client, the one the UI shows. */
+  get heroManager(): HeroManager {
+    return this.heroOf(this.localPlayerId);
+  }
+
+  /** Where the hero of the player at this client is drawn; the others have none yet (COOP_PLAN C6) */
+  private heroView: HeroView | null = null;
 
   /**
    * Canonical list of sub-managers that implement IGameManager. Used for the
@@ -179,8 +229,6 @@ export class GameStateManager {
     this.enemyManager,
     this.projectileManager,
     this.waveManager,
-    this.abilityManager,
-    this.heroManager,
   ];
 
   // Game state signals, owned by their ledgers
@@ -193,7 +241,7 @@ export class GameStateManager {
   private readonly towerLifecycle = new TowerLifecycle(
     this.towerManager,
     (playerId: string) => this.researchOf(playerId),
-    this.abilityManager,
+    (playerId: string) => this.abilityOf(playerId),
     this.waveManager,
     this.enemyManager,
     this.towerPlacement,
@@ -331,7 +379,7 @@ export class GameStateManager {
     enemies: () => this.enemyManager.getAll(),
     towers: () => this.towerManager.getAll(),
     projectiles: () => this.projectileManager.getAll(),
-    hero: () => this.heroManager.getHero(),
+    heroes: () => this.heroSeats.map((seat) => seat.getHero()),
   };
   /** The state hash now (StateHasher), for the recorder and the re-simulation */
   readonly stateHash = (): number => this.stateHasher.hash(this.hashSource);
@@ -359,7 +407,7 @@ export class GameStateManager {
   private readonly eventBusSubs = new SubscriptionBag();
 
   /** A player's research with its credits bound once, see researchSeats */
-  private researchSeat(playerId: string, owner: ResearchOwner): ResearchSeat {
+  private researchSeat(playerId: string, owner: PlayerOwner): ResearchSeat {
     return {
       research: new ResearchManager(this.eventBus, owner),
       credits: () => this.creditsLedger.balance(playerId),
@@ -402,10 +450,25 @@ export class GameStateManager {
   setPlayers(players: readonly string[], local: string): void {
     this.creditsLedger.setPlayers(players, local);
     this.researchSeats.length = 0;
+    for (const seat of this.abilitySeats) seat.destroy();
+    this.abilitySeats.length = 0;
+    for (const seat of this.heroSeats) seat.destroy();
+    this.heroSeats.length = 0;
+    const single = players.length === 1;
     for (const id of players) {
-      this.researchSeats.push(this.researchSeat(id, { playerId: id, local: () => id === this.localPlayerId }));
+      const owner: PlayerOwner = { playerId: id, local: () => id === this.localPlayerId };
+      this.researchSeats.push(this.researchSeat(id, owner));
+      const abilities = this.abilitiesFor(owner);
+      abilities.setPhaseProvider(this.phaseNow);
+      this.abilitySeats.push(abilities);
+      this.heroSeats.push(this.heroFor(owner, heroSourceIdFor(id, single)));
     }
+    // Only the local hero is drawn for now
+    if (this.heroView) this.heroManager.setView(this.heroView);
   }
+
+  /** The wave phase, for the abilities (they fire only during a wave) */
+  private readonly phaseNow = () => this.waveManager.phase();
 
   /** What a player may do with a tower (D7); swap it to loosen the rule. */
   towerPolicy: TowerPolicy = OWNER_ONLY;
@@ -519,7 +582,7 @@ export class GameStateManager {
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
     this.enemyManager.setWaveWeightProvider(() => this.waveManager.getExpectedBodyWeight());
     // Abilities fire during a wave only
-    this.abilityManager.setPhaseProvider(() => this.waveManager.phase());
+    for (const seat of this.abilitySeats) seat.setPhaseProvider(this.phaseNow);
 
     this.towerManager.initialize(tilesEngine);
     this.towerManager.setActiveRoutesGetter(() =>
@@ -551,7 +614,8 @@ export class GameStateManager {
     tilesEngine.effects.setScorchGround(this.globalRouteGrid);
     // The hero stands on the route grid's ground like the enemies
     tilesEngine.hero.setGround(this.globalRouteGrid);
-    this.heroManager.setView(tilesEngine.hero);
+    this.heroView = tilesEngine.hero;
+    this.heroManager.setView(this.heroView);
     // The foot of the orbital laser's beam as well
     tilesEngine.orbitalBeams.setGround(this.globalRouteGrid);
 
@@ -764,7 +828,7 @@ export class GameStateManager {
     if (stepsExecuted > 0 && this.tilesEngine?.renderingEnabled) {
       this.enemyManager.presentFrame(this.clock.gameTimeMs);
       this.projectileManager.presentFrame();
-      this.heroManager.presentFrame();
+      for (const seat of this.heroSeats) seat.presentFrame();
     }
 
     // Sync active research progress to store for UI (cheap, batched once/frame)
@@ -800,7 +864,7 @@ export class GameStateManager {
     // visibly run for "one extra frame" at high timescales).
     const isWavePhase = this.waveManager.phase() === 'wave';
     // A pending strike lands in its own wave, never in the setup or the next one
-    if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
+    if (isWavePhase && !this.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
       this.waveManager.endWave();
       if (!this.replaying) this.simRecorder.end(this.clock.subStep);
       this.towerCombat.stopAllBeams();
@@ -879,7 +943,7 @@ export class GameStateManager {
     // The rumbling tail of a strike that already hit, then strike countdowns
     // and impacts, in game time like the research
     this.audioService?.update(stepMs);
-    this.abilityManager.update(stepMs);
+    for (const seat of this.abilitySeats) seat.update(stepMs);
 
     t0 = profiling ? performance.now() : 0;
     this.eventBus.processQueue();
@@ -929,15 +993,14 @@ export class GameStateManager {
       if (profiling) timings.tCombat += performance.now() - t0;
     }
 
-    // The tower the player sits in: turns to the aim and fires, in and between waves
-    const manned = this.towerLifecycle.mannedTower();
-    if (manned) {
+    // The towers the players sit in: turn to the aim and fire, in and between waves
+    for (const [, manned] of this.towerLifecycle.mannedTowers()) {
       const shot = this.towerCombat.updateMannedTower(manned, now, stepMs, this.enemyManager, this.projectileManager);
       if (shot) this.eventBus.emitDeferred({ type: 'tower:manual-shot', towerId: shot.tower.id, target: shot.target });
     }
 
     // Hero: walks and fires in game time, after the enemies moved
-    this.heroManager.update(stepMs);
+    for (const seat of this.heroSeats) seat.update(stepMs);
 
     // Turrets turn in game time towards where the combat above aims them;
     // alignment gates the next shot (isAimAligned)
@@ -971,7 +1034,7 @@ export class GameStateManager {
     if (phase !== 'setup' && phase !== 'gameover') return 'not-setup';
     if (this.enemyManager.getAll().length > 0 || this.enemyDebug.debugEnemies().length > 0) return 'enemies';
     if (this.projectileManager.getAll().length > 0) return 'projectiles';
-    if (this.abilityManager.hasPendingStrikes()) return 'pending-strike';
+    if (this.hasPendingStrikes()) return 'pending-strike';
     if (this.eventBus.hasDeferred) return 'pending-events';
     return null;
   }
@@ -996,10 +1059,13 @@ export class GameStateManager {
       economyPerfectStreak: this.economy.perfectStreak,
       research: this.researchSeats[0].research.getState(),
       researchByPlayer: this.researchSeats.map((seat) => [seat.research.owner.playerId, seat.research.getState()]),
-      abilities: this.abilityManager.getState(),
-      hero: this.heroManager.captureState(),
+      abilities: this.abilitySeats[0].getState(),
+      abilitiesByPlayer: this.abilitySeats.map((seat) => [seat.owner.playerId, seat.getState()]),
+      hero: this.heroSeats[0].captureState(),
+      heroesByPlayer: this.heroSeats.map((seat) => [seat.owner.playerId, seat.captureState()]),
       towers: this.towerManager.getAll().map((tower) => this.saveTower(tower)),
-      mannedTowerId: this.towerLifecycle.mannedTower()?.id ?? null,
+      mannedTowerId: this.towerLifecycle.mannedTower(this.players[0])?.id ?? null,
+      mannedByPlayer: [...this.towerLifecycle.mannedTowers()].map(([playerId, tower]) => [playerId, tower.id]),
       losQueue: this.towerPlacement.queuedLosTowerIds(),
     };
   }
@@ -1047,7 +1113,7 @@ export class GameStateManager {
     this.towerManager.clear();
     this.projectileManager.clear();
     this.waveManager.reset();
-    this.abilityManager.reset();
+    for (const seat of this.abilitySeats) seat.reset();
     this.tilesEngine?.oozes.clear();
 
     // Towers keep their ids: the id counter is set before each is built
@@ -1061,11 +1127,23 @@ export class GameStateManager {
     } else {
       this.researchSeats[0].research.restoreState(snapshot.research);
     }
-    this.abilityManager.restoreState(snapshot.abilities);
-    this.heroManager.restoreState(snapshot.hero);
+    if (snapshot.abilitiesByPlayer) {
+      for (const [id, state] of snapshot.abilitiesByPlayer) this.abilityOf(id).restoreState(state);
+    } else {
+      this.abilitySeats[0].restoreState(snapshot.abilities);
+    }
+    if (snapshot.heroesByPlayer) {
+      for (const [id, state] of snapshot.heroesByPlayer) this.heroOf(id).restoreState(state);
+    } else {
+      this.heroSeats[0].restoreState(snapshot.hero);
+    }
 
-    const manned = snapshot.mannedTowerId ? this.towerManager.getById(snapshot.mannedTowerId) ?? null : null;
-    this.towerLifecycle.restoreManned(manned);
+    const mannedIds: [string, string][] = snapshot.mannedByPlayer
+      ?? (snapshot.mannedTowerId ? [[this.players[0], snapshot.mannedTowerId]] : []);
+    this.towerLifecycle.restoreManned(mannedIds.flatMap(([playerId, towerId]) => {
+      const tower = this.towerManager.getById(towerId);
+      return tower ? [[playerId, tower] as const] : [];
+    }));
     this.towerPlacement.requeueLos(
       snapshot.losQueue.map((id) => this.towerManager.getById(id)).filter((tower): tower is Tower => !!tower),
     );
@@ -1137,7 +1215,7 @@ export class GameStateManager {
     const wave = this.waveManager.waveNumber();
     this.backgroundMusic?.followPhase(phase, wave);
     this.bloodMoonService?.follow(phase, wave);
-    this.abilityManager.announceState();
+    for (const seat of this.abilitySeats) seat.announceState();
   }
 
   /**
@@ -1184,7 +1262,7 @@ export class GameStateManager {
     if (!this.tilesEngine?.renderingEnabled) return;
     this.enemyManager.presentFrame(this.clock.gameTimeMs);
     this.projectileManager.presentFrame();
-    this.heroManager.presentFrame();
+    for (const seat of this.heroSeats) seat.presentFrame();
   }
 
   private setReplayMode(masks: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
@@ -1226,7 +1304,7 @@ export class GameStateManager {
     this.enemyManager.clear();
     this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
     this.towerManager.selectTower(null);
-    this.towerLifecycle.leave();
+    this.towerLifecycle.leaveAll();
 
     // Delegate visual effects to HQDamageService
     this.hqDamage.triggerGameOverEffects();
@@ -1306,7 +1384,7 @@ export class GameStateManager {
     const credits = grantGold ? skippedWavesGold(from + 1, wave - 1) : 0;
     this.waveManager.jumpTo(wave - 1);
     if (credits > 0) this.creditsLedger.addEach(credits, 'wave-jump');
-    this.abilityManager.advanceWaves(skipped);
+    for (const seat of this.abilitySeats) seat.advanceWaves(skipped);
     this.eventBus.emit({ type: 'wave:jumped', from, wave, skipped, credits });
     return true;
   }
@@ -1338,6 +1416,8 @@ export class GameStateManager {
     for (const m of this.subManagers) {
       m.destroy();
     }
+    for (const seat of this.abilitySeats) seat.destroy();
+    for (const seat of this.heroSeats) seat.destroy();
     this.globalRouteGrid.clear();
 
     if (this.tilesEngine) {
@@ -1367,8 +1447,8 @@ export class GameStateManager {
     this.projectileManager.clear();
     this.waveManager.reset();
     for (const seat of this.researchSeats) seat.research.reset();
-    this.abilityManager.reset();
-    this.heroManager.reset();
+    for (const seat of this.abilitySeats) seat.reset();
+    for (const seat of this.heroSeats) seat.reset();
     this.commandLog.clear();
     this.simRecorder.clear();
 
@@ -1408,14 +1488,18 @@ export class GameStateManager {
 
   /**
    * Who gets a kill's gold (D9): the owner of the tower with the killing
-   * hit. The hero, abilities and the dev tools book to the first player
-   * until they have owners of their own (COOP_PLAN C2c); so does a tower
-   * sold before its shot landed.
+   * hit, the owner of the hero or the ability. The dev tools book to the
+   * first player; so does a tower sold before its shot landed.
    */
   private killCreditPlayer(killedBy: KilledBy | null): string {
     if (killedBy?.kind === 'tower') {
       const tower = this.towerManager.getById(killedBy.towerId);
       if (tower) return tower.ownerId;
+    } else if (killedBy?.kind === 'hero') {
+      const heroId = killedBy.heroId ?? HERO_SOURCE_ID;
+      for (const seat of this.heroSeats) if (seat.heroId === heroId) return seat.owner.playerId;
+    } else if (killedBy?.kind === 'ability' && killedBy.ownerId) {
+      return killedBy.ownerId;
     }
     return this.creditsLedger.players[0];
   }
@@ -1466,7 +1550,7 @@ export class GameStateManager {
     return this.towerLifecycle.man(tower);
   }
 
-  /** Out of the manned tower, see TowerLifecycle.leave. */
+  /** The acting player out of their manned tower, see TowerLifecycle.leave. */
   leaveTower(): void {
     this.towerLifecycle.leave();
   }
@@ -1476,9 +1560,9 @@ export class GameStateManager {
     this.towerLifecycle.setTrigger(held);
   }
 
-  /** The tower the player sits in, null when none. */
+  /** The tower the player at this client sits in, null when none. */
   getMannedTower(): Tower | null {
-    return this.towerLifecycle.mannedTower();
+    return this.towerLifecycle.mannedTower(this.localPlayerId);
   }
 
   /**
@@ -1488,7 +1572,7 @@ export class GameStateManager {
    * the tower's rules in the sub-step.
    */
   setMannedAim(heading: number, pitch: number): void {
-    const tower = this.towerLifecycle.mannedTower();
+    const tower = this.towerLifecycle.mannedTower(this.actingPlayerId);
     if (!tower) return;
     tower.manualAim.heading = heading;
     tower.manualAim.pitch = pitch;

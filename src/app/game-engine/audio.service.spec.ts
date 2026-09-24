@@ -34,7 +34,7 @@ describe('AudioService nuclear strike', () => {
     };
     const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
     const impact = () => eventBus.emit({
-      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId: 1,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId: 1,
       target: { lat: 48, lon: 9, height: 310 }, radiusM: 25,
     });
     /** `ms` of game time in sub-steps, as GameStateManager runs them */
@@ -119,7 +119,7 @@ describe('AudioService nuclear strike', () => {
     expect(ABILITY_IMPACT_SOUNDS['nuclear-strike']).toBe(GAME_SOUNDS.nuclearStrike);
     // Stands for an ability added later; the typed table would not compile without its entry
     eventBus.emit({
-      type: 'ability:impact', abilityId: 'later-ability' as never, strikeId: 2,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'later-ability' as never, strikeId: 2,
       target: { lat: 48, lon: 9, height: 310 }, radiusM: 25,
     });
     run(LAST_TAIL_MS);
@@ -171,10 +171,10 @@ describe('AudioService nuclear strike siren', () => {
     };
     const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
     const used = (abilityId: 'nuclear-strike' | 'frost-bomb', strikeId: number) => eventBus.emit({
-      type: 'ability:used', abilityId, strikeId, target: TARGET, radiusM: 25, warningMs: 1500,
+      type: 'ability:used', playerId: 'local', local: true, abilityId, strikeId, target: TARGET, radiusM: 25, warningMs: 1500,
     });
     const impact = (strikeId: number) => eventBus.emit({
-      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId, target: TARGET, radiusM: 25,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId, target: TARGET, radiusM: 25,
     });
     /** createLoop resolves after its awaits */
     const settle = () => new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -291,7 +291,7 @@ describe('AudioService orbital laser burn', () => {
     };
     const service = new AudioService(eventBus, { spatialAudio } as unknown as ThreeTilesEngine);
     const impact = (path: typeof PATH = PATH, strikeId = 1) => eventBus.emit({
-      type: 'ability:impact', abilityId: 'orbital-laser', strikeId, target: path[0], radiusM: 5, path,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'orbital-laser', strikeId, target: path[0], radiusM: 5, path,
     });
     /** `ms` of game time in sub-steps */
     const run = (ms: number) => {
@@ -430,11 +430,11 @@ describe('AudioService nuclear strike missile', () => {
     const service = new AudioService(eventBus, { spatialAudio, towers } as unknown as ThreeTilesEngine);
     const used = (strikeId = 1, launch = true, abilityId: 'nuclear-strike' | 'frost-bomb' = 'nuclear-strike') =>
       eventBus.emit({
-        type: 'ability:used', abilityId, strikeId, target: TARGET, radiusM: 25, warningMs: WARNING_MS,
+        type: 'ability:used', playerId: 'local', local: true, abilityId, strikeId, target: TARGET, radiusM: 25, warningMs: WARNING_MS,
         ...(launch ? { launch: { towerId: 'silo', position: SITE } } : {}),
       });
     const impact = (strikeId = 1) => eventBus.emit({
-      type: 'ability:impact', abilityId: 'nuclear-strike', strikeId, target: TARGET, radiusM: 25,
+      type: 'ability:impact', playerId: 'local', local: true, abilityId: 'nuclear-strike', strikeId, target: TARGET, radiusM: 25,
     });
     /** `ms` of game time in sub-steps */
     const run = (ms: number) => {

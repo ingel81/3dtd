@@ -534,7 +534,7 @@ describe('GameStateManager', () => {
         bus.on('ability:rejected', rejected);
         bus.emit({ type: 'command:use-ability', abilityId: 'nuclear-strike', target: { lat: 48.771, lon: 9.181 } });
         expect(rejected).toHaveBeenCalledWith({
-          type: 'ability:rejected',
+          type: 'ability:rejected', playerId: 'local', local: true,
           abilityId: 'nuclear-strike',
           reason: 'locked',
         });

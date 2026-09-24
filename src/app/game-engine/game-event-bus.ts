@@ -43,8 +43,10 @@ export type LosResolveReason = 'place' | 'upgrade' | 'retrofit';
 /** Who killed an enemy. `null` for a death nobody is credited with. */
 export type KilledBy =
   | { kind: 'tower'; towerId: string }
-  | { kind: 'hero' }
-  | { kind: 'ability' }
+  /** `heroId`: which hero (HeroManager.heroId); absent reads as the single player's */
+  | { kind: 'hero'; heroId?: string }
+  /** `ownerId`: whose ability; absent reads as the first player */
+  | { kind: 'ability'; ownerId?: string }
   | { kind: 'debug' };
 
 /** The parts of a wave's completion gold. */
@@ -178,6 +180,10 @@ export type GameEvent =
        */
       type: 'tower:manned';
       towerId: string | null;
+      /** Who got in or out (docs/COOP_PLAN.md, D12) */
+      playerId: string;
+      /** The player at this client: their camera and HUD follow */
+      local: boolean;
     }
   | {
       /**
@@ -382,6 +388,10 @@ export type GameEvent =
        * lands on `target` after `warningMs`.
        */
       launch?: { towerId: string; position: GeoPosition };
+      /** Whose ability (docs/COOP_PLAN.md, D11) */
+      playerId: string;
+      /** The ability of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       // The strike landed: drives its effects, sound and screen shake. A
@@ -393,6 +403,10 @@ export type GameEvent =
       radiusM: number;
       /** A beam: the route stretch it burns along, as in ability:used */
       path?: readonly GeoPosition[];
+      /** Whose ability (docs/COOP_PLAN.md, D11) */
+      playerId: string;
+      /** The ability of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       // The strike is over, it hits and kills nothing more. `kills` count
@@ -403,11 +417,19 @@ export type GameEvent =
       strikeId: number;
       hits: number;
       kills: number;
+      /** Whose ability (docs/COOP_PLAN.md, D11) */
+      playerId: string;
+      /** The ability of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       type: 'ability:rejected';
       abilityId: AbilityId;
       reason: AbilityRejectReason;
+      /** Whose ability (docs/COOP_PLAN.md, D11) */
+      playerId: string;
+      /** The ability of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       // Snapshot after every AbilityManager mutation (unlock, use, impact,
@@ -416,6 +438,10 @@ export type GameEvent =
       abilities: AbilityStatus[];
       /** Sent by a snapshot restore or a replay's seek: a new baseline, no change the player made */
       restored?: true;
+      /** Whose ability (docs/COOP_PLAN.md, D11) */
+      playerId: string;
+      /** The ability of the player at this client, the one the UI shows */
+      local: boolean;
     }
 
   // ==================== Ability Commands ====================
@@ -434,16 +460,26 @@ export type GameEvent =
       // fairness gate it is a kill like a tower's, not a leak.
       type: 'hero:kill';
       enemy: Enemy;
+      /** Which hero (HeroManager.heroId); absent reads as the single player's */
+      heroId?: string;
     }
   | {
       // His kills took him to `level`
       type: 'hero:level-up';
       level: number;
       position: GeoPosition;
+      /** Whose hero (docs/COOP_PLAN.md, D10) */
+      playerId: string;
+      /** The hero of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       type: 'hero:rejected';
       reason: HeroRejectReason;
+      /** Whose hero (docs/COOP_PLAN.md, D10) */
+      playerId: string;
+      /** The hero of the player at this client, the one the UI shows */
+      local: boolean;
     }
   | {
       // Snapshot after every HeroManager mutation the UI shows (unlock, hire,
@@ -453,6 +489,10 @@ export type GameEvent =
       hero: HeroStatus;
       /** Sent by a snapshot restore: a new baseline, no change the player made */
       restored?: true;
+      /** Whose hero (docs/COOP_PLAN.md, D10) */
+      playerId: string;
+      /** The hero of the player at this client, the one the UI shows */
+      local: boolean;
     }
 
   // ==================== Hero Commands ====================

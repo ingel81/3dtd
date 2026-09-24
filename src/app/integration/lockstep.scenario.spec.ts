@@ -483,3 +483,104 @@ describe('Coop research per player (COOP_PLAN C2b)', () => {
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 });
+
+describe('Coop hero, abilities and manned towers per player (COOP_PLAN C2c)', () => {
+  const mathRandom = Math.random;
+  afterEach(() => {
+    Math.random = mathRandom;
+  });
+
+  function pair() {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const step = (frames = 3) => {
+      for (let i = 0; i < frames; i++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+      }
+    };
+    return { a, b, step };
+  }
+
+  it('gives each player a hero and abilities of their own, and their kills gold', () => {
+    const { a, b, step } = pair();
+    const earned = new Map<string, number>();
+    const byKiller = new Map<string, number>();
+    const bus = a.gsm.getEventBus();
+    bus.on('credits:changed', (e) => {
+      if (e.source === 'kill') earned.set(e.playerId, (earned.get(e.playerId) ?? 0) + e.delta);
+    });
+    bus.on('enemy:died', (e) => {
+      if (e.credits <= 0 || !e.killedBy) return;
+      let owner: string;
+      if (e.killedBy.kind === 'tower') owner = a.gsm.towerManager.getById(e.killedBy.towerId)!.ownerId;
+      else if (e.killedBy.kind === 'hero') owner = e.killedBy.heroId === 'hero:a' ? 'a' : 'b';
+      else if (e.killedBy.kind === 'ability') owner = e.killedBy.ownerId!;
+      else return;
+      byKiller.set(owner, (byKiller.get(owner) ?? 0) + e.credits);
+    });
+
+    a.emit({ type: 'debug:ready-hero' });
+    b.emit({ type: 'debug:ready-hero' });
+    a.emit({ type: 'debug:ready-ability', abilityId: 'frost-bomb' });
+    step();
+    expect(a.gsm.heroOf('a').getHero()).not.toBeNull();
+    expect(a.gsm.heroOf('b').getHero()).not.toBeNull();
+    expect(a.gsm.heroOf('a').heroId).not.toBe(a.gsm.heroOf('b').heroId);
+    // Each client shows its own player's
+    expect(a.gsm.heroManager.owner.playerId).toBe('a');
+    expect(b.gsm.heroManager.owner.playerId).toBe('b');
+    const chargesB = a.gsm.abilityOf('b').getStatus('frost-bomb').charges;
+
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    let waved = false;
+    let used = false;
+    for (let f = 0; f < 20000; f++) {
+      step(1);
+      const phase = a.gsm.waveManager.phase();
+      if (phase === 'wave') waved = true;
+      else if (waved) break;
+      if (waved && !used && a.gsm.enemyManager.getAll().length > 6) {
+        const target = a.gsm.enemyManager.getAll()[0].position;
+        a.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: { lat: target.lat, lon: target.lon } });
+        used = true;
+      }
+    }
+    expect(used).toBe(true);
+    expect(a.gsm.abilityOf('b').getStatus('frost-bomb').charges).toBe(chargesB);
+    expect(earned.get('a')).toBeGreaterThan(0);
+    expect(earned.get('b')).toBeGreaterThan(0);
+    expect(earned).toEqual(byKiller);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+  });
+
+  it('lets each player sit in a tower of their own at the same time', () => {
+    const { a, b, step } = pair();
+    const [towerA, towerB] = a.world.towers; // owned by a and b in turn
+    a.emit({ type: 'command:man-tower', towerId: towerA.id });
+    b.emit({ type: 'command:man-tower', towerId: towerA.id }); // A's tower: refused
+    step();
+    expect(a.gsm.getMannedTower()?.id).toBe(towerA.id);
+    expect(b.gsm.getMannedTower()).toBeNull();
+
+    b.emit({ type: 'command:man-tower', towerId: towerB.id });
+    b.emit({ type: 'command:tower-aim', heading: 1.25, pitch: 0.1 });
+    a.emit({ type: 'command:tower-aim', heading: -0.5, pitch: 0 });
+    step();
+    expect(b.gsm.getMannedTower()?.id).toBe(towerB.id);
+    const mirrorA = b.gsm.towerManager.getById(towerA.id)!;
+    const mirrorB = a.gsm.towerManager.getById(towerB.id)!;
+    expect(mirrorA.manned && mirrorB.manned).toBe(true);
+    expect(mirrorA.manualAim.heading).toBe(-0.5);
+    expect(mirrorB.manualAim.heading).toBe(1.25);
+
+    a.emit({ type: 'command:leave-tower' });
+    step();
+    expect(a.gsm.getMannedTower()).toBeNull();
+    expect(a.gsm.towerManager.getById(towerB.id)!.manned).toBe(true);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+  });
+});

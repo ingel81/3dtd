@@ -65,8 +65,9 @@ export class OnboardingService {
     }));
     this.subs.add(bus.onLive('research:started', (e) => { if (e.local) this.play({ kind: 'research-started' }); }));
     this.subs.add(bus.onLive('wave:started', () => this.play({ kind: 'wave-started' })));
-    this.subs.add(bus.onLive('ability:used', () => this.play({ kind: 'ability-used' })));
+    this.subs.add(bus.onLive('ability:used', (e) => { if (e.local) this.play({ kind: 'ability-used' }); }));
     this.subs.add(bus.onLive('hero:state-changed', (e) => {
+      if (!e.local) return;
       this.updateProgress({ heroUnlocked: e.hero.unlocked });
       if (e.hero.hired) this.play({ kind: 'hero-hired' });
     }));
@@ -77,6 +78,7 @@ export class OnboardingService {
     this.subs.add(bus.onLive('research:state-changed', (e) => { if (e.local) this.updateProgress({ centerPlaced: e.centerLevel > 0 }); }));
     // The abilities with a button in the bar: researched, and launch site standing
     this.subs.add(bus.onLive('ability:state-changed', (e) => {
+      if (!e.local) return;
       this.updateProgress({ abilities: e.abilities.filter((a) => a.unlocked && a.launchSite).map((a) => a.id) });
     }));
     this.subs.add(bus.onLive('game:reset', () => this.newGame()));

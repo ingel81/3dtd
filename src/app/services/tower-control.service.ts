@@ -121,7 +121,7 @@ export class TowerControlService {
       // Out of the tower, however that came (C, Esc, sold, game over, restart,
       // a new place): the camera comes back at once, before a new place frames it
       bus.onLive('tower:manned', (event) => {
-        if (event.towerId === null && this.pose) this.cleanUp();
+        if (event.local && event.towerId === null && this.pose) this.cleanUp();
       }),
     ];
     inject(DestroyRef).onDestroy(() => {
@@ -246,7 +246,7 @@ export class TowerControlService {
     }
     camera.updateMatrixWorld();
 
-    const onTarget = this.towerCombat.mannedAimTarget !== null;
+    const onTarget = this.towerCombat.mannedAimTargetOf(tower.id) !== null;
     if (onTarget !== this.onTarget()) this.onTarget.set(onTarget);
     const interval = tower.combat.fireRate > 0 ? 1000 / tower.combat.fireRate : 1;
     const reload = Math.round((1 - tower.combat.cooldownRemaining / interval) * 20) / 20;

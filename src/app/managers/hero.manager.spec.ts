@@ -135,19 +135,19 @@ describe('HeroManager', () => {
       expect(manager.getStatus()).toMatchObject({ unlocked: false, hired: false });
       credits = HERO.cost;
       expect(manager.hire()).toBe(false);
-      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'locked' });
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'locked' });
       expect(credits).toBe(HERO.cost);
 
       unlock();
       expect(manager.getStatus().unlocked).toBe(true);
-      expect(events.at(-1)).toMatchObject({ type: 'hero:state-changed', hero: { unlocked: true, hired: false } });
+      expect(events.at(-1)).toMatchObject({ type: 'hero:state-changed', playerId: 'local', local: true, hero: { unlocked: true, hired: false } });
     });
 
     it('costs the price once and puts him on the route next to the HQ', () => {
       unlock();
       credits = HERO.cost - 1;
       expect(manager.hire()).toBe(false);
-      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'credits' });
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'credits' });
       expect(manager.getHero()).toBeNull();
 
       credits = HERO.cost + 50;
@@ -157,13 +157,13 @@ describe('HeroManager', () => {
       expect(manager.getStatus()).toMatchObject({ hired: true, level: 1, kills: 0, mode: 'hold' });
 
       expect(manager.hire()).toBe(false);
-      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'hired' });
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'hired' });
       expect(credits).toBe(50);
     });
 
     it('refuses a move order before the hire', () => {
       expect(manager.moveTo(at(0, 100))).toBe(false);
-      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'no-hero' });
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'no-hero' });
     });
   });
 
@@ -191,12 +191,12 @@ describe('HeroManager', () => {
       tick(20);
       expect(manager.getStatus().mode).toBe('hold');
       expect(heroAt()).toEqual({ x: -100, z: 150 });
-      expect(events.at(-1)).toMatchObject({ type: 'hero:state-changed', hero: { mode: 'hold' } });
+      expect(events.at(-1)).toMatchObject({ type: 'hero:state-changed', playerId: 'local', local: true, hero: { mode: 'hold' } });
     });
 
     it('refuses a spot farther than 30 m from any route and keeps his post', () => {
       expect(manager.moveTo(at(40, 100))).toBe(false);
-      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'no-route' });
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'no-route' });
       expect(local(manager.getAnchor()!)).toEqual({ x: 0, z: 300 });
       expect(manager.resolveMoveTarget(at(40, 100))).toBeNull();
       expect(local(manager.resolveMoveTarget(at(25, 100))!)).toEqual({ x: 0, z: 100 });
@@ -407,7 +407,7 @@ describe('HeroManager', () => {
       enemies.push(enemyAt('target', 0, 290));
       expect(manager.setAmmo('explosive')).toBe(true);
       expect(manager.getStatus().ammo).toBe('explosive');
-      expect(events.at(-1)).toMatchObject({ type: 'hero:state-changed', hero: { ammo: 'explosive' } });
+      expect(events.at(-1)).toMatchObject({ type: 'hero:state-changed', playerId: 'local', local: true, hero: { ammo: 'explosive' } });
 
       tick(120); // 2 s at 1.5 shots a second
       expect(shots).toHaveLength(3);
@@ -433,10 +433,10 @@ describe('HeroManager', () => {
 
     it('refuses an unknown ammo and a switch before the hire', () => {
       expect(manager.setAmmo('laser' as never)).toBe(false);
-      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'unknown-ammo' });
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'unknown-ammo' });
       manager.reset();
       expect(manager.setAmmo('rune')).toBe(false);
-      expect(events.at(-1)).toEqual({ type: 'hero:rejected', reason: 'no-hero' });
+      expect(events.at(-1)).toEqual({ type: 'hero:rejected', playerId: 'local', local: true, reason: 'no-hero' });
     });
 
     it('starts the next run with standard rounds', () => {
@@ -459,7 +459,7 @@ describe('HeroManager', () => {
       kill(1);
       expect(manager.getStatus()).toMatchObject({ level: 2, kills: 30, xp: 0, xpToNext: 70 });
       expect(events.filter((e) => e.type === 'hero:level-up')).toEqual([
-        expect.objectContaining({ type: 'hero:level-up', level: 2 }),
+        expect.objectContaining({ type: 'hero:level-up', playerId: 'local', local: true, level: 2 }),
       ]);
       kill(470);
       expect(manager.getStatus()).toMatchObject({ level: 5, kills: 500, xpToNext: null });
