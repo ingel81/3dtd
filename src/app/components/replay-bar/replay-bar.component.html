@@ -1,6 +1,22 @@
-<div class="td-replay-bar" role="toolbar" aria-label="Replay of the last wave">
+<div class="td-replay-bar" role="toolbar" aria-label="Replay of a wave">
   <div class="td-replay-row">
-    <span class="td-replay-title">Replay <span class="td-replay-wave">Wave {{ replay.wave() }}</span></span>
+    <span class="td-replay-title">
+      Replay
+      <button type="button" class="td-replay-wave-step" aria-label="Previous wave"
+              [disabled]="!hasPrevious()" (click)="replay.switchWave(-1)">
+        <td-icon name="caretL" [size]="12"></td-icon>
+      </button>
+      <span class="td-replay-wave">Wave {{ replay.wave() }}</span>
+      <button type="button" class="td-replay-wave-step" aria-label="Next wave"
+              [disabled]="!hasNext()" (click)="replay.switchWave(1)">
+        <td-icon name="caretR" [size]="12"></td-icon>
+      </button>
+    </span>
+    @if (replay.divergedAtMs() !== null) {
+      <span class="td-replay-diverged" role="status"
+            matTooltip="From here the replay no longer matches the game that was played. A bug: please report it with the run file."
+            matTooltipPosition="above">differs from {{ divergedAt() }}</span>
+    }
     <span class="td-replay-stats">
       <span class="td-replay-stat" matTooltip="HQ health at this moment" matTooltipPosition="above">
         <td-icon name="heart" [size]="12" ariaLabel="HQ health"></td-icon>{{ replay.baseHealth() }}

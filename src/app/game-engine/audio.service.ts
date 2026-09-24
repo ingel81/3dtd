@@ -144,14 +144,14 @@ export class AudioService {
    * Setup event handlers for audio events
    */
   private setupEventHandlers(): void {
-    this.subs.add(this.eventBus.on('audio:play', (event) => {
+    this.subs.add(this.eventBus.onShow('audio:play', (event) => {
       this.handleAudioPlay(event);
     }));
 
     // The warning of a strike on its way (the nuclear strike's siren), at
     // its target until it lands; fired from a building, its launch there and
     // the missile's engine and dive, see update()
-    this.subs.add(this.eventBus.on('ability:used', ({ abilityId, strikeId, target, warningMs, launch }) => {
+    this.subs.add(this.eventBus.onShow('ability:used', ({ abilityId, strikeId, target, warningMs, launch }) => {
       const sound = ABILITY_IMPACT_SOUNDS[abilityId];
       if (sound?.warning) {
         this.warnings.set(strikeId, this.startLoop({ handle: null, ended: false }, sound.warning.id, this.localOnGround(target)));
@@ -161,7 +161,7 @@ export class AudioService {
 
     // The ability's own impact sound at the impact point, then its tail
     // (the nuclear strike's rolls of rumble) and a beam's burn, see update()
-    this.subs.add(this.eventBus.on('ability:impact', ({ abilityId, strikeId, target, path }) => {
+    this.subs.add(this.eventBus.onShow('ability:impact', ({ abilityId, strikeId, target, path }) => {
       this.endWarning(strikeId);
       this.endLaunch(strikeId);
       const sound = ABILITY_IMPACT_SOUNDS[abilityId];
@@ -175,7 +175,7 @@ export class AudioService {
       if (sound.beam && path && path.length > 0) this.startBeam(abilityId, sound.beam, path);
     }));
     // A restart drops what is still to come and ends the loops
-    this.subs.add(this.eventBus.on('game:reset', () => this.clearAbilitySounds()));
+    this.subs.add(this.eventBus.onShow('game:reset', () => this.clearAbilitySounds()));
   }
 
   /**

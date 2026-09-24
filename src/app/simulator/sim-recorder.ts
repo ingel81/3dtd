@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import type { WaveConfig } from '../managers/wave.manager';
 import type { SimSnapshot, SnapshotRefusal } from './sim-snapshot';
 import { STATE_HASH_INTERVAL } from './state-hash';
@@ -47,6 +48,9 @@ export class SimRecorder {
   private readonly list: WaveRecord[] = [];
   private current: WaveRecord | null = null;
 
+  /** The newest wave a replay can show (replayable), null while there is none */
+  readonly latestReplayable = signal<number | null>(null);
+
   get records(): readonly WaveRecord[] {
     return this.list;
   }
@@ -76,8 +80,16 @@ export class SimRecorder {
   }
 
   end(step: number): void {
-    if (this.current) this.current.endStep = step;
+    if (this.current) {
+      this.current.endStep = step;
+      if (replayable(this.current)) this.latestReplayable.set(this.current.wave);
+    }
     this.current = null;
+  }
+
+  /** The waves a replay can show, oldest first. */
+  replayableWaves(): number[] {
+    return this.list.filter(replayable).map((record) => record.wave);
   }
 
   /** The running wave went past the log (see WaveRecord.tainted). */
@@ -88,5 +100,11 @@ export class SimRecorder {
   clear(): void {
     this.list.length = 0;
     this.current = null;
+    this.latestReplayable.set(null);
   }
+}
+
+/** Finished, with a snapshot, nothing past the log: a re-simulation can show it. */
+export function replayable(record: WaveRecord): boolean {
+  return record.snapshot !== null && record.tainted === null && record.endStep !== null;
 }

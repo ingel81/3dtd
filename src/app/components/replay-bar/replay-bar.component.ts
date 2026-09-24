@@ -6,8 +6,9 @@ import { formatReplaySpeed, formatReplayTime } from '../../replay/replay-bar-vie
 
 /**
  * The bar of the wave replay (docs/REPLAY.md, DESIGN_SYSTEM.md "Replay"):
- * title with the HQ health and the enemies on the route at that moment,
- * Exit; play and pause, the progress bar to scrub with the player's
+ * title with the wave (to step to the one before or after), a note when the
+ * replay stopped matching the game, the HQ health and the enemies on the
+ * route at that moment, Exit; play and pause, the progress bar to scrub with the player's
  * commands as ticks, the time, the speeds. Everything goes through
  * ReplayService.
  */
@@ -45,6 +46,17 @@ export class ReplayBarComponent {
   });
 
   readonly speedLabel = formatReplaySpeed;
+
+  /** A wave before or after the shown one can be replayed */
+  readonly hasPrevious = computed(() => this.replay.waves().indexOf(this.replay.wave()) > 0);
+  readonly hasNext = computed(() => {
+    const waves = this.replay.waves();
+    const at = waves.indexOf(this.replay.wave());
+    return at >= 0 && at < waves.length - 1;
+  });
+
+  /** Where the replay stopped matching the game, m:ss */
+  readonly divergedAt = computed(() => formatReplayTime(this.replay.divergedAtMs() ?? 0));
 
   onScrub(event: Event): void {
     this.replay.seek(Number((event.target as HTMLInputElement).value));

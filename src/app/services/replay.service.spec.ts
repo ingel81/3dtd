@@ -19,16 +19,17 @@ vi.mock('./infrastructure/engine-initialization.service', () => ({
 }));
 vi.mock('../replay/replay-bar-view', () => ({ commandMarkers: () => [] }));
 
-// The players the service builds, standing in for the engine-bound ReplayPlayer
+// The sessions the service builds, standing in for the re-simulating ReplaySession
 const players = vi.hoisted(() => [] as { enter: () => void }[]);
-vi.mock('../replay/replay-player', () => ({
-  ReplayPlayer: class ReplayPlayer {
+vi.mock('../simulator/replay-session', () => ({
+  ReplaySession: class ReplaySession {
+    wave = 3;
     currentMs = 0;
     durationMs = 1000;
-    isPlaying = false;
-    currentSpeed = 1;
-    baseHealth = 100;
-    enemiesAlive = 0;
+    playing = false;
+    speed = 1;
+    divergedAt = null;
+    record = { startStep: 0 };
     setSpeed = vi.fn();
     enter = vi.fn();
     exit = vi.fn();
@@ -103,11 +104,17 @@ describe('ReplayService.enter gate', () => {
         {
           provide: GameStateManager,
           useValue: {
-            replayRecorder: { readyWave: recordedWave, recording: { wave: 3 } },
+            simRecorder: {
+              latestReplayable: recordedWave,
+              get: (wave: number) => ({ wave, startStep: 0, endStep: 100 }),
+              replayableWaves: () => [3],
+            },
+            commandLog: { entries: [] },
+            snapshotRefusal: () => null,
+            baseHealth: () => 100,
+            enemyManager: { aliveCount: () => 0 },
             paused: signal(false),
             towerManager: { selectTower: vi.fn() },
-            heroManager: { presentFrame: vi.fn() },
-            getGlobalRouteGrid: () => ({ getGroundLocalYAt: () => 0 }),
           },
         },
         { provide: TowerPlacementService, useValue: { buildMode: signal(false) } },
@@ -155,9 +162,9 @@ describe('ReplayService.enter gate', () => {
     expect(paused()).toBe(true);
   });
 
-  it('offers the player no button while REPLAY_CONFIG.offered is off, and starts from code still', () => {
+  it('offers the player the button while REPLAY_CONFIG.offered is on', () => {
     expect(service.available()).toBe(true);
-    expect(service.offered()).toBe(false);
+    expect(service.offered()).toBe(true);
 
     service.enter();
     expect(service.active()).toBe(true);

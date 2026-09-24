@@ -18,10 +18,10 @@ export class BloodMoonService {
     private readonly eventBus: GameEventBus,
     private readonly look: Pick<BloodMoonLook, 'setActive'>,
   ) {
-    this.subs.add(this.eventBus.on('wave:started', ({ wave }) => this.look.setActive(isBloodMoonWave(wave))));
-    this.subs.add(this.eventBus.on('wave:completed', () => this.look.setActive(false)));
-    this.subs.add(this.eventBus.on('game:over', () => this.look.setActive(false)));
-    this.subs.add(this.eventBus.on('game:reset', () => this.look.setActive(false, true)));
+    this.subs.add(this.eventBus.onShow('wave:started', ({ wave }) => this.look.setActive(isBloodMoonWave(wave))));
+    this.subs.add(this.eventBus.onShow('wave:completed', () => this.look.setActive(false)));
+    this.subs.add(this.eventBus.onShow('game:over', () => this.look.setActive(false)));
+    this.subs.add(this.eventBus.onShow('game:reset', () => this.look.setActive(false, true)));
   }
 
   destroy(): void {

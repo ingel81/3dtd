@@ -757,6 +757,8 @@ export class GameEventBus {
 
   /** See onLive() */
   private liveMuted = false;
+  /** See onShow() */
+  private showMuted = false;
 
   /**
    * Subscribe to ALL events (for debugging/monitoring)
@@ -828,6 +830,28 @@ export class GameEventBus {
     return this.on(eventType, (event) => {
       if (!this.liveMuted) handler(event);
     });
+  }
+
+  /**
+   * Subscribe a listener that shows the game (VFX, sounds, music, screen
+   * shake, the blood moon look). It hears the live game and a replay alike,
+   * but not while a replay seeks (setShowMuted): the fast-forward to the
+   * point sought runs thousands of sub-steps in one frame, and their sounds
+   * and effects all at once would be noise, not a picture. Same place in the
+   * order as on().
+   */
+  onShow<T extends GameEvent['type']>(
+    eventType: T,
+    handler: (event: GameEventMap[T]) => void
+  ): EventSubscription {
+    return this.on(eventType, (event) => {
+      if (!this.showMuted) handler(event);
+    });
+  }
+
+  /** See onShow(): true while a replay fast-forwards. */
+  setShowMuted(muted: boolean): void {
+    this.showMuted = muted;
   }
 
   /** See onLive(): true while a replay re-simulates. */

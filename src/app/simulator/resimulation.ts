@@ -87,9 +87,11 @@ export class Resimulation {
   start(): void {
     const record = this.record;
     this.collectMasks();
-    this.host.restoreSnapshot(record.snapshot!);
+    // Replay mode first: the restore sends events of its own (out of the
+    // manned tower), which the live listeners must not hear either
     this.host.setReplayMode((towerId, reason) => this.masks.get(`${towerId}|${reason}`)?.shift() ?? null);
     this.host.setBoundaryListener((boundary, hash) => this.checkHash(boundary, hash));
+    this.host.restoreSnapshot(record.snapshot!);
     this.host.startWave(record.config);
     this.cursor = record.logStart;
     this.divergedAt = null;
@@ -119,7 +121,10 @@ export class Resimulation {
     while (this.stepInWave < target && this.step()) { /* next sub-step */ }
   }
 
-  /** Replay mode off; the caller restores what the live game had. */
+  /**
+   * Replay mode off. Restore what the live game had before, while the mode is
+   * still on, so the live listeners hear nothing of it (ReplaySession.exit).
+   */
   end(): void {
     this.host.setBoundaryListener(null);
     this.host.setReplayMode(null);

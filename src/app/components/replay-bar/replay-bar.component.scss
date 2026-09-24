@@ -239,3 +239,40 @@
     justify-content: flex-end;
   }
 }
+
+// Step to the wave before or after, next to the wave's name
+.td-replay-wave-step {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin: 0 2px;
+  padding: 0;
+  vertical-align: middle;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  color: var(--td-text-muted);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    color: var(--td-gold-light);
+  }
+
+  &:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+
+  &:focus-visible {
+    outline: 1px solid var(--td-teal-light);
+    outline-offset: 1px;
+  }
+}
+
+// The replay stopped matching the game that was played: a bug, shown plainly
+.td-replay-diverged {
+  font-size: 10px;
+  color: var(--td-warn-orange);
+  white-space: nowrap;
+}

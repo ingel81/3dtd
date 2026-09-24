@@ -442,11 +442,6 @@ export class ThreeEffectsRenderer {
     return this.particleEffects.groundMarkTint;
   }
 
-  /** No new ground marks while `held` (wave replay), see ParticleEffectsRenderer.holdGroundMarks. */
-  holdGroundMarks(held: boolean): void {
-    this.particleEffects.holdGroundMarks(held);
-  }
-
   /** Whether impact effects are spawned (VFX settings). */
   get impactEffectsEnabled(): boolean {
     return this.particleEffects.impactEffectsEnabled;

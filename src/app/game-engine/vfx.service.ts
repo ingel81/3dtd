@@ -89,22 +89,22 @@ export class VFXService {
    */
   private setupEventHandlers(): void {
     // Projectile impact effects
-    this.subs.add(this.eventBus.on('vfx:projectile-impact', (event) => {
+    this.subs.add(this.eventBus.onShow('vfx:projectile-impact', (event) => {
       this.handleProjectileImpact(event);
     }));
 
     // Blood effects
-    this.subs.add(this.eventBus.on('vfx:blood', (event) => {
+    this.subs.add(this.eventBus.onShow('vfx:blood', (event) => {
       this.handleBloodEffect(event.position, event.intensity, event.skipGroundDecal, event.color);
     }));
 
     // Muzzle flash on tower fire (projectile towers only)
-    this.subs.add(this.eventBus.on('vfx:muzzle-flash', (event) => {
+    this.subs.add(this.eventBus.onShow('vfx:muzzle-flash', (event) => {
       this.handleMuzzleFlash(event.towerId, event.towerTypeId);
     }));
 
     // Chain-lightning bolts: spawn one bolt per segment (tip→primary→jump→…)
-    this.subs.add(this.eventBus.on('vfx:chain-lightning', (event) => {
+    this.subs.add(this.eventBus.onShow('vfx:chain-lightning', (event) => {
       this.handleChainLightning(event.points);
     }));
 
@@ -114,7 +114,7 @@ export class VFXService {
     // collapses (OozeBandRenderer.collapse), so no burst at its tip. A parent
     // that bleeds (the ooze breaking into clumps along its body) splashes in
     // its blood colour where each piece lands.
-    this.subs.add(this.eventBus.on('enemy:split', ({ enemy, children }) => {
+    this.subs.add(this.eventBus.onShow('enemy:split', ({ enemy, children }) => {
       if (!enemy.typeConfig.ooze) {
         const height = enemy.transform.terrainHeight + enemy.heightOffset + 1;
         this.tilesEngine.effects.spawnBurstAtGeo(
@@ -139,22 +139,22 @@ export class VFXService {
     }));
 
     // Abilities: what each one shows, see abilityVfx
-    this.subs.add(this.eventBus.on('ability:used', (event) => {
+    this.subs.add(this.eventBus.onShow('ability:used', (event) => {
       this.abilityVfx[event.abilityId]?.used(event);
     }));
-    this.subs.add(this.eventBus.on('ability:impact', (event) => {
+    this.subs.add(this.eventBus.onShow('ability:impact', (event) => {
       this.abilityVfx[event.abilityId]?.impact(event);
     }));
     // The building an ability launches from shows its missile while a charge
     // is ready and no strike is on its way (launchSiteLoaded)
-    this.subs.add(this.eventBus.on('ability:state-changed', ({ abilities }) => {
+    this.subs.add(this.eventBus.onShow('ability:state-changed', ({ abilities }) => {
       for (const status of abilities) this.showLoaded(status.id, launchSiteLoaded(status));
     }));
     // A restart drops the markers, the missiles and the clouds
-    this.subs.add(this.eventBus.on('game:reset', () => this.clearStrikes()));
+    this.subs.add(this.eventBus.onShow('game:reset', () => this.clearStrikes()));
 
     // Hero level-up: "LEVEL N" in gold rising from his head
-    this.subs.add(this.eventBus.on('hero:level-up', (event) => this.handleHeroLevelUp(event.level)));
+    this.subs.add(this.eventBus.onShow('hero:level-up', (event) => this.handleHeroLevelUp(event.level)));
   }
 
   private handleHeroLevelUp(level: number): void {

@@ -277,7 +277,7 @@ export class BackgroundMusicService {
   private setupEventHandlers(): void {
     // Wave started → a wave track, the boss's on a boss wave, the blood moon's on its waves
     this.subs.add(
-      this.eventBus.on('wave:started', ({ wave }) => {
+      this.eventBus.onShow('wave:started', ({ wave }) => {
         this.currentWave = wave;
         this.playWavePhase();
       }),
@@ -286,20 +286,20 @@ export class BackgroundMusicService {
     // Big sounds duck the music instead of pumping the shared limiter
     const { duck } = BACKGROUND_MUSIC;
     this.subs.add(
-      this.eventBus.on('ability:impact', ({ abilityId }) => {
+      this.eventBus.onShow('ability:impact', ({ abilityId }) => {
         const d = abilityId === 'nuclear-strike' ? duck.nuclearStrike : duck.abilityImpact;
         this.mixer.duck(d.factor, d.holdMs, duck.releaseMs);
       }),
     );
     this.subs.add(
-      this.eventBus.on('health:changed', ({ delta }) => {
+      this.eventBus.onShow('health:changed', ({ delta }) => {
         if (delta < 0) this.mixer.duck(duck.hqDamage.factor, duck.hqDamage.holdMs, duck.releaseMs);
       }),
     );
 
     // Wave completed → the wave music fades under the horn, then build music (waveEnd)
     this.subs.add(
-      this.eventBus.on('wave:completed', () => {
+      this.eventBus.onShow('wave:completed', () => {
         this.endWavePhase();
       }),
     );
@@ -307,7 +307,7 @@ export class BackgroundMusicService {
     // Game over → the wave music fades, the HQ's destruction and the stinger
     // play (GameSoundsService), then the game-over track
     this.subs.add(
-      this.eventBus.on('game:over', () => {
+      this.eventBus.onShow('game:over', () => {
         this.fadeOutAndStop();
         this.clearPhaseTimers();
         this.gameOverTimer = setTimeout(() => {
@@ -320,7 +320,7 @@ export class BackgroundMusicService {
     // Game reset (restart, new location) → back to build music. Not while
     // the main theme is still up: the end of loading hands over from it.
     this.subs.add(
-      this.eventBus.on('game:reset', () => {
+      this.eventBus.onShow('game:reset', () => {
         if (this.mainThemePending()) return;
         this.playBuildPhase();
       }),
