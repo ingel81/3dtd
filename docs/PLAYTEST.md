@@ -86,11 +86,11 @@ Paket 1, das Replay selbst:
   sofort richtig da (höchstens etwa eine Sekunde Warten), kein Knall von hundert Sounds auf einmal.
   **Befund (2026-09-24)**: Springen selbst ok, aber durch mehrfaches Hin und Her ließen sich die Effekte der
   Fähigkeiten (Orbital-Laser) mehrfach auf den Schirm bringen. Behoben: das Replay räumt beim Betreten, Verlassen und
-  Springen alle Schlag-Effekte ab (`clearStrikeEffects`). Nachtest offen.
+  Springen alle Schlag-Effekte ab (`clearStrikeEffects`). Nachtest **ok (2026-09-24)**.
 - **R3 Wellen wechseln**: In der Leiste die Pfeile neben "Wave 3". Erwartung: Welle 2 und 1 spielen ebenso.
   **Befund (2026-09-24)**: Wechsel klappt, aber Tower aus Welle 3 standen auch in Welle 2 und 1 (ohne
   mitzukämpfen). Die Snapshots waren richtig (Replay-Datei geprüft: 2, 4, 5 Tower); Modelle, die erst nach dem
-  Entfernen ihres Towers fertig luden, blieben verwaist stehen. Behoben im Tower-Renderer. Nachtest offen.
+  Entfernen ihres Towers fertig luden, blieben verwaist stehen. Behoben im Tower-Renderer. Nachtest **ok (2026-09-24)**.
 - **R4 Zurück ins Spiel**: Esc. Erwartung: Tower, Credits, HP, Forschung, Held, Kamera wie vorher; die nächste Welle
   startet normal; das HUD zeigt dieselben Zahlen wie vor dem Replay.
   **ok (2026-09-24)**
@@ -100,21 +100,30 @@ Art, alle behoben: Nach Springen oder Verlassen soll stimmen, was man sieht und 
 - **R2b Nach dem Springen**: Während Feuer-Tower brennen, Gegner eingefroren oder vergiftet sind, hin und her
   springen. Erwartung: Die Glut in den Feuer-Towern bleibt, Frost- und Giftauren sind da, das HQ-Feuer (unter 50 % HP)
   brennt, kein Glöckchen beim Zurückspringen über eine Fähigkeit.
+  **ok (2026-09-24)**
 - **R4b Nach dem Verlassen**: Mitten in der Welle Esc. Erwartung: Aufbau-Musik statt Wellenmusik, kein roter Himmel
   nach einer Blutmondwelle, ein Tower auf Feuerpause ist grau mit Pausenzeichen, Reichweitenringe nach
   Reichweiten-Upgrade stimmen, kein Grollen eines Atomschlags aus dem Replay.
+  **ok (2026-09-24)**
 - **R4c Aus dem bemannten Tower**: In einem Tower sitzen (C), dann "replay". Erwartung: Das Replay startet mit freier
   Kamera; nach Esc steht man draußen.
+  **entfällt (2026-09-24)**: In der Egoperspektive ist der Replay-Einstieg nicht erreichbar; der Ausstieg im
+  Code bleibt als Absicherung.
 
 Paket 2, Datei und Grenzfälle:
 - **R5 Speichern und Laden**: Im Replay "Save". Seite neu laden (F5), denselben Ort, dann "load" im WAVE-Panel und die
   Datei wählen. Erwartung: Das Replay läuft, in der Leiste "from file", kein "differs from".
+  **ok (2026-09-24)**
 - **R6 Andere Karte**: Einen anderen Ort laden, dieselbe Datei laden. Erwartung: Unter den Knöpfen steht, dass das
   Replay auf einer anderen Karte gespielt wurde; nichts startet.
+  **ok (2026-09-24)**
 - **R7 Game Over**: Einen Lauf verlieren, "Replay wave N" auf dem Game-Over-Screen. Erwartung: Die letzte Welle bis
   zum Fall des HQ; Esc führt zurück auf den Game-Over-Screen.
+  **ok (2026-09-24)**
 - **R8 Klick direkt nach der Welle**: Sofort nach dem Wellenende auf "replay" klicken, während noch Schüsse fliegen.
   Erwartung: Das Replay startet nach spätestens ein paar Sekunden von selbst.
+  **im Spiel schwer zu treffen (2026-09-24)**; per Spec abgedeckt (`replay.service.spec.ts`: wartet, startet von
+  selbst, gibt nach 5 s auf).
 
 Paket 3, Spielgefühl nach dem Umbau:
 - **R9 Turrets**: Einen Cannon bauen, während sein Modell noch lädt. Erwartung: Er schießt erst, wenn der Turm zum
