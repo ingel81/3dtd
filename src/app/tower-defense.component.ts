@@ -121,7 +121,8 @@ import { ABILITIES } from './configs/abilities.config';
 import { RefusalHintService } from './services/refusal-hint.service';
 import { RunLogFacade } from './run-log/run-log.facade';
 import { uiSound } from './services/ui-sound';
-import { COOP, CoopService } from './services/coop.service';
+import { CoopService } from './services/coop.service';
+import { COOP } from './services/coop.token';
 
 @Component({
   selector: 'app-tower-defense',
@@ -941,6 +942,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /** Enter spawn placement mode */
   onPlaceSpawn(): void {
     this.facade.startMapPlacement('spawn');
+  }
+
+  /** Enter spawn placement mode for one more spawn */
+  onAddSpawn(): void {
+    this.facade.startMapPlacement('spawn', true);
   }
 
   /**

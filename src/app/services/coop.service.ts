@@ -1,4 +1,4 @@
-import { Injectable, InjectionToken, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
+import { Injectable, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
 import { GameStateManager } from '../managers/game-state.manager';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
@@ -6,6 +6,7 @@ import { EngineInitializationService } from './infrastructure/engine-initializat
 import { LocationManagementService } from './location/location-management.service';
 import { UrlLocationService } from './location/url-location.service';
 import { PathAndRouteService } from './world/path-route.service';
+import { LocationFacadeService } from './facade/location-facade.service';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { newRunSeed } from '../utils/game-rng';
@@ -21,12 +22,11 @@ import {
 import type { CoopRoomInfo, RefusalReason } from '../coop/protocol';
 import type { GeoPosition } from '../models/game.types';
 
-/**
- * CoopService for who reaches it optionally (the facade, the sidebar): an
- * optional inject of the class itself needs the JIT compiler where it is not
- * provided, the token does not.
- */
-export const COOP = new InjectionToken<CoopService>('CoopService');
+/** Two points are the same place at the precision the URL keeps. */
+function samePlace(a: GeoPosition, b: GeoPosition): boolean {
+  return a.lat.toFixed(COORD_DECIMALS) === b.lat.toFixed(COORD_DECIMALS)
+    && a.lon.toFixed(COORD_DECIMALS) === b.lon.toFixed(COORD_DECIMALS);
+}
 
 export type CoopStatus = 'off' | 'connecting' | 'lobby' | 'loading-world' | 'in-game' | 'closed';
 
@@ -73,6 +73,9 @@ export class CoopService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
+  private readonly locationFacade = inject(LocationFacadeService);
+  /** Host: adding a spawn for a lane the room lacks, see fillLanes */
+  private filling = false;
   private readonly ngZone = inject(NgZone);
 
   private readonly injector = inject(Injector);
@@ -174,6 +177,25 @@ export class CoopService {
     this.worldReady.set(true);
   }
 
+  /**
+   * Host: every player needs a lane of their own (D26). While the room has
+   * more players than the map has spawns, add one on a street round from
+   * the others and send the map again; up to four.
+   */
+  private async fillLanes(): Promise<void> {
+    const room = this.room();
+    if (this.filling || !room || room.started || !this.isHost() || !this.worldReady()) return;
+    if (room.spawnIds.length >= room.players.length || this.gameState.getSpawnPoints().length >= 4) return;
+    this.filling = true;
+    try {
+      const added = await this.locationFacade.addRandomSpawn();
+      if (added && this.session) this.shareWorld();
+      else if (!added) this.error.set('Found no street for another spawn: add one with the + button.');
+    } finally {
+      this.filling = false;
+    }
+  }
+
   pick(spawnId: string | null): void {
     this.session?.pick(spawnId);
   }
@@ -273,7 +295,10 @@ export class CoopService {
   /** The session's messages into signals and the game, in the Angular zone. */
   private wire(session: CoopSession): void {
     const inZone = <A extends unknown[]>(fn: (...args: A) => void) => (...args: A) => this.ngZone.run(() => fn(...args));
-    session.onRoom = inZone((room) => this.room.set(room));
+    session.onRoom = inZone((room) => {
+      this.room.set(room);
+      void this.fillLanes();
+    });
     session.onWorld = inZone((world) => void this.takeWorld(world));
     session.onStarted = inZone((start) => this.startGame(start));
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
@@ -303,6 +328,15 @@ export class CoopService {
       return;
     }
     const world = read.world;
+    // The host added spawns for the lanes (D26): add them here too, no reload
+    const missing = this.missingSpawns(world);
+    if (missing.length > 0) {
+      this.status.set('loading-world');
+      if (!(await this.placeLoaded())) return;
+      for (const spawn of missing) {
+        if (!(await this.locationFacade.addSpawnAt(spawn.lat, spawn.lon))) break;
+      }
+    }
     if (!this.standsOn(world)) {
       const room = this.room()?.code ?? this.roomFromUrl;
       const url = this.urlLocation.urlFor(world.hq, world.spawns.map(({ lat, lon }) => ({ lat, lon })));
@@ -321,16 +355,25 @@ export class CoopService {
     this.adoptWorld(world);
   }
 
-  /** The place loaded here is the world's: same HQ, same spawns in the same order. */
-  private standsOn(world: WorldPackage): boolean {
-    const same = (a: GeoPosition, b: GeoPosition) =>
-      a.lat.toFixed(COORD_DECIMALS) === b.lat.toFixed(COORD_DECIMALS)
-      && a.lon.toFixed(COORD_DECIMALS) === b.lon.toFixed(COORD_DECIMALS);
+  /**
+   * The spawns of `world` this place lacks at its end, where it has the same
+   * HQ and its own spawns are the world's first ones; none otherwise.
+   */
+  private missingSpawns(world: WorldPackage): GeoPosition[] {
     const hq = this.locationMgmt.hq();
     const spawns = this.gameState.getSpawnPoints();
-    return hq !== null && same(hq, world.hq)
+    if (!hq || !samePlace(hq, world.hq) || spawns.length >= world.spawns.length) return [];
+    if (!spawns.every((spawn, i) => samePlace(spawn, world.spawns[i]))) return [];
+    return world.spawns.slice(spawns.length);
+  }
+
+  /** The place loaded here is the world's: same HQ, same spawns in the same order. */
+  private standsOn(world: WorldPackage): boolean {
+    const hq = this.locationMgmt.hq();
+    const spawns = this.gameState.getSpawnPoints();
+    return hq !== null && samePlace(hq, world.hq)
       && spawns.length === world.spawns.length
-      && spawns.every((spawn, i) => same(spawn, world.spawns[i]));
+      && spawns.every((spawn, i) => samePlace(spawn, world.spawns[i]));
   }
 
   /** Wait until the place stands here: loading screen gone, corridor frozen. */

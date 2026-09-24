@@ -39,7 +39,7 @@ import { SidebarHeroPanelComponent } from './hero-panel/hero-panel.component';
 import { SidebarBuildingPanelComponent } from './building-panel/building-panel.component';
 import { UIStore } from '../../store/ui.store';
 import { openCoopDialog } from '../coop-dialog/open-coop-dialog';
-import { COOP } from '../../services/coop.service';
+import { COOP } from '../../services/coop.token';
 
 /**
  * Rechte Sidebar: Rahmen, Footer und die Wahl des Panels. Die Sektionen sind

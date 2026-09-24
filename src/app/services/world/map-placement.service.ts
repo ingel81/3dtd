@@ -31,6 +31,8 @@ import { uiSound } from '../ui-sound';
  */
 export interface PlacementResult {
   mode: 'hq' | 'spawn';
+  /** A spawn placed in addition to the ones there, not in place of them */
+  add?: boolean;
   /** Where the click placed it, in its canonical form (canonicalCoords), as checked */
   lat: number;
   lon: number;
@@ -172,13 +174,17 @@ export class MapPlacementService {
     this.routesFromSegment.clear();
   }
 
+  /** The spawn being placed goes in addition to the ones there (startPlacement with `add`) */
+  private addingSpawn = false;
+
   /**
    * Enter placement mode. Creates a preview marker that follows the cursor.
    * @param mode 'hq' to place headquarters, 'spawn' to place spawn point
    */
-  startPlacement(mode: 'hq' | 'spawn'): void {
+  startPlacement(mode: 'hq' | 'spawn', add = false): void {
     // Clean up any previous placement
     this.exitPlacementMode();
+    this.addingSpawn = mode === 'spawn' && add;
 
     // Set mode signal
     this.uiStore.mapPlacementMode.set(mode);
@@ -306,6 +312,7 @@ export class MapPlacementService {
 
     const result: PlacementResult = {
       mode,
+      ...(mode === 'spawn' && this.addingSpawn ? { add: true } : {}),
       lat: this.currentPosition.lat,
       lon: this.currentPosition.lon,
       height: this.currentPosition.height,

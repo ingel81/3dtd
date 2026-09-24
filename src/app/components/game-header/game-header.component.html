@@ -118,6 +118,12 @@
               [disabled]="!canPlace()">
         <td-icon name="flag" [size]="22"></td-icon>
       </button>
+
+      <button class="action-btn" (click)="addSpawnClick.emit()"
+              matTooltip="Add a spawn (up to four; one lane per coop player)"
+              aria-label="Add a spawn" [disabled]="!canPlace()">
+        <td-icon name="plus" [size]="22"></td-icon>
+      </button>
     </div>
   </div>
   <div class="header-right">

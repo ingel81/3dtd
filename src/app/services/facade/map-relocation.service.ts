@@ -35,6 +35,12 @@ const MOVING_HQ = 'Moving HQ';
 /** Title of the hint over the map while the spawn moves */
 const MOVING_SPAWN = 'Moving spawn';
 
+/** Title of the hint over the map while a spawn is added */
+const ADDING_SPAWN = 'Adding spawn';
+
+/** Random street points drawn for an added spawn; the one furthest round from the others wins */
+const RANDOM_SPAWN_CANDIDATES = 8;
+
 /**
  * Moves the HQ or the spawn to where the player clicked in map placement
  * mode. Inside the loaded street network the world is rebuilt in place (no
@@ -66,9 +72,41 @@ export class MapRelocationService {
 
     if (result.mode === 'hq') {
       await this.applyNewHqPosition(result.lat, result.lon, host);
+    } else if (result.add) {
+      await this.applySpawnAdded(result.lat, result.lon, host, result.heading);
     } else {
       await this.applySpawnInPlace(result.lat, result.lon, host, result.heading);
     }
+  }
+
+  /**
+   * Add a spawn on a street 500 to 1000 m from the HQ, as far round from the
+   * spawns there as the candidates allow (docs/COOP_PLAN.md, D26: a coop
+   * room fills up the lanes it lacks). Some candidates are drawn and the one
+   * whose bearing from the HQ lies furthest from every other spawn's wins.
+   * @returns false when there is no street for one, or four spawns stand
+   */
+  async addRandomSpawn(host: RelocationHost): Promise<boolean> {
+    const ctx = host.context();
+    const streetNetwork = ctx?.bridge.getStreetNetwork();
+    if (!ctx || !streetNetwork) return false;
+    const hq = this.store.baseCoords();
+    const bearingOf = (lat: number, lon: number) =>
+      Math.atan2((lon - hq.lon) * Math.cos((hq.lat * Math.PI) / 180), lat - hq.lat);
+    const taken = this.store.spawnPoints().map((spawn) => bearingOf(spawn.lat, spawn.lon));
+    const gap = (bearing: number) => taken.reduce((least, other) => {
+      const d = Math.abs(Math.atan2(Math.sin(bearing - other), Math.cos(bearing - other)));
+      return Math.min(least, d);
+    }, Math.PI);
+    let best: { lat: number; lon: number; gap: number } | null = null;
+    for (let i = 0; i < RANDOM_SPAWN_CANDIDATES; i++) {
+      const candidate = this.osmService.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
+      if (!candidate) break;
+      const g = gap(bearingOf(candidate.lat, candidate.lon));
+      if (!best || g > best.gap) best = { lat: candidate.lat, lon: candidate.lon, gap: g };
+    }
+    if (!best) return false;
+    return this.applySpawnAdded(best.lat, best.lon, host);
   }
 
   /**
@@ -410,6 +448,63 @@ export class MapRelocationService {
     const result = await viz.buildCorridor('spawn moved in place', hint.report);
     hint.end();
     if (result) this.startRouteAnimation();
+  }
+
+  /** Add a spawn at `lat`, `lon` (a coop joiner takes the host's), see applySpawnAdded. */
+  addSpawnAt(lat: number, lon: number, host: RelocationHost): Promise<boolean> {
+    return this.applySpawnAdded(lat, lon, host);
+  }
+
+  /**
+   * Add a spawn to the ones there (at most four, one per spawn colour): its
+   * route is found, the run starts over as after a move, and the corridor
+   * of all routes is built again under a hint.
+   * @returns false when refused: no route to the HQ, or four spawns stand
+   */
+  private async applySpawnAdded(lat: number, lon: number, host: RelocationHost, heading?: number): Promise<boolean> {
+    const ctx = host.context();
+    const engine = ctx?.bridge.getEngine();
+    const streetNetwork = ctx?.bridge.getStreetNetwork();
+    if (!ctx || !engine || !streetNetwork) return false;
+    const { gameState } = ctx;
+    const existing = this.store.spawnPoints();
+    if (existing.length >= SPAWN_COLORS.length) {
+      console.warn('[MapPlacement] Four spawns stand already — spawn not added');
+      return false;
+    }
+
+    const hq = this.store.baseCoords();
+    const path = this.osmService.findPath(streetNetwork, lat, lon, hq.lat, hq.lon);
+    if (!path || path.length < 2) {
+      console.warn('[MapPlacement] No route from the added spawn to HQ — placement rejected');
+      return false;
+    }
+
+    this.routeAnimation.stopAnimation();
+    gameState.reset();
+
+    // The ids follow the order, as a load from the URL gives them (spawn-1, spawn-2, ...)
+    const index = existing.length;
+    const id = `spawn-${index + 1}`;
+    const portalBearing = heading === undefined ? undefined : portalHeadingToBearing(heading);
+    host.addSpawnPoint(id, 'Spawn', lat, lon, SPAWN_COLORS[index], portalBearing);
+
+    this.locationMgmt.setLocation(hq, [...this.locationMgmt.spawns(), { lat, lon, portalBearing }]);
+    host.syncUrlWithLocation();
+
+    const waveSpawns = this.store.spawnPoints().map((spawn) => ({ id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon }));
+    gameState.initialize(engine, { lat: hq.lat, lon: hq.lon }, waveSpawns, this.pathRoute.getCachedPaths());
+    gameState.initializeGlobalRouteGrid();
+    this.mapPlacement.updateDependencies(streetNetwork, hq);
+
+    const viz = host.vizCallbacks();
+    if (!viz) return true;
+    this.relocationStatus.show(ADDING_SPAWN, 'Finding the route');
+    const hint = this.relocationStatus.follow();
+    const result = await viz.buildCorridor('spawn added', hint.report);
+    hint.end();
+    if (result) this.startRouteAnimation();
+    return result !== null;
   }
 
   /**

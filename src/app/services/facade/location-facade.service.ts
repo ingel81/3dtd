@@ -438,8 +438,19 @@ export class LocationFacadeService {
    * Start map placement mode for HQ or Spawn.
    * Build mode should be exited by the caller before invoking this.
    */
-  startMapPlacement(mode: 'hq' | 'spawn'): void {
-    this.mapPlacement.startPlacement(mode);
+  /** @param add a spawn in addition to the ones there, not in place of them */
+  startMapPlacement(mode: 'hq' | 'spawn', add = false): void {
+    this.mapPlacement.startPlacement(mode, add);
+  }
+
+  /** Add a spawn at a given place (MapRelocationService.addSpawnAt). */
+  addSpawnAt(lat: number, lon: number): Promise<boolean> {
+    return this.mapRelocation.addSpawnAt(lat, lon, this.relocationHost);
+  }
+
+  /** Add a spawn on a street round from the others (MapRelocationService.addRandomSpawn). */
+  addRandomSpawn(): Promise<boolean> {
+    return this.mapRelocation.addRandomSpawn(this.relocationHost);
   }
 
   /**
