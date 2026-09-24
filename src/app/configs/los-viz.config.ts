@@ -58,6 +58,15 @@ export const LOS_VIZ_CONFIG = {
   emptyDepthEpsilon: 0.001,
 
   /**
+   * Wie weit der Mittelpunkt einer Zelle über die Reichweite hinaus liegen
+   * kann, deren Fläche die Reichweite noch anschneidet: die halbe Diagonale
+   * der 2-m-Zellen (`GlobalRouteGrid.CELL_SIZE`). Die Kampf-LOS nimmt diese
+   * Randzellen mit (`forEachSlotInReach`), der Cube muss bis zu ihrer Probe
+   * reichen (`losCubeFarDistance`).
+   */
+  reachBeyondRangeMeters: Math.SQRT2,
+
+  /**
    * Cell-Palette, single source of truth für per-Tower-Viz, globalen
    * Aggregate-Viz und Legende. Jeder Layer zeigt NUR seine eigene
    * Coverage, die Layer-Identität steckt in der Farbe:
@@ -204,9 +213,14 @@ export const LOS_VIZ_CONFIG = {
  * sind 2,8 % seiner Luft-Zellen (air-los-city.scenario.spec.ts). Der Bias
  * kommt dazu, weil `isCubeVisible` ihn von der Blocker-Distanz abzieht.
  *
+ * Die Kampf-LOS probt auch Randzellen, deren Fläche die Reichweite nur
+ * anschneidet (`reachBeyondRangeMeters`); ihr Mittelpunkt liegt bis zu einer
+ * halben Zelldiagonale weiter draußen.
+ *
  * Steht eine Zelle höher als der Tip, bleibt ein Rest: der Zuschlag deckt
  * `airSampleYOffset` über dem Tip ab, nicht über der Zelle.
  */
 export function losCubeFarDistance(range: number): number {
-  return Math.hypot(range, LOS_VIZ_CONFIG.airSampleYOffset) + LOS_VIZ_CONFIG.visibilityBiasMeters;
+  return Math.hypot(range + LOS_VIZ_CONFIG.reachBeyondRangeMeters, LOS_VIZ_CONFIG.airSampleYOffset)
+    + LOS_VIZ_CONFIG.visibilityBiasMeters;
 }
