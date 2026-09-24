@@ -46,8 +46,8 @@ export class BloodMoonBannerComponent {
   constructor() {
     const bus = inject(GameStateManager).getEventBus();
     const subs = [
-      bus.on('wave:started', ({ wave }) => this.show(wave)),
-      bus.on('game:reset', () => this.timing.reset()),
+      bus.onLive('wave:started', ({ wave }) => this.show(wave)),
+      bus.onLive('game:reset', () => this.timing.reset()),
     ];
     inject(DestroyRef).onDestroy(() => {
       for (const sub of subs) sub.dispose();

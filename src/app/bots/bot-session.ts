@@ -384,12 +384,12 @@ export class BotSession {
         this.gameState.setGameSpeed(1.0, false);
 
         // Every finished wave sends what the run log wrote since the last one
-        this.eventSubscriptions.push(this.gameState.getEventBus().on('wave:completed', () => {
+        this.eventSubscriptions.push(this.gameState.getEventBus().onLive('wave:completed', () => {
           this.sendRunLog(false);
         }));
 
         // Subscribe to game over events
-        this.eventSubscriptions.push(this.gameState.getEventBus().on('game:over', () => {
+        this.eventSubscriptions.push(this.gameState.getEventBus().onLive('game:over', () => {
           if (this.signals.isConnected()) {
             // The wave the base fell in has no wave:completed; the run log
             // writes its block when the run ends, and this send carries it.

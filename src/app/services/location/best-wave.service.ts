@@ -52,10 +52,10 @@ export class BestWaveService {
     this.subs.disposeAll();
     this.counts = counts;
     this.resetRun();
-    this.subs.add(bus.on('wave:started', (e) => this.onWaveStarted(e.wave)));
-    this.subs.add(bus.on('wave:jumped', () => { this.jumped = true; }));
-    this.subs.add(bus.on('game:over', () => this.onGameOver()));
-    this.subs.add(bus.on('game:reset', () => this.resetRun()));
+    this.subs.add(bus.onLive('wave:started', (e) => this.onWaveStarted(e.wave)));
+    this.subs.add(bus.onLive('wave:jumped', () => { this.jumped = true; }));
+    this.subs.add(bus.onLive('game:over', () => this.onGameOver()));
+    this.subs.add(bus.onLive('game:reset', () => this.resetRun()));
   }
 
   disconnect(): void {

@@ -187,65 +187,65 @@ export class StateSnapshotService {
   private subscribeToEvents(): void {
     // Wave lifecycle
     this.subscriptions.add(
-      this.eventBus.on('wave:started', (event) => this.onWaveStarted(event))
+      this.eventBus.onLive('wave:started', (event) => this.onWaveStarted(event))
     );
     this.subscriptions.add(
-      this.eventBus.on('wave:completed', (event) => this.onWaveCompleted(event))
+      this.eventBus.onLive('wave:completed', (event) => this.onWaveCompleted(event))
     );
 
     // Enemy events
     this.subscriptions.add(
-      this.eventBus.on('enemy:spawned', (event) => this.onEnemySpawned(event))
+      this.eventBus.onLive('enemy:spawned', (event) => this.onEnemySpawned(event))
     );
     this.subscriptions.add(
-      this.eventBus.on('enemy:died', (event) => this.onEnemyDied(event))
+      this.eventBus.onLive('enemy:died', (event) => this.onEnemyDied(event))
     );
     this.subscriptions.add(
-      this.eventBus.on('enemy:reached-base', (event) => this.onEnemyReachedBase(event))
+      this.eventBus.onLive('enemy:reached-base', (event) => this.onEnemyReachedBase(event))
     );
     // An ooze is a leak from its first point that flows into the base on
     this.subscriptions.add(
-      this.eventBus.on('enemy:leaking', (event) => {
+      this.eventBus.onLive('enemy:leaking', (event) => {
         this.currentWave.enemyLeaking(event.enemy.id, event.enemy.typeConfig.id, this.now());
       })
     );
     this.subscriptions.add(
-      this.eventBus.on('enemy:split', (event) => this.onEnemySplit(event))
+      this.eventBus.onLive('enemy:split', (event) => this.onEnemySplit(event))
     );
     // A worm is one announced enemy and one body per segment, like a split
     this.subscriptions.add(
-      this.eventBus.on('worm:spawned', (event) => this.currentWave.enemiesSplit(event.group.size - 1))
+      this.eventBus.onLive('worm:spawned', (event) => this.currentWave.enemiesSplit(event.group.size - 1))
     );
     // Ability kills: the fairness gate books them as leaks (leakRatio).
     // Their enemy:died already recorded them as killed.
     this.subscriptions.add(
-      this.eventBus.on('ability:resolved', (event) => {
+      this.eventBus.onLive('ability:resolved', (event) => {
         this.currentWave.abilityKilled(event.kills);
       })
     );
 
     // Health tracking
     this.subscriptions.add(
-      this.eventBus.on('health:changed', (event) => this.onHealthChanged(event))
+      this.eventBus.onLive('health:changed', (event) => this.onHealthChanged(event))
     );
 
     // Game lifecycle
     this.subscriptions.add(
-      this.eventBus.on('game:started', () => this.onGameStarted())
+      this.eventBus.onLive('game:started', () => this.onGameStarted())
     );
     this.subscriptions.add(
-      this.eventBus.on('game:over', (event) => this.onGameOver(event))
+      this.eventBus.onLive('game:over', (event) => this.onGameOver(event))
     );
 
     // Tower events → invalidate DPS profile cache
     this.subscriptions.add(
-      this.eventBus.on('tower:placed', () => this.invalidateDPSProfile())
+      this.eventBus.onLive('tower:placed', () => this.invalidateDPSProfile())
     );
     this.subscriptions.add(
-      this.eventBus.on('tower:sold', () => this.invalidateDPSProfile())
+      this.eventBus.onLive('tower:sold', () => this.invalidateDPSProfile())
     );
     this.subscriptions.add(
-      this.eventBus.on('tower:upgraded', () => this.invalidateDPSProfile())
+      this.eventBus.onLive('tower:upgraded', () => this.invalidateDPSProfile())
     );
   }
 

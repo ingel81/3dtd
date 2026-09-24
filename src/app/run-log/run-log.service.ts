@@ -221,18 +221,18 @@ export class RunLogCollector {
 
   /** Subscribe to the bus; the bag owns the subscriptions. */
   attach(bus: GameEventBus, bag: SubscriptionBag): void {
-    bag.add(bus.on('wave:started', (e) => this.onWaveStarted(e.wave)));
-    bag.add(bus.on('wave:completed', (e) => {
+    bag.add(bus.onLive('wave:started', (e) => this.onWaveStarted(e.wave)));
+    bag.add(bus.onLive('wave:completed', (e) => {
       this.waveGold = e.creditsBreakdown;
       this.onWaveCompleted();
     }));
-    bag.add(bus.on('wave:jumped', (e) => {
+    bag.add(bus.onLive('wave:jumped', (e) => {
       this.event('wave-jump', { credits: e.credits, value: e.skipped });
       this.wave = e.wave - 1;
     }));
 
-    bag.add(bus.on('enemy:spawned', () => { this.enemiesSpawned++; }));
-    bag.add(bus.on('enemy:died', (e) => {
+    bag.add(bus.onLive('enemy:spawned', () => { this.enemiesSpawned++; }));
+    bag.add(bus.onLive('enemy:died', (e) => {
       // An ooze that dies while it flows in was already counted as a leak
       if (this.leaking.delete(e.enemy.id)) return;
       switch (e.killedBy?.kind) {
@@ -243,19 +243,19 @@ export class RunLogCollector {
         default: this.killsByOther++; break;
       }
     }));
-    bag.add(bus.on('enemy:leaking', (e) => {
+    bag.add(bus.onLive('enemy:leaking', (e) => {
       if (this.leaking.has(e.enemy.id)) return;
       this.leaking.add(e.enemy.id);
       this.countLeak(e.enemy.typeConfig?.id, e.damage);
     }));
-    bag.add(bus.on('enemy:reached-base', (e) => {
+    bag.add(bus.onLive('enemy:reached-base', (e) => {
       if (this.leaking.delete(e.enemy.id)) return;
       this.countLeak(e.enemy.typeConfig?.id, e.damage);
     }));
 
-    bag.add(bus.on('credits:changed', (e) => this.book(e.delta, e.source)));
+    bag.add(bus.onLive('credits:changed', (e) => this.book(e.delta, e.source)));
 
-    bag.add(bus.on('tower:placed', (e) => {
+    bag.add(bus.onLive('tower:placed', (e) => {
       this.towerMarks.set(e.tower.id, { damage: e.tower.combat.damageDealt, kills: e.tower.combat.kills });
       this.bookTower(e.tower.typeConfig.id, e.cost);
       this.event('tower-built', {
@@ -264,27 +264,27 @@ export class RunLogCollector {
         at: { lat: e.position.lat, lon: e.position.lon },
       });
     }));
-    bag.add(bus.on('tower:upgraded', (e) => {
+    bag.add(bus.onLive('tower:upgraded', (e) => {
       if (e.cost <= 0) return;   // the dev max-upgrade is not a decision
       this.bookTower(e.tower.typeConfig.id, e.cost);
       this.event('tower-upgraded', { id: e.tower.typeConfig.id, credits: -e.cost, value: e.upgradeId });
     }));
-    bag.add(bus.on('tower:sold', (e) => {
+    bag.add(bus.onLive('tower:sold', (e) => {
       this.soldThisWave.push({ ...this.towerWave(e.tower), sold: true });
       this.towerMarks.delete(e.tower.id);
       this.event('tower-sold', { id: e.tower.typeConfig.id, credits: e.refund });
     }));
 
-    bag.add(bus.on('research:started', (e) => this.event('research-started', { id: e.researchId })));
-    bag.add(bus.on('research:completed', (e) => this.event('research-completed', { id: e.researchId })));
-    bag.add(bus.on('research:cancelled', (e) => {
+    bag.add(bus.onLive('research:started', (e) => this.event('research-started', { id: e.researchId })));
+    bag.add(bus.onLive('research:completed', (e) => this.event('research-completed', { id: e.researchId })));
+    bag.add(bus.onLive('research:cancelled', (e) => {
       this.event('research-cancelled', { id: e.researchId, credits: e.refund });
     }));
 
-    bag.add(bus.on('ability:used', (e) => this.event('ability-used', { id: e.abilityId })));
-    bag.add(bus.on('hero:level-up', (e) => this.event('hero-level', { value: e.level })));
+    bag.add(bus.onLive('ability:used', (e) => this.event('ability-used', { id: e.abilityId })));
+    bag.add(bus.onLive('hero:level-up', (e) => this.event('hero-level', { value: e.level })));
 
-    bag.add(bus.on('debug:add-credits', (e) => this.event('cheat', { id: 'credits', credits: e.amount })));
+    bag.add(bus.onLive('debug:add-credits', (e) => this.event('cheat', { id: 'credits', credits: e.amount })));
   }
 
   /**

@@ -105,13 +105,13 @@ export class RefusalHintService {
   /** Follow the managers' refusals of a game session. */
   connect(bus: GameEventBus, fromPlayer: () => boolean = () => true): void {
     this.subs.disposeAll();
-    this.subs.add(bus.on('ability:rejected', (event) => {
+    this.subs.add(bus.onLive('ability:rejected', (event) => {
       if (fromPlayer()) this.ability(event.abilityId, event.reason);
     }));
-    this.subs.add(bus.on('hero:rejected', (event) => {
+    this.subs.add(bus.onLive('hero:rejected', (event) => {
       if (fromPlayer()) this.hero(event.reason);
     }));
-    this.subs.add(bus.on('game:reset', () => this.clear()));
+    this.subs.add(bus.onLive('game:reset', () => this.clear()));
   }
 
   disconnect(): void {

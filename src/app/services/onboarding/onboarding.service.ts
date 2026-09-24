@@ -57,29 +57,29 @@ export class OnboardingService {
   connect(bus: GameEventBus): void {
     this.subs.disposeAll();
     this.newGame();
-    this.subs.add(bus.on('tower:placed', (e) => {
+    this.subs.add(bus.onLive('tower:placed', (e) => {
       this.play({ kind: 'tower-placed', towerType: e.tower.typeConfig.id });
     }));
-    this.subs.add(bus.on('tower:upgraded', (e) => {
+    this.subs.add(bus.onLive('tower:upgraded', (e) => {
       this.play({ kind: 'tower-upgraded', towerType: e.tower.typeConfig.id });
     }));
-    this.subs.add(bus.on('research:started', () => this.play({ kind: 'research-started' })));
-    this.subs.add(bus.on('wave:started', () => this.play({ kind: 'wave-started' })));
-    this.subs.add(bus.on('ability:used', () => this.play({ kind: 'ability-used' })));
-    this.subs.add(bus.on('hero:state-changed', (e) => {
+    this.subs.add(bus.onLive('research:started', () => this.play({ kind: 'research-started' })));
+    this.subs.add(bus.onLive('wave:started', () => this.play({ kind: 'wave-started' })));
+    this.subs.add(bus.onLive('ability:used', () => this.play({ kind: 'ability-used' })));
+    this.subs.add(bus.onLive('hero:state-changed', (e) => {
       this.updateProgress({ heroUnlocked: e.hero.unlocked });
       if (e.hero.hired) this.play({ kind: 'hero-hired' });
     }));
 
-    this.subs.add(bus.on('wave:completed', (e) => this.updateProgress({ wavesCompleted: e.wave })));
+    this.subs.add(bus.onLive('wave:completed', (e) => this.updateProgress({ wavesCompleted: e.wave })));
     // Dev cheat: the waves it skipped count as done
-    this.subs.add(bus.on('wave:jumped', (e) => this.updateProgress({ wavesCompleted: e.wave - 1 })));
-    this.subs.add(bus.on('research:state-changed', (e) => this.updateProgress({ centerPlaced: e.centerLevel > 0 })));
+    this.subs.add(bus.onLive('wave:jumped', (e) => this.updateProgress({ wavesCompleted: e.wave - 1 })));
+    this.subs.add(bus.onLive('research:state-changed', (e) => this.updateProgress({ centerPlaced: e.centerLevel > 0 })));
     // The abilities with a button in the bar: researched, and launch site standing
-    this.subs.add(bus.on('ability:state-changed', (e) => {
+    this.subs.add(bus.onLive('ability:state-changed', (e) => {
       this.updateProgress({ abilities: e.abilities.filter((a) => a.unlocked && a.launchSite).map((a) => a.id) });
     }));
-    this.subs.add(bus.on('game:reset', () => this.newGame()));
+    this.subs.add(bus.onLive('game:reset', () => this.newGame()));
   }
 
   disconnect(): void {

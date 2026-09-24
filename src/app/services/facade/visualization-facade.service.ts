@@ -337,7 +337,7 @@ export class VisualizationFacadeService {
 
     // Subscribe to tower:selected event — sync debug panel dropdown
     this.eventBusSubs.add(
-      eventBus.on('tower:selected', (event) => {
+      eventBus.onLive('tower:selected', (event) => {
         this.towerDebug.selectTower(event.tower.typeConfig.id);
       })
     );

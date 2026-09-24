@@ -89,7 +89,7 @@ export class EnemyDebugService {
 
     // Register debug enemy placement (next spawned enemy after placement click)
     const eventBus = gameState.getEventBus();
-    this.enemySpawnedSub = eventBus.on('enemy:spawned', (event) => {
+    this.enemySpawnedSub = eventBus.onLive('enemy:spawned', (event) => {
       const pending = this.pendingDebugPlacement;
       if (!pending) return;
 
@@ -102,7 +102,7 @@ export class EnemyDebugService {
 
     // What a debug enemy splits into is a debug enemy too: listed, shot at
     // outside a wave and removed with the others.
-    this.enemySplitSub = eventBus.on('enemy:split', (event) => {
+    this.enemySplitSub = eventBus.onLive('enemy:split', (event) => {
       if (!this.getDebugEnemy(event.enemy.id)) return;
       for (const child of event.children) {
         this.registerDebugEnemy(child, child.typeConfig.id, child.position.lat, child.position.lon);

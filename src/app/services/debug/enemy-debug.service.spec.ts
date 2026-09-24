@@ -34,7 +34,7 @@ describe('EnemyDebugService removal', () => {
     emit = vi.fn();
     remove = vi.fn();
     const gameState = {
-      getEventBus: () => ({ emit, on: () => ({ dispose: () => undefined }) }),
+      getEventBus: () => ({ emit, onLive: () => ({ dispose: () => undefined }) }),
       enemyManager: { remove },
     };
     service = new EnemyDebugService();
@@ -86,7 +86,7 @@ describe('EnemyDebugService placement', () => {
     emit = vi.fn();
     onRoute = true;
     const gameState = {
-      getEventBus: () => ({ emit, on: () => ({ dispose: () => undefined }) }),
+      getEventBus: () => ({ emit, onLive: () => ({ dispose: () => undefined }) }),
       getGlobalRouteGrid: () => ({ getCellAt: () => (onRoute ? {} : null) }),
     };
     const engine = {

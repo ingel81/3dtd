@@ -32,8 +32,8 @@ export class LeakVignetteComponent {
   constructor() {
     const bus = inject(GameStateManager).getEventBus();
     const subs = [
-      bus.on('enemy:reached-base', () => this.pulse()),
-      bus.on('enemy:leaking', () => this.pulse()),
+      bus.onLive('enemy:reached-base', () => this.pulse()),
+      bus.onLive('enemy:leaking', () => this.pulse()),
     ];
     inject(DestroyRef).onDestroy(() => subs.forEach((sub) => sub.dispose()));
   }
