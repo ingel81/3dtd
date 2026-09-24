@@ -38,6 +38,7 @@ vi.mock('../simulator/replay-session', () => ({
     setSpeed = vi.fn();
     enter = vi.fn();
     exit = vi.fn();
+    update = vi.fn();
     constructor() {
       players.push(this);
     }
@@ -82,11 +83,14 @@ describe('ReplayService.enter gate', () => {
   let paused: ReturnType<typeof signal<boolean>>;
   let getEngine: ReturnType<typeof vi.fn>;
   let service: ReplayService;
+  /** What GameStateManager.snapshotRefusal answers: shots still flying or a quiet field */
+  let refusal: string | null;
 
   const pose = () => ({ clone: () => ({}) });
 
   beforeEach(() => {
     players.length = 0;
+    refusal = null;
     host = document.createElement('div');
     document.body.append(host);
     introActive = signal(false);
@@ -117,7 +121,7 @@ describe('ReplayService.enter gate', () => {
               replayableWaves: () => [3],
             },
             commandLog: { entries: [] },
-            snapshotRefusal: () => null,
+            snapshotRefusal: () => refusal,
             baseHealth: () => 100,
             enemyManager: { aliveCount: () => 0 },
             paused: signal(false),
@@ -188,5 +192,38 @@ describe('ReplayService.enter gate', () => {
 
     expect(service.active()).toBe(false);
     expect(players).toHaveLength(0);
+  });
+  it('waits for the last shots of a wave to land, then starts by itself (R8)', () => {
+    vi.useFakeTimers();
+    try {
+      refusal = 'projectiles';
+      service.enter();
+      expect(service.active()).toBe(false);
+      service.update(16);
+      expect(service.active()).toBe(false);
+
+      refusal = null;
+      service.update(16);
+      expect(service.active()).toBe(true);
+      expect(players).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('gives up after 5 s of shots in the air and starts nothing', () => {
+    vi.useFakeTimers();
+    try {
+      refusal = 'projectiles';
+      service.enter();
+      vi.advanceTimersByTime(5001);
+      service.update(16);
+      refusal = null;
+      service.update(16);
+      expect(service.active()).toBe(false);
+      expect(players).toHaveLength(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
