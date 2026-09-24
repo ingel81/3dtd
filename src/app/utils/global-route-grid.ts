@@ -360,6 +360,39 @@ export class GlobalRouteGrid {
     return heights;
   }
 
+  /**
+   * Every cell with a height as [key, height, state] (1 stable, 2 filled),
+   * in the order the cells were claimed: what a coop joiner needs on top of
+   * the routes to stand on the same ground (restoreHeights).
+   */
+  exportHeights(): [number, number, number][] {
+    const out: [number, number, number][] = [];
+    for (const cell of this.cells.values()) {
+      if (!cell.heightSampled) continue;
+      out.push([cell.key, cell.terrainHeight, cell.sample.state === 'stable' ? 1 : 2]);
+    }
+    return out;
+  }
+
+  /**
+   * Take the heights of exportHeights() over, for a grid generated from the
+   * same routes. Returns the keys it had no cell for; empty when the cells
+   * match. A cell not in `heights` stays as generation left it.
+   */
+  restoreHeights(heights: readonly (readonly [number, number, number])[]): number[] {
+    const missing: number[] = [];
+    for (const [key, y, state] of heights) {
+      const cell = this.cells.get(key);
+      if (!cell) {
+        missing.push(key);
+        continue;
+      }
+      this.sampler.restore(cell, y, state === 1 ? 'stable' : 'filled');
+    }
+    this.aggregateViz.refreshPositions();
+    return missing;
+  }
+
   /** Cells without a height, neither a sample of their own nor one filled in from their neighbours (fillGaps). */
   cellsWithoutHeight(): number {
     let count = 0;

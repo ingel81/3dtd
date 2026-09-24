@@ -361,6 +361,16 @@ export class GlobalRouteGridService {
     return this.grid.snapshotHeights();
   }
 
+  /** Heights of every cell that has one, see GlobalRouteGrid.exportHeights. */
+  exportHeights(): [number, number, number][] {
+    return this.grid.exportHeights();
+  }
+
+  /** Take exported heights over, see GlobalRouteGrid.restoreHeights. */
+  restoreHeights(heights: readonly (readonly [number, number, number])[]): number[] {
+    return this.grid.restoreHeights(heights);
+  }
+
   /** Cells without a height, see GlobalRouteGrid.cellsWithoutHeight. */
   cellsWithoutHeight(): number {
     return this.grid.cellsWithoutHeight();
