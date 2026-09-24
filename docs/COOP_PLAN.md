@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0, C1a, C2 und C3 gebaut, C1b und C4 bis C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-24 · Branch `coop` · Status: C0 bis C4c und C5a gebaut, C5b, C4d, C6 und C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -80,6 +80,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D26 | Spawns | Der Host wählt Stadt, HQ und beliebig viele Spawns, fehlende füllt die Zufallswahl auf. Die Mitspieler suchen sich in der Lobby einen der Spawns aus (User, 2026-09-24) |
 | D27 | Bosse | Ein Boss je Lane, folgt aus D13; Intro und Musik einmal (User, 2026-09-24) |
 | D28 | Gegnerzahl | Erst ohne Deckel, messen, dann entscheiden (User, 2026-09-24) |
+| D29 | Gemischte Browser | Electron ist primär; die Abweichung Chrome gegen Firefox ist ein Randthema, erst eingrenzen, später entscheiden (User, 2026-09-24, TODO E28) |
 
 ## 4. Pakete
 
@@ -350,6 +351,28 @@ Ursprünglicher Plan:
 
 ### C5 Prüfsumme, Wiedereinstieg, Resync
 
+**C5a gebaut (2026-09-24):** Abweichung erkennen, Diagnose am Relay.
+
+- `coop/hash-check.ts`: `HashCheck` vergleicht die Prüfsummen eines Ticks und meldet den ersten Tick mit zwei
+  verschiedenen einmal; Relay und `LocalRelay` teilen ihn. `HASH_EVERY_TICKS = 15` (eine Spielsekunde).
+- `LockstepLink.reportHash`: Der `GameStateManager` meldet am Rand jedes 15. Ticks, vor dessen Befehlen, die
+  Prüfsumme (`StateHasher`). Protokoll 2: `hash` vom Client, `desync` an alle (erster Tick, Spieler und Prüfsumme).
+- Client: `CoopSession.onDesync`, `CoopService.desync`, Warnung in der Konsole mit den Prüfsummen, Hinweis im
+  Coop-Dialog. Eine Anzeige im Spiel kommt mit der Spieler-Leiste (Wunsch A).
+- Relay-Diagnose: jede Raum-Zeile mit Uhrzeit und `[CODE]` (Anlegen, Beitritt, Austritt mit Grund Schließen oder
+  Herzschlag, Welt mit Größe und Spawns, Lanes, Bereit, Start mit Seed und Lanes, Tempo, Hostwechsel, erste
+  Abweichung, Ende mit Dauer, Ticks, Befehlen); alle 10 s je laufendem Raum Tick, Tempo, Befehle je Sekunde, je
+  Spieler Ping-Laufzeit des Herzschlags und letzte Prüfsumme. Statusseite `http://<relay>/` (Text) und `/status`
+  (JSON). `npm run coop-server` schreibt zusätzlich nach `logs/coop_<Start>.log`.
+- Abnahme: Lockstep-Spec (B verfälscht sein Gold, der Relay meldet es spätestens 15 Ticks später; der lange
+  Zwei-Spieler-Lauf endet ohne Meldung), `room.spec.ts`, `server.spec.ts` (Abweichung über Sockets, Log mit Code,
+  Statusseite), `session.spec.ts`.
+- Gemessen (User, 2026-09-24, Relay-Log): Chrome gegen Chrome bis W10, rund 66 Spielminuten, ohne Abweichung.
+  Chrome gegen Firefox weicht bei Tick 210 ab (14 Spielsekunden nach dem Start) und bleibt abweichend. Ursache
+  unbelegt; Eingrenzen per zerlegter Prüfsumme ist TODO E28, Randthema (D29).
+
+**C5b offen:** Wiedereinstieg und Resync.
+
 - Jeder Client meldet alle N Ticks seine Prüfsumme (`StateHasher`); der Relay vergleicht.
 - Wiedereinstieg und Beitritt mitten in der Welle: Snapshot vom Wellenstart plus Befehlslog seitdem, vorspulen.
   Das gibt es schon (Neu-Simulation) und trägt, solange die Browser gleich rechnen.
@@ -371,11 +394,136 @@ Reihenfolge nach Priorität (A zuerst):
 
 | Prio | Punkt |
 |------|-------|
-| A | In der Lobby kann jeder seinen Namen ändern, bevor es losgeht (heute nur vor dem Beitritt; braucht eine Nachricht `rename` am Relay) |
-| A | Klickt ein Spieler auf „Starte Welle“ (heißt im Coop „bereit“), sehen die anderen das |
-| A | Eine kleine dauerhafte Anzeige im Spiel mit allen Spielern, Namen und Zustand; der Coop-Dialog allein reicht nicht |
-| B | Beim Gast schließt sich der Coop-Dialog beim Start nicht von selbst (beim Host schon, weil sein Start-Knopf ihn schließt) |
+| A | In der Lobby kann jeder seinen Namen ändern, bevor es losgeht (heute nur vor dem Beitritt; braucht eine Nachricht `rename` am Relay) **Gebaut 2026-09-24.** |
+| A | Klickt ein Spieler auf „Starte Welle“ (heißt im Coop „bereit“), sehen die anderen das **Gebaut 2026-09-24.** |
+| A | Eine kleine dauerhafte Anzeige im Spiel mit allen Spielern, Namen und Zustand; der Coop-Dialog allein reicht nicht **Gebaut 2026-09-24.** |
+| A-B | Gold an einen Mitspieler senden, im Spiel (User, 2026-09-24). Ein Befehl wie `command:give-credits` mit Empfänger und Betrag, der über den Relay läuft und im Ledger vom einen Konto aufs andere bucht **Gebaut 2026-09-24.** |
+| A-B | Die Lobby zeigt je Spieler, womit er spielt: Engine (Chrome, Firefox, Electron-Build), deren Versionsnummer, Spielversion, Betriebssystem (User, 2026-09-24). Kommt mit `hello` zum Relay, steht auch in dessen Log und Statusseite; bei verschiedenen Engines ein Hinweis in der Lobby, weil gemischte Browser auseinanderlaufen (C5, D29, TODO E28) **Gebaut 2026-09-24.** |
+| B | Beim Gast schließt sich der Coop-Dialog beim Start nicht von selbst (beim Host schon, weil sein Start-Knopf ihn schließt) **Gebaut 2026-09-24.** |
 | C | Chat im Spiel unten links, ähnlich wie Minecraft, mit einer Taste zum Schreiben |
+
+So gebaut (2026-09-24), Nachtest in [PLAYTEST.md](PLAYTEST.md) T:
+
+- Name: Nachricht `rename` am Relay, nur in der Lobby, gleiche Namen bekommen eine Nummer; Feld „Your name“ im Dialog.
+- Spieler-Leiste `components/coop-players/` oben mittig unter dem Tempo: je Spieler Lane-Farbe, Name, Gold, zwischen
+  den Wellen „ready“ oder „building“, Gegangene durchgestrichen; „Waiting for …“, sobald man selbst bereit ist.
+  Gelesen aus der Simulation (`coop:ready-changed`, `credits:changed`, `coop:player-left`), auf allen Clients gleich.
+- Gold senden: `command:give-credits` (Empfänger, Betrag), `GameStateManager.giveCredits`: nur ganze Beträge, nur was
+  der Geber hat, nur an einen Mitspieler im Spiel; Buchungsquelle `gift`, Ereignis `coop:credits-given`. In der
+  Leiste der Knopf neben einem Mitspieler, Beträge 50, 100, 250, 500; beim Empfänger „X sent you N gold“.
+- Engine: `coop/client-info.ts` liest aus dem User-Agent Browser oder Electron (mit Chromium-Version), Version,
+  Engine-Familie und System. Kommt mit `hello`, steht in der Lobby, im Relay-Log beim Beitritt und auf der
+  Statusseite. Hinweis in der Lobby bei mehr als einer Engine-Familie (Blink, Gecko, WebKit). Die Spielversion steht
+  nicht je Spieler da: Das Relay lässt ohnehin nur dieselbe in den Raum.
+- Dialog: schließt sich beim Start für alle, nicht nur beim Host.
+
+### Review 2026-09-24: was noch dazugehört
+
+Durchsicht von Relay, Session, `CoopService`, Dialog und Spieler-Leiste nach dem UI-Umbau. Reihenfolge je Gruppe
+nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht anders gesagt.
+
+**Fehler (vor dem nächsten längeren Test)**
+
+- R1 **Neustart im Coop läuft auseinander.** „Play again“ schickt `command:restart-game` über das Relay; jeder Client
+  ruft `reset()` ohne Seed und zieht einen eigenen aus `Math.random`. Lösung: Neustart nur durch den Host, Seed im
+  Befehl (oder vom Relay), Spieler und Lanes danach wieder setzen. **Gebaut 2026-09-24: `command:restart-game` mit Seed, nur der Host (Gast sieht „The host starts the next run“); im Lockstep beginnt die neue Runde am nächsten Relay-Tick (`lockstepTickBase`), wer ging, bleibt weg.**
+- R2 **Ein Client hinter dem Relay holt nie auf.** Das Relay schließt Ticks nach Wanduhr, die Uhr des Clients läuft
+  aber nur in Raumtempo (`GameClock.MAX_CATCHUP_MS`). Nach einem Ruckler oder einem Hintergrund-Tab bleibt der
+  Rückstand für immer; im Test vom 2026-09-24 lag das zweite Fenster konstant rund 75 Ticks (5 Spielsekunden)
+  zurück. Lösung: im Lockstep bis zum bestätigten Tick nachlaufen (begrenzt, etwa bis 4×), und das Relay läuft
+  höchstens K Ticks vor dem langsamsten Client (der meldet, bis wohin er ist; die Prüfsummen tun das schon). **Gebaut 2026-09-24 (Client-Seite): im Lockstep läuft die Uhr bis 4× schneller, solange mehr als 3 Ticks offen sind (`lockstepCatchUp`). Das Relay wartet weiterhin auf niemanden; ein Deckel „höchstens K Ticks vor dem Langsamsten“ bleibt offen.**
+- R3 **Debug-Befehle laufen im Coop durch.** `debug:add-credits`, `debug:kill-all` usw. gehen über das Relay und
+  wirken bei allen. Plan (C6) sagt „im Coop aus“. Lösung: Relay verwirft `debug:*`, die Simulation ignoriert sie bei
+  mehr als einem Spieler (auf allen Clients gleich). **Gebaut 2026-09-24: Relay nimmt nur `command:*`, die Simulation ignoriert `debug:*` bei `cheatsBlocked` (setzt jeder Client beim Start).**
+- R4 **Ortswechsel und Replay im Coop.** Für HQ versetzen, Spawn neu setzen, Stadt wechseln und die Replay-Leiste
+  fand ich keine Sperre im laufenden Coop-Spiel; jede davon baut Welt oder Simulation nur lokal um. Im Spiel sperren
+  (Knopf aus, Tooltip „not in a coop game“). **Gebaut 2026-09-24: `UIStore.coopMapLocked` (im Spiel, und für Gäste in der Lobby) sperrt Ortsdialog, Würfel, Favoriten, HQ, Spawns und Replay.**
+- R5 **Tempo beim Gast.** Der Knopf nimmt Klicks an und springt zurück. Beim Gast ausgegraut mit Tooltip „the host
+  sets the speed“. **Gebaut 2026-09-24: beim Gast ausgegraut mit Tooltip, Klick tut nichts.**
+
+**Zusammenfinden**
+
+- R6 Relay-Adresse, siehe unten; bisher `coopRelay` in `runtime-config.json`, sonst `ws://localhost:3003`. **Gebaut 2026-09-24: `coop/relay-address.ts`, Reihenfolge wie unten.**
+- R7 Einladungslink trägt die Relay-Adresse mit (`&relay=`), sonst landet ein Gast mit anderer Konfiguration auf
+  einem anderen Server und findet den Raum nicht. **Gebaut 2026-09-24: `&relay=` im Link, außer bei localhost; bleibt beim Neuladen auf die Karte des Hosts erhalten.**
+- R8 Beitritt ohne eigenen Tiles-Token (D19): Token-Dialog vor dem Laden der Karte, mit Satz, warum.
+- R9 Host: Spieler aus der Lobby entfernen, Raum schließen für weitere Beitritte.
+- R10 Wiedereinstieg nach Verbindungsabbruch (C5b). Bis dahin: nach Abbruch „Continue alone“ (Lockstep aus, das
+  Spiel läuft als Einzelspieler weiter) statt stehenzubleiben.
+- R11 Raumcode ohne Link eintippen geht nur, wenn der Gast dieselbe Karte schon geladen hat oder neu lädt; klappt,
+  aber der Dialog sagt nicht, dass die Seite gleich neu lädt.
+
+**Im Spiel**
+
+- R12 Chat unten links mit Taste (Wunsch C); heute nur im Dialog, eingehende Zeilen stehen unter der Leiste.
+- R13 Karten-Ping (D25): Protokoll hat `ping`, es gibt keine Oberfläche.
+- R14 Tower des Partners erkennbar machen (Farbring in Lane-Farbe, Tooltip „Bob's tower“); heute ist er nur nicht
+  auswählbar, ohne Grund.
+- R15 Lane-Druck je Spieler (Lecks je Lane), Anzeige wer gerade bremst (R2), Held des Partners sichtbar (heute nur
+  der eigene gezeichnet, C2c).
+- R16 Game over im Coop: Zusammenfassung je Spieler (Kills, Gold, Lecks je Lane); Run-Log markiert Coop-Läufe, damit
+  sie nicht in Einzelspieler-Rekorde und Mittelwerte fallen.
+
+**Relay**
+
+- R17 `maxPayload` am WebSocket-Server setzen (Standard 100 MB; das Weltpaket hat rund 300 kB), Nachrichten je
+  Sekunde und Verbindung begrenzen, Chatlänge ist schon begrenzt. **Gebaut 2026-09-24: `maxPayload` 4 MB, 120 Nachrichten je Sekunde und Verbindung, darüber verworfen und einmal geloggt.**
+- R18 Leere oder verwaiste Räume nach Zeit schließen (Lobby ohne Start nach 1 h), Obergrenze an Räumen.
+- R19 `wss://` und Herkunftsprüfung (`Origin`) fürs Netz (C7).
+- R20 Electron: Relay im Main-Prozess, „LAN-Spiel hosten“, eigene IP im Dialog anzeigen (C4d).
+
+**Tests**
+
+- R21 `CoopService` hat keine eigene Spec (automatische Lane, Start mit Bereit, Meldungen, Abbruch).
+
+#### Woher das Spiel den Relay kennt
+
+Die Adresse soll nicht fest im Code stehen. Möglichkeiten, von oben nach unten gefragt, die erste mit Antwort gilt:
+
+So gebaut (2026-09-24), `coop/relay-address.ts`; eine der Stellen 1 bis 3 wird allein versucht, die automatischen
+der Reihe nach (je 5 s):
+
+1. **Einladungslink** `&relay=wss://…`: Der Gast nimmt den Server des Hosts, ohne etwas einzustellen (R7).
+2. **Eigene Einstellung** im Coop-Dialog („Server“, klappbar unter „Advanced“), in `localStorage` wie der
+   Tiles-Token: für LAN und selbst betriebene Server.
+3. **`runtime-config.json`** `coopRelay` (gibt es): Die Webseite liefert ihren Standard-Server mit, änderbar ohne
+   neuen Build; auch eine Liste wäre möglich, der Client nimmt den mit der kleinsten Laufzeit.
+4. **Gleiche Herkunft**: Läuft die Seite über `https://host/play/`, versucht der Client `wss://host/coop` (Reverse
+   Proxy vor dem Relay). Keine Konfiguration nötig, sobald die Seite und der Relay hinter derselben Domain stehen.
+   Über `http://<LAN-IP>` versucht er `ws://<LAN-IP>:3003`.
+5. **Entwicklung**: `ws://localhost:3003`.
+
+Electron: Der Host startet den Relay im Main-Prozess; im LAN findet der Gast ihn über den Link (IP des Hosts) oder
+eine Suche im Main-Prozess (mDNS oder UDP-Broadcast, im Browser nicht möglich). Ein Link mit fremdem Relay sollte im
+Dialog dessen Host anzeigen, damit niemand unbemerkt auf einem fremden Server landet. Ein fremder Relay erfährt Name
+und Browser; das Weltpaket von dort prüft `readWorldPackage` auf Format, Spielversion und Balance.
+
+#### Schutz gegen Schummeln
+
+Was Lockstep schon leistet: Jeder Client rechnet alles selbst und prüft jeden Befehl nach denselben Regeln
+(Gold reicht, Tower gehört dir, Lane gehört dir). Ein verbotener Befehl tut überall nichts. Wer seinen eigenen
+Zustand verändert (Gold, HP), weicht ab und fällt über die Prüfsumme auf (C5a); den anderen schadet er damit nicht.
+Wer wer ist, stempelt das Relay aus der Verbindung, niemand kann für einen anderen Befehle schicken.
+
+Offene Stellen, nach Gewicht:
+
+- S1 **Debug-Befehle** gehen durch (R3): der einzige Weg, heute ohne Umbau am Client zu schummeln. **Gebaut 2026-09-24 (R3).**
+- S2 **Host-Vertrauen**: Sichtlinien-Masken (C3) und das Weltpaket kommen nur vom Host. Ein manipulierter Host kann
+  Tower durch Wände schießen lassen. Im Coop ist das der eigene Mitspieler; bei öffentlichen Räumen wäre der Ausweg,
+  dass ein zweiter Client Stichproben der Masken nachrechnet.
+- S3 **Wer hat recht bei einer Abweichung**: Mit drei oder mehr Spielern entscheidet die Mehrheit, der Abweichler
+  bekommt den Hinweis (und später den Resync, C5b). Mit zweien bleibt es offen.
+- S4 **Befehle auf Plausibilität prüfen**, die heute nur die UI begrenzt: Wertebereiche (`tower-aim`, Positionen im
+  Gelände, Beträge), Rate je Spieler am Relay (R17). **Rate und Größe gebaut (R17); Gold senden prüft Betrag und
+  Konto, die Wertebereiche der übrigen Befehle sind offen.**
+- S5 **Selbst gemeldete Version und Balance** beim Beitritt: ein veränderter Client lügt dort; die Prüfsumme fängt
+  jede Regeländerung, die den Zustand betrifft, spätestens nach einer Spielsekunde.
+- S6 **Rekorde**: Coop-Läufe gehen nicht in Einzelspieler-Rekorde (R16). Eine Online-Rangliste gibt es nicht; käme
+  eine, wäre ein Lauf erst glaubhaft, wenn der Server das Befehlslog selbst nachrechnet (die Neu-Simulation dafür
+  existiert).
+
+Für ein Koop-Spiel unter Freunden reicht S1 plus S4; S2, S3 und S6 werden wichtig, sobald fremde Leute in
+öffentliche Räume kommen.
 
 ### C6 Coop-Oberfläche
 
