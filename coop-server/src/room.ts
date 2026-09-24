@@ -18,6 +18,7 @@
  * timer to it; the spec drives it by hand. What happens goes to `log`, one
  * line per event, for the diagnosis of a run (C5).
  */
+import { statsLine } from '../../src/app/coop/lockstep-stats.ts';
 import type {
   ClientMessage,
   CoopPlayerInfo,
@@ -56,6 +57,8 @@ export interface RoomOptions {
   log?: (line: string) => void;
   /** Wall clock, ms */
   now?: () => number;
+  /** Let the dev tools' cheats (debug:* commands) through; off by default */
+  cheats?: boolean;
 }
 
 /** A room as the status page and the relay's status line show it. */
@@ -92,6 +95,8 @@ export class Room {
   private started = false;
 
   private speed = 1;
+  /** The speed a resume goes back to: the last one that was not 0 */
+  private resumeSpeed = 1;
   private nextTick = 0;
   private open: { playerId: string; command: StampedCommand['command'] }[] = [];
   private seq = 0;
@@ -108,6 +113,7 @@ export class Room {
   private readonly log: (line: string) => void;
   private readonly now: () => number;
   private readonly createdAt: number;
+  private readonly cheats: boolean;
 
   constructor(code: string, host: RoomPlayer, send: Send, options: RoomOptions = {}) {
     this.code = code;
@@ -115,9 +121,11 @@ export class Room {
     this.log = options.log ?? (() => undefined);
     this.now = options.now ?? (() => performance.now());
     this.createdAt = this.now();
+    this.cheats = options.cheats ?? false;
     this.hostId = host.id;
     this.players.push({ ...host, client: host.client ?? null, spawnId: null, ready: false });
-    this.log(`opened by ${this.who(host.id)}, game ${host.gameVersion}, balance ${host.configHash}${this.clientOf(host.id)}`);
+    this.log(`opened by ${this.who(host.id)}, game ${host.gameVersion}, balance ${host.configHash}${this.clientOf(host.id)}`
+      + `${this.cheats ? ', cheats allowed' : ''}`);
     this.broadcastRoom();
   }
 
@@ -180,6 +188,8 @@ export class Room {
         if (this.started) return this.refuse(playerId, 'started');
         this.world = message.world;
         this.spawnIds = [...message.spawnIds];
+        // Another map: the lanes stay where they still exist, ready is asked again
+        for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
         this.log(`world from the host, ${Math.round(JSON.stringify(this.world).length / 1024)} kB, spawns ${this.spawnIds.join(', ') || 'none'}`);
         for (const p of this.players) {
           if (p.spawnId !== null && !this.spawnIds.includes(p.spawnId)) p.spawnId = null;
@@ -216,6 +226,7 @@ export class Room {
       case 'start':
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.started) return this.refuse(playerId, 'started');
+        if (this.players.length < 2) return this.refuse(playerId, 'alone');
         if (this.world === null || this.players.some((p) => p.spawnId === null || !p.ready)) {
           return this.refuse(playerId, 'not-ready');
         }
@@ -232,19 +243,27 @@ export class Room {
         return this.broadcastRoom();
       case 'cmd':
         // Only game commands; the dev tools' debug:* are off in coop (review R3)
-        if (!this.started || typeof message.command?.type !== 'string' || !message.command.type.startsWith('command:')) return;
+        if (!this.started || typeof message.command?.type !== 'string' || !this.accepts(message.command.type)) return;
         this.open.push({ playerId, command: message.command });
         this.commandCount++;
         return;
       case 'hash':
         if (!this.started) return;
         return this.checkHash(playerId, message.tick, message.hash);
-      case 'speed':
-        if (!host) return this.refuse(playerId, 'not-host');
+      case 'stats':
+        if (!this.started || typeof message.stats?.frames !== 'number') return;
+        return this.log(`stats ${this.who(playerId)}: ${statsLine(message.stats)}`);
+      case 'speed': {
         if (!SPEEDS.has(message.speed)) return;
+        // The speed is the host's; everyone may pause, and resume at the room's speed
+        const pauseOrResume = message.speed === 0 || (this.speed === 0 && message.speed === this.resumeSpeed);
+        if (!host && !pauseOrResume) return this.refuse(playerId, 'not-host');
+        if (message.speed === this.speed) return;
         this.speed = message.speed;
-        this.log(message.speed === 0 ? 'paused' : `speed ${message.speed}`);
+        if (this.speed !== 0) this.resumeSpeed = this.speed;
+        this.log(message.speed === 0 ? `paused by ${this.who(playerId)}` : `speed ${message.speed} (${this.who(playerId)})`);
         return this.broadcast({ t: 'speed', speed: this.speed });
+      }
       case 'chat':
         return this.broadcast({ t: 'chat', from: playerId, text: message.text.slice(0, 500) });
       case 'ping':
@@ -327,6 +346,16 @@ export class Room {
     return name ? `${name} (${playerId})` : playerId;
   }
 
+  /** Tell everyone each player's round trip to the relay (`rttOf`, ms) */
+  sendRtt(rttOf: (playerId: string) => number | null): void {
+    this.broadcast({ t: 'rtt', rtt: this.players.map((p) => [p.id, rttOf(p.id)]) });
+  }
+
+  /** A game command, or a cheat where the relay allows them */
+  private accepts(type: string): boolean {
+    return type.startsWith('command:') || (this.cheats && type.startsWith('debug:'));
+  }
+
   info(): CoopRoomInfo {
     return {
       code: this.code,
@@ -334,6 +363,7 @@ export class Room {
       players: this.players.map(({ id, name, spawnId, ready, client }) => ({ id, name, spawnId, ready, client })),
       spawnIds: [...this.spawnIds],
       started: this.started,
+      cheats: this.cheats,
     };
   }
 
