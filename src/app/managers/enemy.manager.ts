@@ -453,6 +453,18 @@ export class EnemyManager extends EntityManager<Enemy> {
    * pay each, a leaked skeleton forfeits all three, and a split never raises
    * the wave's gold.
    */
+  /**
+   * Forget the kill gold of the current wave, so the next kill starts the
+   * budget of its wave afresh. The budget resets when the wave number
+   * changes; a snapshot restore can bring back a wave number that already
+   * paid (a replay runs wave N again), so it calls this.
+   */
+  resetKillRewards(): void {
+    this.rewardWaveNumber = -1;
+    this.remainingKillBudget = 0;
+    this.paidRewardWeight = 0;
+  }
+
   private calculateDynamicReward(enemy: Enemy): number {
     const wave = this.getWaveNumber();
 

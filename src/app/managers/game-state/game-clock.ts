@@ -10,6 +10,12 @@
  * `beginFrame()`, `while (nextSubStep()) { ... }`, `endFrame()`, or
  * `holdFrame()` while paused. Plain arithmetic, no allocation per sub-step.
  */
+/** See GameClock.getState. Plain data. */
+export interface GameClockState {
+  gameTimeMs: number;
+  subStep: number;
+}
+
 export class GameClock {
   /** Fixed game-time per sub-step (~60Hz game-time granularity). */
   static readonly FIXED_STEP_MS = 16.667;
@@ -141,6 +147,34 @@ export class GameClock {
       return true;
     }
     return false;
+  }
+
+  /**
+   * One sub-step regardless of the frame's game-time: the re-simulation of a
+   * wave steps the simulation by count, not by the wall clock
+   * (docs/SIMULATOR_PLAN.md, P4). Advances game time and step count exactly
+   * as nextSubStep() does.
+   */
+  forceSubStep(): void {
+    this._gameTimeMs += GameClock.FIXED_STEP_MS;
+    this._subStep++;
+  }
+
+  /** Game time and step count, for the wave-start snapshot. */
+  getState(): GameClockState {
+    return { gameTimeMs: this._gameTimeMs, subStep: this._subStep };
+  }
+
+  /**
+   * Put game time and step count back. The frame bookkeeping starts over:
+   * no remainder, and the next frame takes its wall clock afresh.
+   */
+  setState(state: GameClockState): void {
+    this._gameTimeMs = state.gameTimeMs;
+    this._subStep = state.subStep;
+    this.subStepRemainderMs = 0;
+    this.pendingMs = 0;
+    this.lastUpdateTime = 0;
   }
 
   /** Closes the frame: whatever game-time is left carries into the next one. */

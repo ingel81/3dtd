@@ -16,6 +16,7 @@ import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult } from
 import { ResearchStore } from '../store/research.store';
 import { TowerLosRegistry } from './tower-los-registry';
 import type { LosMask } from '../utils/los-mask';
+import type { LosResolveReason } from '../game-engine/game-event-bus';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import {
@@ -966,6 +967,21 @@ export class TowerPlacementService {
   /** Register a placed tower from a stored LosMask, no GPU work (snapshot restore, re-simulation). */
   registerTowerFromMask(tower: Tower, mask: LosMask): void {
     this.losRegistry.registerFromMask(tower, mask);
+  }
+
+  /** Re-simulation: masks for place and upgrade from the log, see TowerLosRegistry.setMaskSource. */
+  setLosMaskSource(source: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
+    this.losRegistry.setMaskSource(source);
+  }
+
+  /** Towers waiting for their LOS retrofit, oldest first. */
+  queuedLosTowerIds(): string[] {
+    return this.losRegistry.queuedTowerIds();
+  }
+
+  /** Put towers back in the LOS retrofit queue, in order. */
+  requeueLos(towers: readonly Tower[]): void {
+    this.losRegistry.requeue(towers);
   }
 
   /**

@@ -16,6 +16,8 @@ import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { releaseAim } from '../../entities/tower-aim';
 import { TowerTypeId, TOWER_TYPES, UpgradeId, requiredUpgradeTier } from '../../configs/tower-types.config';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import type { SavedTower } from '../../simulator/sim-snapshot';
+import { losMaskFromJson } from '../../utils/los-mask';
 
 /**
  * Tower rules and glue around the TowerManager: what placing, selling and
@@ -46,6 +48,35 @@ export class TowerLifecycle {
 
   /** The tower the player sits in (man()), null when none */
   private manned: Tower | null = null;
+
+  /**
+   * Put a tower back as a wave-start snapshot saved it (docs/SIMULATOR_PLAN.md,
+   * P4): same id, upgrades, state and line of sight, no cost, no GPU, no
+   * tower:placed. The caller sets the id counter so the tower gets `saved.id`.
+   */
+  restore(saved: SavedTower): Tower | null {
+    const tower = this.towerManager.placeTower(
+      { lat: saved.lat, lon: saved.lon, height: saved.height },
+      saved.typeId,
+      saved.customRotation,
+      saved.plinthHeight,
+      saved.plinthOverhang,
+      true,
+    );
+    if (!tower) return null;
+    tower.restoreUpgradeLevels(saved.upgrades);
+    tower.restoreSimState(saved.state);
+    if (saved.losMask && tower.typeConfig.attackType !== 'passive') {
+      this.placement.registerTowerFromMask(tower, losMaskFromJson(saved.losMask));
+    }
+    this.engine()?.towers.updateRangeIndicator(tower.id, tower.combat.range);
+    return tower;
+  }
+
+  /** The tower the player sits in after a snapshot restore, without tower:manned. */
+  restoreManned(tower: Tower | null): void {
+    this.manned = tower;
+  }
 
   /**
    * Place a new tower

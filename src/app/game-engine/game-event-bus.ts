@@ -242,6 +242,16 @@ export type GameEvent =
       type: 'game:reset';
     }
   | {
+      /**
+       * The simulation was put back to a snapshot (docs/SIMULATOR_PLAN.md,
+       * P4) without the events that got it there: mirrors (stores, HUD)
+       * read the state anew. `reason` says whether a replay is starting a
+       * wave or giving the live game back.
+       */
+      type: 'sim:restored';
+      reason: 'replay' | 'live';
+    }
+  | {
       type: 'credits:changed';
       credits: number;
       delta: number;

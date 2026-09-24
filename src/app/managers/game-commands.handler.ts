@@ -33,11 +33,13 @@ export class GameCommandsHandler {
   private inStep = false;
   /** Commands that arrived during the running step, in arrival order */
   private readonly pending: GameEvent[] = [];
+  /** Re-simulating: only replay() gives commands, see setReplaying() */
+  private replaying = false;
 
   constructor(
     private readonly gsm: GameStateManager,
     private readonly eventBus: GameEventBus,
-    private readonly log: CommandLog = new CommandLog(),
+    private log: CommandLog = new CommandLog(),
   ) {
     this.attachTowerCommands();
     this.attachResearchCommands();
@@ -70,12 +72,29 @@ export class GameCommandsHandler {
   }
 
   /**
+   * Re-simulation (docs/SIMULATOR_PLAN.md, P4): the log is the only input.
+   * Commands from the bus (UI, bot, a listener that reacts to a replayed
+   * event) are dropped, a logged one runs through replay(). Otherwise a
+   * command a listener sends in reply to a sim event would run twice: once
+   * sent again, once from the log.
+   */
+  setReplaying(replaying: boolean): void {
+    this.replaying = replaying;
+    this.pending.length = 0;
+  }
+
+  /** Where executed commands are logged from now on; the re-simulation writes a log of its own. */
+  setLog(log: CommandLog): void {
+    this.log = log;
+  }
+
+  /**
    * Run a logged command again through the same path as the live one, for a
    * re-simulation that has reached the entry's boundary. It is logged again,
    * so a faithful re-simulation writes the same log.
    */
   replay(entry: CommandLogEntry): void {
-    this.receive(entry.command as unknown as GameEvent);
+    this.execute(entry.command as unknown as GameEvent);
   }
 
   /** Subscribe `type` to the boundary and the log, `run` is what it does. */
@@ -85,6 +104,7 @@ export class GameCommandsHandler {
   }
 
   private readonly receive = (event: GameEvent): void => {
+    if (this.replaying) return;
     if (this.inStep) {
       this.pending.push(event);
       return;
