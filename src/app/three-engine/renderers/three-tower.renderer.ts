@@ -95,6 +95,13 @@ export class ThreeTowerRenderer {
    */
   private readonly pendingCreates = new Map<string, number>();
   private createToken = 0;
+  /**
+   * Hold fire and a range grown by upgrades, set before the model may have
+   * arrived (a snapshot restore builds a tower and sets both at once):
+   * create() applies them when it does.
+   */
+  private readonly heldIds = new Set<string>();
+  private readonly ranges = new Map<string, number>();
 
   /** Tower types whose configured turretNode the model lacks, warned about once. */
   private readonly missingTurretNodes = new Set<string>();
@@ -413,6 +420,12 @@ export class ThreeTowerRenderer {
 
     this.applyParts(renderData);
     this.towers.set(id, renderData);
+    if (this.heldIds.has(id)) {
+      renderData.holdFire = true;
+      setTowerGreyedOut(renderData.mesh, true);
+    }
+    const range = this.ranges.get(id);
+    if (range !== undefined) this.updateRangeIndicator(id, range);
     return renderData;
   }
 
@@ -579,6 +592,8 @@ export class ThreeTowerRenderer {
 
   /** Grey out the tower's model on hold fire, or give it its colours back (TowerLifecycle.setHoldFire). */
   setHoldFire(id: string, holdFire: boolean): void {
+    if (holdFire) this.heldIds.add(id);
+    else this.heldIds.delete(id);
     const data = this.towers.get(id);
     if (!data || data.holdFire === holdFire) return;
     data.holdFire = holdFire;
@@ -634,6 +649,8 @@ export class ThreeTowerRenderer {
    */
   remove(id: string): void {
     this.pendingCreates.delete(id);
+    this.heldIds.delete(id);
+    this.ranges.delete(id);
     const data = this.towers.get(id);
     if (!data) return;
 
@@ -779,6 +796,8 @@ export class ThreeTowerRenderer {
    */
   clear(): void {
     this.pendingCreates.clear();
+    this.heldIds.clear();
+    this.ranges.clear();
     for (const id of this.towers.keys()) {
       this.remove(id);
     }
@@ -790,6 +809,8 @@ export class ThreeTowerRenderer {
    * the surface under it every frame, a changed tile needs no call.
    */
   updateRangeIndicator(id: string, range?: number): void {
+    if (range === undefined) this.ranges.delete(id);
+    else this.ranges.set(id, range);
     const data = this.towers.get(id);
     if (!data || !data.rangeIndicator) return;
 

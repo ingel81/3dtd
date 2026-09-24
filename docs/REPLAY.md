@@ -69,8 +69,16 @@ noch Schüsse fliegen, wartet es bis zu 5 s auf ein ruhiges Feld. Dann übernimm
   zum Ziel rechnen, rückwärts ab Wellenstart. Eine mittlere Welle (10 800 Sub-Steps) braucht rund 0,6 s.
 - **Verlassen:** Den Live-Snapshot laden, solange der Replay-Modus noch an ist, dann aus. Das Laden leert die
   Warteschlange der verzögerten Events, damit das `wave:completed` der nachgerechneten Welle nicht im Live-Spiel
-  ankommt. Die Stores haben während des ganzen Replays nichts gehört und stehen danach auf dem Live-Stand; das HQ-Feuer
-  folgt `sim:restored`. Blut, Brandspuren und Schadenszahlen werden beim Betreten, Verlassen und Springen geräumt.
+  ankommt. Die Stores haben während des ganzen Replays nichts gehört und stehen danach auf dem Live-Stand.
+- **Bild und Ton nach jedem Laden und Springen:** Ein Laden oder Springen ändert den Zustand ohne die Events, die sonst
+  Bild und Ton mitbringen. Deshalb räumt `GameStateManager.clearShow()` vorher ab (Partikel, Bodenmarken,
+  Schadenszahlen, Schlag-Effekte der Fähigkeiten und deren Sounds, einmalige Sounds; die Loops bleiben bei ihren
+  Gegnern und Towern), und `resyncPresentation()` baut danach auf, was der Stand zeigt: Glut der Feuer-Tower, HQ-Feuer,
+  Status-Auren der Gegner, Musik und Blutmond der Phase, die Rakete im Silo. Feuerpause und Reichweitenring eines
+  Towers setzt der Tower-Renderer auch dann, wenn sein Modell erst nach dem Laden kommt; ein Modell für einen Tower,
+  der inzwischen wieder weg ist, verwirft er. Zustands-Events eines Ladens tragen `restored` und klingen nicht
+  (kein Glöckchen für eine Ladung, kein Geräusch des Helden).
+- **Bemannter Tower:** Vor dem Replay steigt der Spieler aus; nach dem Replay steht er draußen.
 
 Weicht eine Prüfsumme beim Nachrechnen vom Live-Lauf ab, zeigt die Leiste „differs from m:ss“. Das ist ein
 Determinismus-Bug: bitte mit der Replay-Datei melden.
@@ -107,6 +115,7 @@ Balance, Seed, Eingaben mit Sub-Step und Sicht-Masken, jeder Eintrag mit `player
 - Beim Springen die Sounds, Effekte, Bodenmarken und Schadenszahlen der übersprungenen Strecke; was bei der Ankunft
   auf dem Feld steht, zeigt es
 - Die Bodenmarken des Live-Spiels vor dem Replay: Sie sind nach dem Verlassen weg
+- Den bemannten Tower nach dem Verlassen: Der Spieler steigt vor dem Replay aus
 - Die Ringe des Helden (Auswahl, Posten, Laufziel): Er ist im Replay nicht auswählbar
 - Die Spiel-UI (HUD, Boss-Leiste, Leck-Vignette); die Leiste zeigt HQ-Leben und Gegner auf der Route
 

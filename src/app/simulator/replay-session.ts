@@ -1,4 +1,3 @@
-import { clearStrikeEffects } from '../three-engine/strike-effects';
 import type { GameStateManager } from '../managers/game-state.manager';
 import { GameClock } from '../managers/game-state/game-clock';
 import type { ThreeTilesEngine } from '../three-engine';
@@ -72,9 +71,9 @@ export class ReplaySession {
   enter(): void {
     this.live = this.gameState.captureSnapshot();
     // Blood, scorch marks, damage numbers, a strike still running: the replay starts on a clean field
-    this.engine.effects.clear();
-    clearStrikeEffects(this.engine);
+    this.gameState.clearShow();
     this.resim.start();
+    this.gameState.resyncPresentation();
     this.carryMs = 0;
     this._playing = true;
     this.present();
@@ -85,13 +84,12 @@ export class ReplaySession {
     const live = this.live;
     this.live = null;
     this._playing = false;
+    // The replay's marks, numbers and strikes stay behind in it
+    this.gameState.clearShow();
     // In replay mode still: the live listeners hear nothing of the way back
     if (live) this.gameState.restoreSnapshot(live, 'live');
     this.resim.end();
-    this.engine.spatialAudio.stopAll();
-    // The replay's marks, numbers and strikes stay behind in it
-    this.engine.effects.clear();
-    clearStrikeEffects(this.engine);
+    this.gameState.resyncPresentation();
     this.present();
   }
 
@@ -155,13 +153,11 @@ export class ReplaySession {
       bus.setShowMuted(false);
     }
     this.carryMs = 0;
-    this.engine.spatialAudio.stopAll();
     // Damage numbers, gold and particles of the stretch skipped would come all at
-    // once; a strike from before the jump would play on (a laser seen twice)
-    this.engine.effects.clear();
-    clearStrikeEffects(this.engine);
-    // The show heard nothing of the stretch: the silo's missile by the charges now
-    this.gameState.abilityManager.announceState();
+    // once; a strike from before the jump would play on (a laser seen twice).
+    // The show heard nothing of the stretch: set up what stands there now.
+    this.gameState.clearShow();
+    this.gameState.resyncPresentation();
     this.present();
   }
 

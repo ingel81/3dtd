@@ -151,6 +151,9 @@ export class ReplayService {
   private begin(wave: number): void {
     const engine = this.engineInit.getEngine();
     if (!engine || !this.recordOf(wave)) return;
+    // Out of a manned tower first, while the live listeners still hear it
+    // (camera and pointer lock of the tower view): in the replay they do not
+    if (this.gameStore.mannedTowerId()) this.gameState.getEventBus().emit({ type: 'command:leave-tower' });
 
     if (this.photoMode.active()) this.photoMode.exit();
     this.focusBefore = focusedElement();

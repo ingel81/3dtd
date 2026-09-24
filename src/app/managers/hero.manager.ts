@@ -555,8 +555,12 @@ export class HeroManager implements IGameManager {
     return false;
   }
 
-  private emitState(): void {
-    this.eventBus.emit({ type: 'hero:state-changed', hero: this.getStatus() });
+  private emitState(restored = false): void {
+    this.eventBus.emit({
+      type: 'hero:state-changed',
+      hero: this.getStatus(),
+      ...(restored ? { restored: true as const } : {}),
+    });
   }
 
   // ==================== Snapshot ====================
@@ -626,7 +630,8 @@ export class HeroManager implements IGameManager {
     } else {
       this.view?.clear();
     }
-    this.emitState();
+    // A baseline: no hire or ammo sound for a hero put back
+    this.emitState(true);
     this.presentFrame();
   }
 

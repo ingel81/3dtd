@@ -125,6 +125,29 @@ describe('GameSoundsService', () => {
     expect(global()).toEqual([MOMENT_SOUNDS.abilityReady.id]);
   });
 
+  it('takes a restored state as the new baseline: no chime, no hero sound (replay in, out, a seek)', () => {
+    const { bus, global } = setup();
+    const status = (charges: number, restored?: true) => ({
+      type: 'ability:state-changed' as const,
+      abilities: [{ id: 'emp', unlocked: true, charges, maxCharges: 1, wavesUntilCharge: 0, pending: false, launchSite: true }] as never,
+      ...(restored ? { restored } : {}),
+    });
+    bus.emit(status(0));
+    bus.emit(status(1, true));
+    const hero = (hired: boolean, ammo: string, restored?: true) => ({
+      type: 'hero:state-changed' as const,
+      hero: { unlocked: true, hired, ammo } as never,
+      ...(restored ? { restored } : {}),
+    });
+    bus.emit(hero(false, 'standard'));
+    bus.emit(hero(true, 'incendiary', true));
+    expect(global()).toEqual([]);
+    // After the baseline a real change sounds as before
+    bus.emit(status(0));
+    bus.emit(status(1));
+    expect(global()).toEqual([MOMENT_SOUNDS.abilityReady.id]);
+  });
+
   it('plays the HQ destroyed at game over, then the stinger, and drops the stinger on a reset', () => {
     const { bus, global } = setup();
     bus.emit({ type: 'game:over' } as never);

@@ -539,8 +539,12 @@ export class AbilityManager implements IGameManager {
     if (changed) this.emitStateSnapshot();
   }
 
-  private emitStateSnapshot(): void {
-    this.eventBus.emit({ type: 'ability:state-changed', abilities: this.getStatuses() });
+  private emitStateSnapshot(restored = false): void {
+    this.eventBus.emit({
+      type: 'ability:state-changed',
+      abilities: this.getStatuses(),
+      ...(restored ? { restored: true as const } : {}),
+    });
   }
 
   private stateOf(id: AbilityId): ChargeState {
@@ -582,16 +586,17 @@ export class AbilityManager implements IGameManager {
       this.states.set(id, { unlocked, charges, wavesTowardCharge });
     }
     this.nextStrikeId = state.nextStrikeId;
-    // The silo shows its missile by the charges (VFXService)
-    this.emitStateSnapshot();
+    // The silo shows its missile by the charges (VFXService); a baseline, no ready chime
+    this.emitStateSnapshot(true);
   }
 
   /**
-   * Send the charges again (ability:state-changed), for what shows them
-   * after a stretch it did not hear: a replay's seek mutes the show.
+   * Send the charges again as a baseline (ability:state-changed, restored),
+   * for what shows them after a stretch it did not hear: a replay's seek
+   * mutes the show.
    */
   announceState(): void {
-    this.emitStateSnapshot();
+    this.emitStateSnapshot(true);
   }
 
   destroy(): void {

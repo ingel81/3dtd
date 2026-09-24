@@ -434,6 +434,14 @@ export class SpatialAudioManager {
     this.loops.stopAll();
   }
 
+  /**
+   * Stop the one-shots, leave the loops: a loop belongs to an entity that
+   * lives on (an enemy walking, a flame) and stops with it (a replay's seek).
+   */
+  stopOneShots(): void {
+    this.playback.stopAllOneShots();
+  }
+
   /** Drop active one-shots that already finished playing (used on tab return). */
   revalidateActiveSounds(): void {
     this.playback.revalidateActiveSounds();

@@ -122,8 +122,8 @@ export class GameSoundsService {
     }));
     this.subs.add(bus.onShow('wave:completed', () => this.playGlobal(MOMENT_SOUNDS.waveComplete)));
     this.subs.add(bus.onShow('research:completed', () => this.playGlobal(MOMENT_SOUNDS.researchComplete)));
-    this.subs.add(bus.onShow('ability:state-changed', ({ abilities }) => this.onAbilities(abilities)));
-    this.subs.add(bus.onShow('hero:state-changed', ({ hero }) => this.onHero(hero)));
+    this.subs.add(bus.onShow('ability:state-changed', ({ abilities, restored }) => this.onAbilities(abilities, restored)));
+    this.subs.add(bus.onShow('hero:state-changed', ({ hero, restored }) => this.onHero(hero, restored)));
 
     // The HQ goes, then the stinger; the game-over track follows (music)
     this.subs.add(bus.onShow('game:over', () => {
@@ -155,21 +155,22 @@ export class GameSoundsService {
   }
 
   /** An ability charged again after it had none: the ready chime. Not for its unlock. */
-  private onAbilities(abilities: readonly AbilityStatus[]): void {
+  private onAbilities(abilities: readonly AbilityStatus[], restored = false): void {
     let ready = false;
     for (const status of abilities) {
       const before = this.abilities.get(status.id);
       if (before?.unlocked && before.charges === 0 && status.charges > 0) ready = true;
       this.abilities.set(status.id, status);
     }
-    if (ready) this.playGlobal(MOMENT_SOUNDS.abilityReady);
+    // A restore (replay in, out, a seek) sets a new baseline, it charges nothing
+    if (ready && !restored) this.playGlobal(MOMENT_SOUNDS.abilityReady);
   }
 
   /** The hero hired, or his ammo changed. */
-  private onHero(hero: HeroStatus): void {
+  private onHero(hero: HeroStatus, restored = false): void {
     const before = this.hero;
     this.hero = hero;
-    if (!before) return;
+    if (!before || restored) return;
     if (!before.hired && hero.hired) this.playGlobal(MOMENT_SOUNDS.heroHire);
     else if (hero.hired && before.ammo !== hero.ammo) this.playGlobal(MOMENT_SOUNDS.heroAmmo);
   }

@@ -356,6 +356,29 @@ describe('BackgroundMusicService', () => {
   });
 
   describe('phases', () => {
+    it('follows a phase set by a restore, and leaves a track that fits alone', async () => {
+      const { playing, service, startBuild } = setup();
+      await startBuild();
+      const [build] = playing();
+
+      // Already build: nothing changes
+      service.followPhase('setup', 0);
+      await flush();
+      expect(playing()).toEqual([build]);
+
+      // A replay put the game in wave 1: the wave track comes in
+      service.followPhase('wave', 1);
+      await flush();
+      frame(NOW + BACKGROUND_MUSIC.phaseFadeDuration);
+      const wave = playing().find((c) => c !== build)!;
+      expect(wave.buffer?.url).toBe('w1.mp3');
+
+      // A seek within the same wave: the track plays on
+      service.followPhase('wave', 1);
+      await flush();
+      expect(playing()).toEqual([wave]);
+    });
+
     it('crossfades from build to a wave track and stops the build channel when the fade ends', async () => {
       const { playing, startBuild, waveStarted } = setup();
       await startBuild();
