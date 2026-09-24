@@ -40,6 +40,15 @@ export class CreditsLedger {
     return true;
   }
 
+  /**
+   * Set the credits a snapshot saved, without a booking: a restore is no
+   * income or spending, the run log must not count it. The UI follows
+   * sim:restored.
+   */
+  restore(credits: number): void {
+    this.credits.set(credits);
+  }
+
   /** Back to the start credits, booked as one delta. */
   reset(): void {
     this.add(GAME_BALANCE.player.startCredits - this.credits(), 'reset');

@@ -511,8 +511,10 @@ describe('GameStateManager order of operations (characterization)', () => {
         'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:footstep', 'enemy:died',
         'wave:started', 'ability:impact', 'health:changed', 'wave:completed', 'game:over', 'game:reset',
         'wave:started', 'wave:completed', 'game:over', 'game:reset',
-        // GameStateManager: AA retrofit, guard turns, kill reward
-        'enemy:reached-base', 'enemy:leaking', 'research:completed', 'wave:completed',
+        // GameStateManager: LOS masks and cheats for the re-simulation, AA retrofit, guard turns, kill reward
+        'enemy:reached-base', 'enemy:leaking',
+        'tower:los-resolved', 'debug:spawn-enemy', 'debug:remove-enemy', 'debug:kill-all',
+        'research:completed', 'wave:completed',
         'enemy:died', 'enemy:reached-base', 'debug:remove-enemy', 'debug:kill-all', 'enemy:died',
         // GameCommandsHandler
         'command:place-tower', 'command:sell-tower', 'command:upgrade-tower', 'command:set-targeting',
@@ -732,6 +734,8 @@ describe('GameStateManager order of operations (characterization)', () => {
 
       expect(log).toEqual([
         'corridorPending',
+        // The wave-start snapshot asks whether a strike is pending (snapshotRefusal)
+        'ability.hasPendingStrikes',
         'waveDebug.setCurrentWaveGroups',
         'event:game:started',
         'wave.startWave',

@@ -60,7 +60,26 @@ export class TowerLosRegistry {
   /** Towers whose drop is logged already, see reportLosDrop. */
   private readonly losDropLogged = new WeakSet<Tower>();
 
+  /**
+   * Re-simulation (docs/SIMULATOR_PLAN.md, P4): where a place or an upgrade
+   * gets its mask instead of the GPU, the one the live run logged. A cube
+   * rendered again could see other tiles than the live one did. The
+   * retrofit queue does not drain meanwhile: the re-simulation applies the
+   * logged retrofit masks at the sub-step they came in.
+   */
+  private maskSource: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null = null;
+
   constructor(private readonly grid: GlobalRouteGridService) {}
+
+  /** See maskSource; null goes back to the GPU. */
+  setMaskSource(source: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
+    this.maskSource = source;
+  }
+
+  /** Towers waiting for their retrofit, oldest first (for the wave-start snapshot). */
+  queuedTowerIds(): string[] {
+    return [...this.staleLos].map((tower) => tower.id);
+  }
 
   /**
    * Anti-air retrofit researched, from the simulation's ResearchManager
@@ -98,6 +117,11 @@ export class TowerLosRegistry {
    */
   register(tower: Tower, position: GeoPosition, typeId: TowerTypeId): void {
     if (!this.engine || !this.grid.isInitialized()) return;
+    if (this.maskSource) {
+      const mask = this.maskSource(tower.id, 'place');
+      if (mask) this.registerFromMask(tower, mask);
+      return;
+    }
 
     const config = TOWER_TYPES[typeId];
     if (!config) return;
@@ -198,6 +222,11 @@ export class TowerLosRegistry {
    */
   recompute(tower: Tower, reason: LosResolveReason = 'upgrade'): void {
     if (!this.engine || !this.grid.isInitialized()) return;
+    if (this.maskSource) {
+      const mask = this.maskSource(tower.id, reason);
+      if (mask) this.registerFromMask(tower, mask);
+      return;
+    }
 
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
     if (!config) return;
@@ -285,6 +314,12 @@ export class TowerLosRegistry {
     this.staleLos.add(tower);
   }
 
+  /** Put towers back in the retrofit queue, in order (wave-start snapshot restore). */
+  requeue(towers: readonly Tower[]): void {
+    this.staleLos.clear();
+    for (const tower of towers) this.staleLos.add(tower);
+  }
+
   /**
    * Recompute queued towers, at most LOS_RECOMPUTES_PER_FRAME (each is a
    * forced cubemap render plus the face readback), oldest first. Called by
@@ -295,6 +330,7 @@ export class TowerLosRegistry {
    * log records the sub-step it came in.
    */
   drainLosQueue(): void {
+    if (this.maskSource) return;
     let budget = TowerLosRegistry.LOS_RECOMPUTES_PER_FRAME;
     for (const tower of [...this.staleLos]) {
       // recompute takes the tower out of the queue.

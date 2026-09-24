@@ -16,6 +16,27 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { canTargetAirEffective } from './tower-targeting.util';
 import { TowerAim, createTowerAim } from './tower-aim';
 
+/** See Tower.getSimState. Plain data. */
+export interface TowerSimState {
+  targetingStrategy: TargetingStrategy;
+  airSubStrategy: AirSubStrategy;
+  holdFire: boolean;
+  manned: boolean;
+  manualAim: { heading: number; pitch: number };
+  triggerHeld: boolean;
+  isSleeping: boolean;
+  lastTargetTime: number;
+  lastSleepCheck: number;
+  rangeSquaredGeo: number;
+  nextFirePointIndex: number;
+  lastLosCheckTime: number;
+  guardHeading: number | null;
+  aim: TowerAim;
+  cooldownMs: number;
+  kills: number;
+  damageDealt: number;
+}
+
 /**
  * Tower entity - combines Transform, Combat, and Render components
  */
@@ -569,6 +590,55 @@ export class Tower extends GameObject {
 
     this.upgradeLevels.set(upgradeId, newLevel);
     return true;
+  }
+
+  /**
+   * What the simulation changes on a tower over a run, for the wave-start
+   * snapshot (docs/SIMULATOR_PLAN.md, P4); upgrades and the line of sight
+   * come separately. Taken between waves, where a tower has no target.
+   */
+  getSimState(): TowerSimState {
+    return {
+      targetingStrategy: this.targetingStrategy,
+      airSubStrategy: this.airSubStrategy,
+      holdFire: this.holdFire,
+      manned: this.manned,
+      manualAim: { heading: this.manualAim.heading, pitch: this.manualAim.pitch },
+      triggerHeld: this.triggerHeld,
+      isSleeping: this.isSleeping,
+      lastTargetTime: this.lastTargetTime,
+      lastSleepCheck: this.lastSleepCheck,
+      rangeSquaredGeo: this.rangeSquaredGeo,
+      nextFirePointIndex: this._nextFirePointIndex,
+      lastLosCheckTime: this._lastLosCheckTime,
+      guardHeading: this.guardHeading,
+      aim: { ...this.aim },
+      cooldownMs: this._combat.cooldownRemaining,
+      kills: this._combat.kills,
+      damageDealt: this._combat.damageDealt,
+    };
+  }
+
+  /** Put the state getSimState() took back; the stats follow the upgrades, restore those first. */
+  restoreSimState(state: TowerSimState): void {
+    this.targetingStrategy = state.targetingStrategy;
+    this.airSubStrategy = state.airSubStrategy;
+    this.holdFire = state.holdFire;
+    this.manned = state.manned;
+    this.manualAim.heading = state.manualAim.heading;
+    this.manualAim.pitch = state.manualAim.pitch;
+    this.triggerHeld = state.triggerHeld;
+    this.isSleeping = state.isSleeping;
+    this.lastTargetTime = state.lastTargetTime;
+    this.lastSleepCheck = state.lastSleepCheck;
+    this.rangeSquaredGeo = state.rangeSquaredGeo;
+    this._nextFirePointIndex = state.nextFirePointIndex;
+    this._lastLosCheckTime = state.lastLosCheckTime;
+    this.guardHeading = state.guardHeading;
+    Object.assign(this.aim, state.aim);
+    this._combat.restoreCooldown(state.cooldownMs);
+    this._combat.kills = state.kills;
+    this._combat.damageDealt = state.damageDealt;
   }
 
   /**

@@ -36,15 +36,20 @@ import { heroBodyContact } from '../utils/hero-body-contact';
 import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
 import { GameRng } from '../utils/game-rng';
-import type { CreditsSource, WaveGoldBreakdown } from '../game-engine/game-event-bus';
+import type { CreditsSource, LosResolveReason, WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
 import { TowerLifecycle } from './game-state/tower-lifecycle';
-import { CommandLog, type CommandLogEntry } from './game-state/command-log';
+import { CommandLog, toPlainData, type CommandLogEntry } from './game-state/command-log';
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
 import { ReplayRecorder } from '../replay/replay-recorder';
+import { SimRecorder } from '../simulator/sim-recorder';
+import { StateHasher, type StateHashSource } from '../simulator/state-hash';
+import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../simulator/sim-snapshot';
+import type { ResimHost } from '../simulator/resimulation';
+import { losMaskToJson, type LosMask } from '../utils/los-mask';
 import { stepTowerAim } from '../entities/tower-aim';
 
 /**
@@ -289,6 +294,36 @@ export class GameStateManager {
   readonly commandLog = new CommandLog(() => this.clock.subStep);
 
   /**
+   * Every wave of the run as a re-simulation needs it: the snapshot at its
+   * start, its config, where its inputs start in the command log, the state
+   * hashes along the way (docs/SIMULATOR_PLAN.md, P4 and P5).
+   */
+  readonly simRecorder = new SimRecorder();
+
+  /** Re-simulating a wave (setReplayMode): the log only, masks from the log, nothing recorded */
+  private replaying = false;
+  /** What the re-simulation logs, so the run's own log stays as it was */
+  private replayLog: CommandLog | null = null;
+  /** See ResimHost.setBoundaryListener */
+  private boundaryListener: ((boundaryStep: number, hash: () => number) => void) | null = null;
+
+  private readonly stateHasher = new StateHasher();
+  private readonly hashSource: StateHashSource = {
+    subStep: () => this.clock.subStep,
+    credits: () => this.credits(),
+    baseHealth: () => this.baseHealth(),
+    waveNumber: () => this.waveManager.waveNumber(),
+    idCounter: () => GameObject.getIdCounter(),
+    rngState: () => this.rng.getState(),
+    enemies: () => this.enemyManager.getAll(),
+    towers: () => this.towerManager.getAll(),
+    projectiles: () => this.projectileManager.getAll(),
+    hero: () => this.heroManager.getHero(),
+  };
+  /** The state hash now (StateHasher), for the recorder and the re-simulation */
+  readonly stateHash = (): number => this.stateHasher.hash(this.hashSource);
+
+  /**
    * Execute a logged command again, the same way as the live one (boundary,
    * log, handler). For a re-simulation that has reached `entry.step`.
    */
@@ -368,6 +403,7 @@ export class GameStateManager {
     // A replay of the previous place is in the previous place's coordinates
     this.replayRecorder.clear();
     this.commandLog.clear();
+    this.simRecorder.clear();
 
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
@@ -457,6 +493,19 @@ export class GameStateManager {
 
     // AA-Retrofit: towers that just gained air targeting get their air LOS
     // resolved (queued, see TowerLifecycle.scheduleAirRetrofit)
+    // A tower's line of sight goes into the log with the boundary it came
+    // in at: a re-simulation applies it instead of rendering a cube again
+    this.eventBusSubs.add(this.eventBus.on('tower:los-resolved', (event) => {
+      (this.replayLog ?? this.commandLog).recordLos(event.towerId, event.mask, event.reason);
+    }));
+    // Cheats that change the simulation past the command log: the running
+    // wave does not re-simulate any more
+    for (const type of ['debug:spawn-enemy', 'debug:remove-enemy', 'debug:kill-all'] as const) {
+      this.eventBusSubs.add(this.eventBus.on(type, () => {
+        if (!this.replaying) this.simRecorder.taint(type);
+      }));
+    }
+
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
       this.towerLifecycle.scheduleAirRetrofit(event.effects);
     }));
@@ -533,6 +582,7 @@ export class GameStateManager {
     // The last wave ran through the previous world
     this.replayRecorder.clear();
     this.commandLog.clear();
+    this.simRecorder.clear();
   }
 
   /**
@@ -586,31 +636,9 @@ export class GameStateManager {
     timings.tEvents = 0;
     const stepMs = GameClock.FIXED_STEP_MS;
 
-    const commands = this.commandsHandler;
-
     // nextSubStep() advances the game clock before the step runs
     while (this.clock.nextSubStep()) {
-      // From here to endStep() a command waits for the boundary
-      commands?.beginStep();
-      this.runSubStep(stepMs, profiling);
-
-      // Wave-completion / game-over checks belong INSIDE the sub-step loop
-      // so they catch state transitions mid-frame (otherwise a wave might
-      // visibly run for "one extra frame" at high timescales).
-      const isWavePhase = this.waveManager.phase() === 'wave';
-      // A pending strike lands in its own wave, never in the setup or the next one
-      if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
-        this.waveManager.endWave();
-        this.replayRecorder.finish('completed');
-        this.towerCombat.stopAllBeams();
-        this.towerCombat.stopAllMelee();
-        this.enemyDebug.clearDebugEnemies();
-      }
-      const gameOver = this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover';
-      if (gameOver) this.triggerGameOver();
-
-      // The boundary: what came in during the step takes effect now
-      commands?.endStep();
+      const gameOver = this.simulateStep(stepMs, profiling);
       if (gameOver) break; // no point running more sub-steps after game-over
 
       // Per-sub-step listeners (AI bot) at the boundary: a bot decides on
@@ -658,6 +686,54 @@ export class GameStateManager {
         stepsExecuted,
       );
     }
+  }
+
+  /**
+   * One sub-step with its checks and its boundary, after the clock advanced:
+   * the step the live loop and a re-simulation (ResimHost.simulateStep)
+   * share. Returns true when the game ended in it.
+   */
+  private simulateStep(stepMs: number, profiling: boolean): boolean {
+    const commands = this.commandsHandler;
+    // The boundary before this step: every input of it has gone in
+    this.atBoundary(this.clock.subStep - 1);
+
+    // From here to endStep() a command waits for the boundary
+    commands?.beginStep();
+    this.runSubStep(stepMs, profiling);
+
+    // Wave-completion / game-over checks belong INSIDE the sub-step loop
+    // so they catch state transitions mid-frame (otherwise a wave might
+    // visibly run for "one extra frame" at high timescales).
+    const isWavePhase = this.waveManager.phase() === 'wave';
+    // A pending strike lands in its own wave, never in the setup or the next one
+    if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
+      this.waveManager.endWave();
+      if (!this.replaying) this.simRecorder.end(this.clock.subStep);
+      this.replayRecorder.finish('completed');
+      this.towerCombat.stopAllBeams();
+      this.towerCombat.stopAllMelee();
+      this.enemyDebug.clearDebugEnemies();
+    }
+    const gameOver = this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover';
+    if (gameOver) {
+      if (!this.replaying) this.simRecorder.end(this.clock.subStep);
+      this.triggerGameOver();
+    }
+
+    // The boundary: what came in during the step takes effect now
+    commands?.endStep();
+    return gameOver;
+  }
+
+  /** A boundary between two sub-steps: the re-simulation's check, else the recorder's hash. */
+  private atBoundary(step: number): void {
+    const listener = this.boundaryListener;
+    if (listener) {
+      listener(step, this.stateHash);
+      return;
+    }
+    if (!this.replaying && this.simRecorder.wantsHash(step)) this.simRecorder.addHash(this.stateHash());
   }
 
   /**
@@ -744,6 +820,166 @@ export class GameStateManager {
     for (const tower of this.towerManager.getAll()) stepTowerAim(tower.aim, stepMs);
   }
 
+  // ============================================
+  // Snapshot and re-simulation (docs/SIMULATOR_PLAN.md, P4 to P6)
+  // ============================================
+
+  /**
+   * A wave starts: keep what a re-simulation of it needs. The snapshot is
+   * taken before the wave changes anything; a start that is not quiet (see
+   * snapshotRefusal) is kept without one and does not re-simulate.
+   */
+  private recordWaveStart(config: WaveConfig): void {
+    const refusal = this.snapshotRefusal();
+    this.simRecorder.begin({
+      wave: this.waveManager.waveNumber() + 1,
+      snapshot: refusal ? null : this.captureSnapshot(),
+      refusal,
+      config: toPlainData(config) as WaveConfig,
+      startStep: this.clock.subStep,
+      logStart: this.commandLog.length,
+    });
+  }
+
+  /** Why the state now cannot be a snapshot, null when it can: between waves, nothing in flight. */
+  snapshotRefusal(): SnapshotRefusal | null {
+    const phase = this.waveManager.phase();
+    if (phase !== 'setup' && phase !== 'gameover') return 'not-setup';
+    if (this.enemyManager.getAll().length > 0 || this.enemyDebug.debugEnemies().length > 0) return 'enemies';
+    if (this.projectileManager.getAll().length > 0) return 'projectiles';
+    if (this.abilityManager.hasPendingStrikes()) return 'pending-strike';
+    return null;
+  }
+
+  /**
+   * The simulation as plain data (SimSnapshot). Only between waves, see
+   * snapshotRefusal. A hero on his way is put on a freshly planned path, the
+   * one a restore plans too (HeroManager.captureState).
+   */
+  captureSnapshot(): SimSnapshot {
+    return {
+      version: SIM_SNAPSHOT_VERSION,
+      clock: this.clock.getState(),
+      rng: this.rng.getState(),
+      idCounter: GameObject.getIdCounter(),
+      credits: this.credits(),
+      baseHealth: this.baseHealth(),
+      waveNumber: this.waveManager.waveNumber(),
+      phase: this.waveManager.phase(),
+      runStarted: this.runStarted,
+      economyPerfectStreak: this.economy.perfectStreak,
+      research: this.researchManager.getState(),
+      abilities: this.abilityManager.getState(),
+      hero: this.heroManager.captureState(),
+      towers: this.towerManager.getAll().map((tower) => this.saveTower(tower)),
+      mannedTowerId: this.towerLifecycle.mannedTower()?.id ?? null,
+      losQueue: this.towerPlacement.queuedLosTowerIds(),
+    };
+  }
+
+  private saveTower(tower: Tower): SavedTower {
+    const position = tower.position;
+    return {
+      id: tower.id,
+      typeId: tower.typeConfig.id as TowerTypeId,
+      lat: position.lat,
+      lon: position.lon,
+      height: position.height ?? 0,
+      customRotation: tower.customRotation,
+      plinthHeight: tower.plinthHeight,
+      plinthOverhang: [...tower.plinthOverhang],
+      upgrades: tower.getUpgradeLevels(),
+      losMask: tower.losMask ? losMaskToJson(tower.losMask) : null,
+      state: tower.getSimState(),
+    };
+  }
+
+  /**
+   * Put the simulation back to `snapshot`: towers with their line of sight
+   * (no GPU), research, abilities, hero, credits, HQ, clock, random source
+   * and id counter. What ran since goes: enemies, projectiles, a wave in
+   * progress. No event of the way there goes out; `sim:restored` tells the
+   * mirrors (stores, HUD) to read the state anew.
+   */
+  restoreSnapshot(snapshot: SimSnapshot, reason: 'replay' | 'live' = 'replay'): void {
+    if (snapshot.version !== SIM_SNAPSHOT_VERSION) {
+      throw new Error(`Snapshot version ${snapshot.version}, expected ${SIM_SNAPSHOT_VERSION}`);
+    }
+    // Out of the tower and off the grid, then everything that moves
+    this.towerLifecycle.clearAllOverlays();
+    this.towerCombat.stopAllBeams();
+    this.towerCombat.stopAllMelee();
+    this.enemyManager.clear();
+    this.enemyManager.resetKillRewards();
+    this.enemyDebug.clearDebugEnemies();
+    this.towerManager.clear();
+    this.projectileManager.clear();
+    this.waveManager.reset();
+    this.abilityManager.reset();
+    this.tilesEngine?.oozes.clear();
+
+    // Towers keep their ids: the id counter is set before each is built
+    for (const saved of snapshot.towers) {
+      GameObject.setIdCounter(idNumber(saved.id) - 1);
+      this.towerLifecycle.restore(saved);
+    }
+    // After the towers: a research center built above counts its slots anew
+    this.researchManager.restoreState(snapshot.research);
+    this.abilityManager.restoreState(snapshot.abilities);
+    this.heroManager.restoreState(snapshot.hero);
+
+    const manned = snapshot.mannedTowerId ? this.towerManager.getById(snapshot.mannedTowerId) ?? null : null;
+    this.towerLifecycle.restoreManned(manned);
+    this.towerPlacement.requeueLos(
+      snapshot.losQueue.map((id) => this.towerManager.getById(id)).filter((tower): tower is Tower => !!tower),
+    );
+
+    this.creditsLedger.restore(snapshot.credits);
+    this.healthLedger.restore(snapshot.baseHealth);
+    this.economy.restorePerfectStreak(snapshot.economyPerfectStreak);
+    this.waveManager.waveNumber.set(snapshot.waveNumber);
+    this.waveManager.phase.set(snapshot.phase);
+    this.runStarted = snapshot.runStarted;
+    this.clock.setState(snapshot.clock);
+    this.rng.setState(snapshot.rng);
+    GameObject.setIdCounter(snapshot.idCounter);
+
+    this.eventBus.emit({ type: 'sim:restored', reason });
+  }
+
+  /**
+   * What a re-simulation drives (simulator/resimulation.ts). One sub-step
+   * there is the live step by count: forceSubStep, then simulateStep.
+   */
+  readonly resimHost: ResimHost = {
+    subStep: () => this.clock.subStep,
+    restoreSnapshot: (snapshot) => this.restoreSnapshot(snapshot, 'replay'),
+    startWave: (config) => this.startWave(config),
+    simulateStep: () => {
+      this.clock.forceSubStep();
+      return this.simulateStep(GameClock.FIXED_STEP_MS, false);
+    },
+    waveRunning: () => this.waveManager.phase() === 'wave',
+    setReplayMode: (masks) => this.setReplayMode(masks),
+    replayCommand: (entry) => this.commandsHandler?.replay(entry),
+    applyLosMask: (towerId, mask) => {
+      const tower = this.towerManager.getById(towerId);
+      if (tower) this.towerPlacement.registerTowerFromMask(tower, mask);
+    },
+    setBoundaryListener: (listener) => {
+      this.boundaryListener = listener;
+    },
+  };
+
+  private setReplayMode(masks: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
+    const on = masks !== null;
+    this.replaying = on;
+    this.replayLog = on ? new CommandLog(() => this.clock.subStep) : null;
+    this.commandsHandler?.setReplaying(on);
+    this.commandsHandler?.setLog(this.replayLog ?? this.commandLog);
+    this.towerPlacement.setLosMaskSource(masks);
+  }
+
   /** Geo height of the ground under a position, from the route grid like the enemies' feet; 0 without it. */
   private groundHeightAt(lat: number, lon: number): number {
     const engine = this.tilesEngine;
@@ -789,6 +1025,7 @@ export class GameStateManager {
    */
   startWave(config: WaveConfig): void {
     if (this.corridorPending()) return;
+    if (!this.replaying && config.schedule.entries.length > 0) this.recordWaveStart(config);
 
     // Wave preview in the sidebar, see summarizeWaveGroups()
     const groups = summarizeWaveGroups(config);
@@ -919,6 +1156,7 @@ export class GameStateManager {
     this.heroManager.reset();
     this.replayRecorder.clear();
     this.commandLog.clear();
+    this.simRecorder.clear();
 
     // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
     // and won't be re-initialized on a game-over restart. Tower visibility
@@ -1190,4 +1428,9 @@ export class GameStateManager {
       localStorage.setItem('game-speed', clamped.toString());
     }
   }
+}
+
+/** The number of an entity id (`tower-12` gives 12), see GameObject.generateId. */
+function idNumber(id: string): number {
+  return Number(id.slice(id.lastIndexOf('-') + 1));
 }

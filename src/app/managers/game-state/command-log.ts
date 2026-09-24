@@ -1,4 +1,6 @@
 import { GameObject } from '../../core/game-object';
+import type { LosResolveReason } from '../../game-engine/game-event-bus';
+import { losMaskToJson, type LosMask } from '../../utils/los-mask';
 
 /** The player at this machine; coop gives every player an id of its own. */
 export const LOCAL_PLAYER_ID = 'local';
@@ -54,10 +56,31 @@ export class CommandLog {
     return entry;
   }
 
+  /**
+   * Log a tower's line of sight as it was resolved now (tower:los-resolved).
+   * Not an input but a result the GPU gave against the tiles loaded at the
+   * time: a re-simulation applies it instead of rendering a cube again,
+   * which could see other tiles (docs/SIMULATOR_PLAN.md, P3). The retrofit
+   * resolves one tower per frame, so its moment depends on the frame rate
+   * and has to come from here as well.
+   */
+  recordLos(towerId: string, mask: LosMask, reason: LosResolveReason): CommandLogEntry {
+    const entry: CommandLogEntry = {
+      step: this.stepNow(),
+      playerId: LOCAL_PLAYER_ID,
+      command: { type: LOS_LOG_TYPE, towerId, reason, mask: losMaskToJson(mask) },
+    };
+    this.list.push(entry);
+    return entry;
+  }
+
   clear(): void {
     this.list.length = 0;
   }
 }
+
+/** `command.type` of a line of sight entry, see CommandLog.recordLos. */
+export const LOS_LOG_TYPE = 'los:resolved';
 
 /** How deep toPlainData() follows nested objects; a command is shallow. */
 const PLAIN_DATA_DEPTH = 8;

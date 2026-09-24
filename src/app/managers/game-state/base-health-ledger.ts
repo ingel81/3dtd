@@ -34,6 +34,11 @@ export class BaseHealthLedger {
   }
 
   /** Full health again, without health:changed. */
+  /** Set the HP a snapshot saved, without health:changed; the UI follows sim:restored. */
+  restore(health: number): void {
+    this.baseHealth.set(health);
+  }
+
   resetToStart(): void {
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
   }

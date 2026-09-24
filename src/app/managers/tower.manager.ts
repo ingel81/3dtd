@@ -159,6 +159,8 @@ export class TowerManager extends EntityManager<Tower> {
     customRotation = 0,
     plinthHeight = 0,
     plinthOverhang: readonly number[] = [],
+    /** A tower put back by a snapshot restore: no tower:placed, no sound */
+    silent = false,
   ): Tower | null {
     if (!this.tilesEngine) {
       throw new Error('TowerManager not initialized');
@@ -256,6 +258,7 @@ export class TowerManager extends EntityManager<Tower> {
     }
 
     this.add(tower);
+    if (silent) return tower;
 
     // Emit tower:placed event
     this.eventBus.emit({

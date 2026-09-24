@@ -81,7 +81,7 @@ const ROUTE_SPACING_M = 200;
 const MAX_REFILL_PER_STEP = 20;
 
 /** Geo to local on a flat frame at the equator, x east, z south */
-const flatSync = {
+export const flatSync = {
   getOrigin: () => ({ lat: 0, lon: 0, height: 0 }),
   geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon * M, height, -lat * M),
   geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3): Vector3 =>
@@ -91,7 +91,7 @@ const flatSync = {
 };
 
 /** The engine: no-op except where the loop needs an answer. */
-function createBenchEngine(): never {
+export function createBenchEngine(): never {
   const resolved = () => Promise.resolve(null);
   return noopStub({
     renderingEnabled: false,
@@ -121,7 +121,7 @@ function createBenchEngine(): never {
 }
 
 /** One route: north from (x, 0), a waypoint every 10 m, 3 m of corridor to each side */
-function buildRoute(eastM: number, lengthM: number): RouteWaypoint[] {
+export function buildRoute(eastM: number, lengthM: number): RouteWaypoint[] {
   const route: RouteWaypoint[] = [];
   for (let s = 0; s <= lengthM; s += WAYPOINT_SPACING_M) {
     route.push({ lat: s / M, lon: eastM / M, height: 0, corridorLeft: 3, corridorRight: 3 });
@@ -134,7 +134,7 @@ function buildRoute(eastM: number, lengthM: number): RouteWaypoint[] {
  * layers it may target, as resolveTowerLos writes it with nothing in the way,
  * taken as its LosMask like TowerLosRegistry.register.
  */
-function markAllVisible(grid: GlobalRouteGridService, tower: Tower): void {
+export function markAllVisible(grid: GlobalRouteGridService, tower: Tower): void {
   const x = tower.position.lon * M;
   const z = -tower.position.lat * M;
   const ground = tower.typeConfig.canTargetGround ?? true;
