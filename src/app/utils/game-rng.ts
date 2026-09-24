@@ -19,6 +19,9 @@
 /** The systems that draw from the run seed. */
 export type RngStream = 'director' | 'spawn' | 'enemy' | 'bot';
 
+/** Every stream, in a fixed order for the snapshot. */
+export const RNG_STREAMS: readonly RngStream[] = ['director', 'spawn', 'enemy', 'bot'];
+
 /**
  * mulberry32: 32 bit state, one multiply-xorshift round. Small, fast and
  * stable across engines, which matters because a reference run has to give
@@ -57,7 +60,7 @@ export function newRunSeed(): number {
  */
 export class GameRng {
   private _seed: number;
-  private streams = new Map<RngStream, () => number>();
+  private readonly streams = new Map<RngStream, MulberryStream>();
   private pendingSeed: number | null = null;
 
   constructor(seed: number = newRunSeed()) {
@@ -70,15 +73,11 @@ export class GameRng {
 
   /**
    * The stream for `name`, created on first use. Always the same function for
-   * the same name, so a caller can hold on to it.
+   * the same name, also across resets and restores, so a caller can hold on
+   * to it: the wave and enemy managers take theirs once when a location loads.
    */
   stream(name: RngStream): () => number {
-    let next = this.streams.get(name);
-    if (!next) {
-      next = mulberry32(streamSeed(this._seed, name));
-      this.streams.set(name, next);
-    }
-    return next;
+    return this.streamFor(name).next;
   }
 
   /**
@@ -95,11 +94,64 @@ export class GameRng {
 
   /**
    * New run: the seed that was given, else the one asked for with
-   * `useNextSeed`, else a fresh one. Every stream starts over.
+   * `useNextSeed`, else a fresh one. Every stream starts over in place, so the
+   * functions handed out keep working and draw from the new seed.
    */
   reset(seed?: number): void {
     this._seed = (seed ?? this.pendingSeed ?? newRunSeed()) >>> 0;
     this.pendingSeed = null;
-    this.streams.clear();
+    for (const [name, stream] of this.streams) stream.state = streamSeed(this._seed, name);
   }
+
+  /**
+   * Where the run's random source stands: the seed and the position of every
+   * stream. Plain data, for the snapshot a wave is re-simulated from
+   * (docs/SIMULATOR_PLAN.md, P4).
+   */
+  getState(): GameRngState {
+    const streams: Partial<Record<RngStream, number>> = {};
+    for (const name of RNG_STREAMS) streams[name] = this.streamFor(name).state;
+    return { seed: this._seed, streams };
+  }
+
+  /** Put the source back where getState() found it. The functions handed out stay the same. */
+  setState(state: GameRngState): void {
+    this._seed = state.seed >>> 0;
+    for (const name of RNG_STREAMS) {
+      this.streamFor(name).state = (state.streams[name] ?? streamSeed(this._seed, name)) >>> 0;
+    }
+  }
+
+  private streamFor(name: RngStream): MulberryStream {
+    let stream = this.streams.get(name);
+    if (!stream) {
+      stream = new MulberryStream(streamSeed(this._seed, name));
+      this.streams.set(name, stream);
+    }
+    return stream;
+  }
+}
+
+/** Seed and stream positions of a GameRng, see GameRng.getState. */
+export interface GameRngState {
+  seed: number;
+  streams: Partial<Record<RngStream, number>>;
+}
+
+/**
+ * mulberry32 with its state in the open: the same numbers as mulberry32(seed),
+ * but the state can be read and set, and `next` stays the same function.
+ */
+class MulberryStream {
+  constructor(public state: number) {
+    this.state = state >>> 0;
+  }
+
+  readonly next = (): number => {
+    this.state = (this.state + 0x6d2b79f5) >>> 0;
+    const a = this.state;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
 }
