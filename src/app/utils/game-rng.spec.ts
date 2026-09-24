@@ -69,6 +69,49 @@ describe('GameRng', () => {
     expect(rng.seed).not.toBe(4242);
   });
 
+  it('keeps a handed-out stream working across a reset, drawing from the new seed', () => {
+    // The wave and enemy managers take their streams once per location. A
+    // restart used to replace the functions, so they went on with the old
+    // seed while the run log named the new one.
+    const rng = new GameRng(9);
+    const held = rng.stream('enemy');
+    take(held, 3);
+    rng.reset(77);
+    expect(take(held, 4)).toEqual(take(new GameRng(77).stream('enemy'), 4));
+  });
+
+  it('draws the same numbers as mulberry32 over the stream seed', () => {
+    const a = new GameRng(5).stream('spawn');
+    const b = new GameRng(5).stream('spawn');
+    expect(take(a, 6)).toEqual(take(b, 6));
+  });
+
+  it('puts every stream back where getState() found it', () => {
+    const rng = new GameRng(11);
+    take(rng.stream('director'), 3);
+    take(rng.stream('enemy'), 7);
+    const state = rng.getState();
+    const after = {
+      director: take(rng.stream('director'), 4),
+      enemy: take(rng.stream('enemy'), 4),
+      bot: take(rng.stream('bot'), 4),
+    };
+
+    const other = new GameRng(999);
+    const held = other.stream('enemy');
+    other.setState(state);
+
+    expect(other.seed).toBe(11);
+    expect(take(other.stream('director'), 4)).toEqual(after.director);
+    expect(take(held, 4)).toEqual(after.enemy);
+    expect(take(other.stream('bot'), 4)).toEqual(after.bot);
+  });
+
+  it('gives plain data from getState()', () => {
+    const state = new GameRng(3).getState();
+    expect(JSON.parse(JSON.stringify(state))).toEqual(state);
+  });
+
   it('mulberry32 is the documented sequence, so a reference run keeps its numbers', () => {
     // Pinned: a change here silently rewrites every seeded run and every
     // reference file built from one.
