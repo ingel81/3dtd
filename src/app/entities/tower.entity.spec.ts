@@ -139,6 +139,21 @@ describe('Tower entity', () => {
     expect(tower.applyUpgrade('speed')).toBe(false);
   });
 
+  it('restores upgrade levels with the same stats as buying them', () => {
+    const bought = new Tower(position, 'archer');
+    for (let i = 0; i < 3; i++) bought.applyUpgrade('speed');
+    for (let i = 0; i < 18; i++) bought.applyUpgrade('damage');
+    bought.applyUpgrade('range');
+
+    const restored = new Tower(position, 'archer');
+    restored.restoreUpgradeLevels(JSON.parse(JSON.stringify(bought.getUpgradeLevels())));
+
+    expect(restored.getUpgradeLevels()).toEqual(bought.getUpgradeLevels());
+    expect(restored.combat.fireRate).toBe(bought.combat.fireRate);
+    expect(restored.combat.damage).toBe(bought.combat.damage);
+    expect(restored.combat.range).toBe(bought.combat.range);
+  });
+
   it('damage grows degressively past L15', () => {
     const tower = new Tower(position, 'archer');
     for (let i = 0; i < 25; i++) expect(tower.applyUpgrade('damage')).toBe(true);
