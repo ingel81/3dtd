@@ -268,9 +268,10 @@ Deshalb gilt die Maske danach (`reason: 'upgrade'`), nicht eine Neurechnung.
 
 `TowerLifecycle.scheduleAirRetrofit` stellt die Tower, die erst durch die
 Forschung Luftziele bekommen, per `scheduleLosRecompute` in die
-Warteschlange des Registers (`staleLos`). Nicht synchron: der `ResearchStore` setzt das Air-Flag erst im
-Handler des `GameStateSyncService`, und der läuft nach dem des
-GameStateManagers.
+Warteschlange des Registers (`staleLos`). Das Air-Flag liest das Register
+aus dem `ResearchManager` (`airTargetingUnlocked`), der es vor dem Event
+setzt; die Warteschlange gibt es wegen des Render-Budgets, ein Cube je
+Frame.
 
 Abgearbeitet wird die Warteschlange von der Spielschleife:
 `GameStateManager.update` ruft nach der Sub-Step-Schleife einmal je Frame
