@@ -44,7 +44,6 @@ import { TowerLifecycle } from './game-state/tower-lifecycle';
 import { CommandLog, toPlainData, type CommandLogEntry } from './game-state/command-log';
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
-import { ReplayRecorder } from '../replay/replay-recorder';
 import { SimRecorder } from '../simulator/sim-recorder';
 import { StateHasher, type StateHashSource } from '../simulator/state-hash';
 import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../simulator/sim-snapshot';
@@ -137,22 +136,6 @@ export class GameStateManager {
       );
     },
     spend: (cost) => this.creditsLedger.spend(cost, 'hero'),
-  });
-
-  /**
-   * Records the running wave for the replay (docs/REPLAY.md). Starts on
-   * wave:started by itself; update() hands it the sub-steps, the wave end
-   * and game over close it.
-   */
-  readonly replayRecorder = new ReplayRecorder(this.eventBus, {
-    enemies: () => this.enemyManager.getAllActive(),
-    projectiles: () => this.projectileManager.getAllActive(),
-    towers: () => this.towerManager.getAll(),
-    hero: () => this.heroManager.getPresentation(),
-    engine: () => this.tilesEngine,
-    gameTimeMs: () => this.clock.gameTimeMs,
-    baseHealth: () => this.baseHealth(),
-    credits: () => this.credits(),
   });
 
   /**
@@ -401,7 +384,6 @@ export class GameStateManager {
     this.commandsHandler?.dispose();
 
     // A replay of the previous place is in the previous place's coordinates
-    this.replayRecorder.clear();
     this.commandLog.clear();
     this.simRecorder.clear();
 
@@ -580,7 +562,6 @@ export class GameStateManager {
   reseatWavePipeline(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
     this.waveManager.initialize(spawnPoints, cachedPaths);
     // The last wave ran through the previous world
-    this.replayRecorder.clear();
     this.commandLog.clear();
     this.simRecorder.clear();
   }
@@ -644,9 +625,6 @@ export class GameStateManager {
       // Per-sub-step listeners (AI bot) at the boundary: a bot decides on
       // the state after the checks, its command acts at once
       onSubStep?.(stepMs);
-
-      // After the turret aim (runSubStep), so a frame shows where the turrets point
-      this.replayRecorder.onSubStep();
     }
     this.clock.endFrame();
     const stepsExecuted = this.clock.stepsThisFrame;
@@ -710,7 +688,6 @@ export class GameStateManager {
     if (isWavePhase && !this.abilityManager.hasPendingStrikes() && this.waveManager.checkWaveComplete()) {
       this.waveManager.endWave();
       if (!this.replaying) this.simRecorder.end(this.clock.subStep);
-      this.replayRecorder.finish('completed');
       this.towerCombat.stopAllBeams();
       this.towerCombat.stopAllMelee();
       this.enemyDebug.clearDebugEnemies();
@@ -971,9 +948,23 @@ export class GameStateManager {
     },
   };
 
+  /**
+   * Hand the re-simulated state to the renderers, like the frame's present
+   * after the live sub-steps (update()). The replay calls it after it
+   * stepped; the live loop stands paused meanwhile.
+   */
+  presentReplayFrame(): void {
+    if (!this.tilesEngine?.renderingEnabled) return;
+    this.enemyManager.presentFrame(this.clock.gameTimeMs);
+    this.projectileManager.presentFrame();
+    this.heroManager.presentFrame();
+  }
+
   private setReplayMode(masks: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
     const on = masks !== null;
     this.replaying = on;
+    // What records or mirrors the run stays out (GameEventBus.onLive)
+    this.eventBus.setLiveMuted(on);
     this.replayLog = on ? new CommandLog(() => this.clock.subStep) : null;
     this.commandsHandler?.setReplaying(on);
     this.commandsHandler?.setLog(this.replayLog ?? this.commandLog);
@@ -993,8 +984,6 @@ export class GameStateManager {
    * Trigger game over state
    */
   private triggerGameOver(): void {
-    // The last frame of the replay still has the enemies that broke through
-    this.replayRecorder.finish('gameover');
     this.waveManager.phase.set('gameover');
 
     // Before the field is cleared: the run log writes the block of the wave
@@ -1103,7 +1092,6 @@ export class GameStateManager {
     this.eventBusSubs.disposeAll();
     this.commandsHandler?.dispose();
     this.commandsHandler = null;
-    this.replayRecorder.dispose();
 
     // Destroy game-engine service instances (they hold EventBus subscriptions)
     this.combatEffect.destroy();
@@ -1154,7 +1142,6 @@ export class GameStateManager {
     this.researchManager.reset();
     this.abilityManager.reset();
     this.heroManager.reset();
-    this.replayRecorder.clear();
     this.commandLog.clear();
     this.simRecorder.clear();
 

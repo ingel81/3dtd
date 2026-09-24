@@ -194,28 +194,6 @@ describe('SearchlightRenderer', () => {
     expect(geometry.instanceCount).toBe(0);
   });
 
-  it('hides one tower\'s beam and shows it again, the slot kept (wave replay)', () => {
-    const { renderer, headings, beam } = setup();
-    headings.set('a', 0);
-    headings.set('b', 0);
-    renderer.add('a', 0, 0, 0, TOWER_TYPES.archer);
-    renderer.add('b', 1, 0, 0, TOWER_TYPES.archer);
-    renderer.setVisible('a', false);
-    expect(beam.getY(0)).toBe(0);
-    expect(beam.getY(1)).toBe(LOOK.length);
-    expect(renderer.count).toBe(2);
-
-    // A hidden tower that turns stays dark, and shows the new heading once back
-    headings.set('a', 1);
-    renderer.aim();
-    expect(beam.getY(0)).toBe(0);
-    renderer.setVisible('a', true);
-    expect(beam.getX(0)).toBeCloseTo(headingToSearchlightYaw(1));
-    expect(beam.getY(0)).toBe(LOOK.length);
-    // No light: nothing happens
-    renderer.setVisible('none', false);
-    expect(renderer.count).toBe(2);
-  });
 
   it('shows only while the blood moon is up and there are towers', () => {
     const { renderer, mesh, material } = setup();
@@ -350,7 +328,7 @@ describe('SearchlightRenderer beam on the tower\'s target', () => {
     searchlights.aim();
     expect(offTarget(TARGETS[1])).toBeLessThan(1e-6);
 
-    // As ReplayPlayer writes a frame: the recorded aim, no sub-step after it
+    // The aim set from outside a sub-step (a snapshot restore): the light follows it
     data.aim.current = recorded;
     searchlights.aim();
     expect(offTarget(TARGETS[0])).toBeLessThan(1e-6);

@@ -101,7 +101,7 @@ export function createSearchlightConeGeometry(halfAngleRad: number, segments = C
 
 const SEARCHLIGHT_VERTEX_SHADER = /* glsl */ `
   attribute vec3 aLamp;   // lamp, scene coordinates
-  attribute vec2 aBeam;   // yaw, length (0 = free or hidden slot)
+  attribute vec2 aBeam;   // yaw, length (0 = free slot or not aimed yet)
 
   uniform float uPitch;
 
@@ -175,8 +175,6 @@ function noRaycast(): void {
 /** One tower's light. */
 interface Searchlight {
   index: number;
-  /** false while the wave replay hides the tower */
-  visible: boolean;
   /** Yaw last written to the slot, NaN until the tower's aim is known */
   yaw: number;
 }
@@ -271,7 +269,7 @@ export class SearchlightRenderer {
     if (lampHeight === null) return;
     const index = this.slots.alloc();
     if (index < 0) return;
-    const light: Searchlight = { index, visible: true, yaw: NaN };
+    const light: Searchlight = { index, yaw: NaN };
     this.lights.set(id, light);
     this.syncDrawCount();
 
@@ -299,19 +297,6 @@ export class SearchlightRenderer {
     this.beamAttribute.clearUpdateRanges();
     this.beamAttribute.addUpdateRange(0, this.slots.activeCount * 2);
     this.beamAttribute.needsUpdate = true;
-  }
-
-  /**
-   * Hide the beam of tower `id` or show it again, its slot kept: the wave
-   * replay hides the towers not built yet at the moment it shows. A tower
-   * without a light is left alone.
-   */
-  setVisible(id: string, visible: boolean): void {
-    const light = this.lights.get(id);
-    if (!light) return;
-    light.visible = visible;
-    this.writeBeam(light);
-    this.slots.uploadSlot(this.beamAttribute, light.index);
   }
 
   /** Take the searchlight of tower `id` away, if it has one. */
@@ -364,9 +349,9 @@ export class SearchlightRenderer {
     return true;
   }
 
-  /** Yaw and length into the slot; length 0 while hidden or not aimed yet */
+  /** Yaw and length into the slot; length 0 while not aimed yet */
   private writeBeam(light: Searchlight): void {
-    const shown = light.visible && !Number.isNaN(light.yaw);
+    const shown = !Number.isNaN(light.yaw);
     this.beamAttribute.setXY(light.index, shown ? light.yaw : 0, shown ? BLOOD_MOON_LOOK.searchlights.length : 0);
   }
 

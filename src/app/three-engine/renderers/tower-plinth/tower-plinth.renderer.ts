@@ -76,12 +76,6 @@ export class TowerPlinthRenderer {
     this.plinths.delete(id);
   }
 
-  /** Show or hide the plinth of tower `id`, if it has one (wave replay). */
-  setVisible(id: string, visible: boolean): void {
-    const mesh = this.plinths.get(id);
-    if (mesh) mesh.visible = visible;
-  }
-
   /** Remove every plinth. */
   clear(): void {
     for (const id of [...this.plinths.keys()]) {

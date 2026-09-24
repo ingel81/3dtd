@@ -87,46 +87,46 @@ export class GameSoundsService {
     }
 
     // Where a tower or the hero kills it; a leak that dies on arrival is silent
-    this.subs.add(bus.on('enemy:died', ({ enemy, credits, killedBy }) => {
+    this.subs.add(bus.onShow('enemy:died', ({ enemy, credits, killedBy }) => {
       if (!killedBy) return;
       const sample = this.deathSample(enemy);
       if (sample) this.playAt(sample.id, enemy.position);
       if (credits > 0) this.playAt(WORLD_SOUNDS.coin.id, enemy.position);
     }));
-    this.subs.add(bus.on('enemy:split', ({ enemy }) => {
+    this.subs.add(bus.onShow('enemy:split', ({ enemy }) => {
       const id = enemy.typeConfig.splitSound;
       if (id) this.playAt(WORLD_SOUNDS[id].id, enemy.position);
     }));
-    this.subs.add(bus.on('projectile:hit', ({ projectile, target }) => {
+    this.subs.add(bus.onShow('projectile:hit', ({ projectile, target }) => {
       if (!target || !HIT_SOUND_PROJECTILES.has(projectile.typeConfig.id)) return;
       const hit = target.typeConfig.hitSound;
       if (hit) this.playAt(HIT_SOUNDS[hit].id, target.position);
     }));
-    this.subs.add(bus.on('enemy:footstep', ({ enemy }) => {
+    this.subs.add(bus.onShow('enemy:footstep', ({ enemy }) => {
       const footstep = enemy.typeConfig.footstep;
       if (footstep) this.playAt(footstep.sound.id, enemy.position, footstep.sound.playbackRate);
     }));
-    this.subs.add(bus.on('tower:upgraded', ({ tower }) => {
+    this.subs.add(bus.onShow('tower:upgraded', ({ tower }) => {
       this.playAt(WORLD_SOUNDS.towerUpgrade.id, tower.position);
     }));
-    this.subs.add(bus.on('ability:used', ({ abilityId, target }) => {
+    this.subs.add(bus.onShow('ability:used', ({ abilityId, target }) => {
       const cast = ABILITY_CAST_SOUNDS[abilityId];
       if (cast) this.playAt(cast.id, target);
     }));
-    this.subs.add(bus.on('hero:level-up', ({ position }) => {
+    this.subs.add(bus.onShow('hero:level-up', ({ position }) => {
       this.playAt(WORLD_SOUNDS.heroLevelUp.id, position);
     }));
 
-    this.subs.add(bus.on('wave:started', ({ wave }) => {
+    this.subs.add(bus.onShow('wave:started', ({ wave }) => {
       this.playGlobal(isBloodMoonWave(wave) ? MOMENT_SOUNDS.bloodMoon : MOMENT_SOUNDS.waveStart);
     }));
-    this.subs.add(bus.on('wave:completed', () => this.playGlobal(MOMENT_SOUNDS.waveComplete)));
-    this.subs.add(bus.on('research:completed', () => this.playGlobal(MOMENT_SOUNDS.researchComplete)));
-    this.subs.add(bus.on('ability:state-changed', ({ abilities }) => this.onAbilities(abilities)));
-    this.subs.add(bus.on('hero:state-changed', ({ hero }) => this.onHero(hero)));
+    this.subs.add(bus.onShow('wave:completed', () => this.playGlobal(MOMENT_SOUNDS.waveComplete)));
+    this.subs.add(bus.onShow('research:completed', () => this.playGlobal(MOMENT_SOUNDS.researchComplete)));
+    this.subs.add(bus.onShow('ability:state-changed', ({ abilities }) => this.onAbilities(abilities)));
+    this.subs.add(bus.onShow('hero:state-changed', ({ hero }) => this.onHero(hero)));
 
     // The HQ goes, then the stinger; the game-over track follows (music)
-    this.subs.add(bus.on('game:over', () => {
+    this.subs.add(bus.onShow('game:over', () => {
       this.playGlobal(MOMENT_SOUNDS.hqDestroyed);
       this.clearStinger();
       this.stingerTimer = setTimeout(() => {
@@ -134,7 +134,7 @@ export class GameSoundsService {
         this.playGlobal(MOMENT_SOUNDS.gameOver);
       }, GAME_OVER_STINGER_DELAY_MS);
     }));
-    this.subs.add(bus.on('game:reset', () => {
+    this.subs.add(bus.onShow('game:reset', () => {
       this.clearStinger();
       this.abilities.clear();
       this.hero = null;

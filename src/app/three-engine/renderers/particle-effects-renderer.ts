@@ -79,8 +79,6 @@ export class ParticleEffectsRenderer {
   private trailParticles = true;
   private impacts = true;
   private groundMarks = true;
-  /** No new ground marks while set, the ones lying stay (holdGroundMarks) */
-  private groundMarksHeld = false;
 
   // Spiral angle tracker for railgun effect (uses time-based rotation)
   private spiralAngle = 0;
@@ -489,17 +487,8 @@ export class ParticleEffectsRenderer {
     return this.laysGroundMarks;
   }
 
-  /**
-   * Lay no new ground marks while `held`, whatever the VFX settings say;
-   * the marks already lying stay. The wave replay holds them: its impacts
-   * would mark the live ground a second time.
-   */
-  holdGroundMarks(held: boolean): void {
-    this.groundMarksHeld = held;
-  }
-
   private get laysGroundMarks(): boolean {
-    return this.groundMarks && !this.groundMarksHeld;
+    return this.groundMarks;
   }
 
   /** Blood moon tint of the ground marks, see GroundDecals.setBloodMoon. */

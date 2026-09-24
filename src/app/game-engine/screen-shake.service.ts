@@ -82,7 +82,7 @@ export class ScreenShakeService {
 
     // Projectile impact → shake by projectile type, weaker with distance
     this.subs.add(
-      this.eventBus.on('vfx:projectile-impact', (event) => {
+      this.eventBus.onShow('vfx:projectile-impact', (event) => {
         const preset = this.getPresetForProjectile(event.projectileType);
         if (preset) {
           this.shakeAt(preset, event.lat, event.lon, event.height);
@@ -94,7 +94,7 @@ export class ScreenShakeService {
     // most once per hqDamageMinIntervalMs, unless a hit costing more HP comes
     // in: compared by the HP, since the factor is 0.5 for 1 HP and 5 HP alike
     this.subs.add(
-      this.eventBus.on('health:changed', (event) => {
+      this.eventBus.onShow('health:changed', (event) => {
         if (event.delta >= 0 || !this._enabled) return;
         const hpLost = Math.abs(event.delta);
         const now = performance.now();
@@ -110,7 +110,7 @@ export class ScreenShakeService {
     // Strike fired from a building → a low rumble where it lifts off
     // (ABILITY_LAUNCH_SHAKE: the nuclear strike's missile off its silo)
     this.subs.add(
-      this.eventBus.on('ability:used', ({ abilityId, launch }) => {
+      this.eventBus.onShow('ability:used', ({ abilityId, launch }) => {
         const shake = ABILITY_LAUNCH_SHAKE[abilityId];
         if (!shake || !launch) return;
         const { lat, lon, height } = launch.position;
@@ -121,7 +121,7 @@ export class ScreenShakeService {
     // Ability impact → the ability's own shake (ABILITY_IMPACT_SHAKE), fading
     // over a range of its own; the nuclear strike's is the biggest and longest
     this.subs.add(
-      this.eventBus.on('ability:impact', ({ abilityId, target }) => {
+      this.eventBus.onShow('ability:impact', ({ abilityId, target }) => {
         const shake = ABILITY_IMPACT_SHAKE[abilityId];
         if (!shake) return;
         this.shakeAt(shake.preset, target.lat, target.lon, target.height ?? 0, shake.nearDistance, shake.farDistance);
@@ -130,7 +130,7 @@ export class ScreenShakeService {
 
     // Enemy died → extra shake for bosses; a worm shakes once, with its last segment
     this.subs.add(
-      this.eventBus.on('enemy:footstep', ({ enemy }) => {
+      this.eventBus.onShow('enemy:footstep', ({ enemy }) => {
         if (!enemy.typeConfig.footstep?.shake) return;
         const { lat, lon, height } = enemy.position;
         this.shakeAt(presets.footstep, lat, lon, height ?? 0);
@@ -138,7 +138,7 @@ export class ScreenShakeService {
     );
 
     this.subs.add(
-      this.eventBus.on('enemy:died', (event) => {
+      this.eventBus.onShow('enemy:died', (event) => {
         const worm = event.enemy?.worm;
         if (event.enemy?.typeConfig?.isBoss && (!worm || worm.group.remaining === 0)) {
           this.shake(presets.bossDeath.amplitude, presets.bossDeath.duration);
