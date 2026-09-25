@@ -359,6 +359,7 @@ Befehle davor ins Log. Kommt wieder einer, das Log melden.
   Token-Bildschirm mit dem Satz zum Coop-Raum, Panel „Enter your map key first“. Schlüssel eintragen: Karte lädt,
   Beitritt von selbst.
   **übersprungen (2026-09-25)**
+  **ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** Token-Bildschirm nennt den Raum (`coop-look.mjs`).
 - **T48 Allein weiter (T38)**: Im Spiel den Relay beenden, „Continue alone“. Erwartung: Welle starten, Tower bauen und
   Cheats gehen; die Lane des anderen bleibt zu. Game over danach: kein neuer Rekord auf der Weltkarte.
   **ok (2026-09-25)**
@@ -410,20 +411,30 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   Hosts wirkt bei beiden, der des Gasts nirgends; Squad zeigt „CHEATS ON“. Mit `-- --no-cheats` sind „Host only“ und
   „Everyone“ grau.
   **übersprungen (2026-09-25)**
+  **ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** Host 100 → 1100 bei beiden, Gast-Cheat ohne Wirkung, CHEATS ON; mit `--no-cheats` beide
+  Cheat-Knöpfe grau (`coop-rules.mjs`, Bilder `tmp/checks/t59-*`).
 - **T60 Pause nach Regel**: Standard (Host only): der Gast kann nicht pausieren, Knopf gesperrt mit Tooltip, P tut
   nichts. „Anyone“: der Gast kann. „Off“: niemand.
   **übersprungen (2026-09-25)**
+  **ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** Standard: Gast gesperrt, sein Klick tut nichts, Host pausiert beide; „Anyone“: Gast pausiert und
+  setzt fort. „Off“ nicht geprüft.
 - **T61 Next wave**: „Host starts“: beim Host heißt der Knopf „Start wave N“ und startet sofort. „Auto 10 s“: nach
   einer Welle zählt der Knopf bei beiden herunter und die Welle startet von selbst; sind vorher alle bereit, sofort.
+  **ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** „Host starts“: Host-Knopf „Start wave 1“, startet sofort; „Auto 10 s“: Gast zählt „· 8s“,
+  Welle 2 startet von selbst; alle bereit startet Welle 1.
 - **T62 Squad und Chat unten links**: Im Spiel. Erwartung: Squad-Box mit dir oben (YOU, HOST), „SPAWN n · BUILDING“
   oder „READY“, Credits, Ping-Balken; das Häkchen setzt dich bereit, beim Partner öffnet die Münze das Gold-Menü; Fuß
   „Waiting for …“ bzw. „waiting for you“ mit Space. Minus klappt auf eine Zeile „1/2 READY“. Darunter der Chat auf
   einem Schleier, alte Zeilen blasser, Systemzeilen in Mono; Enter schreibt, X markiert, Tab öffnet das Dock.
   **ok (2026-09-25):** „waiting for you“ irreführend. Jetzt „Ready up for the next wave“ mit Space.
+  **Nachtest ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** Fuß „Ready up for the next wave“ mit Space; X zeigt den Hinweis auf eigener Fläche
+  (T50). Dabei gefunden und behoben: Credits in der Squad-Box mit Tausenderpunkt („1.100“), im Kopf ohne.
 - **T63 Raum-Chip und Dock im Spiel**: Im Kopf Code, ein Quadrat je Spieler in Lane-Farbe, „2/4“. Klick oder Tab
   öffnet das Dock auch im Spiel: Optionen nur lesen, unten nur „Leave“; das Spiel läuft daneben weiter.
   **ok (2026-09-25):** der Chip passte nicht in den Kopf und blieb nach dem Klick im Fokus. Gebaut: der Coop-Knopf im
   Stil der Kopf-Knöpfe (aktiv), kein Fokus nach dem Klick.
+  **Nachtest ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** nach dem Klick kein Fokus auf dem Knopf; Einstieg scrollt nicht quer (T54), eigener
+  Name als Feld (T56), Optionen beim Host offen, beim Gast „Show all“ (T58).
 - **T64 Mono-Schrift**: Zahlen, Codes und Tasten stehen jetzt in JetBrains Mono (vorher Consolas). Erwartung: Kopf-
   Leiste, Sidebar und Dialoge ohne abgeschnittene oder umbrechende Werte.
   **ok (2026-09-25)**
