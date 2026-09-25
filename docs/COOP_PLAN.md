@@ -624,7 +624,13 @@ Besitz-Farbe R14, Cheats nach Raum-Option (R3, D38), Bereit-Knopf C2d, Oberfläc
 - Electron: derselbe Client; im LAN hostet ein Spieler selbst. Beim ersten Hosten fragt die Windows-Firewall nach,
   und der Relay endet mit dem Spiel des Hosts.
 
-**Öffentliche Lobby (Plan, D56 bis D68, noch nicht gebaut), in drei Schritten:**
+**Öffentliche Lobby (D56 bis D68): Schritt 1 gebaut 2026-09-25, Schritte 2 und 3 offen.** Schritt 1:
+`app-coop-entry` (Name, „Same network“, „Online“ mit Zahnrad für die Lobbies) im Dock und als Reiter „Coop“ im
+Standortdialog beim Start ohne Ort; `coop/lobbies.ts`, `coopLobbies` in `runtime-config.json`, die alte Einstellung
+`3dtd-coop-relay` wird eine eigene Lobby; im Dev-Spiel auf `localhost` ohne Lobby „This machine“; Raumkopf „LAN“ oder
+„Online · <Lobby>“; Abweisung mit beiden Versionen, „Update now“ bei fertigem Update; „<Lobby> is offline right now“.
+Geprüft: Browser hostet über „This machine“, die App tritt aus dem Standortdialog per Code bei, der Dialog schließt
+nach dem Beitritt und der Ort des Hosts lädt mit allen Spawns (PLAYTEST T70). Der Plan in drei Schritten:
 
 1. **Oberfläche:** Dock mit „Same network“ (App) und „Online“ (Host, Code, Name der Lobby, Zahnrad für die Lobbies);
    keine Adressen, kein „Test“ im Dock; der Raumkopf zeigt „LAN“ oder den Namen der Lobby (heute steht dort nach

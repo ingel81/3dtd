@@ -12,7 +12,7 @@ test('the entry dock: no scrolling sideways, no focus left on the coop button (T
   expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
   const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
   expect(focused).not.toMatch(/coop/i);
-  await expect(page.getByRole('button', { name: 'Open room' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Host online' })).toBeVisible();
   await shot(testInfo, page, 'entry');
 });
 

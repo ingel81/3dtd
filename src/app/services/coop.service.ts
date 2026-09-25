@@ -31,8 +31,19 @@ import { SPAWN_COLORS } from '../configs/map-constants.config';
 import { UI_SOUNDS } from '../configs/audio.config';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
-import { relayCandidates, relayForLink, validRelayUrl, type RelaySource } from '../coop/relay-address';
-import { readCoopLan, type LanGame } from '../core/desktop-bridge';
+import { DEFAULT_RELAY_PORT, relayCandidates, relayForLink, relayLabel, type RelaySource } from '../coop/relay-address';
+import { readCoopLan, readDesktopBridge, type LanGame } from '../core/desktop-bridge';
+import {
+  activeLobby,
+  addLobby,
+  allLobbies,
+  builtInLobbies,
+  readStoredLobbies,
+  removeLobby,
+  withOldRelay,
+  type Lobby,
+  type StoredLobbies,
+} from '../coop/lobbies';
 import {
   DEFAULT_ROOM_OPTIONS,
   changedOptions,
@@ -115,6 +126,10 @@ export const LAG_MS = 160;
 const NAME_KEY = '3dtd-coop-name';
 /** The player's own relay (coop dialog, "Server"), kept in this browser; none means automatic */
 const RELAY_KEY = '3dtd-coop-relay';
+/** Pages of the dev game: without a configured lobby they get this machine's relay */
+const DEV_HOSTS = new Set(['localhost', '127.0.0.1']);
+/** localStorage: the lobbies the player added and the active one (D58) */
+const LOBBIES_KEY = '3dtd-coop-lobbies';
 /** How long a ping mark stays on the map, ms */
 const PING_MS = 4000;
 /** The lobby's walking time of a lane: a zombie's pace, the standard enemy */
@@ -267,6 +282,42 @@ export class CoopService {
   /** The relay this session talks to, and where the address came from */
   readonly relay = signal<{ url: string; source: RelaySource } | null>(null);
 
+  /** The lobbies the player added and the active one (D58) */
+  private readonly storedLobbies = signal<StoredLobbies>(CoopService.readLobbies());
+  /** Every online lobby: the site's, then the player's */
+  readonly lobbies = computed<readonly Lobby[]>(() => {
+    const site = builtInLobbies(this.config.coopLobbies(), this.config.coopRelay());
+    // The dev game without a lobby of its own: `npm run coop-server` on this machine
+    if (site.length === 0 && DEV_HOSTS.has(window.location.hostname)) {
+      site.push({ url: `ws://localhost:${DEFAULT_RELAY_PORT}`, name: 'This machine', builtIn: true });
+    }
+    return allLobbies(site, this.storedLobbies());
+  });
+  /** The lobby "Online" plays over; null without any (then online is off) */
+  readonly lobby = computed(() => activeLobby(this.lobbies(), this.storedLobbies()));
+  /** How this room is reached, for the room header: "LAN" or the lobby's name, never an address */
+  readonly reachedVia = computed(() => {
+    const relay = this.relay();
+    if (!relay) return null;
+    if (relay.source === 'lan') return 'LAN';
+    return this.lobbies().find((l) => l.url === relay.url)?.name ?? relayLabel(relay.url);
+  });
+  /**
+   * A guest's host place once the world package came, while the map still
+   * loads: the location dialog (E30) closes with it.
+   */
+  readonly hostPlace = signal<{ hq: { lat: number; lon: number }; spawns: { lat: number; lon: number }[] } | null>(null);
+
+  /** A downloaded app update is waiting: a version refusal can offer "Update now" (D60) */
+  readonly updateReady = signal(false);
+  /** What the player asked for last: the dock shows the joining steps for a guest */
+  readonly intent = signal<'host' | 'join' | null>(null);
+
+  /** Quit and install the waiting app update */
+  installUpdate(): void {
+    readDesktopBridge()?.installUpdateNow();
+  }
+
   /** The desktop app's LAN side (C4d); null in a browser */
   private readonly lanBridge = readCoopLan();
   /** Coop on the local network is offered here: the desktop app */
@@ -287,6 +338,7 @@ export class CoopService {
   private generation = 0;
 
   constructor() {
+    readDesktopBridge()?.onUpdateReady(() => this.ngZone.run(() => this.updateReady.set(true)));
     // The game component goes (another route): out of the room, the LAN relay and scan with it
     inject(DestroyRef).onDestroy(() => {
       this.scanLan(false);
@@ -295,6 +347,7 @@ export class CoopService {
     });
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
+    if (this.roomFromUrl) this.intent.set('join');
     this.relayFromUrl = params.get('relay');
     this.laneFromUrl = params.get('lane');
 
@@ -377,6 +430,13 @@ export class CoopService {
       })));
     }));
 
+    // In a room at last: the dock shows it, also after joining from the location dialog (E30)
+    let wasInRoom = false;
+    effect(() => {
+      const inRoom = this.room() !== null;
+      if (inRoom && !wasInRoom) untracked(() => this.uiStore.coopDockOpen.set(true));
+      wasInRoom = inRoom;
+    }, { injector: this.injector });
     // Host, lobby: a changed map goes to the room by itself
     effect(() => {
       const signature = this.mapSignature();
@@ -425,26 +485,44 @@ export class CoopService {
 
   }
 
-  /** The player's own relay, '' for automatic */
-  get relaySetting(): string {
+  /** Add an online lobby and make it the active one; false when the address is no ws:// or wss:// one */
+  addLobby(name: string, url: string): boolean {
+    const next = addLobby(this.storedLobbies(), name, url);
+    if (!next) return false;
+    this.storeLobbies(next);
+    return true;
+  }
+
+  removeLobby(url: string): void {
+    this.storeLobbies(removeLobby(this.storedLobbies(), url));
+  }
+
+  selectLobby(url: string): void {
+    this.storeLobbies({ ...this.storedLobbies(), active: url });
+  }
+
+  private storeLobbies(next: StoredLobbies): void {
+    this.storedLobbies.set(next);
     try {
-      return localStorage.getItem(RELAY_KEY) ?? '';
+      localStorage.setItem(LOBBIES_KEY, JSON.stringify(next));
     } catch {
-      return '';
+      /* storage blocked: the list holds for this session */
     }
   }
 
-  /** Set the player's own relay; '' goes back to automatic. False when it is no ws:// or wss:// address. */
-  setRelaySetting(value: string): boolean {
-    const url = value.trim() === '' ? '' : validRelayUrl(value);
-    if (url === null) return false;
+  /** The stored lobby list, with a server set before the list (`3dtd-coop-relay`) taken over once */
+  private static readLobbies(): StoredLobbies {
     try {
-      if (url) localStorage.setItem(RELAY_KEY, url);
-      else localStorage.removeItem(RELAY_KEY);
+      const stored = readStoredLobbies(localStorage.getItem(LOBBIES_KEY));
+      const merged = withOldRelay(stored, localStorage.getItem(RELAY_KEY));
+      if (merged !== stored) {
+        localStorage.setItem(LOBBIES_KEY, JSON.stringify(merged));
+        localStorage.removeItem(RELAY_KEY);
+      }
+      return merged;
     } catch {
-      /* storage blocked: automatic stays */
+      return readStoredLobbies(null);
     }
-    return true;
   }
 
   get name(): string {
@@ -470,6 +548,7 @@ export class CoopService {
 
   /** Open a room with the place loaded now and be its host. */
   async host(name: string): Promise<void> {
+    this.intent.set('host');
     const session = await this.connect(name);
     if (!session) return;
     await this.openRoom(session);
@@ -491,6 +570,7 @@ export class CoopService {
    */
   async hostLan(name: string): Promise<void> {
     if (!this.lanBridge) return;
+    this.intent.set('host');
     this.leave();
     this.error.set(null);
     this.status.set('connecting');
@@ -512,6 +592,7 @@ export class CoopService {
 
   /** Join a game found on the local network, trying the host's addresses best first */
   async joinLan(name: string, game: LanGame): Promise<void> {
+    this.intent.set('join');
     const urls = game.endpoints.map(({ address, port }) => `ws://${address}:${port}`);
     const session = await this.connect(name, urls.length ? urls : [`ws://${game.address}:${game.port}`]);
     if (!session) return;
@@ -538,6 +619,7 @@ export class CoopService {
 
   /** Join the room `code`. */
   async join(name: string, code: string): Promise<void> {
+    this.intent.set('join');
     const session = await this.connect(name);
     if (!session) return;
     await this.guard(async () => {
@@ -884,6 +966,7 @@ export class CoopService {
     this.counts.clear();
     this.hostChangingMap.set(false);
     this.movingSaid = false;
+    this.hostPlace.set(null);
     for (const timer of this.pingTimers) clearTimeout(timer);
     this.pingTimers.clear();
     this.pings.set([]);
@@ -935,7 +1018,7 @@ export class CoopService {
     this.name = name;
     this.error.set(null);
     this.status.set('connecting');
-    const reached = await this.reachRelay(name, (attempt) => this.wire(attempt), lanUrls);
+    const reached = await this.reachRelay(name, (attempt) => this.wire(attempt), lanUrls ? { source: 'lan', urls: lanUrls } : undefined);
     if ('error' in reached) {
       this.error.set(reached.error);
       this.status.set('closed');
@@ -948,35 +1031,44 @@ export class CoopService {
     return reached.session;
   }
 
-  /**
-   * The server field's check (playtest T14): whether a relay answers where
-   * this page would look for one now, without joining anything. The text
-   * for the dialog, and whether it is good news.
-   */
-  async probeRelay(): Promise<{ ok: boolean; text: string }> {
-    const reached = await this.reachRelay(this.name);
+  /** Whether the lobby at `url` answers and takes this game version, for the lobby menu's check. */
+  async probeLobby(url: string): Promise<{ ok: boolean; text: string }> {
+    const reached = await this.reachRelay(this.name, undefined, { source: 'lobby', urls: [url] });
     if ('error' in reached) return { ok: false, text: reached.error };
     reached.session.close();
-    return { ok: true, text: `The coop server at ${reached.url} answers.` };
+    return { ok: true, text: 'This lobby answers.' };
   }
 
   /**
-   * The first relay that answers and takes this game version: the one named
-   * (link, setting, runtime-config) or the automatic ones in turn
-   * (coop/relay-address.ts). `wire` hooks each attempt up before it connects.
+   * The relays to try: a LAN game's addresses, else the invite link's, else
+   * the active lobby (D58), else, with no lobby at all, the automatic ones
+   * (coop/relay-address.ts: the site behind https, this machine for
+   * `npm run coop-server`).
    */
-  private async reachRelay(name: string, wire?: (attempt: CoopSession) => void, lanUrls?: string[]): Promise<
-    { session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string }
-  > {
+  private relaysToTry(): { source: RelaySource; urls: string[] } {
+    const lobby = this.lobby();
+    const candidates = relayCandidates({
+      fromLink: this.relayFromUrl,
+      fromSetting: null,
+      fromConfig: null,
+      page: { protocol: window.location.protocol, hostname: window.location.hostname },
+    });
+    if (candidates.source === 'link' || !lobby) return candidates;
+    return { source: 'lobby', urls: [lobby.url] };
+  }
+
+  /**
+   * The first relay that answers and takes this game version, from
+   * `candidates` or relaysToTry(). `wire` hooks each attempt up before it
+   * connects.
+   */
+  private async reachRelay(
+    name: string,
+    wire?: (attempt: CoopSession) => void,
+    given?: { source: RelaySource; urls: string[] },
+  ): Promise<{ session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string }> {
     const client = clientInfoFrom(navigator.userAgent);
-    const candidates = lanUrls
-      ? { source: 'lan' as const, urls: lanUrls }
-      : relayCandidates({
-        fromLink: this.relayFromUrl,
-        fromSetting: this.relaySetting,
-        fromConfig: this.config.coopRelay(),
-        page: { protocol: window.location.protocol, hostname: window.location.hostname },
-      });
+    const candidates = given ?? this.relaysToTry();
     for (const url of candidates.urls) {
       const attempt = new CoopSession(url, { name, ...this.head(), client });
       wire?.(attempt);
@@ -986,26 +1078,30 @@ export class CoopService {
       } catch (err) {
         attempt.onClosed = null;
         attempt.close();
-        if (err instanceof CoopRefusedError) return { error: REFUSAL_TEXT[err.reason] };
+        if (err instanceof CoopRefusedError) return { error: refusalText(err) };
         console.warn(`[Coop] no relay at ${url}`, err);
       }
     }
     const tried = candidates.urls.join(', ');
-    if (candidates.source === 'lan') {
-      return { error: `Can't reach that LAN game (tried ${tried}). The host's firewall may block it, or the room just closed.` };
+    switch (candidates.source) {
+      case 'lan':
+        return { error: `Can't reach that LAN game (tried ${tried}). The host's firewall may block it, or the room just closed.` };
+      case 'lobby': {
+        const name = this.lobbies().find((l) => l.url === candidates.urls[0])?.name ?? 'The lobby';
+        return { error: `${name} is offline right now. Playing on the same network still works.` };
+      }
+      case 'auto':
+        return { error: 'No online lobby is set up. Add one with the gear under Online.' };
+      default:
+        return { error: "Can't reach the host's lobby from the invite link. It may be down." };
     }
-    return {
-      error: candidates.source === 'auto'
-        ? `Found no coop server (tried ${tried}). Set one under Server, or start one with npm run coop-server.`
-        : `Can't reach the coop server at ${tried}. It may be down; check the address under Server.`,
-    };
   }
 
   private async guard(run: () => Promise<void>): Promise<void> {
     try {
       await run();
     } catch (err) {
-      this.error.set(err instanceof CoopRefusedError ? REFUSAL_TEXT[err.reason] : String(err));
+      this.error.set(err instanceof CoopRefusedError ? refusalText(err) : String(err));
       this.leave();
     }
   }
@@ -1101,6 +1197,8 @@ export class CoopService {
       return;
     }
     const world = read.world;
+    // A start without a place waits in the location dialog: it closes with this place (E30)
+    this.hostPlace.set({ hq: world.hq, spawns: world.spawns.map(({ lat, lon }) => ({ lat, lon })) });
     // The place loaded here first (an invite link joins while it loads)
     this.status.set('loading-world');
     if (!(await this.placeLoaded())) {
@@ -1210,6 +1308,7 @@ export class CoopService {
       return;
     }
     this.worldReady.set(true);
+    this.hostPlace.set(null);
     this.status.set('lobby');
     // The host took this player's lane away: a free one comes by itself again
     const mine = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
@@ -1278,6 +1377,15 @@ export class CoopService {
     this.gameStore.paused.set(this.roomPaused);
     this.gameStore.gameSpeed.set(this.roomSpeed);
   }
+}
+
+/** Why the relay refused, for the player; another version names both and says what to do (D60) */
+export function refusalText(err: CoopRefusedError): string {
+  if (err.reason === 'version' && err.hostVersion) {
+    const update = readDesktopBridge() ? ' Update the app: it updates by itself on the next start.' : ' Reload the page.';
+    return `The host plays ${err.hostVersion}, you play ${BUILD_VERSION}. Both need the same version.${update}`;
+  }
+  return REFUSAL_TEXT[err.reason];
 }
 
 /**

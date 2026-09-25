@@ -236,7 +236,10 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
         }
         const refusal = room.join(player);
         if (refusal) {
-          send(id, { t: 'refused', reason: refusal });
+          // Another version: say which, so the player knows what to update (D60)
+          send(id, refusal === 'version'
+            ? { t: 'refused', reason: refusal, hostVersion: room.status().gameVersion }
+            : { t: 'refused', reason: refusal });
           return;
         }
         connection.room = room;

@@ -35,6 +35,17 @@
       <td-icon name="globe" [size]="16"></td-icon>
       <span>World</span>
     </button>
+    @if (coopOffered()) {
+      <button
+        class="mode-tab"
+        [class.active]="editMode() === 'coop'"
+        [attr.aria-pressed]="editMode() === 'coop'"
+        (click)="setEditMode('coop')"
+      >
+        <td-icon name="users" [size]="16"></td-icon>
+        <span>Coop</span>
+      </button>
+    }
   </div>
 
   <!-- Content -->
@@ -47,6 +58,11 @@
           <strong>Warning!</strong> The current game will be ended.
         </div>
       </div>
+    }
+
+    <!-- COOP: join a game; the host's place loads, no place of one's own first (E30) -->
+    @if (editMode() === 'coop' && data.coop) {
+      <app-coop-entry class="coop-entry" [coop]="data.coop" [canHost]="false" />
     }
 
     <!-- FULL MODE: New HQ + Spawn -->
@@ -304,7 +320,7 @@
   <!-- Actions -->
   <div class="dialog-actions">
     <button class="cancel-btn" (click)="cancel()">{{ editMode() === 'world' ? 'Close' : 'Cancel' }}</button>
-    @if (editMode() !== 'world') {
+    @if (editMode() !== 'world' && editMode() !== 'coop') {
       <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
         <td-icon name="check" [size]="12"></td-icon>
         {{ editMode() === 'spawn-only' ? 'Change Spawn' : 'Change Location' }}

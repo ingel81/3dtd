@@ -461,6 +461,12 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   auch leer; Box und Chat darunter verschieben sich nicht mehr.
 - **T69 Tastenleiste unter dem Chat lesbar** (User, 2026-09-25): „Enter chat · X mark · Tab room“ auf heller Karte.
   Erwartung: eigene dunkle Fläche, gut lesbar.
+- **T70 Beitreten ohne eigenen Ort und das neue Dock (E30, E31 Schritt 1)**: App frisch starten (Standortdialog).
+  Reiter „Coop“: „Same network“ mit Liste und „Online“ mit Code. Auf dem anderen Rechner „Host LAN game“, hier in
+  der Liste „Join“. Erwartung: der Dialog schließt, der Ort des Hosts lädt einmal, danach geht das Dock mit der Lobby
+  auf. Im Dock: keine Server-Adresse mehr, Raumkopf „LAN“; Zahnrad unter „Online“ zeigt die Lobbies. Geprüft per
+  Skript (Browser hostet online, App tritt per Code bei). Bekannt: der Ortsname kann beim Gast anders lauten
+  (Rückwärtssuche), gleicher Ort.
 - **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
   des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
   aus. Bisher nur per Spec geprüft.

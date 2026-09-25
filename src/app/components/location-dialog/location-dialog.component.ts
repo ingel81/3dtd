@@ -1,4 +1,4 @@
-import { Component, inject, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, signal, computed, effect, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
@@ -14,6 +14,7 @@ import { BestWave, byBestWave } from '../../services/location/best-waves';
 import { SHOWCASE_LOCATIONS, ShowcaseLocation } from '../../configs/showcase-locations.config';
 import { TdIconComponent } from '../icon/icon.component';
 import { WorldGlobeComponent } from '../world-globe/world-globe.component';
+import { CoopEntryComponent } from '../coop-entry/coop-entry.component';
 import {
   LocationDialogData,
   LocationDialogMode,
@@ -39,6 +40,7 @@ type SpawnMode = 'random' | 'manual';
     MatTooltipModule,
     AddressAutocompleteComponent,
     TdIconComponent,
+    CoopEntryComponent,
     // Used only inside @defer on the World tab, so the globe and its outlines load as a chunk of their own
     WorldGlobeComponent,
   ],
@@ -57,6 +59,22 @@ export class LocationDialogComponent {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly bestWaves = inject(BestWaveService);
   readonly data: LocationDialogData = inject(MAT_DIALOG_DATA);
+
+  constructor() {
+    // Joined from the Coop tab: the host's world came, close with its place
+    // (every spawn of it), and the boot loads that place (E30)
+    if (this.data.coop) effect(() => {
+      const place = this.data.coop?.hostPlace();
+      if (!place || this.editMode() !== 'coop') return;
+      const [first] = place.spawns;
+      this.dialogRef.close({
+        confirmed: true,
+        hq: { lat: place.hq.lat, lon: place.hq.lon, name: 'Loading...', displayName: 'Loading...' },
+        spawn: { id: 'spawn-1', lat: first?.lat ?? place.hq.lat, lon: first?.lon ?? place.hq.lon },
+        spawns: place.spawns.map(({ lat, lon }) => ({ lat, lon })),
+      } satisfies LocationDialogResult);
+    });
+  }
 
   /** Recent places except the one being played, which would only restart it. */
   readonly recentLocations = computed(() => {
@@ -79,6 +97,15 @@ export class LocationDialogComponent {
   readonly worldCurrent = this.data.currentLocation
     ? { lat: this.data.currentLocation.lat, lon: this.data.currentLocation.lon }
     : null;
+
+  /**
+   * The Coop tab: only at a start without a place, where there is something
+   * to join (the desktop app's LAN, or an online lobby) (E30, D67)
+   */
+  readonly coopOffered = computed(() => {
+    const coop = this.data.coop;
+    return !!coop && !this.data.currentLocation && (coop.lanAvailable || coop.lobby() !== null);
+  });
 
   // State
   readonly editMode = signal<LocationDialogMode>(this.data.initialMode ?? 'full');

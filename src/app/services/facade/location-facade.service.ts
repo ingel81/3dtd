@@ -1,3 +1,4 @@
+import { COOP } from '../coop.token';
 import { Injectable, inject, DestroyRef, Injector } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog } from '@angular/material/dialog';
@@ -280,6 +281,8 @@ export class LocationFacadeService {
           currentLocation: null,
           currentSpawn: null,
           isGameInProgress: false,
+          // The Coop tab joins a game without a place of one's own first (E30)
+          coop: ctx.injector.get(COOP, null),
         } as LocationDialogData,
         panelClass: 'td-dialog-panel',
         disableClose: true,
@@ -297,7 +300,7 @@ export class LocationFacadeService {
             if (result?.confirmed) {
               this.locationMgmt.setLocation(
                 { lat: result.hq.lat, lon: result.hq.lon },
-                result.spawn.isRandom ? [] : [{ lat: result.spawn.lat, lon: result.spawn.lon }]
+                result.spawns ?? (result.spawn.isRandom ? [] : [{ lat: result.spawn.lat, lon: result.spawn.lon }])
               );
             }
             resolve();

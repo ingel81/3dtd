@@ -73,8 +73,8 @@
       <div class="meta">
         @if (coop.lanAddresses().length) {
           <span [matTooltip]="lanAddressText()">LAN <b>{{ coop.lanAddresses()[0].address }}</b></span>
-        } @else if (coop.relay(); as relay) {
-          <span>Server <b>{{ relayLabel(relay.url) }}</b></span>
+        } @else if (coop.reachedVia(); as via) {
+          <span>{{ via === 'LAN' ? 'Over' : 'Online ·' }} <b>{{ via }}</b></span>
         }
         @if (coop.isHost() && !r.started) {
           <button class="toggle" type="button" [class.is-on]="!r.locked" [attr.aria-pressed]="!r.locked"
@@ -302,75 +302,10 @@
     </section>
     </div>
   } @else {
-    <!-- Not in a room: host this map or join one; in the desktop app the LAN comes first (D53) -->
-    <section class="blk">
-      <label class="field">
-        <span>Your name</span>
-        <input class="inp" type="text" maxlength="32" [value]="name()" (input)="name.set($any($event.target).value)" />
-      </label>
-    </section>
-    @if (coop.lanAvailable) {
-      <section class="blk">
-        <div class="card">
-          <h3><td-icon name="home" [size]="16"></td-icon>Host LAN game</h3>
-          <p class="note">Opens a room on {{ placeName() }} for players on this network. Windows may ask to let 3DTD through the firewall: allow it.</p>
-          <button class="btn-primary" type="button" (click)="hostLan()" [disabled]="coop.status() === 'connecting'">
-            {{ coop.status() === 'connecting' ? 'Opening…' : 'Host LAN game' }}
-          </button>
-        </div>
-        <div class="or">OR</div>
-        <div class="card">
-          <h3>
-            <td-icon name="search" [size]="16"></td-icon>Games on this network
-            <button class="icon-btn sm refresh" type="button" (click)="rescanLan()"
-                    matTooltip="Search again" aria-label="Search the network again">
-              <td-icon name="refresh" [size]="14" [class.spin]="rescanning()"></td-icon>
-            </button>
-          </h3>
-          @if (lanGames().length) {
-            <ul class="lan-list">
-              @for (game of lanGames(); track game.code) {
-                <li class="lan-game" [class.is-off]="game.why">
-                  <div class="who">
-                    <b>{{ game.host || 'Host' }}</b>
-                    <small>{{ game.players }}/{{ maxPlayers }} players · {{ game.address }} · {{ game.code }}</small>
-                  </div>
-                  <button class="btn" type="button" (click)="joinLan(game)" [disabled]="!!game.why || coop.status() === 'connecting'"
-                          [matTooltip]="game.why ?? ''">Join</button>
-                </li>
-              }
-            </ul>
-          } @else {
-            <p class="note with-icon" role="status"><td-icon class="spin" name="refresh" [size]="13"></td-icon>Looking for games on this network…</p>
-          }
-          @if (lanQuiet() && !lanGames().length) {
-            <div class="row">
-              <input class="inp" type="text" maxlength="15" placeholder="Host IP, e.g. 192.168.1.5" aria-label="Host IP"
-                     [value]="hostIp()" (input)="hostIp.set($any($event.target).value)" (keydown.enter)="probeLan()" />
-              <button class="btn-xs" type="button" (click)="probeLan()" [disabled]="!hostIp().trim() || lanProbe() === 'busy'">Ask</button>
-            </div>
-            @if (lanProbe() === 'none') {
-              <p class="note is-error" role="status">No game answered at {{ hostIp().trim() }}.</p>
-            }
-            <ul class="checks">
-              <li>The host let 3DTD through the Windows firewall (the prompt at "Host LAN game").</li>
-              <li>Both are on the same network, not one on mobile data or only on a VPN.</li>
-              <li>Guest Wi-Fi often keeps devices apart: use the main Wi-Fi or a cable.</li>
-            </ul>
-          }
-        </div>
-      </section>
-      <section class="blk plain">
-        <details>
-          <summary>ADVANCED · SERVER AND ROOM CODE</summary>
-          <ng-container [ngTemplateOutlet]="serverEntry" />
-        </details>
-      </section>
-    } @else {
-      <ng-container [ngTemplateOutlet]="serverEntry" />
-    }
+    <!-- Not in a room: host or join, the same entry the location dialog shows (D61, D67) -->
+    <app-coop-entry [coop]="coop" [canHost]="true" [placeName]="placeName()" />
   }
-  @if (coop.error(); as error) {
+  @if ((room() || joining()) && coop.error(); as error) {
     <p class="banner is-error" role="alert">{{ error }}</p>
   }
 </div>
@@ -407,45 +342,3 @@
     }
   </footer>
 }
-
-<!-- Hosting and joining over a coop server by room code: in the browser the only way, in the app under Advanced -->
-<ng-template #serverEntry>
-    <section class="blk">
-      <div class="card">
-        <h3><td-icon name="home" [size]="16"></td-icon>Host this map</h3>
-        <p class="note">Opens a room on {{ placeName() }}. You pick lanes and start the match.</p>
-        <button class="btn-primary" type="button" (click)="host()" [disabled]="coop.status() === 'connecting'">
-          {{ coop.status() === 'connecting' ? 'Opening…' : 'Open room' }}
-        </button>
-      </div>
-      <div class="or">OR</div>
-      <div class="card">
-        <h3><td-icon name="signIn" [size]="16"></td-icon>Join a room</h3>
-        <div class="row">
-          <input class="inp codein" type="text" maxlength="6" placeholder="ABC123" aria-label="Room code"
-                 [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
-          <button class="btn" type="button" (click)="join()" [disabled]="!code().trim()">Join</button>
-        </div>
-        <p class="note">If the host plays somewhere else, your map changes to theirs by itself.</p>
-      </div>
-    </section>
-    <section class="blk plain">
-      <details>
-        <summary>SERVER · {{ coop.relay() ? relayLabel(coop.relay()!.url) : (relaySetting() || 'automatic') }}</summary>
-        <div class="row">
-          <input class="inp" type="text" placeholder="wss://relay.example.com or ws://192.168.1.5:3003" aria-label="Coop server"
-                 [value]="relaySetting()" (change)="saveRelay($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
-          <button class="btn-xs" type="button" (click)="testRelay()" [disabled]="relayInvalid() || relayProbe()?.busy">Test</button>
-        </div>
-        @if (relayInvalid()) {
-          <p class="note is-error">That is no ws:// or wss:// address.</p>
-        } @else if (relayProbe(); as probe) {
-          <p class="note with-icon" [class.is-error]="!probe.ok" [class.is-ok]="probe.ok && !probe.busy" role="status">
-            @if (!probe.busy) { <td-icon [name]="probe.ok ? 'check' : 'cross'" [size]="13"></td-icon> }
-            {{ probe.text }}
-          </p>
-        }
-      </details>
-      <p class="note">Every player needs their own map key.</p>
-    </section>
-</ng-template>

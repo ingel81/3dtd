@@ -438,7 +438,7 @@ describe('LocationFacadeService', () => {
       void facade.waitForLocationFromDialog();
       await dialogOpened();
       expect(dialog.open).toHaveBeenCalledWith(LocationDialogComponent, {
-        data: { currentLocation: null, currentSpawn: null, isGameInProgress: false },
+        data: expect.objectContaining({ currentLocation: null, currentSpawn: null, isGameInProgress: false }),
         panelClass: 'td-dialog-panel',
         disableClose: true,
       });
@@ -450,6 +450,14 @@ describe('LocationFacadeService', () => {
       dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE, isRandom: false } } as unknown as LocationDialogResult);
       await done;
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE]);
+    });
+
+    it('stores every spawn of a coop host’s place, joined from the Coop tab (E30)', async () => {
+      const done = facade.waitForLocationFromDialog();
+      await dialogOpened();
+      dialogClosed.next({ confirmed: true, hq: INSIDE, spawn: { ...OUTSIDE }, spawns: [OUTSIDE, INSIDE] } as unknown as LocationDialogResult);
+      await done;
+      expect(locationMgmt.setLocation).toHaveBeenCalledWith(INSIDE, [OUTSIDE, INSIDE]);
     });
 
     it('stores no spawn when the player asked for a random one', async () => {

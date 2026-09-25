@@ -235,7 +235,7 @@ export async function leaveRoom(page: Page): Promise<void> {
 /** Host: open a room from the dock */
 export async function openRoom(page: Page): Promise<void> {
   await openDock(page);
-  await page.getByRole('button', { name: 'Open room' }).click();
+  await page.getByRole('button', { name: 'Host online' }).click();
 }
 
 /** Host: the invite link, as the dock's button copies it */

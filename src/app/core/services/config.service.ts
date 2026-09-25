@@ -7,8 +7,10 @@ interface RuntimeConfig {
   googleMapsApiKey?: string;
   cesiumIonToken?: string;
   cesiumAssetId?: string;
-  /** Coop relay, ws:// or wss:// (docs/COOP_PLAN.md, C7) */
+  /** Coop relay, ws:// or wss:// (docs/COOP_PLAN.md, C7); `coopLobbies` supersedes it */
   coopRelay?: string;
+  /** The site's online lobbies, `{ name, url }` (docs/COOP_PLAN.md, D58) */
+  coopLobbies?: unknown;
 }
 
 /**
@@ -37,6 +39,8 @@ export class ConfigService {
   readonly loaded = signal(false);
   /** The site's coop relay from runtime-config.json; null lets the client find one (coop/relay-address.ts) */
   readonly coopRelay = signal<string | null>(null);
+  /** The site's online lobbies as runtime-config.json lists them, unchecked (coop/lobbies.ts reads them) */
+  readonly coopLobbies = signal<unknown>(null);
   readonly isBrowserPlayback = signal(true);
 
   /** Set when the tile server rejected the credentials we had. */
@@ -186,6 +190,7 @@ export class ConfigService {
       if (config.cesiumIonToken) this.cesiumIonToken.set(config.cesiumIonToken);
       if (config.cesiumAssetId) this.cesiumAssetId.set(config.cesiumAssetId);
       if (config.coopRelay) this.coopRelay.set(config.coopRelay);
+      if (config.coopLobbies) this.coopLobbies.set(config.coopLobbies);
     } catch {
       /* no file, offline, or not JSON, the other two sources still apply */
     }

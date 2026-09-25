@@ -89,9 +89,9 @@ function player(relayPort: number) {
     providers: [
       CoopService,
       { provide: GameStateManager, useValue: gsm },
-      { provide: ConfigService, useValue: { coopRelay: signal(null), needsCredentials: signal(false) } },
+      { provide: ConfigService, useValue: { coopRelay: signal(null), coopLobbies: signal(null), needsCredentials: signal(false) } },
       { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
-      { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<string | null>(null) } },
+      { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<string | null>(null), coopDockOpen: signal(false) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: () => false } },
       { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))) } },
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },
@@ -233,14 +233,14 @@ describe('CoopService over a real relay (review R21)', () => {
     await until(() => host.coop.chat().some((line) => line.from === null && line.text === "Bob's map stands"));
   });
 
-  it('says so when no relay answers', async () => {
+  it('says the lobby is offline when no relay answers (D61)', async () => {
     relay = await startRelay({ port: 0 });
     const port = relay.port;
     await relay.close();
     relay = null;
     const alone = player(port);
     await alone.coop.host('Ann');
-    expect(alone.coop.error()).toContain("Can't reach the coop server");
+    expect(alone.coop.error()).toBe(`localhost:${port} is offline right now. Playing on the same network still works.`);
     expect(alone.coop.status()).toBe('closed');
   });
 
@@ -297,5 +297,20 @@ describe('CoopService over a real relay (review R21)', () => {
       vi.unstubAllGlobals();
       vi.stubGlobal('WebSocket', WsSocket);
     }
+  });
+
+  it('turns a server set before the lobby list into a lobby of the player’s, and names it in the room (D58)', async () => {
+    relay = await startRelay({ port: 0 });
+    const { coop } = player(relay.port);
+    // The dev page's own lobby first, then the old server, which is the active one
+    expect(coop.lobbies().map((l) => l.name)).toEqual(['This machine', `localhost:${relay.port}`]);
+    expect(coop.lobby()?.url).toBe(`ws://localhost:${relay.port}`);
+    expect(localStorage.getItem('3dtd-coop-relay')).toBeNull();
+    await coop.host('Ann');
+    await until(() => coop.room() !== null);
+    expect(coop.reachedVia()).toBe(`localhost:${relay.port}`);
+    expect(coop.addLobby('Home', 'ws://192.168.0.5:3003')).toBe(true);
+    expect(coop.lobby()?.name).toBe('Home');
+    expect(coop.addLobby('Bad', 'http://x')).toBe(false);
   });
 });
