@@ -7,6 +7,15 @@ name: Relay image
 # relay before a release.
 
 on:
+  # A push to coop that touches the relay builds :coop (by hand only works
+  # once this file is on the default branch)
+  push:
+    branches: [coop]
+    paths:
+      - 'coop-server/**'
+      - 'src/app/coop/**'
+      - 'src/app/managers/game-state/game-clock.ts'
+      - '.github/workflows/relay-image.yml'
   workflow_dispatch:
   workflow_call:
     inputs:
