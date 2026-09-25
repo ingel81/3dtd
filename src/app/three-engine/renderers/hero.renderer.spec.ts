@@ -75,6 +75,19 @@ describe('HeroRenderer', () => {
     expect(rings()).toHaveLength(0);
   });
 
+  it('marks a coop partner’s hero with a ring in his lane colour while he is on the map (R15)', () => {
+    const { scene, renderer } = setup();
+    const rings = () => scene.children.filter((c) => c instanceof Mesh && c.visible) as Mesh[];
+    renderer.setOwnerColor(0x3366ff);
+    expect(rings()).toHaveLength(0);
+    renderer.present(hero());
+    expect(rings()).toHaveLength(1);
+    expect((rings()[0].material as MeshStandardMaterial).color.getHex()).toBe(0x3366ff);
+    expect(rings()[0].position.x).toBe(20);
+    renderer.clear();
+    expect(rings()).toHaveLength(0);
+  });
+
   it('hides him on clear and reports no head to rise from', () => {
     const { renderer } = setup();
     renderer.present(hero());

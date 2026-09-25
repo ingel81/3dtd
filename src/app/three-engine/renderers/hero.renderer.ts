@@ -28,6 +28,8 @@ const REFUSED_COLOR = 0xb83e32; // --td-health-red: no route in reach
 
 /** Ring radii, metres */
 const SELECTION_RADIUS_M = 2.6;
+/** A partner's hero wears a ring in his lane colour, a little smaller than the selection ring */
+const OWNER_RADIUS_M = 2.2;
 const MARKER_RADIUS_M = 1.8;
 /** Lift above the ground so the flat rings clear small bumps, m */
 const LIFT_M = 0.4;
@@ -41,6 +43,9 @@ const HEAD_CLEARANCE_M = 1.5;
  * has loaded or when it fails),
  * and while he is selected a gold ring under his feet, a smaller one on the
  * spot he holds and the move ring under the cursor.
+ *
+ * A coop partner's hero has a renderer of his own with a ring in his lane
+ * colour instead (setOwnerColor); he is never selected here.
  *
  * The HeroManager hands him over once per rendered frame (present), in scene
  * coordinates on the route grid's ground. The animation runs in game time,
@@ -58,12 +63,15 @@ export class HeroRenderer implements HeroView {
   private visible = false;
   private selected = false;
   private pulseMs = 0;
+  /** A coop partner's hero: his lane colour, always shown; null for the own hero */
+  private ownerColor: number | null = null;
 
   private readonly ringGeometry = new RingGeometry(0.82, 1, 64);
   private readonly selectionRing: Mesh;
   private readonly postRing: Mesh;
   private readonly aimRing: Mesh;
   private readonly aimMaterial: MeshBasicMaterial;
+  private readonly ownerRing: Mesh;
 
   private readonly scratch = new Vector3();
 
@@ -81,6 +89,14 @@ export class HeroRenderer implements HeroView {
     this.postRing = this.ring(this.material(RING_COLOR, 0.6), MARKER_RADIUS_M);
     this.aimMaterial = this.material(RING_COLOR, 0.85);
     this.aimRing = this.ring(this.aimMaterial, MARKER_RADIUS_M);
+    this.ownerRing = this.ring(this.material(RING_COLOR, 0.75), OWNER_RADIUS_M);
+  }
+
+  /** Mark him as a coop partner's in his lane colour (review R15); null for none */
+  setOwnerColor(color: number | null): void {
+    this.ownerColor = color;
+    if (color !== null) (this.ownerRing.material as MeshBasicMaterial).color.setHex(color);
+    this.syncRings();
   }
 
   /** Where his feet stand: the route grid (GlobalRouteGridService). */
@@ -102,6 +118,7 @@ export class HeroRenderer implements HeroView {
     this.model?.setPose(hero.pose);
 
     this.selectionRing.position.set(at.x, at.y + LIFT_M, at.z);
+    this.ownerRing.position.set(at.x, at.y + LIFT_M, at.z);
     const post = this.onGround(hero.anchor.lat, hero.anchor.lon);
     this.postRing.position.set(post.x, post.y + LIFT_M, post.z);
     this.syncRings();
@@ -166,8 +183,8 @@ export class HeroRenderer implements HeroView {
     this.disposed = true;
     this.model?.dispose();
     this.model = null;
-    this.scene.remove(this.root, this.selectionRing, this.postRing, this.aimRing);
-    for (const ring of [this.selectionRing, this.postRing, this.aimRing]) {
+    this.scene.remove(this.root, this.selectionRing, this.postRing, this.aimRing, this.ownerRing);
+    for (const ring of [this.selectionRing, this.postRing, this.aimRing, this.ownerRing]) {
       (ring.material as MeshBasicMaterial).dispose();
     }
     this.ringGeometry.dispose();
@@ -206,6 +223,7 @@ export class HeroRenderer implements HeroView {
     this.selectionRing.visible = on;
     this.postRing.visible = on;
     if (!on) this.aimRing.visible = false;
+    this.ownerRing.visible = this.visible && this.ownerColor !== null;
   }
 
   private material(color: number, opacity: number): MeshBasicMaterial {

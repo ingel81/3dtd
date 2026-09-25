@@ -214,7 +214,7 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   die eigene Forschung, Kills mit `ownerId`.
 - Held: ein `HeroManager` je Spieler (`heroOf`) mit eigener `heroId` (`hero` im Einzelspieler, `hero:<spieler>` im
   Coop); Schüsse und `hero:kill` tragen sie, das Kill-Gold geht an ihren Besitzer. Das Modell nimmt nirgends an,
-  dass ein Spieler nur einen Helden hat. Gezeichnet wird vorerst nur der eigene (Renderer für mehrere: C6).
+  dass ein Spieler nur einen Helden hat. Gezeichnet wird vorerst nur der eigene (Renderer für mehrere: C6). Seit 2026-09-25 auch die der Partner (R15).
 - Bemannter Tower: einer je Spieler (`TowerLifecycle.mannedTowers`), `tower:manned` mit Spieler; ein Tower, in dem
   schon jemand sitzt, nimmt keinen zweiten. Das Fadenkreuz liest das Ziel seines eigenen Towers.
 - Prüfsumme über alle Helden; im Einzelspieler bit-gleich wie vorher. Snapshot mit `abilitiesByPlayer`,
@@ -524,7 +524,7 @@ nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht ander
 - R14 Tower des Partners erkennbar machen (Farbring in Lane-Farbe, Tooltip „Bob's tower“); heute ist er nur nicht
   auswählbar, ohne Grund. **Gebaut 2026-09-25: Ring in Lane-Farbe, Klick sagt „That is Bob's tower“.**
 - R15 Lane-Druck je Spieler (Lecks je Lane), Anzeige wer gerade bremst (R2), Held des Partners sichtbar (heute nur
-  der eigene gezeichnet, C2c). **Gebaut 2026-09-25: Lecks je Lane in Leiste und Game-over-Tabelle, Bremser über R2; Held des Partners offen.**
+  der eigene gezeichnet, C2c). **Gebaut 2026-09-25: Lecks je Lane in Leiste und Game-over-Tabelle, Bremser über R2; Held des Partners gebaut 2026-09-25: eigener `HeroRenderer` je Partner (`createPartnerHero`), Ring in Lane-Farbe, nicht anwählbar.**
 - R16 Game over im Coop: Zusammenfassung je Spieler (Kills, Gold, Lecks je Lane); Run-Log markiert Coop-Läufe, damit
   sie nicht in Einzelspieler-Rekorde und Mittelwerte fallen. **Gebaut 2026-09-25: Tabelle je Spieler, `head.coop`, keine Ortsrekorde.**
 

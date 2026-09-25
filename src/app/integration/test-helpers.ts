@@ -276,6 +276,8 @@ export function createAbilityTestEngine(): never {
   }
   engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
   engine['hero'] = withAutoStubs({});
+  // A coop partner's hero gets a renderer of his own (review R15)
+  (engine as Record<string, unknown>)['createPartnerHero'] = vi.fn(() => withAutoStubs({}));
   // BackgroundMusicService resumes the audio context on wave:started
   engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
   // Headless, like a training tab: no presentFrame

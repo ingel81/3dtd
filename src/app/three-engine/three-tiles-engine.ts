@@ -189,6 +189,10 @@ export class ThreeTilesEngine {
   /** Look of the blood moon waves, switched by BloodMoonService */
   readonly bloodMoon: BloodMoonLook;
   readonly hero: HeroRenderer;
+  /** Coop partners' heroes (review R15): drawn, never picked; made by createPartnerHero */
+  private readonly partnerHeroes = new Set<HeroRenderer>();
+  /** Geo to scene for renderers made after the constructor */
+  private readonly coordinateSync: CoordinateSync;
   readonly frostBursts: FrostBurstRenderer;
   readonly empPulses: EmpPulseRenderer;
   readonly orbitalBeams: OrbitalBeamRenderer;
@@ -388,6 +392,7 @@ export class ThreeTilesEngine {
       groundMarks: this.effects,
     });
     this.hero = new HeroRenderer(this.scene, coordinateSync, this.assetManager);
+    this.coordinateSync = coordinateSync;
     this.frostBursts = new FrostBurstRenderer(this.scene, this.effects.particleShaderMaterials);
     this.empPulses = new EmpPulseRenderer(this.scene, this.effects.particleShaderMaterials);
     // Its embers take the ground marks' blood moon tint
@@ -1071,6 +1076,7 @@ export class ThreeTilesEngine {
 
     // Hero: his animation in game time, the selection pulse in real time
     this.hero.update(deltaTime, gameDeltaSeconds * 1000);
+    for (const partner of this.partnerHeroes) partner.update(deltaTime, gameDeltaSeconds * 1000);
 
     // Screen shake is applied in render() (drawFrame), not to the camera
   }
@@ -1280,6 +1286,18 @@ export class ThreeTilesEngine {
   /**
    * Dispose all resources
    */
+  /** A coop partner's hero on the map (review R15); gone with disposePartnerHero */
+  createPartnerHero(): HeroRenderer {
+    const view = new HeroRenderer(this.scene, this.coordinateSync, this.assetManager ?? null);
+    this.partnerHeroes.add(view);
+    return view;
+  }
+
+  disposePartnerHero(view: HeroRenderer): void {
+    if (!this.partnerHeroes.delete(view)) return;
+    view.dispose();
+  }
+
   dispose(): void {
     this.disposed = true;
     this.renderLoop.dispose();
@@ -1319,6 +1337,8 @@ export class ThreeTilesEngine {
     this.searchlights.dispose();
     this.bloodMoon.dispose();
     this.hero.dispose();
+    for (const partner of this.partnerHeroes) partner.dispose();
+    this.partnerHeroes.clear();
     this.frostBursts.dispose();
     this.empPulses.dispose();
     this.orbitalBeams.dispose();

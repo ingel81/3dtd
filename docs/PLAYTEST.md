@@ -461,6 +461,9 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   B am Kabel; einer mit VPN an. Findet B nichts: nach 4 s kommt das Feld „Host IP“, A zeigt seine Adresse im Raumkopf
   hinter „LAN“. Schon geprüft (2026-09-25, ein Rechner): Relay startet aus `app.asar`, die Suche findet ihn über alle
   drei Adapter, „Leave“ beendet ihn.
+- **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
+  des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
+  aus. Bisher nur per Spec geprüft.
 
 ## K8 Desktop-Build
 
