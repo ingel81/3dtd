@@ -151,7 +151,11 @@ export class GameCommandsHandler {
     this.execute(event);
   };
 
-  private execute(event: GameEvent, playerId: string = LOCAL_PLAYER_ID): void {
+  /**
+   * Without a relay the command is this client's player's: LOCAL_PLAYER_ID in
+   * the single player game, the coop id after going on alone (review R10).
+   */
+  private execute(event: GameEvent, playerId: string = this.gsm.localPlayerId ?? LOCAL_PLAYER_ID): void {
     const run = this.executors.get(event.type);
     if (!run) return;
     this.log.record(event, playerId);

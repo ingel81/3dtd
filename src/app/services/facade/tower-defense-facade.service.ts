@@ -394,8 +394,9 @@ export class TowerDefenseFacadeService {
     );
     // First-run tips follow the same events
     this.onboarding.connect(this.gameState.getEventBus());
-    // Best wave per place for the world map; runs the bot plays and coop runs (review R16) do not count
-    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled() && !this.gameState.lockstepActive);
+    // Best wave per place for the world map; runs the bot plays and coop runs (review R16) do not count,
+    // nor one that went on alone after the relay was lost (the partner stays in the run, PLAYTEST T38)
+    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled() && this.gameState.players.length === 1);
     // Refused hires and abilities in the context hint box; the bot's commands get none
     this.refusals.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
     uiSound.connect(() => this.gameState.tilesEngine?.spatialAudio ?? null);
