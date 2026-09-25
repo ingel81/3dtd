@@ -238,6 +238,12 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
         connection.room = room;
         return;
       }
+      // The public list (D62): open to anyone said hello, in a room or not
+      if (message.t === 'rooms') {
+        const list = [...rooms.values()].flatMap((room) => room.publicEntry() ?? []);
+        send(id, { t: 'rooms', rooms: list });
+        return;
+      }
       if (message.t === 'join') {
         if (connection.room) return;
         const room = rooms.get(String(message.room).toUpperCase());

@@ -24,11 +24,13 @@ import type {
   CoopPlayerInfo,
   CoopRoomInfo,
   PlayerStatus,
+  PublicRoom,
   RefusalReason,
+  RoomListing,
   ServerMessage,
 } from '../../src/app/coop/protocol.ts';
 import type { StampedCommand } from '../../src/app/coop/lockstep.ts';
-import { MAX_PLAYERS, PLAYER_STATUSES } from '../../src/app/coop/protocol.ts';
+import { MAX_PLAYERS, PLAYER_STATUSES, TITLE_MAX } from '../../src/app/coop/protocol.ts';
 import { TICK_SUB_STEPS } from '../../src/app/coop/lockstep.ts';
 import { GameClock } from '../../src/app/managers/game-state/game-clock.ts';
 import { HashCheck, HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
@@ -153,6 +155,10 @@ export class Room {
   private readonly now: () => number;
   private readonly createdAt: number;
   private readonly cheats: boolean;
+  /** How the room shows in the public list (D62); public by default, titled after the host */
+  private listing: RoomListing;
+  /** Waves started in the game, for the public list */
+  private waves = 0;
 
   constructor(code: string, host: RoomPlayer, send: Send, options: RoomOptions = {}) {
     this.code = code;
@@ -163,6 +169,7 @@ export class Room {
     this.cheats = options.cheats ?? false;
     this.hostId = host.id;
     this.players.push({ ...host, client: host.client ?? null, spawnId: null, ready: false, status: null });
+    this.listing = { public: true, title: `${host.name}'s game`.slice(0, TITLE_MAX), city: '' };
     this.log(`opened by ${this.who(host.id)}, game ${host.gameVersion}, balance ${host.configHash}${this.clientOf(host.id)}`
       + `${this.cheats ? ', cheats allowed' : ''}`);
     this.broadcastRoom();
@@ -281,6 +288,16 @@ export class Room {
         this.log(`${this.who(playerId)} ${STATUS_LOG[player.status]}`);
         return this.broadcastRoom();
       }
+      case 'listing': {
+        if (!host) return this.refuse(playerId, 'not-host');
+        const listing = message.listing;
+        const title = String(listing?.title ?? '').trim().slice(0, TITLE_MAX) || this.listing.title;
+        const next = { public: listing?.public !== false, title, city: String(listing?.city ?? '').trim().slice(0, 60) };
+        if (JSON.stringify(next) === JSON.stringify(this.listing)) return;
+        if (next.public !== this.listing.public) this.log(next.public ? 'listed publicly' : 'private');
+        this.listing = next;
+        return this.broadcastRoom();
+      }
       case 'lock':
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.locked === !!message.locked) return;
@@ -327,6 +344,7 @@ export class Room {
         if (!this.started || typeof message.command?.type !== 'string' || !this.accepts(message.command.type, playerId)) return;
         this.open.push({ playerId, command: message.command });
         this.commandCount++;
+        if (message.command.type === 'command:start-wave') this.waves++;
         return;
       case 'hash':
         if (!this.started) return;
@@ -480,6 +498,24 @@ export class Room {
       cheats: this.cheats,
       locked: this.locked,
       options: { ...this.options },
+      listing: { ...this.listing },
+    };
+  }
+
+  /** The room in the public list, null when it is not in it: private or closed to new players (D62) */
+  publicEntry(): PublicRoom | null {
+    if (!this.listing.public || this.locked || this.players.length === 0) return null;
+    const host = this.players.find((p) => p.id === this.hostId);
+    return {
+      code: this.code,
+      title: this.listing.title,
+      host: host?.name ?? '',
+      city: this.listing.city,
+      players: this.players.length,
+      started: this.started,
+      wave: this.waves,
+      cheats: this.cheats && this.options.cheats !== 'off',
+      gameVersion: host?.gameVersion ?? '',
     };
   }
 

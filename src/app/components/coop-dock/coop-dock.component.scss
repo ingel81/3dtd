@@ -207,6 +207,11 @@
 
 .spacer { flex: 1; }
 
+/* === Public list (host, online) === */
+.listing .row { gap: 10px; }
+.listing .note { margin-top: 8px; }
+.title-in { flex: 1; min-width: 0; }
+
 /* === Entry: app-coop-entry has its own styles === */
 .seat-hint {
   margin-left: auto;

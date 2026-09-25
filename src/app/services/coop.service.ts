@@ -21,7 +21,7 @@ import {
   worldPackageRefusalText,
   type WorldPackage,
 } from '../coop/world-package';
-import type { CoopRoomInfo, PlayerStatus, RefusalReason } from '../coop/protocol';
+import type { CoopRoomInfo, PlayerStatus, PublicRoom, RefusalReason, RoomListing } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
@@ -308,6 +308,61 @@ export class CoopService {
    */
   readonly hostPlace = signal<{ hq: { lat: number; lon: number }; spawns: { lat: number; lon: number }[] } | null>(null);
 
+  /** The active lobby's public rooms (D62), null before the first look or when it did not answer */
+  readonly publicRooms = signal<readonly PublicRoom[] | null>(null);
+  /** Round trip of the last look at the list, ms (D63) */
+  readonly lobbyPing = signal<number | null>(null);
+
+  /**
+   * Look at the active lobby's public rooms: over the room's session where
+   * there is one, else a short one of its own.
+   */
+  async refreshPublicRooms(): Promise<void> {
+    const lobby = this.lobby();
+    if (!lobby) {
+      this.publicRooms.set(null);
+      return;
+    }
+    const started = performance.now();
+    let own: CoopSession | null = null;
+    try {
+      let session = this.session;
+      if (!session || this.relay()?.url !== lobby.url) {
+        own = new CoopSession(lobby.url, { name: this.name, ...this.head(), client: clientInfoFrom(navigator.userAgent) });
+        await own.connect();
+        session = own;
+      }
+      const rooms = await session.listRooms();
+      this.ngZone.run(() => {
+        this.publicRooms.set(rooms);
+        this.lobbyPing.set(Math.round(performance.now() - started));
+      });
+    } catch {
+      this.ngZone.run(() => {
+        this.publicRooms.set(null);
+        this.lobbyPing.set(null);
+      });
+    } finally {
+      if (own) {
+        own.onClosed = null;
+        own.close();
+      }
+    }
+  }
+
+  /** Host: the room in the public list or not, and its title (D62, D63); the city comes by itself */
+  setListing(change: Partial<Pick<RoomListing, 'public' | 'title'>>): void {
+    const room = this.room();
+    if (!room || !this.isHost() || !this.session) return;
+    this.session.setListing({ ...room.listing, ...change, city: this.hostCity() });
+  }
+
+  /** The host's city and country for the public list, never the street (D63) */
+  private hostCity(): string {
+    const info = this.locationMgmt.missionInfo();
+    return [info?.city, info?.country].filter(Boolean).join(', ');
+  }
+
   /** A downloaded app update is waiting: a version refusal can offer "Update now" (D60) */
   readonly updateReady = signal(false);
   /** What the player asked for last: the dock shows the joining steps for a guest */
@@ -429,6 +484,14 @@ export class CoopService {
         ...(this.counts.get(p.id) ?? { kills: 0, towers: 0, goldGiven: 0, leaks: 0 }),
       })));
     }));
+
+    // Host, lobby: the public list names the city of the place played now (D63)
+    effect(() => {
+      const room = this.room();
+      const city = this.hostCity();
+      if (!room || room.started || !this.isHost() || room.listing.city === city) return;
+      untracked(() => this.setListing({}));
+    }, { injector: this.injector });
 
     // In a room at last: the dock shows it, also after joining from the location dialog (E30)
     let wasInRoom = false;

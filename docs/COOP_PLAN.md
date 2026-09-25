@@ -624,7 +624,12 @@ Besitz-Farbe R14, Cheats nach Raum-Option (R3, D38), Bereit-Knopf C2d, Oberfläc
 - Electron: derselbe Client; im LAN hostet ein Spieler selbst. Beim ersten Hosten fragt die Windows-Firewall nach,
   und der Relay endet mit dem Spiel des Hosts.
 
-**Öffentliche Lobby (D56 bis D68): Schritte 1 und 2 gebaut 2026-09-25, Schritt 3 offen.** Schritt 2:
+**Öffentliche Lobby (D56 bis D68): alle drei Schritte gebaut 2026-09-25.** Schritt 3: `listing` (öffentlich, Titel,
+Stadt) je Raum, Standard öffentlich mit Titel „<Host>'s game“; die Stadt kommt aus der strukturierten Adresse (Stadt,
+Land), nie die Straße. `rooms` gibt die öffentlichen, nicht gesperrten Räume mit Titel, Host, Stadt, Spielern, Zustand
+und gestarteten Wellen, Marke „Cheats on“. Im Dock des Hosts (online, Lobby) Schalter „In the public list“, Titel und
+der Hinweis zum Ort; unter „Online“ die Liste „Open rooms“ mit Ping, alle 5 s neu, laufende grau. Geprüft per Spec und
+im Dev-Spiel mit zwei Browsern (PLAYTEST T71). Schritt 2:
 `coop-server/Dockerfile` (Bündel mit esbuild, `node:24-alpine`, Nutzer `node`, Standard-Argumente der Lobby
 `--status local --log-days 14 --origins app://app`), Job `relay-image` im Release-Workflow nach
 `ghcr.io/ingel81/3dtd-relay`, Relay-Optionen `--status local` (Anfragen mit `CF-Connecting-IP` bekommen 404),

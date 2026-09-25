@@ -43,6 +43,35 @@ export interface CoopPlayerInfo {
   status: PlayerStatus | null;
 }
 
+/** Longest room title (D63) */
+export const TITLE_MAX = 32;
+
+/**
+ * How a room shows in the lobby's public list (D62, D63): whether it does,
+ * its title and the host's city. Never a street: the client sends city and
+ * country only.
+ */
+export interface RoomListing {
+  public: boolean;
+  title: string;
+  city: string;
+}
+
+/** A room as the public list shows it to someone not in it (D63). */
+export interface PublicRoom {
+  code: string;
+  title: string;
+  host: string;
+  city: string;
+  players: number;
+  started: boolean;
+  /** Waves started so far, 0 in the lobby */
+  wave: number;
+  /** Cheats may act in that room */
+  cheats: boolean;
+  gameVersion: string;
+}
+
 /** What a room looks like to everyone in it. */
 export interface CoopRoomInfo {
   code: string;
@@ -58,6 +87,8 @@ export interface CoopRoomInfo {
   locked: boolean;
   /** What the host set for the room (coop/room-options.ts, D38) */
   options: CoopRoomOptions;
+  /** How it shows in the public list (D62) */
+  listing: RoomListing;
 }
 
 export type RefusalReason =
@@ -99,6 +130,10 @@ export type ClientMessage =
   | { t: 'kick'; playerId: string }
   /** Host: no further players may join (review R9) */
   | { t: 'lock'; locked: boolean }
+  /** Host: the room in the public list or not, its title, the city (D62, D63) */
+  | { t: 'listing'; listing: RoomListing }
+  /** Not in a room: the public rooms of this relay (D62) */
+  | { t: 'rooms' }
   /** Host, lobby: the room's options (D38); the guests' ready falls */
   | { t: 'options'; options: CoopRoomOptions }
   | { t: 'ready'; ready: boolean }
@@ -151,4 +186,6 @@ export type ServerMessage =
   /** In the game: the room waits for this player to catch up (review R2); null once it goes on */
   | { t: 'waiting'; playerId: string | null }
   /** Each player's round trip to the relay, ms, null before the first; every few seconds */
-  | { t: 'rtt'; rtt: [string, number | null][] };
+  | { t: 'rtt'; rtt: [string, number | null][] }
+  /** The public rooms, answer to `rooms` */
+  | { t: 'rooms'; rooms: PublicRoom[] };

@@ -93,6 +93,35 @@
   color: var(--td-text-muted);
 }
 
+.rooms-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+  font-family: var(--td-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+
+  small { letter-spacing: 0; text-transform: none; }
+  .icon-btn { margin-left: auto; }
+}
+
+.tags {
+  display: flex;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.tag {
+  @include ui.tag;
+  font-style: normal;
+
+  &.is-open { color: var(--td-teal-light); }
+  &.is-cheats { color: var(--td-warn-orange); }
+}
+
 .lan-list {
   display: flex;
   flex-direction: column;

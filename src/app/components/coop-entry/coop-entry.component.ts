@@ -3,9 +3,12 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import type { CoopService } from '../../services/coop.service';
-import { MAX_PLAYERS, PROTOCOL_VERSION } from '../../coop/protocol';
+import { MAX_PLAYERS, PROTOCOL_VERSION, type PublicRoom } from '../../coop/protocol';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import type { LanGame } from '../../core/desktop-bridge';
+
+/** How often the open rooms of the lobby are looked at while shown, ms */
+const ROOMS_EVERY_MS = 5000;
 
 /** The LAN scan found nothing this long: offer the host IP field and the checklist (D54), ms */
 const LAN_QUIET_MS = 4000;
@@ -59,6 +62,8 @@ export class CoopEntryComponent {
   readonly lobbyNote = signal<{ ok: boolean; text: string } | null>(null);
 
   readonly busy = computed(() => this.coop().status() === 'connecting');
+  /** The lobby's open rooms, each with why it cannot be joined where it cannot */
+  readonly publicRooms = computed(() => this.coop().publicRooms()?.map((room) => ({ ...room, why: publicRefusal(room) })) ?? null);
 
   constructor() {
     let started = false;
@@ -87,8 +92,16 @@ export class CoopEntryComponent {
         if (on) quietTimer = setTimeout(() => this.lanQuiet.set(coop.lanGames().length === 0), LAN_QUIET_MS);
       });
     });
+    // The open rooms of the lobby, every few seconds while this is shown and not in a room
+    const listTimer = setInterval(() => this.refreshRooms(), ROOMS_EVERY_MS);
+    effect(() => {
+      const coop = this.coop();
+      coop.lobby();
+      untracked(() => this.refreshRooms());
+    });
     inject(DestroyRef).onDestroy(() => {
       if (quietTimer) clearTimeout(quietTimer);
+      clearInterval(listTimer);
       if (scanning) this.coop().scanLan(false);
     });
   }
@@ -107,6 +120,16 @@ export class CoopEntryComponent {
 
   joinLan(game: LanGame): void {
     void this.coop().joinLan(this.playerName(), game);
+  }
+
+  refreshRooms(): void {
+    const coop = this.coop();
+    if (coop.room() || coop.status() === 'connecting') return;
+    void coop.refreshPublicRooms();
+  }
+
+  joinRoom(code: string): void {
+    void this.coop().join(this.playerName(), code);
   }
 
   join(): void {
@@ -157,6 +180,14 @@ export class CoopEntryComponent {
   installUpdate(): void {
     this.coop().installUpdate();
   }
+}
+
+/** Why a room of the public list cannot be joined from here, null when it can */
+function publicRefusal(room: PublicRoom): string | null {
+  if (room.gameVersion !== BUILD_VERSION) return `The host plays ${room.gameVersion || 'another version'}, you play ${BUILD_VERSION}.`;
+  if (room.started) return 'The game has started; joining a running game comes later.';
+  if (room.players >= MAX_PLAYERS) return 'The room is full.';
+  return null;
 }
 
 /** Why a LAN game cannot be joined from here, null when it can */

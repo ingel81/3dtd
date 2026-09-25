@@ -107,8 +107,40 @@
         {{ busy() ? 'Opening…' : 'Host online' }}
       </button>
       <p class="note">Opens a room on {{ placeName() }}. Share the room code with your friends.</p>
-      <p class="or-code">Or join with a room code</p>
     }
+    <!-- Open rooms of the lobby (D62, D63) -->
+    <div class="rooms-head">
+      <span>Open rooms</span>
+      @if (c.lobbyPing() !== null) { <small>{{ c.lobbyPing() }} ms</small> }
+      <button class="icon-btn sm" type="button" (click)="refreshRooms()" matTooltip="Look again" aria-label="Look for open rooms again">
+        <td-icon name="refresh" [size]="14"></td-icon>
+      </button>
+    </div>
+    @if (publicRooms(); as rooms) {
+      @if (rooms.length) {
+        <ul class="lan-list">
+          @for (room of rooms; track room.code) {
+            <li class="lan-game" [class.is-off]="room.why">
+              <div class="who">
+                <b>{{ room.title }}</b>
+                <small>{{ room.host }}{{ room.city ? ' · ' + room.city : '' }} · {{ room.players }}/{{ maxPlayers }}</small>
+                <span class="tags">
+                  @if (room.started) { <i class="tag">In game · Wave {{ room.wave }}</i> } @else { <i class="tag is-open">Lobby</i> }
+                  @if (room.cheats) { <i class="tag is-cheats">Cheats on</i> }
+                </span>
+              </div>
+              <button class="btn" type="button" (click)="joinRoom(room.code)" [disabled]="!!room.why || busy()"
+                      [matTooltip]="room.why ?? ''">Join</button>
+            </li>
+          }
+        </ul>
+      } @else {
+        <p class="note">No open rooms right now. Host one, or join with a code.</p>
+      }
+    } @else {
+      <p class="note">{{ c.lobby()!.name }} does not answer right now.</p>
+    }
+    <p class="or-code">Or join with a room code</p>
     <div class="row">
       <input class="inp codein" type="text" maxlength="6" placeholder="ABC123" aria-label="Room code"
              [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
