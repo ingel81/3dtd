@@ -46,8 +46,8 @@ export interface TowerRenderData {
   typeConfig: TowerTypeConfig;
   isSelected: boolean;
   /**
-   * Coop (review R14): a partner's tower; its selection ring shows at all
-   * times, in the owner's lane colour, with a material of its own
+   * Coop (review R14): a partner's tower; its selection ring, shown on hover
+   * and selection, is in the owner's lane colour, with a material of its own
    */
   ownerRing?: boolean;
   /** Greyed out on hold fire (Tower.holdFire) */
@@ -566,13 +566,13 @@ export class ThreeTowerRenderer {
 
   private setRangeVisible(data: TowerRenderData, visible: boolean): void {
     if (data.rangeIndicator) data.rangeIndicator.visible = visible;
-    if (data.selectionRing) data.selectionRing.visible = visible || !!data.ownerRing;
+    if (data.selectionRing) data.selectionRing.visible = visible;
   }
 
   /**
-   * Coop (review R14): a partner's tower wears its selection ring at all
-   * times in the owner's lane colour (`color`, 0xRRGGBB), so whose it is
-   * shows at a glance; null gives it the shared gold ring back.
+   * Coop (review R14): a partner's tower wears its ring in the owner's lane
+   * colour (`color`, 0xRRGGBB) where the gold one would show, on hover (PLAYTEST
+   * T51: always on was too much); null gives it the shared gold ring back.
    */
   setOwnerRing(id: string, color: number | null): void {
     if (color === null) this.ownerColors.delete(id);
@@ -593,7 +593,7 @@ export class ThreeTowerRenderer {
     material.opacity = 0.7;
     ring.material = material;
     data.ownerRing = true;
-    ring.visible = true;
+    ring.visible = data.isSelected || this.hoveredId === id;
   }
 
   /**

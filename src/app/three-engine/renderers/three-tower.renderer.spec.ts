@@ -95,18 +95,20 @@ describe('ThreeTowerRenderer draws the tower aim', () => {
     expect(again.holdFire).toBe(false);
   });
 
-  it("wears a partner's ring in their lane colour at all times, and gives the gold one back (coop R14)", async () => {
+  it("shows a partner's ring in their lane colour on hover only, and gives the gold one back (coop R14, T51)", async () => {
     const data = (await renderer.create('t4', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0)))!;
     const ring = data.selectionRing!;
     const gold = ring.material;
     expect(ring.visible).toBe(false);
     renderer.setOwnerRing('t4', 0x3fa7ff);
-    expect(ring.visible).toBe(true);
+    // Not at all times: that was too much (PLAYTEST T51)
+    expect(ring.visible).toBe(false);
     expect((ring.material as unknown as { color: { getHex(): number } }).color.getHex()).toBe(0x3fa7ff);
-    // A hover that ends keeps it; the shared gold material stays gold
     renderer.setHovered('t4');
-    renderer.setHovered(null);
     expect(ring.visible).toBe(true);
+    renderer.setHovered(null);
+    expect(ring.visible).toBe(false);
+    // The shared gold material stays gold
     expect((gold as unknown as { color: { getHex(): number } }).color.getHex()).not.toBe(0x3fa7ff);
     renderer.setOwnerRing('t4', null);
     expect(ring.material).toBe(gold);
@@ -118,8 +120,10 @@ describe('ThreeTowerRenderer draws the tower aim', () => {
     const pending = local.create('t5', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0));
     local.setOwnerRing('t5', 0xf97316);
     const ring = (await pending)!.selectionRing!;
+    local.setHovered('t5');
     expect(ring.visible).toBe(true);
     expect((ring.material as unknown as { color: { getHex(): number } }).color.getHex()).toBe(0xf97316);
+    local.setHovered(null);
     // A new tower of that id starts with the gold ring
     local.remove('t5');
     const again = (await local.create('t5', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0)))!;
