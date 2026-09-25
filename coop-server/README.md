@@ -25,21 +25,23 @@ relay for LAN games; nothing to set up for that.
 | `--log-dir DIR` | Where `coop_<day>.log` goes (`logs/` in the repository by default) |
 | `--log-days N` | Delete log days older than N |
 
-## The public lobby on Docker-Host, behind a Cloudflare tunnel
+## The public lobby, behind a Cloudflare tunnel
 
 The image is `ghcr.io/ingel81/3dtd-relay`, built by the workflow `relay-image.yml`: with every release (`:0.5.0`,
 `:latest`), and by hand for any branch (GitHub, Actions, Relay image, Run workflow; tagged with the branch, e.g. `:coop`).
 Its default arguments are the public lobby's: `--status local --log-days 14 --origins app://app` (only the desktop
 app, D59).
 
-1. **The first time:** on GitHub under Packages, `3dtd-relay`, set the visibility to public, so Docker-Host pulls it
-   without logging in.
-2. **Container** (Docker tab, Add Container):
+1. **The first time:** on GitHub under Packages, `3dtd-relay`, set the visibility to public, so a Docker host
+   pulls it without logging in.
+2. **Container** on any Docker host:
    - Repository `ghcr.io/ingel81/3dtd-relay:latest`
    - Network: the one your `cloudflared` container is on (a custom bridge), so the tunnel reaches it by name
-   - Path: container `/app/logs` → host `/mnt/user/appdata/3dtd-relay/logs`
+   - Volume: container `/app/logs` → a folder of the host for the logs
    - No port mapping needed; map `3003` only to read the status page from the LAN (`http://<server>:3003/`)
    - Restart policy: unless stopped
+   - Worth adding: `--read-only --cap-drop=ALL --security-opt=no-new-privileges --memory=256m --pids-limit=100`, and a
+     network that cannot reach anything sensitive; the relay needs no outbound connections
 
    Or with compose: [docker-compose.example.yml](docker-compose.example.yml).
 3. **Tunnel:** in Cloudflare Zero Trust, Networks, Tunnels, your tunnel, Public Hostname: `3dtd-lobby.sgeht.net`,
@@ -56,8 +58,8 @@ app, D59).
 5. **Check:** `https://3dtd-lobby.sgeht.net/status` answers `not here` from outside (the status page is local only);
    in the game, Online, the gear, "Check 3DTD Lobby" says the lobby answers.
 
-**With every release** the relay has to speak the apps' protocol: pull the new image (Docker-Host: "Update" on the
-container). Apps of another version are refused with both versions named and told to update.
+**With every release** the relay has to speak the apps' protocol: pull the new image and restart the
+container. Apps of another version are refused with both versions named and told to update.
 
 ## Privacy
 
