@@ -192,6 +192,9 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  // As high as a line with its Space key, whether or not a note is shown
+  min-height: 43px;
+  box-sizing: border-box;
   padding: 8px 12px;
   border-top: 1px solid var(--td-frame-dark);
   font-size: 12.5px;

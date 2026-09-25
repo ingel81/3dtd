@@ -76,16 +76,17 @@
         </div>
       }
 
-      @if (footer(); as f) {
-        <footer class="sq-foot" [class.is-alert]="f.alert">
+      <!-- Always there, one line high: a note coming and going must not move the box and the chat below -->
+      <footer class="sq-foot" [class.is-alert]="footer()?.alert" [class.is-empty]="!footer()">
+        @if (footer(); as f) {
           <span>{{ f.lead }}<b>{{ f.bold }}</b>{{ f.text }}</span>
           @if (coop.lostInGame()) {
             <button class="btn-xs primary" type="button" (click)="coop.continueAlone()">Continue alone</button>
           } @else if (f.key) {
             <kbd>Space</kbd>
           }
-        </footer>
-      }
+        }
+      </footer>
     }
   </section>
 }
