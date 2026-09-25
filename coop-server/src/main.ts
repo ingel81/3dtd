@@ -1,5 +1,5 @@
 /**
- * npm run coop-server [-- --port 3003] [-- --no-cheats]: the coop relay on
+ * npm run coop-server [-- --port 3003] [-- --no-cheats] [-- --origins https://a,app://app]: the coop relay on
  * this machine (docs/COOP_PLAN.md, D17). Node runs the TypeScript as it is.
  * This one lets the dev tools' cheats through, for development in coop;
  * `--no-cheats` refuses them, as a public relay does (docs/COOP_PLAN.md, S1).
@@ -15,6 +15,8 @@ import { startRelay } from './server.ts';
 const index = process.argv.indexOf('--port');
 const port = index >= 0 ? Number(process.argv[index + 1]) : 3003;
 const cheats = !process.argv.includes('--no-cheats');
+const originsAt = process.argv.indexOf('--origins');
+const origins = originsAt >= 0 ? (process.argv[originsAt + 1] ?? '').split(',').filter(Boolean) : undefined;
 
 const pad = (n: number) => String(n).padStart(2, '0');
 const stamp = (d: Date, date: string, time: string) =>
@@ -33,7 +35,8 @@ const log = (line: string) => {
 
 log(`log file ${logPath}`);
 log(cheats ? 'cheats allowed (--no-cheats refuses them)' : 'cheats refused');
-const relay = await startRelay({ port, log, cheats });
+log(origins ? `pages allowed: ${origins.join(', ')}` : 'pages from any site allowed (--origins limits them)');
+const relay = await startRelay({ port, log, cheats, origins });
 const stop = () => {
   log('relay stops');
   void relay.close().then(() => file.end(() => process.exit(0)));

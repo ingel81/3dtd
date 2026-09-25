@@ -138,7 +138,7 @@ export class CoopSession {
   /** Lobby: the host changes the map, a world follows */
   onMoving: (() => void) | null = null;
   /** The relay found the simulations apart (C5): the first tick, player id and hash each */
-  onDesync: ((tick: number, hashes: [string, number][]) => void) | null = null;
+  onDesync: ((tick: number, hashes: [string, number][], outOfStep: string[]) => void) | null = null;
   onRefused: ((reason: RefusalReason) => void) | null = null;
   onClosed: (() => void) | null = null;
 
@@ -363,7 +363,7 @@ export class CoopSession {
       case 'ping':
         return this.onPing?.(message.from, message.lat, message.lon, message.height);
       case 'desync':
-        return this.onDesync?.(message.tick, message.hashes);
+        return this.onDesync?.(message.tick, message.hashes, message.outOfStep ?? []);
     }
   }
 }

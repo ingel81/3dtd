@@ -533,7 +533,7 @@ nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht ander
 - R17 `maxPayload` am WebSocket-Server setzen (Standard 100 MB; das Weltpaket hat rund 300 kB), Nachrichten je
   Sekunde und Verbindung begrenzen, Chatlänge ist schon begrenzt. **Gebaut 2026-09-24: `maxPayload` 4 MB, 120 Nachrichten je Sekunde und Verbindung, darüber verworfen und einmal geloggt.**
 - R18 Leere oder verwaiste Räume nach Zeit schließen (Lobby ohne Start nach 1 h), Obergrenze an Räumen. **Gebaut 2026-09-25: 1 h, 200 Räume.**
-- R19 `wss://` und Herkunftsprüfung (`Origin`) fürs Netz (C7).
+- R19 `wss://` und Herkunftsprüfung (`Origin`) fürs Netz (C7). **Gebaut 2026-09-25: `--origins`, Proxy-Beispiele in C7.**
 - R20 Electron: Relay im Main-Prozess, „LAN-Spiel hosten“, eigene IP im Dialog anzeigen (C4d). **Gebaut 2026-09-25 (C4d): Relay im `utilityProcess`, Suche im LAN, Adressen im Raumkopf.**
 
 **Tests**
@@ -574,17 +574,20 @@ Offene Stellen, nach Gewicht:
 - S1 **Debug-Befehle** gehen durch (R3): der einzige Weg, heute ohne Umbau am Client zu schummeln. **Gebaut 2026-09-24 (R3).**
 - S2 **Host-Vertrauen**: Sichtlinien-Masken (C3) und das Weltpaket kommen nur vom Host. Ein manipulierter Host kann
   Tower durch Wände schießen lassen. Im Coop ist das der eigene Mitspieler; bei öffentlichen Räumen wäre der Ausweg,
-  dass ein zweiter Client Stichproben der Masken nachrechnet.
+  dass ein zweiter Client Stichproben der Masken nachrechnet. **Bleibt beschrieben (D55): unter Freunden und im LAN
+  vertraut man dem Host.**
 - S3 **Wer hat recht bei einer Abweichung**: Mit drei oder mehr Spielern entscheidet die Mehrheit, der Abweichler
-  bekommt den Hinweis (und später den Resync, C5b). Mit zweien bleibt es offen.
+  bekommt den Hinweis (und später den Resync, C5b). Mit zweien bleibt es offen. **Gebaut 2026-09-25: `HashCheck`
+  wertet einen Tick aus, wenn alle gemeldet haben oder ein späterer kommt, `desync` trägt `outOfStep`; der Abweichler
+  liest „Your game ran apart from the others“, die anderen, wessen Spiel es war.**
 - S4 **Befehle auf Plausibilität prüfen**, die heute nur die UI begrenzt: Wertebereiche (`tower-aim`, Positionen im
   Gelände, Beträge), Rate je Spieler am Relay (R17). **Rate und Größe gebaut (R17); Gold senden prüft Betrag und
   Konto, die Wertebereiche der übrigen Befehle sind offen.** **Gebaut 2026-09-25: `coop/command-guard.ts` prüft alle Befehle.**
 - S5 **Selbst gemeldete Version und Balance** beim Beitritt: ein veränderter Client lügt dort; die Prüfsumme fängt
-  jede Regeländerung, die den Zustand betrifft, spätestens nach einer Spielsekunde.
+  jede Regeländerung, die den Zustand betrifft, spätestens nach einer Spielsekunde. **Bleibt beschrieben (D55).**
 - S6 **Rekorde**: Coop-Läufe gehen nicht in Einzelspieler-Rekorde (R16). Eine Online-Rangliste gibt es nicht; käme
   eine, wäre ein Lauf erst glaubhaft, wenn der Server das Befehlslog selbst nachrechnet (die Neu-Simulation dafür
-  existiert).
+  existiert). **Bleibt beschrieben (D55).**
 
 Für ein Koop-Spiel unter Freunden reicht S1 plus S4; S2, S3 und S6 werden wichtig, sobald fremde Leute in
 öffentliche Räume kommen.
@@ -636,6 +639,41 @@ JetBrains Mono selbst gehostet. Nachtest PLAYTEST T54 ff.
   `/play/`; `wss://`, Adresse in `runtime-config.json`.
 - Electron: derselbe Client; im LAN hostet ein Spieler selbst. Beim ersten Hosten fragt die Windows-Firewall nach,
   und der Relay endet mit dem Spiel des Hosts.
+
+**`wss://` und Herkunft (R19, D55, gebaut 2026-09-25):** Der Relay selbst spricht nur `ws://`; TLS macht ein Reverse
+Proxy davor, auf derselben Domain wie die Seite, damit der Client ihn ohne Einstellung findet (`wss://<host>/coop`,
+siehe „Woher das Spiel den Relay kennt“). `--origins` nennt die Seiten, deren Browser verbinden dürfen; ein Browser
+auf einer anderen Seite wird abgewiesen und einmal geloggt, Clients ohne `Origin` (kein Browser) kommen durch, ohne
+Liste alle (Dev-Maschine, LAN). Ein öffentlicher Relay läuft so:
+
+```bash
+npm run coop-server -- --port 3003 --no-cheats --origins https://example.com,app://app
+```
+
+Caddy (holt das Zertifikat selbst):
+
+```
+example.com {
+  handle_path /coop* {
+    reverse_proxy 127.0.0.1:3003
+  }
+}
+```
+
+nginx:
+
+```
+location /coop {
+  proxy_pass http://127.0.0.1:3003/;
+  proxy_http_version 1.1;
+  proxy_set_header Upgrade $http_upgrade;
+  proxy_set_header Connection "upgrade";
+  proxy_set_header Origin $http_origin;
+  proxy_read_timeout 120s;
+}
+```
+
+Die Statusseite `/status` liegt dann unter `/coop/status`; wer sie nicht öffentlich will, sperrt den Pfad im Proxy.
 
 ## 5. Offen
 

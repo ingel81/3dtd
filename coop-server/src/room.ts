@@ -408,22 +408,24 @@ export class Room {
 
   /**
    * A player's hash for `tick`. The first tick where two players differ
-   * goes to everyone; later ones only count, since a divergence stays.
+   * goes to everyone, with who is off the majority from three players on
+   * (S3); later ones only count, since a divergence stays.
    */
   private checkHash(playerId: string, tick: number, hash: number): void {
-    const divergence = this.hashCheck.report(tick, playerId, hash >>> 0);
+    const divergence = this.hashCheck.report(tick, playerId, hash >>> 0, this.players.length);
     if (!divergence) return;
     this.desyncCount++;
     if (this.firstDesync !== null) return;
-    this.firstDesync = tick;
+    this.firstDesync = divergence.tick;
     const hashes = divergence.hashes.map(([id, h]) => `${this.who(id)} ${hex(h)}`).join(', ');
-    this.log(`DESYNC at tick ${tick}: ${hashes}`);
+    const off = divergence.outOfStep.map((id) => this.who(id)).join(', ');
+    this.log(`DESYNC at tick ${divergence.tick}: ${hashes}${off ? `; out of step: ${off}` : ''}`);
     // What went in before it: most divergences follow a command acting apart
-    const since = tick - 2 * HASH_EVERY_TICKS;
+    const since = divergence.tick - 2 * HASH_EVERY_TICKS;
     for (const c of this.recent.filter((c) => c.tick >= since)) {
       this.log(`  command at tick ${c.tick} from ${this.who(c.playerId)}: ${JSON.stringify(c.command).slice(0, 300)}`);
     }
-    this.broadcast({ t: 'desync', tick, hashes: divergence.hashes });
+    this.broadcast({ t: 'desync', tick: divergence.tick, hashes: divergence.hashes, outOfStep: divergence.outOfStep });
   }
 
   status(): RoomStatus {

@@ -138,7 +138,8 @@ export type ServerMessage =
   /** A closed tick with the commands that act at it */
   | { t: 'tick'; tick: number; commands: StampedCommand[] }
   /** The simulations ran apart: the first tick with different hashes, player id and hash each (C5) */
-  | { t: 'desync'; tick: number; hashes: [string, number][] }
+  /** `outOfStep`: who is off the majority's hash, from three players on (S3); empty without one */
+  | { t: 'desync'; tick: number; hashes: [string, number][]; outOfStep: string[] }
   | { t: 'speed'; speed: number }
   | { t: 'chat'; from: string; text: string }
   | { t: 'ping'; from: string; lat: number; lon: number; height: number }

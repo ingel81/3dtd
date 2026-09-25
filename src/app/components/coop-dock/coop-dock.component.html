@@ -97,7 +97,7 @@
     }
     @if (coop.desync(); as desync) {
       <p class="banner is-warn" role="alert">
-        The games ran apart at game second {{ desyncSecond(desync.tick) }}: from there on, what you see may differ from what the others see.
+        {{ desyncWho(desync.outOfStep) }} at game second {{ desyncSecond(desync.tick) }}: from there on, what you see may differ from what the others see.
       </p>
     }
     @if (coop.hostChangingMap()) {

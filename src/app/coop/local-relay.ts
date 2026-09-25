@@ -38,7 +38,7 @@ export class LocalRelay {
       playerId,
       (command) => this.submit(playerId, command),
       (tick, hash) => {
-        const divergence = this.hashCheck.report(tick, playerId, hash);
+        const divergence = this.hashCheck.report(tick, playerId, hash, this.links.length);
         if (divergence) this.divergences.push(divergence);
       },
     );
