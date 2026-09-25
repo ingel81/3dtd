@@ -940,4 +940,23 @@ describe('Coop player leaving (COOP_PLAN C4)', () => {
     expect(announced).toBe(directorWave().totalCount);
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
+
+  it('takes commands from this player once it goes on alone without the relay (PLAYTEST T38)', () => {
+    Math.random = mulberry32(SEED + 2);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    a.gsm.setLanes(new Map([['a', 'spawn-1'], ['b', 'spawn-2']]));
+    // CoopService.continueAlone: no link, the partner gone, the ids stay
+    a.gsm.setLockstep(null);
+    a.gsm.playerLeft('b');
+
+    let started = 0;
+    a.gsm.getEventBus().on('wave:started', () => { started++; });
+    a.emit({ type: 'command:start-wave', director: directorWave() });
+    a.frame(40);
+    expect(started).toBe(1);
+    const before = a.gsm.creditsOf('a');
+    a.emit({ type: 'debug:add-credits', amount: 1000 });
+    expect(a.gsm.creditsOf('a')).toBe(before + 1000);
+  });
 });
