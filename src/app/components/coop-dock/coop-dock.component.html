@@ -420,7 +420,7 @@
                  [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
           <button class="btn" type="button" (click)="join()" [disabled]="!code().trim()">Join</button>
         </div>
-        <p class="note">If the host plays somewhere else, the page reloads on their map and joins by itself.</p>
+        <p class="note">If the host plays somewhere else, your map changes to theirs by itself.</p>
       </div>
     </section>
     <section class="blk plain">

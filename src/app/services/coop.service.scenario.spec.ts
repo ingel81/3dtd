@@ -30,11 +30,13 @@ vi.mock('./location/location-management.service', () => ({ LocationManagementSer
 vi.mock('./location/url-location.service', () => ({ UrlLocationService: class {} }));
 vi.mock('./world/path-route.service', () => ({ PathAndRouteService: class {} }));
 vi.mock('./facade/location-facade.service', () => ({ LocationFacadeService: class {} }));
+vi.mock('./location/location-change-coordinator.service', () => ({ LocationChangeCoordinatorService: class {} }));
 vi.mock('./input-handler.service', () => ({ InputHandlerService: class {} }));
 vi.mock('../run-log/run-log.facade', () => ({ RunLogFacade: class {} }));
-// A world package that only says where it is
+// A world package that only says where it is: the host's HQ, the spawns
 vi.mock('../coop/world-package', () => ({
-  buildWorldPackage: (_source: unknown, head: object) => ({ ...head, hq: HQ, spawns: SPAWNS, worldKey: 'k', heights: [] }),
+  buildWorldPackage: (source: { hq?: { lat: number; lon: number } }, head: object) =>
+    ({ ...head, hq: source.hq ?? HQ, spawns: SPAWNS, worldKey: 'k', heights: [] }),
   readWorldPackage: (json: string) => ({ world: JSON.parse(json) }),
   packagePaths: () => new Map(),
   worldPackageRefusalText: () => 'refused',
@@ -50,6 +52,7 @@ import { LocationManagementService } from './location/location-management.servic
 import { UrlLocationService } from './location/url-location.service';
 import { PathAndRouteService } from './world/path-route.service';
 import { LocationFacadeService } from './facade/location-facade.service';
+import { LocationChangeCoordinatorService } from './location/location-change-coordinator.service';
 import { InputHandlerService } from './input-handler.service';
 import { RunLogFacade } from '../run-log/run-log.facade';
 
@@ -62,11 +65,12 @@ const SPAWNS = [
 /** One player's CoopService on fakes of the game */
 function player(relayPort: number) {
   localStorage.setItem('3dtd-coop-relay', `ws://localhost:${relayPort}`);
+  const hq = signal(HQ);
   const bus = new GameEventBus();
   const gsm = withAutoStubs({
     getEventBus: () => bus,
     getSpawnPoints: () => SPAWNS,
-    worldSource: () => ({}),
+    worldSource: () => ({ hq: hq() }),
     worldKey: () => 'k',
     corridorPending: () => false,
     getCachedPaths: () => new Map(),
@@ -78,7 +82,8 @@ function player(relayPort: number) {
     towerManager: withAutoStubs({ getById: () => null }),
     setPlayers: vi.fn((players: string[]) => { gsm.players = [...players]; }),
   });
-  const hq = signal(HQ);
+  // Going to another place in the page lands where it was asked to
+  const locationChange = { applyNewLocation: vi.fn(async (data: { hq: { lat: number; lon: number } }) => hq.set({ lat: data.hq.lat, lon: data.hq.lon })) };
   const injector = Injector.create({
     parent: TestBed.inject(EnvironmentInjector),
     providers: [
@@ -92,11 +97,12 @@ function player(relayPort: number) {
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },
       { provide: PathAndRouteService, useValue: withAutoStubs({}) },
       { provide: LocationFacadeService, useValue: withAutoStubs({ addRandomSpawn: vi.fn(async () => true) }) },
+      { provide: LocationChangeCoordinatorService, useValue: locationChange },
       { provide: InputHandlerService, useValue: withAutoStubs({}) },
       { provide: RunLogFacade, useValue: { collector: withAutoStubs({}) } },
     ],
   });
-  return { coop: injector.get(CoopService), gsm, hq };
+  return { coop: injector.get(CoopService), gsm, hq, locationChange };
 }
 
 /** Wait for `ok`, flushing effects, up to 3 s */
@@ -182,6 +188,17 @@ describe('CoopService over a real relay (review R21)', () => {
     host.hq.set({ lat: 48.78, lon: 9.19 });
     await until(() => guest.coop.hostChangingMap());
     await until(() => guest.coop.chat().some((line) => line.text === 'Ann is changing the map, it comes here next'));
+  });
+
+  it('follows the host to a new place in the page, without a reload (TODO E27)', async () => {
+    const { host, guest } = await lobby();
+    const place = { lat: 48.78, lon: 9.19 };
+    host.hq.set(place);
+    await until(() => guest.locationChange.applyNewLocation.mock.calls.length > 0);
+    expect(guest.locationChange.applyNewLocation.mock.calls[0][0].hq).toMatchObject(place);
+    await until(() => guest.coop.worldReady() && guest.hq().lat === place.lat);
+    expect(guest.coop.room()?.code).toBe(host.coop.room()!.code);
+    await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.status === 'ready');
   });
 
   it('takes the options from the host, asks the guest for ready again and tells both in the chat (D38)', async () => {

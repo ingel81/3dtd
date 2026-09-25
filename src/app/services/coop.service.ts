@@ -8,6 +8,7 @@ import { LocationManagementService } from './location/location-management.servic
 import { UrlLocationService } from './location/url-location.service';
 import { PathAndRouteService } from './world/path-route.service';
 import { LocationFacadeService } from './facade/location-facade.service';
+import { LocationChangeCoordinatorService } from './location/location-change-coordinator.service';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { newRunSeed } from '../utils/game-rng';
@@ -172,6 +173,7 @@ export class CoopService {
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly locationFacade = inject(LocationFacadeService);
+  private readonly locationChange = inject(LocationChangeCoordinatorService);
   /** What this client told the room it is doing, see tellStatus */
   private toldStatus: PlayerStatus | null = null;
   /** Host: the guests heard the map is changing (PLAYTEST T25); again once it was sent */
@@ -1090,21 +1092,50 @@ export class CoopService {
       // The routes of the new spawns rebuild here
       if (!(await this.placeLoaded())) return;
     }
-    if (!this.standsOn(world)) {
-      const room = this.room()?.code ?? this.roomFromUrl ?? '';
-      const url = this.urlLocation.urlFor(world.hq, world.spawns.map(({ lat, lon }) => ({ lat, lon })));
-      // The lane goes along: autoPick takes it again after the reload
-      const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
-      const params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
-      // The room hears why this player goes, then out of it: the browser
-      // closes the socket of a page it leaves late, and the relay kept this
-      // player in the list till then
-      this.tellStatus('reloading');
-      this.leave();
-      window.location.assign(`${url}${params}`);
+    // Another place: go there in this page, as the host did (D35); every
+    // reload is a new map session with the tile provider (User, 2026-09-25)
+    if (!this.standsOn(world) && !(await this.moveToWorld(world))) {
+      this.reloadAt(world);
       return;
     }
     this.adoptWorld(world);
+  }
+
+  /**
+   * Go to the world's place without a reload: its HQ with the first spawn,
+   * then all of its spawns. False when the place did not come out as the
+   * world's; the caller reloads then.
+   */
+  private async moveToWorld(world: WorldPackage): Promise<boolean> {
+    const [first] = world.spawns;
+    if (!first) return false;
+    // The room hears "loading the map" and, once adoptWorld is done, "ready"
+    this.worldReady.set(false);
+    await this.locationChange.applyNewLocation({
+      hq: { lat: world.hq.lat, lon: world.hq.lon, name: 'Loading...' },
+      spawn: { lat: first.lat, lon: first.lon, name: first.name },
+    });
+    if (!(await this.placeLoaded())) return false;
+    if (!this.standsOn(world)) {
+      await this.locationFacade.replaceSpawns(world.spawns.map(({ lat, lon }) => ({ lat, lon })));
+      if (!(await this.placeLoaded())) return false;
+    }
+    return this.standsOn(world);
+  }
+
+  /** The fallback of moveToWorld: this page at the world's place, back into the room */
+  private reloadAt(world: WorldPackage): void {
+    const room = this.room()?.code ?? this.roomFromUrl ?? '';
+    const url = this.urlLocation.urlFor(world.hq, world.spawns.map(({ lat, lon }) => ({ lat, lon })));
+    // The lane goes along: autoPick takes it again after the reload
+    const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
+    const params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
+    // The room hears why this player goes, then out of it: the browser
+    // closes the socket of a page it leaves late, and the relay kept this
+    // player in the list till then
+    this.tellStatus('reloading');
+    this.leave();
+    window.location.assign(`${url}${params}`);
   }
 
   /** The place loaded here has the world's HQ */

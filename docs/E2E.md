@@ -24,7 +24,8 @@ Die Tile-Anbieter zählen jedes Laden des Tilesets als Sitzung, das freie Kontin
 Darum öffnet ein Lauf die beiden Spieler Ann (Host) und Bob (Gast) nur einmal (`duo` in `support/fixtures.ts`); jeder
 Test spielt mit ihnen: Raum im Dock öffnen, Beitritt per Code ohne Neuladen, danach verlassen beide den Raum. Ein
 Ortswechsel im Spiel (Würfel) behält das Tileset. Neu geladen wird nur, wo es der Test braucht: der Beitritt per
-Einladungslink (D47) und der Gast, der dem Host an einen neuen Ort folgt (T65). Ein Lauf kostet so **4 Sitzungen**;
+Einladungslink (D47). Der Gast, der dem Host an einen neuen Ort folgt (T65), wechselt seit 2026-09-25 ohne Neuladen.
+Ein Lauf kostet so **3 Sitzungen**;
 scheitert ein Test, startet Playwright den Worker neu, und die zwei Spieler laden noch einmal.
 
 ## Aufbau
