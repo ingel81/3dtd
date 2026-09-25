@@ -27,7 +27,8 @@ relay for LAN games; nothing to set up for that.
 
 ## The public lobby on Docker-Host, behind a Cloudflare tunnel
 
-The image is `ghcr.io/ingel81/3dtd-relay`, built by the release workflow for every version (`:0.5.0`, `:latest`).
+The image is `ghcr.io/ingel81/3dtd-relay`, built by the workflow `relay-image.yml`: with every release (`:0.5.0`,
+`:latest`), and by hand for any branch (GitHub, Actions, Relay image, Run workflow; tagged with the branch, e.g. `:coop`).
 Its default arguments are the public lobby's: `--status local --log-days 14 --origins app://app` (only the desktop
 app, D59).
 
