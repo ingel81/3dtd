@@ -200,6 +200,11 @@ Ein Lauf als Beispiel, dahinter die Spanne der Mediane über alle sieben:
 Vorrechnen einer Welle zur Mitte des Spiels (20 Tower, 150 Gegner gleichzeitig, Timescale 75): 10 800 Sub-Steps in
 0,79 bis 1,04 s, also 10 400 bis 13 700 Sub-Steps/s. Das Ziel aus P6 (unter 2 s) hält in dieser Umgebung.
 
+Nachmessung am 2026-09-25 (Branch `coop` 7be5816d, ein Lauf, `npm run bench:sim`): S 0,072, M 0,331, L 1,613 ms
+Median je Sub-Step, Vorrechnen 16 335 Sub-Steps/s. Der Coop-Umbau kostet den Einzelspieler also nichts Messbares.
+Die Prüfsumme (StateHasher) kostet 0,08 / 0,21 / 0,78 ms je Aufruf; im Coop läuft sie alle 30 Ticks, das ist bei M
+rund 1 % eines Sub-Steps.
+
 Grenzen: Die Zeiten streuen zwischen Läufen deutlich (L zwischen 1,25 und 2,32 ms), vermutlich weil nebenher andere
 Worker auf dem PC liefen. Vergleiche daher mit mehreren Läufen direkt hintereinander auf demselben Rechner. Die
 Spielergebnisse (Kills, aktive Projektile) sind dagegen in jedem Lauf gleich. Nicht im Benchmark sind die Kosten im
