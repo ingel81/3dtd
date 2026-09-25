@@ -9,6 +9,8 @@ liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Li
 - Das Ergebnis kommt als eine Zeile unter den Punkt (`**ok (Datum)**` oder der Befund).
 - Ist ein Paket durch, wandert es ins Archiv; ein Befund wird ein Eintrag in TODO.md.
 - Logik prüft der Lead per Szenario-Test, hier stehen nur Augen, Ohren und echte Karten.
+- Was ein Browser prüfen kann, prüfen die End-to-End-Tests (`npm run e2e`, [E2E.md](E2E.md)); welcher Punkt dort
+  abgedeckt ist, steht in den Testnamen (T.., M..).
 
 ## Vorab
 
@@ -448,8 +450,8 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
 - **T65 Der Host sieht den Gast kommen (D47)**: Gast öffnet den Einladungslink, danach würfelt der Host einen neuen Ort.
   Erwartung: beim Host sofort „Bob joined“, in Bobs Zeile „Loading the map…“, Statuszeile „Waiting for Bob to load the
   map“, danach „Bob's map stands“. Beim Würfeln „Bob reloads for the new place, back in a moment“ statt „Bob left“.
-  **Beitritt ok (Browser-Lauf `tools/screenshot/join-status.mjs`, 2026-09-25)**; das Neuladen beim Würfeln noch
-  offen.
+  **ok (E2E, 2026-09-25):** Beitritt per Einladungslink und das Neuladen beim Würfeln; der Gast landet wieder auf
+  seiner Lane, kein „Bob left“ (`e2e/tests/coop-lobby.e2e.ts`).
 
 ## K8 Desktop-Build
 
