@@ -147,6 +147,22 @@ allem unter T (Coop).
       um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
       fiel zweimal nur unter Volllast. Seed setzen bzw. Ursache suchen.
 
+- [ ] **J4 Große Dateien aufteilen** (Code-Smell-Suche 2026-09-25): `game-state.manager.ts` 1991 Zeilen
+      (Spieler-Sitze, Lockstep-Takt, Snapshot, Tower-Befehle, Route-Grid), `path-route.service.ts` 1567
+      (`ClearanceRun` in eigene Datei), `three-tiles-engine.ts` 1387, `game-event-bus.ts` 1274 (Event-Typen je Bereich
+      auslagern), `enemy.manager.ts` 1273, `global-route-grid.ts` 1270, `coop.service.ts` 1266 (Schnitt: Verbindung,
+      LAN, Lobby und Welt, Spiel, Chat und Pings, Laufzahlen; `leave()` setzt heute rund 25 Felder von Hand zurück),
+      `corridor-band.ts` 1236. Längste Funktionen: `buildWaveConfig` 233, `startRelay` 227, `CorridorBuild.build` 220,
+      `GameStateSyncService.initialize` 197 Zeilen.
+- [ ] **J5 Doppelte Helfer zusammenlegen**: localStorage mit try/catch und JSON in 12 Dateien (`utils/storage.ts`),
+      Minuten:Sekunden dreimal (`formatReplayTime`, `formatRunTime`, Coop-Dock), `clamp`/`lerp` mehrfach, Koordinaten-
+      Schlüssel mit 5 und 6 Stellen (`samePlace`, `mapSignature`), Kamera-Rahmen in Debug-Anzeige und
+      `CameraFramingService` getrennt gerechnet. Blicke in die Interna von 3d-tiles-renderer in vier Dateien per Cast
+      (ein typisierter Zugriff), `StampedCommand.command` ohne Payload-Typ (Casts in `game-commands.handler.ts`,
+      `resimulation.ts`).
+- [ ] **J6 Spec-Typen**: `tsc -p tsconfig.spec.json` meldet Fehler, die vitest nicht sieht: `.ts`-Importe des Relays
+      (TS5097, `allowImportingTsExtensions`), `lockstep.scenario.spec.ts:282` (`noteFrame` fehlt an `LocalLink`),
+      `coop.service.scenario.spec.ts:170` (Stub ohne Typ). Typcheck der Specs in den Gate nehmen.
 ---
 
 ## Entschieden (keine Arbeit)

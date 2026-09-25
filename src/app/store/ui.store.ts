@@ -282,7 +282,11 @@ export class UIStore {
         this.persistTimer = setTimeout(() => {
           this.persistTimer = null;
           if (this.pendingState) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pendingState));
+            try {
+              localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pendingState));
+            } catch {
+              // Storage full or blocked: the settings hold for this session
+            }
           }
         }, PERSIST_DEBOUNCE_MS);
       });

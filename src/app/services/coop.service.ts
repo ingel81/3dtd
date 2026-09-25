@@ -1,4 +1,4 @@
-import { Injectable, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
 import { GameStateManager } from '../managers/game-state.manager';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
@@ -25,6 +25,7 @@ import type { CoopRoomInfo, PlayerStatus, RefusalReason } from '../coop/protocol
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
+import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { RunLogFacade } from '../run-log/run-log.facade';
 import { SPAWN_COLORS } from '../configs/map-constants.config';
 import { UI_SOUNDS } from '../configs/audio.config';
@@ -278,7 +279,20 @@ export class CoopService {
   readonly lanGames = signal<readonly LanGame[]>([]);
   private stopLanScan: (() => void) | null = null;
 
+  /** The bus listeners, gone with the service */
+  private readonly subs = new SubscriptionBag();
+  /** Timers that clear the pings off the map */
+  private readonly pingTimers = new Set<ReturnType<typeof setTimeout>>();
+  /** Counts up on every leave(), so a wait begun before it gives up */
+  private generation = 0;
+
   constructor() {
+    // The game component goes (another route): out of the room, the LAN relay and scan with it
+    inject(DestroyRef).onDestroy(() => {
+      this.scanLan(false);
+      this.leave();
+      this.subs.disposeAll();
+    });
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
     this.relayFromUrl = params.get('relay');
@@ -286,19 +300,19 @@ export class CoopService {
 
     const bus = this.gameState.getEventBus();
     // A partner's tower wears its owner's lane colour (review R14)
-    bus.onLive('tower:placed', ({ tower }) => {
+    this.subs.add(bus.onLive('tower:placed', ({ tower }) => {
       if (!this.inGame() || tower.ownerId === this.playerId()) return;
       const color = this.laneColorNumberOf(tower.ownerId);
       if (color !== null) this.engineInit.getEngine()?.towers.setOwnerRing(tower.id, color);
-    });
-    bus.on('coop:ready-changed', (event) => {
+    }));
+    this.subs.add(bus.on('coop:ready-changed', (event) => {
       if (event.local) this.readyNow = event.ready;
       // "Host starts" waits for the host's button alone (D38)
       if (event.allReady && this.isHost() && this.inGame() && startsWhenAllReady(this.options())) {
         this.ngZone.run(() => this.waveStarter?.());
       }
-    });
-    bus.onLive('game:reset', () => {
+    }));
+    this.subs.add(bus.onLive('game:reset', () => {
       if (!this.inGame()) return;
       this.counts.clear();
       this.summary.set(null);
@@ -307,50 +321,50 @@ export class CoopService {
       this.readyNow = false;
       this.readyIds.set(new Set());
       this.notify(this.isHost() ? 'New run started' : 'The host started a new run');
-    });
-    bus.on('wave:started', () => {
+    }));
+    this.subs.add(bus.on('wave:started', () => {
       this.readyNow = false;
       if (this.readyIds().size > 0) this.readyIds.set(new Set());
-    });
+    }));
     // What the players bar shows, from the simulation every client runs alike
-    bus.onLive('coop:ready-changed', (event) => {
+    this.subs.add(bus.onLive('coop:ready-changed', (event) => {
       if (!this.inGame()) return;
       const next = new Set(this.readyIds());
       if (event.ready) next.add(event.playerId);
       else next.delete(event.playerId);
       this.readyIds.set(next);
       if (event.ready) this.notify(`${this.nameOf(event.playerId)} is ready for the next wave`);
-    });
-    bus.onLive('coop:player-left', (event) => {
+    }));
+    this.subs.add(bus.onLive('coop:player-left', (event) => {
       if (this.inGame()) this.leftIds.set(new Set(this.leftIds()).add(event.playerId));
-    });
-    bus.onLive('credits:changed', (event) => {
+    }));
+    this.subs.add(bus.onLive('credits:changed', (event) => {
       if (this.inGame()) this.gold.set(new Map(this.gold()).set(event.playerId, event.credits));
-    });
-    bus.onLive('coop:credits-given', (event) => {
+    }));
+    this.subs.add(bus.onLive('coop:credits-given', (event) => {
       if (event.toLocal) this.notify(`${this.nameOf(event.from)} sent you ${event.amount} gold`);
       this.countFor(event.from).goldGiven += event.amount;
-    });
+    }));
 
     // Each player's part of the run, for the game-over screen (review R16)
-    bus.onLive('enemy:died', ({ killedBy }) => {
+    this.subs.add(bus.onLive('enemy:died', ({ killedBy }) => {
       if (this.inGame() && killedBy && killedBy.kind !== 'debug') this.countFor(this.gameState.killCreditPlayer(killedBy)).kills++;
-    });
-    bus.onLive('tower:placed', ({ tower }) => {
+    }));
+    this.subs.add(bus.onLive('tower:placed', ({ tower }) => {
       if (this.inGame()) this.countFor(tower.ownerId).towers++;
-    });
+    }));
     // Pressure per lane (review R15): whose lane an enemy leaked from
-    bus.onLive('enemy:reached-base', ({ enemy }) => {
+    this.subs.add(bus.onLive('enemy:reached-base', ({ enemy }) => {
       if (!this.inGame()) return;
       const owner = this.laneOwnerOf(enemy.movement.path);
       if (!owner) return;
       this.countFor(owner).leaks++;
       this.waveLeaks.update((leaks) => new Map(leaks).set(owner, (leaks.get(owner) ?? 0) + 1));
-    });
-    bus.onLive('wave:started', () => {
+    }));
+    this.subs.add(bus.onLive('wave:started', () => {
       if (this.waveLeaks().size > 0) this.waveLeaks.set(new Map());
-    });
-    bus.onLive('game:over', () => {
+    }));
+    this.subs.add(bus.onLive('game:over', () => {
       if (!this.inGame()) return;
       this.summary.set(this.roster().map((p) => ({
         id: p.id,
@@ -361,7 +375,7 @@ export class CoopService {
         gold: this.gameState.creditsOf(p.id),
         ...(this.counts.get(p.id) ?? { kills: 0, towers: 0, goldGiven: 0, leaks: 0 }),
       })));
-    });
+    }));
 
     // Host, lobby: a changed map goes to the room by itself
     effect(() => {
@@ -458,6 +472,11 @@ export class CoopService {
   async host(name: string): Promise<void> {
     const session = await this.connect(name);
     if (!session) return;
+    await this.openRoom(session);
+  }
+
+  /** Create the room on `session` with the place loaded now and share its world. */
+  private async openRoom(session: CoopSession): Promise<void> {
     await this.guard(async () => {
       // A new room has a lane free for the second player (User, 2026-09-24)
       if (this.gameState.getSpawnPoints().length < 2) await this.locationFacade.addRandomSpawn();
@@ -488,11 +507,7 @@ export class CoopService {
     }
     this.lanHosting = true;
     this.lanAddresses.set(started.addresses);
-    await this.guard(async () => {
-      if (this.gameState.getSpawnPoints().length < 2) await this.locationFacade.addRandomSpawn();
-      this.room.set(await session.create());
-      this.shareWorld();
-    });
+    await this.openRoom(session);
   }
 
   /** Join a game found on the local network, trying the host's addresses best first */
@@ -776,7 +791,11 @@ export class CoopService {
     // An arrow at the view edge while the camera looks elsewhere
     const ping: CoopPing = { id: ++this.pingSeq, name, color, lat, lon, height };
     this.pings.update((all) => [...all, ping]);
-    setTimeout(() => this.pings.update((all) => all.filter((p) => p !== ping)), PING_MS);
+    const timer = setTimeout(() => {
+      this.pingTimers.delete(timer);
+      this.pings.update((all) => all.filter((p) => p !== ping));
+    }, PING_MS);
+    this.pingTimers.add(timer);
     const tone = UI_SOUNDS.coopPing;
     const audio = engine.spatialAudio;
     if (!audio.getSoundConfig(tone.id)) audio.registerSound(tone.id, toneWavDataUrl(tone.notes), { volume: tone.volume });
@@ -865,7 +884,10 @@ export class CoopService {
     this.counts.clear();
     this.hostChangingMap.set(false);
     this.movingSaid = false;
+    for (const timer of this.pingTimers) clearTimeout(timer);
+    this.pingTimers.clear();
     this.pings.set([]);
+    this.generation++;
     this.pickedByHand = false;
     this.autoPicking = null;
     this.toldStatus = null;
@@ -1161,7 +1183,10 @@ export class CoopService {
    */
   private async placeLoaded(): Promise<boolean> {
     let end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
+    const generation = this.generation;
     while (this.needsKey() || !this.engineInit.getEngine() || this.engineInit.loading() || this.gameState.corridorPending()) {
+      // Left the room meanwhile: nothing to wait for
+      if (generation !== this.generation) return false;
       if (this.needsKey()) end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
       if (performance.now() > end) return false;
       await new Promise((resolve) => setTimeout(resolve, 200));

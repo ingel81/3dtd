@@ -1970,18 +1970,14 @@ export class GameStateManager {
   }
 
   /**
-   * Set training mode timescale
+   * Set the timescale
    * @param scale Timescale multiplier (1.0 = normal, 75.0 = 75x speed)
-   * @param persist Whether to save to localStorage (default: true, set to false for automatic backend settings)
    */
-  setGameSpeed(scale: number, persist = true): void {
+  setGameSpeed(scale: number): void {
     const clamped = Math.max(0.1, Math.min(75, scale));
     this.gameSpeed.set(clamped);
     // Also update the global store so UI components stay in sync
     this.gameStore.gameSpeed.set(clamped);
-    if (persist) {
-      localStorage.setItem('game-speed', clamped.toString());
-    }
   }
 }
 

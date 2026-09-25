@@ -158,9 +158,12 @@ export class EngineTestComponent implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    window.removeEventListener('resize', this.resizeListener);
     cancelAnimationFrame(this.animationId);
     this.renderer.dispose();
   }
+
+  private readonly resizeListener = (): void => this.onResize();
 
   private initThree(): void {
     const container = this.canvasContainer.nativeElement;
@@ -194,7 +197,7 @@ export class EngineTestComponent implements OnInit, OnDestroy {
     this.scene.add(axes);
 
     // Handle resize
-    window.addEventListener('resize', () => this.onResize());
+    window.addEventListener('resize', this.resizeListener);
   }
 
   private initParticleSystems(): void {

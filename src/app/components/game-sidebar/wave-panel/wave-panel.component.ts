@@ -253,15 +253,21 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   @ViewChildren('mixedEnemyCanvas') mixedEnemyCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
   private activeMixedPreviewIds: string[] = [];
 
+  /** Run `fn` after `ms` unless the panel is gone by then: a preview made later would render forever */
+  private later(fn: () => void, ms: number): void {
+    const timer = setTimeout(fn, ms);
+    this.destroyRef.onDestroy(() => clearTimeout(timer));
+  }
+
   ngAfterViewInit(): void {
     // Initialize previews after DOM is ready
-    setTimeout(() => this.initMixedEnemyPreviews(), 100);
+    this.later(() => this.initMixedEnemyPreviews(), 100);
 
     // Initialize mixed enemy previews when canvases appear
     this.mixedEnemyCanvases.changes
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
-        setTimeout(() => this.initMixedEnemyPreviews(), 100);
+        this.later(() => this.initMixedEnemyPreviews(), 100);
       });
   }
 

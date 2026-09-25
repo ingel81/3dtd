@@ -76,8 +76,3 @@ export function balanceConfigHash(waveSource: WaveSourceId = DEFAULT_WAVE_SOURCE
   cached.set(waveSource, hash);
   return hash;
 }
-
-/** Only for specs: forget the cached hashes. */
-export function resetBalanceConfigHash(): void {
-  cached.clear();
-}

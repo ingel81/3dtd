@@ -75,6 +75,8 @@ export class TowerCombatService {
   // Tower position for the wake check and the fallback radius query. Only
   // read right after it is written, never across a call.
   private readonly _towerLocalScratch = new Vector3();
+  private readonly _beamSourceScratch = new Vector3();
+  private readonly _beamTargetScratch = new Vector3();
 
   // Enemies whose body lies along the route (the ooze): every tower aims at
   // the nearest point of the body it sees, see BodyAim. Started per tower
@@ -638,15 +640,17 @@ export class TowerCombatService {
 
         // Get local positions
         const terrainHeight = tower.position.height ?? 0;
-        const towerLocalPos = this.tilesEngine.sync.geoToLocalSimple(
+        // Scratch vectors: every sub-step of every beam tower, and all readers copy them
+        const towerLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
           tower.position.lat,
           tower.position.lon,
-          terrainHeight
+          terrainHeight,
+          this._beamSourceScratch
         );
         const shootHeight = tower.typeConfig.shootHeight ?? 4.0;
         towerLocalPos.y += tower.typeConfig.heightOffset + shootHeight;
 
-        const targetLocalPos = this.aimLocalPosition(target);
+        const targetLocalPos = this.aimLocalInto(target, this._beamTargetScratch);
 
         // Start/update flame beam visual
         const beamWidth = this.getEffectiveBeamWidth(tower);
