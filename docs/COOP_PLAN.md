@@ -110,7 +110,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D63 | Eintrag in der Liste | Eigener Titel des Raums (vorbelegt „Ann's game“, bis 32 Zeichen, kein Filter), Name des Hosts, Stadt ohne Straße, Spieler, Zustand („Lobby“ oder grau „In game · Wave 12“, laufende nicht beitretbar bis C5b), Ping zur Lobby, Marke „Cheats on“ (User, 2026-09-25) |
 | D64 | Moderation und Daten | Nur Rauswerfen durch den Host (R9), kein Wort- oder Chatfilter. IPs werden nie gespeichert; Log mit Raum-Code und Namen 14 Tage; ein Absatz in der Datenschutzerklärung der Landing Page (User, 2026-09-25) |
 | D65 | Cheats online | Erlaubt nach Raum-Option des Hosts, in der Liste markiert (User, 2026-09-25) |
-| D66 | Betrieb | Image `ghcr.io/ingel81/3dtd-relay` (GitHub Container Registry, wie Docker Hub) vom Release-Workflow; das Relay wird mit jedem Release aktualisiert (Docker-Host: Update-Klick); Statusseite nur lokal; `--origins` wie D59 (User, 2026-09-25) |
+| D66 | Betrieb | Image `ghcr.io/ingel81/3dtd-relay` (GitHub Container Registry, wie Docker Hub) vom Release-Workflow; das Relay wird mit jedem Release aktualisiert; Statusseite nur lokal; `--origins` wie D59 (User, 2026-09-25) |
 | D67 | Dock und Einstieg | Wort „Online“ (Untertitel: Name der Lobby) neben „Same network“ (nur App). Einladen per Raum-Code, Deep-Link erst mit H16. Reiter „Coop“ im Standortdialog der App zum Beitreten (LAN und Online), der Beitritt lädt direkt den Ort des Hosts; Hosten nur im Dock mit geladenem Ort (User, 2026-09-25) |
 | D68 | Reihenfolge | 1) Dock „Same network“/„Online“, Reiter im Standortdialog (E30), Lobby-Zahnrad; 2) Container, GHCR, Tunnel-Anleitung, Origin, Status, Log; 3) öffentliche Raumliste mit Titel, Public-Option und Hinweis (User, 2026-09-25) |
 | D49 | Reihenfolge ab 2026-09-26 | Prio A: C4d Electron-LAN (Tests zu Hause im LAN). Prio B: Ortswechsel beim Gast ohne Neuladen, R15 Held des Partners, R19 und S2/S3/S5/S6 leicht. Später: C5b. Danach B bis C: `tmp/` und Doku aufräumen, Code-Smells, Performance Einzel- und Mehrspieler. E2E nur exemplarisch prüfen, nicht jede Stelle (User, 2026-09-25) |
@@ -633,9 +633,9 @@ im Dev-Spiel mit zwei Browsern (PLAYTEST T71). Schritt 2:
 `coop-server/Dockerfile` (Bündel mit esbuild, `node:24-alpine`, Nutzer `node`, Standard-Argumente der Lobby
 `--status local --log-days 14 --origins app://app`), Job `relay-image` im Release-Workflow nach
 `ghcr.io/ingel81/3dtd-relay`, Relay-Optionen `--status local` (Anfragen mit `CF-Connecting-IP` bekommen 404),
-`--log-dir`, `--log-days` (eine Datei je Tag), Anleitung für Docker-Host und Tunnel mit Absatz für die
-Datenschutzerklärung in `coop-server/README.md`. Offen beim User: Container und Tunnel einrichten, Paket auf GHCR
-öffentlich stellen, dann `coopLobbies` in `public/runtime-config.json`. Nicht geprüft: der Docker-Build selbst (kein
+`--log-dir`, `--log-days` (eine Datei je Tag), Anleitung für Container und Tunnel mit Absatz für die
+Datenschutzerklärung in `coop-server/README.md`. Die Lobby läuft seit 2026-09-25 und steht in
+`public/runtime-config.json`. Nicht geprüft: der Docker-Build selbst (kein
 Docker auf dem Dev-Rechner; die Schritte darin liefen einzeln). Schritt 1: Schritt 1:
 `app-coop-entry` (Name, „Same network“, „Online“ mit Zahnrad für die Lobbies) im Dock und als Reiter „Coop“ im
 Standortdialog beim Start ohne Ort; `coop/lobbies.ts`, `coopLobbies` in `runtime-config.json`, die alte Einstellung
@@ -651,7 +651,7 @@ nach dem Beitritt und der Ort des Hosts lädt mit allen Spawns (PLAYTEST T70). D
    Versions-Abweisung mit beiden Versionen und „Update now“ (D60), „Lobby is offline right now“ (D61).
 2. **Betrieb:** `coop-server/Dockerfile` (Node 22 alpine), Release-Workflow baut und lädt nach GHCR; Relay-Optionen
    `--status local` (Statusseite nur von lokalen Adressen), `--log-days 14`, nie IPs ins Log; `coop-server/README.md`
-   mit Docker-Host-Container (Repository, Port, Volume für Logs) und der Tunnel-Regel
+   mit dem Container (Repository, Port, Volume für Logs) und der Tunnel-Regel
    `3dtd-lobby.sgeht.net → http://<relay>:3003`. Absatz für die Datenschutzerklärung als Vorlage.
 3. **Öffentliche Liste:** Raum-Option „Public“ (Standard an, Hinweis zum Ort), Titel; Protokoll: `rooms` fragt die
    Liste ab (öffentliche Räume ohne Straße: Stadt aus dem Weltpaket des Hosts), laufende grau; Liste unter „Online“
