@@ -51,13 +51,25 @@ export async function openGame(browser, { place = DEFAULT_PLACE, query = '', vie
   return page;
 }
 
-/** Wait for the loading screen to go, then skip the intro flight */
+/**
+ * Wait until the loading screen is gone for good (a change of place shows it
+ * more than once), then skip the intro flight until its button is gone.
+ */
 export async function gameReady(page) {
   await page.waitForSelector('td-loading-screen', { timeout: 30_000 }).catch(() => undefined);
-  await page.waitForSelector('td-loading-screen', { state: 'detached', timeout: 300_000 });
-  await page.waitForTimeout(2000);
-  await page.keyboard.press('Escape');
-  await page.waitForTimeout(1500);
+  const end = Date.now() + 300_000;
+  let gone = 0;
+  while (gone < 4 && Date.now() < end) {
+    gone = (await page.locator('td-loading-screen').count()) ? 0 : gone + 1;
+    await page.waitForTimeout(500);
+  }
+  for (let i = 0; i < 10; i++) {
+    const skip = page.getByRole('button', { name: /skip intro/i });
+    if (!(await skip.count())) break;
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(700);
+  }
+  await page.waitForTimeout(1000);
 }
 
 // === Relay ===
