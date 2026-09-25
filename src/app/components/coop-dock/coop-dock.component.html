@@ -1,0 +1,375 @@
+<header class="head">
+  <div class="title">
+    @if (joining()) {
+      <h2 id="td-coop-dock-title">Joining {{ room()?.code ?? coop.roomFromUrl ?? '' }}</h2>
+      <p>{{ room() ? 'Host: ' + hostName() : 'Finding the room' }}</p>
+    } @else if (room(); as r) {
+      <h2 id="td-coop-dock-title">Coop room</h2>
+      <p>PvE Coop · {{ placeName() }} · {{ r.spawnIds.length }} lane{{ r.spawnIds.length === 1 ? '' : 's' }}</p>
+    } @else {
+      <h2 id="td-coop-dock-title">Coop</h2>
+      <p>One map, one shared HQ, a lane per player</p>
+    }
+  </div>
+  <button class="icon-btn close" type="button" (click)="close()"
+          [matTooltip]="room() ? 'Close (the room stays open) · Tab' : 'Close · Tab'" aria-label="Close the coop dock">
+    <td-icon name="cross" [size]="16"></td-icon>
+  </button>
+</header>
+
+<div class="body">
+  @if (joining()) {
+    <!-- Joining: where the guest is in the handshake; the loading screen runs behind -->
+    <section class="blk">
+      <ol class="steps">
+        @for (step of joinSteps(); track step.label) {
+          <li class="step" [class.is-now]="step.state === 'now'" [class.is-todo]="step.state === 'todo'">
+            <span class="mark" aria-hidden="true">
+              @switch (step.state) {
+                @case ('done') { <td-icon name="check" [size]="16"></td-icon> }
+                @case ('now') { <td-icon class="spin" name="refresh" [size]="16"></td-icon> }
+                @default { <span class="dot"></span> }
+              }
+            </span>
+            <span>{{ step.label }}</span>
+            <small>{{ step.meta }}</small>
+          </li>
+          @if (step.state === 'now' && step.label.startsWith('Loading')) {
+            <li class="bar" aria-hidden="true"><i [style.width.%]="mapPercent()"></i></li>
+          }
+        }
+      </ol>
+    </section>
+    <section class="blk plain">
+      @if (coop.needsKey()) {
+        <p class="note">Enter your map key first (every player needs one of their own); then the host's map loads and you join by yourself.</p>
+      } @else {
+        <p class="note">{{ placeName() }}. You'll land in the lobby as soon as the map stands.</p>
+      }
+    </section>
+  } @else if (room(); as r) {
+    <div class="cols">
+    <div class="main">
+    <!-- Room: code and invite -->
+    <section class="blk">
+      <div class="code-row">
+        <div class="code">
+          <span>Room code</span>
+          <b>{{ r.code }}</b>
+        </div>
+        <div class="acts">
+          <button class="btn-xs" type="button" (click)="copy('code')" aria-label="Copy the room code">
+            <td-icon [name]="copied() === 'code' ? 'check' : 'copy'" [size]="14"></td-icon>
+            {{ copied() === 'code' ? 'Copied' : 'Code' }}
+          </button>
+          @if (!r.started) {
+            <button class="btn-xs" type="button" (click)="copy('link')" aria-label="Copy the invite link">
+              <td-icon [name]="copied() === 'link' ? 'check' : 'link'" [size]="14"></td-icon>
+              {{ copied() === 'link' ? 'Copied' : 'Invite link' }}
+            </button>
+          }
+        </div>
+      </div>
+      <div class="meta">
+        @if (coop.relay(); as relay) { <span>Server <b>{{ relayLabel(relay.url) }}</b></span> }
+        @if (coop.isHost() && !r.started) {
+          <button class="toggle" type="button" [class.is-on]="!r.locked" [attr.aria-pressed]="!r.locked"
+                  (click)="coop.setLocked(!r.locked)">
+            <i aria-hidden="true"></i>{{ r.locked ? 'Locked' : 'Open to new players' }}
+          </button>
+        } @else {
+          <span class="meta-end">Host <b>{{ hostName() }}</b></span>
+        }
+      </div>
+    </section>
+
+    @if (!r.started && status(); as s) {
+      <div class="status" [class.is-go]="s.go" role="status">
+        <span class="segs" aria-hidden="true">
+          @for (on of s.segments; track $index) { <i [class.is-on]="on"></i> }
+        </span>
+        <span>{{ s.lead }}<b>{{ s.bold }}</b>{{ s.text }}</span>
+      </div>
+    }
+    @if (coop.desync(); as desync) {
+      <p class="banner is-warn" role="alert">
+        The games ran apart at game second {{ desyncSecond(desync.tick) }}: from there on, what you see may differ from what the others see.
+      </p>
+    }
+    @if (coop.hostChangingMap()) {
+      <p class="banner" role="status">The host is changing the map; it loads here once it stands…</p>
+    }
+    @if (coop.mixedEngines()) {
+      <p class="banner is-warn">
+        Not everyone plays on the same engine (Chrome and Firefox, say). They compute the game slightly differently and drift apart after a while.
+      </p>
+    }
+
+    <!-- Players -->
+    <section class="blk">
+      <h3 class="sec">Players<small>{{ r.players.length }}/{{ maxPlayers }}</small></h3>
+      <ul class="plist">
+        @for (p of players(); track p.id) {
+          <li class="pl" [class.is-me]="p.me" [class.is-gone]="p.left"
+              [matTooltip]="p.client ? clientLabel(p.client) : ''">
+            <i class="lane-bar" [style.background]="p.color"></i>
+            <div class="who">
+              @if (p.me && !r.started) {
+                <label class="name-edit" matTooltip="Your name: click to change, Enter saves">
+                  <input type="text" maxlength="32" [value]="p.name" aria-label="Your name"
+                         (change)="coop.rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
+                  <td-icon name="edit" [size]="12"></td-icon>
+                </label>
+              } @else {
+                <b>{{ p.name }}</b>
+              }
+              <small>
+                @if (p.host) { <i class="tag is-host">HOST</i> }
+                @if (p.me) { <i class="tag is-you">YOU</i> }
+                {{ p.left ? 'Left' : p.lane }}
+              </small>
+            </div>
+            @if (!r.started) {
+              <span class="pill" [class.is-ready]="p.ready"
+                    [matTooltip]="p.host ? 'The host is always ready' : ''">{{ p.ready ? '✓ Ready' : 'Not ready' }}</span>
+            } @else {
+              <span></span>
+            }
+            <app-ping-bars [ms]="p.left ? null : p.latency" [warn]="p.lagging"
+                           [matTooltip]="p.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'" />
+            @if (coop.isHost() && !p.me && !r.started) {
+              <button class="icon-btn sm" type="button" (click)="coop.kick(p.id)"
+                      [matTooltip]="'Take ' + p.name + ' out of the room'" [attr.aria-label]="'Take ' + p.name + ' out of the room'">
+                <td-icon name="cross" [size]="14"></td-icon>
+              </button>
+            } @else {
+              <span class="icon-gap"></span>
+            }
+          </li>
+        }
+        @if (freeSeat() && !r.started) {
+          <li class="empty-seat">
+            <td-icon name="users" [size]="16"></td-icon>
+            Free seat
+            <button class="btn-xs" type="button" (click)="copy('link')">
+              <td-icon [name]="copied() === 'link' ? 'check' : 'link'" [size]="14"></td-icon>
+              {{ copied() === 'link' ? 'Copied' : 'Copy invite' }}
+            </button>
+          </li>
+        }
+      </ul>
+    </section>
+
+    <!-- Lanes -->
+    @if (!r.started && lanes().length > 0) {
+      <section class="blk">
+        <h3 class="sec">Lanes<small>shorter lane = less time to shoot</small></h3>
+        @if (r.spawnIds.length < r.players.length) {
+          <p class="note is-warn">
+            {{ r.spawnIds.length }} spawn{{ r.spawnIds.length === 1 ? '' : 's' }} for {{ r.players.length }} players: every player needs a lane of their own.
+            @if (coop.isHost()) { One is being added; if none comes, add one with the + button in the header. }
+          </p>
+        }
+        <ul class="llist">
+          @for (lane of lanes(); track lane.spawnId) {
+            <li class="ln" [class.is-mine]="lane.mine" [class.is-free]="!lane.owner">
+              <span class="ln-name"><i [style.background]="lane.color"></i>{{ lane.label }}</span>
+              <span class="ln-len">
+                <u><s [style.width.%]="lane.share * 100" [style.background]="lane.color"></s></u>
+                <span>{{ lane.length }}</span>
+              </span>
+              @if (lane.mine) {
+                <button class="ln-own is-you" type="button" (click)="takeLane(lane.spawnId, true, lane.owner)"
+                        matTooltip="Give the lane back">You</button>
+              } @else if (lane.owner) {
+                <span class="ln-own">{{ lane.owner }}</span>
+              } @else {
+                <button class="ln-own is-free" type="button" (click)="takeLane(lane.spawnId, false, null)">Free · take</button>
+              }
+              <span class="ln-ops">
+                <button class="icon-btn sm" type="button" (click)="flyTo(lane.spawnId)"
+                        [matTooltip]="'Fly to ' + lane.label" [attr.aria-label]="'Fly to ' + lane.label">
+                  <td-icon name="pin" [size]="14"></td-icon>
+                </button>
+                @if (coop.isHost()) {
+                  <button class="icon-btn sm" type="button" (click)="coop.moveSpawn(lane.index)"
+                          [matTooltip]="'Move ' + lane.label + ': click its new place on the map'" [attr.aria-label]="'Move ' + lane.label">
+                    <td-icon name="flag" [size]="14"></td-icon>
+                  </button>
+                  <button class="icon-btn sm" type="button" (click)="coop.removeSpawn(lane.index)" [disabled]="r.spawnIds.length < 2"
+                          [matTooltip]="'Remove ' + lane.label" [attr.aria-label]="'Remove ' + lane.label">
+                    <td-icon name="cross" [size]="14"></td-icon>
+                  </button>
+                }
+              </span>
+            </li>
+          }
+        </ul>
+      </section>
+    }
+
+    <!-- Mode & options -->
+    <section class="blk">
+      <button class="sec sec-toggle" type="button" (click)="optionsOpen.set(!optionsOpen())" [attr.aria-expanded]="optionsOpen()">
+        Mode &amp; options
+        <small class="toggle-label">
+          {{ optionsOpen() ? 'Hide' : canEditOptions() ? 'Edit' : 'Show all' }}
+          <td-icon [name]="optionsOpen() ? 'caretU' : 'caret'" [size]="12"></td-icon>
+        </small>
+      </button>
+      <div class="set">
+        <span class="set-label">Game mode</span>
+        <span class="seg">
+          <button type="button" class="is-on" matTooltip="Defend one HQ together">PvE Coop</button>
+          <button type="button" disabled matTooltip="Send waves at each other (coming later)">Versus <i class="tag soon">SOON</i></button>
+        </span>
+      </div>
+      @if (!optionsOpen()) {
+        <div class="chips">
+          @for (chip of optionChips(); track chip.key) {
+            <span class="chip" [class.is-warn]="chip.warn">{{ chip.text }}</span>
+          }
+        </div>
+      } @else {
+        <div class="sets">
+          @for (option of options; track option.key) {
+            <div class="set">
+              <span class="set-label">{{ option.label }}</span>
+              @if (canEditOptions()) {
+                <span class="seg" role="radiogroup" [attr.aria-label]="option.label">
+                  @for (choice of option.choices; track choice.value) {
+                    <button type="button" role="radio" [class.is-on]="optionValue(option.key) === choice.value"
+                            [class.is-warn]="option.key === 'cheats' && choice.value !== 'off'"
+                            [attr.aria-checked]="optionValue(option.key) === choice.value"
+                            [disabled]="cheatsImpossible(option.key, choice.value)"
+                            [matTooltip]="cheatsImpossible(option.key, choice.value) ? 'This coop server allows no cheats' : ''"
+                            (click)="coop.setOption(option.key, choice.value)">{{ choice.label }}</button>
+                  }
+                </span>
+              } @else {
+                <span class="set-value" [class.is-warn]="option.key === 'cheats' && optionValue('cheats') !== 'off'">
+                  {{ optionLabel(option.key, optionValue(option.key)) }}
+                </span>
+              }
+            </div>
+          }
+          @if (canEditOptions()) {
+            <p class="note">Changing a setting resets everyone's ready state.</p>
+          } @else {
+            <p class="note with-icon"><td-icon name="lock" [size]="13"></td-icon>Only the host can change these{{ r.started ? ', before the start' : '' }}.</p>
+          }
+        </div>
+      }
+    </section>
+
+    </div>
+    <!-- Chat: its own column, the only thing that scrolls there (PLAYTEST T52) -->
+    <section class="blk chat-col">
+      <h3 class="sec">Chat</h3>
+      <div #chatBox class="chat" role="log" aria-live="polite" aria-label="Coop chat">
+        @for (line of chat(); track line.id) {
+          @if (line.system) {
+            <p class="sys" [class.is-warn]="line.warn">{{ line.text }}</p>
+          } @else {
+            <div class="msg" [class.is-cont]="!line.head">
+              @if (line.head) {
+                <div class="msg-who" [style.color]="line.color">{{ line.name }}<time>{{ line.time }}</time></div>
+              }
+              <p>{{ line.text }}</p>
+            </div>
+          }
+        }
+      </div>
+      <div class="composer">
+        <input class="inp" type="text" maxlength="200" placeholder="Say something · Enter sends" aria-label="Chat message"
+               [value]="chatLine()" (input)="chatLine.set($any($event.target).value)" (keydown.enter)="sendChat()" />
+        <button class="icon-btn send" type="button" (click)="sendChat()" aria-label="Send">
+          <td-icon name="send" [size]="16"></td-icon>
+        </button>
+      </div>
+    </section>
+    </div>
+  } @else {
+    <!-- Not in a room: host this map or join one -->
+    <section class="blk">
+      <label class="field">
+        <span>Your name</span>
+        <input class="inp" type="text" maxlength="32" [value]="name()" (input)="name.set($any($event.target).value)" />
+      </label>
+    </section>
+    <section class="blk">
+      <div class="card">
+        <h3><td-icon name="home" [size]="16"></td-icon>Host this map</h3>
+        <p class="note">Opens a room on {{ placeName() }}. You pick lanes and start the match.</p>
+        <button class="btn-primary" type="button" (click)="host()" [disabled]="coop.status() === 'connecting'">
+          {{ coop.status() === 'connecting' ? 'Opening…' : 'Open room' }}
+        </button>
+      </div>
+      <div class="or">OR</div>
+      <div class="card">
+        <h3><td-icon name="signIn" [size]="16"></td-icon>Join a room</h3>
+        <div class="row">
+          <input class="inp codein" type="text" maxlength="6" placeholder="ABC123" aria-label="Room code"
+                 [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
+          <button class="btn" type="button" (click)="join()" [disabled]="!code().trim()">Join</button>
+        </div>
+        <p class="note">If the host plays somewhere else, the page reloads on their map and joins by itself.</p>
+      </div>
+    </section>
+    <section class="blk plain">
+      <details>
+        <summary>SERVER · {{ coop.relay() ? relayLabel(coop.relay()!.url) : (relaySetting() || 'automatic') }}</summary>
+        <div class="row">
+          <input class="inp" type="text" placeholder="wss://relay.example.com or ws://192.168.1.5:3003" aria-label="Coop server"
+                 [value]="relaySetting()" (change)="saveRelay($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
+          <button class="btn-xs" type="button" (click)="testRelay()" [disabled]="relayInvalid() || relayProbe()?.busy">Test</button>
+        </div>
+        @if (relayInvalid()) {
+          <p class="note is-error">That is no ws:// or wss:// address.</p>
+        } @else if (relayProbe(); as probe) {
+          <p class="note with-icon" [class.is-error]="!probe.ok" [class.is-ok]="probe.ok && !probe.busy" role="status">
+            @if (!probe.busy) { <td-icon [name]="probe.ok ? 'check' : 'cross'" [size]="13"></td-icon> }
+            {{ probe.text }}
+          </p>
+        }
+      </details>
+      <p class="note">Every player needs their own map key.</p>
+    </section>
+  }
+  @if (coop.error(); as error) {
+    <p class="banner is-error" role="alert">{{ error }}</p>
+  }
+</div>
+
+@if (room() || joining()) {
+  <footer class="foot">
+    <button class="btn ghost danger" type="button" (click)="leave()">{{ joining() ? 'Cancel' : 'Leave' }}</button>
+    <span class="spacer"></span>
+    @if (room(); as r) {
+    @if (!r.started && !joining()) {
+      @if (coop.isHost()) {
+        <div class="more">
+          <button class="icon-btn big" type="button" (click)="moreOpen.set(!moreOpen())" [attr.aria-expanded]="moreOpen()"
+                  matTooltip="More" aria-label="More">
+            <td-icon name="more" [size]="16"></td-icon>
+          </button>
+          @if (moreOpen()) {
+            <div class="more-menu" role="menu">
+              <button type="button" role="menuitem" (click)="resendMap()">Resend map to the players</button>
+            </div>
+          }
+        </div>
+        <button class="btn-primary big" type="button" (click)="coop.start()" [disabled]="startBlocked() !== null"
+                [matTooltip]="startBlocked() ?? ''">Start match</button>
+      } @else if (me()?.ready) {
+        <button class="btn-done big" type="button" (click)="coop.setLobbyReady(false)">
+          <td-icon name="check" [size]="16"></td-icon>Ready · undo
+        </button>
+      } @else {
+        <button class="btn-primary big" type="button" (click)="coop.setLobbyReady(true)" [disabled]="!me()?.spawnId"
+                [matTooltip]="me()?.spawnId ? '' : 'Take a lane first'">Ready up</button>
+      }
+    }
+    }
+  </footer>
+}

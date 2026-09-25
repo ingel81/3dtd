@@ -205,6 +205,9 @@ export class UIStore {
    */
   readonly coopMapLocked = signal<boolean>(false);
 
+  /** Coop: the room dock is open (docs/COOP_PLAN.md, D41); the header chip and Tab toggle it. Not persisted. */
+  readonly coopDockOpen = signal<boolean>(false);
+
   /** Photo mode or replay: the camera moves, clicks and hover pick nothing, game keys build nothing. */
   readonly viewOnly = computed(() => this.photoMode() || this.replayMode());
 

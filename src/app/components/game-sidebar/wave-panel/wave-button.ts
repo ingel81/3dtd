@@ -29,6 +29,8 @@ export interface CoopReadyState {
   /** Players ready, and players still in the game */
   readyCount: number;
   playerCount: number;
+  /** The room lets the host start the waves, and this is the host (D38): the button starts it */
+  hostStarts: boolean;
 }
 
 /**
@@ -53,7 +55,20 @@ export function waveButtonView(
   const label = `Wave ${wave}`;
   const plain = { coopReady: null, pressed: false };
   if (!running && coop) {
-    const count = `${coop.readyCount}/${coop.playerCount} ready`;
+    // "Auto 10 s" counts on every client alike (D44)
+    const auto = countdownSeconds !== null ? ` · ${Math.max(countdownSeconds, 0)}s` : '';
+    const count = `${coop.readyCount}/${coop.playerCount} ready${auto}`;
+    if (coop.hostStarts) {
+      return {
+        label: `Start wave ${wave}`,
+        ariaLabel: `Start wave ${wave}, ${count}`,
+        left: null,
+        barPercent: coop.playerCount > 0 ? (coop.readyCount / coop.playerCount) * 100 : 0,
+        countdown: null,
+        coopReady: count,
+        pressed: false,
+      };
+    }
     return {
       label: coop.ready ? `Wave ${wave}: ready` : `Ready for wave ${wave}`,
       ariaLabel: coop.ready ? `Not ready for wave ${wave} after all, ${count}` : `Ready for wave ${wave}, ${count}`,

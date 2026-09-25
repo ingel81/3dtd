@@ -32,6 +32,15 @@ import { TICK_SUB_STEPS } from '../../src/app/coop/lockstep.ts';
 import { GameClock } from '../../src/app/managers/game-state/game-clock.ts';
 import { HashCheck, HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
 import { clientLabel, type ClientInfo } from '../../src/app/coop/client-info.ts';
+import {
+  DEFAULT_ROOM_OPTIONS,
+  changedOptions,
+  mayCheat,
+  mayPause,
+  optionLabel,
+  validOptions,
+  type CoopRoomOptions,
+} from '../../src/app/coop/room-options.ts';
 
 /** Game time one tick stands for, ms. */
 export const TICK_MS = TICK_SUB_STEPS * GameClock.FIXED_STEP_MS;
@@ -107,6 +116,8 @@ export class Room {
   private speed = 1;
   /** No further players may join (review R9) */
   private locked = false;
+  /** What the host set for the room (D38) */
+  private options: CoopRoomOptions = { ...DEFAULT_ROOM_OPTIONS };
   /** The player the room waits for to catch up (MAX_AHEAD_TICKS), null while none */
   private waitingFor: string | null = null;
   /** The speed a resume goes back to: the last one that was not 0 */
@@ -238,6 +249,19 @@ export class Room {
         if (this.started) return;
         for (const p of this.players) if (p.id !== playerId) this.send(p.id, { t: 'moving' });
         return;
+      case 'options': {
+        if (!host) return this.refuse(playerId, 'not-host');
+        if (this.started) return this.refuse(playerId, 'started');
+        const options = validOptions(message.options);
+        if (!options) return;
+        const changed = changedOptions(this.options, options);
+        if (changed.length === 0) return;
+        this.options = options;
+        // A change is asked again: every guest says ready anew (D38)
+        for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
+        this.log(`options: ${changed.map((key) => `${key} ${optionLabel(key, options[key])}`).join(', ')}`);
+        return this.broadcastRoom();
+      }
       case 'lock':
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.locked === !!message.locked) return;
@@ -262,7 +286,8 @@ export class Room {
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.started) return this.refuse(playerId, 'started');
         if (this.players.length < 2) return this.refuse(playerId, 'alone');
-        if (this.world === null || this.players.some((p) => p.spawnId === null || !p.ready)) {
+        // The host is always ready (D40); every guest says so
+        if (this.world === null || this.players.some((p) => p.spawnId === null || (p.id !== this.hostId && !p.ready))) {
           return this.refuse(playerId, 'not-ready');
         }
         this.started = true;
@@ -274,11 +299,13 @@ export class Room {
           players: this.players.map((p) => p.id),
           lanes: this.players.map((p) => [p.id, p.spawnId!]),
           speed: this.speed,
+          hostId: this.hostId,
+          options: { ...this.options },
         });
         return this.broadcastRoom();
       case 'cmd':
-        // Only game commands; the dev tools' debug:* are off in coop (review R3)
-        if (!this.started || typeof message.command?.type !== 'string' || !this.accepts(message.command.type)) return;
+        // Game commands; the dev tools' debug:* only as the room's cheat rule lets them (D38)
+        if (!this.started || typeof message.command?.type !== 'string' || !this.accepts(message.command.type, playerId)) return;
         this.open.push({ playerId, command: message.command });
         this.commandCount++;
         return;
@@ -290,9 +317,9 @@ export class Room {
         return this.log(`stats ${this.who(playerId)}: ${statsLine(message.stats)}`);
       case 'speed': {
         if (!SPEEDS.has(message.speed)) return;
-        // The speed is the host's; everyone may pause, and resume at the room's speed
+        // The speed is the host's; who may pause and resume at the room's speed, the room says (D38)
         const pauseOrResume = message.speed === 0 || (this.speed === 0 && message.speed === this.resumeSpeed);
-        if (!host && !pauseOrResume) return this.refuse(playerId, 'not-host');
+        if (pauseOrResume ? !mayPause(this.options, host) : !host) return this.refuse(playerId, 'not-host');
         if (message.speed === this.speed) return;
         this.speed = message.speed;
         if (this.speed !== 0) this.resumeSpeed = this.speed;
@@ -414,9 +441,10 @@ export class Room {
     this.broadcast({ t: 'rtt', rtt: this.players.map((p) => [p.id, rttOf(p.id)]) });
   }
 
-  /** A game command, or a cheat where the relay allows them */
-  private accepts(type: string): boolean {
-    return type.startsWith('command:') || (this.cheats && type.startsWith('debug:'));
+  /** A game command, or a cheat where the relay and the room's rule let `playerId` use one */
+  private accepts(type: string, playerId: string): boolean {
+    return type.startsWith('command:')
+      || (type.startsWith('debug:') && mayCheat(this.options, this.cheats, playerId, this.hostId));
   }
 
   info(): CoopRoomInfo {
@@ -428,6 +456,7 @@ export class Room {
       started: this.started,
       cheats: this.cheats,
       locked: this.locked,
+      options: { ...this.options },
     };
   }
 

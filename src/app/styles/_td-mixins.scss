@@ -42,3 +42,91 @@
   border: 1px solid var(--td-frame-mid);
   box-shadow: var(--td-shadow-soft), inset 0 1px 0 rgba(122, 133, 128, 0.33);
 }
+
+// === Button recipes (DESIGN_SYSTEM.md, Rezepte) ===
+// Layout (padding, height, font size) stays with the component; these give
+// the material: gradient, edges, text colour, states.
+
+// Gold button: the one main action of a place.
+@mixin gold-button {
+  background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
+  border: 1px solid #11140F;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.35), var(--td-shadow-key);
+  color: #1A140A;
+  font-family: var(--td-font-mono);
+  font-weight: 700;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: box-shadow 0.18s ease;
+
+  &:hover {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.35), var(--td-gold-glow);
+  }
+
+  &:active {
+    box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.15), inset 0 1px 0 rgba(0, 0, 0, 0.4);
+  }
+
+  &:disabled {
+    background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
+    color: var(--td-text-disabled);
+    cursor: not-allowed;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  }
+}
+
+// Teal button: the gold one in teal, for a done or confirming state.
+@mixin teal-button {
+  @include gold-button;
+  background: linear-gradient(180deg, var(--td-teal-light) 0%, var(--td-teal) 55%, var(--td-teal-dark) 100%);
+  color: #0E1612;
+
+  &:hover {
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.28), inset 0 -1px 0 rgba(0, 0, 0, 0.35), var(--td-teal-glow);
+  }
+}
+
+// Frame button: cancel, secondary and icon buttons; raised panel material.
+@mixin frame-button {
+  background: linear-gradient(180deg, var(--td-panel-main), var(--td-panel-secondary));
+  border: 1px solid var(--td-frame-mid);
+  box-shadow: inset 0 1px 0 rgba(122, 133, 128, 0.2), inset 0 -1px 0 var(--td-panel-shadow);
+  color: var(--td-text-secondary);
+  cursor: pointer;
+
+  &:hover:not(:disabled) {
+    border-color: var(--td-frame-light);
+    color: var(--td-gold-light);
+  }
+
+  &:disabled {
+    color: var(--td-text-disabled);
+    cursor: not-allowed;
+  }
+}
+
+// Sunken surface: inputs, slots, bar backgrounds.
+@mixin sunken {
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.5), inset 0 -1px 0 rgba(74, 84, 77, 0.13);
+}
+
+// Section label: mono caps in gold with a rune hairline after it.
+@mixin section-label {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--td-gold);
+
+  &::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: linear-gradient(90deg, var(--td-rune-amber-muted), transparent);
+  }
+}

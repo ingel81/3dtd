@@ -1,4 +1,5 @@
 import { LockstepStats } from './lockstep-stats';
+import type { CoopRoomOptions } from './room-options';
 import type { LockstepLink, StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 import {
@@ -30,6 +31,9 @@ export interface CoopStart {
   localId: string;
   speed: number;
   link: LockstepLink;
+  /** The host at the start and the room's options (D38) */
+  hostId: string;
+  options: CoopRoomOptions;
 }
 
 export class CoopRefusedError extends Error {
@@ -247,6 +251,11 @@ export class CoopSession {
     this.out({ t: 'chat', text });
   }
 
+  /** Host, lobby: the room's options (D38) */
+  setOptions(options: CoopRoomOptions): void {
+    this.out({ t: 'options', options });
+  }
+
   /** Host, lobby: the map is changing here; the guests hear it before the new world comes */
   moving(): void {
     this.out({ t: 'moving' });
@@ -324,6 +333,8 @@ export class CoopSession {
           localId: this.playerId!,
           speed: message.speed,
           link,
+          hostId: message.hostId,
+          options: message.options,
         });
       }
       case 'tick':

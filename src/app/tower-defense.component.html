@@ -43,7 +43,7 @@
     (placeSpawnClick)="onPlaceSpawn($event)"
     [spawnCount]="store.spawnPoints().length"
     (addSpawnClick)="onAddSpawn()"
-    [coopRoom]="coop.room()?.code ?? null"
+    [coopChip]="coopChip()"
     (coopClick)="openCoop()"
   />
 
@@ -66,7 +66,7 @@
             <h3>Setup screen did not load</h3>
             <p>The screen for the map credentials could not be loaded. Check the connection and reload the page.</p>
             <div class="td-error-actions">
-              <button class="td-btn td-btn-gold" (click)="reloadPage()">Reload</button>
+              <button class="td-btn" (click)="reloadPage()">Reload</button>
             </div>
           </div>
         }
@@ -90,9 +90,9 @@
           <div class="td-error-actions">
             @if (errorOffersReload()) {
               <!-- The location dialog did not load or open: a reload fetches it again -->
-              <button class="td-btn td-btn-gold" (click)="reloadPage()">Reload</button>
+              <button class="td-btn" (click)="reloadPage()">Reload</button>
             } @else {
-              <button class="td-btn td-btn-gold" (click)="awaitingCredentials.set(true)">
+              <button class="td-btn" (click)="awaitingCredentials.set(true)">
                 Change tile credentials
               </button>
             }
@@ -226,9 +226,14 @@
              one button per ability; below the info overlay -->
         <app-ability-bar [hero]="heroBar()" [topInset]="uiStore.infoOverlayBottom()" (heroPressed)="onHeroBarPressed()" />
 
-        <!-- Coop (right of the ability bar): the players, their gold and
-             readiness, the notices and the chat below; empty outside a coop game -->
-        <app-coop-players [topInset]="uiStore.infoOverlayBottom()" />
+        <!-- Coop, bottom left: the squad and the chat; empty outside a coop game -->
+        <app-coop-squad />
+        <!-- Coop: the room dock right of the ability bar (Tab or the header chip) -->
+        @if (uiStore.coopDockOpen()) {
+          @defer {
+            <app-coop-dock />
+          }
+        }
       }
 
       <!-- Bottom centre of the map: skip intro, LOS legend and the hint box

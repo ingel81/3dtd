@@ -30,6 +30,17 @@ import { UI_SOUNDS } from '../configs/audio.config';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { relayCandidates, relayForLink, validRelayUrl, type RelaySource } from '../coop/relay-address';
+import {
+  DEFAULT_ROOM_OPTIONS,
+  changedOptions,
+  mayCheat,
+  mayPause,
+  optionLabel,
+  ROOM_OPTION_CHOICES,
+  startsWhenAllReady,
+  type CoopRoomOptions,
+  type RoomOptionKey,
+} from '../coop/room-options';
 import type { GeoPosition } from '../models/game.types';
 
 /** Two points are the same place at the precision the URL keeps. */
@@ -51,7 +62,6 @@ export interface CoopPing {
 
 export type CoopStatus = 'off' | 'connecting' | 'lobby' | 'loading-world' | 'in-game' | 'closed';
 
-/** A line the players bar shows for a few seconds */
 /** A player's part of a coop run, shown at game over (review R16) */
 export interface CoopSummaryRow {
   id: string;
@@ -69,16 +79,26 @@ export interface CoopSummaryRow {
   gold: number;
 }
 
-export interface CoopNotice {
+/**
+ * A line of the coop chat (D43): what a player wrote, or a system line
+ * (`from` null) for what happened in the room: joined, left, host, gold,
+ * connection, options.
+ */
+export interface CoopChatLine {
   id: number;
+  /** The player who wrote it; null for a system line */
+  from: string | null;
   text: string;
-  kind: 'info' | 'chat' | 'warn';
-  /** performance.now() when it came */
+  /** A system line that warns (left, connection, divergence) */
+  warn: boolean;
+  /** Date.now() when it came here */
   at: number;
 }
 
-/** Notices the bar keeps at most */
-const MAX_NOTICES = 4;
+/** Chat lines kept at most */
+const MAX_CHAT_LINES = 100;
+/** A round trip above this reads as a slow connection (the squad's lag state, D45), ms */
+export const LAG_MS = 160;
 
 /** The name the player gave last time, kept in this browser */
 const NAME_KEY = '3dtd-coop-name';
@@ -124,9 +144,11 @@ const REFUSAL_TEXT: Record<RefusalReason, string> = {
  * stream (lockstep).
  *
  * In the game the wave button means "ready"; the host starts the wave once
- * everyone is (D15). Speed and pause belong to the host. The players bar
- * (CoopPlayersComponent) reads the roster, readiness, gold and who left
- * from here; gold goes to a partner as command:give-credits.
+ * everyone is (D15), or as the room's options say (D38). The speed belongs
+ * to the host, the pause to whom the options let. The squad box
+ * (CoopSquadComponent) reads the roster, readiness, gold and who left from
+ * here; gold goes to a partner as command:give-credits. What happens in the
+ * room goes into the chat as system lines (D43).
  */
 @Injectable()
 export class CoopService {
@@ -161,7 +183,7 @@ export class CoopService {
   private pickedByHand = false;
   /** Lobby: the lane autoPick asked for, so it asks once */
   private autoPicking: string | null = null;
-  private noticeId = 1;
+  private chatId = 1;
   private waveStarter: (() => void) | null = null;
   private readyNow = false;
   /** The speed the room runs at; what the store shows is set from it (applySpeed) */
@@ -172,7 +194,16 @@ export class CoopService {
   readonly room = signal<CoopRoomInfo | null>(null);
   readonly error = signal<string | null>(null);
   readonly playerId = signal<string | null>(null);
-  readonly chat = signal<{ from: string; text: string }[]>([]);
+  /** The chat with the system lines, oldest first (D43) */
+  readonly chat = signal<readonly CoopChatLine[]>([]);
+  /** The options the running game started with (D38); the lobby reads the room's */
+  private readonly startOptions = signal<CoopRoomOptions>(DEFAULT_ROOM_OPTIONS);
+  /** The room's options: in the lobby as the host sets them, in the game as it started */
+  readonly options = computed(() => (this.inGame() ? this.startOptions() : this.room()?.options ?? DEFAULT_ROOM_OPTIONS));
+  /** This player may pause and resume (D38) */
+  readonly mayPause = computed(() => mayPause(this.options(), this.isHost()));
+  /** Cheats act in this room (relay and room allow them for someone) */
+  readonly cheatsOn = computed(() => (this.room()?.cheats ?? false) && this.options().cheats !== 'off');
   /** The relay found the simulations apart (C5): the first tick, and each player's hash there */
   readonly desync = signal<{ tick: number; hashes: [string, number][] } | null>(null);
   /** The host's world stands here too and matches it (joiner), or was sent (host) */
@@ -211,8 +242,6 @@ export class CoopService {
   readonly waitingFor = signal<string | null>(null);
   /** Each player's round trip to the relay, ms, as the relay last measured it */
   readonly rtt = signal<ReadonlyMap<string, number | null>>(new Map());
-  /** Short notices for the players bar: joined, left, host, connection, divergence, chat, gold */
-  readonly notices = signal<CoopNotice[]>([]);
   /** The players in the room play on engines that compute differently (Chrome and Firefox) */
   readonly mixedEngines = computed(() => mixedEngines(this.room()?.players.map((p) => p.client) ?? []));
   /** The room code from the URL this page was opened with (?room=), to join once the place stands */
@@ -239,7 +268,10 @@ export class CoopService {
     });
     bus.on('coop:ready-changed', (event) => {
       if (event.local) this.readyNow = event.ready;
-      if (event.allReady && this.isHost() && this.inGame()) this.ngZone.run(() => this.waveStarter?.());
+      // "Host starts" waits for the host's button alone (D38)
+      if (event.allReady && this.isHost() && this.inGame() && startsWhenAllReady(this.options())) {
+        this.ngZone.run(() => this.waveStarter?.());
+      }
     });
     bus.onLive('game:reset', () => {
       if (!this.inGame()) return;
@@ -262,6 +294,7 @@ export class CoopService {
       if (event.ready) next.add(event.playerId);
       else next.delete(event.playerId);
       this.readyIds.set(next);
+      if (event.ready) this.notify(`${this.nameOf(event.playerId)} is ready for the next wave`);
     });
     bus.onLive('coop:player-left', (event) => {
       if (this.inGame()) this.leftIds.set(new Set(this.leftIds()).add(event.playerId));
@@ -524,10 +557,28 @@ export class CoopService {
       ?? playerId;
   }
 
-  /** A notice for the players bar; the oldest goes once there are MAX_NOTICES. */
-  notify(text: string, kind: CoopNotice['kind'] = 'info'): void {
-    const notice = { id: this.noticeId++, text, kind, at: performance.now() };
-    this.notices.update((list) => [...list.slice(-(MAX_NOTICES - 1)), notice]);
+  /** A system line in the chat (D43): what happened in the room */
+  notify(text: string, kind: 'info' | 'warn' = 'info'): void {
+    this.addChatLine(null, text, kind === 'warn');
+  }
+
+  private addChatLine(from: string | null, text: string, warn = false): void {
+    const line: CoopChatLine = { id: this.chatId++, from, text, warn, at: Date.now() };
+    this.chat.update((lines) => [...lines.slice(-(MAX_CHAT_LINES - 1)), line]);
+  }
+
+  /** The player's connection is slow: a round trip over LAG_MS (D45) */
+  lagging(playerId: string): boolean {
+    const rtt = this.rtt().get(playerId) ?? null;
+    return rtt !== null && rtt > LAG_MS;
+  }
+
+  /** Host, lobby: set one option of the room; the relay asks the guests for ready again (D38) */
+  setOption(key: RoomOptionKey, value: string): void {
+    if (!this.isHost() || this.inGame() || !this.session) return;
+    const known = ROOM_OPTION_CHOICES.find((o) => o.key === key)?.choices.some((c) => c.value === value);
+    if (!known || this.options()[key] === value) return;
+    this.session.setOptions({ ...this.options(), [key]: value });
   }
 
   /** Lobby: another name for this player. */
@@ -672,9 +723,8 @@ export class CoopService {
     this.session?.ready(ready);
   }
 
-  /** Host: start the game. Starting is the host's "ready": the relay wants everyone ready, the host too. */
+  /** Host: start the game. The host is always ready (D40); the relay wants every guest ready. */
   start(): void {
-    this.session?.ready(true);
     this.session?.start(newRunSeed());
   }
 
@@ -700,13 +750,13 @@ export class CoopService {
     this.session = null;
     this.gameState.setLockstep(null);
     this.gameState.setLosRole(null);
-    this.gameState.cheatsBlocked = false;
+    this.gameState.setCheatRule(null);
     this.status.set('off');
     this.room.set(null);
     this.worldReady.set(false);
     this.desync.set(null);
     this.roster.set([]);
-    this.notices.set([]);
+    this.chat.set([]);
     this.rtt.set(new Map());
     this.waitingFor.set(null);
     this.inputHandler.setForeignTowerClick(null);
@@ -840,9 +890,16 @@ export class CoopService {
     session.onRoom = inZone((room) => {
       const before = this.room();
       this.room.set(room);
+      if (!before) this.notify(`Room ${room.code} ${room.hostId === this.playerId() ? 'opened' : 'joined'}`);
       if (before && !room.started) {
         for (const p of room.players) {
           if (p.id !== this.playerId() && !before.players.some((b) => b.id === p.id)) this.notify(`${p.name} joined`);
+        }
+        // The host changed an option: everyone reads it in the chat (D38)
+        const host = this.nameOf(room.hostId);
+        for (const key of changedOptions(before.options, room.options)) {
+          const label = ROOM_OPTION_CHOICES.find((o) => o.key === key)!.label;
+          this.notify(`${host} set ${label}: ${optionLabel(key, room.options[key])}`);
         }
       }
       if (this.autoPicking !== null && room.players.some((p) => p.id === this.playerId() && p.spawnId !== null)) {
@@ -877,11 +934,7 @@ export class CoopService {
       if (hostId === this.playerId() && this.inGame()) this.gameState.setLosRole('host');
       this.notify(hostId === this.playerId() ? 'You are the host now' : `${this.nameOf(hostId)} is the host now`);
     });
-    session.onChat = inZone((from, text) => {
-      this.chat.update((lines) => [...lines.slice(-49), { from, text }]);
-      // In the game the chat has its own place (CoopChatComponent); in the lobby a notice shows it
-      if (from !== this.playerId() && !this.inGame()) this.notify(`${this.nameOf(from)}: ${text}`, 'chat');
-    });
+    session.onChat = inZone((from, text) => this.addChatLine(from, text));
     session.onRefused = inZone((reason) => {
       // Taken out of the room: this player is out of it here too
       if (reason === 'kicked') this.leave();
@@ -1005,8 +1058,10 @@ export class CoopService {
     gsm.setLanes(start.lanes);
     gsm.setLosRole(this.isHost() ? 'host' : 'guest');
     gsm.setLockstep(start.link);
-    // The relay decides: a cheat it lets through acts on every client alike
-    gsm.cheatsBlocked = !(this.room()?.cheats ?? false);
+    // The relay and the room's rule decide (D38): a cheat acts on every client alike or on none
+    const relayAllows = this.room()?.cheats ?? false;
+    gsm.setCheatRule((playerId) => mayCheat(start.options, relayAllows, playerId, start.hostId));
+    this.startOptions.set(start.options);
     this.inputHandler.setForeignTowerClick((towerId) => this.sayWhoseTower(towerId));
     this.readyNow = false;
     this.desync.set(null);
@@ -1019,7 +1074,6 @@ export class CoopService {
     this.readyIds.set(new Set());
     this.leftIds.set(new Set());
     this.gold.set(new Map(start.players.map((id) => [id, gsm.creditsOf(id)])));
-    this.notices.set([]);
     this.applySpeed(start.speed);
     this.counts.clear();
     this.summary.set(null);
@@ -1035,17 +1089,21 @@ export class CoopService {
   }
 
   /**
-   * The store changed here: in the game the host asks the room for it. A
-   * guest asks for pause and resume only (the relay lets them) and goes back
-   * to the room's speed.
+   * The store changed here: in the game the host asks the room for the
+   * speed. Pause and resume go to the room where the room lets this player
+   * (D38); anything else goes back to what the room has.
    */
   private followLocalSpeed(speed: number, paused: boolean): void {
     if (!this.inGame() || (speed === this.roomSpeed && paused === this.roomPaused)) return;
-    if (this.isHost()) {
-      this.session?.setSpeed(paused ? 0 : speed);
+    const pausing = paused !== this.roomPaused;
+    if (pausing && this.mayPause()) {
+      this.session?.setSpeed(paused ? 0 : this.roomSpeed);
       return;
     }
-    if (paused !== this.roomPaused) this.session?.setSpeed(paused ? 0 : this.roomSpeed);
+    if (!pausing && this.isHost()) {
+      this.session?.setSpeed(speed);
+      return;
+    }
     this.gameStore.paused.set(this.roomPaused);
     this.gameStore.gameSpeed.set(this.roomSpeed);
   }

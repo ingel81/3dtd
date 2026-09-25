@@ -17,6 +17,7 @@ export function singlePlayer<T extends object>(gsm: T): T {
     localPlayerId: LOCAL_PLAYER_ID,
     towerPolicy: OWNER_ONLY,
     runAs: <R>(_playerId: string, fn: () => R): R => fn(),
+    mayCheat: () => true,
     creditsOf: () => credits?.() ?? 0,
     selectableTower: (id: string | null) => id,
     researchOf: () => research,

@@ -299,9 +299,30 @@
   padding: 0 6px;
 }
 
-.coop-room {
+/* Coop room (docs/COOP_PLAN.md, C8): code, a square per player, seats; the
+   coop button in its active state, no chip of its own */
+.coop-btn {
+  white-space: nowrap;
+
+  small {
+    font: 10.5px var(--td-font-mono);
+    color: var(--td-text-muted);
+  }
+}
+
+.room-code {
   font: 600 12px/1 var(--td-font-mono);
   letter-spacing: 0.06em;
+}
+
+.room-dots {
+  display: flex;
+  gap: 3px;
+
+  b {
+    width: 7px;
+    height: 7px;
+  }
 }
 
 .action-divider {

@@ -330,8 +330,8 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     const relay = new LocalRelay(true);
     const a = buildClient(relay, 'a');
     const b = buildClient(relay, 'b');
-    a.gsm.cheatsBlocked = true;
-    b.gsm.cheatsBlocked = true;
+    a.gsm.setCheatRule(() => false);
+    b.gsm.setCheatRule(() => false);
     const credits = a.gsm.creditsOf('a');
     a.emit({ type: 'debug:add-credits', amount: 1000 });
     // A changed client that sends it anyway: the others ignore it too
@@ -343,6 +343,30 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     }
     expect(a.gsm.creditsOf('a')).toBe(credits);
     expect(b.gsm.creditsOf('a')).toBe(credits);
+  });
+
+  it("lets the host's cheat act on every client and drops the guest's, with cheats host only (D38)", () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const hostOnly = (id: string) => id === 'a';
+    a.gsm.setCheatRule(hostOnly);
+    b.gsm.setCheatRule(hostOnly);
+    const credits = { a: a.gsm.creditsOf('a'), b: a.gsm.creditsOf('b') };
+    a.emit({ type: 'debug:add-credits', amount: 1000 });
+    // The guest's own client does not send it; a changed one would, and nobody takes it
+    b.emit({ type: 'debug:add-credits', amount: 1000 });
+    b.link.send({ type: 'debug:add-credits', amount: 1000 });
+    for (let t = 0; t < 3; t++) {
+      relay.closeTick();
+      a.frame(TICK_SUB_STEPS * 17);
+      b.frame(TICK_SUB_STEPS * 17);
+    }
+    for (const client of [a, b]) {
+      expect(client.gsm.creditsOf('a')).toBe(credits.a + 1000);
+      expect(client.gsm.creditsOf('b')).toBe(credits.b);
+    }
   });
 
   it('keeps both alike through a debug-panel wave and a kill-all in it (playtest T11)', () => {

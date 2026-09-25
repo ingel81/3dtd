@@ -138,8 +138,8 @@ export class GameCommandsHandler {
 
   private readonly receive = (event: GameEvent): void => {
     if (this.replaying) return;
-    // Coop: cheats are off, they do not even go out (the relay drops them too)
-    if (isDebugCommand(event) && this.gsm.cheatsBlocked) return;
+    // Coop: a cheat this player may not use does not even go out (the relay drops it too)
+    if (isDebugCommand(event) && !this.gsm.mayCheat(this.gsm.localPlayerId)) return;
     if (this.lockstep) {
       this.lockstep.send(toPlainData(event) as Parameters<LockstepLink['send']>[0]);
       return;
@@ -162,7 +162,7 @@ export class GameCommandsHandler {
     // A player not in the run gives no command; logged as an input all the same
     if (!this.gsm.players.includes(playerId)) return;
     // Coop: a cheat from a changed client does nothing, on every client alike
-    if (isDebugCommand(event) && this.gsm.cheatsBlocked) return;
+    if (isDebugCommand(event) && !this.gsm.mayCheat(playerId)) return;
     // Values out of range act nowhere either (docs/COOP_PLAN.md, S4)
     const problem = commandProblem(event as unknown as Parameters<typeof commandProblem>[0]);
     if (problem) {
@@ -389,7 +389,7 @@ export class GameCommandsHandler {
   }
 }
 
-/** A dev tool's command (debug:*): off in coop, see GameStateManager.cheatsBlocked */
+/** A dev tool's command (debug:*): in coop as the room's rule says, see GameStateManager.setCheatRule */
 function isDebugCommand(event: GameEvent): boolean {
   return event.type.startsWith('debug:');
 }

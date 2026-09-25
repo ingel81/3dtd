@@ -5,7 +5,8 @@
  * engine are fakes; the world package is a stand-in that says which place
  * and spawns it is. What it pins: opening and joining a room, the lane each
  * player gets by itself, the start once the guest is ready, the host's
- * rights (take out, close), the notices, a relay that is not there, and
+ * rights (take out, close), the room's options, the system lines of the
+ * chat, a relay that is not there, and
  * going on alone after the connection broke.
  */
 // The service is partially compiled and needs the JIT compiler
@@ -74,7 +75,6 @@ function player(relayPort: number) {
     stateHash: () => 1,
     players: [] as string[],
     lockstepActive: false,
-    cheatsBlocked: false,
     towerManager: withAutoStubs({ getById: () => null }),
     setPlayers: vi.fn((players: string[]) => { gsm.players = [...players]; }),
   });
@@ -151,7 +151,7 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(new Set(room.players.map((p) => p.spawnId))).toEqual(new Set(['spawn-1', 'spawn-2']));
     expect(host.coop.isHost()).toBe(true);
     expect(guest.coop.isHost()).toBe(false);
-    await until(() => host.coop.notices().some((n) => n.text === 'Bob joined'));
+    await until(() => host.coop.chat().some((line) => line.from === null && line.text === 'Bob joined'));
   });
 
   it('starts once the guest is ready, with the roster and the relay’s lockstep on both', async () => {
@@ -181,7 +181,32 @@ describe('CoopService over a real relay (review R21)', () => {
     const { host, guest } = await lobby();
     host.hq.set({ lat: 48.78, lon: 9.19 });
     await until(() => guest.coop.hostChangingMap());
-    await until(() => guest.coop.notices().some((n) => n.text === 'Ann is changing the map, it comes here next'));
+    await until(() => guest.coop.chat().some((line) => line.text === 'Ann is changing the map, it comes here next'));
+  });
+
+  it('takes the options from the host, asks the guest for ready again and tells both in the chat (D38)', async () => {
+    const { host, guest } = await lobby();
+    guest.coop.setLobbyReady(true);
+    await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.ready);
+    guest.coop.setOption('pause', 'all');
+    host.coop.setOption('pause', 'all');
+    await until(() => guest.coop.options().pause === 'all');
+    expect(guest.coop.room()!.players.find((p) => p.name === 'Bob')!.ready).toBe(false);
+    for (const side of [host, guest]) {
+      await until(() => side.coop.chat().some((line) => line.from === null && line.text === 'Ann set Pause: Anyone'));
+    }
+    expect(guest.coop.mayPause()).toBe(true);
+  });
+
+  it('starts without the host saying ready, and hands every client the cheat rule of the room (D38, D40)', async () => {
+    const { host, guest } = await lobby();
+    guest.coop.setLobbyReady(true);
+    await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.ready);
+    host.coop.start();
+    await until(() => host.coop.inGame() && guest.coop.inGame());
+    const rule = vi.mocked(guest.gsm.setCheatRule).mock.lastCall![0]!;
+    // Cheats off by default: nobody, the host neither
+    expect(rule(host.coop.playerId()!)).toBe(false);
   });
 
   it('says so when no relay answers', async () => {

@@ -114,8 +114,8 @@ export class GameHeaderComponent {
   readonly spawnCount = input(1);
   readonly spawnMenuOpen = signal(false);
   readonly spawnIndexes = computed(() => Array.from({ length: this.spawnCount() }, (_, i) => i));
-  /** Coop: the room code while in one, null otherwise */
-  readonly coopRoom = input<string | null>(null);
+  /** Coop: the room while in one (code, a lane colour per player or null without a lane, seats), null otherwise */
+  readonly coopChip = input<{ code: string; colors: (string | null)[]; max: number } | null>(null);
   readonly coopClick = output<void>();
 
   // Internal state
