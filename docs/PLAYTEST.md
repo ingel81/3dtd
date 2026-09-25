@@ -283,6 +283,40 @@ Nach dem Test vom 2026-09-24 (Relay neu starten, er kennt die Cheats und die Gas
   **ok (2026-09-25):** „deutlich besser“, Gegner ruckeln nicht mehr, der Tower nur „etwas besser“. Log: bei beiden
   `blocked` 0 %, `behind` 0,9, Eingabe 83 bis 98 ms bei Tempo 1, 0 Abweichungen.
 
+Nach der Nacht zum 2026-09-25 (Relay neu starten, Protokoll 5; beide Fenster neu laden). Offen von oben: T25, T27.
+
+- **T30 Kürzere Ticks**: Coop mit zwei Fenstern, 1 min Welle, 1 min Tower bemannen. Erwartung: flüssig wie in T29, der
+  Tower spürbar direkter. Im Relay-Log in den `stats`-Zeilen `input` etwa 40 bis 70 ms (vorher ~95).
+- **T31 Schuss beim Klick**: Im Coop einen Tower bemannen, einzelne Klicks. Erwartung: Mündungsfeuer, Ton und Rückstoß
+  sofort beim Klick, nicht doppelt; Projektil und Treffer kurz danach.
+- **T32 Panel unter der FPS-Anzeige**: Raum öffnen: Das Panel steht links unter dem Info-Overlay oben links, auch wenn
+  man das Overlay auf- und zuklappt; es reicht nicht unter den Fensterrand.
+- **T33 Du oben in der Leiste**: Im Spiel steht man selbst oben in der Spieler-Leiste, etwas größer, mit „you“; der
+  Host trägt „host“. Beim Gast: der Host steht an zweiter Stelle.
+- **T34 Warten auf den Langsamsten (R2)**: Im Spiel das Gast-Fenster 10 s minimieren. Erwartung: Nach etwa 3 s steht
+  das Spiel beim Host, „Waiting for … to catch up“, in der Leiste beim Gast „catching up“; nach dem Zurückholen läuft
+  es weiter. Im Relay-Log „waiting for … to catch up“.
+- **T35 Hinweis beim Beitritt (R11)**: Startbildschirm des Panels: unter dem Raum-Feld der Satz, dass die Seite beim
+  Beitritt neu laden kann.
+- **T36 Rauswerfen und Schließen (R9)**: Host drückt in der Lobby das × beim Gast: Der Gast ist raus mit „The host took
+  you out of the room.“. Host hakt „Closed to new players“ an, ein weiterer Beitritt bekommt „The host closed the room
+  to new players.“.
+- **T37 Ohne Kartenschlüssel (R8)**: Einladungslink in einem Inkognito-Fenster öffnen. Erwartung: Token-Bildschirm mit
+  dem Satz zum Coop-Raum, Panel sagt „Enter your map key first“. Schlüssel eintragen: Karte lädt, Beitritt von selbst.
+- **T38 Allein weiter (R10)**: Im Spiel den Relay beenden (Strg+C). Unter der Meldung „Continue alone“: Klick, das Spiel
+  läuft als Einzelspieler weiter, die Lane des anderen ist zu.
+- **T39 Chat unten links (R12)**: Im Spiel Enter: Eingabezeile unten links, Text, Enter schickt, Esc schließt. Beim
+  anderen erscheint die Zeile unten links, nicht mehr unter der Spieler-Leiste.
+- **T40 Karten-Ping (R13)**: Im Spiel X, dann auf die Karte klicken: Bei beiden steht dort „▼ Name“ in der Lane-Farbe
+  mit Ton, beim anderen die Meldung „… marked a place on the map“. X und Esc bricht ab.
+- **T41 Tower des Partners (R14)**: Der Partner baut einen Tower: Bei dir trägt er einen Ring in seiner Lane-Farbe.
+  Klick darauf: „That is …'s tower“.
+- **T42 Lecks je Lane (R15)**: Gegner durchlassen: In der Leiste beim Spieler, dessen Lane es war, „N through“ in
+  Orange; mit der nächsten Welle wieder weg.
+- **T43 Game over im Coop (R16)**: HQ fallen lassen: unter der Zusammenfassung eine Tabelle je Spieler (Kills, Leaks,
+  Towers, Gold given, Gold). In „Runs“ steht der Lauf als „coop: Ann, Bob“; die Weltkarte zeigt keinen neuen Rekord
+  aus dem Coop-Lauf.
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei
