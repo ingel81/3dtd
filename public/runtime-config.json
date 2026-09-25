@@ -1,5 +1,8 @@
 {
   "tileProvider": "cesium",
   "cesiumIonToken": "",
-  "cesiumAssetId": "2275207"
+  "cesiumAssetId": "2275207",
+  "coopLobbies": [
+    { "name": "3DTD Lobby", "url": "wss://3dtd-lobby.sgeht.net", "desktopOnly": true }
+  ]
 }

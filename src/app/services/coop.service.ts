@@ -286,7 +286,7 @@ export class CoopService {
   private readonly storedLobbies = signal<StoredLobbies>(CoopService.readLobbies());
   /** Every online lobby: the site's, then the player's */
   readonly lobbies = computed<readonly Lobby[]>(() => {
-    const site = builtInLobbies(this.config.coopLobbies(), this.config.coopRelay());
+    const site = builtInLobbies(this.config.coopLobbies(), this.config.coopRelay(), readDesktopBridge() !== null);
     // The dev game without a lobby of its own: `npm run coop-server` on this machine
     if (site.length === 0 && DEV_HOSTS.has(window.location.hostname)) {
       site.push({ url: `ws://localhost:${DEFAULT_RELAY_PORT}`, name: 'This machine', builtIn: true });

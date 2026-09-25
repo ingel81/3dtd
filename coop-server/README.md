@@ -42,15 +42,18 @@ app, D59).
    - Restart policy: unless stopped
 
    Or with compose: [docker-compose.example.yml](docker-compose.example.yml).
-3. **Tunnel:** in Cloudflare Zero Trust, Networks, Tunnels, your tunnel, Public Hostname: `lobby.3dtd.sgeht.net`,
+3. **Tunnel:** in Cloudflare Zero Trust, Networks, Tunnels, your tunnel, Public Hostname: `3dtd-lobby.sgeht.net`,
    service `HTTP`, URL `3dtd-relay:3003` (the container's name). WebSockets pass by default.
 4. **The game:** `runtime-config.json` of the web build and the app names the lobby:
 
    ```json
-   { "coopLobbies": [{ "name": "3DTD Lobby", "url": "wss://lobby.3dtd.sgeht.net" }] }
+   { "coopLobbies": [{ "name": "3DTD Lobby", "url": "wss://3dtd-lobby.sgeht.net", "desktopOnly": true }] }
    ```
 
-5. **Check:** `https://lobby.3dtd.sgeht.net/status` answers `not here` from outside (the status page is local only);
+   `desktopOnly` keeps it out of the web version, whose pages the lobby refuses (D59). Use a name one level under
+   the domain: Cloudflare's free certificate covers `*.sgeht.net`, not `*.3dtd.sgeht.net`.
+
+5. **Check:** `https://3dtd-lobby.sgeht.net/status` answers `not here` from outside (the status page is local only);
    in the game, Online, the gear, "Check 3DTD Lobby" says the lobby answers.
 
 **With every release** the relay has to speak the apps' protocol: pull the new image (Docker-Host: "Update" on the
@@ -64,7 +67,7 @@ names, deleted after 14 days. It never stores IP addresses; behind the tunnel it
 
 A paragraph for the privacy notice of the landing page:
 
-> **Online coop.** If you play coop online, your game connects to our lobby server (lobby.3dtd.sgeht.net, run through
+> **Online coop.** If you play coop online, your game connects to our lobby server (3dtd-lobby.sgeht.net, run through
 > Cloudflare). It passes your moves to the other players of your room. The server keeps a log with the time, the room
 > code and the name you chose, for 14 days, to find errors; it does not store IP addresses. Cloudflare processes the
 > connection as our network provider. Coop on the same network (LAN) does not use the lobby.
