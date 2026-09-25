@@ -320,7 +320,13 @@
         </div>
         <div class="or">OR</div>
         <div class="card">
-          <h3><td-icon name="search" [size]="16"></td-icon>Games on this network</h3>
+          <h3>
+            <td-icon name="search" [size]="16"></td-icon>Games on this network
+            <button class="icon-btn sm refresh" type="button" (click)="rescanLan()"
+                    matTooltip="Search again" aria-label="Search the network again">
+              <td-icon name="refresh" [size]="14" [class.spin]="rescanning()"></td-icon>
+            </button>
+          </h3>
           @if (lanGames().length) {
             <ul class="lan-list">
               @for (game of lanGames(); track game.code) {
@@ -337,7 +343,7 @@
           } @else {
             <p class="note with-icon" role="status"><td-icon class="spin" name="refresh" [size]="13"></td-icon>Looking for games on this network…</p>
           }
-          @if (lanQuiet()) {
+          @if (lanQuiet() && !lanGames().length) {
             <div class="row">
               <input class="inp" type="text" maxlength="15" placeholder="Host IP, e.g. 192.168.1.5" aria-label="Host IP"
                      [value]="hostIp()" (input)="hostIp.set($any($event.target).value)" (keydown.enter)="probeLan()" />

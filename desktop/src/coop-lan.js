@@ -123,11 +123,9 @@ function setUpCoopLan({ ipcMain, utilityProcess, relayPath, log, isAppSender, fe
     if (isAppSender(event)) stopRelay();
   });
 
-  ipcMain.on('desktop:lan-scan', (event, on) => {
-    if (!isAppSender(event)) return;
+  const startScan = (sender) => {
     stopScan();
-    if (!on) return;
-    scanTarget = event.sender;
+    scanTarget = sender;
     const target = scanTarget;
     scanner = createLanScanner({
       log: (line) => log.info(line),
@@ -138,12 +136,27 @@ function setUpCoopLan({ ipcMain, utilityProcess, relayPath, log, isAppSender, fe
     target.once('destroyed', () => {
       if (scanTarget === target) stopScan();
     });
+  };
+
+  ipcMain.on('desktop:lan-scan', (event, on) => {
+    if (!isAppSender(event)) return;
+    if (on) startScan(event.sender);
+    else stopScan();
+  });
+
+  // Another listener joined the running scan: it hears the list at once
+  ipcMain.on('desktop:lan-games-again', (event) => {
+    if (!isAppSender(event)) return;
+    if (!scanner) startScan(event.sender);
+    else if (!event.sender.isDestroyed()) event.sender.send('desktop:lan-games', scanner.games());
   });
 
   // The host IP field (D54): ask that address directly by UDP, and read its
   // relay's status page, which goes through where UDP does not
   ipcMain.handle('desktop:lan-probe', async (event, ip) => {
-    if (!isAppSender(event) || !scanner) return false;
+    if (!isAppSender(event)) return false;
+    // Asked without a scan running (the list was closed meanwhile): start one for the answer
+    if (!scanner) startScan(event.sender);
     if (!scanner.probe(String(ip ?? ''))) return false;
     const found = await Promise.all(PROBE_PORTS.map(async (port) => {
       try {

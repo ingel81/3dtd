@@ -450,6 +450,12 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   B am Kabel; einer mit VPN an. Findet B nichts: nach 4 s kommt das Feld „Host IP“, A zeigt seine Adresse im Raumkopf
   hinter „LAN“. Schon geprüft (2026-09-25, ein Rechner): Relay startet aus `app.asar`, die Suche findet ihn über alle
   drei Adapter, „Leave“ beendet ihn.
+  **ok (2026-09-25, zwei Rechner, Firewall am Host aus):** Liste findet den Raum ohne IP, Beitritt, Karte zieht zum Ort
+  des Hosts, Match mit einer Welle und Towern auf beiden Seiten, Tick 5734 ohne Abweichung, Laufzeit unter 1 ms.
+  „Ask“ mit IP findet den Raum über `/status`. Gefunden und behoben: eine zweite Suche beendete die der Liste (danach
+  „No game answered“ trotz Eintrag), das IP-Feld blieb bei gefüllter Liste stehen; neu ein Knopf „Search again“.
+  Offen: die Frage der Windows-Firewall beim Hosten; der Weg vom Start der App bis in den Raum (E30), die Wege übers
+  Internet (E31).
 - **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
   des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
   aus. Bisher nur per Spec geprüft.
