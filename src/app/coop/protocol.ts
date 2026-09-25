@@ -11,8 +11,12 @@ import type { StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 import type { CoopRoomOptions } from './room-options';
 
-/** Bumped whenever a message changes shape; client and relay must agree. */
-export const PROTOCOL_VERSION = 7;
+/**
+ * Bumped whenever a message changes shape; client and relay must agree.
+ * Back to 1 before the first release (User, 2026-09-25): the numbers up to
+ * then were development steps only.
+ */
+export const PROTOCOL_VERSION = 1;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
