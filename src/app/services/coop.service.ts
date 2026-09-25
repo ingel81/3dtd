@@ -38,6 +38,17 @@ function samePlace(a: GeoPosition, b: GeoPosition): boolean {
     && a.lon.toFixed(COORD_DECIMALS) === b.lon.toFixed(COORD_DECIMALS);
 }
 
+/** A mark on the map one player set for all (review R13) */
+export interface CoopPing {
+  id: number;
+  name: string;
+  /** Lane colour, CSS */
+  color: string;
+  lat: number;
+  lon: number;
+  height: number;
+}
+
 export type CoopStatus = 'off' | 'connecting' | 'lobby' | 'loading-world' | 'in-game' | 'closed';
 
 /** A line the players bar shows for a few seconds */
@@ -130,8 +141,14 @@ export class CoopService {
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly locationFacade = inject(LocationFacadeService);
+  /** Host: the guests heard the map is changing (PLAYTEST T25); again once it was sent */
+  private movingSaid = false;
+  /** Guest, lobby: the host said the map is changing, until the new world is here */
+  readonly hostChangingMap = signal(false);
   /** Host: the map last sent to the room (mapSignature), see shareChangedMap */
   private sharedMap = '';
+  /** sharedMap as a signal, for the effect that tells the guests the map changes */
+  private readonly sharedMapNow = signal('');
   /** Host: the latest shareChangedMap, an older one gives way */
   private shareRun = 0;
   /** Host: adding a spawn for a lane the room lacks, see fillLanes */
@@ -183,6 +200,9 @@ export class CoopService {
   readonly waveLeaks = signal<ReadonlyMap<string, number>>(new Map());
   /** G was pressed: the next click on the map is a ping (review R13) */
   readonly pingArmed = signal(false);
+  /** The map marks showing now, for the arrows at the view edge (CoopPingArrowsComponent) */
+  readonly pings = signal<readonly CoopPing[]>([]);
+  private pingSeq = 0;
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
   readonly lanes = signal<ReadonlyMap<string, LaneStat>>(new Map());
   /** This browser has no map key yet: the token screen asks for it first (review R8) */
@@ -294,6 +314,18 @@ export class CoopService {
         if (signature !== this.sharedMap) void this.shareChangedMap();
       });
     }, { injector: this.injector });
+    // Host, lobby: the guests hear at once that the map changes (a dice, a
+    // search, a spawn set), not only once the new world comes (PLAYTEST T25)
+    effect(() => {
+      const changing = this.engineInit.loading() || this.mapSignature() !== this.sharedMapNow();
+      const room = this.room();
+      if (!changing || !room || room.started || !this.isHost() || room.players.length < 2) return;
+      untracked(() => {
+        if (this.movingSaid || !this.session) return;
+        this.movingSaid = true;
+        this.session.moving();
+      });
+    }, { injector: this.injector });
 
     // The map belongs to the room (R4): locked in the game, and for a guest in the lobby
     effect(() => {
@@ -387,6 +419,8 @@ export class CoopService {
     this.session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
     this.lanes.set(laneStats(this.gameState.getCachedPaths(), LANE_WALK_SPEED_MPS));
     this.sharedMap = this.mapSignature();
+    this.sharedMapNow.set(this.sharedMap);
+    this.movingSaid = false;
     this.worldReady.set(true);
   }
 
@@ -582,12 +616,20 @@ export class CoopService {
   private showPing(from: string, lat: number, lon: number, height: number): void {
     const engine = this.engineInit.getEngine();
     if (!engine) return;
-    engine.effects.spawnFloatingText(`▼ ${this.nameOf(from)}`, lat, lon, height + 8, {
-      color: this.laneColorOf(from),
+    const name = this.nameOf(from);
+    const color = this.laneColorOf(from);
+    engine.effects.spawnFloatingText(`▼ ${name}`, lat, lon, height + 8, {
+      color,
       duration: PING_MS,
       floatSpeed: 0.4,
-      scale: 1.3,
+      scale: 2.2,
     });
+    // Rings growing out of the place, seen from afar (PLAYTEST T40)
+    engine.abilityMarkers.showPing(engine.sync.geoToLocalSimple(lat, lon, height), this.laneColorNumberOf(from) ?? 0xffffff);
+    // An arrow at the view edge while the camera looks elsewhere
+    const ping: CoopPing = { id: ++this.pingSeq, name, color, lat, lon, height };
+    this.pings.update((all) => [...all, ping]);
+    setTimeout(() => this.pings.update((all) => all.filter((p) => p !== ping)), PING_MS);
     const tone = UI_SOUNDS.coopPing;
     const audio = engine.spatialAudio;
     if (!audio.getSoundConfig(tone.id)) audio.registerSound(tone.id, toneWavDataUrl(tone.notes), { volume: tone.volume });
@@ -670,6 +712,9 @@ export class CoopService {
     this.inputHandler.setForeignTowerClick(null);
     this.summary.set(null);
     this.counts.clear();
+    this.hostChangingMap.set(false);
+    this.movingSaid = false;
+    this.pings.set([]);
     this.pickedByHand = false;
     this.autoPicking = null;
   }
@@ -815,6 +860,10 @@ export class CoopService {
     session.onSpeed = inZone((speed) => this.applySpeed(speed));
     session.onRtt = inZone((rtt) => this.rtt.set(new Map(rtt)));
     session.onPing = inZone((from, lat, lon, height) => this.showPing(from, lat, lon, height));
+    session.onMoving = inZone(() => {
+      this.hostChangingMap.set(true);
+      this.notify(`${this.nameOf(this.room()?.hostId ?? '')} is changing the map, it comes here next`);
+    });
     session.onWaiting = inZone((playerId) => {
       this.waitingFor.set(playerId);
       if (playerId) {
@@ -859,6 +908,7 @@ export class CoopService {
    */
   private async takeWorld(data: unknown): Promise<void> {
     if (this.isHost()) return;
+    this.hostChangingMap.set(false);
     const read = readWorldPackage(JSON.stringify(data), this.head());
     if (!read.world) {
       this.error.set(worldPackageRefusalText(read.refusal));

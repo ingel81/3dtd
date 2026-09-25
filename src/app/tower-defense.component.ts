@@ -45,7 +45,6 @@ import { ContextHintComponent, HintAction, HintItem } from './components/context
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
 import { CoopPlayersComponent } from './components/coop-players/coop-players.component';
-import { CoopChatComponent } from './components/coop-chat/coop-chat.component';
 import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
 import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
@@ -97,6 +96,7 @@ import { IntroSkipComponent } from './components/intro-skip/intro-skip.component
 import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { LeakVignetteComponent } from './components/leak-vignette/leak-vignette.component';
 import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/offscreen-indicators.component';
+import { CoopPingArrowsComponent } from './components/coop-ping-arrows/coop-ping-arrows.component';
 import { BloodMoonBannerComponent } from './components/blood-moon-banner/blood-moon-banner.component';
 import { RelocationStatusComponent } from './components/relocation-status/relocation-status.component';
 import { UpdateHintComponent } from './components/update-hint/update-hint.component';
@@ -155,7 +155,6 @@ import { COOP } from './services/coop.token';
     GameSpeedComponent,
     BossBarComponent,
     CoopPlayersComponent,
-    CoopChatComponent,
     LoadingScreenComponent,
     TdIconComponent,
     LosLegendComponent,
@@ -163,6 +162,7 @@ import { COOP } from './services/coop.token';
     TokenSetupComponent,
     LeakVignetteComponent,
     OffscreenIndicatorsComponent,
+    CoopPingArrowsComponent,
     BloodMoonBannerComponent,
     RelocationStatusComponent,
     UpdateHintComponent,

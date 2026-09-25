@@ -78,6 +78,7 @@ function player(relayPort: number) {
     towerManager: withAutoStubs({ getById: () => null }),
     setPlayers: vi.fn((players: string[]) => { gsm.players = [...players]; }),
   });
+  const hq = signal(HQ);
   const injector = Injector.create({
     parent: TestBed.inject(EnvironmentInjector),
     providers: [
@@ -87,7 +88,7 @@ function player(relayPort: number) {
       { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
       { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<string | null>(null) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: () => false } },
-      { provide: LocationManagementService, useValue: { hq: signal(HQ), spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))) } },
+      { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))) } },
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },
       { provide: PathAndRouteService, useValue: withAutoStubs({}) },
       { provide: LocationFacadeService, useValue: withAutoStubs({ addRandomSpawn: vi.fn(async () => true) }) },
@@ -95,7 +96,7 @@ function player(relayPort: number) {
       { provide: RunLogFacade, useValue: { collector: withAutoStubs({}) } },
     ],
   });
-  return { coop: injector.get(CoopService), gsm };
+  return { coop: injector.get(CoopService), gsm, hq };
 }
 
 /** Wait for `ok`, flushing effects, up to 3 s */
@@ -174,6 +175,13 @@ describe('CoopService over a real relay (review R21)', () => {
     const late = player(relay!.port);
     await late.coop.join('Carl', host.coop.room()!.code);
     expect(late.coop.error()).toBe('The host closed the room to new players.');
+  });
+
+  it('tells the guest at once when the host changes the map (PLAYTEST T25)', async () => {
+    const { host, guest } = await lobby();
+    host.hq.set({ lat: 48.78, lon: 9.19 });
+    await until(() => guest.coop.hostChangingMap());
+    await until(() => guest.coop.notices().some((n) => n.text === 'Ann is changing the map, it comes here next'));
   });
 
   it('says so when no relay answers', async () => {

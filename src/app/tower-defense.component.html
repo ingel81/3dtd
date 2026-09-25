@@ -110,6 +110,8 @@
 
         <!-- Arrows at the edge toward bosses and enemies close to the HQ -->
         <app-offscreen-indicators />
+        <!-- Coop: arrows at the edge toward a player's mark on the map -->
+        <app-coop-ping-arrows />
 
         <!-- "Blood Moon" for a few seconds when a blood moon wave starts -->
         <app-blood-moon-banner />
@@ -225,10 +227,8 @@
         <app-ability-bar [hero]="heroBar()" [topInset]="uiStore.infoOverlayBottom()" (heroPressed)="onHeroBarPressed()" />
 
         <!-- Coop (right of the ability bar): the players, their gold and
-             readiness, the notices below; empty outside a coop game -->
+             readiness, the notices and the chat below; empty outside a coop game -->
         <app-coop-players [topInset]="uiStore.infoOverlayBottom()" />
-        <!-- Coop chat (bottom left, Enter to write); empty outside a coop game -->
-        <app-coop-chat />
       }
 
       <!-- Bottom centre of the map: skip intro, LOS legend and the hint box
