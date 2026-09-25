@@ -624,7 +624,14 @@ Besitz-Farbe R14, Cheats nach Raum-Option (R3, D38), Bereit-Knopf C2d, Oberfläc
 - Electron: derselbe Client; im LAN hostet ein Spieler selbst. Beim ersten Hosten fragt die Windows-Firewall nach,
   und der Relay endet mit dem Spiel des Hosts.
 
-**Öffentliche Lobby (D56 bis D68): Schritt 1 gebaut 2026-09-25, Schritte 2 und 3 offen.** Schritt 1:
+**Öffentliche Lobby (D56 bis D68): Schritte 1 und 2 gebaut 2026-09-25, Schritt 3 offen.** Schritt 2:
+`coop-server/Dockerfile` (Bündel mit esbuild, `node:24-alpine`, Nutzer `node`, Standard-Argumente der Lobby
+`--status local --log-days 14 --origins app://app`), Job `relay-image` im Release-Workflow nach
+`ghcr.io/ingel81/3dtd-relay`, Relay-Optionen `--status local` (Anfragen mit `CF-Connecting-IP` bekommen 404),
+`--log-dir`, `--log-days` (eine Datei je Tag), Anleitung für Docker-Host und Tunnel mit Absatz für die
+Datenschutzerklärung in `coop-server/README.md`. Offen beim User: Container und Tunnel einrichten, Paket auf GHCR
+öffentlich stellen, dann `coopLobbies` in `public/runtime-config.json`. Nicht geprüft: der Docker-Build selbst (kein
+Docker auf dem Dev-Rechner; die Schritte darin liefen einzeln). Schritt 1: Schritt 1:
 `app-coop-entry` (Name, „Same network“, „Online“ mit Zahnrad für die Lobbies) im Dock und als Reiter „Coop“ im
 Standortdialog beim Start ohne Ort; `coop/lobbies.ts`, `coopLobbies` in `runtime-config.json`, die alte Einstellung
 `3dtd-coop-relay` wird eine eigene Lobby; im Dev-Spiel auf `localhost` ohne Lobby „This machine“; Raumkopf „LAN“ oder
