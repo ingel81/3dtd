@@ -63,8 +63,26 @@ export class ConfigService {
    */
   async load(): Promise<void> {
     await this.applyRuntimeConfigFile();
+    if (ConfigService.withoutBuildKeys()) {
+      this.cesiumIonToken.set('');
+      this.googleMapsApiKey.set('');
+    }
     this.applyStoredToken();
     this.loaded.set(true);
+  }
+
+  /**
+   * `?nokey` in the URL: the keys of the build (environment.ts and
+   * runtime-config.json) do not count, only one typed into the token dialog.
+   * So a dev machine sees the page as a stranger does, e.g. an invite link
+   * in a private window (docs/PLAYTEST.md T37).
+   */
+  private static withoutBuildKeys(): boolean {
+    try {
+      return new URLSearchParams(window.location.search).has('nokey');
+    } catch {
+      return false;
+    }
   }
 
   /**

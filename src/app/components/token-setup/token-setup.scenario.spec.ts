@@ -127,6 +127,23 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     expect(screenShown(reloaded, awaitingCredentials)).toBe(true);
   });
 
+  it('with ?nokey the build keys do not count, one typed in does (PLAYTEST T37)', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => ({ ok: true, json: async () => ({ cesiumIonToken: 'from-the-file' }) })));
+    const before = window.location.href;
+    window.history.replaceState(null, '', '/?room=ABC123&nokey');
+    try {
+      const stranger = new ConfigService();
+      await stranger.load();
+      expect(stranger.needsCredentials()).toBe(true);
+      stranger.setCredentials('cesium', 'typed-in');
+      const again = new ConfigService();
+      await again.load();
+      expect(again.cesiumIonToken()).toBe('typed-in');
+    } finally {
+      window.history.replaceState(null, '', before);
+    }
+  });
+
   it('a first start without any key shows the screen, and Esc does not leave it', () => {
     expect(config.needsCredentials()).toBe(true);
     expect(screenShown(config, config.needsCredentials())).toBe(true);
