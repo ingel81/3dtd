@@ -11,13 +11,20 @@ import { CameraControlService } from '../../services/camera-control.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
-import { MAX_PLAYERS } from '../../coop/protocol';
+import { MAX_PLAYERS, type PlayerStatus } from '../../coop/protocol';
 import { clientLabel } from '../../coop/client-info';
 import { relayLabel } from '../../coop/relay-address';
 import { ROOM_OPTION_CHOICES, optionLabel, type RoomOptionKey } from '../../coop/room-options';
 import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import { GameClock } from '../../managers/game-state/game-clock';
 import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-button';
+
+/** What a player's client is doing, in their row (User, 2026-09-25); 'ready' says nothing */
+const STATUS_TEXT: Partial<Record<PlayerStatus, string>> = {
+  key: 'Entering their map key…',
+  loading: 'Loading the map…',
+  reloading: 'Reloading for the new place…',
+};
 
 /** How long "Copied" stays on a copy button, ms */
 const COPIED_MS = 1200;
@@ -146,6 +153,11 @@ export class CoopDockComponent {
     if (!this.coop.worldReady()) {
       return { go: false, segments, lead: '', text: host ? 'Sending the map…' : "Waiting for the host's map…", bold: '' };
     }
+    const busy = room.players.find((p) => p.id !== this.coop.playerId() && (p.status === 'key' || p.status === 'loading' || p.status === 'reloading'));
+    if (busy) {
+      const what = busy.status === 'key' ? ' to enter their map key' : busy.status === 'reloading' ? ' to reload' : ' to load the map';
+      return { go: false, segments, lead: 'Waiting for ', bold: busy.name, text: what };
+    }
     const noLane = room.players.find((p) => p.spawnId === null);
     if (noLane) return { go: false, segments, lead: 'Waiting for ', bold: noLane.name, text: ' to take a lane' };
     if (this.guestsReady()) {
@@ -196,6 +208,7 @@ export class CoopDockComponent {
       me: p.id === this.coop.playerId(),
       host: p.id === room.hostId,
       lane: p.spawnId === null ? 'No lane yet' : `Spawn ${room.spawnIds.indexOf(p.spawnId) + 1}`,
+      doing: p.status ? STATUS_TEXT[p.status] ?? null : null,
       color: p.spawnId === null ? 'transparent' : this.laneColor(room.spawnIds.indexOf(p.spawnId)),
       ready: p.id === room.hostId || p.ready,
       latency: this.coop.latencyTo(p.id),

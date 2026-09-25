@@ -126,7 +126,11 @@
               <small>
                 @if (p.host) { <i class="tag is-host">HOST</i> }
                 @if (p.me) { <i class="tag is-you">YOU</i> }
-                {{ p.left ? 'Left' : p.lane }}
+                @if (p.doing && !r.started) {
+                  <span class="doing">{{ p.doing }}</span>
+                } @else {
+                  {{ p.left ? 'Left' : p.lane }}
+                }
               </small>
             </div>
             @if (!r.started) {

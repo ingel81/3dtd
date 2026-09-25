@@ -88,6 +88,23 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('b', 'refused')!.reason).toBe('not-host');
   });
 
+  it("keeps and passes on what each player's client does in the lobby, known values only", () => {
+    const lines: string[] = [];
+    room = new Room('STATUS', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { log: (line) => lines.push(line) });
+    room.join(player('b'));
+    expect(last('a', 'room')!.room.players[1].status).toBeNull();
+    room.receive('b', { t: 'status', status: 'loading' });
+    expect(last('a', 'room')!.room.players[1].status).toBe('loading');
+    expect(lines.at(-1)).toBe('B (b) loads the map');
+    room.receive('b', { t: 'status', status: 'napping' } as never);
+    expect(last('a', 'room')!.room.players[1].status).toBe('loading');
+    room.receive('b', { t: 'status', status: 'ready' });
+    expect(last('a', 'room')!.room.players[1].status).toBe('ready');
+  });
+
   it('tells the guests the host changes the map, in the lobby only and from the host only (PLAYTEST T25)', () => {
     room.join(player('b'));
     room.receive('a', { t: 'moving' });

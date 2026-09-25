@@ -20,7 +20,7 @@ import {
   worldPackageRefusalText,
   type WorldPackage,
 } from '../coop/world-package';
-import type { CoopRoomInfo, RefusalReason } from '../coop/protocol';
+import type { CoopRoomInfo, PlayerStatus, RefusalReason } from '../coop/protocol';
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
@@ -95,6 +95,14 @@ export interface CoopChatLine {
   at: number;
 }
 
+/** A player's status as the chat tells the room */
+const STATUS_LINE: Record<PlayerStatus, (name: string) => string> = {
+  key: (name) => `${name} enters their map key`,
+  loading: (name) => `${name} is loading the map`,
+  reloading: (name) => `${name} reloads for the new place, back in a moment`,
+  ready: (name) => `${name}'s map stands`,
+};
+
 /** Chat lines kept at most */
 const MAX_CHAT_LINES = 100;
 /** A round trip above this reads as a slow connection (the squad's lag state, D45), ms */
@@ -163,6 +171,8 @@ export class CoopService {
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly locationFacade = inject(LocationFacadeService);
+  /** What this client told the room it is doing, see tellStatus */
+  private toldStatus: PlayerStatus | null = null;
   /** Host: the guests heard the map is changing (PLAYTEST T25); again once it was sent */
   private movingSaid = false;
   /** Guest, lobby: the host said the map is changing, until the new world is here */
@@ -360,6 +370,15 @@ export class CoopService {
       });
     }, { injector: this.injector });
 
+    // Guest, lobby: the room hears what this client is doing until its map
+    // stands: entering a map key, loading (User, 2026-09-25)
+    effect(() => {
+      const room = this.room();
+      if (!room || room.started || this.isHost()) return;
+      const status: PlayerStatus = this.worldReady() ? 'ready' : this.needsKey() ? 'key' : 'loading';
+      untracked(() => this.tellStatus(status));
+    }, { injector: this.injector });
+
     // The map belongs to the room (R4): locked in the game, and for a guest in the lobby
     effect(() => {
       const locked = this.inGame() || (this.room() !== null && !this.isHost());
@@ -555,6 +574,13 @@ export class CoopService {
     return this.room()?.players.find((p) => p.id === playerId)?.name
       ?? this.roster().find((p) => p.id === playerId)?.name
       ?? playerId;
+  }
+
+  /** Tell the room what this client is doing, once per change */
+  private tellStatus(status: PlayerStatus): void {
+    if (!this.session || this.toldStatus === status) return;
+    this.toldStatus = status;
+    this.session.tellStatus(status);
   }
 
   /** A system line in the chat (D43): what happened in the room */
@@ -767,6 +793,7 @@ export class CoopService {
     this.pings.set([]);
     this.pickedByHand = false;
     this.autoPicking = null;
+    this.toldStatus = null;
   }
 
   /**
@@ -776,12 +803,8 @@ export class CoopService {
   async joinFromUrl(): Promise<boolean> {
     const code = this.roomFromUrl;
     if (!code || this.session) return false;
-    this.status.set('loading-world');
-    if (!(await this.placeLoaded())) {
-      this.error.set("The host's map did not finish loading. Reload the page to try again.");
-      this.status.set('closed');
-      return false;
-    }
+    // At once, while the map still loads here: the host hears someone comes
+    // and what they are doing (User, 2026-09-25); the world waits for the map
     await this.join(this.name, code);
     return this.room() !== null;
   }
@@ -895,6 +918,11 @@ export class CoopService {
         for (const p of room.players) {
           if (p.id !== this.playerId() && !before.players.some((b) => b.id === p.id)) this.notify(`${p.name} joined`);
         }
+        // What the others' clients do (User, 2026-09-25)
+        for (const p of room.players) {
+          const was = before.players.find((b) => b.id === p.id)?.status ?? null;
+          if (p.id !== this.playerId() && p.status !== null && p.status !== was) this.notify(STATUS_LINE[p.status](p.name));
+        }
         // The host changed an option: everyone reads it in the chat (D38)
         const host = this.nameOf(room.hostId);
         for (const key of changedOptions(before.options, room.options)) {
@@ -909,6 +937,8 @@ export class CoopService {
       void this.fillLanes();
     });
     session.onLeft = inZone((playerId) => {
+      // Reloading for a new place: said already, and back in a moment
+      if (this.room()?.players.find((p) => p.id === playerId)?.status === 'reloading' && !this.inGame()) return;
       const name = this.nameOf(playerId);
       this.notify(this.inGame() ? `${name} left the game, their lane closes` : `${name} left`, 'warn');
     });
@@ -968,12 +998,18 @@ export class CoopService {
       return;
     }
     const world = read.world;
+    // The place loaded here first (an invite link joins while it loads)
+    this.status.set('loading-world');
+    if (!(await this.placeLoaded())) {
+      this.error.set("The host's map did not finish loading. Reload the page to try again.");
+      return;
+    }
     // Same HQ, other spawns (the host added, moved or took one away): set
     // them here too, no reload; the street network is the same
     if (this.sameHq(world) && !this.standsOn(world)) {
-      this.status.set('loading-world');
-      if (!(await this.placeLoaded())) return;
       await this.locationFacade.replaceSpawns(world.spawns.map(({ lat, lon }) => ({ lat, lon })));
+      // The routes of the new spawns rebuild here
+      if (!(await this.placeLoaded())) return;
     }
     if (!this.standsOn(world)) {
       const room = this.room()?.code ?? this.roomFromUrl ?? '';
@@ -981,16 +1017,12 @@ export class CoopService {
       // The lane goes along: autoPick takes it again after the reload
       const lane = this.room()?.players.find((p) => p.id === this.playerId())?.spawnId ?? null;
       const params = `${this.roomParams(room)}${lane ? `&lane=${encodeURIComponent(lane)}` : ''}`;
-      // Out of the room first: the browser closes the socket of a page it
-      // leaves late, and the relay kept this player in the list till then
+      // The room hears why this player goes, then out of it: the browser
+      // closes the socket of a page it leaves late, and the relay kept this
+      // player in the list till then
+      this.tellStatus('reloading');
       this.leave();
       window.location.assign(`${url}${params}`);
-      return;
-    }
-    this.status.set('loading-world');
-    const loaded = await this.placeLoaded();
-    if (!loaded) {
-      this.error.set('The place did not finish loading.');
       return;
     }
     this.adoptWorld(world);

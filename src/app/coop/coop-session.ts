@@ -1,5 +1,6 @@
 import { LockstepStats } from './lockstep-stats';
 import type { CoopRoomOptions } from './room-options';
+import type { PlayerStatus } from './protocol';
 import type { LockstepLink, StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 import {
@@ -249,6 +250,11 @@ export class CoopSession {
 
   chat(text: string): void {
     this.out({ t: 'chat', text });
+  }
+
+  /** Lobby: what this client is doing now, for the others to see */
+  tellStatus(status: PlayerStatus): void {
+    this.out({ t: 'status', status });
   }
 
   /** Host, lobby: the room's options (D38) */

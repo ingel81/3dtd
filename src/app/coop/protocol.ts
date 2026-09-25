@@ -12,10 +12,18 @@ import type { ClientInfo } from './client-info';
 import type { CoopRoomOptions } from './room-options';
 
 /** Bumped whenever a message changes shape; client and relay must agree. */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
+
+/**
+ * What a player's client is doing in the lobby, as it tells the room (User,
+ * 2026-09-25): entering a map key, loading the host's map, reloading the page
+ * for a new place, or the map stands. Null before it said anything.
+ */
+export type PlayerStatus = 'key' | 'loading' | 'reloading' | 'ready';
+export const PLAYER_STATUSES: readonly PlayerStatus[] = ['key', 'loading', 'reloading', 'ready'];
 
 /** A player as the lobby shows them. */
 export interface CoopPlayerInfo {
@@ -27,6 +35,8 @@ export interface CoopPlayerInfo {
   ready: boolean;
   /** What they play with (browser or desktop build, version, system); null when the client did not say */
   client: ClientInfo | null;
+  /** What their client is doing (lobby), null before it said */
+  status: PlayerStatus | null;
 }
 
 /** What a room looks like to everyone in it. */
@@ -75,6 +85,8 @@ export type ClientMessage =
   | { t: 'world'; world: unknown; spawnIds: string[] }
   /** Host, lobby: the map is changing here, a new world follows (PLAYTEST T25) */
   | { t: 'moving' }
+  /** Lobby: what this client is doing now (PlayerStatus) */
+  | { t: 'status'; status: PlayerStatus }
   /** Lobby: take a spawn as one's lane, or give it back (null) */
   | { t: 'pick'; spawnId: string | null }
   /** Lobby: another name; the relay numbers it where someone has it already */

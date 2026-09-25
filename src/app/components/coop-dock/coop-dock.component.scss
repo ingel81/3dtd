@@ -493,6 +493,9 @@ details {
 
 .who { @include ui.name-stack; }
 
+/* What the player's client is doing (loading, reloading, map key) */
+.doing { color: var(--td-gold-light); }
+
 /* The own name in the lobby: a sunken field with a pencil, so it reads as editable */
 .name-edit {
   display: flex;

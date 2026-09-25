@@ -23,11 +23,12 @@ import type {
   ClientMessage,
   CoopPlayerInfo,
   CoopRoomInfo,
+  PlayerStatus,
   RefusalReason,
   ServerMessage,
 } from '../../src/app/coop/protocol.ts';
 import type { StampedCommand } from '../../src/app/coop/lockstep.ts';
-import { MAX_PLAYERS } from '../../src/app/coop/protocol.ts';
+import { MAX_PLAYERS, PLAYER_STATUSES } from '../../src/app/coop/protocol.ts';
 import { TICK_SUB_STEPS } from '../../src/app/coop/lockstep.ts';
 import { GameClock } from '../../src/app/managers/game-state/game-clock.ts';
 import { HashCheck, HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
@@ -58,6 +59,13 @@ const MAX_ADVANCE_MS = 1000;
 
 /** Game speeds the host may set; 0 pauses. */
 const SPEEDS = new Set([0, 0.5, 1, 2, 3, 4]);
+/** A player's status as the log says it */
+const STATUS_LOG: Record<PlayerStatus, string> = {
+  key: 'enters a map key',
+  loading: 'loads the map',
+  reloading: 'reloads for a new place',
+  ready: 'has the map',
+};
 /** Commands kept to log with the first desync */
 const RECENT_COMMANDS = 40;
 
@@ -150,7 +158,7 @@ export class Room {
     this.createdAt = this.now();
     this.cheats = options.cheats ?? false;
     this.hostId = host.id;
-    this.players.push({ ...host, client: host.client ?? null, spawnId: null, ready: false });
+    this.players.push({ ...host, client: host.client ?? null, spawnId: null, ready: false, status: null });
     this.log(`opened by ${this.who(host.id)}, game ${host.gameVersion}, balance ${host.configHash}${this.clientOf(host.id)}`
       + `${this.cheats ? ', cheats allowed' : ''}`);
     this.broadcastRoom();
@@ -178,7 +186,7 @@ export class Room {
     const host = this.players.find((p) => p.id === this.hostId)!;
     if (player.gameVersion !== host.gameVersion) return 'version';
     if (player.configHash !== host.configHash) return 'balance';
-    this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnId: null, ready: false });
+    this.players.push({ ...player, client: player.client ?? null, name: this.freeName(player.name), spawnId: null, ready: false, status: null });
     this.log(`${this.who(player.id)} joined (${this.players.length} players)${this.clientOf(player.id)}`);
     if (this.world !== null) this.send(player.id, { t: 'world', world: this.world });
     this.broadcastRoom();
@@ -260,6 +268,13 @@ export class Room {
         // A change is asked again: every guest says ready anew (D38)
         for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
         this.log(`options: ${changed.map((key) => `${key} ${optionLabel(key, options[key])}`).join(', ')}`);
+        return this.broadcastRoom();
+      }
+      case 'status': {
+        // What the client does (User, 2026-09-25): the others see it in the lobby
+        if (this.started || !PLAYER_STATUSES.includes(message.status) || player.status === message.status) return;
+        player.status = message.status as PlayerStatus;
+        this.log(`${this.who(playerId)} ${STATUS_LOG[player.status]}`);
         return this.broadcastRoom();
       }
       case 'lock':
@@ -451,7 +466,7 @@ export class Room {
     return {
       code: this.code,
       hostId: this.hostId,
-      players: this.players.map(({ id, name, spawnId, ready, client }) => ({ id, name, spawnId, ready, client })),
+      players: this.players.map(({ id, name, spawnId, ready, client, status }) => ({ id, name, spawnId, ready, client, status })),
       spawnIds: [...this.spawnIds],
       started: this.started,
       cheats: this.cheats,
