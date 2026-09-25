@@ -159,7 +159,10 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Dock, Squad-Box, Chat, Raum-Optionen Cheats/Pause/Next wave; Nachtest PLAYTEST T54 ff.). Vorgesehen, nicht
       gebaut (D45): Squad-Zustände Dropped mit Wiedereinstieg und Countdown, eigener Verbindungsverlust mit Retry (beide
       hängen an C5b), Left mit „Take over lane“, Desync mit Resync vom Host; weitere Optionen aus dem Design: Credits
-      je Spieler oder Shared pool, Gold senden an/aus, Startgeld, Difficulty, Regel bei Abbruch.
+      je Spieler oder Shared pool, Gold senden an/aus, Startgeld, Difficulty, Regel bei Abbruch. Dazu am 2026-09-25: Zustand des Gasts in der
+      Lobby (D47), Protokoll zurück auf 1 (D48), End-to-End-Tests `npm run e2e` (docs/E2E.md, 14 Tests). Später
+      vielleicht, jetzt wichtiger (User-Hinweis Kartensitzungen): Ortswechsel beim Gast ohne Neuladen, jedes Neuladen
+      ist eine Tileset-Sitzung.
 - [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` setzt keinen Seed, der Anteil getöteter Gegner streut
       um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
       fiel zweimal nur unter Volllast. Seed setzen bzw. Ursache suchen.
