@@ -127,18 +127,26 @@ const SHOWN_MS = 60_000;
       border: 1px solid var(--td-frame-mid);
       color: var(--td-text-secondary);
     }
+    /* On a surface of its own like the log above: straight on the map it was unreadable (User, 2026-09-25) */
     .hint {
       display: flex;
       align-items: center;
+      align-self: flex-start;
       gap: 6px;
-      padding-left: 12px;
+      padding: 5px 12px;
       font-family: var(--td-font-mono);
-      font-size: 10.5px;
-      color: var(--td-text-muted);
+      font-size: 11px;
+      color: var(--td-text-secondary);
+      background: color-mix(in srgb, var(--td-panel-shadow) 85%, transparent);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    }
+    .hint kbd {
+      color: var(--td-text-primary);
+      background: color-mix(in srgb, var(--td-panel-shadow) 70%, transparent);
     }
     .hint i {
       font-style: normal;
-      color: var(--td-text-disabled);
+      color: var(--td-text-muted);
     }
     .armed {
       display: flex;

@@ -456,6 +456,11 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   „No game answered“ trotz Eintrag), das IP-Feld blieb bei gefüllter Liste stehen; neu ein Knopf „Search again“.
   Offen: die Frage der Windows-Firewall beim Hosten; der Weg vom Start der App bis in den Raum (E30), die Wege übers
   Internet (E31).
+- **T68 Squad-Box springt nicht mehr** (User, 2026-09-25): Im Coop-Spiel die Welle abwarten, bereit setzen, die nächste
+  starten. Erwartung: Der Fuß der Squad-Box („Ready up for the next wave“, „Waiting for …“) bleibt als Zeile stehen,
+  auch leer; Box und Chat darunter verschieben sich nicht mehr.
+- **T69 Tastenleiste unter dem Chat lesbar** (User, 2026-09-25): „Enter chat · X mark · Tab room“ auf heller Karte.
+  Erwartung: eigene dunkle Fläche, gut lesbar.
 - **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
   des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
   aus. Bisher nur per Spec geprüft.
