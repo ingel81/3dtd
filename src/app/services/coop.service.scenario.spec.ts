@@ -93,7 +93,7 @@ function player(relayPort: number) {
       { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
       { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<string | null>(null), coopDockOpen: signal(false) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: () => false } },
-      { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))) } },
+      { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))), missionInfo: signal({ city: 'Stuttgart', country: 'Deutschland', address: 'Marktplatz 1' }) } },
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },
       { provide: PathAndRouteService, useValue: withAutoStubs({}) },
       { provide: LocationFacadeService, useValue: withAutoStubs({ addRandomSpawn: vi.fn(async () => true) }) },
@@ -312,5 +312,23 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(coop.addLobby('Home', 'ws://192.168.0.5:3003')).toBe(true);
     expect(coop.lobby()?.name).toBe('Home');
     expect(coop.addLobby('Bad', 'http://x')).toBe(false);
+  });
+
+  it('lists the host’s room publicly with its city, never the street, and hides it once private (D62, D63)', async () => {
+    const { host, guest } = await lobby();
+    await until(() => host.coop.room()!.listing.city === 'Stuttgart, Deutschland');
+    const look = player(relay!.port);
+    await look.coop.refreshPublicRooms();
+    expect(look.coop.publicRooms()).toEqual([expect.objectContaining({
+      code: host.coop.room()!.code, title: "Ann's game", host: 'Ann', city: 'Stuttgart, Deutschland', players: 2, started: false,
+    })]);
+    expect(JSON.stringify(look.coop.publicRooms())).not.toContain('Marktplatz');
+    expect(look.coop.lobbyPing()).not.toBeNull();
+    host.coop.setListing({ title: 'Chill' });
+    await until(() => guest.coop.room()!.listing.title === 'Chill');
+    host.coop.setListing({ public: false });
+    await until(() => !host.coop.room()!.listing.public);
+    await look.coop.refreshPublicRooms();
+    expect(look.coop.publicRooms()).toEqual([]);
   });
 });

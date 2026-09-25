@@ -87,6 +87,22 @@
       </div>
     </section>
 
+    @if (coop.isHost() && !r.started && coop.reachedVia() !== 'LAN') {
+      <!-- The lobby's public list (D62, D63): whether the room shows there, and its title -->
+      <section class="blk listing">
+        <div class="row">
+          <button class="toggle" type="button" [class.is-on]="r.listing.public" [attr.aria-pressed]="r.listing.public"
+                  (click)="coop.setListing({ public: !r.listing.public })">
+            <i aria-hidden="true"></i>{{ r.listing.public ? 'In the public list' : 'Private: code only' }}
+          </button>
+          <input class="inp title-in" type="text" maxlength="32" [value]="r.listing.title" aria-label="Room title"
+                 (change)="coop.setListing({ title: $any($event.target).value })" (keydown.enter)="$any($event.target).blur()" />
+        </div>
+        @if (r.listing.public) {
+          <p class="note">Players you don't know see this room and, once in it, this place. If this is your home, pick another place for public rooms.</p>
+        }
+      </section>
+    }
     @if (!r.started && status(); as s) {
       <div class="status" [class.is-go]="s.go" role="status">
         <span class="segs" aria-hidden="true">

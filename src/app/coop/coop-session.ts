@@ -7,7 +7,9 @@ import {
   PROTOCOL_VERSION,
   type ClientMessage,
   type CoopRoomInfo,
+  type PublicRoom,
   type RefusalReason,
+  type RoomListing,
   type ServerMessage,
 } from './protocol';
 
@@ -232,6 +234,16 @@ export class CoopSession {
     this.out({ t: 'kick', playerId });
   }
 
+  /** The relay's public rooms (D62); the session need not be in a room */
+  listRooms(): Promise<PublicRoom[]> {
+    return this.request({ t: 'rooms' }, 'rooms') as Promise<PublicRoom[]>;
+  }
+
+  /** Host: the room in the public list or not, its title, the host's city (D62, D63) */
+  setListing(listing: RoomListing): void {
+    this.out({ t: 'listing', listing });
+  }
+
   /** Host: close the room to further players, or open it again. */
   lock(locked: boolean): void {
     this.out({ t: 'lock', locked });
@@ -352,6 +364,8 @@ export class CoopSession {
         return this.onSpeed?.(message.speed);
       case 'rtt':
         return this.onRtt?.(message.rtt);
+      case 'rooms':
+        return this.settle('rooms', message.rooms);
       case 'waiting':
         return this.onWaiting?.(message.playerId);
       case 'host':

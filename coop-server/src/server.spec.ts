@@ -59,6 +59,37 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     expect(lines).toContain('refused a connection from https://evil.example');
   });
 
+  it('lists public rooms with title, host and city, counts waves, hides private and locked ones (D62, D63)', async () => {
+    relay = await startRelay({ port: 0 });
+    const a = await client(relay.port, 'Ann');
+    const b = await client(relay.port, 'Bob');
+    const look = await client(relay.port, 'Cid');
+    a.send({ t: 'create' });
+    const { room } = await a.until('room');
+    const list = async () => {
+      look.heard.length = 0;
+      look.send({ t: 'rooms' });
+      return (await look.until('rooms')).rooms;
+    };
+    expect(await list()).toEqual([
+      { code: room.code, title: "Ann's game", host: 'Ann', city: '', players: 1, started: false, wave: 0, cheats: false, gameVersion: 'v1' },
+    ]);
+    a.send({ t: 'listing', listing: { public: true, title: 'Chill in Heilbronn', city: 'Heilbronn, Deutschland' } });
+    await a.until('room', (m) => m.room.listing.title === 'Chill in Heilbronn');
+    expect((await list())[0]).toMatchObject({ title: 'Chill in Heilbronn', city: 'Heilbronn, Deutschland' });
+    // A guest cannot change the listing
+    b.send({ t: 'join', room: room.code });
+    await b.until('room', (m) => m.room.players.length === 2);
+    b.send({ t: 'listing', listing: { public: false, title: 'x', city: '' } });
+    expect((await b.until('refused')).reason).toBe('not-host');
+    a.send({ t: 'listing', listing: { public: false, title: 'Chill in Heilbronn', city: 'Heilbronn, Deutschland' } });
+    await a.until('room', (m) => !m.room.listing.public);
+    expect(await list()).toEqual([]);
+    a.close();
+    b.close();
+    look.close();
+  });
+
   it('runs a room from create to ticks for two clients', async () => {
     relay = await startRelay({ port: 0 });
     const a = await client(relay.port, 'Ann');
