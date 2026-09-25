@@ -12,10 +12,11 @@ const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const { existsSync, mkdirSync } = require('node:fs');
-const { app, BrowserWindow, Menu, Notification, ipcMain, nativeTheme, protocol, screen, session, shell } = require('electron');
+const { app, BrowserWindow, Menu, Notification, ipcMain, nativeTheme, protocol, screen, session, shell, utilityProcess } = require('electron');
 const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
 const { APP_ID } = require('./app-id');
+const { setUpCoopLan } = require('./coop-lan');
 const { uniqueDownloadPath } = require('./downloads');
 const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
 const { MAX_LOG_BYTES, createRepeatFilter, describeGpus, maskValue, rendererLine } = require('./log');
@@ -365,6 +366,16 @@ if (!app.requestSingleInstanceLock()) {
 
     mainWindow = createWindow();
     setUpUpdates(() => mainWindow);
+
+    // Coop on the local network (docs/COOP_PLAN.md, C4d); the relay starts at "Host LAN game"
+    const coopLan = setUpCoopLan({
+      ipcMain,
+      utilityProcess,
+      relayPath: path.join(__dirname, '..', 'relay', 'relay.mjs'),
+      log,
+      isAppSender: (event) => classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow',
+    });
+    app.on('will-quit', () => coopLan.close());
 
     // Which GPU draws belongs in every performance report.
     app

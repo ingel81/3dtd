@@ -453,6 +453,14 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   **ok (E2E, 2026-09-25):** Beitritt per Einladungslink und das Neuladen beim Würfeln; der Gast landet wieder auf
   seiner Lane, kein „Bob left“ (`e2e/tests/coop-lobby.e2e.ts`).
 
+- **T66 LAN-Spiel zu Hause (C4d)**: Zwei Rechner mit der Desktop-App aus diesem Stand (`cd desktop && npm run dist`,
+  oder `npm run dev` auf beiden). Rechner A: Tab, „Host LAN game“, die Windows-Firewall fragt einmal, „Private
+  Netzwerke“ erlauben. Rechner B: Tab. Erwartung: unter „Games on this network“ binnen zwei Sekunden „A · 1/4
+  players · 192.168.x.y · CODE“, „Join“ bringt B in den Raum, Spiel läuft wie im Browser. Dann gegenprüfen: A im WLAN,
+  B am Kabel; einer mit VPN an. Findet B nichts: nach 4 s kommt das Feld „Host IP“, A zeigt seine Adresse im Raumkopf
+  hinter „LAN“. Schon geprüft (2026-09-25, ein Rechner): Relay startet aus `app.asar`, die Suche findet ihn über alle
+  drei Adapter, „Leave“ beendet ihn.
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei

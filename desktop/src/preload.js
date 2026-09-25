@@ -3,7 +3,8 @@
 /**
  * The only bridge between the game and Electron. The page runs sandboxed with
  * context isolation; whatever it may know about the desktop build is listed
- * here and nowhere else: the update hint, and writing a run log to disk.
+ * here and nowhere else: the update hint, writing a run log to disk, and
+ * coop on the local network.
  */
 
 const { contextBridge, ipcRenderer } = require('electron');
@@ -50,5 +51,38 @@ contextBridge.exposeInMainWorld(
       if (typeof fileName !== 'string' || typeof text !== 'string') return Promise.resolve(false);
       return ipcRenderer.invoke('desktop:save-run', { fileName, text });
     },
+
+    /**
+     * Coop on the local network (docs/COOP_PLAN.md, C4d). The relay runs in
+     * the app only while hosting; the scan reports the games it hears of.
+     */
+    coopLan: Object.freeze({
+      /** Start this machine's relay: { port, addresses: [{ name, address }] } or { error } */
+      host() {
+        return ipcRenderer.invoke('desktop:lan-host');
+      },
+      /** End this machine's relay */
+      stop() {
+        ipcRenderer.send('desktop:lan-stop');
+      },
+      /**
+       * Look for games until the returned function is called; `listener`
+       * gets the whole list whenever it changes. One scan at a time.
+       */
+      scan(listener) {
+        if (typeof listener !== 'function') return () => {};
+        const forward = (_event, games) => listener(Array.isArray(games) ? games : []);
+        ipcRenderer.on('desktop:lan-games', forward);
+        ipcRenderer.send('desktop:lan-scan', true);
+        return () => {
+          ipcRenderer.removeListener('desktop:lan-games', forward);
+          ipcRenderer.send('desktop:lan-scan', false);
+        };
+      },
+      /** Ask one address directly, during a scan; resolves true when its relay answered */
+      probe(ip) {
+        return ipcRenderer.invoke('desktop:lan-probe', String(ip ?? ''));
+      },
+    }),
   })
 );

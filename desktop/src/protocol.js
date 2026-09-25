@@ -77,7 +77,9 @@ const CONTENT_SECURITY_POLICY = [
   "font-src 'self'",
   // blob: for GLTFLoader, which fetches the textures embedded in a .glb;
   // data: for AudioBufferCache, which fetches sounds shipped as data URLs.
-  `connect-src 'self' blob: data: ${CONNECT_HOSTS.join(' ')}`,
+  // ws: and wss: for the coop relay, on the LAN or a server the player names
+  // (docs/COOP_PLAN.md, C4d); any host, since a LAN address is not known ahead.
+  `connect-src 'self' blob: data: ws: wss: ${CONNECT_HOSTS.join(' ')}`,
   "object-src 'none'",
   "base-uri 'self'",
   "frame-ancestors 'none'",

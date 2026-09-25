@@ -128,41 +128,22 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
       plus Knopf "In der Desktop-App öffnen" in der Web-Version. Erst nach dem ersten Desktop-Release, geteilte Links
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
-- [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht): C0 bis C4c und C5a (Prüfsummen über das Relay,
-      Abweichung melden, Diagnose am Relay) gebaut, der erste Zwei-Fenster-Test klappt (User, 2026-09-24). Offen in
-      C5: Wiedereinstieg und Resync (C5b); die Wünsche A bis B aus dem Browser-Test sind gebaut (Name in der Lobby, Spieler-Leiste mit
-      Bereitschaft und Gold, Gold senden, Engine je Spieler, Dialog schließt beim Gast; Nachtest PLAYTEST T), Chat
-      unten links gebaut (R12). Review mit Liste R1 bis R21 im Plan, Abschnitt „Review 2026-09-24“: R1 bis R18 und
-      R21 gebaut (R8 bis R16, R18, R21 am 2026-09-25, Nachtest PLAYTEST T30 bis T43); offen R15 Held des Partners
-      zeichnen, R19 (wss, Origin), R20 (Electron-LAN), die Schutz-Punkte S2, S3, S5, S6; dann C5b (Wiedereinstieg),
-      C4d (Relay im Electron-Build), C7 (Betrieb).
-      [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
+- [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht), alles in [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
+      Gebaut: C0 bis C4d, C5a, C8, Review R1 bis R18, R20, R21. Reihenfolge ab 2026-09-26 (D49): Prio A C4d
+      Electron-LAN (**gebaut 2026-09-25**, Nachtest mit zwei Rechnern PLAYTEST T66); Prio B Ortswechsel beim Gast
+      ohne Neuladen (jedes Neuladen ist eine Kartensitzung), R15 Held des Partners zeichnen, R19 und S2/S3/S5/S6 leicht
+      (D55); später C5b (Wiedereinstieg, Resync; daran hängen die Squad-Zustände aus D45), C7 (Betrieb).
 - [ ] **E28 Coop Chrome gegen Firefox: Abweichung eingrenzen** (low prio, Randthema; Electron ist primär, D29):
       Gemessen am 2026-09-24: Chrome gegen Chrome bis W10 ohne Abweichung, Chrome gegen Firefox weicht 14 Spielsekunden
       nach dem Start ab (Tick 210) und bleibt abweichend. Ursache unbelegt (Verdacht Trigonometrie im Sim-Pfad).
       Erst eingrenzen: Prüfsumme in Teile zerlegen (Zufall, Gold, Gegner, Tower, Projektile, Held), Teile mitschicken,
       bei Abweichung ersten abweichenden Teil und erstes Objekt ins Relay-Log. Danach entscheiden: hart machen oder
       Raum nur mit gleicher Engine. [COOP_PLAN.md](docs/COOP_PLAN.md) C5.
-- [ ] **E29 Coop: Lobby nach dem Playtest vom 2026-09-24** (entschieden D30 bis D36 im Plan, **gebaut 2026-09-24**;
-      in der Nacht zum 2026-09-25 dazu gebaut: kürzere Ticks, Schuss sofort beim Klick, Panel unter dem Info-Overlay,
-      du oben in der Leiste mit Host-Marke, R8 bis R16, R18, R21, S4 und der Relay-Deckel; Nachtest PLAYTEST T30 bis
-      T43;
-      Nachtest PLAYTEST T21 bis T27). Offen: Egoperspektive im Coop deutlich zäher (T19, User 2026-09-25); Verdacht,
-      gemessen (PLAYTEST T28): Host an der Tick-Sperre in 4er-Sprüngen, Gast 1 bis 2 Ticks zurück mit bis 195 ms
-      Eingabe. Gebaut: ein Tick Vorrat je Client, Auge folgt der eigenen Maus; T29 ok (Eingabe jetzt ~95 ms bei
-      beiden, Tower nur „etwas besser“). **Als Nächstes (User, 2026-09-25):** (1) sofortige Rückmeldung beim Klick im
-      bemannten Tower: Mündungsfeuer, Schussgeräusch, Rückstoß lokal sofort, Schuss und Treffer weiter über den Relay;
-      (2) kürzere Ticks, 2 statt 4 Sub-Steps (Eingabe ~50 bis 60 ms; Tick-Konstanten, Prüfsummen-Takt, Tests). Später
-      vielleicht: Turm-Modell lokal vorausdrehen. Spieler-Leiste und Meldungen: Position und Anordnung an einen Designer (T16); dabei (User,
-      2026-09-25): man selbst immer oben, etwas größer und klar als „du“ kenntlich, der Host als Host markiert. Später
-      vielleicht: Ortswechsel beim Gast ohne Neuladen. Design-Handover umgesetzt (2026-09-25, Plan C8, D37 bis D46:
-      Dock, Squad-Box, Chat, Raum-Optionen Cheats/Pause/Next wave; Nachtest PLAYTEST T54 ff.). Vorgesehen, nicht
-      gebaut (D45): Squad-Zustände Dropped mit Wiedereinstieg und Countdown, eigener Verbindungsverlust mit Retry (beide
-      hängen an C5b), Left mit „Take over lane“, Desync mit Resync vom Host; weitere Optionen aus dem Design: Credits
-      je Spieler oder Shared pool, Gold senden an/aus, Startgeld, Difficulty, Regel bei Abbruch. Dazu am 2026-09-25: Zustand des Gasts in der
-      Lobby (D47), Protokoll zurück auf 1 (D48), End-to-End-Tests `npm run e2e` (docs/E2E.md, 14 Tests). Später
-      vielleicht, jetzt wichtiger (User-Hinweis Kartensitzungen): Ortswechsel beim Gast ohne Neuladen, jedes Neuladen
-      ist eine Tileset-Sitzung.
+- [ ] **E29 Coop: Lobby und Gefühl nach den Playtests** (D30 bis D48 im Plan; Nachtests PLAYTEST T21 bis T65).
+      Gebaut und hier nicht mehr offen: kürzere Ticks, Schuss sofort beim Klick, ein Tick Vorrat, Design-Handover C8,
+      Zustand des Gasts (D47), End-to-End-Tests. Offen: Egoperspektive im Coop fühlt sich zäher an als allein (T19,
+      User); später vielleicht Turm-Modell lokal vorausdrehen. Vorgesehen, nicht gebaut (D45): weitere Raum-Optionen
+      aus dem Design (Credits je Spieler oder Shared pool, Gold senden an/aus, Startgeld, Difficulty, Regel bei Abbruch).
 - [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` setzt keinen Seed, der Anteil getöteter Gegner streut
       um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
       fiel zweimal nur unter Volllast. Seed setzen bzw. Ursache suchen.

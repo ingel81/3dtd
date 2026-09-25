@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { readDesktopBridge } from './desktop-bridge';
+import { readCoopLan, readDesktopBridge } from './desktop-bridge';
 
 describe('readDesktopBridge', () => {
   const bridge = () => ({
@@ -23,5 +23,20 @@ describe('readDesktopBridge', () => {
     expect(readDesktopBridge({ desktop: true })).toBeNull();
     expect(readDesktopBridge({ desktop: { ...bridge(), installUpdateNow: 'no' } })).toBeNull();
     expect(readDesktopBridge({ desktop: { ...bridge(), version: 3 } })).toBeNull();
+  });
+});
+
+describe('readCoopLan', () => {
+  const base = { version: '0.5.0', onUpdateReady: () => () => undefined, installUpdateNow: () => undefined, saveRun: async () => true };
+  const coopLan = { host: vi.fn(), stop: vi.fn(), scan: vi.fn(), probe: vi.fn() };
+
+  it('is there in an app with LAN coop', () => {
+    expect(readCoopLan({ desktop: { ...base, coopLan } })).toBe(coopLan);
+  });
+
+  it('is null in a browser and in an older app', () => {
+    expect(readCoopLan({})).toBeNull();
+    expect(readCoopLan({ desktop: base })).toBeNull();
+    expect(readCoopLan({ desktop: { ...base, coopLan: { ...coopLan, scan: 1 } } })).toBeNull();
   });
 });

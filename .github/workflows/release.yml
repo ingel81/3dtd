@@ -93,6 +93,11 @@ jobs:
         working-directory: desktop
         run: node scripts/copy-web.js
 
+      # The coop relay for LAN games, run by the app itself (docs/COOP_PLAN.md, C4d)
+      - name: Bundle the coop relay
+        working-directory: desktop
+        run: node scripts/build-relay.js
+
       - name: Test the desktop shell
         working-directory: desktop
         run: npm test
@@ -158,6 +163,11 @@ jobs:
       - name: Copy the build into the app
         working-directory: desktop
         run: node scripts/copy-web.js
+
+      # The coop relay for LAN games, run by the app itself (docs/COOP_PLAN.md, C4d)
+      - name: Bundle the coop relay
+        working-directory: desktop
+        run: node scripts/build-relay.js
 
       - name: Build the AppImage and upload it to the draft
         working-directory: desktop

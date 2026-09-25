@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-24 · Branch `coop` · Status: C0 bis C4c und C5a gebaut, C5b, C4d, C6 und C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-25 · Branch `coop` · Status: C0 bis C4d und C5a gebaut, C5b, C6 und C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -100,6 +100,13 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D47 | Zustand des Gasts | Jeder Client meldet dem Raum, was er in der Lobby tut: Kartenschlüssel, Karte laden, für einen neuen Ort neu laden, Karte steht (`status`). Die Spielerzeile und die Statuszeile zeigen es, der Chat sagt es; ein Neuladen gilt nicht als „left“. Per Einladungslink tritt der Gast sofort bei und lädt danach (User, 2026-09-25) |
 | D48 | Protokoll-Version | Vor dem ersten Release zurück auf 1; die Stände 2 bis 7 waren Entwicklung, Erwähnungen weiter oben sind Geschichte (User, 2026-09-25) |
 | D46 | Schriften | Keine Cinzel: Überschriften in Inter Tight. JetBrains Mono wird selbst gehostet (`@fontsource`), weil `--td-font-mono` sie nennt und bisher auf Consolas fiel (User, 2026-09-25) |
+| D49 | Reihenfolge ab 2026-09-26 | Prio A: C4d Electron-LAN (Tests zu Hause im LAN). Prio B: Ortswechsel beim Gast ohne Neuladen, R15 Held des Partners, R19 und S2/S3/S5/S6 leicht. Später: C5b. Danach B bis C: `tmp/` und Doku aufräumen, Code-Smells, Performance Einzel- und Mehrspieler. E2E nur exemplarisch prüfen, nicht jede Stelle (User, 2026-09-25) |
+| D50 | LAN finden | Suche im LAN, robust auch in schiefen Netzen; IP und Link als Rückfall (User, 2026-09-25) |
+| D51 | Relay-Start | Erst beim Klick „Host LAN game“, endet mit dem Raum oder der App; die Firewall fragt erst dann (User, 2026-09-25) |
+| D52 | Gäste im LAN | Nur die Desktop-App, keine Browser-Gäste; alle rechnen mit derselben Engine (User, 2026-09-25) |
+| D53 | Coop-Dialog in der App | LAN zuerst: „Host LAN game“ und die Liste gefundener Spiele oben, eigener Server unter „Advanced“ (User, 2026-09-25) |
+| D54 | Nichts gefunden | Feld „Host IP“ (der Host zeigt seine Adressen mit Adaptername) und drei Zeilen Checkliste: Firewall erlaubt, gleiches Netz, Gast-WLAN isoliert (User, 2026-09-25) |
+| D55 | Schutz fürs Netz | Leicht: `Origin` prüfen, `wss://` über Reverse Proxy dokumentieren, S3 Mehrheit ab drei Spielern; S2, S5, S6 bleiben beschrieben (User, 2026-09-25) |
 
 ## 4. Pakete
 
@@ -368,6 +375,40 @@ Ursprünglicher Plan:
 - Lokal: ein npm-Skript startet den Relay neben `npm start` (D17); zwei Browserfenster reichen zum Testen.
 - Abnahme: zwei Fenster auf einem Rechner spielen eine Welle, Prüfsummen gleich.
 
+**C4d gebaut (2026-09-25, D49 bis D54):** der Relay in der Desktop-App, Spielen im LAN. So gebaut:
+`coop-server/src/desktop.ts` (Einstieg, erster freie Port ab 3003, meldet offene, nicht gesperrte Lobbys),
+`desktop/scripts/build-relay.js` bündelt ihn nach `desktop/relay/relay.mjs` (in `web:build`, `dev` und im
+Release-Workflow), `desktop/src/lan-discovery.js` (Suche), `desktop/src/coop-lan.js` (IPC, `utilityProcess`,
+direkte Frage per UDP und über `/status`), `window.desktop.coopLan`, `CoopService.hostLan/joinLan/scanLan/probeLan`,
+Dock in der App mit LAN oben. Die CSP der App erlaubt jetzt `ws:` und `wss:` (vorher ging Coop in der App gar nicht).
+Geprüft: `ws://` auf eine LAN-IP geht von `app://` aus ohne Umweg; Suche über drei Adapter (Ethernet, WSL, VPN
+VPN), ein Raum mit mehreren Adressen ist ein Eintrag, die im eigenen Subnetz zuerst; Relay aus `app.asar`. Offen:
+der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
+
+- **Relay bündeln:** `coop-server/src/server.ts` samt `ws` per esbuild zu einer JS-Datei in `desktop/app/relay/`
+  (Schritt in `web:build`), ohne `.ts` zur Laufzeit. Der Relay läuft in einem `utilityProcess`, nicht im
+  Main-Prozess selbst: stürzt er ab, bleibt das Fenster; beendet wird er mit dem Raum oder der App (D51).
+- **Brücke:** `preload.js` bekommt `coopLan`: `host()` startet den Relay (Port 3003, sonst der nächste freie) und gibt
+  Port und Adressen zurück, `stop()`, `scan()` liefert gefundene Spiele laufend. Nur von der eigenen Seite
+  angenommen, wie `desktop:save-run`.
+- **Suche (D50):** eigener Baustein im Main-Prozess, rein und testbar (Nachricht bauen und lesen, Adressen wählen).
+  - Der Gast fragt alle 1 s, der Host antwortet und meldet sich zusätzlich alle 2 s von selbst; wer eins von beiden
+    durch lässt, reicht.
+  - Gesendet wird je Netzadapter (IPv4, nicht intern): an die gerichtete Broadcast-Adresse des Subnetzes, an
+    `255.255.255.255` und an eine Multicast-Gruppe (TTL 1). Ein Socket je Adapter, gebunden an dessen Adresse, damit
+    Windows mit mehreren Adaptern (Hyper-V, WSL, VPN) nicht nur einen bedient.
+  - Nachricht klein, JSON mit Kennung `3dtd-lan`, Protokollversion, Spielversion, Raum-Code, Host-Name, Spielerzahl,
+    Port. Fremde Pakete und andere Versionen fallen raus (andere Version: in der Liste grau mit Grund).
+  - Die Liste trägt die Absenderadresse des Pakets, nicht was der Host über sich sagt; ein Eintrag verschwindet nach
+    5 s ohne Meldung.
+- **Dialog (D53, D54):** in der App oben „Host LAN game“ und die Liste (Name, Spieler, Ort, Beitreten); der Host sieht
+  seine Adressen mit Adaptername. Findet die Suche nach einigen Sekunden nichts: Feld „Host IP“ und die Checkliste.
+  Eigener Server bleibt unter „Advanced“. Im Browser ändert sich nichts.
+- **Erst prüfen:** ob die Seite (`app://`, sicherer Ursprung) `ws://192.168.x.x` öffnen darf (Mixed Content, Private
+  Network Access). Wenn nicht: der Socket des Gasts läuft über den Main-Prozess, die Seite spricht per IPC mit ihm.
+- **Abnahme:** Specs für Nachricht, Adresswahl und Ablauf der Liste; ein Test startet zwei Suchen auf `127.0.0.1` und
+  findet sich; der gebündelte Relay startet und nimmt einen Client an. Dann der User zu Hause mit zwei Rechnern.
+
 ### C5 Prüfsumme, Wiedereinstieg, Resync
 
 **C5a gebaut (2026-09-24):** Abweichung erkennen, Diagnose am Relay.
@@ -489,7 +530,7 @@ nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht ander
   Sekunde und Verbindung begrenzen, Chatlänge ist schon begrenzt. **Gebaut 2026-09-24: `maxPayload` 4 MB, 120 Nachrichten je Sekunde und Verbindung, darüber verworfen und einmal geloggt.**
 - R18 Leere oder verwaiste Räume nach Zeit schließen (Lobby ohne Start nach 1 h), Obergrenze an Räumen. **Gebaut 2026-09-25: 1 h, 200 Räume.**
 - R19 `wss://` und Herkunftsprüfung (`Origin`) fürs Netz (C7).
-- R20 Electron: Relay im Main-Prozess, „LAN-Spiel hosten“, eigene IP im Dialog anzeigen (C4d).
+- R20 Electron: Relay im Main-Prozess, „LAN-Spiel hosten“, eigene IP im Dialog anzeigen (C4d). **Gebaut 2026-09-25 (C4d): Relay im `utilityProcess`, Suche im LAN, Adressen im Raumkopf.**
 
 **Tests**
 
