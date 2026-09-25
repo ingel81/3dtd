@@ -127,11 +127,11 @@ allem unter T (Coop).
 - [ ] **H16** Deep-Link in die Desktop-App: Schema `threedtd://open?l=...&s=...` (Installer, nur geprüfte Koordinaten)
       plus Knopf "In der Desktop-App öffnen" in der Web-Version. Erst nach dem ersten Desktop-Release, geteilte Links
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
-- [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht), alles in [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
-      Gebaut: C0 bis C4d, C5a, C8, Review R1 bis R21 (R10 nur teilweise, der Rest hängt an C5b). Reihenfolge ab 2026-09-26 (D49): Prio A C4d
-      Electron-LAN (**gebaut 2026-09-25**, Nachtest mit zwei Rechnern PLAYTEST T66); Prio B Ortswechsel beim Gast
-      ohne Neuladen (**gebaut 2026-09-25**, PLAYTEST T65), R15 Held des Partners zeichnen (**gebaut 2026-09-25**, PLAYTEST T67), R19 und S2/S3/S5/S6 leicht
-      (D55, **gebaut 2026-09-25**: `--origins`, Proxy-Doku, S3 Mehrheit); später C5b (Wiedereinstieg, Resync; daran hängen die Squad-Zustände aus D45), C7 (Betrieb).
+- [ ] **E27 Coop "Vier Tore"** (Branch `coop`, gepusht, nicht gemergt), alles in [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
+      Gebaut: C0 bis C4d, C5a, C7 (öffentliche Lobby, läuft seit 2026-09-25), C8, Review R1 bis R21 (R10 teilweise).
+      LAN (T66) und online (erster Lauf 2026-09-25, keine Abweichung) mit zwei Rechnern bestätigt. Als Nächstes:
+      Playtest T67 bis T72, dann Merge nach `main` und Release 0.5.0. Später C5b (Wiedereinstieg, Resync; daran die
+      Squad-Zustände aus D45), Browser online erst nach einem Lauf Chrome gegen App (D59).
 - [ ] **E28 Coop Chrome gegen Firefox: Abweichung eingrenzen** (low prio, Randthema; Electron ist primär, D29):
       Gemessen am 2026-09-24: Chrome gegen Chrome bis W10 ohne Abweichung, Chrome gegen Firefox weicht 14 Spielsekunden
       nach dem Start ab (Tick 210) und bleibt abweichend. Ursache unbelegt (Verdacht Trigonometrie im Sim-Pfad).
