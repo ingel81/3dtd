@@ -1,6 +1,6 @@
 # Simulator: deterministische Simulation, Replay als Neu-Simulation, Unterbau für Coop
 
-**Stand:** 2026-09-24 · Branch `simulator` · Status: P1 bis P7 gebaut, Playtest offen
+**Stand:** 2026-09-24 · Status: P1 bis P7 gebaut, Playtest R ok (2026-09-24), ausgeliefert mit v0.4.0; Messung nachgezogen 2026-09-25
 
 Ziel: Die Simulation rechnet einen Lauf aus Startzustand, Seed und Befehlen auf einem Rechner bit-genau nach.
 Darauf stehen das Replay als Neu-Simulation (TODO E2) und später Coop im Lockstep

@@ -5,13 +5,12 @@ hierher. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), Erledi
 [DONE.md](DONE.md) (nur auf Zuruf), Überholtes in `docs/archive/` und in der Git-Historie.
 
 - Ein Eintrag hat eine bis drei Zeilen: was, Status, Beleg nur wo nötig.
-- Die Kennungen (A1, C4, ...) sind die der Klickliste vom 2026-09-16 und bleiben stabil. Ein erledigter Eintrag geht
-  nach DONE.md, seine Nummer wird nicht neu vergeben. Neues kommt ans Ende der passenden Gruppe.
+- Die Kennungen (A1, C4, ...) bleiben stabil. Ein erledigter Eintrag geht nach DONE.md, seine Nummer wird nicht neu
+  vergeben. Neues kommt ans Ende des Backlogs.
 - Konzepte und Pläne bekommen ein eigenes Dokument, hier steht nur der Verweis.
 
-Stand 2026-09-21, gearbeitet wird auf `balancing`. Erledigt und noch nicht im Spiel nachgesehen: der
-Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachtests in
-[docs/PLAYTEST.md](docs/PLAYTEST.md) unter L.
+Stand 2026-09-25, gearbeitet wird auf `coop`. Offene Nachtests stehen in [docs/PLAYTEST.md](docs/PLAYTEST.md), vor
+allem unter T (Coop).
 
 ---
 
@@ -27,7 +26,7 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Kein `cameraCorrection` im Log; der Korridor-Aufbau lief dort als "unmeasured freeze" (452/452 Stationen,
       Fallback). Vermutung, unbelegt: die Korridor-Region hält grobe Tiles, der Abstands-Raycast der GlobeControls
       trifft zu hoch. Messen: Raycast-Treffer, Höhe, Tile-Tiefe am Limit, mit und ohne Region.
-- [ ] **C18 Tower bemannen wirkt kaputt** (User, 2026-09-24, Coop, im Einzelspieler ungeprüft; **gebaut 2026-09-24**,
+- [ ] **C19 Tower bemannen wirkt kaputt** (bis 2026-09-25 als C18 geführt, die Nummer hat schon DONE) (User, 2026-09-24, Coop, im Einzelspieler ungeprüft; **gebaut 2026-09-24**,
       Nachtest PLAYTEST T1): Fadenkreuz kommt,
       Sidebar verschwindet, aber die Kamera bleibt, Zielen und Schießen gehen nicht. Ursache im Coop, aus dem Code:
       `TowerControlService.enter()` prüft direkt nach `command:man-tower` mit `getMannedTower()`, ob man drin
@@ -108,8 +107,8 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
 - [ ] **F4 Ungemessene Grafik- und CPU-Kosten**: Laser-Säule, drei Stencil-Pässe der Reichweitenringe, Kegel-Upload,
       Drehbereichssuche des Portals, `buildBand` im Spiel.
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,
-      `immunityPercent` geht im neuen Feld auf. Grundlage: `tmp/archive-2026-09/fix1/reports/bossresist.md`, `immunity.md`.
-- [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge in `tmp/archive-2026-09/fix1/reports/herotier2.md`.
+      `immunityPercent` geht im neuen Feld auf. Grundlage (lokal, nicht im Repo): `tmp/archive-2026-09/fix1/reports/bossresist.md`, `immunity.md`.
+- [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge (lokal, nicht im Repo) in `tmp/archive-2026-09/fix1/reports/herotier2.md`.
 - [ ] **G4 Konzept Explosivmunition des Helden mit Flächenschaden** (`hero.config.ts`).
 - [ ] **D1 Spawn-Portal an engen Stellen und Hängen**: Pfeiler in Fassaden, Lichtfleck am Hang schief. Nur im Browser
       an echten Gassen zu beurteilen.
@@ -129,7 +128,7 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       plus Knopf "In der Desktop-App öffnen" in der Web-Version. Erst nach dem ersten Desktop-Release, geteilte Links
       bleiben bis dahin https (E26). Skizze im [Electron-Plan](docs/ELECTRON_DESKTOP_PLAN.md), "Bewusst nicht".
 - [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht), alles in [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
-      Gebaut: C0 bis C4d, C5a, C8, Review R1 bis R18, R20, R21. Reihenfolge ab 2026-09-26 (D49): Prio A C4d
+      Gebaut: C0 bis C4d, C5a, C8, Review R1 bis R21 (R10 nur teilweise, der Rest hängt an C5b). Reihenfolge ab 2026-09-26 (D49): Prio A C4d
       Electron-LAN (**gebaut 2026-09-25**, Nachtest mit zwei Rechnern PLAYTEST T66); Prio B Ortswechsel beim Gast
       ohne Neuladen (**gebaut 2026-09-25**, PLAYTEST T65), R15 Held des Partners zeichnen (**gebaut 2026-09-25**, PLAYTEST T67), R19 und S2/S3/S5/S6 leicht
       (D55, **gebaut 2026-09-25**: `--origins`, Proxy-Doku, S3 Mehrheit); später C5b (Wiedereinstieg, Resync; daran hängen die Squad-Zustände aus D45), C7 (Betrieb).

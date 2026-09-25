@@ -748,7 +748,7 @@ Brückenkopf über dem Kai).
     sollen den Korridor einengen, Zellen auf ihnen sind nicht gewollt. Am
     Hang misst die Stufe von der Querneigung aus: Ein Auto 0,6 m hoch auf
     der Bergseite einer Straße mit 15 % Querneigung fällt mit 0,5 m weg,
-    mit 0,75 m blieb es (`integration/corridor-walk.spec.ts`).
+    mit 0,75 m blieb es (`utils/corridor-walk.spec.ts`).
   - **Auto talseitig** (seit 2026-09-15): Bis dahin war talseitig einer
     Straße quer am Hang der höchste erreichte Boden die Mittellinie, und
     ein Auto zählte von dort: 0,8 m hoch in 4 m Abstand bei 10 %
@@ -805,7 +805,7 @@ Brückenkopf über dem Kai).
 
     Zweiter Fall: Playtest 2026-09-15 (608, Erlenbach), Wohnstraße,
     talseitig mehrere Zellreihen die Böschung hinunter, je Reihe etwa 0,5
-    bis 1 m tiefer. Nachgestellt in `integration/corridor-walk.spec.ts`
+    bis 1 m tiefer. Nachgestellt in `utils/corridor-walk.spec.ts`
     (Straße eben, bergseitig Gärten auf Straßenhöhe, also keine
     Querneigung): Eine erste Reihe 0,55 bis 0,85 m unter der Straße fällt
     weg und alles dahinter mit, der Korridor endet an der Straßenkante. Ein
@@ -861,7 +861,7 @@ Seit 2026-09-16 (Phase 2, `89651d26`). Code:
 `utils/corridor-band.ts` (`buildBand`, `bandPath`, `smoothCentre`),
 `PathAndRouteService` (`buildBands`, `bandRouteOf`, `laidInBand`,
 `bandStationAt`), Schritt 4 in `CorridorBuild.build`. Ersetzt den Umweg-Planer
-(`corridor-detour.ts`) und die Kappen-Schleife.
+(`corridor-detour.ts`, entfernt) und die Kappen-Schleife.
 
 **Anlass** (Nutzerentscheidung E6, 2026-09-15: "Es soll realistisch sein, das
 3D-Modell gilt."): Die OSM-Linie einer Straße läuft über etwas, das die

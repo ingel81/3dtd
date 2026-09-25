@@ -1,7 +1,7 @@
 # Electron Desktop-Build
 
-> **Status:** Anforderungen festgelegt (2026-09-18). Umsetzung läuft auf Branch
-> `electron`, Stand unter [Reihenfolge](#reihenfolge) (TODO H10).
+> **Status:** gebaut und ausgeliefert (v0.3.1 am 2026-09-19, zuletzt v0.4.0). Release-Ablauf unter
+> [Reihenfolge](#reihenfolge). Coop im LAN (Relay in der App, Suche) steht in COOP_PLAN.md, C4d.
 > Ein Proof-of-Concept lief am 2026-05-16 durch und wurde danach zurückgebaut,
 > im Repo liegt davon nichts mehr. Seine Erkenntnisse stehen unter
 > [Aus dem PoC](#aus-dem-poc).

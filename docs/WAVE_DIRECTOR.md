@@ -81,7 +81,7 @@ gebrochen). Wiederholung wird dadurch unmöglich statt nur teuer.
 Strom `director` des Laufs (`utils/game-rng.ts`); der `WaveDirector` holt ihn je Planung, damit ein
 `GameRng.reset()` nicht an einer festgehaltenen Funktion vorbeiläuft. Gleicher Seed
 heißt gleiche Wellen, solange der Lauf gleich verläuft: Der Überlebbarkeits-Deckel und der Druck-Regler lesen die
-Verteidigung und die verlorenen HP. `director/determinism.spec.ts` prüft das.
+Verteidigung und die verlorenen HP. `director/sources/adaptive/determinism.spec.ts` prüft das.
 
 **Schwierigkeit ist eine Kurve, keine Entscheidung je Welle.** Der Spieler heilt nie, seine HP sind ein Budget für
 den ganzen Run:

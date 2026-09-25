@@ -1,5 +1,7 @@
 # Druck-Regler: Plan
 
+**Status:** gebaut (`director/sources/adaptive/pressure-controller.ts`), Messrunden ab Abschnitt 6.
+
 **Stand:** 2026-09-21. Ersetzt den Leck-Regler (`leak-controller.ts`) durch einen Regler auf den HP-Druck.
 Ziel ist ein langer, durchgehend knapper Lauf statt zwölf toter Wellen und einer Wand.
 Messgrundlage: 360 Könner-Läufe auf `00ab77bf`, Baseline vom 2026-09-21.

@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-09-16 (Services, Manager, Signaturen, Ordner und Game Loop gegen den Code geprüft)
+**Stand:** 2026-09-16 (Services, Manager, Signaturen, Ordner und Game Loop gegen den Code geprüft); am 2026-09-25 nachgezogen: Replay als Neu-Simulation, Ordner `coop/`, `simulator/`, `run-log/`, Wellenquellen, Coop in [COOP_PLAN.md](COOP_PLAN.md)
 
 ## Übersicht
 
@@ -21,7 +21,7 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 | Forschung | `managers/research.manager.ts`, `configs/research/` | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
 | Fähigkeiten | `managers/ability.manager.ts` | [ABILITIES.md](ABILITIES.md) |
 | Held (Söldner) | `managers/hero.manager.ts` | [HERO.md](HERO.md) |
-| Replay der letzten Welle | `replay/` | [REPLAY.md](REPLAY.md) |
+| Replay jeder Welle als Neu-Simulation | `simulator/`, `replay/` | [REPLAY.md](REPLAY.md) |
 | Ort, Straßen, Favoriten, Weltkarte | `services/location/` | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | Effekte, Post-Processing, Screen Shake | `three-engine/renderers/`, `three-engine/post-processing/` | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
 | Ton und Musik | `managers/audio/`, `game-engine/background-music.service.ts` | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
@@ -45,7 +45,7 @@ Server-Anteil und kein Modell:
 | Bots + WebSocket-Client (`bots/bot-session.ts`) | **nur Bot-Läufe**. Eigener Lazy-Chunk, lädt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
 
 Der **Wave-Director sitzt im Client** und ist die einzige Wellenquelle
-(`director/director-rules.ts`). Er braucht weder Netzwerk noch Modell; deshalb
+(`director/sources/adaptive/director-rules.ts`). Er braucht weder Netzwerk noch Modell; deshalb
 gibt es kein Startfenster, in dem der Director nicht verfügbar wäre, und
 `directorEnabled` steht per Default auf `true`. ONNX-Modell, Encoder und der
 Wellen-Pfad des Backends sind am 2026-09-20 entfallen
@@ -103,7 +103,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid`, `corridor` und `flight` setzen andere Services; kein eigener Schritt für die 3D Tiles, auf die wartet der Korridor-Bau), Progress Tracking |
 | **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
 | **GameStateSyncService** | EventBus → Store Bridge: wave/game/credits/health/tower/enemy/research:state-changed |
-| **RunStatsTracker** (`run-stats.ts`) | Zahlen der Game-Over-Bilanz vom Event-Bus, Angular-frei, gehalten vom GameStateSyncService |
+| **run-summary** (`run-log/run-summary.ts`) | Zahlen der Game-Over-Bilanz, aus dem Run-Log gerechnet (siehe [RUN_LOG.md](RUN_LOG.md)) |
 
 #### (Root): Camera & Input + zentrale Services
 
@@ -121,7 +121,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **AbilityTargetingService** | Zielmodus einer Fähigkeit: Ring im Radius des Schlags am Cursor, auf die Route gesnappt, Klick sendet `command:use-ability`, siehe [ABILITIES.md](ABILITIES.md) |
 | **HeroControlService** | Held wählen, schicken (`command:hero-move`), anheuern und Munition wechseln, siehe [HERO.md](HERO.md) |
 | **PhotoModeService** | Photo Mode: HUD aus, Screenshot mit Logo und Adresse (`utils/screenshot.ts`), siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#photo-mode) |
-| **ReplayService** | Replay der letzten Welle starten und verlassen: Pause, `ReplayPlayer`, Kamera, Menü und Fokus zurück, siehe [REPLAY.md](REPLAY.md) |
+| **ReplayService** | Replay einer Welle starten und verlassen: Pause, `ReplaySession`, Kamera, Menü und Fokus zurück, Datei, siehe [REPLAY.md](REPLAY.md) |
 | **SellConfirmService** | Verkauf in zwei Schritten ohne Dialog (`SELL_CONFIRM_WINDOW_MS`), für Tower- und Research-Panel |
 | **RefusalHintService** | Hinweis in der Context-Hint-Box, wenn eine Fähigkeit oder der Held einen Befehl des Spielers ablehnt |
 | **UpgradeHintService** | Zeile im Panel, wenn ein Upgrade nicht gekauft werden kann (`UPGRADE_HINT_MS`) |
@@ -288,7 +288,7 @@ tower-defense.component.ts
     │   ├── GameCommandsHandler ───────── Routing der `command:*`- und sieben `debug:*`-Events (2026-05-10)
     │   ├── EconomyService ────────────── Wave-Completion-Bonus + Streak (extrahiert aus GSM)
     │   ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
-    │   ├── AbilityManager / HeroManager / ReplayRecorder
+    │   ├── AbilityManager / HeroManager / SimRecorder
     │   └── EntityManager ─────────────── Generischer Entity-Container
 ```
 
@@ -742,8 +742,8 @@ ohne Angular-DI, und delegiert an sie. Seine öffentliche API (`placeTower`, `se
 | `BaseHealthLedger` | `baseHealth`-Signal; emittiert `health:changed` |
 | `TowerLifecycle` | Bauen, Verkaufen, Upgraden (Prüfungen, Kosten, Tier-Gating, `tower:upgraded`), Range-Refresh, AA-Retrofit, Wachrichtung |
 
-Außerdem hält er den `ReplayRecorder`, der die laufende Welle für das Replay aufnimmt
-(siehe [4.9](#49-replay-der-letzten-welle)).
+Außerdem hält er den `SimRecorder`, der je Welle Snapshot, Konfiguration und Einstieg in den Befehlslog
+für das Replay festhält (siehe [4.9](#49-replay-als-neu-simulation)).
 
 `update()`/`runSubStep()` und das Event-Wiring in `initialize()` bleiben im GameStateManager,
 damit die Reihenfolge an einer Stelle steht. `game-state.manager.order.spec.ts` hält sie fest:
@@ -881,30 +881,16 @@ Der Held (Söldner) läuft auf dem Routengraph (`utils/route-graph.ts`), kämpft
 über `ProjectileManager.spawnShot` und `DamageApplicationService` mit Quelle
 `hero` und steht als virtueller Tower im Überlebbarkeits-Deckel. Siehe [HERO.md](HERO.md).
 
-### 4.9 Replay der letzten Welle
+### 4.9 Replay als Neu-Simulation
 
-> **Vollständige Dokumentation:** [REPLAY.md](REPLAY.md)
+> **Vollständige Dokumentation:** [REPLAY.md](REPLAY.md), Grundlagen in [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md)
 
-Ein Präsentations-Replay, keine Re-Simulation (Begründung in REPLAY.md):
-`ReplayRecorder` (`replay/`, ohne Angular-DI, vom GameStateManager gehalten)
-nimmt alle 6 Sub-Steps auf, was die Renderer zeigen (Gegner, Projektile,
-Türme, die Körper der Oozes, den Helden), in Typed-Array-Spalten mit
-Speichergrenze, dazu Effekt-Events und jedes `command:*` über `onAny()`,
-das nur während einer aufgenommenen Welle am Bus hängt.
-`ReplayPlayer` spielt das über die Live-Renderer ab, während das Spiel
-pausiert, im Blutmond-Look der aufgezeichneten Welle; Effekte laufen über
-einen eigenen Bus mit eigenem `VFXService`, `AudioService` und
-`ScreenShakeService`. `ReplayService` (Angular, vom
-Spiel-Component bereitgestellt) steuert den Modus, `app-replay-bar` die Leiste.
-
-```typescript
-class ReplayRecorder {
-  readonly readyWave: Signal<number | null>;  // Welle der fertigen Aufnahme
-  onSubStep(): void;                           // GameStateManager, nach runSubStep (Turmdrehung inklusive)
-  finish(outcome: 'completed' | 'gameover'): void;
-  clear(): void;
-}
-```
+Das Replay rechnet eine Welle aus dem Zustand bei ihrem Start und den Befehlen noch einmal, mit den echten
+Renderern. `SimRecorder` (`simulator/`, vom GameStateManager gehalten) nimmt beim Wellenstart einen `SimSnapshot`,
+merkt sich die Wellenkonfiguration und den Einstieg in den `CommandLog`. `ReplaySession` sichert den Live-Stand,
+spielt die Welle ab und springt (Neu-Simulation bis zur Zielstelle), danach kommt der Live-Stand zurück.
+`ReplayService` (Angular) steuert den Modus, `app-replay-bar` die Leiste. Das frühere Präsentations-Replay
+(`ReplayRecorder`, `ReplayPlayer`) ist am 2026-09-24 entfallen.
 
 ---
 
@@ -926,7 +912,7 @@ class GameEventBus {
   // Subscriptions
   on<T extends GameEvent['type']>(type: T, handler: (event) => void): EventSubscription;
   off<T extends GameEvent['type']>(type: T, handler): void;
-  onAny(handler: (event: GameEvent) => void): EventSubscription;  // Catch-all: Event-Debugger, ReplayRecorder
+  onAny(handler: (event: GameEvent) => void): EventSubscription;  // Catch-all: Event-Debugger
   clear(): void;
 }
 ```
@@ -956,7 +942,7 @@ enemyManager.update(stepMs, gameTimeMs);   // Emits immediate events
 towerCombat.updateTowerShooting(...);      // + Beam/Melee/Chain, nur in der Wave-Phase oder mit Debug-Gegnern
 heroManager.update(stepMs);                // eigener Schritt des Helden
 stepTowerAim(tower.aim, stepMs);           // je Tower: Turmdrehung in Spielzeit, gibt das Feuern frei
-// danach in update(): onSubStep (Bot), replayRecorder.onSubStep()
+// danach in update(): onSubStep (Bot)
 ```
 
 ---
@@ -1267,7 +1253,7 @@ function onEngineUpdate(deltaTime: number) {
   // pro Frame: Build-Preview-Rotation, Street-Batches, Keyboard-Pan, Marker, Route-Animation, Intro-Flug
   gameState.update(performance.now(), (stepMs) => {
     // Die Turmdrehung läuft in runSubStep (stepTowerAim je Tower), nicht hier
-    if (botEnabled) trainingClient.updateBot(snapshot, stepMs);
+    if (botEnabled) botClient.updateBot(getSnapshot, stepMs);  // BotSession, nur in Bot-Läufen
   });
   bossIntro.update(deltaTime);  // Boss aus dem Portal: Kameraschnitt, Wanduhr, siehe WAVE_SYSTEM.md
   // danach: Auto-Wave-Countdown, Profiler, Route-Grid-Viz, LOS-Viz-Puls, UI-Stats (~10 Hz)
@@ -1347,8 +1333,9 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | Ordner | Zweck | Einstieg |
 |---|---|---|
 | (Root) | Root-Component, Provider, Routing, Spielkomponente | `app.ts`, `tower-defense.component.ts` (Template mit den Debug-Fenstern in einem `@defer`-Block) |
-| `director/` | Wave-Director (Regeln), Leck-Regler, Templates, Defense-Analyse | `wave-director.ts`, `director-rules.ts`, `leak-controller.ts`, `wave-config-builder.ts` |
-| `bots/` | Bots (Strategy Pattern), Strategien je Bereich, Trainings-Client | `bot-session.ts`, `bots/`, `strategies/` |
+| `director/` | Wellenquellen: Vertrag, Registry, WaveDirector, Templates, Defense-Analyse; `sources/adaptive` (Regeln, Druck-Regler), `sources/table` | `wave-source.ts`, `wave-director.ts`, `sources/adaptive/director-rules.ts`, `sources/adaptive/pressure-controller.ts` |
+| `bots/` | Bots (Strategy Pattern), Strategien je Bereich, Bot-Session mit WebSocket-Client zum Bot-Server | `bot-session.ts`, `bots/`, `strategies/` |
+| `coop/` | Coop: Lockstep, Protokoll, Sitzung, Weltpaket, Prüfsummen, Raum-Optionen, Befehlsprüfung | `lockstep.ts`, `coop-session.ts`, `protocol.ts`, siehe [COOP_PLAN.md](COOP_PLAN.md) |
 | `components/` | UI-Komponenten (Header, Sidebar-Panels, Dialoge, Leisten, Debug-Fenster) | siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#dateien) |
 | `configs/` | Tower, Gegner, Projektile, Effekte, Audio, Balance, Wellen-Kampagne, Forschung, Fähigkeiten, Held, LOS-Farben | `tower-types.config.ts`, `enemy-types.config.ts`, `campaign.config.ts`, `research/`, `combat/` |
 | `core/` | `GameObject`, `Component`, `ConfigService` (Tile-Zugang) | `game-object.ts`, `services/config.service.ts` |
@@ -1360,7 +1347,9 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | `interfaces/` | Provider-Interfaces für Straßennetz und Terrain | |
 | `managers/` | Manager (event-driven, Angular-frei außer dem GameStateManager), `game-state/` (GameClock, Ledger, TowerLifecycle, Wellen-Vorschau), `worm/`, `audio/` (Spatial Audio), `ooze-*.ts` | `game-state.manager.ts`, `game-commands.handler.ts` |
 | `models/` | Typen (`game.types.ts`, `location.types.ts`, `status-effects.ts`) | |
-| `replay/` | Replay der letzten Welle: Aufnahme, Wiedergabe, Leiste | `replay-recorder.ts`, `replay-player.ts`, siehe [REPLAY.md](REPLAY.md) |
+| `replay/` | Replay-Leiste: Befehls-Marken, Zeitformat | `replay-bar-view.ts`, siehe [REPLAY.md](REPLAY.md) |
+| `run-log/` | Run-Log: Sammler, Speicher, Export, Game-Over-Zahlen | `run-log.service.ts`, `run-summary.ts`, siehe [RUN_LOG.md](RUN_LOG.md) |
+| `simulator/` | Snapshot, Prüfsumme, Neu-Simulation, Replay-Sitzung, Replay-Datei | `resimulation.ts`, `state-hash.ts`, `replay-session.ts` |
 | `services/` | Angular-Services in sieben Unterordnern und im Root | Tabellen unter [Services](#services) |
 | `store/` | Signal Stores | siehe [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) |
 | `styles/` | Theme-Tokens | `td-theme.ts` |
@@ -1369,7 +1358,8 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | `workers/` | Web Worker: Heartbeat für den Loop im versteckten Tab (A* läuft im Main Thread) | `heartbeat.worker.ts` |
 
 Außerhalb von `src/app/`: `tools/` (Shader-Check, Blender-Skripte, Weltkarten-Umrisse,
-Modell-Budget, Charts, Benchmarks, AI-Schema), `bot-server/` (Python, nur Bot-Läufe), `docs/` (siehe
+Modell-Budget, Charts, Benchmarks, Relay-Last), `bot-server/` (Python, nur Bot-Läufe), `coop-server/` (Node-Relay
+für Coop), `desktop/` (Electron-App mit LAN-Relay), `e2e/` (Playwright), `landing/` (Projektseite), `docs/` (siehe
 [INDEX.md](INDEX.md)).
 
 ---

@@ -683,7 +683,7 @@ Technik und Regeln in [TOWER_CONTROL.md](TOWER_CONTROL.md). Zustand in `GameStor
 
 ### Game-Over-Bilanz
 
-`components/run-summary/` im Game-Over-Overlay zwischen Untertitel und Restart. Die Zahlen sammelt `RunStatsTracker` (`services/infrastructure/run-stats.ts`, Angular-frei) am Event-Bus, gehalten von `GameStateSyncService`; bei `game:over` landet die Zusammenfassung in `GameStore.runSummary`, `game:reset` leert sie.
+`components/run-summary/` im Game-Over-Overlay zwischen Untertitel und Restart. Die Zahlen rechnet `runSummary` (`run-log/run-summary.ts`) aus dem Run-Log, aufgerufen vom `GameStateSyncService`; bei `game:over` landet die Zusammenfassung in `GameStore.runSummary`, `game:reset` leert sie.
 
 - Kennzahlen in einer Zeile mit Haarlinien, keine Kacheln: Wave, Kills, Time (Spielzeit ab Reset, Bauphase eingeschlossen), Earned (Kill-Belohnungen und Wellenboni, ohne Rückerstattungen und Cheat-Credits), Spent (Tower, Upgrades, Forschung, abzüglich Rückerstattungen)
 - Leaks per wave: ein Balken je Welle, Höhe relativ zur schlimmsten Welle, `--td-health-red`; Wellen ohne Leak als 2px-Strich in `--td-frame-dark`. Der Tooltip je Balken nennt Leaks und HQ-Schaden der Welle

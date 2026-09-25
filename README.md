@@ -57,9 +57,9 @@ to be re-anchored. Sample tile depth is tracked for exactly this reason.
 | Tiles | [3DTilesRendererJS](https://github.com/NASA-AMMOS/3DTilesRendererJS) 0.5.2 |
 | Geometry | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles), via [Cesium Ion](https://cesium.com/platform/cesium-ion/) or the Google Maps API directly |
 | Map data | [OpenStreetMap](https://www.openstreetmap.org/copyright) ([Overpass](https://overpass-api.de) for streets and buildings, [Nominatim](https://nominatim.org) for geocoding) |
-| Desktop | [Electron](https://www.electronjs.org) 44, NSIS installer, updates from GitHub Releases ([desktop/](desktop/README.md)) |
-| Tests | [Vitest](https://vitest.dev) |
-| AI training | [PyTorch](https://pytorch.org) (offline, for the wave director experiments) |
+| Desktop | [Electron](https://www.electronjs.org) 44, NSIS installer (Windows), AppImage (Linux), updates from GitHub Releases ([desktop/](desktop/README.md)) |
+| Coop | lockstep over a small Node relay ([coop-server/](coop-server/)), in the desktop app also on the LAN |
+| Tests | [Vitest](https://vitest.dev), [Playwright](https://playwright.dev) ([e2e/](e2e/README.md)) |
 
 The game client is fully client side. There is no game server and no account for the game itself; the one sign-up is the Cesium Ion account for your own tile key.
 
@@ -93,12 +93,14 @@ Other commands:
 npm run build        # production build into dist/
 npm test             # vitest
 npm run lint
+npm run e2e          # browser tests against the running dev server (docs/E2E.md)
+npm run coop-server  # the coop relay on port 3003
 ```
 
 If you just want to poke at the code, there's **DevWorld**: a seeded offline world with
 generated buildings and streets, no tiles and no network. Append `?devworld` to the URL.
-It loads in well under a second instead of several, which is also why the AI training
-runs on it. See [docs/DEVWORLD.md](docs/DEVWORLD.md).
+It loads in well under a second instead of several, which is also why the bot runs
+use it. See [docs/DEVWORLD.md](docs/DEVWORLD.md).
 
 ## Layout
 
@@ -111,11 +113,16 @@ src/app/
 ├── configs/           towers, enemies, projectiles, damage matrix, wave curriculum
 ├── store/             signal stores, single source of truth
 ├── services/          Angular side: facades, location, combat, world, debug
-├── ai/                the wave director and the training bots
-├── replay/            replay of the last wave
+├── director/          wave sources: the rule-based director and the wave table
+├── bots/              strategy bots for bot runs
+├── coop/              lockstep coop: protocol, world package, hash check
+├── simulator/         deterministic simulation: snapshots, re-simulation, replays
+├── replay/            replay bar (a replay re-simulates the wave)
 └── devworld/          offline dev environment
 
 bot-server/            optional Python side: bot runs, their log and a dashboard
+coop-server/           Node relay for coop
+e2e/                   Playwright tests of the dev game
 desktop/               the desktop app: Electron shell around the same build
 ```
 

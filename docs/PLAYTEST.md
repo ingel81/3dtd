@@ -1,6 +1,6 @@
 # Playtest: offene Nachtests
 
-Stand 2026-09-22, Code-Stand `balancing`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
+Stand 2026-09-25, Code-Stand `coop`. Hier stehen nur Nachtests: Fixes, die gebaut sind und auf das Ergebnis im Spiel
 warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). Die Punkte bis 748 samt Ergebnissen
 liegen in [archive/PLAYTEST_2026-09.md](archive/PLAYTEST_2026-09.md), ältere Listen in `archive/REVIEW_*.md`.
 
@@ -144,23 +144,12 @@ Paket 3, Spielgefühl nach dem Umbau:
   Die Schüsse im Replay gehen dorthin, wohin gezielt wurde.
   **ok (2026-09-24)**
 
-## S Vor dem Release (2026-09-24)
-
-- **S1 Signale zur Musik**: Wellen bei 1x und bei 4x starten und beenden. Erwartung: Erst blendet die Musik aus,
-  dann kommt das Start-Signal oder das Horn in die Stille, danach die neue Musik. Bei 4x kommt das Signal, bevor die
-  ersten Gegner weit gelaufen sind. Der Anfang der Signale klingt nicht mehr abgeschnitten.
-  **ok (2026-09-24)**
-- **S2 Bauen vor oder nach dem Start**: Neues Spiel, vor Welle 1 viele Tower bauen, Welle 1 starten, Anzahl der
-  Gegner im WAVE-Panel merken. Neues Spiel am selben Ort, Welle 1 sofort starten, dann dieselben Tower bauen.
-  Erwartung: dieselbe Anzahl. Ebenso ab Welle 2: Was in der Pause gebaut wird, macht die kommende Welle nicht größer.
-  **ok (2026-09-24)**
-
 ## T Coop: Tower bemannen, Spieler-Leiste, Gold, Lobby (2026-09-24, Branch `coop`)
 
 Relay neu starten (`npm run coop-server`, der alte kennt `rename` und die Engine-Angabe nicht), zwei Fenster, Raum wie
 beim letzten Test. Nach dem Lauf reicht das Relay-Log (`logs/coop_*.log`).
 
-- **T1 Tower bemannen (C18)**: Im Spiel einen eigenen Archer-Tower wählen, im Tower-Panel den Gamepad-Knopf („Get in and fire it yourself“) oder Taste C.
+- **T1 Tower bemannen (C19)**: Im Spiel einen eigenen Archer-Tower wählen, im Tower-Panel den Gamepad-Knopf („Get in and fire it yourself“) oder Taste C.
   Erwartung: Die Kamera springt in den Tower, die Maus ist gefangen, Zielen folgt der Maus ohne Ruckeln, linke Taste
   schießt, rechte zoomt, C oder Esc steigt aus und die Kamera kommt zurück. Das andere Fenster sieht den Turm drehen.
   Dasselbe einmal im Einzelspieler ohne Coop.

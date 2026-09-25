@@ -567,7 +567,7 @@ spürbar werden, nicht als kleinere Welle. Der `LeakController` korrigiert die
 Schätzung laufend an der tatsächlichen Leck-Quote, Zielband 8 bis 16 % der
 Welle. Warum es den Regelkreis braucht (ohne ihn töteten 70 % der Wellen
 alles) und alle Konstanten:
-[WAVE_DIRECTOR.md](../WAVE_DIRECTOR.md#fairness-cap-im-einzelnen),
+[WAVE_DIRECTOR.md](../WAVE_DIRECTOR.md#der-überlebbarkeits-deckel-im-einzelnen),
 Abschnitte 5 und 6.
 
 ---
@@ -598,7 +598,7 @@ geplanten Luftpfade für Cannon und Fire stehen in §12.3.
 ## 8. Wave Director Regeln
 
 > **Stand 2026-09-20:** Der Director ist **regelbasiert und clientseitig**
-> (`director/director-rules.ts`) und die einzige Wellenquelle. Das ONNX-Modell ist
+> (`director/sources/adaptive/director-rules.ts`) und die einzige Wellenquelle. Das ONNX-Modell ist
 > entfallen ([BALANCING_PLAN.md](../BALANCING_PLAN.md), Phase 1a).
 > Grund: gemessen über A/B-Runs mit identischen Bots, Kampagne und
 > Überlebbarkeits-Deckel war das trainierte Netz dreimal statistisch ununterscheidbar

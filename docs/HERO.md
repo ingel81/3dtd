@@ -31,7 +31,7 @@ Alle Werte stehen in `configs/hero.config.ts` (`HERO`, `HERO_AMMO`, `HERO_LEVELS
 | Stufen | 5, erreicht bei 0, 30, 100, 250 und 500 Kills; Schaden je Schuss ×1,0 / 1,15 / 1,3 / 1,45 / 1,6. Reichweite, Tempo und Feuerrate bleiben |
 | Leben | unverwundbar, Gegner greifen ihn nicht an |
 | Gold | jeder seiner Kills zahlt seinen Anteil am Kill-Budget der Welle wie jeder Kill |
-| Wave-Director | virtueller Tower mit Präsenzfaktor 0,5, siehe [Überlebbarkeits-Deckel](#fairness-gate) |
+| Wave-Director | virtueller Tower mit Präsenzfaktor 0,5, siehe [Überlebbarkeits-Deckel](#überlebbarkeits-deckel) |
 | Bots | heuern ihn nie an, siehe [Bots](#bots) |
 
 ### Munition

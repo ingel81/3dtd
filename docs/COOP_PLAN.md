@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-25 · Branch `coop` · Status: C0 bis C4d und C5a gebaut, C5b, C6 und C7 offen · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-25 · Branch `coop` · Status: C0 bis C4d, C5a und C8 gebaut, Review R1 bis R21 gebaut (R10 teilweise); offen C5b, C7 (öffentlicher Relay), aus C6 nur Bots als Mitspieler (D24) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -10,7 +10,7 @@ teurer.
 
 PvP (Rush, Versus Race, Angreifer gegen Verteidiger) ist gestrichen (User, 2026-09-24).
 
-## 1. Was schon steht
+## 1. Was schon stand (vor C0, 2026-09-24)
 
 Aus dem Simulator (Stand `next` = `main` = v0.4.0):
 
@@ -31,7 +31,7 @@ Zufall und Uhr hängen am `GameStateManager`, nicht an Modulen: Zwei Simulatione
 nebeneinander. Darauf baut C0. Ausnahme ist der Id-Zähler der `GameObject`s, er ist statisch; im Spiel gibt es eine
 Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 
-## 2. Was fehlt
+## 2. Was fehlte (vor C0, 2026-09-24; heute offen nur Snapshot mitten in der Welle und bit-gleich über Browser)
 
 - **Befehle aus dem Netz.** Ein UI-Befehl zwischen zwei Frames wirkt heute sofort. Im Coop geht jeder Befehl,
   auch der eigene, erst an den Relay und wirkt bei allen am selben Tick.
@@ -115,7 +115,7 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 ### C0 Lockstep im Prozess (gebaut 2026-09-24)
 
 - `coop/lockstep.ts`: `LockstepLink` (das Client-Ende des Relays, egal worüber), `StampedCommand` mit Tick,
-  laufender Nummer und `playerId`, `TICK_SUB_STEPS = 4` (rund 67 ms bei Tempo 1).
+  laufender Nummer und `playerId`, `TICK_SUB_STEPS = 2` (rund 33 ms bei Tempo 1; bis 2026-09-25 waren es 4).
 - `coop/local-relay.ts`: Relay im Prozess für Specs und als Vorbild für C4. Er hält die Ankunftsreihenfolge, legt
   alles Eingegangene in den nächsten Tick, wenn der schließt, und gibt jeden geschlossenen Tick an jeden Link.
 - `GameCommandsHandler.setLockstep(link)`: Ein Befehl vom Bus wirkt nicht mehr dort, wo er gegeben wurde, sondern
@@ -139,7 +139,7 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 - Nach C4 verschoben: Tempo und Pause als Befehle (D15). Das Tempo gibt im Coop der Relay vor, der Client folgt;
   das gehört zum Takt des Relays.
 - Offen für C4: Neustart im Coop. `reset()` zieht einen neuen Seed aus `Math.random`; im Raum muss der Seed vom
-  Relay kommen.
+  Relay kommen. **Gebaut 2026-09-24 (R1): Seed vom Host über `command:restart-game`.**
 
 ### C1 Welt teilen
 
@@ -160,7 +160,7 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
   Zellen), Paket als Text, Beitretender auf Tiles, die nichts liefern: gleicher `worldKey`, gleiche Zellen und
   Höhen; ohne Höhen ein anderer Schlüssel; beide spielen eine Welle im Lockstep ohne Abweichung.
 
-**C1b Einstieg im Spiel (kommt mit C4)**
+**C1b Einstieg im Spiel (gebaut 2026-09-24 mit C4c)**
 
 - Ein Ort aus dem Paket statt aus Overpass, Routensuche und Korridor-Bau: Ursprung setzen, Marker, Spawns in den
   Store, Routen in den `PathAndRouteService`, Zellen erzeugen und Höhen übernehmen, Korridor als eingefroren
@@ -418,26 +418,26 @@ der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
 **C5a gebaut (2026-09-24):** Abweichung erkennen, Diagnose am Relay.
 
 - `coop/hash-check.ts`: `HashCheck` vergleicht die Prüfsummen eines Ticks und meldet den ersten Tick mit zwei
-  verschiedenen einmal; Relay und `LocalRelay` teilen ihn. `HASH_EVERY_TICKS = 15` (eine Spielsekunde).
-- `LockstepLink.reportHash`: Der `GameStateManager` meldet am Rand jedes 15. Ticks, vor dessen Befehlen, die
+  verschiedenen einmal; Relay und `LocalRelay` teilen ihn. `HASH_EVERY_TICKS = 30` (eine Spielsekunde; mit dem halben Tick von 15 verdoppelt).
+- `LockstepLink.reportHash`: Der `GameStateManager` meldet am Rand jedes 30. Ticks, vor dessen Befehlen, die
   Prüfsumme (`StateHasher`). Protokoll 2: `hash` vom Client, `desync` an alle (erster Tick, Spieler und Prüfsumme).
 - Client: `CoopSession.onDesync`, `CoopService.desync`, Warnung in der Konsole mit den Prüfsummen, Hinweis im
-  Coop-Dialog. Eine Anzeige im Spiel kommt mit der Spieler-Leiste (Wunsch A).
+  Dock und in der Squad-Box (C8); ab drei Spielern mit dem Abweichler (S3).
 - Relay-Diagnose: jede Raum-Zeile mit Uhrzeit und `[CODE]` (Anlegen, Beitritt, Austritt mit Grund Schließen oder
   Herzschlag, Welt mit Größe und Spawns, Lanes, Bereit, Start mit Seed und Lanes, Tempo, Hostwechsel, erste
   Abweichung, Ende mit Dauer, Ticks, Befehlen); alle 10 s je laufendem Raum Tick, Tempo, Befehle je Sekunde, je
   Spieler Ping-Laufzeit des Herzschlags und letzte Prüfsumme. Statusseite `http://<relay>/` (Text) und `/status`
   (JSON). `npm run coop-server` schreibt zusätzlich nach `logs/coop_<Start>.log`.
-- Abnahme: Lockstep-Spec (B verfälscht sein Gold, der Relay meldet es spätestens 15 Ticks später; der lange
+- Abnahme: Lockstep-Spec (B verfälscht sein Gold, der Relay meldet es spätestens 30 Ticks später; der lange
   Zwei-Spieler-Lauf endet ohne Meldung), `room.spec.ts`, `server.spec.ts` (Abweichung über Sockets, Log mit Code,
   Statusseite), `session.spec.ts`.
 - Gemessen (User, 2026-09-24, Relay-Log): Chrome gegen Chrome bis W10, rund 66 Spielminuten, ohne Abweichung.
   Chrome gegen Firefox weicht bei Tick 210 ab (14 Spielsekunden nach dem Start) und bleibt abweichend. Ursache
   unbelegt; Eingrenzen per zerlegter Prüfsumme ist TODO E28, Randthema (D29).
 
-**C5b offen:** Wiedereinstieg und Resync.
+**C5b offen:** Wiedereinstieg und Resync. (Prüfsummen melden und vergleichen sowie die Diagnose am Relay sind mit C5a
+gebaut, die Punkte dazu unten sind Geschichte.)
 
-- Jeder Client meldet alle N Ticks seine Prüfsumme (`StateHasher`); der Relay vergleicht.
 - Wiedereinstieg und Beitritt mitten in der Welle: Snapshot vom Wellenstart plus Befehlslog seitdem, vorspulen.
   Das gibt es schon (Neu-Simulation) und trägt, solange die Browser gleich rechnen.
 - Divergenz (anderer Browser, Float): zuerst nur erkennen und anzeigen, und messen, wie oft es passiert
@@ -445,7 +445,7 @@ der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
   - Resync: Host schickt den vollen Zustand. Braucht den Snapshot mitten in der Welle.
   - Hart machen: Trigonometrie aus dem Sim-Pfad, lokale Ebenen-Projektion statt Haversine.
 - Abnahme: absichtlich verfälschter Zustand auf einer Seite wird innerhalb von N Ticks gemeldet.
-- Diagnose am Relay (User, 2026-09-24), gehört zu C5, weil die Abweichungssuche davon lebt:
+- (gebaut in C5a) Diagnose am Relay (User, 2026-09-24), gehört zu C5, weil die Abweichungssuche davon lebt:
   - Log je Raum mit Uhrzeit und Raum-Code: Anlegen, Beitritt und Austritt (mit Name, Grund: Schließen oder
     Herzschlag), Welt empfangen (Größe, Spawns), Lanes, Bereit, Start (Seed, Roster), Tempo, Hostwechsel, Ende.
   - Regelmäßige Zeile je laufendem Raum: Tick, Befehle je Sekunde, Spieler mit Ping-Laufzeit, letzte Prüfsummen.
@@ -594,44 +594,15 @@ Für ein Koop-Spiel unter Freunden reicht S1 plus S4; S2, S3 und S6 werden wicht
 
 ### C6 Coop-Oberfläche
 
+**Weitgehend gebaut (2026-09-25):** Ping R13, Chat R12, Token-Dialog R8, Lane-Druck und Held des Partners R15,
+Besitz-Farbe R14, Cheats nach Raum-Option (R3, D38), Bereit-Knopf C2d, Oberfläche C8. Offen: Bots als Mitspieler (D24).
+
 - Lane-Druck je Spieler (Lecks, HP-Anteil), Besitz an Towern (Farbe), Gold der Mitspieler, Bereit-Knopf vor dem
   Wellenstart, Meldung bei Abbruch und Divergenz.
 - Beitritt ohne eigenen Tiles-Token (D19): der Token-Dialog öffnet sich vor dem Beitritt, mit Erklärung.
 - Ping (Taste plus Klick, Marke und Ton in der Spielerfarbe) und ein kleines Chatfenster (D25).
 - Debug-Befehle und Cheats sind im Coop aus. Bots als Mitspieler nur im Dev-Modus zum Testen (D24): ihre Befehle
   gehen wie die eines Spielers über den Relay.
-
-### C8 Design-Handover (gebaut 2026-09-25)
-
-Aus dem Handover abgeleitet (D37 bis D46). Alte Teile gehen mit dem Umbau (Spieler-Leiste, Chat-Zeilenkästen,
-Meldungsliste, modaler Raum-Dialog), nichts läuft doppelt.
-
-- **Relay und Protokoll 6:** Raum-Optionen `options {cheats, pause, wave}` in der Rauminfo und im `started`, Host setzt
-  sie mit `{t:'options'}` nur in der Lobby; die Bereitschaft der Gäste fällt dabei. Start prüft nur die Gäste (D40).
-  Pause nach `options.pause`; Cheats nach `options.cheats` und Absender, dazu der Schalter des Relays.
-- **Simulation:** die Cheat-Regel steht bei allen Clients gleich fest (Modus und Host-Id vom Start), damit ein
-  Host-Cheat nirgends verworfen wird. Next wave: „Host starts“ startet ohne Bereitschaft, „Auto 10 s“ zählt nach
-  Wellenende und startet früher, wenn alle bereit sind; gestartet wird wie bisher vom Host-Client.
-- **Chat-Modell:** Zeilen mit Zeit und Absender oder `system`; die Meldungen werden Systemzeilen (D43).
-- **Dock** (ersetzt den Raum-Dialog): Einstieg (Name, Karten Host/Join, Server), Beitritt als Schrittliste mit
-  Fortschritt der Karte, Lobby mit Raumcode (Code und Einladung kopieren, Sperre), Statuszeile, Spieler (Lane-Balken,
-  Tags, Bereit-Pille, Ping-Balken, Kick), Lanes (frei nehmen, hinfliegen, entfernen), Mode & options (Chips zu,
-  Segmente auf), Chat gruppiert, Fuß (Leave, ⋯ Resend map, Start match oder Ready up).
-- **Squad-Box und Chat** unten links (ersetzen Spieler-Leiste und Chat): Kopf mit Code, CHEATS ON, Einklappen; Zeilen
-  mit Lane-Balken, Tags, Zustand, Credits, Ping, Bereit-Häkchen bzw. Gold senden; Fuß sagt, auf wen die Welle
-  wartet. Lag, Aufholen, Lecks, Abgang, Divergenz und Verbindungsverlust („Continue alone“) in diesem Rahmen.
-- **Kopf:** Raum-Chip mit Code, einem Quadrat je Spieler und n/max; Klick oder Tab öffnet das Dock.
-- **Sidebar:** der Wellen-Knopf zeigt „Ready for wave N · 1/2 ready“ bzw. den Auto-Countdown.
-- **Bausteine einmal:** Ping-Balken als Component, Coop-Rezepte (Knöpfe, Segment, Tag, Pille, Abschnittskopf) als
-  Sass-Mixins neben `_td-mixins.scss`, Farben nur aus `td-theme.ts`.
-
-**Gebaut 2026-09-25:** Protokoll 6 mit `options` (`coop/room-options.ts`, geteilt von Relay und Client); der Relay setzt
-Pause- und Cheat-Regel durch, die Simulation die Cheat-Regel über `GameStateManager.setCheatRule` gleich auf allen
-Clients; „Host starts“ und „Auto 10 s“ (Countdown auf der Spieluhr, gestartet vom Host-Client) über
-`waveButtonAction`/`startsWhenAllReady`. Chat mit Systemzeilen (`CoopChatLine`, `notify`), Lag über 160 ms
-(`LAG_MS`). Dock `components/coop-dock/`, Squad `components/coop-squad/`, Chat `components/coop-chat/`, Bausteine
-`components/coop-ui/`; `coop-dialog/` und `coop-players/` sind weg, mit ihnen der Sonderweg für angedockte Dialoge.
-JetBrains Mono selbst gehostet. Nachtest PLAYTEST T54 ff.
 
 ### C7 Betrieb
 
@@ -681,6 +652,38 @@ einem Node-Prozess, 10 s gemessen (`tools/coop-load/relay-load.ts`). Ein Raum: u
 je Sekunde an die Clients (30 je Spieler); 50 Räume, 200 Spieler: rund 21 % eines Kerns mit den Clients, 6 058
 Nachrichten je Sekunde. Ein kleiner VPS trägt also weit mehr Räume, als es in absehbarer Zeit geben wird; die
 Grenze ist eher die Bandbreite der Weltpakete (rund 300 kB je Beitritt).
+
+### C8 Design-Handover (gebaut 2026-09-25)
+
+Aus dem Handover abgeleitet (D37 bis D46). Alte Teile gehen mit dem Umbau (Spieler-Leiste, Chat-Zeilenkästen,
+Meldungsliste, modaler Raum-Dialog), nichts läuft doppelt.
+
+- **Relay und Protokoll 6:** Raum-Optionen `options {cheats, pause, wave}` in der Rauminfo und im `started`, Host setzt
+  sie mit `{t:'options'}` nur in der Lobby; die Bereitschaft der Gäste fällt dabei. Start prüft nur die Gäste (D40).
+  Pause nach `options.pause`; Cheats nach `options.cheats` und Absender, dazu der Schalter des Relays.
+- **Simulation:** die Cheat-Regel steht bei allen Clients gleich fest (Modus und Host-Id vom Start), damit ein
+  Host-Cheat nirgends verworfen wird. Next wave: „Host starts“ startet ohne Bereitschaft, „Auto 10 s“ zählt nach
+  Wellenende und startet früher, wenn alle bereit sind; gestartet wird wie bisher vom Host-Client.
+- **Chat-Modell:** Zeilen mit Zeit und Absender oder `system`; die Meldungen werden Systemzeilen (D43).
+- **Dock** (ersetzt den Raum-Dialog): Einstieg (Name, Karten Host/Join, Server), Beitritt als Schrittliste mit
+  Fortschritt der Karte, Lobby mit Raumcode (Code und Einladung kopieren, Sperre), Statuszeile, Spieler (Lane-Balken,
+  Tags, Bereit-Pille, Ping-Balken, Kick), Lanes (frei nehmen, hinfliegen, entfernen), Mode & options (Chips zu,
+  Segmente auf), Chat gruppiert, Fuß (Leave, ⋯ Resend map, Start match oder Ready up).
+- **Squad-Box und Chat** unten links (ersetzen Spieler-Leiste und Chat): Kopf mit Code, CHEATS ON, Einklappen; Zeilen
+  mit Lane-Balken, Tags, Zustand, Credits, Ping, Bereit-Häkchen bzw. Gold senden; Fuß sagt, auf wen die Welle
+  wartet. Lag, Aufholen, Lecks, Abgang, Divergenz und Verbindungsverlust („Continue alone“) in diesem Rahmen.
+- **Kopf:** Raum-Chip mit Code, einem Quadrat je Spieler und n/max; Klick oder Tab öffnet das Dock.
+- **Sidebar:** der Wellen-Knopf zeigt „Ready for wave N · 1/2 ready“ bzw. den Auto-Countdown.
+- **Bausteine einmal:** Ping-Balken als Component, Coop-Rezepte (Knöpfe, Segment, Tag, Pille, Abschnittskopf) als
+  Sass-Mixins neben `_td-mixins.scss`, Farben nur aus `td-theme.ts`.
+
+**Gebaut 2026-09-25:** Protokoll 6 mit `options` (`coop/room-options.ts`, geteilt von Relay und Client); der Relay setzt
+Pause- und Cheat-Regel durch, die Simulation die Cheat-Regel über `GameStateManager.setCheatRule` gleich auf allen
+Clients; „Host starts“ und „Auto 10 s“ (Countdown auf der Spieluhr, gestartet vom Host-Client) über
+`waveButtonAction`/`startsWhenAllReady`. Chat mit Systemzeilen (`CoopChatLine`, `notify`), Lag über 160 ms
+(`LAG_MS`). Dock `components/coop-dock/`, Squad `components/coop-squad/`, Chat `components/coop-chat/`, Bausteine
+`components/coop-ui/`; `coop-dialog/` und `coop-players/` sind weg, mit ihnen der Sonderweg für angedockte Dialoge.
+JetBrains Mono selbst gehostet. Nachtest PLAYTEST T54 ff.
 
 ## 5. Offen
 
