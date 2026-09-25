@@ -49,6 +49,8 @@ const MAX_ADVANCE_MS = 1000;
 
 /** Game speeds the host may set; 0 pauses. */
 const SPEEDS = new Set([0, 0.5, 1, 2, 3, 4]);
+/** Commands kept to log with the first desync */
+const RECENT_COMMANDS = 40;
 
 export interface RoomPlayer {
   id: string;
@@ -117,6 +119,8 @@ export class Room {
 
   private readonly hashCheck = new HashCheck();
   private commandCount = 0;
+  /** The last RECENT_COMMANDS commands, logged with the first desync to find its cause */
+  private readonly recent: StampedCommand[] = [];
   private desyncCount = 0;
   private firstDesync: number | null = null;
 
@@ -228,6 +232,12 @@ export class Room {
         this.send(message.playerId, { t: 'refused', reason: 'kicked' });
         return this.leave(message.playerId, `taken out by ${this.who(playerId)}`);
       }
+      case 'moving':
+        // The guests learn before the new world comes (PLAYTEST T25)
+        if (!host) return this.refuse(playerId, 'not-host');
+        if (this.started) return;
+        for (const p of this.players) if (p.id !== playerId) this.send(p.id, { t: 'moving' });
+        return;
       case 'lock':
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.locked === !!message.locked) return;
@@ -345,6 +355,8 @@ export class Room {
       command,
     }));
     this.open = [];
+    this.recent.push(...commands);
+    if (this.recent.length > RECENT_COMMANDS) this.recent.splice(0, this.recent.length - RECENT_COMMANDS);
     this.broadcast({ t: 'tick', tick, commands });
   }
 
@@ -360,6 +372,11 @@ export class Room {
     this.firstDesync = tick;
     const hashes = divergence.hashes.map(([id, h]) => `${this.who(id)} ${hex(h)}`).join(', ');
     this.log(`DESYNC at tick ${tick}: ${hashes}`);
+    // What went in before it: most divergences follow a command acting apart
+    const since = tick - 2 * HASH_EVERY_TICKS;
+    for (const c of this.recent.filter((c) => c.tick >= since)) {
+      this.log(`  command at tick ${c.tick} from ${this.who(c.playerId)}: ${JSON.stringify(c.command).slice(0, 300)}`);
+    }
     this.broadcast({ t: 'desync', tick, hashes: divergence.hashes });
   }
 

@@ -70,6 +70,8 @@ export type ClientMessage =
   | { t: 'join'; room: string }
   /** Host: the room's world (coop/world-package.ts) and its spawn points */
   | { t: 'world'; world: unknown; spawnIds: string[] }
+  /** Host, lobby: the map is changing here, a new world follows (PLAYTEST T25) */
+  | { t: 'moving' }
   /** Lobby: take a spawn as one's lane, or give it back (null) */
   | { t: 'pick'; spawnId: string | null }
   /** Lobby: another name; the relay numbers it where someone has it already */
@@ -99,6 +101,8 @@ export type ServerMessage =
   | { t: 'room'; room: CoopRoomInfo }
   /** The host's world, to a player who joins or when the host sends it */
   | { t: 'world'; world: unknown }
+  /** Lobby: the host changes the map, its world follows */
+  | { t: 'moving' }
   /** The game starts: seed, roster and lanes; ticks follow */
   | { t: 'started'; seed: number; players: string[]; lanes: [string, string][]; speed: number }
   /** A closed tick with the commands that act at it */

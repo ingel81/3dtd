@@ -68,4 +68,23 @@ describe('AbilityMarkerRenderer path bands', () => {
     expect(geometryFreed).toBe(true);
     expect(materialFreed).toBe(true);
   });
+
+  it('grows coop ping rings out of the place in the lane colour, then takes them away (PLAYTEST T40)', () => {
+    const scene = new Scene();
+    const markers = new AbilityMarkerRenderer(scene);
+    markers.showPing(CENTER, 0xf97316);
+    const group = scene.children[0] as Group;
+    const rings = group.children as Mesh[];
+    expect(rings).toHaveLength(3);
+    expect((rings[0].material as unknown as { color: { getHex(): number } }).color.getHex()).toBe(0xf97316);
+    markers.update(700, 0);
+    expect(rings[0].visible).toBe(true);
+    expect(rings[0].scale.x).toBeGreaterThan(20);
+    expect(rings[2].visible).toBe(false);
+    // Grows on in wall-clock time even while the game stands (pause)
+    markers.update(1000, 0);
+    expect(rings[2].visible).toBe(true);
+    markers.update(2000, 0);
+    expect(scene.children).toEqual([]);
+  });
 });

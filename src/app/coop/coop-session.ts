@@ -130,6 +130,8 @@ export class CoopSession {
   onLeft: ((playerId: string) => void) | null = null;
   onChat: ((from: string, text: string) => void) | null = null;
   onPing: ((from: string, lat: number, lon: number, height: number) => void) | null = null;
+  /** Lobby: the host changes the map, a world follows */
+  onMoving: (() => void) | null = null;
   /** The relay found the simulations apart (C5): the first tick, player id and hash each */
   onDesync: ((tick: number, hashes: [string, number][]) => void) | null = null;
   onRefused: ((reason: RefusalReason) => void) | null = null;
@@ -245,6 +247,11 @@ export class CoopSession {
     this.out({ t: 'chat', text });
   }
 
+  /** Host, lobby: the map is changing here; the guests hear it before the new world comes */
+  moving(): void {
+    this.out({ t: 'moving' });
+  }
+
   /** A mark on the map for everyone in the room, this player included */
   ping(lat: number, lon: number, height: number): void {
     this.out({ t: 'ping', lat, lon, height });
@@ -334,6 +341,8 @@ export class CoopSession {
         return this.onLeft?.(message.playerId);
       case 'chat':
         return this.onChat?.(message.from, message.text);
+      case 'moving':
+        return this.onMoving?.();
       case 'ping':
         return this.onPing?.(message.from, message.lat, message.lon, message.height);
       case 'desync':

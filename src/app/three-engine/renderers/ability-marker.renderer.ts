@@ -24,6 +24,14 @@ const RENDER_ORDER = 950;
 /** Points of a path strip at most; a longer path is cut off (a beam's sweep is some 70 m) */
 const MAX_PATH_POINTS = 256;
 
+/** Coop ping: rings that grow out of the marked place, one after another */
+const PING_RINGS = 3;
+/** Time between two rings and the time one grows to its full size, ms */
+const PING_RING_GAP_MS = 500;
+const PING_RING_MS = 1400;
+/** Full size of a ring, m: seen from a camera well away */
+const PING_RADIUS_M = 45;
+
 interface StrikeMarker {
   group: Group;
   fill: MeshBasicMaterial;
@@ -33,6 +41,13 @@ interface StrikeMarker {
   remainingMs: number;
   /** The route stretch a beam will burn along, if it is one */
   path: PathStrip | null;
+}
+
+interface PingMarker {
+  group: Group;
+  rings: Mesh[];
+  materials: MeshBasicMaterial[];
+  ageMs: number;
 }
 
 interface AimRing {
@@ -135,6 +150,7 @@ export class AbilityMarkerRenderer {
   private readonly discGeometry = new CircleGeometry(1, 128);
 
   private readonly strikes = new Map<number, StrikeMarker>();
+  private readonly pings: PingMarker[] = [];
   /** Wall-clock time for the pulse, ms */
   private clockMs = 0;
 
@@ -221,6 +237,25 @@ export class AbilityMarkerRenderer {
     }
   }
 
+  /**
+   * Coop (review R13, PLAYTEST T40): rings in `color` grow out of `center`
+   * (local, on the ground) one after another and fade, in wall-clock time,
+   * so a mark reads from afar and at every game speed.
+   */
+  showPing(center: Vector3, color: number): void {
+    const materials: MeshBasicMaterial[] = [];
+    const rings: Mesh[] = [];
+    for (let i = 0; i < PING_RINGS; i++) {
+      const material = this.material(color, 0);
+      materials.push(material);
+      rings.push(this.mesh(this.countdownGeometry, material, 1));
+    }
+    const group = this.flatGroup(...rings);
+    group.position.set(center.x, center.y + LIFT_M, center.z);
+    this.scene.add(group);
+    this.pings.push({ group, rings, materials, ageMs: 0 });
+  }
+
   hideAim(): void {
     if (this.aim) this.aim.group.visible = false;
     if (this.aimPath) this.aimPath.mesh.visible = false;
@@ -232,6 +267,7 @@ export class AbilityMarkerRenderer {
    * @param gameDeltaMs - the same frame in game time, drives the countdown
    */
   update(realDeltaMs: number, gameDeltaMs: number): void {
+    if (this.pings.length > 0) this.updatePings(realDeltaMs);
     if (this.strikes.size === 0) return;
     this.clockMs += realDeltaMs;
     const pulse = 0.5 + 0.5 * Math.sin(this.clockMs * 0.012); // about 2 Hz
@@ -244,11 +280,39 @@ export class AbilityMarkerRenderer {
     }
   }
 
-  /** Drop every strike marker and hide the aiming ring (restart). */
+  private updatePings(realDeltaMs: number): void {
+    const lastMs = (PING_RINGS - 1) * PING_RING_GAP_MS + PING_RING_MS;
+    for (let p = this.pings.length - 1; p >= 0; p--) {
+      const ping = this.pings[p];
+      ping.ageMs += realDeltaMs;
+      if (ping.ageMs >= lastMs) {
+        this.removePing(p);
+        continue;
+      }
+      for (let i = 0; i < PING_RINGS; i++) {
+        const t = (ping.ageMs - i * PING_RING_GAP_MS) / PING_RING_MS;
+        const on = t > 0 && t < 1;
+        ping.rings[i].visible = on;
+        if (!on) continue;
+        // Fast out, slow at the end: ease-out on the radius
+        ping.rings[i].scale.setScalar(Math.max(0.5, PING_RADIUS_M * (1 - (1 - t) ** 3)));
+        ping.materials[i].opacity = 0.9 * (1 - t);
+      }
+    }
+  }
+
+  private removePing(index: number): void {
+    const [ping] = this.pings.splice(index, 1);
+    this.scene.remove(ping.group);
+    for (const material of ping.materials) material.dispose();
+  }
+
+  /** Drop every strike marker and ping, and hide the aiming ring (restart). */
   clear(): void {
     for (const id of [...this.strikes.keys()]) {
       this.removeStrike(id);
     }
+    while (this.pings.length > 0) this.removePing(this.pings.length - 1);
     this.hideAim();
   }
 

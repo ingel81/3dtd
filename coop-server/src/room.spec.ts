@@ -87,6 +87,19 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('b', 'refused')!.reason).toBe('not-host');
   });
 
+  it('tells the guests the host changes the map, in the lobby only and from the host only (PLAYTEST T25)', () => {
+    room.join(player('b'));
+    room.receive('a', { t: 'moving' });
+    expect(all('b', 'moving')).toHaveLength(1);
+    expect(all('a', 'moving')).toHaveLength(0);
+    room.receive('b', { t: 'moving' });
+    expect(last('b', 'refused')!.reason).toBe('not-host');
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'moving' });
+    expect(all('b', 'moving')).toHaveLength(1);
+  });
+
   it('gives each lane to one player, and ready only with a lane', () => {
     room.join(player('b'));
     room.receive('a', { t: 'world', world: {}, spawnIds: ['s1', 's2'] });
@@ -313,5 +326,20 @@ describe('Room (COOP_PLAN C4)', () => {
       'host is now B (b)',
     ]);
     expect(room.status().commands).toBe(1);
+  });
+
+  it('logs the commands before the first desync, to find what acted apart', () => {
+    const lines: string[] = [];
+    room = new Room('APART', player('a'), () => undefined, { log: (line) => lines.push(line) });
+    lobby();
+    room.receive('a', { t: 'start', seed: 5 });
+    room.receive('b', { t: 'cmd', command: { type: 'command:place-tower', typeId: 'archer' } });
+    room.closeTick();
+    room.receive('a', { t: 'hash', tick: HASH_EVERY_TICKS, hash: 1 });
+    room.receive('b', { t: 'hash', tick: HASH_EVERY_TICKS, hash: 2 });
+    expect(lines.slice(-2)).toEqual([
+      `DESYNC at tick ${HASH_EVERY_TICKS}: A (a) 00000001, B (b) 00000002`,
+      '  command at tick 0 from B (b): {"type":"command:place-tower","typeId":"archer"}',
+    ]);
   });
 });
