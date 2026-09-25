@@ -1,0 +1,17 @@
+{
+  "name": "3dtd-e2e",
+  "private": true,
+  "type": "module",
+  "description": "End-to-end tests of the running dev game (npm start): real browsers, the real relay, the real map. Not part of the game.",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report",
+    "setup": "playwright install chromium",
+    "typecheck": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1",
+    "@types/node": "^22.20.4",
+    "typescript": "^5.9.3"
+  }
+}

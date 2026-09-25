@@ -13,6 +13,8 @@
     "bench": "vitest bench --run --no-file-parallelism --reporter=verbose --silent=false",
     "bench:sim": "vitest run src/app/integration/sim-step.perf.spec.ts --mode simbench --reporter=verbose --silent=false",
     "lint": "ng lint",
+    "e2e": "npm --prefix e2e test --",
+    "e2e:report": "npm --prefix e2e run report",
     "coop-server": "node --disable-warning=MODULE_TYPELESS_PACKAGE_JSON coop-server/src/main.ts",
     "postinstall": "node -e \"const fs=require('fs');const src='node_modules/three/examples/jsm/libs/draco/gltf';const dst='public/draco/gltf';fs.mkdirSync(dst,{recursive:true});['draco_decoder.js','draco_decoder.wasm','draco_wasm_wrapper.js'].forEach(f=>fs.copyFileSync(src+'/'+f,dst+'/'+f));console.log('Draco decoder copied')\"",
     "economy-chart": "vitest run tools/economy-chart/generate.spec.ts",

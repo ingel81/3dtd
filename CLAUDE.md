@@ -11,6 +11,7 @@ npm start       # Development Server (http://localhost:4200)
 npm run build   # Production Build
 npm test        # vitest
 npm run lint
+npm run e2e     # End-to-End-Tests im Browser (Dev-Server muss laufen, docs/E2E.md)
 ```
 
 ## Architektur
@@ -102,6 +103,7 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Trainin
 | Wellen: Regeln, Deckel, Spawning | [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) |
 | Daten eines Laufs, Export | [RUN_LOG.md](docs/RUN_LOG.md) |
 | Offene Nachtests im Spiel | [PLAYTEST.md](docs/PLAYTEST.md) |
+| End-to-End-Tests im Browser | [E2E.md](docs/E2E.md) |
 | Offene Arbeit und Entscheidungen, Changelog | [TODO.md](TODO.md), [DONE.md](DONE.md) |
 
 **Hinweis zu TODO/DONE:**
