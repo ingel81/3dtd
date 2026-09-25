@@ -44,6 +44,21 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     a.close();
   });
 
+  it('refuses a browser from another site when the pages are named, and lets the rest in (R19)', async () => {
+    const lines: string[] = [];
+    relay = await startRelay({ port: 0, origins: ['https://play.example', 'app://app'], log: (line) => lines.push(line) });
+    const open = (origin?: string) => new Promise<boolean>((resolve) => {
+      const socket = new WebSocket(`ws://localhost:${relay!.port}`, origin ? { origin } : {});
+      socket.on('open', () => { socket.close(); resolve(true); });
+      socket.on('error', () => resolve(false));
+    });
+    expect(await open('https://evil.example')).toBe(false);
+    expect(await open('https://play.example')).toBe(true);
+    expect(await open('app://app')).toBe(true);
+    expect(await open()).toBe(true);
+    expect(lines).toContain('refused a connection from https://evil.example');
+  });
+
   it('runs a room from create to ticks for two clients', async () => {
     relay = await startRelay({ port: 0 });
     const a = await client(relay.port, 'Ann');
@@ -99,7 +114,7 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     a.send({ t: 'hash', tick: 15, hash: 0xabc });
     b.send({ t: 'hash', tick: 15, hash: 0xdef });
     const desync = await a.until('desync');
-    expect(desync).toEqual({ t: 'desync', tick: 15, hashes: [[a.playerId, 0xabc], [b.playerId, 0xdef]] });
+    expect(desync).toEqual({ t: 'desync', tick: 15, hashes: [[a.playerId, 0xabc], [b.playerId, 0xdef]], outOfStep: [] });
     await b.until('desync');
 
     const status = await (await fetch(`http://localhost:${relay.port}/status`)).json() as RelayStatus;

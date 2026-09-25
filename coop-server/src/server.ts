@@ -98,6 +98,13 @@ export interface RelayOptions {
   maxRooms?: number;
   /** HEARTBEAT_MS by default; for the spec */
   heartbeatMs?: number;
+  /**
+   * The pages allowed to connect, by their `Origin` (review R19), e.g.
+   * `https://example.com` and `app://app` for the desktop app. A browser on
+   * another site is refused; clients without an Origin (not a browser) pass.
+   * Unset, everyone may: the dev machine and the LAN.
+   */
+  origins?: readonly string[];
 }
 
 /** Start the relay on `port` (0: any free port); rejects when the port is taken. */
@@ -132,7 +139,19 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
     response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
     response.end(statusText(status()));
   });
-  const wss = new WebSocketServer({ server: http, maxPayload: MAX_MESSAGE_BYTES });
+  const origins = options.origins?.length ? new Set(options.origins.map((o) => o.replace(/\/$/, ''))) : null;
+  const wss = new WebSocketServer({
+    server: http,
+    maxPayload: MAX_MESSAGE_BYTES,
+    // Another site's page must not use its visitors' browsers on this relay (R19)
+    verifyClient: origins
+      ? ({ origin }: { origin?: string }) => {
+        if (!origin || origins.has(origin)) return true;
+        log(`refused a connection from ${origin.slice(0, 100)}`);
+        return false;
+      }
+      : undefined,
+  });
   // ws repeats the HTTP server's errors; a taken port is handled at listen below
   wss.on('error', () => undefined);
 

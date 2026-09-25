@@ -289,6 +289,14 @@ export class CoopDockComponent {
     });
   }
 
+  /** Whose game ran apart, where a majority says (S3) */
+  desyncWho(outOfStep: readonly string[]): string {
+    const me = this.coop.playerId();
+    if (me !== null && outOfStep.includes(me)) return 'Your game ran apart from the others';
+    if (outOfStep.length) return `${outOfStep.map((id) => this.coop.nameOf(id)).join(' and ')}'s game ran apart from the others`;
+    return 'The games ran apart';
+  }
+
   optionValue(key: RoomOptionKey): string {
     return this.coop.options()[key];
   }

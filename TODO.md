@@ -132,7 +132,7 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Gebaut: C0 bis C4d, C5a, C8, Review R1 bis R18, R20, R21. Reihenfolge ab 2026-09-26 (D49): Prio A C4d
       Electron-LAN (**gebaut 2026-09-25**, Nachtest mit zwei Rechnern PLAYTEST T66); Prio B Ortswechsel beim Gast
       ohne Neuladen (**gebaut 2026-09-25**, PLAYTEST T65), R15 Held des Partners zeichnen (**gebaut 2026-09-25**, PLAYTEST T67), R19 und S2/S3/S5/S6 leicht
-      (D55); später C5b (Wiedereinstieg, Resync; daran hängen die Squad-Zustände aus D45), C7 (Betrieb).
+      (D55, **gebaut 2026-09-25**: `--origins`, Proxy-Doku, S3 Mehrheit); später C5b (Wiedereinstieg, Resync; daran hängen die Squad-Zustände aus D45), C7 (Betrieb).
 - [ ] **E28 Coop Chrome gegen Firefox: Abweichung eingrenzen** (low prio, Randthema; Electron ist primär, D29):
       Gemessen am 2026-09-24: Chrome gegen Chrome bis W10 ohne Abweichung, Chrome gegen Firefox weicht 14 Spielsekunden
       nach dem Start ab (Tick 210) und bleibt abweichend. Ursache unbelegt (Verdacht Trigonometrie im Sim-Pfad).

@@ -218,7 +218,7 @@ export class CoopService {
   /** Cheats act in this room (relay and room allow them for someone) */
   readonly cheatsOn = computed(() => (this.room()?.cheats ?? false) && this.options().cheats !== 'off');
   /** The relay found the simulations apart (C5): the first tick, and each player's hash there */
-  readonly desync = signal<{ tick: number; hashes: [string, number][] } | null>(null);
+  readonly desync = signal<{ tick: number; hashes: [string, number][]; outOfStep: string[] } | null>(null);
   /** The host's world stands here too and matches it (joiner), or was sent (host) */
   readonly worldReady = signal(false);
   readonly isHost = computed(() => {
@@ -1051,11 +1051,11 @@ export class CoopService {
       if (reason === 'kicked') this.leave();
       this.error.set(REFUSAL_TEXT[reason]);
     });
-    session.onDesync = inZone((tick, hashes) => {
-      this.desync.set({ tick, hashes });
+    session.onDesync = inZone((tick, hashes, outOfStep) => {
+      this.desync.set({ tick, hashes, outOfStep });
       const own = this.gameState.stateHash();
       console.warn(`[Coop] out of step at tick ${tick}: ${hashes.map(([id, h]) => `${id} ${(h >>> 0).toString(16)}`).join(', ')}; here now ${own.toString(16)}`);
-      this.notify('The games ran apart: what you see may differ from the others', 'warn');
+      this.notify(desyncText(outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
     });
     session.onClosed = inZone(() => {
       if (this.session !== session) return;
@@ -1253,4 +1253,14 @@ export class CoopService {
     this.gameStore.paused.set(this.roomPaused);
     this.gameStore.gameSpeed.set(this.roomSpeed);
   }
+}
+
+/**
+ * What a player hears when the games ran apart: with a majority (three
+ * players or more, S3) whose game it is, else that they did.
+ */
+export function desyncText(outOfStep: readonly string[], me: string | null, nameOf: (id: string) => string): string {
+  if (me !== null && outOfStep.includes(me)) return 'Your game ran apart from the others: what you see may differ from theirs';
+  if (outOfStep.length) return `${outOfStep.map(nameOf).join(' and ')}'s game ran apart from the others`;
+  return 'The games ran apart: what you see may differ from the others';
 }

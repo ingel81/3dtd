@@ -362,7 +362,7 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('b', { t: 'hash', tick: 30, hash: 9 });
     room.receive('a', { t: 'hash', tick: 45, hash: 10 });
     room.receive('b', { t: 'hash', tick: 45, hash: 11 });
-    expect(all('a', 'desync')).toEqual([{ t: 'desync', tick: 30, hashes: [['a', 8], ['b', 9]] }]);
+    expect(all('a', 'desync')).toEqual([{ t: 'desync', tick: 30, hashes: [['a', 8], ['b', 9]], outOfStep: [] }]);
     expect(all('b', 'desync')).toHaveLength(1);
     const status = room.status();
     expect(status).toMatchObject({ started: true, desyncs: 2, firstDesync: 30 });
