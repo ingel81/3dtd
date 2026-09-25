@@ -3,7 +3,11 @@
     <td-icon class="header-icon" name="user" [size]="18"></td-icon>
     <h2 id="td-coop-dialog-title">Coop</h2>
     @if (coop.room(); as room) {
-      <span class="room-code" [attr.aria-label]="'Room ' + room.code">{{ room.code }}</span>
+      <button class="room-code" type="button" (click)="copyCode(room.code)" matTooltip="Copy the room code"
+              [attr.aria-label]="'Room ' + room.code + ', copy the code'">
+        {{ room.code }}
+        <td-icon [name]="codeCopied() ? 'check' : 'copy'" [size]="13"></td-icon>
+      </button>
     }
   </div>
 
@@ -84,7 +88,9 @@
                 <td-icon [name]="copied() ? 'check' : 'copy'" [size]="15"></td-icon>
               </button>
             </div>
-            @if (!coop.worldReady()) {
+            @if (coop.hostChangingMap()) {
+              <p class="coop-hint">The host is changing the map; it loads here once it stands…</p>
+            } @else if (!coop.worldReady()) {
               <p class="coop-hint">Waiting for the host's map…</p>
             }
             @if (tooFewLanes()) {
@@ -194,14 +200,16 @@
                 may differ from what the others see.
               </p>
             }
-            <div class="chat" aria-live="polite">
-              @for (line of coop.chat(); track $index) {
-                <p class="chat-line"><span class="chat-from">{{ nameOf(line.from) }}</span> {{ line.text }}</p>
-              }
-            </div>
-            <input class="chat-input" type="text" maxlength="200" placeholder="Say something, Enter sends"
-                   [value]="chatLine()" (input)="chatLine.set($any($event.target).value)" (keydown.enter)="sendChat()" />
           }
+          <!-- The chat, in the lobby already (User, 2026-09-25) and in the game -->
+          <div #chatBox class="chat" aria-live="polite" aria-label="Coop chat">
+            @for (line of coop.chat(); track $index) {
+              <p class="chat-line"><span class="chat-from">{{ nameOf(line.from) }}</span> {{ line.text }}</p>
+            }
+          </div>
+          <input class="chat-input" type="text" maxlength="200" placeholder="Say something, Enter sends"
+                 aria-label="Chat message"
+                 [value]="chatLine()" (input)="chatLine.set($any($event.target).value)" (keydown.enter)="sendChat()" />
         }
       }
     }

@@ -1,4 +1,4 @@
-import { Component, computed, effect, inject, signal, untracked, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, effect, inject, signal, untracked, viewChild, ChangeDetectionStrategy, ElementRef } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { UIStore } from '../../store/ui.store';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -13,6 +13,8 @@ import { GameClock } from '../../managers/game-state/game-clock';
 
 /** Gap between the info overlay and the docked lobby, px */
 const DOCK_GAP_PX = 8;
+/** Room from the bottom of the map area: over the logo row (5 px up, 16 px high) and a gap, px */
+const DOCK_BOTTOM_PX = 32;
 
 /**
  * Coop (docs/COOP_PLAN.md, C4): open a room or join one, then the lobby:
@@ -41,7 +43,10 @@ export class CoopDialogComponent {
   readonly name = signal(this.coop.name);
   readonly code = signal(this.coop.roomFromUrl ?? '');
   readonly chatLine = signal('');
+  private readonly chatBox = viewChild<ElementRef<HTMLElement>>('chatBox');
   readonly copied = signal(false);
+  /** The room code went to the clipboard a moment ago */
+  readonly codeCopied = signal(false);
   readonly clientLabel = clientLabel;
   readonly relayLabel = relayLabel;
   readonly relaySourceText: Record<RelaySource, string> = {
@@ -84,16 +89,25 @@ export class CoopDialogComponent {
   });
 
   constructor() {
-    // Docked beside the map: below the info overlay (FPS and friends), which
-    // grows and folds; its bottom is measured from the top of the map area
+    // The newest chat line in view
+    effect(() => {
+      this.coop.chat();
+      const box = this.chatBox()?.nativeElement;
+      if (box) queueMicrotask(() => { box.scrollTop = box.scrollHeight; });
+    });
+    // Docked at the bottom left of the map, above the logo row (PLAYTEST
+    // T32); a tall one reaches up to below the info overlay (FPS and
+    // friends), which grows and folds, and scrolls from there
     if (this.docked) {
       effect(() => {
         const below = this.uiStore.infoOverlayBottom();
-        const mapTop = document.querySelector('.td-canvas-area')?.getBoundingClientRect().top ?? 56;
-        const top = Math.round(mapTop + below + DOCK_GAP_PX);
-        this.dialogRef.updatePosition({ left: '12px', top: `${top}px` });
-        // Its height ends above the window's bottom (styles.scss, .td-coop-docked)
+        const area = document.querySelector('.td-canvas-area')?.getBoundingClientRect();
+        const top = Math.round((area?.top ?? 56) + below + DOCK_GAP_PX);
+        const bottom = Math.round((area ? window.innerHeight - area.bottom : 0) + DOCK_BOTTOM_PX);
+        this.dialogRef.updatePosition({ left: '12px', bottom: `${bottom}px` });
+        // Its height ends below the info overlay (styles.scss, .td-coop-docked)
         document.documentElement.style.setProperty('--td-coop-dock-top', `${top}px`);
+        document.documentElement.style.setProperty('--td-coop-dock-bottom', `${bottom}px`);
       });
     }
 
@@ -123,6 +137,17 @@ export class CoopDialogComponent {
 
   join(): void {
     if (this.code().trim()) void this.coop.join(this.name().trim() || 'Player', this.code());
+  }
+
+  /** The room code in the header to the clipboard, for a joiner to type or paste */
+  async copyCode(code: string): Promise<void> {
+    try {
+      await navigator.clipboard.writeText(code);
+      this.codeCopied.set(true);
+      setTimeout(() => this.codeCopied.set(false), 1500);
+    } catch {
+      /* no clipboard: the code stays selectable */
+    }
   }
 
   async copyInvite(): Promise<void> {

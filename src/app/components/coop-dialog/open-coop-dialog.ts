@@ -43,8 +43,8 @@ export async function openCoopDialog(
     injector,
     data: { docked },
     // Docked: Esc is the game's (ending a placement), Close closes it; the
-    // dialog keeps itself below the info overlay (CoopDialogComponent)
-    ...(docked ? { hasBackdrop: false, position: { left: '12px', top: '64px' }, autoFocus: false, disableClose: true } : {}),
+    // dialog keeps itself at the bottom left (CoopDialogComponent)
+    ...(docked ? { hasBackdrop: false, position: { left: '12px', bottom: '32px' }, autoFocus: false, disableClose: true } : {}),
   });
   if (docked) dockedRefs.add(ref);
   return ref;

@@ -7,14 +7,11 @@
  * ABILITY_BAR_EDGE_PX is summed from; the off-screen arrows keep clear of
  * that edge.
  *
- * The host spans the height of the canvas area; the room above and below
- * the bar (the two pseudo-elements) splits what the bar leaves, so it sits
- * vertically centred. Each keeps a least height: above down to
- * --td-bar-top (the info overlay's measured bottom plus `clear`), below up
- * to the logo row's top plus `clear` (--td-logo-bottom and --td-logo-height
- * of the game component). Where the centre would break one of them, the bar
- * moves off the centre; on a canvas too low for all of it, it shrinks and
- * scrolls. */
+ * The host spans the height of the canvas area; the bar stands right below
+ * the info overlay (--td-bar-top: its measured bottom plus `clear`, User
+ * 2026-09-25), the room below it (the pseudo-element) keeps clear of the
+ * logo row (--td-logo-bottom and --td-logo-height of the game component).
+ * On a canvas too low for all of it, the bar shrinks and scrolls. */
 :host {
   position: absolute;
   top: 0;
@@ -25,17 +22,14 @@
   pointer-events: none;
 }
 
-:host::before,
+:host::before {
+  content: '';
+  flex: 0 0 var(--td-bar-top);
+}
+
 :host::after {
   content: '';
   flex: 1 1 0;
-}
-
-:host::before {
-  min-height: var(--td-bar-top);
-}
-
-:host::after {
   min-height: calc(var(--td-logo-bottom, 0px) + var(--td-logo-height, 0px) + var(--td-bar-clear));
 }
 
