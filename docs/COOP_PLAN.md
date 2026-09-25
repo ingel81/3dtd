@@ -438,7 +438,7 @@ nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht ander
   aber nur in Raumtempo (`GameClock.MAX_CATCHUP_MS`). Nach einem Ruckler oder einem Hintergrund-Tab bleibt der
   Rückstand für immer; im Test vom 2026-09-24 lag das zweite Fenster konstant rund 75 Ticks (5 Spielsekunden)
   zurück. Lösung: im Lockstep bis zum bestätigten Tick nachlaufen (begrenzt, etwa bis 4×), und das Relay läuft
-  höchstens K Ticks vor dem langsamsten Client (der meldet, bis wohin er ist; die Prüfsummen tun das schon). **Gebaut 2026-09-24 (Client-Seite): im Lockstep läuft die Uhr bis 4× schneller, solange mehr als 3 Ticks offen sind (`lockstepCatchUp`). Das Relay wartet weiterhin auf niemanden; ein Deckel „höchstens K Ticks vor dem Langsamsten“ bleibt offen.**
+  höchstens K Ticks vor dem langsamsten Client (der meldet, bis wohin er ist; die Prüfsummen tun das schon). **Gebaut 2026-09-24 (Client-Seite): im Lockstep läuft die Uhr bis 4× schneller, solange mehr als 3 Ticks offen sind (`lockstepCatchUp`). Das Relay wartet weiterhin auf niemanden; ein Deckel „höchstens K Ticks vor dem Langsamsten“ bleibt offen.** **Gebaut 2026-09-25: der Relay läuft höchstens 3 Spielsekunden vor der letzten Prüfsumme des Langsamsten und meldet `waiting`; dazu hält jeder Client einen Tick Vorrat (Tempo ±10 %), ein Tick sind jetzt 2 Sub-Steps (Protokoll 5), ein bemannter Tower zeigt Schuss, Ton und Rückstoß sofort beim Klick.**
 - R3 **Debug-Befehle laufen im Coop durch.** `debug:add-credits`, `debug:kill-all` usw. gehen über das Relay und
   wirken bei allen. Plan (C6) sagt „im Coop aus“. Lösung: Relay verwirft `debug:*`, die Simulation ignoriert sie bei
   mehr als einem Spieler (auf allen Clients gleich). **Gebaut 2026-09-24: Relay nimmt nur `command:*`, die Simulation ignoriert `debug:*` bei `cheatsBlocked` (setzt jeder Client beim Start).** Nach dem Playtest geändert: Der Relay entscheidet (`npm run coop-server` erlaubt Cheats zum Entwickeln, `--no-cheats` verbietet sie, der Raum meldet `cheats`). Kill all, Gegner-Spawn und Gegner-Entfernen laufen seitdem als Kommando, vorher wirkten sie nur im eigenen Fenster.
@@ -453,35 +453,35 @@ nach Gewicht. Aus dem Code belegt, nicht im Browser nachgestellt, wo nicht ander
 - R6 Relay-Adresse, siehe unten; bisher `coopRelay` in `runtime-config.json`, sonst `ws://localhost:3003`. **Gebaut 2026-09-24: `coop/relay-address.ts`, Reihenfolge wie unten.**
 - R7 Einladungslink trägt die Relay-Adresse mit (`&relay=`), sonst landet ein Gast mit anderer Konfiguration auf
   einem anderen Server und findet den Raum nicht. **Gebaut 2026-09-24: `&relay=` im Link, außer bei localhost; bleibt beim Neuladen auf die Karte des Hosts erhalten.**
-- R8 Beitritt ohne eigenen Tiles-Token (D19): Token-Dialog vor dem Laden der Karte, mit Satz, warum.
-- R9 Host: Spieler aus der Lobby entfernen, Raum schließen für weitere Beitritte.
+- R8 Beitritt ohne eigenen Tiles-Token (D19): Token-Dialog vor dem Laden der Karte, mit Satz, warum. **Gebaut 2026-09-25: Token-Bildschirm nennt den Raum, der Beitritt wartet ohne Limit auf Schlüssel und Engine.**
+- R9 Host: Spieler aus der Lobby entfernen, Raum schließen für weitere Beitritte. **Gebaut 2026-09-25: `kick`, `lock`.**
 - R10 Wiedereinstieg nach Verbindungsabbruch (C5b). Bis dahin: nach Abbruch „Continue alone“ (Lockstep aus, das
-  Spiel läuft als Einzelspieler weiter) statt stehenzubleiben.
+  Spiel läuft als Einzelspieler weiter) statt stehenzubleiben. **Gebaut 2026-09-25: „Continue alone“ unter der Spieler-Leiste; C5b offen.**
 - R11 Raumcode ohne Link eintippen geht nur, wenn der Gast dieselbe Karte schon geladen hat oder neu lädt; klappt,
-  aber der Dialog sagt nicht, dass die Seite gleich neu lädt.
+  aber der Dialog sagt nicht, dass die Seite gleich neu lädt. **Gebaut 2026-09-25: Hinweis unter dem Feld.**
 
 **Im Spiel**
 
-- R12 Chat unten links mit Taste (Wunsch C); heute nur im Dialog, eingehende Zeilen stehen unter der Leiste.
-- R13 Karten-Ping (D25): Protokoll hat `ping`, es gibt keine Oberfläche.
+- R12 Chat unten links mit Taste (Wunsch C); heute nur im Dialog, eingehende Zeilen stehen unter der Leiste. **Gebaut 2026-09-25: Enter öffnet, `coop-chat`.**
+- R13 Karten-Ping (D25): Protokoll hat `ping`, es gibt keine Oberfläche. **Gebaut 2026-09-25: X plus Klick, Name in Lane-Farbe, Ton.**
 - R14 Tower des Partners erkennbar machen (Farbring in Lane-Farbe, Tooltip „Bob's tower“); heute ist er nur nicht
-  auswählbar, ohne Grund.
+  auswählbar, ohne Grund. **Gebaut 2026-09-25: Ring in Lane-Farbe, Klick sagt „That is Bob's tower“.**
 - R15 Lane-Druck je Spieler (Lecks je Lane), Anzeige wer gerade bremst (R2), Held des Partners sichtbar (heute nur
-  der eigene gezeichnet, C2c).
+  der eigene gezeichnet, C2c). **Gebaut 2026-09-25: Lecks je Lane in Leiste und Game-over-Tabelle, Bremser über R2; Held des Partners offen.**
 - R16 Game over im Coop: Zusammenfassung je Spieler (Kills, Gold, Lecks je Lane); Run-Log markiert Coop-Läufe, damit
-  sie nicht in Einzelspieler-Rekorde und Mittelwerte fallen.
+  sie nicht in Einzelspieler-Rekorde und Mittelwerte fallen. **Gebaut 2026-09-25: Tabelle je Spieler, `head.coop`, keine Ortsrekorde.**
 
 **Relay**
 
 - R17 `maxPayload` am WebSocket-Server setzen (Standard 100 MB; das Weltpaket hat rund 300 kB), Nachrichten je
   Sekunde und Verbindung begrenzen, Chatlänge ist schon begrenzt. **Gebaut 2026-09-24: `maxPayload` 4 MB, 120 Nachrichten je Sekunde und Verbindung, darüber verworfen und einmal geloggt.**
-- R18 Leere oder verwaiste Räume nach Zeit schließen (Lobby ohne Start nach 1 h), Obergrenze an Räumen.
+- R18 Leere oder verwaiste Räume nach Zeit schließen (Lobby ohne Start nach 1 h), Obergrenze an Räumen. **Gebaut 2026-09-25: 1 h, 200 Räume.**
 - R19 `wss://` und Herkunftsprüfung (`Origin`) fürs Netz (C7).
 - R20 Electron: Relay im Main-Prozess, „LAN-Spiel hosten“, eigene IP im Dialog anzeigen (C4d).
 
 **Tests**
 
-- R21 `CoopService` hat keine eigene Spec (automatische Lane, Start mit Bereit, Meldungen, Abbruch).
+- R21 `CoopService` hat keine eigene Spec (automatische Lane, Start mit Bereit, Meldungen, Abbruch). **Gebaut 2026-09-25: `coop.service.scenario.spec.ts` über echten Relay.**
 
 #### Woher das Spiel den Relay kennt
 
@@ -522,7 +522,7 @@ Offene Stellen, nach Gewicht:
   bekommt den Hinweis (und später den Resync, C5b). Mit zweien bleibt es offen.
 - S4 **Befehle auf Plausibilität prüfen**, die heute nur die UI begrenzt: Wertebereiche (`tower-aim`, Positionen im
   Gelände, Beträge), Rate je Spieler am Relay (R17). **Rate und Größe gebaut (R17); Gold senden prüft Betrag und
-  Konto, die Wertebereiche der übrigen Befehle sind offen.**
+  Konto, die Wertebereiche der übrigen Befehle sind offen.** **Gebaut 2026-09-25: `coop/command-guard.ts` prüft alle Befehle.**
 - S5 **Selbst gemeldete Version und Balance** beim Beitritt: ein veränderter Client lügt dort; die Prüfsumme fängt
   jede Regeländerung, die den Zustand betrifft, spätestens nach einer Spielsekunde.
 - S6 **Rekorde**: Coop-Läufe gehen nicht in Einzelspieler-Rekorde (R16). Eine Online-Rangliste gibt es nicht; käme

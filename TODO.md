@@ -131,11 +131,11 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
 - [ ] **E27 Coop "Vier Tore"** (Branch `coop`, nicht gepusht): C0 bis C4c und C5a (Prüfsummen über das Relay,
       Abweichung melden, Diagnose am Relay) gebaut, der erste Zwei-Fenster-Test klappt (User, 2026-09-24). Offen in
       C5: Wiedereinstieg und Resync (C5b); die Wünsche A bis B aus dem Browser-Test sind gebaut (Name in der Lobby, Spieler-Leiste mit
-      Bereitschaft und Gold, Gold senden, Engine je Spieler, Dialog schließt beim Gast; Nachtest PLAYTEST T), offen
-      Chat unten links (C). Review mit Liste R1 bis R21 im Plan, Abschnitt „Review 2026-09-24“: R1 bis R7 und R17
-      gebaut (Neustart, Aufholen, Cheats aus, Sperren, Tempo beim Gast, Relay-Adresse, Relay-Limits; Nachtest
-      PLAYTEST T10 bis T14), offen R8 bis R16, R18 bis R21 und die Schutz-Punkte S2 bis S6; dann C6 (Oberfläche), C4d (Relay im
-      Electron-Build), C7 (Betrieb).
+      Bereitschaft und Gold, Gold senden, Engine je Spieler, Dialog schließt beim Gast; Nachtest PLAYTEST T), Chat
+      unten links gebaut (R12). Review mit Liste R1 bis R21 im Plan, Abschnitt „Review 2026-09-24“: R1 bis R18 und
+      R21 gebaut (R8 bis R16, R18, R21 am 2026-09-25, Nachtest PLAYTEST T30 bis T43); offen R15 Held des Partners
+      zeichnen, R19 (wss, Origin), R20 (Electron-LAN), die Schutz-Punkte S2, S3, S5, S6; dann C5b (Wiedereinstieg),
+      C4d (Relay im Electron-Build), C7 (Betrieb).
       [docs/COOP_PLAN.md](docs/COOP_PLAN.md).
 - [ ] **E28 Coop Chrome gegen Firefox: Abweichung eingrenzen** (low prio, Randthema; Electron ist primär, D29):
       Gemessen am 2026-09-24: Chrome gegen Chrome bis W10 ohne Abweichung, Chrome gegen Firefox weicht 14 Spielsekunden
@@ -143,7 +143,10 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       Erst eingrenzen: Prüfsumme in Teile zerlegen (Zufall, Gold, Gegner, Tower, Projektile, Held), Teile mitschicken,
       bei Abweichung ersten abweichenden Teil und erstes Objekt ins Relay-Log. Danach entscheiden: hart machen oder
       Raum nur mit gleicher Engine. [COOP_PLAN.md](docs/COOP_PLAN.md) C5.
-- [ ] **E29 Coop: Lobby nach dem Playtest vom 2026-09-24** (entschieden D30 bis D36 im Plan, **gebaut 2026-09-24**,
+- [ ] **E29 Coop: Lobby nach dem Playtest vom 2026-09-24** (entschieden D30 bis D36 im Plan, **gebaut 2026-09-24**;
+      in der Nacht zum 2026-09-25 dazu gebaut: kürzere Ticks, Schuss sofort beim Klick, Panel unter dem Info-Overlay,
+      du oben in der Leiste mit Host-Marke, R8 bis R16, R18, R21, S4 und der Relay-Deckel; Nachtest PLAYTEST T30 bis
+      T43;
       Nachtest PLAYTEST T21 bis T27). Offen: Egoperspektive im Coop deutlich zäher (T19, User 2026-09-25); Verdacht,
       gemessen (PLAYTEST T28): Host an der Tick-Sperre in 4er-Sprüngen, Gast 1 bis 2 Ticks zurück mit bis 195 ms
       Eingabe. Gebaut: ein Tick Vorrat je Client, Auge folgt der eigenen Maus; T29 ok (Eingabe jetzt ~95 ms bei
