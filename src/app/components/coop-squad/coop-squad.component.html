@@ -44,7 +44,7 @@
               </b>
               <small [class.is-warn]="row.state !== 'ok' || row.leaks > 0" [matTooltip]="leaksTip(row)">{{ subLine(row) }}</small>
             </div>
-            <span class="credits" [attr.aria-label]="row.gold + ' credits'">{{ row.state === 'left' ? '—' : row.gold.toLocaleString() }}</span>
+            <span class="credits" [attr.aria-label]="row.gold + ' credits'">{{ row.state === 'left' ? '—' : row.gold }}</span>
             <app-ping-bars [ms]="row.state === 'left' || coop.lostInGame() ? null : row.latency" [warn]="row.state === 'lag' || row.state === 'slow'"
                            [matTooltip]="row.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'" />
             @if (row.me) {
