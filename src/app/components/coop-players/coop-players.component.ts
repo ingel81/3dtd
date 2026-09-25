@@ -6,6 +6,7 @@ import { CoopService } from '../../services/coop.service';
 import { GameStore } from '../../store/game.store';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-button';
+import { CoopChatComponent } from '../coop-chat/coop-chat.component';
 
 /** What the gold menu offers to send */
 const GIFT_AMOUNTS = [50, 100, 250, 500];
@@ -29,7 +30,7 @@ const CHAT_NOTICE_MS = 10000;
 @Component({
   selector: 'app-coop-players',
   standalone: true,
-  imports: [MatTooltipModule, TdIconComponent],
+  imports: [MatTooltipModule, TdIconComponent, CoopChatComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[style.left.px]': 'left',
@@ -93,6 +94,8 @@ const CHAT_NOTICE_MS = 10000;
         }
       </div>
     }
+    <!-- The chat right under the players (PLAYTEST T39); it shows only in the game -->
+    <app-coop-chat />
   `,
   styles: `
     /* Left, right of the ability bar; left and top from the host bindings */
@@ -103,7 +106,7 @@ const CHAT_NOTICE_MS = 10000;
       flex-direction: column;
       align-items: flex-start;
       gap: 4px;
-      max-width: 260px;
+      max-width: 340px;
       pointer-events: none;
       ${TD_CSS_VARS}
     }

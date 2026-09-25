@@ -37,10 +37,24 @@ h2 {
 
 .room-code {
   margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 6px;
+  background: none;
+  border: 1px solid transparent;
+  cursor: pointer;
+  user-select: text;
   font-family: var(--td-font-mono);
   font-size: 14px;
   letter-spacing: 0.12em;
   color: var(--td-gold-light);
+
+  &:hover,
+  &:focus-visible {
+    border-color: var(--td-gold-dark);
+    outline: none;
+  }
 }
 
 .dialog-content {

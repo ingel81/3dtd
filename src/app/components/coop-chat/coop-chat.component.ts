@@ -4,7 +4,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 import { CoopService } from '../../services/coop.service';
 import { ownsKey } from '../../utils/keyboard-target';
 import { modalDialogCount } from '../coop-dialog/open-coop-dialog';
-import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-button';
 
 /** How long a chat line stays once it came, ms */
 const LINE_MS = 15_000;
@@ -13,7 +12,7 @@ const MAX_LINES = 6;
 
 /**
  * The coop chat in the game (docs/COOP_PLAN.md, review R12): the last lines
- * at the bottom left, right of the ability bar, for a while each; Enter opens
+ * under the players bar (CoopPlayersComponent, PLAYTEST T39), for a while each; Enter opens
  * a line to write, Enter sends it, Esc closes it. The lobby has its chat in
  * the coop panel. X arms the map ping (review R13): the next click marks a
  * place for everyone. Both keys are coop's, so they live here rather than in
@@ -24,7 +23,6 @@ const MAX_LINES = 6;
   standalone: true,
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
-    '[style.left.px]': 'left',
     '(document:keydown)': 'onKey($event)',
   },
   template: `
@@ -47,9 +45,6 @@ const MAX_LINES = 6;
   `,
   styles: `
     :host {
-      position: absolute;
-      bottom: 28px;
-      z-index: 6;
       display: flex;
       flex-direction: column;
       align-items: flex-start;
@@ -106,7 +101,6 @@ export class CoopChatComponent {
   private readonly dialog = inject(MatDialog);
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('field');
 
-  protected readonly left = ABILITY_BAR_EDGE_PX + ABILITY_BAR_PX.clear;
   readonly writing = signal(false);
   /** When each chat line came here, by its place in CoopService.chat */
   private readonly arrived: number[] = [];
