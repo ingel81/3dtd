@@ -97,7 +97,8 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D43 | Meldungen | Alle Coop-Meldungen (Beitritt, Abgang, Host, Gold, Verbindung, Einstellungen) sind Systemzeilen im Chat; Warnungen zusätzlich im Fuß der Squad-Box (User, 2026-09-25) |
 | D44 | Auto-Welle | Countdown 10 s nach Wellenende im Wellen-Knopf; sind vorher alle bereit, startet sie sofort (User, 2026-09-25) |
 | D45 | Squad-Zustände | Jetzt Lag (> 160 ms). Dropped/Reconnect, Offline mit Retry, Left mit „Take over lane“ und Desync-Resync sind vorgesehen, nicht gebaut (User, 2026-09-25) |
-| D47 | Zustand des Gasts | Jeder Client meldet dem Raum, was er in der Lobby tut: Kartenschlüssel, Karte laden, für einen neuen Ort neu laden, Karte steht (`status`, Protokoll 7). Die Spielerzeile und die Statuszeile zeigen es, der Chat sagt es; ein Neuladen gilt nicht als „left“. Per Einladungslink tritt der Gast sofort bei und lädt danach (User, 2026-09-25) |
+| D47 | Zustand des Gasts | Jeder Client meldet dem Raum, was er in der Lobby tut: Kartenschlüssel, Karte laden, für einen neuen Ort neu laden, Karte steht (`status`). Die Spielerzeile und die Statuszeile zeigen es, der Chat sagt es; ein Neuladen gilt nicht als „left“. Per Einladungslink tritt der Gast sofort bei und lädt danach (User, 2026-09-25) |
+| D48 | Protokoll-Version | Vor dem ersten Release zurück auf 1; die Stände 2 bis 7 waren Entwicklung, Erwähnungen weiter oben sind Geschichte (User, 2026-09-25) |
 | D46 | Schriften | Keine Cinzel: Überschriften in Inter Tight. JetBrains Mono wird selbst gehostet (`@fontsource`), weil `--td-font-mono` sie nennt und bisher auf Consolas fiel (User, 2026-09-25) |
 
 ## 4. Pakete
