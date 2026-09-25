@@ -264,12 +264,16 @@ Nach dem Test vom 2026-09-24 (Relay neu starten, er kennt die Cheats und die Gas
   **kaputt (2026-09-25):** Beim Würfeln flog der Host aus dem Raum, der Gast wurde Host. Ursache: Der Würfel lud die ganze
   Seite neu. Er wechselt jetzt ohne Neuladen wie die Ortssuche; nochmal testen. Wunsch: Lanes auch wieder entfernen
   können, gebaut (× je Lane im Panel). Nochmal testen: Spawn versetzen, +, ×, würfeln.
+  **ok (2026-09-25):** Wunsch: der Gast soll vorher hören, was passiert. Gebaut: der Host meldet den Wechsel sofort
+  (Relay-Nachricht `moving`), der Gast sieht „… is changing the map, it comes here next“ und im Panel einen Hinweis bis
+  zur neuen Karte.
 - **T26 Lane-Länge**: Im Panel je Lane Balken, Meter und Laufzeit (m:ss). Die kürzere Lane hat den kürzeren Balken.
   **ok (2026-09-25)**
 - **T27 Ping**: In Panel und Spieler-Leiste je Spieler „… ms“; beim eigenen Tooltip „round trip to the coop server“,
   beim Mitspieler „about“. Zweimal Chrome lokal: wenige ms.
   **kaputt (2026-09-25):** Im Panel keine ms. Ursache: Lokal misst der Relay 0 ms, und das Panel hat die 0 als „nichts“
   behandelt. Behoben, nochmal testen.
+  **ok (2026-09-25)**
 - **T28 Messlauf Ruckeln (T19)**: Relay neu starten (Protokoll 4), zwei Fenster, Coop starten. 1 min eine Welle
   zuschauen, dann 1 min einen Tower bemannen, zielen und schießen. Nichts melden, der Relay loggt je Fenster alle 10 s
   eine `stats`-Zeile (Frames an der Sperre, Sub-Steps je Frame, Rückstand, Tick-Abstand, Eingabe-Verzögerung).
@@ -287,35 +291,83 @@ Nach der Nacht zum 2026-09-25 (Relay neu starten, Protokoll 5; beide Fenster neu
 
 - **T30 Kürzere Ticks**: Coop mit zwei Fenstern, 1 min Welle, 1 min Tower bemannen. Erwartung: flüssig wie in T29, der
   Tower spürbar direkter. Im Relay-Log in den `stats`-Zeilen `input` etwa 40 bis 70 ms (vorher ~95).
+  **ok (2026-09-25):** Log: `input` 46 bis 63 ms (vorher ~95), `blocked` 0 bis 2 %.
 - **T31 Schuss beim Klick**: Im Coop einen Tower bemannen, einzelne Klicks. Erwartung: Mündungsfeuer, Ton und Rückstoß
   sofort beim Klick, nicht doppelt; Projektil und Treffer kurz danach.
+  **ok (2026-09-25)**
 - **T32 Panel unter der FPS-Anzeige**: Raum öffnen: Das Panel steht links unter dem Info-Overlay oben links, auch wenn
   man das Overlay auf- und zuklappt; es reicht nicht unter den Fensterrand.
+  **teils (2026-09-25):** steht unter der FPS-Anzeige; Wunsch: „einfach darunter, bottom-left quasi“. Gebaut: das Panel
+  dockt unten links über der Logo-Zeile an, ein hohes reicht bis unter die FPS-Anzeige. Nachtest T46.
 - **T33 Du oben in der Leiste**: Im Spiel steht man selbst oben in der Spieler-Leiste, etwas größer, mit „you“; der
   Host trägt „host“. Beim Gast: der Host steht an zweiter Stelle.
+  **ok (2026-09-25)**
 - **T34 Warten auf den Langsamsten (R2)**: Im Spiel das Gast-Fenster 10 s minimieren. Erwartung: Nach etwa 3 s steht
   das Spiel beim Host, „Waiting for … to catch up“, in der Leiste beim Gast „catching up“; nach dem Zurückholen läuft
   es weiter. Im Relay-Log „waiting for … to catch up“.
+  **ok (2026-09-25):** Log „waiting for … to catch up“ mehrfach.
 - **T35 Hinweis beim Beitritt (R11)**: Startbildschirm des Panels: unter dem Raum-Feld der Satz, dass die Seite beim
   Beitritt neu laden kann.
+  **ok (2026-09-25)**
 - **T36 Rauswerfen und Schließen (R9)**: Host drückt in der Lobby das × beim Gast: Der Gast ist raus mit „The host took
   you out of the room.“. Host hakt „Closed to new players“ an, ein weiterer Beitritt bekommt „The host closed the room
   to new players.“.
+  **ok (2026-09-25)**
 - **T37 Ohne Kartenschlüssel (R8)**: Einladungslink in einem Inkognito-Fenster öffnen. Erwartung: Token-Bildschirm mit
   dem Satz zum Coop-Raum, Panel sagt „Enter your map key first“. Schlüssel eintragen: Karte lädt, Beitritt von selbst.
+  **nicht testbar (2026-09-25):** Inkognito hat den Schlüssel auch, er kommt aus `environment.ts`, das im Build steckt.
+  Gebaut: `?nokey` in der URL lässt die Schlüssel des Builds weg. Nachtest T47.
 - **T38 Allein weiter (R10)**: Im Spiel den Relay beenden (Strg+C). Unter der Meldung „Continue alone“: Klick, das Spiel
   läuft als Einzelspieler weiter, die Lane des anderen ist zu.
+  **kaputt (2026-09-25):** danach keine Welle, kein Tower, keine Cheats. Ursache: ohne Relay liefen Befehle als
+  Spieler `local`, im Lauf heißen die Spieler aber wie im Coop (`p8`); jeder Befehl fiel weg. Behoben (Befehle des
+  lokalen Spielers), dazu zählt so ein Lauf nicht mehr als Rekord. Nochmal testen.
 - **T39 Chat unten links (R12)**: Im Spiel Enter: Eingabezeile unten links, Text, Enter schickt, Esc schließt. Beim
   anderen erscheint die Zeile unten links, nicht mehr unter der Spieler-Leiste.
+  **ok (2026-09-25):** Wunsch: weiter links, unter der Spieler-Leiste. Gebaut: der Chat steht jetzt direkt unter der
+  Leiste. Nochmal ansehen.
 - **T40 Karten-Ping (R13)**: Im Spiel X, dann auf die Karte klicken: Bei beiden steht dort „▼ Name“ in der Lane-Farbe
   mit Ton, beim anderen die Meldung „… marked a place on the map“. X und Esc bricht ab.
+  **ok (2026-09-25):** Wunsch: deutlicher, größer, Kreis außen herum, Hinweis am Rand. Gebaut: größere Schrift, drei
+  Ringe in Lane-Farbe wachsen auf 45 m, Pfeil mit Namen am Bildrand, solange die Kamera woanders ist (Klick fährt hin).
+  Nochmal ansehen.
 - **T41 Tower des Partners (R14)**: Der Partner baut einen Tower: Bei dir trägt er einen Ring in seiner Lane-Farbe.
   Klick darauf: „That is …'s tower“.
+  **kaputt (2026-09-25):** Ring nicht in Lane-Farbe. Ursache: der Ring wurde gesetzt, bevor das Modell geladen war, und
+  fiel weg. Behoben, nochmal testen.
 - **T42 Lecks je Lane (R15)**: Gegner durchlassen: In der Leiste beim Spieler, dessen Lane es war, „N through“ in
   Orange; mit der nächsten Welle wieder weg.
+  **ok (2026-09-25)**
 - **T43 Game over im Coop (R16)**: HQ fallen lassen: unter der Zusammenfassung eine Tabelle je Spieler (Kills, Leaks,
   Towers, Gold given, Gold). In „Runs“ steht der Lauf als „coop: Ann, Bob“; die Weltkarte zeigt keinen neuen Rekord
   aus dem Coop-Lauf.
+  **ok (2026-09-25)**
+
+Nach den Nachtests vom 2026-09-25 vormittags (Relay neu starten; beide Fenster neu laden). Im ersten Raum des Morgens
+(09:36) gab es einen `DESYNC` nach 3 Befehlen, Ursache offen: der Relay schreibt jetzt bei der ersten Abweichung die
+Befehle davor ins Log. Kommt wieder einer, das Log melden.
+
+- **T44 Raumcode kopieren**: Raum öffnen, oben im Panel auf den Code klicken. Erwartung: Häkchen, der Code ist in der
+  Zwischenablage.
+- **T45 Gast hört den Kartenwechsel (T25)**: In der Lobby würfelt der Host einen neuen Ort (oder setzt einen Spawn).
+  Erwartung: beim Gast im Panel sofort „The host is changing the map“, bis die neue Karte da ist.
+- **T46 Panel unten links (T32)**: Raum öffnen: das Panel steht unten links über der Logo-Zeile; wird es hoch, reicht
+  es bis unter die FPS-Anzeige und scrollt.
+- **T47 Ohne Kartenschlüssel (T37)**: Einladungslink im Inkognito-Fenster öffnen und `&nokey` anhängen. Erwartung:
+  Token-Bildschirm mit dem Satz zum Coop-Raum, Panel „Enter your map key first“. Schlüssel eintragen: Karte lädt,
+  Beitritt von selbst.
+- **T48 Allein weiter (T38)**: Im Spiel den Relay beenden, „Continue alone“. Erwartung: Welle starten, Tower bauen und
+  Cheats gehen; die Lane des anderen bleibt zu. Game over danach: kein neuer Rekord auf der Weltkarte.
+- **T49 Chat unter der Leiste (T39)**: Im Spiel Enter, Text, Enter. Erwartung: Eingabe und Zeilen direkt unter der
+  Spieler-Leiste.
+- **T50 Karten-Ping deutlicher (T40)**: X, Klick auf die Karte. Erwartung: größeres „▼ Name“, drei Ringe in
+  Lane-Farbe wachsen aus dem Punkt. Beim anderen, Kamera woanders: Pfeil mit Namen am Bildrand, Klick fährt hin.
+- **T51 Partner-Ring (T41)**: Der Partner baut einen Tower. Erwartung: Ring in seiner Lane-Farbe, auch beim ersten
+  Tower eines Typs.
+- **T52 Chat in der Lobby**: Vor dem Start im Panel unten „Say something“, Text, Enter. Erwartung: die Zeile steht bei
+  beiden im Panel, die neueste unten sichtbar.
+- **T53 Fähigkeiten oben**: Die Fähigkeitenleiste steht links direkt unter der FPS-Anzeige (nicht mehr mittig) und rückt
+  mit, wenn man das Overlay auf- und zuklappt.
 
 ## K8 Desktop-Build
 
