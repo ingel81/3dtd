@@ -209,6 +209,13 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(rule(host.coop.playerId()!)).toBe(false);
   });
 
+  it("tells the host what the guest's client does, and that its map stands (User, 2026-09-25)", async () => {
+    const { host, guest } = await lobby();
+    await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.status === 'ready');
+    expect(guest.coop.room()!.players.find((p) => p.name === 'Bob')!.status).toBe('ready');
+    await until(() => host.coop.chat().some((line) => line.from === null && line.text === "Bob's map stands"));
+  });
+
   it('says so when no relay answers', async () => {
     relay = await startRelay({ port: 0 });
     const port = relay.port;
