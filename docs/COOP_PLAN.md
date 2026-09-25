@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-25 · Branch `coop` · Status: C0 bis C4d, C5a und C8 gebaut, Review R1 bis R21 gebaut (R10 teilweise); offen C5b, C7 (öffentlicher Relay), aus C6 nur Bots als Mitspieler (D24) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-25 · Branch `coop` · Status: C0 bis C4d, C5a, C7 und C8 gebaut, öffentliche Lobby läuft (D56 bis D68), Review R1 bis R21 gebaut (R10 teilweise); offen C5b, aus C6 nur Bots als Mitspieler (D24) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
