@@ -16,6 +16,9 @@ RUN npm install --no-save --no-audit --no-fund esbuild@0.28.1 ws@8.21.3 \
       --outfile=/out/relay.mjs
 
 FROM node:24-alpine
+# Which build this is, shown in the log and on the status page ("0.5.0 (a1b2c3d4)")
+ARG RELAY_BUILD=dev
+ENV RELAY_BUILD=${RELAY_BUILD}
 WORKDIR /app
 COPY --from=build /out/relay.mjs .
 RUN mkdir -p /app/logs && chown node:node /app/logs
