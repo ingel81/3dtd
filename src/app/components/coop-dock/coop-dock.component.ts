@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, computed, effect, inject, signal, untracked, viewChild } from '@angular/core';
-import { NgTemplateOutlet } from '@angular/common';
+import { ChangeDetectionStrategy, Component, ElementRef, computed, effect, inject, signal, viewChild } from '@angular/core';
+import { CoopEntryComponent } from '../coop-entry/coop-entry.component';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
@@ -12,9 +12,7 @@ import { CameraControlService } from '../../services/camera-control.service';
 import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
-import { MAX_PLAYERS, PROTOCOL_VERSION, type PlayerStatus } from '../../coop/protocol';
-import { BUILD_VERSION } from '../../configs/build-info.config';
-import type { LanGame } from '../../core/desktop-bridge';
+import { MAX_PLAYERS, type PlayerStatus } from '../../coop/protocol';
 import { clientLabel } from '../../coop/client-info';
 import { relayLabel } from '../../coop/relay-address';
 import { ROOM_OPTION_CHOICES, optionLabel, type RoomOptionKey } from '../../coop/room-options';
@@ -28,9 +26,6 @@ const STATUS_TEXT: Partial<Record<PlayerStatus, string>> = {
   loading: 'Loading the map…',
   reloading: 'Reloading for the new place…',
 };
-
-/** The LAN scan found nothing this long: offer the host IP field and the checklist (D54), ms */
-const LAN_QUIET_MS = 4000;
 
 /** How long "Copied" stays on a copy button, ms */
 const COPIED_MS = 1200;
@@ -54,7 +49,7 @@ interface JoinStep {
 @Component({
   selector: 'app-coop-dock',
   standalone: true,
-  imports: [MatTooltipModule, NgTemplateOutlet, TdIconComponent, PingBarsComponent],
+  imports: [MatTooltipModule, TdIconComponent, PingBarsComponent, CoopEntryComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   host: {
     '[style.left.px]': 'left',
@@ -90,27 +85,12 @@ export class CoopDockComponent {
   protected readonly clientLabel = clientLabel;
   protected readonly relayLabel = relayLabel;
 
-  readonly name = signal(this.coop.name);
-  readonly code = signal(this.coop.roomFromUrl ?? '');
   readonly chatLine = signal('');
   /** Which copy button shows "Copied" for a moment */
   readonly copied = signal<'code' | 'link' | null>(null);
   /** Mode & options open: for the host from the start, who sets them (PLAYTEST T58) */
   readonly optionsOpen = signal(this.coop.isHost());
   readonly moreOpen = signal(false);
-  /** What the player asked for here: the joining steps are a guest's */
-  private readonly intent = signal<'host' | 'join' | null>(this.coop.roomFromUrl ? 'join' : null);
-  readonly relaySetting = signal(this.coop.relaySetting);
-  readonly relayInvalid = signal(false);
-  readonly relayProbe = signal<{ ok: boolean; text: string; busy: boolean } | null>(null);
-  /** The LAN scan has found nothing for a while */
-  readonly lanQuiet = signal(false);
-  readonly hostIp = signal('');
-  readonly lanProbe = signal<'busy' | 'none' | null>(null);
-  /** The refresh button turns for a moment after a click */
-  readonly rescanning = signal(false);
-  /** LAN games, each with why it cannot be joined where it cannot */
-  readonly lanGames = computed(() => this.coop.lanGames().map((game) => ({ ...game, why: lanRefusal(game) })));
   /** All of the host's addresses, for the tooltip: "192.168.1.20 (Ethernet)"; the first is shown */
   readonly lanAddressText = computed(() =>
     this.coop.lanAddresses().map((a) => `${a.address} (${a.name})`).join(' · '));
@@ -123,7 +103,7 @@ export class CoopDockComponent {
   /** Joining as a guest, until the map stands here and this player has a lane */
   readonly joining = computed(() => {
     const status = this.coop.status();
-    if (this.intent() !== 'join' || this.room()?.started) return false;
+    if (this.coop.intent() !== 'join' || this.room()?.started) return false;
     if (status === 'connecting' || status === 'loading-world') return true;
     return !!this.room() && !this.coop.isHost() && (!this.coop.worldReady() || !this.me()?.spawnId);
   });
@@ -250,25 +230,6 @@ export class CoopDockComponent {
   readonly canEditOptions = computed(() => this.coop.isHost() && !this.room()?.started);
 
   constructor() {
-    // Look for LAN games while the dock offers them: not in a room, not on the way into one
-    let quietTimer: ReturnType<typeof setTimeout> | null = null;
-    let scanning = false;
-    effect(() => {
-      const on = this.coop.lanAvailable && !this.room() && !this.joining() && this.coop.status() !== 'connecting';
-      if (on === scanning) return;
-      scanning = on;
-      untracked(() => {
-        this.lanQuiet.set(false);
-        if (quietTimer) clearTimeout(quietTimer);
-        quietTimer = null;
-        this.coop.scanLan(on);
-        if (on) quietTimer = setTimeout(() => this.lanQuiet.set(this.coop.lanGames().length === 0), LAN_QUIET_MS);
-      });
-    });
-    inject(DestroyRef).onDestroy(() => {
-      if (quietTimer) clearTimeout(quietTimer);
-      this.coop.scanLan(false);
-    });
     // Becoming the host of a new room opens the options, which the host sets
     let wasHost = this.coop.isHost();
     effect(() => {
@@ -313,47 +274,6 @@ export class CoopDockComponent {
     return `#${SPAWN_COLORS[index % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`;
   }
 
-  host(): void {
-    this.intent.set('host');
-    void this.coop.host(this.name().trim() || 'Player');
-  }
-
-  hostLan(): void {
-    this.intent.set('host');
-    void this.coop.hostLan(this.name().trim() || 'Player');
-  }
-
-  joinLan(game: LanGame): void {
-    this.intent.set('join');
-    void this.coop.joinLan(this.name().trim() || 'Player', game);
-  }
-
-  /** Start the search over: fresh sockets on every adapter, an empty list, the IP field after a while again */
-  rescanLan(): void {
-    this.coop.scanLan(false);
-    this.coop.scanLan(true);
-    this.lanProbe.set(null);
-    this.lanQuiet.set(false);
-    this.rescanning.set(true);
-    setTimeout(() => {
-      this.rescanning.set(false);
-      this.lanQuiet.set(this.coop.lanGames().length === 0);
-    }, LAN_QUIET_MS);
-  }
-
-  async probeLan(): Promise<void> {
-    const ip = this.hostIp().trim();
-    if (!ip) return;
-    this.lanProbe.set('busy');
-    this.lanProbe.set((await this.coop.probeLan(ip)) ? null : 'none');
-  }
-
-  join(): void {
-    if (!this.code().trim()) return;
-    this.intent.set('join');
-    void this.coop.join(this.name().trim() || 'Player', this.code().trim().toUpperCase());
-  }
-
   /** A free lane: take it; the own one: give it back */
   takeLane(spawnId: string, mine: boolean, owner: string | null): void {
     if (this.room()?.started || (owner && !mine)) return;
@@ -387,25 +307,8 @@ export class CoopDockComponent {
     this.chatLine.set('');
   }
 
-  saveRelay(value: string): void {
-    const ok = this.coop.setRelaySetting(value);
-    this.relayInvalid.set(!ok);
-    this.relayProbe.set(null);
-    if (!ok) return;
-    this.relaySetting.set(this.coop.relaySetting);
-    void this.testRelay();
-  }
-
-  /** Whether a relay answers where the game would look now (playtest T14) */
-  async testRelay(): Promise<void> {
-    if (this.relayInvalid()) return;
-    this.relayProbe.set({ ok: true, text: 'Trying…', busy: true });
-    const result = await this.coop.probeRelay();
-    this.relayProbe.set({ ...result, busy: false });
-  }
-
   leave(): void {
-    this.intent.set(null);
+    this.coop.intent.set(null);
     this.coop.leave();
   }
 
@@ -424,11 +327,3 @@ function walkTime(seconds: number): string {
   return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
-/** Why a LAN game cannot be joined from here, null when it can */
-function lanRefusal(game: LanGame): string | null {
-  if (game.protocol !== PROTOCOL_VERSION || game.gameVersion !== BUILD_VERSION) {
-    return `The host plays version ${game.gameVersion || 'unknown'}, you play ${BUILD_VERSION}. Update both to the same version.`;
-  }
-  if (game.players >= MAX_PLAYERS) return 'The room is full.';
-  return null;
-}

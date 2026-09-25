@@ -1,0 +1,133 @@
+@let c = coop();
+<section class="blk">
+  <label class="field">
+    <span>Your name</span>
+    <input class="inp" type="text" maxlength="32" [value]="name()" (input)="name.set($any($event.target).value)" />
+  </label>
+</section>
+
+@if (c.lanAvailable) {
+  <!-- Same network: the desktop app hosts and finds games itself (C4d) -->
+  <section class="blk">
+    <h3 class="sec">
+      Same network
+      <button class="icon-btn sm" type="button" (click)="rescanLan()"
+              matTooltip="Search again" aria-label="Search the network again">
+        <td-icon name="refresh" [size]="14" [class.spin]="rescanning()"></td-icon>
+      </button>
+    </h3>
+    @if (canHost()) {
+      <button class="btn-primary wide" type="button" (click)="hostLan()" [disabled]="busy()">
+        {{ busy() ? 'Opening…' : 'Host LAN game' }}
+      </button>
+      <p class="note">Players on this network see it below. Windows may ask to let 3DTD through the firewall: allow it.</p>
+    }
+    @if (lanGames().length) {
+      <ul class="lan-list">
+        @for (game of lanGames(); track game.code) {
+          <li class="lan-game" [class.is-off]="game.why">
+            <div class="who">
+              <b>{{ game.host || 'Host' }}</b>
+              <small>{{ game.players }}/{{ maxPlayers }} players · {{ game.code }}</small>
+            </div>
+            <button class="btn" type="button" (click)="joinLan(game)" [disabled]="!!game.why || busy()"
+                    [matTooltip]="game.why ?? ''">Join</button>
+          </li>
+        }
+      </ul>
+    } @else {
+      <p class="note with-icon" role="status"><td-icon class="spin" name="refresh" [size]="13"></td-icon>Looking for games on this network…</p>
+      @if (lanQuiet()) {
+        <div class="row">
+          <input class="inp" type="text" maxlength="15" placeholder="Host IP, e.g. 192.168.1.5" aria-label="Host IP"
+                 [value]="hostIp()" (input)="hostIp.set($any($event.target).value)" (keydown.enter)="probeLan()" />
+          <button class="btn-xs" type="button" (click)="probeLan()" [disabled]="!hostIp().trim() || lanProbe() === 'busy'">Ask</button>
+        </div>
+        @if (lanProbe() === 'none') {
+          <p class="note is-error" role="status">No game answered at {{ hostIp().trim() }}.</p>
+        }
+        <ul class="checks">
+          <li>The host let 3DTD through the Windows firewall (the prompt at "Host LAN game").</li>
+          <li>Both are on the same network, not one on mobile data or only on a VPN.</li>
+          <li>Guest Wi-Fi often keeps devices apart: use the main Wi-Fi or a cable.</li>
+        </ul>
+      }
+    }
+  </section>
+}
+
+<!-- Online: over the active lobby, by room code (D58, D67) -->
+<section class="blk">
+  <h3 class="sec">
+    Online
+    <small>{{ c.lobby()?.name ?? 'no lobby' }}</small>
+    <button class="icon-btn sm" type="button" (click)="lobbyMenu.set(!lobbyMenu())" [attr.aria-expanded]="lobbyMenu()"
+            matTooltip="Lobbies" aria-label="Choose the online lobby">
+      <td-icon name="cog" [size]="14"></td-icon>
+    </button>
+  </h3>
+
+  @if (lobbyMenu()) {
+    <div class="lobby-menu">
+      @for (lobby of c.lobbies(); track lobby.url) {
+        <div class="lobby-row">
+          <label>
+            <input type="radio" name="lobby" [checked]="lobby.url === c.lobby()?.url" (change)="c.selectLobby(lobby.url)" />
+            <b>{{ lobby.name }}</b>
+          </label>
+          @if (!lobby.builtIn) {
+            <button class="icon-btn sm" type="button" (click)="c.removeLobby(lobby.url)"
+                    [attr.aria-label]="'Remove ' + lobby.name" matTooltip="Remove">
+              <td-icon name="cross" [size]="12"></td-icon>
+            </button>
+          }
+        </div>
+      } @empty {
+        <p class="note">No lobby yet.</p>
+      }
+      <div class="row">
+        <input class="inp" type="text" maxlength="40" placeholder="Name" aria-label="Lobby name"
+               [value]="newLobbyName()" (input)="newLobbyName.set($any($event.target).value)" />
+        <input class="inp" type="text" placeholder="wss://…" aria-label="Lobby address"
+               [value]="newLobbyUrl()" (input)="newLobbyUrl.set($any($event.target).value)" (keydown.enter)="addLobby()" />
+        <button class="btn-xs" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">Add</button>
+      </div>
+      @if (c.lobby()) {
+        <button class="btn-xs" type="button" (click)="checkLobby()">Check {{ c.lobby()!.name }}</button>
+      }
+      @if (lobbyNote(); as note) {
+        <p class="note" [class.is-ok]="note.ok" [class.is-error]="!note.ok" role="status">{{ note.text }}</p>
+      }
+    </div>
+  }
+
+  @if (c.lobby()) {
+    @if (canHost()) {
+      <button class="btn-primary wide" type="button" (click)="hostOnline()" [disabled]="busy()">
+        {{ busy() ? 'Opening…' : 'Host online' }}
+      </button>
+      <p class="note">Opens a room on {{ placeName() }}. Share the room code with your friends.</p>
+      <p class="or-code">Or join with a room code</p>
+    }
+    <div class="row">
+      <input class="inp codein" type="text" maxlength="6" placeholder="ABC123" aria-label="Room code"
+             [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
+      <button class="btn" type="button" (click)="join()" [disabled]="!code().trim() || busy()">Join</button>
+    </div>
+  } @else {
+    <p class="note">No online lobby is set up. Add one with the gear.</p>
+  }
+</section>
+
+<section class="blk plain">
+  <p class="note">Every player needs their own map key.</p>
+</section>
+
+@if (c.error(); as error) {
+  <p class="banner is-error" role="alert">
+    {{ error }}
+    @if (c.updateReady()) {
+      <button class="btn-xs" type="button" (click)="installUpdate()">Update now</button>
+    }
+  </p>
+}

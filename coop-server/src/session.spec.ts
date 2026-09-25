@@ -93,7 +93,7 @@ describe('CoopSession against the relay (COOP_PLAN C4b)', () => {
     await c.connect();
     const room = await a.create();
 
-    await expect(b.join(room.code)).rejects.toEqual(new CoopRefusedError('version'));
+    await expect(b.join(room.code)).rejects.toEqual(new CoopRefusedError('version', 'v1'));
     await expect(c.join('ZZZZZZ')).rejects.toBeInstanceOf(CoopRefusedError);
     await c.join(room.code);
     let host = '';

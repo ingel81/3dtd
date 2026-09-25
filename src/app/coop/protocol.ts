@@ -118,7 +118,8 @@ export type ClientMessage =
 
 export type ServerMessage =
   | { t: 'welcome'; playerId: string }
-  | { t: 'refused'; reason: RefusalReason }
+  /** `hostVersion` with 'version': the game version the host runs (D60) */
+  | { t: 'refused'; reason: RefusalReason; hostVersion?: string }
   | { t: 'room'; room: CoopRoomInfo }
   /** The host's world, to a player who joins or when the host sends it */
   | { t: 'world'; world: unknown }

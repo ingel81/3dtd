@@ -18,8 +18,8 @@
 /** The port `npm run coop-server` listens on */
 export const DEFAULT_RELAY_PORT = 3003;
 
-/** 'lan': a game on the local network, found or hosted by the desktop app (C4d) */
-export type RelaySource = 'link' | 'setting' | 'config' | 'auto' | 'lan';
+/** 'lan': a game on the local network, found or hosted by the desktop app (C4d); 'lobby': the active online lobby (D58) */
+export type RelaySource = 'link' | 'setting' | 'config' | 'auto' | 'lan' | 'lobby';
 
 export interface RelaySources {
   /** `relay` from the page's URL, as it came */

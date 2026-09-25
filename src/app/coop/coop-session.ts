@@ -39,10 +39,13 @@ export interface CoopStart {
 
 export class CoopRefusedError extends Error {
   readonly reason: RefusalReason;
+  /** The host's game version, with 'version' */
+  readonly hostVersion: string | null;
 
-  constructor(reason: RefusalReason) {
+  constructor(reason: RefusalReason, hostVersion: string | null = null) {
     super(`refused: ${reason}`);
     this.reason = reason;
+    this.hostVersion = hostVersion;
   }
 }
 
@@ -320,7 +323,7 @@ export class CoopSession {
         this.playerId = message.playerId;
         return this.settle('welcome', message.playerId);
       case 'refused':
-        if (this.pendingReply) return this.fail(new CoopRefusedError(message.reason));
+        if (this.pendingReply) return this.fail(new CoopRefusedError(message.reason, message.hostVersion ?? null));
         return this.onRefused?.(message.reason);
       case 'room':
         this.room = message.room;
