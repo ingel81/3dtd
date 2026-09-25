@@ -451,7 +451,8 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   Erwartung: beim Host sofort „Bob joined“, in Bobs Zeile „Loading the map…“, Statuszeile „Waiting for Bob to load the
   map“, danach „Bob's map stands“. Beim Würfeln „Bob reloads for the new place, back in a moment“ statt „Bob left“.
   **ok (E2E, 2026-09-25):** Beitritt per Einladungslink und das Neuladen beim Würfeln; der Gast landet wieder auf
-  seiner Lane, kein „Bob left“ (`e2e/tests/coop-lobby.e2e.ts`).
+  seiner Lane, kein „Bob left“ (`e2e/tests/coop-lobby.e2e.ts`). Seit 2026-09-25 lädt der Gast dabei nicht mehr neu, er
+  wechselt den Ort in der Seite (Chat „Bob is loading the map“); E2E ok, dieselbe Seite, dieselbe Lane.
 
 - **T66 LAN-Spiel zu Hause (C4d)**: Zwei Rechner mit der Desktop-App aus diesem Stand (`cd desktop && npm run dist`,
   oder `npm run dev` auf beiden). Rechner A: Tab, „Host LAN game“, die Windows-Firewall fragt einmal, „Private

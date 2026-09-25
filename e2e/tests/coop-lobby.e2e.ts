@@ -54,18 +54,20 @@ test('the host sees a guest come by the invite link and load; name, options, kic
   });
 });
 
-test('a guest follows the host to a new place and comes back to its lane (T65, D47)', async ({ duo, relay: _relay }, testInfo) => {
+test('a guest follows the host to a new place in the page and keeps its lane (T65, D47)', async ({ duo, relay: _relay }, testInfo) => {
   const { host, guest } = await coopRoom(duo);
   const lane = (await host.locator('app-coop-dock .pl', { hasText: 'Bob' }).locator('small').innerText()).match(/Spawn \d/)?.[0] ?? '';
-  // The host's dice changes the place in the game; the guest's page loads it (a map session more)
+  // The host's dice changes the place in the game; the guest goes there in the page, no reload (no map session more)
+  await guest.evaluate(() => { (window as unknown as { samePage?: boolean }).samePage = true; });
   await host.getByRole('button', { name: 'Random location' }).click();
-  await expect.poll(() => chatText(host), { timeout: 120_000 }).toMatch(/Bob reloads for the new place/);
+  await expect.poll(() => chatText(host), { timeout: 120_000 }).toMatch(/Bob is loading the map/);
   await gameReady(host);
   await gameReady(guest);
   const row = host.locator('app-coop-dock .pl', { hasText: 'Bob' });
   await expect(row).toBeVisible({ timeout: 120_000 });
   await expect(row.locator('small')).toContainText(lane, { timeout: 120_000 });
-  expect(await chatText(host)).not.toMatch(/Bob left/);
+  expect(await chatText(host)).not.toMatch(/Bob left|Bob reloads/);
+  expect(await guest.evaluate(() => (window as unknown as { samePage?: boolean }).samePage)).toBe(true);
   await shot(testInfo, host, 'after-new-place');
 });
 

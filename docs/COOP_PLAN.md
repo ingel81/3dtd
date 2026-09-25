@@ -375,6 +375,10 @@ Ursprünglicher Plan:
 - Lokal: ein npm-Skript startet den Relay neben `npm start` (D17); zwei Browserfenster reichen zum Testen.
 - Abnahme: zwei Fenster auf einem Rechner spielen eine Welle, Prüfsummen gleich.
 
+**Ortswechsel beim Gast ohne Neuladen (2026-09-25, D49):** Kommt eine Welt mit anderem HQ, geht der Gast in der
+Seite dorthin (`applyNewLocation` mit dem ersten Spawn, dann `replaceSpawns`), wie der Host beim Würfeln (D35).
+Neuladen nur noch, wenn der Ort danach nicht der des Hosts ist. Spart je Ortswechsel eine Kartensitzung.
+
 **C4d gebaut (2026-09-25, D49 bis D54):** der Relay in der Desktop-App, Spielen im LAN. So gebaut:
 `coop-server/src/desktop.ts` (Einstieg, erster freie Port ab 3003, meldet offene, nicht gesperrte Lobbys),
 `desktop/scripts/build-relay.js` bündelt ihn nach `desktop/relay/relay.mjs` (in `web:build`, `dev` und im
