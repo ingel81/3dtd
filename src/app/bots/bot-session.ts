@@ -381,7 +381,7 @@ export class BotSession {
         // Initial state is paused — the `connected` message from the backend
         // carries the authoritative runState and handleConnected applies
         // it (auto-starts the bot if backend is already 'running').
-        this.gameState.setGameSpeed(1.0, false);
+        this.gameState.setGameSpeed(1.0);
 
         // Every finished wave sends what the run log wrote since the last one
         this.eventSubscriptions.push(this.gameState.getEventBus().onLive('wave:completed', () => {
@@ -698,17 +698,17 @@ export class BotSession {
       return;
     }
     if (action === 'stop') {
-      this.gameState.setGameSpeed(1.0, false);
+      this.gameState.setGameSpeed(1.0);
       this.disableBot();
       return;
     }
     if (action === 'start') {
-      this.gameState.setGameSpeed(75.0, false);
+      this.gameState.setGameSpeed(75.0);
       this.enableBot('expert');
       return;
     }
     if (action === 'set_timescale' && typeof value === 'number' && value > 0) {
-      this.gameState.setGameSpeed(value, false);
+      this.gameState.setGameSpeed(value);
       return;
     }
     if (action === 'set_rendering' && typeof value === 'boolean') {

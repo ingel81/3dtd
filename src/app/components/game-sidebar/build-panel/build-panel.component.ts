@@ -191,15 +191,21 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
    */
   private readonly isBuildPanelHidden = (): boolean => !!this.store.selectedTower();
 
+  /** Run `fn` after `ms` unless the panel is gone by then: a preview made later would render forever */
+  private later(fn: () => void, ms: number): void {
+    const timer = setTimeout(fn, ms);
+    this.destroyRef.onDestroy(() => clearTimeout(timer));
+  }
+
   ngAfterViewInit(): void {
     // Initialize previews after DOM is ready
-    setTimeout(() => this.initTowerPreviews(), 100);
+    this.later(() => this.initTowerPreviews(), 100);
 
     // Re-initialize tower previews when the list changes
     this.towerPreviewCanvases.changes
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe(() => {
-        setTimeout(() => this.initTowerPreviews(), 50);
+        this.later(() => this.initTowerPreviews(), 50);
       });
   }
 

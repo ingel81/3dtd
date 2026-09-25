@@ -115,12 +115,20 @@ export class BackgroundMusicService {
    */
   private static retryOnGesture(audio: HTMLAudioElement): void {
     const events = ['pointerdown', 'keydown'] as const;
+    // One retry waits at a time: a second refusal replaces the first instead of piling up listeners
+    const pending = BackgroundMusicService.pendingRetry;
+    if (pending) events.forEach((e) => window.removeEventListener(e, pending, true));
     const retry = () => {
       events.forEach((e) => window.removeEventListener(e, retry, true));
+      BackgroundMusicService.pendingRetry = null;
       if (BackgroundMusicService.mainThemeAudio === audio) audio.play().catch(() => undefined);
     };
+    BackgroundMusicService.pendingRetry = retry;
     events.forEach((e) => window.addEventListener(e, retry, true));
   }
+
+  /** The gesture listener retryOnGesture left, null when none waits */
+  private static pendingRetry: (() => void) | null = null;
 
   /** Stop the main theme immediately */
   private static stopMainTheme(): void {

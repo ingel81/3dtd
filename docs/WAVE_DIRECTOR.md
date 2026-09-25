@@ -178,14 +178,14 @@ im Deckel (früher feste `FAIRNESS_WAVE_HP_BUDGET = 0.06`).
 PRESSURE_WARMUP_WAVES = 4      // Wellen, die gar nicht erst gemessen werden
 PRESSURE_SMOOTHING    = 0.35   // Gewicht der neuen Welle in der Glättung
 PRESSURE_MIN_SAMPLES  = 3      // Messwerte, bevor der Regler stellt
-PRESSURE_GAIN         = 0.5    // auf den logarithmischen Fehler
+pressureGain          = 0.5    // auf den logarithmischen Fehler (DirectorParams)
 PRESSURE_MAX_STEP     = 0.7    // höchstens ×1,42 je Welle
 PRESSURE_BAND_LO/HI   = 0.5 / 1.5
 PRESSURE_MULT_MIN/MAX = 0.5 / 20
 
 measured = PRESSURE_SMOOTHING * pressure + (1 - PRESSURE_SMOOTHING) * measured
 error    = ln(target / max(measured, PRESSURE_FLOOR))
-mult    *= exp(PRESSURE_GAIN * clamp(error, ±PRESSURE_MAX_STEP))
+mult    *= exp(pressureGain * clamp(error, ±PRESSURE_MAX_STEP))
 ```
 
 - **Exponentiell geglättet statt Fenster.** Bis zum 2026-09-22 stand hier ein Median über ein Fenster von fünf

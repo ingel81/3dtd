@@ -102,9 +102,6 @@ export const BASE_PRESSURE = 1 - Math.pow(TARGET_RESIDUAL_HP, 1 / TARGET_RUN_WAV
 export const PRESSURE_SHAPE_START = 0.5;
 export const PRESSURE_SHAPE_END = 1.5;
 
-/** Proportionalverstärkung auf den logarithmischen Fehler, je Welle. */
-export const PRESSURE_GAIN = 0.5;
-
 /**
  * Größter Schritt je Welle, als Betrag des Log-Fehlers. 0,7 entspricht
  * höchstens ×1,42 oder ÷1,42 pro Welle.

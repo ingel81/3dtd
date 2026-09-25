@@ -724,7 +724,7 @@ describe('GameStateManager', () => {
         expect(gsm.credits()).toBe(afterStart);
 
         // Run the game clock past the first research at the training speed
-        gsm.setGameSpeed(75, false);
+        gsm.setGameSpeed(75);
         let t = 1;
         gsm.update(t, undefined);
         while (!gsm.researchManager.isCompleted(first.id) && t < 10_000) {
@@ -925,17 +925,17 @@ describe('GameStateManager', () => {
 
     describe('setGameSpeed()', () => {
       it('sets timescale within bounds', () => {
-        gsm.setGameSpeed(3.0, false);
+        gsm.setGameSpeed(3.0);
         expect(gsm.gameSpeed()).toBe(3.0);
       });
 
       it('clamps minimum to 0.1', () => {
-        gsm.setGameSpeed(0.01, false);
+        gsm.setGameSpeed(0.01);
         expect(gsm.gameSpeed()).toBe(0.1);
       });
 
       it('clamps maximum to 75', () => {
-        gsm.setGameSpeed(100, false);
+        gsm.setGameSpeed(100);
         expect(gsm.gameSpeed()).toBe(75);
       });
     });
@@ -1034,7 +1034,7 @@ describe('GameStateManager', () => {
 
       it('scales sub-step count by training timescale', () => {
         const baselineHits = vi.fn();
-        gsm.setGameSpeed(1.0, false);
+        gsm.setGameSpeed(1.0);
         gsm.update(0, baselineHits);
         gsm.update(100, baselineHits); // 100ms wall × 1× = 100ms game-time
         const baseline = baselineHits.mock.calls.length;
@@ -1044,7 +1044,7 @@ describe('GameStateManager', () => {
         const gsm2 = new GameStateManager();
         const engine = createMockEngine();
         gsm2.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-        gsm2.setGameSpeed(5.0, false);
+        gsm2.setGameSpeed(5.0);
         gsm2.update(0, sped);
         gsm2.update(100, sped); // 100ms wall × 5× = 500ms game-time
         // 5× timescale should yield ≥ 4× the sub-step count of 1×.
@@ -1119,7 +1119,7 @@ describe('GameStateManager', () => {
           const engine = createMockEngine() as unknown as { setTimescale: ReturnType<typeof vi.fn> };
           const paused = new GameStateManager();
           paused.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-          paused.setGameSpeed(2, false);
+          paused.setGameSpeed(2);
 
           paused.paused.set(true);
           paused.update(1, undefined);

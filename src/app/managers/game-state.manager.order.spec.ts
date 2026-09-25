@@ -443,7 +443,7 @@ describe('GameStateManager order of operations (characterization)', () => {
 
   describe('timescale', () => {
     it('runs the same sub-step sequence at 10x, only more of them per frame', () => {
-      gsm.setGameSpeed(10, false);
+      gsm.setGameSpeed(10);
       gsm.waveManager.phase.set('wave');
       gsm.update(1000, onSubStep); // 16 ms x 10: nine steps
       gsm.update(1020, onSubStep); // 20 ms x 10 + ~10 ms carried: twelve steps
@@ -473,7 +473,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         present(now);
       };
 
-      gsm.setGameSpeed(10, false);
+      gsm.setGameSpeed(10);
       gsm.waveManager.phase.set('wave');
       gsm.update(1000, (stepMs) => seen.push(`hook ${gsm.gameTimeMs} ${stepMs}`));
 
