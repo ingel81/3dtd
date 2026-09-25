@@ -107,6 +107,8 @@ export class ThreeTowerRenderer {
    */
   private readonly heldIds = new Set<string>();
   private readonly ranges = new Map<string, number>();
+  /** A partner's lane colour per tower (setOwnerRing), set as the tower is placed, before its model arrives */
+  private readonly ownerColors = new Map<string, number>();
 
   /** Tower types whose configured turretNode the model lacks, warned about once. */
   private readonly missingTurretNodes = new Set<string>();
@@ -431,6 +433,8 @@ export class ThreeTowerRenderer {
     }
     const range = this.ranges.get(id);
     if (range !== undefined) this.updateRangeIndicator(id, range);
+    const ownerColor = this.ownerColors.get(id);
+    if (ownerColor !== undefined) this.setOwnerRing(id, ownerColor);
     return renderData;
   }
 
@@ -571,6 +575,8 @@ export class ThreeTowerRenderer {
    * shows at a glance; null gives it the shared gold ring back.
    */
   setOwnerRing(id: string, color: number | null): void {
+    if (color === null) this.ownerColors.delete(id);
+    else this.ownerColors.set(id, color);
     const data = this.towers.get(id);
     const ring = data?.selectionRing;
     const shared = ThreeTowerRenderer.sharedSelectionMaterial;
@@ -681,6 +687,7 @@ export class ThreeTowerRenderer {
     this.pendingCreates.delete(id);
     this.heldIds.delete(id);
     this.ranges.delete(id);
+    this.ownerColors.delete(id);
     const data = this.towers.get(id);
     if (!data) return;
 
@@ -832,6 +839,7 @@ export class ThreeTowerRenderer {
     this.pendingCreates.clear();
     this.heldIds.clear();
     this.ranges.clear();
+    this.ownerColors.clear();
     for (const id of this.towers.keys()) {
       this.remove(id);
     }

@@ -113,6 +113,19 @@ describe('ThreeTowerRenderer draws the tower aim', () => {
     expect(ring.visible).toBe(false);
   });
 
+  it("wears the partner's colour when it was set while the model loaded (coop R14, PLAYTEST T41)", async () => {
+    const local = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    const pending = local.create('t5', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0));
+    local.setOwnerRing('t5', 0xf97316);
+    const ring = (await pending)!.selectionRing!;
+    expect(ring.visible).toBe(true);
+    expect((ring.material as unknown as { color: { getHex(): number } }).color.getHex()).toBe(0xf97316);
+    // A new tower of that id starts with the gold ring
+    local.remove('t5');
+    const again = (await local.create('t5', 'cannon', 0, 0, 0, 0, placedAim('cannon', 0, 0)))!;
+    expect(again.selectionRing!.visible).toBe(false);
+  });
+
   it('shows the placed pose first, then the sweep, then the guard heading, never jumping', async () => {
     const aim = placedAim('cannon', 0.4, 1.0);
     const data = (await renderer.create('t1', 'cannon', 0, 0, 0, 0.4, aim))!;
