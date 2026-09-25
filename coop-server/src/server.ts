@@ -105,6 +105,12 @@ export interface RelayOptions {
    * Unset, everyone may: the dev machine and the LAN.
    */
   origins?: readonly string[];
+  /**
+   * Who may read the status page: 'all' (default; the desktop app's LAN
+   * probe reads it), or 'local', only requests from this machine or the
+   * local network that did not come through a Cloudflare tunnel (D66).
+   */
+  statusAccess?: 'all' | 'local';
 }
 
 /** Start the relay on `port` (0: any free port); rejects when the port is taken. */
@@ -131,6 +137,11 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
   };
 
   const http: Server = createServer((request, response) => {
+    if (options.statusAccess === 'local' && !isLocalRequest(request.socket.remoteAddress, request.headers)) {
+      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+      response.end('not here\n');
+      return;
+    }
     if (request.url?.startsWith('/status')) {
       response.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
       response.end(JSON.stringify(status(), null, 2));
@@ -337,6 +348,19 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
       });
     });
   });
+}
+
+/**
+ * A request from this machine or the local network, not one that came in
+ * through a Cloudflare tunnel (which adds CF-Connecting-IP; the tunnel's own
+ * connector sits on the local network).
+ */
+export function isLocalRequest(remote: string | undefined, headers: Record<string, string | string[] | undefined>): boolean {
+  if (headers['cf-connecting-ip'] !== undefined || headers['cf-ray'] !== undefined) return false;
+  const address = (remote ?? '').replace(/^::ffff:/, '');
+  if (address === '::1' || address.startsWith('127.')) return true;
+  const [a, b] = address.split('.').map(Number);
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
 }
 
 /** The status page as text: one block per room. */

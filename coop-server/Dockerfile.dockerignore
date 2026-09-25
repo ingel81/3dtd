@@ -1,0 +1,7 @@
+# Build context is the repository root; the relay needs only these
+*
+!coop-server/src/**
+!src/app/coop/**
+!src/app/managers/game-state/game-clock.ts
+coop-server/src/**/*.spec.ts
+src/app/coop/**/*.spec.ts

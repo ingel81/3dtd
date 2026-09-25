@@ -1,0 +1,19 @@
+# The relay next to an existing cloudflared container (docs/COOP_PLAN.md, D56).
+# The tunnel's public hostname lobby.3dtd.sgeht.net points at http://relay:3003.
+services:
+  relay:
+    image: ghcr.io/ingel81/3dtd-relay:latest
+    container_name: 3dtd-relay
+    restart: unless-stopped
+    volumes:
+      - ./logs:/app/logs
+    # No published port needed: cloudflared reaches it on the shared network.
+    # Uncomment to read the status page from the LAN: http://<server>:3003/
+    # ports:
+    #   - "3003:3003"
+    networks:
+      - tunnel
+
+networks:
+  tunnel:
+    external: true   # the network your cloudflared container is on
