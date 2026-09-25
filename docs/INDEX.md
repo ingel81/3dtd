@@ -19,6 +19,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Aktuell | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
 | [TODO.md](../TODO.md) | Aktuell | Die eine Liste offener Arbeit: vor dem Merge, Entscheidungen, Bugs, Features, Messungen, Konzepte, Ideen, Aufräumen |
 | [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Nur offene Nachtests (Pakete mit Klickwegen und URLs) und die Eichtabelle der Korridor-Fingerprints; erledigte Pakete wandern ins Archiv |
+| [E2E.md](E2E.md) | Aktuell | End-to-End-Tests des laufenden Dev-Spiels mit Playwright (`npm run e2e`): Aufbau, Kartensitzungen, was sie nicht können |
 | [DONE.md](../DONE.md) | Aktuell | Changelog, neueste zuerst |
 
 ## Features & Systeme
