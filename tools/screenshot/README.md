@@ -16,6 +16,7 @@ Einmalig: `npm install` in diesem Ordner (Playwright; der Chromium dazu mit `npm
   einer Lobby mit `--no-cheats`; startet und stoppt den Relay selbst.
 - `coop-look.mjs`: prüft, was sich an der Coop-Oberfläche ablesen lässt (T47, T50, T54, T56, T58, T62, T63), und
   legt Bilder zum Ansehen ab.
+- `join-status.mjs`: was der Host sieht, während ein Gast per Einladungslink kommt (D47).
 - `extras.mjs`: „Pause: Off“ (T60) und der Druck-Regler nach einem Ortswechsel (M5: sieben saubere Wellen öffnen
   ihn, ein neuer Ort startet wieder bei ×1,00).
 

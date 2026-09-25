@@ -445,6 +445,12 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   Leiste, Sidebar und Dialoge ohne abgeschnittene oder umbrechende Werte.
   **ok (2026-09-25)**
 
+- **T65 Der Host sieht den Gast kommen (D47)**: Gast öffnet den Einladungslink, danach würfelt der Host einen neuen Ort.
+  Erwartung: beim Host sofort „Bob joined“, in Bobs Zeile „Loading the map…“, Statuszeile „Waiting for Bob to load the
+  map“, danach „Bob's map stands“. Beim Würfeln „Bob reloads for the new place, back in a moment“ statt „Bob left“.
+  **Beitritt ok (Browser-Lauf `tools/screenshot/join-status.mjs`, 2026-09-25)**; das Neuladen beim Würfeln noch
+  offen.
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei
