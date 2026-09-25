@@ -47,3 +47,50 @@ describe('hostAddresses', () => {
     assert.deepEqual(names, ['Ethernet', 'Some VPN', 'vEthernet (WSL (Hyper-V firewall))']);
   });
 });
+
+describe('setUpCoopLan', () => {
+  const { setUpCoopLan } = require('../src/coop-lan');
+
+  function fakeIpc() {
+    const handlers = new Map();
+    return {
+      handle: (name, fn) => handlers.set(name, fn),
+      on: (name, fn) => handlers.set(name, fn),
+      call: (name, ...args) => handlers.get(name)(...args),
+    };
+  }
+  const sender = () => {
+    const sent = [];
+    return { sent, isDestroyed: () => false, send: (ch, data) => sent.push([ch, data]), once: () => undefined };
+  };
+  const status = {
+    protocol: 1,
+    rooms: [{ code: 'ABC234', hostId: 'p1', gameVersion: 'v', started: false, locked: false, players: [{ id: 'p1', name: 'Ann' }] }],
+  };
+
+  it('answers the host IP field with no scan running, and lists what it found', async () => {
+    const ipc = fakeIpc();
+    const lan = setUpCoopLan({
+      ipcMain: ipc,
+      utilityProcess: null,
+      relayPath: '',
+      log: { info: () => undefined, warn: () => undefined },
+      isAppSender: () => true,
+      fetchImpl: async (url) => ({ json: async () => (url.includes(':3003/') ? status : {}) }),
+    });
+    try {
+      const page = sender();
+      const found = await ipc.call('desktop:lan-probe', { sender: page }, '192.168.1.30');
+      assert.equal(found, true);
+      const lists = page.sent.filter(([ch]) => ch === 'desktop:lan-games').map(([, games]) => games);
+      assert.equal(lists.at(-1)[0].code, 'ABC234');
+      assert.equal(lists.at(-1)[0].address, '192.168.1.30');
+      // A second listener joining the running scan hears the list at once
+      const other = sender();
+      ipc.call('desktop:lan-games-again', { sender: other });
+      assert.equal(other.sent[0][1][0].code, 'ABC234');
+    } finally {
+      lan.close();
+    }
+  });
+});

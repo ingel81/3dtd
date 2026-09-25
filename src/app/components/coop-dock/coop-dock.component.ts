@@ -107,6 +107,8 @@ export class CoopDockComponent {
   readonly lanQuiet = signal(false);
   readonly hostIp = signal('');
   readonly lanProbe = signal<'busy' | 'none' | null>(null);
+  /** The refresh button turns for a moment after a click */
+  readonly rescanning = signal(false);
   /** LAN games, each with why it cannot be joined where it cannot */
   readonly lanGames = computed(() => this.coop.lanGames().map((game) => ({ ...game, why: lanRefusal(game) })));
   /** All of the host's addresses, for the tooltip: "192.168.1.20 (Ethernet)"; the first is shown */
@@ -324,6 +326,19 @@ export class CoopDockComponent {
   joinLan(game: LanGame): void {
     this.intent.set('join');
     void this.coop.joinLan(this.name().trim() || 'Player', game);
+  }
+
+  /** Start the search over: fresh sockets on every adapter, an empty list, the IP field after a while again */
+  rescanLan(): void {
+    this.coop.scanLan(false);
+    this.coop.scanLan(true);
+    this.lanProbe.set(null);
+    this.lanQuiet.set(false);
+    this.rescanning.set(true);
+    setTimeout(() => {
+      this.rescanning.set(false);
+      this.lanQuiet.set(this.coop.lanGames().length === 0);
+    }, LAN_QUIET_MS);
   }
 
   async probeLan(): Promise<void> {

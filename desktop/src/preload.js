@@ -15,6 +15,8 @@ const versionArg = process.argv.find((arg) => arg.startsWith(VERSION_ARG));
 // Registered before the page runs, so an update the main process reports
 // while the page still loads is kept and handed to the first listener.
 let readyUpdate = null;
+/** Listeners of coopLan.scan; the main process scans while there is one */
+let scanListeners = 0;
 const listeners = new Set();
 ipcRenderer.on('desktop:update-ready', (_event, update) => {
   readyUpdate = { version: String(update?.version ?? ''), notes: String(update?.notes ?? '') };
@@ -73,10 +75,15 @@ contextBridge.exposeInMainWorld(
         if (typeof listener !== 'function') return () => {};
         const forward = (_event, games) => listener(Array.isArray(games) ? games : []);
         ipcRenderer.on('desktop:lan-games', forward);
-        ipcRenderer.send('desktop:lan-scan', true);
+        // One scan in the main process for every listener: it ends with the last one
+        if (scanListeners++ === 0) ipcRenderer.send('desktop:lan-scan', true);
+        else ipcRenderer.send('desktop:lan-games-again');
+        let stopped = false;
         return () => {
+          if (stopped) return;
+          stopped = true;
           ipcRenderer.removeListener('desktop:lan-games', forward);
-          ipcRenderer.send('desktop:lan-scan', false);
+          if (--scanListeners === 0) ipcRenderer.send('desktop:lan-scan', false);
         };
       },
       /** Ask one address directly, during a scan; resolves true when its relay answered */

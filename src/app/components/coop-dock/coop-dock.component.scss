@@ -282,6 +282,8 @@ details {
 .plain > .note { margin-top: 10px; }
 
 /* === LAN (desktop app) === */
+.card h3 .refresh { margin-left: auto; }
+
 .lan-list {
   display: flex;
   flex-direction: column;
