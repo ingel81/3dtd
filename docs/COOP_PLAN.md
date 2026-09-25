@@ -100,8 +100,8 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D47 | Zustand des Gasts | Jeder Client meldet dem Raum, was er in der Lobby tut: Kartenschlüssel, Karte laden, für einen neuen Ort neu laden, Karte steht (`status`). Die Spielerzeile und die Statuszeile zeigen es, der Chat sagt es; ein Neuladen gilt nicht als „left“. Per Einladungslink tritt der Gast sofort bei und lädt danach (User, 2026-09-25) |
 | D48 | Protokoll-Version | Vor dem ersten Release zurück auf 1; die Stände 2 bis 7 waren Entwicklung, Erwähnungen weiter oben sind Geschichte (User, 2026-09-25) |
 | D46 | Schriften | Keine Cinzel: Überschriften in Inter Tight. JetBrains Mono wird selbst gehostet (`@fontsource`), weil `--td-font-mono` sie nennt und bisher auf Consolas fiel (User, 2026-09-25) |
-| D56 | Öffentliche Lobby | Das Relay läuft als Docker-Container auf dem Docker-Host-Server des Users (24/7) neben dem vorhandenen `cloudflared`; der Cloudflare-Tunnel macht es erreichbar, kein offener Port, Heim-IP verborgen (User, 2026-09-25) |
-| D57 | Adresse | `wss://lobby.3dtd.sgeht.net`, eigene Subdomain (die Spielseite liegt auf anderem Server) (User, 2026-09-25) |
+| D56 | Öffentliche Lobby | Das Relay läuft als Docker-Container auf einem Server des Users in einem abgeschotteten Netz; ein Cloudflare-Tunnel macht es erreichbar, kein offener Port (User, 2026-09-25) |
+| D57 | Adresse | `wss://3dtd-lobby.sgeht.net`, eine Ebene unter der Domain: das kostenlose Zertifikat von Cloudflare deckt `lobby.3dtd.sgeht.net` nicht ab. Live seit 2026-09-25 (User, 2026-09-25) |
 | D58 | Lobbies wählen | Standard-Lobby mit Name und Adresse aus `runtime-config.json`; weitere hinzufügen und die aktive wählen über ein Zahnrad im Online-Teil des Docks; im Dock nur der Name (User, 2026-09-25) |
 | D59 | Wer spielt online | Zuerst nur die Desktop-App (`--origins app://app`, eine Engine, Versionen per Auto-Update gleich). Chromium-Browser später per Schalter nach einem Lauf Chrome gegen App; Firefox und Safari erst nach E28. Hart erzwingen lässt sich das nicht (Origin ist fälschbar), es hält Webseiten draußen (User, 2026-09-25) |
 | D60 | Andere Version | Abweisen mit Hinweis „Host has 0.5.0, you have 0.4.0“ und in der App gleich „Update now“ (User, 2026-09-25) |
@@ -652,7 +652,7 @@ nach dem Beitritt und der Ort des Hosts lädt mit allen Spawns (PLAYTEST T70). D
 2. **Betrieb:** `coop-server/Dockerfile` (Node 22 alpine), Release-Workflow baut und lädt nach GHCR; Relay-Optionen
    `--status local` (Statusseite nur von lokalen Adressen), `--log-days 14`, nie IPs ins Log; `coop-server/README.md`
    mit Docker-Host-Container (Repository, Port, Volume für Logs) und der Tunnel-Regel
-   `lobby.3dtd.sgeht.net → http://<relay>:3003`. Absatz für die Datenschutzerklärung als Vorlage.
+   `3dtd-lobby.sgeht.net → http://<relay>:3003`. Absatz für die Datenschutzerklärung als Vorlage.
 3. **Öffentliche Liste:** Raum-Option „Public“ (Standard an, Hinweis zum Ort), Titel; Protokoll: `rooms` fragt die
    Liste ab (öffentliche Räume ohne Straße: Stadt aus dem Weltpaket des Hosts), laufende grau; Liste unter „Online“
    im Dock und im Reiter des Standortdialogs.

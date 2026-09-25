@@ -1,5 +1,5 @@
 # The relay next to an existing cloudflared container (docs/COOP_PLAN.md, D56).
-# The tunnel's public hostname lobby.3dtd.sgeht.net points at http://relay:3003.
+# The tunnel's public hostname 3dtd-lobby.sgeht.net points at http://relay:3003.
 services:
   relay:
     image: ghcr.io/ingel81/3dtd-relay:latest

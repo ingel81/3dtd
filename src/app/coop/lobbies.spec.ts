@@ -21,6 +21,12 @@ describe('lobbies (docs/COOP_PLAN.md, D58)', () => {
     expect(builtInLobbies(null, null)).toEqual([]);
   });
 
+  it('leaves a lobby for the desktop app only out of a browser (D59)', () => {
+    const config = [{ name: '3DTD Lobby', url: 'wss://lobby.example', desktopOnly: true }];
+    expect(builtInLobbies(config, null, true).map((l) => l.name)).toEqual(['3DTD Lobby']);
+    expect(builtInLobbies(config, null, false)).toEqual([]);
+  });
+
   it('adds the player’s own, makes it active and keeps the site one first', () => {
     const stored = addLobby(NO_STORED_LOBBIES, 'Home', 'ws://192.168.0.5:3003')!;
     const list = allLobbies(site, stored);

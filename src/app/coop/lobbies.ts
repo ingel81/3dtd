@@ -26,13 +26,18 @@ export const NO_STORED_LOBBIES: StoredLobbies = { custom: [], active: null };
 /** Longest lobby name kept */
 const NAME_MAX = 40;
 
-/** The site's lobbies: `coopLobbies` of runtime-config.json, else its single `coopRelay` */
-export function builtInLobbies(coopLobbies: unknown, coopRelay: string | null): Lobby[] {
+/**
+ * The site's lobbies: `coopLobbies` of runtime-config.json, else its single
+ * `coopRelay`. An entry with `"desktopOnly": true` takes only the desktop
+ * app (D59); a browser leaves it out, it would be refused there.
+ */
+export function builtInLobbies(coopLobbies: unknown, coopRelay: string | null, desktop = true): Lobby[] {
   const lobbies: Lobby[] = [];
   if (Array.isArray(coopLobbies)) {
     for (const entry of coopLobbies) {
       const url = validRelayUrl((entry as { url?: unknown } | null)?.url as string);
       if (!url || lobbies.some((l) => l.url === url)) continue;
+      if ((entry as { desktopOnly?: unknown }).desktopOnly === true && !desktop) continue;
       lobbies.push({ url, name: lobbyName((entry as { name?: unknown }).name, url), builtIn: true });
     }
   }
