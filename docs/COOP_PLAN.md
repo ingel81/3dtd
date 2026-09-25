@@ -398,7 +398,7 @@ Neuladen nur noch, wenn der Ort danach nicht der des Hosts ist. Spart je Ortswec
 Release-Workflow), `desktop/src/lan-discovery.js` (Suche), `desktop/src/coop-lan.js` (IPC, `utilityProcess`,
 direkte Frage per UDP und über `/status`), `window.desktop.coopLan`, `CoopService.hostLan/joinLan/scanLan/probeLan`,
 Dock in der App mit LAN oben. Die CSP der App erlaubt jetzt `ws:` und `wss:` (vorher ging Coop in der App gar nicht).
-Geprüft: `ws://` auf eine LAN-IP geht von `app://` aus ohne Umweg; Suche über drei Adapter (Ethernet, WSL, VPN
+Geprüft: `ws://` auf eine LAN-IP geht von `app://` aus ohne Umweg; Suche über drei Adapter (Ethernet, WSL, ein
 VPN), ein Raum mit mehreren Adressen ist ein Eintrag, die im eigenen Subnetz zuerst; Relay aus `app.asar`. Offen:
 der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
 

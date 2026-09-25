@@ -129,8 +129,8 @@ function readMessage(buffer) {
 
 /**
  * Order in which a guest tries a host's addresses: one in the subnet of a
- * local adapter first, then private ranges, then the rest (a VPN such as
- * some overlay hands out public-looking addresses, which works but is slower).
+ * local adapter first, then private ranges, then the rest (a VPN overlay
+ * may hand out addresses outside the private ranges, which work but are slower).
  */
 function addressRank(address, localAdapters = []) {
   const ip = toNumber(address);
