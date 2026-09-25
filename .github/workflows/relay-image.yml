@@ -56,7 +56,9 @@ jobs:
           else
             tags=(-t "$image:${REF//\//-}")
           fi
+          name="${REF#v}"
           docker build -f coop-server/Dockerfile \
+            --build-arg "RELAY_BUILD=${name//\//-} (${GITHUB_SHA::8})" \
             --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
             --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
             "${tags[@]}" .

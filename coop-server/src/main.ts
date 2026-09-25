@@ -15,6 +15,7 @@ import { createWriteStream, mkdirSync, readdirSync, rmSync, type WriteStream } f
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { startRelay } from './server.ts';
+import { PROTOCOL_VERSION } from '../../src/app/coop/protocol.ts';
 import { day, expiredLogs, logFileName, stamp } from './log-files.ts';
 
 
@@ -53,11 +54,13 @@ const log = (line: string) => {
 `);
 };
 
+const build = process.env['RELAY_BUILD'] || 'dev';
+log(`relay ${build}, protocol ${PROTOCOL_VERSION}`);
 log(`log file ${logPath()}${keepDays > 0 ? `, kept ${keepDays} days` : ''}`);
 log(cheats ? 'cheats allowed (--no-cheats refuses them)' : 'cheats refused');
 log(origins ? `pages allowed: ${origins.join(', ')}` : 'pages from any site allowed (--origins limits them)');
 log(statusAccess === 'local' ? 'status page for the local network only' : 'status page open (--status local limits it)');
-const relay = await startRelay({ port, log, cheats, origins, statusAccess });
+const relay = await startRelay({ port, log, cheats, origins, statusAccess, build });
 const stop = () => {
   log('relay stops');
   void relay.close().then(() => (file ? file.end(() => process.exit(0)) : process.exit(0)));

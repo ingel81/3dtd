@@ -70,6 +70,8 @@ interface Connection {
 
 /** What GET /status answers. */
 export interface RelayStatus {
+  /** Which build runs: "0.5.0 (a1b2c3d4)", "coop (a1b2c3d4)", "dev" */
+  build: string;
   protocol: number;
   uptimeS: number;
   connections: number;
@@ -111,6 +113,8 @@ export interface RelayOptions {
    * local network that did not come through a Cloudflare tunnel (D66).
    */
   statusAccess?: 'all' | 'local';
+  /** Which build this is, for the log and the status page; 'dev' by default */
+  build?: string;
 }
 
 /** Start the relay on `port` (0: any free port); rejects when the port is taken. */
@@ -123,6 +127,7 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
   const startedAt = now();
 
   const status = (): RelayStatus => ({
+    build: options.build ?? 'dev',
     protocol: PROTOCOL_VERSION,
     uptimeS: Math.round((now() - startedAt) / 1000),
     connections: connections.size,
@@ -372,7 +377,7 @@ export function isLocalRequest(remote: string | undefined, headers: Record<strin
 /** The status page as text: one block per room. */
 export function statusText(status: RelayStatus): string {
   const lines = [
-    `3dtd coop relay, protocol ${status.protocol}, up ${status.uptimeS} s, ${status.connections} connections, ${status.rooms.length} rooms`,
+    `3dtd coop relay ${status.build}, protocol ${status.protocol}, up ${status.uptimeS} s, ${status.connections} connections, ${status.rooms.length} rooms`,
   ];
   for (const room of status.rooms) {
     const state = room.started ? `in game, tick ${room.tick}, speed ${room.speed}` : 'lobby';

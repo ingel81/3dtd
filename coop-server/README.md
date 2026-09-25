@@ -55,7 +55,10 @@ app, D59).
    `desktopOnly` keeps it out of the web version, whose pages the lobby refuses (D59). Use a name one level under
    the domain: Cloudflare's free certificate covers `*.sgeht.net`, not `*.3dtd.sgeht.net`.
 
-5. **Check:** `https://3dtd-lobby.sgeht.net/status` answers `not here` from outside (the status page is local only);
+5. **Check:** the container's log starts with `relay <build>, protocol <n>` (the build is the image's version or
+   branch and commit, e.g. `coop (327bb299)`); the status page from the LAN or with
+   `docker exec 3dtd-relay wget -qO- http://localhost:3003/` names the same. `https://3dtd-lobby.sgeht.net/status`
+   answers `not here` from outside (the status page is local only);
    in the game, Online, the gear, "Check 3DTD Lobby" says the lobby answers.
 
 **With every release** the relay has to speak the apps' protocol: pull the new image and restart the
