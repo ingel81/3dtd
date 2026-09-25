@@ -28,10 +28,12 @@ function classifyNavigation(targetUrl, appOrigin) {
 
 /**
  * Permissions the game uses. Writing to the clipboard backs the share link
- * and the copy buttons in the debug window; camera, microphone, location,
+ * and the copy buttons in the debug window; the pointer lock lets a manned
+ * tower aim with the mouse (docs/TOWER_CONTROL.md; without it the tower
+ * stayed at "Click the map to aim"). Camera, microphone, location,
  * notifications and the rest are never needed.
  */
-const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write']);
+const ALLOWED_PERMISSIONS = new Set(['clipboard-sanitized-write', 'pointerLock']);
 
 function isPermissionAllowed(permission) {
   return ALLOWED_PERMISSIONS.has(permission);

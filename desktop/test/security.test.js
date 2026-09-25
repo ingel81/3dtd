@@ -31,8 +31,9 @@ describe('classifyNavigation', () => {
 });
 
 describe('isPermissionAllowed', () => {
-  it('allows writing to the clipboard only', () => {
+  it('allows writing to the clipboard and the pointer lock of a manned tower, nothing else', () => {
     assert.equal(isPermissionAllowed('clipboard-sanitized-write'), true);
+    assert.equal(isPermissionAllowed('pointerLock'), true);
     for (const permission of ['media', 'geolocation', 'notifications', 'clipboard-read', 'openExternal', 'hid']) {
       assert.equal(isPermissionAllowed(permission), false, permission);
     }

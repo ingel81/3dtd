@@ -472,6 +472,11 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   Raum „In the public list“ mit Titel und dem Hinweis zum Ort; schaltet er auf privat oder sperrt den Raum,
   verschwindet er aus der Liste. Nach dem Start steht er grau als „In game · Wave n“. Geprüft im Dev-Spiel mit zwei
   Browsern über „This machine“; über die echte Lobby offen, bis sie läuft.
+- **T72 Tower bemannen in der Desktop-App** (User, 2026-09-25, Online-Test): Im bemannten Tower stand nur „Click
+  the map to aim“, Zielen und Schießen gingen nicht. Ursache: die App erlaubte Webseiten-Berechtigungen nur für die
+  Zwischenablage und lehnte den Pointer Lock ab (`SecurityError`, im Electron-Test belegt); betrifft auch den
+  Einzelspieler in der App und damit v0.4.0. Gebaut: `pointerLock` erlaubt (`desktop/src/security.js`). Nachtest mit
+  neuem Installer: Tower bemannen, klicken, Maus zielt, Linksklick schießt; allein und im Coop.
 - **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
   des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
   aus. Bisher nur per Spec geprüft.
