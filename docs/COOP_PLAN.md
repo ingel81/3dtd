@@ -675,6 +675,13 @@ location /coop {
 
 Die Statusseite `/status` liegt dann unter `/coop/status`; wer sie nicht öffentlich will, sperrt den Pfad im Proxy.
 
+**Last am Relay (gemessen 2026-09-25, Windows-PC des Users):** Räume zu je vier Spielern, jeder zielt 15-mal je
+Sekunde (`tower-aim`), baut einmal je Sekunde und meldet alle 30 Ticks seinen Hash; Relay und alle Test-Clients in
+einem Node-Prozess, 10 s gemessen (`tools/coop-load/relay-load.ts`). Ein Raum: unter 1 % eines Kerns, 121 Nachrichten
+je Sekunde an die Clients (30 je Spieler); 50 Räume, 200 Spieler: rund 21 % eines Kerns mit den Clients, 6 058
+Nachrichten je Sekunde. Ein kleiner VPS trägt also weit mehr Räume, als es in absehbarer Zeit geben wird; die
+Grenze ist eher die Bandbreite der Weltpakete (rund 300 kB je Beitritt).
+
 ## 5. Offen
 
 Nichts; alle Fragen der beiden Runden vom 2026-09-24 sind in Abschnitt 3 entschieden. Neue Fragen aus dem Bau kommen hierher.

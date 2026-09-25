@@ -44,7 +44,7 @@ Teile laufen mit demselben Aufbau direkt nacheinander.
   Ihn dort anklicken, dann darunter im Abschnitt "Movement" auf "Start": er läuft los.
 - Der Wurm heißt jetzt "Skarnax".
 
-## Korridor-Umbau (Test des Users am 16.09., Logs und Bilder in `tmp/corridor_tests/`)
+## Korridor-Umbau (Test des Users am 16.09., Logs und Bilder in `tmp/archive-2026-09/aus-tmp-2026-09-25/corridor_tests/`)
 
 Getestet an fünf Orten: Erlenbach, Rothenburg, Berlin, Paris, Tokyo. Je Ort laden, Ladescreen beobachten, danach
 zoomen und mit G springen.
