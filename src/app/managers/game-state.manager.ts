@@ -592,11 +592,21 @@ export class GameStateManager {
   private readonly phaseNow = () => this.waveManager.phase();
 
   /**
-   * The dev tools' commands (debug:*) do nothing. On in a coop game
-   * (docs/COOP_PLAN.md, R3): every client sets it at the start, so a cheat
-   * that still comes in does nothing anywhere.
+   * Coop: who may use the dev tools' commands (debug:*), by player id; null
+   * lets everyone (single player). Every client sets the same rule at the
+   * start from the room's options (docs/COOP_PLAN.md, R3, D38), so a cheat
+   * acts on all of them or on none.
    */
-  cheatsBlocked = false;
+  private cheatRule: ((playerId: string) => boolean) | null = null;
+
+  setCheatRule(rule: ((playerId: string) => boolean) | null): void {
+    this.cheatRule = rule;
+  }
+
+  /** `playerId` may use a cheat (see setCheatRule) */
+  mayCheat(playerId: string): boolean {
+    return this.cheatRule?.(playerId) ?? true;
+  }
 
   /** What a player may do with a tower (D7); swap it to loosen the rule. */
   towerPolicy: TowerPolicy = OWNER_ONLY;

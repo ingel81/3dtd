@@ -1,0 +1,92 @@
+@if (coop.roster().length > 0) {
+  <section class="squad" [class.is-error]="coop.lostInGame()" aria-label="Squad">
+    <header class="sq-head">
+      SQUAD
+      @if (collapsed()) {
+        <small>
+          @if (issue()) { <span class="is-warn">● ISSUE</span> } @else { {{ readyCount() }}/{{ rows().length }} READY }
+        </small>
+      } @else {
+        <small>
+          @if (issue(); as text) {
+            <span [class.is-error]="coop.lostInGame()" [class.is-warn]="!coop.lostInGame()">{{ text }}</span>
+          } @else {
+            PVE COOP · {{ coop.room()?.code }}
+          }
+        </small>
+        @if (coop.cheatsOn()) {
+          <span class="chip is-warn" [matTooltip]="'Cheats allowed: ' + (coop.options().cheats === 'host' ? 'host only' : 'everyone')">CHEATS ON</span>
+        }
+      }
+      <button class="icon-btn toggle" type="button" (click)="collapsed.set(!collapsed())"
+              [attr.aria-expanded]="!collapsed()" [attr.aria-label]="collapsed() ? 'Expand the squad' : 'Collapse the squad'">
+        <td-icon [name]="collapsed() ? 'plus' : 'minus'" [size]="14"></td-icon>
+      </button>
+    </header>
+
+    @if (!collapsed()) {
+      @if (coop.lostInGame()) {
+        <p class="banner is-error" role="alert"><b>Connection to server lost.</b> The game stands still.</p>
+      } @else if (coop.desync()) {
+        <p class="banner" role="alert"><b>Out of sync.</b> What you see may differ from what the others see.</p>
+      }
+
+      <ul class="rows">
+        @for (row of rows(); track row.id) {
+          <li class="sq" [class.is-me]="row.me" [class.is-lag]="row.state === 'lag' || row.state === 'slow'"
+              [class.is-gone]="row.state === 'left'" [class.is-stale]="coop.lostInGame()">
+            <i class="lane-bar" [style.background]="row.color"></i>
+            <div class="who">
+              <b>
+                <span class="name">{{ row.name }}</span>
+                @if (row.me) { <i class="tag is-you">YOU</i> }
+                @if (row.host) { <i class="tag is-host">HOST</i> }
+              </b>
+              <small [class.is-warn]="row.state !== 'ok' || row.leaks > 0" [matTooltip]="leaksTip(row)">{{ subLine(row) }}</small>
+            </div>
+            <span class="credits" [attr.aria-label]="row.gold + ' credits'">{{ row.state === 'left' ? '—' : row.gold.toLocaleString() }}</span>
+            <app-ping-bars [ms]="row.state === 'left' || coop.lostInGame() ? null : row.latency" [warn]="row.state === 'lag' || row.state === 'slow'"
+                           [matTooltip]="row.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'" />
+            @if (row.me) {
+              <button class="check" type="button" [class.is-on]="row.ready" [disabled]="waveActive()"
+                      (click)="coop.toggleReady()" [attr.aria-pressed]="row.ready"
+                      [matTooltip]="row.ready ? 'Ready for the next wave · Space undoes' : 'Ready for the next wave · Space'"
+                      aria-label="Ready for the next wave">
+                <td-icon name="check" [size]="13"></td-icon>
+              </button>
+            } @else if (row.state !== 'left') {
+              <button class="icon-btn sm" type="button" (click)="toggleGift(row.id)" [class.is-open]="giftTo() === row.id"
+                      [matTooltip]="'Send ' + row.name + ' credits'" [attr.aria-label]="'Send ' + row.name + ' credits'"
+                      [attr.aria-expanded]="giftTo() === row.id">
+                <td-icon name="coin" [size]="14"></td-icon>
+              </button>
+            } @else {
+              <span class="icon-gap"></span>
+            }
+          </li>
+        }
+      </ul>
+
+      @if (giftTo(); as to) {
+        <div class="gift" role="group" [attr.aria-label]="'Send ' + nameOf(to) + ' credits'">
+          <span>To {{ nameOf(to) }}</span>
+          @for (amount of amounts; track amount) {
+            <button class="btn-xs" type="button" [disabled]="amount > myGold()" (click)="give(to, amount)">{{ amount }}</button>
+          }
+        </div>
+      }
+
+      @if (footer(); as f) {
+        <footer class="sq-foot" [class.is-alert]="f.alert">
+          <span>{{ f.lead }}<b>{{ f.bold }}</b>{{ f.text }}</span>
+          @if (coop.lostInGame()) {
+            <button class="btn-xs primary" type="button" (click)="coop.continueAlone()">Continue alone</button>
+          } @else if (f.key) {
+            <kbd>Space</kbd>
+          }
+        </footer>
+      }
+    }
+  </section>
+}
+<app-coop-chat />

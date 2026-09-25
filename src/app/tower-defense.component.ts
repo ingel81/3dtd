@@ -44,7 +44,8 @@ import { InfoOverlayComponent } from './components/info-overlay/info-overlay.com
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
-import { CoopPlayersComponent } from './components/coop-players/coop-players.component';
+import { CoopSquadComponent } from './components/coop-squad/coop-squad.component';
+import { CoopDockComponent } from './components/coop-dock/coop-dock.component';
 import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
 import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
@@ -124,7 +125,7 @@ import { RefusalHintService } from './services/refusal-hint.service';
 import { RunLogFacade } from './run-log/run-log.facade';
 import { uiSound } from './services/ui-sound';
 import { CoopService } from './services/coop.service';
-import { openCoopDialog } from './components/coop-dialog/open-coop-dialog';
+import { MAX_PLAYERS } from './coop/protocol';
 import { COOP } from './services/coop.token';
 
 @Component({
@@ -154,7 +155,8 @@ import { COOP } from './services/coop.token';
     ContextHintComponent,
     GameSpeedComponent,
     BossBarComponent,
-    CoopPlayersComponent,
+    CoopSquadComponent,
+    CoopDockComponent,
     LoadingScreenComponent,
     TdIconComponent,
     LosLegendComponent,
@@ -957,10 +959,21 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.startMapPlacement('spawn', true);
   }
 
-  /** The header's coop button: open a room or join one (docs/COOP_PLAN.md, C4). */
+  /** The header's room chip: the coop dock opens and closes (docs/COOP_PLAN.md, D41). */
   openCoop(): void {
-    void openCoopDialog(this.dialog, this.injector, !this.coop.inGame());
+    this.uiStore.coopDockOpen.update((open) => !open);
   }
+
+  /** The header's room chip: code, a square per player in their lane colour, how many of how many */
+  readonly coopChip = computed(() => {
+    const room = this.coop.room();
+    if (!room) return null;
+    return {
+      code: room.code,
+      colors: room.players.map((p) => (p.spawnId === null ? null : this.coop.laneColorOf(p.id))),
+      max: MAX_PLAYERS,
+    };
+  });
 
   /**
    * Build the FacadeComponentBridge for the TowerDefenseFacadeService.

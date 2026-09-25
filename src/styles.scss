@@ -16,6 +16,12 @@
 @import '@fontsource/inter-tight/600.css';
 @import '@fontsource/inter-tight/700.css';
 
+// JetBrains Mono — --td-font-mono: numbers, codes, labels, hotkeys (User 2026-09-25,
+// before it fell back to the system monospace). The Gold-Button recipe uses 700
+@import '@fontsource/jetbrains-mono/400.css';
+@import '@fontsource/jetbrains-mono/500.css';
+@import '@fontsource/jetbrains-mono/700.css';
+
 // Global font tokens — also injected per-component via TD_CSS_VARS,
 // declared here for documents and components that don't include the host vars.
 :root {
@@ -77,12 +83,6 @@ input, textarea {
     0 2px 4px rgba(0, 0, 0, 0.5);
   color: #EEF1EB;
   font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
-}
-
-// Coop lobby docked at the left (openCoopDialog, docked): no veil, the map
-// stays usable beside it; it scrolls within the window's height
-.td-coop-docked .mdc-dialog__surface {
-  max-height: calc(100vh - var(--td-coop-dock-top, 64px) - var(--td-coop-dock-bottom, 32px));
 }
 
 // Research tree: fills the window and scrolls nowhere but in its own board.

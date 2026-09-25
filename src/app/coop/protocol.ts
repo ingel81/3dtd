@@ -9,9 +9,10 @@
 import type { LockstepStatsReport } from './lockstep-stats';
 import type { StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
+import type { CoopRoomOptions } from './room-options';
 
 /** Bumped whenever a message changes shape; client and relay must agree. */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;
@@ -41,6 +42,8 @@ export interface CoopRoomInfo {
   cheats: boolean;
   /** The host closed the room to further players */
   locked: boolean;
+  /** What the host set for the room (coop/room-options.ts, D38) */
+  options: CoopRoomOptions;
 }
 
 export type RefusalReason =
@@ -80,6 +83,8 @@ export type ClientMessage =
   | { t: 'kick'; playerId: string }
   /** Host: no further players may join (review R9) */
   | { t: 'lock'; locked: boolean }
+  /** Host, lobby: the room's options (D38); the guests' ready falls */
+  | { t: 'options'; options: CoopRoomOptions }
   | { t: 'ready'; ready: boolean }
   /** Host: start the game once everyone has a lane and is ready */
   | { t: 'start'; seed: number }
@@ -104,7 +109,16 @@ export type ServerMessage =
   /** Lobby: the host changes the map, its world follows */
   | { t: 'moving' }
   /** The game starts: seed, roster and lanes; ticks follow */
-  | { t: 'started'; seed: number; players: string[]; lanes: [string, string][]; speed: number }
+  | {
+    t: 'started';
+    seed: number;
+    players: string[];
+    lanes: [string, string][];
+    speed: number;
+    /** The host at the start and the room's options: the cheat rule acts alike on every client */
+    hostId: string;
+    options: CoopRoomOptions;
+  }
   /** A closed tick with the commands that act at it */
   | { t: 'tick'; tick: number; commands: StampedCommand[] }
   /** The simulations ran apart: the first tick with different hashes, player id and hash each (C5) */

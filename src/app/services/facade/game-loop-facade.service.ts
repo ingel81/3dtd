@@ -1,5 +1,6 @@
 import { Injectable, inject, Injector, NgZone, effect, untracked } from '@angular/core';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
+import { waveButtonAction } from '../../coop/room-options';
 import { CameraControlService } from '../camera-control.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { MapPlacementService } from '../world/map-placement.service';
@@ -258,9 +259,11 @@ export class GameLoopFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   private armAutoWave(): void {
-    // A bot starts its own waves, a training run must not change behind it;
-    // in coop the players say when (D15)
-    if (!this.uiStore.autoStartWaves() || this.botClient.botEnabled() || this.coop?.inGame()) return;
+    // A bot starts its own waves, a training run must not change behind it.
+    // In coop the room's rule says (D38, D44): with "Auto 10 s" every client
+    // counts on the lockstep game clock alike, and the host starts the wave
+    const coop = this.coop?.inGame() ? this.coop : null;
+    if (coop ? coop.options().wave !== 'auto' : !this.uiStore.autoStartWaves() || this.botClient.botEnabled()) return;
     if (this.store.phase() === 'gameover') return;
     const now = this.gameState.gameTimeMs;
     this.autoWave.arm(now);
@@ -282,7 +285,10 @@ export class GameLoopFacadeService {
     const now = this.gameState.gameTimeMs;
     if (this.autoWave.tick(now)) {
       this.showAutoWaveSeconds(null);
-      this.ngZone.run(() => this.startWave());
+      // Coop: the host's client starts it for the room; a guest's only counted along
+      const coop = this.coop?.inGame() ? this.coop : null;
+      if (!coop) this.ngZone.run(() => this.startWave());
+      else if (coop.isHost()) this.ngZone.run(() => this.startWaveNow());
       return;
     }
     this.showAutoWaveSeconds(this.autoWave.secondsLeft(now));
@@ -316,9 +322,11 @@ export class GameLoopFacadeService {
    * and the auto-start come here; each lifts the pause.
    */
   startWave(): void {
-    // Coop: the button says "ready"; the host starts once everyone is
-    if (this.coop?.inGame()) {
-      this.coop.toggleReady();
+    // Coop: the button says "ready"; the host starts once everyone is, or at
+    // once where the room says the host starts the waves (D38)
+    const coop = this.coop?.inGame() ? this.coop : null;
+    if (coop && waveButtonAction(coop.options(), coop.isHost()) === 'ready') {
+      coop.toggleReady();
       return;
     }
     this.startWaveNow();

@@ -139,16 +139,27 @@
         <td-icon name="plus" [size]="22"></td-icon>
       </button>
 
-      <!-- Coop: open a room or join one; the room code while in one -->
+      <!-- Coop: open a room or join one; in one the room chip (code, a square per player, seats) -->
       <span class="action-divider"></span>
-      <button class="action-btn coop-btn" [class.active]="coopRoom()" (click)="coopClick.emit()"
-              [matTooltip]="coopRoom() ? 'Coop room ' + coopRoom() + ': players, lanes, chat' : 'Coop: play one map together'"
-              [attr.aria-label]="coopRoom() ? 'Coop room ' + coopRoom() : 'Coop: play one map together'">
-        <td-icon name="users" [size]="22"></td-icon>
-        @if (coopRoom(); as room) {
-          <span class="coop-room">{{ room }}</span>
-        }
-      </button>
+      @if (coopChip(); as chip) {
+        <button class="action-btn coop-btn active" type="button" (click)="coopClick.emit()"
+                (mousedown)="$event.preventDefault()"
+                [matTooltip]="'Coop room ' + chip.code + ': players, lanes, chat · Tab'"
+                [attr.aria-label]="'Coop room ' + chip.code + ', ' + chip.colors.length + ' of ' + chip.max + ' players'">
+          <td-icon name="users" [size]="22"></td-icon>
+          <span class="room-code">{{ chip.code }}</span>
+          <span class="room-dots" aria-hidden="true">
+            @for (color of chip.colors; track $index) { <b [style.background]="color ?? 'var(--td-frame-mid)'"></b> }
+          </span>
+          <small>{{ chip.colors.length }}/{{ chip.max }}</small>
+        </button>
+      } @else {
+        <button class="action-btn coop-btn" type="button" (click)="coopClick.emit()"
+                (mousedown)="$event.preventDefault()"
+                matTooltip="Coop: play one map together" aria-label="Coop: play one map together">
+          <td-icon name="users" [size]="22"></td-icon>
+        </button>
+      }
     </div>
   </div>
   <div class="header-right">

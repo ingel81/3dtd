@@ -14,6 +14,7 @@ import {
   ViewChildren,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { waveButtonAction } from '../../../coop/room-options';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
@@ -155,6 +156,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       ready: ready.has(coop.playerId() ?? ''),
       readyCount: players.filter((p) => ready.has(p.id)).length,
       playerCount: players.length,
+      hostStarts: waveButtonAction(coop.options(), coop.isHost()) === 'start',
     };
   });
 

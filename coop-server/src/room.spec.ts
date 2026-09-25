@@ -2,6 +2,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Room, TICK_MS, MAX_AHEAD_TICKS, type RoomPlayer } from './room.ts';
 import { HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
+import { DEFAULT_ROOM_OPTIONS } from '../../src/app/coop/room-options.ts';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
 
 const player = (id: string, over: Partial<RoomPlayer> = {}): RoomPlayer => ({
@@ -114,11 +115,10 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('a', 'room')!.room.players.map((p) => p.spawnId)).toEqual(['s1', 's2']);
   });
 
-  it('starts only when the host says so and everyone is ready, with roster and lanes', () => {
-    // Alone, even with a lane and ready: a coop game needs a second player
+  it('starts only when the host says so and every guest is ready, with roster, lanes, host and options', () => {
+    // Alone, with a lane: a coop game needs a second player
     room.receive('a', { t: 'world', world: { any: 'thing' }, spawnIds: ['s1', 's2'] });
     room.receive('a', { t: 'pick', spawnId: 's1' });
-    room.receive('a', { t: 'ready', ready: true });
     room.receive('a', { t: 'start', seed: 7 });
     expect(last('a', 'refused')!.reason).toBe('alone');
     room.join(player('b'));
@@ -128,9 +128,11 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('b', { t: 'ready', ready: true });
     room.receive('b', { t: 'start', seed: 7 });
     expect(last('b', 'refused')!.reason).toBe('not-host');
+    // The host never said ready: they are, always (D40)
     room.receive('a', { t: 'start', seed: 7 });
     expect(last('b', 'started')).toEqual({
       t: 'started', seed: 7, players: ['a', 'b'], lanes: [['a', 's1'], ['b', 's2']], speed: 1,
+      hostId: 'a', options: DEFAULT_ROOM_OPTIONS,
     });
     expect(room.join(player('c'))).toBe('started');
   });
@@ -160,18 +162,40 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(last('a', 'room')!.room.cheats).toBe(false);
   });
 
-  it('lets the cheats through where the relay allows them, and says so to the room', () => {
+  it('lets the cheats through as the relay and the room allow them, and says so to the room (D38)', () => {
     room = new Room('CHEATS', player('a'), (id, message) => {
       if (!inbox.has(id)) inbox.set(id, []);
       inbox.get(id)!.push(message);
     }, { cheats: true });
     lobby();
     expect(last('b', 'room')!.room.cheats).toBe(true);
+    room.receive('a', { t: 'options', options: { ...DEFAULT_ROOM_OPTIONS, cheats: 'host' } });
+    room.receive('a', { t: 'ready', ready: true });
+    room.receive('b', { t: 'ready', ready: true });
     room.receive('a', { t: 'start', seed: 1 });
     room.receive('a', { t: 'cmd', command: { type: 'debug:kill-all' } });
+    room.receive('b', { t: 'cmd', command: { type: 'debug:kill-all' } });
     room.receive('a', { t: 'cmd', command: { type: 'lobby:anything' } as never });
     room.advance(TICK_MS);
-    expect(all('b', 'tick').at(-1)!.commands.map((c) => c.command.type)).toEqual(['debug:kill-all']);
+    const commands = all('b', 'tick').at(-1)!.commands;
+    expect(commands.map((c) => [c.playerId, c.command.type])).toEqual([['a', 'debug:kill-all']]);
+  });
+
+  it('takes the options from the host in the lobby only, asks the guests for ready again, refuses made up ones', () => {
+    lobby();
+    expect(last('b', 'room')!.room.options).toEqual(DEFAULT_ROOM_OPTIONS);
+    room.receive('b', { t: 'options', options: { ...DEFAULT_ROOM_OPTIONS, pause: 'all' } });
+    expect(last('b', 'refused')!.reason).toBe('not-host');
+    room.receive('a', { t: 'options', options: { ...DEFAULT_ROOM_OPTIONS, cheats: 'god' } as never });
+    expect(last('b', 'room')!.room.options).toEqual(DEFAULT_ROOM_OPTIONS);
+    room.receive('a', { t: 'options', options: { ...DEFAULT_ROOM_OPTIONS, pause: 'all' } });
+    const info = last('b', 'room')!.room;
+    expect(info.options.pause).toBe('all');
+    expect(info.players.find((p) => p.id === 'b')!.ready).toBe(false);
+    room.receive('b', { t: 'ready', ready: true });
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'options', options: DEFAULT_ROOM_OPTIONS });
+    expect(last('a', 'refused')!.reason).toBe('started');
   });
 
   it('asks the guests for ready again when the host sends another map; lanes that remain stay', () => {
@@ -258,8 +282,10 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(room.advance(TICK_MS)).toBe(0);
   });
 
-  it('lets a guest pause and resume at the room speed, but not change it (playtest T12)', () => {
+  it('lets a guest pause and resume at the room speed where the room allows it, but not change it (T12, D38)', () => {
     lobby();
+    room.receive('a', { t: 'options', options: { ...DEFAULT_ROOM_OPTIONS, pause: 'all' } });
+    room.receive('b', { t: 'ready', ready: true });
     room.receive('a', { t: 'start', seed: 1 });
     room.receive('a', { t: 'speed', speed: 2 });
     room.receive('b', { t: 'speed', speed: 0 });
@@ -270,6 +296,28 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('b', { t: 'speed', speed: 2 });
     expect(last('a', 'speed')!.speed).toBe(2);
     expect(room.advance(TICK_MS)).toBe(2);
+  });
+
+  it('lets only the host pause by default, and nobody with pause off (D38)', () => {
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('b', { t: 'speed', speed: 0 });
+    expect(last('b', 'refused')!.reason).toBe('not-host');
+    room.receive('a', { t: 'speed', speed: 0 });
+    expect(last('b', 'speed')!.speed).toBe(0);
+
+    room = new Room('NOPAUSE', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    });
+    inbox.clear();
+    lobby();
+    room.receive('a', { t: 'options', options: { ...DEFAULT_ROOM_OPTIONS, pause: 'off' } });
+    room.receive('b', { t: 'ready', ready: true });
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'speed', speed: 0 });
+    expect(last('a', 'refused')!.reason).toBe('not-host');
+    expect(all('a', 'speed')).toHaveLength(0);
   });
 
   it('closes the lane of who leaves the game at the next tick, and passes the host on', () => {

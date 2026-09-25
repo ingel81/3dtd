@@ -65,7 +65,7 @@ describe('waveButtonView', () => {
 
   describe('coop', () => {
     it('between waves: ready instead of start, the count of ready players, pressed once this player is', () => {
-      expect(waveButtonView(3, false, 0, 0, 7, 10, { ready: false, readyCount: 1, playerCount: 2 })).toEqual({
+      expect(waveButtonView(3, false, 0, 0, null, 10, { ready: false, readyCount: 1, playerCount: 2, hostStarts: false })).toEqual({
         label: 'Ready for wave 3',
         ariaLabel: 'Ready for wave 3, 1/2 ready',
         left: null,
@@ -74,15 +74,30 @@ describe('waveButtonView', () => {
         coopReady: '1/2 ready',
         pressed: false,
       });
-      expect(waveButtonView(3, false, 0, 0, null, 0, { ready: true, readyCount: 2, playerCount: 3 })).toMatchObject({
+      expect(waveButtonView(3, false, 0, 0, null, 0, { ready: true, readyCount: 2, playerCount: 3, hostStarts: false })).toMatchObject({
         label: 'Wave 3: ready',
         pressed: true,
         coopReady: '2/3 ready',
       });
     });
 
+    it('with "Auto 10 s" the count carries the countdown every client runs alike (D44)', () => {
+      expect(waveButtonView(3, false, 0, 0, 7, 10, { ready: false, readyCount: 1, playerCount: 2, hostStarts: false })).toMatchObject({
+        label: 'Ready for wave 3',
+        coopReady: '1/2 ready · 7s',
+      });
+    });
+
+    it('with "Host starts" the host\'s button starts the wave, the count stays (D38)', () => {
+      expect(waveButtonView(3, false, 0, 0, null, 0, { ready: false, readyCount: 1, playerCount: 2, hostStarts: true })).toMatchObject({
+        label: 'Start wave 3',
+        coopReady: '1/2 ready',
+        pressed: false,
+      });
+    });
+
     it('in a wave: as in the single player game', () => {
-      expect(waveButtonView(3, true, 10, 4, null, 0, { ready: false, readyCount: 0, playerCount: 2 })).toMatchObject({
+      expect(waveButtonView(3, true, 10, 4, null, 0, { ready: false, readyCount: 0, playerCount: 2, hostStarts: false })).toMatchObject({
         label: 'Wave 3', left: '4 left', coopReady: null, pressed: false,
       });
     });

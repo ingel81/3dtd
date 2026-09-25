@@ -1,0 +1,236 @@
+// Building blocks of the coop UI (docs/COOP_PLAN.md, C8): lobby dock, squad
+// box and chat use them; the material comes from the recipes in
+// styles/_td-mixins.scss, the colours from TD_CSS_VARS. Radius 0 throughout.
+@use '../../styles/td-mixins' as td;
+
+// A button's size and type; the material comes with one of the recipes below
+@mixin btn-shape($height: 38px) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: $height;
+  padding: 0 16px;
+  font-family: var(--td-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+// Frame button (secondary): Leave, Copy, Join
+@mixin btn($height: 38px) {
+  @include btn-shape($height);
+  @include td.frame-button;
+}
+
+// The one main action: Open room, Start match, Ready up
+@mixin btn-primary($height: 38px) {
+  @include btn-shape($height);
+  @include td.gold-button;
+}
+
+// Done state of a toggle: Ready · undo
+@mixin btn-done($height: 38px) {
+  @include btn-shape($height);
+  @include td.teal-button;
+}
+
+// Small frame button for 30px rows: Copy code, Copy invite
+@mixin btn-xs {
+  @include btn(30px);
+  padding: 0 10px;
+  font-size: 10.5px;
+  letter-spacing: 0.12em;
+}
+
+// Square icon button in the frame material
+@mixin icon-btn($size: 30px) {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: $size;
+  height: $size;
+  padding: 0;
+  @include td.frame-button;
+}
+
+// Text input on the sunken surface
+@mixin input {
+  box-sizing: border-box;
+  height: 38px;
+  width: 100%;
+  min-width: 0;
+  padding: 0 12px;
+  @include td.sunken;
+  color: var(--td-text-primary);
+  font-family: var(--td-font-mono);
+  font-size: 13px;
+  outline: none;
+
+  &:focus {
+    border-color: var(--td-gold-dark);
+  }
+
+  &::placeholder {
+    color: var(--td-text-disabled);
+  }
+}
+
+// HOST / YOU and the like: a small framed mono label
+@mixin tag {
+  display: inline-block;
+  padding: 1px 5px;
+  border: 1px solid var(--td-frame-mid);
+  font-family: var(--td-font-mono);
+  font-size: 9px;
+  font-style: normal;
+  letter-spacing: 0.14em;
+  line-height: 1.35;
+  color: var(--td-text-secondary);
+
+  &.is-you {
+    border-color: var(--td-teal-dark);
+    color: var(--td-teal-light);
+  }
+
+  &.is-host {
+    border-color: var(--td-gold-dark);
+    color: var(--td-gold);
+  }
+}
+
+// Ready / Not ready
+@mixin pill {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--td-frame-dark);
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--td-text-muted);
+
+  &.is-ready {
+    border-color: var(--td-teal-dark);
+    color: var(--td-teal-light);
+    background: color-mix(in srgb, var(--td-teal) 8%, transparent);
+  }
+}
+
+// Summary chip of an option; orange where it warns (cheats on)
+@mixin chip {
+  display: inline-flex;
+  align-items: center;
+  height: 22px;
+  padding: 0 8px;
+  border: 1px solid var(--td-frame-dark);
+  background: var(--td-panel-secondary);
+  font-family: var(--td-font-mono);
+  font-size: 10.5px;
+  white-space: nowrap;
+  color: var(--td-text-secondary);
+
+  &.is-warn {
+    border-color: color-mix(in srgb, var(--td-warn-orange) 50%, var(--td-frame-dark));
+    background: color-mix(in srgb, var(--td-warn-orange) 10%, transparent);
+    color: color-mix(in srgb, var(--td-warn-orange) 55%, var(--td-text-primary));
+  }
+}
+
+// Segmented control: one button each choice, the chosen one underlined in gold
+@mixin segmented {
+  display: flex;
+  @include td.sunken;
+
+  button {
+    height: 28px;
+    padding: 0 10px;
+    border: 0;
+    border-left: 1px solid var(--td-frame-dark);
+    background: none;
+    font-family: var(--td-font-body);
+    font-size: 12px;
+    white-space: nowrap;
+    color: var(--td-text-muted);
+    cursor: pointer;
+
+    &:first-child {
+      border-left: 0;
+    }
+
+    &:hover:not(:disabled) {
+      color: var(--td-text-primary);
+    }
+
+    &.is-on {
+      background: color-mix(in srgb, var(--td-gold) 12%, var(--td-panel-secondary));
+      color: var(--td-gold-light);
+      box-shadow: inset 0 -2px 0 var(--td-gold);
+    }
+
+    &.is-on.is-warn {
+      background: color-mix(in srgb, var(--td-warn-orange) 14%, transparent);
+      color: color-mix(in srgb, var(--td-warn-orange) 55%, var(--td-text-primary));
+      box-shadow: inset 0 -2px 0 var(--td-warn-orange);
+    }
+
+    &:disabled {
+      color: var(--td-text-disabled);
+      cursor: not-allowed;
+    }
+  }
+}
+
+// A row of a list (player, lane, squad member): panel, a lane colour bar on the left
+@mixin list-row($height) {
+  display: grid;
+  align-items: center;
+  gap: 12px;
+  height: $height;
+  padding-right: 8px;
+  border: 1px solid var(--td-frame-dark);
+  background: var(--td-panel-secondary);
+
+  &.is-me {
+    border-color: var(--td-frame-mid);
+    background: color-mix(in srgb, var(--td-teal) 4%, var(--td-panel-secondary));
+  }
+
+  > .lane-bar {
+    align-self: stretch;
+  }
+}
+
+// Player name over a mono sub-line (tags, lane, state)
+@mixin name-stack($size: 14.5px) {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+
+  b {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: $size;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  small {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--td-font-mono);
+    font-size: 10.5px;
+    color: var(--td-text-muted);
+  }
+}

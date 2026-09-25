@@ -1,4 +1,3 @@
-import { modalDialogCount } from '../components/coop-dialog/open-coop-dialog';
 import { Injectable, WritableSignal, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import * as THREE from 'three';
@@ -739,7 +738,7 @@ export class InputHandlerService {
     }
 
     // Escape closes the dialog only, not build or placement mode behind it
-    if (isEscapeForDialog(event.key, event.defaultPrevented, modalDialogCount(this.dialog))) {
+    if (isEscapeForDialog(event.key, event.defaultPrevented, this.dialog.openDialogs.length)) {
       return;
     }
 

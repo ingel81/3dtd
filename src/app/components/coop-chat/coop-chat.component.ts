@@ -2,21 +2,24 @@ import { Component, ChangeDetectionStrategy, ElementRef, computed, effect, injec
 import { MatDialog } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { CoopService } from '../../services/coop.service';
+import { UIStore } from '../../store/ui.store';
 import { ownsKey } from '../../utils/keyboard-target';
-import { modalDialogCount } from '../coop-dialog/open-coop-dialog';
+import { chatView } from '../coop-ui/chat-view';
 
-/** How long a chat line stays once it came, ms */
-const LINE_MS = 15_000;
 /** Lines shown at most */
 const MAX_LINES = 6;
+/** A line older than this is dimmed, ms */
+const FRESH_MS = 15_000;
+/** A line older than this goes, unless the player is writing, ms */
+const SHOWN_MS = 60_000;
 
 /**
- * The coop chat in the game (docs/COOP_PLAN.md, review R12): the last lines
- * under the players bar (CoopPlayersComponent, PLAYTEST T39), for a while each; Enter opens
- * a line to write, Enter sends it, Esc closes it. The lobby has its chat in
- * the coop panel. X arms the map ping (review R13): the next click marks a
- * place for everyone. Both keys are coop's, so they live here rather than in
- * the global HotkeyService, which cannot see the game's CoopService.
+ * The coop chat in the game (docs/COOP_PLAN.md, C8, review R12): the last
+ * lines under the squad box on one scrim, older ones dimmed, system lines in
+ * mono. Enter opens the composer, Enter sends, Esc closes. The coop keys
+ * live here, since the global HotkeyService cannot see the game's
+ * CoopService: X arms the map ping (R13), Tab opens and closes the room dock
+ * (D42). The lobby has its chat in the dock.
  */
 @Component({
   selector: 'app-coop-chat',
@@ -27,19 +30,28 @@ const MAX_LINES = 6;
   },
   template: `
     @if (coop.inGame()) {
-      <div class="lines" role="log" aria-live="polite" aria-label="Coop chat">
-        @for (line of visibleLines(); track line.at) {
-          <div class="line" [class.is-me]="line.me"><span class="from">{{ line.name }}</span> {{ line.text }}</div>
-        }
-      </div>
+      @if (lines().length > 0) {
+        <div class="log" role="log" aria-live="polite" aria-label="Coop chat">
+          @for (line of lines(); track line.id) {
+            <div class="line" [class.is-old]="line.old" [class.is-sys]="line.system" [class.is-warn]="line.warn">
+              @if (!line.system) { <b [style.color]="line.color">{{ line.name }}</b> }
+              <span>{{ line.text }}</span>
+            </div>
+          }
+        </div>
+      }
       @if (writing()) {
-        <input #field class="field" type="text" maxlength="200" placeholder="Say something, Enter sends, Esc closes"
-               (keydown.enter)="send($any($event.target).value); $event.stopPropagation()"
-               (keydown.escape)="close(); $event.stopPropagation()" (blur)="close()" />
+        <div class="open">
+          <span class="to">ALL</span>
+          <input #field type="text" maxlength="200" placeholder="Say something" aria-label="Chat message"
+                 (keydown.enter)="send($any($event.target).value); $event.stopPropagation()"
+                 (keydown.escape)="close(); $event.stopPropagation()" (blur)="close()" />
+          <kbd>Enter</kbd><kbd>Esc</kbd>
+        </div>
       } @else if (coop.pingArmed()) {
-        <div class="hint is-armed">Click the map to mark a place for everyone</div>
+        <div class="armed" role="status">Click the map to mark a place for everyone <kbd>Esc</kbd></div>
       } @else {
-        <div class="hint">Enter: chat · X: mark the map</div>
+        <div class="hint"><kbd>Enter</kbd>chat<i>·</i><kbd>X</kbd>mark<i>·</i><kbd>Tab</kbd>room</div>
       }
     }
   `,
@@ -47,83 +59,127 @@ const MAX_LINES = 6;
     :host {
       display: flex;
       flex-direction: column;
-      align-items: flex-start;
-      gap: 3px;
-      max-width: 360px;
-      pointer-events: none;
+      gap: 6px;
       ${TD_CSS_VARS}
     }
-    .lines {
+    .log {
       display: flex;
       flex-direction: column;
-      gap: 2px;
+      gap: 3px;
+      padding: 10px 12px;
+      background: linear-gradient(90deg, rgba(11, 15, 12, 0.82), rgba(11, 15, 12, 0.55) 80%, transparent);
     }
     .line {
-      padding: 3px 8px;
-      background: var(--td-glass-tint);
-      backdrop-filter: blur(8px) saturate(1.1);
-      border: 1px solid var(--td-frame-dark);
-      font: 500 12px/1.3 var(--td-font-body);
+      display: flex;
+      gap: 8px;
+      font-size: 14px;
+      line-height: 1.4;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.9);
+    }
+    .line b {
+      flex: 0 0 auto;
+      font-weight: 600;
+    }
+    .line span {
       color: var(--td-text-primary);
+      overflow-wrap: anywhere;
     }
-    .from {
-      font-weight: 700;
-      color: var(--td-gold-light);
+    .line.is-old {
+      opacity: 0.45;
     }
-    .line.is-me .from {
-      color: var(--td-teal-light);
+    .line.is-sys span {
+      font-family: var(--td-font-mono);
+      font-size: 11.5px;
+      color: var(--td-text-muted);
     }
-    .field {
+    .line.is-sys.is-warn span {
+      color: var(--td-warn-orange);
+    }
+    .open {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 38px;
+      padding: 0 6px 0 12px;
       pointer-events: auto;
-      width: 320px;
-      padding: 5px 8px;
-      background: var(--td-panel-main);
       border: 1px solid var(--td-gold-dark);
-      color: var(--td-text-primary);
-      font: 500 12px/1.3 var(--td-font-body);
-      outline: none;
+      background: color-mix(in srgb, var(--td-panel-shadow) 92%, transparent);
     }
-    .hint.is-armed {
-      color: var(--td-gold-light);
-      opacity: 1;
+    .to {
+      font-family: var(--td-font-mono);
+      font-size: 10.5px;
+      letter-spacing: 0.14em;
+      color: var(--td-gold);
+    }
+    input {
+      flex: 1;
+      min-width: 0;
+      border: 0;
+      outline: none;
+      background: none;
+      font: 14px var(--td-font-body);
+      color: var(--td-text-primary);
+    }
+    kbd {
+      font-family: var(--td-font-mono);
+      font-size: 10px;
+      padding: 1px 5px;
+      border: 1px solid var(--td-frame-mid);
+      color: var(--td-text-secondary);
     }
     .hint {
-      font: 600 9px/1 var(--td-font-mono);
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding-left: 12px;
+      font-family: var(--td-font-mono);
+      font-size: 10.5px;
       color: var(--td-text-muted);
-      opacity: 0.7;
+    }
+    .hint i {
+      font-style: normal;
+      color: var(--td-text-disabled);
+    }
+    .armed {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      height: 38px;
+      padding: 0 12px;
+      border: 1px solid var(--td-gold-dark);
+      background: color-mix(in srgb, var(--td-panel-shadow) 92%, transparent);
+      font: 600 13px var(--td-font-body);
+      color: var(--td-gold-light);
     }
   `,
 })
 export class CoopChatComponent {
   readonly coop = inject(CoopService);
+  private readonly uiStore = inject(UIStore);
   private readonly dialog = inject(MatDialog);
   private readonly field = viewChild<ElementRef<HTMLInputElement>>('field');
 
   readonly writing = signal(false);
-  /** When each chat line came here, by its place in CoopService.chat */
-  private readonly arrived: number[] = [];
-  private readonly now = signal(performance.now());
+  private readonly now = signal(Date.now());
 
-  readonly visibleLines = computed(() => {
+  readonly lines = computed(() => {
     const now = this.now();
-    const lines = this.coop.chat();
-    while (this.arrived.length < lines.length) this.arrived.push(performance.now());
-    const me = this.coop.playerId();
-    return lines
-      .map((line, i) => ({ ...line, at: this.arrived[i] ?? 0, me: line.from === me, name: this.coop.nameOf(line.from) }))
-      .filter((line) => this.writing() || now - line.at < LINE_MS)
-      .slice(-MAX_LINES);
+    const writing = this.writing();
+    const chat = this.coop.chat();
+    return chatView(chat, (id) => this.coop.nameOf(id), (id) => this.coop.laneColorOf(id))
+      .map((line, i) => ({ ...line, age: now - chat[i].at }))
+      .filter((line) => writing || line.age < SHOWN_MS)
+      .slice(-MAX_LINES)
+      .map((line) => ({ ...line, old: !writing && line.age > FRESH_MS }));
   });
 
   constructor() {
-    // Re-read the clock when a line comes and when the youngest runs out
+    // Re-read the clock while lines are left to dim or go
     effect((onCleanup) => {
-      this.coop.chat();
-      this.now.set(performance.now());
-      const timer = setTimeout(() => this.now.set(performance.now()), LINE_MS + 50);
-      onCleanup(() => clearTimeout(timer));
+      if (this.coop.chat().length === 0) return;
+      this.now.set(Date.now());
+      const timer = setInterval(() => this.now.set(Date.now()), 5000);
+      onCleanup(() => clearInterval(timer));
     });
     // The field takes the focus as it opens
     effect(() => this.field()?.nativeElement.focus());
@@ -135,9 +191,15 @@ export class CoopChatComponent {
       this.coop.cancelPing();
       return;
     }
-    if ((key !== 'enter' && key !== 'x') || this.writing() || !this.coop.inGame()) return;
-    if (event.ctrlKey || event.altKey || event.metaKey) return;
-    if (ownsKey(event.target, event.key) || modalDialogCount(this.dialog) > 0) return;
+    if (this.writing() || event.ctrlKey || event.altKey || event.metaKey) return;
+    if (ownsKey(event.target, event.key) || this.dialog.openDialogs.length > 0) return;
+    // Tab: the room dock, in the lobby and in the game (D42)
+    if (key === 'tab' && !event.shiftKey && (this.coop.room() || this.uiStore.coopDockOpen())) {
+      event.preventDefault();
+      this.uiStore.coopDockOpen.update((open) => !open);
+      return;
+    }
+    if ((key !== 'enter' && key !== 'x') || !this.coop.inGame()) return;
     event.preventDefault();
     if (key === 'x') this.coop.armPing();
     else this.writing.set(true);
@@ -150,6 +212,6 @@ export class CoopChatComponent {
 
   close(): void {
     this.writing.set(false);
-    this.now.set(performance.now());
+    this.now.set(Date.now());
   }
 }

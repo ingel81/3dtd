@@ -1,6 +1,5 @@
 import {
   Component,
-  Injector,
   input,
   output,
   OnDestroy,
@@ -38,7 +37,6 @@ import { SidebarResearchPanelComponent } from './research-panel/research-panel.c
 import { SidebarHeroPanelComponent } from './hero-panel/hero-panel.component';
 import { SidebarBuildingPanelComponent } from './building-panel/building-panel.component';
 import { UIStore } from '../../store/ui.store';
-import { openCoopDialog } from '../coop-dialog/open-coop-dialog';
 import { COOP } from '../../services/coop.token';
 
 /**
@@ -71,7 +69,6 @@ import { COOP } from '../../services/coop.token';
 })
 export class GameSidebarComponent implements OnDestroy {
   private readonly dialog = inject(MatDialog);
-  private readonly injector = inject(Injector);
   private readonly coop = inject(COOP, { optional: true });
 
   constructor() {
@@ -94,7 +91,8 @@ export class GameSidebarComponent implements OnDestroy {
   readonly store = inject(TowerDefenseStore);
 
   /** Der Held ist gewählt: sein Panel statt des Tower-Details. */
-  readonly heroSelected = inject(UIStore).heroSelected;
+  private readonly uiStore = inject(UIStore);
+  readonly heroSelected = this.uiStore.heroSelected;
 
   readonly buildVersion = BUILD_VERSION;
 
@@ -159,9 +157,9 @@ export class GameSidebarComponent implements OnDestroy {
     void openAttributionsDialog(this.dialog);
   }
 
-  /** Coop: open a room or join one (docs/COOP_PLAN.md, C4); the header's coop button opens it as well. */
+  /** Coop: the room dock (docs/COOP_PLAN.md, D41); the header chip and Tab open it as well. */
   openCoop(): void {
-    void openCoopDialog(this.dialog, this.injector, !this.coop?.inGame());
+    this.uiStore.coopDockOpen.set(true);
   }
 
   /** The runs this browser kept, each one to save as a file (docs/RUN_LOG.md). */

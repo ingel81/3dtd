@@ -1,4 +1,3 @@
-import { modalDialogCount } from '../components/coop-dialog/open-coop-dialog';
 import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { getAllTowerTypes } from '../configs/tower-types.config';
@@ -117,7 +116,7 @@ export class HotkeyService {
     return !event.defaultPrevented
       && !ownsKey(event.target, event.key)
       // A dialog owns the keyboard; the help dialog closes itself on H and ?
-      && modalDialogCount(this.dialog) === 0
+      && this.dialog.openDialogs.length === 0
       && !this.store.loading()
       && !this.store.error();
   }
