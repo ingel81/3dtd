@@ -52,6 +52,9 @@ Lead aus der Datei nach, mitzählen ist nicht nötig.
   ×1,00, also mit normal großen Anfangswellen, egal wie der Lauf davor lief.
   Vor dem Test gefunden (2026-09-23): Ein Ortswechsel setzte den Director gar nicht zurück, nur der
   Neustart-Knopf. Behoben, der Director hängt jetzt an `game:reset`.
+  **ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** sieben Wellen ohne HP-Verlust öffnen den Regler auf ×1,42 (die ersten vier zählt er nicht,
+  `PRESSURE_WARMUP_WAVES`); nach dem Würfeln (Essen) steht die erste Welle bei „still collecting (0 of 3 waves), at
+  ×1.00“ (`extras.mjs`).
 
 ## Q Balance-Runde nach dem New-York-Lauf (2026-09-23)
 
@@ -373,6 +376,8 @@ Befehle davor ins Log. Kommt wieder einer, das Log melden.
   Tower eines Typs.
   **ok (2026-09-25):** der Ring soll nur bei Hover da sein, immer an nervt. Gebaut: Lane-Farbe bei Hover und Auswahl.
   Nochmal ansehen.
+  **Nachtest offen (Auge):** „nur bei Hover“ ist per Renderer-Spec gesichert; im Browser-Lauf fanden die Kameras
+  von Host und Gast nicht verlässlich dieselbe Stelle.
 - **T52 Chat in der Lobby**: Vor dem Start im Panel unten „Say something“, Text, Enter. Erwartung: die Zeile steht bei
   beiden im Panel, die neueste unten sichtbar.
   **ok (2026-09-25):** doppeltes Scrollen (Dock und Chat) war das Schlimmste. Gebaut: das Dock im Raum zweispaltig
@@ -418,6 +423,7 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
   **übersprungen (2026-09-25)**
   **ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** Standard: Gast gesperrt, sein Klick tut nichts, Host pausiert beide; „Anyone“: Gast pausiert und
   setzt fort. „Off“ nicht geprüft.
+  **„Off“ ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** bei Host und Gast gesperrt, Klick und P pausieren nichts (`extras.mjs`).
 - **T61 Next wave**: „Host starts“: beim Host heißt der Knopf „Start wave N“ und startet sofort. „Auto 10 s“: nach
   einer Welle zählt der Knopf bei beiden herunter und die Welle startet von selbst; sind vorher alle bereit, sofort.
   **ok (Browser-Lauf `tools/screenshot`, 2026-09-25):** „Host starts“: Host-Knopf „Start wave 1“, startet sofort; „Auto 10 s“: Gast zählt „· 8s“,
