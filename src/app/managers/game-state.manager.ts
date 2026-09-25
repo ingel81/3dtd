@@ -32,6 +32,7 @@ import { ResearchManager, type SimResearch } from './research.manager';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import { AbilityManager } from './ability.manager';
 import { HeroManager, type HeroView } from './hero.manager';
+import type { HeroRenderer } from '../three-engine/renderers/hero.renderer';
 import { HERO_SOURCE_ID, heroSourceIdFor } from '../configs/hero.config';
 import { heroBodyContact } from '../utils/hero-body-contact';
 import { ResearchStore } from '../store/research.store';
@@ -217,6 +218,8 @@ export class GameStateManager {
 
   /** Where the hero of the player at this client is drawn; the others have none yet (COOP_PLAN C6) */
   private heroView: HeroView | null = null;
+  /** Coop partners' heroes on the map, by player (review R15) */
+  private readonly partnerHeroViews = new Map<string, HeroRenderer>();
 
   /**
    * Canonical list of sub-managers that implement IGameManager. Used for the
@@ -481,8 +484,31 @@ export class GameStateManager {
       this.abilitySeats.push(abilities);
       this.heroSeats.push(this.heroFor(owner, heroSourceIdFor(id, single)));
     }
-    // Only the local hero is drawn for now
     if (this.heroView) this.heroManager.setView(this.heroView);
+    this.attachPartnerHeroViews();
+  }
+
+  /**
+   * Every other player's hero gets a renderer of his own (review R15); the
+   * local one keeps the engine's, which alone can be selected.
+   */
+  private attachPartnerHeroViews(): void {
+    const engine = this.tilesEngine;
+    for (const view of this.partnerHeroViews.values()) engine?.disposePartnerHero(view);
+    this.partnerHeroViews.clear();
+    if (!engine) return;
+    for (const seat of this.heroSeats) {
+      if (seat.owner.playerId === this.localPlayerId) continue;
+      const view = engine.createPartnerHero();
+      view.setGround(this.globalRouteGrid);
+      seat.setView(view);
+      this.partnerHeroViews.set(seat.owner.playerId, view);
+    }
+  }
+
+  /** A coop partner's hero in his lane colour; null takes the ring off */
+  setPartnerHeroColor(playerId: string, color: number | null): void {
+    this.partnerHeroViews.get(playerId)?.setOwnerColor(color);
   }
 
   /**
@@ -754,6 +780,7 @@ export class GameStateManager {
     tilesEngine.hero.setGround(this.globalRouteGrid);
     this.heroView = tilesEngine.hero;
     this.heroManager.setView(this.heroView);
+    this.attachPartnerHeroViews();
     // The foot of the orbital laser's beam as well
     tilesEngine.orbitalBeams.setGround(this.globalRouteGrid);
 
@@ -1622,6 +1649,8 @@ export class GameStateManager {
     }
     for (const seat of this.abilitySeats) seat.destroy();
     for (const seat of this.heroSeats) seat.destroy();
+    for (const view of this.partnerHeroViews.values()) this.tilesEngine?.disposePartnerHero(view);
+    this.partnerHeroViews.clear();
     this.globalRouteGrid.clear();
 
     if (this.tilesEngine) {

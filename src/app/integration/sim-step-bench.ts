@@ -105,6 +105,8 @@ export function createBenchEngine(): never {
       get: () => undefined,
     }),
     enemies: noopStub({ create: resolved }),
+    // A coop partner's hero gets a renderer of his own (review R15)
+    createPartnerHero: () => noopStub({}),
     spatialAudio: noopStub({
       playAtGeo: resolved,
       playAt: resolved,

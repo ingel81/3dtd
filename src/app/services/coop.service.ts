@@ -1198,6 +1198,10 @@ export class CoopService {
     gsm.reset(start.seed);
     gsm.setPlayers(start.players, start.localId);
     gsm.setLanes(start.lanes);
+    // A partner's hero wears his lane colour (review R15)
+    for (const id of start.players) {
+      if (id !== start.localId) gsm.setPartnerHeroColor(id, this.laneColorNumberOf(id));
+    }
     gsm.setLosRole(this.isHost() ? 'host' : 'guest');
     gsm.setLockstep(start.link);
     // The relay and the room's rule decide (D38): a cheat acts on every client alike or on none

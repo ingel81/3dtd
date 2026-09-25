@@ -39,7 +39,7 @@ function fakeRenderer(onRender: () => void): WebGLRenderer {
 }
 
 describe('TowerShadowMapper', () => {
-  it('draws the tiles alone into the cube: the hero, his rings and the move ring stay out (Regel 8)', () => {
+  it('draws the tiles alone into the cube: the hero, his rings, a partner’s ring and the move ring stay out (Regel 8)', () => {
     const scene = new Scene();
     const tiles = new Group();
     const tile = new Mesh(new BoxGeometry(), new MeshBasicMaterial());
@@ -51,9 +51,13 @@ describe('TowerShadowMapper', () => {
     hero.present({ lat: 0, lon: 0, heading: 0, pose: 'shoot', anchor: { lat: 0, lon: 0 } });
     hero.setSelected(true);
     hero.showMoveTarget(new Vector3(3, 0, 0), true);
-    const heroObjects = scene.children.filter((child) => child !== tiles);
-    // His model root and three rings
-    expect(heroObjects).toHaveLength(4);
+    // A coop partner's hero next to him, in his lane colour (R15)
+    const partner = new HeroRenderer(scene, { geoToLocalSimpleInto: (_lat, _lon, _h, target) => target.set(4, 0, 0) }, null);
+    partner.setOwnerColor(0x3366ff);
+    partner.present({ lat: 0, lon: 0, heading: 0, pose: 'idle', anchor: { lat: 0, lon: 0 } });
+    const heroObjects = scene.children.filter((child) => child !== tiles && child.visible);
+    // His model root and three rings, the partner's root and his lane ring
+    expect(heroObjects).toHaveLength(6);
     expect(heroObjects.every(drawn)).toBe(true);
 
     let faces = 0;
