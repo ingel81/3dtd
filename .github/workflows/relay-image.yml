@@ -1,0 +1,54 @@
+name: Relay image
+
+# The coop relay as a container image on the GitHub Container Registry
+# (docs/COOP_PLAN.md, D66): ghcr.io/<owner>/3dtd-relay. The release workflow
+# calls it with the version tag (tags <version> and latest); started by hand
+# it builds any branch, tagged with the branch name (e.g. :coop), to try a
+# relay before a release.
+
+on:
+  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Tag to build, e.g. v0.5.0'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    env:
+      REF: ${{ inputs.ref || github.ref_name }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.REF }}
+
+      - name: Log in to the GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push the relay image
+        shell: bash
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/3dtd-relay"
+          if [[ "$REF" == v* ]]; then
+            tags=(-t "$image:${REF#v}" -t "$image:latest")
+          else
+            tags=(-t "$image:${REF//\//-}")
+          fi
+          docker build -f coop-server/Dockerfile \
+            --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}" \
+            --label "org.opencontainers.image.revision=${GITHUB_SHA}" \
+            "${tags[@]}" .
+          for tag in "${tags[@]}"; do [[ "$tag" == -t ]] || docker push "$tag"; done

@@ -195,33 +195,12 @@ jobs:
   # apps of this release.
   relay-image:
     needs: release
-    runs-on: ubuntu-latest
+    uses: ./.github/workflows/relay-image.yml
+    with:
+      ref: ${{ github.event.inputs.tag || github.ref_name }}
     permissions:
       contents: read
       packages: write
-    env:
-      TAG: ${{ github.event.inputs.tag || github.ref_name }}
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v7
-        with:
-          ref: ${{ env.TAG }}
-
-      - name: Log in to the GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push the relay image
-        shell: bash
-        run: |
-          image="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/3dtd-relay"
-          docker build -f coop-server/Dockerfile             --label "org.opencontainers.image.source=https://github.com/${GITHUB_REPOSITORY}"             --label "org.opencontainers.image.version=${TAG#v}"             -t "$image:${TAG#v}" -t "$image:latest" .
-          docker push "$image:${TAG#v}"
-          docker push "$image:latest"
 
   # The web version and the landing page carry the same tag. deploy.yml is
   # called, not left to its `release: published` trigger: GitHub starts no
