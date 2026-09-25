@@ -7,9 +7,10 @@
   "private": true,
   "main": "src/main.js",
   "scripts": {
-    "dev": "concurrently -k -n web,app \"npm --prefix .. start\" \"wait-on http://localhost:4200 && electron . --dev\"",
+    "dev": "npm run relay:build && concurrently -k -n web,app \"npm --prefix .. start\" \"wait-on http://localhost:4200 && electron . --dev\"",
     "start": "npm run web:build && electron .",
-    "web:build": "npm --prefix .. run build && node scripts/copy-web.js",
+    "web:build": "npm --prefix .. run build && node scripts/copy-web.js && npm run relay:build",
+    "relay:build": "node scripts/build-relay.js",
     "dist": "npm run web:build && electron-builder --config electron-builder.config.js --publish never",
     "test": "node --test \"test/**/*.test.js\""
   },

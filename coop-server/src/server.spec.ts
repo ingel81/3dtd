@@ -34,6 +34,16 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     relay = null;
   });
 
+  it('refuses a taken port instead of crashing, and tells a lobby from its status (C4d)', async () => {
+    relay = await startRelay({ port: 0 });
+    await expect(startRelay({ port: relay.port })).rejects.toMatchObject({ code: 'EADDRINUSE' });
+    const a = await client(relay.port, 'Ann');
+    a.send({ t: 'create' });
+    await a.until('room');
+    expect(relay.status().rooms[0]).toMatchObject({ gameVersion: 'v1', started: false, locked: false });
+    a.close();
+  });
+
   it('runs a room from create to ticks for two clients', async () => {
     relay = await startRelay({ port: 0 });
     const a = await client(relay.port, 'Ann');

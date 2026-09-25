@@ -12,6 +12,33 @@ export interface DesktopUpdate {
   notes?: string;
 }
 
+/** A coop game found on the local network (desktop/src/lan-discovery.js) */
+export interface LanGame {
+  code: string;
+  /** The host's name */
+  host: string;
+  players: number;
+  gameVersion: string;
+  protocol: number;
+  /** The best of `endpoints`: in this machine's subnet if one is */
+  address: string;
+  port: number;
+  /** Every address the host was heard on, best first */
+  endpoints: { address: string; port: number }[];
+}
+
+/** Coop on the local network, desktop build only (docs/COOP_PLAN.md, C4d) */
+export interface CoopLanBridge {
+  /** Start this machine's relay; its port and this machine's addresses, or why not */
+  host(): Promise<{ port: number; addresses: { name: string; address: string }[] } | { error: string }>;
+  /** End this machine's relay */
+  stop(): void;
+  /** Look for games until the returned function is called; the whole list on every change */
+  scan(listener: (games: LanGame[]) => void): () => void;
+  /** Ask one address directly, during a scan; true when its relay answered */
+  probe(ip: string): Promise<boolean>;
+}
+
 export interface DesktopBridge {
   /** Version of the installed app, the root package.json's. */
   readonly version: string;
@@ -25,6 +52,8 @@ export interface DesktopBridge {
    * (docs/RUN_LOG.md). Resolves false when it could not be written.
    */
   saveRun(fileName: string, text: string): Promise<boolean>;
+  /** Missing in apps older than C4d */
+  readonly coopLan?: CoopLanBridge;
 }
 
 /**
@@ -43,4 +72,19 @@ export function readDesktopBridge(host: unknown = typeof window === 'undefined' 
     return null;
   }
   return candidate as DesktopBridge;
+}
+
+/** The LAN side of the desktop bridge, or null in a browser and in older apps. */
+export function readCoopLan(host?: unknown): CoopLanBridge | null {
+  const lan = readDesktopBridge(host)?.coopLan as Partial<CoopLanBridge> | undefined;
+  if (
+    !lan ||
+    typeof lan.host !== 'function' ||
+    typeof lan.stop !== 'function' ||
+    typeof lan.scan !== 'function' ||
+    typeof lan.probe !== 'function'
+  ) {
+    return null;
+  }
+  return lan as CoopLanBridge;
 }

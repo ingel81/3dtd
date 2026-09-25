@@ -92,7 +92,11 @@ export interface RoomOptions {
 export interface RoomStatus {
   code: string;
   hostId: string;
+  /** The host's game version, which every guest must have */
+  gameVersion: string;
   started: boolean;
+  /** Closed to new players by the host */
+  locked: boolean;
   speed: number;
   /** The last tick closed, -1 before the first */
   tick: number;
@@ -426,7 +430,9 @@ export class Room {
     return {
       code: this.code,
       hostId: this.hostId,
+      gameVersion: this.players.find((p) => p.id === this.hostId)?.gameVersion ?? '',
       started: this.started,
+      locked: this.locked,
       speed: this.speed,
       tick: this.lastTick,
       ageMs: this.now() - this.createdAt,

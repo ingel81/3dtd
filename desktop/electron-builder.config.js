@@ -23,7 +23,8 @@ module.exports = {
   releaseInfo: { releaseNotes: changelogSection(readChangelog(), rootPackage.version) },
 
   directories: { output: 'release', buildResources: 'build' },
-  files: ['src/**/*', 'app/**/*', 'package.json'],
+  // relay/ is the bundled coop relay (scripts/build-relay.js)
+  files: ['src/**/*', '!src/**/*.d.ts', 'app/**/*', 'relay/**/*', 'package.json'],
   asar: true,
   // Next to 3DTD.exe: the game's licence and those of the libraries bundled into
   // it (Angular's build lists them). Electron's and Chromium's come with Electron.

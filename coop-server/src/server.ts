@@ -78,6 +78,8 @@ export interface RelayStatus {
 
 export interface RelayServer {
   readonly port: number;
+  /** What GET /status answers, for the desktop app's LAN announcement */
+  status(): RelayStatus;
   close(): Promise<void>;
 }
 
@@ -98,7 +100,7 @@ export interface RelayOptions {
   heartbeatMs?: number;
 }
 
-/** Start the relay on `port` (0: any free port). */
+/** Start the relay on `port` (0: any free port); rejects when the port is taken. */
 export function startRelay(options: RelayOptions): Promise<RelayServer> {
   const log = options.log ?? (() => undefined);
   const now = options.now ?? (() => performance.now());
@@ -131,6 +133,8 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
     response.end(statusText(status()));
   });
   const wss = new WebSocketServer({ server: http, maxPayload: MAX_MESSAGE_BYTES });
+  // ws repeats the HTTP server's errors; a taken port is handled at listen below
+  wss.on('error', () => undefined);
 
   const send = (playerId: string, message: ServerMessage): void => {
     const socket = connections.get(playerId)?.socket;
@@ -287,13 +291,20 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
     for (const room of rooms.values()) room.advance(elapsed);
   }, CLOCK_MS);
 
-  return new Promise((resolve) => {
+  return new Promise((resolve, reject) => {
+    http.once('error', (error) => {
+      clearInterval(clock);
+      clearInterval(heartbeat);
+      clearInterval(statusLines);
+      reject(error);
+    });
     http.listen(options.port, () => {
       const address = http.address();
       const port = typeof address === 'object' && address ? address.port : options.port;
       log(`coop relay on port ${port}`);
       resolve({
         port,
+        status,
         close: () => new Promise<void>((done) => {
           clearInterval(clock);
           clearInterval(heartbeat);

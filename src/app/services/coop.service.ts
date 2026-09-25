@@ -30,6 +30,7 @@ import { UI_SOUNDS } from '../configs/audio.config';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { relayCandidates, relayForLink, validRelayUrl, type RelaySource } from '../coop/relay-address';
+import { readCoopLan, type LanGame } from '../core/desktop-bridge';
 import {
   DEFAULT_ROOM_OPTIONS,
   changedOptions,
@@ -263,6 +264,18 @@ export class CoopService {
   /** The relay this session talks to, and where the address came from */
   readonly relay = signal<{ url: string; source: RelaySource } | null>(null);
 
+  /** The desktop app's LAN side (C4d); null in a browser */
+  private readonly lanBridge = readCoopLan();
+  /** Coop on the local network is offered here: the desktop app */
+  readonly lanAvailable = this.lanBridge !== null;
+  /** This machine hosts a LAN game: its relay runs and ends with the room */
+  private lanHosting = false;
+  /** While hosting on the LAN, this machine's addresses for the guests (D54) */
+  readonly lanAddresses = signal<readonly { name: string; address: string }[]>([]);
+  /** LAN games found while scanning */
+  readonly lanGames = signal<readonly LanGame[]>([]);
+  private stopLanScan: (() => void) | null = null;
+
   constructor() {
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
@@ -449,6 +462,61 @@ export class CoopService {
       this.room.set(await session.create());
       this.shareWorld();
     });
+  }
+
+  /**
+   * Host a game on the local network (C4d, D51): start this machine's relay,
+   * then open the room on it as `host` does.
+   */
+  async hostLan(name: string): Promise<void> {
+    if (!this.lanBridge) return;
+    this.leave();
+    this.error.set(null);
+    this.status.set('connecting');
+    const started = await this.lanBridge.host();
+    if ('error' in started) {
+      this.error.set(started.error);
+      this.status.set('closed');
+      return;
+    }
+    const session = await this.connect(name, [`ws://127.0.0.1:${started.port}`]);
+    if (!session) {
+      this.lanBridge.stop();
+      return;
+    }
+    this.lanHosting = true;
+    this.lanAddresses.set(started.addresses);
+    await this.guard(async () => {
+      if (this.gameState.getSpawnPoints().length < 2) await this.locationFacade.addRandomSpawn();
+      this.room.set(await session.create());
+      this.shareWorld();
+    });
+  }
+
+  /** Join a game found on the local network, trying the host's addresses best first */
+  async joinLan(name: string, game: LanGame): Promise<void> {
+    const urls = game.endpoints.map(({ address, port }) => `ws://${address}:${port}`);
+    const session = await this.connect(name, urls.length ? urls : [`ws://${game.address}:${game.port}`]);
+    if (!session) return;
+    await this.guard(async () => {
+      this.room.set(await session.join(game.code));
+    });
+  }
+
+  /** Look for LAN games while the dock offers them; `false` stops */
+  scanLan(on: boolean): void {
+    this.stopLanScan?.();
+    this.stopLanScan = null;
+    if (!on || !this.lanBridge) {
+      this.lanGames.set([]);
+      return;
+    }
+    this.stopLanScan = this.lanBridge.scan((games) => this.ngZone.run(() => this.lanGames.set(games)));
+  }
+
+  /** Ask one address for LAN games (the host IP field, D54); true when a relay answered there */
+  probeLan(ip: string): Promise<boolean> {
+    return this.lanBridge?.probe(ip.trim()) ?? Promise.resolve(false);
   }
 
   /** Join the room `code`. */
@@ -774,6 +842,11 @@ export class CoopService {
   leave(): void {
     this.session?.close();
     this.session = null;
+    if (this.lanHosting) {
+      this.lanHosting = false;
+      this.lanBridge?.stop();
+      this.lanAddresses.set([]);
+    }
     this.gameState.setLockstep(null);
     this.gameState.setLosRole(null);
     this.gameState.setCheatRule(null);
@@ -832,12 +905,13 @@ export class CoopService {
     return { gameVersion: BUILD_VERSION, configHash: balanceConfigHash() };
   }
 
-  private async connect(name: string): Promise<CoopSession | null> {
+  /** Reach a relay and say hello; `lanUrls` are a LAN game's addresses instead of the usual sources. */
+  private async connect(name: string, lanUrls?: string[]): Promise<CoopSession | null> {
     this.leave();
     this.name = name;
     this.error.set(null);
     this.status.set('connecting');
-    const reached = await this.reachRelay(name, (attempt) => this.wire(attempt));
+    const reached = await this.reachRelay(name, (attempt) => this.wire(attempt), lanUrls);
     if ('error' in reached) {
       this.error.set(reached.error);
       this.status.set('closed');
@@ -867,16 +941,18 @@ export class CoopService {
    * (link, setting, runtime-config) or the automatic ones in turn
    * (coop/relay-address.ts). `wire` hooks each attempt up before it connects.
    */
-  private async reachRelay(name: string, wire?: (attempt: CoopSession) => void): Promise<
+  private async reachRelay(name: string, wire?: (attempt: CoopSession) => void, lanUrls?: string[]): Promise<
     { session: CoopSession; playerId: string; url: string; source: RelaySource } | { error: string }
   > {
     const client = clientInfoFrom(navigator.userAgent);
-    const candidates = relayCandidates({
-      fromLink: this.relayFromUrl,
-      fromSetting: this.relaySetting,
-      fromConfig: this.config.coopRelay(),
-      page: { protocol: window.location.protocol, hostname: window.location.hostname },
-    });
+    const candidates = lanUrls
+      ? { source: 'lan' as const, urls: lanUrls }
+      : relayCandidates({
+        fromLink: this.relayFromUrl,
+        fromSetting: this.relaySetting,
+        fromConfig: this.config.coopRelay(),
+        page: { protocol: window.location.protocol, hostname: window.location.hostname },
+      });
     for (const url of candidates.urls) {
       const attempt = new CoopSession(url, { name, ...this.head(), client });
       wire?.(attempt);
@@ -891,6 +967,9 @@ export class CoopService {
       }
     }
     const tried = candidates.urls.join(', ');
+    if (candidates.source === 'lan') {
+      return { error: `Can't reach that LAN game (tried ${tried}). The host's firewall may block it, or the room just closed.` };
+    }
     return {
       error: candidates.source === 'auto'
         ? `Found no coop server (tried ${tried}). Set one under Server, or start one with npm run coop-server.`

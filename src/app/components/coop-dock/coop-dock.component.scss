@@ -281,6 +281,58 @@ details {
 
 .plain > .note { margin-top: 10px; }
 
+/* === LAN (desktop app) === */
+.lan-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.lan-game {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--td-frame-dark);
+  background: var(--td-panel-main);
+
+  .who {
+    display: flex;
+    flex: 1;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+
+    small {
+      overflow: hidden;
+      font-family: var(--td-font-mono);
+      font-size: 11px;
+      color: var(--td-text-muted);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
+  &.is-off { opacity: 0.55; }
+}
+
+.seat-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--td-text-muted);
+}
+
+.checks {
+  margin: 0;
+  padding-left: 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--td-text-muted);
+}
+
 /* === Joining === */
 .steps {
   display: flex;

@@ -241,4 +241,44 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(guest.gsm.playerLeft).toHaveBeenCalledWith(host.coop.playerId());
     expect(guest.coop.status()).toBe('off');
   });
+
+  it('hosts on the LAN over the app’s relay and lets a guest in by a found game (C4d)', async () => {
+    relay = await startRelay({ port: 0 });
+    const port = relay.port;
+    const coopLan = {
+      host: vi.fn(async () => ({ port, addresses: [{ name: 'Ethernet', address: '192.168.1.20' }] })),
+      stop: vi.fn(),
+      scan: vi.fn(() => () => undefined),
+      probe: vi.fn(async () => false),
+    };
+    vi.stubGlobal('desktop', {
+      version: '0.5.0', onUpdateReady: () => () => undefined, installUpdateNow: () => undefined, saveRun: async () => true, coopLan,
+    });
+    try {
+      const host = player(port);
+      const guest = player(port);
+      localStorage.clear();
+      expect(host.coop.lanAvailable).toBe(true);
+      await host.coop.hostLan('Ann');
+      await until(() => host.coop.room() !== null && host.coop.worldReady());
+      expect(host.coop.relay()).toEqual({ url: `ws://127.0.0.1:${port}`, source: 'lan' });
+      expect(host.coop.lanAddresses()).toEqual([{ name: 'Ethernet', address: '192.168.1.20' }]);
+
+      const code = host.coop.room()!.code;
+      // The first address does not answer; the next one is the host's
+      await guest.coop.joinLan('Bob', {
+        code, host: 'Ann', players: 1, gameVersion: 'v', protocol: 1, address: '127.0.0.2', port: 1,
+        endpoints: [{ address: '127.0.0.1', port: 1 }, { address: '127.0.0.1', port }],
+      });
+      await until(() => host.coop.room()!.players.length === 2);
+      expect(guest.coop.relay()?.source).toBe('lan');
+
+      host.coop.leave();
+      expect(coopLan.stop).toHaveBeenCalledTimes(1);
+      expect(host.coop.lanAddresses()).toEqual([]);
+    } finally {
+      vi.unstubAllGlobals();
+      vi.stubGlobal('WebSocket', WsSocket);
+    }
+  });
 });
