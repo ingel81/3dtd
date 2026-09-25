@@ -88,6 +88,16 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D34 | Lobby | Das Raum-Panel dockt vor dem Start links an, ohne Schleier; die Karte bleibt bedienbar. Im Spiel ist es ein Dialog. Der Coop-Knopf sitzt im Kopf (User, 2026-09-24) |
 | D35 | Karte in der Lobby | Der Host darf Spawns setzen, versetzen (Move je Lane, Menü am Flaggen-Knopf bei mehr als einem Spawn), hinzufügen und den Ort wechseln. Die Karte geht von selbst an den Raum; Gäste behalten ihre Lane, die Bereitschaft verfällt, bei einem neuen Ort laden sie neu und kommen in denselben Raum zurück (User, 2026-09-24) |
 | D36 | Anzeige in der Lobby | Je Lane Länge in Metern, Balken zur längsten und Laufzeit eines Zombies; je Spieler der Ping (zum Relay, zu Mitspielern geschätzt über den Relay) (User, 2026-09-24) |
+| D37 | Design-Handover | Coop-UI nach `tmp/coop-design/test3.zip` (README, `3dtd-coop.html`), in unseren Tokens und Rezepten; Lane-Farben bleiben `SPAWN_COLORS` wie auf der Karte (User, 2026-09-25) |
+| D38 | Raum-Optionen | Echt jetzt: Cheats (Off / Host only / Everyone, nur wo der Relay sie erlaubt), Pause (Host only / Anyone / Off), Next wave (All ready / Host starts / Auto 10 s). Standard: Cheats off, Pause Host only, All ready. Eine Änderung setzt die Bereitschaft der Gäste zurück und schreibt eine Systemzeile. Credits, Difficulty, Drop-Regel später (User, 2026-09-25) |
+| D39 | Spielmodus | Umschalter PvE Coop (aktiv) und Versus (ausgegraut, SOON) (User, 2026-09-25) |
+| D40 | Host bereit | Der Host ist in der Lobby immer bereit; Start geht, sobald alle Gäste bereit sind (User, 2026-09-25) |
+| D41 | Dock | Rechts neben der Fähigkeitenleiste, oben unter der FPS-Anzeige, bis über die Logo-Zeile, 440 px; in Lobby und Spiel dasselbe Dock ohne Schleier, im Spiel Optionen nur zum Lesen (User, 2026-09-25) |
+| D42 | Taste Raum | Tab öffnet und schließt das Dock (User, 2026-09-25) |
+| D43 | Meldungen | Alle Coop-Meldungen (Beitritt, Abgang, Host, Gold, Verbindung, Einstellungen) sind Systemzeilen im Chat; Warnungen zusätzlich im Fuß der Squad-Box (User, 2026-09-25) |
+| D44 | Auto-Welle | Countdown 10 s nach Wellenende im Wellen-Knopf; sind vorher alle bereit, startet sie sofort (User, 2026-09-25) |
+| D45 | Squad-Zustände | Jetzt Lag (> 160 ms). Dropped/Reconnect, Offline mit Retry, Left mit „Take over lane“ und Desync-Resync sind vorgesehen, nicht gebaut (User, 2026-09-25) |
+| D46 | Schriften | Keine Cinzel: Überschriften in Inter Tight. JetBrains Mono wird selbst gehostet (`@fontsource`), weil `--td-font-mono` sie nennt und bisher auf Consolas fiel (User, 2026-09-25) |
 
 ## 4. Pakete
 
@@ -540,6 +550,38 @@ Für ein Koop-Spiel unter Freunden reicht S1 plus S4; S2, S3 und S6 werden wicht
 - Ping (Taste plus Klick, Marke und Ton in der Spielerfarbe) und ein kleines Chatfenster (D25).
 - Debug-Befehle und Cheats sind im Coop aus. Bots als Mitspieler nur im Dev-Modus zum Testen (D24): ihre Befehle
   gehen wie die eines Spielers über den Relay.
+
+### C8 Design-Handover (gebaut 2026-09-25)
+
+Aus dem Handover abgeleitet (D37 bis D46). Alte Teile gehen mit dem Umbau (Spieler-Leiste, Chat-Zeilenkästen,
+Meldungsliste, modaler Raum-Dialog), nichts läuft doppelt.
+
+- **Relay und Protokoll 6:** Raum-Optionen `options {cheats, pause, wave}` in der Rauminfo und im `started`, Host setzt
+  sie mit `{t:'options'}` nur in der Lobby; die Bereitschaft der Gäste fällt dabei. Start prüft nur die Gäste (D40).
+  Pause nach `options.pause`; Cheats nach `options.cheats` und Absender, dazu der Schalter des Relays.
+- **Simulation:** die Cheat-Regel steht bei allen Clients gleich fest (Modus und Host-Id vom Start), damit ein
+  Host-Cheat nirgends verworfen wird. Next wave: „Host starts“ startet ohne Bereitschaft, „Auto 10 s“ zählt nach
+  Wellenende und startet früher, wenn alle bereit sind; gestartet wird wie bisher vom Host-Client.
+- **Chat-Modell:** Zeilen mit Zeit und Absender oder `system`; die Meldungen werden Systemzeilen (D43).
+- **Dock** (ersetzt den Raum-Dialog): Einstieg (Name, Karten Host/Join, Server), Beitritt als Schrittliste mit
+  Fortschritt der Karte, Lobby mit Raumcode (Code und Einladung kopieren, Sperre), Statuszeile, Spieler (Lane-Balken,
+  Tags, Bereit-Pille, Ping-Balken, Kick), Lanes (frei nehmen, hinfliegen, entfernen), Mode & options (Chips zu,
+  Segmente auf), Chat gruppiert, Fuß (Leave, ⋯ Resend map, Start match oder Ready up).
+- **Squad-Box und Chat** unten links (ersetzen Spieler-Leiste und Chat): Kopf mit Code, CHEATS ON, Einklappen; Zeilen
+  mit Lane-Balken, Tags, Zustand, Credits, Ping, Bereit-Häkchen bzw. Gold senden; Fuß sagt, auf wen die Welle
+  wartet. Lag, Aufholen, Lecks, Abgang, Divergenz und Verbindungsverlust („Continue alone“) in diesem Rahmen.
+- **Kopf:** Raum-Chip mit Code, einem Quadrat je Spieler und n/max; Klick oder Tab öffnet das Dock.
+- **Sidebar:** der Wellen-Knopf zeigt „Ready for wave N · 1/2 ready“ bzw. den Auto-Countdown.
+- **Bausteine einmal:** Ping-Balken als Component, Coop-Rezepte (Knöpfe, Segment, Tag, Pille, Abschnittskopf) als
+  Sass-Mixins neben `_td-mixins.scss`, Farben nur aus `td-theme.ts`.
+
+**Gebaut 2026-09-25:** Protokoll 6 mit `options` (`coop/room-options.ts`, geteilt von Relay und Client); der Relay setzt
+Pause- und Cheat-Regel durch, die Simulation die Cheat-Regel über `GameStateManager.setCheatRule` gleich auf allen
+Clients; „Host starts“ und „Auto 10 s“ (Countdown auf der Spieluhr, gestartet vom Host-Client) über
+`waveButtonAction`/`startsWhenAllReady`. Chat mit Systemzeilen (`CoopChatLine`, `notify`), Lag über 160 ms
+(`LAG_MS`). Dock `components/coop-dock/`, Squad `components/coop-squad/`, Chat `components/coop-chat/`, Bausteine
+`components/coop-ui/`; `coop-dialog/` und `coop-players/` sind weg, mit ihnen der Sonderweg für angedockte Dialoge.
+JetBrains Mono selbst gehostet. Nachtest PLAYTEST T54 ff.
 
 ### C7 Betrieb
 

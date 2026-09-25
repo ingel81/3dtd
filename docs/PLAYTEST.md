@@ -351,23 +351,82 @@ Befehle davor ins Log. Kommt wieder einer, das Log melden.
   Zwischenablage.
 - **T45 Gast hört den Kartenwechsel (T25)**: In der Lobby würfelt der Host einen neuen Ort (oder setzt einen Spawn).
   Erwartung: beim Gast im Panel sofort „The host is changing the map“, bis die neue Karte da ist.
+  **ok (2026-09-25):** danach beim Gast der volle Ladebildschirm. So gewollt, wo der Host den Ort wechselt (der Gast lädt
+  den neuen Ort); bei geänderten Spawns am selben Ort lädt nichts.
 - **T46 Panel unten links (T32)**: Raum öffnen: das Panel steht unten links über der Logo-Zeile; wird es hoch, reicht
   es bis unter die FPS-Anzeige und scrollt.
 - **T47 Ohne Kartenschlüssel (T37)**: Einladungslink im Inkognito-Fenster öffnen und `&nokey` anhängen. Erwartung:
   Token-Bildschirm mit dem Satz zum Coop-Raum, Panel „Enter your map key first“. Schlüssel eintragen: Karte lädt,
   Beitritt von selbst.
+  **übersprungen (2026-09-25)**
 - **T48 Allein weiter (T38)**: Im Spiel den Relay beenden, „Continue alone“. Erwartung: Welle starten, Tower bauen und
   Cheats gehen; die Lane des anderen bleibt zu. Game over danach: kein neuer Rekord auf der Weltkarte.
+  **ok (2026-09-25)**
 - **T49 Chat unter der Leiste (T39)**: Im Spiel Enter, Text, Enter. Erwartung: Eingabe und Zeilen direkt unter der
   Spieler-Leiste.
 - **T50 Karten-Ping deutlicher (T40)**: X, Klick auf die Karte. Erwartung: größeres „▼ Name“, drei Ringe in
   Lane-Farbe wachsen aus dem Punkt. Beim anderen, Kamera woanders: Pfeil mit Namen am Bildrand, Klick fährt hin.
+  **ok (2026-09-25):** der Hinweis nach X war unten links kaum zu sehen. Gebaut: eigene Fläche mit Goldrand wie die
+  Chat-Eingabe. Nochmal ansehen.
 - **T51 Partner-Ring (T41)**: Der Partner baut einen Tower. Erwartung: Ring in seiner Lane-Farbe, auch beim ersten
   Tower eines Typs.
+  **ok (2026-09-25):** der Ring soll nur bei Hover da sein, immer an nervt. Gebaut: Lane-Farbe bei Hover und Auswahl.
+  Nochmal ansehen.
 - **T52 Chat in der Lobby**: Vor dem Start im Panel unten „Say something“, Text, Enter. Erwartung: die Zeile steht bei
   beiden im Panel, die neueste unten sichtbar.
+  **ok (2026-09-25):** doppeltes Scrollen (Dock und Chat) war das Schlimmste. Gebaut: das Dock im Raum zweispaltig
+  (820 px), links Raum, Spieler, Lanes, Optionen, rechts der Chat über die volle Höhe; nur der Chat scrollt,
+  links nur bei Platzmangel. Nochmal ansehen.
 - **T53 Fähigkeiten oben**: Die Fähigkeitenleiste steht links direkt unter der FPS-Anzeige (nicht mehr mittig) und rückt
   mit, wenn man das Overlay auf- und zuklappt.
+  **ok (2026-09-25)**
+
+Nach dem Design-Handover vom 2026-09-25 (Plan C8, D37 bis D46; Relay neu starten, Protokoll 6; beide Fenster neu
+laden). T46 (Panel unten links), T49 (Chat unter der Leiste) und T53 (Fähigkeiten oben) sind damit überholt: das
+Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links; T53 gilt weiter.
+
+- **T54 Dock, Einstieg**: Ohne Raum das Zwei-Personen-Icon im Kopf. Erwartung: Dock rechts neben der
+  Fähigkeitenleiste, oben auf ihrer Höhe, ohne Schleier; Name, Karte „Host this map“ mit „Open room“, „OR“, Karte
+  „Join a room“ mit Code-Feld, unten „SERVER · …“ zum Aufklappen mit Test. X schließt.
+  **ok (2026-09-25):** das Fenster scrollte quer (Eingabefeld 100 % plus Rand). Behoben (`box-sizing`).
+- **T55 Beitritt als Schrittliste**: Gast öffnet den Einladungslink. Erwartung: Dock „Joining <Code>“, Schritte
+  Connected, Room found, Loading the host's map (mit % und Balken, solange geladen wird), Taking a seat; danach die
+  Lobby. „Cancel“ bricht ab.
+  **ok (2026-09-25):** nur, wenn man schon im Spiel war; beim frischen Einladungslink steht zuerst der Ladebildschirm
+  davor, das Dock kommt danach.
+- **T56 Lobby als Host**: Raum öffnen. Erwartung: großer Code, „Code“ und „Invite link“ kopieren mit „Copied“,
+  Schalter „Open to new players“/„Locked“, Statuszeile „Waiting for a second player“, leerer Platz mit „Copy
+  invite“; „Start match“ grau, Tooltip nennt den Grund. Mit Gast: der Host steht auf „✓ Ready“, ohne Knopf.
+  **ok (2026-09-25):** der eigene Name war nicht als änderbar zu erkennen. Gebaut: vertieftes Feld mit Stift.
+- **T57 Lanes im Dock**: Je Lane Farbe, Balken, „m · m:ss“, „You“, Name oder „Free · take“ (Klick nimmt sie).
+  Fliegen (Nadel), beim Host Versetzen (Flagge) und Entfernen (×).
+  **ok (2026-09-25)**
+- **T58 Mode & options**: Host klappt „Mode & options“ auf, setzt Pause auf „Anyone“. Erwartung: beim Gast fällt
+  „Ready“, in beiden Chats „<Host> set Pause: Anyone“; der Gast sieht die Werte nur zum Lesen mit Schloss-Hinweis.
+  Zugeklappt Chips. Game mode: PvE Coop aktiv, Versus grau mit SOON.
+  **ok (2026-09-25):** unklar, dass „edit“ aufklappt. Gebaut: Knopf „Edit“/„Hide“ mit Pfeil; für den Host von Anfang
+  an offen.
+- **T59 Cheats nach Regel**: Relay mit Cheats. Host setzt Cheats „Host only“, Start. Erwartung: „+1000 Credits“ des
+  Hosts wirkt bei beiden, der des Gasts nirgends; Squad zeigt „CHEATS ON“. Mit `-- --no-cheats` sind „Host only“ und
+  „Everyone“ grau.
+  **übersprungen (2026-09-25)**
+- **T60 Pause nach Regel**: Standard (Host only): der Gast kann nicht pausieren, Knopf gesperrt mit Tooltip, P tut
+  nichts. „Anyone“: der Gast kann. „Off“: niemand.
+  **übersprungen (2026-09-25)**
+- **T61 Next wave**: „Host starts“: beim Host heißt der Knopf „Start wave N“ und startet sofort. „Auto 10 s“: nach
+  einer Welle zählt der Knopf bei beiden herunter und die Welle startet von selbst; sind vorher alle bereit, sofort.
+- **T62 Squad und Chat unten links**: Im Spiel. Erwartung: Squad-Box mit dir oben (YOU, HOST), „SPAWN n · BUILDING“
+  oder „READY“, Credits, Ping-Balken; das Häkchen setzt dich bereit, beim Partner öffnet die Münze das Gold-Menü; Fuß
+  „Waiting for …“ bzw. „waiting for you“ mit Space. Minus klappt auf eine Zeile „1/2 READY“. Darunter der Chat auf
+  einem Schleier, alte Zeilen blasser, Systemzeilen in Mono; Enter schreibt, X markiert, Tab öffnet das Dock.
+  **ok (2026-09-25):** „waiting for you“ irreführend. Jetzt „Ready up for the next wave“ mit Space.
+- **T63 Raum-Chip und Dock im Spiel**: Im Kopf Code, ein Quadrat je Spieler in Lane-Farbe, „2/4“. Klick oder Tab
+  öffnet das Dock auch im Spiel: Optionen nur lesen, unten nur „Leave“; das Spiel läuft daneben weiter.
+  **ok (2026-09-25):** der Chip passte nicht in den Kopf und blieb nach dem Klick im Fokus. Gebaut: der Coop-Knopf im
+  Stil der Kopf-Knöpfe (aktiv), kein Fokus nach dem Klick.
+- **T64 Mono-Schrift**: Zahlen, Codes und Tasten stehen jetzt in JetBrains Mono (vorher Consolas). Erwartung: Kopf-
+  Leiste, Sidebar und Dialoge ohne abgeschnittene oder umbrechende Werte.
+  **ok (2026-09-25)**
 
 ## K8 Desktop-Build
 

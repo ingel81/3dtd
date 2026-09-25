@@ -155,8 +155,11 @@ Forschungsdialog (G3) und die Punkte der Sitzung vom 2026-09-21, alle als Nachte
       (2) kürzere Ticks, 2 statt 4 Sub-Steps (Eingabe ~50 bis 60 ms; Tick-Konstanten, Prüfsummen-Takt, Tests). Später
       vielleicht: Turm-Modell lokal vorausdrehen. Spieler-Leiste und Meldungen: Position und Anordnung an einen Designer (T16); dabei (User,
       2026-09-25): man selbst immer oben, etwas größer und klar als „du“ kenntlich, der Host als Host markiert. Später
-      vielleicht: Ortswechsel beim Gast ohne Neuladen. Das angedockte Raum-Panel (`top: 64px` in
-      `open-coop-dialog.ts`) überdeckt die FPS-Anzeige oben links, muss weiter nach unten (User, 2026-09-24).
+      vielleicht: Ortswechsel beim Gast ohne Neuladen. Design-Handover umgesetzt (2026-09-25, Plan C8, D37 bis D46:
+      Dock, Squad-Box, Chat, Raum-Optionen Cheats/Pause/Next wave; Nachtest PLAYTEST T54 ff.). Vorgesehen, nicht
+      gebaut (D45): Squad-Zustände Dropped mit Wiedereinstieg und Countdown, eigener Verbindungsverlust mit Retry (beide
+      hängen an C5b), Left mit „Take over lane“, Desync mit Resync vom Host; weitere Optionen aus dem Design: Credits
+      je Spieler oder Shared pool, Gold senden an/aus, Startgeld, Difficulty, Regel bei Abbruch.
 - [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` setzt keinen Seed, der Anteil getöteter Gegner streut
       um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
       fiel zweimal nur unter Volllast. Seed setzen bzw. Ursache suchen.
