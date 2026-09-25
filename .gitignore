@@ -87,5 +87,6 @@ public/draco/
 
 # One-shot tools with their own dependencies
 tools/google3d/node_modules
+tools/screenshot/node_modules
 bot-server/run-report.html
 bot-server/_*.py
