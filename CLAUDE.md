@@ -12,6 +12,7 @@ npm run build   # Production Build
 npm test        # vitest
 npm run lint
 npm run e2e     # End-to-End-Tests im Browser (Dev-Server muss laufen, docs/E2E.md)
+npm run coop-server  # Coop-Relay (:3003), docs/COOP_PLAN.md
 ```
 
 ## Architektur
@@ -40,10 +41,11 @@ src/app/
 ├── tower-defense.component.*   # Haupt-Spielkomponente (.ts, .html, .scss)
 ├── bots/                       # Bot System (Strategy Pattern), Bot-Session, WebSocket-Client
 │   ├── bots/                   # StrategyBot, Factory
-│   └── strategies/             # Placement, Upgrade, Wave, Research, Ability Strategies
+│   └── strategies/             # Placement, Upgrade, Wave, Research, Ability, Hero Strategies
 ├── director/                   # Wellenquellen: Vertrag (wave-source.ts), WaveDirector, Templates,
 │                               # Snapshot, Verteidigungsanalyse; sources/adaptive + sources/table
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic/ScreenShake Services (Three.js-coupled, Angular-frei)
+├── coop/                       # Coop: Lockstep, Relay-Protokoll, Weltpaket, Prüfsummen, Raum-Optionen (docs/COOP_PLAN.md)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio + Kampagne (campaign.config.ts)
 ├── core/                       # GameObject/Component-Basis, ConfigService
@@ -62,7 +64,7 @@ src/app/
 ├── styles/                     # Theme-Tokens (td-theme.ts)
 ├── three-engine/               # 3D Rendering: Engine, CameraRig, Tiles, renderers/ (inkl. Shader), post-processing/
 ├── utils/                      # Shared Utilities (geo-utils, damage-calculator, global-route-grid, route-corridor, game-rng)
-└── workers/                    # Web Workers (Pathfinding, Heartbeat)
+└── workers/                    # Web Worker: Heartbeat für den Loop im versteckten Tab
 
 bot-server/                     # Python Bot-Server (nur für Bot-Läufe, plant keine Wellen)
 ├── server.py                   # WebSocket Server (:3001): Clients, Wellen-Log, Fernbedienung
@@ -70,9 +72,16 @@ bot-server/                     # Python Bot-Server (nur für Bot-Läufe, plant 
 ├── config.py                   # Ports, Bot-Gewichte
 ├── utils/logger.py             # Console + JSONL-Logging (logs/bots_*.jsonl)
 ├── dashboard/                  # Web Dashboard (:3002): wer läuft, Knöpfe, Fehler
-├── tests/                      # pytest (Nachrichten-Handler, Logger)
+├── analyze_runs.py, analysis/  # Auswertung der Läufe (run-report.html)
+├── tests/                      # pytest (Analyse, Bot-Log)
 ├── requirements.txt            # Python-Abhängigkeiten
 └── start.bat / start.sh        # Start-Skripte (Windows, Unix)
+
+coop-server/                    # Node-Relay für Coop (npm run coop-server, :3003), Einstieg der Desktop-App (desktop.ts)
+desktop/                        # Electron-App: Installer, Auto-Update, LAN-Relay und LAN-Suche (docs/ELECTRON_DESKTOP_PLAN.md)
+e2e/                            # Playwright-Tests des Dev-Spiels (docs/E2E.md)
+tools/                          # Charts, Modell-Budget, Shader-Check, Blender-Skripte, Build-Info, Relay-Last
+landing/                        # Projektseite
 ```
 
 ## Wichtig
@@ -85,7 +94,7 @@ bot-server/                     # Python Bot-Server (nur für Bot-Läufe, plant 
 ## Dokumentation
 
 **Pflichtlektüre je nach Aufgabe!** Alle weiteren Dokumente (Features wie Fähigkeiten, Held, Replay, Audio,
-Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Training-Backend; Archiv) listet
+Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Archiv) listet
 [docs/INDEX.md](docs/INDEX.md) mit Status und Schnellnavigation.
 
 | Aufgabe | Pflichtlektüre |
@@ -104,11 +113,13 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Trainin
 | Daten eines Laufs, Export | [RUN_LOG.md](docs/RUN_LOG.md) |
 | Offene Nachtests im Spiel | [PLAYTEST.md](docs/PLAYTEST.md) |
 | End-to-End-Tests im Browser | [E2E.md](docs/E2E.md) |
+| Coop, Relay, Lockstep, LAN | [COOP_PLAN.md](docs/COOP_PLAN.md), [SIMULATOR_PLAN.md](docs/SIMULATOR_PLAN.md) |
+| Desktop-App, Release | [ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md) |
 | Offene Arbeit und Entscheidungen, Changelog | [TODO.md](TODO.md), [DONE.md](DONE.md) |
 
 **Hinweis zu TODO/DONE:**
-- **TODO.md** ist die einzige Liste offener Arbeit, gruppiert A bis J (vor dem Merge, Entscheidungen, Bugs, Features,
-  Messungen, Konzepte, Ideen, Aufräumen); Handover und Berichte führen keine eigenen Listen
+- **TODO.md** ist die einzige Liste offener Arbeit: ein Backlog mit stabilen Kennungen (A1, C16, E27 …), dazu
+  „Entschieden“ und „Verworfen“; Handover und Berichte führen keine eigenen Listen
 - **DONE.md** ist ein chronologischer Changelog mit Datumsabschnitten (neueste zuerst)
 - Einträge werden **nur auf menschlichen Zuruf** von TODO nach DONE verschoben
 - Bei neuen Einträgen in DONE.md immer das aktuelle Datum als Section verwenden
@@ -127,3 +138,6 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Trainin
 | Bot-Server | Python 3.9+ (venv: 3.11) + WebSockets |
 | Bot-Dashboard | FastAPI (http://localhost:3002) |
 | Bot System | TypeScript Strategy Pattern (Browser) |
+| Coop-Relay | Node + ws (coop-server/), im Lockstep |
+| Desktop | Electron 44 (desktop/), NSIS (Windows), AppImage (Linux) |
+| E2E | Playwright (e2e/) |

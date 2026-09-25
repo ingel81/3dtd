@@ -17,7 +17,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [EVENT_SYSTEM.md](EVENT_SYSTEM.md) | Aktuell | Event Bus, Event-Typen, Manager-Kommunikation |
 | [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) | Aktuell | Signal Store (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug), Facade Pattern, Persistence |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Aktuell | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
-| [TODO.md](../TODO.md) | Aktuell | Die eine Liste offener Arbeit: vor dem Merge, Entscheidungen, Bugs, Features, Messungen, Konzepte, Ideen, Aufräumen |
+| [TODO.md](../TODO.md) | Aktuell | Die eine Liste offener Arbeit (Backlog mit stabilen Kennungen), dazu Entschiedenes und Verworfenes |
 | [PLAYTEST.md](PLAYTEST.md) | Aktuell (laufende Liste) | Nur offene Nachtests (Pakete mit Klickwegen und URLs) und die Eichtabelle der Korridor-Fingerprints; erledigte Pakete wandern ins Archiv |
 | [E2E.md](E2E.md) | Aktuell | End-to-End-Tests des laufenden Dev-Spiels mit Playwright (`npm run e2e`): Aufbau, Kartensitzungen, was sie nicht können |
 | [DONE.md](../DONE.md) | Aktuell | Changelog, neueste zuerst |
@@ -36,6 +36,9 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay jeder Welle als Neu-Simulation: Snapshot am Wellenstart, Befehlslog, Springen, Datei speichern und laden, Bedienung, Grenzen |
 | [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
+| [COOP_PLAN.md](COOP_PLAN.md) | Aktuell (in Arbeit, Branch `coop`) | Coop "Vier Tore" im Lockstep über einen Node-Relay, im LAN aus der Desktop-App: Entscheidungen D1 bis D55, Pakete C0 bis C8 (gebaut C0 bis C4d, C5a, C8; offen C5b, C7), Relay-Betrieb, Schutz gegen Schummeln |
+| [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Aktuell | Desktop-Build (Windows NSIS, Linux AppImage), Auto-Update, Release-Ablauf; ausgeliefert seit v0.3.1 |
+| [SOUND_PLAN.md](SOUND_PLAN.md) | Bericht (gebaut 2026-09-23) | Sound-Paket: Bugs, Technik, neue SFX per ElevenLabs, Musikzustände, Ducking; offen zwei Todes-Sounds und die Mischung |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
 | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) | Aktuell | Breite des Routenkorridors: Freiraum je Seite aus den Tiles, OSM-Breite als Rückfall, Laufweg (Korridor endet vor Autos, Traufen, Hecken), Brücken, Tunnel, Bau hinter dem Ladescreen und Einfrieren (`CorridorBuild`), Seitenversatz der Gegner und ihre Bögen an Ecken, `__corridor.*`, `__routes.describe()` |
 | [PROJECTILES.md](PROJECTILES.md) | Aktuell | Projektil-System, Flugbahnen, Konfiguration |
@@ -68,24 +71,25 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | **[WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** der Vertrag der Wellenquellen, Ordnerschnitt, Umschalten, die Wellenliste, Contract-Spec |
 | **[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)** | **Aktuell** | Der adaptive Source: Kandidaten, Druck-Regler, Überlebbarkeits-Deckel, Begründung im Debug-Fenster |
+| [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Bericht (gebaut) | Druck-Regler statt Leck-Regler: Befund, Bau, Messrunden, verworfener HP-Hebel (2026-09-21/22) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Spieler in Bot-Läufen |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
+| [desktop/README.md](../desktop/README.md) | Aktuell | Desktop-App bauen und starten |
+| [e2e/README.md](../e2e/README.md) | Aktuell | End-to-End-Tests einrichten |
 
-## Analysen & Berichte
+## Berichte
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
+| [RESEARCH_DIALOG_PLAN.md](RESEARCH_DIALOG_PLAN.md) | Bericht (gebaut 2026-09-21) | Forschung als Dialog mit Graph (G3): Entscheidungen, was anders kam; die Darstellung steht in DESIGN_SYSTEM.md |
 
-## Pläne (nicht umgesetzt)
+## Pläne und Konzepte
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
-| [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
-| [SOUND_PLAN.md](SOUND_PLAN.md) | Plan | Sound-Paket vom 2026-09-23: Bugs, Technik, neue SFX per ElevenLabs, Musikzustände, Ducking; was bewusst nicht dazugehört |
-| [COOP_PLAN.md](COOP_PLAN.md) | Plan | Coop "Vier Tore" im Lockstep über einen Node-Relay: Pakete C0 bis C7, Entscheidungen, offene Fragen. Kein Code |
-| [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code. PvP gestrichen (2026-09-24) |
-| [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. Anforderungen E1 bis E44 festgelegt (2026-09-18), Umsetzung auf Branch `electron` |
+| [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan (Phase 1 und 2 gebaut, Phase 3 offen) | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
+| [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Konzept | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Coop ist nach COOP_PLAN.md gebaut, PvP gestrichen (2026-09-24) |
 
 ## Archiv
 
@@ -148,7 +152,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...einen Tower selbst steuern (Egoperspektive) | [TOWER_CONTROL.md](TOWER_CONTROL.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
 | ...verstehen, wer die Wellen aussucht | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
-| ...den Überlebbarkeits-Deckel und den Leck-Regler verstehen | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
+| ...den Überlebbarkeits-Deckel und den Druck-Regler verstehen | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md), [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) |
 | ...wissen, warum das ONNX-Modell weg ist | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) → Warum die Regeln, [BALANCING_PLAN.md](BALANCING_PLAN.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 | ...den Balance-Stand verstehen | [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md), [economy-chart.html](economy-chart.html), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
@@ -164,6 +168,9 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...das Schadens-/Rüstungssystem verstehen | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
 | ...das GPU-instanzierte Enemy-Rendering verstehen | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
 | ...die GPU-LOS-Pipeline verstehen | [LOS_PIPELINE.md](LOS_PIPELINE.md) |
+| ...Coop verstehen, im LAN spielen, einen Relay betreiben | [COOP_PLAN.md](COOP_PLAN.md) |
+| ...ein Release bauen | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), Skill `/release` |
+| ...Browser-Tests laufen lassen | [E2E.md](E2E.md) |
 
 ---
 

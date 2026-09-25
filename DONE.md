@@ -2650,7 +2650,7 @@ Beim Aufräumen am 2026-09-16 aus TODO.md übernommen, dort schon abgehakt.
 - [x] **Architektur-Prinzip umgesetzt**
       - Angular nur fuer UI, Game Engine framework-agnostic
       - Hybrid: Events fuer Broadcasts, Spatial Grid fuer Queries
-      - Dokumentation: [EVENT_SYSTEM.md](EVENT_SYSTEM.md)
+      - Dokumentation: [EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md)
 
 ### Refactoring
 - [x] **Koordinaten-Typen vereinheitlicht**
@@ -2738,7 +2738,7 @@ Beim Aufräumen am 2026-09-16 aus TODO.md übernommen, dort schon abgehakt.
       - Fix für sporadisches "0 Kacheln geladen" Problem
       - Max 50 Retries á 200ms (10 Sekunden gesamt)
       - Force-Update bei persistentem Problem
-      - Siehe [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) für Details
+      - Siehe [TILES_LOADING_BUG.md](docs/archive/TILES_LOADING_BUG.md) für Details
 - [x] **Zombie-Textur Dateiname korrigiert**
 
 ### Refactoring
@@ -2860,7 +2860,7 @@ Beim Aufräumen am 2026-09-16 aus TODO.md übernommen, dort schon abgehakt.
   - Reference Counting fuer korrekte GPU-Resource Disposal (Memory Leak gefixt!)
   - Betroffene: ThreeTowerRenderer, ThreeEnemyRenderer, ModelPreviewService, TowerPlacementService
   - ~218 Zeilen duplizierter Code entfernt
-  - Siehe: [EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager](EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager)
+  - Siehe: EXPERT_REVIEW_2026.md (Abschnitt 6.2, nicht mehr vorhanden)
 
 ### Bugfixes
 - [x] **Wave endet nicht wenn alle Gegner tot sind**

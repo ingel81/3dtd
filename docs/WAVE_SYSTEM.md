@@ -527,7 +527,7 @@ Herbert-Welle der Ooze bzw. Skarnax, mit der Gesamt-HP der geplanten Welle
 (`CAMPAIGN_BOSS_VARIANTS` in `boss-variants.config.ts`). Eine Herbert-Welle
 schickt genau einen Herbert (`leaderCount`). An Boss-Wellen lässt die Maske nur Boss-Templates
 zu, an allen anderen sperrt sie sie; Details in
-[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md#maske-und-curriculum). `boss_golem` und
+[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md#5-kandidaten-und-kampagne). `boss_golem` und
 `boss_dragon` haben `minWave: 31`, `boss_dragon` braucht Anti-Air.
 
 **Boss-Varianten** (`configs/boss-variants.config.ts`): Bosse, die kein Template des

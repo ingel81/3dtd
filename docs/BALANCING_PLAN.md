@@ -196,7 +196,7 @@ Mischen im Spawn-Plan (`adaptDirectorWave(config, random)`), die Entscheidung de
 (`getNextWave(random)`) und die Bot-Strategien samt Konfigurations-Jitter (`gameState.rng.stream('bot')`). VFX und
 Audio behalten `Math.random`. `GameClock` zählt Sub-Steps fortlaufend (`subStep`), weil die Spielzeit als Summe von
 16,667 ms driftet und als Index nicht taugt. Zwei Specs sichern das ab: `utils/game-rng.spec.ts` (Ströme
-unabhängig, Sequenz von mulberry32 gepinnt) und `director/determinism.spec.ts` (gleicher Seed, gleiche Wellen und
+unabhängig, Sequenz von mulberry32 gepinnt) und `director/sources/adaptive/determinism.spec.ts` (gleicher Seed, gleiche Wellen und
 Spawns; anderer Seed, andere Wellen; der Bot-Strom bewegt die Gegner nicht). Nicht geseedet und bewusst offen: die
 Auswahl der Spawnpunkte beim Laden eines Orts (`osm-street.service.ts`) und der Zufallsort im Würfel, beides
 Weltaufbau vor dem Lauf.

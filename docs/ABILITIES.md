@@ -243,18 +243,17 @@ Entscheidung 6.1 b: Kills durch Fähigkeiten zählen für den Leck-Regler als
 Leck. Der Einsatz rettet HP und Gold in seiner Welle, macht aber die Wellen
 danach nicht größer.
 
-- `StateSnapshotService` addiert die `kills` jedes `ability:resolved` einer
-  Welle in `WaveOutcome.abilityKills`.
-- `leakRatio(progress, abilityKills)` (`director/leak-controller.ts`) zählt
-  sie zu den Ankünften. Ein getroffener Gegner hat als Fortschritt die Stelle,
-  an der er starb, also unter 1, und zählt dadurch genau einmal.
+- `WaveOutcomeTracker` addiert die `kills` jedes `ability:resolved` einer
+  Welle in `WaveOutcome.abilityKills` (für Log und Analyse).
+- Der Leck-Regler (`leakRatio`) ist am 2026-09-21 dem Druck-Regler gewichen
+  (`director/sources/adaptive/pressure-controller.ts`, siehe
+  [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md)); der liest nur die
+  verlorenen HP, ein Kill durch eine Fähigkeit geht also nicht eigens ein.
 - Split: Ein Skeleton, das der Schlag tötet, geht durch `EnemyManager.kill()`
   mit der Ursache `'combat'` und splittet wie bei jedem Kill. Die Minions
   entstehen erst nach der Zielliste, bekommen keinen Schaden und zählen nicht
   in `abilityKills`. Als eigene Körper stehen sie im Nenner; ein
   durchgelaufener Minion ist ein Leck, ein von Towern getöteter keins.
-- Das Trainings-Backend spiegelt das in `gate_leak_share` (`server.py`), nur für
-  das Gate. Der Reward liest weiter nur die Ankünfte (`leakRatio`).
 - Im DPS-Modell des Directors taucht die Fähigkeit nicht auf (punktuell).
 
 ---
@@ -654,7 +653,6 @@ der Nuklearschlag seinen Knopf.
 | `services/refusal-hint.service.ts` | Warum ein Druck nichts tat, in der Kontext-Hinweis-Box (auch für den Helden) |
 | `services/combat/damage-application.service.ts` | `applyMaxHpFraction`, der matrixfreie Schadensweg |
 | `services/world/global-route-grid.service.ts`, `utils/global-route-grid.ts` | `snapToRouteCell`, `findNearestCell` |
-| `director/leak-controller.ts` | `leakRatio` |
 | `services/ability-targeting.service.ts` | Zielmodus |
 | `components/ability-bar/` | Fähigkeitenleiste; `ability-button.ts`: Zustand und Tooltip der Knöpfe |
 | `services/hotkey-map.ts` | Taste je Fähigkeit aus `AbilityConfig.hotkey` |
@@ -681,9 +679,8 @@ der Nuklearschlag seinen Knopf.
 | `bots/strategies/ability/orbital-laser.strategy.ts` | Bot des Orbitallasers |
 
 Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
-`integration/ability-strike.spec.ts`, `leak-controller.spec.ts`,
-`leak-wiring.spec.ts`, `state-snapshot.ability-kills.spec.ts`,
-`vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `missile-silo.spec.ts`, `integration/silo-missile.scenario.spec.ts`, `three-tower.renderer.spec.ts` (Nodes ein- und ausblenden), `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`, `replay-player.spec.ts` (Rakete und Startton im Replay),
+`integration/ability-strike.spec.ts`, `pressure-wiring.spec.ts`, `state-snapshot.ability-kills.spec.ts`,
+`vfx.service.spec.ts`, `missile-flight.spec.ts`, `missile-launch.renderer.spec.ts`, `missile-silo.spec.ts`, `integration/silo-missile.scenario.spec.ts`, `three-tower.renderer.spec.ts` (Nodes ein- und ausblenden), `mushroom-cloud.renderer.spec.ts`, `mushroom-cloud-pause.scenario.spec.ts`, `bloom-kick.spec.ts`, `audio.service.spec.ts`, `nuke-sound.spec.ts`, `screen-shake.service.spec.ts`,
 `combat-effect.service.spec.ts`, `ability-targeting.service.spec.ts`,
 `integration/ability-frost.spec.ts`, `frost-burst.renderer.spec.ts`,
 `integration/ability-emp.spec.ts`, `emp-pulse.renderer.spec.ts`,
@@ -692,7 +689,7 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `integration/ability-ooze.spec.ts` (Frost, EMP und Laser gegen den Körper der Ooze),
 `route-sweep.spec.ts`, `ability-marker.renderer.spec.ts`,
 `ability-button.spec.ts`, `nuclear-strike.strategy.spec.ts`,
-`strategy-bot.factory.spec.ts`, Backend `tests/test_gate_loop.py`. Zum Silo:
+`strategy-bot.factory.spec.ts`. Zum Silo:
 `ability-bar.scenario.spec.ts` (Knopf kommt und geht mit dem Silo),
 `refusal-hint.scenario.spec.ts` (K ohne Silo), `game-state.manager.order.spec.ts`
 (Snapshot nach Bau und Verkauf), `building-panel.spec.ts`,

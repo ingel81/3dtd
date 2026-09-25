@@ -148,7 +148,7 @@ Stale-LOS-Bugs, weil Höhen nach dem Seal nicht mehr still wandern.
 ### 2.3 RNG und Wave-Director
 
 > **Stand 2026-09-07: Dieser Blocker ist weitgehend entfallen.** Der
-> Wave-Director ist seit dem Wechsel auf `director/director-rules.ts` kein
+> Wave-Director ist seit dem Wechsel auf `director/sources/adaptive/director-rules.ts` kein
 > neuronales Netz mehr, sondern eine Regelfunktion: reines TypeScript, keine
 > WASM-Backends, keine Float-Divergenz zwischen Clients. Der ursprüngliche Text
 > steht darunter, weil die Begründung für den Command-Broadcast weiterhin
@@ -162,7 +162,7 @@ Gameplay-relevante `Math.random()`-Aufrufe (der Rest ist VFX und darf bleiben):
 | `managers/wave.manager.ts` | `selectSpawnPoint` | Spawn-Point-Auswahl |
 | `entities/enemy.entity.ts` | `scheduleNextRandomSound`, `playRandomSound`, `refillRandomSoundsQueue`, `scheduleNextPoolSound` | Audio-Timing, Shuffle |
 | `director/spawn-schedule-builder.ts` | `getDelay` (`delayVariation`), `buildRandom` | Delay-Jitter, Shuffle |
-| `director/director-rules.ts` | `decideWave().decide` | Template-Wahl und Faktor-Jitter |
+| `director/sources/adaptive/director-rules.ts` | `decideWave().decide` | Template-Wahl und Faktor-Jitter |
 | `director/leak-controller.ts` | – | keiner: rein arithmetisch, kein RNG |
 
 **Lösung:** Ein `DeterministicRng` (mulberry32/xorshift128, seed pro Match aus

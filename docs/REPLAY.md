@@ -1,6 +1,6 @@
 # Replay einer Welle
 
-**Stand:** 2026-09-24 · Branch `simulator`
+**Stand:** 2026-09-24 · ausgeliefert mit v0.4.0
 
 Jede fertige Welle des Laufs lässt sich noch einmal ansehen: freie Kamera, Pause, 0,25x bis 4x, Sprung an jede
 Stelle, Wechsel zur vorigen und nächsten Welle, Speichern als Datei und Laden auf derselben Karte. Nach dem Replay
