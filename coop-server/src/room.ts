@@ -215,6 +215,11 @@ export class Room {
     this.broadcastRoom();
   }
 
+  /** The game began; a run log sent from here on belongs to this room (TODO E38) */
+  get hasStarted(): boolean {
+    return this.started;
+  }
+
   get isEmpty(): boolean {
     return this.players.length === 0;
   }

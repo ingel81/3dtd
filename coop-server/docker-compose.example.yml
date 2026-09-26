@@ -12,8 +12,10 @@ services:
         max-size: "10m"
         max-file: "3"
     # Actions on the status page (close a room, drop a player) for whoever enters this token; leave out for read only
+    # Keep the run logs players agree to send after a coop game (logs/runs, 2 GB, 90 days); download on the status page
     # environment:
     #   RELAY_ADMIN_TOKEN: "a long random string"
+    #   RELAY_COLLECT_RUNS: "1"
     volumes:
       - ./logs:/app/logs
     # No published port needed: cloudflared reaches it on the shared network.

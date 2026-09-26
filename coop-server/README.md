@@ -22,6 +22,7 @@ relay for LAN games; nothing to set up for that.
 | `--no-cheats` | Rooms refuse the dev tools' cheats whatever the host sets |
 | `--origins a,b` | Browsers only from these pages (`Origin`); the desktop app is `app://app`. Clients without an Origin pass. Without the option every page may |
 | `--status local` | The status page (`/`, `/status`, `/text`, `/metrics.json`, `/log.json`) only for this machine and the local network, not for what comes through a Cloudflare tunnel. `/healthz` answers everyone |
+| `--collect-runs` | Keep the run logs players agree to send after a coop game (or `RELAY_COLLECT_RUNS=1`): `<log-dir>/runs/coop/<day>_<room>/`, 2 GB and 90 days, the oldest go first. The status page lists them for download with the admin token. Off by default; the game only asks players on a relay that collects |
 | `--admin-token T` | The status page may close rooms and drop players for whoever enters `T`. Better as the environment variable `RELAY_ADMIN_TOKEN` (a process list shows arguments). Without it the page only reads |
 | `--log-dir DIR` | Where `coop_<day>.log` goes (`logs/` in the repository by default) |
 | `--log-days N` | Delete log days older than N |
@@ -96,9 +97,16 @@ tunnel the one Cloudflare passes on). What it keeps: a log per day with times, r
 days. The address is only counted in memory while the connection is open, to limit how many one machine opens; it is
 never logged or written anywhere.
 
+With `--collect-runs`, and only for a player who agreed in the game, the relay also keeps that player's run log of a
+coop game: names, the place played with its address, every move and number of the run, for 90 days, to find errors
+and improve the game. A log is checked before it is kept (a run log of this format whose waves add up as the game
+wrote them); anything else is refused.
+
 A paragraph for the privacy notice of the landing page:
 
 > **Online coop.** If you play coop online, your game connects to our lobby server (3dtd-lobby.sgeht.net, run through
 > Cloudflare). It passes your moves to the other players of your room. The server keeps a log with the time, the room
 > code and the name you chose, for 14 days, to find errors; it does not store IP addresses. Cloudflare processes the
-> connection as our network provider. Coop on the same network (LAN) does not use the lobby.
+> connection as our network provider. Coop on the same network (LAN) does not use the lobby. If you agree after a
+> game, the server also keeps your run log (the names in the game, the place you played, your moves and numbers) for
+> 90 days, to find errors and improve the game; you can change that in the options.

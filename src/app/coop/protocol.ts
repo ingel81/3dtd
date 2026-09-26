@@ -152,10 +152,15 @@ export type ClientMessage =
   | { t: 'speed'; speed: number }
   | { t: 'chat'; text: string }
   /** A mark on the map for the others (D25, review R13); height of the ground there */
-  | { t: 'ping'; lat: number; lon: number; height: number };
+  | { t: 'ping'; lat: number; lon: number; height: number }
+  /** After a game, with the player's consent: the run log, gzip and base64 (TODO E38); only to a relay that collects */
+  | { t: 'run-log'; gz: string };
 
 export type ServerMessage =
-  | { t: 'welcome'; playerId: string }
+  /** `collectRuns`: this relay keeps run logs a player agrees to send (TODO E38) */
+  | { t: 'welcome'; playerId: string; collectRuns?: boolean }
+  /** The answer to a run-log: kept, or why not */
+  | { t: 'run-log'; ok: boolean; reason?: string }
   /** `hostVersion` with 'version': the game version the host runs (D60) */
   | { t: 'refused'; reason: RefusalReason; hostVersion?: string }
   | { t: 'room'; room: CoopRoomInfo }

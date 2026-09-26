@@ -149,6 +149,10 @@ export class CoopSession {
   onMoving: (() => void) | null = null;
   /** The relay found the simulations apart (C5): the first tick, player id and hash each */
   onDesync: ((tick: number, hashes: [string, number][], outOfStep: string[], parts: HashPart[] | null) => void) | null = null;
+  /** The relay's answer to a sent run log (TODO E38) */
+  onRunLog: ((ok: boolean, reason: string | null) => void) | null = null;
+  /** The relay keeps run logs a player agrees to send, from its welcome (TODO E38) */
+  collectRuns = false;
   onRefused: ((reason: RefusalReason) => void) | null = null;
   /** The connection closed; `restart` when the relay said it restarts (close code 1012, relay review M6) */
   onClosed: ((restart: boolean) => void) | null = null;
@@ -278,6 +282,11 @@ export class CoopSession {
     this.out({ t: 'chat', text });
   }
 
+  /** After a game: the run log, gzip as base64 (TODO E38); only when the relay collects */
+  sendRunLog(gz: string): void {
+    if (this.collectRuns) this.out({ t: 'run-log', gz });
+  }
+
   /** Lobby: what this client is doing now, for the others to see */
   tellStatus(status: PlayerStatus): void {
     this.out({ t: 'status', status });
@@ -347,6 +356,7 @@ export class CoopSession {
     switch (message.t) {
       case 'welcome':
         this.playerId = message.playerId;
+        this.collectRuns = message.collectRuns === true;
         return this.settle('welcome', message.playerId);
       case 'refused':
         if (this.pendingReply) return this.fail(new CoopRefusedError(message.reason, message.hostVersion ?? null));
@@ -395,6 +405,8 @@ export class CoopSession {
         return this.onPing?.(message.from, message.lat, message.lon, message.height);
       case 'desync':
         return this.onDesync?.(message.tick, message.hashes, message.outOfStep ?? [], message.parts ?? null);
+      case 'run-log':
+        return this.onRunLog?.(message.ok, message.reason ?? null);
     }
   }
 }

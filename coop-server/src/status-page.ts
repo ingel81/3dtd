@@ -88,6 +88,10 @@ const PAGE = `<!doctype html>
   </div>
   <div class="dim hint">The relay's RELAY_ADMIN_TOKEN. It unlocks the buttons "drop" (a player) and "close room" in the rooms above; without an open room there is nothing to act on.</div>
 </div>
+<div id="runsBox" hidden>
+  <h2>Run logs</h2>
+  <div class="rooms" id="runs"></div>
+</div>
 <h2>Log</h2>
 <pre id="log"></pre>
 </main>
@@ -110,6 +114,7 @@ const PAGE = `<!doctype html>
       unlocked = false;
       note('locked', 'dim');
       if (lastStatus) renderRooms(lastStatus);
+      loadRuns();
       return;
     }
     fetch('/admin/check', { method: 'POST', headers: { 'x-admin-token': tokenInput.value } })
@@ -117,6 +122,7 @@ const PAGE = `<!doctype html>
         unlocked = r.status === 200;
         note(unlocked ? 'unlocked: drop and close room are on' : 'wrong token, locked', unlocked ? 'ok' : 'bad');
         if (lastStatus) renderRooms(lastStatus);
+        loadRuns();
       })
       .catch(function () { note('relay not reachable', 'bad'); });
   }
@@ -203,6 +209,55 @@ const PAGE = `<!doctype html>
     box.appendChild(table);
   }
 
+  // Run logs the players sent after a coop game (TODO E38), with the token and only on a relay that collects
+  function loadRuns() {
+    var box = document.getElementById('runsBox');
+    if (!unlocked) { box.hidden = true; return; }
+    fetch('/admin/runs', { headers: { 'x-admin-token': tokenInput.value } })
+      .then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (runs) {
+        box.hidden = runs === null;
+        if (runs) renderRuns(runs);
+      })
+      .catch(function () { box.hidden = true; });
+  }
+  function download(path) {
+    fetch('/admin/runs/file?path=' + encodeURIComponent(path), { headers: { 'x-admin-token': tokenInput.value } })
+      .then(function (r) { return r.ok ? r.blob() : null; })
+      .then(function (blob) {
+        if (!blob) return;
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = path.split('/').slice(-2).join('_');
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(function () { URL.revokeObjectURL(a.href); }, 1000);
+      });
+  }
+  function renderRuns(runs) {
+    var box = document.getElementById('runs');
+    box.textContent = '';
+    if (!runs.length) { box.appendChild(el('div', 'None sent yet.', 'dim')); return; }
+    var table = el('table');
+    var head = el('tr');
+    ['Sent', 'Game', 'Size', ''].forEach(function (t) { head.appendChild(el('th', t)); });
+    table.appendChild(head);
+    runs.forEach(function (run) {
+      var row = el('tr');
+      row.appendChild(el('td', new Date(run.at).toLocaleString()));
+      row.appendChild(el('td', run.path.slice(run.path.indexOf('/') + 1)));
+      row.appendChild(el('td', kb(run.bytes)));
+      var tools = el('td');
+      var b = el('button', 'download');
+      b.addEventListener('click', function () { download(run.path); });
+      tools.appendChild(b);
+      row.appendChild(tools);
+      table.appendChild(row);
+    });
+    box.appendChild(table);
+  }
+
   function renderMetrics(m, status) {
     var meta = document.getElementById('meta');
     meta.textContent = 'build ' + status.build + ', protocol ' + status.protocol + ', up ' + span(m.uptimeS);
@@ -249,6 +304,7 @@ const PAGE = `<!doctype html>
   }
   refresh();
   setInterval(refresh, 5000);
+  setInterval(loadRuns, 30000);
 })();
 </script>
 </body>

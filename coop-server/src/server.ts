@@ -27,6 +27,7 @@ import { clientLabel, type ClientInfo } from '../../src/app/coop/client-info.ts'
 import { parseClientMessage } from './validate.ts';
 import { RelayMetrics, SAMPLE_MS, type DropReason, type MetricsSample } from './metrics.ts';
 import { statusPage } from './status-page.ts';
+import { RunStore } from './run-store.ts';
 
 /** How often the rooms' clocks run, ms. Ticks close at the room's pace, this only samples the wall clock. */
 const CLOCK_MS = 5;
@@ -43,6 +44,8 @@ const MISSED_HEARTBEATS = 3;
 const STATUS_MS = 10_000;
 /** The metrics line goes to the log this often, ms */
 const METRICS_LINE_MS = 60_000;
+/** How often kept run logs are checked for age and size */
+const RUN_PRUNE_MS = 60 * 60_000;
 
 /** A lobby not started after this long closes, its players are let go (review R18) */
 export const LOBBY_MAX_MS = 60 * 60 * 1000;
@@ -103,6 +106,10 @@ interface Connection {
   throttled: boolean;
   /** Room codes tried that did not exist */
   joinMisses: number;
+  /** The room of the last game this connection played in, for its run log (TODO E38) */
+  playedRoom: string | null;
+  /** Rooms this connection sent a run log for; one each */
+  sentRuns: Set<string>;
   helloTimer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -181,6 +188,11 @@ export interface RelayOptions {
   adminToken?: string;
   /** Which build this is, for the log and the status page; 'dev' by default */
   build?: string;
+  /**
+   * Keep the run logs players agree to send after a coop game (TODO E38):
+   * where, and how much for how long. Off without it.
+   */
+  collectRuns?: { dir: string; maxBytes: number; maxAgeMs: number };
 }
 
 /** Start the relay on `port` (0: any free port); rejects when the port is taken. */
@@ -221,10 +233,13 @@ class Relay {
   private closed: Promise<void> | null = null;
 
   private readonly options: RelayOptions;
+  /** The kept run logs, when the relay collects them (TODO E38) */
+  private readonly runStore: RunStore | null;
 
   constructor(options: RelayOptions) {
     this.options = options;
     this.now = options.now ?? (() => performance.now());
+    this.runStore = options.collectRuns ? new RunStore({ ...options.collectRuns, now: () => Date.now() }) : null;
     this.startedAt = this.now();
     this.origins = options.origins?.length ? new Set(options.origins.map((o) => o.replace(/\/$/, ''))) : null;
     this.http = createServer((request, response) => {
@@ -348,6 +363,7 @@ class Relay {
       response.end('not here\n');
       return;
     }
+    if (request.method === 'GET' && path.startsWith('/admin/runs')) return this.runsAdmin(request, response, path);
     if (request.method === 'POST' && path.startsWith('/admin/')) return this.admin(request, response, path);
     const json = (body: unknown) => {
       response.writeHead(200, { 'content-type': 'application/json' });
@@ -413,6 +429,33 @@ class Relay {
     });
   }
 
+  /**
+   * The kept run logs, with the admin token (TODO E38): GET /admin/runs
+   * lists them, GET /admin/runs/file?path=... hands one over.
+   */
+  private runsAdmin(request: IncomingMessage, response: ServerResponse, path: string): void {
+    const token = this.options.adminToken;
+    if (!token || request.headers['x-admin-token'] !== token || !this.runStore) {
+      response.writeHead(403, { 'content-type': 'text/plain; charset=utf-8' });
+      response.end('no\n');
+      return;
+    }
+    if (path === '/admin/runs') {
+      response.writeHead(200, { 'content-type': 'application/json' });
+      response.end(JSON.stringify(this.runStore.list()));
+      return;
+    }
+    const wanted = new URL(request.url ?? '', 'http://relay').searchParams.get('path') ?? '';
+    const bytes = path === '/admin/runs/file' ? this.runStore.read(wanted) : null;
+    if (!bytes) {
+      response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
+      response.end('no such log\n');
+      return;
+    }
+    response.writeHead(200, { 'content-type': 'application/gzip' });
+    response.end(bytes);
+  }
+
   // ── WebSocket: who may connect, a connection's life, its messages ─
 
   private logRefusal(kind: string, line: string): void {
@@ -476,6 +519,7 @@ class Relay {
     const connection: Connection = {
       socket, address, player: null, room: null, missed: 0, pingAt: 0, rtt: null, dropReason: null,
       burst: 0, burstAt: this.now(), throttled: false, joinMisses: 0, helloTimer: null,
+      playedRoom: null, sentRuns: new Set(),
     };
     this.connections.set(id, connection);
     // A connection that never says hello holds a slot for nothing (review H3)
@@ -558,7 +602,7 @@ class Relay {
         configHash: message.configHash,
         client: validClient(message.client),
       };
-      return this.send(id, { t: 'welcome', playerId: id });
+      return this.send(id, { t: 'welcome', playerId: id, ...(this.runStore ? { collectRuns: true } : {}) });
     }
     const player = connection.player;
     if (!player) return;
@@ -569,7 +613,28 @@ class Relay {
       return this.send(id, { t: 'rooms', rooms: list });
     }
     if (message.t === 'join') return this.join(id, connection, player, message.room);
+    if (message.t === 'run-log') return this.runLog(id, connection, player, message.gz);
+    if (connection.room?.hasStarted) connection.playedRoom = connection.room.code;
     connection.room?.receive(id, message);
+  }
+
+  /**
+   * A player's run log after a game (TODO E38): only to a relay that
+   * collects, only from someone who played in a room, once per room. The
+   * store checks the content.
+   */
+  private runLog(id: string, connection: Connection, player: RoomPlayer, gz: string): void {
+    const room = connection.room?.hasStarted ? connection.room.code : connection.playedRoom;
+    if (!this.runStore || !room) return this.send(id, { t: 'run-log', ok: false, reason: 'not collected here' });
+    if (connection.sentRuns.has(room)) return this.send(id, { t: 'run-log', ok: false, reason: 'already sent' });
+    connection.sentRuns.add(room);
+    const result = this.runStore.accept(room, id, player.name, gz);
+    if (result.ok) {
+      this.log(`[${room}] run log of ${player.name} (${id}) kept, ${Math.round(gz.length * 0.75 / 1024)} kB`);
+      return this.send(id, { t: 'run-log', ok: true });
+    }
+    this.log(`[${room}] run log of ${player.name} (${id}) refused: ${result.reason}`);
+    this.send(id, { t: 'run-log', ok: false, reason: result.reason });
   }
 
   private create(id: string, connection: Connection, player: RoomPlayer): void {
@@ -662,6 +727,8 @@ class Relay {
       this.log(line);
     });
     let last = this.now();
+    // Kept run logs age out even on a day nobody sends one (TODO E38)
+    if (this.runStore) this.every(RUN_PRUNE_MS, 'run log pruning', () => this.runStore?.prune());
     this.every(CLOCK_MS, 'clock', () => {
       const at = this.now();
       const elapsed = at - last;
