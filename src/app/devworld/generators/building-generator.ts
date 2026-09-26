@@ -14,6 +14,7 @@
 
 import { mulberry32, hashSeed } from '../utils/seeded-random';
 import { StreetSegment } from './street-generator';
+import { distanceVec2, lerpVec2, type Vec2 } from './vec2';
 
 // ========================================
 // Types
@@ -43,11 +44,6 @@ export interface BuildingGeneratorConfig {
   hqSafeRadius?: number;
   /** Function to sample terrain height at position */
   terrainSampler?: (x: number, z: number) => number;
-}
-
-interface Vec2 {
-  x: number;
-  z: number;
 }
 
 // ========================================
@@ -138,17 +134,6 @@ const DENSITY_CONFIGS: Record<BuildingDensity, {
 // Vector Utilities
 // ========================================
 
-function distance(a: Vec2, b: Vec2): number {
-  return Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
-}
-
-function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
-  return {
-    x: a.x + (b.x - a.x) * t,
-    z: a.z + (b.z - a.z) * t,
-  };
-}
-
 /**
  * Calculate minimum distance from point to line segment
  */
@@ -158,7 +143,7 @@ function distanceToSegment(point: Vec2, segFrom: Vec2, segTo: Vec2): number {
   const segLenSq = dx * dx + dz * dz;
 
   if (segLenSq < 0.001) {
-    return distance(point, segFrom);
+    return distanceVec2(point, segFrom);
   }
 
   // Project point onto line, clamped to segment
@@ -171,7 +156,7 @@ function distanceToSegment(point: Vec2, segFrom: Vec2, segTo: Vec2): number {
     z: segFrom.z + t * dz,
   };
 
-  return distance(point, projection);
+  return distanceVec2(point, projection);
 }
 
 // ========================================
@@ -217,7 +202,6 @@ export class BuildingGenerator {
     // All buildings along streets (no isolated clusters)
     this.placeAlongStreets(densityConfig.totalBuildings, densityConfig.presetWeights);
 
-
     return this.buildings;
   }
 
@@ -241,7 +225,7 @@ export class BuildingGenerator {
     for (const segment of streetSegments) {
       const from = { x: segment.from[0], z: segment.from[1] };
       const to = { x: segment.to[0], z: segment.to[1] };
-      const len = distance(from, to);
+      const len = distanceVec2(from, to);
       if (len >= 50) {
         // Pre-calculate street angle
         const angle = Math.atan2(to.z - from.z, to.x - from.x);
@@ -287,7 +271,7 @@ export class BuildingGenerator {
 
           while (currentDist < length - 8 && placed < count) {
             const t = currentDist / length;
-            const streetPoint = lerp(from, to, t);
+            const streetPoint = lerpVec2(from, to, t);
 
             // Select building size - smaller for denser packing
             const preset = this.selectPreset(presetWeights);
@@ -307,7 +291,7 @@ export class BuildingGenerator {
             currentDist += buildingWidth + BUILDING_GAP;
 
             // Skip if too close to HQ
-            if (distance(position, hqPosition) < hqSafeRadius) continue;
+            if (distanceVec2(position, hqPosition) < hqSafeRadius) continue;
 
             // Skip if out of bounds
             if (!this.isInBounds(position)) continue;
@@ -343,7 +327,6 @@ export class BuildingGenerator {
 
   }
 
-
   /**
    * Fallback grid placement when no streets are available.
    */
@@ -366,7 +349,7 @@ export class BuildingGenerator {
         const z = -halfWorld + margin + spacing * (gz + 0.5) + (this.rng() - 0.5) * spacing * 0.3;
 
         // Skip if too close to HQ
-        if (distance({ x, z }, hqPosition) < hqSafeRadius) continue;
+        if (distanceVec2({ x, z }, hqPosition) < hqSafeRadius) continue;
 
         // Skip if too close to streets (don't block them)
         if (this.overlapsStreet({ x, z }, 15)) continue;

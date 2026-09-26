@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
-import { RunSummary, formatRunTime } from '../../run-log/run-summary';
+import { RunSummary } from '../../run-log/run-summary';
+import { formatClock } from '../../utils/format-clock';
 import { formatCompact } from '../../utils/format-compact';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
@@ -33,7 +34,7 @@ export class RunSummaryComponent {
   readonly summary = input.required<RunSummary>();
 
   readonly compact = formatCompact;
-  readonly runTime = computed(() => formatRunTime(this.summary().durationMs));
+  readonly runTime = computed(() => formatClock(this.summary().durationMs));
 
   readonly leakBars = computed<LeakBar[]>(() => {
     const { leaksPerWave, hqDamagePerWave } = this.summary();

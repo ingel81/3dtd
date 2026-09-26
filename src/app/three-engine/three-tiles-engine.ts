@@ -75,6 +75,7 @@ import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '.
 import { ABILITIES } from '../configs/abilities.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { GeoPosition } from '../models/game.types';
+import { tilesInternals, tilesPending } from './tiles-internals';
 
 /**
  * Route corridor load region, see {@link RouteCorridorRegion}. The half width
@@ -817,11 +818,9 @@ export class ThreeTilesEngine {
    */
   routeCorridorLod(): (RegionLodState & { pending: number }) | null {
     if (!this.tilesRenderer || !this.routeCorridorRegion) return null;
-    // The renderer counts these, its declarations do not type them.
-    const stats = (this.tilesRenderer as unknown as { stats?: { queued?: number; downloading?: number; parsing?: number } }).stats;
     return {
       ...this.routeCorridorRegion.lodState(this.tilesRenderer.activeTiles as unknown as Iterable<RegionTile>),
-      pending: (stats?.queued ?? 0) + (stats?.downloading ?? 0) + (stats?.parsing ?? 0),
+      pending: tilesPending(this.tilesRenderer),
     };
   }
 
@@ -995,7 +994,7 @@ export class ThreeTilesEngine {
    * UpdateOnChangePlugin skips one. Only the shake benchmark reads it.
    */
   private tilesTraversalCount(): number {
-    return (this.tilesRenderer as unknown as { frameCount?: number } | null)?.frameCount ?? 0;
+    return this.tilesRenderer ? tilesInternals(this.tilesRenderer).frameCount : 0;
   }
 
   /**

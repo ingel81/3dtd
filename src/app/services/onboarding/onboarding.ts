@@ -1,6 +1,7 @@
 import type { HintItem } from '../../components/context-hint/context-hint.component';
 import { ABILITIES, AbilityId } from '../../configs/abilities.config';
 import { HERO } from '../../configs/hero.config';
+import { readJson, writeJson } from '../../utils/storage';
 
 /** localStorage key of the first-run tips; v2 since they follow the course of a game */
 export const ONBOARDING_KEY = 'td_onboarding_v2';
@@ -244,23 +245,14 @@ function isStep(v: unknown): v is OnboardingStep {
 
 /** Stored state; a missing, unreadable or blocked store starts the tips fresh. */
 export function loadOnboarding(): OnboardingState {
-  try {
-    const raw = localStorage.getItem(ONBOARDING_KEY);
-    if (!raw) return INITIAL_ONBOARDING;
-    const parsed = JSON.parse(raw) as Partial<OnboardingState> | null;
-    if (!parsed || typeof parsed.done !== 'boolean' || !Array.isArray(parsed.completed)) {
-      return INITIAL_ONBOARDING;
-    }
-    return { done: parsed.done, completed: parsed.completed.filter(isStep) };
-  } catch {
+  const parsed = readJson(ONBOARDING_KEY) as Partial<OnboardingState> | null;
+  if (!parsed || typeof parsed.done !== 'boolean' || !Array.isArray(parsed.completed)) {
     return INITIAL_ONBOARDING;
   }
+  return { done: parsed.done, completed: parsed.completed.filter(isStep) };
 }
 
 export function saveOnboarding(state: OnboardingState): void {
-  try {
-    localStorage.setItem(ONBOARDING_KEY, JSON.stringify(state));
-  } catch {
-    // Blocked storage: the tips show again next time
-  }
+  // Blocked storage: the tips show again next time
+  writeJson(ONBOARDING_KEY, state);
 }

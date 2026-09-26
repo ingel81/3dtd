@@ -1,6 +1,7 @@
 import { Injectable, computed, signal, effect } from '@angular/core';
 import { TowerTypeId } from '../configs/tower-types.config';
 import type { AbilityId } from '../configs/abilities.config';
+import { readJson, writeJson } from '../utils/storage';
 
 /** LocalStorage key for persisted UI state */
 const STORAGE_KEY = 'td-ui-state';
@@ -225,30 +226,25 @@ export class UIStore {
 
   /** Load persisted state from localStorage */
   private loadPersistedState(): void {
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const state: PersistedUIState & LegacyMenuFlags = JSON.parse(stored);
-        if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
-        if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
-        if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
-        if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
-        if (state.airSpatialGridDebugVisible !== undefined) this.airSpatialGridDebugVisible.set(state.airSpatialGridDebugVisible);
-        if (state.airRouteVisible !== undefined) this.airRouteVisible.set(state.airRouteVisible);
-        if (state.perTowerLosFilter !== undefined) this.perTowerLosFilter.set(state.perTowerLosFilter);
-        this.openMenu.set(storedOpenMenu(state));
-        if (state.masterVolume !== undefined) this.masterVolume.set(state.masterVolume);
-        if (state.masterMuted !== undefined) this.masterMuted.set(state.masterMuted);
-        if (state.uiVolume !== undefined) this.uiVolume.set(state.uiVolume);
-        if (state.uiMuted !== undefined) this.uiMuted.set(state.uiMuted);
-        if (state.musicVolume !== undefined) this.musicVolume.set(state.musicVolume);
-        if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
-        if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
-        if (state.sfxMuted !== undefined) this.sfxMuted.set(state.sfxMuted);
-        if (state.autoStartWaves !== undefined) this.autoStartWaves.set(state.autoStartWaves);
-      }
-    } catch {
-      // Ignore parse errors
+    const state = readJson(STORAGE_KEY) as (PersistedUIState & LegacyMenuFlags) | null;
+    if (state && typeof state === 'object') {
+      if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
+      if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
+      if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
+      if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
+      if (state.airSpatialGridDebugVisible !== undefined) this.airSpatialGridDebugVisible.set(state.airSpatialGridDebugVisible);
+      if (state.airRouteVisible !== undefined) this.airRouteVisible.set(state.airRouteVisible);
+      if (state.perTowerLosFilter !== undefined) this.perTowerLosFilter.set(state.perTowerLosFilter);
+      this.openMenu.set(storedOpenMenu(state));
+      if (state.masterVolume !== undefined) this.masterVolume.set(state.masterVolume);
+      if (state.masterMuted !== undefined) this.masterMuted.set(state.masterMuted);
+      if (state.uiVolume !== undefined) this.uiVolume.set(state.uiVolume);
+      if (state.uiMuted !== undefined) this.uiMuted.set(state.uiMuted);
+      if (state.musicVolume !== undefined) this.musicVolume.set(state.musicVolume);
+      if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
+      if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
+      if (state.sfxMuted !== undefined) this.sfxMuted.set(state.sfxMuted);
+      if (state.autoStartWaves !== undefined) this.autoStartWaves.set(state.autoStartWaves);
     }
   }
 
@@ -281,13 +277,8 @@ export class UIStore {
         if (this.persistTimer !== null) return;
         this.persistTimer = setTimeout(() => {
           this.persistTimer = null;
-          if (this.pendingState) {
-            try {
-              localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pendingState));
-            } catch {
-              // Storage full or blocked: the settings hold for this session
-            }
-          }
+          // Storage full or blocked: the settings hold for this session
+          if (this.pendingState) writeJson(STORAGE_KEY, this.pendingState);
         }, PERSIST_DEBOUNCE_MS);
       });
     } catch {

@@ -1,4 +1,5 @@
 import type { TilesRenderer } from '3d-tiles-renderer';
+import { tilesInternals } from './tiles-internals';
 
 /**
  * Handle on the LOD the 3D tiles load at: the corridor build sets the region
@@ -139,13 +140,6 @@ export interface TilesLodDebug {
   holdSettled(hold: boolean): void;
 }
 
-/** The renderer's fields this handle reads that its typings omit. */
-interface TilesInternals {
-  isLoading: boolean;
-  stats: { queued: number; downloading: number; parsing: number };
-  lruCache: { cachedBytes: number; itemSet: Map<unknown, unknown>; isFull(): boolean; getMemoryUsage(item: unknown): number };
-}
-
 const MB = 2 ** 20;
 const round1 = (v: number) => Math.round(v * 10) / 10;
 
@@ -157,7 +151,7 @@ export function createTilesLodDebug(
   tiles: TilesRenderer,
   host: { region(): { errorTarget: number } | null; holdSettled(hold: boolean): void },
 ): TilesLodDebug {
-  const internals = tiles as unknown as TilesInternals;
+  const internals = tilesInternals(tiles);
   // UpdateOnChangePlugin updates on camera moves and tile loads only.
   const update = () => tiles.dispatchEvent({ type: 'needs-update' });
   return {

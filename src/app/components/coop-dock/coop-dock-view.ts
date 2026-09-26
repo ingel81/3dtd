@@ -3,6 +3,7 @@ import { MAX_PLAYERS, type CoopRoomInfo, type PlayerStatus } from '../../coop/pr
 import type { ClientInfo } from '../../coop/client-info';
 import type { LaneStat } from '../../coop/lane-stats';
 import { laneCss } from '../../coop/lane-color';
+import { formatClock } from '../../utils/format-clock';
 
 /**
  * What the coop dock shows, as pure functions of the room and the service's
@@ -183,17 +184,12 @@ export function roomTable(i: TableInput): { lanes: LaneRow[]; seatless: SeatPlay
       label: `Spawn ${index + 1}`,
       color: laneCss(index),
       share: stat?.share ?? 0,
-      length: stat ? `${stat.meters} m · ${walkTime(stat.seconds)}` : '',
+      length: stat ? `${stat.meters} m · ${formatClock(stat.seconds * 1000)}` : '',
       player: owner ? seat(owner) : null,
     };
   });
   const seatless = room.players.filter((p) => p.spawnId === null || !room.spawnIds.includes(p.spawnId)).map(seat);
   return { lanes, seatless };
-}
-
-/** "3:47", the time a standard enemy walks a lane */
-export function walkTime(seconds: number): string {
-  return `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}`;
 }
 
 // ── Banners ──────────────────────────────────────────────────────────

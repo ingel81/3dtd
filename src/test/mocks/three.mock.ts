@@ -211,6 +211,7 @@ export const MathUtils = {
   DEG2RAD: Math.PI / 180,
   RAD2DEG: 180 / Math.PI,
   clamp: (v: number, min: number, max: number) => Math.max(min, Math.min(max, v)),
+  lerp: (x: number, y: number, t: number) => (1 - t) * x + t * y,
 };
 
 // Constants

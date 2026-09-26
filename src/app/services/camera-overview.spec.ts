@@ -125,7 +125,7 @@ describe('CameraOverview', () => {
       overview.saveInitialPosition();
 
       expect(deps.cameraControl.showDebugVisualization).toHaveBeenCalledWith(
-        HQ, [{ lat: SPAWN.lat, lon: SPAWN.lon }], CAMERA_PADDING, ROUTE_POINTS,
+        HQ, [{ lat: SPAWN.lat, lon: SPAWN.lon }], FRAME, CAMERA_PADDING,
       );
       expect(deps.cameraControl.saveInitialPosition).toHaveBeenCalledWith(VIEW);
       expect(deps.cameraFraming.computeFrameWithEngine).not.toHaveBeenCalled();
@@ -140,11 +140,12 @@ describe('CameraOverview', () => {
   });
 
   describe('debug toggles', () => {
-    it('mirrors the framing debug into the store and draws only when on', () => {
+    it('mirrors the framing debug into the store and draws the last frame only when on', () => {
+      deps.cameraFraming.getLastFrame.mockReturnValue(FRAME);
       overview.toggleFramingDebug();
       expect(deps.store.cameraFramingDebug()).toBe(true);
       expect(deps.cameraControl.showDebugVisualization).toHaveBeenCalledWith(
-        HQ, [{ lat: SPAWN.lat, lon: SPAWN.lon }], CAMERA_PADDING, ROUTE_POINTS,
+        HQ, [{ lat: SPAWN.lat, lon: SPAWN.lon }], FRAME, CAMERA_PADDING,
       );
 
       deps.cameraControl.toggleDebugFraming.mockReturnValue(false);
@@ -153,7 +154,13 @@ describe('CameraOverview', () => {
       expect(deps.cameraControl.showDebugVisualization).toHaveBeenCalledTimes(1);
     });
 
-    it('draws no framing debug without spawns', () => {
+    it('draws no framing debug without spawns or before a frame exists', () => {
+      overview.toggleFramingDebug();
+      expect(deps.cameraControl.showDebugVisualization).not.toHaveBeenCalled();
+      deps.cameraControl.toggleDebugFraming.mockReturnValue(false);
+      overview.toggleFramingDebug();
+      deps.cameraControl.toggleDebugFraming.mockReturnValue(true);
+      deps.cameraFraming.getLastFrame.mockReturnValue(FRAME);
       deps.store.spawnPoints.set([]);
       overview.toggleFramingDebug();
       expect(deps.store.cameraFramingDebug()).toBe(true);

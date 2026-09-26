@@ -1064,7 +1064,7 @@ describe('VisualizationFacadeService', () => {
       facade.saveInitialCameraPosition();
 
       expect(cameraControl.showDebugVisualization).toHaveBeenCalledWith(
-        HQ, [{ lat: SPAWN.lat, lon: SPAWN.lon }], CAMERA_PADDING, ROUTE.map(({ lat, lon }) => ({ lat, lon })),
+        HQ, [{ lat: SPAWN.lat, lon: SPAWN.lon }], FRAME, CAMERA_PADDING,
       );
       expect(cameraControl.saveInitialPosition).toHaveBeenCalledWith(VIEW);
     });
@@ -1077,6 +1077,7 @@ describe('VisualizationFacadeService', () => {
     });
 
     it('mirrors the framing debug toggle into the store and draws only when on', () => {
+      cameraFraming.getLastFrame.mockReturnValue(FRAME);
       facade.toggleCameraFramingDebug();
       expect(store.cameraFramingDebug()).toBe(true);
       expect(cameraControl.showDebugVisualization).toHaveBeenCalledTimes(1);

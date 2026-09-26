@@ -13,10 +13,17 @@ import {
   Scene,
 } from 'three';
 import { CameraControlService, type CameraView } from './camera-control.service';
+import type { CameraFrame } from './camera-framing.service';
 import type { ThreeTilesEngine } from '../three-engine';
 
 /** Local origin of the fake engine. */
 const ORIGIN = { lat: 48.9, lon: 9.2 };
+/** A frame around the origin, for the debug drawing */
+const FRAME_AT_ORIGIN: CameraFrame = {
+  camX: 0, camY: 300, camZ: -300, lookAtX: 0, lookAtY: 0, lookAtZ: 0,
+  boundingBox: { minX: -30, maxX: 30, minZ: -30, maxZ: 30, centerX: 0, centerZ: 0, spanX: 60, spanZ: 60 },
+  cameraDistance: 420, cameraAngle: 45,
+};
 
 /**
  * Engine convention (see camera-framing.service.spec.ts): +Z north, +X west.
@@ -85,7 +92,7 @@ describe('CameraControlService', () => {
 
     it('does not draw the framing debug even when enabled', () => {
       service.toggleDebugFraming(true);
-      expect(() => service.showDebugVisualization(ORIGIN, [])).not.toThrow();
+      expect(() => service.showDebugVisualization(ORIGIN, [], FRAME_AT_ORIGIN, 0.2)).not.toThrow();
     });
   });
 
@@ -278,6 +285,14 @@ describe('CameraControlService', () => {
     const HQ = { ...ORIGIN };
     // 100 m west, 200 m north of the HQ
     const SPAWN = { lat: ORIGIN.lat + 0.002, lon: ORIGIN.lon - 0.001 };
+    // The frame CameraFramingService fitted to them: box 0..100 x 0..200, padded by 0.2, ground at 20
+    const FRAME: CameraFrame = {
+      camX: 50, camY: 320, camZ: -300,
+      lookAtX: 50, lookAtY: 20, lookAtZ: 90,
+      boundingBox: { minX: -10, maxX: 110, minZ: -20, maxZ: 220, centerX: 50, centerZ: 100, spanX: 120, spanZ: 240 },
+      cameraDistance: 500,
+      cameraAngle: 45,
+    };
 
     function setup() {
       const fake = fakeEngine();
@@ -297,15 +312,15 @@ describe('CameraControlService', () => {
 
     it('draws nothing while disabled', () => {
       const { scene } = setup();
-      service.showDebugVisualization(HQ, [SPAWN]);
+      service.showDebugVisualization(HQ, [SPAWN], FRAME, 0.2);
       expect(scene.children).toHaveLength(0);
     });
 
-    it('draws the actual and the padded bounding box of HQ and spawns above the HQ terrain', () => {
+    it('draws the fitted and the padded box of the frame above its ground', () => {
       const { scene } = setup();
       service.toggleDebugFraming(true);
 
-      service.showDebugVisualization(HQ, [SPAWN], 0.2);
+      service.showDebugVisualization(HQ, [SPAWN], FRAME, 0.2);
 
       const boxes = scene.children.filter((o) => o instanceof LineSegments);
       const inner = bounds(boxes.find((o) => colorOf(o) === 0x00ffff)!);
@@ -314,44 +329,20 @@ describe('CameraControlService', () => {
       expect(inner.max.x).toBeCloseTo(100, 6);
       expect(inner.min.z).toBeCloseTo(0, 6);
       expect(inner.max.z).toBeCloseTo(200, 6);
-      // Each axis padded on its own, around the centre (50, 100)
       expect(outer.min.x).toBeCloseTo(-10, 6);
       expect(outer.max.x).toBeCloseTo(110, 6);
       expect(outer.min.z).toBeCloseTo(-20, 6);
       expect(outer.max.z).toBeCloseTo(220, 6);
-      // terrain 20 + 5
+      // the frame's ground 20 + 5
       expect(inner.min.y).toBe(25);
       expect(outer.max.y).toBe(25);
-    });
-
-    it('keeps each side of the padded box at least 50 m', () => {
-      const { scene } = setup();
-      service.toggleDebugFraming(true);
-      const near = { lat: ORIGIN.lat + 0.0001, lon: ORIGIN.lon }; // 10 m north
-
-      service.showDebugVisualization(HQ, [near], 0.2);
-
-      const outer = bounds(scene.children.find((o) => o instanceof LineSegments && colorOf(o) === 0xffff00)!);
-      expect(outer.max.x - outer.min.x).toBeCloseTo(60, 6);
-      expect(outer.max.z - outer.min.z).toBeCloseTo(60, 6);
-    });
-
-    it('includes route points in the box', () => {
-      const { scene } = setup();
-      service.toggleDebugFraming(true);
-      const detour = { lat: ORIGIN.lat - 0.003, lon: ORIGIN.lon }; // 300 m south
-
-      service.showDebugVisualization(HQ, [SPAWN], 0.2, [detour]);
-
-      const inner = bounds(scene.children.find((o) => o instanceof LineSegments && colorOf(o) === 0x00ffff)!);
-      expect(inner.min.z).toBeCloseTo(-300, 6);
     });
 
     it('marks HQ, spawns, the centre, the camera and the HQ-to-spawn axis', () => {
       const { scene } = setup();
       service.toggleDebugFraming(true);
 
-      service.showDebugVisualization(HQ, [SPAWN], 0.2);
+      service.showDebugVisualization(HQ, [SPAWN], FRAME, 0.2);
 
       const spheres = scene.children.filter((o) => o instanceof Mesh);
       const byColor = (hex: number) => spheres.filter((o) => colorOf(o) === hex);
@@ -367,13 +358,16 @@ describe('CameraControlService', () => {
 
       const lines = scene.children.filter((o) => o instanceof Line && !(o instanceof LineSegments));
       expect(lines.map(colorOf).sort()).toEqual([0xff00ff, 0xff8800].sort());
+      // The look-at line ends where the frame looks
+      const lookAt = (lines.find((o) => colorOf(o) === 0xff00ff) as Line).geometry.getAttribute('position');
+      expect([lookAt.getX(1), lookAt.getY(1), lookAt.getZ(1)]).toEqual([50, 20, 90]);
     });
 
     it('leaves out the axis and centroid without spawns', () => {
       const { scene } = setup();
       service.toggleDebugFraming(true);
 
-      service.showDebugVisualization(HQ, []);
+      service.showDebugVisualization(HQ, [], FRAME, 0.2);
 
       expect(scene.children.some((o) => colorOf(o) === 0xff8800)).toBe(false);
       // two boxes, HQ, centre, camera marker, look-at line
@@ -384,9 +378,9 @@ describe('CameraControlService', () => {
       const { scene } = setup();
       service.toggleDebugFraming(true);
 
-      service.showDebugVisualization(HQ, [SPAWN]);
+      service.showDebugVisualization(HQ, [SPAWN], FRAME, 0.2);
       const first = [...scene.children];
-      service.showDebugVisualization(HQ, [SPAWN]);
+      service.showDebugVisualization(HQ, [SPAWN], FRAME, 0.2);
 
       expect(scene.children).toHaveLength(first.length);
       expect(scene.children.some((o) => first.includes(o))).toBe(false);
@@ -395,7 +389,7 @@ describe('CameraControlService', () => {
     it('removes and disposes the drawing when framing debug is switched off', () => {
       const { scene } = setup();
       service.toggleDebugFraming(true);
-      service.showDebugVisualization(HQ, [SPAWN]);
+      service.showDebugVisualization(HQ, [SPAWN], FRAME, 0.2);
       const geometries = new Set(scene.children.map((o) => (o as Mesh).geometry));
       const disposed = new Set<unknown>();
       geometries.forEach((g) => g.addEventListener('dispose', () => disposed.add(g)));
@@ -415,7 +409,7 @@ describe('CameraControlService', () => {
       const provider = vi.fn(() => VIEW);
       service.setOverviewProvider(provider);
       service.toggleDebugFraming(true);
-      service.showDebugVisualization(ORIGIN, []);
+      service.showDebugVisualization(ORIGIN, [], FRAME_AT_ORIGIN, 0.2);
 
       service.dispose();
 

@@ -1,4 +1,5 @@
 import type { VfxSettings } from '../three-engine/vfx-settings';
+import { readJson, readText, removeKey, writeJson } from './storage';
 
 /**
  * Persistence of the display options. The display menu of the quick actions
@@ -45,19 +46,13 @@ export function loadDisplayOptions(): StoredDisplayOptions {
  * window used to drop damageNumbers on every page load.
  */
 export function persistDisplayOptions(patch: StoredDisplayOptions): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...readStored(), ...patch }));
-  } catch { /* storage blocked or full */ }
+  writeJson(STORAGE_KEY, { ...readStored(), ...patch });
 }
 
 function readStored(): StoredDisplayOptions {
-  try {
-    const parsed: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
-    if (parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)) {
-      return parsed as StoredDisplayOptions;
-    }
-  } catch { /* corrupt entry: start over */ }
-  return {};
+  // A corrupt entry starts over
+  const parsed = readJson(STORAGE_KEY);
+  return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed) ? (parsed as StoredDisplayOptions) : {};
 }
 
 /**
@@ -65,23 +60,17 @@ function readStored(): StoredDisplayOptions {
  * one, and remove the old keys once the object is written.
  */
 function foldLegacyKeys(options: StoredDisplayOptions): StoredDisplayOptions {
-  let fps: string | null;
-  let shake: string | null;
-  try {
-    fps = localStorage.getItem(LEGACY_FPS_LIMIT_KEY);
-    shake = localStorage.getItem(LEGACY_SCREEN_SHAKE_KEY);
-  } catch {
-    return options;
-  }
+  const fps = readText(LEGACY_FPS_LIMIT_KEY);
+  const shake = readText(LEGACY_SCREEN_SHAKE_KEY);
   if (fps === null && shake === null) return options;
 
   const folded = { ...options };
   if (fps !== null && folded.fpsLimit === undefined) folded.fpsLimit = Number(fps);
   if (shake !== null && folded.screenShake === undefined) folded.screenShake = shake === 'true';
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(folded));
-    localStorage.removeItem(LEGACY_FPS_LIMIT_KEY);
-    localStorage.removeItem(LEGACY_SCREEN_SHAKE_KEY);
-  } catch { /* the old keys stay and are folded in again next time */ }
+  // Not written: the old keys stay and are folded in again next time
+  if (writeJson(STORAGE_KEY, folded)) {
+    removeKey(LEGACY_FPS_LIMIT_KEY);
+    removeKey(LEGACY_SCREEN_SHAKE_KEY);
+  }
   return folded;
 }

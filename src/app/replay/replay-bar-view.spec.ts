@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import type { CommandLogEntry } from '../managers/game-state/command-log';
-import { commandMarkers, formatReplaySpeed, formatReplayTime } from './replay-bar-view';
+import { commandMarkers, formatReplaySpeed } from './replay-bar-view';
 
 describe('commandMarkers', () => {
   const entry = (step: number, type = 'command:sell-tower'): CommandLogEntry => ({ step, playerId: 'local', command: { type } });
@@ -28,14 +28,6 @@ describe('commandMarkers', () => {
   });
 });
 
-describe('formatReplayTime', () => {
-  it('writes minutes and seconds', () => {
-    expect(formatReplayTime(0)).toBe('0:00');
-    expect(formatReplayTime(9_999)).toBe('0:09');
-    expect(formatReplayTime(72_000)).toBe('1:12');
-    expect(formatReplayTime(-5)).toBe('0:00');
-  });
-});
 
 describe('formatReplaySpeed', () => {
   it('writes the speed with an x', () => {

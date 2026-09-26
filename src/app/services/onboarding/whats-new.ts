@@ -15,7 +15,6 @@ const BEFORE_ANY_RELEASE = '0.0.0';
 
 export interface SeenVersionStorage {
   getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
 }
 
 /**

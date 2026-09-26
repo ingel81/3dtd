@@ -1,4 +1,5 @@
 import { haversineDistance } from '../../utils/geo-utils';
+import { readJson, writeJson } from '../../utils/storage';
 
 /** localStorage key of the recent list, separate from the favorites (td_favorites_v2) */
 export const RECENT_LOCATIONS_KEY = 'td_recent_locations_v1';
@@ -48,23 +49,13 @@ function isRecentLocation(v: unknown): v is RecentLocation {
 
 /** Stored list, empty when missing, unreadable or blocked. Malformed entries are skipped. */
 export function loadRecentLocations(): RecentLocation[] {
-  try {
-    const raw = localStorage.getItem(RECENT_LOCATIONS_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isRecentLocation).slice(0, MAX_RECENT_LOCATIONS);
-  } catch {
-    return [];
-  }
+  const parsed = readJson(RECENT_LOCATIONS_KEY);
+  return Array.isArray(parsed) ? parsed.filter(isRecentLocation).slice(0, MAX_RECENT_LOCATIONS) : [];
 }
 
 export function saveRecentLocations(list: readonly RecentLocation[]): void {
-  try {
-    localStorage.setItem(RECENT_LOCATIONS_KEY, JSON.stringify(list));
-  } catch {
-    // Storage full or blocked: the list lives until the reload
-  }
+  // Storage full or blocked: the list lives until the reload
+  writeJson(RECENT_LOCATIONS_KEY, list);
 }
 
 const HOUR_MS = 3_600_000;

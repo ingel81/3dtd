@@ -1,4 +1,4 @@
-import { ShaderMaterial, FrontSide, Color, SRGBColorSpace, Vector2, Vector3, Vector4, Texture } from 'three';
+import { ShaderMaterial, FrontSide, Color, SRGBColorSpace, Vector2, Vector3, Vector4, Texture, MathUtils } from 'three';
 import type { EffectRgb } from '../../../configs/visual-effects.config';
 import { PORTAL_GLYPH_CELL_GLSL, PORTAL_SIGIL_GLSL } from './spawn-portal-sigils';
 import type { SpawnPortalFrame } from './spawn-portal-frame';
@@ -60,9 +60,8 @@ export interface PortalGlyphDrive {
  * above the wave energy adds up to `flare` and stirs every sigil.
  */
 export function portalGlyphDrive(energy: number, levels: PortalEnergyLevels, glyphs: PortalGlyphLook): PortalGlyphDrive {
-  const clamp01 = (v: number) => Math.min(Math.max(v, 0), 1);
-  const wave = clamp01((energy - levels.idleEnergy) / (levels.waveEnergy - levels.idleEnergy));
-  const surge = clamp01((energy - levels.waveEnergy) / levels.surge);
+  const wave = MathUtils.clamp((energy - levels.idleEnergy) / (levels.waveEnergy - levels.idleEnergy), 0, 1);
+  const surge = MathUtils.clamp((energy - levels.waveEnergy) / levels.surge, 0, 1);
   return {
     level: glyphs.dormant + (glyphs.active - glyphs.dormant) * wave + glyphs.flare * surge,
     wakeChance: glyphs.wakeChance[0] + (glyphs.wakeChance[1] - glyphs.wakeChance[0]) * wave,

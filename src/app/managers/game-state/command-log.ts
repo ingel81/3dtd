@@ -1,6 +1,7 @@
 import { GameObject } from '../../core/game-object';
 import type { LosResolveReason } from '../../game-engine/game-event-bus';
-import { losMaskToJson, type LosMask } from '../../utils/los-mask';
+import { losMaskToJson, type LosMask, type LosMaskJson } from '../../utils/los-mask';
+import type { CommandData } from './command-data';
 
 /** The player at this machine; coop gives every player an id of its own. */
 export const LOCAL_PLAYER_ID = 'local';
@@ -15,7 +16,7 @@ export interface CommandLogEntry {
   /** Who gave it, LOCAL_PLAYER_ID until there is coop */
   readonly playerId: string;
   /** The event as plain data (toPlainData), `type` included */
-  readonly command: Readonly<Record<string, unknown>> & { readonly type: string };
+  readonly command: CommandData;
 }
 
 /**
@@ -50,7 +51,7 @@ export class CommandLog {
     const entry: CommandLogEntry = {
       step: this.stepNow(),
       playerId,
-      command: toPlainData(command) as CommandLogEntry['command'],
+      command: toPlainData(command) as CommandData,
     };
     this.list.push(entry);
     return entry;
@@ -81,6 +82,18 @@ export class CommandLog {
 
 /** `command.type` of a line of sight entry, see CommandLog.recordLos. */
 export const LOS_LOG_TYPE = 'los:resolved';
+
+/** A line of sight entry of the log, see CommandLog.recordLos. */
+export interface LosLogCommand {
+  readonly type: typeof LOS_LOG_TYPE;
+  readonly towerId: string;
+  readonly reason: LosResolveReason;
+  readonly mask: LosMaskJson;
+}
+
+export function isLosLogCommand(command: CommandData): command is CommandData & LosLogCommand {
+  return command.type === LOS_LOG_TYPE;
+}
 
 /** How deep toPlainData() follows nested objects; a command is shallow. */
 const PLAIN_DATA_DEPTH = 8;

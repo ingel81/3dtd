@@ -6,6 +6,7 @@ import type { CoopService } from '../../services/coop.service';
 import { MAX_PLAYERS, PROTOCOL_VERSION, type PublicRoom } from '../../coop/protocol';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import type { LanGame } from '../../core/desktop-bridge';
+import { readText, writeText } from '../../utils/storage';
 
 /** How often the open rooms of the lobby are looked at while shown, ms */
 const ROOMS_EVERY_MS = 5000;
@@ -118,11 +119,8 @@ export class CoopEntryComponent {
 
   setWay(way: CoopWay): void {
     this.chosenWay.set(way);
-    try {
-      localStorage.setItem(WAY_KEY, way);
-    } catch {
-      /* no storage: the choice holds for this page */
-    }
+    // No storage: the choice holds for this page
+    writeText(WAY_KEY, way);
   }
 
   /** Host on the chosen way */
@@ -236,11 +234,7 @@ export class CoopEntryComponent {
 
 /** The way stored last time, Online without one */
 function readWay(): CoopWay {
-  try {
-    return localStorage.getItem(WAY_KEY) === 'lan' ? 'lan' : 'online';
-  } catch {
-    return 'online';
-  }
+  return readText(WAY_KEY) === 'lan' ? 'lan' : 'online';
 }
 
 /** Why a room of the public list cannot be joined from here, null when it can */

@@ -65,21 +65,12 @@ export class CameraOverview {
    * now the camera may be anywhere, mid-intro or panned.
    */
   saveInitialPosition(): void {
-    const hq = this.deps.store.baseCoords();
-    const spawns = this.deps.store.spawnPoints();
-
-    const routePoints = this.collectRoutePoints();
-
-    if (spawns.length > 0) {
-      const hqCoord = { lat: hq.lat, lon: hq.lon };
-      const spawnCoords = spawns.map(s => ({ lat: s.lat, lon: s.lon }));
-      this.deps.cameraControl.showDebugVisualization(hqCoord, spawnCoords, CAMERA_PADDING, routePoints);
-    }
-
     // Without a frame (no ground known yet) nothing is stored: the camera's
     // start pose is no overview. Reset and intro compute one when needed.
     const frame = this.deps.cameraFraming.getLastFrame();
-    if (frame) this.deps.cameraControl.saveInitialPosition(frameToView(frame));
+    if (!frame) return;
+    this.showFramingDebug(frame);
+    this.deps.cameraControl.saveInitialPosition(frameToView(frame));
   }
 
   /**
@@ -89,21 +80,8 @@ export class CameraOverview {
     const enabled = this.deps.cameraControl.toggleDebugFraming();
     this.deps.store.cameraFramingDebug.set(enabled);
 
-    if (enabled) {
-      const hq = this.deps.store.baseCoords();
-      const spawns = this.deps.store.spawnPoints();
-
-      const routePoints = this.collectRoutePoints();
-
-      if (spawns.length > 0) {
-        this.deps.cameraControl.showDebugVisualization(
-          { lat: hq.lat, lon: hq.lon },
-          spawns.map(s => ({ lat: s.lat, lon: s.lon })),
-          CAMERA_PADDING,
-          routePoints
-        );
-      }
-    }
+    const frame = this.deps.cameraFraming.getLastFrame();
+    if (enabled && frame) this.showFramingDebug(frame);
   }
 
   /**
@@ -162,6 +140,19 @@ export class CameraOverview {
           }
         : undefined,
     });
+  }
+
+  /** The framing debug drawing of `frame` (CameraControlService draws only while it is on). */
+  private showFramingDebug(frame: CameraFrame): void {
+    const spawns = this.deps.store.spawnPoints();
+    if (spawns.length === 0) return;
+    const hq = this.deps.store.baseCoords();
+    this.deps.cameraControl.showDebugVisualization(
+      { lat: hq.lat, lon: hq.lon },
+      spawns.map((s) => ({ lat: s.lat, lon: s.lon })),
+      frame,
+      CAMERA_PADDING,
+    );
   }
 
   /**

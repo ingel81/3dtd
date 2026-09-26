@@ -4,6 +4,7 @@ import {
   UnsignedByteType,
   LinearFilter,
   ClampToEdgeWrapping,
+  MathUtils,
 } from 'three';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 
@@ -247,10 +248,6 @@ function desaturate(r: number, g: number, b: number, amount: number): [number, n
   ];
 }
 
-/** Lerp helper */
-function lerp(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
-}
 
 // ---- Presets ----
 
@@ -286,13 +283,13 @@ function darkFantasy(r: number, g: number, b: number): [number, number, number] 
   const shadowWeight = Math.max(0, 1.0 - lum * 2.5); // Strong below 0.4
   const highlightWeight = Math.max(0, (lum - 0.5) * 2.0); // Strong above 0.5
 
-  ro = lerp(ro, shadowR, shadowWeight * 0.6);
-  go = lerp(go, shadowG, shadowWeight * 0.6);
-  bo = lerp(bo, shadowB, shadowWeight * 0.6);
+  ro = MathUtils.lerp(ro, shadowR, shadowWeight * 0.6);
+  go = MathUtils.lerp(go, shadowG, shadowWeight * 0.6);
+  bo = MathUtils.lerp(bo, shadowB, shadowWeight * 0.6);
 
-  ro = lerp(ro, highlightR, highlightWeight * 0.5);
-  go = lerp(go, highlightG, highlightWeight * 0.5);
-  bo = lerp(bo, highlightB, highlightWeight * 0.5);
+  ro = MathUtils.lerp(ro, highlightR, highlightWeight * 0.5);
+  go = MathUtils.lerp(go, highlightG, highlightWeight * 0.5);
+  bo = MathUtils.lerp(bo, highlightB, highlightWeight * 0.5);
 
   // 4. Slight overall darken (crush blacks)
   ro = ro * 0.92 + 0.02;
@@ -317,7 +314,7 @@ function noir(r: number, g: number, b: number): [number, number, number] {
   // Cool tone in shadows
   const lum = luminance(ro, go, bo);
   const shadowWeight = Math.max(0, 1.0 - lum * 2.0);
-  bo = lerp(bo, bo * 1.15, shadowWeight * 0.5);
+  bo = MathUtils.lerp(bo, bo * 1.15, shadowWeight * 0.5);
 
   // Slight vignette simulation: darken overall
   ro = ro * 0.9 + 0.03;
@@ -347,14 +344,14 @@ function warmSunset(r: number, g: number, b: number): [number, number, number] {
   // Lift shadows (don't crush blacks)
   const lum = luminance(ro, go, bo);
   const shadowWeight = Math.max(0, 1.0 - lum * 3.0);
-  ro = lerp(ro, ro + 0.08, shadowWeight);
-  go = lerp(go, go + 0.05, shadowWeight);
-  bo = lerp(bo, bo + 0.03, shadowWeight);
+  ro = MathUtils.lerp(ro, ro + 0.08, shadowWeight);
+  go = MathUtils.lerp(go, go + 0.05, shadowWeight);
+  bo = MathUtils.lerp(bo, bo + 0.03, shadowWeight);
 
   // Add golden haze to highlights
   const highlightWeight = Math.max(0, (lum - 0.6) * 2.5);
-  ro = lerp(ro, Math.min(1, ro + 0.1), highlightWeight * 0.4);
-  go = lerp(go, Math.min(1, go + 0.06), highlightWeight * 0.4);
+  ro = MathUtils.lerp(ro, Math.min(1, ro + 0.1), highlightWeight * 0.4);
+  go = MathUtils.lerp(go, Math.min(1, go + 0.06), highlightWeight * 0.4);
 
   return [ro, go, bo];
 }

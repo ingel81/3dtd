@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import type { SavedSpawn } from '../../models/location.types';
-import { COORD_DECIMALS } from '../../utils/geo-utils';
+import { coordKey } from '../../utils/geo-utils';
 import { shareableUrl } from '../../utils/public-url';
 
 /**
@@ -56,8 +56,7 @@ export class UrlLocationService {
 
   /** This page at `hq` with `spawns`, as a path with query (what updateUrl writes). */
   urlFor(hq: { lat: number; lon: number }, spawns: readonly SavedSpawn[]): string {
-    const hqStr = `${hq.lat.toFixed(COORD_DECIMALS)},${hq.lon.toFixed(COORD_DECIMALS)}`;
-    let url = `${window.location.pathname}?l=${hqStr}`;
+    let url = `${window.location.pathname}?l=${coordKey(hq)}`;
     if (spawns.length > 0) {
       url += `&s=${spawns.map((s) => this.formatSpawn(s)).join(';')}`;
     }
@@ -73,7 +72,7 @@ export class UrlLocationService {
   }
 
   private formatSpawn(spawn: SavedSpawn): string {
-    const at = `${spawn.lat.toFixed(COORD_DECIMALS)},${spawn.lon.toFixed(COORD_DECIMALS)}`;
+    const at = coordKey(spawn);
     return spawn.portalBearing === undefined ? at : `${at},${spawn.portalBearing.toFixed(this.BEARING_PRECISION)}`;
   }
 

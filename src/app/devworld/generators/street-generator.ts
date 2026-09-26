@@ -13,6 +13,7 @@
  */
 
 import { mulberry32, hashSeed } from '../utils/seeded-random';
+import { distanceVec2, lerpVec2, type Vec2 } from './vec2';
 
 // ========================================
 // Types
@@ -65,11 +66,6 @@ export interface StreetGeneratorResult {
   spawns: SpawnPoint[];
 }
 
-interface Vec2 {
-  x: number;
-  z: number;
-}
-
 // ========================================
 // Vector Utilities
 // ========================================
@@ -90,24 +86,13 @@ function length(v: Vec2): number {
   return Math.sqrt(v.x * v.x + v.z * v.z);
 }
 
-function distance(a: Vec2, b: Vec2): number {
-  return length(sub(b, a));
-}
-
-function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
-  return {
-    x: a.x + (b.x - a.x) * t,
-    z: a.z + (b.z - a.z) * t,
-  };
-}
-
 function sampleLinearPath(start: Vec2, end: Vec2, sampleDistance: number): Vec2[] {
   const result: Vec2[] = [];
-  const dist = distance(start, end);
+  const dist = distanceVec2(start, end);
   const numSamples = Math.max(2, Math.ceil(dist / sampleDistance));
 
   for (let i = 0; i <= numSamples; i++) {
-    result.push(lerp(start, end, i / numSamples));
+    result.push(lerpVec2(start, end, i / numSamples));
   }
 
   return result;
@@ -261,7 +246,6 @@ export class StreetGenerator {
     // Phase 5: Generate spawns at road endpoints
     const spawns = this.generateSpawnsAtEnds(roadEnds);
 
-
     return { segments: this.segments, spawns };
   }
 
@@ -330,7 +314,7 @@ export class StreetGenerator {
    */
   private generateCurvedPath(start: Vec2, end: Vec2): Vec2[] {
     const path: Vec2[] = [];
-    const dist = distance(start, end);
+    const dist = distanceVec2(start, end);
     const numSegments = Math.max(3, Math.floor(dist / 80)); // ~80m per segment
 
     // 1-2 random control points for curve
@@ -339,7 +323,7 @@ export class StreetGenerator {
 
     for (let i = 0; i < numControls; i++) {
       const t = (i + 1) / (numControls + 1);
-      const basePoint = lerp(start, end, t);
+      const basePoint = lerpVec2(start, end, t);
       // Offset perpendicular to line
       const perpOffset = (this.rng() - 0.5) * dist * 0.3;
       const angle = Math.atan2(end.z - start.z, end.x - start.x) + Math.PI / 2;
@@ -365,13 +349,13 @@ export class StreetGenerator {
    */
   private sampleBezier(controls: Vec2[], t: number): Vec2 {
     if (controls.length === 2) {
-      return lerp(controls[0], controls[1], t);
+      return lerpVec2(controls[0], controls[1], t);
     }
 
     // De Casteljau's algorithm
     const next: Vec2[] = [];
     for (let i = 0; i < controls.length - 1; i++) {
-      next.push(lerp(controls[i], controls[i + 1], t));
+      next.push(lerpVec2(controls[i], controls[i + 1], t));
     }
     return this.sampleBezier(next, t);
   }
@@ -387,7 +371,7 @@ export class StreetGenerator {
       for (let j = i + 1; j < intersectionPoints.length; j++) {
         const a = intersectionPoints[i];
         const b = intersectionPoints[j];
-        const dist = distance(a, b);
+        const dist = distanceVec2(a, b);
 
         // Connect if 40-150m apart and not already connected
         if (dist > 40 && dist < 150 && !this.unionFind.connected(a, b)) {
@@ -417,7 +401,7 @@ export class StreetGenerator {
       const from: Vec2 = { x: seg.from[0], z: seg.from[1] };
       const to: Vec2 = { x: seg.to[0], z: seg.to[1] };
       const closest = this.closestPointOnSegment(hqPosition, from, to);
-      const dist = distance(closest, hqPosition);
+      const dist = distanceVec2(closest, hqPosition);
 
       if (dist < minDist) {
         minDist = dist;
@@ -450,7 +434,7 @@ export class StreetGenerator {
 
     // Sort by distance from HQ (farthest first)
     const sorted = roadEnds
-      .map(pos => ({ pos, dist: distance(pos, hqPosition) }))
+      .map(pos => ({ pos, dist: distanceVec2(pos, hqPosition) }))
       .filter(p => p.dist >= minSpawnDistance * 0.7)
       .sort((a, b) => b.dist - a.dist);
 
@@ -490,7 +474,7 @@ export class StreetGenerator {
       const to = simplified[i + 1];
 
       // Skip very short segments
-      if (distance(from, to) < 3) continue;
+      if (distanceVec2(from, to) < 3) continue;
 
       this.segments.push({
         id: `${baseName}-${i}`,
@@ -540,11 +524,11 @@ export class StreetGenerator {
     const ab = sub(b, a);
     const ap = sub(p, a);
     const abLen = length(ab);
-    if (abLen < 0.001) return distance(p, a);
+    if (abLen < 0.001) return distanceVec2(p, a);
 
     const t = Math.max(0, Math.min(1, (ap.x * ab.x + ap.z * ab.z) / (abLen * abLen)));
     const closest = add(a, scale(ab, t));
-    return distance(p, closest);
+    return distanceVec2(p, closest);
   }
 
   /**
@@ -563,7 +547,7 @@ export class StreetGenerator {
    */
   private nearExistingIntersection(p: Vec2, threshold: number): boolean {
     for (const intersection of this.intersections) {
-      if (distance(p, intersection) < threshold) {
+      if (distanceVec2(p, intersection) < threshold) {
         return true;
       }
     }
@@ -596,7 +580,6 @@ export class StreetGenerator {
 
     if (!mainComponent || disconnected.length === 0) return;
 
-
     // Create bridge segments to connect disconnected components
     for (const component of disconnected) {
       // Find closest pair of points between main component and this one
@@ -606,7 +589,7 @@ export class StreetGenerator {
 
       for (const mainPoint of mainComponent) {
         for (const compPoint of component) {
-          const d = distance(mainPoint, compPoint);
+          const d = distanceVec2(mainPoint, compPoint);
           if (d < minDist) {
             minDist = d;
             bridgeFrom = mainPoint;

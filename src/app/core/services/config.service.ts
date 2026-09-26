@@ -1,5 +1,6 @@
 import { computed, Injectable, signal } from '@angular/core';
 import { environment } from '../../../environments/environment';
+import { readJson, removeKey, writeJson } from '../../utils/storage';
 
 /** Shape of the optional `runtime-config.json` next to `index.html`. */
 interface RuntimeConfig {
@@ -115,11 +116,7 @@ export class ConfigService {
 
   /** Drop the browser-stored credentials. Does not touch build/runtime values. */
   clearStoredCredentials(): void {
-    try {
-      localStorage.removeItem(ConfigService.STORAGE_KEY);
-    } catch {
-      /* private mode or blocked storage, nothing to clear */
-    }
+    removeKey(ConfigService.STORAGE_KEY);
     this.hasStoredToken.set(false);
     this.cesiumIonToken.set(environment.cesiumIonToken ?? '');
     this.googleMapsApiKey.set(environment.googleMapsApiKey ?? '');
@@ -207,19 +204,12 @@ export class ConfigService {
   }
 
   private readStorage(): RuntimeConfig | null {
-    try {
-      const raw = localStorage.getItem(ConfigService.STORAGE_KEY);
-      return raw ? (JSON.parse(raw) as RuntimeConfig) : null;
-    } catch {
-      return null;
-    }
+    const stored = readJson(ConfigService.STORAGE_KEY);
+    return stored && typeof stored === 'object' ? (stored as RuntimeConfig) : null;
   }
 
   private writeStorage(config: RuntimeConfig): void {
-    try {
-      localStorage.setItem(ConfigService.STORAGE_KEY, JSON.stringify(config));
-    } catch {
-      /* storage blocked, the token still works for this session */
-    }
+    // Storage blocked: the token still works for this session
+    writeJson(ConfigService.STORAGE_KEY, config);
   }
 }

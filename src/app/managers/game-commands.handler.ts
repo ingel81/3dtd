@@ -3,6 +3,7 @@ import type { GameEvent } from '../game-engine/game-event-bus';
 import { GameStateManager } from './game-state.manager';
 import { CommandLog, LOCAL_PLAYER_ID, toPlainData, type CommandLogEntry } from './game-state/command-log';
 import type { LockstepLink } from '../coop/lockstep';
+import type { CommandData } from './game-state/command-data';
 import type { TowerAction } from '../coop/tower-policy';
 import type { Tower } from '../entities/tower.entity';
 import { getResearch } from '../configs/research/research-tree.config';
@@ -111,7 +112,7 @@ export class GameCommandsHandler {
     const link = this.lockstep;
     if (!link) return;
     for (const stamped of link.commandsAt(tick)) {
-      this.execute(stamped.command as unknown as GameEvent, stamped.playerId);
+      this.execute(commandEvent(stamped.command), stamped.playerId);
     }
     link.release(tick);
   }
@@ -127,7 +128,7 @@ export class GameCommandsHandler {
    * so a faithful re-simulation writes the same log.
    */
   replay(entry: CommandLogEntry): void {
-    this.execute(entry.command as unknown as GameEvent, entry.playerId);
+    this.execute(commandEvent(entry.command), entry.playerId);
   }
 
   /** Subscribe `type` to the boundary and the log, `run` is what it does. */
@@ -392,4 +393,12 @@ export class GameCommandsHandler {
 /** A dev tool's command (debug:*): in coop as the room's rule says, see GameStateManager.setCheatRule */
 function isDebugCommand(event: GameEvent): boolean {
   return event.type.startsWith('debug:');
+}
+
+/**
+ * A logged or relayed command as the event it was made from. Commands carry
+ * plain values (ids, numbers, strings), so the data is the event.
+ */
+function commandEvent(command: CommandData): GameEvent {
+  return command as unknown as GameEvent;
 }

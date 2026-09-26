@@ -2,7 +2,8 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TdIconComponent, type TdIconName } from '../icon/icon.component';
 import { ReplayService } from '../../services/replay.service';
-import { formatReplaySpeed, formatReplayTime } from '../../replay/replay-bar-view';
+import { formatReplaySpeed } from '../../replay/replay-bar-view';
+import { formatClock } from '../../utils/format-clock';
 
 /**
  * The bar of the wave replay (docs/REPLAY.md, DESIGN_SYSTEM.md "Replay"):
@@ -36,8 +37,8 @@ export class ReplayBarComponent {
     this.replay.playing() ? 'Pause the replay' : this.atEnd() ? 'Play the replay again' : 'Play the replay'
   );
 
-  readonly time = computed(() => formatReplayTime(this.replay.timeMs()));
-  readonly duration = computed(() => formatReplayTime(this.replay.durationMs()));
+  readonly time = computed(() => formatClock(this.replay.timeMs()));
+  readonly duration = computed(() => formatClock(this.replay.durationMs()));
 
   /** Share of the wave played, fills the progress bar */
   readonly progress = computed(() => {
@@ -56,7 +57,7 @@ export class ReplayBarComponent {
   });
 
   /** Where the replay stopped matching the game, m:ss */
-  readonly divergedAt = computed(() => formatReplayTime(this.replay.divergedAtMs() ?? 0));
+  readonly divergedAt = computed(() => formatClock(this.replay.divergedAtMs() ?? 0));
 
   onScrub(event: Event): void {
     this.replay.seek(Number((event.target as HTMLInputElement).value));
