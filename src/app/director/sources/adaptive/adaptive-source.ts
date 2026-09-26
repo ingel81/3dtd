@@ -110,13 +110,15 @@ export class AdaptiveWaveSource implements WaveSource {
   peek(request: WavePeekRequest): WavePeekFacts[] {
     const facts: WavePeekFacts[] = [];
     for (let wave = request.fromWave; wave < request.fromWave + request.count; wave++) {
-      const template = templateObjectForWave(wave);
-      if (template) {
-        facts.push(templateFacts(wave, template, request.defense.totalDps));
+      // A boss variant takes the wave the campaign pins (W20 the ooze, W30
+      // Skarnax), as plan() does; the preview said Herbert there (TODO E41)
+      const variant = bossVariantForWave(wave);
+      if (variant) {
+        facts.push(variantFacts(wave, variant));
         continue;
       }
-      const variant = bossVariantForWave(wave);
-      facts.push(variant ? variantFacts(wave, variant) : unknownFacts(wave));
+      const template = templateObjectForWave(wave);
+      facts.push(template ? templateFacts(wave, template, request.defense.totalDps) : unknownFacts(wave));
     }
     return facts;
   }
@@ -178,8 +180,6 @@ export class AdaptiveWaveSource implements WaveSource {
     candidateReason: CandidateReason,
   ): PlannedWave {
     const directed = buildWaveConfig(decision, state, candidateReason, this.pressure, wave);
-    const sizing = directed.explanation?.sizing;
-    this.lastCapBinding = sizing ? capIsBinding(sizing) : true;
     this.recentTemplateIndices.push(directed.templateIdx);
     if (this.recentTemplateIndices.length > TEMPLATE_HISTORY) {
       this.recentTemplateIndices.shift();
@@ -189,6 +189,10 @@ export class AdaptiveWaveSource implements WaveSource {
     const config = variant
       ? { ...bossVariantWave(variant, directed, wave), templateIdx: directed.templateIdx }
       : directed;
+    // Anti-windup reads the wave that ships: a boss variant no cap sized
+    // must not let the loop open (W30 of the Heilbronn run did, TODO E41)
+    const sizing = config.explanation?.sizing;
+    this.lastCapBinding = sizing ? capIsBinding(sizing) : true;
 
     return {
       wave,

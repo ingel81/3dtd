@@ -41,6 +41,21 @@ function waveResult(waveNumber: number, hpLost: number): WaveResult {
   } as unknown as WaveResult;
 }
 
+/** A defense the survivability cap holds back: the cap binds. */
+function holding(wave: number): GameStateSnapshot {
+  const snapshot = createEmptySnapshot();
+  const dps = { unarmored: 60, light: 60, heavy: 60, fortified: 60, ethereal: 60 };
+  snapshot.waveNumber = wave - 1;
+  snapshot.defense.totalDPS = 400;
+  snapshot.defense.effectiveDPSPerArmor = { ground: dps, air: dps };
+  snapshot.defense.gateDpsPerArmor = { ground: dps, air: dps };
+  snapshot.defense.killThroughput = { ground: 1, air: 1 };
+  snapshot.defense.capabilities = {
+    hasAntiAir: true, hasSplash: true, hasSlow: true, hasDoT: true, hasAntiEthereal: true,
+  };
+  return snapshot;
+}
+
 describe('AdaptiveWaveSource', () => {
   let source: AdaptiveWaveSource;
   let random: () => number;
@@ -93,6 +108,18 @@ describe('AdaptiveWaveSource', () => {
       // W51, not W50: every fifth wave past the campaign is a boss wave, and
       // its first reason is the boss rule rather than the history.
       expect(plan(51).explanation!.reasons[0]).toMatch(/no history yet/);
+    });
+
+    it('spreads a compressed wave over the duration cap, not the count it was compressed for (TODO E41)', () => {
+      // W16 of the Heilbronn coop run: compressed for thousands, shipped 148, 62 ms apart
+      for (let wave = 11; wave <= 60; wave++) {
+        for (const state of [overwhelming(wave), holding(wave)]) {
+          const { config } = plan(wave, state);
+          if (!config.explanation?.sizing?.durationCapped) continue;
+          // The delay is whole ms: one more and the wave would run past the cap
+          expect(config.totalCount * (config.spawnDelay + 1) > MAX_WAVE_DURATION_MS || config.spawnDelay === MIN_SPAWN_DELAY_MS).toBe(true);
+        }
+      }
     });
 
     it('stays inside the duration cap', () => {
@@ -161,6 +188,21 @@ describe('AdaptiveWaveSource', () => {
   });
 
   describe('a finished wave', () => {
+    it('does not open the loop after a boss variant, which no cap sized (TODO E41)', () => {
+      // Cheap waves under a binding cap: the loop opens
+      for (let wave = 31; wave <= 34; wave++) {
+        plan(wave, holding(wave));
+        source.onWaveResult(waveResult(wave, 0));
+      }
+      expect(source.pressure.status.lastStep).toBe('opened');
+      const before = source.pressure.pressureMultiplier;
+      // W35 ships the worm in place of what the director planned under the cap
+      plan(35, holding(35));
+      source.onWaveResult(waveResult(35, 0));
+      expect(source.pressure.status.lastStep).toBe('held');
+      expect(source.pressure.pressureMultiplier).toBe(before);
+    });
+
     it('moves the loop, and a new run clears it', () => {
       for (let i = 0; i < 12; i++) {
         source.onWaveResult(waveResult(PRESSURE_WARMUP_WAVES + 1 + i, 0));
@@ -197,6 +239,12 @@ describe('AdaptiveWaveSource', () => {
       expect(w41.known).toBe(false);
       expect(w41.count).toBeNull();
       expect(w41.note).toBe('Template picked at wave start');
+    });
+
+    it('names the campaign boss a variant takes, as the wave will ship (TODO E41)', () => {
+      expect(peek(20, 1)[0]).toMatchObject({ name: 'Boss: Ooze', boss: true });
+      expect(peek(30, 1)[0]).toMatchObject({ name: 'Boss: Skarnax', boss: true });
+      expect(peek(10, 1)[0].name).toBe(plan(10).config.templateName);
     });
 
     it('knows the boss waves the rotation owns', () => {

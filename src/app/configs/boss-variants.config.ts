@@ -144,6 +144,8 @@ export function bossVariantWave(variant: BossVariant, directed: DirectorWave, wa
       sizing: {
         ...(directed.explanation?.sizing ?? EMPTY_SIZING),
         cap: null,
+        allowed: null,
+        capBinds: false,
         count: 1,
         hpMult,
       },

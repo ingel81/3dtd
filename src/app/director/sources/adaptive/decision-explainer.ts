@@ -45,6 +45,9 @@ import {
  * (docs/DRAMA_CONTROLLER_PLAN.md).
  */
 export function capIsBinding(sizing: WaveSizing): boolean {
+  // The builder's own answer, with the headroom (capSlack); only a sizing
+  // without it (an older log, a hand-written one) falls back to the bare cap
+  if (sizing.capBinds !== undefined) return sizing.capBinds;
   return sizing.cap !== null && sizing.cap < sizing.dpsScaledMax;
 }
 
@@ -136,20 +139,23 @@ function sizeReasons({ director, pressure, sizing }: WaveDecisionTrace): string[
   // Mirrors the fold in buildWaveConfig: a cap below the template minimum
   // collapses the range onto the cap, a cap inside it becomes the new top.
   const binding = capIsBinding(sizing);
-  if (cap === null) {
+  // What the count may reach: the cap with its headroom (capSlack)
+  const allowed = sizing.allowed ?? cap;
+  const withSlack = cap !== null && allowed !== cap ? ` (${cap} plus headroom)` : '';
+  if (cap === null || allowed === null) {
     reasons.push('Survivability cap: none, the defense kills faster than enemies spawn.');
-  } else if (cap < lo) {
-    reasons.push(`Survivability cap is ${cap}, below the template minimum of ${lo}.`);
+  } else if (allowed < lo) {
+    reasons.push(`Survivability cap is ${allowed}${withSlack}, below the template minimum of ${lo}.`);
   } else if (binding) {
-    reasons.push(`Survivability cap holds the count at ${cap}.`);
+    reasons.push(`Survivability cap holds the count at ${allowed}${withSlack}.`);
   } else {
-    reasons.push(`Survivability cap ${cap}, not binding.`);
+    reasons.push(`Survivability cap ${allowed}${withSlack}, not binding.`);
   }
   // The loop only shaped this wave if its cap did.
   if (binding) reasons.push(pressureLoopReason(pressure));
 
-  if (cap === null || cap >= lo) {
-    const top = binding ? cap : dpsMax;
+  if (allowed === null || allowed >= lo) {
+    const top = binding ? allowed : dpsMax;
     const where = `count at ${percent(sizing.countFactor)} of ${lo}-${top}`;
     if (director.candidates === 0) {
       reasons.push(`Fixed factor: ${where}.`);

@@ -57,12 +57,19 @@ describe('peekUpcomingWaves', () => {
   });
 
   it('weighs a mixed wave by HP, sums up the armors and names the counters per armor in the tooltip', () => {
-    const [, w30] = peekWaves(28, 0, 2);
-    expect(w30).toMatchObject({ name: 'Boss: Herbert', boss: true });
-    expect(w30.armors.length).toBeGreaterThan(1);
-    expect(w30.armorLabel).toBe(`${w30.armors[0]} +${w30.armors.length - 1}`);
-    expect(w30.weakToTypes.length).toBeGreaterThan(0);
-    expect(w30.tooltip).toContain('Fortified: Siege, Magic.');
+    const [, w10] = peekWaves(8, 0, 2);
+    expect(w10).toMatchObject({ name: 'Boss: Herbert', boss: true });
+    expect(w10.armors.length).toBeGreaterThan(1);
+    expect(w10.armorLabel).toBe(`${w10.armors[0]} +${w10.armors.length - 1}`);
+    expect(w10.weakToTypes.length).toBeGreaterThan(0);
+    expect(w10.tooltip).toContain('Fortified: Siege, Magic.');
+  });
+
+  it('names the boss a variant sends on W20 and W30, not Herbert (TODO E41)', () => {
+    const [w20] = peekWaves(19, 0, 1);
+    const [w30] = peekWaves(29, 0, 1);
+    expect(w20).toMatchObject({ name: 'Boss: Ooze', boss: true });
+    expect(w30).toMatchObject({ name: 'Boss: Skarnax', boss: true });
   });
 
   it('adds the split of the skeletons to the W19 tooltip', () => {

@@ -27,6 +27,14 @@ export interface WaveSizing {
   totalDps: number;
   /** Survivability cap at the shipped spawn delay; null means no finite cap. */
   cap: number | null;
+  /** The cap with its headroom (capSlack), what the count may reach; null without a cap. */
+  allowed?: number | null;
+  /**
+   * The cap set the count: `allowed` is below the DPS-scaled top. The one
+   * definition of "binding", for the pressure loop and the sentences alike;
+   * absent in older logs, see capIsBinding.
+   */
+  capBinds?: boolean;
   countFactor: number;
   count: number;
   hpMult: number;

@@ -206,7 +206,7 @@ describe('explanations from the wave director', () => {
       'Campaign: wave 7 is always Bat Swarm (waves 1-30 are fixed).',
       'Pinned although the defense has no anti-air.',
     ]);
-    expect(explanation?.reasons).toContain('Survivability cap is 5, below the template minimum of 30.');
+    expect(explanation?.reasons).toContain('Survivability cap is 8 (5 plus headroom), below the template minimum of 30.');
   });
 
   it('names the stalest pick and the templates held back past the campaign', async () => {

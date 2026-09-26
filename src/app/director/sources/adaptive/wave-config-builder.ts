@@ -150,7 +150,7 @@ export function buildWaveConfig(
   // signal for the model, this is the binding decision.
   const countLo = template.countRange[0];
   const dpsScaledMax = dpsScaledCountMax(template.countRange, totalDPS);
-  const countFor = (delay: number): { count: number; cap: number | null; capBinds: boolean } => {
+  const countFor = (delay: number): { count: number; cap: number | null; allowed: number | null; capBinds: boolean } => {
     const cap = survivableCount(
       template,
       hpMult,
@@ -218,7 +218,7 @@ export function buildWaveConfig(
       count = Math.min(COUNT_OVERRIDE_MAX, allowed ?? Infinity, Math.max(count, over));
     }
 
-    return { count, cap, capBinds };
+    return { count, cap, allowed, capBinds };
   };
 
   let sized = countFor(spawnDelay);
@@ -237,6 +237,7 @@ export function buildWaveConfig(
   }
 
   // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
+  const plannedDelay = spawnDelay;
   const durationCapped = sized.count * spawnDelay > MAX_WAVE_DURATION_MS;
   if (durationCapped) {
     spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / sized.count));
@@ -252,6 +253,14 @@ export function buildWaveConfig(
   // breather cannot be one while the cap is free to fill it up again.
   const intensity = campaignIntensity(upcomingWave);
   let totalCount = Math.max(1, Math.round(sized.count * intensity));
+  // The compression was worked out from the count before the second pass and
+  // the campaign's intensity. The wave that ships can be far smaller: W16 of
+  // the Heilbronn coop run came as 148 enemies 62 ms apart, a 9 s burst,
+  // against a count of thousands that never shipped (TODO E41). Spread what
+  // ships over the three minutes again, never slower than planned.
+  if (durationCapped) {
+    spawnDelay = Math.min(plannedDelay, Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / totalCount)));
+  }
 
   // The campaign keeps large models apart (TODO E21). The wave is sized as it
   // would be; only then its delay stretches to the campaign's floor. Where
@@ -316,12 +325,15 @@ export function buildWaveConfig(
         dpsScaledMax,
         totalDps: totalDPS,
         cap: sized.cap,
+        allowed: sized.allowed,
+        capBinds: sized.capBinds,
         countFactor,
         count: shippedCount,
         hpMult,
         endgameHpMult,
         spawnDelay,
-        durationCapped,
+        // Compressed only if the wave that ships still needs it
+        durationCapped: spawnDelay < plannedDelay,
       },
     }),
   };
