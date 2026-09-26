@@ -17,6 +17,8 @@ const NAME_MAX = 32;
 /** Game version and balance hash: "0.5.0-beta.1", eight hex digits */
 const VERSION_MAX = 64;
 const CHAT_MAX = 500;
+/** A run log's payload (TODO E38) */
+const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 /** Room codes, player ids, spawn ids */
 const ID_MAX = 64;
 /**
@@ -160,6 +162,11 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
     case 'ping':
       return finite(m['lat']) && finite(m['lon']) && finite(m['height'])
         ? { t: 'ping', lat: m['lat'], lon: m['lon'], height: m['height'] }
+        : null;
+    case 'run-log':
+      // Base64 only; the size is capped by the message limit, the content by RunStore
+      return typeof m['gz'] === 'string' && m['gz'].length > 0 && BASE64.test(m['gz'])
+        ? { t: 'run-log', gz: m['gz'] }
         : null;
     default:
       return null;

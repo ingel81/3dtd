@@ -3,5 +3,6 @@
 !coop-server/src/**
 !src/app/coop/**
 !src/app/managers/game-state/game-clock.ts
+!src/app/run-log/run-log-check.ts
 coop-server/src/**/*.spec.ts
 src/app/coop/**/*.spec.ts
