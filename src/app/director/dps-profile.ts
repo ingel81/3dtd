@@ -11,7 +11,7 @@ import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
 import { GlobalRouteGrid } from '../utils/global-route-grid';
 import { CoordinateSync } from '../three-engine/renderers';
-import { computeTowerDPS, canTargetAirEffective } from './tower-dps.util';
+import { computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting } from './tower-dps.util';
 
 export interface PathDPSProfile {
   /** Ground DPS at each bin, normalized 0-1 */
@@ -43,7 +43,7 @@ export function computePathDPSProfile(
   grid: GlobalRouteGrid,
   towers: Tower[],
   coordinateSync: CoordinateSync,
-  airTargetingUnlocked: boolean,
+  airTargetingUnlocked: AirTargeting,
 ): PathDPSProfile {
   const emptyProfile: PathDPSProfile = {
     groundDPS: new Array(NUM_BINS).fill(0),
@@ -142,7 +142,7 @@ export function computePathDPSProfile(
         const dps = computeTowerDPS(tower);
         const typeId = tower.typeConfig.id as TowerTypeId;
         const canGround = tower.typeConfig.canTargetGround ?? true;
-        const canAir = canTargetAirEffective(typeId, airTargetingUnlocked);
+        const canAir = canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower));
 
         const groundVis = cell.towerVisibility.get(towerId) ?? false;
         const airVis = cell.airVisibility.get(towerId) ?? false;

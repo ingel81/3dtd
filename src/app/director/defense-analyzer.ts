@@ -19,7 +19,7 @@ import {
   TowerDistribution,
   VulnerabilityAnalysis,
 } from './models/game-state-snapshot';
-import { computeTowerDPS, canTargetAirEffective, armorMultipliersFor } from './tower-dps.util';
+import { computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting, armorMultipliersFor } from './tower-dps.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import type { HeroDefenseProfile } from '../configs/hero.config';
 
@@ -88,7 +88,7 @@ const TOWER_CAPABILITIES: Record<
  */
 export function analyzeDefense(
   towers: Tower[],
-  airTargetingUnlocked: boolean,
+  airTargetingUnlocked: AirTargeting,
   hero: HeroDefenseProfile | null = null,
 ): DefenseAnalysis {
   if (towers.length === 0 && !hero) {
@@ -178,7 +178,7 @@ function addHero(
  */
 function calculateKillThroughput(
   towers: Tower[],
-  airTargetingUnlocked: boolean,
+  airTargetingUnlocked: AirTargeting,
 ): { ground: number; air: number } {
   let ground = 0;
   let air = 0;
@@ -202,7 +202,7 @@ function calculateKillThroughput(
 
     const rate = shotsPerSecond * targetsPerShot;
     if (cfg.canTargetGround !== false) ground += rate;
-    if (canTargetAirEffective(typeId, airTargetingUnlocked)) air += rate;
+    if (canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower))) air += rate;
   }
 
   return { ground, air };
@@ -220,7 +220,7 @@ function calculateKillThroughput(
  */
 function calculateAoeDpsShare(
   towers: Tower[],
-  airTargetingUnlocked: boolean,
+  airTargetingUnlocked: AirTargeting,
 ): { ground: number; air: number } {
   let groundTotal = 0;
   let groundAoe = 0;
@@ -240,7 +240,7 @@ function calculateAoeDpsShare(
       groundTotal += dps;
       if (isAoe) groundAoe += dps;
     }
-    if (canTargetAirEffective(typeId, airTargetingUnlocked)) {
+    if (canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower))) {
       airTotal += dps;
       if (isAoe) airAoe += dps;
     }
@@ -325,7 +325,7 @@ function calculateTowerDistribution(towers: Tower[]): TowerDistribution {
  */
 function detectCapabilities(
   towers: Tower[],
-  airTargetingUnlocked: boolean,
+  airTargetingUnlocked: AirTargeting,
 ): DefenseCapabilities {
   const capabilities: DefenseCapabilities = {
     hasAntiAir: false,
@@ -339,7 +339,7 @@ function detectCapabilities(
     const typeId = tower.typeConfig.id as TowerTypeId;
     const towerCaps = TOWER_CAPABILITIES[typeId];
 
-    if (canTargetAirEffective(typeId, airTargetingUnlocked)) {
+    if (canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower))) {
       capabilities.hasAntiAir = true;
     }
     if (isAntiEtherealTower(typeId)) {
@@ -402,10 +402,10 @@ export function calculateTotalDPS(towers: Tower[]): number {
 /**
  * Calculate DPS from towers that can target air units (including AA-Retrofit).
  */
-function calculateAntiAirDPS(towers: Tower[], airTargetingUnlocked: boolean): number {
+function calculateAntiAirDPS(towers: Tower[], airTargetingUnlocked: AirTargeting): number {
   return towers.reduce((sum, tower) => {
     const typeId = tower.typeConfig.id as TowerTypeId;
-    return canTargetAirEffective(typeId, airTargetingUnlocked)
+    return canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower))
       ? sum + computeTowerDPS(tower)
       : sum;
   }, 0);
@@ -422,7 +422,7 @@ function calculateAntiAirDPS(towers: Tower[], airTargetingUnlocked: boolean): nu
  */
 function calculateDPSPerArmor(
   towers: Tower[],
-  airTargetingUnlocked: boolean,
+  airTargetingUnlocked: AirTargeting,
 ): { effective: EffectiveDPSPerArmor; gate: EffectiveDPSPerArmor } {
   const zero = () =>
     ARMOR_TYPES.reduce((acc, a) => {
@@ -440,7 +440,7 @@ function calculateDPSPerArmor(
 
     const mults = armorMultipliersFor(tower.typeConfig.damageType);
     const canGround = tower.typeConfig.canTargetGround ?? true;
-    const canAir = canTargetAirEffective(typeId, airTargetingUnlocked);
+    const canAir = canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower));
 
     for (const armor of ARMOR_TYPES) {
       const dpsVsArmor = dps * mults[armor];

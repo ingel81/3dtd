@@ -626,7 +626,7 @@ describe('StateSnapshotService', () => {
         expect(collector.getStateSnapshot().dpsProfile).toBe(computed);
         expect(collector.getCurrentDPSProfile()).toBe(computed);
         expect(computePathDPSProfile).toHaveBeenCalledTimes(1);
-        expect(computePathDPSProfile).toHaveBeenCalledWith(routes, gridObject, [], sync, false);
+        expect(computePathDPSProfile).toHaveBeenCalledWith(routes, gridObject, [], sync, expect.any(Function));
 
         const events = [
           { type: 'tower:placed' }, { type: 'tower:sold' }, { type: 'tower:upgraded' },
@@ -645,7 +645,7 @@ describe('StateSnapshotService', () => {
         collector.getCurrentDPSProfile();
 
         expect(computePathDPSProfile).toHaveBeenCalledTimes(2);
-        expect(vi.mocked(computePathDPSProfile).mock.calls[1][4]).toBe(true);
+        expect(vi.mocked(computePathDPSProfile).mock.calls[1][4]).toEqual(expect.any(Function));
       });
     });
   });

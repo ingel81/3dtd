@@ -352,8 +352,10 @@ Ursprünglicher Plan:
   Gast wird sie zurückgenommen; die Antwort des Raums setzt den Store.
 - Verlassen: `command:leave-game` (das Relay legt es in den nächsten Tick) schließt die Lane, der Spieler zählt als
   bereit, seine Tower bleiben. Hostwechsel: der neue Host übernimmt die Sichtlinien.
-- Wellenplanung: Der Director liest im Coop nur, was alle Clients gleich haben (Luftziele, wenn irgendein Spieler sie
-  hat; der erste angeheuerte Held; die Summe aller Konten), sonst liefe der Strom `director` auseinander. Der
+- Wellenplanung: Der Director liest im Coop nur, was alle Clients gleich haben (Luftziele je Tower aus der Forschung
+  seines Besitzers; der erste angeheuerte Held; die Summe aller Konten), sonst liefe der Strom `director` auseinander.
+  Jede Lane bekommt die ganze Welle (D13), darum plant er gegen den Lane-Anteil: Abwehr und Leck-Budget geteilt durch
+  die Lane-Zahl (`shareDefense`, `laneHp`, TODO E34). Der
   Forschungs-Teil des Snapshots kommt weiter aus dem eigenen Store; er ist nur Rückfall, wenn die Verteidigung
   keine Fähigkeiten nennt, und `analyzeDefense` nennt sie immer.
 - Relay-Adresse: `coopRelay` in `runtime-config.json`, sonst `ws://localhost:3003`.
