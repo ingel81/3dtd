@@ -248,6 +248,8 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     expect(first.tick).toBeLessThanOrEqual(falsifyAt + HASH_EVERY_TICKS);
     expect(first.hashes.map(([player]) => player).sort()).toEqual(['a', 'b']);
     expect(first.hashes[0][1]).not.toBe(first.hashes[1][1]);
+    // The part that ran apart is named (TODO E32)
+    expect(first.parts).toEqual(['credits']);
   });
 
   it('catches up with the relay after falling behind, then keeps its pace (R2)', () => {

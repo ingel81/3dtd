@@ -47,7 +47,7 @@ import { CommandLog, LOCAL_PLAYER_ID, toPlainData, type CommandLogEntry } from '
 import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
 import { SimRecorder } from '../simulator/sim-recorder';
-import { StateHasher, type StateHashSource } from '../simulator/state-hash';
+import { StateHasher, type HashBreakdown, type StateHashSource } from '../simulator/state-hash';
 import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../simulator/sim-snapshot';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskFromJson, losMaskToJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
@@ -80,6 +80,10 @@ interface ResearchSeat {
   credits: () => number;
   spend: (cost: number) => boolean;
 }
+
+
+/** Coop: hash breakdowns kept back, in hash reports: a desync's verdict comes a few seconds late at most. */
+const KEEP_HASH_BREAKDOWNS = 10;
 
 @Injectable()
 export class GameStateManager {
@@ -284,6 +288,11 @@ export class GameStateManager {
    * new run starts at the tick after the one that restarted it.
    */
   private lockstepTickBase = 0;
+  /**
+   * Coop: the hash breakdowns of the last reports by tick, for the detail a
+   * desync asks for once its verdict came back (TODO E32). A few seconds.
+   */
+  private readonly hashBreakdowns = new Map<number, HashBreakdown>();
 
   /**
    * A wave has started in this run; `game:started` goes out before the first.
@@ -402,6 +411,22 @@ export class GameStateManager {
   };
   /** The state hash now (StateHasher), for the recorder and the re-simulation */
   readonly stateHash = (): number => this.stateHasher.hash(this.hashSource);
+
+  /** Coop: the hash with its parts to the relay, the breakdown kept for a desync's detail. */
+  private reportHash(link: LockstepLink, tick: number): void {
+    const breakdown = this.stateHasher.breakdown(this.hashSource);
+    link.reportHash(tick, breakdown.total, breakdown.parts);
+    this.hashBreakdowns.set(tick, breakdown);
+    for (const kept of this.hashBreakdowns.keys()) {
+      if (kept > tick - KEEP_HASH_BREAKDOWNS * HASH_EVERY_TICKS) break;
+      this.hashBreakdowns.delete(kept);
+    }
+  }
+
+  /** Coop: the breakdown reported for `tick`, while it is kept (see hashBreakdowns). */
+  hashBreakdownAt(tick: number): HashBreakdown | null {
+    return this.hashBreakdowns.get(tick) ?? null;
+  }
 
   /**
    * Execute a logged command again, the same way as the live one (boundary,
@@ -1058,6 +1083,7 @@ export class GameStateManager {
     this.lockstep = link;
     this.lockstepTickRun = -1;
     this.lockstepTickBase = 0;
+    this.hashBreakdowns.clear();
     this.commandsHandler?.setLockstep(link);
   }
 
@@ -1103,7 +1129,7 @@ export class GameStateManager {
       if (tick <= this.lockstepTickRun) return true;
       this.lockstepTickRun = tick;
       // The relay compares these across clients (C5): same boundary, before the tick's commands
-      if (tick % HASH_EVERY_TICKS === 0) link.reportHash(tick, this.stateHash());
+      if (tick % HASH_EVERY_TICKS === 0) this.reportHash(link, tick);
       this.commandsHandler?.runTick(tick);
     }
   }

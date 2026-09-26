@@ -10,6 +10,7 @@ import type { LockstepStatsReport } from './lockstep-stats';
 import type { StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
 import type { CoopRoomOptions } from './room-options';
+import type { HashedEntities, HashPart } from './hash-check';
 
 /**
  * Bumped whenever a message changes shape; client and relay must agree.
@@ -141,8 +142,10 @@ export type ClientMessage =
   | { t: 'start'; seed: number }
   /** In the game: a command, stamped into the next tick by the relay */
   | { t: 'cmd'; command: StampedCommand['command'] }
-  /** In the game: the state hash at the boundary of `tick`, every HASH_EVERY_TICKS ticks (C5) */
-  | { t: 'hash'; tick: number; hash: number }
+  /** In the game: the state hash at the boundary of `tick`, every HASH_EVERY_TICKS ticks (C5), with the hash per part (HASH_PARTS) */
+  | { t: 'hash'; tick: number; hash: number; parts?: number[] }
+  /** After a desync: what each entity put into the hash at the desync's tick, for the relay to name the first that differ */
+  | { t: 'hash-detail'; tick: number; entities: HashedEntities }
   /** In the game: how smoothly this client runs, every REPORT_EVERY_MS (coop/lockstep-stats.ts) */
   | { t: 'stats'; stats: LockstepStatsReport }
   /** Host: game speed; 0 pauses */
@@ -175,7 +178,8 @@ export type ServerMessage =
   | { t: 'tick'; tick: number; commands: StampedCommand[] }
   /** The simulations ran apart: the first tick with different hashes, player id and hash each (C5) */
   /** `outOfStep`: who is off the majority's hash, from three players on (S3); empty without one */
-  | { t: 'desync'; tick: number; hashes: [string, number][]; outOfStep: string[] }
+  /** `parts`: the parts of the hash that differ (HASH_PARTS); missing from a relay before them */
+  | { t: 'desync'; tick: number; hashes: [string, number][]; outOfStep: string[]; parts?: HashPart[] }
   | { t: 'speed'; speed: number }
   | { t: 'chat'; from: string; text: string }
   | { t: 'ping'; from: string; lat: number; lon: number; height: number }
