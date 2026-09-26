@@ -81,6 +81,13 @@
   @include ui.list-row(36px);
   grid-template-columns: 3px 1fr auto auto auto;
   gap: 10px;
+  // Name with tags over the lane line is taller than the list row: the row grows with it
+  height: auto;
+  min-height: 36px;
+  padding-block: 5px;
+
+  // The lane colour runs the full height of the row, padding included
+  > .lane-bar { margin-block: -5px; }
 
   &.is-lag { border-color: color-mix(in srgb, var(--td-warn-orange) 40%, var(--td-frame-dark)); }
 
