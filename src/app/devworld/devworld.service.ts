@@ -10,6 +10,7 @@ import { TERRAIN_PRESETS, TerrainPreset } from './terrain-presets';
  * - ?devworld&terrain=hills - Terrain preset (flat, default, hills, valleys)
  * - ?devworld&buildings=dense - Building preset (none, sparse, dense, maze)
  * - ?devworld&spawn=north  - Spawn point (north, south, east, west, random)
+ * - ?devworld&spawns=2     - Spawns of the street generator, 1 to 4 (default 1): lanes for a coop test
  */
 export interface DevWorldConfig {
   /** Terrain heightmap preset */
@@ -23,7 +24,17 @@ export interface DevWorldConfig {
 
   /** Seed for reproducible generation (terrain, streets, buildings) */
   seed: number;
+
+  /**
+   * How many of the street generator's spawns the map gets, 1 to 4. One by
+   * default: bots and measurements play the game that ships, one approach
+   * route. More give coop a lane per player.
+   */
+  spawnCount: number;
 }
+
+/** Most spawns the street generator emits */
+export const DEV_WORLD_MAX_SPAWNS = 4;
 
 /**
  * DevWorld Constants
@@ -86,6 +97,7 @@ export class DevWorldService {
         buildings: this.parseBuildingsParam(params.get('buildings')),
         spawn: this.parseSpawnParam(params.get('spawn')),
         seed: this.parseSeedParam(params.get('seed')),
+        spawnCount: this.parseSpawnCountParam(params.get('spawns')),
       };
 
       // Update URL to show resolved defaults (e.g. ?devworld -> ?devworld&terrain=flat&seed=42)
@@ -97,6 +109,7 @@ export class DevWorldService {
         buildings: 'dense',
         spawn: 'north',
         seed: DEV_WORLD_DEFAULT_SEED,
+        spawnCount: 1,
       };
     }
   }
@@ -164,6 +177,9 @@ export class DevWorldService {
     if (this.config.spawn !== 'north') {
       params.set('spawn', this.config.spawn);
     }
+    if (this.config.spawnCount !== 1) {
+      params.set('spawns', String(this.config.spawnCount));
+    }
 
     const base = window.location.origin + window.location.pathname;
     return `${base}?${params.toString()}`;
@@ -188,6 +204,11 @@ export class DevWorldService {
       return value;
     }
     return 'north';
+  }
+
+  private parseSpawnCountParam(value: string | null): number {
+    const count = Number(value);
+    return Number.isInteger(count) && count >= 1 ? Math.min(count, DEV_WORLD_MAX_SPAWNS) : 1;
   }
 
   private parseSeedParam(value: string | null): number {
@@ -222,6 +243,11 @@ export class DevWorldService {
       url.searchParams.set('spawn', this.config.spawn);
     } else {
       url.searchParams.delete('spawn');
+    }
+    if (this.config.spawnCount !== 1) {
+      url.searchParams.set('spawns', String(this.config.spawnCount));
+    } else {
+      url.searchParams.delete('spawns');
     }
     window.history.replaceState({}, '', url.toString());
   }

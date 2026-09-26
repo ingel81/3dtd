@@ -352,22 +352,16 @@ export class LocationFacadeService {
         const devTerrainProvider = engine?.getDevTerrainProvider();
 
         if (devTerrainProvider) {
-          // One spawn, matching the real-world default: the random-spawn path
-          // below also creates exactly one, and multiple spawns are an explicit
-          // opt-in via editable spawn locations.
-          //
-          // The street generator deliberately emits up to four — they are the
-          // groundwork for a future multi-lane / multiplayer mode. Until that
-          // exists, training on all four would mean learning a different and
-          // much harder game than the one that ships: four approach routes
-          // against the same tower budget.
-          const generatedSpawns = devTerrainProvider.getSpawnPoints();
+          // One spawn by default, matching the real-world default: bots and
+          // measurements play the game that ships, not four approach routes
+          // against the same tower budget. `?devworld&spawns=N` takes more of
+          // the street generator's (up to four), a lane per coop player.
+          const generatedSpawns = this.devWorldSpawns(devTerrainProvider);
           if (generatedSpawns.length > 0) {
-            const spawn = generatedSpawns[0];
-            const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-            this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-            this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
-            return 1;
+            this.locationMgmt.setGeneratedSpawns(generatedSpawns.map(({ geo }) => ({ lat: geo.lat, lon: geo.lon })));
+            generatedSpawns.forEach(({ spawn, geo }, i) =>
+              this.addSpawnPoint(spawn.id, spawn.name, geo.lat, geo.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
+            return generatedSpawns.length;
           }
         }
 
@@ -566,6 +560,14 @@ export class LocationFacadeService {
     this.store.spawnPoints.set([]);
   }
 
+  /** The street generator's spawns the DevWorld map gets (DevWorldConfig.spawnCount), with their geo position. */
+  private devWorldSpawns(devTerrainProvider: DevTerrainProvider) {
+    return devTerrainProvider.getSpawnPoints().slice(0, this.devWorld.config.spawnCount).map((spawn) => ({
+      spawn,
+      geo: this.devWorld.localToGeo(spawn.position.x, spawn.position.z),
+    }));
+  }
+
   /**
    * Called after DevWorld terrain regeneration.
    */
@@ -578,13 +580,9 @@ export class LocationFacadeService {
     // Re-create base marker
     this.markerViz.addBaseMarker();
 
-    // One spawn, matching the initial-load path.
-    const generatedSpawns = devTerrainProvider.getSpawnPoints();
-    if (generatedSpawns.length > 0) {
-      const spawn = generatedSpawns[0];
-      const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-      this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
-    }
+    // As many spawns as on the initial load (DevWorldConfig.spawnCount)
+    this.devWorldSpawns(devTerrainProvider).forEach(({ spawn, geo }, i) =>
+      this.addSpawnPoint(spawn.id, spawn.name, geo.lat, geo.lon, SPAWN_COLORS[i % SPAWN_COLORS.length]));
 
     // Re-filter and render streets
     bridge.setFilteredStreetNetwork(bridge.getStreetNetwork());
