@@ -56,8 +56,7 @@ test('smoke: build a tower, play a wave, open a dialog, watch the replay', async
 
 test('M5 a new place starts the pressure loop at ×1.00, it opens over clean waves', async ({ duo, relay: _relay }, testInfo) => {
   const page = duo.host;
-  const why = async () => (await page.locator('body').innerText()).match(/Pressure loop[^
-]*/)?.[0] ?? '';
+  const why = async () => (await page.locator('body').innerText()).match(/Pressure loop[^\n]*/)?.[0] ?? '';
   // A fresh run: the page played the coop tests' waves before, clean ones the loop would count
   await page.getByRole('button', { name: 'Random location' }).click();
   await page.waitForTimeout(3000);
