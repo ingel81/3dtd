@@ -170,8 +170,8 @@ describe('AdaptiveWaveSource', () => {
       const { log } = plan(1, overwhelming(1));
 
       expect(log.pressureMultiplier).toBe(1);
-      // Overwhelming defense: no finite cap.
-      expect(log.survivableCount).toBeNull();
+      // Overwhelming defense: a cap far above any template, finite since E47
+      expect(log.survivableCount).toBeGreaterThan(TEMPLATES[0].countRange[1]);
       // Nothing has finished yet, so the loop has no target to report. A
       // number here would be one nobody regulated against.
       expect(log.targetPressure).toBeUndefined();

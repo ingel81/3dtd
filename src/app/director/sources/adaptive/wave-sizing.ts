@@ -8,7 +8,7 @@
  */
 
 import { type ArmorType } from '../../../configs/combat/combat.types';
-import { type NumberRange, type Template } from '../../templates';
+import { MAX_WAVE_DURATION_MS, type NumberRange, type Template } from '../../templates';
 import { directorParams } from '../../director-params';
 import { type GameStateSnapshot } from '../../models/game-state-snapshot';
 
@@ -118,8 +118,10 @@ export const FAIRNESS_MIN_COUNT = 5;
  *     killable = dps * (count * delaySeconds + ENGAGEMENT) * KILL_REALISM
  *     allowed  = killable + (leak HP budget / damage per leak / leaks per enemy)
  *
- * A non-positive denominator means the defense out-damages the spawn rate, so
- * nothing needs capping.
+ * The wave's duration is at most MAX_WAVE_DURATION_MS, so killable is at most
+ * dps * (MAX + ENGAGEMENT) * KILL_REALISM; the two meet where count * delay is
+ * that duration, which keeps the cap continuous and always finite
+ * (docs/PRESSURE_ONE_PLACE_PLAN.md, E47).
  */
 export function survivableCount(
   template: Template,
@@ -227,19 +229,20 @@ export function survivableCount(
   // through waves 1-10, which is where every run was ending.
   const budget = killsPerSecond * FAIRNESS_KILL_REALISM * Math.max(0.01, pressureMultiplier);
   //
-  // Ein Nenner <= 0 heißt: Die Verteidigung tötet schneller, als Gegner
-  // nachkommen, also schafft sie jede Zahl und der Deckel ist unbegrenzt.
+  // What the defense kills while the wave runs, which is at most the three
+  // minutes of MAX_WAVE_DURATION_MS: the closed form below the pole, the
+  // duration's limit above it. Without that limit the cap had a pole where
+  // the defense kills as fast as enemies come (denominator 0): just below it
+  // huge, at and past it unbounded, and with the pressure multiplier in the
+  // budget a small change in the loop moved a wave by hundreds (W15 of the
+  // Heilbronn coop run, docs/PRESSURE_ONE_PLACE_PLAN.md).
   //
-  // Am 2026-09-22 einmal durch eine endliche Obergrenze ersetzt (was in
-  // `MAX_WAVE_DURATION_MS` tötbar ist), weil genau diese Wellen mit 584
-  // Gegnern kamen. Das Gegenteil trat ein: Die Grenze lag über der
-  // Template-Spanne, die Deckel-Spanne innerhalb eines Laufs stieg von ×115
-  // auf ×534 und die mediane Runlänge fiel von 53 auf 38. Die Formel hat
-  // recht; die großen Wellen kommen aus der Template-Spanne, nicht von hier
-  // (docs/DRAMA_CONTROLLER_PLAN.md, Runde 8).
+  // Tried once on 2026-09-22 together with the multiplier acting on the
+  // count and past the template's top; the cap alone never capped then. Now
+  // the cap is the multiplier's only handle.
+  const byDuration = budget * (MAX_WAVE_DURATION_MS / 1000 + engagementSeconds);
   const denominator = 1 - budget * (Math.max(0, spawnDelayMs) / 1000);
-  if (denominator <= 0) return null;
-  const killable = (budget * engagementSeconds) / denominator;
+  const killable = denominator > 0 ? Math.min((budget * engagementSeconds) / denominator, byDuration) : byDuration;
 
   // Allow an overshoot priced in HP rather than assumed away. The leaks are
   // what make a wave dramatic; the budget is what stops them ending the run.

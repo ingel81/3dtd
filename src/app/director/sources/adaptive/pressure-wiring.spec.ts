@@ -188,11 +188,15 @@ describe('gate wiring', () => {
 
     it('takes a single brutal wave seriously but not as the whole picture', () => {
       // A campaign-pinned air wave against a ground-only defense leaks hard.
-      // The old mean over four waves let it drive the loop onto its stop in
-      // two steps. Over eight it moves the loop by a step, no more: the wave
-      // really did cost that HP, so ignoring it would be wrong too.
+      // Since E48 one wave counts at most three times the target: alone it
+      // stops the loop opening, a second one closes it, by a step and no more.
+      // The wave really did cost that HP, so ignoring it would be wrong too;
+      // letting it linger for a dozen waves was the Heilbronn run's W18 to W30.
       feed(waveResult(0));
       const opened = loop().pressureMultiplier;
+      collector.emitWaveResult(waveResult(60));
+      expect(loop().pressureMultiplier).toBe(opened);
+      expect(loop().status.lastStep).toBe('held');
       collector.emitWaveResult(waveResult(60));
       const after = loop().pressureMultiplier;
       expect(after).toBeLessThan(opened);
@@ -285,60 +289,27 @@ describe('gate wiring', () => {
       expect(wide).toBeGreaterThan(tight);
     });
 
-    it('toughens the enemies and goes past the template ceiling when the cap is idle', async () => {
-      // Die beiden Griffe für den Fall, dass die Verteidigung den Deckel
-      // sprengt. Im menschlichen Lauf über 66 Wellen stand der Regler ab
-      // Welle 26 am oberen Anschlag und die Wellen kosteten trotzdem nichts,
-      // weil die Template-Obergrenze band
-      // (docs/DRAMA_CONTROLLER_PLAN.md, Abschnitt 10).
-      const wave = async () => {
-        const c = await nextWave();
-        return { count: c.totalCount, hp: c.enemies[0]?.healthMultiplier ?? 1 };
-      };
-
-      // Eine Abwehr, gegen die kein Deckel bindet.
+    it('never goes past the template top, however far the loop is open (E47)', async () => {
+      // Bis E47 hatte der Regler zwei Griffe mehr, wenn der Deckel nicht band:
+      // zähere Gegner und mehr als die Template-Obergrenze, bis 5000. Zusammen
+      // mit dem Deckel wirkte er viermal und schickte W15 des Heilbronn-Laufs
+      // mit 490 Golems je Lane (docs/PRESSURE_ONE_PLACE_PLAN.md).
       const fast = collector.snapshot.defense;
-      const normal = { totalDPS: fast.totalDPS, killThroughput: fast.killThroughput, gateDpsPerArmor: fast.gateDpsPerArmor };
-      const huge = { unarmored: 50_000, light: 50_000, heavy: 50_000, fortified: 50_000, ethereal: 50_000 };
-      const overpower = () => {
-        fast.totalDPS = 100_000;
-        fast.killThroughput = { ground: 500, air: 500 };
-        fast.gateDpsPerArmor = { ground: huge, air: huge } as typeof fast.gateDpsPerArmor;
-      };
-      overpower();
-
-      let baseCount = 0;
-      let baseHp = 0;
-      for (let i = 0; i < 10; i++) {
-        const w = await wave();
-        baseCount = Math.max(baseCount, w.count);
-        baseHp = Math.max(baseHp, w.hp);
-      }
-
-      director.resetForNewGame();
-      // Same wave numbers as the first half: the endgame HP multiplier and the
-      // boss cadence both ride on the number, and they would otherwise drown
-      // out the only thing this measures.
-      planWave = collector.snapshot.waveNumber + 1;
-      seedRandom();
-      // Starve the gate against a defense the cap binds on: planned at wave
-      // end, every fed wave is planned again right away, and against the
-      // overpowering defense the anti-windup would (rightly) keep it shut
-      Object.assign(fast, normal);
+      // Open the loop against a defense the cap binds on (against an idle cap
+      // the anti-windup would rightly keep it shut) ...
       feed(waveResult(0), 40);
       expect(loop().pressureMultiplier).toBeGreaterThan(2);
-      overpower();
+      // ... then a defense no cap holds
+      const huge = { unarmored: 50_000, light: 50_000, heavy: 50_000, fortified: 50_000, ethereal: 50_000 };
+      fast.totalDPS = 100_000;
+      fast.killThroughput = { ground: 500, air: 500 };
+      fast.gateDpsPerArmor = { ground: huge, air: huge } as typeof fast.gateDpsPerArmor;
 
-      let openCount = 0;
-      let openHp = 0;
       for (let i = 0; i < 10; i++) {
-        const w = await wave();
-        openCount = Math.max(openCount, w.count);
-        openHp = Math.max(openHp, w.hp);
+        const config = await nextWave();
+        const template = TEMPLATES[config.templateIdx!];
+        if (!template.bossOnly) expect(config.totalCount).toBeLessThanOrEqual(template.countRange[1]);
       }
-      expect(openCount).toBeGreaterThan(baseCount);
-      expect(openHp).toBeGreaterThan(baseHp);
-      expect(openCount).toBeLessThanOrEqual(5000);           // COUNT_OVERRIDE_MAX
     });
 
     it('produces a shippable wave with no history at all', async () => {
@@ -402,6 +373,26 @@ describe('gate wiring', () => {
       );
       expect(cap).not.toBeNull();
       expect(Number.isFinite(cap!)).toBe(true);
+    });
+
+    it('has no pole: past the old one the cap stays at what the wave duration lets the defense kill (E47)', () => {
+      // 100 DPS on 50 HP at 2 kills/s: the old closed form had its pole at a
+      // gap of 1 / (2 × realism) s, about 770 ms; past it the cap was null,
+      // unbounded, and just before it thousands
+      const at = (delayMs: number) => survivableCount(
+        TEMPLATES[0], 1, delayMs,
+        { ground: { unarmored: 100 }, air: { unarmored: 100 } },
+        { ground: 2, air: 2 },
+        () => 'unarmored', () => false, () => 50, () => 5, () => 1, () => 1,
+        100, 1,
+      );
+      const caps = Array.from({ length: 200 }, (_, i) => at(100 + i * 10));
+      expect(caps.every((cap) => cap !== null && Number.isFinite(cap))).toBe(true);
+      // Rising with the gap, then flat at the duration's limit
+      for (let i = 1; i < caps.length; i++) expect(caps[i]!).toBeGreaterThanOrEqual(caps[i - 1]!);
+      const top = caps[caps.length - 1]!;
+      expect(at(770)).toBe(top);
+      expect(top).toBeLessThan(400);
     });
 
     it('lets a wave through in proportion to the target pressure', () => {
