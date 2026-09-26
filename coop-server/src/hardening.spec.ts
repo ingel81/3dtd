@@ -277,6 +277,7 @@ describe('the status page (relay review ideas 2 and 3)', () => {
     relay = await startRelay({ port: 0, log: () => undefined });
     const page = await fetch(`http://localhost:${relay.port}/`);
     expect(page.headers.get('content-security-policy')).toContain("default-src 'none'");
+    expect(page.headers.get('content-security-policy')).toMatch(/img-src data:$/);
     const metrics = await metricsOf(relay);
     expect(metrics.actions).toBe(false);
     const log = (await (await fetch(`http://localhost:${relay.port}/log.json`)).json()) as string[];

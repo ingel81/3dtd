@@ -363,8 +363,8 @@ class Relay {
     }
     response.writeHead(200, {
       'content-type': 'text/html; charset=utf-8',
-      // Only its own inline script and requests to this relay
-      'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'",
+      // Only its own inline script, requests to this relay and data: images (logo, favicon)
+      'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; img-src data:",
     });
     response.end(statusPage());
   }
