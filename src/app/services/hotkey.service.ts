@@ -271,13 +271,13 @@ export class HotkeyService {
   /** U buys the first upgrade it can and answers over the tower, see TowerUpgradeService. */
   private upgrade(): boolean {
     const tower = this.store.selectedTower();
-    return tower !== null && this.towerUpgrade.buyFirst(tower);
+    return tower !== null && this.facade.mayManage(tower) && this.towerUpgrade.buyFirst(tower);
   }
 
   /** Delete arms the sale like the first click on Sell, a second press sells. */
   private sell(): boolean {
     const tower = this.store.selectedTower();
-    if (!tower || tower.getSellValue() <= 0) return false;
+    if (!tower || tower.getSellValue() <= 0 || !this.facade.mayManage(tower)) return false;
     if (this.sellConfirm.request(tower.id)) {
       this.facade.sellSelectedTower();
     }

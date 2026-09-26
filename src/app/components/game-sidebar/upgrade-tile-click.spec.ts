@@ -24,7 +24,8 @@ describe('Upgrade tiles take the click they cannot buy', () => {
     expect(found.length).toBeGreaterThan(0);
     for (const tag of found) {
       expect(tag).toContain('(click)="onUpgradeTower(');
-      expect(tag).toContain('[attr.aria-disabled]="refused"');
+      // A partner's tower in coop is read only (TODO E39)
+      expect(tag).toMatch(/\[attr\.aria-disabled\]="refused( \|\| viewOnly\(\))?"/);
       expect(tag).not.toMatch(/\s\[?(attr\.)?disabled\]?[\s=>]/);
     }
   });

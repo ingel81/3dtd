@@ -175,6 +175,7 @@ export class TowerControlService {
   canEnter(tower: Tower | null): tower is Tower {
     return tower !== null
       && TowerLifecycle.canMan(tower)
+      && this.gameState.mayManage(tower)
       && !this.store.isGameOver()
       && !this.store.loading()
       && !this.store.error()

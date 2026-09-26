@@ -60,7 +60,12 @@ function release(key: string): KeyboardEvent {
 describe('HotkeyService', () => {
   const setHealthBarsInverted = vi.fn();
   let service: HotkeyService;
-  let facade: { startWave: ReturnType<typeof vi.fn>; upgradeTower: ReturnType<typeof vi.fn>; sellSelectedTower: ReturnType<typeof vi.fn> };
+  let facade: {
+    startWave: ReturnType<typeof vi.fn>;
+    upgradeTower: ReturnType<typeof vi.fn>;
+    sellSelectedTower: ReturnType<typeof vi.fn>;
+    mayManage: ReturnType<typeof vi.fn>;
+  };
   let selectTower: ReturnType<typeof vi.fn>;
   let selectTowerType: ReturnType<typeof vi.fn>;
   let openDialog: ReturnType<typeof vi.fn>;
@@ -166,6 +171,7 @@ describe('HotkeyService', () => {
         return true;
       }),
       sellSelectedTower: vi.fn(),
+      mayManage: vi.fn(() => true),
     };
     spawnFloatingText = vi.fn();
     upgradeHint = new UpgradeHintService();
@@ -503,6 +509,17 @@ describe('HotkeyService', () => {
 
     service.handleKeyDown(press('Delete'));
     expect(facade.sellSelectedTower).toHaveBeenCalledTimes(1);
+  });
+
+  it('U and Delete leave a partner’s tower alone: it is only looked at (TODO E39)', () => {
+    facade.mayManage.mockReturnValue(false);
+    store.selectedTower.set(tower);
+    service.handleKeyDown(press('u'));
+    service.handleKeyDown(press('Delete'));
+    service.handleKeyDown(press('Delete'));
+    expect(facade.upgradeTower).not.toHaveBeenCalled();
+    expect(sellConfirm.armedTowerId()).toBeNull();
+    expect(facade.sellSelectedTower).not.toHaveBeenCalled();
   });
 
   it('P toggles the pause, but not after game over', () => {

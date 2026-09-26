@@ -38,6 +38,7 @@ import {
   veteranView,
 } from './tower-stats';
 import { formatCompact } from '../../../utils/format-compact';
+import { COOP } from '../../../services/coop.token';
 import { upgradeTrackRefusal } from '../../../utils/player-actions';
 
 /**
@@ -66,6 +67,20 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   readonly store = inject(TowerDefenseStore);
 
   readonly tower = input.required<Tower>();
+
+  private readonly coop = inject(COOP, { optional: true });
+  /**
+   * Coop: the name of the partner who owns this tower, null for this
+   * player's own. A partner's tower is selected to look at it only: no sale,
+   * upgrade, targeting or getting in (TODO E39).
+   */
+  readonly owner = computed(() => {
+    const coop = this.coop;
+    if (!coop?.inGame()) return null;
+    const id = this.tower().ownerId;
+    return id === coop.playerId() ? null : coop.nameOf(id);
+  });
+  readonly viewOnly = computed(() => this.owner() !== null);
 
   /** The first click on Sell only arms it, see SellConfirmService. */
   readonly sellArmed = computed(() => this.sellConfirm.armedTowerId() === this.tower().id);
@@ -169,6 +184,7 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   }
 
   onUpgradeTower(upgradeId: UpgradeId): void {
+    if (this.viewOnly()) return;
     this.upgradeTower.emit({ tower: this.tower(), upgradeId });
   }
 

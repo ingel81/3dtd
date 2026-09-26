@@ -538,9 +538,11 @@ describe('Coop players in the simulation (COOP_PLAN C2a)', () => {
     expect(built.holdFire).toBe(false);
     expect(a.gsm.creditsOf('b')).toBe(start);
 
-    // Selecting: each client only its own player's towers
+    // Selecting: a partner's tower too, to look at it; acting on it only its owner (TODO E39)
     expect(a.gsm.selectableTower(built.id)).toBe(built.id);
-    expect(b.gsm.selectableTower(built.id)).toBeNull();
+    expect(b.gsm.selectableTower(built.id)).toBe(built.id);
+    expect(a.gsm.mayManage(built)).toBe(true);
+    expect(b.gsm.mayManage(built)).toBe(false);
 
     a.emit({ type: 'command:sell-tower', towerId: built.id });
     step();

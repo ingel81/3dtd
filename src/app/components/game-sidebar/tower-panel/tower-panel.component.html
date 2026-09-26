@@ -2,9 +2,15 @@
 <section class="td-panel td-tower-panel">
   <div class="td-panel-header td-tower-header">
     <span class="td-tower-header-name" [class.td-sell-armed-text]="sellArmed()" aria-live="polite">
-      {{ sellArmed() ? 'Click again to sell' : (tower().typeConfig.name | uppercase) }}
+      @if (owner(); as name) {
+        {{ name + "'s " + tower().typeConfig.name | uppercase }}
+      } @else {
+        {{ sellArmed() ? 'Click again to sell' : (tower().typeConfig.name | uppercase) }}
+      }
     </span>
-    @if (stats().sellValue > 0) {
+    @if (viewOnly()) {
+      <span class="td-view-only" matTooltip="A partner's tower: you can look, not change it" matTooltipPosition="left">view only</span>
+    } @else if (stats().sellValue > 0) {
       <button class="td-header-sell-btn"
               [class.armed]="sellArmed()"
               aria-keyshortcuts="Delete"
@@ -87,6 +93,7 @@
     <div class="td-targeting-row">
       @for (s of targetingStrategies(); track s.id) {
         <button class="td-targeting-btn" [class.active]="tower().targetingStrategy === s.id"
+                [disabled]="viewOnly()"
                 [matTooltip]="s.tooltip" matTooltipPosition="above"
                 [attr.aria-label]="'Target: ' + s.label"
                 [attr.aria-pressed]="tower().targetingStrategy === s.id"
@@ -95,13 +102,14 @@
         </button>
       }
       <button class="td-targeting-btn td-hold-fire-btn" [class.active]="tower().holdFire"
+              [disabled]="viewOnly()"
               [matTooltip]="tower().holdFire ? 'Holding fire: click to attack again' : 'Hold fire: the tower stops attacking'"
               matTooltipPosition="above"
               aria-label="Hold fire" [attr.aria-pressed]="tower().holdFire"
               (click)="onToggleHoldFire()">
         <td-icon name="pause" [size]="18"></td-icon>
       </button>
-      @if (canMan()) {
+      @if (canMan() && !viewOnly()) {
         <button class="td-targeting-btn td-man-btn"
                 matTooltip="Get in and fire it yourself (C): mouse aims, left button fires, Esc gets out"
                 matTooltipPosition="above"
@@ -117,6 +125,7 @@
       <div class="td-targeting-row td-sub-targeting-row">
         @for (s of airSubStrategies; track s.id) {
           <button class="td-targeting-btn" [class.active]="tower().airSubStrategy === s.id"
+                  [disabled]="viewOnly()"
                   [matTooltip]="s.tooltip" matTooltipPosition="above"
                   [attr.aria-label]="'Air target: ' + s.label"
                   [attr.aria-pressed]="tower().airSubStrategy === s.id"
@@ -129,7 +138,7 @@
 
     <!-- Upgrades Section -->
     <div class="td-upgrades-section">
-      @if (hintView().refusalText; as reason) {
+      @if (!viewOnly() && hintView().refusalText; as reason) {
         <div class="td-upgrade-hint" role="status">
           <td-icon name="warn" [size]="12"></td-icon>
           <span>{{ reason }}</span>
@@ -145,7 +154,7 @@
             [class.td-upgrade-tier-locked]="!isUpgradeTierUnlocked(upgrade.id)"
             [class.td-upgrade-flash]="hintView().flashId === upgrade.id && !hintView().flashAlt"
             [class.td-upgrade-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
-            [attr.aria-disabled]="refused"
+            [attr.aria-disabled]="refused || viewOnly()"
             (click)="onUpgradeTower(upgrade.id)"
             [matTooltip]="getUpgradeTierLockReason(upgrade.id) ?? upgrade.description"
             matTooltipPosition="left"
@@ -156,7 +165,9 @@
               <span class="td-upgrade-name">{{ upgrade.name }} <span class="td-upgrade-tier-badge">T{{ getRequiredUpgradeTier(upgrade.id) }}</span></span>
               <span class="td-upgrade-desc">Lv.{{ tower().getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
             </div>
-            <span class="td-upgrade-cost">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
+            @if (!viewOnly()) {
+              <span class="td-upgrade-cost">{{ tower().getNextUpgradeCost(upgrade.id) }}</span>
+            }
           </button>
         }
       }
