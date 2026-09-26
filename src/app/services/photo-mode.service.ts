@@ -14,6 +14,8 @@ import { SCREENSHOT_URL, downloadCanvasPng, loadImage, screenshotFileName, stamp
 import { cycleTab, focusedElement } from '../utils/focus-cycle';
 
 /** The game's logo, the watermark of a saved picture */
+/** How long the photo bar names the saved file */
+const SAVED_NOTE_MS = 5000;
 const BRAND_LOGO = 'assets/images/logo/logo.png';
 const GOOGLE_LOGO = 'assets/images/ui/google-maps-logo.svg';
 const CESIUM_LOGO = 'assets/images/ui/cesium-ion-logo.svg';
@@ -50,6 +52,13 @@ export class PhotoModeService {
   readonly active = this.uiStore.photoMode;
   /** A screenshot is on its way (capture, stamp, encode) */
   readonly saving = signal(false);
+  /**
+   * The file of the last screenshot, a few seconds long: the desktop app
+   * saves it without a dialog, and its notification stayed unseen behind the
+   * game (User, 2026-09-26).
+   */
+  readonly savedAs = signal<string | null>(null);
+  private savedTimer: ReturnType<typeof setTimeout> | undefined;
 
   /** Focus and open quick menu before enter(); exit() gives both back. */
   private focusBefore: HTMLElement | null = null;
@@ -121,10 +130,18 @@ export class PhotoModeService {
       const frame = await engine.captureFrame();
       if (!frame) return;
       stampScreenshot(frame, this.store.mapAttribution(), logos, { logo: brandLogo, url: SCREENSHOT_URL });
-      await downloadCanvasPng(frame, screenshotFileName(this.locationMgmt.displayName(), new Date()));
+      const fileName = screenshotFileName(this.locationMgmt.displayName(), new Date());
+      if (await downloadCanvasPng(frame, fileName)) this.showSaved(fileName);
     } finally {
       this.saving.set(false);
     }
+  }
+
+  private showSaved(fileName: string): void {
+    clearTimeout(this.savedTimer);
+    this.savedAs.set(fileName);
+    this.announcer.announce(`Screenshot saved: ${fileName}`);
+    this.savedTimer = setTimeout(() => this.savedAs.set(null), SAVED_NOTE_MS);
   }
 
   /** The logos the screen shows next to the map; DevWorld has no tiles and none. */

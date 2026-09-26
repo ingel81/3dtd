@@ -379,6 +379,9 @@
             <span>Exit</span>
             <kbd class="td-photo-key">Esc</kbd>
           </button>
+          @if (photoMode.savedAs(); as saved) {
+            <span class="td-photo-saved">Saved to Downloads: {{ saved }}</span>
+          }
         </div>
       }
 

@@ -234,6 +234,20 @@ describe('PhotoModeService screenshot', () => {
     expect(service.saving()).toBe(false);
   });
 
+  it('names the saved file in the photo bar for a few seconds', async () => {
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    try {
+      screenshot.downloadCanvasPng.mockResolvedValue(true);
+      const service = build(false, 'google');
+      await service.saveScreenshot();
+      expect(service.savedAs()).toMatch(/^3dtd-paris-\d{8}-\d{6}\.png$/);
+      vi.advanceTimersByTime(5000);
+      expect(service.savedAs()).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('stamps the game mark in DevWorld too, where no provider logo shows', async () => {
     await build(true, 'cesium').saveScreenshot();
     expect(screenshot.stampScreenshot).toHaveBeenCalledWith(
