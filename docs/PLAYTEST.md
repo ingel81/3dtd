@@ -60,7 +60,7 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 - **T69 Tastenleiste unter dem Chat lesbar** (User, 2026-09-25): „Enter chat · X mark · Tab room“ auf heller Karte.
   Erwartung: eigene dunkle Fläche, gut lesbar.
 - **T70 Beitreten ohne eigenen Ort und das neue Dock (E30, E31 Schritt 1)**: App frisch starten (Standortdialog).
-  Reiter „Coop“: „Same network“ mit Liste und „Online“ mit Code. Auf dem anderen Rechner „Host LAN game“, hier in
+  Reiter „Coop“: Umschalter „Same network“ mit Liste und „Online“ mit Code. Auf dem anderen Rechner „Same network“ und „Host a room“, hier in
   der Liste „Join“. Erwartung: der Dialog schließt, der Ort des Hosts lädt einmal, danach geht das Dock mit der Lobby
   auf. Im Dock: keine Server-Adresse mehr, Raumkopf „LAN“; die Lobby steht als Auswahl über „Open rooms“. Geprüft per
   Skript (Browser hostet online, App tritt per Code bei). Bekannt: der Ortsname kann beim Gast anders lauten
