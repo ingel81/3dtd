@@ -27,7 +27,7 @@ allem unter T (Coop).
       Fallback). Vermutung, unbelegt: die Korridor-Region hält grobe Tiles, der Abstands-Raycast der GlobeControls
       trifft zu hoch. Messen: Raycast-Treffer, Höhe, Tile-Tiefe am Limit, mit und ohne Region.
 - [ ] **C19 Tower bemannen wirkt kaputt** (bis 2026-09-25 als C18 geführt, die Nummer hat schon DONE) (User, 2026-09-24, Coop, im Einzelspieler ungeprüft; **gebaut 2026-09-24**,
-      Nachtest PLAYTEST T1): Fadenkreuz kommt,
+      Nachtest T1 ok im Coop, archiviert; offen: Einzelspieler und die Desktop-App, PLAYTEST T72): Fadenkreuz kommt,
       Sidebar verschwindet, aber die Kamera bleibt, Zielen und Schießen gehen nicht. Ursache im Coop, aus dem Code:
       `TowerControlService.enter()` prüft direkt nach `command:man-tower` mit `getMannedTower()`, ob man drin
       sitzt; im Lockstep wirkt der Befehl erst am Tick, also bricht `enter()` ab (keine Kamera, kein Pointer-Lock,
@@ -147,7 +147,7 @@ allem unter T (Coop).
 - [ ] **E31 Coop übers Internet: Lobby, Dock, öffentliche Liste** (User, 2026-09-25): entschieden D56 bis D68,
       Plan in [COOP_PLAN.md](docs/COOP_PLAN.md) C7 „Öffentliche Lobby“. Alle drei Schritte gebaut, die Lobby läuft
       (2026-09-25). Offen: Nachtests PLAYTEST T70, T71 mit neuem Installer, ein Lauf über die echte Lobby.
-- [ ] **E29 Coop: Lobby und Gefühl nach den Playtests** (D30 bis D48 im Plan; Nachtests PLAYTEST T21 bis T65).
+- [ ] **E29 Coop: Lobby und Gefühl nach den Playtests** (D30 bis D48 im Plan; Nachtests T21 bis T65 erledigt, im Archiv).
       Gebaut und hier nicht mehr offen: kürzere Ticks, Schuss sofort beim Klick, ein Tick Vorrat, Design-Handover C8,
       Zustand des Gasts (D47), End-to-End-Tests. Offen: Egoperspektive im Coop fühlt sich zäher an als allein (T19,
       User); später vielleicht Turm-Modell lokal vorausdrehen. Vorgesehen, nicht gebaut (D45): weitere Raum-Optionen
@@ -172,6 +172,12 @@ allem unter T (Coop).
 - [ ] **J6 Spec-Typen**: `tsc -p tsconfig.spec.json` meldet Fehler, die vitest nicht sieht: `.ts`-Importe des Relays
       (TS5097, `allowImportingTsExtensions`), `lockstep.scenario.spec.ts:282` (`noteFrame` fehlt an `LocalLink`),
       `coop.service.scenario.spec.ts:170` (Stub ohne Typ). Typcheck der Specs in den Gate nehmen.
+- [ ] **J7 Voller E2E-Lauf nach dem Coop-UI-Umbau** (2026-09-26): Nach den letzten Korrekturen (Esc im Dock,
+      Session-Wettlauf, Squad neben der Fähigkeitenleiste) liefen nur die Lobby-Tests erneut (4/4). Einmal
+      `npm run e2e` komplett, 3 Kartensitzungen.
+- [ ] **J8 E2E M5 rot** (2026-09-26): `solo.e2e.ts` erwartet „opened to ×1.xx“, bekam „×2.01“. Verdacht (unbelegt):
+      der Test beginnt keinen frischen Lauf und erbt saubere Wellen der Coop-Tests auf derselben Seite. Einzeln
+      laufen lassen (2 Sitzungen); grün, dann mit frischem Lauf beginnen, rot, dann den Regler prüfen.
 ---
 
 ## Entschieden (keine Arbeit)
