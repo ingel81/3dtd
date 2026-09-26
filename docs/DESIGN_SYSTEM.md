@@ -506,16 +506,33 @@ Im Zielmodus zeigt die Kontext-Hinweis-Box "Click" mit dem `aimHint` der Fähigk
 
 ### Coop: Dock, Squad, Chat (Canvas)
 
-Nach dem Design-Handover vom 2026-09-25 (`tmp/coop-design/test3.zip`, Plan [COOP_PLAN.md](COOP_PLAN.md) C8, D37 bis D46). Ecken 0, Farben nur aus `td-theme.ts`, Lane-Farben aus `SPAWN_COLORS` wie auf der Karte. Die Bausteine stehen einmal: die Rezepte Gold-, Teal- und Rahmen-Button, vertiefte Fläche und Abschnittskopf als Mixins in `styles/_td-mixins.scss` (auch `.td-btn` nutzt `gold-button`), die Coop-Formen (Knopfgrößen, Tag, Pille, Chip, Segment, Listenzeile, Name mit Unterzeile) in `components/coop-ui/_coop-ui.scss`, dazu `app-ping-bars` (vier Balken, Grenzen 40/90/160 ms, Orange bei Lag) und `chatView()` (Name und Zeit nur über der ersten Zeile eines Schwalls).
+Nach dem Design-Handover vom 2026-09-25 (`tmp/coop-design/test3.zip`, Plan [COOP_PLAN.md](COOP_PLAN.md) C8, D37 bis D46), überarbeitet nach [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) (U1 bis U8). Ecken 0, Farben nur aus `td-theme.ts`, Lane-Farben aus `SPAWN_COLORS` wie auf der Karte, als CSS über `laneCss()` (`coop/lane-color.ts`; ohne Lane durchsichtig oder `--td-text-secondary`, nie Weiß). Die Bausteine stehen einmal: die Rezepte Gold-, Teal- und Rahmen-Button, vertiefte Fläche, Abschnittskopf, Fokusring (`focus-ring`, 1px `--td-gold` nur bei `:focus-visible`) und `sr-only` als Mixins in `styles/_td-mixins.scss` (auch `.td-btn` nutzt `gold-button`), die Coop-Formen (Knopfgrößen, Tag, Pille, Chip, Segment, Listenzeile, Name mit Unterzeile, Hinweis, Banner, Tastenkappe, Spinner mit `prefers-reduced-motion`, Panelrahmen) in `components/coop-ui/_coop-ui.scss`. `@include ui.classes` gibt einer Komponente die gemeinsamen Klassen (`.btn`, `.btn-xs`, `.btn-primary`, `.icon-btn`, `.inp`, `.tag`, `.pill`, `.chip`, `.seg`, `.note`, `.banner`, `.spin`, `kbd`, `.row`, `.sr-only`), weil die View-Encapsulation keine globalen Klassen durchlässt. Dazu `app-ping-bars` (vier Balken, Grenzen 40/90/160 ms, Orange bei Lag) und `chatView()` (Name und Zeit nur über der ersten Zeile eines Schwalls).
+
+Ein Knopf, der gerade nichts tut, trägt `aria-disabled` statt `disabled` und prüft im Handler selbst: sonst erschiene sein Tooltip mit dem Grund nie (die Button-Rezepte färben `[aria-disabled='true']` wie `:disabled`). Wo Platz ist, steht der Grund zusätzlich als Text in der Zeile (Raumliste: warum ein Raum nicht beitretbar ist, in `--td-warn-orange`).
+
+Tasten: Tab (Dock), Enter (Chat) und X (Markierung) hört `app-coop-chat` auf dem Dokument. Tab und Enter gehören einem Knopf, den der Spieler per Tastatur erreicht hat; nach einem Mausklick behält der Knopf den Fokus, die Spieltasten gehen trotzdem. Ob der Fokus von der Tastatur kam, sagt `FocusOrigin` (`utils/keyboard-target.ts`: ein Fokus bis 600 ms nach `pointerdown` ist der Maus), nicht `:focus-visible`, das Chrome nach einem Klick beim ersten Tastendruck einschaltet. Im Dock wandert Tab immer durch die Knöpfe; Esc schließt es als letztes Glied der Esc-Kette des `HotkeyService`. Stapelung über die Layout-Tokens `--td-z-marks` (5, Ping-Pfeile), `--td-z-hud` (6, Fähigkeitenleiste, Squad) und `--td-z-dock` (7) aus `TD_LAYERS`.
 
 | Teil | Ort | Inhalt |
 |------|-----|--------|
 | Raum-Chip | Kopf, nach den Werkzeugen | Code in Mono, ein Quadrat je Spieler in seiner Lane-Farbe, `n/4`; Klick oder Tab öffnet das Dock. Ohne Raum das Zwei-Personen-Icon |
-| Dock `app-coop-dock` | rechts neben der Fähigkeitenleiste, oben auf ihrer Höhe, bis über die Logo-Zeile, 440px | Einstieg (Name, Karten Host/Join, Server), Beitritt als Schrittliste mit Fortschritt der Karte, Raum (Code 28px Mono, Code und Einladung kopieren, Sperre), Statuszeile, Spieler, Lanes, Mode & options, Chat, Fuß (Leave, ⋯ Resend map, Start match oder Ready up). Kein Dialog, kein Schleier (`UIStore.coopDockOpen`) |
-| Squad `app-coop-squad` | unten links über der Logo-Zeile, 400px | Kopf SQUAD mit Code oder Problem, CHEATS ON (Orange), Einklappen; Zeilen 42px, man selbst zuerst; Fuß: auf wen die Welle wartet oder was nicht stimmt |
-| Chat `app-coop-chat` | unter der Squad-Box | ein Verlauf auf einem Scrim, ältere Zeilen gedimmt, Systemzeilen in Mono; Enter schreibt, X markiert die Karte, Tab öffnet das Dock |
+| Dock `app-coop-dock` | rechts neben der Fähigkeitenleiste, oben auf ihrer Höhe, bis über die Logo-Zeile, 440px, im Raum 860px (Raum 480px, der Chat als zweite Spalte) | Ohne Raum der Einstieg `app-coop-entry`; beim Beitritt `app-coop-join-steps` (Schrittliste mit Fortschritt der Karte); im Raum Code (28px Mono, Code und Einladung kopieren, Sperre), Listing, Statuszeile, eine Warnung (die schwerste, weitere hinter „+n“), `app-coop-room-table`, `app-coop-room-options`, `app-coop-lobby-chat`; Fuß (Leave, ⋯ Resend map, Start match oder Ready up). Was es zeigt, rechnen die reinen Funktionen in `coop-dock/coop-dock-view.ts`. Kein Dialog, kein Schleier, `role="region"` (`UIStore.coopDockOpen`; von selbst öffnet und schließt es nur der `CoopService`: beim Betreten eines Raums auf, beim Spielstart zu) |
+| Einstieg `app-coop-entry` | im Dock ohne Raum und im Reiter Coop des Standortdialogs | Name (Hinweis zum Kartenschlüssel nur ohne Schlüssel); in der App ein Umschalter Online / Same network, gemerkt in `3dtd-coop-way`, nur der gewählte Weg ist zu sehen. Online: „Open rooms“ mit der Lobby als Auswahlliste im Abschnittskopf (letzter Eintrag „Add lobby…“ klappt Name und Adresse auf), Ping, Raumzeilen, Codefeld; antwortet die Lobby nicht, eine Warnzeile mit Retry. Same network: gefundene Spiele, nach 4 s Stille das IP-Feld und die Checkliste. Ein Knopf „Host a room“ für den gewählten Weg (nur im Dock). Beim Verbinden eine Zeile mit Cancel |
+| Raumtabelle `app-coop-room-table` | im Dock | Eine Zeile je Lane (Rezept Listenzeile 48px): Farbbalken, Lane mit Länge und Balken, Spieler (Name, Host, You, was sein Client tut), Ready (Haken im Quadrat, nur in der Lobby), Ping, Werkzeuge (Hinfliegen; in der Lobby Lane zurückgeben, beim Host Versetzen, Entfernen, Rauswerfen). Freie Lanes „Free · take“ in `--td-gold`. Spieler ohne Lane danach mit gestricheltem Rand |
+| Squad `app-coop-squad` | unten über der Logo-Zeile, rechts neben der Fähigkeitenleiste wie das Dock, 400px | Kopf SQUAD mit Code oder Problem (Versalien per CSS), CHEATS ON (Orange), Einklappen; Zeilen 36px, man selbst zuerst; Fuß: auf wen die Welle wartet oder was nicht stimmt |
+| Chat `app-coop-chat` | unter der Squad-Box | ein Verlauf auf einem Scrim, ältere Zeilen gedimmt, Systemzeilen in Mono; Enter schreibt, X markiert die Karte, Tab öffnet das Dock; die Tastenzeile darunter nur bis zur ersten eigenen Nachricht |
 
 Überschrift des Docks in `--td-font-display` (Cinzel wird nicht geladen, also Inter Tight, Versalien, Sperrung 0.1em). Warnfarben über `color-mix` aus `--td-warn-orange` und `--td-health-red`, keine eigenen Hex-Werte.
+
+### Standortdialog
+
+`app-td-location-dialog` (`components/location-dialog/`, Plan [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) P3). Fester Rahmen, 460px breit, `min(640px, 100vh - 48px)` hoch: Kopf, Tabs und Knopfzeile stehen still, nur der Inhalt scrollt, ein Tab-Wechsel verschiebt die Tabs nicht. Titel in `--td-font-display` wie das Dock: „Choose a place“ beim Start ohne Ort, sonst „Change place“. Tabs einzeilig in Mono-Versalien (Place, World, Coop), der aktive mit 2px `--td-gold` unten. Der Autofokus liegt auf dem Suchfeld (`autoFocus: 'input'`).
+
+- Place: oben die Adresssuche (38px, 13px Mono), darunter die Links „Coordinates“ und, mit geladenem Ort, „Move the spawn by address…“ (die frühere Spawn-Only-Ansicht mit „HQ stays“ und „Move spawn“). Ist ein Ort gesucht, fasst eine Zeile den Spawn zusammen („Spawn: random, 0.5 to 1 km from the HQ“), ein Klick klappt Random / By address auf. Darunter Recent und Showcase mit Abschnittskopf; ein Klick lädt
+- World: die Kugel mit Bestwellen, darunter die Liste
+- Coop: `app-coop-entry` nur zum Beitreten, darunter „To host, pick a place first, then open Coop in the header.“ Der Beitritt schließt den Dialog mit dem Ort des Hosts (`joinedPlaceResult`)
+- Knopfzeile: „Load place“ oder „Move spawn“ erst, wenn es etwas zu bestätigen gibt; Cancel oder Close nur mit geladenem Ort, beim Start gibt es nichts, wohin man zurück könnte
+
+Abschnittsköpfe über das Mixin `section-label` wie im Dock, keine Kästen in Kästen; Knöpfe über die Coop-Rezepte (`ui.btn`, `ui.btn-primary`); die Warnung bei laufendem Spiel als `.banner.is-warn`.
 
 ### Off-Screen-Pfeile (Canvas)
 
@@ -753,7 +770,7 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 | `components/context-hint/` | Wiederverwendbare Kontext-Hinweis-Box |
 | `components/attributions-dialog/` | Attributions & Lizenzen Dialog |
 | `components/damage-matrix-dialog/` | Damage-vs-Armor-Tabelle (Hilfe-Dialog aus der Sidebar) |
-| `components/location-dialog/` | Location-Auswahl Dialog, Tabs New Location, Spawn Only, World |
+| `components/location-dialog/` | Standortdialog: Tabs Place, World, beim Start ohne Ort Coop (siehe [Standortdialog](#standortdialog)) |
 | `components/world-globe/` | Weltkarte: Globus (2D-Canvas), Rekord-Hinweis im Game-Over-Overlay |
 | `components/address-autocomplete.component.ts` | Adress-Autocomplete (Nominatim) |
 | `components/engine-test/` | Standalone Engine-Test-View |

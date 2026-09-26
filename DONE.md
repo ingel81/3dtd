@@ -4,6 +4,15 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-26
+
+- [x] **Coop-UI und Standortdialog überarbeitet** (`b6d7d61d`, [Plan](docs/COOP_UI_REWORK_PLAN.md), U1 bis U8):
+      Standortdialog mit festen Tabs Place/World/Coop, Coop-Einstieg mit Umschalter Online/Same network, Raum als
+      Tabelle, gemeinsame Coop-Styles, Tab/Enter/Esc an Knöpfen korrekt, Squad-Box neben der Fähigkeitenleiste.
+      Nachtests T73 bis T75.
+- [x] **Fix: Beitritt hing still** (`11556575`): fragte die Raumliste parallel ab, nahm sie dem Beitritt die
+      Antwort weg; jetzt eine Anfrage je Session.
+
 ## 2026-09-24
 
 - [x] **C18 Wellenstart- und Wellenende-Sound zu abrupt** (`258b1d5c`, `11aad33a`, `113e2adb`): Erst blendet die

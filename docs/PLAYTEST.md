@@ -480,6 +480,16 @@ Dock steht jetzt rechts neben der Fähigkeitenleiste, Squad und Chat unten links
 - **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
   des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
   aus. Bisher nur per Spec geprüft.
+- **T73 Standortdialog neu (COOP_UI_REWORK_PLAN P3)**: App ohne Ort starten, dann mit Ort über den Kopf öffnen.
+  Erwartung: beim Start „Choose a place“ ohne Cancel, mit Ort „Change place“; die Tabs Place, World, Coop bleiben beim
+  Wechseln stehen; „Load place“ erst nach einer Suche, die Spawn-Zeile klappt auf; „Move the spawn by address…“ setzt
+  nur den Spawn. Logik per Spec geprüft, offen nur: Wirkt es aufgeräumt, passt es zum Rest?
+- **T74 Coop-Einstieg neu (P4)**: In der App Coop öffnen. Erwartung: Umschalter Online / Same network, nur ein Weg zu
+  sehen, beim nächsten Öffnen der zuletzt gewählte; die Lobby als Auswahl im Kopf von „Open rooms“, „Add lobby…“ öffnet
+  die Felder; ein Knopf „Host a room“. Per Spec und E2E geprüft, offen nur der Eindruck.
+- **T75 Raum als Tabelle (P5)**: Zu zweit einen Raum öffnen. Erwartung: eine Zeile je Lane mit Spieler, Haken für
+  Ready, Ping und Werkzeugen; Spieler ohne Lane darunter; bei mehreren Warnungen nur die schwerste mit „+n“. Tab im
+  Dock wandert durch die Knöpfe, Esc schließt es, ein Klick auf einen Knopf und dann Enter öffnet im Spiel den Chat.
 
 ## K8 Desktop-Build
 

@@ -37,6 +37,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay jeder Welle als Neu-Simulation: Snapshot am Wellenstart, Befehlslog, Springen, Datei speichern und laden, Bedienung, Grenzen |
 | [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
 | [COOP_PLAN.md](COOP_PLAN.md) | Aktuell (in Arbeit, Branch `coop`) | Coop "Vier Tore" im Lockstep über einen Node-Relay, im LAN aus der Desktop-App: Entscheidungen D1 bis D55, Pakete C0 bis C8 (gebaut C0 bis C4d, C5a, C8; offen C5b, C7), Relay-Betrieb, Schutz gegen Schummeln |
+| [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) | Aktuell (gebaut 2026-09-26, Branch `coop`) | Coop-Oberfläche und Standortdialog überarbeitet: Befunde aus Technik- und Design-Review, Entscheidungen U1 bis U8, Pakete P1 bis P5 |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Aktuell | Desktop-Build (Windows NSIS, Linux AppImage), Auto-Update, Release-Ablauf; ausgeliefert seit v0.3.1 |
 | [SOUND_PLAN.md](SOUND_PLAN.md) | Bericht (gebaut 2026-09-23) | Sound-Paket: Bugs, Technik, neue SFX per ElevenLabs, Musikzustände, Ducking; offen zwei Todes-Sounds und die Mischung |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
