@@ -12,6 +12,7 @@
  */
 
 import type { GameEventBus, SubscriptionBag, CreditsSource } from '../game-engine/game-event-bus';
+import type { KilledBy } from '../game-engine/events/event-types';
 import type { Tower } from '../entities/tower.entity';
 import type { WaveSourceId } from '../director/wave-source';
 import {
@@ -48,6 +49,12 @@ export interface RunLogWorld {
   dps: () => number;
   /** The towers that stand right now. */
   towers: () => readonly Tower[];
+  /**
+   * Coop: whether a tower or a kill is this player's. The run log is this
+   * player's run, a partner's towers and kills are theirs. Absent: all are.
+   */
+  ownsTower?: (tower: Tower) => boolean;
+  ownsKill?: (killedBy: KilledBy | null) => boolean;
 }
 
 /** What the head says about the run, beyond what the collector knows itself. */
@@ -91,6 +98,7 @@ export class RunLogCollector {
   private killsByAbility = 0;
   private killsByDebug = 0;
   private killsByOther = 0;
+  private killsByPartner = 0;
   private leaked = 0;
   /** An ooze counts once: as a leak from its first point, not again on arrival. */
   private readonly leaking = new Set<string>();
@@ -240,6 +248,10 @@ export class RunLogCollector {
     bag.add(bus.onLive('enemy:died', (e) => {
       // An ooze that dies while it flows in was already counted as a leak
       if (this.leaking.delete(e.enemy.id)) return;
+      if (this.world?.ownsKill && !this.world.ownsKill(e.killedBy)) {
+        this.killsByPartner++;
+        return;
+      }
       switch (e.killedBy?.kind) {
         case 'tower': this.killsByTower++; break;
         case 'hero': this.killsByHero++; break;
@@ -262,6 +274,7 @@ export class RunLogCollector {
     bag.add(bus.onLive('credits:changed', (e) => { if (e.local) this.book(e.delta, e.source); }));
 
     bag.add(bus.onLive('tower:placed', (e) => {
+      if (!this.owns(e.tower)) return;
       this.towerMarks.set(e.tower.id, { damage: e.tower.combat.damageDealt, kills: e.tower.combat.kills });
       this.bookTower(e.tower.typeConfig.id, e.cost);
       this.event('tower-built', {
@@ -272,10 +285,12 @@ export class RunLogCollector {
     }));
     bag.add(bus.onLive('tower:upgraded', (e) => {
       if (e.cost <= 0) return;   // the dev max-upgrade is not a decision
+      if (!this.owns(e.tower)) return;
       this.bookTower(e.tower.typeConfig.id, e.cost);
       this.event('tower-upgraded', { id: e.tower.typeConfig.id, credits: -e.cost, value: e.upgradeId });
     }));
     bag.add(bus.onLive('tower:sold', (e) => {
+      if (!this.owns(e.tower)) return;
       this.soldThisWave.push({ ...this.towerWave(e.tower), sold: true });
       this.towerMarks.delete(e.tower.id);
       this.event('tower-sold', { id: e.tower.typeConfig.id, credits: e.refund });
@@ -424,6 +439,7 @@ export class RunLogCollector {
     this.killsByAbility = 0;
     this.killsByDebug = 0;
     this.killsByOther = 0;
+    this.killsByPartner = 0;
     this.leaked = 0;
     this.leaking.clear();
     this.soldThisWave = [];
@@ -435,9 +451,18 @@ export class RunLogCollector {
   /** Remember what every standing tower had, so the wave's share is a difference. */
   private markTowers(): void {
     this.towerMarks.clear();
-    for (const tower of this.world?.towers() ?? []) {
+    for (const tower of this.myTowers()) {
       this.towerMarks.set(tower.id, { damage: tower.combat.damageDealt, kills: tower.combat.kills });
     }
+  }
+
+  private owns(tower: Tower): boolean {
+    return this.world?.ownsTower?.(tower) ?? true;
+  }
+
+  /** This player's standing towers. */
+  private myTowers(): readonly Tower[] {
+    return (this.world?.towers() ?? []).filter((tower) => this.owns(tower));
   }
 
   private towerWave(tower: Tower): RunLogTowerWave {
@@ -461,7 +486,7 @@ export class RunLogCollector {
     this.waveOpen = false;
 
     const towers = [
-      ...(this.world?.towers() ?? []).map((t) => this.towerWave(t)),
+      ...(this.myTowers()).map((t) => this.towerWave(t)),
       ...this.soldThisWave,
     ].filter((t) => t.damage > 0 || t.kills > 0 || Object.keys(t.levels).length > 0);
 
@@ -484,6 +509,7 @@ export class RunLogCollector {
       killsByAbility: this.killsByAbility,
       killsByDebug: this.killsByDebug,
       killsByOther: this.killsByOther,
+      ...(this.killsByPartner > 0 ? { killsByPartner: this.killsByPartner } : {}),
       leaked: this.leaked,
       enemiesAtStart: this.enemiesAtStart,
       enemiesAlive: this.world?.enemiesAlive() ?? 0,
