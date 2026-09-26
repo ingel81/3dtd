@@ -145,7 +145,7 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     a.send({ t: 'hash', tick: 15, hash: 0xabc });
     b.send({ t: 'hash', tick: 15, hash: 0xdef });
     const desync = await a.until('desync');
-    expect(desync).toEqual({ t: 'desync', tick: 15, hashes: [[a.playerId, 0xabc], [b.playerId, 0xdef]], outOfStep: [] });
+    expect(desync).toEqual({ t: 'desync', tick: 15, hashes: [[a.playerId, 0xabc], [b.playerId, 0xdef]], outOfStep: [], parts: [] });
     await b.until('desync');
 
     const status = await (await fetch(`http://localhost:${relay.port}/status`)).json() as RelayStatus;

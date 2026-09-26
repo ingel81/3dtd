@@ -48,8 +48,8 @@ export interface LockstepLink {
   commandsAt(tick: number): readonly StampedCommand[];
   /** The tick is done here; a link may drop what it kept for it. */
   release(tick: number): void;
-  /** The state hash at the boundary of `tick`, before its commands ran; every HASH_EVERY_TICKS ticks (C5). */
-  reportHash(tick: number, hash: number): void;
+  /** The state hash at the boundary of `tick`, before its commands ran; every HASH_EVERY_TICKS ticks (C5). `parts`: per HASH_PARTS entry. */
+  reportHash(tick: number, hash: number, parts?: readonly number[]): void;
   /**
    * A frame ran `steps` sub-steps; `blocked` when the tick barrier held one
    * that was due; `behind` ticks closed and not yet run. For the smoothness

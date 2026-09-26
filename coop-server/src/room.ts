@@ -33,7 +33,7 @@ import type { StampedCommand } from '../../src/app/coop/lockstep.ts';
 import { MAX_PLAYERS, PLAYER_STATUSES, TITLE_MAX } from '../../src/app/coop/protocol.ts';
 import { TICK_SUB_STEPS } from '../../src/app/coop/lockstep.ts';
 import { GameClock } from '../../src/app/managers/game-state/game-clock.ts';
-import { HashCheck, HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
+import { HashCheck, HASH_EVERY_TICKS, HASH_PARTS, firstDifferences, validDetail, type HashedEntities } from '../../src/app/coop/hash-check.ts';
 import { clientLabel, type ClientInfo } from '../../src/app/coop/client-info.ts';
 import {
   DEFAULT_ROOM_OPTIONS,
@@ -148,6 +148,9 @@ export class Room {
   private readonly recent: StampedCommand[] = [];
   private desyncCount = 0;
   private firstDesync: number | null = null;
+  /** What each player's entities put into the hash at the first desync's tick (TODO E32) */
+  private readonly desyncDetails = new Map<string, HashedEntities>();
+  private desyncDetailLogged = false;
 
   readonly code: string;
   private readonly send: Send;
@@ -346,9 +349,14 @@ export class Room {
         this.commandCount++;
         if (message.command.type === 'command:start-wave') this.waves++;
         return;
-      case 'hash':
+      case 'hash': {
         if (!this.started) return;
-        return this.checkHash(playerId, message.tick, message.hash);
+        const parts = Array.isArray(message.parts) && message.parts.length === HASH_PARTS.length
+          && message.parts.every((p) => Number.isFinite(p)) ? message.parts : undefined;
+        return this.checkHash(playerId, message.tick, message.hash, parts);
+      }
+      case 'hash-detail':
+        return this.takeDesyncDetail(playerId, message.tick, message.entities);
       case 'stats':
         if (!this.started || typeof message.stats?.frames !== 'number') return;
         return this.log(`stats ${this.who(playerId)}: ${statsLine(message.stats)}`);
@@ -429,21 +437,43 @@ export class Room {
    * goes to everyone, with who is off the majority from three players on
    * (S3); later ones only count, since a divergence stays.
    */
-  private checkHash(playerId: string, tick: number, hash: number): void {
-    const divergence = this.hashCheck.report(tick, playerId, hash >>> 0, this.players.length);
+  private checkHash(playerId: string, tick: number, hash: number, parts?: readonly number[]): void {
+    const divergence = this.hashCheck.report(tick, playerId, hash >>> 0, this.players.length, parts);
     if (!divergence) return;
     this.desyncCount++;
     if (this.firstDesync !== null) return;
     this.firstDesync = divergence.tick;
     const hashes = divergence.hashes.map(([id, h]) => `${this.who(id)} ${hex(h)}`).join(', ');
     const off = divergence.outOfStep.map((id) => this.who(id)).join(', ');
-    this.log(`DESYNC at tick ${divergence.tick}: ${hashes}${off ? `; out of step: ${off}` : ''}`);
+    const named = divergence.parts.length > 0 ? `; parts: ${divergence.parts.join(', ')}` : '';
+    this.log(`DESYNC at tick ${divergence.tick}: ${hashes}${off ? `; out of step: ${off}` : ''}${named}`);
     // What went in before it: most divergences follow a command acting apart
     const since = divergence.tick - 2 * HASH_EVERY_TICKS;
     for (const c of this.recent.filter((c) => c.tick >= since)) {
       this.log(`  command at tick ${c.tick} from ${this.who(c.playerId)}: ${JSON.stringify(c.command).slice(0, 300)}`);
     }
-    this.broadcast({ t: 'desync', tick: divergence.tick, hashes: divergence.hashes, outOfStep: divergence.outOfStep });
+    this.broadcast({ t: 'desync', tick: divergence.tick, hashes: divergence.hashes, outOfStep: divergence.outOfStep, parts: divergence.parts });
+  }
+
+  /**
+   * A player's entities at the first desync's tick; once two came, the
+   * first entities that differ go to the log with each player's values.
+   * Only for that tick and once: later divergences follow from the first.
+   */
+  private takeDesyncDetail(playerId: string, tick: unknown, entities: unknown): void {
+    if (!this.started || this.desyncDetailLogged || tick !== this.firstDesync) return;
+    const detail = validDetail(entities);
+    if (!detail) return;
+    this.desyncDetails.set(playerId, detail);
+    if (this.desyncDetails.size < 2) return;
+    this.desyncDetailLogged = true;
+    const differences = firstDifferences([...this.desyncDetails]);
+    this.desyncDetails.clear();
+    if (differences.length === 0) return this.log(`  no entity differs at tick ${tick}`);
+    for (const d of differences) {
+      const values = d.values.map(([id, v]) => `${this.who(id)} ${v ? JSON.stringify(v.slice(1)).slice(0, 200) : 'missing'}`).join(' / ');
+      this.log(`  differs at tick ${tick}: ${d.part} ${d.id}: ${values}`);
+    }
   }
 
   status(): RoomStatus {

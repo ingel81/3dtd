@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Room, TICK_MS, MAX_AHEAD_TICKS, type RoomPlayer } from './room.ts';
-import { HASH_EVERY_TICKS } from '../../src/app/coop/hash-check.ts';
+import { HASH_EVERY_TICKS, HASH_PARTS } from '../../src/app/coop/hash-check.ts';
 import { DEFAULT_ROOM_OPTIONS } from '../../src/app/coop/room-options.ts';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
 
@@ -362,7 +362,7 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('b', { t: 'hash', tick: 30, hash: 9 });
     room.receive('a', { t: 'hash', tick: 45, hash: 10 });
     room.receive('b', { t: 'hash', tick: 45, hash: 11 });
-    expect(all('a', 'desync')).toEqual([{ t: 'desync', tick: 30, hashes: [['a', 8], ['b', 9]], outOfStep: [] }]);
+    expect(all('a', 'desync')).toEqual([{ t: 'desync', tick: 30, hashes: [['a', 8], ['b', 9]], outOfStep: [], parts: [] }]);
     expect(all('b', 'desync')).toHaveLength(1);
     const status = room.status();
     expect(status).toMatchObject({ started: true, desyncs: 2, firstDesync: 30 });
@@ -406,5 +406,28 @@ describe('Room (COOP_PLAN C4)', () => {
       `DESYNC at tick ${HASH_EVERY_TICKS}: A (a) 00000001, B (b) 00000002`,
       '  command at tick 0 from B (b): {"type":"command:place-tower","typeId":"archer"}',
     ]);
+  });
+
+  it('names the parts that differ and, from both details, the first entities (TODO E32)', () => {
+    const lines: string[] = [];
+    room = new Room('APART', player('a'), () => undefined, { log: (line) => lines.push(line) });
+    lobby();
+    room.receive('a', { t: 'start', seed: 5 });
+    const parts = HASH_PARTS.map((_, i) => i);
+    const enemies = HASH_PARTS.indexOf('enemies');
+    room.receive('a', { t: 'hash', tick: HASH_EVERY_TICKS, hash: 1, parts });
+    room.receive('b', { t: 'hash', tick: HASH_EVERY_TICKS, hash: 2, parts: parts.map((h, i) => (i === enemies ? h + 1 : h)) });
+    expect(lines.at(-1)).toBe(`DESYNC at tick ${HASH_EVERY_TICKS}: A (a) 00000001, B (b) 00000002; parts: enemies`);
+
+    // Another tick than the desync's, and a malformed detail, do nothing
+    room.receive('a', { t: 'hash-detail', tick: 0, entities: { enemies: [['enemy-1', 3]] } });
+    room.receive('b', { t: 'hash-detail', tick: HASH_EVERY_TICKS, entities: { enemies: 'x' } as never });
+    room.receive('a', { t: 'hash-detail', tick: HASH_EVERY_TICKS, entities: { enemies: [['enemy-1', 48.1, 3]] } });
+    expect(lines.at(-1)).toContain('DESYNC');
+    room.receive('b', { t: 'hash-detail', tick: HASH_EVERY_TICKS, entities: { enemies: [['enemy-1', 48.1, 3.5]] } });
+    expect(lines.at(-1)).toBe(`  differs at tick ${HASH_EVERY_TICKS}: enemies enemy-1: A (a) [48.1,3] / B (b) [48.1,3.5]`);
+    // Once
+    room.receive('b', { t: 'hash-detail', tick: HASH_EVERY_TICKS, entities: { enemies: [['enemy-1', 1]] } });
+    expect(lines.filter((l) => l.includes('differs'))).toHaveLength(1);
   });
 });

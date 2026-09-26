@@ -37,8 +37,8 @@ export class LocalRelay {
     const link = new LocalLink(
       playerId,
       (command) => this.submit(playerId, command),
-      (tick, hash) => {
-        const divergence = this.hashCheck.report(tick, playerId, hash, this.links.length);
+      (tick, hash, parts) => {
+        const divergence = this.hashCheck.report(tick, playerId, hash, this.links.length, parts);
         if (divergence) this.divergences.push(divergence);
       },
     );
@@ -79,7 +79,7 @@ export class LocalLink implements LockstepLink {
   constructor(
     readonly playerId: string,
     private readonly submit: (command: Command) => void,
-    private readonly hashTo: (tick: number, hash: number) => void = () => undefined,
+    private readonly hashTo: (tick: number, hash: number, parts?: readonly number[]) => void = () => undefined,
   ) {}
 
   send(command: Command): void {
@@ -98,8 +98,8 @@ export class LocalLink implements LockstepLink {
     this.received.delete(tick);
   }
 
-  reportHash(tick: number, hash: number): void {
-    this.hashTo(tick, hash);
+  reportHash(tick: number, hash: number, parts?: readonly number[]): void {
+    this.hashTo(tick, hash, parts);
   }
 
   /** Ticks closed at the relay that this link has not received yet. */

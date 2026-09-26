@@ -14,6 +14,7 @@ import { balanceConfigHash } from '../run-log/config-hash';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
 import { CoopRefusedError, CoopSession, type CoopStart } from '../coop/coop-session';
+import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-check';
 import {
   buildWorldPackage,
   packagePaths,
@@ -1236,10 +1237,11 @@ export class CoopService {
       if (reason === 'kicked') this.leave();
       this.error.set(REFUSAL_TEXT[reason]);
     });
-    session.onDesync = inZone((tick, hashes, outOfStep) => {
+    session.onDesync = inZone((tick, hashes, outOfStep, parts) => {
       this.desync.set({ tick, hashes, outOfStep });
       const own = this.gameState.stateHash();
       console.warn(`[Coop] out of step at tick ${tick}: ${hashes.map(([id, h]) => `${id} ${(h >>> 0).toString(16)}`).join(', ')}; here now ${own.toString(16)}`);
+      this.reportDesyncDetail(session, tick, parts);
       this.notify(desyncText(outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
     });
     session.onClosed = inZone(() => {
@@ -1248,6 +1250,32 @@ export class CoopService {
       if (this.inGame()) this.notify('Connection to the coop server lost: the game stands still. Go on alone, or reload to leave', 'warn');
       this.status.set('closed');
     });
+  }
+
+  /**
+   * A desync's detail (TODO E32): what each entity put into the hash at its
+   * tick goes to the relay, which names the first that differ; the part
+   * hashes and, with a relay that names no parts, every entity part go into
+   * the log here as well, so two players' logs tell it apart without the relay.
+   */
+  private reportDesyncDetail(session: CoopSession, tick: number, parts: HashPart[] | null): void {
+    const breakdown = this.gameState.hashBreakdownAt(tick);
+    if (!breakdown) {
+      console.warn(`[Coop] no hash breakdown kept for tick ${tick}`);
+      return;
+    }
+    const partHashes = HASH_PARTS.map((part, i) => `${part} ${(breakdown.parts[i] >>> 0).toString(16)}`).join(', ');
+    console.warn(`[Coop] hash parts at tick ${tick}: ${partHashes}${parts ? `; differing: ${parts.join(', ') || 'none named'}` : ''}`);
+    // A relay that names the parts gets theirs; without names, every entity part
+    const named = parts !== null && parts.length > 0;
+    const wanted = named ? parts : HASH_PARTS;
+    const entities: HashedEntities = {};
+    for (const part of wanted) {
+      const rows = breakdown.entities[part];
+      if (rows) entities[part] = rows;
+    }
+    session.hashDetail(tick, entities);
+    if (!named) console.warn(`[Coop] hash detail at tick ${tick}: ${JSON.stringify(entities)}`);
   }
 
   /**

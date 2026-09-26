@@ -3,6 +3,7 @@ import type { CoopRoomOptions } from './room-options';
 import type { PlayerStatus } from './protocol';
 import type { LockstepLink, StampedCommand } from './lockstep';
 import type { ClientInfo } from './client-info';
+import type { HashedEntities, HashPart } from './hash-check';
 import {
   PROTOCOL_VERSION,
   type ClientMessage,
@@ -92,9 +93,10 @@ export class WebSocketLink implements LockstepLink {
     this.received.delete(tick);
   }
 
-  reportHash(tick: number, hash: number): void {
-    this.out({ t: 'hash', tick, hash });
+  reportHash(tick: number, hash: number, parts?: readonly number[]): void {
+    this.out(parts ? { t: 'hash', tick, hash, parts: [...parts] } : { t: 'hash', tick, hash });
   }
+
 
   noteFrame(steps: number, blocked: boolean, behind: number): void {
     this.stats.frame(steps, blocked, behind);
@@ -143,7 +145,7 @@ export class CoopSession {
   /** Lobby: the host changes the map, a world follows */
   onMoving: (() => void) | null = null;
   /** The relay found the simulations apart (C5): the first tick, player id and hash each */
-  onDesync: ((tick: number, hashes: [string, number][], outOfStep: string[]) => void) | null = null;
+  onDesync: ((tick: number, hashes: [string, number][], outOfStep: string[], parts: HashPart[] | null) => void) | null = null;
   onRefused: ((reason: RefusalReason) => void) | null = null;
   onClosed: (() => void) | null = null;
 
@@ -261,6 +263,11 @@ export class CoopSession {
   /** Host: game speed, 0 pauses (D15). */
   setSpeed(speed: number): void {
     this.out({ t: 'speed', speed });
+  }
+
+  /** After a desync: what each entity put into the hash at `tick` (TODO E32) */
+  hashDetail(tick: number, entities: HashedEntities): void {
+    this.out({ t: 'hash-detail', tick, entities });
   }
 
   chat(text: string): void {
@@ -383,7 +390,7 @@ export class CoopSession {
       case 'ping':
         return this.onPing?.(message.from, message.lat, message.lon, message.height);
       case 'desync':
-        return this.onDesync?.(message.tick, message.hashes, message.outOfStep ?? []);
+        return this.onDesync?.(message.tick, message.hashes, message.outOfStep ?? [], message.parts ?? null);
     }
   }
 }

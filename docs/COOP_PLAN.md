@@ -447,6 +447,14 @@ der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
 - Gemessen (User, 2026-09-24, Relay-Log): Chrome gegen Chrome bis W10, rund 66 Spielminuten, ohne Abweichung.
   Chrome gegen Firefox weicht bei Tick 210 ab (14 Spielsekunden nach dem Start) und bleibt abweichend. Ursache
   unbelegt; Eingrenzen per zerlegter Prüfsumme ist TODO E28, Randthema (D29).
+- **Zerlegte Prüfsumme (2026-09-26, TODO E32):** `StateHasher.breakdown()` gibt dieselbe Gesamtsumme plus eine
+  Summe je Teil (`HASH_PARTS` in `hash-check.ts`: clock, credits, health, wave, ids, rng, enemies, towers,
+  projectiles, heroes) und die Werte jedes Objekts. Im Coop geht `hash` mit `parts` zum Relay; der GSM hält die
+  letzten 10 Aufschlüsselungen. Das Relay schreibt die abweichenden Teile in die DESYNC-Zeile und schickt sie mit
+  `desync`; die Clients antworten mit `hash-detail` (die Objekte dieser Teile zum Tick der Abweichung), das Relay
+  loggt die ersten fünf abweichenden Objekte mit den Werten beider Spieler (`differs at tick …`). Jeder Client
+  schreibt seine Teilsummen in die Konsole (in der App `main.log`), ohne Teilnamen vom Relay auch alle Objekte.
+  Ein Relay vor diesem Stand ignoriert `parts` und `hash-detail`, die Protokollversion bleibt 1.
 
 **C5b offen:** Wiedereinstieg und Resync. (Prüfsummen melden und vergleichen sowie die Diagnose am Relay sind mit C5a
 gebaut, die Punkte dazu unten sind Geschichte.)

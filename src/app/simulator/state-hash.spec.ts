@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { StateHasher, type StateHashSource } from './state-hash';
+import { HASH_PARTS } from '../coop/hash-check';
 import type { Enemy } from '../entities/enemy.entity';
 import type { Tower } from '../entities/tower.entity';
 
@@ -62,5 +63,29 @@ describe('StateHasher', () => {
   it('notices a tower cooldown', () => {
     expect(hasher.hash(source([], [tower('tower-1', 10)])))
       .not.toBe(hasher.hash(source([], [tower('tower-1', 11)])));
+  });
+
+  describe('breakdown', () => {
+    it('gives the same total as hash() and a hash per part', () => {
+      const state = source([enemy('enemy-1', 48.1, 90)]);
+      const breakdown = hasher.breakdown(state);
+      expect(breakdown.total).toBe(hasher.hash(state));
+      expect(breakdown.parts).toHaveLength(HASH_PARTS.length);
+    });
+
+    it('names the one part that differs', () => {
+      const a = hasher.breakdown(source([enemy('enemy-1', 48.1, 90)]));
+      const b = hasher.breakdown(source([enemy('enemy-1', 48.1, 89)]));
+      const differ = HASH_PARTS.filter((_, i) => a.parts[i] !== b.parts[i]);
+      expect(differ).toEqual(['enemies']);
+    });
+
+    it('keeps what each entity put in, id first', () => {
+      const breakdown = hasher.breakdown(source([enemy('enemy-1', 48.1, 90)]));
+      expect(breakdown.entities.enemies).toEqual([['enemy-1', 48.1, 9.1, 3, 90, 0.25]]);
+      expect(breakdown.entities.towers).toEqual([['tower-1', 10, 2, 40, '']]);
+      expect(breakdown.entities.heroes).toEqual([[0, -1]]);
+      expect(breakdown.entities.projectiles).toBeUndefined();
+    });
   });
 });
