@@ -58,6 +58,7 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   starten. Erwartung: Der Fuß der Squad-Box („Ready up for the next wave“, „Waiting for …“) bleibt als Zeile stehen,
   auch leer; Box und Chat darunter verschieben sich nicht mehr. Dazu (User, 2026-09-26): die Spielerzeilen wachsen mit Name und
   Tags, die Spawn-Zeile liegt in der Zeile, der Lane-Strich läuft bündig über die ganze Höhe.
+  Vorab per Probe (2026-09-26, zwei Browser, echte Karte): die Box bleibt 208,6 px hoch über Bereit, Welle und Wellenende; sie rückt je Chat-Zeile (Systemzeilen wie „Bob is ready“) um eine Zeile höher, bis der Chat voll ist. Offen: ob das stört.
 - **T69 Tastenleiste unter dem Chat lesbar** (User, 2026-09-25): „Enter chat · X mark · Tab room“ auf heller Karte.
   Erwartung: eigene dunkle Fläche, gut lesbar.
 - **T70 Beitreten ohne eigenen Ort und das neue Dock (E30, E31 Schritt 1)**: App frisch starten (Standortdialog).
@@ -79,6 +80,7 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 - **T67 Held des Partners (R15)**: Im Coop-Spiel heuern beide ihren Helden an. Erwartung: jeder sieht auch den Helden
   des anderen laufen und schießen, mit einem Ring in dessen Lane-Farbe unter den Füßen; ein Klick auf ihn wählt nichts
   aus. Bisher nur per Spec geprüft.
+  Vorab per Probe (2026-09-26): beide Clients haben beide Helden im Spiel. Offen: Ring in Lane-Farbe und Klick ohne Auswahl, nur heranzoomend zu sehen.
 - **T73 Standortdialog neu (COOP_UI_REWORK_PLAN P3)**: App ohne Ort starten, dann mit Ort über den Kopf öffnen.
   Erwartung: beim Start „Choose a place“ ohne Cancel, mit Ort „Change place“; die Tabs Place, World, Coop bleiben beim
   Wechseln stehen; „Load place“ erst nach einer Suche, die Spawn-Zeile klappt auf; „Move the spawn by address…“ setzt
@@ -89,6 +91,7 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 - **T75 Raum als Tabelle (P5)**: Zu zweit einen Raum öffnen. Erwartung: eine Zeile je Lane mit Spieler, Haken für
   Ready, Ping und Werkzeugen; Spieler ohne Lane darunter; bei mehreren Warnungen nur die schwerste mit „+n“. Tab im
   Dock wandert durch die Knöpfe, Esc schließt es, ein Klick auf einen Knopf und dann Enter öffnet im Spiel den Chat.
+  Vorab per Probe (2026-09-26): Tab wandert durchs Dock (PvE, Versus, Chat, Send, Leave, More, Start match) und verlässt es nach dem letzten Knopf in die Sidebar (kein Fokus-Käfig); Esc schließt es aus dem Dock; Klick auf einen Knopf, dann Enter öffnet im Spiel den Chat. Offen: der Eindruck der Tabelle.
 
 ## K8 Desktop-Build
 
