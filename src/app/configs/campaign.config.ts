@@ -30,7 +30,19 @@ export interface CampaignWave {
    * (decision D3, the room per campaign wave). 1 is the director's number.
    */
   intensity?: number;
+  /**
+   * The least time between two spawns of this wave, ms: large models (golem,
+   * mammoth) stood inside each other when the three-minute cap compressed
+   * the delay (TODO E21, 368 ms at W15). Neither the template's range nor
+   * the cap goes below it; a wave that needs more time than the cap runs
+   * longer. Campaign only: as a template of the free director these enemies
+   * may still come as a swarm.
+   */
+  minSpawnDelayMs?: number;
 }
+
+/** Spacing of the campaign's golem and mammoth waves (TODO E21) */
+const LARGE_MODEL_SPAWN_DELAY_MS = 600;
 
 /**
  * Hard sequence, 1-indexed: CAMPAIGN[0] = wave 1.
@@ -61,8 +73,8 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   { template: 'bear_pack',        killGold:  1200, completionGold:   600 }, // 11 — heavy fast
   { template: 'dragon_elite',     killGold:  1667, completionGold:   833 }, // 12 — flying heavy
   { template: 'ghost_surge',      killGold:  2000, completionGold:  1000 }, // 13 — ETHEREAL intro
-  { template: 'mammoth_siege',    killGold:  2333, completionGold:  1167 }, // 14 — fortified DPS-check
-  { template: 'golem_squad',      killGold:  3000, completionGold:  1500 }, // 15 — fortified DPS check (Stone Golem squad)
+  { template: 'mammoth_siege',    killGold:  2333, completionGold:  1167, minSpawnDelayMs: LARGE_MODEL_SPAWN_DELAY_MS }, // 14 — fortified DPS-check
+  { template: 'golem_squad',      killGold:  3000, completionGold:  1500, minSpawnDelayMs: LARGE_MODEL_SPAWN_DELAY_MS }, // 15 — fortified DPS check (Stone Golem squad)
   { template: 'chaos_wave',       killGold:  3667, completionGold:  1833 }, // 16 — multi-armor + air
   { template: 'wraith_storm',     killGold:  4667, completionGold:  2333 }, // 17 — ethereal swarm
   { template: 'armor_gauntlet',   killGold:  6000, completionGold:  3000 }, // 18 — multi-armor mix
@@ -86,7 +98,7 @@ export const CAMPAIGN: readonly CampaignWave[] = [
   // wave that stands out. Nothing heals in this game, so the last ten waves
   // have to be survivable for a defense that arrives worn down.
   { template: 'ghost_surge',      killGold:  24900, completionGold:  12450, intensity: 0.85 }, // 24 — ethereal pressure
-  { template: 'mammoth_siege',    killGold:  29900, completionGold:  14950, intensity: 0.75 }, // 25 — fortified pressure
+  { template: 'mammoth_siege',    killGold:  29900, completionGold:  14950, intensity: 0.75, minSpawnDelayMs: LARGE_MODEL_SPAWN_DELAY_MS }, // 25 — fortified pressure
   { template: 'zombie_horde',     killGold:  35800, completionGold:  17900, intensity: 0.5 },  // 26 — breather: mass, no counter needed
   { template: 'dragon_elite',     killGold:  43000, completionGold:  21500, intensity: 0.7 },  // 27 — flying-heavy pressure
   { template: 'mech_army',        killGold:  51600, completionGold:  25800 }, // 28 — heavy mass
@@ -168,6 +180,12 @@ export function templateForWave(waveNum: number): string | null {
  * Bounded to 0.25 to 2: the campaign says how hard a wave leans, it does not
  * take the sizing away from the director.
  */
+/** The campaign's least spawn delay for `waveNum` (CampaignWave.minSpawnDelayMs), 0 where it sets none. */
+export function campaignMinSpawnDelay(waveNum: number): number {
+  if (waveNum < 1 || waveNum > CAMPAIGN_LENGTH) return 0;
+  return CAMPAIGN[waveNum - 1].minSpawnDelayMs ?? 0;
+}
+
 export function campaignIntensity(waveNum: number): number {
   if (waveNum < 1 || waveNum > CAMPAIGN_LENGTH) return 1;
   const intensity = CAMPAIGN[waveNum - 1].intensity ?? 1;
