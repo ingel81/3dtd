@@ -327,10 +327,10 @@ export class StateSnapshotService {
     this.currentWave.enemyReachedBase(event.enemy.id, event.enemy.typeConfig.id, this.now());
   }
 
-  private onHealthChanged(event: { health: number; delta: number }): void {
+  private onHealthChanged(event: { health: number; delta: number; cause?: 'cheat' }): void {
     // Actual HP lost. This is the figure the analysis is computed from; the
     // nominal per-enemy cost is not.
-    this.currentWave.healthChanged(event.health, event.delta);
+    this.currentWave.healthChanged(event.health, event.delta, event.cause === 'cheat');
   }
 
   private onGameStarted(): void {

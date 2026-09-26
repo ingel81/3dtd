@@ -211,6 +211,10 @@ export interface RunLogWave {
   enemiesAlive: number;
   healthStart: number;
   healthEnd: number;
+  /** HP the dev tools added (or took) in this block, part of healthEnd - healthStart (TODO E44) */
+  healthCheat?: number;
+  /** HP this player's abilities took from enemies in this block, overkill left out (TODO E44) */
+  abilityDamage?: number;
   towers: RunLogTowerWave[];
   /** The checks of this wave, see `reconcileWave`. Empty when everything adds up. */
   mismatches?: string[];

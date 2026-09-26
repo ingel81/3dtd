@@ -2,6 +2,7 @@
 import type { AirSubStrategy, TargetingStrategy, TowerTypeId, UpgradeId } from '../../configs/tower-types.config';
 import type { WaveConfig } from '../../managers/wave.manager';
 import type { WaveConfig as DirectorWave } from '../../director/models/wave-config';
+import type { WaveLogFields, WaveSourceId } from '../../director/wave-source';
 import type { LosResolveReason } from './event-types';
 
 export type CommandEvent =
@@ -72,6 +73,12 @@ export type CommandEvent =
        * acts, every coop client draws the same (docs/COOP_PLAN.md, C0).
        */
       director?: DirectorWave;
+      /**
+       * What the wave source decided, for the run log of every client
+       * (wave:planned): a coop guest plans nothing and logged none of it
+       * (TODO E44).
+       */
+      plan?: { waveSource: WaveSourceId; log: WaveLogFields };
     }
   | {
       type: 'command:restart-game';

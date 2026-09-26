@@ -55,6 +55,8 @@ export interface RunLogWorld {
    */
   ownsTower?: (tower: Tower) => boolean;
   ownsKill?: (killedBy: KilledBy | null) => boolean;
+  /** HP this player's abilities took so far; the wave gets the difference. Absent: not recorded. */
+  abilityDamage?: () => number;
 }
 
 /** What the head says about the run, beyond what the collector knows itself. */
@@ -98,6 +100,10 @@ export class RunLogCollector {
   private killsByAbility = 0;
   private killsByDebug = 0;
   private killsByOther = 0;
+  /** HP the dev tools changed in this block */
+  private healthCheat = 0;
+  /** abilityDamage() when the block began */
+  private abilityDamageMark = 0;
   private killsByPartner = 0;
   private leaked = 0;
   /** An ooze counts once: as a leak from its first point, not again on arrival. */
@@ -234,6 +240,17 @@ export class RunLogCollector {
 
   /** Subscribe to the bus; the bag owns the subscriptions. */
   attach(bus: GameEventBus, bag: SubscriptionBag): void {
+    bag.add(bus.onLive('wave:planned', (e) => this.noteDirectorDecision({
+      waveSource: e.waveSource,
+      template: e.director.templateName,
+      reason: e.director.explanation?.reasons,
+      composition: e.director.enemies.map((group) => ({
+        type: group.type,
+        count: group.count,
+        hp: group.healthMultiplier ?? 1,
+      })),
+      ...e.log,
+    })));
     bag.add(bus.onLive('wave:started', (e) => this.onWaveStarted(e.wave)));
     bag.add(bus.onLive('wave:completed', (e) => {
       this.waveGold = e.creditsBreakdown;
@@ -307,6 +324,12 @@ export class RunLogCollector {
     bag.add(bus.onLive('hero:level-up', (e) => { if (e.local) this.event('hero-level', { value: e.level }); }));
 
     bag.add(bus.onLive('debug:add-credits', (e) => this.event('cheat', { id: 'credits', credits: e.amount })));
+    // The change itself, not the command: in coop it acts on every client, and so it lands in every log
+    bag.add(bus.onLive('health:changed', (e) => {
+      if (e.cause !== 'cheat') return;
+      this.healthCheat += e.delta;
+      this.event('cheat', { id: 'health', value: e.delta });
+    }));
   }
 
   /**
@@ -440,6 +463,8 @@ export class RunLogCollector {
     this.killsByDebug = 0;
     this.killsByOther = 0;
     this.killsByPartner = 0;
+    this.healthCheat = 0;
+    this.abilityDamageMark = this.world?.abilityDamage?.() ?? 0;
     this.leaked = 0;
     this.leaking.clear();
     this.soldThisWave = [];
@@ -490,6 +515,7 @@ export class RunLogCollector {
       ...this.soldThisWave,
     ].filter((t) => t.damage > 0 || t.kills > 0 || Object.keys(t.levels).length > 0);
 
+    const abilityDamage = Math.round((this.world?.abilityDamage?.() ?? 0) - this.abilityDamageMark);
     const record: RunLogWave = {
       kind: 'wave',
       wave: this.wave,
@@ -515,6 +541,8 @@ export class RunLogCollector {
       enemiesAlive: this.world?.enemiesAlive() ?? 0,
       healthStart: this.waveStartHealth,
       healthEnd: this.world?.baseHealth() ?? 0,
+      ...(this.healthCheat !== 0 ? { healthCheat: this.healthCheat } : {}),
+      ...(abilityDamage > 0 ? { abilityDamage } : {}),
       towers,
     };
 

@@ -308,6 +308,9 @@ export class GameCommandsHandler {
   private attachWaveCommands(): void {
     this.on('command:start-wave', (event) => {
       if (event.director) {
+        if (event.plan) {
+          this.eventBus.emit({ type: 'wave:planned', director: event.director, waveSource: event.plan.waveSource, log: event.plan.log });
+        }
         this.gsm.startWave(adaptDirectorWave(event.director, this.gsm.rng.stream('spawn')));
       } else if (event.config) {
         this.gsm.startWave(event.config);

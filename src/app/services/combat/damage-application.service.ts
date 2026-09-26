@@ -145,7 +145,10 @@ export class DamageApplicationService {
   ): boolean {
     if (!this.towerManager || !this.enemyManager) return false;
 
+    const hpBefore = enemy.health.hp;
     const killed = enemy.health.takeDamage(enemy.health.maxHp * fraction);
+    const key = ownerId ?? '';
+    this.abilityDamage.set(key, (this.abilityDamage.get(key) ?? 0) + hpBefore - enemy.health.hp);
     // kill() ignores an enemy that is already dying
     if (!killed || !this.enemyManager.kill(enemy, 'combat', { kind: 'ability', ownerId })) return false;
 
@@ -156,9 +159,21 @@ export class DamageApplicationService {
   }
 
   /**
+   * HP the abilities of `ownerId` took from enemies so far, overkill left
+   * out; only ever grows, the run log reads the difference over a wave
+   * (TODO E44).
+   */
+  abilityDamageOf(ownerId: string): number {
+    return this.abilityDamage.get(ownerId) ?? 0;
+  }
+
+  /** HP the abilities took, by owner, see abilityDamageOf */
+  private readonly abilityDamage = new Map<string, number>();
+
+  /**
    * Add the HP a hit actually took to its tower's damageDealt. Overkill and
    * hits on an enemy already at 0 HP add nothing; a sold tower is not found.
-   * Ability damage (applyMaxHpFraction) belongs to no tower and is not counted.
+   * Ability damage (applyMaxHpFraction) belongs to no tower, see abilityDamageOf.
    */
   private creditDamage(sourceTowerId: string, dealt: number): void {
     if (dealt <= 0 || !this.towerManager) return;

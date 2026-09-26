@@ -593,6 +593,11 @@ export class Room {
     return client ? `, on ${clientLabel(client)}` : '';
   }
 
+  /** The name the room gives `playerId` (freeName may have made it "Bea 2"); null outside it */
+  nameOf(playerId: string): string | null {
+    return this.players.find((p) => p.id === playerId)?.name ?? null;
+  }
+
   /** "Ann (p1)" for the log */
   who(playerId: string): string {
     const name = this.players.find((p) => p.id === playerId)?.name;

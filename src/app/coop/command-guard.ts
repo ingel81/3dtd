@@ -99,7 +99,8 @@ export function commandProblem(c: Command): string | null {
     case 'command:tower-aim':
       return aimOk(c) ? null : 'aim';
     case 'command:start-wave':
-      return c['director'] === undefined || directorWave(c['director']) ? null : 'wave';
+      return (c['director'] === undefined || directorWave(c['director']))
+        && (c['plan'] === undefined || (typeof c['plan'] === 'object' && c['plan'] !== null)) ? null : 'wave';
     case 'command:restart-game':
       return c['seed'] === undefined || integerIn(c['seed'], 0, 0xffffffff) ? null : 'seed';
     case 'command:set-ready':

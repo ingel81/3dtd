@@ -494,6 +494,11 @@ export class CombatEffectService {
     return kills;
   }
 
+  /** HP the abilities of `ownerId` took so far (DamageApplicationService.abilityDamageOf) */
+  abilityDamageOf(ownerId: string): number {
+    return this.damageService.abilityDamageOf(ownerId);
+  }
+
   /**
    * Damage number for an ability: `fraction` of the enemy's max HP, drawn
    * like a tower hit. A beam's `damageType` colours it by how it does

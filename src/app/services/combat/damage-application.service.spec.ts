@@ -337,6 +337,14 @@ describe('DamageApplicationService', () => {
       expect(killedEnemyIds).toContain('worn');
     });
 
+    it('counts the HP it took per owner, overkill left out (TODO E44)', () => {
+      service.applyMaxHpFraction(vfx as never, makeEnemy({ id: 'a', hp: 200 }) as never, 0.25, false, 'ann');
+      service.applyMaxHpFraction(vfx as never, makeEnemy({ id: 'b', hp: 10, maxHp: 100 }) as never, 0.6, false, 'ann');
+      service.applyMaxHpFraction(vfx as never, makeEnemy({ id: 'c', hp: 100 }) as never, 0.5, false, 'bob');
+      expect(service.abilityDamageOf('ann')).toBeCloseTo(60);
+      expect(service.abilityDamageOf('bob')).toBeCloseTo(50);
+    });
+
     it('credits the kill to no tower', () => {
       const handler = vi.fn();
       bus.on('tower:kill', handler);

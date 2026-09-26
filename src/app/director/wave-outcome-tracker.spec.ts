@@ -32,6 +32,19 @@ describe('WaveOutcomeTracker', () => {
     expect(outcome.avgPathProgressPercent).toBe(0.75);
   });
 
+  it('marks a wave the HQ was cheated in, and counts the cheat as no damage (TODO E44)', () => {
+    tracker.start(0, 80, 0);
+    tracker.healthChanged(60, -20, true);
+    tracker.healthChanged(55, -5);
+
+    const outcome = tracker.finalize('completed', 100);
+
+    expect(outcome.cheated).toBe(true);
+    expect(outcome.damageToPlayer).toBe(5);
+    tracker.start(0, 55, 200);
+    expect(tracker.finalize('completed', 300).cheated).toBeUndefined();
+  });
+
   it('counts only health losses as damage and keeps the lowest health', () => {
     tracker.start(0, 80, 0);
     tracker.healthChanged(70, -10);

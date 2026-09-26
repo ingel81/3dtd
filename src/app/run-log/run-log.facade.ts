@@ -22,6 +22,7 @@ import { calculateTotalDPS } from '../director/defense-analyzer';
 import { directorParamsName } from '../director/director-params';
 import type { WaveSourceId } from '../director/wave-source';
 import { RunLogCollector, type RunLogWorld } from './run-log.service';
+import { killOwnership } from './kill-ownership';
 import { RunLogStore } from './run-log.store';
 import { loadBuildCommit } from './build-commit';
 import { downloadRun, runFileName, toJsonl } from './run-log.export';
@@ -172,18 +173,8 @@ export class RunLogFacade {
       dps: () => calculateTotalDPS(gameState.towerManager.getAll().filter(mine)),
       towers: () => gameState.towerManager.getAll(),
       ownsTower: mine,
-      ownsKill: (killedBy) => {
-        const me = gameState.localPlayerId;
-        switch (killedBy?.kind) {
-          case 'tower': {
-            const tower = gameState.towerManager.getById(killedBy.towerId);
-            return !tower || tower.ownerId === me;
-          }
-          case 'hero': return killedBy.heroId === undefined || killedBy.heroId === gameState.heroOf(me).heroId;
-          case 'ability': return (killedBy.ownerId ?? gameState.players[0]) === me;
-          default: return true;
-        }
-      },
+      ownsKill: killOwnership(gameState),
+      abilityDamage: () => gameState.abilityDamageOf(gameState.localPlayerId),
     };
 
     const home = this.locations.editableHqLocation();

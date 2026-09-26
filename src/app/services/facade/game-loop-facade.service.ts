@@ -374,25 +374,15 @@ export class GameLoopFacadeService {
       const aiConfig = planned.config;
 
       this.store.waveExplanation.set(planned.explanation);
-      // What the source decided, for the wave block of the run log. The three
+      // The spawn schedule is built where the command acts: it draws from
+      // the spawn stream, which has to move on every coop client alike. The
+      // plan goes along for the run log of every client (wave:planned); its
       // numbers come from the plan, so they belong to the wave that ships
       // rather than to whatever the service happens to hold now.
-      this.runLog.collector.noteDirectorDecision({
-        waveSource: this.waveDirector.source.id,
-        template: aiConfig.templateName,
-        reason: planned.explanation?.reasons,
-        composition: aiConfig.enemies.map((group) => ({
-          type: group.type,
-          count: group.count,
-          hp: group.healthMultiplier ?? 1,
-        })),
-        ...planned.log,
-      });
-      // The spawn schedule is built where the command acts: it draws from
-      // the spawn stream, which has to move on every coop client alike
       this.gameState.getEventBus().emit({
         type: 'command:start-wave',
         director: aiConfig,
+        plan: { waveSource: this.waveDirector.source.id, log: planned.log },
       });
     } catch (error) {
       console.error('[AI] Failed to generate wave', error);

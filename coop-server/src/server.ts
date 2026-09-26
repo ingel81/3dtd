@@ -618,6 +618,17 @@ class Relay {
     if (message.t === 'run-log') return this.runLog(id, connection, player, message.gz);
     if (connection.room?.hasStarted) connection.playedRoom = connection.room.code;
     connection.room?.receive(id, message);
+    if (message.t === 'rename') this.takeRoomName(connection, player);
+  }
+
+  /**
+   * The player's name as the room has it, after a join (a taken name comes
+   * back as "Bea 2") or a rename: the run log's file carries it (TODO E44),
+   * also once the room is gone.
+   */
+  private takeRoomName(connection: Connection, player: RoomPlayer): void {
+    const name = connection.room?.nameOf(player.id);
+    if (name) player.name = name;
   }
 
   /**
@@ -678,6 +689,7 @@ class Relay {
         : { t: 'refused', reason: refusal });
     }
     connection.room = room;
+    this.takeRoomName(connection, player);
   }
 
   private newCode(): string {

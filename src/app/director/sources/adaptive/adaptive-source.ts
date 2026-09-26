@@ -124,6 +124,9 @@ export class AdaptiveWaveSource implements WaveSource {
   }
 
   onWaveResult(result: WaveResult): void {
+    // A wave the HQ's health was cheated in measures the cheat, not the
+    // defense: the loop holds (TODO E44; W15 and W17 of the Heilbronn run)
+    if (result.outcome.cheated) return;
     // The loop that sizes the next wave has to see every completed wave.
     // null, not 0: a wave that carries no HP reading is no evidence either way.
     const pressure = wavePressure(

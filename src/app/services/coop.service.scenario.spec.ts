@@ -211,8 +211,11 @@ describe('CoopService over a real relay (review R21)', () => {
     try {
       localStorage.removeItem('3dtd-run-upload');
       const { host, guest } = await lobby({ collectRuns: { dir, maxBytes: 1e9, maxAgeMs: 1e12 } });
+      // A new name in the lobby: the file carries it, not the one of the hello (TODO E44)
+      guest.coop.rename('Bea');
+      await until(() => host.coop.room()!.players.some((p) => p.name === 'Bea'));
       guest.coop.setLobbyReady(true);
-      await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.ready);
+      await until(() => host.coop.room()!.players.find((p) => p.name === 'Bea')!.ready);
       host.coop.start();
       await until(() => host.coop.inGame() && guest.coop.inGame());
 
@@ -229,7 +232,7 @@ describe('CoopService over a real relay (review R21)', () => {
       await until(() => localStorage.getItem('3dtd-run-upload') === 'yes');
       const files = () => readdirSync(join(dir, 'coop'), { recursive: true }).map(String).filter((f) => f.endsWith('.jsonl.gz'));
       await until(() => { try { return files().length === 1; } catch { return false; } });
-      expect(files()[0]).toMatch(/Bob_p\d+_run-1\.jsonl\.gz$/);
+      expect(files()[0]).toMatch(/Bea_p\d+_run-1\.jsonl\.gz$/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
       localStorage.removeItem('3dtd-run-upload');

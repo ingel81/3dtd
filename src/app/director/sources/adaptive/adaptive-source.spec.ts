@@ -188,6 +188,18 @@ describe('AdaptiveWaveSource', () => {
   });
 
   describe('a finished wave', () => {
+    it('does not measure a wave the HQ was cheated in (TODO E44)', () => {
+      for (let wave = PRESSURE_WARMUP_WAVES + 1; wave <= PRESSURE_WARMUP_WAVES + 6; wave++) {
+        source.onWaveResult(waveResult(wave, 0));
+      }
+      const before = { ...source.pressure.status, multiplier: source.pressure.pressureMultiplier };
+      const cheated = waveResult(PRESSURE_WARMUP_WAVES + 7, 90);
+      cheated.outcome.cheated = true;
+      source.onWaveResult(cheated);
+      expect(source.pressure.pressureMultiplier).toBe(before.multiplier);
+      expect(source.pressure.status.samples).toBe(before.samples);
+    });
+
     it('does not open the loop after a boss variant, which no cap sized (TODO E41)', () => {
       // Cheap waves under a binding cap: the loop opens
       for (let wave = 31; wave <= 34; wave++) {

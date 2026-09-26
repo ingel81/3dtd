@@ -30,7 +30,7 @@ export class BaseHealthLedger {
 
   /** Debug: add (or take) HP, bounded below by 0 only. */
   adjust(amount: number): void {
-    this.change(Math.max(0, this.baseHealth() + amount));
+    this.change(Math.max(0, this.baseHealth() + amount), 'cheat');
   }
 
   /** Full health again, without health:changed. */
@@ -43,7 +43,7 @@ export class BaseHealthLedger {
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
   }
 
-  private change(newHealth: number): void {
+  private change(newHealth: number, cause?: 'cheat'): void {
     const oldHealth = this.baseHealth();
     // A base at zero is hit by everything still walking in; announcing each of
     // those as a change of nothing only shakes the screen for free.
@@ -53,6 +53,7 @@ export class BaseHealthLedger {
       type: 'health:changed',
       health: newHealth,
       delta: newHealth - oldHealth,
+      ...(cause ? { cause } : {}),
     });
   }
 }

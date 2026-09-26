@@ -33,6 +33,14 @@ describe('BaseHealthLedger', () => {
     expect(changed).toHaveBeenCalledTimes(leaks);   // the rest hits a base at zero
   });
 
+  it('announces a debug change as a cheat (TODO E44)', () => {
+    const bus = new GameEventBus();
+    const changed = vi.fn();
+    bus.on('health:changed', changed);
+    new BaseHealthLedger(bus).adjust(50);
+    expect(changed).toHaveBeenCalledWith({ type: 'health:changed', health: START + 50, delta: 50, cause: 'cheat' });
+  });
+
   it('adjusts above the start value', () => {
     const ledger = new BaseHealthLedger(new GameEventBus());
     ledger.adjust(1000);

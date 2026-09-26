@@ -156,6 +156,11 @@ export class GameStateManager {
     }, owner);
   }
 
+  /** HP the abilities of `playerId` took from enemies so far, for the run log (TODO E44) */
+  abilityDamageOf(playerId: string): number {
+    return this.combatEffect.abilityDamageOf(playerId);
+  }
+
   /** The abilities of `playerId`; a player not in the run reads as the first one. */
   abilityOf(playerId: string): AbilityManager {
     for (const seat of this.abilitySeats) if (seat.owner.playerId === playerId) return seat;

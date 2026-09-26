@@ -6,6 +6,8 @@ import type { GeoPosition } from '../../models/game.types';
 import type { WormGroup } from '../../managers/worm/worm-group';
 import type { LosMask } from '../../utils/los-mask';
 import type { CreditsSource, LosResolveReason, KilledBy, WaveGoldBreakdown } from './event-types';
+import type { WaveConfig as DirectorWave } from '../../director/models/wave-config';
+import type { WaveLogFields, WaveSourceId } from '../../director/wave-source';
 
 export type LifecycleEvent =
   // ==================== Enemy Lifecycle ====================
@@ -163,6 +165,15 @@ export type LifecycleEvent =
 
   // ==================== Wave Events ====================
   | {
+      // A wave from the wave source is about to start, on every client alike
+      // (command:start-wave with its plan): what the source decided, for the
+      // run log
+      type: 'wave:planned';
+      director: DirectorWave;
+      waveSource: WaveSourceId;
+      log: WaveLogFields;
+    }
+  | {
       type: 'wave:started';
       wave: number;
       enemyCount: number;
@@ -231,4 +242,6 @@ export type LifecycleEvent =
       type: 'health:changed';
       health: number;
       delta: number;
+      /** A debug change (debug:add-health), not a leak: the run log and the pressure loop tell it apart (TODO E44) */
+      cause?: 'cheat';
     };

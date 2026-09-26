@@ -60,13 +60,16 @@ dieser Buchungen.
 
 Er enthält Gold zu Start und Ende, Einnahmen und Ausgaben je Quelle, die Ausgaben je Tower-Typ, die Aufteilung
 des Abschlussgolds, die Entscheidung der Wellenquelle mit Begründung, Zusammensetzung, Kills nach Verursacher,
-Lecks, HQ-HP vorher und nachher, je Tower Typ, Stufen, Schaden und Kills, und die Dauer.
+Lecks, HQ-HP vorher und nachher, je Tower Typ, Stufen, Schaden und Kills, und die Dauer. Dazu, wenn es sie gab,
+`healthCheat` (HP aus den Dev-Tools, Teil der Differenz vorher/nachher) und `abilityDamage` (HP, die die
+Fähigkeiten dieses Spielers genommen haben, ohne Overkill).
 
 Zur Wellenquelle stehen im Block: `waveSource`, und was die Quelle über ihre Entscheidung sagt. Die drei
 typisierten Felder `survivableCount`, `pressureMultiplier` und `targetPressure` gehören dem adaptiven Source;
 eine Quelle ohne solche Zahlen lässt sie weg, wie eine Welle aus dem Debug-Panel. Eigene Zahlen einer Quelle
 stehen in `diagnostics` (der Tabellen-Source legt dort Zeile, Zyklusrunde und HP-Faktor ab), damit das Format
-nicht je Quelle wächst.
+nicht je Quelle wächst. Die Entscheidung kommt aus `wave:planned`, das `command:start-wave` auf jedem Client
+auslöst, also steht sie im Coop auch im Log des Gasts.
 
 Die Welle, in der die Basis fällt, bekommt ihren Block ebenfalls: `wave:completed` kommt dort nie, deshalb schreibt
 `flushOpenWave()` ihn beim Game Over.
@@ -112,6 +115,8 @@ Das Log rechnet nichts selbst nach, es liest Ereignisse. Dafür wurden in Phase 
 | `enemy:died` | `killedBy`: Tower (mit Id), Held, Fähigkeit, Debug oder niemand |
 | `tower:upgraded` | `upgradeId`, also welcher Zweig |
 | `wave:completed` | `credits` mit dem echten Betrag und `creditsBreakdown` mit den Teilen |
+| `health:changed` | `cause: 'cheat'` für eine Änderung aus den Dev-Tools; der Druck-Regler misst solche Wellen nicht |
+| `wave:planned` | die Entscheidung der Wellenquelle, auf jedem Client |
 
 Tempo und Pause sind Store-Signale, keine Ereignisse; das Log folgt ihnen per Effect. Das Anheuern des Helden liest
 es aus `hero:state-changed`, den Boss-Spawn aus `enemy:spawned`.

@@ -345,6 +345,43 @@ describe('the run log', () => {
 
       expect(log.current()!.records).toHaveLength(after);
     });
+
+    it("takes the source's decision from wave:planned, which every coop client runs (TODO E44)", () => {
+      open();
+      const director = {
+        enemies: [{ type: 'zombie', count: 12, healthMultiplier: 1.5 }],
+        totalCount: 12,
+        spawnDelay: 500,
+        templateName: 'Zombie Horde',
+        explanation: { summary: 's', reasons: ['Campaign: wave 1.'] },
+      };
+      bus.emit({ type: 'wave:planned', director, waveSource: 'adaptive', log: { survivableCount: 40, pressureMultiplier: 1.2 } } as never);
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 12 });
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+
+      expect(waves()[0]).toMatchObject({
+        waveSource: 'adaptive',
+        template: 'Zombie Horde',
+        reason: ['Campaign: wave 1.'],
+        survivableCount: 40,
+        pressureMultiplier: 1.2,
+        composition: [{ type: 'zombie', count: 12, hp: 1.5 }],
+      });
+    });
+
+    it('books a cheat on the HQ and the damage of this player’s abilities (TODO E44)', () => {
+      let abilityHp = 1000;
+      log.open({ seed: 1, map: 'devworld', player: 'human' }, { ...world(), abilityDamage: () => abilityHp });
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 0 });
+      health = 150;
+      bus.emit({ type: 'health:changed', health: 150, delta: 50, cause: 'cheat' });
+      bus.emit({ type: 'health:changed', health: 149, delta: -1 });
+      abilityHp += 640.4;
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: false, closeCall: false, hpLost: 1 });
+
+      expect(waves()[0]).toMatchObject({ healthCheat: 50, abilityDamage: 640 });
+      expect(events().find((e) => e.event === 'cheat')).toMatchObject({ id: 'health', value: 50 });
+    });
   });
 
   describe('the timeline', () => {

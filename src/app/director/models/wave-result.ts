@@ -52,6 +52,13 @@ export interface WaveOutcome {
    */
   abilityKills?: number;
 
+  /**
+   * The HQ's health was changed by a cheat during the wave (debug:add-health):
+   * its cost says nothing about the defense, the pressure loop skips it
+   * (TODO E44).
+   */
+  cheated?: boolean;
+
   /** Total damage dealt to player lives */
   damageToPlayer: number;
 

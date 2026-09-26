@@ -148,10 +148,13 @@ export class WaveOutcomeTracker {
 
   /**
    * Health changed by `delta`. Only losses count as damage: this is the HP
-   * actually lost, the figure the analysis is computed from.
+   * actually lost, the figure the analysis is computed from. A `cheat` marks
+   * the wave (WaveOutcome.cheated) and counts as no damage.
    */
-  healthChanged(health: number, delta: number): void {
-    if (delta < 0) {
+  healthChanged(health: number, delta: number, cheat = false): void {
+    if (cheat) {
+      this.outcome.cheated = true;
+    } else if (delta < 0) {
       this.outcome.damageToPlayer = (this.outcome.damageToPlayer || 0) - delta;
       this.outcome.damagePercent = (this.outcome.damageToPlayer || 0) / GAME_BALANCE.player.startHealth;
     }
