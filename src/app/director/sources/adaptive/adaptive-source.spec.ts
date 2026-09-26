@@ -177,6 +177,16 @@ describe('AdaptiveWaveSource', () => {
       expect(log.targetPressure).toBeUndefined();
     });
 
+    it('hands the kill model behind the cap to the diagnostics (TODO E51)', () => {
+      const { log } = plan(12, holding(12));
+      expect(log.diagnostics).toMatchObject({
+        killsPerSecond: expect.any(Number),
+        engagementS: expect.any(Number),
+        killable: expect.any(Number),
+        leakAllowance: expect.any(Number),
+      });
+    });
+
     it('reports the target once waves have finished', () => {
       source.onWaveResult(waveResult(PRESSURE_WARMUP_WAVES + 1, 4));
       expect(plan(41).log.targetPressure).toBeGreaterThan(0);

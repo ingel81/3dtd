@@ -78,6 +78,12 @@ interface TowerMark {
   kills: number;
 }
 
+/** A block's mean lifetime as a wave record field, left out without any (TODO E51) */
+function lifetime<K extends string>(key: K, life: { sum: number; count: number }): Partial<Record<K, { meanMs: number; count: number }>> {
+  if (life.count === 0) return {};
+  return { [key]: { meanMs: Math.round(life.sum / life.count), count: life.count } } as Partial<Record<K, { meanMs: number; count: number }>>;
+}
+
 export class RunLogCollector {
   private head: RunLogHead | null = null;
   private records: RunLogRecord[] = [];
@@ -100,6 +106,10 @@ export class RunLogCollector {
   private killsByAbility = 0;
   private killsByDebug = 0;
   private killsByOther = 0;
+  /** Game time each living enemy spawned at, and the lifetimes of this block (TODO E51) */
+  private readonly spawnedAt = new Map<string, number>();
+  private lifeKilled = { sum: 0, count: 0 };
+  private lifeLeaked = { sum: 0, count: 0 };
   /** HP the dev tools changed in this block */
   private healthCheat = 0;
   /** abilityDamage() when the block began */
@@ -261,8 +271,12 @@ export class RunLogCollector {
       this.wave = e.wave - 1;
     }));
 
-    bag.add(bus.onLive('enemy:spawned', () => { this.enemiesSpawned++; }));
+    bag.add(bus.onLive('enemy:spawned', (e) => {
+      this.enemiesSpawned++;
+      this.spawnedAt.set(e.enemy.id, this.timeMs());
+    }));
     bag.add(bus.onLive('enemy:died', (e) => {
+      this.endLife(e.enemy.id, this.lifeKilled);
       // An ooze that dies while it flows in was already counted as a leak
       if (this.leaking.delete(e.enemy.id)) return;
       if (this.world?.ownsKill && !this.world.ownsKill(e.killedBy)) {
@@ -279,11 +293,13 @@ export class RunLogCollector {
     }));
     bag.add(bus.onLive('enemy:leaking', (e) => {
       if (this.leaking.has(e.enemy.id)) return;
+      this.endLife(e.enemy.id, this.lifeLeaked);
       this.leaking.add(e.enemy.id);
       this.countLeak(e.enemy.typeConfig?.id, e.damage);
     }));
     bag.add(bus.onLive('enemy:reached-base', (e) => {
       if (this.leaking.delete(e.enemy.id)) return;
+      this.endLife(e.enemy.id, this.lifeLeaked);
       this.countLeak(e.enemy.typeConfig?.id, e.damage);
     }));
 
@@ -428,6 +444,15 @@ export class RunLogCollector {
     this.towerSpending[type] = (this.towerSpending[type] ?? 0) + cost;
   }
 
+  /** An enemy's life ended, killed or at the HQ: its length goes into `into` */
+  private endLife(enemyId: string, into: { sum: number; count: number }): void {
+    const at = this.spawnedAt.get(enemyId);
+    if (at === undefined) return;
+    this.spawnedAt.delete(enemyId);
+    into.sum += this.timeMs() - at;
+    into.count++;
+  }
+
   private countLeak(enemyType: string | undefined, damage: number): void {
     this.leaked++;
     this.event('leak', { id: enemyType, value: damage });
@@ -464,6 +489,8 @@ export class RunLogCollector {
     this.killsByOther = 0;
     this.killsByPartner = 0;
     this.healthCheat = 0;
+    this.lifeKilled = { sum: 0, count: 0 };
+    this.lifeLeaked = { sum: 0, count: 0 };
     this.abilityDamageMark = this.world?.abilityDamage?.() ?? 0;
     this.leaked = 0;
     this.leaking.clear();
@@ -543,6 +570,8 @@ export class RunLogCollector {
       healthEnd: this.world?.baseHealth() ?? 0,
       ...(this.healthCheat !== 0 ? { healthCheat: this.healthCheat } : {}),
       ...(abilityDamage > 0 ? { abilityDamage } : {}),
+      ...lifetime('lifetimeKilled', this.lifeKilled),
+      ...lifetime('lifetimeLeaked', this.lifeLeaked),
       towers,
     };
 

@@ -13,7 +13,7 @@ import { GameStateSnapshot } from '../../models/game-state-snapshot';
 import { WaveConfig } from '../../models/wave-config';
 import { explainWaveDecision } from './decision-explainer';
 import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS, getTemplate, type CandidateReason } from '../../templates';
-import { DPS_RAMP_FLOOR, DPS_RAMP_HP_MULT, dpsScaledCountMax, laneHp, lerpRange, survivableCount } from './wave-sizing';
+import { DPS_RAMP_FLOOR, DPS_RAMP_HP_MULT, dpsScaledCountMax, laneHp, lerpRange, survivableCount, type KillModelDetail } from './wave-sizing';
 import type { DirectorDecision } from './director-rules';
 import { directorParams } from '../../director-params';
 import type { PressureStatus } from './pressure-controller';
@@ -113,6 +113,8 @@ export function buildWaveConfig(
   // signal for the model, this is the binding decision.
   const countLo = template.countRange[0];
   const dpsScaledMax = dpsScaledCountMax(template.countRange, totalDPS);
+  // The model's numbers of the last sizing, the one that ships (TODO E51)
+  const killModel: KillModelDetail = { killsPerSecond: 0, engagementS: 0, killable: 0, leakAllowance: 0 };
   const countFor = (delay: number): { count: number; cap: number | null; allowed: number | null; capBinds: boolean } => {
     const cap = survivableCount(
       template,
@@ -133,6 +135,7 @@ export function buildWaveConfig(
       // thing that notices.
       pressure.pressureMultiplier,
       wantPressure,
+      killModel,
     );
     // The gate outranks the template minimum. A cap BELOW countRange[0] means
     // the defense cannot handle even the smallest wave the designer wrote,
@@ -261,6 +264,7 @@ export function buildWaveConfig(
         cap: sized.cap,
         allowed: sized.allowed,
         capBinds: sized.capBinds,
+        ...(sized.cap !== null ? { killModel: { ...killModel } } : {}),
         countFactor,
         count: shippedCount,
         hpMult,

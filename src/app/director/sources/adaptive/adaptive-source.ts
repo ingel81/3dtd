@@ -54,6 +54,7 @@ import { decideWave, type DirectorDecision, type TieBreak } from './director-rul
 import { PressureController, wavePressure } from './pressure-controller';
 import { buildWaveConfig } from './wave-config-builder';
 import { capIsBinding } from './decision-explainer';
+import type { WaveSizing } from '../../wave-explanation';
 
 /** Templates the cooldown remembers. */
 const TEMPLATE_HISTORY = 5;
@@ -206,9 +207,24 @@ export class AdaptiveWaveSource implements WaveSource {
         survivableCount: config.explanation?.sizing?.cap ?? null,
         pressureMultiplier: this.pressure.pressureMultiplier,
         targetPressure: this.pressure.status.target ?? undefined,
+        ...killModelDiagnostics(config.explanation?.sizing?.killModel),
       },
     };
   }
+}
+
+/** The kill model's numbers for the run log's diagnostics, rounded (TODO E51) */
+function killModelDiagnostics(model: WaveSizing['killModel']): { diagnostics?: Record<string, number> } {
+  if (!model) return {};
+  const r = (v: number) => Math.round(v * 1000) / 1000;
+  return {
+    diagnostics: {
+      killsPerSecond: r(model.killsPerSecond),
+      engagementS: r(model.engagementS),
+      killable: r(model.killable),
+      leakAllowance: r(model.leakAllowance),
+    },
+  };
 }
 
 /** HP each armor type brings, so the UI can answer "weak to". */

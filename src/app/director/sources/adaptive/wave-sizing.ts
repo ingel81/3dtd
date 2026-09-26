@@ -99,6 +99,18 @@ export const FAIRNESS_ENGAGEMENT_MAX_S = 40;
 export const FAIRNESS_MIN_COUNT = 5;
 
 
+/** The kill model's numbers behind a cap, for the run log (TODO E51) */
+export interface KillModelDetail {
+  /** Kills a second the model credits the defense with, realism and multiplier in */
+  killsPerSecond: number;
+  /** Seconds an enemy is taken to spend under fire */
+  engagementS: number;
+  /** Enemies the model says the defense kills */
+  killable: number;
+  /** Enemies the leak budget lets through on top */
+  leakAllowance: number;
+}
+
 /**
  * Largest enemy count the defense can plausibly fight, or null if unbounded.
  *
@@ -167,6 +179,8 @@ export function survivableCount(
    * genau so viel Leck frei, wie die Spannungskurve für diese Welle vorsieht.
    */
   targetPressure = 0.06,
+  /** Filled with the model's numbers when given (TODO E51) */
+  detail?: KillModelDetail,
 ): number | null {
   const ground = effectiveDps?.ground ?? {};
   const air = effectiveDps?.air ?? {};
@@ -254,6 +268,12 @@ export function survivableCount(
   const leakHpBudget = Math.max(FAIRNESS_MIN_LEAK_HP, hpRemaining * Math.max(0, targetPressure));
   const allowedLeaks = (leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget) / leakCostPerEnemy;
 
+  if (detail) {
+    detail.killsPerSecond = budget;
+    detail.engagementS = engagementSeconds;
+    detail.killable = killable;
+    detail.leakAllowance = allowedLeaks;
+  }
   return Math.max(FAIRNESS_MIN_COUNT, Math.floor(killable + allowedLeaks));
 }
 

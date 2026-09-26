@@ -369,6 +369,22 @@ describe('the run log', () => {
       });
     });
 
+    it('books how long the killed and the leaked enemies lived (TODO E51)', () => {
+      open();
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 3 });
+      for (const id of ['a', 'b', 'c']) bus.emit({ type: 'enemy:spawned', enemy: { id } as never });
+      timeMs = 10_000;
+      kill('a');
+      timeMs = 30_000;
+      kill('b');
+      timeMs = 50_000;
+      bus.emit({ type: 'enemy:reached-base', enemy: { id: 'c', typeConfig: { id: 'zombie' } } as never, damage: 2 });
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: false, closeCall: false, hpLost: 2 });
+
+      expect(waves()[0].lifetimeKilled).toEqual({ meanMs: 20_000, count: 2 });
+      expect(waves()[0].lifetimeLeaked).toEqual({ meanMs: 50_000, count: 1 });
+    });
+
     it('books a cheat on the HQ and the damage of this player’s abilities (TODO E44)', () => {
       let abilityHp = 1000;
       log.open({ seed: 1, map: 'devworld', player: 'human' }, { ...world(), abilityDamage: () => abilityHp });

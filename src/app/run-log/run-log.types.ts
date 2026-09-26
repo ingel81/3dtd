@@ -215,6 +215,13 @@ export interface RunLogWave {
   healthCheat?: number;
   /** HP this player's abilities took from enemies in this block, overkill left out (TODO E44) */
   abilityDamage?: number;
+  /**
+   * How long the enemies that died in this block lived, from spawn to death,
+   * game time: mean and count; and those that got through, spawn to the HQ
+   * (TODO E51, the kill model's time under fire). Every player's enemies.
+   */
+  lifetimeKilled?: { meanMs: number; count: number };
+  lifetimeLeaked?: { meanMs: number; count: number };
   towers: RunLogTowerWave[];
   /** The checks of this wave, see `reconcileWave`. Empty when everything adds up. */
   mismatches?: string[];

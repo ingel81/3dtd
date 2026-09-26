@@ -35,6 +35,8 @@ export interface WaveSizing {
    * absent in older logs, see capIsBinding.
    */
   capBinds?: boolean;
+  /** The kill model's numbers behind the cap (KillModelDetail, TODO E51) */
+  killModel?: { killsPerSecond: number; engagementS: number; killable: number; leakAllowance: number };
   countFactor: number;
   count: number;
   hpMult: number;
