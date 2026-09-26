@@ -75,8 +75,10 @@ describe('CoopSession against the relay (COOP_PLAN C4b)', () => {
     const desyncs: number[] = [];
     a.onDesync = (tick) => desyncs.push(tick);
     b.onDesync = (tick) => desyncs.push(tick);
-    a.link!.reportHash(15, 1);
-    b.link!.reportHash(15, 1);
+    a.link!.reportHash(0, 1);
+    b.link!.reportHash(0, 1);
+    // A hash only for a tick the relay has closed (relay review M3)
+    await until(() => a.link!.confirmedTick() >= 30 && b.link!.confirmedTick() >= 30);
     a.link!.reportHash(30, 2);
     b.link!.reportHash(30, 3);
     await until(() => desyncs.length === 2);

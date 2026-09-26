@@ -90,7 +90,26 @@ function askMessage() {
  * open lobbies. `rooms` holds { code, host, players, gameVersion }.
  */
 function gameMessage({ port, protocol, rooms }) {
-  return Buffer.from(JSON.stringify({ m: MAGIC, v: LAN_VERSION, t: 'game', port, protocol, rooms }));
+  // Rooms from the end out until it fits the packet a guest reads (relay review N5)
+  for (let count = rooms.length; ; count--) {
+    const packet = Buffer.from(JSON.stringify({ m: MAGIC, v: LAN_VERSION, t: 'game', port, protocol, rooms: rooms.slice(0, count) }));
+    if (packet.length <= MAX_PACKET_BYTES || count === 0) return packet;
+  }
+}
+
+/**
+ * An address on this machine or a private network: the only ones the
+ * announcer answers, so it cannot be used to send packets at a stranger
+ * where its port is reachable from outside (relay review N5).
+ */
+function isPrivateAddress(address) {
+  const v4 = String(address).replace(/^::ffff:/, '');
+  const [a, b] = v4.split('.').map(Number);
+  if ([a, b].every(Number.isInteger)) {
+    return a === 10 || a === 127 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31) || (a === 169 && b === 254);
+  }
+  const v6 = v4.toLowerCase();
+  return v6 === '::1' || v6.startsWith('fe80:') || v6.startsWith('fc') || v6.startsWith('fd');
 }
 
 const text = (value, max) => (typeof value === 'string' ? value.slice(0, max) : '');
@@ -296,7 +315,7 @@ function createLanAnnouncer({ describe, log, port = DISCOVERY_PORT, everyMs = AN
     port,
     log,
     onMessage: (buffer, remote, socket) => {
-      if (readMessage(buffer)?.type !== 'ask') return;
+      if (readMessage(buffer)?.type !== 'ask' || !isPrivateAddress(remote.address)) return;
       socket.send(gameMessage(describe()), remote.port, remote.address, () => undefined);
     },
   });
@@ -369,6 +388,7 @@ module.exports = {
   createLanAnnouncer,
   createLanScanner,
   gameMessage,
+  isPrivateAddress,
   lanAdapters,
   readMessage,
   targetsFor,

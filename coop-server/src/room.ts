@@ -71,6 +71,22 @@ const STATUS_LOG: Record<PlayerStatus, string> = {
 /** Commands kept to log with the first desync */
 const RECENT_COMMANDS = 40;
 
+/**
+ * How long the room waits for a player who does not catch up before it lets
+ * them go (relay review M4): a frozen tab or a sleeping laptop that still
+ * answers the heartbeat must not hold everyone.
+ */
+export const HANG_MS = 30_000;
+
+/** The host sends a world at most this often; more are dropped (review H2) */
+const WORLD_EVERY_MS = 1000;
+
+/** Lines a player's lobby events (ready, status, rename, ...) may add to the log a minute (review M1) */
+const LOG_LINES_A_MINUTE = 30;
+
+/** Hash reports older than this many ticks behind the room are dropped (review M3) */
+const HASH_WINDOW_TICKS = 20 * HASH_EVERY_TICKS;
+
 export interface RoomPlayer {
   id: string;
   name: string;
@@ -88,6 +104,13 @@ export interface RoomOptions {
   now?: () => number;
   /** Let the dev tools' cheats (debug:* commands) through; off by default */
   cheats?: boolean;
+  /**
+   * Let a player go for good: the relay closes their connection, which ends
+   * in leave(). Without it (the spec) the room calls leave() itself.
+   */
+  drop?: (playerId: string, reason: string) => void;
+  /** A player is out of the room (left, taken out, let go): the relay forgets the room for their connection */
+  removed?: (playerId: string) => void;
 }
 
 /** A room as the status page and the relay's status line show it. */
@@ -109,6 +132,8 @@ export interface RoomStatus {
   desyncs: number;
   /** The first tick with different hashes, null while none */
   firstDesync: number | null;
+  /** Since the last command (in the lobby: since the room opened), ms; for closing a game nobody plays (review N4) */
+  idleMs: number;
   players: {
     id: string;
     name: string;
@@ -151,6 +176,14 @@ export class Room {
   /** What each player's entities put into the hash at the first desync's tick (TODO E32) */
   private readonly desyncDetails = new Map<string, HashedEntities>();
   private desyncDetailLogged = false;
+  /** Since when the room waits for `waitingFor`, ms */
+  private waitingSince = 0;
+  private lastCommandAt = 0;
+  private lastWorldAt = -Infinity;
+  /** The host's latest world while the last one went out less than WORLD_EVERY_MS ago */
+  private pendingWorld: { world: unknown; spawnIds: string[] } | null = null;
+  /** Per player: lobby lines logged in the current minute, when it began, how many were left out */
+  private readonly logBudget = new Map<string, { lines: number; since: number; left: number }>();
 
   readonly code: string;
   private readonly send: Send;
@@ -158,6 +191,8 @@ export class Room {
   private readonly now: () => number;
   private readonly createdAt: number;
   private readonly cheats: boolean;
+  private readonly drop: (playerId: string, reason: string) => void;
+  private readonly removed: (playerId: string) => void;
   /** How the room shows in the public list (D62); public by default, titled after the host */
   private listing: RoomListing;
   /** Waves started in the game, for the public list */
@@ -170,6 +205,8 @@ export class Room {
     this.now = options.now ?? (() => performance.now());
     this.createdAt = this.now();
     this.cheats = options.cheats ?? false;
+    this.drop = options.drop ?? ((playerId, reason) => this.leave(playerId, reason));
+    this.removed = options.removed ?? (() => undefined);
     this.hostId = host.id;
     this.players.push({ ...host, client: host.client ?? null, spawnId: null, ready: false, status: null });
     this.listing = { public: true, title: `${host.name}'s game`.slice(0, TITLE_MAX), city: '' };
@@ -218,6 +255,8 @@ export class Room {
     if (index < 0) return;
     this.log(`${this.who(playerId)} left (${reason})${this.started ? `, lane closes after tick ${this.lastTick}` : ''}`);
     this.players.splice(index, 1);
+    this.logBudget.delete(playerId);
+    this.removed(playerId);
     if (this.started) this.open.push({ playerId, command: { type: 'command:leave-game' } });
     this.broadcast({ t: 'left', playerId });
     if (playerId === this.hostId && this.players.length > 0) {
@@ -236,16 +275,9 @@ export class Room {
       case 'world':
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.started) return this.refuse(playerId, 'started');
-        this.world = message.world;
-        this.spawnIds = [...message.spawnIds];
-        // Another map: the lanes stay where they still exist, ready is asked again
-        for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
-        this.log(`world from the host, ${Math.round(JSON.stringify(this.world).length / 1024)} kB, spawns ${this.spawnIds.join(', ') || 'none'}`);
-        for (const p of this.players) {
-          if (p.spawnId !== null && !this.spawnIds.includes(p.spawnId)) p.spawnId = null;
-          if (p.id !== playerId) this.send(p.id, { t: 'world', world: this.world });
-        }
-        return this.broadcastRoom();
+        // At most one a second goes out (review H2); a newer one waits and replaces what waits
+        this.pendingWorld = { world: message.world, spawnIds: [...message.spawnIds] };
+        return this.flushWorld();
       case 'pick': {
         if (this.started) return this.refuse(playerId, 'started');
         const spawnId = message.spawnId;
@@ -261,7 +293,8 @@ export class Room {
       }
       case 'kick': {
         if (!host) return this.refuse(playerId, 'not-host');
-        if (this.started || message.playerId === playerId || !this.players.some((p) => p.id === message.playerId)) return;
+        // In the game as well (review M4): a player who holds everyone up; their lane closes
+        if (message.playerId === playerId || !this.players.some((p) => p.id === message.playerId)) return;
         this.send(message.playerId, { t: 'refused', reason: 'kicked' });
         return this.leave(message.playerId, `taken out by ${this.who(playerId)}`);
       }
@@ -281,14 +314,14 @@ export class Room {
         this.options = options;
         // A change is asked again: every guest says ready anew (D38)
         for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
-        this.log(`options: ${changed.map((key) => `${key} ${optionLabel(key, options[key])}`).join(', ')}`);
+        this.noisy(playerId, `options: ${changed.map((key) => `${key} ${optionLabel(key, options[key])}`).join(', ')}`);
         return this.broadcastRoom();
       }
       case 'status': {
         // What the client does (User, 2026-09-25): the others see it in the lobby
         if (this.started || !PLAYER_STATUSES.includes(message.status) || player.status === message.status) return;
         player.status = message.status as PlayerStatus;
-        this.log(`${this.who(playerId)} ${STATUS_LOG[player.status]}`);
+        this.noisy(playerId, `${this.who(playerId)} ${STATUS_LOG[player.status]}`);
         return this.broadcastRoom();
       }
       case 'listing': {
@@ -297,7 +330,7 @@ export class Room {
         const title = String(listing?.title ?? '').trim().slice(0, TITLE_MAX) || this.listing.title;
         const next = { public: listing?.public !== false, title, city: String(listing?.city ?? '').trim().slice(0, 60) };
         if (JSON.stringify(next) === JSON.stringify(this.listing)) return;
-        if (next.public !== this.listing.public) this.log(next.public ? 'listed publicly' : 'private');
+        if (next.public !== this.listing.public) this.noisy(playerId, next.public ? 'listed publicly' : 'private');
         this.listing = next;
         return this.broadcastRoom();
       }
@@ -305,7 +338,7 @@ export class Room {
         if (!host) return this.refuse(playerId, 'not-host');
         if (this.locked === !!message.locked) return;
         this.locked = !!message.locked;
-        this.log(this.locked ? 'closed to new players' : 'open to new players again');
+        this.noisy(playerId, this.locked ? 'closed to new players' : 'open to new players again');
         return this.broadcastRoom();
       case 'rename': {
         if (this.started) return this.refuse(playerId, 'started');
@@ -313,13 +346,13 @@ export class Room {
         const name = String(message.name).trim().slice(0, 32);
         if (!name || name === player.name) return;
         player.name = this.freeName(name, playerId);
-        this.log(`${before} is now ${player.name}`);
+        this.noisy(playerId, `${before} is now ${player.name}`);
         return this.broadcastRoom();
       }
       case 'ready':
         if (this.started) return;
         player.ready = message.ready && player.spawnId !== null;
-        this.log(`${this.who(playerId)} ${player.ready ? 'ready' : 'not ready'}`);
+        this.noisy(playerId, `${this.who(playerId)} ${player.ready ? 'ready' : 'not ready'}`);
         return this.broadcastRoom();
       case 'start':
         if (!host) return this.refuse(playerId, 'not-host');
@@ -331,6 +364,7 @@ export class Room {
         }
         this.started = true;
         this.pending = 0;
+        this.lastCommandAt = this.now();
         this.log(`started, seed ${message.seed >>> 0}, speed ${this.speed}, lanes ${this.players.map((p) => `${this.who(p.id)} on ${p.spawnId}`).join(', ')}`);
         this.broadcast({
           t: 'started',
@@ -347,10 +381,13 @@ export class Room {
         if (!this.started || typeof message.command?.type !== 'string' || !this.accepts(message.command.type, playerId)) return;
         this.open.push({ playerId, command: message.command });
         this.commandCount++;
+        this.lastCommandAt = this.now();
         if (message.command.type === 'command:start-wave') this.waves++;
         return;
       case 'hash': {
-        if (!this.started) return;
+        // A tick the room has closed, at a report boundary, not long gone (review M3)
+        if (!this.started || message.tick % HASH_EVERY_TICKS !== 0 || message.tick > this.nextTick
+          || message.tick < this.nextTick - HASH_WINDOW_TICKS) return;
         const parts = Array.isArray(message.parts) && message.parts.length === HASH_PARTS.length
           && message.parts.every((p) => Number.isFinite(p)) ? message.parts : undefined;
         return this.checkHash(playerId, message.tick, message.hash, parts);
@@ -359,7 +396,7 @@ export class Room {
         return this.takeDesyncDetail(playerId, message.tick, message.entities);
       case 'stats':
         if (!this.started || typeof message.stats?.frames !== 'number') return;
-        return this.log(`stats ${this.who(playerId)}: ${statsLine(message.stats)}`);
+        return this.noisy(playerId, `stats ${this.who(playerId)}: ${statsLine(message.stats)}`);
       case 'speed': {
         if (!SPEEDS.has(message.speed)) return;
         // The speed is the host's; who may pause and resume at the room's speed, the room says (D38)
@@ -386,6 +423,7 @@ export class Room {
    * at the room's speed. None before the start or while paused.
    */
   advance(realMs: number): number {
+    this.flushWorld();
     if (!this.started || this.speed === 0) return 0;
     // No further than MAX_AHEAD_TICKS past the slowest client (review R2):
     // the room waits for them rather than they trail on for good
@@ -393,8 +431,16 @@ export class Room {
     const waitFor = slowest && this.nextTick - slowest.tick > MAX_AHEAD_TICKS ? slowest.id : null;
     if (waitFor !== this.waitingFor) {
       this.waitingFor = waitFor;
+      this.waitingSince = this.now();
       if (waitFor) this.log(`waiting for ${this.who(waitFor)} to catch up`);
       this.broadcast({ t: 'waiting', playerId: waitFor });
+    }
+    if (waitFor && this.now() - this.waitingSince >= HANG_MS) {
+      // Let them go: their lane closes, the others play on (review M4)
+      this.waitingFor = null;
+      this.broadcast({ t: 'waiting', playerId: null });
+      this.drop(waitFor, `did not catch up for ${HANG_MS / 1000} s`);
+      return 0;
     }
     if (waitFor) return 0;
     this.pending += Math.min(realMs, MAX_ADVANCE_MS) * this.speed;
@@ -476,6 +522,46 @@ export class Room {
     }
   }
 
+  /** Send the waiting world, where the last went out at least WORLD_EVERY_MS ago. */
+  private flushWorld(): void {
+    const next = this.pendingWorld;
+    if (!next || this.started || this.now() - this.lastWorldAt < WORLD_EVERY_MS) return;
+    this.pendingWorld = null;
+    this.lastWorldAt = this.now();
+    this.world = next.world;
+    this.spawnIds = next.spawnIds;
+    // Another map: the lanes stay where they still exist, ready is asked again
+    for (const p of this.players) if (p.id !== this.hostId) p.ready = false;
+    this.noisy(this.hostId, `world from the host, ${Math.round(JSON.stringify(this.world).length / 1024)} kB, spawns ${this.spawnIds.join(', ') || 'none'}`);
+    for (const p of this.players) {
+      if (p.spawnId !== null && !this.spawnIds.includes(p.spawnId)) p.spawnId = null;
+      if (p.id !== this.hostId) this.send(p.id, { t: 'world', world: this.world });
+    }
+    this.broadcastRoom();
+  }
+
+  /**
+   * A line a player's lobby event adds to the log, at most LOG_LINES_A_MINUTE
+   * a minute per player (review M1); what is left out is counted and named
+   * once the next minute begins.
+   */
+  private noisy(playerId: string, line: string): void {
+    const at = this.now();
+    let budget = this.logBudget.get(playerId);
+    if (!budget || at - budget.since >= 60_000) {
+      const left = budget?.left ?? 0;
+      budget = { lines: 0, since: at, left: 0 };
+      this.logBudget.set(playerId, budget);
+      if (left > 0) this.log(`${this.who(playerId)}: ${left} lines left out`);
+    }
+    if (budget.lines >= LOG_LINES_A_MINUTE) {
+      budget.left++;
+      return;
+    }
+    budget.lines++;
+    this.log(line);
+  }
+
   status(): RoomStatus {
     return {
       code: this.code,
@@ -489,6 +575,7 @@ export class Room {
       commands: this.commandCount,
       desyncs: this.desyncCount,
       firstDesync: this.firstDesync,
+      idleMs: Math.round(this.now() - (this.started ? this.lastCommandAt : this.createdAt)),
       players: this.players.map(({ id, name, spawnId, ready, client }) => ({
         id, name, spawnId, ready, client, lastHash: this.hashCheck.last.get(id) ?? null,
       })),

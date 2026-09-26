@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, it, expect, beforeEach } from 'vitest';
-import { Room, TICK_MS, MAX_AHEAD_TICKS, type RoomPlayer } from './room.ts';
+import { Room, TICK_MS, MAX_AHEAD_TICKS, HANG_MS, type RoomPlayer } from './room.ts';
 import { HASH_EVERY_TICKS, HASH_PARTS } from '../../src/app/coop/hash-check.ts';
 import { DEFAULT_ROOM_OPTIONS } from '../../src/app/coop/room-options.ts';
 import type { ServerMessage } from '../../src/app/coop/protocol.ts';
@@ -12,6 +12,12 @@ const player = (id: string, over: Partial<RoomPlayer> = {}): RoomPlayer => ({
 describe('Room (COOP_PLAN C4)', () => {
   let inbox: Map<string, ServerMessage[]>;
   let room: Room;
+  /** The room's wall clock, ms */
+  let clock = 0;
+  /** Close `n` ticks, so hash reports up to that tick count as the room's */
+  const closeTicks = (n: number) => {
+    for (let i = 0; i < n; i++) room.closeTick();
+  };
   const last = <T extends ServerMessage['t']>(id: string, t: T) =>
     [...(inbox.get(id) ?? [])].reverse().find((m) => m.t === t) as Extract<ServerMessage, { t: T }> | undefined;
   const all = <T extends ServerMessage['t']>(id: string, t: T) =>
@@ -29,10 +35,11 @@ describe('Room (COOP_PLAN C4)', () => {
 
   beforeEach(() => {
     inbox = new Map();
+    clock = 0;
     room = new Room('ABCDEF', player('a'), (id, message) => {
       if (!inbox.has(id)) inbox.set(id, []);
       inbox.get(id)!.push(message);
-    });
+    }, { now: () => clock });
   });
 
   it('lets players join the lobby, up to four, with the same game and balance only', () => {
@@ -217,7 +224,13 @@ describe('Room (COOP_PLAN C4)', () => {
 
   it('asks the guests for ready again when the host sends another map; lanes that remain stay', () => {
     lobby();
+    // At most one world a second goes out; one that comes sooner waits, a newer one replaces it (relay review H2)
+    room.receive('a', { t: 'world', world: { too: 'soon' }, spawnIds: ['s1'] });
     room.receive('a', { t: 'world', world: { other: 'map' }, spawnIds: ['s1', 's2', 's3'] });
+    expect(last('b', 'world')!.world).toEqual({ any: 'thing' });
+    clock += 1000;
+    room.advance(0);
+    expect(all('b', 'world')).toHaveLength(2);
     const b = last('b', 'room')!.room.players.find((p) => p.id === 'b')!;
     expect(b).toMatchObject({ spawnId: 's2', ready: false });
     expect(last('b', 'world')!.world).toEqual({ other: 'map' });
@@ -260,6 +273,51 @@ describe('Room (COOP_PLAN C4)', () => {
     room.receive('b', { t: 'hash', tick: HASH_EVERY_TICKS * 2, hash: 7 });
     expect(room.advance(TICK_MS)).toBe(1);
     expect(last('a', 'waiting')!.playerId).toBeNull();
+  });
+
+  it('lets a player go who does not catch up for HANG_MS; their lane closes, the room goes on (relay review M4)', () => {
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    for (let t = 0; t < MAX_AHEAD_TICKS + 20; t++) {
+      room.advance(TICK_MS);
+      if ((t + 1) % HASH_EVERY_TICKS === 0) room.receive('a', { t: 'hash', tick: t + 1, hash: 7 });
+    }
+    expect(last('a', 'waiting')!.playerId).toBe('b');
+    clock += HANG_MS - 1;
+    expect(room.advance(TICK_MS)).toBe(0);
+    expect(room.status().players.map((p) => p.id)).toEqual(['a', 'b']);
+    clock += 1;
+    room.advance(TICK_MS);
+    expect(room.status().players.map((p) => p.id)).toEqual(['a']);
+    expect(last('a', 'left')!.playerId).toBe('b');
+    expect(last('a', 'waiting')!.playerId).toBeNull();
+    // B's lane closes at the next tick, and A plays on
+    room.advance(TICK_MS);
+    expect(last('a', 'tick')!.commands).toEqual([expect.objectContaining({ playerId: 'b', command: { type: 'command:leave-game' } })]);
+  });
+
+  it('lets the host take a player out in the game as well; the lane closes (relay review M4)', () => {
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    room.receive('a', { t: 'kick', playerId: 'b' });
+    expect(last('b', 'refused')!.reason).toBe('kicked');
+    expect(room.status().players.map((p) => p.id)).toEqual(['a']);
+    room.closeTick();
+    expect(last('a', 'tick')!.commands).toEqual([expect.objectContaining({ playerId: 'b', command: { type: 'command:leave-game' } })]);
+  });
+
+  it('logs at most 30 lobby lines a minute per player, and says how many it left out (relay review M1)', () => {
+    const lines: string[] = [];
+    room = new Room('NOISY1', player('a'), () => undefined, { log: (line) => lines.push(line), now: () => clock });
+    room.join(player('b'));
+    room.receive('a', { t: 'world', world: {}, spawnIds: ['s1', 's2'] });
+    room.receive('b', { t: 'pick', spawnId: 's2' });
+    const before = lines.length;
+    for (let i = 0; i < 50; i++) room.receive('b', { t: 'ready', ready: i % 2 === 0 });
+    expect(lines.length - before).toBe(30);
+    clock += 60_000;
+    room.receive('b', { t: 'ready', ready: true });
+    expect(lines.slice(-2)).toEqual(['B (b): 20 lines left out', 'B (b) ready']);
   });
 
   it('lets the host take a player out and close the room to new ones (R9)', () => {
@@ -355,18 +413,22 @@ describe('Room (COOP_PLAN C4)', () => {
     lobby();
     room.receive('a', { t: 'hash', tick: 0, hash: 1 }); // before the start: ignored
     room.receive('a', { t: 'start', seed: 1 });
-    room.receive('a', { t: 'hash', tick: 15, hash: 7 });
-    room.receive('b', { t: 'hash', tick: 15, hash: 7 });
+    room.receive('a', { t: 'hash', tick: 0, hash: 7 });
+    room.receive('b', { t: 'hash', tick: 0, hash: 7 });
     expect(all('a', 'desync')).toHaveLength(0);
+    // Not closed yet, and off a report boundary: dropped (relay review M3)
+    room.receive('a', { t: 'hash', tick: 30, hash: 8 });
+    closeTicks(2 * HASH_EVERY_TICKS);
+    room.receive('b', { t: 'hash', tick: 15, hash: 9 });
     room.receive('a', { t: 'hash', tick: 30, hash: 8 });
     room.receive('b', { t: 'hash', tick: 30, hash: 9 });
-    room.receive('a', { t: 'hash', tick: 45, hash: 10 });
-    room.receive('b', { t: 'hash', tick: 45, hash: 11 });
+    room.receive('a', { t: 'hash', tick: 60, hash: 10 });
+    room.receive('b', { t: 'hash', tick: 60, hash: 11 });
     expect(all('a', 'desync')).toEqual([{ t: 'desync', tick: 30, hashes: [['a', 8], ['b', 9]], outOfStep: [], parts: [] }]);
     expect(all('b', 'desync')).toHaveLength(1);
     const status = room.status();
     expect(status).toMatchObject({ started: true, desyncs: 2, firstDesync: 30 });
-    expect(status.players.map((p) => p.lastHash)).toEqual([{ tick: 45, hash: 10 }, { tick: 45, hash: 11 }]);
+    expect(status.players.map((p) => p.lastHash)).toEqual([{ tick: 60, hash: 10 }, { tick: 60, hash: 11 }]);
   });
 
   it('logs what happens in the room, one line each', () => {
@@ -399,7 +461,7 @@ describe('Room (COOP_PLAN C4)', () => {
     lobby();
     room.receive('a', { t: 'start', seed: 5 });
     room.receive('b', { t: 'cmd', command: { type: 'command:place-tower', typeId: 'archer' } });
-    room.closeTick();
+    closeTicks(HASH_EVERY_TICKS);
     room.receive('a', { t: 'hash', tick: HASH_EVERY_TICKS, hash: 1 });
     room.receive('b', { t: 'hash', tick: HASH_EVERY_TICKS, hash: 2 });
     expect(lines.slice(-2)).toEqual([
@@ -413,6 +475,7 @@ describe('Room (COOP_PLAN C4)', () => {
     room = new Room('APART', player('a'), () => undefined, { log: (line) => lines.push(line) });
     lobby();
     room.receive('a', { t: 'start', seed: 5 });
+    closeTicks(HASH_EVERY_TICKS);
     const parts = HASH_PARTS.map((_, i) => i);
     const enemies = HASH_PARTS.indexOf('enemies');
     room.receive('a', { t: 'hash', tick: HASH_EVERY_TICKS, hash: 1, parts });

@@ -30,6 +30,15 @@ describe('HashCheck (docs/COOP_PLAN.md, C5, S3)', () => {
     expect(check.report(60, 'a', 8, 3)).toBeNull();
   });
 
+  it('forgets old ticks whatever order they came in (relay review M3)', () => {
+    const check = new HashCheck();
+    // A huge tick first, then small ones going down: they must not pile up
+    check.report(1_000_000, 'a', 1);
+    for (let tick = 3000; tick >= 0; tick -= 30) check.report(tick, 'a', 1);
+    const kept = (check as unknown as { byTick: Map<number, unknown> }).byTick.size;
+    expect(kept).toBeLessThanOrEqual(21);
+  });
+
   it('names the parts whose hashes differ (TODO E32)', () => {
     const check = new HashCheck();
     const parts = HASH_PARTS.map((_, i) => i);

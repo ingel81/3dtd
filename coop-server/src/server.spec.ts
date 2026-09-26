@@ -142,22 +142,24 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     a.send({ t: 'start', seed: 42 });
     await b.until('started');
 
-    a.send({ t: 'hash', tick: 15, hash: 0xabc });
-    b.send({ t: 'hash', tick: 15, hash: 0xdef });
+    a.send({ t: 'hash', tick: 0, hash: 0xabc });
+    b.send({ t: 'hash', tick: 0, hash: 0xdef });
     const desync = await a.until('desync');
-    expect(desync).toEqual({ t: 'desync', tick: 15, hashes: [[a.playerId, 0xabc], [b.playerId, 0xdef]], outOfStep: [], parts: [] });
+    expect(desync).toEqual({ t: 'desync', tick: 0, hashes: [[a.playerId, 0xabc], [b.playerId, 0xdef]], outOfStep: [], parts: [] });
     await b.until('desync');
 
     const status = await (await fetch(`http://localhost:${relay.port}/status`)).json() as RelayStatus;
     expect(status.rooms).toHaveLength(1);
-    expect(status.rooms[0]).toMatchObject({ code: room.code, started: true, firstDesync: 15, desyncs: 1 });
+    expect(status.rooms[0]).toMatchObject({ code: room.code, started: true, firstDesync: 0, desyncs: 1 });
     expect(status.rooms[0].players.map((p) => p.name)).toEqual(['Ann', 'Bob']);
-    const text = await (await fetch(`http://localhost:${relay.port}/`)).text();
+    const page = await (await fetch(`http://localhost:${relay.port}/`)).text();
+    expect(page).toContain('<title>3DTD relay</title>');
+    const text = await (await fetch(`http://localhost:${relay.port}/text`)).text();
     expect(text).toContain(`${room.code}  in game`);
-    expect(text).toContain('DESYNC since tick 15');
+    expect(text).toContain('DESYNC since tick 0');
 
     expect(lines.some((l) => l.startsWith(`[${room.code}] opened by Ann`))).toBe(true);
-    expect(lines.some((l) => l.startsWith(`[${room.code}] DESYNC at tick 15`))).toBe(true);
+    expect(lines.some((l) => l.startsWith(`[${room.code}] DESYNC at tick 0`))).toBe(true);
     a.close();
     await b.until('left');
     b.close();
