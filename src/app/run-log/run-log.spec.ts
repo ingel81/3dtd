@@ -267,6 +267,33 @@ describe('the run log', () => {
       });
     });
 
+    // Coop (TODO E34): the run log is this player's run
+    it('keeps the towers and kills of a coop partner out of the numbers of this player', () => {
+      const mine = tower('t1', 'archer');
+      const theirs = tower('t2', 'cannon');
+      standing = [mine, theirs];
+      log.open({ seed: 1, map: 'devworld', player: 'human' }, {
+        ...world(),
+        ownsTower: (t) => t.id === 't1',
+        ownsKill: (by) => by?.kind !== 'tower' || by.towerId === 't1',
+      });
+      bus.emit({ type: 'tower:placed', tower: mine as never, position: { lat: 1, lon: 2 }, cost: 45 });
+      bus.emit({ type: 'tower:placed', tower: theirs as never, position: { lat: 3, lon: 4 }, cost: 120 });
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 3 });
+      mine.combat = { damageDealt: 50, kills: 1 };
+      theirs.combat = { damageDealt: 90, kills: 2 };
+      kill('e1', 't1');
+      kill('e2', 't2');
+      kill('e3', 't2');
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+
+      const [wave] = waves();
+      expect(wave).toMatchObject({ killsByTower: 1, killsByPartner: 2, towerSpending: { archer: 45 } });
+      expect(wave.towers.map((t) => t.id)).toEqual(['t1']);
+      expect(events().filter((e) => e.event === 'tower-built').map((e) => e.id)).toEqual(['archer']);
+      expect(reconcileWave({ ...wave, enemiesSpawned: 3 })).toEqual([]);
+    });
+
     it('writes the block of the wave the base fell in', () => {
       open();
       bus.emit({ type: 'wave:started', wave: 7, enemyCount: 10 });

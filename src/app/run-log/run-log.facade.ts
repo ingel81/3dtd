@@ -12,6 +12,7 @@
 
 import { Injectable, effect, inject } from '@angular/core';
 import { SubscriptionBag, type GameEventBus } from '../game-engine/game-event-bus';
+import type { Tower } from '../entities/tower.entity';
 import type { GameStateManager } from '../managers/game-state.manager';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -154,6 +155,9 @@ export class RunLogFacade {
     const gameState = this.gameState;
     if (!gameState) return;
 
+    // The run log is this player's run (TODO E34): in coop the partner's
+    // towers, their damage and their kills are theirs
+    const mine = (tower: Tower): boolean => tower.ownerId === gameState.localPlayerId;
     const world: RunLogWorld = {
       step: () => gameState.subStep,
       timeMs: () => gameState.gameTimeMs,
@@ -163,8 +167,21 @@ export class RunLogFacade {
       // that list although it already counted as a kill, so the wave booked
       // it twice and its bodies came out one too many.
       enemiesAlive: () => gameState.enemyManager.getAliveCount(),
-      dps: () => calculateTotalDPS(gameState.towerManager.getAll()),
+      dps: () => calculateTotalDPS(gameState.towerManager.getAll().filter(mine)),
       towers: () => gameState.towerManager.getAll(),
+      ownsTower: mine,
+      ownsKill: (killedBy) => {
+        const me = gameState.localPlayerId;
+        switch (killedBy?.kind) {
+          case 'tower': {
+            const tower = gameState.towerManager.getById(killedBy.towerId);
+            return !tower || tower.ownerId === me;
+          }
+          case 'hero': return killedBy.heroId === undefined || killedBy.heroId === gameState.heroOf(me).heroId;
+          case 'ability': return (killedBy.ownerId ?? gameState.players[0]) === me;
+          default: return true;
+        }
+      },
     };
 
     const home = this.locations.editableHqLocation();

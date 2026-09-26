@@ -197,6 +197,8 @@ export interface RunLogWave {
   killsByDebug: number;
   /** Killed with nobody credited, e.g. a wave that was cleared by a script. */
   killsByOther: number;
+  /** Coop: killed by a partner's tower, hero or ability; the kills above are this player's. */
+  killsByPartner?: number;
   leaked: number;
   /**
    * Enemies still standing when the block began, and when it ended.
@@ -253,7 +255,7 @@ export function reconcileWave(wave: RunLogWave): string[] {
   }
 
   const kills = wave.killsByTower + wave.killsByHero + wave.killsByAbility
-    + wave.killsByDebug + wave.killsByOther;
+    + wave.killsByDebug + wave.killsByOther + (wave.killsByPartner ?? 0);
   const bodies = wave.enemiesAtStart + wave.enemiesSpawned;
   const accounted = kills + wave.leaked + wave.enemiesAlive;
   if (bodies !== accounted) {
