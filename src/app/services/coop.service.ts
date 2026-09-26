@@ -1,3 +1,4 @@
+import type { Enemy } from '../entities/enemy.entity';
 import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
 import { GameStateManager } from '../managers/game-state.manager';
 import { ConfigService } from '../core/services/config.service';
@@ -471,14 +472,27 @@ export class CoopService {
     this.subs.add(bus.onLive('tower:placed', ({ tower }) => {
       if (this.inGame()) this.countFor(tower.ownerId).towers++;
     }));
-    // Pressure per lane (review R15): whose lane an enemy leaked from
-    this.subs.add(bus.onLive('enemy:reached-base', ({ enemy }) => {
+    // Pressure per lane (review R15): whose lane an enemy leaked from. An
+    // ooze flows into the base point by point (enemy:leaking) and counts once,
+    // as in the run log.
+    const leaking = new Set<string>();
+    const countLeak = (enemy: Enemy): void => {
       if (!this.inGame()) return;
       const owner = this.laneOwnerOf(enemy.movement.path);
       if (!owner) return;
       this.countFor(owner).leaks++;
       this.waveLeaks.update((leaks) => new Map(leaks).set(owner, (leaks.get(owner) ?? 0) + 1));
+    };
+    this.subs.add(bus.onLive('enemy:leaking', ({ enemy }) => {
+      if (leaking.has(enemy.id)) return;
+      leaking.add(enemy.id);
+      countLeak(enemy);
     }));
+    this.subs.add(bus.onLive('enemy:reached-base', ({ enemy }) => {
+      if (leaking.delete(enemy.id)) return;
+      countLeak(enemy);
+    }));
+    this.subs.add(bus.onLive('enemy:died', ({ enemy }) => { leaking.delete(enemy.id); }));
     this.subs.add(bus.onLive('wave:started', () => {
       if (this.waveLeaks().size > 0) this.waveLeaks.set(new Map());
     }));
