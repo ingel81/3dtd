@@ -1,4 +1,3 @@
-import { COOP } from '../coop.token';
 import { Injectable, inject, DestroyRef, Injector } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog } from '@angular/material/dialog';
@@ -281,9 +280,12 @@ export class LocationFacadeService {
           currentLocation: null,
           currentSpawn: null,
           isGameInProgress: false,
-          // The Coop tab joins a game without a place of one's own first (E30)
-          coop: ctx.injector.get(COOP, null),
         } as LocationDialogData,
+        // The game's injector: the Coop tab reaches the CoopService through it (COOP) and
+        // joins a game without a place of one's own first (E30)
+        injector: ctx.injector,
+        // The search field, ready to type into; without one (World tab) the dialog itself
+        autoFocus: 'input',
         panelClass: 'td-dialog-panel',
         disableClose: true,
       }).then((dialogRef) => {

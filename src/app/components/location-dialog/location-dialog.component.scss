@@ -1,8 +1,16 @@
 @use '../../styles/td-mixins' as td;
+@use '../coop-ui/coop-ui' as ui;
 
+@include ui.classes;
+
+/* A fixed frame: head, tabs and actions stand still, only the content
+ * scrolls, so a tab click does not move the tabs (plan G1, U6) */
 .location-dialog {
-  width: 420px;
+  display: flex;
+  flex-direction: column;
+  width: 460px;
   max-width: 90vw;
+  height: min(640px, calc(100vh - 48px));
   background: var(--td-panel-main);
   border: 1px solid var(--td-frame-dark);
   box-shadow:
@@ -13,13 +21,15 @@
   font-family: var(--td-font-body);
 }
 
+/* === Head, tabs === */
 .dialog-header {
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 12px 16px;
-  background: var(--td-panel-main);
+  padding: 14px 18px;
   border-bottom: 1px solid var(--td-frame-dark);
+  background: linear-gradient(180deg, var(--td-panel-main), var(--td-panel-secondary));
 }
 
 .header-icon {
@@ -28,16 +38,19 @@
 
 h2 {
   margin: 0;
-  font-size: 14px;
+  font-family: var(--td-font-display);
+  font-size: 17px;
   font-weight: 600;
-  color: var(--td-gold);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--td-gold-light);
 }
 
-/* Mode Tabs */
 .mode-tabs {
+  flex: 0 0 auto;
   display: flex;
   background: var(--td-panel-shadow);
-  border-bottom: 2px solid var(--td-frame-dark);
+  border-bottom: 1px solid var(--td-frame-dark);
 }
 
 .mode-tab {
@@ -45,157 +58,113 @@ h2 {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  padding: 10px 16px;
+  gap: 8px;
+  height: 40px;
+  padding: 0 12px;
+  border: 0;
   background: transparent;
-  border: none;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -2px;
+  box-shadow: inset 0 -2px 0 transparent;
+  font-family: var(--td-font-mono);
+  font-size: 11.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  white-space: nowrap;
   color: var(--td-text-muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
-  font-weight: 500;
   cursor: pointer;
-  transition: all 0.15s ease;
+  transition: color 0.15s ease, box-shadow 0.15s ease;
+  @include td.focus-ring(-3px);
+
+  &:hover {
+    color: var(--td-text-secondary);
+  }
+
+  &.active {
+    background: color-mix(in srgb, var(--td-gold) 8%, transparent);
+    box-shadow: inset 0 -2px 0 var(--td-gold);
+    color: var(--td-gold-light);
+  }
 }
 
-.mode-tab:hover:not(:disabled) {
-  color: var(--td-text-secondary);
-  background: rgba(255, 255, 255, 0.02);
-}
-
-.mode-tab.active {
-  color: var(--td-gold);
-  border-bottom-color: var(--td-gold);
-  background: rgba(201, 164, 76, 0.05);
-}
-
-.mode-tab:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.mode-tab mat-icon {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-}
-
+/* === Content: the one scrolling part === */
 .dialog-content {
-  padding: 16px;
+  flex: 1 1 auto;
+  min-height: 0;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  overflow-y: auto;
+  @include td.scrollbar;
 }
 
-/* Warning Box */
+.blk {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--td-frame-dark);
+
+  &:last-child { border-bottom: 0; }
+}
+
+/* Section head: the gold caps with a rune line, as in the coop dock */
+.sec {
+  margin: 0;
+  @include td.section-label;
+
+  .section-hint {
+    order: 2;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: none;
+    color: var(--td-text-muted);
+  }
+}
+
+.blk-note {
+  margin: 0;
+  padding: 0 18px 16px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--td-text-muted);
+}
+
+/* On the .banner.is-warn strip of the coop UI */
 .warning-box {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 12px;
-  background: var(--td-health-bg);
-  border: 1px solid var(--td-warn-orange);
-  border-bottom-width: 2px;
+
+  strong { color: var(--td-warn-orange); }
 }
 
-.warning-box mat-icon {
-  color: var(--td-warn-orange);
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-  flex-shrink: 0;
-}
-
-.warning-text {
-  font-size: 10px;
-  color: var(--td-text-secondary);
-}
-
-.warning-text strong {
-  color: var(--td-warn-orange);
-}
-
-/* Sections — refined inset bevel */
-.section {
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.13),
-    inset 0 -1px 0 var(--td-panel-shadow);
-}
-
-.section-header {
+/* Quiet text buttons under the search: coordinates, moving the spawn */
+.links {
   display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 12px;
-  background: var(--td-panel-main);
-  border-bottom: 1px solid var(--td-frame-dark);
+  gap: 18px;
 }
 
-.section-header mat-icon {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
-  color: var(--td-teal);
-}
-
-.section-title {
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--td-text-primary);
-}
-
-.section-hint {
-  margin-left: auto;
-  font-size: 9px;
-  color: var(--td-text-muted);
-}
-
-.section-body {
-  padding: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-/* HQ Section specific */
-.hq-section .section-header mat-icon {
-  color: var(--td-gold);
-}
-
-/* Coordinates toggle & input */
-.coords-toggle {
-  display: flex;
+.link {
+  display: inline-flex;
   align-items: center;
   gap: 4px;
-  padding: 6px 0;
-  background: transparent;
-  border: none;
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font-family: var(--td-font-body);
+  font-size: 12.5px;
   color: var(--td-text-muted);
-  font-size: 10px;
-  font-family: 'JetBrains Mono', monospace;
   cursor: pointer;
-  transition: color 0.15s ease;
+  @include td.focus-ring;
+
+  &:hover { color: var(--td-gold-light); }
+
+  &.back { align-self: flex-start; }
 }
 
-.coords-toggle:hover {
-  color: var(--td-text-secondary);
-}
-
-.coords-toggle mat-icon {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
-}
-
+/* === Coordinates === */
 .coords-input {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
-  padding: 10px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
 }
 
 .coord-field {
@@ -203,173 +172,80 @@ h2 {
   display: flex;
   flex-direction: column;
   gap: 4px;
-}
 
-.coord-field label {
-  font-size: 9px;
-  color: var(--td-text-muted);
-  text-transform: uppercase;
-}
-
-.coord-field input {
-  width: 100%;
-  padding: 6px 8px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-text-primary);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-}
-
-.coord-field input:focus {
-  outline: none;
-  border-color: var(--td-gold);
+  span {
+    font-family: var(--td-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+  }
 }
 
 .apply-coords-btn {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  padding: 0;
+  @include td.gold-button;
+  @include td.focus-ring;
+}
+
+/* === The spawn of a searched place, one folded line === */
+.spawn-line {
   display: flex;
   align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  margin-top: auto;
-  background: linear-gradient(
-    180deg,
-    var(--td-gold-light) 0%,
-    var(--td-gold) 55%,
-    var(--td-gold-dark) 100%
-  );
-  border: 1px solid #11140F;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    var(--td-shadow-key);
-  color: #1A140A;
-  cursor: pointer;
-  transition: box-shadow 0.18s ease;
-}
-
-.apply-coords-btn:hover:not(:disabled) {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    var(--td-gold-glow);
-}
-
-.apply-coords-btn:disabled {
-  background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
-  color: var(--td-text-disabled);
-  cursor: not-allowed;
-  border-color: #1F2420;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.apply-coords-btn mat-icon {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
-}
-
-/* Spawn Mode Toggle */
-.spawn-mode-toggle {
-  display: flex;
-  gap: 6px;
-}
-
-.spawn-mode-btn {
-  flex: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  padding: 8px 12px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  color: var(--td-text-muted);
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 10px;
-  cursor: pointer;
-  transition: all 0.15s ease;
-}
-
-.spawn-mode-btn:hover {
-  border-color: var(--td-frame-mid);
+  gap: 8px;
+  width: 100%;
+  height: 34px;
+  padding: 0 10px;
+  @include td.sunken;
+  font-family: var(--td-font-body);
+  font-size: 12.5px;
+  text-align: left;
   color: var(--td-text-secondary);
+  cursor: pointer;
+  @include td.focus-ring;
+
+  span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  &:hover { border-color: var(--td-frame-mid); color: var(--td-text-primary); }
 }
 
-.spawn-mode-btn.active {
-  background: rgba(201, 164, 76, 0.1);
-  border-color: var(--td-gold);
-  color: var(--td-gold);
-}
-
-.spawn-mode-btn mat-icon {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
-}
-
-/* Spawn Info */
-.spawn-info {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 10px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  font-size: 9px;
-  color: var(--td-text-muted);
-}
-
-.spawn-info mat-icon {
-  font-size: 12px;
-  width: 12px;
-  height: 12px;
-  color: var(--td-teal);
-  opacity: 0.7;
-}
-
-/* Manual Spawn Input */
-.manual-spawn-input {
+.spawn-set {
   display: flex;
   flex-direction: column;
   gap: 8px;
 }
 
-/* Distance Badge */
-.distance-badge {
+/* === Moving only the spawn === */
+.current-hq {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 6px 10px;
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-mid);
-  font-size: 10px;
-  color: var(--td-text-secondary);
+  gap: 10px;
+  margin: 0;
+  padding: 10px 12px;
+  border-left: 2px solid var(--td-gold);
+  background: var(--td-panel-secondary);
+  font-size: 13px;
+  color: var(--td-text-primary);
+
+  td-icon { color: var(--td-gold); }
+
+  span { display: flex; flex-direction: column; gap: 2px; }
+
+  small {
+    font-family: var(--td-font-mono);
+    font-size: 10px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--td-text-muted);
+  }
 }
 
-.distance-badge mat-icon {
-  font-size: 14px;
-  width: 14px;
-  height: 14px;
-  color: var(--td-teal);
-}
-
-.distance-badge.error {
-  border-color: var(--td-health-red);
-  background: var(--td-health-bg);
-}
-
-.distance-badge.error mat-icon {
-  color: var(--td-health-red);
-}
-
-.distance-badge .limit {
-  color: var(--td-health-red);
-  font-weight: 500;
-}
-
-/* Quick picks (recent and showcase places): plain rows, one click loads */
+/* === Quick picks, recent and showcase: plain rows, one click loads === */
 .quick-tabs {
   display: flex;
   gap: 14px;
@@ -377,62 +253,56 @@ h2 {
 
 .quick-tab {
   padding: 0 0 2px;
-  background: none;
-  border: none;
+  border: 0;
   border-bottom: 1px solid transparent;
+  background: none;
+  font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
   color: var(--td-text-muted);
-  font-family: inherit;
-  font-size: 11px;
-  font-weight: 600;
   cursor: pointer;
-}
+  @include td.focus-ring;
 
-.quick-tab:hover {
-  color: var(--td-text-secondary);
-}
+  &:hover { color: var(--td-text-secondary); }
 
-.quick-tab.active {
-  color: var(--td-text-primary);
-  border-bottom-color: var(--td-gold);
-}
-
-.quick-tab:focus-visible {
-  outline: 1px solid var(--td-gold-light);
-  outline-offset: 2px;
+  &.active {
+    border-bottom-color: var(--td-gold);
+    color: var(--td-gold-light);
+  }
 }
 
 .quick-list {
+  margin: 0 -8px;
+  padding: 0;
   list-style: none;
-  margin: 0;
-  padding: 4px 0;
-  max-height: 188px;
-  overflow-y: auto;
-  @include td.scrollbar;
 }
-
-.quick-list::-webkit-scrollbar { @include td.webkit-scrollbar; }
-.quick-list::-webkit-scrollbar-track { @include td.webkit-scrollbar-track; }
-.quick-list::-webkit-scrollbar-thumb { @include td.webkit-scrollbar-thumb; }
 
 .quick-item {
   display: flex;
   align-items: baseline;
   gap: 10px;
   width: 100%;
-  padding: 6px 12px;
+  padding: 7px 8px;
+  border: 0;
   background: transparent;
-  border: none;
-  color: var(--td-text-secondary);
   font-family: inherit;
   text-align: left;
+  color: var(--td-text-secondary);
   cursor: pointer;
-}
 
-.quick-item:hover,
-.quick-item:focus-visible {
-  outline: none;
-  background: rgba(194, 160, 85, 0.08);
-  color: var(--td-gold-light);
+  &:hover,
+  &:focus-visible {
+    outline: none;
+    background: color-mix(in srgb, var(--td-gold) 8%, transparent);
+    color: var(--td-gold-light);
+  }
+
+  /* The place being played stays in the list, greyed out */
+  &:disabled {
+    background: transparent;
+    color: var(--td-text-muted);
+    cursor: default;
+  }
 }
 
 .quick-name {
@@ -441,14 +311,14 @@ h2 {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: 13.5px;
   font-weight: 500;
 }
 
 .quick-hint {
   flex-shrink: 0;
   font-family: var(--td-font-mono);
-  font-size: 9px;
+  font-size: 11px;
   color: var(--td-text-muted);
 }
 
@@ -456,173 +326,61 @@ h2 {
 .quick-item-stacked {
   flex-direction: column;
   align-items: flex-start;
-  gap: 1px;
+  gap: 2px;
+
+  .quick-name { width: 100%; }
+
+  .quick-hint {
+    font-family: var(--td-font-body);
+    font-size: 12px;
+  }
 }
 
-.quick-item-stacked .quick-name {
-  width: 100%;
-}
-
-.quick-item-stacked .quick-hint {
-  font-family: var(--td-font-body);
-  font-size: 10px;
-}
-
-/* World tab: the globe above the list of defended places. The slot keeps the
-   globe's height while its chunk loads (no @placeholder: its timing code
-   would land in the initial bundle's core chunk). */
+/* === World: the globe above the defended places. The slot keeps the
+ * globe's height while its chunk loads (no @placeholder: its timing code
+ * would land in the initial bundle's core chunk). === */
 .world-globe-slot {
   display: flex;
   justify-content: center;
   min-height: 260px;
-  padding: 10px 12px 6px;
 }
 
 .world-globe-placeholder {
   display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 260px;
   height: 260px;
   padding: 0 24px;
-  box-sizing: border-box;
-  font-size: 10px;
+  font-size: 12.5px;
   text-align: center;
   color: var(--td-text-muted);
 }
 
 .world-list {
-  max-height: 132px;
+  padding-top: 6px;
   border-top: 1px solid var(--td-frame-dark);
-}
-
-/* The place being played stays in the list, greyed out */
-.quick-item:disabled {
-  cursor: default;
-  background: transparent;
-  color: var(--td-text-muted);
 }
 
 .world-empty {
   margin: 0;
-  padding: 0 16px 12px;
-  font-size: 10px;
+  font-size: 12.5px;
+  line-height: 1.5;
   text-align: center;
   color: var(--td-text-muted);
 }
 
-/* Current HQ Info (spawn-only mode) */
-.current-hq-info {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px;
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-mid);
-  border-left: 3px solid var(--td-gold);
-}
-
-.current-hq-info mat-icon {
-  font-size: 18px;
-  width: 18px;
-  height: 18px;
-  color: var(--td-gold);
-}
-
-.hq-details {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.hq-label {
-  font-size: 9px;
-  color: var(--td-text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-}
-
-.hq-name {
-  font-size: 11px;
-  font-weight: 500;
-  color: var(--td-text-primary);
-}
-
-/* Dialog Actions */
+/* === Actions === */
 .dialog-actions {
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
-  padding: 12px 16px;
-  background: var(--td-panel-main);
-  border-top: 1px solid var(--td-frame-mid);
+  padding: 12px 18px;
+  border-top: 1px solid var(--td-frame-dark);
+  background: var(--td-panel-secondary);
 }
 
-.cancel-btn,
-.confirm-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 14px;
-  font-size: 11px;
-  font-family: var(--td-font-mono);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  cursor: pointer;
-  transition: box-shadow 0.18s ease, color 0.15s ease;
-}
-
-.cancel-btn {
-  background: var(--td-panel-main);
-  color: var(--td-text-secondary);
-  font-weight: 500;
-  border: 1px solid var(--td-frame-dark);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    var(--td-shadow-key);
-}
-
-.cancel-btn:hover {
-  color: var(--td-text-primary);
-  box-shadow:
-    inset 0 1px 0 rgba(122, 133, 128, 0.2),
-    0 0 0 1px var(--td-frame-mid),
-    var(--td-shadow-key);
-}
-
-.confirm-btn {
-  background: linear-gradient(
-    180deg,
-    var(--td-gold-light) 0%,
-    var(--td-gold) 55%,
-    var(--td-gold-dark) 100%
-  );
-  color: #1A140A;
-  font-weight: 700;
-  border: 1px solid #11140F;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    var(--td-shadow-key);
-}
-
-.confirm-btn:hover:not(:disabled) {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.28),
-    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
-    var(--td-gold-glow);
-}
-
-.confirm-btn:disabled {
-  background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
-  color: var(--td-text-disabled);
-  cursor: not-allowed;
-  border-color: #1F2420;
-  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
-}
-
-.confirm-btn mat-icon {
-  font-size: 12px;
-  width: 12px;
-  height: 12px;
-}
+.cancel-btn { @include ui.btn; }
+.confirm-btn { @include ui.btn-primary; }

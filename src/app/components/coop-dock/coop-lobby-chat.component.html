@@ -1,0 +1,22 @@
+<h3 class="sec">Chat</h3>
+<div #box class="chat" role="log" aria-live="polite" aria-label="Coop chat">
+  @for (line of chat(); track line.id) {
+    @if (line.system) {
+      <p class="sys" [class.is-warn]="line.warn">{{ line.text }}</p>
+    } @else {
+      <div class="msg" [class.is-cont]="!line.head">
+        @if (line.head) {
+          <div class="msg-who" [style.color]="line.color">{{ line.name }}<time>{{ line.time }}</time></div>
+        }
+        <p>{{ line.text }}</p>
+      </div>
+    }
+  }
+</div>
+<div class="composer">
+  <input class="inp" type="text" maxlength="200" placeholder="Say something · Enter sends" aria-label="Chat message"
+         [value]="line()" (input)="line.set($any($event.target).value)" (keydown.enter)="send()" />
+  <button class="icon-btn send" type="button" (click)="send()" aria-label="Send">
+    <td-icon name="send" [size]="16"></td-icon>
+  </button>
+</div>

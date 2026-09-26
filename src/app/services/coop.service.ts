@@ -28,6 +28,7 @@ import { InputHandlerService } from './input-handler.service';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { RunLogFacade } from '../run-log/run-log.facade';
 import { SPAWN_COLORS } from '../configs/map-constants.config';
+import { laneCss } from '../coop/lane-color';
 import { UI_SOUNDS } from '../configs/audio.config';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
@@ -124,7 +125,7 @@ export const LAG_MS = 160;
 
 /** The name the player gave last time, kept in this browser */
 const NAME_KEY = '3dtd-coop-name';
-/** The player's own relay (coop dialog, "Server"), kept in this browser; none means automatic */
+/** The player's own relay from before the lobbies (D58), kept in this browser; none means automatic */
 const RELAY_KEY = '3dtd-coop-relay';
 /** Pages of the dev game: without a configured lobby they get this machine's relay */
 const DEV_HOSTS = new Set(['localhost', '127.0.0.1']);
@@ -404,7 +405,13 @@ export class CoopService {
     });
     const params = new URLSearchParams(window.location.search);
     this.roomFromUrl = params.get('room');
-    if (this.roomFromUrl) this.intent.set('join');
+    if (this.roomFromUrl) {
+      // Opened with an invite link (?room=): the dock opens at once and says what
+      // happens, the host's map loads, the player joins as soon as it stands
+      this.intent.set('join');
+      this.uiStore.coopDockOpen.set(true);
+      queueMicrotask(() => void this.joinFromUrl());
+    }
     this.relayFromUrl = params.get('relay');
     this.laneFromUrl = params.get('lane');
 
@@ -495,12 +502,20 @@ export class CoopService {
       untracked(() => this.setListing({}));
     }, { injector: this.injector });
 
-    // In a room at last: the dock shows it, also after joining from the location dialog (E30)
+    // The dock by itself, in one place (docs/COOP_UI_REWORK_PLAN.md, T5): it opens on
+    // entering a room, also after joining from the location dialog (E30), and steps aside
+    // for the squad box when the game starts; Tab, the header chip and Esc do the rest
     let wasInRoom = false;
+    let wasInGame = false;
     effect(() => {
       const inRoom = this.room() !== null;
-      if (inRoom && !wasInRoom) untracked(() => this.uiStore.coopDockOpen.set(true));
+      const inGame = this.inGame();
+      untracked(() => {
+        if (inGame && !wasInGame) this.uiStore.coopDockOpen.set(false);
+        else if (inRoom && !wasInRoom) this.uiStore.coopDockOpen.set(true);
+      });
       wasInRoom = inRoom;
+      wasInGame = inGame;
     }, { injector: this.injector });
     // Host, lobby: a changed map goes to the room by itself
     effect(() => {
@@ -950,18 +965,22 @@ export class CoopService {
     if (from !== this.playerId()) this.notify(`${this.nameOf(from)} marked a place on the map`);
   }
 
-  /** A player's lane colour as CSS, white without a lane */
+  /** A player's lane colour as CSS, the secondary text colour without a lane */
   laneColorOf(playerId: string): string {
-    const color = this.laneColorNumberOf(playerId);
-    return color === null ? '#ffffff' : `#${color.toString(16).padStart(6, '0')}`;
+    return laneCss(this.laneIndexOf(playerId), 'var(--td-text-secondary)');
   }
 
   /** A player's lane colour (SPAWN_COLORS), null without a lane */
   private laneColorNumberOf(playerId: string): number | null {
+    const index = this.laneIndexOf(playerId);
+    return index < 0 ? null : SPAWN_COLORS[index % SPAWN_COLORS.length];
+  }
+
+  /** Index of a player's lane among the room's spawns, -1 without one */
+  private laneIndexOf(playerId: string): number {
     const spawnId = this.roster().find((p) => p.id === playerId)?.spawnId
       ?? this.room()?.players.find((p) => p.id === playerId)?.spawnId ?? null;
-    const index = spawnId === null ? -1 : (this.room()?.spawnIds ?? []).indexOf(spawnId);
-    return index < 0 ? null : SPAWN_COLORS[index % SPAWN_COLORS.length];
+    return spawnId === null ? -1 : (this.room()?.spawnIds ?? []).indexOf(spawnId);
   }
 
   /** A click on a partner's tower: whose it is, rather than nothing (review R14) */
@@ -1156,7 +1175,7 @@ export class CoopService {
         return { error: `${name} is offline right now. Playing on the same network still works.` };
       }
       case 'auto':
-        return { error: 'No online lobby is set up. Add one with the gear under Online.' };
+        return { error: 'No online lobby is set up. Add one under Online.' };
       default:
         return { error: "Can't reach the host's lobby from the invite link. It may be down." };
     }

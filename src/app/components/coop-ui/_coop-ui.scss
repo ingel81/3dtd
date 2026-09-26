@@ -16,6 +16,7 @@
   letter-spacing: 0.14em;
   text-transform: uppercase;
   white-space: nowrap;
+  @include td.focus-ring;
 }
 
 // Frame button (secondary): Leave, Copy, Join
@@ -53,6 +54,7 @@
   height: $size;
   padding: 0;
   @include td.frame-button;
+  @include td.focus-ring;
 }
 
 // Text input on the sunken surface
@@ -68,8 +70,9 @@
   font-size: 13px;
   outline: none;
 
+  // A text field shows the focus for the mouse too: the caret goes there
   &:focus {
-    border-color: var(--td-gold-dark);
+    border-color: var(--td-gold);
   }
 
   &::placeholder {
@@ -87,6 +90,7 @@
   font-style: normal;
   letter-spacing: 0.14em;
   line-height: 1.35;
+  text-transform: uppercase;
   color: var(--td-text-secondary);
 
   &.is-you {
@@ -164,7 +168,9 @@
       border-left: 0;
     }
 
-    &:hover:not(:disabled) {
+    @include td.focus-ring(-2px);
+
+    &:hover:not(:disabled, [aria-disabled='true']) {
       color: var(--td-text-primary);
     }
 
@@ -180,7 +186,8 @@
       box-shadow: inset 0 -2px 0 var(--td-warn-orange);
     }
 
-    &:disabled {
+    &:disabled,
+    &[aria-disabled='true'] {
       color: var(--td-text-disabled);
       cursor: not-allowed;
     }
@@ -232,5 +239,106 @@
     font-family: var(--td-font-mono);
     font-size: 10.5px;
     color: var(--td-text-muted);
+  }
+}
+
+// A quiet line of text; is-warn, is-error, is-ok colour it, with-icon puts an icon before it
+@mixin note {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--td-text-muted);
+  text-wrap: pretty;
+
+  &.is-warn { color: var(--td-warn-orange); }
+  &.is-error { color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary)); }
+  &.is-ok { color: var(--td-teal-light); }
+  &.with-icon {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+}
+
+// A full-width strip under a head: gold for news, is-warn orange, is-error red
+@mixin banner($pad-x: 18px) {
+  margin: 0;
+  padding: 9px $pad-x;
+  border-bottom: 1px solid var(--td-frame-dark);
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: var(--td-gold-light);
+  background: color-mix(in srgb, var(--td-gold) 8%, transparent);
+
+  b { font-weight: 600; }
+
+  &.is-warn {
+    color: color-mix(in srgb, var(--td-warn-orange) 55%, var(--td-text-primary));
+    background: color-mix(in srgb, var(--td-warn-orange) 10%, transparent);
+  }
+
+  &.is-error {
+    color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary));
+    background: color-mix(in srgb, var(--td-health-red) 16%, transparent);
+  }
+}
+
+// A key cap: Enter, Esc, Space
+@mixin kbd {
+  padding: 1px 5px;
+  border: 1px solid var(--td-frame-mid);
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  color: var(--td-text-secondary);
+}
+
+// Turns an icon while something loads; stands still for reduced motion
+@mixin spinner {
+  animation: coop-spin 1s linear infinite;
+
+  @media (prefers-reduced-motion: reduce) {
+    animation: none;
+  }
+
+  @keyframes coop-spin {
+    to { transform: rotate(360deg); }
+  }
+}
+
+// A floating coop panel on the map: dock, squad box
+@mixin panel-frame($alpha: 96%) {
+  background: color-mix(in srgb, var(--td-bg-dark) $alpha, transparent);
+  border: 1px solid var(--td-frame-mid);
+  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(167, 179, 168, 0.14);
+}
+
+// The shared classes of the coop templates. Each component includes them in
+// its own sheet, since view encapsulation keeps one sheet's classes to itself.
+@mixin classes {
+  .btn { @include btn; }
+  .btn-xs { @include btn-xs; }
+  .btn-primary { @include btn-primary; }
+  .btn-done { @include btn-done; }
+  .icon-btn { @include icon-btn; }
+  .icon-btn.sm { @include icon-btn(26px); }
+  .icon-btn.big { @include icon-btn(38px); }
+  .icon-gap { width: 26px; }
+  .inp { @include input; }
+  .tag { @include tag; }
+  .pill { @include pill; }
+  .chip { @include chip; }
+  .seg { @include segmented; }
+  .note { @include note; }
+  .banner { @include banner; }
+  .spin { @include spinner; }
+  kbd { @include kbd; }
+  .sr-only { @include td.sr-only; }
+
+  .row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+
+    .inp { flex: 1; min-width: 0; }
   }
 }

@@ -434,11 +434,13 @@ describe('LocationFacadeService', () => {
   });
 
   describe('waitForLocationFromDialog', () => {
-    it('opens an empty dialog that cannot be dismissed by clicking outside', async () => {
+    it('opens an empty dialog that cannot be dismissed by clicking outside, on the game injector (COOP for the Coop tab)', async () => {
       void facade.waitForLocationFromDialog();
       await dialogOpened();
       expect(dialog.open).toHaveBeenCalledWith(LocationDialogComponent, {
         data: expect.objectContaining({ currentLocation: null, currentSpawn: null, isGameInProgress: false }),
+        injector: expect.anything(),
+        autoFocus: 'input',
         panelClass: 'td-dialog-panel',
         disableClose: true,
       });

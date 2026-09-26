@@ -1,30 +1,25 @@
 @use '../../styles/td-mixins' as td;
 @use '../coop-ui/coop-ui' as ui;
 
-/* Bottom left over the logo row, one column: squad box, chat below (C8).
- * The host lets clicks through; the box and the chat take their own. */
+/* Bottom left over the logo row, right of the ability bar (`left` from the
+ * host binding), one column: squad box, chat below (C8). The host lets
+ * clicks through; the box and the chat take their own. */
 :host {
   position: absolute;
-  left: 12px;
   bottom: calc(var(--td-logo-bottom, 0px) + var(--td-logo-height, 0px) + 20px);
-  z-index: 6;
+  z-index: var(--td-z-hud);
   display: flex;
   flex-direction: column;
   gap: 6px;
   width: 400px;
-  max-width: calc(100% - 24px);
+  max-width: calc(100% - 100px);
   pointer-events: none;
   font-family: var(--td-font-body);
   color: var(--td-text-primary);
 }
 
-.icon-btn { @include ui.icon-btn; }
-.icon-btn.sm { @include ui.icon-btn(26px); }
-.icon-gap { width: 26px; }
-.btn-xs { @include ui.btn-xs; }
+@include ui.classes;
 .btn-xs.primary { @include ui.btn-primary(30px); padding: 0 10px; font-size: 10.5px; }
-.tag { @include ui.tag; }
-.chip { @include ui.chip; }
 
 .is-warn { color: var(--td-warn-orange); }
 .is-error { color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary)); }
@@ -33,9 +28,7 @@
   display: flex;
   flex-direction: column;
   pointer-events: auto;
-  background: color-mix(in srgb, var(--td-bg-dark) 90%, transparent);
-  border: 1px solid var(--td-frame-mid);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(167, 179, 168, 0.12);
+  @include ui.panel-frame(90%);
 
   &.is-error { border-color: color-mix(in srgb, var(--td-health-red) 50%, var(--td-frame-dark)); }
 }
@@ -50,6 +43,7 @@
   font-family: var(--td-font-mono);
   font-size: 10px;
   letter-spacing: 0.2em;
+  text-transform: uppercase;
   color: var(--td-gold);
 
   small {
@@ -72,21 +66,7 @@
   }
 }
 
-.banner {
-  margin: 0;
-  padding: 9px 12px;
-  border-bottom: 1px solid var(--td-frame-dark);
-  font-size: 12.5px;
-  color: var(--td-gold-light);
-  background: color-mix(in srgb, var(--td-gold) 8%, transparent);
-
-  b { font-weight: 600; }
-
-  &.is-error {
-    color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary));
-    background: color-mix(in srgb, var(--td-health-red) 16%, transparent);
-  }
-}
+.banner { @include ui.banner(12px); }
 
 .rows {
   display: flex;
@@ -98,7 +78,7 @@
 }
 
 .sq {
-  @include ui.list-row(42px);
+  @include ui.list-row(36px);
   grid-template-columns: 3px 1fr auto auto auto;
   gap: 10px;
 
@@ -125,6 +105,7 @@
   small {
     font-size: 10px;
     letter-spacing: 0.06em;
+    text-transform: uppercase;
 
     &.is-warn { color: var(--td-warn-orange); }
   }
@@ -137,6 +118,7 @@
 
 .credits {
   display: flex;
+  min-width: 40px;
   align-items: center;
   gap: 5px;
   font-family: var(--td-font-mono);
@@ -150,6 +132,14 @@
     transform: rotate(45deg);
     background: var(--td-rune-amber);
   }
+
+  &.is-gone::before { content: none; }
+}
+
+.issue {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .check {
@@ -165,6 +155,7 @@
   cursor: pointer;
 
   &:hover:not(:disabled) { border-color: var(--td-teal); color: var(--td-teal-dark); }
+  @include td.focus-ring;
 
   &.is-on {
     border-color: var(--td-teal);
@@ -209,12 +200,4 @@
   b { font-weight: 500; color: var(--td-text-primary); }
 
   &.is-alert { color: var(--td-text-secondary); }
-
-  kbd {
-    font-family: var(--td-font-mono);
-    font-size: 10px;
-    padding: 1px 5px;
-    border: 1px solid var(--td-frame-mid);
-    color: var(--td-text-secondary);
-  }
 }

@@ -1,0 +1,28 @@
+@if (coop.inGame()) {
+  @if (lines().length > 0) {
+    <div class="log" role="log" aria-live="polite" aria-label="Coop chat">
+      @for (line of lines(); track line.id) {
+        <div class="line" [class.is-old]="line.old" [class.is-sys]="line.system" [class.is-warn]="line.warn">
+          @if (!line.system) { <b [style.color]="line.color">{{ line.name }}</b> }
+          <span>{{ line.text }}</span>
+        </div>
+      }
+    </div>
+  }
+  @if (writing()) {
+    <div class="open">
+      <span class="to">ALL</span>
+      <input #field type="text" maxlength="200" placeholder="Say something" aria-label="Chat message"
+             (keydown.enter)="send($any($event.target).value); $event.stopPropagation()"
+             (keydown.escape)="close(); $event.stopPropagation()" (blur)="close()" />
+      <kbd>Enter</kbd><kbd>Esc</kbd>
+    </div>
+  } @else if (coop.pingArmed()) {
+    <div class="armed" role="status">Click the map to mark a place for everyone <kbd>Esc</kbd></div>
+  } @else {
+    <!-- Until the first own message: then the keys are known and the line only costs room (plan U8) -->
+    @if (!sentOnce()) {
+      <div class="hint"><kbd>Enter</kbd>chat<i>·</i><kbd>X</kbd>mark<i>·</i><kbd>Tab</kbd>room</div>
+    }
+  }
+}

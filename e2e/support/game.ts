@@ -182,7 +182,8 @@ export async function coopRoom({ host, guest }: { host: Page; guest: Page }, { o
   await openRoom(host);
   const code = await roomCode(host);
   await joinByCode(guest, code);
-  await expect(host.locator('app-coop-dock .pl')).toHaveCount(2, { timeout: 120_000 });
+  // One name per player in the room table, with a lane or without
+  await expect(host.locator('app-coop-room-table .who')).toHaveCount(2, { timeout: 120_000 });
   for (const [label, choice] of Object.entries(options)) await setOption(host, label, choice);
   await guest.getByRole('button', { name: 'Ready up' }).click({ timeout: 120_000 });
   if (start) {
@@ -204,7 +205,8 @@ export async function openDock(page: Page): Promise<void> {
 export async function joinByCode(page: Page, code: string): Promise<void> {
   await openDock(page);
   await page.locator('app-coop-dock input.codein').fill(code);
-  await page.getByRole('button', { name: 'Join', exact: true }).click();
+  // The Join beside the code field, not one of an open room's rows
+  await page.locator('app-coop-dock .code-row').getByRole('button', { name: 'Join', exact: true }).click();
 }
 
 /**
@@ -235,7 +237,7 @@ export async function leaveRoom(page: Page): Promise<void> {
 /** Host: open a room from the dock */
 export async function openRoom(page: Page): Promise<void> {
   await openDock(page);
-  await page.getByRole('button', { name: 'Host online' }).click();
+  await page.getByRole('button', { name: 'Host a room' }).click();
 }
 
 /** Host: the invite link, as the dock's button copies it */

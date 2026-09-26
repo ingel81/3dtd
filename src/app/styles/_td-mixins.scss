@@ -67,7 +67,9 @@
     box-shadow: inset 0 -1px 0 rgba(255, 255, 255, 0.15), inset 0 1px 0 rgba(0, 0, 0, 0.4);
   }
 
-  &:disabled {
+  // aria-disabled: greyed but clickable, so its tooltip still says why (DESIGN_SYSTEM, ability bar)
+  &:disabled,
+  &[aria-disabled='true'] {
     background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
     color: var(--td-text-disabled);
     cursor: not-allowed;
@@ -94,15 +96,35 @@
   color: var(--td-text-secondary);
   cursor: pointer;
 
-  &:hover:not(:disabled) {
+  &:hover:not(:disabled, [aria-disabled='true']) {
     border-color: var(--td-frame-light);
     color: var(--td-gold-light);
   }
 
-  &:disabled {
+  &:disabled,
+  &[aria-disabled='true'] {
     color: var(--td-text-disabled);
     cursor: not-allowed;
   }
+}
+
+// Keyboard focus: a gold outline, only when the focus came by keyboard.
+// Goes into the rule of the focusable element.
+@mixin focus-ring($offset: 2px) {
+  &:focus-visible {
+    outline: 1px solid var(--td-gold);
+    outline-offset: $offset;
+  }
+}
+
+// Read by screen readers only
+@mixin sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
 
 // Sunken surface: inputs, slots, bar backgrounds.

@@ -164,4 +164,15 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
     expect(header.favEditing()).toBeNull();
     expect(names()).toEqual(['Eiffel', 'Louvre', 'Montmartre']);
   });
+
+  it('Esc closes the spawn menu and keeps the key from the game; with the menu shut it leaves the key alone', () => {
+    header.spawnMenuOpen.set(true);
+    const first = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    header.onEscape(first);
+    expect(header.spawnMenuOpen()).toBe(false);
+    expect(first.defaultPrevented).toBe(true);
+    const second = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
+    header.onEscape(second);
+    expect(second.defaultPrevented).toBe(false);
+  });
 });

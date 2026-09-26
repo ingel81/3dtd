@@ -4,34 +4,44 @@
     <span>Your name</span>
     <input class="inp" type="text" maxlength="32" [value]="name()" (input)="name.set($any($event.target).value)" />
   </label>
+  @if (c.needsKey()) {
+    <p class="note">Every player needs their own map key; you enter yours before the map loads.</p>
+  }
 </section>
 
+<!-- One way at a time; Same network only in the desktop app (plan U3, D67) -->
 @if (c.lanAvailable) {
+  <div class="way">
+    <span class="seg" role="group" aria-label="How to play together">
+      <button type="button" [class.is-on]="way() === 'online'" [attr.aria-pressed]="way() === 'online'"
+              (click)="setWay('online')">Online</button>
+      <button type="button" [class.is-on]="way() === 'lan'" [attr.aria-pressed]="way() === 'lan'"
+              (click)="setWay('lan')">Same network</button>
+    </span>
+  </div>
+}
+
+@if (way() === 'lan') {
   <!-- Same network: the desktop app hosts and finds games itself (C4d) -->
   <section class="blk">
     <h3 class="sec">
-      Same network
+      Games on this network
       <button class="icon-btn sm" type="button" (click)="rescanLan()"
               matTooltip="Search again" aria-label="Search the network again">
         <td-icon name="refresh" [size]="14" [class.spin]="rescanning()"></td-icon>
       </button>
     </h3>
-    @if (canHost()) {
-      <button class="btn-primary wide" type="button" (click)="hostLan()" [disabled]="busy()">
-        {{ busy() ? 'Opening…' : 'Host LAN game' }}
-      </button>
-      <p class="note">Players on this network see it below. Windows may ask to let 3DTD through the firewall: allow it.</p>
-    }
     @if (lanGames().length) {
-      <ul class="lan-list">
+      <ul class="game-list">
         @for (game of lanGames(); track game.code) {
-          <li class="lan-game" [class.is-off]="game.why">
+          <li class="game-row" [class.is-off]="game.why">
             <div class="who">
               <b>{{ game.host || 'Host' }}</b>
               <small>{{ game.players }}/{{ maxPlayers }} players · {{ game.code }}</small>
+              @if (game.why) { <small class="why">{{ game.why }}</small> }
             </div>
-            <button class="btn" type="button" (click)="joinLan(game)" [disabled]="!!game.why || busy()"
-                    [matTooltip]="game.why ?? ''">Join</button>
+            <button class="btn" type="button" (click)="joinLan(game)" [attr.aria-disabled]="!!game.why || null"
+                    [disabled]="busy()">Join</button>
           </li>
         }
       </ul>
@@ -47,113 +57,124 @@
           <p class="note is-error" role="status">No game answered at {{ hostIp().trim() }}.</p>
         }
         <ul class="checks">
-          <li>The host let 3DTD through the Windows firewall (the prompt at "Host LAN game").</li>
+          <li>The host let 3DTD through the Windows firewall (the prompt at "Host a room").</li>
           <li>Both are on the same network, not one on mobile data or only on a VPN.</li>
           <li>Guest Wi-Fi often keeps devices apart: use the main Wi-Fi or a cable.</li>
         </ul>
       }
     }
   </section>
+} @else {
+  <!-- Online: over the active lobby, its open rooms, a room code (D58, D62, D63) -->
+  <section class="blk">
+    <h3 class="sec">
+      Open rooms
+      @if (c.lobbies().length) {
+        <span class="lobby">
+          <select class="lobby-select" aria-label="Online lobby" [value]="c.lobby()?.url ?? ''"
+                  (change)="pickLobby($any($event.target))">
+            @for (lobby of c.lobbies(); track lobby.url) {
+              <option [value]="lobby.url" [selected]="lobby.url === c.lobby()?.url">{{ lobby.name }}</option>
+            }
+            <option [value]="addLobbyValue">Add lobby…</option>
+          </select>
+          @if (c.lobbyPing() !== null) { <small>{{ c.lobbyPing() }} ms</small> }
+        </span>
+      }
+      @if (c.lobby()) {
+        <button class="icon-btn sm" type="button" (click)="refreshRooms()" matTooltip="Look again" aria-label="Look for open rooms again">
+          <td-icon name="refresh" [size]="14"></td-icon>
+        </button>
+      }
+    </h3>
+
+    @if (addingLobby() || !c.lobby()) {
+      <div class="lobby-add">
+        @if (!c.lobby()) { <p class="note">No online lobby is set up yet. Add the address you were given.</p> }
+        <div class="row">
+          <input class="inp" type="text" maxlength="40" placeholder="Name" aria-label="Lobby name"
+                 [value]="newLobbyName()" (input)="newLobbyName.set($any($event.target).value)" />
+          <input class="inp" type="text" placeholder="wss://…" aria-label="Lobby address"
+                 [value]="newLobbyUrl()" (input)="newLobbyUrl.set($any($event.target).value)" (keydown.enter)="addLobby()" />
+          <button class="btn-xs" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">Add</button>
+        </div>
+        @if (c.lobby(); as active) {
+          <div class="row lobby-foot">
+            @if (!active.builtIn) {
+              <button class="link" type="button" (click)="removeLobby(active.url)">Remove {{ active.name }}</button>
+            }
+            <span class="spacer"></span>
+            <button class="link" type="button" (click)="addingLobby.set(false)">Done</button>
+          </div>
+        }
+      </div>
+    }
+    @if (lobbyNote(); as note) {
+      <p class="note" [class.is-ok]="note.ok" [class.is-error]="!note.ok" role="status">{{ note.text }}</p>
+    }
+
+    @if (c.lobby(); as active) {
+      @if (publicRooms(); as rooms) {
+        @if (rooms.length) {
+          <ul class="game-list">
+            @for (room of rooms; track room.code) {
+              <li class="game-row" [class.is-off]="room.why">
+                <div class="who">
+                  <b>{{ room.title }}</b>
+                  <small>{{ room.host }}{{ room.city ? ' · ' + room.city : '' }} · {{ room.players }}/{{ maxPlayers }}</small>
+                  <span class="tags">
+                    @if (room.started) { <i class="tag">In game · Wave {{ room.wave }}</i> } @else { <i class="tag is-open">Lobby</i> }
+                    @if (room.cheats) { <i class="tag is-warn">Cheats on</i> }
+                  </span>
+                  @if (room.why) { <small class="why">{{ room.why }}</small> }
+                </div>
+                <button class="btn" type="button" (click)="joinRoom(room)" [attr.aria-disabled]="!!room.why || null"
+                        [disabled]="busy()">Join</button>
+              </li>
+            }
+          </ul>
+        } @else {
+          <p class="note">No open rooms right now.{{ canHost() ? ' Host one, or join with a code.' : ' Join with a code.' }}</p>
+        }
+      } @else {
+        <p class="banner is-warn offline" role="status">
+          <span>{{ active.name }} does not answer right now.</span>
+          <button class="btn-xs" type="button" (click)="refreshRooms()">Retry</button>
+        </p>
+      }
+      <div class="row code-row">
+        <input class="inp codein" type="text" maxlength="6" placeholder="ABC123" aria-label="Room code"
+               [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
+        <button class="btn" type="button" (click)="join()" [disabled]="!code().trim() || busy()">Join</button>
+      </div>
+    }
+  </section>
 }
 
-<!-- Online: over the active lobby, by room code (D58, D67) -->
-<section class="blk">
-  <h3 class="sec">
-    Online
-    <small>{{ c.lobby()?.name ?? 'no lobby' }}</small>
-    <button class="icon-btn sm" type="button" (click)="lobbyMenu.set(!lobbyMenu())" [attr.aria-expanded]="lobbyMenu()"
-            matTooltip="Lobbies" aria-label="Choose the online lobby">
-      <td-icon name="cog" [size]="14"></td-icon>
+<!-- The one main action: host on the chosen way (plan G5) -->
+@if (canHost() && (way() === 'lan' || c.lobby())) {
+  <section class="blk plain">
+    <button class="btn-primary wide" type="button" (click)="host()" [disabled]="busy()">
+      {{ busy() ? 'Opening…' : 'Host a room' }}
     </button>
-  </h3>
-
-  @if (lobbyMenu()) {
-    <div class="lobby-menu">
-      @for (lobby of c.lobbies(); track lobby.url) {
-        <div class="lobby-row">
-          <label>
-            <input type="radio" name="lobby" [checked]="lobby.url === c.lobby()?.url" (change)="c.selectLobby(lobby.url)" />
-            <b>{{ lobby.name }}</b>
-          </label>
-          @if (!lobby.builtIn) {
-            <button class="icon-btn sm" type="button" (click)="c.removeLobby(lobby.url)"
-                    [attr.aria-label]="'Remove ' + lobby.name" matTooltip="Remove">
-              <td-icon name="cross" [size]="12"></td-icon>
-            </button>
-          }
-        </div>
-      } @empty {
-        <p class="note">No lobby yet.</p>
-      }
-      <div class="row">
-        <input class="inp" type="text" maxlength="40" placeholder="Name" aria-label="Lobby name"
-               [value]="newLobbyName()" (input)="newLobbyName.set($any($event.target).value)" />
-        <input class="inp" type="text" placeholder="wss://…" aria-label="Lobby address"
-               [value]="newLobbyUrl()" (input)="newLobbyUrl.set($any($event.target).value)" (keydown.enter)="addLobby()" />
-        <button class="btn-xs" type="button" (click)="addLobby()" [disabled]="!newLobbyUrl().trim()">Add</button>
-      </div>
-      @if (c.lobby()) {
-        <button class="btn-xs" type="button" (click)="checkLobby()">Check {{ c.lobby()!.name }}</button>
-      }
-      @if (lobbyNote(); as note) {
-        <p class="note" [class.is-ok]="note.ok" [class.is-error]="!note.ok" role="status">{{ note.text }}</p>
-      }
-    </div>
-  }
-
-  @if (c.lobby()) {
-    @if (canHost()) {
-      <button class="btn-primary wide" type="button" (click)="hostOnline()" [disabled]="busy()">
-        {{ busy() ? 'Opening…' : 'Host online' }}
-      </button>
-      <p class="note">Opens a room on {{ placeName() }}. Share the room code with your friends.</p>
-    }
-    <!-- Open rooms of the lobby (D62, D63) -->
-    <div class="rooms-head">
-      <span>Open rooms</span>
-      @if (c.lobbyPing() !== null) { <small>{{ c.lobbyPing() }} ms</small> }
-      <button class="icon-btn sm" type="button" (click)="refreshRooms()" matTooltip="Look again" aria-label="Look for open rooms again">
-        <td-icon name="refresh" [size]="14"></td-icon>
-      </button>
-    </div>
-    @if (publicRooms(); as rooms) {
-      @if (rooms.length) {
-        <ul class="lan-list">
-          @for (room of rooms; track room.code) {
-            <li class="lan-game" [class.is-off]="room.why">
-              <div class="who">
-                <b>{{ room.title }}</b>
-                <small>{{ room.host }}{{ room.city ? ' · ' + room.city : '' }} · {{ room.players }}/{{ maxPlayers }}</small>
-                <span class="tags">
-                  @if (room.started) { <i class="tag">In game · Wave {{ room.wave }}</i> } @else { <i class="tag is-open">Lobby</i> }
-                  @if (room.cheats) { <i class="tag is-cheats">Cheats on</i> }
-                </span>
-              </div>
-              <button class="btn" type="button" (click)="joinRoom(room.code)" [disabled]="!!room.why || busy()"
-                      [matTooltip]="room.why ?? ''">Join</button>
-            </li>
-          }
-        </ul>
+    <p class="note">
+      @if (way() === 'lan') {
+        Players on this network see it. Windows may ask to let 3DTD through the firewall: allow it.
       } @else {
-        <p class="note">No open rooms right now. Host one, or join with a code.</p>
+        Opens a room on {{ placeName() }}. Share the room code with your friends.
       }
-    } @else {
-      <p class="note">{{ c.lobby()!.name }} does not answer right now.</p>
-    }
-    <p class="or-code">Or join with a room code</p>
-    <div class="row">
-      <input class="inp codein" type="text" maxlength="6" placeholder="ABC123" aria-label="Room code"
-             [value]="code()" (input)="code.set($any($event.target).value)" (keydown.enter)="join()" />
-      <button class="btn" type="button" (click)="join()" [disabled]="!code().trim() || busy()">Join</button>
-    </div>
-  } @else {
-    <p class="note">No online lobby is set up. Add one with the gear.</p>
-  }
-</section>
+    </p>
+  </section>
+}
 
-<section class="blk plain">
-  <p class="note">Every player needs their own map key.</p>
-</section>
+<!-- Connecting: a way back, the start dialog has no Cancel of its own (plan T4) -->
+@if (busy()) {
+  <p class="banner connecting" role="status">
+    <td-icon class="spin" name="refresh" [size]="13"></td-icon>
+    <span>Connecting…</span>
+    <button class="btn-xs" type="button" (click)="cancelConnect()">Cancel</button>
+  </p>
+}
 
 @if (c.error(); as error) {
   <p class="banner is-error" role="alert">

@@ -124,11 +124,11 @@
           <td-icon name="flag" [size]="22"></td-icon>
         </button>
         @if (spawnMenuOpen()) {
-          <div class="spawn-menu" role="menu">
+          <div class="spawn-menu">
             @for (i of spawnIndexes(); track i) {
-              <button class="spawn-menu-item" type="button" role="menuitem" (click)="pickSpawn(i)">Move spawn {{ i + 1 }}</button>
+              <button class="spawn-menu-item" type="button" (click)="pickSpawn(i)">Move spawn {{ i + 1 }}</button>
             }
-            <button class="spawn-menu-item" type="button" role="menuitem" (click)="pickSpawn(null)">One spawn in place of all</button>
+            <button class="spawn-menu-item" type="button" (click)="pickSpawn(null)">One spawn in place of all</button>
           </div>
         }
       </div>
@@ -142,6 +142,7 @@
       <!-- Coop: open a room or join one; in one the room chip (code, a square per player, seats) -->
       <span class="action-divider"></span>
       @if (coopChip(); as chip) {
+        <!-- No focus after the click: the chip would keep a ring (PLAYTEST T63) -->
         <button class="action-btn coop-btn active" type="button" (click)="coopClick.emit()"
                 (mousedown)="$event.preventDefault()"
                 [matTooltip]="'Coop room ' + chip.code + ': players, lanes, chat · Tab'"

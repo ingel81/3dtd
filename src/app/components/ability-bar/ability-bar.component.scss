@@ -16,7 +16,7 @@
   position: absolute;
   top: 0;
   bottom: 0;
-  z-index: 6;
+  z-index: var(--td-z-hud);
   display: flex;
   flex-direction: column;
   pointer-events: none;

@@ -292,16 +292,13 @@
   pointer-events: none;
 }
 
+/* Coop room (docs/COOP_PLAN.md, C8): code, a square per player, seats; the
+   coop button in its active state, no chip of its own */
 .coop-btn {
   width: auto;
   min-width: 34px;
   gap: 5px;
   padding: 0 6px;
-}
-
-/* Coop room (docs/COOP_PLAN.md, C8): code, a square per player, seats; the
-   coop button in its active state, no chip of its own */
-.coop-btn {
   white-space: nowrap;
 
   small {

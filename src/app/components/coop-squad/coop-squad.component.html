@@ -1,21 +1,25 @@
 @if (coop.roster().length > 0) {
   <section class="squad" [class.is-error]="coop.lostInGame()" aria-label="Squad">
     <header class="sq-head">
-      SQUAD
+      Squad
       @if (collapsed()) {
         <small>
-          @if (issue()) { <span class="is-warn">● ISSUE</span> } @else { {{ readyCount() }}/{{ rows().length }} READY }
+          @if (issue()) {
+            <span class="is-warn issue"><td-icon name="warn" [size]="11"></td-icon>Issue</span>
+          } @else {
+            {{ readyCount() }}/{{ rows().length }} ready
+          }
         </small>
       } @else {
         <small>
           @if (issue(); as text) {
             <span [class.is-error]="coop.lostInGame()" [class.is-warn]="!coop.lostInGame()">{{ text }}</span>
           } @else {
-            PVE COOP · {{ coop.room()?.code }}
+            PvE Coop · {{ coop.room()?.code }}
           }
         </small>
         @if (coop.cheatsOn()) {
-          <span class="chip is-warn" [matTooltip]="'Cheats allowed: ' + (coop.options().cheats === 'host' ? 'host only' : 'everyone')">CHEATS ON</span>
+          <span class="chip is-warn" [matTooltip]="'Cheats allowed: ' + (coop.options().cheats === 'host' ? 'host only' : 'everyone')">Cheats on</span>
         }
       }
       <button class="icon-btn toggle" type="button" (click)="collapsed.set(!collapsed())"
@@ -39,12 +43,14 @@
             <div class="who">
               <b>
                 <span class="name">{{ row.name }}</span>
-                @if (row.me) { <i class="tag is-you">YOU</i> }
-                @if (row.host) { <i class="tag is-host">HOST</i> }
+                @if (row.me) { <i class="tag is-you">You</i> }
+                @if (row.host) { <i class="tag is-host">Host</i> }
               </b>
               <small [class.is-warn]="row.state !== 'ok' || row.leaks > 0" [matTooltip]="leaksTip(row)">{{ subLine(row) }}</small>
             </div>
-            <span class="credits" [attr.aria-label]="row.gold + ' credits'">{{ row.state === 'left' ? '—' : row.gold }}</span>
+            <span class="credits" [class.is-gone]="row.state === 'left'">
+              @if (row.state !== 'left') { <span class="sr-only">Credits </span>{{ row.gold }} }
+            </span>
             <app-ping-bars [ms]="row.state === 'left' || coop.lostInGame() ? null : row.latency" [warn]="row.state === 'lag' || row.state === 'slow'"
                            [matTooltip]="row.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'" />
             @if (row.me) {

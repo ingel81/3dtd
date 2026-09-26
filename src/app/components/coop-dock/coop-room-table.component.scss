@@ -1,0 +1,191 @@
+@use '../../styles/td-mixins' as td;
+@use '../coop-ui/coop-ui' as ui;
+
+@include ui.classes;
+
+:host {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+.sec {
+  margin: 0;
+  @include td.section-label;
+
+  white-space: nowrap;
+
+  small {
+    order: 2;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: none;
+    color: var(--td-text-muted);
+  }
+}
+
+.rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+/* Colour bar · lane · player · ready · ping · tools */
+.row-lane {
+  @include ui.list-row(48px);
+  grid-template-columns: 4px 76px minmax(96px, 1fr) 20px auto auto;
+  gap: 8px;
+
+  &.is-free:hover { border-color: var(--td-gold-dark); }
+
+  &.is-seatless {
+    border-style: dashed;
+
+    .lane b { color: var(--td-text-muted); }
+  }
+
+  &.is-gone .who b {
+    color: var(--td-text-disabled);
+    text-decoration: line-through;
+  }
+}
+
+.lane {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+
+  b {
+    font-family: var(--td-font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--td-text-secondary);
+  }
+}
+
+.len {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  white-space: nowrap;
+  color: var(--td-text-muted);
+
+  u {
+    position: relative;
+    display: block;
+    height: 3px;
+    background: var(--td-frame-dark);
+    text-decoration: none;
+  }
+
+  s {
+    position: absolute;
+    inset: 0 auto 0 0;
+  }
+}
+
+.who {
+  @include ui.name-stack(13.5px);
+
+  small { text-transform: uppercase; }
+}
+
+/* What the player's client is doing (loading, reloading, map key) */
+.doing {
+  text-transform: none;
+  color: var(--td-gold-light);
+}
+
+/* The own name in the lobby: a sunken field with a pencil, so it reads as editable */
+.name-edit {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 24px;
+  padding: 0 6px;
+  @include td.sunken;
+  color: var(--td-text-muted);
+  cursor: text;
+
+  input {
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    background: none;
+    font: 600 13.5px var(--td-font-body);
+    color: var(--td-text-primary);
+    outline: none;
+  }
+
+  &:hover,
+  &:focus-within {
+    border-color: var(--td-gold);
+    color: var(--td-gold-light);
+  }
+}
+
+.take {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 12.5px var(--td-font-body);
+  color: var(--td-gold);
+  cursor: pointer;
+  @include td.focus-ring;
+
+  &:hover { color: var(--td-gold-light); }
+}
+
+.free {
+  font-size: 12.5px;
+  color: var(--td-text-muted);
+}
+
+.ready {
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  border: 1px solid var(--td-frame-dark);
+  color: var(--td-teal-light);
+
+  &.is-on {
+    border-color: var(--td-teal-dark);
+    background: color-mix(in srgb, var(--td-teal) 12%, transparent);
+  }
+}
+
+.ops {
+  display: flex;
+  justify-content: flex-end;
+  gap: 4px;
+}
+
+.empty-seat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  height: 48px;
+  padding: 0 14px;
+  border: 1px dashed var(--td-frame-mid);
+  font-size: 13px;
+  color: var(--td-text-muted);
+
+  .btn-xs { margin-left: auto; }
+}
+
+.seat-hint {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--td-text-muted);
+}

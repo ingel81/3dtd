@@ -115,6 +115,17 @@ export const TD_LAYOUT = {
 } as const;
 
 /**
+ * Stapelung der Canvas-HUD-Teile (z-index), von unten nach oben: Markierungen
+ * auf der Karte (Ping-Pfeile), HUD-Leisten (Fähigkeitenleiste, Squad-Box),
+ * das Coop-Dock darüber. Dialoge und Overlays liegen weit darüber.
+ */
+export const TD_LAYERS = {
+  marks: 5,
+  hud: 6,
+  dock: 7,
+} as const;
+
+/**
  * CSS Custom Properties String
  * For use in :host or root element
  */
@@ -173,6 +184,10 @@ export const TD_CSS_VARS = `
 
   --td-sidebar-width: ${TD_LAYOUT.sidebarWidth};
   --td-sidebar-gutter: ${TD_LAYOUT.sidebarGutter};
+
+  --td-z-marks: ${TD_LAYERS.marks};
+  --td-z-hud: ${TD_LAYERS.hud};
+  --td-z-dock: ${TD_LAYERS.dock};
 
   --td-event-vfx: ${TD_THEME.eventVfx};
   --td-event-audio: ${TD_THEME.eventAudio};

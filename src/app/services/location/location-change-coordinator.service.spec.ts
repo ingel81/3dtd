@@ -553,6 +553,7 @@ describe('LocationChangeCoordinatorService', () => {
           currentSpawn: { id: 's1', ...SPAWN, name: 'Spawn A' },
           isGameInProgress: true,
         },
+        autoFocus: 'input',
         panelClass: 'td-dialog-panel',
         disableClose: false,
       });
