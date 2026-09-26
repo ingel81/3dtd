@@ -15,7 +15,12 @@ export const RESEARCH_DIALOG_DESC_ID = 'td-research-dialog-desc';
  */
 const DIALOG_SIZE = { width: '100vw', height: '100vh' } as const;
 
-const open = lazyDialog<ResearchDialogComponent>(
+/** Coop: whose research the dialog opens on; without it, this player's */
+export interface ResearchDialogData {
+  playerId?: string;
+}
+
+const open = lazyDialog<ResearchDialogComponent, ResearchDialogData>(
   () => import('./research-dialog.component').then((m) => m.ResearchDialogComponent),
 );
 
@@ -26,10 +31,13 @@ const open = lazyDialog<ResearchDialogComponent>(
  * `injector` has to come from inside the game component: the dialog emits
  * commands through TowerDefenseFacadeService, which TowerDefenseComponent
  * provides rather than root, and an overlay is created outside that tree.
+ *
+ * `playerId` opens it on a coop partner's tab, read only (TODO E35).
  */
 export function openResearchDialog(
   dialog: MatDialog,
   injector: Injector,
+  playerId?: string,
 ): Promise<MatDialogRef<ResearchDialogComponent>> {
   return open(dialog, {
     panelClass: ['td-dialog-panel', 'td-research-panel'],
@@ -41,5 +49,6 @@ export function openResearchDialog(
     ariaDescribedBy: RESEARCH_DIALOG_DESC_ID,
     autoFocus: 'dialog',
     injector,
+    data: { playerId },
   });
 }
