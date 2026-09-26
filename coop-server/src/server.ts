@@ -44,6 +44,8 @@ const MISSED_HEARTBEATS = 3;
 const STATUS_MS = 10_000;
 /** The metrics line goes to the log this often, ms */
 const METRICS_LINE_MS = 60_000;
+/** Run logs one connection may send (TODO E38) */
+const MAX_RUN_LOGS = 10;
 /** How often kept run logs are checked for age and size */
 const RUN_PRUNE_MS = 60 * 60_000;
 
@@ -108,8 +110,8 @@ interface Connection {
   joinMisses: number;
   /** The room of the last game this connection played in, for its run log (TODO E38) */
   playedRoom: string | null;
-  /** Rooms this connection sent a run log for; one each */
-  sentRuns: Set<string>;
+  /** Run logs this connection sent; a few per connection (a room plays several games) */
+  sentRuns: number;
   helloTimer: ReturnType<typeof setTimeout> | null;
 }
 
@@ -519,7 +521,7 @@ class Relay {
     const connection: Connection = {
       socket, address, player: null, room: null, missed: 0, pingAt: 0, rtt: null, dropReason: null,
       burst: 0, burstAt: this.now(), throttled: false, joinMisses: 0, helloTimer: null,
-      playedRoom: null, sentRuns: new Set(),
+      playedRoom: null, sentRuns: 0,
     };
     this.connections.set(id, connection);
     // A connection that never says hello holds a slot for nothing (review H3)
@@ -620,14 +622,14 @@ class Relay {
 
   /**
    * A player's run log after a game (TODO E38): only to a relay that
-   * collects, only from someone who played in a room, once per room. The
-   * store checks the content.
+   * collects, only from someone who played in a room, a few per connection.
+   * The store checks the content and keeps one file per run.
    */
   private runLog(id: string, connection: Connection, player: RoomPlayer, gz: string): void {
     const room = connection.room?.hasStarted ? connection.room.code : connection.playedRoom;
     if (!this.runStore || !room) return this.send(id, { t: 'run-log', ok: false, reason: 'not collected here' });
-    if (connection.sentRuns.has(room)) return this.send(id, { t: 'run-log', ok: false, reason: 'already sent' });
-    connection.sentRuns.add(room);
+    if (connection.sentRuns >= MAX_RUN_LOGS) return this.send(id, { t: 'run-log', ok: false, reason: 'too many' });
+    connection.sentRuns++;
     const result = this.runStore.accept(room, id, player.name, gz);
     if (result.ok) {
       this.log(`[${room}] run log of ${player.name} (${id}) kept, ${Math.round(gz.length * 0.75 / 1024)} kB`);

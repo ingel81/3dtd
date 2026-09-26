@@ -40,6 +40,18 @@ export interface StoredRun {
 
 /** Why a log was not kept, null when it was */
 export function checkRunLog(text: string): string | null {
+  return inspectRunLog(text).problem;
+}
+
+/** The check, with the run's id when it passed */
+function inspectRunLog(text: string): { problem: string | null; runId: string } {
+  const problem = checkLines(text);
+  if (problem) return { problem, runId: '' };
+  const head = JSON.parse(text.split('\n', 1)[0]) as { runId: string };
+  return { problem: null, runId: head.runId };
+}
+
+function checkLines(text: string): string | null {
   const lines = text.split('\n').filter((line) => line.trim() !== '');
   if (lines.length === 0) return 'empty';
   if (lines.length > MAX_RECORDS) return 'too many records';
@@ -89,8 +101,9 @@ export class RunStore {
   }
 
   /**
-   * Keep the log `gzBase64` of `playerId` from room `room`. One log per
-   * player and room; the answer says why not when it was refused.
+   * Keep the log `gzBase64` of `playerId` from room `room`. One file per
+   * player and run (a room can play several games); the answer says why not
+   * when it was refused.
    */
   accept(room: string, playerId: string, name: string, gzBase64: string): { ok: true; path: string } | { ok: false; reason: string } {
     let packed: Buffer;
@@ -101,11 +114,11 @@ export class RunStore {
     } catch {
       return { ok: false, reason: 'not gzip or too large' };
     }
-    const problem = checkRunLog(text);
+    const { problem, runId } = inspectRunLog(text);
     if (problem) return { ok: false, reason: problem };
     const day = new Date(this.options.now()).toISOString().slice(0, 10);
     const folder = join(this.root, 'coop', `${day}_${segment(room)}`);
-    const file = join(folder, `${segment(name)}_${segment(playerId)}.jsonl.gz`);
+    const file = join(folder, `${segment(name)}_${segment(playerId)}_${segment(runId)}.jsonl.gz`);
     if (existsSync(file)) return { ok: false, reason: 'already sent' };
     mkdirSync(folder, { recursive: true });
     writeFileSync(file, packed);
