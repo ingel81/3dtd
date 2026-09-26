@@ -24,7 +24,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ResearchStore } from '../store/research.store';
-import { GameStateSnapshot } from './models/game-state-snapshot';
+import { GameStateSnapshot, type DefenseAnalysis } from './models/game-state-snapshot';
 import { WaveResult, WaveOutcome } from './models/wave-result';
 import { WaveConfig, createSimpleWaveConfig } from './models/wave-config';
 import {
@@ -125,6 +125,12 @@ export class StateSnapshotService {
     const credits = players.reduce((sum, id) => sum + this.gameState.creditsOf(id), 0);
     // The hired hero counts as a virtual tower at half presence (docs/HERO.md)
     const defense = analyzeDefense(towers, airTargetingUnlocked, hero);
+    // Coop: every lane gets the whole wave (D13), so the wave is sized against
+    // one lane's share of the joint defense, the average (User, 2026-09-26).
+    // Sized against all of it, each lane's copy met twice the defense it has:
+    // 1006 spiders at W6 with two players.
+    const lanes = this.gameState.laneSpawns.length;
+    if (lanes > 1) shareDefense(defense, 1 / lanes);
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
@@ -460,4 +466,20 @@ export class StateSnapshotService {
     hash += '_' + Math.round(dpsSum);
     return hash;
   }
+}
+
+/**
+ * The defense values the wave sizing reads, scaled to `share` of them: one
+ * lane's part of the joint defense in coop. Towers, capabilities and the
+ * shares of the damage stay as they are.
+ */
+export function shareDefense(defense: DefenseAnalysis, share: number): void {
+  defense.totalDPS *= share;
+  defense.antiAirDPS *= share;
+  for (const perArmor of [defense.effectiveDPSPerArmor, defense.gateDpsPerArmor]) {
+    for (const side of [perArmor.ground, perArmor.air]) {
+      for (const armor of Object.keys(side) as (keyof typeof side)[]) side[armor] *= share;
+    }
+  }
+  defense.killThroughput = { ground: defense.killThroughput.ground * share, air: defense.killThroughput.air * share };
 }
