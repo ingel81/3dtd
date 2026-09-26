@@ -185,100 +185,180 @@ export interface RelayOptions {
 
 /** Start the relay on `port` (0: any free port); rejects when the port is taken. */
 export function startRelay(options: RelayOptions): Promise<RelayServer> {
-  const recentLines: string[] = [];
-  const log = (line: string): void => {
-    recentLines.push(line);
-    if (recentLines.length > LOG_LINES_KEPT) recentLines.shift();
-    options.log?.(line);
-  };
-  const now = options.now ?? (() => performance.now());
-  const rooms = new Map<string, Room>();
-  const connections = new Map<string, Connection>();
-  /** Open connections per address, in memory only (review H3, D64) */
-  const perAddress = new Map<string, number>();
-  const metrics = new RelayMetrics();
-  let nextPlayer = 1;
-  let closing = false;
-  const startedAt = now();
+  return new Relay(options).listen();
+}
 
-  const counts = () => {
+/** A connection's room code for a log line, "[CODE] " or nothing */
+const roomTag = (connection: Connection): string => (connection.room ? `[${connection.room.code}] ` : '');
+const errorText = (error: unknown): string => String((error as Error)?.message ?? error).slice(0, 200);
+
+/**
+ * One running relay: its rooms and connections, the HTTP side (status page,
+ * health check, actions), the WebSocket side and the timers. startRelay()
+ * is the way in; the class only splits what used to be one long closure.
+ */
+class Relay {
+  private readonly recentLines: string[] = [];
+  private readonly now: () => number;
+  private readonly rooms = new Map<string, Room>();
+  private readonly connections = new Map<string, Connection>();
+  /** Open connections per address, in memory only (review H3, D64) */
+  private readonly perAddress = new Map<string, number>();
+  private readonly metrics = new RelayMetrics();
+  private readonly startedAt: number;
+  private readonly origins: Set<string> | null;
+  /** Refusals of the same kind are logged at most once in ten seconds, with how many came (review M1) */
+  private readonly refusalLog = new Map<string, { at: number; count: number }>();
+  /** The JSON of a message, once for every player a broadcast sends it to (review H2) */
+  private readonly serialized = new WeakMap<ServerMessage, string>();
+  /** Per running room: commands at the last status line, for commands a second */
+  private readonly commandsAtLine = new Map<string, number>();
+  private readonly timers: ReturnType<typeof setInterval>[] = [];
+  private readonly http: Server;
+  private readonly wss: WebSocketServer;
+  private nextPlayer = 1;
+  private closing = false;
+  private closed: Promise<void> | null = null;
+
+  private readonly options: RelayOptions;
+
+  constructor(options: RelayOptions) {
+    this.options = options;
+    this.now = options.now ?? (() => performance.now());
+    this.startedAt = this.now();
+    this.origins = options.origins?.length ? new Set(options.origins.map((o) => o.replace(/\/$/, ''))) : null;
+    this.http = createServer((request, response) => {
+      try {
+        this.handleHttp(request, response);
+      } catch (error) {
+        this.metrics.errors++;
+        this.log(`status page failed: ${errorText(error)}`);
+        if (!response.headersSent) response.writeHead(500);
+        response.end();
+      }
+    });
+    this.wss = new WebSocketServer({
+      server: this.http,
+      maxPayload: MAX_MESSAGE_BYTES,
+      verifyClient: ({ origin, req }: { origin?: string; req: IncomingMessage }) => this.admits(origin, req),
+    });
+    // ws repeats the HTTP server's errors; a taken port is handled at listen below
+    this.wss.on('error', () => undefined);
+    this.wss.on('connection', (socket, request) => this.connect(socket, request));
+  }
+
+  listen(): Promise<RelayServer> {
+    this.startTimers();
+    return new Promise((resolve, reject) => {
+      this.http.once('error', (error) => {
+        this.stopTimers();
+        reject(error);
+      });
+      this.http.listen(this.options.port, () => {
+        const address = this.http.address();
+        const port = typeof address === 'object' && address ? address.port : this.options.port;
+        this.log(`coop relay on port ${port}`);
+        resolve({ port, status: () => this.status(), close: (reason) => this.close(reason) });
+      });
+    });
+  }
+
+  // ── State ──────────────────────────────────────────────────────────
+
+  private log(line: string): void {
+    this.recentLines.push(line);
+    if (this.recentLines.length > LOG_LINES_KEPT) this.recentLines.shift();
+    this.options.log?.(line);
+  }
+
+  private counts(): { connections: number; lobbies: number; games: number } {
     let games = 0;
-    for (const room of rooms.values()) if (room.isStarted) games++;
-    return { connections: connections.size, lobbies: rooms.size - games, games };
-  };
-  const status = (): RelayStatus => ({
-    build: options.build ?? 'dev',
-    protocol: PROTOCOL_VERSION,
-    uptimeS: Math.round((now() - startedAt) / 1000),
-    connections: connections.size,
-    rooms: [...rooms.values()].map((room) => {
-      const s = room.status();
-      return { ...s, players: s.players.map((p) => ({ ...p, rttMs: rttOf(p.id) })) };
-    }),
-  });
-  const metricsView = (): RelayMetricsView => ({
-    uptimeS: Math.round((now() - startedAt) / 1000),
-    rssMb: Math.round(process.memoryUsage().rss / 2 ** 20),
-    ...counts(),
-    bytesIn: metrics.bytesIn,
-    bytesOut: metrics.bytesOut,
-    messagesIn: metrics.messagesIn,
-    connectionsOpened: metrics.connectionsOpened,
-    errors: metrics.errors,
-    dropped: { ...metrics.dropped },
-    refused: { ...metrics.refused },
-    samples: metrics.samples,
-    actions: !!options.adminToken,
-  });
-  const rttOf = (playerId: string): number | null => {
-    const rtt = connections.get(playerId)?.rtt;
+    for (const room of this.rooms.values()) if (room.isStarted) games++;
+    return { connections: this.connections.size, lobbies: this.rooms.size - games, games };
+  }
+
+  private uptimeS(): number {
+    return Math.round((this.now() - this.startedAt) / 1000);
+  }
+
+  private status(): RelayStatus {
+    return {
+      build: this.options.build ?? 'dev',
+      protocol: PROTOCOL_VERSION,
+      uptimeS: this.uptimeS(),
+      connections: this.connections.size,
+      rooms: [...this.rooms.values()].map((room) => {
+        const s = room.status();
+        return { ...s, players: s.players.map((p) => ({ ...p, rttMs: this.rttOf(p.id) })) };
+      }),
+    };
+  }
+
+  private metricsView(): RelayMetricsView {
+    const m = this.metrics;
+    return {
+      uptimeS: this.uptimeS(),
+      rssMb: Math.round(process.memoryUsage().rss / 2 ** 20),
+      ...this.counts(),
+      bytesIn: m.bytesIn,
+      bytesOut: m.bytesOut,
+      messagesIn: m.messagesIn,
+      connectionsOpened: m.connectionsOpened,
+      errors: m.errors,
+      dropped: { ...m.dropped },
+      refused: { ...m.refused },
+      samples: m.samples,
+      actions: !!this.options.adminToken,
+    };
+  }
+
+  private rttOf(playerId: string): number | null {
+    const rtt = this.connections.get(playerId)?.rtt;
     return rtt === undefined || rtt === null ? null : Math.round(rtt);
-  };
+  }
 
   /** Close a connection for `reason`; its close handler takes it out of its room. */
-  const dropConnection = (playerId: string, reason: string, why: DropReason): void => {
-    const connection = connections.get(playerId);
+  private dropConnection(playerId: string, reason: string, why: DropReason): void {
+    const connection = this.connections.get(playerId);
     // Once: messages already read may still come in after the first drop
     if (!connection || connection.dropReason !== null) return;
     connection.dropReason = reason;
-    metrics.drop(why);
+    this.metrics.drop(why);
     connection.socket.terminate();
-  };
+  }
 
-  const http: Server = createServer((request, response) => {
-    try {
-      handleHttp(request, response);
-    } catch (error) {
-      metrics.errors++;
-      log(`status page failed: ${String((error as Error)?.message ?? error).slice(0, 200)}`);
-      if (!response.headersSent) response.writeHead(500);
-      response.end();
+  private dropRoom(room: Room, reason: string, why: DropReason): void {
+    for (const [id, connection] of this.connections) {
+      if (connection.room === room) this.dropConnection(id, reason, why);
     }
-  });
-  const handleHttp = (request: IncomingMessage, response: ServerResponse): void => {
+  }
+
+  // ── HTTP: status page, health check, actions ─────────────────────
+
+  private handleHttp(request: IncomingMessage, response: ServerResponse): void {
     const path = (request.url ?? '/').split('?')[0];
     // The health check answers everyone: it says nothing but that the relay runs (review idea 2)
     if (path === '/healthz') {
-      response.writeHead(closing ? 503 : 200, { 'content-type': 'text/plain; charset=utf-8' });
-      response.end(closing ? 'stopping\n' : 'ok\n');
+      response.writeHead(this.closing ? 503 : 200, { 'content-type': 'text/plain; charset=utf-8' });
+      response.end(this.closing ? 'stopping\n' : 'ok\n');
       return;
     }
-    if (options.statusAccess === 'local' && !isLocalRequest(request.socket.remoteAddress, request.headers)) {
+    if (this.options.statusAccess === 'local' && !isLocalRequest(request.socket.remoteAddress, request.headers)) {
       response.writeHead(404, { 'content-type': 'text/plain; charset=utf-8' });
       response.end('not here\n');
       return;
     }
-    if (request.method === 'POST' && path.startsWith('/admin/')) return admin(request, response, path);
+    if (request.method === 'POST' && path.startsWith('/admin/')) return this.admin(request, response, path);
     const json = (body: unknown) => {
       response.writeHead(200, { 'content-type': 'application/json' });
       response.end(JSON.stringify(body, null, 2));
     };
-    if (path === '/status') return json(status());
-    if (path === '/metrics.json') return json(metricsView());
-    if (path === '/log.json') return json(recentLines);
+    if (path === '/status') return json(this.status());
+    if (path === '/metrics.json') return json(this.metricsView());
+    if (path === '/log.json') return json(this.recentLines);
     if (path === '/text') {
       response.writeHead(200, { 'content-type': 'text/plain; charset=utf-8' });
-      response.end(statusText(status()));
+      response.end(statusText(this.status()));
       return;
     }
     response.writeHead(200, {
@@ -287,19 +367,20 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
       'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'",
     });
     response.end(statusPage());
-  };
+  }
 
   /**
    * The status page's actions, with the admin token in `x-admin-token`: a
    * header another site's page cannot set without a preflight this relay
    * never answers. POST /admin/close-room {code}, /admin/drop-player {id}.
    */
-  const admin = (request: IncomingMessage, response: ServerResponse, path: string): void => {
+  private admin(request: IncomingMessage, response: ServerResponse, path: string): void {
     const answer = (code: number, text: string) => {
       response.writeHead(code, { 'content-type': 'text/plain; charset=utf-8' });
       response.end(`${text}\n`);
     };
-    if (!options.adminToken || request.headers['x-admin-token'] !== options.adminToken) return answer(403, 'no');
+    const token = this.options.adminToken;
+    if (!token || request.headers['x-admin-token'] !== token) return answer(403, 'no');
     let body = '';
     request.on('data', (chunk: Buffer) => {
       body += chunk.toString();
@@ -313,118 +394,159 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
         return answer(400, 'bad body');
       }
       if (path === '/admin/close-room') {
-        const room = rooms.get(String(target['code']));
+        const room = this.rooms.get(String(target['code']));
         if (!room) return answer(404, 'no such room');
-        log(`[${room.code}] closed from the status page`);
-        for (const [id, connection] of connections) {
-          if (connection.room === room) dropConnection(id, 'room closed by the relay', 'kicked');
-        }
+        this.log(`[${room.code}] closed from the status page`);
+        this.dropRoom(room, 'room closed by the relay', 'kicked');
         return answer(200, 'closed');
       }
       if (path === '/admin/drop-player') {
         const id = String(target['id']);
-        if (!connections.has(id)) return answer(404, 'no such player');
-        log(`${id} dropped from the status page`);
-        dropConnection(id, 'dropped by the relay', 'kicked');
+        if (!this.connections.has(id)) return answer(404, 'no such player');
+        this.log(`${id} dropped from the status page`);
+        this.dropConnection(id, 'dropped by the relay', 'kicked');
         return answer(200, 'dropped');
       }
       answer(404, 'no such action');
     });
-  };
+  }
 
-  const origins = options.origins?.length ? new Set(options.origins.map((o) => o.replace(/\/$/, ''))) : null;
-  /** Refusals of the same kind are logged at most once in REFUSAL_LOG_MS, with how many came (review M1) */
-  const refusalLog = new Map<string, { at: number; count: number }>();
-  const logRefusal = (kind: string, line: string): void => {
-    const entry = refusalLog.get(kind);
-    if (entry && now() - entry.at < 10_000) {
+  // ── WebSocket: who may connect, a connection's life, its messages ─
+
+  private logRefusal(kind: string, line: string): void {
+    const entry = this.refusalLog.get(kind);
+    if (entry && this.now() - entry.at < 10_000) {
       entry.count++;
       return;
     }
-    log(entry && entry.count > 0 ? `${line} (and ${entry.count} more like it)` : line);
-    refusalLog.set(kind, { at: now(), count: 0 });
-  };
-  const wss = new WebSocketServer({
-    server: http,
-    maxPayload: MAX_MESSAGE_BYTES,
-    verifyClient: ({ origin, req }: { origin?: string; req: IncomingMessage }) => {
-      // Another site's page must not use its visitors' browsers on this relay (R19)
-      if (origins && origin && !origins.has(origin)) {
-        metrics.refused.origin++;
-        logRefusal('origin', `refused a connection from ${origin.slice(0, 100)}`);
-        return false;
-      }
-      if (closing || connections.size >= (options.maxConnections ?? MAX_CONNECTIONS)) {
-        metrics.refused.full++;
-        logRefusal('full', 'refused a connection: relay full');
-        return false;
-      }
-      if ((perAddress.get(addressOf(req)) ?? 0) >= (options.maxPerAddress ?? MAX_PER_ADDRESS)) {
-        metrics.refused['per-address']++;
-        logRefusal('per-address', 'refused a connection: too many from one address');
-        return false;
-      }
-      return true;
-    },
-  });
-  // ws repeats the HTTP server's errors; a taken port is handled at listen below
-  wss.on('error', () => undefined);
+    this.log(entry && entry.count > 0 ? `${line} (and ${entry.count} more like it)` : line);
+    this.refusalLog.set(kind, { at: this.now(), count: 0 });
+  }
 
-  /** The JSON of a message, once for every player a broadcast sends it to (review H2) */
-  const serialized = new WeakMap<ServerMessage, string>();
-  const send = (playerId: string, message: ServerMessage): void => {
-    const connection = connections.get(playerId);
+  /** A new connection may open: the right page, room for it, not too many from its address */
+  private admits(origin: string | undefined, req: IncomingMessage): boolean {
+    const { metrics, options } = this;
+    // Another site's page must not use its visitors' browsers on this relay (R19)
+    if (this.origins && origin && !this.origins.has(origin)) {
+      metrics.refused.origin++;
+      this.logRefusal('origin', `refused a connection from ${origin.slice(0, 100)}`);
+      return false;
+    }
+    if (this.closing || this.connections.size >= (options.maxConnections ?? MAX_CONNECTIONS)) {
+      metrics.refused.full++;
+      this.logRefusal('full', 'refused a connection: relay full');
+      return false;
+    }
+    if ((this.perAddress.get(addressOf(req)) ?? 0) >= (options.maxPerAddress ?? MAX_PER_ADDRESS)) {
+      metrics.refused['per-address']++;
+      this.logRefusal('per-address', 'refused a connection: too many from one address');
+      return false;
+    }
+    return true;
+  }
+
+  private send(playerId: string, message: ServerMessage): void {
+    const connection = this.connections.get(playerId);
     const socket = connection?.socket;
     if (!connection || !socket || socket.readyState !== socket.OPEN) return;
     // A client that does not read would hold the relay's memory (review H2)
     if (socket.bufferedAmount > MAX_UNREAD_BYTES) {
       if (connection.dropReason === null) {
-        log(`${connection.room ? `[${connection.room.code}] ` : ''}${playerId} reads too slowly, dropping`);
-        dropConnection(playerId, 'reads too slowly', 'slow');
+        this.log(`${roomTag(connection)}${playerId} reads too slowly, dropping`);
+        this.dropConnection(playerId, 'reads too slowly', 'slow');
       }
       return;
     }
-    let text = serialized.get(message);
+    let text = this.serialized.get(message);
     if (text === undefined) {
       text = JSON.stringify(message);
-      serialized.set(message, text);
+      this.serialized.set(message, text);
     }
-    metrics.bytesOut += text.length;
+    this.metrics.bytesOut += text.length;
     socket.send(text);
-  };
+  }
 
-  const newCode = (): string => {
-    for (;;) {
-      let code = '';
-      for (let i = 0; i < CODE_LENGTH; i++) code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
-      if (!rooms.has(code)) return code;
+  private connect(socket: WebSocket, request: IncomingMessage): void {
+    const id = `p${this.nextPlayer++}`;
+    const address = addressOf(request);
+    this.perAddress.set(address, (this.perAddress.get(address) ?? 0) + 1);
+    this.metrics.connectionsOpened++;
+    const connection: Connection = {
+      socket, address, player: null, room: null, missed: 0, pingAt: 0, rtt: null, dropReason: null,
+      burst: 0, burstAt: this.now(), throttled: false, joinMisses: 0, helloTimer: null,
+    };
+    this.connections.set(id, connection);
+    // A connection that never says hello holds a slot for nothing (review H3)
+    connection.helloTimer = setTimeout(() => {
+      if (connection.player === null) this.dropConnection(id, 'no hello', 'no-hello');
+    }, this.options.helloTimeoutMs ?? HELLO_TIMEOUT_MS);
+    socket.on('pong', () => {
+      connection.missed = 0;
+      connection.rtt = this.now() - connection.pingAt;
+    });
+    // A socket error (a reset, a protocol violation) ends in close; nothing to add
+    socket.on('error', () => undefined);
+    socket.on('message', (data) => this.received(id, connection, data));
+    socket.on('close', () => this.disconnected(id, connection));
+  }
+
+  private received(id: string, connection: Connection, data: unknown): void {
+    const at = this.now();
+    this.metrics.messagesIn++;
+    this.metrics.bytesIn += (data as Buffer).length ?? 0;
+    if (at - connection.burstAt >= 1000) {
+      connection.burst = 0;
+      connection.burstAt = at;
+      connection.throttled = false;
     }
-  };
+    if (++connection.burst > (this.options.maxMessagesPerSecond ?? MAX_MESSAGES_PER_SECOND)) {
+      if (!connection.throttled) this.log(`${roomTag(connection)}${id} sends too fast, dropping`);
+      connection.throttled = true;
+      this.metrics.drop('rate');
+      return;
+    }
+    // One bad message never takes the relay down: log it, drop that connection (review K1)
+    try {
+      this.handleMessage(id, connection, data);
+    } catch (error) {
+      this.metrics.errors++;
+      this.log(`${roomTag(connection)}${id}: a message failed (${errorText(error)}), dropping`);
+      this.dropConnection(id, 'a message failed', 'error');
+    }
+  }
 
-  /** The room of a connection is gone for this player (left, taken out, let go) */
-  const removedFromRoom = (playerId: string): void => {
-    const connection = connections.get(playerId);
-    if (connection) connection.room = null;
-  };
+  private disconnected(id: string, connection: Connection): void {
+    if (connection.helloTimer) clearTimeout(connection.helloTimer);
+    const left = (this.perAddress.get(connection.address) ?? 1) - 1;
+    if (left > 0) this.perAddress.set(connection.address, left);
+    else this.perAddress.delete(connection.address);
+    const room = connection.room;
+    this.connections.delete(id);
+    if (!room) return;
+    try {
+      room.leave(id, connection.dropReason ?? 'closed');
+    } catch (error) {
+      this.metrics.errors++;
+      this.log(`[${room.code}] leave failed: ${errorText(error)}`);
+    }
+    this.closeIfEmpty(room);
+  }
 
-  const handleMessage = (id: string, connection: Connection, data: unknown): void => {
+  private handleMessage(id: string, connection: Connection, data: unknown): void {
     let raw: unknown;
     try {
       raw = JSON.parse(String(data));
     } catch {
-      metrics.drop('malformed');
+      this.metrics.drop('malformed');
       return;
     }
     const message = parseClientMessage(raw);
     if (!message) {
-      metrics.drop('malformed');
+      this.metrics.drop('malformed');
       return;
     }
     if (message.t === 'hello') {
-      if (message.protocol !== PROTOCOL_VERSION) {
-        send(id, { t: 'refused', reason: 'protocol' });
-        return;
-      }
+      if (message.protocol !== PROTOCOL_VERSION) return this.send(id, { t: 'refused', reason: 'protocol' });
       if (connection.helloTimer) clearTimeout(connection.helloTimer);
       connection.helloTimer = null;
       connection.player = {
@@ -434,257 +556,189 @@ export function startRelay(options: RelayOptions): Promise<RelayServer> {
         configHash: message.configHash,
         client: validClient(message.client),
       };
-      send(id, { t: 'welcome', playerId: id });
-      return;
+      return this.send(id, { t: 'welcome', playerId: id });
     }
     const player = connection.player;
     if (!player) return;
-    if (message.t === 'create') {
-      if (connection.room || closing) return;
-      if (rooms.size >= (options.maxRooms ?? MAX_ROOMS)) {
-        send(id, { t: 'refused', reason: 'busy' });
-        return;
-      }
-      const code = newCode();
-      const room = new Room(code, player, send, {
-        log: (line) => log(`[${code}] ${line}`),
-        now,
-        cheats: options.cheats,
-        drop: (playerId, reason) => dropConnection(playerId, reason, 'hanging'),
-        removed: removedFromRoom,
-      });
-      rooms.set(room.code, room);
-      connection.room = room;
-      return;
-    }
+    if (message.t === 'create') return this.create(id, connection, player);
     // The public list (D62): open to anyone said hello, in a room or not
     if (message.t === 'rooms') {
-      const list = [...rooms.values()].flatMap((room) => room.publicEntry() ?? []);
-      send(id, { t: 'rooms', rooms: list });
-      return;
+      const list = [...this.rooms.values()].flatMap((room) => room.publicEntry() ?? []);
+      return this.send(id, { t: 'rooms', rooms: list });
     }
-    if (message.t === 'join') {
-      if (connection.room) return;
-      const room = rooms.get(message.room.toUpperCase());
-      if (!room) {
-        send(id, { t: 'refused', reason: 'no-room' });
-        // Guessing private codes (review N3)
-        if (++connection.joinMisses >= MAX_JOIN_MISSES) {
-          log(`${id} tried ${MAX_JOIN_MISSES} room codes that do not exist, dropping`);
-          dropConnection(id, 'guessed room codes', 'join-guessing');
-        }
-        return;
-      }
-      const refusal = room.join(player);
-      if (refusal) {
-        // Another version: say which, so the player knows what to update (D60)
-        send(id, refusal === 'version'
-          ? { t: 'refused', reason: refusal, hostVersion: room.status().gameVersion }
-          : { t: 'refused', reason: refusal });
-        return;
-      }
-      connection.room = room;
-      return;
-    }
+    if (message.t === 'join') return this.join(id, connection, player, message.room);
     connection.room?.receive(id, message);
-  };
+  }
 
-  wss.on('connection', (socket, request) => {
-    const id = `p${nextPlayer++}`;
-    const address = addressOf(request);
-    perAddress.set(address, (perAddress.get(address) ?? 0) + 1);
-    metrics.connectionsOpened++;
-    const connection: Connection = {
-      socket, address, player: null, room: null, missed: 0, pingAt: 0, rtt: null, dropReason: null,
-      burst: 0, burstAt: now(), throttled: false, joinMisses: 0, helloTimer: null,
-    };
-    connections.set(id, connection);
-    // A connection that never says hello holds a slot for nothing (review H3)
-    connection.helloTimer = setTimeout(() => {
-      if (connection.player === null) dropConnection(id, 'no hello', 'no-hello');
-    }, options.helloTimeoutMs ?? HELLO_TIMEOUT_MS);
-    socket.on('pong', () => {
-      connection.missed = 0;
-      connection.rtt = now() - connection.pingAt;
+  private create(id: string, connection: Connection, player: RoomPlayer): void {
+    if (connection.room || this.closing) return;
+    if (this.rooms.size >= (this.options.maxRooms ?? MAX_ROOMS)) return this.send(id, { t: 'refused', reason: 'busy' });
+    const code = this.newCode();
+    const room = new Room(code, player, (playerId, message) => this.send(playerId, message), {
+      log: (line) => this.log(`[${code}] ${line}`),
+      now: this.now,
+      cheats: this.options.cheats,
+      drop: (playerId, reason) => this.dropConnection(playerId, reason, 'hanging'),
+      // The room of a connection is gone for this player (left, taken out, let go)
+      removed: (playerId) => {
+        const gone = this.connections.get(playerId);
+        if (gone) gone.room = null;
+      },
     });
-    // A socket error (a reset, a protocol violation) ends in close; nothing to add
-    socket.on('error', () => undefined);
+    this.rooms.set(room.code, room);
+    connection.room = room;
+  }
 
-    socket.on('message', (data) => {
-      const at = now();
-      metrics.messagesIn++;
-      metrics.bytesIn += (data as Buffer).length ?? 0;
-      if (at - connection.burstAt >= 1000) {
-        connection.burst = 0;
-        connection.burstAt = at;
-        connection.throttled = false;
+  private join(id: string, connection: Connection, player: RoomPlayer, code: string): void {
+    if (connection.room) return;
+    const room = this.rooms.get(code.toUpperCase());
+    if (!room) {
+      this.send(id, { t: 'refused', reason: 'no-room' });
+      // Guessing private codes (review N3)
+      if (++connection.joinMisses >= MAX_JOIN_MISSES) {
+        this.log(`${id} tried ${MAX_JOIN_MISSES} room codes that do not exist, dropping`);
+        this.dropConnection(id, 'guessed room codes', 'join-guessing');
       }
-      if (++connection.burst > (options.maxMessagesPerSecond ?? MAX_MESSAGES_PER_SECOND)) {
-        if (!connection.throttled) log(`${connection.room ? `[${connection.room.code}] ` : ''}${id} sends too fast, dropping`);
-        connection.throttled = true;
-        metrics.drop('rate');
-        return;
-      }
-      // One bad message never takes the relay down: log it, drop that connection (review K1)
-      try {
-        handleMessage(id, connection, data);
-      } catch (error) {
-        metrics.errors++;
-        log(`${connection.room ? `[${connection.room.code}] ` : ''}${id}: a message failed (${String((error as Error)?.message ?? error).slice(0, 200)}), dropping`);
-        dropConnection(id, 'a message failed', 'error');
-      }
-    });
-
-    socket.on('close', () => {
-      if (connection.helloTimer) clearTimeout(connection.helloTimer);
-      const left = (perAddress.get(address) ?? 1) - 1;
-      if (left > 0) perAddress.set(address, left);
-      else perAddress.delete(address);
-      const room = connection.room;
-      connections.delete(id);
-      if (!room) return;
-      try {
-        room.leave(id, connection.dropReason ?? 'closed');
-      } catch (error) {
-        metrics.errors++;
-        log(`[${room.code}] leave failed: ${String((error as Error)?.message ?? error).slice(0, 200)}`);
-      }
-      closeIfEmpty(room);
-    });
-  });
-
-  const closeIfEmpty = (room: Room): void => {
-    if (!room.isEmpty || !rooms.has(room.code)) return;
-    rooms.delete(room.code);
-    const s = room.status();
-    log(`[${room.code}] closed after ${Math.round(s.ageMs / 1000)} s, tick ${s.tick}, ${s.commands} commands, ${s.desyncs} desyncs`);
-  };
-
-  /** Run `work` in a timer without letting a throw end the relay */
-  const guarded = (what: string, work: () => void) => () => {
-    try {
-      work();
-    } catch (error) {
-      metrics.errors++;
-      log(`${what} failed: ${String((error as Error)?.message ?? error).slice(0, 200)}`);
+      return;
     }
-  };
+    const refusal = room.join(player);
+    if (refusal) {
+      // Another version: say which, so the player knows what to update (D60)
+      return this.send(id, refusal === 'version'
+        ? { t: 'refused', reason: refusal, hostVersion: room.status().gameVersion }
+        : { t: 'refused', reason: refusal });
+    }
+    connection.room = room;
+  }
 
-  const heartbeat = setInterval(guarded('heartbeat', () => {
+  private newCode(): string {
+    for (;;) {
+      let code = '';
+      for (let i = 0; i < CODE_LENGTH; i++) code += CODE_ALPHABET[Math.floor(Math.random() * CODE_ALPHABET.length)];
+      if (!this.rooms.has(code)) return code;
+    }
+  }
+
+  private closeIfEmpty(room: Room): void {
+    if (!room.isEmpty || !this.rooms.has(room.code)) return;
+    this.rooms.delete(room.code);
+    const s = room.status();
+    this.log(`[${room.code}] closed after ${Math.round(s.ageMs / 1000)} s, tick ${s.tick}, ${s.commands} commands, ${s.desyncs} desyncs`);
+  }
+
+  // ── Timers ───────────────────────────────────────────────────────
+
+  /** Run `work` every `ms` without letting a throw end the relay */
+  private every(ms: number, what: string, work: () => void): void {
+    this.timers.push(setInterval(() => {
+      try {
+        work();
+      } catch (error) {
+        this.metrics.errors++;
+        this.log(`${what} failed: ${errorText(error)}`);
+      }
+    }, ms));
+  }
+
+  private startTimers(): void {
+    const { options } = this;
+    this.every(options.heartbeatMs ?? HEARTBEAT_MS, 'heartbeat', () => this.heartbeat());
+    const statusEvery = options.statusEveryMs ?? STATUS_MS;
+    this.every(statusEvery, 'status line', () => this.statusLines(statusEvery));
+    const sample = () => this.metrics.sample(this.uptimeS(), this.counts());
+    // One at the start, so the curves have a point before the first interval
+    sample();
+    this.every(SAMPLE_MS, 'metrics', sample);
+    this.every(METRICS_LINE_MS, 'metrics line', () => this.log(this.metrics.line(this.counts())));
+    let last = this.now();
+    this.every(CLOCK_MS, 'clock', () => {
+      const at = this.now();
+      const elapsed = at - last;
+      last = at;
+      for (const room of this.rooms.values()) {
+        // One room that throws stops only itself: its players are let go (review K1)
+        try {
+          room.advance(elapsed);
+        } catch (error) {
+          this.metrics.errors++;
+          this.log(`[${room.code}] failed (${errorText(error)}), closing it`);
+          this.dropRoom(room, 'the room failed', 'error');
+        }
+      }
+    });
+  }
+
+  private stopTimers(): void {
+    for (const timer of this.timers.splice(0)) clearInterval(timer);
+  }
+
+  private heartbeat(): void {
+    const { options } = this;
     // The round trips the last heartbeat measured, to each room
-    for (const room of rooms.values()) room.sendRtt(rttOf);
+    for (const room of this.rooms.values()) room.sendRtt((id) => this.rttOf(id));
     // A lobby open too long without a start, a game nobody plays any more: its players go
-    for (const room of rooms.values()) {
+    for (const room of this.rooms.values()) {
       const s = room.status();
       const reason = !room.isStarted && s.ageMs >= (options.lobbyMaxMs ?? LOBBY_MAX_MS) ? 'lobby open too long'
         : room.isStarted && s.idleMs >= (options.gameIdleMaxMs ?? GAME_IDLE_MAX_MS) ? 'game without commands too long'
           : null;
       if (!reason) continue;
-      log(`[${room.code}] ${reason}, closing it`);
-      for (const connection of connections.values()) {
+      this.log(`[${room.code}] ${reason}, closing it`);
+      for (const connection of this.connections.values()) {
         if (connection.room !== room) continue;
         connection.dropReason = reason;
         connection.socket.close();
       }
     }
-    for (const [id, connection] of connections) {
+    const heartbeatMs = options.heartbeatMs ?? HEARTBEAT_MS;
+    for (const [id, connection] of this.connections) {
       if (connection.missed >= MISSED_HEARTBEATS) {
-        dropConnection(id, `no heartbeat for ${Math.round((MISSED_HEARTBEATS * (options.heartbeatMs ?? HEARTBEAT_MS)) / 1000)} s`, 'hanging');
+        this.dropConnection(id, `no heartbeat for ${Math.round((MISSED_HEARTBEATS * heartbeatMs) / 1000)} s`, 'hanging');
         continue;
       }
       connection.missed++;
-      connection.pingAt = now();
+      connection.pingAt = this.now();
       connection.socket.ping();
     }
-  }), options.heartbeatMs ?? HEARTBEAT_MS);
+  }
 
-  // Per running room: commands at the last status line, for commands a second
-  const commandsAtLine = new Map<string, number>();
-  const statusEvery = options.statusEveryMs ?? STATUS_MS;
-  const statusLines = setInterval(guarded('status line', () => {
-    for (const room of rooms.values()) {
+  private statusLines(statusEvery: number): void {
+    for (const room of this.rooms.values()) {
       if (!room.isStarted) continue;
       const s = room.status();
-      const perSecond = (s.commands - (commandsAtLine.get(s.code) ?? 0)) / (statusEvery / 1000);
-      commandsAtLine.set(s.code, s.commands);
+      const perSecond = (s.commands - (this.commandsAtLine.get(s.code) ?? 0)) / (statusEvery / 1000);
+      this.commandsAtLine.set(s.code, s.commands);
       const players = s.players.map((p) => {
-        const rtt = rttOf(p.id);
+        const rtt = this.rttOf(p.id);
         const hash = p.lastHash ? ` ${hex(p.lastHash.hash)}@${p.lastHash.tick}` : '';
         return `${room.who(p.id)} ${rtt === null ? '?' : rtt} ms${hash}`;
       });
-      log(`[${s.code}] tick ${s.tick}, speed ${s.speed}, ${perSecond.toFixed(1)} cmd/s, ${players.join(', ')}; desyncs ${s.desyncs}`);
+      this.log(`[${s.code}] tick ${s.tick}, speed ${s.speed}, ${perSecond.toFixed(1)} cmd/s, ${players.join(', ')}; desyncs ${s.desyncs}`);
     }
-    for (const code of commandsAtLine.keys()) if (!rooms.has(code)) commandsAtLine.delete(code);
-  }), statusEvery);
+    for (const code of this.commandsAtLine.keys()) if (!this.rooms.has(code)) this.commandsAtLine.delete(code);
+  }
 
-  const takeSample = guarded('metrics', () => {
-    metrics.sample(Math.round((now() - startedAt) / 1000), counts());
-  });
-  // One at the start, so the curves have a point before the first interval
-  takeSample();
-  const samples = setInterval(takeSample, SAMPLE_MS);
-  const metricsLines = setInterval(guarded('metrics line', () => log(metrics.line(counts()))), METRICS_LINE_MS);
+  // ── Stop ─────────────────────────────────────────────────────────
 
-  let last = now();
-  const clock = setInterval(() => {
-    const at = now();
-    const elapsed = at - last;
-    last = at;
-    for (const room of rooms.values()) {
-      // One room that throws stops only itself: its players are let go (review K1)
-      try {
-        room.advance(elapsed);
-      } catch (error) {
-        metrics.errors++;
-        log(`[${room.code}] failed (${String((error as Error)?.message ?? error).slice(0, 200)}), closing it`);
-        for (const [id, connection] of connections) {
-          if (connection.room === room) dropConnection(id, 'the room failed', 'error');
-        }
+  /** Close every connection (as a restart where `reason` is given) and stop; once, however often called (review N7) */
+  private close(reason?: string): Promise<void> {
+    return (this.closed ??= new Promise<void>((done) => {
+      this.closing = true;
+      this.stopTimers();
+      // Tell the clients why: a restart reads as such, not as a lost connection (review M6)
+      for (const { socket } of this.connections.values()) {
+        if (reason) socket.close(CLOSE_RESTART, reason.slice(0, 100));
+        else socket.terminate();
       }
-    }
-  }, CLOCK_MS);
-
-  const stopTimers = () => {
-    clearInterval(clock);
-    clearInterval(heartbeat);
-    clearInterval(statusLines);
-    clearInterval(samples);
-    clearInterval(metricsLines);
-  };
-
-  return new Promise((resolve, reject) => {
-    http.once('error', (error) => {
-      stopTimers();
-      reject(error);
-    });
-    http.listen(options.port, () => {
-      const address = http.address();
-      const port = typeof address === 'object' && address ? address.port : options.port;
-      log(`coop relay on port ${port}`);
-      let closed: Promise<void> | null = null;
-      resolve({
-        port,
-        status,
-        // Once, however often it is called (review N7)
-        close: (reason?: string) => (closed ??= new Promise<void>((done) => {
-          closing = true;
-          stopTimers();
-          // Tell the clients why: a restart reads as such, not as a lost connection (review M6)
-          for (const { socket } of connections.values()) {
-            if (reason) socket.close(CLOSE_RESTART, reason.slice(0, 100));
-            else socket.terminate();
-          }
-          const finish = () => wss.close(() => http.close(() => done()));
-          if (!reason) return finish();
-          // The close frames go out, then whatever did not answer goes
-          setTimeout(() => {
-            for (const { socket } of connections.values()) socket.terminate();
-            finish();
-          }, 500);
-        })),
-      });
-    });
-  });
+      const finish = () => this.wss.close(() => this.http.close(() => done()));
+      if (!reason) return finish();
+      // The close frames go out, then whatever did not answer goes
+      setTimeout(() => {
+        for (const { socket } of this.connections.values()) socket.terminate();
+        finish();
+      }, 500);
+    }));
+  }
 }
 
 /**
