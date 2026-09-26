@@ -21,6 +21,18 @@ describe('isSplashTower()', () => {
   });
 });
 
+describe('analyzeDefense() with several heroes', () => {
+  // Coop: every player's hero counts, not only the first (TODO E34)
+  it('adds each hired hero to the defense', () => {
+    const hero = heroDefenseProfile(0);
+    const one = analyzeDefense([], false, hero);
+    const two = analyzeDefense([], false, [hero, hero]);
+    expect(two.killThroughput.ground).toBeCloseTo(one.killThroughput.ground * 2, 6);
+    expect(two.gateDpsPerArmor.ground.light).toBeCloseTo(one.gateDpsPerArmor.ground.light * 2, 6);
+    expect(analyzeDefense([], false, []).killThroughput.ground).toBe(0);
+  });
+});
+
 describe('analyzeDefense() air targeting per tower', () => {
   // Coop: the AA retrofit is the research of the tower's owner (TODO E34)
   it('counts a gatling against air only when its owner has the retrofit', () => {

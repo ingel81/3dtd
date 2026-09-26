@@ -17,6 +17,7 @@
  * The game works fine without it.
  */
 
+import type { HeroDefenseProfile } from '../configs/hero.config';
 import { Injectable, inject, signal } from '@angular/core';
 import { GamePhase } from '../models/game.types';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
@@ -117,14 +118,15 @@ export class StateSnapshotService {
     // In coop every client plans the next wave from what they all share, so
     // the plan and the director stream stay the same on each
     // (docs/COOP_PLAN.md, C4): air targeting per tower from its owner's
-    // research, the first hired hero in roster order, the credits of all
-    // players. The single player game reads the same as before.
+    // research, every hired hero, the credits of all players. The single
+    // player game reads the same as before.
     const players = this.gameState.players;
     const airTargetingUnlocked = this.airTargetingOfOwner;
-    const hero = players.map((id) => this.gameState.heroOf(id).getDefenseProfile()).find((profile) => profile) ?? null;
+    const heroes = players.map((id) => this.gameState.heroOf(id).getDefenseProfile())
+      .filter((profile): profile is HeroDefenseProfile => profile !== null);
     const credits = players.reduce((sum, id) => sum + this.gameState.creditsOf(id), 0);
     // The hired hero counts as a virtual tower at half presence (docs/HERO.md)
-    const defense = analyzeDefense(towers, airTargetingUnlocked, hero);
+    const defense = analyzeDefense(towers, airTargetingUnlocked, heroes);
     // Coop: every lane gets the whole wave (D13), so the wave is sized against
     // one lane's share of the joint defense, the average (User, 2026-09-26).
     // Sized against all of it, each lane's copy met twice the defense it has:
