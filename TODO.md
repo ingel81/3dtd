@@ -161,11 +161,10 @@ allem unter T (Coop).
       Teil), und M5 (J8). Nach DONE, sobald ein Lauf mit den Fixes grün ist.
 - [ ] **J8 E2E M5 rot** (**gebaut 2026-09-26**): Der Test erbte die sauberen Wellen der Coop-Tests auf derselben Seite
       (×2.01). Er beginnt jetzt mit "Random location" und prüft dort ×1.00, dann die sieben Wellen. Offen: ein grüner Lauf.
-- [ ] **E32 Coop: Desync nach Kill-all** (E2E 2026-09-26, einmal von zwei Läufen): Raum mit Gast-Pause und Auto-Welle,
-      der Host räumt die Welle per Kill-all (Tick 123, 162). Prüfsumme bei 150 gleich, bei 180 verschieden, ab 510 wieder
-      gleich. Verdacht (unbelegt): `enemy.transform.terrainHeight` folgt dem Routenraster, das nachladende Kacheln je
-      Rechner korrigieren. **Gebaut 2026-09-26:** zerlegte Prüfsumme, das Relay nennt Teil und erste Objekte
-      ([COOP_PLAN.md](docs/COOP_PLAN.md) C5). Offen: der nächste Desync mit neuem Relay liefert den Beleg.
+- [ ] **E32 Coop: Desync nach Kill-all** (**Ursache gefunden und behoben 2026-09-26**): kein echter Desync. Die zerlegte
+      Prüfsumme nannte nur den Teil `rng`, alle Objekte gleich: nur der Client, der eine Welle startet, plant sie und
+      zieht dabei aus dem Stream `director`; der Plan geht im Befehl an alle. Der Stream ist jetzt nicht mehr in der
+      Prüfsumme. Die Geländehöhe war es nicht. Nach DONE, sobald der E2E-Test T61 grün ist.
 - [ ] **E33 Relay-Härtung** (**gebaut 2026-09-26**, [COOP_PLAN.md](docs/COOP_PLAN.md) C9, D69 bis D73): Review mit
       Absturz durch eine einzige Nachricht (K1) und weiteren Grenzen; alles behoben, Statusseite mit Aktionen.
       Offen: das neue Relay-Image für die Lobby (`relay-image.yml`), später Drain, C5b nach dem Playtest.
