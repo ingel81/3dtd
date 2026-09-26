@@ -9,8 +9,12 @@
 
   <div class="dialog-content">
     <p class="runs-hint">
-      The last {{ maxRuns }} runs of this browser. Saving gives you the run as a file; nothing is uploaded.
+      The last {{ maxRuns }} runs of this browser. Saving gives you the run as a file.
     </p>
+    <label class="runs-upload">
+      <input type="checkbox" [checked]="uploadRuns()" (change)="setUploadRuns($any($event.target).checked)">
+      <span>After a coop game, send its log to the coop server, to find errors and improve the game (kept 90 days)</span>
+    </label>
 
     @if (loading()) {
       <p class="runs-empty">Reading…</p>

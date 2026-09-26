@@ -66,6 +66,19 @@ h2 {
   color: var(--td-text-muted);
 }
 
+.runs-upload {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  margin: 0 0 12px;
+  font-size: 11px;
+  line-height: 1.4;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+
+  input { margin: 1px 0 0; accent-color: var(--td-gold); }
+}
+
 .runs-empty {
   margin: 16px 0;
   font-size: 12px;

@@ -16,7 +16,14 @@ import { EnvironmentInjector, Injector, signal } from '@angular/core';
 import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { WebSocket as WsSocket } from 'ws';
-import { startRelay, type RelayServer } from '../../../coop-server/src/server';
+import { startRelay, type RelayOptions, type RelayServer } from '../../../coop-server/src/server';
+import { MatDialog } from '@angular/material/dialog';
+import { of } from 'rxjs';
+import { mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { reconcileWave } from '../run-log/run-log-check';
+import type { RunLog } from '../run-log/run-log.types';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { withAutoStubs } from '../integration/test-helpers';
 
@@ -69,6 +76,7 @@ const SPAWNS = [
 function player(relayPort: number) {
   localStorage.setItem('3dtd-coop-relay', `ws://localhost:${relayPort}`);
   const hq = signal(HQ);
+  const closedRun = signal<RunLog | null>(null);
   const bus = new GameEventBus();
   const gsm = withAutoStubs({
     getEventBus: () => bus,
@@ -105,10 +113,11 @@ function player(relayPort: number) {
       { provide: LocationFacadeService, useValue: withAutoStubs({ addRandomSpawn: vi.fn(async () => true) }) },
       { provide: LocationChangeCoordinatorService, useValue: locationChange },
       { provide: InputHandlerService, useValue: withAutoStubs({}) },
-      { provide: RunLogFacade, useValue: { collector: withAutoStubs({}) } },
+      { provide: RunLogFacade, useValue: { collector: withAutoStubs({}), closedRun } },
+      { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(true) }) } },
     ],
   });
-  return { coop: injector.get(CoopService), gsm, hq, locationChange };
+  return { coop: injector.get(CoopService), gsm, hq, locationChange, closedRun };
 }
 
 /** Wait for `ok`, flushing effects, up to 3 s */
@@ -144,8 +153,8 @@ describe('CoopService over a real relay (review R21)', () => {
   });
 
   /** Host with a room, guest in it, both on a lane */
-  async function lobby() {
-    relay = await startRelay({ port: 0 });
+  async function lobby(options: Partial<RelayOptions> = {}) {
+    relay = await startRelay({ port: 0, ...options });
     const host = player(relay.port);
     const guest = player(relay.port);
     await host.coop.host('Ann');
@@ -195,6 +204,36 @@ describe('CoopService over a real relay (review R21)', () => {
     bus.emit({ type: 'enemy:reached-base', enemy: enemy('zombie'), damage: 1 } as never);
 
     expect(host.coop.waveLeaks().get(me.id)).toBe(2);
+  });
+
+  it('sends a coop run log to a relay that collects, once the player said yes (TODO E38)', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'runs-'));
+    try {
+      localStorage.removeItem('3dtd-run-upload');
+      const { host, guest } = await lobby({ collectRuns: { dir, maxBytes: 1e9, maxAgeMs: 1e12 } });
+      guest.coop.setLobbyReady(true);
+      await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.ready);
+      host.coop.start();
+      await until(() => host.coop.inGame() && guest.coop.inGame());
+
+      const head = { kind: 'head', format: 3, runId: 'run-1', gameVersion: 'v1', coop: { players: ['Ann', 'Bob'], you: 'Bob' } };
+      const wave: Record<string, unknown> = {
+        kind: 'wave', wave: 1, income: {}, spending: {}, creditsStart: 100, creditsEnd: 100,
+        killsByTower: 1, killsByHero: 0, killsByAbility: 0, killsByDebug: 0, killsByOther: 0,
+        enemiesAtStart: 0, enemiesSpawned: 1, enemiesAlive: 0, leaked: 0, towers: [],
+      };
+      expect(reconcileWave(wave as never)).toEqual([]);
+      guest.closedRun.set({ head, records: [head, wave] } as unknown as RunLog);
+
+      // Asked once (the dialog says yes), the answer kept, the log on the relay
+      await until(() => localStorage.getItem('3dtd-run-upload') === 'yes');
+      const files = () => readdirSync(join(dir, 'coop'), { recursive: true }).map(String).filter((f) => f.endsWith('.jsonl.gz'));
+      await until(() => { try { return files().length === 1; } catch { return false; } });
+      expect(files()[0]).toMatch(/Bob_p\d+_run-1\.jsonl\.gz$/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      localStorage.removeItem('3dtd-run-upload');
+    }
   });
 
   it('lets the host take a guest out and close the room', async () => {

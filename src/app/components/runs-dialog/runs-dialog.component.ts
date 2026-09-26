@@ -6,6 +6,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { downloadRun } from '../../run-log/run-log.export';
+import { readRunUploadConsent, writeRunUploadConsent } from '../../run-log/run-upload';
 import type { StoredRun } from '../../run-log/run-log.store';
 import { MAX_RUNS } from '../../run-log/run-log.store';
 
@@ -35,11 +36,18 @@ export class RunsDialogComponent {
   readonly runs = signal<StoredRun[]>([]);
   readonly loading = signal(true);
   readonly maxRuns = MAX_RUNS;
+  /** Coop run logs go to a relay that collects them (TODO E38); asked once after a coop game, changed here */
+  readonly uploadRuns = signal(readRunUploadConsent() === 'yes');
   /** "Delete all" asks once, in the footer, before it deletes. */
   readonly confirmingClear = signal(false);
 
   constructor() {
     void this.reload();
+  }
+
+  setUploadRuns(yes: boolean): void {
+    writeRunUploadConsent(yes ? 'yes' : 'no');
+    this.uploadRuns.set(yes);
   }
 
   async reload(): Promise<void> {
