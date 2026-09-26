@@ -976,7 +976,8 @@ export class CoopService {
 
   /** Host, lobby: take a player out of the room (review R9) */
   kick(playerId: string): void {
-    if (this.isHost() && !this.inGame() && playerId !== this.playerId()) this.session?.kick(playerId);
+    // In the game as well: a player who holds everyone up; the relay closes their lane (relay review M4)
+    if (this.isHost() && playerId !== this.playerId()) this.session?.kick(playerId);
   }
 
   /** Host: close the room to further players, or open it again (review R9) */
@@ -1244,10 +1245,12 @@ export class CoopService {
       this.reportDesyncDetail(session, tick, parts);
       this.notify(desyncText(outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
     });
-    session.onClosed = inZone(() => {
+    session.onClosed = inZone((restart) => {
       if (this.session !== session) return;
-      this.error.set('The connection to the coop server closed.');
-      if (this.inGame()) this.notify('Connection to the coop server lost: the game stands still. Go on alone, or reload to leave', 'warn');
+      this.error.set(restart ? 'The coop server restarts. Try again in a moment.' : 'The connection to the coop server closed.');
+      if (this.inGame()) {
+        this.notify(`${restart ? 'The coop server restarts' : 'Connection to the coop server lost'}: the game stands still. Go on alone, or reload to leave`, 'warn');
+      }
       this.status.set('closed');
     });
   }
