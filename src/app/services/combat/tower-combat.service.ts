@@ -964,7 +964,8 @@ export class TowerCombatService {
       );
       this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower);
-      const target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
+      const airTargeting = this.research.airTargetingFor(tower.ownerId);
+      let target = tower.findTarget(candidates, airTargeting, losCheck, this.bodyDistSq);
 
       if (!target) {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
@@ -977,6 +978,18 @@ export class TowerCombatService {
       tower.isSleeping = false;
 
       if (!tower.combat.canFire()) continue;
+      // The periodic line-of-sight recheck the other towers run before they
+      // fire: findTarget keeps a target without asking again, so the bolt went
+      // on into the alley the enemy had walked into (TODO E43). No turret to
+      // turn, so the bolt goes to the new target at once.
+      if (losCheck && tower.needsLosRecheck(gameTimeMs)) {
+        tower.markLosChecked(gameTimeMs);
+        if (!losCheck(target)) {
+          tower.clearTarget();
+          target = tower.findTarget(candidates, airTargeting, losCheck, this.bodyDistSq);
+          if (!target) continue;
+        }
+      }
       tower.combat.fire();
 
       // Build chain hit list: primary + up to maxJumps additional unique targets
@@ -989,7 +1002,7 @@ export class TowerCombatService {
       const at = { lat: first.lat, lon: first.lon };
 
       for (let i = 0; i < maxJumps; i++) {
-        const next = this.findNearestUnhit(at, candidates, hitIds, jumpRange);
+        const next = this.findNearestUnhit(at, candidates, hitIds, jumpRange, losCheck);
         if (!next) break;
         hits.push(next);
         hitIds.add(next.id);
@@ -1019,12 +1032,17 @@ export class TowerCombatService {
    * hit yet by the current chain and is within `maxDist` meters. A body along
    * the route counts at the tower's aim point on it. Returns null if no
    * candidate qualifies.
+   *
+   * `losCheck` is the tower's sight by the enemy's kind: the candidates come
+   * from every cell the tower sees on the ground OR in the air, so without
+   * it a bolt jumped to a ground enemy in an alley under open sky (TODO E43).
    */
   private findNearestUnhit(
     from: { lat: number; lon: number },
     candidates: Enemy[],
     hitIds: Set<string>,
     maxDist: number,
+    losCheck?: (enemy: Enemy) => boolean,
   ): Enemy | null {
     const mPerDegLat = METERS_PER_DEGREE_LAT;
     const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(from.lat * DEG_TO_RAD);
@@ -1041,7 +1059,8 @@ export class TowerCombatService {
       const dx = (p.lat - from.lat) * mPerDegLat;
       const dy = (p.lon - from.lon) * mPerDegLon;
       const dSq = dx * dx + dy * dy;
-      if (dSq < bestSq) {
+      // Sight last: it costs a lookup, the distance rules most out first
+      if (dSq < bestSq && (e.body || !losCheck || losCheck(e))) {
         bestSq = dSq;
         best = e;
       }

@@ -489,6 +489,88 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
+  // Lightning and its sight (TODO E43)
+  // ────────────────────────────────────────────────────────────────
+  describe('lightning sight', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+    const enemyAt = (id: string, north: number, air = false) => ({
+      id,
+      alive: true,
+      body: null,
+      position: { lat: towerPos.lat + north / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+      typeConfig: { id: air ? 'bat' : 'zombie', isAirUnit: air, heightOffset: 0, scale: 1 },
+      heightOffset: 0,
+      transform: { terrainHeight: 0 },
+      movement: { getPathProgress: () => 0.5 },
+      health: { current: 100 },
+    });
+
+    function setup(enemies: ReturnType<typeof enemyAt>[], sees: (id: string) => boolean) {
+      // The scratch position carries the enemy it was made for
+      let asked = '';
+      const grid = {
+        getEnemiesForTower: (_cells: unknown[], out: unknown[]) => {
+          out.length = 0;
+          out.push(...enemies);
+          return out;
+        },
+        getBodyEnemies: () => [],
+        isPositionVisibleFromTower: () => sees(asked),
+        isAirPositionVisibleFromTower: () => sees(asked),
+      };
+      const hits: string[] = [];
+      mockInjections['GlobalRouteGridService'] = grid;
+      mockInjections['CombatEffectService'] = {
+        applyChainDamage: (enemy: { id: string }) => hits.push(enemy.id),
+        emitChainLightningVfx: () => undefined,
+      };
+      service = new TowerCombatService();
+      service.initialize({
+        sync: {
+          geoToLocalSimpleInto: (lat: number, _lon: number, _h: number, target: { x: number; z: number }) => {
+            asked = enemies.find((e) => e.position.lat === lat)?.id ?? '';
+            target.x = 0;
+            target.z = 0;
+            return target;
+          },
+        },
+        towers: { get: () => undefined },
+      } as never, NO_RESEARCH);
+      const tower = new Tower(towerPos, 'lightning');
+      tower.losReady = true;
+      tower.visibleCells = [{}] as never;
+      const run = (gameTimeMs: number) =>
+        service.updateChainTowers(16, { getAllActive: () => [tower] } as never, {} as never, gameTimeMs);
+      return { tower, run, hits };
+    }
+
+    it('drops a target that walked out of sight before the next bolt', () => {
+      const a = enemyAt('a', 10);
+      const b = enemyAt('b', 40);
+      let aVisible = true;
+      const { tower, run, hits } = setup([a, b], (id) => id !== 'a' || aVisible);
+      run(1000);
+      expect(tower.currentTarget).toBe(a);
+      // a turns into an alley; the next bolt goes to b, not into the alley
+      aVisible = false;
+      hits.length = 0;
+      tower.combat.update(10_000);
+      run(2000);
+      expect(hits[0]).toBe('b');
+      expect(hits).not.toContain('a');
+    });
+
+    it('does not jump to an enemy the tower does not see, however near', () => {
+      const a = enemyAt('a', 10);
+      const hidden = enemyAt('hidden', 12);
+      const seen = enemyAt('seen', 20);
+      const { run, hits } = setup([a, hidden, seen], (id) => id !== 'hidden');
+      run(1000);
+      expect(hits).toEqual(['a', 'seen']);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
   // Line of sight: the tower's answers in the cells, no raycast (D2)
   // ────────────────────────────────────────────────────────────────
   describe('line of sight from the cells', () => {
