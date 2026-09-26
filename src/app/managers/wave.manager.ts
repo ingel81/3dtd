@@ -150,6 +150,9 @@ export class WaveManager implements IGameManager {
   // Reward weight of every body the wave can field, split children and worm
   // segments included: EnemyManager spreads the kill gold by it
   private expectedBodyWeight = 0;
+  // Coop lanes the wave runs on (laneSchedule): each got the whole wave, and
+  // with it the whole kill gold; 1 in the single player game
+  private waveLaneCount = 1;
 
   /**
    * Maximum number of enemies that may be spawned in a single tickSpawn() call
@@ -232,6 +235,15 @@ export class WaveManager implements IGameManager {
    * worm's segments once it is out. EnemyManager spreads the kill budget by
    * it, so a split never raises the wave's gold.
    */
+  /**
+   * The coop lanes the current wave runs on: every lane got the whole wave
+   * (laneSchedule, D13), so the wave pays the kill gold once per lane. Read
+   * from the wave's own schedule, so a player leaving mid-wave changes nothing.
+   */
+  getWaveLaneCount(): number {
+    return this.waveLaneCount;
+  }
+
   getExpectedBodyWeight(): number {
     return this.expectedBodyWeight;
   }
@@ -306,6 +318,8 @@ export class WaveManager implements IGameManager {
     let weight = 0;
     for (const entry of entries) weight += lineageRewardWeight(entry.enemyType);
     this.expectedBodyWeight = weight;
+    const lanes = new Set(entries.map((entry) => entry.spawnPointId).filter((id) => id !== undefined));
+    this.waveLaneCount = Math.max(1, lanes.size);
     this.spawnedEnemyCount = 0;
     this.damageTakenThisWave = 0;
     this._waveCheckDirty = true;
