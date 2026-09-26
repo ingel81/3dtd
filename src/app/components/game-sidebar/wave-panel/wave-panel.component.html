@@ -14,7 +14,7 @@
             <div class="td-group-info">
               <div class="td-group-info-header">
                 <span class="td-group-name">{{ group.name }}</span>
-                <span class="td-group-count">×{{ group.count }}</span>
+                <span class="td-group-count">×{{ group.count }}@if (group.lanes > 1) {<span class="td-group-lanes"> per lane</span>}</span>
               </div>
               <div class="td-group-stats">
                 <span class="td-group-stat">HP {{ group.actualHp }}</span>

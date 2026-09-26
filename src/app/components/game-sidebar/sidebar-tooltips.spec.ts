@@ -20,6 +20,7 @@ function group(enemyType: EnemyTypeId, overrides: Partial<WaveGroupDisplay> = {}
     healthMultiplier: 1,
     speedMultiplier: 1,
     spawnDelay: 500,
+    lanes: 1,
     ...overrides,
   };
 }
@@ -101,6 +102,12 @@ describe('towerCardTooltip', () => {
 describe('enemyGroupTooltip', () => {
   it('returns null for an unknown enemy type', () => {
     expect(enemyGroupTooltip(group('nope' as EnemyTypeId))).toBeNull();
+  });
+
+  it('names the lanes of a coop wave: the count is per lane', () => {
+    const count = (lanes: number) => enemyGroupTooltip(group('zombie', { lanes }))!.stats!.find((s) => s.label === 'COUNT')!.value;
+    expect(count(1)).toBe('×12');
+    expect(count(2)).toBe('×12 on each of 2 lanes');
   });
 
   it('heads with the armor class and shows hp, speed and count', () => {

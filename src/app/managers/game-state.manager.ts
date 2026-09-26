@@ -1542,16 +1542,20 @@ export class GameStateManager {
    */
   startWave(config: WaveConfig): void {
     if (this.corridorPending()) return;
+    // The preview shows one lane's wave and how many lanes get it (TODO E34)
+    const perLane = config;
+    let laneCount = 1;
     // Coop: the wave on every lane (D13). A config that already names its
     // spawn points (a replayed one) is laid out already.
     if (this.lanes.length > 0 && !config.schedule.entries.some((entry) => entry.spawnPointId !== undefined)) {
       config = { ...config, schedule: laneSchedule(config.schedule, this.lanes) };
+      laneCount = this.lanes.length;
     }
     this.ready.clear();
     if (!this.replaying && config.schedule.entries.length > 0) this.recordWaveStart(config);
 
     // Wave preview in the sidebar, see summarizeWaveGroups(); the live wave's only
-    const groups = this.replaying ? [] : summarizeWaveGroups(config);
+    const groups = this.replaying ? [] : summarizeWaveGroups(laneCount > 1 ? perLane : config, laneCount);
     if (groups.length > 0) {
       this.waveDebug.setCurrentWaveGroups(groups);
     }

@@ -7,8 +7,10 @@ import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
  * type, so the sidebar shows the composition the player is about to face.
  * Actual values against the type's base values, NOT timescaled. A group
  * takes HP and speed from its first entry. Empty for an empty schedule.
+ * `lanes`: coop lanes that each get this wave (laneSchedule), the counts are
+ * one lane's.
  */
-export function summarizeWaveGroups(config: WaveConfig): WaveGroupDisplay[] {
+export function summarizeWaveGroups(config: WaveConfig, lanes = 1): WaveGroupDisplay[] {
   const entries = config.schedule.entries;
   if (entries.length === 0) return [];
 
@@ -39,6 +41,7 @@ export function summarizeWaveGroups(config: WaveConfig): WaveGroupDisplay[] {
       healthMultiplier: actualHp / baseHp,
       speedMultiplier: actualSpeed / baseSpeed,
       spawnDelay: config.schedule.baseDelay,
+      lanes,
     };
   });
 }
