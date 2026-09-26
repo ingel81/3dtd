@@ -92,6 +92,26 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   Ready, Ping und Werkzeugen; Spieler ohne Lane darunter; bei mehreren Warnungen nur die schwerste mit „+n“. Tab im
   Dock wandert durch die Knöpfe, Esc schließt es, ein Klick auf einen Knopf und dann Enter öffnet im Spiel den Chat.
   Vorab per Probe (2026-09-26): Tab wandert durchs Dock (PvE, Versus, Chat, Send, Leave, More, Start match) und verlässt es nach dem letzten Knopf in die Sidebar (kein Fokus-Käfig); Esc schließt es aus dem Dock; Klick auf einen Knopf, dann Enter öffnet im Spiel den Chat. Offen: der Eindruck der Tabelle.
+- **T76 Coop-Skalierung (E34)**: Zu zweit bis W8 spielen. Erwartung: Kill-Gold je Spieler wie allein (W6 Spinnen
+  nicht mehr ~26 Gold), W6 keine ~1000 Spinnen mehr, die Vorschau zeigt „per lane“ und im Tooltip die Lanes; das
+  Run-Log nennt nur eigene Tower und `killsByPartner`.
+- **T77 Tower des Mitspielers ansehen (E39)**: Auf einen Tower des anderen klicken. Erwartung: Panel „NOAH'S …“ mit
+  „view only“, Werte und Upgrade-Stufen sichtbar, keine Kosten, kein Verkauf; Zielmodus, Upgrades, U, Entf und C tun
+  nichts. Sein Research Center lässt sich nicht auswählen.
+- **T78 Gold frei senden (E36)**: Im Gold-Menü der Squad-Box einen Betrag tippen, Send. Erwartung: genau der Betrag
+  kommt an; mehr als man hat, 0 oder Kommazahl geht nicht.
+- **T79 Run-Log ans Relay (E38)**: Relay mit `RELAY_COLLECT_RUNS=1`, ein Coop-Spiel bis Game Over. Erwartung: einmal
+  die Frage „Help improve 3DTD?“, nach „Yes“ im Chat „Run log sent. Thanks!“; auf der Statusseite nach Unlock
+  „Run logs“ mit beiden Logs des Raums, Download geht. Runs-Dialog: Haken ändert die Antwort.
+- **T80 Statusseite (E33)**: Token eintragen, Unlock. Erwartung: „unlocked“ bzw. „wrong token“, Knöpfe nur mit
+  gültigem Token; Logo und Favicon da; das Log schreibt `metrics:` nur bei Änderung.
+- **T81 Start ohne Route (E34 Punkt 7)**: nur wenn ein Spawn keine Route findet. Erwartung: „Start match“ gesperrt mit
+  „Spawn N has no route“.
+- **T83 Forschung des Mitspielers (E35)**: Der andere forscht etwas; bei dir in der Squad-Box den Kolben an seiner
+  Zeile klicken. Erwartung: Forschungsfenster auf seinem Reiter, „VIEW ONLY“, sein Fortschritt läuft mit, keine
+  Knöpfe; Reiter „You“ zeigt deine Forschung wie gewohnt. Allein keine Reiter.
+- **T82 Downloads in der App (E37)**: Run-Log speichern und Screenshot. Erwartung: Speichern-Dialog für das Log, der
+  Screenshot geht still nach Downloads und die Foto-Leiste nennt die Datei.
 
 ## K8 Desktop-Build
 
