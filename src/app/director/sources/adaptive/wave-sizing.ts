@@ -49,6 +49,19 @@ export const DPS_RAMP_HP_MULT = 1000.0;
 export const FAIRNESS_KILL_REALISM = 0.65;
 
 /**
+ * The share of the model's kills a defense achieves at `wave` (TODO E51).
+ *
+ * Measured on 157 bot waves (2026-09-27) where the defense was overrun, the
+ * leaks past the allowance: it killed 1.3 times what the model at 0.65 said
+ * through W10, 1.6 to 2.1 times from W11 on. The factors sit a little under
+ * those medians, so the cap stays on the safe side; the early one keeps the
+ * young defense's protection (docs/PRESSURE_ONE_PLACE_PLAN.md, Ergebnis).
+ */
+export function fairnessKillRealism(wave: number): number {
+  return wave <= 10 ? 0.85 : 1.1;
+}
+
+/**
  * Der Anteil der Rest-HP, den eine Welle kosten darf, kommt seit 2026-09-21
  * aus `targetPressure(wave)` (pressure-controller.ts) und ist damit dieselbe
  * Zahl, auf die der Druck-Regler regelt.
@@ -181,6 +194,8 @@ export function survivableCount(
   targetPressure = 0.06,
   /** Filled with the model's numbers when given (TODO E51) */
   detail?: KillModelDetail,
+  /** Share of the model's kills the defense achieves, fairnessKillRealism of the wave */
+  realism = FAIRNESS_KILL_REALISM,
 ): number | null {
   const ground = effectiveDps?.ground ?? {};
   const air = effectiveDps?.air ?? {};
@@ -244,7 +259,7 @@ export function survivableCount(
   // What the model says is killable, discounted by what defenses actually
   // manage. Without the discount the gate permits about twice the real capacity
   // through waves 1-10, which is where every run was ending.
-  const budget = killsPerSecond * FAIRNESS_KILL_REALISM * Math.max(0.01, pressureMultiplier);
+  const budget = killsPerSecond * realism * Math.max(0.01, pressureMultiplier);
   //
   // What the defense kills while the wave runs, which is at most the three
   // minutes of MAX_WAVE_DURATION_MS: the closed form below the pole, the

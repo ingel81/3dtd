@@ -13,7 +13,9 @@ import { GameStateSnapshot } from '../../models/game-state-snapshot';
 import { WaveConfig } from '../../models/wave-config';
 import { explainWaveDecision } from './decision-explainer';
 import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS, getTemplate, type CandidateReason } from '../../templates';
-import { DPS_RAMP_FLOOR, DPS_RAMP_HP_MULT, dpsScaledCountMax, laneHp, lerpRange, survivableCount, type KillModelDetail } from './wave-sizing';
+import {
+  DPS_RAMP_FLOOR, DPS_RAMP_HP_MULT, dpsScaledCountMax, fairnessKillRealism, laneHp, lerpRange, survivableCount, type KillModelDetail,
+} from './wave-sizing';
 import type { DirectorDecision } from './director-rules';
 import { directorParams } from '../../director-params';
 import type { PressureStatus } from './pressure-controller';
@@ -130,12 +132,13 @@ export function buildWaveConfig(
       (id) => lineageLeakDamage(id as EnemyTypeId),
       laneHp(state),
       enemyBaseDamageForWave(upcomingWave),
-      // Closed-loop correction. FAIRNESS_KILL_REALISM was measured on waves
+      // Closed-loop correction. The kill realism was measured on waves
       // 1-10 and understates the defense from wave 11 on; this is the only
       // thing that notices.
       pressure.pressureMultiplier,
       wantPressure,
       killModel,
+      fairnessKillRealism(upcomingWave),
     );
     // The gate outranks the template minimum. A cap BELOW countRange[0] means
     // the defense cannot handle even the smallest wave the designer wrote,

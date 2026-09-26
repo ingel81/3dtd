@@ -121,7 +121,8 @@ describe('buildWaveConfig', () => {
     const killable = capOf({ ...state(), player: { ...state().player, lives: 0 } });
 
     expect(laned).toBeLessThan(alone);
-    expect(laned - killable).toBeCloseTo((alone - killable) / 2, -1);
+    // Half the leak allowance, up to the rounding of the counts
+    expect(Math.abs((laned - killable) / ((alone - killable) / 2) - 1)).toBeLessThan(0.02);
   });
 
   it('compresses the spawn delay of a wave that would run past three minutes', () => {

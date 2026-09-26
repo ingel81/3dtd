@@ -2,114 +2,114 @@
   {
     "wave": 1,
     "template": "Zombie Horde",
-    "count": 26,
+    "count": 31,
     "spawnDelay": 300,
     "variation": 0.242,
     "strength": 0.735,
     "pattern": "interleaved",
     "enemies": [
-      "zombiex23@0.735",
+      "zombiex28@0.735",
       "zombie-v2x3@0.735"
     ]
   },
   {
     "wave": 2,
     "template": "Rat Tide",
-    "count": 20,
+    "count": 27,
     "spawnDelay": 150,
     "variation": 0.21,
     "strength": 0.985,
     "pattern": null,
     "enemies": [
-      "ratx20@0.985"
+      "ratx27@0.985"
     ]
   },
   {
     "wave": 3,
     "template": "Penguin Rush",
-    "count": 27,
+    "count": 34,
     "spawnDelay": 285,
     "variation": 0.235,
     "strength": 0.862,
     "pattern": "interleaved",
     "enemies": [
-      "penguinx24@0.862",
+      "penguinx31@0.862",
       "ratx3@0.862"
     ]
   },
   {
     "wave": 4,
     "template": "Light Mix",
-    "count": 33,
+    "count": 45,
     "spawnDelay": 350,
     "variation": 0.225,
     "strength": 1.25,
     "pattern": "interleaved",
     "enemies": [
-      "wallsmasherx17@1.25",
-      "spiderx16@1.25"
+      "wallsmasherx23@1.25",
+      "spiderx22@1.25"
     ]
   },
   {
     "wave": 5,
     "template": "Wallsmasher Crew",
-    "count": 21,
+    "count": 29,
     "spawnDelay": 500,
     "variation": 0.249,
     "strength": 1.683,
     "pattern": null,
     "enemies": [
-      "wallsmasherx21@1.683"
+      "wallsmasherx29@1.683"
     ]
   },
   {
     "wave": 6,
     "template": "Spider Swarm",
-    "count": 50,
+    "count": 67,
     "spawnDelay": 200,
     "variation": 0.211,
     "strength": 1.506,
     "pattern": null,
     "enemies": [
-      "spiderx50@1.506"
+      "spiderx67@1.506"
     ]
   },
   {
     "wave": 7,
     "template": "Bat Swarm",
-    "count": 31,
+    "count": 36,
     "spawnDelay": 300,
     "variation": 0.188,
     "strength": 1.667,
     "pattern": null,
     "enemies": [
-      "batx31@1.667"
+      "batx36@1.667"
     ]
   },
   {
     "wave": 8,
     "template": "Hornet Strike",
-    "count": 51,
+    "count": 117,
     "spawnDelay": 300,
     "variation": 0.27,
     "strength": 1.703,
     "pattern": "interleaved",
     "enemies": [
-      "hornetx36@1.703",
-      "batx15@1.703"
+      "hornetx82@1.703",
+      "batx35@1.703"
     ]
   },
   {
     "wave": 9,
     "template": "Tank Column",
-    "count": 22,
+    "count": 32,
     "spawnDelay": 600,
     "variation": 0.229,
     "strength": 2.855,
     "pattern": "interleaved",
     "enemies": [
-      "tankx13@2.855",
-      "zombie-soldierx9@2.855"
+      "tankx19@2.855",
+      "zombie-soldierx13@2.855"
     ]
   },
   {
@@ -129,26 +129,26 @@
   {
     "wave": 11,
     "template": "Bear Pack",
-    "count": 14,
+    "count": 29,
     "spawnDelay": 600,
     "variation": 0.262,
     "strength": 2.968,
     "pattern": null,
     "enemies": [
-      "bearx14@2.968"
+      "bearx29@2.968"
     ]
   },
   {
     "wave": 12,
     "template": "Dragon Elite",
-    "count": 23,
+    "count": 59,
     "spawnDelay": 840,
     "variation": 0.294,
     "strength": 3.861,
     "pattern": "interleaved",
     "enemies": [
-      "dragonx14@3.861",
-      "hornetx9@3.861"
+      "dragonx35@3.861",
+      "hornetx24@3.861"
     ]
   },
   {
@@ -167,14 +167,14 @@
   {
     "wave": 14,
     "template": "Mammoth Siege",
-    "count": 25,
+    "count": 71,
     "spawnDelay": 850,
     "variation": 0.301,
     "strength": 6.037,
     "pattern": "interleaved",
     "enemies": [
-      "mammothx18@6.037",
-      "wallsmasherx7@6.037"
+      "mammothx50@6.037",
+      "wallsmasherx21@6.037"
     ]
   },
   {
@@ -219,16 +219,16 @@
   {
     "wave": 18,
     "template": "Armor Gauntlet",
-    "count": 260,
+    "count": 306,
     "spawnDelay": 587.5,
     "variation": 0.3,
-    "strength": 3.79,
+    "strength": 4.136797385620914,
     "pattern": "interleaved",
     "enemies": [
-      "ratx65@3.79",
-      "tankx65@3.79",
-      "mammothx65@3.79",
-      "ghostx65@3.79"
+      "ratx77@4.136797385620914",
+      "tankx77@4.136797385620914",
+      "mammothx77@4.136797385620914",
+      "ghostx75@4.136797385620914"
     ]
   },
   {
@@ -249,10 +249,10 @@
     "count": 1,
     "spawnDelay": 0,
     "variation": 0,
-    "strength": 1.037,
+    "strength": 0.977,
     "pattern": "sequential",
     "enemies": [
-      "oozex1@1.037"
+      "oozex1@0.977"
     ]
   },
   {
@@ -377,10 +377,10 @@
     "count": 1,
     "spawnDelay": 0,
     "variation": 0,
-    "strength": 1.237,
+    "strength": 1.099,
     "pattern": "sequential",
     "enemies": [
-      "wormx1@1.237"
+      "wormx1@1.099"
     ]
   },
   {
@@ -501,40 +501,40 @@
   {
     "wave": 40,
     "template": "Boss: Herbert",
-    "count": 8,
+    "count": 7,
     "spawnDelay": 1054,
     "variation": 0.201,
     "strength": 30.313,
     "pattern": "clustered",
     "enemies": [
       "herbertx1@30.313",
-      "tankx4@30.313",
+      "tankx3@30.313",
       "zombiex3@30.313"
     ]
   },
   {
     "wave": 41,
-    "template": "Bear Pack",
+    "template": "Mammoth Siege",
     "count": 81,
-    "spawnDelay": 600,
-    "variation": 0.223,
-    "strength": 8.79,
-    "pattern": null,
+    "spawnDelay": 850,
+    "variation": 0.247,
+    "strength": 12.374,
+    "pattern": "interleaved",
     "enemies": [
-      "bearx81@8.79"
+      "mammothx57@12.374",
+      "wallsmasherx24@12.374"
     ]
   },
   {
     "wave": 42,
-    "template": "Dragon Elite",
+    "template": "Mech Army",
     "count": 86,
-    "spawnDelay": 840,
+    "spawnDelay": 1000,
     "variation": 0.271,
-    "strength": 12.053,
-    "pattern": "interleaved",
+    "strength": 14.987,
+    "pattern": null,
     "enemies": [
-      "dragonx52@12.053",
-      "hornetx34@12.053"
+      "mechx86@14.987"
     ]
   },
   {
@@ -755,15 +755,15 @@
   {
     "wave": 60,
     "template": "Boss: Herbert",
-    "count": 13,
+    "count": 11,
     "spawnDelay": 980,
     "variation": 0.219,
     "strength": 50.862,
     "pattern": "clustered",
     "enemies": [
       "herbertx1@50.862",
-      "tankx6@50.862",
-      "zombiex6@50.862"
+      "tankx5@50.862",
+      "zombiex5@50.862"
     ]
   }
 ]

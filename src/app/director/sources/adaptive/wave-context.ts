@@ -8,7 +8,7 @@
  */
 
 import { TEMPLATES, candidateTemplates, type NumberRange, type Template, type CandidateReason } from '../../templates';
-import { laneHp, survivableCount } from './wave-sizing';
+import { fairnessKillRealism, laneHp, survivableCount } from './wave-sizing';
 import { templateForWave, isBossWave, enemyBaseDamageForWave } from '../../../configs/campaign.config';
 import {
   ENEMY_TYPES, lineageHp, lineageLeakDamage, splitBodyCount, type EnemyTypeId,
@@ -140,6 +140,8 @@ export function buildWaveContext(
     (id) => lineageLeakDamage(id as EnemyTypeId),
     laneHp(state),
     enemyBaseDamageForWave(upcomingWave),
+    undefined, undefined, undefined,
+    fairnessKillRealism(upcomingWave),
   );
 
   const headroomOf = (template: Template, cap: number | null): number => {
@@ -175,6 +177,8 @@ export function buildWaveContext(
       (id) => lineageLeakDamage(id as EnemyTypeId),
       laneHp(state),
       enemyBaseDamageForWave(upcomingWave),
+      undefined, undefined, undefined,
+      fairnessKillRealism(upcomingWave),
     );
     if (cap !== null) {
       const span = countRange[1] - countRange[0];
