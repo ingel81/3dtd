@@ -323,6 +323,8 @@ export class CoopService {
       this.publicRooms.set(null);
       return;
     }
+    // A join or a host in flight owns the session and waits for its answer: no list meanwhile
+    if (this.session && !this.room()) return;
     const started = performance.now();
     let own: CoopSession | null = null;
     try {

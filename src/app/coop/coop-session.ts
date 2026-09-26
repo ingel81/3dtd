@@ -299,6 +299,9 @@ export class CoopSession {
   }
 
   private request(message: ClientMessage, wants: ServerMessage['t']): Promise<unknown> {
+    // One answer awaited at a time: a second request would take the first one's answer
+    // (a refused join read as a failed room list), and the first would wait for ever
+    if (this.pendingReply) return Promise.reject(new Error(`Busy waiting for ${this.pendingReply.wants}`));
     return new Promise((resolve, reject) => {
       this.expect(wants, resolve, reject);
       this.out(message);

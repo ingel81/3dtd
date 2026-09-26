@@ -43,6 +43,9 @@ vi.mock('../coop/world-package', () => ({
 }));
 
 import { CoopService } from './coop.service';
+import { CoopSession } from '../coop/coop-session';
+import { BUILD_VERSION } from '../configs/build-info.config';
+import { balanceConfigHash } from '../run-log/config-hash';
 import { GameStateManager } from '../managers/game-state.manager';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
@@ -181,6 +184,20 @@ describe('CoopService over a real relay (review R21)', () => {
     const late = player(relay!.port);
     await late.coop.join('Carl', host.coop.room()!.code);
     expect(late.coop.error()).toBe('The host closed the room to new players.');
+  });
+
+  it('a look at the room list while a join waits leaves the join its answer (e2e T36, 2026-09-26)', async () => {
+    const { host } = await lobby();
+    host.coop.setLocked(true);
+    await until(() => host.coop.room()!.locked);
+    // One session, two requests at once: the coop entry looked at the open rooms mid-join,
+    // the list took the join's refusal and the join waited for ever
+    const session = new CoopSession(`ws://localhost:${relay!.port}`, { name: 'Carl', gameVersion: BUILD_VERSION, configHash: balanceConfigHash() });
+    await session.connect();
+    const joined = session.join(host.coop.room()!.code);
+    await expect(session.listRooms()).rejects.toThrow(/Busy/);
+    await expect(joined).rejects.toMatchObject({ reason: 'locked' });
+    session.close();
   });
 
   it('tells the guest at once when the host changes the map (PLAYTEST T25)', async () => {
