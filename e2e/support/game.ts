@@ -4,7 +4,7 @@
 // localStorage, its own window).
 import { expect, type Browser, type Page, type TestInfo } from '@playwright/test';
 import { spawn, type ChildProcess } from 'node:child_process';
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -138,19 +138,29 @@ export async function startRelay({ cheats = true } = {}): Promise<Relay> {
   // The last test's relay may still be going down
   for (let i = 0; i < 30 && (await relayUp()); i++) await new Promise((r) => setTimeout(r, 500));
   if (await relayUp()) throw new Error(`A relay runs on port ${RELAY_PORT} already; stop it first`);
+  // The relay appends to the day's log: this relay's part starts where the file ends now
+  const sizes = relayLogSizes();
   const child: ChildProcess = spawn(`npm run coop-server${cheats ? '' : ' -- --no-cheats'}`, { cwd: REPO, shell: true, stdio: 'ignore' });
   for (let i = 0; i < 50 && !(await relayUp()); i++) await new Promise((r) => setTimeout(r, 200));
   if (!(await relayUp())) throw new Error('The relay did not start');
   const logPath = newestRelayLog();
+  const from = sizes.get(logPath) ?? 0;
   return {
     logPath,
-    log: () => readFileSync(logPath, 'utf8'),
+    log: () => readFileSync(logPath).subarray(from).toString('utf8'),
     stop: () => new Promise<void>((resolve) => {
       // npm under a shell: take the whole tree down
       if (process.platform === 'win32') spawn('taskkill', ['/pid', String(child.pid), '/T', '/F']).on('exit', () => resolve());
       else { child.kill('SIGINT'); resolve(); }
     }),
   };
+}
+
+function relayLogSizes(): Map<string, number> {
+  const dir = join(REPO, 'logs');
+  if (!existsSync(dir)) return new Map();
+  return new Map(readdirSync(dir).filter((f) => f.startsWith('coop_') && f.endsWith('.log'))
+    .map((f) => [join(dir, f), statSync(join(dir, f)).size]));
 }
 
 function newestRelayLog(): string {

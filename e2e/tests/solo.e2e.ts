@@ -54,15 +54,24 @@ test('smoke: build a tower, play a wave, open a dialog, watch the replay', async
   });
 });
 
-test('M5 the pressure loop opens over clean waves, a new place starts it again at ×1.00', async ({ duo, relay: _relay }, testInfo) => {
+test('M5 a new place starts the pressure loop at ×1.00, it opens over clean waves', async ({ duo, relay: _relay }, testInfo) => {
   const page = duo.host;
-  const why = async () => (await page.locator('body').innerText()).match(/Pressure loop[^\n]*/)?.[0] ?? '';
-  // A fresh run on this place, then the wave debug window with its "why"
+  const why = async () => (await page.locator('body').innerText()).match(/Pressure loop[^
+]*/)?.[0] ?? '';
+  // A fresh run: the page played the coop tests' waves before, clean ones the loop would count
+  await page.getByRole('button', { name: 'Random location' }).click();
+  await page.waitForTimeout(3000);
+  await gameReady(page);
+  // The wave debug window with its "why"
   await devAction(page, 'Wave spawner');
   for (let i = 0; i < 3; i++) await page.keyboard.press('+');
+  await page.keyboard.press('Space');
+  await expect.poll(why, { timeout: 30_000 }).toMatch(/collecting \(0 of \d waves\), at ×1\.00/);
+  await shot(testInfo, page, 'm5-new-place');
+  await clearWave(page);
+
   // Four warm-up waves the loop does not count (PRESSURE_WARMUP_WAVES), then three it needs (PRESSURE_MIN_SAMPLES)
-  const start = Number((await waveButton(page).innerText()).match(/wave (\d+)/i)?.[1] ?? 1);
-  for (let wave = start; wave < start + 7; wave++) {
+  for (let wave = 2; wave <= 7; wave++) {
     await page.keyboard.press('Space');
     await expect(waveButton(page)).toContainText(/left/i);
     await clearWave(page);
@@ -70,13 +79,5 @@ test('M5 the pressure loop opens over clean waves, a new place starts it again a
   await page.keyboard.press('Space');
   await expect.poll(why).toMatch(/opened to ×1\.\d\d/);
   await shot(testInfo, page, 'm5-opened');
-  await clearWave(page);
-
-  await page.getByRole('button', { name: 'Random location' }).click();
-  await page.waitForTimeout(3000);
-  await gameReady(page);
-  await page.keyboard.press('Space');
-  await expect.poll(why, { timeout: 30_000 }).toMatch(/collecting \(0 of \d waves\), at ×1\.00/);
-  await shot(testInfo, page, 'm5-new-place');
   await clearWave(page);
 });
