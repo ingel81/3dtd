@@ -43,6 +43,13 @@ export class ProjectileManager extends EntityManager<Projectile> {
    */
   quietShot: ((towerId: string) => boolean) | null = null;
 
+  /**
+   * The tower this client's player sits in (GameStateManager). Only its shots
+   * sound at the listener; a partner's manned tower sounds where it stands
+   * (TODO E42). Null: every manned tower is this player's (single player).
+   */
+  ownSeat: ((tower: Tower) => boolean) | null = null;
+
   private soundsRegistered = false;
 
   /** Reused per-frame scratch buffers — avoids per-update allocation. */
@@ -157,7 +164,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
   /**
    * A tower's shot sounds at its position, on its model. The shots of the
-   * tower the player sits in sound at the listener, without a direction: the
+   * tower this player sits in (ownSeat) sound at the listener, without a direction: the
    * model is below and in front of the eye, and a look up would turn the
    * shot behind the head, where HRTF panning colours it (docs/TOWER_CONTROL.md).
    */
@@ -166,7 +173,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
       lat: tower.position.lat,
       lon: tower.position.lon,
       height: (tower.position.height ?? 0) + tower.typeConfig.heightOffset,
-      atListener: tower.manned,
+      atListener: tower.manned && (this.ownSeat?.(tower) ?? true),
     };
   }
 

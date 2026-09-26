@@ -909,6 +909,7 @@ export class GameStateManager {
 
     // Initialize projectile manager (no callback - uses events)
     this.projectileManager.initialize(tilesEngine);
+    this.projectileManager.ownSeat = (tower) => this.towerLifecycle.mannedTower(this.localPlayerId) === tower;
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
     // Wire health-provider for CloseCall detection at wave end

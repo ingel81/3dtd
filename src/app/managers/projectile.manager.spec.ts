@@ -98,6 +98,26 @@ describe('ProjectileManager', () => {
     expect(sounds).toEqual([false, true, true]);
   });
 
+  it("plays a partner's manned tower where it stands, only this player's seat at the listener (TODO E42)", () => {
+    const mine = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
+    const theirs = new Tower({ lat: 0, lon: 0.001, height: 2 }, 'ice');
+    mine.manned = true;
+    theirs.manned = true;
+    manager.ownSeat = (tower) => tower === mine;
+    const enemy = new Enemy('zombie', [
+      { lat: 0.001, lon: 0, height: 0 },
+      { lat: 0.002, lon: 0, height: 0 },
+    ]);
+    const sounds: (boolean | undefined)[] = [];
+    eventBus.on('audio:play', (event) => sounds.push(event.atListener));
+
+    manager.spawn(mine, enemy);
+    manager.spawn(theirs, enemy);
+    eventBus.processQueue();
+
+    expect(sounds).toEqual([true, false]);
+  });
+
   it('flies a free shot of a manned tower to its aim point and removes it there without a hit', () => {
     const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
     tower.manned = true;
