@@ -1003,6 +1003,19 @@ export class CoopService {
     this.session?.ready(ready);
   }
 
+  /**
+   * Lanes a player took that have no route to the base: a game with one
+   * would send that lane's enemies nowhere and end its waves early, so it
+   * does not start (User, 2026-09-26). Read with the room and the world.
+   */
+  lanesWithoutRoute(): string[] {
+    const room = this.room();
+    if (!room || !this.worldReady()) return [];
+    const paths = this.gameState.getCachedPaths();
+    const taken = new Set(room.players.map((p) => p.spawnId).filter((id): id is string => id !== null));
+    return [...taken].filter((id) => (paths.get(id)?.length ?? 0) < 2);
+  }
+
   /** Host: start the game. The host is always ready (D40); the relay wants every guest ready. */
   start(): void {
     this.session?.start(newRunSeed());

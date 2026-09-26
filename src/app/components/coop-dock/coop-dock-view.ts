@@ -109,10 +109,17 @@ export function roomStatus(i: StatusInput): RoomStatus | null {
 }
 
 /** Why Start is off, for its tooltip; null when it can start */
-export function startBlocked(room: CoopRoomInfo | null, worldReady: boolean): string | null {
+export function startBlocked(
+  room: CoopRoomInfo | null,
+  worldReady: boolean,
+  /** Lanes a player took that have no route to the base (TODO E34, point 7) */
+  routeless: readonly string[] = [],
+): string | null {
   if (!room) return 'No room';
   if (room.players.length < 2) return 'Needs a second player';
   if (!worldReady) return 'The map is still being sent';
+  const lost = room.spawnIds.findIndex((id) => routeless.includes(id));
+  if (lost >= 0) return `Spawn ${lost + 1} has no route`;
   const waiting = room.players.find((p) => p.spawnId === null || (p.id !== room.hostId && !p.ready));
   return waiting ? `Waiting for ${waiting.name}` : null;
 }

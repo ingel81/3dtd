@@ -48,6 +48,8 @@ describe('roomStatus and startBlocked', () => {
     expect(roomStatus({ ...base, room: ready })).toMatchObject({ go: true, bold: 'Everyone is ready.' });
     expect(startBlocked(ready, true)).toBeNull();
     expect(startBlocked(ready, false)).toBe('The map is still being sent');
+    // A taken lane without a route does not start (TODO E34, point 7)
+    expect(startBlocked(ready, true, ['s2'])).toBe('Spawn 2 has no route');
   });
 
   it('a guest who is not ready is told to pick a lane and ready up', () => {

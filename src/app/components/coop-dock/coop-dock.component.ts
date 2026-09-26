@@ -97,7 +97,7 @@ export class CoopDockComponent {
     worldReady: this.coop.worldReady(),
     hostName: this.hostName(),
   }));
-  readonly startBlocked = computed(() => startBlocked(this.room(), this.coop.worldReady()));
+  readonly startBlocked = computed(() => startBlocked(this.room(), this.coop.worldReady(), this.coop.lanesWithoutRoute()));
 
   /** Desync, mixed engines, a map change: the worst first (plan G7) */
   readonly banners = computed(() => {
