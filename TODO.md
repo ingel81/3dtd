@@ -89,10 +89,8 @@ allem unter T (Coop).
       **Die Frage an den Menschen:** Soll die Älteste-zuerst-Regel weichen, damit der Director öfter das
       schickt, wogegen die Abwehr schlecht steht? Das ist der Hebel für die tote Strecke in E18, und es ist
       ein Tausch: weniger garantierte Abwechslung gegen gleichmäßigere Spannung.
-- [ ] **E16 Warteschlange über die Wellennaht** (unbelegt, 2026-09-21): `RunLogCollector.beginBlock()` leert
-      `this.leaking`, während eine Ooze über die Naht hinweg weiterfließen kann. `WaveManager.endWave()` räumt am
-      Wellenende ab, was es unwahrscheinlich macht; belegt ist nichts. Ein Szenario-Test mit einer Ooze an der
-      Naht würde es entscheiden.
+- [ ] **E16 Warteschlange über die Wellennaht** (**geklärt 2026-09-26**): kann nicht eintreten, eine Welle endet nicht,
+      solange ihre Ooze einfließt; belegt per Test in `ooze.scenario.spec.ts` (E16). Nach DONE.
 - [ ] **E17 Der Menschenlauf mit Deckel 645** (offen seit 2026-09-21): E14 erklärt die Luftlücke für kleine
       Deckel, in denen das Leck-Kontingent den Deckel trägt. Bei 645 ist es Rauschen, dort dominiert der
       Tötungsterm, und 68 von 175 getötet bleibt unerklärt. Verdacht: der Spawn-Abstand im Nenner
@@ -152,9 +150,9 @@ allem unter T (Coop).
       Zustand des Gasts (D47), End-to-End-Tests. Offen: Egoperspektive im Coop fühlt sich zäher an als allein (T19,
       User); später vielleicht Turm-Modell lokal vorausdrehen. Vorgesehen, nicht gebaut (D45): weitere Raum-Optionen
       aus dem Design (Credits je Spieler oder Shared pool, Gold senden an/aus, Startgeld, Difficulty, Regel bei Abbruch).
-- [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` setzt keinen Seed, der Anteil getöteter Gegner streut
-      um die Schwelle 0,9 (einmal von neun Läufen rot); `tower-control.scenario.spec.ts` ("fires at its own rate")
-      fiel zweimal nur unter Volllast. Seed setzen bzw. Ursache suchen.
+- [ ] **J3 Zwei Specs flaky**: `air-los-city.scenario.spec.ts` hat seit 2026-09-26 einen festen Seed. Offen:
+      `tower-control.scenario.spec.ts` ("fires at its own rate"), zweimal rot nur unter Volllast; 40 feste Seeds grün,
+      kein Timeout (17 ms), keine Wanduhr im Schusspfad. Ursache unbekannt, erst mit einem roten Lauf samt Ausgabe weiter.
 
 - [ ] **J4 Große Dateien aufteilen** (Code-Smell-Suche 2026-09-25): `game-state.manager.ts` 1991 Zeilen
       (Spieler-Sitze, Lockstep-Takt, Snapshot, Tower-Befehle, Route-Grid), `path-route.service.ts` 1567
@@ -163,21 +161,22 @@ allem unter T (Coop).
       LAN, Lobby und Welt, Spiel, Chat und Pings, Laufzahlen; `leave()` setzt heute rund 25 Felder von Hand zurück),
       `corridor-band.ts` 1236. Längste Funktionen: `buildWaveConfig` 233, `startRelay` 227, `CorridorBuild.build` 220,
       `GameStateSyncService.initialize` 197 Zeilen.
-- [ ] **J5 Doppelte Helfer zusammenlegen**: localStorage mit try/catch und JSON in 12 Dateien (`utils/storage.ts`),
-      Minuten:Sekunden dreimal (`formatReplayTime`, `formatRunTime`, Coop-Dock), `clamp`/`lerp` mehrfach, Koordinaten-
-      Schlüssel mit 5 und 6 Stellen (`samePlace`, `mapSignature`), Kamera-Rahmen in Debug-Anzeige und
-      `CameraFramingService` getrennt gerechnet. Blicke in die Interna von 3d-tiles-renderer in vier Dateien per Cast
-      (ein typisierter Zugriff), `StampedCommand.command` ohne Payload-Typ (Casts in `game-commands.handler.ts`,
-      `resimulation.ts`).
-- [ ] **J6 Spec-Typen**: `tsc -p tsconfig.spec.json` meldet Fehler, die vitest nicht sieht: `.ts`-Importe des Relays
-      (TS5097, `allowImportingTsExtensions`), `lockstep.scenario.spec.ts:282` (`noteFrame` fehlt an `LocalLink`),
-      `coop.service.scenario.spec.ts:170` (Stub ohne Typ). Typcheck der Specs in den Gate nehmen.
-- [ ] **J7 Voller E2E-Lauf nach dem Coop-UI-Umbau** (2026-09-26): Nach den letzten Korrekturen (Esc im Dock,
-      Session-Wettlauf, Squad neben der Fähigkeitenleiste) liefen nur die Lobby-Tests erneut (4/4). Einmal
-      `npm run e2e` komplett, 3 Kartensitzungen.
-- [ ] **J8 E2E M5 rot** (2026-09-26): `solo.e2e.ts` erwartet „opened to ×1.xx“, bekam „×2.01“. Verdacht (unbelegt):
-      der Test beginnt keinen frischen Lauf und erbt saubere Wellen der Coop-Tests auf derselben Seite. Einzeln
-      laufen lassen (2 Sitzungen); grün, dann mit frischem Lauf beginnen, rot, dann den Regler prüfen.
+- [ ] **J5 Doppelte Helfer zusammenlegen** (**gebaut 2026-09-26**): `utils/storage.ts` für alle localStorage-Zugriffe,
+      `formatClock` statt drei Zeitformaten, `coordKey` für Ort und Kartensignatur (5 Stellen), `tilesInternals` als
+      einziger Blick in die Tiles-Interna, `CommandData` und `isLosLogCommand` statt der Casts, die Rahmen-Debuganzeige
+      zeichnet den Rahmen von `CameraFramingService`; `clamp`/`lerp` über `MathUtils`, Vec2 der DevWorld in einer
+      Datei. Der Director behält sein `clamp01` (ohne three). Nach DONE.
+- [ ] **J6 Spec-Typen** (**gebaut 2026-09-26**): `tsc -p tsconfig.spec.json` ohne Fehler (Relay-Importe, Stub,
+      `noteFrame`), der Release-Workflow prüft die Spec-Typen jetzt mit. Nach DONE.
+- [ ] **J7 Voller E2E-Lauf nach dem Coop-UI-Umbau** (**gelaufen 2026-09-26**): 11 von 14 grün. Rot: ein Desync
+      (E32), dadurch auch der Folgetest, weil `relay.log()` die ganze Tagesdatei las (behoben: nur noch der eigene
+      Teil), und M5 (J8). Nach DONE, sobald ein Lauf mit den Fixes grün ist.
+- [ ] **J8 E2E M5 rot** (**gebaut 2026-09-26**): Der Test erbte die sauberen Wellen der Coop-Tests auf derselben Seite
+      (×2.01). Er beginnt jetzt mit "Random location" und prüft dort ×1.00, dann die sieben Wellen. Offen: ein grüner Lauf.
+- [ ] **E32 Coop: Desync nach Kill-all** (E2E 2026-09-26, einmal von zwei Läufen): Raum mit Gast-Pause und Auto-Welle,
+      der Host räumt die Welle per Kill-all (Tick 123, 162). Prüfsumme bei 150 gleich, bei 180 verschieden, ab 510 wieder
+      gleich. Verdacht (unbelegt): `enemy.transform.terrainHeight` geht in die Prüfsumme und folgt dem Routenraster,
+      das nachladende Kacheln je Rechner korrigieren. Erst die Prüfsumme in Teile zerlegen (wie E28), dann entscheiden.
 ---
 
 ## Entschieden (keine Arbeit)
