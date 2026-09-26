@@ -693,6 +693,10 @@ export class BotSession {
     value?: number | boolean,
   ): void {
     console.log('[Bots] Control command received:', action, value);
+    // A tab the player plays themselves (`?bot=manual`) is not the dashboard's: with a
+    // running bot server, `start` let the bot play for them (it bought the research
+    // center of both coop players in DevWorld), `reload` and the speed would hit it too
+    if (!this.signals.botAutoMode()) return;
     if (action === 'reload') {
       setTimeout(() => window.location.reload(), 100);
       return;
