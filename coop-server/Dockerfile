@@ -25,6 +25,10 @@ RUN mkdir -p /app/logs && chown node:node /app/logs
 USER node
 EXPOSE 3003
 VOLUME /app/logs
+# /healthz answers "ok" while the relay takes connections (busybox wget is in the image); a watchdog restarts an
+# unhealthy container. It assumes the default port 3003.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
+  CMD wget -qO- http://127.0.0.1:3003/healthz >/dev/null || exit 1
 ENTRYPOINT ["node", "relay.mjs", "--log-dir", "/app/logs"]
 # The public lobby's defaults (D59, D64, D66); a container's own arguments replace them
 CMD ["--port", "3003", "--status", "local", "--log-days", "14", "--origins", "app://app"]
