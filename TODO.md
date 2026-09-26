@@ -41,11 +41,9 @@ allem unter T (Coop).
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut, die Baseline steht (354 Läufe, 2026-09-21), sechs
       Tuning-Runden sind gelaufen. Offen sind die Zielbänder (3b) und das Kampagnenende (3a),
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
-- [ ] **E12 Heilung oder kürzere Kampagne? (Entscheidung, User)** Der Könner verliert in W24-29 je 8 bis 14 HP und
-      nichts heilt; bei 100 Start-HP schließen sich Druck und ein erreichbares Kampagnenende gegenseitig aus. Drei
-      Antworten stehen im Plan (Heilung an Meilensteinen, kürzere Kampagne, so lassen), keine Empfehlung bis zu
-      deinen eigenen Läufen ([docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Was das Tuning nicht lösen kann").
-      Hängt an D10.
+- [ ] **E12 Heilung oder kürzere Kampagne?** (User, 2026-09-26: vertagt bis zu eigenen langen Läufen, Tendenz "so
+      lassen"): Der Könner verliert in W24-29 je 8 bis 14 HP und nichts heilt; die drei Antworten stehen in
+      [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md), "Was das Tuning nicht lösen kann". Hängt an D10.
 - [ ] **E14 Luftwellen kosten doppelt so viel wie der Deckel verspricht** (gemessen 2026-09-21, 5085 Bot-Wellen
       plus ein Menschenlauf): In Wellen, in denen der Deckel Spielraum versprach (Deckel x1,6 über der
       Wellengröße), töten Bodenverteidigungen **100 %** der Welle, Luftverteidigungen **50 %**, bei 10,9 statt
@@ -60,12 +58,8 @@ allem unter T (Coop).
       (im Test als frei gestubbt, echte Luftziele laufen über die Air-LOS-Pipeline, und hohe Häuser brechen sie),
       der Gegner (die Feldfälle sind zu 43 von 51 Dragon Elite, schnell und zäh zugleich), die Größenordnung
       (Hunderte statt Dutzende) und die Aufstellung (im Test läuft jeder Gegner an beiden Bogenschützen vorbei).
-- [ ] **E13 Ein Tower trägt die Hälfte**: Über 202 Könner-Läufe macht die Kanone 50 bis 54 % des Schadens, danach
-      Dual-Gatling 12-14 %, Gift und Eis je rund 10 %. Der Plan verlangt "kein Typ dominiert". Vor einer Änderung
-      an Preisen oder Werten klären, ob die Bot-Strategie die Kanone überwählt oder ob sie wirklich zu stark ist.
-      **Gemessen am 2026-09-21** (E10, 125 Könner-Läufe): Die Kanone macht 52,8 % des Schadens für 25,3 % des Golds,
-      also 3,56 Schaden je Gold gegen 1,54 beim nächsten Breitband-Tower. Sie wird nicht nur überwählt. Gift liegt
-      je Gold fast gleichauf (3,17), bekommt aber nur 5,5 % des Golds. Offen ist damit nur noch, was daraus folgt.
+- [ ] **E13 Ein Tower trägt die Hälfte** (entschieden 2026-09-26): Die Kanone macht 52,8 % des Schadens für 25,3 %
+      des Golds (3,56 Schaden je Gold gegen 1,54). Ihre Upgrades werden um 15 % teurer, danach mit Bots nachmessen.
 - [ ] **E15 Rakete: gemessen, offen bleibt nur das Gefühl** (2026-09-22): Pfad repariert (`aa-retrofit` an
       `gatling-tech`), Wirkradius ergänzt (5 m, bis fünf Ziele) — sie war das einzige Sprenggeschoss ohne
       einen. **Gemessen in der richtigen Linse** (reine Luftwellen, 42 Läufe gegen 360 der Baseline): Ihr
@@ -80,15 +74,9 @@ allem unter T (Coop).
       ist eine Grenze des Ansatzes, keine Fehleinstellung: Der Regler steuert den Erwartungswert, nicht die
       Verteilung. Kosten vier Wellen nichts und die fünfte 15 %, stimmt der Mittelwert und der Verlauf ist
       trotzdem zackig. Nächster Hebel wäre die Template-Wahl (siehe E19).
-- [ ] **E19 Abwechslung gegen Passung: eine Design-Entscheidung** (offen seit 2026-09-22, misst sich nicht
-      weg): `decideWave()` nimmt das älteste zulässige Template. Am 2026-09-22 löst der Druck-Regler den
-      Gleichstand zwischen gleich alten Kandidaten nach Passung auf (das Template, gegen das die Abwehr am
-      schlechtesten steht, wenn es zu leicht läuft). Gemessen bringt das fast nichts, und der Grund ist
-      strukturell: Wer immer den ältesten nimmt, spielt langfristig jedes Template gleich oft. Über W31 bis
-      W60 liegt jedes bei rund 5 %, mit und ohne Tie-Break. Der Gleichstand entscheidet nur das *Timing*.
-      **Die Frage an den Menschen:** Soll die Älteste-zuerst-Regel weichen, damit der Director öfter das
-      schickt, wogegen die Abwehr schlecht steht? Das ist der Hebel für die tote Strecke in E18, und es ist
-      ein Tausch: weniger garantierte Abwechslung gegen gleichmäßigere Spannung.
+- [ ] **E19 Abwechslung gegen Passung** (User, 2026-09-26: bleibt vorerst, der User kommt nach längeren Sessions
+      darauf zurück): `decideWave()` nimmt das älteste zulässige Template; der Hebel gegen die tote Strecke (E18) wäre,
+      öfter zu schicken, wogegen die Abwehr schwach ist. Tausch: weniger garantierte Abwechslung.
 - [ ] **E16 Warteschlange über die Wellennaht** (**geklärt 2026-09-26**): kann nicht eintreten, eine Welle endet nicht,
       solange ihre Ooze einfließt; belegt per Test in `ooze.scenario.spec.ts` (E16). Nach DONE.
 - [ ] **E17 Der Menschenlauf mit Deckel 645** (offen seit 2026-09-21): E14 erklärt die Luftlücke für kleine
@@ -96,12 +84,11 @@ allem unter T (Coop).
       Tötungsterm, und 68 von 175 getötet bleibt unerklärt. Verdacht: der Spawn-Abstand im Nenner
       (`1 - killsPerSecond * REALISM * delay`), bei 24 Towern geht hornet_strike von 20 (0 ms) auf 83 (400 ms).
       Kein Beleg; dafür braucht es das Run-Log dieses Laufs.
-- [ ] **E21 Abstand großer Gegner (Entscheidung, User)**: Golems überlappen trotz 600 ms Template-Grenze, weil
-      das 3-min-Limit den Delay weiter drückt (W15 New York: 368 ms). Vorschlag: Mindestabstand in Metern je Typ
-      aus der Modellgröße, den auch das 3-min-Limit nicht unterschreitet. Der User denkt noch darüber nach.
-- [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen (User, 2026-09-23): Ctrl+Zahl speichert,
-      Zahl springt. Kollidiert: 1 bis 9 wählen heute Tower (`hotkey-map.ts`), Ctrl wird bewusst durchgelassen
-      (Ctrl+1 wechselt im Browser den Tab). Tastenbelegung erst entscheiden.
+- [ ] **E21 Abstand großer Gegner** (entschieden 2026-09-26): Golems überlappen, weil das 3-min-Limit den Delay unter
+      die Template-Grenze drückt (W15 New York: 368 ms). Fix nur in der Kampagne, als Config der Templates bzw. Wellen
+      für Golem und Mammut, keine Engine-Regel: als Schwarm sollen sie technisch weiter gehen.
+- [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen (User, 2026-09-23; 2026-09-26: Tasten unklar,
+      später): 1 bis 9 wählen heute Tower (`hotkey-map.ts`), Ctrl+Zahl wechselt im Browser den Tab.
 - [ ] **F4 Ungemessene Grafik- und CPU-Kosten**: Laser-Säule, drei Stencil-Pässe der Reichweitenringe, Kegel-Upload,
       Drehbereichssuche des Portals, `buildBand` im Spiel.
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,
@@ -175,8 +162,9 @@ allem unter T (Coop).
       (×2.01). Er beginnt jetzt mit "Random location" und prüft dort ×1.00, dann die sieben Wellen. Offen: ein grüner Lauf.
 - [ ] **E32 Coop: Desync nach Kill-all** (E2E 2026-09-26, einmal von zwei Läufen): Raum mit Gast-Pause und Auto-Welle,
       der Host räumt die Welle per Kill-all (Tick 123, 162). Prüfsumme bei 150 gleich, bei 180 verschieden, ab 510 wieder
-      gleich. Verdacht (unbelegt): `enemy.transform.terrainHeight` geht in die Prüfsumme und folgt dem Routenraster,
-      das nachladende Kacheln je Rechner korrigieren. Erst die Prüfsumme in Teile zerlegen (wie E28), dann entscheiden.
+      gleich. Verdacht (unbelegt): `enemy.transform.terrainHeight` folgt dem Routenraster, das nachladende Kacheln je
+      Rechner korrigieren. **Gebaut 2026-09-26:** zerlegte Prüfsumme, das Relay nennt Teil und erste Objekte
+      ([COOP_PLAN.md](docs/COOP_PLAN.md) C5). Offen: der nächste Desync mit neuem Relay liefert den Beleg.
 ---
 
 ## Entschieden (keine Arbeit)
