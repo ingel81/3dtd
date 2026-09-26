@@ -8,6 +8,7 @@
  * GameObject ids come from a static counter; one per process is right for
  * the game, two simulations here each keep their own (Client.run).
  */
+import type { WaveGroupDisplay } from '../services/debug/wave-debug.service';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 vi.mock('three', async () => {
@@ -808,6 +809,32 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
     expect(laned.length).toBeGreaterThan(alone.length);
     // A zombie of the same wave is worth the same; before, the budget was spread over both lanes
     expect(laned[0]).toBe(alone[0]);
+  });
+
+  it('previews one lane of a coop wave and how many lanes get it (TODO E34)', () => {
+    const preview = (withLanes: boolean) => {
+      Math.random = mulberry32(SEED + 1);
+      const relay = new LocalRelay(true);
+      const a = buildClient(relay, 'a');
+      const b = buildClient(relay, 'b');
+      if (withLanes) {
+        const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+        a.gsm.setLanes(lanes);
+        b.gsm.setLanes(lanes);
+      }
+      let shown: WaveGroupDisplay[] = [];
+      (a.gsm as unknown as { waveDebug: unknown }).waveDebug = { setCurrentWaveGroups: (groups: WaveGroupDisplay[]) => { shown = groups; } };
+      a.emit({ type: 'command:start-wave', director: directorWave() });
+      for (let f = 0; f < 200 && a.gsm.waveManager.phase() !== 'wave'; f++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+      }
+      return shown.map((g) => [g.enemyType, g.count, g.lanes]);
+    };
+    const alone = preview(false);
+    expect(alone.length).toBeGreaterThan(0);
+    expect(preview(true)).toEqual(alone.map(([type, count]) => [type, count, 2]));
   });
 
   it('tells everyone once every player is ready, and forgets it when the wave starts', () => {

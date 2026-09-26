@@ -28,6 +28,8 @@ export interface WaveGroupDisplay {
   healthMultiplier: number;
   speedMultiplier: number;
   spawnDelay: number;
+  /** Coop lanes that each get `count` of this group; 1 alone */
+  lanes: number;
 }
 
 /**

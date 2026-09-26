@@ -154,7 +154,7 @@ export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null
   const stats = [
     { label: 'HP', value: String(group.actualHp) },
     { label: 'SPEED', value: `${group.actualSpeed.toFixed(1)}m/s` },
-    { label: 'COUNT', value: `×${group.count}` },
+    { label: 'COUNT', value: group.lanes > 1 ? `×${group.count} on each of ${group.lanes} lanes` : `×${group.count}` },
   ];
 
   const damageRows = (Object.keys(DAMAGE_MATRIX) as DamageType[])
