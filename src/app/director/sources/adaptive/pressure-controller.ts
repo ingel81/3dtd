@@ -80,6 +80,17 @@ export const PRESSURE_SMOOTHING = 0.35;
 export const PRESSURE_MIN_SAMPLES = 3;
 
 /**
+ * Most a single wave counts for, as a multiple of the target (TODO E48).
+ *
+ * One wave that cost 50 % of the HP went into the average whole, and with
+ * the smoothing's memory the loop stayed shut for a dozen waves after it
+ * (W15 to W17 of the Heilbronn coop run, then W18 to W30 cost nothing).
+ * Three times the target still says "far too hard" and closes the loop as
+ * far as one step goes; an outlier just no longer lingers.
+ */
+export const PRESSURE_MEASURE_CAP = 3;
+
+/**
  * Lauflänge, auf die der Regler zielt, und die HP, die dort noch übrig sein
  * sollen. Zusammen ergeben sie den Zieldruck; die gewünschte Lauflänge ist
  * damit ein Design-Parameter und kein Ergebnis von Tuning.
@@ -263,7 +274,7 @@ export class PressureController {
     // schützt weiter das Anti-Windup unten, und das greift an der richtigen
     // Stelle: bei der Stellgröße, nicht bei der Messung.
     if (pressure !== null && Number.isFinite(pressure)) {
-      const value = Math.max(0, Math.min(1, pressure));
+      const value = Math.max(0, Math.min(1, target * PRESSURE_MEASURE_CAP, pressure));
       this.smoothed = this.smoothed === null
         ? value
         : PRESSURE_SMOOTHING * value + (1 - PRESSURE_SMOOTHING) * this.smoothed;
