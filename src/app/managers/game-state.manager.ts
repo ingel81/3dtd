@@ -770,6 +770,7 @@ export class GameStateManager {
     // Wire wave-number + wave-weight providers for the kill-reward formula
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
     this.enemyManager.setWaveWeightProvider(() => this.waveManager.getExpectedBodyWeight());
+    this.enemyManager.setWaveLaneCountProvider(() => this.waveManager.getWaveLaneCount());
     // Abilities fire during a wave only
     for (const seat of this.abilitySeats) seat.setPhaseProvider(this.phaseNow);
 

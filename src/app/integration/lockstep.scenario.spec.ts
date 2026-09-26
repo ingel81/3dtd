@@ -775,6 +775,41 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
     expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
   });
 
+  it('pays a kill on two lanes what it pays on one: every lane has the whole wave and its kill gold', () => {
+    /** The gold of each tower kill of wave 1, with or without lanes */
+    const killGold = (withLanes: boolean): number[] => {
+      Math.random = mulberry32(SEED + 1);
+      const relay = new LocalRelay(true);
+      const a = buildClient(relay, 'a');
+      const b = buildClient(relay, 'b');
+      if (withLanes) {
+        const lanes = new Map([['a', 'spawn-1'], ['b', 'spawn-2']]);
+        a.gsm.setLanes(lanes);
+        b.gsm.setLanes(lanes);
+      }
+      const paid: number[] = [];
+      a.gsm.getEventBus().on('enemy:died', (e) => {
+        if (e.killedBy?.kind === 'tower') paid.push(e.credits);
+      });
+      a.emit({ type: 'command:start-wave', director: directorWave() });
+      let waved = false;
+      for (let f = 0; f < 20000; f++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+        if (a.gsm.waveManager.phase() === 'wave') waved = true;
+        else if (waved) break;
+      }
+      return paid;
+    };
+    const alone = killGold(false);
+    const laned = killGold(true);
+    expect(alone.length).toBeGreaterThan(0);
+    expect(laned.length).toBeGreaterThan(alone.length);
+    // A zombie of the same wave is worth the same; before, the budget was spread over both lanes
+    expect(laned[0]).toBe(alone[0]);
+  });
+
   it('tells everyone once every player is ready, and forgets it when the wave starts', () => {
     Math.random = mulberry32(SEED + 1);
     const relay = new LocalRelay(true);

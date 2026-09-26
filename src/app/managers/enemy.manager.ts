@@ -434,6 +434,18 @@ export class EnemyManager extends EntityManager<Enemy> {
   private getWaveWeight: () => number = () => 1;
 
   /**
+   * Set the lane count of the wave (WaveManager.getWaveLaneCount): in coop
+   * every lane gets the whole wave, and the kill gold of the wave once per
+   * lane, so a kill pays what it pays alone. Without it the budget was spread
+   * over both lanes' enemies and each player earned half the kill gold.
+   */
+  setWaveLaneCountProvider(provider: () => number): void {
+    this.getWaveLaneCount = provider;
+  }
+
+  private getWaveLaneCount: () => number = () => 1;
+
+  /**
    * Calculate kill reward from the wave's deterministic kill-budget
    * (Phase 5.16): the campaign pins a total per-wave gold amount which
    * we split deterministically across the expected bodies. Effect:
@@ -486,7 +498,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     if (wave !== this.rewardWaveNumber) {
       this.rewardWaveNumber = wave;
-      this.remainingKillBudget = waveGold(wave).kill;
+      this.remainingKillBudget = waveGold(wave).kill * Math.max(1, this.getWaveLaneCount());
       this.paidRewardWeight = 0;
     }
 
