@@ -10,7 +10,7 @@
  * services.
  */
 
-import { Injectable, effect, inject } from '@angular/core';
+import { Injectable, effect, inject, signal } from '@angular/core';
 import { SubscriptionBag, type GameEventBus } from '../game-engine/game-event-bus';
 import type { Tower } from '../entities/tower.entity';
 import type { GameStateManager } from '../managers/game-state.manager';
@@ -59,6 +59,8 @@ export class RunLogFacade {
   readonly store = new RunLogStore();
 
   private readonly subs = new SubscriptionBag();
+  /** The last run that ended and was kept; coop offers it to the relay (TODO E38) */
+  readonly closedRun = signal<RunLog | null>(null);
   private gameState: GameStateManager | null = null;
 
   /**
@@ -206,6 +208,7 @@ export class RunLogFacade {
     // A run nobody played (opened and reset right away) is not worth keeping.
     if (!run || waveReached <= 0) return;
     void this.store.save(run, waveReached);
+    this.closedRun.set(run);
     // The desktop app keeps its runs as files as well, next to its logs, so a
     // batch of them can be read without opening the game.
     void readDesktopBridge()?.saveRun(runFileName(run.head.runId), toJsonl(run.records));

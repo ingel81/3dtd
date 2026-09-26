@@ -60,6 +60,11 @@ import {
 } from '../coop/room-options';
 import type { GeoPosition } from '../models/game.types';
 import { readText, removeKey, writeJson, writeText } from '../utils/storage';
+import { MatDialog } from '@angular/material/dialog';
+import { askRunUpload } from '../components/run-upload-dialog/run-upload-dialog.component';
+import { packRunLog, readRunUploadConsent, writeRunUploadConsent } from '../run-log/run-upload';
+import { toJsonl } from '../run-log/run-log.export';
+import type { RunLog } from '../run-log/run-log.types';
 
 /** Two points are the same place at the precision the URL keeps. */
 function samePlace(a: GeoPosition, b: GeoPosition): boolean {
@@ -111,6 +116,9 @@ export interface CoopChatLine {
   /** Date.now() when it came here */
   at: number;
 }
+
+/** Largest run log to send, base64 characters: under the relay's 1 MB message limit (TODO E38) */
+const MAX_RUN_LOG_CHARS = 1000 * 1024;
 
 /** A player's status as the chat tells the room */
 const STATUS_LINE: Record<PlayerStatus, (name: string) => string> = {
@@ -188,6 +196,7 @@ export class CoopService {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly inputHandler = inject(InputHandlerService);
   private readonly runLog = inject(RunLogFacade);
+  private readonly dialog = inject(MatDialog);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -399,6 +408,11 @@ export class CoopService {
 
   constructor() {
     readDesktopBridge()?.onUpdateReady(() => this.ngZone.run(() => this.updateReady.set(true)));
+    // A coop run that ended goes to a relay that collects, with the player's consent (TODO E38)
+    effect(() => {
+      const run = this.runLog.closedRun();
+      if (run) untracked(() => void this.offerRunLog(run));
+    });
     // The game component goes (another route): out of the room, the LAN relay and scan with it
     inject(DestroyRef).onDestroy(() => {
       this.scanLan(false);
@@ -921,6 +935,28 @@ export class CoopService {
     return null;
   }
 
+  /**
+   * Send a coop run log to the relay (TODO E38): only a coop run, only to a
+   * relay that said it collects, and only once the player agreed; asked once,
+   * the Runs dialog changes the answer.
+   */
+  private async offerRunLog(run: RunLog): Promise<void> {
+    const session = this.session;
+    if (!run.head.coop || !session?.collectRuns) return;
+    let consent = readRunUploadConsent();
+    if (consent === null) {
+      consent = (await askRunUpload(this.dialog)) ? 'yes' : 'no';
+      writeRunUploadConsent(consent);
+    }
+    if (consent !== 'yes' || this.session !== session) return;
+    const gz = await packRunLog(toJsonl(run.records));
+    if (gz.length > MAX_RUN_LOG_CHARS) {
+      this.notify('The run log is too large to send', 'warn');
+      return;
+    }
+    session.sendRunLog(gz);
+  }
+
   /** The run log marks this run as a coop one: it sets no record of the place (review R16) */
   private markRunAsCoop(): void {
     const me = this.roster().find((p) => p.id === this.playerId())?.name ?? this.name;
@@ -1260,6 +1296,10 @@ export class CoopService {
       this.notify(hostId === this.playerId() ? 'You are the host now' : `${this.nameOf(hostId)} is the host now`);
     });
     session.onChat = inZone((from, text) => this.addChatLine(from, text));
+    session.onRunLog = inZone((ok, reason) => {
+      if (ok) this.notify('Run log sent. Thanks!');
+      else this.notify(`The run log was not kept: ${reason ?? 'no reason given'}`, 'warn');
+    });
     session.onRefused = inZone((reason) => {
       // Taken out of the room: this player is out of it here too
       if (reason === 'kicked') this.leave();
