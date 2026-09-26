@@ -177,6 +177,26 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(guest.gsm.players).toEqual(host.gsm.players);
   });
 
+  it('counts an ooze that flows in point by point once for its lane (TODO E34)', async () => {
+    const { host, guest } = await lobby();
+    guest.coop.setLobbyReady(true);
+    await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.ready);
+    host.coop.start();
+    await until(() => host.coop.inGame() && guest.coop.inGame());
+    const me = host.coop.roster().find((p) => p.id === host.coop.playerId())!;
+    const path = [HQ];
+    host.gsm.getCachedPaths = () => new Map([[me.spawnId!, path]]);
+    const bus = host.gsm.getEventBus();
+    const enemy = (id: string) => ({ id, movement: { path } }) as never;
+
+    bus.emit({ type: 'enemy:leaking', enemy: enemy('ooze'), damage: 1 });
+    bus.emit({ type: 'enemy:leaking', enemy: enemy('ooze'), damage: 1 });
+    bus.emit({ type: 'enemy:reached-base', enemy: enemy('ooze'), damage: 1 } as never);
+    bus.emit({ type: 'enemy:reached-base', enemy: enemy('zombie'), damage: 1 } as never);
+
+    expect(host.coop.waveLeaks().get(me.id)).toBe(2);
+  });
+
   it('lets the host take a guest out and close the room', async () => {
     const { host, guest } = await lobby();
     host.coop.kick(guest.coop.playerId()!);
