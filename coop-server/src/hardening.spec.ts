@@ -4,7 +4,7 @@
  * fuzz of every message type, the limits on connections, the hello, the
  * heartbeat, room codes, and the status page's health check and actions.
  */
-import { describe, it, expect, afterEach } from 'vitest';
+import { describe, it, expect, afterEach, vi } from 'vitest';
 import { WebSocket } from 'ws';
 import { CLOSE_RESTART, startRelay, type RelayMetricsView, type RelayServer } from './server.ts';
 import { PROTOCOL_VERSION, type ClientMessage, type ServerMessage } from '../../src/app/coop/protocol.ts';
@@ -261,6 +261,18 @@ describe('the status page (relay review ideas 2 and 3)', () => {
     expect((await fetch(`http://localhost:${relay.port}/status`, tunnel)).status).toBe(404);
   });
 
+  it('writes the metrics line only when something changed, not every idle minute', async () => {
+    vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+    try {
+      const lines: string[] = [];
+      relay = await startRelay({ port: 0, log: (line) => lines.push(line) });
+      vi.advanceTimersByTime(5 * 60_000);
+      expect(lines.filter((l) => l.startsWith('metrics:'))).toHaveLength(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('shows the page, metrics and the log, and has no actions without a token', async () => {
     relay = await startRelay({ port: 0, log: () => undefined });
     const page = await fetch(`http://localhost:${relay.port}/`);
@@ -284,6 +296,9 @@ describe('the status page (relay review ideas 2 and 3)', () => {
     b.send({ t: 'join', room: code });
     await b.until('room', (m) => m.room.players.length === 2);
 
+    // The page asks first whether its token is right
+    expect((await post('/admin/check', {}, 'wrong')).status).toBe(403);
+    expect((await post('/admin/check', {})).status).toBe(200);
     expect((await post('/admin/drop-player', { id: b.playerId }, 'wrong')).status).toBe(403);
     expect((await post('/admin/drop-player', { id: b.playerId })).status).toBe(200);
     await closed(b.socket);

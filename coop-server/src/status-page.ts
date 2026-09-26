@@ -48,21 +48,49 @@ const PAGE = `<!doctype html>
 <div class="curves" id="curves"></div>
 <h2>Rooms</h2>
 <div id="rooms"></div>
+<div id="adminBar" hidden>
+  <div class="bar">
+    <label for="token" class="dim">Admin token</label>
+    <input id="token" type="password" autocomplete="off">
+    <button id="unlock">Unlock</button>
+    <span id="adminNote" class="dim"></span>
+  </div>
+  <div class="dim">The relay's RELAY_ADMIN_TOKEN. It unlocks the buttons "drop" (a player) and "close room" in the rooms above; without an open room there is nothing to act on.</div>
+</div>
 <h2>Log</h2>
 <pre id="log"></pre>
-<div class="bar" id="adminBar" hidden>
-  <label for="token" class="dim">Admin token</label>
-  <input id="token" type="password" autocomplete="off">
-  <span id="adminNote" class="dim"></span>
-</div>
 <script>
 (function () {
   var tokenInput = document.getElementById('token');
   try { tokenInput.value = localStorage.getItem('relay-admin-token') || ''; } catch (e) {}
-  tokenInput.addEventListener('change', function () {
-    try { localStorage.setItem('relay-admin-token', tokenInput.value); } catch (e) {}
-  });
   var actions = false;
+  // The buttons show only once the relay said yes to the token
+  var unlocked = false;
+  var lastStatus = null;
+  function note(text, cls) {
+    var n = document.getElementById('adminNote');
+    n.textContent = text;
+    n.className = cls;
+  }
+  function check() {
+    try { localStorage.setItem('relay-admin-token', tokenInput.value); } catch (e) {}
+    if (!tokenInput.value) {
+      unlocked = false;
+      note('locked', 'dim');
+      if (lastStatus) renderRooms(lastStatus);
+      return;
+    }
+    fetch('/admin/check', { method: 'POST', headers: { 'x-admin-token': tokenInput.value } })
+      .then(function (r) {
+        unlocked = r.status === 200;
+        note(unlocked ? 'unlocked: drop and close room are on' : 'wrong token, locked', unlocked ? 'ok' : 'bad');
+        if (lastStatus) renderRooms(lastStatus);
+      })
+      .catch(function () { note('relay not reachable', 'bad'); });
+  }
+  tokenInput.addEventListener('change', check);
+  tokenInput.addEventListener('keydown', function (e) { if (e.key === 'Enter') check(); });
+  document.getElementById('unlock').addEventListener('click', check);
 
   function el(tag, text, cls) {
     var node = document.createElement(tag);
@@ -131,12 +159,12 @@ const PAGE = `<!doctype html>
         var line = el('div');
         var ping = p.rttMs === null ? '?' : p.rttMs;
         line.appendChild(el('span', p.name + ' (' + p.id + (p.id === room.hostId ? ', host' : '') + '), ' + (p.spawnId || 'no lane') + ', ' + ping + ' ms '));
-        if (actions) line.appendChild(actionButton('drop', 'Drop ' + p.name + '?', function () { act('/admin/drop-player', { id: p.id }, 'drop ' + p.id); }));
+        if (actions && unlocked) line.appendChild(actionButton('drop', 'Drop ' + p.name + '?', function () { act('/admin/drop-player', { id: p.id }, 'drop ' + p.id); }));
         players.appendChild(line);
       });
       row.appendChild(players);
       var tools = el('td');
-      if (actions) tools.appendChild(actionButton('close room', 'Close room ' + room.code + ' for everyone in it?', function () { act('/admin/close-room', { code: room.code }, 'close ' + room.code); }));
+      if (actions && unlocked) tools.appendChild(actionButton('close room', 'Close room ' + room.code + ' for everyone in it?', function () { act('/admin/close-room', { code: room.code }, 'close ' + room.code); }));
       row.appendChild(tools);
       table.appendChild(row);
     });
@@ -172,7 +200,9 @@ const PAGE = `<!doctype html>
     Promise.all([fetch('/status'), fetch('/metrics.json'), fetch('/log.json')].map(function (p) { return p.then(function (r) { return r.json(); }); }))
       .then(function (all) {
         var status = all[0], metrics = all[1], lines = all[2];
+        if (metrics.actions && !actions) check();
         actions = metrics.actions;
+        lastStatus = status;
         document.getElementById('adminBar').hidden = !actions;
         renderMetrics(metrics, status);
         renderRooms(status);
