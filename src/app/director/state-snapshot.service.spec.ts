@@ -96,6 +96,8 @@ describe('StateSnapshotService', () => {
 
   /** What the HeroManager reports for the gate, null while no hero is hired */
   let heroProfile: HeroDefenseProfile | null = null;
+  /** Coop lanes; none in the single player game */
+  let laneSpawns: string[] = [];
 
   function createCollector(): StateSnapshotService {
     const hero = { getDefenseProfile: () => heroProfile };
@@ -110,6 +112,7 @@ describe('StateSnapshotService', () => {
       creditsOf: () => store.credits(),
       get gameTimeMs() { return gameTimeMs; },
       getCachedRoutes: () => routes,
+      get laneSpawns() { return laneSpawns; },
     };
     const injector = Injector.create({
       providers: [
@@ -482,6 +485,21 @@ describe('StateSnapshotService', () => {
         expect(defense.totalDPS).toBe(0);
       } finally {
         heroProfile = null;
+      }
+    });
+
+    it('sizes a coop wave against one lane\'s share of the joint defense (every lane gets the whole wave)', () => {
+      heroProfile = heroDefenseProfile(0);
+      try {
+        const alone = collector.getStateSnapshot().defense;
+        laneSpawns = ['spawn-1', 'spawn-2'];
+        const laned = collector.getStateSnapshot().defense;
+        expect(laned.killThroughput.ground).toBeCloseTo(alone.killThroughput.ground / 2, 6);
+        expect(laned.gateDpsPerArmor.ground.heavy).toBeCloseTo(alone.gateDpsPerArmor.ground.heavy / 2, 6);
+        expect(laned.effectiveDPSPerArmor.air.light).toBeCloseTo(alone.effectiveDPSPerArmor.air.light / 2, 6);
+      } finally {
+        heroProfile = null;
+        laneSpawns = [];
       }
     });
 
