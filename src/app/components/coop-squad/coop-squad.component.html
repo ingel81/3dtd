@@ -89,6 +89,13 @@
           @for (amount of amounts; track amount) {
             <button class="btn-xs" type="button" [disabled]="amount > myGold()" (click)="give(to, amount)">{{ amount }}</button>
           }
+          <!-- Any amount (TODO E36) -->
+          <form class="gift-any" (submit)="$event.preventDefault(); giveAny(to)">
+            <input class="gift-input" type="number" min="1" [max]="myGold()" step="1" inputmode="numeric"
+                   aria-label="Credits to send" placeholder="Amount"
+                   [value]="anyAmount() ?? ''" (input)="setAnyAmount($any($event.target).value)">
+            <button class="btn-xs" type="submit" [disabled]="!canGiveAny()">Send</button>
+          </form>
         </div>
       }
 
