@@ -51,15 +51,15 @@ describe('RunStore', () => {
   let dir = '';
   afterEach(() => rmSync(dir, { recursive: true, force: true }));
 
-  it('keeps one log per player and room, lists and reads it, and refuses paths outside', () => {
+  it('keeps one log per player and run, lists and reads it, and refuses paths outside', () => {
     dir = mkdtempSync(join(tmpdir(), 'runs-'));
     const store = new RunStore({ dir, maxBytes: 1e9, maxAgeMs: 1e12, now: () => Date.parse('2026-09-26T12:00:00Z') });
     const result = store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())));
-    expect(result).toEqual({ ok: true, path: 'coop/2026-09-26_ABC123/Ann_p1.jsonl.gz' });
+    expect(result).toEqual({ ok: true, path: 'coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz' });
     expect(store.accept('ABC123', 'p1', 'Ann', packed(jsonl(head, wave())))).toEqual({ ok: false, reason: 'already sent' });
     expect(store.accept('ABC123', 'p2', 'Bob', 'not base64 gzip')).toMatchObject({ ok: false });
-    expect(store.list().map((r) => r.path)).toEqual(['coop/2026-09-26_ABC123/Ann_p1.jsonl.gz']);
-    expect(store.read('coop/2026-09-26_ABC123/Ann_p1.jsonl.gz')?.length).toBeGreaterThan(0);
+    expect(store.list().map((r) => r.path)).toEqual(['coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz']);
+    expect(store.read('coop/2026-09-26_ABC123/Ann_p1_r1.jsonl.gz')?.length).toBeGreaterThan(0);
     expect(store.read('../../etc/passwd')).toBeNull();
   });
 
@@ -107,7 +107,7 @@ describe('a run log through the relay', () => {
     return { socket, send, until, heard, welcome };
   }
 
-  it('says it collects, takes a player log after a game once, and hands it to the token', async () => {
+  it('says it collects, takes a player log after a game once per run, and hands it to the token', async () => {
     dir = mkdtempSync(join(tmpdir(), 'runs-'));
     relay = await startRelay({
       port: 0, log: () => undefined, adminToken: 'secret',
