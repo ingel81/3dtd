@@ -120,6 +120,11 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D53 | Coop-Dialog in der App | LAN zuerst: „Host LAN game“ und die Liste gefundener Spiele oben, eigener Server unter „Advanced“ (User, 2026-09-25) |
 | D54 | Nichts gefunden | Feld „Host IP“ (der Host zeigt seine Adressen mit Adaptername) und drei Zeilen Checkliste: Firewall erlaubt, gleiches Netz, Gast-WLAN isoliert (User, 2026-09-25) |
 | D55 | Schutz fürs Netz | Leicht: `Origin` prüfen, `wss://` über Reverse Proxy dokumentieren, S3 Mehrheit ab drei Spielern; S2, S5, S6 bleiben beschrieben (User, 2026-09-25) |
+| D69 | Verbindungen je Adresse | Das Relay zählt offene Verbindungen je Adresse (hinter dem Tunnel `CF-Connecting-IP`) nur im Arbeitsspeicher, nie im Log; präzisiert D64 (User, 2026-09-26) |
+| D70 | Herzschlag | Drei verpasste Pings, rund 15 s, dann gilt ein Spieler als weg (User, 2026-09-26) |
+| D71 | Hängender Spieler | Nach 30 s Warten lässt das Relay ihn gehen, seine Lane schließt; der Host kann auch im Spiel rauswerfen (zwei Klicks in der Squad-Box) (User, 2026-09-26) |
+| D72 | Statusseite | Lokale Weboberfläche mit Kennzahlen, Kurven der letzten Stunde, Räumen, Log-Ende; Aktionen (Raum schließen, Spieler trennen) nur mit Admin-Token. Kein Prometheus, kein Grafana (User, 2026-09-26) |
+| D73 | Später | Drain beim Update, C5b nach dem Playtest entscheiden, Neustart ohne Raumverlust erst nach C5b (User, 2026-09-26) |
 
 ## 4. Pakete
 
@@ -709,6 +714,33 @@ einem Node-Prozess, 10 s gemessen (`tools/coop-load/relay-load.ts`). Ein Raum: u
 je Sekunde an die Clients (30 je Spieler); 50 Räume, 200 Spieler: rund 21 % eines Kerns mit den Clients, 6 058
 Nachrichten je Sekunde. Ein kleiner VPS trägt also weit mehr Räume, als es in absehbarer Zeit geben wird; die
 Grenze ist eher die Bandbreite der Weltpakete (rund 300 kB je Beitritt).
+
+### C9 Härtung des Relays (gebaut 2026-09-26)
+
+Aus einem Review des Relays (Absturzsicherheit, Grenzen, Betrieb), Entscheidungen D69 bis D73. Alles in
+[coop-server/README.md](../coop-server/README.md), Abschnitte „Limits“ und „Status page“.
+
+- **Kein Absturz durch eine Nachricht:** `validate.ts` prüft jede Nachricht Feld für Feld (Typen, Längen, endliche
+  Zahlen, Steuerzeichen raus, Befehle höchstens 256 kB und ohne Schlüssel wie `__proto__`); die Behandlung läuft in
+  einem try/catch, ein Fehler trennt nur diese Verbindung. Timer und Räume fangen ihre Fehler selbst, dazu
+  `uncaughtException` als Netz in `main.ts` und `desktop.ts`. Vorher reichte `{"t":"chat"}` ohne Text, um den
+  Prozess mit allen Räumen zu beenden.
+- **Grenzen:** 1 MB je Nachricht, 500 Verbindungen, 8 je Adresse (D69), hello binnen 10 s, 8 MB ungelesen führt zum
+  Trennen, Serialisierung einmal je Broadcast, eine Welt höchstens je Sekunde, 20 falsche Raumcodes, Hash-Meldungen
+  nur für geschlossene Ticks im Fenster, `HashCheck.prune` vom höchsten Tick aus.
+- **Spieler und Räume:** Herzschlag 5 s, drei verpasste (D70); ein Spieler, auf den der Raum 30 s wartet, geht
+  (D71), Kick im Spiel; Spiele ohne Befehl schließen nach 3 h.
+- **Betrieb:** Log-Zeilen der Lobby je Spieler gedrosselt (30 je Minute), Ablehnungen gebündelt, Tagesdatei bis
+  50 MB, Fehler der Log-Datei beenden nur die Datei; SIGTERM schickt Close-Code 1012, der Client sagt „The coop
+  server restarts“; `close()` einmalig. `/healthz` mit `HEALTHCHECK` im Dockerfile, `logging: max-size` in der
+  Compose-Datei.
+- **Statusseite (D72):** `status-page.ts`, `/metrics.json`, `/log.json`, `/text`; Aktionen per `x-admin-token`
+  (`RELAY_ADMIN_TOKEN`). Kennzahlen in `metrics.ts`, alle 60 s eine Zeile im Log.
+- **LAN-Relay der App:** nur `app://app` (Clients ohne Origin passieren), `/status` ohne CORS; die LAN-Suche antwortet
+  nur privaten Adressen und kürzt die Raumliste auf ein Paket.
+- Abnahme: `hardening.spec.ts` (Fuzz über alle Nachrichtentypen: kein Fehler, das Spiel läuft weiter; Grenzen,
+  Herzschlag, Health-Check, Aktionen, Neustart-Code), `validate.spec.ts`, `room.spec.ts` (Hänger, Kick im Spiel,
+  Log-Drossel), `lan-discovery.test.js`.
 
 ### C8 Design-Handover (gebaut 2026-09-25)
 

@@ -165,6 +165,9 @@ allem unter T (Coop).
       gleich. Verdacht (unbelegt): `enemy.transform.terrainHeight` folgt dem Routenraster, das nachladende Kacheln je
       Rechner korrigieren. **Gebaut 2026-09-26:** zerlegte Prüfsumme, das Relay nennt Teil und erste Objekte
       ([COOP_PLAN.md](docs/COOP_PLAN.md) C5). Offen: der nächste Desync mit neuem Relay liefert den Beleg.
+- [ ] **E33 Relay-Härtung** (**gebaut 2026-09-26**, [COOP_PLAN.md](docs/COOP_PLAN.md) C9, D69 bis D73): Review mit
+      Absturz durch eine einzige Nachricht (K1) und weiteren Grenzen; alles behoben, Statusseite mit Aktionen.
+      Offen: das neue Relay-Image für die Lobby (`relay-image.yml`), später Drain, C5b nach dem Playtest.
 ---
 
 ## Entschieden (keine Arbeit)

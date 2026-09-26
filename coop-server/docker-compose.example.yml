@@ -5,6 +5,15 @@ services:
     image: ghcr.io/ingel81/3dtd-relay:latest
     container_name: 3dtd-relay
     restart: unless-stopped
+    # Docker's own log of the container (stdout) stays small; the relay's day files live in ./logs
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # Actions on the status page (close a room, drop a player) for whoever enters this token; leave out for read only
+    # environment:
+    #   RELAY_ADMIN_TOKEN: "a long random string"
     volumes:
       - ./logs:/app/logs
     # No published port needed: cloudflared reaches it on the shared network.
