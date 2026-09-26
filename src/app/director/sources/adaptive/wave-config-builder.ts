@@ -19,9 +19,9 @@ import { directorParams } from '../../director-params';
 import type { PressureStatus } from './pressure-controller';
 import { targetPressure } from './pressure-controller';
 import {
-  ENEMY_TYPES, lineageHp, lineageLeakDamage, splitBodyCount, type EnemyTypeId,
+  ENEMY_TYPES, lineageHp, lineageLeakDamage, spawnFloorMs, splitBodyCount, type EnemyTypeId,
 } from '../../../configs/enemy-types.config';
-import { campaignIntensity, campaignMinSpawnDelay, endgameHpMultiplier, enemyBaseDamageForWave } from '../../../configs/campaign.config';
+import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../../../configs/campaign.config';
 
 /** What the wave sizing reads from the fairness gate. */
 export interface PressureReading {
@@ -192,11 +192,15 @@ export function buildWaveConfig(
     spawnDelay = Math.min(plannedDelay, Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / totalCount)));
   }
 
-  // The campaign keeps large models apart (TODO E21). The wave is sized as it
-  // would be; only then its delay stretches to the campaign's floor. Where
-  // that runs past the three minutes, fewer come, each tougher by as much:
-  // the wave keeps its health, the models keep their room.
-  const delayFloor = campaignMinSpawnDelay(upcomingWave);
+  // The spawner keeps every type at least its spawn floor apart from its
+  // neighbours (spawnFloorMs, TODO E50). The wave is sized as it would be;
+  // only then its delay stretches to its types' floor, weighted by their
+  // shares. Where that runs past the three minutes, fewer come, each tougher
+  // by as much: the wave keeps its health, the models keep their room.
+  const shares = template.enemies.reduce((sum, [, share]) => sum + Math.max(0, share), 0);
+  const delayFloor = shares > 0
+    ? template.enemies.reduce((sum, [id, share]) => sum + Math.max(0, share) * spawnFloorMs(id as EnemyTypeId), 0) / shares
+    : 0;
   if (delayFloor > spawnDelay) {
     spawnDelay = delayFloor;
     const fits = Math.max(1, Math.floor(MAX_WAVE_DURATION_MS / delayFloor));

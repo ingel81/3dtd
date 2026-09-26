@@ -174,7 +174,12 @@ export interface EnemyTypeConfig {
   mechanical?: boolean;
 
   // Spawning
-  spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
+  /**
+   * Least time between two spawns next to one of this type, ms (spawnFloorMs,
+   * default DEFAULT_SPAWN_FLOOR_MS): enforced after the wave's spread, so a
+   * compressed wave keeps its large models apart (TODO E50).
+   */
+  spawnStartDelay?: number;
   splitOnDeath?: SplitOnDeath; // What a kill splits this enemy into (none on a leak)
   chain?: EnemyChain; // Walks as a chain of segments, each an enemy of this type (worm)
   /** A body along the route instead of a model instance (the ooze), see OozeConfig */
@@ -1221,6 +1226,18 @@ export function splitBodyCount(id: EnemyTypeId, depth = 0): number {
   const split = ENEMY_TYPES[id]?.splitOnDeath;
   if (!split || depth >= MAX_SPLIT_DEPTH) return 1;
   return 1 + split.count * splitBodyCount(split.type, depth + 1);
+}
+
+/** The spawn floor of a type without spawnStartDelay, ms */
+export const DEFAULT_SPAWN_FLOOR_MS = 300;
+
+/**
+ * Least time between two spawns next to an enemy of `id`, ms: its
+ * spawnStartDelay, else DEFAULT_SPAWN_FLOOR_MS (TODO E50). The spawner takes
+ * the larger floor of the two neighbours, after the wave's spread.
+ */
+export function spawnFloorMs(id: EnemyTypeId): number {
+  return ENEMY_TYPES[id]?.spawnStartDelay ?? DEFAULT_SPAWN_FLOOR_MS;
 }
 
 /** Most HP one enemy costs the HQ when it gets through, before the wave's scale */

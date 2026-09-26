@@ -71,7 +71,7 @@ describe('Wave + Enemy Spawning Integration', () => {
       count: 3,
       type: 'zombie',
       speed: 5,
-      spawnDelay: 200,
+      spawnDelay: 400,
     });
 
     m.waveManager.startWave(config);
@@ -79,13 +79,13 @@ describe('Wave + Enemy Spawning Integration', () => {
     tickEngine(m, 16, clock); // first sub-step → first spawn
     expect(m.enemyManager.getAll().length).toBe(1);
 
-    tickEngine(m, 200, clock);
+    tickEngine(m, 400, clock);
     expect(m.enemyManager.getAll().length).toBe(2);
 
-    tickEngine(m, 200, clock);
+    tickEngine(m, 400, clock);
     expect(m.enemyManager.getAll().length).toBe(3);
 
-    tickEngine(m, 200, clock);
+    tickEngine(m, 400, clock);
     expect(m.enemyManager.getAll().length).toBe(3);
   });
 
@@ -98,7 +98,8 @@ describe('Wave + Enemy Spawning Integration', () => {
     });
 
     m.waveManager.startWave(config);
-    tickEngine(m, 200, clock);
+    // 50 ms asked, the zombie's spawn floor (300 ms) spaces them
+    tickEngine(m, 350, clock);
 
     const enemies = m.enemyManager.getAll();
     expect(enemies).toHaveLength(2);
@@ -135,7 +136,7 @@ describe('Wave + Enemy Spawning Integration', () => {
     });
 
     m.waveManager.startWave(config);
-    tickEngine(m, 200, clock);
+    tickEngine(m, 350, clock); // the spawn floor spaces them 300 ms
 
     expect(m.waveManager.checkWaveComplete()).toBe(false);
 
@@ -223,7 +224,7 @@ describe('Wave + Enemy Spawning Integration', () => {
     m.eventBus.on('enemy:spawned', spawnedHandler);
 
     m.waveManager.startWave(config);
-    tickEngine(m, 300, clock);
+    tickEngine(m, 1000, clock); // 0, 300, 600, 900 ms: the spawn floor
 
     expect(spawnedHandler).toHaveBeenCalledTimes(4);
     expect(m.enemyManager.getAll()).toHaveLength(4);
@@ -257,15 +258,15 @@ describe('Wave + Enemy Spawning Integration', () => {
       count: 3,
       type: 'zombie',
       speed: 5,
-      spawnDelay: 200,
+      spawnDelay: 400,
     });
 
     m.waveManager.startWave(config);
     tickEngine(m, 16, clock);
     expect(m.enemyManager.getAll()).toHaveLength(1);
-    tickEngine(m, 200, clock);
+    tickEngine(m, 400, clock);
     expect(m.enemyManager.getAll()).toHaveLength(2);
-    tickEngine(m, 200, clock);
+    tickEngine(m, 400, clock);
     expect(m.enemyManager.getAll()).toHaveLength(3);
   });
 });

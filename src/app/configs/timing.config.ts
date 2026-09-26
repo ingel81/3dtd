@@ -7,9 +7,6 @@ export const TIMING = {
   /** Death animation duration before enemy removal (ms) */
   deathAnimationDuration: 2000,
 
-  /** Default delay between starting each paused enemy (ms, game-time) */
-  defaultSpawnStartDelay: 300,
-
   /** Line-of-sight recheck interval for tower targeting (ms) */
   losRecheckInterval: 300,
 

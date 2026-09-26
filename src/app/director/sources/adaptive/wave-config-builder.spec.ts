@@ -6,6 +6,7 @@ import { PressureController } from './pressure-controller';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';
 import type { DirectorDecision, DirectorFactors } from './director-rules';
 import { directorParams } from '../../director-params';
+import { DEFAULT_SPAWN_FLOOR_MS } from '../../../configs/enemy-types.config';
 
 /**
  * The decoder shared by both directors, from a decision to the wave that
@@ -73,7 +74,8 @@ describe('buildWaveConfig', () => {
     const strong = build(decision(0, { count: 1 }), defense(1e6, 1e6));
     const weak = build(decision(0, { count: 1 }), defense(1e6, 0));
 
-    expect(strong.totalCount).toBe(HORDE.countRange[1]);
+    // The template's top, as far as the zombies' spawn floor fits it into three minutes (TODO E50)
+    expect(strong.totalCount).toBe(Math.min(HORDE.countRange[1], Math.floor(MAX_WAVE_DURATION_MS / DEFAULT_SPAWN_FLOOR_MS)));
     expect(weak.totalCount).toBeLessThan(strong.totalCount);
   });
 

@@ -70,7 +70,7 @@ describe('Split on death integration', () => {
 
   it('keeps the wave open until the minions are gone', () => {
     m.waveManager.startWave(skeletonWave(2));
-    tickEngine(m, 100, clock);
+    tickEngine(m, 200, clock); // a skeleton's spawn floor is 150 ms
     expect(alive('skeleton')).toHaveLength(2);
 
     killAll('skeleton');
@@ -86,7 +86,7 @@ describe('Split on death integration', () => {
 
   it('pays exactly the wave budget when every body dies', () => {
     m.waveManager.startWave(skeletonWave(5));
-    tickEngine(m, 200, clock);
+    tickEngine(m, 700, clock); // four gaps of the 150 ms spawn floor
     killAll('skeleton');
     killAll(MINION);
 
@@ -96,7 +96,7 @@ describe('Split on death integration', () => {
 
   it("forfeits a leaked skeleton's share and that of the minions it never became", () => {
     m.waveManager.startWave(skeletonWave(3));
-    tickEngine(m, 100, clock);
+    tickEngine(m, 350, clock); // two gaps of the 150 ms spawn floor
     const [, ...rest] = alive('skeleton');
     for (const e of rest) m.enemyManager.kill(e);
     killAll(MINION);

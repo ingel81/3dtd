@@ -125,7 +125,7 @@ describe('Game State Flow Integration', () => {
       spawnDelay: 50,
     }));
 
-    tickEngine(m, 200, clock);
+    tickEngine(m, 350, clock); // the zombie's spawn floor is 300 ms
     expect(m.enemyManager.getAll()).toHaveLength(2);
     expect(m.waveManager.phase()).toBe('wave');
 
@@ -236,7 +236,7 @@ describe('Game State Flow Integration', () => {
     }));
     expect(m.waveManager.waveNumber()).toBe(2);
 
-    tickEngine(m, 200, clock);
+    tickEngine(m, 350, clock); // the zombie's spawn floor is 300 ms
     expect(m.enemyManager.getAll()).toHaveLength(2);
   });
 });

@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
-import { ENEMY_TYPES, EnemyTypeId, enemyRewardWeight, lineageRewardWeight } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, enemyRewardWeight, lineageRewardWeight, spawnFloorMs } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import { closeCallHp } from '../configs/game-balance.config';
@@ -340,12 +340,18 @@ export class WaveManager implements IGameManager {
     // Compute delay for the *current* entry about to be spawned (used to
     // determine the gap BEFORE spawning this enemy, matching pre-refactor
     // setTimeout semantics where pauseAfter extended the gap to the NEXT spawn).
+    //
+    // The gap is at least the spawn floor of both neighbours (spawnFloorMs,
+    // TODO E50), after the spread: a compressed wave used to put golems 62 ms
+    // apart. A coop lane's copy (delay 0) spawns with the entry before it, on
+    // another lane.
     const delayForEntry = (idx: number): number => {
       if (idx <= 0) return getDelay();
       const prev = entries[idx - 1];
-      const baseWait = prev.delay ?? getDelay();
       const extraPause = prev.pauseAfter ?? 0;
-      return baseWait + extraPause;
+      if (prev.delay === 0) return extraPause;
+      const floor = Math.max(spawnFloorMs(prev.enemyType), spawnFloorMs(entries[idx].enemyType));
+      return Math.max(prev.delay ?? getDelay(), floor) + extraPause;
     };
 
     const spawnOne = (): boolean => {

@@ -159,19 +159,19 @@ describe('WaveManager', () => {
     });
 
     it('spawns enemies with game-time delay between them', () => {
-      wm.startWave(makeWaveConfig({ count: 3, spawnDelay: 200 }));
+      wm.startWave(makeWaveConfig({ count: 3, spawnDelay: 400 }));
 
       wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
 
-      wm.tickSpawn(200);
+      wm.tickSpawn(400);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
 
-      wm.tickSpawn(200);
+      wm.tickSpawn(400);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(3);
 
       // No more spawning after all enemies
-      wm.tickSpawn(200);
+      wm.tickSpawn(400);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(3);
     });
 
@@ -188,7 +188,7 @@ describe('WaveManager', () => {
         'portal',
       );
 
-      wm.tickSpawn(50);
+      wm.tickSpawn(300); // the spawn floor, not the 50 ms asked
       expect(enemyManager.spawn).toHaveBeenCalledWith(
         CACHED_PATHS.get('sp-2'),
         expect.anything(),
@@ -210,14 +210,14 @@ describe('WaveManager', () => {
 
     it('spawning is timescale-agnostic — advanced via game-time tickSpawn', () => {
       // Sub-stepping: the engine ticks game-time in fixed 16ms steps. Two
-      // 100ms-each ticks together cover one 200ms spawn delay regardless
+      // 200ms-each ticks together cover one 400ms spawn delay regardless
       // of training timescale.
-      wm.startWave(makeWaveConfig({ count: 2, spawnDelay: 200 }));
+      wm.startWave(makeWaveConfig({ count: 2, spawnDelay: 400 }));
       wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
-      wm.tickSpawn(100);
+      wm.tickSpawn(200);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
-      wm.tickSpawn(100);
+      wm.tickSpawn(200);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
     });
   });
@@ -526,7 +526,7 @@ describe('WaveManager', () => {
         { enemyType: 'b', speed: 6,  health: 200 },
       ], 50));
       wm.tickSpawn(0);
-      wm.tickSpawn(50);
+      wm.tickSpawn(300); // the spawn floor
       const calls = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls;
       expect(calls.length).toBe(2);
       // spawn signature: (path, enemyType, speed, false, health, 'portal')
@@ -554,16 +554,48 @@ describe('WaveManager', () => {
       expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
     });
 
+    it('keeps the spawn floor of both neighbours after the spread (TODO E50)', () => {
+      // A golem (1200 ms) and a rat (150 ms), 10 ms asked: 1200 ms either way round
+      wm.startWave(scheduledConfig([
+        { enemyType: 'rat', speed: 5 },
+        { enemyType: 'stone-golem', speed: 5 },
+        { enemyType: 'rat', speed: 5 },
+        { enemyType: 'rat', speed: 5 },
+      ], 10));
+      wm.tickSpawn(0);
+      wm.tickSpawn(1199);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
+      wm.tickSpawn(1);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
+      wm.tickSpawn(1199);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
+      wm.tickSpawn(1);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(3);
+      // Two rats: their own floor, 150 ms
+      wm.tickSpawn(150);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(4);
+    });
+
+    it('spawns a coop lane copy together with the entry before it', () => {
+      wm.startWave(scheduledConfig([
+        { enemyType: 'stone-golem', speed: 5, delay: 0 },
+        { enemyType: 'stone-golem', speed: 5 },
+      ], 10));
+      wm.tickSpawn(0);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
+    });
+
     it('pauseAfter on an entry extends the gap to the next spawn', () => {
-      // entry[0] pauseAfter=500 → next spawn fires at baseDelay (100) + 500 = 600ms
+      // entry[0] pauseAfter=500 → next spawn fires at the gap (100 asked,
+      // the 300 ms spawn floor) + 500 = 800ms
       wm.startWave(scheduledConfig([
         { enemyType: 'a', speed: 5, pauseAfter: 500 },
         { enemyType: 'b', speed: 6 },
       ], 100));
       wm.tickSpawn(0);            // entry[0]
-      wm.tickSpawn(100);          // would normally fire entry[1] — but pauseAfter delays it
+      wm.tickSpawn(300);          // would normally fire entry[1] — but pauseAfter delays it
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
-      wm.tickSpawn(500);          // total 600 → entry[1] fires
+      wm.tickSpawn(500);          // total 800 → entry[1] fires
       expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
     });
 
@@ -573,7 +605,7 @@ describe('WaveManager', () => {
         { enemyType: 'b', speed: 6 },
       ], 50));
       wm.tickSpawn(0);
-      wm.tickSpawn(50);
+      wm.tickSpawn(300); // the spawn floor
       // Further ticks should be no-ops since the spawner is exhausted.
       const callsBefore = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls.length;
       wm.tickSpawn(1000);
@@ -590,7 +622,7 @@ describe('WaveManager', () => {
         { enemyType: 'b', speed: 6 },
       ], 50));
       wm.tickSpawn(0);
-      wm.tickSpawn(50);
+      wm.tickSpawn(300); // the spawn floor
       const calls = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls;
       for (const call of calls) {
         const path = call[0];

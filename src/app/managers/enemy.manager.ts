@@ -10,7 +10,6 @@ import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import type { GameEvent } from '../game-engine/game-event-bus';
-import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { waveGold, enemyBaseDamageForWave } from '../configs/campaign.config';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
@@ -104,8 +103,6 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Game-time pending removals: replaces wall-clock setTimeout for death-anim
   // delays so behavior is identical at every training timescale.
   private pendingDeaths: { enemy: Enemy; remainingMs: number }[] = [];
-  // Game-time pending start-moving: replaces setTimeout in startAll()
-  private pendingStarts: { enemy: Enemy; remainingMs: number }[] = [];
 
   // Reusable array to avoid allocations in update loop
   private toRemove: Enemy[] = [];
@@ -670,13 +667,12 @@ export class EnemyManager extends EntityManager<Enemy> {
   /**
    * Update all enemies — movement and rendering. Called once per gameplay
    * sub-step (~16ms game-time). `gameTimeMs` is the engine game-clock used
-   * for DoT ticks, status-effect lookups, and pending death/start delays.
+   * for DoT ticks, status-effect lookups, and pending death delays.
    */
   override update(deltaTime: number, gameTimeMs: number): void {
-    // Tick pending death-animation removals + pending start-moving delays
-    // FIRST so they remain accurate even if movement is disabled.
+    // Tick pending death-animation removals FIRST so they remain accurate
+    // even if movement is disabled.
     this.tickPendingDeaths(deltaTime);
-    this.tickPendingStarts(deltaTime);
 
     if (!this.movementEnabled) return;
 
@@ -1094,21 +1090,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (profiling) this.onPresentTiming!(performance.now() - t0);
   }
 
-  /**
-   * Start all paused enemies with a configurable game-time delay between each.
-   * Delays are accumulated as game-time pending-starts and ticked from
-   * update(deltaTime, …), matching 1× behavior at every training timescale.
-   */
-  startAll(defaultDelayBetween = TIMING.defaultSpawnStartDelay): void {
-    const paused = this.getAll().filter((e) => e.movement.paused);
-    let accumulatedDelay = 0;
-    for (const enemy of paused) {
-      const delay = enemy.typeConfig.spawnStartDelay ?? defaultDelayBetween;
-      this.pendingStarts.push({ enemy, remainingMs: accumulatedDelay });
-      accumulatedDelay += delay;
-    }
-  }
-
   /** Tick the game-time death-animation removals each sub-step. */
   private tickPendingDeaths(deltaTime: number): void {
     if (this.pendingDeaths.length === 0) return;
@@ -1125,28 +1106,10 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.pendingDeaths.length = writeIdx;
   }
 
-  /** Tick the game-time pending-start delays each sub-step. */
-  private tickPendingStarts(deltaTime: number): void {
-    if (this.pendingStarts.length === 0) return;
-    let writeIdx = 0;
-    for (const entry of this.pendingStarts) {
-      entry.remainingMs -= deltaTime;
-      if (entry.remainingMs <= 0) {
-        if (entry.enemy.alive && entry.enemy.active) {
-          entry.enemy.startMoving();
-          this.tilesEngine?.enemies.startWalkAnimation(entry.enemy.id);
-        }
-      } else {
-        this.pendingStarts[writeIdx++] = entry;
-      }
-    }
-    this.pendingStarts.length = writeIdx;
-  }
-
   /**
    * Remove enemy and cleanup resources.
    *
-   * NOTE: does NOT splice the pendingDeaths / pendingStarts arrays — that
+   * NOTE: does NOT splice the pendingDeaths array — that
    * would re-entrantly mutate tickPendingDeaths's iteration. The tick
    * methods are the sole owners of those arrays and drop the id from
    * killingEnemies themselves before calling remove(). The killingEnemies
@@ -1200,9 +1163,8 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Clear all enemies and cleanup resources
    */
   override clear(): void {
-    // Clear pending game-time death/start delays
+    // Clear pending game-time death delays
     this.pendingDeaths.length = 0;
-    this.pendingStarts.length = 0;
     this.worms.clear();
 
     for (const enemy of this.getAll()) {
@@ -1278,7 +1240,6 @@ export class EnemyManager extends EntityManager<Enemy> {
   override destroy(): void {
     this.subs.disposeAll();
     this.pendingDeaths.length = 0;
-    this.pendingStarts.length = 0;
     this.killingEnemies.clear();
     // The ooze's bubbling and the worm's voice live outside the enemies'
     // audio components; clear() stops them, and so must a teardown

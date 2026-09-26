@@ -73,8 +73,12 @@ und als Zahl am HQ beim Leck.
 
 Der Abstand vor einem Gegner ist mindestens der Boden des Typs davor und des Typs selbst (der größere). Lane-Kopien
 im Coop spawnen weiter gleichzeitig. Der Director rechnet mit dem Boden: Der Abstand einer Welle ist mindestens der
-größte Boden ihrer Typen, und passt die Welle dann nicht in 3 min, kommen weniger Gegner mit entsprechend mehr HP (die
-Regel von E21, jetzt für alle Typen). `EnemyManager.startAll` (toter Code) fällt weg.
+Boden ihrer Typen, nach ihren Anteilen gewichtet (der Spawner wirkt je Nachbarpaar, der größte Boden hätte eine
+gemischte Welle zu lang geschätzt), und passt die Welle dann nicht in 3 min, kommen weniger Gegner mit entsprechend
+mehr HP (die Regel von E21, jetzt für alle Typen). `EnemyManager.startAll` (toter Code) fällt weg.
+
+Folge des Standardbodens von 300 ms: Ein Schwarm-Template passt höchstens 600 Gegner je Lane in 3 min (Ratten bei
+150 ms 1200); die Zombie-Horde bis 2000 kommt dann mit 600 und der HP der ganzen Welle.
 
 ## Messung
 
