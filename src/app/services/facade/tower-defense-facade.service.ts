@@ -529,6 +529,11 @@ export class TowerDefenseFacadeService {
   }
 
   /** Sell the currently selected tower via EventBus command. */
+  /** Whether this player may act on `tower`; a partner's is read only (TODO E39) */
+  mayManage(tower: Tower): boolean {
+    return this.gameState.mayManage(tower);
+  }
+
   sellSelectedTower(): void {
     const tower = this.store.selectedTower();
     if (tower) {

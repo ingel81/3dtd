@@ -106,6 +106,7 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     // GameLoopFacadeService.upgradeTower: checks the credits and the last level, then the
     // command, synchronous on the bus
     const facade = {
+      mayManage: () => true,
       upgradeTower: (tower: Tower, upgradeId: UpgradeId): boolean => {
         if (ledger.credits() < tower.getNextUpgradeCost(upgradeId) || !tower.canUpgrade(upgradeId)) return false;
         bus.emit({ type: 'command:upgrade-tower', towerId: tower.id, upgradeId });

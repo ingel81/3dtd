@@ -674,7 +674,19 @@ export class GameStateManager {
   selectableTower(towerId: string | null): string | null {
     if (!towerId) return null;
     const tower = this.towerManager.getById(towerId);
-    return tower && this.towerPolicy.may(this.localPlayerId, tower, 'select') ? towerId : null;
+    if (!tower || !this.towerPolicy.may(this.localPlayerId, tower, 'select')) return null;
+    // A partner's research center or silo has no panel that reads their state
+    // (their research is TODO E35); only their fighting towers are looked at
+    if (!this.mayManage(tower) && tower.typeConfig.attackType === 'passive') return null;
+    return towerId;
+  }
+
+  /**
+   * Whether the player at this client may act on `tower` (upgrade, sell,
+   * targeting, man it): a partner's tower can be selected but only looked at.
+   */
+  mayManage(tower: { readonly ownerId: string }): boolean {
+    return this.towerPolicy.may(this.localPlayerId, tower, 'upgrade');
   }
 
   /** Credits of one player; `credits` is the one at this client. */

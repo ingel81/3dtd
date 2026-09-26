@@ -11,7 +11,10 @@ export interface TowerPolicy {
   may(playerId: string, tower: { readonly ownerId: string }, action: TowerAction): boolean;
 }
 
-/** The standard: a player manages their own towers and no one else's. */
+/**
+ * The standard: a player manages their own towers and no one else's. Anyone
+ * may select a partner's tower to look at it, read only (TODO E39).
+ */
 export const OWNER_ONLY: TowerPolicy = {
-  may: (playerId, tower) => tower.ownerId === playerId,
+  may: (playerId, tower, action) => action === 'select' || tower.ownerId === playerId,
 };
