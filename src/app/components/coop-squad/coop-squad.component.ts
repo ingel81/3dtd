@@ -169,6 +169,24 @@ export class CoopSquadComponent {
     this.giftTo.set(this.giftTo() === playerId ? null : playerId);
   }
 
+  /** The amount typed into the gold menu, null while empty or no whole number */
+  readonly anyAmount = signal<number | null>(null);
+  readonly canGiveAny = computed(() => {
+    const amount = this.anyAmount();
+    return amount !== null && amount >= 1 && amount <= this.myGold();
+  });
+
+  setAnyAmount(text: string): void {
+    const amount = Number(text);
+    this.anyAmount.set(text.trim() !== '' && Number.isInteger(amount) ? amount : null);
+  }
+
+  /** Send the typed amount; the field stays filled for another click */
+  giveAny(playerId: string): void {
+    if (!this.canGiveAny()) return;
+    this.give(playerId, this.anyAmount()!);
+  }
+
   /** The menu stays open: several clicks send more; the gift button closes it */
   give(playerId: string, amount: number): void {
     this.coop.giveGold(playerId, amount);

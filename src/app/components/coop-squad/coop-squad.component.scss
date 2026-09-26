@@ -189,7 +189,25 @@
   font-size: 12px;
   color: var(--td-text-muted);
 
+  flex-wrap: wrap;
+
   span { margin-right: auto; }
+}
+
+.gift-any {
+  display: flex;
+  gap: 4px;
+  width: 100%;
+  justify-content: flex-end;
+}
+
+.gift-input {
+  width: 7em;
+  padding: 2px 6px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  color: var(--td-text-primary);
+  font: inherit;
 }
 
 .sq-foot {
