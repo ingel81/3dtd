@@ -21,6 +21,21 @@ describe('isSplashTower()', () => {
   });
 });
 
+describe('analyzeDefense() air targeting per tower', () => {
+  // Coop: the AA retrofit is the research of the tower's owner (TODO E34)
+  it('counts a gatling against air only when its owner has the retrofit', () => {
+    const mine = new Tower(POS, 'dual-gatling');
+    const theirs = new Tower(POS, 'dual-gatling');
+    const dps = computeTowerDPS(mine);
+    const defense = analyzeDefense([mine, theirs], (tower) => tower === mine);
+
+    expect(defense.antiAirDPS).toBeCloseTo(dps, 6);
+    expect(defense.capabilities.hasAntiAir).toBe(true);
+    expect(defense.killThroughput.air).toBeCloseTo(defense.killThroughput.ground / 2, 6);
+    expect(analyzeDefense([mine, theirs], () => false).antiAirDPS).toBe(0);
+  });
+});
+
 describe('analyzeDefense() kill throughput', () => {
   it('counts the rocket with its blast radius, and only against air', () => {
     // Seit 2026-09-22 hat ihr Sprengkopf einen Wirkradius (5 m, bis zu fünf

@@ -16,6 +16,17 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 // Re-export so existing AI consumers keep their import path working.
 export { canTargetAirEffective } from '../entities/tower-targeting.util';
 
+/**
+ * Whether the AA retrofit counts for a tower: one flag for every tower, or a
+ * rule per tower. In coop the research belongs to the tower's owner, so a
+ * cannon of a player without it cannot shoot air even if the other has it.
+ */
+export type AirTargeting = boolean | ((tower: Tower) => boolean);
+
+export function airTargetingFor(air: AirTargeting, tower: Tower): boolean {
+  return typeof air === 'function' ? air(tower) : air;
+}
+
 /** Divisor used to turn splashRadius into a soft multiplier (radius 10 -> 2x, capped). */
 const SPLASH_NORM = 10;
 const SPLASH_MULT_CAP = 2.0;

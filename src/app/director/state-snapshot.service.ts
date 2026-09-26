@@ -34,7 +34,7 @@ import {
   estimateKillZoneStrength,
 } from './defense-analyzer';
 import { computeDpsByDamageType } from './defense-analyzer';
-import { computeTowerDPS } from './tower-dps.util';
+import { computeTowerDPS, type AirTargeting } from './tower-dps.util';
 import { ComponentType } from '../core/component';
 import { MovementComponent } from '../game-components/movement.component';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
@@ -116,11 +116,11 @@ export class StateSnapshotService {
     const towers = this.gameState.towerManager.getAll();
     // In coop every client plans the next wave from what they all share, so
     // the plan and the director stream stay the same on each
-    // (docs/COOP_PLAN.md, C4): air targeting when any player has it, the
-    // first hired hero in roster order, the credits of all players. The
-    // single player game reads the same as before.
+    // (docs/COOP_PLAN.md, C4): air targeting per tower from its owner's
+    // research, the first hired hero in roster order, the credits of all
+    // players. The single player game reads the same as before.
     const players = this.gameState.players;
-    const airTargetingUnlocked = players.some((id) => this.gameState.researchOf(id).airTargetingUnlocked);
+    const airTargetingUnlocked = this.airTargetingOfOwner;
     const hero = players.map((id) => this.gameState.heroOf(id).getDefenseProfile()).find((profile) => profile) ?? null;
     const credits = players.reduce((sum, id) => sum + this.gameState.creditsOf(id), 0);
     // The hired hero counts as a virtual tower at half presence (docs/HERO.md)
@@ -406,19 +406,21 @@ export class StateSnapshotService {
    * Uses cached value if towers haven't changed.
    */
   getCurrentDPSProfile(): PathDPSProfile {
-    return this.getDPSProfile(
-      this.gameState.towerManager.getAll(),
-      this.researchStore.airTargetingUnlocked(),
-    );
+    return this.getDPSProfile(this.gameState.towerManager.getAll(), this.airTargetingOfOwner);
   }
 
   /**
    * Compute DPS profile with caching.
    * Only recomputes when towers change (place/sell/upgrade) or AA-Retrofit unlocks.
    */
-  private getDPSProfile(towers: Tower[], airTargetingUnlocked: boolean): PathDPSProfile {
+  /** The AA retrofit counts for a tower when its owner researched it (coop: per player) */
+  private readonly airTargetingOfOwner = (tower: Tower): boolean =>
+    this.gameState.researchOf(tower.ownerId).airTargetingUnlocked;
+
+  private getDPSProfile(towers: Tower[], airTargetingUnlocked: AirTargeting): PathDPSProfile {
     // Compute a hash of tower state for cache invalidation (retrofit changes air bins)
-    const hash = `${this.computeTowerHash(towers)}|aa:${airTargetingUnlocked ? 1 : 0}`;
+    const aa = this.gameState.players.map((id) => (this.gameState.researchOf(id).airTargetingUnlocked ? 1 : 0)).join('');
+    const hash = `${this.computeTowerHash(towers)}|aa:${aa}`;
 
     if (this.cachedDPSProfile && this.dpsProfileTowerHash === hash) {
       return this.cachedDPSProfile;
