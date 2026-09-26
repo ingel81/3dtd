@@ -1,6 +1,8 @@
 @use '../../styles/td-mixins' as td;
 @use '../coop-ui/coop-ui' as ui;
 
+@include ui.classes;
+
 :host {
   display: flex;
   flex-direction: column;
@@ -8,14 +10,8 @@
   color: var(--td-text-primary);
 }
 
-.btn { @include ui.btn; }
-.btn-xs { @include ui.btn-xs; }
-.btn-primary { @include ui.btn-primary; }
-.icon-btn { @include ui.icon-btn; }
-.icon-btn.sm { @include ui.icon-btn(26px); }
-.inp { @include ui.input; }
-
 .wide { width: 100%; }
+.spacer { flex: 1; }
 
 .blk {
   display: flex;
@@ -27,18 +23,12 @@
   &.plain { border-bottom: 0; }
 }
 
-/* Title, a quiet subtitle, the rule, and the button at the end of it */
+/* Title, then what belongs to it, the rune line, the refresh at the end */
 .sec {
   margin: 0;
   @include td.section-label;
 
-  small {
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    color: var(--td-text-muted);
-    text-transform: none;
-  }
-
+  .lobby { order: 2; }
   .icon-btn { order: 3; }
 }
 
@@ -53,12 +43,67 @@
   }
 }
 
-.row {
+/* Online | Same network */
+.way {
   display: flex;
+  padding: 12px 18px 0;
+
+  .seg { flex: 1; }
+  .seg button { flex: 1; height: 32px; }
+}
+
+/* The lobby as a select in the section head, its ping after it */
+.lobby {
+  display: inline-flex;
   align-items: center;
   gap: 8px;
+  letter-spacing: 0;
+  text-transform: none;
 
-  .inp { flex: 1; min-width: 0; }
+  small {
+    font-size: 10.5px;
+    color: var(--td-text-muted);
+  }
+}
+
+.lobby-select {
+  max-width: 160px;
+  height: 26px;
+  padding: 0 6px;
+  @include td.sunken;
+  font-family: var(--td-font-mono);
+  font-size: 11.5px;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+  @include td.focus-ring;
+
+  &:hover { border-color: var(--td-frame-mid); }
+
+  option {
+    background: var(--td-panel-shadow);
+    color: var(--td-text-primary);
+  }
+}
+
+.lobby-add {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--td-frame-dark);
+  background: var(--td-panel-shadow);
+}
+
+.link {
+  padding: 2px 0;
+  border: 0;
+  background: none;
+  font: 12px var(--td-font-body);
+  color: var(--td-text-muted);
+  cursor: pointer;
+  @include td.focus-ring;
+
+  &:hover { color: var(--td-gold-light); }
 }
 
 .codein {
@@ -68,46 +113,6 @@
   text-transform: uppercase;
 }
 
-.note {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--td-text-muted);
-  text-wrap: pretty;
-
-  &.is-error { color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary)); }
-  &.is-ok { color: var(--td-teal-light); }
-  &.with-icon {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-}
-
-.or-code {
-  margin: 4px 0 0;
-  font-family: var(--td-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-}
-
-.rooms-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-  font-family: var(--td-font-mono);
-  font-size: 10.5px;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
-  color: var(--td-text-muted);
-
-  small { letter-spacing: 0; text-transform: none; }
-  .icon-btn { margin-left: auto; }
-}
-
 .tags {
   display: flex;
   gap: 6px;
@@ -115,14 +120,12 @@
 }
 
 .tag {
-  @include ui.tag;
-  font-style: normal;
-
-  &.is-open { color: var(--td-teal-light); }
-  &.is-cheats { color: var(--td-warn-orange); }
+  &.is-open { color: var(--td-teal-light); border-color: var(--td-teal-dark); }
+  &.is-warn { color: var(--td-warn-orange); border-color: color-mix(in srgb, var(--td-warn-orange) 50%, var(--td-frame-dark)); }
 }
 
-.lan-list {
+/* Games on the network and open rooms of the lobby */
+.game-list {
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -131,7 +134,7 @@
   list-style: none;
 }
 
-.lan-game {
+.game-row {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -154,9 +157,18 @@
       text-overflow: ellipsis;
       white-space: nowrap;
     }
+
+    // Why the row cannot be joined, readable and not only in a tooltip (plan F2)
+    small.why {
+      overflow: visible;
+      font-family: var(--td-font-body);
+      color: var(--td-warn-orange);
+      white-space: normal;
+    }
   }
 
-  &.is-off { opacity: 0.55; }
+  // Greyed, but the reason stays legible
+  &.is-off .who > :not(.why) { opacity: 0.55; }
 }
 
 .checks {
@@ -167,46 +179,20 @@
   color: var(--td-text-muted);
 }
 
-.lobby-menu {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px;
-  border: 1px solid var(--td-frame-dark);
-  background: var(--td-panel-secondary);
-}
-
-.lobby-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-
-  label {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    font-size: 13px;
-  }
-
-  input { accent-color: var(--td-gold); }
-}
-
+/* Strips at the end: connecting, the lobby not answering, an error */
 .banner {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0;
-  padding: 9px 18px;
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary));
-  background: color-mix(in srgb, var(--td-health-red) 16%, transparent);
+  border-bottom: 0;
+
+  span { flex: 1; }
 }
 
-.spin { animation: coop-spin 1s linear infinite; }
+.offline {
+  margin: 0 -18px;
+}
 
-@keyframes coop-spin {
-  to { transform: rotate(360deg); }
+.connecting {
+  color: var(--td-text-secondary);
 }

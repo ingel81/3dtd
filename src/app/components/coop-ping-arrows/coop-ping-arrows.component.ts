@@ -51,8 +51,8 @@ interface PingArrow {
       position: absolute;
       inset: 0;
       pointer-events: none;
-      z-index: 5;
       ${TD_CSS_VARS}
+      z-index: var(--td-z-marks);
     }
     .arrow {
       position: absolute;

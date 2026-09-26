@@ -1,0 +1,27 @@
+<section class="blk">
+  <ol class="steps">
+    @for (step of steps(); track step.kind) {
+      <li class="step" [class.is-now]="step.state === 'now'" [class.is-todo]="step.state === 'todo'">
+        <span class="mark" aria-hidden="true">
+          @switch (step.state) {
+            @case ('done') { <td-icon name="check" [size]="16"></td-icon> }
+            @case ('now') { <td-icon class="spin" name="refresh" [size]="16"></td-icon> }
+            @default { <span class="dot"></span> }
+          }
+        </span>
+        <span>{{ step.label }}</span>
+        <small>{{ step.meta }}</small>
+      </li>
+      @if (step.state === 'now' && step.kind === 'map') {
+        <li class="bar" aria-hidden="true"><i [style.width.%]="barPercent()"></i></li>
+      }
+    }
+  </ol>
+</section>
+<section class="blk plain">
+  @if (coop.needsKey()) {
+    <p class="note">Enter your map key first (every player needs one of their own); then the host's map loads and you join by yourself.</p>
+  } @else {
+    <p class="note">{{ placeName() }}. You'll land in the lobby as soon as the map stands.</p>
+  }
+</section>

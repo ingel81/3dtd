@@ -47,10 +47,11 @@ export interface SpawnLocationConfig extends SavedSpawn {
 }
 
 /**
- * Tabs of the location dialog: a new HQ and spawn, a new spawn only, or the
- * world map of defended places
+ * Tabs of the location dialog: a place (search, recent and showcase places,
+ * a new spawn for the current place), the world map of defended places, and
+ * joining a coop game
  */
-export type LocationDialogMode = 'full' | 'spawn-only' | 'world' | 'coop';
+export type LocationDialogMode = 'place' | 'world' | 'coop';
 
 /**
  * Data passed to location dialog
@@ -59,14 +60,8 @@ export interface LocationDialogData {
   currentLocation: LocationInfo | null;
   currentSpawn: SpawnLocationConfig | null;
   isGameInProgress: boolean;
-  /** Tab the dialog opens on, 'full' when not given */
+  /** Tab the dialog opens on, 'place' when not given */
   initialMode?: LocationDialogMode;
-  /**
-   * The game's coop service, for the Coop tab of a start without a place
-   * (docs/COOP_PLAN.md, E30, D67): joining there closes the dialog with the
-   * host's place. Typed loosely so the dialog's chunk does not import it.
-   */
-  coop?: import('../services/coop.service').CoopService | null;
 }
 
 /**

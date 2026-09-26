@@ -37,7 +37,6 @@ import { SidebarResearchPanelComponent } from './research-panel/research-panel.c
 import { SidebarHeroPanelComponent } from './hero-panel/hero-panel.component';
 import { SidebarBuildingPanelComponent } from './building-panel/building-panel.component';
 import { UIStore } from '../../store/ui.store';
-import { COOP } from '../../services/coop.token';
 
 /**
  * Rechte Sidebar: Rahmen, Footer und die Wahl des Panels. Die Sektionen sind
@@ -69,17 +68,6 @@ import { COOP } from '../../services/coop.token';
 })
 export class GameSidebarComponent implements OnDestroy {
   private readonly dialog = inject(MatDialog);
-  private readonly coop = inject(COOP, { optional: true });
-
-  constructor() {
-    // Opened with an invite link (?room=): the dialog opens at once and says
-    // what happens, the host's map loads, the player joins as soon as it stands
-    const coop = this.coop;
-    if (coop?.roomFromUrl) {
-      this.openCoop();
-      void coop.joinFromUrl();
-    }
-  }
 
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);

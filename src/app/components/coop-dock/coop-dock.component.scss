@@ -7,22 +7,20 @@
 :host {
   position: absolute;
   bottom: calc(var(--td-logo-bottom, 0px) + var(--td-logo-height, 0px) + 8px);
-  z-index: 7;
+  z-index: var(--td-z-dock);
   display: flex;
   flex-direction: column;
   width: 440px;
   max-width: calc(100% - 100px);
   container-type: inline-size;
-  background: color-mix(in srgb, var(--td-bg-dark) 96%, transparent);
-  border: 1px solid var(--td-frame-mid);
-  box-shadow: 0 14px 40px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(167, 179, 168, 0.14);
+  @include ui.panel-frame;
   font-family: var(--td-font-body);
   color: var(--td-text-primary);
 }
 
 /* In a room two columns: the room left, the chat right (User, 2026-09-25) */
 :host(:not(.is-short)) {
-  width: 820px;
+  width: 860px;
 }
 
 :host(.is-short) {
@@ -30,11 +28,9 @@
   max-height: calc(100% - var(--td-dock-top, 150px) - 24px);
 }
 
-/* === Buttons, fields === */
-.btn { @include ui.btn; }
-.btn-xs { @include ui.btn-xs; }
-.btn-primary { @include ui.btn-primary; }
-.btn-done { @include ui.btn-done; }
+/* === Buttons, fields: the shared coop classes, and what only the dock has === */
+@include ui.classes;
+
 .btn-primary.big,
 .btn-done.big {
   height: 44px;
@@ -49,65 +45,6 @@
   border-color: var(--td-health-red);
   color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary));
 }
-.icon-btn { @include ui.icon-btn; }
-.icon-btn.sm { @include ui.icon-btn(26px); }
-.icon-btn.big { @include ui.icon-btn(38px); }
-.icon-gap { width: 26px; }
-.inp { @include ui.input; }
-.tag { @include ui.tag; }
-.tag.soon {
-  padding: 0 3px;
-  font-size: 8px;
-  color: var(--td-text-disabled);
-  border-color: var(--td-frame-dark);
-}
-.pill { @include ui.pill; }
-.chip { @include ui.chip; }
-.seg { @include ui.segmented; }
-
-.row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.note {
-  margin: 0;
-  font-size: 12.5px;
-  line-height: 1.5;
-  color: var(--td-text-muted);
-  text-wrap: pretty;
-
-  &.is-warn { color: var(--td-warn-orange); }
-  &.is-error { color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary)); }
-  &.is-ok { color: var(--td-teal-light); }
-  &.with-icon {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-  }
-}
-
-.banner {
-  margin: 0;
-  padding: 9px 18px;
-  border-bottom: 1px solid var(--td-frame-dark);
-  font-size: 12.5px;
-  line-height: 1.45;
-  color: var(--td-gold-light);
-  background: color-mix(in srgb, var(--td-gold) 8%, transparent);
-
-  &.is-warn {
-    color: color-mix(in srgb, var(--td-warn-orange) 55%, var(--td-text-primary));
-    background: color-mix(in srgb, var(--td-warn-orange) 10%, transparent);
-  }
-
-  &.is-error {
-    color: color-mix(in srgb, var(--td-health-red) 55%, var(--td-text-primary));
-    background: color-mix(in srgb, var(--td-health-red) 16%, transparent);
-  }
-}
-
 /* === Head, body, foot === */
 .head {
   flex: 0 0 auto;
@@ -169,32 +106,6 @@
 
 }
 
-.sec {
-  margin: 0 0 10px;
-  @include td.section-label;
-
-  small {
-    order: 2;
-    font-size: 10px;
-    letter-spacing: 0.08em;
-    color: var(--td-text-muted);
-    text-transform: none;
-  }
-}
-
-.sec-toggle {
-  width: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: pointer;
-
-  &:hover .toggle-label {
-    border-color: var(--td-gold-dark);
-    color: var(--td-gold-light);
-  }
-}
-
 .foot {
   flex: 0 0 auto;
   display: flex;
@@ -207,81 +118,19 @@
 
 .spacer { flex: 1; }
 
+/* The warning strip with its "+n" at the end */
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+
+  span { flex: 1; }
+}
+
 /* === Public list (host, online) === */
 .listing .row { gap: 10px; }
 .listing .note { margin-top: 8px; }
 .title-in { flex: 1; min-width: 0; }
-
-/* === Entry: app-coop-entry has its own styles === */
-.seat-hint {
-  margin-left: auto;
-  font-size: 12px;
-  color: var(--td-text-muted);
-}
-
-/* === Joining === */
-.steps {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.step {
-  display: grid;
-  grid-template-columns: 20px 1fr auto;
-  align-items: center;
-  gap: 10px;
-  height: 36px;
-  padding: 0 10px;
-  font-size: 13.5px;
-  color: var(--td-text-secondary);
-
-  .mark { color: var(--td-teal); display: grid; place-items: center; }
-  small { font-family: var(--td-font-mono); font-size: 11px; color: var(--td-text-muted); }
-
-  &.is-now {
-    border-left: 2px solid var(--td-gold);
-    background: color-mix(in srgb, var(--td-gold) 7%, transparent);
-    font-weight: 600;
-    color: var(--td-text-primary);
-
-    .mark { color: var(--td-gold); }
-    small { color: var(--td-gold-light); }
-  }
-
-  &.is-todo {
-    color: var(--td-text-disabled);
-    .mark { color: var(--td-text-disabled); }
-  }
-}
-
-.dot {
-  width: 6px;
-  height: 6px;
-  background: currentColor;
-}
-
-.bar {
-  height: 6px;
-  margin: 4px 10px 0 40px;
-  @include td.sunken;
-
-  i {
-    display: block;
-    height: 100%;
-    background: linear-gradient(90deg, var(--td-gold-dark), var(--td-gold-light));
-    transition: width 0.3s ease;
-  }
-}
-
-.spin { animation: coop-spin 1s linear infinite; }
-
-@keyframes coop-spin {
-  to { transform: rotate(360deg); }
-}
 
 /* === Room === */
 .code-row {
@@ -347,6 +196,7 @@
   white-space: nowrap;
   color: var(--td-text-secondary);
   cursor: pointer;
+  @include td.focus-ring;
 
   i {
     position: relative;
@@ -408,144 +258,12 @@
   }
 }
 
-/* === Players, lanes === */
-.plist,
-.llist {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.pl {
-  @include ui.list-row(50px);
-  grid-template-columns: 4px 1fr auto auto auto;
-
-  &.is-gone .who b {
-    color: var(--td-text-disabled);
-    text-decoration: line-through;
-  }
-}
-
-.who { @include ui.name-stack; }
-
-/* What the player's client is doing (loading, reloading, map key) */
-.doing { color: var(--td-gold-light); }
-
-/* The own name in the lobby: a sunken field with a pencil, so it reads as editable */
-.name-edit {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  height: 24px;
-  padding: 0 6px;
-  @include td.sunken;
-  color: var(--td-text-muted);
-  cursor: text;
-
-  input {
-    flex: 1;
-    min-width: 0;
-    padding: 0;
-    border: 0;
-    background: none;
-    font: 600 14px var(--td-font-body);
-    color: var(--td-text-primary);
-    outline: none;
-  }
-
-  &:hover,
-  &:focus-within {
-    border-color: var(--td-gold-dark);
-    color: var(--td-gold-light);
-  }
-}
-
-.empty-seat {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  height: 50px;
-  padding: 0 14px;
-  border: 1px dashed var(--td-frame-mid);
-  font-size: 13px;
-  color: var(--td-text-muted);
-
-  .btn-xs { margin-left: auto; }
-}
-
-.ln {
-  @include ui.list-row(44px);
-  grid-template-columns: auto 1fr auto auto;
-  padding-left: 12px;
-}
-
-.ln-name {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 78px;
-  font-family: var(--td-font-mono);
-  font-size: 12px;
-
-  i { width: 10px; height: 10px; }
-}
-
-.ln-len {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-
-  u {
-    position: relative;
-    display: block;
-    height: 4px;
-    background: var(--td-frame-dark);
-    text-decoration: none;
-  }
-
-  s {
-    position: absolute;
-    inset: 0 auto 0 0;
-  }
-
-  span {
-    font-family: var(--td-font-mono);
-    font-size: 10.5px;
-    white-space: nowrap;
-    color: var(--td-text-muted);
-  }
-}
-
-.ln-own {
-  min-width: 92px;
-  padding: 0;
-  border: 0;
-  background: none;
-  font: 12.5px var(--td-font-body);
-  text-align: right;
-  color: var(--td-text-secondary);
-
-  &.is-you { color: var(--td-teal-light); cursor: pointer; }
-  &.is-free { color: var(--td-gold); cursor: pointer; }
-  &.is-free:hover { color: var(--td-gold-light); }
-}
-
-.ln.is-free:hover { border-color: var(--td-gold-dark); }
-
-.ln-ops {
-  display: flex;
-  gap: 4px;
-}
-
 /* === Two columns (room left, chat right) === */
 .cols {
   flex: 1 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
 }
 
 .main {
@@ -579,127 +297,6 @@
     flex: 0 0 320px;
   }
 }
-
-.toggle-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 2px 6px;
-  border: 1px solid var(--td-frame-mid);
-  font-family: var(--td-font-mono);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--td-text-secondary);
-}
-
-/* === Options === */
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin-top: 10px;
-}
-
-.sets {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  margin-top: 10px;
-}
-
-.set {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 30px;
-}
-
-.sets + .note,
-.sets .note { margin-top: 4px; }
-
-.set-label {
-  flex: 1;
-  font-size: 13px;
-  color: var(--td-text-secondary);
-}
-
-.set-value {
-  font-family: var(--td-font-mono);
-  font-size: 12px;
-
-  &.is-warn { color: color-mix(in srgb, var(--td-warn-orange) 55%, var(--td-text-primary)); }
-}
-
-/* === Chat === */
-.chat {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  padding: 2px 2px 8px;
-  overflow: auto;
-  @include td.scrollbar;
-}
-
-.msg {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-
-  &.is-cont { margin-top: -8px; }
-
-  p {
-    margin: 0;
-    font-size: 13.5px;
-    line-height: 1.45;
-    overflow-wrap: anywhere;
-  }
-}
-
-.msg-who {
-  display: flex;
-  align-items: baseline;
-  gap: 8px;
-  font-size: 12.5px;
-  font-weight: 600;
-
-  time {
-    font-family: var(--td-font-mono);
-    font-size: 10px;
-    font-weight: 400;
-    color: var(--td-text-disabled);
-  }
-}
-
-.sys {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  margin: 0;
-  font-family: var(--td-font-mono);
-  font-size: 11px;
-  color: var(--td-text-muted);
-
-  &::before {
-    content: '';
-    flex: 0 0 auto;
-    width: 5px;
-    height: 5px;
-    transform: rotate(45deg);
-    background: var(--td-rune-amber-muted);
-  }
-
-  &.is-warn { color: var(--td-warn-orange); }
-}
-
-.composer {
-  display: flex;
-  gap: 6px;
-  margin-top: 6px;
-}
-
-.send { @include ui.icon-btn(38px); }
 
 /* === Footer menu === */
 .more { position: relative; }

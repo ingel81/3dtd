@@ -12,8 +12,17 @@ test('the entry dock: no scrolling sideways, no focus left on the coop button (T
   expect(await body.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
   const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? '');
   expect(focused).not.toMatch(/coop/i);
-  await expect(page.getByRole('button', { name: 'Host online' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Host a room' })).toBeVisible();
   await shot(testInfo, page, 'entry');
+
+  await test.step('U5 Tab walks the controls of the dock and leaves it open; Esc closes it', async () => {
+    await page.locator('app-coop-dock .field input').click();
+    for (let i = 0; i < 3; i++) await page.keyboard.press('Tab');
+    await expect(page.locator('app-coop-dock')).toBeVisible();
+    expect(await page.evaluate(() => !!document.activeElement?.closest('app-coop-dock'))).toBe(true);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('app-coop-dock')).toHaveCount(0);
+  });
 });
 
 test('the host sees a guest come by the invite link and load; name, options, kick and lock (D47, T56, T58, T36)', async ({ duo, relay: _relay }, testInfo) => {
@@ -24,7 +33,7 @@ test('the host sees a guest come by the invite link and load; name, options, kic
   await test.step('D47 the guest joins at once; its row says it loads the map, then the chat says it stands', async () => {
     // An invite link loads the page: a map session more
     await guest.goto(await inviteLink(host));
-    const row = host.locator('app-coop-dock .pl', { hasText: 'Bob' });
+    const row = host.locator('app-coop-dock .row-lane', { hasText: 'Bob' });
     await expect(row.locator('.doing')).toContainText(/loading the map/i, { timeout: 60_000 });
     await expect(host.locator('app-coop-dock .status')).toContainText(/Waiting for Bob to load the map/);
     await shot(testInfo, host, 'guest-loading');
@@ -47,8 +56,10 @@ test('the host sees a guest come by the invite link and load; name, options, kic
   await test.step('T36 the host takes the guest out, then closes the room', async () => {
     await host.getByRole('button', { name: 'Take Bob out of the room' }).click();
     await expect(guest.locator('app-coop-dock')).toContainText('The host took you out of the room.');
-    await host.locator('app-coop-dock .toggle').click();
-    await expect(host.locator('app-coop-dock .toggle')).toContainText('Locked');
+    // The lock, not the public listing beside it
+    const lock = host.getByRole('button', { name: /^(Open to new players|Locked)$/ });
+    await lock.click();
+    await expect(lock).toContainText('Locked');
     await joinByCode(guest, code);
     await expect(guest.locator('app-coop-dock')).toContainText('The host closed the room to new players.');
   });
@@ -56,16 +67,16 @@ test('the host sees a guest come by the invite link and load; name, options, kic
 
 test('a guest follows the host to a new place in the page and keeps its lane (T65, D47)', async ({ duo, relay: _relay }, testInfo) => {
   const { host, guest } = await coopRoom(duo);
-  const lane = (await host.locator('app-coop-dock .pl', { hasText: 'Bob' }).locator('small').innerText()).match(/Spawn \d/)?.[0] ?? '';
+  const lane = (await host.locator('app-coop-dock .row-lane', { hasText: 'Bob' }).locator('.lane b').innerText()).match(/Spawn \d/)?.[0] ?? '';
   // The host's dice changes the place in the game; the guest goes there in the page, no reload (no map session more)
   await guest.evaluate(() => { (window as unknown as { samePage?: boolean }).samePage = true; });
   await host.getByRole('button', { name: 'Random location' }).click();
   await expect.poll(() => chatText(host), { timeout: 120_000 }).toMatch(/Bob is loading the map/);
   await gameReady(host);
   await gameReady(guest);
-  const row = host.locator('app-coop-dock .pl', { hasText: 'Bob' });
+  const row = host.locator('app-coop-dock .row-lane', { hasText: 'Bob' });
   await expect(row).toBeVisible({ timeout: 120_000 });
-  await expect(row.locator('small')).toContainText(lane, { timeout: 120_000 });
+  await expect(row.locator('.lane b')).toContainText(lane, { timeout: 120_000 });
   expect(await chatText(host)).not.toMatch(/Bob left|Bob reloads/);
   expect(await guest.evaluate(() => (window as unknown as { samePage?: boolean }).samePage)).toBe(true);
   await shot(testInfo, host, 'after-new-place');

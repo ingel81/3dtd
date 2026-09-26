@@ -1,121 +1,75 @@
 <div class="location-dialog">
-  <!-- Header -->
-  <div class="dialog-header">
-    <td-icon class="header-icon" name="pin" [size]="20"></td-icon>
-    <h2>Change Location</h2>
-  </div>
+  <header class="dialog-header">
+    <td-icon class="header-icon" name="pin" [size]="18"></td-icon>
+    <h2>{{ title }}</h2>
+  </header>
 
-  <!-- Mode Tabs -->
-  <div class="mode-tabs" role="group" aria-label="Location mode">
-    <button
-      class="mode-tab"
-      [class.active]="editMode() === 'full'"
-      [attr.aria-pressed]="editMode() === 'full'"
-      (click)="setEditMode('full')"
-    >
-      <td-icon name="shuffle" [size]="16"></td-icon>
-      <span>New Location</span>
+  <!-- Tabs: one line, always at the same height (plan G1, G2) -->
+  <div class="mode-tabs" role="group" aria-label="Location">
+    <button type="button" class="mode-tab" [class.active]="editMode() === 'place'"
+            [attr.aria-pressed]="editMode() === 'place'" (click)="setEditMode('place')">
+      <td-icon name="pin" [size]="14"></td-icon>Place
     </button>
-    <button
-      class="mode-tab"
-      [class.active]="editMode() === 'spawn-only'"
-      [attr.aria-pressed]="editMode() === 'spawn-only'"
-      (click)="setEditMode('spawn-only')"
-      [disabled]="!data.currentLocation"
-    >
-      <td-icon name="flag" [size]="16"></td-icon>
-      <span>Spawn Only</span>
-    </button>
-    <button
-      class="mode-tab"
-      [class.active]="editMode() === 'world'"
-      [attr.aria-pressed]="editMode() === 'world'"
-      (click)="setEditMode('world')"
-    >
-      <td-icon name="globe" [size]="16"></td-icon>
-      <span>World</span>
+    <button type="button" class="mode-tab" [class.active]="editMode() === 'world'"
+            [attr.aria-pressed]="editMode() === 'world'" (click)="setEditMode('world')">
+      <td-icon name="globe" [size]="14"></td-icon>World
     </button>
     @if (coopOffered()) {
-      <button
-        class="mode-tab"
-        [class.active]="editMode() === 'coop'"
-        [attr.aria-pressed]="editMode() === 'coop'"
-        (click)="setEditMode('coop')"
-      >
-        <td-icon name="users" [size]="16"></td-icon>
-        <span>Coop</span>
+      <button type="button" class="mode-tab" [class.active]="editMode() === 'coop'"
+              [attr.aria-pressed]="editMode() === 'coop'" (click)="setEditMode('coop')">
+        <td-icon name="users" [size]="14"></td-icon>Coop
       </button>
     }
   </div>
 
-  <!-- Content -->
+  <!-- The only part that scrolls: head, tabs and actions stay put (plan U6) -->
   <div class="dialog-content">
-    <!-- Warning box (a new place, from the form or the world map, with a game in progress) -->
-    @if (data.isGameInProgress && editMode() !== 'spawn-only') {
-      <div class="warning-box">
-        <td-icon name="warn" [size]="16"></td-icon>
-        <div class="warning-text">
-          <strong>Warning!</strong> The current game will be ended.
-        </div>
-      </div>
+    <!-- A new place, from the Place tab or the world map, with a game in progress -->
+    @if (data.isGameInProgress && editMode() !== 'coop' && !movingSpawn()) {
+      <p class="banner is-warn warning-box">
+        <td-icon name="warn" [size]="14"></td-icon>
+        <span><strong>Warning!</strong> The current game will be ended.</span>
+      </p>
     }
 
     <!-- COOP: join a game; the host's place loads, no place of one's own first (E30) -->
-    @if (editMode() === 'coop' && data.coop) {
-      <app-coop-entry class="coop-entry" [coop]="data.coop" [canHost]="false" />
+    @if (editMode() === 'coop' && coop) {
+      <app-coop-entry class="coop-entry" [coop]="coop" [canHost]="false" />
+      <p class="blk-note">To host, pick a place first, then open Coop in the header.</p>
     }
 
-    <!-- FULL MODE: New HQ + Spawn -->
-    @if (editMode() === 'full') {
-      <!-- HQ Section -->
-      <div class="section hq-section">
-        <div class="section-header">
-          <td-icon name="home" [size]="14"></td-icon>
-          <span class="section-title">Headquarters (HQ)</span>
-        </div>
-        <div class="section-body">
+    @if (editMode() === 'place') {
+      @if (!movingSpawn()) {
+        <!-- Search first, then the quick picks (plan U2) -->
+        <section class="blk">
           <app-td-address-autocomplete
-            [placeholder]="'City, street or address...'"
+            [placeholder]="'City, street or address…'"
             [currentValue]="selectedHQ()"
             (locationSelected)="onHQSelected($event)"
             (locationCleared)="onHQCleared()"
           />
-          <!-- Coordinates toggle -->
-          <button class="coords-toggle" (click)="toggleCoordinates()">
-            <td-icon [name]="showCoordinates() ? 'caretU' : 'caret'" [size]="14"></td-icon>
-            <span>Enter coordinates</span>
-          </button>
+          <div class="links">
+            <button type="button" class="link" (click)="toggleCoordinates()" [attr.aria-expanded]="showCoordinates()">
+              Coordinates<td-icon [name]="showCoordinates() ? 'caretU' : 'caret'" [size]="12"></td-icon>
+            </button>
+            @if (!firstPlace) {
+              <button type="button" class="link" (click)="setPlaceView('spawn')">Move the spawn by address…</button>
+            }
+          </div>
           @if (showCoordinates()) {
             <div class="coords-input">
-              <div class="coord-field">
-                <label for="coord-lat">Lat</label>
-                <input
-                  id="coord-lat"
-                  type="text"
-                  [value]="coordLat()"
-                  (input)="onCoordLatChange($event)"
-                  (paste)="onCoordPaste($event)"
-                  placeholder="49.5432"
-                />
-              </div>
-              <div class="coord-field">
-                <label for="coord-lon">Lon</label>
-                <input
-                  id="coord-lon"
-                  type="text"
-                  [value]="coordLon()"
-                  (input)="onCoordLonChange($event)"
-                  (paste)="onCoordPaste($event)"
-                  placeholder="9.1234"
-                />
-              </div>
-              <button
-                class="apply-coords-btn"
-                [disabled]="!canApplyCoords()"
-                (click)="applyCoordinates()"
-                matTooltip="Apply coordinates"
-                aria-label="Apply coordinates"
-              >
+              <label class="coord-field">
+                <span>Lat</span>
+                <input class="inp" type="text" [value]="coordLat()" (input)="onCoordLatChange($event)"
+                       (paste)="onCoordPaste($event)" placeholder="49.5432" />
+              </label>
+              <label class="coord-field">
+                <span>Lon</span>
+                <input class="inp" type="text" [value]="coordLon()" (input)="onCoordLonChange($event)"
+                       (paste)="onCoordPaste($event)" placeholder="9.1234" />
+              </label>
+              <button type="button" class="apply-coords-btn" [disabled]="!canApplyCoords()" (click)="applyCoordinates()"
+                      matTooltip="Use these coordinates" aria-label="Use these coordinates">
                 @if (isLoadingCoords()) {
                   <mat-spinner diameter="14"></mat-spinner>
                 } @else {
@@ -124,116 +78,116 @@
               </button>
             </div>
           }
-        </div>
-      </div>
 
-      <!-- Spawn Section (full mode) -->
-      <div class="section spawn-section">
-        <div class="section-header">
-          <td-icon name="flag" [size]="14"></td-icon>
-          <span class="section-title">Spawn Point</span>
-          <span class="section-hint">Enemies appear here</span>
-        </div>
-        <div class="section-body">
-          <div class="spawn-mode-toggle" role="group" aria-label="Spawn point">
-            <button
-              class="spawn-mode-btn"
-              [class.active]="spawnMode() === 'random'"
-              [attr.aria-pressed]="spawnMode() === 'random'"
-              (click)="setSpawnMode('random')"
-            >
-              <td-icon name="random" [size]="14"></td-icon>
-              <span>Random</span>
+          <!-- The spawn of a searched place, folded into one line -->
+          @if (selectedHQ()) {
+            <button type="button" class="spawn-line" (click)="spawnOpen.set(!spawnOpen())" [attr.aria-expanded]="spawnOpen()">
+              <td-icon name="flag" [size]="14"></td-icon>
+              <span>Spawn: {{ spawnSummary() }}</span>
+              <td-icon [name]="spawnOpen() ? 'caretU' : 'caret'" [size]="12"></td-icon>
             </button>
-            <button
-              class="spawn-mode-btn"
-              [class.active]="spawnMode() === 'manual'"
-              [attr.aria-pressed]="spawnMode() === 'manual'"
-              (click)="setSpawnMode('manual')"
-            >
-              <td-icon name="edit" [size]="14"></td-icon>
-              <span>Manual</span>
-            </button>
-          </div>
-          @if (spawnMode() === 'random') {
-            <div class="spawn-info">
-              <td-icon name="info" [size]="12"></td-icon>
-              <span>Automatically placed 500m-1km from HQ on a street</span>
-            </div>
-          } @else {
-            <div class="manual-spawn-input">
-              <app-td-address-autocomplete
-                [placeholder]="'Search spawn address...'"
-                [currentValue]="selectedSpawn()"
-                (locationSelected)="onSpawnSelected($event)"
-                (locationCleared)="onSpawnCleared()"
-              />
-              @if (spawnDistance() !== null) {
-                <div class="distance-badge" [class.error]="isSpawnTooFar()">
-                  <td-icon [name]="isSpawnTooFar() ? 'warn' : 'sliders'" [size]="14"></td-icon>
-                  <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km</span>
-                  @if (isSpawnTooFar()) {
-                    <span class="limit">(max 1.5 km)</span>
+            @if (spawnOpen()) {
+              <div class="spawn-set">
+                <span class="seg" role="group" aria-label="Spawn point">
+                  <button type="button" [class.is-on]="spawnMode() === 'random'" [attr.aria-pressed]="spawnMode() === 'random'"
+                          (click)="setSpawnMode('random')">Random</button>
+                  <button type="button" [class.is-on]="spawnMode() === 'manual'" [attr.aria-pressed]="spawnMode() === 'manual'"
+                          (click)="setSpawnMode('manual')">By address</button>
+                </span>
+                @if (spawnMode() === 'manual') {
+                  <app-td-address-autocomplete
+                    [placeholder]="'Spawn address…'"
+                    [currentValue]="selectedSpawn()"
+                    (locationSelected)="onSpawnSelected($event)"
+                    (locationCleared)="onSpawnCleared()"
+                  />
+                  @if (spawnDistance() !== null) {
+                    <p class="note" [class.is-error]="isSpawnTooFar()">
+                      {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most 1.5 km' : '' }}
+                    </p>
                   }
-                </div>
-              }
-            </div>
+                } @else {
+                  <p class="note">Enemies come from a street 0.5 to 1 km from the HQ.</p>
+                }
+              </div>
+            }
           }
-        </div>
-      </div>
+        </section>
 
-      <!-- Quick picks, recent and showcase places: one click loads, no confirm step -->
-      <div class="section quick-section">
-        <div class="section-header">
-          @if (recentLocations().length > 0) {
-            <div class="quick-tabs" role="group" aria-label="Quick picks">
-              <button type="button" class="quick-tab"
-                      [class.active]="activeQuickTab() === 'recent'"
-                      [attr.aria-pressed]="activeQuickTab() === 'recent'"
-                      (click)="quickTab.set('recent')">Recent</button>
-              <button type="button" class="quick-tab"
-                      [class.active]="activeQuickTab() === 'showcase'"
-                      [attr.aria-pressed]="activeQuickTab() === 'showcase'"
-                      (click)="quickTab.set('showcase')">Showcase</button>
-            </div>
-          } @else {
-            <td-icon name="pin" [size]="14"></td-icon>
-            <span class="section-title">Showcase</span>
-          }
-          <span class="section-hint">Click to load</span>
-        </div>
-        <ul class="quick-list">
-          @if (activeQuickTab() === 'recent') {
-            @for (recent of recentLocations(); track recent.visitedAt) {
-              <li>
-                <button type="button" class="quick-item" (click)="loadRecent(recent)">
-                  <span class="quick-name">{{ recent.name }}</span>
-                  <span class="quick-hint">{{ visitAge(recent) }}</span>
-                </button>
-              </li>
+        <!-- Quick picks, recent and showcase places: one click loads, no confirm step -->
+        <section class="blk quick-section">
+          <h3 class="sec">
+            @if (recentLocations().length > 0) {
+              <span class="quick-tabs" role="group" aria-label="Quick picks">
+                <button type="button" class="quick-tab" [class.active]="activeQuickTab() === 'recent'"
+                        [attr.aria-pressed]="activeQuickTab() === 'recent'" (click)="quickTab.set('recent')">Recent</button>
+                <button type="button" class="quick-tab" [class.active]="activeQuickTab() === 'showcase'"
+                        [attr.aria-pressed]="activeQuickTab() === 'showcase'" (click)="quickTab.set('showcase')">Showcase</button>
+              </span>
+            } @else {
+              Showcase
             }
-          } @else {
-            @for (place of showcaseLocations; track place.id) {
-              <li>
-                <button type="button" class="quick-item quick-item-stacked" (click)="loadShowcase(place)">
-                  <span class="quick-name">{{ place.name }}</span>
-                  <span class="quick-hint">{{ place.hint }}</span>
-                </button>
-              </li>
+            <small class="section-hint">Click to load</small>
+          </h3>
+          <ul class="quick-list">
+            @if (activeQuickTab() === 'recent') {
+              @for (recent of recentLocations(); track recent.visitedAt) {
+                <li>
+                  <button type="button" class="quick-item" (click)="loadRecent(recent)">
+                    <span class="quick-name">{{ recent.name }}</span>
+                    <span class="quick-hint">{{ visitAge(recent) }}</span>
+                  </button>
+                </li>
+              }
+            } @else {
+              @for (place of showcaseLocations; track place.id) {
+                <li>
+                  <button type="button" class="quick-item quick-item-stacked" (click)="loadShowcase(place)">
+                    <span class="quick-name">{{ place.name }}</span>
+                    <span class="quick-hint">{{ place.hint }}</span>
+                  </button>
+                </li>
+              }
             }
+          </ul>
+        </section>
+      } @else {
+        <!-- Moving only the spawn by address; the HQ stays (plan U1) -->
+        <section class="blk">
+          <button type="button" class="link back" (click)="setPlaceView('pick')">
+            <td-icon name="caretL" [size]="12"></td-icon>Back to the places
+          </button>
+          @if (data.currentLocation) {
+            <p class="current-hq">
+              <td-icon name="home" [size]="16"></td-icon>
+              <span><small>HQ stays</small>{{ data.currentLocation.name }}</span>
+            </p>
           }
-        </ul>
-      </div>
+          <h3 class="sec">New spawn</h3>
+          <app-td-address-autocomplete
+            [placeholder]="'Spawn address…'"
+            [currentValue]="selectedSpawn()"
+            (locationSelected)="onSpawnSelected($event)"
+            (locationCleared)="onSpawnCleared()"
+          />
+          @if (spawnDistance() !== null) {
+            <p class="note" [class.is-error]="isSpawnTooFar()">
+              {{ (spawnDistance()! / 1000).toFixed(1) }} km from the HQ{{ isSpawnTooFar() ? ', at most 1.5 km' : '' }}
+            </p>
+          } @else {
+            <p class="note">At most 1.5 km from the HQ. To drop it on the map, use the flag in the header.</p>
+          }
+        </section>
+      }
     }
 
-    <!-- WORLD MODE: defended places with their best wave, one click loads -->
+    <!-- WORLD: defended places with their best wave, one click loads -->
     @if (editMode() === 'world') {
-      <div class="section world-section">
-        <div class="section-header">
-          <td-icon name="globe" [size]="14"></td-icon>
-          <span class="section-title">Defended places</span>
-          <span class="section-hint">{{ worldRecords().length > 0 ? 'Best wave · click to load' : 'None yet' }}</span>
-        </div>
+      <section class="blk world-section">
+        <h3 class="sec">
+          Defended places
+          <small class="section-hint">{{ worldRecords().length > 0 ? 'Best wave · click to load' : 'None yet' }}</small>
+        </h3>
         <div class="world-globe-slot">
           @defer (on immediate) {
             <app-world-globe
@@ -270,61 +224,21 @@
         } @else {
           <p class="world-empty">Every place you defend shows up here with the best wave you reached.</p>
         }
-      </div>
+      </section>
     }
+  </div>
 
-    <!-- SPAWN-ONLY MODE -->
-    @if (editMode() === 'spawn-only') {
-      <!-- Current HQ (readonly) -->
-      @if (data.currentLocation) {
-        <div class="current-hq-info">
-          <td-icon name="home" [size]="18"></td-icon>
-          <div class="hq-details">
-            <span class="hq-label">HQ stays</span>
-            <span class="hq-name">{{ data.currentLocation.name }}</span>
-          </div>
-        </div>
+  <!-- Actions: at a start without a place there is nothing to cancel to -->
+  @if (!firstPlace || showConfirm()) {
+    <footer class="dialog-actions">
+      @if (!firstPlace) {
+        <button type="button" class="cancel-btn" (click)="cancel()">{{ showConfirm() ? 'Cancel' : 'Close' }}</button>
       }
-
-      <!-- Spawn Section (spawn-only mode) -->
-      <div class="section spawn-section">
-        <div class="section-header">
-          <td-icon name="flag" [size]="14"></td-icon>
-          <span class="section-title">New Spawn Point</span>
-        </div>
-        <div class="section-body">
-          <app-td-address-autocomplete
-            [placeholder]="'Search new spawn point...'"
-            [currentValue]="selectedSpawn()"
-            (locationSelected)="onSpawnSelected($event)"
-            (locationCleared)="onSpawnCleared()"
-          />
-          @if (spawnDistance() !== null) {
-            <div class="distance-badge" [class.error]="isSpawnTooFar()">
-              <td-icon [name]="isSpawnTooFar() ? 'warn' : 'sliders'" [size]="14"></td-icon>
-              <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km from HQ</span>
-              @if (isSpawnTooFar()) {
-                <span class="limit">(max 1.5 km)</span>
-              }
-            </div>
-          }
-          <div class="spawn-info">
-            <td-icon name="info" [size]="12"></td-icon>
-            <span>Spawn must be max. 1.5 km from HQ</span>
-          </div>
-        </div>
-      </div>
-    }
-  </div>
-
-  <!-- Actions -->
-  <div class="dialog-actions">
-    <button class="cancel-btn" (click)="cancel()">{{ editMode() === 'world' ? 'Close' : 'Cancel' }}</button>
-    @if (editMode() !== 'world' && editMode() !== 'coop') {
-      <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
-        <td-icon name="check" [size]="12"></td-icon>
-        {{ editMode() === 'spawn-only' ? 'Change Spawn' : 'Change Location' }}
-      </button>
-    }
-  </div>
+      @if (showConfirm()) {
+        <button type="button" class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
+          {{ movingSpawn() ? 'Move spawn' : 'Load place' }}
+        </button>
+      }
+    </footer>
+  }
 </div>

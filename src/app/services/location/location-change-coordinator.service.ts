@@ -128,6 +128,8 @@ export class LocationChangeCoordinatorService {
     try {
       dialogRef = await openLocationDialog(this.dialog, {
         data: dialogData,
+        // The search field, ready to type into; without one (World tab) the dialog itself
+        autoFocus: 'input',
         panelClass: 'td-dialog-panel',
         disableClose: false,
       });

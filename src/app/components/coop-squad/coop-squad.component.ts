@@ -3,10 +3,11 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { PingBarsComponent } from '../coop-ui/ping-bars.component';
+import { ABILITY_BAR_EDGE_PX, ABILITY_BAR_PX } from '../ability-bar/ability-button';
 import { CoopChatComponent } from '../coop-chat/coop-chat.component';
 import { CoopService } from '../../services/coop.service';
 import { GameStore } from '../../store/game.store';
-import { SPAWN_COLORS } from '../../configs/map-constants.config';
+import { laneCss } from '../../coop/lane-color';
 
 /** What the gold menu offers to send */
 const GIFT_AMOUNTS = [50, 100, 250, 500];
@@ -28,6 +29,8 @@ type RowState = 'ok' | 'lag' | 'slow' | 'left';
   standalone: true,
   imports: [MatTooltipModule, TdIconComponent, PingBarsComponent, CoopChatComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
+  // Right of the ability bar, like the dock: at 1280x720 the box covered its lower buttons (plan U8)
+  host: { '[style.left.px]': 'left' },
   templateUrl: './coop-squad.component.html',
   styleUrl: './coop-squad.component.scss',
   styles: `
@@ -38,6 +41,7 @@ type RowState = 'ok' | 'lag' | 'slow' | 'left';
 })
 export class CoopSquadComponent {
   readonly coop = inject(CoopService);
+  protected readonly left = ABILITY_BAR_EDGE_PX + ABILITY_BAR_PX.clear;
   private readonly gameStore = inject(GameStore);
 
   readonly amounts = GIFT_AMOUNTS;
@@ -65,8 +69,8 @@ export class CoopSquadComponent {
         name: p.name,
         me: p.id === me,
         host: p.id === hostId,
-        lane: index < 0 ? 'NO LANE' : `SPAWN ${index + 1}`,
-        color: index < 0 ? 'transparent' : `#${SPAWN_COLORS[index % SPAWN_COLORS.length].toString(16).padStart(6, '0')}`,
+        lane: index < 0 ? null : `Spawn ${index + 1}`,
+        color: laneCss(index),
         ready: ready.has(p.id),
         leaks: this.coop.waveLeaks().get(p.id) ?? 0,
         state,
@@ -81,13 +85,13 @@ export class CoopSquadComponent {
   readonly myGold = computed(() => this.coop.gold().get(this.coop.playerId() ?? '') ?? 0);
   readonly myReady = computed(() => this.rows().find((r) => r.me)?.ready ?? false);
 
-  /** Something is wrong: shown in the header, and collapsed as "● ISSUE" */
+  /** Something is wrong: shown in the header, and collapsed as "Issue" with a warning icon; the CSS sets the caps */
   readonly issue = computed(() => {
-    if (this.coop.lostInGame()) return 'OFFLINE';
-    if (this.coop.desync()) return 'OUT OF SYNC';
+    if (this.coop.lostInGame()) return 'Offline';
+    if (this.coop.desync()) return 'Out of sync';
     const rows = this.rows();
     const gone = rows.filter((r) => r.state === 'left').length;
-    if (gone > 0) return `${gone} LANE${gone === 1 ? '' : 'S'} UNMANNED`;
+    if (gone > 0) return `${gone} lane${gone === 1 ? '' : 's'} unmanned`;
     return null;
   });
 
@@ -105,7 +109,7 @@ export class CoopSquadComponent {
     const lagging = rows.find((r) => !r.me && r.state === 'lag');
     if (lagging) return line('', lagging.name, ' has a slow connection. Their actions may arrive late.', true);
     const gone = rows.find((r) => r.state === 'left');
-    if (gone) return line('', gone.lane === 'NO LANE' ? gone.name : titleCase(gone.lane), ' has no defender.', true);
+    if (gone) return line('', gone.lane ?? gone.name, ' has no defender.', true);
     if (this.waveActive()) return null;
     const rule = this.coop.options().wave;
     const seconds = this.gameStore.autoWaveSecondsLeft();
@@ -124,12 +128,14 @@ export class CoopSquadComponent {
     return line('Waiting for ', notReady.map((r) => r.name).join(', '), auto);
   });
 
-  subLine(row: { lane: string; ready: boolean; leaks: number; state: RowState }): string {
-    if (row.state === 'left') return 'LEFT THE MATCH';
-    if (row.state === 'lag') return `${row.lane} · LAGGING`;
-    if (row.state === 'slow') return `${row.lane} · CATCHING UP`;
-    if (this.waveActive()) return row.leaks > 0 ? `${row.lane} · ${row.leaks} THROUGH` : row.lane;
-    return `${row.lane} · ${row.ready ? 'READY' : 'BUILDING'}`;
+  /** Lane and state under the name; the CSS sets the caps */
+  subLine(row: { lane: string | null; ready: boolean; leaks: number; state: RowState }): string {
+    const lane = row.lane ?? 'No lane';
+    if (row.state === 'left') return 'Left the match';
+    if (row.state === 'lag') return `${lane} · lagging`;
+    if (row.state === 'slow') return `${lane} · catching up`;
+    if (this.waveActive()) return row.leaks > 0 ? `${lane} · ${row.leaks} through` : lane;
+    return `${lane} · ${row.ready ? 'ready' : 'building'}`;
   }
 
   /** "3 enemies got through Bob's lane this wave" */
@@ -151,7 +157,3 @@ export class CoopSquadComponent {
   }
 }
 
-/** "SPAWN 2" as "Spawn 2" */
-function titleCase(text: string): string {
-  return text.charAt(0) + text.slice(1).toLowerCase();
-}

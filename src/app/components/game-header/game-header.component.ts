@@ -61,6 +61,14 @@ export class GameHeaderComponent {
     this.store.renderingEnabled.update((v) => !v);
   }
 
+  /** Esc closes the spawn menu, before the Esc chain of the game gets the key */
+  @HostListener('document:keydown.escape', ['$event'])
+  onEscape(event: Event): void {
+    if (!this.spawnMenuOpen()) return;
+    event.preventDefault();
+    this.spawnMenuOpen.set(false);
+  }
+
   // Close favorites menu when clicking outside. The path is taken at dispatch:
   // a button in the menu that a click swaps for the name field still counts
   // as inside.

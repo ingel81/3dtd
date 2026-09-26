@@ -137,6 +137,7 @@ describe('HotkeyService', () => {
     mapPlacementMode: signal<'hq' | 'spawn' | null>(null),
     buildMode: signal(false),
     selectedTowerType: signal<string | null>(null),
+    coopDockOpen: signal(false),
   };
   const research = {
     maxUpgradeTier: signal(1),
@@ -155,6 +156,7 @@ describe('HotkeyService', () => {
     uiStore.openMenu.set(null);
     uiStore.mapPlacementMode.set(null);
     uiStore.buildMode.set(false);
+    uiStore.coopDockOpen.set(false);
 
     levels = {};
     facade = {
@@ -590,6 +592,20 @@ describe('HotkeyService', () => {
       const refused = press('v');
       service.handleKeyDown(refused);
       expect(refused.defaultPrevented).toBe(false);
+    });
+
+    it('Esc closes the coop dock last, after a selected tower', () => {
+      uiStore.coopDockOpen.set(true);
+      store.selectedTower.set(tower);
+      service.handleKeyDown(press('Escape'));
+      expect(selectTower).toHaveBeenCalledWith(null);
+      expect(uiStore.coopDockOpen()).toBe(true);
+
+      store.selectedTower.set(null);
+      const event = press('Escape');
+      service.handleKeyDown(event);
+      expect(uiStore.coopDockOpen()).toBe(false);
+      expect(event.defaultPrevented).toBe(true);
     });
 
     it('Esc lets him go before it deselects a tower', () => {

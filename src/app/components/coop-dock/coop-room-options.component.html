@@ -1,0 +1,50 @@
+<button class="sec sec-toggle" type="button" (click)="open.set(!open())" [attr.aria-expanded]="open()">
+  Mode &amp; options
+  <small class="toggle-label">
+    {{ open() ? 'Hide' : canEdit() ? 'Edit' : 'Show all' }}
+    <td-icon [name]="open() ? 'caretU' : 'caret'" [size]="12"></td-icon>
+  </small>
+</button>
+<div class="set">
+  <span class="set-label">Game mode</span>
+  <span class="seg">
+    <button type="button" class="is-on" matTooltip="Defend one HQ together">PvE Coop</button>
+    <button type="button" aria-disabled="true" matTooltip="Send waves at each other (coming later)">Versus <i class="tag soon">Soon</i></button>
+  </span>
+</div>
+@if (!open()) {
+  <div class="chips">
+    @for (chip of chips(); track chip.key) {
+      <span class="chip" [class.is-warn]="chip.warn">{{ chip.text }}</span>
+    }
+  </div>
+} @else {
+  <div class="sets">
+    @for (option of options; track option.key) {
+      <div class="set">
+        <span class="set-label">{{ option.label }}</span>
+        @if (canEdit()) {
+          <span class="seg" role="radiogroup" [attr.aria-label]="option.label">
+            @for (choice of option.choices; track choice.value) {
+              <button type="button" role="radio" [class.is-on]="value(option.key) === choice.value"
+                      [class.is-warn]="option.key === 'cheats' && choice.value !== 'off'"
+                      [attr.aria-checked]="value(option.key) === choice.value"
+                      [attr.aria-disabled]="cheatsImpossible(option.key, choice.value) || null"
+                      [matTooltip]="cheatsImpossible(option.key, choice.value) ? 'This coop server allows no cheats' : ''"
+                      (click)="choose(option.key, choice.value)">{{ choice.label }}</button>
+            }
+          </span>
+        } @else {
+          <span class="set-value" [class.is-warn]="option.key === 'cheats' && value('cheats') !== 'off'">
+            {{ optionLabel(option.key, value(option.key)) }}
+          </span>
+        }
+      </div>
+    }
+    @if (canEdit()) {
+      <p class="note">Changing a setting resets everyone's ready state.</p>
+    } @else {
+      <p class="note with-icon"><td-icon name="lock" [size]="13"></td-icon>Only the host can change these{{ started() ? ', before the start' : '' }}.</p>
+    }
+  </div>
+}

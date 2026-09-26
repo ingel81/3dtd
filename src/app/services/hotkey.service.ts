@@ -328,6 +328,11 @@ export class HotkeyService {
       this.gameState.towerManager.selectTower(null);
       return true;
     }
+    // Last: the coop dock closes, the room stays open (docs/COOP_UI_REWORK_PLAN.md, U5)
+    if (this.uiStore.coopDockOpen()) {
+      this.uiStore.coopDockOpen.set(false);
+      return true;
+    }
     return false;
   }
 }

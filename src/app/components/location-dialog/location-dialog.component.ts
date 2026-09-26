@@ -15,6 +15,8 @@ import { SHOWCASE_LOCATIONS, ShowcaseLocation } from '../../configs/showcase-loc
 import { TdIconComponent } from '../icon/icon.component';
 import { WorldGlobeComponent } from '../world-globe/world-globe.component';
 import { CoopEntryComponent } from '../coop-entry/coop-entry.component';
+import { COOP } from '../../services/coop.token';
+import { joinedPlaceResult } from './joined-place';
 import {
   LocationDialogData,
   LocationDialogMode,
@@ -59,22 +61,22 @@ export class LocationDialogComponent {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly bestWaves = inject(BestWaveService);
   readonly data: LocationDialogData = inject(MAT_DIALOG_DATA);
+  /** The game's coop service, through the injector the start dialog opens with (E30); null elsewhere */
+  readonly coop = inject(COOP, { optional: true });
 
   constructor() {
     // Joined from the Coop tab: the host's world came, close with its place
     // (every spawn of it), and the boot loads that place (E30)
-    if (this.data.coop) effect(() => {
-      const place = this.data.coop?.hostPlace();
-      if (!place || this.editMode() !== 'coop') return;
-      const [first] = place.spawns;
-      this.dialogRef.close({
-        confirmed: true,
-        hq: { lat: place.hq.lat, lon: place.hq.lon, name: 'Loading...', displayName: 'Loading...' },
-        spawn: { id: 'spawn-1', lat: first?.lat ?? place.hq.lat, lon: first?.lon ?? place.hq.lon },
-        spawns: place.spawns.map(({ lat, lon }) => ({ lat, lon })),
-      } satisfies LocationDialogResult);
+    const coop = this.coop;
+    if (coop) effect(() => {
+      const place = coop.hostPlace();
+      if (place && this.editMode() === 'coop') this.dialogRef.close(joinedPlaceResult(place));
     });
   }
+
+  /** A start without a place: "Choose a place", and no Cancel, there is nothing to go back to */
+  readonly firstPlace = !this.data.currentLocation;
+  readonly title = this.firstPlace ? 'Choose a place' : 'Change place';
 
   /** Recent places except the one being played, which would only restart it. */
   readonly recentLocations = computed(() => {
@@ -103,15 +105,24 @@ export class LocationDialogComponent {
    * to join (the desktop app's LAN, or an online lobby) (E30, D67)
    */
   readonly coopOffered = computed(() => {
-    const coop = this.data.coop;
-    return !!coop && !this.data.currentLocation && (coop.lanAvailable || coop.lobby() !== null);
+    const coop = this.coop;
+    return !!coop && this.firstPlace && (coop.lanAvailable || coop.lobby() !== null);
   });
 
   // State
-  readonly editMode = signal<LocationDialogMode>(this.data.initialMode ?? 'full');
+  readonly editMode = signal<LocationDialogMode>(this.data.initialMode ?? 'place');
+  /**
+   * The Place tab picks a new place, or, with a place loaded, moves only its
+   * spawn by address: the former Spawn Only tab (plan U1)
+   */
+  readonly placeView = signal<'pick' | 'spawn'>('pick');
+  /** The spawn settings of a new place, folded into one line until opened (plan U2) */
+  readonly spawnOpen = signal(false);
   readonly selectedHQ = signal<{ lat: number; lon: number; name?: string; address?: NominatimAddress } | null>(null);
   readonly selectedSpawn = signal<{ lat: number; lon: number; name?: string } | null>(null);
-  readonly spawnMode = signal<SpawnMode>(this.data.initialMode === 'spawn-only' ? 'manual' : 'random');
+  readonly spawnMode = signal<SpawnMode>('random');
+  /** Only the spawn moves, the HQ stays where it is */
+  readonly movingSpawn = computed(() => this.editMode() === 'place' && this.placeView() === 'spawn');
   readonly showCoordinates = signal(false);
   readonly isLoadingCoords = signal(false);
 
@@ -139,7 +150,7 @@ export class LocationDialogComponent {
     if (!spawn) return null;
 
     let hqLat: number, hqLon: number;
-    if (this.editMode() === 'spawn-only' && this.data.currentLocation) {
+    if (this.movingSpawn() && this.data.currentLocation) {
       hqLat = this.data.currentLocation.lat;
       hqLon = this.data.currentLocation.lon;
     } else if (this.selectedHQ()) {
@@ -158,26 +169,36 @@ export class LocationDialogComponent {
   });
 
   readonly canConfirm = computed(() => {
-    // Check spawn distance
-    if (this.spawnMode() === 'manual' && this.isSpawnTooFar()) {
-      return false;
+    if (this.movingSpawn()) {
+      return this.data.currentLocation !== null && this.selectedSpawn() !== null && !this.isSpawnTooFar();
     }
+    if (this.spawnMode() === 'manual' && (this.selectedSpawn() === null || this.isSpawnTooFar())) return false;
+    return this.selectedHQ() !== null;
+  });
 
-    if (this.editMode() === 'spawn-only') {
-      return this.data.currentLocation !== null &&
-             (this.spawnMode() === 'random' || this.selectedSpawn() !== null);
-    }
-    const hasHQ = this.selectedHQ() !== null;
-    const hasSpawn = this.spawnMode() === 'random' || this.selectedSpawn() !== null;
-    return hasHQ && hasSpawn;
+  /**
+   * The confirm button: on the Place tab once a place is picked in the search
+   * (recent and showcase places load with one click), or while moving the spawn
+   */
+  readonly showConfirm = computed(() =>
+    this.editMode() === 'place' && (this.movingSpawn() || this.selectedHQ() !== null));
+
+  /** The folded spawn line: "Spawn: random, 0.5 to 1 km from the HQ" */
+  readonly spawnSummary = computed(() => {
+    if (this.spawnMode() === 'random') return 'random, 0.5 to 1 km from the HQ';
+    const spawn = this.selectedSpawn();
+    return spawn?.name ? `at ${spawn.name}` : 'by address, none picked yet';
   });
 
   setEditMode(mode: LocationDialogMode): void {
     this.editMode.set(mode);
-    if (mode === 'spawn-only') {
-      // In spawn-only mode, default to manual spawn selection
-      this.spawnMode.set('manual');
-    }
+  }
+
+  /** Into and out of moving only the spawn; each way starts without a picked spawn */
+  setPlaceView(view: 'pick' | 'spawn'): void {
+    this.placeView.set(view);
+    this.selectedSpawn.set(null);
+    this.spawnMode.set(view === 'spawn' ? 'manual' : 'random');
   }
 
   toggleCoordinates(): void {
@@ -388,7 +409,7 @@ export class LocationDialogComponent {
   confirm(): void {
     let hqInfo: LocationInfo;
 
-    if (this.editMode() === 'spawn-only') {
+    if (this.movingSpawn()) {
       // Use current HQ
       const current = this.data.currentLocation;
       if (!current) return;

@@ -1,0 +1,139 @@
+@if (room(); as r) {
+  <h3 class="sec">
+    Lanes and players
+    <small>{{ r.players.length }}/{{ maxPlayers }}</small>
+  </h3>
+  @if (!r.started && r.spawnIds.length < r.players.length) {
+    <p class="note is-warn">
+      {{ r.spawnIds.length }} spawn{{ r.spawnIds.length === 1 ? '' : 's' }} for {{ r.players.length }} players: every player needs a lane of their own.
+      @if (coop.isHost()) { One is being added; if none comes, add one with the + button in the header. }
+    </p>
+  }
+
+  <!-- A player's name, tags and what their client does; shared by lane rows and rows without a lane -->
+  <ng-template #who let-p>
+    <span class="who">
+      @if (p.me && !r.started) {
+        <label class="name-edit" matTooltip="Your name: click to change, Enter saves">
+          <input type="text" maxlength="32" [value]="p.name" aria-label="Your name"
+                 (change)="coop.rename($any($event.target).value)" (keydown.enter)="$any($event.target).blur()" />
+          <td-icon name="edit" [size]="12"></td-icon>
+        </label>
+      } @else {
+        <b [matTooltip]="p.client ? clientLabel(p.client) : ''">{{ p.name }}</b>
+      }
+      <small>
+        @if (p.host) { <i class="tag is-host">Host</i> }
+        @if (p.me) { <i class="tag is-you">You</i> }
+        @if (p.left) {
+          Left
+        } @else if (p.doing && !r.started) {
+          <span class="doing">{{ p.doing }}</span>
+        }
+      </small>
+    </span>
+  </ng-template>
+
+  <!-- Ready (lobby) and ping: the same two cells in every player row -->
+  <ng-template #state let-p>
+    @if (!r.started) {
+      <span class="ready" [class.is-on]="p.ready" [matTooltip]="p.host ? 'The host is always ready' : p.ready ? 'Ready' : 'Not ready'">
+        @if (p.ready) { <td-icon name="check" [size]="14"></td-icon> }
+        <span class="sr-only">{{ p.ready ? 'Ready' : 'Not ready' }}</span>
+      </span>
+    } @else {
+      <span></span>
+    }
+    <app-ping-bars [ms]="p.left ? null : p.latency" [warn]="p.lagging"
+                   [matTooltip]="p.me ? 'Your round trip to the coop server' : 'To them and back over the coop server, about'" />
+  </ng-template>
+
+  <ul class="rows" aria-label="Lanes and players">
+    @for (lane of table().lanes; track lane.spawnId) {
+      @let p = lane.player;
+      <li class="row-lane" [class.is-me]="p?.me" [class.is-free]="!p" [class.is-gone]="p?.left">
+        <i class="lane-bar" [style.background]="lane.color"></i>
+        <span class="lane">
+          <b>{{ lane.label }}</b>
+          @if (lane.length) {
+            <span class="len">
+              <u><s [style.width.%]="lane.share * 100" [style.background]="lane.color"></s></u>
+              {{ lane.length }}
+            </span>
+          }
+        </span>
+        @if (p) {
+          <ng-container *ngTemplateOutlet="who; context: { $implicit: p }" />
+          <ng-container *ngTemplateOutlet="state; context: { $implicit: p }" />
+        } @else {
+          @if (!r.started) {
+            <button class="take" type="button" (click)="take(lane)">Free · take</button>
+          } @else {
+            <small class="free">Free</small>
+          }
+          <span></span><span></span>
+        }
+        <span class="ops">
+          <button class="icon-btn sm" type="button" (click)="flyTo(lane.spawnId)"
+                  [matTooltip]="'Fly to ' + lane.label" [attr.aria-label]="'Fly to ' + lane.label">
+            <td-icon name="pin" [size]="14"></td-icon>
+          </button>
+          @if (!r.started) {
+            @if (p?.me) {
+              <button class="icon-btn sm" type="button" (click)="take(lane)"
+                      matTooltip="Give the lane back" aria-label="Give the lane back">
+                <td-icon name="undo" [size]="14"></td-icon>
+              </button>
+            }
+            @if (coop.isHost()) {
+              <button class="icon-btn sm" type="button" (click)="coop.moveSpawn(lane.index)"
+                      [matTooltip]="'Move ' + lane.label + ': click its new place on the map'" [attr.aria-label]="'Move ' + lane.label">
+                <td-icon name="flag" [size]="14"></td-icon>
+              </button>
+              <button class="icon-btn sm" type="button" (click)="r.spawnIds.length > 1 && coop.removeSpawn(lane.index)"
+                      [attr.aria-disabled]="r.spawnIds.length < 2 || null"
+                      [matTooltip]="r.spawnIds.length < 2 ? 'The last lane stays' : 'Remove ' + lane.label" [attr.aria-label]="'Remove ' + lane.label">
+                <td-icon name="trash" [size]="14"></td-icon>
+              </button>
+              @if (p && !p.me) {
+                <button class="icon-btn sm" type="button" (click)="coop.kick(p.id)"
+                        [matTooltip]="'Take ' + p.name + ' out of the room'" [attr.aria-label]="'Take ' + p.name + ' out of the room'">
+                  <td-icon name="cross" [size]="14"></td-icon>
+                </button>
+              }
+            }
+          }
+        </span>
+      </li>
+    }
+    @for (p of table().seatless; track p.id) {
+      <li class="row-lane is-seatless" [class.is-me]="p.me" [class.is-gone]="p.left">
+        <i class="lane-bar"></i>
+        <span class="lane"><b>No lane</b></span>
+        <ng-container *ngTemplateOutlet="who; context: { $implicit: p }" />
+        <ng-container *ngTemplateOutlet="state; context: { $implicit: p }" />
+        <span class="ops">
+          @if (coop.isHost() && !p.me && !r.started) {
+            <button class="icon-btn sm" type="button" (click)="coop.kick(p.id)"
+                    [matTooltip]="'Take ' + p.name + ' out of the room'" [attr.aria-label]="'Take ' + p.name + ' out of the room'">
+              <td-icon name="cross" [size]="14"></td-icon>
+            </button>
+          }
+        </span>
+      </li>
+    }
+    @if (freeSeat() && !r.started) {
+      <li class="empty-seat">
+        <td-icon name="users" [size]="16"></td-icon>
+        Free seat
+        @if (coop.lanAvailable) {
+          <span class="seat-hint">{{ coop.lanAddresses().length ? 'Players on this network see the game' : 'Share the code' }}</span>
+        } @else {
+          <button class="btn-xs" type="button" (click)="invite.emit()">
+            <td-icon [name]="inviteCopied() ? 'check' : 'link'" [size]="14"></td-icon>{{ inviteCopied() ? 'Copied' : 'Copy invite' }}
+          </button>
+        }
+      </li>
+    }
+  </ul>
+}

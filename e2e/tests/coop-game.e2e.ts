@@ -12,6 +12,26 @@ test('squad box, chat, the ping hint and gold between players (T62, T50, T6)', a
     await expect(guest.locator('app-coop-squad .sq-foot')).toContainText(/Ready up for the next wave/);
   });
 
+  await test.step('U8 the squad box and the chat keep clear of each other and of the logo row', async () => {
+    const box = (sel: string) => host.locator(sel).first().boundingBox();
+    const squad = await box('app-coop-squad .squad');
+    const hint = await box('app-coop-chat .hint');
+    expect(squad && hint && squad.y + squad.height <= hint.y + 1).toBe(true);
+    await shot(testInfo, host, 'squad-and-chat');
+  });
+
+  await test.step('U5 after a click on a button Enter opens the chat, it does not press the button again', async () => {
+    const toggle = guest.getByRole('button', { name: 'Collapse the squad' });
+    await toggle.click();
+    const expand = guest.getByRole('button', { name: 'Expand the squad' });
+    await expect(expand).toBeVisible();
+    await guest.keyboard.press('Enter');
+    await expect(guest.locator('app-coop-chat input')).toBeFocused();
+    await expect(expand).toBeVisible();
+    await guest.keyboard.press('Escape');
+    await expand.click();
+  });
+
   await test.step('chat: Enter opens, Enter sends, the other side reads it', async () => {
     await host.keyboard.press('Enter');
     await host.locator('app-coop-chat input').fill('rockets on the corner');
@@ -77,7 +97,7 @@ test('game over shows each player’s part; the host starts the next run on both
 test('the relay ends in the game: going on alone works (T48)', async ({ duo, relay }, testInfo) => {
   const { host } = await coopRoom(duo, { options: { Cheats: 'Host only' }, start: true });
   await relay.stop();
-  await expect(host.locator('app-coop-squad')).toContainText('OFFLINE', { timeout: 30_000 });
+  await expect(host.locator('app-coop-squad')).toContainText(/offline/i, { timeout: 30_000 });
   await shot(testInfo, host, 'offline');
   await host.getByRole('button', { name: 'Continue alone' }).click();
   // Alone the commands act again: a cheat and a wave

@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, signal, untracked } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input, linkedSignal, signal, untracked } from '@angular/core';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
@@ -13,14 +13,24 @@ const ROOMS_EVERY_MS = 5000;
 /** The LAN scan found nothing this long: offer the host IP field and the checklist (D54), ms */
 const LAN_QUIET_MS = 4000;
 
+/** localStorage: the way the player took last, online or on the same network (plan U3) */
+const WAY_KEY = '3dtd-coop-way';
+
+/** The select's entry that opens the fields for a new lobby */
+const ADD_LOBBY = '__add';
+
+export type CoopWay = 'online' | 'lan';
+
 /**
- * The way into a coop room (docs/COOP_PLAN.md, D61, D67): the player's name,
- * "Same network" in the desktop app (host a LAN game, the games found, the
- * host IP field) and "Online" over the active lobby (host, room code, the
- * lobbies behind a gear). The coop dock shows it with hosting; the location
+ * The way into a coop room (docs/COOP_PLAN.md, D61, D67; the layout
+ * docs/COOP_UI_REWORK_PLAN.md, U3): the player's name, then Online or, in
+ * the desktop app, Same network, one at a time behind a switch that keeps
+ * the last choice. Online: the lobby as a select, its open rooms, a room
+ * code. Same network: the games found, the host IP field. One button hosts
+ * on the chosen way. The coop dock shows it with hosting; the location
  * dialog of a start without a place shows it for joining only (E30), which
- * is why the service comes in as an input: the dialog lives outside the game
- * component that provides it.
+ * is why the service comes in as an input: the dialog lives outside the
+ * game component that provides it.
  */
 @Component({
   selector: 'app-coop-entry',
@@ -43,9 +53,15 @@ export class CoopEntryComponent {
   readonly placeName = input('');
 
   protected readonly maxPlayers = MAX_PLAYERS;
+  protected readonly addLobbyValue = ADD_LOBBY;
 
-  readonly name = signal('');
-  readonly code = signal('');
+  readonly name = linkedSignal(() => this.coop().name);
+  readonly code = linkedSignal(() => this.coop().roomFromUrl ?? '');
+
+  /** Online or Same network; the web version has only Online */
+  private readonly chosenWay = signal<CoopWay>(readWay());
+  readonly way = computed<CoopWay>(() => (this.coop().lanAvailable ? this.chosenWay() : 'online'));
+
   /** The LAN scan has found nothing for a while */
   readonly lanQuiet = signal(false);
   readonly hostIp = signal('');
@@ -55,8 +71,8 @@ export class CoopEntryComponent {
   /** LAN games, each with why it cannot be joined where it cannot */
   readonly lanGames = computed(() => this.coop().lanGames().map((game) => ({ ...game, why: lanRefusal(game) })));
 
-  /** The lobby menu behind the gear */
-  readonly lobbyMenu = signal(false);
+  /** The fields for a new lobby, opened from the select */
+  readonly addingLobby = signal(false);
   readonly newLobbyName = signal('');
   readonly newLobbyUrl = signal('');
   readonly lobbyNote = signal<{ ok: boolean; text: string } | null>(null);
@@ -65,42 +81,32 @@ export class CoopEntryComponent {
   /** The lobby's open rooms, each with why it cannot be joined where it cannot */
   readonly publicRooms = computed(() => this.coop().publicRooms()?.map((room) => ({ ...room, why: publicRefusal(room) })) ?? null);
 
+  /** One timer for "the scan stays quiet": the first search and every search again share it */
+  private quietTimer: ReturnType<typeof setTimeout> | null = null;
+
   constructor() {
-    let started = false;
-    effect(() => {
-      const coop = this.coop();
-      if (started) return;
-      started = true;
-      untracked(() => {
-        this.name.set(coop.name);
-        this.code.set(coop.roomFromUrl ?? '');
-      });
-    });
-    // Look for LAN games while this is shown, not while connecting
-    let quietTimer: ReturnType<typeof setTimeout> | null = null;
+    // Look for LAN games while Same network is shown, not while connecting
     let scanning = false;
     effect(() => {
       const coop = this.coop();
-      const on = coop.lanAvailable && coop.status() !== 'connecting' && !coop.room();
+      const on = coop.lanAvailable && this.way() === 'lan' && coop.status() !== 'connecting' && !coop.room();
       if (on === scanning) return;
       scanning = on;
       untracked(() => {
-        this.lanQuiet.set(false);
-        if (quietTimer) clearTimeout(quietTimer);
-        quietTimer = null;
         coop.scanLan(on);
-        if (on) quietTimer = setTimeout(() => this.lanQuiet.set(coop.lanGames().length === 0), LAN_QUIET_MS);
+        if (on) this.waitForQuiet();
+        else this.stopQuiet();
       });
     });
-    // The open rooms of the lobby, every few seconds while this is shown and not in a room
+    // The open rooms of the lobby, every few seconds while Online is shown and not in a room
     const listTimer = setInterval(() => this.refreshRooms(), ROOMS_EVERY_MS);
     effect(() => {
-      const coop = this.coop();
-      coop.lobby();
+      this.coop().lobby();
+      this.way();
       untracked(() => this.refreshRooms());
     });
     inject(DestroyRef).onDestroy(() => {
-      if (quietTimer) clearTimeout(quietTimer);
+      this.stopQuiet();
       clearInterval(listTimer);
       if (scanning) this.coop().scanLan(false);
     });
@@ -110,26 +116,35 @@ export class CoopEntryComponent {
     return this.name().trim() || 'Player';
   }
 
-  hostLan(): void {
-    void this.coop().hostLan(this.playerName());
+  setWay(way: CoopWay): void {
+    this.chosenWay.set(way);
+    try {
+      localStorage.setItem(WAY_KEY, way);
+    } catch {
+      /* no storage: the choice holds for this page */
+    }
   }
 
-  hostOnline(): void {
-    void this.coop().host(this.playerName());
+  /** Host on the chosen way */
+  host(): void {
+    if (this.way() === 'lan') void this.coop().hostLan(this.playerName());
+    else void this.coop().host(this.playerName());
   }
 
-  joinLan(game: LanGame): void {
+  joinLan(game: LanGame & { why: string | null }): void {
+    if (game.why) return;
     void this.coop().joinLan(this.playerName(), game);
   }
 
   refreshRooms(): void {
     const coop = this.coop();
-    if (coop.room() || coop.status() === 'connecting') return;
+    if (this.way() !== 'online' || coop.room() || coop.status() === 'connecting') return;
     void coop.refreshPublicRooms();
   }
 
-  joinRoom(code: string): void {
-    void this.coop().join(this.playerName(), code);
+  joinRoom(room: { code: string; why: string | null }): void {
+    if (room.why) return;
+    void this.coop().join(this.playerName(), room.code);
   }
 
   join(): void {
@@ -144,12 +159,24 @@ export class CoopEntryComponent {
     coop.scanLan(false);
     coop.scanLan(true);
     this.lanProbe.set(null);
-    this.lanQuiet.set(false);
     this.rescanning.set(true);
-    setTimeout(() => {
+    this.waitForQuiet();
+  }
+
+  private waitForQuiet(): void {
+    this.stopQuiet();
+    this.quietTimer = setTimeout(() => {
+      this.quietTimer = null;
       this.rescanning.set(false);
-      this.lanQuiet.set(coop.lanGames().length === 0);
+      this.lanQuiet.set(this.coop().lanGames().length === 0);
     }, LAN_QUIET_MS);
+  }
+
+  private stopQuiet(): void {
+    if (this.quietTimer) clearTimeout(this.quietTimer);
+    this.quietTimer = null;
+    this.lanQuiet.set(false);
+    this.rescanning.set(false);
   }
 
   async probeLan(): Promise<void> {
@@ -157,6 +184,18 @@ export class CoopEntryComponent {
     if (!ip) return;
     this.lanProbe.set('busy');
     this.lanProbe.set((await this.coop().probeLan(ip)) ? null : 'none');
+  }
+
+  /** The lobby select: a lobby becomes the active one, "Add lobby…" opens the fields */
+  pickLobby(select: HTMLSelectElement): void {
+    if (select.value === ADD_LOBBY) {
+      this.addingLobby.set(true);
+      // The select keeps showing the active lobby, not the add entry
+      select.value = this.coop().lobby()?.url ?? '';
+      return;
+    }
+    this.lobbyNote.set(null);
+    this.coop().selectLobby(select.value);
   }
 
   addLobby(): void {
@@ -167,9 +206,11 @@ export class CoopEntryComponent {
     }
     this.newLobbyName.set('');
     this.newLobbyUrl.set('');
+    this.addingLobby.set(false);
     void this.checkLobby();
   }
 
+  /** Whether the lobby just added answers and takes this version */
   async checkLobby(): Promise<void> {
     const lobby = this.coop().lobby();
     if (!lobby) return;
@@ -177,8 +218,28 @@ export class CoopEntryComponent {
     this.lobbyNote.set(await this.coop().probeLobby(lobby.url));
   }
 
+  removeLobby(url: string): void {
+    this.coop().removeLobby(url);
+    this.lobbyNote.set(null);
+  }
+
+  /** Stop connecting: no room, no world coming */
+  cancelConnect(): void {
+    this.coop().intent.set(null);
+    this.coop().leave();
+  }
+
   installUpdate(): void {
     this.coop().installUpdate();
+  }
+}
+
+/** The way stored last time, Online without one */
+function readWay(): CoopWay {
+  try {
+    return localStorage.getItem(WAY_KEY) === 'lan' ? 'lan' : 'online';
+  } catch {
+    return 'online';
   }
 }
 
