@@ -81,7 +81,8 @@ const TOWER_CAPABILITIES: Record<
 /**
  * Analyze a list of towers and return defense metrics.
  *
- * @param hero the hired hero (HeroManager.getDefenseProfile), null without.
+ * @param hero the hired hero (HeroManager.getDefenseProfile), null without;
+ *   in coop the heroes of all players, each counted.
  *   He counts as a virtual tower at his presence factor in the armor-weighted
  *   DPS (effective and gate) and in the kill throughput, nowhere else: not in
  *   totalDPS, the capabilities or the AoE share (docs/HERO.md).
@@ -89,9 +90,10 @@ const TOWER_CAPABILITIES: Record<
 export function analyzeDefense(
   towers: Tower[],
   airTargetingUnlocked: AirTargeting,
-  hero: HeroDefenseProfile | null = null,
+  hero: HeroDefenseProfile | readonly HeroDefenseProfile[] | null = null,
 ): DefenseAnalysis {
-  if (towers.length === 0 && !hero) {
+  const heroes = hero === null ? [] : Array.isArray(hero) ? hero : [hero as HeroDefenseProfile];
+  if (towers.length === 0 && heroes.length === 0) {
     return createEmptyDefenseAnalysis();
   }
 
@@ -105,7 +107,7 @@ export function analyzeDefense(
     calculateDPSPerArmor(towers, airTargetingUnlocked);
   const aoeDpsShare = calculateAoeDpsShare(towers, airTargetingUnlocked);
   const killThroughput = calculateKillThroughput(towers, airTargetingUnlocked);
-  if (hero) addHero(hero, effectiveDPSPerArmor, gateDpsPerArmor, killThroughput);
+  for (const h of heroes) addHero(h, effectiveDPSPerArmor, gateDpsPerArmor, killThroughput);
 
   return {
     towerCount: towers.length,
