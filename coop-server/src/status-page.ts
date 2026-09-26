@@ -1,3 +1,5 @@
+import { ICON_PNG, LOGO_PNG } from './status-page-images.ts';
+
 /**
  * The relay's status page (relay review 2026-09-26): one HTML page without
  * external files that reads /status, /metrics.json and /log.json every five
@@ -17,48 +19,78 @@ const PAGE = `<!doctype html>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>3DTD relay</title>
+<link rel="icon" type="image/png" href="${ICON_PNG}">
 <style>
-  :root { --bg: #111418; --panel: #1a1f25; --line: #2c333b; --text: #dde3ea; --dim: #8a95a1; --ok: #4fc3a1; --warn: #e0a84a; --bad: #e0645a; }
+  /* Tokens from src/app/styles/td-theme.ts; the fonts fall back to the system's, nothing is loaded */
+  :root {
+    --bg: #111613; --panel: #222A24; --panel-2: #1A1F1B; --sunk: #0B0F0C;
+    --frame: #2F3631; --frame-light: #7A8580; --rune: #6B5320;
+    --text: #EEF1EB; --text-2: #B6C0B3; --dim: #8E988C;
+    --gold: #C2A055; --gold-light: #D9BC68; --gold-dark: #8E7228;
+    --ok: #6BB6A4; --warn: #C96A3A; --bad: #E0645A;
+    --mono: 'JetBrains Mono', ui-monospace, Consolas, monospace;
+    --body: 'Inter Tight', system-ui, -apple-system, sans-serif;
+    --raised: inset 0 1px 0 rgba(122,133,128,0.2), inset 0 -1px 0 var(--sunk);
+  }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 13px/1.45 ui-monospace, Consolas, monospace; }
-  h1 { font-size: 15px; margin: 0 0 12px; font-weight: 600; }
-  h2 { font-size: 13px; margin: 20px 0 8px; color: var(--dim); font-weight: 600; text-transform: uppercase; letter-spacing: .06em; }
-  .figures { display: flex; flex-wrap: wrap; gap: 6px 22px; }
+  body { margin: 0; padding: 16px; background: var(--bg); color: var(--text); font: 13px/1.45 var(--mono); }
+  main { max-width: 1100px; margin: 0 auto; }
+  header { display: flex; align-items: center; gap: 14px; padding-bottom: 12px; border-bottom: 1px solid var(--rune); }
+  header img { width: 71px; height: 40px; flex: none; }
+  h1 { font: 600 16px/1.2 var(--body); margin: 0; letter-spacing: .04em; }
+  #meta { color: var(--dim); font-size: 12px; margin-top: 2px; }
+  h2 { font-size: 11px; margin: 22px 0 8px; color: var(--gold); font-weight: 700; text-transform: uppercase; letter-spacing: .14em; }
+  .panel { background: var(--panel); border: 1px solid var(--frame); box-shadow: var(--raised); }
+  .figures { display: flex; flex-wrap: wrap; gap: 6px 22px; margin-top: 14px; }
   .figure b { font-size: 16px; }
   .figure span { color: var(--dim); margin-left: 4px; }
-  .curves { display: flex; flex-wrap: wrap; gap: 12px; }
-  .curve { background: var(--panel); border: 1px solid var(--line); padding: 8px 10px; }
-  .curve div { color: var(--dim); }
+  .curves { display: flex; flex-wrap: wrap; gap: 10px; }
+  .curve { padding: 8px 10px; max-width: 100%; }
+  .curve div { color: var(--text-2); }
+  .curve svg { background: var(--panel-2); max-width: 100%; }
   svg { display: block; }
+  .rooms { overflow-x: auto; }
   table { border-collapse: collapse; width: 100%; }
-  th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
-  th { color: var(--dim); font-weight: 400; }
+  th, td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--frame); vertical-align: top; }
+  th { color: var(--dim); font-weight: 400; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; }
   .ok { color: var(--ok); } .warn { color: var(--warn); } .bad { color: var(--bad); } .dim { color: var(--dim); }
-  button { background: var(--panel); color: var(--text); border: 1px solid var(--line); padding: 2px 8px; font: inherit; cursor: pointer; }
-  button:hover { border-color: var(--dim); }
-  pre { background: var(--panel); border: 1px solid var(--line); padding: 8px; max-height: 420px; overflow: auto; white-space: pre-wrap; margin: 0; }
-  input { background: var(--panel); color: var(--text); border: 1px solid var(--line); padding: 3px 6px; font: inherit; width: 18em; }
-  .bar { display: flex; gap: 8px; align-items: center; margin-top: 8px; }
+  button { background: var(--panel); color: var(--text-2); border: 1px solid var(--frame); box-shadow: var(--raised); padding: 2px 8px; font: inherit; cursor: pointer; }
+  button:hover { border-color: var(--frame-light); color: var(--text); }
+  button.gold { background: linear-gradient(var(--gold-light), var(--gold) 55%, var(--gold-dark)); color: #1A140A; border-color: #1A140A; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; }
+  button.gold:hover { box-shadow: 0 0 14px rgba(194,160,85,0.28); }
+  pre { background: var(--sunk); border: 1px solid var(--frame); padding: 8px; max-height: 420px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+  input { background: var(--sunk); color: var(--text); border: 1px solid var(--frame); padding: 3px 6px; font: inherit; width: 18em; min-width: 0; max-width: 100%; }
+  input:focus { outline: none; border-color: var(--gold-dark); }
+  .bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 12px; }
+  .hint { margin-top: 4px; }
 </style>
 </head>
 <body>
-<h1 id="title">3DTD coop relay</h1>
+<main>
+<header>
+  <img src="${LOGO_PNG}" alt="3DTD">
+  <div>
+    <h1>Coop relay</h1>
+    <div id="meta"></div>
+  </div>
+</header>
 <div class="figures" id="figures"></div>
 <h2>Last hour</h2>
 <div class="curves" id="curves"></div>
 <h2>Rooms</h2>
-<div id="rooms"></div>
+<div class="rooms" id="rooms"></div>
 <div id="adminBar" hidden>
   <div class="bar">
     <label for="token" class="dim">Admin token</label>
     <input id="token" type="password" autocomplete="off">
-    <button id="unlock">Unlock</button>
+    <button id="unlock" class="gold">Unlock</button>
     <span id="adminNote" class="dim"></span>
   </div>
-  <div class="dim">The relay's RELAY_ADMIN_TOKEN. It unlocks the buttons "drop" (a player) and "close room" in the rooms above; without an open room there is nothing to act on.</div>
+  <div class="dim hint">The relay's RELAY_ADMIN_TOKEN. It unlocks the buttons "drop" (a player) and "close room" in the rooms above; without an open room there is nothing to act on.</div>
 </div>
 <h2>Log</h2>
 <pre id="log"></pre>
+</main>
 <script>
 (function () {
   var tokenInput = document.getElementById('token');
@@ -109,7 +141,7 @@ const PAGE = `<!doctype html>
   }
 
   function curve(label, values, format) {
-    var box = el('div', null, 'curve');
+    var box = el('div', null, 'curve panel');
     var last = values.length ? values[values.length - 1] : 0;
     box.appendChild(el('div', label + ': ' + format(last)));
     var w = 220, h = 40, max = Math.max.apply(null, values.concat([1]));
@@ -122,7 +154,7 @@ const PAGE = `<!doctype html>
       return x.toFixed(1) + ',' + (h - 2 - (v / max) * (h - 4)).toFixed(1);
     });
     line.setAttribute('points', points.join(' '));
-    line.setAttribute('fill', 'none'); line.setAttribute('stroke', '#4fc3a1'); line.setAttribute('stroke-width', '1.5');
+    line.setAttribute('fill', 'none'); line.setAttribute('stroke', '#6BB6A4'); line.setAttribute('stroke-width', '1.5');
     svg.appendChild(line);
     box.appendChild(svg);
     return box;
@@ -172,7 +204,9 @@ const PAGE = `<!doctype html>
   }
 
   function renderMetrics(m, status) {
-    document.getElementById('title').textContent = '3DTD coop relay ' + status.build + ', protocol ' + status.protocol + ', up ' + span(m.uptimeS);
+    var meta = document.getElementById('meta');
+    meta.textContent = 'build ' + status.build + ', protocol ' + status.protocol + ', up ' + span(m.uptimeS);
+    meta.className = '';
     var f = document.getElementById('figures');
     f.textContent = '';
     var dropped = Object.keys(m.dropped).filter(function (k) { return m.dropped[k] > 0; }).map(function (k) { return k + ' ' + m.dropped[k]; }).join(', ');
@@ -211,7 +245,7 @@ const PAGE = `<!doctype html>
         pre.textContent = lines.join('\\n');
         if (atEnd) pre.scrollTop = pre.scrollHeight;
       })
-      .catch(function () { document.getElementById('title').textContent = '3DTD coop relay: not reachable'; });
+      .catch(function () { var meta = document.getElementById('meta'); meta.textContent = 'not reachable'; meta.className = 'bad'; });
   }
   refresh();
   setInterval(refresh, 5000);
