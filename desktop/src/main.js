@@ -17,7 +17,7 @@ const { autoUpdater } = require('electron-updater');
 const log = require('electron-log/main');
 const { APP_ID } = require('./app-id');
 const { setUpCoopLan } = require('./coop-lan');
-const { uniqueDownloadPath } = require('./downloads');
+const { savesSilently, uniqueDownloadPath } = require('./downloads');
 const { errorPageUrl, isFatalLoadFailure } = require('./error-page');
 const { MAX_LOG_BYTES, createRepeatFilter, describeGpus, maskValue, rendererLine } = require('./log');
 const { APP_ORIGIN, APP_SCHEME, createAppProtocolHandler } = require('./protocol');
@@ -130,14 +130,21 @@ function logPageMessages(contents) {
 }
 
 /**
- * Files the game saves go to Downloads without a dialog, as in a browser.
- * The page gives no feedback of its own (the browser's download bar does
- * that on the web), so a notification says where the file went; clicking it
- * shows the file in Explorer.
+ * Pictures the game saves go to Downloads without a dialog, as in a browser;
+ * a notification says where, clicking it shows the file in Explorer. A run
+ * log, a dump or a replay gets a save dialog in Downloads: the notification
+ * alone stayed in the background and nobody found the file.
  */
 function saveDownloads(targetSession) {
   targetSession.on('will-download', (_event, item) => {
     const target = uniqueDownloadPath(app.getPath('downloads'), item.getFilename(), existsSync);
+    if (!savesSilently(item.getFilename())) {
+      item.setSaveDialogOptions({ title: 'Save file', defaultPath: target });
+      item.once('done', (_doneEvent, state) => {
+        if (state === 'interrupted') console.warn(`[downloads] ${path.basename(target)}: ${state}`);
+      });
+      return;
+    }
     item.setSavePath(target);
     item.once('done', (_doneEvent, state) => {
       if (state !== 'completed') {

@@ -4,7 +4,9 @@
  * Where files the game saves end up: screenshots from photo mode, the state
  * dump, corridor snapshots. The page saves them through a download link; a
  * browser drops them into Downloads and shows its download bar. The desktop
- * build does the same without a dialog and says so in a notification.
+ * build saves a picture without a dialog (the photo bar says so) and asks
+ * where anything else goes: a run log or a dump is looked for later, and a
+ * notification in the background went unseen (User, 2026-09-26).
  */
 
 const path = require('node:path');
@@ -24,6 +26,11 @@ function safeFileName(suggested) {
   return cleaned || 'download';
 }
 
+/** Pictures go straight to Downloads; everything else gets a save dialog. */
+function savesSilently(suggested) {
+  return /\.(png|jpe?g|webp)$/i.test(safeFileName(suggested));
+}
+
 /**
  * A path in `dir` for `suggested` that does not overwrite anything:
  * "name.png", then "name (1).png", "name (2).png" as a browser numbers them.
@@ -39,4 +46,4 @@ function uniqueDownloadPath(dir, suggested, exists) {
   return candidate;
 }
 
-module.exports = { safeFileName, uniqueDownloadPath };
+module.exports = { safeFileName, savesSilently, uniqueDownloadPath };

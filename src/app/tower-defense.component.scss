@@ -379,6 +379,14 @@
   @include td.bevel-glass;
 }
 
+.td-photo-saved {
+  align-self: center;
+  padding: 0 6px;
+  color: var(--td-text-secondary);
+  font-family: var(--td-font-mono);
+  font-size: 11px;
+}
+
 .td-photo-btn {
   display: inline-flex;
   align-items: center;
