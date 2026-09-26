@@ -37,6 +37,13 @@ export interface GameStateSnapshot {
   // === RESEARCH STATE ===
   research: ResearchSnapshot;
 
+  /**
+   * Coop lanes the next wave runs on; each gets the whole wave (D13). The
+   * defense above is already one lane's share, the HP budget of the gate is
+   * split with laneHp(). Missing or 1 in the single player game.
+   */
+  lanes?: number;
+
   /** Expected armor distribution in current or next wave (used by Bot for tower picks) */
   expectedArmorDistribution?: Record<ArmorType, number>;
 

@@ -104,6 +104,24 @@ describe('buildWaveConfig', () => {
     expect(checked).toBeGreaterThan(0);
   });
 
+  // Coop: every lane gets the whole wave and all of them leak into the one
+  // base, so each lane's copy may spend only its share of the leak budget.
+  it('gives each coop lane its share of the leak budget', () => {
+    const state = (lanes?: number): GameStateSnapshot => {
+      const snapshot = defense(1000);
+      snapshot.player.lives = 100_000;
+      if (lanes) snapshot.lanes = lanes;
+      return snapshot;
+    };
+    const capOf = (s: GameStateSnapshot) => build(decision(0, { count: 1 }), s).explanation!.sizing!.cap!;
+    const alone = capOf(state());
+    const laned = capOf(state(2));
+    const killable = capOf({ ...state(), player: { ...state().player, lives: 0 } });
+
+    expect(laned).toBeLessThan(alone);
+    expect(laned - killable).toBeCloseTo((alone - killable) / 2, -1);
+  });
+
   it('compresses the spawn delay of a wave that would run past three minutes', () => {
     const config = build(decision(0, { count: 1, spawn: 1 }), defense(1e6));
 

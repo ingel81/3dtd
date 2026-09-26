@@ -13,7 +13,7 @@ import { GameStateSnapshot } from '../../models/game-state-snapshot';
 import { WaveConfig } from '../../models/wave-config';
 import { explainWaveDecision } from './decision-explainer';
 import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS, getTemplate, type CandidateReason } from '../../templates';
-import { DPS_RAMP_FLOOR, DPS_RAMP_HP_MULT, dpsScaledCountMax, lerpRange, survivableCount } from './wave-sizing';
+import { DPS_RAMP_FLOOR, DPS_RAMP_HP_MULT, dpsScaledCountMax, laneHp, lerpRange, survivableCount } from './wave-sizing';
 import type { DirectorDecision } from './director-rules';
 import { directorParams } from '../../director-params';
 import type { PressureStatus } from './pressure-controller';
@@ -163,7 +163,7 @@ export function buildWaveConfig(
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
       (id) => splitBodyCount(id as EnemyTypeId),
       (id) => splitLeafCount(id as EnemyTypeId),
-      state.player?.lives ?? 100,
+      laneHp(state),
       enemyBaseDamageForWave(upcomingWave),
       // Closed-loop correction. FAIRNESS_KILL_REALISM was measured on waves
       // 1-10 and understates the defense from wave 11 on; this is the only

@@ -8,7 +8,7 @@
  */
 
 import { TEMPLATES, candidateTemplates, type NumberRange, type Template, type CandidateReason } from '../../templates';
-import { survivableCount } from './wave-sizing';
+import { laneHp, survivableCount } from './wave-sizing';
 import { templateForWave, isBossWave, enemyBaseDamageForWave } from '../../../configs/campaign.config';
 import {
   ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
@@ -138,7 +138,7 @@ export function buildWaveContext(
     (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
     (id) => splitBodyCount(id as EnemyTypeId),
     (id) => splitLeafCount(id as EnemyTypeId),
-    state.player?.lives ?? 100,
+    laneHp(state),
     enemyBaseDamageForWave(upcomingWave),
   );
 
@@ -173,7 +173,7 @@ export function buildWaveContext(
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
       (id) => splitBodyCount(id as EnemyTypeId),
       (id) => splitLeafCount(id as EnemyTypeId),
-      state.player?.lives ?? 100,
+      laneHp(state),
       enemyBaseDamageForWave(upcomingWave),
     );
     if (cap !== null) {

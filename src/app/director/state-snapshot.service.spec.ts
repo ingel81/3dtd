@@ -492,8 +492,10 @@ describe('StateSnapshotService', () => {
       heroProfile = heroDefenseProfile(0);
       try {
         const alone = collector.getStateSnapshot().defense;
+        expect(collector.getStateSnapshot().lanes).toBeUndefined();
         laneSpawns = ['spawn-1', 'spawn-2'];
         const laned = collector.getStateSnapshot().defense;
+        expect(collector.getStateSnapshot().lanes).toBe(2);
         expect(laned.killThroughput.ground).toBeCloseTo(alone.killThroughput.ground / 2, 6);
         expect(laned.gateDpsPerArmor.ground.heavy).toBeCloseTo(alone.gateDpsPerArmor.ground.heavy / 2, 6);
         expect(laned.effectiveDPSPerArmor.air.light).toBeCloseTo(alone.effectiveDPSPerArmor.air.light / 2, 6);
