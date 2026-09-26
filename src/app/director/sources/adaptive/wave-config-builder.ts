@@ -19,7 +19,7 @@ import { directorParams } from '../../director-params';
 import type { PressureStatus } from './pressure-controller';
 import { targetPressure } from './pressure-controller';
 import {
-  ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
+  ENEMY_TYPES, lineageHp, lineageLeakDamage, splitBodyCount, type EnemyTypeId,
 } from '../../../configs/enemy-types.config';
 import { campaignIntensity, campaignMinSpawnDelay, endgameHpMultiplier, enemyBaseDamageForWave } from '../../../configs/campaign.config';
 
@@ -125,7 +125,7 @@ export function buildWaveConfig(
       (id) => lineageHp(id as EnemyTypeId),
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
       (id) => splitBodyCount(id as EnemyTypeId),
-      (id) => splitLeafCount(id as EnemyTypeId),
+      (id) => lineageLeakDamage(id as EnemyTypeId),
       laneHp(state),
       enemyBaseDamageForWave(upcomingWave),
       // Closed-loop correction. FAIRNESS_KILL_REALISM was measured on waves

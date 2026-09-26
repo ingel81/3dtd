@@ -3,7 +3,7 @@ import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { MovementComponent } from '../game-components/movement.component';
-import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration, enemyRewardWeight } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration, enemyRewardWeight, leakDamageOf } from '../configs/enemy-types.config';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
@@ -749,12 +749,16 @@ export class EnemyManager extends EntityManager<Enemy> {
 
       // An ooze flows into the base over many sub-steps (OozeBodies.update)
       if (moveResult === 'reached_end' && enemy.body === null) {
-        // Emit enemy:reached-base event — leak damage scales with wave-number
-        // (Phase 5.16) so late-game leaks hurt more.
+        // What its type costs (leakDamageOf), scaled with the wave number
+        // (Phase 5.16) so late-game leaks hurt more. A worm segment pays its
+        // share of the whole worm's.
+        const typeDamage = enemy.worm === null
+          ? leakDamageOf(enemy.typeConfig.id as EnemyTypeId)
+          : leakDamageOf('worm') / Math.max(1, enemy.worm.group.size);
         this.eventBus.emit({
           type: 'enemy:reached-base',
           enemy,
-          damage: enemyBaseDamageForWave(this.getWaveNumber()),
+          damage: typeDamage * enemyBaseDamageForWave(this.getWaveNumber()),
         });
         this.toRemove.push(enemy);
         continue;

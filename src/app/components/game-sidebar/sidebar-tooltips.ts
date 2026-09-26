@@ -144,6 +144,19 @@ export function splitTraitLabel(enemyType: string): string | null {
  * effectiveness against this enemy's armor. Reuses the armor-row structure
  * for the damage rows so both tooltips share the same visual language.
  */
+/** HP a leak costs, whole or with one decimal (a worm segment's share) */
+export function formatLeak(hp: number): string {
+  return Number.isInteger(hp) ? String(hp) : hp.toFixed(1);
+}
+
+/**
+ * What the running wave costs the HQ if all of it gets through, every lane
+ * and every split child (TODO E49)
+ */
+export function waveLeakTotal(groups: readonly WaveGroupDisplay[]): number {
+  return Math.round(groups.reduce((sum, g) => sum + g.count * g.lanes * g.leakMost, 0));
+}
+
 export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null {
   const enemyConfig = ENEMY_TYPES[group.enemyType];
   if (!enemyConfig) return null;
@@ -155,6 +168,8 @@ export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null
     { label: 'HP', value: String(group.actualHp) },
     { label: 'SPEED', value: `${group.actualSpeed.toFixed(1)}m/s` },
     { label: 'COUNT', value: group.lanes > 1 ? `×${group.count} on each of ${group.lanes} lanes` : `×${group.count}` },
+    // What one costs the HQ when it gets through (TODO E49)
+    { label: 'HQ', value: `−${formatLeak(group.leak)} each` },
   ];
 
   const damageRows = (Object.keys(DAMAGE_MATRIX) as DamageType[])

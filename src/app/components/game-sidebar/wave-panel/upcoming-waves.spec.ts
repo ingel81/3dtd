@@ -72,6 +72,13 @@ describe('peekUpcomingWaves', () => {
     expect(w30).toMatchObject({ name: 'Boss: Skarnax', boss: true });
   });
 
+  it('says what each enemy and the largest wave cost the HQ (TODO E49)', () => {
+    const [w1] = peekWaves(0, DPS_RAMP_COUNT * 3, 1);
+    const hi = templateObjectForWave(1)!.countRange[1];
+    expect(w1.tooltip).toContain('At the HQ each costs: Zombie 2, Zombie v2 2 HP.');
+    expect(w1.tooltip).toContain(`All ${hi} through: up to ${hi * 2} HP.`);
+  });
+
   it('adds the split of the skeletons to the W19 tooltip', () => {
     const [w19] = peekWaves(18, 0, 1);
     expect(w19).toMatchObject({ wave: 19, name: 'Skeleton Swarm' });

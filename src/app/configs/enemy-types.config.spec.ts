@@ -6,7 +6,9 @@ import {
   getEnemyTypeIds,
   lineageHp,
   splitBodyCount,
-  splitLeafCount,
+  leakDamageOf,
+  lineageLeakDamage,
+  MAX_LEAK_DAMAGE,
 } from './enemy-types.config';
 
 describe('enemy types config', () => {
@@ -49,7 +51,8 @@ describe('enemy types config', () => {
     expect(ENEMY_TYPES['ooze'].splitOnDeath?.type).toBe('slime-clump');
     expect(splitBodyCount('ooze')).toBe(21);
     expect(lineageHp('ooze')).toBe(ENEMY_TYPES['ooze'].baseHp + 20 * ENEMY_TYPES['slime-clump'].baseHp);
-    expect(splitLeafCount('ooze')).toBe(20);
+    // 20 clumps of 3 at the HQ cost more than the whole ooze (49)
+    expect(lineageLeakDamage('ooze')).toBe(20 * leakDamageOf('slime-clump'));
     expect(ENEMY_TYPES['slime-clump'].splitOnDeath).toBeUndefined();
   });
 
@@ -65,10 +68,26 @@ describe('enemy types config', () => {
   });
 
   it('lets a skeleton leak twice: both minions reach the base when it dies just before', () => {
-    expect(splitLeafCount('skeleton')).toBe(ENEMY_TYPES['skeleton'].splitOnDeath!.count);
-    expect(splitLeafCount('skeleton')).toBe(2);
-    expect(splitLeafCount('skeleton-minion')).toBe(1);
-    expect(splitLeafCount('zombie')).toBe(1);
+    expect(lineageLeakDamage('skeleton')).toBe(ENEMY_TYPES['skeleton'].splitOnDeath!.count * leakDamageOf('skeleton-minion'));
+    expect(lineageLeakDamage('skeleton')).toBe(2);
+    expect(lineageLeakDamage('skeleton-minion')).toBe(1);
+    expect(lineageLeakDamage('zombie')).toBe(leakDamageOf('zombie'));
+  });
+
+  it('costs the HQ by the square root of the HP, from 1 to 50 (TODO E49)', () => {
+    expect(leakDamageOf('rat')).toBe(1);
+    expect(leakDamageOf('zombie')).toBe(2);
+    expect(leakDamageOf('tank')).toBe(3);
+    expect(leakDamageOf('stone-golem')).toBe(4);
+    expect(leakDamageOf('herbert')).toBe(13);
+    expect(leakDamageOf('ooze')).toBe(49);
+    // The worm costs it once for all its segments
+    expect(leakDamageOf('worm')).toBe(MAX_LEAK_DAMAGE);
+    for (const enemy of getAllEnemyTypes()) {
+      const damage = leakDamageOf(enemy.id as never);
+      expect(damage).toBeGreaterThanOrEqual(1);
+      expect(damage).toBeLessThanOrEqual(MAX_LEAK_DAMAGE);
+    }
   });
 
   it('all enemy types have required fields', () => {

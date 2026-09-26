@@ -394,7 +394,7 @@ Directors. Sie sind Design-Parameter, keine gelernten Werte:
 | Knopf | Wo | Kurve |
 |---|---|---|
 | `endgameHpMultiplier(wave)` | `campaign.config.ts` | 1.0× bis W20, danach +5%/Wave, Cap 4.0× (W30 ≈ 1.5×, W50 ≈ 2.5×) |
-| `enemyBaseDamageForWave(wave)` | `campaign.config.ts` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
+| `leakDamageOf(typ)` × `enemyBaseDamageForWave(wave)` | `enemy-types.config.ts`, `campaign.config.ts` | HP-Verlust pro Durchkommen: `round(√baseHp / 5)`, 1 bis 50, mal dem Wellenaufschlag (+1 je 30 Wellen) |
 Eine Welle kostet, was durchkommt. Der Spieler hat 100 Start-HP und **heilt
 nie**; ab W91 kostet ein einzelnes Durchkommen 10 HP.
 

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { enemyGroupTooltip, towerCardTooltip, TowerCardTooltipContext } from './sidebar-tooltips';
+import { enemyGroupTooltip, towerCardTooltip, TowerCardTooltipContext, waveLeakTotal } from './sidebar-tooltips';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
@@ -21,9 +21,24 @@ function group(enemyType: EnemyTypeId, overrides: Partial<WaveGroupDisplay> = {}
     speedMultiplier: 1,
     spawnDelay: 500,
     lanes: 1,
+    leak: 2,
+    leakMost: 2,
     ...overrides,
   };
 }
+
+describe('what a wave costs the HQ (TODO E49)', () => {
+  it('names the HP one enemy costs in the tooltip', () => {
+    expect(enemyGroupTooltip(group('zombie'))!.stats).toContainEqual({ label: 'HQ', value: '−2 each' });
+  });
+
+  it('sums every enemy on every lane, split children included', () => {
+    expect(waveLeakTotal([
+      group('zombie', { count: 10, lanes: 2, leakMost: 2 }),
+      group('skeleton', { count: 5, lanes: 2, leak: 1, leakMost: 2 }),
+    ])).toBe(10 * 2 * 2 + 5 * 2 * 2);
+  });
+});
 
 describe('towerCardTooltip', () => {
   it('describes the research center as a structure and says when it stands', () => {
@@ -117,6 +132,7 @@ describe('enemyGroupTooltip', () => {
       { label: 'HP', value: '150' },
       { label: 'SPEED', value: '2.3m/s' },
       { label: 'COUNT', value: '×12' },
+      { label: 'HQ', value: '−2 each' },
     ]);
   });
 

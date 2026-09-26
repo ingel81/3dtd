@@ -16,6 +16,9 @@ import { TIMING } from '../../configs/timing.config';
  * - Game over explosion and inferno
  * - Game over screen signal
  */
+/** The number over the HQ when a leak costs health (TODO E49): --td-health-red */
+const HQ_LEAK_TEXT = { color: '#B14436', durationMs: 1400, floatSpeed: 2.5, scale: 1.1, lift: 12 } as const;
+
 @Injectable({ providedIn: 'root' })
 export class HQDamageService {
   /** Signal to show game over screen (after delay) */
@@ -68,8 +71,24 @@ export class HQDamageService {
       // Play damage sound only when health decreases
       if (event.delta < 0) {
         this.playDamageSound();
+        // What the leak cost, over the HQ (TODO E49); a cheat is not a leak
+        if (event.cause !== 'cheat') this.showLeak(-event.delta);
       }
     }));
+  }
+
+  /** "−4" rising over the HQ, in the colour of lost health */
+  private showLeak(hp: number): void {
+    const engine = this.tilesEngine;
+    const base = this.basePosition;
+    if (!engine || !base) return;
+    const text = `−${Number.isInteger(hp) ? hp : hp.toFixed(1)}`;
+    engine.effects.spawnFloatingText(text, base.lat, base.lon, this.groundY(engine, base) + engine.sync.getOrigin().height + HQ_LEAK_TEXT.lift, {
+      color: HQ_LEAK_TEXT.color,
+      duration: HQ_LEAK_TEXT.durationMs,
+      floatSpeed: HQ_LEAK_TEXT.floatSpeed,
+      scale: HQ_LEAK_TEXT.scale,
+    });
   }
 
   /**

@@ -1,7 +1,8 @@
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import type { ArmorType, DamageType } from '../../../configs/combat/combat.types';
 import { bestDamageTypesAgainst } from '../../../configs/combat/damage-matrix.config';
-import { EnemyTypeId, ENEMY_TYPES } from '../../../configs/enemy-types.config';
+import { EnemyTypeId, ENEMY_TYPES, leakDamageOf, lineageLeakDamage } from '../../../configs/enemy-types.config';
+import { enemyBaseDamageForWave } from '../../../configs/campaign.config';
 import { BLOOD_MOON_INTERVAL, isBloodMoonWave } from '../../../configs/blood-moon.config';
 import type { WavePeekFacts } from '../../../director/wave-source';
 import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
@@ -135,6 +136,20 @@ function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: st
     parts.push(hi < max
       ? `Up to ${hi} enemies with your tower DPS now, the wave allows ${max}. A weak defense can get fewer than ${lo}.`
       : `Up to ${hi} enemies. A weak defense can get fewer than ${lo}.`);
+  }
+
+  // What they cost the HQ (TODO E49): each type, and the largest wave whole
+  const known = fact.enemies.filter(([id]) => ENEMY_TYPES[id as EnemyTypeId]);
+  if (known.length > 0) {
+    const scale = enemyBaseDamageForWave(fact.wave);
+    // Two kinds under one name (the zombies) are one entry
+    const each = [...new Set(known.map(([id]) => `${ENEMY_TYPES[id as EnemyTypeId].name} ${leakDamageOf(id as EnemyTypeId) * scale}`))];
+    parts.push(`At the HQ each costs: ${each.join(', ')} HP.`);
+    const shares = known.reduce((sum, [, share]) => sum + share, 0);
+    if (fact.count && shares > 0) {
+      const perEnemy = known.reduce((sum, [id, share]) => sum + share * lineageLeakDamage(id as EnemyTypeId), 0) / shares;
+      parts.push(`All ${fact.count.hi} through: up to ${Math.round(fact.count.hi * perEnemy * scale)} HP.`);
+    }
   }
 
   // The line shows the counters as icons only; the tooltip names them

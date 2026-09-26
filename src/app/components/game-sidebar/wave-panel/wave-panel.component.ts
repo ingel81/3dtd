@@ -34,7 +34,7 @@ import { DebugFacadeService } from '../../../services/debug/debug-facade.service
 import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { REPLAY_CONFIG } from '../../../configs/replay.config';
-import { enemyGroupTooltip, splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
+import { enemyGroupTooltip, formatLeak, splitTraitLabel, waveLeakTotal, weakToLabel } from '../sidebar-tooltips';
 import { calculateTotalDPS } from '../../../director/defense-analyzer';
 import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
@@ -247,6 +247,9 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   }
 
   readonly groupTooltip = enemyGroupTooltip;
+  readonly formatLeak = formatLeak;
+  /** What the running wave costs the HQ if all of it gets through (TODO E49) */
+  readonly leakTotal = computed(() => waveLeakTotal(this.currentWaveGroups()));
   /** "Splits into 2 minions on death" under the armor line, null for a type that does not split. */
   readonly splitTrait = splitTraitLabel;
 

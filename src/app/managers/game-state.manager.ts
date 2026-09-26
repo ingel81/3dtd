@@ -1573,7 +1573,7 @@ export class GameStateManager {
     if (!this.replaying && config.schedule.entries.length > 0) this.recordWaveStart(config);
 
     // Wave preview in the sidebar, see summarizeWaveGroups(); the live wave's only
-    const groups = this.replaying ? [] : summarizeWaveGroups(laneCount > 1 ? perLane : config, laneCount);
+    const groups = this.replaying ? [] : summarizeWaveGroups(laneCount > 1 ? perLane : config, laneCount, this.waveManager.waveNumber() + 1);
     if (groups.length > 0) {
       this.waveDebug.setCurrentWaveGroups(groups);
     }

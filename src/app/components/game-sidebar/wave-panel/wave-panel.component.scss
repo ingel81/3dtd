@@ -368,6 +368,22 @@
   font-size: 9px;
   color: var(--td-text-muted);
 }
+/* What one of them costs the HQ (TODO E49) */
+.td-group-leak {
+  color: var(--td-health-red);
+}
+/* What the whole wave costs the HQ if all of it gets through */
+.td-wave-leak {
+  margin: 0 0 6px;
+  font: 600 9px/1.4 var(--td-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+.td-wave-leak b {
+  color: var(--td-health-red);
+  font-weight: 700;
+}
 .td-group-armor {
   display: flex;
   gap: 6px;

@@ -18,6 +18,7 @@ import {
   TEST_PATH,
 } from './test-helpers';
 import { enemyBaseDamageForWave } from '../configs/campaign.config';
+import { leakDamageOf } from '../configs/enemy-types.config';
 
 describe('Enemy Movement Path Integration', () => {
   let m: TestManagers;
@@ -70,7 +71,7 @@ describe('Enemy Movement Path Integration', () => {
     expect(reachedBaseHandler).toHaveBeenCalledWith(
       expect.objectContaining({
         type: 'enemy:reached-base',
-        damage: enemyBaseDamageForWave(1),
+        damage: leakDamageOf('zombie') * enemyBaseDamageForWave(1),
       })
     );
   });

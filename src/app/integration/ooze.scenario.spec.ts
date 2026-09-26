@@ -30,6 +30,10 @@ import { runSummary } from '../run-log/run-summary';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { enemyBaseDamageForWave } from '../configs/campaign.config';
+import { leakDamageOf } from '../configs/enemy-types.config';
+
+/** What a whole ooze costs at wave scale 1 (leakDamageOf, TODO E49) */
+const OOZE_LEAK = leakDamageOf('ooze');
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { Enemy } from '../entities/enemy.entity';
@@ -126,7 +130,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     return m.enemyManager.spawn([{ ...end, lat: end.lat - 1 / METERS_PER_DEGREE_LAT }, end], 'zombie');
   };
 
-  it('362: at W1 a full ooze costs 10 HP point by point, each point shakes, and the wave ends once all of it is in', () => {
+  it('362: at W1 a full ooze costs its leak damage point by point, shaking at most every 900 ms, and the wave ends once all of it is in', () => {
     const ooze = startOoze(1);
     let flowingWhileTheWaveRuns = 0;
     while (!m.waveManager.checkWaveComplete() && clock.now < 120_000) {
@@ -138,10 +142,11 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     // It flowed for about 25 s after the first point, the wave running on
     expect(flowingWhileTheWaveRuns).toBeGreaterThan(200);
 
-    expect(hurt.map((h) => h.delta)).toEqual(new Array(10).fill(-1));
-    expect(ledger.baseHealth()).toBe(START_HEALTH - 10);
-    // A point every 8 m, 2.7 s at 3 m/s: far enough apart for each to shake
-    expect(shakes).toHaveLength(10);
+    expect(hurt.map((h) => h.delta)).toEqual(new Array(OOZE_LEAK).fill(-1));
+    expect(ledger.baseHealth()).toBe(START_HEALTH - OOZE_LEAK);
+    // A point every 80 / 49 m, about half a second at 3 m/s: the first after each 900 ms shakes
+    expect(shakes.length).toBeGreaterThan(1);
+    expect(shakes.length).toBeLessThan(hurt.length);
   });
 
   it('playtest 2026-09-15: a lone ooze of W4 walks its route and flows in without a STUCK warning', () => {
@@ -156,14 +161,13 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   });
 
   it('421: at W45 and 4x it shakes at most every 900 ms of wall time, and every metre costs', () => {
-    // Aus dem Leck-Schaden gerechnet statt gepinnt: ein Ooze kostet das
-    // Zehnfache eines gewöhnlichen Lecks, verteilt über seine 80 m.
-    const perLeak = enemyBaseDamageForWave(45);
-    const total = perLeak * 10;
+    // Aus dem Leck-Schaden gerechnet statt gepinnt: ein Ooze kostet seinen
+    // Leckschaden mal dem der Welle, verteilt über seine 80 m.
+    const total = enemyBaseDamageForWave(45) * OOZE_LEAK;
     startOoze(45);
     runToWaveEnd(4);
 
-    // 80 m at perLeak x 10 / 80 HP a metre, and every point lands. A wave used
+    // 80 m at total / 80 HP a metre, and every point lands. A wave used
     // to stop costing at 18 HP however much flowed in (2026-09-20).
     expect(leaking.reduce((sum, l) => sum + l.damage, 0) + reached.reduce((a, b) => a + b, 0)).toBe(total);
     expect(hurt.map((h) => h.delta)).toEqual(new Array(total).fill(-1));
@@ -181,8 +185,8 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     }
   });
 
-  it('421: a zombie leak at W45 costs one leak of that wave and shakes at once, inside the 900 ms', () => {
-    const perLeak = enemyBaseDamageForWave(45);
+  it('421: a zombie leak at W45 costs a zombie leak of that wave and shakes at once, inside the 900 ms', () => {
+    const perLeak = leakDamageOf('zombie') * enemyBaseDamageForWave(45);
     startOoze(45);
     while (shakes.length === 0 && clock.now < 60_000) run(STEP, 4);
     const pointShake = shakes[0];
@@ -199,8 +203,8 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   });
 
   it('421: from W91 on a zombie leak costs more than at W45 and shakes at once, inside the 900 ms', () => {
-    const perLeak = enemyBaseDamageForWave(91);
-    expect(perLeak).toBeGreaterThan(enemyBaseDamageForWave(45));
+    const perLeak = leakDamageOf('zombie') * enemyBaseDamageForWave(91);
+    expect(enemyBaseDamageForWave(91)).toBeGreaterThan(enemyBaseDamageForWave(45));
     startOoze(91);
     while (shakes.length === 0 && clock.now < 60_000) run(STEP, 4);
     const pointShake = shakes[0];

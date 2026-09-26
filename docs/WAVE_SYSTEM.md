@@ -509,7 +509,7 @@ multipliziert sich:
 | Content/Pacing | `CAMPAIGN` in `configs/campaign.config.ts` | pinnt Template + Gold-Budget pro Wave (W1-W30). Danach wählt der Director das Template, das Gold fällt um ×0,85 je Welle bis auf 5 % des W30-Budgets (Boss-Wellen doppelt, `waveGold`) |
 | Formfaktoren | `decideWave()` (`RAMP_FULL_WAVE = 60`) | Count/HP hoch, Spawn-Delay runter |
 | Endgame-HP | `endgameHpMultiplier(wave)` | ab W21 +5 % pro Welle auf `hpMult`, Cap 4× |
-| Leck-Schaden | `enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
+| Leck-Schaden | `leakDamageOf(typ) × enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: `round(√baseHp / 5)`, 1 bis 50 (Ratte 1, Zombie 2, Golem 4, Herbert 13), mal dem Wellenaufschlag (+1 je 30 Wellen) |
 
 Nach oben gedeckelt wird die Kurve durch den Überlebbarkeits-Deckel und den
 Leck-Regler (siehe [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md),

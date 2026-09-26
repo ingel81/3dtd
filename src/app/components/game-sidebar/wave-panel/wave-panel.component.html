@@ -2,6 +2,10 @@
 <section class="td-panel td-wave-panel" aria-label="Wave">
   <div class="td-panel-content td-wave-section">
     @if (waveActive()) {
+      @if (leakTotal() > 0) {
+        <div class="td-wave-leak" matTooltip="HP the HQ loses if every enemy of this wave gets through, split children included"
+             matTooltipPosition="left">Max HQ damage <b>{{ leakTotal() }}</b></div>
+      }
       <div class="td-enemy-group-list">
         @for (group of currentWaveGroups(); track group.enemyType; let i = $index) {
           <div class="td-enemy-group-row"
@@ -19,6 +23,7 @@
               <div class="td-group-stats">
                 <span class="td-group-stat">HP {{ group.actualHp }}</span>
                 <span class="td-group-stat">{{ group.actualSpeed.toFixed(1) }}m/s</span>
+                <span class="td-group-stat td-group-leak">HQ −{{ formatLeak(group.leak) }}</span>
               </div>
               <div class="td-group-armor">
                 <span class="td-group-armor-type">

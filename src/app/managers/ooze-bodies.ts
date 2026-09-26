@@ -1,7 +1,7 @@
 import { Vector3 } from 'three';
 import type { Enemy } from '../entities/enemy.entity';
 import { OozeBody } from '../entities/ooze-body';
-import type { OozeConfig } from '../configs/enemy-types.config';
+import { leakDamageOf, type EnemyTypeId, type OozeConfig } from '../configs/enemy-types.config';
 import { enemyBaseDamageForWave } from '../configs/campaign.config';
 import { OOZE_SOUNDS } from '../configs/audio.config';
 import { routeBodyStations, type RouteBody, type RouteBodyContact } from '../utils/route-body';
@@ -63,7 +63,7 @@ export class OozeBodies {
    * One sub-step (`deltaMs` of game time), after the tips moved. Every body
    * follows its tip. A body whose tip reached the HQ flows in at the tip's
    * speed, slow included, nothing while it is paused: each metre that enters
-   * costs its share of the leak (OozeConfig.leakDamageFactor), charged in
+   * costs its share of the ooze's leak damage (leakDamageOf), charged in
    * whole points as enemy:leaking, and takes its share of the ooze's HP
    * with it. Every OOZE_SOUNDS.slurp.everyM metres it slurps at the HQ.
    * Once the whole body is in, the ooze reaches the base with the rest of
@@ -85,7 +85,7 @@ export class OozeBodies {
       const speed = movement.speedMps * movement.speedMultiplier * movement.getSlowMultiplier(gameTimeMs);
       const entered = body.flowIn((speed * Math.min(deltaMs, 100)) / 1000);
       if (entered > 0) {
-        const perMetre = (enemyBaseDamageForWave(this.waveNumber()) * config.leakDamageFactor) / config.maxLengthM;
+        const perMetre = (enemyBaseDamageForWave(this.waveNumber()) * leakDamageOf(enemy.typeConfig.id as EnemyTypeId)) / config.maxLengthM;
         const damage = body.owe(entered * perMetre);
         if (damage > 0) this.eventBus.emit({ type: 'enemy:leaking', enemy, damage });
         // The mass that went in takes its share of the one HP pool with it

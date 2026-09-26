@@ -30,6 +30,10 @@ export interface WaveGroupDisplay {
   spawnDelay: number;
   /** Coop lanes that each get `count` of this group; 1 alone */
   lanes: number;
+  /** HP one of them costs the HQ when it gets through, at this wave (leakDamageOf, TODO E49) */
+  leak: number;
+  /** Most one of them can cost, split children included (lineageLeakDamage) */
+  leakMost: number;
 }
 
 /**

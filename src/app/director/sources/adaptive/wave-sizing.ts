@@ -136,11 +136,14 @@ export function survivableCount(
   enemyBaseSpeed: (enemyId: string) => number,
   /** Kills one enemy takes: itself and everything it splits into (splitBodyCount). */
   enemyBodies: (enemyId: string) => number,
-  /** Most leaks one enemy can cost: the ends of its split tree (splitLeafCount). */
-  enemyMaxLeaks: (enemyId: string) => number,
+  /**
+   * Most HP one enemy can cost the HQ, before the wave's scale `leakDamage`:
+   * its type's, or its split tree's (lineageLeakDamage, TODO E49).
+   */
+  enemyLeakCost: (enemyId: string) => number,
   /** Player HP still on the clock, in HP points (not a fraction). */
   hpRemaining: number,
-  /** HP the player loses per enemy that reaches the base, at this wave. */
+  /** The wave's scale on every leak (enemyBaseDamageForWave). */
   leakDamage: number,
   /**
    * Closed-loop correction on the kill estimate, from
@@ -174,7 +177,7 @@ export function survivableCount(
   let weightedThroughput = 0;
   let weightedSpeed = 0;
   let weightedBodies = 0;
-  let weightedLeaks = 0;
+  let weightedLeakCost = 0;
   for (const [enemy, share] of template.enemies) {
     if (share <= 0) continue;
     const isAir = enemyIsAir(enemy);
@@ -184,7 +187,7 @@ export function survivableCount(
     weightedHp += share * enemyBaseHp(enemy) * hpMult;
     weightedSpeed += share * Math.max(0.1, enemyBaseSpeed(enemy));
     weightedBodies += share * Math.max(1, enemyBodies(enemy));
-    weightedLeaks += share * Math.max(1, enemyMaxLeaks(enemy));
+    weightedLeakCost += share * Math.max(1, enemyLeakCost(enemy));
     totalShare += share;
   }
   if (totalShare <= 0) return null;
@@ -193,7 +196,7 @@ export function survivableCount(
   const hpPerEnemy = weightedHp / totalShare;
   const throughput = weightedThroughput / totalShare;
   const bodiesPerEnemy = weightedBodies / totalShare;
-  const leaksPerEnemy = weightedLeaks / totalShare;
+  const leakCostPerEnemy = weightedLeakCost / totalShare;
   // No effective damage against this wave at all — a campaign-pinned air wave
   // against a ground-only defense, say, since forcing bypasses the capability
   // mask. Every enemy will leak and leak damage scales with the count, so the
@@ -246,10 +249,10 @@ export function survivableCount(
 
   // Allow an overshoot priced in HP rather than assumed away. The leaks are
   // what make a wave dramatic; the budget is what stops them ending the run.
-  // An enemy that splits can cost a leak per end of its split tree: a
-  // skeleton killed just before the base sends both minions on.
+  // Each enemy costs what its type costs at the HQ, a golem four times a
+  // rat, and one that splits what its split tree costs.
   const leakHpBudget = Math.max(FAIRNESS_MIN_LEAK_HP, hpRemaining * Math.max(0, targetPressure));
-  const allowedLeaks = (leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget) / leaksPerEnemy;
+  const allowedLeaks = (leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget) / leakCostPerEnemy;
 
   return Math.max(FAIRNESS_MIN_COUNT, Math.floor(killable + allowedLeaks));
 }

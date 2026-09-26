@@ -60,15 +60,12 @@ export interface EnemyChain {
  * on. See entities/ooze-body.ts and managers/ooze-bodies.ts.
  */
 export interface OozeConfig {
-  /** Longest the body grows along the route (m) */
-  maxLengthM: number;
   /**
-   * What a whole body costs flowing into the HQ, in leaks of the wave
-   * (enemyBaseDamageForWave), spread over maxLengthM: each metre that
-   * enters costs its share, so a shorter body costs less. Capped per wave
-   * like every leak.
+   * Longest the body grows along the route (m). Its leak damage
+   * (leakDamageOf) is spread over this length: each metre that enters costs
+   * its share, so a shorter body costs less.
    */
-  leakDamageFactor: number;
+  maxLengthM: number;
 }
 
 export interface EnemyTypeConfig {
@@ -1108,8 +1105,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     isBoss: true,
     // The tip keeps to the centre line; the body fills the corridor
     lateralSpread: 0,
-    // 80 m of body at the HQ cost ten leaks of the wave, 0.125 leaks a metre
-    ooze: { maxLengthM: 80, leakDamageFactor: 10 },
+    // 80 m of body at the HQ cost its leak damage (49 at wave scale 1), spread by the metre
+    ooze: { maxLengthM: 80 },
     // A kill (not a leak) breaks it into clumps along its body, one per 4 m
     // of body left (OozeBodies.splitCount). Until 2026-09-14 ten clumps of
     // 30 HP; twenty of 15 hold the same HP and share the same wave gold.
@@ -1226,16 +1223,34 @@ export function splitBodyCount(id: EnemyTypeId, depth = 0): number {
   return 1 + split.count * splitBodyCount(split.type, depth + 1);
 }
 
+/** Most HP one enemy costs the HQ when it gets through, before the wave's scale */
+export const MAX_LEAK_DAMAGE = 50;
+
 /**
- * Most bodies one enemy of `id` can put through the base: the ends of its
- * split tree. A skeleton killed just before the HQ sends both minions on,
- * and each leaks for the full wave damage, so it can cost two leaks where
- * an unsplit one costs one. 1 for a type without splitOnDeath.
+ * HP an enemy of `id` costs the HQ when it gets through, before the wave's
+ * scale (enemyBaseDamageForWave): round(√HP / 5), from 1 to MAX_LEAK_DAMAGE
+ * (TODO E49, docs/PRESSURE_ONE_PLACE_PLAN.md). A rat costs 1, a golem 4,
+ * Herbert 13. A body of many parts, the worm, costs it once for the whole
+ * body, from the HP of all its segments; each segment that gets through
+ * pays its share. 1 for an unknown id.
  */
-export function splitLeafCount(id: EnemyTypeId, depth = 0): number {
+export function leakDamageOf(id: EnemyTypeId): number {
+  const type = ENEMY_TYPES[id];
+  if (!type) return 1;
+  const hp = type.chain ? type.baseHp * WORM_MAX_SEGMENTS : type.baseHp;
+  return Math.max(1, Math.min(MAX_LEAK_DAMAGE, Math.round(Math.sqrt(hp) / 5)));
+}
+
+/**
+ * Most one enemy of `id` can cost the HQ, before the wave's scale: itself,
+ * or what its split tree costs if every end gets through (a skeleton killed
+ * just before the HQ sends both minions on), whichever is more.
+ */
+export function lineageLeakDamage(id: EnemyTypeId, depth = 0): number {
+  const own = leakDamageOf(id);
   const split = ENEMY_TYPES[id]?.splitOnDeath;
-  if (!split || depth >= MAX_SPLIT_DEPTH) return 1;
-  return split.count * splitLeafCount(split.type, depth + 1);
+  if (!split || depth >= MAX_SPLIT_DEPTH) return own;
+  return Math.max(own, split.count * lineageLeakDamage(split.type, depth + 1));
 }
 
 /**

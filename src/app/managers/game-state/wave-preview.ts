@@ -1,4 +1,5 @@
-import { ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { ENEMY_TYPES, leakDamageOf, lineageLeakDamage, type EnemyTypeId } from '../../configs/enemy-types.config';
+import { enemyBaseDamageForWave } from '../../configs/campaign.config';
 import type { WaveConfig } from '../wave.manager';
 import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 
@@ -8,9 +9,10 @@ import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
  * Actual values against the type's base values, NOT timescaled. A group
  * takes HP and speed from its first entry. Empty for an empty schedule.
  * `lanes`: coop lanes that each get this wave (laneSchedule), the counts are
- * one lane's.
+ * one lane's. `wave`: the wave number, for what a leak costs at it.
  */
-export function summarizeWaveGroups(config: WaveConfig, lanes = 1): WaveGroupDisplay[] {
+export function summarizeWaveGroups(config: WaveConfig, lanes = 1, wave = 1): WaveGroupDisplay[] {
+  const scale = enemyBaseDamageForWave(wave);
   const entries = config.schedule.entries;
   if (entries.length === 0) return [];
 
@@ -42,6 +44,8 @@ export function summarizeWaveGroups(config: WaveConfig, lanes = 1): WaveGroupDis
       speedMultiplier: actualSpeed / baseSpeed,
       spawnDelay: config.schedule.baseDelay,
       lanes,
+      leak: leakDamageOf(typeId as EnemyTypeId) * scale,
+      leakMost: lineageLeakDamage(typeId as EnemyTypeId) * scale,
     };
   });
 }

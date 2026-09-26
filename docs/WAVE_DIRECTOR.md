@@ -248,8 +248,8 @@ die Gegner im Feuer stehen, und gibt eine Leck-Toleranz obendrauf:
   geklemmt auf 2 bis 40 s.
 - **Abschlag:** `FAIRNESS_KILL_REALISM = 0.65`, mal `pressureMultiplier` aus Abschnitt 6.
 - **Leck-Toleranz in HP:** `targetPressure(wave)` der Rest-HP (Abschnitt 6), mindestens `FAIRNESS_MIN_LEAK_HP = 1`,
-  geteilt durch den Leck-Schaden der Welle (`enemyBaseDamageForWave`) und durch die Lecks, die ein Gegner höchstens
-  kostet (`splitLeafCount`).
+  geteilt durch den Wellenaufschlag (`enemyBaseDamageForWave`) und durch das, was ein Gegner am HQ höchstens kostet
+  (`lineageLeakDamage`: sein Typ oder sein Split-Baum, E49).
 - **Untergrenze** die halbe Template-Untergrenze, mindestens `FAIRNESS_MIN_COUNT = 5`.
 
 **Matchup-Floor.** Der Deckel liest `gateDpsPerArmor` aus der Defense-Analyse, nicht die rohe Matrix: gegen

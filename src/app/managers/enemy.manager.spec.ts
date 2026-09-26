@@ -20,7 +20,7 @@ import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
 import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 import { TIMING } from '../configs/timing.config';
-import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, type EnemyTypeId } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, leakDamageOf, type EnemyTypeId } from '../configs/enemy-types.config';
 
 /** Reward weight of `n` bodies of `type`: what the wave manager reports for them. */
 const bodies = (n: number, type: EnemyTypeId = 'zombie') => n * enemyRewardWeight(ENEMY_TYPES[type].baseHp);
@@ -990,15 +990,15 @@ describe('EnemyManager', () => {
       expect(manager.getById(ooze.id)).toBe(ooze);
 
       // Another 40 m in at 3 m/s: half the body and half the HP gone,
-      // 0.125 points a metre charged in whole points
+      // 49 / 80 points a metre (leakDamageOf, TODO E49) charged in whole points
       for (let i = 0; i < 133; i++) step();
       expect(body.lengthM).toBeCloseTo(79.7 - 39.9, 6);
       expect(ooze.health.hp / ooze.health.maxHp).toBeCloseTo(body.lengthM / 80, 6);
       expect(leaking.every((d) => d === 1)).toBe(true);
-      expect(leaking).toHaveLength(Math.floor((80 - body.lengthM) * 0.125));
+      expect(leaking).toHaveLength(Math.floor((80 - body.lengthM) * (leakDamageOf('ooze') / 80)));
 
       while (manager.getById(ooze.id)) step();
-      expect(leaking.reduce((a, b) => a + b, 0) + reached[0]).toBe(10);
+      expect(leaking.reduce((a, b) => a + b, 0) + reached[0]).toBe(leakDamageOf('ooze'));
       expect(reached).toHaveLength(1);
       expect(manager.getAliveCount()).toBe(0);
       expect(tilesEngine.oozes.remove).toHaveBeenCalledWith(ooze.id);

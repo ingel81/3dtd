@@ -21,7 +21,7 @@ import {
   tickEngine,
 } from './test-helpers';
 import { waveGold, isBossWave } from '../configs/campaign.config';
-import { ENEMY_TYPES, enemyRewardWeight, lineageRewardWeight } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, enemyRewardWeight, leakDamageOf, lineageRewardWeight } from '../configs/enemy-types.config';
 import type { Enemy } from '../entities/enemy.entity';
 
 /** Managers wired as GameStateManager wires them for leaks and the kill budget. */
@@ -70,7 +70,7 @@ describe('Ooze integration', () => {
     // 80 m long by then and flows in for 27 s: ten leaks of wave 1
     expect(one.samples[0]).toEqual([0, expect.any(Number), expect.any(Number)]);
     const total = one.log.reduce((sum, entry) => sum + Number(entry.split(' ')[1]), 0);
-    expect(total).toBe(10);
+    expect(total).toBe(leakDamageOf('ooze'));
     expect(one.log.at(-1)).toMatch(/^reached /);
     expect(one.log.filter((e) => e.startsWith('reached'))).toHaveLength(1);
     expect(one.done).toBe(true);
