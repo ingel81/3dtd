@@ -44,7 +44,7 @@ import type { WaveConfig as DirectorWave } from '../director/models/wave-config'
 import { mulberry32 } from '../utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { LocalRelay, type LocalLink } from '../coop/local-relay';
-import { TICK_SUB_STEPS } from '../coop/lockstep';
+import { TICK_SUB_STEPS, type LockstepLink } from '../coop/lockstep';
 import { HASH_EVERY_TICKS } from '../coop/hash-check';
 import { buildWorldPackage, packagePaths, readWorldPackage } from '../coop/world-package';
 import { buildSimWorld, type SimWorld, type SimWorldOptions } from './sim-world';
@@ -279,7 +279,8 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     let blocked = 0;
     let frames = 0;
     let behindSum = 0;
-    a.link.noteFrame = (_steps, wasBlocked, behind) => {
+    const link: LockstepLink = a.link;
+    link.noteFrame = (_steps, wasBlocked, behind) => {
       frames++;
       if (wasBlocked) blocked++;
       behindSum += behind;

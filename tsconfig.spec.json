@@ -4,6 +4,9 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "outDir": "./out-tsc/spec",
+    /* The specs import the coop relay, which runs on Node with .ts imports */
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "rootDir": ".",
     "types": [
       "vitest/globals",
