@@ -56,7 +56,8 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 
 - **T68 Squad-Box springt nicht mehr** (User, 2026-09-25): Im Coop-Spiel die Welle abwarten, bereit setzen, die nächste
   starten. Erwartung: Der Fuß der Squad-Box („Ready up for the next wave“, „Waiting for …“) bleibt als Zeile stehen,
-  auch leer; Box und Chat darunter verschieben sich nicht mehr.
+  auch leer; Box und Chat darunter verschieben sich nicht mehr. Dazu (User, 2026-09-26): die Spielerzeilen wachsen mit Name und
+  Tags, die Spawn-Zeile liegt in der Zeile, der Lane-Strich läuft bündig über die ganze Höhe.
 - **T69 Tastenleiste unter dem Chat lesbar** (User, 2026-09-25): „Enter chat · X mark · Tab room“ auf heller Karte.
   Erwartung: eigene dunkle Fläche, gut lesbar.
 - **T70 Beitreten ohne eigenen Ort und das neue Dock (E30, E31 Schritt 1)**: App frisch starten (Standortdialog).
