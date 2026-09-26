@@ -114,6 +114,25 @@ describe('buildWaveConfig', () => {
   });
 });
 
+describe('the campaign\'s spacing of large models (TODO E21)', () => {
+  const golems = TEMPLATES.findIndex((t) => t.id === 'golem_squad');
+  /** A golem wave as fast and as large as it gets, planning `wave` */
+  const golemWave = (wave: number) => {
+    const state = defense(1e6);
+    state.waveNumber = wave - 1;
+    return build(decision(golems, { count: 1, spawn: 1 }), state, gate(8));
+  };
+
+  it('keeps the golems of W15 at least 600 ms apart, the cap does not compress them below', () => {
+    expect(golemWave(15).spawnDelay).toBeGreaterThanOrEqual(600);
+  });
+
+  it('lets the free director send them closer: a swarm stays possible there', () => {
+    const late = golemWave(41);
+    expect(late.totalCount * late.spawnDelay).toBeLessThanOrEqual(MAX_WAVE_DURATION_MS);
+  });
+});
+
 describe('the campaign intensity', () => {
   /** The same defense planning `wave`, so only the campaign's factor differs. */
   function countAt(wave: number): number {

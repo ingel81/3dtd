@@ -21,7 +21,7 @@ import { targetPressure } from './pressure-controller';
 import {
   ENEMY_TYPES, lineageHp, splitBodyCount, splitLeafCount, type EnemyTypeId,
 } from '../../../configs/enemy-types.config';
-import { campaignIntensity, endgameHpMultiplier, enemyBaseDamageForWave } from '../../../configs/campaign.config';
+import { campaignIntensity, campaignMinSpawnDelay, endgameHpMultiplier, enemyBaseDamageForWave } from '../../../configs/campaign.config';
 
 /**
  * Wie weit der Regler den HP-Faktor anheben darf, wenn die Anzahl schon am
@@ -251,7 +251,21 @@ export function buildWaveConfig(
   // so it also lowers a count the survivability cap set: a wave meant as a
   // breather cannot be one while the cap is free to fill it up again.
   const intensity = campaignIntensity(upcomingWave);
-  const totalCount = Math.max(1, Math.round(sized.count * intensity));
+  let totalCount = Math.max(1, Math.round(sized.count * intensity));
+
+  // The campaign keeps large models apart (TODO E21). The wave is sized as it
+  // would be; only then its delay stretches to the campaign's floor. Where
+  // that runs past the three minutes, fewer come, each tougher by as much:
+  // the wave keeps its health, the models keep their room.
+  const delayFloor = campaignMinSpawnDelay(upcomingWave);
+  if (delayFloor > spawnDelay) {
+    spawnDelay = delayFloor;
+    const fits = Math.max(1, Math.floor(MAX_WAVE_DURATION_MS / delayFloor));
+    if (totalCount > fits) {
+      hpMult = hpMult * (totalCount / fits);
+      totalCount = fits;
+    }
+  }
 
   // Expand template → enemy groups
   // A template with a leader (a boss wave's boss) sends exactly that many of
