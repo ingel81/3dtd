@@ -90,7 +90,10 @@ export class StateHasher {
     this.part('rng');
     const rng = source.rngState();
     this.num(rng.seed);
-    for (const name of RNG_STREAMS) this.num(rng.streams[name] ?? -1);
+    // Not the director's stream: only the client that starts a wave plans it, and its plan enters
+    // the simulation as the start command. In coop the other clients draw from it later or never,
+    // which the hash took for a divergence (TODO E32, found by the hash parts on 2026-09-26).
+    for (const name of RNG_STREAMS) if (name !== 'director') this.num(rng.streams[name] ?? -1);
 
     this.part('enemies');
     const enemies = source.enemies();
