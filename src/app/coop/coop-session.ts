@@ -27,6 +27,9 @@ export interface CoopSocket {
   onerror: ((event: unknown) => void) | null;
 }
 
+/** The close code a relay that restarts sends: 1012 "service restart" (coop-server/server.ts CLOSE_RESTART) */
+const RELAY_RESTART_CODE = 1012;
+
 /** What the game needs to start: seed, roster, lanes, who is here, the link. */
 export interface CoopStart {
   seed: number;
@@ -147,7 +150,8 @@ export class CoopSession {
   /** The relay found the simulations apart (C5): the first tick, player id and hash each */
   onDesync: ((tick: number, hashes: [string, number][], outOfStep: string[], parts: HashPart[] | null) => void) | null = null;
   onRefused: ((reason: RefusalReason) => void) | null = null;
-  onClosed: (() => void) | null = null;
+  /** The connection closed; `restart` when the relay said it restarts (close code 1012, relay review M6) */
+  onClosed: ((restart: boolean) => void) | null = null;
 
   private readonly url: string;
   private readonly hello: { name: string; gameVersion: string; configHash: string; client?: ClientInfo };
@@ -197,11 +201,11 @@ export class CoopSession {
         clearTimeout(timer);
         this.fail(new Error(`no coop relay at ${this.url}`), reject);
       };
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         clearTimeout(timer);
         this.fail(new Error('the connection to the coop relay closed'), reject);
         this.socket = null;
-        this.onClosed?.();
+        this.onClosed?.((event as { code?: number } | null)?.code === RELAY_RESTART_CODE);
       };
     });
   }

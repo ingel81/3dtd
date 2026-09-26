@@ -61,11 +61,21 @@
                 <td-icon name="check" [size]="13"></td-icon>
               </button>
             } @else if (row.state !== 'left') {
-              <button class="icon-btn sm" type="button" (click)="toggleGift(row.id)" [class.is-open]="giftTo() === row.id"
-                      [matTooltip]="'Send ' + row.name + ' credits'" [attr.aria-label]="'Send ' + row.name + ' credits'"
-                      [attr.aria-expanded]="giftTo() === row.id">
-                <td-icon name="coin" [size]="14"></td-icon>
-              </button>
+              <span class="tools">
+                <button class="icon-btn sm" type="button" (click)="toggleGift(row.id)" [class.is-open]="giftTo() === row.id"
+                        [matTooltip]="'Send ' + row.name + ' credits'" [attr.aria-label]="'Send ' + row.name + ' credits'"
+                        [attr.aria-expanded]="giftTo() === row.id">
+                  <td-icon name="coin" [size]="14"></td-icon>
+                </button>
+                @if (coop.isHost()) {
+                  <!-- Two clicks: a player who holds everyone up goes, their lane closes (relay review M4) -->
+                  <button class="icon-btn sm" type="button" (click)="kick(row.id)" [class.is-armed]="armedKick() === row.id"
+                          [matTooltip]="armedKick() === row.id ? 'Click again to take ' + row.name + ' out of the game' : 'Take ' + row.name + ' out of the game'"
+                          [attr.aria-label]="armedKick() === row.id ? 'Click again to take ' + row.name + ' out of the game' : 'Take ' + row.name + ' out of the game'">
+                    <td-icon name="cross" [size]="14"></td-icon>
+                  </button>
+                }
+              </span>
             } @else {
               <span class="icon-gap"></span>
             }

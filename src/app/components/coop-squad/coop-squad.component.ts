@@ -24,6 +24,9 @@ type RowState = 'ok' | 'lag' | 'slow' | 'left';
  * what is wrong: a slow connection, someone catching up or gone, the games
  * apart, the connection lost (with "Continue alone").
  */
+
+/** How long a first click on "take out" stays armed, ms */
+const KICK_ARM_MS = 3000;
 @Component({
   selector: 'app-coop-squad',
   standalone: true,
@@ -145,6 +148,21 @@ export class CoopSquadComponent {
 
   nameOf(playerId: string): string {
     return this.coop.nameOf(playerId);
+  }
+
+  /** The player a first click on "take out" armed; a second within KICK_ARM_MS takes them out */
+  readonly armedKick = signal<string | null>(null);
+  private kickTimer: ReturnType<typeof setTimeout> | null = null;
+
+  kick(playerId: string): void {
+    if (this.kickTimer) clearTimeout(this.kickTimer);
+    if (this.armedKick() === playerId) {
+      this.armedKick.set(null);
+      this.coop.kick(playerId);
+      return;
+    }
+    this.armedKick.set(playerId);
+    this.kickTimer = setTimeout(() => this.armedKick.set(null), KICK_ARM_MS);
   }
 
   toggleGift(playerId: string): void {
