@@ -23,6 +23,7 @@ import { directorParamsName } from '../director/director-params';
 import type { WaveSourceId } from '../director/wave-source';
 import { RunLogCollector, type RunLogWorld } from './run-log.service';
 import { killOwnership } from './kill-ownership';
+import { WaveSeriesRecorder, type WaveSeriesPoint } from './wave-series';
 import { RunLogStore } from './run-log.store';
 import { loadBuildCommit } from './build-commit';
 import { downloadRun, runFileName, toJsonl } from './run-log.export';
@@ -60,6 +61,10 @@ export class RunLogFacade {
   readonly store = new RunLogStore();
 
   private readonly subs = new SubscriptionBag();
+  /** Every player's run wave by wave, for the game-over charts (TODO E46) */
+  readonly waveSeries = signal<readonly WaveSeriesPoint[]>([]);
+  private readonly series = new WaveSeriesRecorder();
+
   /** The last run that ended and was kept; coop offers it to the relay (TODO E38) */
   readonly closedRun = signal<RunLog | null>(null);
   private gameState: GameStateManager | null = null;
@@ -92,6 +97,15 @@ export class RunLogFacade {
     if (waveSource) this.waveSource = waveSource;
     this.subs.disposeAll();
     this.collector.attach(bus, this.subs);
+    this.series.attach(bus, this.subs, {
+      players: () => gameState.players,
+      killCredit: (killedBy) => gameState.killCreditPlayer(killedBy),
+      towersOf: (playerId) => gameState.towerManager.getAll().filter((t) => t.ownerId === playerId).length,
+      hqHealth: () => gameState.baseHealth(),
+    });
+    for (const type of ['wave:completed', 'game:over', 'game:reset'] as const) {
+      this.subs.add(bus.onLive(type, () => this.waveSeries.set(this.series.points)));
+    }
 
     // The head wants the commit, and the file arrives a moment after the
     // first run opened: stamp it into the head that is already standing.

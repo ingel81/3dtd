@@ -1,0 +1,44 @@
+@if (charts().length > 0) {
+  <section class="run-charts" aria-label="The run wave by wave">
+    @if (legend().length > 1) {
+      <ul class="run-charts-legend">
+        @for (player of legend(); track player.id) {
+          <li>
+            <svg width="18" height="6" aria-hidden="true">
+              <line x1="0" y1="3" x2="18" y2="3" [attr.stroke]="player.color" stroke-width="2"
+                    [attr.stroke-dasharray]="player.dash" />
+            </svg>
+            {{ player.name }}
+          </li>
+        }
+      </ul>
+    }
+    <div class="run-charts-grid">
+      @for (chart of charts(); track chart.title) {
+        <figure class="run-chart">
+          <figcaption>
+            <span>{{ chart.title }}</span>
+            <span class="run-chart-top">{{ compact(chart.top) }}</span>
+          </figcaption>
+          <svg [attr.viewBox]="'0 0 ' + width + ' ' + height" preserveAspectRatio="none" role="img"
+               [attr.aria-label]="chart.title + ' per wave'">
+            <line class="run-chart-base" x1="0" [attr.y1]="height - 0.5" [attr.x2]="width" [attr.y2]="height - 0.5" />
+            @for (line of chart.lines; track line.id) {
+              <polyline [attr.points]="line.points" [attr.stroke]="line.color" [attr.stroke-dasharray]="line.dash"
+                        fill="none" stroke-width="2" stroke-linejoin="round" vector-effect="non-scaling-stroke" />
+            }
+            @for (hover of chart.hovers; track $index) {
+              <rect class="run-chart-hover" [attr.x]="hover.x" y="0" [attr.width]="hover.width" [attr.height]="height">
+                <title>{{ hover.label }}</title>
+              </rect>
+            }
+          </svg>
+          <div class="run-charts-axis" aria-hidden="true">
+            <span>W{{ points()[0].wave }}</span>
+            <span>W{{ points()[points().length - 1].wave }}</span>
+          </div>
+        </figure>
+      }
+    </div>
+  </section>
+}

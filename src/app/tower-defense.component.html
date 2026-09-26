@@ -331,7 +331,7 @@
             @if (coop.summary(); as rows) {
               <table class="td-coop-summary" aria-label="Players">
                 <thead>
-                  <tr><th>Player</th><th>Kills</th><th>Leaks</th><th>Towers</th><th>Gold given</th><th>Gold</th></tr>
+                  <tr><th>Player</th><th>Kills</th><th>Leaks</th><th>Towers</th><th>Earned</th><th>Gold given</th><th>Gold</th></tr>
                 </thead>
                 <tbody>
                   @for (row of rows; track row.id) {
@@ -340,6 +340,7 @@
                       <td>{{ row.kills }}</td>
                       <td>{{ row.leaks }}</td>
                       <td>{{ row.towers }}</td>
+                      <td>{{ goldEarnedOf(row.id) }}</td>
                       <td>{{ row.goldGiven }}</td>
                       <td>{{ row.gold }}</td>
                     </tr>
@@ -347,6 +348,8 @@
                 </tbody>
               </table>
             }
+            <!-- Each player's run wave by wave (TODO E46) -->
+            <app-run-charts [points]="waveSeries()" [players]="chartPlayers()" />
             @if (coop.lostInGame()) {
               <p class="td-gameover-wait">The connection to the coop server is lost: Restart plays alone.</p>
             }

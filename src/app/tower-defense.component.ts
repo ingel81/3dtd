@@ -104,6 +104,7 @@ import { UpdateHintComponent } from './components/update-hint/update-hint.compon
 import { CellReportPanelComponent } from './components/cell-report-panel/cell-report-panel.component';
 import { AbilityBarComponent } from './components/ability-bar/ability-bar.component';
 import { RunSummaryComponent } from './components/run-summary/run-summary.component';
+import { RunChartsComponent, type RunChartPlayer } from './components/run-charts/run-charts.component';
 import { WorldRecordComponent } from './components/world-globe/world-record.component';
 import { BossIntroComponent } from './components/boss-intro/boss-intro.component';
 import { BestWaveService } from './services/location/best-wave.service';
@@ -171,6 +172,7 @@ import { COOP } from './services/coop.token';
     CellReportPanelComponent,
     AbilityBarComponent,
     RunSummaryComponent,
+    RunChartsComponent,
     BossIntroComponent,
     ReplayBarComponent,
     TowerControlHudComponent,
@@ -965,6 +967,22 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /** The header's room chip: code, a square per player in their lane colour, how many of how many */
+  /** Every player's run wave by wave, for the game-over charts (TODO E46) */
+  readonly waveSeries = computed(() => this.runLog.waveSeries());
+
+  /** Who the charts show: the coop players in their lane colours, alone the one player */
+  readonly chartPlayers = computed<RunChartPlayer[]>(() => {
+    const rows = this.coop.summary();
+    if (rows) return rows.map((row) => ({ id: row.id, name: row.me ? `${row.name} (you)` : row.name, color: row.color }));
+    const last = this.waveSeries().at(-1);
+    return last ? Object.keys(last.players).map((id) => ({ id, name: 'You', color: 'var(--td-gold)' })) : [];
+  });
+
+  /** Gold a player earned in the run (kills and wave bonuses), for the coop table */
+  goldEarnedOf(playerId: string): number {
+    return this.waveSeries().at(-1)?.players[playerId]?.goldEarned ?? 0;
+  }
+
   readonly coopChip = computed(() => {
     const room = this.coop.room();
     if (!room) return null;

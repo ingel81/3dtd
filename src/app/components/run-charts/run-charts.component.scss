@@ -1,0 +1,82 @@
+.run-charts {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: min(420px, 80vw);
+  margin: 0 auto 20px;
+  text-align: left;
+  font-family: var(--td-font-mono);
+  color: var(--td-text-secondary);
+}
+
+.run-charts-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 11px;
+}
+
+.run-charts-legend li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.run-charts-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px 18px;
+}
+
+.run-chart {
+  margin: 0;
+  min-width: 0;
+}
+
+.run-chart figcaption {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 4px;
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--td-text-muted);
+}
+
+.run-chart-top {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}
+
+.run-chart svg {
+  display: block;
+  width: 100%;
+  height: 56px;
+  overflow: visible;
+}
+
+.run-chart-base {
+  stroke: var(--td-frame-dark);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.run-chart-hover {
+  fill: transparent;
+}
+
+.run-chart-hover:hover {
+  fill: rgba(255, 255, 255, 0.06);
+}
+
+.run-charts-axis {
+  display: flex;
+  margin-top: 2px;
+  justify-content: space-between;
+  font-size: 9px;
+  color: var(--td-text-muted);
+}
