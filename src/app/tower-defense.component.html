@@ -304,6 +304,20 @@
         }
       </div>
 
+      <!-- Coop: the connection broke in the game, which stands still until the player decides (TODO E40) -->
+      @if (coop.lostInGame() && !store.showGameOverScreen()) {
+        <div class="td-lost-overlay" role="alertdialog" aria-labelledby="td-lost-title">
+          <div class="td-lost-content">
+            <h2 id="td-lost-title">Connection lost</h2>
+            <p>The connection to the coop server closed, the game stands still. Go on alone with this run, or start a new one alone.</p>
+            <div class="td-lost-actions">
+              <button type="button" class="td-btn td-btn-green" (click)="coop.continueAlone()">Continue alone</button>
+              <button type="button" class="td-btn" (click)="restartGame()">Start over alone</button>
+            </div>
+          </div>
+        </div>
+      }
+
       <!-- Game Over Overlay -->
       @if (store.showGameOverScreen()) {
         <div class="td-gameover-overlay">
@@ -332,6 +346,9 @@
                   }
                 </tbody>
               </table>
+            }
+            @if (coop.lostInGame()) {
+              <p class="td-gameover-wait">The connection to the coop server is lost: Restart plays alone.</p>
             }
             @if (coop.inGame() && !coop.isHost()) {
               <p class="td-gameover-wait">The host starts the next run.</p>

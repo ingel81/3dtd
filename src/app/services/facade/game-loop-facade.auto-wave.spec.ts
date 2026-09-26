@@ -37,6 +37,8 @@ import type { FacadeComponentBridge } from './tower-defense-facade.service';
 import type { GameStateManager } from '../../managers/game-state.manager';
 import { GameRng } from '../../utils/game-rng';
 import { RunLogFacade } from '../../run-log/run-log.facade';
+import { COOP } from '../coop.token';
+import type { CoopService } from '../coop.service';
 
 /** Injected by the facade but not touched by the auto-start. */
 const UNUSED = [
@@ -164,5 +166,36 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     clock.gameTimeMs += AUTO_WAVE_DELAY_MS;
     facade.tickAutoWave();
     expect(startWave).not.toHaveBeenCalled();
+  });
+});
+
+describe('GameLoopFacadeService: restart after the coop connection broke (TODO E40)', () => {
+  it('goes on alone first, then restarts as a single player game', () => {
+    const bus = new GameEventBus();
+    const lost = signal(true);
+    const continueAlone = vi.fn(() => lost.set(false));
+    const coop = { lostInGame: lost, inGame: () => false, isHost: () => false, continueAlone, setWaveStarter: () => undefined };
+    const injector = Injector.create({
+      providers: [
+        ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: WaveDirector, useValue: waveDirectorStub() },
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
+        { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
+        { provide: TowerDefenseStore, useValue: { phase: signal('setup'), waveNumber: signal(1), autoWaveSecondsLeft: signal(null) } },
+        { provide: UIStore, useValue: { autoStartWaves: signal(false) } },
+        { provide: BotClientService, useValue: { botEnabled: signal(false), resetBot: () => undefined } },
+        { provide: COOP, useValue: coop as unknown as CoopService },
+      ],
+    });
+    const facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
+    const gameState = { getEventBus: () => bus, gameTimeMs: 0, waveManager: { stopSpawning: vi.fn() }, rng: new GameRng(1) };
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+
+    const restarts: unknown[] = [];
+    bus.on('command:restart-game', (event) => restarts.push(event));
+    facade.restartGame(() => undefined);
+
+    expect(continueAlone).toHaveBeenCalledTimes(1);
+    expect(restarts).toEqual([{ type: 'command:restart-game' }]);
   });
 });

@@ -442,6 +442,8 @@ export class GameLoopFacadeService {
    * @param cleanupDpsViz Callback to clean up DPS visualization (owned by VisualizationFacade)
    */
   restartGame(cleanupDpsViz: () => void): void {
+    // Coop without a connection: the restart would go to a closed socket; the run goes on alone (TODO E40)
+    if (this.coop?.lostInGame()) this.coop.continueAlone();
     // Coop: only the host restarts, with a seed for every client (docs/COOP_PLAN.md, R1)
     const coop = this.coop?.inGame() ? this.coop : null;
     if (coop && !coop.isHost()) return;

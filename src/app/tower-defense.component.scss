@@ -217,6 +217,45 @@
   to { opacity: 1; }
 }
 
+/* Coop: the connection broke in the game (TODO E40); above the map, below the game over screen */
+.td-lost-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 19;
+}
+
+.td-lost-content {
+  max-width: 420px;
+  margin: 0 16px;
+  padding: 24px 28px;
+  text-align: center;
+  background: var(--td-panel-main);
+  border: 2px solid var(--td-health-red);
+}
+
+.td-lost-content h2 {
+  margin: 0 0 10px;
+  font-size: 20px;
+  color: var(--td-health-red);
+}
+
+.td-lost-content p {
+  margin: 0 0 18px;
+  font-size: 13px;
+  color: var(--td-text-secondary);
+}
+
+.td-lost-actions {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
 .td-gameover-content {
   text-align: center;
   max-height: calc(100% - 32px);
