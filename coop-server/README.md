@@ -32,8 +32,9 @@ relay for LAN games; nothing to set up for that.
 lobbies and games, traffic, what was dropped and why (too fast, malformed, too slow to read, guessing room codes, no
 hello, hanging, taken out), refused connections, errors, memory; curves of the last hour (in memory, gone with a
 restart); the rooms with their players, ping, tick, desync; the last 200 log lines. It reloads every five seconds and
-loads nothing from outside. With the admin token entered below the log, a room can be closed and a player dropped.
-A metrics line goes to the log every minute as well.
+loads nothing from outside. The admin token goes into the field under the rooms; "Unlock" asks the relay
+(`POST /admin/check`) and says whether it is right. Only then do the rooms get "drop" (a player) and "close room".
+A metrics line goes to the log once a minute when something changed (memory alone is no change).
 
 ## Limits
 

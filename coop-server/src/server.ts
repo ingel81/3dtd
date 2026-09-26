@@ -381,6 +381,8 @@ class Relay {
     };
     const token = this.options.adminToken;
     if (!token || request.headers['x-admin-token'] !== token) return answer(403, 'no');
+    // The page asks whether its token is the right one before it shows the buttons
+    if (path === '/admin/check') return answer(200, 'ok');
     let body = '';
     request.on('data', (chunk: Buffer) => {
       body += chunk.toString();
@@ -649,7 +651,16 @@ class Relay {
     // One at the start, so the curves have a point before the first interval
     sample();
     this.every(SAMPLE_MS, 'metrics', sample);
-    this.every(METRICS_LINE_MS, 'metrics line', () => this.log(this.metrics.line(this.counts())));
+    // Only when something changed: an idle relay wrote the same line every
+    // minute (1440 a day). The memory alone moves by a MB and is no change.
+    let lastMetrics = '';
+    this.every(METRICS_LINE_MS, 'metrics line', () => {
+      const line = this.metrics.line(this.counts());
+      const key = line.replace(/, rss \d+ MB$/, '');
+      if (key === lastMetrics) return;
+      lastMetrics = key;
+      this.log(line);
+    });
     let last = this.now();
     this.every(CLOCK_MS, 'clock', () => {
       const at = this.now();
