@@ -157,6 +157,7 @@ export class StateSnapshotService {
       research: researchSnapshot(this.researchStore),
       expectedArmorDistribution: expectedArmorDistribution(this.currentWaveConfig, this.store.waveNumber() + 1),
     };
+    if (lanes > 1) snapshot.lanes = lanes;
 
     // Pre-compute dpsByDamageType so Python backend receives it via WebSocket
     // (encoder fallback also works, but pre-computing guarantees sync).

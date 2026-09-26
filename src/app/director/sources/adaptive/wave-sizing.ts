@@ -10,6 +10,7 @@
 import { type ArmorType } from '../../../configs/combat/combat.types';
 import { type NumberRange, type Template } from '../../templates';
 import { directorParams } from '../../director-params';
+import { type GameStateSnapshot } from '../../models/game-state-snapshot';
 
 /** DPS-scaled range caps (Phase 5.11b). Mirrored into the generated schema. */
 export const DPS_RAMP_FLOOR = 0.10;
@@ -248,6 +249,16 @@ export function survivableCount(
   const allowedLeaks = (leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget) / leaksPerEnemy;
 
   return Math.max(FAIRNESS_MIN_COUNT, Math.floor(killable + allowedLeaks));
+}
+
+/**
+ * The player HP one lane may spend, the `hpRemaining` of survivableCount. In
+ * coop every lane gets the whole wave (D13) and all leak into the one shared
+ * base, so each lane's copy gets its share of the leak budget; with the whole
+ * of it on every lane a wave cost N times the target pressure.
+ */
+export function laneHp(state: GameStateSnapshot): number {
+  return (state.player?.lives ?? 100) / Math.max(1, state.lanes ?? 1);
 }
 
 /** Linear interpolation within a [min, max] range. t ∈ [0,1]. */
