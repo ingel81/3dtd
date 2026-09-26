@@ -219,7 +219,7 @@ Aus dem Coop-Playtest Heilbronn W1-W38 (2026-09-26, `tmp/coop-playtest/ANALYSE.m
       Fähigkeiten-Schaden ins Log, Director-Felder auch im Gast-Log; Wellen mit HP-Cheat misst der Regler nicht.
 - [ ] **E45 Upgrades ×5/×10**: Shift+U bis 5, Ctrl+U bis 10 (so viele wie Gold reicht), Shift-/Ctrl-Klick in der Kachel.
 - [ ] **E46 Game-Over-Screen**: Gold gesamt je Spieler, Mini-Charts je Welle (Kills, Tower, verdientes Gold, HQ-Leben).
-- [ ] **E47 Druck-Multiplikator an einer Stelle** (Plan-Doc zuerst): nur im Kill-Budget des Deckels, Deckel stetig
+- [ ] **E47 Druck-Multiplikator an einer Stelle** ([Plan](docs/PRESSURE_ONE_PLACE_PLAN.md)): nur im Kill-Budget des Deckels, Deckel stetig
       (höchstens tötbar in 3 min, kein Pol), kein Aufschlag über Template-Max, kein HP-Hebel.
 - [ ] **E48 Regler-Messwert kappen**: eine Welle zählt höchstens ~3× Ziel, Glättung 0,35 bleibt.
 - [ ] **E49 Leckschaden je Gegnertyp**: round(√baseHp / 5), 1 bis 50, mal Wellenaufschlag; startHealth 500 bleibt.

@@ -90,6 +90,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
 | [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan (Phase 1 und 2 gebaut, Phase 3 offen) | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
+| [PRESSURE_ONE_PLACE_PLAN.md](PRESSURE_ONE_PLACE_PLAN.md) | Plan, im Bau (E47 bis E50) | Druck-Multiplikator nur im Kill-Budget, stetiger Deckel, Messwert gekappt, Leckschaden je Gegnertyp, Spawn-Boden je Typ |
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Konzept | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Coop ist nach COOP_PLAN.md gebaut, PvP gestrichen (2026-09-24) |
 
 ## Archiv
