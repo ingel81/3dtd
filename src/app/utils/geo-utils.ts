@@ -149,6 +149,14 @@ export function canonicalCoords<T extends { lat: number; lon: number }>(point: T
 }
 
 /**
+ * A point as the location URL writes it, "lat,lon" to COORD_DECIMALS: the
+ * key two points of a place are the same by.
+ */
+export function coordKey(point: { lat: number; lon: number }): string {
+  return `${point.lat.toFixed(COORD_DECIMALS)},${point.lon.toFixed(COORD_DECIMALS)}`;
+}
+
+/**
  * `value` to COORD_DECIMALS, as toFixed writes it into the URL. `+ 0` turns
  * the -0 of a value just below zero into 0: rounded again, or written into
  * the URL and read back, -0 comes back as 0.

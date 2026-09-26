@@ -1,8 +1,8 @@
 import type { CommandLogEntry } from '../managers/game-state/command-log';
-import { LOS_LOG_TYPE } from '../managers/game-state/command-log';
+import { isLosLogCommand } from '../managers/game-state/command-log';
 import type { WaveConfig } from '../managers/wave.manager';
 import type { LosResolveReason } from '../game-engine/game-event-bus';
-import { losMaskFromJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
+import { losMaskFromJson, type LosMask } from '../utils/los-mask';
 import type { SimSnapshot } from './sim-snapshot';
 import type { WaveRecord } from './sim-recorder';
 import { STATE_HASH_INTERVAL } from './state-hash';
@@ -141,8 +141,8 @@ export class Resimulation {
       if (end !== null && entry.step >= end) return;
       this.cursor++;
       if (entry.step < now) continue;
-      if (entry.command.type === LOS_LOG_TYPE) {
-        const los = entry.command as unknown as { towerId: string; reason: LosResolveReason; mask: LosMaskJson };
+      const los = entry.command;
+      if (isLosLogCommand(los)) {
         // Place and upgrade masks come in through the command (collectMasks)
         if (los.reason === 'retrofit') this.host.applyLosMask(los.towerId, losMaskFromJson(los.mask));
         continue;
@@ -158,8 +158,8 @@ export class Resimulation {
     for (let i = this.record.logStart; i < this.log.length; i++) {
       const entry = this.log[i];
       if (end !== null && entry.step >= end) break;
-      if (entry.command.type !== LOS_LOG_TYPE) continue;
-      const los = entry.command as unknown as { towerId: string; reason: LosResolveReason; mask: LosMaskJson };
+      const los = entry.command;
+      if (!isLosLogCommand(los)) continue;
       if (los.reason === 'retrofit') continue;
       const key = `${los.towerId}|${los.reason}`;
       let list = this.masks.get(key);

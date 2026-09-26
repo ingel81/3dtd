@@ -1,4 +1,5 @@
 import { isPoint, isSamePlace } from './recent-locations';
+import { readJson, writeJson } from '../../utils/storage';
 
 /** localStorage key of the best wave per place, the world map reads it */
 export const BEST_WAVES_KEY = 'td_best_waves_v1';
@@ -66,21 +67,11 @@ function isBestWave(v: unknown): v is BestWave {
 
 /** Stored records, empty when missing, unreadable or blocked. Malformed entries are skipped. */
 export function loadBestWaves(): BestWave[] {
-  try {
-    const raw = localStorage.getItem(BEST_WAVES_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isBestWave).slice(0, MAX_BEST_WAVES);
-  } catch {
-    return [];
-  }
+  const parsed = readJson(BEST_WAVES_KEY);
+  return Array.isArray(parsed) ? parsed.filter(isBestWave).slice(0, MAX_BEST_WAVES) : [];
 }
 
 export function saveBestWaves(list: readonly BestWave[]): void {
-  try {
-    localStorage.setItem(BEST_WAVES_KEY, JSON.stringify(list));
-  } catch {
-    // Storage full or blocked: the records live until the reload
-  }
+  // Storage full or blocked: the records live until the reload
+  writeJson(BEST_WAVES_KEY, list);
 }

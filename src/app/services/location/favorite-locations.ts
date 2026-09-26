@@ -1,5 +1,6 @@
 import { FavoriteLocation, SavedSpawn } from '../../models/location.types';
 import { isPoint } from './recent-locations';
+import { readJson, writeJson } from '../../utils/storage';
 
 /** localStorage key of the favorites, separate from the recent list (td_recent_locations_v1) */
 export const FAVORITES_KEY = 'td_favorites_v2';
@@ -35,23 +36,13 @@ function isFavoriteLocation(v: unknown): v is FavoriteLocation {
  * they are.
  */
 export function loadFavoriteLocations(): FavoriteLocation[] {
-  try {
-    const raw = localStorage.getItem(FAVORITES_KEY);
-    if (!raw) return [];
-    const parsed: unknown = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isFavoriteLocation);
-  } catch {
-    return [];
-  }
+  const parsed = readJson(FAVORITES_KEY);
+  return Array.isArray(parsed) ? parsed.filter(isFavoriteLocation) : [];
 }
 
 export function saveFavoriteLocations(list: readonly FavoriteLocation[]): void {
-  try {
-    localStorage.setItem(FAVORITES_KEY, JSON.stringify(list));
-  } catch {
-    // Storage full or blocked: the list lives until the reload
-  }
+  // Storage full or blocked: the list lives until the reload
+  writeJson(FAVORITES_KEY, list);
 }
 
 /** The list with the favorite `id` renamed; an empty name drops the name, see FavoriteLocation.name. */

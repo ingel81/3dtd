@@ -1,3 +1,5 @@
+import type { CommandData } from '../managers/game-state/command-data';
+
 /**
  * Lockstep for coop (docs/COOP_PLAN.md, C0): every client runs the whole
  * simulation, only commands travel. A command a player gives does not act
@@ -28,7 +30,7 @@ export interface StampedCommand {
   /** Who gave it */
   readonly playerId: string;
   /** The event as plain data (toPlainData), `type` included */
-  readonly command: Readonly<Record<string, unknown>> & { readonly type: string };
+  readonly command: CommandData;
 }
 
 /**
@@ -39,7 +41,7 @@ export interface LockstepLink {
   /** The player at this client */
   readonly playerId: string;
   /** Hand a command to the relay; it acts when its tick comes back. */
-  send(command: Readonly<Record<string, unknown>> & { readonly type: string }): void;
+  send(command: CommandData): void;
   /** The last tick the relay closed and this client has received; -1 before the first. */
   confirmedTick(): number;
   /** The commands of a received tick in the order they act; empty for a tick without any. */

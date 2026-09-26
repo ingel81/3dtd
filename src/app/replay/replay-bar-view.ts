@@ -35,14 +35,6 @@ export function commandMarkers(entries: readonly CommandLogEntry[], startStep: n
   return markers;
 }
 
-/** Game time as m:ss, rounded down to the second. */
-export function formatReplayTime(ms: number): string {
-  const seconds = Math.max(0, Math.floor(ms / 1000));
-  const minutes = Math.floor(seconds / 60);
-  const rest = seconds % 60;
-  return `${minutes}:${rest < 10 ? '0' : ''}${rest}`;
-}
-
 /** Speed as the bar writes it: 0.25x, 1x, 4x. */
 export function formatReplaySpeed(speed: number): string {
   return `${speed}x`;

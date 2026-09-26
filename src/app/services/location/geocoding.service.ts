@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { readJson, writeJson } from '../../utils/storage';
 
 export interface GeocodingResult {
   placeId: number;
@@ -77,29 +78,20 @@ export class GeocodingService {
    * Load reverse geocode cache from localStorage
    */
   private loadCacheFromStorage(): void {
-    try {
-      const cached = localStorage.getItem(this.REVERSE_CACHE_KEY);
-      if (cached) {
-        const entries = JSON.parse(cached) as [string, string][];
-        this.reverseCache = new Map(entries);
-      }
-    } catch {
-      // Ignore parse errors, start with empty cache
-    }
+    // Anything else than [key, name] pairs starts with an empty cache
+    const cached = readJson(this.REVERSE_CACHE_KEY);
+    if (!Array.isArray(cached)) return;
+    const entries = cached.filter((e): e is [string, string] =>
+      Array.isArray(e) && typeof e[0] === 'string' && typeof e[1] === 'string');
+    this.reverseCache = new Map(entries);
   }
 
   /**
    * Save reverse geocode cache to localStorage
    */
   private saveCacheToStorage(): void {
-    try {
-      const entries = Array.from(this.reverseCache.entries());
-      // Limit to 100 entries to prevent localStorage bloat
-      const limited = entries.slice(-100);
-      localStorage.setItem(this.REVERSE_CACHE_KEY, JSON.stringify(limited));
-    } catch {
-      // Ignore storage errors
-    }
+    // Limit to 100 entries to prevent localStorage bloat
+    writeJson(this.REVERSE_CACHE_KEY, Array.from(this.reverseCache.entries()).slice(-100));
   }
 
   /**

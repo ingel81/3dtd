@@ -9,7 +9,7 @@ const versions = (list: { version: string }[]) => list.map((r) => r.version);
 
 function storage(entries: Record<string, string>): SeenVersionStorage {
   const map = new Map(Object.entries(entries));
-  return { getItem: (k) => map.get(k) ?? null, setItem: (k, v) => void map.set(k, v) };
+  return { getItem: (k) => map.get(k) ?? null };
 }
 
 describe('seenVersion', () => {

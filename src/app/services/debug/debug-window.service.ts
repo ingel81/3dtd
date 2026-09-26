@@ -1,4 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
+import { readJson, writeJson } from '../../utils/storage';
 
 export interface WindowPosition {
   x: number;
@@ -200,28 +201,22 @@ export class DebugWindowService {
       };
     });
 
-    try {
-      const stored = localStorage.getItem(STORAGE_KEY);
-      if (stored) {
-        const parsed = JSON.parse(stored) as Partial<
-          Record<DebugWindowId, Partial<DebugWindowState>>
-        >;
-
-        // Merge stored values with defaults. Panels that were not resizable
-        // before have no stored size and fall back to their default.
-        for (const key of ids) {
-          const entry = parsed[key];
-          if (entry) {
-            defaults[key] = {
-              ...defaults[key],
-              ...entry,
-              size: this.parseStoredSize(entry.size, DEFAULT_SIZES[key]),
-            };
-          }
+    const parsed = readJson(STORAGE_KEY) as Partial<
+      Record<DebugWindowId, Partial<DebugWindowState>>
+    > | null;
+    if (parsed && typeof parsed === 'object') {
+      // Merge stored values with defaults. Panels that were not resizable
+      // before have no stored size and fall back to their default.
+      for (const key of ids) {
+        const entry = parsed[key];
+        if (entry && typeof entry === 'object') {
+          defaults[key] = {
+            ...defaults[key],
+            ...entry,
+            size: this.parseStoredSize(entry.size, DEFAULT_SIZES[key]),
+          };
         }
       }
-    } catch {
-      // Ignore storage errors, use defaults
     }
 
     return defaults;
@@ -236,10 +231,6 @@ export class DebugWindowService {
   }
 
   private saveToStorage(): void {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(this.windowStates()));
-    } catch {
-      // Ignore storage errors
-    }
+    writeJson(STORAGE_KEY, this.windowStates());
   }
 }

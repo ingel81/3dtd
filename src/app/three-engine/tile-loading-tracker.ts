@@ -1,5 +1,6 @@
 import type { PerspectiveCamera, WebGLRenderer } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
+import { tilesInternals } from './tiles-internals';
 
 /** Tile-Zähler für Loading-Screen, Info-Overlay und die First-Load-Prüfung. */
 export interface TileStats {
@@ -278,10 +279,8 @@ export class TileLoadingTracker {
       return this.cachedTileStats;
     }
 
-    // The renderer keeps these counters per frame, but its typings omit them.
-    const { queued, downloading, parsing } = (this.tilesRenderer as unknown as {
-      stats: { queued: number; downloading: number; parsing: number };
-    }).stats;
+    const internals = tilesInternals(this.tilesRenderer);
+    const { queued, downloading, parsing } = internals.stats;
 
     this.cachedTileStats = {
       parsing,
@@ -290,7 +289,7 @@ export class TileLoadingTracker {
       total: this.tilesRenderer.activeTiles.size,
       visible: this.tilesRenderer.visibleTiles.size,
       cacheMB: Math.round(
-        (this.tilesRenderer.lruCache as unknown as { cachedBytes: number }).cachedBytes / 2 ** 20,
+        internals.lruCache.cachedBytes / 2 ** 20,
       ),
     };
     this.lastTileStatsUpdate = now;

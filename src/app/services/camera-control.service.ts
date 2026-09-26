@@ -18,6 +18,7 @@ import {
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { cameraTimeline } from '../utils/camera-timeline';
+import type { CameraFrame } from './camera-framing.service';
 import { easeInOutCubic, jumpCameraPosition } from '../utils/camera-jump';
 
 export interface Point3 {
@@ -366,18 +367,17 @@ export class CameraControlService {
   }
 
   /**
-   * Show debug visualization for camera framing
-   * Call this after framing (CameraFramingService) to see the bounding boxes
-   * @param hq HQ coordinates
-   * @param spawns Spawn point coordinates
-   * @param padding Padding factor (default 0.2)
-   * @param routePoints Optional route waypoints to include in bounding box
+   * Draw the frame CameraFramingService computed: the box it fitted (cyan),
+   * padded (yellow), HQ and spawns, its centre and the line to its look-at.
+   * Drawn from the frame itself, so the debug view shows what the camera
+   * was fitted to, raised points and marker radius included.
+   * @param padding the padding the frame was computed with (CAMERA_PADDING)
    */
   showDebugVisualization(
     hq: { lat: number; lon: number },
     spawns: { lat: number; lon: number }[],
-    padding = 0.2,
-    routePoints: { lat: number; lon: number }[] = []
+    frame: CameraFrame,
+    padding: number,
   ): void {
     if (!this.engine || !this.debugFramingEnabled) return;
 
@@ -387,37 +387,20 @@ export class CameraControlService {
     const sync = this.engine.sync;
     const scene = this.engine.getScene();
 
-    // Convert all points to local coordinates (HQ + spawns + routes)
     const hqLocal = sync.geoToLocalSimple(hq.lat, hq.lon, 0);
     const spawnLocals = spawns.map(s => sync.geoToLocalSimple(s.lat, s.lon, 0));
-    const routeLocals = routePoints.map(r => sync.geoToLocalSimple(r.lat, r.lon, 0));
-    const allPoints = [hqLocal, ...spawnLocals, ...routeLocals];
 
-    // Calculate bounding box
-    let minX = Infinity, maxX = -Infinity;
-    let minZ = Infinity, maxZ = -Infinity;
-    for (const p of allPoints) {
-      minX = Math.min(minX, p.x);
-      maxX = Math.max(maxX, p.x);
-      minZ = Math.min(minZ, p.z);
-      maxZ = Math.max(maxZ, p.z);
-    }
+    // The padded box is the frame's; the fitted one is the same without the padding
+    const { minX: padMinX, maxX: padMaxX, minZ: padMinZ, maxZ: padMaxZ, centerX, centerZ, spanX, spanZ } = frame.boundingBox;
+    const halfX = spanX / (1 + padding) / 2;
+    const halfZ = spanZ / (1 + padding) / 2;
+    const minX = centerX - halfX;
+    const maxX = centerX + halfX;
+    const minZ = centerZ - halfZ;
+    const maxZ = centerZ + halfZ;
 
-    // Calculate spans - keep rectangular!
-    const spanX = Math.max(maxX - minX, 50);
-    const spanZ = Math.max(maxZ - minZ, 50);
-
-    // Add padding to each dimension separately (rectangular, not square)
-    const paddedSpanX = spanX * (1 + padding);
-    const paddedSpanZ = spanZ * (1 + padding);
-
-    // Center
-    const centerX = (minX + maxX) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-
-    // Get terrain height for Y positioning
-    const terrainY = this.engine.getTerrainHeightAtGeo(hq.lat, hq.lon) ?? 0;
-    const boxY = terrainY + 5; // Slightly above terrain
+    // Slightly above the ground height the frame assumed
+    const boxY = frame.lookAtY + 5;
 
     // === Create inner bounding box (cyan) - actual bounds ===
     const innerBoxGeometry = new BufferGeometry();
@@ -435,13 +418,7 @@ export class CameraControlService {
     scene.add(innerBox);
     this.debugMeshes.push(innerBox);
 
-    // === Create padded bounding box (yellow) - rectangular with padding ===
-    const halfPaddedX = paddedSpanX / 2;
-    const halfPaddedZ = paddedSpanZ / 2;
-    const padMinX = centerX - halfPaddedX;
-    const padMaxX = centerX + halfPaddedX;
-    const padMinZ = centerZ - halfPaddedZ;
-    const padMaxZ = centerZ + halfPaddedZ;
+    // === Create padded bounding box (yellow) ===
 
     const outerBoxGeometry = new BufferGeometry();
     const outerBoxVertices = new Float32Array([
@@ -502,7 +479,7 @@ export class CameraControlService {
     const lookAtLineGeometry = new BufferGeometry();
     const lookAtLineVertices = new Float32Array([
       camera.position.x, camera.position.y, camera.position.z,
-      centerX, terrainY, centerZ
+      frame.lookAtX, frame.lookAtY, frame.lookAtZ
     ]);
     lookAtLineGeometry.setAttribute('position', new BufferAttribute(lookAtLineVertices, 3));
     const lookAtLineMaterial = new LineDashedMaterial({ color: 0xff00ff, dashSize: 20, gapSize: 10, depthTest: false, transparent: true });

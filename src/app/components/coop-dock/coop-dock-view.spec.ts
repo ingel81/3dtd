@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { CoopRoomInfo, CoopPlayerInfo } from '../../coop/protocol';
 import { DEFAULT_ROOM_OPTIONS } from '../../coop/room-options';
-import { desyncText, dockBanners, joinSteps, roomStatus, roomTable, startBlocked, walkTime } from './coop-dock-view';
+import { desyncText, dockBanners, joinSteps, roomStatus, roomTable, startBlocked } from './coop-dock-view';
 
 function player(id: string, spawnId: string | null, extra: Partial<CoopPlayerInfo> = {}): CoopPlayerInfo {
   return { id, name: id.toUpperCase(), spawnId, ready: false, client: null, status: 'ready', ...extra };
@@ -90,9 +90,3 @@ describe('dockBanners and desyncText', () => {
   });
 });
 
-describe('walkTime', () => {
-  it('writes minutes and two-digit seconds', () => {
-    expect(walkTime(227)).toBe('3:47');
-    expect(walkTime(59)).toBe('0:59');
-  });
-});

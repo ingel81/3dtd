@@ -1,6 +1,7 @@
 import { Group, Matrix4, type Intersection, type Object3D, type Raycaster } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { raycastStats } from '../utils/raycast-stats';
+import { tilesInternals } from './tiles-internals';
 
 /** How far a reused answer may be off, m: the new ray passes the old hit at most this far away. */
 const RAY_TOLERANCE_M = 1e-3;
@@ -62,7 +63,7 @@ export class TileSetVersion {
 
   /** TilesRendererBase bumps its (untyped) frameCount once per traversal. */
   private frameCount(): number {
-    return (this.tiles as unknown as { frameCount?: number }).frameCount ?? 0;
+    return tilesInternals(this.tiles).frameCount;
   }
 }
 

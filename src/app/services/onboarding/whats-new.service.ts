@@ -4,6 +4,7 @@ import { openWhatsNewDialog } from '../../components/whats-new-dialog/open-whats
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { CHANGELOG_RELEASES } from '../../configs/changelog.config';
 import { releasesToAnnounce, SEEN_VERSION_KEY, seenVersion } from './whats-new';
+import { readText, writeText } from '../../utils/storage';
 
 /**
  * "What's new": on demand from the sidebar, and once after an update, web
@@ -22,13 +23,9 @@ export class WhatsNewService {
 
   /** Call once the game is up; opens the notes if this version is new to the player. */
   showAfterUpdate(): void {
-    let fresh;
-    try {
-      fresh = releasesToAnnounce(seenVersion(localStorage), BUILD_VERSION, CHANGELOG_RELEASES);
-      localStorage.setItem(SEEN_VERSION_KEY, BUILD_VERSION);
-    } catch {
-      return; // storage blocked: no way to tell an update from a first visit
-    }
+    const fresh = releasesToAnnounce(seenVersion({ getItem: readText }), BUILD_VERSION, CHANGELOG_RELEASES);
+    // Storage blocked: no way to tell an update from a first visit
+    if (!writeText(SEEN_VERSION_KEY, BUILD_VERSION)) return;
     if (fresh.length > 0) void openWhatsNewDialog(this.dialog, { fresh });
   }
 }

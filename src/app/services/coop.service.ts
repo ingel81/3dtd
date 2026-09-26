@@ -12,7 +12,7 @@ import { LocationChangeCoordinatorService } from './location/location-change-coo
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { newRunSeed } from '../utils/game-rng';
-import { COORD_DECIMALS } from '../utils/geo-utils';
+import { coordKey } from '../utils/geo-utils';
 import { CoopRefusedError, CoopSession, type CoopStart } from '../coop/coop-session';
 import {
   buildWorldPackage,
@@ -57,11 +57,11 @@ import {
   type RoomOptionKey,
 } from '../coop/room-options';
 import type { GeoPosition } from '../models/game.types';
+import { readText, removeKey, writeJson, writeText } from '../utils/storage';
 
 /** Two points are the same place at the precision the URL keeps. */
 function samePlace(a: GeoPosition, b: GeoPosition): boolean {
-  return a.lat.toFixed(COORD_DECIMALS) === b.lat.toFixed(COORD_DECIMALS)
-    && a.lon.toFixed(COORD_DECIMALS) === b.lon.toFixed(COORD_DECIMALS);
+  return coordKey(a) === coordKey(b);
 }
 
 /** A mark on the map one player set for all (review R13) */
@@ -583,42 +583,26 @@ export class CoopService {
 
   private storeLobbies(next: StoredLobbies): void {
     this.storedLobbies.set(next);
-    try {
-      localStorage.setItem(LOBBIES_KEY, JSON.stringify(next));
-    } catch {
-      /* storage blocked: the list holds for this session */
-    }
+    // Storage blocked: the list holds for this session
+    writeJson(LOBBIES_KEY, next);
   }
 
   /** The stored lobby list, with a server set before the list (`3dtd-coop-relay`) taken over once */
   private static readLobbies(): StoredLobbies {
-    try {
-      const stored = readStoredLobbies(localStorage.getItem(LOBBIES_KEY));
-      const merged = withOldRelay(stored, localStorage.getItem(RELAY_KEY));
-      if (merged !== stored) {
-        localStorage.setItem(LOBBIES_KEY, JSON.stringify(merged));
-        localStorage.removeItem(RELAY_KEY);
-      }
-      return merged;
-    } catch {
-      return readStoredLobbies(null);
-    }
+    const stored = readStoredLobbies(readText(LOBBIES_KEY));
+    const merged = withOldRelay(stored, readText(RELAY_KEY));
+    // The old key goes only once the list holds its server
+    if (merged !== stored && writeJson(LOBBIES_KEY, merged)) removeKey(RELAY_KEY);
+    return merged;
   }
 
   get name(): string {
-    try {
-      return localStorage.getItem(NAME_KEY) ?? 'Player';
-    } catch {
-      return 'Player';
-    }
+    return readText(NAME_KEY) ?? 'Player';
   }
 
   set name(value: string) {
-    try {
-      localStorage.setItem(NAME_KEY, value);
-    } catch {
-      /* storage blocked: the name holds for this session */
-    }
+    // Storage blocked: the name holds for this session
+    writeText(NAME_KEY, value);
   }
 
   /** The facade's wave start, run by the host once everyone is ready. */
@@ -727,8 +711,7 @@ export class CoopService {
   private mapSignature(): string {
     const hq = this.locationMgmt.hq();
     const spawns = this.locationMgmt.spawns();
-    const at = (p: { lat: number; lon: number }) => `${p.lat.toFixed(6)},${p.lon.toFixed(6)}`;
-    return hq ? [at(hq), ...spawns.map(at)].join(';') : '';
+    return hq ? [coordKey(hq), ...spawns.map(coordKey)].join(';') : '';
   }
 
   /**

@@ -1,4 +1,4 @@
-import { DataTexture, FloatType, HalfFloatType, NearestFilter, RGBAFormat, type Vector3 } from 'three';
+import { DataTexture, FloatType, HalfFloatType, MathUtils, NearestFilter, RGBAFormat, type Vector3 } from 'three';
 
 export const MAX_VAT_WIDTH = 8192;
 
@@ -113,12 +113,11 @@ export function createPositionTexture(data: Float32Array, width: number, height:
     const [ex, ey, ez] = encoding.extent;
     // Clamped: texels past the last vertex of a tiled frame are unused zeros
     // and may lie outside the bounding box.
-    const clamp = (v: number): number => (v < -1 ? -1 : v > 1 ? 1 : v);
     const texels = new Uint16Array(data.length);
     for (let i = 0; i < data.length; i += 4) {
-      texels[i] = toHalfFloatRounded(clamp((data[i] - ox) / ex));
-      texels[i + 1] = toHalfFloatRounded(clamp((data[i + 1] - oy) / ey));
-      texels[i + 2] = toHalfFloatRounded(clamp((data[i + 2] - oz) / ez));
+      texels[i] = toHalfFloatRounded(MathUtils.clamp((data[i] - ox) / ex, -1, 1));
+      texels[i + 1] = toHalfFloatRounded(MathUtils.clamp((data[i + 1] - oy) / ey, -1, 1));
+      texels[i + 2] = toHalfFloatRounded(MathUtils.clamp((data[i + 2] - oz) / ez, -1, 1));
       texels[i + 3] = HALF_FLOAT_ONE;
     }
     texture = new DataTexture(texels, width, height, RGBAFormat, HalfFloatType);
