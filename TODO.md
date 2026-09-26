@@ -58,8 +58,9 @@ allem unter T (Coop).
       (im Test als frei gestubbt, echte Luftziele laufen über die Air-LOS-Pipeline, und hohe Häuser brechen sie),
       der Gegner (die Feldfälle sind zu 43 von 51 Dragon Elite, schnell und zäh zugleich), die Größenordnung
       (Hunderte statt Dutzende) und die Aufstellung (im Test läuft jeder Gegner an beiden Bogenschützen vorbei).
-- [ ] **E13 Ein Tower trägt die Hälfte** (**gebaut 2026-09-26**): Die Kanone macht 52,8 % des Schadens für 25,3 % des
-      Golds. Ihre Upgrades kosten 15 % mehr (`costFactor` in `combatUpgrades`). Offen: mit Bots nachmessen.
+- [ ] **E13 Ein Tower trägt die Hälfte** (**gebaut und gemessen 2026-09-26**): Upgrades der Kanone 15 % teurer. A/B mit je
+      70 Könner-Läufen am selben Stand: Schadensanteil 28,9 % → 24,7 %, Schaden je Gold 5,06 → 3,83, Goldanteil gleich
+      (15,5 % → 15,3 %). Nach DONE auf Zuruf.
 - [ ] **E15 Rakete: gemessen, offen bleibt nur das Gefühl** (2026-09-22): Pfad repariert (`aa-retrofit` an
       `gatling-tech`), Wirkradius ergänzt (5 m, bis fünf Ziele) — sie war das einzige Sprenggeschoss ohne
       einen. **Gemessen in der richtigen Linse** (reine Luftwellen, 42 Läufe gegen 360 der Baseline): Ihr
@@ -84,10 +85,9 @@ allem unter T (Coop).
       Tötungsterm, und 68 von 175 getötet bleibt unerklärt. Verdacht: der Spawn-Abstand im Nenner
       (`1 - killsPerSecond * REALISM * delay`), bei 24 Towern geht hornet_strike von 20 (0 ms) auf 83 (400 ms).
       Kein Beleg; dafür braucht es das Run-Log dieses Laufs.
-- [ ] **E21 Abstand großer Gegner** (**gebaut 2026-09-26**): `CampaignWave.minSpawnDelayMs` 600 ms für W14, W15, W25
-      (Golem, Mammut). Der Director rechnet die Welle wie bisher, erst danach streckt sich der Abstand; passt sie so
-      nicht in 3 min, kommen weniger mit entsprechend mehr HP. Referenz: nur W15 (521 → 600 ms) und W25 (129 → 600 ms).
-      Offen: mit Bots messen, ob die verteilteren Wellen spürbar leichter sind.
+- [ ] **E21 Abstand großer Gegner** (**gebaut und gemessen 2026-09-26**): `CampaignWave.minSpawnDelayMs` 600 ms für W14,
+      W15, W25; passt die Welle nicht in 3 min, kommen weniger mit mehr HP. A/B: Anfänger W14/W15 7,5/9,1 → 6,6/7,4 HP
+      Verlust, Könner unverändert; W25 mit rund 20 Läufen je Seite zu dünn. Nach DONE auf Zuruf.
 - [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen (User, 2026-09-23; 2026-09-26: Tasten unklar,
       später): 1 bis 9 wählen heute Tower (`hotkey-map.ts`), Ctrl+Zahl wechselt im Browser den Tab.
 - [ ] **F4 Ungemessene Grafik- und CPU-Kosten**: Laser-Säule, drei Stencil-Pässe der Reichweitenringe, Kegel-Upload,
