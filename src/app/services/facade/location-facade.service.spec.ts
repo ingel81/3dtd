@@ -148,7 +148,7 @@ describe('LocationFacadeService', () => {
   const urlLocation = { parseFromUrl: vi.fn(), updateUrl: vi.fn() };
   const devWorld = {
     isActive: false,
-    config: { spawn: 'north' },
+    config: { spawn: 'north', spawnCount: 1 },
     localToGeo: vi.fn((x: number, z: number) => ({ lat: z / 1000, lon: x / 1000 })),
     getSpawnPosition: vi.fn(() => ({ x: 10, z: 20 })),
   };
