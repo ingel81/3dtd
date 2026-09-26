@@ -202,6 +202,36 @@ allem unter T (Coop).
       Anklicken wählt ihn wie einen eigenen (Upgrades, Werte, Zielmodus, Kills, Reichweite und Sichtlinie), Kopfzeile
       „<Name>'s tower, view only“; Upgrade, Verkauf, Zielmodus und Bemannen ausgeblendet. `tower-policy.ts`: `select`
       für alle, die übrigen Aktionen bleiben beim Besitzer.
+
+Aus dem Coop-Playtest Heilbronn W1-W38 (2026-09-26, `tmp/coop-playtest/ANALYSE.md`), alles entschieden per AUQ
+(2026-09-26/27), Reihenfolge E40 bis E52:
+
+- [ ] **E40 Coop: Verbindungsverlust**: im Spiel Pause und Dialog „Allein weiterspielen / Raum verlassen“ (allein: Lockstep
+      lösen, Partner-Tower feuern weiter, sein Gold eingefroren); Restart danach spielt allein; Game-Over-Screen mit
+      Hinweis und Knopf, das Overlay verdeckt die Squad-Box nicht mehr.
+- [ ] **E41 Director-Kleinteile**: Kompression aus der gelieferten Anzahl (W16 kam als 9-s-Stoß), Anti-Windup bei
+      Boss-Varianten aus der gelieferten Welle, Begründungstexte (Aufschlag, komprimierter Abstand, wirksamer Deckel,
+      eine Definition von „bindend“), Boss-Vorschau in `AdaptiveSource.peek()`.
+- [ ] **E42 Ton im Geschütz** nur für den eigenen bemannten Tower (`store.mannedTowerId()`), nicht für jeden bemannten.
+- [ ] **E43 Lightning-Sichtlinie**: laufendes Ziel periodisch nachprüfen wie Projektil/Beam, Kettensprünge mit der
+      Sicht je Gegnertyp. Ändert die Simulation.
+- [ ] **E44 Run-Log/Relay-Kleinteile**: Relay-Log nach aktuellem Namen, `ownsKill` für verkaufte Tower, HP-Cheats und
+      Fähigkeiten-Schaden ins Log, Director-Felder auch im Gast-Log; Wellen mit HP-Cheat misst der Regler nicht.
+- [ ] **E45 Upgrades ×5/×10**: Shift+U bis 5, Ctrl+U bis 10 (so viele wie Gold reicht), Shift-/Ctrl-Klick in der Kachel.
+- [ ] **E46 Game-Over-Screen**: Gold gesamt je Spieler, Mini-Charts je Welle (Kills, Tower, verdientes Gold, HQ-Leben).
+- [ ] **E47 Druck-Multiplikator an einer Stelle** (Plan-Doc zuerst): nur im Kill-Budget des Deckels, Deckel stetig
+      (höchstens tötbar in 3 min, kein Pol), kein Aufschlag über Template-Max, kein HP-Hebel.
+- [ ] **E48 Regler-Messwert kappen**: eine Welle zählt höchstens ~3× Ziel, Glättung 0,35 bleibt.
+- [ ] **E49 Leckschaden je Gegnertyp**: round(√baseHp / 5), 1 bis 50, mal Wellenaufschlag; startHealth 500 bleibt.
+      Deckel und Regler lesen ihn. Sichtbar in der Wellen-Vorschau (je Typ und Summe), im Gegner-Tooltip und als Zahl
+      am HQ beim Leck.
+- [ ] **E50 `spawnStartDelay` als Boden** je Typ und Lane nach der Streuung, bestehende Werte; ersetzt den
+      E21-Kampagnen-Boden (`minSpawnDelayMs`).
+- [ ] **E51 Kill-Modell messen und kalibrieren**: echte Zeit unter Feuer je Gegner (Bot-Läufe + Heilbronn-Lauf),
+      Konstanten in `wave-sizing.ts` anpassen und gegenprüfen.
+- [ ] **E52 Tower-Balance neu messen** nach E51 (Kanone ~50 %, Lightning/Chaos/Ice schwach): nur Messung und Vorschlag.
+- [ ] **E53 Coop mit zwei Bots in DevWorld** (später): Bot nur eigene Lane/Gold/Tower, Gast meldet ready, Tempo max 4,
+      zwei Tabs gegen lokales Relay.
 ---
 
 ## Entschieden (keine Arbeit)
