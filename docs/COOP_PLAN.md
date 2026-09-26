@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-25 · Branch `coop` · Status: C0 bis C4d, C5a, C7 und C8 gebaut, öffentliche Lobby läuft (D56 bis D68), Review R1 bis R21 gebaut (R10 teilweise); offen C5b, aus C6 nur Bots als Mitspieler (D24) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-26 · Branch `coop` · Status: C0 bis C4d, C5a, C7 und C8 gebaut, öffentliche Lobby läuft (D56 bis D68), Review R1 bis R21 gebaut (R10 teilweise), Oberfläche überarbeitet ([COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md), U1 bis U8); offen C5b, aus C6 nur Bots als Mitspieler (D24) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -102,7 +102,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D46 | Schriften | Keine Cinzel: Überschriften in Inter Tight. JetBrains Mono wird selbst gehostet (`@fontsource`), weil `--td-font-mono` sie nennt und bisher auf Consolas fiel (User, 2026-09-25) |
 | D56 | Öffentliche Lobby | Das Relay läuft als Docker-Container auf einem Server des Users in einem abgeschotteten Netz; ein Cloudflare-Tunnel macht es erreichbar, kein offener Port (User, 2026-09-25) |
 | D57 | Adresse | `wss://3dtd-lobby.sgeht.net`, eine Ebene unter der Domain: das kostenlose Zertifikat von Cloudflare deckt `lobby.3dtd.sgeht.net` nicht ab. Live seit 2026-09-25 (User, 2026-09-25) |
-| D58 | Lobbies wählen | Standard-Lobby mit Name und Adresse aus `runtime-config.json`; weitere hinzufügen und die aktive wählen über ein Zahnrad im Online-Teil des Docks; im Dock nur der Name (User, 2026-09-25) |
+| D58 | Lobbies wählen | Standard-Lobby mit Name und Adresse aus `runtime-config.json`; weitere hinzufügen und die aktive wählen über ein Zahnrad im Online-Teil des Docks; im Dock nur der Name (User, 2026-09-25). Seit 2026-09-26 eine Auswahlliste mit „Add lobby…“ statt des Zahnrads ([COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) U3) |
 | D59 | Wer spielt online | Zuerst nur die Desktop-App (`--origins app://app`, eine Engine, Versionen per Auto-Update gleich). Chromium-Browser später per Schalter nach einem Lauf Chrome gegen App; Firefox und Safari erst nach E28. Hart erzwingen lässt sich das nicht (Origin ist fälschbar), es hält Webseiten draußen (User, 2026-09-25) |
 | D60 | Andere Version | Abweisen mit Hinweis „Host has 0.5.0, you have 0.4.0“ und in der App gleich „Update now“ (User, 2026-09-25) |
 | D61 | Ausfall | „Lobby is offline right now“; LAN und Einzelspieler unberührt, laufende Räume wie heute „Continue alone“ (User, 2026-09-25) |
@@ -115,7 +115,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 | D68 | Reihenfolge | 1) Dock „Same network“/„Online“, Reiter im Standortdialog (E30), Lobby-Zahnrad; 2) Container, GHCR, Tunnel-Anleitung, Origin, Status, Log; 3) öffentliche Raumliste mit Titel, Public-Option und Hinweis (User, 2026-09-25) |
 | D49 | Reihenfolge ab 2026-09-26 | Prio A: C4d Electron-LAN (Tests zu Hause im LAN). Prio B: Ortswechsel beim Gast ohne Neuladen, R15 Held des Partners, R19 und S2/S3/S5/S6 leicht. Später: C5b. Danach B bis C: `tmp/` und Doku aufräumen, Code-Smells, Performance Einzel- und Mehrspieler. E2E nur exemplarisch prüfen, nicht jede Stelle (User, 2026-09-25) |
 | D50 | LAN finden | Suche im LAN, robust auch in schiefen Netzen; IP und Link als Rückfall (User, 2026-09-25) |
-| D51 | Relay-Start | Erst beim Klick „Host LAN game“, endet mit dem Raum oder der App; die Firewall fragt erst dann (User, 2026-09-25) |
+| D51 | Relay-Start | Erst beim Klick „Host LAN game“ (seit 2026-09-26 „Host a room“ bei „Same network“), endet mit dem Raum oder der App; die Firewall fragt erst dann (User, 2026-09-25) |
 | D52 | Gäste im LAN | Nur die Desktop-App, keine Browser-Gäste; alle rechnen mit derselben Engine (User, 2026-09-25) |
 | D53 | Coop-Dialog in der App | LAN zuerst: „Host LAN game“ und die Liste gefundener Spiele oben, eigener Server unter „Advanced“ (User, 2026-09-25) |
 | D54 | Nichts gefunden | Feld „Host IP“ (der Host zeigt seine Adressen mit Adaptername) und drei Zeilen Checkliste: Firewall erlaubt, gleiches Netz, Gast-WLAN isoliert (User, 2026-09-25) |
@@ -637,14 +637,14 @@ im Dev-Spiel mit zwei Browsern (PLAYTEST T71). Schritt 2:
 Datenschutzerklärung in `coop-server/README.md`. Die Lobby läuft seit 2026-09-25 und steht in
 `public/runtime-config.json`. Nicht geprüft: der Docker-Build selbst (kein
 Docker auf dem Dev-Rechner; die Schritte darin liefen einzeln). Schritt 1: Schritt 1:
-`app-coop-entry` (Name, „Same network“, „Online“ mit Zahnrad für die Lobbies) im Dock und als Reiter „Coop“ im
+`app-coop-entry` (Name, „Same network“, „Online“; seit 2026-09-26 ein Umschalter zwischen beiden, die Lobby als Auswahlliste, ein Knopf „Host a room“, U3) im Dock und als Reiter „Coop“ im
 Standortdialog beim Start ohne Ort; `coop/lobbies.ts`, `coopLobbies` in `runtime-config.json`, die alte Einstellung
 `3dtd-coop-relay` wird eine eigene Lobby; im Dev-Spiel auf `localhost` ohne Lobby „This machine“; Raumkopf „LAN“ oder
 „Online · <Lobby>“; Abweisung mit beiden Versionen, „Update now“ bei fertigem Update; „<Lobby> is offline right now“.
 Geprüft: Browser hostet über „This machine“, die App tritt aus dem Standortdialog per Code bei, der Dialog schließt
 nach dem Beitritt und der Ort des Hosts lädt mit allen Spawns (PLAYTEST T70). Der Plan in drei Schritten:
 
-1. **Oberfläche:** Dock mit „Same network“ (App) und „Online“ (Host, Code, Name der Lobby, Zahnrad für die Lobbies);
+1. **Oberfläche:** Dock mit „Same network“ (App) und „Online“ (Host, Code, Name der Lobby, Lobby-Wahl; das Zahnrad wurde am 2026-09-26 eine Auswahlliste);
    keine Adressen, kein „Test“ im Dock; der Raumkopf zeigt „LAN“ oder den Namen der Lobby (heute steht dort nach
    einem LAN-Beitritt die LAN-Adresse als „Server“). `runtime-config.json`: `coopLobbies: [{ name, url }]`, `coopRelay`
    bleibt als Rückfall. Reiter „Coop“ im Standortdialog der App zum Beitreten; das Weltpaket des Hosts gibt den Ort.

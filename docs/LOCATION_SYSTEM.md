@@ -571,17 +571,19 @@ Spawns aus URL/Service vorhanden?
 
 ## Location Dialog Component
 
-Angular Material Dialog mit drei Modi:
+Angular Material Dialog mit drei Tabs (seit 2026-09-26, [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) P3; die
+Darstellung steht in [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#standortdialog)). Titel „Choose a place“ beim Start ohne Ort
+(dann ohne Cancel), sonst „Change place“.
 
-### Edit Modes
+### Tabs
 
 | Modus | Beschreibung |
 |-------|--------------|
-| `full` | Neuer HQ + Spawn (Standard), Tab "New Location" |
-| `spawn-only` | Nur Spawn ändern (HQ bleibt), Tab "Spawn Only"; nur mit bestehender Location, stellt den Spawn-Modus auf `manual` |
+| `place` | Neuer Ort (Standard), Tab "Place": Suche, Recent/Showcase, Spawn eingeklappt. Mit geladenem Ort zusätzlich der Link "Move the spawn by address…": nur den Spawn ändern, der HQ bleibt (früher Tab "Spawn Only", Ansicht `placeView = 'spawn'`) |
 | `world` | Weltkarte der verteidigten Orte, Tab "World", siehe [Weltkarte](#weltkarte-beste-welle-je-ort); ohne Confirm-Button, ein Klick lädt |
+| `coop` | Nur beim Start ohne Ort und wenn es etwas zum Beitreten gibt (LAN der App oder eine Lobby): `app-coop-entry` ohne Hosten; der Beitritt schließt den Dialog mit dem Ort des Hosts (`joinedPlaceResult`). Den `CoopService` bekommt der Dialog über `MatDialogConfig.injector` und das Token `COOP` |
 
-`LocationDialogData.initialMode` wählt den Tab beim Öffnen (Standard `full`).
+`LocationDialogData.initialMode` wählt den Tab beim Öffnen (Standard `place`).
 
 ### Spawn Modes
 
@@ -592,21 +594,21 @@ Angular Material Dialog mit drei Modi:
 
 ### Features
 
-- **Recent / Showcase** (nur `full`-Modus, eine Liste mit zwei Tabs unter dem Spawn-Abschnitt; ohne Recent-Einträge nur Showcase): ein Klick lädt ohne Bestätigung (Ergebnis wie Confirm)
+- **Recent / Showcase** (Tab Place, eine Liste mit zwei Tabs unter der Suche; ohne Recent-Einträge nur Showcase): ein Klick lädt ohne Bestätigung (Ergebnis wie Confirm)
   - Recent: zuletzt gespielte Orte ohne den aktuellen, mit ihrem Spawn (`spawn.id: 'spawn_recent'`)
   - Showcase: 12 Orte aus `configs/showcase-locations.config.ts` (Name, eine Zeile Hinweis), Spawn zufällig wie im Modus Random. Koordinaten gegen OSM (Nominatim) geprüft, auf Fußweg, Straße oder Platz; nicht einzeln im Spiel angespielt. Ein Ort kann einen festen Spawn tragen (`ShowcaseLocation.spawn`, optional mit Kompasskurs, `SavedSpawn`), bisher Rio de Janeiro, Copacabana (`s=-22.96421,-43.17463`) und Tokyo, Shibuya Crossing (`l=35.65924,139.70049&s=35.65208,139.69853`, HQ und Spawn aus einer URL des Users, weil der alte Punkt eine Route um einen Block ergab); diese Orte hat der User gespielt. Ein Klick lädt ihn dann über denselben Pfad wie einen Spawn aus URL oder Favorit (`spawn.id: 'spawn_showcase'`, keine Zufallssuche). `__showcase.line()` in den DevTools druckt ein einfügefertiges `ShowcaseLocation`-Snippet für den aktuellen Ort (id/name/hint als `'TODO'`), zum Weitergeben neuer Einträge
 - **Autocomplete-Suche** via `AddressAutocompleteComponent` (Nominatim)
-- **Manuelle Koordinaten-Eingabe** (ausklappbar, nur für das HQ: "Enter coordinates")
+- **Manuelle Koordinaten-Eingabe** (ausklappbar, nur für das HQ: "Coordinates")
   - Unterstützte Formate beim Einfügen:
     - Dezimal: `49.5432, 9.1234`
     - Kardinal: `49.5432°N, 9.1234°E`
     - Kardinal vorangestellt: `N 49.5432, E 9.1234`
     - DMS: `49°32'35.5"N 9°7'24.2"E`
     - Google Maps URL: `@49.5432,9.1234`
-- **Distanz-Badge**: Zeigt Entfernung Spawn-HQ an
+- **Entfernung**: Zeile unter der Spawn-Suche mit der Entfernung Spawn-HQ
 - **Max-Distanz**: 1,5 km, im Dialog fest als 1500 m geprüft (nicht über `MAX_MANUAL_SPAWN_DISTANCE`); darüber bleibt Confirm gesperrt. Eine Mindestdistanz prüft der Dialog nicht
-- **Warnung** bei laufendem Spiel (in den Modi `full` und `world`)
-- **Validation**: Confirm-Button nur aktiv, wenn ein HQ gewählt ist (im `spawn-only`-Modus: vorhanden) und der Spawn `random` oder ausgewählt ist
+- **Warnung** bei laufendem Spiel (Tabs Place und World, nicht beim Verschieben des Spawns)
+- **Bestätigen**: "Load place" erscheint erst, wenn die Suche einen Ort gewählt hat, und ist aktiv, wenn der Spawn `random` oder ausgewählt und nah genug ist; beim Verschieben "Move spawn", aktiv mit gewähltem Spawn. Recent, Showcase und World laden per Klick
 
 ### Dialog-Ergebnis
 
