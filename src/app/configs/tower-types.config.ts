@@ -173,11 +173,14 @@ const BEAM_WIDTH_UPGRADE: TowerUpgrade = {
  * damage/rate ist die Identität des Towers: wächst er über Schaden oder über
  * Tempo.
  */
-function combatUpgrades(profile: { damage: number; rate: number }): TowerUpgrade[] {
+function combatUpgrades(profile: { damage: number; rate: number; costFactor?: number }): TowerUpgrade[] {
+  const factor = profile.costFactor ?? 1;
+  // A tower whose upgrades cost more pays the factor on every track (TODO E13)
+  const priced = (upgrade: TowerUpgrade): TowerUpgrade => (factor === 1 ? upgrade : { ...upgrade, cost: upgrade.cost * factor });
   return [
-    degressiveUpgrade('damage', 'Damage', 'damage', profile.damage),
-    degressiveUpgrade('speed', 'Fire Rate', 'fireRate', profile.rate),
-    RANGE_UPGRADE,
+    priced(degressiveUpgrade('damage', 'Damage', 'damage', profile.damage)),
+    priced(degressiveUpgrade('speed', 'Fire Rate', 'fireRate', profile.rate)),
+    priced(RANGE_UPGRADE),
   ];
 }
 
@@ -365,7 +368,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'cannonball',
     cost: 150, // Phase 5.16: heavy specialist (cannon vs fortified) — small premium
     // Schwere Einzelschüsse. Die niedrige Rate hält den Splash-Durchsatz klein.
-    upgrades: combatUpgrades({ damage: 1.07, rate: 1.02 }),
+    // Upgrades 15 % teurer (TODO E13, 2026-09-26): 52,8 % des Schadens für 25,3 % des Golds.
+    upgrades: combatUpgrades({ damage: 1.07, rate: 1.02, costFactor: 1.15 }),
   },
   magic: {
     id: 'magic',

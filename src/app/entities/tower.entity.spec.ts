@@ -15,7 +15,7 @@ vi.mock('three', () => ({
 import { Tower } from './tower.entity';
 import { TransformComponent, CombatComponent, RenderComponent } from '../game-components';
 import { ComponentType } from '../core/component';
-import { getTowerType } from '../configs/tower-types.config';
+import { getTowerType, getUpgradeCost } from '../configs/tower-types.config';
 import { Enemy } from './enemy.entity';
 
 const position = { lat: 10, lon: 20, height: 5 };
@@ -179,9 +179,9 @@ describe('Tower entity', () => {
     expect(tower.applyUpgrade('damage')).toBe(true);
 
     const expectedTotal =
-      speedUpgrade.cost +
-      damageUpgrade.cost +
-      Math.round(damageUpgrade.cost * Math.pow(damageUpgrade.costScaling ?? 1, 1));
+      getUpgradeCost(speedUpgrade, 0) +
+      getUpgradeCost(damageUpgrade, 0) +
+      getUpgradeCost(damageUpgrade, 1);
 
     expect(tower.getTotalUpgradeCost()).toBe(expectedTotal);
 
