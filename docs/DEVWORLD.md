@@ -27,14 +27,20 @@ DevWorld ist eine alternative Spielwelt die ohne Google 3D Tiles funktioniert. S
 ?devworld&spawn=north              # Spawn-Position (nur Fallback, siehe unten)
 ?devworld&seed=123                 # Reproduzierbarer Seed
 ?devworld&bot=manual               # ohne Trainings-Bot, siehe Training
+?devworld&spawns=2&bot=manual      # zwei Lanes für einen Coop-Test (1 bis 4, Standard 1)
 ```
 
 `DevWorldService` schreibt die aufgelösten Werte per `replaceState` zurück in die URL
 (`terrain`, `seed`, `buildings` immer, `spawn` nur wenn nicht `north`). Unbekannte Werte fallen auf `flat`, `dense`, `north` und Seed 42 zurück.
 
 `spawn` wirkt nur, wenn der Straßengenerator keinen Spawn liefert: Normalerweise nimmt
-`LocationFacadeService.addPredefinedSpawns()` den ersten generierten Spawn, erst ohne
-ihn gilt `DEV_WORLD_SPAWNS[spawn]`.
+`LocationFacadeService.addPredefinedSpawns()` die ersten `spawns` generierten Spawns (Standard einer, damit Bots
+das ausgelieferte Spiel mit einer Route spielen), erst ohne sie gilt `DEV_WORLD_SPAWNS[spawn]`.
+
+**Coop in DevWorld (seit 2026-09-26):** zwei Seiten auf `?devworld&spawns=2&bot=manual`, ein Relay
+(`npm run coop-server`), Host öffnet einen Raum, der Gast tritt per Code bei; ohne Kartensitzung. Ein Tab mit
+`bot=manual` ignoriert die Befehle eines laufenden Bot-Servers (vorher spielte der Bot mit und kaufte beim Start das
+Research Center).
 
 ---
 

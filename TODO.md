@@ -149,6 +149,9 @@ allem unter T (Coop).
       LAN, Lobby und Welt, Spiel, Chat und Pings, Laufzahlen; `leave()` setzt heute rund 25 Felder von Hand zurück),
       `corridor-band.ts` 1236. Längste Funktionen: `buildWaveConfig` 233, `startRelay` 227, `CorridorBuild.build` 220,
       `GameStateSyncService.initialize` 197 Zeilen.
+      **Teilweise gebaut 2026-09-26:** Event-Typen je Bereich in `game-engine/events/` (Bus 1274 → 547 Zeilen),
+      `ClearanceRun` in eigener Datei (1567 → 1319), `startRelay` als Klasse `Relay`. Offen: die übrigen Dateien, nach
+      dem Playtest.
 - [ ] **J5 Doppelte Helfer zusammenlegen** (**gebaut 2026-09-26**): `utils/storage.ts` für alle localStorage-Zugriffe,
       `formatClock` statt drei Zeitformaten, `coordKey` für Ort und Kartensignatur (5 Stellen), `tilesInternals` als
       einziger Blick in die Tiles-Interna, `CommandData` und `isLosLogCommand` statt der Casts, die Rahmen-Debuganzeige
