@@ -52,6 +52,8 @@ export function outOfStep(hashes: readonly [string, number][]): string[] {
 export class HashCheck {
   private readonly byTick = new Map<number, Map<string, number>>();
   private readonly partsByTick = new Map<number, Map<string, readonly number[]>>();
+  /** The highest tick reported; what lies a window below it is dropped */
+  private newest = -Infinity;
   private readonly flagged = new Set<number>();
   /** The last hash each player reported, and for which tick */
   readonly last = new Map<string, { tick: number; hash: number }>();
@@ -87,10 +89,12 @@ export class HashCheck {
     return null;
   }
 
-  private prune(newest: number): void {
-    const oldest = newest - KEEP_REPORTS * HASH_EVERY_TICKS;
+  /** Every tick KEEP_REPORTS reports below the highest, whatever order they came in (review M3) */
+  private prune(tick: number): void {
+    this.newest = Math.max(this.newest, tick);
+    const oldest = this.newest - KEEP_REPORTS * HASH_EVERY_TICKS;
     for (const tick of this.byTick.keys()) {
-      if (tick >= oldest) break;
+      if (tick >= oldest) continue;
       this.byTick.delete(tick);
       this.partsByTick.delete(tick);
       this.flagged.delete(tick);

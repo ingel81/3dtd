@@ -29,8 +29,10 @@ async function listen(): Promise<RelayServer> {
   let lastError: unknown = null;
   for (let port = FIRST_PORT; port < FIRST_PORT + PORTS_TRIED; port++) {
     try {
-      // Cheats go through the relay; the host's room option decides (D38)
-      return await startRelay({ port, log, cheats: true });
+      // Cheats go through the relay; the host's room option decides (D38). Only the
+      // desktop app may connect: another page open in a browser on this machine
+      // or in the LAN is refused (relay review M7); clients without an Origin pass.
+      return await startRelay({ port, log, cheats: true, origins: ['app://app'] });
     } catch (error) {
       lastError = error;
       log(`port ${port} taken (${(error as NodeJS.ErrnoException).code ?? error})`);
@@ -38,6 +40,10 @@ async function listen(): Promise<RelayServer> {
   }
   throw lastError;
 }
+
+// Nothing a room or a message does may end the LAN relay (review K1)
+process.on('uncaughtException', (error) => log(`uncaught: ${String(error?.stack ?? error).slice(0, 500)}`));
+process.on('unhandledRejection', (reason) => log(`unhandled rejection: ${String(reason).slice(0, 500)}`));
 
 let relay: RelayServer | null = null;
 let announcer: LanAnnouncer | null = null;
@@ -71,5 +77,5 @@ try {
 parent?.on('message', ({ data }) => {
   if ((data as { t?: string } | null)?.t !== 'stop') return;
   announcer?.close();
-  void (relay?.close() ?? Promise.resolve()).then(() => process.exit(0));
+  void (relay?.close('The host closed the game') ?? Promise.resolve()).then(() => process.exit(0));
 });

@@ -10,6 +10,7 @@ const {
   createLanAnnouncer,
   createLanScanner,
   gameMessage,
+  isPrivateAddress,
   lanAdapters,
   readMessage,
   targetsFor,
@@ -85,6 +86,24 @@ describe('messages', () => {
     assert.equal(message.rooms.length, 1);
     assert.equal(message.rooms[0].host.length, 40);
     assert.equal(message.rooms[0].players, 0);
+  });
+});
+
+describe('the announcement stays small and private (relay review N5)', () => {
+  it('leaves rooms out until the packet fits what a guest reads', () => {
+    const rooms = Array.from({ length: 60 }, (_, i) => ({ ...room, code: `ABC${String(i).padStart(3, '2')}`, host: 'x'.repeat(40) }));
+    const packet = gameMessage({ port: 3003, protocol: 1, rooms });
+    assert.ok(packet.length <= 2048);
+    assert.ok(readMessage(packet).rooms.length > 5);
+  });
+
+  it('answers only this machine and private networks', () => {
+    for (const address of ['192.168.1.7', '10.1.2.3', '172.20.0.1', '127.0.0.1', '169.254.3.4', '::ffff:192.168.0.2', 'fe80::1', 'fd00::5']) {
+      assert.equal(isPrivateAddress(address), true, address);
+    }
+    for (const address of ['203.0.113.9', '8.8.8.8', '172.32.0.1', '2001:db8::1']) {
+      assert.equal(isPrivateAddress(address), false, address);
+    }
   });
 });
 
