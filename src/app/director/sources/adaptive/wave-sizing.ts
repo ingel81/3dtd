@@ -53,12 +53,12 @@ export const FAIRNESS_KILL_REALISM = 0.65;
  *
  * Measured on 157 bot waves (2026-09-27) where the defense was overrun, the
  * leaks past the allowance: it killed 1.3 times what the model at 0.65 said
- * through W10, 1.6 to 2.1 times from W11 on. The factors sit a little under
- * those medians, so the cap stays on the safe side; the early one keeps the
- * young defense's protection (docs/PRESSURE_ONE_PLACE_PLAN.md, Ergebnis).
+ * through W10, 1.6 to 2.1 times from W11 on. A first try at 1.1 from W11
+ * overshot W21 to W30 (0.8 of the model) and brought the beginner's deaths
+ * at W19 back; 1.0 sits between (docs/PRESSURE_ONE_PLACE_PLAN.md, Ergebnis).
  */
 export function fairnessKillRealism(wave: number): number {
-  return wave <= 10 ? 0.85 : 1.1;
+  return wave <= 10 ? 0.85 : 1.0;
 }
 
 /**
