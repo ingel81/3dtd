@@ -58,8 +58,8 @@ allem unter T (Coop).
       (im Test als frei gestubbt, echte Luftziele laufen über die Air-LOS-Pipeline, und hohe Häuser brechen sie),
       der Gegner (die Feldfälle sind zu 43 von 51 Dragon Elite, schnell und zäh zugleich), die Größenordnung
       (Hunderte statt Dutzende) und die Aufstellung (im Test läuft jeder Gegner an beiden Bogenschützen vorbei).
-- [ ] **E13 Ein Tower trägt die Hälfte** (entschieden 2026-09-26): Die Kanone macht 52,8 % des Schadens für 25,3 %
-      des Golds (3,56 Schaden je Gold gegen 1,54). Ihre Upgrades werden um 15 % teurer, danach mit Bots nachmessen.
+- [ ] **E13 Ein Tower trägt die Hälfte** (**gebaut 2026-09-26**): Die Kanone macht 52,8 % des Schadens für 25,3 % des
+      Golds. Ihre Upgrades kosten 15 % mehr (`costFactor` in `combatUpgrades`). Offen: mit Bots nachmessen.
 - [ ] **E15 Rakete: gemessen, offen bleibt nur das Gefühl** (2026-09-22): Pfad repariert (`aa-retrofit` an
       `gatling-tech`), Wirkradius ergänzt (5 m, bis fünf Ziele) — sie war das einzige Sprenggeschoss ohne
       einen. **Gemessen in der richtigen Linse** (reine Luftwellen, 42 Läufe gegen 360 der Baseline): Ihr
@@ -84,9 +84,10 @@ allem unter T (Coop).
       Tötungsterm, und 68 von 175 getötet bleibt unerklärt. Verdacht: der Spawn-Abstand im Nenner
       (`1 - killsPerSecond * REALISM * delay`), bei 24 Towern geht hornet_strike von 20 (0 ms) auf 83 (400 ms).
       Kein Beleg; dafür braucht es das Run-Log dieses Laufs.
-- [ ] **E21 Abstand großer Gegner** (entschieden 2026-09-26): Golems überlappen, weil das 3-min-Limit den Delay unter
-      die Template-Grenze drückt (W15 New York: 368 ms). Fix nur in der Kampagne, als Config der Templates bzw. Wellen
-      für Golem und Mammut, keine Engine-Regel: als Schwarm sollen sie technisch weiter gehen.
+- [ ] **E21 Abstand großer Gegner** (**gebaut 2026-09-26**): `CampaignWave.minSpawnDelayMs` 600 ms für W14, W15, W25
+      (Golem, Mammut). Der Director rechnet die Welle wie bisher, erst danach streckt sich der Abstand; passt sie so
+      nicht in 3 min, kommen weniger mit entsprechend mehr HP. Referenz: nur W15 (521 → 600 ms) und W25 (129 → 600 ms).
+      Offen: mit Bots messen, ob die verteilteren Wellen spürbar leichter sind.
 - [ ] **E20 Kamerapositionen 1 bis 5 speichern** wie in RTS-Spielen (User, 2026-09-23; 2026-09-26: Tasten unklar,
       später): 1 bis 9 wählen heute Tower (`hotkey-map.ts`), Ctrl+Zahl wechselt im Browser den Tab.
 - [ ] **F4 Ungemessene Grafik- und CPU-Kosten**: Laser-Säule, drei Stencil-Pässe der Reichweitenringe, Kegel-Upload,
