@@ -62,6 +62,10 @@
               </button>
             } @else if (row.state !== 'left') {
               <span class="tools">
+                <button class="icon-btn sm" type="button" (click)="openResearch(row.id)"
+                        [matTooltip]="researchTip(row.name)" [attr.aria-label]="researchTip(row.name)">
+                  <td-icon name="flask" [size]="14"></td-icon>
+                </button>
                 <button class="icon-btn sm" type="button" (click)="toggleGift(row.id)" [class.is-open]="giftTo() === row.id"
                         [matTooltip]="'Send ' + row.name + ' credits'" [attr.aria-label]="'Send ' + row.name + ' credits'"
                         [attr.aria-expanded]="giftTo() === row.id">

@@ -16,6 +16,7 @@ import {
   type ResearchConfig,
   type ResearchId,
 } from '../../configs/research/research.types';
+import type { ResearchSnapshot } from '../../managers/research-snapshot';
 import type { DagEdge } from '../../utils/dag-layout';
 import type { TdIconName } from '../icon/icon.component';
 import type { TechTreeNode, TechTreeNodeState } from '../tech-tree/tech-tree-view';
@@ -29,6 +30,46 @@ export interface ResearchTreeState {
   elapsed: ReadonlyMap<ResearchId, number>;
   credits: number;
   availableSlots: number;
+  /**
+   * A coop partner's tree, looked at only (TODO E35): no click does anything,
+   * and the hints say nothing about clicking.
+   */
+  readOnly?: boolean;
+}
+
+/** One tab of the coop research view: a player, this one as "You" */
+export interface ResearchTab {
+  id: string;
+  label: string;
+  me: boolean;
+}
+
+/**
+ * The tabs of the coop research view (TODO E35): this player first as "You",
+ * the partners after in the room's order under their names.
+ */
+export function researchTabs(
+  roster: readonly { id: string; name: string }[],
+  me: string | null,
+): ResearchTab[] {
+  const tabs = roster.map((p) => ({ id: p.id, label: p.id === me ? 'You' : p.name, me: p.id === me }));
+  return [...tabs.filter((t) => t.me), ...tabs.filter((t) => !t.me)];
+}
+
+/**
+ * The tree state for a partner's research, read only. Their credits are not
+ * this view's business: every open node shows as open, none as too dear.
+ */
+export function viewOnlyTreeState(snapshot: ResearchSnapshot): ResearchTreeState {
+  return {
+    completed: snapshot.completed,
+    active: snapshot.active,
+    queued: snapshot.queued,
+    elapsed: snapshot.elapsed,
+    credits: Number.POSITIVE_INFINITY,
+    availableSlots: Math.max(0, snapshot.maxSlots - snapshot.active.length),
+    readOnly: true,
+  };
 }
 
 /** What one research looks like to the detail panel. */
@@ -137,7 +178,7 @@ export function buildResearchDetail(
  */
 export function researchClickAction(id: ResearchId, state: ResearchTreeState): ResearchAction {
   const research = getResearch(id);
-  if (!research) return 'none';
+  if (!research || state.readOnly) return 'none';
   switch (researchStatus(id, state.completed, state.active, state.queued)) {
     case 'available':
       return state.credits >= research.cost && state.availableSlots > 0 ? 'start' : 'queue';
@@ -230,11 +271,11 @@ function hintOf(research: ResearchConfig, status: TechTreeNodeState, state: Rese
     case 'pending':
       return `Requires: ${missingPrereqNames(research.id, state.completed)}`;
     case 'queued':
-      return `${research.description} Click to take it out of the queue.`;
+      return state.readOnly ? research.description : `${research.description} Click to take it out of the queue.`;
     case 'poor':
       return `${research.description} ${research.cost - Math.floor(state.credits)} credits short.`;
     case 'available':
-      return state.availableSlots > 0
+      return state.availableSlots > 0 || state.readOnly
         ? research.description
         : `${research.description} Every slot is busy, so a click queues it.`;
     default:

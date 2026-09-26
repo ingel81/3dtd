@@ -25,6 +25,7 @@ import { BestWaveService } from '../location/best-wave.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
+import { researchSnapshotOf, watchResearchOf, type ResearchSnapshot } from '../../managers/research-snapshot';
 import { Vector3 } from 'three';
 import { StreetNetwork } from '../location/osm-street.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
@@ -532,6 +533,16 @@ export class TowerDefenseFacadeService {
   /** Whether this player may act on `tower`; a partner's is read only (TODO E39) */
   mayManage(tower: Tower): boolean {
     return this.gameState.mayManage(tower);
+  }
+
+  /** A player's research as it stands, for the coop view of a partner's tree (TODO E35) */
+  researchSnapshotOf(playerId: string): ResearchSnapshot {
+    return researchSnapshotOf(this.gameState.researchOf(playerId));
+  }
+
+  /** Calls `changed` whenever `playerId`'s research moves; returns the unsubscribe */
+  watchResearchOf(playerId: string, changed: () => void): () => void {
+    return watchResearchOf(this.gameState.getEventBus(), playerId, changed);
   }
 
   sellSelectedTower(): void {

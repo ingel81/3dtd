@@ -244,6 +244,48 @@
   }
 }
 
+// Coop: one tab a player (TODO E35). The same tab, as a button.
+.td-rd-players {
+  display: flex;
+  gap: 6px;
+  min-width: 0;
+  overflow-x: auto;
+
+  .td-rd-tab {
+    flex: none;
+    cursor: pointer;
+
+    &:not(.td-on):hover {
+      color: var(--td-text-primary);
+      border-color: var(--td-frame-mid);
+    }
+
+    &:focus-visible {
+      outline: 1px solid var(--td-gold);
+      outline-offset: 1px;
+    }
+  }
+}
+
+.td-rd-tabsep {
+  flex: none;
+  width: 1px;
+  height: 24px;
+  margin: 0 6px;
+  background: var(--td-frame-mid);
+}
+
+// A partner's tree in the head, where this player's credits would be
+.td-rd-viewonly {
+  padding: 5px 9px;
+  font-family: var(--td-font-mono);
+  font-size: 10.5px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--td-text-secondary);
+  border: 1px solid var(--td-frame-dark);
+}
+
 // === Body ===
 
 .td-rd-row {

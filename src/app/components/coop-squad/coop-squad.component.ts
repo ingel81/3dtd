@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, Injector, signal } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
@@ -8,6 +9,7 @@ import { CoopChatComponent } from '../coop-chat/coop-chat.component';
 import { CoopService } from '../../services/coop.service';
 import { GameStore } from '../../store/game.store';
 import { laneCss } from '../../coop/lane-color';
+import { openResearchDialog } from '../research-dialog/open-research-dialog';
 
 /** What the gold menu offers to send */
 const GIFT_AMOUNTS = [50, 100, 250, 500];
@@ -19,8 +21,8 @@ type RowState = 'ok' | 'lag' | 'slow' | 'left';
  * The social block of a coop game (docs/COOP_PLAN.md, C8), bottom left: the
  * squad box on top, the chat under it (CoopChatComponent). One row a player,
  * this one first: lane colour, name with YOU and HOST, lane and state,
- * credits, ping; a check for this player's readiness for the next wave, a
- * gold button for a partner's. The footer says who the wave waits on, or
+ * credits, ping; a check for this player's readiness for the next wave; at a
+ * partner's a button for their research (read only, TODO E35) and one for gold. The footer says who the wave waits on, or
  * what is wrong: a slow connection, someone catching up or gone, the games
  * apart, the connection lost (with "Continue alone").
  */
@@ -46,6 +48,9 @@ export class CoopSquadComponent {
   readonly coop = inject(CoopService);
   protected readonly left = ABILITY_BAR_EDGE_PX + ABILITY_BAR_PX.clear;
   private readonly gameStore = inject(GameStore);
+  private readonly dialog = inject(MatDialog);
+  // From inside the game component: the dialog needs its facade (openResearchDialog)
+  private readonly injector = inject(Injector);
 
   readonly amounts = GIFT_AMOUNTS;
   readonly collapsed = signal(false);
@@ -163,6 +168,15 @@ export class CoopSquadComponent {
     }
     this.armedKick.set(playerId);
     this.kickTimer = setTimeout(() => this.armedKick.set(null), KICK_ARM_MS);
+  }
+
+  /** The research window on this partner's tab, read only (TODO E35) */
+  openResearch(playerId: string): void {
+    void openResearchDialog(this.dialog, this.injector, playerId);
+  }
+
+  researchTip(name: string): string {
+    return `${name}'s research`;
   }
 
   toggleGift(playerId: string): void {

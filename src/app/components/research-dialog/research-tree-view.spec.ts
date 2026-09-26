@@ -8,6 +8,8 @@ import {
   researchBranchCounts,
   researchClickAction,
   researchProgressCounts,
+  researchTabs,
+  viewOnlyTreeState,
   type ResearchTreeState,
 } from './research-tree-view';
 
@@ -205,5 +207,46 @@ describe('the readouts', () => {
     expect(counts.map((c) => c.branch)).toEqual(['ballistics', 'arcane', 'biology', 'engineering']);
     expect(counts.reduce((sum, c) => sum + c.total, 0)).toBe(Object.keys(RESEARCH_TREE).length);
     expect(counts.find((c) => c.branch === 'ballistics')!.done).toBe(1);
+  });
+});
+
+describe('the read-only view of a coop partner (TODO E35)', () => {
+  const partner = viewOnlyTreeState({
+    completed: new Set<ResearchId>(['biology']),
+    active: [active('gatling-tech', 15)],
+    queued: ['ice-magic'],
+    elapsed: new Map<ResearchId, number>([['gatling-tech', 5]]),
+    centerLevel: 1,
+    maxSlots: 1,
+  });
+
+  it('shows their done, running and queued research, and no click does anything', () => {
+    expect(nodeFor('biology', partner).state).toBe('completed');
+    expect(nodeFor('gatling-tech', partner).state).toBe('active');
+    expect(nodeFor('gatling-tech', partner).progress).toBeCloseTo(5 / 15);
+    expect(nodeFor('ice-magic', partner).state).toBe('queued');
+    for (const id of Object.keys(RESEARCH_TREE) as ResearchId[]) {
+      expect(researchClickAction(id, partner)).toBe('none');
+    }
+  });
+
+  it('does not judge their credits and does not tell to click', () => {
+    const nodes = buildResearchNodes(partner);
+    expect(nodes.some((n) => n.state === 'poor')).toBe(false);
+    expect(nodes.every((n) => !/click/i.test(n.hint ?? ''))).toBe(true);
+    expect(partner.availableSlots).toBe(0);
+  });
+
+  it('gives one tab a player, this one first as "You"', () => {
+    const roster = [
+      { id: 'p1', name: 'Alpha' },
+      { id: 'p2', name: 'Bravo' },
+      { id: 'p3', name: 'Charlie' },
+    ];
+    expect(researchTabs(roster, 'p2')).toEqual([
+      { id: 'p2', label: 'You', me: true },
+      { id: 'p1', label: 'Alpha', me: false },
+      { id: 'p3', label: 'Charlie', me: false },
+    ]);
   });
 });

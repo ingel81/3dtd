@@ -1,5 +1,5 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
-import { MatDialogModule } from '@angular/material/dialog';
+import { ChangeDetectionStrategy, Component, computed, effect, inject, signal } from '@angular/core';
+import { MAT_DIALOG_DATA, MatDialogModule } from '@angular/material/dialog';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { getResearch } from '../../configs/research/research-tree.config';
 import type { ResearchId } from '../../configs/research/research.types';
@@ -10,7 +10,9 @@ import { TdIconComponent } from '../icon/icon.component';
 import { TechTreeComponent } from '../tech-tree/tech-tree.component';
 import { DragScrollDirective } from '../tech-tree/drag-scroll.directive';
 import { buildTechTreeView, TECH_TREE_METRICS } from '../tech-tree/tech-tree-view';
-import { RESEARCH_DIALOG_DESC_ID, RESEARCH_DIALOG_TITLE_ID } from './open-research-dialog';
+import { COOP } from '../../services/coop.token';
+import type { ResearchSnapshot } from '../../managers/research-snapshot';
+import { RESEARCH_DIALOG_DESC_ID, RESEARCH_DIALOG_TITLE_ID, type ResearchDialogData } from './open-research-dialog';
 import {
   buildResearchDetail,
   buildResearchEdges,
@@ -18,6 +20,9 @@ import {
   researchBranchCounts,
   researchClickAction,
   researchProgressCounts,
+  researchTabs,
+  viewOnlyTreeState,
+  type ResearchDetail,
   type ResearchTreeState,
 } from './research-tree-view';
 
@@ -30,6 +35,10 @@ const ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII'];
  * This is where a research is picked; the sidebar panel keeps the status and
  * the building itself. Everything it shows follows the store, so a research
  * that finishes while the dialog is open moves on its own.
+ *
+ * In coop a row of tabs on top holds one per player (TODO E35). A partner's
+ * tab shows their tree read from their ResearchManager, redrawn whenever
+ * their research moves, without anything to click.
  *
  * Commands go the usual way over the bus. The facade is provided by
  * TowerDefenseComponent, not in root, so the opener has to hand this dialog an
@@ -52,6 +61,34 @@ export class ResearchDialogComponent {
   private readonly research = inject(ResearchStore);
   private readonly store = inject(TowerDefenseStore);
   private readonly facade = inject(TowerDefenseFacadeService);
+  private readonly coop = inject(COOP, { optional: true });
+  private readonly data = inject<ResearchDialogData | null>(MAT_DIALOG_DATA, { optional: true });
+
+  /** Coop: one tab a player, this one first as "You"; none alone */
+  protected readonly tabs = computed(() => {
+    const coop = this.coop;
+    if (!coop?.inGame()) return [];
+    return researchTabs(coop.roster(), coop.playerId());
+  });
+
+  /** The tab picked; null is this player's own */
+  protected readonly viewedId = signal<string | null>(this.data?.playerId ?? null);
+
+  /** The partner whose tree is shown, null for this player's own */
+  protected readonly partnerId = computed(() => {
+    const id = this.viewedId();
+    const coop = this.coop;
+    if (!id || !coop?.inGame() || id === coop.playerId()) return null;
+    return this.tabs().some((t) => t.id === id) ? id : null;
+  });
+  protected readonly partnerName = computed(() => {
+    const id = this.partnerId();
+    return id && this.coop ? this.coop.nameOf(id) : null;
+  });
+  protected readonly viewOnly = computed(() => this.partnerId() !== null);
+
+  /** The partner's research, read again on each of their research events */
+  private readonly partner = signal<ResearchSnapshot | null>(null);
 
   readonly titleId = RESEARCH_DIALOG_TITLE_ID;
   readonly descId = RESEARCH_DIALOG_DESC_ID;
@@ -63,20 +100,46 @@ export class ResearchDialogComponent {
   /** The node the detail panel shows. Follows the pointer, stays on leave. */
   protected readonly selectedId = signal<ResearchId | null>(null);
 
-  protected readonly treeState = computed<ResearchTreeState>(() => ({
-    completed: this.research.completedResearches(),
-    active: this.research.activeResearches(),
-    queued: this.research.queuedResearches(),
-    elapsed: this.research.researchElapsed(),
-    credits: this.store.credits(),
-    availableSlots: this.research.availableSlots(),
-  }));
+  protected readonly treeState = computed<ResearchTreeState>(() => {
+    const partner = this.partner();
+    if (partner) return viewOnlyTreeState(partner);
+    return {
+      completed: this.research.completedResearches(),
+      active: this.research.activeResearches(),
+      queued: this.research.queuedResearches(),
+      elapsed: this.research.researchElapsed(),
+      credits: this.store.credits(),
+      availableSlots: this.research.availableSlots(),
+    };
+  });
 
   protected readonly nodes = computed(() => buildResearchNodes(this.treeState()));
-  protected readonly queue = this.research.queuedResearches;
+  protected readonly queue = computed(() => this.treeState().queued);
   protected readonly credits = this.store.credits;
-  protected readonly slotsUsed = computed(() => this.research.activeResearches().length);
-  protected readonly slotsTotal = this.research.researchSlots;
+  protected readonly slotsUsed = computed(() => this.treeState().active.length);
+  protected readonly slotsTotal = computed(() => this.partner()?.maxSlots ?? this.research.researchSlots());
+  /** A partner's research center level, 0 when they have none */
+  protected readonly partnerCenter = computed(() => this.partner()?.centerLevel ?? 0);
+
+  constructor() {
+    // Follow the partner picked: read their research now and on every change
+    effect((onCleanup) => {
+      const id = this.partnerId();
+      if (!id) {
+        this.partner.set(null);
+        return;
+      }
+      const read = () => this.partner.set(this.facade.researchSnapshotOf(id));
+      read();
+      onCleanup(this.facade.watchResearchOf(id, read));
+    });
+  }
+
+  /** A tab: null goes back to this player's own tree */
+  protected selectTab(id: string | null): void {
+    this.viewedId.set(id);
+  }
+
   protected readonly progress = computed(() => researchProgressCounts(this.treeState()));
   protected readonly branches = computed(() => researchBranchCounts(this.treeState()));
 
@@ -136,6 +199,7 @@ export class ResearchDialogComponent {
   }
 
   private runAction(researchId: ResearchId): void {
+    if (this.viewOnly()) return;
     switch (researchClickAction(researchId, this.treeState())) {
       case 'start':
         this.facade.emitCommand({ type: 'command:start-research', researchId });
@@ -152,6 +216,7 @@ export class ResearchDialogComponent {
   }
 
   protected onUnqueue(researchId: ResearchId): void {
+    if (this.viewOnly()) return;
     this.facade.emitCommand({ type: 'command:unqueue-research', researchId });
   }
 
@@ -160,9 +225,25 @@ export class ResearchDialogComponent {
    * and a button works with a keyboard without anything else being built.
    */
   protected onMove(researchId: ResearchId, delta: number): void {
+    if (this.viewOnly()) return;
     const toIndex = this.queue().indexOf(researchId) + delta;
     if (toIndex < 0 || toIndex >= this.queue().length) return;
     this.facade.emitCommand({ type: 'command:move-queued-research', researchId, toIndex });
+  }
+
+  /** The detail panel's last line on a partner's tree, where nothing can be done */
+  protected viewOnlyNote(d: ResearchDetail): string {
+    const name = this.partnerName() ?? 'They';
+    switch (d.state) {
+      case 'completed':
+        return `Active for the rest of ${name}'s run.`;
+      case 'active':
+        return `Finishes in ${(d.remaining ?? 0).toFixed(1)} seconds.`;
+      case 'queued':
+        return `Position ${d.queuePosition} in ${name}'s queue.`;
+      default:
+        return `View only: ${name} picks their own research.`;
+    }
   }
 
   protected researchName(id: ResearchId): string {
