@@ -127,7 +127,7 @@ export class HotkeyService {
     if (this.towerControl.active()) return this.runInTower(action);
     switch (action.kind) {
       case 'select-tower': return this.selectTower(action.slot);
-      case 'upgrade': return this.upgrade();
+      case 'upgrade': return this.upgrade(action.times);
       case 'sell': return this.sell();
       case 'start-wave': return this.startWave();
       case 'pause': return this.togglePause();
@@ -269,9 +269,9 @@ export class HotkeyService {
   }
 
   /** U buys the first upgrade it can and answers over the tower, see TowerUpgradeService. */
-  private upgrade(): boolean {
+  private upgrade(times: number): boolean {
     const tower = this.store.selectedTower();
-    return tower !== null && this.facade.mayManage(tower) && this.towerUpgrade.buyFirst(tower);
+    return tower !== null && this.facade.mayManage(tower) && this.towerUpgrade.buyFirst(tower, times);
   }
 
   /** Delete arms the sale like the first click on Sell, a second press sells. */

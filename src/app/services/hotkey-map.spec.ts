@@ -14,12 +14,20 @@ describe('resolveHotkey', () => {
   });
 
   it('maps the tower, wave and game keys', () => {
-    expect(resolveHotkey(key('u'))).toEqual({ kind: 'upgrade' });
-    expect(resolveHotkey(key('U', { shiftKey: true }))).toEqual({ kind: 'upgrade' });
+    expect(resolveHotkey(key('u'))).toEqual({ kind: 'upgrade', times: 1 });
+    expect(resolveHotkey(key('U'))).toEqual({ kind: 'upgrade', times: 1 }); // Caps Lock
     expect(resolveHotkey(key('Delete'))).toEqual({ kind: 'sell' });
     expect(resolveHotkey(key('Backspace'))).toEqual({ kind: 'sell' });
     expect(resolveHotkey(key(' '))).toEqual({ kind: 'start-wave' });
     expect(resolveHotkey(key('Escape'))).toEqual({ kind: 'cancel' });
+  });
+
+  it('upgrades up to 5 times on Shift+U and up to 10 on Ctrl+U (TODO E45)', () => {
+    expect(resolveHotkey(key('U', { shiftKey: true }))).toEqual({ kind: 'upgrade', times: 5 });
+    expect(resolveHotkey(key('u', { ctrlKey: true }))).toEqual({ kind: 'upgrade', times: 10 });
+    expect(resolveHotkey(key('u', { ctrlKey: true, repeat: true }))).toBeNull();
+    // Other Ctrl keys stay the browser's
+    expect(resolveHotkey(key('1', { ctrlKey: true }))).toBeNull();
   });
 
   it('gets into the selected tower or out of it on C', () => {

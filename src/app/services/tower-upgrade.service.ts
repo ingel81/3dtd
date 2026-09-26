@@ -5,7 +5,7 @@ import { GameStateManager } from '../managers/game-state.manager';
 import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import {
-  firstAffordableUpgrade,
+  upgradePlan,
   upgradeRefusal,
   upgradeTrackRefusal,
   type UpgradeRefusal,
@@ -56,43 +56,59 @@ export class TowerUpgradeService {
   private readonly upgradeHint = inject(UpgradeHintService);
 
   /**
-   * A click on an upgrade tile: buys that track, or says why not
+   * A click on an upgrade tile: buys that track `times` in a row as far as
+   * the credits go (Shift 5, Ctrl 10, TODO E45), or says why not
    * (upgradeTrackRefusal), also on a tile that looks disabled.
    * @returns true when it bought
    */
-  buy(tower: Tower, upgradeId: UpgradeId): boolean {
-    const refusal = upgradeTrackRefusal(
-      tower, upgradeId, this.store.credits(), this.researchStore.maxUpgradeTier(),
-    );
-    if (refusal) {
-      this.refuse(tower, refusal);
+  buy(tower: Tower, upgradeId: UpgradeId, times = 1): boolean {
+    const credits = this.store.credits();
+    const maxTier = this.researchStore.maxUpgradeTier();
+    const plan = upgradePlan(tower, credits, maxTier, times, upgradeId);
+    if (plan.length === 0) {
+      const refusal = upgradeTrackRefusal(tower, upgradeId, credits, maxTier);
+      if (refusal) this.refuse(tower, refusal);
       return false;
     }
-    return this.purchase(tower, upgradeId);
+    return this.purchase(tower, plan);
   }
 
   /**
    * U: buys the first track the player can afford (firstAffordableUpgrade),
-   * or says why there is none (upgradeRefusal).
+   * `times` in a row as far as the credits go, or says why there is none
+   * (upgradeRefusal).
    * @returns true when it bought or showed the reason
    */
-  buyFirst(tower: Tower): boolean {
+  buyFirst(tower: Tower, times = 1): boolean {
     const credits = this.store.credits();
     const maxTier = this.researchStore.maxUpgradeTier();
-    const upgradeId = firstAffordableUpgrade(tower, credits, maxTier);
-    if (upgradeId) return this.purchase(tower, upgradeId);
+    const plan = upgradePlan(tower, credits, maxTier, times, null);
+    if (plan.length > 0) return this.purchase(tower, plan);
     const refusal = upgradeRefusal(tower, credits, maxTier);
     if (!refusal) return false;
     this.refuse(tower, refusal);
     return true;
   }
 
-  private purchase(tower: Tower, upgradeId: UpgradeId): boolean {
-    if (!this.facade.upgradeTower(tower, upgradeId)) return false;
-    this.upgradeHint.bought(tower.id, upgradeId);
-    const name = tower.typeConfig.upgrades.find((u) => u.id === upgradeId)?.name ?? upgradeId;
-    // The command ran synchronously on the bus, the level is the new one
-    this.floatOverTower(tower, `${name.toUpperCase()} LV ${tower.getUpgradeLevel(upgradeId)}`, UPGRADE_TEXT.bought);
+  /**
+   * One command per step of the plan; the simulation checks each again. In
+   * coop they act at the tick, so the levels over the tower come from the
+   * plan, not from the tower.
+   */
+  private purchase(tower: Tower, plan: readonly UpgradeId[]): boolean {
+    const levels = new Map<UpgradeId, number>();
+    for (const upgradeId of plan) {
+      if (!this.facade.upgradeTower(tower, upgradeId)) break;
+      levels.set(upgradeId, (levels.get(upgradeId) ?? 0) + 1);
+    }
+    if (levels.size === 0) return false;
+    for (const upgradeId of levels.keys()) this.upgradeHint.bought(tower.id, upgradeId);
+    const [[first, count]] = levels;
+    const name = tower.typeConfig.upgrades.find((u) => u.id === first)?.name ?? first;
+    const text = levels.size > 1
+      ? `${[...levels.values()].reduce((a, b) => a + b, 0)} UPGRADES`
+      : `${name.toUpperCase()} ${count > 1 ? `+${count}` : `LV ${tower.getUpgradeLevel(first)}`}`;
+    this.floatOverTower(tower, text, UPGRADE_TEXT.bought);
     return true;
   }
 

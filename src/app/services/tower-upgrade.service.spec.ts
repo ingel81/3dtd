@@ -39,7 +39,11 @@ describe('TowerUpgradeService', () => {
     position: { lat: 48.7, lon: 9.1, height: 300 },
     typeConfig: {
       shootHeight: 2,
-      upgrades: [{ id: 'damage', name: 'Damage' }, { id: 'speed', name: 'Speed' }, { id: 'range', name: 'Range' }],
+      upgrades: [
+        { id: 'damage', name: 'Damage', cost: 500, maxLevel: 40 },
+        { id: 'speed', name: 'Speed', cost: 30, maxLevel: 40 },
+        { id: 'range', name: 'Range', cost: 30, maxLevel: 0 },
+      ],
     },
     getAvailableUpgrades: () => [{ id: 'damage' as UpgradeId }, { id: 'speed' as UpgradeId }],
     getNextUpgradeCost: (id: UpgradeId) => (id === 'damage' ? 500 : 30),
@@ -121,6 +125,29 @@ describe('TowerUpgradeService', () => {
       expect(service.buy(tower, 'damage')).toBe(false);
       expect(spawnFloatingText).not.toHaveBeenCalled();
       expect(upgradeHint.hint()).toBeNull();
+    });
+  });
+
+  describe('several at once (TODO E45)', () => {
+    it('buys a track as often as asked while the credits last, one command each', () => {
+      credits.set(100);
+      expect(service.buy(tower, 'speed', 5)).toBe(true);
+      expect(upgradeTower).toHaveBeenCalledTimes(3);
+      expect(spawnFloatingText).toHaveBeenCalledWith(
+        'SPEED +3', 48.7, 9.1, 305, expect.objectContaining({ color: GOLD }),
+      );
+    });
+
+    it('lets U buy the first affordable track up to ten times, the next track once one locks', () => {
+      credits.set(100_000);
+      expect(service.buyFirst(tower, 10)).toBe(true);
+      const bought = upgradeTower.mock.calls.map(([, id]) => id);
+      // Damage up to its tier lock, then Speed
+      expect(bought).toEqual([
+        ...Array<UpgradeId>(lockedLevel).fill('damage'),
+        ...Array<UpgradeId>(10 - lockedLevel).fill('speed'),
+      ]);
+      expect(spawnFloatingText.mock.calls[0][0]).toBe('10 UPGRADES');
     });
   });
 

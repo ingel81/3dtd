@@ -1,4 +1,11 @@
-import { TowerTypeConfig, TowerTypeId, UpgradeId, requiredUpgradeTier } from '../configs/tower-types.config';
+import {
+  TowerTypeConfig,
+  TowerTypeId,
+  UpgradeId,
+  getUpgradeCost,
+  requiredUpgradeTier,
+  type TowerUpgrade,
+} from '../configs/tower-types.config';
 
 /**
  * Rules for what the player may do right now, shared by the sidebar buttons
@@ -74,6 +81,58 @@ export function firstAffordableUpgrade(
   const upgrade = tower.getAvailableUpgrades()
     .find((u) => upgradeTrackRefusal(tower, u.id, credits, maxUpgradeTier) === null);
   return upgrade?.id ?? null;
+}
+
+/** Upgrades bought several at once (TODO E45): Shift+U or a Shift-click, Ctrl+U or a Ctrl-click */
+export const UPGRADE_MANY = { shift: 5, ctrl: 10 } as const;
+
+/** How many upgrades a key or a click asks for: Ctrl (Cmd) 10, Shift 5, else 1 */
+export function upgradeTimes(e: Pick<MouseEvent, 'shiftKey' | 'ctrlKey' | 'metaKey'>): number {
+  if (e.ctrlKey || e.metaKey) return UPGRADE_MANY.ctrl;
+  return e.shiftKey ? UPGRADE_MANY.shift : 1;
+}
+
+/**
+ * Up to `times` upgrades in a row the credits pay for now (TODO E45): the
+ * track `upgradeId` again and again, or with null the first affordable one
+ * each time, as U picks it. Each step reads the level the steps before it
+ * bought and stops at the first that could not be bought: short of credits,
+ * the track at its end, a tier not researched.
+ */
+export function upgradePlan(
+  tower: UpgradableTower & { typeConfig?: { upgrades: readonly TowerUpgrade[] } },
+  credits: number,
+  maxUpgradeTier: number,
+  times: number,
+  upgradeId: UpgradeId | null,
+): UpgradeId[] {
+  const bought = new Map<UpgradeId, number>();
+  const level = (id: UpgradeId) => tower.getUpgradeLevel(id) + (bought.get(id) ?? 0);
+  const track = (id: UpgradeId) => tower.typeConfig?.upgrades.find((u) => u.id === id);
+  // The tower as it stands after the steps planned so far: a track not
+  // planned yet answers as the tower does, a planned one from its config
+  const ahead: UpgradableTower = {
+    getAvailableUpgrades: () => tower.getAvailableUpgrades().filter((u) => {
+      const upgrade = track(u.id);
+      return !bought.has(u.id) || (upgrade !== undefined && level(u.id) < upgrade.maxLevel);
+    }),
+    getNextUpgradeCost: (id) => {
+      if (!bought.has(id)) return tower.getNextUpgradeCost(id);
+      const upgrade = track(id);
+      return upgrade && level(id) < upgrade.maxLevel ? getUpgradeCost(upgrade, level(id)) : 0;
+    },
+    getUpgradeLevel: level,
+  };
+  const plan: UpgradeId[] = [];
+  let left = credits;
+  for (let i = 0; i < times; i++) {
+    const id = upgradeId ?? firstAffordableUpgrade(ahead, left, maxUpgradeTier);
+    if (!id || upgradeTrackRefusal(ahead, id, left, maxUpgradeTier)) break;
+    left -= ahead.getNextUpgradeCost(id);
+    bought.set(id, (bought.get(id) ?? 0) + 1);
+    plan.push(id);
+  }
+  return plan;
 }
 
 /**

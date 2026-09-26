@@ -9,11 +9,13 @@
  */
 
 import { ABILITIES, ABILITY_IDS, type AbilityId } from '../configs/abilities.config';
+import { UPGRADE_MANY } from '../utils/player-actions';
 
 export type HotkeyAction =
   /** Pick the build card at this position of the BUILD panel, 0-based */
   | { kind: 'select-tower'; slot: number }
-  | { kind: 'upgrade' }
+  /** Upgrade the selected tower `times` in a row, as far as the credits go (Shift 5, Ctrl 10, TODO E45) */
+  | { kind: 'upgrade'; times: number }
   | { kind: 'sell' }
   | { kind: 'start-wave' }
   | { kind: 'pause' }
@@ -54,6 +56,10 @@ export function towerSlotKey(index: number): string | null {
 
 /** The game action for a key, null when the key is not a game hotkey. */
 export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
+  // Ctrl+U buys ten upgrades (TODO E45), the one Ctrl key the game takes
+  if (e.ctrlKey && !e.altKey && !e.metaKey && !e.repeat && e.key.toLowerCase() === 'u') {
+    return { kind: 'upgrade', times: UPGRADE_MANY.ctrl };
+  }
   // Browser and system shortcuts (Ctrl+1 switches tabs) stay theirs. A held
   // key repeats keydown; none of these actions should fire twice from it.
   if (e.ctrlKey || e.altKey || e.metaKey || e.repeat) return null;
@@ -82,7 +88,7 @@ export function resolveHotkey(e: HotkeyEvent): HotkeyAction | null {
   }
   switch (key.toLowerCase()) {
     case 'u':
-      return { kind: 'upgrade' };
+      return { kind: 'upgrade', times: e.shiftKey ? UPGRADE_MANY.shift : 1 };
     case 'p':
       // Shift+P is the particle-shader debug toggle in InputHandlerService
       return e.shiftKey ? null : { kind: 'pause' };
@@ -146,6 +152,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['1', '9'], range: true, label: 'Pick a tower from the build panel' },
       { keys: ['R'], label: 'Hold to rotate while building, or the portal while placing a spawn' },
       { keys: ['U'], label: 'Upgrade the selected tower: the first upgrade you can afford' },
+      { keys: ['Shift', 'U'], label: `Upgrade it up to ${UPGRADE_MANY.shift} times, as far as your credits go; Ctrl+U up to ${UPGRADE_MANY.ctrl}. Shift- and Ctrl-click on an upgrade do the same for that one` },
       { keys: ['Del'], label: 'Sell the selected tower, press twice' },
       { keys: ['C'], label: 'Get into the selected tower and fire it yourself: mouse aims, left button fires, right button zooms; C or Esc gets out' },
       { keys: ['Esc'], label: 'Cancel building, close a menu, deselect' },

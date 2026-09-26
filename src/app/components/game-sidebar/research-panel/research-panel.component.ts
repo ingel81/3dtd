@@ -12,7 +12,7 @@ import { SellConfirmService } from '../../../services/sell-confirm.service';
 import { UpgradeHintService } from '../../../services/upgrade-hint.service';
 import { TdIconComponent } from '../../icon/icon.component';
 import { upgradeHintView } from '../tower-panel/tower-stats';
-import { upgradeTrackRefusal } from '../../../utils/player-actions';
+import { UPGRADE_MANY, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
 import { openResearchDialog } from '../../research-dialog/open-research-dialog';
 import { researchProgress, researchRemaining, researchStatus } from './research-status';
 
@@ -50,7 +50,11 @@ export class SidebarResearchPanelComponent {
   readonly hintView = computed(() => upgradeHintView(this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
-  readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
+  /** An upgrade tile clicked, `times` from the modifier keys (upgradeTimes, TODO E45) */
+  /** Under an upgrade's tooltip: several at once (TODO E45) */
+  readonly upgradeManyHint = ` Shift-click: up to ${UPGRADE_MANY.shift}, Ctrl-click: up to ${UPGRADE_MANY.ctrl}.`;
+
+  readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId; times: number }>();
   readonly cancelResearch = output<ResearchId>();
 
   /** Waiting for a slot and the credits, in start order */
@@ -106,8 +110,8 @@ export class SidebarResearchPanelComponent {
     ) !== null;
   }
 
-  onUpgradeTower(upgradeId: UpgradeId): void {
-    this.upgradeTower.emit({ tower: this.tower(), upgradeId });
+  onUpgradeTower(upgradeId: UpgradeId, event: MouseEvent): void {
+    this.upgradeTower.emit({ tower: this.tower(), upgradeId, times: upgradeTimes(event) });
   }
 
   /**

@@ -39,7 +39,7 @@ import {
 } from './tower-stats';
 import { formatCompact } from '../../../utils/format-compact';
 import { COOP } from '../../../services/coop.token';
-import { upgradeTrackRefusal } from '../../../utils/player-actions';
+import { UPGRADE_MANY, upgradeTimes, upgradeTrackRefusal } from '../../../utils/player-actions';
 
 /**
  * How often the panel re-reads the damage dealt (ms). It grows with every hit,
@@ -89,7 +89,11 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
   readonly hintView = computed(() => upgradeHintView(this.upgradeHint.hint(), this.tower()));
 
   readonly sellTower = output<void>();
-  readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
+  /** An upgrade tile clicked, `times` from the modifier keys (upgradeTimes, TODO E45) */
+  /** Under an upgrade's tooltip: several at once (TODO E45) */
+  readonly upgradeManyHint = ` Shift-click: up to ${UPGRADE_MANY.shift}, Ctrl-click: up to ${UPGRADE_MANY.ctrl}.`;
+
+  readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId; times: number }>();
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
   readonly setHoldFire = output<{ tower: Tower; holdFire: boolean }>();
@@ -183,9 +187,9 @@ export class SidebarTowerPanelComponent implements OnInit, OnDestroy {
     if (this.sellConfirm.request(this.tower().id)) this.sellTower.emit();
   }
 
-  onUpgradeTower(upgradeId: UpgradeId): void {
+  onUpgradeTower(upgradeId: UpgradeId, event: MouseEvent): void {
     if (this.viewOnly()) return;
-    this.upgradeTower.emit({ tower: this.tower(), upgradeId });
+    this.upgradeTower.emit({ tower: this.tower(), upgradeId, times: upgradeTimes(event) });
   }
 
   /** Damage-vs-armor chart with this tower's row highlighted. */

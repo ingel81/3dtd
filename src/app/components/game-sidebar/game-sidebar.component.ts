@@ -95,7 +95,7 @@ export class GameSidebarComponent implements OnDestroy {
   readonly cancelBuild = output<void>();
   readonly selectTower = output<TowerTypeId>();
   readonly sellTower = output<void>();
-  readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
+  readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId; times: number }>();
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
   readonly setHoldFire = output<{ tower: Tower; holdFire: boolean }>();

@@ -693,8 +693,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * A click on an upgrade tile: buys it or says why not, answered like U
    * (TowerUpgradeService)
    */
-  upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
-    return this.towerUpgrade.buy(tower, upgradeId);
+  upgradeTower(tower: Tower, upgradeId: UpgradeId, times = 1): boolean {
+    return this.towerUpgrade.buy(tower, upgradeId, times);
   }
 
   /**

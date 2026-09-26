@@ -81,8 +81,8 @@
             [class.td-upgrade-flash]="hintView().flashId === upgrade.id && !hintView().flashAlt"
             [class.td-upgrade-flash-alt]="hintView().flashId === upgrade.id && hintView().flashAlt"
             [attr.aria-disabled]="refused"
-            (click)="onUpgradeTower(upgrade.id)"
-            [matTooltip]="upgrade.description"
+            (click)="onUpgradeTower(upgrade.id, $event)"
+            [matTooltip]="upgrade.description + upgradeManyHint"
             matTooltipPosition="left"
           >
             <td-icon class="td-upgrade-icon" name="arrowUp" [size]="18"></td-icon>

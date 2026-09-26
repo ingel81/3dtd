@@ -1,12 +1,59 @@
 import { describe, expect, it } from 'vitest';
 import { TOWER_TYPES, TowerTypeId, UpgradeId, requiredUpgradeTier } from '../configs/tower-types.config';
+import { getUpgradeCost } from '../configs/tower-types.config';
 import {
   canPickTowerCard,
   firstAffordableUpgrade,
   TowerCardContext,
+  upgradePlan,
   upgradeRefusal,
+  upgradeTimes,
   upgradeTrackRefusal,
 } from './player-actions';
+
+/** An archer at the given levels, as the planner reads a tower */
+function archerAt(levels: Partial<Record<UpgradeId, number>>) {
+  const typeConfig = TOWER_TYPES.archer;
+  const level = (id: UpgradeId) => levels[id] ?? 0;
+  const track = (id: UpgradeId) => typeConfig.upgrades.find((u) => u.id === id)!;
+  return {
+    typeConfig,
+    getAvailableUpgrades: () => typeConfig.upgrades.filter((u) => level(u.id) < u.maxLevel),
+    getNextUpgradeCost: (id: UpgradeId) => (level(id) < track(id).maxLevel ? getUpgradeCost(track(id), level(id)) : 0),
+    getUpgradeLevel: level,
+  };
+}
+
+describe('upgradePlan (TODO E45)', () => {
+  const damage = TOWER_TYPES.archer.upgrades.find((u) => u.id === 'damage')!;
+  const costOf = (level: number) => getUpgradeCost(damage, level);
+
+  it('buys one track as often as asked while the credits last, each level at its own price', () => {
+    const three = costOf(0) + costOf(1) + costOf(2);
+    expect(upgradePlan(archerAt({}), three, 99, 5, 'damage')).toEqual(['damage', 'damage', 'damage']);
+    expect(upgradePlan(archerAt({}), three - 1, 99, 5, 'damage')).toEqual(['damage', 'damage']);
+    expect(upgradePlan(archerAt({}), 1e12, 99, 5, 'damage')).toHaveLength(5);
+  });
+
+  it('stops at the end of the track and at a tier not researched', () => {
+    expect(upgradePlan(archerAt({ damage: damage.maxLevel - 2 }), 1e12, 99, 10, 'damage')).toHaveLength(2);
+    const lastOpen = Array.from({ length: damage.maxLevel }, (_, l) => l).findIndex((l) => requiredUpgradeTier(l) > 1);
+    expect(upgradePlan(archerAt({ damage: lastOpen - 1 }), 1e12, 1, 10, 'damage')).toEqual(['damage']);
+  });
+
+  it('picks the first affordable track each time without a track, as U does', () => {
+    const plan = upgradePlan(archerAt({}), 1e12, 99, 10, null);
+    expect(plan).toHaveLength(10);
+    expect(plan[0]).toBe(firstAffordableUpgrade(archerAt({}), 1e12, 99));
+  });
+
+  it('asks for 10 with Ctrl or Cmd, 5 with Shift, else 1', () => {
+    expect(upgradeTimes({ ctrlKey: true, shiftKey: true, metaKey: false })).toBe(10);
+    expect(upgradeTimes({ ctrlKey: false, shiftKey: false, metaKey: true })).toBe(10);
+    expect(upgradeTimes({ ctrlKey: false, shiftKey: true, metaKey: false })).toBe(5);
+    expect(upgradeTimes({ ctrlKey: false, shiftKey: false, metaKey: false })).toBe(1);
+  });
+});
 
 const ctx = (over: Partial<TowerCardContext> = {}): TowerCardContext => ({
   credits: 10_000,
