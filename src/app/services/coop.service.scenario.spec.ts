@@ -84,6 +84,9 @@ function player(relayPort: number) {
     lockstepActive: false,
     towerManager: withAutoStubs({ getById: () => null }),
     setPlayers: vi.fn((players: string[]) => { gsm.players = [...players]; }),
+    setLockstep: vi.fn(),
+    setCheatRule: vi.fn(),
+    playerLeft: vi.fn(),
   });
   // Going to another place in the page lands where it was asked to
   const locationChange = { applyNewLocation: vi.fn(async (data: { hq: { lat: number; lon: number } }) => hq.set({ lat: data.hq.lat, lon: data.hq.lon })) };

@@ -213,6 +213,25 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     expect(shakes).toEqual([pointShake, zombieLeak.wall]);
   });
 
+  it('E16: a wave cannot end while its ooze flows in, so the leak never crosses into the next wave\'s block', () => {
+    const ooze = startOoze(1);
+    let flowing = 0;
+    while (m.enemyManager.getById(ooze.id) && clock.now < 120_000) {
+      if (leaking.length > 0) {
+        flowing++;
+        expect(m.waveManager.checkWaveComplete()).toBe(false);
+      }
+      run(100);
+    }
+    expect(flowing).toBeGreaterThan(200);
+    expect(m.waveManager.checkWaveComplete()).toBe(true);
+
+    log.flushOpenWave();
+    const summary = runSummary(log.current(), clock.now, (type) => type);
+    expect(summary.leaksPerWave[0]).toBe(1);
+    expect(summary.kills).toBe(0);
+  });
+
   it('420: an ooze that flowed in partly and was then killed is one leak of W45 in the summary and no kill; its clumps are kills', () => {
     const ooze = startOoze(45);
     while (hurt.length < 3) run(100);

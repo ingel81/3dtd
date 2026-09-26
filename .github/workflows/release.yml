@@ -81,6 +81,10 @@ jobs:
       - name: Test the game
         run: npx vitest run
 
+      # vitest strips types without checking them
+      - name: Type-check the specs
+        run: npx tsc -p tsconfig.spec.json --noEmit
+
       # The app serves the build at app://app/, so no /play/ here.
       - name: Build the game
         run: npm run build -- --base-href=/

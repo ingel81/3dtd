@@ -22,7 +22,7 @@
  * question instead: at the headroom the field cases had, what does the same
  * defense do to each of the four templates they came from.
  */
-import { describe, it, expect, vi, afterEach } from 'vitest';
+import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
@@ -58,8 +58,19 @@ import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import { LOS_VIZ_CONFIG, losCubeFarDistance } from '../configs/los-viz.config';
 import { isCubeVisible, type LosResolveContext } from '../utils/gpu-cube-resolve';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { mulberry32 } from '../utils/game-rng';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
+
+// The kill shares sit near their 0.9 bar; unseeded, one run in nine fell under it
+const SEED = 0x10500;
+const mathRandom = Math.random;
+beforeEach(() => {
+  Math.random = mulberry32(SEED);
+});
+afterEach(() => {
+  Math.random = mathRandom;
+});
 
 const ORIGIN = { lat: TEST_SPAWN_POINTS[0].lat, lon: TEST_SPAWN_POINTS[0].lon, height: 300 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
