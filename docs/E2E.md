@@ -75,5 +75,7 @@ node e2e/coop-bots/run.ts --url http://localhost:4213 --relay ws://localhost:301
 
 Je Welle eine Zeile in `<out>/runs.jsonl` (Gold, Kill-Gold und Ausgaben je Spieler, Gegner, Kills, Kill-Gold und
 Lecks je Lane, HQ-Verlust, Tower je Spieler und Lane), je Lauf eine mit Ende, Laufzeit und den Prüfsummen-Abweichungen
-(Tick je Tab, `DESYNC`-Zeilen des Relays). `--players N` (bis 4), `--max-waves`, `--minutes`; `--solo` spielt einen
+(Tick je Tab, `DESYNC`-Zeilen des Relays). `--players N` (bis 4), `--max-waves`, `--minutes`. Ein Browser je Lauf auf der Grafikkarte des Rechners: Die
+Sichtlinien sind Würfel-Renderings, auf SwiftShader (`--swiftshader`) teilten sich alle Tabs einen GPU-Prozess, und
+ein Raum lief mit halbem Tempo. `--solo` spielt einen
 Bot allein im ausgelieferten DevWorld als Vergleich (dann darf kein Bot-Server auf :3001 laufen).
