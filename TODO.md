@@ -38,6 +38,9 @@ allem unter T (Coop).
 - [ ] **A1 Herkunft von 5 Gegnermodellen** (Ghost, Hornet, Mech, Wraith, zombie_v2), Einträge in
       `attributions.config.ts` nachtragen. Der User sucht die Quellen, low prio; Stone Golem und Herbert sind eigene
       Modelle.
+- [ ] **A2 Tentacle-Sound ersetzen** (Security-Review 2026-09-27, User: ersetzen): `tentacle-01.mp3` trägt ID3-Tags
+      aus „The Odyssey Collection: Expanded“ (Liquid FX), eine Lizenz ist nicht belegt. Neu mit ElevenLabs über die
+      Sound-Auswahlseite (`tmp/sound-audition`), User wählt, alte Datei raus.
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut, die Baseline steht (354 Läufe, 2026-09-21), sechs
       Tuning-Runden sind gelaufen. Offen sind die Zielbänder (3b) und das Kampagnenende (3a),
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
@@ -235,6 +238,10 @@ Aus dem Coop-Playtest Heilbronn W1-W38 (2026-09-26, `tmp/coop-playtest/ANALYSE.m
 - [ ] **E54 Skarnax beendet Läufe** (Bot-Messung 2026-09-27): W35 beendet 4 von 12 kalibrierten Läufen, 113 bis 206
       Segmente im HQ. Boss-Varianten laufen am Deckel vorbei; Größe oder HP der Variante an die Abwehr binden.
       Beleg in [Plan](docs/PRESSURE_ONE_PLACE_PLAN.md), Ergebnis.
+- [ ] **J9 Coop-Video in die Landing Page** (User, 2026-09-27): YouTube `zqb4eTpsdnc` (Coop-Best-of Heilbronn, noch
+      privat) nach dem Veröffentlichen einbauen wie das Walkthrough: Click-to-load, Poster `coop_thumbnail.jpg` nach
+      `landing/media/`. Paket in `tmp/coop-playtest/youtube/`. **Gebaut 2026-09-27:** eigener Abschnitt „Co-op“,
+      dazu „Videos“ mit allen Videos in einem Player, Hero ist der Coop-Actionschnitt (`hero-coop.mp4`, per FTP).
 ---
 
 ## Entschieden (keine Arbeit)

@@ -36,8 +36,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay jeder Welle als Neu-Simulation: Snapshot am Wellenstart, Befehlslog, Springen, Datei speichern und laden, Bedienung, Grenzen |
 | [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
-| [COOP_PLAN.md](COOP_PLAN.md) | Aktuell (in Arbeit, Branch `coop`) | Coop "Vier Tore" im Lockstep über einen Node-Relay, im LAN aus der Desktop-App: Entscheidungen D1 bis D55, Pakete C0 bis C8 (gebaut C0 bis C4d, C5a, C8; offen C5b, C7), Relay-Betrieb, Schutz gegen Schummeln |
-| [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) | Aktuell (gebaut 2026-09-26, Branch `coop`) | Coop-Oberfläche und Standortdialog überarbeitet: Befunde aus Technik- und Design-Review, Entscheidungen U1 bis U8, Pakete P1 bis P5 |
+| [COOP_PLAN.md](COOP_PLAN.md) | Aktuell (ausgeliefert mit 0.5.0) | Coop "Vier Tore" im Lockstep über einen Node-Relay, online über die öffentliche Lobby, im LAN aus der Desktop-App: Entscheidungen D1 bis D68, Pakete C0 bis C9 (offen C5b), Relay-Betrieb, Schutz gegen Schummeln |
+| [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) | Aktuell (gebaut 2026-09-26) | Coop-Oberfläche und Standortdialog überarbeitet: Befunde aus Technik- und Design-Review, Entscheidungen U1 bis U8, Pakete P1 bis P5 |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Aktuell | Desktop-Build (Windows NSIS, Linux AppImage), Auto-Update, Release-Ablauf; ausgeliefert seit v0.3.1 |
 | [SOUND_PLAN.md](SOUND_PLAN.md) | Bericht (gebaut 2026-09-23) | Sound-Paket: Bugs, Technik, neue SFX per ElevenLabs, Musikzustände, Ducking; offen zwei Todes-Sounds und die Mischung |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Aktuell | Location Dialog, Geocoding, Spawn-Generierung |
@@ -76,6 +76,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Spieler in Bot-Läufen |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
 | [desktop/README.md](../desktop/README.md) | Aktuell | Desktop-App bauen und starten |
+| [coop-server/README.md](../coop-server/README.md) | Aktuell | Coop-Relay: Optionen, Statusseite, Limits, öffentliche Lobby hinter einem Tunnel, Datenschutz |
 | [e2e/README.md](../e2e/README.md) | Aktuell | End-to-End-Tests einrichten |
 
 ## Berichte
@@ -90,7 +91,7 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 |----------|--------|--------------|
 | [ROUTE_ALIGNED_CELLS_CONCEPT.md](ROUTE_ALIGNED_CELLS_CONCEPT.md) | Konzept (nicht geplant) | Zellen parallel zur Route statt Nord-Ost-Raster: Abhängigkeiten, Knicke, Kreuzungen, Varianten mit Aufwand, Empfehlung. Kein Code |
 | [BALANCING_PLAN.md](BALANCING_PLAN.md) | Plan (Phase 1 und 2 gebaut, Phase 3 offen) | Balancing aufrollen: Begriffe (Wellenplan statt Kampagne), eine Wellenquelle, Seeds und Determinismus, Datensammlung von Menschen und Bots (Run-Log), Zielwerte und Tuning; offene Entscheidungen |
-| [PRESSURE_ONE_PLACE_PLAN.md](PRESSURE_ONE_PLACE_PLAN.md) | Plan, im Bau (E47 bis E50) | Druck-Multiplikator nur im Kill-Budget, stetiger Deckel, Messwert gekappt, Leckschaden je Gegnertyp, Spawn-Boden je Typ |
+| [PRESSURE_ONE_PLACE_PLAN.md](PRESSURE_ONE_PLACE_PLAN.md) | Bericht (gebaut E47 bis E51, 2026-09-27) | Druck-Multiplikator nur im Kill-Budget, stetiger Deckel, Messwert gekappt, Leckschaden je Gegnertyp, Spawn-Boden je Typ |
 | [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Konzept | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei Zielmodi. Coop ist nach COOP_PLAN.md gebaut, PvP gestrichen (2026-09-24) |
 
 ## Archiv

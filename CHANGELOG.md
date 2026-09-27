@@ -3,6 +3,27 @@
 What changed for players, newest first. Every release adds a section here, and the
 game shows it once after an update.
 
+## 0.5.0 (2026-09-27)
+
+### New
+- Co-op for two to four players, in the desktop app: everyone holds a lane of their own
+  into one shared base, with their own gold, towers, research and hero. Play online
+  through the public lobby, or on your local network without a server.
+- In co-op: chat, marks on the map, gold for a partner, a look at their towers and
+  research, and each player's part at game over.
+- Upgrade a tower 5 or 10 times at once.
+- Game over shows the run wave by wave.
+
+### Better
+- Wave sizes follow what your towers actually kill, and very large waves no longer
+  pile up at once.
+- Each enemy type costs the base its own damage when it gets through, shown before
+  the wave and when it hits.
+
+### Fixed
+- Lightning jumps only to enemies it can see.
+- A manned tower aims again in the desktop app.
+
 ## 0.4.0 (2026-09-24)
 
 ### New
