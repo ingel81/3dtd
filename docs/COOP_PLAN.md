@@ -46,6 +46,11 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
   `haversineDistance` u. a.) und dürfen zwischen Engines im letzten Bit abweichen. Das betrifft nur gemischte
   Browser: Der Electron-Build bringt genau eine Chromium- und V8-Version mit, zwei PCs mit demselben Build rechnen
   gleich, und der Beitritt verlangt ohnehin dieselbe Spielversion.
+  **Gemessen 2026-09-27 (TODO E28):** Die App (Chromium 152) rechnet bitgleich mit Chrome 153/154 und Edge 154;
+  Chromium 141, Node 24 (V8 13.6) und Firefox 142 weichen in fast allen Winkel-, Exp- und Log-Funktionen um 1 ULP
+  ab, überall gleich sind nur `sqrt` und `+ - * /`. Auch zwei V8-Versionen rechnen also verschieden. Eigene
+  Implementierungen nur aus diesen Grundrechenarten (fdlibm-Port) rechnen in allen Umgebungen bitgleich; der Plan,
+  die Sim darauf umzustellen, steht in E28.
 - **Snapshot mitten in der Welle** (Gegner, Projektile, Spawner, Statuseffekte, Würmer) gibt es nicht.
 
 ## 3. Entscheidungen
@@ -454,6 +459,12 @@ der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
 - Gemessen (User, 2026-09-24, Relay-Log): Chrome gegen Chrome bis W10, rund 66 Spielminuten, ohne Abweichung.
   Chrome gegen Firefox weicht bei Tick 210 ab (14 Spielsekunden nach dem Start) und bleibt abweichend. Ursache
   unbelegt; Eingrenzen per zerlegter Prüfsumme ist TODO E28, Randthema (D29).
+- **Determinismus-Prüfung der Sim (2026-09-27, TODO E63):** Zufall, Wanduhr, Sortierungen, Async, Weak-Strukturen,
+  Float32 und Live-Raycasts durchgesehen. Ein Fehler gefunden und behoben: Fehlte am ersten Wegpunkt die Höhe, las
+  der Spawn sie aus den eigenen Tiles; jetzt aus den eingefrorenen Zellen (`enemy.manager.ts`). Eine Lint-Regel
+  verbietet `Math.random` in den Sim-Ordnern. Neue Fälle in `lockstep.scenario.spec.ts`: Beitretender mit anderer
+  Uhr, anderem `Math.random` und ohne Tiles; andere Tile-Höhe am Spawn; Mutations-Test für Werte außerhalb der
+  Prüfsumme (Slow nach 1, Hold-Fire nach 23, Zielstrategie nach 106 Sub-Steps erkannt).
 - **Zerlegte Prüfsumme (2026-09-26, TODO E32):** `StateHasher.breakdown()` gibt dieselbe Gesamtsumme plus eine
   Summe je Teil (`HASH_PARTS` in `hash-check.ts`: clock, credits, health, wave, ids, rng, enemies, towers,
   projectiles, heroes) und die Werte jedes Objekts. Im Coop geht `hash` mit `parts` zum Relay; der GSM hält die

@@ -6,6 +6,12 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-27
 
+- [x] **Spawn-Höhe aus den geteilten Zellen** (`6dfc0d5f`, aus E63 b): ohne Höhe am Startpunkt las der Spawn die
+      eigenen Tiles, der Koop lief ab dem ersten Gegner auseinander. Drei neue Lockstep-Fälle.
+- [x] **Lint: kein `Math.random` in der Sim** (`7a5f9cd0`, E63 c), sieben begründete Ausnahmen.
+- [x] **Forschung ohne `startTime`** (`baebbd67`, E63 d): Wanduhr-Feld, nie gelesen.
+- [x] **Math-Determinismus gemessen** (E28): App = Chrome/Edge aktuell bitgleich, Firefox und ältere V8 nicht;
+      eigene Implementierungen überall bitgleich, Kosten im Spiel vernachlässigbar. Umstellung offen.
 - [x] **Releases 0.5.0 und 0.5.1**: Coop live; Spielmenü, Update-Hinweis, Landing, README, Security-Review.
 - [x] **A3 Spielmenü** (`c169ba7c`): Zahnrad und Esc; Vollbild, Lautstärke, Map key, What's new, Keys, Credits,
       Quit in der App mit Rückfrage; allein pausiert das Spiel. Keys, Credits und Map Key raus aus der Sidebar.
