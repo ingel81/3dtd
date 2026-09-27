@@ -4,6 +4,27 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-27
+
+- [x] **Releases 0.5.0 und 0.5.1**: Coop live; Spielmenü, Update-Hinweis, Landing, README, Security-Review.
+- [x] **A3 Spielmenü** (`c169ba7c`): Zahnrad und Esc; Vollbild, Lautstärke, Map key, What's new, Keys, Credits,
+      Quit in der App mit Rückfrage; allein pausiert das Spiel. Keys, Credits und Map Key raus aus der Sidebar.
+- [x] **A4 Update-Hinweis über Dialogen** (`c169ba7c`): hängt im CDK-Overlay, „Restart now“ trotz Standortdialog.
+- [x] **J9 Coop-Video auf der Landing** (`2f931f37`): Abschnitte Co-op und Videos, Hero ist der Coop-Actionschnitt.
+- [x] **E40 Verbindungsverlust**: Dialog „Allein weiterspielen / Raum verlassen“ im Spiel.
+- [x] **E41 Director-Kleinteile**: Kompression und Anti-Windup aus der gelieferten Welle, Vorschau passend.
+- [x] **E42 Ton im Geschütz** nur für den eigenen bemannten Tower.
+- [x] **E43 Lightning-Sichtlinie**: Ziel wird nachgeprüft, Sprünge nur zu Sichtbarem.
+- [x] **E44 Run-Log/Relay**: Name, Kills verkaufter Tower, Cheats, Fähigkeiten-Schaden, Director-Felder beim Gast.
+- [x] **E45 Upgrades ×5/×10**: Shift+U und Ctrl+U, dazu Shift-/Ctrl-Klick.
+- [x] **E46 Game-Over-Screen**: Gold je Spieler, Mini-Charts je Welle.
+- [x] **E47 Druck-Multiplikator an einer Stelle**: nur im Kill-Budget, Deckel stetig
+      ([Plan](docs/PRESSURE_ONE_PLACE_PLAN.md)).
+- [x] **E48 Regler-Messwert gekappt**: eine Welle zählt höchstens rund 3× Ziel.
+- [x] **E49 Leckschaden je Gegnertyp**, sichtbar in Vorschau, Tooltip und am HQ.
+- [x] **E50 Spawn-Boden je Typ**: Schwarm-Templates höchstens 600 je Lane (Ratten 1200).
+- [x] **E51 Kill-Modell kalibriert**: Realismus 0,85 bis W10, danach 1,0.
+
 ## 2026-09-26
 
 - [x] **Coop-UI und Standortdialog überarbeitet** (`b6d7d61d`, [Plan](docs/COOP_UI_REWORK_PLAN.md), U1 bis U8):

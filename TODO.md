@@ -41,13 +41,6 @@ allem unter T (Coop).
 - [ ] **A2 Tentacle-Sound ersetzen** (Security-Review 2026-09-27, User: ersetzen): `tentacle-01.mp3` trägt ID3-Tags
       aus „The Odyssey Collection: Expanded“ (Liquid FX), eine Lizenz ist nicht belegt. Neu mit ElevenLabs über die
       Sound-Auswahlseite (`tmp/sound-audition`), User wählt, alte Datei raus.
-- [ ] **A3 Spielmenü mit Zahnrad und Esc** (User, 2026-09-27): Zahnrad unten rechts im Sidebar-Fuß, Esc öffnet es,
-      wenn Esc sonst nichts zu tun hat (kein Dialog, kein bemannter Turm). Einträge: Vollbild (F11), Lautstärke (M),
-      What's new, Attributions; nur in der Desktop-App „Quit 3DTD“, im laufenden Spiel mit Rückfrage (im Coop: der Raum
-      verliert dich). Im Browser Vollbild über die Fullscreen-API, ohne Quit.
-- [ ] **A4 Update-Hinweis über modalen Dialogen** (Test 2026-09-27, **gebaut**): 0.5.0-beta.2 bot 0.5.0 an, aber der
-      Standortdialog des ersten Starts schluckte den Klick auf „Restart now“. Der Hinweis hängt jetzt im CDK-Overlay über
-      allen Dialogen (`update-hint.component.ts`, Spec). Geht mit dem nächsten Release raus.
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut, die Baseline steht (354 Läufe, 2026-09-21), sechs
       Tuning-Runden sind gelaufen. Offen sind die Zielbänder (3b) und das Kampagnenende (3a),
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).
@@ -131,9 +124,41 @@ allem unter T (Coop).
 - [ ] **E28 Coop Chrome gegen Firefox: Abweichung eingrenzen** (low prio, Randthema; Electron ist primär, D29):
       Gemessen am 2026-09-24: Chrome gegen Chrome bis W10 ohne Abweichung, Chrome gegen Firefox weicht 14 Spielsekunden
       nach dem Start ab (Tick 210) und bleibt abweichend. Ursache unbelegt (Verdacht Trigonometrie im Sim-Pfad).
-      Erst eingrenzen: Prüfsumme in Teile zerlegen (Zufall, Gold, Gegner, Tower, Projektile, Held), Teile mitschicken,
-      bei Abweichung ersten abweichenden Teil und erstes Objekt ins Relay-Log. Danach entscheiden: hart machen oder
-      Raum nur mit gleicher Engine. [COOP_PLAN.md](docs/COOP_PLAN.md) C5.
+      Die zerlegte Prüfsumme ist gebaut (E32). Plan (2026-09-27): 1) Ein Lauf Chrome gegen Firefox, das Relay-Log nennt
+      den ersten abweichenden Teil und das erste Objekt. 2) Beweis per Monkeypatch: `Math.sin`, `cos`, `atan2` und Co. in
+      beiden Browsern durch eigene JS-Versionen ersetzen (fdlibm-Kern, nur `+` und `*`, im Test 8,5 statt 13,7 ns je
+      Aufruf). Bleibt der Desync aus, ist Trig belegt. 3) Dann nur den echten Sim-Pfad umstellen (185 Aufrufe in den
+      sim-nahen Ordnern, ein Teil davon Sound und UI) und einen Test, der dieselbe Neu-Simulation in beiden Engines
+      vergleicht. WASM nicht für einzelne Trig-Aufrufe (der Aufruf über die Grenze kostet, und der JIT kann nicht inlinen),
+      höchstens später die ganze Simulation als Batch pro Frame. [COOP_PLAN.md](docs/COOP_PLAN.md) C5.
+      Weitere Überlegungen (2026-09-27): Lookup-Tabellen wären auch deterministisch, bringen gegenüber dem
+      fdlibm-Kern aber nur Ungenauigkeit. ARM gegen x86: V8 rechnet Trig auf allen Architekturen mit derselben neutralen
+      Implementierung (fdlibm), `+ - * /` sind in JS exakt IEEE und ohne FMA, Drift also
+      unwahrscheinlich, aber ungemessen; relevant erst mit ARM-Builds (heute nur x64).
+      Die eigenen JS-Versionen aus Schritt 2/3 decken ARM mit ab. Regelmäßiger Sync vom Host ist E58.
+      **Gemessen 2026-09-27** (x64, 50k feste Eingaben je Funktion, Bits verglichen, Referenz App = Electron 44 /
+      Chromium 152 / V8 15.2): Chrome 153, Chrome 154 und Edge 154 bitgleich zur App. Chromium 141 und Node 24 (V8 13.6)
+      weichen in `sin cos tan atan2 atan asin acos exp log` ab (0,1 bis 14 %), Firefox 142 in denselben plus `pow`
+      und `hypot` (41 %). Immer höchstens 1 ULP (`hypot` 2). Überall gleich nur `sqrt` und `+ - * /`. V8 hat also
+      zwischen 141 und 152 fast alle Transzendenten umgestellt; die alte Linie teilt es mit Firefox (bis auf sin/cos/tan).
+      Folgen: Browser-Coop nur mit gleicher V8-Linie, die ARM-Aussage (fdlibm) gilt für die alte Implementierung, für die
+      neue ungemessen. Stützt Schritt 3 (eigene Versionen nur aus `+ *`). Skripte: `tmp/math-determinism/`.
+      **Prototyp gemessen 2026-09-27** (`tmp/math-determinism/detmath.js`, fdlibm/FreeBSD-Port: sin cos tan atan atan2
+      asin acos exp log, hypot = sqrt(x²+y²), pow = Quadrieren für ganze Exponenten sonst exp(y·log x)): in App,
+      Chrome 154, Edge 154, Chromium 141, Firefox 142 und Node **bitgleich**. Genauigkeit gegen App nativ ≤ 1 ULP
+      (hypot 2), nur pow bis 121 ULP (braucht einen echten e_pow-Port). Tempo in der App je Aufruf nativ/eigen in ns:
+      sin 9/13, cos 15/13, tan 19/19, atan2 20/23, asin 15/12, acos 16/11, exp 15/23, log 10/23, pow 16/56, hypot 10/6.
+      Firefox: eigene meist 2 bis 4,5x langsamer als sein natives (hypot schneller). Varianten opt (bitgleich zu det, nur `sincos` schneller) und fast (Budget 1e-9, max 1,9e-10) ebenfalls bitgleich in allen 6 Umgebungen, 25/25 Tests (`tests.js`). Aufrufe gezählt (sim-step-bench, 20k Gegner): ~4.700 je Sub-Step, det +7,7 µs (0,04 %), fast −3,2 µs; Ende-zu-Ende-Messung rauscht stärker als der Effekt. Empfehlung det. Zähl-Spec `tmp/math-determinism/math-count.tmp.spec.ts` (zum Laufen nach `src/app/integration/`). Offen: Sim-Pfad umstellen (inkl. three.js in der Sim, `BASE_PRESSURE`), ARM.
+      **Plan Umstellung (User, 2026-09-27), gezielt statt global:** 1) `utils/det-math.ts` mit det (aus
+      `tmp/math-determinism/detmath.js`, `sincos` aus opt), eigene Specs aus `tests.js`. 2) In den Sim-Pfaden
+      (managers, entities, game-components, utils, services/combat, director, configs) `Math.sin|cos|tan|atan|atan2|
+      asin|acos|exp|log|pow|hypot` gegen det tauschen; Sound, UI und Darstellung bleiben nativ. three.js-Mathe in der
+      Sim prüfen (`lookAt`, `Quaternion`, `Matrix4`) und bei Winkeln ersetzen. `BASE_PRESSURE` fest oder mit det.
+      3) Lint-Regel, die diese `Math.*` in den Sim-Ordnern verbietet. 4) Test: dieselbe Neu-Simulation mit nativem
+      und mit det-`Math` gibt dieselben Prüfsummen, die Sim hängt also nicht mehr an `Math.*`. Nicht global `Math.sin`
+      überschreiben (Anzeige und Tiles verlören die nativen Funktionen, Verhalten der Bibliotheken unsichtbar
+      verändert). Getrennt davon: Sim darf keine lokalen Tile-Daten lesen (Höhen, Raycasts), sonst Desync unabhängig
+      von der Mathe.
 - [ ] **E30 Coop: Beitreten, ohne erst einen Ort zu laden** (**gebaut 2026-09-25**, Nachtest PLAYTEST T70) (User, 2026-09-25, LAN-Test): Startet die App ohne Ort,
       steht der Standortdialog; heute muss der Gast erst irgendeinen Ort laden, dann beitreten, dann lädt der Ort des
       Hosts. Lösung: im Standortdialog (und im Token-Dialog) ein Abschnitt „Coop“ mit den LAN-Spielen und dem Raum-Code;
@@ -216,39 +241,66 @@ allem unter T (Coop).
 Aus dem Coop-Playtest Heilbronn W1-W38 (2026-09-26, `tmp/coop-playtest/ANALYSE.md`), alles entschieden per AUQ
 (2026-09-26/27), Reihenfolge E40 bis E52:
 
-- [ ] **E40 Coop: Verbindungsverlust** (**gebaut 2026-09-27**): im Spiel Pause und Dialog „Allein weiterspielen / Raum verlassen“ (allein: Lockstep
-      lösen, Partner-Tower feuern weiter, sein Gold eingefroren); Restart danach spielt allein; Game-Over-Screen mit
-      Hinweis und Knopf, das Overlay verdeckt die Squad-Box nicht mehr.
-- [ ] **E41 Director-Kleinteile** (**gebaut 2026-09-27**): Kompression aus der gelieferten Anzahl (W16 kam als 9-s-Stoß), Anti-Windup bei
-      Boss-Varianten aus der gelieferten Welle, Begründungstexte (Aufschlag, komprimierter Abstand, wirksamer Deckel,
-      eine Definition von „bindend“), Boss-Vorschau in `AdaptiveSource.peek()`.
-- [ ] **E42 Ton im Geschütz** (**gebaut 2026-09-27**) nur für den eigenen bemannten Tower (`store.mannedTowerId()`), nicht für jeden bemannten.
-- [ ] **E43 Lightning-Sichtlinie** (**gebaut 2026-09-27**; offen: Coop-Masken des Hosts mit groben Kacheln (braucht eine echte Karte)): laufendes Ziel periodisch nachprüfen wie Projektil/Beam, Kettensprünge mit der
-      Sicht je Gegnertyp. Ändert die Simulation.
-- [ ] **E44 Run-Log/Relay-Kleinteile** (**gebaut 2026-09-27**): Relay-Log nach aktuellem Namen, `ownsKill` für verkaufte Tower, HP-Cheats und
-      Fähigkeiten-Schaden ins Log, Director-Felder auch im Gast-Log; Wellen mit HP-Cheat misst der Regler nicht.
-- [ ] **E45 Upgrades ×5/×10** (**gebaut 2026-09-27**): Shift+U bis 5, Ctrl+U bis 10 (so viele wie Gold reicht), Shift-/Ctrl-Klick in der Kachel.
-- [ ] **E46 Game-Over-Screen** (**gebaut 2026-09-27**): Gold gesamt je Spieler, Mini-Charts je Welle (Kills, Tower, verdientes Gold, HQ-Leben).
-- [ ] **E47 Druck-Multiplikator an einer Stelle** (**gebaut und gemessen 2026-09-27**) ([Plan](docs/PRESSURE_ONE_PLACE_PLAN.md)): nur im Kill-Budget des Deckels, Deckel stetig
-      (höchstens tötbar in 3 min, kein Pol), kein Aufschlag über Template-Max, kein HP-Hebel.
-- [ ] **E48 Regler-Messwert kappen** (**gebaut 2026-09-27**): eine Welle zählt höchstens ~3× Ziel, Glättung 0,35 bleibt.
-- [ ] **E49 Leckschaden je Gegnertyp** (**gebaut 2026-09-27**): round(√baseHp / 5), 1 bis 50, mal Wellenaufschlag; startHealth 500 bleibt.
-      Deckel und Regler lesen ihn. Sichtbar in der Wellen-Vorschau (je Typ und Summe), im Gegner-Tooltip und als Zahl
-      am HQ beim Leck.
-- [ ] **E50 `spawnStartDelay` als Boden** (**gebaut 2026-09-27**; Folge: Schwarm-Templates höchstens 600 je Lane (Ratten 1200), der Rest geht in HP) je Typ und Lane nach der Streuung, bestehende Werte; ersetzt den
-      E21-Kampagnen-Boden (`minSpawnDelayMs`).
-- [ ] **E51 Kill-Modell messen und kalibrieren** (**gebaut 2026-09-27**: Realismus 0,85 bis W10, 1,0 danach, gemessen an Bot-Läufen (der Heilbronn-Lauf hat keine Lebensdauern)): echte Zeit unter Feuer je Gegner (Bot-Läufe + Heilbronn-Lauf),
-      Konstanten in `wave-sizing.ts` anpassen und gegenprüfen.
+- [ ] **E43 Rest: Coop-Masken des Hosts mit groben Kacheln** (Lightning-Sichtlinie gebaut 2026-09-27, in DONE):
+      ungeprüft, braucht eine echte Karte.
 - [ ] **E52 Tower-Balance neu messen** (**gemessen 2026-09-27**, Vorschlag im Plan-Doc, nicht umgesetzt) nach E51 (Kanone ~50 %, Lightning/Chaos/Ice schwach): nur Messung und Vorschlag.
 - [ ] **E53 Coop mit zwei Bots in DevWorld** (später): Bot nur eigene Lane/Gold/Tower, Gast meldet ready, Tempo max 4,
       zwei Tabs gegen lokales Relay.
 - [ ] **E54 Skarnax beendet Läufe** (Bot-Messung 2026-09-27): W35 beendet 4 von 12 kalibrierten Läufen, 113 bis 206
       Segmente im HQ. Boss-Varianten laufen am Deckel vorbei; Größe oder HP der Variante an die Abwehr binden.
       Beleg in [Plan](docs/PRESSURE_ONE_PLACE_PLAN.md), Ergebnis.
-- [ ] **J9 Coop-Video in die Landing Page** (User, 2026-09-27): YouTube `zqb4eTpsdnc` (Coop-Best-of Heilbronn, noch
-      privat) nach dem Veröffentlichen einbauen wie das Walkthrough: Click-to-load, Poster `coop_thumbnail.jpg` nach
-      `landing/media/`. Paket in `tmp/coop-playtest/youtube/`. **Gebaut 2026-09-27:** eigener Abschnitt „Co-op“,
-      dazu „Videos“ mit allen Videos in einem Player, Hero ist der Coop-Actionschnitt (`hero-coop.mp4`, per FTP).
+
+Ideen (2026-09-27), nichts entschieden:
+
+- [ ] **E55 Eigene Tilesets als dritter Anbieter** (Idee, später): Eigene
+      Cesium-ion-Assets gehen schon heute (`cesiumAssetId` in `runtime-config.json`). Neu wäre ein Anbieter „tileset.json
+      per URL“ mit eigener Authentifizierung, damit Tileserver ohne ion gehen (3D Tiles in EPSG:4978).
+      Voraussetzung fürs Spiel: ein Mesh mit Boden, weil Routen, Bauplätze und Korridor per Raycast auf die Oberfläche
+      gehen; reine LoD2-Gebäude ohne Gelände reichen nicht. Straßen und Adressen bleiben aus OSM. Höhen: Daten kommen oft
+      in UTM mit Höhe über NN, beim Umrechnen nach 4978 muss der Geoidabstand (in Deutschland rund 45 bis 50 m) stimmen.
+- [ ] **E56 Eigenes Spielfeld aus Photogrammetrie** (Idee User): ein Scan z.B. des eigenen Gartens als autarkes
+      Spielfeld statt der Welt, nicht eingebettet. Vorbild DevWorld: ein `TerrainProvider`, der auf das Mesh raycastet,
+      und ein `StreetNetworkProvider` ohne OSM. Offen: Wege (selbst gezeichnet oder Wegsuche über die begehbare Fläche,
+      der größte Brocken), Maßstab (Garten 20 bis 30 m gegen Straßenzüge), Import als glTF in echtem Maßstab.
+      Photogrammetrie braucht Aufnahmen von oben (Drohne). Gaussian Splats nur für die Optik, Kollision braucht ein Mesh.
+      Verwandt: Mond/Mars-Tiles bräuchten ein anderes Ellipsoid (`EARTH_RADIUS` in `geo-utils.ts`, `EllipsoidSync`) und
+      ebenfalls Wege ohne Straßen.
+- [ ] **E57 Simulation in einen Worker?** (nur messen): Die Simulation kostet bei Tempo 1 wenig (L: 120
+      Tower, 3000 Gegner, 1 bis 1,6 ms je Sub-Step, SIMULATOR_PLAN.md); erst bei Tempo 4 und späten Wellen frisst sie den
+      Frame. Erst ein Chrome-Trace einer späten Welle bei Tempo 4 in der App, Frame aufgeteilt in Simulation,
+      `presentFrame`, Rendering, Tiles. Nur wenn die Simulation deutlich über der Hälfte liegt, lohnt der Umbau
+      (Sim headless im Worker, Befehle per Nachricht, Zustand per SharedArrayBuffer, grob 2 bis 4 Wochen). WASM höchstens
+      für ganze Kernel als Batch.
+- [ ] **E58 Coop-Resync auf Abruf**: Erkennen ist gebaut (C5a), Korrigieren nicht. Jeder simuliert selbst, der Host
+      soll bei Bedarf korrigieren. Hängt am Snapshot mitten in der Welle ([COOP_PLAN.md](docs/COOP_PLAN.md) C5b).
+- [ ] **E63 Sim-Determinismus: Prüfrunde** (User, 2026-09-27; neben der Mathe aus E28). Reihenfolge, je Punkt erst
+      Befund, dann Fix nach Zuruf: a) Zwei-Instanzen-Test: dieselbe Welle zweimal in getrennten Sims, gezielt gestört
+      (Uhr, Async-Verzögerung, Tile-Stufe), Prüfsummen je Tick gleich. b) Live-Raycasts nach dem Einfrieren der Höhen
+      (Tower-Platzierung, Held, Fähigkeiten-Ziel): gehen sie in den Spielzustand? c) `Math.random` im Sim-Pfad
+      (18 Treffer) plus Lint-Regel. d) `performance.now`/`Date.now` in Spiellogik (67 Treffer), Test mit springender
+      Uhr. e) Sortier-Komparatoren (28) auf Gleichstand/NaN, Zweitschlüssel, Fuzz-Test. f) setTimeout/Promise/async
+      in der Sim (~66). g) WeakRef/FinalizationRegistry/WeakMap (10). h) Float32Array-Rücklesen in die Sim (38).
+      i) Lücken im StateHasher, Mutations-Test. j) Snapshot mitten in der Welle: was fehlt (C5b, E58).
+      Trefferzahlen aus einem groben Scan der Sim-Ordner, viele davon Sound/Darstellung.
+      **Befunde 2026-09-27:** a) Test „joiner has another clock, another Math.random and no tiles“ in
+      `lockstep.scenario.spec.ts`, grün. b) Sauber bis auf den Spawn-Fallback `enemy.manager.ts:329`: fehlt die Höhe
+      am ersten Wegpunkt, raycastet jeder Client gegen eigene Tiles, `terrainHeight` steht im Hash. **Gefixt 2026-09-27:** Fallback liest jetzt die eingefrorenen Zellen (`getGroundLocalYAt`), Tiles nur, wo das
+      Grid nichts hat; Test „spawns on the shared cells“ war vorher rot (Abweichung ab Sub-Step 1), jetzt grün. Tower-Höhe kommt im Befehl, HQ-Höhe nur Sound.
+      c) Sauber, alle Sim-Ströme am GameRng; Lint-Regel `no-restricted-properties` Math.random in den Sim-Ordnern,
+      7 begründete Ausnahmen. d) Sauber; `ResearchManager` `startTime` war toter Code, entfernt (2026-09-27). e) Sauber: Komparatoren konsistent, sort stabil; Zielwahl bei Gleichstand = erster Kandidat, schon durch
+      den ersten Lockstep-Test mit gleichen HP abgedeckt. f) g) h) Sauber (Animation/Sound/UI; WeakMap nur Caches;
+      Atombombe landet im Sim-Tick, nicht im Renderer). i) Mutations-Test: Slow nach 1, Hold-Fire nach 23,
+      Zielstrategie nach 106 Sub-Steps erkannt; Forschung und Fähigkeiten ungetestet. j) Für mitten in der Welle
+      fehlen Gegner, Wurm/Ooze, Splitter, Projektile, Spawner, laufende Schläge, flüchtiger Tower-Kampfzustand,
+      `emitDeferred`-Queue, Zähler je Welle; Umbau bleibt C5b/E58.
+- [ ] **E59 Chrome gegen Firefox neu messen** (Performance, nicht Desync): Letzter Vergleich 2026-09-19, 5000 Gegner,
+      Produktions-Build: Sim Chrome 279 ms/s, Firefox 527, nach den Fixes Firefox 258. Chrome danach nicht neu gemessen
+      und damals am vsync (144 FPS). Gleiche Szene, beide ohne vsync-Deckel, Sim in ms/s.
+- [ ] **E60 Versus-Modus** (Idee, im Lobby-Umschalter schon als SOON, COOP_PLAN D39): Form offen.
+- [ ] **E61 DevWorld als Spielfeld** (Idee): prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
+      Verwandt: E55, E56.
+- [ ] **E62 Coop mit mehr als zwei Spielern testen**, danach ggf. das Limit von vier aufmachen (`MAX_PLAYERS` in
+      `coop/protocol.ts`). Verwandt: E53.
 ---
 
 ## Entschieden (keine Arbeit)
