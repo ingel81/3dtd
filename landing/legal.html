@@ -97,7 +97,7 @@
         <p>The controller under the GDPR is the operator of this site, reachable at <a href="mailto:legal@sgeht.net">legal@sgeht.net</a>. No data protection officer is appointed, the thresholds for that are not met.</p>
 
         <h3>The short version</h3>
-        <p>This site sets no cookies, measures nothing, carries no ads and loads no fonts from other servers. There is no sign-up, no account and no game server. Everything the game does happens in your browser.</p>
+        <p>This site sets no cookies, measures nothing, carries no ads and loads no fonts from other servers. There is no sign-up, no account and no game server. Everything the game does happens in your browser or the desktop app; only online co-op goes through a small lobby server, described below.</p>
 
         <h3>Hosting and server logs</h3>
         <p>The site is hosted by ALL-INKL.COM, Neue Medien Münnich, owner René Münnich, Hauptstraße 68, 02742 Friedersdorf, Germany. No server log files are written or kept in this site's hosting account. When a page is requested, the provider briefly processes connection data on its own systems, including the IP address of your device, as far as that is needed to run the service and to detect and fend off attacks. Full IP addresses are deleted there after seven days at the latest.</p>
@@ -105,8 +105,8 @@
         <p>The domain's DNS runs through Cloudflare. The proxy is switched off, so requests go straight to the host and Cloudflare does not see the traffic itself.</p>
 
         <h3>Videos on this site</h3>
-        <p>The clip at the top of the start page and the debug capture are served from this site's own server, with no connection to any third party.</p>
-        <p>The longer walkthrough sits on YouTube and loads only when you click the still image. Before that click, not a single request reaches Google. After it, the player is loaded from <code>youtube-nocookie.com</code>, which gives Google Ireland Limited your IP address and device details and can involve a transfer to the United States. The legal basis is the consent expressed in that click, Art. 6(1)(a) GDPR. If you would rather not, do not click the still.</p>
+        <p>The clip at the top of the start page and the videos in the list not marked YouTube are served from this site's own server, with no connection to any third party.</p>
+        <p>The videos marked YouTube load only when you click the still image or pick them from the list. Before that click, not a single request reaches Google. After it, the player is loaded from <code>youtube-nocookie.com</code>, which gives Google Ireland Limited your IP address and device details and can involve a transfer to the United States. The legal basis is the consent expressed in that click, Art. 6(1)(a) GDPR. If you would rather not, do not click the still.</p>
 
         <h3>The game at /play/</h3>
         <p>The game has no backend of its own. It does load map and terrain data from third party services as soon as it starts, which transmits your IP address along with the requested coordinates or search terms. Without those requests the game does not work, so the legal basis is the legitimate interest in being able to run the function you asked for at all, Art. 6(1)(f) GDPR.</p>
@@ -125,6 +125,10 @@
         <p>One thing worth knowing about the address search: whatever you type goes to Nominatim. Type your own home address and you hand it to that OpenStreetMap service. Picking a spot nearby instead of your house number avoids it.</p>
         <p>For transfers to the United States, the processing relies on the adequacy decision where the provider is certified under the EU-US Data Privacy Framework, and on standard contractual clauses otherwise. A residual risk of access by authorities there remains.</p>
 
+        <h3>Online co-op</h3>
+        <p>Co-op online runs in the desktop app only. Your game then connects to the lobby server at <code>3dtd-lobby.sgeht.net</code>, which is reached through Cloudflare, Inc. (USA) as network provider. The server passes your moves to the other players of your room. It keeps a log with the time, the room code and the name you chose, for 14 days, to find errors. It does not store IP addresses; the address of a connection is only counted in memory while it is open, to limit how many connections one machine opens. A room you put into the public list shows its name and the place you play to other players. Co-op on your local network does not use the lobby.</p>
+        <p>The legal basis is the legitimate interest in running the co-op game you started, Art. 6(1)(f) GDPR. If you agree after a game, the server also keeps your run log (the names in the game, the place you played, your moves and numbers) for 90 days, to find errors and improve the game. The legal basis for that is your consent, Art. 6(1)(a) GDPR, which you can withdraw at any time in the game's Runs window.</p>
+
         <h3>Location</h3>
         <p>On startup the browser asks once for your location. Granting it is voluntary, and refusing brings up the location picker instead. The position is handled in the browser and leaves the device only as a coordinate sent to the map services listed above.</p>
 
@@ -137,7 +141,7 @@
         <h3>Your rights</h3>
         <p>You have the rights to access (Art. 15), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18), data portability (Art. 20) and objection to processing based on legitimate interests (Art. 21). Consent once given can be withdrawn at any time with effect for the future. You may also lodge a complaint with a data protection supervisory authority, Art. 77 GDPR.</p>
 
-        <p class="stand">Last updated: 8 September 2026. Changes to the site may make an update of this text necessary.</p>
+        <p class="stand">Last updated: 27 September 2026. Changes to the site may make an update of this text necessary.</p>
       </div>
     </div>
   </section>

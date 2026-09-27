@@ -97,7 +97,7 @@
         <p>Verantwortlich im Sinne der DSGVO ist der Betreiber dieser Seite, erreichbar unter <a href="mailto:legal@sgeht.net">legal@sgeht.net</a>. Ein Datenschutzbeauftragter ist nicht bestellt, die Voraussetzungen dafür liegen nicht vor.</p>
 
         <h3>Der Grundsatz vorweg</h3>
-        <p>Diese Seite setzt keine Cookies, misst nichts, bindet keine Werbung ein und lädt keine Schriften von fremden Servern. Es gibt keine Registrierung, kein Konto und keinen Spielserver. Alles, was das Spiel tut, läuft im Browser.</p>
+        <p>Diese Seite setzt keine Cookies, misst nichts, bindet keine Werbung ein und lädt keine Schriften von fremden Servern. Es gibt keine Registrierung, kein Konto und keinen Spielserver. Alles, was das Spiel tut, läuft im Browser oder in der Desktop-App; nur der Online-Koop geht über einen kleinen Lobby-Server, unten beschrieben.</p>
 
         <h3>Hosting und Server-Protokolle</h3>
         <p>Die Seite liegt bei ALL-INKL.COM, Neue Medien Münnich, Inhaber René Münnich, Hauptstraße 68, 02742 Friedersdorf, Deutschland. Im Hosting-Konto dieser Seite werden keine Server-Logfiles erzeugt oder gespeichert. Der Anbieter verarbeitet beim Aufruf der Seite kurzzeitig Verbindungsdaten auf seinen Systemen, darunter die IP-Adresse des Endgeräts, soweit das für den technischen Betrieb und für die Erkennung und Abwehr von Angriffen erforderlich ist. Vollständige IP-Adressen werden dort spätestens nach sieben Tagen gelöscht.</p>
@@ -105,8 +105,8 @@
         <p>Die Namensauflösung der Domain läuft über Cloudflare. Der Proxy ist abgeschaltet, der Seitenabruf geht direkt an den Hoster, Cloudflare sieht den Inhalt der Zugriffe also nicht.</p>
 
         <h3>Videos auf dieser Seite</h3>
-        <p>Das Video im Kopf der Startseite und der Debug-Mitschnitt liegen auf dem eigenen Server, dabei entsteht keine Verbindung zu Dritten.</p>
-        <p>Der längere Rundgang liegt bei YouTube und wird erst geladen, wenn das Standbild angeklickt wird. Vorher geht kein einziger Request an Google. Nach dem Klick wird der Player von <code>youtube-nocookie.com</code> geladen, dabei erhält Google Ireland Limited die IP-Adresse und Angaben zum Gerät und kann Daten in die USA übermitteln. Rechtsgrundlage ist die Einwilligung, die im Klick liegt, Art. 6 Abs. 1 lit. a DSGVO. Wer das nicht möchte, klickt das Standbild nicht an.</p>
+        <p>Das Video im Kopf der Startseite und die Videos der Liste ohne den Vermerk YouTube liegen auf dem eigenen Server, dabei entsteht keine Verbindung zu Dritten.</p>
+        <p>Die mit YouTube gekennzeichneten Videos werden erst geladen, wenn das Standbild angeklickt oder das Video in der Liste gewählt wird. Vorher geht kein einziger Request an Google. Nach dem Klick wird der Player von <code>youtube-nocookie.com</code> geladen, dabei erhält Google Ireland Limited die IP-Adresse und Angaben zum Gerät und kann Daten in die USA übermitteln. Rechtsgrundlage ist die Einwilligung, die im Klick liegt, Art. 6 Abs. 1 lit. a DSGVO. Wer das nicht möchte, klickt das Standbild nicht an.</p>
 
         <h3>Das Spiel unter /play/</h3>
         <p>Das Spiel hat kein eigenes Backend. Es lädt jedoch Karten- und Geländedaten von fremden Diensten, sobald es startet. Dabei wird jeweils die IP-Adresse übertragen, dazu die angefragten Koordinaten oder Suchbegriffe. Ohne diese Abrufe funktioniert das Spiel nicht, Rechtsgrundlage ist das berechtigte Interesse daran, die von der Nutzerin oder dem Nutzer angeforderte Funktion überhaupt ausführen zu können, Art. 6 Abs. 1 lit. f DSGVO.</p>
@@ -125,6 +125,10 @@
         <p>Wichtig zur Adresssuche: Der eingegebene Ort wird an Nominatim übermittelt. Wer die eigene Wohnanschrift eintippt, gibt sie damit an den OpenStreetMap-Dienst weiter. Das lässt sich vermeiden, indem ein Ort in der Nähe statt der Hausnummer gewählt wird.</p>
         <p>Bei Übermittlungen in die USA stützt sich die Verarbeitung auf einen Angemessenheitsbeschluss, soweit der Anbieter unter dem EU-US Data Privacy Framework zertifiziert ist, andernfalls auf Standardvertragsklauseln. Ein Restrisiko des Zugriffs durch dortige Behörden bleibt.</p>
 
+        <h3>Online-Koop</h3>
+        <p>Online-Koop gibt es nur in der Desktop-App. Das Spiel verbindet sich dann mit dem Lobby-Server unter <code>3dtd-lobby.sgeht.net</code>, der über Cloudflare, Inc. (USA) als Netzdienstleister erreicht wird. Der Server reicht die Spielzüge an die übrigen Spieler des Raums weiter. Er führt ein Protokoll mit Uhrzeit, Raumcode und dem gewählten Namen, 14 Tage lang, um Fehler zu finden. IP-Adressen speichert er nicht; die Adresse einer Verbindung wird nur im Arbeitsspeicher gezählt, solange sie offen ist, um die Zahl der Verbindungen je Rechner zu begrenzen. Ein Raum in der öffentlichen Liste zeigt anderen Spielern seinen Namen und den gespielten Ort. Koop im eigenen Netz (LAN) nutzt die Lobby nicht.</p>
+        <p>Rechtsgrundlage ist das berechtigte Interesse daran, das gestartete Koop-Spiel zu betreiben, Art. 6 Abs. 1 lit. f DSGVO. Wer nach einem Spiel zustimmt, dessen Lauf-Protokoll (die Namen im Spiel, der gespielte Ort, die Züge und Zahlen) bewahrt der Server zusätzlich 90 Tage auf, um Fehler zu finden und das Spiel zu verbessern. Rechtsgrundlage dafür ist die Einwilligung, Art. 6 Abs. 1 lit. a DSGVO, die sich jederzeit im Fenster „Runs“ des Spiels widerrufen lässt.</p>
+
         <h3>Standort</h3>
         <p>Beim Start fragt der Browser einmal nach dem Standort. Die Freigabe ist freiwillig, wird sie verweigert, erscheint die Ortsauswahl. Der Standort wird im Browser verarbeitet und verlässt das Gerät nur als Koordinate an die oben genannten Kartendienste.</p>
 
@@ -137,7 +141,7 @@
         <h3>Rechte</h3>
         <p>Es bestehen die Rechte auf Auskunft (Art. 15), Berichtigung (Art. 16), Löschung (Art. 17), Einschränkung der Verarbeitung (Art. 18), Datenübertragbarkeit (Art. 20) und Widerspruch gegen Verarbeitungen auf Grundlage berechtigter Interessen (Art. 21). Eine erteilte Einwilligung kann jederzeit mit Wirkung für die Zukunft widerrufen werden. Außerdem besteht ein Beschwerderecht bei einer Datenschutz-Aufsichtsbehörde, Art. 77 DSGVO.</p>
 
-        <p class="stand">Stand: 8. September 2026. Änderungen an der Seite können eine Anpassung dieses Textes nötig machen.</p>
+        <p class="stand">Stand: 27. September 2026. Änderungen an der Seite können eine Anpassung dieses Textes nötig machen.</p>
       </div>
     </div>
   </section>
