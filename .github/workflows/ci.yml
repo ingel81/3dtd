@@ -1,6 +1,6 @@
 name: CI
 
-# Lint and tests on every push and pull request to the long-lived branches, for
+# Lint and tests on every push and pull request to main and next, for
 # the badge in the README and as a check before a merge. The release workflow
 # runs the same tests again for its tag.
 #
@@ -8,7 +8,7 @@ name: CI
 # red badge from a platform difference nobody plays on would say nothing.
 on:
   push:
-    branches: [main, next, coop]
+    branches: [main, next]
   pull_request:
     branches: [main, next]
   workflow_dispatch:

@@ -7,10 +7,10 @@ name: Relay image
 # relay before a release.
 
 on:
-  # A push to coop that touches the relay builds :coop (by hand only works
+  # A push to next that touches the relay builds :next (by hand only works
   # once this file is on the default branch)
   push:
-    branches: [coop]
+    branches: [next]
     paths:
       - 'coop-server/**'
       - 'src/app/coop/**'
