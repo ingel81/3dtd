@@ -27,7 +27,7 @@
 <meta name="twitter:image" content="https://3dtd.sgeht.net/media/hero-poster.jpg">
 <!--
   Static HTML plus base.css and /media. No build step, no framework, no
-  third-party request on load. Both video embeds are click-to-load.
+  third-party request on load. Every video but the muted hero is click-to-load.
 
   FONTS: self-hosted under media/fonts/, declared at the top of base.css, with
   their OFL licences beside them. Do not hotlink Google Fonts, the privacy line
@@ -48,6 +48,19 @@
 .yt-play{position:absolute;inset:0;margin:auto;width:78px;height:78px;display:grid;place-items:center;border:1px solid var(--gold-dark);background:rgba(17,22,19,.72);color:var(--gold);cursor:pointer;transition:background 140ms,border-color 140ms,color 140ms}
 .yt-play:hover{background:rgba(17,22,19,.9);border-color:var(--gold);color:var(--gold-light)}
 .yt.playing .yt-play,.yt.playing img{display:none}
+
+/* Mediathek: ein Player, daneben die Liste. Ein Klick in der Liste lädt das
+   Video erst dann in den Player, vorher geht auch hier kein Byte raus. */
+.media{display:grid;gap:18px;grid-template-columns:minmax(0,1fr) 340px;align-items:start}
+.media .yt{margin-top:0}
+.media-list{list-style:none;margin:0;padding:0;display:grid;gap:6px}
+.media-item{display:grid;grid-template-columns:128px minmax(0,1fr);gap:12px;width:100%;padding:6px;border:1px solid transparent;background:none;color:inherit;text-align:left;font:inherit;cursor:pointer;transition:border-color 140ms,background 140ms}
+.media-item:hover{border-color:var(--frame);background:rgba(11,15,12,.4)}
+.media-item[aria-current="true"]{border-color:var(--gold-dark);background:rgba(194,160,85,.07)}
+.media-item img{width:128px;height:72px;object-fit:cover;display:block;border:1px solid var(--frame)}
+.media-item b{display:block;color:var(--text);font-family:var(--body);font-size:14.5px;font-weight:500;line-height:1.3}
+.media-item span{display:block;margin-top:3px;color:var(--muted);font-family:var(--mono);font-size:11.5px;line-height:1.35}
+@media (max-width:900px){.media{grid-template-columns:1fr}}
 
 .lightbox[hidden]{display:none}
 .lightbox{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(8,11,9,.94);cursor:zoom-out}
@@ -164,7 +177,7 @@
    GitHub-Knopf bleibt stehen. */
 .mobile-note{display:none}
 @media (max-width:760px){
-  .hero-copy .actions .btn--primary,.hero-copy .actions .btn--windows,.hero-copy .actions .btn--linux,.top nav .btn--primary,footer .row a[href="/play/"]{display:none}
+  .hero-copy .actions .btn--primary,.hero-copy .actions .btn--windows,.hero-copy .actions .btn--linux,.hero-copy .actions .btn--browser,.need-app,.top nav .btn--primary,footer .row a[href="/play/"]{display:none}
   .need-desktop{display:none}
   .mobile-note{display:block;margin:22px 0 0;padding:14px 16px;border:1px solid var(--gold-dark);border-left-width:3px;background:rgba(194,160,85,.08);color:var(--text);font-size:15px;max-width:60ch}
   .mobile-note b{display:block;margin-bottom:4px;color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase}
@@ -178,7 +191,9 @@
   <a class="brand" href="#top" aria-label="3DTD, back to top"><img src="media/logo-68.png" alt="3DTD" width="120" height="68"></a>
   <nav>
     <a href="#how">How it works</a>
+    <a href="#coop">Co-op</a>
     <a href="#places">Places</a>
+    <a href="#media">Videos</a>
     <a href="#key">Token</a>
     <a href="https://github.com/ingel81/3dtd">GitHub</a>
     <a class="btn btn--primary btn--sm" href="/play/">Play</a>
@@ -190,8 +205,10 @@
     <div class="hero-media">
       <!-- Autoplay only works muted, every browser blocks sound without a click,
            so the track ships muted and the button below turns it on. -->
-      <video id="heroVideo" src="media/hero.mp4" poster="media/hero-poster.jpg"
-             autoplay muted loop playsinline></video>
+      <!-- Liegt wie der alte Hero nur auf dem Server (per FTP), nicht im Repo.
+           preload="metadata": der Browser lädt, was läuft, nicht die 60 MB am Stück. -->
+      <video id="heroVideo" src="media/hero-coop.mp4" poster="media/hero-coop-poster.jpg"
+             autoplay muted loop playsinline preload="metadata"></video>
       <button id="heroSound" class="sound-btn" type="button" aria-pressed="false" aria-label="Sound">
         <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
           <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/>
@@ -205,16 +222,18 @@
       <h1>Tower defense on your actual street</h1>
       <p class="lead">You type in an address, the game loads the photorealistic 3D tiles for that place, and enemies walk up the real roads towards your base.</p>
       <div class="actions">
-        <a class="btn btn--primary" href="/play/">Play in your browser</a>
+        <!-- Die Desktop-App steht vorn: dort liegt der Fokus, dort gibt es Coop (User, 2026-09-27).
+             Die Seite geht mit dem Veröffentlichen eines Releases live (deploy.yml), der Link zeigt also nie ins Leere.
+             Direkt auf die Datei: release.yml legt je eine Kopie ohne Version im Namen dazu (ab 0.5.0). -->
+        <a class="btn btn--primary btn--windows" href="https://github.com/ingel81/3dtd/releases/latest/download/3DTD-win-x64-setup.exe">Download for Windows</a>
+        <a class="btn btn--linux" href="https://github.com/ingel81/3dtd/releases/latest/download/3DTD-linux-x64.AppImage">Download for Linux</a>
+        <a class="btn btn--browser" href="/play/">Try it in your browser</a>
         <a class="btn" href="https://github.com/ingel81/3dtd">Source on GitHub</a>
-        <!-- Die Seite geht mit dem Veröffentlichen eines Releases live (deploy.yml), der Link zeigt also nie ins Leere.
-             Beide zeigen auf dieselbe Seite: dort liegen Installer und AppImage nebeneinander, mit Version im Namen. -->
-        <a class="btn btn--windows" href="https://github.com/ingel81/3dtd/releases/latest">Download for Windows</a>
-        <a class="btn btn--linux" href="https://github.com/ingel81/3dtd/releases/latest">Download for Linux</a>
       </div>
-      <p class="mobile-note"><b>Desktop only</b>This does not run on a phone. It streams photorealistic 3D tiles and puts thousands of enemies on screen, so it wants a real GPU, a mouse and a keyboard. Open the page on a desktop and the play button is there.</p>
-      <p class="need">Before you can play you need your own Cesium ion token. It is free and takes two minutes, no card. <a href="#key">How to get one</a>. <span class="need-desktop">Made for desktop: it needs a GPU and a mouse.</span></p>
-      <p class="wip"><b>Work in progress</b>Unfinished and unbalanced. Late waves get out of hand, some streets confuse the routing, and there are bugs I know about and more that I don't. It also wants a beefy machine: thousands of enemies on top of a live tile stream, and a thin GPU turns the late waves into a slideshow. It's an evening project, not a release.</p>
+      <p class="need need-app">The desktop app is the way to play: co-op lives there, everyone runs the same engine, and it keeps itself up to date. The browser version is for a quick look, solo.</p>
+      <p class="mobile-note"><b>Desktop only</b>This does not run on a phone. It streams photorealistic 3D tiles and puts thousands of enemies on screen, so it wants a fast CPU, a real GPU, a mouse and a keyboard. Open the page on a desktop and the downloads are there.</p>
+      <p class="need">Before you can play you need your own Cesium ion token. It is free and takes two minutes, no card. <a href="#key">How to get one</a>. <span class="need-desktop">Made for desktop: it needs a fast CPU, a GPU and a mouse.</span></p>
+      <p class="wip"><b>Work in progress</b>Unfinished and unbalanced. Late waves get out of hand, some streets confuse the routing, and there are bugs I know about and more that I don't. It also wants a beefy machine: thousands of enemies on top of a live tile stream, and a slow CPU or a thin GPU turns the late waves into a slideshow. It's an evening project, not a release.</p>
     </div>
   </div>
 
@@ -258,6 +277,22 @@
     </div>
   </section>
 
+  <section class="panel" id="coop">
+    <div class="panel-bar"><h2>Co-op</h2></div>
+    <div class="panel-body">
+      <p class="lead">Two to four players defend one base in the same city. Each of you gets a road of your own: the enemies on your lane are yours to stop, you spend your own gold, and you may build anywhere, your partner's street included.</p>
+      <p class="lead" style="margin-top:12px">Co-op is in the desktop app, online through the public lobby or on your local network without any server. Every machine runs the whole game in lockstep; only the moves travel.</p>
+      <!-- Click-to-load wie das Walkthrough: das iframe entsteht erst beim Klick. -->
+      <div class="yt" data-id="zqb4eTpsdnc" data-title="3DTD co-op best-of">
+        <img src="media/coop-thumb.jpg" alt="Co-op best-of on YouTube: two players holding Heilbronn's market square" loading="lazy" width="1200" height="675">
+        <button class="yt-play" type="button" aria-label="Play the co-op video">
+          <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <p class="fine" style="margin-top:10px">Our first co-op match, Heilbronn, waves 1 to 38, narrated. Fifteen minutes on YouTube.</p>
+    </div>
+  </section>
+
   <section class="panel" id="places">
     <div class="panel-bar"><h2>Places</h2></div>
     <div class="panel-body">
@@ -274,16 +309,32 @@
         <figure><img src="media/place-05-sm.jpg" data-full="media/place-05.jpg" alt="Manhattan, enemies filling an avenue between the blocks" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>the avenue as a funnel</span></figcaption></figure>
       </div>
       <p class="fine" style="margin-top:10px">Click any shot for the full frame.</p>
-      <!-- Click-to-load mit Absicht: das iframe entsteht erst beim Klick, beim
-           Laden der Seite geht damit kein Request an Google raus und die
-           Datenschutzzeile im Footer bleibt wahr. -->
-      <div class="yt" data-id="XoRsYuTkUmA">
-        <img src="media/video-thumb.jpg" alt="Walkthrough on YouTube" loading="lazy" width="1200" height="676">
-        <button class="yt-play" type="button" aria-label="Play the video">
-          <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
-        </button>
+    </div>
+  </section>
+
+  <section class="panel" id="media">
+    <div class="panel-bar"><h2>Videos</h2></div>
+    <div class="panel-body">
+      <!-- Alles, was es an Videos gab, bleibt hier. Click-to-load mit Absicht:
+           beim Laden der Seite geht kein Request an Google raus und die
+           Datenschutzzeile im Footer bleibt wahr. Die lokalen Dateien liegen
+           nur auf dem Server (per FTP). -->
+      <div class="media">
+        <div class="yt" id="mediaPlayer" data-video="media/hero-coop.mp4" data-title="3DTD co-op action cut">
+          <img src="media/hero-coop-poster.jpg" alt="" loading="lazy" width="1280" height="720">
+          <button class="yt-play" type="button" aria-label="Play the selected video">
+            <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+          </button>
+        </div>
+        <ul class="media-list">
+          <li><button class="media-item" type="button" aria-current="true" data-video="media/hero-coop.mp4" data-poster="media/hero-coop-poster.jpg" data-title="3DTD co-op action cut"><img src="media/media-hype-sm.jpg" alt="" loading="lazy" width="128" height="72"><span><b>Co-op, action cut</b>3:57 · the loop at the top, with sound</span></button></li>
+          <li><button class="media-item" type="button" data-id="zqb4eTpsdnc" data-poster="media/coop-thumb.jpg" data-title="3DTD co-op best-of"><img src="media/media-coop-sm.jpg" alt="" loading="lazy" width="128" height="72"><span><b>Co-op best-of, narrated</b>15:24 · YouTube · Heilbronn, waves 1 to 38</span></button></li>
+          <li><button class="media-item" type="button" data-id="XoRsYuTkUmA" data-poster="media/video-thumb.jpg" data-title="3DTD walkthrough"><img src="media/media-walkthrough-sm.jpg" alt="" loading="lazy" width="128" height="72"><span><b>Walkthrough</b>6:42 · YouTube · mostly Frankfurt, the mechanics explained</span></button></li>
+          <li><button class="media-item" type="button" data-id="dDao9K-pE6Q" data-poster="media/hero-poster.jpg" data-title="3DTD first trailer"><img src="media/media-trailer-sm.jpg" alt="" loading="lazy" width="128" height="72"><span><b>First trailer</b>0:58 · YouTube · a tour of places</span></button></li>
+          <li><button class="media-item" type="button" data-id="Hradh6CdLXM" data-poster="media/media-short-sm.jpg" data-title="3DTD short"><img src="media/media-short-sm.jpg" alt="" loading="lazy" width="128" height="72"><span><b>Short</b>0:35 · YouTube, upright</span></button></li>
+          <li><button class="media-item" type="button" data-video="media/raw-gameplay.mp4" data-poster="media/raw-gameplay-poster.jpg" data-title="3DTD debug session"><img src="media/media-debug-sm.jpg" alt="" loading="lazy" width="128" height="72"><span><b>Debug session</b>0:40 · unedited, debug windows open</span></button></li>
+        </ul>
       </div>
-      <p class="fine" style="margin-top:10px">A longer walkthrough on YouTube.</p>
     </div>
   </section>
 
@@ -315,7 +366,8 @@
         <dt>Line of sight</dt><dd>depth cubemap per tower, read back as a visibility mask</dd>
         <dt>Enemies</dt><dd>instanced meshes, skeletal animation baked into vertex textures</dd>
         <dt>Waves</dt><dd>rule based director in the browser, PPO experiment trained offline in PyTorch</dd>
-        <dt>Server</dt><dd>none, the client is the whole game</dd>
+        <dt>Co-op</dt><dd>lockstep over a small Node relay that only passes the moves, online or on the LAN</dd>
+        <dt>Server</dt><dd>none for the game itself, the client is the whole game</dd>
         <dt>Licence</dt><dd>AGPL-3.0, source on <a href="https://github.com/ingel81/3dtd">GitHub</a></dd>
       </dl>
     </div>
@@ -387,34 +439,56 @@
 </div>
 
 <script>
-  // Erst auf Klick laden: YouTube über youtube-nocookie, der Debug-Mitschnitt
-  // als lokales <video>. Vorher geht kein Byte raus.
+  // Erst auf Klick laden: YouTube über youtube-nocookie, lokale Mitschnitte
+  // als <video>. Vorher geht kein Byte raus.
+  function load(box) {
+    let el;
+    if (box.dataset.video) {
+      el = document.createElement('video');
+      el.src = box.dataset.video;
+      el.controls = true;
+      el.autoplay = true;
+      el.playsInline = true;
+    } else if (box.dataset.id) {
+      el = document.createElement('iframe');
+      el.src = 'https://www.youtube-nocookie.com/embed/' + box.dataset.id + '?autoplay=1&rel=0';
+      el.allow = 'accelerometer; autoplay; encrypted-media; picture-in-picture';
+      el.allowFullscreen = true;
+      el.referrerPolicy = 'strict-origin-when-cross-origin';
+    } else {
+      return;
+    }
+    el.title = box.dataset.title || '3DTD video';
+    box.classList.add('playing');
+    box.appendChild(el);
+    el.focus();
+  }
   for (const box of document.querySelectorAll('.yt')) {
     const play = box.querySelector('.yt-play');
-    if (!play) continue;
-    play.addEventListener('click', function () {
-      let el;
-      if (box.dataset.video) {
-        el = document.createElement('video');
-        el.src = box.dataset.video;
-        el.controls = true;
-        el.autoplay = true;
-        el.playsInline = true;
-      } else if (box.dataset.id) {
-        el = document.createElement('iframe');
-        el.src = 'https://www.youtube-nocookie.com/embed/' + box.dataset.id + '?autoplay=1&rel=0';
-        el.allow = 'accelerometer; autoplay; encrypted-media; picture-in-picture';
-        el.allowFullscreen = true;
-        el.referrerPolicy = 'strict-origin-when-cross-origin';
-        el.title = '3DTD walkthrough';
-      } else {
-        return;
-      }
-      box.classList.add('playing');
-      box.appendChild(el);
-      el.focus();
-    });
+    if (play) play.addEventListener('click', function () { load(box); });
   }
+
+  // Mediathek: ein Eintrag der Liste tauscht, was im Player liegt, und startet es.
+  // Das laufende Video geht dabei raus, sonst spielen zwei Tonspuren.
+  (function () {
+    const player = document.getElementById('mediaPlayer');
+    if (!player) return;
+    const items = document.querySelectorAll('.media-item');
+    for (const item of items) {
+      item.addEventListener('click', function () {
+        for (const other of items) other.setAttribute('aria-current', other === item ? 'true' : 'false');
+        const running = player.querySelector('iframe, video');
+        if (running) running.remove();
+        delete player.dataset.video;
+        delete player.dataset.id;
+        if (item.dataset.video) player.dataset.video = item.dataset.video;
+        if (item.dataset.id) player.dataset.id = item.dataset.id;
+        player.dataset.title = item.dataset.title;
+        player.querySelector('img').src = item.dataset.poster;
+        load(player);
+      });
+    }
+  })();
 
   // Galerie: Klick öffnet das Bild groß, Pfeile blättern durch die Gruppe, in
   // der geklickt wurde. Kein Plugin, kein Karussell.
