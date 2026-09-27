@@ -1,6 +1,6 @@
 # Coop: zwei bis vier Spieler gegen dieselben Wellen, Lockstep über einen Relay
 
-**Stand:** 2026-09-26 · Branch `coop` · Status: C0 bis C4d, C5a, C7 und C8 gebaut, öffentliche Lobby läuft (D56 bis D68), Review R1 bis R21 gebaut (R10 teilweise), Oberfläche überarbeitet ([COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md), U1 bis U8); offen C5b, aus C6 nur Bots als Mitspieler (D24) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
+**Stand:** 2026-09-27 · ausgeliefert mit 0.5.0 (`main`, `next`) · Status: C0 bis C4d, C5a, C7 und C8 gebaut, öffentliche Lobby läuft (D56 bis D68), Review R1 bis R21 gebaut (R10 teilweise), Oberfläche überarbeitet ([COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md), U1 bis U8); offen C5b, aus C6 nur Bots als Mitspieler (D24); Determinismus gemessen und geprüft (TODO E28, E63) · Grundlage: [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) Teil IV
 Abschnitt 23 ("Vier Tore") und Teil I Abschnitt 4, [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md), [REPLAY.md](REPLAY.md)
 
 Ziel: Zwei bis vier Spieler verteidigen in derselben Stadt ein gemeinsames HQ. Jeder hat einen eigenen Spawn und
@@ -414,7 +414,7 @@ Geprüft: `ws://` auf eine LAN-IP geht von `app://` aus ohne Umweg; Suche über 
 VPN), ein Raum mit mehreren Adressen ist ein Eintrag, die im eigenen Subnetz zuerst; Relay aus `app.asar`. Offen:
 der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
 
-- **Relay bündeln:** `coop-server/src/server.ts` samt `ws` per esbuild zu einer JS-Datei in `desktop/app/relay/`
+- **Relay bündeln:** `coop-server/src/server.ts` samt `ws` per esbuild zu einer JS-Datei in `desktop/relay/relay.mjs`
   (Schritt in `web:build`), ohne `.ts` zur Laufzeit. Der Relay läuft in einem `utilityProcess`, nicht im
   Main-Prozess selbst: stürzt er ab, bleibt das Fenster; beendet wird er mit dem Raum oder der App (D51).
 - **Brücke:** `preload.js` bekommt `coopLan`: `host()` startet den Relay (Port 3003, sonst der nächste freie) und gibt

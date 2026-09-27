@@ -1,6 +1,6 @@
 # Electron Desktop-Build
 
-> **Status:** gebaut und ausgeliefert (v0.3.1 am 2026-09-19, zuletzt v0.4.0). Release-Ablauf unter
+> **Status:** gebaut und ausgeliefert (v0.3.1 am 2026-09-19, zuletzt v0.5.1 am 2026-09-27). Release-Ablauf unter
 > [Reihenfolge](#reihenfolge). Coop im LAN (Relay in der App, Suche) steht in COOP_PLAN.md, C4d.
 > Ein Proof-of-Concept lief am 2026-05-16 durch und wurde danach zurückgebaut,
 > im Repo liegt davon nichts mehr. Seine Erkenntnisse stehen unter
