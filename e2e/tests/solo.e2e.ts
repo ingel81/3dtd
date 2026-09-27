@@ -22,7 +22,11 @@ test('smoke: build a tower, play a wave, open a dialog, watch the replay', async
         built = (await credits(page)) < before;
       }
     }
+    // Escape leaves the build mode; with none left it opens the game menu, which then goes again
     await page.keyboard.press('Escape');
+    const menu = page.getByRole('dialog', { name: 'Menu' });
+    if (await menu.isVisible()) await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
     expect(built, 'a tower stands').toBe(true);
     await shot(testInfo, page, 'tower');
   });

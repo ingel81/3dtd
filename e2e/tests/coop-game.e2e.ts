@@ -99,7 +99,8 @@ test('the relay ends in the game: going on alone works (T48)', async ({ duo, rel
   await relay.stop();
   await expect(host.locator('app-coop-squad')).toContainText(/offline/i, { timeout: 30_000 });
   await shot(testInfo, host, 'offline');
-  await host.getByRole('button', { name: 'Continue alone' }).click();
+  // The squad box offers it too; the dialog is what the player sees first
+  await host.getByLabel('Connection lost').getByRole('button', { name: 'Continue alone' }).click();
   // Alone the commands act again: a cheat and a wave
   const before = await credits(host);
   await devAction(host, /Add 1000 credits/);
