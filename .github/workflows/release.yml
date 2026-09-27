@@ -188,6 +188,19 @@ jobs:
       TAG: ${{ github.event.inputs.tag || github.ref_name }}
 
     steps:
+      # Copies without the version in the name, so README and landing page can link
+      # /releases/latest/download/3DTD-win-x64-setup.exe for good. The updater reads
+      # latest.yml and keeps using the versioned files.
+      - name: Add copies with fixed names
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '3DTD-*-win-x64-setup.exe' --pattern '3DTD-*-linux-x64.AppImage' --dir fixed
+          cd fixed
+          mv 3DTD-*-win-x64-setup.exe 3DTD-win-x64-setup.exe
+          mv 3DTD-*-linux-x64.AppImage 3DTD-linux-x64.AppImage
+          gh release upload "$TAG" --repo "$GITHUB_REPOSITORY" --clobber 3DTD-win-x64-setup.exe 3DTD-linux-x64.AppImage
+
       - name: Publish the release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

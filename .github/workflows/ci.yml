@@ -1,0 +1,74 @@
+name: CI
+
+# Lint and tests on every push and pull request to the long-lived branches, for
+# the badge in the README and as a check before a merge. The release workflow
+# runs the same tests again for its tag.
+#
+# Windows like the release job: the suite has only ever been green there, and a
+# red badge from a platform difference nobody plays on would say nothing.
+on:
+  push:
+    branches: [main, next, coop]
+  pull_request:
+    branches: [main, next]
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          # Angular 22 needs >= 22.22.3 or >= 24.15; Node 24 also brings npm 11.
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: |
+            package-lock.json
+            desktop/package-lock.json
+
+      - name: Install dependencies (game)
+        run: npm ci
+
+      # No keys in CI, as in the release: the tests need the files, not a token.
+      - name: Create environment files
+        shell: bash
+        run: |
+          echo "export const environment = {
+            production: false,
+            tileProvider: 'cesium' as 'cesium' | 'google',
+            googleMapsApiKey: '',
+            cesiumIonToken: '',
+            cesiumAssetId: '2275207',
+          };" > src/environments/environment.ts
+          cp src/environments/environment.ts src/environments/environment.prod.ts
+
+      - name: Lint
+        run: npm run lint
+
+      # Game, relay and the shared protocol
+      - name: Test
+        run: npx vitest run
+
+      # vitest strips types without checking them
+      - name: Type-check the specs
+        run: npx tsc -p tsconfig.spec.json --noEmit
+
+      - name: Install dependencies (desktop)
+        working-directory: desktop
+        run: npm ci
+
+      - name: Test the desktop shell
+        working-directory: desktop
+        run: npm test
