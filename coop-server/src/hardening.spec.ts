@@ -119,7 +119,7 @@ describe('the relay under a fuzz of every message type (relay review K1, H1)', (
 
   it('never fails on a message: no error, the game goes on, the relay stays up', async () => {
     const lines: string[] = [];
-    relay = await startRelay({ port: 0, cheats: true, maxMessagesPerSecond: 100_000, log: (line) => lines.push(line) });
+    relay = await startRelay({ port: 0, cheats: true, maxMessagesPerSecond: 100_000, maxBytesPerSecond: 1e9, log: (line) => lines.push(line) });
     const port = relay.port;
 
     // A game of two, and a lobby of its own for the fuzz that only a lobby host reaches
@@ -209,6 +209,15 @@ describe('the relay\'s limits (relay review H3, N3, M5, N4)', () => {
     for (let i = 0; i < 25; i++) c.send({ t: 'join', room: `NOPE${String(i).padStart(2, '0')}` });
     await closed(c.socket);
     expect((await metricsOf(relay)).dropped['join-guessing']).toBe(1);
+  });
+
+  it('closes a connection that sends more bytes a second than a player ever does', async () => {
+    relay = await startRelay({ port: 0, maxBytesPerSecond: 64 * 1024 });
+    const c = await client(relay.port, 'Flood');
+    const big = JSON.stringify({ t: 'chat', text: 'x'.repeat(20 * 1024) });
+    for (let i = 0; i < 5; i++) c.send(big);
+    await closed(c.socket);
+    expect((await metricsOf(relay)).dropped.rate).toBe(1);
   });
 
   it('keeps a player through two missed heartbeats and lets them go after the third', async () => {

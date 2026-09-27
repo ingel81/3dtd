@@ -74,6 +74,15 @@ const MAX_UNREAD_BYTES = 8 * 1024 * 1024;
  */
 const MAX_MESSAGES_PER_SECOND = 120;
 
+/**
+ * Bytes a connection may send in one second; more closes it (security review
+ * 2026-09-27). The message count alone let 120 messages of 1 MB a second
+ * through, a parse load one address could hold the relay's CPU with. A player
+ * sends far less: a world package (some 300 kB) once, a run log (at most
+ * MAX_MESSAGE_BYTES) after a game.
+ */
+const MAX_BYTES_PER_SECOND = 4 * 1024 * 1024;
+
 /** Room codes a connection may try that do not exist before it is closed (review N3) */
 const MAX_JOIN_MISSES = 20;
 
@@ -103,6 +112,8 @@ interface Connection {
   dropReason: string | null;
   /** Messages in the current second, and when that second began */
   burst: number;
+  /** Bytes in the current second */
+  burstBytes: number;
   burstAt: number;
   /** The rate limit was hit in this second and logged */
   throttled: boolean;
@@ -172,6 +183,8 @@ export interface RelayOptions {
   /** HEARTBEAT_MS and MAX_MESSAGES_PER_SECOND by default; for the spec */
   heartbeatMs?: number;
   maxMessagesPerSecond?: number;
+  /** MAX_BYTES_PER_SECOND by default; for the spec */
+  maxBytesPerSecond?: number;
   /**
    * The pages allowed to connect, by their `Origin` (review R19), e.g.
    * `https://example.com` and `app://app` for the desktop app. A browser on
@@ -520,7 +533,7 @@ class Relay {
     this.metrics.connectionsOpened++;
     const connection: Connection = {
       socket, address, player: null, room: null, missed: 0, pingAt: 0, rtt: null, dropReason: null,
-      burst: 0, burstAt: this.now(), throttled: false, joinMisses: 0, helloTimer: null,
+      burst: 0, burstBytes: 0, burstAt: this.now(), throttled: false, joinMisses: 0, helloTimer: null,
       playedRoom: null, sentRuns: 0,
     };
     this.connections.set(id, connection);
@@ -540,12 +553,20 @@ class Relay {
 
   private received(id: string, connection: Connection, data: unknown): void {
     const at = this.now();
+    const bytes = (data as Buffer).length ?? 0;
     this.metrics.messagesIn++;
-    this.metrics.bytesIn += (data as Buffer).length ?? 0;
+    this.metrics.bytesIn += bytes;
     if (at - connection.burstAt >= 1000) {
       connection.burst = 0;
+      connection.burstBytes = 0;
       connection.burstAt = at;
       connection.throttled = false;
+    }
+    // Before the parse: the parse is the cost this limit keeps down
+    if ((connection.burstBytes += bytes) > (this.options.maxBytesPerSecond ?? MAX_BYTES_PER_SECOND)) {
+      if (connection.dropReason === null) this.log(`${roomTag(connection)}${id} sends too many bytes, dropping`);
+      this.dropConnection(id, 'sends too many bytes', 'rate');
+      return;
     }
     if (++connection.burst > (this.options.maxMessagesPerSecond ?? MAX_MESSAGES_PER_SECOND)) {
       if (!connection.throttled) this.log(`${roomTag(connection)}${id} sends too fast, dropping`);
@@ -836,10 +857,22 @@ class Relay {
 /**
  * Where a connection comes from: behind a Cloudflare tunnel the visitor's
  * address, otherwise the socket's. Only counted in memory (review H3, D64).
+ * The header counts only from the local network, where the tunnel's
+ * connector sits: from the internet anyone can set it, and a new value per
+ * connection would slip past the limit per address (security review 2026-09-27).
  */
-function addressOf(request: IncomingMessage): string {
+export function addressOf(request: Pick<IncomingMessage, 'headers' | 'socket'>): string {
+  const remote = request.socket.remoteAddress || 'unknown';
   const forwarded = request.headers['cf-connecting-ip'];
-  return (typeof forwarded === 'string' && forwarded) || request.socket.remoteAddress || 'unknown';
+  return (typeof forwarded === 'string' && forwarded && isPrivateAddress(remote)) ? forwarded : remote;
+}
+
+/** An address of this machine or the local network */
+function isPrivateAddress(remote: string | undefined): boolean {
+  const address = (remote ?? '').replace(/^::ffff:/, '');
+  if (address === '::1' || address.startsWith('127.')) return true;
+  const [a, b] = address.split('.').map(Number);
+  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
 }
 
 /**
@@ -849,10 +882,7 @@ function addressOf(request: IncomingMessage): string {
  */
 export function isLocalRequest(remote: string | undefined, headers: Record<string, string | string[] | undefined>): boolean {
   if (headers['cf-connecting-ip'] !== undefined || headers['cf-ray'] !== undefined) return false;
-  const address = (remote ?? '').replace(/^::ffff:/, '');
-  if (address === '::1' || address.startsWith('127.')) return true;
-  const [a, b] = address.split('.').map(Number);
-  return a === 10 || (a === 192 && b === 168) || (a === 172 && b >= 16 && b <= 31);
+  return isPrivateAddress(remote);
 }
 
 /** The status page as text: one block per room. */

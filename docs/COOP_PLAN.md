@@ -682,8 +682,11 @@ auf einer anderen Seite wird abgewiesen und einmal geloggt, Clients ohne `Origin
 Liste alle (Dev-Maschine, LAN). Ein öffentlicher Relay läuft so:
 
 ```bash
-npm run coop-server -- --port 3003 --no-cheats --origins https://example.com,app://app
+npm run coop-server -- --port 3003 --origins https://example.com,app://app
 ```
+
+Cheats bleiben dabei bewusst erlaubt, die Raum-Option des Hosts entscheidet (D38, Standard aus; User, 2026-09-27);
+`--no-cheats` verbietet sie auf dem ganzen Relay.
 
 Caddy (holt das Zertifikat selbst):
 
@@ -740,6 +743,11 @@ Aus einem Review des Relays (Absturzsicherheit, Grenzen, Betrieb), Entscheidunge
   (`RELAY_ADMIN_TOKEN`). Kennzahlen in `metrics.ts`, alle 60 s eine Zeile im Log.
 - **LAN-Relay der App:** nur `app://app` (Clients ohne Origin passieren), `/status` ohne CORS; die LAN-Suche antwortet
   nur privaten Adressen und kürzt die Raumliste auf ein Paket.
+- **Nachgezogen (Security-Review 2026-09-27):** zu 120 Nachrichten auch 4 MB je Sekunde, darüber wird getrennt
+  (vorher ließen 120 Nachrichten zu 1 MB eine Last aus `JSON.parse` von einer Adresse zu); `CF-Connecting-IP` zählt
+  nur von einer Verbindung aus dem lokalen Netz, wo der Connector des Tunnels sitzt, sonst ließe sich die Grenze je
+  Adresse mit einem neuen Header je Verbindung umgehen. Cheats bleiben im öffentlichen Image erlaubt, der Host
+  entscheidet per Raum-Option (User, 2026-09-27).
 - Abnahme: `hardening.spec.ts` (Fuzz über alle Nachrichtentypen: kein Fehler, das Spiel läuft weiter; Grenzen,
   Herzschlag, Health-Check, Aktionen, Neustart-Code), `validate.spec.ts`, `room.spec.ts` (Hänger, Kick im Spiel,
   Log-Drossel), `lan-discovery.test.js`.

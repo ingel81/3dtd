@@ -8,7 +8,7 @@ rooms that are open, and it never writes an IP address. Design and decisions: [d
 
 ```bash
 npm run coop-server                      # port 3003, cheats allowed, log in logs/
-npm run coop-server -- --no-cheats       # as a public lobby would
+npm run coop-server -- --no-cheats       # rooms refuse cheats whatever the host sets
 ```
 
 The dev game on `http://localhost:4200` finds it by itself ("This machine" under Online). The desktop app runs its own
@@ -41,8 +41,9 @@ A metrics line goes to the log once a minute when something changed (memory alon
 
 What keeps one client from taking the relay down (relay review 2026-09-26): every message is checked field by field
 and cut (`validate.ts`), and handled in a try/catch, a failing one drops only that connection; 1 MB per message, 120
-messages a second, a command at most 256 kB, a world at most once a second; 500 connections, 8 from one address
-(counted in memory only, never logged), a hello within 10 s; a client that leaves 8 MB unread is dropped; 20 room codes
+messages and 4 MB a second (beyond the bytes the connection is closed), a command at most 256 kB, a world at most once a second; 500 connections, 8 from one address
+(counted in memory only, never logged; behind a tunnel the address Cloudflare passes on, taken only from a
+connection out of the local network, where the tunnel's connector sits), a hello within 10 s; a client that leaves 8 MB unread is dropped; 20 room codes
 that do not exist and the connection is closed; three missed heartbeats (15 s) let a player go, a player the room
 waited on for 30 s as well (their lane closes, the others play on); a lobby closes after an hour, a game without a
 command after three hours. A day's log file stops at 50 MB, the console goes on.
@@ -52,7 +53,8 @@ command after three hours. A day's log file stops at 50 MB, the console goes on.
 The image is `ghcr.io/ingel81/3dtd-relay`, built by the workflow `relay-image.yml`: with every release (`:0.5.0`,
 `:latest`), and by hand for any branch (GitHub, Actions, Relay image, Run workflow; tagged with the branch, e.g. `:coop`).
 Its default arguments are the public lobby's: `--status local --log-days 14 --origins app://app` (only the desktop
-app, D59).
+app, D59). Cheats stay allowed on purpose: the host's room option decides, off by default (D33, D38); add
+`--no-cheats` to refuse them.
 
 1. **The first time:** on GitHub under Packages, `3dtd-relay`, set the visibility to public, so a Docker host
    pulls it without logging in.
@@ -109,4 +111,4 @@ A paragraph for the privacy notice of the landing page:
 > code and the name you chose, for 14 days, to find errors; it does not store IP addresses. Cloudflare processes the
 > connection as our network provider. Coop on the same network (LAN) does not use the lobby. If you agree after a
 > game, the server also keeps your run log (the names in the game, the place you played, your moves and numbers) for
-> 90 days, to find errors and improve the game; you can change that in the options.
+> 90 days, to find errors and improve the game; you can change that in the Runs window.

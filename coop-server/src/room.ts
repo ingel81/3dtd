@@ -646,7 +646,7 @@ export class Room {
     };
   }
 
-  /** `name`, or with a number after it when someone in the room has it already ("Joerg 2") */
+  /** `name`, or with a number after it when someone in the room has it already ("Bea 2") */
   private freeName(name: string, self?: string): string {
     const taken = new Set(this.players.filter((p) => p.id !== self).map((p) => p.name));
     if (!taken.has(name)) return name;

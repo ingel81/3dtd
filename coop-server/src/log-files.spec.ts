@@ -1,7 +1,7 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { expiredLogs, logFileName, stamp } from './log-files.ts';
-import { isLocalRequest } from './server.ts';
+import { addressOf, isLocalRequest } from './server.ts';
 
 describe('relay log files (D64, D66)', () => {
   const now = new Date(2026, 8, 25, 18, 4, 7);
@@ -24,5 +24,13 @@ describe('status page for the local network only (D66)', () => {
     expect(isLocalRequest('172.18.0.3', {})).toBe(true);
     expect(isLocalRequest('172.18.0.3', { 'cf-connecting-ip': '203.0.113.9' })).toBe(false);
     expect(isLocalRequest('203.0.113.9', {})).toBe(false);
+  });
+
+  it('takes the Cloudflare address only from the tunnel on the local network (security review 2026-09-27)', () => {
+    const request = (remote: string, cf?: string) =>
+      ({ socket: { remoteAddress: remote }, headers: cf ? { 'cf-connecting-ip': cf } : {} }) as unknown as Parameters<typeof addressOf>[0];
+    expect(addressOf(request('172.18.0.3', '203.0.113.9'))).toBe('203.0.113.9');
+    expect(addressOf(request('198.51.100.7', '203.0.113.9'))).toBe('198.51.100.7');
+    expect(addressOf(request('198.51.100.7'))).toBe('198.51.100.7');
   });
 });
