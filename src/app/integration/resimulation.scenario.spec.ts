@@ -49,6 +49,7 @@ import { mulberry32 } from '../utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { Resimulation } from '../simulator/resimulation';
 import { buildReplayFile, readReplayFile } from '../simulator/replay-file';
+import { STATE_HASH_VERSION } from '../simulator/state-hash';
 import { buildSimWorld } from './sim-world';
 
 const SEED = 0x51a1;
@@ -235,6 +236,28 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(other.refusal === null && other.note).toContain('v0.4.0');
     const same = readReplayFile(text, { worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
     expect(same.refusal === null && same.note).toBeNull();
+    expect(same.file!.waves[0].hashes.length).toBeGreaterThan(0);
+  });
+
+  it('plays a replay file with hashes of an older kind without checking them', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    playLive(world);
+    const head = { worldKey: gsm.worldKey(), configHash: 'balance', seed: 1, gameVersion: 'v0.4.0', commit: 'abc' };
+    // A file from before the hash version: none in it, the hashes read other state
+    const { hashVersion, ...old } = buildReplayFile(gsm.simRecorder.records, gsm.commandLog.entries, head);
+    expect(hashVersion).toBe(STATE_HASH_VERSION);
+    old.waves[0].hashes = old.waves[0].hashes.map((hash) => hash ^ 1);
+    const read = readReplayFile(JSON.stringify(old), { worldKey: head.worldKey, configHash: 'balance', gameVersion: 'v0.4.0' });
+    expect(read.refusal).toBeNull();
+    expect(read.refusal === null && read.note).toContain('older kind');
+
+    const resim = new Resimulation(gsm.resimHost, read.file!.waves[0], read.file!.log);
+    resim.start();
+    while (resim.step()) { /* to the end */ }
+    expect(resim.checkedHashes).toBe(0);
+    expect(resim.divergedAt).toBeNull();
+    resim.end();
   });
   it('re-simulates a wave of an ooze, a worm and splitting skeletons', () => {
     world = buildWorld();

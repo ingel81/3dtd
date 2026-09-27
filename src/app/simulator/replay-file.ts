@@ -1,6 +1,7 @@
 import type { CommandLogEntry } from '../managers/game-state/command-log';
 import { SIM_SNAPSHOT_VERSION } from './sim-snapshot';
 import { replayable, type WaveRecord } from './sim-recorder';
+import { STATE_HASH_VERSION } from './state-hash';
 
 /** Bumped whenever the file's shape changes; another version is refused. */
 export const REPLAY_FILE_VERSION = 1;
@@ -20,6 +21,11 @@ export interface ReplayFile {
   format: typeof FORMAT;
   version: number;
   snapshotVersion: number;
+  /**
+   * STATE_HASH_VERSION of the hashes in `waves`; missing in files before it
+   * came, which read as 1. Another version plays without its hashes checked.
+   */
+  hashVersion?: number;
   /** GameStateManager.worldKey of the world it was played on */
   worldKey: string;
   /** run-log/config-hash.ts: the balance it was played with */
@@ -56,6 +62,7 @@ export function buildReplayFile(
     format: FORMAT,
     version: REPLAY_FILE_VERSION,
     snapshotVersion: SIM_SNAPSHOT_VERSION,
+    hashVersion: STATE_HASH_VERSION,
     ...head,
     createdAt: now.toISOString(),
     waves: waves.map((w) => ({ ...w, logStart: w.logStart - from })),
@@ -69,7 +76,9 @@ export type ReplayFileRefusal = 'not-a-replay' | 'version' | 'other-world' | 'ot
 /**
  * Parse `text` and check it against the world and balance loaded now. A file
  * of another game version loads, with `note` naming the version it was saved
- * with: the code may have changed since, and the replay may then differ.
+ * with: the code may have changed since, and the replay may then differ. A
+ * file whose hashes read other state (hashVersion) loads without them, so
+ * the replay does not report a divergence that is none.
  */
 export function readReplayFile(
   text: string,
@@ -90,10 +99,16 @@ export function readReplayFile(
   if (data.worldKey !== here.worldKey) return { file: null, refusal: 'other-world' };
   if (data.configHash !== here.configHash) return { file: null, refusal: 'other-balance' };
   if (data.waves.length === 0) return { file: null, refusal: 'empty' };
-  const note = data.gameVersion && data.gameVersion !== here.gameVersion
-    ? `Saved with ${data.gameVersion}, this is ${here.gameVersion}: the replay may differ.`
-    : null;
-  return { file: data as ReplayFile, refusal: null, note };
+  const notes: string[] = [];
+  if (data.gameVersion && data.gameVersion !== here.gameVersion) {
+    notes.push(`Saved with ${data.gameVersion}, this is ${here.gameVersion}: the replay may differ.`);
+  }
+  const file = data as ReplayFile;
+  if ((data.hashVersion ?? 1) !== STATE_HASH_VERSION) {
+    notes.push('Its checksums are of an older kind: it plays without the divergence check.');
+    file.waves = file.waves.map((wave) => ({ ...wave, hashes: [] }));
+  }
+  return { file, refusal: null, note: notes.length > 0 ? notes.join(' ') : null };
 }
 
 /** What the player reads when a file does not load. */
