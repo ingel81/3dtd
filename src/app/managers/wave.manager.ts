@@ -124,6 +124,7 @@ export class WaveManager implements IGameManager {
    * built in a spec without a seed still works; the game wires the stream in
    * `GameStateManager.initialize()`.
    */
+  // eslint-disable-next-line no-restricted-properties -- fallback for specs; the game sets the spawn stream (setRandom)
   private random: () => number = () => Math.random();
 
   /** The seeded stream the run's spawns draw from. */

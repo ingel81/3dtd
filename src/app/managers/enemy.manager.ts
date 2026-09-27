@@ -93,6 +93,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    * `Math.random` for specs that build a manager without a seed; the game
    * wires the stream in `GameStateManager.initialize()`.
    */
+  // eslint-disable-next-line no-restricted-properties -- fallback for specs; the game sets the enemy stream (setRandom)
   private random: () => number = () => Math.random();
 
   /** The seeded stream the enemies' lane and altitude draw from. */

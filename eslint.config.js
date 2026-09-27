@@ -42,6 +42,36 @@ module.exports = defineConfig([
     },
   },
   {
+    // Coop lockstep (TODO E63 c): the simulation draws only from the run's seeded GameRng
+    // (gsm.rng.stream). Sound and pictures may use Math.random; they live in the ignored files.
+    files: [
+      "src/app/managers/**/*.ts",
+      "src/app/entities/**/*.ts",
+      "src/app/game-components/**/*.ts",
+      "src/app/utils/**/*.ts",
+      "src/app/services/combat/**/*.ts",
+      "src/app/director/**/*.ts",
+      "src/app/simulator/**/*.ts",
+      "src/app/coop/**/*.ts",
+    ],
+    ignores: [
+      "**/*.spec.ts",
+      "src/app/managers/audio/**",
+      "src/app/services/combat/combat-vfx.service.ts",
+      "src/app/utils/game-rng.ts",
+    ],
+    rules: {
+      "no-restricted-properties": [
+        "error",
+        {
+          object: "Math",
+          property: "random",
+          message: "Simulation code draws from the seeded GameRng (gsm.rng.stream), or coop runs apart. Sound and pictures only: disable with a reason.",
+        },
+      ],
+    },
+  },
+  {
     files: ["**/*.html"],
     extends: [
       angular.configs.templateRecommended,

@@ -250,6 +250,7 @@ export class Enemy extends GameObject {
     if (this.randomSoundLeftMs > 0) return;
     const minVol = this.typeConfig.randomSoundVolumeMin ?? 0.2;
     const maxVol = this.typeConfig.randomSoundVolumeMax ?? 0.6;
+    // eslint-disable-next-line no-restricted-properties -- sound only: volume of the call
     this.audio.play('randomSound', false, minVol + Math.random() * (maxVol - minVol));
     this.randomSoundLeftMs = this.nextRandomSoundInterval();
   }
@@ -257,6 +258,7 @@ export class Enemy extends GameObject {
   private nextRandomSoundInterval(): number {
     const minInterval = this.typeConfig.randomSoundMinInterval ?? 2000;
     const maxInterval = this.typeConfig.randomSoundMaxInterval ?? 5000;
+    // eslint-disable-next-line no-restricted-properties -- sound only: when an enemy calls, not part of the simulation
     return minInterval + Math.random() * (maxInterval - minInterval);
   }
 

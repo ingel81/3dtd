@@ -41,6 +41,7 @@ export interface ScheduleBuildConfig {
  * Build a SpawnSchedule from enemy groups and a pattern.
  */
 export function buildSpawnSchedule(config: ScheduleBuildConfig): SpawnSchedule {
+  // eslint-disable-next-line no-restricted-properties -- fallback for specs and ad-hoc debug waves; the game passes the spawn stream
   const random = config.random ?? Math.random;
   const validGroups = config.groups.filter(g => g.count > 0);
   if (validGroups.length === 0) {

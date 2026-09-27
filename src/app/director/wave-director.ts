@@ -49,6 +49,7 @@ export class WaveDirector {
    * `GameRng.reset()` throws its streams away, so a cached function would keep
    * drawing from the previous run's sequence.
    */
+  // eslint-disable-next-line no-restricted-properties -- fallback for specs; the game sets the director stream (useRandomSource)
   private randomSource: () => () => number = () => Math.random;
 
   // === SIGNALS ===

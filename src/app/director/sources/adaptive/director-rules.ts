@@ -144,6 +144,7 @@ export function decideWave(
   candidates: readonly number[],
   waveNumber: number,
   recent: readonly number[],
+  // eslint-disable-next-line no-restricted-properties -- fallback for specs; the game passes the run stream
   random: () => number = Math.random,
   tieBreak: TieBreak | null = null,
 ): DirectorDecision {
