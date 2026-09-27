@@ -488,6 +488,140 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     expect(compared).toBeGreaterThan(500);
   });
 
+  it('keeps host and joiner in step when the joiner has another clock, another Math.random and no tiles (E63 a)', () => {
+    const relay = new LocalRelay();
+    const { host, joiner } = hostAndJoiner(relay);
+    // While the joiner runs: its own presentation random stream and a wall clock
+    // that is offset and jumps, as another machine's would be
+    const joinerRandom = mulberry32(0xbad5eed);
+    const jump = mulberry32(99);
+    let clock = 5_000_000;
+    const perfNow = performance.now, dateNow = Date.now;
+    const joinerRun = joiner.run.bind(joiner);
+    joiner.run = <T>(fn: () => T): T => {
+      const random = Math.random;
+      Math.random = joinerRandom;
+      performance.now = () => (clock += 1 + jump() * 250);
+      Date.now = () => Math.floor(1.7e12 + (clock += 1 + jump() * 250));
+      try {
+        return joinerRun(fn);
+      } finally {
+        Math.random = random;
+        performance.now = perfNow;
+        Date.now = dateNow;
+      }
+    };
+
+    host.emit({ type: 'debug:add-credits', amount: 20000 });
+    joiner.emit({ type: 'debug:add-credits', amount: 20000 });
+    host.emit({ type: 'debug:ready-hero' });
+    host.emit({ type: 'debug:ready-ability', abilityId: 'frost-bomb' });
+    host.emit({ type: 'command:start-wave', director: directorWave() });
+    let waved = false;
+    for (let f = 0; f < 20000; f++) {
+      if (f === 40) joiner.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: 250 / M, lon: 10 / M, height: 0 } });
+      if (f === 60) host.emit({ type: 'command:hero-move', target: { lat: 200 / M, lon: 0 } });
+      if (f === 90) joiner.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: { lat: 150 / M, lon: 0 } });
+      if (f === 120) joiner.emit({ type: 'command:upgrade-tower', towerId: host.world.towers[1].id, upgradeId: 'speed' });
+      const lead = Math.max(host.gsm.subStep, joiner.gsm.subStep) + 3 * TICK_SUB_STEPS;
+      while ((relay.lastClosed + 1) * TICK_SUB_STEPS <= lead) relay.closeTick();
+      host.link.deliver();
+      if (jump() < 0.4) joiner.link.deliver(1 + Math.floor(jump() * 4));
+      host.frame(10 + ((f * 7) % 31));
+      joiner.frame(20 + ((f * 11) % 29));
+      const phase = host.gsm.waveManager.phase();
+      if (phase === 'wave') waved = true;
+      else if (waved && joiner.gsm.waveManager.phase() !== 'wave') break;
+    }
+    expect(waved).toBe(true);
+    // Both run up to the last closed tick
+    joiner.link.deliver();
+    const end = (relay.lastClosed + 1) * TICK_SUB_STEPS;
+    for (let i = 0; i < 20000 && (host.gsm.subStep < end || joiner.gsm.subStep < end); i++) { host.frame(40); joiner.frame(40); }
+    // The placed tower stands on both sides
+    expect(joiner.gsm.towerManager.getAll().length).toBe(host.gsm.towerManager.getAll().length);
+    expect(host.gsm.towerManager.getAll().length).toBe(9);
+    let compared = 0;
+    for (const [step, hash] of host.hashes) {
+      const other = joiner.hashes.get(step);
+      if (other === undefined) continue;
+      if (other !== hash) throw new Error(`diverged at sub-step boundary ${step}`);
+      compared++;
+    }
+    expect(compared).toBeGreaterThan(500);
+    expect(relay.divergences).toEqual([]);
+  });
+
+  it('spawns on the shared cells, not on the tiles, where the route carries no height (E63 b)', () => {
+    const relay = new LocalRelay(true);
+    const { host, joiner } = hostAndJoiner(relay);
+    // The routes start at height 0, so the spawn falls back to a ground lookup; the joiner's
+    // tiles answer another height there, as another machine's refinement would
+    (joiner.gsm.tilesEngine as unknown as { getTerrainHeightAtGeo: () => number }).getTerrainHeightAtGeo = () => 3.7;
+    host.emit({ type: 'command:start-wave', director: directorWave() });
+    let waved = false;
+    for (let f = 0; f < 20000; f++) {
+      relay.closeTick();
+      host.frame(40);
+      joiner.frame(40);
+      const phase = host.gsm.waveManager.phase();
+      if (phase === 'wave') waved = true;
+      else if (waved) break;
+    }
+    expect(waved).toBe(true);
+    let compared = 0;
+    for (const [step, hash] of host.hashes) {
+      const other = joiner.hashes.get(step);
+      if (other === undefined) continue;
+      if (other !== hash) throw new Error(`diverged at sub-step boundary ${step}`);
+      compared++;
+    }
+    expect(compared).toBeGreaterThan(500);
+  });
+
+  /**
+   * E63 i: state the hash does not read (status effects, targeting strategy, hold fire)
+   * changed on the joiner alone mid-wave. Returns after how many sub-steps the hashes part,
+   * null if they never do within the wave.
+   */
+  function detectionLatency(mutate: (joiner: Client) => void): number | null {
+    const relay = new LocalRelay(true);
+    const { host, joiner } = hostAndJoiner(relay);
+    host.emit({ type: 'command:start-wave', director: directorWave() });
+    let mutatedAt = -1;
+    let waved = false;
+    for (let f = 0; f < 20000; f++) {
+      relay.closeTick();
+      host.frame(40);
+      joiner.frame(40);
+      if (mutatedAt < 0 && joiner.gsm.enemyManager.aliveCount() >= 15) {
+        joiner.run(() => mutate(joiner));
+        mutatedAt = joiner.gsm.subStep;
+      }
+      const phase = host.gsm.waveManager.phase();
+      if (phase === 'wave') waved = true;
+      else if (waved) break;
+    }
+    expect(mutatedAt).toBeGreaterThan(0);
+    const steps = [...host.hashes.keys()].filter((s) => s >= mutatedAt && joiner.hashes.has(s)).sort((x, y) => x - y);
+    const first = steps.find((s) => host.hashes.get(s) !== joiner.hashes.get(s));
+    return first === undefined ? null : first - mutatedAt;
+  }
+
+  it('shows state outside the hash as a divergence once it acts on hashed state (E63 i)', () => {
+    const control = detectionLatency(() => undefined);
+    const slow = detectionLatency((j) => {
+      const enemy = j.gsm.enemyManager.getAlive()[0];
+      enemy.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 2000, startTime: j.gsm.gameTimeMs, sourceId: 'mutation' });
+    });
+    const holdFire = detectionLatency((j) => j.gsm.setTowerHoldFire(j.world.towers[0], true));
+    const targeting = detectionLatency((j) => { j.world.towers[1].targetingStrategy = 'last'; });
+    console.log(`E63 i detection latency in sub-steps: control ${control}, slow ${slow}, hold fire ${holdFire}, targeting ${targeting}`);
+    expect(control).toBeNull();
+    expect(slow).not.toBeNull();
+    expect(holdFire).not.toBeNull();
+  });
+
   it('refuses a package of another game version, other balance or no world at all', () => {
     const { source } = hostAndJoiner(new LocalRelay(true));
     const text = JSON.stringify(buildWorldPackage(source, HEAD));

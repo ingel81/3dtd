@@ -326,8 +326,16 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Path has pre-computed smoothed height - use it
       geoHeight = startPos.height;
     } else {
-      // Fallback: sample terrain height at spawn position
-      const localTerrainY = this.tilesEngine.getTerrainHeightAtGeo(startPos.lat, startPos.lon);
+      // Fallback: the ground under the spawn from the route grid, the frozen
+      // cells every coop client shares (TODO E63 b). The client's own tiles
+      // only where the grid has nothing: they refine differently per machine,
+      // and a spawn height from them stays in the enemy's eased terrainHeight.
+      let localTerrainY: number | null = null;
+      if (this.globalRouteGrid.isInitialized()) {
+        this.tilesEngine.sync.geoToLocalSimpleInto(startPos.lat, startPos.lon, 0, this._tempLocalPos);
+        localTerrainY = this.globalRouteGrid.getGroundLocalYAt(this._tempLocalPos.x, this._tempLocalPos.z);
+      }
+      localTerrainY ??= this.tilesEngine.getTerrainHeightAtGeo(startPos.lat, startPos.lon);
       // Convert local Y to geo height for proper round-trip through geoToLocalSimple
       // geoToLocalSimple does: Y = height - originHeight
       // So we need: geoHeight = localY + originHeight
