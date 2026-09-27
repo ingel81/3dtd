@@ -88,11 +88,13 @@ jobs:
           echo "play=${base}play/" >> "$GITHUB_OUTPUT"
 
       - name: Deploy game to /play/
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0, pinned: it gets the FTP secrets
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          # FTP over TLS: plain FTP sent the password in the clear (security review 2026-09-27)
+          protocol: ftps
           local-dir: ./dist/3DTD/browser/
           server-dir: ${{ steps.ftpdir.outputs.play }}
           # Sync-Modus: nur geänderte Dateien hochladen, alte löschen
@@ -111,11 +113,13 @@ jobs:
             **/node_modules/**
 
       - name: Deploy landing page to root
-        uses: SamKirkland/FTP-Deploy-Action@v4.4.0
+        uses: SamKirkland/FTP-Deploy-Action@110f9186c050f71550953127052e77650219c287 # v4.4.0, pinned: it gets the FTP secrets
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
+          # FTP over TLS: plain FTP sent the password in the clear (security review 2026-09-27)
+          protocol: ftps
           local-dir: ./landing/
           server-dir: ${{ steps.ftpdir.outputs.root }}
           dangerous-clean-slate: false
@@ -126,4 +130,5 @@ jobs:
             **/node_modules/**
             play/**
             media/hero.mp4
+            media/hero-coop.mp4
             media/raw-gameplay.mp4

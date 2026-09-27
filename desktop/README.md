@@ -57,7 +57,7 @@ its text. Download the draft installer, try it, then publish the draft as a norm
 release (not a pre-release). Publishing hands the update to installed copies and runs
 `deploy.yml`, which puts the same version of the web game and the landing page live. To
 test the update path locally, serve the output folder of a build with a higher version
-and start the app with `DTD_UPDATE_FEED=http://127.0.0.1:<port>`.
+and start the app with `DTD_UPDATE_FEED=http://127.0.0.1:<port>` (only a feed on this machine is taken).
 
 ## Things to know
 

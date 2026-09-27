@@ -271,6 +271,23 @@ function createWindow() {
 }
 
 /**
+ * The test feed from DTD_UPDATE_FEED, only on this machine (security review
+ * 2026-09-27): an installed app takes it too (the E34 run), and a variable
+ * set by something else must not point the updater at a foreign server.
+ */
+function updateFeedFrom(value) {
+  if (!value) return undefined;
+  try {
+    const { hostname } = new URL(value);
+    if (hostname === '127.0.0.1' || hostname === 'localhost' || hostname === '[::1]') return value;
+  } catch {
+    // not a URL
+  }
+  log.warn(`[updater] DTD_UPDATE_FEED ignored, only a feed on this machine is taken: ${value}`);
+  return undefined;
+}
+
+/**
  * Updates (E30 to E33). Packaged builds check GitHub Releases; an unpackaged
  * run only with DTD_UPDATE_FEED set, a generic update server for testing the
  * update path locally. The game hears of a downloaded update through the
@@ -278,7 +295,7 @@ function createWindow() {
  * the app's own page.
  */
 function setUpUpdates(getWindow) {
-  const feedUrl = process.env.DTD_UPDATE_FEED || undefined;
+  const feedUrl = updateFeedFrom(process.env.DTD_UPDATE_FEED);
   if (!app.isPackaged && !feedUrl) return;
 
   const updater = startUpdater({
