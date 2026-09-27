@@ -4,7 +4,7 @@
  * and it goes to the bot server as is.
  */
 
-import type { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import type { Enemy } from '../../../entities/enemy.entity';
 import type { GeoPosition } from '../../../models/game.types';
 import type { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
@@ -46,7 +46,7 @@ export class DecisionAim<T> {
 export const MAX_AIM_CANDIDATES = 48;
 
 /** Alive enemies with a path progress of at least `progress`, in manager order. */
-export function enemiesFromProgress(gameState: GameStateManager, progress: number): Enemy[] {
+export function enemiesFromProgress(gameState: BotWorld, progress: number): Enemy[] {
   const found: Enemy[] = [];
   for (const enemy of gameState.enemyManager.getAlive()) {
     if (enemy.movement.getPathProgress() >= progress) found.push(enemy);

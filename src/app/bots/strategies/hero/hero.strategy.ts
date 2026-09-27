@@ -23,7 +23,7 @@
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { HERO, type HeroAmmoId } from '../../../configs/hero.config';
 import { densestCenter } from '../ability/ability-aim';
 import { haversineDistance } from '../../../utils/geo-utils';
@@ -38,7 +38,7 @@ const REORDER_DISTANCE_M = HERO.leashM * 2;
 const ARMOR_SHARE = 0.4;
 
 export class HeroStrategy extends BaseStrategy {
-  constructor(private gameState: GameStateManager) {
+  constructor(private gameState: BotWorld) {
     super('Hero', 85);
   }
 

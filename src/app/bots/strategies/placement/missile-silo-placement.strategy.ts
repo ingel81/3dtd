@@ -22,14 +22,14 @@ import { GameStateSnapshot } from '../../../director/models/game-state-snapshot'
 import { TowerAction } from '../../bots/tower-bot.interface';
 import { TOWER_TYPES, type TowerTypeId } from '../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 
 const SILO: TowerTypeId = 'missile-silo';
 
 export class MissileSiloPlacementStrategy extends BaseStrategy {
   constructor(
     private readonly strategicPlacement: StrategicPlacementService,
-    private readonly gameState: GameStateManager,
+    private readonly gameState: BotWorld,
   ) {
     super('MissileSiloPlacement', 91);
   }

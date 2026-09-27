@@ -33,7 +33,7 @@ import { BaseStrategy } from '../tower-strategy.interface';
 import { requiredUpgradeTier } from '../../../configs/tower-types.config';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { OsmStreetService } from '../../../services/location/osm-street.service';
 
 /**
@@ -44,7 +44,7 @@ const UPGRADE_CANDIDATE_COUNT = 8;
 
 export class PathCoverageUpgradeStrategy extends BaseStrategy {
   constructor(
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private osmService: OsmStreetService
   ) {
     super('PathCoverageUpgrade', 75);

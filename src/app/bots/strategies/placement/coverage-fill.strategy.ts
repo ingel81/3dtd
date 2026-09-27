@@ -11,7 +11,7 @@ import { GameStateSnapshot } from '../../../director/models/game-state-snapshot'
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { canExecutePlacement } from './placement-budget';
 
 export class CoverageFillStrategy extends BaseStrategy {
@@ -19,7 +19,7 @@ export class CoverageFillStrategy extends BaseStrategy {
 
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private config: BotConfig
   ) {
     super('CoverageFill', 60);

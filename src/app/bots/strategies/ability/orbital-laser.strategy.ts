@@ -21,7 +21,7 @@
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import {
   ABILITIES,
   type AbilityEffect,
@@ -62,7 +62,7 @@ export class OrbitalLaserStrategy extends BaseStrategy {
   /** Speed of each alive enemy, in getAlive() order; reused per aim */
   private readonly speeds: number[] = [];
 
-  constructor(private readonly gameState: GameStateManager) {
+  constructor(private readonly gameState: BotWorld) {
     super('OrbitalLaser', 93);
   }
 

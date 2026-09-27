@@ -15,7 +15,7 @@
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { ABILITIES } from '../../../configs/abilities.config';
 import { DecisionAim, densestCenter, enemiesFromProgress } from './ability-aim';
 
@@ -29,7 +29,7 @@ export class FrostBombStrategy extends BaseStrategy {
 
   private readonly decision = new DecisionAim<ReturnType<typeof densestCenter>>();
 
-  constructor(private readonly gameState: GameStateManager) {
+  constructor(private readonly gameState: BotWorld) {
     super('FrostBomb', 96);
   }
 

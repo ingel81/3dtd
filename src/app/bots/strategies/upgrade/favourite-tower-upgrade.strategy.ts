@@ -25,7 +25,7 @@ import { BaseStrategy } from '../tower-strategy.interface';
 import { requiredUpgradeTier } from '../../../configs/tower-types.config';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 
 /**
  * Credits a beginner keeps beside the price before spending.
@@ -36,7 +36,7 @@ import { GameStateManager } from '../../../managers/game-state.manager';
 const CUSHION = 1.5;
 
 export class FavouriteTowerUpgradeStrategy extends BaseStrategy {
-  constructor(private gameState: GameStateManager) {
+  constructor(private gameState: BotWorld) {
     super('FavouriteTowerUpgrade', 70);
   }
 

@@ -77,6 +77,12 @@ export interface BotSignals {
   readonly botSkillLevel: WritableSignal<BotSkillLevel>;
   readonly botStats: WritableSignal<{ towersPlaced: number; goldSpent: number }>;
   readonly botAutoMode: WritableSignal<boolean>;
+  /**
+   * The bot plays one seat of a coop room (`?devworld&bot=coop`): only once
+   * the room's game runs, only its own lane, towers and gold, and it says
+   * ready for the next wave. No bot server (docs/COOP_PLAN.md, D24).
+   */
+  readonly botCoop: WritableSignal<boolean>;
 }
 
 @Injectable() // Provided in TowerDefenseComponent alongside StateSnapshotService
@@ -95,6 +101,7 @@ export class BotClientService implements BotSignals {
   readonly botSkillLevel = signal<BotSkillLevel>('expert');
   readonly botStats = signal({ towersPlaced: 0, goldSpent: 0 });
   readonly botAutoMode = signal(false);
+  readonly botCoop = signal(false);
 
   // === LAZY SESSION ===
   private deps: BotDeps | null = null;

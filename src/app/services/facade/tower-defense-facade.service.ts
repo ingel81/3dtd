@@ -195,7 +195,14 @@ export class TowerDefenseFacadeService {
     const params = new URLSearchParams(window.location.search);
     const botMode = params.get('bot');
 
-    if (this.devWorld.isActive) {
+    if (this.devWorld.isActive && botMode === 'coop') {
+      // One seat of a coop room (e2e/coop-bots): no bot server, whose
+      // controls and restarts belong to single player runs. The bot waits for
+      // the room's game (BotSignals.botCoop).
+      this.store.directorEnabled.set(true);
+      this.botClient.botCoop.set(true);
+      this.botClient.enableBot('expert');
+    } else if (this.devWorld.isActive) {
       this.store.directorEnabled.set(true);
       this.botClient.connectToBackend();
       // DevWorld exists to train against the backend, so the bot runs waves on

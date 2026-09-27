@@ -15,12 +15,12 @@ import { GameStateSnapshot } from '../../../director/models/game-state-snapshot'
 import { TowerAction } from '../../bots/tower-bot.interface';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 
 export class ResearchCenterPlacementStrategy extends BaseStrategy {
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
   ) {
     super('ResearchCenterPlacement', 95);
   }

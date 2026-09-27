@@ -16,6 +16,7 @@ import { GameStateSnapshot } from '../director/models/game-state-snapshot';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { ITowerBot, TowerAction, BotSkillLevel } from './bots/tower-bot.interface';
 import { StrategyBotFactory } from './bots/strategy-bot.factory';
+import { PlayerBotWorld } from './bot-world';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 import { GeoPosition } from '../models/game.types';
 import { GameStateManager } from '../managers/game-state.manager';
@@ -90,6 +91,8 @@ export class BotSession {
   // === BOT STATE ===
   private currentBot: ITowerBot | null = null;
   private readonly botFactory: StrategyBotFactory;
+  /** What the bot sees: the whole game alone, its own lane, towers and gold in coop */
+  private readonly world: PlayerBotWorld;
 
   // === EXTERNAL DEPENDENCIES ===
   private readonly gameState: GameStateManager;
@@ -110,9 +113,10 @@ export class BotSession {
     this.callbacks = deps.callbacks;
     this.runLog = deps.runLog;
 
+    this.world = new PlayerBotWorld(deps.gameState);
     this.botFactory = new StrategyBotFactory(
       deps.strategicPlacement,
-      deps.gameState,
+      this.world,
       deps.osmService
     );
   }
@@ -125,7 +129,7 @@ export class BotSession {
   enableBot(skillLevel: BotSkillLevel): void {
     this.currentBot = this.botFactory.createBot(
       skillLevel,
-      this.signals.botAutoMode() // autoStartWaves
+      this.signals.botAutoMode() || this.signals.botCoop() // autoStartWaves
     );
     this.signals.botEnabled.set(true);
     this.signals.botSkillLevel.set(skillLevel);
@@ -163,6 +167,9 @@ export class BotSession {
     if (!this.signals.botEnabled() || !this.currentBot) return false;
     // Towers and waves wait for the corridor build of a new location (CorridorBuild).
     if (this.gameState.corridorPending()) return false;
+    // A coop bot plays the room's game, not the single player game of the
+    // lobby behind it: its moves there would be gone with the room's start.
+    if (this.signals.botCoop() && !this.world.coop) return false;
 
     const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'wave') return false;
@@ -175,7 +182,7 @@ export class BotSession {
     if (!this.currentBot.tickCooldown(deltaTime)) return false;
 
     // Cooldown already advanced above, so pass 0 to avoid double-ticking.
-    const action = this.currentBot.update(getSnapshot(), 0);
+    const action = this.currentBot.update(this.world.view(getSnapshot()), 0);
     if (action) {
       this.executeBotAction(action);
       return true;
@@ -303,6 +310,11 @@ export class BotSession {
       case 'start-wave': {
         // Auto-start next wave (only if in setup phase!)
         const currentPhase = this.store.phase();
+        // Coop: the wave button, like a player's. It says ready (the host's
+        // client starts the wave once everyone is, D15) or, where the room
+        // leaves the start to the host, starts it. It toggles, so a bot that
+        // said ready waits for the wave rather than taking it back.
+        if (this.world.coop && this.gameState.isReady(this.gameState.localPlayerId)) break;
         if (currentPhase === 'setup') {
           this.callbacks.startWave();
         } else {

@@ -23,7 +23,7 @@
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { ABILITIES } from '../../../configs/abilities.config';
 import type { GeoPosition } from '../../../models/game.types';
 import { DecisionAim, densestCenter, enemyAhead, type Positioned } from './ability-aim';
@@ -48,7 +48,7 @@ export class NuclearStrikeStrategy extends BaseStrategy {
 
   private readonly decision = new DecisionAim<StrikeAim>();
 
-  constructor(private readonly gameState: GameStateManager) {
+  constructor(private readonly gameState: BotWorld) {
     super('NuclearStrike', 97);
   }
 

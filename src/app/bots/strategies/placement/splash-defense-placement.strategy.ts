@@ -12,13 +12,13 @@ import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TowerTypeId } from '../../../configs/tower-types.config';
 import { ARMOR_TYPES } from '../../../configs/combat/combat.types';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { isSplashTower } from '../../../director/defense-analyzer';
 
 export class SplashDefensePlacementStrategy extends BaseStrategy {
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private config: BotConfig
   ) {
     super('SplashDefensePlacement', 85);

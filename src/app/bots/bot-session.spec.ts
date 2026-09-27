@@ -36,7 +36,7 @@ function createSession(phase = 'wave') {
   });
   // Der Service ist hier nur Halter der Signale, in die die Session schreibt.
   const client = runInInjectionContext(injector, () => new BotClientService());
-  const deps = { gameState: { corridorPending: () => corridor.building } } as unknown as BotDeps;
+  const deps = { gameState: { corridorPending: () => corridor.building, players: ['local'] } } as unknown as BotDeps;
   const session = runInInjectionContext(injector, () => new BotSession(client, deps));
   const bot = new TestBot();
   // enableBot() would build a real strategy bot; updateBot only needs a bot.
@@ -134,7 +134,7 @@ describe('BotSession bot actions', () => {
       ],
     });
     const client = runInInjectionContext(injector, () => new BotClientService());
-    const deps = { gameState: { getEventBus: () => bus, corridorPending: () => false } } as unknown as BotDeps;
+    const deps = { gameState: { getEventBus: () => bus, corridorPending: () => false, players: ['local'] } } as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
     (session as unknown as { currentBot: ITowerBot | null }).currentBot = new StrikeBot();
     client.botEnabled.set(true);
@@ -162,7 +162,7 @@ describe('BotSession run config', () => {
     const rng = { useNextSeed: vi.fn(), reset: vi.fn() };
     const restartGame = vi.fn();
     const deps = {
-      gameState: { corridorPending: () => false, rng },
+      gameState: { corridorPending: () => false, players: ['local'], rng },
       callbacks: { restartGame },
     } as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
@@ -205,5 +205,66 @@ describe('BotSession run config', () => {
 
     expect(restartGame).toHaveBeenCalledTimes(1);
     vi.useRealTimers();
+  });
+});
+
+describe('BotSession in a coop room (bot=coop)', () => {
+  class WaveBot extends BaseTowerBot {
+    decisions = 0;
+    constructor() {
+      super('expert', { reactionTimeMs: 400 }, 'WaveBot');
+    }
+    protected decideAction(_state: GameStateSnapshot): TowerAction | null {
+      this.decisions++;
+      return { type: 'start-wave', reason: 'test' };
+    }
+  }
+
+  /** A coop bot's session; `players` of the run, `ready` whether the local one said ready */
+  function coopSession(players: string[], ready = false) {
+    const injector = Injector.create({
+      providers: [
+        { provide: StateSnapshotService, useValue: {} },
+        { provide: TowerDefenseStore, useValue: { phase: signal('setup') } },
+      ],
+    });
+    const client = runInInjectionContext(injector, () => new BotClientService());
+    const startWave = vi.fn();
+    const gameState = {
+      corridorPending: () => false,
+      players,
+      localPlayerId: players[0],
+      isReady: () => ready,
+      towerManager: { getAll: () => [] },
+      creditsOf: () => 0,
+      researchOf: () => ({ airTargetingUnlocked: false }),
+      heroOf: () => ({ getDefenseProfile: () => null }),
+    };
+    const deps = { gameState, callbacks: { startWave } } as unknown as BotDeps;
+    const session = runInInjectionContext(injector, () => new BotSession(client, deps));
+    const bot = new WaveBot();
+    (session as unknown as { currentBot: ITowerBot | null }).currentBot = bot;
+    client.botEnabled.set(true);
+    client.botCoop.set(true);
+    return { session, bot, startWave };
+  }
+
+  it('does nothing in the single player game of the lobby', () => {
+    const { session, bot } = coopSession(['local']);
+    session.updateBot(() => ({}) as GameStateSnapshot, STEP_MS);
+    expect(bot.decisions).toBe(0);
+  });
+
+  it('says ready through the wave button once the room plays', () => {
+    const { session, startWave } = coopSession(['host', 'guest']);
+    session.updateBot(() => ({ player: {} }) as GameStateSnapshot, STEP_MS);
+    expect(startWave).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not take a ready back: the button toggles', () => {
+    const { session, bot, startWave } = coopSession(['host', 'guest'], true);
+    session.updateBot(() => ({ player: {} }) as GameStateSnapshot, STEP_MS);
+    expect(bot.decisions).toBe(1);
+    expect(startWave).not.toHaveBeenCalled();
   });
 });

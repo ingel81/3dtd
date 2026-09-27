@@ -11,12 +11,12 @@ import { GameStateSnapshot } from '../../../director/models/game-state-snapshot'
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 
 export class AntiAirPlacementStrategy extends BaseStrategy {
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private config: BotConfig
   ) {
     super('AntiAirPlacement', 90);

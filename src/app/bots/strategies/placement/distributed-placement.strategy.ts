@@ -12,7 +12,7 @@ import { GameStateSnapshot } from '../../../director/models/game-state-snapshot'
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { Tower } from '../../../entities/tower.entity';
 import { canExecutePlacement } from './placement-budget';
 
@@ -21,7 +21,7 @@ export class DistributedPlacementStrategy extends BaseStrategy {
 
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private config: BotConfig
   ) {
     super('DistributedPlacement', 65);

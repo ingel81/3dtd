@@ -22,7 +22,7 @@ import { GameStateSnapshot } from '../../../director/models/game-state-snapshot'
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { isAntiEtherealTower } from '../../../director/defense-analyzer';
 import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 
 /**
  * Start covering ethereal a few waves before the campaign's first ethereal
@@ -33,7 +33,7 @@ const MIN_WAVE = 9;
 export class AntiEtherealPlacementStrategy extends BaseStrategy {
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private config: BotConfig
   ) {
     super('AntiEtherealPlacement', 88);

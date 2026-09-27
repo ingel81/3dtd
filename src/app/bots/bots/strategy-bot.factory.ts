@@ -8,7 +8,7 @@ import { StrategyBot } from './strategy-bot';
 import { BotSkillLevel, BOT_CONFIGS, BotConfig } from './tower-bot.interface';
 import { ITowerStrategy } from '../strategies/tower-strategy.interface';
 import { StrategicPlacementService } from '../../services/world/strategic-placement.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import type { BotWorld } from '../bot-world';
 import { OsmStreetService } from '../../services/location/osm-street.service';
 
 // Strategy imports
@@ -33,7 +33,7 @@ import { HeroStrategy } from '../strategies/hero/hero.strategy';
 export class StrategyBotFactory {
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private osmService: OsmStreetService
   ) {}
 

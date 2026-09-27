@@ -101,6 +101,16 @@ export class CoopRoom {
     return true;
   }
 
+  /** The spawn point id of `playerId`'s lane; null without one */
+  laneSpawnOf(playerId: string): string | null {
+    return this.laneOf.get(playerId) ?? null;
+  }
+
+  /** `playerId` said ready for the next wave (setReady) */
+  isReady(playerId: string): boolean {
+    return this.ready.has(playerId);
+  }
+
   /** Every player still in the run is ready for the next wave. */
   allReady(): boolean {
     return this.host.players().every((playerId) => this.left.has(playerId) || this.ready.has(playerId));

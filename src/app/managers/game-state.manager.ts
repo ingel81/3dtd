@@ -585,6 +585,11 @@ export class GameStateManager {
     return this.room.laneSpawns;
   }
 
+  /** Coop: the spawn point id of `playerId`'s lane; null without one */
+  laneSpawnOf(playerId: string): string | null {
+    return this.room.laneSpawnOf(playerId);
+  }
+
   /** A player is ready for the next wave, or no longer (command:set-ready), see CoopRoom.setReady */
   setReady(playerId: string, ready: boolean): void {
     this.room.setReady(playerId, ready);
@@ -593,6 +598,11 @@ export class GameStateManager {
   /** Coop: `from` sends `amount` of their gold to `to` (command:give-credits), see CoopRoom.giveCredits */
   giveCredits(from: string, to: string, amount: number): boolean {
     return this.room.giveCredits(from, to, amount);
+  }
+
+  /** Coop: `playerId` said ready for the next wave (setReady) */
+  isReady(playerId: string): boolean {
+    return this.room.isReady(playerId);
   }
 
   /** Every player still in the run is ready for the next wave. */

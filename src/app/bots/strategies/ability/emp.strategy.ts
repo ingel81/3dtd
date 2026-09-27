@@ -16,7 +16,7 @@
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { ABILITIES } from '../../../configs/abilities.config';
 import type { Enemy } from '../../../entities/enemy.entity';
 import { DecisionAim, densestCenter, enemiesFromProgress } from './ability-aim';
@@ -41,7 +41,7 @@ export class EmpStrategy extends BaseStrategy {
 
   private readonly decision = new DecisionAim<EmpAim>();
 
-  constructor(private readonly gameState: GameStateManager) {
+  constructor(private readonly gameState: BotWorld) {
     super('Emp', 94);
   }
 

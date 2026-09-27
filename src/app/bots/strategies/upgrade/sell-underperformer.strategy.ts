@@ -21,7 +21,7 @@ import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { Tower } from '../../../entities/tower.entity';
 
 export class SellUnderperformerStrategy extends BaseStrategy {
@@ -32,7 +32,7 @@ export class SellUnderperformerStrategy extends BaseStrategy {
   private readonly sellCooldownMs = 4000; // not too spammy
 
   constructor(
-    private gameState: GameStateManager,
+    private gameState: BotWorld,
     private config: BotConfig,
   ) {
     super('SellUnderperformer', 72);
