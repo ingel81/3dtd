@@ -6,7 +6,7 @@
  * The real ConfigService with a production build's environment (no
  * credentials, mocked below) and jsdom's localStorage; the real
  * TokenSetupComponent template (read from disk) with its document Esc
- * listener. The sidebar's "Map Key" is GameSidebarComponent.openTokenSetup,
+ * listener. "Map key" in the game menu is GameMenuComponent.openMapKey,
  * which only sets config.setupRequested; the game shows the screen while
  * `awaitingCredentials() || credentialsRejected() || setupRequested()`
  * (tower-defense.component.html:50), and sets awaitingCredentials on start
@@ -90,7 +90,7 @@ describe('Map Key and the token screen, playtest 161 (night 1) replayed', () => 
     expect(config.needsCredentials()).toBe(false);
     expect(screenShown(config, false)).toBe(false);
 
-    // "Map Key" in the sidebar footer
+    // "Map key" in the game menu (TODO A3; the sidebar footer before)
     config.setupRequested.set(true);
     expect(screenShown(config, false)).toBe(true);
     render();

@@ -19,7 +19,7 @@ import { DomSanitizer, SafeHtml } from '@angular/platform-browser';
 export type TdIconName =
   | 'heart' | 'coin' | 'wave' | 'sword' | 'tower' | 'target' | 'bolt' | 'flame'
   | 'flask' | 'shield' | 'skull' | 'bug' | 'pin' | 'flag' | 'home' | 'search'
-  | 'caret' | 'caretL' | 'caretR' | 'caretU' | 'play' | 'pause' | 'stop'
+  | 'caret' | 'caretL' | 'caretR' | 'caretU' | 'play' | 'pause' | 'stop' | 'power'
   | 'cog' | 'eye' | 'eyeOff' | 'speed' | 'fullscreen' | 'layers' | 'grid'
   | 'audio' | 'audioOff' | 'music' | 'build' | 'refresh' | 'text' | 'bulb' | 'user'
   | 'sliders' | 'chart' | 'share' | 'filing' | 'case' | 'cross' | 'check'
@@ -79,7 +79,8 @@ const ICONS: Record<TdIconName, IconDef> = {
   caretR: { body: '<path d="M9 6l6 6-6 6" />' },
   play: { body: '<path d="M7 4v16l13-8L7 4Z" />' },
   pause: { body: '<path d="M7 4h4v16H7zM13 4h4v16h-4z" />' },
-  cog: { body: '<circle cx="12" cy="12" r="3" /><path d="M12 2v3M12 19v3M22 12h-3M5 12H2M19 5l-2 2M7 17l-2 2M19 19l-2-2M7 7 5 5" />' },
+  // A gear with teeth (Lucide "settings", ISC); the rays of the old one read as a sun
+  cog: { body: '<path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" /><circle cx="12" cy="12" r="3" />' },
   eye: { body: '<path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12Z" /><circle cx="12" cy="12" r="3" />' },
   eyeOff: { body: '<path d="m3 3 18 18M6 6c-2 2-4 6-4 6s4 7 10 7c2 0 4-1 5-2M9 5c1 0 2-.5 3-.5 6 0 10 7 10 7s-1 2-3 4" /><path d="M10 10a3 3 0 0 0 4 4" />' },
   speed: { body: '<path d="M4 16a8 8 0 0 1 16 0" /><path d="m12 16 5-5" />' },
@@ -114,6 +115,7 @@ const ICONS: Record<TdIconName, IconDef> = {
   // === additions for full mat-icon migration ===
   caretU: { body: '<path d="M6 15l6-6 6 6" />' },
   stop: { body: '<rect x="6" y="6" width="12" height="12" rx="1" />' },
+  power: { body: '<path d="M12 3v9" /><path d="M6.3 6.3a8 8 0 1 0 11.4 0" />' },
   lock: { body: '<rect x="5" y="11" width="14" height="9" rx="1" /><path d="M8 11V8a4 4 0 0 1 8 0v3" />' },
   bookmark: { body: '<path d="M6 4h12v18l-6-4-6 4Z" />' },
   plus: { body: '<path d="M12 5v14M5 12h14" />' },

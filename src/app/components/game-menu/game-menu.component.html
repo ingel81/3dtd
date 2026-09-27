@@ -1,0 +1,67 @@
+<div class="gm" role="document">
+  <div class="gm-header">
+    <td-icon class="gm-header-icon" name="cog" [size]="16"></td-icon>
+    <h2 id="td-game-menu-title">Menu</h2>
+    <span class="gm-version">{{ version }}</span>
+  </div>
+
+  @if (confirmingQuit()) {
+    <div class="gm-confirm">
+      <p class="gm-confirm-text">Quit 3DTD? This ends the game under way.</p>
+      @if (inCoop()) {
+        <p class="gm-confirm-text gm-muted">Your partners play on without you; your lane closes.</p>
+      }
+      <div class="gm-confirm-actions">
+        <button class="gm-btn gm-btn-danger" type="button" (click)="quit()" cdkFocusInitial>Quit</button>
+        <button class="gm-btn" type="button" (click)="cancelQuit()">Cancel</button>
+      </div>
+    </div>
+  } @else {
+    @if (inCoop()) {
+      <p class="gm-note">The game runs on while you are here: it is everyone's.</p>
+    }
+    <div class="gm-list">
+      <button class="gm-item" type="button" (click)="toggleFullscreen()" [attr.aria-pressed]="fullscreen()">
+        <td-icon name="fullscreen" [size]="14"></td-icon>
+        <span class="gm-label">{{ fullscreen() ? 'Leave fullscreen' : 'Fullscreen' }}</span>
+        <kbd class="gm-key">F11</kbd>
+      </button>
+
+      <div class="gm-item gm-volume">
+        <button class="gm-icon-btn" type="button" (click)="toggleMute()"
+                [attr.aria-pressed]="ui.masterMuted()" aria-label="Mute all">
+          <td-icon [name]="ui.masterMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
+        </button>
+        <input type="range" class="gm-slider" min="0" max="100" step="1" aria-label="Master volume"
+               [value]="ui.masterVolume() * 100" (input)="onVolume($event)">
+        <kbd class="gm-key">M</kbd>
+      </div>
+
+      <button class="gm-item" type="button" (click)="openMapKey()">
+        <td-icon name="lock" [size]="14"></td-icon>
+        <span class="gm-label">Map key</span>
+      </button>
+      <button class="gm-item" type="button" (click)="openWhatsNew()">
+        <td-icon name="star" [size]="14"></td-icon>
+        <span class="gm-label">What's new</span>
+      </button>
+      <button class="gm-item" type="button" (click)="openKeys()">
+        <td-icon name="keyboard" [size]="14"></td-icon>
+        <span class="gm-label">Keys</span>
+        <kbd class="gm-key">H</kbd>
+      </button>
+      <button class="gm-item" type="button" (click)="openAttributions()">
+        <td-icon name="copyright" [size]="14"></td-icon>
+        <span class="gm-label">Attributions</span>
+      </button>
+
+      @if (canQuit) {
+        <div class="gm-sep" role="separator"></div>
+        <button class="gm-item gm-quit" type="button" (click)="quit()">
+          <td-icon name="power" [size]="14"></td-icon>
+          <span class="gm-label">Quit 3DTD</span>
+        </button>
+      }
+    </div>
+  }
+</div>

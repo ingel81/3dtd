@@ -95,8 +95,8 @@ the players the relay restarts (close code 1012) instead of a lost connection; g
 
 What the relay sees: the name a player types, the room code, which engine and system the client runs on (for the
 coop warning about mixed engines), the commands of the game, and the address a connection comes from (behind the
-tunnel the one Cloudflare passes on). What it keeps: a log per day with times, room codes and names, deleted after 14
-days. The address is only counted in memory while the connection is open, to limit how many one machine opens; it is
+tunnel the one Cloudflare passes on). What it keeps: a log per day with times, room codes, names and each client's engine and system, deleted after
+14 days. The address is only counted in memory while the connection is open, to limit how many one machine opens; it is
 never logged or written anywhere.
 
 With `--collect-runs`, and only for a player who agreed in the game, the relay also keeps that player's run log of a
@@ -108,7 +108,7 @@ A paragraph for the privacy notice of the landing page:
 
 > **Online coop.** If you play coop online, your game connects to our lobby server (3dtd-lobby.sgeht.net, run through
 > Cloudflare). It passes your moves to the other players of your room. The server keeps a log with the time, the room
-> code and the name you chose, for 14 days, to find errors; it does not store IP addresses. Cloudflare processes the
+> code, the name you chose and which browser engine and system your game runs on, for 14 days, to find errors; it does not store IP addresses. Cloudflare processes the
 > connection as our network provider. Coop on the same network (LAN) does not use the lobby. If you agree after a
 > game, the server also keeps your run log (the names in the game, the place you played, your moves and numbers) for
 > 90 days, to find errors and improve the game; you can change that in the Runs window.

@@ -6,6 +6,7 @@ import {
   inject,
   computed,
   ChangeDetectionStrategy,
+  Injector,
 } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -20,11 +21,9 @@ import {
 import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
-import { openAttributionsDialog } from '../attributions-dialog/open-attributions-dialog';
 import { openRunsDialog } from '../runs-dialog/open-runs-dialog';
 import { WhatsNewService } from '../../services/onboarding/whats-new.service';
-import { openHotkeyHelpDialog } from '../hotkey-help-dialog/open-hotkey-help-dialog';
-import { ConfigService } from '../../core/services/config.service';
+import { openGameMenu } from '../game-menu/open-game-menu';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { OnboardingService } from '../../services/onboarding/onboarding.service';
@@ -68,8 +67,8 @@ import { UIStore } from '../../store/ui.store';
 })
 export class GameSidebarComponent implements OnDestroy {
   private readonly dialog = inject(MatDialog);
+  private readonly injector = inject(Injector);
 
-  private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly whatsNew = inject(WhatsNewService);
   private readonly onboarding = inject(OnboardingService);
@@ -132,18 +131,7 @@ export class GameSidebarComponent implements OnDestroy {
   }
 
   /** The shortcut overview, the same dialog as H and ?. */
-  openHotkeys(): void {
-    void openHotkeyHelpDialog(this.dialog);
-  }
 
-  /** Open the tile-credentials screen (swap or clear the stored key). */
-  openTokenSetup(): void {
-    this.config.setupRequested.set(true);
-  }
-
-  openAttributions(): void {
-    void openAttributionsDialog(this.dialog);
-  }
 
   /** Coop: the room dock (docs/COOP_PLAN.md, D41); the header chip and Tab open it as well. */
   openCoop(): void {
@@ -158,5 +146,10 @@ export class GameSidebarComponent implements OnDestroy {
   /** The version in the footer opens "What's new" with every release */
   openWhatsNew(): void {
     this.whatsNew.open();
+  }
+
+  /** The game menu (TODO A3): fullscreen, volume, notes, keys, credits, Quit in the app */
+  openMenu(): void {
+    void openGameMenu(this.dialog, this.injector);
   }
 }

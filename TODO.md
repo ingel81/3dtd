@@ -41,6 +41,13 @@ allem unter T (Coop).
 - [ ] **A2 Tentacle-Sound ersetzen** (Security-Review 2026-09-27, User: ersetzen): `tentacle-01.mp3` trägt ID3-Tags
       aus „The Odyssey Collection: Expanded“ (Liquid FX), eine Lizenz ist nicht belegt. Neu mit ElevenLabs über die
       Sound-Auswahlseite (`tmp/sound-audition`), User wählt, alte Datei raus.
+- [ ] **A3 Spielmenü mit Zahnrad und Esc** (User, 2026-09-27): Zahnrad unten rechts im Sidebar-Fuß, Esc öffnet es,
+      wenn Esc sonst nichts zu tun hat (kein Dialog, kein bemannter Turm). Einträge: Vollbild (F11), Lautstärke (M),
+      What's new, Attributions; nur in der Desktop-App „Quit 3DTD“, im laufenden Spiel mit Rückfrage (im Coop: der Raum
+      verliert dich). Im Browser Vollbild über die Fullscreen-API, ohne Quit.
+- [ ] **A4 Update-Hinweis über modalen Dialogen** (Test 2026-09-27, **gebaut**): 0.5.0-beta.2 bot 0.5.0 an, aber der
+      Standortdialog des ersten Starts schluckte den Klick auf „Restart now“. Der Hinweis hängt jetzt im CDK-Overlay über
+      allen Dialogen (`update-hint.component.ts`, Spec). Geht mit dem nächsten Release raus.
 - [ ] **E1 Balancing aufrollen**: Phase 1 und 2 sind gebaut, die Baseline steht (354 Läufe, 2026-09-21), sechs
       Tuning-Runden sind gelaufen. Offen sind die Zielbänder (3b) und das Kampagnenende (3a),
       [docs/BALANCING_PLAN.md](docs/BALANCING_PLAN.md).

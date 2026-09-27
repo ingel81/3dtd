@@ -195,7 +195,7 @@
     <a href="#places">Places</a>
     <a href="#media">Videos</a>
     <a href="#key">Token</a>
-    <a href="https://github.com/ingel81/3dtd">GitHub</a>
+    <a class="gh" href="https://github.com/ingel81/3dtd" aria-label="Source on GitHub" title="Source on GitHub"><svg class="gh-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
     <a class="btn btn--primary btn--sm" href="/play/">Play</a>
   </nav>
 </header>
@@ -228,7 +228,7 @@
         <a class="btn btn--primary btn--windows" href="https://github.com/ingel81/3dtd/releases/latest/download/3DTD-win-x64-setup.exe">Download for Windows</a>
         <a class="btn btn--linux" href="https://github.com/ingel81/3dtd/releases/latest/download/3DTD-linux-x64.AppImage">Download for Linux</a>
         <a class="btn btn--browser" href="/play/">Try it in your browser</a>
-        <a class="btn" href="https://github.com/ingel81/3dtd">Source on GitHub</a>
+        <a class="btn btn--gh" href="https://github.com/ingel81/3dtd"><svg class="gh-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>Source</a>
       </div>
       <p class="need need-app">The desktop app is the way to play: co-op lives there, everyone runs the same engine, and it keeps itself up to date. The browser version is for a quick look, solo.</p>
       <p class="mobile-note"><b>Desktop only</b>This does not run on a phone. It streams photorealistic 3D tiles and puts thousands of enemies on screen, so it wants a fast CPU, a real GPU, a mouse and a keyboard. Open the page on a desktop and the downloads are there.</p>
@@ -240,7 +240,7 @@
   <section class="panel" id="how">
     <div class="panel-bar"><h2>How it works</h2></div>
     <div class="panel-body">
-      <p class="lead">Towers, upgrades between waves, a base to hold. Standard tower defense so far.</p>
+      <p class="lead">Towers, upgrades, research, a base to hold. Standard tower defense so far.</p>
       <p class="lead" style="margin-top:12px">Nobody built the map. It is streamed from Google's Photorealistic 3D Tiles for whatever address you type in, and three things read that geometry straight off: where the enemies walk, what a tower can see, and where you are allowed to build.</p>
       <div class="slots" style="margin-top:22px">
         <article class="slot">
@@ -254,7 +254,7 @@
           <img src="media/mech-los-sm.jpg" data-full="media/mech-los.jpg" alt="Visibility grid around a tower, green where it can see, red where a building blocks it, with the depth cubemap it was read from" loading="lazy" width="560" height="315">
           <div>
             <h3>Buildings block line of sight</h3>
-            <p>A tower only fires at what it can see. The surrounding tiles are rendered into a cubemap once, the depth is read back, and the result is kept as a visibility mask over the tower's range. Green cells are covered, red ones are blocked by a building.</p>
+            <p>A tower only fires at what it can see. The surrounding tiles are rendered into a cubemap when the tower is placed, and again when its range grows; the depth is read back, and the result is kept as a visibility mask over the tower's range. Green cells are covered, red ones are blocked by a building.</p>
           </div>
         </article>
         <article class="slot">
@@ -281,7 +281,7 @@
     <div class="panel-bar"><h2>Co-op</h2></div>
     <div class="panel-body">
       <p class="lead">Two to four players defend one base in the same city. Each of you gets a road of your own: the enemies on your lane are yours to stop, you spend your own gold, and you may build anywhere, your partner's street included.</p>
-      <p class="lead" style="margin-top:12px">Co-op is in the desktop app, online through the public lobby or on your local network without any server. Every machine runs the whole game in lockstep; only the moves travel.</p>
+      <p class="lead" style="margin-top:12px">Co-op is in the desktop app, online through the public lobby or on your local network, where the host's app runs the relay itself. Every machine runs the whole game in lockstep; only the moves travel, plus the host's map and lines of sight.</p>
       <!-- Click-to-load wie das Walkthrough: das iframe entsteht erst beim Klick. -->
       <div class="yt" data-id="zqb4eTpsdnc" data-title="3DTD co-op best-of">
         <img src="media/coop-thumb.jpg" alt="Co-op best-of on YouTube: two players holding Heilbronn's market square" loading="lazy" width="1200" height="675">
@@ -303,7 +303,7 @@
         <figure><img src="media/place-04-sm.jpg" data-full="media/place-04.jpg" alt="Manhattan, flying enemies crossing the rooftops" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>flyers over the roofs</span></figcaption></figure>
         <figure><img src="media/place-02-sm.jpg" data-full="media/place-02.jpg" alt="Tokyo, the skyline at dusk with the wave marker over the district" loading="lazy" width="760" height="428"><figcaption><b>Tokyo</b> <span>dusk over Minato</span></figcaption></figure>
         <figure><img src="media/place-08-sm.jpg" data-full="media/place-08.jpg" alt="A German wine village, a column of enemies winding up the field track through the vineyards towards the base" loading="lazy" width="760" height="428"><figcaption><b>German vineyards</b> <span>up the track between the vines</span></figcaption></figure>
-        <figure><img src="media/place-07-sm.jpg" data-full="media/place-07.jpg" alt="Manhattan, wave 52 on Broadway, a swarm of several thousand crossing the street" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>wave 52, eighteen thousand of them</span></figcaption></figure>
+        <figure><img src="media/place-07-sm.jpg" data-full="media/place-07.jpg" alt="Manhattan, wave 52 on Broadway, a swarm of several thousand crossing the street" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>wave 52, a swarm crossing Broadway</span></figcaption></figure>
         <figure><img src="media/place-10-sm.jpg" data-full="media/place-10.jpg" alt="Paris, a column crossing the Quai Branly below the Eiffel Tower into the towers' fire" loading="lazy" width="760" height="428"><figcaption><b>Paris</b> <span>under the Eiffel Tower</span></figcaption></figure>
         <figure><img src="media/place-06-sm.jpg" data-full="media/place-06.jpg" alt="Manhattan, top-down view over the interchange" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>over the interchange</span></figcaption></figure>
         <figure><img src="media/place-05-sm.jpg" data-full="media/place-05.jpg" alt="Manhattan, enemies filling an avenue between the blocks" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>the avenue as a funnel</span></figcaption></figure>
@@ -346,10 +346,10 @@
         <ol class="steps">
           <li><span class="n">1</span><span>Sign up at <a href="https://ion.cesium.com/signup">ion.cesium.com</a>. Free, no card.</span></li>
           <li><span class="n">2</span><span>Copy your default token under <strong>Access Tokens</strong>.</span></li>
-          <li><span class="n">3</span><span>Paste it into the game when it asks. Once per browser.</span></li>
+          <li><span class="n">3</span><span>Paste it into the game when it asks. Once per browser or app.</span></li>
         </ol>
         <!-- A quiet nod to the token screen the player meets right after Play. -->
-        <p class="fine">The token stays in your browser and is sent only to Cesium. It never reaches this site. A Google Maps API key works too.</p>
+        <p class="fine">The token stays on your machine and is sent only to Cesium. It never reaches this site. A Google Maps API key works too.</p>
       </div>
     </div>
   </section>
@@ -358,15 +358,16 @@
     <div class="panel-bar"><h2>The stack</h2></div>
     <div class="panel-body">
       <dl class="spec">
-        <dt>Interface</dt><dd>Angular, standalone components, signal stores</dd>
-        <dt>Rendering</dt><dd>Three.js, custom shaders, post processing</dd>
         <dt>Tiles</dt><dd>3DTilesRendererJS over Google Photorealistic 3D Tiles</dd>
-        <dt>Map data</dt><dd>OpenStreetMap streets and building footprints, Nominatim lookup</dd>
-        <dt>Pathfinding</dt><dd>route grid per location, solved in a web worker</dd>
+        <dt>Rendering</dt><dd>Three.js, custom shaders, post processing</dd>
+        <dt>Interface</dt><dd>Angular, standalone components, signal stores</dd>
         <dt>Line of sight</dt><dd>depth cubemap per tower, read back as a visibility mask</dd>
+        <dt>Pathfinding</dt><dd>A* over the OpenStreetMap street graph, then a 2 m cell grid along the route</dd>
+        <dt>Map data</dt><dd>OpenStreetMap streets and building footprints, Nominatim lookup</dd>
         <dt>Enemies</dt><dd>instanced meshes, skeletal animation baked into vertex textures</dd>
-        <dt>Waves</dt><dd>rule based director in the browser, PPO experiment trained offline in PyTorch</dd>
-        <dt>Co-op</dt><dd>lockstep over a small Node relay that only passes the moves, online or on the LAN</dd>
+        <dt>Waves</dt><dd>rule based director in the browser, sized by what your towers can kill</dd>
+        <dt>Co-op</dt><dd>lockstep over a small Node relay that passes the moves and checks everyone stays in step, online or on the LAN</dd>
+        <dt>Desktop</dt><dd>Electron app for Windows and Linux, updates itself</dd>
         <dt>Server</dt><dd>none for the game itself, the client is the whole game</dd>
         <dt>Licence</dt><dd>AGPL-3.0, source on <a href="https://github.com/ingel81/3dtd">GitHub</a></dd>
       </dl>
@@ -379,7 +380,7 @@
   <div class="inner">
     <div class="row">
       <a href="/play/">Play</a>
-      <a href="https://github.com/ingel81/3dtd">GitHub</a>
+      <a class="gh" href="https://github.com/ingel81/3dtd" aria-label="Source on GitHub" title="Source on GitHub"><svg class="gh-mark" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg></a>
       <a href="legal.html">Legal &amp; privacy</a>
       <a href="rechtliches.html" hreflang="de">Rechtliches</a>
       <span>AGPL-3.0</span>

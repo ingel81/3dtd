@@ -155,7 +155,7 @@ export const HOTKEY_HELP: readonly HotkeyHelpGroup[] = [
       { keys: ['Shift', 'U'], label: `Upgrade it up to ${UPGRADE_MANY.shift} times, as far as your credits go; Ctrl+U up to ${UPGRADE_MANY.ctrl}. Shift- and Ctrl-click on an upgrade do the same for that one` },
       { keys: ['Del'], label: 'Sell the selected tower, press twice' },
       { keys: ['C'], label: 'Get into the selected tower and fire it yourself: mouse aims, left button fires, right button zooms; C or Esc gets out' },
-      { keys: ['Esc'], label: 'Cancel building, close a menu, deselect' },
+      { keys: ['Esc'], label: 'Cancel building, close a menu, deselect; with nothing to cancel, the game menu' },
     ],
   },
   {

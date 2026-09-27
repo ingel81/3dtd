@@ -11,6 +11,8 @@ import { canPickTowerCard } from '../utils/player-actions';
 import { ownsKey } from '../utils/keyboard-target';
 import { openHotkeyHelpDialog } from '../components/hotkey-help-dialog/open-hotkey-help-dialog';
 import { openResearchDialog } from '../components/research-dialog/open-research-dialog';
+import { openGameMenu } from '../components/game-menu/open-game-menu';
+import { ConfigService } from '../core/services/config.service';
 import { CameraControlService } from './camera-control.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
@@ -328,11 +330,15 @@ export class HotkeyService {
       this.gameState.towerManager.selectTower(null);
       return true;
     }
-    // Last: the coop dock closes, the room stays open (docs/COOP_UI_REWORK_PLAN.md, U5)
+    // The coop dock closes, the room stays open (docs/COOP_UI_REWORK_PLAN.md, U5)
     if (this.uiStore.coopDockOpen()) {
       this.uiStore.coopDockOpen.set(false);
       return true;
     }
-    return false;
+    // Last: nothing else to cancel, the game menu opens (TODO A3). Not over the
+    // key screen, which takes Esc itself.
+    if (this.injector.get(ConfigService).setupRequested()) return false;
+    void openGameMenu(this.dialog, this.injector);
+    return true;
   }
 }

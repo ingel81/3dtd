@@ -1,0 +1,169 @@
+/* The game's Esc menu, in the middle of the screen; the look of the other
+   dialogs (attributions, keys). */
+.gm {
+  /* The frame inside the width, or the dialog shows a scrollbar for 2px */
+  box-sizing: border-box;
+  width: 100%;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.2),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    0 1px 0 var(--td-panel-shadow);
+  color: var(--td-text-primary);
+  font-family: var(--td-font-body);
+}
+
+.gm-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+.gm-header-icon {
+  color: var(--td-gold);
+}
+
+h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--td-gold);
+}
+
+.gm-version {
+  margin-left: auto;
+  font: 10px/1 var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
+.gm-list {
+  display: flex;
+  flex-direction: column;
+  padding: 6px;
+}
+
+.gm-item {
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 10px 12px;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--td-text-secondary);
+  font: 14px/1.2 var(--td-font-body);
+  text-align: left;
+  cursor: pointer;
+}
+
+button.gm-item:hover,
+button.gm-item:focus-visible {
+  border-color: var(--td-frame-dark);
+  background: var(--td-panel-shadow);
+  color: var(--td-text-primary);
+  outline: none;
+}
+
+.gm-label {
+  flex: 1;
+}
+
+.gm-key {
+  padding: 1px 5px;
+  border: 1px solid var(--td-frame-dark);
+  font: 10px/1.4 var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
+.gm-volume {
+  cursor: default;
+}
+
+.gm-icon-btn {
+  display: grid;
+  place-items: center;
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+}
+
+.gm-icon-btn:hover,
+.gm-icon-btn:focus-visible {
+  color: var(--td-gold);
+}
+
+.gm-slider {
+  flex: 1;
+  min-width: 0;
+  accent-color: var(--td-gold);
+}
+
+.gm-sep {
+  height: 1px;
+  margin: 6px 4px;
+  background: var(--td-frame-dark);
+}
+
+.gm-quit td-icon {
+  color: var(--td-red);
+}
+
+.gm-confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+}
+
+.gm-confirm-text {
+  margin: 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.gm-muted {
+  color: var(--td-text-muted);
+}
+
+.gm-confirm-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.gm-btn {
+  padding: 7px 14px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  color: var(--td-text-primary);
+  font: 11px/1 var(--td-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.gm-btn:hover,
+.gm-btn:focus-visible {
+  border-color: var(--td-frame-light);
+}
+
+.gm-btn-danger {
+  border-color: var(--td-red);
+  color: var(--td-red);
+}
+
+.gm-note {
+  margin: 0;
+  padding: 8px 14px 0;
+  font: 11px/1.4 var(--td-font-mono);
+  color: var(--td-text-muted);
+}

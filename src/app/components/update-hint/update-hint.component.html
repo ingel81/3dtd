@@ -1,5 +1,6 @@
-@if (update(); as u) {
-  @if (!hidden()) {
+<!-- Shown through the CDK overlay, see UpdateHintComponent.show() -->
+<ng-template #chip>
+  @if (update(); as u) {
     <div class="uh" role="status">
       <td-icon class="uh-icon" name="refresh" [size]="18"></td-icon>
       <div class="uh-text">
@@ -23,4 +24,4 @@
       </div>
     </div>
   }
-}
+</ng-template>

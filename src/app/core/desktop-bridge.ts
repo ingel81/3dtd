@@ -54,6 +54,12 @@ export interface DesktopBridge {
   saveRun(fileName: string, text: string): Promise<boolean>;
   /** Missing in apps older than C4d */
   readonly coopLan?: CoopLanBridge;
+  /** The window's fullscreen, as F11 switches it; resolves the new state. Missing before 0.5.1 (TODO A3) */
+  toggleFullscreen?(): Promise<boolean>;
+  /** Whether the window is fullscreen. Missing before 0.5.1 */
+  isFullscreen?(): Promise<boolean>;
+  /** Quit the app; a downloaded update installs on the way out. Missing before 0.5.1 */
+  quit?(): void;
 }
 
 /**

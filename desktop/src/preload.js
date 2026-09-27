@@ -91,5 +91,20 @@ contextBridge.exposeInMainWorld(
         return ipcRenderer.invoke('desktop:lan-probe', String(ip ?? ''));
       },
     }),
+
+    /** The window's fullscreen as F11 switches it (game menu, TODO A3); resolves the new state */
+    toggleFullscreen() {
+      return ipcRenderer.invoke('desktop:toggle-fullscreen');
+    },
+
+    /** Whether the window is fullscreen */
+    isFullscreen() {
+      return ipcRenderer.invoke('desktop:is-fullscreen');
+    },
+
+    /** Quit the app; a downloaded update installs on the way out */
+    quit() {
+      ipcRenderer.send('desktop:quit');
+    },
   })
 );

@@ -3,12 +3,22 @@
 What changed for players, newest first. Every release adds a section here, and the
 game shows it once after an update.
 
+## 0.5.1 (2026-09-27)
+
+### New
+- A game menu behind the gear bottom right, or Esc when there is nothing else to
+  cancel: fullscreen, volume, map key, what's new, keys, credits, and Quit in the
+  app. Playing alone, the game pauses while it is open.
+
+### Fixed
+- "Restart now" on the update hint works while the place dialog is open.
+
 ## 0.5.0 (2026-09-27)
 
 ### New
 - Co-op for two to four players, in the desktop app: everyone holds a lane of their own
   into one shared base, with their own gold, towers, research and hero. Play online
-  through the public lobby, or on your local network without a server.
+  through the public lobby, or on your local network with one app as host.
 - In co-op: chat, marks on the map, gold for a partner, a look at their towers and
   research, and each player's part at game over.
 - Upgrade a tower 5 or 10 times at once.

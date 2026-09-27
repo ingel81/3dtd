@@ -339,6 +339,29 @@ function setUpUpdates(getWindow) {
   });
 }
 
+/**
+ * The game menu's window actions (TODO A3): fullscreen as F11 switches it,
+ * and Quit. Taken only from the app's own page, like the other requests.
+ */
+function setUpWindowMenu(getWindow) {
+  const fromApp = (event) => classifyNavigation(event.senderFrame?.url ?? '', appOrigin) === 'allow';
+  ipcMain.handle('desktop:toggle-fullscreen', (event) => {
+    const window = getWindow();
+    if (!fromApp(event) || !window || window.isDestroyed()) return false;
+    window.setFullScreen(!window.isFullScreen());
+    return window.isFullScreen();
+  });
+  ipcMain.handle('desktop:is-fullscreen', (event) => {
+    const window = getWindow();
+    return fromApp(event) && !!window && !window.isDestroyed() && window.isFullScreen();
+  });
+  ipcMain.on('desktop:quit', (event) => {
+    if (!fromApp(event)) return;
+    log.info('[app] quit from the game menu');
+    app.quit();
+  });
+}
+
 if (!app.requestSingleInstanceLock()) {
   // A copy is already running; it brings itself to the front (second-instance).
   app.quit();
@@ -390,6 +413,7 @@ if (!app.requestSingleInstanceLock()) {
 
     mainWindow = createWindow();
     setUpUpdates(() => mainWindow);
+    setUpWindowMenu(() => mainWindow);
 
     // Coop on the local network (docs/COOP_PLAN.md, C4d); the relay starts at "Host LAN game"
     const coopLan = setUpCoopLan({

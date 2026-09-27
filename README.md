@@ -48,9 +48,9 @@ Two to four players defend one base in the same city. Everyone gets a spawn and 
 gold, towers, research and hero, and may build anywhere. Waves are sized per lane, against that lane's share of the
 defence.
 
-It runs in lockstep: every machine simulates the whole game, only the commands travel, through a small relay that
-closes the ticks and compares a hash of the game state every second. Lines of sight come from the host, since they
-are read off each machine's own tiles. Online there is a public lobby for the desktop app; on a local network the
+It runs in lockstep: every machine simulates the whole game, and the commands travel through a small relay that
+closes the ticks and compares a hash of the game state every second. The host's map and lines of sight travel too:
+sight is read off each machine's own tiles, so the host's counts for everyone. Online there is a public lobby for the desktop app; on a local network the
 app hosts the relay itself and the others find the game without typing an address.
 
 The relay is [coop-server/](coop-server/README.md), a single Node file with `ws`, also as a container

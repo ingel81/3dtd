@@ -41,16 +41,45 @@
 }
 
 .td-sidebar-footer-bottom {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 4px 8px;
+  padding: 4px 36px;
+}
+
+/* Version, repo and author stay quiet; the menu's gear does not */
+.td-sidebar-footer-bottom > :not(.td-menu-btn) {
   opacity: 0.6;
 }
 
-.td-sidebar-footer-bottom:hover {
+.td-sidebar-footer-bottom:hover > :not(.td-menu-btn) {
   opacity: 1;
+}
+
+/* The game menu (TODO A3), bottom right where the menu opens */
+.td-menu-btn {
+  position: absolute;
+  right: 6px;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  background: none;
+  border: 1px solid transparent;
+  color: var(--td-text-secondary);
+  cursor: pointer;
+}
+
+.td-menu-btn:hover,
+.td-menu-btn:focus-visible {
+  border-color: var(--td-frame-dark);
+  color: var(--td-gold);
+  outline: none;
 }
 
 .td-sidebar-footer a {
@@ -80,9 +109,9 @@
   text-decoration: underline dotted;
 }
 
-/* Six actions in two rows of three: in one row the labels were cut to
-   "Wor…" and "Ke…" at 9px. The 1px gap over the frame colour draws the
-   dividers between the cells. */
+/* World, Tips and Runs in one row; the keys, the credits and the map key
+   moved into the game menu (TODO A3). The 1px gap over the frame colour
+   draws the dividers between the cells. */
 .td-footer-links {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

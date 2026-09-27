@@ -66,7 +66,7 @@ a:hover{color:var(--gold-light)}
   .top nav{gap:12px}
   /* Der Sprachumschalter traegt hreflang und bleibt stehen, sonst kaeme man
      auf dem Telefon nur ueber die Fusszeile in die andere Fassung. */
-  .top nav a:not(.btn):not([hreflang]){display:none}
+  .top nav a:not(.btn):not([hreflang]):not(.gh){display:none}
 }
 
 /* ---------- sections: a hairline and a heading, nothing else ---------- */
@@ -99,3 +99,8 @@ footer p{margin:0 0 10px;max-width:78ch;font-size:12.5px}
   footer{padding:0 14px 40px}
   footer .inner{padding:20px 18px 22px}
 }
+
+/* GitHub-Logo statt des Worts: in Nav und Footer allein, auf dem Knopf vor "Source" */
+.gh{display:inline-flex;align-items:center;line-height:0}
+.gh-mark{width:18px;height:18px;fill:currentColor;flex:none}
+.btn--gh .gh-mark{width:17px;height:17px}

@@ -125,3 +125,9 @@ input, textarea {
 }
 
 /* You can add global styles to this file, and also import other style files */
+
+// The update hint of the desktop app (UpdateHintComponent) above every dialog,
+// also one opened after it: a modal backdrop must not swallow "Restart now".
+.cdk-overlay-container .td-update-hint-host {
+  z-index: 1001;
+}

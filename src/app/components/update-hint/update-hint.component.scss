@@ -1,16 +1,17 @@
 @use '../../styles/td-mixins' as td;
 
-/* Top right of the map, under the compass (12px from the top, 88px high)
-   and under the build chip of the loading screen (46px, about 22px high).
-   Above the loading screen (10) and the game over overlay (20): the hint
-   has to be seen there too, and a restart may be the way out of an error.
-   Only the chip takes clicks. */
+/* The anchor, top right of the map, under the compass (12px from the top,
+   88px high) and under the build chip of the loading screen (46px, about
+   22px high). The chip itself hangs in the CDK overlay from here, above
+   the loading screen, the game over overlay and every dialog: a restart may
+   be the way out of an error. */
 :host {
   position: absolute;
   top: 112px;
   right: 12px;
+  width: 0;
+  height: 0;
   pointer-events: none;
-  z-index: 21;
 }
 
 /* Glass chip like the relocation status, the icon in gold */
