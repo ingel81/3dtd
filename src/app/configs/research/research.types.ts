@@ -70,7 +70,6 @@ export interface ResearchConfig {
 
 export interface ActiveResearch {
   researchId: ResearchId;
-  startTime: number;               // performance.now() when started
   duration: number;                // Total duration in seconds
   elapsed: number;                 // Seconds elapsed
   cost: number;                    // Credits paid (for refund on cancel)

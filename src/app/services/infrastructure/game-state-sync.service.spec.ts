@@ -365,7 +365,7 @@ describe('GameStateSyncService (real service)', () => {
       eventBus.emit({
         type: 'research:state-changed', playerId: 'local', local: true,
         activeResearches: [
-          { researchId: 'ice-magic', startTime: 0, duration: 15, elapsed: 5, cost: 40 },
+          { researchId: 'ice-magic', duration: 15, elapsed: 5, cost: 40 },
         ],
         completedResearches: completed,
         queuedResearches: ['arcane-studies'],

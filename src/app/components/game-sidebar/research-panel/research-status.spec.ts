@@ -11,7 +11,7 @@ import { ActiveResearch, ResearchId } from '../../../configs/research/research.t
 
 const done = (...ids: ResearchId[]) => new Set<ResearchId>(ids);
 const running = (researchId: ResearchId): ActiveResearch =>
-  ({ researchId, startTime: 0, duration: 30, elapsed: 10, cost: 100 });
+  ({ researchId, duration: 30, elapsed: 10, cost: 100 });
 
 describe('researchStatus', () => {
   it('makes a research without prerequisites available', () => {

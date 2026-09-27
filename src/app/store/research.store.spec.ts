@@ -56,8 +56,8 @@ describe('ResearchStore', () => {
     it('subtracts active research count', () => {
       store.researchSlots.set(3);
       store.activeResearches.set([
-        { researchId: 'gatling-tech', startTime: 0, duration: 10, elapsed: 0, cost: 40 },
-        { researchId: 'ice-magic', startTime: 0, duration: 10, elapsed: 0, cost: 40 },
+        { researchId: 'gatling-tech', duration: 10, elapsed: 0, cost: 40 },
+        { researchId: 'ice-magic', duration: 10, elapsed: 0, cost: 40 },
       ]);
       expect(store.availableSlots()).toBe(1);
     });
@@ -65,8 +65,8 @@ describe('ResearchStore', () => {
     it('clamps at zero when active count exceeds slots', () => {
       store.researchSlots.set(1);
       store.activeResearches.set([
-        { researchId: 'gatling-tech', startTime: 0, duration: 10, elapsed: 0, cost: 40 },
-        { researchId: 'ice-magic', startTime: 0, duration: 10, elapsed: 0, cost: 40 },
+        { researchId: 'gatling-tech', duration: 10, elapsed: 0, cost: 40 },
+        { researchId: 'ice-magic', duration: 10, elapsed: 0, cost: 40 },
       ]);
       expect(store.availableSlots()).toBe(0);
     });
@@ -161,7 +161,7 @@ describe('ResearchStore', () => {
       // Pollute every field
       store.completedResearches.set(new Set(['gatling-tech', 'ice-magic']));
       store.activeResearches.set([
-        { researchId: 'tentacle-biology', startTime: 0, duration: 10, elapsed: 5, cost: 45 },
+        { researchId: 'tentacle-biology', duration: 10, elapsed: 5, cost: 45 },
       ]);
       store.centerLevel.set(2);
       store.researchSlots.set(3);

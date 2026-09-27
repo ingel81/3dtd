@@ -226,7 +226,6 @@ export class ResearchManager implements IGameManager {
 
     const active: ActiveResearch = {
       researchId: id,
-      startTime: performance.now(),
       duration: config.duration,
       elapsed: 0,
       cost: config.cost,
@@ -551,7 +550,6 @@ export class ResearchManager implements IGameManager {
       if (config) {
         this.activeResearches.set(active.researchId, {
           researchId: active.researchId,
-          startTime: performance.now(),
           duration: config.duration,
           elapsed: active.elapsed,
           cost: config.cost,

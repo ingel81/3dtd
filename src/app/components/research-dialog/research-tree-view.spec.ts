@@ -24,7 +24,7 @@ const state = (partial: Partial<ResearchTreeState> = {}): ResearchTreeState => (
 });
 
 const active = (researchId: ResearchId, duration: number): ActiveResearch =>
-  ({ researchId, duration, startTime: 0, elapsed: 0, cost: 0 }) as ActiveResearch;
+  ({ researchId, duration, elapsed: 0, cost: 0 }) as ActiveResearch;
 
 const nodeFor = (id: ResearchId, s = state()) => buildResearchNodes(s).find((n) => n.id === id)!;
 
