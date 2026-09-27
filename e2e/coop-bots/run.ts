@@ -75,6 +75,8 @@ async function openSeat(browser: Browser, name: string): Promise<Page> {
 
 /** The loading screen gone for good, the intro skipped */
 async function gameReady(page: Page): Promise<void> {
+  // Under load the app takes a while to come up at all
+  await page.waitForSelector('app-tower-defense', { timeout: 180_000 });
   await page.waitForSelector('td-loading-screen', { timeout: 60_000 }).catch(() => undefined);
   const end = Date.now() + 300_000;
   let gone = 0;
@@ -301,11 +303,13 @@ function relayDesyncs(code: string): string[] {
 
 // === One run ===
 
-async function playRun(browser: Browser, index: number): Promise<void> {
+/** False when the run never got going (a tab did not load, the room did not start): it is tried again */
+async function playRun(browser: Browser, index: number): Promise<boolean> {
   const started = Date.now();
   const seats: Page[] = [];
   let code = '';
   let written = 0;
+  let playing = false;
   try {
     for (let i = 0; i < PLAYERS; i++) seats.push(await openSeat(browser, `Bot${i + 1}`));
     await installProbe(seats[0]);
@@ -319,6 +323,7 @@ async function playRun(browser: Browser, index: number): Promise<void> {
     } else {
       code = await startRoom(seats);
     }
+    playing = true;
     log(`run ${index}: room ${code}, ${PLAYERS} bots, speed ${SPEED}`);
     const deadline = started + RUN_MINUTES * 60_000;
     let end: Record<string, unknown> | null = null;
@@ -345,9 +350,11 @@ async function playRun(browser: Browser, index: number): Promise<void> {
       relayDesyncs: relayDesyncs(code),
     });
     log(`run ${index}: ended (${end?.['reason'] ?? 'timeout'}) after ${written} waves, ${Math.round((Date.now() - started) / 60000)} min`);
+    return true;
   } catch (err) {
-    write({ kind: 'run', run: index, room: code, players: PLAYERS, speed: SPEED, error: String(err), wavesWritten: written });
-    log(`run ${index}: failed: ${String(err)}`);
+    write({ kind: 'run', run: index, room: code, players: PLAYERS, speed: SPEED, error: String(err), started: playing, wavesWritten: written });
+    log(`run ${index}: failed${playing ? '' : ' before the start, again'}: ${String(err).split('\n')[0]}`);
+    return playing;
   } finally {
     for (const page of seats) await page.context().close().catch(() => undefined);
   }
@@ -361,11 +368,15 @@ async function main(): Promise<void> {
     headless: !HEADED,
     args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'],
   });
+  // Run indices stay unique; a run that never got going does not count
   let next = 0;
+  let claimed = 0;
+  let attempts = 0;
   const worker = async () => {
-    while (next < RUNS) {
-      const index = next++;
-      await playRun(browser, index);
+    while (claimed < RUNS && attempts < RUNS * 2) {
+      claimed++;
+      attempts++;
+      if (!(await playRun(browser, next++))) claimed--;
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, PARALLEL) }, worker));
