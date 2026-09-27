@@ -108,7 +108,9 @@ gespielt wurde. Abgelehnt wird mit einem Satz, warum: keine Replay-Datei, andere
 Balance, keine Welle. Ein geladenes Replay zeigt „from file“ in der Leiste; der laufende Lauf bleibt unberührt.
 Die Datei trägt auch Spielversion und Commit: Der Balance-Hash deckt die Tabellen ab, nicht den Code. Eine Datei
 einer anderen Version lädt trotzdem, die Leiste sagt dann „from file, other version“ (Tooltip: gespeichert mit
-welcher Version), weil das Replay dort abweichen kann, wo sich die Spiellogik geändert hat.
+welcher Version), weil das Replay dort abweichen kann, wo sich die Spiellogik geändert hat. Liest die Prüfsumme
+seit der Datei anderen Zustand (`hashVersion`, fehlt in älteren Dateien und gilt dann als 1), lädt die Datei ohne
+ihre Summen: Das Replay läuft, meldet aber keine Abweichung, die keine ist.
 
 Das ist zugleich das Match-Log für Coop ([MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md), Abschnitt 18): Welt,
 Balance, Seed, Eingaben mit Sub-Step und Sicht-Masken, jeder Eintrag mit `playerId`.

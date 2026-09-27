@@ -465,9 +465,14 @@ der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
   verbietet `Math.random` in den Sim-Ordnern. Neue Fälle in `lockstep.scenario.spec.ts`: Beitretender mit anderer
   Uhr, anderem `Math.random` und ohne Tiles; andere Tile-Höhe am Spawn; Mutations-Test für Werte außerhalb der
   Prüfsumme (Slow nach 1, Hold-Fire nach 23, Zielstrategie nach 106 Sub-Steps erkannt).
+- **Prüfsumme ohne Lücken (2026-09-28, TODO E63 i):** Der Mutations-Test verfälscht 14 Zustände auf einem Client
+  (Statuseffekte, Tower-Einstellungen und Upgrades, Forschung, Ladungen, Schlag unterwegs, Held, Perfect-Serie).
+  Vorher fielen Upgrades erst nach über 1200 Sub-Steps auf, Forschung, Ladungen, Held und Serie nie; jetzt steht
+  alles in der Prüfsumme und fällt im nächsten Hash auf. Neue Teile `research` und `abilities`, eine Zeile je
+  Spieler. Die Summe kostet dafür mehr: L (3000 Gegner) 1,27 statt 0,72 ms je Aufruf, einmal je Spielsekunde.
 - **Zerlegte Prüfsumme (2026-09-26, TODO E32):** `StateHasher.breakdown()` gibt dieselbe Gesamtsumme plus eine
   Summe je Teil (`HASH_PARTS` in `hash-check.ts`: clock, credits, health, wave, ids, rng, enemies, towers,
-  projectiles, heroes) und die Werte jedes Objekts. Im Coop geht `hash` mit `parts` zum Relay; der GSM hält die
+  projectiles, heroes, research, abilities) und die Werte jedes Objekts. Im Coop geht `hash` mit `parts` zum Relay; der GSM hält die
   letzten 10 Aufschlüsselungen. Das Relay schreibt die abweichenden Teile in die DESYNC-Zeile und schickt sie mit
   `desync`; die Clients antworten mit `hash-detail` (die Objekte dieser Teile zum Tick der Abweichung), das Relay
   loggt die ersten fünf abweichenden Objekte mit den Werten beider Spieler (`differs at tick …`). Jeder Client

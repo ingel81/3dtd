@@ -131,9 +131,13 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
   weil die Welt gleich bleibt.
 
 ### P5 Prüfsumme, Abnahme, Benchmark
-- `stateHash()`: Sub-Step, Credits, HQ-Leben, Wellennummer, Zufallsstand, je Gegner Id, quantisierte Position, Leben,
-  je Tower Cooldown und Drehung. Nur beim Aufnehmen und Prüfen, alle 60 Sub-Steps und am Wellenende; im normalen Spiel
-  nicht.
+- `stateHash()`: Sub-Step, Credits und Perfect-Serie, HQ-Leben, Wellennummer, Id-Zähler, Zufallsstand; je Gegner Id,
+  Position, Höhe, Leben, Wegfortschritt und Statuseffekte; je Tower Cooldown, Kills, Schaden, Ziel, Upgrade-Stufen,
+  Zielstrategie, Hold-Fire und Besetzung; Projektile; je Held Ort, Cooldown, Stufe, Munition und Ziel; je Spieler
+  Forschung (fertig, laufend, Warteschlange) und Fähigkeiten (Ladungen, Schläge unterwegs). Bits, nicht gerundet. Nur
+  beim Aufnehmen und Prüfen, alle 60 Sub-Steps und am Wellenende, im Coop alle 30 Ticks; im normalen Spiel nicht.
+  `STATE_HASH_VERSION` (2 seit TODO E63 i) steht in der Replay-Datei; eine Datei einer anderen Version spielt ohne
+  Prüfung ihrer Summen.
 - Abnahme-Spec: ein Lauf mit Bot über mehrere Wellen, Befehle aufgezeichnet; dann jede Welle aus ihrem Snapshot
   nachgerechnet, Prüfsumme je 60 Sub-Steps gleich. Dazu dieselbe Welle bei Timescale 1 und 20.
 - Benchmark-Spec für den ganzen Sub-Step (Gegner, Tower, Projektile in festen Mengen), damit P1 bis P3 zeigen, dass nichts
