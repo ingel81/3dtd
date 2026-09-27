@@ -1,51 +1,89 @@
 # 3DTD
 
+[![CI](https://github.com/ingel81/3dtd/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/ingel81/3dtd/actions/workflows/ci.yml)
+[![Desktop release](https://github.com/ingel81/3dtd/actions/workflows/release.yml/badge.svg)](https://github.com/ingel81/3dtd/actions/workflows/release.yml)
+[![Relay image](https://github.com/ingel81/3dtd/actions/workflows/relay-image.yml/badge.svg)](https://github.com/ingel81/3dtd/actions/workflows/relay-image.yml)
+[![License: AGPL-3.0](https://img.shields.io/badge/license-AGPL--3.0-blue)](LICENSE)
+
+**[3dtd.sgeht.net](https://3dtd.sgeht.net)**: project page with screenshots, all videos and the downloads.
+
 Tower defense on your actual street. You type in an address, the game loads the
 photorealistic 3D tiles for that place, and enemies walk up the real roads towards
-your base.
+your base. Alone, or with up to three friends, each holding a road of their own.
 
-[![A walkthrough on YouTube](https://img.youtube.com/vi/XoRsYuTkUmA/maxresdefault.jpg)](https://youtu.be/XoRsYuTkUmA)
+[![Co-op best-of on YouTube](https://img.youtube.com/vi/zqb4eTpsdnc/maxresdefault.jpg)](https://youtu.be/zqb4eTpsdnc)
 
-**[A walkthrough, 6:42](https://youtu.be/XoRsYuTkUmA)**, mostly Frankfurt am Main,
-with the mechanics explained along the way.
-
-**[3dtd.sgeht.net](https://3dtd.sgeht.net)**, project page, screenshots, and a
-playable build under [/play/](https://3dtd.sgeht.net/play/). You bring your own
-Cesium Ion token; the game asks for it on first start and keeps it in your browser.
-
-**Desktop app:** the [releases page](https://github.com/ingel81/3dtd/releases/latest)
-has a Windows installer and a Linux AppImage (x64). Both keep themselves up to date.
-Windows: not code-signed yet, so SmartScreen warns on the first start: click *More info*,
-then *Run anyway*. Linux: make the AppImage executable (`chmod +x`) and keep it where you
-can write, since an update rewrites the file; it needs FUSE 2 (`libfuse2` on Ubuntu,
-`fuse2` on Arch), or start it with `--appimage-extract-and-run`. Both need your own
-Cesium Ion token; a token restricted to certain websites, or a Google Maps key
-with an HTTP referrer restriction, does not work in the app.
+**[Co-op best-of, 15:24](https://youtu.be/zqb4eTpsdnc)**: our first co-op match, Heilbronn, waves 1 to 38,
+narrated. **[Walkthrough, 6:42](https://youtu.be/XoRsYuTkUmA)**: mostly Frankfurt am Main, with the mechanics
+explained along the way. The rest is on the [project page](https://3dtd.sgeht.net/#media).
 
 A hobby project. It runs, it's playable, and it is nowhere near finished.
 
+## Playing it
+
+**Play the desktop app.** That is where the work goes now: co-op lives there, every player runs the same engine,
+and it keeps itself up to date. [Windows installer](https://github.com/ingel81/3dtd/releases/latest/download/3DTD-win-x64-setup.exe)
+or [Linux AppImage](https://github.com/ingel81/3dtd/releases/latest/download/3DTD-linux-x64.AppImage) (x64), the
+newest build of each; older ones are on the [releases page](https://github.com/ingel81/3dtd/releases).
+
+- Windows: not code-signed yet, so SmartScreen warns on the first start: *More info*, then *Run anyway*.
+- Linux: make the AppImage executable (`chmod +x`) and keep it where you can write, since an update rewrites
+  the file. It needs FUSE 2 (`libfuse2` on Ubuntu, `fuse2` on Arch), or start it with `--appimage-extract-and-run`.
+
+To try it without installing anything, there is a browser version at
+[3dtd.sgeht.net/play/](https://3dtd.sgeht.net/play/), solo only.
+
+Either way you need your own **Cesium ion token**. The tiles are billed per request, so there is no shared key. The
+free tier is enough: sign up at [ion.cesium.com](https://ion.cesium.com/signup), copy the default token, paste it
+when the game asks. The token stays on your machine and goes to Cesium, nowhere else. A Google Maps API key with
+the Map Tiles API works too. In the app, a token restricted to certain websites, or a Google Maps key with an HTTP
+referrer restriction, does not work.
+
+It wants a desktop with a fast CPU, since the whole game runs in JavaScript, a decent GPU for the tiles, a mouse
+and a keyboard. Late waves put thousands of enemies on top of a live tile stream.
+
+## Co-op
+
+Two to four players defend one base in the same city. Everyone gets a spawn and so a lane of their own, their own
+gold, towers, research and hero, and may build anywhere. Waves are sized per lane, against that lane's share of the
+defence.
+
+It runs in lockstep: every machine simulates the whole game, only the commands travel, through a small relay that
+closes the ticks and compares a hash of the game state every second. Lines of sight come from the host, since they
+are read off each machine's own tiles. Online there is a public lobby for the desktop app; on a local network the
+app hosts the relay itself and the others find the game without typing an address.
+
+The relay is [coop-server/](coop-server/README.md), a single Node file with `ws`, also as a container
+(`ghcr.io/ingel81/3dtd-relay`). It keeps no accounts and no game state beyond the open rooms. Design and decisions:
+[docs/COOP_PLAN.md](docs/COOP_PLAN.md).
+
 ## What makes it different from a normal tower defense
 
-The map isn't authored, it's streamed from Google's Photorealistic 3D Tiles. That has
-one interesting consequence: the tiles are not scenery, they are the world the game
-rules run against.
+The map isn't authored, it's streamed from Google's Photorealistic 3D Tiles. That has one interesting consequence:
+the tiles are not scenery, they are the world the game rules run against.
 
-- **Routes follow real streets.** The street graph comes from OpenStreetMap via
-  Overpass. The route runs through a grid of 2 m cells, and each cell is raycast
-  straight down onto the tile surface to get its height, so paths follow the actual
-  terrain.
-- **The street is as wide as the tiles say.** Horizontal rays either side of the
-  route find the facades, and the corridor enemies spread across ends there. Where
-  the tiles can't tell, the OSM width or a typical width for the road class fills in.
-- **Buildings block line of sight.** A tower only fires at what it can actually see.
-  For each tower the surrounding tiles get rendered into a cubemap, the depth is
-  read back, and every route cell in range remembers whether the tower can see it.
-  Standing behind a building works.
-- **Tower placement probes the ground** with a raycast against the tiles.
+- **Routes follow real streets.** The street graph comes from OpenStreetMap via Overpass. The route runs through a
+  grid of 2 m cells, and each cell is raycast straight down onto the tile surface to get its height, so paths follow
+  the actual terrain.
+- **The street is as wide as the tiles say.** Horizontal rays either side of the route find the facades, and the
+  corridor enemies spread across ends there. Where the tiles can't tell, the OSM width or a typical width for the
+  road class fills in.
+- **Buildings block line of sight.** A tower only fires at what it can actually see. For each tower the surrounding
+  tiles get rendered into a cubemap, the depth is read back, and every route cell in range remembers whether the
+  tower can see it. Standing behind a building works.
+- **Tower placement probes the ground** with a raycast against the tiles. Rooftops, embankments and bridges sit at
+  their real height.
 
-The annoying part is level of detail. When a tile refines while you're playing, the
-ground underneath an already placed route moves, so every height sampled from it has
-to be re-anchored. Sample tile depth is tracked for exactly this reason.
+The annoying part is level of detail. When a tile refines while you're playing, the ground underneath an already
+placed route moves, so every height sampled from it has to be re-anchored. Sample tile depth is tracked for exactly
+this reason.
+
+## Where the waves come from
+
+Waves aren't a fixed table. A rule-based director shapes each wave (how many, how fast, how tough, how mixed) and
+sizes it by what your towers can kill, nudged by how hard your base was pressed lately. It started out as a small
+neural net trained with PPO; measured against random choices it did no better, and plain rules did, so rules it is. Details in
+[docs/WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md).
 
 ## Tech
 
@@ -58,34 +96,35 @@ to be re-anchored. Sample tile depth is tracked for exactly this reason.
 | Geometry | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles), via [Cesium Ion](https://cesium.com/platform/cesium-ion/) or the Google Maps API directly |
 | Map data | [OpenStreetMap](https://www.openstreetmap.org/copyright) ([Overpass](https://overpass-api.de) for streets and buildings, [Nominatim](https://nominatim.org) for geocoding) |
 | Desktop | [Electron](https://www.electronjs.org) 44, NSIS installer (Windows), AppImage (Linux), updates from GitHub Releases ([desktop/](desktop/README.md)) |
-| Coop | lockstep over a small Node relay ([coop-server/](coop-server/)), in the desktop app also on the LAN |
+| Co-op | lockstep over a small Node relay ([coop-server/](coop-server/README.md)), in the desktop app also on the LAN |
 | Tests | [Vitest](https://vitest.dev), [Playwright](https://playwright.dev) ([e2e/](e2e/README.md)) |
 
-The game client is fully client side. There is no game server and no account for the game itself; the one sign-up is the Cesium Ion account for your own tile key.
+The game client is fully client side. There is no game server and no account for the game itself; the one sign-up
+is the Cesium ion account for your own tile key. Online co-op goes through the relay above.
 
-## Running it locally
+## Running it locally from source
 
-You need your own API key. The tiles are not free to serve, so there are no keys in
-this repo and there won't be.
+You need Node 22.22.3 or 24.15 (or later) and npm 11.
 
-1. Copy the environment template. `npm start` reads the first file, `npm run build`
-   swaps in the second, so create both (they are gitignored):
+1. Get the code and its dependencies:
+   ```bash
+   git clone https://github.com/ingel81/3dtd.git
+   cd 3dtd
+   npm install
+   ```
+2. Create the two environment files. They are gitignored and hold no keys:
    ```bash
    cp src/environments/environment.template.ts src/environments/environment.ts
    cp src/environments/environment.template.ts src/environments/environment.prod.ts
    ```
-   Set `production: true` in the prod one. Leave the keys empty.
-2. Install and run:
+3. In `src/environments/environment.prod.ts`, set `production: true`.
+4. Start the dev server and open [http://localhost:4200](http://localhost:4200):
    ```bash
-   npm install
-   npm start          # http://localhost:4200
+   npm start
    ```
-3. The game asks for credentials on first start and keeps them in your browser.
-   Take either route to the same tiles: a **Cesium Ion token** (free tier is enough,
-   the default) or a **Google Maps API key** with the Map Tiles API enabled.
+5. Paste your Cesium ion token (or Google Maps key) when the game asks. It stays in your browser.
 
-If you would rather not type it every time, put the token into `environment.ts`, or
-into `public/runtime-config.json` for a deployment that should carry its own key.
+To skip step 5 every time, put the token into `environment.ts`.
 
 Other commands:
 
@@ -94,13 +133,12 @@ npm run build        # production build into dist/
 npm test             # vitest
 npm run lint
 npm run e2e          # browser tests against the running dev server (docs/E2E.md)
-npm run coop-server  # the coop relay on port 3003
+npm run coop-server  # the coop relay on port 3003; the dev game finds it by itself
 ```
 
-If you just want to poke at the code, there's **DevWorld**: a seeded offline world with
-generated buildings and streets, no tiles and no network. Append `?devworld` to the URL.
-It loads in well under a second instead of several, which is also why the bot runs
-use it. See [docs/DEVWORLD.md](docs/DEVWORLD.md).
+If you just want to poke at the code, there's **DevWorld**: a seeded offline world with generated buildings and
+streets, no tiles and no network. Append `?devworld` to the URL. It loads in well under a second instead of several,
+which is also why the bot runs use it. See [docs/DEVWORLD.md](docs/DEVWORLD.md).
 
 ## Layout
 
@@ -114,51 +152,35 @@ src/app/
 ├── store/             signal stores, single source of truth
 ├── services/          Angular side: facades, location, combat, world, debug
 ├── director/          wave sources: the rule-based director and the wave table
-├── bots/              strategy bots for bot runs
-├── coop/              lockstep coop: protocol, world package, hash check
+├── coop/              lockstep co-op: protocol, world package, hash check
 ├── simulator/         deterministic simulation: snapshots, re-simulation, replays
 ├── replay/            replay bar (a replay re-simulates the wave)
+├── bots/              strategy bots for bot runs
 └── devworld/          offline dev environment
 
+coop-server/           Node relay for co-op, also the container image
+desktop/               the desktop app: Electron shell around the same build, LAN hosting
 bot-server/            optional Python side: bot runs, their log and a dashboard
-coop-server/           Node relay for coop
 e2e/                   Playwright tests of the dev game
-desktop/               the desktop app: Electron shell around the same build
+landing/               the project page, plain HTML
 ```
 
-Managers talk to each other over an event bus rather than calling into each other
-directly. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
-[docs/EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md) explain why.
-
-## Where the waves come from
-
-Waves aren't a fixed table. A director picks a template and four shape factors (how
-many, how fast, how tough, how mixed) each wave, and a closed loop on the fraction of
-enemies that actually reach your base keeps the size honest.
-
-That director used to be a small neural net, trained with PPO and run in the browser
-through onnxruntime-web. It got replaced by a page of rules, because an A/B against a
-uniform random sampler said the net wasn't doing anything: three runs, statistically
-indistinguishable, and two trivial heuristics beat both. The interesting part is *why*,
-the campaign and the survivability cap between them had left almost nothing to decide.
-Full write-up in [docs/WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md).
-
-So the game needs no Python, no model file and no ONNX runtime to run. The model path
-was removed with the rest of the training stack on 2026-09-20; the rules are the only
-director there is.
+Managers talk to each other over an event bus rather than calling into each other directly.
+[docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and [docs/EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md) explain why.
 
 ## Docs
 
-There's more written down than is usual for a project this size, mostly because I keep
-forgetting how my own systems work. [docs/INDEX.md](docs/INDEX.md) is the entry point.
-[CHANGELOG.md](CHANGELOG.md) is what changed for players, release by release. [TODO.md](TODO.md) is what's still
-open, [DONE.md](DONE.md) is the detailed log of the work.
+- [docs/INDEX.md](docs/INDEX.md): entry point to the technical docs
+- [CHANGELOG.md](CHANGELOG.md): what changed for players, per release
+- [TODO.md](TODO.md): open work; [DONE.md](DONE.md): log of finished work
 
 ## Status and caveats
 
 - Hobby project, built in evenings. No roadmap, no release schedule, no support.
-- Expect rough edges. Some places load beautifully, others have tile geometry that
-  makes pathfinding do silly things.
-- Performance depends heavily on your GPU and on how dense the tiles are where you live.
-- Licensed under the GNU Affero General Public License v3.0, see [LICENSE](LICENSE).
-  Third party assets keep their own licenses, listed in the in-game attributions.
+- Expect rough edges. Some places load beautifully, others have tile geometry that makes pathfinding do silly things.
+  Late waves are not balanced yet.
+- Performance depends on your CPU first, then your GPU, and on how dense the tiles are where you play.
+- Contributions: the code is AGPL and I can't merge outside pull requests without a contributor agreement yet.
+  Issues and ideas are welcome.
+- Licensed under the GNU Affero General Public License v3.0, see [LICENSE](LICENSE). Third party assets keep their
+  own licenses, listed in the in-game attributions.
