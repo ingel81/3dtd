@@ -8,5 +8,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["support/**/*.ts", "tests/**/*.ts", "playwright.config.ts"]
+  "include": ["support/**/*.ts", "tests/**/*.ts", "coop-bots/**/*.ts", "playwright.config.ts"]
 }

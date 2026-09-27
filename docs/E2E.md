@@ -57,3 +57,23 @@ Jeder Coop-Test mit Spiel prüft am Ende das Relay-Log auf `DESYNC`. Die Nummern
 
 Gefühl und Ton (Egoperspektive, Sound), ob etwas gut aussieht (die Screenshots im Bericht sind dafür da), Firefox,
 ein echter zweiter Rechner, Hardware. Und alles, wofür beide Kameras dieselbe Stelle zeigen müssten (T51).
+
+## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
+
+Kein Test, ein Messwerkzeug (TODO E53): N headless Tabs eines statischen Dev-Builds in DevWorld
+(`?devworld&spawns=N&bot=coop`), ein Raum auf einem lokalen Relay, ein Bot je Platz. Der Host öffnet den Raum im
+Dock, die anderen treten per Code bei und melden bereit, der Host startet und stellt das Tempo (höchstens 4). Jeder
+Bot spielt nur seine Lane, seine Tower und sein Gold (`bots/bot-world.ts`), seine Befehle gehen den normalen Weg über
+den Lockstep; seine Würfel sind eigene, denn der `bot`-Strom der Runde geht in die Prüfsumme. Kein Bot-Server, kein
+Dev-Server, keine Karten-Tiles.
+
+```bash
+npx ng build --configuration development          # dann dist/3DTD/browser mit python -m http.server 4213 ausliefern
+npm run coop-server -- --port 3013 --log-dir <dir>
+node e2e/coop-bots/run.ts --url http://localhost:4213 --relay ws://localhost:3013 --relay-log <dir> --out <out> --runs 20 --parallel 3
+```
+
+Je Welle eine Zeile in `<out>/runs.jsonl` (Gold, Kill-Gold und Ausgaben je Spieler, Gegner, Kills, Kill-Gold und
+Lecks je Lane, HQ-Verlust, Tower je Spieler und Lane), je Lauf eine mit Ende, Laufzeit und den Prüfsummen-Abweichungen
+(Tick je Tab, `DESYNC`-Zeilen des Relays). `--players N` (bis 4), `--max-waves`, `--minutes`; `--solo` spielt einen
+Bot allein im ausgelieferten DevWorld als Vergleich (dann darf kein Bot-Server auf :3001 laufen).
