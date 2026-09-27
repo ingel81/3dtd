@@ -206,32 +206,35 @@ allem unter T (Coop).
 Aus dem Coop-Playtest Heilbronn W1-W38 (2026-09-26, `tmp/coop-playtest/ANALYSE.md`), alles entschieden per AUQ
 (2026-09-26/27), Reihenfolge E40 bis E52:
 
-- [ ] **E40 Coop: Verbindungsverlust**: im Spiel Pause und Dialog „Allein weiterspielen / Raum verlassen“ (allein: Lockstep
+- [ ] **E40 Coop: Verbindungsverlust** (**gebaut 2026-09-27**): im Spiel Pause und Dialog „Allein weiterspielen / Raum verlassen“ (allein: Lockstep
       lösen, Partner-Tower feuern weiter, sein Gold eingefroren); Restart danach spielt allein; Game-Over-Screen mit
       Hinweis und Knopf, das Overlay verdeckt die Squad-Box nicht mehr.
-- [ ] **E41 Director-Kleinteile**: Kompression aus der gelieferten Anzahl (W16 kam als 9-s-Stoß), Anti-Windup bei
+- [ ] **E41 Director-Kleinteile** (**gebaut 2026-09-27**): Kompression aus der gelieferten Anzahl (W16 kam als 9-s-Stoß), Anti-Windup bei
       Boss-Varianten aus der gelieferten Welle, Begründungstexte (Aufschlag, komprimierter Abstand, wirksamer Deckel,
       eine Definition von „bindend“), Boss-Vorschau in `AdaptiveSource.peek()`.
-- [ ] **E42 Ton im Geschütz** nur für den eigenen bemannten Tower (`store.mannedTowerId()`), nicht für jeden bemannten.
-- [ ] **E43 Lightning-Sichtlinie**: laufendes Ziel periodisch nachprüfen wie Projektil/Beam, Kettensprünge mit der
+- [ ] **E42 Ton im Geschütz** (**gebaut 2026-09-27**) nur für den eigenen bemannten Tower (`store.mannedTowerId()`), nicht für jeden bemannten.
+- [ ] **E43 Lightning-Sichtlinie** (**gebaut 2026-09-27**; offen: Coop-Masken des Hosts mit groben Kacheln (braucht eine echte Karte)): laufendes Ziel periodisch nachprüfen wie Projektil/Beam, Kettensprünge mit der
       Sicht je Gegnertyp. Ändert die Simulation.
-- [ ] **E44 Run-Log/Relay-Kleinteile**: Relay-Log nach aktuellem Namen, `ownsKill` für verkaufte Tower, HP-Cheats und
+- [ ] **E44 Run-Log/Relay-Kleinteile** (**gebaut 2026-09-27**): Relay-Log nach aktuellem Namen, `ownsKill` für verkaufte Tower, HP-Cheats und
       Fähigkeiten-Schaden ins Log, Director-Felder auch im Gast-Log; Wellen mit HP-Cheat misst der Regler nicht.
-- [ ] **E45 Upgrades ×5/×10**: Shift+U bis 5, Ctrl+U bis 10 (so viele wie Gold reicht), Shift-/Ctrl-Klick in der Kachel.
-- [ ] **E46 Game-Over-Screen**: Gold gesamt je Spieler, Mini-Charts je Welle (Kills, Tower, verdientes Gold, HQ-Leben).
-- [ ] **E47 Druck-Multiplikator an einer Stelle** ([Plan](docs/PRESSURE_ONE_PLACE_PLAN.md)): nur im Kill-Budget des Deckels, Deckel stetig
+- [ ] **E45 Upgrades ×5/×10** (**gebaut 2026-09-27**): Shift+U bis 5, Ctrl+U bis 10 (so viele wie Gold reicht), Shift-/Ctrl-Klick in der Kachel.
+- [ ] **E46 Game-Over-Screen** (**gebaut 2026-09-27**): Gold gesamt je Spieler, Mini-Charts je Welle (Kills, Tower, verdientes Gold, HQ-Leben).
+- [ ] **E47 Druck-Multiplikator an einer Stelle** (**gebaut und gemessen 2026-09-27**) ([Plan](docs/PRESSURE_ONE_PLACE_PLAN.md)): nur im Kill-Budget des Deckels, Deckel stetig
       (höchstens tötbar in 3 min, kein Pol), kein Aufschlag über Template-Max, kein HP-Hebel.
-- [ ] **E48 Regler-Messwert kappen**: eine Welle zählt höchstens ~3× Ziel, Glättung 0,35 bleibt.
-- [ ] **E49 Leckschaden je Gegnertyp**: round(√baseHp / 5), 1 bis 50, mal Wellenaufschlag; startHealth 500 bleibt.
+- [ ] **E48 Regler-Messwert kappen** (**gebaut 2026-09-27**): eine Welle zählt höchstens ~3× Ziel, Glättung 0,35 bleibt.
+- [ ] **E49 Leckschaden je Gegnertyp** (**gebaut 2026-09-27**): round(√baseHp / 5), 1 bis 50, mal Wellenaufschlag; startHealth 500 bleibt.
       Deckel und Regler lesen ihn. Sichtbar in der Wellen-Vorschau (je Typ und Summe), im Gegner-Tooltip und als Zahl
       am HQ beim Leck.
-- [ ] **E50 `spawnStartDelay` als Boden** je Typ und Lane nach der Streuung, bestehende Werte; ersetzt den
+- [ ] **E50 `spawnStartDelay` als Boden** (**gebaut 2026-09-27**; Folge: Schwarm-Templates höchstens 600 je Lane (Ratten 1200), der Rest geht in HP) je Typ und Lane nach der Streuung, bestehende Werte; ersetzt den
       E21-Kampagnen-Boden (`minSpawnDelayMs`).
-- [ ] **E51 Kill-Modell messen und kalibrieren**: echte Zeit unter Feuer je Gegner (Bot-Läufe + Heilbronn-Lauf),
+- [ ] **E51 Kill-Modell messen und kalibrieren** (**gebaut 2026-09-27**: Realismus 0,85 bis W10, 1,0 danach, gemessen an Bot-Läufen (der Heilbronn-Lauf hat keine Lebensdauern)): echte Zeit unter Feuer je Gegner (Bot-Läufe + Heilbronn-Lauf),
       Konstanten in `wave-sizing.ts` anpassen und gegenprüfen.
-- [ ] **E52 Tower-Balance neu messen** nach E51 (Kanone ~50 %, Lightning/Chaos/Ice schwach): nur Messung und Vorschlag.
+- [ ] **E52 Tower-Balance neu messen** (**gemessen 2026-09-27**, Vorschlag im Plan-Doc, nicht umgesetzt) nach E51 (Kanone ~50 %, Lightning/Chaos/Ice schwach): nur Messung und Vorschlag.
 - [ ] **E53 Coop mit zwei Bots in DevWorld** (später): Bot nur eigene Lane/Gold/Tower, Gast meldet ready, Tempo max 4,
       zwei Tabs gegen lokales Relay.
+- [ ] **E54 Skarnax beendet Läufe** (Bot-Messung 2026-09-27): W35 beendet 4 von 12 kalibrierten Läufen, 113 bis 206
+      Segmente im HQ. Boss-Varianten laufen am Deckel vorbei; Größe oder HP der Variante an die Abwehr binden.
+      Beleg in [Plan](docs/PRESSURE_ONE_PLACE_PLAN.md), Ergebnis.
 ---
 
 ## Entschieden (keine Arbeit)

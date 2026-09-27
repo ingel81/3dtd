@@ -112,6 +112,17 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
   Knöpfe; Reiter „You“ zeigt deine Forschung wie gewohnt. Allein keine Reiter.
 - **T82 Downloads in der App (E37)**: Run-Log speichern und Screenshot. Erwartung: Speichern-Dialog für das Log, der
   Screenshot geht still nach Downloads und die Foto-Leiste nennt die Datei.
+- **T84 Verbindung weg (E40)**: Im Coop-Spiel den Relay stoppen. Erwartung: Dialog „Connection lost“ mit „Continue
+  alone“ und „Start over alone“; beides spielt allein weiter. Stirbt das HQ ohne Verbindung: Hinweis auf dem
+  Game-Over-Screen, Restart spielt allein.
+- **T85 Upgrades ×5/×10 (E45)**: Tower wählen, Shift+U und Ctrl+U, Shift-/Ctrl-Klick auf eine Kachel. Erwartung: bis
+  5 bzw. 10 Stufen, so weit das Gold reicht, über dem Tower „DAMAGE +5“ oder „N UPGRADES“; im Coop genauso.
+- **T86 Game Over (E46)**: Lauf bis Game Over, allein und im Coop. Erwartung: vier kleine Charts je Welle (Kills,
+  Towers, Gold earned, HQ health), im Coop je Spieler in Lane-Farbe mit Strichmuster und Legende, Spalte „Earned“.
+- **T87 Leckschaden (E49)**: Welle durchlassen. Erwartung: über dem HQ steigt „−2“ für einen Zombie, „−4“ für einen
+  Golem; die laufende Welle zeigt „Max HQ damage“ und je Typ „HQ −N“, NEXT-Tooltip „At the HQ each costs“.
+- **T88 Lightning (E43)**: Lightning an einer Gasse. Erwartung: kein Blitz mehr in die Gasse, wenn der Gegner um die
+  Ecke ist; keine Sprünge zu Bodengegnern, die der Tower nicht sieht.
 
 ## K8 Desktop-Build
 
