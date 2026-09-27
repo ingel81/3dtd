@@ -318,7 +318,10 @@ genau eine Desktop-Stelle, den Update-Hinweis (E32); alles andere lebt in
   `landing/index.html` wird ein Link auf `releases/latest`. **Umgesetzt 2026-09-19**,
   mit dem Hinweis aus E28 zu beschränkten Schlüsseln. Auf dem Telefon ist der Knopf
   ausgeblendet wie "Play". Die Landing Page geht mit dem Veröffentlichen des Releases
-  live (E46), der Knopf zeigt also nie auf eine leere Release-Seite.
+  live (E46), der Knopf zeigt also nie auf eine leere Release-Seite. **Seit 0.5.0**
+  verlinken README und Landing die Dateien direkt (`releases/latest/download/3DTD-win-x64-setup.exe`,
+  `3DTD-linux-x64.AppImage`): `release.yml` legt vor dem Veröffentlichen je eine Kopie ohne Version im Namen dazu,
+  der Updater liest weiter `latest.yml` und die Dateien mit Version.
 - **E44 Muss** Kein lokaler Schlüssel im Installer. `scripts/copy-web.js` liest
   `cesiumIonToken` und `googleMapsApiKey` aus `environment.ts` und
   `environment.prod.ts` und bricht ab, wenn einer dieser Werte im Build steht. Die
