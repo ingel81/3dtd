@@ -52,6 +52,7 @@ import { GraphPoint, RouteGraph } from '../utils/route-graph';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, geoDistanceFastSq } from '../utils/geo-utils';
 import { ROUTE_BODY_AIM_HEIGHT_M } from '../utils/route-body';
 import type { HeroBodyContact } from '../utils/hero-body-contact';
+import type { HashSink } from '../simulator/state-hash';
 
 /** One shot of the hero, for HeroWorld.fire. */
 export interface HeroShot {
@@ -580,6 +581,22 @@ export class HeroManager implements IGameManager {
       hero: this.getStatus(),
       ...(restored ? { restored: true as const } : {}),
     });
+  }
+
+  /**
+   * What the state hash reads of the manager (StateHasher; the hero's place
+   * and cooldown it reads itself): unlock, ammo, kills, level, and where he
+   * goes while hired (without him restoreState() leaves no goal).
+   */
+  hashInto(sink: HashSink): void {
+    sink.num(this.unlocked ? 1 : 0);
+    sink.str(this.ammo);
+    sink.num(this.kills);
+    sink.num(this.level);
+    if (!this.hero) return;
+    sink.str(this.mode);
+    sink.num(this.goal ? this.goal.edge : -1);
+    sink.num(this.goal ? this.goal.t : -1);
   }
 
   // ==================== Snapshot ====================

@@ -52,6 +52,7 @@ import type { TowerTypeId } from '../configs/tower-types.config';
 import type { GeoPosition, GamePhase } from '../models/game.types';
 import type { Enemy } from '../entities/enemy.entity';
 import { pointAlongSweep, type RouteSweep } from '../utils/route-sweep';
+import type { HashSink } from '../simulator/state-hash';
 
 /**
  * A beam adds an enemy's damage up over its ticks and shows it as one
@@ -582,6 +583,29 @@ export class AbilityManager implements IGameManager {
   }
 
   // ==================== Snapshot ====================
+
+  /** What the state hash reads (StateHasher): charges of every ability and the strikes on their way. */
+  hashInto(sink: HashSink): void {
+    for (const id of ABILITY_IDS) {
+      const state = this.states.get(id);
+      if (!state) {
+        sink.num(-1);
+        continue;
+      }
+      sink.num(state.unlocked ? 1 : 0);
+      sink.num(state.charges);
+      sink.num(state.wavesTowardCharge);
+    }
+    sink.num(this.nextStrikeId);
+    for (const strike of this.pending) {
+      sink.num(strike.id);
+      sink.num(strike.target.lat);
+      sink.num(strike.target.lon);
+      sink.num(strike.remainingMs);
+      sink.num(strike.burntMs);
+      sink.num(strike.kills);
+    }
+  }
 
   /**
    * Charges of every ability, for the wave-start snapshot

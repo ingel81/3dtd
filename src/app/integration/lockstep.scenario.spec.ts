@@ -40,6 +40,9 @@ vi.mock('@angular/core', async () => {
 });
 
 import { GameObject } from '../core/game-object';
+import type { Tower } from '../entities/tower.entity';
+import type { AbilityId } from '../configs/abilities.config';
+import type { UpgradeId } from '../configs/tower-types.config';
 import type { WaveConfig, SpawnEntry } from '../managers/wave.manager';
 import type { WaveConfig as DirectorWave } from '../director/models/wave-config';
 import { mulberry32 } from '../utils/game-rng';
@@ -580,27 +583,34 @@ describe('Coop world package (COOP_PLAN C1)', () => {
   });
 
   /**
-   * E63 i: state the hash does not read (status effects, targeting strategy, hold fire)
-   * changed on the joiner alone mid-wave. Returns after how many sub-steps the hashes part,
-   * null if they never do within the wave.
+   * E63 i: state changed on the joiner alone mid-wave (or on both, then apart). Returns after how
+   * many sub-steps the hashes part (0: in the first hash after the change, taken at every
+   * boundary here), null if they never do within the wave and a few seconds after.
+   * `setup` runs on both clients through the relay before the wave starts.
    */
-  function detectionLatency(mutate: (joiner: Client) => void): number | null {
+  function detectionLatency(
+    mutate: (joiner: Client, host: Client) => void,
+    setup: (host: Client) => void = () => undefined,
+  ): number | null {
     const relay = new LocalRelay(true);
     const { host, joiner } = hostAndJoiner(relay);
+    setup(host);
     host.emit({ type: 'command:start-wave', director: directorWave() });
     let mutatedAt = -1;
     let waved = false;
-    for (let f = 0; f < 20000; f++) {
+    let after = 0;
+    for (let f = 0; f < 20000 && after < 60; f++) {
       relay.closeTick();
       host.frame(40);
       joiner.frame(40);
       if (mutatedAt < 0 && joiner.gsm.enemyManager.aliveCount() >= 15) {
-        joiner.run(() => mutate(joiner));
+        expect(joiner.gsm.subStep).toBe(host.gsm.subStep);
+        joiner.run(() => mutate(joiner, host));
         mutatedAt = joiner.gsm.subStep;
       }
       const phase = host.gsm.waveManager.phase();
       if (phase === 'wave') waved = true;
-      else if (waved) break;
+      else if (waved) after++;
     }
     expect(mutatedAt).toBeGreaterThan(0);
     const steps = [...host.hashes.keys()].filter((s) => s >= mutatedAt && joiner.hashes.has(s)).sort((x, y) => x - y);
@@ -608,18 +618,73 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     return first === undefined ? null : first - mutatedAt;
   }
 
-  it('shows state outside the hash as a divergence once it acts on hashed state (E63 i)', () => {
-    const control = detectionLatency(() => undefined);
-    const slow = detectionLatency((j) => {
-      const enemy = j.gsm.enemyManager.getAlive()[0];
-      enemy.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 2000, startTime: j.gsm.gameTimeMs, sourceId: 'mutation' });
-    });
-    const holdFire = detectionLatency((j) => j.gsm.setTowerHoldFire(j.world.towers[0], true));
-    const targeting = detectionLatency((j) => { j.world.towers[1].targetingStrategy = 'last'; });
-    console.log(`E63 i detection latency in sub-steps: control ${control}, slow ${slow}, hold fire ${holdFire}, targeting ${targeting}`);
-    expect(control).toBeNull();
-    expect(slow).not.toBeNull();
-    expect(holdFire).not.toBeNull();
+  /** A strike of `abilityId` by player a at the first enemy, on `client` alone */
+  function strike(client: Client, abilityId: AbilityId) {
+    const target = client.gsm.enemyManager.getAlive()[0].position;
+    return client.run(() => client.gsm.abilityOf('a').use(abilityId, { lat: target.lat, lon: target.lon }));
+  }
+
+  function upgradeTrack(tower: Tower, stat: string): UpgradeId {
+    return tower.typeConfig.upgrades.find((u) => u.effect.stat === stat)!.id;
+  }
+
+  it('shows every piece of game state that acts on the game as a divergence (E63 i)', { timeout: 60_000 }, () => {
+    const pendingOf = (c: Client) => (c.gsm.abilityOf('a') as unknown as { pending: { remainingMs: number }[] }).pending;
+    const heroOf = (c: Client) => c.gsm.heroOf('a') as unknown as { kills: number; ammo: string; applyStats(): void };
+    const readyHero = (h: Client) => h.emit({ type: 'debug:ready-hero' });
+    const latency: Record<string, number | null> = {
+      control: detectionLatency(() => undefined),
+      'enemy: slow': detectionLatency((j) => {
+        const enemy = j.gsm.enemyManager.getAlive()[0];
+        enemy.movement.applyStatusEffect({ type: 'slow', value: 0.5, duration: 2000, startTime: j.gsm.gameTimeMs, sourceId: 'mutation' });
+      }),
+      'enemy: slow lasts longer': detectionLatency((j, h) => {
+        for (const c of [h, j]) {
+          const enemy = c.gsm.enemyManager.getAlive()[0];
+          enemy.movement.applyStatusEffect({
+            type: 'slow', value: 0.5, duration: c === j ? 9000 : 3000, startTime: c.gsm.gameTimeMs, sourceId: 'mutation',
+          });
+        }
+      }),
+      'tower: hold fire': detectionLatency((j) => j.gsm.setTowerHoldFire(j.world.towers[0], true)),
+      'tower: targeting': detectionLatency((j) => { j.world.towers[1].targetingStrategy = 'last'; }),
+      'tower: air targeting': detectionLatency((j) => { j.world.towers[0].airSubStrategy = 'highest-hp'; }),
+      'tower: damage level': detectionLatency((j) => { j.world.towers[2].applyUpgrade(upgradeTrack(j.world.towers[2], 'damage')); }),
+      'tower: range level': detectionLatency((j) => { j.world.towers[3].applyUpgrade(upgradeTrack(j.world.towers[3], 'range')); }),
+      'research: node done': detectionLatency((j) => j.gsm.researchOf('b').completeResearch('advanced-weaponry')),
+      'research: air lost': detectionLatency((j) => {
+        const research = j.gsm.researchOf('a');
+        const state = research.getState();
+        research.restoreState({ ...state, completed: state.completed.filter((id) => id !== 'aa-retrofit') });
+      }),
+      'ability: charges': detectionLatency((j) => {
+        (j.gsm.abilityOf('a') as unknown as { states: Map<AbilityId, { charges: number }> }).states.get('frost-bomb')!.charges--;
+      }, (h) => h.emit({ type: 'debug:ready-ability', abilityId: 'frost-bomb' })),
+      'ability: strike lands later': detectionLatency((j, h) => {
+        for (const c of [h, j]) expect(strike(c, 'frost-bomb').ok).toBe(true);
+        pendingOf(j)[0].remainingMs += 2000;
+      }, (h) => h.emit({ type: 'debug:ready-ability', abilityId: 'frost-bomb' })),
+      'hero: level': detectionLatency((j) => {
+        const hero = heroOf(j);
+        hero.kills += 200;
+        hero.applyStats();
+      }, readyHero),
+      'hero: ammo': detectionLatency((j) => {
+        const hero = heroOf(j);
+        hero.ammo = 'explosive';
+        hero.applyStats();
+      }, readyHero),
+      'economy: perfect streak': detectionLatency((j) => {
+        (j.gsm as unknown as { economy: { _perfectStreak: number } }).economy._perfectStreak += 3;
+      }),
+    };
+    console.log(`E63 i detection latency in sub-steps (null: never): ${JSON.stringify(latency, null, 1)}`);
+    // Each in the first hash after it (before E63 i: slow 1, hold fire 23, targeting 106, upgrades
+    // over 1200, a strike landing later 30 sub-steps; research, charges, hero and streak never)
+    expect(latency['control']).toBeNull();
+    for (const [what, steps] of Object.entries(latency)) {
+      if (what !== 'control') expect(steps, what).toBe(0);
+    }
   });
 
   it('refuses a package of another game version, other balance or no world at all', () => {

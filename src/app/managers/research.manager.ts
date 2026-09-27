@@ -24,6 +24,10 @@ import {
   getMaxResearchSlots,
 } from '../configs/research/research-center.config';
 import { TowerTypeId } from '../configs/tower-types.config';
+import type { HashSink } from '../simulator/state-hash';
+
+/** Every research in tree order, the order the state hash reads them in */
+const RESEARCH_IDS = Object.keys(RESEARCH_TREE) as ResearchId[];
 
 /**
  * What the simulation reads of the research: the ResearchManager, not the
@@ -519,6 +523,20 @@ export class ResearchManager implements IGameManager {
   /** IGameManager.destroy — alias for `reset()`. */
   destroy(): void {
     this.reset();
+  }
+
+  /**
+   * What the state hash reads (StateHasher): center, slots, what is done,
+   * running and queued. In tree order, not in the order it came about.
+   */
+  hashInto(sink: HashSink): void {
+    sink.num(this._centerLevel);
+    sink.num(this._maxSlots);
+    for (const id of RESEARCH_IDS) {
+      const active = this.activeResearches.get(id);
+      sink.num(this.completedResearches.has(id) ? -1 : active ? active.elapsed : -2);
+    }
+    for (const id of this.queue) sink.str(id);
   }
 
   // ==================== Save/Load ====================

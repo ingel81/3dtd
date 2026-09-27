@@ -16,7 +16,7 @@ export const HASH_EVERY_TICKS = 30;
  * (simulator/state-hash.ts). Here, not there: the relay imports this file
  * and nothing that pulls the game in.
  */
-export const HASH_PARTS = ['clock', 'credits', 'health', 'wave', 'ids', 'rng', 'enemies', 'towers', 'projectiles', 'heroes'] as const;
+export const HASH_PARTS = ['clock', 'credits', 'health', 'wave', 'ids', 'rng', 'enemies', 'towers', 'projectiles', 'heroes', 'research', 'abilities'] as const;
 export type HashPart = (typeof HASH_PARTS)[number];
 
 /** Per entity part, each entity as the hash read it: its id (or index) first, then its values. */

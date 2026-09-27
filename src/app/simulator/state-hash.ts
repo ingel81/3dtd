@@ -8,6 +8,33 @@ import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-check';
 
 /**
+ * The version of what the state hash reads. A replay file carries it; one of
+ * another version plays without its hashes checked (replay-file.ts).
+ * 1: up to 0.5.1. 2: status effects, tower settings and upgrades, research,
+ * abilities, the hero's level and ammo, the perfect streak (TODO E63 i).
+ */
+export const STATE_HASH_VERSION = 2;
+
+/** Takes what a manager hands to the hash (Hashable). */
+export interface HashSink {
+  num(value: number): void;
+  str(value: string): void;
+}
+
+/**
+ * State that hands itself to the hash: research, abilities, a hero's
+ * manager. It goes in as one number per player, the breakdown row stays short.
+ */
+export interface Hashable {
+  hashInto(sink: HashSink): void;
+}
+
+/** A player's hero seat: the manager with its state, the hero when hired. */
+export interface HashedHeroSeat extends Hashable {
+  getHero(): Hero | null;
+}
+
+/**
  * What the state hash reads. The GameStateManager provides it
  * (GameStateManager.hashSource); a spec can hand in plain objects.
  */
@@ -15,6 +42,8 @@ export interface StateHashSource {
   subStep(): number;
   /** Every player's credits in roster order; one in the single player game */
   credits(): readonly number[];
+  /** Perfect waves in a row: the combo of the next wave's bonus */
+  perfectStreak(): number;
   baseHealth(): number;
   waveNumber(): number;
   idCounter(): number;
@@ -22,8 +51,12 @@ export interface StateHashSource {
   enemies(): readonly Enemy[];
   towers(): readonly Tower[];
   projectiles(): readonly Projectile[];
-  /** Every player's hero in roster order, null where none is hired; one in the single player game */
-  heroes(): readonly (Hero | null)[];
+  /** Every player's hero seat in roster order; one in the single player game */
+  heroes(): readonly HashedHeroSeat[];
+  /** Every player's research in roster order */
+  research(): readonly Hashable[];
+  /** Every player's abilities in roster order */
+  abilities(): readonly Hashable[];
 }
 
 /** The state hash with the hash of each part (HASH_PARTS order) and, per entity part, what each entity put in. */
@@ -47,7 +80,7 @@ const FNV_OFFSET = 0x811c9dc5;
  * every entity, for finding where a coop room ran apart (TODO E32).
  *
  * Cost: a handful of numbers per entity through one FNV-1a round each, no
- * allocation in hash(). Taken while recording and checking, every
+ * allocation in hash() beyond what the source's lists are. Taken while recording and checking, every
  * STATE_HASH_INTERVAL sub-steps and at the wave end, in coop every
  * HASH_EVERY_TICKS ticks, never in normal play.
  */
@@ -60,6 +93,18 @@ export class StateHasher {
   private out: HashBreakdown | null = null;
   /** The entity being read, while a breakdown collects them */
   private row: (string | number)[] | null = null;
+  /** The digest being collected, see digest() */
+  private d = 0;
+  private readonly sink: HashSink = {
+    num: (value) => {
+      this.f64[0] = value;
+      this.d = fnv(fnv(this.d, this.u32[0]), this.u32[1]);
+    },
+    str: (value) => {
+      this.d = fnv(this.d, value.length);
+      for (let i = 0; i < value.length; i++) this.d = fnv(this.d, value.charCodeAt(i));
+    },
+  };
 
   hash(source: StateHashSource): number {
     this.out = null;
@@ -79,8 +124,8 @@ export class StateHasher {
     this.part('clock');
     this.num(source.subStep());
     this.part('credits');
-    // One account hashes as the single number did before coop: old replays keep their hashes
     for (const credits of source.credits()) this.num(credits);
+    this.num(source.perfectStreak());
     this.part('health');
     this.num(source.baseHealth());
     this.part('wave');
@@ -106,6 +151,17 @@ export class StateHasher {
       this.num(enemy.transform.terrainHeight);
       this.num(enemy.health.hp);
       this.num(enemy.movement.getPathProgress());
+      // Status effects: a slow that lasts longer shows only once it ends
+      const effects = enemy.movement.statusEffects;
+      this.d = FNV_OFFSET;
+      this.sink.num(effects.length);
+      for (const effect of effects) {
+        this.sink.str(effect.type);
+        this.sink.num(effect.value);
+        this.sink.num(effect.startTime);
+        this.sink.num(effect.duration);
+      }
+      this.num(this.d >>> 0);
     }
 
     this.part('towers');
@@ -118,7 +174,14 @@ export class StateHasher {
       this.num(tower.combat.kills);
       this.num(tower.combat.damageDealt);
       this.str(tower.currentTarget?.id ?? '');
-      // The owner only when it is not the single player, for the same reason
+      // Settings and upgrades act on the game long before a hash of the fight shows them
+      this.d = FNV_OFFSET;
+      for (const upgrade of tower.typeConfig.upgrades) this.sink.num(tower.getUpgradeLevel(upgrade.id));
+      this.num(this.d >>> 0);
+      this.str(tower.targetingStrategy);
+      this.str(tower.airSubStrategy);
+      this.num((tower.holdFire ? 1 : 0) + (tower.manned ? 2 : 0));
+      // The owner only when it is not the single player: a single player's row stays short
       if (tower.ownerId !== LOCAL_PLAYER_ID) this.str(tower.ownerId);
     }
 
@@ -132,9 +195,10 @@ export class StateHasher {
     });
 
     this.part('heroes');
-    // One hero hashes as the single one did before coop: old replays keep their hashes
-    source.heroes().forEach((hero, i) => {
+    const heroes = source.heroes();
+    for (let i = 0; i < heroes.length; i++) {
       this.entity('heroes', i);
+      const hero = heroes[i].getHero();
       if (hero) {
         this.num(hero.position.lat);
         this.num(hero.position.lon);
@@ -142,9 +206,30 @@ export class StateHasher {
       } else {
         this.num(-1);
       }
-    });
+      this.digest(heroes[i]);
+    }
+
+    this.part('research');
+    this.seats('research', source.research());
+    this.part('abilities');
+    this.seats('abilities', source.abilities());
     this.part(null);
     return this.h >>> 0;
+  }
+
+  /** One row per player: their index, then the digest of what they hand in. */
+  private seats(part: HashPart, seats: readonly Hashable[]): void {
+    for (let i = 0; i < seats.length; i++) {
+      this.entity(part, i);
+      this.digest(seats[i]);
+    }
+  }
+
+  /** What `state` hands in, folded into one number. */
+  private digest(state: Hashable): void {
+    this.d = FNV_OFFSET;
+    state.hashInto(this.sink);
+    this.num(this.d >>> 0);
   }
 
   /** Close the part before, open `name`; null closes the last. */

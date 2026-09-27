@@ -405,6 +405,7 @@ export class GameStateManager {
   private readonly hashSource: StateHashSource = {
     subStep: () => this.clock.subStep,
     credits: () => this.creditsLedger.balances(),
+    perfectStreak: () => this.economy.perfectStreak,
     baseHealth: () => this.baseHealth(),
     waveNumber: () => this.waveManager.waveNumber(),
     idCounter: () => GameObject.getIdCounter(),
@@ -412,7 +413,9 @@ export class GameStateManager {
     enemies: () => this.enemyManager.getAll(),
     towers: () => this.towerManager.getAll(),
     projectiles: () => this.projectileManager.getAll(),
-    heroes: () => this.heroSeats.map((seat) => seat.getHero()),
+    heroes: () => this.heroSeats,
+    research: () => this.researchSeats.map((seat) => seat.research),
+    abilities: () => this.abilitySeats,
   };
   /** The state hash now (StateHasher), for the recorder and the re-simulation */
   readonly stateHash = (): number => this.stateHasher.hash(this.hashSource);
