@@ -44,6 +44,15 @@ const MAX_WAVES = Number(argument('max-waves', '0'));
 /** The 3D view on (slower, only to look at a run) */
 const RENDER = process.argv.includes('--render');
 const HEADED = process.argv.includes('--headed');
+/**
+ * WebGL on SwiftShader instead of the machine's GPU. The lines of sight are
+ * cube renders on the GPU (the host's in coop); on SwiftShader they took a
+ * whole CPU per browser and held a room at half speed.
+ */
+const SWIFTSHADER = process.argv.includes('--swiftshader');
+const GPU_ARGS = SWIFTSHADER
+  ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+  : process.platform === 'win32' ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--enable-gpu', '--ignore-gpu-blocklist'];
 
 mkdirSync(OUT, { recursive: true });
 const RUNS_FILE = join(OUT, 'runs.jsonl');
@@ -304,8 +313,10 @@ function relayDesyncs(code: string): string[] {
 // === One run ===
 
 /** False when the run never got going (a tab did not load, the room did not start): it is tried again */
-async function playRun(browser: Browser, index: number): Promise<boolean> {
+async function playRun(index: number): Promise<boolean> {
   const started = Date.now();
+  // A browser per run: one GPU process for all tabs made the runs wait on each other
+  const browser = await launch();
   const seats: Page[] = [];
   let code = '';
   let written = 0;
@@ -357,6 +368,7 @@ async function playRun(browser: Browser, index: number): Promise<boolean> {
     return playing;
   } finally {
     for (const page of seats) await page.context().close().catch(() => undefined);
+    await browser.close().catch(() => undefined);
   }
 }
 
@@ -364,10 +376,6 @@ async function main(): Promise<void> {
   if (SOLO && await fetch('http://localhost:3001/').then(() => true, () => false)) {
     throw new Error('A bot server runs on :3001; a solo DevWorld tab would follow its commands. Stop it first.');
   }
-  const browser = await chromium.launch({
-    headless: !HEADED,
-    args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'],
-  });
   // Run indices stay unique; a run that never got going does not count
   let next = 0;
   let claimed = 0;
@@ -376,11 +384,17 @@ async function main(): Promise<void> {
     while (claimed < RUNS && attempts < RUNS * 2) {
       claimed++;
       attempts++;
-      if (!(await playRun(browser, next++))) claimed--;
+      if (!(await playRun(next++))) claimed--;
     }
   };
   await Promise.all(Array.from({ length: Math.max(1, PARALLEL) }, worker));
-  await browser.close();
+}
+
+function launch(): Promise<Browser> {
+  return chromium.launch({
+    headless: !HEADED,
+    args: [...GPU_ARGS, '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'],
+  });
 }
 
 await main();
