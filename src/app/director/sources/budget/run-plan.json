@@ -14,20 +14,20 @@
     "wave": 2,
     "name": "Rat Tide",
     "enemies": {
-      "rat": 100
+      "rat": 60
     },
     "strength": 1,
-    "spawnDelay": 100
+    "spawnDelay": 167
   },
   {
     "wave": 3,
     "name": "Penguin Rush",
     "enemies": {
-      "penguin": 108,
-      "rat": 12
+      "penguin": 54,
+      "rat": 6
     },
     "strength": 1,
-    "spawnDelay": 100,
+    "spawnDelay": 200,
     "pattern": "interleaved"
   },
   {
@@ -54,29 +54,29 @@
     "wave": 6,
     "name": "Spider Swarm",
     "enemies": {
-      "spider": 268
+      "spider": 100
     },
     "strength": 1,
-    "spawnDelay": 100
+    "spawnDelay": 268
   },
   {
     "wave": 7,
     "name": "Bat Swarm",
     "enemies": {
-      "bat": 291
+      "bat": 120
     },
     "strength": 1,
-    "spawnDelay": 100
+    "spawnDelay": 243
   },
   {
     "wave": 8,
     "name": "Hornet Strike",
     "enemies": {
-      "hornet": 81,
-      "bat": 35
+      "hornet": 42,
+      "bat": 18
     },
     "strength": 1,
-    "spawnDelay": 300,
+    "spawnDelay": 580,
     "pattern": "interleaved"
   },
   {

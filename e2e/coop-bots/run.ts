@@ -255,6 +255,19 @@ async function installProbe(page: Page): Promise<void> {
       return out;
     };
     const health = () => (gs.baseHealth as () => number)();
+    /** What the wave source committed for this wave: its name, sizes and the numbers it logs */
+    const planned = (wave: number) => {
+      const director = (comp as unknown as { facade: { waveDirector?: { committed: { wave: number; config: { templateName?: string; enemies: { type: string; count: number; healthMultiplier?: number }[] }; log: Record<string, unknown> } | null } } }).facade.waveDirector;
+      const plan = director?.committed;
+      if (!plan || plan.wave !== wave) return {};
+      return {
+        plan: {
+          name: plan.config.templateName ?? null,
+          hpMult: Object.fromEntries(plan.config.enemies.map((g) => [g.type, g.healthMultiplier ?? 1])),
+          ...plan.log,
+        },
+      };
+    };
     interface Wave {
       wave: number; enemyCount: number; lanes: number; t0: number;
       spawnedByLane: Record<string, number>; killsByLane: Record<string, number>;
@@ -262,6 +275,7 @@ async function installProbe(page: Page): Promise<void> {
       killGoldByPlayer: Record<string, number>; waveGoldByPlayer: Record<string, number>;
       spentByPlayer: Record<string, number>; hpStart: number; hpLost: number;
       creditsStart: Record<string, number>; towersStart: Record<string, number>;
+      plan?: Record<string, unknown>;
     }
     const probe = {
       waves: [] as Record<string, unknown>[],
@@ -295,6 +309,7 @@ async function installProbe(page: Page): Promise<void> {
         t0: gs.gameTimeMs, spawnedByLane: {}, killsByLane: {}, killGoldByLane: {}, leaksByLane: {},
         killGoldByPlayer: {}, waveGoldByPlayer: {}, spentByPlayer: {}, hpStart: health(), hpLost: 0,
         creditsStart: credits(), towersStart: towers(),
+        ...planned(e['wave'] as number),
       };
     });
     bus.onLive('enemy:spawned', (e) => {

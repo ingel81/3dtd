@@ -26,8 +26,13 @@ export function budgetSeconds(wave: number): number {
   return 15 + 85 * (1 - DetMath.exp(-(Math.max(1, wave) - 1) / 15));
 }
 
-/** Share of the modelled damage a defense actually lands, one value for the whole run. */
-export const BUDGET_REALISM = 0.9;
+/**
+ * Share of the modelled damage a defense actually lands, one value for the
+ * whole run. Bots with three or four towers in W2-W8 killed 33 to 89 % of what
+ * the model gave them at 0.9 (2026-09-28, 3 runs); the adaptive director
+ * measured 0.65 on W1-W10. The pressure loop corrects the rest.
+ */
+export const BUDGET_REALISM = 0.6;
 /** An enemy may take this share of the damage the defense deals while it is under fire. */
 export const UNDER_FIRE_SHARE = 0.9;
 /** Least time under fire an enemy counts with, so a defense whose LOS is not in yet does not zero the HP. */
