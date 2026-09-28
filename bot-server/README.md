@@ -3,8 +3,8 @@
 Python-Server für Bot-Läufe mit Web-Dashboard. Er nimmt Bot-Clients an, schreibt
 jede Welle in ein JSONL-Log und steuert die Tabs fern.
 
-> **Der Server plant keine Wellen.** Das macht der Wave Director im Client
-> ([`../docs/WAVE_DIRECTOR.md`](../docs/WAVE_DIRECTOR.md)). PPO, ONNX-Modell,
+> **Der Server plant keine Wellen.** Das macht die Wellenquelle im Client
+> ([`../docs/WAVE_SOURCE_PLAN.md`](../docs/WAVE_SOURCE_PLAN.md)). PPO, ONNX-Modell,
 > State-Encoder und der Schema-Spiegel sind am 2026-09-20 entfallen
 > ([`../docs/BALANCING_PLAN.md`](../docs/BALANCING_PLAN.md), Phase 1a und 1d).
 

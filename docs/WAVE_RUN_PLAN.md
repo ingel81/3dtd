@@ -1,9 +1,11 @@
 # Laufplan: ein Weg für alle Wellen
 
-**Stand:** 2026-09-28, Konzept, nichts gebaut. Entscheidungen fallen per Auswahlfragen, gebaut wird danach.
+**Stand:** 2026-09-29, gebaut: der Budget-Source ist der Standard, der adaptive Director ist entfernt
+(Abschnitt 13, [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), Abschnitt 18). Die Abschnitte 1 bis 12 sind das
+Konzept vom 2026-09-28.
 
 Verwandt: [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md) (Quellen, Vertrag), [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)
-(adaptiver Director), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) (Boss-Wellen), TODO E54, E67.
+(adaptiver Director, archiviert), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) (Boss-Wellen), TODO E54, E67.
 
 ## 1. Anlass
 
@@ -102,6 +104,19 @@ Users; „prüfen“ heißt erst messen oder besprechen.
   Boden-Matchup, Splitter mit ganzem Baum, Leckkosten je Typ, Spawn-Mindestabstand je Typ, Coop je Spur, mindestens
   5 Gegner, immer 1 HP Leck, Deckel durch Dauer begrenzt, Deckel unter dem Vorlagen-Minimum, Aufwärmen, geschummelte
   Wellen, Anti-Windup, Neustart je Lauf.
+
+Stand nach dem Entfernen des adaptiven Directors (2026-09-29):
+- **Weg** (mit dem Code): alle 13 aus „Fällt weg“ außer dem Wurm mit voller Länge; die 4 aus „Geht im Prinzip
+  auf“ (jetzt Laufplan und Stärke je Zeile); aus „Prüfen“ Schwierigkeitsrampe, Kill-Realismus mit Sprung (das
+  Budget rechnet mit einem Wert, `BUDGET_REALISM`), Luft und Geister nur mit Abwehr, DPS-Rampe, Tausch weniger
+  Gegner mehr HP; aus „Bleibt“ die Untergrenze beim Boden-Matchup (das Budget liest die reine Matrix),
+  mindestens 5 Gegner und der Deckel unter dem Vorlagen-Minimum (beides Teil des alten Deckels).
+- **Bleibt** im Budget-Source oder geteilt: Wurm mit voller Länge (`enemyHp`), Band des Reglers (halb bis
+  doppelt), Ausreißer gedeckelt, Spannungskurve, Planung am Ende der Vorwelle, Luft gegen eigenen Schaden,
+  Splitter mit ganzem Baum, Leckkosten je Typ, Spawn-Mindestabstand je Typ, Coop je Spur, immer 1 HP Leck,
+  Deckel durch die Dauer der Welle, Aufwärmen, geschummelte Wellen, Anti-Windup, Neustart je Lauf.
+- **Nur noch im Tabellen-Source:** der Leckschaden-Sprung bei W31/W61 (dort unverändert) und die Höchstdauer
+  von 180 s als Prüfung der Zeilen; das Budget kennt beide nicht mehr.
 
 ## 8. Nachgerechnet: was eine Welle heute kostet
 
@@ -211,7 +226,9 @@ Quelle. Bleiben bewusst geteilt: der Konfigurations-Hash und die Stellschrauben 
   Boden und Luft getrennt, gemittelt über die Spuren.
 - `sources/budget/`: `run-plan.json` (der Entwurf aus Abschnitt 11), `budget.ts` (die Schritte aus Abschnitt 9 mit
   Grenze je Gegner), `budget-source.ts`. Leckschaden wächst stetig mit der Kurve (`LEAK_GROWTH`), Boss-Gold nach dem
-  Plan. Noch nicht Standard; `?waves=budget` in der Adresse schaltet einen Tab um.
+  Plan.
+- 2026-09-29: Standard (`DEFAULT_WAVE_SOURCE = 'budget'`), der adaptive Source mit Templates, Kampagnen-Pins,
+  Boss-Rotation und Endgame-HP entfernt; `table` bleibt, `?waves=table` schaltet einen Tab um.
 
 ## 14. Kalibrierung mit Bots (Nacht 2026-09-28/29, Bot-Werte)
 
@@ -248,5 +265,5 @@ vorher standen bis W10 nur 3 bis 4 Tower.
 
 ## 15. Nächster Schritt
 
-Die Läufe des Users auf echten Karten (PLAYTEST.md, Paket B). Danach entscheiden: Budget-Quelle als Standard, der Abbau
-des adaptiven Directors liegt auf dem Branch `wt/remove-adaptive` bereit.
+Spielen und messen: menschliche Läufe und Bot-Läufe mit dem Budget-Source als Standard, dann Laufplan,
+`BUDGET_REALISM` und `LEAK_GROWTH` justieren.

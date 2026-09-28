@@ -43,13 +43,13 @@ eine Summe aus 16,667 ms und driftet im Float; der Schritt-Index tut das nicht. 
 
 - **`commit`** kommt aus `public/build-info.json`, das `tools/build-info.mjs` vor `npm run build` und `npm start`
   aus git schreibt. Ohne git steht dort `unknown`; das Log behauptet dann nichts.
-- **`configHash`** ist ein fnv1a über alle balance-relevanten Configs (Tower, Gegner, Balance, Kampagne, Templates,
-  Forschung, Fähigkeiten, Held, Boss-Varianten, Schadensmatrix). Die Auswertung gruppiert danach und warnt bei
-  gemischten Ständen. Er deckt die Tabellen ab, nicht den Code; dafür steht der Commit daneben.
+- **`configHash`** ist ein fnv1a über alle balance-relevanten Configs (Tower, Gegner, Balance, Kampagnen-Gold,
+  Laufplan, Wellenliste, Forschung, Fähigkeiten, Held, Schadensmatrix). Die Auswertung gruppiert danach und warnt
+  bei gemischten Ständen. Er deckt die Tabellen ab, nicht den Code; dafür steht der Commit daneben.
 - **`waveSource`** steht nur dort, wenn der Lauf **nicht** die Standard-Wellenquelle gespielt hat
-  (`adaptive`). Dann geht die Quelle auch in den `configHash` ein, damit zwei Läufe mit verschiedenen
-  Wellenquellen nie im gleichen Mittel landen. Fehlt das Feld, war es der adaptive Source, und der Hash liegt
-  dort, wo er bei allen bisher gemessenen Läufen lag (docs/WAVE_SOURCE_PLAN.md, Abschnitt 8).
+  (`budget`, seit 2026-09-29). Dann geht die Quelle auch in den `configHash` ein, damit zwei Läufe mit
+  verschiedenen Wellenquellen nie im gleichen Mittel landen. In Logs vor dem 2026-09-29 heißt ein fehlendes
+  Feld: der damalige Standard, der adaptive Source (docs/WAVE_SOURCE_PLAN.md, Abschnitte 8 und 18).
 - **`seed`** ist der Lauf-Seed aus `GameRng` (Phase 1c).
 
 ### Ein Wellenblock
@@ -65,10 +65,11 @@ Lecks, HQ-HP vorher und nachher, je Tower Typ, Stufen, Schaden und Kills, und di
 Fähigkeiten dieses Spielers genommen haben, ohne Overkill).
 
 Zur Wellenquelle stehen im Block: `waveSource`, und was die Quelle über ihre Entscheidung sagt. Die drei
-typisierten Felder `survivableCount`, `pressureMultiplier` und `targetPressure` gehören dem adaptiven Source;
-eine Quelle ohne solche Zahlen lässt sie weg, wie eine Welle aus dem Debug-Panel. Eigene Zahlen einer Quelle
-stehen in `diagnostics` (der Tabellen-Source legt dort Zeile, Zyklusrunde und HP-Faktor ab), damit das Format
-nicht je Quelle wächst. Die Entscheidung kommt aus `wave:planned`, das `command:start-wave` auf jedem Client
+typisierten Felder `survivableCount`, `pressureMultiplier` und `targetPressure` stammen aus dem Format des
+früheren adaptiven Sources; der Budget-Source schreibt `pressureMultiplier` und `targetPressure`, der
+Tabellen-Source `survivableCount: null`, eine Welle aus dem Debug-Panel keines davon. Eigene Zahlen einer Quelle
+stehen in `diagnostics` (der Budget-Source legt dort Planzeile, Budget, Deckel und Grenzen je Gegner ab, der
+Tabellen-Source Zeile, Zyklusrunde und HP-Faktor), damit das Format nicht je Quelle wächst. Die Entscheidung kommt aus `wave:planned`, das `command:start-wave` auf jedem Client
 auslöst, also steht sie im Coop auch im Log des Gasts.
 
 Die Welle, in der die Basis fällt, bekommt ihren Block ebenfalls: `wave:completed` kommt dort nie, deshalb schreibt

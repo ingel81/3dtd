@@ -23,12 +23,11 @@ npm run coop-server  # Coop-Relay (:3003), docs/COOP_PLAN.md
 - **Signal Store** - 6 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research, Debug)
 - Kein Backend im Spiel-Client - komplett clientseitig (`bot-server/` nur für Bot-Läufe)
 - **Wellenquellen sind austauschbar** (`director/wave-source.ts`, ein Unterordner je Variante unter
-  `director/sources/`, Standard in `configs/director.config.ts`). Der adaptive Source ist regelbasiert und
-  läuft ohne Server und ohne Modell, der Tabellen-Source spielt eine editierbare Liste, der Budget-Source einen
-  Laufplan mit HP gegen die Abwehr ([WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md), `?waves=budget`). Leck, Gold und
-  Boss je Welle liefert die Quelle (`director/wave-rules.ts`). Rahmen in
-  [WAVE_SOURCE_PLAN.md](docs/WAVE_SOURCE_PLAN.md), der adaptive in
-  [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), Umbau in [BALANCING_PLAN.md](docs/BALANCING_PLAN.md)
+  `director/sources/`, Standard in `configs/director.config.ts`). Standard ist der Budget-Source: ein fester
+  Laufplan (`run-plan.json`), dessen HP ein Budget gegen die Abwehr setzt, geregelt vom Druck-Regler; er läuft
+  ohne Server und ohne Modell. Der Tabellen-Source spielt eine editierbare Liste. Rahmen in
+  [WAVE_SOURCE_PLAN.md](docs/WAVE_SOURCE_PLAN.md), das Budget-Modell in [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md);
+  der frühere adaptive Director ist entfernt ([WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), archiviert)
 - Tile-Zugang: Cesium-Ion-Token (Standard) oder Google-Maps-Key. `ConfigService` liest ihn aus drei Quellen, die
   spätere gewinnt: `environment.ts` (Vorlage `environment.template.ts`), `public/runtime-config.json`, Token-Dialog
   (localStorage `3dtd-tile-credentials`)
@@ -44,8 +43,8 @@ src/app/
 ├── bots/                       # Bot System (Strategy Pattern), Bot-Session, WebSocket-Client
 │   ├── bots/                   # StrategyBot, Factory
 │   └── strategies/             # Placement, Upgrade, Wave, Research, Ability, Hero Strategies
-├── director/                   # Wellenquellen: Vertrag (wave-source.ts), WaveDirector, Templates,
-│                               # Snapshot, Verteidigungsanalyse; sources/adaptive + sources/table + sources/budget
+├── director/                   # Wellenquellen: Vertrag (wave-source.ts), Regeln je Welle (wave-rules.ts), WaveDirector,
+│                               # Druck-Regler, Snapshot, Verteidigungsanalyse; sources/budget (Standard) + sources/table
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic/ScreenShake Services (Three.js-coupled, Angular-frei)
 ├── coop/                       # Coop: Lockstep, Relay-Protokoll, Weltpaket, Prüfsummen, Raum-Optionen (docs/COOP_PLAN.md)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
@@ -111,7 +110,7 @@ Partikel; Game Design und Balance; Berichte und Sprint-Handover; Pläne; Archiv)
 | Route, Korridor, Zellen | [ROUTE_CORRIDOR.md](docs/ROUTE_CORRIDOR.md) |
 | Sichtlinien der Tower | [LOS_PIPELINE.md](docs/LOS_PIPELINE.md) |
 | Wellen: Quellen, Vertrag, Wellenliste | [WAVE_SOURCE_PLAN.md](docs/WAVE_SOURCE_PLAN.md) (Einstieg) |
-| Wellen: Regeln, Deckel, Spawning | [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) |
+| Wellen: Laufplan, Budget, Spawning | [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md), [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) |
 | Daten eines Laufs, Export | [RUN_LOG.md](docs/RUN_LOG.md) |
 | Offene Nachtests im Spiel | [PLAYTEST.md](docs/PLAYTEST.md) |
 | End-to-End-Tests im Browser | [E2E.md](docs/E2E.md) |

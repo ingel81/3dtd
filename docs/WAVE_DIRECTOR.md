@@ -1,5 +1,11 @@
 # Wave Director
 
+> **Archiviert (2026-09-29):** Der adaptive Source ist aus dem Code entfernt, mit Templates, Kampagnen-Pins,
+> Boss-Rotation und Überlebbarkeits-Deckel. Standard ist der Budget-Source ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md));
+> was aus den Sonderregeln wurde, steht in [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), Abschnitt 18. Der
+> Druck-Regler (`director/pressure-controller.ts`) lebt dort weiter. Dieses Dokument bleibt als Beschreibung
+> des alten Stands und seiner Messungen.
+
 **Stand:** 2026-09-22. Dieses Dokument beschreibt den **adaptiven Wave Source**: regelbasiert, vollständig im
 Client, kein Python-Server, kein Modell, keine Runtime. Er ist einer von mehreren austauschbaren Wellenquellen
 und der Standard. Der Rahmen darum, also der Vertrag und wie umgeschaltet wird, steht in

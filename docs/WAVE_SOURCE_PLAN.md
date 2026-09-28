@@ -1,11 +1,13 @@
 # Wave Source Plan
 
-**Stand:** 2026-09-22, **umgesetzt**. Ein kleines Plugin-System für die Wellenerzeugung: Die adaptive Variante
-ist vollständig erhalten und der Standard, der Tabellen-Source steht daneben, und
+**Stand:** 2026-09-22, **umgesetzt**; seit 2026-09-29 ohne den adaptiven Source (Abschnitt 18). Ein kleines
+Plugin-System für die Wellenerzeugung: Der Budget-Source ist der Standard, der Tabellen-Source steht daneben, und
 `configs/director.config.ts` sagt, welche ein Lauf spielt. Was beim Bauen anders kam als geplant, steht in
-Abschnitt 16.
+Abschnitt 16. Die Abschnitte 1 bis 16 beschreiben den Umbau vom 2026-09-22, als der adaptive Source noch der
+Standard war.
 
-Verwandt: [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) (heutiger Stand), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) (wie eine
+Verwandt: [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) (Budget-Source, Standard), [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)
+(adaptiver Source, archiviert), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) (wie eine
 fertige Welle abgespielt wird), [BALANCING_PLAN.md](BALANCING_PLAN.md) (woher der heutige Aufbau kommt),
 [RUN_LOG.md](RUN_LOG.md) (Datensammlung).
 
@@ -652,4 +654,26 @@ nimmt Leck und Gold daraus, Boss, Mischung und Namen aus seiner Liste. Die Werte
 nicht.
 
 Bewusst geteilt bleiben der Konfigurations-Hash des Lauf-Logs (hasht alle Configs, dazu die Quelle) und die
-Stellschrauben des adaptiven Directors, die Bot-Läufe setzen; eine andere Quelle liest sie nicht.
+Stellschrauben des Druck-Reglers, die Bot-Läufe setzen (`director/director-params.ts`).
+
+## 18. Der adaptive Source ist entfernt (2026-09-29)
+
+Der Budget-Source ([WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md)) ist der Standard und die einzige regelbasierte Quelle;
+`WaveSourceId` ist `'budget' | 'table'`. Vor dem ersten Lauf gelten die Regeln des Laufplans
+(`RUN_PLAN_RULES`). Gemäß „keine parallelen Systeme“ ging alles mit, was nur der adaptive Source nutzte:
+
+| Entfernt | Wo es lag |
+|---|---|
+| Vorlagenwahl, Größe, Überlebbarkeits-Deckel, DPS-Rampe, Begründung, Referenzlauf | `director/sources/adaptive/` |
+| Templates mit Abklingzeit, Mindestwelle, `requires`, Boss-Fallbacks | `director/templates.ts` |
+| Kampagnen-Pins, Kampagnen-Intensität, Endgame-HP, Boss-Takt | `configs/campaign.config.ts` (behält Gold und die Leckstufe der Tabelle) |
+| Boss-Rotation, Variante ersetzt geplante Welle | `configs/boss-variants.config.ts` |
+| Regeln der Kampagne als Vorgabe | `configs/campaign-wave-rules.ts` |
+| Stellschrauben `rampFullWave`, `dpsRampWeight`, `capSlack` | `director/director-params.ts` (behält Zieldruck und Verstärkung) |
+| Gate-DPS mit Untergrenze beim Boden-Matchup, Kill-Durchsatz | `director/defense-analyzer.ts`, Schnappschuss |
+| Tower-DPS für die Vorschau, `count` als Spanne | `wave-panel`, `WavePeekRequest`, `WavePeekFacts` |
+
+Der Tabellen-Source spielt unverändert: Leck in den Stufen der Kampagne (`enemyBaseDamageForWave`), Gold mit
+der Kurve der Kampagne, Boss, Mischung und Namen aus seiner Liste; die zwei Grenzen seiner Zeilen (5 ms, 180 s)
+stehen jetzt in `wave-table.ts`. Die Werkzeuge `economy-chart`, `model-budget` und `wave-planner` lesen den
+Laufplan statt Templates und Kampagnen-Pins.

@@ -14,7 +14,7 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 |---|---|---|
 | Tower (Bau, Upgrades, Sockel, Veteranen-Ränge) | `managers/tower.manager.ts`, `TowerPlacementService`, `TowerLifecycle` | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | Gegner, auch Luft, Ooze und Wurm (Skarnax) | `managers/enemy.manager.ts`, `managers/ooze-bodies.ts`, `managers/worm/` | [ENEMY_CREATION.md](ENEMY_CREATION.md), [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
-| Wellen, Director, Boss-Intro, Blutmond | `managers/wave.manager.ts`, `director/` | [WAVE_SYSTEM.md](WAVE_SYSTEM.md), [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
+| Wellen, Director, Boss-Intro, Blutmond | `managers/wave.manager.ts`, `director/` | [WAVE_SYSTEM.md](WAVE_SYSTEM.md), [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) |
 | Route, Korridor, Zellen | `services/world/path-route.service.ts`, `utils/global-route-grid.ts`, `utils/route-corridor.ts` | [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | Sichtlinien der Tower (Boden und Luft) | `three-engine/tower-shadow-mapper.ts`, `utils/route-grid-los.ts` | [LOS_PIPELINE.md](LOS_PIPELINE.md) |
 | Kampf, Schaden, Status-Effekte | `services/combat/` | [STATUS_EFFECTS.md](STATUS_EFFECTS.md), [PROJECTILES.md](PROJECTILES.md), [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
@@ -45,8 +45,8 @@ Server-Anteil und kein Modell:
 | Python-Backend (`:3001`) | **nur Bot-Läufe**. Ohne Verbindung läuft das Spiel unverändert; Wellen kommen immer aus dem Client. |
 | Bots + WebSocket-Client (`bots/bot-session.ts`) | **nur Bot-Läufe**. Eigener Lazy-Chunk, lädt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
 
-Der **Wave-Director sitzt im Client** und ist die einzige Wellenquelle
-(`director/sources/adaptive/director-rules.ts`). Er braucht weder Netzwerk noch Modell; deshalb
+Der **Wave-Director sitzt im Client** und spielt die Wellenquelle des Laufs, standardmäßig den Budget-Source
+(`director/sources/budget/`, Laufplan plus Budget gegen die Abwehr). Er braucht weder Netzwerk noch Modell; deshalb
 gibt es kein Startfenster, in dem der Director nicht verfügbar wäre, und
 `directorEnabled` steht per Default auf `true`. ONNX-Modell, Encoder und der
 Wellen-Pfad des Backends sind am 2026-09-20 entfallen
@@ -1338,7 +1338,7 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | Ordner | Zweck | Einstieg |
 |---|---|---|
 | (Root) | Root-Component, Provider, Routing, Spielkomponente | `app.ts`, `tower-defense.component.ts` (Template mit den Debug-Fenstern in einem `@defer`-Block) |
-| `director/` | Wellenquellen: Vertrag, Registry, WaveDirector, Templates, Defense-Analyse; Druck-Regler (geteilt); `sources/adaptive` (Regeln), `sources/table`, `sources/budget` (Laufplan, Budget) | `wave-source.ts`, `wave-director.ts`, `sources/adaptive/director-rules.ts`, `pressure-controller.ts` |
+| `director/` | Wellenquellen: Vertrag, Registry, Regeln je Welle, WaveDirector, Defense-Analyse; Druck-Regler; `sources/budget` (Laufplan, Budget, Standard), `sources/table` | `wave-source.ts`, `wave-rules.ts`, `wave-director.ts`, `sources/budget/budget.ts`, `pressure-controller.ts` |
 | `bots/` | Bots (Strategy Pattern), Strategien je Bereich, Bot-Session mit WebSocket-Client zum Bot-Server | `bot-session.ts`, `bots/`, `strategies/` |
 | `coop/` | Coop: Lockstep, Protokoll, Sitzung, Weltpaket, Prüfsummen, Raum-Optionen, Befehlsprüfung | `lockstep.ts`, `coop-session.ts`, `protocol.ts`, siehe [COOP_PLAN.md](COOP_PLAN.md) |
 | `components/` | UI-Komponenten (Header, Sidebar-Panels, Dialoge, Leisten, Debug-Fenster) | siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#dateien) |

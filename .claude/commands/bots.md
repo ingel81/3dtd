@@ -21,8 +21,8 @@ Argumente (optional, `$ARGUMENTS`):
 Der Server startet **paused**. Clients verbinden sich, gehen automatisch
 headless (`renderingEnabled=false`) und warten auf `start`.
 
-Der Server plant keine Wellen. Das macht der Wave Director im Client
-([WAVE_DIRECTOR.md](../../docs/WAVE_DIRECTOR.md)); der Server ist Transport,
+Der Server plant keine Wellen. Das macht die Wellenquelle im Client
+([WAVE_SOURCE_PLAN.md](../../docs/WAVE_SOURCE_PLAN.md)); der Server ist Transport,
 Log und Fernbedienung.
 
 ## Ablauf `start`

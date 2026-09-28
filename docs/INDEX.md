@@ -63,15 +63,18 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 
 ## Wave Director & AI
 
-> Der Wave-Director ist **regelbasiert, clientseitig und die einzige
-> Wellenquelle**. ONNX-Modell, State-Encoder und der Wellen-Pfad des Backends
-> sind am 2026-09-20 entfallen ([BALANCING_PLAN.md](BALANCING_PLAN.md), Phase
-> 1a). Begründung und Messungen: [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md).
+> Die Wellen kommen **regelbasiert und clientseitig** aus einer austauschbaren
+> Wellenquelle, Standard ist der Budget-Source (Laufplan plus Budget gegen die
+> Abwehr, [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md)). ONNX-Modell, State-Encoder und
+> der Wellen-Pfad des Backends sind am 2026-09-20 entfallen
+> ([BALANCING_PLAN.md](BALANCING_PLAN.md), Phase 1a), der adaptive Director am
+> 2026-09-29 ([WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), Abschnitt 18).
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
 | **[WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md)** | **Aktuell** | **Einstiegspunkt:** der Vertrag der Wellenquellen, Ordnerschnitt, Umschalten, die Wellenliste, Contract-Spec |
-| **[WAVE_DIRECTOR.md](WAVE_DIRECTOR.md)** | **Aktuell** | Der adaptive Source: Kandidaten, Druck-Regler, Überlebbarkeits-Deckel, Begründung im Debug-Fenster |
+| **[WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md)** | **Aktuell** | Der Budget-Source: ein Laufplan für alle Wellen, Budget je Welle, die 42 Sonderregeln und was aus ihnen wurde |
+| [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) | Archiv (Code entfernt 2026-09-29) | Der frühere adaptive Source: Kandidaten, Überlebbarkeits-Deckel, Boss-Rotation; Druck-Regler lebt im Budget-Source weiter |
 | [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) | Bericht (gebaut) | Druck-Regler statt Leck-Regler: Befund, Bau, Messrunden, verworfener HP-Hebel (2026-09-21/22) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Aktuell | Strategy-Pattern-Bots (Placement, Upgrade, Wave, Research), der Spieler in Bot-Läufen |
 | [bot-server/README.md](../bot-server/README.md) | Aktuell | Bot-Server: starten, Protokoll, Dashboard-API, Log |
@@ -154,8 +157,8 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...den Helden (Söldner) verstehen | [HERO.md](HERO.md) |
 | ...einen Tower selbst steuern (Egoperspektive) | [TOWER_CONTROL.md](TOWER_CONTROL.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
-| ...verstehen, wer die Wellen aussucht | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) |
-| ...den Überlebbarkeits-Deckel und den Druck-Regler verstehen | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md), [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) |
+| ...verstehen, wer die Wellen aussucht | [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) |
+| ...das Budget, den Deckel und den Druck-Regler verstehen | [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md) |
 | ...wissen, warum das ONNX-Modell weg ist | [WAVE_DIRECTOR.md](WAVE_DIRECTOR.md) → Warum die Regeln, [BALANCING_PLAN.md](BALANCING_PLAN.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 | ...den Balance-Stand verstehen | [BALANCE_PROPOSAL_2026-09.md](game-design/BALANCE_PROPOSAL_2026-09.md), [economy-chart.html](economy-chart.html), [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |

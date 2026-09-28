@@ -80,10 +80,11 @@ this reason.
 
 ## Where the waves come from
 
-Waves aren't a fixed table. A rule-based director shapes each wave (how many, how fast, how tough, how mixed) and
-sizes it by what your towers can kill, nudged by how hard your base was pressed lately. It started out as a small
-neural net trained with PPO; measured against random choices it did no better, and plain rules did, so rules it is. Details in
-[docs/WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md).
+Waves follow a run plan: every wave has its enemies, their spacing and how hard it is meant to be written down.
+How tough they are is set when the wave is planned, as a budget against what your towers deal, nudged by how hard
+your base was pressed lately. It started out as a small neural net trained with PPO; measured against random
+choices it did no better, and plain rules did, so rules it is. Details in
+[docs/WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md).
 
 ## Tech
 
