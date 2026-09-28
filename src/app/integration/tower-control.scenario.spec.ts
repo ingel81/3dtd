@@ -222,6 +222,10 @@ describe('Manning a tower, through the sub-step loop', () => {
     const clock = { now: 1000 };
 
     gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
+    // The zombie steps into its lane first: it spawns on the centre line and its
+    // first step puts it at its lateral offset, which the run's seed rolls. Aimed
+    // before that, the first shot missed for about 1 seed in 30 (TODO J3)
+    steps(gsm, clock, 2);
     // Aimed before the trigger goes down, as a player does
     const first = aimAt(gsm, tower, enemy);
     sendAim(gsm, first.heading, first.pitch);
@@ -232,6 +236,9 @@ describe('Manning a tower, through the sub-step loop', () => {
       const aim = aimAt(gsm, tower, enemy);
       sendAim(gsm, aim.heading, aim.pitch);
     });
+    // Trigger up for two sub-steps: the last shot's tower:manual-shot, a deferred event, comes out
+    gsm.getEventBus().emit({ type: 'command:tower-trigger', held: false });
+    steps(gsm, clock, 2);
 
     expect(blank).not.toHaveBeenCalled();
     expect(spawn.mock.calls.every(([from, at]) => from === tower && at === enemy)).toBe(true);
@@ -240,6 +247,7 @@ describe('Manning a tower, through the sub-step loop', () => {
     expect(spawn.mock.calls.length).toBeLessThanOrEqual(Math.ceil(3 * tower.combat.fireRate) + 1);
     expect(shots.length).toBe(spawn.mock.calls.length);
     // Enough time for the hits; the zombie's 80 HP against the archer's arrows
+    gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
     steps(gsm, clock, 600, () => {
       if (!enemy.alive) return;
       const aim = aimAt(gsm, tower, enemy);
