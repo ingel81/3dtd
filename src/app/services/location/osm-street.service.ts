@@ -113,6 +113,12 @@ function logOverpassAnswer(what: string, server: string, answer: OverpassAnswer)
 /** Radius of the street box around the HQ, m: the one every place of the game loads its streets with */
 export const STREET_RADIUS_M = 2000;
 
+/** Streets fetched for a load, with the cache key to save them under (null: they came from the cache) */
+interface LoadedStreets {
+  network: StreetNetwork;
+  cacheKey: string | null;
+}
+
 /** The arguments of a street load, for matching a prefetched load (OsmStreetService.prefetchStreets) */
 function streetLoadKey(lat: number, lon: number, radiusMeters: number): string {
   return `${lat}|${lon}|${radiusMeters}`;
@@ -220,9 +226,12 @@ export class OsmStreetService {
   /**
    * A load prefetchStreets() began before its caller asked, with the
    * arguments it was begun for; the loadStreets() call with the same
-   * arguments takes it (TODO H13).
+   * arguments takes it (TODO H13). It leaves no trace (lastLoaded, the
+   * IndexedDB cache) until then, so a load nobody takes changes no later
+   * query. `after` is the lastLoaded it began from: once another load kept
+   * its streets, the query would differ, and the prefetch is not taken.
    */
-  private prefetched: { key: string; promise: Promise<StreetNetwork> } | null = null;
+  private prefetched: { key: string; after: StreetNetwork | null; promise: Promise<LoadedStreets> } | null = null;
 
   /**
    * Begin loadStreets(`centerLat`, `centerLon`, `radiusMeters`) now, while
@@ -234,11 +243,11 @@ export class OsmStreetService {
    */
   prefetchStreets(centerLat: number, centerLon: number, radiusMeters: number): void {
     const key = streetLoadKey(centerLat, centerLon, radiusMeters);
-    if (this.prefetched?.key === key) return;
-    const promise = this.loadStreetsNow(centerLat, centerLon, radiusMeters);
+    if (this.prefetched?.key === key && this.prefetched.after === this.lastLoaded) return;
+    const promise = this.fetchStreets(centerLat, centerLon, radiusMeters);
     // Nobody may take it (the place changed again); its error must not go unhandled
     promise.catch(() => undefined);
-    this.prefetched = { key, promise };
+    this.prefetched = { key, after: this.lastLoaded, promise };
   }
 
   /**
@@ -260,23 +269,29 @@ export class OsmStreetService {
   ): Promise<StreetNetwork> {
     const prefetched = this.prefetched;
     this.prefetched = null;
-    if (prefetched?.key === streetLoadKey(centerLat, centerLon, radiusMeters)) return prefetched.promise;
-    return this.loadStreetsNow(centerLat, centerLon, radiusMeters);
+    const taken = prefetched?.key === streetLoadKey(centerLat, centerLon, radiusMeters)
+      && prefetched.after === this.lastLoaded;
+    const loading = taken
+      ? prefetched.promise
+      : this.fetchStreets(centerLat, centerLon, radiusMeters);
+    return loading.then((loaded) => this.keepStreets(loaded));
   }
 
-  /** loadStreets() without a prefetched load */
-  private async loadStreetsNow(
+  /**
+   * The streets for loadStreets(), from the IndexedDB cache or Overpass,
+   * without keeping them: keepStreets() does that for the load a caller takes.
+   */
+  private async fetchStreets(
     centerLat: number,
     centerLon: number,
     radiusMeters: number,
-  ): Promise<StreetNetwork> {
+  ): Promise<LoadedStreets> {
     // Try to load from IndexedDB cache first
     const cacheKey = this.streetCache.getCacheKey(centerLat, centerLon, radiusMeters);
     const cached = await this.streetCache.load(cacheKey);
     if (cached) {
       if (isDevMode()) console.log('[OSM] Loaded from IndexedDB cache');
-      this.lastLoaded = cached;
-      return cached;
+      return { network: cached, cacheKey: null };
     }
 
     const bounds = boxAround(centerLat, centerLon, radiusMeters);
@@ -315,12 +330,18 @@ export class OsmStreetService {
       }
     }
 
-    this.lastLoaded = network;
-    // Cache the result to IndexedDB (async, fire-and-forget)
-    this.streetCache.save(cacheKey, network).catch((err) => {
-      console.warn('[OSM] Failed to cache to IndexedDB:', err);
-    });
+    return { network, cacheKey };
+  }
 
+  /** Keep the streets a caller took: the next load starts from them, and the cache holds them */
+  private keepStreets({ network, cacheKey }: LoadedStreets): StreetNetwork {
+    this.lastLoaded = network;
+    if (cacheKey !== null) {
+      // Cache the result to IndexedDB (async, fire-and-forget)
+      this.streetCache.save(cacheKey, network).catch((err) => {
+        console.warn('[OSM] Failed to cache to IndexedDB:', err);
+      });
+    }
     return network;
   }
 

@@ -696,6 +696,79 @@ describe('OsmStreetService', () => {
         expect(await loading).toEqual(reference.network);
       });
 
+      it('leaves nothing behind when nobody takes it: the next loads ask what they would have asked', async () => {
+        const B = [48.9, 9.3] as const;
+        // Next to A: a street load that started from A's streets would ask only for the strip beside them
+        const C = [48.78, 9.19] as const;
+        const saves = (own: OsmStreetService) =>
+          (own as unknown as { streetCache: { save: { mock: { calls: unknown[] } } } }).streetCache.save.mock.calls.length;
+
+        const reference = new OsmStreetService();
+        const refQueries: string[] = [];
+        for (const [lat, lon] of [B, C]) {
+          const loading = reference.loadStreets(lat, lon, STREET_RADIUS_M);
+          await flush();
+          refQueries.push(requests[requests.length - 1].query);
+          requests[requests.length - 1].answer(WAYS);
+          await loading;
+        }
+        const before = requests.length;
+
+        service.prefetchStreets(48.78, 9.18, STREET_RADIUS_M);
+        await flush();
+        const forA = requests[before];
+        // The place changes to B before A's streets are in
+        const atB = service.loadStreets(...B, STREET_RADIUS_M);
+        await flush();
+        const forB = requests[before + 1];
+        expect(forB.query).toBe(refQueries[0]);
+        forB.answer(WAYS);
+        await atB;
+        // A comes in afterwards, for nobody
+        forA.answer(WAYS);
+        await flush();
+
+        const atC = service.loadStreets(...C, STREET_RADIUS_M);
+        await flush();
+        const forC = requests[before + 2];
+        expect(forC.query).toBe(refQueries[1]);
+        forC.answer(WAYS);
+        await atC;
+        expect(requests.length).toBe(before + 3);
+        expect(saves(service)).toBe(saves(reference));
+      });
+
+      it('is not taken once a load that was under way kept its streets', async () => {
+        // C next to B: after B's streets are kept, C asks only for the strip beside them
+        const reference = new OsmStreetService();
+        let loading = reference.loadStreets(48.78, 9.18, STREET_RADIUS_M);
+        await flush();
+        requests[requests.length - 1].answer(WAYS);
+        await loading;
+        loading = reference.loadStreets(48.78, 9.19, STREET_RADIUS_M);
+        await flush();
+        const refQuery = requests[requests.length - 1].query;
+        requests[requests.length - 1].answer(WAYS);
+        await loading;
+        const before = requests.length;
+
+        // B is loading when the place changes to C
+        loading = service.loadStreets(48.78, 9.18, STREET_RADIUS_M);
+        await flush();
+        service.prefetchStreets(48.78, 9.19, STREET_RADIUS_M);
+        await flush();
+        requests[before].answer(WAYS);
+        await loading;
+        loading = service.loadStreets(48.78, 9.19, STREET_RADIUS_M);
+        await flush();
+        expect(requests.length).toBe(before + 3);
+        expect(requests[before + 1].query).not.toBe(refQuery);
+        expect(requests[before + 2].query).toBe(refQuery);
+        requests[before + 2].answer(WAYS);
+        requests[before + 1].answer(WAYS);
+        await loading;
+      });
+
       it('hands a failure to the caller that takes the load, and to nobody else', async () => {
         service.prefetchStreets(48.78, 9.18, 500);
         for (let i = 0; i < 3; i++) {
