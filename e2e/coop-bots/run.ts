@@ -13,7 +13,7 @@
 // tiles. Start the relay (npm run coop-server -- --port 3013 --log-dir <dir>)
 // and serve the build (npx ng build --configuration development, then
 // python -m http.server 4213 in dist/3DTD/browser) before.
-import { chromium, type Browser, type Page } from '@playwright/test';
+import { chromium, firefox, type Browser, type Page } from '@playwright/test';
 import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -50,6 +50,17 @@ const HEADED = process.argv.includes('--headed');
  * whole CPU per browser and held a room at half speed.
  */
 const SWIFTSHADER = process.argv.includes('--swiftshader');
+/**
+ * The browser of each seat, host first, repeated for more seats:
+ * `--browsers chromium,firefox` puts a Firefox guest against a Chromium host
+ * (TODO E28, D29). Chromium by default.
+ */
+type Engine = 'chromium' | 'firefox';
+const ENGINES = argument('browsers', 'chromium').split(',').map((name) => {
+  if (name !== 'chromium' && name !== 'firefox') throw new Error(`--browsers: no browser '${name}'`);
+  return name as Engine;
+});
+const engineOf = (seat: number): Engine => ENGINES[seat % ENGINES.length];
 const GPU_ARGS = SWIFTSHADER
   ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
   : process.platform === 'win32' ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--enable-gpu', '--ignore-gpu-blocklist'];
@@ -316,13 +327,17 @@ function relayDesyncs(code: string): string[] {
 async function playRun(index: number): Promise<boolean> {
   const started = Date.now();
   // A browser per run: one GPU process for all tabs made the runs wait on each other
-  const browser = await launch();
+  const browsers = new Map<Engine, Browser>();
+  for (let seat = 0; seat < PLAYERS; seat++) {
+    const engine = engineOf(seat);
+    if (!browsers.has(engine)) browsers.set(engine, await launch(engine));
+  }
   const seats: Page[] = [];
   let code = '';
   let written = 0;
   let playing = false;
   try {
-    for (let i = 0; i < PLAYERS; i++) seats.push(await openSeat(browser, `Bot${i + 1}`));
+    for (let i = 0; i < PLAYERS; i++) seats.push(await openSeat(browsers.get(engineOf(i))!, `Bot${i + 1}`));
     await installProbe(seats[0]);
     for (const page of seats.slice(1)) await installProbe(page);
     if (SOLO) {
@@ -355,6 +370,7 @@ async function playRun(index: number): Promise<boolean> {
     const desyncs = await Promise.all(seats.map(desyncOf));
     write({
       kind: 'run', run: index, room: code, solo: SOLO, players: PLAYERS, speed: SPEED,
+      browsers: Array.from({ length: PLAYERS }, (_, seat) => engineOf(seat)),
       end: end ?? { reason: 'timeout', waves: written },
       wallMinutes: Math.round((Date.now() - started) / 6000) / 10,
       desyncTicks: desyncs.map((d) => d?.tick ?? null),
@@ -372,7 +388,7 @@ async function playRun(index: number): Promise<boolean> {
     return playing;
   } finally {
     for (const page of seats) await page.context().close().catch(() => undefined);
-    await browser.close().catch(() => undefined);
+    for (const browser of browsers.values()) await browser.close().catch(() => undefined);
   }
 }
 
@@ -394,7 +410,10 @@ async function main(): Promise<void> {
   await Promise.all(Array.from({ length: Math.max(1, PARALLEL) }, worker));
 }
 
-function launch(): Promise<Browser> {
+function launch(engine: Engine): Promise<Browser> {
+  if (engine === 'firefox') {
+    return firefox.launch({ headless: !HEADED, firefoxUserPrefs: { 'webgl.force-enabled': true } });
+  }
   return chromium.launch({
     headless: !HEADED,
     args: [...GPU_ARGS, '--disable-renderer-backgrounding', '--disable-background-timer-throttling', '--disable-backgrounding-occluded-windows'],
