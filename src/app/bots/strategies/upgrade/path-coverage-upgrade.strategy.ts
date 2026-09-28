@@ -42,10 +42,25 @@ import { OsmStreetService } from '../../../services/location/osm-street.service'
  */
 const UPGRADE_CANDIDATE_COUNT = 8;
 
+/**
+ * Towers the bot wants standing at wave `wave` before gold goes into
+ * upgrades: four and one more per wave, up to its cap. Without it the
+ * expert put everything into upgrading three or four towers until wave 11
+ * (bot runs 2026-09-28), where a human builds out first.
+ */
+export function towersWanted(wave: number, maxTowers: number): number {
+  const wanted = 4 + Math.max(0, wave);
+  return maxTowers > 0 ? Math.min(maxTowers, wanted) : wanted;
+}
+
+/** Credits above which the bot upgrades anyway: no place for a tower must not make it hoard */
+const UPGRADE_ANYWAY_CREDITS = 2000;
+
 export class PathCoverageUpgradeStrategy extends BaseStrategy {
   constructor(
     private gameState: BotWorld,
-    private osmService: OsmStreetService
+    private osmService: OsmStreetService,
+    private readonly maxTowers = 0,
   ) {
     super('PathCoverageUpgrade', 75);
   }
@@ -58,6 +73,9 @@ export class PathCoverageUpgradeStrategy extends BaseStrategy {
 
   canExecute(state: GameStateSnapshot): boolean {
     if (state.defense.towerCount < 3 || state.player.credits < 50) return false;
+    // Build out first: below the towers wanted for this wave the gold is for placing
+    if (state.defense.towerCount < towersWanted(state.waveNumber, this.maxTowers)
+      && state.player.credits < UPGRADE_ANYWAY_CREDITS) return false;
 
     // Fire rate: 70% baseline, 90% when rich (>2000 credits) so gold-hoarding
     // bots actively drain their coffers into upgrades instead of sitting on

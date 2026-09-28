@@ -102,7 +102,7 @@ export class StrategyBotFactory {
         new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
         researchPick,
         new HeroStrategy(this.gameState),
-        new PathCoverageUpgradeStrategy(this.gameState, this.osmService),
+        new PathCoverageUpgradeStrategy(this.gameState, this.osmService, config.maxTowers),
         new SellUnderperformerStrategy(this.gameState, config),
         new DistributedPlacementStrategy(this.strategicPlacement, this.gameState, config),
       );
