@@ -226,7 +226,7 @@ Gegner in jeder Welle:
 | 62 Mammuts mit HP-Faktor 4 bis 7 kosteten 133 bis 184 HP | Rechnung gegen die reine Schadenstabelle statt der Werte mit Mindestanteil gegen Festung |
 | Zeit unter Feuer war die Vereinigung aller Strecken mal dem ganzen Schaden (Review) | Grenze je Gegner aus Schaden mal Strecke je Tower; das Zeitfenster der Welle aus der Vereinigung |
 | Skarnax rechnete als ein Gegner mit 240 Segmenten, 0 HP Verlust in 17 Läufen | Jedes Segment ist ein Körper, das Zeitfenster enthält das Herauskommen der Kette |
-| Dichte schnelle Schwärme leckten bei niedrigen HP | Körper, die zugleich in Reichweite stehen, teilen sich das Feuer |
+| Dichte schnelle Schwärme leckten bei niedrigen HP | Versucht: Körper zugleich in Reichweite teilen sich das Feuer. Zurückgenommen, damit hing fast jeder Gegner an seiner Grenze, der Regler kam nicht mehr an, die Bots hatten bei W40 noch 456 HP |
 | Welle 1 kostete im Coop 58 HP (geplant, bevor ein Tower steht) | Zeile 1 leichter; was die Abwehr nicht treffen kann, bekommt die Stärke der Zeile als HP-Faktor |
 
 Stand vor den letzten beiden Punkten (alter Bot, 6 Läufe): Todeswelle 32 bis 42, HP nach W10/W20/W30: 347/279/218, also
