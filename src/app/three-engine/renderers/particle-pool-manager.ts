@@ -79,8 +79,8 @@ export type PoolKey = 'trailAdditive' | 'trailNormal' | 'towerFire';
  * - towerFire     — dedicated tower inner-fire pool (always additive)
  *
  * Each pool is a fixed-size `Particle[]` rendered through a single `Points`
- * object. Inactive particles are recycled via an O(1) free-list with a
- * round-robin cursor fallback. GPU buffers are uploaded once per frame in
+ * object. Inactive particles are recycled via an O(1) free-list; a full pool
+ * gives none until the next frame returns the dead ones. GPU buffers are uploaded once per frame in
  * {@link updateBuffers}, which skips idle pools entirely.
  *
  * Split out of three-effects.renderer.ts — the renderer keeps `activeEffects`,
@@ -97,16 +97,11 @@ export class ParticlePoolManager {
   private trailMaterialAdditive: PointsMaterial | null = null;
   private trailMaterialNormal: PointsMaterial | null = null;
 
-  // Round-robin cursors as fallback for inactive particle search
-  private poolCursors = {
-    trailAdditive: 0,
-    trailNormal: 0,
-    towerFire: 0,
-  };
+  /** Particles asked for while the pool was full, since the start; for the pool-size measurement (TODO E68) */
+  readonly dropped: Record<PoolKey, number> = { trailAdditive: 0, trailNormal: 0, towerFire: 0 };
 
   // Free-lists (stacks of free indices) for O(1) inactive particle lookup.
   // Populated during updateBuffers (already O(n) per frame).
-  // getInactiveParticle pops from here first, falling back to round-robin cursor.
   private freeIndicesAdditive: number[] = [];
   private freeIndicesNormal: number[] = [];
   private freeIndicesTowerFire: number[] = [];
@@ -446,16 +441,18 @@ export class ParticlePoolManager {
   }
 
   /**
-   * Get an inactive particle from a pool using O(1) free-list lookup.
-   * Pops from the free-list stack first. Falls back to round-robin cursor
-   * if the free-list is empty (e.g. after bulk respawns that bypass the list).
+   * Get an inactive particle from a pool using O(1) free-list lookup, or null
+   * when the list is empty. A particle that died since the last
+   * {@link updateBuffers} is on it from the next frame on. There is no scan
+   * over the pool behind the list: in a full pool it found nothing and read
+   * the whole pool at every request (TODO E68; the projectile trails, this
+   * scan included, took 11 % of the frame at speed 4 in a heavy wave).
    */
   getInactiveParticle(pool: PoolKey): Particle | null {
     const poolArr = this.getPool(pool);
     const freeList = this.getFreeList(pool);
     const inFreeList = this.getInFreeList(pool);
 
-    // O(1) path: pop from free-list stack
     while (freeList.length > 0) {
       const idx = freeList.pop()!;
       inFreeList[idx] = 0;
@@ -470,22 +467,7 @@ export class ParticlePoolManager {
       }
       // Particle was reactivated externally (e.g. fire respawn) — skip it
     }
-
-    // Fallback: round-robin cursor scan (handles edge cases)
-    const len = poolArr.length;
-    const startIdx = this.poolCursors[pool];
-    for (let i = 0; i < len; i++) {
-      const idx = (startIdx + i) % len;
-      if (poolArr[idx].life <= 0) {
-        this.poolCursors[pool] = (idx + 1) % len;
-        poolArr[idx].frameIndex = -1;
-        poolArr[idx].totalFrames = 0;
-        poolArr[idx].sizeStart = 1;
-        poolArr[idx].sizeEnd = 0;
-        this.markPoolDirty(pool);
-        return poolArr[idx];
-      }
-    }
+    this.dropped[pool]++;
     return null;
   }
 
@@ -676,7 +658,7 @@ export class ParticlePoolManager {
   }
 
   /**
-   * Reset all pools — kills all particles, rebuilds free-lists and cursors.
+   * Reset all pools — kills all particles, rebuilds free-lists.
    * (Pool part of ThreeEffectsRenderer.clear().)
    */
   reset(): void {
@@ -690,7 +672,6 @@ export class ParticlePoolManager {
     for (const p of this.towerFirePool) {
       p.life = 0;
     }
-    this.poolCursors = { trailAdditive: 0, trailNormal: 0, towerFire: 0 };
 
     // Rebuild free-lists (all particles are now inactive)
     this.freeIndicesAdditive = [];

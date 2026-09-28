@@ -231,3 +231,21 @@ describe('ParticleEffectsRenderer effect particles', () => {
     expect(alive('trailAdditive')).toHaveLength(count);
   });
 });
+
+describe('a full particle pool (TODO E68)', () => {
+  it('gives none and counts it, and gives the dead ones again after the next frame', () => {
+    const pools = new ParticlePoolManager(new Scene());
+    const all = pools.getPool('trailNormal');
+    all.forEach(() => (pools.getInactiveParticle('trailNormal')!.life = 1));
+    expect(pools.getInactiveParticle('trailNormal')).toBeNull();
+    expect(pools.dropped.trailNormal).toBe(1);
+
+    // One dies: it is free from the next buffer update on, not before
+    all[7].life = 0;
+    expect(pools.getInactiveParticle('trailNormal')).toBeNull();
+    pools.updateBuffers();
+    expect(pools.getInactiveParticle('trailNormal')).toBe(all[7]);
+    expect(pools.dropped.trailNormal).toBe(2);
+    expect(pools.dropped.trailAdditive).toBe(0);
+  });
+});

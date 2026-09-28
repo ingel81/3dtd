@@ -53,6 +53,10 @@ export class FloatingTextInstanceManager {
   private activeInstances = new Map<number, ActiveInstance>();
   private freeIndices: number[] = [];
   private maxUsedIndex = 0;
+  /** The slot a full pool gives up next; it walks round the pool */
+  private evictCursor = 0;
+  /** Texts that took a live text's slot because the pool was full, since the start (TODO E68) */
+  evicted = 0;
 
   // Per-instance attribute buffers
   private atlasRectAttr!: InstancedBufferAttribute;
@@ -142,7 +146,7 @@ export class FloatingTextInstanceManager {
     if (this.freeIndices.length > 0) {
       index = this.freeIndices.pop()!;
     } else {
-      index = this.forceExpireOldest();
+      index = this.evictNext();
     }
 
     const now = performance.now() / 1000;
@@ -265,19 +269,23 @@ export class FloatingTextInstanceManager {
     this.durationAttr.needsUpdate = true;
   }
 
-  private forceExpireOldest(): number {
-    let oldestIndex = -1;
-    let oldestTime = Infinity;
-    for (const [index, inst] of this.activeInstances) {
-      if (inst.expiresAt < oldestTime) {
-        oldestTime = inst.expiresAt;
-        oldestIndex = index;
-      }
+  /**
+   * A full pool gives up the slot at the cursor. It searched the whole pool
+   * for the text that expires first before, at every new text while full,
+   * 4 % of the simulation in a heavy wave (TODO E68). The cursor's slot may
+   * hold a newer text than the oldest; that text just ends early.
+   */
+  private evictNext(): number {
+    const index = this.evictCursor;
+    this.evictCursor = (index + 1) % MAX_INSTANCES;
+    const inst = this.activeInstances.get(index);
+    if (inst) {
+      this.freeInstance(index, inst);
+      // freeInstance puts it back on the free list, the caller takes it directly
+      this.freeIndices.pop();
     }
-    if (oldestIndex >= 0) {
-      this.freeInstance(oldestIndex, this.activeInstances.get(oldestIndex)!);
-    }
-    return oldestIndex >= 0 ? oldestIndex : 0;
+    this.evicted++;
+    return index;
   }
 
   private recomputeMaxIndex(): void {
