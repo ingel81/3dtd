@@ -504,11 +504,9 @@ async function playRun(index: number): Promise<boolean> {
       const jsonl = await seats[0].evaluate(() => {
         const w = window as unknown as { ng: { getComponent(el: Element | null): { runLog?: { closedRun(): { records: unknown[] } | null } } } };
         const run = w.ng.getComponent(document.querySelector('app-tower-defense')).runLog?.closedRun();
-        return run ? run.records.map((r) => JSON.stringify(r)).join('
-') : null;
+        return run ? run.records.map((r) => JSON.stringify(r)).join('\n') : null;
       }).catch(() => null);
-      if (jsonl) { writeFileSync(join(OUT, `runlog-${index}.jsonl`), jsonl + '
-'); break; }
+      if (jsonl) { writeFileSync(join(OUT, `runlog-${index}.jsonl`), jsonl + '\n'); break; }
       if (!end) break;
       await seats[0].waitForTimeout(500);
     }
