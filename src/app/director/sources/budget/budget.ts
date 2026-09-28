@@ -7,7 +7,8 @@
  * 2. Each enemy's cost at HP ×1: its HP over the defense's damage against its
  *    armor, ground or air.
  * 3. Grenze je Gegner: no enemy gets more HP than the defense deals while it is
- *    under fire (metres of route under fire over its speed), and only a part of
+ *    under fire (metres of route under fire over its speed, shared with the
+ *    bodies that stand in range at the same time), and only a part of
  *    that when its one leak would cost more than the wave may (SURE_KILL_SHARE).
  * 4. Deckel: the wave's whole cost is at most what the defense can deal while
  *    the wave is on the route, plus the leaks the tension curve allows.
@@ -137,8 +138,14 @@ export function sizeWave(input: BudgetInput): BudgetResult {
     const oneLeak = bodyLeak * input.leakScale;
     const share = oneLeak > leakHp ? SURE_KILL_SHARE : UNDER_FIRE_SHARE;
     // For the wave's window: how long this enemy is under fire at all (union of the stretches)
-    const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, cfg.baseSpeed));
-    hurt.push({ type, n, sec, fire, onRoute, cap: (share * fire) / sec });
+    const underFire = defense.metresUnderFire?.[side] ?? 0;
+    const onRoute = Math.max(MIN_UNDER_FIRE_S, underFire / Math.max(0.1, cfg.baseSpeed));
+    // A dense stream shares the towers: as many bodies stand in the covered stretch at once
+    // as fit at their spacing (speed times gap, a chain its segment spacing), and each takes
+    // its share of the fire (bots 2026-09-28: 48 spiders in W6, 120 in W31 leaked at low HP)
+    const spacing = cfg.chain ? cfg.chain.spacing : Math.max(0.1, cfg.baseSpeed) * (input.spawnDelayMs / 1000);
+    const together = spacing > 0 ? Math.min(n, Math.max(1, underFire / spacing)) : n;
+    hurt.push({ type, n, sec, fire, onRoute, cap: (share * fire) / (sec * together) });
   }
 
   // The cap: the defense spends at most the wave's time on the route on it,
