@@ -221,7 +221,7 @@ async function installProbe(page: Page): Promise<void> {
       waves: [] as Record<string, unknown>[],
       current: null as Wave | null,
       end: null as Record<string, unknown> | null,
-      desync: null as { tick: number } | null,
+      desync: null as { tick: number; towers: Record<string, string>; enemies: Record<string, string> } | null,
     };
     w['__coopProbe'] = probe;
     const close = (outcome: string, extra: Record<string, unknown> = {}) => {
@@ -289,7 +289,14 @@ async function installProbe(page: Page): Promise<void> {
     });
     setInterval(() => {
       const found = comp.coop.desync();
-      if (found && !probe.desync) probe.desync = { tick: found.tick };
+      if (!found || probe.desync) return;
+      // The relay's detail line names towers and enemies by id; their types, as this tab has them
+      const types = (list: { id: string; typeConfig: { id: string } }[]) => Object.fromEntries(list.map((e) => [e.id, e.typeConfig.id]));
+      probe.desync = {
+        tick: found.tick,
+        towers: types(gs.towerManager.getAll() as unknown as { id: string; typeConfig: { id: string } }[]),
+        enemies: types((gs.enemyManager as unknown as { getAlive(): { id: string; typeConfig: { id: string } }[] }).getAlive()),
+      };
     }, 500);
   });
 }
@@ -304,8 +311,8 @@ async function probeOf(page: Page) {
   });
 }
 
-async function desyncOf(page: Page): Promise<{ tick: number } | null> {
-  return page.evaluate(() => (window as unknown as { __coopProbe?: { desync: { tick: number } | null } }).__coopProbe?.desync ?? null)
+async function desyncOf(page: Page): Promise<{ tick: number; towers: Record<string, string>; enemies: Record<string, string> } | null> {
+  return page.evaluate(() => (window as unknown as { __coopProbe?: { desync: { tick: number; towers: Record<string, string>; enemies: Record<string, string> } | null } }).__coopProbe?.desync ?? null)
     .catch(() => null);
 }
 
@@ -374,6 +381,8 @@ async function playRun(index: number): Promise<boolean> {
       end: end ?? { reason: 'timeout', waves: written },
       wallMinutes: Math.round((Date.now() - started) / 6000) / 10,
       desyncTicks: desyncs.map((d) => d?.tick ?? null),
+      // Tower and enemy types at the first desync the host's tab saw, for the relay's detail lines
+      desyncTypes: desyncs[0] ? { towers: desyncs[0].towers, enemies: desyncs[0].enemies } : null,
       relayDesyncs: relayDesyncs(code),
     });
     log(`run ${index}: ended (${end?.['reason'] ?? 'timeout'}) after ${written} waves, ${Math.round((Date.now() - started) / 60000)} min`);
