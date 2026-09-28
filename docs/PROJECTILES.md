@@ -141,9 +141,10 @@ Streak: `TrailStreakRenderer.initPools()` legt nur für `rocket`, `arrow`, `magi
 **Splash-Damage-Konfiguration:**
 ```typescript
 splashRadius?: number;          // Radius in Metern (0 oder undefined = kein Splash)
-splashDamageFalloff?: boolean;  // Damage skaliert mit Distanz (Default: true)
 splashMaxTargets?: number;      // Höchstens so viele Splash-Opfer, die nächsten zuerst (Default: alle)
 ```
+
+Der Schaden fällt immer linear mit dem Abstand ab und wird abgerundet (`floor(damage * (1 - d / radius))`).
 
 Splash trifft nur Ziele, die der Quell-Tower auch anvisieren darf (`Projectile.sourceTowerType`,
 Air über `canTargetAirEffective` inkl. Forschung, Boden über `canTargetGround`). Cannon- und

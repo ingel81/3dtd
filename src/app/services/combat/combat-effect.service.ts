@@ -211,8 +211,6 @@ export class CombatEffectService {
       this._splashScratch
     );
 
-    const useFalloff = projectile.typeConfig.splashDamageFalloff !== false;
-
     // Splash trifft nur, was der Quell-Tower auch anvisieren darf. Die
     // Umkreissuche kennt nur den 2D-Abstand, ohne diesen Filter traf die
     // Cannon Fledermäuse 15 m über dem Boden, obwohl sie nicht auf Luft zielt.
@@ -258,12 +256,10 @@ export class CombatEffectService {
 
     for (let i = 0; i < maxTargets; i++) {
       const nearbyEnemy = candidates[i];
-      let splashDamage = projectile.damage;
-
-      if (useFalloff) {
-        const falloff = 1 - (dists[i] / splashRadius);
-        splashDamage = Math.floor(projectile.damage * falloff);
-      }
+      // Always with falloff, no switch: Firefox's optimising JIT skipped a branch on one
+      // here after about a quarter of an hour of play, and its splash hit at full damage
+      // while every other client fell off with the distance (coop desync, TODO E64)
+      const splashDamage = Math.floor(projectile.damage * (1 - dists[i] / splashRadius));
 
       if (splashDamage > 0) {
         const result = this.damageService.applyDamage(

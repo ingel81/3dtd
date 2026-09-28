@@ -55,7 +55,6 @@ export interface ProjectileTypeConfig {
 
   // Splash damage (optional)
   splashRadius?: number; // Radius in meters (0 or undefined = no splash)
-  splashDamageFalloff?: boolean; // Damage decreases with distance (default: true)
   splashMaxTargets?: number; // Most splash victims per hit, nearest first (undefined = all)
 
   // Trail particles (optional)
@@ -83,7 +82,6 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     // lassen im selben Pulk 1,5 bis 5,7 übrig.
     splashRadius: 6,
     splashMaxTargets: 8,
-    splashDamageFalloff: true,
     // Phase 5.16: cannon shoots slow + uses normal pool (4000) → can afford
     // generous smoke. Bigger, longer-lived puffs sell the heavy-shell feel.
     trailParticles: {
@@ -139,7 +137,6 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     visualType: 'ice',
     scale: 0.4,
     splashRadius: 8,
-    splashDamageFalloff: true,
     // Phase 5.16: ice slow-rate (0.33/s) — pool cost negligible even at
     // larger sizes/lifetimes.
     trailParticles: {
@@ -205,7 +202,6 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     // Schwarm ausdünnen, nicht ersetzen, was der Nahbereichsturm tut.
     splashRadius: 5,
     splashMaxTargets: 5,
-    splashDamageFalloff: true,
     // The nozzle of the 4.2 m rocket mesh (createRocketGeometry) sits 2.1 m
     // behind its centre; smoke and streak start there, not mid-body.
     tailOffset: 2.1,
@@ -238,7 +234,6 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     visualType: 'poison',
     scale: 0.5,
     splashRadius: 8,
-    splashDamageFalloff: true,
     trailParticles: {
       enabled: true,
       spawnChance: 0.8,
