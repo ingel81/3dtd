@@ -16,6 +16,7 @@ import type { LosMask } from '../utils/los-mask';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { canTargetAirEffective } from './tower-targeting.util';
 import { TowerAim, createTowerAim } from './tower-aim';
+import { DetMath } from '../utils/det-math';
 
 /** See Tower.getSimState. Plain data. */
 export interface TowerSimState {
@@ -207,7 +208,7 @@ export class Tower extends GameObject {
     this._transform.setPosition(position.lat, position.lon, position.height);
 
     // Pre-compute range² in geo-degrees for quick sleep wake-checks
-    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(position.lat * DEG_TO_RAD);
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * DetMath.cos(position.lat * DEG_TO_RAD);
     this._mPerDegLon = metersPerDegreeLon;
     // Use average of lat/lon scale for approximation
     const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;

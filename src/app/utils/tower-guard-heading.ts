@@ -1,4 +1,5 @@
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, geoHeading } from './geo-utils';
+import { DetMath } from './det-math';
 
 interface LatLon {
   lat: number;
@@ -28,7 +29,7 @@ export function findRouteEntry(
 ): RouteEntry | null {
   if (route.length === 0) return null;
 
-  const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.lat * DEG_TO_RAD);
+  const mPerDegLon = METERS_PER_DEGREE_LAT * DetMath.cos(tower.lat * DEG_TO_RAD);
   const rangeSq = range * range;
 
   // Route points relative to the tower, in meters (x east, y north).

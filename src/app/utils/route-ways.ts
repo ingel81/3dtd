@@ -1,5 +1,6 @@
 import { Street, StreetNode } from '../interfaces/street-network-provider.interface';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
+import { DetMath } from './det-math';
 
 /** A route point lies on a street edge if it is closer than this, metres. */
 const ON_EDGE_TOLERANCE_M = 0.5;
@@ -20,14 +21,14 @@ const edgeKey = (a: LatLon, b: LatLon) => `${pointKey(a)}|${pointKey(b)}`;
 
 /** Distance from `p` to the segment `a`-`b` in metres, flat-earth around the segment. */
 function distanceToEdgeM(p: LatLon, a: LatLon, b: LatLon): number {
-  const lonScale = Math.cos((a.lat + b.lat) * 0.5 * DEG_TO_RAD);
+  const lonScale = DetMath.cos((a.lat + b.lat) * 0.5 * DEG_TO_RAD);
   const dx = (b.lon - a.lon) * lonScale;
   const dz = b.lat - a.lat;
   const px = (p.lon - a.lon) * lonScale;
   const pz = p.lat - a.lat;
   const lenSq = dx * dx + dz * dz;
   const t = lenSq === 0 ? 0 : Math.max(0, Math.min(1, (px * dx + pz * dz) / lenSq));
-  return Math.hypot(px - t * dx, pz - t * dz) * METERS_PER_DEGREE_LAT;
+  return DetMath.hypot(px - t * dx, pz - t * dz) * METERS_PER_DEGREE_LAT;
 }
 
 function liesOn(a: LatLon, b: LatLon, edge: StreetEdge): boolean {

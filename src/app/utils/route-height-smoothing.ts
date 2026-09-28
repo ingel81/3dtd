@@ -1,4 +1,5 @@
 import { Vector3 } from 'three';
+import { DetMath } from './det-math';
 
 // ========================================
 // HEIGHT SMOOTHING - CONSTANTS
@@ -169,13 +170,13 @@ export function smoothPathHeights(points: Vector3[], streetType?: string): Vecto
     // Only scan nearby points within the smoothing radius
     for (let j = i; j >= 0 && (cumDist[i] - cumDist[j]) <= MAX_SMOOTH_DIST; j--) {
       const dist = cumDist[i] - cumDist[j];
-      const weight = Math.exp(-(dist * dist) / SIGMA_SQ_2);
+      const weight = DetMath.exp(-(dist * dist) / SIGMA_SQ_2);
       weightedSum += result[j].y * weight;
       weightTotal += weight;
     }
     for (let j = i + 1; j < result.length && (cumDist[j] - cumDist[i]) <= MAX_SMOOTH_DIST; j++) {
       const dist = cumDist[j] - cumDist[i];
-      const weight = Math.exp(-(dist * dist) / SIGMA_SQ_2);
+      const weight = DetMath.exp(-(dist * dist) / SIGMA_SQ_2);
       weightedSum += result[j].y * weight;
       weightTotal += weight;
     }

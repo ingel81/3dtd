@@ -6,6 +6,7 @@
  */
 
 import { Color } from 'three';
+import { DetMath } from '../utils/det-math';
 
 /**
  * Visual appearance pro Cell-State — Farbe + Alpha. Wird sowohl im
@@ -221,6 +222,6 @@ export const LOS_VIZ_CONFIG = {
  * `airSampleYOffset` über dem Tip ab, nicht über der Zelle.
  */
 export function losCubeFarDistance(range: number): number {
-  return Math.hypot(range + LOS_VIZ_CONFIG.reachBeyondRangeMeters, LOS_VIZ_CONFIG.airSampleYOffset)
+  return DetMath.hypot(range + LOS_VIZ_CONFIG.reachBeyondRangeMeters, LOS_VIZ_CONFIG.airSampleYOffset)
     + LOS_VIZ_CONFIG.visibilityBiasMeters;
 }

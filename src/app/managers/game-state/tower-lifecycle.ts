@@ -19,6 +19,7 @@ import { TowerTypeId, TOWER_TYPES, UpgradeId, requiredUpgradeTier } from '../../
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import type { SavedTower } from '../../simulator/sim-snapshot';
 import { losMaskFromJson } from '../../utils/los-mask';
+import { DetMath } from '../../utils/det-math';
 
 /**
  * Tower rules and glue around the TowerManager: what placing, selling and
@@ -356,7 +357,7 @@ export class TowerLifecycle {
   recomputeRangeAfterUpgrade(tower: Tower): void {
     this.placement.recomputeTowerLOS(tower);
     const pos = tower.position;
-    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos.lat * DEG_TO_RAD);
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * DetMath.cos(pos.lat * DEG_TO_RAD);
     const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
     const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
     tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;

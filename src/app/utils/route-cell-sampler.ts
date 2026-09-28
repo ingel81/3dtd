@@ -4,6 +4,7 @@ import { carriedY, surfaceY } from './carried-height';
 import { corridorConfig } from './route-corridor';
 import { TUNNEL_PORTAL_OFFSET_M } from './route-grid-builder';
 import { logGrid } from './route-grid-log';
+import { DetMath } from './det-math';
 
 /**
  * Why a cell got no sample of its own from sampleCellY, for the corridor
@@ -362,7 +363,7 @@ export class RouteCellSampler {
    * mouth). Their LOD does not count in the cell's.
    */
   private supportedY(span: TunnelSpan, ay: number, by: number): number {
-    const length = Math.hypot(span.bx - span.ax, span.bz - span.az);
+    const length = DetMath.hypot(span.bx - span.ax, span.bz - span.az);
     let lo = { f: 0, y: ay };
     let hi = { f: 1, y: by };
     if (length <= RouteCellSampler.SUPPORT_MAX_M) {

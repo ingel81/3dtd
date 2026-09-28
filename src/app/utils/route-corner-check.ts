@@ -6,6 +6,7 @@
  */
 import type { SideLimits } from './route-corridor';
 import type { CornerWindow } from './route-corners';
+import { DetMath } from './det-math';
 
 /** Largest angle between two places an arc is checked at, radians (2 degrees). */
 const SAMPLE_ANGLE = Math.PI / 90;
@@ -233,8 +234,8 @@ export class ArcCheck {
       const phi = (this.places[t] - from) * rate;
       at[4 * t] = radius - this.inner;
       at[4 * t + 1] = radius + this.outer;
-      at[4 * t + 2] = Math.sin(phi);
-      at[4 * t + 3] = Math.cos(phi);
+      at[4 * t + 2] = DetMath.sin(phi);
+      at[4 * t + 3] = DetMath.cos(phi);
       widestInner = Math.max(widestInner, radius - this.inner);
       widestOuter = Math.max(widestOuter, radius + this.outer);
     }
@@ -244,7 +245,7 @@ export class ArcCheck {
       const beta = lines[l + 4];
       // The centre line keeps its radius: where it crosses, directly
       if (Math.abs(along) <= radius) {
-        const base = Math.asin(along / radius);
+        const base = DetMath.asin(along / radius);
         count = this.addCrossing(count, from + wrap(beta + base) / rate);
         count = this.addCrossing(count, from + wrap(beta + Math.PI - base) / rate);
       }
@@ -290,11 +291,11 @@ export class ArcCheck {
    */
   private crossings(count: number, known: number, lane: number, along: number, beta: number): number {
     const { atPlaces: at, arcFrom: from, arcRate: rate } = this;
-    const cosBeta = Math.cos(beta);
-    const sinBeta = Math.sin(beta);
+    const cosBeta = DetMath.cos(beta);
+    const sinBeta = DetMath.sin(beta);
     const beyond = (place: number, r: number): number => {
       const phi = (place - from) * rate;
-      return r * (Math.sin(phi) * cosBeta - Math.cos(phi) * sinBeta) - along;
+      return r * (DetMath.sin(phi) * cosBeta - DetMath.cos(phi) * sinBeta) - along;
     };
     let before = at[lane] * (at[2] * cosBeta - at[3] * sinBeta) - along;
     for (let t = 1; t < known; t++) {
@@ -341,12 +342,12 @@ export class ArcCheck {
     const lines: number[] = [];
     // Direction of a normal from the arc's first segment, towards its inside positive
     const beta = (dx: number, dz: number): number =>
-      Math.atan2(window.inside * (window.uz * dx - window.ux * dz), window.ux * dx + window.uz * dz);
+      DetMath.atan2(window.inside * (window.uz * dx - window.ux * dz), window.ux * dx + window.uz * dz);
     for (let j = a - 1; j <= b; j++) {
       const length = lengths[j];
       const x0 = xs[j - a + 1];
       const z0 = zs[j - a + 1];
-      const flat = Math.hypot(xs[j - a + 2] - x0, zs[j - a + 2] - z0);
+      const flat = DetMath.hypot(xs[j - a + 2] - x0, zs[j - a + 2] - z0);
       if (flat === 0) continue;
       const sx = (xs[j - a + 2] - x0) / flat;
       const sz = (zs[j - a + 2] - z0) / flat;
@@ -366,8 +367,8 @@ export class ArcCheck {
     }
     for (let k = a; k <= b; k++) {
       const j = k - a + 1;
-      const inLength = Math.hypot(xs[j] - xs[j - 1], zs[j] - zs[j - 1]);
-      const outLength = Math.hypot(xs[j + 1] - xs[j], zs[j + 1] - zs[j]);
+      const inLength = DetMath.hypot(xs[j] - xs[j - 1], zs[j] - zs[j - 1]);
+      const outLength = DetMath.hypot(xs[j + 1] - xs[j], zs[j + 1] - zs[j]);
       if (inLength === 0 || outLength === 0) continue;
       const iux = (xs[j] - xs[j - 1]) / inLength;
       const iuz = (zs[j] - zs[j - 1]) / inLength;
@@ -394,12 +395,12 @@ export class ArcCheck {
         const det = adx * bdz - adz * bdx;
         if (Math.abs(det) < 1e-9) continue;
         const t = ((bx - ax) * bdz - (bz - az) * bdx) / det;
-        const al = Math.hypot(adx, adz);
-        const bl = Math.hypot(bdx, bdz);
+        const al = DetMath.hypot(adx, adz);
+        const bl = DetMath.hypot(bdx, bdz);
         for (const halving of [1, -1]) {
           const hx = adx / al + halving * (bdx / bl);
           const hz = adz / al + halving * (bdz / bl);
-          const h = Math.hypot(hx, hz);
+          const h = DetMath.hypot(hx, hz);
           // The halving line through the meeting point, by its normal
           if (h > EPS) lines.push(ax + t * adx, az + t * adz, -hz / h, hx / h, beta(-hz / h, hx / h));
         }
@@ -425,8 +426,8 @@ export class ArcCheck {
     const j = this.laneLimits(window, along);
     const { inner, outer } = this;
     const phi = (along - from) * this.arcRate;
-    const sin = Math.sin(phi);
-    const cos = Math.cos(phi);
+    const sin = DetMath.sin(phi);
+    const cos = DetMath.cos(phi);
     // Out from the centre; the lane `e` m inside stands at q - e * out
     const outX = sin * ux - cos * nx;
     const outZ = sin * uz - cos * nz;
@@ -441,7 +442,7 @@ export class ArcCheck {
     const sharpX = xs[segment] + (xs[segment + 1] - xs[segment]) * f;
     const sharpZ = zs[segment] + (zs[segment + 1] - zs[segment]) * f;
     const room = Math.max(this.limitAt(this.left, j, s), this.limitAt(this.right, j, s));
-    if (Math.hypot(sharpX - qx, sharpZ - qz) > room + EPS) {
+    if (DetMath.hypot(sharpX - qx, sharpZ - qz) > room + EPS) {
       this.outerFailed = false;
       return false;
     }

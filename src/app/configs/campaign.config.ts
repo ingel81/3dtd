@@ -13,6 +13,7 @@
  */
 
 import { TEMPLATES, type Template } from '../director/templates';
+import { DetMath } from '../utils/det-math';
 
 export interface CampaignWave {
   /** Template id forced by the campaign for this wave. */
@@ -268,7 +269,7 @@ export function waveGold(
   const last = CAMPAIGN[len - 1];
   const scale = Math.max(
     GOLD_SUSTAIN_FRACTION,
-    Math.pow(GOLD_TAPER_PER_WAVE, waveNum - len),
+    DetMath.pow(GOLD_TAPER_PER_WAVE, waveNum - len),
   ) * (isBossWave(waveNum) ? BOSS_GOLD_MULTIPLIER : 1);
   return {
     kill: Math.round(last.killGold * scale),

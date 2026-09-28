@@ -11,6 +11,7 @@
 
 import type { GeoPosition } from '../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
+import { DetMath } from './det-math';
 
 /** A route stretch with the distance along it to every point, m. */
 export interface RouteSweep {
@@ -42,7 +43,7 @@ function lerpHeight(a: GeoPosition, b: GeoPosition, t: number): number | undefin
  */
 function project(routes: Iterable<readonly GeoPosition[]>, target: GeoPosition, maxDistanceM: number): Projection | null {
   const mPerLat = METERS_PER_DEGREE_LAT;
-  const mPerLon = METERS_PER_DEGREE_LAT * Math.cos(target.lat * DEG_TO_RAD);
+  const mPerLon = METERS_PER_DEGREE_LAT * DetMath.cos(target.lat * DEG_TO_RAD);
   let best: Projection | null = null;
   for (const route of routes) {
     for (let i = 0; i < route.length - 1; i++) {
@@ -167,6 +168,6 @@ function copyInto(p: GeoPosition, out: GeoPosition): GeoPosition {
 /** Metres between two points in the flat frame of `a`. */
 function flatDistance(a: GeoPosition, b: GeoPosition): number {
   const dz = (b.lat - a.lat) * METERS_PER_DEGREE_LAT;
-  const dx = (b.lon - a.lon) * METERS_PER_DEGREE_LAT * Math.cos(a.lat * DEG_TO_RAD);
+  const dx = (b.lon - a.lon) * METERS_PER_DEGREE_LAT * DetMath.cos(a.lat * DEG_TO_RAD);
   return Math.sqrt(dx * dx + dz * dz);
 }

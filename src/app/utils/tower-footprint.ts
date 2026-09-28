@@ -1,4 +1,5 @@
 import { PLINTH_CONFIG } from '../configs/placement.config';
+import { DetMath } from './det-math';
 
 /** Where a tower stands on the ground under its footprint. */
 export interface TowerFootprint {
@@ -123,7 +124,7 @@ function footprintPattern(radius: number): FootprintPattern {
   const ring = (r: number, count: number, phase: number) => {
     for (let i = 0; i < count; i++) {
       const angle = ((i + phase) / count) * Math.PI * 2;
-      offsets.push([Math.cos(angle) * r, Math.sin(angle) * r]);
+      offsets.push([DetMath.cos(angle) * r, DetMath.sin(angle) * r]);
     }
   };
   ring(radius / 2, Math.max(6, Math.ceil((Math.PI * radius) / RING_SPACING_M)), 0.5);
@@ -134,7 +135,7 @@ function footprintPattern(radius: number): FootprintPattern {
   const neighbours = offsets.map(([ax, az], a) => {
     const list: Neighbour[] = [];
     offsets.forEach(([bx, bz], b) => {
-      const distance = Math.hypot(bx - ax, bz - az);
+      const distance = DetMath.hypot(bx - ax, bz - az);
       if (b !== a && distance <= reach) list.push({ index: b, dx: bx - ax, dz: bz - az, distance });
     });
     return list;
@@ -154,7 +155,7 @@ function footprintPattern(radius: number): FootprintPattern {
     }
     const dx = offsets[up][0] - offsets[down][0];
     const dz = offsets[up][1] - offsets[down][1];
-    const length = Math.hypot(dx, dz);
+    const length = DetMath.hypot(dx, dz);
     pairs.push({ up, down, ux: dx / length, uz: dz / length, halfLength: length / 2 });
   }
 
@@ -193,7 +194,7 @@ export function footprintSurroundingOffsets(radius: number): readonly (readonly 
     const distance = radius + PLINTH_CONFIG.ROOF_PROBE_REACH;
     offsets = Array.from({ length: SURROUNDING_DIRECTIONS }, (_, k) => {
       const angle = (k / SURROUNDING_DIRECTIONS) * Math.PI * 2;
-      return [Math.cos(angle) * distance, Math.sin(angle) * distance] as const;
+      return [DetMath.cos(angle) * distance, DetMath.sin(angle) * distance] as const;
     });
     surroundingsByRadius.set(radius, offsets);
   }

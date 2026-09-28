@@ -20,6 +20,7 @@
 
 import type { GeoPosition } from '../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
+import { DetMath } from './det-math';
 
 /** Waypoints closer than this are one node, metres. */
 export const MERGE_RADIUS_M = 1.5;
@@ -81,7 +82,7 @@ export class RouteGraph {
     private readonly lat0: number,
     private readonly lon0: number,
   ) {
-    this.cosLat0 = Math.cos(lat0 * DEG_TO_RAD);
+    this.cosLat0 = DetMath.cos(lat0 * DEG_TO_RAD);
     this.dist = new Float64Array(nodes.length);
     this.prev = new Int32Array(nodes.length);
     this.done = new Uint8Array(nodes.length);
@@ -93,7 +94,7 @@ export class RouteGraph {
     const first = keys.map((k) => routes.get(k)!).find((r) => r.length > 0)?.[0];
     const lat0 = first?.lat ?? 0;
     const lon0 = first?.lon ?? 0;
-    const cosLat0 = Math.cos(lat0 * DEG_TO_RAD);
+    const cosLat0 = DetMath.cos(lat0 * DEG_TO_RAD);
 
     const nodes: RouteGraphNode[] = [];
     const nodeBuckets = new Map<string, number[]>();
@@ -152,7 +153,7 @@ export class RouteGraph {
       const id = a < b ? `${a},${b}` : `${b},${a}`;
       if (edgeIds.has(id)) continue;
       edgeIds.add(id);
-      const length = Math.hypot(nodes[b].x - nodes[a].x, nodes[b].z - nodes[a].z);
+      const length = DetMath.hypot(nodes[b].x - nodes[a].x, nodes[b].z - nodes[a].z);
       edges.push({ a, b, length });
     }
 
@@ -204,7 +205,7 @@ export class RouteGraph {
 
   /** Straight-line distance between two graph points, 2D, metres. */
   straightDistance(p: GraphPoint, q: GraphPoint): number {
-    return Math.hypot(
+    return DetMath.hypot(
       this.localX(p.edge, p.t) - this.localX(q.edge, q.t),
       this.localZ(p.edge, p.t) - this.localZ(q.edge, q.t),
     );
@@ -440,7 +441,7 @@ function splitAtJunctions(nodes: readonly RouteGraphNode[], pairs: readonly [num
       if (lenSq === 0) continue;
       const t = ((p.x - pa.x) * dx + (p.z - pa.z) * dz) / lenSq;
       if (t <= 0 || t >= 1) continue;
-      const d = Math.hypot(pa.x + dx * t - p.x, pa.z + dz * t - p.z);
+      const d = DetMath.hypot(pa.x + dx * t - p.x, pa.z + dz * t - p.z);
       if (d < MERGE_RADIUS_M && !cuts[i].some((c) => c.node === node)) cuts[i].push({ t, node });
     }
   });

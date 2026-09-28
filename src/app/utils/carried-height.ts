@@ -4,6 +4,7 @@ import type { Street, StreetNode } from '../interfaces/street-network-provider.i
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
 import { runsUnderCover } from './route-corridor';
 import type { StreetUnder } from './underpass';
+import { DetMath } from './det-math';
 
 /**
  * The height a route carries along an approach: past the end of its OSM
@@ -127,7 +128,7 @@ export function carriedY(
   for (let k = 1; k < path.length && next <= m; k++) {
     const a = path[k - 1];
     const b = path[k];
-    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    const length = DetMath.hypot(b.x - a.x, b.z - a.z);
     for (; next <= m && next <= start + length; next += CARRY_STEP_M) {
       step++;
       if (step < walked.length) continue;
@@ -213,7 +214,7 @@ export function routeApproaches(
       onLeg = leg(j);
       const a = points[step > 0 ? j : j + 1];
       const b = points[step > 0 ? j + 1 : j];
-      const length = Math.hypot(b.x - a.x, b.z - a.z);
+      const length = DetMath.hypot(b.x - a.x, b.z - a.z);
       path.push(step > 0 ? j + 1 : j);
       const [from, to] = step > 0 ? [distance, distance + length] : [distance + length, distance];
       result[j].push({ path: [...path], from, to, start, reach: onLeg ? Infinity : DECK_APPROACH_M });
@@ -360,7 +361,7 @@ export function streetDeckApproaches(streets: readonly Street[]): Map<number, St
       for (const next of [street.nodes[index - 1], street.nodes[index + 1]]) {
         if (next === undefined) continue;
         const edge = offsetM(node, next);
-        const distance = approach.distanceM + Math.hypot(edge.x, edge.z);
+        const distance = approach.distanceM + DetMath.hypot(edge.x, edge.z);
         if (distance <= DECK_APPROACH_M) reach([...approach.path, next], distance);
       }
     }
@@ -371,7 +372,7 @@ export function streetDeckApproaches(streets: readonly Street[]): Map<number, St
 /** Metres east and north from `a` to `b`, flat around `a`. */
 function offsetM(a: StreetNode, b: StreetNode): { x: number; z: number } {
   return {
-    x: (b.lon - a.lon) * METERS_PER_DEGREE_LAT * Math.cos(a.lat * DEG_TO_RAD),
+    x: (b.lon - a.lon) * METERS_PER_DEGREE_LAT * DetMath.cos(a.lat * DEG_TO_RAD),
     z: (b.lat - a.lat) * METERS_PER_DEGREE_LAT,
   };
 }

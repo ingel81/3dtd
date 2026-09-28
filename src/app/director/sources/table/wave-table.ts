@@ -16,6 +16,7 @@ import rawTable from './wave-table.json';
 import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS } from '../../templates';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import type { SpawnPattern } from '../../spawn-schedule-builder';
+import { DetMath } from '../../../utils/det-math';
 
 /** One wave, as the list writes it down. */
 export interface WaveTableRow {
@@ -89,7 +90,7 @@ export function tableRowForWave(wave: number, table: WaveTable = WAVE_TABLE): Ta
   const past = wave - last - 1;                    // 0 = the first wave past the list
   const cycle = Math.floor(past / stretch.length) + 1;
   const row = stretch[past % stretch.length];
-  const hpMult = Math.round(row.hpMult * table.cycle.hpGrowth ** cycle * 1000) / 1000;
+  const hpMult = Math.round(row.hpMult * DetMath.pow(table.cycle.hpGrowth, cycle) * 1000) / 1000;
   return { row, cycle, hpMult };
 }
 

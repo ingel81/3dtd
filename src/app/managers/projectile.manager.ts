@@ -10,6 +10,7 @@ import type { DamageType } from '../configs/combat/combat.types';
 import type { GeoPosition } from '../models/game.types';
 import { GameEventBus } from '../game-engine';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { DetMath } from '../utils/det-math';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
@@ -152,9 +153,9 @@ export class ProjectileManager extends EntityManager<Projectile> {
     let lon = tower.position.lon;
     const firePoint = tower.getNextFirePoint();
     if (firePoint && heading !== undefined) {
-      const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
-      const cosH = Math.cos(heading);
-      const sinH = Math.sin(heading);
+      const metersPerDegreeLon = METERS_PER_DEGREE_LAT * DetMath.cos(tower.position.lat * DEG_TO_RAD);
+      const cosH = DetMath.cos(heading);
+      const sinH = DetMath.sin(heading);
       // Rotate fire point offset by heading (x=lateral, z=forward)
       lat += (-firePoint.x * sinH + firePoint.z * cosH) / METERS_PER_DEGREE_LAT;
       lon += (firePoint.x * cosH + firePoint.z * sinH) / metersPerDegreeLon;

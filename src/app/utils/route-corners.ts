@@ -10,6 +10,7 @@ import type { RouteWaypoint } from '../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
 import type { SideLimits } from './route-corridor';
 import { ArcCheck, EPS, arcEnd, arcStart } from './route-corner-check';
+import { DetMath } from './det-math';
 
 /**
  * The arcs that round the corners of a route. An arc covers a group of
@@ -462,7 +463,7 @@ export class RouteCornerBuilder {
     const { path, lengths } = this;
     if (a < 1 || b > this.count - 2 || !(lengths[a - 1] > 0 && lengths[b] > 0)) return null;
     const origin = path[a - 1];
-    const cos0 = Math.cos(origin.lat * DEG_TO_RAD);
+    const cos0 = DetMath.cos(origin.lat * DEG_TO_RAD);
     const n = b - a + 3;
     const xs = new Float64Array(n);
     const zs = new Float64Array(n);
@@ -471,15 +472,15 @@ export class RouteCornerBuilder {
       xs[j] = (w.lon - origin.lon) * cos0 * METERS_PER_DEGREE_LAT;
       zs[j] = (w.lat - origin.lat) * METERS_PER_DEGREE_LAT;
     }
-    const flatIn = Math.hypot(xs[1] - xs[0], zs[1] - zs[0]);
-    const flatOut = Math.hypot(xs[n - 1] - xs[n - 2], zs[n - 1] - zs[n - 2]);
+    const flatIn = DetMath.hypot(xs[1] - xs[0], zs[1] - zs[0]);
+    const flatOut = DetMath.hypot(xs[n - 1] - xs[n - 2], zs[n - 1] - zs[n - 2]);
     if (flatIn === 0 || flatOut === 0) return null;
     const ux = (xs[1] - xs[0]) / flatIn;
     const uz = (zs[1] - zs[0]) / flatIn;
     const vx = (xs[n - 1] - xs[n - 2]) / flatOut;
     const vz = (zs[n - 1] - zs[n - 2]) / flatOut;
     const cross = ux * vz - uz * vx;
-    const signed = Math.atan2(cross, ux * vx + uz * vz);
+    const signed = DetMath.atan2(cross, ux * vx + uz * vz);
     const turn = Math.abs(signed);
     if (turn < MIN_TURN || turn > MAX_TURN) return null;
     let p = 0;
@@ -499,7 +500,7 @@ export class RouteCornerBuilder {
     const scaleOut = flatOut / lengths[b];
     const segments = new Float64Array(4 * (n - 1));
     for (let j = 0; j + 1 < n; j++) {
-      const flat = Math.hypot(xs[j + 1] - xs[j], zs[j + 1] - zs[j]);
+      const flat = DetMath.hypot(xs[j + 1] - xs[j], zs[j + 1] - zs[j]);
       if (flat === 0) continue;
       segments[4 * j] = (xs[j + 1] - xs[j]) / flat;
       segments[4 * j + 1] = (zs[j + 1] - zs[j]) / flat;
@@ -507,7 +508,7 @@ export class RouteCornerBuilder {
       segments[4 * j + 3] = (this.taper * lengths[a - 1 + j]) / flat;
     }
     const window: CornerWindow = {
-      a, b, cos0, xs, zs, ux, uz, turn, inside: signed < 0 ? 1 : -1, cot: 1 / Math.tan(turn / 2),
+      a, b, cos0, xs, zs, ux, uz, turn, inside: signed < 0 ? 1 : -1, cot: 1 / DetMath.tan(turn / 2),
       p: Math.max(0, p), q: Math.max(0, q), scaleIn, scaleOut, lo: 0, hi: 0, kinks: null, lines: null, segments,
     };
     if (room) {

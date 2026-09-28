@@ -21,6 +21,7 @@ import {
   DEG_TO_RAD,
 } from '../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../utils/enemy-aim.util';
+import { DetMath } from '../utils/det-math';
 
 /**
  * Projectile entity - combines Transform, Combat, Movement, and Render components
@@ -158,7 +159,7 @@ export class Projectile extends GameObject {
     // Local deltas in meters, the same units as dy. A degree of longitude is
     // cos(lat) shorter than a degree of latitude: scaling both by the same
     // factor skewed the heading east/west (about 13° off at London's latitude).
-    const dx = -dLon * METERS_PER_DEGREE_LAT * Math.cos(startPos.lat * DEG_TO_RAD); // -X = East
+    const dx = -dLon * METERS_PER_DEGREE_LAT * DetMath.cos(startPos.lat * DEG_TO_RAD); // -X = East
     const dz = dLat * METERS_PER_DEGREE_LAT; // +Z = North
     const dy = targetHeight - startHeight; // Vertical difference
 
@@ -334,7 +335,7 @@ export class Projectile extends GameObject {
     // meters like calculateDirectionVector()
     const dLon = targetPos.lon - this.position.lon;
     const dLat = targetPos.lat - this.position.lat;
-    const dx = -dLon * METERS_PER_DEGREE_LAT * Math.cos(this.position.lat * DEG_TO_RAD);
+    const dx = -dLon * METERS_PER_DEGREE_LAT * DetMath.cos(this.position.lat * DEG_TO_RAD);
     const dz = dLat * METERS_PER_DEGREE_LAT;
 
     // Calculate horizontal magnitude for proper scaling

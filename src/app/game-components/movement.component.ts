@@ -6,6 +6,7 @@ import { TransformComponent } from './transform.component';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { RouteProfile, SideLimits, getRouteProfile } from '../utils/route-corridor';
 import type { RouteCorners } from '../utils/route-corners';
+import { DetMath } from '../utils/det-math';
 
 /** What updateStatusEffects() reports for one enemy and sub-step. */
 export interface StatusFlags {
@@ -666,7 +667,7 @@ export class MovementComponent extends Component {
       // angle of the stated length on every heading, which the coverage of
       // the route cells relies on.
       if (!this.cachedPerpValid || this.cachedPerpSegIdx !== i) {
-        const cosLat = Math.cos(current.lat * DEG_TO_RAD);
+        const cosLat = DetMath.cos(current.lat * DEG_TO_RAD);
         const east = (next.lon - current.lon) * cosLat;
         const north = next.lat - current.lat;
         const len = Math.sqrt(east * east + north * north);
@@ -724,8 +725,8 @@ export class MovementComponent extends Component {
     const from = corners.from[arc];
     const radius = corners.radius[arc];
     const phi = ((profile.cumulativeLength[i] + s - from) * corners.turn[arc]) / (corners.to[arc] - from);
-    const cos = Math.cos(phi);
-    const sin = Math.sin(phi);
+    const cos = DetMath.cos(phi);
+    const sin = DetMath.sin(phi);
 
     // Offset towards the inside
     let inside = 0;

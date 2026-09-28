@@ -4,6 +4,7 @@
  * Used by OsmStreetService and DevStreetProvider so both run the identical
  * geometry. Framework-free (no Angular, no DOM).
  */
+import { DetMath } from './det-math';
 
 /**
  * Cost multipliers for pathfinding by street type.
@@ -104,12 +105,12 @@ export function haversineDistance(lat1: number, lon1: number, lat2: number, lon2
   const dLat = ((lat2 - lat1) * Math.PI) / 180;
   const dLon = ((lon2 - lon1) * Math.PI) / 180;
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos((lat1 * Math.PI) / 180) *
-      Math.cos((lat2 * Math.PI) / 180) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    DetMath.sin(dLat / 2) * DetMath.sin(dLat / 2) +
+    DetMath.cos((lat1 * Math.PI) / 180) *
+      DetMath.cos((lat2 * Math.PI) / 180) *
+      DetMath.sin(dLon / 2) *
+      DetMath.sin(dLon / 2);
+  const c = 2 * DetMath.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return R * c;
 }
 
@@ -126,7 +127,7 @@ export function distanceToSegment(
 ): number {
   // Scale longitude by cos(latitude) to get approximately equal-distance units
   const midLat = (aLat + bLat) * 0.5;
-  const lonScale = Math.cos((midLat * Math.PI) / 180);
+  const lonScale = DetMath.cos((midLat * Math.PI) / 180);
 
   const dxSeg = (bLon - aLon) * lonScale;
   const dySeg = bLat - aLat;

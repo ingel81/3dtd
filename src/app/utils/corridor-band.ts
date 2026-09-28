@@ -1,5 +1,6 @@
 import { corridorConfig, stationRadius } from './route-corridor';
 import { segmentTouchesCell } from './route-grid-builder';
+import { DetMath } from './det-math';
 
 /**
  * The walkable band along a route and the enemies' line in it (phase 2 of
@@ -350,7 +351,7 @@ function stationsOf(
   for (let i = 0; i < points.length - 1; i++) {
     const a = points[i];
     const b = points[i + 1];
-    const length = Math.hypot(b.x - a.x, b.z - a.z);
+    const length = DetMath.hypot(b.x - a.x, b.z - a.z);
     if (length <= 0) continue;
     const rx = -(b.z - a.z) / length;
     const rz = (b.x - a.x) / length;
@@ -725,7 +726,7 @@ function coveredOnLine(
         if (column === null) continue;
         const cx = (gx + 0.5) * cellSize;
         const cz = (gz + 0.5) * cellSize;
-        const k = ends.reduce((p, q) => (Math.hypot(stations[q].x - cx, stations[q].z - cz) < Math.hypot(stations[p].x - cx, stations[p].z - cz) ? q : p));
+        const k = ends.reduce((p, q) => (DetMath.hypot(stations[q].x - cx, stations[q].z - cz) < DetMath.hypot(stations[p].x - cx, stations[p].z - cz) ? q : p));
         if (column.ground - stations[k].street! > roofRise) found.add(k);
       }
     }
@@ -759,7 +760,7 @@ function crossSlope(st: Work, b: number, dir: number, toward: BandColumn | null,
   const y = from.column!.ground;
   const out = (toward.ground - y) / Math.max(1e-6, Math.abs(t.u - from.u));
   const back = (y - away.ground) / Math.max(1e-6, Math.abs(from.u - a.u));
-  const cell = Math.hypot(t.x - from.x, t.z - from.z);
+  const cell = DetMath.hypot(t.x - from.x, t.z - from.z);
   if (out * back <= 0 || Math.abs(out - back) * cell > corridorConfig.stepRise) return 0;
   return Math.sign(out) * Math.min(Math.abs(out), Math.abs(back));
 }
@@ -819,7 +820,7 @@ function turnsOf(stations: readonly Work[]): Turns {
   const turns: Turns = { right: [], left: [] };
   stations.forEach((st, k) => {
     const before = stations[k - 1];
-    let turn = before ? Math.atan2(st.rz, st.rx) - Math.atan2(before.rz, before.rx) : 0;
+    let turn = before ? DetMath.atan2(st.rz, st.rx) - DetMath.atan2(before.rz, before.rx) : 0;
     if (turn > Math.PI) turn -= 2 * Math.PI;
     if (turn <= -Math.PI) turn += 2 * Math.PI;
     turns.right.push((turns.right[k - 1] ?? 0) + Math.max(0, turn));
@@ -1200,7 +1201,7 @@ function lineNodes(route: BandRoute, stations: readonly BandStation[]): LineNode
     if (!next || next.segment === st.segment) continue;
     // The point between the two segments, along the mitre of their right vectors.
     const joint = points[next.segment];
-    const f = (Math.hypot(joint.x - st.x, joint.z - st.z)) / Math.max(1e-6, next.s - st.s);
+    const f = (DetMath.hypot(joint.x - st.x, joint.z - st.z)) / Math.max(1e-6, next.s - st.s);
     const offset = st.centre + (next.centre - st.centre) * Math.min(1, Math.max(0, f));
     const dot = st.rx * next.rx + st.rz * next.rz;
     const scale = 1 + dot > 0.2 ? 1 / (1 + dot) : 0.5;

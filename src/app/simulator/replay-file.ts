@@ -77,7 +77,7 @@ export type ReplayFileRefusal = 'not-a-replay' | 'version' | 'other-world' | 'ot
  * Parse `text` and check it against the world and balance loaded now. A file
  * of another game version loads, with `note` naming the version it was saved
  * with: the code may have changed since, and the replay may then differ. A
- * file whose hashes read other state (hashVersion) loads without them, so
+ * file whose hashes came about another way (hashVersion) loads without them, so
  * the replay does not report a divergence that is none.
  */
 export function readReplayFile(

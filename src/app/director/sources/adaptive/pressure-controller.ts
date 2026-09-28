@@ -47,6 +47,7 @@
  */
 
 import { directorParams } from '../../director-params';
+import { DetMath } from '../../../utils/det-math';
 
 /**
  * Wellen, die der Regler gar nicht erst ansieht.
@@ -104,7 +105,7 @@ export const TARGET_RESIDUAL_HP = 0.05;
  * Kostet jede Welle den Anteil p, sind nach N Wellen noch (1-p)^N übrig.
  * Nach TARGET_RESIDUAL_HP aufgelöst sind das 3,67 % bei 80 Wellen.
  */
-export const BASE_PRESSURE = 1 - Math.pow(TARGET_RESIDUAL_HP, 1 / TARGET_RUN_WAVES);
+export const BASE_PRESSURE = 1 - DetMath.pow(TARGET_RESIDUAL_HP, 1 / TARGET_RUN_WAVES);
 
 /**
  * Form der Kurve über den Lauf: die Aufbauphase ist milder, das Endspiel
@@ -297,7 +298,7 @@ export class PressureController {
     // Logarithmischer Fehler, damit "halb so viel" und "doppelt so viel"
     // gleich schwer wiegen. Der relative Fehler des Vorgängers war nach oben
     // auf +1 begrenzt und nach unten unbegrenzt, also einseitig hart.
-    const error = Math.log(target / Math.max(measured, PRESSURE_FLOOR));
+    const error = DetMath.log(target / Math.max(measured, PRESSURE_FLOOR));
 
     // Anti-Windup. Band der Deckel nicht, war die Welle schon kleiner als er
     // erlaubt hätte: Der Multiplikator hat sie nicht begrenzt, also ist der zu
@@ -311,7 +312,7 @@ export class PressureController {
     }
 
     const clamped = Math.max(-PRESSURE_MAX_STEP, Math.min(PRESSURE_MAX_STEP, error));
-    const step = Math.exp(params.pressureGain * clamped);
+    const step = DetMath.exp(params.pressureGain * clamped);
     this.multiplier = Math.max(
       PRESSURE_MULT_MIN,
       Math.min(PRESSURE_MULT_MAX, this.multiplier * step),

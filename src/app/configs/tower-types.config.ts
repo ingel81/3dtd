@@ -1,4 +1,5 @@
 import { DamageType } from './combat/combat.types';
+import { DetMath } from '../utils/det-math';
 
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'chaos'
@@ -36,7 +37,7 @@ export interface TowerUpgrade {
  */
 export function getUpgradeCost(upgrade: TowerUpgrade, currentLevel: number): number {
   const scaling = upgrade.costScaling ?? 1.0;
-  return Math.round(upgrade.cost * Math.pow(scaling, currentLevel));
+  return Math.round(upgrade.cost * DetMath.pow(scaling, currentLevel));
 }
 
 /**
@@ -52,7 +53,7 @@ export function upgradeFactor(upgrade: TowerUpgrade, level: number): number {
   const early = Math.min(lvl, upgrade.lateFromLevel ?? lvl);
   const late = lvl - early;
   const lateMultiplier = upgrade.lateMultiplier ?? upgrade.effect.multiplier;
-  return Math.pow(upgrade.effect.multiplier, early) * Math.pow(lateMultiplier, late);
+  return DetMath.pow(upgrade.effect.multiplier, early) * DetMath.pow(lateMultiplier, late);
 }
 
 /**

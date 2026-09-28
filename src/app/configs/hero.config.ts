@@ -12,6 +12,7 @@
 
 import type { DamageType } from './combat/combat.types';
 import type { ProjectileTypeId } from './tower-types.config';
+import { DetMath } from '../utils/det-math';
 
 /** Source id of the hero's shots in the damage path (DamageApplicationService). */
 export const HERO_SOURCE_ID = 'hero';
@@ -71,8 +72,8 @@ export const HERO = {
  */
 export function heroMuzzleOffset(heading: number): { eastM: number; northM: number } {
   const { forwardM, rightM } = HERO.muzzle;
-  const sin = Math.sin(heading);
-  const cos = Math.cos(heading);
+  const sin = DetMath.sin(heading);
+  const cos = DetMath.cos(heading);
   return { eastM: rightM * cos - forwardM * sin, northM: rightM * sin + forwardM * cos };
 }
 

@@ -12,8 +12,10 @@ import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-che
  * another version plays without its hashes checked (replay-file.ts).
  * 1: up to 0.5.1. 2: status effects, tower settings and upgrades, research,
  * abilities, the hero's level and ammo, the perfect streak (TODO E63 i).
+ * 3: the simulation computes with DetMath instead of the native Math (E28),
+ * so the same run gives other bits.
  */
-export const STATE_HASH_VERSION = 2;
+export const STATE_HASH_VERSION = 3;
 
 /** Takes what a manager hands to the hash (Hashable). */
 export interface HashSink {

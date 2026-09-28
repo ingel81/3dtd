@@ -22,6 +22,7 @@ import {
 import { computeTowerDPS, canTargetAirEffective, airTargetingFor, type AirTargeting, armorMultipliersFor } from './tower-dps.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import type { HeroDefenseProfile } from '../configs/hero.config';
+import { DetMath } from '../utils/det-math';
 
 
 /**
@@ -572,7 +573,7 @@ export function estimateKillZoneStrength(towers: Tower[]): number {
 
       // Simple Euclidean approximation (good enough for nearby towers)
       const latDiff = (t1.lat - t2.lat) * METERS_PER_DEGREE_LAT;
-      const lonDiff = (t1.lon - t2.lon) * METERS_PER_DEGREE_LAT * Math.cos(t1.lat * DEG_TO_RAD);
+      const lonDiff = (t1.lon - t2.lon) * METERS_PER_DEGREE_LAT * DetMath.cos(t1.lat * DEG_TO_RAD);
       const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
 
       totalDistance += distance;

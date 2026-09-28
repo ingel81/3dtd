@@ -2,6 +2,7 @@ import type { Street } from '../interfaces/street-network-provider.interface';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
 import { estimateStreetWidth, runsUnderCover } from './route-corridor';
 import { TUNNEL_PORTAL_OFFSET_M } from './route-grid-builder';
+import { DetMath } from './det-math';
 
 /**
  * Where a route or a street runs under another way: a bridge over it, or a
@@ -86,13 +87,13 @@ function offsetM(origin: LatLon, p: LatLon, kx: number): { x: number; z: number 
 
 /** Longitude scale around `p`, metres per degree. */
 function lonScale(p: LatLon): number {
-  return METERS_PER_DEGREE_LAT * Math.cos(p.lat * DEG_TO_RAD);
+  return METERS_PER_DEGREE_LAT * DetMath.cos(p.lat * DEG_TO_RAD);
 }
 
 /** Length of the edge `a`-`b`, metres, flat around `a`: the one measure spans and cuts share. */
 function edgeLengthM(a: LatLon, b: LatLon): number {
   const { x, z } = offsetM(a, b, lonScale(a));
-  return Math.hypot(x, z);
+  return DetMath.hypot(x, z);
 }
 
 /** Whether `p` is a node of `street`: the path meets the way there instead of passing under it. */
@@ -175,7 +176,7 @@ export class UnderpassIndex {
         const u = (p.x * dz - p.z * dx) / den;
         if (t < 0 || t > 1 || u < 0 || u > 1) continue;
         if ((t < 1e-9 && isNodeOf(raised.street, a)) || (t > 1 - 1e-9 && isNodeOf(raised.street, b))) continue;
-        const sine = Math.abs(den) / (length * Math.hypot(ex, ez));
+        const sine = Math.abs(den) / (length * DetMath.hypot(ex, ez));
         const half = Math.min(UNDERPASS_MAX_M / 2, raised.reach / Math.max(sine, 1e-6));
         const at = along + t * length;
         found.push({ from: at - half, to: at + half, wayId: raised.street.id });

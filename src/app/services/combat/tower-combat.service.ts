@@ -23,6 +23,7 @@ import { BodyAim, type BodyAimPoint } from './body-aim';
 import { TOWER_CONTROL } from '../../configs/tower-control.config';
 import { aimDirectionInto, eyeBackAt, eyeInto, rayHitDistance } from '../../utils/manual-aim';
 import { aimAt, aimIdle, aimPitch, aimPitchTowards, isAimAligned, releaseAim } from '../../entities/tower-aim';
+import { DetMath } from '../../utils/det-math';
 
 /** A shot of the manned tower: at `target`, or a miss when null */
 export interface ManualShot {
@@ -199,7 +200,7 @@ export class TowerCombatService {
     // whenever its cache was invalidated, which while a wave is spawning is
     // every sub-step.
     const mPerDegLat = METERS_PER_DEGREE_LAT;
-    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
+    const mPerDegLon = METERS_PER_DEGREE_LAT * DetMath.cos(tower.position.lat * DEG_TO_RAD);
     const radiusSq = radiusMeters ** 2;
     const out = this._candidateScratch;
     out.length = 0;
@@ -464,7 +465,7 @@ export class TowerCombatService {
       dy += eye.y - muzzle.y;
       dz += eye.z - muzzle.z;
     }
-    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
+    const mPerDegLon = METERS_PER_DEGREE_LAT * DetMath.cos(tower.position.lat * DEG_TO_RAD);
     return {
       lat: tower.position.lat + dz / METERS_PER_DEGREE_LAT,
       lon: tower.position.lon - dx / mPerDegLon,
@@ -774,7 +775,7 @@ export class TowerCombatService {
     cone.dirY = dir.y;
     cone.dirZ = dir.z;
     cone.length = Math.min(source.distanceTo(target), maxLength);
-    cone.cosHalfAngle = Math.cos(Math.atan2(endWidth / 2, cone.length));
+    cone.cosHalfAngle = DetMath.cos(DetMath.atan2(endWidth / 2, cone.length));
 
     const result = this._coneScratch;
     result.length = 0;
@@ -1016,7 +1017,7 @@ export class TowerCombatService {
       const baseDamage = tower.combat.damage;
       const damageType = tower.typeConfig.damageType;
       for (let i = 0; i < hits.length; i++) {
-        const dmg = baseDamage * Math.pow(falloff, i);
+        const dmg = baseDamage * DetMath.pow(falloff, i);
         // A body's hit goes on the aim point the bolt strikes
         if (hits[i].body) this.bodyAim.aim(hits[i], this._aimPoint);
         this.combatEffectService.applyChainDamage(hits[i], dmg, damageType, tower.id);
@@ -1045,7 +1046,7 @@ export class TowerCombatService {
     losCheck?: (enemy: Enemy) => boolean,
   ): Enemy | null {
     const mPerDegLat = METERS_PER_DEGREE_LAT;
-    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(from.lat * DEG_TO_RAD);
+    const mPerDegLon = METERS_PER_DEGREE_LAT * DetMath.cos(from.lat * DEG_TO_RAD);
     let best: Enemy | null = null;
     let bestSq = maxDist * maxDist;
     for (const e of candidates) {

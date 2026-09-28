@@ -3,6 +3,7 @@ import type { TransformComponent } from '../../game-components/transform.compone
 import type { RouteWaypoint } from '../../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { RouteProfile, SideLimits, getRouteProfile } from '../../utils/route-corridor';
+import { DetMath } from '../../utils/det-math';
 
 /**
  * Radius (m) the worm's body bends through a route corner with, where the
@@ -84,7 +85,7 @@ export class WormPath {
     this.profile = getRouteProfile(path);
     this.lat0 = count > 0 ? path[0].lat : 0;
     this.lon0 = count > 0 ? path[0].lon : 0;
-    this.metersPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(this.lat0 * DEG_TO_RAD);
+    this.metersPerDegLon = METERS_PER_DEGREE_LAT * DetMath.cos(this.lat0 * DEG_TO_RAD);
     this.e = new Float64Array(count);
     this.n = new Float64Array(count);
     this.dirE = new Float64Array(segments);
@@ -102,7 +103,7 @@ export class WormPath {
     for (let i = 0; i < segments; i++) {
       const de = this.e[i + 1] - this.e[i];
       const dn = this.n[i + 1] - this.n[i];
-      length[i] = Math.hypot(de, dn);
+      length[i] = DetMath.hypot(de, dn);
       if (length[i] > 0) {
         this.dirE[i] = de / length[i];
         this.dirN[i] = dn / length[i];
@@ -117,16 +118,16 @@ export class WormPath {
       if (length[k - 1] === 0 || length[k] === 0) continue;
       const cross = this.dirE[k - 1] * this.dirN[k] - this.dirN[k - 1] * this.dirE[k];
       const dot = this.dirE[k - 1] * this.dirE[k] + this.dirN[k - 1] * this.dirN[k];
-      const turn = Math.atan2(cross, dot);
+      const turn = DetMath.atan2(cross, dot);
       const angle = Math.abs(turn);
       if (angle < MIN_TURN || angle > MAX_TURN) continue;
       this.turn[k] = turn;
-      want[k] = WORM_BEND_RADIUS_M * Math.tan(angle / 2);
+      want[k] = WORM_BEND_RADIUS_M * DetMath.tan(angle / 2);
     }
 
     for (let k = 1; k < count - 1; k++) {
       if (want[k] === 0) continue;
-      const half = Math.tan(Math.abs(this.turn[k]) / 2);
+      const half = DetMath.tan(Math.abs(this.turn[k]) / 2);
       // Two arcs share the segment between their waypoints in the ratio of
       // what they want, so they never overlap; a straight neighbour leaves
       // the whole segment.
@@ -142,7 +143,7 @@ export class WormPath {
         inner.node[k],
         limitAt(this.profile, inner, k, tangent / this.scale[k]),
       );
-      const radius = Math.min(tangent / half, Math.max(0, room) / (1 - Math.cos(Math.abs(this.turn[k]) / 2)));
+      const radius = Math.min(tangent / half, Math.max(0, room) / (1 - DetMath.cos(Math.abs(this.turn[k]) / 2)));
       tangent = radius * half;
       if (tangent > 0) {
         this.radius[k] = radius;
@@ -185,7 +186,7 @@ export class WormPath {
     const de = p.e - q.e;
     const dn = p.n - q.n;
     // Heading as TransformComponent.lookAt measures it, in metres
-    if (de * de + dn * dn > 1e-12) transform.setHeading(Math.atan2(-de, dn));
+    if (de * de + dn * dn > 1e-12) transform.setHeading(DetMath.atan2(-de, dn));
   }
 
   /** Segment of route distance `s`, searched from segment `hint`; the first or last one off the ends. */
@@ -238,8 +239,8 @@ export class WormPath {
       // Walked at an even rate from one tangent point to the other
       const u = (x + tangent) / (2 * tangent);
       const phi = u * angle;
-      const cos = Math.cos(phi);
-      const sin = Math.sin(phi);
+      const cos = DetMath.cos(phi);
+      const sin = DetMath.sin(phi);
       // Frame of the leg into the waypoint: along it, and towards the inside of the turn
       const ae = this.dirE[k - 1];
       const an = this.dirN[k - 1];
@@ -252,7 +253,7 @@ export class WormPath {
       te = ae * cos + ie * sin;
       tn = an * cos + inN * sin;
       // How far inside the leg it is on
-      depth = radius * (1 - Math.cos(angle * Math.min(u, 1 - u)));
+      depth = radius * (1 - DetMath.cos(angle * Math.min(u, 1 - u)));
     }
 
     if (lateral !== 0) {

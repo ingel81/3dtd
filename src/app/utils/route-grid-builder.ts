@@ -2,6 +2,7 @@ import { RouteWaypoint } from '../models/game.types';
 import { corridorConfig, lateralLimit, segmentLeft, segmentRight } from './route-corridor';
 import { ApproachPoint, RouteCell, TunnelSpan } from './route-cell';
 import { SegmentApproach, nearestApproach, pointOnApproach, routeApproaches, segmentApproaches, startsNearer } from './carried-height';
+import { DetMath } from './det-math';
 
 /**
  * Building the route-cell corridor: which cells a route claims, which
@@ -69,12 +70,12 @@ export function tunnelSegments(route: readonly RouteWaypoint[], points: readonly
     while (end + 1 < segments && route[end + 1].inTunnel) end++;
 
     const lengths: number[] = [];
-    for (let j = i; j <= end; j++) lengths.push(Math.hypot(points[j + 1].x - points[j].x, points[j + 1].z - points[j].z));
+    for (let j = i; j <= end; j++) lengths.push(DetMath.hypot(points[j + 1].x - points[j].x, points[j + 1].z - points[j].z));
     const inner = lengths.reduce((sum, l) => sum + l, 0);
     const total = inner + 2 * TUNNEL_PORTAL_OFFSET_M;
     // Portals moved out along the first and the last segment.
     const outward = (from: { x: number; z: number }, to: { x: number; z: number }) => {
-      const len = Math.hypot(to.x - from.x, to.z - from.z) || 1;
+      const len = DetMath.hypot(to.x - from.x, to.z - from.z) || 1;
       return { x: to.x + ((to.x - from.x) / len) * TUNNEL_PORTAL_OFFSET_M, z: to.z + ((to.z - from.z) / len) * TUNNEL_PORTAL_OFFSET_M };
     };
     const a = outward(points[i + 1], points[i]);
@@ -126,7 +127,7 @@ export interface SegmentCaps {
  * ground (playtest 2026-09-14, orange cells in houses in Rothenburg).
  */
 export function jointCap(own: number, other: number, cellSize: number): number {
-  const reach = cellSize * Math.SQRT1_2 * Math.hypot(1, corridorConfig.taper);
+  const reach = cellSize * Math.SQRT1_2 * DetMath.hypot(1, corridorConfig.taper);
   return Math.min(own, lateralLimit(Math.min(own, other)) + reach);
 }
 

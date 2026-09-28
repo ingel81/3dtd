@@ -4,6 +4,7 @@ import type { GeoPosition } from '../../models/game.types';
 import type { SpawnStart } from '../enemy.manager';
 import { PORTAL_DEPTH } from '../../configs/marker-geometry.config';
 import { WormPath, wormPathOf } from './worm-path';
+import { DetMath } from '../../utils/det-math';
 
 /** A slot not out of the portal yet, walking, or killed, through or removed. */
 const PENDING = 0;
@@ -64,7 +65,7 @@ export function wormSway(chain: EnemyChain, distance: number, origin = 0): numbe
   const t = (distance - origin - PORTAL_DEPTH / 2) / WORM_SWAY_RAMP_M;
   if (t <= 0) return 0;
   const ramp = t >= 1 ? 1 : t * t * (3 - 2 * t);
-  return chain.sway * ramp * Math.sin((2 * Math.PI * distance) / chain.swayWavelength);
+  return chain.sway * ramp * DetMath.sin((2 * Math.PI * distance) / chain.swayWavelength);
 }
 
 /**

@@ -7,6 +7,7 @@
  * Pure functions without allocation; the combat and the camera share them,
  * so what the crosshair shows is what the shot tests.
  */
+import { DetMath } from './det-math';
 
 /** A point or direction in the local frame */
 export interface Vec3 {
@@ -17,16 +18,16 @@ export interface Vec3 {
 
 /** Unit direction of `heading` and `pitch`, written into `out`. */
 export function aimDirectionInto(heading: number, pitch: number, out: Vec3): Vec3 {
-  const cosP = Math.cos(pitch);
-  out.x = -Math.sin(heading) * cosP;
-  out.y = Math.sin(pitch);
-  out.z = Math.cos(heading) * cosP;
+  const cosP = DetMath.cos(pitch);
+  out.x = -DetMath.sin(heading) * cosP;
+  out.y = DetMath.sin(pitch);
+  out.z = DetMath.cos(heading) * cosP;
   return out;
 }
 
 /** Heading (geoHeading convention) of a local direction; its y is ignored. */
 export function headingOfLocal(dx: number, dz: number): number {
-  return Math.atan2(-dx, dz);
+  return DetMath.atan2(-dx, dz);
 }
 
 /**
@@ -45,9 +46,9 @@ export function eyeBackAt(pitch: number, pitchMin: number, back: number, forward
  * against the horizontal aim (negative: in front). Written into `out`.
  */
 export function eyeInto(muzzle: Vec3, heading: number, eyeUp: number, eyeBack: number, out: Vec3): Vec3 {
-  out.x = muzzle.x + Math.sin(heading) * eyeBack;
+  out.x = muzzle.x + DetMath.sin(heading) * eyeBack;
   out.y = muzzle.y + eyeUp;
-  out.z = muzzle.z - Math.cos(heading) * eyeBack;
+  out.z = muzzle.z - DetMath.cos(heading) * eyeBack;
   return out;
 }
 

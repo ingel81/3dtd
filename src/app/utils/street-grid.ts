@@ -1,6 +1,7 @@
 import type { NearestStreetPoint, Street, StreetNetwork, StreetNode } from '../interfaces/street-network-provider.interface';
 import { DEG_TO_RAD } from './geo-utils';
 import { distanceToSegment } from './street-astar';
+import { DetMath } from './det-math';
 
 /**
  * A grid over the segments of a street network, for the lookup
@@ -110,7 +111,7 @@ export class StreetSegmentGrid {
     // so that a ring of cells is a ring in the world as well.
     const latSpan = Math.max(maxLat - minLat, 1e-9);
     const lonSpan = Math.max(maxLon - minLon, 1e-9);
-    const lonScale = Math.max(Math.cos(this.maxAbsLat * DEG_TO_RAD), 1e-6) * M_PER_DEG_LAT;
+    const lonScale = Math.max(DetMath.cos(this.maxAbsLat * DEG_TO_RAD), 1e-6) * M_PER_DEG_LAT;
     const latSpanM = latSpan * M_PER_DEG_LAT;
     const lonSpanM = lonSpan * lonScale;
     const cellM = Math.sqrt((latSpanM * lonSpanM * SEGMENTS_PER_CELL) / Math.max(count, 1));
@@ -269,8 +270,8 @@ export class StreetSegmentGrid {
     const dLat = lat < minLat ? minLat - lat : lat > maxLat ? lat - maxLat : 0;
     const dLon = lon < minLon ? minLon - lon : lon > maxLon ? lon - maxLon : 0;
     if (dLat === 0 && dLon === 0) return 0;
-    const scale = Math.max(0, Math.cos(Math.max(this.maxAbsLat, Math.abs(lat)) * DEG_TO_RAD)) * M_PER_DEG_LAT;
-    return Math.hypot(dLat * M_PER_DEG_LAT, dLon * scale);
+    const scale = Math.max(0, DetMath.cos(Math.max(this.maxAbsLat, Math.abs(lat)) * DEG_TO_RAD)) * M_PER_DEG_LAT;
+    return DetMath.hypot(dLat * M_PER_DEG_LAT, dLon * scale);
   }
 
   /** A number no earlier lookup used, for the `seen` marks. */

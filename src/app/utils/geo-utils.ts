@@ -9,6 +9,7 @@
  * - projectile.entity.ts
  * - movement.component.ts
  */
+import { DetMath } from './det-math';
 
 /** Earth radius in meters (WGS84) */
 const EARTH_RADIUS = 6371000;
@@ -38,12 +39,12 @@ export function haversineDistance(
   const dLat = (lat2 - lat1) * DEG_TO_RAD;
   const dLon = (lon2 - lon1) * DEG_TO_RAD;
   const a =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(lat1 * DEG_TO_RAD) *
-      Math.cos(lat2 * DEG_TO_RAD) *
-      Math.sin(dLon / 2) *
-      Math.sin(dLon / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    DetMath.sin(dLat / 2) * DetMath.sin(dLat / 2) +
+    DetMath.cos(lat1 * DEG_TO_RAD) *
+      DetMath.cos(lat2 * DEG_TO_RAD) *
+      DetMath.sin(dLon / 2) *
+      DetMath.sin(dLon / 2);
+  const c = 2 * DetMath.atan2(Math.sqrt(a), Math.sqrt(1 - a));
   return EARTH_RADIUS * c;
 }
 
@@ -65,7 +66,7 @@ export function fastDistance(
 ): number {
   const dLat = lat2 - lat1;
   const dLon = lon2 - lon1;
-  const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(lat1 * DEG_TO_RAD);
+  const metersPerDegreeLon = METERS_PER_DEGREE_LAT * DetMath.cos(lat1 * DEG_TO_RAD);
   const dx = dLon * metersPerDegreeLon;
   const dy = dLat * METERS_PER_DEGREE_LAT;
   return Math.sqrt(dx * dx + dy * dy);
@@ -95,7 +96,7 @@ export function fastDistanceSq(
 ): number {
   const dLat = lat2 - lat1;
   const dLon = lon2 - lon1;
-  const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(lat1 * DEG_TO_RAD);
+  const metersPerDegreeLon = METERS_PER_DEGREE_LAT * DetMath.cos(lat1 * DEG_TO_RAD);
   const dx = dLon * metersPerDegreeLon;
   const dy = dLat * METERS_PER_DEGREE_LAT;
   return dx * dx + dy * dy;
@@ -123,8 +124,8 @@ export function geoHeading(
   from: { lat: number; lon: number },
   to: { lat: number; lon: number }
 ): number {
-  const east = (to.lon - from.lon) * Math.cos(from.lat * DEG_TO_RAD);
-  return Math.atan2(east, to.lat - from.lat);
+  const east = (to.lon - from.lon) * DetMath.cos(from.lat * DEG_TO_RAD);
+  return DetMath.atan2(east, to.lat - from.lat);
 }
 
 /**
@@ -215,7 +216,7 @@ function distanceToSegment(
 ): number {
   // Scale longitude by cos(latitude) to get approximately equal-distance units
   const midLat = (aLat + bLat) * 0.5;
-  const lonScale = Math.cos(midLat * DEG_TO_RAD);
+  const lonScale = DetMath.cos(midLat * DEG_TO_RAD);
 
   const dxSeg = (bLon - aLon) * lonScale;
   const dySeg = bLat - aLat;

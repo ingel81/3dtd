@@ -25,6 +25,7 @@
 import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
+import { DetMath } from '../utils/det-math';
 
 /** What the HeroManager emits, before owner and `local` go on. */
 type HeroEvent = Extract<GameEvent, { type: 'hero:level-up' | 'hero:rejected' | 'hero:state-changed' }>;
@@ -485,7 +486,7 @@ export class HeroManager implements IGameManager {
     this.world.fire({
       origin: {
         lat: lat + muzzle.northM / METERS_PER_DEGREE_LAT,
-        lon: lon + muzzle.eastM / (METERS_PER_DEGREE_LAT * Math.cos(lat * DEG_TO_RAD)),
+        lon: lon + muzzle.eastM / (METERS_PER_DEGREE_LAT * DetMath.cos(lat * DEG_TO_RAD)),
       },
       originHeight: this.world.groundHeight(lat, lon) + HERO.muzzle.upM,
       target,

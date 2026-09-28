@@ -4,6 +4,7 @@ import { WGS84_ELLIPSOID } from '3d-tiles-renderer';
 import { ENU_FRAME } from '3d-tiles-renderer/src/three/renderer/math/Ellipsoid.js';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { DetMath } from '../utils/det-math';
 
 /**
  * EllipsoidSync - Coordinate transformation utilities for 3DTilesRendererJS
@@ -38,7 +39,7 @@ export class EllipsoidSync {
     this.originLonRad = originLon * MathUtils.DEG2RAD;
     this.originLatDeg = originLat;
     this.originLonDeg = originLon;
-    this.originLatCos = Math.cos(originLat * MathUtils.DEG2RAD);
+    this.originLatCos = DetMath.cos(originLat * MathUtils.DEG2RAD);
     this.originHeight = originHeight;
     this.updateOriginMatrix();
   }
@@ -58,7 +59,7 @@ export class EllipsoidSync {
     this.originLonRad = lon * MathUtils.DEG2RAD;
     this.originLatDeg = lat;
     this.originLonDeg = lon;
-    this.originLatCos = Math.cos(lat * MathUtils.DEG2RAD);
+    this.originLatCos = DetMath.cos(lat * MathUtils.DEG2RAD);
     this.originHeight = height;
     this.updateOriginMatrix();
   }
@@ -135,7 +136,7 @@ export class EllipsoidSync {
     // Convert X offset to longitude delta
     // -X = East, so positive X means West (negative lon delta)
     // At the origin latitude, 1 degree longitude = R * cos(lat) * DEG2RAD meters
-    const metersPerDegreeLon = R * Math.cos(originLat * MathUtils.DEG2RAD) * MathUtils.DEG2RAD;
+    const metersPerDegreeLon = R * DetMath.cos(originLat * MathUtils.DEG2RAD) * MathUtils.DEG2RAD;
     const lonDelta = -vec.x / metersPerDegreeLon; // Negate because -X = East
 
     // Convert Z offset to latitude delta
@@ -190,7 +191,7 @@ export class EllipsoidSync {
     // atan2(x, z) gives angle from +Z, positive = counterclockwise
     // In our system: -X = East, so moving East means dx < 0
     // atan2(dx, dz) directly gives correct rotation.y
-    return Math.atan2(dx, dz);
+    return DetMath.atan2(dx, dz);
   }
 
   /**

@@ -3,6 +3,7 @@ import type { RouteWaypoint } from '../models/game.types';
 import type { CoordinateSync } from '../three-engine/renderers';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from './geo-utils';
 import { getRouteProfile, lateralLimit, segmentLeft, segmentRight } from './route-corridor';
+import { DetMath } from './det-math';
 
 /**
  * A body that lies along a route instead of standing on it (the ooze): the
@@ -102,7 +103,7 @@ export class RouteBodyStations {
 
       // Right of the direction of travel as MovementComponent offsets a lane:
       // metres east and north, only the longitude scaled by cos(lat)
-      const cosLat = Math.cos(a.lat * DEG_TO_RAD);
+      const cosLat = DetMath.cos(a.lat * DEG_TO_RAD);
       const east = (b.lon - a.lon) * cosLat;
       const north = b.lat - a.lat;
       const len = Math.sqrt(east * east + north * north);

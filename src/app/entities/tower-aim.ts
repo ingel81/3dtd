@@ -1,4 +1,5 @@
 import type { TowerTypeConfig } from '../configs/tower-types.config';
+import { DetMath } from '../utils/det-math';
 
 /**
  * Where a tower's turret points and how it turns: towards a target, to its
@@ -147,7 +148,7 @@ export function aimPitch(aim: TowerAim, angle: number): void {
 
 /** Tilt the guns towards a point `dy` above the muzzle and `horizontal` away. */
 export function aimPitchTowards(aim: TowerAim, dy: number, horizontal: number): void {
-  aimPitch(aim, Math.atan2(dy, horizontal));
+  aimPitch(aim, DetMath.atan2(dy, horizontal));
 }
 
 /** Wrap an angle difference into [-π, π]. */

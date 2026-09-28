@@ -1,4 +1,5 @@
 import type { Intersection, Object3D, Raycaster } from 'three';
+import { DetMath } from './det-math';
 
 /**
  * Where the time for raycasts against the 3D tiles goes, by caller.
@@ -115,7 +116,7 @@ export class RaycastStats {
 }
 
 function round(value: number, digits: number): number {
-  const f = 10 ** digits;
+  const f = DetMath.pow(10, digits);
   return Math.round(value * f) / f;
 }
 

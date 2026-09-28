@@ -4,6 +4,7 @@ import { CellSample, RouteCell } from './route-cell';
 import type { RouteCellSampler } from './route-cell-sampler';
 import type { RouteCellLattice } from './route-grid-builder';
 import type { WalkCheck, WalkJudgement } from './corridor-walk';
+import { DetMath } from './det-math';
 
 /**
  * DIAGNOSTICS — temporary debug API for the route-grid height-anomaly hunt
@@ -131,7 +132,7 @@ export interface RouteCellProbe {
   air: 'visible' | 'blocked' | '-';
 }
 
-const round = (v: number, digits: number) => Math.round(v * 10 ** digits) / 10 ** digits;
+const round = (v: number, digits: number) => Math.round(v * DetMath.pow(10, digits)) / DetMath.pow(10, digits);
 
 const answer = (value: boolean | undefined) => (value === undefined ? '-' : value ? 'visible' : 'blocked');
 
@@ -519,7 +520,7 @@ function forEachCentreSpot(view: RouteGridView, visit: (x: number, z: number) =>
     for (let i = 0; i < route.length - 1; i++) {
       const a = sync.geoToLocalSimple(route[i].lat, route[i].lon, 0);
       const b = sync.geoToLocalSimple(route[i + 1].lat, route[i + 1].lon, 0);
-      const steps = Math.max(1, Math.ceil(Math.hypot(b.x - a.x, b.z - a.z) / 0.5));
+      const steps = Math.max(1, Math.ceil(DetMath.hypot(b.x - a.x, b.z - a.z) / 0.5));
       for (let s = 0; s <= steps; s++) visit(a.x + ((b.x - a.x) * s) / steps, a.z + ((b.z - a.z) * s) / steps);
     }
   }
@@ -538,7 +539,7 @@ function distanceToRoutes(view: RouteGridView, x: number, z: number): number {
       const dz = b.z - a.z;
       const lenSq = dx * dx + dz * dz;
       const t = lenSq > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / lenSq)) : 0;
-      best = Math.min(best, Math.hypot(a.x + dx * t - x, a.z + dz * t - z));
+      best = Math.min(best, DetMath.hypot(a.x + dx * t - x, a.z + dz * t - z));
     }
   }
   return best;

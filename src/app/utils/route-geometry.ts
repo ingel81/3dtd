@@ -1,5 +1,6 @@
 import type { Street } from '../interfaces/street-network-provider.interface';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from './geo-utils';
+import { DetMath } from './det-math';
 
 /**
  * Geo geometry of a spawn's route: where it leaves the street network for
@@ -29,7 +30,7 @@ export function closestPointOnSegment(a: LatLon, b: LatLon, target: LatLon): Lat
   // cos(lat) as long as a degree of latitude. Unscaled, the foot point
   // slides along the street (~6 m on a diagonal street at 48° N) and the
   // last leg to the HQ runs at a slant instead of straight across.
-  const lonScale = Math.cos(((a.lat + b.lat) * 0.5) * DEG_TO_RAD);
+  const lonScale = DetMath.cos(((a.lat + b.lat) * 0.5) * DEG_TO_RAD);
   const dLon = b.lon - a.lon;
   const dLat = b.lat - a.lat;
   const dx = dLon * lonScale;
@@ -229,7 +230,7 @@ export function subdivideGeoPath(path: LatLon[], maxLength: number): LatLon[] {
     const dLat = b.lat - a.lat;
     const dLon = b.lon - a.lon;
     const avgLat = (a.lat + b.lat) / 2;
-    const dx = dLon * METERS_PER_DEGREE_LAT * Math.cos(avgLat * DEG_TO_RAD);
+    const dx = dLon * METERS_PER_DEGREE_LAT * DetMath.cos(avgLat * DEG_TO_RAD);
     const dy = dLat * METERS_PER_DEGREE_LAT;
     const distance = Math.sqrt(dx * dx + dy * dy);
 
