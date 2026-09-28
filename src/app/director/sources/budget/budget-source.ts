@@ -62,6 +62,7 @@ export class BudgetWaveSource implements WaveSource {
       defense: {
         dps: state.defense?.effectiveDPSPerArmor,
         damageMetres: state.defense?.damageMetres,
+        metresUnderFire: state.defense?.metresUnderFire,
         hpRemaining: (state.player?.lives ?? 100) / lanes,
       },
     });

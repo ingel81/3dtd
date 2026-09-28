@@ -755,19 +755,23 @@ export class GlobalRouteGridService {
    * Deterministic in coop: routes come with the world package and the LOS
    * masks from the host.
    */
-  getMetersUnderFireByTower(routes: GeoPosition[][]): Map<string, { ground: number; air: number }> {
+  metersUnderFire(routes: GeoPosition[][]): { byTower: Map<string, { ground: number; air: number }>; any: { ground: number; air: number } } {
     const out = new Map<string, { ground: number; air: number }>();
+    const any = { ground: 0, air: 0 };
     const sync = this.grid.getCoordinateSync();
     const usable = routes.filter((path) => path.length >= 2);
-    if (!this.initialized || !sync || usable.length === 0) return out;
+    if (!this.initialized || !sync || usable.length === 0) return { byTower: out, any };
 
     const add = (visibility: Map<string, boolean>, side: 'ground' | 'air', metres: number) => {
+      let seen = false;
       for (const [towerId, visible] of visibility) {
         if (!visible) continue;
+        seen = true;
         let entry = out.get(towerId);
         if (!entry) out.set(towerId, entry = { ground: 0, air: 0 });
         entry[side] += metres / usable.length;
       }
+      if (seen) any[side] += metres / usable.length;
     };
     for (const path of usable) {
       const points = path.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
@@ -788,7 +792,7 @@ export class GlobalRouteGridService {
         }
       }
     }
-    return out;
+    return { byTower: out, any };
   }
 
   private updateDefenseReachMarker(x: number, y: number, z: number): void {

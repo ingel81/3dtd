@@ -54,8 +54,10 @@ export const MIN_LEAK_HP = 1;
 export interface BudgetDefense {
   /** Damage per armor, ground and air: the plain matrix values. The gate values count every tower at a floor against fortified, which let 62 mammoths through at HP x5 (bots, W25). */
   readonly dps: EffectiveDPSPerArmor | undefined;
-  /** Damage times metres of route under fire, per armor (snapshot `damageMetres`). */
+  /** Damage times metres of route under fire, per armor (snapshot `damageMetres`): the limit per enemy. */
   readonly damageMetres: EffectiveDPSPerArmor | undefined;
+  /** Metres some tower sees (snapshot `metresUnderFire`): how long the wave is under fire at all. */
+  readonly metresUnderFire?: { readonly ground: number; readonly air: number };
   /** HQ HP this lane may spend (the coop share). */
   readonly hpRemaining: number;
 }
@@ -105,7 +107,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const count = types.reduce((sum, [, n]) => sum + n, 0);
 
   const leakHp = Math.max(MIN_LEAK_HP, input.defense.hpRemaining * Math.max(0, input.targetPressure));
-  const hurt: { type: string; n: number; sec: number; cap: number; fire: number }[] = [];
+  const hurt: { type: string; n: number; sec: number; cap: number; fire: number; onRoute: number }[] = [];
   const unhurt: string[] = [];
   let leakCost = 0;
   for (const [type, n] of types) {
@@ -122,13 +124,15 @@ export function sizeWave(input: BudgetInput): BudgetResult {
     const fire = Math.max(MIN_UNDER_FIRE_S, damageMetres / (rawDps * Math.max(0.1, cfg.baseSpeed)));
     const oneLeak = lineageLeakDamage(type as EnemyTypeId) * input.leakScale;
     const share = oneLeak > leakHp ? SURE_KILL_SHARE : UNDER_FIRE_SHARE;
-    hurt.push({ type, n, sec, fire, cap: (share * fire) / sec });
+    // For the wave's window: how long this enemy is under fire at all (union of the stretches)
+    const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, cfg.baseSpeed));
+    hurt.push({ type, n, sec, fire, onRoute, cap: (share * fire) / sec });
   }
 
   // The cap: the defense spends at most the wave's time on the route on it,
   // plus the leaks the tension curve allows for this wave
   const spawnSeconds = Math.max(0, count - 1) * (input.spawnDelayMs / 1000);
-  const fireAvg = hurt.length ? hurt.reduce((sum, h) => sum + h.n * h.fire, 0) / hurt.reduce((sum, h) => sum + h.n, 0) : 0;
+  const fireAvg = hurt.length ? hurt.reduce((sum, h) => sum + h.n * Math.max(h.fire, h.onRoute), 0) / hurt.reduce((sum, h) => sum + h.n, 0) : 0;
   const window = spawnSeconds + fireAvg;
   const allowedLeaks = leakCost > 0 && count > 0 ? leakHp / (input.leakScale * (leakCost / count)) : 0;
   const delivered = Math.min(budget, window + budget * Math.min(1, allowedLeaks / Math.max(1, count)));

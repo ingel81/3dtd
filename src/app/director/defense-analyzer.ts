@@ -467,7 +467,7 @@ function calculateDPSPerArmor(
 /**
  * Damage times metres of route under fire, per armor, ground and air: each
  * tower's matrix damage times the metres of route it sees
- * (GlobalRouteGridService.getMetersUnderFireByTower). Over an enemy's speed
+ * (GlobalRouteGridService.metersUnderFire, byTower). Over an enemy's speed
  * it is the HP the defense takes off that enemy on its way past; with towers
  * that cover different stretches each counts only its own (review 2026-09-28:
  * the union of metres times the total damage overcounted N-fold).

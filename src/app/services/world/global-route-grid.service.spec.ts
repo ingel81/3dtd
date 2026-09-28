@@ -176,12 +176,12 @@ describe('GlobalRouteGridService', () => {
   });
 
   describe('metres under fire per tower', () => {
-    const ground = (id: string) => service.getMetersUnderFireByTower([route]).get(id)?.ground ?? 0;
+    const ground = (id: string) => service.metersUnderFire([route]).byTower.get(id)?.ground ?? 0;
 
     it('is nothing before initialize or without a route', () => {
-      expect(service.getMetersUnderFireByTower([route]).size).toBe(0);
+      expect(service.metersUnderFire([route]).byTower.size).toBe(0);
       init();
-      expect(service.getMetersUnderFireByTower([]).size).toBe(0);
+      expect(service.metersUnderFire([]).byTower.size).toBe(0);
     });
 
     it('counts for each tower the stretch of route it sees, a second tower not adding to the first', () => {
@@ -194,6 +194,8 @@ describe('GlobalRouteGridService', () => {
       tower('t2', 30, 3);
       expect(ground('t1')).toBeCloseTo(one);
       expect(ground('t2')).toBeCloseTo(one, 0);
+      // The union: two stretches apart add up
+      expect(service.metersUnderFire([route]).any.ground).toBeCloseTo(2 * one, 0);
     });
 
     it('does not count a tower whose view is blocked', () => {

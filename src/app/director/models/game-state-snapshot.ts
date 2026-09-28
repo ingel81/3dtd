@@ -108,6 +108,12 @@ export interface DefenseAnalysis {
    */
   damageMetres?: EffectiveDPSPerArmor;
 
+  /**
+   * Metres of route some tower sees, ground and air (the union, averaged over
+   * the routes): over an enemy's speed, how long a wave is under fire at all.
+   */
+  metresUnderFire?: { ground: number; air: number };
+
   /** Concentrated firepower score (0-1) - higher means kill zones exist */
   killZoneStrength: number;
 

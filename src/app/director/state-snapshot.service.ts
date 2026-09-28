@@ -139,7 +139,9 @@ export class StateSnapshotService {
     const routes = this.gameState.getCachedRoutes();
     defense.defenseReachPercent = this.gridService.getDefenseReachPercent(routes);
     // Averaged over the routes, so in coop already one lane's share, like the damage above
-    defense.damageMetres = damageMetresPerArmor(towers, airTargetingUnlocked, this.gridService.getMetersUnderFireByTower(routes));
+    const underFire = this.gridService.metersUnderFire(routes);
+    defense.damageMetres = damageMetresPerArmor(towers, airTargetingUnlocked, underFire.byTower);
+    defense.metresUnderFire = underFire.any;
     defense.killZoneStrength = estimateKillZoneStrength(towers);
 
     const capabilities = defense.capabilities;
