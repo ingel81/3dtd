@@ -51,6 +51,7 @@ import type { SimSnapshot, SnapshotRefusal } from '../simulator/sim-snapshot';
 import type { WaveSnapshot, WaveSnapshotRefusal } from '../simulator/wave-snapshot';
 import { SimSnapshots } from './game-state/sim-snapshots';
 import { RouteWorld } from './game-state/route-world';
+import { CoopRoom } from './game-state/coop-room';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskFromJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
@@ -508,8 +509,7 @@ export class GameStateManager {
    */
   setPlayers(players: readonly string[], local: string): void {
     this.creditsLedger.setPlayers(players, local);
-    this.left.clear();
-    this.ready.clear();
+    this.room.newRoster();
     this.researchSeats.length = 0;
     for (const seat of this.abilitySeats) seat.destroy();
     this.abilitySeats.length = 0;
@@ -566,112 +566,56 @@ export class GameStateManager {
     if (tower) this.towerPlacement.applyCoopLosMask(tower, losMaskFromJson(mask));
   }
 
-  /** Coop lanes: the spawn point of each player's lane, roster order; empty in the single player game */
-  private lanes: string[] = [];
-  /** Coop: the players who are ready for the next wave (D15) */
-  private readonly ready = new Set<string>();
+  /** Coop: lanes, readiness, who left, gifts, see CoopRoom */
+  private readonly room = new CoopRoom({
+    eventBus: this.eventBus,
+    creditsLedger: this.creditsLedger,
+    players: () => this.players,
+    localPlayerId: () => this.localPlayerId,
+    leaveTowers: (playerId) => this.towerLifecycle.leave(playerId),
+  });
 
-  /**
-   * Coop: which spawn point is whose lane (D1). Every wave then runs once
-   * on each lane (laneSchedule). An empty map is the single player game:
-   * the wave spreads over the spawn points by its spawn mode.
-   */
+  /** Coop: which spawn point is whose lane (D1), see CoopRoom.setLanes */
   setLanes(lanes: ReadonlyMap<string, string>): void {
-    this.laneOf.clear();
-    this.lanes = this.players.flatMap((playerId) => {
-      const spawnId = lanes.get(playerId);
-      if (spawnId === undefined) return [];
-      this.laneOf.set(playerId, spawnId);
-      return [spawnId];
-    });
+    this.room.setLanes(lanes);
   }
-
-  /** Coop: each player's lane spawn */
-  private readonly laneOf = new Map<string, string>();
 
   /** The spawn point ids of the lanes, roster order. */
   get laneSpawns(): readonly string[] {
-    return this.lanes;
+    return this.room.laneSpawns;
   }
 
-  /**
-   * A player is ready for the next wave, or no longer (command:set-ready).
-   * Cleared when a wave starts. Announced as coop:ready-changed; the host
-   * starts the wave once allReady() (D15).
-   */
+  /** A player is ready for the next wave, or no longer (command:set-ready), see CoopRoom.setReady */
   setReady(playerId: string, ready: boolean): void {
-    if (!this.players.includes(playerId) || this.ready.has(playerId) === ready) return;
-    if (ready) this.ready.add(playerId);
-    else this.ready.delete(playerId);
-    this.eventBus.emit({
-      type: 'coop:ready-changed',
-      playerId,
-      ready,
-      local: playerId === this.localPlayerId,
-      allReady: this.allReady(),
-    });
+    this.room.setReady(playerId, ready);
   }
 
-  /**
-   * Coop: `from` sends `amount` of their gold to `to` (command:give-credits).
-   * Only whole gold, only what `from` has, only to another player still in
-   * the run; anything else does nothing. Booked as 'gift' on both accounts.
-   */
+  /** Coop: `from` sends `amount` of their gold to `to` (command:give-credits), see CoopRoom.giveCredits */
   giveCredits(from: string, to: string, amount: number): boolean {
-    if (from === to || !this.players.includes(to) || this.left.has(to)) return false;
-    if (!Number.isInteger(amount) || amount <= 0) return false;
-    if (!this.creditsLedger.spend(amount, 'gift', from)) return false;
-    this.creditsLedger.add(amount, 'gift', to);
-    this.eventBus.emit({ type: 'coop:credits-given', from, to, amount, toLocal: to === this.localPlayerId });
-    return true;
+    return this.room.giveCredits(from, to, amount);
   }
 
   /** Every player still in the run is ready for the next wave. */
   allReady(): boolean {
-    return this.players.every((playerId) => this.left.has(playerId) || this.ready.has(playerId));
+    return this.room.allReady();
   }
 
-  /** Coop: players who left the game (command:leave-game) */
-  private readonly left = new Set<string>();
-
-  /**
-   * Coop: `playerId` left the game (command:leave-game, put in a tick by
-   * the relay). Their lane closes, no more spawns there (D22, lane
-   * collapse); their towers stay and keep shooting, their hero and account
-   * stay as they are. They get out of a manned tower and count as ready.
-   */
+  /** Coop: `playerId` left the game (command:leave-game), see CoopRoom.playerLeft */
   playerLeft(playerId: string): void {
-    if (!this.players.includes(playerId) || this.left.has(playerId)) return;
-    this.left.add(playerId);
-    const index = this.players.indexOf(playerId);
-    const lane = this.laneOf.get(playerId);
-    if (lane !== undefined) {
-      this.lanes = this.lanes.filter((spawnId) => spawnId !== lane);
-      this.laneOf.delete(playerId);
-    }
-    this.towerLifecycle.leave(playerId);
-    this.ready.delete(playerId);
-    this.eventBus.emit({ type: 'coop:player-left', playerId, index, local: playerId === this.localPlayerId });
+    this.room.playerLeft(playerId);
   }
 
   /** The wave phase, for the abilities (they fire only during a wave) */
   private readonly phaseNow = () => this.waveManager.phase();
 
-  /**
-   * Coop: who may use the dev tools' commands (debug:*), by player id; null
-   * lets everyone (single player). Every client sets the same rule at the
-   * start from the room's options (docs/COOP_PLAN.md, R3, D38), so a cheat
-   * acts on all of them or on none.
-   */
-  private cheatRule: ((playerId: string) => boolean) | null = null;
-
+  /** Coop: who may use the dev tools' commands (debug:*), see CoopRoom.setCheatRule */
   setCheatRule(rule: ((playerId: string) => boolean) | null): void {
-    this.cheatRule = rule;
+    this.room.setCheatRule(rule);
   }
 
   /** `playerId` may use a cheat (see setCheatRule) */
   mayCheat(playerId: string): boolean {
-    return this.cheatRule?.(playerId) ?? true;
+    return this.room.mayCheat(playerId);
   }
 
   /** What a player may do with a tower (D7); swap it to loosen the rule. */
@@ -1397,11 +1341,12 @@ export class GameStateManager {
     let laneCount = 1;
     // Coop: the wave on every lane (D13). A config that already names its
     // spawn points (a replayed one) is laid out already.
-    if (this.lanes.length > 0 && !config.schedule.entries.some((entry) => entry.spawnPointId !== undefined)) {
-      config = { ...config, schedule: laneSchedule(config.schedule, this.lanes) };
-      laneCount = this.lanes.length;
+    const lanes = this.room.laneSpawns;
+    if (lanes.length > 0 && !config.schedule.entries.some((entry) => entry.spawnPointId !== undefined)) {
+      config = { ...config, schedule: laneSchedule(config.schedule, lanes) };
+      laneCount = lanes.length;
     }
-    this.ready.clear();
+    this.room.clearReady();
     if (!this.replaying && config.schedule.entries.length > 0) this.recordWaveStart(config);
 
     // Wave preview in the sidebar, see summarizeWaveGroups(); the live wave's only
@@ -1590,7 +1535,7 @@ export class GameStateManager {
     // second run of a batch a different experiment than the first.
     this.rng.reset(seed);
     // Who left the room stays gone; a new roster (setPlayers) clears it
-    this.ready.clear();
+    this.room.clearReady();
     this.economy.reset();
     this.runStarted = false;
 
