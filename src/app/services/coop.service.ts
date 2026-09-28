@@ -11,6 +11,9 @@ import { LocationFacadeService } from './facade/location-facade.service';
 import { LocationChangeCoordinatorService } from './location/location-change-coordinator.service';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
+import { WaveDirector } from '../director/wave-director';
+import { WAVE_SOURCES, initialWaveSourceId } from '../director/wave-source.registry';
+import type { WaveSourceId } from '../director/wave-source';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
 import { CoopRefusedError, CoopSession, type CoopCloseReason, type CoopStart } from '../coop/coop-session';
@@ -188,6 +191,8 @@ const REFUSAL_TEXT: Record<RefusalReason, string> = {
 @Injectable()
 export class CoopService {
   private readonly gameState = inject(GameStateManager);
+  /** Optional: specs of the room flow run without a director and play the address's source */
+  private readonly waveDirector = inject(WaveDirector, { optional: true });
   private readonly config = inject(ConfigService);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
@@ -1061,8 +1066,11 @@ export class CoopService {
     return `&room=${encodeURIComponent(code)}${named ? `&relay=${encodeURIComponent(named)}` : ''}`;
   }
 
-  private head(): { gameVersion: string; configHash: string } {
-    return { gameVersion: BUILD_VERSION, configHash: balanceConfigHash() };
+  private head(): { gameVersion: string; configHash: string; waveSource: WaveSourceId } {
+    // The balance without the wave source: the host decides the source, a joiner takes it over
+    // with the world (takeWorld), so a different one here is no reason to refuse the room
+    const waveSource = this.waveDirector?.sourceNextRun ?? initialWaveSourceId();
+    return { gameVersion: BUILD_VERSION, configHash: balanceConfigHash(), waveSource };
   }
 
   /** Reach a relay and say hello; `lanUrls` are a LAN game's addresses instead of the usual sources. */
@@ -1277,6 +1285,9 @@ export class CoopService {
   private async takeWorld(data: unknown): Promise<void> {
     if (this.isHost()) return;
     this.hostChangingMap.set(false);
+    // The host decides the wave source: play its, from the next run on, before the balance check
+    const hostSource = (data as { waveSource?: unknown } | null)?.waveSource;
+    if (typeof hostSource === 'string' && hostSource in WAVE_SOURCES) this.waveDirector?.useSourceNextRun(hostSource as WaveSourceId);
     const read = readWorldPackage(JSON.stringify(data), this.head());
     if (!read.world) {
       this.error.set(worldPackageRefusalText(read.refusal));

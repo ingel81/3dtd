@@ -1,4 +1,5 @@
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
+import type { WaveSourceId } from '../director/wave-source';
 import type { SpawnPoint } from '../managers/wave.manager';
 
 /** Bumped whenever the shape changes; another version is refused. */
@@ -22,8 +23,10 @@ export interface WorldPackage {
   version: number;
   /** BUILD_VERSION of the host; a joiner must run the same */
   gameVersion: string;
-  /** run-log/config-hash.ts: the balance of the host */
+  /** run-log/config-hash.ts: the balance of the host, without its wave source (that is `waveSource`) */
   configHash: string;
+  /** The wave source the host plays; the joiner plays it too (absent from hosts before it) */
+  waveSource?: WaveSourceId;
   /** GameStateManager.worldKey of the host's world; the joiner's must come out the same */
   worldKey: string;
   /** The local frame's origin (CoordinateSync) */
@@ -49,7 +52,7 @@ export interface WorldSource {
 /** Pack the world; everything is copied, the package stays valid whatever the game does next. */
 export function buildWorldPackage(
   world: WorldSource,
-  head: { gameVersion: string; configHash: string },
+  head: { gameVersion: string; configHash: string; waveSource?: WaveSourceId },
 ): WorldPackage {
   const copy = <T>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
   return {
@@ -57,6 +60,7 @@ export function buildWorldPackage(
     version: WORLD_PACKAGE_VERSION,
     gameVersion: head.gameVersion,
     configHash: head.configHash,
+    ...(head.waveSource ? { waveSource: head.waveSource } : {}),
     worldKey: world.worldKey,
     origin: copy(world.origin),
     hq: copy(world.hq),

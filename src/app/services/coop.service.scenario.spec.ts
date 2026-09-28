@@ -65,6 +65,8 @@ import { LocationFacadeService } from './facade/location-facade.service';
 import { LocationChangeCoordinatorService } from './location/location-change-coordinator.service';
 import { InputHandlerService } from './input-handler.service';
 import { RunLogFacade } from '../run-log/run-log.facade';
+import { WaveDirector } from '../director/wave-director';
+import type { WaveSourceId } from '../director/wave-source';
 
 const HQ = { lat: 48.7758, lon: 9.1829 };
 const SPAWNS = [
@@ -73,7 +75,7 @@ const SPAWNS = [
 ];
 
 /** One player's CoopService on fakes of the game */
-function player(relayPort: number) {
+function player(relayPort: number, waveSource?: WaveSourceId) {
   localStorage.setItem('3dtd-coop-relay', `ws://localhost:${relayPort}`);
   const hq = signal(HQ);
   const closedRun = signal<RunLog | null>(null);
@@ -98,6 +100,10 @@ function player(relayPort: number) {
   });
   // Going to another place in the page lands where it was asked to
   const locationChange = { applyNewLocation: vi.fn(async (data: { hq: { lat: number; lon: number } }) => hq.set({ lat: data.hq.lat, lon: data.hq.lon })) };
+  // The wave source this seat would play next, when the test cares
+  const director = waveSource
+    ? { sourceNextRun: waveSource, useSourceNextRun: vi.fn(function (this: { sourceNextRun: WaveSourceId }, id: WaveSourceId) { this.sourceNextRun = id; }) }
+    : null;
   const injector = Injector.create({
     parent: TestBed.inject(EnvironmentInjector),
     providers: [
@@ -115,9 +121,10 @@ function player(relayPort: number) {
       { provide: InputHandlerService, useValue: withAutoStubs({}) },
       { provide: RunLogFacade, useValue: { collector: withAutoStubs({}), closedRun } },
       { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(true) }) } },
+      ...(director ? [{ provide: WaveDirector, useValue: director }] : []),
     ],
   });
-  return { coop: injector.get(CoopService), gsm, hq, locationChange, closedRun };
+  return { coop: injector.get(CoopService), gsm, hq, locationChange, closedRun, director };
 }
 
 /** Wait for `ok`, flushing effects, up to 3 s */
@@ -153,10 +160,10 @@ describe('CoopService over a real relay (review R21)', () => {
   });
 
   /** Host with a room, guest in it, both on a lane */
-  async function lobby(options: Partial<RelayOptions> = {}) {
+  async function lobby(options: Partial<RelayOptions> = {}, sources: [WaveSourceId?, WaveSourceId?] = []) {
     relay = await startRelay({ port: 0, ...options });
-    const host = player(relay.port);
-    const guest = player(relay.port);
+    const host = player(relay.port, sources[0]);
+    const guest = player(relay.port, sources[1]);
     await host.coop.host('Ann');
     await until(() => host.coop.room() !== null && host.coop.worldReady());
     await guest.coop.join('Bob', host.coop.room()!.code);
@@ -173,6 +180,13 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(host.coop.isHost()).toBe(true);
     expect(guest.coop.isHost()).toBe(false);
     await until(() => host.coop.chat().some((line) => line.from === null && line.text === 'Bob joined'));
+  });
+
+  it('lets the host decide the wave source: the guest plays the same one', async () => {
+    const { guest } = await lobby({}, ['budget', 'adaptive']);
+    await until(() => guest.director!.useSourceNextRun.mock.calls.length > 0);
+    expect(guest.director!.useSourceNextRun).toHaveBeenCalledWith('budget');
+    expect(guest.director!.sourceNextRun).toBe('budget');
   });
 
   it('starts once the guest is ready, with the roster and the relay’s lockstep on both', async () => {
