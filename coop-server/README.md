@@ -27,6 +27,7 @@ relay for LAN games; nothing to set up for that.
 | `--log-dir DIR` | Where `coop_<day>.log` goes (`logs/` in the repository by default) |
 | `--log-days N` | Delete log days older than N |
 | `--max-per-address N` | Connections one address may hold, 8 by default (`MAX_PER_ADDRESS`). Higher only for local measurements with many tabs on one machine (`e2e/coop-bots`) |
+| `--hash-every N` | Ticks between the hash reports the rooms take, 30 by default (`HASH_EVERY_TICKS`). Lower only for a local hunt of a desync with clients opened with `?hashEvery=N`: the first tick that differs instead of the first report |
 
 ## Status page
 

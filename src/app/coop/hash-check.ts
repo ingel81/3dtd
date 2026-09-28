@@ -12,6 +12,17 @@
 export const HASH_EVERY_TICKS = 30;
 
 /**
+ * `?hashEvery=N` of a page: hash reports every N ticks (1 to
+ * HASH_EVERY_TICKS) instead of HASH_EVERY_TICKS, so a local hunt of a desync
+ * finds the first tick that differs. Needs a relay started with the same
+ * `--hash-every`; anything else reads as unset.
+ */
+export function hashEveryParam(value: string | null): number | undefined {
+  const n = Number(value);
+  return value !== null && Number.isInteger(n) && n >= 1 && n <= HASH_EVERY_TICKS ? n : undefined;
+}
+
+/**
  * The parts of the state hash, in the order the StateHasher reads them
  * (simulator/state-hash.ts). Here, not there: the relay imports this file
  * and nothing that pulls the game in.

@@ -45,6 +45,11 @@ export class LockstepPacer {
    * desync asks for once its verdict came back (TODO E32). A few seconds.
    */
   private readonly breakdowns = new Map<number, HashBreakdown>();
+  /**
+   * Ticks between hash reports, HASH_EVERY_TICKS. Lower only for a local
+   * hunt of a desync (`?hashEvery=`, a relay with `--hash-every`).
+   */
+  private hashEvery = HASH_EVERY_TICKS;
 
   constructor(private readonly host: LockstepTickHost) {}
 
@@ -53,8 +58,9 @@ export class LockstepPacer {
   }
 
   /** A new link or none: nothing of the previous one's ticks is kept */
-  set(link: LockstepLink | null): void {
+  set(link: LockstepLink | null, hashEvery = HASH_EVERY_TICKS): void {
     this.link = link;
+    this.hashEvery = hashEvery;
     this.tickRun = -1;
     this.tickBase = 0;
     this.breakdowns.clear();
@@ -118,7 +124,7 @@ export class LockstepPacer {
       if (tick <= this.tickRun) return true;
       this.tickRun = tick;
       // The relay compares these across clients (C5): same boundary, before the tick's commands
-      if (tick % HASH_EVERY_TICKS === 0) this.reportHash(link, tick);
+      if (tick % this.hashEvery === 0) this.reportHash(link, tick);
       this.host.runTick(tick);
     }
   }

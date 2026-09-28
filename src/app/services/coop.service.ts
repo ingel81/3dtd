@@ -14,7 +14,7 @@ import { balanceConfigHash } from '../run-log/config-hash';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
 import { CoopRefusedError, CoopSession, type CoopStart } from '../coop/coop-session';
-import { HASH_PARTS, type HashedEntities, type HashPart } from '../coop/hash-check';
+import { HASH_PARTS, hashEveryParam, type HashedEntities, type HashPart } from '../coop/hash-check';
 import {
   buildWorldPackage,
   packagePaths,
@@ -285,6 +285,8 @@ export class CoopService {
   private readonly relayFromUrl: string | null;
   /** The lane this player had before the host moved the room to another place (&lane=), taken again */
   private readonly laneFromUrl: string | null;
+  /** `?hashEvery=`: hash reports every so many ticks, for a local hunt of a desync (hashEveryParam) */
+  private readonly hashEveryFromUrl: number | undefined;
   /** The relay this session talks to, and where the address came from */
   readonly relay = signal<{ url: string; source: RelaySource } | null>(null);
 
@@ -417,6 +419,7 @@ export class CoopService {
     }
     this.relayFromUrl = params.get('relay');
     this.laneFromUrl = params.get('lane');
+    this.hashEveryFromUrl = hashEveryParam(params.get('hashEvery'));
 
     const bus = this.gameState.getEventBus();
     // A partner's tower wears its owner's lane colour (review R14)
@@ -1397,7 +1400,7 @@ export class CoopService {
       if (id !== start.localId) gsm.setPartnerHeroColor(id, this.laneColorNumberOf(id));
     }
     gsm.setLosRole(this.isHost() ? 'host' : 'guest');
-    gsm.setLockstep(start.link);
+    gsm.setLockstep(start.link, this.hashEveryFromUrl);
     // The relay and the room's rule decide (D38): a cheat acts on every client alike or on none
     const relayAllows = this.room()?.cheats ?? false;
     gsm.setCheatRule((playerId) => mayCheat(start.options, relayAllows, playerId, start.hostId));

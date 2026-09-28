@@ -111,6 +111,12 @@ export interface RoomOptions {
   drop?: (playerId: string, reason: string) => void;
   /** A player is out of the room (left, taken out, let go): the relay forgets the room for their connection */
   removed?: (playerId: string) => void;
+  /**
+   * Ticks between the hash reports it takes, HASH_EVERY_TICKS by default.
+   * Lower only for a local hunt of a desync (clients with `?hashEvery=`):
+   * the first tick that differs, not the first report.
+   */
+  hashEvery?: number;
 }
 
 /** A room as the status page and the relay's status line show it. */
@@ -191,6 +197,8 @@ export class Room {
   private readonly now: () => number;
   private readonly createdAt: number;
   private readonly cheats: boolean;
+  /** Ticks between the hash reports it takes (RoomOptions.hashEvery) */
+  private readonly hashEvery: number;
   private readonly drop: (playerId: string, reason: string) => void;
   private readonly removed: (playerId: string) => void;
   /** How the room shows in the public list (D62); public by default, titled after the host */
@@ -205,6 +213,7 @@ export class Room {
     this.now = options.now ?? (() => performance.now());
     this.createdAt = this.now();
     this.cheats = options.cheats ?? false;
+    this.hashEvery = options.hashEvery ?? HASH_EVERY_TICKS;
     this.drop = options.drop ?? ((playerId, reason) => this.leave(playerId, reason));
     this.removed = options.removed ?? (() => undefined);
     this.hostId = host.id;
@@ -391,7 +400,7 @@ export class Room {
         return;
       case 'hash': {
         // A tick the room has closed, at a report boundary, not long gone (review M3)
-        if (!this.started || message.tick % HASH_EVERY_TICKS !== 0 || message.tick > this.nextTick
+        if (!this.started || message.tick % this.hashEvery !== 0 || message.tick > this.nextTick
           || message.tick < this.nextTick - HASH_WINDOW_TICKS) return;
         const parts = Array.isArray(message.parts) && message.parts.length === HASH_PARTS.length
           && message.parts.every((p) => Number.isFinite(p)) ? message.parts : undefined;

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { HASH_PARTS, HashCheck, firstDifferences, outOfStep, validDetail } from './hash-check';
+import { HASH_PARTS, HashCheck, firstDifferences, hashEveryParam, outOfStep, validDetail } from './hash-check';
 
 describe('HashCheck (docs/COOP_PLAN.md, C5, S3)', () => {
   it('reports two players who differ at once, with no one to blame', () => {
@@ -79,5 +79,13 @@ describe('outOfStep', () => {
     expect(outOfStep([['a', 1], ['b', 1], ['c', 1], ['d', 3]])).toEqual(['d']);
     expect(outOfStep([['a', 1], ['b', 1], ['c', 2], ['d', 2]])).toEqual([]);
     expect(outOfStep([['a', 1], ['b', 2]])).toEqual([]);
+  });
+});
+
+describe('hashEveryParam', () => {
+  it('takes 1 to HASH_EVERY_TICKS and nothing else', () => {
+    expect(hashEveryParam('1')).toBe(1);
+    expect(hashEveryParam('30')).toBe(30);
+    for (const bad of [null, '', '0', '31', '2.5', 'x', '-1']) expect(hashEveryParam(bad)).toBeUndefined();
   });
 });

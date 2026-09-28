@@ -74,6 +74,8 @@ const engineOf = (seat: number): Engine => ENGINES[seat % ENGINES.length];
  */
 const THROTTLE_SEATS = new Set(argument('throttle-seats', '').split(',').filter(Boolean).map(Number));
 const THROTTLE = Number(argument('throttle', '4'));
+/** Hash reports every N ticks (`?hashEvery=`); the relay needs the same `--hash-every` */
+const HASH_EVERY = argument('hash-every', '');
 const SKEW_SEATS = new Set(argument('skew-seats', '').split(',').filter(Boolean).map(Number));
 const GPU_ARGS = SWIFTSHADER
   ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
@@ -96,7 +98,8 @@ async function openSeat(browser: Browser, name: string, skew = false): Promise<P
     localStorage.setItem('3dtd-coop-name', seat);
   }, name);
   page.on('pageerror', (err) => log(`[${name}] page error: ${err.message}`));
-  const query = SOLO ? 'devworld' : `devworld&spawns=${PLAYERS}&bot=coop&relay=${encodeURIComponent(RELAY)}`;
+  const query = SOLO ? 'devworld'
+    : `devworld&spawns=${PLAYERS}&bot=coop&relay=${encodeURIComponent(RELAY)}${HASH_EVERY ? `&hashEvery=${HASH_EVERY}` : ''}`;
   await page.goto(`${URL_BASE}/?${query}`);
   await gameReady(page);
   if (!RENDER) {

@@ -180,6 +180,8 @@ export interface RelayOptions {
   maxConnections?: number;
   maxPerAddress?: number;
   helloTimeoutMs?: number;
+  /** Ticks between the hash reports the rooms take, see RoomOptions.hashEvery */
+  hashEvery?: number;
   /** HEARTBEAT_MS and MAX_MESSAGES_PER_SECOND by default; for the spec */
   heartbeatMs?: number;
   maxMessagesPerSecond?: number;
@@ -679,6 +681,7 @@ class Relay {
       log: (line) => this.log(`[${code}] ${line}`),
       now: this.now,
       cheats: this.options.cheats,
+      hashEvery: this.options.hashEvery,
       drop: (playerId, reason) => this.dropConnection(playerId, reason, 'hanging'),
       // The room of a connection is gone for this player (left, taken out, let go)
       removed: (playerId) => {

@@ -409,6 +409,21 @@ describe('Room (COOP_PLAN C4)', () => {
     expect(room.isEmpty).toBe(true);
   });
 
+  it('takes a report at every tick where the relay says so (--hash-every 1)', () => {
+    room = new Room('ABCDEF', player('a'), (id, message) => {
+      if (!inbox.has(id)) inbox.set(id, []);
+      inbox.get(id)!.push(message);
+    }, { now: () => clock, hashEvery: 1 });
+    lobby();
+    room.receive('a', { t: 'start', seed: 1 });
+    closeTicks(3);
+    room.receive('a', { t: 'hash', tick: 1, hash: 7 });
+    room.receive('b', { t: 'hash', tick: 1, hash: 7 });
+    room.receive('a', { t: 'hash', tick: 2, hash: 8 });
+    room.receive('b', { t: 'hash', tick: 2, hash: 9 });
+    expect(all('a', 'desync')).toEqual([{ t: 'desync', tick: 2, hashes: [['a', 8], ['b', 9]], outOfStep: [], parts: [] }]);
+  });
+
   it('compares the hashes of a tick and tells everyone the first one that differs, once (C5)', () => {
     lobby();
     room.receive('a', { t: 'hash', tick: 0, hash: 1 }); // before the start: ignored

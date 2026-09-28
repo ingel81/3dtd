@@ -1062,8 +1062,8 @@ export class GameStateManager {
    * to `link` and acts when its tick comes back; a sub-step runs only once
    * the tick before it is closed. Null goes back to the single player game.
    */
-  setLockstep(link: LockstepLink | null): void {
-    this.lockstep.set(link);
+  setLockstep(link: LockstepLink | null, hashEvery?: number): void {
+    this.lockstep.set(link, hashEvery);
     this.commandsHandler?.setLockstep(link);
   }
 
