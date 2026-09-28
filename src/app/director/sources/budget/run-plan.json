@@ -14,7 +14,7 @@
     "wave": 2,
     "name": "Rat Tide",
     "enemies": {
-      "rat": 60
+      "rat": 62
     },
     "strength": 1,
     "spawnDelay": 167
@@ -23,7 +23,7 @@
     "wave": 3,
     "name": "Penguin Rush",
     "enemies": {
-      "penguin": 54,
+      "penguin": 53,
       "rat": 6
     },
     "strength": 1,
@@ -34,8 +34,8 @@
     "wave": 4,
     "name": "Light Mix",
     "enemies": {
-      "wallsmasher": 15,
-      "spider": 15
+      "wallsmasher": 13,
+      "spider": 13
     },
     "strength": 1,
     "spawnDelay": 350,
@@ -45,7 +45,7 @@
     "wave": 5,
     "name": "Wallsmasher Crew",
     "enemies": {
-      "wallsmasher": 15
+      "wallsmasher": 18
     },
     "strength": 1,
     "spawnDelay": 500
@@ -54,7 +54,7 @@
     "wave": 6,
     "name": "Spider Swarm",
     "enemies": {
-      "spider": 100
+      "spider": 48
     },
     "strength": 1,
     "spawnDelay": 268
@@ -63,7 +63,7 @@
     "wave": 7,
     "name": "Bat Swarm",
     "enemies": {
-      "bat": 120
+      "bat": 73
     },
     "strength": 1,
     "spawnDelay": 243
@@ -72,8 +72,8 @@
     "wave": 8,
     "name": "Hornet Strike",
     "enemies": {
-      "hornet": 42,
-      "bat": 18
+      "hornet": 19,
+      "bat": 8
     },
     "strength": 1,
     "spawnDelay": 580,
@@ -83,8 +83,8 @@
     "wave": 9,
     "name": "Tank Column",
     "enemies": {
-      "tank": 16,
-      "zombie-soldier": 11
+      "tank": 5,
+      "zombie-soldier": 4
     },
     "strength": 1,
     "spawnDelay": 600,
@@ -107,7 +107,7 @@
     "wave": 11,
     "name": "Bear Pack",
     "enemies": {
-      "bear": 42
+      "bear": 8
     },
     "strength": 0.7,
     "spawnDelay": 600
@@ -116,8 +116,8 @@
     "wave": 12,
     "name": "Dragon Elite",
     "enemies": {
-      "dragon": 32,
-      "hornet": 21
+      "dragon": 4,
+      "hornet": 3
     },
     "strength": 1,
     "spawnDelay": 840,
@@ -127,8 +127,8 @@
     "wave": 13,
     "name": "Ghost Surge",
     "enemies": {
-      "ghost": 82,
-      "wraith": 21
+      "ghost": 6,
+      "wraith": 2
     },
     "strength": 1,
     "spawnDelay": 400,
@@ -138,8 +138,8 @@
     "wave": 14,
     "name": "Mammoth Siege",
     "enemies": {
-      "mammoth": 21,
-      "wallsmasher": 9
+      "mammoth": 6,
+      "wallsmasher": 3
     },
     "strength": 1,
     "spawnDelay": 850,
@@ -149,7 +149,7 @@
     "wave": 15,
     "name": "Golem Squad",
     "enemies": {
-      "stone-golem": 6
+      "stone-golem": 10
     },
     "strength": 1,
     "spawnDelay": 2400
@@ -158,10 +158,10 @@
     "wave": 16,
     "name": "Chaos Wave",
     "enemies": {
-      "zombie": 27,
-      "tank": 27,
-      "hornet": 18,
-      "bear": 17
+      "zombie": 8,
+      "tank": 8,
+      "hornet": 5,
+      "bear": 4
     },
     "strength": 1,
     "spawnDelay": 510,
@@ -171,7 +171,7 @@
     "wave": 17,
     "name": "Wraith Storm",
     "enemies": {
-      "wraith": 150
+      "wraith": 11
     },
     "strength": 1,
     "spawnDelay": 400
@@ -180,10 +180,10 @@
     "wave": 18,
     "name": "Armor Gauntlet",
     "enemies": {
-      "rat": 19,
-      "tank": 19,
-      "mammoth": 19,
-      "ghost": 19
+      "rat": 10,
+      "tank": 10,
+      "mammoth": 10,
+      "ghost": 9
     },
     "strength": 1,
     "spawnDelay": 587.5,
@@ -193,7 +193,7 @@
     "wave": 19,
     "name": "Skeleton Swarm",
     "enemies": {
-      "skeleton": 577
+      "skeleton": 583
     },
     "strength": 1,
     "spawnDelay": 100
@@ -203,7 +203,7 @@
     "name": "Boss: Ooze",
     "enemies": {
       "ooze": 1,
-      "zombie": 200
+      "zombie": 60
     },
     "strength": 1.3,
     "spawnDelay": 400,
@@ -214,7 +214,7 @@
     "wave": 21,
     "name": "Bat Swarm",
     "enemies": {
-      "bat": 417
+      "bat": 336
     },
     "strength": 0.7,
     "spawnDelay": 100
@@ -223,8 +223,8 @@
     "wave": 22,
     "name": "Tank Column",
     "enemies": {
-      "tank": 48,
-      "zombie-soldier": 32
+      "tank": 54,
+      "zombie-soldier": 36
     },
     "strength": 1,
     "spawnDelay": 600,
@@ -234,7 +234,7 @@
     "wave": 23,
     "name": "Spider Swarm",
     "enemies": {
-      "spider": 727
+      "spider": 470
     },
     "strength": 1,
     "spawnDelay": 100
@@ -243,8 +243,8 @@
     "wave": 24,
     "name": "Ghost Surge",
     "enemies": {
-      "ghost": 126,
-      "wraith": 32
+      "ghost": 18,
+      "wraith": 5
     },
     "strength": 1,
     "spawnDelay": 400,
@@ -254,8 +254,8 @@
     "wave": 25,
     "name": "Mammoth Siege",
     "enemies": {
-      "mammoth": 38,
-      "wallsmasher": 16
+      "mammoth": 44,
+      "wallsmasher": 18
     },
     "strength": 1,
     "spawnDelay": 850,
@@ -265,8 +265,8 @@
     "wave": 26,
     "name": "Zombie Horde",
     "enemies": {
-      "zombie": 552,
-      "zombie-v2": 61
+      "zombie": 540,
+      "zombie-v2": 60
     },
     "strength": 1,
     "spawnDelay": 100,
@@ -276,8 +276,8 @@
     "wave": 27,
     "name": "Dragon Elite",
     "enemies": {
-      "dragon": 52,
-      "hornet": 35
+      "dragon": 5,
+      "hornet": 3
     },
     "strength": 1,
     "spawnDelay": 840,
@@ -287,7 +287,7 @@
     "wave": 28,
     "name": "Mech Army",
     "enemies": {
-      "mech": 46
+      "mech": 65
     },
     "strength": 1,
     "spawnDelay": 1000
@@ -296,10 +296,10 @@
     "wave": 29,
     "name": "Chaos Wave",
     "enemies": {
-      "zombie": 39,
-      "tank": 39,
-      "hornet": 26,
-      "bear": 25
+      "zombie": 95,
+      "tank": 95,
+      "hornet": 63,
+      "bear": 61
     },
     "strength": 1,
     "spawnDelay": 510,
