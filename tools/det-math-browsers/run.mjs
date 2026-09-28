@@ -73,8 +73,10 @@ for (const k of names.slice(1)) {
   const r = results[k];
   summary.detSame[k] = Object.keys(ref.det).filter((f) => r.det[f] !== ref.det[f]).length === 0
     ? 'all equal' : Object.keys(ref.det).filter((f) => r.det[f] !== ref.det[f]);
-  summary.simSame[k] = JSON.stringify(r.sim) === JSON.stringify(ref.sim);
+  summary.simSame[k] = Object.fromEntries(Object.keys(ref.sim).map((w) => [w, JSON.stringify(r.sim[w]) === JSON.stringify(ref.sim[w])]));
   summary.nativeDiffers[k] = Object.keys(ref.native).filter((f) => r.native[f] !== ref.native[f]);
 }
 writeFileSync(out, JSON.stringify({ summary, results }, null, 1));
 console.log(JSON.stringify(summary, null, 1));
+// The music's timers of the Node run would keep the process alive
+process.exit(0);

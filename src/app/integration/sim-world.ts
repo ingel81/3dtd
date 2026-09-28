@@ -27,7 +27,8 @@ import { losMaskToJson, type LosMask } from '../utils/los-mask';
 import type { GameEventBus } from '../game-engine/game-event-bus';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { noopStub } from './noop-stub';
-import { buildRoute, createBenchEngine, flatSync, markAllVisible } from './sim-step-bench';
+import { DetMath } from '../utils/det-math';
+import { buildRoute, createBenchEngine, flatSync, localSync, markAllVisible, type LocalSync } from './sim-step-bench';
 
 /**
  * The line of sight side of TowerPlacementService, on the real grid, no GPU.
@@ -37,13 +38,18 @@ import { buildRoute, createBenchEngine, flatSync, markAllVisible } from './sim-s
  * every client waits, the host resolves after the frame and sends
  * command:los-mask on `bus()`.
  */
-export function losPlacement(grid: GlobalRouteGridService, bus: () => GameEventBus | null = () => null) {
+export function losPlacement(
+  grid: GlobalRouteGridService,
+  bus: () => GameEventBus | null = () => null,
+  sync: LocalSync = flatSync,
+) {
   const queue: Tower[] = [];
   let role: 'host' | 'guest' | null = null;
   const awaiting: Tower[] = [];
   const sent = new Set<Tower>();
   const fromMask = (tower: Tower, mask: LosMask) => {
-    tower.visibleCells = grid.applyLosMask(tower.id, tower.position.lon * M, -tower.position.lat * M, mask);
+    const { x, z } = sync.geoToLocalSimple(tower.position.lat, tower.position.lon, 0);
+    tower.visibleCells = grid.applyLosMask(tower.id, x, z, mask);
     tower.losMask = mask;
     tower.losReady = true;
   };
@@ -81,7 +87,7 @@ export function losPlacement(grid: GlobalRouteGridService, bus: () => GameEventB
       if (role !== 'host') return;
       const tower = awaiting.find((t) => !sent.has(t));
       if (!tower) return;
-      markAllVisible(grid, tower);
+      markAllVisible(grid, tower, sync);
       const mask = tower.losMask!;
       grid.unregisterTower(tower.id);
       tower.visibleCells = [];
@@ -109,6 +115,36 @@ export interface SimWorldOptions {
    * are generated, before any tower stands, as a joiner does it.
    */
   world?: { paths: Map<string, RouteWaypoint[]>; spawns: SpawnPoint[]; heights: [number, number, number][] };
+  /**
+   * The world around this place instead of the equator, with two routes that
+   * bend (curvedRoute): cosines of real latitudes and corners in the corridor,
+   * where engines' native sin and cos would differ (TODO E28).
+   */
+  origin?: { lat: number; lon: number };
+}
+
+/** Local x east and z south along a route that runs north and bends: straights and arcs of 25 m radius */
+function curvedRoute(eastM: number, mirror: boolean): { x: number; z: number }[] {
+  // [straight m, then a turn in degrees, right positive]
+  const legs: [number, number][] = [[100, 70], [120, -110], [90, 45], [110, -30], [120, 0]];
+  const out = [{ x: eastM, z: 0 }];
+  let x = eastM, z = 0, heading = 0;
+  const step = (length: number) => {
+    const { s, c } = DetMath.sincos(heading);
+    x += s * length;
+    z -= c * length;
+    out.push({ x, z });
+  };
+  for (const [straight, turn] of legs) {
+    for (let d = 10; d <= straight; d += 10) step(10);
+    const turnRad = (mirror ? -turn : turn) * (Math.PI / 180);
+    const arcSteps = Math.ceil((Math.abs(turnRad) * 25) / 10);
+    for (let i = 0; i < arcSteps; i++) {
+      heading += turnRad / arcSteps;
+      step((Math.abs(turnRad) * 25) / arcSteps);
+    }
+  }
+  return out;
 }
 
 /** Build the world on `services` with run seed `seed`; clears `services` first. */
@@ -117,9 +153,17 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
 
   let paths: Map<string, RouteWaypoint[]>;
   let spawnPoints: SpawnPoint[];
+  const sync = options.origin ? localSync(options.origin) : flatSync;
   if (options.world) {
     paths = options.world.paths;
     spawnPoints = options.world.spawns;
+  } else if (options.origin) {
+    const built = [curvedRoute(0, false), curvedRoute(220, true)].map((points) => points.map((p): RouteWaypoint => {
+      const geo = sync.localToGeo({ x: p.x, y: 0, z: p.z });
+      return { lat: geo.lat, lon: geo.lon, height: 0, corridorLeft: 3, corridorRight: 3 };
+    }));
+    paths = new Map(built.map((route, i) => [`spawn-${i + 1}`, route]));
+    spawnPoints = built.map((route, i) => ({ id: `spawn-${i + 1}`, name: `Spawn ${i + 1}`, ...route[0] }));
   } else {
     const built = [buildRoute(0, 600), buildRoute(200, 600)];
     paths = new Map(built.map((route, i) => [`spawn-${i + 1}`, route]));
@@ -132,7 +176,7 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
     return y === null ? null : { groundY: y, topY: y, tileDepth: 20, tileGeometricError: 1 };
   };
   const grid = new GlobalRouteGridService();
-  grid.initialize(sampler as never, flatSync as never);
+  grid.initialize(sampler as never, sync as never);
   grid.generateFromRoutes(routes);
   if (options.world) {
     const missing = grid.restoreHeights(options.world.heights);
@@ -151,21 +195,34 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
   services['CombatEffectService'] = new CombatEffectService();
   services['TowerCombatService'] = new TowerCombatService();
   let gameState: GameStateManager | null = null;
-  services['TowerPlacementService'] = losPlacement(grid, () => gameState?.getEventBus() ?? null);
+  services['TowerPlacementService'] = losPlacement(grid, () => gameState?.getEventBus() ?? null, sync);
 
   const gsm = new GameStateManager();
   gameState = gsm;
   gsm.rng.reset(seed);
-  gsm.initialize(createBenchEngine(), routes[0][routes[0].length - 1], spawnPoints, paths as Map<string, GeoPosition[]>);
+  gsm.initialize(createBenchEngine(sync), routes[0][routes[0].length - 1], spawnPoints, paths as Map<string, GeoPosition[]>);
   gsm.researchManager.completeResearch('aa-retrofit');
 
   const types = ['archer', 'cannon', 'ice', 'fire', 'lightning', 'rocket', 'magic', 'poison'] as const;
   const towers = types.map((type, i) => {
     const route = i % 2;
     const s = 60 + Math.floor(i / 2) * 120;
-    const east = route * 200 + (i % 4 < 2 ? 9 : -11);
-    const tower = gsm.towerManager.placeTower({ lat: s / M, lon: east / M, height: 0 }, type, 0)!;
-    markAllVisible(grid, tower);
+    const side = i % 4 < 2 ? 9 : -11;
+    let position: GeoPosition;
+    if (options.origin) {
+      // Beside the waypoint s m along, off to the side of the leg there
+      const points = routes[route];
+      const k = Math.min(points.length - 2, Math.round(s / 10));
+      const a = sync.geoToLocalSimple(points[k].lat, points[k].lon, 0);
+      const b = sync.geoToLocalSimple(points[k + 1].lat, points[k + 1].lon, 0);
+      const len = Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
+      const geo = sync.localToGeo({ x: a.x - ((b.z - a.z) / len) * side, y: 0, z: a.z + ((b.x - a.x) / len) * side });
+      position = { lat: geo.lat, lon: geo.lon, height: 0 };
+    } else {
+      position = { lat: s / M, lon: (route * 200 + side) / M, height: 0 };
+    }
+    const tower = gsm.towerManager.placeTower(position, type, 0)!;
+    markAllVisible(grid, tower, sync);
     return tower;
   });
   return { gsm, grid, towers, routes };

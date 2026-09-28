@@ -46,7 +46,8 @@ import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { mulberry32 } from '../utils/game-rng';
-import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
+import { DetMath } from '../utils/det-math';
 import { noopStub } from './noop-stub';
 
 export interface SimScenario {
@@ -80,18 +81,37 @@ const ROUTE_SPACING_M = 200;
 /** Most enemies topped up per sub-step, so a mass kill refills over a few steps */
 const MAX_REFILL_PER_STEP = 20;
 
+/**
+ * Geo to local on a flat frame around `origin`, x east, z south, a degree of
+ * longitude as long as at the origin's latitude (EllipsoidSync.geoToLocalSimple
+ * with the east axis the other way round).
+ */
+export function localSync(origin: { lat: number; lon: number } = { lat: 0, lon: 0 }) {
+  const perLon = origin.lat === 0 ? M : M * DetMath.cos(origin.lat * DEG_TO_RAD);
+  const x = (lon: number) => (lon - origin.lon) * perLon;
+  const z = (lat: number) => -(lat - origin.lat) * M;
+  return {
+    getOrigin: () => ({ lat: origin.lat, lon: origin.lon, height: 0 }),
+    geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(x(lon), height, z(lat)),
+    geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3): Vector3 =>
+      target.set(x(lon), height, z(lat)),
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(x(lon), height, z(lat)),
+    // At the equator exactly the old formulas, a -0 included
+    localToGeo: (p: { x: number; y: number; z: number }) => ({
+      lat: origin.lat === 0 ? -p.z / M : origin.lat - p.z / M,
+      lon: origin.lon === 0 ? p.x / perLon : origin.lon + p.x / perLon,
+      height: p.y,
+    }),
+  };
+}
+
+export type LocalSync = ReturnType<typeof localSync>;
+
 /** Geo to local on a flat frame at the equator, x east, z south */
-export const flatSync = {
-  getOrigin: () => ({ lat: 0, lon: 0, height: 0 }),
-  geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon * M, height, -lat * M),
-  geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3): Vector3 =>
-    target.set(lon * M, height, -lat * M),
-  geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon * M, height, -lat * M),
-  localToGeo: (p: { x: number; y: number; z: number }) => ({ lat: -p.z / M, lon: p.x / M, height: p.y }),
-};
+export const flatSync = localSync();
 
 /** The engine: no-op except where the loop needs an answer. */
-export function createBenchEngine(): never {
+export function createBenchEngine(sync: LocalSync = flatSync): never {
   const resolved = () => Promise.resolve(null);
   return noopStub({
     renderingEnabled: false,
@@ -99,7 +119,7 @@ export function createBenchEngine(): never {
     getTerrainHeightAtGeo: () => 0,
     // ScreenShakeService measures the impact's distance to it
     getCamera: () => ({ position: new Vector3(0, 500, 0) }),
-    sync: noopStub({ ...flatSync }),
+    sync: noopStub({ ...sync }),
     terrain: noopStub({}),
     towers: noopStub({
       get: () => undefined,
@@ -136,9 +156,8 @@ export function buildRoute(eastM: number, lengthM: number): RouteWaypoint[] {
  * layers it may target, as resolveTowerLos writes it with nothing in the way,
  * taken as its LosMask like TowerLosRegistry.register.
  */
-export function markAllVisible(grid: GlobalRouteGridService, tower: Tower): void {
-  const x = tower.position.lon * M;
-  const z = -tower.position.lat * M;
+export function markAllVisible(grid: GlobalRouteGridService, tower: Tower, sync: LocalSync = flatSync): void {
+  const { x, z } = sync.geoToLocalSimple(tower.position.lat, tower.position.lon, 0);
   const ground = tower.typeConfig.canTargetGround ?? true;
   const air = canTargetAirEffective(tower.typeConfig.id as TowerTypeId, true);
   const cells = grid.getCellsInRange(x, z, tower.combat.range);

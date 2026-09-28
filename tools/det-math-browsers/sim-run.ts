@@ -87,13 +87,20 @@ function bossConfig(): WaveConfig {
   return { schedule: { entries, baseDelay: 900, spawnMode: 'each' } };
 }
 
-/** The two waves of the re-simulation spec; the hashes the recorder took and the end hash */
-function simulate(): { hashes: number[][]; end: number; kills: number } {
+/**
+ * The two waves of the re-simulation spec; the hashes the recorder took and the end hash.
+ * With `origin`, the world with bending routes around it (sim-world.ts): at the equator the
+ * angles are so small that native and deterministic functions give the same bits.
+ */
+export function simulate(origin?: { lat: number; lon: number }): { hashes: number[][]; end: number; kills: number } {
   GameObject.resetIdCounter();
   const random = Math.random;
   Math.random = mulberry32(0x51a1 + 1);
   try {
-    const { gsm, towers } = buildSimWorld(services, 0x51a1);
+    const { gsm, towers, routes } = buildSimWorld(services, 0x51a1, origin ? { origin } : {});
+    // Hero and frost bomb on the first route; at the equator where the spec sends them
+    const heroTarget = origin ? { lat: routes[0][20].lat, lon: routes[0][20].lon } : { lat: 200 / M, lon: 0 };
+    const frostTarget = origin ? { lat: routes[0][15].lat, lon: routes[0][15].lon } : { lat: 150 / M, lon: 0 };
     const bus = gsm.getEventBus();
     let kills = 0;
     bus.on('enemy:died', () => kills++);
@@ -107,8 +114,8 @@ function simulate(): { hashes: number[][]; end: number; kills: number } {
       if (f === 20) bus.emit({ type: 'debug:add-credits', amount: 5000 });
       if (f === 25) bus.emit({ type: 'command:upgrade-tower', towerId: towers[0].id, upgradeId: 'damage' });
       if (f === 30) bus.emit({ type: 'command:set-targeting', towerId: towers[1].id, strategy: 'highest-hp' });
-      if (f === 40) bus.emit({ type: 'command:hero-move', target: { lat: 200 / M, lon: 0 } });
-      if (f === 90) bus.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: { lat: 150 / M, lon: 0 } });
+      if (f === 40) bus.emit({ type: 'command:hero-move', target: heroTarget });
+      if (f === 90) bus.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: frostTarget });
       if (f === 150) bus.emit({ type: 'command:upgrade-tower', towerId: towers[3].id, upgradeId: 'speed' });
     }
     now = 1e6;
@@ -128,9 +135,39 @@ export function run(n = 1_000_000): unknown {
   const t1 = performance.now();
   const native = fingerprints(table(Math as unknown as Record<string, (...args: number[]) => number>), a, b);
   const t2 = performance.now();
-  const sim = simulate();
+  const sim = { equator: simulate(), curved: simulate({ lat: 49.0069, lon: 8.4037 }) };
   const t3 = performance.now();
-  return { inputs: n, det, native, sim, ms: { det: Math.round(t1 - t0), native: Math.round(t2 - t1), sim: Math.round(t3 - t2) } };
+  const nativeInSim = countNative(() => simulate({ lat: 49.0069, lon: 8.4037 }));
+  return {
+    inputs: n, det, native, sim, nativeInSim,
+    ms: { det: Math.round(t1 - t0), native: Math.round(t2 - t1), sim: Math.round(t3 - t2) },
+  };
+}
+
+/**
+ * How often `fn` calls a native transcendental, and how often its answer is not
+ * DetMath's: where this engine's native bits would enter the state.
+ */
+function countNative(fn: () => unknown): Record<string, [number, number]> {
+  const names = ['sin', 'cos', 'tan', 'atan', 'atan2', 'asin', 'acos', 'exp', 'log', 'pow', 'hypot'] as const;
+  const math = Math as unknown as Record<string, (...args: number[]) => number>;
+  const det = DetMath as unknown as Record<string, (...args: number[]) => number>;
+  const native = Object.fromEntries(names.map((name) => [name, math[name]]));
+  const counts: Record<string, [number, number]> = Object.fromEntries(names.map((name) => [name, [0, 0]]));
+  for (const name of names) {
+    math[name] = (...args: number[]) => {
+      const r = native[name](...args);
+      counts[name][0]++;
+      if (args.length <= 2 && !Object.is(r, det[name](...args)) && !(r !== r && det[name](...args) !== det[name](...args))) counts[name][1]++;
+      return r;
+    };
+  }
+  try {
+    fn();
+  } finally {
+    for (const name of names) math[name] = native[name];
+  }
+  return counts;
 }
 
 (globalThis as unknown as { detMathRun: typeof run }).detMathRun = run;
