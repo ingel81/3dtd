@@ -364,6 +364,10 @@ async function playRun(index: number): Promise<boolean> {
     return true;
   } catch (err) {
     write({ kind: 'run', run: index, room: code, players: PLAYERS, speed: SPEED, error: String(err), started: playing, wavesWritten: written });
+    // What the tabs showed, to see where a room got stuck
+    for (const [seat, page] of seats.entries()) {
+      await page.screenshot({ path: join(OUT, `failed-${index}-seat${seat}.png`) }).catch(() => undefined);
+    }
     log(`run ${index}: failed${playing ? '' : ' before the start, again'}: ${String(err).split('\n')[0]}`);
     return playing;
   } finally {
