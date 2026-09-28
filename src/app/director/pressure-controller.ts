@@ -204,7 +204,15 @@ export class PressureController {
    *               0,5 bis 20, weil er damit die Anzahl vom Deckel her öffnet; das
    *               Budget-Modell nur halb bis doppelt (Entscheidung 2026-09-28).
    */
-  constructor(private readonly limits: { min: number; max: number } = { min: PRESSURE_MULT_MIN, max: PRESSURE_MULT_MAX }) {}
+  constructor(
+    private readonly limits: { min: number; max: number } = { min: PRESSURE_MULT_MIN, max: PRESSURE_MULT_MAX },
+    /**
+     * Wellen, die er nicht ansieht, und Messwerte, bevor er stellt. Das
+     * Budget-Modell hat keinen Deckel auf die Anzahl, der die ersten Wellen
+     * auffängt; es braucht den Regler ab Welle 2 (Bot-Messung 2026-09-28).
+     */
+    private readonly start: { warmupWaves: number; minSamples: number } = { warmupWaves: PRESSURE_WARMUP_WAVES, minSamples: PRESSURE_MIN_SAMPLES },
+  ) {}
 
   /** Geglätteter Druck, null bevor die erste Welle gezählt hat. */
   private smoothed: number | null = null;
@@ -219,7 +227,7 @@ export class PressureController {
   }
 
   get status(): PressureStatus {
-    const ready = this.sampleCount >= PRESSURE_MIN_SAMPLES;
+    const ready = this.sampleCount >= this.start.minSamples;
     return {
       multiplier: this.multiplier,
       samples: this.sampleCount,
@@ -258,7 +266,7 @@ export class PressureController {
     // Die Aufbauwellen messen einen Spieler ohne Türme. Sie kommen nicht
     // einmal ins Fenster, sonst ziehen ihre Verluste den Schnitt über Wellen
     // hinweg nach oben.
-    if (waveNumber <= PRESSURE_WARMUP_WAVES) {
+    if (waveNumber <= this.start.warmupWaves) {
       this.lastStep = 'warming-up';
       return this.multiplier;
     }
@@ -289,7 +297,7 @@ export class PressureController {
       this.sampleCount++;
     }
 
-    if (this.smoothed === null || this.sampleCount < PRESSURE_MIN_SAMPLES) {
+    if (this.smoothed === null || this.sampleCount < this.start.minSamples) {
       this.lastStep = 'warming-up';
       return this.multiplier;
     }

@@ -7,7 +7,8 @@
  * 2. Each enemy's cost at HP ×1: its HP over the defense's damage against its
  *    armor, ground or air.
  * 3. Grenze je Gegner: no enemy gets more HP than the defense deals while it is
- *    under fire (metres of route under fire over its speed).
+ *    under fire (metres of route under fire over its speed), and only half of
+ *    that when its one leak would cost more than the wave may.
  * 4. Deckel: the wave's whole cost is at most what the defense can deal while
  *    the wave is on the route, plus the leaks the tension curve allows.
  * 5. One shared HP factor fills what is left of the budget.
@@ -35,6 +36,12 @@ export function budgetSeconds(wave: number): number {
 export const BUDGET_REALISM = 0.6;
 /** An enemy may take this share of the damage the defense deals while it is under fire. */
 export const UNDER_FIRE_SHARE = 0.9;
+/**
+ * An enemy whose one leak would cost more HP than the whole wave may cost
+ * takes only this share: it has to die with room to spare (the Ooze of W20
+ * cost 91 HP with one leak at 0.9, bots 2026-09-28). Every type, every wave.
+ */
+export const SURE_KILL_SHARE = 0.5;
 /** Least time under fire an enemy counts with, so a defense whose LOS is not in yet does not zero the HP. */
 export const MIN_UNDER_FIRE_S = 2;
 /** HP factors stay within these, whatever the defense. */
@@ -95,6 +102,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const types = Object.entries(input.enemies).filter(([type, count]) => count > 0 && ENEMY_TYPES[type as EnemyTypeId]);
   const count = types.reduce((sum, [, n]) => sum + n, 0);
 
+  const leakHp = Math.max(MIN_LEAK_HP, input.defense.hpRemaining * Math.max(0, input.targetPressure));
   const hurt: { type: string; n: number; sec: number; cap: number; fire: number }[] = [];
   const unhurt: string[] = [];
   let leakCost = 0;
@@ -106,7 +114,9 @@ export function sizeWave(input: BudgetInput): BudgetResult {
     if (dps <= 0) { unhurt.push(type); continue; }
     const sec = enemyHp(type) / dps;
     const fire = Math.max(MIN_UNDER_FIRE_S, (defense.metersUnderFire?.[side] ?? 0) / Math.max(0.1, cfg.baseSpeed));
-    hurt.push({ type, n, sec, fire, cap: (UNDER_FIRE_SHARE * fire) / sec });
+    const oneLeak = lineageLeakDamage(type as EnemyTypeId) * input.leakScale;
+    const share = oneLeak > leakHp ? SURE_KILL_SHARE : UNDER_FIRE_SHARE;
+    hurt.push({ type, n, sec, fire, cap: (share * fire) / sec });
   }
 
   // The cap: the defense spends at most the wave's time on the route on it,
@@ -114,7 +124,6 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const spawnSeconds = Math.max(0, count - 1) * (input.spawnDelayMs / 1000);
   const fireAvg = hurt.length ? hurt.reduce((sum, h) => sum + h.n * h.fire, 0) / hurt.reduce((sum, h) => sum + h.n, 0) : 0;
   const window = spawnSeconds + fireAvg;
-  const leakHp = Math.max(MIN_LEAK_HP, input.defense.hpRemaining * Math.max(0, input.targetPressure));
   const allowedLeaks = leakCost > 0 && count > 0 ? leakHp / (input.leakScale * (leakCost / count)) : 0;
   const delivered = Math.min(budget, window + budget * Math.min(1, allowedLeaks / Math.max(1, count)));
 

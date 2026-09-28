@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { budgetSeconds, enemyHp, sizeWave, BUDGET_REALISM, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
+import { budgetSeconds, enemyHp, sizeWave, BUDGET_REALISM, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 
@@ -53,7 +53,7 @@ describe('sizeWave', () => {
 
   it('holds an enemy at what the defense deals while it is under fire', () => {
     // One worm, a short stretch under fire: it would take far more than that
-    const input = base({ enemies: { worm: 1 }, spawnDelayMs: 0, defense: { dps: dps(50000), metersUnderFire: { ground: 20, air: 20 }, hpRemaining: 300 } });
+    const input = base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 10, defense: { dps: dps(50000), metersUnderFire: { ground: 20, air: 20 }, hpRemaining: 300 } });
     const sized = sizeWave(input);
     const fire = 20 / ENEMY_TYPES.worm.baseSpeed;
     expect(sized.clamped).toEqual(['worm']);
@@ -84,5 +84,14 @@ describe('sizeWave', () => {
   it('answers without a defense', () => {
     const sized = sizeWave(base({ defense: { dps: undefined, metersUnderFire: undefined, hpRemaining: 500 } }));
     expect(sized.hpMult.zombie).toBe(1);
+  });
+});
+
+describe('sizeWave, an enemy whose one leak costs more than the wave may', () => {
+  it('gets only the sure-kill share of the damage under fire', () => {
+    const defense = { dps: dps(50000), metersUnderFire: { ground: 30, air: 30 }, hpRemaining: 300 };
+    const cheap = sizeWave(base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 10, defense }));
+    const dear = sizeWave(base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 0.0001, defense }));
+    expect(dear.hpMult.worm).toBeCloseTo((cheap.hpMult.worm * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
   });
 });

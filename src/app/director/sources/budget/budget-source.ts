@@ -28,6 +28,8 @@ import { enemyHp, sizeWave, type BudgetResult } from './budget';
 
 /** The loop moves the budget between half and double (User, 2026-09-28). */
 export const BUDGET_REGULATOR_LIMITS = { min: 0.5, max: 2 } as const;
+/** From the second wave on, two readings: bots lost 40 to 60 HP a wave in W5-W7 while the loop still waited. */
+export const BUDGET_REGULATOR_START = { warmupWaves: 1, minSamples: 2 } as const;
 
 export class BudgetWaveSource implements WaveSource {
   readonly id: WaveSourceId = 'budget';
@@ -35,7 +37,7 @@ export class BudgetWaveSource implements WaveSource {
   readonly plansAt: WavePlanTiming = 'wave-end';
   readonly rules = RUN_PLAN_RULES;
 
-  private readonly pressure = new PressureController(BUDGET_REGULATOR_LIMITS);
+  private readonly pressure = new PressureController(BUDGET_REGULATOR_LIMITS, BUDGET_REGULATOR_START);
   /** Did the cap cut the last wave? Then opening the loop would not have helped (anti-windup). */
   private lastCapped = false;
 
