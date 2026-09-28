@@ -11,7 +11,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
-import { waveGold, enemyBaseDamageForWave } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 import { EnemyStatusVisuals } from './enemy-status-visuals';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
@@ -496,7 +496,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     if (wave !== this.rewardWaveNumber) {
       this.rewardWaveNumber = wave;
-      this.remainingKillBudget = waveGold(wave).kill * Math.max(1, this.getWaveLaneCount());
+      this.remainingKillBudget = waveRules().gold(wave).kill * Math.max(1, this.getWaveLaneCount());
       this.paidRewardWeight = 0;
     }
 
@@ -755,7 +755,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         this.eventBus.emit({
           type: 'enemy:reached-base',
           enemy,
-          damage: typeDamage * enemyBaseDamageForWave(this.getWaveNumber()),
+          damage: typeDamage * waveRules().leakScale(this.getWaveNumber()),
         });
         this.toRemove.push(enemy);
         continue;

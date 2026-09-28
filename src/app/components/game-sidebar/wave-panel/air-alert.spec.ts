@@ -3,20 +3,20 @@ import {
   AirAlertAnnouncer,
   airAlertView,
   countAntiAirTowers,
-  campaignWaveHasAir,
+  waveBringsAir,
   upcomingAirAlert,
 } from './air-alert';
 import { CAMPAIGN_LENGTH } from '../../../configs/campaign.config';
 
-describe('campaignWaveHasAir', () => {
+describe('waveBringsAir (campaign rules)', () => {
   it('reads the air units from the campaign template', () => {
-    expect(campaignWaveHasAir(7)).toBe(true); // Bat Swarm
-    expect(campaignWaveHasAir(16)).toBe(true); // Chaos Wave, hornets in the mix
-    expect(campaignWaveHasAir(6)).toBe(false); // Spider Swarm
+    expect(waveBringsAir(7)).toBe(true); // Bat Swarm
+    expect(waveBringsAir(16)).toBe(true); // Chaos Wave, hornets in the mix
+    expect(waveBringsAir(6)).toBe(false); // Spider Swarm
   });
 
   it('knows nothing past the campaign', () => {
-    expect(campaignWaveHasAir(CAMPAIGN_LENGTH + 1)).toBe(false);
+    expect(waveBringsAir(CAMPAIGN_LENGTH + 1)).toBe(false);
   });
 });
 

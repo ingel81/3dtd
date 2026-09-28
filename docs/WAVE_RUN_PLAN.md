@@ -200,9 +200,11 @@ bestimmten Quelle direkt nach der Wellennummer; bei einem Tausch liefen sie weit
 
 Sauber geteilt sind `director/defense-analyzer.ts` (Abwehr messen, von allen genutzt) und der Vertrag selbst.
 
+Geschlossen am 2026-09-28 (WAVE_SOURCE_PLAN.md, Abschnitt 17): die Stellen lesen jetzt `waveRules()` der aktiven
+Quelle. Bleiben bewusst geteilt: der Konfigurations-Hash und die Stellschrauben des adaptiven Directors.
+
 ## 13. Nächster Schritt
 
-Bauen in dieser Reihenfolge: erst die Lecks aus Abschnitt 12 über den Vertrag schließen (ohne Verhaltensänderung,
-die heutige Quelle liefert dieselben Werte), dann die neue Quelle `sources/budget/` mit Plan-Datei, Budget-Schritt,
+Bauen:  die neue Quelle `sources/budget/` mit Plan-Datei, Budget-Schritt,
 Grenze je Gegner und Zeit unter Feuer aus der Route. Bot-Vergleich alt gegen neu, danach `adaptive` mit ihren
 Sonderregeln entfernen; `table` bleibt.

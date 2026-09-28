@@ -9,7 +9,7 @@ import { WaveConfig } from './models/wave-config';
 import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
 import { ArmorType } from '../configs/combat/combat.types';
 import { getEnemyType, EnemyTypeId } from '../configs/enemy-types.config';
-import { templateObjectForWave } from '../configs/campaign.config';
+import { waveRules } from './wave-rules';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import type { ResearchStore } from '../store/research.store';
 
@@ -95,9 +95,9 @@ export function expectedArmorDistribution(
   return dist;
 }
 
-/** Enemy shares of the template the campaign pins to `wave`. */
+/** Enemy shares of `wave`, where the source fixes them in advance. */
 function upcomingTemplateGroups(wave: number): { type: string; weight: number }[] | undefined {
-  const template = templateObjectForWave(wave);
-  if (!template) return undefined;
-  return template.enemies.map(([type, share]) => ({ type, weight: share }));
+  const mix = waveRules().enemyMix(wave);
+  if (!mix) return undefined;
+  return mix.map(([type, share]) => ({ type, weight: share }));
 }

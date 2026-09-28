@@ -18,6 +18,7 @@ import type { GameStateSnapshot } from './models/game-state-snapshot';
 import type { WaveConfig } from './models/wave-config';
 import type { WaveResult } from './models/wave-result';
 import type { DecisionExplanation } from './wave-explanation';
+import type { WaveRules } from './wave-rules';
 
 /**
  * The sources a run can play.
@@ -127,6 +128,12 @@ export interface WaveSource {
   /** For the debug window and the run log. */
   readonly name: string;
   readonly plansAt: WavePlanTiming;
+  /**
+   * Leak, gold, boss and the known enemy mix by wave number. The game reads
+   * them through `waveRules()`, never from a source's own config, so they
+   * change with the source (director/wave-rules.ts).
+   */
+  readonly rules: WaveRules;
 
   /** The wave `request.wave`, ready to ship. */
   plan(request: WavePlanRequest): PlannedWave;

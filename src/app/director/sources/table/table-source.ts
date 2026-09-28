@@ -25,12 +25,33 @@ import type { WaveConfig, WaveEnemyGroup } from '../../models/wave-config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import { LAST_TABLE_WAVE, tableRowForWave, type TableLookup } from './wave-table';
+import type { WaveRules } from '../../wave-rules';
+import { CAMPAIGN_WAVE_RULES } from '../../../configs/campaign-wave-rules';
+
+/**
+ * Leak and gold as the campaign has them; what a wave is, boss or not, from
+ * the list.
+ */
+const TABLE_WAVE_RULES: WaveRules = {
+  leakScale: CAMPAIGN_WAVE_RULES.leakScale,
+  gold: CAMPAIGN_WAVE_RULES.gold,
+  isBoss: (wave) => {
+    const lookup = tableRowForWave(wave);
+    return !!lookup && Object.keys(lookup.row.enemies).some((type) => ENEMY_TYPES[type as EnemyTypeId]?.isBoss);
+  },
+  enemyMix: (wave) => {
+    const lookup = tableRowForWave(wave);
+    return lookup ? factsOf(wave, lookup).enemies : null;
+  },
+  name: (wave) => tableRowForWave(wave)?.row.name ?? null,
+};
 
 export class TableWaveSource implements WaveSource {
   readonly id: WaveSourceId = 'table';
   readonly name = 'Wave table';
   /** Nothing to read at wave start, so the wave can be named a wave early. */
   readonly plansAt: WavePlanTiming = 'wave-end';
+  readonly rules = TABLE_WAVE_RULES;
 
   plan(request: WavePlanRequest): PlannedWave {
     const { wave } = request;

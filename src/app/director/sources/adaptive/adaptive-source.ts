@@ -23,6 +23,7 @@
  * Phase 1a). `director-rules.ts` carries the numbers.
  */
 
+import { CAMPAIGN_WAVE_RULES } from '../../../configs/campaign-wave-rules';
 import type {
   PlannedWave,
   WavePeekFacts,
@@ -63,6 +64,7 @@ export class AdaptiveWaveSource implements WaveSource {
   readonly id: WaveSourceId = 'adaptive';
   readonly name = 'Adaptive director';
   readonly plansAt: WavePlanTiming = 'wave-end';
+  readonly rules = CAMPAIGN_WAVE_RULES;
 
   /**
    * The pressure loop. Public because a bot batch's A/B reads its multiplier

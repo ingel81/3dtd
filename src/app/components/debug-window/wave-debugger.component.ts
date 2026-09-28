@@ -6,8 +6,7 @@ import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
-import { isBossWave, templateObjectForWave } from '../../configs/campaign.config';
-import { bossVariantForWave } from '../../configs/boss-variants.config';
+import { waveRules } from '../../director/wave-rules';
 import { SpawnPattern } from '../../director/spawn-schedule-builder';
 import { TdIconComponent } from '../icon/icon.component';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -104,9 +103,8 @@ export class WaveDebuggerComponent {
   /** What that wave is, to check W35 is the worm before jumping */
   readonly jumpWaveName = computed(() => {
     const wave = this.jumpWave();
-    return bossVariantForWave(wave)?.name
-      ?? templateObjectForWave(wave)?.name
-      ?? (isBossWave(wave) ? 'Boss wave' : 'Director wave');
+    const rules = waveRules();
+    return rules.name(wave) ?? (rules.isBoss(wave) ? 'Boss wave' : 'Director wave');
   });
   readonly jumpLabel = computed(() => {
     if (this.store.phase() !== 'setup') return 'Between waves only';

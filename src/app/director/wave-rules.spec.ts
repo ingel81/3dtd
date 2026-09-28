@@ -1,0 +1,44 @@
+import { afterEach, describe, expect, it } from 'vitest';
+import { setActiveWaveRules, waveHasAir, waveRules, type WaveRules } from './wave-rules';
+import { CAMPAIGN_WAVE_RULES } from '../configs/campaign-wave-rules';
+import { enemyBaseDamageForWave, isBossWave, waveGold } from '../configs/campaign.config';
+import { TableWaveSource } from './sources/table/table-source';
+import { summarizeWaveGroups } from '../managers/game-state/wave-preview';
+
+const LOUD: WaveRules = {
+  leakScale: () => 7,
+  gold: () => ({ kill: 1, complete: 2 }),
+  isBoss: (wave) => wave === 3,
+  enemyMix: (wave) => (wave === 4 ? [['bat', 1]] : null),
+  name: () => 'Loud',
+};
+
+describe('wave rules', () => {
+  afterEach(() => setActiveWaveRules(CAMPAIGN_WAVE_RULES));
+
+  it('are the campaign rules before any source is set', () => {
+    for (const wave of [1, 31, 61]) expect(waveRules().leakScale(wave)).toBe(enemyBaseDamageForWave(wave));
+    expect(waveRules().gold(12)).toEqual(waveGold(12));
+    expect(waveRules().isBoss(10)).toBe(isBossWave(10));
+  });
+
+  it('follow the active source, so the game reads what the source says', () => {
+    setActiveWaveRules(LOUD);
+    expect(waveRules().leakScale(1)).toBe(7);
+    expect(waveRules().isBoss(3)).toBe(true);
+    expect(waveHasAir(4, (id) => id === 'bat')).toBe(true);
+    expect(waveHasAir(5, (id) => id === 'bat')).toBe(false);
+    // The preview prices a leak with the active rules
+    const config = { schedule: { entries: [{ enemyType: 'rat', speed: 1 }], baseDelay: 100 } } as never;
+    const loud = JSON.stringify(summarizeWaveGroups(config, 1, 1));
+    setActiveWaveRules(CAMPAIGN_WAVE_RULES);
+    expect(loud).not.toBe(JSON.stringify(summarizeWaveGroups(config, 1, 1)));
+  });
+
+  it('of the table source keep the campaign leak and name the wave by the list', () => {
+    const rules = new TableWaveSource().rules;
+    expect(rules.leakScale(40)).toBe(enemyBaseDamageForWave(40));
+    expect(rules.name(1)).toBeTruthy();
+    expect(rules.enemyMix(1)?.length).toBeGreaterThan(0);
+  });
+});

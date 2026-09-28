@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import type { Enemy } from '../entities/enemy.entity';
 import { OozeBody } from '../entities/ooze-body';
 import { leakDamageOf, type EnemyTypeId, type OozeConfig } from '../configs/enemy-types.config';
-import { enemyBaseDamageForWave } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 import { OOZE_SOUNDS } from '../configs/audio.config';
 import { routeBodyStations, type RouteBody, type RouteBodyContact } from '../utils/route-body';
 import { OozeSounds } from './ooze-sounds';
@@ -94,7 +94,7 @@ export class OozeBodies {
       const speed = movement.speedMps * movement.speedMultiplier * movement.getSlowMultiplier(gameTimeMs);
       const entered = body.flowIn((speed * Math.min(deltaMs, 100)) / 1000);
       if (entered > 0) {
-        const perMetre = (enemyBaseDamageForWave(this.waveNumber()) * leakDamageOf(enemy.typeConfig.id as EnemyTypeId)) / config.maxLengthM;
+        const perMetre = (waveRules().leakScale(this.waveNumber()) * leakDamageOf(enemy.typeConfig.id as EnemyTypeId)) / config.maxLengthM;
         const damage = body.owe(entered * perMetre);
         if (damage > 0) this.eventBus.emit({ type: 'enemy:leaking', enemy, damage });
         // The mass that went in takes its share of the one HP pool with it

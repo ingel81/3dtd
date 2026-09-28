@@ -27,7 +27,7 @@ import { ResearchId, ResearchEffect } from '../../../configs/research/research.t
 import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
 import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
-import { templateObjectForWave } from '../../../configs/campaign.config';
+import { waveHasAir, waveRules } from '../../../director/wave-rules';
 import { ENEMY_TYPES, EnemyTypeId } from '../../../configs/enemy-types.config';
 import { HERO } from '../../../configs/hero.config';
 
@@ -213,9 +213,9 @@ export class ResearchPickStrategy extends BaseStrategy {
 
   /** True iff the upcoming wave carries air units the rocket is priced for. */
   private upcomingWaveHasHeavyAir(state: GameStateSnapshot): boolean {
-    const forced = templateObjectForWave(state.waveNumber + 1);
-    if (!forced) return false;
-    return forced.enemies.some(([typeId]) => {
+    const mix = waveRules().enemyMix(state.waveNumber + 1);
+    if (!mix) return false;
+    return mix.some(([typeId]) => {
       const cfg = ENEMY_TYPES[typeId as EnemyTypeId];
       return !!cfg?.isAirUnit && cfg.armorType === 'heavy';
     });
@@ -224,15 +224,8 @@ export class ResearchPickStrategy extends BaseStrategy {
   /** True iff the upcoming wave's enemy mix includes any air unit. */
   private upcomingWaveHasAir(state: GameStateSnapshot): boolean {
     // expectedArmorDistribution doesn't expose air-vs-ground, so we look up
-    // the campaign-forced template for the next wave (if in campaign range)
-    // and check enemies.
-    const next = state.waveNumber + 1;
-    const forced = templateObjectForWave(next);
-    if (!forced) return false;
-    return forced.enemies.some(([typeId]) => {
-      const cfg = ENEMY_TYPES[typeId as EnemyTypeId];
-      return !!cfg?.isAirUnit;
-    });
+    // the next wave's enemy mix, where the source fixes it in advance.
+    return waveHasAir(state.waveNumber + 1, (id) => !!ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit);
   }
 
   /**

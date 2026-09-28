@@ -638,3 +638,18 @@ Dauer-Deckel) steht als Toleranz im Spec und bleibt ein offener Balance-Punkt.
 
 Zahlen: 5314 Tests grün, Lint und Build sauber. Außerhalb von `director/` greift kein Produktionscode mehr auf
 `sources/adaptive/` zu.
+
+## 17. Regeln je Welle gehören der Quelle (2026-09-28)
+
+Eine Prüfung fand Regeln außerhalb der Quellen, die das Spiel direkt nach der Wellennummer aus der Kampagne las:
+Leckschaden, Gold, Boss-Welle, die kommende Gegnermischung (Luftwarnung, Schnappschuss, Forschungswahl der Bots)
+und der Name der Sprungwelle im Debug-Fenster. Bei einem Tausch der Quelle wären sie bei der alten Logik geblieben.
+
+Jetzt bringt jede Quelle sie im Vertrag mit (`WaveSource.rules`, Typ in `director/wave-rules.ts`), `WaveDirector`
+macht die Regeln der Quelle des Laufs zu den aktiven, und alle Stellen lesen `waveRules()`. Vor dem ersten Lauf
+gelten die der Kampagne (`configs/campaign-wave-rules.ts`), die beide heutigen Quellen spielen; der Tabellen-Source
+nimmt Leck und Gold daraus, Boss, Mischung und Namen aus seiner Liste. Die Werte im Spiel ändern sich dadurch
+nicht.
+
+Bewusst geteilt bleiben der Konfigurations-Hash des Lauf-Logs (hasht alle Configs, dazu die Quelle) und die
+Stellschrauben des adaptiven Directors, die Bot-Läufe setzen; eine andere Quelle liest sie nicht.

@@ -18,6 +18,7 @@ import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
 import { formatExplanation } from './wave-explanation';
 import { createWaveSource } from './wave-source.registry';
+import { setActiveWaveRules } from './wave-rules';
 import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 import type {
   PlannedWave,
@@ -60,6 +61,9 @@ export class WaveDirector {
   private debugMode = signal(false);
 
   constructor() {
+    // The preview asks for leak and gold before the first run starts
+    setActiveWaveRules(this.activeSource.rules);
+
     // Subscribe the source to completed waves.
     //
     // This wiring is the whole point of an adaptive source and it was missing
@@ -190,6 +194,7 @@ export class WaveDirector {
     } else {
       this.activeSource.reset();
     }
+    setActiveWaveRules(this.activeSource.rules);
     this.plannedWave = null;
     this.lastDecision.set(null);
 

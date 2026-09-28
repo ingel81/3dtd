@@ -5,7 +5,7 @@ import { cueLeadMs, BACKGROUND_MUSIC, MusicTrack } from '../configs/background-m
 import { MusicBufferLoader } from './music-buffer-loader';
 import { MusicMixer } from './music-mixer';
 import { MASTER_BUS_PRE_GAIN } from '../configs/audio.config';
-import { isBossWave } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 import { isBloodMoonWave } from '../configs/blood-moon.config';
 
 /**
@@ -460,7 +460,7 @@ export class BackgroundMusicService {
   /** The tracks for `wave`: the boss's, the blood moon's or the wave's; a list without tracks falls back to the wave's. */
   private waveTracks(wave: number): MusicTrack[] {
     const { boss, bloodMoon } = BACKGROUND_MUSIC;
-    if (isBossWave(wave) && boss.length > 0) return boss;
+    if (waveRules().isBoss(wave) && boss.length > 0) return boss;
     if (isBloodMoonWave(wave) && bloodMoon.length > 0) return bloodMoon;
     return BACKGROUND_MUSIC.wave;
   }

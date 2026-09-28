@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { waveGold } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 import type { WaveGoldBreakdown } from '../game-engine/game-event-bus';
 
 /**
@@ -14,7 +14,7 @@ export function skippedWavesGold(first: number, last: number): number {
   const milestones = GAME_BALANCE.economy.milestoneBonuses;
   let total = 0;
   for (let wave = Math.max(1, first); wave <= last; wave++) {
-    const budget = waveGold(wave);
+    const budget = waveRules().gold(wave);
     total += budget.kill + budget.complete + (milestones[wave] ?? 0);
   }
   return total;
@@ -60,7 +60,7 @@ export class EconomyService {
     hpLost: number;
   }): WaveGoldBreakdown {
     const cfg = GAME_BALANCE.economy;
-    const base = waveGold(result.wave).complete;
+    const base = waveRules().gold(result.wave).complete;
     const perfectBonus = result.perfect ? Math.round(base * cfg.perfectBonusRatio) : 0;
     const closeCallBonus = result.closeCall ? Math.round(base * cfg.closeCallBonusRatio) : 0;
     const milestoneBonus = cfg.milestoneBonuses[result.wave] ?? 0;

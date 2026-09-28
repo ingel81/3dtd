@@ -1,5 +1,5 @@
 import { ENEMY_TYPES, leakDamageOf, lineageLeakDamage, type EnemyTypeId } from '../../configs/enemy-types.config';
-import { enemyBaseDamageForWave } from '../../configs/campaign.config';
+import { waveRules } from '../../director/wave-rules';
 import type { WaveConfig } from '../wave.manager';
 import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 
@@ -12,7 +12,7 @@ import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
  * one lane's. `wave`: the wave number, for what a leak costs at it.
  */
 export function summarizeWaveGroups(config: WaveConfig, lanes = 1, wave = 1): WaveGroupDisplay[] {
-  const scale = enemyBaseDamageForWave(wave);
+  const scale = waveRules().leakScale(wave);
   const entries = config.schedule.entries;
   if (entries.length === 0) return [];
 

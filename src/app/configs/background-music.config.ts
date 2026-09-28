@@ -31,7 +31,7 @@ export interface BackgroundMusicConfig {
   build: MusicTrack[];
   /** Tracks for wave phase (combat). New random track per wave. */
   wave: MusicTrack[];
-  /** Instead of `wave` on a boss wave (isBossWave) */
+  /** Instead of `wave` on a boss wave (the source's rules, director/wave-rules.ts) */
   boss: MusicTrack[];
   /** Instead of `wave` on a blood-moon wave that is no boss wave */
   bloodMoon: MusicTrack[];

@@ -7,6 +7,7 @@ import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state
 import type { WaveConfig } from './models/wave-config';
 import type { WaveResult } from './models/wave-result';
 import type { PlannedWave, WaveSource } from './wave-source';
+import { CAMPAIGN_WAVE_RULES } from '../configs/campaign-wave-rules';
 
 /**
  * The director's own surface: which source a run plays, which wave is
@@ -40,6 +41,7 @@ class StubCollector {
 class StubSource implements WaveSource {
   readonly id = 'adaptive' as const;
   readonly name = 'Stub source';
+  readonly rules = CAMPAIGN_WAVE_RULES;
   plansAt: 'wave-end' | 'wave-start' = 'wave-start';
 
   planned: number[] = [];

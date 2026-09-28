@@ -1,6 +1,6 @@
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import { getAllTowerTypes, TowerTypeId } from '../../../configs/tower-types.config';
-import { templateObjectForWave } from '../../../configs/campaign.config';
+import { waveHasAir } from '../../../director/wave-rules';
 import { canTargetAirEffective } from '../../../entities/tower-targeting.util';
 
 /**
@@ -31,12 +31,12 @@ export interface AirAlertView {
 }
 
 /**
- * Whether the campaign template of `wave` brings air units. False past the
- * campaign: there the director picks the template when the wave starts.
+ * Whether `wave` brings air units, as far as the source fixes the wave in
+ * advance. False where it does not: the adaptive director picks the template
+ * past the campaign when the wave starts.
  */
-export function campaignWaveHasAir(wave: number): boolean {
-  const template = templateObjectForWave(wave);
-  return !!template && template.enemies.some(([id]) => ENEMY_TYPES[id]?.isAirUnit === true);
+export function waveBringsAir(wave: number): boolean {
+  return waveHasAir(wave, (id) => ENEMY_TYPES[id]?.isAirUnit === true);
 }
 
 /**
@@ -46,7 +46,7 @@ export function campaignWaveHasAir(wave: number): boolean {
 export function upcomingAirAlert(lastWave: number, antiAirTowers: number): AirAlert | null {
   for (let ahead = 1; ahead <= AIR_ALERT_LOOKAHEAD; ahead++) {
     const wave = lastWave + ahead;
-    if (campaignWaveHasAir(wave)) return { wave, wavesAhead: ahead, antiAirTowers };
+    if (waveBringsAir(wave)) return { wave, wavesAhead: ahead, antiAirTowers };
   }
   return null;
 }
