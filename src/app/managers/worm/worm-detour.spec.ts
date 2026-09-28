@@ -14,7 +14,8 @@ vi.mock('three', async () => {
 
 import { createTestManagers, TestManagers } from '../../integration/test-helpers';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
-import { BandRoute, bandPath, buildBand } from '../../utils/corridor-band';
+import { BandRoute, buildBand } from '../../utils/corridor-band';
+import { bandPath } from '../../utils/corridor-band-path';
 import type { RouteWaypoint } from '../../models/game.types';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from './worm-group';

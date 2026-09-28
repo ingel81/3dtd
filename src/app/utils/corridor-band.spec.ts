@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { BandColumn, BandRoute, BandStation, CorridorBand, PASSAGE_SPAN_M, bandPath, buildBand, smoothCentre } from './corridor-band';
+import { BandColumn, BandRoute, BandStation, CorridorBand, PASSAGE_SPAN_M, buildBand, smoothCentre } from './corridor-band';
+import { bandPath } from './corridor-band-path';
 import { corridorConfig } from './route-corridor';
 import { segmentTouchesCell } from './route-grid-builder';
 

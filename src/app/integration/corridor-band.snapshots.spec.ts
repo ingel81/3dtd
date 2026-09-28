@@ -16,7 +16,8 @@
 import { describe, expect, it } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { BandColumn, BandRoute, BandStation, CorridorBand, bandPath, buildBand } from '../utils/corridor-band';
+import { BandColumn, BandRoute, BandStation, CorridorBand, buildBand } from '../utils/corridor-band';
+import { bandPath } from '../utils/corridor-band-path';
 import { corridorConfig } from '../utils/route-corridor';
 import { segmentTouchesCell } from '../utils/route-grid-builder';
 

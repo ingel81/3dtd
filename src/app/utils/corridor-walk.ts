@@ -1,7 +1,8 @@
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { RouteCell } from './route-cell';
 import { corridorConfig, lowObjectTop } from './route-corridor';
-import { type BandStation, offsetAt } from './corridor-band';
+import type { BandStation } from './corridor-band';
+import { offsetAt } from './corridor-band-path';
 
 /**
  * Why a cell lies in the walkable band or beside it, for

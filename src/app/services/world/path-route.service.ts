@@ -25,10 +25,9 @@ import {
   BandRoute,
   BandStation,
   CorridorBand,
-  bandPath,
   buildBand,
-  stationNear,
 } from '../../utils/corridor-band';
+import { bandPath, stationNear } from '../../utils/corridor-band-path';
 import { routeApproaches, segmentApproaches } from '../../utils/carried-height';
 import { UnderpassIndex, splitAtSpans } from '../../utils/underpass';
 import { haversineDistance } from '../../utils/geo-utils';
