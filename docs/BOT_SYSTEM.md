@@ -388,6 +388,10 @@ vorhanden. Feuerrate 70 % pro Entscheidung, 90 % ab 2000 Credits, damit
 hortende Bots ihre Kasse tatsächlich in Upgrades leeren statt auf 300k zu
 sitzen.
 
+Erst ausbauen (2026-09-28): unter `towersWanted(Welle, maxTowers)`, vier Türme und einer mehr je Welle bis zur
+Obergrenze, geht das Gold in neue Türme, außer ab 2000 Credits. Vorher rüstete der Experte bis Welle 11 drei oder vier
+Türme auf, und jede Bot-Messung begann mit einer Abwehr, die kein Mensch baut.
+
 Ablauf:
 
 1. Türme mit verfügbaren Upgrades nach Distanz zum nächsten Spawn sortieren.
