@@ -644,6 +644,10 @@ eine Suche im Main-Prozess (mDNS oder UDP-Broadcast, im Browser nicht möglich).
 Dialog dessen Host anzeigen, damit niemand unbemerkt auf einem fremden Server landet. Ein fremder Relay erfährt Name
 und Browser; das Weltpaket von dort prüft `readWorldPackage` auf Format, Spielversion und Balance.
 
+Die Wellenquelle bestimmt der Host (2026-09-28): Das Weltpaket trägt sie (`waveSource`), der Gast übernimmt sie für
+den nächsten Lauf (`WaveDirector.useSourceNextRun`). Der Balance-Hash im Hello und im Paket ist darum der ohne Quelle;
+ein Gast mit anderer Quelle in der Adresse wird nicht abgewiesen.
+
 #### Schutz gegen Schummeln
 
 Was Lockstep schon leistet: Jeder Client rechnet alles selbst und prüft jeden Befehl nach denselben Regeln
