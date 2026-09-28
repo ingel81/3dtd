@@ -309,9 +309,16 @@ Ideen (2026-09-27), nichts entschieden:
       verworfen, eine Abweichung, erster abweichender Tick 100704: drei Gegner an gleicher Stelle, auf Firefox
       zusammen 119,3 HP weniger, genau so viel mehr `damageDealt` bei einem Tower (ein zusätzlicher oder früherer
       Flächentreffer); 4 Ticks davor eine Frostbombe. Das Relay zeigt ungleiche Schritte je Frame (Chromium meist 3+,
-      Firefox 0 bis 2). Verdacht, unbelegt: etwas in der Sim hängt an Frames statt an Sub-Steps. Nächster Schritt: Test
-      ohne Browser, dieselbe Welle mit Frostbombe und Flächen-Towern über den echten Frame-Pfad mit 1 und mit 4
-      Schritten je Frame, Prüfsummen vergleichen. Daten: `tmp/nightly-2026-09-28/tick2/`.
+      Firefox 0 bis 2).
+      **Ursache gefunden und behoben 2026-09-28** (`4091f8fd`): Frame-Takt widerlegt (zwei Clients mit 1 und bis 40
+      Schritten je Frame, 51.000 Schritte bitgleich), reine Sim in Node, Chromium und Firefox bitgleich (79.016 Schritte,
+      `tools/det-math-browsers/run-heavy.mjs`). Ein Mitschnitt je Tab im Runner zeigte bei gleicher Kugel und gleichen
+      Eingaben: Firefox gab jedem Splash-Opfer den vollen, ungerundeten Schaden, Chromium den abfallenden; eine Falle
+      auf dem Aufruf nannte `applySplashDamage`. Firefox übersprang dort den Zweig auf `splashDamageFalloff` (bei jeder
+      Munition `true`), jeweils 12 bis 17 Minuten nach dem Start, in drei Räumen innerhalb einer Minute: vermutlich der
+      optimierende JIT von SpiderMonkey. Schalter entfernt, Abfall ohne Zweig. Vorher 5 von 7 Räumen abgewichen, danach
+      0 von 4 bis Spielende (Welle 28 bis 35). Offen: den Befund Mozilla melden (Minimalbeispiel fehlt, in der
+      schweren Offline-Szene trat er nicht auf). Daten: `tmp/nightly-2026-09-28/tick3` bis `tick5`.
 - [ ] **E65 Relay verwirft Nachrichten still, der Raum friert ein** (Nachtlauf 2026-09-28): Überschreitet ein Client
       die Nachrichtengrenze, verwirft das Relay den Rest der Sekunde ohne Hinweis; gehen dabei Nachrichten verloren, die
       der Lockstep braucht, bleibt der Raum für alle stehen. Im normalen Spiel nur durch einen Client-Fehler oder einen
