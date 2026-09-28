@@ -213,8 +213,29 @@ Quelle. Bleiben bewusst geteilt: der Konfigurations-Hash und die Stellschrauben 
   Grenze je Gegner), `budget-source.ts`. Leckschaden wächst stetig mit der Kurve (`LEAK_GROWTH`), Boss-Gold nach dem
   Plan. Noch nicht Standard; `?waves=budget` in der Adresse schaltet einen Tab um.
 
-## 14. Nächster Schritt
+## 14. Kalibrierung mit Bots (Nacht 2026-09-28/29, Bot-Werte)
 
-Bauen: die neue Quelle `sources/budget/` mit Plan-Datei, Budget-Schritt,
-Grenze je Gegner und Zeit unter Feuer aus der Route. Bot-Vergleich alt gegen neu, danach `adaptive` mit ihren
-Sonderregeln entfernen; `table` bleibt.
+Solo-Läufe in der DevWorld, Tempo 16, je Stand 3 bis 6 Läufe, verglichen mit 12 Läufen des adaptiven Directors
+(Todeswelle 25 bis 42, HP nach W10/W20/W30: 353/277/223). Was sich dabei an der Rechnung geändert hat, jeweils für jeden
+Gegner in jeder Welle:
+
+| Befund der Bots | Änderung |
+|---|---|
+| Frühe Wellen kosteten 40 bis 60 HP, obwohl die HP schon bei 0,3 bis 0,9 lagen | Anzahl W2 bis W30 aus dem, was Bots unter dem adaptiven Director schaffen; Treffer-Anteil 0,6; Regler ab Welle 2 |
+| Die Ooze kostete mit einem Durchbruch 91 HP | Ooze und Skarnax ohne Begleiter; wessen eines Leck mehr kostet als die Welle darf, bekommt ein Viertel des Schadens unter Feuer |
+| 62 Mammuts mit HP-Faktor 4 bis 7 kosteten 133 bis 184 HP | Rechnung gegen die reine Schadenstabelle statt der Werte mit Mindestanteil gegen Festung |
+| Zeit unter Feuer war die Vereinigung aller Strecken mal dem ganzen Schaden (Review) | Grenze je Gegner aus Schaden mal Strecke je Tower; das Zeitfenster der Welle aus der Vereinigung |
+| Skarnax rechnete als ein Gegner mit 240 Segmenten, 0 HP Verlust in 17 Läufen | Jedes Segment ist ein Körper, das Zeitfenster enthält das Herauskommen der Kette |
+| Dichte schnelle Schwärme leckten bei niedrigen HP | Körper, die zugleich in Reichweite stehen, teilen sich das Feuer |
+| Welle 1 kostete im Coop 58 HP (geplant, bevor ein Tower steht) | Zeile 1 leichter; was die Abwehr nicht treffen kann, bekommt die Stärke der Zeile als HP-Faktor |
+
+Stand vor den letzten beiden Punkten (alter Bot, 6 Läufe): Todeswelle 32 bis 42, HP nach W10/W20/W30: 347/279/218, also
+gleichauf mit dem adaptiven Director. Verlauf und Endwerte stehen in der Morgen-Zusammenfassung.
+
+Der Bot baut seit 2026-09-28 erst aus, dann rüstet er auf (vier Tower und einer mehr je Welle, Obergrenze 20):
+vorher standen bis W10 nur 3 bis 4 Tower.
+
+## 15. Nächster Schritt
+
+Die Läufe des Users auf echten Karten (PLAYTEST.md, Paket B). Danach entscheiden: Budget-Quelle als Standard, der Abbau
+des adaptiven Directors liegt auf dem Branch `wt/remove-adaptive` bereit.
