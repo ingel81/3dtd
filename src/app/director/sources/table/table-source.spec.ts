@@ -77,7 +77,7 @@ describe('TableWaveSource', () => {
     const weak = createEmptySnapshot();
     const strong = createEmptySnapshot();
     strong.defense.totalDPS = 1e6;
-    strong.defense.killThroughput = { ground: 1e6, air: 1e6 };
+    strong.defense.effectiveDPSPerArmor.ground.light = 1e6;
 
     const source = new TableWaveSource();
     expect(source.plan({ wave: 12, state: strong, random }).config)
@@ -130,26 +130,22 @@ describe('TableWaveSource', () => {
       expect(log.diagnostics).toMatchObject({ tableWave: WAVE_TABLE.cycle.fromWave, tableCycle: 1 });
     });
 
-    it('explains every wave in its own words, without a sizing block', () => {
+    it('explains every wave in its own words', () => {
       const { explanation } = plan(1);
       expect(explanation!.summary).toContain(WAVE_TABLE.waves[0].name);
       expect(explanation!.reasons.some((r) => r.includes('Written down'))).toBe(true);
-      // Nothing ramped, capped or corrected anything, so there is no sizing.
-      expect(explanation!.sizing).toBeUndefined();
     });
 
     it('knows every wave ahead, with its exact count', () => {
       const facts = new TableWaveSource()
-        .peek({ fromWave: 1, count: 3, defense: { totalDps: 0 } });
+        .peek({ fromWave: 1, count: 3 });
 
       expect(facts.map((f) => f.wave)).toEqual([1, 2, 3]);
       for (const fact of facts) {
         expect(fact.known).toBe(true);
-        expect(fact.count!.lo).toBe(fact.count!.hi);
-        expect(fact.count!.hi).toBe(fact.count!.max);
       }
       const row = WAVE_TABLE.waves[0];
-      expect(facts[0].count!.lo).toBe(Object.values(row.enemies).reduce((a, b) => a + b, 0));
+      expect(facts[0].count).toBe(Object.values(row.enemies).reduce((a, b) => a + b, 0));
       expect(facts[0].name).toBe(row.name);
     });
 
@@ -158,7 +154,7 @@ describe('TableWaveSource', () => {
       const boss = WAVE_TABLE.waves.find((row) => Object.keys(row.enemies).includes('herbert'))!;
       const source = new TableWaveSource();
       const peek = (wave: number) =>
-        source.peek({ fromWave: wave, count: 1, defense: { totalDps: 0 } })[0];
+        source.peek({ fromWave: wave, count: 1 })[0];
 
       expect(peek(air.wave).air).toBe(true);
       expect(peek(boss.wave).boss).toBe(true);

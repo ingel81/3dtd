@@ -316,12 +316,12 @@ const WORM_STATS = {
   //
   // 240 Segmente sind damit 96.000 HP bei Multiplikator 1, in der
   // Größenordnung dessen, was eine normale späte Welle an Schaden auf sich
-  // zieht. Die Feinjustierung darüber macht der Druck-Regler über den
-  // HP-Multiplikator der Welle (boss-variants.config.ts).
+  // zieht. Die Feinjustierung darüber macht das Budget der Welle über ihren
+  // HP-Multiplikator (sources/budget/budget.ts).
   baseHp: 400,
   baseSpeed: 4.5,
   canBleed: true,
-  // Only the worm, only in the boss rotation, Custom Wave and Enemy Debug
+  // Only the worm, only in its run plan rows, Custom Wave and Enemy Debug
   isBoss: true,
   randomAnimationStart: true,
   // The chain sways the whole worm (EnemyChain.sway), no lane of its own
@@ -1308,8 +1308,7 @@ export function lineageLeakDamage(id: EnemyTypeId, depth = 0): number {
 /**
  * HP it takes to clear one enemy of `id` and everything a kill splits it
  * into, at HP multiplier 1. Split children scale with their parent's
- * multiplier, so the whole lineage scales with it. 80 for an unknown id,
- * the fallback the fairness gate always used.
+ * multiplier, so the whole lineage scales with it. 80 for an unknown id.
  */
 export function lineageHp(id: EnemyTypeId, depth = 0): number {
   const type = ENEMY_TYPES[id];

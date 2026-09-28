@@ -142,9 +142,9 @@ describe('GameLoopFacadeService: waveExplanation', () => {
 
   /**
    * The facade ships the planned wave and changes nothing about it. Until the
-   * wave sources landed it substituted the boss variants of the rotation
-   * itself, so "which wave comes next" was decided in two places; that
-   * substitution is the source's now (AdaptiveWaveSource, WAVE_SOURCE_PLAN.md).
+   * wave sources landed it substituted boss variants itself, so "which wave
+   * comes next" was decided in two places; the wave is the source's now
+   * (WAVE_SOURCE_PLAN.md).
    */
   describe('what the source planned', () => {
     it('ships it unchanged, whatever wave number it is', async () => {

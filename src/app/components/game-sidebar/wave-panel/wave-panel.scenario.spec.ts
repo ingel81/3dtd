@@ -42,7 +42,7 @@ import { DebugWindowService } from '../../../services/debug/debug-window.service
 import { EnemyDebugService } from '../../../services/debug/enemy-debug.service';
 import { WaveDirector } from '../../../director/wave-director';
 import { waveDirectorStub } from '../../../director/wave-director.stub';
-import { AdaptiveWaveSource } from '../../../director/sources/adaptive/adaptive-source';
+import { BudgetWaveSource } from '../../../director/sources/budget/budget-source';
 import { StateSnapshotService } from '../../../director/state-snapshot.service';
 import { BotClientService } from '../../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
@@ -182,7 +182,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
 /**
  * Playtest 326, 327, 365 and 372 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed
  * on the NEXT timeline: the real WaveTimelineComponent with the marks the
- * WAVE panel hands it (peekUpcomingWaves with the store's wave, the tower DPS
+ * WAVE panel hands it (peekUpcomingWaves with the store's wave
  * and the blood moon switch). The pointer and focus handlers of the template
  * set `hovered`, a click sets `picked` (wave-timeline.component.html).
  */
@@ -190,12 +190,9 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
  * The facts of the coming waves, as the panel gets them from the source the
  * run plays, worded by `peekUpcomingWaves`.
  */
-const nextSource = new AdaptiveWaveSource();
-const peekWaves = (currentWave: number, towerDps: number, count: number, bloodMoon: boolean) =>
-  peekUpcomingWaves(
-    nextSource.peek({ fromWave: currentWave + 1, count, defense: { totalDps: towerDps } }),
-    bloodMoon,
-  );
+const nextSource = new BudgetWaveSource();
+const peekWaves = (currentWave: number, count: number, bloodMoon: boolean) =>
+  peekUpcomingWaves(nextSource.peek({ fromWave: currentWave + 1, count }), bloodMoon);
 
 describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
   const timeline = (peeks: WavePeek[]) => {
@@ -206,20 +203,20 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
   };
 
   it('326: a new game shows W1 to W5, W1 in detail with the counters as flame, drop and target', () => {
-    const peeks = peekWaves(0, 0, NEXT_WAVE_MARKS, true);
+    const peeks = peekWaves(0, NEXT_WAVE_MARKS, true);
     const next = timeline(peeks);
     expect(peeks.map((p) => p.wave)).toEqual([1, 2, 3, 4, 5]);
 
     const w1 = next.shown()!;
     expect(w1).toMatchObject({ wave: 1, name: 'Zombie Horde', known: true, armorLabel: 'Unarmored' });
-    expect(w1.count!.startsWith('20')).toBe(true);
+    expect(w1.count).toBe('20');
     expect(w1.weakToTypes.map((type) => next.damageTypeIcon(type))).toEqual(['flame', 'splash', 'target']);
     expect(w1.tooltip).toContain('Weak to Fire, Poison, Pierce.');
     expect(next.markLabel(w1)).toBe('Wave 1, Zombie Horde');
   });
 
   it('326: the pointer on mark 3 shows W3, away springs back; a click on 4 stays, also after another hover', () => {
-    const next = timeline(peekWaves(0, 0, NEXT_WAVE_MARKS, true));
+    const next = timeline(peekWaves(0, NEXT_WAVE_MARKS, true));
 
     next.hovered.set(3); // mouseenter (focus alike)
     expect(next.shown()?.wave).toBe(3);
@@ -235,10 +232,10 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
   });
 
   it('327: after W5 the marks are 6 to 10, the plane over 7 (and 8), the skull only over 10', () => {
-    const peeks = peekWaves(5, 0, NEXT_WAVE_MARKS, true);
+    const peeks = peekWaves(5, NEXT_WAVE_MARKS, true);
     const next = timeline(peeks);
     expect(peeks.map((p) => p.wave)).toEqual([6, 7, 8, 9, 10]);
-    // W7 Bat Swarm is the air debut, W8 Hornet Strike brings more air (campaign.config.ts)
+    // W7 Bat Swarm is the air debut, W8 Hornet Strike brings more air (run-plan.json)
     expect(peeks.filter((p) => p.air).map((p) => p.wave)).toEqual([7, 8]);
     expect(peeks.filter((p) => p.boss).map((p) => p.wave)).toEqual([10]);
     expect(peeks.some((p) => p.bloodMoon)).toBe(false);
@@ -246,8 +243,8 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
   });
 
   it('372: after W9 the moon stands over mark 14; its tooltip ends with the blood moon sentence, the rest as with the look off', () => {
-    const on = peekWaves(9, 0, NEXT_WAVE_MARKS, true);
-    const off = peekWaves(9, 0, NEXT_WAVE_MARKS, false);
+    const on = peekWaves(9, NEXT_WAVE_MARKS, true);
+    const off = peekWaves(9, NEXT_WAVE_MARKS, false);
     expect(on.map((p) => p.wave)).toEqual([10, 11, 12, 13, 14]);
     expect(on.filter((p) => p.bloodMoon).map((p) => p.wave)).toEqual([14]);
 
@@ -261,10 +258,10 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
     expect(timeline(on).markLabel(w14)).toContain('blood moon');
   });
 
-  it('365: after a jump to 45 (counter 44) the first mark is W45 "Boss: Ooze" with the skull', () => {
-    const [w45] = peekWaves(44, 0, NEXT_WAVE_MARKS, true);
-    expect(w45).toMatchObject({ wave: 45, name: 'Boss: Ooze', boss: true, known: true, count: null });
-    expect(w45.armors).toEqual([ARMOR_TYPE_UI[ENEMY_TYPES['ooze'].armorType].label]);
-    expect(w45.tooltip).toContain('A mass of slime');
+  it('365: after a jump to 20 (counter 19) the first mark is W20 "Boss: Ooze" with the skull', () => {
+    const [w20] = peekWaves(19, NEXT_WAVE_MARKS, true);
+    expect(w20).toMatchObject({ wave: 20, name: 'Boss: Ooze', boss: true, known: true, count: '1' });
+    expect(w20.armors).toEqual([ARMOR_TYPE_UI[ENEMY_TYPES['ooze'].armorType].label]);
+    expect(w20.tooltip).toContain('1× ooze');
   });
 });

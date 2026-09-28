@@ -1,32 +1,31 @@
 import { describe, it, expect } from 'vitest';
 import { BLOOD_MOON_NOTE, NEXT_WAVE_MARKS, markIconSize, peekUpcomingWaves, shownPeek } from './upcoming-waves';
-import { CAMPAIGN_LENGTH, isBossWave, templateObjectForWave } from '../../../configs/campaign.config';
-import { DPS_RAMP_COUNT } from '../../../director/sources/adaptive/wave-sizing';
-import { AdaptiveWaveSource } from '../../../director/sources/adaptive/adaptive-source';
+import { BudgetWaveSource } from '../../../director/sources/budget/budget-source';
+import { planRowForWave } from '../../../director/sources/budget/run-plan';
 
 /**
  * The facts come from the source the run plays; this module only words them.
  * The spec drives both together, because the marks are only right when the
- * source's answer and the wording fit each other.
+ * source's answer and the wording fit each other. The budget source is the
+ * default; it names every wave of its run plan ahead.
  */
-const source = new AdaptiveWaveSource();
-const peekWaves = (currentWave: number, towerDps: number, count: number, bloodMoon = true) =>
-  peekUpcomingWaves(
-    source.peek({ fromWave: currentWave + 1, count, defense: { totalDps: towerDps } }),
-    bloodMoon,
-  );
+const source = new BudgetWaveSource();
+const peekWaves = (currentWave: number, count: number, bloodMoon = true) =>
+  peekUpcomingWaves(source.peek({ fromWave: currentWave + 1, count }), bloodMoon);
+const rowCount = (wave: number) => Object.values(planRowForWave(wave)!.enemies).reduce((sum, n) => sum + n, 0);
 
 describe('peekUpcomingWaves', () => {
   it('shows the waves after the current one, as many as asked for', () => {
-    const peeks = peekWaves(0, 0, NEXT_WAVE_MARKS);
+    const peeks = peekWaves(0, NEXT_WAVE_MARKS);
     expect(peeks.map((p) => p.wave)).toEqual([1, 2, 3, 4, 5]);
     expect(peeks[0]).toMatchObject({ name: 'Zombie Horde', known: true, boss: false });
-    expect(peeks[0].tooltip.startsWith(templateObjectForWave(1)!.description)).toBe(true);
-    expect(peekWaves(7, 0, 2).map((p) => p.wave)).toEqual([8, 9]);
+    const [fact] = source.peek({ fromWave: 1, count: 1 });
+    expect(peeks[0].tooltip.startsWith(fact.description)).toBe(true);
+    expect(peekWaves(7, 2).map((p) => p.wave)).toEqual([8, 9]);
   });
 
   it('lists the armors and the damage types the wave is weak to', () => {
-    const [w1] = peekWaves(0, 0, 1);
+    const [w1] = peekWaves(0, 1);
     expect(w1.armors).toEqual(['Unarmored']);
     expect(w1.armorLabel).toBe('Unarmored');
     expect(w1.weakToTypes).toEqual(['fire', 'poison', 'pierce']);
@@ -36,28 +35,19 @@ describe('peekUpcomingWaves', () => {
   });
 
   it('marks a wave with air units', () => {
-    const [, w7] = peekWaves(5, 0, 2);
+    const [, w7] = peekWaves(5, 2);
     expect(w7).toMatchObject({ wave: 7, name: 'Bat Swarm', air: true });
     expect(w7.armors).toEqual(['Light']);
   });
 
-  it('opens the count range with the tower DPS the way the director does', () => {
-    const [lo, full] = templateObjectForWave(1)!.countRange;
-    // No defense: the ramp floor, 10% of the range
-    expect(peekWaves(0, 0, 1)[0].count).toBe(`${lo}–${Math.round(lo + (full - lo) * 0.1)}`);
-    // Half the ramp
-    expect(peekWaves(0, DPS_RAMP_COUNT / 2, 1)[0].count).toBe(`${lo}–${Math.round(lo + (full - lo) * 0.5)}`);
-    // The whole template from DPS_RAMP_COUNT on
-    expect(peekWaves(0, DPS_RAMP_COUNT * 3, 1)[0].count).toBe(`${lo}–${full}`);
-  });
-
-  it('says in the tooltip that the gate can send fewer', () => {
-    const [w1] = peekWaves(0, 0, 1);
-    expect(w1.tooltip).toMatch(/A weak defense can get fewer than \d+\./);
+  it('shows the count of the plan row, on the mark and in the tooltip', () => {
+    const [w1] = peekWaves(0, 1);
+    expect(w1.count).toBe(`${rowCount(1)}`);
+    expect(w1.tooltip).toContain(`${rowCount(1)} enemies.`);
   });
 
   it('weighs a mixed wave by HP, sums up the armors and names the counters per armor in the tooltip', () => {
-    const [, w10] = peekWaves(8, 0, 2);
+    const [, w10] = peekWaves(8, 2);
     expect(w10).toMatchObject({ name: 'Boss: Herbert', boss: true });
     expect(w10.armors.length).toBeGreaterThan(1);
     expect(w10.armorLabel).toBe(`${w10.armors[0]} +${w10.armors.length - 1}`);
@@ -65,91 +55,62 @@ describe('peekUpcomingWaves', () => {
     expect(w10.tooltip).toContain('Fortified: Siege, Magic.');
   });
 
-  it('names the boss a variant sends on W20 and W30, not Herbert (TODO E41)', () => {
-    const [w20] = peekWaves(19, 0, 1);
-    const [w30] = peekWaves(29, 0, 1);
+  it('names the boss of W20 and W30, not Herbert (TODO E41)', () => {
+    const [w20] = peekWaves(19, 1);
+    const [w30] = peekWaves(29, 1);
     expect(w20).toMatchObject({ name: 'Boss: Ooze', boss: true });
     expect(w30).toMatchObject({ name: 'Boss: Skarnax', boss: true });
   });
 
-  it('says what each enemy and the largest wave cost the HQ (TODO E49)', () => {
-    const [w1] = peekWaves(0, DPS_RAMP_COUNT * 3, 1);
-    const hi = templateObjectForWave(1)!.countRange[1];
+  it('says what each enemy and the whole wave cost the HQ (TODO E49)', () => {
+    const [w1] = peekWaves(0, 1);
+    const n = rowCount(1);
     expect(w1.tooltip).toContain('At the HQ each costs: Zombie 2, Zombie v2 2 HP.');
-    expect(w1.tooltip).toContain(`All ${hi} through: up to ${hi * 2} HP.`);
+    expect(w1.tooltip).toContain(`All ${n} through: up to ${n * 2} HP.`);
   });
 
   it('adds the split of the skeletons to the W19 tooltip', () => {
-    const [w19] = peekWaves(18, 0, 1);
+    const [w19] = peekWaves(18, 1);
     expect(w19).toMatchObject({ wave: 19, name: 'Skeleton Swarm' });
     expect(w19.tooltip).toContain('Skeleton: Splits into 2 minions on death.');
   });
 
-  it('shows what is known past the campaign instead of nothing', () => {
-    const last = CAMPAIGN_LENGTH;
-    const [w30, w31] = peekWaves(last - 1, 0, 2);
+  it('knows the waves past the campaign as well', () => {
+    const [w30, w31] = peekWaves(29, 2);
     expect(w30.known).toBe(true);
-    expect(w31).toMatchObject({
-      wave: last + 1,
-      name: "Director's pick",
-      known: false,
-      boss: false,
-      count: null,
-      armors: [],
-      weakToTypes: [],
-      note: 'Template picked at wave start',
-    });
-    expect(w31.tooltip).toContain('Next boss wave: W35.');
+    expect(w31).toMatchObject({ wave: 31, name: planRowForWave(31)!.name, known: true, boss: false });
+    expect(w31.count).toBe(`${rowCount(31)}`);
+    expect(w31.armors.length).toBeGreaterThan(0);
   });
 
-  it('marks the boss waves past the campaign, every fifth from W31', () => {
-    const [w34] = peekWaves(33, 0, 1);
-    expect(w34).toMatchObject({ boss: false, note: 'Template picked at wave start' });
-    const [, w40] = peekWaves(38, 0, 2);
-    expect(w40).toMatchObject({ wave: 40, name: 'Boss wave', boss: true, known: false });
-  });
-
-  it('names a boss wave the rotation gives to a boss variant ahead (W35: the worm)', () => {
-    const [, w35] = peekWaves(33, 0, 2);
-    expect(w35).toMatchObject({
-      wave: 35, name: 'Boss: Skarnax', boss: true, known: true, count: null,
-      armors: ['Heavy'], armorLabel: 'Heavy',
-    });
-    expect(w35.weakToTypes.length).toBeGreaterThan(0);
-    expect(w35.tooltip).toContain('splits the worm in two');
-    expect(w35.tooltip).toContain(`Weak to ${w35.weakTo}.`);
+  it('marks the boss waves past the campaign by the plan, and names them', () => {
+    const [w39, w40] = peekWaves(38, 2);
+    expect(w39.boss).toBe(false);
+    expect(w40).toMatchObject({ wave: 40, name: 'Boss: Stone Golem', boss: true, known: true });
   });
 
   it('marks the blood moon waves, W14 and every seventh after, and says in the tooltip that they only look different', () => {
-    const peeks = peekWaves(12, 0, NEXT_WAVE_MARKS);
+    const peeks = peekWaves(12, NEXT_WAVE_MARKS);
     expect(peeks.filter((p) => p.bloodMoon).map((p) => p.wave)).toEqual([14]);
     const w14 = peeks.find((p) => p.wave === 14)!;
     expect(w14.tooltip).toContain(BLOOD_MOON_NOTE);
     expect(peeks.find((p) => p.wave === 13)!.tooltip).not.toContain(BLOOD_MOON_NOTE);
 
-    // Past the campaign as well: W35 is the worm's boss wave and a blood moon at once
-    const [, w35] = peekWaves(33, 0, 2);
-    expect(w35).toMatchObject({ wave: 35, name: 'Boss: Skarnax', boss: true, bloodMoon: true });
-    expect(w35.tooltip).toContain('splits the worm in two');
+    // Past the campaign as well
+    const [, w35] = peekWaves(33, 2);
+    expect(w35).toMatchObject({ wave: 35, bloodMoon: true });
     expect(w35.tooltip).toContain(BLOOD_MOON_NOTE);
   });
 
   it('leaves the blood moon off the line while its look is switched off', () => {
-    const w14 = peekWaves(13, 0, 1, false)[0];
+    const w14 = peekWaves(13, 1, false)[0];
     expect(w14.bloodMoon).toBe(false);
     expect(w14.tooltip).not.toContain(BLOOD_MOON_NOTE);
-  });
-
-  it('always has the next boss wave on the line past the campaign', () => {
-    for (let current = CAMPAIGN_LENGTH; current < CAMPAIGN_LENGTH + 20; current++) {
-      const peeks = peekWaves(current, 0, NEXT_WAVE_MARKS);
-      expect(peeks.some((p) => p.boss && isBossWave(p.wave))).toBe(true);
-    }
   });
 });
 
 describe('shownPeek', () => {
-  const peeks = peekWaves(0, 0, NEXT_WAVE_MARKS);
+  const peeks = peekWaves(0, NEXT_WAVE_MARKS);
 
   it('details the next wave by default', () => {
     expect(shownPeek(peeks, null, null)?.wave).toBe(1);
@@ -161,7 +122,7 @@ describe('shownPeek', () => {
   });
 
   it('falls back to the next wave once the clicked one is past', () => {
-    expect(shownPeek(peekWaves(3, 0, NEXT_WAVE_MARKS), null, 3)?.wave).toBe(4);
+    expect(shownPeek(peekWaves(3, NEXT_WAVE_MARKS), null, 3)?.wave).toBe(4);
   });
 
   it('shows nothing without waves', () => {

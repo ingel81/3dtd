@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
-import { analyzeDefense, damageMetresPerArmor, isSplashTower, FAIRNESS_MATCHUP_FLOOR } from './defense-analyzer';
+import { analyzeDefense, damageMetresPerArmor, isSplashTower } from './defense-analyzer';
 import { computeTowerDPS } from './tower-dps.util';
 import { Tower } from '../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
@@ -27,9 +27,8 @@ describe('analyzeDefense() with several heroes', () => {
     const hero = heroDefenseProfile(0);
     const one = analyzeDefense([], false, hero);
     const two = analyzeDefense([], false, [hero, hero]);
-    expect(two.killThroughput.ground).toBeCloseTo(one.killThroughput.ground * 2, 6);
-    expect(two.gateDpsPerArmor.ground.light).toBeCloseTo(one.gateDpsPerArmor.ground.light * 2, 6);
-    expect(analyzeDefense([], false, []).killThroughput.ground).toBe(0);
+    expect(two.effectiveDPSPerArmor.ground.light).toBeCloseTo(one.effectiveDPSPerArmor.ground.light * 2, 6);
+    expect(analyzeDefense([], false, []).effectiveDPSPerArmor.ground.light).toBe(0);
   });
 });
 
@@ -43,40 +42,35 @@ describe('analyzeDefense() air targeting per tower', () => {
 
     expect(defense.antiAirDPS).toBeCloseTo(dps, 6);
     expect(defense.capabilities.hasAntiAir).toBe(true);
-    expect(defense.killThroughput.air).toBeCloseTo(defense.killThroughput.ground / 2, 6);
+    expect(defense.effectiveDPSPerArmor.air.light).toBeCloseTo(defense.effectiveDPSPerArmor.ground.light / 2, 6);
     expect(analyzeDefense([mine, theirs], () => false).antiAirDPS).toBe(0);
   });
 });
 
-describe('analyzeDefense() kill throughput', () => {
-  it('counts the rocket with its blast radius, and only against air', () => {
-    // Seit 2026-09-22 hat ihr Sprengkopf einen Wirkradius (5 m, bis zu fünf
-    // Ziele), also trifft ein Schuss mehr als ein Ziel. Boden bleibt null:
+describe('analyzeDefense() DPS per armor', () => {
+  it('counts the rocket only against air', () => {
     // `canTargetGround` ist false und das ist ihre Rolle.
     const rocket = new Tower(POS, 'rocket');
-    const { killThroughput } = analyzeDefense([rocket], false);
-    expect(killThroughput.air).toBeGreaterThan(TOWER_TYPES.rocket.fireRate);
-    expect(killThroughput.ground).toBe(0);
+    const { effectiveDPSPerArmor: eff } = analyzeDefense([rocket], false);
+    expect(eff.air.heavy).toBeGreaterThan(0);
+    expect(eff.ground.heavy).toBe(0);
   });
 
-  it('gate DPS floors bad ground matchups, but not ethereal and air', () => {
+  it('takes the plain damage matrix, bad matchups included', () => {
     const archer = new Tower(POS, 'archer'); // physical: fortified 0.3, ethereal 0.1
     const dps = computeTowerDPS(archer);
     const m = DAMAGE_MATRIX.physical;
-    const { effectiveDPSPerArmor: eff, gateDpsPerArmor: gate } = analyzeDefense([archer], false);
+    const { effectiveDPSPerArmor: eff } = analyzeDefense([archer], false);
 
-    expect(m.fortified).toBeLessThan(FAIRNESS_MATCHUP_FLOOR);
     expect(eff.ground.fortified).toBeCloseTo(dps * m.fortified, 6);
-    expect(gate.ground.fortified).toBeCloseTo(dps * FAIRNESS_MATCHUP_FLOOR, 6);
-    expect(gate.ground.unarmored).toBeCloseTo(dps * m.unarmored, 6); // above the floor
-    expect(gate.ground.ethereal).toBeCloseTo(eff.ground.ethereal, 6);
-    expect(gate.air).toEqual(eff.air);
+    expect(eff.ground.ethereal).toBeCloseTo(dps * m.ethereal, 6);
+    expect(eff.air.fortified).toBeCloseTo(dps * m.fortified, 6);
   });
 
   it('a chaos tower alone opens the air and ethereal gates, at full DPS against every armor', () => {
     const chaos = new Tower(POS, 'chaos');
     const dps = computeTowerDPS(chaos);
-    const { capabilities, effectiveDPSPerArmor: eff, gateDpsPerArmor: gate } = analyzeDefense([chaos], false);
+    const { capabilities, effectiveDPSPerArmor: eff } = analyzeDefense([chaos], false);
 
     expect(capabilities.hasAntiAir).toBe(true);
     expect(capabilities.hasAntiEthereal).toBe(true);
@@ -84,8 +78,6 @@ describe('analyzeDefense() kill throughput', () => {
     for (const armor of ARMOR_TYPES) {
       expect(eff.ground[armor], armor).toBeCloseTo(dps, 6);
       expect(eff.air[armor], armor).toBeCloseTo(dps, 6);
-      // 1.0 sits above FAIRNESS_MATCHUP_FLOOR, so the gate sees the same.
-      expect(gate.ground[armor], armor).toBeCloseTo(dps, 6);
     }
   });
 
@@ -97,19 +89,14 @@ describe('analyzeDefense() kill throughput', () => {
       expect(analyzeDefense([archer], false, null)).toEqual(analyzeDefense([archer], false));
     });
 
-    it('adds half his best ammo per armor, ground and air, to effective and gate DPS', () => {
-      const { effectiveDPSPerArmor: eff, gateDpsPerArmor: gate, killThroughput } = analyzeDefense([], false, hero);
+    it('adds half his best ammo per armor, ground and air', () => {
+      const { effectiveDPSPerArmor: eff } = analyzeDefense([], false, hero);
       // 48 DPS for every ammo; best matrix row per armor: physical, siege, magic
       const expected = { unarmored: 48 * 1.0, light: 48 * 1.0, heavy: 48 * 1.75, fortified: 48 * 1.6, ethereal: 48 * 2.0 };
       for (const armor of ARMOR_TYPES) {
         expect(eff.ground[armor], armor).toBeCloseTo(expected[armor] * HERO.gatePresence, 6);
         expect(eff.air[armor], armor).toBeCloseTo(expected[armor] * HERO.gatePresence, 6);
-        // His best ammo sits above the matchup floor everywhere, so the gate sees the same
-        expect(gate.ground[armor], armor).toBeCloseTo(eff.ground[armor], 6);
       }
-      expect(gate.air).toEqual(eff.air);
-      // Three shots a second with standard rounds, at half presence
-      expect(killThroughput).toEqual({ ground: 3 * HERO.gatePresence, air: 3 * HERO.gatePresence });
     });
 
     it('adds to the towers, and leaves total DPS, capabilities and AoE share to them', () => {
@@ -118,7 +105,6 @@ describe('analyzeDefense() kill throughput', () => {
       const withHero = analyzeDefense([archer], false, hero);
       expect(withHero.effectiveDPSPerArmor.ground.heavy)
         .toBeCloseTo(alone.effectiveDPSPerArmor.ground.heavy + 48 * 1.75 * HERO.gatePresence, 6);
-      expect(withHero.killThroughput.ground).toBeCloseTo(alone.killThroughput.ground + 3 * HERO.gatePresence, 6);
       expect(withHero.totalDPS).toBe(alone.totalDPS);
       expect(withHero.capabilities).toEqual(alone.capabilities);
       expect(withHero.aoeDpsShare).toEqual(alone.aoeDpsShare);
@@ -134,9 +120,6 @@ describe('analyzeDefense() kill throughput', () => {
     const analysis = analyzeDefense([new Tower(POS, 'ice'), new Tower(POS, 'poison')], false);
     expect(analysis.capabilities.hasSplash).toBe(true);
     expect(analysis.aoeDpsShare.ground).toBe(1);
-    expect(analysis.killThroughput.ground).toBeGreaterThan(
-      TOWER_TYPES.ice.fireRate + TOWER_TYPES.poison.fireRate,
-    );
   });
 });
 

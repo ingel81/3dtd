@@ -29,7 +29,9 @@ import { RunLogCollector } from '../run-log/run-log.service';
 import { runSummary } from '../run-log/run-summary';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
-import { enemyBaseDamageForWave } from '../configs/campaign.config';
+import { setActiveWaveRules, waveRules } from '../director/wave-rules';
+import { TableWaveSource } from '../director/sources/table/table-source';
+import { RUN_PLAN_RULES } from '../director/sources/budget/run-plan';
 import { leakDamageOf } from '../configs/enemy-types.config';
 
 /** What a whole ooze costs at wave scale 1 (leakDamageOf, TODO E49) */
@@ -59,6 +61,9 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
 
   beforeEach(() => {
     localStorage.clear();
+    // Whole-HP leak steps (the table source's): the metre-by-metre counts
+    // below are whole points. The budget source's leak grows continuously.
+    setActiveWaveRules(new TableWaveSource().rules);
     m = createTestManagers();
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
     m.enemyManager.setWaveNumberProvider(() => m.waveManager.waveNumber());
@@ -100,6 +105,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   });
 
   afterEach(() => {
+    setActiveWaveRules(RUN_PLAN_RULES);
     shake.destroy();
     m.enemyManager.clear();
     vi.restoreAllMocks();
@@ -113,7 +119,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
     }
   };
   const alive = (type: string): Enemy[] => m.enemyManager.getAlive().filter((e) => e.typeConfig.id === type);
-  /** Starts wave `wave` with one ooze, as Custom Wave or the boss rotation brings it. */
+  /** Starts wave `wave` with one ooze, as Custom Wave or its run plan row brings it. */
   const startOoze = (wave: number): Enemy => {
     m.waveManager.jumpTo(wave - 1);
     m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
@@ -163,7 +169,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   it('421: at W45 and 4x it shakes at most every 900 ms of wall time, and every metre costs', () => {
     // Aus dem Leck-Schaden gerechnet statt gepinnt: ein Ooze kostet seinen
     // Leckschaden mal dem der Welle, verteilt über seine 80 m.
-    const total = enemyBaseDamageForWave(45) * OOZE_LEAK;
+    const total = waveRules().leakScale(45) * OOZE_LEAK;
     startOoze(45);
     runToWaveEnd(4);
 
@@ -186,7 +192,7 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   });
 
   it('421: a zombie leak at W45 costs a zombie leak of that wave and shakes at once, inside the 900 ms', () => {
-    const perLeak = leakDamageOf('zombie') * enemyBaseDamageForWave(45);
+    const perLeak = leakDamageOf('zombie') * waveRules().leakScale(45);
     startOoze(45);
     while (shakes.length === 0 && clock.now < 60_000) run(STEP, 4);
     const pointShake = shakes[0];
@@ -203,8 +209,8 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
   });
 
   it('421: from W91 on a zombie leak costs more than at W45 and shakes at once, inside the 900 ms', () => {
-    const perLeak = leakDamageOf('zombie') * enemyBaseDamageForWave(91);
-    expect(enemyBaseDamageForWave(91)).toBeGreaterThan(enemyBaseDamageForWave(45));
+    const perLeak = leakDamageOf('zombie') * waveRules().leakScale(91);
+    expect(waveRules().leakScale(91)).toBeGreaterThan(waveRules().leakScale(45));
     startOoze(91);
     while (shakes.length === 0 && clock.now < 60_000) run(STEP, 4);
     const pointShake = shakes[0];

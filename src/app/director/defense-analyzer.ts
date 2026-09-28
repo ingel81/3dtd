@@ -26,35 +26,9 @@ import { DetMath } from '../utils/det-math';
 
 
 /**
- * Lowest matchup factor the gate credits a tower with against ground
- * unarmored, light, heavy and fortified enemies.
- *
- * The gate sizes a wave from armor-weighted DPS, so a bad matchup does not make
- * a wave hard, it makes it small: gatlings against tanks simply got fewer tanks,
- * and a wider damage matrix would have been absorbed by the gate almost
- * entirely. With the floor a wrong roster is felt as leaks, and the leak
- * controller answers with smaller waves afterwards. Since 2026-09-20 nothing
- * caps what those leaks cost, so `survivableCount` is the only thing standing
- * between a wrong roster and the end of the run. Ethereal and air keep the plain matrix: they
- * are hard gates with their own capability check.
- *
- * Applied per tower here, in `gateDpsPerArmor`; the survivability cap of the
- * adaptive source reads the result and knows nothing about the floor. It lives
- * with the analyzer because the analyzer is the only code that applies it.
- */
-export const FAIRNESS_MATCHUP_FLOOR = 0.6;
-
-/**
  * Tower capabilities mapping
  * Maps tower types to their special capabilities
  */
-/**
- * Enemies an area-of-effect shot is assumed to catch. A rough stand-in for
- * blast radius against unknown enemy spacing — deliberately conservative,
- * since overestimating it reopens the swarm hole this models.
- */
-const SPLASH_TARGETS_PER_SHOT = 3;
-
 /** Ethereal armor multiplier at which a tower counts as anti-ethereal. */
 const ANTI_ETHEREAL_MIN_MULTIPLIER = 1.0;
 
@@ -85,8 +59,8 @@ const TOWER_CAPABILITIES: Record<
  * @param hero the hired hero (HeroManager.getDefenseProfile), null without;
  *   in coop the heroes of all players, each counted.
  *   He counts as a virtual tower at his presence factor in the armor-weighted
- *   DPS (effective and gate) and in the kill throughput, nowhere else: not in
- *   totalDPS, the capabilities or the AoE share (docs/HERO.md).
+ *   DPS, nowhere else: not in totalDPS, the capabilities or the AoE share
+ *   (docs/HERO.md).
  */
 export function analyzeDefense(
   towers: Tower[],
@@ -104,11 +78,9 @@ export function analyzeDefense(
   const antiAirDPS = calculateAntiAirDPS(towers, airTargetingUnlocked);
   const avgLevel = calculateAvgLevel(towers);
   const towerVariety = calculateTowerVariety(towers);
-  const { effective: effectiveDPSPerArmor, gate: gateDpsPerArmor } =
-    calculateDPSPerArmor(towers, airTargetingUnlocked);
+  const effectiveDPSPerArmor = calculateDPSPerArmor(towers, airTargetingUnlocked);
   const aoeDpsShare = calculateAoeDpsShare(towers, airTargetingUnlocked);
-  const killThroughput = calculateKillThroughput(towers, airTargetingUnlocked);
-  for (const h of heroes) addHero(h, effectiveDPSPerArmor, gateDpsPerArmor, killThroughput);
+  for (const h of heroes) addHero(h, effectiveDPSPerArmor);
 
   return {
     towerCount: towers.length,
@@ -123,93 +95,29 @@ export function analyzeDefense(
     capabilities,
     towerDistribution,
     effectiveDPSPerArmor,
-    gateDpsPerArmor,
     aoeDpsShare,
-    killThroughput,
   };
 }
 
 /**
  * The hero as a virtual tower, counted at his presence factor: he is one
- * unit and cannot be everywhere on the route (docs/HERO.md, fairness gate).
+ * unit and cannot be everywhere on the route (docs/HERO.md).
  *
- * Against each armor the gate credits his best ammo, since the player can
- * switch it at any time: judged by the ammo loaded when the wave is planned,
- * loading a bad one before the start would shrink the wave and switching
- * afterwards would beat it. He hits ground and air alike, so both sides get
- * the same numbers. The gate view floors bad ground matchups like a tower's.
- * Kill throughput: his fastest ammo's shots per second.
+ * Against each armor his best ammo counts, since the player can switch it at
+ * any time: judged by the ammo loaded when the wave is planned, loading a bad
+ * one before the start would soften the wave and switching afterwards would
+ * beat it. He hits ground and air alike, so both sides get the same numbers.
  */
-function addHero(
-  hero: HeroDefenseProfile,
-  effective: EffectiveDPSPerArmor,
-  gate: EffectiveDPSPerArmor,
-  killThroughput: { ground: number; air: number },
-): void {
+function addHero(hero: HeroDefenseProfile, effective: EffectiveDPSPerArmor): void {
   for (const armor of ARMOR_TYPES) {
     let best = 0;
-    let bestFloored = 0;
     for (const ammo of hero.ammo) {
-      const mult = armorMultipliersFor(ammo.damageType)[armor];
-      best = Math.max(best, ammo.dps * mult);
-      bestFloored = Math.max(bestFloored, ammo.dps * Math.max(mult, FAIRNESS_MATCHUP_FLOOR));
+      best = Math.max(best, ammo.dps * armorMultipliersFor(ammo.damageType)[armor]);
     }
     const dps = best * hero.presence;
     effective.ground[armor] += dps;
     effective.air[armor] += dps;
-    gate.ground[armor] += armor === 'ethereal' ? dps : bestFloored * hero.presence;
-    gate.air[armor] += dps;
   }
-  const shots = hero.ammo.reduce((max, ammo) => Math.max(max, ammo.shotsPerSecond), 0) * hero.presence;
-  killThroughput.ground += shots;
-  killThroughput.air += shots;
-}
-
-/**
- * Targets a defense can destroy per second, ignoring their health.
- *
- * This is the ceiling raw DPS cannot express. A tower shoots one target at a
- * time, so against enemies that die to a single shot the kill rate is set by
- * fire rate, not damage — an archer doing 25 damage per shot at 1 shot/s kills
- * one 3 HP rat per second and wastes 22 damage doing it. That is precisely how
- * a wave of 848 rats walked through a defense whose DPS said it could handle
- * twice their total health.
- *
- * Splash and chain towers hit more than one target per activation, so they
- * count for a multiple. Beam towers have no discrete shots; they are damage-
- * limited rather than rate-limited, so they are excluded here and the DPS side
- * of the comparison covers them.
- */
-function calculateKillThroughput(
-  towers: Tower[],
-  airTargetingUnlocked: AirTargeting,
-): { ground: number; air: number } {
-  let ground = 0;
-  let air = 0;
-
-  for (const tower of towers) {
-    const typeId = tower.typeConfig.id as TowerTypeId;
-    const cfg = TOWER_TYPES[typeId];
-    if (!cfg || cfg.attackType === 'passive' || cfg.attackType === 'beam') continue;
-
-    const shotsPerSecond = tower.combat?.fireRate ?? cfg.fireRate ?? 0;
-    if (shotsPerSecond <= 0) continue;
-
-    // Targets hit per activation. Chain towers reach maxJumps extra enemies;
-    // splash is approximated by the same soft multiplier used for DPS.
-    let targetsPerShot = 1;
-    if (cfg.attackType === 'chain') {
-      targetsPerShot = 1 + (cfg.maxJumps ?? 0);
-    } else if (isSplashTower(typeId)) {
-      targetsPerShot = SPLASH_TARGETS_PER_SHOT;
-    }
-
-    const rate = shotsPerSecond * targetsPerShot;
-    if (cfg.canTargetGround !== false) ground += rate;
-    if (canTargetAirEffective(typeId, airTargetingFor(airTargetingUnlocked, tower))) air += rate;
-  }
-
-  return { ground, air };
 }
 
 /**
@@ -417,17 +325,12 @@ function calculateAntiAirDPS(towers: Tower[], airTargetingUnlocked: AirTargeting
 
 /**
  * Per-armor-class DPS, split into ground (hits ground enemies) and air (hits
- * air enemies), in two views:
- *  - effective: tower DPS × damage matrix, what actually lands.
- *  - gate: the same, except that against ground unarmored, light, heavy and
- *    fortified every tower counts at least FAIRNESS_MATCHUP_FLOOR. The fairness
- *    gate reads this one (see the constant in templates.ts). Ethereal and air
- *    stay on the plain matrix, they are hard gates of their own.
+ * air enemies): tower DPS × damage matrix, what actually lands.
  */
 function calculateDPSPerArmor(
   towers: Tower[],
   airTargetingUnlocked: AirTargeting,
-): { effective: EffectiveDPSPerArmor; gate: EffectiveDPSPerArmor } {
+): EffectiveDPSPerArmor {
   const zero = () =>
     ARMOR_TYPES.reduce((acc, a) => {
       acc[a] = 0;
@@ -435,7 +338,6 @@ function calculateDPSPerArmor(
     }, {} as Record<ArmorType, number>);
 
   const effective: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
-  const gate: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
 
   for (const tower of towers) {
     const typeId = tower.typeConfig.id as TowerTypeId;
@@ -448,20 +350,12 @@ function calculateDPSPerArmor(
 
     for (const armor of ARMOR_TYPES) {
       const dpsVsArmor = dps * mults[armor];
-      if (canGround) {
-        effective.ground[armor] += dpsVsArmor;
-        gate.ground[armor] += armor === 'ethereal'
-          ? dpsVsArmor
-          : dps * Math.max(mults[armor], FAIRNESS_MATCHUP_FLOOR);
-      }
-      if (canAir) {
-        effective.air[armor] += dpsVsArmor;
-        gate.air[armor] += dpsVsArmor;
-      }
+      if (canGround) effective.ground[armor] += dpsVsArmor;
+      if (canAir) effective.air[armor] += dpsVsArmor;
     }
   }
 
-  return { effective, gate };
+  return effective;
 }
 
 /**
@@ -568,9 +462,7 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
     },
     towerDistribution: {},
     effectiveDPSPerArmor: { ground: zeroArmor(), air: zeroArmor() },
-    gateDpsPerArmor: { ground: zeroArmor(), air: zeroArmor() },
     aoeDpsShare: { ground: 0, air: 0 },
-    killThroughput: { ground: 0, air: 0 },
   };
 }
 

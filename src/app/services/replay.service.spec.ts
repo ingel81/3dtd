@@ -139,7 +139,7 @@ describe('ReplayService.enter gate', () => {
         { provide: LiveAnnouncer, useValue: { announce: vi.fn() } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: ElementRef, useValue: new ElementRef(host) },
-        { provide: WaveDirector, useValue: { source: { id: 'adaptive' } } },
+        { provide: WaveDirector, useValue: { source: { id: 'budget' } } },
         { provide: LocationManagementService, useValue: { editableHqLocation: () => null } },
       ],
     });

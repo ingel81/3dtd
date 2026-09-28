@@ -480,13 +480,12 @@ describe('StateSnapshotService', () => {
       expect(collector.lastSnapshot()).toBe(snapshot);
     });
 
-    it('counts the hired hero in the defense the gate reads', () => {
-      expect(collector.getStateSnapshot().defense.killThroughput).toEqual({ ground: 0, air: 0 });
+    it('counts the hired hero in the defense a source reads', () => {
+      expect(collector.getStateSnapshot().defense.effectiveDPSPerArmor.ground.heavy).toBe(0);
       heroProfile = heroDefenseProfile(0);
       try {
         const { defense } = collector.getStateSnapshot();
-        expect(defense.killThroughput.ground).toBeCloseTo(3 * HERO.gatePresence, 6);
-        expect(defense.gateDpsPerArmor.ground.heavy).toBeCloseTo(48 * 1.75 * HERO.gatePresence, 6);
+        expect(defense.effectiveDPSPerArmor.ground.heavy).toBeCloseTo(48 * 1.75 * HERO.gatePresence, 6);
         expect(defense.totalDPS).toBe(0);
       } finally {
         heroProfile = null;
@@ -501,8 +500,7 @@ describe('StateSnapshotService', () => {
         laneSpawns = ['spawn-1', 'spawn-2'];
         const laned = collector.getStateSnapshot().defense;
         expect(collector.getStateSnapshot().lanes).toBe(2);
-        expect(laned.killThroughput.ground).toBeCloseTo(alone.killThroughput.ground / 2, 6);
-        expect(laned.gateDpsPerArmor.ground.heavy).toBeCloseTo(alone.gateDpsPerArmor.ground.heavy / 2, 6);
+        expect(laned.effectiveDPSPerArmor.ground.heavy).toBeCloseTo(alone.effectiveDPSPerArmor.ground.heavy / 2, 6);
         expect(laned.effectiveDPSPerArmor.air.light).toBeCloseTo(alone.effectiveDPSPerArmor.air.light / 2, 6);
       } finally {
         heroProfile = null;
@@ -594,9 +592,10 @@ describe('StateSnapshotService', () => {
         expect(collector.getStateSnapshot().expectedArmorDistribution).toEqual({ ...zeroes, unarmored: 1 });
       });
 
-      it('is undefined past the campaign with no wave running', () => {
+      it('reads the coming wave past the campaign as well, the default source fixes every wave', () => {
         store.waveNumber.set(30);
-        expect(collector.getStateSnapshot().expectedArmorDistribution).toBeUndefined();
+        const dist = collector.getStateSnapshot().expectedArmorDistribution!;
+        expect(Object.values(dist).reduce((sum, share) => sum + share, 0)).toBeCloseTo(1);
       });
     });
 

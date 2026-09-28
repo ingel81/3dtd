@@ -94,17 +94,17 @@ export class WaveDebuggerComponent {
 
   readonly maxJumpWave = MAX_JUMP_WAVE;
   /** The wave the next start should be */
-  readonly jumpWave = signal(35);
+  readonly jumpWave = signal(30);
   /** Pay what the skipped waves would have paid */
   readonly jumpGrantGold = signal(true);
   /** A jump skips at least one wave */
   readonly minJumpWave = computed(() => this.store.waveNumber() + 2);
   readonly canJump = computed(() => this.store.phase() === 'setup' && this.jumpWave() >= this.minJumpWave());
-  /** What that wave is, to check W35 is the worm before jumping */
+  /** What that wave is, to check W30 is the worm before jumping */
   readonly jumpWaveName = computed(() => {
     const wave = this.jumpWave();
     const rules = waveRules();
-    return rules.name(wave) ?? (rules.isBoss(wave) ? 'Boss wave' : 'Director wave');
+    return rules.name(wave) ?? (rules.isBoss(wave) ? 'Boss wave' : 'Unnamed wave');
   });
   readonly jumpLabel = computed(() => {
     if (this.store.phase() !== 'setup') return 'Between waves only';

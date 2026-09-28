@@ -20,7 +20,7 @@ import {
   makeSingleTypeWaveConfig,
   tickEngine,
 } from './test-helpers';
-import { waveGold, isBossWave } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 import { ENEMY_TYPES, enemyRewardWeight, leakDamageOf, lineageRewardWeight } from '../configs/enemy-types.config';
 import type { Enemy } from '../entities/enemy.entity';
 
@@ -148,7 +148,7 @@ describe('Ooze integration', () => {
       killFullOoze();
 
       expect(credits).toHaveLength(21);
-      expect(paid()).toBe(waveGold(1).kill);
+      expect(paid()).toBe(waveRules().gold(1).kill);
       // The ooze weighs its own HP, each clump a clump's
       const [oozeCredit, ...clumpCredits] = credits;
       expect(oozeCredit).toBeGreaterThan(Math.max(...clumpCredits));
@@ -166,7 +166,7 @@ describe('Ooze integration', () => {
 
       // The ooze and 7 of 20 clumps paid; each floors its share and leaves the
       // remainder to the later bodies, which stay unpaid
-      const budget = waveGold(1).kill;
+      const budget = waveRules().gold(1).kill;
       const share = (enemyRewardWeight(ENEMY_TYPES['ooze'].baseHp) + 7 * enemyRewardWeight(ENEMY_TYPES[CLUMP].baseHp))
         / lineageRewardWeight('ooze');
       expect(credits).toHaveLength(8);
@@ -176,13 +176,14 @@ describe('Ooze integration', () => {
       expect(m.waveManager.checkWaveComplete()).toBe(true);
     });
 
-    it('pays the budget of the boss wave it takes in the endless rotation (W45)', () => {
-      expect(isBossWave(45)).toBe(true);
-      m.enemyManager.setWaveNumberProvider(() => 45);
+    it('pays the budget of its boss wave in the run plan (W20)', () => {
+      expect(waveRules().isBoss(20)).toBe(true);
+      expect(waveRules().enemyMix(20)?.some(([type]) => type === 'ooze')).toBe(true);
+      m.enemyManager.setWaveNumberProvider(() => 20);
       killFullOoze();
 
       expect(credits).toHaveLength(21);
-      expect(paid()).toBe(waveGold(45).kill);
+      expect(paid()).toBe(waveRules().gold(20).kill);
     });
   });
 

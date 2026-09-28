@@ -26,15 +26,14 @@ import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.conf
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import { LAST_TABLE_WAVE, tableRowForWave, type TableLookup } from './wave-table';
 import type { WaveRules } from '../../wave-rules';
-import { CAMPAIGN_WAVE_RULES } from '../../../configs/campaign-wave-rules';
-import { waveGold } from '../../../configs/campaign.config';
+import { enemyBaseDamageForWave, waveGold } from '../../../configs/campaign.config';
 
 /**
- * Leak as the campaign has it, gold with the campaign's curve; what a wave
+ * Leak in the campaign's steps, gold with the campaign's curve; what a wave
  * is, boss or not (boss gold included), from the list.
  */
 const TABLE_WAVE_RULES: WaveRules = {
-  leakScale: CAMPAIGN_WAVE_RULES.leakScale,
+  leakScale: enemyBaseDamageForWave,
   gold: (wave) => waveGold(wave, TABLE_WAVE_RULES.isBoss(wave)),
   isBoss: (wave) => {
     const lookup = tableRowForWave(wave);
@@ -166,8 +165,7 @@ function factsOf(wave: number, lookup: TableLookup): WavePeekFacts {
     air,
     armors: [...hpByArmor.keys()],
     hpByArmor: [...hpByArmor],
-    // A written-down wave has one size, so lo, hi and max are the same number.
-    count: { lo: total, hi: total, max: total },
+    count: total,
     enemies: entries.map(([type, count]) => [type, count / total] as const),
     note: lookup.cycle > 0 ? `row ${lookup.row.wave}, round ${lookup.cycle}` : '',
     description: lookup.row.note

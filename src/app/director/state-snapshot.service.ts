@@ -486,10 +486,7 @@ export class StateSnapshotService {
 export function shareDefense(defense: DefenseAnalysis, share: number): void {
   defense.totalDPS *= share;
   defense.antiAirDPS *= share;
-  for (const perArmor of [defense.effectiveDPSPerArmor, defense.gateDpsPerArmor]) {
-    for (const side of [perArmor.ground, perArmor.air]) {
-      for (const armor of Object.keys(side) as (keyof typeof side)[]) side[armor] *= share;
-    }
+  for (const side of [defense.effectiveDPSPerArmor.ground, defense.effectiveDPSPerArmor.air]) {
+    for (const armor of Object.keys(side) as (keyof typeof side)[]) side[armor] *= share;
   }
-  defense.killThroughput = { ground: defense.killThroughput.ground * share, air: defense.killThroughput.air * share };
 }

@@ -20,14 +20,9 @@ import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { GENERATED_AT_STAMP, writeGeneratedFile } from '../generated-file';
 
-import {
-  CAMPAIGN,
-  waveGold,
-  endgameHpMultiplier,
-  enemyBaseDamageForWave,
-  templateForWave,
-  isBossWave,
-} from '../../src/app/configs/campaign.config';
+import { CAMPAIGN } from '../../src/app/configs/campaign.config';
+import { RUN_PLAN_RULES } from '../../src/app/director/sources/budget/run-plan';
+import { budgetSeconds } from '../../src/app/director/sources/budget/budget';
 import {
   TOWER_TYPES,
   getUpgradeCost,
@@ -82,7 +77,7 @@ function buildWaveRows(): WaveRow[] {
 
   const rows: WaveRow[] = [];
   for (let w = 1; w <= NUM_WAVES; w++) {
-    const { kill, complete } = waveGold(w);
+    const { kill, complete } = RUN_PLAN_RULES.gold(w);
     const milestone = milestones[w] ?? 0;
     const total = kill + complete + milestone;
     cumul += total;
@@ -95,13 +90,11 @@ function buildWaveRows(): WaveRow[] {
     const comboBonus = Math.round(complete * combo);
     cumulPerfect += kill + complete + milestone + perfectBonus + comboBonus;
 
-    const boss = isBossWave(w);
+    // The default source's run plan names every wave and its boss waves
     rows.push({
       wave: w,
-      // Past the campaign the director picks the template; boss waves come
-      // every fifth wave there (isBossWave).
-      template: templateForWave(w) ?? (boss ? 'boss (director)' : '(director)'),
-      boss,
+      template: RUN_PLAN_RULES.name(w) ?? '?',
+      boss: RUN_PLAN_RULES.isBoss(w),
       kill,
       complete,
       milestone,
@@ -393,13 +386,12 @@ function renderHtml(
   </div>
 
   <div class="chart-container">
-    <h2>Difficulty Curve (Phase 5.16) — Endgame Pressure Multipliers</h2>
+    <h2>Difficulty Curve: budget and leak of the run plan</h2>
     <p class="note">
-      Structural difficulty knobs that compound on top of the NN's continuous
-      factors. <strong>HP multiplier</strong> kicks in at W20 (+5%/wave, cap 4×) — applied
-      AFTER the NN's hp_mult so a strong checkpoint pushing 3× still gets the
-      ramp on top. <strong>Leak damage</strong> scales every 10 waves so late-game leaks
-      drain the base much faster (W11→2 HP, W21→3 HP, W31→4 HP per leak).
+      <strong>Budget</strong>: seconds of defense damage a wave of strength 1 gets at
+      loop factor 1 (budget source, docs/WAVE_RUN_PLAN.md); a plan row and the pressure
+      loop scale it. <strong>Leak scale</strong>: the factor on each enemy's leak damage,
+      growing with the budget curve.
     </p>
     <canvas id="difficultyChart" height="90"></canvas>
   </div>
@@ -585,8 +577,8 @@ const numWaves = ${NUM_WAVES};
 const cumulData = ${JSON.stringify(cumulData)};
 const cumulPerfectData = ${JSON.stringify(cumulPerfectData)};
 const waveLabels = ${JSON.stringify(waveLabels)};
-const hpMultData = ${JSON.stringify(waveRows.map((r) => endgameHpMultiplier(r.wave)))};
-const leakDamageData = ${JSON.stringify(waveRows.map((r) => enemyBaseDamageForWave(r.wave)))};
+const hpMultData = ${JSON.stringify(waveRows.map((r) => Math.round(budgetSeconds(r.wave) * 10) / 10))};
+const leakDamageData = ${JSON.stringify(waveRows.map((r) => RUN_PLAN_RULES.leakScale(r.wave)))};
 
 // Wave at which baseline cumul first reaches each milestone (1-indexed; null = never)
 function waveAffordable(cost) {
@@ -715,7 +707,7 @@ new Chart(difficultyChartCtx, {
     labels: waveLabels,
     datasets: [
       {
-        label: 'HP multiplier (post-NN)',
+        label: 'Budget at strength 1 (s of defense damage)',
         data: hpMultData,
         borderColor: '#C04B3F',
         backgroundColor: 'rgba(192,75,63,0.10)',
@@ -725,11 +717,10 @@ new Chart(difficultyChartCtx, {
         yAxisID: 'y',
       },
       {
-        label: 'Leak damage (HP per enemy reaching base)',
+        label: 'Leak scale (times the enemy leak damage)',
         data: leakDamageData,
         borderColor: '#E68A4D',
         fill: false,
-        stepped: true,
         pointRadius: 2,
         yAxisID: 'y1',
       },
@@ -747,17 +738,17 @@ new Chart(difficultyChartCtx, {
       y: {
         type: 'linear',
         position: 'left',
-        ticks: { color: '#C04B3F', callback: (v) => v.toFixed(1) + '×' },
+        ticks: { color: '#C04B3F', callback: (v) => v + ' s' },
         grid: { color: '#2a322a' },
-        title: { display: true, text: 'HP multiplier', color: '#C04B3F' },
+        title: { display: true, text: 'Budget', color: '#C04B3F' },
         beginAtZero: true,
       },
       y1: {
         type: 'linear',
         position: 'right',
-        ticks: { color: '#E68A4D', callback: (v) => v + ' HP' },
+        ticks: { color: '#E68A4D', callback: (v) => v.toFixed(2) + '×' },
         grid: { drawOnChartArea: false },
-        title: { display: true, text: 'Leak damage', color: '#E68A4D' },
+        title: { display: true, text: 'Leak scale', color: '#E68A4D' },
         beginAtZero: true,
       },
     },

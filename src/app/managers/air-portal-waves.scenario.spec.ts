@@ -5,7 +5,7 @@
  * through the middle of the opening, all of a type at the same height, level
  * for a stretch in front of the gate, then climbing to their cruise height.
  *
- * The waves come from the real WaveDirector rule path and the
+ * The waves come from the real WaveDirector (the default source) and the
  * adapter the facade's AI start uses (adaptDirectorWave), into the real
  * WaveManager and EnemyManager with mocked rendering (createTestManagers).
  * AI waves bring no spawn mode, so every entry draws its spawn at random;
@@ -20,7 +20,6 @@ import { Injector, runInInjectionContext } from '@angular/core';
 import { WaveDirector } from '../director/wave-director';
 import { StateSnapshotService } from '../director/state-snapshot.service';
 import { adaptDirectorWave } from '../director/wave-config-adapter';
-import { TEMPLATES } from '../director/templates';
 import { createEmptySnapshot, type GameStateSnapshot } from '../director/models/game-state-snapshot';
 import type { WaveConfig } from '../director/models/wave-config';
 import { createTestManagers, TEST_SPAWN_POINTS, type TestManagers } from '../integration/test-helpers';
@@ -69,8 +68,6 @@ function overwhelmingDefense(snapshot: GameStateSnapshot, waveNumber: number): v
   snapshot.waveNumber = waveNumber;
   snapshot.defense.totalDPS = 1e6;
   snapshot.defense.effectiveDPSPerArmor = { ground: dps, air: dps };
-  snapshot.defense.gateDpsPerArmor = { ground: dps, air: dps };
-  snapshot.defense.killThroughput = { ground: 1e6, air: 1e6 };
   snapshot.defense.capabilities = {
     hasAntiAir: true, hasSplash: true, hasSlow: true, hasDoT: true, hasAntiEthereal: true,
   };
@@ -200,13 +197,13 @@ describe('Regular air waves at two portals, playtest 238 (night 1) replayed', ()
 
   it('W7 bat_swarm: every bat comes out of its portal and climbs, at both portals', async () => {
     const run = await play(7);
-    expect(TEMPLATES[run.planned.config.templateIdx!].id).toBe('bat_swarm');
+    expect(run.planned.config.templateName).toBe('Bat Swarm');
     expect([...expectOutOfTheirPortals(run)]).toEqual(['bat']);
   });
 
   it('W8 hornet_strike: hornets and bats alike, at both portals', async () => {
     const run = await play(8);
-    expect(TEMPLATES[run.planned.config.templateIdx!].id).toBe('hornet_strike');
+    expect(run.planned.config.templateName).toBe('Hornet Strike');
     expect([...expectOutOfTheirPortals(run)].sort()).toEqual(['bat', 'hornet']);
   });
 });

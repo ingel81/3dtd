@@ -1,6 +1,7 @@
 /**
- * Playtest 357 (docs/archive/REVIEW_SPRINT_2026-09-14.md), the gold of W35: the worm
- * the boss rotation sends through the real WaveManager and EnemyManager,
+ * Playtest 357 (docs/archive/REVIEW_SPRINT_2026-09-14.md), the gold of a worm
+ * wave (then W35 of the boss rotation, now the run plan's W60) through the
+ * real WaveManager and EnemyManager,
  * wired as GameStateManager wires them for the kill budget, every segment
  * killed. The completion bonus is EconomyService's, which GameStateManager
  * books at wave:completed.
@@ -20,11 +21,10 @@ import {
   TEST_SPAWN_POINTS,
 } from '../../integration/test-helpers';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { waveGold } from '../../configs/campaign.config';
-import { bossVariantForWave } from '../../configs/boss-variants.config';
+import { waveRules } from '../../director/wave-rules';
 import { EconomyService, waveGoldTotal } from '../../services/economy.service';
 
-describe('Gold of the worm wave W35, playtest 357 replayed', () => {
+describe('Gold of a worm wave past the campaign (W60), playtest 357 replayed', () => {
   let m: TestManagers;
 
   beforeEach(() => {
@@ -41,16 +41,16 @@ describe('Gold of the worm wave W35, playtest 357 replayed', () => {
   });
 
   it('killed whole it pays the kill gold of its wave, plus the base completion bonus', () => {
-    expect(bossVariantForWave(35)?.enemyType).toBe('worm');
+    expect(waveRules().enemyMix(60)?.some(([type]) => type === 'worm')).toBe(true);
     const credits: number[] = [];
     m.eventBus.on('enemy:died', (e) => credits.push(e.credits));
 
-    // After the jump: the counter at 34, the next start is W35
-    m.waveManager.jumpTo(34);
+    // After the jump: the counter at 59, the next start is W60
+    m.waveManager.jumpTo(59);
     m.waveManager.startWave({
       schedule: { entries: [{ enemyType: 'worm', speed: ENEMY_TYPES['worm'].baseSpeed }], baseDelay: 100 },
     });
-    expect(m.waveManager.waveNumber()).toBe(35);
+    expect(m.waveManager.waveNumber()).toBe(60);
 
     for (let t = 0; t < 300_000 && !m.waveManager.checkWaveComplete(); t += 16) {
       tickEngine(m, 16);
@@ -60,14 +60,14 @@ describe('Gold of the worm wave W35, playtest 357 replayed', () => {
 
     const kill = credits.reduce((sum, c) => sum + c, 0);
     expect(credits.length).toBeGreaterThan(1);
-    expect(kill).toBe(waveGold(35).kill);
+    expect(kill).toBe(waveRules().gold(60).kill);
     // Every segment its share, the last one takes the rounding remainder
     expect(Math.max(...credits.slice(0, -1)) - Math.min(...credits)).toBeLessThanOrEqual(1);
 
     // No perfect, close call, combo or comeback: those are the skill bonuses on top
     const bonus = waveGoldTotal(
-      new EconomyService().computeWaveCompletionBonus({ wave: 35, perfect: false, closeCall: false, hpLost: 0 }),
+      new EconomyService().computeWaveCompletionBonus({ wave: 60, perfect: false, closeCall: false, hpLost: 0 }),
     );
-    expect(bonus).toBe(waveGold(35).complete);
+    expect(bonus).toBe(waveRules().gold(60).complete);
   });
 });

@@ -25,7 +25,8 @@ import { DebugWindowService } from '../debug/debug-window.service';
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { WaveDirector } from '../../director/wave-director';
 import { waveDirectorStub } from '../../director/wave-director.stub';
-import { bossVariantForWave, bossVariantWave } from '../../configs/boss-variants.config';
+import { BudgetWaveSource } from '../../director/sources/budget/budget-source';
+import { createEmptySnapshot } from '../../director/models/game-state-snapshot';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -50,24 +51,14 @@ const UNUSED = [
   PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService, TowerControlService,
 ];
 
-/** The director's plan for a boss wave past the campaign */
-const DIRECTED: WaveConfig = {
-  enemies: [{ type: 'stone-golem', count: 24, healthMultiplier: 3.5 }],
-  totalCount: 24,
-  spawnDelay: 300,
-  templateName: 'Boss: Stone Golem',
-  templateStrength: 3.5,
-  explanation: { summary: 'Director: Boss: Stone Golem', reasons: ['Boss wave past W30.'] },
-};
-
 /**
  * Playtest 357, 365, 379 and 380 (docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed after the dev jump: the `wave:jumped` event GameStateManager
  * sends (game-state.manager.spec.ts) goes through the real
  * GameStateSyncService into the store, and the real GameLoopFacadeService
- * starts the next wave from it. The director is a stub that plans a boss wave
- * and applies the boss rotation to it, as the adaptive source does. The wave
- * button reads the store as the WAVE panel does.
+ * starts the next wave from it. The director is a stub around the budget
+ * source, so the wave that starts is the run plan's row for that number. The
+ * wave button reads the store as the WAVE panel does.
  */
 describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () => {
   let bus: GameEventBus;
@@ -85,16 +76,12 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     waveEnemyTotal: signal(0),
     waveEnemiesLeft: signal(0),
   };
-  /**
-   * Stands in for the adaptive source: it plans `DIRECTED` and applies the
-   * boss rotation to it, which is what the source does inside `plan()`. The
-   * facade must not do it, or the substitution would happen twice.
-   */
+  /** Plans with the budget source against an empty defense, whatever wave the facade asks for. */
   const director = waveDirectorStub({
     getNextWave: vi.fn(async (wave: number) => {
-      const variant = bossVariantForWave(wave);
-      const config = variant ? bossVariantWave(variant, DIRECTED, wave) : DIRECTED;
-      return { wave, config, explanation: config.explanation ?? null, log: {} };
+      const state = createEmptySnapshot();
+      state.waveNumber = wave - 1;
+      return new BudgetWaveSource().plan({ wave, state, random: () => 0.5 });
     }),
   });
   const collector = { getStateSnapshot: () => ({}), setCurrentWaveConfig: vi.fn() };
@@ -140,43 +127,42 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
     );
   });
 
-  it('379 and 357: after the jump to 35 the button shows Wave 35, Space starts the worm, "Why this wave" names the replaced boss', async () => {
-    jump(0, 35);
-    expect(store.waveNumber()).toBe(34);
-    expect(buttonLabel()).toBe('Wave 35');
+  it('379 and 357: after the jump to 30 the button shows Wave 30, Space starts the worm, "Why this wave" names it', async () => {
+    jump(0, 30);
+    expect(store.waveNumber()).toBe(29);
+    expect(buttonLabel()).toBe('Wave 30');
 
     facade.startWave();
     await settle();
     expect(startedTypes()).toEqual(['worm']);
-    expect(store.waveExplanation()?.summary).toMatch(/^W35: Boss: Skarnax, HP ×[\d.]+$/);
-    expect(store.waveExplanation()?.reasons[0]).toContain("in place of the director's Boss: Stone Golem");
+    expect(store.waveExplanation()?.summary).toMatch(/^Wave 30: Boss: Skarnax · 1 enemies · HP ×[\d.]+$/);
 
     // The header reads the store's wave
-    bus.emit({ type: 'wave:started', wave: 35, enemyCount: 1 });
-    expect(store.waveNumber()).toBe(35);
+    bus.emit({ type: 'wave:started', wave: 30, enemyCount: 1 });
+    expect(store.waveNumber()).toBe(30);
     expect(store.phase()).toBe('wave');
   });
 
-  it('357: W40 stays the director\'s boss wave', async () => {
-    jump(0, 35);
-    playWave(35);
-    jump(35, 40);
+  it('357: W40 is the run plan\'s golem boss wave', async () => {
+    jump(0, 30);
+    playWave(30);
+    jump(30, 40);
     expect(buttonLabel()).toBe('Wave 40');
     facade.startWave();
     await settle();
-    expect(startedTypes()).toEqual(Array(24).fill('stone-golem'));
-    expect(store.waveExplanation()).toBe(DIRECTED.explanation);
+    expect(new Set(startedTypes())).toEqual(new Set(['stone-golem', 'mammoth']));
+    expect(store.waveExplanation()?.summary).toMatch(/^Wave 40: Boss: Stone Golem/);
   });
 
-  it('365 and 380: after W35 a jump to 45 starts the ooze wave', async () => {
-    jump(0, 35);
-    playWave(35);
-    jump(35, 45);
-    expect(buttonLabel()).toBe('Wave 45');
+  it('365 and 380: after W30 a jump to 60 starts the worm again', async () => {
+    jump(0, 30);
+    playWave(30);
+    jump(30, 60);
+    expect(buttonLabel()).toBe('Wave 60');
 
     facade.startWave();
     await settle();
-    expect(startedTypes()).toEqual(['ooze']);
-    expect(store.waveExplanation()?.summary).toMatch(/^W45: Boss: Ooze, HP ×[\d.]+$/);
+    expect(startedTypes()).toEqual(['worm']);
+    expect(store.waveExplanation()?.summary).toMatch(/^Wave 60: Boss: Skarnax/);
   });
 });

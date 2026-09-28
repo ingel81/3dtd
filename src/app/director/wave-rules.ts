@@ -13,7 +13,7 @@
  * must get the same answer.
  */
 
-import { CAMPAIGN_WAVE_RULES } from '../configs/campaign-wave-rules';
+import { RUN_PLAN_RULES } from './sources/budget/run-plan';
 
 export interface WaveGold {
   /** Gold the wave's kills pay in total */
@@ -38,11 +38,11 @@ let active: WaveRules | null = null;
 
 /**
  * The rules of the run's source. `WaveDirector` sets them when a run starts;
- * before that (specs, the landing screen) the campaign's, which both of
- * today's sources play.
+ * before that (specs, the landing screen) the run plan's, the default
+ * source's (configs/director.config.ts).
  */
 export function waveRules(): WaveRules {
-  return active ?? CAMPAIGN_WAVE_RULES;
+  return active ?? RUN_PLAN_RULES;
 }
 
 export function setActiveWaveRules(rules: WaveRules): void {

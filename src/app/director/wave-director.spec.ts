@@ -7,15 +7,15 @@ import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state
 import type { WaveConfig } from './models/wave-config';
 import type { WaveResult } from './models/wave-result';
 import type { PlannedWave, WaveSource } from './wave-source';
-import { CAMPAIGN_WAVE_RULES } from '../configs/campaign-wave-rules';
+import { RUN_PLAN_RULES } from './sources/budget/run-plan';
 
 /**
  * The director's own surface: which source a run plays, which wave is
  * committed, and what it hands on. What a wave looks like is the source's
- * business and is tested there (`sources/adaptive/`).
+ * business and is tested there (`sources/budget/`, `sources/table/`).
  *
  * The source here is a stub that counts its calls, so the service cannot pass
- * by accident on an adaptive source doing the work.
+ * by accident on a real source doing the work.
  */
 
 class StubCollector {
@@ -39,9 +39,9 @@ class StubCollector {
 
 /** A source that records what it was asked and plans a wave per number. */
 class StubSource implements WaveSource {
-  readonly id = 'adaptive' as const;
+  readonly id = 'budget' as const;
   readonly name = 'Stub source';
-  readonly rules = CAMPAIGN_WAVE_RULES;
+  readonly rules = RUN_PLAN_RULES;
   plansAt: 'wave-end' | 'wave-start' = 'wave-start';
 
   planned: number[] = [];
@@ -131,8 +131,8 @@ describe('WaveDirector', () => {
         Injector.create({ providers: [{ provide: StateSnapshotService, useValue: collector }] }),
         () => new WaveDirector(),
       );
-      expect(fresh.source.id).toBe('adaptive');
-      expect(fresh.sourceNextRun).toBe('adaptive');
+      expect(fresh.source.id).toBe('budget');
+      expect(fresh.sourceNextRun).toBe('budget');
       expect(fresh.committed).toBeNull();
       expect(fresh.lastDecision()).toBeNull();
       expect(fresh.isDebugMode()).toBe(false);
@@ -247,9 +247,9 @@ describe('WaveDirector', () => {
 
     it('puts the chosen source into service only with the new run', () => {
       const before = director.source;
-      director.useSourceNextRun('adaptive');
+      director.useSourceNextRun('table');
       expect(director.source).toBe(before);
-      expect(director.sourceNextRun).toBe('adaptive');
+      expect(director.sourceNextRun).toBe('table');
     });
 
     it('commits wave 1 right away for a source that plans at wave end', () => {
@@ -266,7 +266,6 @@ describe('WaveDirector', () => {
       const facts = director.peek({
         fromWave: 5,
         count: 3,
-        defense: { totalDps: 100 },
       });
       expect(facts.map((f) => f.wave)).toEqual([5, 6, 7]);
     });

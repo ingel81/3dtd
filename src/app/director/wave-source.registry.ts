@@ -6,7 +6,6 @@
  * (docs/WAVE_SOURCE_PLAN.md, section 7).
  */
 
-import { AdaptiveWaveSource } from './sources/adaptive/adaptive-source';
 import { TableWaveSource } from './sources/table/table-source';
 import { BudgetWaveSource } from './sources/budget/budget-source';
 import type { WaveSource, WaveSourceId } from './wave-source';
@@ -14,9 +13,8 @@ import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 
 /** A fresh source per run; they hold per-run state. */
 export const WAVE_SOURCES: Record<WaveSourceId, () => WaveSource> = {
-  adaptive: () => new AdaptiveWaveSource(),
-  table: () => new TableWaveSource(),
   budget: () => new BudgetWaveSource(),
+  table: () => new TableWaveSource(),
 };
 
 /** A source this build has; own keys only, so `constructor` and the like are no source. */

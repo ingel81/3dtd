@@ -2,12 +2,11 @@ import { describe, it, expect, beforeEach } from 'vitest';
 
 import { WAVE_SOURCES, initialWaveSourceId, isWaveSourceId } from './wave-source.registry';
 import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
-import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS } from './templates';
+import { MIN_SPAWN_DELAY_MS } from './sources/table/wave-table';
 import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
 import type { WaveResult } from './models/wave-result';
 import type { WaveSource, WaveSourceId } from './wave-source';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
-import { campaignIntensity } from '../configs/campaign.config';
 import { mulberry32 } from '../utils/game-rng';
 
 /**
@@ -32,8 +31,10 @@ function stateForWave(wave: number): GameStateSnapshot {
   snapshot.player.lives = Math.max(20, 100 - wave);
   snapshot.defense.totalDPS = dps;
   snapshot.defense.effectiveDPSPerArmor = { ground: perArmor, air: perArmor };
-  snapshot.defense.gateDpsPerArmor = { ground: perArmor, air: perArmor };
-  snapshot.defense.killThroughput = { ground: 2 + wave * 0.4, air: 1 + wave * 0.3 };
+  snapshot.defense.damageMetres = {
+    ground: Object.fromEntries(Object.entries(perArmor).map(([armor, v]) => [armor, v * 150])) as typeof perArmor,
+    air: Object.fromEntries(Object.entries(perArmor).map(([armor, v]) => [armor, v * 150])) as typeof perArmor,
+  };
   snapshot.defense.capabilities = {
     hasAntiAir: wave >= 6,
     hasSplash: wave >= 8,
@@ -101,17 +102,13 @@ describe.each(Object.keys(WAVE_SOURCES) as WaveSourceId[])('wave source contract
     }
   });
 
-  it('keeps the spawn delay and the wave duration in their limits', () => {
+  it('keeps the spawn delay above the floor', () => {
     for (const { wave, config } of playRun(source)) {
-      // A wave with one enemy in it has nothing to space out: the boss waves
-      // of the rotation ship with a delay of 0 and that is correct.
+      // A wave with one enemy in it has nothing to space out.
       const floor = config.totalCount > 1 ? MIN_SPAWN_DELAY_MS : 0;
       expect(config.spawnDelay, `wave ${wave}`).toBeGreaterThanOrEqual(floor);
-      // The duration cap is applied before the campaign's intensity scales the
-      // count, so a wave meant to lean harder may run over it by that factor
-      // (docs/WAVE_SOURCE_PLAN.md, R4).
-      const slack = Math.max(1, campaignIntensity(wave));
-      expect(config.totalCount * config.spawnDelay).toBeLessThanOrEqual(MAX_WAVE_DURATION_MS * slack);
+      // No duration cap here: a budget row lasts what count times delay gives
+      // (docs/WAVE_RUN_PLAN.md, section 9); the table checks its own rows.
     }
   });
 
@@ -138,7 +135,7 @@ describe.each(Object.keys(WAVE_SOURCES) as WaveSourceId[])('wave source contract
 
   describe('the waves ahead', () => {
     const request = (fromWave: number, count: number) =>
-      ({ fromWave, count, defense: { totalDps: 400 } });
+      ({ fromWave, count });
 
     it('answers as many as asked, in order, from the wave asked for', () => {
       const facts = source.peek(request(5, 5));
@@ -158,11 +155,7 @@ describe.each(Object.keys(WAVE_SOURCES) as WaveSourceId[])('wave source contract
     it('says what it knows without inventing numbers', () => {
       for (const fact of source.peek(request(1, 40))) {
         expect(fact.name.length).toBeGreaterThan(0);
-        if (fact.count) {
-          expect(fact.count.lo).toBeGreaterThanOrEqual(1);
-          expect(fact.count.hi).toBeGreaterThanOrEqual(fact.count.lo);
-          expect(fact.count.max).toBeGreaterThanOrEqual(fact.count.hi);
-        }
+        if (fact.count !== null) expect(fact.count).toBeGreaterThanOrEqual(1);
         // A wave it does not know carries no armor, enemies or count either.
         if (!fact.known) {
           expect(fact.count).toBeNull();

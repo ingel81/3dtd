@@ -53,8 +53,13 @@ describe('state snapshot parts', () => {
         .toEqual({ ...zeroes, unarmored: 1 });
     });
 
-    it('is undefined past the campaign with no wave running', () => {
-      expect(expectedArmorDistribution(null, 31)).toBeUndefined();
+    it('reads the coming wave past the campaign as well, the default source fixes every wave', () => {
+      const dist = expectedArmorDistribution(null, 31)!;
+      expect(Object.values(dist).reduce((sum, share) => sum + share, 0)).toBeCloseTo(1);
+    });
+
+    it('is undefined where the source fixes nothing, with no wave running', () => {
+      expect(expectedArmorDistribution(null, 0)).toBeUndefined();
     });
   });
 });

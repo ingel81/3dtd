@@ -1,8 +1,11 @@
 /**
- * Druck-Regler — geschlossener Kreis auf den HP-Anteil, den eine Welle kostet.
+ * Druck-Regler: geschlossener Kreis auf den HP-Anteil, den eine Welle kostet.
  *
- * Er korrigiert die Kill-Schätzung von `survivableCount` über einen
- * Multiplikator, genau wie sein Vorgänger. Neu ist, worauf er regelt.
+ * Er liefert einen Multiplikator auf das Budget einer Welle
+ * (`sources/budget/`), gemessen an dem HP-Anteil, den die letzten Wellen
+ * gekostet haben. Die Begründungen unten stammen aus der Zeit des adaptiven
+ * Directors, für den der Regler gebaut wurde; sie gelten für das Budget
+ * genauso.
  *
  * WARUM NICHT MEHR AUF DIE LECK-QUOTE, gemessen über 360 Könner-Läufe
  * (docs/DRAMA_CONTROLLER_PLAN.md):
@@ -50,15 +53,6 @@ import { directorParams } from './director-params';
 import { DetMath } from '../utils/det-math';
 
 /**
- * Wellen, die der Regler gar nicht erst ansieht.
- *
- * Sie messen einen Spieler ohne Türme, nicht seine Verteidigung. Das ist der
- * Anti-Windup: genau diese Wellen haben den Vorgänger in den Anschlag
- * getrieben.
- */
-export const PRESSURE_WARMUP_WAVES = 4;
-
-/**
  * Gewicht der neuesten Welle im geglätteten Druck.
  *
  * Ein exponentiell gewichteter Mittelwert statt eines Fensters. Das Fenster
@@ -70,15 +64,6 @@ export const PRESSURE_WARMUP_WAVES = 4;
  * Ausreißer (docs/DRAMA_CONTROLLER_PLAN.md).
  */
 export const PRESSURE_SMOOTHING = 0.35;
-
-/**
- * Messwerte, ab denen der Regler eingreift.
- *
- * Drei Wellen sind eine grobe, aber rechtzeitige Aussage. Wartete er länger,
- * griffe er bei einem Lauf, der um Welle 16 endet, erst nach der halben
- * Lebenszeit ein.
- */
-export const PRESSURE_MIN_SAMPLES = 3;
 
 /**
  * Most a single wave counts for, as a multiple of the target (TODO E48).
@@ -130,17 +115,12 @@ export const PRESSURE_FLOOR = 0.002;
 export const PRESSURE_BAND_LO = 0.5;
 export const PRESSURE_BAND_HI = 1.5;
 
-export const PRESSURE_MULT_MIN = 0.5;
-export const PRESSURE_MULT_MAX = 20;
-
 /**
  * Der Anteil der HP, den eine Welle kosten soll.
  *
  * Eine Funktion der Wellennummer, keine Konstante: dieselbe Zahl steuert den
- * Sollwert des Reglers und den Leck-Spielraum im Überlebbarkeits-Deckel
- * (`survivableCount`). Vorher waren das zwei Zahlen, die gegeneinander
- * arbeiteten — der Deckel rechnete mit festen 6 %, der Regler zielte auf ein
- * Leck-Band, das damit nichts zu tun hatte.
+ * Sollwert des Reglers und den Leck-Spielraum im Deckel des Budgets
+ * (`sources/budget/budget.ts`).
  */
 export function targetPressure(waveNumber: number): number {
   const ramp = Math.max(0, Math.min(1, waveNumber / TARGET_RUN_WAVES));
@@ -171,7 +151,7 @@ export function wavePressure(
 /** Was der Regler mit der letzten Welle gemacht hat. */
 export type PressureStep = 'warming-up' | 'opened' | 'closed' | 'held';
 
-/** Lesender Blick auf den Regler, für den Decision-Explainer. */
+/** Lesender Blick auf den Regler. */
 export interface PressureStatus {
   multiplier: number;
   /** Wie viele Wellen der geglättete Wert schon gesehen hat. */
@@ -200,18 +180,17 @@ export interface PressureStatus {
 
 export class PressureController {
   /**
-   * @param limits Spielraum des Multiplikators. Der adaptive Director braucht
-   *               0,5 bis 20, weil er damit die Anzahl vom Deckel her öffnet; das
-   *               Budget-Modell nur halb bis doppelt (Entscheidung 2026-09-28).
+   * @param limits Spielraum des Multiplikators; das Budget-Modell halb bis
+   *               doppelt (Entscheidung 2026-09-28).
    */
   constructor(
-    private readonly limits: { min: number; max: number } = { min: PRESSURE_MULT_MIN, max: PRESSURE_MULT_MAX },
+    private readonly limits: { min: number; max: number },
     /**
-     * Wellen, die er nicht ansieht, und Messwerte, bevor er stellt. Das
-     * Budget-Modell hat keinen Deckel auf die Anzahl, der die ersten Wellen
-     * auffängt; es braucht den Regler ab Welle 2 (Bot-Messung 2026-09-28).
+     * Wellen, die er nicht ansieht, und Messwerte, bevor er stellt. Die
+     * ersten Wellen messen einen Spieler ohne Türme; das Budget-Modell braucht
+     * den Regler trotzdem ab Welle 2 (Bot-Messung 2026-09-28).
      */
-    private readonly start: { warmupWaves: number; minSamples: number } = { warmupWaves: PRESSURE_WARMUP_WAVES, minSamples: PRESSURE_MIN_SAMPLES },
+    private readonly start: { warmupWaves: number; minSamples: number },
   ) {}
 
   /** Geglätteter Druck, null bevor die erste Welle gezählt hat. */
@@ -221,7 +200,7 @@ export class PressureController {
   private lastStep: PressureStep = 'warming-up';
   private lastTarget: number | null = null;
 
-  /** Korrekturfaktor für die Kill-Schätzung in `survivableCount`. */
+  /** Faktor auf das Budget der nächsten Welle. */
   get pressureMultiplier(): number {
     return this.multiplier;
   }
@@ -253,9 +232,9 @@ export class PressureController {
    *                   null, wenn die Welle keine Aussage trägt.
    * @param waveNumber Nummer der Welle, die gerade endete. Sie bestimmt den
    *                   Sollwert und ob der Warmup noch läuft.
-   * @param capBinding Hat der Überlebbarkeits-Deckel die Größe dieser Welle
-   *                   bestimmt? Wenn nicht, hatte der Multiplikator keine
-   *                   Wirkung, und weiter zu öffnen wäre Integrieren gegen
+   * @param capBinding Hatte der Multiplikator auf diese Welle Wirkung? Nicht,
+   *                   wenn der Deckel oder die Grenze je Gegner die Welle
+   *                   hielt; weiter zu öffnen wäre dann Integrieren gegen
    *                   eine Sättigung (Anti-Windup, siehe unten).
    */
   recordWave(pressure: number | null, waveNumber: number, capBinding = true): number {
@@ -278,17 +257,14 @@ export class PressureController {
     // Multiplikator sie nicht beeinflusst hat. Ein menschlicher Lauf über 66
     // Wellen hat gezeigt, wie falsch das ist. Bei einer starken Verteidigung
     // bindet der Deckel fast nie, also waren 14 von 29 Wellen für den Regler
-    // unsichtbar — und zwar genau die billigen. Er hielt den Schnitt für
+    // unsichtbar, und zwar genau die billigen. Er hielt den Schnitt für
     // 5,2 % während er real bei null lag, fuhr nach einer einzigen teuren
     // Welle von ×5,75 auf ×0,62 herunter und schickte statt 2820 Gegnern noch
     // 21. Ein Auswahlfehler, der genau in die falsche Richtung wirkt: Der
     // Filter sollte falsches Öffnen verhindern und erzwang falsches Schließen.
     //
-    // Die Begründung war ohnehin hinfällig: Seit der Multiplikator bei nicht
-    // bindendem Deckel den Anzahl-Faktor verschiebt (wave-config-builder.ts),
-    // hat er auch in diesen Wellen eine Handhabe. Gegen falsches Öffnen
-    // schützt weiter das Anti-Windup unten, und das greift an der richtigen
-    // Stelle: bei der Stellgröße, nicht bei der Messung.
+    // Gegen falsches Öffnen schützt das Anti-Windup unten, und das greift an
+    // der richtigen Stelle: bei der Stellgröße, nicht bei der Messung.
     if (pressure !== null && Number.isFinite(pressure)) {
       const value = Math.max(0, Math.min(1, target * PRESSURE_MEASURE_CAP, pressure));
       this.smoothed = this.smoothed === null

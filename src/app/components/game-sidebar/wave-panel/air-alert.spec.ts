@@ -6,17 +6,17 @@ import {
   waveBringsAir,
   upcomingAirAlert,
 } from './air-alert';
-import { CAMPAIGN_LENGTH } from '../../../configs/campaign.config';
 
-describe('waveBringsAir (campaign rules)', () => {
-  it('reads the air units from the campaign template', () => {
+describe('waveBringsAir (run plan rules, the default source)', () => {
+  it('reads the air units from the plan row', () => {
     expect(waveBringsAir(7)).toBe(true); // Bat Swarm
     expect(waveBringsAir(16)).toBe(true); // Chaos Wave, hornets in the mix
     expect(waveBringsAir(6)).toBe(false); // Spider Swarm
   });
 
-  it('knows nothing past the campaign', () => {
-    expect(waveBringsAir(CAMPAIGN_LENGTH + 1)).toBe(false);
+  it('knows the waves past the campaign as well', () => {
+    expect(waveBringsAir(50)).toBe(true); // Boss: Dragon Flight
+    expect(waveBringsAir(31)).toBe(false); // Light Mix
   });
 });
 

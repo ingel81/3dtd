@@ -65,13 +65,10 @@ export class WaveDirector {
 
     // Subscribe the source to completed waves.
     //
-    // This wiring is the whole point of an adaptive source and it was missing
-    // on first write: `onWaveCompleted` had no caller anywhere in the project,
-    // so the pressure multiplier stayed at 1.0 forever and the cap sat back on
-    // "exactly what the towers can kill" — the 70%-killed-everything state the
-    // loop exists to break. Every unit test passed regardless, because they
-    // all exercised the controller in isolation. `pressure-wiring.spec.ts`
-    // exists against exactly that.
+    // This wiring is what the pressure loop lives on, and it was missing on
+    // first write: `onWaveCompleted` had no caller anywhere in the project, so
+    // the pressure multiplier stayed at 1.0 forever. Every unit test passed
+    // regardless, because they all exercised the controller in isolation.
     //
     // The collector's hook is used rather than the `wave:completed` event:
     // that event is not emitted when the base falls, so a source would never
@@ -181,7 +178,7 @@ export class WaveDirector {
   /**
    * Clear per-run state and put the chosen source into service.
    *
-   * Must be called when a new game starts: an adaptive source's correction is
+   * Must be called when a new game starts: the pressure loop's correction is
    * a per-RUN figure, and letting it survive into the next game made it a
    * ratchet that opened fresh runs against waves sized for a defense that had
    * already been dismantled. Median run length under that bug was 6 waves

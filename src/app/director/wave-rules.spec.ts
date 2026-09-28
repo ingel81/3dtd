@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { setActiveWaveRules, waveHasAir, waveRules, type WaveRules } from './wave-rules';
-import { CAMPAIGN_WAVE_RULES } from '../configs/campaign-wave-rules';
-import { enemyBaseDamageForWave, isBossWave, waveGold } from '../configs/campaign.config';
+import { RUN_PLAN_RULES, planLeakScale, planRowForWave } from './sources/budget/run-plan';
+import { enemyBaseDamageForWave, waveGold } from '../configs/campaign.config';
 import { TableWaveSource } from './sources/table/table-source';
 import { summarizeWaveGroups } from '../managers/game-state/wave-preview';
 
@@ -14,12 +14,12 @@ const LOUD: WaveRules = {
 };
 
 describe('wave rules', () => {
-  afterEach(() => setActiveWaveRules(CAMPAIGN_WAVE_RULES));
+  afterEach(() => setActiveWaveRules(RUN_PLAN_RULES));
 
-  it('are the campaign rules before any source is set', () => {
-    for (const wave of [1, 31, 61]) expect(waveRules().leakScale(wave)).toBe(enemyBaseDamageForWave(wave));
-    expect(waveRules().gold(12)).toEqual(waveGold(12));
-    expect(waveRules().isBoss(10)).toBe(isBossWave(10));
+  it('are the run plan rules, the default source, before any source is set', () => {
+    for (const wave of [1, 31, 61]) expect(waveRules().leakScale(wave)).toBe(planLeakScale(wave));
+    expect(waveRules().gold(12)).toEqual(waveGold(12, false));
+    expect(waveRules().isBoss(10)).toBe(planRowForWave(10)!.boss === true);
   });
 
   it('follow the active source, so the game reads what the source says', () => {
@@ -31,7 +31,7 @@ describe('wave rules', () => {
     // The preview prices a leak with the active rules
     const config = { schedule: { entries: [{ enemyType: 'rat', speed: 1 }], baseDelay: 100 } } as never;
     const loud = JSON.stringify(summarizeWaveGroups(config, 1, 1));
-    setActiveWaveRules(CAMPAIGN_WAVE_RULES);
+    setActiveWaveRules(RUN_PLAN_RULES);
     expect(loud).not.toBe(JSON.stringify(summarizeWaveGroups(config, 1, 1)));
   });
 

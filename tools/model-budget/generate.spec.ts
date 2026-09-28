@@ -33,8 +33,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../src/app/configs/enemy-types.config';
-import { TEMPLATES } from '../../src/app/director/templates';
-import { CAMPAIGN } from '../../src/app/configs/campaign.config';
+import { RUN_PLAN } from '../../src/app/director/sources/budget/run-plan';
 import { TIMING } from '../../src/app/configs/timing.config';
 import { bakeEnemyVAT, type VATData } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
 import { DEFAULT_BAKE_FPS, vatClips, vatFrameCount } from '../../src/app/three-engine/renderers/instanced-enemy/vat-clips';
@@ -85,11 +84,10 @@ interface Bake {
 }
 
 interface Presence {
-  /** Most enemies of this type one wave can bring (share x top of countRange). */
+  /** Most enemies of this type one wave of the run plan brings, splits included. */
   perWave: number;
+  /** Run plan waves it comes in. */
   waves: number[];
-  /** Most of this type one campaign wave can bring, over W1 to W30. */
-  campaignMax: number;
 }
 
 interface Row {
@@ -154,27 +152,15 @@ function bodiesOf(parent: string, id: string, depth = 0): number {
 
 function presenceOf(id: string): Presence {
   let perWave = 0;
-  for (const template of TEMPLATES) {
+  const waves: number[] = [];
+  for (const row of RUN_PLAN) {
     let n = 0;
-    for (const [enemy, share] of template.enemies) {
-      n += Math.round(share * template.countRange[1]) * bodiesOf(enemy, id);
-    }
+    for (const [enemy, count] of Object.entries(row.enemies)) n += count * bodiesOf(enemy, id);
+    if (n === 0) continue;
+    waves.push(row.wave);
     perWave = Math.max(perWave, n);
   }
-  const waves: number[] = [];
-  let campaignMax = 0;
-  CAMPAIGN.forEach((entry, i) => {
-    const template = TEMPLATES.find((t) => t.id === entry.template);
-    if (!template) return;
-    let n = 0;
-    for (const [enemy, share] of template.enemies) {
-      n += Math.round(share * template.countRange[1]) * bodiesOf(enemy, id);
-    }
-    if (n === 0) return;
-    waves.push(i + 1);
-    campaignMax = Math.max(campaignMax, n);
-  });
-  return { perWave, waves, campaignMax };
+  return { perWave, waves };
 }
 
 /** Loads a model with the game's loaders and bakes it as InstancedEnemyRenderer does. */
@@ -375,9 +361,9 @@ function render(rows: Row[]): string {
 
   out.push('### Laufzeitkosten pro Gegner');
   out.push('');
-  out.push('Sortiert nach VAT-Vertices pro Instanz. „max./Welle“ ist Anteil × Obergrenze von');
-  out.push('`countRange` über alle Templates, vor dem Fairness-Gate, das die meisten Wellen kleiner');
-  out.push('macht; was ein Kill abspaltet (`splitOnDeath`), zählt mit. „Mio. Vertices“ = VAT-Vertices ×');
+  out.push('Sortiert nach VAT-Vertices pro Instanz. „max./Welle“ ist die größte Anzahl einer Welle des');
+  out.push('Laufplans (`run-plan.json`); was ein Kill abspaltet (`splitOnDeath`), zählt mit.');
+  out.push('„Mio. Vertices“ = VAT-Vertices ×');
   out.push('max./Welle, also die Vertex-Shader-Last, wenn alle Gegner der größten Welle gleichzeitig');
   out.push('leben. Für abgespaltene Gegner ist das eine Obergrenze: Sie entstehen erst, wenn der');
   out.push('Gegner stirbt, der sie abspaltet. „Half-Fehler“ ist der größte Fehler, den');
@@ -468,9 +454,9 @@ function render(rows: Row[]): string {
 
   out.push('### Vorkommen in Wellen');
   out.push('');
-  out.push('Die Kampagne W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte');
-  out.push('Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`,');
-  out.push('mit allem, was ein Kill abspaltet.');
+  out.push('Aus dem Laufplan (`director/sources/budget/run-plan.json`), W1 bis W60; danach laufen die');
+  out.push('letzten zehn Zeilen erneut. Je Wellenname die größte Zeile. „Mio. Vertices“ = Summe über die');
+  out.push('Gegner der Zeile, mit allem, was ein Kill abspaltet.');
   out.push('');
   // VAT vertices of one enemy and everything a kill splits it into
   const lineageVerts = (enemy: string, depth = 0): number => {
@@ -478,36 +464,43 @@ function render(rows: Row[]): string {
     const split = ENEMY_TYPES[enemy]?.splitOnDeath;
     return !split || depth >= 4 ? own : own + split.count * lineageVerts(split.type, depth + 1);
   };
-  const mixLabel = (enemy: string, share: number): string => {
+  const mixLabel = (enemy: string, count: number): string => {
     const split = ENEMY_TYPES[enemy]?.splitOnDeath;
-    const label = `${enemy} ${int(share * 100)} %`;
+    const label = `${int(count)} ${enemy}`;
     return split ? `${label} (je Kill +${split.count} ${split.type})` : label;
   };
-  const templateRows = TEMPLATES.map((t) => {
-    const top = t.countRange[1];
-    const load = t.enemies.reduce((s, [enemy, share]) => s + Math.round(share * top) * lineageVerts(enemy), 0);
-    const waves = CAMPAIGN.flatMap((entry, i) => (entry.template === t.id ? [i + 1] : []));
-    return { t, top, load, waves };
-  }).sort((a, b) => b.load - a.load || a.t.id.localeCompare(b.t.id));
+  const byName = new Map<string, { waves: number[]; top: number; load: number; enemies: [string, number][] }>();
+  for (const row of RUN_PLAN) {
+    const enemies = Object.entries(row.enemies);
+    const top = enemies.reduce((sum, [, count]) => sum + count, 0);
+    const load = enemies.reduce((sum, [enemy, count]) => sum + count * lineageVerts(enemy), 0);
+    const known = byName.get(row.name);
+    if (!known) byName.set(row.name, { waves: [row.wave], top, load, enemies });
+    else {
+      known.waves.push(row.wave);
+      if (load > known.load) Object.assign(known, { top, load, enemies });
+    }
+  }
+  const planRows = [...byName].sort((a, b) => b[1].load - a[1].load || a[0].localeCompare(b[0]));
   out.push(table(
-    ['Template', 'Kampagne', 'max. Anzahl', 'Mischung', 'Mio. Vertices'],
+    ['Welle', 'Laufplan', 'max. Anzahl', 'Mischung', 'Mio. Vertices'],
     'llrlr',
-    templateRows.map(({ t, top, load, waves }) => [
-      `\`${t.id}\``,
+    planRows.map(([name, { waves, top, load, enemies }]) => [
+      name,
       wavesLabel(waves),
       int(top),
-      t.enemies.map(([enemy, share]) => mixLabel(enemy, share)).join(', '),
+      enemies.map(([enemy, count]) => mixLabel(enemy, count)).join(', '),
       dec(load / 1e6),
     ]),
   ));
   out.push('');
   out.push(table(
-    ['Gegner', 'Kampagnen-Wellen', 'max. in einer Kampagnenwelle'],
+    ['Gegner', 'Wellen im Laufplan', 'max. in einer Welle'],
     'llr',
     [...rows].sort((a, b) => a.id.localeCompare(b.id)).map((r) => [
       r.config.name,
       wavesLabel(r.presence.waves),
-      int(r.presence.campaignMax),
+      int(r.presence.perWave),
     ]),
   ));
   return out.join('\n');

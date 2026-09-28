@@ -32,8 +32,7 @@ export interface AirAlertView {
 
 /**
  * Whether `wave` brings air units, as far as the source fixes the wave in
- * advance. False where it does not: the adaptive director picks the template
- * past the campaign when the wave starts.
+ * advance (both of today's sources fix every wave).
  */
 export function waveBringsAir(wave: number): boolean {
   return waveHasAir(wave, (id) => ENEMY_TYPES[id]?.isAirUnit === true);

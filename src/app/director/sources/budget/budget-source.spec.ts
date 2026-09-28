@@ -55,7 +55,7 @@ describe('BudgetWaveSource', () => {
   });
 
   it('peeks every coming wave by its row', () => {
-    const facts = new BudgetWaveSource().peek({ fromWave: 9, count: 3, defense: { totalDps: 0 } });
+    const facts = new BudgetWaveSource().peek({ fromWave: 9, count: 3 });
     expect(facts.map((f) => f.wave)).toEqual([9, 10, 11]);
     expect(facts[1].boss).toBe(true);
     expect(facts.every((f) => f.known && f.count !== null)).toBe(true);

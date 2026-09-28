@@ -13,10 +13,14 @@
  */
 
 import rawTable from './wave-table.json';
-import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS } from '../../templates';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import type { SpawnPattern } from '../../spawn-schedule-builder';
 import { DetMath } from '../../../utils/det-math';
+
+/** Longest a row may take to spawn (count times spawn delay), 3 minutes. */
+export const MAX_WAVE_DURATION_MS = 180_000;
+/** Shortest spawn delay a row with more than one enemy may use. */
+export const MIN_SPAWN_DELAY_MS = 5;
 
 /** One wave, as the list writes it down. */
 export interface WaveTableRow {

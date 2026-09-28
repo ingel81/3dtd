@@ -11,7 +11,7 @@
  * masks into the grid: a restore has to put the towers' answers back.
  */
 import { setActiveWaveRules } from '../director/wave-rules';
-import { CAMPAIGN_WAVE_RULES } from '../configs/campaign-wave-rules';
+import { RUN_PLAN_RULES } from '../director/sources/budget/run-plan';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 vi.mock('three', async () => {
@@ -290,7 +290,7 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
   });
   it('re-simulates bit for bit when the wave source makes a leak cost a fraction of HP', () => {
     // The budget source's leak grows continuously (1.37 and the like): HP turn fractional
-    setActiveWaveRules({ ...CAMPAIGN_WAVE_RULES, leakScale: () => 1.37 });
+    setActiveWaveRules({ ...RUN_PLAN_RULES, leakScale: () => 1.37 });
     try {
       world = buildWorld();
       const { gsm } = world;
@@ -313,7 +313,7 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
       expect(resim.checkedHashes).toBe(record.hashes.length);
       resim.end();
     } finally {
-      setActiveWaveRules(CAMPAIGN_WAVE_RULES);
+      setActiveWaveRules(RUN_PLAN_RULES);
     }
   });
 

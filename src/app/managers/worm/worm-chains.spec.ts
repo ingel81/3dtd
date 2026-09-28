@@ -18,7 +18,7 @@ import {
   TEST_SPAWN_POINTS,
 } from '../../integration/test-helpers';
 import { ENEMY_TYPES, enemyRewardWeight } from '../../configs/enemy-types.config';
-import { waveGold } from '../../configs/campaign.config';
+import { waveRules } from '../../director/wave-rules';
 import { getRouteProfile } from '../../utils/route-corridor';
 import { wormSegmentCount, wormSway, type WormGroup } from './worm-group';
 import { straightPath, out, distance } from '../../../test/worm-test-helpers';
@@ -498,7 +498,7 @@ describe('Worm chains', () => {
 
       beatWave();
 
-      const budget = waveGold(1).kill;
+      const budget = waveRules().gold(1).kill;
       const worm = credits.slice(1);
       expect(credits.reduce((s, c) => s + c, 0)).toBe(budget);
       // Every segment weighs the same; the last one takes the rounding remainder

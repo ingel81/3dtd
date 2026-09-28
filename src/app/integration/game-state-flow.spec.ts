@@ -27,7 +27,7 @@ import {
   makeSingleTypeWaveConfig,
 } from './test-helpers';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { enemyBaseDamageForWave } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 import { leakDamageOf } from '../configs/enemy-types.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 
@@ -93,7 +93,7 @@ describe('Game State Flow Integration', () => {
       if (m.enemyManager.getAll().length === 0) break;
     }
 
-    expect(baseHealth).toBe(GAME_BALANCE.player.startHealth - leakDamageOf('zombie') * enemyBaseDamageForWave(1));
+    expect(baseHealth).toBe(GAME_BALANCE.player.startHealth - leakDamageOf('zombie') * waveRules().leakScale(1));
   });
 
   it('should track credits through event chain (enemy killed → credits)', () => {

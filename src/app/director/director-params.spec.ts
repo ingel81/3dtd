@@ -7,8 +7,8 @@ import {
   resetDirectorParams,
   useDirectorParams,
 } from './director-params';
-import { decideWave } from './sources/adaptive/director-rules';
-import { dpsScaledCountMax } from './sources/adaptive/wave-sizing';
+import { BudgetWaveSource } from './sources/budget/budget-source';
+import { createEmptySnapshot } from './models/game-state-snapshot';
 
 describe('director parameter sets', () => {
   afterEach(() => resetDirectorParams());
@@ -19,9 +19,9 @@ describe('director parameter sets', () => {
   });
 
   it('switches to a named set', () => {
-    expect(useDirectorParams('steep-ramp')).toBe(true);
-    expect(directorParamsName()).toBe('steep-ramp');
-    expect(directorParams().rampFullWave).toBe(DIRECTOR_PARAM_SETS['steep-ramp'].rampFullWave);
+    expect(useDirectorParams('fast-loop')).toBe(true);
+    expect(directorParamsName()).toBe('fast-loop');
+    expect(directorParams().pressureGain).toBe(DIRECTOR_PARAM_SETS['fast-loop'].pressureGain);
   });
 
   it('keeps what is in force when the name is unknown, and says so', () => {
@@ -30,46 +30,15 @@ describe('director parameter sets', () => {
     expect(directorParamsName()).toBe('pressure-high');
   });
 
-  it('campaign-size opens the whole count range to a weak defense', () => {
-    const range: [number, number] = [5, 85];
-    const weakDps = 40;
+  it('reaches the budget source: pressure-high raises the target a wave aims at', () => {
+    const targetAt = (wave: number) => {
+      const state = createEmptySnapshot();
+      state.waveNumber = wave - 1;
+      return new BudgetWaveSource().plan({ wave, state, random: () => 0.5 }).log.targetPressure!;
+    };
 
-    const withDefault = dpsScaledCountMax(range, weakDps);
-    useDirectorParams('campaign-size');
-    const withCampaign = dpsScaledCountMax(range, weakDps);
-
-    // Today a weak defense is handed the bottom of the range, whatever the
-    // campaign says the wave should be
-    expect(withDefault).toBeLessThan(20);
-    expect(withCampaign).toBe(range[1]);
-  });
-
-  it('campaign-size leaves a strong defense where it was', () => {
-    const range: [number, number] = [5, 85];
-    const strongDps = 100_000;
-
-    const withDefault = dpsScaledCountMax(range, strongDps);
-    useDirectorParams('campaign-size');
-
-    expect(withDefault).toBe(range[1]);
-    expect(dpsScaledCountMax(range, strongDps)).toBe(range[1]);
-  });
-
-  it('the game plays the cap with the headroom the first tuning round settled on', () => {
-    // 749 runs over four settings: at 1 the weaker bot outlived the stronger
-    // one, at 2 both collapse to wave 13 (BALANCING_PLAN.md, Tuning-Runde 1)
-    expect(DEFAULT_DIRECTOR_PARAMS.capSlack).toBe(1.5);
-    expect(DIRECTOR_PARAM_SETS['cap-tight'].capSlack).toBeLessThan(1.5);
-    expect(DIRECTOR_PARAM_SETS['cap-loose'].capSlack).toBeGreaterThan(1.5);
-  });
-
-  it('reaches the director: a steeper ramp is further along at the same wave', () => {
-    const rampAt = (wave: number) => decideWave([0, 1], wave, [], () => 0.5).why.ramp;
-
-    const withDefault = rampAt(30);
-    useDirectorParams('steep-ramp');
-    const withSteep = rampAt(30);
-
-    expect(withSteep).toBeGreaterThan(withDefault);
+    const withDefault = targetAt(20);
+    useDirectorParams('pressure-high');
+    expect(targetAt(20)).toBeCloseTo(withDefault * 1.5);
   });
 });

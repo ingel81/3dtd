@@ -9,6 +9,7 @@ import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameEventBus } from '../../game-engine/game-event-bus';
+import { planRowForWave } from '../../director/sources/budget/run-plan';
 
 /**
  * Playtest 378 and 380 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed on the
@@ -48,31 +49,31 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
   const enter = (value: string) =>
     debuggerPanel.onJumpWaveChange({ target: { value } } as unknown as Event);
 
-  it('378: before W1 the field holds 35, named "Boss: Skarnax", gold on, "Jump: next start Wave 35"', () => {
-    expect(debuggerPanel.jumpWave()).toBe(35);
+  it('378: before W1 the field holds 30, named "Boss: Skarnax", gold on, "Jump: next start Wave 30"', () => {
+    expect(debuggerPanel.jumpWave()).toBe(30);
     expect(debuggerPanel.jumpWaveName()).toBe('Boss: Skarnax');
     expect(debuggerPanel.jumpGrantGold()).toBe(true);
-    expect(debuggerPanel.jumpLabel()).toBe('Jump: next start Wave 35');
+    expect(debuggerPanel.jumpLabel()).toBe('Jump: next start Wave 30');
     expect(debuggerPanel.canJump()).toBe(true);
 
     debuggerPanel.onJumpToWave();
-    expect(jumps).toEqual([{ wave: 35, grantGold: true }]);
+    expect(jumps).toEqual([{ wave: 30, grantGold: true }]);
   });
 
-  it('380: 45 is "Boss: Ooze"; a number that skips no wave greys the button, "Wave N or later"', () => {
-    // W35 played
-    waveNumber.set(35);
-    enter('45');
+  it('380: 20 is "Boss: Ooze"; a number that skips no wave greys the button, "Wave N or later"', () => {
+    // W10 played
+    waveNumber.set(10);
+    enter('20');
     expect(debuggerPanel.jumpWaveName()).toBe('Boss: Ooze');
-    expect(debuggerPanel.jumpLabel()).toBe('Jump: next start Wave 45');
+    expect(debuggerPanel.jumpLabel()).toBe('Jump: next start Wave 20');
 
-    enter('36');
+    enter('11');
     expect(debuggerPanel.canJump()).toBe(false);
-    expect(debuggerPanel.jumpLabel()).toBe('Wave 37 or later');
+    expect(debuggerPanel.jumpLabel()).toBe('Wave 12 or later');
     debuggerPanel.onJumpToWave();
     expect(jumps).toEqual([]);
 
-    enter('37');
+    enter('12');
     expect(debuggerPanel.canJump()).toBe(true);
   });
 
@@ -91,12 +92,11 @@ describe('Jump to wave section, playtest 378 and 380 replayed', () => {
     expect(jumps).toEqual([{ wave: 14, grantGold: false }]);
   });
 
-  it('names a wave between the bosses past the campaign as the director\'s, W40 as a boss wave', () => {
+  it('names every wave by the run plan, past the campaign as well', () => {
     enter('40');
-    expect(debuggerPanel.jumpWaveName()).toBe('Boss wave');
+    expect(debuggerPanel.jumpWaveName()).toBe('Boss: Stone Golem');
     enter('41');
-    expect(debuggerPanel.jumpWaveName()).toBe('Director wave');
-    // A campaign wave by its template
+    expect(debuggerPanel.jumpWaveName()).toBe(planRowForWave(41)!.name);
     enter('7');
     expect(debuggerPanel.jumpWaveName()).toBe('Bat Swarm');
   });

@@ -73,12 +73,12 @@ describe('hero config', () => {
     expect(heroLevelFor(10_000).level).toBe(5);
   });
 
-  it('gives the gate every ammo at his level and half presence', () => {
+  it('gives the defense analysis every ammo at his level and half presence', () => {
     expect(heroDefenseProfile(0)).toEqual({
       ammo: [
-        { damageType: 'physical', dps: 48, shotsPerSecond: 3 },
-        { damageType: 'siege', dps: 48, shotsPerSecond: 1.5 },
-        { damageType: 'magic', dps: 48, shotsPerSecond: 2 },
+        { damageType: 'physical', dps: 48 },
+        { damageType: 'siege', dps: 48 },
+        { damageType: 'magic', dps: 48 },
       ],
       presence: 0.5,
     });

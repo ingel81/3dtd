@@ -15,12 +15,12 @@ import { TOWER_TYPES } from '../configs/tower-types.config';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { CAMPAIGN } from '../configs/campaign.config';
-import { TEMPLATES } from '../director/templates';
 import { RESEARCH_TREE } from '../configs/research/research-tree.config';
 import { ABILITIES } from '../configs/abilities.config';
 import { HERO } from '../configs/hero.config';
-import { BOSS_VARIANTS } from '../configs/boss-variants.config';
 import { DAMAGE_MATRIX } from '../configs/combat/damage-matrix.config';
+import { RUN_PLAN } from '../director/sources/budget/run-plan';
+import { WAVE_TABLE } from '../director/sources/table/wave-table';
 import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 import type { WaveSourceId } from '../director/wave-source';
 
@@ -45,11 +45,11 @@ function balanceParts(): unknown[] {
     ENEMY_TYPES,
     GAME_BALANCE,
     CAMPAIGN,
-    TEMPLATES,
+    RUN_PLAN,
+    WAVE_TABLE,
     RESEARCH_TREE,
     ABILITIES,
     HERO,
-    BOSS_VARIANTS,
     DAMAGE_MATRIX,
   ];
 }
@@ -61,9 +61,8 @@ const cached = new Map<WaveSourceId, string>();
  *
  * Two runs whose waves come from different sources must never land in the
  * same average, so the source goes into the hash. Only a source other than
- * the default does: the hashes of every run measured so far belong to the
- * adaptive one, and moving them would throw that comparability away for a
- * change that changed no balance (docs/WAVE_SOURCE_PLAN.md, section 8).
+ * the default does, so the default's hash stays what it was when a second
+ * source is added (docs/WAVE_SOURCE_PLAN.md, section 8).
  *
  * Computed once per source; the configs are constants.
  */

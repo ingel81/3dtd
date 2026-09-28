@@ -59,8 +59,8 @@ export const HERO = {
    */
   muzzle: { forwardM: 2.4, rightM: 0.36, upM: 3.45 },
   /**
-   * Share of his damage the fairness gate counts: he is one unit and cannot
-   * be everywhere on the route at once (docs/HERO.md, fairness gate).
+   * Share of his damage the defense analysis counts: he is one unit and
+   * cannot be everywhere on the route at once (docs/HERO.md).
    */
   gatePresence: 0.5,
 } as const;
@@ -166,17 +166,16 @@ export function heroLevelFor(kills: number): HeroLevel {
   return reached;
 }
 
-// ==================== Fairness gate ====================
+// ==================== Defense analysis ====================
 
 /**
- * The hero as the fairness gate reads him (analyzeDefense): a virtual tower
- * with his damage per second and shots per second for each ammo, counted at
- * `presence`. The gate takes the best ammo per armor, since the player can
- * switch any time.
+ * The hero as the defense analysis reads him (analyzeDefense): a virtual
+ * tower with his damage per second for each ammo, counted at `presence`. It
+ * takes the best ammo per armor, since the player can switch any time.
  */
 export interface HeroDefenseProfile {
-  ammo: readonly { damageType: DamageType; dps: number; shotsPerSecond: number }[];
-  /** Share the gate counts, HERO.gatePresence */
+  ammo: readonly { damageType: DamageType; dps: number }[];
+  /** Share the analysis counts, HERO.gatePresence */
   presence: number;
 }
 
@@ -186,7 +185,7 @@ export function heroDefenseProfile(kills: number): HeroDefenseProfile {
   return {
     ammo: HERO_AMMO_ORDER.map((id) => {
       const ammo = HERO_AMMO[id];
-      return { damageType: ammo.damageType, dps: ammo.damage * multiplier * ammo.fireRate, shotsPerSecond: ammo.fireRate };
+      return { damageType: ammo.damageType, dps: ammo.damage * multiplier * ammo.fireRate };
     }),
     presence: HERO.gatePresence,
   };

@@ -183,13 +183,13 @@ describe('CoopService over a real relay (review R21)', () => {
   });
 
   it('lets the host decide the wave source: the guest plays the same one', async () => {
-    const { guest } = await lobby({}, ['budget', 'adaptive']);
+    const { guest } = await lobby({}, ['table', 'budget']);
     await until(() => guest.director!.useSourceNextRun.mock.calls.length > 0);
-    expect(guest.director!.useSourceNextRun).toHaveBeenCalledWith('budget');
-    expect(guest.director!.sourceNextRun).toBe('budget');
+    expect(guest.director!.useSourceNextRun).toHaveBeenCalledWith('table');
+    expect(guest.director!.sourceNextRun).toBe('table');
     // Leaving the room gives the guest its own source back
     guest.coop.leave();
-    expect(guest.director!.sourceNextRun).toBe('adaptive');
+    expect(guest.director!.sourceNextRun).toBe('budget');
   });
 
   it('starts once the guest is ready, with the roster and the relay’s lockstep on both', async () => {

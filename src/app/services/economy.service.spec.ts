@@ -12,7 +12,7 @@ vi.mock('@angular/core', async () => {
 
 import { EconomyService, skippedWavesGold, waveGoldTotal } from './economy.service';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { waveGold } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 
 // ---------------------------------------------------------------------------
 // Helpers — derive expected values from real config so tests stay aligned with
@@ -50,7 +50,7 @@ function comebackBonus(hpLost: number, base: number): number {
 
 // Shorthand: wave n base completion credit
 function waveBase(wave: number): number {
-  return waveGold(wave).complete;
+  return waveRules().gold(wave).complete;
 }
 
 describe('EconomyService', () => {
@@ -115,7 +115,7 @@ describe('EconomyService', () => {
       expect(result).toBe(base);
     });
 
-    it('uses waveGold().complete as the base for any wave number', () => {
+    it('uses waveRules().gold().complete as the base for any wave number', () => {
       const base5 = waveBase(5); // 30
       const result = waveGoldTotal(service.computeWaveCompletionBonus({
         wave: 5,
@@ -402,7 +402,7 @@ describe('EconomyService', () => {
   // Robustness — wave 0 / negative wave
   // -------------------------------------------------------------------------
   describe('robustness — edge-case wave numbers', () => {
-    it('returns 0 for wave 0 (waveGold(0) returns {complete: 0})', () => {
+    it('returns 0 for wave 0 (waveRules().gold(0) returns {complete: 0})', () => {
       const result = waveGoldTotal(service.computeWaveCompletionBonus({
         wave: 0,
         perfect: true,
@@ -421,7 +421,7 @@ describe('EconomyService', () => {
     });
 
     it('handles the tapered budget for waves beyond the campaign', () => {
-      const base31 = waveGold(31).complete;
+      const base31 = waveRules().gold(31).complete;
       const result = waveGoldTotal(service.computeWaveCompletionBonus({
         wave: 31,
         perfect: false,
@@ -443,7 +443,7 @@ describe('EconomyService', () => {
     it('pays kill budget, base completion bonus and milestones of every skipped wave', () => {
       let expected = 0;
       for (let w = 1; w <= 13; w++) {
-        expected += waveGold(w).kill + waveGold(w).complete;
+        expected += waveRules().gold(w).kill + waveRules().gold(w).complete;
       }
       expected += GAME_BALANCE.economy.milestoneBonuses[10];
       expect(skippedWavesGold(1, 13)).toBe(expected);
@@ -451,13 +451,13 @@ describe('EconomyService', () => {
 
     it('pays no skill bonus and leaves the perfect streak alone', () => {
       waveGoldTotal(service.computeWaveCompletionBonus({ wave: 1, perfect: true, closeCall: false, hpLost: 0 }));
-      expect(skippedWavesGold(2, 2)).toBe(waveGold(2).kill + waveBase(2));
+      expect(skippedWavesGold(2, 2)).toBe(waveRules().gold(2).kill + waveBase(2));
       expect(service.perfectStreak).toBe(1);
     });
 
     it('reads the tapered budget past the campaign', () => {
       const w31to34 = [31, 32, 33, 34].reduce(
-        (sum, w) => sum + waveGold(w).kill + waveGold(w).complete, 0);
+        (sum, w) => sum + waveRules().gold(w).kill + waveRules().gold(w).complete, 0);
       expect(skippedWavesGold(31, 34)).toBe(w31to34);
     });
 

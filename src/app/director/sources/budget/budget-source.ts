@@ -180,7 +180,7 @@ function factsOf(wave: number, row: RunPlanRow): WavePeekFacts {
     air,
     armors: [...hpByArmor.keys()],
     hpByArmor: [...hpByArmor],
-    count: { lo: total, hi: total, max: total },
+    count: total,
     enemies: entries.map(([type, count]) => [type, count / total] as const),
     note: 'HP set against the defense when the wave is planned',
     description: row.note ?? `${entries.map(([type, count]) => `${count}× ${type}`).join(', ')}, every ${row.spawnDelay} ms.`,

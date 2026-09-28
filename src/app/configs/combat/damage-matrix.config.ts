@@ -21,9 +21,8 @@ import { ArmorType, DAMAGE_TYPES, DamageEffectiveness, DamageMatrix, DamageType 
  * Balance 2026-09: Spreizung pro Rüstung von 1,5× bis 11,7× auf 3× bis 20×
  * (unarmored 3,0, light 3,2, heavy 5,0, fortified 6,4, ethereal 20). Regeln:
  * jede Schadensart hat eine Paarung ≤ 0,5, jede außer physical eine ≥ 1,3,
- * jede Rüstung mindestens zwei Konter ≥ 1,2. Damit das Fairness-Gate die
- * Spreizung nicht wegrechnet, zählt es schlechte Boden-Paarungen mit
- * FAIRNESS_MATCHUP_FLOOR (templates.ts).
+ * jede Rüstung mindestens zwei Konter ≥ 1,2. Das Budget der Wellen rechnet
+ * mit der reinen Matrix (sources/budget/budget.ts).
  *
  * Chaos ist die eine bewusste Ausnahme von den ersten beiden Regeln: 1,0 gegen
  * alles, keine Schwäche und keine Stärke. Der Generalist bezahlt dafür mit

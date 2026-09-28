@@ -355,12 +355,12 @@ describe('the run log', () => {
         templateName: 'Zombie Horde',
         explanation: { summary: 's', reasons: ['Campaign: wave 1.'] },
       };
-      bus.emit({ type: 'wave:planned', director, waveSource: 'adaptive', log: { survivableCount: 40, pressureMultiplier: 1.2 } } as never);
+      bus.emit({ type: 'wave:planned', director, waveSource: 'budget', log: { survivableCount: 40, pressureMultiplier: 1.2 } } as never);
       bus.emit({ type: 'wave:started', wave: 1, enemyCount: 12 });
       bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
 
       expect(waves()[0]).toMatchObject({
-        waveSource: 'adaptive',
+        waveSource: 'budget',
         template: 'Zombie Horde',
         reason: ['Campaign: wave 1.'],
         survivableCount: 40,

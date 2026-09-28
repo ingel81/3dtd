@@ -3,67 +3,18 @@
  *
  * These types are shared: the store keeps an explanation
  * (`GameStore.waveExplanation`), the wave debug window shows it, the run log
- * reads the numbers out of it, and every wave source writes one. The sentences
- * themselves belong to whichever source planned the wave, so the sentence
- * builders live with it (`sources/adaptive/decision-explainer.ts`).
+ * writes its sentences, and every wave source writes one. The sentences
+ * themselves belong to whichever source planned the wave; the numbers behind
+ * them go to the run log through `PlannedWave.log`.
  *
  * Nothing in here knows how a wave is decided.
  */
 
-import type { NumberRange } from './templates';
-
-/**
- * How a wave was sized, as the source that planned it recorded the numbers.
- *
- * Written by the adaptive source's `buildWaveConfig`; a source that sizes
- * waves differently fills what applies and leaves the rest at its neutral
- * value (`cap: null`, `endgameHpMult: 1`).
- */
-export interface WaveSizing {
-  /** The template's designer count range. */
-  countRange: NumberRange;
-  /** Upper end of the count range after the DPS ramp. */
-  dpsScaledMax: number;
-  totalDps: number;
-  /** Survivability cap at the shipped spawn delay; null means no finite cap. */
-  cap: number | null;
-  /** The cap with its headroom (capSlack), what the count may reach; null without a cap. */
-  allowed?: number | null;
-  /**
-   * The cap set the count: `allowed` is below the DPS-scaled top. The one
-   * definition of "binding", for the pressure loop and the sentences alike;
-   * absent in older logs, see capIsBinding.
-   */
-  capBinds?: boolean;
-  /** The kill model's numbers behind the cap (KillModelDetail, TODO E51) */
-  killModel?: { killsPerSecond: number; engagementS: number; killable: number; leakAllowance: number };
-  countFactor: number;
-  count: number;
-  hpMult: number;
-  /** Endgame share of `hpMult` (1 through wave 20). */
-  endgameHpMult: number;
-  spawnDelay: number;
-  /** The wave-duration cap compressed the spawn delay. */
-  durationCapped: boolean;
-}
-
 export interface DecisionExplanation {
-  /** One line: wave, template, size, HP. */
+  /** One line: wave, name, size, HP. */
   summary: string;
-  /** Short sentences, template choice first, then size. */
+  /** Short sentences, what the wave is first, then how it was sized. */
   reasons: string[];
-  /**
-   * The numbers the sentences were written from.
-   *
-   * The run log needs the survivability cap as a number, not as the sentence
-   * "Survivability cap holds the count at 5": how often the cap binds is the
-   * figure the tuning rounds are judged by, and prose cannot be counted
-   * (docs/BALANCING_PLAN.md, Baseline).
-   *
-   * Optional: an explanation written by hand, as a boss rotation or a test
-   * does, has sentences but no numbers behind them.
-   */
-  sizing?: WaveSizing;
 }
 
 /** Plain text for the debug-mode console, same wording as the debug window. */

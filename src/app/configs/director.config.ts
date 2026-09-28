@@ -9,4 +9,4 @@
 
 import type { WaveSourceId } from '../director/wave-source';
 
-export const DEFAULT_WAVE_SOURCE: WaveSourceId = 'adaptive';
+export const DEFAULT_WAVE_SOURCE: WaveSourceId = 'budget';

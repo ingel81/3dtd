@@ -41,43 +41,34 @@ import {
 } from '../../src/app/configs/tower-types.config';
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
 import { RESEARCH_CENTER_LEVELS } from '../../src/app/configs/research/research-center.config';
-import {
-  CAMPAIGN,
-} from '../../src/app/configs/campaign.config';
+import { CAMPAIGN } from '../../src/app/configs/campaign.config';
+import { planRowForWave } from '../../src/app/director/sources/budget/run-plan';
+import { ENEMY_TYPES, type EnemyTypeId } from '../../src/app/configs/enemy-types.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/wave-planner.html');
 
 // =====================================================================
-// Wave-Gate metadata. Maps every template that appears in the campaign
-// to its design-intent gate tags. Kept here (not in the campaign config)
-// because gates are designer commentary, not gameplay-load-bearing data.
+// Wave-Gate metadata: what a wave of the run plan asks of the defense,
+// derived from its row (boss, air, the harder armors, a swarm). Designer
+// commentary for the planner, not gameplay-load-bearing data.
 // =====================================================================
-const TEMPLATE_GATES: Record<string, string[]> = {
-  zombie_horde: [],
-  rat_tide: ['swarm'],
-  penguin_rush: ['speed'],
-  light_mix: [],
-  wallsmasher_crew: [],
-  spider_swarm: ['swarm'],
-  bat_swarm: ['air'],
-  hornet_strike: ['air'],
-  tank_column: ['heavy'],
-  boss_herbert: ['boss'],
-  bear_pack: ['heavy'],
-  dragon_elite: ['air', 'heavy'],
-  ghost_surge: ['ethereal'],
-  mammoth_siege: ['fortified'],
-  golem_squad: ['fortified'], // Stone Golem — sehr stark, kein Boss (Template noch nicht im Campaign, siehe TODO 2.2)
-  mech_army: ['heavy'],
-  chaos_wave: ['air', 'mixed'],
-  wraith_storm: ['ethereal', 'swarm'],
-  armor_gauntlet: ['mixed'],
-  boss_golem: ['boss', 'fortified'], // nur nach dem Campaign (jede 5. Welle)
-  boss_dragon: ['boss', 'air', 'heavy'], // nur nach dem Campaign (jede 5. Welle)
-  skeleton_swarm: ['swarm'],
-};
+const SWARM_MIN_COUNT = 200;
+
+function gatesOf(wave: number): string[] {
+  const row = planRowForWave(wave);
+  if (!row) return [];
+  const gates: string[] = [];
+  const types = Object.keys(row.enemies).map((id) => ENEMY_TYPES[id as EnemyTypeId]).filter((t) => !!t);
+  if (row.boss) gates.push('boss');
+  if (types.some((t) => t.isAirUnit)) gates.push('air');
+  for (const armor of ['heavy', 'fortified', 'ethereal'] as const) {
+    if (types.some((t) => t.armorType === armor)) gates.push(armor);
+  }
+  if (Object.values(row.enemies).reduce((sum, n) => sum + n, 0) >= SWARM_MIN_COUNT) gates.push('swarm');
+  return gates;
+}
 
 // Fixed dark-theme palette per tower — same as tower-stats-chart.
 const TOWER_COLORS: Record<string, string> = {
@@ -211,10 +202,10 @@ function buildPayload(): Payload {
 
   const campaign: PayloadCampaignWave[] = CAMPAIGN.map((w, i) => ({
     wave: i + 1,
-    template: w.template,
+    template: planRowForWave(i + 1)?.name ?? '?',
     killGold: w.killGold,
     completionGold: w.completionGold,
-    gates: TEMPLATE_GATES[w.template] ?? [],
+    gates: gatesOf(i + 1),
   }));
 
   return {

@@ -12,31 +12,24 @@ import { splitTraitLabel, weakToLabel } from '../sidebar-tooltips';
  *
  * The facts come from whichever wave source the run plays
  * (`WaveDirector.peek`); this module only turns them into labels, icons and
- * tooltips. It used to derive them itself from the templates and the campaign,
- * which meant the panel knew how the adaptive director sizes a wave and could
- * only say "unknown" past the campaign for waves another source knows exactly
- * (docs/WAVE_SOURCE_PLAN.md, section 9).
+ * tooltips (docs/WAVE_SOURCE_PLAN.md, section 9).
  */
 
 /** Tooltip sentence of a blood moon wave */
 export const BLOOD_MOON_NOTE =
   `Blood moon (every ${BLOOD_MOON_INTERVAL}th wave): red night, glowing enemies, searchlights on the towers. Looks only, the wave is the same.`;
 
-/**
- * Marks on the NEXT timeline of the WAVE panel. Five consecutive waves hold
- * a boss wave past the campaign (every fifth), so the next one is always
- * on the line.
- */
+/** Marks on the NEXT timeline of the WAVE panel. */
 export const NEXT_WAVE_MARKS = 5;
 
 /** One wave on the NEXT timeline of the WAVE panel. */
 export interface WavePeek {
   wave: number;
   name: string;
-  /** The source knows this wave. Past the campaign the adaptive one does not. */
+  /** The source knows this wave. */
   known: boolean;
   boss: boolean;
-  /** "20–218": the count the wave can hold; null when the source does not know */
+  /** The enemy count as text; null when the source does not know */
   count: string | null;
   /** Armor types in the wave, in the order the wave sends them */
   armors: string[];
@@ -59,7 +52,7 @@ export interface WavePeek {
  * The facts of the coming waves as marks on the timeline.
  *
  * `bloodMoon`: the blood moon look is on (display option), so its waves get
- * their mark. The moon falls on any kind of wave, a boss variant's included.
+ * their mark. The moon falls on any kind of wave, a boss wave included.
  */
 export function peekUpcomingWaves(facts: readonly WavePeekFacts[], bloodMoon = true): WavePeek[] {
   return facts.map((fact) => {
@@ -114,11 +107,8 @@ function toPeek(fact: WavePeekFacts): WavePeek {
   };
 }
 
-/** "20–218", or "20" when the defense already opens the whole range. */
 function countLabel(fact: WavePeekFacts): string | null {
-  if (!fact.count) return null;
-  const { lo, hi } = fact.count;
-  return hi > lo ? `${lo}–${hi}` : `${lo}`;
+  return fact.count === null ? null : `${fact.count}`;
 }
 
 function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: string): string {
@@ -131,12 +121,7 @@ function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: st
     if (split) parts.push(`${cfg!.name}: ${split}.`);
   }
 
-  if (fact.count) {
-    const { lo, hi, max } = fact.count;
-    parts.push(hi < max
-      ? `Up to ${hi} enemies with your tower DPS now, the wave allows ${max}. A weak defense can get fewer than ${lo}.`
-      : `Up to ${hi} enemies. A weak defense can get fewer than ${lo}.`);
-  }
+  if (fact.count) parts.push(`${fact.count} enemies.`);
 
   // What they cost the HQ (TODO E49): each type, and the largest wave whole
   const known = fact.enemies.filter(([id]) => ENEMY_TYPES[id as EnemyTypeId]);
@@ -148,7 +133,7 @@ function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: st
     const shares = known.reduce((sum, [, share]) => sum + share, 0);
     if (fact.count && shares > 0) {
       const perEnemy = known.reduce((sum, [id, share]) => sum + share * lineageLeakDamage(id as EnemyTypeId), 0) / shares;
-      parts.push(`All ${fact.count.hi} through: up to ${Math.round(fact.count.hi * perEnemy * scale)} HP.`);
+      parts.push(`All ${fact.count} through: up to ${Math.round(fact.count * perEnemy * scale)} HP.`);
     }
   }
 

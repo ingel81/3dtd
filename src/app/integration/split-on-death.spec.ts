@@ -19,7 +19,7 @@ import {
   tickEngine,
   makeSingleTypeWaveConfig,
 } from './test-helpers';
-import { waveGold } from '../configs/campaign.config';
+import { waveRules } from '../director/wave-rules';
 import { lineageRewardWeight } from '../configs/enemy-types.config';
 
 const MINION = 'skeleton-minion';
@@ -91,7 +91,7 @@ describe('Split on death integration', () => {
     killAll(MINION);
 
     expect(credits).toHaveLength(15);
-    expect(paid()).toBe(waveGold(1).kill);
+    expect(paid()).toBe(waveRules().gold(1).kill);
   });
 
   it("forfeits a leaked skeleton's share and that of the minions it never became", () => {
@@ -104,7 +104,7 @@ describe('Split on death integration', () => {
     tickEngine(m, 30_000, clock); // the first skeleton walks into the base
     expect(reached).toEqual(['skeleton']);
     // Two of three skeleton lineages paid, the floor accumulator leaves a coin of rounding per kill
-    const budget = waveGold(1).kill;
+    const budget = waveRules().gold(1).kill;
     expect(paid()).toBeGreaterThanOrEqual(Math.floor((budget * 2) / 3) - 6);
     expect(paid()).toBeLessThanOrEqual(Math.ceil((budget * 2) / 3));
   });

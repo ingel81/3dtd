@@ -35,7 +35,6 @@ import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { REPLAY_CONFIG } from '../../../configs/replay.config';
 import { enemyGroupTooltip, formatLeak, splitTraitLabel, waveLeakTotal, weakToLabel } from '../sidebar-tooltips';
-import { calculateTotalDPS } from '../../../director/defense-analyzer';
 import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
@@ -178,21 +177,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   }
 
   /**
-   * Tower DPS the director sizes a wave by (calculateTotalDPS). Tower
-   * entities carry no signals: building and selling, an upgrade of any
-   * tower (the debug "Max Upgrade All" and the training bot upgrade towers
-   * that are not selected) and finished research tell when to recount. An
-   * unchanged value changes nothing downstream.
-   */
-  private readonly towerDps = computed(() => {
-    this.store.towerCount();
-    this.store.towerUpgrades();
-    this.researchStore.completedResearches();
-    return calculateTotalDPS(this.gameState.towerManager.getAll());
-  });
-
-  /**
-   * NEXT: die nächsten fünf Wellen, nach W30 das, was davon bekannt ist.
+   * NEXT: die nächsten fünf Wellen, wie die Quelle sie kennt.
    * Blutmond-Wellen tragen den Mond, solange der Look an ist.
    */
   readonly upcomingWaves = computed(() =>
@@ -200,7 +185,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       this.waveDirector.peek({
         fromWave: this.store.waveNumber() + 1,
         count: NEXT_WAVE_MARKS,
-        defense: { totalDps: this.towerDps() },
       }),
       this.vfx().bloodMoon,
     )

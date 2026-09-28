@@ -72,9 +72,10 @@ Einmalig beim Laden:
 
 ## Budget je Klasse (Vorschlag)
 
-Die Klasse richtet sich nach der größten Anzahl, die eine Welle von dem Gegner bringen kann
-(Anteil × Obergrenze von `countRange`, Spalte „max./Welle“): Swarm ab 400, Normal ab 100,
-darunter Elite/Boss.
+Die Klasse richtet sich nach der größten Anzahl, die eine Welle von dem Gegner bringt
+(seit 2026-09-29 die größte Zeile des Laufplans, davor Anteil × Obergrenze von `countRange` der
+Templates des adaptiven Directors; Spalte „max./Welle“): Swarm ab 400, Normal ab 100, darunter
+Elite/Boss. Die Rechnungen unten stammen aus der Zeit der Templates.
 
 Richtwert: **Die größte Welle eines Templates bleibt bei höchstens 5 Mio. VAT-Vertices.**
 Das ist gut die Hälfte dessen, was 2.000 alte Zombies heute kosten (9,1 Mio.), und lässt Luft
@@ -505,9 +506,9 @@ belegen zusammen etwa 1,1 MB (RGBA16F: 1.700 × 48, 1.214 × 32 und 634 × 32 Te
 
 ### Laufzeitkosten pro Gegner
 
-Sortiert nach VAT-Vertices pro Instanz. „max./Welle“ ist Anteil × Obergrenze von
-`countRange` über alle Templates, vor dem Fairness-Gate, das die meisten Wellen kleiner
-macht; was ein Kill abspaltet (`splitOnDeath`), zählt mit. „Mio. Vertices“ = VAT-Vertices ×
+Sortiert nach VAT-Vertices pro Instanz. „max./Welle“ ist die größte Anzahl einer Welle des
+Laufplans (`run-plan.json`); was ein Kill abspaltet (`splitOnDeath`), zählt mit.
+„Mio. Vertices“ = VAT-Vertices ×
 max./Welle, also die Vertex-Shader-Last, wenn alle Gegner der größten Welle gleichzeitig
 leben. Für abgespaltene Gegner ist das eine Obergrenze: Sie entstehen erst, wenn der
 Gegner stirbt, der sie abspaltet. „Half-Fehler“ ist der größte Fehler, den
@@ -516,31 +517,31 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 
 | Gegner | Klasse | max./Welle | VAT-Vertices | Dreiecke | Mio. Vertices | Bake-Pfad | VAT-Frames | VAT-Textur | Format | Half-Fehler mm | VAT-MB | Diffuse |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
-| Herbert (`herbert`) | Elite/Boss | 5 | 30.831 | 31.949 | 0,2 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
-| Stone Golem (`stone-golem`) | Elite/Boss | 60 | 13.614 | 10.368 | 0,8 | Skinning | 107 | 8192×214 | RGBA32F | 2,64 | 26,8 | 1024² |
+| Herbert (`herbert`) | Elite/Boss | 1 | 30.831 | 31.949 | 0,0 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
+| Stone Golem (`stone-golem`) | Elite/Boss | 21 | 13.614 | 10.368 | 0,3 | Skinning | 107 | 8192×214 | RGBA32F | 2,64 | 26,8 | 1024² |
 | Dragon (`dragon`) | Elite/Boss | 60 | 12.272 | 19.541 | 0,7 | Skinning | 99 | 8192×198 | RGBA16F | 1,78 | 12,4 | 1024² |
-| Wraith (`wraith`) | Normal | 300 | 8.126 | 6.790 | 2,4 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
-| Mammoth (`mammoth`) | Normal | 150 | 5.557 | 8.685 | 0,8 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
-| Tank (`tank`) | Normal | 150 | 4.932 | 2.705 | 0,7 | Skinning | 24 | 4932×24 | RGBA16F | 0,82 | 0,9 | 1024² |
+| Wraith (`wraith`) | Normal | 224 | 8.126 | 6.790 | 1,8 | Skinning | 15 | 8126×15 | RGBA16F | 0,47 | 0,9 | 1024² |
+| Mammoth (`mammoth`) | Elite/Boss | 48 | 5.557 | 8.685 | 0,3 | Skinning | 321 | 5557×321 | RGBA16F | 1,51 | 13,6 | 1024² |
+| Tank (`tank`) | Elite/Boss | 95 | 4.932 | 2.705 | 0,5 | Skinning | 24 | 4932×24 | RGBA16F | 0,82 | 0,9 | 1024² |
 | Hornet (`hornet`) | Normal | 210 | 4.915 | 6.440 | 1,0 | Objekt-Anim. | 59 | 4915×59 | RGBA16F | 0,35 | 2,2 | 1024² |
-| Zombie v2 (`zombie-v2`) | Normal | 200 | 4.870 | 3.704 | 1,0 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
-| Mech (`mech`) | Normal | 100 | 4.771 | 2.877 | 0,5 | Skinning | 40 | 4771×40 | RGBA16F | 1,44 | 1,5 | 1024² |
-| Ghost (`ghost`) | Normal | 280 | 4.270 | 6.474 | 1,2 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
-| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 160 | 4266×160 | RGBA16F | 0,84 | 5,2 | 1024² |
+| Zombie v2 (`zombie-v2`) | Elite/Boss | 70 | 4.870 | 3.704 | 0,3 | Skinning | 306 | 4870×306 | RGBA16F | 1,08 | 11,4 | 1024² |
+| Mech (`mech`) | Elite/Boss | 65 | 4.771 | 2.877 | 0,3 | Skinning | 40 | 4771×40 | RGBA16F | 1,44 | 1,5 | 1024² |
+| Ghost (`ghost`) | Normal | 162 | 4.270 | 6.474 | 0,7 | Skinning | 105 | 4270×105 | RGBA16F | 0,46 | 3,4 | 1024² |
+| Zombie Soldier (`zombie-soldier`) | Elite/Boss | 46 | 4.266 | 7.176 | 0,2 | Skinning | 160 | 4266×160 | RGBA16F | 0,84 | 5,2 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
-| Bat (`bat`) | Swarm | 600 | 3.559 | 2.684 | 2,1 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
-| Wallsmasher (`wallsmasher`) | Normal | 200 | 3.444 | 5.670 | 0,7 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
+| Bat (`bat`) | Normal | 336 | 3.559 | 2.684 | 1,2 | Skinning | 50 | 3559×50 | RGBA16F | 0,96 | 1,4 | 512² |
+| Wallsmasher (`wallsmasher`) | Normal | 136 | 3.444 | 5.670 | 0,5 | Skinning | 104 | 3444×104 | RGBA16F | 1,28 | 2,7 | 512² |
 | Spider (`spider`) | Swarm | 800 | 2.140 | 2.417 | 1,7 | Skinning | 25 | 2140×25 | RGBA16F | 0,56 | 0,4 | 512² |
 | Penguin (`penguin`) | Swarm | 450 | 1.993 | 3.408 | 0,9 | Skinning | 87 | 1993×87 | RGBA16F | 0,42 | 1,3 | 512² |
-| Skarnax (`worm`) | in keiner Welle | 0 | 1.700 | 1.662 | 0,0 | Skinning | 48 | 1700×48 | RGBA16F | 0,93 | 0,6 | 1024² |
-| Zombie (`zombie`) | Swarm | 1.800 | 1.453 | 2.157 | 2,6 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
+| Skarnax (`worm`) | Elite/Boss | 1 | 1.700 | 1.662 | 0,0 | Skinning | 48 | 1700×48 | RGBA16F | 0,93 | 0,6 | 1024² |
+| Zombie (`zombie`) | Swarm | 630 | 1.453 | 2.157 | 0,9 | Skinning | 209 | 1453×209 | RGBA16F | 0,83 | 2,3 | 1024² |
 | Skarnax Tail (`worm-tail`) | in keiner Welle | 0 | 1.214 | 1.214 | 0,0 | Skinning | 32 | 1214×32 | RGBA16F | 1,05 | 0,3 | 512² |
-| Skeleton (`skeleton`) | Swarm | 940 | 1.156 | 658 | 1,1 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
-| Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
-| Rat (`rat`) | Swarm | 5.000 | 999 | 1.529 | 5,0 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
+| Skeleton (`skeleton`) | Swarm | 820 | 1.156 | 658 | 0,9 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
+| Skeleton Minion (`skeleton-minion`) | Swarm | 1.640 | 1.156 | 658 | 1,9 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
+| Rat (`rat`) | Swarm | 908 | 999 | 1.529 | 0,9 | Skinning | 11 | 999×11 | RGBA16F | 0,26 | 0,1 | 512² |
 | Skarnax Segment (`worm-segment`) | in keiner Welle | 0 | 634 | 556 | 0,0 | Skinning | 32 | 634×32 | RGBA16F | 0,95 | 0,2 | 512² |
-| Ooze (`ooze`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
-| Slime Clump (`slime-clump`) | in keiner Welle | 0 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
+| Ooze (`ooze`) | Elite/Boss | 1 | 282 | 504 | 0,0 | Objekt-Anim. | 24 | 282×24 | RGBA16F | 0,50 | 0,1 | – |
+| Slime Clump (`slime-clump`) | Elite/Boss | 20 | 282 | 504 | 0,0 | Objekt-Anim. | 38 | 282×38 | RGBA16F | 0,47 | 0,1 | – |
 
 VAT-Speicher aller Typen zusammen: **97,4 MB** (30 fps), alles in RGBA32F wären **168,0 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **0,4 MB** dazu.
@@ -646,61 +647,63 @@ die weggelassenen Frames.
 
 ### Vorkommen in Wellen
 
-Die Kampagne W1-W30 pinnt die Templates; danach wählt der Director frei (Boss jede fünfte
-Welle). „Mio. Vertices“ = Summe über die Mischung bei der Obergrenze von `countRange`,
-mit allem, was ein Kill abspaltet.
+Aus dem Laufplan (`director/sources/budget/run-plan.json`), W1 bis W60; danach laufen die
+letzten zehn Zeilen erneut. Je Wellenname die größte Zeile. „Mio. Vertices“ = Summe über die
+Gegner der Zeile, mit allem, was ein Kill abspaltet.
 
-| Template | Kampagne | max. Anzahl | Mischung | Mio. Vertices |
+| Welle | Laufplan | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
-| `rat_tide` | W2 | 5.000 | rat 100 % | 5,0 |
-| `zombie_horde` | W1, W26 | 2.000 | zombie 90 %, zombie-v2 10 % | 3,6 |
-| `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
-| `wraith_storm` | W17 | 300 | wraith 100 % | 2,4 |
-| `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,4 |
-| `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
-| `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 1,9 |
-| `ghost_surge` | W13, W24 | 350 | ghost 80 %, wraith 20 % | 1,8 |
-| `spider_swarm` | W6, W23 | 800 | spider 100 % | 1,7 |
-| `hornet_strike` | W8 | 300 | hornet 70 %, bat 30 % | 1,4 |
-| `light_mix` | W4 | 400 | wallsmasher 50 %, spider 50 % | 1,1 |
-| `penguin_rush` | W3 | 500 | penguin 90 %, rat 10 % | 0,9 |
-| `dragon_elite` | W12, W27 | 100 | dragon 60 %, hornet 40 % | 0,9 |
-| `golem_squad` | W15 | 60 | stone-golem 100 % | 0,8 |
-| `tank_column` | W9, W22 | 150 | tank 60 %, zombie-soldier 40 % | 0,7 |
-| `wallsmasher_crew` | W5 | 200 | wallsmasher 100 % | 0,7 |
-| `boss_dragon` | – | 80 | dragon 50 %, hornet 50 % | 0,7 |
-| `boss_golem` | – | 80 | stone-golem 30 %, mammoth 70 % | 0,6 |
-| `mammoth_siege` | W14, W25 | 120 | mammoth 70 %, wallsmasher 30 % | 0,6 |
-| `bear_pack` | W11 | 120 | bear 100 % | 0,5 |
-| `mech_army` | W28 | 100 | mech 100 % | 0,5 |
-| `boss_herbert` | W10, W20, W30 | 20 | herbert 25 %, tank 38 %, zombie 38 % | 0,2 |
+| Skeleton Swarm | W19, W38, W48 | 820 | 820 skeleton (je Kill +2 skeleton-minion) | 2,8 |
+| Wraith Storm | W17, W35, W52 | 224 | 224 wraith | 1,8 |
+| Spider Swarm | W6, W23, W54 | 800 | 800 spider | 1,7 |
+| Hornet Strike | W8, W58 | 300 | 210 hornet, 90 bat | 1,4 |
+| Zombie Horde | W1, W26, W36 | 700 | 630 zombie, 70 zombie-v2 | 1,3 |
+| Bat Swarm | W7, W21 | 336 | 336 bat | 1,2 |
+| Chaos Wave | W16, W29, W55 | 314 | 95 zombie, 95 tank, 63 hornet, 61 bear | 1,2 |
+| Ghost Surge | W13, W24, W57 | 203 | 162 ghost, 41 wraith | 1,0 |
+| Penguin Rush | W3, W37 | 500 | 450 penguin, 50 rat | 0,9 |
+| Dragon Elite | W12, W27, W42, W49 | 100 | 60 dragon, 40 hornet | 0,9 |
+| Rat Tide | W2, W39, W44 | 908 | 908 rat | 0,9 |
+| Boss: Dragon Flight | W50 | 80 | 40 dragon, 40 hornet | 0,7 |
+| Light Mix | W4, W31, W47 | 228 | 114 wallsmasher, 114 spider | 0,6 |
+| Boss: Stone Golem | W40 | 69 | 21 stone-golem, 48 mammoth | 0,6 |
+| Tank Column | W9, W22, W46, W56 | 115 | 69 tank, 46 zombie-soldier | 0,5 |
+| Armor Gauntlet | W18, W32, W59 | 125 | 31 rat, 31 tank, 31 mammoth, 32 ghost | 0,5 |
+| Bear Pack | W11, W41, W45 | 120 | 120 bear | 0,5 |
+| Wallsmasher Crew | W5, W43 | 136 | 136 wallsmasher | 0,5 |
+| Mammoth Siege | W14, W25, W34, W51 | 64 | 45 mammoth, 19 wallsmasher | 0,3 |
+| Mech Army | W28 | 65 | 65 mech | 0,3 |
+| Golem Squad | W15, W33, W53 | 21 | 21 stone-golem | 0,3 |
+| Boss: Herbert | W10 | 20 | 1 herbert, 10 tank, 9 zombie | 0,1 |
+| Boss: Ooze | W20 | 1 | 1 ooze (je Kill +20 slime-clump) | 0,0 |
+| Boss: Skarnax | W30, W60 | 1 | 1 worm | 0,0 |
 
-| Gegner | Kampagnen-Wellen | max. in einer Kampagnenwelle |
+| Gegner | Wellen im Laufplan | max. in einer Welle |
 | --- | --- | ---: |
-| Bat | W7, W8, W21 | 600 |
-| Bear | W11, W16, W29 | 120 |
-| Dragon | W12, W27 | 60 |
-| Ghost | W13, W18, W24 | 280 |
-| Herbert | W10, W20, W30 | 5 |
-| Hornet | W8, W12, W16, W27, W29 | 210 |
-| Mammoth | W14, W18, W25 | 150 |
-| Mech | W28 | 100 |
-| Ooze | – | 0 |
-| Penguin | W3 | 450 |
-| Rat | W2, W3, W18 | 5.000 |
-| Skeleton | W19 | 940 |
-| Skeleton Minion | W19 | 1.880 |
-| Slime Clump | – | 0 |
-| Spider | W4, W6, W23 | 800 |
-| Stone Golem | W15 | 60 |
-| Tank | W9, W10, W16, W18, W20, W22, W29, W30 | 150 |
-| Wallsmasher | W4, W5, W14, W25 | 200 |
-| Skarnax | – | 0 |
+| Bat | W7, W8, W21, W58 | 336 |
+| Bear | W11, W16, W29, W41, W45, W55 | 120 |
+| Dragon | W12, W27, W42, W49, W50 | 60 |
+| Ghost | W13, W18, W24, W32, W57, W59 | 162 |
+| Herbert | W10 | 1 |
+| Hornet | W8, W12, W16, W27, W29, W42, W49, W50, W55, W58 | 210 |
+| Mammoth | W14, W18, W25, W32, W34, W40, W51, W59 | 48 |
+| Mech | W28 | 65 |
+| Ooze | W20 | 1 |
+| Penguin | W3, W37 | 450 |
+| Rat | W2, W3, W18, W32, W37, W39, W44, W59 | 908 |
+| Skeleton | W19, W38, W48 | 820 |
+| Skeleton Minion | W19, W38, W48 | 1.640 |
+| Slime Clump | W20 | 20 |
+| Spider | W4, W6, W23, W31, W47, W54 | 800 |
+| Stone Golem | W15, W33, W40, W53 | 21 |
+| Tank | W9, W10, W16, W18, W22, W29, W32, W46, W55, W56, W59 | 95 |
+| Wallsmasher | W4, W5, W14, W25, W31, W34, W43, W47, W51 | 136 |
+| Skarnax | W30, W60 | 1 |
 | Skarnax Segment | – | 0 |
 | Skarnax Tail | – | 0 |
-| Wraith | W13, W17, W24 | 300 |
-| Zombie | W1, W10, W16, W20, W26, W29, W30 | 1.800 |
-| Zombie Soldier | W9, W22 | 60 |
-| Zombie v2 | W1, W26 | 200 |
+| Wraith | W13, W17, W24, W35, W52, W57 | 224 |
+| Zombie | W1, W10, W16, W26, W29, W36, W55 | 630 |
+| Zombie Soldier | W9, W22, W46, W56 | 46 |
+| Zombie v2 | W1, W26, W36 | 70 |
 
 <!-- model-budget:end -->

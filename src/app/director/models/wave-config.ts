@@ -1,11 +1,8 @@
 /**
- * Wave Config — AI Output (Phase 5.10 Template-Based)
+ * Wave Config: what a wave source ships.
  *
- * Defines how a wave should be configured. This is what the Wave Director AI
- * produces after expanding a Template into concrete enemy groups.
- *
- * WaveArchetype was removed in Phase 5.10 — each Template is self-describing
- * (see src/app/director/templates.ts).
+ * The concrete enemy groups of one wave, how they spawn, and what the wave
+ * says about itself (director/sources/).
  */
 
 import type { DecisionExplanation } from '../wave-explanation';
@@ -70,18 +67,15 @@ export interface WaveConfig {
   /** Why the director planned this wave. Absent for waves it did not plan. */
   explanation?: DecisionExplanation;
 
-  /** Spawn pattern (from template.spawnPattern) */
+  /** Spawn pattern */
   pattern?: import('../spawn-schedule-builder').SpawnPattern;
 
-  // === PHASE 5.10 TEMPLATE METADATA ===
+  // === NAME AND STRENGTH ===
 
-  /** Index of the chosen template (0..NUM_ACTIVE_TEMPLATES-1) */
-  templateIdx?: number;
-
-  /** Template name for UI/dashboard display */
+  /** Wave name for UI/dashboard display */
   templateName?: string;
 
-  /** Strength multiplier applied to the template (0.5..2.0) */
+  /** HP multiplier most of the wave got, for display */
   templateStrength?: number;
 }
 

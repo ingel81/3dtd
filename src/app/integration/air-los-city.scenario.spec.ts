@@ -1,9 +1,7 @@
 /**
  * What the line of sight costs an air defense, measured in a city.
  *
- * `air-cap-estimate.scenario.spec.ts` settles the cap's arithmetic on flat
- * ground with the line of sight stubbed clear: there both waves die whole.
- * This one puts a defense of the same shape into a street grid with
+ * A defense of six towers, two of them anti-air, in a street grid with
  * buildings and lets the real air-LOS pipeline decide what each tower sees:
  * `GlobalRouteGrid.registerTower` -> `resolveTowerLos` -> `isCubeVisible`
  * against the tower's cube, and the combat reading `cell.towerVisibility`
@@ -18,9 +16,9 @@
  * than 0.1 m and a tip inside a block write nothing, as the real render does
  * (docs/LOS_PIPELINE.md, rules 5 to 8).
  *
- * The second block keeps the city and the harness and asks the next
- * question instead: at the headroom the field cases had, what does the same
- * defense do to each of the four templates they came from.
+ * The wave sizes are the ones the adaptive director's survivability cap gave
+ * this defense at the field cases' headroom (cap / 1.6), fixed since that
+ * director is gone: 38 rats on the ground, 9 bats in the air.
  */
 import { describe, it, expect, vi, afterEach, beforeEach } from 'vitest';
 
@@ -50,9 +48,6 @@ import { TowerCombatService } from '../services/combat/tower-combat.service';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
-import { analyzeDefense } from '../director/defense-analyzer';
-import { TEMPLATES } from '../director/templates';
-import { FAIRNESS_MIN_COUNT, survivableCount } from '../director/sources/adaptive/wave-sizing';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import { LOS_VIZ_CONFIG, losCubeFarDistance } from '../configs/los-viz.config';
@@ -291,8 +286,9 @@ const DEFENSE: { type: TowerTypeId; x: number; z: number }[] = [
   { type: 'poison', x: 165, z: -170 },
 ];
 
-/** How much headroom the cap promised in the field cases that went wrong. */
-const FIELD_HEADROOM = 1.6;
+/** Wave sizes at the field cases' headroom, see the head of this file. */
+const GROUND_COUNT = 38;
+const AIR_COUNT = 9;
 
 /** Longest a wave may take here, in 16 ms frames. */
 const MAX_FRAMES = 240_000 / 16;
@@ -375,47 +371,10 @@ function createGame(
   return { gsm, grid, towers, frame: () => { now += 16; gsm.update(now); } };
 }
 
-/** What `survivableCount` promises this defense against `templateId`. */
-function predict(towers: Tower[], templateId: string, spawnDelayMs: number, hpRemaining = 100): number | null {
-  const template = TEMPLATES.find((t) => t.id === templateId)!;
-  const defense = analyzeDefense(towers, false, null);
-  return survivableCount(
-    template,
-    1,
-    spawnDelayMs,
-    defense.gateDpsPerArmor,
-    defense.killThroughput,
-    (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
-    (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
-    (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 1,
-    (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
-    () => 1,
-    () => 1,
-    hpRemaining,
-    1,
-    1,
-  );
-}
-
-/**
- * How much of a cap is the kill estimate and how much the leak allowance.
- *
- * `survivableCount` returns `floor(killable + hpRemaining * k)`, so the cap
- * at two HP levels separates the two terms without repeating the formula
- * here. Below `FAIRNESS_MIN_COUNT` the answer is the floor, not a sum, and
- * the split says nothing; that is what `atFloor` marks.
- */
-function capParts(towers: Tower[], templateId: string): { cap: number; killable: number; atFloor: boolean } {
-  const cap = predict(towers, templateId, 0, 100)!;
-  const doubled = predict(towers, templateId, 0, 200)!;
-  return { cap, killable: 2 * cap - doubled, atFloor: cap <= FAIRNESS_MIN_COUNT };
-}
-
 /**
  * Send `count` enemies down the route in the shares of `mix` and run the
  * wave out. All of them at once, as the reference scenario does, so the wave
- * manager sees a wave it can finish; `predict` is asked with the same spawn
- * delay of zero.
+ * manager sees a wave it can finish.
  */
 function fight(game: Game, mix: readonly [EnemyTypeId, number][], count: number): { killed: number; leaked: number } {
   let killed = 0;
@@ -538,20 +497,14 @@ describe('the line of sight of an air defense in a city', () => {
   });
 
   it('kills the same share of a ground wave and an air wave as on open ground', () => {
-    const ground = createGame();
-    const groundCap = predict(ground.towers, 'rat_tide', 0);
-    const groundCount = Math.max(1, Math.round(groundCap! / FIELD_HEADROOM));
-    const groundResult = fight(ground, [['rat', 1]], groundCount);
-    console.log(`Boden: Deckel ${groundCap}, geschickt ${groundCount}, getoetet ${groundResult.killed}, durch ${groundResult.leaked}`);
+    const groundResult = fight(createGame(), [['rat', 1]], GROUND_COUNT);
+    console.log(`Boden: geschickt ${GROUND_COUNT}, getoetet ${groundResult.killed}, durch ${groundResult.leaked}`);
 
-    const air = createGame();
-    const airCap = predict(air.towers, 'bat_swarm', 0);
-    const airCount = Math.max(1, Math.round(airCap! / FIELD_HEADROOM));
-    const airResult = fight(air, [['bat', 1]], airCount);
-    console.log(`Luft:  Deckel ${airCap}, geschickt ${airCount}, getoetet ${airResult.killed}, durch ${airResult.leaked}`);
+    const airResult = fight(createGame(), [['bat', 1]], AIR_COUNT);
+    console.log(`Luft:  geschickt ${AIR_COUNT}, getoetet ${airResult.killed}, durch ${airResult.leaked}`);
 
-    expect(groundResult.killed / groundCount).toBeGreaterThan(0.9);
-    expect(airResult.killed / airCount).toBeGreaterThan(0.9);
+    expect(groundResult.killed / GROUND_COUNT).toBeGreaterThan(0.9);
+    expect(airResult.killed / AIR_COUNT).toBeGreaterThan(0.9);
   });
 
   it('kills the air wave even with both anti-air towers at the worst spots for their sight', () => {
@@ -574,12 +527,10 @@ describe('the line of sight of an air defense in a city', () => {
       ...worst.map(({ spot }) => ({ type: 'archer' as TowerTypeId, x: spot.x, z: spot.z })),
       ...DEFENSE.filter((d) => d.type !== 'archer'),
     ]);
-    const cap = predict(game.towers, 'bat_swarm', 0);
-    const count = Math.max(1, Math.round(cap! / FIELD_HEADROOM));
-    const { killed, leaked } = fight(game, [['bat', 1]], count);
-    console.log(`Luft (blind): Deckel ${cap}, geschickt ${count}, getoetet ${killed}, durch ${leaked}`);
+    const { killed, leaked } = fight(game, [['bat', 1]], AIR_COUNT);
+    console.log(`Luft (blind): geschickt ${AIR_COUNT}, getoetet ${killed}, durch ${leaked}`);
 
-    expect(killed / count).toBeGreaterThan(0.9);
+    expect(killed / AIR_COUNT).toBeGreaterThan(0.9);
   });
 });
 
@@ -629,194 +580,4 @@ describe('the far distance a tower cube is rendered with', () => {
       console.log(`${type}: Reichweite ${range} m, ohne Zuschlag fehlten die aeusseren ${lost.toFixed(1)} m in der Luft`);
     });
   }
-});
-
-describe('the same headroom at field scale', () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  /**
-   * The four templates the field cases come from. The mix is the template's
-   * own, so the wave the cap was asked about is the wave that walks.
-   */
-  const WAVES: { label: string; template: string; mix: [EnemyTypeId, number][] }[] = [
-    { label: 'rat_tide      (Boden)', template: 'rat_tide', mix: [['rat', 1]] },
-    { label: 'bat_swarm     (Luft) ', template: 'bat_swarm', mix: [['bat', 1]] },
-    { label: 'hornet_strike (Luft) ', template: 'hornet_strike', mix: [['hornet', 0.7], ['bat', 0.3]] },
-    { label: 'dragon_elite  (Luft) ', template: 'dragon_elite', mix: [['dragon', 0.6], ['hornet', 0.4]] },
-  ];
-
-  /**
-   * `count` towers spread over the whole route, every `airEvery`th of them
-   * an archer. The six-tower defense of the other block clusters its two
-   * archers near the spawn; this one gives the air defense the same spread
-   * along the route that the ground defense has.
-   */
-  function spreadDefense(count: number, airEvery: number): { type: TowerTypeId; x: number; z: number }[] {
-    const spots = spotsAlongRoute(1);
-    const step = Math.max(1, Math.floor(spots.length / count));
-    return Array.from({ length: count }, (_, i) => {
-      const spot = spots[(i * step) % spots.length];
-      return { type: (i % airEvery === 0 ? 'archer' : 'poison') as TowerTypeId, x: spot.x, z: spot.z };
-    });
-  }
-
-  for (const towers of [6, 24]) {
-    it(`kills what the cap allows with ${towers} towers, ground and air`, () => {
-      const shares: Record<string, number> = {};
-      const kills: Record<string, number> = {};
-      const caps: Record<string, number> = {};
-      for (const wave of WAVES) {
-        const game = createGame(spreadDefense(towers, 3));
-        const { cap, killable, atFloor } = capParts(game.towers, wave.template);
-        kills[wave.template] = killable;
-        caps[wave.template] = cap;
-        const count = Math.max(1, Math.round(cap / FIELD_HEADROOM));
-        const { killed, leaked } = fight(game, wave.mix, count);
-        shares[wave.template] = killed / count;
-        console.log(
-          `${towers} Tower, ${wave.label}: Deckel ${cap} (davon Toetungen ${killable}${atFloor ? ', am Mindestmass' : ''}), ` +
-          `geschickt ${count}, getoetet ${killed} (${((killed / count) * 100).toFixed(0)} %), durch ${leaked}`,
-        );
-      }
-      // What the same cap does once the wave is spread out. The closed form
-      // divides by `1 - killsPerSecond * REALISM * delay`, so a delay the
-      // defense can nearly keep up with sends the cap through the roof.
-      const game = createGame(spreadDefense(towers, 3));
-      for (const wave of WAVES) {
-        const template = TEMPLATES.find((t) => t.id === wave.template)!;
-        const delays = [0, template.spawnDelayRange[0], template.spawnDelayRange[1]];
-        console.log(
-          `${towers} Tower, ${wave.label}: Deckel nach Spawn-Abstand ` +
-          delays.map((d) => `${d} ms -> ${predict(game.towers, wave.template, d)}`).join(', '),
-        );
-      }
-
-      // Where the cap is a kill estimate, the defense delivers it: the ground
-      // wave and the cheap air wave die whole at the headroom the field cases
-      // had. Against dragons the same cap is almost entirely leak allowance,
-      // a term that does not grow with what an enemy costs to kill, and the
-      // wave is half killed by construction. That is the 100% against 50%
-      // the field measured, and 43 of its 51 cases are Dragon Elite.
-      expect(shares['rat_tide']).toBeGreaterThan(0.95);
-      expect(shares['bat_swarm']).toBeGreaterThan(0.95);
-      expect(shares['dragon_elite']).toBeLessThan(shares['rat_tide']);
-      expect(kills['dragon_elite']).toBeLessThan(caps['dragon_elite'] / 2);
-      expect(kills['rat_tide']).toBeGreaterThan(caps['rat_tide'] * 0.8);
-    });
-  }
-});
-
-/**
- * Which factor opens the gap of TODO E14 (air waves killed half where the cap
- * promised headroom) and E17 (the human run with a cap of 645): the same
- * city and harness, one factor changed at a time. Measurements, logged; the
- * expectations only pin the direction found (docs of the night run
- * 2026-09-28, tmp report "schwere-wellen").
- */
-describe('what explains the air gap (TODO E14, E17)', () => {
-  afterEach(() => vi.restoreAllMocks());
-
-  function spread(count: number, airEvery: number): { type: TowerTypeId; x: number; z: number }[] {
-    const spots = spotsAlongRoute(1);
-    const step = Math.max(1, Math.floor(spots.length / count));
-    return Array.from({ length: count }, (_, i) => {
-      const spot = spots[(i * step) % spots.length];
-      return { type: (i % airEvery === 0 ? 'archer' : 'poison') as TowerTypeId, x: spot.x, z: spot.z };
-    });
-  }
-
-  /** survivableCount with the wave's hpMult, spawn delay and a multiplier on the kill estimate; leaks cost 1 each */
-  function capOf(towers: Tower[], templateId: string, delayMs: number, hpMult: number, pressure = 1): { cap: number; killable: number } {
-    const template = TEMPLATES.find((t) => t.id === templateId)!;
-    const defense = analyzeDefense(towers, false, null);
-    const at = (hp: number) => survivableCount(
-      template, hpMult, delayMs, defense.gateDpsPerArmor, defense.killThroughput,
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 1,
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
-      () => 1, () => 1, hp, 1, pressure,
-    )!;
-    const cap = at(100);
-    return { cap, killable: 2 * cap - at(200) };
-  }
-
-  /** `count` enemies of `mix`, interleaved, one every `delayMs`, each with `hpMult` times its HP; the wave run out */
-  function fightSpaced(game: Game, mix: readonly [EnemyTypeId, number][], count: number, delayMs: number, hpMult: number): number {
-    let killed = 0;
-    game.gsm.getEventBus().on('enemy:died', () => { killed++; });
-    // The HQ holds whatever leaks: the count, not the run's end, is measured
-    game.gsm.adjustBaseHealth(1e9);
-    const order: EnemyTypeId[] = [];
-    const owed = mix.map(() => 0);
-    for (let i = 0; i < count; i++) {
-      // Interleaved: the type furthest behind its share next
-      let best = 0;
-      for (let k = 0; k < mix.length; k++) {
-        owed[k] += mix[k][1];
-        if (owed[k] > owed[best]) best = k;
-      }
-      owed[best] -= 1;
-      order.push(mix[best][0]);
-    }
-    // The wave manager's own spawner, so the wave runs until the last one is out
-    // (spawnFloorMs keeps the big ones apart as in the game)
-    game.gsm.startWave({
-      schedule: {
-        entries: order.map((type) => ({ enemyType: type, speed: ENEMY_TYPES[type].baseSpeed, health: ENEMY_TYPES[type].baseHp * hpMult, delay: delayMs })),
-        baseDelay: delayMs,
-        delayVariation: 0,
-        spawnMode: 'each',
-      },
-    });
-    for (let f = 0; f < MAX_FRAMES * 2 && game.gsm.waveManager.phase() === 'wave'; f++) game.frame();
-    return killed;
-  }
-
-  const HORNET: [EnemyTypeId, number][] = [['hornet', 0.7], ['bat', 0.3]];
-  const DRAGON: [EnemyTypeId, number][] = [['dragon', 0.6], ['hornet', 0.4]];
-
-  it('measures line of sight, dragons, hpMult, spawn delay and scale one at a time', { timeout: 300_000 }, () => {
-    const rows: string[] = ['| Faktor | Welle | Deckel (Toetungen) | geschickt | getoetet |', '|---|---|---|---|---|'];
-    const run = (label: string, templateId: string, mix: [EnemyTypeId, number][], opts: {
-      towers?: number; delay?: number; hpMult?: number; blocks?: readonly Block[]; count?: number;
-    } = {}) => {
-      const towers = opts.towers ?? 24;
-      const delay = opts.delay ?? 0;
-      const hpMult = opts.hpMult ?? 1;
-      const game = createGame(spread(towers, 3), opts.blocks ?? BLOCKS);
-      const { cap, killable } = capOf(game.towers, templateId, delay, hpMult);
-      const count = opts.count ?? Math.max(1, Math.round(cap / FIELD_HEADROOM));
-      const killed = fightSpaced(game, mix, count, delay, hpMult);
-      rows.push(`| ${label} | ${templateId} ${towers} Tower, ${delay} ms, HP x${hpMult} | ${cap} (${killable}) | ${count} | ${killed} (${Math.round((killed / count) * 100)} %) |`);
-      return killed / count;
-    };
-    // Line of sight: the city against open ground
-    const city = run('Sicht: Stadt', 'hornet_strike', HORNET);
-    const open = run('Sicht: frei', 'hornet_strike', HORNET, { blocks: [] });
-    // The enemy: hornets against dragons, and dragons with the wave's HP scale
-    const dragons = run('Gegner: Dragon Elite', 'dragon_elite', DRAGON);
-    run('Gegner: Dragon Elite', 'dragon_elite', DRAGON, { hpMult: 2 });
-    run('Gegner: Dragon Elite', 'dragon_elite', DRAGON, { hpMult: 4 });
-    // The spawn delay (E17): the cap for the spread-out wave, the wave spread out as asked
-    const delayed: number[] = [];
-    for (const delay of [0, 100, 200, 400]) delayed.push(run('Spawn-Abstand', 'hornet_strike', HORNET, { delay }));
-    // Scale: hundreds, spread out as the cap allows them
-    run('Groesse', 'hornet_strike', HORNET, { delay: 400, count: 175 });
-    run('Groesse', 'bat_swarm', [['bat', 1]], { delay: 300 });
-    console.log(`\nE14/E17 Faktoren\n${rows.join('\n')}`);
-
-    // The pole: how far the cap moves when the kill estimate is 20 % off
-    const game = createGame(spread(24, 3));
-    const poleRows = ['| Spawn-Abstand | Deckel bei Schaetzung x1 | x0,8 | x1,2 |', '|---|---|---|---|'];
-    for (const delay of [0, 100, 200, 300, 400]) {
-      poleRows.push(`| ${delay} ms | ${capOf(game.towers, 'hornet_strike', delay, 1).cap} | ${capOf(game.towers, 'hornet_strike', delay, 1, 0.8).cap} | ${capOf(game.towers, 'hornet_strike', delay, 1, 1.2).cap} |`);
-    }
-    console.log(`\nE17 Pol\n${poleRows.join('\n')}`);
-
-    // Line of sight is not it: the city kills as much as open ground
-    expect(Math.abs(city - open)).toBeLessThan(0.15);
-    expect(dragons).toBeLessThan(city);
-    expect(delayed.length).toBe(4);
-  });
 });

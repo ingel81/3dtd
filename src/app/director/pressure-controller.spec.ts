@@ -2,18 +2,20 @@ import { describe, expect, it } from 'vitest';
 import {
   PressureController,
   PRESSURE_MEASURE_CAP,
-  PRESSURE_WARMUP_WAVES,
   targetPressure,
 } from './pressure-controller';
 import { directorParams } from './director-params';
 
+const LIMITS = { min: 0.5, max: 2 };
+const START = { warmupWaves: 4, minSamples: 3 };
+
 describe('PressureController: one wave counts at most three times the target (TODO E48)', () => {
-  const first = PRESSURE_WARMUP_WAVES + 1;
+  const first = START.warmupWaves + 1;
   const target = (wave: number) => targetPressure(wave) * directorParams().pressureTargetScale;
 
   /** Three waves on target, then `outlier` */
   function after(outlier: number): PressureController {
-    const loop = new PressureController();
+    const loop = new PressureController(LIMITS, START);
     for (let wave = first; wave < first + 3; wave++) loop.recordWave(target(wave), wave);
     loop.recordWave(outlier, first + 3);
     return loop;

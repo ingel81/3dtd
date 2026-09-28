@@ -11,13 +11,13 @@ import type { WaveDirector } from './wave-director';
 import type { PlannedWave, WaveSource } from './wave-source';
 
 /** The source of the stub: an id and a name, nothing that plans. */
-const STUB_SOURCE = { id: 'adaptive', name: 'Adaptive director', plansAt: 'wave-start' } as Partial<WaveSource>;
+const STUB_SOURCE = { id: 'budget', name: 'Run plan with budget', plansAt: 'wave-end' } as Partial<WaveSource>;
 
 export function waveDirectorStub(overrides: Partial<WaveDirector> = {}): WaveDirector {
   return {
     useRandomSource: () => undefined,
     useSourceNextRun: () => undefined,
-    sourceNextRun: 'adaptive',
+    sourceNextRun: 'budget',
     source: STUB_SOURCE,
     committed: null as PlannedWave | null,
     ensurePlanned: () => {

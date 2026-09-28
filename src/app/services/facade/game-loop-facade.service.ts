@@ -380,9 +380,9 @@ export class GameLoopFacadeService {
     this.pendingAIWaveRequest = true;
 
     try {
-      // The source owns everything about the wave, the boss variants of the
-      // rotation past the campaign included: "which wave comes next" is
-      // decided in one place (docs/WAVE_SOURCE_PLAN.md).
+      // The source owns everything about the wave, boss waves included:
+      // "which wave comes next" is decided in one place
+      // (docs/WAVE_SOURCE_PLAN.md).
       const planned = await this.waveDirector.getNextWave(this.store.waveNumber() + 1);
       const aiConfig = planned.config;
 
