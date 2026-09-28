@@ -16,7 +16,6 @@ import { EnemyStatusVisuals } from './enemy-status-visuals';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
 import type { StatusEffect } from '../models/status-effects';
-import { getEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 import { WormChains, stepWormSegment } from './worm/worm-chains';
 import type { WormGroup, WormLink } from './worm/worm-group';
@@ -401,12 +400,11 @@ export class EnemyManager extends EntityManager<Enemy> {
   /**
    * An air unit's way out of the portal on `start`, see airPortalExit(). The
    * portal's scale follows the corridor there, as MarkerVisualizationService
-   * stands it; the body is the VAT bake's measured range. Every type is
-   * baked while the game loads; before that (unit tests) the body counts as
-   * a point at its origin.
+   * stands it; the body is the model's range from its config (modelRangeY);
+   * a type without one counts as a point at its origin.
    */
   private portalExitFor(enemy: Enemy, start: RouteWaypoint): AirPortalExit {
-    const range = getEnemyModelRangeY(enemy.typeConfig.id);
+    const range = enemy.typeConfig.modelRangeY;
     const scale = enemy.typeConfig.scale;
     return airPortalExit(
       portalScaleForWidth(portalCorridorWidth(start)),

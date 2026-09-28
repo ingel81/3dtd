@@ -98,6 +98,11 @@ const NEW_ENEMY_MODEL_URL = 'assets/models/enemies/new_enemy.glb';
   name: 'New Enemy',
   modelUrl: 'assets/models/enemies/new_enemy.glb',
   scale: 2.0,
+  // Senkrechte Ausdehnung des Modells über alle gebackenen Frames, ungeskaliert. Die Simulation
+  // zielt auf ihre Mitte; eine Konstante statt des Bake-Werts, weil der Bake mit nativem
+  // Math.sin/acos (three.js-Slerp) je Engine andere letzte Bits misst (Coop, TODO E28).
+  // Wert aus enemy-model-range.spec.ts, der ihn gegen das Modell prüft.
+  modelRangeY: { min: -0.08, max: 1.75 },
   minimumPixelSize: 0, // 0 = echte Größe, kein Clamping
 
   // Combat (Pflichtfeld seit Phase 5.x)

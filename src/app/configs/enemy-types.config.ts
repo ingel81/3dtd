@@ -79,6 +79,17 @@ export interface EnemyTypeConfig {
   epithet?: string;
   modelUrl: string;
   scale: number;
+  /**
+   * Vertical extent of the model over every baked frame, unscaled, as the
+   * VAT bake measures it. The simulation aims at its middle and brings air
+   * units out of the portal with it (utils/enemy-aim.util.ts). A constant
+   * here rather than the bake's measure: the bake poses the skeleton with
+   * three.js, whose slerp calls native acos and sin, so two engines measure
+   * other last bits (TODO E28). Checked against the models by
+   * enemy-model-range.spec.ts. Unset for the ooze, whose body lies along the
+   * route.
+   */
+  modelRangeY?: { readonly min: number; readonly max: number };
 
   // Combat
   armorType: ArmorType; // Armor type for the damage matrix
@@ -329,6 +340,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie.glb',
     scale: 0.984,
+    modelRangeY: { min: -0.2759, max: 4.2728 },
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 5,
@@ -356,6 +368,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/zombie_v2.glb',
     scale: 2.432,
+    modelRangeY: { min: -0.0828, max: 1.7475 },
     armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 3,
@@ -399,6 +412,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // (tools/blender/optimize_enemy.py, recipe `tank`)
     modelUrl: 'assets/models/enemies/tank.glb',
     scale: 1,
+    modelRangeY: { min: -0.0011, max: 3.0489 },
     armorType: 'heavy',
     baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
@@ -435,6 +449,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // GLB in metres (the FBX was in centimetres, scale 0.037), only Walk, Run and Death.
     modelUrl: 'assets/models/enemies/wallsmasher.glb',
     scale: 3.7,
+    modelRangeY: { min: -0.1523, max: 1.7232 },
     armorType: 'light',
     baseHp: 200,
     // Walks 4, runs 10 m/s half the time (rush): mean 7 m/s, the speed the
@@ -476,6 +491,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     footstep: GOLEM_FOOTSTEP,
     modelUrl: 'assets/models/enemies/stone_golem.glb',
     scale: 7.312,
+    modelRangeY: { min: -0.4192, max: 1.8233 },
 
     armorType: 'fortified',
     baseHp: 480,
@@ -522,6 +538,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundStart: true,
     modelUrl: 'assets/models/enemies/bat.glb',
     scale: 3.958,
+    modelRangeY: { min: -0.3542, max: 0.3268 },
     armorType: 'light',
     baseHp: 25,
     baseSpeed: 8,
@@ -555,6 +572,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundRefDistance: 25,
     modelUrl: 'assets/models/enemies/penguin.glb',
     scale: 0.005,
+    modelRangeY: { min: -24.136, max: 478.225 },
     armorType: 'unarmored',
     baseHp: 30,
     baseSpeed: 9,
@@ -582,6 +600,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/herbert_optimized.glb',
     scale: 2.625,
+    modelRangeY: { min: -0.0722, max: 1.6836 },
     armorType: 'fortified',
       // 4000 seit dem 2026-09-22, vorher 500. Herbert kommt zu bis zu hundert
   // Stück; das waren 50.000 HP für eine Boss-Welle, während eine gewöhnliche
@@ -616,6 +635,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'metal',
     modelUrl: 'assets/models/enemies/zombie_soldier.glb',
     scale: 2.492,
+    modelRangeY: { min: -0.1203, max: 1.7517 },
     armorType: 'heavy',
     baseHp: 160,
     baseSpeed: 6,
@@ -654,6 +674,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/rat.glb',
     scale: 1.5,
+    modelRangeY: { min: -0.2099, max: 0.2605 },
     armorType: 'unarmored',
     baseHp: 5,
     baseSpeed: 10,
@@ -694,6 +715,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // 0.70 units tall, about 2.8 m at scale 4 (the zombie stands about 4.4 m).
     modelUrl: 'assets/models/enemies/skeleton.glb',
     scale: 4,
+    modelRangeY: { min: -0.054, max: 0.9721 },
     armorType: 'unarmored',
     // Swarm between the rat (5 HP, 10 m/s) and the zombie (80 HP, 5 m/s).
     baseHp: 20,
@@ -735,6 +757,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // at 0.6 of its size, about 1.7 m tall, in a VAT pool of its own.
     modelUrl: 'assets/models/enemies/skeleton.glb',
     scale: 2.4,
+    modelRangeY: { min: -0.054, max: 0.9721 },
     armorType: 'unarmored',
     // 30 % of the skeleton's HP and a bit faster. The split scales both by the
     // parent's multipliers, so a wave's hpMult reaches the minions too. No
@@ -771,6 +794,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundStart: true,
     modelUrl: 'assets/models/enemies/spider.glb',
     scale: 1.5,
+    modelRangeY: { min: -0.0367, max: 0.6469 },
     armorType: 'light',
     baseHp: 60,
     baseSpeed: 9,
@@ -798,6 +822,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/mammoth.glb',
     scale: 2.206,
+    modelRangeY: { min: -0.7034, max: 2.9834 },
     armorType: 'fortified',
     baseHp: 400,
     baseSpeed: 3,
@@ -833,6 +858,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/bear.glb',
     scale: 0.1,
+    modelRangeY: { min: -2.9515, max: 36.9402 },
     armorType: 'heavy',
     baseHp: 300,
     baseSpeed: 8,
@@ -872,6 +898,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/dragon.glb',
     scale: 2.5,
+    modelRangeY: { min: 0.2898, max: 4.8873 },
     armorType: 'heavy',
     baseHp: 450,
     baseSpeed: 6,
@@ -913,6 +940,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundStart: true,
     modelUrl: 'assets/models/enemies/ghost.glb',
     scale: 0.099,
+    modelRangeY: { min: 8.4685, max: 46.8947 },
     armorType: 'ethereal',
     baseHp: 120,
     baseSpeed: 5,
@@ -942,6 +970,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hitSound: 'flesh',
     modelUrl: 'assets/models/enemies/hornet.glb',
     scale: 0.063,
+    modelRangeY: { min: -18.9351, max: 22.9158 },
     armorType: 'light',
     baseHp: 80,
     baseSpeed: 9,
@@ -979,6 +1008,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundStart: true,
     modelUrl: 'assets/models/enemies/mech.glb',
     scale: 0.885,
+    modelRangeY: { min: -0.0806, max: 13.2316 },
     armorType: 'heavy',
     baseHp: 500,
     baseSpeed: 3,
@@ -1009,6 +1039,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundRefDistance: 30,
     modelUrl: 'assets/models/enemies/wraith.glb',
     scale: 2.0,
+    modelRangeY: { min: -0.1292, max: 1.3724 },
     armorType: 'ethereal',
     baseHp: 100,
     baseSpeed: 8,
@@ -1032,6 +1063,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   worm: {
     id: 'worm',
+    modelRangeY: { min: 0.3254, max: 2.02 },
     name: 'Skarnax',
     epithet: 'The Thousand-Legged Calamity',
     ...WORM_MODELS.head,
@@ -1058,6 +1090,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // Debug) it is a single ring with the worm's stats, handy to tune the
     // model.
     id: 'worm-segment',
+    modelRangeY: { min: 0, max: 1.78 },
     name: 'Skarnax Segment',
     ...WORM_MODELS.segment,
     ...WORM_STATS,
@@ -1069,6 +1102,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // for the segment in front of a gap. Not offered on its own in the
     // debug lists; worm-segment is the ring to tune there.
     id: 'worm-tail',
+    modelRangeY: { min: 0, max: 1.78 },
     name: 'Skarnax Tail',
     ...WORM_MODELS.tail,
     ...WORM_STATS,
@@ -1135,6 +1169,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     // blob (tools/slime-model) hopping along, about 1.2 m tall at scale 0.9.
     modelUrl: 'assets/models/enemies/slime.glb',
     scale: 0.9,
+    modelRangeY: { min: -0.0173, max: 2.0607 },
     armorType: 'unarmored',
     // Twenty of them hold a tenth of the ooze's HP; the split scales them by
     // its HP multiplier. No template, not in AI_ENEMY_ORDER, no split of its own.

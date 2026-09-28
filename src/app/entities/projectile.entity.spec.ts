@@ -16,7 +16,6 @@ import { Enemy } from './enemy.entity';
 import { ComponentType } from '../core/component';
 import { TransformComponent, CombatComponent, MovementComponent, RenderComponent } from '../game-components';
 import { getProjectileType } from '../configs/projectile-types.config';
-import { DEFAULT_AIM_OFFSET_Y } from '../utils/enemy-aim.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 
 const targetPath = [
@@ -49,8 +48,10 @@ describe('Projectile entity', () => {
 
     const direction = projectile.direction;
 
-    // No VAT bake runs in unit tests → getEnemyAimOffsetY falls back to DEFAULT_AIM_OFFSET_Y.
-    const targetHeight = (enemy.transform.terrainHeight ?? 0) + enemy.heightOffset + DEFAULT_AIM_OFFSET_Y;
+    // The middle of the zombie's model range from its config
+    const range = enemy.typeConfig.modelRangeY!;
+    const aim = ((range.min + range.max) / 2) * enemy.typeConfig.scale;
+    const targetHeight = (enemy.transform.terrainHeight ?? 0) + enemy.heightOffset + aim;
     const dy = targetHeight - 1;
     const dz = 0.001 * METERS_PER_DEGREE_LAT;
     const length = Math.sqrt(dz * dz + dy * dy);

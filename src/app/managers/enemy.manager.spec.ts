@@ -17,7 +17,6 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { OozeBody } from '../entities/ooze-body';
 import { waveGold } from '../configs/campaign.config';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
-import { registerEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 import { TIMING } from '../configs/timing.config';
 import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, leakDamageOf, type EnemyTypeId } from '../configs/enemy-types.config';
@@ -716,6 +715,11 @@ describe('EnemyManager', () => {
     ];
     /** Model origin above the ground: the grid is off here, the ground stays at 0. */
     const altitude = (e: Enemy) => e.transform.terrainHeight + e.heightOffset;
+    /** Middle of the model above the ground: its range from the config, scaled */
+    const middle = (e: Enemy) => {
+      const range = e.typeConfig.modelRangeY!;
+      return altitude(e) + ((range.min + range.max) / 2) * e.typeConfig.scale;
+    };
     const fromPortal = (typeId: string) =>
       manager.spawn(route, typeId as never, undefined, false, undefined, 'portal');
     let random: MockInstance;
@@ -729,7 +733,7 @@ describe('EnemyManager', () => {
     it('comes out of a wave spawn through the middle of the opening, created there', () => {
       const bat = fromPortal('bat');
       expect(bat.portalExit).not.toBeNull();
-      expect(altitude(bat)).toBeCloseTo(PORTAL_OPENING_HEIGHT / 2, 12);
+      expect(middle(bat)).toBeCloseTo(PORTAL_OPENING_HEIGHT / 2, 12);
       // Not at cruise altitude for the frames before the first present pass
       expect(tilesEngine.enemies.create).toHaveBeenCalledWith(bat.id, 'bat', 0, 0, altitude(bat));
     });
@@ -738,14 +742,14 @@ describe('EnemyManager', () => {
       random.mockReturnValue(0.9); // +2.4 m of the bat's ±3
       const bat = fromPortal('bat');
       expect(bat.movement.getHeightVariation()).toBeCloseTo(2.4, 12);
-      expect(altitude(bat)).toBeCloseTo(PORTAL_OPENING_HEIGHT / 2, 12);
+      expect(middle(bat)).toBeCloseTo(PORTAL_OPENING_HEIGHT / 2, 12);
     });
 
-    it('stands a dragon taller than the opening on the ground, from the baked range', () => {
-      // The dragon model's range as the VAT bake measures it, unscaled (scale 2.5)
-      registerEnemyModelRangeY('dragon', 0.292, 4.864);
+    it('stands a dragon taller than the opening on the ground, from its model range', () => {
       const dragon = fromPortal('dragon');
-      expect(altitude(dragon) + 0.292 * dragon.typeConfig.scale).toBeCloseTo(0, 12);
+      const range = dragon.typeConfig.modelRangeY!;
+      expect(range.max - range.min).toBeGreaterThan(PORTAL_OPENING_HEIGHT / dragon.typeConfig.scale);
+      expect(altitude(dragon) + range.min * dragon.typeConfig.scale).toBeCloseTo(0, 12);
     });
 
     it('holds the opening height out of the gate, then climbs to exactly its cruise height', () => {
