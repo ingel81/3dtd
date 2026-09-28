@@ -27,6 +27,8 @@ const RELAY = argument('relay', 'ws://localhost:3013');
 const RELAY_LOG = argument('relay-log', '');
 const OUT = argument('out', 'coop-bot-runs');
 const RUNS = Number(argument('runs', '1'));
+/** More of the page's query for every tab, e.g. a switch of a measurement build: `--query leakmode=split` */
+const EXTRA_QUERY = argument('query', '');
 const PARALLEL = Number(argument('parallel', '1'));
 /**
  * One bot alone in the shipped DevWorld (one spawn), the baseline for the
@@ -100,7 +102,7 @@ async function openSeat(browser: Browser, name: string, skew = false): Promise<P
   page.on('pageerror', (err) => log(`[${name}] page error: ${err.message}`));
   const query = SOLO ? 'devworld'
     : `devworld&spawns=${PLAYERS}&bot=coop&relay=${encodeURIComponent(RELAY)}${HASH_EVERY ? `&hashEvery=${HASH_EVERY}` : ''}`;
-  await page.goto(`${URL_BASE}/?${query}`);
+  await page.goto(`${URL_BASE}/?${query}${EXTRA_QUERY ? `&${EXTRA_QUERY}` : ''}`);
   await gameReady(page);
   if (!RENDER) {
     await page.evaluate(() => {
