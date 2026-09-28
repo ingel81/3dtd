@@ -33,19 +33,9 @@ import { laneCss } from '../coop/lane-color';
 import { UI_SOUNDS } from '../configs/audio.config';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
-import { DEFAULT_RELAY_PORT, relayCandidates, relayForLink, relayLabel, type RelaySource } from '../coop/relay-address';
+import { relayCandidates, relayForLink, relayLabel, type RelaySource } from '../coop/relay-address';
 import { readCoopLan, readDesktopBridge, type LanGame } from '../core/desktop-bridge';
-import {
-  activeLobby,
-  addLobby,
-  allLobbies,
-  builtInLobbies,
-  readStoredLobbies,
-  removeLobby,
-  withOldRelay,
-  type Lobby,
-  type StoredLobbies,
-} from '../coop/lobbies';
+import { CoopLobbyList } from './coop-lobby-list';
 import {
   DEFAULT_ROOM_OPTIONS,
   changedOptions,
@@ -58,7 +48,7 @@ import {
   type RoomOptionKey,
 } from '../coop/room-options';
 import type { GeoPosition } from '../models/game.types';
-import { readText, removeKey, writeJson, writeText } from '../utils/storage';
+import { readText, writeText } from '../utils/storage';
 import { MatDialog } from '@angular/material/dialog';
 import { askRunUpload } from '../components/run-upload-dialog/run-upload-dialog.component';
 import { packRunLog, readRunUploadConsent, writeRunUploadConsent } from '../run-log/run-upload';
@@ -135,12 +125,6 @@ export const LAG_MS = 160;
 
 /** The name the player gave last time, kept in this browser */
 const NAME_KEY = '3dtd-coop-name';
-/** The player's own relay from before the lobbies (D58), kept in this browser; none means automatic */
-const RELAY_KEY = '3dtd-coop-relay';
-/** Pages of the dev game: without a configured lobby they get this machine's relay */
-const DEV_HOSTS = new Set(['localhost', '127.0.0.1']);
-/** localStorage: the lobbies the player added and the active one (D58) */
-const LOBBIES_KEY = '3dtd-coop-lobbies';
 /** How long a ping mark stays on the map, ms */
 const PING_MS = 4000;
 /** The lobby's walking time of a lane: a zombie's pace, the standard enemy */
@@ -301,19 +285,12 @@ export class CoopService {
   /** The relay this session talks to, and where the address came from */
   readonly relay = signal<{ url: string; source: RelaySource } | null>(null);
 
-  /** The lobbies the player added and the active one (D58) */
-  private readonly storedLobbies = signal<StoredLobbies>(CoopService.readLobbies());
+  /** The online lobbies and the active one (D58), see CoopLobbyList */
+  private readonly lobbyList = new CoopLobbyList(this.config);
   /** Every online lobby: the site's, then the player's */
-  readonly lobbies = computed<readonly Lobby[]>(() => {
-    const site = builtInLobbies(this.config.coopLobbies(), this.config.coopRelay(), readDesktopBridge() !== null);
-    // The dev game without a lobby of its own: `npm run coop-server` on this machine
-    if (site.length === 0 && DEV_HOSTS.has(window.location.hostname)) {
-      site.push({ url: `ws://localhost:${DEFAULT_RELAY_PORT}`, name: 'This machine', builtIn: true });
-    }
-    return allLobbies(site, this.storedLobbies());
-  });
+  readonly lobbies = this.lobbyList.lobbies;
   /** The lobby "Online" plays over; null without any (then online is off) */
-  readonly lobby = computed(() => activeLobby(this.lobbies(), this.storedLobbies()));
+  readonly lobby = this.lobbyList.lobby;
   /** How this room is reached, for the room header: "LAN" or the lobby's name, never an address */
   readonly reachedVia = computed(() => {
     const relay = this.relay();
@@ -560,33 +537,15 @@ export class CoopService {
 
   /** Add an online lobby and make it the active one; false when the address is no ws:// or wss:// one */
   addLobby(name: string, url: string): boolean {
-    const next = addLobby(this.storedLobbies(), name, url);
-    if (!next) return false;
-    this.storeLobbies(next);
-    return true;
+    return this.lobbyList.add(name, url);
   }
 
   removeLobby(url: string): void {
-    this.storeLobbies(removeLobby(this.storedLobbies(), url));
+    this.lobbyList.remove(url);
   }
 
   selectLobby(url: string): void {
-    this.storeLobbies({ ...this.storedLobbies(), active: url });
-  }
-
-  private storeLobbies(next: StoredLobbies): void {
-    this.storedLobbies.set(next);
-    // Storage blocked: the list holds for this session
-    writeJson(LOBBIES_KEY, next);
-  }
-
-  /** The stored lobby list, with a server set before the list (`3dtd-coop-relay`) taken over once */
-  private static readLobbies(): StoredLobbies {
-    const stored = readStoredLobbies(readText(LOBBIES_KEY));
-    const merged = withOldRelay(stored, readText(RELAY_KEY));
-    // The old key goes only once the list holds its server
-    if (merged !== stored && writeJson(LOBBIES_KEY, merged)) removeKey(RELAY_KEY);
-    return merged;
+    this.lobbyList.select(url);
   }
 
   get name(): string {
