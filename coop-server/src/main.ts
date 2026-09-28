@@ -1,6 +1,7 @@
 /**
  * npm run coop-server [-- --port 3003] [-- --no-cheats] [-- --origins https://a,app://app]
- *   [-- --status local] [-- --log-dir DIR] [-- --log-days 14] [-- --collect-runs]: the coop relay on
+ *   [-- --status local] [-- --log-dir DIR] [-- --log-days 14] [-- --collect-runs]
+ *   [-- --max-per-address 8]: the coop relay on
  * this machine (docs/COOP_PLAN.md, D17). Node runs the TypeScript as it is.
  * This one lets the dev tools' cheats through, for development in coop;
  * `--no-cheats` refuses them, as a public relay does (docs/COOP_PLAN.md, S1).
@@ -35,6 +36,11 @@ const origins = argument('--origins')?.split(',').filter(Boolean);
 const logDir = resolve(argument('--log-dir') ?? fileURLToPath(new URL('../../logs/', import.meta.url)));
 const keepDays = Number(argument('--log-days') ?? 0);
 const statusAccess = argument('--status') === 'local' ? 'local' : 'all';
+// Connections one address may hold (MAX_PER_ADDRESS); more only for local measurements with many tabs
+const maxPerAddress = argument('--max-per-address') === null ? undefined : Number(argument('--max-per-address'));
+if (maxPerAddress !== undefined && !(Number.isInteger(maxPerAddress) && maxPerAddress > 0)) {
+  throw new Error('--max-per-address takes a whole number above 0');
+}
 // The environment rather than the command line: a process list shows arguments
 const adminToken = process.env['RELAY_ADMIN_TOKEN'] || argument('--admin-token') || undefined;
 /** A day's log file stops growing here; the console goes on (review M1) */
@@ -99,11 +105,12 @@ log(cheats ? 'cheats allowed (--no-cheats refuses them)' : 'cheats refused');
 log(origins ? `pages allowed: ${origins.join(', ')}` : 'pages from any site allowed (--origins limits them)');
 log(statusAccess === 'local' ? 'status page for the local network only' : 'status page open (--status local limits it)');
 log(adminToken ? 'status page actions on (admin token set)' : 'status page read only (no admin token)');
+if (maxPerAddress !== undefined) log(`at most ${maxPerAddress} connections per address`);
 // Run logs players agree to send after a coop game (TODO E38): 2 GB, 90 days
 const collectRuns = process.argv.includes('--collect-runs') || process.env['RELAY_COLLECT_RUNS'] === '1'
   ? { dir: join(logDir, 'runs'), maxBytes: 2 * 1024 ** 3, maxAgeMs: 90 * 24 * 60 * 60_000 }
   : undefined;
-const relay = await startRelay({ port, log, cheats, origins, statusAccess, adminToken, build, collectRuns });
+const relay = await startRelay({ port, log, cheats, origins, statusAccess, adminToken, build, collectRuns, maxPerAddress });
 if (collectRuns) log(`collects run logs in ${collectRuns.dir}, 2 GB, 90 days`);
 let stopping = false;
 const stop = () => {

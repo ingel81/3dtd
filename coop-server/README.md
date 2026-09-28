@@ -26,6 +26,7 @@ relay for LAN games; nothing to set up for that.
 | `--admin-token T` | The status page may close rooms and drop players for whoever enters `T`. Better as the environment variable `RELAY_ADMIN_TOKEN` (a process list shows arguments). Without it the page only reads |
 | `--log-dir DIR` | Where `coop_<day>.log` goes (`logs/` in the repository by default) |
 | `--log-days N` | Delete log days older than N |
+| `--max-per-address N` | Connections one address may hold, 8 by default (`MAX_PER_ADDRESS`). Higher only for local measurements with many tabs on one machine (`e2e/coop-bots`) |
 
 ## Status page
 
