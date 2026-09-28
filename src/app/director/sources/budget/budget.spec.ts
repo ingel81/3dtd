@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { budgetSeconds, enemyHp, sizeWave, BUDGET_REALISM, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
-import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
+import { ENEMY_TYPES, WORM_MAX_SEGMENTS } from '../../../configs/enemy-types.config';
 
 const flat = (v: number) => ({ unarmored: v, light: v, heavy: v, fortified: v, ethereal: v });
 const dps = (ground: number, air = ground): EffectiveDPSPerArmor => ({ ground: flat(ground), air: flat(air) });
@@ -53,17 +53,17 @@ describe('sizeWave', () => {
 
   it('holds an enemy at what the defense deals while it is under fire', () => {
     // One worm, a short stretch under fire: it would take far more than that
-    const input = base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 10, defense: { dps: dps(50000), damageMetres: dps(50000 * 20), hpRemaining: 300 } });
+    const input = base({ enemies: { ooze: 1 }, spawnDelayMs: 0, targetPressure: 10, defense: { dps: dps(50000), damageMetres: dps(50000 * 20), hpRemaining: 300 } });
     const sized = sizeWave(input);
-    const fire = 20 / ENEMY_TYPES['worm'].baseSpeed;
-    expect(sized.clamped).toEqual(['worm']);
-    expect((enemyHp('worm') * sized.hpMult['worm']) / (50000 * BUDGET_REALISM)).toBeCloseTo(UNDER_FIRE_SHARE * fire, 1);
+    const fire = 20 / ENEMY_TYPES['ooze'].baseSpeed;
+    expect(sized.clamped).toEqual(['ooze']);
+    expect((enemyHp('ooze') * sized.hpMult['ooze']) / (50000 * BUDGET_REALISM)).toBeCloseTo(UNDER_FIRE_SHARE * fire, 1);
   });
 
   it('gives the rest of the budget to the others when one type is at its limit', () => {
-    const sized = sizeWave(base({ enemies: { worm: 1, skeleton: 300 }, spawnDelayMs: 400, defense: { dps: dps(50000), damageMetres: dps(50000 * 60), hpRemaining: 300 } }));
-    expect(sized.clamped).toContain('worm');
-    expect(sized.hpMult['skeleton']).toBeGreaterThan(sized.hpMult['worm']);
+    const sized = sizeWave(base({ enemies: { ooze: 1, skeleton: 300 }, spawnDelayMs: 400, defense: { dps: dps(50000), damageMetres: dps(50000 * 60), hpRemaining: 300 } }));
+    expect(sized.clamped).toContain('ooze');
+    expect(sized.hpMult['skeleton']).toBeGreaterThan(sized.hpMult['ooze']);
   });
 
   it('cuts the budget to the time on the route plus the leaks the curve allows', () => {
@@ -90,8 +90,20 @@ describe('sizeWave', () => {
 describe('sizeWave, an enemy whose one leak costs more than the wave may', () => {
   it('gets only the sure-kill share of the damage under fire', () => {
     const defense = { dps: dps(50000), damageMetres: dps(50000 * 30), hpRemaining: 300 };
-    const cheap = sizeWave(base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 10, defense }));
-    const dear = sizeWave(base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 0.0001, defense }));
-    expect(dear.hpMult['worm']).toBeCloseTo((cheap.hpMult['worm'] * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
+    const cheap = sizeWave(base({ enemies: { ooze: 1 }, spawnDelayMs: 0, targetPressure: 10, defense }));
+    const dear = sizeWave(base({ enemies: { ooze: 1 }, spawnDelayMs: 0, targetPressure: 0.0001, defense }));
+    expect(dear.hpMult['ooze']).toBeCloseTo((cheap.hpMult['ooze'] * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
+  });
+});
+
+describe('sizeWave, a chain', () => {
+  it('counts every segment as a body of its own, with the time the chain takes to come out', () => {
+    const defense = { dps: dps(5000), damageMetres: dps(5000 * 60), metresUnderFire: { ground: 60, air: 60 }, hpRemaining: 300 };
+    const worm = sizeWave(base({ wave: 30, enemies: { worm: 1 }, spawnDelayMs: 0, defense }));
+    // A segment takes little damage alone: no limit holds it, and the window is the chain coming out
+    expect(worm.clamped).toEqual([]);
+    const out = (WORM_MAX_SEGMENTS * ENEMY_TYPES['worm'].chain!.spacing) / ENEMY_TYPES['worm'].baseSpeed;
+    expect(worm.window).toBeGreaterThan(out);
+    expect(worm.hpMult['worm']).toBeGreaterThan(1);
   });
 });

@@ -18,7 +18,7 @@
 
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import {
-  ENEMY_TYPES, WORM_MAX_SEGMENTS, lineageHp, lineageLeakDamage, type EnemyTypeId,
+  ENEMY_TYPES, WORM_MAX_SEGMENTS, leakDamageOf, lineageHp, lineageLeakDamage, type EnemyTypeId,
 } from '../../../configs/enemy-types.config';
 import { DetMath } from '../../../utils/det-math';
 
@@ -104,25 +104,37 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const { defense } = input;
   const budget = budgetSeconds(input.wave) * input.strength * input.regulator;
   const types = Object.entries(input.enemies).filter(([type, count]) => count > 0 && ENEMY_TYPES[type as EnemyTypeId]);
-  const count = types.reduce((sum, [, n]) => sum + n, 0);
+  // Bodies, not spawns: a chain (Skarnax) is one spawn but a body per segment, each walking
+  // past the towers on its own, each with its share of HP and leak (the same rule for every type)
+  const bodiesOf = (type: string) => (ENEMY_TYPES[type as EnemyTypeId].chain ? WORM_MAX_SEGMENTS : 1);
+  const count = types.reduce((sum, [type, n]) => sum + n * bodiesOf(type), 0);
+  // The seconds a chain takes to come out of its portal, one segment after another
+  const emerging = types.reduce((most, [type]) => {
+    const cfg = ENEMY_TYPES[type as EnemyTypeId];
+    return cfg.chain ? Math.max(most, (WORM_MAX_SEGMENTS * cfg.chain.spacing) / Math.max(0.1, cfg.baseSpeed)) : most;
+  }, 0);
 
   const leakHp = Math.max(MIN_LEAK_HP, input.defense.hpRemaining * Math.max(0, input.targetPressure));
   const hurt: { type: string; n: number; sec: number; cap: number; fire: number; onRoute: number }[] = [];
   const unhurt: string[] = [];
   let leakCost = 0;
-  for (const [type, n] of types) {
+  for (const [type, spawns] of types) {
     const cfg = ENEMY_TYPES[type as EnemyTypeId];
+    const bodies = bodiesOf(type);
+    const n = spawns * bodies;
+    const bodyHp = enemyHp(type) / bodies;
+    const bodyLeak = cfg.chain ? leakDamageOf(type as EnemyTypeId) / bodies : lineageLeakDamage(type as EnemyTypeId);
     const side = cfg.isAirUnit ? 'air' : 'ground';
     const rawDps = defense.dps?.[side]?.[cfg.armorType] ?? 0;
     const dps = rawDps * BUDGET_REALISM;
-    leakCost += n * Math.max(1, lineageLeakDamage(type as EnemyTypeId));
+    leakCost += n * (cfg.chain ? bodyLeak : Math.max(1, bodyLeak));
     if (!(dps > 0)) { unhurt.push(type); continue; }
-    const sec = enemyHp(type) / dps;
+    const sec = bodyHp / dps;
     // Seconds of the whole defense's damage the enemy takes on its way past: each tower
     // counts with the stretch it sees (damage-metres over speed, over the total damage)
     const damageMetres = defense.damageMetres?.[side]?.[cfg.armorType] ?? 0;
     const fire = Math.max(MIN_UNDER_FIRE_S, damageMetres / (rawDps * Math.max(0.1, cfg.baseSpeed)));
-    const oneLeak = lineageLeakDamage(type as EnemyTypeId) * input.leakScale;
+    const oneLeak = bodyLeak * input.leakScale;
     const share = oneLeak > leakHp ? SURE_KILL_SHARE : UNDER_FIRE_SHARE;
     // For the wave's window: how long this enemy is under fire at all (union of the stretches)
     const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, cfg.baseSpeed));
@@ -131,7 +143,8 @@ export function sizeWave(input: BudgetInput): BudgetResult {
 
   // The cap: the defense spends at most the wave's time on the route on it,
   // plus the leaks the tension curve allows for this wave
-  const spawnSeconds = Math.max(0, count - 1) * (input.spawnDelayMs / 1000);
+  const spawns = types.reduce((sum, [, n]) => sum + n, 0);
+  const spawnSeconds = Math.max(0, spawns - 1) * (input.spawnDelayMs / 1000) + emerging;
   const fireAvg = hurt.length ? hurt.reduce((sum, h) => sum + h.n * Math.max(h.fire, h.onRoute), 0) / hurt.reduce((sum, h) => sum + h.n, 0) : 0;
   const window = spawnSeconds + fireAvg;
   const allowedLeaks = leakCost > 0 && count > 0 ? leakHp / (input.leakScale * (leakCost / count)) : 0;
