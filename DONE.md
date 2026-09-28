@@ -4,6 +4,23 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-29
+
+- [x] **Budget-Quelle** (`65ee649b` bis `5da214bc`, [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md)): Laufplan W1 bis W60,
+      HP aus einem Budget gegen die Abwehr, eine Grenze je Gegner aus der Zeit unter Feuer (auf der Route mit echter
+      Sichtlinie gemessen). Mit Bots kalibriert, ungefähr gleichauf mit dem adaptiven Director. Noch nicht Standard,
+      `?waves=budget` schaltet um.
+- [x] **Wellenregeln aus der Quelle** (`be3537d6`): Leck, Gold, Boss und kommende Gegner liest das Spiel aus der
+      aktiven Quelle statt aus der Kampagne.
+- [x] **Coop: der Host bestimmt die Wellenquelle** (`fbc25318`, `2cf6ca5c`): der Gast übernimmt sie mit der Welt.
+- [x] **E58 Coop-Resync, erster Bau** (`b1b8b643`): nach einer Abweichung lädt der Gast den Stand des Hosts an einer
+      gehaltenen Tick-Grenze; im Browser mit Bots geprüft.
+- [x] **Snapshot zwischen den Wellen** (`5d00fcfb`): geladen sprang das Spiel in eine leere Welle und zahlte ihr Gold
+      noch einmal.
+- [x] **Bot baut erst aus** (`61000404`): vier Tower und einer mehr je Welle, dann Upgrades.
+- [x] **Werkzeuge** (`2cf6ca5c`, `69326185`, `7f92284a`, `a4f9d99c`): `tools/wave-report`, Runner mit Plan, Lauf-Log
+      und `--falsify-at-wave`, `e2e/perf/render-costs.ts`, E2E-Test der Budget-Quelle auf echter Karte.
+
 ## 2026-09-28
 
 - [x] **E64 Coop Chrome gegen Firefox lief auseinander** (`4091f8fd`): Firefox übersprang nach 12 bis 17 Minuten im
