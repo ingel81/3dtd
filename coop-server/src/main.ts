@@ -21,7 +21,7 @@
 import { createWriteStream, mkdirSync, readdirSync, rmSync, type WriteStream } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { startRelay } from './server.ts';
+import { MAX_MESSAGES_PER_SECOND, startRelay } from './server.ts';
 import { PROTOCOL_VERSION } from '../../src/app/coop/protocol.ts';
 import { day, expiredLogs, logFileName, stamp } from './log-files.ts';
 
@@ -111,12 +111,14 @@ log(origins ? `pages allowed: ${origins.join(', ')}` : 'pages from any site allo
 log(statusAccess === 'local' ? 'status page for the local network only' : 'status page open (--status local limits it)');
 log(adminToken ? 'status page actions on (admin token set)' : 'status page read only (no admin token)');
 if (maxPerAddress !== undefined) log(`at most ${maxPerAddress} connections per address`);
-if (hashEvery !== undefined) log(`hash reports every ${hashEvery} ticks`);
+// A report a tick: 30 ticks a game second at speed 4, and up to four times that while catching up
+const maxMessagesPerSecond = hashEvery === undefined ? undefined : MAX_MESSAGES_PER_SECOND + Math.ceil(4 * 4 * 30 / hashEvery);
+if (hashEvery !== undefined) log(`hash reports every ${hashEvery} ticks, up to ${maxMessagesPerSecond} messages a second per player`);
 // Run logs players agree to send after a coop game (TODO E38): 2 GB, 90 days
 const collectRuns = process.argv.includes('--collect-runs') || process.env['RELAY_COLLECT_RUNS'] === '1'
   ? { dir: join(logDir, 'runs'), maxBytes: 2 * 1024 ** 3, maxAgeMs: 90 * 24 * 60 * 60_000 }
   : undefined;
-const relay = await startRelay({ port, log, cheats, origins, statusAccess, adminToken, build, collectRuns, maxPerAddress, hashEvery });
+const relay = await startRelay({ port, log, cheats, origins, statusAccess, adminToken, build, collectRuns, maxPerAddress, hashEvery, maxMessagesPerSecond });
 if (collectRuns) log(`collects run logs in ${collectRuns.dir}, 2 GB, 90 days`);
 let stopping = false;
 const stop = () => {

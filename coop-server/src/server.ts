@@ -72,7 +72,7 @@ const MAX_UNREAD_BYTES = 8 * 1024 * 1024;
  * Messages a connection may send in one second; more are dropped (R17). A
  * player sends an aim at most once a tick (15 a second) plus a few commands.
  */
-const MAX_MESSAGES_PER_SECOND = 120;
+export const MAX_MESSAGES_PER_SECOND = 120;
 
 /**
  * Bytes a connection may send in one second; more closes it (security review
