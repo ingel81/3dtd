@@ -13,6 +13,7 @@ import { bundle } from './build.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const out = process.argv[2] ?? path.join(tmpdir(), 'det-heavy-result.json');
 const waves = Number(process.argv[3] ?? 6);
+const dense = process.argv.includes('--dense');
 const e2e = process.env.E2E_DIR ?? path.join(here, '../../e2e');
 const { chromium, firefox } = createRequire(path.join(e2e, 'package.json'))('playwright');
 
@@ -23,8 +24,8 @@ const results = {};
 globalThis.requestAnimationFrame ??= () => 0;
 globalThis.cancelAnimationFrame ??= () => undefined;
 const mod = await import(pathToFileURL(file).href);
-results.node = mod.heavy(waves);
-console.log(`node: ${results.node.waves} waves, ${results.node.subSteps} sub-steps, ${results.node.kills} kills`);
+results.node = mod.heavy(waves, dense);
+console.log(`node: splash ${results.node.splashCalls}, unfloored ${results.node.unflooredSplash.length}, ${results.node.waves} waves, ${results.node.subSteps} sub-steps, ${results.node.kills} kills`);
 
 const server = createServer((req, res) => {
   if (req.url === '/sim-run.mjs') {
@@ -44,7 +45,7 @@ for (const [name, type] of [['chromium', chromium], ['firefox', firefox]]) {
     browser = await type.launch({ headless: true });
     const page = await browser.newPage();
     await page.goto(origin);
-    results[name] = await page.evaluate(async (w) => (await import('/sim-run.mjs')).heavy(w), waves);
+    results[name] = await page.evaluate(async (w) => (await import('/sim-run.mjs')).heavy(w.waves, w.dense), { waves, dense });
     results[name].version = browser.version();
     console.log(`${name} ${browser.version()}: ${results[name].waves} waves, ${results[name].subSteps} sub-steps, ${results[name].kills} kills`);
   } catch (error) {
@@ -64,7 +65,7 @@ const firstDiff = (a, b) => {
 const summary = {};
 for (const name of ['chromium', 'firefox']) {
   const r = results[name];
-  summary[name] = r.error ? r.error : { firstDiffFromNode: firstDiff(results.node.hashes, r.hashes), subSteps: r.subSteps, kills: r.kills };
+  summary[name] = r.error ? r.error : { firstDiffFromNode: firstDiff(results.node.hashes, r.hashes), subSteps: r.subSteps, kills: r.kills, splashCalls: r.splashCalls, unflooredSplash: r.unflooredSplash };
 }
 summary.firefoxVsChromium = results.chromium.hashes && results.firefox.hashes ? firstDiff(results.chromium.hashes, results.firefox.hashes) : null;
 writeFileSync(out, JSON.stringify({ summary, node: { waves: results.node.waves, subSteps: results.node.subSteps, kills: results.node.kills } }, null, 1));

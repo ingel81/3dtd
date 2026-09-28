@@ -331,6 +331,65 @@ async function installProbe(page: Page): Promise<void> {
       close('base-destroyed');
       probe.end = { reason: e['reason'], waves: probe.waves.length, creditsByPlayer: credits(), towersByPlayer: towers(), gameSeconds: Math.round(gs.gameTimeMs / 1000) };
     });
+    // Trace of the last damage and hits (TODO E64): per entry the sub-step, what and the numbers
+    // bit for bit. Frozen at the first desync, so both tabs show what led to it.
+    const TRACE_MAX = 200000;
+    const trace: unknown[][] = [];
+    const step = () => (gs as unknown as { subStep: number }).subStep;
+    let frozen = false;
+    setInterval(() => { if (comp.coop.desync()) frozen = true; }, 50);
+    const push = (row: unknown[]) => {
+      if (frozen) return;
+      trace.push(row);
+      if (trace.length > TRACE_MAX) trace.splice(0, trace.length - TRACE_MAX);
+    };
+    const findDamageService = (): Record<string, AnyFn> | null => {
+      const seen = new Set<unknown>();
+      const walk = (obj: unknown, depth: number): Record<string, AnyFn> | null => {
+        if (!obj || typeof obj !== 'object' || seen.has(obj) || depth > 3) return null;
+        seen.add(obj);
+        const o = obj as Record<string, unknown>;
+        if (typeof o['applyDamage'] === 'function' && typeof o['applyBeamDamage'] === 'function') return o as Record<string, AnyFn>;
+        for (const key of Object.keys(o)) {
+          const found = walk(o[key], depth + 1);
+          if (found) return found;
+        }
+        return null;
+      };
+      return walk(gs, 0);
+    };
+    const oddSplash: Record<string, unknown>[] = [];
+    const damage = findDamageService();
+    if (damage) {
+      const proto = Object.getPrototypeOf(damage) as Record<string, AnyFn>;
+      for (const name of ['applyDamage', 'applyBeamDamage'] as const) {
+        const original = proto[name];
+        proto[name] = function (this: unknown, ...args: never[]) {
+          const enemy = args[1] as unknown as { id: string; health: { hp: number }; position: Pos };
+          const before = enemy.health.hp;
+          // A splash hit with falloff deals a whole number; one that does not: where did it come from?
+          if (name === 'applyDamage' && (args[5] as unknown) === true && !Number.isInteger(args[2] as unknown as number) && oddSplash.length < 20) {
+            oddSplash.push({ step: step(), source: args[4], damage: args[2], enemy: enemy.id, stack: new Error().stack });
+          }
+          const result = original.apply(this, args);
+          push([step(), name === 'applyDamage' ? 'dmg' : 'beam', args[4], enemy.id, args[2], args[3], args[5], before, enemy.health.hp, enemy.position.lat, enemy.position.lon]);
+          return result;
+        } as AnyFn;
+      }
+    }
+    bus.onLive('projectile:hit', (e) => {
+      const p = e['projectile'] as unknown as { id: string; position: Pos; flightHeight: number; targetLost: boolean; typeConfig: { id: string } };
+      const target = e['target'] as unknown as { id: string; position: Pos } | null;
+      push([step(), 'hit', p.id, p.typeConfig.id, target?.id ?? null, p.position.lat, p.position.lon, p.flightHeight, p.targetLost, target?.position.lat ?? null, target?.position.lon ?? null]);
+    });
+    for (const type of ['ability:used', 'ability:impact', 'enemy:split', 'enemy:spawned'] as const) {
+      bus.onLive(type, (e) => {
+        const enemy = e['enemy'] as unknown as { id: string; health?: { hp: number }; position: Pos } | undefined;
+        push([step(), type, enemy?.id ?? null, enemy?.health?.hp ?? null, enemy?.position.lat ?? null, enemy?.position.lon ?? null, (e as Record<string, unknown>)['abilityId'] ?? null]);
+      });
+    }
+    w['__simTrace'] = () => ({ damageHooked: !!damage, oddSplash, rows: trace });
+
     setInterval(() => {
       const found = comp.coop.desync();
       if (!found || probe.desync) return;
@@ -423,6 +482,12 @@ async function playRun(index: number): Promise<boolean> {
       if (MAX_WAVES > 0 && written >= MAX_WAVES) { end = { reason: 'max-waves', waves: written }; break; }
     }
     const desyncs = await Promise.all(seats.map(desyncOf));
+    {
+      for (const [seat, page] of seats.entries()) {
+        const simTrace = await page.evaluate(() => (window as unknown as { __simTrace?: () => unknown }).__simTrace?.() ?? null).catch(() => null);
+        writeFileSync(join(OUT, `trace-${index}-seat${seat}-${engineOf(seat)}.json`), JSON.stringify(simTrace));
+      }
+    }
     for (const [seat, page] of seats.entries()) {
       if (!SKEW_SEATS.has(seat)) continue;
       const callers = await page.evaluate(() => (window as unknown as { __mathCallers?: Record<string, number> }).__mathCallers ?? {});

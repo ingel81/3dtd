@@ -176,7 +176,7 @@ function countNative(fn: () => unknown): Record<string, [number, number]> {
  * a frost bomb every few seconds. The state hash at every sub-step boundary, so two engines
  * show the first sub-step where they part.
  */
-export function heavy(waves = 6): { hashes: number[]; waves: number; kills: number; subSteps: number } {
+export function heavy(waves = 6, dense = false): { hashes: number[]; waves: number; kills: number; subSteps: number; splashCalls: number; unflooredSplash: unknown[] } {
   GameObject.resetIdCounter();
   const random = Math.random;
   Math.random = mulberry32(0x51a1 + 3);
@@ -184,6 +184,18 @@ export function heavy(waves = 6): { hashes: number[]; waves: number; kills: numb
     const { gsm, towers, routes } = buildSimWorld(services, 0x51a1, { origin: { lat: 49.0069, lon: 8.4037 } });
     const hashes: number[] = [];
     gsm.resimHost.setBoundaryListener((_step, hash) => hashes.push(hash()));
+    // A splash hit with falloff deals a whole number (Math.floor); one that does not is the bug of E64
+    const damage = services['DamageApplicationService'] as { applyDamage: (...args: unknown[]) => unknown };
+    const applyDamage = damage.applyDamage.bind(damage);
+    let splashCalls = 0;
+    const unflooredSplash: unknown[] = [];
+    damage.applyDamage = (...args: unknown[]) => {
+      if (args[5] === true) {
+        splashCalls++;
+        if (!Number.isInteger(args[2]) && unflooredSplash.length < 20) unflooredSplash.push([gsm.subStep, args[4], args[2], args[3]]);
+      }
+      return applyDamage(...args);
+    };
     const bus = gsm.getEventBus();
     let kills = 0;
     bus.on('enemy:died', () => kills++);
@@ -198,11 +210,22 @@ export function heavy(waves = 6): { hashes: number[]; waves: number; kills: numb
       }
     }
     gsm.update((now += 40));
+    if (dense) {
+      // Cannons along both routes: their splash meets packs of more than splashMaxTargets
+      for (const route of routes) {
+        for (let k = 8; k < route.length - 4; k += 6) {
+          const p = route[k];
+          bus.emit({ type: 'command:place-tower', typeId: 'cannon', position: { lat: p.lat + 9 / M, lon: p.lon, height: 0 } } as never);
+        }
+      }
+      gsm.update((now += 40));
+    }
     const types = ['ooze', 'skeleton', 'zombie', 'bat', 'skeleton', 'zombie'] as const;
     let played = 0;
     for (let w = 0; w < waves && gsm.waveManager.phase() !== 'gameover'; w++) {
-      const entries: SpawnEntry[] = Array.from({ length: 48 }, (_, i) => ({ enemyType: types[i % types.length], speed: 1, health: 4 + w }));
-      bus.emit({ type: 'command:start-wave', config: { schedule: { entries, baseDelay: 250, delayVariation: 0.3, spawnMode: 'random' } } } as never);
+      const count = dense ? 160 : 48;
+      const entries: SpawnEntry[] = Array.from({ length: count }, (_, i) => ({ enemyType: types[i % types.length], speed: 1, health: 4 + w }));
+      bus.emit({ type: 'command:start-wave', config: { schedule: { entries, baseDelay: dense ? 40 : 250, delayVariation: 0.3, spawnMode: 'random' } } } as never);
       played++;
       for (let f = 0; f < 40000 && gsm.waveManager.phase() === 'wave'; f++) {
         gsm.update((now += 10 + ((f * 13) % 29)));
@@ -217,7 +240,7 @@ export function heavy(waves = 6): { hashes: number[]; waves: number; kills: numb
         gsm.update((now += 16.667));
       }
     }
-    return { hashes, waves: played, kills, subSteps: gsm.subStep };
+    return { hashes, waves: played, kills, subSteps: gsm.subStep, splashCalls, unflooredSplash };
   } finally {
     Math.random = random;
   }
