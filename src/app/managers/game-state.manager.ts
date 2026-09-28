@@ -1418,6 +1418,8 @@ export class GameStateManager {
     const enemies = this.enemyManager.waveSnapshotRefusal();
     if (enemies) return enemies;
     if (this.enemyDebug.debugEnemies().length > 0) return 'debug-enemies';
+    // Coop: a tower waiting for the host's line of sight; the waiting list is not in the snapshot
+    if (this.towerPlacement.awaitingLosTowerIds().length > 0) return 'awaiting-los';
     return null;
   }
 

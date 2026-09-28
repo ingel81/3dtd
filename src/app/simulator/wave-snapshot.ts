@@ -17,8 +17,8 @@ export const WAVE_SNAPSHOT_VERSION = 1;
  * same world with restoreWaveSnapshot(); from there both run on bit for bit
  * alike.
  *
- * Not in it yet (waveSnapshotRefusal says so): worms and oozes, and enemies
- * the debugger placed. Presentation is not in it at
+ * Not in it yet (waveSnapshotRefusal says so): worms and oozes, enemies the
+ * debugger placed, and in coop towers waiting for the host's line of sight. Presentation is not in it at
  * all: models, sounds, trails and status auras come back from the restored
  * state or not at all.
  */
@@ -119,4 +119,4 @@ export interface SavedStrike {
 }
 
 /** Why the state now cannot be a wave snapshot yet, null when it can. */
-export type WaveSnapshotRefusal = 'worm' | 'ooze' | 'debug-enemies';
+export type WaveSnapshotRefusal = 'worm' | 'ooze' | 'debug-enemies' | 'awaiting-los';
