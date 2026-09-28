@@ -230,6 +230,26 @@ export class GlobalRouteGridService {
     this.grid.removeEnemy(enemy);
   }
 
+  /** See GlobalRouteGrid.captureEnemyCells */
+  captureEnemyCells(): [number, string[]][] {
+    return this.grid.captureEnemyCells();
+  }
+
+  /** See GlobalRouteGrid.restoreEnemyCells */
+  restoreEnemyCells(cells: readonly (readonly [number, readonly string[]])[], byId: (id: string) => Enemy | null): void {
+    this.grid.restoreEnemyCells(cells, byId);
+  }
+
+  /** See GlobalRouteGrid.enemyMemoCurrent */
+  enemyMemoCurrent(enemy: Enemy): boolean {
+    return this.grid.enemyMemoCurrent(enemy);
+  }
+
+  /** See GlobalRouteGrid.restoreEnemyMemo */
+  restoreEnemyMemo(enemy: Enemy, current: boolean): void {
+    this.grid.restoreEnemyMemo(enemy, current);
+  }
+
   /**
    * Get enemies for tower targeting (from visible cells)
    * @param visibleCells Array of cells the tower can see

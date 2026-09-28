@@ -11,6 +11,8 @@ import type { GeoPosition } from '../models/game.types';
 import { GameEventBus } from '../game-engine';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { DetMath } from '../utils/det-math';
+import type { SavedProjectile } from '../simulator/wave-snapshot';
+import { assignPlainFields, plainFields } from '../simulator/plain-fields';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
@@ -434,6 +436,64 @@ export class ProjectileManager extends EntityManager<Projectile> {
   /**
    * Clear all projectiles and cleanup resources
    */
+  /** Every projectile in flight as plain data, for the wave snapshot (wave-snapshot.ts) */
+  captureWaveState(): SavedProjectile[] {
+    return this.getAll().map((p) => {
+      const internal = p as unknown as { _direction: object; _lastTargetPosition: object | null };
+      return {
+        id: p.id,
+        typeId: p.typeConfig.id as ProjectileTypeId,
+        targetId: p.targetEnemy?.id ?? null,
+        sourceTowerId: p.sourceTowerId,
+        sourceTowerType: p.sourceTowerType,
+        damageType: p.damageType,
+        aimPoint: p.aimPoint ? plainFields(p.aimPoint) : null,
+        entity: plainFields(p, ['id', 'type']),
+        position: plainFields(p.position),
+        direction: plainFields(internal._direction),
+        lastTargetPosition: internal._lastTargetPosition ? plainFields(internal._lastTargetPosition) : null,
+        transform: plainFields(p.transform),
+        combat: plainFields(p.combat),
+        movement: plainFields(p.movement),
+      };
+    });
+  }
+
+  /**
+   * Put the projectiles of captureWaveState() back, with their instances and
+   * trails; `enemy` finds each target, `beforeEach` sets the id counter.
+   */
+  restoreWaveState(saved: readonly SavedProjectile[], enemy: (id: string) => Enemy | null, beforeEach: (id: string) => void): void {
+    for (const s of saved) {
+      beforeEach(s.id);
+      const target = s.targetId === null ? null : enemy(s.targetId);
+      if (s.targetId !== null && !target) throw new Error(`Projectile ${s.id}: target ${s.targetId} missing`);
+      const aim = s.aimPoint ? ({} as GeoPosition) : undefined;
+      if (aim && s.aimPoint) assignPlainFields(aim, s.aimPoint);
+      const start = { lat: 0, lon: 0, height: 0 };
+      assignPlainFields(start, s.position);
+      const p = new Projectile(start, target, s.typeId, 0, 0, s.sourceTowerId, s.sourceTowerType, s.damageType, aim);
+      if (p.id !== s.id) throw new Error(`Projectile ${s.id} came back as ${p.id}`);
+      const internal = p as unknown as { _direction: object; _lastTargetPosition: object | null };
+      assignPlainFields(p, s.entity);
+      assignPlainFields(p.position, s.position);
+      internal._direction = { dx: 0, dy: 0, dz: 0 };
+      assignPlainFields(internal._direction, s.direction);
+      if (s.lastTargetPosition) {
+        internal._lastTargetPosition = { lat: 0, lon: 0 };
+        assignPlainFields(internal._lastTargetPosition, s.lastTargetPosition);
+      } else {
+        internal._lastTargetPosition = null;
+      }
+      assignPlainFields(p.transform, s.transform);
+      assignPlainFields(p.combat, s.combat);
+      assignPlainFields(p.movement, s.movement);
+      this.tilesEngine?.projectiles.create(p.id, p.typeConfig.id, p.position.lat, p.position.lon, p.flightHeight, p.direction);
+      this.tilesEngine?.trailStreaks?.create(p.id, p.typeConfig.visualType);
+      this.add(p);
+    }
+  }
+
   override clear(): void {
     this.tilesEngine?.projectiles.clear();
     this.tilesEngine?.trailStreaks?.clear();

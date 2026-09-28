@@ -22,6 +22,7 @@ import { GameObject } from '../core/game-object';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
+import type { Enemy } from '../entities/enemy.entity';
 import { raycastStats } from '../utils/raycast-stats';
 import { EconomyService, skippedWavesGold } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
@@ -49,6 +50,7 @@ import { routeSweepToward } from '../utils/route-sweep';
 import { SimRecorder } from '../simulator/sim-recorder';
 import { StateHasher, type HashBreakdown, type StateHashSource } from '../simulator/state-hash';
 import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../simulator/sim-snapshot';
+import { WAVE_SNAPSHOT_VERSION, type WaveSnapshot, type WaveSnapshotRefusal } from '../simulator/wave-snapshot';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskFromJson, losMaskToJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
 import { fnv1a } from '../utils/fnv1a';
@@ -419,6 +421,8 @@ export class GameStateManager {
   };
   /** The state hash now (StateHasher), for the recorder and the re-simulation */
   readonly stateHash = (): number => this.stateHasher.hash(this.hashSource);
+  /** The state hash now with its parts and entities (StateHasher.breakdown), for finding a divergence */
+  readonly stateHashBreakdown = (): HashBreakdown => this.stateHasher.breakdown(this.hashSource);
 
   /** Coop: the hash with its parts to the relay, the breakdown kept for a desync's detail. */
   private reportHash(link: LockstepLink, tick: number): void {
@@ -1406,6 +1410,90 @@ export class GameStateManager {
   }
 
   /**
+   * Why the state now cannot be a wave snapshot, null when it can
+   * (wave-snapshot.ts). Between waves the answer is snapshotRefusal()'s, but
+   * for events waiting and shots in flight, which the wave snapshot carries.
+   */
+  waveSnapshotRefusal(): WaveSnapshotRefusal | null {
+    const enemies = this.enemyManager.waveSnapshotRefusal();
+    if (enemies) return enemies;
+    if (this.enemyDebug.debugEnemies().length > 0) return 'debug-enemies';
+    if (this.hasPendingStrikes()) return 'pending-strike';
+    if (this.heroSeats.some((seat) => seat.getTarget() !== null)) return 'hero-target';
+    if (!this.towerLifecycle.mannedTowers().next().done) return 'manned';
+    return null;
+  }
+
+  /**
+   * The simulation at this sub-step boundary as plain data, a running wave
+   * included (wave-snapshot.ts, TODO E58). Throws where waveSnapshotRefusal()
+   * says no.
+   */
+  captureWaveSnapshot(): WaveSnapshot {
+    const refusal = this.waveSnapshotRefusal();
+    if (refusal) throw new Error(`No wave snapshot now: ${refusal}`);
+    const running = this.waveManager.phase() === 'wave';
+    if (running && !this.runningWaveConfig) throw new Error('No wave snapshot now: the wave has no plan (beginWave)');
+    const paths = [...this.waveManager.spawnPoints].map((point) => [point.id, this.waveManager.pathOf(point.id)] as const);
+    const pathId = (path: readonly GeoPosition[]) => paths.find(([, p]) => p === path)?.[0] ?? null;
+    const enemies = this.enemyManager.captureWaveState(pathId);
+    // Targets no longer in the manager (a leak, a death animation over) that shots and towers still hold
+    const ghosts = new Map<string, Enemy>();
+    const held = (enemy: Enemy | null) => {
+      if (enemy && this.enemyManager.getById(enemy.id) !== enemy) ghosts.set(enemy.id, enemy);
+    };
+    for (const projectile of this.projectileManager.getAll()) held(projectile.targetEnemy);
+    for (const tower of this.towerManager.getAll()) held(tower.currentTarget);
+    const wave = this.waveManager.captureWaveState();
+    return {
+      version: WAVE_SNAPSHOT_VERSION,
+      base: this.captureSnapshot(),
+      wave: {
+        config: running ? this.runningWaveConfig! : { schedule: { entries: [], baseDelay: 0 } },
+        spawner: wave.spawner,
+        counters: wave.counters,
+        enemies: { ...enemies, ghosts: [...ghosts.values()].map((enemy) => this.enemyManager.saveEnemy(enemy, pathId)) },
+        projectiles: this.projectileManager.captureWaveState(),
+        towerTargets: this.towerManager.getAll().flatMap((tower) => tower.currentTarget ? [[tower.id, tower.currentTarget.id] as [string, string]] : []),
+        deferred: this.eventBus.deferred.filter(plainEvent).map((event) => toPlainData(event)),
+      },
+    };
+  }
+
+  /**
+   * Put the simulation back to a wave snapshot: first as between waves
+   * (restoreSnapshot), then the running wave with its enemies, shots,
+   * targets, spawner and the events waiting for the next sub-step.
+   */
+  restoreWaveSnapshot(snapshot: WaveSnapshot, reason: 'replay' | 'live' = 'live'): void {
+    if (snapshot.version !== WAVE_SNAPSHOT_VERSION) {
+      throw new Error(`Wave snapshot version ${snapshot.version}, expected ${WAVE_SNAPSHOT_VERSION}`);
+    }
+    this.restoreSnapshot(snapshot.base, reason);
+    const wave = snapshot.wave;
+    if (!wave) return;
+    const beforeEach = (id: string) => GameObject.setIdCounter(idNumber(id) - 1);
+    const pathOf = (id: string) => {
+      const path = this.waveManager.pathOf(id);
+      if (!path) throw new Error(`Wave snapshot: no route for spawn point ${id}`);
+      return path;
+    };
+    this.runningWaveConfig = snapshot.base.phase === 'wave' ? wave.config : null;
+    this.waveManager.restoreWaveState(wave.config, wave.spawner, wave.counters);
+    this.enemyManager.restoreWaveState(wave.enemies, pathOf, beforeEach);
+    const ghosts = new Map<string, Enemy>();
+    for (const saved of wave.enemies.ghosts) {
+      beforeEach(saved.id);
+      ghosts.set(saved.id, this.enemyManager.loadEnemy(saved, pathOf(saved.pathId)));
+    }
+    const enemy = (id: string) => this.enemyManager.getById(id) ?? ghosts.get(id) ?? null;
+    this.projectileManager.restoreWaveState(wave.projectiles, enemy, beforeEach);
+    for (const [towerId, targetId] of wave.towerTargets) this.towerManager.getById(towerId)?.restoreTarget(enemy(targetId));
+    for (const event of wave.deferred) this.eventBus.emitDeferred(event as never);
+    GameObject.setIdCounter(snapshot.base.idCounter);
+  }
+
+  /**
    * What a re-simulation drives (simulator/resimulation.ts). One sub-step
    * there is the live step by count: forceSubStep, then simulateStep.
    */
@@ -1588,8 +1676,12 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
+    this.runningWaveConfig = toPlainData(config) as WaveConfig;
     this.waveManager.startWave(config);
   }
+
+  /** The config of the wave startWave() started last, laid out on the lanes (the wave snapshot's plan) */
+  private runningWaveConfig: WaveConfig | null = null;
 
   /**
    * Begin wave phase without auto-spawning
@@ -2034,6 +2126,16 @@ export class GameStateManager {
 }
 
 /** The number of an entity id (`tower-12` gives 12), see GameObject.generateId. */
+/** An event of plain data: no entity in it (a footstep's enemy), so a wave snapshot can carry it */
+function plainEvent(event: object): boolean {
+  const walk = (value: unknown): boolean => {
+    if (value instanceof GameObject) return false;
+    if (value === null || typeof value !== 'object') return typeof value !== 'function';
+    return Object.values(value).every(walk);
+  };
+  return walk(event);
+}
+
 function idNumber(id: string): number {
   return Number(id.slice(id.lastIndexOf('-') + 1));
 }

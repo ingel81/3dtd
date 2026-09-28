@@ -6,6 +6,8 @@ import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import { closeCallHp } from '../configs/game-balance.config';
 import type { WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
+import type { SpawnerState } from '../simulator/wave-snapshot';
+import { assignPlainFields, decodeNumber, encodeNumber, plainFields, type PlainRecord } from '../simulator/plain-fields';
 
 /** What a finished wave came to. */
 export interface WaveEndResult {
@@ -141,6 +143,8 @@ export class WaveManager implements IGameManager {
     waveId: number;
     accumulatedMs: number;      // game-time since last spawn
     nextDelayMs: number;        // game-time until next spawn
+    spawnIndex: number;         // next entry to spawn
+    consecutiveFailures: number;
     spawnAndAdvance: () => boolean;
     recomputeDelay: () => number;
   } | null = null;
@@ -269,6 +273,11 @@ export class WaveManager implements IGameManager {
     this.cachedPaths = cachedPaths;
   }
 
+  /** The route of spawn point `id`, the array its enemies hold */
+  pathOf(id: string): GeoPosition[] | undefined {
+    return this.cachedPaths.get(id);
+  }
+
   /** The routes the enemies walk, one per spawn point, in spawn order. */
   getPaths(): Iterable<GeoPosition[]> {
     return this.cachedPaths.values();
@@ -331,11 +340,18 @@ export class WaveManager implements IGameManager {
       wave: this.waveNumber(),
       enemyCount: entries.length,
     });
+    this.armSpawner(config, null);
+  }
 
+  /**
+   * The spawner of `config`'s wave (the current wave number), at its start or,
+   * with `state`, where captureWaveState() found it.
+   */
+  private armSpawner(config: WaveConfig, state: SpawnerState | null): void {
+    const schedule = config.schedule;
+    const entries = schedule.entries;
     const getDelay = (): number => drawSpawnGap(schedule, this.random);
     const spawnMode = schedule.spawnMode ?? 'random';
-    let spawnIndex = 0;
-    let consecutiveFailures = 0;
     const waveId = this.waveNumber();
 
     // Compute delay for the *current* entry about to be spawned (used to
@@ -357,12 +373,12 @@ export class WaveManager implements IGameManager {
 
     const spawnOne = (): boolean => {
       if (this.phase() !== 'wave' || this.waveNumber() !== waveId) return false;
-      if (spawnIndex >= entries.length) return false;
+      if (spawner.spawnIndex >= entries.length) return false;
 
-      const entry = entries[spawnIndex];
+      const entry = entries[spawner.spawnIndex];
       const spawn = (entry.spawnPointId !== undefined
         ? this.spawnPoints.find((point) => point.id === entry.spawnPointId)
-        : undefined) ?? this.selectSpawnPoint(spawnMode, spawnIndex);
+        : undefined) ?? this.selectSpawnPoint(spawnMode, spawner.spawnIndex);
       const path = this.cachedPaths.get(spawn.id);
       if (path && path.length > 1) {
         const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health, 'portal');
@@ -370,29 +386,70 @@ export class WaveManager implements IGameManager {
         if (enemy.worm !== null) {
           this.expectedBodyWeight += (enemy.worm.group.size - 1) * enemyRewardWeight(ENEMY_TYPES[entry.enemyType].baseHp);
         }
-        spawnIndex++;
+        spawner.spawnIndex++;
         this.spawnedEnemyCount++;
-        consecutiveFailures = 0;
+        spawner.consecutiveFailures = 0;
         this._waveCheckDirty = true;
       } else {
-        consecutiveFailures++;
-        if (consecutiveFailures >= this.spawnPoints.length * 2) {
-          console.error(`[WaveManager] No valid paths, aborting wave (${spawnIndex}/${entries.length})`);
-          this.expectedEnemyCount = spawnIndex;
+        spawner.consecutiveFailures++;
+        if (spawner.consecutiveFailures >= this.spawnPoints.length * 2) {
+          console.error(`[WaveManager] No valid paths, aborting wave (${spawner.spawnIndex}/${entries.length})`);
+          this.expectedEnemyCount = spawner.spawnIndex;
           this._waveCheckDirty = true;
           return false;
         }
       }
-      return spawnIndex < entries.length;
+      return spawner.spawnIndex < entries.length;
     };
 
-    this.activeSpawner = {
+    const spawner = {
       waveId,
-      accumulatedMs: delayForEntry(0),  // spawn first immediately
-      nextDelayMs: delayForEntry(0),
+      accumulatedMs: 0,
+      nextDelayMs: 0,
+      spawnIndex: 0,
+      consecutiveFailures: 0,
       spawnAndAdvance: spawnOne,
-      recomputeDelay: () => delayForEntry(spawnIndex),
+      recomputeDelay: () => delayForEntry(spawner.spawnIndex),
     };
+    if (state) {
+      spawner.waveId = state.waveId;
+      spawner.accumulatedMs = decodeNumber(state.accumulatedMs);
+      spawner.nextDelayMs = decodeNumber(state.nextDelayMs);
+      spawner.spawnIndex = state.spawnIndex;
+      spawner.consecutiveFailures = state.consecutiveFailures;
+    } else {
+      // Spawn the first immediately: its delay drawn once, as both fields
+      spawner.accumulatedMs = delayForEntry(0);
+      spawner.nextDelayMs = delayForEntry(0);
+    }
+    this.activeSpawner = spawner;
+  }
+
+  /** The spawner and the wave's counters mid-wave, for the wave snapshot (wave-snapshot.ts) */
+  captureWaveState(): { spawner: SpawnerState | null; counters: PlainRecord } {
+    const spawner = this.activeSpawner;
+    return {
+      spawner: spawner ? {
+        waveId: spawner.waveId,
+        accumulatedMs: encodeNumber(spawner.accumulatedMs),
+        nextDelayMs: encodeNumber(spawner.nextDelayMs),
+        spawnIndex: spawner.spawnIndex,
+        consecutiveFailures: spawner.consecutiveFailures,
+      } : null,
+      counters: plainFields(this, ['maxSpawnsPerFrame']),
+    };
+  }
+
+  /**
+   * Put the running wave back as captureWaveState() found it: phase, wave
+   * number and counters, and the spawner of `config` where it was. No
+   * wave:started goes out.
+   */
+  restoreWaveState(config: WaveConfig, spawner: SpawnerState | null, counters: PlainRecord): void {
+    assignPlainFields(this, counters);
+    this.phase.set('wave');
+    this.activeSpawner = null;
+    if (spawner) this.armSpawner(config, spawner);
   }
 
   /**

@@ -782,6 +782,51 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * [cell key, enemy ids] of every cell with enemies, each in the order its
+   * set holds them: radius queries walk that order (snapshot mid-wave).
+   */
+  captureEnemyCells(): [number, string[]][] {
+    const out: [number, string[]][] = [];
+    for (const [key, cell] of this.cells) {
+      if (cell.enemies.size > 0) out.push([key, [...cell.enemies].map((enemy) => enemy.id)]);
+    }
+    return out;
+  }
+
+  /**
+   * Put the enemies back into their cells as captureEnemyCells() found them;
+   * their memos come back with restoreEnemyMemo().
+   */
+  restoreEnemyCells(cells: readonly (readonly [number, readonly string[]])[], byId: (id: string) => Enemy | null): void {
+    for (const [key, ids] of cells) {
+      const cell = this.cells.get(key);
+      if (!cell) continue;
+      for (const id of ids) {
+        const enemy = byId(id);
+        if (!enemy) continue;
+        cell.enemies.add(enemy);
+        this.enemyCellKeys.set(enemy.id, key);
+      }
+    }
+  }
+
+  /** Whether `enemy`'s cell memo is of this grid's generation (updateEnemyPosition) */
+  enemyMemoCurrent(enemy: Enemy): boolean {
+    return enemy.routeCellGen === this.generation;
+  }
+
+  /** Make `enemy`'s memo current again after a restore: its key stays, its cell comes from the key */
+  restoreEnemyMemo(enemy: Enemy, current: boolean): void {
+    if (!current) {
+      enemy.routeCellGen = -1;
+      enemy.routeCell = undefined;
+      return;
+    }
+    enemy.routeCellGen = this.generation;
+    enemy.routeCell = this.cells.get(enemy.routeCellKey);
+  }
+
+  /**
    * Remove enemy from grid (call when enemy dies or is removed)
    * @param enemy Enemy entity
    */

@@ -401,6 +401,11 @@ export class GameEventBus {
     this.deferredQueue.length = 0;
   }
 
+  /** The events waiting for processQueue(), oldest first (the wave snapshot reads them) */
+  get deferred(): readonly GameEvent[] {
+    return this.deferredQueue;
+  }
+
   processQueue(): void {
     // Index-walk instead of shift() (O(n) per element → O(n²)). Re-read
     // this.deferredQueue each iteration (don't capture it) so a re-entrant

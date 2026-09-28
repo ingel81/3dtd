@@ -249,6 +249,11 @@ export class Tower extends GameObject {
     return this._currentTarget;
   }
 
+  /** The target a wave snapshot saved (GameStateManager.restoreWaveSnapshot); its LOS check time comes with getSimState */
+  restoreTarget(target: Enemy | null): void {
+    this._currentTarget = target;
+  }
+
   /**
    * Clear current target (call when target dies or leaves range)
    */

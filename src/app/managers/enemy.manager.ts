@@ -15,6 +15,7 @@ import { waveGold, enemyBaseDamageForWave } from '../configs/campaign.config';
 import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
+import type { StatusEffect } from '../models/status-effects';
 import { getEnemyModelRangeY } from '../utils/enemy-aim.util';
 import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 import { WormChains, stepWormSegment } from './worm/worm-chains';
@@ -22,6 +23,8 @@ import type { WormGroup, WormLink } from './worm/worm-group';
 import { OozeBodies } from './ooze-bodies';
 import { WormSounds } from './worm/worm-sounds';
 import type { KilledBy } from '../game-engine/game-event-bus';
+import type { EnemiesState, SavedEnemy } from '../simulator/wave-snapshot';
+import { assignPlainFields, decodeNumber, encodeNumber, plainFields } from '../simulator/plain-fields';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -40,6 +43,13 @@ const ENEMY_GROUND_ADJUST_MPS = 8;
  * spawn pattern with period N cannot bias the estimate.
  */
 const PROFILE_STRIDE = 32;
+
+/**
+ * Enemy fields a wave snapshot leaves out: identity, the audio loop mirror
+ * (the restore starts the loop anew) and the route grid memo's generation
+ * (restoreEnemyMemo)
+ */
+const ENEMY_NOT_SAVED = ['id', 'type', 'hasAudioLoops', 'routeCellGen'];
 
 /**
  * Why an enemy dies. A 'combat' kill (towers, damage over time) pays from
@@ -1241,6 +1251,122 @@ export class EnemyManager extends EntityManager<Enemy> {
    */
   getAliveCount(): number {
     return this.aliveCount();
+  }
+
+  /** Why the enemies now cannot go into a wave snapshot, null when they can */
+  waveSnapshotRefusal(): 'worm' | 'ooze' | null {
+    for (const enemy of this.getAll()) {
+      if (enemy.worm !== null) return 'worm';
+      if (enemy.body !== null) return 'ooze';
+    }
+    return this.worms.pendingCount() > 0 ? 'worm' : null;
+  }
+
+  /**
+   * The enemies mid-wave as plain data (wave-snapshot.ts): every enemy with
+   * its components' fields, the death animations, the kill gold of the wave
+   * and the route grid's cells. `pathId` names the spawn point of a route.
+   */
+  captureWaveState(pathId: (path: readonly GeoPosition[]) => string | null): Omit<EnemiesState, 'ghosts'> {
+    return {
+      enemies: this.getAll().map((enemy) => this.saveEnemy(enemy, pathId)),
+      pendingDeaths: this.pendingDeaths.map((p) => [p.enemy.id, encodeNumber(p.remainingMs)]),
+      killing: [...this.killingEnemies],
+      rewards: plainFields({
+        rewardWaveNumber: this.rewardWaveNumber,
+        remainingKillBudget: this.remainingKillBudget,
+        paidRewardWeight: this.paidRewardWeight,
+      }),
+      cells: this.globalRouteGrid.captureEnemyCells(),
+    };
+  }
+
+  /** One enemy with its components' fields, see captureWaveState */
+  saveEnemy(enemy: Enemy, pathId: (path: readonly GeoPosition[]) => string | null): SavedEnemy {
+    const id = pathId(enemy.movement.path);
+    if (id === null) throw new Error(`Enemy ${enemy.id} walks a route of no spawn point`);
+    const m = enemy.movement;
+    return {
+      id: enemy.id,
+      typeId: enemy.typeConfig.id as EnemyTypeId,
+      pathId: id,
+      entity: plainFields(enemy, ENEMY_NOT_SAVED),
+      cellCurrent: this.globalRouteGrid.enemyMemoCurrent(enemy),
+      position: plainFields(enemy.position),
+      transform: plainFields(enemy.transform),
+      health: plainFields(enemy.health),
+      movement: plainFields(m),
+      statusEffects: m.statusEffects.map((effect) => plainFields(effect)),
+      rush: enemy.rush ? plainFields(enemy.rush) : null,
+      portalExit: enemy.portalExit ? plainFields(enemy.portalExit) : null,
+    };
+  }
+
+  /**
+   * The enemy saveEnemy() took, built anew and not added to the manager. The
+   * caller sets the GameObject id counter first, so it gets its id again.
+   */
+  loadEnemy(saved: SavedEnemy, path: GeoPosition[]): Enemy {
+    const enemy = new Enemy(saved.typeId, path);
+    if (enemy.id !== saved.id) throw new Error(`Enemy ${saved.id} came back as ${enemy.id}`);
+    if (this.tilesEngine?.spatialAudio) enemy.audio.initialize(this.tilesEngine.spatialAudio);
+    const m = enemy.movement;
+    // The lane's limits and the height variation first, then every field as it was
+    m.setLateralFactor(decodeNumber(saved.movement['lateralFactor'] as number | string));
+    m.setHeightVariation(decodeNumber(saved.movement['heightVariationMeters'] as number | string));
+    assignPlainFields(enemy, saved.entity);
+    assignPlainFields(enemy.position, saved.position);
+    assignPlainFields(enemy.transform, saved.transform);
+    assignPlainFields(enemy.health, saved.health);
+    assignPlainFields(m, saved.movement);
+    m.statusEffects = saved.statusEffects.map((effect) => {
+      const out = {} as StatusEffect;
+      assignPlainFields(out, effect);
+      return out;
+    });
+    if (enemy.rush && saved.rush) assignPlainFields(enemy.rush, saved.rush);
+    if (saved.portalExit) {
+      const exit = {} as AirPortalExit;
+      assignPlainFields(exit, saved.portalExit);
+      enemy.portalExit = exit;
+    }
+    this.globalRouteGrid.restoreEnemyMemo(enemy, saved.cellCurrent);
+    return enemy;
+  }
+
+  /**
+   * Put the enemies of captureWaveState() back, after clear(). `beforeEach`
+   * sets the GameObject id counter before each enemy is built.
+   */
+  restoreWaveState(state: Omit<EnemiesState, 'ghosts'>, pathOf: (id: string) => GeoPosition[], beforeEach: (id: string) => void): void {
+    for (const saved of state.enemies) {
+      beforeEach(saved.id);
+      const enemy = this.loadEnemy(saved, pathOf(saved.pathId));
+      const m = enemy.movement;
+      if (this.tilesEngine) {
+        this.tilesEngine.enemies
+          .create(enemy.id, saved.typeId, enemy.position.lat, enemy.position.lon, enemy.transform.terrainHeight + enemy.heightOffset)
+          .then((renderData) => {
+            if (renderData && enemy.alive && !m.paused) this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
+          });
+      }
+      if (enemy.alive && !m.paused && enemy.typeConfig.movingSound) enemy.audio.play('moving', true);
+      this.add(enemy);
+      if (enemy.alive) this.aliveCount.update((c) => c + 1);
+    }
+    this.cachedAliveEnemies = null;
+    const byId = (id: string) => this.getById(id);
+    for (const [id, remainingMs] of state.pendingDeaths) {
+      const enemy = byId(id);
+      if (enemy) this.pendingDeaths.push({ enemy, remainingMs: decodeNumber(remainingMs) });
+    }
+    for (const id of state.killing) this.killingEnemies.add(id);
+    const rewards = { rewardWaveNumber: -1, remainingKillBudget: 0, paidRewardWeight: 0 };
+    assignPlainFields(rewards, state.rewards);
+    this.rewardWaveNumber = rewards.rewardWaveNumber;
+    this.remainingKillBudget = rewards.remainingKillBudget;
+    this.paidRewardWeight = rewards.paidRewardWeight;
+    this.globalRouteGrid.restoreEnemyCells(state.cells, byId);
   }
 
   /**
