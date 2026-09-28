@@ -12,7 +12,7 @@ import { LocationChangeCoordinatorService } from './location/location-change-coo
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { WaveDirector } from '../director/wave-director';
-import { WAVE_SOURCES, initialWaveSourceId } from '../director/wave-source.registry';
+import { initialWaveSourceId, isWaveSourceId } from '../director/wave-source.registry';
 import type { WaveSourceId } from '../director/wave-source';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
@@ -193,6 +193,10 @@ export class CoopService {
   private readonly gameState = inject(GameStateManager);
   /** Optional: specs of the room flow run without a director and play the address's source */
   private readonly waveDirector = inject(WaveDirector, { optional: true });
+  /** Guest: the source this seat played before a host's replaced it, back on leave() */
+  private ownWaveSource: WaveSourceId | null = null;
+  /** Host: the source the last world package carried */
+  private sharedWaveSource: WaveSourceId | null = null;
   private readonly config = inject(ConfigService);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
@@ -675,6 +679,7 @@ export class CoopService {
       return;
     }
     const world = buildWorldPackage(source, this.head());
+    this.sharedWaveSource = world.waveSource ?? null;
     this.session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
     this.lanes.set(laneStats(this.gameState.getCachedPaths(), LANE_WALK_SPEED_MPS));
     this.sharedMap = this.mapSignature();
@@ -980,6 +985,8 @@ export class CoopService {
 
   /** Host: start the game. The host is always ready (D40); the relay wants every guest ready. */
   start(): void {
+    // The source changed since the world went out (debug window): send it again, or the guests plan another run
+    if (this.sharedWaveSource !== null && this.sharedWaveSource !== this.head().waveSource) this.shareWorld();
     this.session?.start(newRunSeed());
   }
 
@@ -1013,6 +1020,10 @@ export class CoopService {
   leave(): void {
     this.session?.close();
     this.session = null;
+    if (this.ownWaveSource) {
+      this.waveDirector?.useSourceNextRun(this.ownWaveSource);
+      this.ownWaveSource = null;
+    }
     if (this.lanHosting) {
       this.lanHosting = false;
       this.lanBridge?.stop();
@@ -1285,13 +1296,15 @@ export class CoopService {
   private async takeWorld(data: unknown): Promise<void> {
     if (this.isHost()) return;
     this.hostChangingMap.set(false);
-    // The host decides the wave source: play its, from the next run on, before the balance check
-    const hostSource = (data as { waveSource?: unknown } | null)?.waveSource;
-    if (typeof hostSource === 'string' && hostSource in WAVE_SOURCES) this.waveDirector?.useSourceNextRun(hostSource as WaveSourceId);
     const read = readWorldPackage(JSON.stringify(data), this.head());
     if (!read.world) {
       this.error.set(worldPackageRefusalText(read.refusal));
       return;
+    }
+    // The host decides the wave source: play it from the next run on; leave() gives this seat its own back
+    if (isWaveSourceId(read.world.waveSource) && this.waveDirector) {
+      this.ownWaveSource ??= this.waveDirector.sourceNextRun;
+      this.waveDirector.useSourceNextRun(read.world.waveSource);
     }
     const world = read.world;
     // A start without a place waits in the location dialog: it closes with this place (E30)

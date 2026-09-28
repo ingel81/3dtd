@@ -19,6 +19,11 @@ export const WAVE_SOURCES: Record<WaveSourceId, () => WaveSource> = {
   budget: () => new BudgetWaveSource(),
 };
 
+/** A source this build has; own keys only, so `constructor` and the like are no source. */
+export function isWaveSourceId(id: unknown): id is WaveSourceId {
+  return typeof id === 'string' && Object.hasOwn(WAVE_SOURCES, id);
+}
+
 /**
  * The source `?waves=<id>` in the address asks for, else the configured
  * default. For bot and test runs that compare sources side by side; in coop
@@ -26,7 +31,7 @@ export const WAVE_SOURCES: Record<WaveSourceId, () => WaveSource> = {
  */
 export function initialWaveSourceId(search = globalThis.location?.search ?? ''): WaveSourceId {
   const asked = new URLSearchParams(search).get('waves');
-  return asked && asked in WAVE_SOURCES ? (asked as WaveSourceId) : DEFAULT_WAVE_SOURCE;
+  return asked && isWaveSourceId(asked) ? asked : DEFAULT_WAVE_SOURCE;
 }
 
 export function createWaveSource(id: WaveSourceId): WaveSource {

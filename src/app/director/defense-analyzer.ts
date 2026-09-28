@@ -117,7 +117,7 @@ export function analyzeDefense(
     avgTowerLevel: avgLevel,
     pathCoverage: 0, // Requires path data - calculated separately
     defenseReachPercent: 0, // Requires path data - calculated separately
-    metersUnderFire: { ground: 0, air: 0 }, // Requires path data - calculated separately
+    damageMetres: undefined, // Requires path data - calculated separately
     killZoneStrength: 0, // Requires spatial analysis - calculated separately
     towerVariety,
     capabilities,
@@ -465,6 +465,37 @@ function calculateDPSPerArmor(
 }
 
 /**
+ * Damage times metres of route under fire, per armor, ground and air: each
+ * tower's matrix damage times the metres of route it sees
+ * (GlobalRouteGridService.getMetersUnderFireByTower). Over an enemy's speed
+ * it is the HP the defense takes off that enemy on its way past; with towers
+ * that cover different stretches each counts only its own (review 2026-09-28:
+ * the union of metres times the total damage overcounted N-fold).
+ */
+export function damageMetresPerArmor(
+  towers: Tower[],
+  airTargetingUnlocked: AirTargeting,
+  metresByTower: ReadonlyMap<string, { ground: number; air: number }>,
+): EffectiveDPSPerArmor {
+  const zero = () => ARMOR_TYPES.reduce((acc, a) => { acc[a] = 0; return acc; }, {} as Record<ArmorType, number>);
+  const out: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
+  for (const tower of towers) {
+    const metres = metresByTower.get(tower.id);
+    if (!metres) continue;
+    const dps = computeTowerDPS(tower);
+    if (dps <= 0) continue;
+    const mults = armorMultipliersFor(tower.typeConfig.damageType);
+    const canGround = tower.typeConfig.canTargetGround ?? true;
+    const canAir = canTargetAirEffective(tower.typeConfig.id as TowerTypeId, airTargetingFor(airTargetingUnlocked, tower));
+    for (const armor of ARMOR_TYPES) {
+      if (canGround) out.ground[armor] += dps * mults[armor] * metres.ground;
+      if (canAir) out.air[armor] += dps * mults[armor] * metres.air;
+    }
+  }
+  return out;
+}
+
+/**
  * Calculate average tower level (1-based)
  */
 function calculateAvgLevel(towers: Tower[]): number {
@@ -525,7 +556,7 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
     avgTowerLevel: 0,
     pathCoverage: 0,
     defenseReachPercent: 0,
-    metersUnderFire: { ground: 0, air: 0 },
+    damageMetres: undefined,
     killZoneStrength: 0,
     towerVariety: 0,
     capabilities: {

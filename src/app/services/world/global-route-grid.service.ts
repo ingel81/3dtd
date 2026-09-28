@@ -745,41 +745,50 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Metres of route a tower can shoot at, ground and air, averaged over the
+   * Metres of route each tower can shoot at, ground and air, averaged over the
    * routes (each coop lane walks its own). The route is walked in steps of
-   * half a cell; a step counts when any tower sees its cell, the same LOS data
-   * targeting uses. What an enemy spends under fire is this over its speed
+   * half a cell; a step counts for every tower that sees its cell, the same
+   * LOS data targeting uses. A tower's damage times its metres over an
+   * enemy's speed is what that tower deals to the enemy walking past
    * (docs/WAVE_RUN_PLAN.md, decision on the time under fire).
    *
    * Deterministic in coop: routes come with the world package and the LOS
    * masks from the host.
    */
-  getMetersUnderFire(routes: GeoPosition[][]): { ground: number; air: number } {
+  getMetersUnderFireByTower(routes: GeoPosition[][]): Map<string, { ground: number; air: number }> {
+    const out = new Map<string, { ground: number; air: number }>();
     const sync = this.grid.getCoordinateSync();
     const usable = routes.filter((path) => path.length >= 2);
-    if (!this.initialized || !sync || usable.length === 0) return { ground: 0, air: 0 };
+    if (!this.initialized || !sync || usable.length === 0) return out;
 
-    const step = 1;
-    let ground = 0;
-    let air = 0;
+    const add = (visibility: Map<string, boolean>, side: 'ground' | 'air', metres: number) => {
+      for (const [towerId, visible] of visibility) {
+        if (!visible) continue;
+        let entry = out.get(towerId);
+        if (!entry) out.set(towerId, entry = { ground: 0, air: 0 });
+        entry[side] += metres / usable.length;
+      }
+    };
     for (const path of usable) {
       const points = path.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
       for (let i = 0; i < points.length - 1; i++) {
         const a = points[i];
         const b = points[i + 1];
-        const length = Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
-        const steps = Math.max(1, Math.round(length / step));
+        const dx = b.x - a.x;
+        const dz = b.z - a.z;
+        const length = Math.sqrt(dx * dx + dz * dz);
+        const steps = Math.max(1, Math.round(length));
         const each = length / steps;
         for (let k = 0; k < steps; k++) {
           const t = (k + 0.5) / steps;
-          const cell = this.grid.getCellAt(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t);
+          const cell = this.grid.getCellAt(a.x + dx * t, a.z + dz * t);
           if (!cell) continue;
-          if (anyVisible(cell.towerVisibility)) ground += each;
-          if (anyVisible(cell.airVisibility)) air += each;
+          add(cell.towerVisibility, 'ground', each);
+          add(cell.airVisibility, 'air', each);
         }
       }
     }
-    return { ground: ground / usable.length, air: air / usable.length };
+    return out;
   }
 
   private updateDefenseReachMarker(x: number, y: number, z: number): void {
@@ -834,9 +843,4 @@ export class GlobalRouteGridService {
     }
     this.scene = null;
   }
-}
-
-function anyVisible(visibility: Map<string, boolean>): boolean {
-  for (const visible of visibility.values()) if (visible) return true;
-  return false;
 }

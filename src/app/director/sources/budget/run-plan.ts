@@ -45,9 +45,9 @@ export function planRowForWave(wave: number): RunPlanRow | null {
 
 /**
  * How fast a leak's cost grows with the budget curve: at 0.2125 a leak costs
- * double around W31 and about 2.3 times at W60, where today's steps put 2 and
- * 3. Continuous instead of steps (User, 2026-09-28); how steep is for the bot
- * measurement to settle.
+ * 2.04 times at W31 and 2.18 at W60, levelling off near 2.2 as the curve does,
+ * where the campaign steps to 2 at W31 and 3 at W61. Continuous instead of
+ * steps (User, 2026-09-28); how steep is for the bot measurement to settle.
  */
 export const LEAK_GROWTH = 0.2125;
 

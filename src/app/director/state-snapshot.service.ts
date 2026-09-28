@@ -34,7 +34,7 @@ import {
   estimatePathCoverage,
   estimateKillZoneStrength,
 } from './defense-analyzer';
-import { computeDpsByDamageType } from './defense-analyzer';
+import { computeDpsByDamageType, damageMetresPerArmor } from './defense-analyzer';
 import { computeTowerDPS, type AirTargeting } from './tower-dps.util';
 import { ComponentType } from '../core/component';
 import { MovementComponent } from '../game-components/movement.component';
@@ -138,7 +138,8 @@ export class StateSnapshotService {
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
     const routes = this.gameState.getCachedRoutes();
     defense.defenseReachPercent = this.gridService.getDefenseReachPercent(routes);
-    defense.metersUnderFire = this.gridService.getMetersUnderFire(routes);
+    // Averaged over the routes, so in coop already one lane's share, like the damage above
+    defense.damageMetres = damageMetresPerArmor(towers, airTargetingUnlocked, this.gridService.getMetersUnderFireByTower(routes));
     defense.killZoneStrength = estimateKillZoneStrength(towers);
 
     const capabilities = defense.capabilities;

@@ -27,14 +27,15 @@ import type { ArmorType } from '../../../configs/combat/combat.types';
 import { LAST_TABLE_WAVE, tableRowForWave, type TableLookup } from './wave-table';
 import type { WaveRules } from '../../wave-rules';
 import { CAMPAIGN_WAVE_RULES } from '../../../configs/campaign-wave-rules';
+import { waveGold } from '../../../configs/campaign.config';
 
 /**
- * Leak and gold as the campaign has them; what a wave is, boss or not, from
- * the list.
+ * Leak as the campaign has it, gold with the campaign's curve; what a wave
+ * is, boss or not (boss gold included), from the list.
  */
 const TABLE_WAVE_RULES: WaveRules = {
   leakScale: CAMPAIGN_WAVE_RULES.leakScale,
-  gold: CAMPAIGN_WAVE_RULES.gold,
+  gold: (wave) => waveGold(wave, TABLE_WAVE_RULES.isBoss(wave)),
   isBoss: (wave) => {
     const lookup = tableRowForWave(wave);
     return !!lookup && Object.keys(lookup.row.enemies).some((type) => ENEMY_TYPES[type as EnemyTypeId]?.isBoss);

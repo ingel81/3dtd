@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
-import { analyzeDefense, isSplashTower, FAIRNESS_MATCHUP_FLOOR } from './defense-analyzer';
+import { analyzeDefense, damageMetresPerArmor, isSplashTower, FAIRNESS_MATCHUP_FLOOR } from './defense-analyzer';
 import { computeTowerDPS } from './tower-dps.util';
 import { Tower } from '../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
@@ -137,5 +137,22 @@ describe('analyzeDefense() kill throughput', () => {
     expect(analysis.killThroughput.ground).toBeGreaterThan(
       TOWER_TYPES.ice.fireRate + TOWER_TYPES.poison.fireRate,
     );
+  });
+});
+
+describe('damageMetresPerArmor()', () => {
+  it('counts each tower with the metres it sees, not the union times the total', () => {
+    const a = new Tower(POS, 'archer');
+    const b = new Tower(POS, 'archer');
+    const dps = computeTowerDPS(a);
+    const light = DAMAGE_MATRIX[TOWER_TYPES.archer.damageType].light;
+    const out = damageMetresPerArmor([a, b], false, new Map([[a.id, { ground: 10, air: 0 }], [b.id, { ground: 30, air: 0 }]]));
+    expect(out.ground.light).toBeCloseTo(dps * light * 40, 6);
+    expect(out.air.light).toBe(0);
+  });
+
+  it('leaves out a tower the route does not pass', () => {
+    const a = new Tower(POS, 'archer');
+    expect(damageMetresPerArmor([a], false, new Map()).ground.light).toBe(0);
   });
 });

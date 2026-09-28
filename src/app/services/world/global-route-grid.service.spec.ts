@@ -175,33 +175,36 @@ describe('GlobalRouteGridService', () => {
     });
   });
 
-  describe('metres under fire', () => {
+  describe('metres under fire per tower', () => {
+    const ground = (id: string) => service.getMetersUnderFireByTower([route]).get(id)?.ground ?? 0;
+
     it('is nothing before initialize or without a route', () => {
-      expect(service.getMetersUnderFire([route])).toEqual({ ground: 0, air: 0 });
+      expect(service.getMetersUnderFireByTower([route]).size).toBe(0);
       init();
-      expect(service.getMetersUnderFire([])).toEqual({ ground: 0, air: 0 });
+      expect(service.getMetersUnderFireByTower([]).size).toBe(0);
     });
 
-    it('counts the stretch of route a tower sees, and grows with a second tower', () => {
+    it('counts for each tower the stretch of route it sees, a second tower not adding to the first', () => {
       init();
       tower('t1', 10, 3);
-      const one = service.getMetersUnderFire([route]).ground;
+      const one = ground('t1');
       expect(one).toBeGreaterThan(3);
       expect(one).toBeLessThan(10);
 
       tower('t2', 30, 3);
-      expect(service.getMetersUnderFire([route]).ground).toBeCloseTo(2 * one, 0);
+      expect(ground('t1')).toBeCloseTo(one);
+      expect(ground('t2')).toBeCloseTo(one, 0);
     });
 
     it('does not count a tower whose view is blocked', () => {
       walledGround();
       init();
       tower('t1', 10, 3);
-      expect(service.getMetersUnderFire([route]).ground).toBe(0);
+      expect(ground('t1')).toBe(0);
     });
   });
 
-    describe('defense reach', () => {
+  describe('defense reach', () => {
     it('is 0 before initialize', () => {
       expect(service.getDefenseReachPercent([route])).toBe(0);
     });

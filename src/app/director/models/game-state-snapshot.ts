@@ -101,11 +101,12 @@ export interface DefenseAnalysis {
   defenseReachPercent: number;
 
   /**
-   * Metres of route some tower can shoot at, ground and air, measured on the
-   * route with the targeting LOS (GlobalRouteGridService.getMetersUnderFire).
-   * Over an enemy's speed: the seconds it spends under fire.
+   * Damage times metres of route under fire, per armor, ground and air
+   * (defense-analyzer damageMetresPerArmor, with the targeting LOS). Over an
+   * enemy's speed: the HP the defense takes off it on the way past. Undefined
+   * where no route or grid was measured.
    */
-  metersUnderFire: { ground: number; air: number };
+  damageMetres?: EffectiveDPSPerArmor;
 
   /** Concentrated firepower score (0-1) - higher means kill zones exist */
   killZoneStrength: number;
@@ -260,7 +261,6 @@ export function createEmptySnapshot(): GameStateSnapshot {
       avgTowerLevel: 0,
       pathCoverage: 0,
       defenseReachPercent: 0,
-      metersUnderFire: { ground: 0, air: 0 },
       killZoneStrength: 0,
       towerVariety: 0,
       capabilities: {

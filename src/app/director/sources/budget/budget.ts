@@ -54,7 +54,8 @@ export const MIN_LEAK_HP = 1;
 export interface BudgetDefense {
   /** Damage per armor, ground and air: the plain matrix values. The gate values count every tower at a floor against fortified, which let 62 mammoths through at HP x5 (bots, W25). */
   readonly dps: EffectiveDPSPerArmor | undefined;
-  readonly metersUnderFire: { readonly ground: number; readonly air: number } | undefined;
+  /** Damage times metres of route under fire, per armor (snapshot `damageMetres`). */
+  readonly damageMetres: EffectiveDPSPerArmor | undefined;
   /** HQ HP this lane may spend (the coop share). */
   readonly hpRemaining: number;
 }
@@ -110,11 +111,15 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   for (const [type, n] of types) {
     const cfg = ENEMY_TYPES[type as EnemyTypeId];
     const side = cfg.isAirUnit ? 'air' : 'ground';
-    const dps = (defense.dps?.[side]?.[cfg.armorType] ?? 0) * BUDGET_REALISM;
+    const rawDps = defense.dps?.[side]?.[cfg.armorType] ?? 0;
+    const dps = rawDps * BUDGET_REALISM;
     leakCost += n * Math.max(1, lineageLeakDamage(type as EnemyTypeId));
-    if (dps <= 0) { unhurt.push(type); continue; }
+    if (!(dps > 0)) { unhurt.push(type); continue; }
     const sec = enemyHp(type) / dps;
-    const fire = Math.max(MIN_UNDER_FIRE_S, (defense.metersUnderFire?.[side] ?? 0) / Math.max(0.1, cfg.baseSpeed));
+    // Seconds of the whole defense's damage the enemy takes on its way past: each tower
+    // counts with the stretch it sees (damage-metres over speed, over the total damage)
+    const damageMetres = defense.damageMetres?.[side]?.[cfg.armorType] ?? 0;
+    const fire = Math.max(MIN_UNDER_FIRE_S, damageMetres / (rawDps * Math.max(0.1, cfg.baseSpeed)));
     const oneLeak = lineageLeakDamage(type as EnemyTypeId) * input.leakScale;
     const share = oneLeak > leakHp ? SURE_KILL_SHARE : UNDER_FIRE_SHARE;
     hurt.push({ type, n, sec, fire, cap: (share * fire) / sec });

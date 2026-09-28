@@ -143,7 +143,7 @@ function tooltip(fact: WavePeekFacts, weights: [ArmorType, number][], weakTo: st
   if (known.length > 0) {
     const scale = waveRules().leakScale(fact.wave);
     // Two kinds under one name (the zombies) are one entry
-    const each = [...new Set(known.map(([id]) => `${ENEMY_TYPES[id as EnemyTypeId].name} ${leakDamageOf(id as EnemyTypeId) * scale}`))];
+    const each = [...new Set(known.map(([id]) => `${ENEMY_TYPES[id as EnemyTypeId].name} ${Math.round(leakDamageOf(id as EnemyTypeId) * scale * 10) / 10}`))];
     parts.push(`At the HQ each costs: ${each.join(', ')} HP.`);
     const shares = known.reduce((sum, [, share]) => sum + share, 0);
     if (fact.count && shares > 0) {

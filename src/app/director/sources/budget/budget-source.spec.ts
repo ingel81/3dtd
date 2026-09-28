@@ -10,7 +10,7 @@ function state(wave: number, dps = 2000): GameStateSnapshot {
   const s = createEmptySnapshot();
   s.waveNumber = wave - 1;
   s.defense.effectiveDPSPerArmor = { ground: flat(dps), air: flat(dps) };
-  s.defense.metersUnderFire = { ground: 300, air: 300 };
+  s.defense.damageMetres = { ground: flat(dps * 300), air: flat(dps * 300) };
   s.player.lives = 500;
   return s;
 }

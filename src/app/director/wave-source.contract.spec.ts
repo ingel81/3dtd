@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { WAVE_SOURCES, initialWaveSourceId } from './wave-source.registry';
+import { WAVE_SOURCES, initialWaveSourceId, isWaveSourceId } from './wave-source.registry';
 import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS } from './templates';
 import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
@@ -190,5 +190,14 @@ describe('initialWaveSourceId', () => {
     expect(initialWaveSourceId('?devworld&waves=table')).toBe('table');
     expect(initialWaveSourceId('?waves=nonsense')).toBe(DEFAULT_WAVE_SOURCE);
     expect(initialWaveSourceId('')).toBe(DEFAULT_WAVE_SOURCE);
+  });
+});
+
+describe('isWaveSourceId', () => {
+  it('knows only the sources of this build, no inherited keys', () => {
+    expect(isWaveSourceId('budget')).toBe(true);
+    expect(isWaveSourceId('constructor')).toBe(false);
+    expect(isWaveSourceId('toString')).toBe(false);
+    expect(initialWaveSourceId('?waves=constructor')).toBe(DEFAULT_WAVE_SOURCE);
   });
 });

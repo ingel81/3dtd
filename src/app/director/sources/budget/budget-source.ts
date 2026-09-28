@@ -23,6 +23,7 @@ import type { DecisionExplanation } from '../../wave-explanation';
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
+import { directorParams } from '../../director-params';
 import { RUN_PLAN_RULES, planLeakScale, planRowForWave, type RunPlanRow } from './run-plan';
 import { enemyHp, sizeWave, type BudgetResult } from './budget';
 
@@ -48,7 +49,8 @@ export class BudgetWaveSource implements WaveSource {
 
     const lanes = Math.max(1, state.lanes ?? 1);
     const regulator = this.pressure.pressureMultiplier;
-    const target = targetPressure(wave);
+    // The same set point the loop aims at (pressureTargetScale included)
+    const target = targetPressure(wave) * directorParams().pressureTargetScale;
     const sized = sizeWave({
       wave,
       enemies: row.enemies,
@@ -59,11 +61,13 @@ export class BudgetWaveSource implements WaveSource {
       leakScale: planLeakScale(wave),
       defense: {
         dps: state.defense?.effectiveDPSPerArmor,
-        metersUnderFire: state.defense?.metersUnderFire,
+        damageMetres: state.defense?.damageMetres,
         hpRemaining: (state.player?.lives ?? 100) / lanes,
       },
     });
-    this.lastCapped = sized.capped;
+    // Anti-windup: opening the loop helps nothing when the cap or every type's own limit holds the wave
+    const hurt = Object.keys(sized.hpMult).filter((type) => !sized.unhurt.includes(type));
+    this.lastCapped = sized.capped || (hurt.length > 0 && hurt.every((type) => sized.clamped.includes(type)));
 
     const enemies: WaveEnemyGroup[] = Object.entries(row.enemies)
       .filter(([, count]) => count > 0)

@@ -81,7 +81,7 @@ describe('StateSnapshotService', () => {
   };
   let grid: {
     getDefenseReachPercent: ReturnType<typeof vi.fn>;
-    getMetersUnderFire: ReturnType<typeof vi.fn>;
+    getMetersUnderFireByTower: ReturnType<typeof vi.fn>;
     getGrid: ReturnType<typeof vi.fn>;
     getCoordinateSync: ReturnType<typeof vi.fn>;
     isInitialized: ReturnType<typeof vi.fn>;
@@ -164,7 +164,7 @@ describe('StateSnapshotService', () => {
     };
     grid = {
       getDefenseReachPercent: vi.fn(() => 0.4),
-      getMetersUnderFire: vi.fn(() => ({ ground: 120, air: 80 })),
+      getMetersUnderFireByTower: vi.fn(() => new Map()),
       getGrid: vi.fn(() => null),
       getCoordinateSync: vi.fn(() => null),
       isInitialized: vi.fn(() => false),
@@ -473,8 +473,8 @@ describe('StateSnapshotService', () => {
       expect(snapshot.player).toEqual({ credits: 250, lives: HP * 0.6, maxLives: HP, livesPercent: 0.6 });
       expect(snapshot.defense.defenseReachPercent).toBe(0.4);
       expect(grid.getDefenseReachPercent).toHaveBeenCalledWith(routes);
-      expect(grid.getMetersUnderFire).toHaveBeenCalledWith(routes);
-      expect(snapshot.defense.metersUnderFire).toEqual({ ground: 120, air: 80 });
+      expect(grid.getMetersUnderFireByTower).toHaveBeenCalledWith(routes);
+      expect(snapshot.defense.damageMetres?.ground.light).toBe(0);
       expect(snapshot.dpsByDamageType).toBeDefined();
       expect(collector.lastSnapshot()).toBe(snapshot);
     });

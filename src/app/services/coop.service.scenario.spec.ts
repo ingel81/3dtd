@@ -187,6 +187,9 @@ describe('CoopService over a real relay (review R21)', () => {
     await until(() => guest.director!.useSourceNextRun.mock.calls.length > 0);
     expect(guest.director!.useSourceNextRun).toHaveBeenCalledWith('budget');
     expect(guest.director!.sourceNextRun).toBe('budget');
+    // Leaving the room gives the guest its own source back
+    guest.coop.leave();
+    expect(guest.director!.sourceNextRun).toBe('adaptive');
   });
 
   it('starts once the guest is ready, with the roster and the relay’s lockstep on both', async () => {
