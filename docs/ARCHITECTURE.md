@@ -285,7 +285,7 @@ tower-defense.component.ts
     │
     ├── Managers (event-driven)
     │   ├── GameStateManager ──────────── Game-Loop, Event-Wiring, Sub-Manager-Lifecycle, Fassade für UI und Bots
-    │   │   └── game-state/ ───────────── GameClock, CreditsLedger, BaseHealthLedger, TowerLifecycle (2026-09-13)
+    │   │   └── game-state/ ───────────── GameClock, Ledger, TowerLifecycle, LockstepPacer, SimSnapshots, RouteWorld, CoopRoom
     │   ├── GameCommandsHandler ───────── Routing der `command:*`- und sieben `debug:*`-Events (2026-05-10)
     │   ├── EconomyService ────────────── Wave-Completion-Bonus + Streak (extrahiert aus GSM)
     │   ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
@@ -732,7 +732,7 @@ Die `command:*`- und sieben `debug:*`-Subscriptions liegen in `GameCommandsHandl
 (`managers/game-commands.handler.ts`). Der Handler sucht nur den Tower heraus und ruft die
 öffentliche API des GameStateManager.
 
-Seit 2026-09-13 hält der GameStateManager vier kleine Klassen aus `managers/game-state/`,
+Seit 2026-09-13 hält der GameStateManager kleine Klassen aus `managers/game-state/`,
 ohne Angular-DI, und delegiert an sie. Seine öffentliche API (`placeTower`, `sellTower`,
 `spendCredits`, `credits`, `baseHealth` usw.) bleibt dieselbe:
 
@@ -742,6 +742,10 @@ ohne Angular-DI, und delegiert an sie. Seine öffentliche API (`placeTower`, `se
 | `CreditsLedger` | `credits`-Signal; einzige Stelle, die bucht und `credits:changed` emittiert |
 | `BaseHealthLedger` | `baseHealth`-Signal; emittiert `health:changed` |
 | `TowerLifecycle` | Bauen, Verkaufen, Upgraden (Prüfungen, Kosten, Tier-Gating, `tower:upgraded`), Range-Refresh, AA-Retrofit, Wachrichtung |
+| `LockstepPacer` | Coop: Relay-Link, Tempo gegen den Raum, Barriere je Sub-Step-Grenze, gemeldete Prüfsummen (2026-09-28) |
+| `SimSnapshots` | Snapshot zwischen den Wellen und mitten in der Welle, Plan der laufenden Welle (2026-09-28) |
+| `RouteWorld` | Zellen des Routen-Grids aus den Routen, Welt-Schlüssel, Weltpaket des Hosts (2026-09-28) |
+| `CoopRoom` | Coop: Lanes, Bereitschaft, verlassene Spieler, Gold-Geschenke, Cheat-Regel (2026-09-28) |
 
 Außerdem hält er den `SimRecorder`, der je Welle Snapshot, Konfiguration und Einstieg in den Befehlslog
 für das Replay festhält (siehe [4.9](#49-replay-als-neu-simulation)).
