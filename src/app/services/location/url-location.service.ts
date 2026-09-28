@@ -60,6 +60,9 @@ export class UrlLocationService {
     if (spawns.length > 0) {
       url += `&s=${spawns.map((s) => this.formatSpawn(s)).join(';')}`;
     }
+    // The wave source a tab was opened with survives picking a place (initialWaveSourceId)
+    const waves = new URLSearchParams(window.location.search).get('waves');
+    if (waves) url += `&waves=${encodeURIComponent(waves)}`;
     return url;
   }
 

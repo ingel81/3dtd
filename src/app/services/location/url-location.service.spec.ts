@@ -48,6 +48,12 @@ describe('UrlLocationService', () => {
     }
   });
 
+  it('keeps the wave source the tab was opened with when it writes the place', () => {
+    open('?waves=budget');
+    url.updateUrl(HQ, []);
+    expect(window.location.search).toBe('?l=48.77580,9.18290&waves=budget');
+  });
+
   it('takes no bearing on the HQ', () => {
     open('?l=48.77580,9.18290,90&s=48.78000,9.19000');
     expect(url.parseFromUrl()).toBeNull();
