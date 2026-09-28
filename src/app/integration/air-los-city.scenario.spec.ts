@@ -705,3 +705,118 @@ describe('the same headroom at field scale', () => {
     });
   }
 });
+
+/**
+ * Which factor opens the gap of TODO E14 (air waves killed half where the cap
+ * promised headroom) and E17 (the human run with a cap of 645): the same
+ * city and harness, one factor changed at a time. Measurements, logged; the
+ * expectations only pin the direction found (docs of the night run
+ * 2026-09-28, tmp report "schwere-wellen").
+ */
+describe('what explains the air gap (TODO E14, E17)', () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function spread(count: number, airEvery: number): { type: TowerTypeId; x: number; z: number }[] {
+    const spots = spotsAlongRoute(1);
+    const step = Math.max(1, Math.floor(spots.length / count));
+    return Array.from({ length: count }, (_, i) => {
+      const spot = spots[(i * step) % spots.length];
+      return { type: (i % airEvery === 0 ? 'archer' : 'poison') as TowerTypeId, x: spot.x, z: spot.z };
+    });
+  }
+
+  /** survivableCount with the wave's hpMult, spawn delay and a multiplier on the kill estimate; leaks cost 1 each */
+  function capOf(towers: Tower[], templateId: string, delayMs: number, hpMult: number, pressure = 1): { cap: number; killable: number } {
+    const template = TEMPLATES.find((t) => t.id === templateId)!;
+    const defense = analyzeDefense(towers, false, null);
+    const at = (hp: number) => survivableCount(
+      template, hpMult, delayMs, defense.gateDpsPerArmor, defense.killThroughput,
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 1,
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
+      () => 1, () => 1, hp, 1, pressure,
+    )!;
+    const cap = at(100);
+    return { cap, killable: 2 * cap - at(200) };
+  }
+
+  /** `count` enemies of `mix`, interleaved, one every `delayMs`, each with `hpMult` times its HP; the wave run out */
+  function fightSpaced(game: Game, mix: readonly [EnemyTypeId, number][], count: number, delayMs: number, hpMult: number): number {
+    let killed = 0;
+    game.gsm.getEventBus().on('enemy:died', () => { killed++; });
+    // The HQ holds whatever leaks: the count, not the run's end, is measured
+    game.gsm.adjustBaseHealth(1e9);
+    const order: EnemyTypeId[] = [];
+    const owed = mix.map(() => 0);
+    for (let i = 0; i < count; i++) {
+      // Interleaved: the type furthest behind its share next
+      let best = 0;
+      for (let k = 0; k < mix.length; k++) {
+        owed[k] += mix[k][1];
+        if (owed[k] > owed[best]) best = k;
+      }
+      owed[best] -= 1;
+      order.push(mix[best][0]);
+    }
+    // The wave manager's own spawner, so the wave runs until the last one is out
+    // (spawnFloorMs keeps the big ones apart as in the game)
+    game.gsm.startWave({
+      schedule: {
+        entries: order.map((type) => ({ enemyType: type, speed: ENEMY_TYPES[type].baseSpeed, health: ENEMY_TYPES[type].baseHp * hpMult, delay: delayMs })),
+        baseDelay: delayMs,
+        delayVariation: 0,
+        spawnMode: 'each',
+      },
+    });
+    for (let f = 0; f < MAX_FRAMES * 2 && game.gsm.waveManager.phase() === 'wave'; f++) game.frame();
+    return killed;
+  }
+
+  const HORNET: [EnemyTypeId, number][] = [['hornet', 0.7], ['bat', 0.3]];
+  const DRAGON: [EnemyTypeId, number][] = [['dragon', 0.6], ['hornet', 0.4]];
+
+  it('measures line of sight, dragons, hpMult, spawn delay and scale one at a time', { timeout: 300_000 }, () => {
+    const rows: string[] = ['| Faktor | Welle | Deckel (Toetungen) | geschickt | getoetet |', '|---|---|---|---|---|'];
+    const run = (label: string, templateId: string, mix: [EnemyTypeId, number][], opts: {
+      towers?: number; delay?: number; hpMult?: number; blocks?: readonly Block[]; count?: number;
+    } = {}) => {
+      const towers = opts.towers ?? 24;
+      const delay = opts.delay ?? 0;
+      const hpMult = opts.hpMult ?? 1;
+      const game = createGame(spread(towers, 3), opts.blocks ?? BLOCKS);
+      const { cap, killable } = capOf(game.towers, templateId, delay, hpMult);
+      const count = opts.count ?? Math.max(1, Math.round(cap / FIELD_HEADROOM));
+      const killed = fightSpaced(game, mix, count, delay, hpMult);
+      rows.push(`| ${label} | ${templateId} ${towers} Tower, ${delay} ms, HP x${hpMult} | ${cap} (${killable}) | ${count} | ${killed} (${Math.round((killed / count) * 100)} %) |`);
+      return killed / count;
+    };
+    // Line of sight: the city against open ground
+    const city = run('Sicht: Stadt', 'hornet_strike', HORNET);
+    const open = run('Sicht: frei', 'hornet_strike', HORNET, { blocks: [] });
+    // The enemy: hornets against dragons, and dragons with the wave's HP scale
+    const dragons = run('Gegner: Dragon Elite', 'dragon_elite', DRAGON);
+    run('Gegner: Dragon Elite', 'dragon_elite', DRAGON, { hpMult: 2 });
+    run('Gegner: Dragon Elite', 'dragon_elite', DRAGON, { hpMult: 4 });
+    // The spawn delay (E17): the cap for the spread-out wave, the wave spread out as asked
+    const delayed: number[] = [];
+    for (const delay of [0, 100, 200, 400]) delayed.push(run('Spawn-Abstand', 'hornet_strike', HORNET, { delay }));
+    // Scale: hundreds, spread out as the cap allows them
+    run('Groesse', 'hornet_strike', HORNET, { delay: 400, count: 175 });
+    run('Groesse', 'bat_swarm', [['bat', 1]], { delay: 300 });
+    console.log(`\nE14/E17 Faktoren\n${rows.join('\n')}`);
+
+    // The pole: how far the cap moves when the kill estimate is 20 % off
+    const game = createGame(spread(24, 3));
+    const poleRows = ['| Spawn-Abstand | Deckel bei Schaetzung x1 | x0,8 | x1,2 |', '|---|---|---|---|'];
+    for (const delay of [0, 100, 200, 300, 400]) {
+      poleRows.push(`| ${delay} ms | ${capOf(game.towers, 'hornet_strike', delay, 1).cap} | ${capOf(game.towers, 'hornet_strike', delay, 1, 0.8).cap} | ${capOf(game.towers, 'hornet_strike', delay, 1, 1.2).cap} |`);
+    }
+    console.log(`\nE17 Pol\n${poleRows.join('\n')}`);
+
+    // Line of sight is not it: the city kills as much as open ground
+    expect(Math.abs(city - open)).toBeLessThan(0.15);
+    expect(dragons).toBeLessThan(city);
+    expect(delayed.length).toBe(4);
+  });
+});
