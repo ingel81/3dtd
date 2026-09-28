@@ -17,13 +17,16 @@ const DET_MATH = ["sin", "cos", "tan", "asin", "acos", "atan", "atan2", "exp", "
   message: "Simulation code uses DetMath (utils/det-math.ts): native transcendentals differ in the last bit between engines, and coop runs apart. Sound and pictures only: disable with a reason.",
 }));
 /**
- * three.js methods that call native transcendentals inside (Quaternion slerp:
- * Math.acos and Math.sin; angleTo: Math.acos; axis angles, Euler angles,
- * spherical coordinates and rotations: Math.sin and Math.cos)
+ * three.js methods that call native transcendentals or Math.random inside
+ * (Quaternion slerp: Math.acos and Math.sin; angleTo: Math.acos; axis
+ * angles, Euler angles, spherical coordinates and rotations: Math.sin,
+ * Math.cos, Math.asin, Math.atan2; MathUtils.rand*: Math.random). The names
+ * are matched on any object: Quaternion.setFromRotationMatrix shares its
+ * name with Euler's and is caught as well.
  */
 const DET_THREE_METHODS = {
-  selector: "CallExpression[callee.property.name=/^(angleTo|slerp|slerpQuaternions|slerpFlat|setFromAxisAngle|applyAxisAngle|rotateOnAxis|rotateOnWorldAxis|setFromEuler|setFromSpherical|setFromSphericalCoords|setFromCylindrical|makeRotationX|makeRotationY|makeRotationZ|makeRotationAxis|makeRotationFromEuler|rotateX|rotateY|rotateZ)$/]",
-  message: "Simulation code: this three.js method computes with native sin, cos or acos, whose last bit differs between engines (TODO E28). Use DetMath, or disable with a reason where only pictures read the result.",
+  selector: "CallExpression[callee.property.name=/^(angleTo|slerp|slerpQuaternions|slerpFlat|setFromAxisAngle|applyAxisAngle|applyEuler|rotateOnAxis|rotateOnWorldAxis|setFromEuler|setFromQuaternion|setFromRotationMatrix|setFromSpherical|setFromSphericalCoords|setFromCylindrical|setFromCartesianCoords|setFromVector3|makeRotationX|makeRotationY|makeRotationZ|makeRotationAxis|makeRotationFromEuler|rotateX|rotateY|rotateZ|rotateAround|angle|randFloat|randFloatSpread|randInt|seededRandom)$/]",
+  message: "Simulation code: this three.js method computes with native sin, cos, acos or Math.random, which differ between engines or clients (TODO E28). Use DetMath or the run's GameRng, or disable with a reason where only pictures read the result.",
 };
 /** `x ** y` is Math.pow; only squaring by a literal 2 is exact everywhere */
 const DET_POW_OPERATOR = {
