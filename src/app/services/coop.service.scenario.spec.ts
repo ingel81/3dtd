@@ -182,7 +182,7 @@ describe('CoopService over a real relay (review R21)', () => {
     host.coop.start();
     await until(() => host.coop.inGame() && guest.coop.inGame());
     expect(guest.coop.roster().map((p) => p.name)).toEqual(['Ann', 'Bob']);
-    expect(guest.gsm.setLockstep).toHaveBeenCalledWith(expect.objectContaining({ playerId: guest.coop.playerId() }));
+    expect(guest.gsm.setLockstep).toHaveBeenCalledWith(expect.objectContaining({ playerId: guest.coop.playerId() }), undefined);
     expect(guest.gsm.players).toEqual(host.gsm.players);
   });
 
