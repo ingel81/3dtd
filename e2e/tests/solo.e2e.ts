@@ -25,7 +25,8 @@ test('smoke: build a tower, play a wave, open a dialog, watch the replay', async
     // Escape leaves the build mode; with none left it opens the game menu, which then goes again
     await page.keyboard.press('Escape');
     const menu = page.getByRole('dialog', { name: 'Menu' });
-    if (await menu.isVisible()) await page.keyboard.press('Escape');
+    // The menu opens with an animation: wait for it a moment before closing it
+    if (await menu.waitFor({ state: 'visible', timeout: 2000 }).then(() => true, () => false)) await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     expect(built, 'a tower stands').toBe(true);
     await shot(testInfo, page, 'tower');
