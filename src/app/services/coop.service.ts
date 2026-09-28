@@ -1,4 +1,3 @@
-import type { Enemy } from '../entities/enemy.entity';
 import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
 import { GameStateManager } from '../managers/game-state.manager';
 import { ConfigService } from '../core/services/config.service';
@@ -65,6 +64,7 @@ import { askRunUpload } from '../components/run-upload-dialog/run-upload-dialog.
 import { packRunLog, readRunUploadConsent, writeRunUploadConsent } from '../run-log/run-upload';
 import { toJsonl } from '../run-log/run-log.export';
 import type { RunLog } from '../run-log/run-log.types';
+import { CoopRunCounts } from './coop-run-counts';
 
 /** Two points are the same place at the precision the URL keeps. */
 function samePlace(a: GeoPosition, b: GeoPosition): boolean {
@@ -264,12 +264,19 @@ export class CoopService {
   readonly leftIds = signal<ReadonlySet<string>>(new Set());
   /** Every player's gold in the running game */
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
+  /** Kills, towers built, gold given and leaks per player in this run (CoopRunCounts) */
+  private readonly runCounts = new CoopRunCounts({
+    gameState: this.gameState,
+    inGame: () => this.inGame(),
+    roster: () => this.roster(),
+    playerId: () => this.playerId(),
+    leftIds: () => this.leftIds(),
+    laneColorOf: (playerId) => this.laneColorOf(playerId),
+  });
   /** Each player's part of the run, set at game over (review R16); null before */
-  readonly summary = signal<CoopSummaryRow[] | null>(null);
-  /** Kills, towers built and gold given per player in this run, see summary */
-  private readonly counts = new Map<string, { kills: number; towers: number; goldGiven: number; leaks: number }>();
+  readonly summary = this.runCounts.summary;
   /** Enemies that got through each player's lane in the wave running or last run (review R15) */
-  readonly waveLeaks = signal<ReadonlyMap<string, number>>(new Map());
+  readonly waveLeaks = this.runCounts.waveLeaks;
   /** G was pressed: the next click on the map is a ping (review R13) */
   readonly pingArmed = signal(false);
   /** The map marks showing now, for the arrows at the view edge (CoopPingArrowsComponent) */
@@ -447,9 +454,7 @@ export class CoopService {
     }));
     this.subs.add(bus.onLive('game:reset', () => {
       if (!this.inGame()) return;
-      this.counts.clear();
-      this.summary.set(null);
-      this.waveLeaks.set(new Map());
+      this.runCounts.newRun();
       this.markRunAsCoop();
       this.readyNow = false;
       this.readyIds.set(new Set());
@@ -476,52 +481,11 @@ export class CoopService {
     }));
     this.subs.add(bus.onLive('coop:credits-given', (event) => {
       if (event.toLocal) this.notify(`${this.nameOf(event.from)} sent you ${event.amount} gold`);
-      this.countFor(event.from).goldGiven += event.amount;
+      this.runCounts.giftGiven(event.from, event.amount);
     }));
 
     // Each player's part of the run, for the game-over screen (review R16)
-    this.subs.add(bus.onLive('enemy:died', ({ killedBy }) => {
-      if (this.inGame() && killedBy && killedBy.kind !== 'debug') this.countFor(this.gameState.killCreditPlayer(killedBy)).kills++;
-    }));
-    this.subs.add(bus.onLive('tower:placed', ({ tower }) => {
-      if (this.inGame()) this.countFor(tower.ownerId).towers++;
-    }));
-    // Pressure per lane (review R15): whose lane an enemy leaked from. An
-    // ooze flows into the base point by point (enemy:leaking) and counts once,
-    // as in the run log.
-    const leaking = new Set<string>();
-    const countLeak = (enemy: Enemy): void => {
-      if (!this.inGame()) return;
-      const owner = this.laneOwnerOf(enemy.movement.path);
-      if (!owner) return;
-      this.countFor(owner).leaks++;
-      this.waveLeaks.update((leaks) => new Map(leaks).set(owner, (leaks.get(owner) ?? 0) + 1));
-    };
-    this.subs.add(bus.onLive('enemy:leaking', ({ enemy }) => {
-      if (leaking.has(enemy.id)) return;
-      leaking.add(enemy.id);
-      countLeak(enemy);
-    }));
-    this.subs.add(bus.onLive('enemy:reached-base', ({ enemy }) => {
-      if (leaking.delete(enemy.id)) return;
-      countLeak(enemy);
-    }));
-    this.subs.add(bus.onLive('enemy:died', ({ enemy }) => { leaking.delete(enemy.id); }));
-    this.subs.add(bus.onLive('wave:started', () => {
-      if (this.waveLeaks().size > 0) this.waveLeaks.set(new Map());
-    }));
-    this.subs.add(bus.onLive('game:over', () => {
-      if (!this.inGame()) return;
-      this.summary.set(this.roster().map((p) => ({
-        id: p.id,
-        name: p.name,
-        me: p.id === this.playerId(),
-        left: this.leftIds().has(p.id),
-        color: this.laneColorOf(p.id),
-        gold: this.gameState.creditsOf(p.id),
-        ...(this.counts.get(p.id) ?? { kills: 0, towers: 0, goldGiven: 0, leaks: 0 }),
-      })));
-    }));
+    this.runCounts.wire(bus, this.subs);
 
     // Host, lobby: the public list names the city of the place played now (D63)
     effect(() => {
@@ -914,27 +878,6 @@ export class CoopService {
     });
   }
 
-  private countFor(playerId: string): { kills: number; towers: number; goldGiven: number; leaks: number } {
-    let count = this.counts.get(playerId);
-    if (!count) {
-      count = { kills: 0, towers: 0, goldGiven: 0, leaks: 0 };
-      this.counts.set(playerId, count);
-    }
-    return count;
-  }
-
-  /**
-   * The player whose lane `path` is: an enemy walks the route array of the
-   * spawn it came out of (its children too), the lane of that spawn is theirs
-   */
-  private laneOwnerOf(path: readonly unknown[]): string | null {
-    for (const [spawnId, route] of this.gameState.getCachedPaths()) {
-      if (route !== path) continue;
-      return this.roster().find((p) => p.spawnId === spawnId)?.id ?? null;
-    }
-    return null;
-  }
-
   /**
    * Send a coop run log to the relay (TODO E38): only a coop run, only to a
    * relay that said it collects, and only once the player agreed; asked once,
@@ -1094,8 +1037,7 @@ export class CoopService {
     this.rtt.set(new Map());
     this.waitingFor.set(null);
     this.inputHandler.setForeignTowerClick(null);
-    this.summary.set(null);
-    this.counts.clear();
+    this.runCounts.clear();
     this.hostChangingMap.set(false);
     this.movingSaid = false;
     this.hostPlace.set(null);
@@ -1510,8 +1452,7 @@ export class CoopService {
     this.leftIds.set(new Set());
     this.gold.set(new Map(start.players.map((id) => [id, gsm.creditsOf(id)])));
     this.applySpeed(start.speed);
-    this.counts.clear();
-    this.summary.set(null);
+    this.runCounts.clear();
     this.markRunAsCoop();
     this.status.set('in-game');
   }
