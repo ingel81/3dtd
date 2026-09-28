@@ -390,6 +390,22 @@ export class TowerLosRegistry {
     this.staleLos.add(tower);
   }
 
+  /** Coop: the towers waiting for the host's mask with their reason, oldest first (wave snapshot) */
+  awaitingEntries(): [string, LosResolveReason][] {
+    return [...this.awaiting].map(([tower, reason]) => [tower.id, reason]);
+  }
+
+  /**
+   * Coop: put the waiting towers back, oldest first (wave snapshot restore).
+   * None counts as sent: a host sends its masks again, and the second answer
+   * finds nothing waiting (applyCoopMask).
+   */
+  restoreAwaiting(entries: readonly (readonly [Tower, LosResolveReason])[]): void {
+    this.awaiting.clear();
+    this.sent.clear();
+    for (const [tower, reason] of entries) this.awaiting.set(tower, reason);
+  }
+
   /** Put towers back in the retrofit queue, in order (wave-start snapshot restore). */
   requeue(towers: readonly Tower[]): void {
     this.staleLos.clear();

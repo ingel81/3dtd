@@ -93,6 +93,10 @@ interface Setup {
   wave: WaveConfig;
   /** Coop: the players, each with the eight towers in turn */
   players?: string[];
+  /** On both simulations right after they are built */
+  configure?: (sim: Sim) => void;
+  /** Sub-steps after the restore at most; a worm takes long */
+  maxSteps?: number;
   /** Commands at sub-step `step` of the wave: on the first simulation before the snapshot, on both after */
   during?: (sim: Sim, step: number) => void;
 }
@@ -105,7 +109,9 @@ function build(setup: Setup): Sim {
     world.towers.forEach((tower, i) => { tower.ownerId = setup.players![i % setup.players!.length]; });
     for (const id of setup.players) world.gsm.researchOf(id).completeResearch('aa-retrofit');
   }
-  return new Sim(world);
+  const sim = new Sim(world);
+  setup.configure?.(sim);
+  return sim;
 }
 
 function schedule(types: readonly EnemyTypeId[], count: number, health = 2, spawnMode: 'each' | 'random' = 'random'): WaveConfig {
@@ -139,7 +145,7 @@ function splitAt(setup: Setup, at: number, tamper?: (snapshot: WaveSnapshot) => 
     expect(b.hash()).toBe(a.hash());
 
     let compared = 0;
-    for (let i = 0; i < 20_000; i++) {
+    for (let i = 0; i < (setup.maxSteps ?? 20_000); i++) {
       setup.during?.(a, at + i);
       setup.during?.(b, at + i);
       const runningA = a.step();
@@ -277,6 +283,51 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
     }
   });
 
-  it.skip('worms: a chain is not in the snapshot yet (WaveSnapshotRefusal worm)', () => undefined);
-  it.skip('oozes: a body along the route is not in the snapshot yet (WaveSnapshotRefusal ooze)', () => undefined);
+  it('goes on bit for bit with a coop tower still waiting for its line of sight from the host', () => {
+    const setup: Setup = {
+      wave: ground,
+      // Both are guests: no mask comes, the tower waits on both
+      configure: (sim) => (sim.gsm as unknown as { towerPlacement: { setCoopLosRole(role: string): void } })
+        .towerPlacement.setCoopLosRole('guest'),
+      before: (sim) => sim.gsm.getEventBus().emit({ type: 'debug:add-credits', amount: 5000 }),
+      during: (sim, step) => {
+        if (step !== 100) return;
+        const p = sim.world.routes[0][30];
+        sim.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: p.lat, lon: p.lon + 10 / 111_000, height: 0 } });
+      },
+    };
+    expect(splitAt(setup, 300, (snapshot) => expect(snapshot.wave!.awaitingLos.length).toBe(1))).toBeGreaterThan(100);
+  });
+
+  const worms = schedule(['worm', 'zombie', 'rat'], 6, 0.1, 'each');
+  const oozes = schedule(['ooze', 'zombie', 'skeleton'], 6, 0.3, 'each');
+
+  it('goes on bit for bit with worms coming out of the portal, walking and falling apart', { timeout: 60_000 }, () => {
+    const wormsIn = (snapshot: WaveSnapshot) => snapshot.wave!.enemies.worms.groups.length;
+    const setup: Setup = {
+      wave: worms,
+      maxSteps: 100_000,
+      // A segment in the middle of the first worm dies: it falls apart into two
+      during: (sim, step) => {
+        if (step !== 1200) return;
+        const segment = sim.gsm.enemyManager.getAlive().filter((e) => e.worm !== null && e.worm.group.seq === 1)[4];
+        sim.run(() => sim.gsm.enemyManager.kill(segment));
+      },
+    };
+    const chains = (snapshot: WaveSnapshot) => snapshot.wave!.enemies.worms.groups[0].state.chains.length;
+    expect(splitAt(setup, 30, (snapshot) => expect(wormsIn(snapshot)).toBe(1))).toBeGreaterThan(100);
+    expect(splitAt(setup, 600, (snapshot) => expect(wormsIn(snapshot)).toBe(2))).toBeGreaterThan(100);
+    for (const at of [1300, 1800]) {
+      expect(splitAt(setup, at, (snapshot) => expect(chains(snapshot)).toBeGreaterThan(1))).toBeGreaterThan(100);
+    }
+  });
+
+  it('goes on bit for bit with oozes growing along the route, flowing in and splitting', () => {
+    const bodies = (snapshot: WaveSnapshot) => snapshot.wave!.enemies.oozes.length;
+    for (const at of [60, 400, 1200]) {
+      expect(splitAt({ wave: oozes }, at, (snapshot) => expect(bodies(snapshot)).toBeGreaterThan(0))).toBeGreaterThan(50);
+    }
+    // After the oozes: their clumps
+    expect(splitAt({ wave: oozes }, 2500)).toBeGreaterThan(50);
+  });
 });

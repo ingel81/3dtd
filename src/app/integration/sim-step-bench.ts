@@ -61,6 +61,12 @@ export interface SimScenario {
   enemies: number;
   /** Multiplier on every enemy's base HP */
   hpFactor: number;
+  /**
+   * Enemies join the whole route part-way, as the game's split children do,
+   * instead of walking a slice of it: the wave snapshot names a route by its
+   * spawn point. Off for the sub-step numbers, which were measured on slices.
+   */
+  onWholeRoutes?: boolean;
 }
 
 /** Tower types that fight: projectile, beam (fire), melee (tentacle), chain (lightning) */
@@ -219,6 +225,12 @@ export function createSimBench(scenario: SimScenario, services: Record<string, u
   services['DamageApplicationService'] = new DamageApplicationService();
   services['CombatEffectService'] = new CombatEffectService();
   services['TowerCombatService'] = new TowerCombatService();
+  // Every tower sees all (markAllVisible); the lists a snapshot reads are empty
+  services['TowerPlacementService'] = noopStub({
+    queuedLosTowerIds: () => [],
+    awaitingLosTowerIds: () => [],
+    awaitingLosEntries: () => [],
+  });
 
   const gsm = new GameStateManager();
   // Before initialize: the managers take their streams there
@@ -251,7 +263,14 @@ export function createSimBench(scenario: SimScenario, services: Record<string, u
     const route = routes[spawned % routes.length];
     const from = Math.floor(random() * (route.length - 2));
     const type = BENCH_ENEMY_TYPES[spawned % BENCH_ENEMY_TYPES.length];
-    gsm.enemyManager.spawn(route.slice(from), type, undefined, false, ENEMY_TYPES[type].baseHp * scenario.hpFactor);
+    const hp = ENEMY_TYPES[type].baseHp * scenario.hpFactor;
+    if (scenario.onWholeRoutes) {
+      gsm.enemyManager.spawn(route, type, undefined, false, hp, {
+        segmentIndex: from, segmentProgress: 0, lateralFactor: 0, heightVariation: 0, groundHeight: 0,
+      });
+    } else {
+      gsm.enemyManager.spawn(route.slice(from), type, undefined, false, hp);
+    }
     spawned++;
   };
   const topUp = (limit: number): void => {

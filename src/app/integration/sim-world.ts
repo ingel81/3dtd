@@ -75,6 +75,11 @@ export function losPlacement(
     setLosMaskSource: () => undefined,
     setCoopLosRole: (next: 'host' | 'guest' | null) => { role = next; },
     awaitingLosTowerIds: () => awaiting.map((t) => t.id),
+    awaitingLosEntries: () => awaiting.map((t) => [t.id, 'place']),
+    restoreAwaitingLos: (entries: [Tower, string][]) => {
+      awaiting.splice(0, awaiting.length, ...entries.map(([t]) => t));
+      sent.clear();
+    },
     applyCoopLosMask: (tower: Tower, mask: LosMask) => {
       const i = awaiting.indexOf(tower);
       if (i < 0) return;

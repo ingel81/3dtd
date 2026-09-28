@@ -3,7 +3,20 @@ import type { EnemyChain, EnemyTypeConfig } from '../../configs/enemy-types.conf
 import type { GeoPosition } from '../../models/game.types';
 import type { SpawnStart } from '../enemy.manager';
 import { getRouteProfile } from '../../utils/route-corridor';
-import { WormGroup, WormLink, WormChain, wormSegmentCount, wormSway } from './worm-group';
+import { WormGroup, WormLink, WormChain, wormSegmentCount, wormSway, type SavedWormState } from './worm-group';
+
+/** A worm group of the wave snapshot: what its constructor took, then its state */
+export interface SavedWormGroup {
+  typeId: string;
+  /** The spawn point whose route it walks */
+  pathId: string;
+  size: number;
+  speedMps: number;
+  segmentMaxHp: number;
+  origin: number;
+  start: SpawnStart | null;
+  state: SavedWormState;
+}
 
 /**
  * Chains a worm keeps between each other on the same path: the next one's
@@ -102,6 +115,49 @@ export class WormChains {
     const head = this.emerge(group, group.chains[0], 0, paused);
     group.spawnedHeadId = head.id;
     return head;
+  }
+
+  /** Every worm group as plain data, in their order, for the wave snapshot (wave-snapshot.ts) */
+  captureWaveState(pathId: (path: readonly GeoPosition[]) => string | null): { nextSeq: number; groups: SavedWormGroup[] } {
+    return {
+      nextSeq: this.nextSeq,
+      groups: this.groups.map((group) => {
+        const id = pathId(group.path);
+        if (id === null) throw new Error('A worm walks a route of no spawn point');
+        return {
+          typeId: group.type.id,
+          pathId: id,
+          size: group.size,
+          speedMps: group.speedMps,
+          segmentMaxHp: group.segmentMaxHp,
+          origin: group.origin,
+          start: group.start ? { ...group.start } : null,
+          state: group.saveState(),
+        };
+      }),
+    };
+  }
+
+  /**
+   * Put the groups of captureWaveState() back, after clear(); their segments
+   * are linked once the enemies are built (WormGroup.restoreSegments).
+   */
+  restoreWaveState(
+    state: { nextSeq: number; groups: readonly SavedWormGroup[] },
+    pathOf: (id: string) => GeoPosition[],
+    typeOf: (id: string) => EnemyTypeConfig,
+  ): WormGroup[] {
+    this.nextSeq = state.nextSeq;
+    for (const saved of state.groups) {
+      const type = typeOf(saved.typeId);
+      const group = new WormGroup(
+        type, type.chain!, pathOf(saved.pathId), saved.size, saved.speedMps, saved.segmentMaxHp, 0,
+        saved.state.idle, saved.origin, saved.start ? { ...saved.start } : null,
+      );
+      group.restoreState(saved.state);
+      this.groups.push(group);
+    }
+    return this.groups;
   }
 
   /** Every worm on the routes; one beaten since the last tick is still here with `remaining` 0. */

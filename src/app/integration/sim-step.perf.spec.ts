@@ -144,6 +144,42 @@ describe('Simulation sub-step benchmark', () => {
     console.log(`\nSub-step, ${STEPS} steps after ${WARMUP} warm-up, timescale 10\n${lines.join('\n')}`);
   });
 
+  it.runIf(HEAVY)('measures the wave snapshot: capture, JSON, restore into a fresh world', { timeout: 300_000 }, () => {
+    const lines = ['| Szenario | Gegner | Projektile | Capture ms | JSON ms | KB | Restore ms |', '|---|---|---|---|---|---|---|'];
+    const median = (times: number[]) => times.sort((a, b) => a - b)[times.length >> 1];
+    for (const sized of SCENARIOS) {
+      const scenario = { ...sized, onWholeRoutes: true };
+      bench = createSimBench(scenario, services);
+      bench.run(WARMUP, 10);
+      const capture: number[] = [];
+      const json: number[] = [];
+      let text = '';
+      for (let i = 0; i < 9; i++) {
+        let t0 = performance.now();
+        const snapshot = bench.gsm.captureWaveSnapshot();
+        capture.push(performance.now() - t0);
+        t0 = performance.now();
+        text = JSON.stringify(snapshot);
+        json.push(performance.now() - t0);
+      }
+      const enemies = bench.gsm.enemyManager.getAll().length;
+      const shots = bench.gsm.projectileManager.getAll().length;
+      const restore: number[] = [];
+      for (let i = 0; i < 5; i++) {
+        const target = createSimBench(scenario, services);
+        const t0 = performance.now();
+        target.gsm.restoreWaveSnapshot(JSON.parse(text));
+        restore.push(performance.now() - t0);
+        target.dispose();
+      }
+      lines.push(`| ${scenario.name} | ${enemies} | ${shots} | ${f(median(capture), 1)} | ${f(median(json), 1)} | `
+        + `${f(text.length / 1024, 0)} | ${f(median(restore), 1)} |`);
+      bench.dispose();
+      bench = null;
+    }
+    console.log(`\nWave snapshot (captureWaveSnapshot, JSON.stringify, JSON.parse + restoreWaveSnapshot), median\n${lines.join('\n')}`);
+  });
+
   it.runIf(HEAVY)('measures the state hash the recorder takes once per game second', { timeout: 300_000 }, () => {
     const lines = ['| Szenario | Gegner | Tower | Hash ms | je Sub-Step (1/60) ms |', '|---|---|---|---|---|'];
     for (const scenario of SCENARIOS) {

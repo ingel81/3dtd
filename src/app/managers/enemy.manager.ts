@@ -1253,15 +1253,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     return this.aliveCount();
   }
 
-  /** Why the enemies now cannot go into a wave snapshot, null when they can */
-  waveSnapshotRefusal(): 'worm' | 'ooze' | null {
-    for (const enemy of this.getAll()) {
-      if (enemy.worm !== null) return 'worm';
-      if (enemy.body !== null) return 'ooze';
-    }
-    return this.worms.pendingCount() > 0 ? 'worm' : null;
-  }
-
   /**
    * The enemies mid-wave as plain data (wave-snapshot.ts): every enemy with
    * its components' fields, the death animations, the kill gold of the wave
@@ -1269,6 +1260,8 @@ export class EnemyManager extends EntityManager<Enemy> {
    */
   captureWaveState(pathId: (path: readonly GeoPosition[]) => string | null): Omit<EnemiesState, 'ghosts'> {
     return {
+      worms: this.worms.captureWaveState(pathId),
+      oozes: this.oozes.captureWaveState(),
       enemies: this.getAll().map((enemy) => this.saveEnemy(enemy, pathId)),
       pendingDeaths: this.pendingDeaths.map((p) => [p.enemy.id, encodeNumber(p.remainingMs)]),
       killing: [...this.killingEnemies],
@@ -1299,6 +1292,18 @@ export class EnemyManager extends EntityManager<Enemy> {
       statusEffects: m.statusEffects.map((effect) => plainFields(effect)),
       rush: enemy.rush ? plainFields(enemy.rush) : null,
       portalExit: enemy.portalExit ? plainFields(enemy.portalExit) : null,
+      worm: this.saveWormLink(enemy.worm),
+    };
+  }
+
+  /** A segment's link with its group as an index into the worm groups; null for a group gone */
+  private saveWormLink(link: WormLink | null): SavedEnemy['worm'] {
+    if (link === null) return null;
+    const group = this.worms.all.indexOf(link.group);
+    if (group < 0) return null;
+    return {
+      group, slot: link.slot, head: link.head, tail: link.tail,
+      target: encodeNumber(link.target), lateral: encodeNumber(link.lateral),
     };
   }
 
@@ -1308,6 +1313,14 @@ export class EnemyManager extends EntityManager<Enemy> {
    */
   loadEnemy(saved: SavedEnemy, path: GeoPosition[]): Enemy {
     const enemy = new Enemy(saved.typeId, path);
+    const worm = saved.worm;
+    const group = worm ? this.worms.all[worm.group] : undefined;
+    if (worm && group) {
+      enemy.worm = {
+        group, slot: worm.slot, head: worm.head, tail: worm.tail,
+        target: decodeNumber(worm.target), lateral: decodeNumber(worm.lateral),
+      };
+    }
     if (enemy.id !== saved.id) throw new Error(`Enemy ${saved.id} came back as ${enemy.id}`);
     if (this.tilesEngine?.spatialAudio) enemy.audio.initialize(this.tilesEngine.spatialAudio);
     const m = enemy.movement;
@@ -1339,13 +1352,16 @@ export class EnemyManager extends EntityManager<Enemy> {
    * sets the GameObject id counter before each enemy is built.
    */
   restoreWaveState(state: Omit<EnemiesState, 'ghosts'>, pathOf: (id: string) => GeoPosition[], beforeEach: (id: string) => void): void {
+    const groups = this.worms.restoreWaveState(state.worms, pathOf, (id) => ENEMY_TYPES[id as EnemyTypeId]);
     for (const saved of state.enemies) {
       beforeEach(saved.id);
       const enemy = this.loadEnemy(saved, pathOf(saved.pathId));
       const m = enemy.movement;
-      if (this.tilesEngine) {
+      const link = enemy.worm;
+      const renderType = link === null || link.head ? saved.typeId : link.tail ? link.group.chain.tailModel : link.group.chain.segmentModel;
+      if (this.tilesEngine && !enemy.typeConfig.ooze) {
         this.tilesEngine.enemies
-          .create(enemy.id, saved.typeId, enemy.position.lat, enemy.position.lon, enemy.transform.terrainHeight + enemy.heightOffset)
+          .create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, enemy.transform.terrainHeight + enemy.heightOffset)
           .then((renderData) => {
             if (renderData && enemy.alive && !m.paused) this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
           });
@@ -1356,6 +1372,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
     this.cachedAliveEnemies = null;
     const byId = (id: string) => this.getById(id);
+    state.worms.groups.forEach((saved, i) => groups[i].restoreSegments(saved.state, byId));
+    if (this.tilesEngine) this.oozes.restoreWaveState(state.oozes, byId, this.tilesEngine);
     for (const [id, remainingMs] of state.pendingDeaths) {
       const enemy = byId(id);
       if (enemy) this.pendingDeaths.push({ enemy, remainingMs: decodeNumber(remainingMs) });

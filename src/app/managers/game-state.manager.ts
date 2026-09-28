@@ -1415,11 +1415,7 @@ export class GameStateManager {
    * for events waiting and shots in flight, which the wave snapshot carries.
    */
   waveSnapshotRefusal(): WaveSnapshotRefusal | null {
-    const enemies = this.enemyManager.waveSnapshotRefusal();
-    if (enemies) return enemies;
     if (this.enemyDebug.debugEnemies().length > 0) return 'debug-enemies';
-    // Coop: a tower waiting for the host's line of sight; the waiting list is not in the snapshot
-    if (this.towerPlacement.awaitingLosTowerIds().length > 0) return 'awaiting-los';
     return null;
   }
 
@@ -1432,7 +1428,7 @@ export class GameStateManager {
     const refusal = this.waveSnapshotRefusal();
     if (refusal) throw new Error(`No wave snapshot now: ${refusal}`);
     const running = this.waveManager.phase() === 'wave';
-    if (running && !this.runningWaveConfig) throw new Error('No wave snapshot now: the wave has no plan (beginWave)');
+    if (running && !this.runningWaveConfig) throw new Error('No wave snapshot now: the wave has no plan');
     const paths = [...this.waveManager.spawnPoints].map((point) => [point.id, this.waveManager.pathOf(point.id)] as const);
     const pathId = (path: readonly GeoPosition[]) => paths.find(([, p]) => p === path)?.[0] ?? null;
     const enemies = this.enemyManager.captureWaveState(pathId);
@@ -1460,6 +1456,7 @@ export class GameStateManager {
           return target ? [[seat.owner.playerId, target.id] as [string, string]] : [];
         }),
         strikes: this.abilitySeats.map((seat) => [seat.owner.playerId, seat.captureWaveState()]),
+        awaitingLos: this.towerPlacement.awaitingLosEntries(),
         deferred: this.eventBus.deferred.filter(plainEvent).map((event) => toPlainData(event)),
       },
     };
@@ -1496,6 +1493,10 @@ export class GameStateManager {
     for (const [towerId, targetId] of wave.towerTargets) this.towerManager.getById(towerId)?.restoreTarget(enemy(targetId));
     for (const [playerId, targetId] of wave.heroTargets) this.heroOf(playerId).restoreTarget(enemy(targetId));
     for (const [playerId, strikes] of wave.strikes) this.abilityOf(playerId).restoreWaveState(strikes, enemy);
+    this.towerPlacement.restoreAwaitingLos(wave.awaitingLos.flatMap(([towerId, reason]) => {
+      const tower = this.towerManager.getById(towerId);
+      return tower ? [[tower, reason] as const] : [];
+    }));
     for (const event of wave.deferred) this.eventBus.emitDeferred(event as never);
     GameObject.setIdCounter(snapshot.base.idCounter);
   }
@@ -1703,6 +1704,8 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
+    // A wave without a plan: nothing spawns by itself, the wave snapshot carries no spawner
+    this.runningWaveConfig = { schedule: { entries: [], baseDelay: 0 } };
     this.waveManager.beginWave();
   }
 

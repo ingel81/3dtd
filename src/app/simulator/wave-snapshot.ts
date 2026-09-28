@@ -5,6 +5,9 @@ import type { EnemyTypeId } from '../configs/enemy-types.config';
 import type { ProjectileTypeId } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { DamageType } from '../configs/combat/combat.types';
+import type { LosResolveReason } from '../game-engine/game-event-bus';
+import type { SavedWormGroup } from '../managers/worm/worm-chains';
+import type { SavedOoze } from '../managers/ooze-bodies';
 
 /** Bumped whenever the shape changes; another version is refused. */
 export const WAVE_SNAPSHOT_VERSION = 1;
@@ -17,8 +20,7 @@ export const WAVE_SNAPSHOT_VERSION = 1;
  * same world with restoreWaveSnapshot(); from there both run on bit for bit
  * alike.
  *
- * Not in it yet (waveSnapshotRefusal says so): worms and oozes, enemies the
- * debugger placed, and in coop towers waiting for the host's line of sight. Presentation is not in it at
+ * Not in it yet (waveSnapshotRefusal says so): enemies the debugger placed. Presentation is not in it at
  * all: models, sounds, trails and status auras come back from the restored
  * state or not at all.
  */
@@ -43,6 +45,8 @@ export interface WaveRunState {
   heroTargets: [string, string][];
   /** Every player's strikes on their way, roster order */
   strikes: [string, SavedStrike[]][];
+  /** Coop: [tower id, reason] of the towers waiting for the host's line of sight, oldest first */
+  awaitingLos: [string, LosResolveReason][];
   /** Events waiting for the next sub-step, those of plain data (a wave:completed, a sound); one holding an entity is presentation and left out */
   deferred: unknown[];
 }
@@ -69,6 +73,10 @@ export interface EnemiesState {
   cells: [number, string[]][];
   /** Enemies out of the manager (a leak, a finished death) that a shot or a tower still holds */
   ghosts: SavedEnemy[];
+  /** Every worm group, segments still in the portal included (WormChains) */
+  worms: { nextSeq: number; groups: SavedWormGroup[] };
+  /** Every ooze's body, in the order the route grid's body list holds them */
+  oozes: SavedOoze[];
 }
 
 export interface SavedEnemy {
@@ -86,6 +94,8 @@ export interface SavedEnemy {
   statusEffects: PlainRecord[];
   rush: PlainRecord | null;
   portalExit: PlainRecord | null;
+  /** A worm segment: its group (index into EnemiesState.worms.groups) and place, else null */
+  worm: { group: number; slot: number; head: boolean; tail: boolean; target: number | string; lateral: number | string } | null;
 }
 
 export interface SavedProjectile {
@@ -119,4 +129,4 @@ export interface SavedStrike {
 }
 
 /** Why the state now cannot be a wave snapshot yet, null when it can. */
-export type WaveSnapshotRefusal = 'worm' | 'ooze' | 'debug-enemies' | 'awaiting-los';
+export type WaveSnapshotRefusal = 'debug-enemies';

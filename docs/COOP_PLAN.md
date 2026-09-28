@@ -31,7 +31,7 @@ Zufall und Uhr hängen am `GameStateManager`, nicht an Modulen: Zwei Simulatione
 nebeneinander. Darauf baut C0. Ausnahme ist der Id-Zähler der `GameObject`s, er ist statisch; im Spiel gibt es eine
 Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 
-## 2. Was fehlte (vor C0, 2026-09-24; heute offen Würmer und Oozes im Snapshot mitten in der Welle und die Resync)
+## 2. Was fehlte (vor C0, 2026-09-24; heute offen die Resync auf den Snapshot mitten in der Welle)
 
 - **Befehle aus dem Netz.** Ein UI-Befehl zwischen zwei Frames wirkt heute sofort. Im Coop geht jeder Befehl,
   auch der eigene, erst an den Relay und wirkt bei allen am selben Tick.
@@ -56,7 +56,7 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
   Dass die Sim nicht mehr an `Math.*` hängt, zeigen die Specs: Sie verfälschen die nativen Funktionen und erwarten
   dieselben Prüfsummen.
   Nativ bleiben Klang, Bild, Kamera und der Weltaufbau des Hosts aus OSM und Tiles, der im Weltpaket reist.
-- **Snapshot mitten in der Welle** gibt es seit 2026-09-28 bis auf Würmer und Oozes (C5b); die Resync darauf fehlt.
+- **Snapshot mitten in der Welle** gibt es seit 2026-09-28 (C5b); die Resync darauf fehlt.
 
 ## 3. Entscheidungen
 
@@ -308,8 +308,7 @@ So gebaut:
 - Abnahme: `tower-los-registry.spec.ts` (Gast rechnet nichts, Host rechnet einmal und stellt zurück, Anwenden am
   Tick, Upgrade behält alte Antworten, Nachrüstung wartet) und in der Lockstep-Spec ein Tower, den B mitten in der
   Welle baut: Die Maske kommt vom Host, steht in beiden Logs am selben Sub-Step, die Prüfsummen bleiben gleich.
-- Offen für C5: Die Warteliste gehört in den Snapshot mitten in der Welle; bis dahin lehnt er ab, solange ein Tower
-  wartet (`awaiting-los`).
+- Die Warteliste steht seit 2026-09-28 im Snapshot mitten in der Welle (C5b).
 
 Ursprünglicher Plan:
 
@@ -501,17 +500,22 @@ und Helden, Schläge unterwegs (Strahl mit seinen Anteilen) und wartende Events 
 bitgenau, -0, NaN und Unendlich als markierte Strings. `restoreWaveSnapshot()` setzt ihn in eine Sim auf derselben
 Welt. `wave-snapshot.scenario.spec.ts`: Welle bis Sub-Step N, Snapshot durch JSON, frische Sim lädt ihn, beide
 rechnen bis Wellenende mit gleicher Prüfsumme nach jedem Sub-Step (Boden, Luft, Splitter, Schwere, 49° N mit Kurven,
-zwei Spieler auf zwei Lanes, Held kämpfend, Frost, Laser brennend, EMP, bemannter Tower). Größe bei 0 bis 21 Gegnern
-18 bis 52 KB JSON. Noch nicht drin: Würmer, Oozes, vom Debugger gesetzte Gegner und im Coop Tower, die auf die
-Sichtlinie vom Host warten (`waveSnapshotRefusal`, Würmer und Oozes als skip markierte Specs).
+zwei Spieler auf zwei Lanes, Held kämpfend, Frost, Laser brennend, EMP, bemannter Tower; seit dem zweiten Schritt
+auch Würmer, die aus dem Portal kommen und zerfallen, Oozes mit ihren Körpern entlang der Route, und im Coop Tower,
+die auf die Sichtlinie vom Host warten). Noch nicht drin: vom Debugger gesetzte Gegner (`waveSnapshotRefusal`).
+Kosten (`npm run bench:sim`, Gegner auf ganzen Routen, Median, ein Lauf):
+
+| Größe | Gegner | Capture | JSON.stringify | JSON | Restore mit JSON.parse |
+|---|---|---|---|---|---|
+| S | 200 | 1,3 ms | 0,7 ms | 297 KB | 3,5 ms |
+| M | 1000 | 5,5 ms | 4,3 ms | 1,4 MB | 11,6 ms |
+| L | 3000 | 17,2 ms | 11,8 ms | 4,1 MB | 39,2 ms |
 
 Was für die Resync noch fehlt (nicht gebaut):
-- Würmer (WormGroup, Ketten, Bahn, wartende Segmente) und Oozes (Körper entlang der Route) in den Snapshot, dazu die
-  Warteliste der Coop-Sichtlinien (siehe C3).
 - Protokoll: Relay meldet `desync`, der Host nimmt an einer Tick-Grenze T den Snapshot und schickt ihn (Größe:
   bei tausenden Gegnern mehrere MB, also komprimieren oder binär), der abweichende Client lädt ihn bei T und
   rechnet die Befehle ab T weiter; bis dahin hält er an der Barriere. Versionen von Snapshot, Welt und Balance
-  prüfen wie beim Weltpaket.
+  prüfen wie beim Weltpaket. Bei L sind es 4 MB JSON: für das Netz komprimieren oder binär kodieren.
 - Darstellung nach dem Laden: `clearShow()` und ein Abgleich von Modellen, Spuren, Auren und Tönen mit dem geladenen
   Zustand; die Stores hören nur `sim:restored`.
 - Beitritt mitten in der Welle über denselben Weg statt Vorspulen.

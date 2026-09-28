@@ -6,6 +6,19 @@ import { PORTAL_DEPTH } from '../../configs/marker-geometry.config';
 import { WormPath, wormPathOf } from './worm-path';
 import { DetMath } from '../../utils/det-math';
 
+/** WormGroup.saveState(): plain data */
+export interface SavedWormState {
+  chains: WormChain[];
+  state: number[];
+  aliveSlots: number;
+  pendingSlots: number;
+  segments: (string | null)[];
+  spawnedHeadId: string;
+  seq: number;
+  pathId: number;
+  idle: boolean;
+}
+
 /** A slot not out of the portal yet, walking, or killed, through or removed. */
 const PENDING = 0;
 const ALIVE = 1;
@@ -193,6 +206,42 @@ export class WormGroup {
       parts.push({ first: slot + 1, last: chain.last, front: this.distanceOf(chain, slot + 1) });
     }
     this.chains.splice(i, 1, ...parts);
+  }
+
+  /**
+   * The group's own state for the wave snapshot (wave-snapshot.ts): chains,
+   * slot states and counters, the segments by enemy id. What the constructor
+   * takes is saved by WormChains.
+   */
+  saveState(): SavedWormState {
+    return {
+      chains: this.chains.map((chain) => ({ ...chain })),
+      state: [...this.state],
+      aliveSlots: this.aliveSlots,
+      pendingSlots: this.pendingSlots,
+      segments: this.segments.map((enemy) => enemy?.id ?? null),
+      spawnedHeadId: this.spawnedHeadId,
+      seq: this.seq,
+      pathId: this.pathId,
+      idle: this.idle,
+    };
+  }
+
+  /** Put saveState() back; the segments come by id once they are built */
+  restoreState(saved: SavedWormState): void {
+    this.chains.splice(0, this.chains.length, ...saved.chains.map((chain) => ({ ...chain })));
+    this.state.set(saved.state);
+    this.aliveSlots = saved.aliveSlots;
+    this.pendingSlots = saved.pendingSlots;
+    this.spawnedHeadId = saved.spawnedHeadId;
+    this.seq = saved.seq;
+    this.pathId = saved.pathId;
+    this.idle = saved.idle;
+  }
+
+  /** The segments saveState() named, found by id after the restore */
+  restoreSegments(saved: SavedWormState, byId: (id: string) => Enemy | null): void {
+    saved.segments.forEach((id, slot) => { this.segments[slot] = id === null ? null : byId(id); });
   }
 
   /** Nothing more comes out of the portal (debug kill-all, removal). */

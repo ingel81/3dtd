@@ -9,6 +9,15 @@ import { OozeSounds } from './ooze-sounds';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GameEventBus } from '../game-engine';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
+import { assignPlainFields, decodeNumber, encodeNumber, plainFields, type PlainRecord } from '../simulator/plain-fields';
+
+/** An ooze of the wave snapshot: its enemy, its body's fields and its slurp counter */
+export interface SavedOoze {
+  enemyId: string;
+  body: PlainRecord;
+  hit: PlainRecord;
+  slurpM: number | string;
+}
 
 /**
  * The oozes on the map, for EnemyManager: their bodies along the route
@@ -100,6 +109,32 @@ export class OozeBodies {
         this.eventBus.emit({ type: 'enemy:reached-base', enemy, damage: body.settle() });
         leaked.push(enemy);
       }
+    }
+  }
+
+  /** Every ooze in list order, for the wave snapshot (wave-snapshot.ts) */
+  captureWaveState(): SavedOoze[] {
+    return this.oozes.map(({ enemy, body, slurpM }) => ({
+      enemyId: enemy.id,
+      body: plainFields(body),
+      hit: plainFields(body.hit),
+      slurpM: encodeNumber(slurpM),
+    }));
+  }
+
+  /**
+   * Give the oozes of captureWaveState() their bodies again, in the same
+   * order (the route grid's body list keeps it too), after clear().
+   */
+  restoreWaveState(saved: readonly SavedOoze[], byId: (id: string) => Enemy | null, engine: ThreeTilesEngine): void {
+    for (const s of saved) {
+      const enemy = byId(s.enemyId);
+      if (!enemy) continue;
+      this.attach(enemy, engine);
+      const entry = this.oozes[this.oozes.length - 1];
+      assignPlainFields(entry.body, s.body);
+      assignPlainFields(entry.body.hit, s.hit);
+      entry.slurpM = decodeNumber(s.slurpM);
     }
   }
 

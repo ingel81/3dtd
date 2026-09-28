@@ -985,6 +985,16 @@ export class TowerPlacementService {
     return this.losRegistry.awaitingTowerIds();
   }
 
+  /** Coop: the waiting towers with their reason, see TowerLosRegistry.awaitingEntries */
+  awaitingLosEntries(): [string, LosResolveReason][] {
+    return this.losRegistry.awaitingEntries();
+  }
+
+  /** Coop: see TowerLosRegistry.restoreAwaiting */
+  restoreAwaitingLos(entries: readonly (readonly [Tower, LosResolveReason])[]): void {
+    this.losRegistry.restoreAwaiting(entries);
+  }
+
   setLosMaskSource(source: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
     this.losRegistry.setMaskSource(source);
   }
