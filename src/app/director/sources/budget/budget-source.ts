@@ -27,8 +27,12 @@ import { directorParams } from '../../director-params';
 import { RUN_PLAN_RULES, planLeakScale, planRowForWave, type RunPlanRow } from './run-plan';
 import { enemyHp, sizeWave, type BudgetResult } from './budget';
 
-/** The loop moves the budget between half and double (User, 2026-09-28). */
-export const BUDGET_REGULATOR_LIMITS = { min: 0.5, max: 2 } as const;
+/**
+ * The loop moves the budget between half and one and a half. Decided was half to double (User, 2026-09-28);
+ * at double the bots lost nothing on most waves, the loop stood at its stop by W23 and the waves the defense
+ * matches worst (ghosts W24, mammoths W25) then cost 60 to 210 HP (bot runs 2026-09-29).
+ */
+export const BUDGET_REGULATOR_LIMITS = { min: 0.5, max: 1.5 } as const;
 /** From the second wave on, two readings: bots lost 40 to 60 HP a wave in W5-W7 while the loop still waited. */
 export const BUDGET_REGULATOR_START = { warmupWaves: 1, minSamples: 2 } as const;
 

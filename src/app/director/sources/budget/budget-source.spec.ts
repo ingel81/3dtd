@@ -43,13 +43,13 @@ describe('BudgetWaveSource', () => {
     expect(strong).toBeGreaterThan(weak);
   });
 
-  it('opens the budget after waves that cost nothing, up to double, and forgets it on reset', () => {
+  it('opens the budget after waves that cost nothing, up to its stop, and forgets it on reset', () => {
     const source = new BudgetWaveSource();
     const before = plan(source, 26).log.diagnostics!['budget'] as number;
     for (let w = 1; w <= 30; w++) source.onWaveResult(result(w, 0));
     const after = source.plan({ wave: 26, state: state(26), random: () => 0.5 });
     expect(after.log.pressureMultiplier).toBe(BUDGET_REGULATOR_LIMITS.max);
-    expect(after.log.diagnostics!['budget'] as number).toBeCloseTo(before * 2, 0);
+    expect(after.log.diagnostics!['budget'] as number).toBeCloseTo(before * BUDGET_REGULATOR_LIMITS.max, 0);
     source.reset();
     expect(plan(source, 20).log.pressureMultiplier).toBe(1);
   });
