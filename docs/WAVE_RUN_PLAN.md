@@ -141,7 +141,21 @@ Entschieden (User, 2026-09-28):
 - **Coop:** jede Spur bekommt die ganze Zeile, mit eigenem Budget gegen die Abwehr an dieser Spur.
 - **Nachrechnen jetzt,** vor dem Bau: den Referenzlauf mit dem Modell durchspielen und gegen heute zeigen.
 
-## 10. Nächster Schritt
+## 10. Durchgerechnet: Budget-Modell gegen heute (Rechenwerte, keine Bot-Messung)
 
-Den Referenzlauf (W1 bis W60) mit dem Budget-Modell durchrechnen (Rechenskript, kein Umbau im Spiel), Verlauf gegen
-heute als Diagramm auf der Entscheidungsseite, dann dem User vorlegen, bevor etwas gebaut wird.
+Referenzlauf W1 bis W60 mit Anzahl und Spawn-Abständen der heutigen Folge, `k = 1` (W24 bis W27 mit der heutigen
+Intensität), `R = 1`, Deckel = Spawn-Dauer plus Zeit unter Feuer ohne erlaubtes Leck (Skript
+`tmp/nightly-2026-09-28/budget-sim.tmp.spec.ts`, nicht im Repo):
+- Normale Wellen liegen enger: innerhalb von zehn Wellen das 1,2- bis 4,2-Fache statt heute 3- bis 55-Fache.
+- Der Deckel greift auf 34 von 60 Wellen, darunter alle neun Boss-Wellen: die heutigen Anzahlen und Abstände sind
+  für die Kurve oft zu kurz.
+- Einzelne Bosse bekommen nur die geschätzte Zeit unter Feuer (60 m durch Tempo), 13 bis 20 s gegen 90 s der
+  Nachbarn. Das liegt an der Schätzung, nicht an einer Boss-Regel.
+- Der HP-Faktor streut von 0,3 bis 63; Rattenwellen mit 1200 Ratten bekommen 55 bis 63 (heute 19 bis 25).
+
+Offen (Entscheidungsseite): was passiert, wenn eine Welle zu kurz für ihr Budget ist; ob die Zeit unter Feuer aus der
+Route gemessen wird.
+
+## 11. Nächster Schritt
+
+Nach diesen zwei Entscheidungen: Plan-Zeilen für W1 bis W60 entwerfen und mit dem Skript prüfen, dann bauen.
