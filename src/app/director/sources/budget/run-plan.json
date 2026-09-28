@@ -57,8 +57,9 @@
     "enemies": {
       "spider": 48
     },
-    "strength": 1,
-    "spawnDelay": 268
+    "strength": 0.8,
+    "spawnDelay": 268,
+    "note": "A fast swarm early on: at strength 1 it cost 59 to 99 HP alone and up to 172 in coop (bots)."
   },
   {
     "wave": 7,
