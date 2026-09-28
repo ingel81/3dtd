@@ -55,6 +55,7 @@ import { packRunLog, readRunUploadConsent, writeRunUploadConsent } from '../run-
 import { toJsonl } from '../run-log/run-log.export';
 import type { RunLog } from '../run-log/run-log.types';
 import { CoopRunCounts } from './coop-run-counts';
+import { ResettableSignals } from '../utils/resettable-signals';
 
 /** Two points are the same place at the precision the URL keeps. */
 function samePlace(a: GeoPosition, b: GeoPosition): boolean {
@@ -186,12 +187,14 @@ export class CoopService {
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly locationFacade = inject(LocationFacadeService);
   private readonly locationChange = inject(LocationChangeCoordinatorService);
+  /** The signals of a room, back to their start in leave() */
+  private readonly perRoom = new ResettableSignals();
   /** What this client told the room it is doing, see tellStatus */
   private toldStatus: PlayerStatus | null = null;
   /** Host: the guests heard the map is changing (PLAYTEST T25); again once it was sent */
   private movingSaid = false;
   /** Guest, lobby: the host said the map is changing, until the new world is here */
-  readonly hostChangingMap = signal(false);
+  readonly hostChangingMap = this.perRoom.signal(false);
   /** Host: the map last sent to the room (mapSignature), see shareChangedMap */
   private sharedMap = '';
   /** sharedMap as a signal, for the effect that tells the guests the map changes */
@@ -215,12 +218,12 @@ export class CoopService {
   private roomSpeed = 1;
   private roomPaused = false;
 
-  readonly status = signal<CoopStatus>('off');
-  readonly room = signal<CoopRoomInfo | null>(null);
+  readonly status = this.perRoom.signal<CoopStatus>('off');
+  readonly room = this.perRoom.signal<CoopRoomInfo | null>(null);
   readonly error = signal<string | null>(null);
   readonly playerId = signal<string | null>(null);
   /** The chat with the system lines, oldest first (D43) */
-  readonly chat = signal<readonly CoopChatLine[]>([]);
+  readonly chat = this.perRoom.signal<readonly CoopChatLine[]>([]);
   /** The options the running game started with (D38); the lobby reads the room's */
   private readonly startOptions = signal<CoopRoomOptions>(DEFAULT_ROOM_OPTIONS);
   /** The room's options: in the lobby as the host sets them, in the game as it started */
@@ -230,9 +233,9 @@ export class CoopService {
   /** Cheats act in this room (relay and room allow them for someone) */
   readonly cheatsOn = computed(() => (this.room()?.cheats ?? false) && this.options().cheats !== 'off');
   /** The relay found the simulations apart (C5): the first tick, and each player's hash there */
-  readonly desync = signal<{ tick: number; hashes: [string, number][]; outOfStep: string[] } | null>(null);
+  readonly desync = this.perRoom.signal<{ tick: number; hashes: [string, number][]; outOfStep: string[] } | null>(null);
   /** The host's world stands here too and matches it (joiner), or was sent (host) */
-  readonly worldReady = signal(false);
+  readonly worldReady = this.perRoom.signal(false);
   readonly isHost = computed(() => {
     const room = this.room();
     return room !== null && room.hostId === this.playerId();
@@ -241,7 +244,7 @@ export class CoopService {
   /** The connection broke in a running game: it stands until the player goes on alone (review R10) */
   readonly lostInGame = computed(() => this.status() === 'closed' && this.roster().length > 0);
   /** The players of the running game in roster order, with name and lane as the room had them at the start */
-  readonly roster = signal<{ id: string; name: string; spawnId: string | null }[]>([]);
+  readonly roster = this.perRoom.signal<{ id: string; name: string; spawnId: string | null }[]>([]);
   /** Players ready for the next wave (in the game) */
   readonly readyIds = signal<ReadonlySet<string>>(new Set());
   /** Players who left the running game */
@@ -264,16 +267,16 @@ export class CoopService {
   /** G was pressed: the next click on the map is a ping (review R13) */
   readonly pingArmed = signal(false);
   /** The map marks showing now, for the arrows at the view edge (CoopPingArrowsComponent) */
-  readonly pings = signal<readonly CoopPing[]>([]);
+  readonly pings = this.perRoom.signal<readonly CoopPing[]>([]);
   private pingSeq = 0;
   /** Each lane's length and walking time, spawn id to its stats (lobby) */
   readonly lanes = signal<ReadonlyMap<string, LaneStat>>(new Map());
   /** This browser has no map key yet: the token screen asks for it first (review R8) */
   readonly needsKey = computed(() => this.config.needsCredentials());
   /** The player the room waits for to catch up (the relay's cap, review R2), null while none */
-  readonly waitingFor = signal<string | null>(null);
+  readonly waitingFor = this.perRoom.signal<string | null>(null);
   /** Each player's round trip to the relay, ms, as the relay last measured it */
-  readonly rtt = signal<ReadonlyMap<string, number | null>>(new Map());
+  readonly rtt = this.perRoom.signal<ReadonlyMap<string, number | null>>(new Map());
   /** The players in the room play on engines that compute differently (Chrome and Firefox) */
   readonly mixedEngines = computed(() => mixedEngines(this.room()?.players.map((p) => p.client) ?? []));
   /** The room code from the URL this page was opened with (?room=), to join once the place stands */
@@ -302,7 +305,7 @@ export class CoopService {
    * A guest's host place once the world package came, while the map still
    * loads: the location dialog (E30) closes with it.
    */
-  readonly hostPlace = signal<{ hq: { lat: number; lon: number }; spawns: { lat: number; lon: number }[] } | null>(null);
+  readonly hostPlace = this.perRoom.signal<{ hq: { lat: number; lon: number }; spawns: { lat: number; lon: number }[] } | null>(null);
 
   /** The active lobby's public rooms (D62), null before the first look or when it did not answer */
   readonly publicRooms = signal<readonly PublicRoom[] | null>(null);
@@ -987,22 +990,13 @@ export class CoopService {
     this.gameState.setLockstep(null);
     this.gameState.setLosRole(null);
     this.gameState.setCheatRule(null);
-    this.status.set('off');
-    this.room.set(null);
-    this.worldReady.set(false);
-    this.desync.set(null);
-    this.roster.set([]);
-    this.chat.set([]);
-    this.rtt.set(new Map());
-    this.waitingFor.set(null);
+    // Status, room, world, desync, roster, chat, latencies, waits, the host's place, pings
+    this.perRoom.reset();
     this.inputHandler.setForeignTowerClick(null);
     this.runCounts.clear();
-    this.hostChangingMap.set(false);
     this.movingSaid = false;
-    this.hostPlace.set(null);
     for (const timer of this.pingTimers) clearTimeout(timer);
     this.pingTimers.clear();
-    this.pings.set([]);
     this.generation++;
     this.pickedByHand = false;
     this.autoPicking = null;
