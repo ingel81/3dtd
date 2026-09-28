@@ -12,7 +12,7 @@ import { GameEventBus, SubscriptionBag } from '../game-engine';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { waveGold, enemyBaseDamageForWave } from '../configs/campaign.config';
-import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
+import { EnemyStatusVisuals } from './enemy-status-visuals';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
 import type { StatusEffect } from '../models/status-effects';
@@ -118,20 +118,8 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Reusable array to avoid allocations in update loop
   private toRemove: Enemy[] = [];
 
-  // Track enemies with active frost visual (for state-change detection)
-  private frozenVisualEnemies = new Set<string>();
-
-  // Track enemies frozen solid (freeze): icy tint and ice crystals
-  private icedVisualEnemies = new Set<string>();
-
-  // Stunned enemies (stun): game time of their next spark burst
-  private stunSparkAt = new Map<string, number>();
-
-  // Track enemies with active poison visual
-  private poisonVisualEnemies = new Set<string>();
-
-  // Track enemies with active burn visual (tint only)
-  private burnVisualEnemies = new Set<string>();
+  // What the status effects look like: auras, crystals, sparks, tints
+  private readonly statusVisuals = new EnemyStatusVisuals();
 
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
@@ -496,11 +484,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    * sets would still say they are shown.
    */
   resetStatusVisuals(): void {
-    this.frozenVisualEnemies.clear();
-    this.icedVisualEnemies.clear();
-    this.poisonVisualEnemies.clear();
-    this.burnVisualEnemies.clear();
-    this.stunSparkAt.clear();
+    this.statusVisuals.reset();
   }
 
   resetKillRewards(): void {
@@ -952,7 +936,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     const profiling = this.onPresentTiming !== null;
     const t0 = profiling ? performance.now() : 0;
     const origin = engine.sync.getOrigin();
-    let sparkBursts = 0;
+    this.statusVisuals.beginFrame();
 
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
@@ -1012,95 +996,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         );
       }
 
-      // Frost / poison / burn visuals are edge-triggered against a Set, so running
-      // them once per frame instead of once per sub-step changes nothing but
-      // the number of times the same state is re-checked. Each check is
-      // skipped when it cannot be true: `.some` over an empty effect list and
-      // a lookup in an empty Set both answer false.
-      const isSlowed =
-        enemy.movement.hasStatusEffects && enemy.movement.isSlowed(gameTimeMs);
-      const hasFrost =
-        this.frozenVisualEnemies.size !== 0 && this.frozenVisualEnemies.has(enemy.id);
-      if (isSlowed && !hasFrost) {
-        engine.enemies.setFreezeVisual(enemy.id, true);
-        engine.effects.spawnFrostAura(enemy.id, this._tempLocalPos);
-        this.frozenVisualEnemies.add(enemy.id);
-      } else if (isSlowed && hasFrost) {
-        engine.effects.updateFrostAuraPosition(enemy.id, this._tempLocalPos);
-      } else if (!isSlowed && hasFrost) {
-        engine.enemies.setFreezeVisual(enemy.id, false);
-        engine.effects.stopFrostAura(enemy.id);
-        this.frozenVisualEnemies.delete(enemy.id);
-      }
-
-      // Frozen solid: icy tint and ice crystals, over the slow look if both are on
-      const isFrozen =
-        enemy.movement.hasStatusEffects && enemy.movement.isFrozen(gameTimeMs);
-      const hasIce =
-        this.icedVisualEnemies.size !== 0 && this.icedVisualEnemies.has(enemy.id);
-      if (isFrozen && !hasIce) {
-        engine.enemies.setIcedVisual(enemy.id, true);
-        engine.effects.spawnIceCrystals(enemy.id, this._tempLocalPos);
-        this.icedVisualEnemies.add(enemy.id);
-      } else if (isFrozen && hasIce) {
-        engine.effects.updateIceCrystalsPosition(enemy.id, this._tempLocalPos);
-      } else if (!isFrozen && hasIce) {
-        engine.enemies.setIcedVisual(enemy.id, false);
-        engine.effects.stopIceCrystals(enemy.id);
-        this.icedVisualEnemies.delete(enemy.id);
-      }
-
-      // Stunned: violet-blue tint and a burst of sparks every STUN_SPARKS.intervalMs
-      // of game time, at most perFrame bursts per frame
-      const isStunned =
-        enemy.movement.hasStatusEffects && enemy.movement.isStunned(gameTimeMs);
-      const sparkAt = this.stunSparkAt.size !== 0 ? this.stunSparkAt.get(enemy.id) : undefined;
-      if (isStunned) {
-        if (sparkAt === undefined) engine.enemies.setStunVisual(enemy.id, true);
-        if ((sparkAt === undefined || gameTimeMs >= sparkAt) && sparkBursts < STUN_SPARKS.perFrame) {
-          sparkBursts++;
-          engine.effects.spawnBurstAtGeo(
-            enemy.position.lat,
-            enemy.position.lon,
-            enemy.transform.terrainHeight + enemy.heightOffset + STUN_SPARKS.height,
-            STUN_SPARKS.particles,
-            BURST_PALETTES.stun,
-          );
-          this.stunSparkAt.set(enemy.id, gameTimeMs + STUN_SPARKS.intervalMs);
-        } else if (sparkAt === undefined) {
-          // Over the frame's budget: sparks from the next frame on
-          this.stunSparkAt.set(enemy.id, gameTimeMs);
-        }
-      } else if (sparkAt !== undefined) {
-        engine.enemies.setStunVisual(enemy.id, false);
-        this.stunSparkAt.delete(enemy.id);
-      }
-
-      const isPoisoned =
-        enemy.movement.hasStatusEffects && enemy.movement.isPoisoned(gameTimeMs);
-      const hasPoison =
-        this.poisonVisualEnemies.size !== 0 && this.poisonVisualEnemies.has(enemy.id);
-      if (isPoisoned && !hasPoison) {
-        engine.enemies.setPoisonVisual(enemy.id, true);
-        engine.effects.spawnPoisonAura(enemy.id, this._tempLocalPos);
-        this.poisonVisualEnemies.add(enemy.id);
-      } else if (isPoisoned && hasPoison) {
-        engine.effects.updatePoisonAuraPosition(enemy.id, this._tempLocalPos);
-      } else if (!isPoisoned && hasPoison) {
-        engine.enemies.setPoisonVisual(enemy.id, false);
-        engine.effects.stopPoisonAura(enemy.id);
-        this.poisonVisualEnemies.delete(enemy.id);
-      }
-
-      const isBurning =
-        enemy.movement.hasStatusEffects && enemy.movement.isBurning(gameTimeMs);
-      const hasBurn =
-        this.burnVisualEnemies.size !== 0 && this.burnVisualEnemies.has(enemy.id);
-      if (isBurning !== hasBurn) {
-        engine.enemies.setBurnVisual(enemy.id, isBurning);
-        if (isBurning) this.burnVisualEnemies.add(enemy.id);
-        else this.burnVisualEnemies.delete(enemy.id);
-      }
+      this.statusVisuals.present(enemy, engine, this._tempLocalPos, gameTimeMs);
     }
 
     this.oozes.present(engine, gameTimeMs);
@@ -1144,24 +1040,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.killingEnemies.delete(entity.id);
     // Through at the HQ or removed: a gap in its worm (a kill made it one already)
     if (entity.worm !== null) entity.worm.group.lose(entity.worm.slot);
-    // Cleanup frost visual if active
-    if (this.frozenVisualEnemies.has(entity.id)) {
-      this.tilesEngine?.effects.stopFrostAura(entity.id);
-      this.frozenVisualEnemies.delete(entity.id);
-    }
-    // Ice crystals of a frozen enemy; its tint goes with the render slot
-    if (this.icedVisualEnemies.has(entity.id)) {
-      this.tilesEngine?.effects.stopIceCrystals(entity.id);
-      this.icedVisualEnemies.delete(entity.id);
-    }
-    // Cleanup poison visual if active
-    if (this.poisonVisualEnemies.has(entity.id)) {
-      this.tilesEngine?.effects.stopPoisonAura(entity.id);
-      this.poisonVisualEnemies.delete(entity.id);
-    }
-    // The burn and stun tints live on the render slot, which goes with the enemy
-    this.burnVisualEnemies.delete(entity.id);
-    this.stunSparkAt.delete(entity.id);
+    // Its auras and crystals; the tints go with the render slot
+    this.statusVisuals.forget(entity.id, this.tilesEngine);
     // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
@@ -1198,24 +1078,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.wormSounds.clear(this.tilesEngine?.spatialAudio ?? null);
     this.killingEnemies.clear();
 
-    // Stop frost auras before clearing the tracking set
-    for (const enemyId of this.frozenVisualEnemies) {
-      this.tilesEngine?.effects.stopFrostAura(enemyId);
-    }
-    this.frozenVisualEnemies.clear();
-
-    for (const enemyId of this.icedVisualEnemies) {
-      this.tilesEngine?.effects.stopIceCrystals(enemyId);
-    }
-    this.icedVisualEnemies.clear();
-
-    // Stop poison auras before clearing
-    for (const enemyId of this.poisonVisualEnemies) {
-      this.tilesEngine?.effects.stopPoisonAura(enemyId);
-    }
-    this.poisonVisualEnemies.clear();
-    this.burnVisualEnemies.clear();
-    this.stunSparkAt.clear();
+    this.statusVisuals.clear(this.tilesEngine);
     super.clear();
     this.aliveCount.set(0);
     this.cachedAliveEnemies = null; // Invalidate cache
