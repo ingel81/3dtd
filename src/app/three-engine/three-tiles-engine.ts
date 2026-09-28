@@ -13,12 +13,7 @@ import {
   Matrix4,
 } from 'three';
 import type { TilesRenderer, GlobeControls } from '3d-tiles-renderer';
-import {
-  DebugTilesPlugin,
-  type ReorientationPlugin,
-  type LoadRegionPlugin,
-  type ColorMode,
-} from '3d-tiles-renderer/plugins';
+import type { ReorientationPlugin } from '3d-tiles-renderer/plugins';
 import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { CameraRig } from './camera-rig';
@@ -63,8 +58,9 @@ import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
-import { ROUTE_CORRIDOR_ERROR_TARGET, RouteCorridorRegion, type RegionLodState, type RegionTile } from './route-corridor-region';
-import { SettleHold, type TilesLodDebug, createTilesLodDebug } from './tiles-lod-debug';
+import type { RegionLodState } from './route-corridor-region';
+import { RouteCorridorTiles } from './route-corridor-tiles';
+import { SettleHold, type TilesLodDebug } from './tiles-lod-debug';
 import { perfTrace } from '../utils/perf-trace';
 import { warmUpScene } from './scene-warmup';
 import { logTileMaterialTypes } from './tile-material-log';
@@ -75,20 +71,7 @@ import { MISSILE_LAUNCH_LOOK, MUSHROOM_CLOUD_LOOK, SCREEN_SHAKE_CONFIG } from '.
 import { ABILITIES } from '../configs/abilities.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import type { GeoPosition } from '../models/game.types';
-import { tilesInternals, tilesPending } from './tiles-internals';
-
-/**
- * Route corridor load region, see {@link RouteCorridorRegion}. The half width
- * reaches past the 7 m cell corridor; tile bounding spheres add their radius.
- */
-const ROUTE_CORRIDOR_HALF_WIDTH = 20;
-
-/**
- * Top of the LOD debug color scale, in metres of geometric error. The auto
- * scale spans the whole hierarchy up to the root's kilometres and paints every
- * loaded tile the same black. At 20 m, the 2.5 m corridor tiles read dark.
- */
-const TILE_LOD_DEBUG_MAX_ERROR = 20;
+import { tilesInternals } from './tiles-internals';
 
 /** Options of the canvas renderer, without the canvas. */
 export const CANVAS_RENDERER_OPTIONS = {
@@ -124,12 +107,10 @@ export class ThreeTilesEngine {
   private readonly tileLoading: TileLoadingTracker;
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
-  private routeRegions: LoadRegionPlugin | null = null;
-  /** The region routeRegions holds, see setRouteCorridor(); null before the first routes and after an origin change. */
-  private routeCorridorRegion: RouteCorridorRegion | null = null;
+  /** The tiles along the enemy routes: their load region and LOD debug, see RouteCorridorTiles */
+  private readonly corridor: RouteCorridorTiles;
   /** Holds settled tile loads back from the game while `__corridor.probeLod()` runs, see tilesLodDebug(). */
   private readonly settleHold = new SettleHold(() => this.onTileSetSettled());
-  private tileLodDebug: DebugTilesPlugin | null = null;
 
   // Post-processing pipeline (composer + bloom + color grading + output pass)
   private postProcessing: PostProcessingPipeline | null = null;
@@ -275,6 +256,7 @@ export class ThreeTilesEngine {
 
     // Initialize coordinate sync
     this.sync = new EllipsoidSync(originLat, originLon, originHeight);
+    this.corridor = new RouteCorridorTiles(this.sync, this.settleHold);
 
     // Terrain and tile raycasts. They read tilesRenderer and devTerrainProvider,
     // which initialize() sets.
@@ -499,7 +481,7 @@ export class ThreeTilesEngine {
     });
     this.tilesRenderer = tiles.tilesRenderer;
     this.reorientationPlugin = tiles.reorientationPlugin;
-    this.routeRegions = tiles.routeRegions;
+    this.corridor.attach(tiles.tilesRenderer, tiles.routeRegions);
 
     // Add to scene
     this.scene.add(this.tilesRenderer.group);
@@ -674,8 +656,7 @@ export class ThreeTilesEngine {
     this.sync.setOrigin(lat, lon, height);
 
     // The corridor was built in the old group frame; the new routes rebuild it.
-    this.routeRegions?.clearRegions();
-    this.routeCorridorRegion = null;
+    this.corridor.dropForNewOrigin();
 
     // Update ReorientationPlugin
     if (this.reorientationPlugin && this.tilesRenderer) {
@@ -775,88 +756,29 @@ export class ThreeTilesEngine {
     return this.terrain.getTerrainHeightAtGeo(lat, lon);
   }
 
-  /**
-   * Keep the enemy route corridor loaded at fine LOD, wherever the camera
-   * looks. Without it, route cells outside the view had no tiles to sample
-   * and cells seen from afar were baked from coarse ones. Call whenever the
-   * routes change; an origin change drops the corridor.
-   */
+  /** Keep the enemy route corridor loaded at fine LOD, see RouteCorridorTiles.setRoutes */
   setRouteCorridor(routes: GeoPosition[][]): void {
-    if (!this.tilesRenderer || !this.routeRegions) return;
-    const group = this.tilesRenderer.group;
-    group.updateMatrixWorld();
-    const localRoutes = routes.map((route) =>
-      route.map((p) => this.sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0)),
-    );
-    this.routeRegions.clearRegions();
-    this.routeCorridorRegion = new RouteCorridorRegion(
-      localRoutes, group.matrixWorld, ROUTE_CORRIDOR_HALF_WIDTH, ROUTE_CORRIDOR_ERROR_TARGET,
-    );
-    this.routeRegions.addRegion(this.routeCorridorRegion);
-    // UpdateOnChangePlugin does not notice region changes on its own.
-    this.tilesRenderer.dispatchEvent({ type: 'needs-update' });
+    this.corridor.setRoutes(routes);
   }
 
-  /**
-   * Debug: the LOD the tiles load at, for `__tiles.stats()` and
-   * `__corridor.probeLod()`. Sets the corridor region's error target and the
-   * camera's, and holds the settled tile loads back from the game for a
-   * probe (SettleHold). Null in DevWorld and before initialize().
-   */
+  /** Debug: the LOD the tiles load at, see RouteCorridorTiles.lodDebug */
   tilesLodDebug(): TilesLodDebug | null {
-    if (!this.tilesRenderer) return null;
-    return createTilesLodDebug(this.tilesRenderer, {
-      region: () => this.routeCorridorRegion,
-      holdSettled: (hold) => this.settleHold.hold(hold),
-    });
+    return this.corridor.lodDebug();
   }
 
-  /**
-   * How far the active tiles of the route corridor are refined, and how many
-   * tiles wait to load anywhere, for the corridor trace
-   * (VisualizationFacadeService.onTilesLoaded). Null without a corridor.
-   */
+  /** How far the route corridor's tiles are refined, see RouteCorridorTiles.lod */
   routeCorridorLod(): (RegionLodState & { pending: number }) | null {
-    if (!this.tilesRenderer || !this.routeCorridorRegion) return null;
-    return {
-      ...this.routeCorridorRegion.lodState(this.tilesRenderer.activeTiles as unknown as Iterable<RegionTile>),
-      pending: tilesPending(this.tilesRenderer),
-    };
+    return this.corridor.lod();
   }
 
-  /**
-   * The content paths of the fine tiles of the route corridor, whose hash
-   * routeCorridorLod() gives as `tileSet` (RouteCorridorRegion.finePaths),
-   * for the corridor snapshot. Null without a corridor.
-   */
+  /** The content paths of the corridor's fine tiles, see RouteCorridorTiles.tilePaths */
   routeCorridorTilePaths(): string[] | null {
-    if (!this.tilesRenderer || !this.routeCorridorRegion) return null;
-    return this.routeCorridorRegion.finePaths(this.tilesRenderer.activeTiles as unknown as Iterable<RegionTile>);
+    return this.corridor.tilePaths();
   }
 
-  /**
-   * Debug: paint tiles black to white by geometric error, white at
-   * {@link TILE_LOD_DEBUG_MAX_ERROR} or coarser. Shows whether the route
-   * corridor is really refined. The plugin registers on first use.
-   */
+  /** Debug: paint tiles by geometric error, see RouteCorridorTiles.setLodDebugEnabled */
   setTileLodDebugEnabled(enabled: boolean): void {
-    if (!this.tilesRenderer) return;
-    if (!this.tileLodDebug) {
-      if (!enabled) return;
-      this.tileLodDebug = new DebugTilesPlugin({ maxDebugError: TILE_LOD_DEBUG_MAX_ERROR });
-      this.tilesRenderer.registerPlugin(this.tileLodDebug);
-    } else {
-      this.tileLodDebug.enabled = enabled;
-    }
-    if (enabled) {
-      // Disabling resets the color mode to NONE, so it is set on every enable.
-      // The typings declare named color-mode exports the module does not have;
-      // the modes only exist on the static ColorModes.
-      const modes = DebugTilesPlugin.ColorModes as unknown as Record<'GEOMETRIC_ERROR', ColorMode>;
-      this.tileLodDebug.colorMode = modes.GEOMETRIC_ERROR;
-    }
-    // Repaint without waiting for the camera to move.
-    this.tilesRenderer.dispatchEvent({ type: 'needs-update' });
+    this.corridor.setLodDebugEnabled(enabled);
   }
 
   /**
@@ -1350,9 +1272,7 @@ export class ThreeTilesEngine {
       this.scene.remove(this.tilesRenderer.group);
       this.tilesRenderer.dispose();
       this.tilesRenderer = null;
-      this.routeRegions = null;
-      this.routeCorridorRegion = null;
-      this.tileLodDebug = null;
+      this.corridor.detach();
     }
 
     // Dispose scene contents
