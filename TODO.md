@@ -188,7 +188,7 @@ Ideen (2026-09-27), nichts entschieden:
       bis 10 kosten 128 statt 85 HP, der Coop endet 1,7 Wellen früher. Als Nächstes messen: Leck geteilt durch die
       Spuren, HQ mal Spuren, unverändert; je etwa 10 Läufe. Bot-Werte, kein Menschenlauf.
       **Gemessen 2026-09-28** (je 10 Räume bis W15): HP-Rest nach W15 Solo 63 %, unverändert 45 %, Leck geteilt 72 %,
-      HQ mal Spuren 68 %. HQ mal Spuren liegt am nächsten an Solo. Entscheidung User.
+      HQ mal Spuren 68 %. **Entschieden (User, 2026-09-28): so lassen**, Coop bleibt härter.
 - [ ] **E67 Skarnax zu anspruchslos** (User, 2026-09-28): Segment für Segment von vorne nach hinten zu zerlegen, wenig
       Anspruch. Ideen später per Konzept.
 - [ ] **E68 Zwei volle Pools** (gemessen 2026-09-28): Geschoss-Spuren (11 % des Bildes bei Tempo 4) und Schadenszahlen
