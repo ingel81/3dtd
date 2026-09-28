@@ -93,6 +93,8 @@ interface Setup {
   wave: WaveConfig;
   /** Coop: the players, each with the eight towers in turn */
   players?: string[];
+  /** Commands at sub-step `step` of the wave: on the first simulation before the snapshot, on both after */
+  during?: (sim: Sim, step: number) => void;
 }
 
 function build(setup: Setup): Sim {
@@ -124,6 +126,7 @@ function splitAt(setup: Setup, at: number, tamper?: (snapshot: WaveSnapshot) => 
     a.run(() => setup.before?.(a));
     a.emit({ type: 'command:start-wave', config: setup.wave });
     for (let i = 0; i < at; i++) {
+      setup.during?.(a, i);
       if (!a.step()) throw new Error(`the wave ended at sub-step ${i}, before ${at}`);
     }
     const refusal = a.run(() => a.gsm.waveSnapshotRefusal());
@@ -137,6 +140,8 @@ function splitAt(setup: Setup, at: number, tamper?: (snapshot: WaveSnapshot) => 
 
     let compared = 0;
     for (let i = 0; i < 20_000; i++) {
+      setup.during?.(a, at + i);
+      setup.during?.(b, at + i);
       const runningA = a.step();
       const runningB = b.step();
       const ha = a.hash(), hb = b.hash();
@@ -206,9 +211,72 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
     })).toThrow();
   });
 
+  it('goes on bit for bit with the hero fighting and strikes on their way, a beam burning included', () => {
+    const at = (sim: Sim, route: number, index: number) => {
+      const p = sim.world.routes[route][index];
+      return { lat: p.lat, lon: p.lon };
+    };
+    const setup: Setup = {
+      wave: ground,
+      before: (sim) => {
+        sim.gsm.getEventBus().emit({ type: 'debug:add-credits', amount: 50000 });
+        sim.gsm.getEventBus().emit({ type: 'debug:ready-hero' });
+        for (const abilityId of ['frost-bomb', 'orbital-laser', 'emp'] as const) {
+          sim.gsm.getEventBus().emit({ type: 'debug:ready-ability', abilityId });
+        }
+      },
+      during: (sim, step) => {
+        if (step === 10) sim.emit({ type: 'command:hero-move', target: at(sim, 0, 12) });
+        if (step === 420) sim.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: at(sim, 0, 20) });
+        if (step === 430) sim.emit({ type: 'command:use-ability', abilityId: 'orbital-laser', target: at(sim, 0, 4) });
+        if (step === 500) sim.emit({ type: 'command:use-ability', abilityId: 'emp', target: at(sim, 1, 25) });
+      },
+    };
+    // The frost bomb and the laser on their way, then the laser burning, the EMP on its way
+    const strikes = (snapshot: WaveSnapshot) => snapshot.wave!.strikes.flatMap(([, list]) => list.map((strike) => strike.fields['abilityId']));
+    expect(splitAt(setup, 445, (snapshot) => expect(strikes(snapshot)).toEqual(['frost-bomb', 'orbital-laser']))).toBeGreaterThan(100);
+    expect(splitAt(setup, 520, (snapshot) => expect(strikes(snapshot)).toEqual(['orbital-laser', 'emp']))).toBeGreaterThan(100);
+    expect(splitAt(setup, 600, (snapshot) => {
+      expect(strikes(snapshot)).toEqual(['orbital-laser']);
+      // The beam has burnt enemies: its shares go along
+      expect(snapshot.wave!.strikes[0][1][0].dealt!.length).toBeGreaterThan(0);
+    })).toBeGreaterThan(100);
+  });
+
+  it('goes on bit for bit with the hero on his way and fighting', () => {
+    const setup: Setup = {
+      wave: ground,
+      before: (sim) => sim.gsm.getEventBus().emit({ type: 'debug:ready-hero' }),
+      during: (sim, step) => {
+        // The towers hold their fire, so the enemies come to him
+        if (step === 0) for (const tower of sim.world.towers) sim.emit({ type: 'command:set-hold-fire', towerId: tower.id, holdFire: true });
+        const p = sim.world.routes[0][3];
+        if (step === 1) sim.emit({ type: 'command:hero-move', target: { lat: p.lat, lon: p.lon } });
+        if (step === 5000) for (const tower of sim.world.towers) sim.emit({ type: 'command:set-hold-fire', towerId: tower.id, holdFire: false });
+      },
+    };
+    expect(splitAt(setup, 2500)).toBeGreaterThan(100);
+    for (const step of [3900, 4100]) {
+      expect(splitAt(setup, step, (snapshot) => expect(snapshot.wave!.heroTargets.length).toBe(1))).toBeGreaterThan(100);
+    }
+  });
+
+  it('goes on bit for bit with a player sitting in a tower, aiming and firing', () => {
+    const setup: Setup = {
+      wave: ground,
+      during: (sim, step) => {
+        const tower = sim.world.towers[0];
+        if (step === 5) sim.emit({ type: 'command:man-tower', towerId: tower.id });
+        if (step === 6) sim.emit({ type: 'command:tower-aim', heading: 0.1, pitch: -0.05 });
+        if (step === 200) sim.emit({ type: 'command:tower-trigger', held: true });
+        if (step === 700) sim.emit({ type: 'command:tower-trigger', held: false });
+      },
+    };
+    for (const step of [300, 750]) {
+      expect(splitAt(setup, step, (snapshot) => expect(snapshot.base.mannedByPlayer).toEqual([['local', 'tower-1']]))).toBeGreaterThan(100);
+    }
+  });
+
   it.skip('worms: a chain is not in the snapshot yet (WaveSnapshotRefusal worm)', () => undefined);
   it.skip('oozes: a body along the route is not in the snapshot yet (WaveSnapshotRefusal ooze)', () => undefined);
-  it.skip('strikes on their way: not in the snapshot yet (WaveSnapshotRefusal pending-strike)', () => undefined);
-  it.skip('a hero with a target: not in the snapshot yet (WaveSnapshotRefusal hero-target)', () => undefined);
-  it.skip('a manned tower: not in the snapshot yet (WaveSnapshotRefusal manned)', () => undefined);
 });

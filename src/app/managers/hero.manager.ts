@@ -457,6 +457,11 @@ export class HeroManager implements IGameManager {
     }
   }
 
+  /** The target a wave snapshot saved (GameStateManager.restoreWaveSnapshot), after restoreState() */
+  restoreTarget(target: Enemy | null): void {
+    this.target = target;
+  }
+
   /** Keep the current target while it lives and stays in range, else take the one furthest along. */
   private acquireTarget(hero: Hero): Enemy | null {
     const rangeSq = HERO.rangeM * HERO.rangeM;

@@ -17,8 +17,8 @@ export const WAVE_SNAPSHOT_VERSION = 1;
  * same world with restoreWaveSnapshot(); from there both run on bit for bit
  * alike.
  *
- * Not in it yet (waveSnapshotRefusal says so): worms, oozes, strikes on
- * their way, a hero's target, manned towers. Presentation is not in it at
+ * Not in it yet (waveSnapshotRefusal says so): worms and oozes, and enemies
+ * the debugger placed. Presentation is not in it at
  * all: models, sounds, trails and status auras come back from the restored
  * state or not at all.
  */
@@ -39,6 +39,10 @@ export interface WaveRunState {
   projectiles: SavedProjectile[];
   /** [tower id, target enemy id] of every tower with a target */
   towerTargets: [string, string][];
+  /** [player, target enemy id] of every hero with a target */
+  heroTargets: [string, string][];
+  /** Every player's strikes on their way, roster order */
+  strikes: [string, SavedStrike[]][];
   /** Events waiting for the next sub-step, those of plain data (a wave:completed, a sound); one holding an entity is presentation and left out */
   deferred: unknown[];
 }
@@ -102,5 +106,17 @@ export interface SavedProjectile {
   movement: PlainRecord;
 }
 
+/** A strike on its way (AbilityManager.PendingStrike) */
+export interface SavedStrike {
+  fields: PlainRecord;
+  target: PlainRecord;
+  launch: { towerId: string; position: PlainRecord } | null;
+  sweep: { points: PlainRecord[]; cumulative: (number | string)[]; length: number | string } | null;
+  /** A beam: [enemy id, share of its max HP lost to it] */
+  dealt: [string, number | string][] | null;
+  /** A beam: [enemy id, share not shown yet, since game ms] */
+  unshown: [string, number | string, number | string][] | null;
+}
+
 /** Why the state now cannot be a wave snapshot yet, null when it can. */
-export type WaveSnapshotRefusal = 'worm' | 'ooze' | 'pending-strike' | 'hero-target' | 'manned' | 'debug-enemies';
+export type WaveSnapshotRefusal = 'worm' | 'ooze' | 'debug-enemies';

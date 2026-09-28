@@ -53,6 +53,8 @@ import type { GeoPosition, GamePhase } from '../models/game.types';
 import type { Enemy } from '../entities/enemy.entity';
 import { pointAlongSweep, type RouteSweep } from '../utils/route-sweep';
 import type { HashSink } from '../simulator/state-hash';
+import type { SavedStrike } from '../simulator/wave-snapshot';
+import { assignPlainFields, decodeNumber, encodeNumber, plainFields } from '../simulator/plain-fields';
 
 /**
  * A beam adds an enemy's damage up over its ticks and shows it as one
@@ -604,6 +606,64 @@ export class AbilityManager implements IGameManager {
       sink.num(strike.remainingMs);
       sink.num(strike.burntMs);
       sink.num(strike.kills);
+    }
+  }
+
+  /** The strikes on their way as plain data, for the wave snapshot (wave-snapshot.ts) */
+  captureWaveState(): SavedStrike[] {
+    return this.pending.map((strike) => ({
+      fields: plainFields(strike),
+      target: plainFields(strike.target),
+      launch: strike.launch ? { towerId: strike.launch.towerId, position: plainFields(strike.launch.position) } : null,
+      sweep: strike.sweep ? {
+        points: strike.sweep.points.map((point) => plainFields(point)),
+        cumulative: strike.sweep.cumulative.map(encodeNumber),
+        length: encodeNumber(strike.sweep.length),
+      } : null,
+      dealt: strike.dealt ? [...strike.dealt].map(([enemy, share]) => [enemy.id, encodeNumber(share)]) : null,
+      unshown: strike.unshown
+        ? [...strike.unshown].map(([enemy, u]) => [enemy.id, encodeNumber(u.share), encodeNumber(u.sinceMs)])
+        : null,
+    }));
+  }
+
+  /**
+   * Put the strikes of captureWaveState() back, after restoreState(). A beam's
+   * share of an enemy no longer found is dropped: nothing looks it up again.
+   */
+  restoreWaveState(saved: readonly SavedStrike[], enemy: (id: string) => Enemy | null): void {
+    this.pending.length = 0;
+    for (const s of saved) {
+      const target = { lat: 0, lon: 0 } as GeoPosition;
+      assignPlainFields(target, s.target);
+      let launch: AbilityLaunchSite | null = null;
+      if (s.launch) {
+        const position = { lat: 0, lon: 0 } as GeoPosition;
+        assignPlainFields(position, s.launch.position);
+        launch = { towerId: s.launch.towerId, position };
+      }
+      const sweep: RouteSweep | null = s.sweep ? {
+        points: s.sweep.points.map((p) => {
+          const point = { lat: 0, lon: 0 } as GeoPosition;
+          assignPlainFields(point, p);
+          return point;
+        }),
+        cumulative: s.sweep.cumulative.map(decodeNumber),
+        length: decodeNumber(s.sweep.length),
+      } : null;
+      const dealt = s.dealt ? new Map<Enemy, number>() : null;
+      for (const [id, share] of s.dealt ?? []) {
+        const e = enemy(id);
+        if (e) dealt!.set(e, decodeNumber(share));
+      }
+      const unshown = s.unshown ? new Map<Enemy, UnshownDamage>() : null;
+      for (const [id, share, sinceMs] of s.unshown ?? []) {
+        const e = enemy(id);
+        if (e) unshown!.set(e, { share: decodeNumber(share), sinceMs: decodeNumber(sinceMs) });
+      }
+      const strike = { target, launch, sweep, dealt, unshown } as PendingStrike;
+      assignPlainFields(strike, s.fields);
+      this.pending.push(strike);
     }
   }
 

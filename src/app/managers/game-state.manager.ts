@@ -1418,9 +1418,6 @@ export class GameStateManager {
     const enemies = this.enemyManager.waveSnapshotRefusal();
     if (enemies) return enemies;
     if (this.enemyDebug.debugEnemies().length > 0) return 'debug-enemies';
-    if (this.hasPendingStrikes()) return 'pending-strike';
-    if (this.heroSeats.some((seat) => seat.getTarget() !== null)) return 'hero-target';
-    if (!this.towerLifecycle.mannedTowers().next().done) return 'manned';
     return null;
   }
 
@@ -1444,6 +1441,7 @@ export class GameStateManager {
     };
     for (const projectile of this.projectileManager.getAll()) held(projectile.targetEnemy);
     for (const tower of this.towerManager.getAll()) held(tower.currentTarget);
+    for (const seat of this.heroSeats) held(seat.getTarget());
     const wave = this.waveManager.captureWaveState();
     return {
       version: WAVE_SNAPSHOT_VERSION,
@@ -1455,6 +1453,11 @@ export class GameStateManager {
         enemies: { ...enemies, ghosts: [...ghosts.values()].map((enemy) => this.enemyManager.saveEnemy(enemy, pathId)) },
         projectiles: this.projectileManager.captureWaveState(),
         towerTargets: this.towerManager.getAll().flatMap((tower) => tower.currentTarget ? [[tower.id, tower.currentTarget.id] as [string, string]] : []),
+        heroTargets: this.heroSeats.flatMap((seat) => {
+          const target = seat.getTarget();
+          return target ? [[seat.owner.playerId, target.id] as [string, string]] : [];
+        }),
+        strikes: this.abilitySeats.map((seat) => [seat.owner.playerId, seat.captureWaveState()]),
         deferred: this.eventBus.deferred.filter(plainEvent).map((event) => toPlainData(event)),
       },
     };
@@ -1489,6 +1492,8 @@ export class GameStateManager {
     const enemy = (id: string) => this.enemyManager.getById(id) ?? ghosts.get(id) ?? null;
     this.projectileManager.restoreWaveState(wave.projectiles, enemy, beforeEach);
     for (const [towerId, targetId] of wave.towerTargets) this.towerManager.getById(towerId)?.restoreTarget(enemy(targetId));
+    for (const [playerId, targetId] of wave.heroTargets) this.heroOf(playerId).restoreTarget(enemy(targetId));
+    for (const [playerId, strikes] of wave.strikes) this.abilityOf(playerId).restoreWaveState(strikes, enemy);
     for (const event of wave.deferred) this.eventBus.emitDeferred(event as never);
     GameObject.setIdCounter(snapshot.base.idCounter);
   }
