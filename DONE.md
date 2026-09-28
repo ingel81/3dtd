@@ -4,6 +4,36 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-28
+
+- [x] **E64 Coop Chrome gegen Firefox lief auseinander** (`4091f8fd`): Firefox übersprang nach 12 bis 17 Minuten im
+      Flächenschaden die Abnahme mit dem Abstand (vermutlich sein optimierender JIT). Schalter entfernt, Abfall ohne
+      Zweig; vorher 5 von 7 Räumen abgewichen, danach 0 von 4. Relay: Prüfsumme je Tick für lokale Fehlersuche, die
+      Nachrichtengrenze passt sich an (`f3d60dd5`, `5834e368`).
+- [x] **E28 Eigene Mathe in der Sim** (`fa471ecf`, `f4b7acf9`): sin, cos, atan2, exp, log, pow usw. deterministisch,
+      in Node, Chromium und Firefox bitgleich; Lint-Regel auch für three.js-Methoden mit Trig. Kein Tempo-Verlust.
+- [x] **Zielhöhe der Gegner fest in der Config** (`b82e26da`): maß vorher jeder Client selbst aus dem Modell.
+- [x] **E63 Prüfsummen-Lücken** (`ad0d7fe6`, `c1e6615d`): alle 14 geprüften Verfälschungen fallen sofort auf; alte
+      Replays laden ohne Summenprüfung.
+- [x] **Wellen-Snapshot mitten in der Welle** (`eee5a16f` bis `56a39005`): bitgenau fortsetzbar, auch Würmer, Oozes,
+      Fähigkeiten, Held. Grundlage für C5b; Übertragung nicht gebaut.
+- [x] **E53 Coop mit Bots** (`2bacf6ef`, `0bcef516`): Bot spielt einen Platz, Runner für viele Räume, Chromium oder
+      Firefox je Platz, Mitschnitt je Tab. 22 Läufe zu zweit: gemeinsames HQ trägt alle Lecks (siehe E66).
+- [x] **E62 Drei und vier Spieler** getestet: synchron, Gold je Spieler gleich; Relay-Option `--max-per-address`.
+- [x] **H13 Straßen parallel zu den Kacheln** (`21efe71d`, `20b39d2d`): Anfrage startet früher, Umkreis unverändert.
+- [x] **J4 Große Dateien aufgeteilt** (`cdcf0404` bis `48d82b7b`): Spielzustand, Coop-Dienst, Gegner-Manager,
+      Tiles-Engine, Routen-Raster, Korridor.
+- [x] **J3 Wackeliger Test** (`be0de098`): Zufallswert im Test, 0 von 2000 rot.
+- [x] **E59, H3 Leistung gemessen**: Firefox 1,7 bis 2,6 mal langsamer je Schritt; Projektil-Pool lohnt nicht
+      (GC 0,14 %).
+- [x] **J7, J8 Browser-Tests** alle 14 grün, drei Tests an Menü und doppelten Knopf angepasst.
+- [x] **E32 Kein Desync nach Kill-all** (gebaut 2026-09-26): der Stream `director` ist nicht mehr in der Prüfsumme.
+- [x] **E13 Kanone** (gebaut 2026-09-26): Upgrades 15 % teurer, Schadensanteil 28,9 % → 24,7 % (je 70 Könner-Läufe).
+- [x] **E16 Ooze-Warteschlange über die Wellennaht** (geklärt 2026-09-26): tritt nicht ein, belegt per Test.
+- [x] **E21 Abstand großer Gegner** (gebaut 2026-09-26): mindestens 600 ms in W14, W15, W25.
+- [x] **J5 Doppelte Helfer zusammengelegt** (gebaut 2026-09-26): Storage, Zeitformat, `coordKey`, Tiles-Interna.
+- [x] **J6 Spec-Typen** (gebaut 2026-09-26): ohne Fehler, der Release-Workflow prüft sie mit.
+
 ## 2026-09-27
 
 - [x] **Spawn-Höhe aus den geteilten Zellen** (`6dfc0d5f`, aus E63 b): ohne Höhe am Startpunkt las der Spawn die
