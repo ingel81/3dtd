@@ -20,7 +20,7 @@ Mischung). Alles danach ist gemeinsamer Code.
 | Kandidaten bestimmen | `candidateTemplates()` | `director/templates.ts` (geteilt) |
 | Die fünf Zahlen wählen | `decideWave()` | `sources/adaptive/director-rules.ts` |
 | Welle bemessen | `survivableCount()`, DPS-Rampe | `sources/adaptive/wave-sizing.ts` |
-| Überlebbarkeits-Deckel nachführen | `PressureController` | `sources/adaptive/pressure-controller.ts` |
+| Überlebbarkeits-Deckel nachführen | `PressureController` | `director/pressure-controller.ts` (geteilt) |
 | Fünf Zahlen zur Welle machen | `buildWaveConfig()` | `sources/adaptive/wave-config-builder.ts` |
 | Das Ganze als Source | `AdaptiveWaveSource` | `sources/adaptive/adaptive-source.ts` |
 | Das Ganze im Spiel | `WaveDirector` | `director/wave-director.ts` (geteilt) |
@@ -283,7 +283,7 @@ tatsächlich begrenzt hat.
 | `sources/adaptive/adaptive-source.ts` | der Source selbst: plant, blickt voraus, nimmt Ergebnisse |
 | `sources/adaptive/director-rules.ts` | `decideWave()`: Template-Wahl und die vier Faktoren |
 | `sources/adaptive/wave-sizing.ts` | `survivableCount()`, DPS-Rampe, `lerpRange` |
-| `sources/adaptive/pressure-controller.ts` | Druck-Regelkreis, `targetPressure()`, `wavePressure()` |
+| `director/pressure-controller.ts` (geteilt) | Druck-Regelkreis, `targetPressure()`, `wavePressure()` |
 | `sources/adaptive/wave-config-builder.ts` | Fünf Zahlen zur `WaveConfig`, mit Begründung |
 | `sources/adaptive/wave-context.ts` | Kandidaten, Ranges und Deckel-Vorschau für eine Welle |
 | `director/wave-director.ts` | Angular-Service: plant die Welle, hält History und Druck-Regler |

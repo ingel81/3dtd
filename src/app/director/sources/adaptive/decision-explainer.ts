@@ -28,7 +28,7 @@ import {
   PRESSURE_BAND_LO,
   PRESSURE_BAND_HI,
   type PressureStatus,
-} from './pressure-controller';
+} from '../../pressure-controller';
 import {
   CAMPAIGN_LENGTH,
   BOSS_WAVE_INTERVAL_AFTER_CAMPAIGN,

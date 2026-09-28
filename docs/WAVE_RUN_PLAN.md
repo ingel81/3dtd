@@ -205,6 +205,6 @@ Quelle. Bleiben bewusst geteilt: der Konfigurations-Hash und die Stellschrauben 
 
 ## 13. Nächster Schritt
 
-Bauen:  die neue Quelle `sources/budget/` mit Plan-Datei, Budget-Schritt,
+Bauen: die neue Quelle `sources/budget/` mit Plan-Datei, Budget-Schritt,
 Grenze je Gegner und Zeit unter Feuer aus der Route. Bot-Vergleich alt gegen neu, danach `adaptive` mit ihren
 Sonderregeln entfernen; `table` bleibt.

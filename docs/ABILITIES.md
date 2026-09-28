@@ -246,7 +246,7 @@ danach nicht größer.
 - `WaveOutcomeTracker` addiert die `kills` jedes `ability:resolved` einer
   Welle in `WaveOutcome.abilityKills` (für Log und Analyse).
 - Der Leck-Regler (`leakRatio`) ist am 2026-09-21 dem Druck-Regler gewichen
-  (`director/sources/adaptive/pressure-controller.ts`, siehe
+  (`director/pressure-controller.ts`, siehe
   [DRAMA_CONTROLLER_PLAN.md](DRAMA_CONTROLLER_PLAN.md)); der liest nur die
   verlorenen HP, ein Kill durch eine Fähigkeit geht also nicht eigens ein.
 - Split: Ein Skeleton, das der Schlag tötet, geht durch `EnemyManager.kill()`

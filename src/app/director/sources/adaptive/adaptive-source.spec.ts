@@ -6,7 +6,7 @@ import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-s
 import type { WaveResult } from '../../models/wave-result';
 import { mulberry32 } from '../../../utils/game-rng';
 import { templateObjectForWave } from '../../../configs/campaign.config';
-import { PRESSURE_WARMUP_WAVES } from './pressure-controller';
+import { PRESSURE_WARMUP_WAVES } from '../../pressure-controller';
 
 /**
  * The adaptive source end to end: from a snapshot to a wave that ships.

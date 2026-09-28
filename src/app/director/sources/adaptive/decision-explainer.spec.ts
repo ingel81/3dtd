@@ -4,7 +4,7 @@ import { Injector, runInInjectionContext } from '@angular/core';
 import { explainWaveDecision, type WaveDecisionTrace } from './decision-explainer';
 import { formatExplanation, type WaveSizing } from '../../wave-explanation';
 import { TEMPLATES, type CandidateReason } from '../../templates';
-import type { PressureStatus } from './pressure-controller';
+import type { PressureStatus } from '../../pressure-controller';
 import { WaveDirector } from '../../wave-director';
 import { StateSnapshotService } from '../../state-snapshot.service';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';

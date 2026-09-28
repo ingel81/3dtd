@@ -5,7 +5,7 @@ import {
   PRESSURE_WARMUP_WAVES,
   targetPressure,
 } from './pressure-controller';
-import { directorParams } from '../../director-params';
+import { directorParams } from './director-params';
 
 describe('PressureController: one wave counts at most three times the target (TODO E48)', () => {
   const first = PRESSURE_WARMUP_WAVES + 1;

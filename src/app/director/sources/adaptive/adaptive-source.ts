@@ -52,7 +52,7 @@ import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.conf
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import { buildWaveContext } from './wave-context';
 import { decideWave, type DirectorDecision, type TieBreak } from './director-rules';
-import { PressureController, wavePressure } from './pressure-controller';
+import { PressureController, wavePressure } from '../../pressure-controller';
 import { buildWaveConfig } from './wave-config-builder';
 import { capIsBinding } from './decision-explainer';
 import type { WaveSizing } from '../../wave-explanation';

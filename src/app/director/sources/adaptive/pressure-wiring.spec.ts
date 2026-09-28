@@ -5,7 +5,7 @@ import { WaveDirector } from '../../wave-director';
 import { AdaptiveWaveSource } from './adaptive-source';
 import { mulberry32 } from '../../../utils/game-rng';
 import { StateSnapshotService } from '../../state-snapshot.service';
-import { PRESSURE_MIN_SAMPLES, PRESSURE_WARMUP_WAVES, targetPressure } from './pressure-controller';
+import { PRESSURE_MIN_SAMPLES, PRESSURE_WARMUP_WAVES, targetPressure } from '../../pressure-controller';
 import { TEMPLATES } from '../../templates';
 import { survivableCount } from './wave-sizing';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../models/game-state-snapshot';

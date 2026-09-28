@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { buildWaveConfig, type PressureReading } from './wave-config-builder';
 import { buildWaveContext } from './wave-context';
 import { MAX_WAVE_DURATION_MS, TEMPLATES } from '../../templates';
-import { PressureController } from './pressure-controller';
+import { PressureController } from '../../pressure-controller';
 import { createEmptySnapshot } from '../../models/game-state-snapshot';
 import { spawnFloorMs } from '../../../configs/enemy-types.config';
 

@@ -18,8 +18,8 @@ import {
 } from './wave-sizing';
 import type { DirectorDecision } from './director-rules';
 import { directorParams } from '../../director-params';
-import type { PressureStatus } from './pressure-controller';
-import { targetPressure } from './pressure-controller';
+import type { PressureStatus } from '../../pressure-controller';
+import { targetPressure } from '../../pressure-controller';
 import {
   ENEMY_TYPES, lineageHp, lineageLeakDamage, spawnFloorMs, splitBodyCount, type EnemyTypeId,
 } from '../../../configs/enemy-types.config';

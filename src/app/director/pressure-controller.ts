@@ -46,8 +46,8 @@
  * gegen Wellen, die für eine längst abgebaute Verteidigung bemessen waren.
  */
 
-import { directorParams } from '../../director-params';
-import { DetMath } from '../../../utils/det-math';
+import { directorParams } from './director-params';
+import { DetMath } from '../utils/det-math';
 
 /**
  * Wellen, die der Regler gar nicht erst ansieht.
@@ -199,6 +199,13 @@ export interface PressureStatus {
  */
 
 export class PressureController {
+  /**
+   * @param limits Spielraum des Multiplikators. Der adaptive Director braucht
+   *               0,5 bis 20, weil er damit die Anzahl vom Deckel her öffnet; das
+   *               Budget-Modell nur halb bis doppelt (Entscheidung 2026-09-28).
+   */
+  constructor(private readonly limits: { min: number; max: number } = { min: PRESSURE_MULT_MIN, max: PRESSURE_MULT_MAX }) {}
+
   /** Geglätteter Druck, null bevor die erste Welle gezählt hat. */
   private smoothed: number | null = null;
   private sampleCount = 0;
@@ -314,8 +321,8 @@ export class PressureController {
     const clamped = Math.max(-PRESSURE_MAX_STEP, Math.min(PRESSURE_MAX_STEP, error));
     const step = DetMath.exp(params.pressureGain * clamped);
     this.multiplier = Math.max(
-      PRESSURE_MULT_MIN,
-      Math.min(PRESSURE_MULT_MAX, this.multiplier * step),
+      this.limits.min,
+      Math.min(this.limits.max, this.multiplier * step),
     );
     this.lastStep = measured < target ? 'opened' : 'closed';
     return this.multiplier;
