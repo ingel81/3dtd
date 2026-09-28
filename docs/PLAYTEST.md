@@ -124,6 +124,25 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 - **T88 Lightning (E43)**: Lightning an einer Gasse. Erwartung: kein Blitz mehr in die Gasse, wenn der Gegner um die
   Ecke ist; keine Sprünge zu Bodengegnern, die der Tower nicht sieht.
 
+## B Budget-Quelle: Laufplan mit HP gegen die Abwehr (2026-09-29)
+
+Neue Wellenquelle nach [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), noch nicht Standard. Eingeschaltet mit `waves=budget` in
+der Adresse (bleibt beim Ortswechsel erhalten) oder im Wave-Debug-Fenster als Quelle des nächsten Laufs. Die Bots
+kommen mit ihr bis W24 bis W40, mit dem heutigen Director bis W30 bis W42; Bots bauen aber anders als Menschen, darum
+diese Läufe. Jeden Lauf am Ende über "Runs" speichern und exportieren: das Log hat je Welle Budget, Zeitfenster und
+welche Gegner an ihrer Grenze hängen.
+
+- **B1 Solo auf einer echten Karte:** `http://localhost:4200/?waves=budget`, Ort wählen, normal spielen bis zum Ende.
+  Erwartung: keine Welle, die aus dem Nichts ein Drittel der HP kostet; Boss-Wellen (10, 20, 30, 40 …) fordernd,
+  aber nicht tödlich; nach einem Boss eine leichtere Welle. Welle und HP-Verlust jeder auffälligen Welle notieren.
+- **B2 "Why this wave":** Wave-Debug-Fenster während einer Welle. Erwartung: "Run plan, row N", das Budget in
+  Sekunden, bei gekürztem Budget das Zeitfenster, bei Gegnern an ihrer Grenze deren HP-Faktor. Liest es sich
+  verständlich?
+- **B3 Vorschau:** Wellen-Panel zwischen zwei Wellen. Erwartung: Name und Anzahl der nächsten Wellen stehen fest
+  und stimmen mit dem, was dann kommt; Luftwarnung vor Luftwellen (7, 8, 12 …).
+- **B4 Coop:** Host öffnet mit `?waves=budget` einen Raum, der Gast kommt über den normalen Einladungslink (ohne
+  `waves`). Erwartung: beide spielen denselben Plan (gleiche Wellennamen), keine Abweichung, Lauf bis zum Ende.
+
 ## K8 Desktop-Build
 
 K8.1 bis K8.3 und K8.5 sind ok und im [Archiv](archive/PLAYTEST_2026-09.md). Offen nur, was ein Rechner mit zwei
