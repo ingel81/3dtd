@@ -48,8 +48,12 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
   1 ULP vom wahren Wert); eine Lint-Regel verbietet die nativen Funktionen und `**` in den Sim-Ordnern. Belegt:
   Node 24, Chromium 141 und Firefox 142 geben für 1 Mio. Eingaben je Funktion dieselben Bits, die nativen weichen
   dabei ab (`tools/det-math-browsers/run.mjs`). Die Neu-Simulation zweier Wellen gibt dort dieselben Prüfsummen,
-  das tat sie aber auch mit den nativen Funktionen: Die Testwelt liegt am Äquator, wo die Winkel klein sind. Dass
-  die Sim nicht mehr an `Math.*` hängt, zeigen die Specs: Sie verfälschen die nativen Funktionen und erwarten
+  das tat sie aber auch mit den nativen Funktionen, am Äquator wie in einer Welt bei 49° N mit gebogenen Routen
+  (2026-09-28). Dort lieferten im alten Stand je Engine 1.100 bis 3.700 der 164.000 `cos`-Aufrufe und bis 13.000
+  `hypot`-Aufrufe andere Bits als DetMath, der gehashte Zustand blieb trotzdem gleich: In diesem Szenario erreichen
+  die abweichenden Bits ihn nicht. Ob die Abweichung Chrome gegen Firefox im echten Spiel (Tick 210) aus der Mathe
+  kam, bleibt damit offen.
+  Dass die Sim nicht mehr an `Math.*` hängt, zeigen die Specs: Sie verfälschen die nativen Funktionen und erwarten
   dieselben Prüfsummen.
   Nativ bleiben Klang, Bild, Kamera und der Weltaufbau des Hosts aus OSM und Tiles, der im Weltpaket reist.
 - **Snapshot mitten in der Welle** (Gegner, Projektile, Spawner, Statuseffekte, Würmer) gibt es nicht.
