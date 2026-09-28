@@ -1338,7 +1338,7 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | Ordner | Zweck | Einstieg |
 |---|---|---|
 | (Root) | Root-Component, Provider, Routing, Spielkomponente | `app.ts`, `tower-defense.component.ts` (Template mit den Debug-Fenstern in einem `@defer`-Block) |
-| `director/` | Wellenquellen: Vertrag, Registry, WaveDirector, Templates, Defense-Analyse; Druck-Regler (geteilt); `sources/adaptive` (Regeln), `sources/table` | `wave-source.ts`, `wave-director.ts`, `sources/adaptive/director-rules.ts`, `pressure-controller.ts` |
+| `director/` | Wellenquellen: Vertrag, Registry, WaveDirector, Templates, Defense-Analyse; Druck-Regler (geteilt); `sources/adaptive` (Regeln), `sources/table`, `sources/budget` (Laufplan, Budget) | `wave-source.ts`, `wave-director.ts`, `sources/adaptive/director-rules.ts`, `pressure-controller.ts` |
 | `bots/` | Bots (Strategy Pattern), Strategien je Bereich, Bot-Session mit WebSocket-Client zum Bot-Server | `bot-session.ts`, `bots/`, `strategies/` |
 | `coop/` | Coop: Lockstep, Protokoll, Sitzung, Weltpaket, Prüfsummen, Raum-Optionen, Befehlsprüfung | `lockstep.ts`, `coop-session.ts`, `protocol.ts`, siehe [COOP_PLAN.md](COOP_PLAN.md) |
 | `components/` | UI-Komponenten (Header, Sidebar-Panels, Dialoge, Leisten, Debug-Fenster) | siehe [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#dateien) |

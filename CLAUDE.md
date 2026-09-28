@@ -24,7 +24,9 @@ npm run coop-server  # Coop-Relay (:3003), docs/COOP_PLAN.md
 - Kein Backend im Spiel-Client - komplett clientseitig (`bot-server/` nur für Bot-Läufe)
 - **Wellenquellen sind austauschbar** (`director/wave-source.ts`, ein Unterordner je Variante unter
   `director/sources/`, Standard in `configs/director.config.ts`). Der adaptive Source ist regelbasiert und
-  läuft ohne Server und ohne Modell, der Tabellen-Source spielt eine editierbare Liste. Rahmen in
+  läuft ohne Server und ohne Modell, der Tabellen-Source spielt eine editierbare Liste, der Budget-Source einen
+  Laufplan mit HP gegen die Abwehr ([WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md), `?waves=budget`). Leck, Gold und
+  Boss je Welle liefert die Quelle (`director/wave-rules.ts`). Rahmen in
   [WAVE_SOURCE_PLAN.md](docs/WAVE_SOURCE_PLAN.md), der adaptive in
   [WAVE_DIRECTOR.md](docs/WAVE_DIRECTOR.md), Umbau in [BALANCING_PLAN.md](docs/BALANCING_PLAN.md)
 - Tile-Zugang: Cesium-Ion-Token (Standard) oder Google-Maps-Key. `ConfigService` liest ihn aus drei Quellen, die
@@ -43,7 +45,7 @@ src/app/
 │   ├── bots/                   # StrategyBot, Factory
 │   └── strategies/             # Placement, Upgrade, Wave, Research, Ability, Hero Strategies
 ├── director/                   # Wellenquellen: Vertrag (wave-source.ts), WaveDirector, Templates,
-│                               # Snapshot, Verteidigungsanalyse; sources/adaptive + sources/table
+│                               # Snapshot, Verteidigungsanalyse; sources/adaptive + sources/table + sources/budget
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic/ScreenShake Services (Three.js-coupled, Angular-frei)
 ├── coop/                       # Coop: Lockstep, Relay-Protokoll, Weltpaket, Prüfsummen, Raum-Optionen (docs/COOP_PLAN.md)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)

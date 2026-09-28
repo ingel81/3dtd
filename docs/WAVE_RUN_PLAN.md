@@ -203,7 +203,17 @@ Sauber geteilt sind `director/defense-analyzer.ts` (Abwehr messen, von allen gen
 Geschlossen am 2026-09-28 (WAVE_SOURCE_PLAN.md, Abschnitt 17): die Stellen lesen jetzt `waveRules()` der aktiven
 Quelle. Bleiben bewusst geteilt: der Konfigurations-Hash und die Stellschrauben des adaptiven Directors.
 
-## 13. Nächster Schritt
+## 13. Stand des Baus (2026-09-28)
+
+- Regeln je Welle über den Vertrag (Abschnitt 12), gebaut.
+- Druck-Regler geteilt (`director/pressure-controller.ts`), Spielraum je Quelle; Budget-Quelle halb bis doppelt.
+- Zeit unter Feuer aus der Route: `metersUnderFire` im Schnappschuss, gemessen mit der Sichtlinie der Tower,
+  Boden und Luft getrennt, gemittelt über die Spuren.
+- `sources/budget/`: `run-plan.json` (der Entwurf aus Abschnitt 11), `budget.ts` (die Schritte aus Abschnitt 9 mit
+  Grenze je Gegner), `budget-source.ts`. Leckschaden wächst stetig mit der Kurve (`LEAK_GROWTH`), Boss-Gold nach dem
+  Plan. Noch nicht Standard; `?waves=budget` in der Adresse schaltet einen Tab um.
+
+## 14. Nächster Schritt
 
 Bauen: die neue Quelle `sources/budget/` mit Plan-Datei, Budget-Schritt,
 Grenze je Gegner und Zeit unter Feuer aus der Route. Bot-Vergleich alt gegen neu, danach `adaptive` mit ihren
