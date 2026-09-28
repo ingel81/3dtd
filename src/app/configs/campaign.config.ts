@@ -255,10 +255,12 @@ const BOSS_GOLD_MULTIPLIER = 2;
  *
  * (Endgame difficulty still compounds via `endgameHpMultiplier`, not via gold.)
  *
- * Boss waves past the campaign (every fifth, see isBossWave) pay double.
+ * Boss waves past the campaign pay double: by default the campaign's cadence
+ * (every fifth, see isBossWave), a wave source with its own plan passes its own.
  */
 export function waveGold(
   waveNum: number,
+  boss: boolean = isBossWave(waveNum),
 ): { kill: number; complete: number } {
   if (waveNum < 1) return { kill: 0, complete: 0 };
   const len = CAMPAIGN.length;
@@ -270,7 +272,7 @@ export function waveGold(
   const scale = Math.max(
     GOLD_SUSTAIN_FRACTION,
     DetMath.pow(GOLD_TAPER_PER_WAVE, waveNum - len),
-  ) * (isBossWave(waveNum) ? BOSS_GOLD_MULTIPLIER : 1);
+  ) * (boss ? BOSS_GOLD_MULTIPLIER : 1);
   return {
     kill: Math.round(last.killGold * scale),
     complete: Math.round(last.completionGold * scale),

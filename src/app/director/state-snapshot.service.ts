@@ -136,7 +136,9 @@ export class StateSnapshotService {
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
-    defense.defenseReachPercent = this.gridService.getDefenseReachPercent(this.gameState.getCachedRoutes());
+    const routes = this.gameState.getCachedRoutes();
+    defense.defenseReachPercent = this.gridService.getDefenseReachPercent(routes);
+    defense.metersUnderFire = this.gridService.getMetersUnderFire(routes);
     defense.killZoneStrength = estimateKillZoneStrength(towers);
 
     const capabilities = defense.capabilities;

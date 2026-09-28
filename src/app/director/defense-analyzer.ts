@@ -117,6 +117,7 @@ export function analyzeDefense(
     avgTowerLevel: avgLevel,
     pathCoverage: 0, // Requires path data - calculated separately
     defenseReachPercent: 0, // Requires path data - calculated separately
+    metersUnderFire: { ground: 0, air: 0 }, // Requires path data - calculated separately
     killZoneStrength: 0, // Requires spatial analysis - calculated separately
     towerVariety,
     capabilities,
@@ -524,6 +525,7 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
     avgTowerLevel: 0,
     pathCoverage: 0,
     defenseReachPercent: 0,
+    metersUnderFire: { ground: 0, air: 0 },
     killZoneStrength: 0,
     towerVariety: 0,
     capabilities: {

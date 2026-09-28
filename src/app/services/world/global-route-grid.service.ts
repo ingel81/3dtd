@@ -744,6 +744,44 @@ export class GlobalRouteGridService {
     return cumulativeDistances[lastVisibleIndex] / totalLength;
   }
 
+  /**
+   * Metres of route a tower can shoot at, ground and air, averaged over the
+   * routes (each coop lane walks its own). The route is walked in steps of
+   * half a cell; a step counts when any tower sees its cell, the same LOS data
+   * targeting uses. What an enemy spends under fire is this over its speed
+   * (docs/WAVE_RUN_PLAN.md, decision on the time under fire).
+   *
+   * Deterministic in coop: routes come with the world package and the LOS
+   * masks from the host.
+   */
+  getMetersUnderFire(routes: GeoPosition[][]): { ground: number; air: number } {
+    const sync = this.grid.getCoordinateSync();
+    const usable = routes.filter((path) => path.length >= 2);
+    if (!this.initialized || !sync || usable.length === 0) return { ground: 0, air: 0 };
+
+    const step = 1;
+    let ground = 0;
+    let air = 0;
+    for (const path of usable) {
+      const points = path.map((p) => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
+      for (let i = 0; i < points.length - 1; i++) {
+        const a = points[i];
+        const b = points[i + 1];
+        const length = Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
+        const steps = Math.max(1, Math.round(length / step));
+        const each = length / steps;
+        for (let k = 0; k < steps; k++) {
+          const t = (k + 0.5) / steps;
+          const cell = this.grid.getCellAt(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t);
+          if (!cell) continue;
+          if (anyVisible(cell.towerVisibility)) ground += each;
+          if (anyVisible(cell.airVisibility)) air += each;
+        }
+      }
+    }
+    return { ground: ground / usable.length, air: air / usable.length };
+  }
+
   private updateDefenseReachMarker(x: number, y: number, z: number): void {
     if (!this.scene) return;
 
@@ -796,4 +834,9 @@ export class GlobalRouteGridService {
     }
     this.scene = null;
   }
+}
+
+function anyVisible(visibility: Map<string, boolean>): boolean {
+  for (const visible of visibility.values()) if (visible) return true;
+  return false;
 }

@@ -11,7 +11,7 @@ import { bossVariantForWave } from './boss-variants.config';
 
 export const CAMPAIGN_WAVE_RULES: WaveRules = {
   leakScale: enemyBaseDamageForWave,
-  gold: waveGold,
+  gold: (wave) => waveGold(wave),
   isBoss: isBossWave,
   enemyMix: (wave) => templateObjectForWave(wave)?.enemies ?? null,
   name: (wave) => bossVariantForWave(wave)?.name ?? templateObjectForWave(wave)?.name ?? null,

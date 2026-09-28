@@ -26,7 +26,7 @@ import type { WaveRules } from './wave-rules';
  * Grows with every implementation under `sources/`; the registry maps each id
  * to its factory, so an id without an implementation cannot be configured.
  */
-export type WaveSourceId = 'adaptive' | 'table';
+export type WaveSourceId = 'adaptive' | 'table' | 'budget';
 
 /**
  * When a source commits the next wave.

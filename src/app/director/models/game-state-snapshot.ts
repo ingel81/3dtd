@@ -100,6 +100,13 @@ export interface DefenseAnalysis {
   /** Furthest point on path reachable by any tower (0-1) */
   defenseReachPercent: number;
 
+  /**
+   * Metres of route some tower can shoot at, ground and air, measured on the
+   * route with the targeting LOS (GlobalRouteGridService.getMetersUnderFire).
+   * Over an enemy's speed: the seconds it spends under fire.
+   */
+  metersUnderFire: { ground: number; air: number };
+
   /** Concentrated firepower score (0-1) - higher means kill zones exist */
   killZoneStrength: number;
 
@@ -253,6 +260,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
       avgTowerLevel: 0,
       pathCoverage: 0,
       defenseReachPercent: 0,
+      metersUnderFire: { ground: 0, air: 0 },
       killZoneStrength: 0,
       towerVariety: 0,
       capabilities: {

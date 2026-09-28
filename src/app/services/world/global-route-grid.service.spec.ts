@@ -175,7 +175,33 @@ describe('GlobalRouteGridService', () => {
     });
   });
 
-  describe('defense reach', () => {
+  describe('metres under fire', () => {
+    it('is nothing before initialize or without a route', () => {
+      expect(service.getMetersUnderFire([route])).toEqual({ ground: 0, air: 0 });
+      init();
+      expect(service.getMetersUnderFire([])).toEqual({ ground: 0, air: 0 });
+    });
+
+    it('counts the stretch of route a tower sees, and grows with a second tower', () => {
+      init();
+      tower('t1', 10, 3);
+      const one = service.getMetersUnderFire([route]).ground;
+      expect(one).toBeGreaterThan(3);
+      expect(one).toBeLessThan(10);
+
+      tower('t2', 30, 3);
+      expect(service.getMetersUnderFire([route]).ground).toBeCloseTo(2 * one, 0);
+    });
+
+    it('does not count a tower whose view is blocked', () => {
+      walledGround();
+      init();
+      tower('t1', 10, 3);
+      expect(service.getMetersUnderFire([route]).ground).toBe(0);
+    });
+  });
+
+    describe('defense reach', () => {
     it('is 0 before initialize', () => {
       expect(service.getDefenseReachPercent([route])).toBe(0);
     });

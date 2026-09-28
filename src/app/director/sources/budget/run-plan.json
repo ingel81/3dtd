@@ -1,0 +1,635 @@
+[
+  {
+    "wave": 1,
+    "name": "Zombie Horde",
+    "enemies": {
+      "zombie": 18,
+      "zombie-v2": 2
+    },
+    "strength": 1,
+    "spawnDelay": 100,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 2,
+    "name": "Rat Tide",
+    "enemies": {
+      "rat": 100
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 3,
+    "name": "Penguin Rush",
+    "enemies": {
+      "penguin": 108,
+      "rat": 12
+    },
+    "strength": 1,
+    "spawnDelay": 100,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 4,
+    "name": "Light Mix",
+    "enemies": {
+      "wallsmasher": 15,
+      "spider": 15
+    },
+    "strength": 1,
+    "spawnDelay": 350,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 5,
+    "name": "Wallsmasher Crew",
+    "enemies": {
+      "wallsmasher": 15
+    },
+    "strength": 1,
+    "spawnDelay": 500
+  },
+  {
+    "wave": 6,
+    "name": "Spider Swarm",
+    "enemies": {
+      "spider": 268
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 7,
+    "name": "Bat Swarm",
+    "enemies": {
+      "bat": 291
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 8,
+    "name": "Hornet Strike",
+    "enemies": {
+      "hornet": 81,
+      "bat": 35
+    },
+    "strength": 1,
+    "spawnDelay": 300,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 9,
+    "name": "Tank Column",
+    "enemies": {
+      "tank": 16,
+      "zombie-soldier": 11
+    },
+    "strength": 1,
+    "spawnDelay": 600,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 10,
+    "name": "Boss: Herbert",
+    "enemies": {
+      "herbert": 1,
+      "tank": 10,
+      "zombie": 9
+    },
+    "strength": 1.3,
+    "spawnDelay": 1951,
+    "pattern": "clustered",
+    "boss": true
+  },
+  {
+    "wave": 11,
+    "name": "Bear Pack",
+    "enemies": {
+      "bear": 42
+    },
+    "strength": 0.7,
+    "spawnDelay": 600
+  },
+  {
+    "wave": 12,
+    "name": "Dragon Elite",
+    "enemies": {
+      "dragon": 32,
+      "hornet": 21
+    },
+    "strength": 1,
+    "spawnDelay": 840,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 13,
+    "name": "Ghost Surge",
+    "enemies": {
+      "ghost": 82,
+      "wraith": 21
+    },
+    "strength": 1,
+    "spawnDelay": 400,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 14,
+    "name": "Mammoth Siege",
+    "enemies": {
+      "mammoth": 21,
+      "wallsmasher": 9
+    },
+    "strength": 1,
+    "spawnDelay": 850,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 15,
+    "name": "Golem Squad",
+    "enemies": {
+      "stone-golem": 6
+    },
+    "strength": 1,
+    "spawnDelay": 2400
+  },
+  {
+    "wave": 16,
+    "name": "Chaos Wave",
+    "enemies": {
+      "zombie": 27,
+      "tank": 27,
+      "hornet": 18,
+      "bear": 17
+    },
+    "strength": 1,
+    "spawnDelay": 510,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 17,
+    "name": "Wraith Storm",
+    "enemies": {
+      "wraith": 150
+    },
+    "strength": 1,
+    "spawnDelay": 400
+  },
+  {
+    "wave": 18,
+    "name": "Armor Gauntlet",
+    "enemies": {
+      "rat": 19,
+      "tank": 19,
+      "mammoth": 19,
+      "ghost": 19
+    },
+    "strength": 1,
+    "spawnDelay": 587.5,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 19,
+    "name": "Skeleton Swarm",
+    "enemies": {
+      "skeleton": 577
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 20,
+    "name": "Boss: Ooze",
+    "enemies": {
+      "ooze": 1,
+      "zombie": 200
+    },
+    "strength": 1.3,
+    "spawnDelay": 400,
+    "pattern": "interleaved",
+    "boss": true
+  },
+  {
+    "wave": 21,
+    "name": "Bat Swarm",
+    "enemies": {
+      "bat": 417
+    },
+    "strength": 0.7,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 22,
+    "name": "Tank Column",
+    "enemies": {
+      "tank": 48,
+      "zombie-soldier": 32
+    },
+    "strength": 1,
+    "spawnDelay": 600,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 23,
+    "name": "Spider Swarm",
+    "enemies": {
+      "spider": 727
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 24,
+    "name": "Ghost Surge",
+    "enemies": {
+      "ghost": 126,
+      "wraith": 32
+    },
+    "strength": 1,
+    "spawnDelay": 400,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 25,
+    "name": "Mammoth Siege",
+    "enemies": {
+      "mammoth": 38,
+      "wallsmasher": 16
+    },
+    "strength": 1,
+    "spawnDelay": 850,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 26,
+    "name": "Zombie Horde",
+    "enemies": {
+      "zombie": 552,
+      "zombie-v2": 61
+    },
+    "strength": 1,
+    "spawnDelay": 100,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 27,
+    "name": "Dragon Elite",
+    "enemies": {
+      "dragon": 52,
+      "hornet": 35
+    },
+    "strength": 1,
+    "spawnDelay": 840,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 28,
+    "name": "Mech Army",
+    "enemies": {
+      "mech": 46
+    },
+    "strength": 1,
+    "spawnDelay": 1000
+  },
+  {
+    "wave": 29,
+    "name": "Chaos Wave",
+    "enemies": {
+      "zombie": 39,
+      "tank": 39,
+      "hornet": 26,
+      "bear": 25
+    },
+    "strength": 1,
+    "spawnDelay": 510,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 30,
+    "name": "Boss: Skarnax",
+    "enemies": {
+      "worm": 1,
+      "skeleton": 255
+    },
+    "strength": 1.3,
+    "spawnDelay": 400,
+    "pattern": "interleaved",
+    "boss": true
+  },
+  {
+    "wave": 31,
+    "name": "Light Mix",
+    "enemies": {
+      "wallsmasher": 60,
+      "spider": 60
+    },
+    "strength": 0.7,
+    "spawnDelay": 350,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 32,
+    "name": "Armor Gauntlet",
+    "enemies": {
+      "rat": 27,
+      "tank": 27,
+      "mammoth": 27,
+      "ghost": 27
+    },
+    "strength": 1,
+    "spawnDelay": 587.5,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 33,
+    "name": "Golem Squad",
+    "enemies": {
+      "stone-golem": 17
+    },
+    "strength": 1,
+    "spawnDelay": 2400
+  },
+  {
+    "wave": 34,
+    "name": "Mammoth Siege",
+    "enemies": {
+      "mammoth": 45,
+      "wallsmasher": 19
+    },
+    "strength": 1,
+    "spawnDelay": 850,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 35,
+    "name": "Wraith Storm",
+    "enemies": {
+      "wraith": 207
+    },
+    "strength": 1,
+    "spawnDelay": 400
+  },
+  {
+    "wave": 36,
+    "name": "Zombie Horde",
+    "enemies": {
+      "zombie": 630,
+      "zombie-v2": 70
+    },
+    "strength": 1,
+    "spawnDelay": 100,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 37,
+    "name": "Penguin Rush",
+    "enemies": {
+      "penguin": 450,
+      "rat": 50
+    },
+    "strength": 1,
+    "spawnDelay": 173,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 38,
+    "name": "Skeleton Swarm",
+    "enemies": {
+      "skeleton": 781
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 39,
+    "name": "Rat Tide",
+    "enemies": {
+      "rat": 887
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 40,
+    "name": "Boss: Stone Golem",
+    "enemies": {
+      "stone-golem": 21,
+      "mammoth": 48
+    },
+    "strength": 1.3,
+    "spawnDelay": 1200,
+    "pattern": "clustered",
+    "boss": true
+  },
+  {
+    "wave": 41,
+    "name": "Bear Pack",
+    "enemies": {
+      "bear": 91
+    },
+    "strength": 0.7,
+    "spawnDelay": 600
+  },
+  {
+    "wave": 42,
+    "name": "Dragon Elite",
+    "enemies": {
+      "dragon": 60,
+      "hornet": 40
+    },
+    "strength": 1,
+    "spawnDelay": 840,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 43,
+    "name": "Wallsmasher Crew",
+    "enemies": {
+      "wallsmasher": 136
+    },
+    "strength": 1,
+    "spawnDelay": 500
+  },
+  {
+    "wave": 44,
+    "name": "Rat Tide",
+    "enemies": {
+      "rat": 908
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 45,
+    "name": "Bear Pack",
+    "enemies": {
+      "bear": 120
+    },
+    "strength": 1,
+    "spawnDelay": 728
+  },
+  {
+    "wave": 46,
+    "name": "Tank Column",
+    "enemies": {
+      "tank": 67,
+      "zombie-soldier": 44
+    },
+    "strength": 1,
+    "spawnDelay": 600,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 47,
+    "name": "Light Mix",
+    "enemies": {
+      "wallsmasher": 114,
+      "spider": 114
+    },
+    "strength": 1,
+    "spawnDelay": 350,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 48,
+    "name": "Skeleton Swarm",
+    "enemies": {
+      "skeleton": 820
+    },
+    "strength": 1,
+    "spawnDelay": 100
+  },
+  {
+    "wave": 49,
+    "name": "Dragon Elite",
+    "enemies": {
+      "dragon": 60,
+      "hornet": 40
+    },
+    "strength": 1,
+    "spawnDelay": 856,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 50,
+    "name": "Boss: Dragon Flight",
+    "enemies": {
+      "dragon": 40,
+      "hornet": 40
+    },
+    "strength": 1.3,
+    "spawnDelay": 1487,
+    "pattern": "clustered",
+    "boss": true
+  },
+  {
+    "wave": 51,
+    "name": "Mammoth Siege",
+    "enemies": {
+      "mammoth": 25,
+      "wallsmasher": 10
+    },
+    "strength": 0.7,
+    "spawnDelay": 850,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 52,
+    "name": "Wraith Storm",
+    "enemies": {
+      "wraith": 224
+    },
+    "strength": 1,
+    "spawnDelay": 400
+  },
+  {
+    "wave": 53,
+    "name": "Golem Squad",
+    "enemies": {
+      "stone-golem": 21
+    },
+    "strength": 1,
+    "spawnDelay": 2400
+  },
+  {
+    "wave": 54,
+    "name": "Spider Swarm",
+    "enemies": {
+      "spider": 800
+    },
+    "strength": 1,
+    "spawnDelay": 115
+  },
+  {
+    "wave": 55,
+    "name": "Chaos Wave",
+    "enemies": {
+      "zombie": 46,
+      "tank": 46,
+      "hornet": 30,
+      "bear": 30
+    },
+    "strength": 1,
+    "spawnDelay": 510,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 56,
+    "name": "Tank Column",
+    "enemies": {
+      "tank": 69,
+      "zombie-soldier": 46
+    },
+    "strength": 1,
+    "spawnDelay": 600,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 57,
+    "name": "Ghost Surge",
+    "enemies": {
+      "ghost": 162,
+      "wraith": 41
+    },
+    "strength": 1,
+    "spawnDelay": 400,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 58,
+    "name": "Hornet Strike",
+    "enemies": {
+      "hornet": 210,
+      "bat": 90
+    },
+    "strength": 1,
+    "spawnDelay": 306,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 59,
+    "name": "Armor Gauntlet",
+    "enemies": {
+      "rat": 31,
+      "tank": 31,
+      "mammoth": 31,
+      "ghost": 32
+    },
+    "strength": 1,
+    "spawnDelay": 587.5,
+    "pattern": "interleaved"
+  },
+  {
+    "wave": 60,
+    "name": "Boss: Skarnax",
+    "enemies": {
+      "worm": 1,
+      "skeleton": 293
+    },
+    "strength": 1.3,
+    "spawnDelay": 400,
+    "pattern": "interleaved",
+    "boss": true
+  }
+]
