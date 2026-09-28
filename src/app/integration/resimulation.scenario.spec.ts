@@ -356,3 +356,52 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     resim.end();
   });
 });
+
+describe('The simulation without native transcendentals (TODO E28)', () => {
+  const NATIVE = ['sin', 'cos', 'tan', 'atan', 'atan2', 'asin', 'acos', 'exp', 'log', 'pow', 'hypot', 'expm1', 'log1p',
+    'log2', 'log10', 'cbrt', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh'] as const;
+  const M = Math as unknown as Record<string, (...args: number[]) => number>;
+  const original = Object.fromEntries(NATIVE.map((fn) => [fn, M[fn]]));
+  afterEach(() => {
+    for (const fn of NATIVE) M[fn] = original[fn];
+  });
+
+  /** Every native transcendental off in its last bits, as another engine's might be (and more) */
+  function skewNativeMath(): void {
+    for (const fn of NATIVE) {
+      const native = original[fn];
+      M[fn] = (...args: number[]) => {
+        const r = native(...args);
+        return r === 0 || !Number.isFinite(r) ? r : r * (1 + 2 ** -40);
+      };
+    }
+  }
+
+  /** Build the world and play a wave and the boss wave; the hashes the recorder took along the way */
+  function play(): { hashes: number[][]; end: number } {
+    const world = buildWorld();
+    try {
+      const end = playLive(world);
+      const { gsm } = world;
+      const bus = gsm.getEventBus();
+      let now = 1e6;
+      for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+      bus.emit({ type: 'command:start-wave', config: bossConfig() } as never);
+      for (let f = 0; f < 20000 && gsm.waveManager.phase() === 'wave'; f++) gsm.update((now += 10 + ((f * 13) % 29)));
+      expect(gsm.simRecorder.records.length).toBe(2);
+      return { hashes: gsm.simRecorder.records.map((r) => r.hashes), end };
+    } finally {
+      world.restoreMath();
+    }
+  }
+
+  it('gives the same hashes when every native sin, cos, pow and the like returns other bits', () => {
+    const native = play();
+    skewNativeMath();
+    expect(Math.sin(1)).not.toBe(original['sin'](1));
+    const skewed = play();
+    expect(native.hashes[0].length).toBeGreaterThan(5);
+    expect(native.hashes[1].length).toBeGreaterThan(10);
+    expect(skewed).toEqual(native);
+  });
+});

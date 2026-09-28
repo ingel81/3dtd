@@ -491,11 +491,19 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     expect(compared).toBeGreaterThan(500);
   });
 
-  it('keeps host and joiner in step when the joiner has another clock, another Math.random and no tiles (E63 a)', () => {
+  it('keeps host and joiner in step when the joiner has another clock, Math.random, sin and cos and no tiles (E63 a, E28)', () => {
     const relay = new LocalRelay();
     const { host, joiner } = hostAndJoiner(relay);
-    // While the joiner runs: its own presentation random stream and a wall clock
-    // that is offset and jumps, as another machine's would be
+    // While the joiner runs: its own presentation random stream, a wall clock that is
+    // offset and jumps, and native transcendentals off in their last bits, as another
+    // machine's or another engine's would be
+    const skewed = ['sin', 'cos', 'tan', 'atan', 'atan2', 'asin', 'acos', 'exp', 'log', 'pow', 'hypot'] as const;
+    const math = Math as unknown as Record<string, (...args: number[]) => number>;
+    const native = Object.fromEntries(skewed.map((fn) => [fn, math[fn]]));
+    const joinerMath = Object.fromEntries(skewed.map((fn) => [fn, (...args: number[]) => {
+      const r = native[fn](...args);
+      return r === 0 || !Number.isFinite(r) ? r : r * (1 + 2 ** -40);
+    }]));
     const joinerRandom = mulberry32(0xbad5eed);
     const jump = mulberry32(99);
     let clock = 5_000_000;
@@ -504,12 +512,14 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     joiner.run = <T>(fn: () => T): T => {
       const random = Math.random;
       Math.random = joinerRandom;
+      for (const fn of skewed) math[fn] = joinerMath[fn];
       performance.now = () => (clock += 1 + jump() * 250);
       Date.now = () => Math.floor(1.7e12 + (clock += 1 + jump() * 250));
       try {
         return joinerRun(fn);
       } finally {
         Math.random = random;
+        for (const fn of skewed) math[fn] = native[fn];
         performance.now = perfNow;
         Date.now = dateNow;
       }
