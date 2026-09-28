@@ -267,7 +267,7 @@ export class SimSnapshots {
       return path;
     };
     this.runningWaveConfig = snapshot.base.phase === 'wave' ? wave.config : null;
-    w.waveManager.restoreWaveState(wave.config, wave.spawner, wave.counters);
+    w.waveManager.restoreWaveState(wave.config, wave.spawner, wave.counters, snapshot.base.phase === 'wave');
     w.enemyManager.restoreWaveState(wave.enemies, pathOf, beforeEach);
     const ghosts = new Map<string, Enemy>();
     for (const saved of wave.enemies.ghosts) {

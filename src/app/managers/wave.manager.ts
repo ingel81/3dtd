@@ -445,10 +445,13 @@ export class WaveManager implements IGameManager {
    * number and counters, and the spawner of `config` where it was. No
    * wave:started goes out.
    */
-  restoreWaveState(config: WaveConfig, spawner: SpawnerState | null, counters: PlainRecord): void {
+  restoreWaveState(config: WaveConfig, spawner: SpawnerState | null, counters: PlainRecord, running = true): void {
     assignPlainFields(this, counters);
-    this.phase.set('wave');
     this.activeSpawner = null;
+    // A snapshot between waves keeps the build phase: the leftovers of the last wave walk on,
+    // but no wave runs that could end and pay its completion gold a second time (coop resync)
+    if (!running) return;
+    this.phase.set('wave');
     if (spawner) this.armSpawner(config, spawner);
   }
 

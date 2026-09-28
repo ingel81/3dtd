@@ -43,6 +43,11 @@ const SPEED = SOLO ? Number(argument('speed', '4')) : Math.min(4, Number(argumen
 const RUN_MINUTES = Number(argument('minutes', '60'));
 /** And at this wave, 0 for none */
 const MAX_WAVES = Number(argument('max-waves', '0'));
+/**
+ * Falsify the last seat's gold once this wave has been written (`--falsify-at-wave 3`): a local change
+ * past the lockstep, which the relay must catch and repair with a resync (COOP_PLAN C5b).
+ */
+const FALSIFY_AT_WAVE = Number(argument('falsify-at-wave', '0'));
 /** The 3D view on (slower, only to look at a run) */
 const RENDER = process.argv.includes('--render');
 const HEADED = process.argv.includes('--headed');
@@ -485,11 +490,39 @@ async function playRun(index: number): Promise<boolean> {
     const deadline = started + RUN_MINUTES * 60_000;
     let end: Record<string, unknown> | null = null;
     let lastWave = 0;
+    let falsified = false;
     while (Date.now() < deadline) {
       await seats[0].waitForTimeout(5000);
       const probe = await probeOf(seats[0]);
       for (const wave of probe.waves.slice(written)) write({ kind: 'wave', run: index, room: code, solo: SOLO, ...wave });
       written = probe.waves.length;
+      if (falsified) {
+        // After a falsification: what each seat holds of the research centers, credits and research, to see a resync hold
+        for (const [seat, page] of seats.entries()) {
+          const view = await page.evaluate(() => {
+            const w = window as unknown as { ng: { getComponent(el: Element | null): { gameState: Record<string, never> } } };
+            const gs = w.ng.getComponent(document.querySelector('app-tower-defense')).gameState as unknown as {
+              subStep: number; players: string[]; creditsOf(p: string): number; researchOf(p: string): { centerLevel: number };
+              towerManager: { getAll(): { id: string; ownerId: string; typeConfig: { id: string }; getUpgradeLevel(u: string): number }[] };
+            };
+            return {
+              step: gs.subStep,
+              credits: gs.players.map((p) => gs.creditsOf(p)),
+              centers: gs.towerManager.getAll().filter((t) => t.typeConfig.id === 'research-center').map((t) => `${t.id}/${t.ownerId}:${t.getUpgradeLevel('research-slots')}`),
+              levels: gs.players.map((p) => gs.researchOf(p).centerLevel),
+            };
+          }).catch((e) => String(e));
+          log(`run ${index}: seat ${seat} ${JSON.stringify(view)}`);
+        }
+      }
+      if (FALSIFY_AT_WAVE > 0 && written === FALSIFY_AT_WAVE && seats.length > 1 && !falsified) {
+        falsified = true;
+        await seats[seats.length - 1].evaluate(() => {
+          const w = window as unknown as { ng: { getComponent(el: Element | null): { gameState: { addCredits(n: number, s: string): void } } } };
+          w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.addCredits(7, 'reset');
+        });
+        log(`run ${index}: falsified the gold of seat ${seats.length - 1} after wave ${written}`);
+      }
       if (written > lastWave) {
         lastWave = written;
         const w = probe.waves[written - 1] as { wave: number; hpEnd: number; creditsByPlayer: Record<string, number>; towersByPlayer: Record<string, number> };

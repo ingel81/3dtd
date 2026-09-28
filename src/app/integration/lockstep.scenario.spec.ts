@@ -850,6 +850,61 @@ describe('Coop research per player (COOP_PLAN C2b)', () => {
     Math.random = mathRandom;
   });
 
+  it('stays in step after a resync between waves, research centers and slot upgrades included (C5b)', async () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const step = (frames = 3) => {
+      for (let i = 0; i < frames; i++) {
+        relay.closeTick();
+        a.frame(40);
+        b.frame(40);
+      }
+    };
+    const at = (south: number, east: number) => ({ lat: south / M, lon: east / M, height: 0 });
+    a.emit({ type: 'debug:add-credits', amount: 20000 });
+    b.emit({ type: 'debug:add-credits', amount: 20000 });
+    a.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 80) });
+    b.emit({ type: 'command:place-tower', typeId: 'research-center', position: at(100, 130) });
+    step();
+    const centerOf = (id: string) => a.gsm.towerManager.getAll().find((t) => t.typeConfig.id === 'research-center' && t.ownerId === id)!;
+    b.emit({ type: 'command:upgrade-tower', towerId: centerOf('b').id, upgradeId: 'research-slots' });
+    b.emit({ type: 'command:start-research', researchId: 'ice-magic' });
+    step(20);
+    expect(a.run(() => a.gsm.stateHash())).toBe(b.run(() => b.gsm.stateHash()));
+
+    // B's state goes astray: gold, and a slot upgrade only B made (it could afford it, A could not)
+    b.run(() => b.gsm.addCredits(7, 'reset'));
+    b.run(() => (b.gsm as never as { towerLifecycle: { upgrade(t: unknown, u: string): boolean } }).towerLifecycle.upgrade(b.gsm.towerManager.getById(centerOf('b').id), 'research-slots'));
+    for (let i = 0; i < 20; i++) { a.frame(40); b.frame(40); }
+    const hold = relay.lastClosed + 1;
+    const game = (c: Client) => ({
+      subStep: () => c.gsm.subStep,
+      refusal: () => c.gsm.waveSnapshotRefusal(),
+      capture: () => c.run(() => c.gsm.captureWaveSnapshot()),
+      restore: (snapshot: WaveSnapshot) => c.run(() => c.gsm.restoreWaveSnapshot(JSON.parse(JSON.stringify(snapshot)), 'live')),
+    });
+    const guest = new ResyncDriver(() => false, game(b), { state: () => undefined, loaded: () => undefined });
+    const host = new ResyncDriver(() => true, game(a), { state: (tick, gz) => guest.state(tick, gz!), loaded: () => undefined });
+    host.hold(hold);
+    guest.hold(hold);
+    await host.poll();
+    await guest.poll();
+    expect(b.run(() => b.gsm.stateHash())).toBe(a.run(() => a.gsm.stateHash()));
+    // Between waves the guest stays in the build phase: no empty wave ends and pays again
+    expect(b.gsm.waveManager.phase()).toBe(a.gsm.waveManager.phase());
+
+    // Both go on with the same commands: more slots on B's center, research on both sides
+    b.emit({ type: 'command:upgrade-tower', towerId: centerOf('b').id, upgradeId: 'research-slots' });
+    a.emit({ type: 'command:upgrade-tower', towerId: centerOf('a').id, upgradeId: 'research-slots' });
+    step(30);
+    b.emit({ type: 'command:upgrade-tower', towerId: centerOf('b').id, upgradeId: 'research-slots' });
+    step(30);
+    expect(b.gsm.researchOf('b').centerLevel).toBe(a.gsm.researchOf('b').centerLevel);
+    expect(b.run(() => b.gsm.stateHash())).toBe(a.run(() => a.gsm.stateHash()));
+  });
+
   it('keeps each player research, center and unlocks to themselves', () => {
     Math.random = mulberry32(SEED + 1);
     const relay = new LocalRelay(true);
