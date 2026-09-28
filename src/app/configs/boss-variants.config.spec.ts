@@ -64,10 +64,14 @@ describe('bossVariantWave', () => {
     templateStrength: 3.5,
   };
 
-  it('sends one worm with the HP the director planned for the wave', () => {
+  // 24 golems at x3.5; a variant at x1 is lineageHp('ooze'), a worm counts at its longest
+  const planned = 24 * lineageHp('stone-golem') * 3.5;
+  const wormMult = Math.round((planned / (ENEMY_TYPES['worm'].baseHp * WORM_MAX_SEGMENTS)) * 1000) / 1000;
+
+  it('sends one worm with the HP of the wave the director planned', () => {
     const wave = bossVariantWave(BOSS_VARIANTS.worm, directed, 35);
     expect(wave).toMatchObject({
-      enemies: [{ type: 'worm', count: 1, healthMultiplier: 3.5 }],
+      enemies: [{ type: 'worm', count: 1, healthMultiplier: wormMult }],
       totalCount: 1,
       templateName: 'Boss: Skarnax',
     });
@@ -76,29 +80,31 @@ describe('bossVariantWave', () => {
     const entries = adaptDirectorWave(wave).schedule.entries;
     expect(entries).toHaveLength(1);
     // The schedule rounds each entry's HP
-    expect(entries[0]).toMatchObject({ enemyType: 'worm', health: Math.round(ENEMY_TYPES['worm'].baseHp * 3.5) });
+    expect(entries[0]).toMatchObject({ enemyType: 'worm', health: Math.round(ENEMY_TYPES['worm'].baseHp * wormMult) });
   });
 
-  it('in the campaign gives the boss as much HP as the wave the director planned', () => {
-    // 24 golems at x3.5; the ooze with its slime clumps at x1 is lineageHp('ooze')
-    const planned = 24 * lineageHp('stone-golem') * 3.5;
-    const wave = bossVariantWave(BOSS_VARIANTS.ooze, directed, 20);
-    expect(wave.enemies).toHaveLength(1);
-    expect(wave.enemies[0].type).toBe('ooze');
-    expect(wave.enemies[0].healthMultiplier! * lineageHp('ooze')).toBeCloseTo(planned, -2);
-    expect(wave.explanation?.reasons[0]).toContain('Campaign boss W20');
+  it('gives the boss as much HP as the wave the director planned, in the campaign and past it', () => {
+    for (const w of [20, 45]) {
+      const wave = bossVariantWave(BOSS_VARIANTS.ooze, directed, w);
+      expect(wave.enemies).toHaveLength(1);
+      expect(wave.enemies[0].type).toBe('ooze');
+      expect(wave.enemies[0].healthMultiplier! * lineageHp('ooze')).toBeCloseTo(planned, -2);
+    }
+    expect(bossVariantWave(BOSS_VARIANTS.ooze, directed, 20).explanation?.reasons[0]).toContain('Campaign boss W20');
+    expect(bossVariantWave(BOSS_VARIANTS.ooze, directed, 45).explanation?.reasons[0]).toContain('Boss rotation past W30');
   });
 
-  it('in the campaign counts a worm at its longest, so a short route never makes it stronger', () => {
-    const planned = 24 * lineageHp('stone-golem') * 3.5;
-    const wave = bossVariantWave(BOSS_VARIANTS.worm, directed, 30);
-    expect(wave.enemies[0].healthMultiplier! * ENEMY_TYPES['worm'].baseHp * WORM_MAX_SEGMENTS)
-      .toBeCloseTo(planned, -2);
+  it('counts a worm at its longest, so a short route never makes it stronger', () => {
+    for (const w of [30, 35]) {
+      const wave = bossVariantWave(BOSS_VARIANTS.worm, directed, w);
+      expect(wave.enemies[0].healthMultiplier! * ENEMY_TYPES['worm'].baseHp * WORM_MAX_SEGMENTS)
+        .toBeCloseTo(planned, -2);
+    }
   });
 
   it('says why in place of the director explanation', () => {
     const { explanation } = bossVariantWave(BOSS_VARIANTS.worm, directed, 35);
-    expect(explanation?.summary).toBe('W35: Boss: Skarnax, HP ×3.5');
+    expect(explanation?.summary).toBe(`W35: Boss: Skarnax, HP ×${wormMult}`);
     expect(explanation?.reasons[0]).toContain("in place of the director's Boss: Stone Golem");
   });
 });

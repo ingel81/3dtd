@@ -442,10 +442,10 @@
     "count": 1,
     "spawnDelay": 0,
     "variation": 0,
-    "strength": 17.628,
+    "strength": 1.159,
     "pattern": "sequential",
     "enemies": [
-      "wormx1@17.628"
+      "wormx1@1.159"
     ]
   },
   {
@@ -567,10 +567,10 @@
     "count": 1,
     "spawnDelay": 0,
     "variation": 0,
-    "strength": 10.524,
+    "strength": 4.465,
     "pattern": "sequential",
     "enemies": [
-      "oozex1@10.524"
+      "oozex1@4.465"
     ]
   },
   {
@@ -692,10 +692,10 @@
     "count": 1,
     "spawnDelay": 0,
     "variation": 0,
-    "strength": 12.644,
+    "strength": 3.856,
     "pattern": "sequential",
     "enemies": [
-      "wormx1@12.644"
+      "wormx1@3.856"
     ]
   },
   {

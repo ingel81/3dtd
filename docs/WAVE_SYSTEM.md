@@ -537,10 +537,10 @@ Directors sind, kommen über eine Rotation über die Boss-Wellen nach der Kampag
 W55, W75, ... bringen Skarnax, den Wurm, W45, W65, W85, ... die Ooze (ENEMY_CREATION.md,
 Körper entlang der Route), W40, W50, W60, ... die Director-Bosse. Der Director plant auch diese
 Wellen wie bisher. `GameLoopFacadeService.startWaveWithAI()` ersetzt danach seine Welle durch
-`bossVariantWave()`: ein Gegner des Varianten-Typs (ein Wurm, also ein Enemy je Segment) mit
-dem HP-Multiplikator, den der Director für diese Welle gerechnet hat (Template-Range,
-DPS-Ramp, Endgame-Multiplikator); der Wurm nimmt ihn je Segment. Das Überlebbarkeits-Deckel bestimmt
-die Größe nicht, die Länge des Wurms folgt der Route. „Why this wave“ nennt das ersetzte
+`bossVariantWave()`: ein Gegner des Varianten-Typs (ein Wurm, also ein Enemy je Segment) mit der
+Gesamt-HP der geplanten Welle, wie in der Kampagne (seit 2026-09-28, vorher nahm jedes Segment den
+Multiplikator des Templates, TODO E54); der Wurm zählt dabei mit seiner größten Länge. Der
+Überlebbarkeits-Deckel bestimmt die Größe nicht, die Länge des Wurms folgt der Route. „Why this wave“ nennt das ersetzte
 Template, der Collector speichert die Welle, die läuft. Templates und Kampagne kennen die
 Varianten nicht. NEXT im Wave-Panel (Zeitleiste der kommenden Wellen, `wave-timeline.component`) zeigt
 eine Varianten-Welle vorab mit Namen, Rüstung und „weak to“.

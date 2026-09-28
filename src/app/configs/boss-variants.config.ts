@@ -76,9 +76,9 @@ export function bossVariantForWave(wave: number): BossVariant | null {
 
 /**
  * The wave of `variant` in place of `directed`, the director's plan for this
- * boss wave. It takes the director's HP multiplier (template range, DPS
- * ramp, endgame multiplier); a worm takes it per segment. Its size is the
- * variant's own, the fairness gate does not size it.
+ * boss wave. The variant takes that wave's HP as a whole, in the campaign and
+ * past it (User, 2026-09-28): with the template's multiplier on every segment,
+ * Skarnax ended 4 of 12 bot runs at W35 (TODO E54). Its size is the variant's own, the fairness gate does not size it.
  */
 /** What a boss wave reports when the director handed over no numbers. */
 const EMPTY_SIZING: WaveSizing = {
@@ -110,25 +110,16 @@ function directedTotalHp(directed: DirectorWave): number {
 }
 
 export function bossVariantWave(variant: BossVariant, directed: DirectorWave, wave: number): DirectorWave {
-  // In the campaign the director plans a Herbert wave here, sized by the
-  // survivability cap; the variant takes that wave's HP as a whole. Its own
-  // multiplier would not fit: the Herbert range reaches x20, and at W20 that
-  // made a 500,000 HP ooze against a defense dealing 76,000 a wave.
-  const inCampaign = wave <= CAMPAIGN_LENGTH;
-  const hpMult = inCampaign
-    ? Math.max(0.05, Math.round((directedTotalHp(directed) / variantNominalHp(variant)) * 1000) / 1000)
-    : directed.templateStrength ?? 1;
-  const reasons = inCampaign
-    ? [
-      `Campaign boss W${wave}: ${variant.name} takes this boss wave `
-        + `in place of the director's ${directed.templateName ?? 'boss template'}.`,
-      `HP ×${hpMult}: as much HP as the wave the director planned for it.`,
-    ]
-    : [
-      `Boss rotation past W${CAMPAIGN_LENGTH}: ${variant.name} takes this boss wave `
-        + `in place of the director's ${directed.templateName ?? 'boss template'}.`,
-      `HP ×${hpMult} as the director planned it for this wave.`,
-    ];
+  // The director plans a boss wave here; the variant takes that wave's HP as a
+  // whole. Its own multiplier would not fit: the Herbert range reaches x20,
+  // and at W20 that made a 500,000 HP ooze against a defense dealing 76,000 a
+  // wave.
+  const hpMult = Math.max(0.05, Math.round((directedTotalHp(directed) / variantNominalHp(variant)) * 1000) / 1000);
+  const replaced = directed.templateName ?? 'boss template';
+  const reasons = wave <= CAMPAIGN_LENGTH
+    ? [`Campaign boss W${wave}: ${variant.name} takes this boss wave in place of the director's ${replaced}.`]
+    : [`Boss rotation past W${CAMPAIGN_LENGTH}: ${variant.name} takes this boss wave in place of the director's ${replaced}.`];
+  reasons.push(`HP ×${hpMult}: as much HP as the wave the director planned for it.`);
   return {
     enemies: [{ type: variant.enemyType, count: 1, healthMultiplier: hpMult }],
     totalCount: 1,
