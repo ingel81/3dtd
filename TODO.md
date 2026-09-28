@@ -205,7 +205,13 @@ Ideen (2026-09-27), nichts entschieden:
       **Gemessen 2026-09-28** (je 10 Räume bis W15): HP-Rest nach W15 Solo 63 %, unverändert 45 %, Leck geteilt 72 %,
       HQ mal Spuren 68 %. **Entschieden (User, 2026-09-28): so lassen**, Coop bleibt härter.
 - [ ] **E67 Skarnax zu anspruchslos** (User, 2026-09-28): Segment für Segment von vorne nach hinten zu zerlegen, wenig
-      Anspruch. Ideen später per Konzept.
+      Anspruch. Konzept (lokal) `tmp/nightly-2026-09-28/konzepte/skarnax.md`: in der Budget-Quelle zählt jedes Segment
+      schon als Körper (gebaut); vorgeschlagen dazu ein gepanzerter Kopf, der nach jedem Schnitt neu entsteht. Zu
+      entscheiden: soll er Umstellen der Zielwahl verlangen, wie stark die Panzerung.
+- [ ] **E69 Budget-Quelle als Standard** (gebaut 2026-09-28/29, [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md)): nach den
+      menschlichen Läufen (PLAYTEST B) entscheiden. Der Abbau des adaptiven Directors liegt auf `wt/remove-adaptive`
+      bereit (rund 7000 Zeilen weniger, alle Prüfungen grün). Konzepte dazu (lokal): Gold passend zum Budget
+      (`gold-budget.md`, Vorschlag Gold nach Zeilenstärke statt Boss ×2) und Endlos nach W60 (`endlos.md`).
 - [ ] **E68 Zwei volle Pools** (gemessen 2026-09-28): Geschoss-Spuren (11 % des Bildes bei Tempo 4) und Schadenszahlen
       (4 % der Simulation) durchsuchen bei jedem neuen Eintrag den ganzen Pool. Entschieden (User): beide beheben, dann
       Bildrate, Bildzeit und verworfene Einträge bei 1-, 2- und 4-facher Poolgröße messen; Größen erst nach Zuruf ändern.
