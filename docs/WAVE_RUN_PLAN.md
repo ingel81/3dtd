@@ -179,7 +179,30 @@ Rest ihr Gefolge; Skarnax selbst bleibt bei HP-Faktor 0,5 bis 1,1. Ratten bekomm
 Rechnung Schaden kennt, aber nicht die Schusszahl; das prüft erst die Bot-Messung. Nach W60 offen (Vorschlag: die
 letzten zehn Zeilen wiederholen).
 
-## 12. Nächster Schritt
+## 12. Trennung der Wellenquelle geprüft (2026-09-28)
 
-Rückmeldung zum Entwurf, dann bauen: Plan-Datei, Budget-Schritt, Grenze je Gegner, Zeit unter Feuer aus der Route;
-die alten Sonderwege fallen im selben Zug weg. Danach Bot-Messung.
+Umgeschaltet wird an einer Stelle (`DEFAULT_WAVE_SOURCE` in `configs/director.config.ts`, dazu das Debug-Fenster),
+jede Quelle hat ihren Ordner unter `director/sources/`. Außerhalb der Quellen lesen aber noch Stellen Regeln einer
+bestimmten Quelle direkt nach der Wellennummer; bei einem Tausch liefen sie weiter nach der alten Logik:
+
+| Stelle | liest direkt | gehört in |
+|--------|--------------|-----------|
+| `managers/enemy.manager.ts`, `managers/ooze-bodies.ts` | Leckschaden je Welle (`enemyBaseDamageForWave`) | geplante Welle |
+| `managers/game-state/wave-preview.ts`, `wave-panel/upcoming-waves.ts` | Leckschaden je Welle | Vorschau der Quelle |
+| `managers/enemy.manager.ts`, `services/economy.service.ts` | Gold je Welle (`waveGold`) | geplante Welle |
+| `game-engine/background-music.service.ts` | Boss-Welle (`isBossWave`) | geplante Welle |
+| `wave-panel/air-alert.ts` | Luftwarnung aus der Kampagnen-Vorlage | Vorschau der Quelle (`air`) |
+| `director/state-snapshot-parts.ts` | kommende Gegner aus der Kampagnen-Vorlage | Vorschau der Quelle |
+| `bots/strategies/research/research-pick.strategy.ts` | kommende Luftwelle aus der Kampagne | Vorschau der Quelle |
+| `debug-window/wave-debugger.component.ts` | Name der Sprungwelle aus Kampagne und Boss-Varianten | Vorschau der Quelle |
+| `run-log/config-hash.ts` | Kampagne, Vorlagen, Boss-Varianten im Hash | Hash der aktiven Quelle |
+| `bots/bot-session.ts`, `run-log/run-log.facade.ts` | Stellschrauben des adaptiven Directors | nur, wenn die Quelle welche hat |
+
+Sauber geteilt sind `director/defense-analyzer.ts` (Abwehr messen, von allen genutzt) und der Vertrag selbst.
+
+## 13. Nächster Schritt
+
+Bauen in dieser Reihenfolge: erst die Lecks aus Abschnitt 12 über den Vertrag schließen (ohne Verhaltensänderung,
+die heutige Quelle liefert dieselben Werte), dann die neue Quelle `sources/budget/` mit Plan-Datei, Budget-Schritt,
+Grenze je Gegner und Zeit unter Feuer aus der Route. Bot-Vergleich alt gegen neu, danach `adaptive` mit ihren
+Sonderregeln entfernen; `table` bleibt.
