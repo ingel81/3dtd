@@ -209,7 +209,7 @@ describe('NEXT timeline, playtest 326, 327, 365 and 372 replayed', () => {
 
     const w1 = next.shown()!;
     expect(w1).toMatchObject({ wave: 1, name: 'Zombie Horde', known: true, armorLabel: 'Unarmored' });
-    expect(w1.count).toBe('20');
+    expect(w1.count).toBe('10');
     expect(w1.weakToTypes.map((type) => next.damageTypeIcon(type))).toEqual(['flame', 'splash', 'target']);
     expect(w1.tooltip).toContain('Weak to Fire, Poison, Pierce.');
     expect(next.markLabel(w1)).toBe('Wave 1, Zombie Horde');
