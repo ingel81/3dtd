@@ -8,8 +8,8 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 - [x] **Budget-Quelle** (`65ee649b` bis `5da214bc`, [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md)): Laufplan W1 bis W60,
       HP aus einem Budget gegen die Abwehr, eine Grenze je Gegner aus der Zeit unter Feuer (auf der Route mit echter
-      Sichtlinie gemessen). Mit Bots kalibriert, ungefähr gleichauf mit dem adaptiven Director. Noch nicht Standard,
-      `?waves=budget` schaltet um.
+      Sichtlinie gemessen). Mit Bots kalibriert: Todeswelle 37 bis 40 gegen 30 bis 36 beim adaptiven Director. Noch
+      nicht Standard, `?waves=budget` schaltet um.
 - [x] **Wellenregeln aus der Quelle** (`be3537d6`): Leck, Gold, Boss und kommende Gegner liest das Spiel aus der
       aktiven Quelle statt aus der Kampagne.
 - [x] **Coop: der Host bestimmt die Wellenquelle** (`fbc25318`, `2cf6ca5c`): der Gast übernimmt sie mit der Welt.
