@@ -10,6 +10,8 @@
  * sight side of TowerPlacementService is a small real stand-in that writes
  * masks into the grid: a restore has to put the towers' answers back.
  */
+import { setActiveWaveRules } from '../director/wave-rules';
+import { CAMPAIGN_WAVE_RULES } from '../configs/campaign-wave-rules';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
 vi.mock('three', async () => {
@@ -286,6 +288,35 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(gsm.subStep).toBe(record.endStep);
     resim.end();
   });
+  it('re-simulates bit for bit when the wave source makes a leak cost a fraction of HP', () => {
+    // The budget source's leak grows continuously (1.37 and the like): HP turn fractional
+    setActiveWaveRules({ ...CAMPAIGN_WAVE_RULES, leakScale: () => 1.37 });
+    try {
+      world = buildWorld();
+      const { gsm } = world;
+      let now = 1000;
+      const hpBefore = gsm.baseHealth();
+      gsm.gameSpeed.set(4);
+      // Towers hold fire, so the wave leaks
+      for (const tower of world.towers) gsm.getEventBus().emit({ type: 'command:set-hold-fire', towerId: tower.id, holdFire: true });
+      const rats: SpawnEntry[] = Array.from({ length: 8 }, () => ({ enemyType: 'rat', speed: 1, health: 1 }));
+      gsm.getEventBus().emit({ type: 'command:start-wave', config: { schedule: { entries: rats, baseDelay: 300, spawnMode: 'each' } } } as never);
+      for (let f = 0; f < 20000 && gsm.waveManager.phase() === 'wave'; f++) gsm.update((now += 10 + ((f * 13) % 29)));
+      expect(gsm.baseHealth()).toBeLessThan(hpBefore);
+      expect(Number.isInteger(gsm.baseHealth())).toBe(false);
+
+      const record = gsm.simRecorder.get(1)!;
+      const resim = new Resimulation(gsm.resimHost, record, gsm.commandLog.entries);
+      resim.start();
+      while (resim.step()) { /* to the end */ }
+      expect(resim.divergedAt).toBeNull();
+      expect(resim.checkedHashes).toBe(record.hashes.length);
+      resim.end();
+    } finally {
+      setActiveWaveRules(CAMPAIGN_WAVE_RULES);
+    }
+  });
+
   it('leaves nothing of the replay in the live game: the next 120 sub-steps come out as without it', () => {
     world = buildWorld();
     const { gsm } = world;
