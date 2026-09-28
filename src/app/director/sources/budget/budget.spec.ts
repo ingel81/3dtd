@@ -74,7 +74,7 @@ describe('sizeWave', () => {
     expect(moreHp.delivered).toBeGreaterThan(short.delivered);
   });
 
-  it('leaves enemies the defense cannot hurt at HP ×1', () => {
+  it('leaves enemies the defense cannot hurt at the row strength, HP ×1 at strength 1', () => {
     const sized = sizeWave(base({ enemies: { bat: 20, zombie: 50 }, defense: { dps: dps(1000, 0), damageMetres: dps(1000 * 400, 0), hpRemaining: 300 } }));
     expect(sized.unhurt).toEqual(['bat']);
     expect(sized.hpMult['bat']).toBe(1);
@@ -105,5 +105,12 @@ describe('sizeWave, a chain', () => {
     const out = (WORM_MAX_SEGMENTS * ENEMY_TYPES['worm'].chain!.spacing) / ENEMY_TYPES['worm'].baseSpeed;
     expect(worm.window).toBeGreaterThan(out);
     expect(worm.hpMult['worm']).toBeGreaterThan(1);
+  });
+});
+
+describe('sizeWave before any tower stands', () => {
+  it('gives every enemy the row strength as HP factor', () => {
+    const sized = sizeWave(base({ strength: 0.75, defense: { dps: undefined, damageMetres: undefined, hpRemaining: 500 } }));
+    expect(sized.hpMult['zombie']).toBe(0.75);
   });
 });

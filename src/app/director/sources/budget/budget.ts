@@ -90,7 +90,7 @@ export interface BudgetResult {
   readonly capped: boolean;
   /** Types held at their own limit (time under fire). */
   readonly clamped: readonly string[];
-  /** Types the defense cannot hurt at all (no air defense, say): they keep HP ×1. */
+  /** Types the defense cannot hurt at all (no air defense, no tower yet): HP × the row's strength. */
   readonly unhurt: readonly string[];
 }
 
@@ -171,7 +171,8 @@ export function sizeWave(input: BudgetInput): BudgetResult {
     if (h.cap < m) clamped.push(h.type);
     hpMult[h.type] = round3(Math.max(HP_MULT_MIN, Math.min(HP_MULT_MAX, h.cap, m)));
   }
-  for (const type of unhurt) hpMult[type] = 1;
+  // Nothing to measure against: the row's strength alone (HP x1 at strength 1)
+  for (const type of unhurt) hpMult[type] = round3(Math.max(HP_MULT_MIN, input.strength));
 
   return { hpMult, budget, delivered, window, capped: delivered < budget, clamped, unhurt };
 }

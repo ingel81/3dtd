@@ -149,7 +149,7 @@ function explain(wave: number, row: RunPlanRow, sized: BudgetResult, regulator: 
   ];
   if (sized.capped) reasons.push(`The defense has about ${round1(sized.window)} s while the wave is on the route: ${round1(sized.delivered)} s of it are sent, leaks included.`);
   if (sized.clamped.length) reasons.push(`At their limit (time under fire): ${sized.clamped.map((type) => `${type} HP ×${sized.hpMult[type]}`).join(', ')}.`);
-  if (sized.unhurt.length) reasons.push(`The defense cannot hurt ${sized.unhurt.join(', ')}: HP ×1.`);
+  if (sized.unhurt.length) reasons.push(`The defense cannot hurt ${sized.unhurt.join(', ')}: HP × the row's strength ${row.strength}.`);
   if (row.note) reasons.push(row.note);
   return {
     summary: `Wave ${wave}: ${row.name} · ${totalCount} enemies · HP ×${shared}`,

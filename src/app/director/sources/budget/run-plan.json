@@ -6,9 +6,10 @@
       "zombie": 18,
       "zombie-v2": 2
     },
-    "strength": 1,
-    "spawnDelay": 100,
-    "pattern": "interleaved"
+    "strength": 0.75,
+    "spawnDelay": 400,
+    "pattern": "interleaved",
+    "note": "The first wave comes before any tower stands: its HP cannot be set against a defense, so the row keeps it light."
   },
   {
     "wave": 2,
