@@ -85,6 +85,7 @@ export class RouteGridSelectionViz {
 
   constructor(cellSize: number) {
     // Flat in x/z: the plane's own y becomes -z, the frame reads |x| and |z| alike.
+    // eslint-disable-next-line no-restricted-syntax -- pictures only: the selection frame's mesh
     this.geometry = new PlaneGeometry(cellSize, cellSize).rotateX(-Math.PI / 2);
     this.material = new ShaderMaterial({
       vertexShader: SELECTION_VERTEX,
