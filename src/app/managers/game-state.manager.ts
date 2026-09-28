@@ -22,7 +22,6 @@ import { GameObject } from '../core/game-object';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
-import type { Enemy } from '../entities/enemy.entity';
 import { raycastStats } from '../utils/raycast-stats';
 import { EconomyService, skippedWavesGold } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
@@ -49,10 +48,11 @@ import { summarizeWaveGroups } from './game-state/wave-preview';
 import { routeSweepToward } from '../utils/route-sweep';
 import { SimRecorder } from '../simulator/sim-recorder';
 import { StateHasher, type HashBreakdown, type StateHashSource } from '../simulator/state-hash';
-import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../simulator/sim-snapshot';
-import { WAVE_SNAPSHOT_VERSION, type WaveSnapshot, type WaveSnapshotRefusal } from '../simulator/wave-snapshot';
+import type { SimSnapshot, SnapshotRefusal } from '../simulator/sim-snapshot';
+import type { WaveSnapshot, WaveSnapshotRefusal } from '../simulator/wave-snapshot';
+import { SimSnapshots } from './game-state/sim-snapshots';
 import type { ResimHost } from '../simulator/resimulation';
-import { losMaskFromJson, losMaskToJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
+import { losMaskFromJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
 import { fnv1a } from '../utils/fnv1a';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
@@ -367,6 +367,34 @@ export class GameStateManager {
    * hashes along the way (docs/SIMULATOR_PLAN.md, P4 and P5).
    */
   readonly simRecorder = new SimRecorder();
+
+  /** Between waves and mid-wave, see SimSnapshots */
+  private readonly snapshots = new SimSnapshots({
+    eventBus: this.eventBus,
+    clock: this.clock,
+    rng: this.rng,
+    creditsLedger: this.creditsLedger,
+    healthLedger: this.healthLedger,
+    economy: this.economy,
+    waveManager: this.waveManager,
+    enemyManager: this.enemyManager,
+    projectileManager: this.projectileManager,
+    towerManager: this.towerManager,
+    towerLifecycle: this.towerLifecycle,
+    towerPlacement: this.towerPlacement,
+    towerCombat: this.towerCombat,
+    enemyDebug: this.enemyDebug,
+    research: () => this.researchSeats.map((seat) => seat.research),
+    abilities: () => this.abilitySeats,
+    heroes: () => this.heroSeats,
+    researchOf: (playerId) => this.researchOf(playerId),
+    abilityOf: (playerId) => this.abilityOf(playerId),
+    heroOf: (playerId) => this.heroOf(playerId),
+    players: () => this.players,
+    tilesEngine: () => this.tilesEngine,
+    runStarted: () => this.runStarted,
+    setRunStarted: (started) => { this.runStarted = started; },
+  });
 
   /** Re-simulating a wave (setReplayMode): the log only, masks from the log, nothing recorded */
   private replaying = false;
@@ -1194,227 +1222,32 @@ export class GameStateManager {
 
   /** Why the state now cannot be a snapshot, null when it can: between waves, nothing in flight. */
   snapshotRefusal(): SnapshotRefusal | null {
-    const phase = this.waveManager.phase();
-    if (phase !== 'setup' && phase !== 'gameover') return 'not-setup';
-    if (this.enemyManager.getAll().length > 0 || this.enemyDebug.debugEnemies().length > 0) return 'enemies';
-    if (this.projectileManager.getAll().length > 0) return 'projectiles';
-    if (this.hasPendingStrikes()) return 'pending-strike';
-    if (this.eventBus.hasDeferred) return 'pending-events';
-    return null;
+    return this.snapshots.refusal();
   }
 
-  /**
-   * The simulation as plain data (SimSnapshot). Only between waves, see
-   * snapshotRefusal. A hero on his way is put on a freshly planned path, the
-   * one a restore plans too (HeroManager.captureState).
-   */
+  /** The simulation as plain data between waves (SimSnapshot), see SimSnapshots.capture */
   captureSnapshot(): SimSnapshot {
-    return {
-      version: SIM_SNAPSHOT_VERSION,
-      clock: this.clock.getState(),
-      rng: this.rng.getState(),
-      idCounter: GameObject.getIdCounter(),
-      credits: this.credits(),
-      accounts: this.creditsLedger.saveAccounts(),
-      baseHealth: this.baseHealth(),
-      waveNumber: this.waveManager.waveNumber(),
-      phase: this.waveManager.phase(),
-      runStarted: this.runStarted,
-      economyPerfectStreak: this.economy.perfectStreak,
-      research: this.researchSeats[0].research.getState(),
-      researchByPlayer: this.researchSeats.map((seat) => [seat.research.owner.playerId, seat.research.getState()]),
-      abilities: this.abilitySeats[0].getState(),
-      abilitiesByPlayer: this.abilitySeats.map((seat) => [seat.owner.playerId, seat.getState()]),
-      hero: this.heroSeats[0].captureState(),
-      heroesByPlayer: this.heroSeats.map((seat) => [seat.owner.playerId, seat.captureState()]),
-      towers: this.towerManager.getAll().map((tower) => this.saveTower(tower)),
-      mannedTowerId: this.towerLifecycle.mannedTower(this.players[0])?.id ?? null,
-      mannedByPlayer: [...this.towerLifecycle.mannedTowers()].map(([playerId, tower]) => [playerId, tower.id]),
-      losQueue: this.towerPlacement.queuedLosTowerIds(),
-    };
+    return this.snapshots.capture();
   }
 
-  private saveTower(tower: Tower): SavedTower {
-    const position = tower.position;
-    return {
-      id: tower.id,
-      ownerId: tower.ownerId,
-      typeId: tower.typeConfig.id as TowerTypeId,
-      lat: position.lat,
-      lon: position.lon,
-      height: position.height ?? 0,
-      customRotation: tower.customRotation,
-      plinthHeight: tower.plinthHeight,
-      plinthOverhang: [...tower.plinthOverhang],
-      upgrades: tower.getUpgradeLevels(),
-      losMask: tower.losMask ? losMaskToJson(tower.losMask) : null,
-      state: tower.getSimState(),
-    };
-  }
-
-  /**
-   * Put the simulation back to `snapshot`: towers with their line of sight
-   * (no GPU), research, abilities, hero, credits, HQ, clock, random source
-   * and id counter. What ran since goes: enemies, projectiles, a wave in
-   * progress. No event of the way there goes out: the stores do not hear the
-   * replay at all (GameEventBus.onLive), and what shows the state from events
-   * (the HQ fire) reads it anew on `sim:restored`.
-   */
+  /** Put the simulation back to `snapshot`, see SimSnapshots.restore */
   restoreSnapshot(snapshot: SimSnapshot, reason: 'replay' | 'live' = 'replay'): void {
-    if (snapshot.version !== SIM_SNAPSHOT_VERSION) {
-      throw new Error(`Snapshot version ${snapshot.version}, expected ${SIM_SNAPSHOT_VERSION}`);
-    }
-    // Nothing the state before sent may reach the state after (a replayed
-    // wave's wave:completed in the live game)
-    this.eventBus.clearDeferred();
-    // Out of the tower and off the grid, then everything that moves
-    this.towerLifecycle.clearAllOverlays();
-    this.towerCombat.stopAllBeams();
-    this.towerCombat.stopAllMelee();
-    this.enemyManager.clear();
-    this.enemyManager.resetKillRewards();
-    this.enemyDebug.clearDebugEnemies();
-    this.towerManager.clear();
-    this.projectileManager.clear();
-    this.waveManager.reset();
-    for (const seat of this.abilitySeats) seat.reset();
-    this.tilesEngine?.oozes.clear();
-
-    // Towers keep their ids: the id counter is set before each is built
-    for (const saved of snapshot.towers) {
-      GameObject.setIdCounter(idNumber(saved.id) - 1);
-      this.towerLifecycle.restore(saved);
-    }
-    // After the towers: a research center built above counts its slots anew
-    if (snapshot.researchByPlayer) {
-      for (const [id, state] of snapshot.researchByPlayer) this.researchOf(id).restoreState(state);
-    } else {
-      this.researchSeats[0].research.restoreState(snapshot.research);
-    }
-    if (snapshot.abilitiesByPlayer) {
-      for (const [id, state] of snapshot.abilitiesByPlayer) this.abilityOf(id).restoreState(state);
-    } else {
-      this.abilitySeats[0].restoreState(snapshot.abilities);
-    }
-    if (snapshot.heroesByPlayer) {
-      for (const [id, state] of snapshot.heroesByPlayer) this.heroOf(id).restoreState(state);
-    } else {
-      this.heroSeats[0].restoreState(snapshot.hero);
-    }
-
-    const mannedIds: [string, string][] = snapshot.mannedByPlayer
-      ?? (snapshot.mannedTowerId ? [[this.players[0], snapshot.mannedTowerId]] : []);
-    this.towerLifecycle.restoreManned(mannedIds.flatMap(([playerId, towerId]) => {
-      const tower = this.towerManager.getById(towerId);
-      return tower ? [[playerId, tower] as const] : [];
-    }));
-    this.towerPlacement.requeueLos(
-      snapshot.losQueue.map((id) => this.towerManager.getById(id)).filter((tower): tower is Tower => !!tower),
-    );
-
-    this.creditsLedger.restore(snapshot.accounts ?? [[this.creditsLedger.players[0], snapshot.credits]]);
-    this.healthLedger.restore(snapshot.baseHealth);
-    this.economy.restorePerfectStreak(snapshot.economyPerfectStreak);
-    this.waveManager.waveNumber.set(snapshot.waveNumber);
-    this.waveManager.phase.set(snapshot.phase);
-    this.runStarted = snapshot.runStarted;
-    this.clock.setState(snapshot.clock);
-    this.rng.setState(snapshot.rng);
-    GameObject.setIdCounter(snapshot.idCounter);
-
-    this.eventBus.emit({ type: 'sim:restored', reason });
+    this.snapshots.restore(snapshot, reason);
   }
 
-  /**
-   * Why the state now cannot be a wave snapshot, null when it can
-   * (wave-snapshot.ts). Between waves the answer is snapshotRefusal()'s, but
-   * for events waiting and shots in flight, which the wave snapshot carries.
-   */
+  /** Why the state now cannot be a wave snapshot, null when it can (wave-snapshot.ts) */
   waveSnapshotRefusal(): WaveSnapshotRefusal | null {
-    if (this.enemyDebug.debugEnemies().length > 0) return 'debug-enemies';
-    return null;
+    return this.snapshots.waveRefusal();
   }
 
-  /**
-   * The simulation at this sub-step boundary as plain data, a running wave
-   * included (wave-snapshot.ts, TODO E58). Throws where waveSnapshotRefusal()
-   * says no.
-   */
+  /** The simulation at this sub-step boundary, a running wave included, see SimSnapshots.captureWave */
   captureWaveSnapshot(): WaveSnapshot {
-    const refusal = this.waveSnapshotRefusal();
-    if (refusal) throw new Error(`No wave snapshot now: ${refusal}`);
-    const running = this.waveManager.phase() === 'wave';
-    if (running && !this.runningWaveConfig) throw new Error('No wave snapshot now: the wave has no plan');
-    const paths = [...this.waveManager.spawnPoints].map((point) => [point.id, this.waveManager.pathOf(point.id)] as const);
-    const pathId = (path: readonly GeoPosition[]) => paths.find(([, p]) => p === path)?.[0] ?? null;
-    const enemies = this.enemyManager.captureWaveState(pathId);
-    // Targets no longer in the manager (a leak, a death animation over) that shots and towers still hold
-    const ghosts = new Map<string, Enemy>();
-    const held = (enemy: Enemy | null) => {
-      if (enemy && this.enemyManager.getById(enemy.id) !== enemy) ghosts.set(enemy.id, enemy);
-    };
-    for (const projectile of this.projectileManager.getAll()) held(projectile.targetEnemy);
-    for (const tower of this.towerManager.getAll()) held(tower.currentTarget);
-    for (const seat of this.heroSeats) held(seat.getTarget());
-    const wave = this.waveManager.captureWaveState();
-    return {
-      version: WAVE_SNAPSHOT_VERSION,
-      base: this.captureSnapshot(),
-      wave: {
-        config: running ? this.runningWaveConfig! : { schedule: { entries: [], baseDelay: 0 } },
-        spawner: wave.spawner,
-        counters: wave.counters,
-        enemies: { ...enemies, ghosts: [...ghosts.values()].map((enemy) => this.enemyManager.saveEnemy(enemy, pathId)) },
-        projectiles: this.projectileManager.captureWaveState(),
-        towerTargets: this.towerManager.getAll().flatMap((tower) => tower.currentTarget ? [[tower.id, tower.currentTarget.id] as [string, string]] : []),
-        heroTargets: this.heroSeats.flatMap((seat) => {
-          const target = seat.getTarget();
-          return target ? [[seat.owner.playerId, target.id] as [string, string]] : [];
-        }),
-        strikes: this.abilitySeats.map((seat) => [seat.owner.playerId, seat.captureWaveState()]),
-        awaitingLos: this.towerPlacement.awaitingLosEntries(),
-        deferred: this.eventBus.deferred.filter(plainEvent).map((event) => toPlainData(event)),
-      },
-    };
+    return this.snapshots.captureWave();
   }
 
-  /**
-   * Put the simulation back to a wave snapshot: first as between waves
-   * (restoreSnapshot), then the running wave with its enemies, shots,
-   * targets, spawner and the events waiting for the next sub-step.
-   */
+  /** Put the simulation back to a wave snapshot, see SimSnapshots.restoreWave */
   restoreWaveSnapshot(snapshot: WaveSnapshot, reason: 'replay' | 'live' = 'live'): void {
-    if (snapshot.version !== WAVE_SNAPSHOT_VERSION) {
-      throw new Error(`Wave snapshot version ${snapshot.version}, expected ${WAVE_SNAPSHOT_VERSION}`);
-    }
-    this.restoreSnapshot(snapshot.base, reason);
-    const wave = snapshot.wave;
-    if (!wave) return;
-    const beforeEach = (id: string) => GameObject.setIdCounter(idNumber(id) - 1);
-    const pathOf = (id: string) => {
-      const path = this.waveManager.pathOf(id);
-      if (!path) throw new Error(`Wave snapshot: no route for spawn point ${id}`);
-      return path;
-    };
-    this.runningWaveConfig = snapshot.base.phase === 'wave' ? wave.config : null;
-    this.waveManager.restoreWaveState(wave.config, wave.spawner, wave.counters);
-    this.enemyManager.restoreWaveState(wave.enemies, pathOf, beforeEach);
-    const ghosts = new Map<string, Enemy>();
-    for (const saved of wave.enemies.ghosts) {
-      beforeEach(saved.id);
-      ghosts.set(saved.id, this.enemyManager.loadEnemy(saved, pathOf(saved.pathId)));
-    }
-    const enemy = (id: string) => this.enemyManager.getById(id) ?? ghosts.get(id) ?? null;
-    this.projectileManager.restoreWaveState(wave.projectiles, enemy, beforeEach);
-    for (const [towerId, targetId] of wave.towerTargets) this.towerManager.getById(towerId)?.restoreTarget(enemy(targetId));
-    for (const [playerId, targetId] of wave.heroTargets) this.heroOf(playerId).restoreTarget(enemy(targetId));
-    for (const [playerId, strikes] of wave.strikes) this.abilityOf(playerId).restoreWaveState(strikes, enemy);
-    this.towerPlacement.restoreAwaitingLos(wave.awaitingLos.flatMap(([towerId, reason]) => {
-      const tower = this.towerManager.getById(towerId);
-      return tower ? [[tower, reason] as const] : [];
-    }));
-    for (const event of wave.deferred) this.eventBus.emitDeferred(event as never);
-    GameObject.setIdCounter(snapshot.base.idCounter);
+    this.snapshots.restoreWave(snapshot, reason);
   }
 
   /**
@@ -1600,12 +1433,9 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
-    this.runningWaveConfig = toPlainData(config) as WaveConfig;
+    this.snapshots.waveStarted(config);
     this.waveManager.startWave(config);
   }
-
-  /** The config of the wave startWave() started last, laid out on the lanes (the wave snapshot's plan) */
-  private runningWaveConfig: WaveConfig | null = null;
 
   /**
    * Begin wave phase without auto-spawning
@@ -1621,7 +1451,7 @@ export class GameStateManager {
     }
 
     // A wave without a plan: nothing spawns by itself, the wave snapshot carries no spawner
-    this.runningWaveConfig = { schedule: { entries: [], baseDelay: 0 } };
+    this.snapshots.waveStarted({ schedule: { entries: [], baseDelay: 0 } });
     this.waveManager.beginWave();
   }
 
@@ -2044,19 +1874,4 @@ export class GameStateManager {
     // Also update the global store so UI components stay in sync
     this.gameStore.gameSpeed.set(clamped);
   }
-}
-
-/** The number of an entity id (`tower-12` gives 12), see GameObject.generateId. */
-/** An event of plain data: no entity in it (a footstep's enemy), so a wave snapshot can carry it */
-function plainEvent(event: object): boolean {
-  const walk = (value: unknown): boolean => {
-    if (value instanceof GameObject) return false;
-    if (value === null || typeof value !== 'object') return typeof value !== 'function';
-    return Object.values(value).every(walk);
-  };
-  return walk(event);
-}
-
-function idNumber(id: string): number {
-  return Number(id.slice(id.lastIndexOf('-') + 1));
 }
