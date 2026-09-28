@@ -216,6 +216,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
 
     const osm = {
       loadStreets: vi.fn(async () => NETWORK),
+      prefetchStreets: vi.fn(),
       findRandomStreetPoint: vi.fn(() => randomSpawn && { ...randomSpawn, distance: 416, streetName: 'Galgengasse', nodeId: 1 }),
       findPath: vi.fn(() => STREET),
       haversineDistance: (lat1: number, lon1: number, lat2: number, lon2: number) => haversineDistance(lat1, lon1, lat2, lon2),

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { OsmStreetService, BuildingFootprint, StreetNetwork } from './osm-street.service';
+import { OsmStreetService, BuildingFootprint, StreetNetwork, STREET_RADIUS_M } from './osm-street.service';
 import { boxAround } from './street-box';
 import { ROUTE_START_NODE_ID } from '../../utils/route-start';
 import { extendPathToOptimalTurnoff, leavePathForBase } from '../../utils/route-geometry';
@@ -651,6 +651,65 @@ describe('OsmStreetService', () => {
         requests[i].fail(new TypeError('Failed to fetch'));
       }
       await expect(loading).rejects.toThrow('OSM server unreachable');
+    });
+    describe('begun early (prefetchStreets, TODO H13)', () => {
+      const WAYS = overpass([1, 48.78, 9.18, 48.781, 9.18], [2, 48.785, 9.19, 48.786, 9.19]);
+
+      /** The query and the network a plain loadStreets gives, on a service of its own */
+      const plain = async (lat: number, lon: number, radius: number) => {
+        const own = new OsmStreetService();
+        const loading = own.loadStreets(lat, lon, radius);
+        await flush();
+        const request = requests[requests.length - 1];
+        request.answer(WAYS);
+        return { query: request.query, network: await loading };
+      };
+
+      it('asks the same query once, before the caller asks, and gives the same streets', async () => {
+        const reference = await plain(48.78, 9.18, STREET_RADIUS_M);
+        const before = requests.length;
+
+        service.prefetchStreets(48.78, 9.18, STREET_RADIUS_M);
+        await flush();
+        // The request is out before anyone asked for the streets
+        expect(requests.length).toBe(before + 1);
+        expect(requests[before].query).toBe(reference.query);
+
+        const loading = service.loadStreets(48.78, 9.18, STREET_RADIUS_M);
+        await flush();
+        expect(requests.length).toBe(before + 1);
+        requests[before].answer(WAYS);
+        expect(await loading).toEqual(reference.network);
+      });
+
+      it('loads on its own for another place, with the query it would have asked anyway', async () => {
+        const reference = await plain(48.9, 9.3, STREET_RADIUS_M);
+        const before = requests.length;
+
+        service.prefetchStreets(48.78, 9.18, STREET_RADIUS_M);
+        await flush();
+        const loading = service.loadStreets(48.9, 9.3, STREET_RADIUS_M);
+        await flush();
+        expect(requests.length).toBe(before + 2);
+        expect(requests[before + 1].query).toBe(reference.query);
+        requests[before + 1].answer(WAYS);
+        expect(await loading).toEqual(reference.network);
+      });
+
+      it('hands a failure to the caller that takes the load, and to nobody else', async () => {
+        service.prefetchStreets(48.78, 9.18, 500);
+        for (let i = 0; i < 3; i++) {
+          await flush();
+          requests[i].fail(new TypeError('Failed to fetch'));
+        }
+        await flush();
+        await expect(service.loadStreets(48.78, 9.18, 500)).rejects.toThrow('OSM server unreachable');
+        // Taken once: the next call loads anew
+        const again = service.loadStreets(48.78, 9.18, 500);
+        await flush();
+        requests[requests.length - 1].answer(WAYS);
+        await expect(again).resolves.toMatchObject({ streets: [{ id: 1 }, { id: 2 }] });
+      });
     });
   });
 

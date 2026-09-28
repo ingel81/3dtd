@@ -3,7 +3,7 @@ import { ThreeTilesEngine } from '../../three-engine';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
-import { StreetNetwork, OsmStreetService } from './osm-street.service';
+import { StreetNetwork, OsmStreetService, STREET_RADIUS_M } from './osm-street.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
@@ -106,6 +106,12 @@ export class LocationChangeExecutorService {
     ctx: LocationChangeContext,
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
+    // The streets of the new place load while the engine resets and the tiles
+    // stream (TODO H13): the request starts now, step 3 takes it, the same one
+    if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
+      this.osmService.prefetchStreets(input.hq.lat, input.hq.lon, STREET_RADIUS_M);
+    }
+
     // STEP 1: Initialize loading state
     await this.step1_InitializeLoadingState();
 
@@ -214,7 +220,7 @@ export class LocationChangeExecutorService {
     // Check if we can reuse cached street network
     if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
       this.engineInit.updateStepMeta('streets', 'Loading OSM data...');
-      streetNetwork = await this.osmService.loadStreets(input.hq.lat, input.hq.lon, 2000);
+      streetNetwork = await this.osmService.loadStreets(input.hq.lat, input.hq.lon, STREET_RADIUS_M);
       callbacks.setStreetNetwork(streetNetwork);
       callbacks.setStreetNetworkLocation({ lat: input.hq.lat, lon: input.hq.lon });
     } else {

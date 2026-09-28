@@ -110,6 +110,14 @@ function logOverpassAnswer(what: string, server: string, answer: OverpassAnswer)
   );
 }
 
+/** Radius of the street box around the HQ, m: the one every place of the game loads its streets with */
+export const STREET_RADIUS_M = 2000;
+
+/** The arguments of a street load, for matching a prefetched load (OsmStreetService.prefetchStreets) */
+function streetLoadKey(lat: number, lon: number, radiusMeters: number): string {
+  return `${lat}|${lon}|${radiusMeters}`;
+}
+
 /** Highway types loadStreets asks for: the roads, and the paths enemies may take. */
 const HIGHWAY_TYPES =
   'motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|' +
@@ -210,6 +218,30 @@ export class OsmStreetService {
   private lastLoaded: StreetNetwork | null = null;
 
   /**
+   * A load prefetchStreets() began before its caller asked, with the
+   * arguments it was begun for; the loadStreets() call with the same
+   * arguments takes it (TODO H13).
+   */
+  private prefetched: { key: string; promise: Promise<StreetNetwork> } | null = null;
+
+  /**
+   * Begin loadStreets(`centerLat`, `centerLon`, `radiusMeters`) now, while
+   * other things load (the tiles), so that the loadStreets() call with the
+   * same arguments later takes this load instead of starting one: the same
+   * box, the same query, the same network, only earlier (TODO H13). A later
+   * call with other arguments loads on its own. A failure reaches the caller
+   * that takes the load.
+   */
+  prefetchStreets(centerLat: number, centerLon: number, radiusMeters: number): void {
+    const key = streetLoadKey(centerLat, centerLon, radiusMeters);
+    if (this.prefetched?.key === key) return;
+    const promise = this.loadStreetsNow(centerLat, centerLon, radiusMeters);
+    // Nobody may take it (the place changed again); its error must not go unhandled
+    promise.catch(() => undefined);
+    this.prefetched = { key, promise };
+  }
+
+  /**
    * Load street network for a given bounding box around coordinates
    * Uses IndexedDB cache to avoid repeated API calls (supports larger data than localStorage)
    *
@@ -218,11 +250,25 @@ export class OsmStreetService {
    * of it, in up to four strips (boxMinus): about half the box after the HQ
    * moved just past an edge of the loaded streets, three quarters past a
    * corner, nothing when they cover it. A way in both comes once.
+   *
+   * A load prefetchStreets() began for the same arguments is taken as it is.
    */
-  async loadStreets(
+  loadStreets(
     centerLat: number,
     centerLon: number,
     radiusMeters = 500
+  ): Promise<StreetNetwork> {
+    const prefetched = this.prefetched;
+    this.prefetched = null;
+    if (prefetched?.key === streetLoadKey(centerLat, centerLon, radiusMeters)) return prefetched.promise;
+    return this.loadStreetsNow(centerLat, centerLon, radiusMeters);
+  }
+
+  /** loadStreets() without a prefetched load */
+  private async loadStreetsNow(
+    centerLat: number,
+    centerLon: number,
+    radiusMeters: number,
   ): Promise<StreetNetwork> {
     // Try to load from IndexedDB cache first
     const cacheKey = this.streetCache.getCacheKey(centerLat, centerLon, radiusMeters);

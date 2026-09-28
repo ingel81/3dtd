@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { take } from 'rxjs';
-import { OsmStreetService } from './osm-street.service';
+import { OsmStreetService, STREET_RADIUS_M } from './osm-street.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { HeightUpdateService } from '../world/height-update.service';
 import { LocationManagementService } from './location-management.service';
@@ -179,7 +179,7 @@ export class LocationChangeCoordinatorService {
       // Generate random spawn if requested
       if (!spawn) {
         // Load streets for the new location to find spawn
-        const newNetwork = await this.osmService.loadStreets(hq.lat, hq.lon, 2000);
+        const newNetwork = await this.osmService.loadStreets(hq.lat, hq.lon, STREET_RADIUS_M);
 
         // Store for reuse in executeLocationChange to avoid double-loading
         const callbacks = this.delegate!.getChangeCallbacks();

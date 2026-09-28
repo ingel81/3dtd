@@ -141,7 +141,7 @@ describe('LocationChangeCoordinatorService', () => {
   let state: { spawnPoints: { id: string; name: string; lat: number; lon: number; color: number }[] };
 
   const dialog = { open: vi.fn() };
-  const osm = { loadStreets: vi.fn(), findRandomStreetPoint: vi.fn() };
+  const osm = { loadStreets: vi.fn(), prefetchStreets: vi.fn(), findRandomStreetPoint: vi.fn() };
   const heightUpdate = { heightsLoading: signal(false), stopHeightUpdates: vi.fn() };
   const markerViz = { initialize: vi.fn(), placeSpawnPortal: vi.fn(), addBaseMarker: vi.fn() };
   const pathRoute = {
@@ -312,6 +312,9 @@ describe('LocationChangeCoordinatorService', () => {
       await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(osm.loadStreets).toHaveBeenCalledWith(HQ.lat, HQ.lon, 2000);
+      // Begun before the reset and the tiles, with the same arguments step 3 takes it with (TODO H13)
+      expect(osm.prefetchStreets).toHaveBeenCalledWith(HQ.lat, HQ.lon, 2000);
+      expect(osm.prefetchStreets.mock.invocationCallOrder[0]).toBeLessThan(engine.setOrigin.mock.invocationCallOrder[0]);
       expect(callbacks.setStreetNetwork).toHaveBeenCalledWith(loaded);
       expect(callbacks.setStreetNetworkLocation).toHaveBeenCalledWith(HQ);
       expect(callbacks.setStreetCount).toHaveBeenCalledWith(5);
@@ -326,6 +329,7 @@ describe('LocationChangeCoordinatorService', () => {
       await executor.executeLocationChange(input(), ctx, callbacks);
 
       expect(osm.loadStreets).not.toHaveBeenCalled();
+      expect(osm.prefetchStreets).not.toHaveBeenCalled();
       expect(engineInit.updateStepMeta).toHaveBeenCalledWith('streets', 'Using cache...');
       expect(callbacks.setStreetCount).toHaveBeenCalledWith(7);
       expect(pathRoute.initialize.mock.calls[0][1]).toBe(cached);

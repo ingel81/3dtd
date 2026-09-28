@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { OsmStreetService } from '../location/osm-street.service';
+import { OsmStreetService, STREET_RADIUS_M } from '../location/osm-street.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { PathAndRouteService } from '../world/path-route.service';
 import { LocationManagementService } from '../location/location-management.service';
@@ -153,7 +153,7 @@ export class MapRelocationService {
       // Overpass servers at 15 s each before the loading screen: say so.
       this.relocationStatus.show(MOVING_HQ, 'Loading streets');
       try {
-        const newNetwork = await this.osmService.loadStreets(lat, lon, 2000);
+        const newNetwork = await this.osmService.loadStreets(lat, lon, STREET_RADIUS_M);
         times.lap('streets');
 
         // Cache in bridge so coordinator's step3 reuses it (avoids double-load).

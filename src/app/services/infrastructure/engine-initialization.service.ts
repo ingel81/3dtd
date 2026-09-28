@@ -2,7 +2,7 @@ import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/cor
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
 import { AssetManagerService } from './asset-manager.service';
-import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
+import { OsmStreetService, STREET_RADIUS_M, StreetNetwork } from '../location/osm-street.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
 import { BootStep } from '../../components/loading-screen/boot-step.model';
@@ -351,6 +351,17 @@ export class EngineInitializationService {
    * @param onStreetNetworkRefreshed Callback when DevWorld streets are regenerated
    * @returns Object with streetNetwork, streetCount, and optional devStreetProvider
    */
+  /**
+   * Begin the OSM street load of loadStreets() now, before the engine is
+   * built and the tiles stream, so both load side by side (TODO H13);
+   * loadStreets() with the same place takes it. Nothing in DevWorld, whose
+   * streets come from its terrain.
+   */
+  prefetchStreets(centerLat: number, centerLon: number): void {
+    if (this.devWorld.isActive) return;
+    this.osmService.prefetchStreets(centerLat, centerLon, STREET_RADIUS_M);
+  }
+
   async loadStreets(
     centerLat: number,
     centerLon: number,
@@ -385,7 +396,7 @@ export class EngineInitializationService {
       }
 
       // Real world: Use OSM
-      const network = await this.osmService.loadStreets(centerLat, centerLon, 2000);
+      const network = await this.osmService.loadStreets(centerLat, centerLon, STREET_RADIUS_M);
       return { network, count: network.streets.length, devStreetProvider: null };
     } catch (err) {
       console.error('[EngineInit] Failed to load streets:', err);

@@ -291,6 +291,9 @@ export class TowerDefenseFacadeService {
 
       const base = this.store.baseCoords();
       this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.lat, lon: base.lon }, tileProvider, googleMapsApiKey);
+      // The streets load while the engine is built and the tiles stream (TODO H13); onLoadStreets takes it
+      const center = this.store.centerCoords();
+      this.engineInit.prefetchStreets(center.lat, center.lon);
 
       await this.engineInit.initEngine({
         onLoadStreets: () => this.loadStreetsInternal(),
