@@ -128,8 +128,8 @@ Relay neu starten (`npm run coop-server`), zwei Fenster, beide neu laden. Nach d
 
 Neue Wellenquelle nach [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md), noch nicht Standard. Eingeschaltet mit `waves=budget` in
 der Adresse (bleibt beim Ortswechsel erhalten) oder im Wave-Debug-Fenster als Quelle des nächsten Laufs. Die Bots
-kommen mit ihr bis W24 bis W40, mit dem heutigen Director bis W30 bis W42; Bots bauen aber anders als Menschen, darum
-diese Läufe. Jeden Lauf am Ende über "Runs" speichern und exportieren: das Log hat je Welle Budget, Zeitfenster und
+kommen mit ihr bis W37 bis W40, mit dem heutigen Director bis W30 bis W36 (Bot-Werte, je 6 Läufe); Bots bauen aber
+anders als Menschen, darum diese Läufe. Im Coop bestimmt der Host die Quelle. Jeden Lauf am Ende über "Runs" speichern und exportieren: das Log hat je Welle Budget, Zeitfenster und
 welche Gegner an ihrer Grenze hängen.
 
 - **B1 Solo auf einer echten Karte:** `http://localhost:4200/?waves=budget`, Ort wählen, normal spielen bis zum Ende.

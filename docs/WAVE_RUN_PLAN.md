@@ -229,8 +229,19 @@ Gegner in jeder Welle:
 | Dichte schnelle Schwärme leckten bei niedrigen HP | Versucht: Körper zugleich in Reichweite teilen sich das Feuer. Zurückgenommen, damit hing fast jeder Gegner an seiner Grenze, der Regler kam nicht mehr an, die Bots hatten bei W40 noch 456 HP |
 | Welle 1 kostete im Coop 58 HP (geplant, bevor ein Tower steht) | Zeile 1 leichter; was die Abwehr nicht treffen kann, bekommt die Stärke der Zeile als HP-Faktor |
 
-Stand vor den letzten beiden Punkten (alter Bot, 6 Läufe): Todeswelle 32 bis 42, HP nach W10/W20/W30: 347/279/218, also
-gleichauf mit dem adaptiven Director. Verlauf und Endwerte stehen in der Morgen-Zusammenfassung.
+| Regler am Anschlag (doppelt) ab W23, dann kosteten die schlechtesten Paarungen 60 bis 210 HP | Regler halb bis 1,5 statt halb bis doppelt |
+| Geister (W24, W35), Mammuts (W25), Spinnenschwarm (W6) blieben die teuersten Wellen, im Coop je Spur doppelt | Stärke dieser Zeilen 0,8; Welle 1 mit zehn Zombies |
+
+Endstand mit dem neuen Bot (je 6 Solo-Läufe, Bot-Werte):
+
+| | Todeswelle | HP nach W10/W20/W30 |
+|---|---|---|
+| Adaptiver Director | 30 bis 36 | 436/325/225 |
+| Budget-Quelle | 37 bis 40 | 405/321/235 |
+
+Coop zu zweit (Chromium gegen Firefox, 3 Räume je Stand): keine Abweichung zwischen den Browsern; Todeswelle vor der
+letzten Anpassung 23, 34 und 35, der adaptive Director (alter Bot) 27 bis 41. Die Budget-Quelle ist damit bei den Bots
+mindestens gleichauf; wie sie sich gegen einen Menschen anfühlt, zeigen erst dessen Läufe.
 
 Der Bot baut seit 2026-09-28 erst aus, dann rüstet er auf (vier Tower und einer mehr je Welle, Obergrenze 20):
 vorher standen bis W10 nur 3 bis 4 Tower.
