@@ -100,6 +100,18 @@ export class HashCheck {
     return null;
   }
 
+  /**
+   * Forget every judged and pending tick after a resync (C5b): the state was
+   * replaced, so the hashes before it say nothing about the new one. `last`
+   * stays, the room paces by it.
+   */
+  forgetTicks(): void {
+    this.byTick.clear();
+    this.partsByTick.clear();
+    this.flagged.clear();
+    this.newest = -Infinity;
+  }
+
   /** Every tick KEEP_REPORTS reports below the highest, whatever order they came in (review M3) */
   private prune(tick: number): void {
     this.newest = Math.max(this.newest, tick);

@@ -13,6 +13,7 @@ import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { WaveDirector } from '../director/wave-director';
 import { initialWaveSourceId, isWaveSourceId } from '../director/wave-source.registry';
+import { ResyncDriver } from '../coop/resync';
 import type { WaveSourceId } from '../director/wave-source';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
@@ -193,6 +194,33 @@ export class CoopService {
   private readonly gameState = inject(GameStateManager);
   /** Optional: specs of the room flow run without a director and play the address's source */
   private readonly waveDirector = inject(WaveDirector, { optional: true });
+  /** Resync after a desync (C5b): holds, sends or loads the state at the room's boundary */
+  private readonly resync = new ResyncDriver(
+    () => this.isHost(),
+    {
+      subStep: () => this.gameState.subStep,
+      refusal: () => this.gameState.waveSnapshotRefusal(),
+      capture: () => this.gameState.captureWaveSnapshot(),
+      restore: (snapshot) => this.gameState.restoreWaveSnapshot(snapshot, 'live'),
+    },
+    {
+      state: (tick, gz) => this.session?.resyncState(tick, gz),
+      loaded: (tick, ok) => this.session?.resynced(tick, ok),
+    },
+    (text) => console.warn(text),
+  );
+  private resyncTimer: ReturnType<typeof setInterval> | null = null;
+
+  private startResyncPolling(): void {
+    this.stopResyncPolling();
+    this.resyncTimer = setInterval(() => void this.resync.poll(), 50);
+  }
+
+  private stopResyncPolling(): void {
+    if (this.resyncTimer !== null) clearInterval(this.resyncTimer);
+    this.resyncTimer = null;
+  }
+
   /** Guest: the source this seat played before a host's replaced it, back on leave() */
   private ownWaveSource: WaveSourceId | null = null;
   /** Host: the source the last world package carried */
@@ -1020,6 +1048,8 @@ export class CoopService {
   leave(): void {
     this.session?.close();
     this.session = null;
+    this.resync.done();
+    this.stopResyncPolling();
     if (this.ownWaveSource) {
       this.waveDirector?.useSourceNextRun(this.ownWaveSource);
       this.ownWaveSource = null;
@@ -1251,6 +1281,19 @@ export class CoopService {
       console.warn(`[Coop] out of step at tick ${tick}: ${hashes.map(([id, h]) => `${id} ${(h >>> 0).toString(16)}`).join(', ')}; here now ${own.toString(16)}`);
       this.reportDesyncDetail(session, tick, parts);
       this.notify(desyncText(outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
+    });
+    // Resync (C5b): the room holds, the host's state replaces the guests'
+    session.onResync = inZone((tick) => {
+      this.resync.hold(tick);
+      this.startResyncPolling();
+      this.notify(this.isHost() ? 'Sending your game state to the others to bring them back in step' : "Loading the host's game state to get back in step", 'info');
+    });
+    session.onResyncState = inZone((tick, gz) => this.resync.state(tick, gz));
+    session.onResyncDone = inZone((_tick, ok) => {
+      this.resync.done();
+      this.stopResyncPolling();
+      if (ok) this.desync.set(null);
+      this.notify(ok ? 'Back in step with the host' : 'The games could not be brought back in step: what you see may differ', ok ? 'info' : 'warn');
     });
     session.onClosed = inZone((reason) => {
       if (this.session !== session) return;

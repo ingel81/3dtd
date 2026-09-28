@@ -168,6 +168,17 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       return typeof m['gz'] === 'string' && m['gz'].length > 0 && BASE64.test(m['gz'])
         ? { t: 'run-log', gz: m['gz'] }
         : null;
+    case 'resync-state': {
+      const tick = tickOf(m['tick']);
+      if (tick === null) return null;
+      const gz = m['gz'];
+      if (gz === null) return { t: 'resync-state', tick, gz: null };
+      return typeof gz === 'string' && gz.length > 0 && BASE64.test(gz) ? { t: 'resync-state', tick, gz } : null;
+    }
+    case 'resynced': {
+      const tick = tickOf(m['tick']);
+      return tick === null || typeof m['ok'] !== 'boolean' ? null : { t: 'resynced', tick, ok: m['ok'] };
+    }
     default:
       return null;
   }

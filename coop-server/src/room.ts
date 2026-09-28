@@ -77,6 +77,14 @@ const RECENT_COMMANDS = 40;
  * answers the heartbeat must not hold everyone.
  */
 export const HANG_MS = 30_000;
+/** How long a room holds for a resync before it goes on without (C5b) */
+export const RESYNC_TIMEOUT_MS = 20_000;
+/**
+ * Resyncs a room tries; past that a divergence only counts. A cause that
+ * keeps coming back (another browser's float, say) would hold the room
+ * every second otherwise.
+ */
+export const MAX_RESYNCS = 5;
 
 /** The host sends a world at most this often; more are dropped (review H2) */
 const WORLD_EVERY_MS = 1000;
@@ -182,6 +190,14 @@ export class Room {
   /** What each player's entities put into the hash at the first desync's tick (TODO E32) */
   private readonly desyncDetails = new Map<string, HashedEntities>();
   private desyncDetailLogged = false;
+  /**
+   * A resync under way (C5b): no tick closes from `tick` on until every
+   * guest in `waiting` loaded the host's state, or RESYNC_TIMEOUT_MS passed
+   */
+  private resync: { tick: number; since: number; waiting: Set<string>; stateSent: boolean; ok: boolean } | null = null;
+  /** Hash reports below this tick describe a state a resync replaced */
+  private hashFloor = 0;
+  private resyncCount = 0;
   /** Since when the room waits for `waitingFor`, ms */
   private waitingSince = 0;
   private lastCommandAt = 0;
@@ -270,6 +286,7 @@ export class Room {
     this.log(`${this.who(playerId)} left (${reason})${this.started ? `, lane closes after tick ${this.lastTick}` : ''}`);
     this.players.splice(index, 1);
     this.logBudget.delete(playerId);
+    if (this.resync?.waiting.delete(playerId) && this.resync.waiting.size === 0 && this.resync.stateSent) this.finishResync();
     this.removed(playerId);
     if (this.started) this.open.push({ playerId, command: { type: 'command:leave-game' } });
     this.broadcast({ t: 'left', playerId });
@@ -399,15 +416,26 @@ export class Room {
         if (message.command.type === 'command:start-wave') this.waves++;
         return;
       case 'hash': {
-        // A tick the room has closed, at a report boundary, not long gone (review M3)
-        if (!this.started || message.tick % this.hashEvery !== 0 || message.tick > this.nextTick
-          || message.tick < this.nextTick - HASH_WINDOW_TICKS) return;
+        // A tick the room has closed, at a report boundary, not long gone (review M3),
+        // not while a resync replaces the state and not from before one
+        if (!this.started || this.resync || message.tick < this.hashFloor || message.tick % this.hashEvery !== 0
+          || message.tick > this.nextTick || message.tick < this.nextTick - HASH_WINDOW_TICKS) return;
         const parts = Array.isArray(message.parts) && message.parts.length === HASH_PARTS.length
           && message.parts.every((p) => Number.isFinite(p)) ? message.parts : undefined;
         return this.checkHash(playerId, message.tick, message.hash, parts);
       }
       case 'hash-detail':
         return this.takeDesyncDetail(playerId, message.tick, message.entities);
+      case 'resync-state':
+        return this.takeResyncState(playerId, message.tick, message.gz);
+      case 'resynced': {
+        const resync = this.resync;
+        if (!resync || message.tick !== resync.tick || !resync.waiting.delete(playerId)) return;
+        if (!message.ok) resync.ok = false;
+        this.log(`resync: ${this.who(playerId)} ${message.ok ? 'loaded' : 'could not load'} the state of tick ${resync.tick}`);
+        if (resync.waiting.size === 0) this.finishResync();
+        return;
+      }
       case 'stats':
         if (!this.started || typeof message.stats?.frames !== 'number') return;
         return this.noisy(playerId, `stats ${this.who(playerId)}: ${statsLine(message.stats)}`);
@@ -439,6 +467,14 @@ export class Room {
   advance(realMs: number): number {
     this.flushWorld();
     if (!this.started || this.speed === 0) return 0;
+    if (this.resync) {
+      if (this.now() - this.resync.since >= RESYNC_TIMEOUT_MS) {
+        this.log(`resync: no answer within ${RESYNC_TIMEOUT_MS / 1000} s, the room goes on`);
+        this.resync.ok = false;
+        this.finishResync();
+      }
+      return 0;
+    }
     // No further than MAX_AHEAD_TICKS past the slowest client (review R2):
     // the room waits for them rather than they trail on for good
     const slowest = this.slowestPlayer();
@@ -513,6 +549,50 @@ export class Room {
       this.log(`  command at tick ${c.tick} from ${this.who(c.playerId)}: ${JSON.stringify(c.command).slice(0, 300)}`);
     }
     this.broadcast({ t: 'desync', tick: divergence.tick, hashes: divergence.hashes, outOfStep: divergence.outOfStep, parts: divergence.parts });
+    this.startResync();
+  }
+
+  /**
+   * Hold the room and let the host's state replace everyone's (C5b, TODO
+   * E58): no further tick closes, so every client stops at the boundary of
+   * the next one; the host sends its state from there, the guests load it.
+   */
+  private startResync(): void {
+    if (this.resync || this.players.length < 2) return;
+    if (this.resyncCount >= MAX_RESYNCS) return this.log(`no resync: ${MAX_RESYNCS} already, divergences only count from here`);
+    const guests = new Set(this.players.filter((p) => p.id !== this.hostId).map((p) => p.id));
+    this.resync = { tick: this.nextTick, since: this.now(), waiting: guests, stateSent: false, ok: true };
+    this.resyncCount++;
+    this.log(`resync ${this.resyncCount}: holding at tick ${this.nextTick}, the host's state goes to ${[...guests].map((id) => this.who(id)).join(', ')}`);
+    this.broadcast({ t: 'resync', tick: this.nextTick });
+  }
+
+  private takeResyncState(playerId: string, tick: number, gz: string | null): void {
+    const resync = this.resync;
+    if (!resync || playerId !== this.hostId || tick !== resync.tick || resync.stateSent) return;
+    resync.stateSent = true;
+    if (gz === null) {
+      this.log(`resync: the host cannot send its state at tick ${tick}`);
+      resync.ok = false;
+      return this.finishResync();
+    }
+    this.log(`resync: state of tick ${tick} from the host, ${Math.round(gz.length / 1024)} kB`);
+    for (const id of resync.waiting) this.send(id, { t: 'resync-state', tick, gz });
+    if (resync.waiting.size === 0) this.finishResync();
+  }
+
+  private finishResync(): void {
+    const resync = this.resync;
+    if (!resync) return;
+    this.resync = null;
+    this.hashFloor = resync.tick;
+    // A new state: the next divergence is news again
+    this.hashCheck.forgetTicks();
+    this.firstDesync = null;
+    this.desyncDetails.clear();
+    this.desyncDetailLogged = false;
+    this.log(`resync ${this.resyncCount} ${resync.ok ? 'done' : 'failed'}, the room goes on from tick ${resync.tick}`);
+    this.broadcast({ t: 'resync-done', tick: resync.tick, ok: resync.ok });
   }
 
   /**

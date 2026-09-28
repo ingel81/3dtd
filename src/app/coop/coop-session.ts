@@ -154,6 +154,12 @@ export class CoopSession {
   onMoving: (() => void) | null = null;
   /** The relay found the simulations apart (C5): the first tick, player id and hash each */
   onDesync: ((tick: number, hashes: [string, number][], outOfStep: string[], parts: HashPart[] | null) => void) | null = null;
+  /** After a desync the room holds at the boundary of `tick` for a resync (C5b) */
+  onResync: ((tick: number) => void) | null = null;
+  /** Guest: the host's state for the resync at `tick` */
+  onResyncState: ((tick: number, gz: string) => void) | null = null;
+  /** The room goes on after the resync at `tick` */
+  onResyncDone: ((tick: number, ok: boolean) => void) | null = null;
   /** The relay's answer to a sent run log (TODO E38) */
   onRunLog: ((ok: boolean, reason: string | null) => void) | null = null;
   /** The relay keeps run logs a player agrees to send, from its welcome (TODO E38) */
@@ -292,6 +298,16 @@ export class CoopSession {
     this.out({ t: 'chat', text });
   }
 
+  /** Host, resync: the state at the boundary of `tick`, or null when it cannot be sent (C5b) */
+  resyncState(tick: number, gz: string | null): void {
+    this.out({ t: 'resync-state', tick, gz });
+  }
+
+  /** Guest, resync: the host's state is loaded, or not */
+  resynced(tick: number, ok: boolean): void {
+    this.out({ t: 'resynced', tick, ok });
+  }
+
   /** After a game: the run log, gzip as base64 (TODO E38); only when the relay collects */
   sendRunLog(gz: string): void {
     if (this.collectRuns) this.out({ t: 'run-log', gz });
@@ -417,6 +433,12 @@ export class CoopSession {
         return this.onDesync?.(message.tick, message.hashes, message.outOfStep ?? [], message.parts ?? null);
       case 'run-log':
         return this.onRunLog?.(message.ok, message.reason ?? null);
+      case 'resync':
+        return this.onResync?.(message.tick);
+      case 'resync-state':
+        return this.onResyncState?.(message.tick, message.gz);
+      case 'resync-done':
+        return this.onResyncDone?.(message.tick, message.ok);
     }
   }
 }

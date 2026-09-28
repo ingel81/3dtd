@@ -154,7 +154,11 @@ export type ClientMessage =
   /** A mark on the map for the others (D25, review R13); height of the ground there */
   | { t: 'ping'; lat: number; lon: number; height: number }
   /** After a game, with the player's consent: the run log, gzip and base64 (TODO E38); only to a relay that collects */
-  | { t: 'run-log'; gz: string };
+  | { t: 'run-log'; gz: string }
+  /** Host, after `resync`: the simulation at the boundary of `tick` (wave snapshot, JSON, gzip, base64); null when it cannot (C5b) */
+  | { t: 'resync-state'; tick: number; gz: string | null }
+  /** Guest: the host's state is loaded at the boundary of `tick`, or why not (C5b) */
+  | { t: 'resynced'; tick: number; ok: boolean };
 
 export type ServerMessage =
   /** `collectRuns`: this relay keeps run logs a player agrees to send (TODO E38) */
@@ -197,4 +201,14 @@ export type ServerMessage =
   /** Each player's round trip to the relay, ms, null before the first; every few seconds */
   | { t: 'rtt'; rtt: [string, number | null][] }
   /** The public rooms, answer to `rooms` */
-  | { t: 'rooms'; rooms: PublicRoom[] };
+  | { t: 'rooms'; rooms: PublicRoom[] }
+  /**
+   * After a desync the room holds: no tick past `tick - 1` closes, so every
+   * client stops at the boundary of `tick`. The host sends its state there,
+   * the others load it (C5b, TODO E58).
+   */
+  | { t: 'resync'; tick: number }
+  /** To the guests: the host's state at the boundary of `tick` */
+  | { t: 'resync-state'; tick: number; gz: string }
+  /** The room goes on; `ok` false when the state could not be sent or loaded everywhere */
+  | { t: 'resync-done'; tick: number; ok: boolean };

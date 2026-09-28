@@ -511,6 +511,19 @@ Kosten (`npm run bench:sim`, Gegner auf ganzen Routen, Median, ein Lauf):
 | M | 1000 | 5,5 ms | 4,3 ms | 1,4 MB | 11,6 ms |
 | L | 3000 | 17,2 ms | 11,8 ms | 4,1 MB | 39,2 ms |
 
+**Resync gebaut (2026-09-28, erster Bau, TODO E58):** Nach der ersten Abweichung hält das Relay den Raum: kein Tick
+schließt mehr ab dem nächsten (`resync` mit diesem Tick an alle), die Barriere hält jede Sim an dessen Grenze. Dort
+nimmt der Host `captureWaveSnapshot()`, schickt ihn als JSON, gzip, base64 (`resync-state`, bis knapp 1 MB, sonst
+`null`), das Relay reicht ihn an die Gäste, jeder lädt ihn an derselben Grenze (`restoreWaveSnapshot(…, 'live')`) und
+meldet `resynced`; sind alle da, `resync-done`, und die Ticks laufen weiter. Kein Vor- oder Zurückspulen, weil niemand
+über die Grenze kommt. Das Relay vergisst danach die Prüfsummen vor der Grenze, eine neue Abweichung startet die
+nächste Resync, höchstens `MAX_RESYNCS` (5) je Raum; ohne Antwort geht der Raum nach 20 s ohne weiter.
+Code: `coop/resync.ts` (`ResyncDriver`), `coop-server/src/room.ts`, `CoopService` (Abfrage alle 50 ms während des
+Haltens). Abnahme: `room.spec.ts` (Halten, Weiterreichen, Weiter, Zeitablauf, Obergrenze), `lockstep.scenario.spec.ts`
+(Gast mit verfälschtem Gold mitten in der Welle, nach dem Laden gleiche Prüfsumme und keine weitere Abweichung).
+Noch offen: Darstellung nach dem Laden (Spuren, Auren, Töne des alten Stands), Stände über 1 MB (L-Wellen), ein Test
+im Browser.
+
 Was für die Resync noch fehlt (nicht gebaut):
 - Protokoll: Relay meldet `desync`, der Host nimmt an einer Tick-Grenze T den Snapshot und schickt ihn (Größe:
   bei tausenden Gegnern mehrere MB, also komprimieren oder binär), der abweichende Client lädt ihn bei T und

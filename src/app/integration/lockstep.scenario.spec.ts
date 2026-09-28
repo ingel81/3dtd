@@ -8,6 +8,8 @@
  * GameObject ids come from a static counter; one per process is right for
  * the game, two simulations here each keep their own (Client.run).
  */
+import { ResyncDriver } from '../coop/resync';
+import type { WaveSnapshot } from '../simulator/wave-snapshot';
 import type { WaveGroupDisplay } from '../services/debug/wave-debug.service';
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
@@ -313,6 +315,55 @@ describe('Coop lockstep (COOP_PLAN C0)', () => {
     expect(blocked / frames).toBeLessThan(0.02);
     expect(behindSum / frames).toBeGreaterThan(0.5);
     expect(behindSum / frames).toBeLessThan(2);
+  });
+
+  it("brings a falsified guest back in step with the host's state at the held boundary, mid-wave (C5b)", async () => {
+    Math.random = mulberry32(SEED + 1);
+    const relay = new LocalRelay(true);
+    const a = buildClient(relay, 'a');
+    const b = buildClient(relay, 'b');
+    const both = (ms: number) => { a.frame(ms); b.frame(ms); };
+    a.emit({ type: 'command:start-wave', config: waveConfig() });
+    for (let t = 0; t < 3 * HASH_EVERY_TICKS; t++) {
+      relay.closeTick();
+      if (t === HASH_EVERY_TICKS + 3) b.run(() => b.gsm.addCredits(7, 'reset'));
+      both(TICK_SUB_STEPS * 17);
+    }
+    expect(relay.divergences.length).toBeGreaterThan(0);
+    expect(a.gsm.waveManager.phase()).toBe('wave');
+
+    // The relay holds: no further tick, both run up to the boundary and stop there
+    const hold = relay.lastClosed + 1;
+    for (let i = 0; i < 20; i++) both(40);
+    expect(a.gsm.subStep).toBe(hold * TICK_SUB_STEPS);
+    expect(b.gsm.subStep).toBe(hold * TICK_SUB_STEPS);
+    expect(a.gsm.stateHash()).not.toBe(b.gsm.stateHash());
+
+    const game = (c: Client) => ({
+      subStep: () => c.gsm.subStep,
+      refusal: () => c.gsm.waveSnapshotRefusal(),
+      capture: () => c.run(() => c.gsm.captureWaveSnapshot()),
+      restore: (snapshot: WaveSnapshot) => c.run(() => c.gsm.restoreWaveSnapshot(snapshot, 'live')),
+    });
+    const loaded: boolean[] = [];
+    const guest = new ResyncDriver(() => false, game(b), { state: () => undefined, loaded: (_t, ok) => loaded.push(ok) });
+    const host = new ResyncDriver(() => true, game(a), { state: (tick, gz) => guest.state(tick, gz!), loaded: () => undefined });
+    host.hold(hold);
+    guest.hold(hold);
+    await host.poll();
+    await guest.poll();
+    expect(loaded).toEqual([true]);
+    expect(b.gsm.stateHash()).toBe(a.gsm.stateHash());
+
+    // The room goes on: in step from here, no further divergence
+    const found = relay.divergences.length;
+    for (let t = 0; t < 3 * HASH_EVERY_TICKS; t++) {
+      relay.closeTick();
+      both(TICK_SUB_STEPS * 17);
+    }
+    expect(relay.divergences.length).toBe(found);
+    expect(b.gsm.subStep).toBe(a.gsm.subStep);
+    expect(b.gsm.stateHash()).toBe(a.gsm.stateHash());
   });
 
   it('holds the simulation at the barrier until the relay closes the tick', () => {
