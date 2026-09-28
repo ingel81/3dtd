@@ -170,4 +170,57 @@ function countNative(fn: () => unknown): Record<string, [number, number]> {
   return counts;
 }
 
+/**
+ * A long, heavy run for the late divergence of Chromium against Firefox (TODO E64): the curved
+ * world at 49 N, every tower upgraded, waves of oozes, skeletons, zombies and bats with much HP,
+ * a frost bomb every few seconds. The state hash at every sub-step boundary, so two engines
+ * show the first sub-step where they part.
+ */
+export function heavy(waves = 6): { hashes: number[]; waves: number; kills: number; subSteps: number } {
+  GameObject.resetIdCounter();
+  const random = Math.random;
+  Math.random = mulberry32(0x51a1 + 3);
+  try {
+    const { gsm, towers, routes } = buildSimWorld(services, 0x51a1, { origin: { lat: 49.0069, lon: 8.4037 } });
+    const hashes: number[] = [];
+    gsm.resimHost.setBoundaryListener((_step, hash) => hashes.push(hash()));
+    const bus = gsm.getEventBus();
+    let kills = 0;
+    bus.on('enemy:died', () => kills++);
+    let now = 1000;
+    gsm.gameSpeed.set(4);
+    bus.emit({ type: 'debug:add-credits', amount: 500000 });
+    bus.emit({ type: 'debug:ready-hero' });
+    gsm.update((now += 40));
+    for (const tower of towers) {
+      for (const upgradeId of ['damage', 'speed', 'damage', 'range', 'damage'] as const) {
+        bus.emit({ type: 'command:upgrade-tower', towerId: tower.id, upgradeId } as never);
+      }
+    }
+    gsm.update((now += 40));
+    const types = ['ooze', 'skeleton', 'zombie', 'bat', 'skeleton', 'zombie'] as const;
+    let played = 0;
+    for (let w = 0; w < waves && gsm.waveManager.phase() !== 'gameover'; w++) {
+      const entries: SpawnEntry[] = Array.from({ length: 48 }, (_, i) => ({ enemyType: types[i % types.length], speed: 1, health: 4 + w }));
+      bus.emit({ type: 'command:start-wave', config: { schedule: { entries, baseDelay: 250, delayVariation: 0.3, spawnMode: 'random' } } } as never);
+      played++;
+      for (let f = 0; f < 40000 && gsm.waveManager.phase() === 'wave'; f++) {
+        gsm.update((now += 10 + ((f * 13) % 29)));
+        if (f % 120 === 60) {
+          const enemies = gsm.enemyManager.getAll();
+          const target = enemies.length > 0 ? enemies[Math.floor(enemies.length / 2)].position : routes[0][15];
+          bus.emit({ type: 'debug:ready-ability', abilityId: 'frost-bomb' });
+          bus.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: { lat: target.lat, lon: target.lon } } as never);
+        }
+      }
+      for (let i = 0; i < 200 && gsm.waveManager.phase() !== 'wave' && gsm.waveManager.phase() !== 'gameover'; i++) {
+        gsm.update((now += 16.667));
+      }
+    }
+    return { hashes, waves: played, kills, subSteps: gsm.subStep };
+  } finally {
+    Math.random = random;
+  }
+}
+
 (globalThis as unknown as { detMathRun: typeof run }).detMathRun = run;
