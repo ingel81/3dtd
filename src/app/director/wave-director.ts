@@ -17,9 +17,8 @@ import { StateSnapshotService } from './state-snapshot.service';
 import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
 import { formatExplanation } from './wave-explanation';
-import { createWaveSource } from './wave-source.registry';
+import { createWaveSource, initialWaveSourceId } from './wave-source.registry';
 import { setActiveWaveRules } from './wave-rules';
-import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 import type {
   PlannedWave,
   WavePeekFacts,
@@ -33,13 +32,13 @@ export class WaveDirector {
   private stateSnapshots = inject(StateSnapshotService);
 
   /** The source of the current run. Swapped only by `resetForNewGame`. */
-  private activeSource: WaveSource = createWaveSource(DEFAULT_WAVE_SOURCE);
+  private activeSource: WaveSource = createWaveSource(initialWaveSourceId());
 
   /**
    * Which source the NEXT run plays. The debug window writes it; a running
    * game keeps the one it started with.
    */
-  private nextSourceId: WaveSourceId = DEFAULT_WAVE_SOURCE;
+  private nextSourceId: WaveSourceId = this.activeSource.id;
 
   /** The wave the source has committed, or null before the first one. */
   private plannedWave: PlannedWave | null = null;

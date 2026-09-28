@@ -10,6 +10,7 @@ import { AdaptiveWaveSource } from './sources/adaptive/adaptive-source';
 import { TableWaveSource } from './sources/table/table-source';
 import { BudgetWaveSource } from './sources/budget/budget-source';
 import type { WaveSource, WaveSourceId } from './wave-source';
+import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 
 /** A fresh source per run; they hold per-run state. */
 export const WAVE_SOURCES: Record<WaveSourceId, () => WaveSource> = {
@@ -17,6 +18,16 @@ export const WAVE_SOURCES: Record<WaveSourceId, () => WaveSource> = {
   table: () => new TableWaveSource(),
   budget: () => new BudgetWaveSource(),
 };
+
+/**
+ * The source `?waves=<id>` in the address asks for, else the configured
+ * default. For bot and test runs that compare sources side by side; in coop
+ * every client must be opened with the same one.
+ */
+export function initialWaveSourceId(search = globalThis.location?.search ?? ''): WaveSourceId {
+  const asked = new URLSearchParams(search).get('waves');
+  return asked && asked in WAVE_SOURCES ? (asked as WaveSourceId) : DEFAULT_WAVE_SOURCE;
+}
 
 export function createWaveSource(id: WaveSourceId): WaveSource {
   return WAVE_SOURCES[id]();

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 
-import { WAVE_SOURCES } from './wave-source.registry';
+import { WAVE_SOURCES, initialWaveSourceId } from './wave-source.registry';
+import { DEFAULT_WAVE_SOURCE } from '../configs/director.config';
 import { MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS } from './templates';
 import { createEmptySnapshot, type GameStateSnapshot } from './models/game-state-snapshot';
 import type { WaveResult } from './models/wave-result';
@@ -180,5 +181,14 @@ describe.each(Object.keys(WAVE_SOURCES) as WaveSourceId[])('wave source contract
       playRun(source, 3);
       expect(source.peek(request(4, 1))[0].known).toBe(true);
     });
+  });
+});
+
+describe('initialWaveSourceId', () => {
+  it('takes a known source from the address, else the default', () => {
+    expect(initialWaveSourceId('?waves=budget')).toBe('budget');
+    expect(initialWaveSourceId('?devworld&waves=table')).toBe('table');
+    expect(initialWaveSourceId('?waves=nonsense')).toBe(DEFAULT_WAVE_SOURCE);
+    expect(initialWaveSourceId('')).toBe(DEFAULT_WAVE_SOURCE);
   });
 });
