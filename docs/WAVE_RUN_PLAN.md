@@ -159,6 +159,27 @@ Entschieden (User, 2026-09-28):
 - **Zeit unter Feuer** wird aus der Route gemessen: Meter des Wegs in Reichweite der Tower durch das Tempo des
   Gegners, gleich für alle Wellen.
 
-## 11. Nächster Schritt
+## 11. Entwurf des Laufplans W1 bis W60 (Rechenwerte)
 
-Plan-Zeilen für W1 bis W60 entwerfen und mit dem Skript prüfen, dann bauen.
+Skript `tmp/nightly-2026-09-28/plan-draft.tmp.spec.ts` (nicht im Repo), gleiche künstliche Abwehr. Festlegungen des
+Entwurfs, alle änderbar:
+- Reihenfolge wie die heutige Testfolge; ein Boss alle zehn Wellen, ohne Wechsel bei W30 (Herbert, Ooze, Skarnax,
+  Steingolem, Drachenflug, Skarnax); W35, W45, W55 werden normale Wellen.
+- Stärke `k` 1, Boss-Zeilen 1,3, die Welle nach einem Boss 0,7; die Intensität W24 bis W27 entfällt.
+- Abstände: Schwärme 100 ms, Golems doppelt so weit wie heute, sonst wie heute. Anzahl so, dass die Welle lange
+  genug auf dem Weg ist, um ihr Budget abzuarbeiten.
+- Zeit unter Feuer bis zur Messung aus der Route: 150 m durch das Tempo; Kill-Realismus einheitlich 0,9.
+- Neu, für jeden Gegner in jeder Welle: kein Gegner bekommt mehr HP, als die Abwehr in seiner Zeit unter Feuer
+  schafft (90 %). Wer daran stößt, bleibt dort, der Rest des Budgets geht an mehr Gegner der Zeile. Das ersetzt die
+  Boss-Sonderwege.
+
+Ergebnis: alle 60 Zeilen passen zu ihrem Budget. Schwärme werden größer und dichter, schwere Vorlagen kleiner und
+zäher (W16 Chaos Wave 89 statt 267 Gegner, W15 Golem Squad 6 statt 33). Bosse tragen 21 bis 44 % des Budgets, den
+Rest ihr Gefolge; Skarnax selbst bleibt bei HP-Faktor 0,5 bis 1,1. Ratten bekommen HP-Faktor 74 bis 84, weil die
+Rechnung Schaden kennt, aber nicht die Schusszahl; das prüft erst die Bot-Messung. Nach W60 offen (Vorschlag: die
+letzten zehn Zeilen wiederholen).
+
+## 12. Nächster Schritt
+
+Rückmeldung zum Entwurf, dann bauen: Plan-Datei, Budget-Schritt, Grenze je Gegner, Zeit unter Feuer aus der Route;
+die alten Sonderwege fallen im selben Zug weg. Danach Bot-Messung.
