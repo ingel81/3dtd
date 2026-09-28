@@ -305,8 +305,13 @@ Ideen (2026-09-27), nichts entschieden:
       `?hashEvery=1` / `--hash-every 1` schickt ein Client bei Tempo 4 rund 60 Prüfsummen je Sekunde zusätzlich, das
       Relay lässt 120 Nachrichten je Sekunde durch (`MAX_MESSAGES_PER_SECOND`) und verwirft den Rest; die Läufe standen
       ab Welle 15. **Gebaut 2026-09-28, ungetestet im Lauf:** mit `--hash-every N` hebt das Relay die Grenze auf
-      120 + 480/N an (`f3d60dd5`); ein Lauf damit steht aus. Danach die Suche nach der späten Abweichung Chrome gegen
-      Firefox (E28) fortsetzen.
+      120 + 480/N an (`f3d60dd5`). **Gelaufen 2026-09-28:** 3 Läufe Chromium gegen Firefox bis Welle 31 bis 34, nichts
+      verworfen, eine Abweichung, erster abweichender Tick 100704: drei Gegner an gleicher Stelle, auf Firefox
+      zusammen 119,3 HP weniger, genau so viel mehr `damageDealt` bei einem Tower (ein zusätzlicher oder früherer
+      Flächentreffer); 4 Ticks davor eine Frostbombe. Das Relay zeigt ungleiche Schritte je Frame (Chromium meist 3+,
+      Firefox 0 bis 2). Verdacht, unbelegt: etwas in der Sim hängt an Frames statt an Sub-Steps. Nächster Schritt: Test
+      ohne Browser, dieselbe Welle mit Frostbombe und Flächen-Towern über den echten Frame-Pfad mit 1 und mit 4
+      Schritten je Frame, Prüfsummen vergleichen. Daten: `tmp/nightly-2026-09-28/tick2/`.
 - [ ] **E65 Relay verwirft Nachrichten still, der Raum friert ein** (Nachtlauf 2026-09-28): Überschreitet ein Client
       die Nachrichtengrenze, verwirft das Relay den Rest der Sekunde ohne Hinweis; gehen dabei Nachrichten verloren, die
       der Lockstep braucht, bleibt der Raum für alle stehen. Im normalen Spiel nur durch einen Client-Fehler oder einen
