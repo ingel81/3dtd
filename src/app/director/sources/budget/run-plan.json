@@ -245,9 +245,10 @@
       "ghost": 18,
       "wraith": 5
     },
-    "strength": 1,
+    "strength": 0.8,
     "spawnDelay": 400,
-    "pattern": "interleaved"
+    "pattern": "interleaved",
+    "note": "Ghosts take magic: without it this row leaked 55 HP alone and 110 in coop at strength 1 (bots)."
   },
   {
     "wave": 25,
@@ -256,9 +257,10 @@
       "mammoth": 44,
       "wallsmasher": 18
     },
-    "strength": 1,
+    "strength": 0.8,
     "spawnDelay": 850,
-    "pattern": "interleaved"
+    "pattern": "interleaved",
+    "note": "Mammoths take siege: at strength 1 this row cost 55 to 125 HP alone and about 100 in coop (bots)."
   },
   {
     "wave": 26,
@@ -364,8 +366,9 @@
     "enemies": {
       "wraith": 207
     },
-    "strength": 1,
-    "spawnDelay": 400
+    "strength": 0.8,
+    "spawnDelay": 400,
+    "note": "Wraiths take magic: at strength 1 this row cost 17 to 179 HP (bots)."
   },
   {
     "wave": 36,
