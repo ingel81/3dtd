@@ -22,7 +22,6 @@ import { GameObject } from '../core/game-object';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
-import { raycastStats } from '../utils/raycast-stats';
 import { EconomyService, skippedWavesGold } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
@@ -51,9 +50,9 @@ import { StateHasher, type HashBreakdown, type StateHashSource } from '../simula
 import type { SimSnapshot, SnapshotRefusal } from '../simulator/sim-snapshot';
 import type { WaveSnapshot, WaveSnapshotRefusal } from '../simulator/wave-snapshot';
 import { SimSnapshots } from './game-state/sim-snapshots';
+import { RouteWorld } from './game-state/route-world';
 import type { ResimHost } from '../simulator/resimulation';
 import { losMaskFromJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
-import { fnv1a } from '../utils/fnv1a';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
 import type { LockstepLink } from '../coop/lockstep';
@@ -332,6 +331,16 @@ export class GameStateManager {
   // Engine reference (public so visual hooks like turret-aim can access it).
   tilesEngine: ThreeTilesEngine | null = null;
   private basePosition: GeoPosition | null = null;
+
+  /** The route grid's cells, the world key and package, see RouteWorld */
+  private readonly routeWorld = new RouteWorld({
+    grid: this.globalRouteGrid,
+    pathRoutes: this.pathRouteService,
+    waveManager: this.waveManager,
+    engine: () => this.tilesEngine,
+    basePosition: () => this.basePosition,
+    routesChanged: () => this.towerLifecycle.refreshGuardHeadings(),
+  });
 
   /** Sub-step accounting: accumulator, catch-up cap, game time. */
   private readonly clock = new GameClock();
@@ -1307,39 +1316,14 @@ export class GameStateManager {
     for (const seat of this.abilitySeats) seat.announceState();
   }
 
-  /**
-   * A key of the world the simulation runs on: the frozen cell heights, the
-   * routes and the local origin, hashed. A snapshot or a replay file only
-   * re-simulates on the world with the same key (docs/SIMULATOR_PLAN.md,
-   * P4). Walks every cell, a few ms: for export and import, not per frame.
-   */
+  /** A key of the world the simulation runs on, see RouteWorld.key */
   worldKey(): string {
-    const heights = [...this.globalRouteGrid.snapshotHeights()].sort((a, b) => a[0] - b[0]);
-    const parts: string[] = heights.map(([key, height]) => `${key}:${height.toFixed(2)}`);
-    for (const path of this.waveManager.getPaths()) {
-      parts.push(path.map((p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`).join(';'));
-    }
-    const origin = this.tilesEngine?.sync.getOrigin();
-    if (origin) parts.push(`o=${origin.lat.toFixed(7)},${origin.lon.toFixed(7)}`);
-    return fnv1a(parts.join('|'));
+    return this.routeWorld.key();
   }
 
-  /**
-   * The finished world as a coop host packs it (coop/world-package.ts): HQ,
-   * spawns, the routes as the corridor build left them, the cells' heights
-   * and the world key. Null before the world stands. Walks every cell.
-   */
+  /** The finished world as a coop host packs it, see RouteWorld.source */
   worldSource(): WorldSource | null {
-    const origin = this.tilesEngine?.sync.getOrigin();
-    if (!origin || !this.basePosition) return null;
-    return {
-      origin: { lat: origin.lat, lon: origin.lon, height: origin.height },
-      hq: this.basePosition,
-      spawns: this.waveManager.spawnPoints,
-      paths: this.pathRouteService.getCachedPaths(),
-      heights: this.globalRouteGrid.exportHeights(),
-      worldKey: this.worldKey(),
-    };
+    return this.routeWorld.source();
   }
 
   /**
@@ -1762,7 +1746,7 @@ export class GameStateManager {
    * Get cached enemy routes for LOS preview during tower placement
    */
   getCachedRoutes(): RouteWaypoint[][] {
-    return Array.from(this.pathRouteService.getCachedPaths().values());
+    return this.routeWorld.routes();
   }
 
   /**
@@ -1771,61 +1755,12 @@ export class GameStateManager {
    * engine and routes are ready
    */
   initializeGlobalRouteGrid(): void {
-    this.buildRouteCells(true);
+    this.routeWorld.buildCells(true);
   }
 
-  /**
-   * The cells of the routes in use built again from nothing, without setting
-   * the tile region anew: the corridor build (CorridorBuild) narrows the
-   * routes pass by pass, and the tiles it measures on stay the ones of the
-   * street routes the location was loaded with.
-   */
+  /** The cells of the routes in use built again from nothing, see RouteWorld.rebuildCells */
   rebuildRouteCells(): void {
-    this.globalRouteGrid.clear();
-    this.buildRouteCells(false);
-  }
-
-  /** Initialize the grid and generate the cells of the routes in use; with `region`, set the tile region to them as well. */
-  private buildRouteCells(region: boolean): void {
-    if (!this.tilesEngine) {
-      console.warn('[GameStateManager] Cannot initialize GlobalRouteGrid - no engine');
-      return;
-    }
-
-    // One terrain probe for the grid: ground plus the tile LOD it came from,
-    // which `sampleCellY` uses so a coarse streaming pass cannot overwrite a
-    // finer sample. The engine caches per column, so repeated cells are free.
-    // Its rays are booked as routeGrid (`__raycastStats()`).
-    const columnSampler = (x: number, z: number) => {
-      const scope = raycastStats.enter('routeGrid');
-      try {
-        return this.tilesEngine!.terrain.sampleColumn(x, z);
-      } finally {
-        raycastStats.exit(scope);
-      }
-    };
-    // Cheap LOD-probe used by the route-grid full-sweep to skip stable
-    // cells whose tile-LOD has not improved (Option C, perf/route-grid-
-    // tile-aware-update).
-    const terrainPeekLOD = (x: number, z: number) =>
-      this.tilesEngine!.terrain.peekBestTileLODAtLocal(x, z);
-    this.globalRouteGrid.initialize(
-      columnSampler,
-      this.tilesEngine.sync,
-      terrainPeekLOD,
-    );
-
-    // Generate cells from routes
-    const routes = this.getCachedRoutes();
-    // Fine tiles along the whole corridor, so the cells sample real ground
-    // even where the camera does not look.
-    if (region) this.tilesEngine.setRouteCorridor(routes);
-    if (routes.length > 0) {
-      this.globalRouteGrid.generateFromRoutes(routes);
-    }
-
-    // New routes enter the towers' ranges elsewhere.
-    this.towerLifecycle.refreshGuardHeadings();
+    this.routeWorld.rebuildCells();
   }
 
   /**
@@ -1840,7 +1775,7 @@ export class GameStateManager {
    * @see GlobalRouteGridService.getDefenseReachPercent
    */
   getDefenseReachPercent(): number {
-    return this.globalRouteGrid.getDefenseReachPercent(this.getCachedRoutes());
+    return this.routeWorld.defenseReachPercent();
   }
 
   /**
