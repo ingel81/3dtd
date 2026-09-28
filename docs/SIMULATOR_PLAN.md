@@ -138,6 +138,9 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
   beim Aufnehmen und Prüfen, alle 60 Sub-Steps und am Wellenende, im Coop alle 30 Ticks; im normalen Spiel nicht.
   `STATE_HASH_VERSION` (2 seit TODO E63 i, 3 seit der eigenen Mathe aus E28) steht in der Replay-Datei; eine Datei
   einer anderen Version spielt ohne Prüfung ihrer Summen.
+- Snapshot mitten in der Welle (`simulator/wave-snapshot.ts`, 2026-09-28): `captureWaveSnapshot()` an jeder
+  Sub-Step-Grenze, `restoreWaveSnapshot()` rechnet bitgleich weiter, bis auf Würmer und Oozes; Stand und was für
+  die Coop-Resync fehlt in COOP_PLAN C5b. Die Neu-Simulation der Replays nutzt weiter den Snapshot am Wellenstart.
 - Die Sim rechnet Winkel, `exp`, `log` und `pow` mit `DetMath` (`utils/det-math.ts`), nicht mit den nativen
   Funktionen, deren letztes Bit je Engine und V8-Version anders ausfällt. So gibt dieselbe Welle in Node, Chromium und
   Firefox dieselben Prüfsummen (`tools/det-math-browsers/run.mjs`, COOP_PLAN C5).
