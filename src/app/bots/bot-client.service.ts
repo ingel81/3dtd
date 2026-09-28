@@ -36,6 +36,7 @@ const SESSION_LOAD_RETRY_MS = 1000;
  * Everything a player could click goes over the command bus instead.
  */
 export interface BotCallbacks {
+  /** The wave button without its toggle: in coop ready, never taken back (GameLoopFacade.readyOrStartWave) */
   startWave: () => void;
   restartGame: () => void;
 }

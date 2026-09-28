@@ -973,6 +973,16 @@ export class CoopService {
     this.gameState.getEventBus().emit({ type: 'command:set-ready', ready: this.readyNow });
   }
 
+  /**
+   * In the game: ready for the next wave, never taken back. For a caller
+   * that decides again before its ready came back from the relay (the coop
+   * bot): a second toggle there would send "not ready".
+   */
+  sayReady(): void {
+    this.readyNow = true;
+    this.gameState.getEventBus().emit({ type: 'command:set-ready', ready: true });
+  }
+
   sendChat(text: string): void {
     const trimmed = text.trim();
     if (trimmed) this.session?.chat(trimmed);

@@ -332,6 +332,19 @@ export class GameLoopFacadeService {
     this.startWaveNow();
   }
 
+  /**
+   * The wave button without its toggle, for the bot: in coop ready (never
+   * taken back) or, where the room lets this host start, the start.
+   */
+  readyOrStartWave(): void {
+    const coop = this.coop?.inGame() ? this.coop : null;
+    if (coop && waveButtonAction(coop.options(), coop.isHost()) === 'ready') {
+      coop.sayReady();
+      return;
+    }
+    this.startWaveNow();
+  }
+
   /** Start the next wave: the button in the single player game, the host in coop once all are ready. */
   private startWaveNow(): void {
     if (!this.initialized) return;

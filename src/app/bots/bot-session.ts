@@ -310,10 +310,10 @@ export class BotSession {
       case 'start-wave': {
         // Auto-start next wave (only if in setup phase!)
         const currentPhase = this.store.phase();
-        // Coop: the wave button, like a player's. It says ready (the host's
-        // client starts the wave once everyone is, D15) or, where the room
-        // leaves the start to the host, starts it. It toggles, so a bot that
-        // said ready waits for the wave rather than taking it back.
+        // Coop: the wave button, like a player's, without its toggle: it says
+        // ready (the host's client starts the wave once everyone is, D15) or,
+        // where the room leaves the start to the host, starts it. A bot whose
+        // ready is in waits for the wave instead of sending it again.
         if (this.world.coop && this.gameState.isReady(this.gameState.localPlayerId)) break;
         if (currentPhase === 'setup') {
           this.callbacks.startWave();

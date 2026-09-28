@@ -39,6 +39,7 @@ import { GameRng } from '../../utils/game-rng';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { COOP } from '../coop.token';
 import type { CoopService } from '../coop.service';
+import { DEFAULT_ROOM_OPTIONS } from '../../coop/room-options';
 
 /** Injected by the facade but not touched by the auto-start. */
 const UNUSED = [
@@ -197,5 +198,39 @@ describe('GameLoopFacadeService: restart after the coop connection broke (TODO E
 
     expect(continueAlone).toHaveBeenCalledTimes(1);
     expect(restarts).toEqual([{ type: 'command:restart-game' }]);
+  });
+});
+
+describe('GameLoopFacadeService: the bot\'s wave button in coop', () => {
+  it('says ready every time and never takes it back, where the button toggles', () => {
+    const bus = new GameEventBus();
+    const sayReady = vi.fn();
+    const toggleReady = vi.fn();
+    const coop = {
+      lostInGame: signal(false), inGame: () => true, isHost: () => false, options: () => DEFAULT_ROOM_OPTIONS,
+      sayReady, toggleReady, setWaveStarter: () => undefined,
+    };
+    const injector = Injector.create({
+      providers: [
+        ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: WaveDirector, useValue: waveDirectorStub() },
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
+        { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
+        { provide: TowerDefenseStore, useValue: { phase: signal('setup'), waveNumber: signal(1), autoWaveSecondsLeft: signal(null) } },
+        { provide: UIStore, useValue: { autoStartWaves: signal(false) } },
+        { provide: BotClientService, useValue: { botEnabled: signal(true), resetBot: () => undefined } },
+        { provide: COOP, useValue: coop as unknown as CoopService },
+      ],
+    });
+    const facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
+    const gameState = { getEventBus: () => bus, gameTimeMs: 0, waveManager: { stopSpawning: vi.fn() }, rng: new GameRng(1) };
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+
+    // Two decisions before the first ready came back from the relay
+    facade.readyOrStartWave();
+    facade.readyOrStartWave();
+
+    expect(sayReady).toHaveBeenCalledTimes(2);
+    expect(toggleReady).not.toHaveBeenCalled();
   });
 });

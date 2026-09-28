@@ -187,7 +187,7 @@ export class TowerDefenseFacadeService {
         endRun: () => this.runLog.endRun(),
       },
       callbacks: {
-        startWave: () => this.startWave(),
+        startWave: () => this.gameLoopFacade.readyOrStartWave(),
         restartGame: () => this.restartGame(),
       }
     });
