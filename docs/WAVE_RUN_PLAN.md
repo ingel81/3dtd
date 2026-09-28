@@ -153,9 +153,12 @@ Intensität), `R = 1`, Deckel = Spawn-Dauer plus Zeit unter Feuer ohne erlaubtes
   Nachbarn. Das liegt an der Schätzung, nicht an einer Boss-Regel.
 - Der HP-Faktor streut von 0,3 bis 63; Rattenwellen mit 1200 Ratten bekommen 55 bis 63 (heute 19 bis 25).
 
-Offen (Entscheidungsseite): was passiert, wenn eine Welle zu kurz für ihr Budget ist; ob die Zeit unter Feuer aus der
-Route gemessen wird.
+Entschieden (User, 2026-09-28):
+- **Welle zu kurz für ihr Budget:** Plan-Zeilen werden passend gemacht (Anzahl und Abstände), das Skript prüft jede
+  Zeile; der Deckel lässt wie heute einen bezahlten Teil als HP-Verlust durch und fängt sonst nur Fehler im Plan.
+- **Zeit unter Feuer** wird aus der Route gemessen: Meter des Wegs in Reichweite der Tower durch das Tempo des
+  Gegners, gleich für alle Wellen.
 
 ## 11. Nächster Schritt
 
-Nach diesen zwei Entscheidungen: Plan-Zeilen für W1 bis W60 entwerfen und mit dem Skript prüfen, dann bauen.
+Plan-Zeilen für W1 bis W60 entwerfen und mit dem Skript prüfen, dann bauen.
