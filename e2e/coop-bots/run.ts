@@ -498,6 +498,20 @@ async function playRun(index: number): Promise<boolean> {
       if (probe.end) { end = probe.end; break; }
       if (MAX_WAVES > 0 && written >= MAX_WAVES) { end = { reason: 'max-waves', waves: written }; break; }
     }
+    // The run log of the first seat, as the game exports it (docs/RUN_LOG.md): per wave the source's
+    // decision, per tower damage and kills (tools/wave-report reads it)
+    for (let tries = 0; tries < 10; tries++) {
+      const jsonl = await seats[0].evaluate(() => {
+        const w = window as unknown as { ng: { getComponent(el: Element | null): { runLog?: { closedRun(): { records: unknown[] } | null } } } };
+        const run = w.ng.getComponent(document.querySelector('app-tower-defense')).runLog?.closedRun();
+        return run ? run.records.map((r) => JSON.stringify(r)).join('
+') : null;
+      }).catch(() => null);
+      if (jsonl) { writeFileSync(join(OUT, `runlog-${index}.jsonl`), jsonl + '
+'); break; }
+      if (!end) break;
+      await seats[0].waitForTimeout(500);
+    }
     const desyncs = await Promise.all(seats.map(desyncOf));
     {
       for (const [seat, page] of seats.entries()) {
