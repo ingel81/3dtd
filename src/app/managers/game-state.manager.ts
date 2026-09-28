@@ -56,19 +56,10 @@ import { losMaskFromJson, losMaskToJson, type LosMask, type LosMaskJson } from '
 import { fnv1a } from '../utils/fnv1a';
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { stepTowerAim } from '../entities/tower-aim';
-import { tickAtBoundary, tickNeededAfter, type LockstepLink } from '../coop/lockstep';
-import { HASH_EVERY_TICKS } from '../coop/hash-check';
+import type { LockstepLink } from '../coop/lockstep';
+import { LockstepPacer } from './game-state/lockstep-pacer';
 import type { WorldSource } from '../coop/world-package';
 import { OWNER_ONLY, type TowerPolicy } from '../coop/tower-policy';
-
-/** Coop: ticks a client keeps in hand behind the relay, so it never waits at the barrier (lockstepPace) */
-const LOCKSTEP_BUFFER_TICKS = 1;
-/** Coop: the most the pace bends to hold the buffer, either way (0.1 = 90 % to 110 %) */
-const LOCKSTEP_PACE_BEND = 0.1;
-/** Coop: ticks behind beyond which a client catches up fast, as after a hidden tab (200 ms) */
-const LOCKSTEP_LAG_TICKS = 6;
-/** Coop: the fastest a lagging client catches up, times the room's pace */
-const LOCKSTEP_MAX_CATCH_UP = 4;
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -82,10 +73,6 @@ interface ResearchSeat {
   credits: () => number;
   spend: (cost: number) => boolean;
 }
-
-
-/** Coop: hash breakdowns kept back, in hash reports: a desync's verdict comes a few seconds late at most. */
-const KEEP_HASH_BREAKDOWNS = 10;
 
 @Injectable()
 export class GameStateManager {
@@ -285,21 +272,11 @@ export class GameStateManager {
   /** Command-Bus-Adapter — registriert sich bei initialize(). */
   private commandsHandler: GameCommandsHandler | null = null;
 
-  /** Coop: the relay link, see setLockstep(); null in the single player game */
-  private lockstep: LockstepLink | null = null;
-  /** Coop: the last tick whose commands ran */
-  private lockstepTickRun = -1;
-  /**
-   * Coop: the relay tick of this run's sub-step 0. A restart in the room
-   * (command:restart-game) resets the clock while the relay counts on; the
-   * new run starts at the tick after the one that restarted it.
-   */
-  private lockstepTickBase = 0;
-  /**
-   * Coop: the hash breakdowns of the last reports by tick, for the detail a
-   * desync asks for once its verdict came back (TODO E32). A few seconds.
-   */
-  private readonly hashBreakdowns = new Map<number, HashBreakdown>();
+  /** Coop: the relay link, its ticks, pace and barrier, see setLockstep() */
+  private readonly lockstep = new LockstepPacer({
+    hashBreakdown: () => this.stateHasher.breakdown(this.hashSource),
+    runTick: (tick) => this.commandsHandler?.runTick(tick),
+  });
 
   /**
    * A wave has started in this run; `game:started` goes out before the first.
@@ -424,20 +401,9 @@ export class GameStateManager {
   /** The state hash now with its parts and entities (StateHasher.breakdown), for finding a divergence */
   readonly stateHashBreakdown = (): HashBreakdown => this.stateHasher.breakdown(this.hashSource);
 
-  /** Coop: the hash with its parts to the relay, the breakdown kept for a desync's detail. */
-  private reportHash(link: LockstepLink, tick: number): void {
-    const breakdown = this.stateHasher.breakdown(this.hashSource);
-    link.reportHash(tick, breakdown.total, breakdown.parts);
-    this.hashBreakdowns.set(tick, breakdown);
-    for (const kept of this.hashBreakdowns.keys()) {
-      if (kept > tick - KEEP_HASH_BREAKDOWNS * HASH_EVERY_TICKS) break;
-      this.hashBreakdowns.delete(kept);
-    }
-  }
-
-  /** Coop: the breakdown reported for `tick`, while it is kept (see hashBreakdowns). */
+  /** Coop: the breakdown reported for `tick`, while it is kept (LockstepPacer). */
   hashBreakdownAt(tick: number): HashBreakdown | null {
-    return this.hashBreakdowns.get(tick) ?? null;
+    return this.lockstep.breakdownAt(tick);
   }
 
   /**
@@ -917,7 +883,7 @@ export class GameStateManager {
     // Command-Bus-Adapter (UI → Game Engine) — extrahiert in eigene Klasse.
     // ══════════════════════════════════════════════════════════════
     this.commandsHandler = new GameCommandsHandler(this, this.eventBus, this.commandLog);
-    this.commandsHandler.setLockstep(this.lockstep);
+    this.commandsHandler.setLockstep(this.lockstep.current);
 
     // Initialize projectile manager (no callback - uses events)
     this.projectileManager.initialize(tilesEngine);
@@ -986,7 +952,7 @@ export class GameStateManager {
     // Clamped wall-clock delta × timescale plus the carried remainder,
     // see GameClock.beginFrame().
     const timescale = this.gameSpeed();
-    this.clock.beginFrame(currentTime, timescale * this.lockstepPace());
+    this.clock.beginFrame(currentTime, timescale * this.lockstep.pace(this.clock.subStep));
 
     // Sync timescale to renderer (turret-pulse / hover / shader-time only —
     // gameplay rotation now flows through sub-step game-time).
@@ -1003,7 +969,7 @@ export class GameStateManager {
 
     // nextSubStep() advances the game clock before the step runs
     let open: boolean;
-    while ((open = this.lockstepOpen()) && this.clock.nextSubStep()) {
+    while ((open = this.lockstep.open(() => this.clock.subStep)) && this.clock.nextSubStep()) {
       const gameOver = this.simulateStep(stepMs, profiling);
       if (gameOver) break; // no point running more sub-steps after game-over
 
@@ -1012,9 +978,9 @@ export class GameStateManager {
       onSubStep?.(stepMs);
     }
     // Coop: how smoothly this client runs (PLAYTEST T19)
-    const link = this.lockstep;
+    const link = this.lockstep.current;
     if (link?.noteFrame) {
-      const behind = link.confirmedTick() - (tickNeededAfter(this.clock.subStep) + this.lockstepTickBase);
+      const behind = this.lockstep.ticksInHand(link, this.clock.subStep);
       link.noteFrame(this.clock.stepsThisFrame, !open && this.clock.hasDueStep(), Math.max(0, behind));
     }
     this.clock.endFrame();
@@ -1094,70 +1060,20 @@ export class GameStateManager {
     return gameOver;
   }
 
+  /** Coop: commands run at the relay's ticks (setLockstep) */
+  get lockstepActive(): boolean {
+    return this.lockstep.current !== null;
+  }
+
   /**
    * Coop (docs/COOP_PLAN.md, C0): run commands from the relay into the
    * simulation and follow the relay's pace. Every command from the bus goes
    * to `link` and acts when its tick comes back; a sub-step runs only once
    * the tick before it is closed. Null goes back to the single player game.
    */
-  /** Coop: commands run at the relay's ticks (setLockstep) */
-  get lockstepActive(): boolean {
-    return this.lockstep !== null;
-  }
-
   setLockstep(link: LockstepLink | null): void {
-    this.lockstep = link;
-    this.lockstepTickRun = -1;
-    this.lockstepTickBase = 0;
-    this.hashBreakdowns.clear();
+    this.lockstep.set(link);
     this.commandsHandler?.setLockstep(link);
-  }
-
-  /**
-   * Coop: this client's pace against the room's. The relay closes ticks by
-   * the wall clock. A client right at the newest tick waits at the barrier
-   * each tick and then runs the tick's sub-steps at once, a stutter at the tick rate
-   * (measured, PLAYTEST T28: the host 72 % of its frames); one further behind
-   * runs smoothly but its input comes late (the guest up to 190 ms).
-   *
-   * So each client holds LOCKSTEP_BUFFER_TICKS in hand: a little slower when
-   * it has less, a little faster when it has more, at most
-   * LOCKSTEP_PACE_BEND either way. Far behind (a slow frame, a hidden tab,
-   * review R2) it catches up at up to LOCKSTEP_MAX_CATCH_UP times. 1 alone.
-   * Sub-steps are fixed, so this changes when they run, never what they do.
-   */
-  private lockstepPace(): number {
-    const link = this.lockstep;
-    if (!link) return 1;
-    const behind = link.confirmedTick() - (tickNeededAfter(this.clock.subStep) + this.lockstepTickBase);
-    if (behind > LOCKSTEP_LAG_TICKS) {
-      return Math.min(LOCKSTEP_MAX_CATCH_UP, 1 + (behind - LOCKSTEP_LAG_TICKS) / LOCKSTEP_LAG_TICKS);
-    }
-    const bend = (behind - LOCKSTEP_BUFFER_TICKS) * LOCKSTEP_PACE_BEND;
-    return 1 + Math.max(-LOCKSTEP_PACE_BEND, Math.min(LOCKSTEP_PACE_BEND, bend));
-  }
-
-  /**
-   * The lockstep barrier at the boundary the clock stands at: false while
-   * the relay has not closed the tick before the next sub-step. At a tick's
-   * boundary its commands run first, once, and every HASH_EVERY_TICKS ticks
-   * the state hash goes to the relay. Always true without a link.
-   */
-  private lockstepOpen(): boolean {
-    const link = this.lockstep;
-    if (!link) return true;
-    // Again after running a tick: a restart among its commands moved the clock to a new boundary
-    for (;;) {
-      const boundary = this.clock.subStep;
-      if (tickNeededAfter(boundary) + this.lockstepTickBase > link.confirmedTick()) return false;
-      const local = tickAtBoundary(boundary);
-      const tick = local < 0 ? -1 : local + this.lockstepTickBase;
-      if (tick <= this.lockstepTickRun) return true;
-      this.lockstepTickRun = tick;
-      // The relay compares these across clients (C5): same boundary, before the tick's commands
-      if (tick % HASH_EVERY_TICKS === 0) this.reportHash(link, tick);
-      this.commandsHandler?.runTick(tick);
-    }
   }
 
   /** A boundary between two sub-steps: the re-simulation's check, else the recorder's hash. */
@@ -1854,13 +1770,8 @@ export class GameStateManager {
     this.healthLedger.resetToStart();
     this.creditsLedger.reset();
     this.clock.reset();
-    // Coop: the new run goes on at the relay's next tick (see lockstepTickBase)
-    if (this.lockstep) {
-      this.lockstepTickBase = this.lockstepTickRun + 1;
-    } else {
-      this.lockstepTickRun = -1;
-      this.lockstepTickBase = 0;
-    }
+    // Coop: the new run goes on at the relay's next tick
+    this.lockstep.newRun();
     // A new run is a new seed: leaving the streams running would make the
     // second run of a batch a different experiment than the first.
     this.rng.reset(seed);
