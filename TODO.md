@@ -301,6 +301,15 @@ Ideen (2026-09-27), nichts entschieden:
       Verwandt: E55, E56.
 - [ ] **E62 Coop mit mehr als zwei Spielern testen**, danach ggf. das Limit von vier aufmachen (`MAX_PLAYERS` in
       `coop/protocol.ts`). Verwandt: E53.
+- [ ] **E64 Prüfsumme je Tick verträgt die Ratenbegrenzung des Relays nicht** (Nachtlauf 2026-09-28): Mit
+      `?hashEvery=1` / `--hash-every 1` schickt ein Client bei Tempo 4 rund 60 Prüfsummen je Sekunde zusätzlich, das
+      Relay lässt 120 Nachrichten je Sekunde durch (`MAX_MESSAGES_PER_SECOND`) und verwirft den Rest; die Läufe standen
+      ab Welle 15. Lösung: Prüfsummen bündeln (z.B. 30 Ticks je Nachricht) oder eine lokale Relay-Option für die Grenze.
+      Voraussetzung für die weitere Suche nach der späten Abweichung Chrome gegen Firefox (E28).
+- [ ] **E65 Relay verwirft Nachrichten still, der Raum friert ein** (Nachtlauf 2026-09-28): Überschreitet ein Client
+      die Nachrichtengrenze, verwirft das Relay den Rest der Sekunde ohne Hinweis; gehen dabei Nachrichten verloren, die
+      der Lockstep braucht, bleibt der Raum für alle stehen. Im normalen Spiel nur durch einen Client-Fehler oder einen
+      manipulierten Client erreichbar. Besser: trennen oder den Raum mit Meldung beenden. Entscheidung offen.
 ---
 
 ## Entschieden (keine Arbeit)
