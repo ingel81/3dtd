@@ -175,8 +175,8 @@ Ideen (2026-09-27), nichts entschieden:
       5000 Gegner: die Simulation nimmt 67 bis 68 % des Bildes (24 FPS), bei Tempo 1 lohnt es nicht (Bild 7 bis 9 ms).
       Erst die beiden vollen Pools beheben (E68) und neu messen, dann über den Umbau entscheiden (grob 2 bis 4 Wochen).
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
-      Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze. Offen: Darstellung nach dem Laden,
-      Stände über 1 MB, Test im Browser.
+      Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft. Offen:
+      Darstellung nach dem Laden (Augen), Stände über 1 MB.
 - [ ] **E60 Versus-Modus** (Idee, im Lobby-Umschalter schon als SOON, COOP_PLAN D39): Form offen.
 - [ ] **E61 DevWorld als Spielfeld** (Idee): prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
       Verwandt: E55, E56.

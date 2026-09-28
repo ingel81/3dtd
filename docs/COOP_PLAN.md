@@ -521,8 +521,11 @@ nächste Resync, höchstens `MAX_RESYNCS` (5) je Raum; ohne Antwort geht der Rau
 Code: `coop/resync.ts` (`ResyncDriver`), `coop-server/src/room.ts`, `CoopService` (Abfrage alle 50 ms während des
 Haltens). Abnahme: `room.spec.ts` (Halten, Weiterreichen, Weiter, Zeitablauf, Obergrenze), `lockstep.scenario.spec.ts`
 (Gast mit verfälschtem Gold mitten in der Welle, nach dem Laden gleiche Prüfsumme und keine weitere Abweichung).
-Noch offen: Darstellung nach dem Laden (Spuren, Auren, Töne des alten Stands), Stände über 1 MB (L-Wellen), ein Test
-im Browser.
+Im Browser geprüft (2026-09-29, Bot-Räume in der DevWorld, `run.ts --falsify-at-wave 3`): in 3 von 3 Räumen eine
+Resync, danach bis W12 keine Abweichung mehr. Der erste Browserlauf fand dabei einen Fehler im Snapshot: zwischen den
+Wellen geladen, sprang der Gast in eine leere Welle, die sofort endete und ihr Abschlussgold ein zweites Mal zahlte
+(`restoreWaveState` setzt die Phase jetzt nur, wenn eine Welle lief). Noch offen: Darstellung nach dem Laden (Spuren,
+Auren, Töne des alten Stands; headless nicht zu sehen), Stände über 1 MB (L-Wellen).
 
 Was für die Resync noch fehlt (nicht gebaut):
 - Protokoll: Relay meldet `desync`, der Host nimmt an einer Tick-Grenze T den Snapshot und schickt ihn (Größe:
