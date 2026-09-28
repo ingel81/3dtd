@@ -85,6 +85,31 @@ describe('CoopSession against the relay (COOP_PLAN C4b)', () => {
     expect(desyncs).toEqual([30, 30]);
   });
 
+  it('tells a close for sending too fast and a restart from a lost connection (E65, review M6)', async () => {
+    let clock = 0;
+    relay = await startRelay({ port: 0, now: () => clock, maxMessagesPerSecond: 10 });
+    const a = session('Ann');
+    const reasons: (string | null)[] = [];
+    a.onClosed = (reason) => reasons.push(reason);
+    await a.connect();
+    await a.create();
+    for (const second of [1000, 2000]) {
+      clock = second;
+      for (let i = 0; i < 20; i++) a.chat(`line ${i}`);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    await until(() => reasons.length > 0);
+    expect(reasons).toEqual(['too-fast']);
+
+    const b = session('Bob');
+    b.onClosed = (reason) => reasons.push(reason);
+    await b.connect();
+    await relay.close('update');
+    relay = null;
+    await until(() => reasons.length > 1);
+    expect(reasons[1]).toBe('restart');
+  });
+
   it('turns a refusal into an error and tells who is host after the host left', async () => {
     relay = await startRelay({ port: 0 });
     const a = session('Ann');

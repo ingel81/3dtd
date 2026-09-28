@@ -802,6 +802,10 @@ Aus einem Review des Relays (Absturzsicherheit, Grenzen, Betrieb), Entscheidunge
   nur von einer Verbindung aus dem lokalen Netz, wo der Connector des Tunnels sitzt, sonst ließe sich die Grenze je
   Adresse mit einem neuen Header je Verbindung umgehen. Cheats bleiben im öffentlichen Image erlaubt, der Host
   entscheidet per Raum-Option (User, 2026-09-27).
+- **Zu schnell heißt getrennt (TODO E65, 2026-09-28):** Liegt ein Client zwei Sekunden in Folge über den 120
+  Nachrichten, schließt das Relay nur ihn mit Code 4008 „sends too fast“; die anderen spielen weiter, seine Spur
+  schließt wie bei jedem Verlassen. Vorher verwarf es still den Rest der Sekunde, und eine verlorene Lockstep-Nachricht
+  hielt den Raum für alle an. Der Client meldet den Grund (`CoopCloseReason`).
 - Abnahme: `hardening.spec.ts` (Fuzz über alle Nachrichtentypen: kein Fehler, das Spiel läuft weiter; Grenzen,
   Herzschlag, Health-Check, Aktionen, Neustart-Code), `validate.spec.ts`, `room.spec.ts` (Hänger, Kick im Spiel,
   Log-Drossel), `lan-discovery.test.js`.

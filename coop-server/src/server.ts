@@ -75,6 +75,20 @@ const MAX_UNREAD_BYTES = 8 * 1024 * 1024;
 export const MAX_MESSAGES_PER_SECOND = 120;
 
 /**
+ * Seconds in a row over MAX_MESSAGES_PER_SECOND after which the relay closes
+ * the connection (TODO E65). Dropping the rest of a second silently could lose
+ * a message the lockstep needs and freeze the room for everyone; closing only
+ * the sender lets the others play on, and the sender learns why.
+ */
+export const RATE_KICK_SECONDS = 2;
+
+/** Close code for a connection that kept sending too fast (TODO E65); 4000 to 4999 are the application's */
+export const CLOSE_TOO_FAST = 4008;
+
+/** How long a closed connection may take to answer the close before the socket just ends, ms */
+const CLOSE_GRACE_MS = 1000;
+
+/**
  * Bytes a connection may send in one second; more closes it (security review
  * 2026-09-27). The message count alone let 120 messages of 1 MB a second
  * through, a parse load one address could hold the relay's CPU with. A player
@@ -117,6 +131,8 @@ interface Connection {
   burstAt: number;
   /** The rate limit was hit in this second and logged */
   throttled: boolean;
+  /** Seconds in a row, before this one, in which the rate limit was hit */
+  throttledRun: number;
   /** Room codes tried that did not exist */
   joinMisses: number;
   /** The room of the last game this connection played in, for its run log (TODO E38) */
@@ -349,14 +365,21 @@ class Relay {
     return rtt === undefined || rtt === null ? null : Math.round(rtt);
   }
 
-  /** Close a connection for `reason`; its close handler takes it out of its room. */
-  private dropConnection(playerId: string, reason: string, why: DropReason): void {
+  /**
+   * Close a connection for `reason`; its close handler takes it out of its
+   * room. With `code` the client is told why, as a close frame; without, the
+   * socket just ends.
+   */
+  private dropConnection(playerId: string, reason: string, why: DropReason, code?: number): void {
     const connection = this.connections.get(playerId);
     // Once: messages already read may still come in after the first drop
     if (!connection || connection.dropReason !== null) return;
     connection.dropReason = reason;
     this.metrics.drop(why);
-    connection.socket.terminate();
+    if (code === undefined) return connection.socket.terminate();
+    connection.socket.close(code, reason);
+    // A client that does not answer the close would hold its room for the 30 s of ws
+    setTimeout(() => connection.socket.terminate(), CLOSE_GRACE_MS).unref();
   }
 
   private dropRoom(room: Room, reason: string, why: DropReason): void {
@@ -535,7 +558,7 @@ class Relay {
     this.metrics.connectionsOpened++;
     const connection: Connection = {
       socket, address, player: null, room: null, missed: 0, pingAt: 0, rtt: null, dropReason: null,
-      burst: 0, burstBytes: 0, burstAt: this.now(), throttled: false, joinMisses: 0, helloTimer: null,
+      burst: 0, burstBytes: 0, burstAt: this.now(), throttled: false, throttledRun: 0, joinMisses: 0, helloTimer: null,
       playedRoom: null, sentRuns: 0,
     };
     this.connections.set(id, connection);
@@ -558,7 +581,11 @@ class Relay {
     const bytes = (data as Buffer).length ?? 0;
     this.metrics.messagesIn++;
     this.metrics.bytesIn += bytes;
+    // Messages already read may still come in after a drop
+    if (connection.dropReason !== null) return;
     if (at - connection.burstAt >= 1000) {
+      // A run of throttled seconds holds only while the seconds follow each other
+      connection.throttledRun = connection.throttled && at - connection.burstAt < 2000 ? connection.throttledRun + 1 : 0;
       connection.burst = 0;
       connection.burstBytes = 0;
       connection.burstAt = at;
@@ -571,6 +598,11 @@ class Relay {
       return;
     }
     if (++connection.burst > (this.options.maxMessagesPerSecond ?? MAX_MESSAGES_PER_SECOND)) {
+      if (!connection.throttled && connection.throttledRun + 1 >= RATE_KICK_SECONDS) {
+        this.log(`${roomTag(connection)}${id} kept sending too fast, closing`);
+        this.dropConnection(id, 'sends too fast', 'rate', CLOSE_TOO_FAST);
+        return;
+      }
       if (!connection.throttled) this.log(`${roomTag(connection)}${id} sends too fast, dropping`);
       connection.throttled = true;
       this.metrics.drop('rate');

@@ -29,6 +29,11 @@ export interface CoopSocket {
 
 /** The close code a relay that restarts sends: 1012 "service restart" (coop-server/server.ts CLOSE_RESTART) */
 const RELAY_RESTART_CODE = 1012;
+/** The close code for a client that kept sending too fast (coop-server/server.ts CLOSE_TOO_FAST, TODO E65) */
+const RELAY_TOO_FAST_CODE = 4008;
+
+/** Why the relay closed the connection, where it said so */
+export type CoopCloseReason = 'restart' | 'too-fast' | null;
 
 /** What the game needs to start: seed, roster, lanes, who is here, the link. */
 export interface CoopStart {
@@ -154,8 +159,12 @@ export class CoopSession {
   /** The relay keeps run logs a player agrees to send, from its welcome (TODO E38) */
   collectRuns = false;
   onRefused: ((reason: RefusalReason) => void) | null = null;
-  /** The connection closed; `restart` when the relay said it restarts (close code 1012, relay review M6) */
-  onClosed: ((restart: boolean) => void) | null = null;
+  /**
+   * The connection closed, with why where the relay said so: `restart` (close
+   * code 1012, relay review M6), `too-fast` when it closed this client for
+   * sending too much (TODO E65).
+   */
+  onClosed: ((reason: CoopCloseReason) => void) | null = null;
 
   private readonly url: string;
   private readonly hello: { name: string; gameVersion: string; configHash: string; client?: ClientInfo };
@@ -209,7 +218,8 @@ export class CoopSession {
         clearTimeout(timer);
         this.fail(new Error('the connection to the coop relay closed'), reject);
         this.socket = null;
-        this.onClosed?.((event as { code?: number } | null)?.code === RELAY_RESTART_CODE);
+        const code = (event as { code?: number } | null)?.code;
+        this.onClosed?.(code === RELAY_RESTART_CODE ? 'restart' : code === RELAY_TOO_FAST_CODE ? 'too-fast' : null);
       };
     });
   }

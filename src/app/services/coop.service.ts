@@ -13,7 +13,7 @@ import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
-import { CoopRefusedError, CoopSession, type CoopStart } from '../coop/coop-session';
+import { CoopRefusedError, CoopSession, type CoopCloseReason, type CoopStart } from '../coop/coop-session';
 import { HASH_PARTS, hashEveryParam, type HashedEntities, type HashPart } from '../coop/hash-check';
 import {
   buildWorldPackage,
@@ -117,6 +117,19 @@ const STATUS_LINE: Record<PlayerStatus, (name: string) => string> = {
   loading: (name) => `${name} is loading the map`,
   reloading: (name) => `${name} reloads for the new place, back in a moment`,
   ready: (name) => `${name}'s map stands`,
+};
+
+/** What the coop panel says when the connection to the relay closed, by why */
+const CLOSED_TEXT: Record<NonNullable<CoopCloseReason> | 'lost', string> = {
+  restart: 'The coop server restarts. Try again in a moment.',
+  'too-fast': 'The coop server closed the connection: this game sent too many messages. Reload to join again.',
+  lost: 'The connection to the coop server closed.',
+};
+/** The same as the head of the in-game notice */
+const CLOSED_HEAD: Record<NonNullable<CoopCloseReason> | 'lost', string> = {
+  restart: 'The coop server restarts',
+  'too-fast': 'The coop server closed the connection, this game sent too many messages',
+  lost: 'Connection to the coop server lost',
 };
 
 /** Chat lines kept at most */
@@ -1220,11 +1233,11 @@ export class CoopService {
       this.reportDesyncDetail(session, tick, parts);
       this.notify(desyncText(outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
     });
-    session.onClosed = inZone((restart) => {
+    session.onClosed = inZone((reason) => {
       if (this.session !== session) return;
-      this.error.set(restart ? 'The coop server restarts. Try again in a moment.' : 'The connection to the coop server closed.');
+      this.error.set(CLOSED_TEXT[reason ?? 'lost']);
       if (this.inGame()) {
-        this.notify(`${restart ? 'The coop server restarts' : 'Connection to the coop server lost'}: the game stands still. Go on alone, or reload to leave`, 'warn');
+        this.notify(`${CLOSED_HEAD[reason ?? 'lost']}: the game stands still. Go on alone, or reload to leave`, 'warn');
       }
       this.status.set('closed');
     });

@@ -181,6 +181,46 @@ describe('coop relay over sockets (COOP_PLAN C4)', () => {
     a.close();
   });
 
+  it('closes a client that stays over the rate limit, tells it why, and lets the others play on (E65)', async () => {
+    const lines: string[] = [];
+    let clock = 0;
+    relay = await startRelay({ port: 0, now: () => clock, maxMessagesPerSecond: 20, log: (line) => lines.push(line) });
+    const a = await client(relay.port, 'Ann');
+    a.send({ t: 'create' });
+    const { room } = await a.until('room');
+    const b = await client(relay.port, 'Bob');
+    b.send({ t: 'join', room: room.code });
+    await b.until('room');
+    const closed = new Promise<{ code: number; reason: string }>((resolve) =>
+      a.socket.on('close', (code, reason) => resolve({ code, reason: String(reason) })));
+
+    const flood = async (tag: string) => {
+      for (let i = 0; i < 30; i++) a.send({ t: 'chat', text: `${tag} ${i}` });
+      await b.until('chat', (m) => m.text === `${tag} 19`);
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    };
+    // One second over the limit only drops the rest of it (each flood starts a second of its own)
+    clock = 1000;
+    await flood('first');
+    expect(a.socket.readyState).toBe(WebSocket.OPEN);
+    // A quiet second between breaks the run
+    clock = 2000;
+    a.send({ t: 'chat', text: 'quiet' });
+    await b.until('chat', (m) => m.text === 'quiet');
+    clock = 3000;
+    await flood('second');
+    expect(a.socket.readyState).toBe(WebSocket.OPEN);
+    // The next second over it too: two in a row close Ann with the reason
+    clock = 4000;
+    for (let i = 0; i < 30; i++) a.send({ t: 'chat', text: `third ${i}` });
+    expect(await closed).toEqual({ code: 4008, reason: 'sends too fast' });
+    await b.until('left', (m) => m.playerId === a.playerId);
+    expect(lines.some((l) => l.startsWith(`[${room.code}]`) && l.includes('kept sending too fast, closing'))).toBe(true);
+    b.send({ t: 'chat', text: 'still here' });
+    await b.until('chat', (m) => m.text === 'still here');
+    b.close();
+  });
+
   it('refuses a room beyond the cap and closes a lobby open too long (R18)', async () => {
     relay = await startRelay({ port: 0, maxRooms: 1, lobbyMaxMs: 50, heartbeatMs: 30 });
     const a = await client(relay.port, 'Ann');
