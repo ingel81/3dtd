@@ -14,7 +14,7 @@
 // and serve the build (npx ng build --configuration development, then
 // python -m http.server 4213 in dist/3DTD/browser) before.
 import { chromium, firefox, type Browser, type Page } from '@playwright/test';
-import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync } from 'node:fs';
+import { appendFileSync, existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 function argument(name: string, fallback: string): string {
@@ -61,6 +61,20 @@ const ENGINES = argument('browsers', 'chromium').split(',').map((name) => {
   return name as Engine;
 });
 const engineOf = (seat: number): Engine => ENGINES[seat % ENGINES.length];
+/**
+ * Seats whose native transcendentals return other last bits (`--skew-seats 1`),
+ * as another engine's might: a Chromium room with one skewed seat finds
+ * simulation code that still calls them (TODO E28). A skewed seat also counts
+ * where each native function is called from (`math-callers-<run>.json`).
+ */
+/**
+ * Seats whose Chromium runs the CPU slower by `--throttle N` (`--throttle-seats 1`):
+ * fewer frames and more sub-steps per frame than the other seats, as a slower
+ * browser has them. Finds simulation state that follows the frame rate.
+ */
+const THROTTLE_SEATS = new Set(argument('throttle-seats', '').split(',').filter(Boolean).map(Number));
+const THROTTLE = Number(argument('throttle', '4'));
+const SKEW_SEATS = new Set(argument('skew-seats', '').split(',').filter(Boolean).map(Number));
 const GPU_ARGS = SWIFTSHADER
   ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
   : process.platform === 'win32' ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist'] : ['--enable-gpu', '--ignore-gpu-blocklist'];
@@ -72,9 +86,10 @@ const write = (record: unknown) => appendFileSync(RUNS_FILE, `${JSON.stringify(r
 
 // === One seat ===
 
-async function openSeat(browser: Browser, name: string): Promise<Page> {
+async function openSeat(browser: Browser, name: string, skew = false): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
   const page = await context.newPage();
+  if (skew) await page.addInitScript(skewNativeMath);
   await page.addInitScript((seat) => {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
@@ -91,6 +106,32 @@ async function openSeat(browser: Browser, name: string): Promise<Page> {
     });
   }
   return page;
+}
+
+/**
+ * In the page, before the game: every native transcendental returns its
+ * value times (1 + 2^-40), and each call site is counted by the stack frame
+ * that called it (two frames, the function and its caller).
+ */
+function skewNativeMath(): void {
+  const names = ['sin', 'cos', 'tan', 'asin', 'acos', 'atan', 'atan2', 'exp', 'expm1', 'log', 'log1p', 'log2', 'log10',
+    'pow', 'hypot', 'cbrt', 'sinh', 'cosh', 'tanh', 'asinh', 'acosh', 'atanh'];
+  const callers: Record<string, number> = {};
+  (window as unknown as { __mathCallers: Record<string, number> }).__mathCallers = callers;
+  const M = Math as unknown as Record<string, (...args: number[]) => number>;
+  for (const name of names) {
+    const native = M[name];
+    M[name] = function (...args: number[]) {
+      const limit = Error.stackTraceLimit;
+      Error.stackTraceLimit = 4;
+      const stack = (new Error().stack ?? '').split('\n').slice(2, 4).map((l) => l.trim()).join(' < ');
+      Error.stackTraceLimit = limit;
+      const key = `${name} ${stack}`;
+      callers[key] = (callers[key] ?? 0) + 1;
+      const r = native(...args);
+      return r === 0 || !Number.isFinite(r) ? r : r * (1 + 2 ** -40);
+    };
+  }
 }
 
 /** The loading screen gone for good, the intro skipped */
@@ -344,7 +385,11 @@ async function playRun(index: number): Promise<boolean> {
   let written = 0;
   let playing = false;
   try {
-    for (let i = 0; i < PLAYERS; i++) seats.push(await openSeat(browsers.get(engineOf(i))!, `Bot${i + 1}`));
+    for (let i = 0; i < PLAYERS; i++) seats.push(await openSeat(browsers.get(engineOf(i))!, `Bot${i + 1}`, SKEW_SEATS.has(i)));
+    for (const seat of THROTTLE_SEATS) {
+      const cdp = await seats[seat].context().newCDPSession(seats[seat]);
+      await cdp.send('Emulation.setCPUThrottlingRate', { rate: THROTTLE });
+    }
     await installProbe(seats[0]);
     for (const page of seats.slice(1)) await installProbe(page);
     if (SOLO) {
@@ -375,6 +420,11 @@ async function playRun(index: number): Promise<boolean> {
       if (MAX_WAVES > 0 && written >= MAX_WAVES) { end = { reason: 'max-waves', waves: written }; break; }
     }
     const desyncs = await Promise.all(seats.map(desyncOf));
+    for (const [seat, page] of seats.entries()) {
+      if (!SKEW_SEATS.has(seat)) continue;
+      const callers = await page.evaluate(() => (window as unknown as { __mathCallers?: Record<string, number> }).__mathCallers ?? {});
+      writeFileSync(join(OUT, `math-callers-${index}-seat${seat}.json`), JSON.stringify(callers, null, 1));
+    }
     write({
       kind: 'run', run: index, room: code, solo: SOLO, players: PLAYERS, speed: SPEED,
       browsers: Array.from({ length: PLAYERS }, (_, seat) => engineOf(seat)),
