@@ -51,7 +51,7 @@ export const HP_MULT_MAX = 500;
 export const MIN_LEAK_HP = 1;
 
 export interface BudgetDefense {
-  /** Damage per armor, ground and air (the defense analysis' gate values). */
+  /** Damage per armor, ground and air: the plain matrix values. The gate values count every tower at a floor against fortified, which let 62 mammoths through at HP x5 (bots, W25). */
   readonly dps: EffectiveDPSPerArmor | undefined;
   readonly metersUnderFire: { readonly ground: number; readonly air: number } | undefined;
   /** HQ HP this lane may spend (the coop share). */

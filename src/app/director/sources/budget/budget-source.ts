@@ -58,7 +58,7 @@ export class BudgetWaveSource implements WaveSource {
       targetPressure: target,
       leakScale: planLeakScale(wave),
       defense: {
-        dps: state.defense?.gateDpsPerArmor,
+        dps: state.defense?.effectiveDPSPerArmor,
         metersUnderFire: state.defense?.metersUnderFire,
         hpRemaining: (state.player?.lives ?? 100) / lanes,
       },

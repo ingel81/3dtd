@@ -9,7 +9,7 @@ const flat = (v: number) => ({ unarmored: v, light: v, heavy: v, fortified: v, e
 function state(wave: number, dps = 2000): GameStateSnapshot {
   const s = createEmptySnapshot();
   s.waveNumber = wave - 1;
-  s.defense.gateDpsPerArmor = { ground: flat(dps), air: flat(dps) };
+  s.defense.effectiveDPSPerArmor = { ground: flat(dps), air: flat(dps) };
   s.defense.metersUnderFire = { ground: 300, air: 300 };
   s.player.lives = 500;
   return s;
