@@ -41,16 +41,17 @@ Simulation je Prozess, die Spec hält je Simulation ihren eigenen Stand.
 - **Spieler im Spiel.** Ein Goldkonto (`CreditsLedger`), Tower ohne Besitzer, ein Held, ein bemannter Tower.
 - **Sicht vom Host.** Jeder Client rechnet die Sicht heute selbst auf seiner GPU gegen seine Tiles.
 - **Netz:** Relay-Server, Räume, Tick-Barriere, Beitritt per Link.
-- **Browserübergreifend bit-gleich** ist die Simulation nicht sicher: `Math.sin`, `cos`, `atan2` stecken im Sim-Pfad
-  (`movement.component.ts`, `tower-aim.ts`, `projectile.entity.ts`, `projectile.manager.ts`, `geo-utils.ts`
-  `haversineDistance` u. a.) und dürfen zwischen Engines im letzten Bit abweichen. Das betrifft nur gemischte
-  Browser: Der Electron-Build bringt genau eine Chromium- und V8-Version mit, zwei PCs mit demselben Build rechnen
-  gleich, und der Beitritt verlangt ohnehin dieselbe Spielversion.
-  **Gemessen 2026-09-27 (TODO E28):** Die App (Chromium 152) rechnet bitgleich mit Chrome 153/154 und Edge 154;
-  Chromium 141, Node 24 (V8 13.6) und Firefox 142 weichen in fast allen Winkel-, Exp- und Log-Funktionen um 1 ULP
-  ab, überall gleich sind nur `sqrt` und `+ - * /`. Auch zwei V8-Versionen rechnen also verschieden. Eigene
-  Implementierungen nur aus diesen Grundrechenarten (fdlibm-Port) rechnen in allen Umgebungen bitgleich; der Plan,
-  die Sim darauf umzustellen, steht in E28.
+- **Browserübergreifend bit-gleich** rechnet die Simulation seit 2026-09-28 (TODO E28): Die nativen `Math.sin`,
+  `cos`, `atan2`, `exp`, `log`, `pow` und Co. weichen zwischen Engines und V8-Versionen im letzten Bit ab
+  (gemessen 2026-09-27: die App mit Chromium 152 gegen Chromium 141, Node 24 und Firefox 142). Die Sim rechnet sie
+  deshalb mit `DetMath` (`utils/det-math.ts`, fdlibm-Port nur aus `+ - * /`, `Math.sqrt` und Bitzugriff, höchstens
+  1 ULP vom wahren Wert); eine Lint-Regel verbietet die nativen Funktionen und `**` in den Sim-Ordnern. Belegt:
+  Node 24, Chromium 141 und Firefox 142 geben für 1 Mio. Eingaben je Funktion dieselben Bits, die nativen weichen
+  dabei ab (`tools/det-math-browsers/run.mjs`). Die Neu-Simulation zweier Wellen gibt dort dieselben Prüfsummen,
+  das tat sie aber auch mit den nativen Funktionen: Die Testwelt liegt am Äquator, wo die Winkel klein sind. Dass
+  die Sim nicht mehr an `Math.*` hängt, zeigen die Specs: Sie verfälschen die nativen Funktionen und erwarten
+  dieselben Prüfsummen.
+  Nativ bleiben Klang, Bild, Kamera und der Weltaufbau des Hosts aus OSM und Tiles, der im Weltpaket reist.
 - **Snapshot mitten in der Welle** (Gegner, Projektile, Spawner, Statuseffekte, Würmer) gibt es nicht.
 
 ## 3. Entscheidungen
@@ -459,6 +460,11 @@ der Test mit zwei Rechnern (PLAYTEST T66). Plan, wie er war:
 - Gemessen (User, 2026-09-24, Relay-Log): Chrome gegen Chrome bis W10, rund 66 Spielminuten, ohne Abweichung.
   Chrome gegen Firefox weicht bei Tick 210 ab (14 Spielsekunden nach dem Start) und bleibt abweichend. Ursache
   unbelegt; Eingrenzen per zerlegter Prüfsumme ist TODO E28, Randthema (D29).
+- **Eigene Mathe in der Sim (2026-09-28, TODO E28):** `DetMath` statt der nativen Transzendenten in managers,
+  entities, game-components, utils, services/combat, director, configs und `ellipsoid-sync.ts`; Lint-Regel dazu;
+  three.js rechnet in der Sim keine Winkel (per Mitschnitt aller nativen Aufrufe in den Szenario-Specs geprüft).
+  Die Funktionen geben in Node, Chromium 141 und Firefox 142 dieselben Bits. Ein Lauf Chrome gegen Firefox im
+  echten Spiel steht noch aus. `STATE_HASH_VERSION` 3.
 - **Determinismus-Prüfung der Sim (2026-09-27, TODO E63):** Zufall, Wanduhr, Sortierungen, Async, Weak-Strukturen,
   Float32 und Live-Raycasts durchgesehen. Ein Fehler gefunden und behoben: Fehlte am ersten Wegpunkt die Höhe, las
   der Spawn sie aus den eigenen Tiles; jetzt aus den eingefrorenen Zellen (`enemy.manager.ts`). Eine Lint-Regel

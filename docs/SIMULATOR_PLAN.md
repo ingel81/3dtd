@@ -136,8 +136,11 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
   Zielstrategie, Hold-Fire und Besetzung; Projektile; je Held Ort, Cooldown, Stufe, Munition und Ziel; je Spieler
   Forschung (fertig, laufend, Warteschlange) und Fähigkeiten (Ladungen, Schläge unterwegs). Bits, nicht gerundet. Nur
   beim Aufnehmen und Prüfen, alle 60 Sub-Steps und am Wellenende, im Coop alle 30 Ticks; im normalen Spiel nicht.
-  `STATE_HASH_VERSION` (2 seit TODO E63 i) steht in der Replay-Datei; eine Datei einer anderen Version spielt ohne
-  Prüfung ihrer Summen.
+  `STATE_HASH_VERSION` (2 seit TODO E63 i, 3 seit der eigenen Mathe aus E28) steht in der Replay-Datei; eine Datei
+  einer anderen Version spielt ohne Prüfung ihrer Summen.
+- Die Sim rechnet Winkel, `exp`, `log` und `pow` mit `DetMath` (`utils/det-math.ts`), nicht mit den nativen
+  Funktionen, deren letztes Bit je Engine und V8-Version anders ausfällt. So gibt dieselbe Welle in Node, Chromium und
+  Firefox dieselben Prüfsummen (`tools/det-math-browsers/run.mjs`, COOP_PLAN C5).
 - Abnahme-Spec: ein Lauf mit Bot über mehrere Wellen, Befehle aufgezeichnet; dann jede Welle aus ihrem Snapshot
   nachgerechnet, Prüfsumme je 60 Sub-Steps gleich. Dazu dieselbe Welle bei Timescale 1 und 20.
 - Benchmark-Spec für den ganzen Sub-Step (Gegner, Tower, Projektile in festen Mengen), damit P1 bis P3 zeigen, dass nichts

@@ -22,6 +22,7 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 | Fähigkeiten | `managers/ability.manager.ts` | [ABILITIES.md](ABILITIES.md) |
 | Held (Söldner) | `managers/hero.manager.ts` | [HERO.md](HERO.md) |
 | Replay jeder Welle als Neu-Simulation | `simulator/`, `replay/` | [REPLAY.md](REPLAY.md) |
+| Deterministische Mathe der Sim (sin, atan2, exp, pow statt `Math.*`, Lint-Regel) | `utils/det-math.ts` | [COOP_PLAN.md](COOP_PLAN.md) C5 |
 | Ort, Straßen, Favoriten, Weltkarte | `services/location/` | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | Effekte, Post-Processing, Screen Shake | `three-engine/renderers/`, `three-engine/post-processing/` | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
 | Ton und Musik | `managers/audio/`, `game-engine/background-music.service.ts` | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
