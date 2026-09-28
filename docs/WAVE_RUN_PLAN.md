@@ -69,6 +69,8 @@ Run-Log, Vorschau (sie kann jetzt jede Welle vorher nennen).
 | Skarnax fordernder | Nach dem Umbau, eigenes Konzept (E67). |
 | Bestandsliste | Vorschläge gelten, wo nicht umgeklickt (Abschnitt 7). |
 | Weiter | Konzept ausarbeiten, User liest, dann Umbau in Schritten mit Referenzlauf und Bot-Messung je Schritt. |
+| Was aus dem Plan kommt | Die Anzahl; die HP füllen das Budget. Ein Schwarm bleibt ein Schwarm, ein Boss bleibt einer. |
+| Budget-Kurve bei Stärke 1 | Heutiger Median als Start, dann per Bot-Messung justieren. |
 
 Nicht Teil davon: der Tabellen-Source bleibt, wie er ist.
 
@@ -101,8 +103,45 @@ Users; „prüfen“ heißt erst messen oder besprechen.
   5 Gegner, immer 1 HP Leck, Deckel durch Dauer begrenzt, Deckel unter dem Vorlagen-Minimum, Aufwärmen, geschummelte
   Wellen, Anti-Windup, Neustart je Lauf.
 
-## 8. Nächster Schritt
+## 8. Nachgerechnet: was eine Welle heute kostet
 
-Das Budget-Modell ausarbeiten: Kurve, Kosten je Gegner, wie Deckel und Regler darauf wirken, wie ein Boss teuer
-wird. Dann mit dem Referenzlauf (W1 bis W60) nachrechnen, wie der Verlauf gegenüber heute aussähe, und dem User
-vorlegen, bevor etwas gebaut wird.
+Referenzlauf W1 bis W60 gegen seine künstliche Abwehr (Schaden `120 + 90 · (W − 1)`, Rüstung abgestuft), je Welle die
+Sekunden Abwehr-Schaden für alle HP (Skript `tmp/nightly-2026-09-28/budget-probe.tmp.spec.ts`, nicht im Repo):
+- Innerhalb von zehn Wellen kostet die teuerste normale Welle das 3- bis 55-Fache der billigsten (W2 0,6 s, W18 262 s).
+- Bosse sind nie die Spitzen: W20 Ooze 39 s gegen W18 262 s, W35 Skarnax 50 s gegen W32 309 s.
+- Gleitender Median: rund 14 s bei W1, 55 bis 62 s von W11 bis W30, rund 100 s bei W60.
+- Grenzen: künstliche Abwehr, Luft so stark wie Boden, Lecks und Laufzeit nicht drin; ein Teil der Spreizung ist
+  gewollt (Konter).
+
+## 9. Budget-Modell (Entwurf, noch nicht gebaut)
+
+Für jede Welle N dieselben Schritte:
+
+1. **Plan-Zeile:** Vorlage (Gegnermischung), Anzahl je Gegnertyp, Stärke k (1 normal, 0,5 Atempause, 1,5 fordernd),
+   Gold. Ein Boss ist eine Zeile mit einem Boss und optional Begleitern.
+2. **Budget** in Sekunden Abwehr-Schaden: `B = S(N) · k · R`.
+   - `S(N)` eine stetige Kurve, Start beim heutigen Median, etwa `15 + 85 · (1 − e^(−(N−1)/15))` Sekunden.
+   - `R` der Druck-Regler, zwischen 0,5 und 2, aus dem HP-Verlust der letzten Wellen gegen die Spannungskurve.
+3. **Abwehr messen:** Schaden je Sekunde gegen jede Rüstung, Boden und Luft getrennt (wie heute).
+4. **HP verteilen:** ein gemeinsamer HP-Faktor für die ganze Welle, so dass alle Gegner zusammen `B` Sekunden kosten:
+   `hpMult = B / Σ (Anzahl_t · HP_t / Schaden gegen t)`.
+5. **Grenze:** der Deckel begrenzt `B` auf das, was die Abwehr in der Laufzeit der Welle plus erlaubtem Leck schafft.
+6. **Physik:** Spawn-Abstände je Gegnertyp (Idee des Users: auch aus der Plan-Zeile, zum Beispiel 30 bis 100 ms für
+   einen Zombie-Schwarm), dann ausliefern; die Vorschau kennt jede Welle.
+
+Damit fallen weg: Endgame-HP, Schwierigkeitsrampe, DPS-Rampe (geht in `S` und `R` auf), Kampagnen-Intensität (wird
+`k`), alle Boss-Sonderwege.
+
+Entschieden (User, 2026-09-28):
+- **Leckschaden** wächst stetig mit der Budget-Kurve, ohne Sprünge; wie stark, per Bot-Messung.
+- **Spawn-Abstände:** Standard je Gegnertyp, eine Plan-Zeile darf ihn für ihre Welle überschreiben; der Deckel
+  rechnet mit dem echten Abstand.
+- **Höchstdauer 180 s fällt weg.** Eine Welle dauert, was Anzahl mal Abstand ergibt; der Deckel rechnet mit der
+  echten Dauer, die Plan-Zeile ist dafür verantwortlich.
+- **Coop:** jede Spur bekommt die ganze Zeile, mit eigenem Budget gegen die Abwehr an dieser Spur.
+- **Nachrechnen jetzt,** vor dem Bau: den Referenzlauf mit dem Modell durchspielen und gegen heute zeigen.
+
+## 10. Nächster Schritt
+
+Den Referenzlauf (W1 bis W60) mit dem Budget-Modell durchrechnen (Rechenskript, kein Umbau im Spiel), Verlauf gegen
+heute als Diagramm auf der Entscheidungsseite, dann dem User vorlegen, bevor etwas gebaut wird.
