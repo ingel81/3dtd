@@ -3,8 +3,8 @@
     "wave": 1,
     "name": "Zombie Horde",
     "enemies": {
-      "zombie": 18,
-      "zombie-v2": 2
+      "zombie": 9,
+      "zombie-v2": 1
     },
     "strength": 0.75,
     "spawnDelay": 400,
