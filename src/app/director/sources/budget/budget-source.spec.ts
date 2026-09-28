@@ -34,7 +34,7 @@ describe('BudgetWaveSource', () => {
   it('plans a boss wave the same way as any other', () => {
     const boss = plan(new BudgetWaveSource(), 30);
     expect(boss.config.templateName).toBe(planRowForWave(30)!.name);
-    expect(boss.log.diagnostics?.budget).toBeGreaterThan(0);
+    expect(boss.log.diagnostics?.['budget']).toBeGreaterThan(0);
   });
 
   it('gives a stronger defense tougher enemies', () => {
@@ -45,11 +45,11 @@ describe('BudgetWaveSource', () => {
 
   it('opens the budget after waves that cost nothing, up to double, and forgets it on reset', () => {
     const source = new BudgetWaveSource();
-    const before = plan(source, 26).log.diagnostics!.budget as number;
+    const before = plan(source, 26).log.diagnostics!['budget'] as number;
     for (let w = 1; w <= 30; w++) source.onWaveResult(result(w, 0));
     const after = source.plan({ wave: 26, state: state(26), random: () => 0.5 });
     expect(after.log.pressureMultiplier).toBe(BUDGET_REGULATOR_LIMITS.max);
-    expect(after.log.diagnostics!.budget as number).toBeCloseTo(before * 2, 0);
+    expect(after.log.diagnostics!['budget'] as number).toBeCloseTo(before * 2, 0);
     source.reset();
     expect(plan(source, 20).log.pressureMultiplier).toBe(1);
   });

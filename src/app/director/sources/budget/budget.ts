@@ -7,8 +7,8 @@
  * 2. Each enemy's cost at HP ×1: its HP over the defense's damage against its
  *    armor, ground or air.
  * 3. Grenze je Gegner: no enemy gets more HP than the defense deals while it is
- *    under fire (metres of route under fire over its speed), and only half of
- *    that when its one leak would cost more than the wave may.
+ *    under fire (metres of route under fire over its speed), and only a part of
+ *    that when its one leak would cost more than the wave may (SURE_KILL_SHARE).
  * 4. Deckel: the wave's whole cost is at most what the defense can deal while
  *    the wave is on the route, plus the leaks the tension curve allows.
  * 5. One shared HP factor fills what is left of the budget.
@@ -39,9 +39,10 @@ export const UNDER_FIRE_SHARE = 0.9;
 /**
  * An enemy whose one leak would cost more HP than the whole wave may cost
  * takes only this share: it has to die with room to spare (the Ooze of W20
- * cost 91 HP with one leak at 0.9, bots 2026-09-28). Every type, every wave.
+ * cost 91 HP with one leak at 0.9 and still about 90 at 0.5 with no escort, bots
+ * 2026-09-28). Every type, every wave.
  */
-export const SURE_KILL_SHARE = 0.5;
+export const SURE_KILL_SHARE = 0.25;
 /** Least time under fire an enemy counts with, so a defense whose LOS is not in yet does not zero the HP. */
 export const MIN_UNDER_FIRE_S = 2;
 /** HP factors stay within these, whatever the defense. */

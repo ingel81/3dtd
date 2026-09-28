@@ -40,30 +40,30 @@ describe('sizeWave', () => {
   });
 
   it('scales with the row strength and the loop, the same way for every wave', () => {
-    const one = sizeWave(base()).hpMult.zombie;
-    expect(sizeWave(base({ strength: 1.3 })).hpMult.zombie).toBeCloseTo(one * 1.3, 2);
-    expect(sizeWave(base({ regulator: 0.5 })).hpMult.zombie).toBeCloseTo(one * 0.5, 2);
+    const one = sizeWave(base()).hpMult['zombie'];
+    expect(sizeWave(base({ strength: 1.3 })).hpMult['zombie']).toBeCloseTo(one * 1.3, 2);
+    expect(sizeWave(base({ regulator: 0.5 })).hpMult['zombie']).toBeCloseTo(one * 0.5, 2);
   });
 
   it('gives a stronger defense tougher enemies, not more of them', () => {
     const weak = sizeWave(base());
     const strong = sizeWave(base({ defense: { ...base().defense, dps: dps(2000) } }));
-    expect(strong.hpMult.zombie).toBeCloseTo(weak.hpMult.zombie * 2, 2);
+    expect(strong.hpMult['zombie']).toBeCloseTo(weak.hpMult['zombie'] * 2, 2);
   });
 
   it('holds an enemy at what the defense deals while it is under fire', () => {
     // One worm, a short stretch under fire: it would take far more than that
     const input = base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 10, defense: { dps: dps(50000), metersUnderFire: { ground: 20, air: 20 }, hpRemaining: 300 } });
     const sized = sizeWave(input);
-    const fire = 20 / ENEMY_TYPES.worm.baseSpeed;
+    const fire = 20 / ENEMY_TYPES['worm'].baseSpeed;
     expect(sized.clamped).toEqual(['worm']);
-    expect((enemyHp('worm') * sized.hpMult.worm) / (50000 * BUDGET_REALISM)).toBeCloseTo(UNDER_FIRE_SHARE * fire, 1);
+    expect((enemyHp('worm') * sized.hpMult['worm']) / (50000 * BUDGET_REALISM)).toBeCloseTo(UNDER_FIRE_SHARE * fire, 1);
   });
 
   it('gives the rest of the budget to the others when one type is at its limit', () => {
     const sized = sizeWave(base({ enemies: { worm: 1, skeleton: 300 }, spawnDelayMs: 400, defense: { dps: dps(50000), metersUnderFire: { ground: 60, air: 60 }, hpRemaining: 300 } }));
     expect(sized.clamped).toContain('worm');
-    expect(sized.hpMult.skeleton).toBeGreaterThan(sized.hpMult.worm);
+    expect(sized.hpMult['skeleton']).toBeGreaterThan(sized.hpMult['worm']);
   });
 
   it('cuts the budget to the time on the route plus the leaks the curve allows', () => {
@@ -77,13 +77,13 @@ describe('sizeWave', () => {
   it('leaves enemies the defense cannot hurt at HP ×1', () => {
     const sized = sizeWave(base({ enemies: { bat: 20, zombie: 50 }, defense: { dps: dps(1000, 0), metersUnderFire: { ground: 400, air: 400 }, hpRemaining: 300 } }));
     expect(sized.unhurt).toEqual(['bat']);
-    expect(sized.hpMult.bat).toBe(1);
-    expect(sized.hpMult.zombie).toBeGreaterThan(1);
+    expect(sized.hpMult['bat']).toBe(1);
+    expect(sized.hpMult['zombie']).toBeGreaterThan(1);
   });
 
   it('answers without a defense', () => {
     const sized = sizeWave(base({ defense: { dps: undefined, metersUnderFire: undefined, hpRemaining: 500 } }));
-    expect(sized.hpMult.zombie).toBe(1);
+    expect(sized.hpMult['zombie']).toBe(1);
   });
 });
 
@@ -92,6 +92,6 @@ describe('sizeWave, an enemy whose one leak costs more than the wave may', () =>
     const defense = { dps: dps(50000), metersUnderFire: { ground: 30, air: 30 }, hpRemaining: 300 };
     const cheap = sizeWave(base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 10, defense }));
     const dear = sizeWave(base({ enemies: { worm: 1 }, spawnDelayMs: 0, targetPressure: 0.0001, defense }));
-    expect(dear.hpMult.worm).toBeCloseTo((cheap.hpMult.worm * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
+    expect(dear.hpMult['worm']).toBeCloseTo((cheap.hpMult['worm'] * SURE_KILL_SHARE) / UNDER_FIRE_SHARE, 2);
   });
 });
