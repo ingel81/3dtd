@@ -30,8 +30,10 @@ export function createLoadStats(sim: SimClient, scene: () => Scene | null) {
   });
   let sums = empty();
   let since = performance.now();
-  // A frame listener runs inside the apply: state to present are this packet's, listeners the previous one's
-  sim.onFrame((packet: SimFramePacket) => {
+  let listening = false;
+  // Listens from the first call on, so a game nobody measures pays nothing; a frame listener runs inside the
+  // apply: state to present are this packet's, listeners the previous one's
+  const listen = () => sim.onFrame((packet: SimFramePacket) => {
     sums.packets++;
     if (packet.stepsRun === 0) sums.emptyPackets++;
     sums.subSteps += packet.stepsRun;
@@ -42,6 +44,12 @@ export function createLoadStats(sim: SimClient, scene: () => Scene | null) {
   });
   return {
     stats: (reset = false): LoadStats => {
+      if (!listening) {
+        listening = true;
+        listen();
+        sums = empty();
+        since = performance.now();
+      }
       const now = performance.now();
       const out = { ...sums, apply: { ...sums.apply }, wallMs: now - since };
       if (reset) {
