@@ -25,6 +25,8 @@ import { GameStore } from '../../store/game.store';
 import { UIStore } from '../../store/ui.store';
 import { EngineStore } from '../../store/engine.store';
 import { LocationStore } from '../../store/location.store';
+import { DebugStore } from '../../store/debug.store';
+import { WaveDebugService, type WaveGroupDisplay } from '../debug/wave-debug.service';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
 import { RunLogCollector } from '../../run-log/run-log.service';
 
@@ -43,6 +45,7 @@ describe('GameStateSyncService (real service)', () => {
   let service: GameStateSyncService;
   let eventBus: MainEventBus;
   let log: RunLogCollector;
+  let waveDebug: WaveDebugService;
   let logSubs: SubscriptionBag;
   let health = 100;
   let mirror: { scalars: { gameTimeMs: number }; localPlayerId: string };
@@ -76,6 +79,9 @@ describe('GameStateSyncService (real service)', () => {
     mirror = { scalars: { gameTimeMs: 0 }, localPlayerId: 'local' };
     injectionRegistry['SimClient'] = { bus: eventBus };
     injectionRegistry['SimMirror'] = mirror;
+    injectionRegistry['DebugStore'] = new DebugStore();
+    waveDebug = new WaveDebugService();
+    injectionRegistry['WaveDebugService'] = waveDebug;
     service = new GameStateSyncService();
     service.initialize();
     log.attach(eventBus, logSubs);
@@ -120,6 +126,22 @@ describe('GameStateSyncService (real service)', () => {
       eventBus.emit({ type: 'wave:jumped', from: 3, wave: 35, skipped: 31, credits: 0 });
       expect(store.waveNumber()).toBe(34);
       expect(store.phase()).toBe('setup');
+    });
+  });
+
+  // ── The wave panel's groups (sidebar) ─────────────────────────
+  describe('wave groups', () => {
+    const group = (enemyType: WaveGroupDisplay['enemyType'], count: number): WaveGroupDisplay => ({
+      enemyType, name: enemyType, count, baseHp: 100, actualHp: 120, baseSpeed: 5, actualSpeed: 5,
+      healthMultiplier: 1.2, speedMultiplier: 1, spawnDelay: 500, lanes: 1, leak: 10, leakMost: 10,
+    });
+
+    it('wave:groups → the wave panel lists them; game:reset empties it', () => {
+      eventBus.emit({ type: 'wave:groups', groups: [group('zombie', 8), group('bat', 3)] });
+      expect(waveDebug.currentWaveGroups().map((g) => [g.enemyType, g.count])).toEqual([['zombie', 8], ['bat', 3]]);
+
+      eventBus.emit({ type: 'game:reset' });
+      expect(waveDebug.currentWaveGroups()).toEqual([]);
     });
   });
 

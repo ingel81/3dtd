@@ -7,6 +7,7 @@ import { ResearchStore } from '../../store/research.store';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { runSummary } from '../../run-log/run-summary';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
+import { WaveDebugService } from '../debug/wave-debug.service';
 
 /**
  * GameStateSyncService — Bridges the simulation's events to the Store.
@@ -34,6 +35,8 @@ export class GameStateSyncService {
   private readonly mirror = inject(SimMirror);
   /** The run log the game-over screen reads its numbers from */
   private readonly runLog = inject(RunLogFacade);
+  /** The sidebar's preview of the running wave (wave panel) */
+  private readonly waveDebug = inject(WaveDebugService);
 
   /** The player at this client */
   private localPlayer(): string {
@@ -63,6 +66,11 @@ export class GameStateSyncService {
       this.store.waveEnemiesLeft.set(0);
     }));
 
+    // The groups of the wave that starts, for the sidebar's wave panel
+    this.subs.add(eventBus.onLive('wave:groups', (event) => {
+      this.waveDebug.setCurrentWaveGroups([...event.groups]);
+    }));
+
     // The dev jump moves the counter between waves (GameStateManager.jumpToWave):
     // the last wave counts as played, the wave button shows the next one
     this.subs.add(eventBus.onLive('wave:jumped', (event) => {
@@ -90,6 +98,7 @@ export class GameStateSyncService {
 
     this.subs.add(eventBus.onLive('game:reset', () => {
       this.store.resetGameState();
+      this.waveDebug.setCurrentWaveGroups([]);
     }));
 
     // After a restore (coop resync, a replay's way back): the state as it
