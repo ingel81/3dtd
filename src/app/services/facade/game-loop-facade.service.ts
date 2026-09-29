@@ -534,8 +534,9 @@ export class GameLoopFacadeService {
   /**
    * Restart game.
    * @param cleanupDpsViz Callback to clean up DPS visualization (owned by VisualizationFacade)
+   * @param seed The new run's seed (a bot run's config); without one the simulation draws a fresh one
    */
-  restartGame(cleanupDpsViz: () => void): void {
+  restartGame(cleanupDpsViz: () => void, seed?: number): void {
     // Coop without a connection: the restart would go to a closed socket; the run goes on alone (TODO E40)
     if (this.coop?.lostInGame()) this.coop.continueAlone();
     // Coop: only the host restarts, with a seed for every client (docs/COOP_PLAN.md, R1)
@@ -549,7 +550,8 @@ export class GameLoopFacadeService {
     // Cleanup DPS profile visualization (delegated to VisualizationFacade)
     cleanupDpsViz();
 
-    this.sim.bus.emit(coop ? { type: 'command:restart-game', seed: newRunSeed() } : { type: 'command:restart-game' });
+    const runSeed = coop ? newRunSeed() : seed;
+    this.sim.bus.emit(runSeed === undefined ? { type: 'command:restart-game' } : { type: 'command:restart-game', seed: runSeed });
 
     // Reset pending AI wave request flag
     this.pendingAIWaveRequest = false;

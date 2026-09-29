@@ -234,6 +234,35 @@ describe('GameLoopFacadeService: restart after the coop connection broke (TODO E
   });
 });
 
+describe('GameLoopFacadeService: restart with a given seed', () => {
+  // A bot run's config names the seed of the next run (bot-server); the
+  // simulation takes it with the restart command
+  it('hands the seed of the single player game on to the simulation', () => {
+    const bus = createMainEventBus();
+    const injector = Injector.create({
+      providers: [
+        ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        ...simProviders(bus),
+        { provide: WaveDirector, useValue: waveDirectorStub() },
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
+        { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
+        { provide: TowerDefenseStore, useValue: { phase: signal('setup'), waveNumber: signal(1), autoWaveSecondsLeft: signal(null) } },
+        { provide: UIStore, useValue: { autoStartWaves: signal(false) } },
+        { provide: BotClientService, useValue: { botEnabled: signal(false), resetBot: () => undefined } },
+      ],
+    });
+    const facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
+
+    const restarts: unknown[] = [];
+    bus.on('command:restart-game', (event) => restarts.push(event));
+    facade.restartGame(() => undefined, 4242);
+    facade.restartGame(() => undefined);
+
+    expect(restarts).toEqual([{ type: 'command:restart-game', seed: 4242 }, { type: 'command:restart-game' }]);
+  });
+});
+
 describe('GameLoopFacadeService: the bot\'s wave button in coop', () => {
   it('says ready every time and never takes it back, where the button toggles', () => {
     const bus = createMainEventBus();
