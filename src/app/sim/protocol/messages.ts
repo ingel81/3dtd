@@ -8,6 +8,7 @@ import type { SpawnPoint } from '../../managers/wave.manager';
 import type { CommandData } from '../../managers/game-state/command-data';
 import type { StampedCommand } from '../../coop/lockstep';
 import type { SimFramePacket } from './packet';
+import type { WireFrame } from './wire';
 
 /**
  * The world the simulation stands on, from the finished world on the main
@@ -113,7 +114,7 @@ export type ToWorker =
 
 export type FromWorker =
   | { kind: 'ready' }
-  | { kind: 'frame'; packet: SimFramePacket }
+  | { kind: 'frame'; frame: WireFrame }
   | { kind: 'output'; message: SimOutput }
   | { kind: 'rpc-reply'; id: number; ok: true; value: unknown }
   | { kind: 'rpc-reply'; id: number; ok: false; error: string }

@@ -222,8 +222,3 @@ export interface SimFramePacket {
 export function entityNum(id: string): number {
   return Number(id.slice(id.lastIndexOf('-') + 1));
 }
-
-/** The buffers of a packet, for postMessage's transfer list. */
-export function packetTransfers(p: SimFramePacket): ArrayBuffer[] {
-  return [p.enemies, p.projectiles, p.towers, p.oozes, p.worms].map((t) => t.data.buffer as ArrayBuffer);
-}

@@ -7,6 +7,8 @@ import type {
   FromWorker, SimConfig, SimCoreApi, SimOutput, SimRpc, SimTickInput, SimWorld, ToWorker,
 } from '../protocol/messages';
 import type { SimFramePacket } from '../protocol/packet';
+import { TableViews } from '../protocol/table-store';
+import { fromWire } from '../protocol/wire';
 
 export interface SimTransportHandlers {
   frame(packet: SimFramePacket): void;
@@ -62,6 +64,8 @@ export class WorkerTransport implements SimTransport {
   private readonly worker: Worker;
   private nextRpc = 1;
   private readonly pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
+  /** The simulation's tables in shared memory (or this frame's copies without it) */
+  private readonly views = new TableViews();
 
   constructor(private readonly handlers: SimTransportHandlers) {
     this.worker = new Worker(new URL('../worker/sim.worker', import.meta.url), { type: 'module' });
@@ -76,7 +80,7 @@ export class WorkerTransport implements SimTransport {
   private receive(message: FromWorker): void {
     switch (message.kind) {
       case 'frame':
-        this.handlers.frame(message.packet);
+        this.handlers.frame(fromWire(message.frame, this.views));
         return;
       case 'output':
         this.handlers.output(message.message);
