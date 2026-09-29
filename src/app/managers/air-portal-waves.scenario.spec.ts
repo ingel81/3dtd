@@ -19,6 +19,7 @@ vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 import { Injector, runInInjectionContext } from '@angular/core';
 import { WaveDirector } from '../director/wave-director';
 import { StateSnapshotService } from '../director/state-snapshot.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { adaptDirectorWave } from '../director/wave-config-adapter';
 import { createEmptySnapshot, type GameStateSnapshot } from '../director/models/game-state-snapshot';
 import type { WaveConfig } from '../director/models/wave-config';
@@ -108,7 +109,12 @@ describe('Regular air waves at two portals, playtest 238 (night 1) replayed', ()
 
   beforeEach(() => {
     collector = new StubCollector();
-    const injector = Injector.create({ providers: [{ provide: StateSnapshotService, useValue: collector }] });
+    const injector = Injector.create({
+      providers: [
+        { provide: StateSnapshotService, useValue: collector },
+        { provide: SimMirror, useValue: new SimMirror() },
+      ],
+    });
     director = runInInjectionContext(injector, () => new WaveDirector());
     vi.spyOn(console, 'log').mockImplementation(() => undefined);
     seededRandom();
