@@ -2,8 +2,7 @@
 // main thread and in a module worker. Record a run of several waves, re-simulate it from the replay
 // file wave by wave and compare every state hash; time the sub-step at 5000 enemies.
 import { diagnostics } from './diag';
-import { lab, traced } from './angular-shim';
-import { GameStateManager } from '../../src/app/managers/game-state.manager';
+import { lab } from './angular-shim';
 import { buildSimWorld } from '../../src/app/integration/sim-world';
 import { createSimBench, measureSteps, type StepStats } from '../../src/app/integration/sim-step-bench';
 import type { WaveConfig, SpawnEntry } from '../../src/app/managers/wave.manager';
@@ -15,12 +14,6 @@ import { buildReplayFile, readReplayFile } from '../../src/app/simulator/replay-
 
 const SEED = 0x51a1;
 
-// While tracing, the engine the GameStateManager gets (and hands its managers) counts every call
-const initialize = GameStateManager.prototype.initialize;
-GameStateManager.prototype.initialize = function (this: GameStateManager, engine: unknown, ...rest: unknown[]) {
-  const e = lab().tracing ? traced(engine, 'engine') : engine;
-  return (initialize as (...a: unknown[]) => unknown).call(this, e, ...rest);
-} as typeof initialize;
 const HERE = { configHash: 'lab', gameVersion: 'lab' };
 
 function world() {
@@ -72,6 +65,8 @@ export function record(): { text: string; waves: WaveResult[]; ms: number } {
       gsm.update(now, () => {
         if (endHash === null && gsm.waveManager.phase() !== 'wave' && gsm.simRecorder.get(wave)?.endStep != null) endHash = gsm.stateHash();
       });
+      // What SimCore hands the packet after every frame
+      gsm.ops.take();
       if (wave !== 1) continue;
       if (f === 20) bus.emit({ type: 'debug:add-credits', amount: 5000 });
       if (f === 25) bus.emit({ type: 'command:upgrade-tower', towerId: towers[0].id, upgradeId: 'damage' });
@@ -89,7 +84,10 @@ export function record(): { text: string; waves: WaveResult[]; ms: number } {
       divergedAt: null, endHash: endHash!, ms: performance.now() - w0,
     });
     // Let the last shots land, so the next wave's snapshot is allowed
-    for (let k = 0; k < 400 && gsm.snapshotRefusal() !== null; k++) gsm.update((now += 16.667));
+    for (let k = 0; k < 400 && gsm.snapshotRefusal() !== null; k++) {
+      gsm.update((now += 16.667));
+      gsm.ops.take();
+    }
   });
   const text = JSON.stringify(buildReplayFile(gsm.simRecorder.records, gsm.commandLog.entries, {
     worldKey: gsm.worldKey(), configHash: HERE.configHash, seed: gsm.rng.seed, gameVersion: HERE.gameVersion, commit: 'lab',
@@ -138,8 +136,8 @@ export const stubbedServices = (): string[] => [...lab().stubbed].sort();
 export { diagnostics };
 
 /**
- * What the simulation reaches outside itself: the run of `record` once more with the engine and
- * every service nobody provided traced. Member path and calls, most first.
+ * What the simulation reaches outside itself: the run of `record` once more with every service
+ * nobody provided traced (the simulation has no engine any more). Member path and calls, most first.
  */
 export function reach(): [string, number][] {
   const l = lab();
