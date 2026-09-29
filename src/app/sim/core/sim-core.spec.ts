@@ -223,7 +223,7 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.subStep).toBe(0); // no tick closed: the barrier holds
 
     // The relay stamped B's gift at tick 1; ticks 0 to 3 closed
-    const gift = { playerId: 'b', command: { type: 'debug:add-credits', amount: 5 } as unknown as CommandData };
+    const gift = { tick: 1, seq: 1, playerId: 'b', command: { type: 'debug:add-credits', amount: 5 } as unknown as CommandData };
     const delivery = { confirmedTick: 3, ticks: [0, 1, 2, 3].map((tick) => ({ tick, commands: tick === 1 ? [gift] : [] })) };
     core.tick(input([], delivery, 1100), (m) => out.push(m));
     expect(core.gsm.creditsOf('b')).toBe(credits + 5);
