@@ -16,6 +16,7 @@ import { GameMenuComponent } from './game-menu.component';
 import { CoopService } from '../../services/coop.service';
 import { WhatsNewService } from '../../services/onboarding/whats-new.service';
 import { GameStore } from '../../store/game.store';
+import { BenchmarkService } from '../../benchmark/benchmark.service';
 
 const template = readFileSync(resolve('src/app/components/game-menu/game-menu.component.html'), 'utf8');
 
@@ -24,9 +25,12 @@ interface Setup {
   started?: boolean;
   inCoop?: boolean;
   pausedBefore?: boolean;
+  /** The game component's benchmark is there */
+  benchmark?: boolean;
 }
 
-async function setup({ desktop = true, started = false, inCoop = false, pausedBefore = false }: Setup = {}) {
+async function setup({ desktop = true, started = false, inCoop = false, pausedBefore = false, benchmark = false }: Setup = {}) {
+  const bench = { start: vi.fn() };
   const bridge = {
     version: '0.5.1',
     onUpdateReady: () => () => undefined,
@@ -44,6 +48,7 @@ async function setup({ desktop = true, started = false, inCoop = false, pausedBe
       { provide: MatDialog, useValue: { open: vi.fn(), openDialogs: [] } },
       { provide: WhatsNewService, useValue: { open: vi.fn() } },
       { provide: CoopService, useValue: { inGame: signal(inCoop) } },
+      ...(benchmark ? [{ provide: BenchmarkService, useValue: bench }] : []),
     ],
   });
   TestBed.overrideComponent(GameMenuComponent, {
@@ -65,7 +70,7 @@ async function setup({ desktop = true, started = false, inCoop = false, pausedBe
     await fixture.whenStable();
     fixture.detectChanges();
   };
-  return { bridge, close, el, byText, click, store, fixture, menu: fixture.componentInstance };
+  return { bridge, bench, close, el, byText, click, store, fixture, menu: fixture.componentInstance };
 }
 
 describe('GameMenuComponent', () => {
@@ -82,6 +87,24 @@ describe('GameMenuComponent', () => {
     const { byText } = await setup({ desktop: false });
     expect(byText('Quit')).toBeUndefined();
     expect(byText('Fullscreen')).toBeDefined();
+  });
+
+  it('offers the benchmark, asks before the reload, and Cancel stays', async () => {
+    const { bench, byText, click, el } = await setup({ benchmark: true });
+    await click('Benchmark');
+    expect(bench.start).not.toHaveBeenCalled();
+    expect(el.textContent).toContain('The page reloads into a test world');
+    await click('Cancel');
+    expect(byText('Benchmark')).toBeDefined();
+    await click('Benchmark');
+    await click('Run');
+    expect(bench.start).toHaveBeenCalledTimes(1);
+  });
+
+  it('has no benchmark in coop or outside the game', async () => {
+    expect((await setup({ benchmark: true, inCoop: true })).byText('Benchmark')).toBeUndefined();
+    TestBed.resetTestingModule();
+    expect((await setup()).byText('Benchmark')).toBeUndefined();
   });
 
   it('quits at once when no game is under way', async () => {

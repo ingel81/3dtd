@@ -1,0 +1,140 @@
+/* The benchmark's card, top centre of the map: the look of the game menu */
+.bm {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 60;
+  box-sizing: border-box;
+  width: max-content;
+  min-width: 320px;
+  max-width: min(760px, calc(100% - 32px));
+  padding: 10px 14px 12px;
+  background: var(--td-panel-main);
+  border: 1px solid var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.2),
+    inset 0 -1px 0 var(--td-panel-shadow),
+    var(--td-shadow-soft);
+  color: var(--td-text-primary);
+  font-family: var(--td-font-body);
+}
+
+.bm-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--td-gold);
+}
+
+.bm-count {
+  margin-left: auto;
+  font: 11px/1 var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
+.bm-doing {
+  margin: 10px 0 6px;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.bm-bar {
+  height: 4px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+}
+
+.bm-bar-fill {
+  height: 100%;
+  background: var(--td-teal);
+  transition: width 0.3s ease;
+}
+
+.bm-note {
+  margin: 8px 0 0;
+  font: 11px/1.4 var(--td-font-mono);
+  color: var(--td-text-muted);
+}
+
+.bm-env {
+  margin: 10px 0 6px;
+  font: 11px/1.5 var(--td-font-mono);
+  color: var(--td-text-secondary);
+}
+
+.bm-table {
+  border-collapse: collapse;
+  font: 11px/1.5 var(--td-font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.bm-table th,
+.bm-table td {
+  padding: 2px 10px 2px 0;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.bm-table th {
+  color: var(--td-text-muted);
+  font-weight: 500;
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+.bm-table td {
+  color: var(--td-teal);
+}
+
+.bm-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.bm-btn {
+  padding: 7px 14px;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  color: var(--td-text-primary);
+  font: 11px/1 var(--td-font-mono);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.bm-btn:hover,
+.bm-btn:focus-visible {
+  border-color: var(--td-frame-light);
+}
+
+.bm-btn-gold {
+  background: linear-gradient(to bottom, var(--td-gold-light), var(--td-gold) 55%, var(--td-gold-dark));
+  border-color: var(--td-gold-dark);
+  color: #1a140a;
+  font-weight: 700;
+}
+
+.bm-btn-gold:hover,
+.bm-btn-gold:focus-visible {
+  border-color: var(--td-gold-light);
+  box-shadow: var(--td-gold-glow);
+}
+
+.bm-copied {
+  font: 11px/1 var(--td-font-mono);
+  color: var(--td-green);
+}
+
+.bm-copied-no {
+  color: var(--td-warn-orange);
+}

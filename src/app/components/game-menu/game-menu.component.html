@@ -16,6 +16,18 @@
         <button class="gm-btn" type="button" (click)="cancelQuit()">Cancel</button>
       </div>
     </div>
+  } @else if (confirmingBenchmark()) {
+    <div class="gm-confirm">
+      <p class="gm-confirm-text">Run the benchmark?</p>
+      <p class="gm-confirm-text gm-muted">
+        The page reloads into a test world and measures frame rate and simulation with up to 10,000 enemies, about
+        3 minutes. The game under way ends. At the end you can copy the results.
+      </p>
+      <div class="gm-confirm-actions">
+        <button class="gm-btn" type="button" (click)="runBenchmark()" cdkFocusInitial>Run</button>
+        <button class="gm-btn" type="button" (click)="cancelBenchmark()">Cancel</button>
+      </div>
+    </div>
   } @else {
     @if (inCoop()) {
       <p class="gm-note">The game runs on while you are here: it is everyone's.</p>
@@ -54,6 +66,12 @@
         <td-icon name="copyright" [size]="14"></td-icon>
         <span class="gm-label">Attributions</span>
       </button>
+      @if (canBenchmark()) {
+        <button class="gm-item" type="button" (click)="askBenchmark()">
+          <td-icon name="speed" [size]="14"></td-icon>
+          <span class="gm-label">Benchmark</span>
+        </button>
+      }
 
       @if (canQuit) {
         <div class="gm-sep" role="separator"></div>

@@ -41,6 +41,8 @@ import {
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { DEBUG_CREDITS_STEPS, DEBUG_HEALTH_STEPS, debugCheatAmount } from './components/quick-actions/debug-cheat-amount';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
+import { BenchmarkPanelComponent } from './benchmark/benchmark-panel.component';
+import { BenchmarkService } from './benchmark/benchmark.service';
 import { ContextHintComponent, HintAction, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
 import { BossBarComponent } from './components/boss-bar/boss-bar.component';
@@ -180,6 +182,7 @@ import { COOP } from './services/coop.token';
     TowerControlHudComponent,
     // Used only inside @defer on the game-over screen, so it loads with the globe as a lazy chunk
     WorldRecordComponent,
+    BenchmarkPanelComponent,
   ],
   providers: [
     ModelPreviewService,
@@ -205,6 +208,8 @@ import { COOP } from './services/coop.token';
     // Coop: the relay session and what the game does with it (docs/COOP_PLAN.md, C4)
     CoopService,
     { provide: COOP, useExisting: CoopService },
+    // The in-game benchmark drives the game loop's load handle (TODO E74)
+    BenchmarkService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -506,13 +511,15 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     });
 
     // "What's new" once after an update, when the game is up: not over the
-    // loading screen, an error or the token dialog
+    // loading screen, an error or the token dialog. A page loaded for the
+    // benchmark runs it instead, the notes wait for the next load.
     const whatsNew = inject(WhatsNewService);
+    const benchmark = inject(BenchmarkService);
     let whatsNewChecked = false;
     effect(() => {
       if (whatsNewChecked || this.loading() || this.error() || this.awaitingCredentials()) return;
       whatsNewChecked = true;
-      untracked(() => whatsNew.showAfterUpdate());
+      untracked(() => (benchmark.requested ? benchmark.runIfRequested() : whatsNew.showAfterUpdate()));
     });
   }
 

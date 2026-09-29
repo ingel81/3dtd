@@ -151,7 +151,7 @@ export class GameLoopFacadeService {
   }
 
   /**
-   * The handle of the load measurements: a command, the speed, the pause,
+   * The handle of the load measurements: a command, the speed, a call to the simulation,
    * the ground under a spot, the numbers they read. `__load` in the page for
    * the load runner (e2e/perf/sim-load.ts), `loadHandle` for the in-game
    * benchmark (benchmark/benchmark.service.ts). Null before initialize().

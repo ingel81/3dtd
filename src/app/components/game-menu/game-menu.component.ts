@@ -11,12 +11,13 @@ import { openHotkeyHelpDialog } from '../hotkey-help-dialog/open-hotkey-help-dia
 import { readDesktopBridge } from '../../core/desktop-bridge';
 import { BUILD_VERSION } from '../../configs/build-info.config';
 import { ConfigService } from '../../core/services/config.service';
+import { BenchmarkService } from '../../benchmark/benchmark.service';
 
 /**
  * The game menu (TODO A3): the gear in the sidebar footer and Esc, when Esc
  * has nothing else to do, open it. Fullscreen, the master volume, the notes of
- * this version, the map key, the keys, the credits and, in the desktop app
- * only, Quit. A
+ * this version, the map key, the keys, the credits, the benchmark (TODO E74)
+ * and, in the desktop app only, Quit. A
  * browser tab cannot close itself, so the web version has no Quit.
  *
  * Quit during a game asks first, in the menu itself: the game under way ends,
@@ -48,6 +49,8 @@ export class GameMenuComponent {
   private readonly store = inject(GameStore);
   private readonly coop = inject(CoopService);
   private readonly config = inject(ConfigService);
+  /** The game component's; the menu opened elsewhere has no benchmark entry */
+  private readonly benchmark = inject(BenchmarkService, { optional: true });
 
   readonly version = BUILD_VERSION;
   /** Quit exists where the app can end itself: the desktop build from 0.5.1 on */
@@ -56,6 +59,10 @@ export class GameMenuComponent {
   /** Quit was pressed during a game; the menu asks before it ends it */
   readonly confirmingQuit = signal(false);
   readonly inCoop = computed(() => this.coop.inGame());
+  /** The benchmark reloads the page: not in coop, where the room would lose the player */
+  readonly canBenchmark = computed(() => this.benchmark !== null && !this.inCoop());
+  /** Benchmark was pressed; the menu asks before the page reloads */
+  readonly confirmingBenchmark = signal(false);
 
   constructor() {
     void this.readFullscreen();
@@ -117,6 +124,19 @@ export class GameMenuComponent {
   openAttributions(): void {
     this.dialogRef.close();
     void openAttributionsDialog(this.dialog);
+  }
+
+  askBenchmark(): void {
+    this.confirmingBenchmark.set(true);
+  }
+
+  /** Reload into the DevWorld and measure (BenchmarkService.start) */
+  runBenchmark(): void {
+    this.benchmark?.start();
+  }
+
+  cancelBenchmark(): void {
+    this.confirmingBenchmark.set(false);
   }
 
   /** Straight out when nothing is at stake, otherwise ask first */

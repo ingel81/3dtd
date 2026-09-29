@@ -17,6 +17,10 @@ import { chromium, firefox, type Page } from '@playwright/test';
 import os from 'node:os';
 import { writeFileSync } from 'node:fs';
 import { startProfiles, summarize } from './cdp-profile.ts';
+// The scene the in-game benchmark builds as well (TODO E74): tower spots, route slices, fill and settle
+import {
+  frameStats, placeTowers, routeSlices, settle, spawnUpTo, startLoadWave, type LoadDriver,
+} from '../../src/app/benchmark/load-scene.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -113,27 +117,6 @@ const state = (page: Page) => page.evaluate(() => (globalThis as unknown as { __
 const emit = (page: Page, command: Record<string, unknown>) =>
   page.evaluate((c) => (globalThis as unknown as { __load: { emit(e: unknown): void } }).__load.emit(c), command);
 
-/** Candidate spots beside the routes: every waypoint, both sides, at a few distances; the same list every run. */
-function towerSpots(paths: [number, number][][]): { lat: number; lon: number }[] {
-  const spots: { lat: number; lon: number }[] = [];
-  for (const distance of [18, 26, 34]) {
-    for (const path of paths) {
-      for (let i = 3; i < path.length - 3; i += 2) {
-        const p = path[i];
-        const next = path[i + 1];
-        const dLat = next[0] - p[0];
-        const dLon = (next[1] - p[1]) * Math.cos((p[0] * Math.PI) / 180);
-        const len = Math.hypot(dLat, dLon) || 1;
-        for (const side of [1, -1]) {
-          const off = (distance / 111_320) * side;
-          spots.push({ lat: p[0] - (dLon / len) * off, lon: p[1] + ((dLat / len) * off) / Math.cos((p[0] * Math.PI) / 180) });
-        }
-      }
-    }
-  }
-  return spots;
-}
-
 interface Sums {
   wallMs: number; packets: number; emptyPackets: number; subSteps: number; tickMs: number; events: number; ops: number;
   apply: Record<string, number>;
@@ -163,12 +146,10 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
   }), seconds * 1000);
   const after = await state(page);
   const s = await stats(page, false);
-  const gaps = frames.slice(1).map((t, i) => t - frames[i]).sort((a, b) => a - b);
   const wall = frames[frames.length - 1] - frames[0];
   return {
-    fps: (frames.length - 1) / (wall / 1000),
-    // The slow end: the frame time only 5 % of frames were slower than, as frames per second
-    p05: 1000 / gaps[Math.floor(gaps.length * 0.95)],
+    // Frames per second and the slow end (frameStats)
+    ...frameStats(frames),
     speed: (after.gameTimeMs - before.gameTimeMs) / wall,
     enemies: after.enemies,
     // Median of the worker's tick time over the frames, null for the build without a worker
@@ -240,59 +221,10 @@ const build = (await fetch(`${URL_BASE}/build-info.json`).then((r) => (r.ok ? r.
   { version?: string; commit?: string; dirty?: boolean } | null;
 console.log('BUILD ' + JSON.stringify(build));
 
-const start = await state(page);
-await emit(page, { type: 'debug:add-credits', amount: 1_000_000 });
-await emit(page, { type: 'debug:add-health', amount: 1_000_000 });
-const types = ['archer', 'cannon', 'ice', 'fire', 'lightning', 'rocket', 'magic', 'poison', 'dual-gatling', 'chaos'];
-// Candidates in turn until TOWERS stand; refused spots (on a street, too close) cost nothing
-let tried = 0;
-for (const spot of towerSpots(start.paths)) {
-  if (tried % 10 === 0 && (await state(page)).towers >= TOWERS) break;
-  // With the ground under it, as the placement UI sends it; a spot without ground is none
-  const height = await page.evaluate(([lat, lon]) => (globalThis as unknown as { __load: { groundAt(a: number, b: number): number | null } }).__load.groundAt(lat, lon), [spot.lat, spot.lon]);
-  if (height !== null) await emit(page, { type: 'command:place-tower', position: { lat: spot.lat, lon: spot.lon, height }, typeId: types[tried % types.length] });
-  tried++;
-  if (tried % 10 === 0) await page.waitForTimeout(200);
-}
-await page.waitForTimeout(3000);
-const placed = await state(page);
-console.log(`towers ${placed.towers} of ${TOWERS} (${tried} spots tried)`);
+const setSpeed = (value: number) => page.evaluate((v) => (globalThis as unknown as { __load: { speed(v: number): void } }).__load.speed(v), value);
+const hideEnemies = (hidden: boolean) =>
+  page.evaluate((h) => (globalThis as unknown as { __load: { hideEnemies?(h: boolean): number } }).__load.hideEnemies?.(h) ?? 0, hidden);
 
-// A wave runs (combat is on in a wave), and the enemies stand along the routes at once: the wave's own
-// spawning keeps a body limit per lane, so the load comes by the debug spawn, in slices along each route
-await emit(page, { type: 'command:start-wave', config: { schedule: { entries: [{ enemyType: 'zombie', speed: 0.05, health: 1000 }], baseDelay: 100, spawnMode: 'each' } } });
-const kinds = ['zombie', 'rat', 'zombie-soldier', 'skeleton', 'spider', 'bat'];
-// 25 slices per route: each slice is a path of its own, whose corner geometry the simulation works out once
-// (getRouteProfile caches by path); one per waypoint cost tens of ms each and seconds in all
-const SLICES = 25;
-// Starts on the first 70 % of each route only: enemies set down near the HQ reached it within the measurement and left
-// the count
-const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, i) => Math.floor((i * 0.7 * (path.length - 2)) / SLICES))
-  .map((k) => path.slice(k).map(([lat, lon]) => ({ lat, lon }))));
-let sliceAt = 0;
-/**
- * Enemies spread over the slices until `target` are alive. The simulation takes a round's spawns in one tick, which
- * at thousands of enemies takes seconds (a route profile per slice): a call to the simulation answers only after the
- * commands given before it ran (SimClient.rpc), so the runner waits for that answer and one frame more, then counts.
- * Enemies that reached the HQ meanwhile are topped up in another round, up to 4 rounds.
- */
-async function spawnUpTo(target: number): Promise<void> {
-  for (let round = 0; round < 4; round++) {
-    const missing = target - (await state(page)).enemies;
-    if (missing <= target * 0.005) return;
-    const perSlice = Math.ceil(missing / slices.length);
-    let spawned = 0;
-    for (let i = 0; i < slices.length && spawned < missing; i++, sliceAt++) {
-      const count = Math.min(perSlice, missing - spawned);
-      await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: ENEMY_SPEED, health: ENEMY_HP });
-      spawned += count;
-    }
-    await page.evaluate(() => (globalThis as unknown as { __load: { ping(): Promise<unknown> } }).__load.ping());
-    await page.waitForTimeout(1000);
-    const now = await state(page);
-    console.log(`  enemies ${now.enemies} of ${target} after round ${round + 1}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
-  }
-}
 /** Frames per second over `ms` of wall clock */
 const fpsOver = (ms: number) => page.evaluate((span) => new Promise<number>((resolve) => {
   let frames = 0;
@@ -305,25 +237,30 @@ const fpsOver = (ms: number) => page.evaluate((span) => new Promise<number>((res
   requestAnimationFrame(tick);
 }), ms);
 
-/**
- * Let the scene settle before a measurement: fresh enemies still cost route profiles in the simulation, and the
- * browser's GC and JIT take a while to calm down. At least 5 s, then 2 s windows until two in a row differ by less
- * than 5 % in frames per second, 30 s at most.
- */
-async function settle(): Promise<void> {
-  await page.waitForTimeout(5000);
-  let last = await fpsOver(2000);
-  for (let waited = 7000; waited < 30_000; waited += 2000) {
-    const now = await fpsOver(2000);
-    if (Math.abs(now - last) / Math.max(last, 1) < 0.05) return;
-    last = now;
-  }
-  console.log('  not settled after 30 s, measuring anyway');
-}
+/** The page as the load scene drives it (load-scene.ts) */
+const driver: LoadDriver = {
+  state: () => state(page),
+  emit: (command) => emit(page, command),
+  groundAt: (lat, lon) => page.evaluate(([a, b]) => (globalThis as unknown as { __load: { groundAt(a: number, b: number): number | null } }).__load.groundAt(a, b), [lat, lon]),
+  fpsOver,
+  wait: (ms) => page.waitForTimeout(ms),
+  sync: () => page.evaluate(async () => {
+    await (globalThis as unknown as { __load: { ping(): Promise<unknown> } }).__load.ping();
+  }),
+  log: (line) => console.log(line),
+};
 
-const setSpeed = (value: number) => page.evaluate((v) => (globalThis as unknown as { __load: { speed(v: number): void } }).__load.speed(v), value);
-const hideEnemies = (hidden: boolean) =>
-  page.evaluate((h) => (globalThis as unknown as { __load: { hideEnemies?(h: boolean): number } }).__load.hideEnemies?.(h) ?? 0, hidden);
+const start = await state(page);
+await emit(page, { type: 'debug:add-credits', amount: 1_000_000 });
+await emit(page, { type: 'debug:add-health', amount: 1_000_000 });
+const tried = await placeTowers(driver, start.paths, TOWERS);
+const placed = await state(page);
+console.log(`towers ${placed.towers} of ${TOWERS} (${tried} spots tried)`);
+
+await startLoadWave(driver);
+const slices = routeSlices(start.paths);
+const sliceAt = { slice: 0 };
+const spawnTo = (target: number) => spawnUpTo(driver, slices, target, sliceAt, ENEMY_SPEED, ENEMY_HP);
 
 /** CPU profiles of both threads over SECONDS, written next to `prefix`, the top functions printed */
 async function profile(prefix: string): Promise<void> {
@@ -349,8 +286,8 @@ if (STEPS.length > 0) {
       await setSpeed(speed);
       // Topped up before every measurement, then settled: the debug spawn works out a route profile per slice in the
       // simulation, and a top-up just before a measurement counted that into it
-      await spawnUpTo(target);
-      await settle();
+      await spawnTo(target);
+      await settle(driver);
       for (const hidden of HIDE ? [false, true] : [false]) {
         if (HIDE) await hideEnemies(hidden);
         const r = await measure(page, SECONDS);
@@ -370,9 +307,9 @@ if (STEPS.length > 0) {
   process.exit(0);
 }
 
-await spawnUpTo(ENEMIES);
+await spawnTo(ENEMIES);
 await setSpeed(SPEED);
-await settle();
+await settle(driver);
 if (SHOT) await page.screenshot({ path: SHOT });
 const result = await measure(page, SECONDS);
 if (SHOT && ZOOM) {

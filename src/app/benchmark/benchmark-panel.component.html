@@ -1,0 +1,79 @@
+@if (state(); as s) {
+  @if (s.phase !== 'idle') {
+    <section class="bm" role="dialog" aria-labelledby="td-benchmark-title">
+      <header class="bm-head">
+        <h2 id="td-benchmark-title">Benchmark</h2>
+        @if (s.phase === 'running') {
+          <span class="bm-count">{{ s.index }} / {{ s.total }}</span>
+        }
+      </header>
+
+      @if (s.phase === 'running') {
+        <p class="bm-doing" aria-live="polite">{{ s.doing }}</p>
+        <div class="bm-bar" aria-hidden="true">
+          <div class="bm-bar-fill" [style.width.%]="s.total ? (100 * s.rows.length) / s.total : 0"></div>
+        </div>
+        <p class="bm-note">Keep the camera still and the window in front until it ends.</p>
+      }
+
+      @if (s.phase === 'failed') {
+        <p class="bm-doing">The benchmark stopped: {{ s.error }}</p>
+      }
+      @if (s.phase === 'cancelled') {
+        <p class="bm-doing">Cancelled after {{ s.rows.length }} of {{ s.total }} measurements.</p>
+      }
+
+      @if (s.env; as env) {
+        @if (s.rows.length > 0) {
+          <p class="bm-env">
+            {{ env.version }} ({{ env.commit }}) · {{ env.browser }}, {{ env.os }} · {{ env.threads ?? '?' }} threads ·
+            {{ env.gpu }} · {{ env.viewport[0] }}x{{ env.viewport[1] }} at {{ env.devicePixelRatio }}x ·
+            memory {{ env.sharedMemory ? 'shared' : 'copied' }}
+          </p>
+          <table class="bm-table">
+            <thead>
+              <tr>
+                @for (h of head; track h) {
+                  <th scope="col">{{ h }}</th>
+                }
+              </tr>
+            </thead>
+            <tbody>
+              @for (cells of rows(); track $index) {
+                <tr>
+                  @for (cell of cells; track $index) {
+                    <td>{{ cell }}</td>
+                  }
+                </tr>
+              }
+            </tbody>
+          </table>
+          @if (unsettled()) {
+            <p class="bm-note">* the frame rate had not settled after 30 s, measured anyway</p>
+          }
+        }
+      }
+
+      @if (s.phase === 'running') {
+        <div class="bm-actions">
+          <button class="bm-btn" type="button" (click)="benchmark.cancel()">Cancel</button>
+        </div>
+      } @else {
+        @if (s.phase === 'done' || s.rows.length > 0) {
+          <p class="bm-note">The browser cannot read the CPU model: add it when you send the results.</p>
+        }
+        <div class="bm-actions">
+          @if (s.env && s.rows.length > 0) {
+            <button class="bm-btn bm-btn-gold" type="button" (click)="copy()">Copy results</button>
+          }
+          <button class="bm-btn" type="button" (click)="close()">Close</button>
+          @if (copied() === true) {
+            <span class="bm-copied" role="status">Copied</span>
+          } @else if (copied() === false) {
+            <span class="bm-copied bm-copied-no" role="status">The browser refused the clipboard</span>
+          }
+        </div>
+      }
+    </section>
+  }
+}

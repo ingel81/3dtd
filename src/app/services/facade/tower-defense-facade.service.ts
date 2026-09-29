@@ -38,6 +38,7 @@ import { Vector3 } from 'three';
 import { StreetNetwork } from '../location/osm-street.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
+import { isBenchmarkSearch } from '../../benchmark/benchmark-report';
 
 // Sub-facades
 import { GameLoopFacadeService } from './game-loop-facade.service';
@@ -217,6 +218,8 @@ export class TowerDefenseFacadeService {
       this.store.directorEnabled.set(true);
       this.botClient.botCoop.set(true);
       this.botClient.enableBot('expert');
+    } else if (this.devWorld.isActive && isBenchmarkSearch(window.location.search)) {
+      // The in-game benchmark (TODO E74): no bot, no bot server
     } else if (this.devWorld.isActive) {
       this.store.directorEnabled.set(true);
       this.botClient.connectToBackend();
@@ -382,11 +385,9 @@ export class TowerDefenseFacadeService {
 
         this.debugFacade.setEngine(engine);
         this.debugFacade.applyDisplayOptions();
+        // Its timers (worker parts, frame) run only while the perf panel is
+        // open: PerformanceDebuggerComponent calls setProfilingActive
         this.profiler.setEngine(engine);
-        // Timing hooks stay unwired by default, PerformanceDebuggerComponent
-        // calls profiler.setProfilingActive(true) while the panel is open.
-        // Wiring them unconditionally costs ~20% CPU at 10k enemies because
-        // each enemy update emits ~5 performance.now() calls.
       }
     } catch (err) {
       console.error('[TD] Engine init error:', err);
