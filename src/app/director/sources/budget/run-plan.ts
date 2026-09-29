@@ -1,5 +1,6 @@
 /**
- * The run plan: one row per wave, W1 to W60, then the last ten again.
+ * The run plan: one row per wave, W1 to W60, then rows 31 to 60 again, with
+ * more enemies as the budget curve rises (planEnemies).
  *
  * A row fixes what a wave is: which enemies and how many, how far apart they
  * spawn, and how hard it should be (`strength`, 1 normal, 0.7 a breather after
@@ -12,7 +13,8 @@ import rawPlan from './run-plan.json';
 import type { SpawnPattern } from '../../spawn-schedule-builder';
 import type { WaveRules } from '../../wave-rules';
 import { CAMPAIGN_LENGTH, goldTaper, waveGold } from '../../../configs/campaign.config';
-import { budgetSeconds } from './budget';
+import { baseBudgetSeconds, budgetSeconds } from './budget';
+import { ENEMY_TYPES, lineageBodies, type EnemyTypeId } from '../../../configs/enemy-types.config';
 
 export interface RunPlanRow {
   readonly wave: number;
@@ -31,8 +33,18 @@ export interface RunPlanRow {
 
 export const RUN_PLAN: readonly RunPlanRow[] = rawPlan as unknown as RunPlanRow[];
 
-/** Past the plan the last this-many rows repeat, while the budget curve keeps rising. */
-export const RUN_PLAN_REPEAT = 10;
+/**
+ * Past the plan the last this-many rows repeat, while the budget curve keeps
+ * rising: rows 31 to 60, all three late bosses with their breathers.
+ */
+export const RUN_PLAN_REPEAT = 30;
+
+/**
+ * Most enemies one lane's wave brings, split children counted, a limit for
+ * the frame rate. Above it the counts shrink and the budget puts the rest
+ * into HP. At least what the plan's largest row has (skeletons of W48).
+ */
+export const MAX_BODIES_PER_LANE = 2500;
 
 /** The row that plays wave `wave`, null below wave 1. */
 export function planRowForWave(wave: number): RunPlanRow | null {
@@ -52,8 +64,8 @@ export function planRowForWave(wave: number): RunPlanRow | null {
 export const LEAK_GROWTH = 0.2125;
 
 export function planLeakScale(wave: number): number {
-  const first = budgetSeconds(1);
-  const scale = 1 + (LEAK_GROWTH * (budgetSeconds(Math.max(1, wave)) - first)) / first;
+  const first = baseBudgetSeconds(1);
+  const scale = 1 + (LEAK_GROWTH * (baseBudgetSeconds(Math.max(1, wave)) - first)) / first;
   return Math.round(scale * 100) / 100;
 }
 
@@ -92,6 +104,28 @@ export function planBaseGold(wave: number): WaveGold {
   if (wave < 1) return { kill: 0, complete: 0 };
   if (wave <= CAMPAIGN_LENGTH) return smoothCampaignGold(wave);
   return scaleGold(smoothCampaignGold(CAMPAIGN_LENGTH), goldTaper(wave));
+}
+
+/**
+ * The enemies of wave `wave`: its row's counts times how far the budget curve
+ * has risen since the row's own wave, S(N) / S(row), which is 1 inside the
+ * plan. A chain (Skarnax) stays one: its length is the route's. The same
+ * rule for every row; over MAX_BODIES_PER_LANE the counts shrink back.
+ */
+export function planEnemies(wave: number): Readonly<Record<string, number>> {
+  const row = planRowForWave(wave);
+  if (!row) return {};
+  const growth = budgetSeconds(wave) / budgetSeconds(row.wave);
+  const grows = (type: string) => !ENEMY_TYPES[type as EnemyTypeId]?.chain;
+  const bodies = Object.entries(row.enemies)
+    .filter(([type]) => grows(type))
+    .reduce((sum, [type, count]) => sum + count * growth * lineageBodies(type as EnemyTypeId), 0);
+  const scale = growth * Math.min(1, bodies > 0 ? MAX_BODIES_PER_LANE / bodies : 1);
+  const out: Record<string, number> = {};
+  for (const [type, count] of Object.entries(row.enemies)) {
+    out[type] = grows(type) ? Math.max(1, Math.round(count * scale)) : count;
+  }
+  return out;
 }
 
 export const RUN_PLAN_RULES: WaveRules = {

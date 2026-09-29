@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { bodyParts, budgetSeconds, enemyHp, meanRush, sizeWave, BUDGET_REALISM, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
+import { baseBudgetSeconds, bodyParts, budgetSeconds, ENDLESS_GROWTH, enemyHp, meanRush, sizeWave, BUDGET_REALISM, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import { ENEMY_TYPES, WORM_MAX_SEGMENTS } from '../../../configs/enemy-types.config';
 
@@ -25,10 +25,16 @@ const cost = (input: BudgetInput, hpMult: Readonly<Record<string, number>>) =>
   Object.entries(input.enemies).reduce((sum, [type, n]) => sum + (n * enemyHp(type) * hpMult[type]) / (1000 * BUDGET_REALISM), 0);
 
 describe('budget curve', () => {
-  it('starts at 15 s, rises steadily and flattens towards 100 s', () => {
+  it('starts at 15 s and rises steadily, without a bend at the end of the plan', () => {
     expect(budgetSeconds(1)).toBe(15);
-    for (let w = 2; w <= 120; w++) expect(budgetSeconds(w)).toBeGreaterThan(budgetSeconds(w - 1));
-    expect(budgetSeconds(120)).toBeLessThan(100);
+    for (let w = 2; w <= 200; w++) expect(budgetSeconds(w)).toBeGreaterThan(budgetSeconds(w - 1));
+    expect(budgetSeconds(60)).toBeCloseTo(baseBudgetSeconds(60) + ENDLESS_GROWTH * (59 / 60) ** 2, 9);
+    expect(budgetSeconds(150) - budgetSeconds(100)).toBeGreaterThan(30);
+  });
+
+  it('keeps a saturating part that flattens towards 100 s', () => {
+    expect(baseBudgetSeconds(1)).toBe(15);
+    expect(baseBudgetSeconds(120)).toBeLessThan(100);
   });
 });
 

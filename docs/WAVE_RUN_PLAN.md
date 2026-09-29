@@ -191,8 +191,14 @@ Entwurfs, alle änderbar:
 Ergebnis: alle 60 Zeilen passen zu ihrem Budget. Schwärme werden größer und dichter, schwere Vorlagen kleiner und
 zäher (W16 Chaos Wave 89 statt 267 Gegner, W15 Golem Squad 6 statt 33). Bosse tragen 21 bis 44 % des Budgets, den
 Rest ihr Gefolge; Skarnax selbst bleibt bei HP-Faktor 0,5 bis 1,1. Ratten bekommen HP-Faktor 74 bis 84, weil die
-Rechnung Schaden kennt, aber nicht die Schusszahl; das prüft erst die Bot-Messung. Nach W60 offen (Vorschlag: die
-letzten zehn Zeilen wiederholen).
+Rechnung Schaden kennt, aber nicht die Schusszahl; das prüft erst die Bot-Messung.
+
+**Nach W60** (User, 2026-09-29): Die Kurve steigt weiter, `S(N) = Basis(N) + 10 · ((N − 1) / 60)²` (`budgetSeconds`,
++9,7 s bei W60, +27 s bei W100, +61 s bei W150); das Leck folgt nur der sättigenden Basis und bleibt bei rund 2,2. Die
+Zeilen 31 bis 60 wiederholen sich (`RUN_PLAN_REPEAT` = 30, alle drei späten Bosse). Eine wiederholte Zeile bringt ihre
+Anzahl mal `S(N) / S(Zeilenwelle)` (`planEnemies`, innerhalb des Plans 1), der Wurm bleibt einer. Über
+`MAX_BODIES_PER_LANE` = 2500 Körper je Spur (Teilungen mitgezählt, die größte Plan-Zeile W48 hat 2460) schrumpft die
+Anzahl zurück, die HP tragen den Rest.
 
 ## 12. Trennung der Wellenquelle geprüft (2026-09-28)
 

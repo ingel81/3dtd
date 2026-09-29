@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, planBaseGold, planLeakScale, planRowForWave } from './run-plan';
-import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
+import {
+  MAX_BODIES_PER_LANE, RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, planBaseGold, planEnemies, planLeakScale, planRowForWave,
+} from './run-plan';
+import { budgetSeconds } from './budget';
+import { ENEMY_TYPES, lineageBodies, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { waveGold } from '../../../configs/campaign.config';
 
 describe('run plan', () => {
@@ -26,6 +29,39 @@ describe('run plan', () => {
     expect(planRowForWave(last + RUN_PLAN_REPEAT)).toBe(RUN_PLAN[last - 1]);
     expect(planRowForWave(last + RUN_PLAN_REPEAT + 1)).toBe(RUN_PLAN[last - RUN_PLAN_REPEAT]);
     expect(planRowForWave(0)).toBeNull();
+  });
+
+  it('repeats rows 31 to 60, all three late bosses', () => {
+    expect(RUN_PLAN_REPEAT).toBe(30);
+    expect(planRowForWave(61)!.wave).toBe(31);
+    const bosses = [];
+    for (let w = 61; w <= 90; w++) if (planRowForWave(w)!.boss) bosses.push(planRowForWave(w)!.wave);
+    expect(bosses).toEqual([40, 50, 60]);
+  });
+
+  it('sends the row as it is inside the plan', () => {
+    for (const row of RUN_PLAN) expect(planEnemies(row.wave), `wave ${row.wave}`).toEqual(row.enemies);
+  });
+
+  it('grows the counts past the plan with the budget curve, a chain stays one', () => {
+    const at = 61;
+    const row = planRowForWave(at)!;
+    const growth = budgetSeconds(at) / budgetSeconds(row.wave);
+    expect(growth).toBeGreaterThan(1);
+    for (const [type, count] of Object.entries(planEnemies(at))) {
+      expect(count).toBe(Math.round(row.enemies[type] * growth));
+    }
+    const worm = RUN_PLAN.find((r) => r.enemies['worm'])!;
+    expect(planEnemies(worm.wave + 150)['worm']).toBe(worm.enemies['worm']);
+  });
+
+  it('keeps every lane under the body limit', () => {
+    for (let w = 1; w <= 400; w++) {
+      const bodies = Object.entries(planEnemies(w))
+        .filter(([type]) => !ENEMY_TYPES[type as EnemyTypeId].chain)
+        .reduce((sum, [type, count]) => sum + count * lineageBodies(type as EnemyTypeId), 0);
+      expect(bodies, `wave ${w}`).toBeLessThanOrEqual(MAX_BODIES_PER_LANE * 1.01 + 5);
+    }
   });
 
   it('makes a leak dearer steadily, without steps', () => {

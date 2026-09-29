@@ -23,9 +23,25 @@ import {
 } from '../../../configs/enemy-types.config';
 import { DetMath } from '../../../utils/det-math';
 
-/** Budget of a wave of strength 1 at R 1, in seconds of defense damage: 15 s at W1, towards 100 s. */
-export function budgetSeconds(wave: number): number {
+/**
+ * The saturating part of the curve: 15 s at W1, towards 100 s. What a leak
+ * costs follows this part only (planLeakScale), so it levels off near 2.2.
+ */
+export function baseBudgetSeconds(wave: number): number {
   return 15 + 85 * (1 - DetMath.exp(-(Math.max(1, wave) - 1) / 15));
+}
+
+/**
+ * Growth that keeps the curve rising past the plan: `ENDLESS_GROWTH ·
+ * ((N − 1) / 60)²` seconds, +2.2 s at W30, +9.7 s at W60, +27 s at W100, +61 s
+ * at W150 (User, 2026-09-29, from the endless concept).
+ */
+export const ENDLESS_GROWTH = 10;
+
+/** Budget of a wave of strength 1 at R 1, in seconds of defense damage: 15 s at W1, 108 s at W60, rising on. */
+export function budgetSeconds(wave: number): number {
+  const n = (Math.max(1, wave) - 1) / 60;
+  return baseBudgetSeconds(wave) + ENDLESS_GROWTH * n * n;
 }
 
 /**

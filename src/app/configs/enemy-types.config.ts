@@ -1321,6 +1321,15 @@ export function lineageLeakDamage(id: EnemyTypeId, depth = 0): number {
   return Math.max(own, split.count * lineageLeakDamage(split.type, depth + 1));
 }
 
+/** Enemies one enemy of `id` becomes over its split tree, itself included; 1 for an unknown id. */
+export function lineageBodies(id: EnemyTypeId, depth = 0): number {
+  const type = ENEMY_TYPES[id];
+  if (!type) return 1;
+  const split = type.splitOnDeath;
+  if (!split || depth >= MAX_SPLIT_DEPTH) return 1;
+  return 1 + split.count * lineageBodies(split.type, depth + 1);
+}
+
 /**
  * HP it takes to clear one enemy of `id` and everything a kill splits it
  * into, at HP multiplier 1. Split children scale with their parent's

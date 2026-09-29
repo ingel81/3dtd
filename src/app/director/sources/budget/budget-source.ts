@@ -24,7 +24,7 @@ import type { ArmorType } from '../../../configs/combat/combat.types';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
 import { directorParams } from '../../director-params';
-import { RUN_PLAN_RULES, planLeakScale, planRowForWave, type RunPlanRow } from './run-plan';
+import { RUN_PLAN_RULES, planEnemies, planLeakScale, planRowForWave, type RunPlanRow } from './run-plan';
 import { bodyParts, sizeWave, type BudgetResult } from './budget';
 
 /**
@@ -55,9 +55,10 @@ export class BudgetWaveSource implements WaveSource {
     const regulator = this.pressure.pressureMultiplier;
     // The same set point the loop aims at (pressureTargetScale included)
     const target = targetPressure(wave) * directorParams().pressureTargetScale;
+    const planned = planEnemies(wave);
     const sized = sizeWave({
       wave,
-      enemies: row.enemies,
+      enemies: planned,
       strength: row.strength,
       spawnDelayMs: row.spawnDelay,
       regulator,
@@ -74,12 +75,12 @@ export class BudgetWaveSource implements WaveSource {
     const hurt = Object.keys(sized.hpMult).filter((type) => !sized.unhurt.includes(type));
     this.lastCapped = sized.capped || (hurt.length > 0 && hurt.every((type) => sized.clamped.includes(type)));
 
-    const enemies: WaveEnemyGroup[] = Object.entries(row.enemies)
+    const enemies: WaveEnemyGroup[] = Object.entries(planned)
       .filter(([, count]) => count > 0)
       .map(([type, count]) => ({ type, count, healthMultiplier: sized.hpMult[type] ?? 1 }));
     const totalCount = enemies.reduce((sum, group) => sum + group.count, 0);
     const shared = sharedMult(sized);
-    const explanation = explain(wave, row, sized, regulator, totalCount, shared);
+    const explanation = explain(wave, row, planned, sized, regulator, totalCount, shared);
 
     const config: WaveConfig = {
       enemies,
@@ -117,7 +118,7 @@ export class BudgetWaveSource implements WaveSource {
     const facts: WavePeekFacts[] = [];
     for (let wave = request.fromWave; wave < request.fromWave + request.count; wave++) {
       const row = planRowForWave(wave);
-      if (row) facts.push(factsOf(wave, row));
+      if (row) facts.push(factsOf(wave, row, planEnemies(wave)));
     }
     return facts;
   }
@@ -146,9 +147,12 @@ function sharedMult(sized: BudgetResult): number {
   return values.length ? Math.max(...values) : 1;
 }
 
-function explain(wave: number, row: RunPlanRow, sized: BudgetResult, regulator: number, totalCount: number, shared: number): DecisionExplanation {
+function explain(
+  wave: number, row: RunPlanRow, planned: Readonly<Record<string, number>>, sized: BudgetResult,
+  regulator: number, totalCount: number, shared: number,
+): DecisionExplanation {
   const reasons = [
-    `Run plan, row ${row.wave}: ${Object.entries(row.enemies).map(([type, count]) => `${count}× ${type}`).join(', ')}, every ${row.spawnDelay} ms.`,
+    `Run plan, row ${row.wave}: ${Object.entries(planned).map(([type, count]) => `${count}× ${type}`).join(', ')}, every ${row.spawnDelay} ms.`,
     `Budget ${round1(sized.budget)} s of defense damage (curve × strength ${row.strength} × loop ×${round2(regulator)}).`,
   ];
   if (sized.capped) reasons.push(`The defense has about ${round1(sized.window)} s while the wave is on the route: ${round1(sized.delivered)} s of it are sent, leaks included.`);
@@ -161,8 +165,8 @@ function explain(wave: number, row: RunPlanRow, sized: BudgetResult, regulator: 
   };
 }
 
-function factsOf(wave: number, row: RunPlanRow): WavePeekFacts {
-  const entries = Object.entries(row.enemies).filter(([, count]) => count > 0);
+function factsOf(wave: number, row: RunPlanRow, planned: Readonly<Record<string, number>>): WavePeekFacts {
+  const entries = Object.entries(planned).filter(([, count]) => count > 0);
   const total = entries.reduce((sum, [, count]) => sum + count, 0);
   const hpByArmor = new Map<ArmorType, number>();
   let air = false;
