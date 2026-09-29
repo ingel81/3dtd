@@ -191,6 +191,11 @@ Ideen (2026-09-27), nichts entschieden:
       wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
       Nächste Hebel laut Messung: Hauptthread verschlanken, Tick vom Bild lösen, GPU-Culling; SAB-Gegnerdaten und
       mehrere Worker danach. Entscheidung User.
+- [ ] **E74 Benchmark im Spiel** (User, 2026-09-29): die Lastmessung als standardisierte Funktion im Spiel statt nur als
+      Playwright-Skript (`e2e/perf/sim-load.ts`), damit jeder Rechner sie gleich laufen lässt. Feste Szene (DevWorld,
+      Tower, Gegnerstufen, Tempo 1 und 4), Einpendeln vor jeder Messung, Ergebnis mit Spielversion, Commit, Rechner-
+      und Browserdaten (CPU, Threads, Speicher, GPU, Pixeldichte), eine Zeile pro Messung zum Sammeln. Offen: wo es im
+      Spiel liegt, wie Ergebnisse gesammelt werden.
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
       **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze
