@@ -49,7 +49,6 @@ describe('TowerPlacementService placement checks', () => {
       { streets, bounds } as never,
       { haversineDistance } as never,
       HQ,
-      { towerManager: { getAll } } as never,
     );
 
   beforeEach(() => {
@@ -73,6 +72,9 @@ describe('TowerPlacementService placement checks', () => {
     // A new array per call, like EntityManager.getAll() after a placement.
     getAll = vi.fn(() => [...towers]);
 
+    injectionRegistry['SimClient'] = { bus: { emit: vi.fn() } };
+    injectionRegistry['SimMirror'] = { towers: () => getAll() };
+    injectionRegistry['TowerSelectionService'] = { select: vi.fn() };
     service = new TowerPlacementService();
   });
 

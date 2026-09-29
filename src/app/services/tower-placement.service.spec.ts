@@ -165,7 +165,6 @@ describe('TowerPlacementService', () => {
       { streets, bounds } as never,
       { haversineDistance } as never,
       HQ,
-      { towerManager, getEventBus: () => ({ emit }), researchOf: () => research } as never,
     );
 
   /** Enter build mode for `typeId` and wait for its preview model. */
@@ -264,6 +263,9 @@ describe('TowerPlacementService', () => {
     };
     emit = vi.fn();
 
+    injectionRegistry['SimClient'] = { bus: { emit: (e: unknown) => emit(e) } };
+    injectionRegistry['SimMirror'] = { towers: () => towerManager.getAll() };
+    injectionRegistry['TowerSelectionService'] = { select: (id: string | null) => towerManager.selectTower(id) };
     service = new TowerPlacementService();
   });
 
