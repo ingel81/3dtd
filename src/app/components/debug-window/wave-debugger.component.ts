@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { WaveDebugService } from '../../services/debug/wave-debug.service';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import type { MainEventBus } from '../../sim/client/view-events';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
 import { waveRules } from '../../director/wave-rules';
@@ -90,7 +90,7 @@ export class WaveDebuggerComponent {
     this.activeSourceName.set(this.waveDirector.source.name);
   }
 
-  readonly eventBus = input<GameEventBus>();
+  readonly eventBus = input<MainEventBus>();
 
   readonly patternLabels = PATTERN_LABELS;
   readonly patternIcons = PATTERN_ICONS;

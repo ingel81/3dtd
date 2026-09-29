@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Fog, Scene, Vector3, type BufferAttribute, type InstancedBufferGeometry, type Mesh } from 'three';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus } from '../../sim/client/view-events';
 import { BloodMoonService } from '../../game-engine/blood-moon.service';
 import { BloodMoonLook } from './blood-moon-look';
 import { BloodMoonMood } from './blood-moon-mood';
@@ -29,7 +29,7 @@ const sync: ConstructorParameters<typeof SearchlightRenderer>[1] = {
  */
 describe('Blood moon, night-2 playtest 373 to 375 replayed', () => {
   function setup() {
-    const bus = new GameEventBus();
+    const bus = createMainEventBus();
     const scene = new Scene();
     scene.fog = new Fog(0x1a1f25, 2000, 6000);
     const headings = new Map<string, number>();

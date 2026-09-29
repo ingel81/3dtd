@@ -69,7 +69,8 @@ export class TowerLosRegistry {
     this.detach();
     this.engine = engine;
     const bus = this.sim.bus;
-    const needed = bus.on('tower:los-needed', (event) => {
+    // Live only: a replay's towers take their masks from the log
+    const needed = bus.onLive('tower:los-needed', (event) => {
       const { type: _type, ...payload } = event;
       this.queue.delete(payload.towerId);
       this.queue.set(payload.towerId, payload);

@@ -11,9 +11,10 @@
  */
 
 import { Injectable, effect, inject, signal } from '@angular/core';
-import { SubscriptionBag, type GameEventBus } from '../game-engine/game-event-bus';
+import { SubscriptionBag } from '../game-engine/game-event-bus';
 import type { Tower } from '../entities/tower.entity';
-import type { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { LocationManagementService } from '../services/location/location-management.service';
 import { DevWorldService } from '../devworld/devworld.service';
 import { GameStore } from '../store/game.store';
@@ -35,6 +36,8 @@ export class RunLogFacade {
   private readonly locations = inject(LocationManagementService);
   private readonly devWorld = inject(DevWorldService);
   private readonly gameStore = inject(GameStore);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
 
   constructor() {
     // Speed and pause are store signals, not events; the log follows them so
@@ -67,7 +70,8 @@ export class RunLogFacade {
 
   /** The last run that ended and was kept; coop offers it to the relay (TODO E38) */
   readonly closedRun = signal<RunLog | null>(null);
-  private gameState: GameStateManager | null = null;
+  /** Wired to the game (initialize): a run opens only then */
+  private wired = false;
 
   /**
    * Who is playing, asked when a run opens.
@@ -83,25 +87,26 @@ export class RunLogFacade {
   private waveSource: () => WaveSourceId | undefined = () => undefined;
 
   /**
-   * Wire the log to a running game. Called once the event bus exists; a
-   * second call replaces the subscriptions rather than doubling them.
+   * Wire the log to the running game: the simulation's events on
+   * SimClient.bus, its numbers from the mirror. A second call replaces the
+   * subscriptions rather than doubling them.
    */
   initialize(
-    gameState: GameStateManager,
-    bus: GameEventBus,
     whoPlays?: () => { player: RunPlayer; botSkill?: string },
     waveSource?: () => WaveSourceId,
   ): void {
-    this.gameState = gameState;
+    this.wired = true;
     if (whoPlays) this.whoPlays = whoPlays;
     if (waveSource) this.waveSource = waveSource;
+    const bus = this.sim.bus;
+    const mirror = this.mirror;
     this.subs.disposeAll();
     this.collector.attach(bus, this.subs);
     this.series.attach(bus, this.subs, {
-      players: () => gameState.players,
-      killCredit: (killedBy) => gameState.killCreditPlayer(killedBy),
-      towersOf: (playerId) => gameState.towerManager.getAll().filter((t) => t.ownerId === playerId).length,
-      hqHealth: () => gameState.baseHealth(),
+      players: () => mirror.players,
+      killCredit: (killedBy) => mirror.killCreditPlayer(killedBy),
+      towersOf: (playerId) => mirror.towersOf(playerId).length,
+      hqHealth: () => mirror.scalars.baseHealth,
     });
     for (const type of ['wave:completed', 'game:over', 'game:reset'] as const) {
       this.subs.add(bus.onLive(type, () => this.waveSeries.set(this.series.points)));
@@ -169,33 +174,33 @@ export class RunLogFacade {
   }
 
   private open(): void {
-    const gameState = this.gameState;
-    if (!gameState) return;
+    if (!this.wired) return;
+    const mirror = this.mirror;
 
     // The run log is this player's run (TODO E34): in coop the partner's
-    // towers, their damage and their kills are theirs
-    const mine = (tower: Tower): boolean => tower.ownerId === gameState.localPlayerId;
+    // towers, their damage and their kills are theirs. The numbers are the
+    // mirror's, as the last packet left them.
+    const mine = (tower: Tower): boolean => tower.ownerId === mirror.localPlayerId;
     const world: RunLogWorld = {
-      step: () => gameState.subStep,
-      timeMs: () => gameState.gameTimeMs,
-      credits: () => gameState.credits(),
-      baseHealth: () => gameState.baseHealth(),
-      // Not `getAll().length`: an enemy in its death animation is still in
-      // that list although it already counted as a kill, so the wave booked
-      // it twice and its bodies came out one too many.
-      enemiesAlive: () => gameState.enemyManager.getAliveCount(),
-      dps: () => calculateTotalDPS(gameState.towerManager.getAll().filter(mine)),
-      towers: () => gameState.towerManager.getAll(),
+      step: () => mirror.subStep,
+      timeMs: () => mirror.gameTimeMs,
+      credits: () => mirror.creditsOf(mirror.localPlayerId),
+      baseHealth: () => mirror.scalars.baseHealth,
+      // The living ones: an enemy in its death animation already counted as
+      // a kill, so the wave booked it twice and its bodies came out one too many.
+      enemiesAlive: () => mirror.scalars.enemiesAlive,
+      dps: () => calculateTotalDPS(mirror.towers().filter(mine)),
+      towers: () => mirror.towers(),
       ownsTower: mine,
-      ownsKill: killOwnership(gameState),
-      abilityDamage: () => gameState.abilityDamageOf(gameState.localPlayerId),
+      ownsKill: killOwnership(mirror),
+      abilityDamage: () => mirror.abilityDamageOf(mirror.localPlayerId),
     };
 
     const home = this.locations.editableHqLocation();
     const who = this.whoPlays();
     this.collector.open(
       {
-        seed: gameState.rng.seed,
+        seed: mirror.scalars.seed,
         map: this.devWorld.isActive ? 'devworld' : 'world',
         player: who.player,
         directorParams: directorParamsName(),

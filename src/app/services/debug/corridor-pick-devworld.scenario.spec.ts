@@ -102,10 +102,9 @@ function pickOnLine(service: PathAndRouteService, point: Vector3): { row: Record
   };
   let click: ((hit: { x: number; y: number; z: number }) => void) | null = null;
   const corridor = new CorridorConsole({
-    gameState: () => ({
-      towerManager: { getSelected: () => null, getSelectionViz: () => null },
-      getGlobalRouteGrid: () => ({ getGrid: () => grid }),
-    }),
+    grid: { getGrid: () => grid },
+    mirror: { tower: () => null },
+    selection: { selectedId: null, getViz: () => null },
     engineInit: { getEngine: () => engine },
     inputHandler: { armPick: (callback: (hit: { x: number; y: number; z: number }) => void) => { click = callback; } },
     pathRoute: service,

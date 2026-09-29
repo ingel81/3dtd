@@ -59,23 +59,22 @@ describe('AbilityTargetingService', () => {
     sent = [];
     markers = { showAim: vi.fn(), hideAim: vi.fn() };
 
+    injections['SimMirror'] = { checkUse: () => useCheck };
+    injections['RouteQueriesService'] = { resolveAbilityTarget: () => snapTo, previewSweep: () => sweep };
+    injections['SimClient'] = { bus: { emit: (e: GameEvent) => sent.push(e) } };
     service = new AbilityTargetingService();
     const engine = {
       abilityMarkers: markers,
       sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, out: Vector3) => out.set(1, 2, 3) },
     };
-    const gameState = {
-      abilityManager: { checkUse: () => useCheck, resolveTarget: () => snapTo, previewSweep: () => sweep },
-      getEventBus: () => ({ emit: (e: GameEvent) => sent.push(e) }),
-    };
-    service.initialize(engine as never, gameState as never);
+    service.initialize(engine as never);
   });
 
   it('arms only when the ability can fire, and ends build mode first', () => {
     useCheck = 'no-wave';
     service.start('nuclear-strike');
     expect(service.targeting()).toBeNull();
-    // The manager's reason goes to the context hint box
+    // The mirror's reason goes to the context hint box
     expect(refuse).toHaveBeenCalledWith('nuclear-strike', 'no-wave');
 
     useCheck = null;

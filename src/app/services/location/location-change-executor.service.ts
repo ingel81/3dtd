@@ -1,4 +1,5 @@
 import { Injectable, inject, WritableSignal } from '@angular/core';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
@@ -92,6 +93,7 @@ export class LocationChangeExecutorService {
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly world = inject(MainWorldService);
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
   private readonly cameraControl = inject(CameraControlService);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
@@ -357,7 +359,7 @@ export class LocationChangeExecutorService {
     // The overlays that are on (Route Grid, Air Route Grid, air route) went
     // with the old cells in STEP 2: draw them on the new cells now, as
     // the corridor build does (CorridorBuild), not only at the next tile load.
-    const routeGrid = this.grid;
+    const routeGrid = this.gridViz;
     routeGrid.initSpatialGridVisualizationIfEnabled();
     routeGrid.initAirSpatialGridVisualizationIfEnabled();
     routeGrid.initAirRouteLayerIfEnabled();

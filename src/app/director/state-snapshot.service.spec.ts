@@ -6,15 +6,17 @@ import { StateSnapshotService } from './state-snapshot.service';
 import { computePathDPSProfile, createEmptyDPSProfile, type PathDPSProfile } from './dps-profile';
 import type { WaveConfig } from './models/wave-config';
 import type { WaveResult } from './models/wave-result';
-import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
-import { GameStateManager } from '../managers/game-state.manager';
+import type { GameEvent } from '../game-engine/game-event-bus';
+import { createMainEventBus, type MainEventBus, type ViewEvent } from '../sim/client/view-events';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { PathAndRouteService } from '../services/world/path-route.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ResearchStore } from '../store/research.store';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
-import { ComponentType } from '../core/component';
 import { TOWER_TYPES } from '../configs/tower-types.config';
-import type { Enemy } from '../entities/enemy.entity';
-import type { WormGroup } from '../managers/worm/worm-group';
+import type { EnemyView } from '../sim/client/views';
+import type { WormGroupView } from '../sim/client/views';
 import { HERO, heroDefenseProfile, type HeroDefenseProfile } from '../configs/hero.config';
 
 /**
@@ -40,13 +42,12 @@ const SUBSCRIBED: GameEvent['type'][] = [
 
 const DEFAULT_CONFIG: WaveConfig = { enemies: [{ type: 'zombie', count: 10 }], totalCount: 10, spawnDelay: 800 };
 
-function enemy(id: string, type = 'zombie', progress?: number): Enemy {
-  const movement = progress === undefined ? undefined : { getPathProgress: () => progress };
+function enemy(id: string, type = 'zombie', progress?: number): EnemyView {
   return {
     id,
     typeConfig: { id: type },
-    getComponent: (t: ComponentType) => (t === ComponentType.MOVEMENT ? movement : undefined),
-  } as unknown as Enemy;
+    movement: { getPathProgress: () => progress },
+  } as unknown as EnemyView;
 }
 
 /**
@@ -57,9 +58,9 @@ function enemy(id: string, type = 'zombie', progress?: number): Enemy {
 const HP = GAME_BALANCE.player.startHealth;
 
 describe('StateSnapshotService', () => {
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let collector: StateSnapshotService;
-  /** GameStateManager.gameTimeMs, the clock the collector measures with */
+  /** SimMirror.gameTimeMs, the clock the collector measures with */
   let gameTimeMs: number;
   /** Wall-clock ms per game-time ms: 1 at 1x, 0.25 at 4x */
   let wallPerGameMs: number;
@@ -91,8 +92,8 @@ describe('StateSnapshotService', () => {
     gameTimeMs += ms;
     vi.setSystemTime(Date.now() + ms * wallPerGameMs);
   };
-  const emit = (event: GameEvent) => bus.emit(event);
-  const completed = (wave: number, hpLost = 0): GameEvent =>
+  const emit = (event: ViewEvent) => bus.emit(event);
+  const completed = (wave: number, hpLost = 0): ViewEvent =>
     ({ type: 'wave:completed', wave, credits: 0, perfect: hpLost === 0, closeCall: false, hpLost });
 
   /** What the HeroManager reports for the gate, null while no hero is hired */
@@ -101,23 +102,21 @@ describe('StateSnapshotService', () => {
   let laneSpawns: string[] = [];
 
   function createCollector(): StateSnapshotService {
-    const hero = { getDefenseProfile: () => heroProfile };
-    const gameState = {
-      getEventBus: () => bus,
-      towerManager: { getAll: () => [] },
-      heroManager: hero,
+    const mirror = {
+      towers: () => [],
       // One player: the snapshot reads the shared state of all of them (COOP_PLAN C4)
       players: ['local'],
       researchOf: () => ({ get airTargetingUnlocked() { return research.airTargetingUnlocked(); } }),
-      heroOf: () => hero,
+      heroDefenseProfile: () => heroProfile,
       creditsOf: () => store.credits(),
       get gameTimeMs() { return gameTimeMs; },
-      getCachedRoutes: () => routes,
       get laneSpawns() { return laneSpawns; },
     };
     const injector = Injector.create({
       providers: [
-        { provide: GameStateManager, useValue: gameState },
+        { provide: SimClient, useValue: { bus } },
+        { provide: SimMirror, useValue: mirror },
+        { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map(routes.map((r, i) => [`spawn-${i}`, r])) } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: ResearchStore, useValue: research },
         { provide: GlobalRouteGridService, useValue: grid },
@@ -148,7 +147,7 @@ describe('StateSnapshotService', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(1_000_000);
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     gameTimeMs = 0;
     wallPerGameMs = 1;
     routes = [];
@@ -338,7 +337,7 @@ describe('StateSnapshotService', () => {
       emit({ type: 'wave:started', wave: 35, enemyCount: 1 });
       const head = enemy('h', 'worm', 0.4);
       emit({ type: 'enemy:spawned', enemy: head });
-      emit({ type: 'worm:spawned', head, group: { size: 3 } as unknown as WormGroup });
+      emit({ type: 'worm:spawned', head, group: { size: 3 } as unknown as WormGroupView });
       const [a, b] = [enemy('a', 'worm', 0.5), enemy('b', 'worm')];
       emit({ type: 'enemy:spawned', enemy: a });
       emit({ type: 'enemy:spawned', enemy: b });
@@ -634,7 +633,7 @@ describe('StateSnapshotService', () => {
 
         const events = [
           { type: 'tower:placed' }, { type: 'tower:sold' }, { type: 'tower:upgraded' },
-        ] as unknown as GameEvent[];
+        ] as unknown as ViewEvent[];
         for (const event of events) {
           emit(event);
           collector.getCurrentDPSProfile();

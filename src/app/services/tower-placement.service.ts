@@ -6,7 +6,9 @@ import { OsmStreetService } from './location/osm-street.service';
 import { PathAndRouteService } from './world/path-route.service';
 import { GeoPosition } from '../models/game.types';
 import { Tower } from '../entities/tower.entity';
-import type { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { AssetManagerService } from './infrastructure/asset-manager.service';
@@ -113,6 +115,9 @@ export class TowerPlacementService {
   private store = inject(TowerDefenseStore);
   private pathRouteService = inject(PathAndRouteService);
   private researchStore = inject(ResearchStore);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
+  private readonly selection = inject(TowerSelectionService);
 
   // ========================================
   // SIGNALS (UIStore-backed)
@@ -232,7 +237,6 @@ export class TowerPlacementService {
   private streetNetwork: StreetNetwork | null = null;
   private osmService: OsmStreetService | null = null;
   private baseCoords: GeoPosition | null = null;
-  private gameState: GameStateManager | null = null;
 
   // ========================================
   // INITIALIZATION
@@ -243,13 +247,11 @@ export class TowerPlacementService {
     streetNetwork: StreetNetwork,
     osmService: OsmStreetService,
     baseCoords: GeoPosition,
-    gameState: GameStateManager
   ): void {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
     this.osmService = osmService;
     this.baseCoords = baseCoords;
-    this.gameState = gameState;
 
     if (isDevMode() && typeof window !== 'undefined') window.__footprintDebug = this.footprintDebugHook;
   }
@@ -279,7 +281,7 @@ export class TowerPlacementService {
     uiSound.play('selectBuild');
 
     // Deselect any previously selected tower (hides its LOS visualization)
-    this.gameState?.towerManager.selectTower(null);
+    this.selection.select(null);
 
     // Pre-load the preview model
     this.loadPreviewModel(typeId);
@@ -813,7 +815,7 @@ export class TowerPlacementService {
   handleBuildClick(): boolean {
     const position = this.currentPosition;
     const typeId = this.selectedTowerType();
-    if (!this.gameState || !position || !typeId) {
+    if (!this.engine || !position || !typeId) {
       return false;
     }
 
@@ -838,8 +840,8 @@ export class TowerPlacementService {
       console.log(this.footprintLine(this.footprintNote, 'placed'));
     }
 
-    // Emit command event — GSM handler places the tower
-    this.gameState.getEventBus().emit({
+    // The simulation places the tower at its next tick
+    this.sim.bus.emit({
       type: 'command:place-tower',
       position: {
         lat: position.lat,
@@ -852,7 +854,7 @@ export class TowerPlacementService {
       plinthOverhang: footprint.overhang ?? [],
     });
 
-    // Exit build mode (placement handled by GSM via event)
+    // Exit build mode (the simulation places it)
     this.exitBuildMode();
     return true;
   }
@@ -901,7 +903,7 @@ export class TowerPlacementService {
       base: this.baseCoords,
       // Aus dem Store-Signal, damit verschobene Spawns sofort gelten
       spawns: this.store.spawnPoints(),
-      towers: this.gameState?.towerManager.getAll() ?? [],
+      towers: this.mirror.towers(),
       routes: this.getActiveRoutes(),
       geo: osmService,
     };
@@ -938,6 +940,5 @@ export class TowerPlacementService {
     this.streetNetwork = null;
     this.osmService = null;
     this.baseCoords = null;
-    this.gameState = null;
   }
 }

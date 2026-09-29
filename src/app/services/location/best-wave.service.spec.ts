@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
-import { GameEventBus } from '../../game-engine/game-event-bus';
 import { BestWaveService } from './best-wave.service';
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from './geocoding.service';
 import { LocationManagementService } from './location-management.service';
@@ -19,7 +19,7 @@ function makeLocation() {
 
 describe('BestWaveService', () => {
   let location: ReturnType<typeof makeLocation>;
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let service: BestWaveService;
   let playerRun: boolean;
 
@@ -42,7 +42,7 @@ describe('BestWaveService', () => {
   beforeEach(() => {
     localStorage.clear();
     location = makeLocation();
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     playerRun = true;
     service = create();
     service.connect(bus, () => playerRun);

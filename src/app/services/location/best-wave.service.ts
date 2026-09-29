@@ -1,5 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
+import { SubscriptionBag } from '../../game-engine/game-event-bus';
+import type { MainEventBus } from '../../sim/client/view-events';
 import { DEV_WORLD_ORIGIN } from '../../devworld/devworld.service';
 import { GeocodingService, UNKNOWN_LOCATION_NAME } from './geocoding.service';
 import { LOADING_NAME, LocationManagementService, NO_LOCATION_NAME } from './location-management.service';
@@ -48,7 +49,7 @@ export class BestWaveService {
    * Follow the waves of a game session.
    * @param counts false while the run is not the player's own (the bot plays), such runs record nothing
    */
-  connect(bus: GameEventBus, counts: () => boolean = () => true): void {
+  connect(bus: MainEventBus, counts: () => boolean = () => true): void {
     this.subs.disposeAll();
     this.counts = counts;
     this.resetRun();

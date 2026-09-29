@@ -5,7 +5,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { PingBarsComponent } from '../coop-ui/ping-bars.component';
 import { CoopService } from '../../services/coop.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { CameraControlService } from '../../services/camera-control.service';
 import { MAX_PLAYERS } from '../../coop/protocol';
 import { clientLabel } from '../../coop/client-info';
@@ -33,7 +33,7 @@ import { roomTable, type LaneRow } from './coop-dock-view';
 })
 export class CoopRoomTableComponent {
   readonly coop = inject(CoopService);
-  private readonly gameState = inject(GameStateManager);
+  private readonly store = inject(TowerDefenseStore);
   private readonly camera = inject(CameraControlService);
 
   /** The free seat's invite button: the dock copies the link */
@@ -67,7 +67,7 @@ export class CoopRoomTableComponent {
 
   /** The camera to the lane's spawn */
   flyTo(spawnId: string): void {
-    const spawn = this.gameState.getSpawnPoints().find((s) => s.id === spawnId);
+    const spawn = this.store.spawnPoints().find((s) => s.id === spawnId);
     if (spawn) this.camera.focusGeo(spawn.lat, spawn.lon);
   }
 }

@@ -74,8 +74,9 @@ import { VisualizationFacadeService } from './services/facade/visualization-faca
 import { TowerDefenseStore } from './store/tower-defense.store';
 import { UIStore } from './store/ui.store';
 import { ConfigService } from './core/services/config.service';
-// New OO Game Engine imports
-import { GameStateManager } from './managers/game-state.manager';
+// The simulation as the main thread sees it (docs/SIM_WORKER.md)
+import { SimClient } from './sim/client/sim-client.service';
+import { RouteGridVizService } from './services/world/route-grid-viz.service';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
 import { Vector3 } from 'three';
@@ -180,7 +181,6 @@ import { COOP } from './services/coop.token';
     WorldRecordComponent,
   ],
   providers: [
-    GameStateManager,
     ModelPreviewService,
     // AI services (optional - game works without them)
     StateSnapshotService,
@@ -193,13 +193,13 @@ import { COOP } from './services/coop.token';
     // Game hotkeys and the upgrade purchases drive the facade, so they live in the same scope
     HotkeyService,
     TowerUpgradeService,
-    // Deselects through the component-scoped GameStateManager
+    // Scoped with the services it switches off
     PhotoModeService,
-    // Listens on the component-scoped GameStateManager's bus, ticked by the game loop
+    // Listens on SimClient.bus, ticked by the game loop
     BossIntroService,
-    // Plays the GameStateManager's recording; the game loop and the hotkeys drive it
+    // Plays the simulation's recording; the game loop and the hotkeys drive it
     ReplayService,
-    // Manning a tower: drives the GameStateManager, ticked by the game loop, keyed by the hotkeys
+    // Manning a tower: commands to the simulation, ticked by the game loop, keyed by the hotkeys
     TowerControlService,
     // Coop: the relay session and what the game does with it (docs/COOP_PLAN.md, C4)
     CoopService,
@@ -220,7 +220,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   private readonly dialog = inject(MatDialog);
-  readonly gameState = inject(GameStateManager);
+  readonly sim = inject(SimClient);
+  private readonly routeGridViz = inject(RouteGridVizService);
   private readonly runLog = inject(RunLogFacade);
   protected readonly uiStore = inject(UIStore);
   readonly configService = inject(ConfigService);
@@ -566,7 +567,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   private applyAudioVolumes(): void {
     const bot = this.botEnabled();
-    this.gameState.backgroundMusic?.setVolume(bot ? 0 : this.uiStore.effectiveMusicVolume());
+    this.sim.presenter?.backgroundMusic?.setVolume(bot ? 0 : this.uiStore.effectiveMusicVolume());
     this.engine?.spatialAudio.setMasterVolume(bot ? 0 : this.uiStore.effectiveSfxVolume());
     this.engine?.spatialAudio.setUiVolume(bot ? 0 : this.uiStore.effectiveUiVolume());
   }
@@ -799,7 +800,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * altitude along every enemy route. Persistent in UIStore.
    */
   onAirRouteToggled(): void {
-    this.gameState.getGlobalRouteGrid().toggleAirRouteLayer();
+    this.routeGridViz.toggleAirRouteLayer();
   }
 
   /**
@@ -808,7 +809,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * and drawn in the air-layer colour. Persistent in UIStore.
    */
   onAirSpatialGridDebugToggled(): void {
-    this.gameState.getGlobalRouteGrid().toggleAirSpatialGridDebug();
+    this.routeGridViz.toggleAirSpatialGridDebug();
   }
 
   /**
@@ -849,25 +850,25 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.debugFacade.logCameraPosition(this.engine, this.baseCoords());
   }
   killAllEnemies(): void {
-    this.debugFacade.killAllEnemies(this.gameState);
+    this.debugFacade.killAllEnemies();
   }
   addDebugCredits(event: MouseEvent): void {
-    this.debugFacade.addDebugCredits(this.gameState, debugCheatAmount(event, DEBUG_CREDITS_STEPS));
+    this.debugFacade.addDebugCredits(debugCheatAmount(event, DEBUG_CREDITS_STEPS));
   }
   addDebugHealth(event: MouseEvent): void {
-    this.debugFacade.addDebugHealth(this.gameState, debugCheatAmount(event, DEBUG_HEALTH_STEPS));
+    this.debugFacade.addDebugHealth(debugCheatAmount(event, DEBUG_HEALTH_STEPS));
   }
   completeAllResearch(): void {
-    this.debugFacade.completeAllResearch(this.gameState);
+    this.debugFacade.completeAllResearch();
   }
   maxUpgradeAllTowers(): void {
-    this.debugFacade.maxUpgradeAllTowers(this.gameState);
+    this.debugFacade.maxUpgradeAllTowers();
   }
   readyAbilities(): void {
-    this.debugFacade.readyAbilities(this.gameState);
+    this.debugFacade.readyAbilities();
   }
   readyHero(): void {
-    this.debugFacade.readyHero(this.gameState);
+    this.debugFacade.readyHero();
   }
   clearDebugLog(): void {
     this.debugFacade.clearDebugLog();

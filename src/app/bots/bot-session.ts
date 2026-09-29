@@ -19,8 +19,12 @@ import { StrategyBotFactory } from './bots/strategy-bot.factory';
 import { PlayerBotWorld } from './bot-world';
 import { TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 import { GeoPosition } from '../models/game.types';
-import { GameStateManager } from '../managers/game-state.manager';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { GameStore } from '../store/game.store';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { RouteQueriesService } from '../services/route-queries.service';
+import { PathAndRouteService } from '../services/world/path-route.service';
 import { EventSubscription } from '../game-engine';
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { useDirectorParams } from '../director/director-params';
@@ -74,6 +78,10 @@ type ServerMessage =
 export class BotSession {
   private readonly stateSnapshots = inject(StateSnapshotService);
   private readonly store = inject(TowerDefenseStore);
+  private readonly gameStore = inject(GameStore);
+  /** Commands go out on SimClient.bus and act at the next tick; the game is read from the mirror */
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
 
   private socket: WebSocket | null = null;
   private clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -95,7 +103,7 @@ export class BotSession {
   private readonly world: PlayerBotWorld;
 
   // === EXTERNAL DEPENDENCIES ===
-  private readonly gameState: GameStateManager;
+  private readonly corridorPending: () => boolean;
   private readonly towerPlacement: TowerPlacementService;
   private readonly callbacks: BotCallbacks;
   private readonly runLog: BotRunLog;
@@ -106,14 +114,22 @@ export class BotSession {
   /** A run ended and the config of the next one has not arrived yet. */
   private pendingRunConfig = false;
   private runConfigTimer: ReturnType<typeof setTimeout> | null = null;
+  /** The seed the bot server named for the next run, handed to the restart */
+  private nextSeed: number | undefined;
 
   constructor(private readonly signals: BotSignals, deps: BotDeps) {
-    this.gameState = deps.gameState;
+    this.corridorPending = deps.corridorPending;
     this.towerPlacement = deps.towerPlacement;
     this.callbacks = deps.callbacks;
     this.runLog = deps.runLog;
 
-    this.world = new PlayerBotWorld(deps.gameState);
+    const pathRoute = inject(PathAndRouteService);
+    this.world = new PlayerBotWorld({
+      mirror: this.mirror,
+      spawnPoints: () => this.store.spawnPoints(),
+      paths: () => pathRoute.getCachedPaths(),
+      routes: inject(RouteQueriesService),
+    });
     this.botFactory = new StrategyBotFactory(
       deps.strategicPlacement,
       this.world,
@@ -159,14 +175,15 @@ export class BotSession {
    * @returns true if bot performed an action
    */
   /**
-   * `deltaTime` is GAME-TIME ms passed by the engine sub-step loop —
-   * the bot's reactionTimeMs and strategy cooldowns are authored in
-   * game-time, so this matches semantics directly with no scaling.
+   * Once per frame, after the frame's packet: `deltaTime` is the GAME-TIME
+   * ms the frame ran. The bot's reactionTimeMs and strategy cooldowns are
+   * authored in game-time, so this matches semantics directly with no
+   * scaling. Its commands act at the next tick.
    */
   updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean {
     if (!this.signals.botEnabled() || !this.currentBot) return false;
     // Towers and waves wait for the corridor build of a new location (CorridorBuild).
-    if (this.gameState.corridorPending()) return false;
+    if (this.corridorPending()) return false;
     // A coop bot plays the room's game, not the single player game of the
     // lobby behind it: its moves there would be gone with the room's start.
     if (this.signals.botCoop() && !this.world.coop) return false;
@@ -174,11 +191,10 @@ export class BotSession {
     const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'wave') return false;
 
-    // Tick timers first and bail before touching the snapshot. At timescale 75
-    // the sub-step loop runs ~200 ticks per rendered frame, and a snapshot is
+    // Tick timers first and bail before touching the snapshot: a snapshot is
     // an expensive thing to build (full defense analysis, per-armor effective
-    // DPS, a route-grid reach query) — building one per tick just to discover
-    // the bot is still in reaction cooldown was pure waste.
+    // DPS, a route-grid reach query), and the bot is in reaction cooldown most
+    // frames.
     if (!this.currentBot.tickCooldown(deltaTime)) return false;
 
     // Cooldown already advanced above, so pass 0 to avoid double-ticking.
@@ -232,7 +248,7 @@ export class BotSession {
           // Through the command bus, like a click. The run log reads the
           // commands of a run, so a bot that goes past them writes a log with
           // holes in it (docs/RUN_LOG.md).
-          this.gameState.getEventBus().emit({
+          this.sim.bus.emit({
             type: 'command:place-tower',
             position: geoPos,
             typeId: action.towerType,
@@ -251,7 +267,7 @@ export class BotSession {
       case 'upgrade':
         if (action.towerId && action.upgradeId) {
           // Find tower by ID
-          const tower = this.gameState.towerManager.getAll().find(t => t.id === action.towerId);
+          const tower = this.mirror.tower(action.towerId);
 
           if (!tower) {
             console.warn(`[Bot] ⛔ Tower not found: ${action.towerId} - ${action.reason}`);
@@ -280,7 +296,7 @@ export class BotSession {
           }
 
           // Through the command bus, like a click on the upgrade tile
-          this.gameState.getEventBus().emit({
+          this.sim.bus.emit({
             type: 'command:upgrade-tower',
             towerId: tower.id,
             upgradeId: action.upgradeId as UpgradeId,
@@ -294,12 +310,12 @@ export class BotSession {
 
       case 'sell':
         if (action.towerId) {
-          const tower = this.gameState.towerManager.getAll().find(t => t.id === action.towerId);
+          const tower = this.mirror.tower(action.towerId);
           if (!tower) {
             console.warn(`[Bot] ⛔ Sell: tower not found: ${action.towerId}`);
             break;
           }
-          this.gameState.getEventBus().emit({ type: 'command:sell-tower', towerId: tower.id });
+          this.sim.bus.emit({ type: 'command:sell-tower', towerId: tower.id });
         }
         break;
 
@@ -314,7 +330,7 @@ export class BotSession {
         // ready (the host's client starts the wave once everyone is, D15) or,
         // where the room leaves the start to the host, starts it. A bot whose
         // ready is in waits for the wave instead of sending it again.
-        if (this.world.coop && this.gameState.isReady(this.gameState.localPlayerId)) break;
+        if (this.world.coop && this.mirror.isReady(this.mirror.localPlayerId)) break;
         if (currentPhase === 'setup') {
           this.callbacks.startWave();
         } else {
@@ -326,7 +342,7 @@ export class BotSession {
       case 'research-start': {
         // Start a research via EventBus command
         if (action.researchId) {
-          this.gameState.getEventBus().emit({
+          this.sim.bus.emit({
             type: 'command:start-research',
             researchId: action.researchId,
           });
@@ -336,7 +352,7 @@ export class BotSession {
 
       case 'research-cancel': {
         if (action.researchId) {
-          this.gameState.getEventBus().emit({
+          this.sim.bus.emit({
             type: 'command:cancel-research',
             researchId: action.researchId,
           });
@@ -345,12 +361,12 @@ export class BotSession {
       }
 
       case 'hire-hero':
-        this.gameState.getEventBus().emit({ type: 'command:hire-hero' });
+        this.sim.bus.emit({ type: 'command:hire-hero' });
         break;
 
       case 'hero-move':
         if (action.position) {
-          this.gameState.getEventBus().emit({
+          this.sim.bus.emit({
             type: 'command:hero-move',
             target: { lat: action.position.z, lon: action.position.x },
           });
@@ -359,14 +375,14 @@ export class BotSession {
 
       case 'hero-ammo':
         if (action.ammo) {
-          this.gameState.getEventBus().emit({ type: 'command:hero-ammo', ammo: action.ammo });
+          this.sim.bus.emit({ type: 'command:hero-ammo', ammo: action.ammo });
         }
         break;
 
       case 'use-ability': {
         // The AbilityManager validates and snaps the aim to the route, as for a click
         if (action.abilityId && action.position) {
-          this.gameState.getEventBus().emit({
+          this.sim.bus.emit({
             type: 'command:use-ability',
             abilityId: action.abilityId,
             target: { lat: action.position.z, lon: action.position.x },
@@ -393,15 +409,15 @@ export class BotSession {
         // Initial state is paused — the `connected` message from the backend
         // carries the authoritative runState and handleConnected applies
         // it (auto-starts the bot if backend is already 'running').
-        this.gameState.setGameSpeed(1.0);
+        this.gameStore.setGameSpeed(1.0);
 
         // Every finished wave sends what the run log wrote since the last one
-        this.eventSubscriptions.push(this.gameState.getEventBus().onLive('wave:completed', () => {
+        this.eventSubscriptions.push(this.sim.bus.onLive('wave:completed', () => {
           this.sendRunLog(false);
         }));
 
         // Subscribe to game over events
-        this.eventSubscriptions.push(this.gameState.getEventBus().onLive('game:over', () => {
+        this.eventSubscriptions.push(this.sim.bus.onLive('game:over', () => {
           if (this.signals.isConnected()) {
             // The wave the base fell in has no wave:completed; the run log
             // writes its block when the run ends, and this send carries it.
@@ -646,9 +662,8 @@ export class BotSession {
       if (this.signals.botEnabled()) this.enableBot(config.bot);
     }
     if (typeof config.seed === 'number') {
-      // Not `reset`: the restart below resets the source itself and would
-      // draw its own seed over this one.
-      this.gameState.rng.useNextSeed(config.seed);
+      // The restart below carries it to the simulation (command:restart-game)
+      this.nextSeed = config.seed;
     }
     if (config.directorParams && !useDirectorParams(config.directorParams)) {
       console.warn(`[Bots] unknown director parameter set '${config.directorParams}', keeping the current one`);
@@ -689,7 +704,10 @@ export class BotSession {
     // a head without a bot and with the wrong seed. A human who connected by
     // hand has neither flag set and keeps playing undisturbed.
     if (!this.signals.botEnabled() && !this.signals.botAutoMode()) return;
-    this.callbacks.restartGame();
+    // The seed is used once, as GameRng.useNextSeed was: a repeat without a config draws a fresh one
+    const seed = this.nextSeed;
+    this.nextSeed = undefined;
+    this.callbacks.restartGame(seed);
   }
 
   /**
@@ -714,17 +732,17 @@ export class BotSession {
       return;
     }
     if (action === 'stop') {
-      this.gameState.setGameSpeed(1.0);
+      this.gameStore.setGameSpeed(1.0);
       this.disableBot();
       return;
     }
     if (action === 'start') {
-      this.gameState.setGameSpeed(75.0);
+      this.gameStore.setGameSpeed(75.0);
       this.enableBot('expert');
       return;
     }
     if (action === 'set_timescale' && typeof value === 'number' && value > 0) {
-      this.gameState.setGameSpeed(value);
+      this.gameStore.setGameSpeed(value);
       return;
     }
     if (action === 'set_rendering' && typeof value === 'boolean') {
@@ -764,9 +782,7 @@ export class BotSession {
     if (this.statusPushTimer !== null) return;
     this.statusPushTimer = setInterval(() => {
       if (!this.signals.isConnected()) return;
-      const waveNum = this.gameState.waveNumber();
-      const enemiesAlive = this.gameState.enemyManager.getAliveCount();
-      const phase = this.gameState.phase();
+      const { waveNumber: waveNum, enemiesAlive, phase } = this.mirror.scalars;
       this.send({ type: 'status', wave: waveNum, enemiesAlive, phase });
     }, 1000);
   }

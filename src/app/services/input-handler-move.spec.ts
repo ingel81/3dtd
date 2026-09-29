@@ -9,6 +9,8 @@ import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { Vector3 } from 'three';
 import { MatDialog } from '@angular/material/dialog';
 import { InputHandlerService } from './input-handler.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
@@ -46,6 +48,8 @@ describe('InputHandlerService pointer move throttle', () => {
 
     const injector = Injector.create({
       providers: [
+        { provide: SimMirror, useValue: { selectableTower: (id: string | null) => id } },
+        { provide: TowerSelectionService, useValue: { select: vi.fn() } },
         { provide: TowerDefenseStore, useValue: { selectedTowerId: () => null } },
         { provide: UIStore, useValue: { viewOnly: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
@@ -55,7 +59,7 @@ describe('InputHandlerService pointer move throttle', () => {
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());
-    service.initialize(canvas, engine as never, { towerManager: {} } as never, buildMode, vi.fn(), onMouseMove as never);
+    service.initialize(canvas, engine as never, buildMode, vi.fn(), onMouseMove as never);
   });
 
   afterEach(() => {

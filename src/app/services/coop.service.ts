@@ -6,7 +6,7 @@ import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { MainWorldService } from './world/main-world.service';
 import { TowerLosRegistry } from './tower-los-registry';
-import { PresentationRef } from './presentation-ref.service';
+import { PresentationService } from '../presentation/presentation.service';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
@@ -202,7 +202,7 @@ export class CoopService {
   private readonly mirror = inject(SimMirror);
   private readonly world = inject(MainWorldService);
   private readonly los = inject(TowerLosRegistry);
-  private readonly presentation = inject(PresentationRef);
+  private readonly presentation = inject(PresentationService);
   /** Optional: specs of the room flow run without a director and play the address's source */
   private readonly waveDirector = inject(WaveDirector, { optional: true });
   /** Resync after a desync (C5b): holds, sends or loads the state at the room's boundary */
@@ -319,7 +319,6 @@ export class CoopService {
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
   /** Kills, towers built, gold given and leaks per player in this run (CoopRunCounts) */
   private readonly runCounts = new CoopRunCounts({
-    sim: this.sim,
     mirror: this.mirror,
     inGame: () => this.inGame(),
     roster: () => this.roster(),

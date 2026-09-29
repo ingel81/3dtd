@@ -39,7 +39,8 @@ describe('StateSnapshotService ability kills', () => {
 
   beforeEach(() => {
     bus = new GameEventBus();
-    injections['GameStateManager'] = { getEventBus: () => bus, gameTimeMs: 0 };
+    injections['SimClient'] = { bus };
+    injections['SimMirror'] = { gameTimeMs: 0 };
     injections['TowerDefenseStore'] = { baseHealth: () => 100 };
     const collector = new StateSnapshotService();
     results = [];

@@ -1,6 +1,6 @@
 /**
  * Playtest 340 to 343, 345 and 346 (docs/archive/REVIEW_SPRINT_2026-09-14.md, world
- * map). The waves go over a real GameEventBus into the real BestWaveService
+ * map). The waves go over the main bus into the real BestWaveService
  * and its localStorage key; the location dialog and the game-over hint are
  * rendered with their real templates (read from disk, the vitest build has
  * no templateUrl loader). The globe, the icons and the address search are
@@ -11,13 +11,13 @@
 // The dialog's Material modules are partially compiled and need the JIT compiler
 import '@angular/compiler';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { Component, Input, input, output, signal } from '@angular/core';
 import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { MAT_DIALOG_DATA, MatDialogRef } from '@angular/material/dialog';
-import { GameEventBus } from '../../game-engine/game-event-bus';
 import { BestWaveService } from '../../services/location/best-wave.service';
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../services/location/geocoding.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
@@ -85,7 +85,7 @@ function makeLocation() {
 
 describe('World map, playtest 340 to 346', () => {
   let location: ReturnType<typeof makeLocation>;
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let bestWaves: BestWaveService;
   let close: ReturnType<typeof vi.fn>;
 
@@ -179,7 +179,7 @@ describe('World map, playtest 340 to 346', () => {
   beforeEach(() => {
     localStorage.clear();
     location = makeLocation();
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     loadPage();
   });
 

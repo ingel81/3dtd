@@ -6,7 +6,8 @@
  * a coop run, as every client runs the same simulation.
  */
 
-import type { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import type { SubscriptionBag } from '../game-engine/game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import type { KilledBy } from '../game-engine/events/event-types';
 
 /** One player's numbers at the end of a wave, counted from the start of the run */
@@ -28,7 +29,7 @@ export interface WaveSeriesPoint {
 /** What the recorder reads of the game */
 export interface WaveSeriesWorld {
   players: () => readonly string[];
-  /** Who a kill's gold went to (GameStateManager.killCreditPlayer) */
+  /** Who a kill's gold went to (SimMirror.killCreditPlayer) */
   killCredit: (killedBy: KilledBy) => string;
   towersOf: (playerId: string) => number;
   hqHealth: () => number;
@@ -48,7 +49,7 @@ export class WaveSeriesRecorder {
     return this.list;
   }
 
-  attach(bus: GameEventBus, subs: SubscriptionBag, world: WaveSeriesWorld): void {
+  attach(bus: MainEventBus, subs: SubscriptionBag, world: WaveSeriesWorld): void {
     subs.add(bus.onLive('enemy:died', ({ killedBy }) => {
       if (!killedBy || killedBy.kind === 'debug') return;
       const id = world.killCredit(killedBy);

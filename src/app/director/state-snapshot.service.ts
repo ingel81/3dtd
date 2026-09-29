@@ -21,8 +21,10 @@ import type { HeroDefenseProfile } from '../configs/hero.config';
 import { Injectable, inject, signal } from '@angular/core';
 import { GamePhase } from '../models/game.types';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
-import { Enemy } from '../entities/enemy.entity';
-import { GameStateManager } from '../managers/game-state.manager';
+import type { EnemyView } from '../sim/client/views';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { PathAndRouteService } from '../services/world/path-route.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ResearchStore } from '../store/research.store';
 import { GameStateSnapshot, type DefenseAnalysis } from './models/game-state-snapshot';
@@ -36,8 +38,6 @@ import {
 } from './defense-analyzer';
 import { computeDpsByDamageType, damageMetresPerArmor } from './defense-analyzer';
 import { computeTowerDPS, type AirTargeting } from './tower-dps.util';
-import { ComponentType } from '../core/component';
-import { MovementComponent } from '../game-components/movement.component';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { computePathDPSProfile, createEmptyDPSProfile, PathDPSProfile } from './dps-profile';
 import { Tower } from '../entities/tower.entity';
@@ -45,25 +45,33 @@ import { WaveOutcomeTracker } from './wave-outcome-tracker';
 import { WaveHistory } from './wave-history';
 import { expectedArmorDistribution, playerState, researchSnapshot } from './state-snapshot-parts';
 
-@Injectable() // Provided in TowerDefenseComponent alongside GameStateManager
+@Injectable() // Provided in TowerDefenseComponent alongside the WaveDirector
 export class StateSnapshotService {
-  private gameState = inject(GameStateManager);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
   private store = inject(TowerDefenseStore);
   private researchStore = inject(ResearchStore);
   private gridService = inject(GlobalRouteGridService);
-  // Get eventBus from GameStateManager (not directly injectable)
+  private readonly pathRoute = inject(PathAndRouteService);
+  /** The simulation's events as views (SimClient.bus) */
   private get eventBus() {
-    return this.gameState.getEventBus();
+    return this.sim.bus;
   }
 
   /**
    * Game time (ms) for every duration here: wave length, enemy lifetimes,
    * run time. The wall clock would depend on the frame rate and the
    * timescale, and a re-simulation would not get the same values. Only the
-   * `timestamp` labels stay on the wall clock; nothing reads them.
+   * `timestamp` labels stay on the wall clock; nothing reads them. In an
+   * event handler the event's own time (SimMirror.gameTimeMs).
    */
   private now(): number {
-    return this.gameState.gameTimeMs;
+    return this.mirror.gameTimeMs;
+  }
+
+  /** The enemy routes in use, as the main thread has them */
+  private routes() {
+    return Array.from(this.pathRoute.getCachedPaths().values());
   }
 
   private subscriptions = new SubscriptionBag();
@@ -114,30 +122,30 @@ export class StateSnapshotService {
    * Get current game state as snapshot (for AI input)
    */
   getStateSnapshot(): GameStateSnapshot {
-    const towers = this.gameState.towerManager.getAll();
+    const towers = [...this.mirror.towers()];
     // In coop every client plans the next wave from what they all share, so
     // the plan and the director stream stay the same on each
     // (docs/COOP_PLAN.md, C4): air targeting per tower from its owner's
     // research, every hired hero, the credits of all players. The single
     // player game reads the same as before.
-    const players = this.gameState.players;
+    const players = this.mirror.players;
     const airTargetingUnlocked = this.airTargetingOfOwner;
-    const heroes = players.map((id) => this.gameState.heroOf(id).getDefenseProfile())
+    const heroes = players.map((id) => this.mirror.heroDefenseProfile(id))
       .filter((profile): profile is HeroDefenseProfile => profile !== null);
-    const credits = players.reduce((sum, id) => sum + this.gameState.creditsOf(id), 0);
+    const credits = players.reduce((sum, id) => sum + this.mirror.creditsOf(id), 0);
     // The hired hero counts as a virtual tower at half presence (docs/HERO.md)
     const defense = analyzeDefense(towers, airTargetingUnlocked, heroes);
     // Coop: every lane gets the whole wave (D13), so the wave is sized against
     // one lane's share of the joint defense, the average (User, 2026-09-26).
     // Sized against all of it, each lane's copy met twice the defense it has:
     // 1006 spiders at W6 with two players.
-    const lanes = this.gameState.laneSpawns.length;
+    const lanes = this.mirror.laneSpawns.length;
     if (lanes > 1) shareDefense(defense, 1 / lanes);
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
-    const routes = this.gameState.getCachedRoutes();
-    defense.defenseReachPercent = this.gridService.getDefenseReachPercent(routes);
+    const routes = this.routes();
+    defense.defenseReachPercent = this.gridService.defenseReach(routes).fraction;
     // Averaged over the routes, so in coop already one lane's share, like the damage above
     const underFire = this.gridService.metersUnderFire(routes);
     defense.damageMetres = damageMetresPerArmor(towers, airTargetingUnlocked, underFire.byTower);
@@ -276,7 +284,7 @@ export class StateSnapshotService {
     this.currentWave.start(event.enemyCount, this.store.baseHealth(), this.now());
   }
 
-  private onEnemySpawned(event: { enemy: Enemy }): void {
+  private onEnemySpawned(event: { enemy: EnemyView }): void {
     this.currentWave.enemySpawned(event.enemy.id, event.enemy.typeConfig.id, this.now());
   }
 
@@ -286,7 +294,7 @@ export class StateSnapshotService {
    * progress list the leak share is read from: every body the wave put on the
    * route, children included, so a leaked minion is a leak like any other.
    */
-  private onEnemySplit(event: { children: readonly Enemy[] }): void {
+  private onEnemySplit(event: { children: readonly EnemyView[] }): void {
     this.currentWave.enemiesSplit(event.children.length);
   }
 
@@ -314,13 +322,12 @@ export class StateSnapshotService {
     this.resetCurrentWave();
   }
 
-  private onEnemyDied(event: { enemy: Enemy; credits: number }): void {
-    // Track path progress (Enemy IS a GameObject, so access components directly)
-    const movement = event.enemy.getComponent(ComponentType.MOVEMENT) as MovementComponent | undefined;
+  private onEnemyDied(event: { enemy: EnemyView; credits: number }): void {
+    // Where on its route it died (EnemyRef.pr, the view keeps it)
     this.currentWave.enemyDied(
       event.enemy.id,
       event.enemy.typeConfig.id,
-      movement ? movement.getPathProgress() : undefined,
+      event.enemy.movement.getPathProgress(),
       this.now(),
     );
   }
@@ -413,7 +420,7 @@ export class StateSnapshotService {
    * Uses cached value if towers haven't changed.
    */
   getCurrentDPSProfile(): PathDPSProfile {
-    return this.getDPSProfile(this.gameState.towerManager.getAll(), this.airTargetingOfOwner);
+    return this.getDPSProfile([...this.mirror.towers()], this.airTargetingOfOwner);
   }
 
   /**
@@ -422,11 +429,11 @@ export class StateSnapshotService {
    */
   /** The AA retrofit counts for a tower when its owner researched it (coop: per player) */
   private readonly airTargetingOfOwner = (tower: Tower): boolean =>
-    this.gameState.researchOf(tower.ownerId).airTargetingUnlocked;
+    this.mirror.researchOf(tower.ownerId).airTargetingUnlocked;
 
   private getDPSProfile(towers: Tower[], airTargetingUnlocked: AirTargeting): PathDPSProfile {
     // Compute a hash of tower state for cache invalidation (retrofit changes air bins)
-    const aa = this.gameState.players.map((id) => (this.gameState.researchOf(id).airTargetingUnlocked ? 1 : 0)).join('');
+    const aa = this.mirror.players.map((id) => (this.mirror.researchOf(id).airTargetingUnlocked ? 1 : 0)).join('');
     const hash = `${this.computeTowerHash(towers)}|aa:${aa}`;
 
     if (this.cachedDPSProfile && this.dpsProfileTowerHash === hash) {
@@ -440,7 +447,7 @@ export class StateSnapshotService {
       return createEmptyDPSProfile();
     }
 
-    const routes = this.gameState.getCachedRoutes();
+    const routes = this.routes();
     if (!routes.length) {
       return createEmptyDPSProfile();
     }

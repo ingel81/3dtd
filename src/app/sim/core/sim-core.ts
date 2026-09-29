@@ -35,6 +35,7 @@ import { PacketWriter } from './packet-writer';
 import { exportEvents } from './event-export';
 import { DeliveredLink } from './delivered-link';
 import { SimReplay } from './sim-replay';
+import { towerTargetLines, towerTargetRows, type TowerTargetLookup } from '../../services/debug/tower-target-console';
 
 /** Every service of the simulation, each made by its own constructor in the simulation's injector. */
 export const SIM_PROVIDERS: StaticProvider[] = [
@@ -79,7 +80,11 @@ export class SimCore implements SimCoreApi {
     this.gsm = this.injector.get(GameStateManager);
     this.combat = this.injector.get(TowerCombatService);
     this.writer = new PacketWriter(this.gsm, this.combat, options.store ?? new TableStore(false));
-    exportEvents(this.gsm.getEventBus(), () => this.events, this.writer.routeIndex);
+    const gsm = this.gsm;
+    exportEvents(gsm.getEventBus(), () => this.events, this.writer.routeIndex, {
+      gameTimeMs: () => gsm.gameTimeMs,
+      subStep: () => gsm.subStep,
+    });
   }
 
   /** The tables the packets are written into */
@@ -178,7 +183,26 @@ export class SimCore implements SimCoreApi {
     return handler(...args);
   }
 
+  /** What the tower target console reads in the simulation: an enemy's cell, a cell still in the grid */
+  private targetLookup(): TowerTargetLookup {
+    const grid = this.injector.get(GlobalRouteGridService);
+    const coords = this.injector.get(SimCoords);
+    return {
+      cellOf: (enemy) => {
+        const local = coords.sync.geoToLocalSimple(enemy.position.lat, enemy.position.lon, 0);
+        return grid.getCellAt(local.x, local.z);
+      },
+      isGridCell: (cell) => grid.getCellAt(cell.x, cell.z) === cell,
+    };
+  }
+
   private readonly rpcHandlers: SimRpc = {
+    towerTargets: () => towerTargetRows(this.gsm.towerManager.getAll(), this.gsm.enemyManager.getAlive(), this.targetLookup()),
+    towerTargetLines: (ids) => towerTargetLines(
+      this.gsm.towerManager.getAll(),
+      this.gsm.enemyManager.getAll().filter((enemy) => ids.includes(enemy.id)),
+      this.targetLookup(),
+    ),
     reset: (seed) => {
       this.leaveReplay();
       this.gsm.reset(seed);

@@ -94,13 +94,15 @@ describe('CorridorConsole', () => {
   }
 
   function install(): CorridorConsole {
-    const towerManager = {
-      getSelected: () => selected,
-      getById: (id: string) => towers[id] ?? null,
-      getSelectionViz: () => ({ getLayer: () => layer }),
-    };
     const deps = {
-      gameState: () => ({ towerManager, getGlobalRouteGrid: () => ({ getGrid: () => grid, showCellSelection }) }),
+      grid: { getGrid: () => grid, showCellSelection },
+      mirror: { tower: (id: string) => towers[id] ?? null },
+      selection: {
+        get selectedId() {
+          return selected?.id ?? null;
+        },
+        getViz: () => ({ getLayer: () => layer }),
+      },
       engineInit: { getEngine: () => engine },
       inputHandler: { armPick },
       pathRoute: {

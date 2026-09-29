@@ -13,7 +13,8 @@ vi.mock('../../components/hotkey-help-dialog/open-hotkey-help-dialog', () => ({
 vi.mock('../facade/tower-defense-facade.service', () => ({
   TowerDefenseFacadeService: class TowerDefenseFacadeService {},
 }));
-vi.mock('../../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
+vi.mock('../tower-selection.service', () => ({ TowerSelectionService: class TowerSelectionService {} }));
+vi.mock('../../sim/client/mirror/sim-mirror', () => ({ SimMirror: class SimMirror {} }));
 vi.mock('../tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
 vi.mock('./map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
 vi.mock('../ability-targeting.service', () => ({ AbilityTargetingService: class AbilityTargetingService {} }));
@@ -31,7 +32,8 @@ import { HotkeyService } from '../hotkey.service';
 import { InputHandlerService } from '../input-handler.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { TowerDefenseFacadeService } from '../facade/tower-defense-facade.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { TowerSelectionService } from '../tower-selection.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { GameStore } from '../../store/game.store';
 import { UIStore } from '../../store/ui.store';
@@ -107,7 +109,8 @@ describe('Intro flight input, playtest 525 to 528 replayed', () => {
         { provide: IntroCameraFlightService, useValue: intro },
         { provide: CameraControlService, useValue: { resetCamera, focusGeo } },
         { provide: TowerDefenseFacadeService, useValue: { startWave, upgradeTower: vi.fn(), sellSelectedTower: vi.fn() } },
-        { provide: GameStateManager, useValue: { towerManager: { selectTower: vi.fn() }, tilesEngine: null } },
+        { provide: TowerSelectionService, useValue: { select: vi.fn() } },
+        { provide: SimMirror, useValue: { selectableTower: (id: string | null) => id } },
         {
           provide: TowerDefenseStore,
           useValue: {

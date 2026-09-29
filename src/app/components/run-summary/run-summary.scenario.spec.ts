@@ -3,7 +3,7 @@
  * game-over screen shows Wave, Kills, Time, Earned, Spent, a leak bar per
  * wave and the top three towers; a restart clears everything.
  *
- * A run goes over a real GameEventBus into the real run log; its summary is
+ * A run goes over the main bus into the real run log; its summary is
  * folded out of the log (run-summary.ts) and rendered by RunSummaryComponent
  * with its real template (read from disk, the vitest build has no templateUrl
  * loader).
@@ -14,12 +14,13 @@
 // The component is partially compiled and needs the JIT compiler
 import '@angular/compiler';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Input } from '@angular/core';
 import { getTestBed, TestBed, type ComponentFixture } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
-import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
+import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { RunLogCollector, type RunLogWorld } from '../../run-log/run-log.service';
 import { runSummary, type RunSummary } from '../../run-log/run-summary';
 import { formatCompact } from '../../utils/format-compact';
@@ -42,7 +43,7 @@ function tower(id: string, type: string, damageDealt: number, kills: number) {
 }
 
 describe('Game-over numbers, playtest 144 (night 1) replayed', () => {
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let log: RunLogCollector;
   let fixture: ComponentFixture<RunSummaryComponent>;
 
@@ -107,7 +108,7 @@ describe('Game-over numbers, playtest 144 (night 1) replayed', () => {
       set: { template, templateUrl: undefined, styleUrl: undefined, styles: [] },
     });
     fixture = TestBed.createComponent(RunSummaryComponent);
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     gold = 0;
     health = 100;
     log = new RunLogCollector();

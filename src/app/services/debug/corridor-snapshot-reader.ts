@@ -1,4 +1,4 @@
-import type { GameStateManager } from '../../managers/game-state.manager';
+import type { GlobalRouteGridService } from '../world/global-route-grid.service';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { PathAndRouteService } from '../world/path-route.service';
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -22,8 +22,8 @@ export const SNAPSHOT_SCREENSHOT_WIDTH = 1920;
 
 /** What CorridorSnapshotReader needs; VisualizationFacadeService passes its services. */
 export interface CorridorSnapshotReaderDeps {
-  /** The game state, set by the facade's initialize(); read on each call. */
-  gameState: () => Pick<GameStateManager, 'getGlobalRouteGrid'>;
+  /** The main thread's route grid */
+  grid: Pick<GlobalRouteGridService, 'getGrid'>;
   engineInit: Pick<EngineInitializationService, 'getEngine' | 'loading'>;
   pathRoute: Pick<PathAndRouteService, 'corridorState'>;
   store: Pick<TowerDefenseStore, 'baseCoords' | 'spawnPoints'>;
@@ -96,7 +96,7 @@ export class CorridorSnapshotReader implements CorridorSnapshotSource {
     const start = this.now();
     const engine = this.deps.engineInit.getEngine();
     if (!engine) return 'No location loaded.';
-    const grid = this.deps.gameState().getGlobalRouteGrid().getGrid();
+    const grid = this.deps.grid.getGrid();
 
     const camera = cameraTimeline.pose();
     const screenshot = await this.screenshot(engine);
@@ -182,7 +182,7 @@ export class CorridorSnapshotReader implements CorridorSnapshotSource {
   private stopped(engine: SnapshotEngine, grid: GlobalRouteGrid): string | null {
     const blocked = this.blocker();
     if (blocked) return blocked;
-    if (this.deps.engineInit.getEngine() !== engine || this.deps.gameState().getGlobalRouteGrid().getGrid() !== grid) {
+    if (this.deps.engineInit.getEngine() !== engine || this.deps.grid.getGrid() !== grid) {
       return 'The location changed during the snapshot: take it again.';
     }
     return null;

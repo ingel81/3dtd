@@ -5,7 +5,7 @@
  */
 
 import type { BotWorld } from '../../bot-world';
-import type { Enemy } from '../../../entities/enemy.entity';
+import type { EnemyView } from '../../../sim/client/views';
 import type { GeoPosition } from '../../../models/game.types';
 import type { GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { geoDistanceFast } from '../../../utils/geo-utils';
@@ -46,8 +46,8 @@ export class DecisionAim<T> {
 export const MAX_AIM_CANDIDATES = 48;
 
 /** Alive enemies with a path progress of at least `progress`, in manager order. */
-export function enemiesFromProgress(gameState: BotWorld, progress: number): Enemy[] {
-  const found: Enemy[] = [];
+export function enemiesFromProgress(gameState: BotWorld, progress: number): EnemyView[] {
+  const found: EnemyView[] = [];
   for (const enemy of gameState.enemyManager.getAlive()) {
     if (enemy.movement.getPathProgress() >= progress) found.push(enemy);
   }
@@ -65,7 +65,7 @@ export interface Positioned {
  * there, above 1 once it would be past the end. The path with its profile's
  * lengths is a stretch like a sweep, so pointAlongSweep walks it.
  */
-export function enemyAhead(enemy: Enemy, aheadM: number): { position: GeoPosition; progress: number } {
+export function enemyAhead(enemy: EnemyView, aheadM: number): { position: GeoPosition; progress: number } {
   const path = enemy.movement.path;
   const profile = getRouteProfile(path);
   const route: RouteSweep = { points: path, cumulative: profile.cumulativeLength, length: profile.totalLength };

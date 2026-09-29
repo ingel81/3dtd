@@ -1,7 +1,8 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, inject, signal } from '@angular/core';
 import { Vector3 } from 'three';
 import { TD_CSS_VARS } from '../../styles/td-theme';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
+import type { ThreeTilesEngine } from '../../three-engine';
 import { CameraControlService } from '../../services/camera-control.service';
 import { CoopService, type CoopPing } from '../../services/coop.service';
 import { OffscreenClusterer } from '../../utils/offscreen-indicators';
@@ -94,7 +95,7 @@ interface PingArrow {
 })
 export class CoopPingArrowsComponent {
   private readonly coop = inject(CoopService);
-  private readonly gameState = inject(GameStateManager);
+  private readonly engineInit = inject(EngineInitializationService);
   private readonly cameraControl = inject(CameraControlService);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
 
@@ -109,7 +110,7 @@ export class CoopPingArrowsComponent {
   }
 
   private tick(): void {
-    const engine = this.gameState.tilesEngine;
+    const engine = this.engineInit.getEngine();
     const pings = this.coop.pings();
     if (!engine || pings.length === 0) {
       if (this.arrows().length > 0) this.arrows.set([]);
@@ -131,8 +132,8 @@ export class CoopPingArrowsComponent {
   /** The arrow toward `ping`, null while the camera shows it */
   private arrowFor(
     ping: CoopPing,
-    engine: NonNullable<GameStateManager['tilesEngine']>,
-    camera: ReturnType<NonNullable<GameStateManager['tilesEngine']>['getCamera']>,
+    engine: ThreeTilesEngine,
+    camera: ReturnType<ThreeTilesEngine['getCamera']>,
     width: number,
     height: number,
   ): PingArrow | null {

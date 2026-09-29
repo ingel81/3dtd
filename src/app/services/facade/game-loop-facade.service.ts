@@ -1,4 +1,5 @@
 import { Injectable, inject, Injector, NgZone, effect, untracked } from '@angular/core';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { waveButtonAction } from '../../coop/room-options';
 import { CameraControlService } from '../camera-control.service';
@@ -21,7 +22,7 @@ import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { TowerSelectionService } from '../tower-selection.service';
-import { PresentationRef } from '../presentation-ref.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { GameStore } from '../../store/game.store';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
@@ -80,8 +81,9 @@ export class GameLoopFacadeService {
   private readonly mirror = inject(SimMirror);
   private readonly world = inject(MainWorldService);
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
   private readonly selection = inject(TowerSelectionService);
-  private readonly presentation = inject(PresentationRef);
+  private readonly presentation = inject(PresentationService);
   private readonly gameStore = inject(GameStore);
   /** Coop, where the game runs one (component scope); the wave button means "ready" there */
   private readonly coop = inject(COOP, { optional: true });
@@ -125,6 +127,18 @@ export class GameLoopFacadeService {
     // (the mirror follows the simulation's seed): the same numbers as when the
     // simulation served it. GameRng keeps a stream's function across a reset.
     this.waveDirector.useRandomSource(() => this.mirror.rng.stream('director'));
+    // The load runner's handle (e2e/perf/sim-load.ts): a command, the speed, the numbers it measures
+    (globalThis as Record<string, unknown>)['__load'] = {
+      emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
+      speed: (value: number) => this.gameStore.gameSpeed.set(value),
+      state: () => ({
+        enemies: this.mirror.scalars.enemiesAlive,
+        towers: this.mirror.scalars.towerCount,
+        phase: this.mirror.scalars.phase,
+        gameTimeMs: this.mirror.scalars.gameTimeMs,
+        paths: this.world.routes().map((path) => path.map((w) => [w.lat, w.lon])),
+      }),
+    };
     // Coop: the host starts the wave once everyone is ready (D15)
     this.coop?.setWaveStarter(() => this.startWaveNow());
   }
@@ -608,11 +622,11 @@ export class GameLoopFacadeService {
     // Route grid visualization — both ground- and air-layer share the
     // same cell-state buffer, so a single updateVisualization() call
     // refreshes whichever of the two meshes is currently shown.
-    const grid = this.grid;
-    if (grid.isSpatialGridVizVisible() || grid.isAirSpatialGridVizVisible()) {
-      grid.updateVisualization();
+    const gridViz = this.gridViz;
+    if (gridViz.isSpatialGridVizVisible() || gridViz.isAirSpatialGridVizVisible()) {
+      gridViz.updateVisualization();
     }
-    grid.updateAnimation(deltaTime);
+    gridViz.updateAnimation(deltaTime);
 
     // The line-of-sight views of the build preview and of the selected
     // tower pulse on one time base

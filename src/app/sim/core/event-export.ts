@@ -45,6 +45,7 @@ export function enemyRef(enemy: Enemy, routeIndex: RouteIndexOf): EnemyRef {
     alive: enemy.alive,
     type: enemy.typeConfig.id,
     route: routeIndex(enemy),
+    pr: enemy.movement.getPathProgress(),
   };
   const worm = enemy.worm;
   if (worm) ref.worm = { g: wormGroupNum(worm.group), slot: worm.slot, head: worm.head };
@@ -88,14 +89,21 @@ function exportValue(value: unknown, routeIndex: RouteIndexOf): unknown {
   return out;
 }
 
-/** One event as it crosses; its mute flags as the bus had them. */
-export function exportEvent(event: GameEvent, bus: GameEventBus, routeIndex: RouteIndexOf): ExportedEvent {
+/** The game clock at an emit: a packet of many sub-steps carries events of different times. */
+export interface EmitClock {
+  gameTimeMs(): number;
+  subStep(): number;
+}
+
+/** One event as it crosses; its mute flags as the bus had them, the clock of its emit. */
+export function exportEvent(event: GameEvent, bus: GameEventBus, routeIndex: RouteIndexOf, clock?: EmitClock): ExportedEvent {
   const { type, ...rest } = event as { type: string } & Record<string, unknown>;
   return {
     type,
     payload: exportValue(rest, routeIndex) as Record<string, unknown>,
     live: !bus.isLiveMuted,
     show: !bus.isShowMuted,
+    ...(clock ? { t: clock.gameTimeMs(), step: clock.subStep() } : {}),
   };
 }
 
@@ -104,10 +112,10 @@ export function exportEvent(event: GameEvent, bus: GameEventBus, routeIndex: Rou
  * Returns the unsubscribe. The catch-all listener runs before the typed ones,
  * so the order is the emit order.
  */
-export function exportEvents(bus: GameEventBus, sink: () => ExportedEvent[], routeIndex: RouteIndexOf): () => void {
+export function exportEvents(bus: GameEventBus, sink: () => ExportedEvent[], routeIndex: RouteIndexOf, clock?: EmitClock): () => void {
   const sub = bus.onAny((event) => {
     if (isInput(event.type)) return;
-    sink().push(exportEvent(event, bus, routeIndex));
+    sink().push(exportEvent(event, bus, routeIndex, clock));
   });
   return () => sub.dispose();
 }

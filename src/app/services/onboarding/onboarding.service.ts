@@ -1,5 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
-import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
+import { SubscriptionBag } from '../../game-engine/game-event-bus';
+import type { MainEventBus } from '../../sim/client/view-events';
 import {
   INITIAL_ONBOARDING,
   INITIAL_PROGRESS,
@@ -54,7 +55,7 @@ export class OnboardingService {
   private readonly subs = new SubscriptionBag();
 
   /** Follow the game's events; called per game session next to GameStateSyncService. */
-  connect(bus: GameEventBus): void {
+  connect(bus: MainEventBus): void {
     this.subs.disposeAll();
     this.newGame();
     this.subs.add(bus.onLive('tower:placed', (e) => {

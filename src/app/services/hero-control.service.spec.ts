@@ -82,22 +82,18 @@ describe('HeroControlService', () => {
     heroView = { setSelected: vi.fn(), showMoveTarget: vi.fn(), hideMoveTarget: vi.fn(), pickTarget: () => ({ id: 'hero' }) };
     hits = vi.fn(() => true);
 
+    injections['RouteQueriesService'] = { resolveHeroMoveTarget: () => snapTo };
+    injections['SimMirror'] = { heroFrame: () => ({ lat: 48.2, lon: 9.3 }) };
+    injections['TowerSelectionService'] = { select: selectTower };
+    injections['GlobalRouteGridService'] = { getGroundLocalYAt: () => 7 };
+    injections['SimClient'] = { bus: { emit: (e: GameEvent) => sent.push(e) } };
     service = new HeroControlService();
     const engine = {
       hero: heroView,
       picker: { hits },
       sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, out: Vector3) => out.set(1, 0, 3) },
     };
-    const gameState = {
-      heroManager: {
-        resolveMoveTarget: () => snapTo,
-        getHero: () => ({ position: { lat: 48.2, lon: 9.3 } }),
-      },
-      towerManager: { selectTower },
-      getGlobalRouteGrid: () => ({ getGroundLocalYAt: () => 7 }),
-      getEventBus: () => ({ emit: (e: GameEvent) => sent.push(e) }),
-    };
-    service.initialize(engine as never, gameState as never);
+    service.initialize(engine as never);
   });
 
   it('selects him only once he is hired, and ends building, aiming and the tower selection first', () => {

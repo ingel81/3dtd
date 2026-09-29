@@ -9,6 +9,8 @@ vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class Map
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { InputHandlerService } from './input-handler.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
@@ -58,6 +60,8 @@ describe('InputHandlerService tower hover', () => {
 
     const injector = Injector.create({
       providers: [
+        { provide: SimMirror, useValue: { selectableTower: (id: string | null) => id } },
+        { provide: TowerSelectionService, useValue: { select: selectTower } },
         // A click on a tower reads the selection
         { provide: TowerDefenseStore, useValue: { selectedTowerId: () => null } },
         // Photo mode is one of the view-only modes (UIStore.viewOnly)
@@ -69,7 +73,7 @@ describe('InputHandlerService tower hover', () => {
       ],
     });
     service = runInInjectionContext(injector, () => new InputHandlerService());
-    service.initialize(canvas, engine as never, { towerManager: { selectTower }, selectableTower: (id: string | null) => id } as never, buildMode, vi.fn(), vi.fn());
+    service.initialize(canvas, engine as never, buildMode, vi.fn(), vi.fn());
   });
 
   afterEach(() => {

@@ -13,6 +13,7 @@ import type { EngineInitializationService } from '../infrastructure/engine-initi
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
 import type { MainWorldService } from './main-world.service';
 import type { GlobalRouteGridService } from './global-route-grid.service';
+import type { RouteGridVizService } from './route-grid-viz.service';
 import type { SimScalars } from '../../sim/protocol/packet';
 
 /**
@@ -70,6 +71,8 @@ export interface CorridorBuildDeps {
   world: Pick<MainWorldService, 'rebuildCells' | 'sendToSim'>;
   /** The main thread's grid the cells are built on */
   grid: GlobalRouteGridService;
+  /** The grid's overlays, drawn on the new cells at the build's end */
+  gridViz: Pick<RouteGridVizService, 'initSpatialGridVisualizationIfEnabled' | 'initAirSpatialGridVisualizationIfEnabled' | 'initAirRouteLayerIfEnabled'>;
   /** The simulation's numbers after the last packet (SimClient.scalars): towers, phase, enemies. */
   scalars: () => Pick<SimScalars, 'towerCount' | 'phase' | 'enemiesAlive'>;
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
@@ -382,9 +385,10 @@ export class CorridorBuild {
         if (dropped()) return null;
       }
       t = this.now();
-      grid.initSpatialGridVisualizationIfEnabled();
-      grid.initAirSpatialGridVisualizationIfEnabled();
-      grid.initAirRouteLayerIfEnabled();
+      const gridViz = this.deps.gridViz;
+      gridViz.initSpatialGridVisualizationIfEnabled();
+      gridViz.initAirSpatialGridVisualizationIfEnabled();
+      gridViz.initAirRouteLayerIfEnabled();
       if (this.deps.routeAnimation.isRunning()) {
         this.deps.routeAnimation.startAnimation(pathRoute.getCachedPaths(), spawns);
       }

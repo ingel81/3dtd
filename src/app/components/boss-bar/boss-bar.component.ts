@@ -1,7 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, NgZone, inject, signal } from '@angular/core';
-import { GameStateManager } from '../../managers/game-state.manager';
-import type { Enemy } from '../../entities/enemy.entity';
-import type { WormGroup } from '../../managers/worm/worm-group';
+import { SimClient } from '../../sim/client/sim-client.service';
+import type { EnemyView, WormGroupView } from '../../sim/client/views';
 import { BossBarView, BossSample, bossBarView, sameBossBar, wormBossSample } from './boss-bar';
 
 /** Poll interval for the boss HP; 8 Hz reads as live */
@@ -19,8 +18,8 @@ const POLL_MS = 125;
  * paused game costs one comparison per tick.
  *
  * A worm is one boss however many segments and parts it has: it comes in
- * through worm:spawned, its bar sums every part (WormGroup.hp) and it stays
- * until nothing of it is left.
+ * through worm:spawned, its bar sums every part (WormGroupView.hp, from the
+ * worm table) and it stays until nothing of it is left.
  */
 @Component({
   selector: 'app-boss-bar',
@@ -30,17 +29,17 @@ const POLL_MS = 125;
   styleUrl: './boss-bar.component.scss',
 })
 export class BossBarComponent {
-  private readonly gameState = inject(GameStateManager);
+  private readonly sim = inject(SimClient);
 
   readonly view = signal<BossBarView | null>(null);
 
   /** Bosses since their spawn, until the poll finds them gone */
-  private readonly bosses: Enemy[] = [];
+  private readonly bosses: EnemyView[] = [];
   /** Worms since their spawn, until nothing of them is left */
-  private readonly worms: WormGroup[] = [];
+  private readonly worms: WormGroupView[] = [];
 
   constructor() {
-    const bus = this.gameState.getEventBus();
+    const bus = this.sim.bus;
     const subs = [
       bus.onLive('enemy:spawned', (event) => {
         // A worm's segments are bosses too; the worm has one bar for all of them
@@ -73,7 +72,7 @@ export class BossBarComponent {
       maxHp: boss.health.maxHp,
     }));
     for (const worm of this.worms) {
-      samples.push(wormBossSample(worm.type.name, worm.chains.length, worm.hp(), worm.maxHp));
+      samples.push(wormBossSample(worm.type?.name ?? '', worm.chains, worm.hp(), worm.maxHp));
     }
     const next = samples.length === 0 ? null : bossBarView(samples);
     if (!sameBossBar(this.view(), next)) this.view.set(next);

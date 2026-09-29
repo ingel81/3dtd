@@ -10,7 +10,11 @@ import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { HERO, HeroAmmoId, nextHeroAmmo } from '../configs/hero.config';
 import type { GeoPosition } from '../models/game.types';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
+import { RouteQueriesService } from './route-queries.service';
+import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { uiSound } from './ui-sound';
 
 /** Warning while no route point is in reach of the cursor */
@@ -25,8 +29,8 @@ const NO_ROUTE_WARNING = `No route within ${HERO.orderSnapM} m`;
  * lets him go; so do building, placing the HQ or a spawn, aiming an ability,
  * photo mode and selecting a tower, which take the pointer or the panel.
  *
- * Every order goes out as a command; the HeroManager snaps and has the last
- * word, this only previews it. InputHandlerService routes the pointer here
+ * Every order goes out as a command; the simulation's HeroManager snaps and
+ * has the last word, this only previews it (RouteQueriesService). InputHandlerService routes the pointer here
  * while he is selected.
  */
 @Injectable({ providedIn: 'root' })
@@ -38,9 +42,13 @@ export class HeroControlService {
   private readonly abilityTargeting = inject(AbilityTargetingService);
   private readonly cameraControl = inject(CameraControlService);
   private readonly introFlight = inject(IntroCameraFlightService);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
+  private readonly selection = inject(TowerSelectionService);
+  private readonly routes = inject(RouteQueriesService);
+  private readonly grid = inject(GlobalRouteGridService);
 
   private engine: ThreeTilesEngine | null = null;
-  private gameState: GameStateManager | null = null;
   private readonly scratch = new Vector3();
 
   /** He is selected */
@@ -68,20 +76,19 @@ export class HeroControlService {
     });
   }
 
-  /** Engine for the rings and the pick, game state for the preview and the commands. Once per location. */
-  initialize(engine: ThreeTilesEngine, gameState: GameStateManager): void {
+  /** Engine for the rings and the pick. Once per location. */
+  initialize(engine: ThreeTilesEngine): void {
     this.deselect();
     this.engine = engine;
-    this.gameState = gameState;
   }
 
   /** Select him, if he is hired. Leaves build mode, placement and aiming, deselects the tower. */
   select(): boolean {
-    if (!this.gameState || !this.store.hero().hired || this.uiStore.photoMode()) return false;
+    if (!this.engine || !this.store.hero().hired || this.uiStore.photoMode()) return false;
     if (this.uiStore.buildMode()) this.towerPlacement.exitBuildMode();
     if (this.uiStore.mapPlacementMode()) this.mapPlacement.exitPlacementMode();
     if (this.uiStore.abilityTargeting()) this.abilityTargeting.cancel();
-    this.gameState.towerManager.selectTower(null);
+    this.selection.select(null);
     this.warning.set(null);
     this.selected.set(true);
     return true;
@@ -116,15 +123,15 @@ export class HeroControlService {
    * credits; its refusal shows in the context hint box (RefusalHintService).
    */
   hire(): boolean {
-    if (!this.gameState) return false;
-    this.gameState.getEventBus().emit({ type: 'command:hire-hero' });
+    if (!this.engine) return false;
+    this.sim.bus.emit({ type: 'command:hire-hero' });
     return true;
   }
 
   /** Where he stands, null until hired. */
   position(): GeoPosition | null {
-    const hero = this.gameState?.heroManager.getHero();
-    return hero ? { lat: hero.position.lat, lon: hero.position.lon } : null;
+    const hero = this.mirror.heroFrame();
+    return hero ? { lat: hero.lat, lon: hero.lon } : null;
   }
 
   /** Whether his model is under the screen point. */
@@ -135,11 +142,11 @@ export class HeroControlService {
 
   /** Pointer moved over the map while he is selected: the move ring on the route point he would go to. */
   hover(lat: number, lon: number, hitPoint: Vector3): void {
-    if (!this.selected() || !this.engine || !this.gameState) return;
-    const snapped = this.gameState.heroManager.resolveMoveTarget({ lat, lon });
+    if (!this.selected() || !this.engine) return;
+    const snapped = this.routes.resolveHeroMoveTarget({ lat, lon });
     if (snapped) {
       const center = this.engine.sync.geoToLocalSimpleInto(snapped.lat, snapped.lon, 0, this.scratch);
-      center.y = this.gameState.getGlobalRouteGrid().getGroundLocalYAt(center.x, center.z) ?? hitPoint.y;
+      center.y = this.grid.getGroundLocalYAt(center.x, center.z) ?? hitPoint.y;
       this.engine.hero.showMoveTarget(center, true);
       this.warning.set(null);
     } else {
@@ -150,21 +157,21 @@ export class HeroControlService {
 
   /** Left click on the ground while he is selected: send him, or stay selected and say why not. */
   click(lat: number, lon: number, height: number): void {
-    if (!this.selected() || !this.gameState) return;
-    if (!this.gameState.heroManager.resolveMoveTarget({ lat, lon, height })) {
+    if (!this.selected() || !this.engine) return;
+    if (!this.routes.resolveHeroMoveTarget({ lat, lon, height })) {
       this.warning.set(NO_ROUTE_WARNING);
       uiSound.play('denied');
       return;
     }
     this.warning.set(null);
     uiSound.play('heroMove');
-    this.gameState.getEventBus().emit({ type: 'command:hero-move', target: { lat, lon, height } });
+    this.sim.bus.emit({ type: 'command:hero-move', target: { lat, lon, height } });
   }
 
   /** Load `ammo`. */
   setAmmo(ammo: HeroAmmoId): boolean {
-    if (!this.gameState || !this.store.hero().hired) return false;
-    this.gameState.getEventBus().emit({ type: 'command:hero-ammo', ammo });
+    if (!this.engine || !this.store.hero().hired) return false;
+    this.sim.bus.emit({ type: 'command:hero-ammo', ammo });
     return true;
   }
 

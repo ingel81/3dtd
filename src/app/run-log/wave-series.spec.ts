@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import { createMainEventBus } from '../sim/client/view-events';
+import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { WaveSeriesRecorder } from './wave-series';
 import type { KilledBy } from '../game-engine/events/event-types';
 
 describe('WaveSeriesRecorder (TODO E46)', () => {
   function setup() {
-    const bus = new GameEventBus();
+    const bus = createMainEventBus();
     const recorder = new WaveSeriesRecorder();
     const towers: Record<string, number> = { ann: 0, bob: 0 };
     let hq = 500;

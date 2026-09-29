@@ -3,7 +3,7 @@
  * between two waypoints. The real EnemyDebugService projects the click onto
  * the spawn's route and sends debug:spawn-enemy over the real event bus, the
  * real EnemyManager puts the enemy on the route itself; "Start moving"
- * (onStartEnemyMovement) lets it walk. The wave start starts paused debug
+ * (onStartEnemyMovement, debug:enemy-move) lets it walk. The wave start starts paused debug
  * enemies with the same startMoving() (GameLoopFacadeService, effect on the
  * phase), not driven here. Rendering is mocked.
  */
@@ -68,12 +68,14 @@ describe('Enemy Debug places on the route and walks on from there (playtest 329)
       enemyPlacementMode: signal(true),
       enemyOverrides: signal({ zombie: { baseSpeed: 4, baseHp: 50 } }),
     };
-    const gameState = {
-      getEventBus: () => m.eventBus,
-      getGlobalRouteGrid: () => ({ getCellAt: () => ({}) }),
-    };
+    // The simulation's bus is this one; its debug:enemy-move handler (GameCommandsHandler) in short
+    mockInjections['SimClient'] = { bus: m.eventBus };
+    mockInjections['GlobalRouteGridService'] = { getCellAt: () => ({}) };
+    m.eventBus.on('debug:enemy-move', (event) => {
+      if (event.action === 'start') m.enemyManager.getById(event.enemyId)?.startMoving();
+    });
     service = new EnemyDebugService();
-    service.initialize(gameState as never, m.engine, signal([{ id: 'spawn-1' }]) as never);
+    service.initialize(m.engine, signal([{ id: 'spawn-1' }]) as never);
   });
 
   afterEach(() => {

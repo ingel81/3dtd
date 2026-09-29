@@ -1,3 +1,4 @@
+import type { MainEventBus } from '../../sim/client/view-events';
 import { Injectable, WritableSignal, inject } from '@angular/core';
 import {
   Group,
@@ -14,7 +15,7 @@ import {
 import { ThreeTilesEngine } from '../../three-engine';
 import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
-import { HQDamageService } from '../combat/hq-damage.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { AssetManagerService } from '../infrastructure/asset-manager.service';
 import { UIStore } from '../../store/ui.store';
 import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
@@ -112,7 +113,7 @@ export class MarkerVisualizationService {
   // INJECTED SERVICES
   // ========================================
 
-  private readonly hqDamage = inject(HQDamageService);
+  private readonly presentation = inject(PresentationService);
   private readonly uiStore = inject(UIStore);
   private readonly assetManager = inject(AssetManagerService);
 
@@ -238,7 +239,7 @@ export class MarkerVisualizationService {
    * energy while it runs, idle again once it or the game is over, and a
    * burst when an enemy steps through (onEnemySpawned).
    */
-  subscribeToEventBus(eventBus: GameEventBus): void {
+  subscribeToEventBus(eventBus: MainEventBus): void {
     this.eventBusSubs.disposeAll();
     this.eventBusSubs.add(eventBus.onLive('wave:started', () => this.portalManager?.startWave(performance.now())));
     const calmDown = () => this.portalManager?.endWave();
@@ -615,7 +616,7 @@ export class MarkerVisualizationService {
    * Spawn or update HQ debug point at cached terrain height.
    */
   spawnHQDebugPoint(): void {
-    this.hqDamage.spawnDebugPoint();
+    this.presentation.host?.hq.spawnDebugPoint();
   }
 
   /**

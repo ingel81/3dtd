@@ -1,12 +1,15 @@
 import { DpsProfileVisualizer } from '../../director/dps-profile-visualizer';
 import type { StateSnapshotService } from '../../director/state-snapshot.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import type { GlobalRouteGridService } from '../world/global-route-grid.service';
+import type { MainEventBus } from '../../sim/client/view-events';
 import type { ThreeTilesEngine } from '../../three-engine';
 
 /** What DpsBinsOverlay needs; VisualizationFacadeService passes its services. */
 export interface DpsBinsOverlayDeps {
-  /** The game state, set by the facade's initialize(); read on each call. */
-  gameState: () => Pick<GameStateManager, 'getGlobalRouteGrid' | 'getEventBus'>;
+  /** The main thread's route grid */
+  grid: Pick<GlobalRouteGridService, 'getCoordinateSync'>;
+  /** SimClient.bus: the towers placed, sold and upgraded */
+  bus: MainEventBus;
   stateSnapshots: Pick<StateSnapshotService, 'getCurrentDPSProfile'>;
 }
 
@@ -30,8 +33,7 @@ export class DpsBinsOverlay {
    */
   setVisible(visible: boolean, engine: ThreeTilesEngine): void {
     if (visible) {
-      const grid = this.deps.gameState().getGlobalRouteGrid();
-      const coordSync = grid.getCoordinateSync();
+      const coordSync = this.deps.grid.getCoordinateSync();
       if (!coordSync) return;
 
       if (!this.dpsProfileViz) {
@@ -41,7 +43,7 @@ export class DpsBinsOverlay {
       this.updateDpsViz(engine);
 
       this.dpsVizUnsubscribes.forEach(fn => fn());
-      const eventBus = this.deps.gameState().getEventBus();
+      const eventBus = this.deps.bus;
       const updateHandler = () => this.updateDpsViz(engine);
       const sub1 = eventBus.on('tower:placed', updateHandler);
       const sub2 = eventBus.on('tower:sold', updateHandler);

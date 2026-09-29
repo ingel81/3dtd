@@ -8,7 +8,11 @@ vi.mock('../components/hotkey-help-dialog/open-hotkey-help-dialog', () => ({ ope
 vi.mock('./facade/tower-defense-facade.service', () => ({
   TowerDefenseFacadeService: class TowerDefenseFacadeService {},
 }));
-vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
+vi.mock('./tower-selection.service', () => ({ TowerSelectionService: class TowerSelectionService {} }));
+vi.mock('../sim/client/sim-client.service', () => ({ SimClient: class SimClient {} }));
+vi.mock('./infrastructure/engine-initialization.service', () => ({
+  EngineInitializationService: class EngineInitializationService {},
+}));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
 vi.mock('./camera-control.service', () => ({ CameraControlService: class CameraControlService {} }));
 vi.mock('./world/intro-camera-flight.service', () => ({
@@ -25,7 +29,9 @@ import { MatDialog } from '@angular/material/dialog';
 import { HotkeyService } from './hotkey.service';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
-import { GameStateManager } from '../managers/game-state.manager';
+import { TowerSelectionService } from './tower-selection.service';
+import { SimClient } from '../sim/client/sim-client.service';
+import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
@@ -61,9 +67,9 @@ const ORANGE = '#C96A3A';
  * Playtest 518, 519 and 520 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: U
  * through HotkeyService and a click on a tile through
  * TowerDefenseComponent.upgradeTower, both into the real TowerUpgradeService
- * on real towers; the purchase through the facade's command into
- * GameCommandsHandler and TowerLifecycle with the real credits and research
- * tier; the panel line through upgradeHintView as the tower and research
+ * on real towers; its commands go out on SimClient.bus and act at the next
+ * tick (tick()) through GameCommandsHandler and TowerLifecycle with the real
+ * credits and research tier; the panel line through upgradeHintView as the tower and research
  * panels read it.
  */
 describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
@@ -77,10 +83,16 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
   let upgradeHint: UpgradeHintService;
   let spawnFloatingText: ReturnType<typeof vi.fn>;
   const selectedTower = signal<Tower | null>(null);
+  /** Commands given since the last tick; tick() hands them to the simulation's bus */
+  let queued: object[];
+  const tick = () => {
+    for (const command of queued.splice(0)) bus.emit(command as never);
+  };
 
   beforeEach(() => {
     vi.useFakeTimers();
     bus = new GameEventBus();
+    queued = [];
     research = new ResearchManager(bus);
     ledger = new CreditsLedger(bus);
     towers = [];
@@ -103,15 +115,8 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
       singlePlayer({ towerManager: { getAll: () => towers, getById: (id: string) => towers.find((t) => t.id === id) }, upgradeTower: (t: Tower, id: UpgradeId) => lifecycle.upgrade(t, id) }) as never,
       bus,
     );
-    // GameLoopFacadeService.upgradeTower: checks the credits and the last level, then the
-    // command, synchronous on the bus
     const facade = {
       mayManage: () => true,
-      upgradeTower: (tower: Tower, upgradeId: UpgradeId): boolean => {
-        if (ledger.credits() < tower.getNextUpgradeCost(upgradeId) || !tower.canUpgrade(upgradeId)) return false;
-        bus.emit({ type: 'command:upgrade-tower', towerId: tower.id, upgradeId });
-        return true;
-      },
       startWave: vi.fn(),
       sellSelectedTower: vi.fn(),
     };
@@ -121,10 +126,9 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     const injector = Injector.create({
       providers: [
         { provide: TowerDefenseFacadeService, useValue: facade },
-        {
-          provide: GameStateManager,
-          useValue: { towerManager: { selectTower: vi.fn() }, tilesEngine: { effects: { spawnFloatingText } } },
-        },
+        { provide: TowerSelectionService, useValue: { select: vi.fn() } },
+        { provide: SimClient, useValue: { bus: { emit: (command: object) => queued.push(command) } } },
+        { provide: EngineInitializationService, useValue: { getEngine: () => ({ effects: { spawnFloatingText } }) } },
         {
           provide: TowerDefenseStore,
           useValue: {
@@ -175,13 +179,19 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
     towers.push(tower);
     return tower;
   };
+  /** U, then the tick its commands act at */
   const pressU = () => {
     const event = new KeyboardEvent('keydown', { key: 'u', cancelable: true });
     service.handleKeyDown(event);
+    tick();
     return event;
   };
-  /** A click on the tile of `upgradeId`: TowerDefenseComponent.upgradeTower */
-  const clickTile = (tower: Tower, upgradeId: UpgradeId) => towerUpgrade.buy(tower, upgradeId);
+  /** A click on the tile of `upgradeId` (TowerDefenseComponent.upgradeTower), then the tick */
+  const clickTile = (tower: Tower, upgradeId: UpgradeId) => {
+    const bought = towerUpgrade.buy(tower, upgradeId);
+    tick();
+    return bought;
+  };
   const setCredits = (credits: number) => ledger.add(credits - ledger.credits(), 'cheat', LOCAL_PLAYER_ID);
   const levels = (tower: Tower) => tower.typeConfig.upgrades.map((u) => tower.getUpgradeLevel(u.id));
   /** Text and colour of the last text over the tower */

@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Only their DI tokens are needed. The real modules pull in the engine, and
 // the partially compiled CDK needs the JIT compiler under vitest.
 vi.mock('@angular/cdk/a11y', () => ({ LiveAnnouncer: class LiveAnnouncer {} }));
-vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
+vi.mock('./tower-selection.service', () => ({ TowerSelectionService: class TowerSelectionService {} }));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
 vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
 vi.mock('./ability-targeting.service', () => ({ AbilityTargetingService: class AbilityTargetingService {} }));
@@ -41,7 +41,7 @@ vi.mock('@angular/core', async (importOriginal) => ({
 import { ElementRef, Injector, runInInjectionContext, signal } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { PhotoModeService } from './photo-mode.service';
-import { GameStateManager } from '../managers/game-state.manager';
+import { TowerSelectionService } from './tower-selection.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
 import { AbilityTargetingService } from './ability-targeting.service';
@@ -84,7 +84,7 @@ describe('PhotoModeService focus', () => {
       providers: [
         { provide: UIStore, useValue: { photoMode: signal(false), openMenu, mapPlacementMode: signal(false) } },
         { provide: TowerDefenseStore, useValue: { loading: signal(false), error: signal(null) } },
-        { provide: GameStateManager, useValue: { towerManager: { selectTower: vi.fn() } } },
+        { provide: TowerSelectionService, useValue: { select: vi.fn() } },
         { provide: TowerPlacementService, useValue: { buildMode: signal(false) } },
         { provide: MapPlacementService, useValue: {} },
         { provide: AbilityTargetingService, useValue: { targeting: signal(null) } },
@@ -197,7 +197,7 @@ describe('PhotoModeService screenshot', () => {
           provide: TowerDefenseStore,
           useValue: { loading: signal(false), error: signal(null), mapAttribution: signal('Map data ©2026 Google') },
         },
-        { provide: GameStateManager, useValue: {} },
+        { provide: TowerSelectionService, useValue: {} },
         { provide: TowerPlacementService, useValue: {} },
         { provide: MapPlacementService, useValue: {} },
         { provide: AbilityTargetingService, useValue: {} },
