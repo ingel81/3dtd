@@ -19,7 +19,9 @@ import {
   openLocationDialog,
 } from '../../components/location-dialog/open-location-dialog';
 import { LocationDialogData, LocationDialogResult, SavedSpawn } from '../../models/location.types';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { PresentationRef } from '../presentation-ref.service';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 import { LocationChangeCoordinatorService, LocationFlowDelegate } from '../location/location-change-coordinator.service';
 import { LocationChangeCallbacks } from '../location/location-change-executor.service';
@@ -58,7 +60,6 @@ class ComponentGoneError extends Error {}
 /** What the game component hands over in initialize(). */
 interface ComponentContext {
   bridge: FacadeComponentBridge;
-  gameState: GameStateManager;
   /** Component injector, for the DestroyRef of the location dialog. */
   injector: Injector;
 }
@@ -77,6 +78,9 @@ interface ComponentContext {
  */
 @Injectable({ providedIn: 'root' })
 export class LocationFacadeService {
+  private readonly world = inject(MainWorldService);
+  private readonly grid = inject(GlobalRouteGridService);
+  private readonly presentation = inject(PresentationRef);
   private readonly osmService = inject(OsmStreetService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -118,8 +122,8 @@ export class LocationFacadeService {
   /**
    * Initialize sub-facade with bridge, game state, and component injector.
    */
-  initialize(bridge: FacadeComponentBridge, gameState: GameStateManager, injector: Injector): void {
-    this.ctx = { bridge, gameState, injector };
+  initialize(bridge: FacadeComponentBridge, injector: Injector): void {
+    this.ctx = { bridge, injector };
   }
 
   /**
@@ -158,7 +162,6 @@ export class LocationFacadeService {
         if (!ctx || !engine) return null;
         return {
           engine,
-          gameState: ctx.gameState,
           streetNetwork: ctx.bridge.getStreetNetwork(),
           streetNetworkLocation: ctx.bridge.getStreetNetworkLocation(),
           heightDebugVisible: this.store.heightDebugVisible,
@@ -494,7 +497,7 @@ export class LocationFacadeService {
     this.markerViz.clearAllMarkers();
     this.pathRoute.clearAllRoutes();
     this.streetRendering.dispose(overlayGroup);
-    ctx.gameState.getGlobalRouteGrid().clear();
+    this.grid.clear();
 
     this.store.spawnPoints.set([]);
     this.pathRoute.clearCachedPaths();
@@ -549,8 +552,8 @@ export class LocationFacadeService {
     this.routeAnimation.stopAnimation();
     this.heightUpdate.stopHeightUpdates();
 
-    ctx.gameState.reset();
-    ctx.gameState.getGlobalRouteGrid().disposeVisualization();
+    this.world.resetRun();
+    this.grid.disposeVisualization();
 
     this.markerViz.clearAllMarkers();
     this.pathRoute.clearAllRoutes();
@@ -575,7 +578,7 @@ export class LocationFacadeService {
     const ctx = this.ctx;
     const engine = ctx?.bridge.getEngine();
     if (!ctx || !engine) return;
-    const { bridge, gameState } = ctx;
+    const { bridge } = ctx;
 
     // Re-create base marker
     this.markerViz.addBaseMarker();
@@ -593,22 +596,20 @@ export class LocationFacadeService {
     // Rebuild the route-cell grid BEFORE resolving route-line heights: the
     // grid is what `getGroundLocalYAt` reads, and until it is regenerated it
     // still holds the previous world's cells.
-    gameState.initializeGlobalRouteGrid();
+    this.world.setSpawns(this.store.spawnPoints().map((sp) => ({
+      id: sp.id,
+      name: sp.name,
+      lat: sp.lat,
+      lon: sp.lon,
+      color: sp.color,
+    })));
+    this.world.buildCells(true);
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
-    gameState.onTilesLoaded();
+    this.presentation.host?.onTilesLoaded();
 
-    // Hand the new spawns and routes to the wave pipeline. Without this the
-    // WaveManager kept spawning at the old world's coordinates.
-    gameState.reseatWavePipeline(
-      this.store.spawnPoints().map((sp) => ({
-        id: sp.id,
-        name: sp.name,
-        lat: sp.lat,
-        lon: sp.lon,
-        color: sp.color,
-      })),
-      this.pathRoute.getCachedPaths(),
-    );
+    // The new world to the simulation, a fresh run on it. Without it the
+    // wave pipeline kept spawning at the old world's coordinates.
+    this.world.sendToSim();
 
     // Start route animation
     const cachedPaths = this.pathRoute.getCachedPaths();

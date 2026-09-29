@@ -125,6 +125,11 @@ export class SimClient {
     this.worldLoaded = true;
   }
 
+  /** The world goes (a new place is being built): no tick until the next loadWorld. */
+  unloadWorld(): void {
+    this.worldLoaded = false;
+  }
+
   get hasWorld(): boolean {
     return this.worldLoaded;
   }

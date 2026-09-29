@@ -44,6 +44,18 @@ export class MainWorldService {
     this.spawns = [...spawns];
   }
 
+  /**
+   * A new run on a place that is about to change (a move, another location,
+   * a DevWorld): the simulation drops its world and pauses until the new one
+   * is sent (sendToSim), and starts a fresh run; its game:reset clears the
+   * mirror and the show.
+   */
+  resetRun(): void {
+    if (!this.sim.started) return;
+    this.sim.unloadWorld();
+    void this.sim.rpc('reset');
+  }
+
   /** New spawn points on the same place (DevWorld, a coop package, a spawn moved). */
   setSpawns(spawns: readonly SpawnPoint[]): void {
     this.spawns = [...spawns];

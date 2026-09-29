@@ -10,7 +10,7 @@ import { LocationChangeCoordinatorService } from '../location/location-change-co
 import { MapPlacementService } from '../world/map-placement.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { MainWorldService } from '../world/main-world.service';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, SPAWN_DISCARD_DISTANCE } from '../../configs/map-constants.config';
 import { portalHeadingToBearing } from '../../three-engine/renderers/marker/spawn-portal-pose';
@@ -22,7 +22,7 @@ import type { SavedSpawn } from '../../models/location.types';
 /** What a relocation needs from the location facade, read at the moment it is needed. */
 export interface RelocationHost {
   /** The game component's bridge and game state; null once it went away. */
-  context(): { bridge: FacadeComponentBridge; gameState: GameStateManager } | null;
+  context(): { bridge: FacadeComponentBridge } | null;
   /** Viz callbacks for the in-place rebuild; null before the coordinator flow is set up. */
   vizCallbacks(): VizCallbacks | null;
   /** @param portalBearing Which way its portal faces, see SavedSpawn; along its route without one */
@@ -54,6 +54,7 @@ export class MapRelocationService {
   private readonly osmService = inject(OsmStreetService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
+  private readonly world = inject(MainWorldService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly routeAnimation = inject(RouteAnimationService);
@@ -234,7 +235,7 @@ export class MapRelocationService {
       return;
     }
     const { ctx, engine, streetNetwork, vizCallbacks } = context;
-    const { bridge, gameState } = ctx;
+    const { bridge } = ctx;
     const workStart = performance.now();
     // The corridor build puts its steps on the hint shown above.
     const hint = this.relocationStatus.follow();
@@ -257,7 +258,7 @@ export class MapRelocationService {
       this.heightUpdate.stopHeightUpdates();
 
       // 2. Reset game state (towers, enemies, etc.)
-      gameState.reset();
+      this.world.resetRun();
       times.lap('reset');
 
       // 3. Targeted cleanup — keep street network + street network location
@@ -314,11 +315,9 @@ export class MapRelocationService {
       const waveSpawns: WaveSpawnPoint[] = this.store.spawnPoints().map(sp => ({
         id: sp.id, name: sp.name, lat: sp.lat, lon: sp.lon,
       }));
-      gameState.initialize(
-        engine, { lat, lon }, waveSpawns, this.pathRoute.getCachedPaths(),
-      );
+      this.world.attach(engine, { lat, lon }, waveSpawns);
       times.lap('state');
-      gameState.initializeGlobalRouteGrid();
+      this.world.buildCells(true);
       times.lap('grid');
 
       // 11. Re-initialize tower placement + street filter + rendering
@@ -430,7 +429,6 @@ export class MapRelocationService {
     const engine = ctx?.bridge.getEngine();
     const streetNetwork = ctx?.bridge.getStreetNetwork();
     if (!ctx || !engine || !streetNetwork) return false;
-    const { gameState } = ctx;
 
     const hq = this.store.baseCoords();
 
@@ -452,7 +450,7 @@ export class MapRelocationService {
     this.store.spawnPoints.set([]);
 
     // 3. Reset game state (towers, enemies, etc.)
-    gameState.reset();
+    this.world.resetRun();
 
     // 4. Add the spawn points; a portal faces along the route unless the
     // player turned it. The turn is kept as a compass bearing, in the
@@ -466,13 +464,8 @@ export class MapRelocationService {
 
     // 6. Re-initialize game state with new routes
     const waveSpawns = this.store.spawnPoints().map((spawn) => ({ id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon }));
-    gameState.initialize(
-      engine,
-      { lat: hq.lat, lon: hq.lon },
-      waveSpawns,
-      this.pathRoute.getCachedPaths(),
-    );
-    gameState.initializeGlobalRouteGrid();
+    this.world.attach(engine, { lat: hq.lat, lon: hq.lon }, waveSpawns);
+    this.world.buildCells(true);
 
     // 7. Update map placement service dependencies
     this.mapPlacement.updateDependencies(streetNetwork, hq);
@@ -506,7 +499,6 @@ export class MapRelocationService {
     const engine = ctx?.bridge.getEngine();
     const streetNetwork = ctx?.bridge.getStreetNetwork();
     if (!ctx || !engine || !streetNetwork) return false;
-    const { gameState } = ctx;
     const existing = this.store.spawnPoints();
     if (existing.length >= SPAWN_COLORS.length) {
       console.warn('[MapPlacement] Four spawns stand already — spawn not added');
@@ -521,7 +513,7 @@ export class MapRelocationService {
     }
 
     this.routeAnimation.stopAnimation();
-    gameState.reset();
+    this.world.resetRun();
 
     // The ids follow the order, as a load from the URL gives them (spawn-1, spawn-2, ...)
     const index = existing.length;
@@ -533,8 +525,8 @@ export class MapRelocationService {
     host.syncUrlWithLocation();
 
     const waveSpawns = this.store.spawnPoints().map((spawn) => ({ id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon }));
-    gameState.initialize(engine, { lat: hq.lat, lon: hq.lon }, waveSpawns, this.pathRoute.getCachedPaths());
-    gameState.initializeGlobalRouteGrid();
+    this.world.attach(engine, { lat: hq.lat, lon: hq.lon }, waveSpawns);
+    this.world.buildCells(true);
     this.mapPlacement.updateDependencies(streetNetwork, hq);
 
     const viz = host.vizCallbacks();
