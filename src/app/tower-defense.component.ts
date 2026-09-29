@@ -76,7 +76,7 @@ import { UIStore } from './store/ui.store';
 import { ConfigService } from './core/services/config.service';
 // The simulation as the main thread sees it (docs/SIM_WORKER.md)
 import { SimClient } from './sim/client/sim-client.service';
-import { GlobalRouteGridService } from './services/world/global-route-grid.service';
+import { RouteGridVizService } from './services/world/route-grid-viz.service';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
 import { Vector3 } from 'three';
@@ -221,7 +221,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   private readonly dialog = inject(MatDialog);
   readonly sim = inject(SimClient);
-  private readonly routeGrid = inject(GlobalRouteGridService);
+  private readonly routeGridViz = inject(RouteGridVizService);
   private readonly runLog = inject(RunLogFacade);
   protected readonly uiStore = inject(UIStore);
   readonly configService = inject(ConfigService);
@@ -800,7 +800,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * altitude along every enemy route. Persistent in UIStore.
    */
   onAirRouteToggled(): void {
-    this.routeGrid.toggleAirRouteLayer();
+    this.routeGridViz.toggleAirRouteLayer();
   }
 
   /**
@@ -809,7 +809,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * and drawn in the air-layer colour. Persistent in UIStore.
    */
   onAirSpatialGridDebugToggled(): void {
-    this.routeGrid.toggleAirSpatialGridDebug();
+    this.routeGridViz.toggleAirSpatialGridDebug();
   }
 
   /**

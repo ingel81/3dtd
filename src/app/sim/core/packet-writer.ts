@@ -134,6 +134,7 @@ export class PacketWriter {
       towerCount: gsm.towerCount(),
       replay: frame.replay,
       seed: gsm.rng.seed,
+      abilityDamage: players.map((id) => gsm.abilityDamageOf(id)),
     };
   }
 

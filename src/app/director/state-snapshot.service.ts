@@ -145,7 +145,7 @@ export class StateSnapshotService {
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
     const routes = this.routes();
-    defense.defenseReachPercent = this.gridService.getDefenseReachPercent(routes);
+    defense.defenseReachPercent = this.gridService.defenseReach(routes).fraction;
     // Averaged over the routes, so in coop already one lane's share, like the damage above
     const underFire = this.gridService.metersUnderFire(routes);
     defense.damageMetres = damageMetresPerArmor(towers, airTargetingUnlocked, underFire.byTower);

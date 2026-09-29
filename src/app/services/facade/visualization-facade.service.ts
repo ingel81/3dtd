@@ -1,4 +1,4 @@
-import { Injectable, inject, Injector, effect } from '@angular/core';
+import { Injectable, inject, Injector, effect, untracked } from '@angular/core';
 import { OsmStreetService } from '../location/osm-street.service';
 import { UIStore } from '../../store/ui.store';
 import { CameraControlService } from '../camera-control.service';
@@ -29,6 +29,7 @@ import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { TowerSelectionService } from '../tower-selection.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
 import { PresentationService } from '../../presentation/presentation.service';
@@ -115,6 +116,7 @@ export class VisualizationFacadeService {
   private readonly corridorSnapshot = inject(CorridorSnapshotService);
   private readonly sim = inject(SimClient);
   private readonly gridViz = inject(RouteGridVizService);
+  private readonly selection = inject(TowerSelectionService);
   private readonly mirror = inject(SimMirror);
   private readonly world = inject(MainWorldService);
   private readonly presentation = inject(PresentationService);
@@ -135,7 +137,6 @@ export class VisualizationFacadeService {
   private readonly lodProbe = new CorridorLodProbe({
     mirror: this.mirror,
     grid: this.globalRouteGridService,
-    world: this.world,
     engineInit: this.engineInit,
     introFlight: this.introFlight,
     pathRoute: this.pathRoute,
@@ -146,7 +147,8 @@ export class VisualizationFacadeService {
   private readonly corridorConsole = new CorridorConsole({
     mirror: this.mirror,
     grid: this.globalRouteGridService,
-    world: this.world,
+    gridViz: this.gridViz,
+    selection: this.selection,
     engineInit: this.engineInit,
     inputHandler: this.inputHandler,
     pathRoute: this.pathRoute,
@@ -161,9 +163,7 @@ export class VisualizationFacadeService {
 
   /** What the corridor snapshot (Snapshot tile, `__corridor.snapshot()`) reads off the game, see CorridorSnapshotReader. */
   private readonly snapshotReader = new CorridorSnapshotReader({
-    mirror: this.mirror,
     grid: this.globalRouteGridService,
-    world: this.world,
     engineInit: this.engineInit,
     pathRoute: this.pathRoute,
     store: this.store,
@@ -175,12 +175,7 @@ export class VisualizationFacadeService {
   private readonly tilesConsole = new TilesConsole({ engineInit: this.engineInit });
 
   /** `__towerTargets` in DevTools, see TowerTargetConsole. */
-  private readonly towerTargetConsole = new TowerTargetConsole({
-    mirror: this.mirror,
-    grid: this.globalRouteGridService,
-    world: this.world,
-    engineInit: this.engineInit,
-  });
+  private readonly towerTargetConsole = new TowerTargetConsole({ sim: this.sim });
 
   /** Loading screen held for the intro flight on the first load, see IntroLoadingGate. */
   private readonly introGate = new IntroLoadingGate({
@@ -204,9 +199,8 @@ export class VisualizationFacadeService {
 
   /** DPS profile bins along the path, see DpsBinsOverlay. */
   private readonly dpsBins = new DpsBinsOverlay({
-    mirror: this.mirror,
     grid: this.globalRouteGridService,
-    world: this.world,
+    bus: this.sim.bus,
     stateSnapshots: this.stateSnapshots,
   });
 
@@ -319,6 +313,12 @@ export class VisualizationFacadeService {
    * Called from the main facade during initEffects().
    */
   initEffects(injector: Injector): void {
+    // Effect: the tower debug panel's dropdown follows the selected tower
+    effect(() => {
+      const tower = this.store.selectedTower();
+      if (tower) untracked(() => this.towerDebug.selectTower(tower.typeConfig.id));
+    }, { injector });
+
     // Effect: Sync tower debug "Show Shoot Height" to renderer
     effect(() => {
       const showShootHeight = this.towerDebug.showShootHeight();
@@ -352,13 +352,6 @@ export class VisualizationFacadeService {
 
     // Spawn portals surge at wave start and calm down after the wave
     this.markerViz.subscribeToEventBus(eventBus);
-
-    // Subscribe to tower:selected event — sync debug panel dropdown
-    this.eventBusSubs.add(
-      eventBus.onLive('tower:selected', (event) => {
-        this.towerDebug.selectTower(event.tower.typeConfig.id);
-      })
-    );
   }
 
   // ══════════════════════════════════════════════════════════════
