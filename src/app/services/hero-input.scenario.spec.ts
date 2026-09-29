@@ -34,6 +34,12 @@ import { AbilityTargetingService } from './ability-targeting.service';
 import { CameraControlService } from './camera-control.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
+import { RouteQueriesService } from './route-queries.service';
+import { PathAndRouteService } from './world/path-route.service';
+import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { UIStore } from '../store/ui.store';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { HeroManager, type HeroPresentation, type HeroWorld } from '../managers/hero.manager';
@@ -60,7 +66,8 @@ const TOWER_PX = { x: 60, y: 250 };
  * Playtest 386, 387, 389, 391 and 425 (docs/archive/REVIEW_SPRINT_2026-09-14.md)
  * replayed through the pointer: the real InputHandlerService over a canvas,
  * the real HeroControlService wired to it as VisualizationFacadeService does,
- * its commands through GameCommandsHandler to the real HeroManager. The
+ * its commands through GameCommandsHandler to the real HeroManager, the move
+ * preview through the real RouteQueriesService on the same routes. The
  * picker is a fake that maps a screen pixel to the ground in metres and hits
  * the hero within 1.5 m of where he stands. The store's hero follows
  * hero:state-changed as GameStateSyncService does.
@@ -169,8 +176,6 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
 
     const gameState = singlePlayer({
       heroManager: hero,
-      towerManager: { selectTower },
-      getGlobalRouteGrid: () => ({ getGroundLocalYAt: () => 0 }),
       getEventBus: () => bus,
     });
     new GameCommandsHandler(gameState as unknown as GameStateManager, bus);
@@ -188,6 +193,19 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
         { provide: AbilityTargetingService, useValue: { cancel: vi.fn() } },
         { provide: CameraControlService, useValue: { focusGeo: vi.fn(() => true) } },
         { provide: IntroCameraFlightService, useValue: { active: signal(false) } },
+        // The simulation's bus is this one: the commands act at once through GameCommandsHandler
+        { provide: SimClient, useValue: { bus } },
+        {
+          provide: SimMirror,
+          useValue: {
+            heroFrame: () => hero.getHero() && { lat: hero.getHero()!.position.lat, lon: hero.getHero()!.position.lon },
+            selectableTower: (id: string | null) => id,
+          },
+        },
+        { provide: TowerSelectionService, useValue: { select: selectTower } },
+        { provide: PathAndRouteService, useValue: { getCachedPaths: () => ROUTES } },
+        { provide: GlobalRouteGridService, useValue: { getGroundLocalYAt: () => 0 } },
+        { provide: RouteQueriesService, useFactory: () => new RouteQueriesService(), deps: [] },
       ],
     });
     control = runInInjectionContext(injector, () => new HeroControlService());
@@ -215,8 +233,8 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
       },
       towers: { setHovered: vi.fn() },
     };
-    control.initialize(engine as never, gameState as never);
-    input.initialize(canvas, engine as never, gameState as never, ui.buildMode, vi.fn(), vi.fn());
+    control.initialize(engine as never);
+    input.initialize(canvas, engine as never, ui.buildMode, vi.fn(), vi.fn());
     // VisualizationFacadeService.setHeroCallbacks
     input.setHeroCallbacks({
       selected: () => control.selected(),

@@ -21,13 +21,16 @@ import { RefusalHintService } from './refusal-hint.service';
 import { AbilityManager, type AbilityWorld } from '../managers/ability.manager';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { resolveHotkey } from './hotkey-map';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { packet } from '../sim/client/mirror/testing/mirror-packets';
 import { ABILITIES, type AbilityId } from '../configs/abilities.config';
 
 /**
  * Playtest 510 (docs/archive/REVIEW_FIX_2026-09-14.md), the keys: K, F, E and L go
  * through resolveHotkey to HotkeyService.toggleAbility, which starts the
  * targeting mode and takes the key only when it is on. Here the real
- * AbilityTargetingService asks the real AbilityManager of a new game.
+ * AbilityTargetingService asks the mirror of the real AbilityManager of a new
+ * game, fed with its ability:state-changed as the SimClient does.
  */
 describe('Ability keys before their research, playtest 510 replayed', () => {
   let bus: GameEventBus;
@@ -56,11 +59,14 @@ describe('Ability keys before their research, playtest 510 replayed', () => {
     injections['MapPlacementService'] = { exitPlacementMode: vi.fn() };
     refusals = new RefusalHintService();
     injections['RefusalHintService'] = refusals;
+    const mirror = new SimMirror();
+    mirror.applyState(packet({ scalars: { phase: 'wave' } }));
+    bus.on('ability:state-changed', (e) => mirror.importEvent({ type: e.type, payload: { ...e }, live: true, show: true }));
+    injections['SimMirror'] = mirror;
+    injections['SimClient'] = { bus };
+    injections['RouteQueriesService'] = { resolveAbilityTarget: () => null, previewSweep: () => null };
     service = new AbilityTargetingService();
-    service.initialize(
-      { abilityMarkers: { hideAim: vi.fn(), showAim: vi.fn() } } as never,
-      { abilityManager: abilities } as never,
-    );
+    service.initialize({ abilityMarkers: { hideAim: vi.fn(), showAim: vi.fn() } } as never);
   });
 
   const abilityOfKey = (key: string): AbilityId => {
