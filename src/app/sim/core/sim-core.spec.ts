@@ -24,7 +24,8 @@ import { losMaskToJson } from '../../utils/los-mask';
 import { METERS_PER_DEGREE_LAT as M } from '../../utils/geo-utils';
 import { mulberry32 } from '../../utils/game-rng';
 import { GameObject } from '../../core/game-object';
-import type { SimWorld, SimTickInput, QueuedCommand } from '../protocol/messages';
+import type { SimWorld, SimTickInput, SimOutput, QueuedCommand } from '../protocol/messages';
+import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import type { SimFramePacket } from '../protocol/packet';
 import { ENEMY_STRIDE, E_FLAGS, EF_ALIVE, TOWER_STRIDE, T_KILLS } from '../protocol/packet';
 import type { LosNeededPayload } from '../protocol/events';
@@ -204,6 +205,32 @@ describe('SimCore in the same thread', () => {
     } finally {
       Math.random = mathRandom;
     }
+  });
+
+  it('runs coop commands at the relay ticks the main thread hands over, and answers through `out`', () => {
+    const main = mainWorld();
+    const core = newCore(main.world);
+    core.configure({ players: { players: ['a', 'b'], local: 'a' }, lockstep: { hashEvery: 1 } });
+    const out: SimOutput[] = [];
+    const input = (commands: QueuedCommand[], lockstep: SimTickInput['lockstep'], now: number): SimTickInput => ({
+      now, gameSpeed: 1, paused: false, renderingEnabled: true, commands, lockstep, replay: null,
+    });
+    const credits = core.gsm.creditsOf('b');
+
+    // A command given here goes to the relay, it does not act
+    core.tick(input([{ playerId: 'a', command: { type: 'debug:add-credits', amount: 7 } as unknown as CommandData }], null, 1000), (m) => out.push(m));
+    expect(out.filter((m) => m.kind === 'lockstep-send')).toHaveLength(1);
+    expect(core.gsm.subStep).toBe(0); // no tick closed: the barrier holds
+
+    // The relay stamped B's gift at tick 1; ticks 0 to 3 closed
+    const gift = { playerId: 'b', command: { type: 'debug:add-credits', amount: 5 } as unknown as CommandData };
+    const delivery = { confirmedTick: 3, ticks: [0, 1, 2, 3].map((tick) => ({ tick, commands: tick === 1 ? [gift] : [] })) };
+    core.tick(input([], delivery, 1100), (m) => out.push(m));
+    expect(core.gsm.creditsOf('b')).toBe(credits + 5);
+    expect(core.gsm.subStep).toBeGreaterThan(0);
+    expect(out.some((m) => m.kind === 'lockstep-hash')).toBe(true);
+    expect(out.some((m) => m.kind === 'lockstep-frame')).toBe(true);
+    expect(core.gsm.commandLog.entries.map((e) => [e.playerId, e.step])).toEqual([['b', 1 * TICK_SUB_STEPS]]);
   });
 
   it('writes the enemy table and keeps the tables out of the renderers with rendering off', () => {
