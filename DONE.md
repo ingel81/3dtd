@@ -8,7 +8,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 - [x] **E57 Simulation im Worker** (Branch `simu-worker`, `889270eb` bis `d838479a`, [SIM_WORKER.md](docs/SIM_WORKER.md)):
       Simulation im Web Worker, Tabellen im `SharedArrayBuffer` (COOP/COEP-Header für Web, Dev-Server, Desktop).
-      5000 Gegner, Tempo 4: Firefox 127 statt 32 FPS, Chromium langsamste 5 % 200 statt 172. E2E 15/15.
+      4800 Gegner, Tempo 4: Firefox 70 statt 35 FPS, Chromium gleichauf (366 gegen 356). E2E 15/15.
 - [x] **H6 Tick und Bild entkoppeln**: mit E57 erledigt, das Bild wartet nicht mehr auf die Simulation.
 - [x] **Budget-Quelle** (`65ee649b` bis `5da214bc`, [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md)): Laufplan W1 bis W60,
       HP aus einem Budget gegen die Abwehr, eine Grenze je Gegner aus der Zeit unter Feuer (auf der Route mit echter

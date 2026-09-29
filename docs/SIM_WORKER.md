@@ -167,47 +167,56 @@ Zwei Zahlen statt einer: die **Bildzeit** des Hauptthreads (FPS) und die **Tick-
 (`SimScalars.tickMs`, zerlegt per RPC `tickProfile`); dazu kostet das Anwenden eines Pakets den Hauptthread
 `SimClient.applyTimes`.
 
-Messung 2026-09-29 (`e2e/perf/sim-load.ts`, Produktions-Build, DevWorld, 40 Tower, rund 4800 Gegner, Tempo 4, ein
-Windows-Rechner; Tempo 4 wird überall erreicht):
+Messung 2026-09-29 abends (`e2e/perf/sim-load.ts`, Produktions-Build, DevWorld, 40 Tower, 4800 Gegner, Tempo 4, ein
+Windows-Rechner, beide Builds in derselben Sitzung):
 
 | | ohne Worker (`next`) | mit Worker |
 |---|---|---|
-| Chromium ohne Bildratenbremse, FPS / langsamste 5 % | 300 / 172 | 296 / 200 |
-| Firefox sichtbar, FPS / langsamste 5 % | 32 / 24 | 127 / 72 |
-| Tick-Zeit im Worker (Chromium / Firefox) | – | 1,9 / 4,7 ms |
-| Paket anwenden im Hauptthread (Chromium / Firefox) | – | 1,5 / 3,8 ms |
+| Chromium ohne Bildratenbremse, FPS / langsamste 5 % | 356 / 185 | 366 / 168 |
+| Firefox sichtbar (144-Hz-Monitor), FPS / langsamste 5 % | 35 / 24 | 70 / 36 |
+| Worker ausgelastet (Chromium / Firefox) | – | 30 / 28 % |
 
-In Chromium kostet die Simulation in dieser Szene wenig; der Worker glättet vor allem die langsamen Bilder. In Firefox,
-wo die Simulation im Hauptthread das Bild auffraß, fast vierfache Bildrate.
+In Chromium kostet die Simulation in dieser Szene wenig, beide Builds liegen gleich. In Firefox doppelte Bildrate.
 
+Korrektur: Die erste Messung am Nachmittag (Firefox 127 / 72, Chromium 296 / 200) lief mit einem Stand, auf dem die
+Gegnergruppen der Seitenleiste fehlten (Review-Befund, `wave:groups` ohne Hörer). Deren 3D-Vorschauen rendern mit
+30 FPS über einen zweiten WebGL-Renderer und kopieren jedes Bild per `drawImage` ins 2D-Canvas
+(`model-preview.service.ts`); in Firefox kostet das rund 6 ms je Bild (124 statt 69 FPS in derselben Szene, per
+Bisect auf `fe2d2c62`). `next` zahlt diese Kosten auch, der Vergleich oben ist fair.
 
-## Mehr Gegner (Studie 2026-09-29, nur geschätzt)
+## Mehr Gegner (gemessen 2026-09-29)
 
-Ziel: mehr Gegner gleichzeitig bei gleicher Bildrate (60 FPS, Tempo 4 gehalten), nicht mehr FPS. Alle Grenzen sind
-lineare Hochrechnungen aus einem Messpunkt (4800 Gegner, DevWorld, ohne Tiles); die Messkurve steht in TODO E72.
+Ziel: mehr Gegner gleichzeitig bei gleicher Bildrate, Tempo 4 gehalten. Messkurve mit `e2e/perf/sim-load.ts --steps
+3000,5000,8000,12000,16000 --speeds 4,1` (Produktions-Build, DevWorld, 40 Tower, sichtbare Fenster auf einem
+144-Hz-Monitor, Werte summiert über alle Pakete). Die Zeilen mit Tempo 1 direkt nach dem Auffüllen sind unbrauchbar:
+das Debug-Spawnen rechnet im Messfenster mit (Routenprofil je Pfadstück), deshalb nur Tempo 4:
 
-| Grenze bei 60 FPS | Firefox | Chromium |
-|---|---|---|
-| Worker, Tempo 4 (240 Sub-Steps/s) | ~5,5k bis 8k | ~8k bis 12k |
-| Worker, Tempo 1 | ~25k bis 30k | ~35k bis 45k |
-| Hauptthread, DevWorld | ~16k | ~45k |
-| Hauptthread, echte Karte (Tiles geraten) | ~10k bis 12k | ~35k |
+| Gegner (lebend) | Chromium FPS / p05 | Tempo | Worker | Firefox FPS / p05 | Tempo | Worker |
+|---|---|---|---|---|---|---|
+| ~2800 | 144 / 143 | 4,0 | 19 % | 86 / 36 | 4,0 | 20 % |
+| ~4500 | 144 / 143 | 4,0 | 20 % | 73 / 36 | 4,0 | 28 % |
+| ~7300 | 144 / 143 | 4,0 | 36 % | 69 / 36 | 3,8 | 43 % |
+| ~11000 | 143 / 143 | 4,0 | 63 % | 41 / 18 | 2,9 | 47 % |
+| ~14500 | 132 / 72 | 3,8 | 77 % | 33 / 16 | 2,0 | 50 % |
 
-Bei Tempo 4 bremst zuerst der Worker, bei Tempo 1 der Hauptthread oder die GPU. Die GPU ist nicht gemessen; die
-Gegner-Instanzen werden ohne Frustum-Culling gezeichnet (`enemy-instance.manager.ts`, `frustumCulled = false`).
+- **Chromium** hält 144 FPS und Tempo 4 bis rund 11000 Gegner; bei rund 14500 wird der Worker knapp (3,4 ms je
+  Spielzug, 77 % ausgelastet) und das Tempo sinkt auf 3,8.
+- **Firefox** hängt schon früh am Hauptthread, der Worker ist nie mehr als halb ausgelastet. Das Anwenden eines Pakets
+  kostet 2,5 ms bei 2800 und 11,7 ms bei 15000 Gegnern, rund 60 % davon `present` (Tabellen an die Renderer), rund
+  35 % `state` (Spiegel). Dazu die Vorschau-Kopie der Seitenleiste (siehe Kennzahlen). Weil ein Tick erst mit dem
+  nächsten Bild losgeht, bremst das langsame Bild auch das Spieltempo.
+- **GPU je Gegner** (Chromium ohne Bremse, Tempo 1, Gegner ein- und ausgeblendet): 0,3 ms bei 3000, 1,7 ms bei 8000,
+  4,7 ms bei 16000 Gegnern je Bild, also rund 0,3 µs je Gegner; bei 16000 mehr als die Hälfte des Bildes.
 
-Hebel, nach Wirkung auf die Gegnergrenze:
+Hebel nach den Messwerten:
 
-1. **Heiße Gegnerfelder als typisierte Arrays im SAB** (Position, Wegstrecke, Tempo, HP, Flags; die Paket-Tabelle
-   direkt daraus): Tick geschätzt 25 bis 45 % schneller, Grenze ×1,3 bis 1,8. Bitgleich nur mit Float64 und gleicher
-   Rechenreihenfolge. Voraussetzung für 2, denn JS-Objekte lassen sich nicht zwischen Workern teilen.
-2. **Mehrere Sim-Worker, phasenweise im Sub-Step**: parallel Bewegung, seriell Raster in Index-Reihenfolge, parallel
-   Zielsuche je Tower, seriell Feuer, Schaden, Events und Zufall. Mit 2 Workern etwa 1,6x, mit 4 etwa 2,2 bis 2,5x auf
-   den Tick; mit 1 zusammen Grenze ×2,5 bis 4. Braucht einen Schalter, der bitgleich auf einen Worker zurückfällt.
-   Aufteilung nach System (Bewegung gegen Kampf) bringt nichts, weil der Kampf auf die Bewegung wartet.
-3. **Hauptthread verschlanken**: Spiegel und Presenter laufen je einmal über alle Gegner mit eigener Map
-   (`sim-mirror.ts` applyEnemyTable, `frame-presenter.ts`); eine Schleife, Views nur bei Bedarf, Instanzpuffer direkt
-   aus der Tabelle. Wird erst nach 1 oder 2 bindend.
-4. **GPU je Gegner**: Culling pro Instanz, einfacheres Modell in der Entfernung, Lebensbalken nur nahe der Kamera.
-5. Kleinere Punkte: leere Ticks überspringen, Tower-Vergleich ohne `JSON.stringify` im PacketWriter, binäre Events,
-   WASM erst nach 1.
+1. **Hauptthread verschlanken** (vor allem Firefox): Spiegel und Presenter laufen je einmal über alle Gegner mit eigener
+   Map (`sim-mirror.ts` applyEnemyTable, `frame-presenter.ts`); eine Schleife, Views nur bei Bedarf, Instanzpuffer
+   direkt aus der Tabelle.
+2. **Vorschau der Seitenleiste ohne Kopie je Bild** (Firefox rund 6 ms je Bild, auch ohne Worker).
+3. **Tick vom Bild lösen**: den nächsten Tick losschicken, sobald das Paket da ist, statt beim nächsten Bild (braucht
+   zwei Tabellen-Puffer im SAB, weil der Hauptthread noch liest). Heute wartet der Worker bis zur Hälfte der Zeit.
+4. **GPU je Gegner**: Culling pro Instanz (die Gegner-Instanzen haben `frustumCulled = false`), einfacheres Modell in
+   der Entfernung, Lebensbalken nur nahe der Kamera.
+5. **Worker schneller** (Chromium ab rund 14000): Gegnerfelder als typisierte Arrays im SAB, danach mehrere Worker
+   phasenweise im Sub-Step. Erst wenn 1 bis 4 nicht reichen.
