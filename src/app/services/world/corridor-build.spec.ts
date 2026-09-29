@@ -33,6 +33,8 @@ describe('CorridorBuild', () => {
     towers: number;
     enemies: number;
     phase: string;
+    wave: number;
+    coop: boolean;
     engine: boolean;
     tiles: boolean;
     /** The tiles load until this time on the clock; Infinity: they never settle. */
@@ -136,7 +138,8 @@ describe('CorridorBuild', () => {
       world: { rebuildCells: () => calls.push('cells'), sendToSim: () => calls.push('sim') },
       grid,
       gridViz: grid,
-      scalars: () => ({ towerCount: state.towers, enemiesAlive: state.enemies, phase: state.phase }),
+      scalars: () => ({ towerCount: state.towers, enemiesAlive: state.enemies, phase: state.phase, waveNumber: state.wave }),
+      coopInGame: () => state.coop,
       engineInit: { getEngine: () => (state.engine ? engine : null) },
       pathRoute,
       routeAnimation: { isRunning: () => state.animation, startAnimation: () => calls.push('animation') },
@@ -155,7 +158,7 @@ describe('CorridorBuild', () => {
     camera = 20;
     runs = [];
     state = {
-      towers: 0, enemies: 0, phase: 'setup', engine: true, tiles: true, loadingUntil: 0, epoch: 1, slices: 1,
+      towers: 0, enemies: 0, phase: 'setup', wave: 0, coop: false, engine: true, tiles: true, loadingUntil: 0, epoch: 1, slices: 1,
       unmeasured: [0], bare: 0, promoted: 0, animation: false,
       regionTiles: () => null, paths: PATHS, tick: 0,
     };
@@ -523,7 +526,7 @@ describe('CorridorBuild', () => {
   });
 
   describe('change, for __corridor.set() and reset()', () => {
-    it('refuses without a location, under towers, a wave or enemies, and while a build is under way', async () => {
+    it('refuses without a location, under towers, a wave, enemies, a played run or a coop game, and while a build is under way', async () => {
       state.engine = false;
       expect(await corridor.change(() => [])).toBe('Not changed: no location loaded.');
       state.engine = true;
@@ -536,6 +539,13 @@ describe('CorridorBuild', () => {
       state.enemies = 1;
       expect(await corridor.change(() => [])).toBe('Not changed: enemies are on the map.');
       state.enemies = 0;
+      // A build ends in a fresh run: not once the run played a wave, not in a coop game (only here would start over)
+      state.wave = 3;
+      expect(await corridor.change(() => [])).toBe('Not changed: the run has played 3 wave(s), restart it first.');
+      state.wave = 0;
+      state.coop = true;
+      expect(await corridor.change(() => [])).toBe('Not changed: a coop game is running.');
+      state.coop = false;
       corridor.expect();
       expect(await corridor.change(() => [])).toBe('Not changed: the corridor is being built.');
       expect(calls).toEqual([]);
