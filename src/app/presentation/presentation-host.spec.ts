@@ -2,10 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Vector3 } from 'three';
 
 // The services have specs of their own; here only what the host wires
-vi.mock('../game-engine/vfx.service', () => ({ VFXService: class { destroy = vi.fn(); } }));
+vi.mock('../game-engine/vfx.service', () => ({
+  VFXService: class {
+    setQuietShot = vi.fn();
+    destroy = vi.fn();
+  },
+}));
 vi.mock('../game-engine/audio.service', () => ({
   AudioService: class {
     setGround = vi.fn();
+    setQuietShot = vi.fn();
     update = vi.fn();
     clearAbilitySounds = vi.fn();
     destroy = vi.fn();

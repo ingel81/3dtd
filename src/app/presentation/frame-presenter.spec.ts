@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Vector3 } from 'three';
-import { FramePresenter, TRAIL_SPAWN_DISTANCE_M, type PresenterEngine, type PresenterSource } from './frame-presenter';
+import { FramePresenter, TRAIL_SPAWN_DISTANCE_M, type PresenterEngine } from './frame-presenter';
 import {
   EF_ALIVE,
   EF_ANY_STATUS,
@@ -10,6 +10,8 @@ import {
   EF_SLOWED,
   EF_STUNNED,
   ENEMY_STRIDE,
+  ENEMY_TYPE_IDS,
+  E_TYPE,
   OOZE_STRIDE,
   OF_POISONED,
   PF_ROTATES,
@@ -21,11 +23,10 @@ import {
   type SimFramePacket,
   type SimTable,
 } from '../sim/protocol/packet';
-import { getEnemyType, type EnemyTypeId } from '../configs/enemy-types.config';
+import type { EnemyTypeId } from '../configs/enemy-types.config';
 import { STUN_SPARKS } from '../configs/visual-effects.config';
 import { WORM_SOUNDS } from '../configs/audio.config';
 import { veteranLevel } from '../configs/veteran-ranks.config';
-import type { EnemyView } from '../sim/client/views';
 
 const ORIGIN_HEIGHT = 100;
 
@@ -35,10 +36,15 @@ function table(stride: number, rows: number[][]): SimTable {
   return { data, count: rows.length };
 }
 
-/** An enemy row: id, lat, lon, terrain, height offset, rotation, hp, max hp, anim speed, flags */
-function enemyRow(id: number, flags: number, at: { lat?: number; lon?: number; terrain?: number; hp?: number } = {}): number[] {
+/** An enemy row: id, lat, lon, terrain, height offset, rotation, hp, max hp, anim speed, flags, type */
+function enemyRow(
+  id: number,
+  flags: number,
+  at: { lat?: number; lon?: number; terrain?: number; hp?: number; type?: EnemyTypeId } = {},
+): number[] {
   const row = new Array<number>(ENEMY_STRIDE).fill(0);
   row.splice(0, 10, id, at.lat ?? 0, at.lon ?? 0, at.terrain ?? 110, 2, 0.5, at.hp ?? 50, 100, 3, flags);
+  row[E_TYPE] = ENEMY_TYPE_IDS.indexOf(at.type ?? 'zombie');
   return row;
 }
 
@@ -135,13 +141,10 @@ function makeEngine() {
   return { engine, slots, partner };
 }
 
-function setup(types: Record<string, EnemyTypeId> = {}) {
+function setup() {
   const { engine, slots, partner } = makeEngine();
-  const source: PresenterSource = {
-    enemy: (id) => (types[id] ? ({ typeConfig: getEnemyType(types[id]) } as EnemyView) : null),
-  };
   const ground = { getGroundLocalYAt: () => null };
-  const presenter = new FramePresenter(engine as unknown as PresenterEngine, source, ground);
+  const presenter = new FramePresenter(engine as unknown as PresenterEngine, ground);
   return { presenter, engine, slots, partner };
 }
 
@@ -221,7 +224,7 @@ describe('FramePresenter', () => {
     });
 
     it('loops the moving sound of a type while the enemy walks and ends it when it stops or leaves', async () => {
-      const { presenter, engine } = setup({ 'enemy-7': 'zombie', 'enemy-8': 'zombie' });
+      const { presenter, engine } = setup();
       const audio = engine.spatialAudio;
       presenter.present(packet({ enemies: [enemyRow(7, EF_ALIVE | EF_MOVING), enemyRow(8, EF_ALIVE | EF_MOVING)] }));
       await settle();
@@ -238,12 +241,14 @@ describe('FramePresenter', () => {
       expect(audio.rebalanceEnemyLoops).toHaveBeenCalledTimes(3);
     });
 
-    it('builds a record anew for an enemy spawned again under its id', () => {
+    it('builds a record anew for an enemy spawned again under its id, or of another type under it', () => {
       const { presenter, engine } = setup();
       presenter.present(packet({ enemies: [enemyRow(7, EF_ALIVE)] }));
       presenter.forgetEnemy(7);
       presenter.present(packet({ enemies: [enemyRow(7, EF_ALIVE)] }));
       expect(engine.enemies.resolveSlot).toHaveBeenCalledTimes(2);
+      presenter.present(packet({ enemies: [enemyRow(7, EF_ALIVE, { type: 'tank' })] }));
+      expect(engine.enemies.resolveSlot).toHaveBeenCalledTimes(3);
     });
   });
 

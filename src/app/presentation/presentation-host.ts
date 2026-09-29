@@ -21,6 +21,7 @@ import { FramePresenter } from './frame-presenter';
 import { FlameSounds } from './flame-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
 import { registerCombatSounds } from './combat-sounds';
+import { QuietShots } from './quiet-shots';
 import { iceDecal, iceExplosion } from './ice-effects';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import type { ScorchGround } from '../three-engine/renderers/scorch-marks';
@@ -61,6 +62,7 @@ export class PresentationHost implements SimPresenterApi {
   readonly frame: FramePresenter;
   readonly ops: OpPlayer;
   readonly flames: FlameSounds;
+  readonly quietShots = new QuietShots();
 
   private readonly engine: ThreeTilesEngine;
   private readonly subs = new SubscriptionBag();
@@ -75,6 +77,8 @@ export class PresentationHost implements SimPresenterApi {
     this.audio = new AudioService(bus, engine);
     // Its ability loops (the siren) stand on the route grid's ground
     this.audio.setGround(ground);
+    this.audio.setQuietShot(this.quietShots.sound);
+    this.vfx.setQuietShot(this.quietShots.flash);
     this.gameSounds = new GameSoundsService(bus, engine);
     this.gameSounds.setGameSpeedSource(() => this.gameSpeed);
     this.screenShake = new ScreenShakeService(bus, engine);
@@ -89,7 +93,7 @@ export class PresentationHost implements SimPresenterApi {
     engine.hero.setGround(ground);
     engine.orbitalBeams.setGround(ground);
 
-    this.frame = new FramePresenter(engine, source, ground);
+    this.frame = new FramePresenter(engine, ground);
     this.flames = new FlameSounds(() => engine.spatialAudio ?? null);
     this.ops = new OpPlayer(engine);
     this.installOverrides(source, bus);
@@ -113,6 +117,7 @@ export class PresentationHost implements SimPresenterApi {
   present(packet: SimFramePacket): void {
     this.gameSpeed = packet.scalars.gameSpeed;
     this.frame.present(packet);
+    this.quietShots.endFrame();
   }
 
   advance(gameTimeDeltaMs: number): void {
@@ -178,6 +183,14 @@ export class PresentationHost implements SimPresenterApi {
     const hold = paused && !keepLoops;
     this.engine.spatialAudio.holdLoops(hold);
     this.backgroundMusic.setDimmed(hold);
+  }
+
+  /**
+   * Where a manned tower's shot shown at the click is known (ShotPrediction.take):
+   * the simulation's shot for it plays without sound and muzzle flash.
+   */
+  setShotPrediction(take: ((towerId: string) => boolean) | null): void {
+    this.quietShots.setSource(take);
   }
 
   /** A coop partner's hero in his lane colour; null takes the ring off. */

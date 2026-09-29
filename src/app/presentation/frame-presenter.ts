@@ -2,7 +2,7 @@ import { Vector3 } from 'three';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 import type { HeroRenderer } from '../three-engine/renderers/hero.renderer';
-import type { EnemyTypeConfig } from '../configs/enemy-types.config';
+import { ENEMY_TYPES, type EnemyTypeConfig, type EnemyTypeId } from '../configs/enemy-types.config';
 import { PROJECTILE_TYPES, type ProjectileTypeConfig } from '../configs/projectile-types.config';
 import { WORM_SOUNDS } from '../configs/audio.config';
 import { veteranLevel } from '../configs/veteran-ranks.config';
@@ -17,6 +17,8 @@ import {
   E_MAXHP,
   E_ROT,
   E_TERRAIN,
+  E_TYPE,
+  ENEMY_TYPE_IDS,
   EF_ALIVE,
   EF_BODY,
   EF_MOVING,
@@ -41,7 +43,6 @@ import {
   type HeroFrame,
   type SimFramePacket,
 } from '../sim/protocol/packet';
-import type { EnemyView } from '../sim/client/views';
 import { EnemyStatusVisuals } from './enemy-status-visuals';
 import { EnemySounds } from './enemy-sounds';
 import { OozePresenter, type PresentationGround } from './ooze-presenter';
@@ -69,16 +70,11 @@ export type PresenterEngine = Pick<
   | 'disposePartnerHero'
 >;
 
-/** What the presenter reads of the mirror: an enemy's type (sim/client/mirror) */
-export interface PresenterSource {
-  enemy(id: string): EnemyView | null;
-}
-
 /** An enemy the presenter has seen, by its number */
 interface EnemyRecord {
   readonly id: string;
-  /** Its type, from the mirror's view; null when the mirror had none (no sounds then) */
-  readonly type: EnemyTypeConfig | null;
+  /** Its type (E_TYPE); a row of another type under the same number is a new enemy */
+  readonly type: EnemyTypeConfig;
   /** Its render slot, resolved once; a released slot is resolved again */
   slot: EnemyInstanceState | null;
   /** The frame that last had it in the table */
@@ -105,7 +101,8 @@ interface ProjectileRecord {
  * own; veteran badges from the kills. What is created and removed comes as
  * ops (OpPlayer); here only the frame's state, in presented frames. What
  * the presenter keeps per entity goes when the entity is no longer in the
- * table of a presented frame.
+ * table of a presented frame. The tables are views into shared memory
+ * (sim/protocol/table-store.ts): read during present(), never kept.
  */
 export class FramePresenter {
   readonly statusVisuals = new EnemyStatusVisuals();
@@ -114,7 +111,7 @@ export class FramePresenter {
   readonly wormSounds = new WormSounds();
 
   private readonly enemies = new Map<number, EnemyRecord>();
-  /** Row offset of each alive enemy in this frame's table, for the worms' heads */
+  /** Row offset of each alive enemy in this frame's table, for the worms' heads (during present() only) */
   private readonly enemyRow = new Map<number, number>();
   private readonly projectiles = new Map<number, ProjectileRecord>();
   /** Kills per tower as last shown by its badge */
@@ -132,7 +129,6 @@ export class FramePresenter {
 
   constructor(
     private readonly engine: PresenterEngine,
-    private readonly source: PresenterSource,
     private readonly ground: PresentationGround,
   ) {
     this.oozes = new OozePresenter(ground);
@@ -151,6 +147,8 @@ export class FramePresenter {
       this.presentHeroes(packet.heroes, packet.scalars.localPlayerId);
       this.presentBadges(packet);
       this.engine.spatialAudio?.rebalanceEnemyLoops();
+      // The tables are views into shared memory, valid during present() only
+      this.enemyTable = null;
     }
     this.oozes.endFrame();
   }
@@ -159,11 +157,6 @@ export class FramePresenter {
   setPartnerHeroColor(playerId: string, color: number | null): void {
     this.partnerColors.set(playerId, color);
     this.partnerHeroes.get(playerId)?.setOwnerColor(color);
-  }
-
-  /** The enemy view of `id`, for the footstep listener. */
-  enemyView(id: string): EnemyView | null {
-    return this.source.enemy(id);
   }
 
   /**
@@ -225,10 +218,15 @@ export class FramePresenter {
     for (let r = 0; r < table.count; r++) {
       const o = r * ENEMY_STRIDE;
       const num = d[o + E_ID];
+      const type = ENEMY_TYPES[ENEMY_TYPE_IDS[d[o + E_TYPE]] as EnemyTypeId];
+      if (!type) continue;
       let record = this.enemies.get(num);
+      if (record !== undefined && record.type !== type) {
+        this.forgetEnemy(num);
+        record = undefined;
+      }
       if (record === undefined) {
-        const id = `enemy-${num}`;
-        record = { id, type: this.source.enemy(id)?.typeConfig ?? null, slot: null, seen: frame };
+        record = { id: `enemy-${num}`, type, slot: null, seen: frame };
         this.enemies.set(num, record);
       }
       record.seen = frame;
@@ -246,7 +244,7 @@ export class FramePresenter {
       engine.sync.geoToLocalSimpleInto(lat, lon, 0, pos);
       pos.y = bodyHeight - originHeight;
 
-      if (record.type !== null && audio !== null) {
+      if (audio !== null) {
         this.enemySounds.present(num, record.type, (flags & EF_MOVING) !== 0, pos, lat, lon, bodyHeight, deltaMs, audio);
       }
 

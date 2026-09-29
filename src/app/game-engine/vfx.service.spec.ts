@@ -45,6 +45,14 @@ function setup() {
 }
 
 describe('VFXService muzzle flash', () => {
+  it('stays dark for a shot shown at the click already', () => {
+    const { tilesEngine, service, fire } = setup();
+    service.setQuietShot((towerId) => towerId === 'tower-1');
+    fire('archer');
+    expect(tilesEngine.effects.spawnMuzzleFlash).not.toHaveBeenCalled();
+    service.destroy();
+  });
+
   it.each(['archer', 'dual-gatling', 'cannon', 'rocket'] as TowerTypeId[])(
     'flashes for %s with its own profile',
     (typeId) => {
