@@ -145,8 +145,6 @@ export class GameLoopFacadeService {
       ...createLoadStats(this.sim, () => this.bridge.getEngine()?.getScene() ?? null),
       emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
       speed: (value: number) => this.gameStore.gameSpeed.set(value),
-      // Holds the game while the load runner fills it: no enemy reaches the HQ meanwhile
-      pause: (paused: boolean) => this.gameStore.paused.set(paused),
       // Answers once the simulation's worker takes a call: whether it is alive
       ping: () => this.sim.rpc('worldKey'),
       tickProfile: () => this.sim.rpc('tickProfile'),
@@ -158,6 +156,7 @@ export class GameLoopFacadeService {
       },
       state: () => ({
         enemies: this.mirror.scalars.enemiesAlive,
+        pending: this.mirror.scalars.pendingSpawns,
         towers: this.mirror.scalars.towerCount,
         phase: this.mirror.scalars.phase,
         gameTimeMs: this.mirror.scalars.gameTimeMs,
