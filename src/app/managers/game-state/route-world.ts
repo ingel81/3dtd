@@ -67,6 +67,7 @@ export class RouteWorld {
   /** The key of the world the simulation stands on (worldKeyOf) */
   key(): string {
     const origin = this.host.coords.ready ? this.host.coords.sync.getOrigin() : null;
-    return worldKeyOf(this.host.grid.snapshotHeights(), this.host.waveManager.getPaths(), origin);
+    // The routes of the world as loaded (the wave pipeline takes them only in initialize, after the check)
+    return worldKeyOf(this.host.grid.snapshotHeights(), this.paths.values(), origin);
   }
 }
