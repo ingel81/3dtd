@@ -8,6 +8,7 @@ import type { LosMask } from '../../utils/los-mask';
 import type { CreditsSource, LosResolveReason, KilledBy, WaveGoldBreakdown } from './event-types';
 import type { WaveConfig as DirectorWave } from '../../director/models/wave-config';
 import type { WaveLogFields, WaveSourceId } from '../../director/wave-source';
+import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 
 export type LifecycleEvent =
   // ==================== Enemy Lifecycle ====================
@@ -185,6 +186,14 @@ export type LifecycleEvent =
       director: DirectorWave;
       waveSource: WaveSourceId;
       log: WaveLogFields;
+    }
+  | {
+      /**
+       * The sidebar's preview of the wave that starts (summarizeWaveGroups):
+       * one lane's composition. Live waves only, before wave:started.
+       */
+      type: 'wave:groups';
+      groups: WaveGroupDisplay[];
     }
   | {
       type: 'wave:started';

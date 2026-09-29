@@ -4,6 +4,8 @@ import type { GlobalRouteGridService } from '../../services/world/global-route-g
 import type { SimCoords } from '../../sim/core/sim-coords';
 import type { Tower } from '../../entities/tower.entity';
 import type { LosMask } from '../../utils/los-mask';
+import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
+import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 
 /**
  * The towers' line of sight in the simulation, as request and answer
@@ -30,6 +32,8 @@ export class TowerLos {
     private readonly grid: GlobalRouteGridService,
     private readonly coords: SimCoords,
     private readonly eventBus: GameEventBus,
+    /** Air targeting researched by a tower's owner (ResearchManager.airTargetingUnlocked) */
+    private readonly airTargetingFor: (playerId: string) => boolean,
   ) {}
 
   /** A placed tower waits for its first sight; it does not fire before it comes. */
@@ -50,7 +54,25 @@ export class TowerLos {
     // thread renders the tower as it stands when it gets to it)
     if (this.awaiting.has(tower)) return;
     this.awaiting.set(tower, reason);
-    this.eventBus.emit({ type: 'tower:los-needed', towerId: tower.id, reason });
+    this.announce(tower, reason);
+  }
+
+  /**
+   * `tower:los-needed` with what the main thread renders: the range (a
+   * placed tower's base range, else its range now) and the layers it may
+   * target, air as its owner's research has it now.
+   */
+  private announce(tower: Tower, reason: LosResolveReason): void {
+    const typeId = tower.typeConfig.id as TowerTypeId;
+    const config = TOWER_TYPES[typeId];
+    this.eventBus.emit({
+      type: 'tower:los-needed',
+      towerId: tower.id,
+      reason,
+      range: reason === 'place' ? config.range : tower.combat.range,
+      canTargetGround: config.canTargetGround ?? true,
+      canTargetAir: canTargetAirEffective(typeId, this.airTargetingFor(tower.ownerId)),
+    });
   }
 
   /**
@@ -120,7 +142,7 @@ export class TowerLos {
     this.awaiting.clear();
     for (const [tower, reason] of entries) {
       this.awaiting.set(tower, reason);
-      if (announce) this.eventBus.emit({ type: 'tower:los-needed', towerId: tower.id, reason });
+      if (announce) this.announce(tower, reason);
     }
   }
 }

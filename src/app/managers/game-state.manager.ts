@@ -231,7 +231,9 @@ export class GameStateManager {
   readonly credits = this.creditsLedger.credits;
 
   /** The towers' line of sight as request and answer, see TowerLos */
-  readonly towerLos = new TowerLos(this.globalRouteGrid, this.coords, this.eventBus);
+  readonly towerLos = new TowerLos(
+    this.globalRouteGrid, this.coords, this.eventBus, (playerId) => this.simResearch.airTargetingFor(playerId),
+  );
 
   /** Place, sell and upgrade rules, range refresh and guard heading of the towers */
   private readonly towerLifecycle = new TowerLifecycle(
@@ -601,12 +603,21 @@ export class GameStateManager {
     this.profiler = profiler;
   }
 
+  /** The main thread rebuilds the route corridor (SimConfig.corridorPending) */
+  private corridorBuilding = false;
+
   /**
-   * No world yet (loadWorld): no tower is placed and no wave starts. Holds
-   * for every way in: click, hotkey, auto start, wave director and the bot.
+   * No world yet (loadWorld), or the main thread rebuilds its corridor: no
+   * tower is placed and no wave starts. Holds for every way in: click,
+   * hotkey, auto start, wave director and the bot.
    */
   corridorPending(): boolean {
-    return !this.worldReady;
+    return !this.worldReady || this.corridorBuilding;
+  }
+
+  /** See corridorPending (SimConfig.corridorPending) */
+  setCorridorPending(pending: boolean): void {
+    this.corridorBuilding = pending;
   }
 
   /** Damage numbers on hits (display option, SimConfig.damageNumbers) */
@@ -1152,7 +1163,6 @@ export class GameStateManager {
 
     this.snapshots.waveStarted(config);
     this.waveManager.startWave(config);
-    this.releaseDebugEnemies();
   }
 
   /**
@@ -1171,14 +1181,6 @@ export class GameStateManager {
     // A wave without a plan: nothing spawns by itself, the wave snapshot carries no spawner
     this.snapshots.waveStarted({ schedule: { entries: [], baseDelay: 0 } });
     this.waveManager.beginWave();
-    this.releaseDebugEnemies();
-  }
-
-  /** A wave starts: the debug enemies placed standing walk off with it. */
-  private releaseDebugEnemies(): void {
-    for (const enemy of this.debugEnemies.all()) {
-      if (enemy.movement.paused && enemy.alive) enemy.startMoving();
-    }
   }
 
   /**
@@ -1219,19 +1221,29 @@ export class GameStateManager {
     this.towerLifecycle.turnToGuardIfClear();
   }
 
-  /** Enemy Debug: walk on or stand (debug:enemy-move) */
-  debugEnemyMove(enemyId: string, moving: boolean): void {
+  /** Enemy Debug: walk, run, start or stop one enemy (debug:enemy-move); the main thread shows the clip */
+  debugEnemyMove(enemyId: string, action: 'walk' | 'run' | 'start' | 'stop'): void {
     this.taintByCheat('debug:enemy-move');
     const enemy = this.enemyManager.getById(enemyId);
     if (!enemy) return;
-    if (!moving) enemy.stopMoving();
-    else if (enemy.alive) enemy.startMoving();
+    switch (action) {
+      case 'walk':
+      case 'run':
+        enemy.setRunning(action === 'run');
+        return;
+      case 'start':
+        if (enemy.alive) enemy.startMoving();
+        return;
+      case 'stop':
+        enemy.stopMoving();
+        return;
+    }
   }
 
-  /** Enemy Debug: run or walk (debug:enemy-run) */
-  debugEnemyRun(enemyId: string, running: boolean): void {
-    this.taintByCheat('debug:enemy-run');
-    this.enemyManager.getById(enemyId)?.setRunning(running);
+  /** Display option as a cheat: enemies stand still (debug:movement) */
+  debugMovement(enabled: boolean): void {
+    this.taintByCheat('debug:movement');
+    this.setMovementEnabled(enabled);
   }
 
   /** Enemy Debug: the speed of one enemy, or of every enemy on the map (debug:enemy-speed) */

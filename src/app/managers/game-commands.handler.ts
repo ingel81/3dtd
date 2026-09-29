@@ -404,11 +404,11 @@ export class GameCommandsHandler {
 
     // Enemy Debug's hands on a single enemy (or all of them, for the speed)
     this.on('debug:enemy-move', (event) => {
-      this.gsm.debugEnemyMove(event.enemyId, event.moving);
+      this.gsm.debugEnemyMove(event.enemyId, event.action);
     });
 
-    this.on('debug:enemy-run', (event) => {
-      this.gsm.debugEnemyRun(event.enemyId, event.running);
+    this.on('debug:movement', (event) => {
+      this.gsm.debugMovement(event.enabled);
     });
 
     this.on('debug:enemy-speed', (event) => {
