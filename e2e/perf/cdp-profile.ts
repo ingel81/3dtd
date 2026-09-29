@@ -64,18 +64,16 @@ export async function startProfiles(port: number, intervalUs = 200): Promise<() 
   const page = targetInfos.find((t) => t.type === 'page' && !t.url.startsWith('devtools'));
   if (!page) throw new Error('cdp-profile: no page target');
   const { sessionId: pageSession } = await cdp.send('Target.attachToTarget', { targetId: page.targetId, flatten: true }) as { sessionId: string };
-  let workerSession: string | null = null;
-  const attached = new Promise<void>((resolve) => {
-    cdp.on((m) => {
-      if (m.method === 'Target.attachedToTarget' && (m.params?.['targetInfo'] as { type: string }).type === 'worker') {
-        workerSession = m.params?.['sessionId'] as string;
-        resolve();
-      }
-    });
+  // The page has several workers (the simulation, the loop's heartbeat, tiles) under hashed names: all are profiled,
+  // the busiest is the simulation's
+  const workers: { session: string; url: string }[] = [];
+  cdp.on((m) => {
+    const info = m.params?.['targetInfo'] as { type: string; url: string } | undefined;
+    if (m.method === 'Target.attachedToTarget' && info?.type === 'worker') workers.push({ session: m.params?.['sessionId'] as string, url: info.url });
   });
   await cdp.send('Target.setAutoAttach', { autoAttach: true, waitForDebuggerOnStart: false, flatten: true }, pageSession);
-  await Promise.race([attached, new Promise((r) => setTimeout(r, 3000))]);
-  const sessions = [pageSession, ...(workerSession ? [workerSession] : [])];
+  await new Promise((r) => setTimeout(r, 2000));
+  const sessions = [pageSession, ...workers.map((w) => w.session)];
   for (const s of sessions) {
     await cdp.send('Profiler.enable', {}, s);
     await cdp.send('Profiler.setSamplingInterval', { interval: intervalUs }, s);
@@ -83,10 +81,21 @@ export async function startProfiles(port: number, intervalUs = 200): Promise<() 
   }
   return async () => {
     const main = (await cdp.send('Profiler.stop', {}, pageSession))['profile'] as CpuProfile;
-    const worker = workerSession ? (await cdp.send('Profiler.stop', {}, workerSession))['profile'] as CpuProfile : null;
+    let worker: CpuProfile | null = null;
+    for (const w of workers) {
+      const profile = (await cdp.send('Profiler.stop', {}, w.session))['profile'] as CpuProfile;
+      if (worker === null || busy(profile) > busy(worker)) worker = profile;
+    }
     cdp.close();
     return { main, worker };
   };
+}
+
+/** Share of the profile's samples outside (idle) and (program) */
+function busy(profile: CpuProfile): number {
+  const idle = new Set(profile.nodes.filter((n) => n.callFrame.functionName === '(idle)').map((n) => n.id));
+  const samples = profile.samples ?? [];
+  return samples.filter((s) => !idle.has(s)).length / Math.max(1, samples.length);
 }
 
 /** Self time per function, the top `limit` lines, as share of the profile's wall time and ms per second. */
