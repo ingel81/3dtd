@@ -74,6 +74,8 @@ export class EnemyView {
   worm: { readonly group: WormGroupView; readonly slot: number; head: boolean } | null = null;
   /** An ooze: the main thread has its stations through the renderer op, not here */
   hasBody = false;
+  /** Its row in the last packet's enemy table, -1 without one (the mirror's) */
+  row = -1;
   readonly movement: EnemyMovementView = {
     routeId: '',
     path: [],

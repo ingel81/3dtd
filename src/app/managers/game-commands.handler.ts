@@ -114,9 +114,12 @@ export class GameCommandsHandler {
   runTick(tick: number): void {
     const link = this.lockstep;
     if (!link) return;
+    let own = 0;
     for (const stamped of link.commandsAt(tick)) {
       this.execute(commandEvent(stamped.command), stamped.playerId);
+      if (stamped.playerId === link.playerId) own++;
     }
+    if (own > 0) link.commandsRan?.(own);
     link.release(tick);
   }
 
@@ -325,6 +328,10 @@ export class GameCommandsHandler {
 
   private attachWaveCommands(): void {
     this.on('command:start-wave', (event) => {
+      // One wave at a time: a second start (sent twice, both coop players
+      // at once) and one after the game ended take nothing. The simulation's
+      // own phase decides, so every client and a re-simulation drop alike.
+      if (this.gsm.phase() !== 'setup') return;
       if (event.director) {
         if (event.plan) {
           this.eventBus.emit({ type: 'wave:planned', director: event.director, waveSource: event.plan.waveSource, log: event.plan.log });

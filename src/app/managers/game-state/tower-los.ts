@@ -159,6 +159,16 @@ export class TowerLos {
     this.awaiting.clear();
   }
 
+  /**
+   * A new run counts its generations from 1: the worker outlives the runs,
+   * and a coop guest who joins fresh takes the host's masks only if both
+   * counted alike (gsm.reset). A snapshot restore sets the counter itself.
+   */
+  newRun(): void {
+    this.awaiting.clear();
+    this.nextGeneration = 1;
+  }
+
   isAwaiting(tower: Tower): boolean {
     return this.awaiting.has(tower);
   }

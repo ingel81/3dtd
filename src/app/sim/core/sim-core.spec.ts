@@ -209,6 +209,32 @@ describe('SimCore in the same thread', () => {
     }
   });
 
+  it('counts line-of-sight generations from 1 in a new run, so a fresh guest takes the masks of a host who played before', () => {
+    const main = mainWorld();
+    const place = { type: 'command:place-tower', typeId: 'archer', position: { lat: 60 / M, lon: 9 / M, height: 0 } };
+    // The host played a run alone before: its worker lives on
+    const host = new Driver(newCore(main.world));
+    host.send({ type: 'debug:add-credits', amount: 5000 });
+    for (let i = 0; i < 3; i++) host.send({ ...place, position: { ...place.position, lat: (60 + 40 * i) / M } });
+    for (const need of host.needs(host.tick())) host.send(answer(main, host.core, need));
+    host.tick();
+    host.core.loadWorld(main.world);
+    const guest = new Driver(newCore(main.world));
+
+    // Both place the same tower in the new run and take the same mask, as the relay hands it to both
+    GameObject.resetIdCounter();
+    host.send(place);
+    const [need] = host.needs(host.tick());
+    GameObject.resetIdCounter();
+    guest.send(place);
+    expect(guest.needs(guest.tick())).toEqual([need]);
+    const mask = answer(main, host.core, need);
+    host.send(mask);
+    guest.send(mask);
+    expect(host.tick().towerStates.map((s) => s.losReady)).toEqual([true]);
+    expect(guest.tick().towerStates.map((s) => s.losReady)).toEqual([true]);
+  });
+
   it('runs coop commands at the relay ticks the main thread hands over, and answers through `out`', () => {
     const main = mainWorld();
     const core = newCore(main.world);
@@ -226,13 +252,28 @@ describe('SimCore in the same thread', () => {
 
     // The relay stamped B's gift at tick 1; ticks 0 to 3 closed
     const gift = { tick: 1, seq: 1, playerId: 'b', command: { type: 'debug:add-credits', amount: 5 } as unknown as CommandData };
-    const delivery = { confirmedTick: 3, ticks: [0, 1, 2, 3].map((tick) => ({ tick, commands: tick === 1 ? [gift] : [] })) };
+    const own = { tick: 2, seq: 2, playerId: 'a', command: { type: 'debug:add-credits', amount: 7 } as unknown as CommandData };
+    const delivery = { confirmedTick: 3, ticks: [0, 1, 2, 3].map((tick) => ({ tick, commands: tick === 1 ? [gift] : tick === 2 ? [own] : [] })) };
     core.tick(input([], delivery, 1100), (m) => out.push(m));
     expect(core.gsm.creditsOf('b')).toBe(credits + 5);
+    // The own command ran here now: the input delay counts from this, not from the hand-over
+    expect(out.filter((m) => m.kind === 'lockstep-ran')).toEqual([{ kind: 'lockstep-ran', count: 1 }]);
     expect(core.gsm.subStep).toBeGreaterThan(0);
     expect(out.some((m) => m.kind === 'lockstep-hash')).toBe(true);
     expect(out.some((m) => m.kind === 'lockstep-frame')).toBe(true);
-    expect(core.gsm.commandLog.entries.map((e) => [e.playerId, e.step])).toEqual([['b', 1 * TICK_SUB_STEPS]]);
+    expect(core.gsm.commandLog.entries.map((e) => [e.playerId, e.step])).toEqual([['b', 1 * TICK_SUB_STEPS], ['a', 2 * TICK_SUB_STEPS]]);
+  });
+
+  it('starts no second wave while one runs', () => {
+    const main = mainWorld();
+    const drive = new Driver(newCore(main.world));
+    drive.send({ type: 'command:start-wave', config: wave });
+    expect(drive.tick().scalars.waveNumber).toBe(1);
+    drive.send({ type: 'command:start-wave', config: wave });
+    const packet = drive.tick();
+    expect(packet.scalars.phase).toBe('wave');
+    expect(packet.scalars.waveNumber).toBe(1);
+    expect(packet.events.filter((e) => e.type === 'wave:started')).toEqual([]);
   });
 
   it('writes the enemy table and keeps the tables out of the renderers with rendering off', () => {

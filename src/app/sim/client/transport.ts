@@ -71,6 +71,8 @@ export class WorkerTransport implements SimTransport {
     this.worker = new Worker(new URL('../worker/sim.worker', import.meta.url), { type: 'module' });
     this.worker.onmessage = (ev: MessageEvent<FromWorker>) => this.receive(ev.data);
     this.worker.onerror = (ev) => handlers.error(`worker: ${ev.message}`);
+    // A frame that cannot be read would leave its tick in flight for good
+    this.worker.onmessageerror = () => handlers.error('worker: a message from the simulation could not be read');
   }
 
   private post(message: ToWorker): void {

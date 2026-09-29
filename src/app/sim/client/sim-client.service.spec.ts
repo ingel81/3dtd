@@ -148,6 +148,23 @@ describe('SimClient', () => {
       expect(transport().ticks[1].commands).toEqual([]);
     });
 
+    it('sends no tick of the new run before the tick of the old run is back, and drops that one', () => {
+      const { client, transport, frame, presenter } = setup();
+      frame();
+      client.newRun();
+      client.loadWorld({} as never);
+      frame();
+      expect(transport().ticks).toHaveLength(1);
+
+      transport().handlers.frame(packet([event('tower:placed')]));
+      frame();
+      expect(presenter.present).not.toHaveBeenCalled();
+      expect(transport().ticks).toHaveLength(2);
+      transport().handlers.frame(packet());
+      frame();
+      expect(presenter.present).toHaveBeenCalledTimes(1);
+    });
+
     it('hands the new world\'s own resets on no second time, everything else as it comes', () => {
       const { client, transport, frame, seen } = setup();
       client.newRun();
@@ -158,6 +175,16 @@ describe('SimClient', () => {
       frame();
       expect(seen).toEqual(['game:reset', 'wave:started', 'game:reset']);
     });
+  });
+
+  it('tells the link when its own commands ran in the simulation, not when their tick went out', () => {
+    const { client, transport, frame } = setup();
+    const link = { confirmedTick: vi.fn(() => 0), commandsAt: vi.fn(() => []), release: vi.fn(), commandsRan: vi.fn() };
+    client.setLockstep(link as unknown as LockstepLink);
+    frame();
+    expect(link.commandsRan).not.toHaveBeenCalled();
+    transport().handlers.output({ kind: 'lockstep-ran', count: 2 });
+    expect(link.commandsRan).toHaveBeenCalledWith(2);
   });
 
   it('forgets lockstep, replay and the failure on a restart', () => {

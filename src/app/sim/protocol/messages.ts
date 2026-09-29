@@ -64,7 +64,8 @@ export interface SimTickInput {
 export type SimOutput =
   | { kind: 'lockstep-send'; command: CommandData }
   | { kind: 'lockstep-hash'; tick: number; hash: number; parts?: readonly number[] }
-  | { kind: 'lockstep-frame'; steps: number; blocked: boolean; behind: number };
+  | { kind: 'lockstep-frame'; steps: number; blocked: boolean; behind: number }
+  | { kind: 'lockstep-ran'; count: number };
 
 export interface SimCoreApi {
   /** Settings of the run that come from the main thread (wave source, dev flags); see SimConfig */

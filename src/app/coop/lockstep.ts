@@ -56,6 +56,11 @@ export interface LockstepLink {
    * report (coop/lockstep-stats.ts); a link may ignore it.
    */
   noteFrame?(steps: number, blocked: boolean, behind: number): void;
+  /**
+   * `count` commands of this client's player ran now (the input delay of
+   * the smoothness report); a link may ignore it.
+   */
+  commandsRan?(count: number): void;
 }
 
 /** The tick whose commands act at sub-step boundary `boundary`, or -1 when none act there. */

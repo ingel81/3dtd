@@ -58,11 +58,6 @@ export class PacketWriter {
     readonly store: TableStore = new TableStore(),
   ) {}
 
-  /** Everything sent is forgotten (a new world): the next packet sends every tower anew. */
-  forgetTowers(): void {
-    this.sent.clear();
-  }
-
   /** Where `enemy`'s route stands in the world's spawn list, -1 for none (E_ROUTE, EnemyRef.route) */
   readonly routeIndex = (enemy: Enemy): number => {
     const spawns = this.gsm.getSpawnPoints();

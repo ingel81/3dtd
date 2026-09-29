@@ -249,8 +249,8 @@ export class ReplayService {
     const waves = this.waves();
     const next = waves[waves.indexOf(entered.wave) + step];
     if (next === undefined) return;
-    await this.sim.rpc('replayExit');
-    this.entered = null;
+    // The simulation switches in replay mode (SimReplay.switchTo) and keeps
+    // a loaded file; replayExit would drop it and go back to the run's waves
     if (!(await this.open(next))) {
       this.exit();
       return;
@@ -406,8 +406,13 @@ export class ReplayService {
       this.fromFile.set(true);
       await this.enterAny(read.waves[0]);
       if (!this.active()) {
+        // Not entered (a gate, shots in the air, no replayable wave): the
+        // simulation lets go of the file, or saving would write its waves
+        // under this run's world and seed
         this.file = false;
         this.fromFile.set(false);
+        this.fileNote.set(null);
+        await this.sim.rpc('replayExit');
       }
     });
   }

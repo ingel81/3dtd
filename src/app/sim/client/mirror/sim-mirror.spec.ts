@@ -135,6 +135,26 @@ describe('SimMirror', () => {
       expect(mirror.enemy('enemy-5')).toBeNull();
     });
 
+    it('shows an event the numbers of its moment, and those of the table after the events', () => {
+      const bus = createMainEventBus();
+      const hp: number[] = [];
+      bus.on('enemy:spawned', (e) => hp.push(e.enemy.health.hp));
+      mirror.applyState(packet({ enemies: [{ num: 5, type: 'zombie', lat: 48.2, hp: 80, route: 0 }] }));
+
+      // The event was emitted sub-steps before the packet's end
+      feed(mirror, bus, packet({
+        enemies: [{ num: 5, type: 'zombie', lat: 48.3, hp: 40, route: 1, progress: 0.5 }],
+        events: [{ type: 'enemy:spawned', payload: { enemy: ref(5, { lat: 48.25, hp: 60, route: 0, pr: 0.25 }) } }],
+      }));
+
+      expect(hp).toEqual([60]);
+      const view = mirror.enemy('enemy-5')!;
+      expect(view.health.hp).toBe(40);
+      expect(view.position.lat).toBe(48.3);
+      expect(view.movement.getPathProgress()).toBe(0.5);
+      expect(view.movement.routeId).toBe('south');
+    });
+
     it('builds a view from a table row it has no ref for', () => {
       mirror.applyState(packet({ enemies: [{ num: 9, type: 'spider' }] }));
       expect(mirror.enemy('enemy-9')?.typeConfig.id).toBe('spider');
@@ -166,6 +186,24 @@ describe('SimMirror', () => {
       expect(group.chains).toBe(1);
       expect(group.type?.id).toBe('zombie');
       expect([...mirror.wormGroups()]).toEqual([group]);
+    });
+
+    it('shows the enemies and worms it held as gone when a new run clears it', () => {
+      const p = packet({
+        enemies: [{ num: 1, type: 'zombie' }, { num: 2, type: 'zombie' }],
+        worms: [{ group: 4, head: 1, remaining: 6, size: 6, hp: 500, maxHp: 600 }],
+        events: [{ type: 'enemy:spawned', payload: { enemy: ref(1, { worm: { g: 4, slot: 0, head: true } }) } }],
+      });
+      mirror.applyState(p);
+      const group = (mirror.importEvent(p.events[0]) as { enemy: EnemyView }).enemy.worm!.group;
+      const boss = mirror.enemy('enemy-2')!;
+
+      mirror.clear();
+
+      // What a holder (the boss bar) reads of them: gone, as a row that went
+      expect([boss.alive, boss.active]).toEqual([false, false]);
+      expect(group.remaining).toBe(0);
+      expect(group.chains).toBe(0);
     });
   });
 

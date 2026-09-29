@@ -52,4 +52,8 @@ export class DeliveredLink implements LockstepLink {
   noteFrame(steps: number, blocked: boolean, behind: number): void {
     this.out({ kind: 'lockstep-frame', steps, blocked, behind });
   }
+
+  commandsRan(count: number): void {
+    this.out({ kind: 'lockstep-ran', count });
+  }
 }
