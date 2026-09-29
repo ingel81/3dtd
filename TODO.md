@@ -189,6 +189,8 @@ Ideen (2026-09-27), nichts entschieden:
 - [ ] **E57 Simulation in einen Worker?** (**gemessen 2026-09-28**): Offline-Testwelt, Produktions-Build, Tempo 4 und
       5000 Gegner: die Simulation nimmt 67 bis 68 % des Bildes (24 FPS), bei Tempo 1 lohnt es nicht (Bild 7 bis 9 ms).
       Erst die beiden vollen Pools beheben (E68) und neu messen, dann über den Umbau entscheiden (grob 2 bis 4 Wochen).
+      **Konzept und Demo 2026-09-29** ([WORKER_PLAN.md](docs/WORKER_PLAN.md)): im Stellvertreter hält ein Worker 60 FPS
+      bei Tempo 4, wo der Hauptthread 24 schafft; `postMessage` reicht (0,1 ms je Bild), also keine COOP/COEP-Header.
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft. Offen:
       Darstellung nach dem Laden (Augen), Stände über 1 MB.

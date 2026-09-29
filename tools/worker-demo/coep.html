@@ -1,0 +1,35 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>COEP check</title>
+<pre id="out">running…</pre>
+<script type="module">
+// Which of the game's foreign sources still answer a page under COOP/COEP. One small request each,
+// no keys: a 401/403 with a readable answer means CORS lets it through; a TypeError means blocked.
+const URLS = {
+  cesiumIon: 'https://api.cesium.com/v1/assets/2275207/endpoint',
+  googleTiles: 'https://tile.googleapis.com/v1/3dtiles/root.json',
+  overpass: 'https://overpass-api.de/api/status',
+  overpassKumi: 'https://overpass.kumi.systems/api/status',
+  overpassCoffee: 'https://overpass.private.coffee/api/status',
+  nominatim: 'https://nominatim.openstreetmap.org/status?format=json',
+};
+const out = { crossOriginIsolated, sharedArrayBuffer: typeof SharedArrayBuffer === 'function' };
+for (const [name, url] of Object.entries(URLS)) {
+  try {
+    const res = await fetch(url, { mode: 'cors', signal: AbortSignal.timeout(10_000) });
+    out[name] = { cors: res.status, corp: res.headers.get('cross-origin-resource-policy') };
+  } catch (error) {
+    out[name] = { cors: `blocked: ${error.message}` };
+  }
+}
+// A worker from the page's own origin, as the game's heartbeat worker
+try {
+  const w = new Worker('./worker.js', { type: 'module' });
+  w.terminate();
+  out.worker = 'ok';
+} catch (error) {
+  out.worker = `failed: ${error.message}`;
+}
+window.__result = out;
+document.getElementById('out').textContent = JSON.stringify(out, null, 1);
+</script>

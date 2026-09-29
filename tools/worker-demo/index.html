@@ -1,0 +1,131 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Worker demo</title>
+<pre id="out">running…</pre>
+<script type="module">
+import { createSim, stepSim, writeView, FLOATS, STEP_MS } from './sim.js';
+
+const q = new URLSearchParams(location.search);
+const mode = q.get('mode') ?? 'sab';          // main | post | sab
+const n = Number(q.get('n') ?? 5000);
+const speed = Number(q.get('speed') ?? 1);
+const busyMs = Number(q.get('busy') ?? 0);     // stand-in cost of one sub-step
+const seconds = Number(q.get('seconds') ?? 8);
+const renderMs = Number(q.get('render') ?? 0); // stand-in for the renderer's cost per frame, every mode
+const now = () => performance.timeOrigin + performance.now();
+
+const render = new Float32Array(n * FLOATS);   // what the renderer would read
+const frameWork = [];   // main-thread ms per frame spent on the sim's state (sim itself in main mode)
+const intervals = [];   // ms between frames
+const staleness = [];   // ms from publish to the frame that shows it
+const inputLatency = [];// ms from a command to the first frame that shows it applied
+const handlerMs = [];   // post: ms in onmessage per message
+let lastFrame = 0;
+let shownCommand = 0;
+let latestStamp = 0;
+let latestCommand = 0;
+let pendingCommands = [];
+let latestStep = 0;
+const startedAt = now();
+
+if (mode !== 'main' && mode !== 'post' && !crossOriginIsolated) {
+  document.getElementById('out').textContent = JSON.stringify({ error: 'not crossOriginIsolated', mode });
+  window.__result = { error: 'not crossOriginIsolated', mode, crossOriginIsolated };
+  throw new Error('no SAB');
+}
+
+let worker = null, header = null, times = null, slots = null, sim = null, carry = 0, lastSim = now();
+if (mode === 'main') {
+  sim = createSim(n);
+} else {
+  worker = new Worker('./worker.js', { type: 'module' });
+  if (mode === 'sab') {
+    const sab = new SharedArrayBuffer(96 + 3 * n * FLOATS * 4);
+    header = new Int32Array(sab, 0, 8);
+    times = new Float64Array(sab, 32, 8);
+    slots = [0, 1, 2].map((i) => new Float32Array(sab, 96 + i * n * FLOATS * 4, n * FLOATS));
+    Atomics.store(header, 0, -1);
+    Atomics.store(header, 2, -1);
+    worker.postMessage({ t: 'init', mode, n, speed, busyMs, sab });
+  } else {
+    worker.onmessage = (e) => {
+      const t0 = performance.now();
+      const m = e.data;
+      render.set(m.buf);
+      latestStamp = m.stamp;
+      latestCommand = m.command;
+      latestStep = m.step;
+      worker.postMessage({ t: 'buffer', buf: m.buf }, [m.buf.buffer]);
+      handlerMs.push(performance.now() - t0);
+    };
+    worker.postMessage({ t: 'init', mode, n, speed, busyMs });
+  }
+}
+
+// A command every 250 ms, as a click would send one
+setInterval(() => {
+  const t0 = now();
+  pendingCommands.push(t0);
+  if (worker) worker.postMessage({ t: 'cmd', t0 });
+  else sim.lastCommand = t0; // main: applied at the next sub-step, seen by the next frame
+}, 250);
+
+function frame() {
+  const t = now();
+  const start = performance.now();
+  if (mode === 'main') {
+    carry += (t - lastSim) * speed;
+    lastSim = t;
+    let steps = 0;
+    while (carry >= STEP_MS && steps < 8 * Math.max(1, speed)) { stepSim(sim, busyMs); carry -= STEP_MS; steps++; }
+    writeView(sim, render);
+    latestStamp = now();
+    latestCommand = sim.lastCommand;
+    latestStep = sim.step;
+  } else if (mode === 'sab') {
+    const slot = Atomics.load(header, 0);
+    if (slot >= 0) {
+      Atomics.store(header, 2, slot);
+      render.set(slots[slot]);
+      latestStamp = times[slot * 2];
+      latestCommand = times[slot * 2 + 1];
+      latestStep = Atomics.load(header, 3);
+      Atomics.store(header, 2, -1);
+    }
+  }
+  const work = performance.now() - start;
+  if (renderMs > 0) { const end = performance.now() + renderMs; while (performance.now() < end) { /* the render */ } }
+  if (lastFrame) {
+    intervals.push(t - lastFrame);
+    frameWork.push(mode === 'post' ? handlerMs.splice(0).reduce((a, b) => a + b, 0) + work : work);
+    if (latestStamp) staleness.push(t - latestStamp);
+  }
+  lastFrame = t;
+  if (latestCommand && latestCommand !== shownCommand) {
+    shownCommand = latestCommand;
+    const i = pendingCommands.indexOf(latestCommand);
+    if (i >= 0) { inputLatency.push(t - latestCommand); pendingCommands = pendingCommands.slice(i + 1); }
+  }
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+
+const stats = (xs) => {
+  const s = [...xs].sort((a, b) => a - b);
+  const pick = (p) => s.length ? +s[Math.min(s.length - 1, Math.floor(s.length * p))].toFixed(3) : null;
+  return { median: pick(0.5), p95: pick(0.95), max: pick(1), n: s.length };
+};
+setTimeout(() => {
+  const result = {
+    mode, n, speed, busyMs, renderMs, crossOriginIsolated,
+    effectiveSpeed: +((latestStep * STEP_MS) / (now() - startedAt)).toFixed(2),
+    fps: +(1000 / stats(intervals).median).toFixed(1),
+    frameInterval: stats(intervals),
+    mainWorkPerFrame: stats(frameWork),
+    staleness: stats(staleness),
+    inputLatency: stats(inputLatency),
+  };
+  window.__result = result;
+  document.getElementById('out').textContent = JSON.stringify(result, null, 1);
+}, seconds * 1000);
+</script>
