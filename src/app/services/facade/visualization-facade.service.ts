@@ -30,7 +30,7 @@ import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { SimClient } from '../../sim/client/sim-client.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
-import { PresentationRef } from '../presentation-ref.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { TowerTypeId } from '../../configs/tower-types.config';
 import { Vector3 } from 'three';
@@ -115,7 +115,7 @@ export class VisualizationFacadeService {
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
   private readonly world = inject(MainWorldService);
-  private readonly presentation = inject(PresentationRef);
+  private readonly presentation = inject(PresentationService);
 
   /** The one owner of the route corridor, built once per route set (CorridorBuild). */
   private readonly corridor = new CorridorBuild({
@@ -713,7 +713,7 @@ export class VisualizationFacadeService {
     if (wasLoading && !isNowLoading) {
       cameraTimeline.record('loading.done', { isApplying });
       // Transition from opening music → build phase music now that loading screen is gone
-      this.presentation.host?.backgroundMusic.onLoadingComplete();
+      this.presentation.onLoadingComplete();
 
       if (!this.routeAnimation.isRunning() && !isApplying) {
         const cachedPaths = this.pathRoute.getCachedPaths();

@@ -21,7 +21,7 @@ import {
 import { LocationDialogData, LocationDialogResult, SavedSpawn } from '../../models/location.types';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
-import { PresentationRef } from '../presentation-ref.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 import { LocationChangeCoordinatorService, LocationFlowDelegate } from '../location/location-change-coordinator.service';
 import { LocationChangeCallbacks } from '../location/location-change-executor.service';
@@ -80,7 +80,7 @@ interface ComponentContext {
 export class LocationFacadeService {
   private readonly world = inject(MainWorldService);
   private readonly grid = inject(GlobalRouteGridService);
-  private readonly presentation = inject(PresentationRef);
+  private readonly presentation = inject(PresentationService);
   private readonly osmService = inject(OsmStreetService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);

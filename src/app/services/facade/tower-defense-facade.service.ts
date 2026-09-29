@@ -14,7 +14,7 @@ import { StrategicPlacementService } from '../world/strategic-placement.service'
 import { SimClient } from '../../sim/client/sim-client.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { PresentationHost } from '../../presentation/presentation-host';
-import { PresentationRef } from '../presentation-ref.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { TowerLosRegistry } from '../tower-los-registry';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { BotClientService } from '../../bots/bot-client.service';
@@ -117,7 +117,7 @@ export class TowerDefenseFacadeService {
   private readonly bestWaves = inject(BestWaveService);
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
-  private readonly presentation = inject(PresentationRef);
+  private readonly presentation = inject(PresentationService);
   private readonly los = inject(TowerLosRegistry);
   private readonly grid = inject(GlobalRouteGridService);
 
@@ -260,8 +260,7 @@ export class TowerDefenseFacadeService {
     uiSound.disconnect();
     this.los.detach();
     this.sim.setPresenter(null);
-    this.presentation.host?.destroy();
-    this.presentation.host = null;
+    this.dropPresentation();
     this.sim.stop();
     this.mirror.clear();
     this.gameLoopFacade.dispose();
@@ -281,6 +280,14 @@ export class TowerDefenseFacadeService {
     }
 
     this.initialized = false;
+  }
+
+  /** The presentation of the engine going away: detached from the UI's handle, its services off the bus. */
+  private dropPresentation(): void {
+    const old = this.presentation.host;
+    if (!old) return;
+    this.presentation.detach(old);
+    old.destroy();
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -357,9 +364,9 @@ export class TowerDefenseFacadeService {
 
         // The look and sound of the simulation on this engine: the packets'
         // ops and tables, the main bus's events (docs/SIM_WORKER.md)
-        this.presentation.host?.destroy();
+        this.dropPresentation();
         const host = new PresentationHost({ engine, bus: this.sim.bus, source: this.mirror, ground: this.grid });
-        this.presentation.host = host;
+        this.presentation.attach(host);
         this.sim.setPresenter(host);
         // Lines of sight render here on the simulation's request
         this.los.attach(engine);

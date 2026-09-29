@@ -21,7 +21,7 @@ import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { TowerSelectionService } from '../tower-selection.service';
-import { PresentationRef } from '../presentation-ref.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { GameStore } from '../../store/game.store';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
@@ -81,7 +81,7 @@ export class GameLoopFacadeService {
   private readonly world = inject(MainWorldService);
   private readonly grid = inject(GlobalRouteGridService);
   private readonly selection = inject(TowerSelectionService);
-  private readonly presentation = inject(PresentationRef);
+  private readonly presentation = inject(PresentationService);
   private readonly gameStore = inject(GameStore);
   /** Coop, where the game runs one (component scope); the wave button means "ready" there */
   private readonly coop = inject(COOP, { optional: true });
