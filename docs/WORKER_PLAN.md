@@ -1,7 +1,8 @@
 # Simulation in einem Worker (Konzept, TODO E57)
 
-Stand 2026-09-29: Konzept und Demo, nichts im Spiel gebaut. Zahlen aus der Demo (`tools/worker-demo`,
-`e2e/perf/worker-demo.ts`), einem Stellvertreter der Simulation, nicht aus dem Spiel.
+Stand 2026-09-29: Konzept, Demo und Stufe 1, nichts im Spiel gebaut. Die Zahlen unter „Demo“ stammen aus einem
+Stellvertreter der Simulation (`tools/worker-demo`, `e2e/perf/worker-demo.ts`), die unter „Stufe 1“ aus der echten
+Simulation ohne Bild (`tools/worker-sim`, `e2e/perf/worker-sim.ts`).
 
 ## Frage
 
@@ -49,6 +50,80 @@ Cesium Ion (`api.cesium.com`), Google Tiles (`tile.googleapis.com`), Overpass (`
 weiter: alle antworten mit CORS. Die Ausweich-Server `overpass.kumi.systems` und `overpass.private.coffee` liefen in
 allen drei Varianten in den Timeout (10 s), auch ohne Header, das lag an den Servern. Schriften liefert das Spiel
 selbst. Nicht geprüft: die Tile-Inhalte mit Schlüssel (dieselben Hosts, Kartensitzung) und Safari.
+
+## Stufe 1: die echte Simulation im Worker
+
+Frage: Läuft der echte `GameStateManager` ohne Bild in einem Web Worker, rechnet er dort bitgleich, und was kostet ein
+Sub-Step?
+
+**Aufbau** (`tools/worker-sim`): ein esbuild-Bündel aus der Spec-Welt (`sim-world.ts`, `sim-step-bench.ts`): echter
+`GameStateManager` mit Routenraster, Kampf, Schaden, Geschossen, acht Tower auf zwei Routen, Engine als No-op-Stub.
+`@angular/core` ist das echte Modul, nur `inject`, `Injectable` und `effect` sind ersetzt wie in den Specs
+(`angular-shim.ts`). Dasselbe Bündel läuft im Hauptthread und in einem Modul-Worker, die Seite ist cross-origin
+isolated (feine Zeitauflösung in Firefox).
+
+- Ein Lauf von vier Wellen wird im Hauptthread von Chromium aufgezeichnet: gemischt mit Befehlen (Upgrade,
+  Zielwahl, Held, Feuerpause, Fähigkeit), Ooze, Wurm und Splitter, Würmer auf beiden Routen, 400 Gegner.
+- Die Replay-Datei (123 kB) geht in eine frische Welt, Welle für Welle nachgerechnet (`Resimulation`), in Chromium und
+  Firefox, jeweils Hauptthread und Worker.
+- Sub-Step bei 5000 Gegnern (4 Routen, 120 Tower, `createSimBench`), 600 Sub-Steps, beste von drei Runden.
+
+**Bitgleich:** ja. Alle 1453 Prüfsummen der vier Wellen (alle 60 Sub-Steps) und der Stand am Ende jeder Welle sind in
+allen vier Kombinationen gleich dem aufgezeichneten Lauf, auch in Firefox gegen die Aufzeichnung aus Chromium.
+Die ganze Nachrechnung (rund 87 000 Sub-Steps) dauert in Chromium 0,7 s im Hauptthread und 0,85 s im Worker, in Firefox
+2,0 bis 2,2 s auf beiden Seiten.
+
+**Kosten je Sub-Step bei 5000 Gegnern** (zweiter Lauf, ein Windows-Rechner, headless):
+
+| Browser | Ort | Tempo | Median | p95 | davon Kampf |
+|---|---|---|---|---|---|
+| Chromium | Hauptthread | 1 | 1,80 ms | 3,24 ms | 0,58 ms |
+| Chromium | Hauptthread | 4 | 1,95 ms | 3,22 ms | 0,57 ms |
+| Chromium | Worker | 1 | 1,57 ms | 3,07 ms | 0,51 ms |
+| Chromium | Worker | 4 | 1,77 ms | 3,31 ms | 0,52 ms |
+| Firefox | Hauptthread | 1 | 3,76 ms | 4,92 ms | 1,60 ms |
+| Firefox | Hauptthread | 4 | 3,76 ms | 5,68 ms | 1,65 ms |
+| Firefox | Worker | 1 | 3,84 ms | 5,26 ms | 1,90 ms |
+| Firefox | Worker | 4 | 4,00 ms | 5,30 ms | 1,76 ms |
+
+- Der Worker rechnet so schnell wie der Hauptthread; die Unterschiede liegen im Rauschen zwischen den Läufen.
+- Die Zahlen sind ohne Darstellung: jeder Aufruf an die Engine ist ein No-op. E57 hat im Spiel 2,8 ms je Sub-Step
+  gemessen, mit den echten Renderer- und Audio-Aufrufen. Genau diese Aufrufe fielen im Worker weg (siehe unten).
+- Firefox braucht rund das Doppelte von Chromium. Ein Gesamtlauf zeigte in Firefox einmal 38 bis 42 ms je Sub-Step
+  und 38 s für die Nachrechnung; einzeln und im zweiten Gesamtlauf wieder 3,5 bis 4 ms. Die Ursache ist nicht
+  geklärt, der Lauf ist verworfen.
+
+**Was beim Laden im Worker bricht:** nichts. Das Bündel zieht Three.js, das echte `@angular/core` und die Manager mit
+Audio- und VFX-Diensten; keines greift beim Laden auf DOM, WebGL oder Web Audio zu. Zur Laufzeit gab es keine Fehler,
+keine verworfenen Promises. Einzige Anfrage nach außen: `BackgroundMusicService` lädt die Musik per `fetch`
+(im Labor 404, im Worker relativ zum Bündel).
+
+**Was die Simulation zur Laufzeit außerhalb anfasst** (`reach` im Labor: Engine und nicht gelieferte Dienste hinter
+einem zählenden Proxy, die vier Wellen einmal). Das ist die Kopplungsliste für Stufe 2:
+
+| Bereich | Aufrufe (Anzahl im Lauf) | Art |
+|---|---|---|
+| Koordinaten | `sync.geoToLocalSimpleInto` (2,3 Mio.), `getOrigin`, `geoToLocalSimple`, `localToGeo` | reine Rechnung, braucht die Simulation selbst: im Worker als eigene Instanz des Bezugsrahmens |
+| Gelände | `getTerrainHeightAtGeo` (1783) | **liest zurück**: Spawn-Höhe aus den Tiles, wo das Routenraster nichts hat (`enemy.manager.ts`, E63 b); im Worker gibt es keine Tiles |
+| Ton | `spatialAudio.rebalanceEnemyLoops` (je Sub-Step), `playAtGeo`, `registerSound`, `geoToLocalPosition`, `playGlobal`, `getListener`, `holdLoops`; Musik lädt per `fetch` | Meldung |
+| Gegner | `enemies.create`, `remove`, `playDeathAnimation`, `setRenderType`, `clear`, `setFootstepListener`; `oozes.add`, `setFrame`, `collapse`, `remove` | Meldung |
+| Geschosse | `projectiles.create`, `remove`, `trailStreaks.create`, `remove` | Meldung |
+| Tower | `towers.create`, `setPartShown`, `setHoldFire`, `get` (1022, VFX und Ton lesen den Startpunkt der Rakete), `towerBadges`, `searchlights`, `tentacles.resetAllToIdle`, `flameBeams.stopBeam` (je Sub-Step), `lightningBolts` | Meldung; `get` liest für die Darstellung |
+| Effekte | `effects.*` (Schadenszahl, Blut, Explosion, Brandfleck, Eis, Burst), `frostBursts`, `orbitalBeams`, `abilityMarkers`, `bloodMoon.setActive`, `triggerScreenShake`, `getCamera` (Abstand fürs Wackeln) | Meldung |
+| Held | `hero.present`, `hero.setGround` | Meldung |
+| Engine | `setTimescale` (je Bild), `setRenderingEnabled`, `getScene` (Debug-Anzeige des Rasters) | Meldung |
+| Dienste ohne Lieferung | `GameStore.renderingEnabled`, `HQDamageService.initialize`, `WaveDebugService.setCurrentWaveGroups`; dazu injiziert, nicht aufgerufen: `UIStore`, `MarkerVisualizationService` | Stores und Anzeige |
+
+Folgerung: Bis auf die Spawn-Höhe aus den Tiles liest die Simulation nichts von der Darstellung zurück; alles andere
+sind Meldungen, die sich als Ereignisliste je Bild bündeln lassen. Die Mathe des Bezugsrahmens muss mit in den Worker.
+`VfxService`, `AudioService` und `ScreenShakeService` hängen heute am Event-Bus der Simulation und gehören auf die
+Hauptthread-Seite.
+
+Nicht geprüft: eine echte Karte (Routen, Höhen und Tile-Fallback aus einem Weltpaket), der Coop-Pfad im Worker, und
+ob die gestubbten Stores im Spiel Werte in die Simulation zurückgeben.
+
+Nachmessen: `node tools/worker-sim/build.mjs`, `node tools/worker-sim/server.mjs`, dann
+`node e2e/perf/worker-sim.ts [Gegner] [chromium,firefox] [--no-bench] [--reach]`.
 
 ## Vorschlag
 

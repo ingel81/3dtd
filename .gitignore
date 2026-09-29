@@ -93,3 +93,4 @@ e2e/playwright-report
 e2e/test-results
 bot-server/run-report.html
 bot-server/_*.py
+tools/worker-sim/dist/
