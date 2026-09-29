@@ -115,6 +115,12 @@ export interface TowerTargetRow {
  */
 export interface SimRpc {
   reset(seed?: number): void;
+  /**
+   * The commands given since the last tick, applied now as a tick applies
+   * them at its boundary (SimClient.rpc sends them ahead of any other call,
+   * so a call acts on the state they leave).
+   */
+  applyCommands(commands: QueuedCommand[]): void;
   worldKey(): string;
   stateHash(): number;
   hashBreakdownAt(tick: number): unknown;
