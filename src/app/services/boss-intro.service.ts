@@ -2,7 +2,8 @@ import { DestroyRef, Injectable, NgZone, computed, inject, signal } from '@angul
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { MatDialog } from '@angular/material/dialog';
 import { Quaternion, Vector3, type PerspectiveCamera } from 'three';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
 import { BotClientService } from '../bots/bot-client.service';
@@ -13,7 +14,7 @@ import { KeyboardPanService } from './keyboard-pan.service';
 import { IntroCameraFlightService } from './world/intro-camera-flight.service';
 import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/renderers/marker/spawn-portal-pose';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { Enemy } from '../entities/enemy.entity';
+import type { EnemyView } from '../sim/client/views';
 import type { RouteWaypoint } from '../models/game.types';
 import { routePathToLocalPoints } from '../utils/route-path.util';
 import { cameraTimeline } from '../utils/camera-timeline';
@@ -52,7 +53,7 @@ export interface BossIntroCard {
 
 /** A boss the gate let through, until it has stepped out of its portal. */
 interface WaitingBoss {
-  enemy: Enemy;
+  enemy: EnemyView;
   wave: number;
   portalScale: number;
   /** Route distance at which it stands in front of the portal (m), an ooze's tip further out (bossClearDistance) */
@@ -94,12 +95,13 @@ interface IntroRun {
  * game keys wait (handleKeyDown). Ticked per frame from
  * GameLoopFacadeService.onEngineUpdate, after
  * the game's sub-steps, so a boss that clears its portal in a frame cuts in
- * that frame. Provided by the game component: it listens on the
- * component-scoped GameStateManager's bus.
+ * that frame. Provided by the game component; it listens on SimClient.bus
+ * and follows the boss's view (SimMirror).
  */
 @Injectable()
 export class BossIntroService {
-  private readonly gameState = inject(GameStateManager);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
   private readonly botClient = inject(BotClientService);
@@ -133,7 +135,7 @@ export class BossIntroService {
     typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : BOSS_SHOT.dolly;
 
   constructor() {
-    const bus = this.gameState.getEventBus();
+    const bus = this.sim.bus;
     const subs = [
       bus.onLive('enemy:spawned', (event) => this.onSpawned(event.enemy, event.viaPortal === true)),
       // A worm is one boss out of the portal, its segments come without viaPortal
@@ -181,9 +183,9 @@ export class BossIntroService {
   }
 
   /** Inside a sub-step: only note the boss, update() decides once it is out. */
-  private onSpawned(enemy: Enemy, viaPortal: boolean): void {
+  private onSpawned(enemy: EnemyView, viaPortal: boolean): void {
     if (!viaPortal || !enemy.typeConfig.isBoss) return;
-    const wave = this.gameState.waveNumber();
+    const wave = this.mirror.scalars.waveNumber;
     if (!this.gate.admit(enemy.typeConfig.id, wave)) return;
     const start = enemy.movement.path[0];
     if (!start) return;

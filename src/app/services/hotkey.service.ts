@@ -2,7 +2,7 @@ import { Injectable, Injector, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { getAllTowerTypes } from '../configs/tower-types.config';
 import { stepGameSpeed } from '../configs/game-speed.config';
-import { GameStateManager } from '../managers/game-state.manager';
+import { TowerSelectionService } from './tower-selection.service';
 import { GameStore } from '../store/game.store';
 import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
@@ -45,7 +45,7 @@ export class HotkeyService {
   // The research dialog emits commands through the facade, which lives in this
   // injector rather than in root (openResearchDialog).
   private readonly injector = inject(Injector);
-  private readonly gameState = inject(GameStateManager);
+  private readonly selection = inject(TowerSelectionService);
   private readonly store = inject(TowerDefenseStore);
   private readonly gameStore = inject(GameStore);
   private readonly uiStore = inject(UIStore);
@@ -327,7 +327,7 @@ export class HotkeyService {
       return true;
     }
     if (this.store.selectedTower()) {
-      this.gameState.towerManager.selectTower(null);
+      this.selection.select(null);
       return true;
     }
     // The coop dock closes, the room stays open (docs/COOP_UI_REWORK_PLAN.md, U5)
