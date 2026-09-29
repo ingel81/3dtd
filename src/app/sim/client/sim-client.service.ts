@@ -150,10 +150,13 @@ export class SimClient {
    * not reach the new tower-3); mirror and presentation are cleared, and the
    * stores and services hear game:reset now. The simulation's own resets
    * that come with the new world's first packet are not handed on again.
+   *
+   * A tick in flight stays in flight until its packet is back (dropped by
+   * its epoch): a second tick meanwhile would have the worker write the
+   * tables while this thread reads them.
    */
   newRun(): void {
     this.epoch++;
-    this.inFlight = false;
     this.commands = [];
     this.pendingPackets = [];
     this.lastGameTimeMs = null;
