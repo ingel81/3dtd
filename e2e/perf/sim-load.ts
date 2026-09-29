@@ -15,6 +15,8 @@
 // SimClient, the main-thread build gets it from a local patch for the measurement only.
 import { chromium, firefox, type Page } from '@playwright/test';
 import os from 'node:os';
+import { writeFileSync } from 'node:fs';
+import { startProfiles, summarize } from './cdp-profile.ts';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -53,6 +55,13 @@ const ENEMY_HP = Number(argument('hp', '1000000'));
 /** Walking speed of the enemies, m/s: slow, so few reach the HQ over a curve of several minutes */
 const ENEMY_SPEED = Number(argument('enemy-speed', '0.5'));
 const HEADED = process.argv.includes('--headed');
+/**
+ * Chromium: after each measurement a CPU profile of the main thread and the worker, written as `<prefix>-<step>x<speed>-
+ * main|worker.cpuprofile` with the top functions printed. Readable names need a build without mangling
+ * (`NG_BUILD_MANGLE=0 npm run build`).
+ */
+const PROFILE = argument('profile', '');
+const CDP_PORT = 9333;
 const GPU_ARGS = process.platform === 'win32'
   ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist']
   : ['--enable-gpu', '--ignore-gpu-blocklist'];
@@ -188,7 +197,11 @@ function round(value: number, digits: number): number {
 const engine = BROWSER === 'firefox' ? firefox : chromium;
 const browser = await engine.launch({
   headless: !HEADED && !MAP,
-  args: BROWSER === 'firefox' ? [] : [...GPU_ARGS, ...(UNCAPPED ? ['--disable-frame-rate-limit', '--disable-gpu-vsync'] : [])],
+  args: BROWSER === 'firefox' ? [] : [
+    ...GPU_ARGS,
+    ...(UNCAPPED ? ['--disable-frame-rate-limit', '--disable-gpu-vsync'] : []),
+    ...(PROFILE ? [`--remote-debugging-port=${CDP_PORT}`] : []),
+  ],
 });
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, ...(DPR ? { deviceScaleFactor: Number(DPR) } : {}) });
 // DevWorld loads no tiles, but the production build wants a key before it starts the engine; a map run takes the dev server's own
@@ -312,6 +325,21 @@ const setSpeed = (value: number) => page.evaluate((v) => (globalThis as unknown 
 const hideEnemies = (hidden: boolean) =>
   page.evaluate((h) => (globalThis as unknown as { __load: { hideEnemies?(h: boolean): number } }).__load.hideEnemies?.(h) ?? 0, hidden);
 
+/** CPU profiles of both threads over SECONDS, written next to `prefix`, the top functions printed */
+async function profile(prefix: string): Promise<void> {
+  const stop = await startProfiles(CDP_PORT);
+  await page.waitForTimeout(SECONDS * 1000);
+  const { main, worker } = await stop();
+  writeFileSync(`${prefix}-main.cpuprofile`, JSON.stringify(main));
+  console.log(`PROFILE ${prefix} main thread
+${summarize(main, 30)}`);
+  if (worker) {
+    writeFileSync(`${prefix}-worker.cpuprofile`, JSON.stringify(worker));
+    console.log(`PROFILE ${prefix} worker
+${summarize(worker, 30)}`);
+  }
+}
+
 if (STEPS.length > 0) {
   // The curve: each step topped up in the same window, every speed measured there, a line per measurement
   const rows: Record<string, unknown>[] = [];
@@ -334,6 +362,7 @@ if (STEPS.length > 0) {
           `enemies ${r.enemies} worker ${r.sums?.workerLoad ?? '-'} apply/packet ${r.sums?.applyPerPacketMs ?? '-'} ms${limit ? '  <- limit' : ''}`);
       }
       if (HIDE) await hideEnemies(false);
+      if (PROFILE && BROWSER === 'chromium') await profile(`${PROFILE}-${target}x${speed}`);
     }
   }
   console.log('CURVE ' + JSON.stringify(rows));
