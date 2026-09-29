@@ -11,6 +11,7 @@
  */
 import type { PresentationOp } from './ops';
 import type { ExportedEvent } from './events';
+import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 
 // ── Enemies: every active enemy, dead ones in their death animation included ──
 export const E_ID = 0;
@@ -35,7 +36,12 @@ export const E_DIST = 11;
 export const E_EFF_SPEED = 12;
 /** Index of the enemy's route in SimWorldInfo.spawns (the spawn id its path belongs to), -1 for none */
 export const E_ROUTE = 13;
-export const ENEMY_STRIDE = 14;
+/** Index of the enemy's type in ENEMY_TYPE_IDS: the mirror builds a view from a row it has no reference for */
+export const E_TYPE = 14;
+export const ENEMY_STRIDE = 15;
+
+/** Enemy type ids in config order, for E_TYPE */
+export const ENEMY_TYPE_IDS: readonly string[] = Object.keys(ENEMY_TYPES);
 
 export const EF_ALIVE = 1;
 export const EF_ACTIVE = 2;
@@ -87,6 +93,8 @@ export const TF_HOLD_FIRE = 2;
 export const TF_MANNED = 4;
 export const TF_TRIGGER = 8;
 export const TF_SLEEPING = 16;
+/** A manned tower's crosshair is on an enemy it may shoot (TowerCombatService.mannedAimTargetOf) */
+export const TF_ON_TARGET = 32;
 
 // ── Oozes (enemies with a body) ──
 export const O_ID = 0;
@@ -110,7 +118,11 @@ export const W_HEAD = 2;
 export const W_REMAINING = 3;
 export const W_SEQ = 4;
 export const W_SIZE = 5;
-export const WORM_STRIDE = 6;
+/** HP left over the whole group (WormGroup.hp()), the same on every row of the group */
+export const W_HP = 6;
+/** WormGroup.maxHp, the same on every row of the group */
+export const W_MAXHP = 7;
+export const WORM_STRIDE = 8;
 
 /** A table: rows of `stride` numbers, `count` of them valid. */
 export interface SimTable {

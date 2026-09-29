@@ -24,10 +24,29 @@ export abstract class GameObject {
   private _active = true;
 
   private static idCounter = 0;
+  /** Id for the next constructor, see withId() */
+  private static presetId: string | null = null;
 
   constructor(type: GameObjectType) {
-    this.id = GameObject.generateId(type);
+    const preset = GameObject.presetId;
+    GameObject.presetId = null;
+    this.id = preset ?? GameObject.generateId(type);
     this.type = type;
+  }
+
+  /**
+   * Build an object with the given id, the counter untouched: the main
+   * thread's shadow towers (sim/client/mirror) carry the simulation's ids,
+   * and the simulation may run in the same realm (specs), where the counter
+   * is part of its state.
+   */
+  static withId<T extends GameObject>(id: string, build: () => T): T {
+    GameObject.presetId = id;
+    try {
+      return build();
+    } finally {
+      GameObject.presetId = null;
+    }
   }
 
   /**
