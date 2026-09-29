@@ -1039,6 +1039,9 @@ export class GameStateManager {
     waveRunning: () => this.waveManager.phase() === 'wave',
     setReplayMode: (on) => this.setReplayMode(on),
     replayCommand: (entry) => this.commandsHandler?.replay(entry),
+    // Exact: a keyframe must not change the run it is taken from (HeroManager.captureState)
+    captureWaveSnapshot: () => (this.snapshots.waveRefusal() === null ? this.snapshots.captureWave(true) : null),
+    restoreWaveSnapshot: (snapshot) => this.snapshots.restoreWave(snapshot, 'replay'),
     applyLosMask: (towerId, mask) => {
       const tower = this.towerManager.getById(towerId);
       if (tower) this.towerLos.replayMask(tower, mask);

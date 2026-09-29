@@ -180,6 +180,48 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     resim.end();
   });
 
+  it('seeks from its keyframes and comes out the same as without them', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    const liveEnd = playLive(world);
+    const record = gsm.simRecorder.get(1)!;
+
+    const plain = new Resimulation(gsm.resimHost, record, gsm.commandLog.entries);
+    plain.stepTo(700);
+    const at700 = gsm.stateHash();
+    plain.stepTo(1900);
+    const at1900 = gsm.stateHash();
+    plain.end();
+
+    const resim = new Resimulation(gsm.resimHost, record, gsm.commandLog.entries, { budgetBytes: 50e6, minIntervalSteps: 300 });
+    resim.stepTo(2000);
+    expect(resim.keyframeStats.count).toBeGreaterThanOrEqual(5);
+    const restores = vi.spyOn(gsm.resimHost, 'restoreWaveSnapshot');
+    // Back: from the keyframe at 600, not from the wave's start
+    resim.stepTo(700);
+    expect(restores).toHaveBeenCalledTimes(1);
+    expect(gsm.stateHash()).toBe(at700);
+    // Forward past the keyframes: from the one at 1800
+    resim.stepTo(1900);
+    expect(restores).toHaveBeenCalledTimes(2);
+    expect(gsm.stateHash()).toBe(at1900);
+    while (resim.step()) { /* to the end */ }
+    expect(resim.divergedAt).toBeNull();
+    expect(resim.checkedHashes).toBe(record.hashes.length);
+    expect(gsm.stateHash()).toBe(liveEnd);
+    resim.end();
+  });
+
+  it('keeps no more keyframes than the budget holds', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    playLive(world);
+    const resim = new Resimulation(gsm.resimHost, gsm.simRecorder.get(1)!, gsm.commandLog.entries, { budgetBytes: 200_000, minIntervalSteps: 60 });
+    while (resim.step()) { /* to the end */ }
+    expect(resim.keyframeStats.bytes).toBeLessThanOrEqual(200_000);
+    resim.end();
+  });
+
   it('gives the live game back from a snapshot taken before the replay', () => {
     world = buildWorld();
     const { gsm } = world;

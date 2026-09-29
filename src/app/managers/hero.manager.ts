@@ -46,7 +46,8 @@ import {
   heroStatus,
 } from '../configs/hero.config';
 import type { ResearchEffect } from '../configs/research/research.types';
-import type { GeoPosition } from '../models/game.types';
+import type { GeoPosition, RouteWaypoint } from '../models/game.types';
+import { assignPlainFields, plainFields, type PlainRecord } from '../simulator/plain-fields';
 import type { Enemy } from '../entities/enemy.entity';
 import { Hero } from '../entities/hero.entity';
 import type { TransformRotationState } from '../game-components';
@@ -139,6 +140,11 @@ export interface HeroSaveState {
     goal: GraphPoint | null;
     replanMs: number;
     clockMs: number;
+    /**
+     * The way he is on, as it is (captureState(true), a replay's keyframe):
+     * the restore puts him on it instead of planning a new one
+     */
+    walk?: { path: RouteWaypoint[]; movement: PlainRecord };
   } | null;
 }
 
@@ -593,10 +599,19 @@ export class HeroManager implements IGameManager {
    * part of the snapshot, so the live game and the re-simulation both go on
    * from the new one.
    */
-  captureState(): HeroSaveState {
+  /**
+   * `exact`: his way as it is, for a restore that must go on exactly as this
+   * run does (a replay's keyframe). Otherwise he is put on a freshly planned
+   * path, the one a restore plans too, so the run and the restored state go on
+   * alike (a coop resync, a wave's start).
+   */
+  captureState(exact = false): HeroSaveState {
     const hero = this.hero;
-    const graph = hero ? this.ensureGraph() : null;
+    const graph = hero && !exact ? this.ensureGraph() : null;
     if (hero && graph) this.replanToGoal(graph);
+    const walk = exact && hero && this.goal
+      ? { path: hero.movement.path.map((p) => ({ ...p })), movement: plainFields(hero.movement) }
+      : undefined;
     return {
       unlocked: this.unlocked,
       ammo: this.ammo,
@@ -613,6 +628,7 @@ export class HeroManager implements IGameManager {
         goal: this.goal ? { edge: this.goal.edge, t: this.goal.t } : null,
         replanMs: this.replanMs,
         clockMs: this.clockMs,
+        ...(walk ? { walk } : {}),
       } : null,
     };
   }
@@ -647,7 +663,15 @@ export class HeroManager implements IGameManager {
       this.replanMs = saved.replanMs;
       this.clockMs = saved.clockMs;
       this.applyStats();
-      this.replanToGoal(graph);
+      if (saved.walk) {
+        hero.movement.setPath(saved.walk.path);
+        assignPlainFields(hero.movement, saved.walk.movement);
+        // setPath put him on the path's start
+        hero.transform.setPosition(saved.lat, saved.lon);
+        hero.transform.setRotationState(saved.rotation);
+      } else {
+        this.replanToGoal(graph);
+      }
     }
     // A baseline: no hire or ammo sound for a hero put back
     this.emitState(true);

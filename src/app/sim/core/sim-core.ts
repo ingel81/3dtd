@@ -157,7 +157,13 @@ export class SimCore implements SimCoreApi {
     let stepsRun = 0;
     const replay = this.replay;
     if (replay) {
-      if (input.replay?.playing) stepsRun = replay.play(delta, input.replay.speed);
+      if (replay.isSeeking) {
+        stepsRun = replay.advanceSeek();
+        // The seek's end sets up the field anew: shown even without a sub-step
+        if (!replay.isSeeking) this.forcePresent = true;
+      } else if (input.replay?.playing) {
+        stepsRun = replay.play(delta, input.replay.speed);
+      }
     } else if (this.worldLoaded) {
       const before = gsm.subStep;
       gsm.update(input.now);

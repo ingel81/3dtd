@@ -63,7 +63,11 @@
              (change)="replay.endScrub()">
     </div>
 
-    <span class="td-replay-time">{{ time() }} / {{ duration() }}</span>
+    @if (replay.seekPercent() !== null) {
+      <span class="td-replay-time td-replay-seeking" role="status">Jumping {{ replay.seekPercent() }} %</span>
+    } @else {
+      <span class="td-replay-time">{{ time() }} / {{ duration() }}</span>
+    }
 
     <div class="td-replay-speeds" role="group" aria-label="Replay speed" aria-keyshortcuts="+ -">
       @for (s of replay.speeds; track s) {

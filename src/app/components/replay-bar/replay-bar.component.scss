@@ -191,6 +191,10 @@
   border-radius: 2px;
 }
 
+.td-replay-seeking {
+  color: var(--td-gold-light);
+}
+
 .td-replay-time {
   flex-shrink: 0;
   min-width: 86px;

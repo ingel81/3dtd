@@ -181,7 +181,15 @@ export interface SimScalars {
   /** HP the abilities of each player took from enemies so far, roster order (CombatEffectService.abilityDamageOf; the run log) */
   abilityDamage: number[];
   /** The replay while one is on, null for the live game */
-  replay: { wave: number; stepInWave: number; lengthInSteps: number | null; divergedAt: number | null; finished: boolean } | null;
+  replay: {
+    wave: number;
+    stepInWave: number;
+    lengthInSteps: number | null;
+    divergedAt: number | null;
+    finished: boolean;
+    /** A seek running (SimReplay.seek): the step it runs to and the one it began at, for the bar's progress */
+    seeking: { target: number; from: number } | null;
+  } | null;
   /**
    * Wall-clock ms the simulation spent on this tick: the commands, the
    * sub-steps and the packet (the second number besides the frame time;

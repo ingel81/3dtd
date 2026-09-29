@@ -3,6 +3,7 @@ import { isLosLogCommand } from '../managers/game-state/command-log';
 import type { WaveConfig } from '../managers/wave.manager';
 import { losMaskFromJson, type LosMask } from '../utils/los-mask';
 import type { SimSnapshot } from './sim-snapshot';
+import type { WaveSnapshot } from './wave-snapshot';
 import type { WaveRecord } from './sim-recorder';
 import { STATE_HASH_INTERVAL } from './state-hash';
 
@@ -19,6 +20,10 @@ export interface ResimHost {
   /** Replay mode on: commands only from replayCommand, towers wait for their line of sight as live. */
   setReplayMode(on: boolean): void;
   replayCommand(entry: CommandLogEntry): void;
+  /** The state mid-wave as a wave snapshot, null where it cannot be taken (for keyframes) */
+  captureWaveSnapshot(): WaveSnapshot | null;
+  /** Back to a wave snapshot taken by captureWaveSnapshot, in replay mode */
+  restoreWaveSnapshot(snapshot: WaveSnapshot): void;
   /** A logged line of sight, applied at its sub-step to a tower still waiting for it (TowerLos.replayMask) */
   applyLosMask(towerId: string, mask: LosMask): void;
   /**
@@ -29,6 +34,24 @@ export interface ResimHost {
    */
   setBoundaryListener(listener: ((boundaryStep: number, hash: () => number) => void) | null): void;
 }
+
+/** Keyframes of a re-simulation (see Resimulation): at most `budgetBytes` of them, `minIntervalSteps` apart at least */
+export interface KeyframeOptions {
+  budgetBytes: number;
+  minIntervalSteps: number;
+}
+
+/** A state the re-simulation passed, as a compact string, with its own place in the log */
+interface Keyframe {
+  stepInWave: number;
+  text: string;
+  cursor: number;
+  divergedAt: number | null;
+  checkedHashes: number;
+}
+
+/** A wave without a known end is taken as this long when spacing the keyframes (10 minutes) */
+const UNKNOWN_LENGTH_STEPS = 36_000;
 
 /**
  * Re-simulates one wave from its record and the command log: restore the
@@ -44,6 +67,16 @@ export interface ResimHost {
  * Nothing here reads the wall clock: stepTo() runs as fast as the
  * simulation does (a mid-game wave of 10 800 sub-steps in about 0.6 s,
  * docs/SIMULATOR_PLAN.md, section 5), which is what seeking in the replay is.
+ *
+ * Keyframes (optional, the replay's): every so often the state the
+ * re-simulation passed is kept as a wave snapshot in a string, so a seek
+ * starts from the nearest one before its target instead of from the wave's
+ * start (a jump at 10 000 enemies took seconds). They are spaced so the
+ * wave's keyframes fit the budget, going by the size of the last one (about
+ * 1.3 kB per enemy: at 10 000 enemies and 250 MB some 19 of them); taken
+ * while playing and while seeking, forgotten with the re-simulation. A
+ * keyframe carries the log cursor and the hash check with it, so going on
+ * from it is the same as going on without it.
  */
 export class Resimulation {
   private cursor: number;
@@ -53,11 +86,15 @@ export class Resimulation {
   divergedAt: number | null = null;
   /** Hashes compared so far */
   checkedHashes = 0;
+  private readonly keyframes: Keyframe[] = [];
+  private keyframeBytes = 0;
+  private nextKeyframeAt = 0;
 
   constructor(
     private readonly host: ResimHost,
     readonly record: WaveRecord,
     private readonly log: readonly CommandLogEntry[],
+    private readonly keyframeOptions: KeyframeOptions | null = null,
   ) {
     if (!record.snapshot) throw new Error(`Wave ${record.wave} cannot be re-simulated (${record.refusal})`);
     if (record.tainted) throw new Error(`Wave ${record.wave} cannot be re-simulated (${record.tainted})`);
@@ -93,6 +130,7 @@ export class Resimulation {
     this.done = false;
     this.started = true;
     this.feedInputs();
+    if (this.keyframes.length === 0) this.nextKeyframeAt = this.keyframeOptions?.minIntervalSteps ?? 0;
   }
 
   /** One sub-step. False once the wave is over. */
@@ -106,13 +144,70 @@ export class Resimulation {
       return false;
     }
     this.feedInputs();
+    if (this.keyframeOptions !== null && this.stepInWave >= this.nextKeyframeAt) this.keepKeyframe(this.keyframeOptions);
     return true;
   }
 
-  /** Step until `stepInWave` reaches `target` or the wave ends. Starts over when `target` lies behind. */
+  /**
+   * Step until `stepInWave` reaches `target` or the wave ends. From the
+   * nearest keyframe before `target` when that is nearer than where it
+   * stands; from the wave's start when `target` lies behind and none is.
+   */
   stepTo(target: number): void {
-    if (!this.started || target < this.stepInWave) this.start();
+    this.seekFrom(target);
     while (this.stepInWave < target && this.step()) { /* next sub-step */ }
+  }
+
+  /**
+   * The nearest place to step to `target` from: the keyframe before it when
+   * that is nearer than where it stands, the wave's start when `target` lies
+   * behind and no keyframe is; else where it stands. stepTo() without the
+   * steps, for a seek run in slices (SimReplay).
+   */
+  seekFrom(target: number): void {
+    if (!this.started) this.start();
+    const at = this.stepInWave;
+    const from = this.keyframeBefore(target);
+    if (from !== null && (target < at || from.stepInWave > at)) this.restoreKeyframe(from);
+    else if (target < at) this.start();
+  }
+
+  /** Keyframes kept and their size, for the budget (bytes as string length) */
+  get keyframeStats(): { count: number; bytes: number } {
+    return { count: this.keyframes.length, bytes: this.keyframeBytes };
+  }
+
+  private keyframeBefore(target: number): Keyframe | null {
+    let best: Keyframe | null = null;
+    for (const keyframe of this.keyframes) {
+      if (keyframe.stepInWave <= target && (best === null || keyframe.stepInWave > best.stepInWave)) best = keyframe;
+    }
+    return best;
+  }
+
+  private keepKeyframe(options: KeyframeOptions): void {
+    const stepInWave = this.stepInWave;
+    if (this.keyframes.some((k) => k.stepInWave === stepInWave)) return;
+    const snapshot = this.host.captureWaveSnapshot();
+    if (snapshot === null) {
+      this.nextKeyframeAt = stepInWave + 1;
+      return;
+    }
+    const text = JSON.stringify(snapshot);
+    const length = this.lengthInSteps ?? UNKNOWN_LENGTH_STEPS;
+    // Spaced so this wave's keyframes of this size fit the budget
+    this.nextKeyframeAt = stepInWave + Math.max(options.minIntervalSteps, Math.ceil((length * text.length) / options.budgetBytes));
+    if (this.keyframeBytes + text.length > options.budgetBytes) return;
+    this.keyframes.push({ stepInWave, text, cursor: this.cursor, divergedAt: this.divergedAt, checkedHashes: this.checkedHashes });
+    this.keyframeBytes += text.length;
+  }
+
+  private restoreKeyframe(keyframe: Keyframe): void {
+    this.host.restoreWaveSnapshot(JSON.parse(keyframe.text) as WaveSnapshot);
+    this.cursor = keyframe.cursor;
+    this.divergedAt = keyframe.divergedAt;
+    this.checkedHashes = keyframe.checkedHashes;
+    this.done = false;
   }
 
   /**

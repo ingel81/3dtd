@@ -111,6 +111,8 @@ export class ReplayService {
    * live run (a determinism bug), null while it matches
    */
   readonly divergedAtMs = signal<number | null>(null);
+  /** A jump running: how far it got, 0 to 100 (the simulation runs it in slices), null while none runs */
+  readonly seekPercent = signal<number | null>(null);
   /** The replay shows a loaded file, not the run under way */
   readonly fromFile = signal(false);
   /** Why the last file did not load, shown next to the load button; null when it did */
@@ -456,7 +458,11 @@ export class ReplayService {
     const scalars = this.sim.scalars;
     const state = scalars.replay;
     this.wave.set(entered.wave);
-    if (state) this.timeMs.set(state.stepInWave * GameClock.FIXED_STEP_MS);
+    const seeking = state?.seeking ?? null;
+    // While a jump runs the thumb stays on its target
+    if (state) this.timeMs.set((seeking ? seeking.target : state.stepInWave) * GameClock.FIXED_STEP_MS);
+    this.seekPercent.set(seeking === null ? null
+      : Math.round((100 * Math.max(0, state!.stepInWave - seeking.from)) / Math.max(1, seeking.target - seeking.from)));
     this.durationMs.set((entered.lengthInSteps ?? 0) * GameClock.FIXED_STEP_MS);
     this.playing.set(replay.playing);
     this.speed.set(replay.speed);

@@ -65,13 +65,22 @@ noch Schüsse fliegen, wartet es bis zu 5 s auf ein ruhiges Feld. Dann übernimm
   (`GameStateManager.isReplaying`).
 - **Abspielen:** Je Frame rückt die Simulation um Tempo mal Frame-Zeit vor, höchstens `GameClock.MAX_CATCHUP_MS`
   wie die Spieluhr, und die Renderer bekommen den Stand (`presentReplayFrame`). Die Renderer-Uhr folgt dem Tempo.
-- **Springen:** Ohne Rendering und ohne Show (`GameEventBus.onShow`: VFX, Sounds, Musik, Screen-Shake, Blutmond) bis
-  zum Ziel rechnen, rückwärts ab Wellenstart. Eine mittlere Welle (10 800 Sub-Steps) braucht rund 0,6 s.
+- **Springen:** Ohne Show (`GameEventBus.onShow`: VFX, Sounds, Musik, Screen-Shake, Blutmond) bis zum Ziel rechnen,
+  ab dem nächsten Zwischenstand davor, sonst ab hier oder ab Wellenstart. Die Simulation rechnet in Scheiben von 40 ms
+  je Tick (`SimReplay.advanceSeek`); die Leiste zeigt „Jumping 43 %“, ein neues Ziel (Ziehen am Balken) übernimmt ab
+  der nächsten Scheibe.
+- **Zwischenstände:** Während das Replay offen ist, hält die Nachrechnung alle paar Sekunden den Stand als
+  Wellen-Snapshot in einem String (`Resimulation`, Budget 250 MB, mindestens 5 s Abstand). Der Abstand richtet sich
+  nach der Größe des letzten (rund 1,3 kB je Gegner: bei 10 000 Gegnern etwa alle 10 s einer langen Welle). Nur zur
+  Laufzeit, nicht in der Replay-Datei; mit dem Verlassen weg. Ein Zwischenstand nimmt den Helden genau auf, wie er
+  geht (`HeroManager.captureState(true)`): das übliche Aufnehmen plant seinen Weg neu und hätte die Nachrechnung vom
+  Live-Lauf abgebracht.
 - **Verlassen:** Den Live-Snapshot laden, solange der Replay-Modus noch an ist, dann aus. Das Laden leert die
   Warteschlange der verzögerten Events, damit das `wave:completed` der nachgerechneten Welle nicht im Live-Spiel
   ankommt. Die Stores haben während des ganzen Replays nichts gehört und stehen danach auf dem Live-Stand.
 - **Bild und Ton nach jedem Laden und Springen:** Ein Laden oder Springen ändert den Zustand ohne die Events, die sonst
-  Bild und Ton mitbringen. Deshalb räumt `GameStateManager.clearShow()` vorher ab (Partikel, Bodenmarken,
+  Bild und Ton mitbringen. Deshalb räumt `GameStateManager.clearShow()` vorher ab (im Worker als Op `show.clear`,
+  die der `PresentationHost` ausführt) (Partikel, Bodenmarken,
   Schadenszahlen, Schlag-Effekte der Fähigkeiten und deren Sounds, einmalige Sounds; die Loops bleiben bei ihren
   Gegnern und Towern), und `resyncPresentation()` baut danach auf, was der Stand zeigt: Glut der Feuer-Tower, HQ-Feuer,
   Status-Auren der Gegner, Musik und Blutmond der Phase, die Rakete im Silo. Feuerpause und Reichweitenring eines

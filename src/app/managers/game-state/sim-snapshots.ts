@@ -91,7 +91,7 @@ export class SimSnapshots {
    * refusal. A hero on his way is put on a freshly planned path, the
    * one a restore plans too (HeroManager.captureState).
    */
-  capture(): SimSnapshot {
+  capture(exact = false): SimSnapshot {
     const w = this.world;
     const research = w.research();
     const abilities = w.abilities();
@@ -112,8 +112,8 @@ export class SimSnapshots {
       researchByPlayer: research.map((seat) => [seat.owner.playerId, seat.getState()]),
       abilities: abilities[0].getState(),
       abilitiesByPlayer: abilities.map((seat) => [seat.owner.playerId, seat.getState()]),
-      hero: heroes[0].captureState(),
-      heroesByPlayer: heroes.map((seat) => [seat.owner.playerId, seat.captureState()]),
+      hero: heroes[0].captureState(exact),
+      heroesByPlayer: heroes.map((seat) => [seat.owner.playerId, seat.captureState(exact)]),
       towers: w.towerManager.getAll().map((tower) => saveTower(tower)),
       mannedTowerId: w.towerLifecycle.mannedTower(w.players()[0])?.id ?? null,
       mannedByPlayer: [...w.towerLifecycle.mannedTowers()].map(([playerId, tower]) => [playerId, tower.id]),
@@ -221,7 +221,7 @@ export class SimSnapshots {
    * The simulation at this sub-step boundary as plain data, a running wave
    * included (wave-snapshot.ts, TODO E58). Throws where waveRefusal() says no.
    */
-  captureWave(): WaveSnapshot {
+  captureWave(exact = false): WaveSnapshot {
     const w = this.world;
     const refusal = this.waveRefusal();
     if (refusal) throw new Error(`No wave snapshot now: ${refusal}`);
@@ -241,7 +241,7 @@ export class SimSnapshots {
     const wave = w.waveManager.captureWaveState();
     return {
       version: WAVE_SNAPSHOT_VERSION,
-      base: this.capture(),
+      base: this.capture(exact),
       wave: {
         config: running ? this.runningWaveConfig! : { schedule: { entries: [], baseDelay: 0 } },
         spawner: wave.spawner,
