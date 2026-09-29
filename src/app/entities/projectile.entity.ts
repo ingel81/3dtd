@@ -50,14 +50,8 @@ export class Projectile extends GameObject {
   private _totalDistance = 0;
   private _traveledDistance = 0;
 
-  // Distance moved during the most recent updateTowardsTarget() — read by the
-  // projectile manager to drive distance-based trail spawning (so trail
-  // density is independent of framerate / projectile speed).
+  // Distance moved during the most recent updateTowardsTarget()
   private _distanceThisFrame = 0;
-
-  // Accumulator used by the manager to gate distance-based trail spawning.
-  // Public-mutable on purpose: cheap, avoids a parallel Map<id, number>.
-  trailDistanceAcc = 0;
 
   // Homing projectiles (rockets) continuously update their direction
   private _isHoming = false;

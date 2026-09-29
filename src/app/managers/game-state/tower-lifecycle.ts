@@ -1,13 +1,13 @@
-import type { GameEventBus } from '../../game-engine';
+import type { GameEventBus } from '../../game-engine/game-event-bus';
 import { LOCAL_PLAYER_ID } from './command-log';
 import type { TowerManager } from '../tower.manager';
 import type { ResearchManager } from '../research.manager';
 import type { AbilityManager } from '../ability.manager';
 import type { WaveManager } from '../wave.manager';
 import type { EnemyManager } from '../enemy.manager';
-import type { TowerPlacementService } from '../../services/tower-placement.service';
 import type { TowerCombatService } from '../../services/combat/tower-combat.service';
-import type { ThreeTilesEngine } from '../../three-engine';
+import type { SimSink } from '../../sim/core/sim-sink';
+import type { TowerLos } from './tower-los';
 import type { Tower } from '../../entities/tower.entity';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { GeoPosition } from '../../models/game.types';
@@ -40,12 +40,11 @@ export class TowerLifecycle {
     private readonly abilities: (playerId: string) => Pick<AbilityManager, 'buildingChanged'>,
     private readonly waveManager: WaveManager,
     private readonly enemyManager: EnemyManager,
-    private readonly placement: TowerPlacementService,
+    private readonly los: TowerLos,
     private readonly combat: TowerCombatService,
     private readonly creditsLedger: CreditsLedger,
     private readonly eventBus: GameEventBus,
-    /** The engine once the GameStateManager is initialized */
-    private readonly engine: () => ThreeTilesEngine | null,
+    private readonly sink: SimSink,
     /** The route corridor is being built: no tower until it is done, see GameStateManager.corridorPending */
     private readonly corridorPending: () => boolean,
     /** The player whose command runs (GameStateManager.actingPlayerId): pays, and owns what is built */
@@ -79,13 +78,12 @@ export class TowerLifecycle {
     tower.restoreUpgradeLevels(saved.upgrades);
     tower.restoreSimState(saved.state);
     if (saved.losMask && tower.typeConfig.attackType !== 'passive') {
-      this.placement.registerTowerFromMask(tower, losMaskFromJson(saved.losMask));
+      this.los.registerFromMask(tower, losMaskFromJson(saved.losMask));
     }
-    const engine = this.engine();
-    engine?.towers.updateRangeIndicator(tower.id, tower.combat.range);
+    this.sink.towers.updateRangeIndicator(tower.id, tower.combat.range);
     if (tower.holdFire) {
-      engine?.towers.setHoldFire(tower.id, true);
-      engine?.towerBadges.setHoldFire(tower.id, true);
+      this.sink.towers.setHoldFire(tower.id, true);
+      this.sink.towerBadges.setHoldFire(tower.id, true);
     }
     return tower;
   }
@@ -139,10 +137,10 @@ export class TowerLifecycle {
     if (tower) {
       this.creditsLedger.add(-config.cost, 'build', player);
 
-      // Register tower on grid (LOS raycasting + grid registration + visualization)
-      // Skip grid registration for passive buildings (no targeting/LOS needed)
+      // Its line of sight comes from the main thread (TowerLos); passive
+      // buildings need none
       if (config.attackType !== 'passive') {
-        this.placement.registerTowerOnGrid(tower, position, typeId);
+        this.los.register(tower);
       }
 
       // Notify ResearchManager when Research Center is placed
@@ -164,10 +162,8 @@ export class TowerLifecycle {
     const sitting = this.playerIn(tower);
     if (sitting !== null) this.leave(sitting);
 
-    // Unregister from grid + dispose LOS visualization
-    this.placement.unregisterTowerFromGrid(tower);
-
-    this.towerManager.selectTower(null);
+    // Off the grid, and no mask to wait for
+    this.los.unregister(tower);
 
     // Stop flame beam if fire tower
     if (tower.typeConfig.id === 'fire') {
@@ -200,9 +196,8 @@ export class TowerLifecycle {
     if (tower.typeConfig.attackType === 'passive') return false;
     tower.holdFire = holdFire;
     if (holdFire) this.combat.stopTowerBeam(tower.id);
-    const engine = this.engine();
-    engine?.towers.setHoldFire(tower.id, holdFire);
-    engine?.towerBadges.setHoldFire(tower.id, holdFire);
+    this.sink.towers.setHoldFire(tower.id, holdFire);
+    this.sink.towerBadges.setHoldFire(tower.id, holdFire);
     return true;
   }
 
@@ -351,17 +346,18 @@ export class TowerLifecycle {
   }
 
   /**
-   * After a range-stat upgrade (manual or debug-max-upgrade), refresh the
-   * tower's LOS cells, geo-degree-squared range cache, and range ring.
+   * After a range-stat upgrade (manual or debug-max-upgrade), ask for the
+   * tower's new LOS cells (TowerLos), refresh the geo-degree-squared range
+   * cache and the range ring.
    */
   recomputeRangeAfterUpgrade(tower: Tower): void {
-    this.placement.recomputeTowerLOS(tower);
+    this.los.recompute(tower, 'upgrade');
     const pos = tower.position;
     const metersPerDegreeLon = METERS_PER_DEGREE_LAT * DetMath.cos(pos.lat * DEG_TO_RAD);
     const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
     const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
     tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
-    this.engine()?.towers.updateRangeIndicator(tower.id, tower.combat.range);
+    this.sink.towers.updateRangeIndicator(tower.id, tower.combat.range);
 
     // A longer range meets the route earlier. Between waves the tower stands
     // at its guard heading and follows the new one; in a wave it keeps
@@ -373,18 +369,13 @@ export class TowerLifecycle {
   }
 
   /**
-   * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
-   * Called on reset to cleanup before starting fresh
+   * Take every tower off the grid (GlobalRouteGrid registrations, masks
+   * waited for). Called on reset to cleanup before starting fresh
    */
   clearAllOverlays(): void {
     // Restart, new place: everybody out of their tower before the towers go
     this.leaveAll();
-
-    // First deselect any selected tower (hides its LOS visualization)
-    this.towerManager.selectTower(null);
-
-    // Delegate to TowerPlacementService
-    this.placement.clearAllTowerOverlays(this.towerManager.getAll());
+    this.los.clearAll(this.towerManager.getAll());
   }
 
   /**
@@ -396,10 +387,9 @@ export class TowerLifecycle {
    * registerTowerIncremental only samples the entries that are actually
    * missing.
    *
-   * Queued rather than run in this handler: each recompute renders a cube,
-   * and the research can reach many towers at once. The game loop drains
-   * the queue, one tower per frame (TowerLosRegistry.drainLosQueue); the air
-   * flag comes from the ResearchManager, which sets it before the event.
+   * Each is a request to the main thread (TowerLos), which renders the
+   * cubes as its frames allow; the air flag comes from the ResearchManager,
+   * which sets it before the event.
    */
   scheduleAirRetrofit(effects: ResearchEffect[], playerId: string): void {
     const unlocksAir = effects.some(
@@ -414,7 +404,7 @@ export class TowerLifecycle {
       // with its final air capability.
       if (canTargetAirEffective(typeId, false)) continue;
       if (!canTargetAirEffective(typeId, true)) continue;
-      this.placement.scheduleLosRecompute(tower);
+      this.los.recompute(tower, 'retrofit');
     }
   }
 

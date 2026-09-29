@@ -19,7 +19,8 @@
  * build or take down what stands (renderers of enemies, towers, projectiles,
  * oozes) always go.
  */
-import { createOpRecorder, type PlainValue, type PresentationOp } from '../protocol/ops';
+import { createOpRecorder, type PresentationOp } from '../protocol/ops';
+import type { RouteWaypoint } from '../../models/game.types';
 
 /** A local position, metres (the scene frame of EllipsoidSync.geoToLocalSimple) */
 export interface OpVec3 {
@@ -28,13 +29,8 @@ export interface OpVec3 {
   readonly z: number;
 }
 
-/** A waypoint of a route as the simulation walks it (RouteWaypoint, plain) */
-export interface OpWaypoint {
-  readonly lat: number;
-  readonly lon: number;
-  readonly height?: number;
-  readonly [field: string]: PlainValue;
-}
+/** A waypoint of a route as the simulation walks it: RouteWaypoint is plain data */
+export type OpWaypoint = RouteWaypoint;
 
 /** ThreeEffectsRenderer's FloatingTextConfig */
 export interface OpFloatingText {

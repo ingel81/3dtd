@@ -7,7 +7,8 @@
  * always takes exactly 60s of game-time, regardless of training speed.
  */
 
-import { GameEventBus, IGameManager } from '../game-engine';
+import { GameEventBus } from '../game-engine/game-event-bus';
+import type { IGameManager } from '../game-engine/game-manager.interface';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import {

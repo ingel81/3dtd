@@ -1,22 +1,14 @@
-import { Injectable, inject, signal, computed, effect } from '@angular/core';
+import { Injectable, inject, signal, computed } from '@angular/core';
 import { Vector3 } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig, laneSchedule } from './wave.manager';
-import { UIStore } from '../store/ui.store';
-import { GameStore } from '../store/game.store';
-import { PathAndRouteService } from '../services/world/path-route.service';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { StatusEffectService } from '../services/combat/status-effect.service';
-import { HQDamageService } from '../services/combat/hq-damage.service';
 import { TowerCombatService } from '../services/combat/tower-combat.service';
-import { WaveDebugService } from '../services/debug/wave-debug.service';
-import { EnemyDebugService } from '../services/debug/enemy-debug.service';
-import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
-import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
@@ -24,20 +16,17 @@ import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { EconomyService, skippedWavesGold } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
-import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, IGameManager, VFXService, AudioService, GameSoundsService, ScreenShakeService, BackgroundMusicService, BloodMoonService, SubscriptionBag } from '../game-engine';
-import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
+import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import type { IGameManager } from '../game-engine/game-manager.interface';
 import { ResearchManager, type SimResearch } from './research.manager';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import { AbilityManager } from './ability.manager';
-import { HeroManager, type HeroView } from './hero.manager';
-import type { HeroRenderer } from '../three-engine/renderers/hero.renderer';
+import { HeroManager } from './hero.manager';
 import { HERO_SOURCE_ID, heroSourceIdFor } from '../configs/hero.config';
 import { heroBodyContact } from '../utils/hero-body-contact';
-import { ResearchStore } from '../store/research.store';
 import { GameClock } from './game-state/game-clock';
 import { GameRng } from '../utils/game-rng';
-import type { CreditsSource, GameEvent, KilledBy, LosResolveReason, WaveGoldBreakdown } from '../game-engine/game-event-bus';
+import type { CreditsSource, GameEvent, KilledBy, WaveGoldBreakdown } from '../game-engine/game-event-bus';
 import { waveGoldTotal } from '../services/economy.service';
 import { CreditsLedger } from './game-state/credits-ledger';
 import { BaseHealthLedger } from './game-state/base-health-ledger';
@@ -53,20 +42,22 @@ import { SimSnapshots } from './game-state/sim-snapshots';
 import { RouteWorld } from './game-state/route-world';
 import { CoopRoom } from './game-state/coop-room';
 import type { ResimHost } from '../simulator/resimulation';
-import { losMaskFromJson, type LosMask, type LosMaskJson } from '../utils/los-mask';
-import { clearStrikeEffects } from '../three-engine/strike-effects';
+import { losMaskFromJson, type LosMaskJson } from '../utils/los-mask';
 import { stepTowerAim } from '../entities/tower-aim';
 import type { LockstepLink } from '../coop/lockstep';
 import { LockstepPacer } from './game-state/lockstep-pacer';
-import type { WorldSource } from '../coop/world-package';
 import { OWNER_ONLY, type TowerPolicy } from '../coop/tower-policy';
+import { SimCoords } from '../sim/core/sim-coords';
+import { SimOps } from '../sim/core/sim-sink';
+import type { SimWorld } from '../sim/protocol/messages';
+import { TowerLos } from './game-state/tower-los';
+import { DebugEnemies } from './game-state/debug-enemies';
 
-/**
- * Main game state orchestrator - coordinates all entity managers
- *
- * Handles game lifecycle, wave progression, and provides a unified API
- * for the game component to interact with.
- */
+/** What the GameStateManager reports per frame to a profiler (PerformanceProfilerService) */
+export interface SimProfiler {
+  accumulateFrameTiming(towerMs: number, projectileMs: number, combatMs: number, eventsMs: number, totalMs: number, subSteps: number): void;
+}
+
 /** A player's research and their credits for its queue, see GameStateManager.researchSeats */
 interface ResearchSeat {
   research: ResearchManager;
@@ -74,33 +65,28 @@ interface ResearchSeat {
   spend: (cost: number) => boolean;
 }
 
+/**
+ * The simulation's orchestrator - coordinates all entity managers
+ * (docs/SIM_WORKER.md). Runs without engine, renderer or UI stores: its
+ * world comes as a SimWorld (loadWorld), its show goes out as ops (SimOps)
+ * and events, the frame packet is written after update() (SimCore).
+ */
 @Injectable()
 export class GameStateManager {
-  // Angular-injected services (UI & coordination)
-  private readonly uiStore = inject(UIStore);
-  private readonly pathRouteService = inject(PathAndRouteService);
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly combatEffect = inject(CombatEffectService);
   private readonly statusEffectService = inject(StatusEffectService);
-  private readonly hqDamage = inject(HQDamageService);
   private readonly towerCombat = inject(TowerCombatService);
-  private readonly waveDebug = inject(WaveDebugService);
-  private readonly enemyDebug = inject(EnemyDebugService);
-  private readonly markerViz = inject(MarkerVisualizationService);
-  private readonly towerPlacement = inject(TowerPlacementService);
-  private readonly gameStore = inject(GameStore);
   private readonly spatialGrid = inject(SpatialGridService);
   private readonly economy = inject(EconomyService);
+  /** The simulation's frame, set with its world */
+  readonly coords = inject(SimCoords);
+  /** The simulation's renderer calls, taken by the packet writer */
+  readonly ops = inject(SimOps);
+  private readonly sink = this.ops.sink;
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
-  private vfxService!: VFXService;
-  private audioService!: AudioService;
-  private gameSounds: GameSoundsService | null = null;
-  screenShakeService!: ScreenShakeService;
-  backgroundMusic!: BackgroundMusicService;
-  private bloodMoonService: BloodMoonService | null = null;
-  private readonly researchStore = inject(ResearchStore);
   /**
    * One research per player (docs/COOP_PLAN.md, D20), in roster order, each
    * with its credits bound once for the queue that runs every sub-step
@@ -111,13 +97,9 @@ export class GameStateManager {
   private readonly simResearch: SimResearch = {
     airTargetingFor: (playerId) => this.researchOf(playerId).airTargetingUnlocked,
   };
-  readonly towerManager = (() => {
-    const mgr = new TowerManager(this.eventBus, this.simResearch);
-    mgr.setGlobalRouteGrid(this.globalRouteGrid);
-    return mgr;
-  })();
-  readonly enemyManager = new EnemyManager(this.eventBus, this.globalRouteGrid, this.spatialGrid);
-  readonly projectileManager = new ProjectileManager(this.eventBus);
+  readonly towerManager = new TowerManager(this.eventBus, this.coords, this.sink);
+  readonly enemyManager = new EnemyManager(this.eventBus, this.globalRouteGrid, this.spatialGrid, this.coords, this.sink);
+  readonly projectileManager = new ProjectileManager(this.eventBus, this.sink);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
   /**
    * One set of abilities per player (docs/COOP_PLAN.md, D11), in roster
@@ -125,6 +107,9 @@ export class GameStateManager {
    * game has one.
    */
   private readonly abilitySeats: AbilityManager[] = [this.abilitiesFor(LOCAL_OWNER)];
+
+  /** The enemies the dev tools placed, see DebugEnemies */
+  readonly debugEnemies = new DebugEnemies();
 
   /** The abilities of `owner` on this game's world: their launch site, their kills. */
   private abilitiesFor(owner: PlayerOwner): AbilityManager {
@@ -177,15 +162,14 @@ export class GameStateManager {
   /** A hero of `owner` on this game's world: their credits, shots under `heroId`. */
   private heroFor(owner: PlayerOwner, heroId: string): HeroManager {
     return new HeroManager(this.eventBus, {
-      routes: () => this.pathRouteService.getCachedPaths(),
+      routes: () => this.routeWorld.cachedPaths(),
       base: () => this.basePosition,
       enemiesInRadius: (center, radiusM, out) =>
         this.globalRouteGrid.getEnemiesInRadiusGeo(center, radiusM, undefined, out),
       bodyContact: (enemy, from, out) => {
         const body = enemy.body;
-        const engine = this.tilesEngine;
-        if (!body || !engine) return null;
-        const local = engine.sync.geoToLocalSimpleInto(from.lat, from.lon, 0, this.heroLocal);
+        if (!body) return null;
+        const local = this.coords.sync.geoToLocalSimpleInto(from.lat, from.lon, 0, this.heroLocal);
         return heroBodyContact(
           body, local.x, local.z, this.routeGroundY,
           enemy.transform.terrainHeight - body.stations.originHeight, out,
@@ -214,10 +198,10 @@ export class GameStateManager {
     return this.heroOf(this.localPlayerId);
   }
 
-  /** Where the hero of the player at this client is drawn; the others have none yet (COOP_PLAN C6) */
-  private heroView: HeroView | null = null;
-  /** Coop partners' heroes on the map, by player (review R15) */
-  private readonly partnerHeroViews = new Map<string, HeroRenderer>();
+  /** Every player's hero in roster order (the packet's heroes) */
+  get heroes(): readonly HeroManager[] {
+    return this.heroSeats;
+  }
 
   /**
    * Canonical list of sub-managers that implement IGameManager. Used for the
@@ -227,10 +211,8 @@ export class GameStateManager {
    * initialize(), reset() and the per-frame update() sequence stay hardcoded
    * on purpose and are deliberately NOT driven off this array:
    *  - initialize(): the managers take different arguments (WaveManager
-   *    takes spawnPoints + paths, EnemyManager needs follow-up provider
-   *    wiring, ResearchManager has no lifecycle initialize at all). A
-   *    uniform forEach would require unsafe
-   *    `...unknown[]` casts and lose all per-manager type-checking.
+   *    takes spawnPoints + paths, ResearchManager has no lifecycle
+   *    initialize at all).
    *  - update(): runSubStep() interleaves the managers with
    *    eventBus.processQueue() and conditional towerCombat — the order is
    *    load-bearing and not safely expressed as a simple forEach.
@@ -248,6 +230,9 @@ export class GameStateManager {
   private readonly creditsLedger = new CreditsLedger(this.eventBus);
   readonly credits = this.creditsLedger.credits;
 
+  /** The towers' line of sight as request and answer, see TowerLos */
+  readonly towerLos = new TowerLos(this.globalRouteGrid, this.coords, this.eventBus);
+
   /** Place, sell and upgrade rules, range refresh and guard heading of the towers */
   private readonly towerLifecycle = new TowerLifecycle(
     this.towerManager,
@@ -255,18 +240,16 @@ export class GameStateManager {
     (playerId: string) => this.abilityOf(playerId),
     this.waveManager,
     this.enemyManager,
-    this.towerPlacement,
+    this.towerLos,
     this.towerCombat,
     this.creditsLedger,
     this.eventBus,
-    () => this.tilesEngine,
+    this.sink,
     () => this.corridorPending(),
     () => this.actingPlayerId,
   );
-  /** Game over screen signal - delegated to HQDamageService */
-  readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
 
-  /** Training mode timescale (1.0 = normal, 3.0 = 3x speed) */
+  /** Game speed (1.0 = normal, 75 at most), per frame from the main thread (SimTickInput.gameSpeed) */
   readonly gameSpeed = signal<number>(1.0);
 
   /** Command-Bus-Adapter — registriert sich bei initialize(). */
@@ -284,64 +267,34 @@ export class GameStateManager {
    */
   private runStarted = false;
 
-  /** Sync timescale from GameStore (UI source of truth) → local signal */
-  private readonly timescaleSyncEffect = effect(() => {
-    const storeValue = this.gameStore.gameSpeed();
-    this.gameSpeed.set(storeValue);
-  });
-
-  /** Game time stands still, see GameStore.paused. */
+  /** Game time stands still, per frame from the main thread (SimTickInput.paused). */
   readonly paused = signal<boolean>(false);
-
-  /** Sync pause from GameStore (UI source of truth) → local signal */
-  private readonly pauseSyncEffect = effect(() => {
-    const paused = this.gameStore.paused();
-    this.paused.set(paused);
-    // No sub-step runs while paused; every loop (walk cycles, flames, the
-    // ooze's bubbling) stands with the game, except in the boss intro
-    this.tilesEngine?.spatialAudio.holdLoops(paused && !this.gameStore.pauseKeepsLoops());
-    // The music goes down in the pause, not in the boss intro's
-    this.backgroundMusic?.setDimmed(paused && !this.gameStore.pauseKeepsLoops());
-  });
-
-  /** Phase 5.14: sync renderingEnabled signal → ThreeTilesEngine. Gameplay
-   *  runs unaffected; only per-frame visual work is skipped when disabled. */
-  private readonly renderingSyncEffect = effect(() => {
-    const enabled = this.gameStore.renderingEnabled();
-    this.tilesEngine?.setRenderingEnabled(enabled);
-  });
 
   // Computed signals for UI bindings
   readonly phase = computed(() => this.waveManager.phase());
   readonly waveNumber = computed(() => this.waveManager.waveNumber());
   readonly enemiesAlive = computed(() => this.enemyManager.aliveCount());
-  readonly selectedTowerId = computed(() => this.towerManager.getSelectedId());
-  readonly selectedTower = computed(() => this.towerManager.getSelected());
 
   /**
    * Towers standing now. A plain method: towerManager.getAll() reads no
-   * signal, so as a computed it kept the count of its first read. The
-   * corridor lock reads it when a location loads (CorridorBuild.rebuildBlocker),
-   * with no tower standing yet, and from then on let corridor rebuilds
-   * through under standing towers; their visibleCells stayed in the old grid.
+   * signal, so as a computed it kept the count of its first read.
    */
   towerCount(): number {
     return this.towerManager.getAll().length;
   }
 
-  // Engine reference (public so visual hooks like turret-aim can access it).
-  tilesEngine: ThreeTilesEngine | null = null;
   private basePosition: GeoPosition | null = null;
 
-  /** The route grid's cells, the world key and package, see RouteWorld */
+  /** The routes and the route grid's cells, see RouteWorld */
   private readonly routeWorld = new RouteWorld({
     grid: this.globalRouteGrid,
-    pathRoutes: this.pathRouteService,
     waveManager: this.waveManager,
-    engine: () => this.tilesEngine,
-    basePosition: () => this.basePosition,
+    coords: this.coords,
     routesChanged: () => this.towerLifecycle.refreshGuardHeadings(),
   });
+
+  /** A world stands (initialize ran): before it no tower is placed and no wave starts */
+  private worldReady = false;
 
   /** Sub-step accounting: accumulator, catch-up cap, game time. */
   private readonly clock = new GameClock();
@@ -349,12 +302,13 @@ export class GameStateManager {
   /**
    * The run's random source. One seed per run, one stream per system, so a
    * different bot decision cannot shift the enemies (BALANCING_PLAN.md,
-   * section 5). Reset gives the next run a fresh seed.
+   * section 5). Reset gives the next run a fresh seed. The wave source and
+   * the bot draw from their own GameRng on the main thread.
    */
   readonly rng = new GameRng();
 
   /** Read-only access to the game-clock for any consumer that needs
-   *  game-time (status effects, sleep checks, AI bot ticks, etc). */
+   *  game-time (status effects, sleep checks, etc). */
   get gameTimeMs(): number {
     return this.clock.gameTimeMs;
   }
@@ -362,6 +316,11 @@ export class GameStateManager {
   /** Sub-steps since the run started; the stamp for every logged command. */
   get subStep(): number {
     return this.clock.subStep;
+  }
+
+  /** Sub-steps the last update() ran */
+  get stepsThisFrame(): number {
+    return this.clock.stepsThisFrame;
   }
 
   /**
@@ -391,9 +350,10 @@ export class GameStateManager {
     projectileManager: this.projectileManager,
     towerManager: this.towerManager,
     towerLifecycle: this.towerLifecycle,
-    towerPlacement: this.towerPlacement,
+    towerLos: this.towerLos,
     towerCombat: this.towerCombat,
-    enemyDebug: this.enemyDebug,
+    debugEnemies: this.debugEnemies,
+    sink: this.sink,
     research: () => this.researchSeats.map((seat) => seat.research),
     abilities: () => this.abilitySeats,
     heroes: () => this.heroSeats,
@@ -401,7 +361,6 @@ export class GameStateManager {
     abilityOf: (playerId) => this.abilityOf(playerId),
     heroOf: (playerId) => this.heroOf(playerId),
     players: () => this.players,
-    tilesEngine: () => this.tilesEngine,
     runStarted: () => this.runStarted,
     setRunStarted: (started) => { this.runStarted = started; },
   });
@@ -452,16 +411,19 @@ export class GameStateManager {
     this.commandsHandler?.replay(entry);
   }
 
+  /**
+   * A command from the main thread's bus, given by `playerId`, at the
+   * boundary before the next sub-step (SimCore.tick): the same path as one
+   * emitted on the simulation's own bus.
+   */
+  receiveCommand(command: GameEvent, playerId: string): void {
+    this.commandsHandler?.receiveFrom(command, playerId);
+  }
+
   // Performance profiler (optional, set via setProfiler())
-  private profiler: PerformanceProfilerService | null = null;
+  private profiler: SimProfiler | null = null;
   /** Profiler sums of one frame, filled by runSubStep() */
   private readonly stepTimings = { tProjectile: 0, tCombat: 0, tEvents: 0 };
-
-  /**
-   * The route corridor is being built (CorridorBuild), set by
-   * VisualizationFacadeService.initialize; see corridorPending.
-   */
-  private corridorBuilding: (() => boolean) | null = null;
 
   /** EventBus subscription bag — cleaned up in initialize() (re-init) and dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
@@ -524,46 +486,15 @@ export class GameStateManager {
       this.abilitySeats.push(abilities);
       this.heroSeats.push(this.heroFor(owner, heroSourceIdFor(id, single)));
     }
-    if (this.heroView) this.heroManager.setView(this.heroView);
-    this.attachPartnerHeroViews();
   }
 
   /**
-   * Every other player's hero gets a renderer of his own (review R15); the
-   * local one keeps the engine's, which alone can be selected.
+   * The line of sight the main thread rendered for a tower waiting for it
+   * (command:los-mask), at the boundary it came in; see TowerLos.applyMask.
    */
-  private attachPartnerHeroViews(): void {
-    const engine = this.tilesEngine;
-    for (const view of this.partnerHeroViews.values()) engine?.disposePartnerHero(view);
-    this.partnerHeroViews.clear();
-    if (!engine) return;
-    for (const seat of this.heroSeats) {
-      if (seat.owner.playerId === this.localPlayerId) continue;
-      const view = engine.createPartnerHero();
-      view.setGround(this.globalRouteGrid);
-      seat.setView(view);
-      this.partnerHeroViews.set(seat.owner.playerId, view);
-    }
-  }
-
-  /** A coop partner's hero in his lane colour; null takes the ring off */
-  setPartnerHeroColor(playerId: string, color: number | null): void {
-    this.partnerHeroViews.get(playerId)?.setOwnerColor(color);
-  }
-
-  /**
-   * Coop (C3): whose GPU answers the lines of sight. The host renders every
-   * tower's and sends the masks as command:los-mask; a guest renders none.
-   * Null for the single player game, which renders its own at once.
-   */
-  setLosRole(role: 'host' | 'guest' | null): void {
-    this.towerPlacement.setCoopLosRole(role);
-  }
-
-  /** Coop: the host's mask for a tower, at its tick (command:los-mask). */
-  applyCoopLosMask(towerId: string, mask: LosMaskJson): void {
+  applyLosMask(towerId: string, mask: LosMaskJson): void {
     const tower = this.towerManager.getById(towerId);
-    if (tower) this.towerPlacement.applyCoopLosMask(tower, losMaskFromJson(mask));
+    if (tower) this.towerLos.applyMask(tower, losMaskFromJson(mask));
   }
 
   /** Coop: lanes, readiness, who left, gifts, see CoopRoom */
@@ -631,23 +562,9 @@ export class GameStateManager {
   /** What a player may do with a tower (D7); swap it to loosen the rule. */
   towerPolicy: TowerPolicy = OWNER_ONLY;
 
-  /** The player at this client: whose credits `credits` shows, whose towers the UI selects. */
+  /** The player at this client: whose credits `credits` shows. */
   get localPlayerId(): string {
     return this.creditsLedger.localPlayer;
-  }
-
-  /**
-   * `towerId` if the player at this client may select that tower
-   * (TowerPolicy), else null: the UI's gate, the same rule the commands check.
-   */
-  selectableTower(towerId: string | null): string | null {
-    if (!towerId) return null;
-    const tower = this.towerManager.getById(towerId);
-    if (!tower || !this.towerPolicy.may(this.localPlayerId, tower, 'select')) return null;
-    // A partner's research center or silo has no panel that reads their state
-    // (their research is TODO E35); only their fighting towers are looked at
-    if (!this.mayManage(tower) && tower.typeConfig.attackType === 'passive') return null;
-    return towerId;
   }
 
   /**
@@ -680,74 +597,75 @@ export class GameStateManager {
   /**
    * Set performance profiler for frame timing instrumentation.
    */
-  setProfiler(profiler: PerformanceProfilerService | null): void {
+  setProfiler(profiler: SimProfiler | null): void {
     this.profiler = profiler;
   }
 
-  /** See corridorPending. */
-  setCorridorPending(pending: (() => boolean) | null): void {
-    this.corridorBuilding = pending;
-  }
-
   /**
-   * The route corridor of a new location or of a move is still being built
-   * (CorridorBuild): no tower is placed and no wave starts until it is done.
-   * Both would stand on the cells the build replaces. Holds for every way in:
-   * click, hotkey, auto start, wave director and the training bot.
+   * No world yet (loadWorld): no tower is placed and no wave starts. Holds
+   * for every way in: click, hotkey, auto start, wave director and the bot.
    */
   corridorPending(): boolean {
-    return this.corridorBuilding?.() ?? false;
+    return !this.worldReady;
+  }
+
+  /** Damage numbers on hits (display option, SimConfig.damageNumbers) */
+  setDamageNumbers(enabled: boolean): void {
+    this.combatEffect.damageNumbersEnabled = enabled;
+  }
+
+  /** Enemies stand still (display option `movement`, SimConfig.movementEnabled) */
+  setMovementEnabled(enabled: boolean): void {
+    this.enemyManager.movementEnabled = enabled;
   }
 
   /**
-   * Initialize game state with ThreeTilesEngine
+   * Stand on `world` (docs/SIM_WORKER.md, "Welt"): its frame, routes and
+   * cells (RouteWorld), then the game on it (initialize). The world key must
+   * come out as the main thread's, or the world is refused. A new world
+   * after a run: reset first.
+   */
+  loadWorld(world: SimWorld): void {
+    this.routeWorld.load(world);
+    const key = this.routeWorld.key();
+    if (key !== world.worldKey) {
+      this.worldReady = false;
+      throw new Error(`SimWorld: world key ${key}, the main thread has ${world.worldKey}`);
+    }
+    this.initialize(world.hq, world.spawns, this.routeWorld.cachedPaths());
+    const ground = new Map(world.spawns.map((spawn) => [spawn.id, world.spawnGround[spawn.id] ?? null]));
+    this.enemyManager.setSpawnGround((at) => {
+      for (const spawn of world.spawns) {
+        if (spawn.lat === at.lat && spawn.lon === at.lon) return ground.get(spawn.id) ?? null;
+      }
+      return null;
+    });
+  }
+
+  /**
+   * Set the game up on a world whose frame (SimCoords) and route grid stand:
+   * managers, listeners, commands. loadWorld calls it; a spec that builds its
+   * own grid calls it directly (integration/sim-world.ts).
    */
   initialize(
-    tilesEngine: ThreeTilesEngine,
     basePosition: GeoPosition,
     spawnPoints: SpawnPoint[],
-    cachedPaths: Map<string, GeoPosition[]>
+    cachedPaths: Map<string, RouteWaypoint[]>,
   ): void {
     // Clean up previous subscriptions to prevent duplicate event handlers on re-init
     this.eventBusSubs.disposeAll();
-
-    // Destroy old game-engine service instances (they register event handlers in constructors)
-    this.vfxService?.destroy();
-    this.audioService?.destroy();
-    this.gameSounds?.destroy();
-    this.screenShakeService?.destroy();
-    this.backgroundMusic?.destroy();
-    this.bloodMoonService?.destroy();
     // Dispose previous command-bus adapter — otherwise its subscriptions on
     // command:* / debug:* events stack on top of the new handler below,
-    // causing every command (place-tower, sell-tower, restart-game, …) to
-    // run N times after N in-app location changes. This was the cause of
-    // duplicate tower placements + duplicate placement sounds, which in
-    // turn left half the towers stuck at losReady=false because
-    // pendingTowerReg is a single slot and gets overwritten by the second
-    // placeTower call.
+    // causing every command to run N times after N re-inits.
     this.commandsHandler?.dispose();
 
     // A replay of the previous place is in the previous place's coordinates
     this.commandLog.clear();
     this.simRecorder.clear();
 
-    this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
-    // The pause sync above only reaches an engine that is already here
-    tilesEngine.spatialAudio.holdLoops(this.paused() && !this.gameStore.pauseKeepsLoops());
-    // Same for the rendering sync, and it matters more: a bot client sets
-    // renderingEnabled to false while connecting, long before the engine
-    // exists, so the effect's `?.` swallowed it and the signal never changed
-    // again. The tab then rendered the whole run at full cost, and only
-    // toggling the switch twice by hand put it right.
-    tilesEngine.setRenderingEnabled(this.gameStore.renderingEnabled());
+    this.worldReady = true;
 
-    // Initialize defense-reach debug visualization (orange marker)
-    this.globalRouteGrid.initDebugViz(tilesEngine.getScene(), tilesEngine.portalClip);
-
-    // Initialize entity managers (no callbacks - use events)
-    this.enemyManager.initialize(tilesEngine);
     // Wire wave-number + wave-weight providers for the kill-reward formula
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
     this.enemyManager.setWaveWeightProvider(() => this.waveManager.getExpectedBodyWeight());
@@ -755,10 +673,7 @@ export class GameStateManager {
     // Abilities fire during a wave only
     for (const seat of this.abilitySeats) seat.setPhaseProvider(this.phaseNow);
 
-    this.towerManager.initialize(tilesEngine);
-    this.towerManager.setActiveRoutesGetter(() =>
-      Array.from(this.pathRouteService.getCachedPaths().values())
-    );
+    this.towerManager.setActiveRoutesGetter(() => this.routeWorld.routes());
 
     // Wire the engine game-clock into StatusEffectService (breaks DI cycle —
     // StatusEffectService can't directly inject GameStateManager).
@@ -766,54 +681,18 @@ export class GameStateManager {
 
     // Initialize combat effect service (subscribes to projectile:hit events)
     this.combatEffect.initialize(
-      tilesEngine,
       this.eventBus,
       this.towerManager,
       this.enemyManager,
       this.simResearch,
     );
 
-    // Initialize HQ damage service (handles fire, sounds, game over effects)
-    this.hqDamage.initialize(tilesEngine, basePosition, this.eventBus);
-
     // Initialize tower combat service (handles targeting, rotation, shooting)
-    this.towerCombat.initialize(tilesEngine, this.simResearch);
-
-    // Initialize VFX service (subscribes to vfx events)
-    this.vfxService = new VFXService(this.eventBus, tilesEngine);
-    // Scorch marks sit on route cells, one per cell, at the grid's ground height
-    tilesEngine.effects.setScorchGround(this.globalRouteGrid);
-    // The hero stands on the route grid's ground like the enemies
-    tilesEngine.hero.setGround(this.globalRouteGrid);
-    this.heroView = tilesEngine.hero;
-    this.heroManager.setView(this.heroView);
-    this.attachPartnerHeroViews();
-    // The foot of the orbital laser's beam as well
-    tilesEngine.orbitalBeams.setGround(this.globalRouteGrid);
-
-    // Initialize Audio service (subscribes to audio events)
-    this.audioService = new AudioService(this.eventBus, tilesEngine);
-    // Its ability loops (the siren) stand on the route grid's ground
-    this.audioService.setGround(this.globalRouteGrid);
-    // Deaths, hits, upgrades, the moments of a run (game-sounds.config.ts)
-    this.gameSounds = new GameSoundsService(this.eventBus, tilesEngine);
-    this.gameSounds.setGameSpeedSource(() => this.gameSpeed());
-
-    // Initialize Screen Shake service (subscribes to explosion/impact events)
-    this.screenShakeService = new ScreenShakeService(this.eventBus, tilesEngine);
-
-    // Initialize Background Music service (subscribes to wave/game events)
-    this.backgroundMusic = new BackgroundMusicService(this.eventBus, tilesEngine);
-    this.backgroundMusic.setGameSpeedSource(() => this.gameSpeed());
-    // The pause sync above only reaches music that is already here
-    this.backgroundMusic.setDimmed(this.paused() && !this.gameStore.pauseKeepsLoops());
-
-    // Blood moon look on every seventh wave from W14 (subscribes to wave/game events)
-    this.bloodMoonService = new BloodMoonService(this.eventBus, tilesEngine.bloodMoon);
+    this.towerCombat.initialize(this.simResearch);
 
     // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
     // Leaks cost HP in full, no cap per wave (9cae86cc): the survivability cap
-    // sizes a wave before it walks. Emits health:changed (HQDamageService)
+    // sizes a wave before it walks. Emits health:changed
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
       this.healthLedger.applyLeak(event.damage);
     }));
@@ -822,15 +701,13 @@ export class GameStateManager {
       this.healthLedger.applyLeak(event.damage);
     }));
 
-
-    // AA-Retrofit: towers that just gained air targeting get their air LOS
-    // resolved (queued, see TowerLifecycle.scheduleAirRetrofit)
     // A tower's line of sight goes into the log with the boundary it came
-    // in at: a re-simulation applies it instead of rendering a cube again
+    // in at: a re-simulation applies it at that boundary (TowerLos)
     this.eventBusSubs.add(this.eventBus.on('tower:los-resolved', (event) => {
       (this.replayLog ?? this.commandLog).recordLos(event.towerId, event.mask, event.reason);
     }));
 
+    // AA-Retrofit: towers that just gained air targeting ask for their air LOS
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
       this.towerLifecycle.scheduleAirRetrofit(event.effects, event.playerId);
     }));
@@ -851,22 +728,20 @@ export class GameStateManager {
         this.creditsLedger.add(event.credits, 'kill', this.killCreditPlayer(event.killedBy));
 
         // Show reward popup with actual dynamic credits (not static typeConfig.reward)
-        if (this.tilesEngine) {
-          this.tilesEngine.effects.spawnFloatingText(
-            `+${event.credits}`,
-            event.enemy.position.lat,
-            event.enemy.position.lon,
-            event.enemy.transform.terrainHeight + event.enemy.heightOffset + 5,
-            {
-              color: '#FFD700',
-              duration: TIMING.rewardPopupDuration,
-              floatSpeed: 1.5,
-              scale: 0.75,
-              lateralOffset: 1.2,
-              lateralDrift: 1.0,
-            }
-          );
-        }
+        this.sink.effects.spawnFloatingText(
+          `+${event.credits}`,
+          event.enemy.position.lat,
+          event.enemy.position.lon,
+          event.enemy.transform.terrainHeight + event.enemy.heightOffset + 5,
+          {
+            color: '#FFD700',
+            duration: TIMING.rewardPopupDuration,
+            floatSpeed: 1.5,
+            scale: 0.75,
+            lateralOffset: 1.2,
+            lateralDrift: 1.0,
+          }
+        );
       }
     }));
 
@@ -875,10 +750,6 @@ export class GameStateManager {
     // ══════════════════════════════════════════════════════════════
     this.commandsHandler = new GameCommandsHandler(this, this.eventBus, this.commandLog);
     this.commandsHandler.setLockstep(this.lockstep.current);
-
-    // Initialize projectile manager (no callback - uses events)
-    this.projectileManager.initialize(tilesEngine);
-    this.projectileManager.ownSeat = (tower) => this.towerLifecycle.mannedTower(this.localPlayerId) === tower;
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
     // Wire health-provider for CloseCall detection at wave end
@@ -889,36 +760,22 @@ export class GameStateManager {
     // Seeded streams for the spawn point and the enemies' lane and altitude.
     this.waveManager.setRandom(this.rng.stream('spawn'));
     this.enemyManager.setRandom(this.rng.stream('enemy'));
+
+    // The routes of this world: hero graph, guard headings
+    this.routeWorld.adopt(cachedPaths);
   }
 
   /**
-   * Re-seat the wave pipeline with new spawn points and routes.
+   * Main update loop — called once per frame of the main thread (SimCore.tick).
    *
-   * Needed after a DevWorld regeneration, which builds an entirely new map but
-   * does not re-run {@link initialize}. `WaveManager.reset()` deliberately
-   * keeps its spawn points (a normal game restart reuses the same map), so
-   * without this the next wave still spawned at the previous world's
-   * coordinates and walked the previous world's path.
-   */
-  reseatWavePipeline(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
-    this.waveManager.initialize(spawnPoints, cachedPaths);
-    // The last wave ran through the previous world
-    this.commandLog.clear();
-    this.simRecorder.clear();
-  }
-
-  /**
-   * Main update loop — called EVERY FRAME by the renderer.
-   *
-   * Architecture: outer wrapper handles wall-clock → game-time conversion and
-   * once-per-frame visual chores; inner sub-step loop runs all gameplay logic
-   * at a FIXED 16.667ms game-time granularity, identical to a single 1× tick.
+   * Architecture: outer wrapper handles wall-clock → game-time conversion;
+   * inner sub-step loop runs all gameplay logic at a FIXED 16.667ms game-time
+   * granularity, identical to a single 1× tick.
    *
    * `onSubStep` is invoked once per sub-step with the step length in game-time
-   * ms — used by AI bots so their decision cadence matches game-time rather
-   * than wall-clock at high training timescales. It runs at the boundary
-   * after the step and its checks, so a command it emits takes effect at
-   * once; after the step that ends the game it does not run.
+   * ms. It runs at the boundary after the step and its checks, so a command
+   * it emits takes effect at once; after the step that ends the game it does
+   * not run.
    *
    * Commands take effect only between two complete sub-steps: one emitted
    * during a step (a listener reacting to a sim event) waits in the
@@ -930,10 +787,8 @@ export class GameStateManager {
     // game clock stands. The wall clock is still taken, otherwise the first
     // frame after the pause would try to catch up the whole pause. The
     // remainder stays as it was, the resume continues where the pause began.
-    // The renderer clock goes to 0 so walk cycles freeze with their enemies.
     if (this.paused()) {
       this.clock.holdFrame(currentTime);
-      this.tilesEngine?.setTimescale(0);
       return;
     }
 
@@ -945,13 +800,6 @@ export class GameStateManager {
     const timescale = this.gameSpeed();
     this.clock.beginFrame(currentTime, timescale * this.lockstep.pace(this.clock.subStep));
 
-    // Sync timescale to renderer (turret-pulse / hover / shader-time only —
-    // gameplay rotation now flows through sub-step game-time).
-    this.tilesEngine?.setTimescale(timescale);
-
-    // ══════════════════════════════════════════════════════════════
-    // SUB-STEP LOOP (gameplay)
-    // ══════════════════════════════════════════════════════════════
     const timings = this.stepTimings;
     timings.tProjectile = 0;
     timings.tCombat = 0;
@@ -964,8 +812,8 @@ export class GameStateManager {
       const gameOver = this.simulateStep(stepMs, profiling);
       if (gameOver) break; // no point running more sub-steps after game-over
 
-      // Per-sub-step listeners (AI bot) at the boundary: a bot decides on
-      // the state after the checks, its command acts at once
+      // Per-sub-step listeners at the boundary: one decides on the state
+      // after the checks, its command acts at once
       onSubStep?.(stepMs);
     }
     // Coop: how smoothly this client runs (PLAYTEST T19)
@@ -975,41 +823,12 @@ export class GameStateManager {
       link.noteFrame(this.clock.stepsThisFrame, !open && this.clock.hasDueStep(), Math.max(0, behind));
     }
     this.clock.endFrame();
-    const stepsExecuted = this.clock.stepsThisFrame;
-
-    // Queued LOS recomputes (air retrofit after research), one tower per
-    // frame, between two sub-steps. Here rather than in a frame callback: the
-    // heartbeat of a hidden tab ticks update() as well.
-    this.towerPlacement.drainLosQueue();
-
-    // ══════════════════════════════════════════════════════════════
-    // ONCE PER RENDER-FRAME (visuals + UI sync)
-    // ══════════════════════════════════════════════════════════════
-
-    // Push enemy state to the renderer once, after the sub-step loop.
-    //
-    // Only when a sub-step actually ran: above 60 FPS the simulation ticks
-    // less often than the frame rate, and the visuals should keep following
-    // the simulation rather than re-pushing unchanged state. Skipped entirely
-    // when rendering is off, which is what headless training runs at — the
-    // per-enemy matrix work used to happen there too, for a frame that is
-    // never drawn.
-    if (stepsExecuted > 0 && this.tilesEngine?.renderingEnabled) {
-      this.enemyManager.presentFrame(this.clock.gameTimeMs);
-      this.projectileManager.presentFrame();
-      for (const seat of this.heroSeats) seat.presentFrame();
-    }
-
-    // Sync active research progress to store for UI (cheap, batched once/frame)
-    if (this.researchManager.usedSlots > 0) {
-      this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
-    }
 
     if (profiling) {
       this.profiler!.accumulateFrameTiming(
         0, timings.tProjectile, timings.tCombat, timings.tEvents,
         performance.now() - frameStart,
-        stepsExecuted,
+        this.clock.stepsThisFrame,
       );
     }
   }
@@ -1038,7 +857,7 @@ export class GameStateManager {
       if (!this.replaying) this.simRecorder.end(this.clock.subStep);
       this.towerCombat.stopAllBeams();
       this.towerCombat.stopAllMelee();
-      this.enemyDebug.clearDebugEnemies();
+      this.debugEnemies.clear();
     }
     const gameOver = this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover';
     if (gameOver) {
@@ -1095,16 +914,14 @@ export class GameStateManager {
       seat.research.update(stepMs);
       seat.research.startQueued(seat.credits, seat.spend);
     }
-    // The rumbling tail of a strike that already hit, then strike countdowns
-    // and impacts, in game time like the research
-    this.audioService?.update(stepMs);
+    // Strike countdowns and impacts, in game time like the research
     for (const seat of this.abilitySeats) seat.update(stepMs);
 
     t0 = profiling ? performance.now() : 0;
     this.eventBus.processQueue();
     if (profiling) timings.tEvents += performance.now() - t0;
 
-    const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
+    const hasDebugEnemies = this.debugEnemies.size > 0;
     const isWavePhase = this.waveManager.phase() === 'wave';
     const shouldRunCombat = isWavePhase || hasDebugEnemies;
 
@@ -1124,33 +941,17 @@ export class GameStateManager {
         now,
         stepMs,
         this.towerManager,
-        this.enemyManager,
         this.projectileManager,
       );
-      this.towerCombat.updateBeamTowers(
-        stepMs,
-        this.towerManager,
-        this.enemyManager,
-        now,
-      );
-      this.towerCombat.updateMeleeTowers(
-        stepMs,
-        this.towerManager,
-        this.enemyManager,
-        now,
-      );
-      this.towerCombat.updateChainTowers(
-        stepMs,
-        this.towerManager,
-        this.enemyManager,
-        now,
-      );
+      this.towerCombat.updateBeamTowers(stepMs, this.towerManager, now);
+      this.towerCombat.updateMeleeTowers(stepMs, this.towerManager, now);
+      this.towerCombat.updateChainTowers(stepMs, this.towerManager, now);
       if (profiling) timings.tCombat += performance.now() - t0;
     }
 
     // The towers the players sit in: turn to the aim and fire, in and between waves
     for (const [, manned] of this.towerLifecycle.mannedTowers()) {
-      const shot = this.towerCombat.updateMannedTower(manned, now, stepMs, this.enemyManager, this.projectileManager);
+      const shot = this.towerCombat.updateMannedTower(manned, now, stepMs, this.projectileManager);
       if (shot) this.eventBus.emitDeferred({ type: 'tower:manual-shot', towerId: shot.tower.id, target: shot.target });
     }
 
@@ -1226,11 +1027,11 @@ export class GameStateManager {
       return this.simulateStep(GameClock.FIXED_STEP_MS, false);
     },
     waveRunning: () => this.waveManager.phase() === 'wave',
-    setReplayMode: (masks) => this.setReplayMode(masks),
+    setReplayMode: (on) => this.setReplayMode(on),
     replayCommand: (entry) => this.commandsHandler?.replay(entry),
     applyLosMask: (towerId, mask) => {
       const tower = this.towerManager.getById(towerId);
-      if (tower) this.towerPlacement.registerTowerFromMask(tower, mask);
+      if (tower) this.towerLos.replayMask(tower, mask);
     },
     setBoundaryListener: (listener) => {
       this.boundaryListener = listener;
@@ -1238,35 +1039,16 @@ export class GameStateManager {
   };
 
   /**
-   * Take the show off the field before a snapshot restore or after a
-   * replay's seek: particles, marks, damage numbers, ability strikes and
-   * their sounds, the one-shot sounds. Loops stay with the entities they
-   * belong to. resyncPresentation() then sets up what the state shows.
-   */
-  clearShow(): void {
-    const engine = this.tilesEngine;
-    if (!engine) return;
-    engine.effects.clear();
-    clearStrikeEffects(engine);
-    this.audioService?.clearAbilitySounds();
-    engine.spatialAudio.stopOneShots();
-  }
-
-  /**
-   * Show what the simulation holds now, after a snapshot restore or a
+   * Announce what the simulation holds now, after a snapshot restore or a
    * replay's seek, which change it without the events that normally bring
-   * its look and sound: the fire towers' furnaces, the HQ fire, the status
-   * looks of the enemies, music and blood moon of the phase, the silo's
-   * missile.
+   * its look and sound: the fire towers' furnaces (ops), the abilities'
+   * state, and `sim:presented` with the numbers the main thread shows the
+   * rest from (HQ fire, music and blood moon of the phase, status looks).
    */
   resyncPresentation(): void {
     this.towerManager.refreshInnerFires();
-    this.hqDamage.updateFireIntensity(this.baseHealth());
-    this.enemyManager.resetStatusVisuals();
     const phase = this.waveManager.phase();
     const wave = this.waveManager.waveNumber();
-    this.backgroundMusic?.followPhase(phase, wave);
-    this.bloodMoonService?.follow(phase, wave);
     for (const seat of this.abilitySeats) seat.announceState();
     const alive = this.enemyManager.getAliveCount();
     this.eventBus.emit({
@@ -1287,41 +1069,27 @@ export class GameStateManager {
     return this.routeWorld.key();
   }
 
-  /** The finished world as a coop host packs it, see RouteWorld.source */
-  worldSource(): WorldSource | null {
-    return this.routeWorld.source();
-  }
-
   /**
-   * Hand the re-simulated state to the renderers, like the frame's present
-   * after the live sub-steps (update()). The replay calls it after it
-   * stepped; the live loop stands paused meanwhile.
+   * Re-simulation on or off: commands only from the log, the live listeners
+   * muted (GameEventBus.onLive), a log of its own. Towers wait for their line
+   * of sight as live; the logged masks answer them (TowerLos.replayMask).
    */
-  presentReplayFrame(): void {
-    if (!this.tilesEngine?.renderingEnabled) return;
-    this.enemyManager.presentFrame(this.clock.gameTimeMs);
-    this.projectileManager.presentFrame();
-    for (const seat of this.heroSeats) seat.presentFrame();
-  }
-
-  private setReplayMode(masks: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
-    const on = masks !== null;
+  private setReplayMode(on: boolean): void {
     this.replaying = on;
     // What records or mirrors the run stays out (GameEventBus.onLive)
     this.eventBus.setLiveMuted(on);
     this.replayLog = on ? new CommandLog(() => this.clock.subStep) : null;
     this.commandsHandler?.setReplaying(on);
     this.commandsHandler?.setLog(this.replayLog ?? this.commandLog);
-    this.towerPlacement.setLosMaskSource(masks);
   }
 
   /** Geo height of the ground under a position, from the route grid like the enemies' feet; 0 without it. */
   private groundHeightAt(lat: number, lon: number): number {
-    const engine = this.tilesEngine;
-    if (!engine || !this.globalRouteGrid.isInitialized()) return 0;
-    const local = engine.sync.geoToLocalSimple(lat, lon, 0);
+    if (!this.globalRouteGrid.isInitialized()) return 0;
+    const sync = this.coords.sync;
+    const local = sync.geoToLocalSimple(lat, lon, 0);
     const y = this.globalRouteGrid.getGroundLocalYAt(local.x, local.z);
-    return y === null ? 0 : y + engine.sync.getOrigin().height;
+    return y === null ? 0 : y + sync.getOrigin().height;
   }
 
   /**
@@ -1339,14 +1107,12 @@ export class GameStateManager {
       type: 'game:over',
       reason: 'base-destroyed',
     });
+    // Nothing more comes out of the portals
+    this.waveManager.stopSpawning();
 
     this.enemyManager.clear();
-    this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
-    this.towerManager.selectTower(null);
+    this.debugEnemies.clear(); // Clear orphaned debug enemy references
     this.towerLifecycle.leaveAll();
-
-    // Delegate visual effects to HQDamageService
-    this.hqDamage.triggerGameOverEffects();
   }
 
   // ============================================
@@ -1374,7 +1140,7 @@ export class GameStateManager {
     // Wave preview in the sidebar, see summarizeWaveGroups(); the live wave's only
     const groups = this.replaying ? [] : summarizeWaveGroups(laneCount > 1 ? perLane : config, laneCount, this.waveManager.waveNumber() + 1);
     if (groups.length > 0) {
-      this.waveDebug.setCurrentWaveGroups(groups);
+      this.eventBus.emit({ type: 'wave:groups', groups });
     }
 
     // Emit lifecycle event BEFORE startWave() so that StateSnapshotService.clearHistory()
@@ -1386,6 +1152,7 @@ export class GameStateManager {
 
     this.snapshots.waveStarted(config);
     this.waveManager.startWave(config);
+    this.releaseDebugEnemies();
   }
 
   /**
@@ -1404,6 +1171,14 @@ export class GameStateManager {
     // A wave without a plan: nothing spawns by itself, the wave snapshot carries no spawner
     this.snapshots.waveStarted({ schedule: { entries: [], baseDelay: 0 } });
     this.waveManager.beginWave();
+    this.releaseDebugEnemies();
+  }
+
+  /** A wave starts: the debug enemies placed standing walk off with it. */
+  private releaseDebugEnemies(): void {
+    for (const enemy of this.debugEnemies.all()) {
+      if (enemy.movement.paused && enemy.alive) enemy.startMoving();
+    }
   }
 
   /**
@@ -1411,7 +1186,6 @@ export class GameStateManager {
    */
   healBase(): void {
     this.healthLedger.resetToStart();
-    this.hqDamage.healBase();
   }
 
   /** Debug: add (or take) base HP, emits health:changed. */
@@ -1419,16 +1193,6 @@ export class GameStateManager {
     this.healthLedger.adjust(amount);
   }
 
-  /**
-   * Debug: the next wave to start is `wave`; the waves before it are skipped
-   * without spawning. Between waves only and only forward. What counts
-   * completed waves moves with the counter: the ability recharge, and with
-   * `grantGold` the gold the skipped waves would have paid (skippedWavesGold).
-   * What runs on game time (research, auto-start countdown) stays, as no game
-   * time passes. The wave director keeps its state, see docs/WAVE_SYSTEM.md.
-   * Announced as `wave:jumped`.
-   * @returns false when refused: a wave running, game over, or `wave` not past the next wave
-   */
   /**
    * The enemy debugger's cheats (debug:* commands, GameCommandsHandler), so
    * in coop they act at their tick on every client. Each changes the
@@ -1445,19 +1209,56 @@ export class GameStateManager {
 
   debugSpawnEnemy(event: Extract<GameEvent, { type: 'debug:spawn-enemy' }>): void {
     this.taintByCheat(event.type);
-    this.enemyManager.debugSpawn(event);
+    for (const enemy of this.enemyManager.debugSpawn(event)) this.debugEnemies.add(enemy);
   }
 
   debugRemoveEnemy(enemyId: string): void {
     this.taintByCheat('debug:remove-enemy');
     this.enemyManager.debugRemove(enemyId);
+    this.debugEnemies.remove(enemyId);
     this.towerLifecycle.turnToGuardIfClear();
+  }
+
+  /** Enemy Debug: walk on or stand (debug:enemy-move) */
+  debugEnemyMove(enemyId: string, moving: boolean): void {
+    this.taintByCheat('debug:enemy-move');
+    const enemy = this.enemyManager.getById(enemyId);
+    if (!enemy) return;
+    if (!moving) enemy.stopMoving();
+    else if (enemy.alive) enemy.startMoving();
+  }
+
+  /** Enemy Debug: run or walk (debug:enemy-run) */
+  debugEnemyRun(enemyId: string, running: boolean): void {
+    this.taintByCheat('debug:enemy-run');
+    this.enemyManager.getById(enemyId)?.setRunning(running);
+  }
+
+  /** Enemy Debug: the speed of one enemy, or of every enemy on the map (debug:enemy-speed) */
+  debugEnemySpeed(enemyId: string | undefined, speedMps: number): void {
+    this.taintByCheat('debug:enemy-speed');
+    if (enemyId === undefined) {
+      for (const enemy of this.enemyManager.getAll()) enemy.movement.speedMps = speedMps;
+      return;
+    }
+    const enemy = this.enemyManager.getById(enemyId);
+    if (enemy) enemy.movement.speedMps = speedMps;
   }
 
   private taintByCheat(type: string): void {
     if (!this.replaying) this.simRecorder.taint(type);
   }
 
+  /**
+   * Debug: the next wave to start is `wave`; the waves before it are skipped
+   * without spawning. Between waves only and only forward. What counts
+   * completed waves moves with the counter: the ability recharge, and with
+   * `grantGold` the gold the skipped waves would have paid (skippedWavesGold).
+   * What runs on game time (research, auto-start countdown) stays, as no game
+   * time passes. The wave director keeps its state, see docs/WAVE_SYSTEM.md.
+   * Announced as `wave:jumped`.
+   * @returns false when refused: a wave running, game over, or `wave` not past the next wave
+   */
   jumpToWave(wave: number, grantGold: boolean): boolean {
     const from = this.waveManager.waveNumber();
     if (this.waveManager.phase() !== 'setup' || !Number.isInteger(wave) || wave <= from + 1) return false;
@@ -1472,7 +1273,7 @@ export class GameStateManager {
   }
 
   /**
-   * Full dispose — called when the component is destroyed.
+   * Full dispose — the simulation goes away.
    * Cleans up EventBus subscriptions that were registered in initialize().
    */
   dispose(): void {
@@ -1480,33 +1281,17 @@ export class GameStateManager {
     this.commandsHandler?.dispose();
     this.commandsHandler = null;
 
-    // Destroy game-engine service instances (they hold EventBus subscriptions)
     this.combatEffect.destroy();
-    this.vfxService?.destroy();
-    this.audioService?.destroy();
-    this.gameSounds?.destroy();
-    this.screenShakeService?.destroy();
-    this.backgroundMusic?.destroy();
-    this.bloodMoonService?.destroy();
-    this.bloodMoonService = null;
-
-    this.hqDamage.reset();
 
     // Polymorphic teardown: every sub-manager implements IGameManager.destroy.
-    // EntityManager.destroy() clears entities + drops the tilesEngine ref;
-    // Wave/ResearchManager.destroy() drops their state.
     for (const m of this.subManagers) {
       m.destroy();
     }
     for (const seat of this.abilitySeats) seat.destroy();
     for (const seat of this.heroSeats) seat.destroy();
-    for (const view of this.partnerHeroViews.values()) this.tilesEngine?.disposePartnerHero(view);
-    this.partnerHeroViews.clear();
     this.globalRouteGrid.clear();
-
-    if (this.tilesEngine) {
-      this.tilesEngine.effects.clear();
-    }
+    this.worldReady = false;
+    this.sink.effects.clear();
   }
 
   /**
@@ -1515,11 +1300,7 @@ export class GameStateManager {
    * @param seed The run seed; a coop room hands every client the same one. A new one by default.
    */
   reset(seed?: number): void {
-    // Reset HQ damage service (clears fires, timeouts, game over screen)
-    this.hqDamage.reset();
-
-    // Clear tower overlays before clearing towers
-    // (unregisters each tower from GlobalRouteGrid, disposes LOS meshes)
+    // Take every tower off the grid before clearing towers
     this.towerLifecycle.clearAllOverlays();
 
     // Stop all active beams/melee before clearing towers
@@ -1527,7 +1308,7 @@ export class GameStateManager {
     this.towerCombat.stopAllMelee();
 
     this.enemyManager.clear();
-    this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
+    this.debugEnemies.clear(); // Clear orphaned debug enemy references
     this.towerManager.clear();
     this.projectileManager.clear();
     this.waveManager.reset();
@@ -1539,14 +1320,12 @@ export class GameStateManager {
 
     // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
     // and won't be re-initialized on a game-over restart. Tower visibility
-    // has already been cleaned up per-tower via clearAllTowerOverlays above.
+    // has already been cleaned up per-tower via clearAllOverlays above.
 
-    if (this.tilesEngine) {
-      this.tilesEngine.effects.clear();
-      // A killed ooze's collapsing band and debris outlive EnemyManager.clear(),
-      // which every wave end runs as well; a restart or location change takes them
-      this.tilesEngine.oozes.clear();
-    }
+    this.sink.effects.clear();
+    // A killed ooze's collapsing band and debris outlive EnemyManager.clear(),
+    // which every wave end runs as well; a restart or location change takes them
+    this.sink.oozes.clear();
 
     this.healthLedger.resetToStart();
     this.creditsLedger.reset();
@@ -1598,8 +1377,8 @@ export class GameStateManager {
   }
 
   /**
-   * After a range-stat upgrade (manual or debug-max-upgrade), refresh the
-   * tower's LOS cells, range cache, range disc and guard heading.
+   * After a range-stat upgrade (manual or debug-max-upgrade), ask for the
+   * tower's LOS cells, refresh its range cache, range disc and guard heading.
    */
   recomputeTowerRangeAfterUpgrade(tower: Tower): void {
     this.towerLifecycle.recomputeRangeAfterUpgrade(tower);
@@ -1653,6 +1432,11 @@ export class GameStateManager {
     return this.towerLifecycle.mannedTower(this.localPlayerId);
   }
 
+  /** The tower `playerId` sits in, null when none (the packet's scalars). */
+  mannedTowerOf(playerId: string): Tower | null {
+    return this.towerLifecycle.mannedTower(playerId);
+  }
+
   /**
    * Where the player aims from the manned tower (Tower.manualAim), from
    * command:tower-aim (TowerControlService sends one a frame at most, only
@@ -1698,51 +1482,10 @@ export class GameStateManager {
   }
 
   /**
-   * Called when tiles are loaded - notifies HQ damage service
-   */
-  onTilesLoaded(): void {
-    this.hqDamage.onTilesLoaded();
-
-    // Spawn debug point if debug option is enabled
-    if (this.uiStore.specialPointsDebugVisible()) {
-      this.markerViz.spawnHQDebugPoint();
-    }
-  }
-
-  /**
-   * Get cached enemy routes for LOS preview during tower placement
+   * The enemy routes in use
    */
   getCachedRoutes(): RouteWaypoint[][] {
     return this.routeWorld.routes();
-  }
-
-  /**
-   * Initialize GlobalRouteGrid after routes are computed, and keep the tiles
-   * along them fine (the route corridor region). Should be called after
-   * engine and routes are ready
-   */
-  initializeGlobalRouteGrid(): void {
-    this.routeWorld.buildCells(true);
-  }
-
-  /** The cells of the routes in use built again from nothing, see RouteWorld.rebuildCells */
-  rebuildRouteCells(): void {
-    this.routeWorld.rebuildCells();
-  }
-
-  /**
-   * Get GlobalRouteGrid service (for visualization access)
-   */
-  getGlobalRouteGrid(): GlobalRouteGridService {
-    return this.globalRouteGrid;
-  }
-
-  /**
-   * Calculate defense reach percent — delegates to GlobalRouteGridService.
-   * @see GlobalRouteGridService.getDefenseReachPercent
-   */
-  getDefenseReachPercent(): number {
-    return this.routeWorld.defenseReachPercent();
   }
 
   /**
@@ -1753,17 +1496,17 @@ export class GameStateManager {
   }
 
   /**
-   * Get spawn points for bot/AI use
+   * Get spawn points
    */
   getSpawnPoints(): SpawnPoint[] {
     return this.waveManager.spawnPoints;
   }
 
   /**
-   * Get cached paths for bot/AI use
+   * The enemy routes by spawn point id
    */
   getCachedPaths(): Map<string, GeoPosition[]> {
-    return this.pathRouteService.getCachedPaths();
+    return this.routeWorld.cachedPaths();
   }
 
   /**
@@ -1771,9 +1514,6 @@ export class GameStateManager {
    * @param scale Timescale multiplier (1.0 = normal, 75.0 = 75x speed)
    */
   setGameSpeed(scale: number): void {
-    const clamped = Math.max(0.1, Math.min(75, scale));
-    this.gameSpeed.set(clamped);
-    // Also update the global store so UI components stay in sync
-    this.gameStore.gameSpeed.set(clamped);
+    this.gameSpeed.set(Math.max(0.1, Math.min(75, scale)));
   }
 }

@@ -22,7 +22,8 @@
  * from the damage path.
  */
 
-import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import type { IGameManager } from '../game-engine/game-manager.interface';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 import { DetMath } from '../utils/det-math';
@@ -108,7 +109,10 @@ export interface HeroPresentation {
   anchor: GeoPosition;
 }
 
-/** Where the manager shows the hero: HeroRenderer. */
+/**
+ * Where the main thread shows a hero (HeroRenderer), fed from the frame
+ * packet's heroes (HeroFrame, built from getPresentation()).
+ */
 export interface HeroView {
   present(hero: HeroPresentation): void;
   /** No hero any more (restart) */
@@ -183,7 +187,6 @@ export class HeroManager implements IGameManager {
     return geoDistanceFastSq(from, enemy.position);
   };
 
-  private view: HeroView | null = null;
   private readonly presentation: HeroPresentation = {
     lat: 0, lon: 0, heading: 0, pose: 'idle', anchor: { lat: 0, lon: 0 },
   };
@@ -284,9 +287,6 @@ export class HeroManager implements IGameManager {
     this.clockMs = 0;
     this.applyStats();
     this.emitState();
-    // Shown at once, like a placed tower: in a pause no sub-step runs, and
-    // the frame's present only follows a sub-step
-    this.presentFrame();
     return true;
   }
 
@@ -305,8 +305,6 @@ export class HeroManager implements IGameManager {
     this.mode = this.goal ? 'travel' : 'hold';
     this.replanMs = 0;
     this.emitState();
-    // The post ring moves at once, in a pause too (see hire)
-    this.presentFrame();
     return true;
   }
 
@@ -323,15 +321,11 @@ export class HeroManager implements IGameManager {
 
   // ==================== Rendering ====================
 
-  /** Where he is shown (the engine's HeroRenderer), null headless. */
-  setView(view: HeroView | null): void {
-    this.view = view;
-  }
-
   /**
    * He as the renderer shows him: position, heading, pose, the spot he
    * holds; null until hired. Filled into one object on every call, read it
-   * before the next. presentFrame hands it on, the wave replay records it.
+   * before the next. Every frame packet carries it (sim/core/packet-writer.ts),
+   * so he shows at once after a hire or an order, in a pause too.
    */
   getPresentation(): Readonly<HeroPresentation> | null {
     const hero = this.hero;
@@ -344,17 +338,6 @@ export class HeroManager implements IGameManager {
     else p.pose = this.goal ? 'run' : 'idle';
     p.anchor = this.getAnchor() ?? p.anchor;
     return p;
-  }
-
-  /**
-   * Hand him to the renderer. Once per rendered frame after the sub-steps,
-   * like EnemyManager.presentFrame, and right after a hire or a move order;
-   * reads the simulation, changes nothing.
-   */
-  presentFrame(): void {
-    if (!this.view) return;
-    const p = this.getPresentation();
-    if (p) this.view.present(p);
   }
 
   // ==================== Update Loop ====================
@@ -559,10 +542,6 @@ export class HeroManager implements IGameManager {
       this.goal = null;
       this.mode = 'hold';
       this.replanMs = 0;
-      // Shown at once, like a hire or a move order: this can run from a query
-      // (resolveMoveTarget) while the game is paused, where no sub-step
-      // follows to present the new position.
-      this.presentFrame();
     }
     return this.graph;
   }
@@ -669,12 +648,9 @@ export class HeroManager implements IGameManager {
       this.clockMs = saved.clockMs;
       this.applyStats();
       this.replanToGoal(graph);
-    } else {
-      this.view?.clear();
     }
     // A baseline: no hire or ammo sound for a hero put back
     this.emitState(true);
-    this.presentFrame();
   }
 
   /** On his way: a new path to the same goal from where he stands. See captureState. */
@@ -696,7 +672,6 @@ export class HeroManager implements IGameManager {
   reset(): void {
     this.hero?.destroy();
     this.hero = null;
-    this.view?.clear();
     this.unlocked = false;
     this.ammo = 'standard';
     this.kills = 0;
