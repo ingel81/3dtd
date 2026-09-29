@@ -290,7 +290,6 @@ export class GameStateManager {
   /** The routes and the route grid's cells, see RouteWorld */
   private readonly routeWorld = new RouteWorld({
     grid: this.globalRouteGrid,
-    waveManager: this.waveManager,
     coords: this.coords,
     routesChanged: () => this.towerLifecycle.refreshGuardHeadings(),
   });
