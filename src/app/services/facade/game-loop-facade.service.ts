@@ -294,11 +294,22 @@ export class GameLoopFacadeService {
     // against waves sized for a defense that no longer existed (median run
     // length 6 waves against a target of 80). A wave source switched in the
     // debug window also takes effect here.
-    this.eventBusSubs.add(eventBus.onLive('game:reset', () => this.waveDirector.resetForNewGame()));
+    this.eventBusSubs.add(eventBus.onLive('game:reset', () => this.resetWaveSource()));
     // The first run of a session starts without a game:reset: a source that
     // plans at wave end commits wave 1 now, before any tower stands. A later
     // reset plans it again.
+    this.resetWaveSource();
+  }
+
+  /**
+   * A new run: the director puts the chosen source into service, and the
+   * simulation reads that source's rules (kill gold, leak damage, completion
+   * gold) from here on. It arrives with the next tick, before the run's
+   * first sub-step on a new place and in the setup phase after a restart.
+   */
+  private resetWaveSource(): void {
     this.waveDirector.resetForNewGame();
+    if (this.sim.started) this.sim.configure({ waveSource: this.waveDirector.source.id });
   }
 
   // ══════════════════════════════════════════════════════════════
