@@ -93,11 +93,18 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
   const closedRun = signal<RunLog | null>(null);
   const bus = createMainEventBus();
   // The simulation's end: its bus, and what the coop sends it
+  const failureListeners: ((error: string) => void)[] = [];
   const sim = {
     bus,
     started: true,
     setLockstep: vi.fn(),
     configure: vi.fn(),
+    onFailure: (listener: (error: string) => void) => {
+      failureListeners.push(listener);
+      return () => undefined;
+    },
+    /** The simulation threw: what SimClient tells its listeners */
+    fail: (error: string) => failureListeners.forEach((listener) => listener(error)),
     rpc: vi.fn(async (method: string) => (method === 'stateHash' ? 1 : null)),
   };
   const world = withAutoStubs({
@@ -378,6 +385,21 @@ describe('CoopService over a real relay (review R21)', () => {
     expect(guest.sim.configure).toHaveBeenCalledWith({ playersLeft: expect.arrayContaining([host.coop.playerId()]) });
     expect(guest.los.setRole).toHaveBeenLastCalledWith('render');
     expect(guest.coop.status()).toBe('off');
+  });
+
+  it('leaves the room when its simulation failed, so the host does not wait for this seat', async () => {
+    const { host, guest } = await lobby();
+    guest.coop.setLobbyReady(true);
+    await until(() => host.coop.room()!.players.every((p) => p.ready || p.id === host.coop.room()!.hostId));
+    host.coop.start();
+    await until(() => host.coop.inGame() && guest.coop.inGame());
+
+    const guestId = guest.coop.playerId()!;
+    guest.sim.fail('TypeError: boom');
+    expect(guest.coop.status()).toBe('off');
+    expect(guest.sim.setLockstep).toHaveBeenLastCalledWith(null);
+    // The host hears the seat leave: its lane closes there
+    await until(() => host.coop.room()!.players.every((p) => p.id !== guestId));
   });
 
   it('hosts on the LAN over the app’s relay and lets a guest in by a found game (C4d)', async () => {
