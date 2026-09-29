@@ -460,6 +460,8 @@ export class CoopService {
   private readonly pingTimers = new Set<ReturnType<typeof setTimeout>>();
   /** Counts up on every leave(), so a wait begun before it gives up */
   private generation = 0;
+  /** startGame reset the simulation; its game:reset has not come back yet */
+  private startResetPending = false;
 
   constructor() {
     readDesktopBridge()?.onUpdateReady(() => this.ngZone.run(() => this.updateReady.set(true)));
@@ -468,6 +470,7 @@ export class CoopService {
       const run = this.runLog.closedRun();
       if (run) untracked(() => void this.offerRunLog(run));
     });
+    this.runLog.setCoopHead(() => this.coopRunHead());
     // The simulation failed: out of the room, so the partners' lockstep does not wait for this seat
     const offFailure = this.sim.onFailure(() => {
       if (this.session) this.ngZone.run(() => this.leave());
@@ -475,6 +478,7 @@ export class CoopService {
     // The game component goes (another route): out of the room, the LAN relay and scan with it
     inject(DestroyRef).onDestroy(() => {
       offFailure();
+      this.runLog.setCoopHead(() => null);
       this.scanLan(false);
       this.leave();
       this.subs.disposeAll();
@@ -509,9 +513,13 @@ export class CoopService {
     this.subs.add(bus.onLive('game:reset', () => {
       if (!this.inGame()) return;
       this.runCounts.newRun();
-      this.markRunAsCoop();
       this.readyNow = false;
       this.readyIds.set(new Set());
+      // The reset of the room's start (startGame) comes with a later packet: the game begins, no new run to tell of
+      if (this.startResetPending) {
+        this.startResetPending = false;
+        return;
+      }
       this.notify(this.isHost() ? 'New run started' : 'The host started a new run');
     }));
     this.subs.add(bus.on('wave:started', () => {
@@ -946,10 +954,11 @@ export class CoopService {
     session.sendRunLog(gz);
   }
 
-  /** The run log marks this run as a coop one: it sets no record of the place (review R16) */
-  private markRunAsCoop(): void {
+  /** The run log marks a run as a coop one: it sets no record of the place (review R16) */
+  private coopRunHead(): { players: string[]; you: string } | null {
+    if (!this.inGame()) return null;
     const me = this.roster().find((p) => p.id === this.playerId())?.name ?? this.name;
-    this.runLog.collector.markCoop(this.roster().map((p) => p.name), me);
+    return { players: this.roster().map((p) => p.name), you: me };
   }
 
   /** Drop an armed ping (Esc) */
@@ -1506,6 +1515,8 @@ export class CoopService {
 
   /** The room started: a fresh run with its seed, players, lanes, the tick stream. */
   private startGame(start: CoopStart): void {
+    // Its game:reset arrives with a later packet; the run log opens the coop run there (coopRunHead)
+    this.startResetPending = true;
     void this.sim.rpc('reset', start.seed);
     // The relay and the room's rule decide (D38): a cheat acts on every client alike or on none
     const relayAllows = this.room()?.cheats ?? false;
@@ -1535,7 +1546,6 @@ export class CoopService {
     this.gold.set(new Map(start.players.map((id) => [id, this.mirror.creditsOf(id)])));
     this.applySpeed(start.speed);
     this.runCounts.clear();
-    this.markRunAsCoop();
     this.status.set('in-game');
   }
 

@@ -203,7 +203,7 @@ export class TowerDefenseFacadeService {
       },
       callbacks: {
         startWave: () => this.gameLoopFacade.readyOrStartWave(),
-        restartGame: () => this.restartGame(),
+        restartGame: (seed) => this.restartGame(seed),
       }
     });
 
@@ -480,9 +480,9 @@ export class TowerDefenseFacadeService {
     return this.gameLoopFacade.upgradeTower(tower, upgradeId);
   }
 
-  /** Restart game. */
-  restartGame(): void {
-    this.gameLoopFacade.restartGame(() => this.vizFacade.cleanupDpsVisualization());
+  /** Restart game; `seed` for the new run (a bot run's config), else a fresh one. */
+  restartGame(seed?: number): void {
+    this.gameLoopFacade.restartGame(() => this.vizFacade.cleanupDpsVisualization(), seed);
   }
 
   /** Start map placement mode for HQ or Spawn. */

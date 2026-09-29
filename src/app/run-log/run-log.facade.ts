@@ -86,6 +86,18 @@ export class RunLogFacade {
   /** Which wave source plays, asked when a run opens. Handed in for the same reason: the WaveDirector is component-scoped too. */
   private waveSource: () => WaveSourceId | undefined = () => undefined;
 
+  /** The room's players while a coop game runs, null alone (see setCoopHead) */
+  private coopHead: () => { players: string[]; you: string } | null = () => null;
+
+  /**
+   * Coop (CoopService): every run that opens while the room plays is a coop
+   * run (head.coop, which the relay's collection asks for, TODO E38). Asked
+   * when the run opens, so it does not matter who hears game:reset first.
+   */
+  setCoopHead(head: () => { players: string[]; you: string } | null): void {
+    this.coopHead = head;
+  }
+
   /**
    * Wire the log to the running game: the simulation's events on
    * SimClient.bus, its numbers from the mirror. A second call replaces the
@@ -210,6 +222,8 @@ export class RunLogFacade {
       },
       world,
     );
+    const coop = this.coopHead();
+    if (coop) this.collector.markCoop(coop.players, coop.you);
   }
 
   private close(reason: RunEndReason): void {

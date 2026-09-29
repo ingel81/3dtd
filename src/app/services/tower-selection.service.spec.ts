@@ -26,6 +26,8 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { Tower } from '../entities/tower.entity';
+import { SimClient } from '../sim/client/sim-client.service';
+import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
 
 const AT = { lat: 48.1, lon: 11.5, height: 520 };
 
@@ -35,6 +37,7 @@ describe('TowerSelectionService', () => {
   let selected: ReturnType<typeof signal<Tower | null>>;
   let revision: ReturnType<typeof signal<number>>;
   let ring: { select: ReturnType<typeof vi.fn>; deselect: ReturnType<typeof vi.fn> };
+  let bus: MainEventBus;
 
   const place = (losReady = true): Tower => {
     const real = new Tower(AT, 'archer');
@@ -49,6 +52,7 @@ describe('TowerSelectionService', () => {
     selected = signal<Tower | null>(null);
     revision = signal(0);
     ring = { select: vi.fn(), deselect: vi.fn() };
+    bus = createMainEventBus();
     const engine = {
       sync: { geoToLocalSimple: () => ({ x: 1, y: 2, z: 3 }) },
       getLosBlockerGroup: () => ({}),
@@ -59,6 +63,7 @@ describe('TowerSelectionService', () => {
     const injector = Injector.create({
       providers: [
         { provide: SimMirror, useValue: mirror },
+        { provide: SimClient, useValue: { bus } },
         {
           provide: TowerDefenseStore,
           useValue: { selectedTower: selected, selectedTowerId: () => selected()?.id ?? null, selectedTowerRevision: revision },
@@ -122,6 +127,27 @@ describe('TowerSelectionService', () => {
     selection.select(null);
     expect(selected()).toBeNull();
     expect(selection.getViz()).toBeNull();
+  });
+
+  // SimClient.newRun clears the mirror, which reports no tower gone; the
+  // store drops the selection on game:reset before this service hears it
+  it('drops the selection and its view on a new run, whoever hears the reset first', () => {
+    const real = place();
+    selection.select(real.id);
+    mirror.clear();
+    // The store heard it first (GameStateSync: resetGameState)
+    selected.set(null);
+    bus.emit({ type: 'game:reset' });
+    expect(selected()).toBeNull();
+    expect(vizzes[0].dispose).toHaveBeenCalled();
+    expect(selection.getViz()).toBeNull();
+
+    const other = place();
+    selection.select(other.id);
+    bus.emit({ type: 'game:reset' });
+    expect(selected()).toBeNull();
+    expect(ring.deselect).toHaveBeenCalledWith(other.id);
+    expect(vizzes[1].dispose).toHaveBeenCalled();
   });
 
   it('follows a new shadow of the selected id (a replay seeks back before an upgrade)', () => {

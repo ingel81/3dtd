@@ -81,6 +81,7 @@ export class EnemyDebugService {
   /** Subscriptions for the enemy:spawned and enemy:split listeners (cleanup on re-init) */
   private enemySpawnedSub: EventSubscription | null = null;
   private enemySplitSub: EventSubscription | null = null;
+  private listEndSubs: EventSubscription[] = [];
 
   /**
    * Initialize with runtime dependencies (called after game state is ready).
@@ -93,6 +94,7 @@ export class EnemyDebugService {
     // Cleanup previous listeners on re-init
     this.enemySpawnedSub?.dispose();
     this.enemySplitSub?.dispose();
+    for (const sub of this.listEndSubs) sub.dispose();
 
     // Register debug enemy placement (next spawned enemy after placement click)
     const eventBus = this.sim.bus;
@@ -116,6 +118,16 @@ export class EnemyDebugService {
         this.registerDebugEnemy(child, child.typeConfig.id, child.position.lat, child.position.lon);
       }
     });
+
+    // The list ends where the simulation's enemies do: at the end of a wave,
+    // on a new run and on a restore. Enemy ids start over in a new run, so a
+    // kept entry would steer (debug:enemy-move, debug:enemy-speed) an enemy
+    // that is not the placed one.
+    this.listEndSubs = [
+      eventBus.on('wave:completed', () => this.clearDebugEnemies()),
+      eventBus.on('game:reset', () => this.clearDebugEnemies()),
+      eventBus.on('sim:restored', () => this.clearDebugEnemies()),
+    ];
   }
 
   /**

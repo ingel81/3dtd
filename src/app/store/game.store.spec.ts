@@ -214,6 +214,7 @@ describe('GameStore', () => {
       store.waveExplanation.set({ summary: 'Wave 1: Zombie Horde · 20 enemies · HP ×0.50', reasons: [] });
       store.paused.set(true);
       store.autoWaveSecondsLeft.set(7);
+      store.mannedTowerId.set('tower-3');
 
       store.resetGameState();
 
@@ -231,6 +232,8 @@ describe('GameStore', () => {
       // A new game never starts frozen
       expect(store.paused()).toBe(false);
       expect(store.autoWaveSecondsLeft()).toBeNull();
+      // Nobody sits in a tower of the new run
+      expect(store.mannedTowerId()).toBeNull();
     });
 
     it('does NOT reset training timescale', () => {

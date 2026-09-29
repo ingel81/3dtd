@@ -15,6 +15,7 @@ vi.mock('../world/path-route.service', () => ({ PathAndRouteService: class PathA
 vi.mock('../../store/debug.store', () => ({ DebugStore: class DebugStore {} }));
 
 import { EnemyDebugService } from './enemy-debug.service';
+import { createMainEventBus } from '../../sim/client/view-events';
 
 /**
  * The enemy debugger removes its enemies with commands, so the simulation
@@ -33,7 +34,7 @@ describe('EnemyDebugService removal', () => {
     mockInjections['DebugStore'] = { enemyPlacementMode: signal(false), enemyOverrides: signal({}) };
     emit = vi.fn();
     remove = vi.fn();
-    mockInjections['SimClient'] = { bus: { emit, onLive: () => ({ dispose: () => undefined }) } };
+    mockInjections['SimClient'] = { bus: { emit, onLive: () => ({ dispose: () => undefined }), on: () => ({ dispose: () => undefined }) } };
     service = new EnemyDebugService();
     service.initialize(null, signal([]));
     service.registerDebugEnemy(enemy('a'), 'zombie', 0, 0);
@@ -60,6 +61,32 @@ describe('EnemyDebugService removal', () => {
 });
 
 /**
+ * The list follows the simulation's enemies: they end with the wave, a new
+ * run or a restore, and a new run numbers its enemies from the start again.
+ */
+describe('EnemyDebugService list end', () => {
+  it.each(['wave:completed', 'game:reset', 'sim:restored'] as const)('%s empties the list and the selection', (type) => {
+    mockInjections['PathAndRouteService'] = {};
+    mockInjections['DebugStore'] = { enemyPlacementMode: signal(false), enemyOverrides: signal({}) };
+    const bus = createMainEventBus();
+    mockInjections['SimClient'] = { bus };
+    const service = new EnemyDebugService();
+    service.initialize(null, signal([]));
+    service.registerDebugEnemy({ id: 'a' } as never, 'zombie', 0, 0);
+    service.toggleDebugEnemySelection('a');
+
+    const events = {
+      'wave:completed': { type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 },
+      'game:reset': { type: 'game:reset' },
+      'sim:restored': { type: 'sim:restored', reason: 'live' },
+    } as const;
+    bus.emit(events[type]);
+    expect(service.debugEnemies()).toEqual([]);
+    expect(service.selectedDebugEnemyId()).toBeNull();
+  });
+});
+
+/**
  * A placed enemy walks the spawn's route itself, from where the click
  * projects onto it, like a split child: no copy of the route.
  */
@@ -82,7 +109,7 @@ describe('EnemyDebugService placement', () => {
     };
     emit = vi.fn();
     onRoute = true;
-    mockInjections['SimClient'] = { bus: { emit, onLive: () => ({ dispose: () => undefined }) } };
+    mockInjections['SimClient'] = { bus: { emit, onLive: () => ({ dispose: () => undefined }), on: () => ({ dispose: () => undefined }) } };
     mockInjections['GlobalRouteGridService'] = { getCellAt: () => (onRoute ? {} : null) };
     const engine = {
       sync: { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }), getOrigin: () => ({ lat: 48, lon: 9, height: 0 }) },

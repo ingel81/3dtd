@@ -147,6 +147,13 @@ export class TowerControlService {
           this.takeSeat(event.towerId);
         }
       }),
+      // A new run: out of the tower here and now. On a new place
+      // (SimClient.newRun) the leave command is dropped with the old run's
+      // queue, and the simulation's own tower:manned comes with the new
+      // world's first packet, after the new place framed the camera, if at all.
+      bus.onLive('game:reset', () => {
+        if (this.pose) this.cleanUp();
+      }),
     ];
     inject(DestroyRef).onDestroy(() => {
       for (const sub of subs) sub.dispose();
