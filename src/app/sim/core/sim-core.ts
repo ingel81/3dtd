@@ -35,6 +35,7 @@ import { PacketWriter } from './packet-writer';
 import { exportEvents } from './event-export';
 import { DeliveredLink } from './delivered-link';
 import { SimReplay } from './sim-replay';
+import { SimProfile } from './sim-profile';
 import { towerTargetLines, towerTargetRows, type TowerTargetLookup } from '../../services/debug/tower-target-console';
 
 /** Every service of the simulation, each made by its own constructor in the simulation's injector. */
@@ -119,6 +120,10 @@ export class SimCore implements SimCoreApi {
     if (config.movementEnabled !== undefined) gsm.setMovementEnabled(config.movementEnabled);
     if (config.damageNumbers !== undefined) gsm.setDamageNumbers(config.damageNumbers);
     if (config.corridorPending !== undefined) gsm.setCorridorPending(config.corridorPending);
+    if (config.profile !== undefined) {
+      this.parts = config.profile ? new SimProfile() : null;
+      gsm.setProfiler(this.parts);
+    }
   }
 
   /** A fresh run on `world`, the seed kept (SimCoreApi.loadWorld). */
@@ -179,6 +184,7 @@ export class SimCore implements SimCoreApi {
     const end = performance.now();
     packet.scalars.tickMs = end - started;
     const profile = { commandsMs: commandsDone - started, updateMs: updateDone - commandsDone, packetMs: end - updateDone, slowest };
+    this.parts?.addTick(profile.commandsMs, profile.updateMs, profile.packetMs, stepsRun);
     const worst = this.profile.worst;
     this.profile = {
       ...profile,
@@ -228,11 +234,15 @@ export class SimCore implements SimCoreApi {
   /** Commands came in by rpc since the last tick: its packet is presented */
   private commandsBetween = false;
 
+  /** The perf panel's sums while it is open (SimConfig.profile), see SimRpc.profileSums */
+  private parts: SimProfile | null = null;
+
   /** See SimRpc.tickProfile */
   private profile: TickProfile = { commandsMs: 0, updateMs: 0, packetMs: 0, slowest: null };
 
   private readonly rpcHandlers: SimRpc = {
     tickProfile: () => this.profile,
+    profileSums: () => this.parts?.take() ?? null,
     towerTargets: () => towerTargetRows(this.gsm.towerManager.getAll(), this.gsm.enemyManager.getAlive(), this.targetLookup()),
     towerTargetLines: (ids) => towerTargetLines(
       this.gsm.towerManager.getAll(),

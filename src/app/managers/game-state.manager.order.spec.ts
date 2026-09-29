@@ -289,7 +289,7 @@ describe('GameStateManager order of operations (characterization)', () => {
 
     it('hands the frame timing to the profiler last', () => {
       gsm.setProfiler({
-        accumulateFrameTiming: (...args: unknown[]) => log.push(`profiler.accumulateFrameTiming(steps=${args[5]})`),
+        accumulateFrameTiming: (...args: unknown[]) => log.push(`profiler.accumulateFrameTiming(steps=${args[4]})`),
       } as never);
       gsm.update(1000, onSubStep);
       gsm.update(1050, onSubStep);

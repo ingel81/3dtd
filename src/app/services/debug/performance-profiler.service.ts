@@ -3,75 +3,115 @@ import type { ThreeTilesEngine } from '../../three-engine';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { GameStore } from '../../store/game.store';
 import { perfTrace } from '../../utils/perf-trace';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { PacketSums, loadRates, type LoadStats } from '../../sim/client/load-stats';
+import type { SimProfileSums } from '../../sim/protocol/messages';
 
-/** Subsystem names for timing & bottleneck detection */
-export type Subsystem = 'enemy' | 'tower' | 'projectile' | 'combat' | 'events' | 'other';
+/** Main-thread ms of applying one packet, by part (SimClient.applyTimes), and all of them */
+export type ApplyParts = LoadStats['apply'] & { total: number };
 
+/** The worker's time by part, ms per tick (rpc profileSums) */
+export interface SimParts {
+  tickMs: number;
+  commandsMs: number;
+  /** The sub-steps, split below; `otherMs` is what no part names (spawns, research, abilities, towers aiming, hero) */
+  updateMs: number;
+  enemyMs: number;
+  enemyMoveMs: number;
+  enemyGridMs: number;
+  enemyHeightMs: number;
+  projectileMs: number;
+  combatMs: number;
+  eventsMs: number;
+  otherMs: number;
+  packetMs: number;
+}
+
+/**
+ * What the perf panel shows (TODO E82): the frame on this thread, the apply
+ * of the simulation's packets, the simulation in the worker by part. Times
+ * are means over the panel's window: ms per drawn frame on this thread, ms
+ * per packet for the apply, ms per tick in the worker (one tick per packet).
+ */
 export interface PerformanceStats {
-  // Rendering
   fps: number;
   drawCalls: number;
   triangles: number;
-  // Entities
   enemies: number;
   towers: number;
   projectiles: number;
-  // Memory
   geometries: number;
   textures: number;
   /** Compiled shader programs. Climbing mid-game means programs are being rebuilt. */
   programs: number;
-  // Enemy Update Breakdown (avg ms per frame)
-  enemyMove: number;
-  enemyGrid: number;
-  enemyHeight: number;
-  enemyRender: number;
-  enemyTotal: number;
-  // Manager Update Timings (avg ms per frame)
-  towerUpdate: number;
-  projectileUpdate: number;
-  combatUpdate: number;
-  eventProcessing: number;
-  // Frame Budget
-  frameTime: number;           // Total game-loop time (ms)
-  frameBudgetPct: number;      // % of 16.67ms budget used
-  /**
-   * Gameplay sub-steps executed per render frame. 0-1 above 60 FPS, and
-   * `timescale` at speed-ups. Rises below 60 FPS, which multiplies every
-   * per-sub-step cost — the single most important number for reading the
-   * rest of this panel.
-   */
-  substepsPerFrame: number;
-  // Bottleneck Detection
-  bottleneck: Subsystem;       // Which subsystem took the most time
-  bottleneckMs: number;        // How much time that subsystem took
+
+  /** Main thread per drawn frame: the game loop (the apply included) and render() */
+  frameMs: number;
+  updateMs: number;
+  renderMs: number;
+  /** Share of the wall time this thread spent in frames, % */
+  mainBusyPct: number;
+  apply: ApplyParts;
+
+  /** Speed reached against the speed set */
+  speed: number;
+  speedSet: number;
+  ticksPerS: number;
+  subStepsPerTick: number;
+  /** Share of the wall time the worker spent in ticks, % (SimScalars.tickMs, no timer of its own) */
+  workerLoadPct: number;
+  /** The worker by part, ms per tick; null until its first sums came back */
+  sim: SimParts | null;
+
+  /** The busier of the two threads */
+  bottleneck: 'worker' | 'main';
 }
 
 const EMPTY_STATS: PerformanceStats = {
   fps: 0, drawCalls: 0, triangles: 0,
   enemies: 0, towers: 0, projectiles: 0,
   geometries: 0, textures: 0, programs: 0,
-  enemyMove: 0, enemyGrid: 0, enemyHeight: 0, enemyRender: 0, enemyTotal: 0,
-  towerUpdate: 0, projectileUpdate: 0, combatUpdate: 0, eventProcessing: 0,
-  frameTime: 0, frameBudgetPct: 0, substepsPerFrame: 0,
-  bottleneck: 'other', bottleneckMs: 0,
+  frameMs: 0, updateMs: 0, renderMs: 0, mainBusyPct: 0,
+  apply: { state: 0, ops: 0, events: 0, present: 0, listeners: 0, total: 0 },
+  speed: 0, speedSet: 0, ticksPerS: 0, subStepsPerTick: 0, workerLoadPct: 0, sim: null,
+  bottleneck: 'main',
 };
 
-/** Target frame time for 60fps */
-const FRAME_BUDGET_MS = 16.67;
+/** The worker's sums as ms per tick; null for a window without a tick */
+export function simPartsPerTick(sums: SimProfileSums): SimParts | null {
+  if (sums.ticks === 0) return null;
+  const per = (ms: number) => ms / sums.ticks;
+  const named = sums.enemyMs + sums.projectileMs + sums.combatMs + sums.eventsMs;
+  return {
+    tickMs: per(sums.tickMs),
+    commandsMs: per(sums.commandsMs),
+    updateMs: per(sums.updateMs),
+    enemyMs: per(sums.enemyMs),
+    enemyMoveMs: per(sums.enemyMoveMs),
+    enemyGridMs: per(sums.enemyGridMs),
+    enemyHeightMs: per(sums.enemyHeightMs),
+    projectileMs: per(sums.projectileMs),
+    combatMs: per(sums.combatMs),
+    eventsMs: per(sums.eventsMs),
+    otherMs: per(Math.max(0, sums.updateMs - named)),
+    packetMs: per(sums.packetMs),
+  };
+}
 
 /**
  * PerformanceProfilerService
  *
- * Collects engine-wide performance metrics and provides them
- * to the Performance debug panel. Timing data is accumulated
- * per-frame by managers and the game loop, then averaged here.
+ * The numbers of the Performance debug panel (TODO E82). The simulation runs
+ * in the worker (docs/SIM_WORKER.md), so they come from three places, and
+ * their timers run only while the panel is open (setProfilingActive):
  *
- * Tracks:
- * - Enemy update breakdown (move/grid/height/render)
- * - Manager update timings (tower, projectile, combat, events)
- * - Frame budget (total frame time, % used of 16.67ms)
- * - Bottleneck detection (which subsystem is slowest)
+ * - the worker by part: SimConfig.profile sets a profiler on the
+ *   GameStateManager there (sim/core/sim-profile.ts), the panel fetches its
+ *   sums by rpc (profileSums). The enemy phases are sampled estimates
+ *   (EnemyManager PROFILE_STRIDE), the enemy total is measured;
+ * - the apply of each packet on this thread: SimClient.applyTimes, taken on
+ *   every packet anyway, summed by PacketSums;
+ * - this thread's frame: RenderLoop.setTiming times update() and render().
  *
  * Console logging can be toggled via the UI.
  */
@@ -80,44 +120,18 @@ export class PerformanceProfilerService {
   private readonly gameStore = inject(GameStore);
   private engine: ThreeTilesEngine | null = null;
   private readonly mirror = inject(SimMirror);
-  // Profiling is opt-in: hooks are only wired while the panel is open. The
-  // enemy loop times its phases (move/grid/height) on every 32nd enemy, with
-  // a rotating offset, and scales the sums up (EnemyManager.PROFILE_STRIDE).
-  // It used to time every enemy (six performance.now() calls each per
-  // sub-step, over a million a frame at 20k enemies), which inflated the
-  // very numbers it reported. The phase figures are sampled estimates: the
-  // browser's timer is coarse (5-100 µs), so one sample is mostly 0 or one
-  // tick, and they only mean something as averages over the panel's window.
-  // The enemy total is measured directly.
+  private readonly sim = inject(SimClient);
   private profilingActive = false;
+  /** The packets' apply times and the worker's tick times, summed while the panel is open */
+  private readonly packets = new PacketSums(this.sim);
+  /** The worker's parts of the last window that had ticks */
+  private simParts: SimParts | null = null;
 
   /** Toggle for console profiling output */
   readonly consoleLogEnabled = signal(false);
 
-  /** Latest collected stats (updated ~10 Hz by the component) */
+  /** Latest collected stats (updated by the panel while it is open) */
   readonly stats = signal<PerformanceStats>(EMPTY_STATS);
-
-  /**
-   * Enemy timing accumulator. `EnemyManager` reports once per SUB-STEP, so
-   * the totals here are sums across sub-steps; `frames` is advanced by
-   * `accumulateFrameTiming` instead, once per render frame. Dividing by it
-   * yields ms per frame — the same unit as every other number in the panel.
-   * Reporting per sub-step (as this used to) understated the enemy cost by
-   * the sub-step count, which at 5 FPS is a factor of twelve.
-   */
-  private _enemyAcc = { move: 0, grid: 0, height: 0, render: 0, total: 0, frames: 0 };
-
-  /** Sub-steps executed, summed over the same window as `_frameAcc`. */
-  private _substepAcc = { total: 0, frames: 0 };
-
-  // Manager timing accumulators (accumulateFrameTiming)
-  private _towerAcc = { total: 0, frames: 0 };
-  private _projectileAcc = { total: 0, frames: 0 };
-  private _combatAcc = { total: 0, frames: 0 };
-  private _eventsAcc = { total: 0, frames: 0 };
-
-  // Frame timing accumulator
-  private _frameAcc = { total: 0, frames: 0 };
 
   // Console log timer
   private _logTimer = 0;
@@ -128,6 +142,7 @@ export class PerformanceProfilerService {
    */
   setEngine(engine: ThreeTilesEngine | null): void {
     this.engine = engine;
+    engine?.renderLoop.setTiming(this.profilingActive);
     this.exposeDebugApi();
   }
 
@@ -140,8 +155,8 @@ export class PerformanceProfilerService {
    * split is exactly as interesting on real tiles.
    *
    * `__perf.stats()` returns the same numbers the panel shows; note they are
-   * only collected while the panel is open, and that the sampled enemy timers
-   * add a little cost of their own while it is.
+   * only collected while the panel is open, and that its timers (the worker's
+   * parts, the frame) add a little cost of their own while it is.
    *
    * `__perf.shakeBench(seconds = 5)` measures the screen shake: no shake,
    * shake running, camera moved every frame (the pre-2026-09-12 shake), each
@@ -197,106 +212,49 @@ export class PerformanceProfilerService {
   }
 
   /**
-   * The perf panel opened or closed. The simulation's timings
-   * (accumulateEnemyTiming, accumulateFrameTiming) come from whoever runs
-   * it; the simulation itself no longer reports into this service
-   * (docs/SIM_WORKER.md).
+   * The perf panel opened or closed: the worker's profiler, the frame timer
+   * and the packet sums go on or off with it. Closed, none of them runs.
    */
   setProfilingActive(active: boolean): void {
     if (this.profilingActive === active) return;
     this.profilingActive = active;
-    if (!active) this.resetTimings();
+    if (this.sim.started) this.sim.configure({ profile: active });
+    this.engine?.renderLoop.setTiming(active);
+    this.simParts = null;
+    if (active) this.packets.start();
+    else this.packets.stop();
   }
 
   /**
-   * The enemies' timing of one sub-step, see setProfilingActive.
-   * Costs are negligible (just additions).
+   * The stats of the window since the last call. Called by the
+   * PerformanceDebuggerComponent while the panel is open.
    */
-  accumulateEnemyTiming(move: number, grid: number, height: number, render: number, total: number): void {
-    const a = this._enemyAcc;
-    a.move += move;
-    a.grid += grid;
-    a.height += height;
-    a.render += render;
-    a.total += total;
-    // NOTE: no `frames++` here — see the field doc.
-  }
-
-  /**
-   * The subsystems' timings of one frame, see setProfilingActive.
-   * Each parameter is the ms spent in that subsystem this frame.
-   */
-  accumulateFrameTiming(
-    towerMs: number,
-    projectileMs: number,
-    combatMs: number,
-    eventsMs: number,
-    totalFrameMs: number,
-    substeps: number,
-  ): void {
-    this._towerAcc.total += towerMs;
-    this._towerAcc.frames++;
-    this._projectileAcc.total += projectileMs;
-    this._projectileAcc.frames++;
-    this._combatAcc.total += combatMs;
-    this._combatAcc.frames++;
-    this._eventsAcc.total += eventsMs;
-    this._eventsAcc.frames++;
-    this._frameAcc.total += totalFrameMs;
-    this._frameAcc.frames++;
-    this._substepAcc.total += substeps;
-    this._substepAcc.frames++;
-    // Enemy timings are reported per sub-step but averaged per frame.
-    this._enemyAcc.frames++;
-  }
-
-  /**
-   * Collect all performance stats from the engine.
-   * Called ~10 Hz by the PerformanceDebuggerComponent.
-   */
-  collectStats(): PerformanceStats {
+  async collectStats(): Promise<PerformanceStats> {
     const engine = this.engine;
-    if (!engine) return EMPTY_STATS;
+    if (!engine || !this.profilingActive) return EMPTY_STATS;
 
-    const renderer = engine.getRenderer();
-    const info = renderer.info;
-
-    // Enemy timing averages
-    const ea = this._enemyAcc;
-    const ef = ea.frames || 1;
-
-    // Manager timing averages
-    const tf = this._towerAcc.frames || 1;
-    const pf = this._projectileAcc.frames || 1;
-    const cf = this._combatAcc.frames || 1;
-    const evf = this._eventsAcc.frames || 1;
-    const ff = this._frameAcc.frames || 1;
-
-    const enemyTotal = ea.total / ef;
-    const substepsPerFrame = this._substepAcc.total / (this._substepAcc.frames || 1);
-    const towerUpdate = this._towerAcc.total / tf;
-    const projectileUpdate = this._projectileAcc.total / pf;
-    const combatUpdate = this._combatAcc.total / cf;
-    const eventProcessing = this._eventsAcc.total / evf;
-    const frameTime = this._frameAcc.total / ff;
-
-    // Bottleneck detection — find the subsystem with the highest avg time
-    const subsystems: [Subsystem, number][] = [
-      ['enemy', enemyTotal],
-      ['tower', towerUpdate],
-      ['projectile', projectileUpdate],
-      ['combat', combatUpdate],
-      ['events', eventProcessing],
-    ];
-    let bottleneck: Subsystem = 'other';
-    let bottleneckMs = 0;
-    for (const [name, ms] of subsystems) {
-      if (ms > bottleneckMs) {
-        bottleneck = name;
-        bottleneckMs = ms;
-      }
+    // The worker's parts. None while it runs without the profiler (a worker
+    // started after the panel opened): switch it on, the next window has them
+    let sums: SimProfileSums | null = null;
+    if (this.sim.started) {
+      sums = await this.sim.rpc('profileSums').catch(() => null);
+      if (!sums && this.profilingActive) this.sim.configure({ profile: true });
     }
+    const parts = sums ? simPartsPerTick(sums) : null;
+    if (parts) this.simParts = parts;
 
+    const window = this.packets.take(true);
+    const rates = loadRates(window);
+    const frame = engine.renderLoop.takeTiming();
+    const frames = Math.max(1, frame?.frames ?? 0);
+    const updateMs = (frame?.updateMs ?? 0) / frames;
+    const renderMs = (frame?.renderMs ?? 0) / frames;
+    const mainBusy = frame && window.wallMs > 0 ? (frame.updateMs + frame.renderMs) / window.wallMs : 0;
+    const packets = Math.max(1, window.packets);
+    const apply = window.apply;
+    const applyTotal = apply.state + apply.ops + apply.events + apply.present + apply.listeners;
+
+    const info = engine.getRenderer().info;
     const stats: PerformanceStats = {
       fps: engine.renderLoop.getFPS(),
       drawCalls: info.render.calls,
@@ -307,42 +265,29 @@ export class PerformanceProfilerService {
       geometries: info.memory.geometries,
       textures: info.memory.textures,
       programs: info.programs?.length ?? 0,
-      // Enemy breakdown
-      enemyMove: ea.move / ef,
-      enemyGrid: ea.grid / ef,
-      enemyHeight: ea.height / ef,
-      enemyRender: ea.render / ef,
-      enemyTotal: enemyTotal,
-      // Manager timings
-      towerUpdate,
-      projectileUpdate,
-      combatUpdate,
-      eventProcessing,
-      // Frame budget
-      frameTime,
-      frameBudgetPct: (frameTime / FRAME_BUDGET_MS) * 100,
-      substepsPerFrame,
-      // Bottleneck
-      bottleneck,
-      bottleneckMs,
+      frameMs: updateMs + renderMs,
+      updateMs,
+      renderMs,
+      mainBusyPct: mainBusy * 100,
+      apply: {
+        state: apply.state / packets,
+        ops: apply.ops / packets,
+        events: apply.events / packets,
+        present: apply.present / packets,
+        listeners: apply.listeners / packets,
+        total: applyTotal / packets,
+      },
+      speed: rates.speed,
+      speedSet: this.gameStore.gameSpeed(),
+      ticksPerS: rates.packetsPerS,
+      subStepsPerTick: window.subSteps / packets,
+      workerLoadPct: rates.workerLoad * 100,
+      sim: this.simParts,
+      bottleneck: rates.workerLoad > mainBusy ? 'worker' : 'main',
     };
 
     this.stats.set(stats);
     return stats;
-  }
-
-  /**
-   * Reset all timing accumulators.
-   * Called after stats are collected to start fresh averaging window.
-   */
-  resetTimings(): void {
-    this._enemyAcc = { move: 0, grid: 0, height: 0, render: 0, total: 0, frames: 0 };
-    this._substepAcc = { total: 0, frames: 0 };
-    this._towerAcc = { total: 0, frames: 0 };
-    this._projectileAcc = { total: 0, frames: 0 };
-    this._combatAcc = { total: 0, frames: 0 };
-    this._eventsAcc = { total: 0, frames: 0 };
-    this._frameAcc = { total: 0, frames: 0 };
   }
 
   /**
@@ -358,15 +303,18 @@ export class PerformanceProfilerService {
       const tris = s.triangles >= 1_000_000
         ? `${(s.triangles / 1_000_000).toFixed(1)}M`
         : `${(s.triangles / 1_000).toFixed(0)}K`;
+      const sim = s.sim;
       console.log(
-        `[Perf] ${s.enemies} enemies | ${s.fps} FPS | ` +
-        `${s.drawCalls} draws | ${tris} tris | ` +
-        `enemy:${s.enemyTotal.toFixed(2)} tower:${s.towerUpdate.toFixed(2)} ` +
-        `proj:${s.projectileUpdate.toFixed(2)} combat:${s.combatUpdate.toFixed(2)} ` +
-        `events:${s.eventProcessing.toFixed(2)} | ` +
-        `frame:${s.frameTime.toFixed(2)}ms (${s.frameBudgetPct.toFixed(0)}%) | ` +
-        `bottleneck:${s.bottleneck}(${s.bottleneckMs.toFixed(2)}ms) | ` +
-        `${s.towers} towers | ${s.projectiles} proj | ` +
+        `[Perf] ${s.enemies} enemies | ${s.fps} FPS | ${s.drawCalls} draws | ${tris} tris | ` +
+        `main: frame ${s.frameMs.toFixed(2)} ms (update ${s.updateMs.toFixed(2)}, render ${s.renderMs.toFixed(2)}), ` +
+        `apply ${s.apply.total.toFixed(2)} ms/packet, busy ${s.mainBusyPct.toFixed(0)}% | ` +
+        `worker: ${s.ticksPerS.toFixed(0)} ticks/s, load ${s.workerLoadPct.toFixed(0)}%` +
+        (sim
+          ? `, tick ${sim.tickMs.toFixed(2)} ms (enemy ${sim.enemyMs.toFixed(2)}, projectile ${sim.projectileMs.toFixed(2)}, ` +
+            `combat ${sim.combatMs.toFixed(2)}, events ${sim.eventsMs.toFixed(2)}, other ${sim.otherMs.toFixed(2)}, ` +
+            `packet ${sim.packetMs.toFixed(2)})`
+          : '') +
+        ` | speed ${s.speed.toFixed(2)}/${s.speedSet} | ${s.towers} towers | ${s.projectiles} proj | ` +
         `mem: ${s.geometries} geo, ${s.textures} tex, ${s.programs} programs`
       );
     }

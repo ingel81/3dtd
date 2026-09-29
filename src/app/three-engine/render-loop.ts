@@ -18,6 +18,15 @@ const FRAME_WAIT_TIMEOUT_MS = 1000;
  */
 const MAX_BACKGROUND_STEP_MS = 50;
 
+/** Main-thread ms of the rAF frames, summed (RenderLoop.setTiming) */
+export interface FrameTiming {
+  /** update(): the game loop, the simulation's packet applied included */
+  updateMs: number;
+  /** render(): tiles, renderers, renderer.render */
+  renderMs: number;
+  frames: number;
+}
+
 /** Was der Loop am Engine antreibt. */
 export interface RenderLoopHooks {
   /** Gameplay und Animationen um `deltaTime` ms weiter. Läuft pro rAF-Frame und pro Heartbeat-Tick. */
@@ -69,6 +78,9 @@ export class RenderLoop {
 
   /** Run synchronously after the next drawn frame, see onNextFrameRendered(). */
   private frameCallbacks: (() => void)[] = [];
+
+  /** The perf panel's sums of the rAF frames while it is open, see setTiming() */
+  private timing: FrameTiming | null = null;
 
   // Performance stats
   private lastFrameTime = 0;
@@ -201,8 +213,19 @@ export class RenderLoop {
       const deltaTime = currentTime - this.lastLoopTime;
       this.lastLoopTime = currentTime;
 
-      this.hooks.update(deltaTime);
-      this.hooks.render();
+      const timing = this.timing;
+      if (timing) {
+        const t0 = performance.now();
+        this.hooks.update(deltaTime);
+        const t1 = performance.now();
+        this.hooks.render();
+        timing.updateMs += t1 - t0;
+        timing.renderMs += performance.now() - t1;
+        timing.frames++;
+      } else {
+        this.hooks.update(deltaTime);
+        this.hooks.render();
+      }
 
       this.animationFrameId = requestAnimationFrame(animate);
     };
@@ -271,6 +294,22 @@ export class RenderLoop {
       this.frameCount = 0;
       this.lastFrameTime = now;
     }
+  }
+
+  /**
+   * Time update() and render() of every rAF frame (the perf panel, TODO
+   * E82); off, the loop takes no timer. CPU time on this thread only: what
+   * the GPU does after render() returns is not in it.
+   */
+  setTiming(on: boolean): void {
+    this.timing = on ? { updateMs: 0, renderMs: 0, frames: 0 } : null;
+  }
+
+  /** The sums since the last call, null while timing is off */
+  takeTiming(): FrameTiming | null {
+    const out = this.timing;
+    if (out) this.timing = { updateMs: 0, renderMs: 0, frames: 0 };
+    return out;
   }
 
   /**

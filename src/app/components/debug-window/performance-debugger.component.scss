@@ -81,3 +81,41 @@
 .checkbox-row:hover {
   color: var(--td-text-primary);
 }
+
+/* The parts under a total, indented by level */
+.row.sub .key {
+  padding-left: 8px;
+}
+
+.row.sub2 .key {
+  padding-left: 16px;
+}
+
+.row.sub3 .key {
+  padding-left: 24px;
+  opacity: 0.8;
+}
+
+.value.muted {
+  color: var(--td-text-muted);
+  font-weight: 400;
+}
+
+/* The parts under a total, indented by level */
+.row.sub .key {
+  padding-left: 8px;
+}
+
+.row.sub2 .key {
+  padding-left: 16px;
+}
+
+.row.sub3 .key {
+  padding-left: 24px;
+  opacity: 0.8;
+}
+
+.value.muted {
+  color: var(--td-text-muted);
+  font-weight: 400;
+}

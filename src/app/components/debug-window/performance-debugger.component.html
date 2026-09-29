@@ -12,27 +12,83 @@
     @if (stats(); as s) {
       <div class="perf-content">
         <div class="section">
-          <span class="section-label">Frame Budget</span>
+          <span class="section-label">Overview</span>
           <div class="row">
             <span class="key">FPS</span>
             <span class="value" [class.warn]="s.fps < 30" [class.crit]="s.fps < 15">{{ s.fps }}</span>
           </div>
           <div class="row">
-            <span class="key">Frame Time</span>
-            <span class="value" [class.warn]="s.frameTime > 12" [class.crit]="s.frameTime > 16">{{ s.frameTime.toFixed(2) }}ms</span>
+            <span class="key">Speed</span>
+            <span class="value" [class.crit]="s.speed < s.speedSet - 0.05">{{ s.speed.toFixed(2) }} / {{ s.speedSet }}</span>
           </div>
           <div class="row">
-            <span class="key">Budget Used</span>
-            <span class="value" [class.warn]="s.frameBudgetPct > 70" [class.crit]="s.frameBudgetPct > 95">{{ s.frameBudgetPct.toFixed(0) }}%</span>
+            <span class="key">Main thread busy</span>
+            <span class="value" [class.highlight]="s.bottleneck === 'main'">{{ s.mainBusyPct.toFixed(0) }}%</span>
           </div>
           <div class="row">
-            <span class="key">Substeps/Frame</span>
-            <span class="value" [class.warn]="s.substepsPerFrame > 2" [class.crit]="s.substepsPerFrame > 4">{{ s.substepsPerFrame.toFixed(1) }}</span>
+            <span class="key">Worker busy</span>
+            <span class="value" [class.highlight]="s.bottleneck === 'worker'">{{ s.workerLoadPct.toFixed(0) }}%</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <span class="section-label">Main thread, ms per frame</span>
+          <div class="row">
+            <span class="key">Frame</span>
+            <span class="value" [class.warn]="s.frameMs > 12" [class.crit]="s.frameMs > 16">{{ s.frameMs.toFixed(2) }}</span>
+          </div>
+          <div class="row sub">
+            <span class="key">Game loop</span>
+            <span class="value">{{ s.updateMs.toFixed(2) }}</span>
+          </div>
+          <div class="row sub">
+            <span class="key">Draw (CPU)</span>
+            <span class="value">{{ s.renderMs.toFixed(2) }}</span>
+          </div>
+        </div>
+
+        <div class="section">
+          <span class="section-label">Apply, ms per packet</span>
+          <div class="row">
+            <span class="key">Total</span>
+            <span class="value">{{ s.apply.total.toFixed(2) }}</span>
+          </div>
+          <div class="row sub"><span class="key">State</span><span class="value">{{ s.apply.state.toFixed(2) }}</span></div>
+          <div class="row sub"><span class="key">Ops</span><span class="value">{{ s.apply.ops.toFixed(2) }}</span></div>
+          <div class="row sub"><span class="key">Events</span><span class="value">{{ s.apply.events.toFixed(2) }}</span></div>
+          <div class="row sub"><span class="key">Present</span><span class="value">{{ s.apply.present.toFixed(2) }}</span></div>
+          <div class="row sub"><span class="key">Listeners</span><span class="value">{{ s.apply.listeners.toFixed(2) }}</span></div>
+        </div>
+
+        <div class="section">
+          <span class="section-label">Simulation (worker), ms per tick</span>
+          <div class="row">
+            <span class="key">Ticks/s</span>
+            <span class="value">{{ s.ticksPerS.toFixed(0) }}</span>
           </div>
           <div class="row">
-            <span class="key">Bottleneck</span>
-            <span class="value bottleneck">{{ s.bottleneck }} ({{ s.bottleneckMs.toFixed(2) }}ms)</span>
+            <span class="key">Sub-steps/tick</span>
+            <span class="value" [class.warn]="s.subStepsPerTick > 4">{{ s.subStepsPerTick.toFixed(1) }}</span>
           </div>
+          @if (s.sim; as sim) {
+            <div class="row">
+              <span class="key">Tick</span>
+              <span class="value">{{ sim.tickMs.toFixed(2) }}</span>
+            </div>
+            <div class="row sub"><span class="key">Commands</span><span class="value">{{ sim.commandsMs.toFixed(2) }}</span></div>
+            <div class="row sub"><span class="key">Sub-steps</span><span class="value">{{ sim.updateMs.toFixed(2) }}</span></div>
+            <div class="row sub2"><span class="key">Enemies</span><span class="value">{{ sim.enemyMs.toFixed(2) }}</span></div>
+            <div class="row sub3"><span class="key">Move</span><span class="value">{{ sim.enemyMoveMs.toFixed(2) }}</span></div>
+            <div class="row sub3"><span class="key">Grid</span><span class="value">{{ sim.enemyGridMs.toFixed(2) }}</span></div>
+            <div class="row sub3"><span class="key">Height</span><span class="value">{{ sim.enemyHeightMs.toFixed(2) }}</span></div>
+            <div class="row sub2"><span class="key">Combat</span><span class="value">{{ sim.combatMs.toFixed(2) }}</span></div>
+            <div class="row sub2"><span class="key">Projectiles</span><span class="value">{{ sim.projectileMs.toFixed(2) }}</span></div>
+            <div class="row sub2"><span class="key">Events</span><span class="value">{{ sim.eventsMs.toFixed(2) }}</span></div>
+            <div class="row sub2"><span class="key">Other</span><span class="value">{{ sim.otherMs.toFixed(2) }}</span></div>
+            <div class="row sub"><span class="key">Packet</span><span class="value">{{ sim.packetMs.toFixed(2) }}</span></div>
+          } @else {
+            <div class="row"><span class="key">Parts</span><span class="value muted">waiting for the worker</span></div>
+          }
         </div>
 
         <div class="section">
@@ -76,50 +132,6 @@
           <div class="row">
             <span class="key">Shader programs</span>
             <span class="value">{{ s.programs }}</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <span class="section-label">Subsystem Timings</span>
-          <div class="row">
-            <span class="key">Enemy</span>
-            <span class="value" [class.highlight]="s.bottleneck === 'enemy'">{{ s.enemyTotal.toFixed(2) }}ms</span>
-          </div>
-          <div class="row">
-            <span class="key">Tower</span>
-            <span class="value" [class.highlight]="s.bottleneck === 'tower'">{{ s.towerUpdate.toFixed(2) }}ms</span>
-          </div>
-          <div class="row">
-            <span class="key">Projectile</span>
-            <span class="value" [class.highlight]="s.bottleneck === 'projectile'">{{ s.projectileUpdate.toFixed(2) }}ms</span>
-          </div>
-          <div class="row">
-            <span class="key">Combat</span>
-            <span class="value" [class.highlight]="s.bottleneck === 'combat'">{{ s.combatUpdate.toFixed(2) }}ms</span>
-          </div>
-          <div class="row">
-            <span class="key">Events</span>
-            <span class="value" [class.highlight]="s.bottleneck === 'events'">{{ s.eventProcessing.toFixed(2) }}ms</span>
-          </div>
-        </div>
-
-        <div class="section">
-          <span class="section-label">Enemy Breakdown</span>
-          <div class="row">
-            <span class="key">Move</span>
-            <span class="value">{{ s.enemyMove.toFixed(2) }}ms</span>
-          </div>
-          <div class="row">
-            <span class="key">Grid</span>
-            <span class="value">{{ s.enemyGrid.toFixed(2) }}ms</span>
-          </div>
-          <div class="row">
-            <span class="key">Height</span>
-            <span class="value">{{ s.enemyHeight.toFixed(2) }}ms</span>
-          </div>
-          <div class="row">
-            <span class="key">Render</span>
-            <span class="value">{{ s.enemyRender.toFixed(2) }}ms</span>
           </div>
         </div>
 

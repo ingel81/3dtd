@@ -53,9 +53,20 @@ import type { SimWorld } from '../sim/protocol/messages';
 import { TowerLos } from './game-state/tower-los';
 import { DebugEnemies } from './game-state/debug-enemies';
 
-/** What the GameStateManager reports per frame to a profiler (PerformanceProfilerService) */
+/**
+ * What the simulation reports to a profiler while one is set (setProfiler):
+ * the worker's per-part times of the perf panel (sim/core/sim-profile.ts).
+ * Without one the sub-steps take no timer at all.
+ */
 export interface SimProfiler {
-  accumulateFrameTiming(towerMs: number, projectileMs: number, combatMs: number, eventsMs: number, totalMs: number, subSteps: number): void;
+  /** One frame: ms of the projectiles, the combat and the event queue over its sub-steps, the whole update, the sub-steps run */
+  accumulateFrameTiming(projectileMs: number, combatMs: number, eventsMs: number, totalMs: number, subSteps: number): void;
+  /**
+   * One sub-step of the enemy loop: move, grid, height (sampled estimates,
+   * EnemyManager PROFILE_STRIDE) and the whole loop. Without it the enemy
+   * loop stays untimed.
+   */
+  accumulateEnemyTiming?(moveMs: number, gridMs: number, heightMs: number, totalMs: number): void;
 }
 
 /** A player's research and their credits for its queue, see GameStateManager.researchSeats */
@@ -596,10 +607,13 @@ export class GameStateManager {
   }
 
   /**
-   * Set performance profiler for frame timing instrumentation.
+   * Set performance profiler for frame timing instrumentation, the enemy
+   * loop's included; null takes the timers out again.
    */
   setProfiler(profiler: SimProfiler | null): void {
     this.profiler = profiler;
+    const enemies = profiler?.accumulateEnemyTiming?.bind(profiler);
+    this.enemyManager.onProfileTiming = enemies ?? null;
   }
 
   /** The main thread rebuilds the route corridor (SimConfig.corridorPending) */
@@ -802,8 +816,8 @@ export class GameStateManager {
       return;
     }
 
-    const frameStart = performance.now();
     const profiling = this.profiler !== null;
+    const frameStart = profiling ? performance.now() : 0;
 
     // Clamped wall-clock delta × timescale plus the carried remainder,
     // see GameClock.beginFrame().
@@ -836,7 +850,7 @@ export class GameStateManager {
 
     if (profiling) {
       this.profiler!.accumulateFrameTiming(
-        0, timings.tProjectile, timings.tCombat, timings.tEvents,
+        timings.tProjectile, timings.tCombat, timings.tEvents,
         performance.now() - frameStart,
         this.clock.stepsThisFrame,
       );

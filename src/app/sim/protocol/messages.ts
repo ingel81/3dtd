@@ -100,6 +100,11 @@ export interface SimConfig {
    * wave starts until it is false again (GameStateManager.corridorPending)
    */
   corridorPending?: boolean;
+  /**
+   * The perf panel is open: time the simulation by part (rpc profileSums).
+   * Off, the sub-steps take no timer (TODO E82)
+   */
+  profile?: boolean;
 }
 
 /** One row of `__towerTargets()` (services/debug/tower-target-console.ts, towerTargetRows) */
@@ -143,10 +148,35 @@ export interface SimRpc {
   commandLog(): unknown[];
   /** Where the last tick's time went, ms: the commands, the sub-steps, the packet, and the slowest command */
   tickProfile(): TickProfile;
+  /** The simulation by part since the last call, null while SimConfig.profile is off */
+  profileSums(): SimProfileSums | null;
   /** `__towerTargets()` (services/debug/tower-target-console.ts): towerTargetRows over the towers and the living enemies */
   towerTargets(): TowerTargetRow[];
   /** `__towerTargets.watch()`: explainTowerTarget of every tower for the enemies `enemyIds` (an ooze's clumps), the lines not null */
   towerTargetLines(enemyIds: string[]): string[];
+}
+
+/** The simulation by part (rpc profileSums, sim/core/sim-profile.ts): sums over the ticks since the last call, ms unless said otherwise */
+export interface SimProfileSums {
+  ticks: number;
+  /** Sub-steps run in them */
+  subSteps: number;
+  /** Whole ticks, as SimScalars.tickMs */
+  tickMs: number;
+  /** The commands at the boundary before the first sub-step */
+  commandsMs: number;
+  /** GameStateManager.update: the sub-steps */
+  updateMs: number;
+  /** Writing the packet (PacketWriter) */
+  packetMs: number;
+  /** Inside the sub-steps: the enemy loop and its sampled phases */
+  enemyMs: number;
+  enemyMoveMs: number;
+  enemyGridMs: number;
+  enemyHeightMs: number;
+  projectileMs: number;
+  combatMs: number;
+  eventsMs: number;
 }
 
 /** The parts of a tick's time (rpc tickProfile) */

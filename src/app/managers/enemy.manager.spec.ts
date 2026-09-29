@@ -520,8 +520,8 @@ describe('EnemyManager', () => {
       // sub-step): 6 timer reads each plus 2 for the total. Every timed phase
       // reads 1 ms here, so each sums to 2 ms and is scaled by 40 / 2.
       expect(t).toBe(2 * 6 + 2);
-      const [move, grid, height, render, total] = reports[0];
-      expect([move, grid, height, render]).toEqual([40, 40, 40, 0]);
+      const [move, grid, height, total] = reports[0];
+      expect([move, grid, height]).toEqual([40, 40, 40]);
       expect(total).toBe(13);
     });
   });

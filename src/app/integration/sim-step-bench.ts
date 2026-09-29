@@ -294,12 +294,12 @@ export function measureSteps(bench: SimBench, warmup: number, steps: number, tim
 
   const sums = { projectile: 0, combat: 0, events: 0 };
   bench.gsm.setProfiler({
-    accumulateFrameTiming: (_tower: number, projectile: number, combat: number, events: number) => {
+    accumulateFrameTiming: (projectile: number, combat: number, events: number) => {
       sums.projectile += projectile;
       sums.combat += combat;
       sums.events += events;
     },
-  } as never);
+  });
   const times = new Float64Array(steps);
   // One more: the first sub-step only starts the clock. The profiler sums
   // cover every sub-step run, the last frame's overshoot included

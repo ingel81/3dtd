@@ -297,6 +297,38 @@ describe('SimCore in the same thread', () => {
     expect(paused.scalars.gameTimeMs).toBeGreaterThan(time);
   });
 
+  it('times the simulation by part only while the perf panel asks for it (TODO E82)', () => {
+    const main = mainWorld();
+    const core = newCore(main.world);
+    const drive = new Driver(core);
+    drive.send({ type: 'command:start-wave', config: wave });
+    for (let f = 0; f < 200 && drive.tick().enemies.count === 0; f++) { /* until enemies walk */ }
+
+    // Off: no sums, and a tick takes only the four timestamps of its own tickMs
+    expect(core.rpc('profileSums')).toBeNull();
+    const now = vi.spyOn(performance, 'now');
+    drive.tick();
+    expect(now).toHaveBeenCalledTimes(4);
+    now.mockClear();
+
+    core.configure({ profile: true });
+    for (let f = 0; f < 30; f++) drive.tick();
+    expect(now.mock.calls.length).toBeGreaterThan(30 * 4);
+    now.mockRestore();
+    const sums = core.rpc('profileSums')!;
+    expect(sums.ticks).toBe(30);
+    expect(sums.subSteps).toBe(drive.packets.slice(-30).reduce((a, p) => a + p.stepsRun, 0));
+    expect(sums.tickMs).toBeCloseTo(sums.commandsMs + sums.updateMs + sums.packetMs, 6);
+    expect(sums.enemyMs).toBeGreaterThan(0);
+    expect(sums.enemyMs + sums.projectileMs + sums.combatMs + sums.eventsMs).toBeLessThanOrEqual(sums.updateMs);
+    // Taken: the next window starts empty
+    expect(core.rpc('profileSums')!.ticks).toBe(0);
+
+    core.configure({ profile: false });
+    expect(core.rpc('profileSums')).toBeNull();
+    expect(core.gsm.enemyManager.onProfileTiming).toBeNull();
+  });
+
   it('gives the live game back after a replay with the towers that waited for their sight asking again', () => {
     const mathRandom = Math.random;
     Math.random = mulberry32(SEED + 2);

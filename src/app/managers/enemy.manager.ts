@@ -626,9 +626,10 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.eventBus.emit({ type: 'enemy:split', enemy: parent, children });
   }
 
-  // Performance profiling callback (set by PerformanceProfilerService).
-  // move/grid/height are sampled estimates (see PROFILE_STRIDE); total is measured.
-  onProfileTiming: ((move: number, grid: number, height: number, render: number, total: number) => void) | null = null;
+  // Performance profiling callback, set while the perf panel is open
+  // (GameStateManager.setProfiler). move/grid/height are sampled estimates
+  // (see PROFILE_STRIDE); total is measured.
+  onProfileTiming: ((move: number, grid: number, height: number, total: number) => void) | null = null;
 
   /** Rotating start offset of the profiled enemies, see PROFILE_STRIDE. */
   private profileSampleOffset = 0;
@@ -808,12 +809,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.remove(enemy);
     }
 
-    // Send profiling data to PerformanceProfilerService
     if (profiling) {
       // Phases were timed on every PROFILE_STRIDE-th enemy; scale the sums
-      // to the whole loop. Render is the main thread's.
+      // to the whole loop
       const scale = sampled > 0 ? processed / sampled : 0;
-      this.onProfileTiming!(tMove * scale, tGrid * scale, tHeight * scale, 0, performance.now() - tTotal);
+      this.onProfileTiming!(tMove * scale, tGrid * scale, tHeight * scale, performance.now() - tTotal);
     }
   }
 
