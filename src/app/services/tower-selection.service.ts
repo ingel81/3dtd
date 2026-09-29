@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Vector3 } from 'three';
 import { SimMirror, type TowerChange } from '../sim/client/mirror/sim-mirror';
+import { SimClient } from '../sim/client/sim-client.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
@@ -17,7 +18,8 @@ import type { TowerTypeId } from '../configs/tower-types.config';
  *
  * The view is built from the shadow tower and the main thread's grid, and
  * rebuilt when the mirror reports the tower changed (line of sight resolved,
- * range upgrade, retrofit); a sold tower drops the selection.
+ * range upgrade, retrofit); a sold tower drops the selection, and so does a
+ * new run, whose cleared mirror reports no tower gone.
  */
 @Injectable({ providedIn: 'root' })
 export class TowerSelectionService {
@@ -25,6 +27,7 @@ export class TowerSelectionService {
   private readonly mirror = inject(SimMirror);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly sim = inject(SimClient);
 
   private viz: TowerLosViz | null = null;
   /** Per-tower LOS filter of the view (UIStore.perTowerLosFilter), kept for the next one built */
@@ -32,6 +35,11 @@ export class TowerSelectionService {
 
   constructor() {
     this.mirror.onTowerChange((change) => this.onTowerChange(change));
+    // The store may have dropped the selection on this reset already (resetGameState), the view is still here
+    this.sim.bus.onLive('game:reset', () => {
+      this.select(null);
+      this.disposeViz();
+    });
   }
 
   /** The selected tower's id, null for none */
