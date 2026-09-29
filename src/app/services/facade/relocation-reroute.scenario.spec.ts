@@ -12,7 +12,7 @@ import { Group, Vector3 } from 'three';
  * Real: MapRelocationService (the move), OsmStreetService (A*, the random
  * spawn), PathAndRouteService (routes), RelocationStatusService (the hint),
  * CorridorBuild. Fakes as in
- * relocation-corridor.scenario.spec: the game state, the engine (each
+ * relocation-corridor.scenario.spec: the main world and the simulation's numbers, the engine (each
  * corridor station costs 1.7 ms on a fake clock), the animation frames. Each
  * A* run (findPath) costs 1 ms on that clock, so the step times of the log
  * say which steps ran. inject() hands out by class name.
@@ -108,7 +108,7 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
   let pathRoute: PathAndRouteService;
   let host: RelocationHost;
   let store: { baseCoords: ReturnType<typeof signal<{ lat: number; lon: number }>>; spawnPoints: ReturnType<typeof signal<SpawnPoint[]>> };
-  let gameState: { reset: ReturnType<typeof vi.fn>; initialize: ReturnType<typeof vi.fn>; initializeGlobalRouteGrid: ReturnType<typeof vi.fn> };
+  let world: { resetRun: ReturnType<typeof vi.fn>; attach: ReturnType<typeof vi.fn>; buildCells: ReturnType<typeof vi.fn> };
   let placement: { lat: number; lon: number };
   let warn: ReturnType<typeof vi.spyOn>;
 
@@ -206,6 +206,8 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
       MapPlacementService: { handlePlacementClick: () => ({ mode: 'hq', ...placement }), updateDependencies: vi.fn() },
       TowerDefenseStore: { ...store, centerCoords: signal({ ...HQ_START, height: 400 }) },
     };
+    world = { resetRun: vi.fn(), attach: vi.fn(), buildCells: vi.fn() };
+    di.stubs['MainWorldService'] = world;
     pathRoute = new PathAndRouteService();
     status = new RelocationStatusService();
     di.stubs['PathAndRouteService'] = pathRoute;
@@ -218,18 +220,16 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
       snapshotHeights: () => new Map(),
       cellsWithoutHeight: () => 0,
       retryUnsampledCells: () => ({ promoted: 0 }),
-      initSpatialGridVisualizationIfEnabled: vi.fn(),
-      initAirSpatialGridVisualizationIfEnabled: vi.fn(),
-      initAirRouteLayerIfEnabled: vi.fn(),
     };
     const corridor = new CorridorBuild({
-      gameState: () => ({
-        towerCount: () => 0,
-        enemyManager: { getAliveCount: () => 0 },
-        waveManager: { phase: () => 'setup' },
-        getGlobalRouteGrid: () => grid,
-        rebuildRouteCells: vi.fn(),
-      }),
+      scalars: () => ({ towerCount: 0, phase: 'setup', enemiesAlive: 0 }),
+      world: { rebuildCells: vi.fn(), sendToSim: vi.fn() },
+      grid,
+      gridViz: {
+        initSpatialGridVisualizationIfEnabled: vi.fn(),
+        initAirSpatialGridVisualizationIfEnabled: vi.fn(),
+        initAirRouteLayerIfEnabled: vi.fn(),
+      },
       engineInit: { getEngine: () => engine },
       pathRoute,
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },
@@ -238,7 +238,6 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
       now: () => clock,
     } as unknown as CorridorBuildDeps);
 
-    gameState = { reset: vi.fn(), initialize: vi.fn(), initializeGlobalRouteGrid: vi.fn() };
     const initRoutes = () => pathRoute.initialize(engine, network, store.baseCoords(), (() => false) as never, osm, null);
     host = {
       context: () => ({
@@ -249,7 +248,6 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
           setStreetNetworkLocation: vi.fn(),
           setFilteredStreetNetwork: vi.fn(),
         },
-        gameState,
       }) as never,
       vizCallbacks: () => ({
         initializeVisualizationServices: initRoutes,
@@ -306,13 +304,13 @@ describe('Moving the HQ where the kept spawn has no route (playtest 542)', () =>
     expect(metres(route.at(-1)!, HQ_ACROSS)).toBeLessThan(1);
     expect(route.every((p) => local(p).z > 200)).toBe(true);
 
-    // The game starts over on it
-    expect(gameState.initialize).toHaveBeenLastCalledWith(
+    // The world starts over on it
+    expect(world.attach).toHaveBeenLastCalledWith(
       expect.anything(),
       { lat: HQ_ACROSS.lat, lon: HQ_ACROSS.lon },
       [{ id: spawn.id, name: spawn.name, lat: spawn.lat, lon: spawn.lon }],
-      paths,
     );
+    expect(world.buildCells).toHaveBeenCalledWith(true);
 
     // The measurement of its corridor ends as after any move
     expect(lines().find((l) => l.startsWith('[Relocation] HQ done:'))).toMatch(/ ended=frozen$/);

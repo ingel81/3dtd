@@ -6,13 +6,13 @@ import { Group, Vector3 } from 'three';
  * streets and, while the corridor is measured, a tower is built or a zombie
  * placed through Enemy Debug. Since 2026-09-16 the corridor of the new routes
  * is built once under the hint (CorridorBuild) and then frozen: towers and
- * waves wait for it (GameStateManager.corridorPending, its own spec), enemies
+ * waves wait for it (MainWorldService.corridorPending), enemies
  * change nothing of it. The hint shows the build's steps and goes at its end,
  * then `[Relocation] HQ done ... ended=`.
  *
  * Real: MapRelocationService (the move), RelocationStatusService (the hint),
  * CorridorBuild and PathAndRouteService (route, clearance run, their logs).
- * Fakes: the game state, the engine (no tiles, each station costs 1.7 ms on
+ * Fakes: the main world and the simulation's numbers, the engine (no tiles, each station costs 1.7 ms on
  * a fake clock, as in the city-centre playtest), the animation frames.
  * inject() hands out by class name, as in path-route.service.spec.
  */
@@ -140,6 +140,7 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
       LocationChangeCoordinatorService: { applyNewLocation: vi.fn() },
       MapPlacementService: { handlePlacementClick: () => ({ mode: 'hq', ...HQ }), updateDependencies: vi.fn() },
       TowerDefenseStore: store,
+      MainWorldService: { resetRun: vi.fn(), attach: vi.fn(), buildCells: vi.fn() },
     };
     const pathRoute = new PathAndRouteService();
     status = new RelocationStatusService();
@@ -154,18 +155,16 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
       snapshotHeights: () => new Map(),
       cellsWithoutHeight: () => 0,
       retryUnsampledCells: () => ({ promoted: 0 }),
-      initSpatialGridVisualizationIfEnabled: vi.fn(),
-      initAirSpatialGridVisualizationIfEnabled: vi.fn(),
-      initAirRouteLayerIfEnabled: vi.fn(),
     };
     corridor = new CorridorBuild({
-      gameState: () => ({
-        towerCount: () => game.towers,
-        enemyManager: { getAliveCount: () => game.enemies },
-        waveManager: { phase: () => game.phase },
-        getGlobalRouteGrid: () => grid,
-        rebuildRouteCells: vi.fn(),
-      }),
+      scalars: () => ({ towerCount: game.towers, phase: game.phase, enemiesAlive: game.enemies }),
+      world: { rebuildCells: vi.fn(), sendToSim: vi.fn() },
+      grid,
+      gridViz: {
+        initSpatialGridVisualizationIfEnabled: vi.fn(),
+        initAirSpatialGridVisualizationIfEnabled: vi.fn(),
+        initAirRouteLayerIfEnabled: vi.fn(),
+      },
       engineInit: { getEngine: () => engine },
       pathRoute,
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },
@@ -185,7 +184,6 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
           setStreetNetworkLocation: vi.fn(),
           setFilteredStreetNetwork: vi.fn(),
         },
-        gameState: { reset: vi.fn(), initialize: vi.fn(), initializeGlobalRouteGrid: vi.fn() },
       }) as never,
       vizCallbacks: () => ({
         initializeVisualizationServices: initRoutes,
@@ -221,7 +219,7 @@ describe('Moving the HQ while the corridor is built (playtest 543)', () => {
     const measuring = status.status()!.percent!;
     expect(measuring).toBeGreaterThan(0);
     expect(measuring).toBeLessThan(100);
-    // What GameStateManager.corridorPending reads: no tower, no wave meanwhile
+    // What MainWorldService.corridorPending reads: no tower, no wave meanwhile
     expect(corridor.pending()).toBe(true);
 
     // An enemy placed through Enemy Debug meanwhile changes nothing of the build
