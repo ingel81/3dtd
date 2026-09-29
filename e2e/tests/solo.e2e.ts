@@ -59,9 +59,13 @@ test('smoke: build a tower, play a wave, open a dialog, watch the replay', async
   });
 });
 
-test('M5 a new place starts the pressure loop at ×1.00, it opens over clean waves', async ({ duo, relay: _relay }, testInfo) => {
+test('M5 a new place starts the pressure loop at ×1.00, capped clean waves hold it there', async ({ duo, relay: _relay }, testInfo) => {
   const page = duo.host;
-  const why = async () => (await page.locator('body').innerText()).match(/Pressure loop[^\n]*/)?.[0] ?? '';
+  // The loop's factor R in "Why this wave" (wave debugger), null while no wave is explained
+  const loop = async () => {
+    const r = (await page.locator('.budget-grid').innerText().catch(() => '')).match(/\bR (\d+(?:\.\d+)?)/);
+    return r ? Number(r[1]) : null;
+  };
   // A fresh run: the page played the coop tests' waves before, clean ones the loop would count
   await page.getByRole('button', { name: 'Random location' }).click();
   await page.waitForTimeout(3000);
@@ -70,18 +74,28 @@ test('M5 a new place starts the pressure loop at ×1.00, it opens over clean wav
   await devAction(page, 'Wave spawner');
   for (let i = 0; i < 3; i++) await page.keyboard.press('+');
   await page.keyboard.press('Space');
-  await expect.poll(why, { timeout: 30_000 }).toMatch(/collecting \(0 of \d waves\), at ×1\.00/);
+  await expect.poll(loop, { timeout: 30_000 }).toBe(1);
   await shot(testInfo, page, 'm5-new-place');
   await clearWave(page);
 
-  // Four warm-up waves the loop does not count (PRESSURE_WARMUP_WAVES), then three it needs (PRESSURE_MIN_SAMPLES)
+  // One warm-up wave the loop does not count (BUDGET_REGULATOR_START), then the clean waves it measures. Without a
+  // tower every wave is capped (the defense cannot take the budget), so the anti-windup holds the loop at x1.00
+  // instead of opening it against a cap
   for (let wave = 2; wave <= 7; wave++) {
     await page.keyboard.press('Space');
     await expect(waveButton(page)).toContainText(/left/i);
     await clearWave(page);
   }
   await page.keyboard.press('Space');
-  await expect.poll(why).toMatch(/opened to ×1\.\d\d/);
-  await shot(testInfo, page, 'm5-opened');
+  const regulator = () => page.evaluate(() => {
+    const w = window as unknown as { ng: { getComponent(el: Element | null): Record<string, never> } };
+    const source = (w.ng.getComponent(document.querySelector('app-tower-defense')) as never as {
+      facade: { waveDirector: { source: { pressure: { status: { samples: number; meanPressure: number | null; lastStep: string } } } } };
+    }).facade.waveDirector.source;
+    return source.pressure.status;
+  });
+  await expect.poll(regulator).toMatchObject({ samples: 6, meanPressure: 0, lastStep: 'held' });
+  expect(await loop()).toBe(1);
+  await shot(testInfo, page, 'm5-held');
   await clearWave(page);
 });
