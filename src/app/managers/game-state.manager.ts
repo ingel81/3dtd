@@ -1313,6 +1313,7 @@ export class GameStateManager {
   reset(seed?: number): void {
     // Take every tower off the grid before clearing towers
     this.towerLifecycle.clearAllOverlays();
+    this.towerLos.newRun();
 
     // Stop all active beams/melee before clearing towers
     this.towerCombat.stopAllBeams();

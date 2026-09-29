@@ -209,6 +209,32 @@ describe('SimCore in the same thread', () => {
     }
   });
 
+  it('counts line-of-sight generations from 1 in a new run, so a fresh guest takes the masks of a host who played before', () => {
+    const main = mainWorld();
+    const place = { type: 'command:place-tower', typeId: 'archer', position: { lat: 60 / M, lon: 9 / M, height: 0 } };
+    // The host played a run alone before: its worker lives on
+    const host = new Driver(newCore(main.world));
+    host.send({ type: 'debug:add-credits', amount: 5000 });
+    for (let i = 0; i < 3; i++) host.send({ ...place, position: { ...place.position, lat: (60 + 40 * i) / M } });
+    for (const need of host.needs(host.tick())) host.send(answer(main, host.core, need));
+    host.tick();
+    host.core.loadWorld(main.world);
+    const guest = new Driver(newCore(main.world));
+
+    // Both place the same tower in the new run and take the same mask, as the relay hands it to both
+    GameObject.resetIdCounter();
+    host.send(place);
+    const [need] = host.needs(host.tick());
+    GameObject.resetIdCounter();
+    guest.send(place);
+    expect(guest.needs(guest.tick())).toEqual([need]);
+    const mask = answer(main, host.core, need);
+    host.send(mask);
+    guest.send(mask);
+    expect(host.tick().towerStates.map((s) => s.losReady)).toEqual([true]);
+    expect(guest.tick().towerStates.map((s) => s.losReady)).toEqual([true]);
+  });
+
   it('runs coop commands at the relay ticks the main thread hands over, and answers through `out`', () => {
     const main = mainWorld();
     const core = newCore(main.world);
