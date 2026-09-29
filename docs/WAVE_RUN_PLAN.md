@@ -206,7 +206,7 @@ bestimmten Quelle direkt nach der Wellennummer; bei einem Tausch liefen sie weit
 | `managers/game-state/wave-preview.ts`, `wave-panel/upcoming-waves.ts` | Leckschaden je Welle | Vorschau der Quelle |
 | `managers/enemy.manager.ts`, `services/economy.service.ts` | Gold je Welle (`waveGold`) | geplante Welle |
 | `game-engine/background-music.service.ts` | Boss-Welle (`isBossWave`) | geplante Welle |
-| `wave-panel/air-alert.ts` | Luftwarnung aus der Kampagnen-Vorlage | Vorschau der Quelle (`air`) |
+| `wave-panel/wave-alert.ts` | Luftwarnung aus der Kampagnen-Vorlage | Vorschau der Quelle (Luft und ätherisch) |
 | `director/state-snapshot-parts.ts` | kommende Gegner aus der Kampagnen-Vorlage | Vorschau der Quelle |
 | `bots/strategies/research/research-pick.strategy.ts` | kommende Luftwelle aus der Kampagne | Vorschau der Quelle |
 | `debug-window/wave-debugger.component.ts` | Name der Sprungwelle aus Kampagne und Boss-Varianten | Vorschau der Quelle |

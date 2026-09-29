@@ -40,13 +40,13 @@
         }
       </div>
     }
-    @if (airAlertView(); as air) {
-      <div class="td-air-alert" role="status"
-           [matTooltip]="air.tooltip" matTooltipPosition="left">
-        <td-icon class="td-air-alert-icon" name="plane" [size]="16"></td-icon>
-        <div class="td-air-alert-text">
-          <span class="td-air-alert-title">{{ air.title }} <span class="td-air-alert-when">· {{ air.when }}</span></span>
-          <span class="td-air-alert-defense" [class.td-air-alert-open]="!air.covered">{{ air.defense }}</span>
+    @for (alert of waveAlertViews(); track alert.kind) {
+      <div class="td-wave-alert" [class.td-wave-alert-ethereal]="alert.kind === 'ethereal'" role="status"
+           [matTooltip]="alert.tooltip" matTooltipPosition="left">
+        <td-icon class="td-wave-alert-icon" [name]="alert.icon" [size]="16"></td-icon>
+        <div class="td-wave-alert-text">
+          <span class="td-wave-alert-title">{{ alert.title }} <span class="td-wave-alert-when">· {{ alert.when }}</span></span>
+          <span class="td-wave-alert-defense" [class.td-wave-alert-open]="!alert.covered">{{ alert.defense }}</span>
         </div>
       </div>
     }

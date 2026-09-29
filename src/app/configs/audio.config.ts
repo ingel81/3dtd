@@ -103,6 +103,16 @@ export const UI_SOUNDS = {
     ],
     volume: 0.35,
   },
+  /** Ethereal enemies two waves ahead (WAVE panel): three low notes stepping down */
+  etherealAlert: {
+    id: 'ui_ethereal_alert',
+    notes: [
+      { freq: 659, ms: 110 },
+      { freq: 622, ms: 110 },
+      { freq: 440, ms: 220 },
+    ],
+    volume: 0.35,
+  },
   /** A shot of the manned tower hit (docs/TOWER_CONTROL.md): one short high tick */
   towerHit: {
     id: 'ui_tower_hit',

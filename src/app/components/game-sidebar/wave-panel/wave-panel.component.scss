@@ -148,10 +148,11 @@
   transition: width 0.9s linear;
 }
 
-/* Air alert above the button, build phase only: air in the next or the
- * next-but-one wave. Dark red field, the plane in red, the rest in text
- * colours; orange only when no placed tower hits air. */
-.td-air-alert {
+/* Wave alerts above the button, build phase only: air or ethereal enemies
+ * in the next or the next-but-one wave. Dark red field, the icon in red (the
+ * ghost in violet), the rest in text colours; orange only when no placed
+ * tower answers it. */
+.td-wave-alert {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -163,33 +164,39 @@
   font-family: var(--td-font-mono);
   cursor: help;
 }
-.td-air-alert-icon {
+.td-wave-alert-icon {
   color: var(--td-health-red);
 }
-.td-air-alert-text {
+.td-wave-alert-ethereal {
+  border-color: rgba(168, 85, 247, 0.5);
+}
+.td-wave-alert-ethereal .td-wave-alert-icon {
+  color: #b58cf5;
+}
+.td-wave-alert-text {
   display: flex;
   flex-direction: column;
   gap: 1px;
   min-width: 0;
 }
-.td-air-alert-title {
+.td-wave-alert-title {
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--td-text-primary);
 }
-.td-air-alert-when {
+.td-wave-alert-when {
   font-weight: 400;
   letter-spacing: 0.04em;
   text-transform: none;
   color: var(--td-text-muted);
 }
-.td-air-alert-defense {
+.td-wave-alert-defense {
   font-size: 10px;
   color: var(--td-text-secondary);
 }
-.td-air-alert-defense.td-air-alert-open {
+.td-wave-alert-defense.td-wave-alert-open {
   color: var(--td-warn-orange);
 }
 

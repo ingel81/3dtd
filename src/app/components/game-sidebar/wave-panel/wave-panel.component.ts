@@ -35,7 +35,10 @@ import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { REPLAY_CONFIG } from '../../../configs/replay.config';
 import { enemyGroupTooltip, formatLeak, splitTraitLabel, waveLeakTotal, weakToLabel } from '../sidebar-tooltips';
-import { AirAlertAnnouncer, airAlertView, countAntiAirTowers, upcomingAirAlert } from './air-alert';
+import {
+  WAVE_ALERT_KINDS, WaveAlertAnnouncer, countAntiAirTowers, countAntiEtherealTowers, upcomingWaveAlert, waveAlertView,
+  type WaveAlertKind,
+} from './wave-alert';
 import { NEXT_WAVE_MARKS, peekUpcomingWaves } from './upcoming-waves';
 import { waveButtonView } from './wave-button';
 import { WaveTimelineComponent } from './wave-timeline.component';
@@ -87,12 +90,17 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       }
     });
 
-    // Air alert tone: once per air wave and run, see AirAlertAnnouncer. A
-    // later build phase that still points at the same wave stays quiet.
+    // Alert tones: once per wave of each kind and run, see WaveAlertAnnouncer.
+    // A later build phase that still points at the same wave stays quiet.
     effect(() => {
       const waveNumber = this.store.waveNumber();
-      const alert = this.airAlert();
-      untracked(() => this.airAlertAnnouncer.update(waveNumber, alert, () => this.playAirAlertTone()));
+      const alerts = this.waveAlerts();
+      untracked(() => {
+        for (const kind of WAVE_ALERT_KINDS) {
+          const alert = alerts.find((a) => a.kind === kind) ?? null;
+          this.alertAnnouncers[kind].update(waveNumber, alert, () => this.playAlertTone(kind));
+        }
+      });
     });
 
     this.destroyRef.onDestroy(() => this.destroyMixedEnemyPreviews());
@@ -191,39 +199,46 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   );
 
   /**
-   * Placed towers that hit air. Tower entities carry no signals: the tower
-   * count (placed, sold, reset) and the AA research tell when to recount.
+   * Placed towers that answer each alert kind. Tower entities carry no
+   * signals: the tower count (placed, sold, reset) and the AA research tell
+   * when to recount.
    */
-  private readonly antiAirTowers = computed(() => {
+  private readonly answeringTowers = computed(() => {
     this.store.towerCount();
     const unlocked = this.researchStore.airTargetingUnlocked();
     const types = this.gameState.towerManager.getAll().map((t) => t.typeConfig.id as TowerTypeId);
-    return countAntiAirTowers(types, unlocked);
+    return { air: countAntiAirTowers(types, unlocked), ethereal: countAntiEtherealTowers(types) };
   });
 
-  /** Air in the next or the next-but-one wave, build phase only. */
-  private readonly airAlert = computed(() =>
-    this.waveActive() || this.isGameOver()
-      ? null
-      : upcomingAirAlert(this.store.waveNumber(), this.antiAirTowers())
-  );
-
-  readonly airAlertView = computed(() => {
-    const alert = this.airAlert();
-    return alert ? airAlertView(alert, this.researchStore.airTargetingUnlocked()) : null;
+  /** Air or ethereal enemies in the next or the next-but-one wave, build phase only. */
+  private readonly waveAlerts = computed(() => {
+    if (this.waveActive() || this.isGameOver()) return [];
+    const answering = this.answeringTowers();
+    const lastWave = this.store.waveNumber();
+    return WAVE_ALERT_KINDS
+      .map((kind) => upcomingWaveAlert(kind, lastWave, answering[kind]))
+      .filter((alert) => alert !== null);
   });
 
-  private readonly airAlertAnnouncer = new AirAlertAnnouncer();
+  readonly waveAlertViews = computed(() => {
+    const unlocked = this.researchStore.airTargetingUnlocked();
+    return this.waveAlerts().map((alert) => waveAlertView(alert, unlocked));
+  });
+
+  private readonly alertAnnouncers: Record<WaveAlertKind, WaveAlertAnnouncer> = {
+    air: new WaveAlertAnnouncer(),
+    ethereal: new WaveAlertAnnouncer(),
+  };
 
   /**
    * Global one-shot at the SFX volume, registered on first use. Answers
    * whether it came out: false when there is no audio yet or the tone has
    * no buffer, so the wave stays unannounced.
    */
-  private async playAirAlertTone(): Promise<boolean> {
+  private async playAlertTone(kind: WaveAlertKind): Promise<boolean> {
     const audio = this.gameState.tilesEngine?.spatialAudio;
     if (!audio) return false;
-    const { id, notes, volume } = UI_SOUNDS.airAlert;
+    const { id, notes, volume } = kind === 'air' ? UI_SOUNDS.airAlert : UI_SOUNDS.etherealAlert;
     if (!audio.getSoundConfig(id)) {
       audio.registerSound(id, toneWavDataUrl(notes), { volume });
     }
