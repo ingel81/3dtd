@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi, type Mock } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 
@@ -81,11 +81,11 @@ describe('StateSnapshotService', () => {
     isTowerUnlocked: (id: string) => boolean;
   };
   let grid: {
-    getDefenseReachPercent: ReturnType<typeof vi.fn>;
-    metersUnderFire: ReturnType<typeof vi.fn>;
-    getGrid: ReturnType<typeof vi.fn>;
-    getCoordinateSync: ReturnType<typeof vi.fn>;
-    isInitialized: ReturnType<typeof vi.fn>;
+    getDefenseReachPercent: Mock<(...args: unknown[]) => unknown>;
+    metersUnderFire: Mock<(...args: unknown[]) => unknown>;
+    getGrid: Mock<(...args: unknown[]) => unknown>;
+    getCoordinateSync: Mock<(...args: unknown[]) => unknown>;
+    isInitialized: Mock<(...args: unknown[]) => unknown>;
   };
 
   const advance = (ms: number) => {
