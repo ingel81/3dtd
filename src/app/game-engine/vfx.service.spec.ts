@@ -469,7 +469,7 @@ describe('VFXService blood', () => {
       effects: { spawnBloodSplatter: vi.fn(), spawnBloodDecal: vi.fn(), groundMarksEnabled: false },
     };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
-    const bleed = () => eventBus.emit({ type: 'vfx:blood', position: new Vector3(), intensity: 40 });
+    const bleed = () => eventBus.emit({ type: 'vfx:blood', position: { x: 0, y: 0, z: 0 }, intensity: 40 });
 
     bleed();
     expect(tilesEngine.effects.spawnBloodSplatter).toHaveBeenCalledTimes(1);
@@ -479,6 +479,40 @@ describe('VFXService blood', () => {
     tilesEngine.effects.groundMarksEnabled = true;
     bleed();
     expect(tilesEngine.effects.spawnBloodDecal).toHaveBeenCalledTimes(1);
+    service.destroy();
+  });
+});
+
+describe('VFXService chain lightning', () => {
+  it('starts the chain at the tip of the tower model, one bolt per link, and sounds it there', () => {
+    const eventBus = createMainEventBus();
+    const tilesEngine = {
+      towers: { get: vi.fn(() => ({ lat: 1, lon: 2, height: 3, tipY: 12 })) },
+      sync: {
+        geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: Vector3) => target.set(7, 0, 9)),
+      },
+      lightningBolts: { spawnBolt: vi.fn() },
+      spatialAudio: { playAt: vi.fn(() => Promise.resolve(null)) },
+    };
+    const bolts: number[][][] = [];
+    tilesEngine.lightningBolts.spawnBolt.mockImplementation((a: Vector3, b: Vector3) => {
+      bolts.push([a.toArray(), b.toArray()]);
+    });
+    const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
+    eventBus.emit({
+      type: 'vfx:chain-lightning',
+      sourceTowerId: 'tower-3',
+      points: [{ x: 0, y: 0, z: 0 }, { x: 1, y: 1, z: 1 }, { x: 2, y: 2, z: 2 }],
+    });
+
+    expect(tilesEngine.towers.get).toHaveBeenCalledWith('tower-3');
+    expect(bolts).toEqual([
+      [[7, 12, 9], [1, 1, 1]],
+      [[1, 1, 1], [2, 2, 2]],
+    ]);
+    const [id, at] = tilesEngine.spatialAudio.playAt.mock.calls[0] as unknown as [string, Vector3];
+    expect(id).toBe('lightning-chain');
+    expect(at.toArray()).toEqual([7, 12, 9]);
     service.destroy();
   });
 });
