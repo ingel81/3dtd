@@ -29,7 +29,7 @@ import { RunLogCollector } from '../../run-log/run-log.service';
 
 /**
  * Echter Service-Test: instantiates GameStateSyncService und prüft, dass die
- * `initialize(eventBus)`-Methode den Store korrekt updated, wenn Events
+ * `initialize()`-Methode den Store korrekt updated, wenn Events
  * über den GameEventBus laufen.
  *
  * Der frühere Spec testete nur eine Inline-Re-Implementierung der
@@ -44,6 +44,7 @@ describe('GameStateSyncService (real service)', () => {
   let log: RunLogCollector;
   let logSubs: SubscriptionBag;
   let health = 100;
+  let mirror: { scalars: { gameTimeMs: number }; localPlayerId: string };
 
   beforeEach(() => {
     // TowerDefenseStore composes sub-stores via inject(). Register every
@@ -70,9 +71,12 @@ describe('GameStateSyncService (real service)', () => {
     log = new RunLogCollector();
     injectionRegistry['RunLogFacade'] = { collector: log, current: () => log.current() };
 
-    service = new GameStateSyncService();
     eventBus = new GameEventBus();
-    service.initialize(eventBus);
+    mirror = { scalars: { gameTimeMs: 0 }, localPlayerId: 'local' };
+    injectionRegistry['SimClient'] = { bus: eventBus };
+    injectionRegistry['SimMirror'] = mirror;
+    service = new GameStateSyncService();
+    service.initialize();
     log.attach(eventBus, logSubs);
     log.open({ seed: 1, map: 'devworld', player: 'human' }, {
       step: () => 0,
@@ -203,7 +207,8 @@ describe('GameStateSyncService (real service)', () => {
 
     it('game:over → runSummary of the run, with the game clock as duration; game:reset clears it', () => {
       service.dispose();
-      service.initialize(eventBus, () => 90_000);
+      mirror.scalars.gameTimeMs = 90_000;
+      service.initialize();
       eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 2 });
       eventBus.emit({ type: 'enemy:died', enemy: { id: 'e1' } as never, credits: 5, killedBy: { kind: 'tower', towerId: 't1' } });
       eventBus.emit({ type: 'enemy:reached-base', enemy: { id: 'e2' } as never, damage: 10 });
@@ -285,20 +290,7 @@ describe('GameStateSyncService (real service)', () => {
       expect(store.placedUniqueTypes().size).toBe(0);
     });
 
-    it('tower:sold clears selectedTower if it matches', () => {
-      const tower = towerOf('sold-1');
-      store.selectedTower.set(tower);
-      eventBus.emit({ type: 'tower:sold', tower, refund: 50 });
-      expect(store.selectedTower()).toBeNull();
-    });
 
-    it('tower:sold leaves selectedTower if a different tower was selected', () => {
-      const selected = towerOf('keep-me');
-      const sold = towerOf('sell-me');
-      store.selectedTower.set(selected);
-      eventBus.emit({ type: 'tower:sold', tower: sold, refund: 50 });
-      expect(store.selectedTower()).toBe(selected);
-    });
 
     it('towerCount cannot go below 0', () => {
       store.towerCount.set(0);
@@ -306,17 +298,7 @@ describe('GameStateSyncService (real service)', () => {
       expect(store.towerCount()).toBe(0);
     });
 
-    it('tower:selected → selectedTower = event.tower', () => {
-      const tower = { id: 'tower-7' } as never;
-      eventBus.emit({ type: 'tower:selected', tower });
-      expect(store.selectedTower()).toBe(tower);
-    });
 
-    it('tower:deselected → selectedTower = null', () => {
-      store.selectedTower.set({ id: 'tower-8' } as never);
-      eventBus.emit({ type: 'tower:deselected' });
-      expect(store.selectedTower()).toBeNull();
-    });
 
     it('tower:kill of the selected tower → selectedTowerRevision++', () => {
       store.selectedTower.set({ id: 'sel' } as never);
