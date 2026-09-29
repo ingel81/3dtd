@@ -167,6 +167,24 @@ describe('SimMirror', () => {
       expect(group.type?.id).toBe('zombie');
       expect([...mirror.wormGroups()]).toEqual([group]);
     });
+
+    it('shows the enemies and worms it held as gone when a new run clears it', () => {
+      const p = packet({
+        enemies: [{ num: 1, type: 'zombie' }, { num: 2, type: 'zombie' }],
+        worms: [{ group: 4, head: 1, remaining: 6, size: 6, hp: 500, maxHp: 600 }],
+        events: [{ type: 'enemy:spawned', payload: { enemy: ref(1, { worm: { g: 4, slot: 0, head: true } }) } }],
+      });
+      mirror.applyState(p);
+      const group = (mirror.importEvent(p.events[0]) as { enemy: EnemyView }).enemy.worm!.group;
+      const boss = mirror.enemy('enemy-2')!;
+
+      mirror.clear();
+
+      // What a holder (the boss bar) reads of them: gone, as a row that went
+      expect([boss.alive, boss.active]).toEqual([false, false]);
+      expect(group.remaining).toBe(0);
+      expect(group.chains).toBe(0);
+    });
   });
 
   describe('importEvent', () => {

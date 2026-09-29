@@ -185,11 +185,20 @@ export class SimMirror implements SimMirrorApi {
     this.towerList = null;
     this.goneTowers.clear();
     this.onTarget.clear();
+    // Whoever still holds a view (the boss bar) sees it gone, as a row that went
+    for (const view of this.enemyMap.values()) {
+      view.alive = false;
+      view.active = false;
+    }
     this.enemyMap.clear();
     this.enemyList = [];
     this.aliveList = null;
     this.goneEnemies.clear();
     this.seen.clear();
+    for (const group of this.wormMap.values()) {
+      group.remaining = 0;
+      group.chains = 0;
+    }
     this.wormMap.clear();
     this.projectileMap.clear();
     this.research.clear();
