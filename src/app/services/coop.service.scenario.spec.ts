@@ -1,8 +1,9 @@
 /**
  * CoopService end to end over a real relay (docs/COOP_PLAN.md, review R21):
  * a host and a guest, each a CoopService of its own on real sockets, the
- * relay of `npm run coop-server` on a free port. The game, the map and the
- * engine are fakes; the world package is a stand-in that says which place
+ * relay of `npm run coop-server` on a free port. The simulation's end
+ * (SimClient), the map, the main world and the engine are fakes, the mirror
+ * is real; the world package is a stand-in that says which place
  * and spawns it is. What it pins: opening and joining a room, the lane each
  * player gets by itself, the start once the guest is ready, the host's
  * rights (take out, close), the room's options, the system lines of the
@@ -24,11 +25,17 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { reconcileWave } from '../run-log/run-log-check';
 import type { RunLog } from '../run-log/run-log.types';
-import { GameEventBus } from '../game-engine/game-event-bus';
 import { withAutoStubs } from '../integration/test-helpers';
+import { createMainEventBus } from '../sim/client/view-events';
+import type { EnemyView } from '../sim/client/views';
+import { packet } from '../sim/client/mirror/testing/mirror-packets';
 
 // The game's services as bare tokens: the fakes below stand in for them
-vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class {} }));
+vi.mock('../sim/client/sim-client.service', () => ({ SimClient: class {} }));
+vi.mock('./world/main-world.service', () => ({ MainWorldService: class {} }));
+vi.mock('./world/global-route-grid.service', () => ({ GlobalRouteGridService: class {} }));
+vi.mock('./tower-los-registry', () => ({ TowerLosRegistry: class {} }));
+vi.mock('../presentation/presentation.service', () => ({ PresentationService: class {} }));
 vi.mock('../core/services/config.service', () => ({ ConfigService: class {} }));
 vi.mock('../store/game.store', () => ({ GameStore: class {} }));
 vi.mock('../store/ui.store', () => ({ UIStore: class {} }));
@@ -53,7 +60,12 @@ import { CoopService } from './coop.service';
 import { CoopSession } from '../coop/coop-session';
 import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { MainWorldService } from './world/main-world.service';
+import { GlobalRouteGridService } from './world/global-route-grid.service';
+import { TowerLosRegistry } from './tower-los-registry';
+import { PresentationService } from '../presentation/presentation.service';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
@@ -79,25 +91,23 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
   localStorage.setItem('3dtd-coop-relay', `ws://localhost:${relayPort}`);
   const hq = signal(HQ);
   const closedRun = signal<RunLog | null>(null);
-  const bus = new GameEventBus();
-  const gsm = withAutoStubs({
-    getEventBus: () => bus,
-    getSpawnPoints: () => SPAWNS,
-    worldSource: () => ({ hq: hq() }),
-    worldKey: () => 'k',
-    corridorPending: () => false,
-    getCachedPaths: () => new Map(),
-    getGlobalRouteGrid: () => withAutoStubs({}),
-    creditsOf: () => 100,
-    stateHash: () => 1,
-    players: [] as string[],
-    lockstepActive: false,
-    towerManager: withAutoStubs({ getById: () => null }),
-    setPlayers: vi.fn((players: string[]) => { gsm.players = [...players]; }),
+  const bus = createMainEventBus();
+  // The simulation's end: its bus, and what the coop sends it
+  const sim = {
+    bus,
+    started: true,
     setLockstep: vi.fn(),
-    setCheatRule: vi.fn(),
-    playerLeft: vi.fn(),
+    configure: vi.fn(),
+    rpc: vi.fn(async (method: string) => (method === 'stateHash' ? 1 : null)),
+  };
+  const world = withAutoStubs({
+    spawnPoints: SPAWNS,
+    source: () => ({ hq: hq() }),
+    key: () => 'k',
+    corridorPending: () => false,
   });
+  const los = { setRole: vi.fn() };
+  const mirror = new SimMirror();
   // Going to another place in the page lands where it was asked to
   const locationChange = { applyNewLocation: vi.fn(async (data: { hq: { lat: number; lon: number } }) => hq.set({ lat: data.hq.lat, lon: data.hq.lon })) };
   // The wave source this seat would play next, when the test cares
@@ -108,14 +118,19 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
     parent: TestBed.inject(EnvironmentInjector),
     providers: [
       CoopService,
-      { provide: GameStateManager, useValue: gsm },
+      { provide: SimClient, useValue: sim },
+      { provide: SimMirror, useValue: mirror },
+      { provide: MainWorldService, useValue: world },
+      { provide: GlobalRouteGridService, useValue: withAutoStubs({}) },
+      { provide: TowerLosRegistry, useValue: los },
+      { provide: PresentationService, useValue: { host: null } },
       { provide: ConfigService, useValue: { coopRelay: signal(null), coopLobbies: signal(null), needsCredentials: signal(false) } },
       { provide: GameStore, useValue: { gameSpeed: signal(1), paused: signal(false) } },
       { provide: UIStore, useValue: { coopMapLocked: signal(false), notice: signal<string | null>(null), coopDockOpen: signal(false) } },
       { provide: EngineInitializationService, useValue: { getEngine: () => ({}), loading: () => false } },
       { provide: LocationManagementService, useValue: { hq, spawns: signal(SPAWNS.map(({ lat, lon }) => ({ lat, lon }))), missionInfo: signal({ city: 'Stuttgart', country: 'Deutschland', address: 'Marktplatz 1' }) } },
       { provide: UrlLocationService, useValue: { urlFor: () => '/?l=48.7758,9.1829' } },
-      { provide: PathAndRouteService, useValue: withAutoStubs({}) },
+      { provide: PathAndRouteService, useValue: withAutoStubs({ getCachedPaths: () => new Map() }) },
       { provide: LocationFacadeService, useValue: withAutoStubs({ addRandomSpawn: vi.fn(async () => true) }) },
       { provide: LocationChangeCoordinatorService, useValue: locationChange },
       { provide: InputHandlerService, useValue: withAutoStubs({}) },
@@ -124,7 +139,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       ...(director ? [{ provide: WaveDirector, useValue: director }] : []),
     ],
   });
-  return { coop: injector.get(CoopService), gsm, hq, locationChange, closedRun, director };
+  return { coop: injector.get(CoopService), sim, los, mirror, hq, locationChange, closedRun, director };
 }
 
 /** Wait for `ok`, flushing effects, up to 3 s */
@@ -199,8 +214,13 @@ describe('CoopService over a real relay (review R21)', () => {
     host.coop.start();
     await until(() => host.coop.inGame() && guest.coop.inGame());
     expect(guest.coop.roster().map((p) => p.name)).toEqual(['Ann', 'Bob']);
-    expect(guest.gsm.setLockstep).toHaveBeenCalledWith(expect.objectContaining({ playerId: guest.coop.playerId() }), undefined);
-    expect(guest.gsm.players).toEqual(host.gsm.players);
+    expect(guest.sim.setLockstep).toHaveBeenCalledWith(expect.objectContaining({ playerId: guest.coop.playerId() }), undefined);
+    const roster = (side: typeof host) =>
+      side.sim.configure.mock.calls.map(([config]) => config.players).find((players) => players !== undefined);
+    expect(roster(guest)).toEqual({ players: roster(host).players, local: guest.coop.playerId() });
+    // The host renders the lines of sight, the guest waits for them (COOP_PLAN C3)
+    expect(host.los.setRole).toHaveBeenLastCalledWith('render');
+    expect(guest.los.setRole).toHaveBeenLastCalledWith('wait');
   });
 
   it('counts an ooze that flows in point by point once for its lane (TODO E34)', async () => {
@@ -210,10 +230,9 @@ describe('CoopService over a real relay (review R21)', () => {
     host.coop.start();
     await until(() => host.coop.inGame() && guest.coop.inGame());
     const me = host.coop.roster().find((p) => p.id === host.coop.playerId())!;
-    const path = [HQ];
-    host.gsm.getCachedPaths = () => new Map([[me.spawnId!, path]]);
-    const bus = host.gsm.getEventBus();
-    const enemy = (id: string) => ({ id, movement: { path } }) as never;
+    const bus = host.sim.bus;
+    // The route an enemy walks, as the mirror names it: its spawn's id
+    const enemy = (id: string) => ({ id, movement: { routeId: me.spawnId! } }) as unknown as EnemyView;
 
     bus.emit({ type: 'enemy:leaking', enemy: enemy('ooze'), damage: 1 });
     bus.emit({ type: 'enemy:leaking', enemy: enemy('ooze'), damage: 1 });
@@ -320,9 +339,9 @@ describe('CoopService over a real relay (review R21)', () => {
     await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.ready);
     host.coop.start();
     await until(() => host.coop.inGame() && guest.coop.inGame());
-    const rule = vi.mocked(guest.gsm.setCheatRule).mock.lastCall![0]!;
+    const cheatsFor = guest.sim.configure.mock.calls.map(([config]) => config.cheatsFor).filter((c) => c !== undefined).at(-1);
     // Cheats off by default: nobody, the host neither
-    expect(rule(host.coop.playerId()!)).toBe(false);
+    expect(cheatsFor).toEqual([]);
   });
 
   it("tells the host what the guest's client does, and that its map stands (User, 2026-09-25)", async () => {
@@ -349,12 +368,15 @@ describe('CoopService over a real relay (review R21)', () => {
     await until(() => host.coop.room()!.players.every((p) => p.ready || p.id === host.coop.room()!.hostId));
     host.coop.start();
     await until(() => host.coop.inGame() && guest.coop.inGame());
+    // The simulation runs the room's roster
+    guest.mirror.applyState(packet({ scalars: { players: guest.coop.roster().map((p) => p.id), localPlayerId: guest.coop.playerId()! } }));
     await relay!.close();
     relay = null;
     await until(() => guest.coop.lostInGame());
     guest.coop.continueAlone();
-    expect(guest.gsm.setLockstep).toHaveBeenLastCalledWith(null);
-    expect(guest.gsm.playerLeft).toHaveBeenCalledWith(host.coop.playerId());
+    expect(guest.sim.setLockstep).toHaveBeenLastCalledWith(null);
+    expect(guest.sim.configure).toHaveBeenCalledWith({ playersLeft: expect.arrayContaining([host.coop.playerId()]) });
+    expect(guest.los.setRole).toHaveBeenLastCalledWith('render');
     expect(guest.coop.status()).toBe('off');
   });
 

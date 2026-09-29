@@ -3,7 +3,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Only their DI tokens are needed. The real modules pull in the engine, and
 // the partially compiled CDK needs the JIT compiler under vitest.
 vi.mock('@angular/cdk/a11y', () => ({ LiveAnnouncer: class LiveAnnouncer {} }));
-vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
+vi.mock('../sim/client/sim-client.service', () => ({ SimClient: class SimClient {} }));
+vi.mock('./tower-selection.service', () => ({ TowerSelectionService: class TowerSelectionService {} }));
 vi.mock('../store/game.store', () => ({ GameStore: class GameStore {} }));
 vi.mock('../store/tower-defense.store', () => ({ TowerDefenseStore: class TowerDefenseStore {} }));
 vi.mock('../store/ui.store', () => ({ UIStore: class UIStore {} }));
@@ -17,33 +18,11 @@ vi.mock('./boss-intro.service', () => ({ BossIntroService: class BossIntroServic
 vi.mock('./infrastructure/engine-initialization.service', () => ({
   EngineInitializationService: class EngineInitializationService {},
 }));
-vi.mock('../replay/replay-bar-view', () => ({ commandMarkers: () => [] }));
 vi.mock('../director/wave-director', () => ({ WaveDirector: class WaveDirector {} }));
 vi.mock('./location/location-management.service', () => ({
   LocationManagementService: class LocationManagementService {},
 }));
 vi.mock('../run-log/config-hash', () => ({ balanceConfigHash: () => 'hash' }));
-
-// The sessions the service builds, standing in for the re-simulating ReplaySession
-const players = vi.hoisted(() => [] as { enter: () => void }[]);
-vi.mock('../simulator/replay-session', () => ({
-  ReplaySession: class ReplaySession {
-    wave = 3;
-    currentMs = 0;
-    durationMs = 1000;
-    playing = false;
-    speed = 1;
-    divergedAt = null;
-    record = { startStep: 0 };
-    setSpeed = vi.fn();
-    enter = vi.fn();
-    exit = vi.fn();
-    update = vi.fn();
-    constructor() {
-      players.push(this);
-    }
-  },
-}));
 
 // No change detection here: the recording's effect and the focus after layout stay idle
 vi.mock('@angular/core', async (importOriginal) => ({
@@ -55,7 +34,10 @@ vi.mock('@angular/core', async (importOriginal) => ({
 import { ElementRef, Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { ReplayService } from './replay.service';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { TowerSelectionService } from './tower-selection.service';
+import { initialScalars } from '../sim/client/mirror/sim-mirror';
+import type { SimFramePacket } from '../sim/protocol/packet';
 import { GameStore } from '../store/game.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
@@ -73,33 +55,49 @@ import { LocationManagementService } from './location/location-management.servic
 /**
  * The gate of ReplayService.enter(): a replay starts only with a recorded
  * wave, between waves, and not while a boss intro holds the camera (the
- * intro pauses the game and puts the camera back itself).
+ * intro pauses the game and puts the camera back itself). The simulation
+ * re-simulates the wave (SimClient.rpc replayEnter); its packets name the
+ * waves it can show.
  */
 describe('ReplayService.enter gate', () => {
   let host: HTMLElement;
   let introActive: ReturnType<typeof signal<boolean>>;
-  let recordedWave: ReturnType<typeof signal<number | null>>;
+  /** The frame listeners the service put on the SimClient */
+  let frames: ((packet: SimFramePacket) => void)[];
+  /** The rpcs the simulation got */
+  let rpc: ReturnType<typeof vi.fn>;
   let phase: ReturnType<typeof signal<string>>;
   let paused: ReturnType<typeof signal<boolean>>;
   let getEngine: ReturnType<typeof vi.fn>;
   let service: ReplayService;
-  /** What GameStateManager.snapshotRefusal answers: shots still flying or a quiet field */
+  /** What SimScalars.snapshotRefusal says: shots still flying or a quiet field */
   let refusal: string | null;
 
-  const pose = () => ({ clone: () => ({}) });
+  /** A packet naming the waves the simulation can re-simulate */
+  const recorded = (...waves: number[]) => {
+    const scalars = { ...initialScalars(), replayableWaves: waves };
+    for (const listener of frames) listener({ scalars } as SimFramePacket);
+  };
+  /** The replays the simulation was asked to enter */
+  const entered = () => rpc.mock.calls.filter(([method]) => method === 'replayEnter');
+  /** Let the async start (rpc replayEnter) finish */
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+  const pose = () => ({ clone: () => ({}), copy: vi.fn() });
 
   beforeEach(() => {
-    players.length = 0;
+    frames = [];
+    rpc = vi.fn(async (method: string, wave?: number) =>
+      (method === 'replayEnter' ? { wave, startStep: 0, lengthInSteps: 100, waves: [wave], markers: [] } : null));
     refusal = null;
     host = document.createElement('div');
     document.body.append(host);
     introActive = signal(false);
-    recordedWave = signal<number | null>(3);
     phase = signal('setup');
     paused = signal(false);
     const engine = {
       towerBadges: { setVisible: vi.fn() },
-      getCamera: () => ({ position: pose(), quaternion: pose(), up: pose() }),
+      getCamera: () => ({ position: pose(), quaternion: pose(), up: pose(), updateMatrixWorld: vi.fn() }),
       getControls: () => null,
     };
     getEngine = vi.fn(() => engine);
@@ -113,21 +111,21 @@ describe('ReplayService.enter gate', () => {
         { provide: TowerDefenseStore, useValue: { loading: signal(false), error: signal(null), phase } },
         { provide: GameStore, useValue: { paused, mannedTowerId: signal(null) } },
         {
-          provide: GameStateManager,
+          provide: SimClient,
           useValue: {
-            simRecorder: {
-              latestReplayable: recordedWave,
-              get: (wave: number) => ({ wave, startStep: 0, endStep: 100 }),
-              replayableWaves: () => [3],
+            bus: { emit: vi.fn() },
+            get scalars() {
+              return { ...initialScalars(), snapshotRefusal: refusal, baseHealth: 100 };
             },
-            commandLog: { entries: [] },
-            snapshotRefusal: () => refusal,
-            baseHealth: () => 100,
-            enemyManager: { aliveCount: () => 0 },
-            paused: signal(false),
-            towerManager: { selectTower: vi.fn() },
+            onFrame: (listener: (packet: SimFramePacket) => void) => {
+              frames.push(listener);
+              return () => undefined;
+            },
+            rpc,
+            replay: null,
           },
         },
+        { provide: TowerSelectionService, useValue: { select: vi.fn() } },
         { provide: TowerPlacementService, useValue: { buildMode: signal(false) } },
         { provide: MapPlacementService, useValue: {} },
         { provide: AbilityTargetingService, useValue: { targeting: signal(null) } },
@@ -144,84 +142,101 @@ describe('ReplayService.enter gate', () => {
       ],
     });
     service = runInInjectionContext(injector, () => new ReplayService());
+    recorded(3);
   });
 
   afterEach(() => {
     host.remove();
   });
 
-  it('does not start while a boss intro holds the camera', () => {
+  it('does not start while a boss intro holds the camera', async () => {
     introActive.set(true);
     expect(service.available()).toBe(true);
 
     service.enter();
+    await settle();
 
     expect(service.active()).toBe(false);
     expect(getEngine).not.toHaveBeenCalled();
-    expect(players).toHaveLength(0);
+    expect(entered()).toHaveLength(0);
     expect(paused()).toBe(false);
   });
 
-  it('starts once the intro is over, pausing the live game', () => {
+  it('starts once the intro is over, pausing the live game', async () => {
     introActive.set(true);
     service.enter();
     introActive.set(false);
 
     service.enter();
+    await settle();
 
     expect(service.active()).toBe(true);
-    expect(players).toHaveLength(1);
-    expect(players[0].enter).toHaveBeenCalled();
+    expect(entered()).toEqual([['replayEnter', 3, false]]);
     expect(paused()).toBe(true);
   });
 
-  it('offers the player the button while REPLAY_CONFIG.offered is on', () => {
+  it('offers the player the button while REPLAY_CONFIG.offered is on', async () => {
     expect(service.available()).toBe(true);
     expect(service.offered()).toBe(true);
 
     service.enter();
+    await settle();
     expect(service.active()).toBe(true);
   });
 
-  it('does not start without a recorded wave or during a wave', () => {
-    recordedWave.set(null);
+  it('does not start without a recorded wave or during a wave', async () => {
+    recorded();
     service.enter();
-    recordedWave.set(3);
+    recorded(3);
     phase.set('wave');
     service.enter();
+    await settle();
 
     expect(service.active()).toBe(false);
-    expect(players).toHaveLength(0);
+    expect(entered()).toHaveLength(0);
   });
-  it('waits for the last shots of a wave to land, then starts by itself (R8)', () => {
+
+  it('stays out when the simulation cannot re-simulate the wave, and gives the pause back', async () => {
+    rpc.mockResolvedValueOnce(null);
+    service.enter();
+    await settle();
+
+    expect(entered()).toHaveLength(1);
+    expect(service.active()).toBe(false);
+    expect(paused()).toBe(false);
+  });
+
+  it('waits for the last shots of a wave to land, then starts by itself (R8)', async () => {
     vi.useFakeTimers();
     try {
       refusal = 'projectiles';
       service.enter();
       expect(service.active()).toBe(false);
-      service.update(16);
-      expect(service.active()).toBe(false);
+      service.update();
+      expect(entered()).toHaveLength(0);
 
       refusal = null;
-      service.update(16);
+      service.update();
+      await vi.runAllTimersAsync();
       expect(service.active()).toBe(true);
-      expect(players).toHaveLength(1);
+      expect(entered()).toHaveLength(1);
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('gives up after 5 s of shots in the air and starts nothing', () => {
+  it('gives up after 5 s of shots in the air and starts nothing', async () => {
     vi.useFakeTimers();
     try {
       refusal = 'projectiles';
       service.enter();
       vi.advanceTimersByTime(5001);
-      service.update(16);
+      service.update();
       refusal = null;
-      service.update(16);
+      service.update();
+      await vi.runAllTimersAsync();
       expect(service.active()).toBe(false);
-      expect(players).toHaveLength(0);
+      expect(entered()).toHaveLength(0);
     } finally {
       vi.useRealTimers();
     }

@@ -66,6 +66,8 @@ import { headingOfLocal } from '../utils/manual-aim';
 import { Vector3 } from 'three';
 import { signal } from '@angular/core';
 import { TowerControlService } from '../services/tower-control.service';
+import { ShotPrediction } from '../services/shot-prediction';
+import { ManualShots } from '../presentation/manual-shots';
 import { LocalRelay } from '../coop/local-relay';
 import { TICK_SUB_STEPS } from '../coop/lockstep';
 import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
@@ -377,7 +379,12 @@ describe('Manning a tower, through the sub-step loop', () => {
   });
 });
 
-/** TowerControlService on the game above: an engine stub with a camera and a canvas, the store's manned tower from the bus */
+/**
+ * TowerControlService on the game above: an engine stub with a camera and a
+ * canvas, the store's manned tower from the bus. The simulation runs in this
+ * thread on the same bus as the main thread's (SimClient.bus), its manual
+ * shots sound through the presentation's ManualShots.
+ */
 function createControl(gsm: GameStateManager) {
   const canvas = { requestPointerLock: vi.fn(() => Promise.resolve()), contains: () => false };
   const controls = { enabled: true };
@@ -397,7 +404,28 @@ function createControl(gsm: GameStateManager) {
   gsm.getEventBus().on('tower:manned', (event) => {
     if (event.local) mannedTowerId.set(event.towerId);
   });
-  mockServices['GameStateManager'] = gsm;
+  // The main thread's end of the simulation: its bus, and the mirror as the simulation in this thread tells it
+  mockServices['SimClient'] = { bus: gsm.getEventBus() };
+  const scalars = () => ({
+    subStep: gsm.subStep,
+    lockstepActive: gsm.lockstepActive,
+    players: [LOCAL_PLAYER_ID],
+    localPlayerId: LOCAL_PLAYER_ID,
+    mannedTowers: [gsm.getMannedTower()?.id ?? null],
+  });
+  mockServices['SimMirror'] = {
+    get scalars() {
+      return scalars();
+    },
+    mannedTower: () => gsm.getMannedTower(),
+    mayManage: () => true,
+    onTargetOf: () => false,
+    tower: (id: string) => gsm.towerManager.getById(id),
+  };
+  // The shot shown at the click, and the presentation of the simulation's manual shots that asks it
+  const prediction = new ShotPrediction();
+  mockServices['ShotPrediction'] = prediction;
+  new ManualShots(gsm.getEventBus() as never, mockServices['SimMirror'] as never).setPrediction((id) => prediction.take(id));
   mockServices['UIStore'] = withAutoStubs({ openMenu: signal(null), viewOnly: () => false, mapPlacementMode: () => null });
   mockServices['EngineInitializationService'] = withAutoStubs({ getEngine: () => engine });
   mockServices['TowerDefenseStore'] = withAutoStubs({ mannedTowerId, isGameOver: () => false, loading: () => false, error: () => null });
