@@ -170,6 +170,7 @@ Aus dem Coop-Playtest Heilbronn W1-W38 (2026-09-26, `tmp/coop-playtest/ANALYSE.m
 - [ ] **E54 Skarnax beendet Läufe** (Bot-Messung 2026-09-27): W35 beendet 4 von 12 kalibrierten Läufen, 113 bis 206
       Segmente im HQ. Entschieden (User, 2026-09-28): Boss-Varianten nach der Kampagne genauso normieren wie darin
       (`directedTotalHp / variantNominalHp`), danach mit Bots messen. Beleg in [Plan](docs/PRESSURE_ONE_PLACE_PLAN.md).
+      **2026-09-29:** mit gepanzertem Kopf (E67) kostet Skarnax W30 die Bots 21 HP statt 0; kein Lauf endete dort.
 
 Ideen (2026-09-27), nichts entschieden:
 
@@ -192,8 +193,9 @@ Ideen (2026-09-27), nichts entschieden:
       **Konzept und Demo 2026-09-29** ([WORKER_PLAN.md](docs/WORKER_PLAN.md)): im Stellvertreter hält ein Worker 60 FPS
       bei Tempo 4, wo der Hauptthread 24 schafft; `postMessage` reicht (0,1 ms je Bild), also keine COOP/COEP-Header.
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
-      Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft. Offen:
-      Darstellung nach dem Laden (Augen), Stände über 1 MB.
+      Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
+      **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze
+      geprüft). Offen nur: ein Stand in mehreren Teilen im Browser (bisher nur Unit-Tests).
 - [ ] **E60 Versus-Modus** (Idee, im Lobby-Umschalter schon als SOON, COOP_PLAN D39): Form offen.
 - [ ] **E61 DevWorld als Spielfeld** (Idee): prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
       Verwandt: E55, E56.
@@ -208,13 +210,14 @@ Ideen (2026-09-27), nichts entschieden:
       **Gemessen 2026-09-28** (je 10 Räume bis W15): HP-Rest nach W15 Solo 63 %, unverändert 45 %, Leck geteilt 72 %,
       HQ mal Spuren 68 %. **Entschieden (User, 2026-09-28): so lassen**, Coop bleibt härter.
 - [ ] **E67 Skarnax zu anspruchslos** (User, 2026-09-28): Segment für Segment von vorne nach hinten zu zerlegen, wenig
-      Anspruch. Konzept (lokal) `tmp/nightly-2026-09-28/konzepte/skarnax.md`: in der Budget-Quelle zählt jedes Segment
-      schon als Körper (gebaut); vorgeschlagen dazu ein gepanzerter Kopf, der nach jedem Schnitt neu entsteht. Zu
-      entscheiden: soll er Umstellen der Zielwahl verlangen, wie stark die Panzerung.
-- [ ] **E69 Budget-Quelle als Standard** (gebaut 2026-09-28/29, [WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md)): nach den
-      menschlichen Läufen (PLAYTEST B) entscheiden. Der Abbau des adaptiven Directors liegt auf `wt/remove-adaptive`
-      bereit (rund 7000 Zeilen weniger, alle Prüfungen grün). Konzepte dazu (lokal): Gold passend zum Budget
-      (`gold-budget.md`, Vorschlag Gold nach Zeilenstärke statt Boss ×2) und Endlos nach W60 (`endlos.md`).
+      Anspruch. **Gebaut 2026-09-29:** Kopf mit 5× HP und `fortified`, nach jedem Schnitt neu; schneller, je kürzer
+      der Wurm ([ENEMY_CREATION.md](docs/ENEMY_CREATION.md)). Offen: im Spiel ansehen (Playtest).
+- [ ] **E69 Budget-Quelle als Standard** ([WAVE_RUN_PLAN.md](docs/WAVE_RUN_PLAN.md)): **seit 2026-09-29 auf `next`**,
+      adaptiver Director entfernt; dazu Gold nach Zeilenstärke, Endlos nach W60, Geisterwarnung, Why this wave.
+      Offen: der Playtest des Users auf diesem Stand.
+- [ ] **E70 Budget-Quelle gegen starke Abwehr** (Bot-Messung 2026-09-29): mit dem Bot bis 40 Tower und Magic/Eis/Blitz
+      im Mix sterben Bots erst W42 bis W79 (Median 57, vorher 37 bis 40). Nach dem Playtest entscheiden, ob nachgestellt
+      wird.
 - [ ] **E68 Zwei volle Pools** (gemessen 2026-09-28): Geschoss-Spuren (11 % des Bildes bei Tempo 4) und Schadenszahlen
       (4 % der Simulation) durchsuchen bei jedem neuen Eintrag den ganzen Pool. Entschieden (User): beide beheben, dann
       Bildrate, Bildzeit und verworfene Einträge bei 1-, 2- und 4-facher Poolgröße messen; Größen erst nach Zuruf ändern.
