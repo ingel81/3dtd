@@ -234,7 +234,7 @@ export class DebugFacadeService {
    * Toggle movement enabled state and persist
    */
   onMovementToggled(enabled: boolean): void {
-    this.sim.configure({ movementEnabled: enabled });
+    this.sim.bus.emit({ type: 'debug:movement', enabled });
     persistDisplayOptions({ movement: enabled });
   }
 
@@ -326,7 +326,7 @@ export class DebugFacadeService {
     const opts = loadDisplayOptions();
     if (opts.enemies === false) this.engine?.enemies.setEnemiesVisible(false);
     if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
-    if (opts.movement === false) this.sim.configure({ movementEnabled: false });
+    if (opts.movement === false) this.sim.bus.emit({ type: 'debug:movement', enabled: false });
   }
 
   // ========================================

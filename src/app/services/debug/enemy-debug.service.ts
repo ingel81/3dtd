@@ -1,8 +1,9 @@
 import { Injectable, Signal, signal, computed, inject } from '@angular/core';
 import { ENEMY_TYPES, EnemyTypeId, getDebugEnemyTypes, getEnemyTypeIds } from '../../configs/enemy-types.config';
-import { Enemy } from '../../entities/enemy.entity';
 import { RouteWaypoint } from '../../models/game.types';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
+import type { EnemyView } from '../../sim/client/views';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { EventSubscription } from '../../game-engine';
 import { ThreeTilesEngine } from '../../three-engine';
 import { PathAndRouteService } from '../world/path-route.service';
@@ -15,7 +16,8 @@ export type { EnemyOverrides };
 
 export interface DebugEnemy {
   id: string;
-  enemy: Enemy;
+  /** The enemy's view (SimMirror), updated with every packet */
+  enemy: EnemyView;
   typeId: EnemyTypeId;
   placedAt: { lat: number; lon: number };
   /** Per-enemy overrides (copied from type overrides at spawn, then editable) */
@@ -32,6 +34,8 @@ export interface DebugEnemy {
 export class EnemyDebugService {
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly debugStore = inject(DebugStore);
+  private readonly sim = inject(SimClient);
+  private readonly grid = inject(GlobalRouteGridService);
 
   /** Aktuell ausgewählter Enemy-Typ für Slider — UI-Auswahl bleibt lokal. */
   readonly selectedEnemyId = signal<EnemyTypeId>('zombie');
@@ -65,8 +69,12 @@ export class EnemyDebugService {
   });
 
   // --- Placement state (moved from component) ---
+  /**
+   * The placement sent with debug:spawn-enemy, waiting for its enemy:spawned:
+   * the command acts at the next tick, the first enemy spawned outside a wave
+   * after it is the placed one.
+   */
   private pendingDebugPlacement: { typeId: EnemyTypeId; lat: number; lon: number } | null = null;
-  private gameState: GameStateManager | null = null;
   private engine: ThreeTilesEngine | null = null;
   private spawnPoints!: Signal<SpawnPoint[]>;
 
@@ -78,8 +86,7 @@ export class EnemyDebugService {
    * Initialize with runtime dependencies (called after game state is ready).
    * Also registers the enemy:spawned listener for debug placement.
    */
-  initialize(gameState: GameStateManager, engine: ThreeTilesEngine | null, spawnPoints: Signal<SpawnPoint[]>): void {
-    this.gameState = gameState;
+  initialize(engine: ThreeTilesEngine | null, spawnPoints: Signal<SpawnPoint[]>): void {
     this.engine = engine;
     this.spawnPoints = spawnPoints;
 
@@ -88,10 +95,11 @@ export class EnemyDebugService {
     this.enemySplitSub?.dispose();
 
     // Register debug enemy placement (next spawned enemy after placement click)
-    const eventBus = gameState.getEventBus();
+    const eventBus = this.sim.bus;
     this.enemySpawnedSub = eventBus.onLive('enemy:spawned', (event) => {
       const pending = this.pendingDebugPlacement;
-      if (!pending) return;
+      // A wave's enemy comes out of its portal; the placed one does not
+      if (!pending || event.viaPortal || event.enemy.typeConfig.id !== pending.typeId) return;
 
       this.pendingDebugPlacement = null;
       this.registerDebugEnemy(event.enemy, pending.typeId, pending.lat, pending.lon);
@@ -193,7 +201,7 @@ export class EnemyDebugService {
    * Registriert einen platzierten Debug-Enemy.
    * Kopiert die aktuellen Type-Overrides als Startwerte.
    */
-  registerDebugEnemy(enemy: Enemy, typeId: EnemyTypeId, lat: number, lon: number): void {
+  registerDebugEnemy(enemy: EnemyView, typeId: EnemyTypeId, lat: number, lon: number): void {
     const typeOverrides = this.allOverrides()[typeId];
     this.debugEnemies.update(list => [
       ...list,
@@ -356,13 +364,13 @@ export class EnemyDebugService {
    * placementOnRoute().
    */
   handleEnemyPlacement(lat: number, lon: number, _height: number): void {
-    if (!this.engine || !this.gameState) return;
+    if (!this.engine) return;
 
     // Convert to local coordinates for route grid validation
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
 
     // Validate: must be on route
-    const cell = this.gameState.getGlobalRouteGrid()?.getCellAt(local.x, local.z);
+    const cell = this.grid.getCellAt(local.x, local.z);
     if (!cell) {
       console.warn('[EnemyDebug] Invalid placement - not on route');
       return;
@@ -380,7 +388,7 @@ export class EnemyDebugService {
 
     // Spawn enemy via debug event (paused = idle, overrides applied via instanced system)
     this.pendingDebugPlacement = { typeId, lat, lon };
-    this.gameState.getEventBus().emit({
+    this.sim.bus.emit({
       type: 'debug:spawn-enemy',
       enemyType: typeId,
       count: 1,
@@ -449,15 +457,14 @@ export class EnemyDebugService {
   }
 
   /**
-   * Remove a single debug enemy. Goes through the event bus so the
-   * GameStateManager sees it: once the last enemy outside a wave is gone,
-   * the towers turn to their guard heading.
+   * Remove a single debug enemy. A command, so the simulation sees it: once
+   * the last enemy outside a wave is gone, the towers turn to their guard
+   * heading.
    */
   onRemoveDebugEnemy(enemyId: string): void {
-    if (!this.gameState) return;
     const de = this.getDebugEnemy(enemyId);
     if (de) {
-      this.gameState.getEventBus().emit({ type: 'debug:remove-enemy', enemyId: de.enemy.id });
+      this.sim.bus.emit({ type: 'debug:remove-enemy', enemyId: de.enemy.id });
       this.removeDebugEnemy(enemyId);
     }
   }
@@ -467,8 +474,7 @@ export class EnemyDebugService {
    * onRemoveDebugEnemy). Enemies of a running wave stay.
    */
   onClearDebugEnemies(): void {
-    if (!this.gameState) return;
-    const eventBus = this.gameState.getEventBus();
+    const eventBus = this.sim.bus;
     for (const de of this.debugEnemies()) {
       eventBus.emit({ type: 'debug:remove-enemy', enemyId: de.enemy.id });
     }
@@ -479,7 +485,8 @@ export class EnemyDebugService {
    * Walk for debug enemy: speed in the simulation, clip in the renderer.
    */
   onPlayWalkAnimation(enemyId: string): void {
-    this.getDebugEnemy(enemyId)?.enemy.setRunning(false);
+    if (!this.getDebugEnemy(enemyId)) return;
+    this.sim.bus.emit({ type: 'debug:enemy-move', enemyId, action: 'walk' });
     this.engine?.enemies.startWalkAnimation(enemyId);
   }
 
@@ -487,7 +494,8 @@ export class EnemyDebugService {
    * Run for debug enemy: speed in the simulation, clip in the renderer.
    */
   onPlayRunAnimation(enemyId: string): void {
-    this.getDebugEnemy(enemyId)?.enemy.setRunning(true);
+    if (!this.getDebugEnemy(enemyId)) return;
+    this.sim.bus.emit({ type: 'debug:enemy-move', enemyId, action: 'run' });
     this.engine?.enemies.startRunAnimation(enemyId);
   }
 
@@ -497,7 +505,7 @@ export class EnemyDebugService {
   onStartEnemyMovement(enemyId: string): void {
     const de = this.getDebugEnemy(enemyId);
     if (de?.enemy && de.enemy.alive) {
-      de.enemy.startMoving();
+      this.sim.bus.emit({ type: 'debug:enemy-move', enemyId, action: 'start' });
       this.engine?.enemies.startWalkAnimation(enemyId);
     }
   }
@@ -508,7 +516,7 @@ export class EnemyDebugService {
   onStopEnemyMovement(enemyId: string): void {
     const de = this.getDebugEnemy(enemyId);
     if (de?.enemy) {
-      de.enemy.stopMoving();
+      this.sim.bus.emit({ type: 'debug:enemy-move', enemyId, action: 'stop' });
     }
   }
 
@@ -518,7 +526,6 @@ export class EnemyDebugService {
   dispose(): void {
     this.enemySpawnedSub?.dispose();
     this.enemySpawnedSub = null;
-    this.gameState = null;
     this.engine = null;
   }
 }

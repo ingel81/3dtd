@@ -195,17 +195,20 @@ describe('DebugFacadeService VFX settings', () => {
 describe('DebugFacadeService options the simulation and the presentation hold', () => {
   beforeEach(() => localStorage.clear());
 
-  it('sends movement and damage numbers as SimClient.configure and switches the presenter\'s screen shake', () => {
+  it('sends movement as debug:movement, damage numbers as SimClient.configure, and switches the presenter screen shake', () => {
     const configure = vi.fn();
     const screenShake = { enable: vi.fn(), disable: vi.fn() };
-    const facade = createFacade({}, {}, {}, { bus: new GameEventBus(), configure, presenter: { screenShake } });
+    const bus = new GameEventBus();
+    const movement = vi.fn();
+    bus.on('debug:movement', movement);
+    const facade = createFacade({}, {}, {}, { bus, configure, presenter: { screenShake } });
 
     facade.onMovementToggled(false);
     facade.onDamageNumbersToggled(false);
     facade.onScreenShakeToggled(false);
     facade.onScreenShakeToggled(true);
 
-    expect(configure).toHaveBeenCalledWith({ movementEnabled: false });
+    expect(movement).toHaveBeenCalledWith({ type: 'debug:movement', enabled: false });
     expect(configure).toHaveBeenCalledWith({ damageNumbers: false });
     expect(screenShake.disable).toHaveBeenCalledTimes(1);
     expect(screenShake.enable).toHaveBeenCalledTimes(1);
