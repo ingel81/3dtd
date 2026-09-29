@@ -56,7 +56,14 @@ import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
 import { ARMOR_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { ENEMY_TYPES } from '../../../configs/enemy-types.config';
 import type { FacadeComponentBridge } from '../../../services/facade/tower-defense-facade.service';
-import type { GameStateManager } from '../../../managers/game-state.manager';
+import { SimClient } from '../../../sim/client/sim-client.service';
+import { SimMirror } from '../../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../../../services/world/main-world.service';
+import { GlobalRouteGridService } from '../../../services/world/global-route-grid.service';
+import { RouteGridVizService } from '../../../services/world/route-grid-viz.service';
+import { TowerSelectionService } from '../../../services/tower-selection.service';
+import { PresentationService } from '../../../presentation/presentation.service';
+import { GameStore } from '../../../store/game.store';
 import { RunLogFacade } from '../../../run-log/run-log.facade';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
@@ -79,6 +86,7 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
     WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
     StateSnapshotService, PerformanceProfilerService,
     StreetRenderingService, BossIntroService, ReplayService, TowerControlService,
+    MainWorldService, GlobalRouteGridService, RouteGridVizService, TowerSelectionService, PresentationService, GameStore,
   ];
 
   beforeEach(() => {
@@ -132,13 +140,13 @@ describe('Wave button and auto-start, playtest 324 replayed', () => {
         { provide: TowerDefenseStore, useValue: store },
         { provide: UIStore, useValue: { autoStartWaves: signal(true) } },
         { provide: BotClientService, useValue: { botEnabled: signal(false) } },
+        // The simulation's events on the main bus, its game time in the mirror
+        { provide: SimClient, useValue: { bus } },
+        { provide: SimMirror, useValue: { scalars: { get gameTimeMs() { return clock.gameTimeMs; } } } },
       ],
     });
     const facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    facade.initialize(
-      { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => bus, get gameTimeMs() { return clock.gameTimeMs; }, waveManager: { stopSpawning: vi.fn() } } as unknown as GameStateManager,
-    );
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
     facade.subscribeToEventBus({ onGameOverExtra: () => undefined });
     const startWave = vi.spyOn(facade, 'startWave').mockImplementation(() => undefined);
     // SidebarWavePanelComponent.waveButton between waves: the upcoming wave
