@@ -129,7 +129,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 |---------|---------------|
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
 | **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid`, `corridor` und `flight` setzen andere Services; kein eigener Schritt für die 3D Tiles, auf die wartet der Korridor-Bau), Progress Tracking |
-| **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
+| **ModelPreviewService** | 3D-Vorschauen der Seitenleiste (Tower-Karten, Gegnergruppen): jede Ansicht backt einmal eine Drehung aus 72 Bildern in ein 2D-Bildband, die Vorschauen spielen sie mit 12 FPS ab; der WebGL-Renderer arbeitet nur beim Backen (E73, vorher live je Bild mit `drawImage`-Kopie, rund 6 ms je Bild in Firefox) |
 | **GameStateSyncService** | Hauptthread-Bus (`SimClient.bus`) → Store: wave/game/credits/health/tower/enemy/research:state-changed |
 | **run-summary** (`run-log/run-summary.ts`) | Zahlen der Game-Over-Bilanz, aus dem Run-Log gerechnet (siehe [RUN_LOG.md](RUN_LOG.md)) |
 

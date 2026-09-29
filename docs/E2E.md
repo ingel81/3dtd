@@ -59,6 +59,27 @@ Jeder Coop-Test mit Spiel prüft am Ende das Relay-Log auf `DESYNC`. Die Nummern
 Gefühl und Ton (Egoperspektive, Sound), ob etwas gut aussieht (die Screenshots im Bericht sind dafür da), Firefox,
 ein echter zweiter Rechner, Hardware. Und alles, wofür beide Kameras dieselbe Stelle zeigen müssten (T51).
 
+## Lastmessung (`e2e/perf/sim-load.ts`)
+
+Kein Test, ein Messlauf: eine DevWorld-Szene mit Towern und vielen Gegnern im Produktions-Build, gemessen werden
+Bilder pro Sekunde, langsamste 5 %, erreichtes Tempo, Ticks und Auslastung des Workers, Kosten je Paket. Einordnung und
+Ergebnisse in [SIM_WORKER.md](SIM_WORKER.md#kennzahlen), das Vorhaben als Funktion im Spiel in TODO E74.
+
+```bash
+npm run build                                   # schreibt build-info.json: Version und Commit gehen in jedes Ergebnis
+node e2e/perf/serve.mjs dist/3DTD/browser 4244 --isolate
+node e2e/perf/sim-load.ts --url http://localhost:4244 --browser firefox --headed --enemies 5000 --speed 4
+node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --headed   --steps 3000,5000,8000,12000,16000,20000,25000 --speeds 4,1 --machine A --dpr 1
+```
+
+- `--uncapped` misst Chromium ohne Bildratenbremse, sonst begrenzt der Monitor (144 Hz sind 144 FPS).
+- Gegner haben 1 000 000 HP (`--hp`) und starten auf den ersten 70 % der Routen: keiner stirbt, keiner läuft durch.
+- Vor jeder Messung pendelt der Lauf ein (mindestens 5 s, dann bis zwei 2-s-Fenster weniger als 5 % auseinander).
+- Jedes Ergebnis nennt Rechner (`--machine`, nie den Hostnamen), CPU, Speicher, Browser, GPU und Pixeldichte. Firefox
+  übernimmt sichtbar die Windows-Skalierung; `--dpr 1` setzt sie für beide Browser gleich.
+- `--hide-enemies` misst jede Stufe ein zweites Mal ohne Gegner und Lebensbalken im Bild (Anteil der GPU).
+- Der Vergleich mit `next` braucht dort denselben Handle `__load` als lokalen Patch nur für die Messung.
+
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 
 Kein Test, ein Messwerkzeug (TODO E53): N headless Tabs eines statischen Dev-Builds in DevWorld

@@ -42,7 +42,9 @@ eine Summe aus 16,667 ms und driftet im Float; der Schritt-Index tut das nicht. 
 ```
 
 - **`commit`** kommt aus `public/build-info.json`, das `tools/build-info.mjs` vor `npm run build` und `npm start`
-  aus git schreibt. Ohne git steht dort `unknown`; das Log behauptet dann nichts.
+  aus git schreibt. Ohne git steht dort `unknown`; das Log behauptet dann nichts. Die Datei trägt seit 2026-09-29
+  auch die Spielversion aus `package.json` (`version`), die der Lastlauf `e2e/perf/sim-load.ts` in jedes Ergebnis
+  schreibt.
 - **`configHash`** ist ein fnv1a über alle balance-relevanten Configs (Tower, Gegner, Balance, Kampagnen-Gold,
   Laufplan, Wellenliste, Forschung, Fähigkeiten, Held, Schadensmatrix). Die Auswertung gruppiert danach und warnt
   bei gemischten Ständen. Er deckt die Tabellen ab, nicht den Code; dafür steht der Commit daneben.

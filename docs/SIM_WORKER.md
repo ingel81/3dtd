@@ -1,8 +1,9 @@
 # Simulation im Worker (Umbau, Branch `simu-worker`)
 
-Stand 2026-09-29 abends: Die Simulation läuft im Worker, alle Phasen sind umgesetzt. Specs, Lint und Build sind grün,
-die E2E-Suite läuft auf dem Worker-Stand, auch auf echten Tiles. Offene Prüfungen (Handtest, Bot-Lauf, Desktop-App,
-Header der Webseite) stehen in TODO E71. Die Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton,
+Stand 2026-09-29 spät: Die Simulation läuft im Worker, alle Phasen sind umgesetzt, zwei Reviews (11 und 17 Befunde) sind
+behoben. Specs, Lint und Build sind grün, die E2E-Suite läuft auf dem Worker-Stand, auch auf echten Tiles. Gemessen
+bis 25 000 Gegner (siehe Kennzahlen und Mehr Gegner). Offene Prüfungen (Handtest, Bot-Lauf, Desktop-App, Header der
+Webseite) stehen in TODO E71, die nächsten Hebel in E72, der Benchmark im Spiel in E74. Die Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton,
 UI, Eingabe, Tiles und die GPU-Sichtlinien. Grundlage: [WORKER_PLAN.md](WORKER_PLAN.md) (Stufe 1: echte Simulation im
 Worker bitgleich).
 
