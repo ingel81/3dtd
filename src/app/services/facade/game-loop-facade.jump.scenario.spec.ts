@@ -111,7 +111,7 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
   beforeEach(() => {
     bus = createMainEventBus();
     started = [];
-    bus.on('command:start-wave', (e) => started.push(e.director!));
+    bus.on('command:start-wave', (e) => started.push(e.director! as WaveConfig));
     store.phase.set('setup');
     store.waveNumber.set(0);
     store.waveExplanation.set(null);
