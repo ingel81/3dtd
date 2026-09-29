@@ -47,7 +47,10 @@ import {
 } from '../../components/location-dialog/open-location-dialog';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import type { LocationDialogResult } from '../../models/location.types';
 import type { DevTerrainProvider } from '../../devworld/dev-terrain.provider';
 
@@ -92,15 +95,13 @@ describe('LocationFacadeService', () => {
     setStreetNetworkLocation: vi.fn(),
     setFilteredStreetNetwork: vi.fn(),
   };
-  const routeGrid = { disposeVisualization: vi.fn(), clear: vi.fn() };
-  const gameState = {
-    reset: vi.fn(),
-    initialize: vi.fn(),
-    initializeGlobalRouteGrid: vi.fn(),
-    getGlobalRouteGrid: () => routeGrid,
-    onTilesLoaded: vi.fn(),
-    reseatWavePipeline: vi.fn(),
-  };
+  /** The route grid's cells and their overlays */
+  const routeGrid = { clear: vi.fn() };
+  const gridViz = { disposeVisualization: vi.fn() };
+  /** The main thread's world: a new run, HQ and spawns, the cells, the world to the simulation */
+  const world = { resetRun: vi.fn(), attach: vi.fn(), buildCells: vi.fn(), setSpawns: vi.fn(), sendToSim: vi.fn() };
+  /** The presentation's host (HQ ground once the tiles are in) */
+  const presentationHost = { onTilesLoaded: vi.fn() };
 
   const osm = {
     loadStreets: vi.fn(),
@@ -259,6 +260,10 @@ describe('LocationFacadeService', () => {
         { provide: TowerPlacementService, useValue: {} },
         { provide: MatDialog, useValue: dialog },
         { provide: TowerDefenseStore, useValue: store },
+        { provide: MainWorldService, useValue: world },
+        { provide: GlobalRouteGridService, useValue: routeGrid },
+        { provide: RouteGridVizService, useValue: gridViz },
+        { provide: PresentationService, useValue: { host: presentationHost } },
         // The real relocation flows, on the mocks above; a factory, since a
         // class provider would need the JIT compiler.
         { provide: MapRelocationService, useFactory: () => new MapRelocationService() },
@@ -267,7 +272,6 @@ describe('LocationFacadeService', () => {
     facade = runInInjectionContext(injector, () => new LocationFacadeService());
     facade.initialize(
       bridge as unknown as FacadeComponentBridge,
-      gameState as unknown as GameStateManager,
       { get: () => destroyRef } as unknown as Injector,
     );
   });
@@ -285,7 +289,6 @@ describe('LocationFacadeService', () => {
     it('builds the change context from the bridge and the store', () => {
       expect(delegate().getChangeContext()).toEqual({
         engine,
-        gameState,
         streetNetwork,
         streetNetworkLocation: HQ,
         heightDebugVisible: store.heightDebugVisible,
@@ -672,7 +675,7 @@ describe('LocationFacadeService', () => {
 
     it('does nothing when the placement service rejects the click', async () => {
       await facade.handleMapPlacementClick(INSIDE.lat, INSIDE.lon, 0);
-      expect(gameState.reset).not.toHaveBeenCalled();
+      expect(world.resetRun).not.toHaveBeenCalled();
       expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
     });
 
@@ -687,7 +690,7 @@ describe('LocationFacadeService', () => {
 
         expect(routeAnimation.stopAnimation).toHaveBeenCalled();
         expect(heightUpdate.stopHeightUpdates).toHaveBeenCalled();
-        expect(gameState.reset).toHaveBeenCalled();
+        expect(world.resetRun).toHaveBeenCalled();
         expect(markerViz.clearAllMarkers).toHaveBeenCalled();
         expect(pathRoute.clearAllRoutes).toHaveBeenCalled();
         expect(pathRoute.clearCachedPaths).toHaveBeenCalled();
@@ -709,12 +712,11 @@ describe('LocationFacadeService', () => {
         expect(osm.findPath).toHaveBeenCalledWith(streetNetwork, OLD_SPAWN.lat, OLD_SPAWN.lon, INSIDE.lat, INSIDE.lon);
         expect(store.spawnPoints()).toEqual([OLD_SPAWN]);
         expect(osm.findRandomStreetPoint).not.toHaveBeenCalled();
-        expect(gameState.initialize).toHaveBeenCalledWith(
+        expect(world.attach).toHaveBeenCalledWith(
           engine, INSIDE,
           [{ id: OLD_SPAWN.id, name: OLD_SPAWN.name, lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }],
-          cachedPaths,
         );
-        expect(gameState.initializeGlobalRouteGrid).toHaveBeenCalled();
+        expect(world.buildCells).toHaveBeenCalledWith(true);
       });
 
       it('draws a new random spawn when the old one has no route', async () => {
@@ -752,7 +754,7 @@ describe('LocationFacadeService', () => {
       it('builds the corridor of the rebuilt routes once their grid stands, then starts the route animation', async () => {
         await click('hq', INSIDE);
         expect(vizCallbacks.buildCorridor).toHaveBeenCalledTimes(1);
-        expect(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0])
+        expect(world.buildCells.mock.invocationCallOrder[0])
           .toBeLessThan(vizCallbacks.buildCorridor.mock.invocationCallOrder[0]);
         expect(vizCallbacks.buildCorridor.mock.invocationCallOrder[0])
           .toBeLessThan(routeAnimation.startAnimation.mock.invocationCallOrder[0]);
@@ -761,7 +763,7 @@ describe('LocationFacadeService', () => {
 
     it('moves nothing in place before the coordinator was initialised', async () => {
       await click('hq', INSIDE);
-      expect(gameState.reset).not.toHaveBeenCalled();
+      expect(world.resetRun).not.toHaveBeenCalled();
       expect(engine.setOrigin).not.toHaveBeenCalled();
       expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
     });
@@ -779,7 +781,7 @@ describe('LocationFacadeService', () => {
           hq: { ...OUTSIDE, name: 'Loading...' },
           spawn: { lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon, name: OLD_SPAWN.name },
         });
-        expect(gameState.reset).not.toHaveBeenCalled();
+        expect(world.resetRun).not.toHaveBeenCalled();
       });
 
       it('loads the new streets and draws a random spawn when the old one is farther', async () => {
@@ -835,7 +837,7 @@ describe('LocationFacadeService', () => {
         await click('spawn', INSIDE);
 
         expect(vizCallbacks.buildCorridor).toHaveBeenCalledTimes(1);
-        expect(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0])
+        expect(world.buildCells.mock.invocationCallOrder[0])
           .toBeLessThan(vizCallbacks.buildCorridor.mock.invocationCallOrder[0]);
         expect(vizCallbacks.buildCorridor.mock.invocationCallOrder[0])
           .toBeLessThan(routeAnimation.startAnimation.mock.invocationCallOrder[0]);
@@ -877,16 +879,16 @@ describe('LocationFacadeService', () => {
         expect(markerViz.clearAllMarkers).not.toHaveBeenCalled();
         expect(pathRoute.clearAllRoutes).toHaveBeenCalled();
         expect(pathRoute.clearCachedPaths).toHaveBeenCalled();
-        expect(gameState.reset).toHaveBeenCalled();
+        expect(world.resetRun).toHaveBeenCalled();
         expect(store.spawnPoints()).toEqual([
           { id: 'spawn-1', name: 'Damrak', ...INSIDE, color: SPAWN_COLORS[0] },
         ]);
         expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [INSIDE]);
         expect(urlLocation.updateUrl).toHaveBeenCalledWith(HQ, [INSIDE]);
-        expect(gameState.initialize).toHaveBeenCalledWith(
-          engine, HQ, [{ id: 'spawn-1', name: 'Damrak', ...INSIDE }], cachedPaths,
+        expect(world.attach).toHaveBeenCalledWith(
+          engine, HQ, [{ id: 'spawn-1', name: 'Damrak', ...INSIDE }],
         );
-        expect(gameState.initializeGlobalRouteGrid).toHaveBeenCalled();
+        expect(world.buildCells).toHaveBeenCalledWith(true);
         expect(mapPlacement.updateDependencies).toHaveBeenCalledWith(streetNetwork, HQ);
         expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, store.spawnPoints());
         expect(engine.setOrigin).not.toHaveBeenCalled();
@@ -898,7 +900,7 @@ describe('LocationFacadeService', () => {
 
         await click('spawn', INSIDE);
 
-        expect(gameState.reset).not.toHaveBeenCalled();
+        expect(world.resetRun).not.toHaveBeenCalled();
         expect(markerViz.clearSpawnMarkers).not.toHaveBeenCalled();
         expect(store.spawnPoints()).toEqual([OLD_SPAWN]);
         expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
@@ -971,8 +973,8 @@ describe('LocationFacadeService', () => {
       facade.refreshTerrainHeights(onTilesLoaded);
 
       expect(store.isDevWorldRegenerating()).toBe(true);
-      expect(gameState.reset).toHaveBeenCalled();
-      expect(routeGrid.disposeVisualization).toHaveBeenCalled();
+      expect(world.resetRun).toHaveBeenCalled();
+      expect(gridViz.disposeVisualization).toHaveBeenCalled();
       expect(markerViz.clearAllMarkers).toHaveBeenCalled();
       expect(streetRendering.dispose).toHaveBeenCalledWith(overlay);
       expect(store.spawnPoints()).toEqual([]);
@@ -984,7 +986,8 @@ describe('LocationFacadeService', () => {
 
       expect(store.isDevWorldRegenerating()).toBe(false);
       expect(spawnIds()).toEqual(['dev-n']);
-      expect(gameState.reseatWavePipeline).toHaveBeenCalled();
+      // The new world goes to the simulation, a fresh run on it
+      expect(world.sendToSim).toHaveBeenCalled();
     });
 
     it('clears the regenerating flag when the regeneration fails', async () => {
@@ -996,14 +999,13 @@ describe('LocationFacadeService', () => {
 
       expect(store.isDevWorldRegenerating()).toBe(false);
       expect(console.error).toHaveBeenCalledWith('[LocationFacade] DevWorld regeneration failed:', expect.any(Error));
-      expect(gameState.reseatWavePipeline).not.toHaveBeenCalled();
+      expect(world.sendToSim).not.toHaveBeenCalled();
     });
   });
 
   describe('dispose', () => {
     const initAgain = () => facade.initialize(
       bridge as unknown as FacadeComponentBridge,
-      gameState as unknown as GameStateManager,
       { get: () => destroyRef } as unknown as Injector,
     );
 
@@ -1029,7 +1031,7 @@ describe('LocationFacadeService', () => {
       facade.clearMapEntities();
 
       expect(facade.addPredefinedSpawns()).toBe(0);
-      expect(gameState.reset).not.toHaveBeenCalled();
+      expect(world.resetRun).not.toHaveBeenCalled();
       expect(engine.setOrigin).not.toHaveBeenCalled();
       expect(markerViz.clearAllMarkers).not.toHaveBeenCalled();
       expect(store.spawnPoints()).toEqual([OLD_SPAWN]);
@@ -1050,7 +1052,7 @@ describe('LocationFacadeService', () => {
 
       expect(store.isDevWorldRegenerating()).toBe(false);
       expect(markerViz.addBaseMarker).not.toHaveBeenCalled();
-      expect(gameState.reseatWavePipeline).not.toHaveBeenCalled();
+      expect(world.sendToSim).not.toHaveBeenCalled();
     });
 
     it('refuses the location dialog without a component', async () => {
@@ -1076,7 +1078,7 @@ describe('LocationFacadeService', () => {
       ],
     } as unknown as DevTerrainProvider;
 
-    it('re-creates HQ and the first generated spawn and hands them to the wave pipeline', () => {
+    it('re-creates HQ and the first generated spawn and hands them to the simulation', () => {
       devWorld.isActive = true;
       facade.onDevWorldRegenerated(provider);
 
@@ -1085,15 +1087,16 @@ describe('LocationFacadeService', () => {
       expect(store.spawnPoints()).toEqual([spawn]);
       expect(bridge.setFilteredStreetNetwork).toHaveBeenCalledWith(streetNetwork);
       expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
-      expect(gameState.onTilesLoaded).toHaveBeenCalled();
-      expect(gameState.reseatWavePipeline).toHaveBeenCalledWith([spawn], cachedPaths);
+      expect(presentationHost.onTilesLoaded).toHaveBeenCalled();
+      expect(world.setSpawns).toHaveBeenCalledWith([spawn]);
+      expect(world.sendToSim).toHaveBeenCalled();
       expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, [spawn]);
     });
 
     it('rebuilds the route grid before the route lines read their heights from it', () => {
       facade.onDevWorldRegenerated(provider);
 
-      expect(gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0])
+      expect(world.buildCells.mock.invocationCallOrder[0])
         .toBeLessThan(pathRoute.refreshRouteLines.mock.invocationCallOrder[0]);
       expect(pathRoute.refreshRouteLines).toHaveBeenCalledWith(store.spawnPoints());
     });
@@ -1102,7 +1105,7 @@ describe('LocationFacadeService', () => {
       bridge.getEngine.mockReturnValue(null);
       facade.onDevWorldRegenerated(provider);
       expect(markerViz.addBaseMarker).not.toHaveBeenCalled();
-      expect(gameState.reseatWavePipeline).not.toHaveBeenCalled();
+      expect(world.sendToSim).not.toHaveBeenCalled();
     });
   });
 });
