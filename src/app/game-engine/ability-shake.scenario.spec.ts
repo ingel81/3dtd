@@ -12,7 +12,7 @@ import { MarkerVisualizationService } from '../services/world/marker-visualizati
 import { StreetRenderingService } from '../services/world/street-rendering.service';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
 import { ABILITIES } from '../configs/abilities.config';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { loadDisplayOptions } from '../utils/display-options.storage';
@@ -27,9 +27,10 @@ const WARNING_STEPS = 390;
 /**
  * Playtest 320 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md), the shake:
  * Display, "Screen Shake" off, then fire the nuclear strike again. The
- * switch goes through DebugFacadeService.onScreenShakeToggled to the game
- * state's ScreenShakeService; the strike is the real AbilityManager's, its
- * impact comes over the simulation's bus onto the main bus. The camera stands on the impact point.
+ * switch goes through DebugFacadeService.onScreenShakeToggled to the
+ * presenter's ScreenShakeService; the strike is the real AbilityManager's,
+ * its impact comes over the simulation's bus onto the main bus. The camera
+ * stands on the impact point.
  */
 describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed', () => {
   let bus: MainEventBus;
@@ -77,10 +78,11 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
         { provide: MarkerVisualizationService, useValue: {} },
         { provide: StreetRenderingService, useValue: {} },
         { provide: CombatEffectService, useValue: {} },
+        // The presenter the facade reaches the shake through (PresentationHost.screenShake)
+        { provide: SimClient, useValue: { presenter: { screenShake: shake } } },
       ],
     });
     facade = runInInjectionContext(injector, () => new DebugFacadeService());
-    facade.setEngine(null, { screenShakeService: shake } as unknown as GameStateManager);
   });
 
   /** Fire at the camera's feet and run the warning out in sub-steps */
