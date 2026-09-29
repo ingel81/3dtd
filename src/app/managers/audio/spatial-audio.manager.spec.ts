@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach, type Mock } from 'vitest';
 import { Object3D, PerspectiveCamera, Scene, Vector3 } from 'three';
 import { SpatialAudioManager } from './spatial-audio.manager';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus } from '../../sim/client/view-events';
 import { AUDIO_LIMITS, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
 
 /**
@@ -139,7 +139,7 @@ function setup() {
   const camera = new PerspectiveCamera();
   const manager = new SpatialAudioManager(scene, camera);
   const listener = reg.listeners[reg.listeners.length - 1];
-  const bus = new GameEventBus();
+  const bus = createMainEventBus();
   manager.setEventBus(bus);
   const debug: { eventType: string; soundId: string; details?: string }[] = [];
   bus.on('debug:sound', (e) => debug.push({ eventType: e.eventType, soundId: e.soundId, details: e.details }));
