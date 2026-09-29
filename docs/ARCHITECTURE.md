@@ -179,7 +179,7 @@ Injector der App.
 | **MarkerVisualizationService** | 3D Marker (HQ, Spawn, Debug), Animation |
 | **PathAndRouteService** (`path-route.service.ts`) | Pfad-Caching, Route-Visualisierung, Height Smoothing |
 | **RouteAnimationService** | Knight Rider Routen-Animation |
-| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, Tower-Registrierung. Die Per-Tower-Viz (`TowerLosViz`, `utils/tower-los-viz.ts`) halten TowerManager (Auswahl) und TowerPlacementService (Build-Preview) |
+| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, Tower-Registrierung; auf dem Hauptthread für Sichtlinien, Anzeige und Boden der Renderer, die Simulation baut ihr eigenes aus der `SimWorld`. Die Per-Tower-Viz (`TowerLosViz`, `utils/tower-los-viz.ts`) halten TowerSelectionService (Auswahl) und TowerPlacementService (Build-Preview) |
 | **IntroCameraFlightService** | Intro-Kamerafahrt entlang der Route, lädt dabei die Tiles des Korridors vor. Abbruch per Klick oder Mausrad auf dem Canvas, "Skip Intro" oder Esc; die übrigen Spieltasten wirken während des Flugs nicht (`handleKeyDown`, von der Spielkomponente nach dem Boss-Intro und vor InputHandler und HotkeyService gefragt) |
 | **CorridorBuild** (`corridor-build.ts`) | Der eine Besitzer des Korridors: baut ihn einmal je Routensatz hinter dem Ladescreen und friert Routen, Zellen und Höhen ein, siehe [ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md) |
 | **SpatialGridService** | Generischer Spatial Hash für Tower/Enemy Range-Queries |
