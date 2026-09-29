@@ -197,6 +197,29 @@ Ideen (2026-09-27), nichts entschieden:
       abgezogen: FPS, langsamste 5 %, erreichtes Tempo, Ticks, Worker-Auslastung, Kosten je Paket. Jede Zeile mit
       Spielversion, Commit, Rechner- und Browserdaten (CPU, Threads, Speicher, GPU, Pixeldichte), damit Läufe
       verschiedener Rechner in eine Tabelle passen. Offen: Einstieg im Spiel, Export oder Sammeln der Ergebnisse.
+- [ ] **E75 FPS-Anzeige mit Simulation** (Playtest 2026-09-30, Branch `simu-worker`): aufgeklappt auch die Werte der
+      Simulation: Ticks je Sekunde, erreichtes gegen eingestelltes Tempo, Auslastung des Workers (bei vielen Gegnern und
+      hohem Tempo sinkt das Tempo, die FPS halten), dazu ob der Worker mit gemeinsamem Speicher oder im Kopie-Fallback
+      läuft (`crossOriginIsolated`). Ein dritter Zustand nach rechts erweitert mit einem einfachen Mini-Chart von FPS,
+      Ticks und Auslastung.
+- [ ] **E76 Vorschau der Seitenleiste nachbessern** (Playtest 2026-09-30, nach E73): die gebackene Drehung wirkt minimal
+      ruckelig (72 Bilder mit 12 FPS, 5° je Schritt) und dreht in 6 s statt früher 15,7 s. Gebacken wird beim ersten
+      Anzeigen, Gegnergruppen also beim Wellenstart; besser vorberechnen (beim Laden, im Leerlauf der Setup-Phase) oder
+      als fertige Bildbänder mit dem Build ausliefern.
+- [ ] **E77 Lebensbalken über 20 000 Gegner**: `MAX_HEALTH_BARS = 20000`, darüber fehlen Balken (Messung 2026-09-29 mit
+      25 000 Gegnern).
+- [ ] **E78 Messlauf nachschärfen** (`e2e/perf/sim-load.ts`): Messungen mit `--dpr 1` wiederholen (Firefox lief sichtbar
+      mit Pixeldichte 1,25, Chrome gegen Firefox so nicht fair); bei 20 000 und 25 000 Gegnern füllt der Lauf nicht ganz
+      auf (3 bis 8 % unter dem Ziel, Wartezeit 120 s).
+- [ ] **E79 Replay: Effekte bleiben nach dem Verlassen** (Playtest 2026-09-30): wer ein Replay während eines Effekts
+      verlässt (Atombombe), sieht ihn im Live-Spiel weiterlaufen. Prüfen, ob `next` das auch tut.
+- [ ] **E80 Replay: Springen dauert** (Playtest 2026-09-30): ein Sprung in der Zeitleiste dauert bei 10 000 Gegnern und
+      Tempo 1 vier bis sechs Sekunden, er rechnet ab dem Wellenstart jeden Spielzug nach. Ideen: Zwischenstände alle
+      paar Sekunden, Fortschritt anzeigen. Vergleich mit `next` offen.
+- [ ] **E81 Restrisiken des zweiten Worker-Reviews** (2026-09-29): Wellenstart-Sperre im Hauptthread fällt nach 2 s
+      Wanduhr (braucht das Relay länger, verwirft die Simulation den zweiten Start); Coop-Start und Ortswechsel ohne Paket
+      dazwischen ließen den Lauf unmarkiert; ein hängender Worker blockiert nach `newRun`; Gegner-Views nur aus Event-Refs
+      behalten die Werte des Events. Beobachten, nur mit Beleg angehen.
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
       **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze
