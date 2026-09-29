@@ -55,6 +55,7 @@ export function initialScalars(): SimScalars {
     laneSpawns: [],
     replayableWaves: [],
     towerCount: 0,
+    abilityDamage: [0],
     replay: null,
     seed: 0,
   };
@@ -121,6 +122,8 @@ export class SimMirror implements SimMirrorApi {
   private heroFrames: HeroFrame[] = [];
 
   private readonly towerListeners = new Set<(change: TowerChange) => void>();
+  /** Time and sub-step of the event being handed on, null outside one (see gameTimeMs) */
+  private eventTime: { t: number; step: number } | null = null;
 
   // ── World ─────────────────────────────────────────────────────
 
@@ -159,6 +162,7 @@ export class SimMirror implements SimMirrorApi {
   }
 
   importEvent(event: ExportedEvent): ViewEvent {
+    this.eventTime = event.t === undefined ? null : { t: event.t, step: event.step ?? this.scalars.subStep };
     const out: Record<string, unknown> = { type: event.type };
     for (const key of Object.keys(event.payload)) out[key] = this.toView(event.payload[key]);
     this.afterEvent(out as ViewEvent);
@@ -166,6 +170,7 @@ export class SimMirror implements SimMirrorApi {
   }
 
   afterFrame(_packet: SimFramePacket): void {
+    this.eventTime = null;
     this.goneTowers.clear();
     this.goneEnemies.clear();
     // A projectile view lives for the events of its packet
@@ -173,6 +178,7 @@ export class SimMirror implements SimMirrorApi {
   }
 
   clear(): void {
+    this.eventTime = null;
     this.scalars = initialScalars();
     this.towerMap.clear();
     this.towerList = null;
@@ -467,6 +473,7 @@ export class SimMirror implements SimMirrorApi {
     view.position.height = ref.th + ref.ho;
     view.health.hp = ref.hp;
     view.alive = ref.alive && view.active;
+    if (ref.pr !== undefined) view.movement.progress = ref.pr;
     if (ref.body) view.hasBody = true;
     if (this.routeIndexOf(view) !== ref.route) this.setRoute(view, ref.route);
     if (ref.worm) {
@@ -522,7 +529,27 @@ export class SimMirror implements SimMirrorApi {
       case 'hero:state-changed':
         this.heroStatuses.set(event.playerId, event.hero);
         break;
+      // A new run starts its streams over, also on the same seed
+      case 'game:reset':
+        this.rng.reset(this.scalars.seed);
+        break;
     }
+  }
+
+  // ── Time ──────────────────────────────────────────────────────
+
+  /**
+   * Game time, ms: while an event is handed on, the time it was emitted at
+   * (a packet may hold many sub-steps), else the packet's. What durations of
+   * the run log and the wave source read.
+   */
+  get gameTimeMs(): number {
+    return this.eventTime?.t ?? this.scalars.gameTimeMs;
+  }
+
+  /** Sub-step, as gameTimeMs: the event's while one is handed on */
+  get subStep(): number {
+    return this.eventTime?.step ?? this.scalars.subStep;
   }
 
   // ── Players ───────────────────────────────────────────────────
@@ -540,6 +567,12 @@ export class SimMirror implements SimMirrorApi {
   creditsOf(playerId: string): number {
     const i = this.scalars.players.indexOf(playerId);
     return i < 0 ? 0 : this.scalars.credits[i] ?? 0;
+  }
+
+  /** HP the abilities of `playerId` took from enemies so far (the run log) */
+  abilityDamageOf(playerId: string): number {
+    const i = this.scalars.players.indexOf(playerId);
+    return i < 0 ? 0 : this.scalars.abilityDamage[i] ?? 0;
   }
 
   /** Coop: `playerId` said ready for the next wave */

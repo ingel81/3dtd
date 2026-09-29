@@ -1,9 +1,10 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, NgZone, inject, signal } from '@angular/core';
 import { Vector3 } from 'three';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { EngineInitializationService } from '../../services/infrastructure/engine-initialization.service';
 import { GameStore } from '../../store/game.store';
 import { CameraControlService } from '../../services/camera-control.service';
-import type { Enemy } from '../../entities/enemy.entity';
+import type { EnemyView } from '../../sim/client/views';
 import {
   isArrowBoss,
   isOffscreenThreat,
@@ -45,7 +46,8 @@ const EDGE_MARGIN_PX = 26;
   styleUrl: './offscreen-indicators.component.scss',
 })
 export class OffscreenIndicatorsComponent {
-  private readonly gameState = inject(GameStateManager);
+  private readonly mirror = inject(SimMirror);
+  private readonly engineInit = inject(EngineInitializationService);
   private readonly gameStore = inject(GameStore);
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
   private readonly cameraControl = inject(CameraControlService);
@@ -54,7 +56,7 @@ export class OffscreenIndicatorsComponent {
 
   private readonly clusterer = new OffscreenClusterer(SECTORS);
   /** Threats of the last scan, reused while the game is paused */
-  private readonly threats: Enemy[] = [];
+  private readonly threats: EnemyView[] = [];
   /** Route progress of each threat at the last scan, same order */
   private readonly progress: number[] = [];
   /** Arrows of the last pass; their targets index `threats` */
@@ -67,7 +69,7 @@ export class OffscreenIndicatorsComponent {
   }
 
   private tick(): void {
-    const engine = this.gameState.tilesEngine;
+    const engine = this.engineInit.getEngine();
     if (!engine || this.gameStore.phase() !== 'wave' || !this.gameStore.renderingEnabled()) {
       this.threats.length = 0;
       this.progress.length = 0;
@@ -111,7 +113,7 @@ export class OffscreenIndicatorsComponent {
     const progress = this.progress;
     threats.length = 0;
     progress.length = 0;
-    for (const enemy of this.gameState.enemyManager.getAlive()) {
+    for (const enemy of this.mirror.aliveEnemies()) {
       const along = enemy.movement.getPathProgress();
       if (isOffscreenThreat(isArrowBoss(enemy.typeConfig.isBoss === true, enemy.worm), along)) {
         threats.push(enemy);

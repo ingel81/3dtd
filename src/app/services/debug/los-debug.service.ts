@@ -1,4 +1,4 @@
-import { Injectable, computed, signal } from '@angular/core';
+import { Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import {
   Color,
   Group,
@@ -12,8 +12,8 @@ import {
 } from 'three';
 import { TowerShadowMapper } from '../../three-engine/tower-shadow-mapper';
 import { ThreeTilesEngine } from '../../three-engine';
-import { TowerManager } from '../../managers/tower.manager';
-import { GameEventBus, SubscriptionBag } from '../../game-engine';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { TowerSelectionService } from '../tower-selection.service';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { Tower } from '../../entities/tower.entity';
 import { RouteCell, getAirTargetY, getGroundTargetY } from '../../utils/route-cell';
@@ -63,10 +63,11 @@ const HOVER_MARKER_GEOMETRY = new SphereGeometry(0.8, 12, 8);
 @Injectable({ providedIn: 'root' })
 export class LosDebugService {
   private engine: ThreeTilesEngine | null = null;
-  private towerManager: TowerManager | null = null;
   private globalRouteGrid: GlobalRouteGridService | null = null;
+  private readonly store = inject(TowerDefenseStore);
+  private readonly selection = inject(TowerSelectionService);
 
-  /** Currently active tower for inspection. Mirrors TowerManager selection. */
+  /** Currently active tower for inspection. Mirrors the selection (TowerDefenseStore.selectedTower). */
   private readonly _activeTower = signal<Tower | null>(null);
   readonly activeTower = this._activeTower.asReadonly();
 
@@ -131,40 +132,27 @@ export class LosDebugService {
   private pickListener: ((event: MouseEvent) => void) | null = null;
   private pickHostCanvas: HTMLCanvasElement | null = null;
 
-  /** Event-bus subscriptions — disposed and rebuilt on every initialize(). */
-  private readonly subs = new SubscriptionBag();
+  constructor() {
+    // The selection is the store's (TowerSelectionService); a sold tower drops it there
+    effect(() => {
+      const tower = this.store.selectedTower();
+      this.store.selectedTowerRevision();
+      untracked(() => this.follow(tower));
+    });
+  }
 
-  initialize(
-    engine: ThreeTilesEngine,
-    towerManager: TowerManager,
-    eventBus: GameEventBus,
-    globalRouteGrid: GlobalRouteGridService,
-  ): void {
-    // initialize() runs again on every location change — drop the previous
-    // subscriptions so listeners don't accumulate (N×3 leak otherwise).
-    this.subs.disposeAll();
-
+  /** Engine and grid of the location; runs again on every location change. */
+  initialize(engine: ThreeTilesEngine, globalRouteGrid: GlobalRouteGridService): void {
     this.engine = engine;
-    this.towerManager = towerManager;
     this.globalRouteGrid = globalRouteGrid;
-
-    this.subs.add(
-      eventBus.on('tower:selected', (e) => {
-        const tower = (e as { tower: Tower }).tower;
-        this.onTowerSelected(tower);
-      }),
-    );
-    this.subs.add(eventBus.on('tower:deselected', () => this.onTowerDeselected()));
-    this.subs.add(
-      eventBus.on('tower:sold', (e) => {
-        const sold = e as { tower: Tower };
-        if (this._activeTower()?.id === sold.tower.id) this.onTowerDeselected();
-      }),
-    );
-
     // If a tower is already selected at init time pull its state.
-    const preSelected = towerManager.getSelected();
-    if (preSelected) this.onTowerSelected(preSelected);
+    this.follow(this.store.selectedTower());
+  }
+
+  private follow(tower: Tower | null): void {
+    if (!this.engine) return;
+    if (tower) this.onTowerSelected(tower);
+    else if (this._activeTower()) this.onTowerDeselected();
   }
 
   setEnabled(on: boolean): void {
@@ -380,8 +368,8 @@ export class LosDebugService {
    * der Plates den Canvas-Hover killen).
    */
   private onCanvasMousemove(event: MouseEvent): void {
-    if (!this.towerManager || !this.engine) return;
-    const viz = this.towerManager.getSelectionViz();
+    if (!this.engine) return;
+    const viz = this.selection.getViz();
     const layer = viz?.getLayer();
     if (!viz || !layer) return;
 

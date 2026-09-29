@@ -18,6 +18,7 @@ vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class Tower
 vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class MapPlacementService {} }));
 
 import { AbilityTargetingService } from './ability-targeting.service';
+import type { MainEventBus } from '../sim/client/view-events';
 import { RefusalHintService } from './refusal-hint.service';
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
 import { AbilityManager, type AbilityWorld } from '../managers/ability.manager';
@@ -135,12 +136,15 @@ describe('Refused hires and abilities in the context hint box, open point 13 rep
     refusals = new RefusalHintService();
     refusalEffect = effects[effects.length - 1];
     injections['RefusalHintService'] = refusals;
+    // The mirror's check stands in for the manager's own here: the silo
+    // flips without the building event that would tell the mirror
+    injections['SimMirror'] = { checkUse: (id: AbilityId) => abilities.checkUse(id) };
+    injections['SimClient'] = { bus };
+    injections['RouteQueriesService'] = { resolveAbilityTarget: () => ON_ROUTE, previewSweep: () => null };
     targeting = new AbilityTargetingService();
-    targeting.initialize(
-      { abilityMarkers: { hideAim: vi.fn(), showAim: vi.fn() } } as never,
-      { abilityManager: abilities, getEventBus: () => bus } as never,
-    );
-    refusals.connect(bus, () => !bot);
+    targeting.initialize({ abilityMarkers: { hideAim: vi.fn(), showAim: vi.fn() } } as never);
+    // The simulation's bus stands in for the main bus: the managers here emit plain data
+    refusals.connect(bus as unknown as MainEventBus, () => !bot);
   });
 
   afterEach(() => vi.useRealTimers());

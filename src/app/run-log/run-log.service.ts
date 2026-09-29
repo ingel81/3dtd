@@ -11,7 +11,8 @@
  * per sub-step, which is what keeps it out of the way at 5000 enemies.
  */
 
-import type { GameEventBus, SubscriptionBag, CreditsSource } from '../game-engine/game-event-bus';
+import type { SubscriptionBag, CreditsSource } from '../game-engine/game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import type { KilledBy } from '../game-engine/events/event-types';
 import type { Tower } from '../entities/tower.entity';
 import type { WaveSourceId } from '../director/wave-source';
@@ -249,11 +250,11 @@ export class RunLogCollector {
   }
 
   /** Subscribe to the bus; the bag owns the subscriptions. */
-  attach(bus: GameEventBus, bag: SubscriptionBag): void {
+  attach(bus: MainEventBus, bag: SubscriptionBag): void {
     bag.add(bus.onLive('wave:planned', (e) => this.noteDirectorDecision({
       waveSource: e.waveSource,
       template: e.director.templateName,
-      reason: e.director.explanation?.reasons,
+      reason: e.director.explanation?.reasons?.slice(),
       composition: e.director.enemies.map((group) => ({
         type: group.type,
         count: group.count,

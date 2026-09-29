@@ -9,6 +9,8 @@ import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { Group, Scene, Vector3 } from 'three';
 import { MatDialog } from '@angular/material/dialog';
 import { InputHandlerService } from './input-handler.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
@@ -52,7 +54,7 @@ describe('Deselect with the pointer left on the tower, playtest 522 replayed', (
     canvas = document.createElement('canvas');
     document.body.appendChild(canvas);
     selected.set(null);
-    // TowerManager.selectTower: the previous one is deselected, the new one selected
+    // TowerSelectionService.select: the previous one is deselected, the new one selected
     const selectTower = vi.fn((id: string | null) => {
       const previous = selected();
       if (previous && previous !== id) renderer.deselect(previous);
@@ -63,6 +65,8 @@ describe('Deselect with the pointer left on the tower, playtest 522 replayed', (
 
     const injector = Injector.create({
       providers: [
+        { provide: SimMirror, useValue: { selectableTower: (id: string | null) => id } },
+        { provide: TowerSelectionService, useValue: { select: selectTower } },
         { provide: TowerDefenseStore, useValue: { selectedTowerId: selected } },
         { provide: UIStore, useValue: { viewOnly: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
@@ -75,7 +79,6 @@ describe('Deselect with the pointer left on the tower, playtest 522 replayed', (
     service.initialize(
       canvas,
       { picker: { raycastTowers, raycastTerrain: () => null }, towers: renderer } as never,
-      { towerManager: { selectTower }, selectableTower: (id: string | null) => id } as never,
       signal(false),
       vi.fn(),
       vi.fn(),

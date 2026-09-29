@@ -97,8 +97,13 @@ export class GameStore {
   /** Numbers of the run that just ended, set on game:over, null otherwise */
   readonly runSummary = signal<RunSummary | null>(null);
 
-  /** Training mode timescale (1.0 = normal, up to 75x) */
+  /** Training mode timescale (1.0 = normal, up to 75x); the game loop hands it to the simulation each frame */
   readonly gameSpeed = signal<number>(1.0);
+
+  /** The timescale, held within 0.1 and 75 (the bots' and the bot debugger's) */
+  setGameSpeed(scale: number): void {
+    this.gameSpeed.set(Math.max(0.1, Math.min(75, scale)));
+  }
 
   /**
    * Game time stands still: no sub-steps, so no spawns, combat, projectiles

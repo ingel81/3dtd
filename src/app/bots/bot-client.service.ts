@@ -15,7 +15,6 @@
 import { Injectable, Injector, WritableSignal, inject, runInInjectionContext, signal } from '@angular/core';
 import { GameStateSnapshot } from '../director/models/game-state-snapshot';
 import type { RunLog, RunLogRecord } from '../run-log/run-log.types';
-import { GameStateManager } from '../managers/game-state.manager';
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { StrategicPlacementService } from '../services/world/strategic-placement.service';
 import { OsmStreetService } from '../services/location/osm-street.service';
@@ -38,7 +37,11 @@ const SESSION_LOAD_RETRY_MS = 1000;
 export interface BotCallbacks {
   /** The wave button without its toggle: in coop ready, never taken back (GameLoopFacade.readyOrStartWave) */
   startWave: () => void;
-  restartGame: () => void;
+  /**
+   * A new run; `seed` when the bot server named the run's seed
+   * (command:restart-game carries it to the simulation)
+   */
+  restartGame: (seed?: number) => void;
 }
 
 /**
@@ -62,7 +65,8 @@ export interface BotRunLog {
 
 /** Abhängigkeiten, die nicht per DI kommen (component-scoped oder erst beim Start bekannt). */
 export interface BotDeps {
-  gameState: GameStateManager;
+  /** The route corridor of a new location is still being built (CorridorBuild): no tower, no wave */
+  corridorPending: () => boolean;
   towerPlacement: TowerPlacementService;
   strategicPlacement: StrategicPlacementService;
   osmService: OsmStreetService;

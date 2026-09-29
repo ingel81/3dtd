@@ -9,7 +9,9 @@ import { corridorTrace } from '../../utils/corridor-trace';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import type { GlobalRouteGridService } from '../world/global-route-grid.service';
+import type { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import type { TowerSelectionService } from '../tower-selection.service';
 import type { ColumnSample } from '../../three-engine/column-sample';
 import type { GlobalRouteGrid } from '../../utils/global-route-grid';
 import { WHOLE_GRID, type RouteCellProbe } from '../../utils/route-grid-diagnostics';
@@ -55,8 +57,12 @@ export function describeColumn(column: ColumnInspection): Record<string, string 
 
 /** What CorridorConsole needs; VisualizationFacadeService passes its services. */
 export interface CorridorConsoleDeps {
-  /** The game state, set by the facade's initialize(); read on each call. */
-  gameState: () => Pick<GameStateManager, 'towerManager' | 'getGlobalRouteGrid'>;
+  /** The main thread's route grid, the one the display and the picks read */
+  grid: Pick<GlobalRouteGridService, 'getGrid' | 'showCellSelection'>;
+  /** The shadow towers */
+  mirror: Pick<SimMirror, 'tower'>;
+  /** The selected tower and its line-of-sight view */
+  selection: Pick<TowerSelectionService, 'selectedId' | 'getViz'>;
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
   inputHandler: Pick<InputHandlerService, 'armPick'>;
   pathRoute: Pick<PathAndRouteService, 'explainCorridorAt' | 'routeLineLift' | 'getCachedPaths'>;
@@ -88,7 +94,7 @@ export class CorridorConsole {
   private readonly reportSource: CellReportSource = {
     spotAt: (hit) => this.spotAt(hit),
     cellsInRect: (rect, limit) => this.cellsInRect(rect, limit),
-    showSelection: (spots) => this.deps.gameState().getGlobalRouteGrid().showCellSelection(spots),
+    showSelection: (spots) => this.deps.grid.showCellSelection(spots),
     describe: (spots) => this.describeCells(spots),
   };
 
@@ -186,13 +192,11 @@ export class CorridorConsole {
 
   /** Read once per pick or report: the grid, the selected tower, what its LOS display draws, the red line's lift. */
   private pickView(): PickView {
-    const gameState = this.deps.gameState();
-    const towers = gameState.towerManager;
-    const tower = towers.getSelected();
-    const layer = tower ? towers.getSelectionViz()?.getLayer() ?? null : null;
+    const tower = this.deps.selection.selectedId;
+    const layer = tower ? this.deps.selection.getViz()?.getLayer() ?? null : null;
     return {
-      grid: gameState.getGlobalRouteGrid().getGrid(),
-      tower: tower?.id ?? null,
+      grid: this.deps.grid.getGrid(),
+      tower,
       drawn: layer ? new Set(layer.cells.map((c) => `${c.x},${c.z}`)) : null,
       lift: this.deps.pathRoute.routeLineLift(),
     };
@@ -247,7 +251,7 @@ export class CorridorConsole {
     const engine = this.deps.engineInit.getEngine();
     if (!engine) return null;
     const local = this.groundPoint(engine, hit);
-    const size = this.deps.gameState().getGlobalRouteGrid().getGrid().getCellSize();
+    const size = this.deps.grid.getGrid().getCellSize();
     return { x: (Math.floor(local.x / size) + 0.5) * size, y: hit.y, z: (Math.floor(local.z / size) + 0.5) * size };
   }
 
@@ -260,7 +264,7 @@ export class CorridorConsole {
   private cellsInRect(rect: ScreenRect, limit: number): CellSpot[] {
     const engine = this.deps.engineInit.getEngine();
     if (!engine) return [];
-    const grid = this.deps.gameState().getGlobalRouteGrid().getGrid();
+    const grid = this.deps.grid.getGrid();
     const camera = engine.getCamera();
     const canvas = engine.getRenderer().domElement.getBoundingClientRect();
     const midX = (rect.left + rect.right) / 2;
@@ -328,14 +332,13 @@ export class CorridorConsole {
    * false). The selected tower unless an id is given.
    */
   private describeTowerCells(towerId?: string): Record<string, unknown> | string {
-    const gameState = this.deps.gameState();
-    const towers = gameState.towerManager;
-    const tower = towerId ? towers.getById(towerId) : towers.getSelected();
+    const id = towerId ?? this.deps.selection.selectedId;
+    const tower = id ? this.deps.mirror.tower(id) : null;
     if (!tower) return 'No tower: select one or pass its id.';
     const engine = this.deps.engineInit.getEngine();
     if (!engine) return 'No engine.';
 
-    const grid = gameState.getGlobalRouteGrid().getGrid();
+    const grid = this.deps.grid.getGrid();
     const local = engine.sync.geoToLocalSimple(tower.position.lat, tower.position.lon, tower.position.height ?? 0);
     const range = tower.combat.range;
     const report = grid.describeTowerRange(tower.id, local.x, local.z, range);
@@ -344,7 +347,7 @@ export class CorridorConsole {
 
     // The display is a snapshot of the sampled cells in range, coloured
     // against the shared cube. Only the selected tower has one.
-    const layer = towers.getSelected() === tower ? towers.getSelectionViz()?.getLayer() ?? null : null;
+    const layer = this.deps.selection.selectedId === tower.id ? this.deps.selection.getViz()?.getLayer() ?? null : null;
     const drawn = layer ? new Set(layer.cells) : null;
     const reference = engine.getTowerShadowMapper().getReferencePos();
     const summary = {

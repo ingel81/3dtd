@@ -11,7 +11,11 @@ vi.mock('../components/hotkey-help-dialog/open-hotkey-help-dialog', () => ({
 vi.mock('./facade/tower-defense-facade.service', () => ({
   TowerDefenseFacadeService: class TowerDefenseFacadeService {},
 }));
-vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
+vi.mock('./tower-selection.service', () => ({ TowerSelectionService: class TowerSelectionService {} }));
+vi.mock('../sim/client/sim-client.service', () => ({ SimClient: class SimClient {} }));
+vi.mock('./infrastructure/engine-initialization.service', () => ({
+  EngineInitializationService: class EngineInitializationService {},
+}));
 vi.mock('./tower-placement.service', () => ({ TowerPlacementService: class TowerPlacementService {} }));
 vi.mock('./camera-control.service', () => ({ CameraControlService: class CameraControlService {} }));
 vi.mock('./world/intro-camera-flight.service', () => ({
@@ -29,7 +33,9 @@ import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { HotkeyService } from './hotkey.service';
 import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
-import { GameStateManager } from '../managers/game-state.manager';
+import { TowerSelectionService } from './tower-selection.service';
+import { SimClient } from '../sim/client/sim-client.service';
+import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
@@ -117,7 +123,7 @@ describe('HotkeyService', () => {
     update: vi.fn(),
   };
 
-  /** Level per track; facade.upgradeTower raises it like the real command */
+  /** Level per track of the shadow tower */
   let levels: Record<string, number>;
   const tower = {
     id: 't1',
@@ -172,10 +178,8 @@ describe('HotkeyService', () => {
     levels = {};
     facade = {
       startWave: vi.fn(),
-      upgradeTower: vi.fn((_t: unknown, id: UpgradeId) => {
-        levels[id] = (levels[id] ?? 0) + 1;
-        return true;
-      }),
+      // The command acts at the next tick: the shadow tower's levels stay
+      upgradeTower: vi.fn(() => true),
       sellSelectedTower: vi.fn(),
       mayManage: vi.fn(() => true),
     };
@@ -209,10 +213,18 @@ describe('HotkeyService', () => {
     const injector = Injector.create({
       providers: [
         { provide: TowerDefenseFacadeService, useValue: facade },
+        { provide: TowerSelectionService, useValue: { select: selectTower } },
+        // The upgrade commands of the real TowerUpgradeService, handed to the facade's fake as the simulation would take them
         {
-          provide: GameStateManager,
-          useValue: { towerManager: { selectTower }, tilesEngine: { effects: { spawnFloatingText } } },
+          provide: SimClient,
+          useValue: {
+            bus: {
+              emit: (e: { type: string; towerId: string; upgradeId: UpgradeId }) =>
+                e.type === 'command:upgrade-tower' && (facade.upgradeTower as unknown as (t: unknown, id: UpgradeId) => boolean)(store.selectedTower(), e.upgradeId),
+            },
+          },
         },
+        { provide: EngineInitializationService, useValue: { getEngine: () => ({ effects: { spawnFloatingText } }) } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: GameStore, useValue: gameStore },
         { provide: UIStore, useValue: uiStore },

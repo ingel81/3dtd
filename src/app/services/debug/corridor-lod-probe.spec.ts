@@ -93,12 +93,12 @@ describe('CorridorLodProbe', () => {
     cells = [cell(1, 10), cell(3, 10.5)];
     clipboard = { copy: vi.fn(async () => true), offerButton: vi.fn() };
     const deps = {
-      gameState: () => ({
-        towerCount: () => towers,
-        waveManager: { phase: () => phase },
-        enemyManager: { getAliveCount: () => enemies },
-        getGlobalRouteGrid: () => ({ getGrid: () => ({ dumpCellsInBox: () => cells }) }),
-      }),
+      grid: { getGrid: () => ({ dumpCellsInBox: () => cells }) },
+      mirror: {
+        get scalars() {
+          return { towerCount: towers, phase, enemiesAlive: enemies };
+        },
+      },
       engineInit: { getEngine: () => engine, loading: () => loading },
       introFlight: { isRunning: () => intro },
       pathRoute: { measureAllStations: measureAll, corridorState },

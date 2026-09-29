@@ -11,14 +11,15 @@ import {
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
-import { GameEventBus, GameEvent, EventSubscription } from '../../game-engine/game-event-bus';
+import { EventSubscription } from '../../game-engine/game-event-bus';
+import type { MainEventBus, ViewEvent } from '../../sim/client/view-events';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 interface EventLogEntry {
   id: number;
   timestamp: number;
-  event: GameEvent;
+  event: ViewEvent;
 }
 
 type EventCategory = 'all' | 'enemy' | 'tower' | 'wave' | 'game' | 'vfx' | 'audio';
@@ -51,7 +52,7 @@ export class EventDebuggerComponent implements OnDestroy {
   readonly windowService = inject(DebugWindowService);
 
   /** EventBus injected from parent */
-  readonly eventBus = input<GameEventBus | null>(null);
+  readonly eventBus = input<MainEventBus | null>(null);
 
   /** Event log (newest first) */
   readonly eventLog = signal<EventLogEntry[]>([]);
@@ -102,7 +103,7 @@ export class EventDebuggerComponent implements OnDestroy {
   /**
    * Subscribe to all events from the event bus
    */
-  private subscribeToEventBus(eventBus: GameEventBus): void {
+  private subscribeToEventBus(eventBus: MainEventBus): void {
     // Dispose previous subscription
     this.subscription?.dispose();
 
@@ -160,7 +161,7 @@ export class EventDebuggerComponent implements OnDestroy {
     return '';
   }
 
-  getEventDetails(event: GameEvent): string {
+  getEventDetails(event: ViewEvent): string {
     switch (event.type) {
       case 'enemy:died':
         return `+${event.credits} credits`;

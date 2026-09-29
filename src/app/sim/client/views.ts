@@ -9,6 +9,7 @@
  * and from the enemy table of every packet (sim/protocol/packet).
  */
 import type { EnemyTypeConfig } from '../../configs/enemy-types.config';
+import type { ArmorType } from '../../configs/combat/combat.types';
 import type { ProjectileTypeConfig } from '../../configs/projectile-types.config';
 import type { GeoPosition } from '../../models/game.types';
 
@@ -45,7 +46,8 @@ export interface EnemyMovementView {
   effectiveSpeed: number;
   getPathProgress(): number;
   getDistanceAlongPath(): number;
-  getEffectiveSpeed(): number;
+  /** E_EFF_SPEED of the last packet; the argument (game time) of the entity's is not needed here */
+  getEffectiveSpeed(gameTimeMs?: number): number;
 }
 
 export class EnemyView {
@@ -93,6 +95,12 @@ export class EnemyView {
     readonly num: number,
     readonly typeConfig: EnemyTypeConfig,
   ) {}
+
+  /** The armor it wears (Enemy.getEffectiveArmorType): the head's for the segment that leads a worm */
+  getEffectiveArmorType(): ArmorType {
+    if (this.worm?.head && this.typeConfig.chain) return this.typeConfig.chain.head.armorType;
+    return this.typeConfig.armorType;
+  }
 }
 
 export class ProjectileView {

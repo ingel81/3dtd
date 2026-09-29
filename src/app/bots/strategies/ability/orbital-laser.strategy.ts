@@ -30,7 +30,7 @@ import {
   abilityBeamFraction,
   abilityBeamReachM,
 } from '../../../configs/abilities.config';
-import type { Enemy } from '../../../entities/enemy.entity';
+import type { EnemyView } from '../../../sim/client/views';
 import type { GeoPosition } from '../../../models/game.types';
 import { geoDistanceFast } from '../../../utils/geo-utils';
 import { sweepOffset, type RouteSweep } from '../../../utils/route-sweep';
@@ -136,7 +136,7 @@ export class OrbitalLaserStrategy extends BaseStrategy {
 function beamOutcome(
   effect: BeamEffect,
   sweep: RouteSweep,
-  enemies: readonly Enemy[],
+  enemies: readonly EnemyView[],
   speeds: readonly number[],
   point: GeoPosition,
 ): LaserAim {

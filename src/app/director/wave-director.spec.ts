@@ -1,5 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { packet } from '../sim/client/mirror/testing/mirror-packets';
+import { GameRng } from '../utils/game-rng';
 
 import { WaveDirector } from './wave-director';
 import { StateSnapshotService } from './state-snapshot.service';
@@ -103,6 +106,7 @@ describe('WaveDirector', () => {
   let collector: StubCollector;
   let director: WaveDirector;
   let source: StubSource;
+  let mirror: SimMirror;
 
   /** Put the stub source in place of the configured one. */
   function useStubSource(): StubSource {
@@ -113,7 +117,13 @@ describe('WaveDirector', () => {
 
   beforeEach(() => {
     collector = new StubCollector();
-    const injector = Injector.create({ providers: [{ provide: StateSnapshotService, useValue: collector }] });
+    mirror = new SimMirror();
+    const injector = Injector.create({
+      providers: [
+        { provide: StateSnapshotService, useValue: collector },
+        { provide: SimMirror, useValue: mirror },
+      ],
+    });
     director = runInInjectionContext(injector, () => new WaveDirector());
     source = useStubSource();
 
@@ -128,7 +138,12 @@ describe('WaveDirector', () => {
   describe('initial state', () => {
     it('starts with the configured source, nothing committed and no debug logging', () => {
       const fresh = runInInjectionContext(
-        Injector.create({ providers: [{ provide: StateSnapshotService, useValue: collector }] }),
+        Injector.create({
+          providers: [
+            { provide: StateSnapshotService, useValue: collector },
+            { provide: SimMirror, useValue: new SimMirror() },
+          ],
+        }),
         () => new WaveDirector(),
       );
       expect(fresh.source.id).toBe('budget');
@@ -172,6 +187,15 @@ describe('WaveDirector', () => {
 
       expect(() => director.ensurePlanned(8)).toThrow('stub refuses wave 8');
       expect(director.committed).toBe(good);
+    });
+
+    it('draws from the run seed director stream on the main thread, the sequence the simulation had', () => {
+      mirror.applyState(packet({ scalars: { seed: 4242 } }));
+      director.ensurePlanned(1);
+      director.ensurePlanned(2);
+
+      const expected = new GameRng(4242).stream('director');
+      expect(source.draws).toEqual([expected(), expected()]);
     });
 
     it('asks for the random source per plan, so a run reset is picked up', () => {

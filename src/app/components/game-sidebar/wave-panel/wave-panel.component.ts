@@ -20,7 +20,8 @@ import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { UIStore } from '../../../store/ui.store';
 import { ResearchStore } from '../../../store/research.store';
 import { WaveDirector } from '../../../director/wave-director';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import { SimMirror } from '../../../sim/client/mirror/sim-mirror';
+import { EngineInitializationService } from '../../../services/infrastructure/engine-initialization.service';
 import { AUTO_WAVE_DELAY_MS } from '../../../utils/auto-wave-countdown';
 import { toneWavDataUrl } from '../../../utils/alert-tone';
 import { UI_SOUNDS } from '../../../configs/audio.config';
@@ -65,7 +66,8 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly uiStore = inject(UIStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly waveDirector = inject(WaveDirector);
-  private readonly gameState = inject(GameStateManager);
+  private readonly mirror = inject(SimMirror);
+  private readonly engineInit = inject(EngineInitializationService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
@@ -206,7 +208,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
   private readonly answeringTowers = computed(() => {
     this.store.towerCount();
     const unlocked = this.researchStore.airTargetingUnlocked();
-    const types = this.gameState.towerManager.getAll().map((t) => t.typeConfig.id as TowerTypeId);
+    const types = this.mirror.towers().map((t) => t.typeConfig.id as TowerTypeId);
     return { air: countAntiAirTowers(types, unlocked), ethereal: countAntiEtherealTowers(types) };
   });
 
@@ -236,7 +238,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
    * no buffer, so the wave stays unannounced.
    */
   private async playAlertTone(kind: WaveAlertKind): Promise<boolean> {
-    const audio = this.gameState.tilesEngine?.spatialAudio;
+    const audio = this.engineInit.getEngine()?.spatialAudio;
     if (!audio) return false;
     const { id, notes, volume } = kind === 'air' ? UI_SOUNDS.airAlert : UI_SOUNDS.etherealAlert;
     if (!audio.getSoundConfig(id)) {

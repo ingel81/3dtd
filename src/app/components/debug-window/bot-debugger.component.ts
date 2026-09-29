@@ -2,7 +2,7 @@ import { Component, inject, input, output, signal, ChangeDetectionStrategy } fro
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { GameStore } from '../../store/game.store';
 import { BotClientService } from '../../bots/bot-client.service';
 import { WaveDirector } from '../../director/wave-director';
 import type { BotSkillLevel } from '../../bots/bots/tower-bot.interface';
@@ -17,7 +17,8 @@ import type { BotSkillLevel } from '../../bots/bots/tower-bot.interface';
 })
 export class BotDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
-  readonly gameState = inject(GameStateManager);
+  private readonly gameStore = inject(GameStore);
+  readonly gameSpeed = this.gameStore.gameSpeed;
   readonly botClient = inject(BotClientService);
   readonly waveDirector = inject(WaveDirector);
 
@@ -48,11 +49,11 @@ export class BotDebuggerComponent {
   onTimescaleChange(event: Event): void {
     const target = event.target as HTMLInputElement;
     const value = parseFloat(target.value);
-    this.gameState.setGameSpeed(value);
+    this.gameStore.setGameSpeed(value);
   }
 
   setTimescale(value: number): void {
-    this.gameState.setGameSpeed(value);
+    this.gameStore.setGameSpeed(value);
   }
 
   async toggleConnection(): Promise<void> {

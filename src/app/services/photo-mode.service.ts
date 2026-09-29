@@ -1,6 +1,6 @@
 import { ElementRef, Injectable, Injector, afterNextRender, inject, signal } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
-import { GameStateManager } from '../managers/game-state.manager';
+import { TowerSelectionService } from './tower-selection.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ConfigService } from '../core/services/config.service';
@@ -24,8 +24,7 @@ const CESIUM_LOGO = 'assets/images/ui/cesium-ion-logo.svg';
  * Photo mode: the HUD goes (header, sidebar, overlays), the camera controls
  * stay, a small bar saves the canvas as PNG. State in UIStore.photoMode.
  *
- * Provided by the game component, like the facades: it deselects through the
- * component-scoped GameStateManager. O and Esc are game hotkeys
+ * Provided by the game component, like the facades. O and Esc are game hotkeys
  * (hotkey-map.ts, HotkeyService).
  *
  * The focused control goes with the HUD, so the bar takes the focus, and
@@ -36,7 +35,7 @@ const CESIUM_LOGO = 'assets/images/ui/cesium-ion-logo.svg';
 export class PhotoModeService {
   private readonly uiStore = inject(UIStore);
   private readonly store = inject(TowerDefenseStore);
-  private readonly gameState = inject(GameStateManager);
+  private readonly selection = inject(TowerSelectionService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly abilityTargeting = inject(AbilityTargetingService);
@@ -74,7 +73,7 @@ export class PhotoModeService {
     if (this.towerPlacement.buildMode()) this.towerPlacement.exitBuildMode();
     if (this.uiStore.mapPlacementMode()) this.mapPlacement.exitPlacementMode();
     if (this.abilityTargeting.targeting()) this.abilityTargeting.cancel();
-    this.gameState.towerManager.selectTower(null);
+    this.selection.select(null);
     this.engineInit.getEngine()?.towerBadges.setVisible(false);
     this.uiStore.openMenu.set(null);
     this.active.set(true);

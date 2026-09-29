@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { HeroStrategy } from './hero.strategy';
 import { createEmptySnapshot, type GameStateSnapshot } from '../../../director/models/game-state-snapshot';
 import { HERO } from '../../../configs/hero.config';
-import type { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 
 /**
  * The bot's hero: hire him, load the right rounds, stand where the crowd is
@@ -25,7 +25,7 @@ function strategy(world: Partial<World> = {}) {
       getAnchor: () => w.anchor,
     },
     enemyManager: { getAlive: () => w.enemies },
-  } as unknown as GameStateManager;
+  } as unknown as BotWorld;
   return { hero: new HeroStrategy(gameState), world: w };
 }
 

@@ -27,6 +27,8 @@ export interface EnemyRef {
   route: number;
   /** Worm group and slot, when a segment */
   worm?: { g: number; slot: number; head: boolean };
+  /** movement.getPathProgress(), 0..1: where it was on its route (the wave source's leak share reads it at death) */
+  pr?: number;
   /** Has a body (ooze) */
   body?: boolean;
 }
@@ -61,6 +63,10 @@ export interface ExportedEvent {
   readonly live: boolean;
   /** false while a replay seeks (onShow listeners skip it) */
   readonly show: boolean;
+  /** Game time of the emit, ms (GameClock.gameTimeMs): a packet of many sub-steps carries events of different times */
+  readonly t?: number;
+  /** Sub-step of the emit (GameClock.subStep) */
+  readonly step?: number;
 }
 
 export function isEnemyRef(v: unknown): v is EnemyRef {

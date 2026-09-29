@@ -1,9 +1,10 @@
 import { DestroyRef, Injectable, computed, effect, inject, signal, untracked } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import { Quaternion, Vector3 } from 'three';
-import { GameStateManager } from '../managers/game-state.manager';
-import { TowerLifecycle } from '../managers/game-state/tower-lifecycle';
-import { TowerCombatService } from './combat/tower-combat.service';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror, canManTower } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
+import { ShotPrediction } from './shot-prediction';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
@@ -18,13 +19,14 @@ import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { TOWER_CONTROL } from '../configs/tower-control.config';
 import { UI_SOUNDS } from '../configs/audio.config';
-import { aimDirectionInto } from '../utils/manual-aim';
+import { aimDirectionInto, eyeBackAt, eyeInto } from '../utils/manual-aim';
 import { toneWavDataUrl } from '../utils/alert-tone';
 import { cameraTimeline } from '../utils/camera-timeline';
 import { TICK_SUB_STEPS } from '../coop/lockstep';
 import { projectileSoundId } from '../managers/projectile.manager';
 import type { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
+import type { CoordinateSync } from '../three-engine/renderers';
 
 /** Where the camera was before the player got in */
 interface CameraPose {
@@ -42,12 +44,6 @@ export type TowerControlMarker = 'hit' | 'kill' | null;
 /** Visual kick of the view per shot, rad; it springs back over RECOIL_MS */
 const RECOIL_KICK_RAD = 0.012;
 const RECOIL_MS = 120;
-/**
- * Coop: how long a shot shown at the click waits for the simulation's own
- * shot, which then stays quiet (no second sound, flash or recoil), ms. The
- * simulation's comes a tick and the way over the relay later.
- */
-const PREDICTED_SHOT_WINDOW_MS = 400;
 /** How fast the zoom follows the right button, 1/s */
 const ZOOM_RATE = 12;
 
@@ -58,9 +54,9 @@ const ZOOM_RATE = 12;
  * gets out; so does anything else that takes the camera (photo mode, the
  * replay, a boss intro) and the end of the game.
  *
- * The game side is the TowerLifecycle's (command:man-tower, leave-tower,
- * tower-trigger) and TowerCombatService.updateMannedTower: the tower keeps
- * its rules. This service is the input and the view: pointer lock and mouse
+ * The game side is the simulation's TowerLifecycle (command:man-tower,
+ * leave-tower, tower-trigger) and TowerCombatService.updateMannedTower: the
+ * tower keeps its rules. This side reads the manned shadow tower (SimMirror). This service is the input and the view: pointer lock and mouse
  * look (gathered per frame, sent by flushAim() as command:tower-aim), the
  * left button as trigger command, the right button zooms, the camera on the
  * tower's eye point every frame (update(), from the game loop), and the
@@ -71,13 +67,14 @@ const ZOOM_RATE = 12;
  * The camera looks along the aim the mouse gave here, which the tower
  * follows one tick later; in coop the aim goes out at most once a tick.
  *
- * Provided by the game component: it drives the component-scoped
- * GameStateManager.
+ * Provided by the game component, next to the services it drives.
  */
 @Injectable()
 export class TowerControlService {
-  private readonly gameState = inject(GameStateManager);
-  private readonly towerCombat = inject(TowerCombatService);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
+  private readonly selection = inject(TowerSelectionService);
+  private readonly prediction = inject(ShotPrediction);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
@@ -125,16 +122,12 @@ export class TowerControlService {
    * the release never went out and the tower fired on (playtest T1).
    */
   private triggerSent = false;
-  /** Coop: the shot shown at the click, waiting for the simulation's (PREDICTED_SHOT_WINDOW_MS) */
-  private predictedShot: { towerId: string; at: number } | null = null;
-  /** The simulation's shot matched a shown one: its tower:manual-shot gives no second recoil */
-  private swallowShot = false;
   private readonly eye = new Vector3();
   private readonly dir = new Vector3();
   private readonly lookAt = new Vector3();
 
   constructor() {
-    const bus = this.gameState.getEventBus();
+    const bus = this.sim.bus;
     const subs = [
       bus.onLive('tower:manual-shot', (event) => this.onShot(event.towerId)),
       bus.onLive('projectile:hit', (event) => {
@@ -174,8 +167,8 @@ export class TowerControlService {
   /** Whether the player can get into `tower` now */
   canEnter(tower: Tower | null): tower is Tower {
     return tower !== null
-      && TowerLifecycle.canMan(tower)
-      && this.gameState.mayManage(tower)
+      && canManTower(tower)
+      && this.mirror.mayManage(tower)
       && !this.store.isGameOver()
       && !this.store.loading()
       && !this.store.error()
@@ -202,7 +195,7 @@ export class TowerControlService {
     this.heroControl.deselect();
     // No selection or hover ring and range in the view: the pointer that
     // hovered the tower stays over it, and its moves are the aim from now on
-    this.gameState.towerManager.selectTower(null);
+    this.selection.select(null);
     this.inputHandler.clearHover();
     this.uiStore.openMenu.set(null);
     this.cameraControl.cancelJump();
@@ -210,23 +203,21 @@ export class TowerControlService {
     // the camera too, but update() puts it on the eye point every frame.
     this.keyboardPan.clearKeys();
 
-    this.gameState.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
+    this.sim.bus.emit({ type: 'command:man-tower', towerId: tower.id });
     return true;
   }
 
   /** The player sits in the tower now (their own tower:manned): camera, mouse and HUD. */
   private takeSeat(towerId: string): void {
     const engine = this.engineInit.getEngine();
-    const tower = this.gameState.getMannedTower();
+    const tower = this.mirror.mannedTower();
     if (!engine || !tower || tower.id !== towerId) return;
     this.aimHeading = tower.manualAim.heading;
     this.aimPitch = tower.manualAim.pitch;
     this.aimMoved = false;
     this.aimSentStep = -Infinity;
     this.triggerSent = tower.triggerHeld;
-    this.predictedShot = null;
-    this.swallowShot = false;
-    this.gameState.projectileManager.quietShot = (towerId) => this.takePrediction(towerId);
+    this.prediction.clear();
 
     if (!this.pose) this.pose = this.saveCamera(engine);
     const controls = engine.getControls();
@@ -243,7 +234,7 @@ export class TowerControlService {
   /** Get out of the tower; it fires by itself again. */
   exit(): void {
     if (!this.active()) return;
-    this.gameState.getEventBus().emit({ type: 'command:leave-tower' });
+    this.sim.bus.emit({ type: 'command:leave-tower' });
   }
 
   /** C: into the selected tower, or out of the manned one. */
@@ -264,12 +255,12 @@ export class TowerControlService {
    * camera looks along the local aim in between.
    */
   flushAim(): void {
-    if (!this.aimMoved || !this.gameState.getMannedTower()) return;
-    const step = this.gameState.subStep;
-    if (this.gameState.lockstepActive && step < this.aimSentStep + TICK_SUB_STEPS) return;
+    if (!this.aimMoved || !this.mirror.mannedTower()) return;
+    const step = this.mirror.scalars.subStep;
+    if (this.mirror.scalars.lockstepActive && step < this.aimSentStep + TICK_SUB_STEPS) return;
     this.aimMoved = false;
     this.aimSentStep = step;
-    this.gameState.getEventBus().emit({ type: 'command:tower-aim', heading: this.aimHeading, pitch: this.aimPitch });
+    this.sim.bus.emit({ type: 'command:tower-aim', heading: this.aimHeading, pitch: this.aimPitch });
   }
 
   /**
@@ -277,7 +268,7 @@ export class TowerControlService {
    * tower's eye point, looking along the aim, and the HUD's state.
    */
   update(deltaTime: number): void {
-    const tower = this.gameState.getMannedTower();
+    const tower = this.mirror.mannedTower();
     const engine = this.engineInit.getEngine();
     if (!tower || !engine || !this.pose) return;
 
@@ -285,7 +276,7 @@ export class TowerControlService {
     this.recoilMs = Math.max(0, this.recoilMs - deltaTime);
     const kick = RECOIL_KICK_RAD * (this.recoilMs / RECOIL_MS);
     // The eye from the player's own aim, as the view: the tower's comes a tick later in coop
-    this.towerCombat.mannedEyeInto(tower, this.eye, { heading: this.aimHeading, pitch: this.aimPitch });
+    mannedEyeInto(tower, engine.sync, this.eye, { heading: this.aimHeading, pitch: this.aimPitch });
     aimDirectionInto(this.aimHeading, this.aimPitch + kick, this.dir);
     camera.position.copy(this.eye);
     camera.up.set(0, 1, 0);
@@ -298,7 +289,7 @@ export class TowerControlService {
     }
     camera.updateMatrixWorld();
 
-    const onTarget = this.towerCombat.mannedAimTargetOf(tower.id) !== null;
+    const onTarget = this.mirror.onTargetOf(tower.id);
     if (onTarget !== this.onTarget()) this.onTarget.set(onTarget);
     const interval = tower.combat.fireRate > 0 ? 1000 / tower.combat.fireRate : 1;
     const reload = Math.round((1 - tower.combat.cooldownRemaining / interval) * 20) / 20;
@@ -336,7 +327,7 @@ export class TowerControlService {
     }
     event.stopImmediatePropagation();
     this.readButtons(event);
-    if (!this.gameState.getMannedTower()) return;
+    if (!this.mirror.mannedTower()) return;
     // Slower look while zoomed, so the crosshair moves as far on screen
     const scale = TOWER_CONTROL.lookRadPerPx * (this.zoomHeld ? TOWER_CONTROL.zoomFovDeg / (this.pose?.fov ?? 60) : 1);
     // From the local aim, not the tower's: in coop that one comes a tick later
@@ -421,24 +412,24 @@ export class TowerControlService {
   }
 
   private setTrigger(held: boolean): void {
-    if (!this.gameState.getMannedTower() || this.triggerSent === held) return;
+    if (!this.mirror.mannedTower() || this.triggerSent === held) return;
     this.triggerSent = held;
-    this.gameState.getEventBus().emit({ type: 'command:tower-trigger', held });
-    if (held && this.gameState.lockstepActive) this.predictShot();
+    this.sim.bus.emit({ type: 'command:tower-trigger', held });
+    if (held && this.mirror.scalars.lockstepActive) this.predictShot();
   }
 
   /**
    * Coop: the press shows its shot at once, where the tower may fire now:
    * recoil, muzzle flash and sound. The shot itself (projectile, hit, gold)
    * comes with the simulation a tick and the relay's way later, then without
-   * a second sound and flash (takePrediction). Alone there is no wait.
+   * a second sound and flash (ShotPrediction). Alone there is no wait.
    */
   private predictShot(): void {
-    const tower = this.gameState.getMannedTower();
+    const tower = this.mirror.mannedTower();
     if (!tower || !tower.losReady || !tower.combat.canFire()) return;
-    this.predictedShot = { towerId: tower.id, at: performance.now() };
+    this.prediction.predict(tower.id);
     this.showShot();
-    const bus = this.gameState.getEventBus();
+    const bus = this.sim.bus;
     bus.emit({ type: 'vfx:muzzle-flash', towerId: tower.id, towerTypeId: tower.typeConfig.id });
     bus.emit({
       type: 'audio:play',
@@ -450,24 +441,12 @@ export class TowerControlService {
     });
   }
 
-  /** ProjectileManager.quietShot: whether this shot of `towerId` was shown at the click already */
-  private takePrediction(towerId: string): boolean {
-    const shown = this.predictedShot;
-    if (!shown || shown.towerId !== towerId) return false;
-    this.predictedShot = null;
-    if (performance.now() - shown.at > PREDICTED_SHOT_WINDOW_MS) return false;
-    this.swallowShot = true;
-    return true;
-  }
-
   // ── Feedback ──────────────────────────────────────────────────
 
   private onShot(towerId: string): void {
     if (towerId !== this.store.mannedTowerId()) return;
-    if (this.swallowShot) {
-      this.swallowShot = false;
-      return;
-    }
+    // Shown at the click already: no second recoil
+    if (this.prediction.take(towerId)) return;
     this.showShot();
   }
 
@@ -499,9 +478,7 @@ export class TowerControlService {
   // ── Camera ────────────────────────────────────────────────────
 
   private cleanUp(): void {
-    this.gameState.projectileManager.quietShot = null;
-    this.predictedShot = null;
-    this.swallowShot = false;
+    this.prediction.clear();
     const engine = this.engineInit.getEngine();
     engine?.towerBadges.hideFor(null);
     engine?.spatialAudio.setFeedbackMinDistance(0);
@@ -551,6 +528,31 @@ export class TowerControlService {
     cameraTimeline.record('camera.towerControl.restore', {}, true);
   }
 }
+
+/**
+ * The player's eye in `tower` (utils/manual-aim.ts eyeInto), local: over the
+ * muzzle, and at least TOWER_CONTROL.eyeOverModelM over the top of the model
+ * (TowerTypeConfig.modelTop), so it is never inside a roof. The simulation's
+ * aim ray starts at the same point (TowerCombatService.mannedEyeInto).
+ */
+export function mannedEyeInto(
+  tower: Tower,
+  sync: CoordinateSync,
+  out: Vector3,
+  aim: { heading: number; pitch: number } = tower.manualAim,
+): Vector3 {
+  const config = tower.typeConfig;
+  const height = (tower.position.height ?? 0) + config.heightOffset + config.shootHeight;
+  const muzzle = sync.geoToLocalSimpleInto(tower.position.lat, tower.position.lon, height, MUZZLE);
+  const back = eyeBackAt(aim.pitch, TOWER_CONTROL.pitchMin, TOWER_CONTROL.eyeBackM, TOWER_CONTROL.eyeForwardDownM);
+  // The model's top over the muzzle: both stand on the tower's foot
+  const topOverMuzzle = config.modelTop - config.heightOffset - config.shootHeight;
+  const up = Math.max(TOWER_CONTROL.eyeUpM, topOverMuzzle + TOWER_CONTROL.eyeOverModelM);
+  eyeInto(muzzle, aim.heading, up, back, out);
+  return out;
+}
+
+const MUZZLE = new Vector3();
 
 /** An angle into (-π, π]. */
 function wrapAngle(a: number): number {

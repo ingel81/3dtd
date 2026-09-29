@@ -139,9 +139,9 @@
         @defer (when debugWindowsRequested()) {
           <app-camera-debugger />
           <app-devworld-debugger [isRegenerating]="isDevWorldRegenerating()" (terrainRefresh)="refreshTerrainHeights()" />
-          <app-wave-debugger [eventBus]="gameState.getEventBus()" />
+          <app-wave-debugger [eventBus]="sim.bus" />
           <app-sound-debugger />
-          <app-event-debugger [eventBus]="gameState.getEventBus()" />
+          <app-event-debugger [eventBus]="sim.bus" />
           <app-bot-debugger
             [botEnabled]="botEnabled()"
             [botSkillLevel]="botSkillLevel()"

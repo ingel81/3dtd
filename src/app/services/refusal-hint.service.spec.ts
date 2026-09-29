@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
 import { signal } from '@angular/core';
 
 // inject() hands out the fakes below by class name; effects are collected
@@ -17,7 +18,6 @@ vi.mock('@angular/core', async () => {
 
 import { RefusalHintService, abilityNoRouteText, abilityRefusalText, heroRefusalText } from './refusal-hint.service';
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
-import { GameEventBus } from '../game-engine/game-event-bus';
 import { lockedAbilityStatus, type AbilityStatus } from '../configs/abilities.config';
 import { initialHeroStatus, type HeroStatus } from '../configs/hero.config';
 
@@ -73,7 +73,7 @@ describe('RefusalHintService', () => {
     credits: ReturnType<typeof signal<number>>;
     hero: ReturnType<typeof signal<HeroStatus>>;
   };
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let player: boolean;
   let service: RefusalHintService;
 
@@ -90,7 +90,7 @@ describe('RefusalHintService', () => {
     };
     injections['UIStore'] = ui;
     injections['TowerDefenseStore'] = store;
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     player = true;
     service = new RefusalHintService();
     service.connect(bus, () => player);

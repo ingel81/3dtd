@@ -2,7 +2,8 @@ import { Injectable, WritableSignal, inject } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import * as THREE from 'three';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { KeyboardPanService } from './keyboard-pan.service';
@@ -94,7 +95,8 @@ export class InputHandlerService {
 
   /** Open dialogs own Escape, see isEscapeForDialog */
   private readonly dialog = inject(MatDialog);
-  private gameState: GameStateManager | null = null;
+  private readonly mirror = inject(SimMirror);
+  private readonly selection = inject(TowerSelectionService);
 
   /** Build mode state signal (from TowerPlacementService) */
   private buildModeSignal: WritableSignal<boolean> | null = null;
@@ -172,7 +174,6 @@ export class InputHandlerService {
    * Initialize input handler service
    * @param canvas Canvas element for event listeners
    * @param engine ThreeTilesEngine instance
-   * @param gameState GameStateManager instance
    * @param buildModeSignal Build mode state signal
    * @param onClickCallback Callback for terrain clicks in build mode
    * @param onMouseMoveCallback Callback for mouse move in build mode (receives hitPoint for preview positioning)
@@ -180,7 +181,6 @@ export class InputHandlerService {
   initialize(
     canvas: HTMLCanvasElement,
     engine: ThreeTilesEngine,
-    gameState: GameStateManager,
     buildModeSignal: WritableSignal<boolean>,
     onClickCallback: (lat: number, lon: number, height: number) => void,
     onMouseMoveCallback: (lat: number, lon: number, hitPoint: THREE.Vector3) => void
@@ -192,7 +192,6 @@ export class InputHandlerService {
 
     this.canvas = canvas;
     this.engine = engine;
-    this.gameState = gameState;
     this.buildModeSignal = buildModeSignal;
     this.onClickCallback = onClickCallback;
     this.onMouseMoveCallback = onMouseMoveCallback;
@@ -384,7 +383,7 @@ export class InputHandlerService {
     // Only left-click (button 0) triggers actions — right-click is camera rotation / build cancel
     if (event.button !== 0) return;
 
-    if (!this.engine || !this.gameState || !this.buildModeSignal) {
+    if (!this.engine || !this.buildModeSignal) {
       return;
     }
 
@@ -440,9 +439,9 @@ export class InputHandlerService {
         return;
       }
       if (this.heroInput.selected()) {
-        const towerId = this.gameState.selectableTower(this.engine.picker.raycastTowers(event.clientX, event.clientY));
+        const towerId = this.mirror.selectableTower(this.engine.picker.raycastTowers(event.clientX, event.clientY));
         if (towerId) {
-          this.gameState.towerManager.selectTower(towerId);
+          this.selection.select(towerId);
           return;
         }
         const ground = this.engine.picker.raycastTerrain(event.clientX, event.clientY);
@@ -457,19 +456,19 @@ export class InputHandlerService {
     if (!this.buildModeSignal()) {
       // Only a tower this player may select (TowerPolicy); a partner's counts as a click beside
       const hitTowerId = this.engine.picker.raycastTowers(event.clientX, event.clientY);
-      const clickedTowerId = this.gameState.selectableTower(hitTowerId);
+      const clickedTowerId = this.mirror.selectableTower(hitTowerId);
       // Coop: say whose it is (review R14)
       if (hitTowerId && !clickedTowerId) this.foreignTowerClick?.(hitTowerId);
 
       if (clickedTowerId) {
         if (this.store.selectedTowerId() === clickedTowerId) {
-          this.gameState.towerManager.selectTower(null);
+          this.selection.select(null);
         } else {
-          this.gameState.towerManager.selectTower(clickedTowerId);
+          this.selection.select(clickedTowerId);
         }
         return; // Tower handled, done
       } else {
-        this.gameState.towerManager.selectTower(null);
+        this.selection.select(null);
       }
     }
 
@@ -877,7 +876,6 @@ export class InputHandlerService {
     this.lastHoverPickY = NaN;
 
     this.engine = null;
-    this.gameState = null;
     this.buildModeSignal = null;
     this.canvas = null;
     this.onClickCallback = null;

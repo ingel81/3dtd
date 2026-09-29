@@ -53,7 +53,8 @@ describe('DpsBinsOverlay', () => {
     bus = new GameEventBus();
     coordSync = { sync: true };
     const deps = {
-      gameState: () => ({ getGlobalRouteGrid: () => ({ getCoordinateSync: () => coordSync }), getEventBus: () => bus }),
+      grid: { getCoordinateSync: () => coordSync },
+      bus,
       stateSnapshots: { getCurrentDPSProfile: vi.fn(() => profile) },
     };
     overlay = new DpsBinsOverlay(deps as unknown as DpsBinsOverlayDeps);

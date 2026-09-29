@@ -14,6 +14,7 @@
 
 import { Injectable, inject, signal } from '@angular/core';
 import { StateSnapshotService } from './state-snapshot.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
 import { formatExplanation } from './wave-explanation';
@@ -44,13 +45,13 @@ export class WaveDirector {
   private plannedWave: PlannedWave | null = null;
 
   /**
-   * Where the director stream comes from, asked for per plan rather than held.
-   *
-   * `GameRng.reset()` throws its streams away, so a cached function would keep
-   * drawing from the previous run's sequence.
+   * Where the director stream comes from, asked for per plan rather than held:
+   * the main thread's GameRng on the run seed (SimMirror.rng, stream
+   * 'director', the sequence the simulation's stream had). Specs hand in
+   * their own (useRandomSource).
    */
-  // eslint-disable-next-line no-restricted-properties -- fallback for specs; the game sets the director stream (useRandomSource)
-  private randomSource: () => () => number = () => Math.random;
+  private readonly mirror = inject(SimMirror);
+  private randomSource: () => () => number = () => this.mirror.rng.stream('director');
 
   // === SIGNALS ===
   readonly lastDecision = signal<WaveConfig | null>(null);
@@ -87,8 +88,8 @@ export class WaveDirector {
   }
 
   /**
-   * Where to get the run's `director` stream. Called once by the facade; the
-   * getter is called again for every plan so a reset is picked up.
+   * Another `director` stream than the mirror's, for specs; the getter is
+   * called again for every plan so a reset is picked up.
    */
   useRandomSource(random: () => () => number): void {
     this.randomSource = random;

@@ -7,7 +7,9 @@ import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
 import { ABILITIES, AbilityId } from '../configs/abilities.config';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { RouteQueriesService } from './route-queries.service';
 import { RefusalHintService, abilityNoRouteText } from './refusal-hint.service';
 
 /**
@@ -22,7 +24,8 @@ import { RefusalHintService, abilityNoRouteText } from './refusal-hint.service';
  * warning where no route cell is in reach. For a beam the ring sits where
  * its sweep starts and a gold band shows the route stretch it would burn
  * along. The click sends command:use-ability with the clicked point; the
- * AbilityManager snaps it the same way and has the last word.
+ * simulation's AbilityManager snaps it the same way and has the last word
+ * (RouteQueriesService previews it).
  */
 @Injectable({ providedIn: 'root' })
 export class AbilityTargetingService {
@@ -31,9 +34,11 @@ export class AbilityTargetingService {
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly mapPlacement = inject(MapPlacementService);
   private readonly refusals = inject(RefusalHintService);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
+  private readonly routes = inject(RouteQueriesService);
 
   private engine: ThreeTilesEngine | null = null;
-  private gameState: GameStateManager | null = null;
   private readonly scratch = new Vector3();
 
   /** Ability being aimed, null outside the targeting mode */
@@ -57,11 +62,10 @@ export class AbilityTargetingService {
     });
   }
 
-  /** Engine for the aiming ring, game state for the snap and the command. Once per location. */
-  initialize(engine: ThreeTilesEngine, gameState: GameStateManager): void {
+  /** Engine for the aiming ring. Once per location. */
+  initialize(engine: ThreeTilesEngine): void {
     this.cancel();
     this.engine = engine;
-    this.gameState = gameState;
   }
 
   /** Arm the targeting mode for `id`, or leave it when it is armed already. */
@@ -75,8 +79,8 @@ export class AbilityTargetingService {
 
   /** Arm the targeting mode, if `id` can fire now, else say why not. One pointer mode at a time. */
   start(id: AbilityId): void {
-    if (!this.gameState) return;
-    const refused = this.gameState.abilityManager.checkUse(id);
+    if (!this.engine) return;
+    const refused = this.mirror.checkUse(id);
     if (refused) {
       this.refusals.ability(id, refused);
       return;
@@ -96,13 +100,12 @@ export class AbilityTargetingService {
   /** Pointer moved over the map: the ring follows, snapped to where the strike would land. */
   hover(lat: number, lon: number, hitPoint: Vector3): void {
     const id = this.targeting();
-    if (!id || !this.engine || !this.gameState) return;
+    if (!id || !this.engine) return;
 
     const radiusM = ABILITIES[id].radiusM;
-    const manager = this.gameState.abilityManager;
     const beam = ABILITIES[id].effect.kind === 'beam';
-    const sweep = beam ? manager.previewSweep(id, { lat, lon }) : null;
-    const snapped = beam ? sweep?.points[0] ?? null : manager.resolveTarget(id, { lat, lon });
+    const sweep = beam ? this.routes.previewSweep(id, { lat, lon }) : null;
+    const snapped = beam ? sweep?.points[0] ?? null : this.routes.resolveAbilityTarget(id, { lat, lon });
     if (snapped) {
       const center = this.engine.sync.geoToLocalSimpleInto(snapped.lat, snapped.lon, snapped.height ?? 0, this.scratch);
       if (sweep) {
@@ -125,13 +128,13 @@ export class AbilityTargetingService {
   /** Left click on the map: fire, or stay in the mode and say why not. */
   click(lat: number, lon: number, height: number): void {
     const id = this.targeting();
-    if (!id || !this.gameState) return;
+    if (!id || !this.engine) return;
 
-    if (!this.gameState.abilityManager.resolveTarget(id, { lat, lon, height })) {
+    if (!this.routes.resolveAbilityTarget(id, { lat, lon, height })) {
       this.warning.set(abilityNoRouteText(id));
       return;
     }
-    this.gameState.getEventBus().emit({
+    this.sim.bus.emit({
       type: 'command:use-ability',
       abilityId: id,
       target: { lat, lon, height },

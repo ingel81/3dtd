@@ -2,39 +2,58 @@
  * Bot World
  *
  * What the bot strategies read from the game besides the snapshot: towers,
- * enemies, spawns and routes, the own hero and abilities, the dice. In the
- * single player game that is the whole game. In coop a bot is one player
- * (docs/COOP_PLAN.md, D6, D7): its own towers, its own lane and the enemies
- * on it, its own gold, and dice of its own, because every client draws the
- * run's `bot` stream into the state hash (C5) and only this client's bot
- * draws here.
+ * enemies, spawns and routes, the own hero and abilities, the dice. The bot
+ * runs on the main thread and reads the mirror of the simulation
+ * (docs/SIM_WORKER.md): shadow towers, enemy views, the statuses the events
+ * carried; spawns and routes are the main thread's. In the single player
+ * game that is the whole game. In coop a bot is one player (docs/COOP_PLAN.md,
+ * D6, D7): its own towers, its own lane and the enemies on it, its own gold,
+ * and dice of its own, seeded from the run seed and the player.
  */
 
-import type { GameStateManager } from '../managers/game-state.manager';
 import type { SpawnPoint } from '../managers/wave.manager';
 import type { Tower } from '../entities/tower.entity';
-import type { Enemy } from '../entities/enemy.entity';
-import type { AbilityManager } from '../managers/ability.manager';
-import type { HeroManager } from '../managers/hero.manager';
+import type { EnemyView } from '../sim/client/views';
+import type { SimMirror } from '../sim/client/mirror/sim-mirror';
+import type { RouteQueriesService } from '../services/route-queries.service';
+import type { AbilityId, AbilityRejectReason } from '../configs/abilities.config';
+import type { HeroStatus } from '../configs/hero.config';
+import type { RouteSweep } from '../utils/route-sweep';
 import type { GeoPosition } from '../models/game.types';
 import type { GameStateSnapshot } from '../director/models/game-state-snapshot';
 import { analyzeDefense, analyzeVulnerabilities } from '../director/defense-analyzer';
 import { mulberry32 } from '../utils/game-rng';
 
-/** The part of the game the strategies read; the GameStateManager is one. */
+/** The part of the game the strategies read. */
 export interface BotWorld {
   readonly rng: { stream(name: 'bot'): () => number };
   readonly towerManager: { getAll(): Tower[] };
-  readonly enemyManager: { getAlive(): Enemy[] };
-  readonly abilityManager: Pick<AbilityManager, 'checkUse' | 'previewSweep'>;
-  readonly heroManager: Pick<HeroManager, 'getStatus' | 'getAnchor'>;
+  readonly enemyManager: { getAlive(): EnemyView[] };
+  readonly abilityManager: {
+    /** Why a use would be refused now (the mirror's ability status), null when it would go through */
+    checkUse(id: AbilityId): AbilityRejectReason | null;
+    /** The route stretch a beam would burn along (RouteQueriesService.previewSweep) */
+    previewSweep(id: AbilityId, target: GeoPosition, lengthM?: number): RouteSweep | null;
+  };
+  readonly heroManager: {
+    getStatus(): HeroStatus;
+    /** The spot he was sent to and holds, null until hired */
+    getAnchor(): GeoPosition | null;
+  };
   readonly gameTimeMs: number;
   getSpawnPoints(): SpawnPoint[];
   getCachedPaths(): Map<string, GeoPosition[]>;
 }
 
-/** Two route starts closer than this, in degrees, are the same spawn (about 1 m) */
-const SAME_POINT_DEG = 1e-5;
+/** What PlayerBotWorld reads: the mirror, the main thread's spawns and routes, the route queries */
+export interface PlayerBotWorldSource {
+  mirror: Pick<SimMirror,
+    'players' | 'localPlayerId' | 'rng' | 'scalars' | 'towers' | 'aliveEnemies' | 'checkUse' | 'heroStatus'
+    | 'heroAnchor' | 'laneSpawnOf' | 'researchOf' | 'heroDefenseProfile' | 'creditsOf' | 'gameTimeMs'>;
+  spawnPoints(): SpawnPoint[];
+  paths(): Map<string, GeoPosition[]>;
+  routes: Pick<RouteQueriesService, 'previewSweep'>;
+}
 
 /**
  * The game as the bot of the player at this client sees it. Read on every
@@ -46,50 +65,61 @@ export class PlayerBotWorld implements BotWorld {
   private coopDice: { seed: number; player: string; next: () => number } | null = null;
   private readonly coopStream = { stream: (_name: 'bot') => this.dice() };
 
-  constructor(private readonly game: GameStateManager) {}
+  constructor(private readonly source: PlayerBotWorldSource) {}
+
+  private get mirror(): PlayerBotWorldSource['mirror'] {
+    return this.source.mirror;
+  }
 
   /** More than one player in the run: a coop game */
   get coop(): boolean {
-    return this.game.players.length > 1;
+    return this.mirror.players.length > 1;
   }
 
+  /** The run's `bot` stream on the main thread (SimMirror.rng), in coop this player's own dice */
   get rng(): { stream(name: 'bot'): () => number } {
-    return this.coop ? this.coopStream : this.game.rng;
+    return this.coop ? this.coopStream : this.mirror.rng;
   }
 
   get towerManager(): { getAll(): Tower[] } {
-    if (!this.coop) return this.game.towerManager;
+    if (!this.coop) return { getAll: () => [...this.mirror.towers()] };
     return { getAll: () => this.ownTowers() };
   }
 
-  get enemyManager(): { getAlive(): Enemy[] } {
-    if (!this.coop) return this.game.enemyManager;
+  get enemyManager(): { getAlive(): EnemyView[] } {
+    if (!this.coop) return { getAlive: () => [...this.mirror.aliveEnemies()] };
     return { getAlive: () => this.enemiesOnOwnLane() };
   }
 
   /** The abilities and the hero of the player at this client, as the UI shows them */
-  get abilityManager(): Pick<AbilityManager, 'checkUse' | 'previewSweep'> {
-    return this.game.abilityManager;
+  get abilityManager(): BotWorld['abilityManager'] {
+    return {
+      checkUse: (id) => this.mirror.checkUse(id),
+      previewSweep: (id, target, lengthM) => this.source.routes.previewSweep(id, target, lengthM),
+    };
   }
 
-  get heroManager(): Pick<HeroManager, 'getStatus' | 'getAnchor'> {
-    return this.game.heroManager;
+  get heroManager(): BotWorld['heroManager'] {
+    return {
+      getStatus: () => this.mirror.heroStatus(),
+      getAnchor: () => this.mirror.heroAnchor(),
+    };
   }
 
   get gameTimeMs(): number {
-    return this.game.gameTimeMs;
+    return this.mirror.gameTimeMs;
   }
 
   /** Coop: the spawn of the own lane only; all spawns otherwise, or when this player has no lane */
   getSpawnPoints(): SpawnPoint[] {
-    const all = this.game.getSpawnPoints();
+    const all = this.source.spawnPoints();
     const lane = this.ownLane();
     return lane === null ? all : all.filter((spawn) => spawn.id === lane);
   }
 
   /** Coop: the route of the own lane only */
   getCachedPaths(): Map<string, GeoPosition[]> {
-    const all = this.game.getCachedPaths();
+    const all = this.source.paths();
     const lane = this.ownLane();
     if (lane === null) return all;
     const path = all.get(lane);
@@ -98,33 +128,27 @@ export class PlayerBotWorld implements BotWorld {
 
   /** The towers of the player at this client */
   ownTowers(): Tower[] {
-    const me = this.game.localPlayerId;
-    return this.game.towerManager.getAll().filter((tower) => tower.ownerId === me);
+    const me = this.mirror.localPlayerId;
+    return this.mirror.towers().filter((tower) => tower.ownerId === me);
   }
 
   /** The spawn id of this player's lane; null outside coop or without a lane */
   private ownLane(): string | null {
     if (!this.coop) return null;
-    return this.game.laneSpawnOf(this.game.localPlayerId);
+    return this.mirror.laneSpawnOf(this.mirror.localPlayerId);
   }
 
-  /** Enemies whose route starts at the own lane's spawn; all of them without a lane */
-  private enemiesOnOwnLane(): Enemy[] {
-    const alive = this.game.enemyManager.getAlive();
+  /** Enemies on the route of the own lane's spawn; all of them without a lane */
+  private enemiesOnOwnLane(): EnemyView[] {
+    const alive = [...this.mirror.aliveEnemies()];
     const lane = this.ownLane();
-    const start = lane === null ? undefined : this.game.getCachedPaths().get(lane)?.[0];
-    if (!start) return alive;
-    return alive.filter((enemy) => {
-      const first = enemy.movement.path[0];
-      return first !== undefined
-        && Math.abs(first.lat - start.lat) < SAME_POINT_DEG
-        && Math.abs(first.lon - start.lon) < SAME_POINT_DEG;
-    });
+    if (lane === null) return alive;
+    return alive.filter((enemy) => enemy.movement.routeId === lane);
   }
 
   private dice(): () => number {
-    const seed = this.game.rng.seed;
-    const player = this.game.localPlayerId;
+    const seed = this.mirror.scalars.seed;
+    const player = this.mirror.localPlayerId;
     if (!this.coopDice || this.coopDice.seed !== seed || this.coopDice.player !== player) {
       this.coopDice = { seed, player, next: mulberry32(seed ^ playerSalt(player)) };
     }
@@ -142,12 +166,12 @@ export class PlayerBotWorld implements BotWorld {
    */
   view(snapshot: GameStateSnapshot): GameStateSnapshot {
     if (!this.coop) return snapshot;
-    const me = this.game.localPlayerId;
+    const me = this.mirror.localPlayerId;
     const towers = this.ownTowers();
-    const research = this.game.researchOf(me);
-    const hero = this.game.heroOf(me).getDefenseProfile();
+    const research = this.mirror.researchOf(me);
+    const hero = this.mirror.heroDefenseProfile(me);
     const defense = analyzeDefense(towers, research.airTargetingUnlocked, hero);
-    const credits = this.game.creditsOf(me);
+    const credits = this.mirror.creditsOf(me);
     return {
       ...snapshot,
       player: { ...snapshot.player, credits },

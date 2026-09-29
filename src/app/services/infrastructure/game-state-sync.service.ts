@@ -1,22 +1,23 @@
 import { Injectable, inject } from '@angular/core';
-import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
+import { SubscriptionBag } from '../../game-engine/game-event-bus';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { runSummary } from '../../run-log/run-summary';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
-import { LOCAL_PLAYER_ID } from '../../managers/game-state/command-log';
 
 /**
- * GameStateSyncService — Bridges GSM (GameStateManager) events to the Store.
+ * GameStateSyncService — Bridges the simulation's events to the Store.
  *
- * The GSM is the authoritative game engine that processes game logic.
- * It emits events via the EventBus when state changes.
- * This service listens to those events and writes the changes to the Store,
- * making the Store the single source of truth for ALL state reads.
+ * The simulation (docs/SIM_WORKER.md) is the authoritative game engine. Its
+ * events reach the main thread's bus (SimClient.bus) as views; this service
+ * listens to them and writes the changes to the Store, making the Store the
+ * single source of truth for ALL state reads.
  *
  * Flow:
- *   GSM (game logic) → EventBus events → GameStateSyncService → Store (signals)
+ *   Simulation → SimClient.bus (views) → GameStateSyncService → Store (signals)
  *   Component/Facade reads → Store (only)
  *
  * Lifecycle:
@@ -29,25 +30,20 @@ export class GameStateSyncService {
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly subs = new SubscriptionBag();
-  /** The player at this client, see initialize() */
-  private localPlayer: () => string = () => LOCAL_PLAYER_ID;
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
   /** The run log the game-over screen reads its numbers from */
   private readonly runLog = inject(RunLogFacade);
 
-  /**
-   * Subscribe to EventBus events and sync state changes to the Store.
-   * Must be called after GameStateManager.initialize() so the EventBus is ready.
-   *
-   * @param gameClock game time in ms (GameStateManager.gameTimeMs), read once
-   *   at game over for the run's duration
-   * @param localPlayer the player at this client (GameStateManager.localPlayerId)
-   */
-  initialize(
-    eventBus: GameEventBus,
-    gameClock: () => number = () => 0,
-    localPlayer: () => string = () => LOCAL_PLAYER_ID,
-  ): void {
-    this.localPlayer = localPlayer;
+  /** The player at this client */
+  private localPlayer(): string {
+    return this.mirror.localPlayerId;
+  }
+
+  /** Subscribe to the simulation's events and sync state changes to the Store. */
+  initialize(): void {
+    const eventBus = this.sim.bus;
+    const gameClock = () => this.mirror.scalars.gameTimeMs;
     // Defensive: clear any prior subscriptions so a future re-init path can't
     // double-subscribe (consistent with combat-effect/hq-damage/game-state).
     this.subs.disposeAll();
@@ -139,24 +135,11 @@ export class GameStateSyncService {
           return next;
         });
       }
-
-      // Clear selection if the sold tower was the selected one
-      const selected = this.store.selectedTower();
-      if (selected && selected.id === event.tower.id) {
-        this.store.selectedTower.set(null);
-      }
-    }));
-
-    this.subs.add(eventBus.onLive('tower:selected', (event) => {
-      this.store.selectedTower.set(event.tower);
+      // The selection of a sold tower ends with it (TowerSelectionService)
     }));
 
     this.subs.add(eventBus.onLive('tower:manned', (event) => {
       if (event.local) this.store.mannedTowerId.set(event.towerId);
-    }));
-
-    this.subs.add(eventBus.onLive('tower:deselected', () => {
-      this.store.selectedTower.set(null);
     }));
 
     // Tower sind mutable Entities: Kills und Upgrades des gewählten Towers
@@ -226,12 +209,12 @@ export class GameStateSyncService {
     // Only this player's research; a coop partner's is theirs (COOP_PLAN D20)
     this.subs.add(eventBus.onLive('research:state-changed', (event) => {
       if (!event.local) return;
-      this.researchStore.activeResearches.set(event.activeResearches);
+      this.researchStore.activeResearches.set([...event.activeResearches]);
       this.researchStore.researchElapsed.set(
         new Map(event.activeResearches.map(a => [a.researchId, a.elapsed])),
       );
       this.researchStore.completedResearches.set(event.completedResearches);
-      this.researchStore.queuedResearches.set(event.queuedResearches);
+      this.researchStore.queuedResearches.set([...event.queuedResearches]);
       this.researchStore.centerLevel.set(event.centerLevel);
       this.researchStore.researchSlots.set(event.maxSlots);
     }));
@@ -245,7 +228,7 @@ export class GameStateSyncService {
     // research:completed bleibt zusätzlich, um Effects auf den Store anzuwenden
     // (DamageMultiplier-Buffs etc.) — `state-changed` deckt nur die Pflicht-Felder ab.
     this.subs.add(eventBus.onLive('research:completed', (event) => {
-      if (event.local) this.researchStore.applyResearchEffects(event.effects);
+      if (event.local) this.researchStore.applyResearchEffects([...event.effects]);
     }));
   }
 

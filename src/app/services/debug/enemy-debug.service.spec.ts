@@ -17,8 +17,8 @@ vi.mock('../../store/debug.store', () => ({ DebugStore: class DebugStore {} }));
 import { EnemyDebugService } from './enemy-debug.service';
 
 /**
- * The enemy debugger removes its enemies through the event bus, so the
- * GameStateManager sees them go and turns the towers to guard once the last
+ * The enemy debugger removes its enemies with commands, so the simulation
+ * sees them go and turns the towers to guard once the last
  * enemy outside a wave is gone.
  */
 describe('EnemyDebugService removal', () => {
@@ -33,12 +33,9 @@ describe('EnemyDebugService removal', () => {
     mockInjections['DebugStore'] = { enemyPlacementMode: signal(false), enemyOverrides: signal({}) };
     emit = vi.fn();
     remove = vi.fn();
-    const gameState = {
-      getEventBus: () => ({ emit, onLive: () => ({ dispose: () => undefined }) }),
-      enemyManager: { remove },
-    };
+    mockInjections['SimClient'] = { bus: { emit, onLive: () => ({ dispose: () => undefined }) } };
     service = new EnemyDebugService();
-    service.initialize(gameState as never, null, signal([]));
+    service.initialize(null, signal([]));
     service.registerDebugEnemy(enemy('a'), 'zombie', 0, 0);
     service.registerDebugEnemy(enemy('b'), 'zombie', 0, 0);
   });
@@ -85,16 +82,14 @@ describe('EnemyDebugService placement', () => {
     };
     emit = vi.fn();
     onRoute = true;
-    const gameState = {
-      getEventBus: () => ({ emit, onLive: () => ({ dispose: () => undefined }) }),
-      getGlobalRouteGrid: () => ({ getCellAt: () => (onRoute ? {} : null) }),
-    };
+    mockInjections['SimClient'] = { bus: { emit, onLive: () => ({ dispose: () => undefined }) } };
+    mockInjections['GlobalRouteGridService'] = { getCellAt: () => (onRoute ? {} : null) };
     const engine = {
       sync: { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }), getOrigin: () => ({ lat: 48, lon: 9, height: 0 }) },
       getTerrainHeightAtGeo: () => null,
     };
     service = new EnemyDebugService();
-    service.initialize(gameState as never, engine as never, signal([{ id: 'spawn-1' }]) as never);
+    service.initialize(engine as never, signal([{ id: 'spawn-1' }]) as never);
   });
 
   it('starts it on the route where the click projects onto it', () => {

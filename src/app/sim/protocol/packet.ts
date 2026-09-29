@@ -178,6 +178,8 @@ export interface SimScalars {
   /** Wave numbers a replay can re-simulate (SimRecorder), newest last */
   replayableWaves: number[];
   towerCount: number;
+  /** HP the abilities of each player took from enemies so far, roster order (CombatEffectService.abilityDamageOf; the run log) */
+  abilityDamage: number[];
   /** The replay while one is on, null for the live game */
   replay: { wave: number; stepInWave: number; lengthInSteps: number | null; divergedAt: number | null; finished: boolean } | null;
   /** The run's seed (GameRng.seed): the main thread's wave source and bot draw their own streams from it */

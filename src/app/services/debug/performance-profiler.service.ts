@@ -1,6 +1,6 @@
 import { Injectable, inject, signal } from '@angular/core';
 import type { ThreeTilesEngine } from '../../three-engine';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { GameStore } from '../../store/game.store';
 import { perfTrace } from '../../utils/perf-trace';
 
@@ -79,7 +79,7 @@ const FRAME_BUDGET_MS = 16.67;
 export class PerformanceProfilerService {
   private readonly gameStore = inject(GameStore);
   private engine: ThreeTilesEngine | null = null;
-  private gameState: GameStateManager | null = null;
+  private readonly mirror = inject(SimMirror);
   // Profiling is opt-in: hooks are only wired while the panel is open. The
   // enemy loop times its phases (move/grid/height) on every 32nd enemy, with
   // a rotating offset, and scales the sums up (EnemyManager.PROFILE_STRIDE).
@@ -110,7 +110,7 @@ export class PerformanceProfilerService {
   /** Sub-steps executed, summed over the same window as `_frameAcc`. */
   private _substepAcc = { total: 0, frames: 0 };
 
-  // Manager timing accumulators (written by GameStateManager every frame)
+  // Manager timing accumulators (accumulateFrameTiming)
   private _towerAcc = { total: 0, frames: 0 };
   private _projectileAcc = { total: 0, frames: 0 };
   private _combatAcc = { total: 0, frames: 0 };
@@ -123,12 +123,11 @@ export class PerformanceProfilerService {
   private _logTimer = 0;
 
   /**
-   * Set engine and game state references.
+   * Set the engine reference.
    * Called after engine initialization.
    */
-  setEngine(engine: ThreeTilesEngine | null, gameState?: GameStateManager): void {
+  setEngine(engine: ThreeTilesEngine | null): void {
     this.engine = engine;
-    if (gameState) this.gameState = gameState;
     this.exposeDebugApi();
   }
 
@@ -198,34 +197,19 @@ export class PerformanceProfilerService {
   }
 
   /**
-   * Wire / unwire the per-frame timing callbacks. Called by the perf panel
-   * on open/close so the hot path carries no timing calls during normal
-   * gameplay.
+   * The perf panel opened or closed. The simulation's timings
+   * (accumulateEnemyTiming, accumulateFrameTiming) come from whoever runs
+   * it; the simulation itself no longer reports into this service
+   * (docs/SIM_WORKER.md).
    */
   setProfilingActive(active: boolean): void {
     if (this.profilingActive === active) return;
     this.profilingActive = active;
-    const gs = this.gameState;
-    if (!gs) return;
-    if (active) {
-      gs.enemyManager.onProfileTiming = (move, grid, height, render, total) =>
-        this.accumulateEnemyTiming(move, grid, height, render, total);
-      // Visual push runs once per frame now, so it reports separately.
-      gs.enemyManager.onPresentTiming = (ms) => {
-        this._enemyAcc.render += ms;
-        this._enemyAcc.total += ms;
-      };
-      gs.setProfiler(this);
-    } else {
-      gs.enemyManager.onProfileTiming = null;
-      gs.enemyManager.onPresentTiming = null;
-      gs.setProfiler(null);
-      this.resetTimings();
-    }
+    if (!active) this.resetTimings();
   }
 
   /**
-   * Called by EnemyManager every frame to accumulate timing data.
+   * The enemies' timing of one sub-step, see setProfilingActive.
    * Costs are negligible (just additions).
    */
   accumulateEnemyTiming(move: number, grid: number, height: number, render: number, total: number): void {
@@ -239,7 +223,7 @@ export class PerformanceProfilerService {
   }
 
   /**
-   * Called by GameStateManager every frame to accumulate subsystem timings.
+   * The subsystems' timings of one frame, see setProfilingActive.
    * Each parameter is the ms spent in that subsystem this frame.
    */
   accumulateFrameTiming(
@@ -272,7 +256,6 @@ export class PerformanceProfilerService {
    */
   collectStats(): PerformanceStats {
     const engine = this.engine;
-    const gs = this.gameState;
     if (!engine) return EMPTY_STATS;
 
     const renderer = engine.getRenderer();
@@ -318,8 +301,8 @@ export class PerformanceProfilerService {
       fps: engine.renderLoop.getFPS(),
       drawCalls: info.render.calls,
       triangles: info.render.triangles,
-      enemies: gs?.enemyManager.getAliveCount() ?? 0,
-      towers: gs?.towerCount() ?? 0,
+      enemies: this.mirror.scalars.enemiesAlive,
+      towers: this.mirror.scalars.towerCount,
       projectiles: engine.projectiles.count,
       geometries: info.memory.geometries,
       textures: info.memory.textures,

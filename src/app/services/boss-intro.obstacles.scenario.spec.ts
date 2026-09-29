@@ -2,7 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Only their DI tokens are needed, as in boss-intro.service.spec.ts
 vi.mock('@angular/cdk/a11y', () => ({ LiveAnnouncer: class LiveAnnouncer {} }));
-vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
+vi.mock('../sim/client/sim-client.service', () => ({ SimClient: class SimClient {} }));
+vi.mock('../sim/client/mirror/sim-mirror', () => ({ SimMirror: class SimMirror {} }));
 vi.mock('../bots/bot-client.service', () => ({ BotClientService: class BotClientService {} }));
 vi.mock('./infrastructure/engine-initialization.service', () => ({
   EngineInitializationService: class EngineInitializationService {},
@@ -31,7 +32,8 @@ import {
 } from 'three';
 import type { TilesRenderer } from '3d-tiles-renderer';
 import { BossIntroService } from './boss-intro.service';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { BotClientService } from '../bots/bot-client.service';
 import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { CameraControlService } from './camera-control.service';
@@ -210,7 +212,8 @@ describe('Boss intro shot, night-2 playtest 366 on a narrow street replayed', ()
     };
     injector = Injector.create({
       providers: [
-        { provide: GameStateManager, useValue: { getEventBus: () => bus, waveNumber: () => 10 } },
+        { provide: SimClient, useValue: { bus } },
+        { provide: SimMirror, useValue: { scalars: { get waveNumber() { return 10; } } } },
         {
           provide: GameStore,
           useValue: { gameSpeed: signal(1), renderingEnabled: signal(true), paused: signal(false), pauseKeepsLoops: signal(false) },

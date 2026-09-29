@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
 import { OnboardingService } from './onboarding.service';
 import { ONBOARDING_KEY, OnboardingStep } from './onboarding';
 import { lockedAbilityStatus } from '../../configs/abilities.config';
@@ -15,7 +15,7 @@ const storeCompleted = (...completed: OnboardingStep[]) =>
   localStorage.setItem(ONBOARDING_KEY, JSON.stringify({ done: false, completed }));
 
 describe('OnboardingService', () => {
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let service: OnboardingService;
 
   const start = () => {
@@ -25,7 +25,7 @@ describe('OnboardingService', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     start();
   });
 
