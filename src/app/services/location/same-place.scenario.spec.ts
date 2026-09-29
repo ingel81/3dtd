@@ -42,7 +42,10 @@ import { UIStore } from '../../store/ui.store';
 import { haversineDistance } from '../../utils/geo-utils';
 import { makeGeoToLocal, fakePortalPreview } from '../../../test/portal-preview-fixture';
 import type { FacadeComponentBridge } from '../facade/tower-defense-facade.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { FavoriteLocation, LocationDialogResult } from '../../models/location.types';
 import type { CorridorBuildResult } from '../world/corridor-build';
@@ -177,12 +180,8 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
     initAirSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirRouteLayerIfEnabled: vi.fn(),
   };
-  const gameState = {
-    reset: vi.fn(),
-    initialize: vi.fn(),
-    initializeGlobalRouteGrid: vi.fn(),
-    getGlobalRouteGrid: () => routeGrid,
-  };
+  /** The main thread's world; where it stands is not what this spec reads */
+  const world = { resetRun: vi.fn(), attach: vi.fn(), buildCells: vi.fn(), setSpawns: vi.fn(), sendToSim: vi.fn() };
   const vizCallbacks: VizCallbacks = {
     initializeTowerPlacement: vi.fn(),
     filterStreetNetworkToRoutes: vi.fn(),
@@ -284,6 +283,10 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
         },
         { provide: MatDialog, useValue: dialog },
         { provide: TowerDefenseStore, useValue: store },
+        { provide: MainWorldService, useValue: world },
+        { provide: GlobalRouteGridService, useValue: { clear: vi.fn() } },
+        { provide: RouteGridVizService, useValue: routeGrid },
+        { provide: PresentationService, useValue: { host: null } },
         { provide: UIStore, useValue: { routesVisible: signal(true), notice: signal(null), mapPlacementMode: signal(null), coopMapLocked: signal(false) } },
         // The real services, as factories: a class provider would need the JIT compiler
         { provide: UrlLocationService, useFactory: () => new UrlLocationService() },
@@ -299,7 +302,7 @@ describe('One place, one set of coordinates (playtest 747 a)', () => {
     coordinator = injector.get(LocationChangeCoordinatorService);
     locationMgmt = injector.get(LocationManagementService);
     mapPlacement = injector.get(MapPlacementService);
-    facade.initialize(bridge as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager, injector);
+    facade.initialize(bridge as unknown as FacadeComponentBridge, injector);
     facade.initializeCoordinator(vizCallbacks);
   });
 
