@@ -15,7 +15,10 @@ class Cdp {
   private readonly calls = new Map<number, (m: Message) => void>();
   private readonly listeners: ((m: Message) => void)[] = [];
 
-  private constructor(private readonly ws: WebSocket) {
+  private readonly ws: WebSocket;
+
+  private constructor(ws: WebSocket) {
+    this.ws = ws;
     ws.addEventListener('message', (ev) => {
       const m = JSON.parse(String(ev.data)) as Message;
       if (m.id !== undefined) {
