@@ -38,6 +38,8 @@ const BROWSER = argument('browser', 'chromium');
 const STEPS = argument('steps', '').split(',').filter(Boolean).map(Number);
 const SPEEDS = argument('speeds', '').split(',').filter(Boolean).map(Number);
 const HIDE = process.argv.includes('--hide-enemies');
+/** Enemies the towers cannot kill in a measurement: the count stays what the step asked for, the towers keep hitting */
+const ENEMY_HP = Number(argument('hp', '1000000'));
 const HEADED = process.argv.includes('--headed');
 const GPU_ARGS = process.platform === 'win32'
   ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist']
@@ -214,7 +216,9 @@ const kinds = ['zombie', 'rat', 'zombie-soldier', 'skeleton', 'spider', 'bat'];
 // 25 slices per route: each slice is a path of its own, whose corner geometry the simulation works out once
 // (getRouteProfile caches by path); one per waypoint cost tens of ms each and seconds in all
 const SLICES = 25;
-const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, i) => Math.floor((i * (path.length - 2)) / SLICES))
+// Starts on the first 70 % of each route only: enemies set down near the HQ reached it within the measurement and left
+// the count
+const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, i) => Math.floor((i * 0.7 * (path.length - 2)) / SLICES))
   .map((k) => path.slice(k).map(([lat, lon]) => ({ lat, lon }))));
 let sliceAt = 0;
 /** Enemies spread over the slices until `target` are alive (the towers kill some between the measurements) */
@@ -225,7 +229,7 @@ async function spawnUpTo(target: number): Promise<void> {
   let spawned = 0;
   for (let i = 0; i < slices.length && spawned < missing; i++, sliceAt++) {
     const count = Math.min(perSlice, missing - spawned);
-    await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: 1.5, health: 4000 });
+    await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: 1.5, health: ENEMY_HP });
     spawned += count;
   }
   // Until most of them are out
@@ -233,10 +237,38 @@ async function spawnUpTo(target: number): Promise<void> {
   while (Date.now() < until) {
     const now = await state(page);
     console.log(`  enemies ${now.enemies} of ${target}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
-    if (now.enemies >= target * 0.9) break;
+    if (now.enemies >= target * 0.97) break;
     await page.waitForTimeout(1000);
   }
 }
+/** Frames per second over `ms` of wall clock */
+const fpsOver = (ms: number) => page.evaluate((span) => new Promise<number>((resolve) => {
+  let frames = 0;
+  const start = performance.now();
+  const tick = (t: number) => {
+    frames++;
+    if (t - start < span) requestAnimationFrame(tick);
+    else resolve((frames * 1000) / (t - start));
+  };
+  requestAnimationFrame(tick);
+}), ms);
+
+/**
+ * Let the scene settle before a measurement: fresh enemies still cost route profiles in the simulation, and the
+ * browser's GC and JIT take a while to calm down. At least 5 s, then 2 s windows until two in a row differ by less
+ * than 5 % in frames per second, 30 s at most.
+ */
+async function settle(): Promise<void> {
+  await page.waitForTimeout(5000);
+  let last = await fpsOver(2000);
+  for (let waited = 7000; waited < 30_000; waited += 2000) {
+    const now = await fpsOver(2000);
+    if (Math.abs(now - last) / Math.max(last, 1) < 0.05) return;
+    last = now;
+  }
+  console.log('  not settled after 30 s, measuring anyway');
+}
+
 const setSpeed = (value: number) => page.evaluate((v) => (globalThis as unknown as { __load: { speed(v: number): void } }).__load.speed(v), value);
 const hideEnemies = (hidden: boolean) =>
   page.evaluate((h) => (globalThis as unknown as { __load: { hideEnemies?(h: boolean): number } }).__load.hideEnemies?.(h) ?? 0, hidden);
@@ -245,10 +277,13 @@ if (STEPS.length > 0) {
   // The curve: each step topped up in the same window, every speed measured there, a line per measurement
   const rows: Record<string, unknown>[] = [];
   for (const target of STEPS) {
-    for (const speed of SPEEDS.length > 0 ? SPEEDS : [SPEED]) {
+    const speeds = SPEEDS.length > 0 ? SPEEDS : [SPEED];
+    for (const speed of speeds) {
       await setSpeed(speed);
+      // Topped up before every measurement, then settled: the debug spawn works out a route profile per slice in the
+      // simulation, and a top-up just before a measurement counted that into it
       await spawnUpTo(target);
-      await page.waitForTimeout(2000);
+      await settle();
       for (const hidden of HIDE ? [false, true] : [false]) {
         if (HIDE) await hideEnemies(hidden);
         const r = await measure(page, SECONDS);
@@ -269,6 +304,7 @@ if (STEPS.length > 0) {
 
 await spawnUpTo(ENEMIES);
 await setSpeed(SPEED);
+await settle();
 if (SHOT) await page.screenshot({ path: SHOT });
 const result = await measure(page, SECONDS);
 if (SHOT && ZOOM) {
