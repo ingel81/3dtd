@@ -242,7 +242,9 @@ Ideen (2026-09-27), nichts entschieden:
       mehr, weil es sich an `enemyManager.onProfileTiming` des Hauptthreads hängte. **Entschieden:** das Panel wird die
       volle Aufschlüsselung: Simulation je Teil im Worker (Bewegung, Raster, Kampf, Paket packen), Hauptthread je Teil
       (Einräumen: Zustand, Effekte, Ereignisse, Darstellung, Zuhörer), Zeichnen. Dieselben Messwerte wie die FPS-Anzeige
-      (E75), die kompakt bleibt.
+      (E75), die kompakt bleibt. Messen darf den Worker nicht bremsen: die Aufschlüsselung je Teil läuft nur, solange das
+      Panel offen ist (dort ist ein kleiner Verlust in Ordnung); die Kennzahlen der FPS-Anzeige kommen aus Werten, die
+      ohnehin anfallen (Tick-Zeit, Sub-Steps, Pakete), ohne zusätzliche Zeitmessung im Hot Path.
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
       **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze
