@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import type { UpgradeId } from '../configs/tower-types.config';
 import type { Tower } from '../entities/tower.entity';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
 import { ResearchStore } from '../store/research.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import {
@@ -10,7 +10,7 @@ import {
   upgradeTrackRefusal,
   type UpgradeRefusal,
 } from '../utils/player-actions';
-import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
+import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { UpgradeHintService } from './upgrade-hint.service';
 import { uiSound } from './ui-sound';
 
@@ -45,12 +45,12 @@ function refusalLabel(refusal: UpgradeRefusal): string {
  * reason nothing was bought rises there and shows in the tower's panel
  * (UpgradeHintService). The bots buy through the facade and get neither.
  *
- * Provided by the game component, because the facade it drives is.
+ * Provided by the game component.
  */
 @Injectable()
 export class TowerUpgradeService {
-  private readonly facade = inject(TowerDefenseFacadeService);
-  private readonly gameState = inject(GameStateManager);
+  private readonly sim = inject(SimClient);
+  private readonly engineInit = inject(EngineInitializationService);
   private readonly store = inject(TowerDefenseStore);
   private readonly researchStore = inject(ResearchStore);
   private readonly upgradeHint = inject(UpgradeHintService);
@@ -91,14 +91,15 @@ export class TowerUpgradeService {
   }
 
   /**
-   * One command per step of the plan; the simulation checks each again. In
-   * coop they act at the tick, so the levels over the tower come from the
-   * plan, not from the tower.
+   * One command per step of the plan (upgradePlan counted the credits and
+   * the levels); the simulation checks each again. They act at the next
+   * tick, so the levels over the tower come from the plan: the shadow tower
+   * still has the ones before.
    */
   private purchase(tower: Tower, plan: readonly UpgradeId[]): boolean {
     const levels = new Map<UpgradeId, number>();
     for (const upgradeId of plan) {
-      if (!this.facade.upgradeTower(tower, upgradeId)) break;
+      this.sim.bus.emit({ type: 'command:upgrade-tower', towerId: tower.id, upgradeId });
       levels.set(upgradeId, (levels.get(upgradeId) ?? 0) + 1);
     }
     if (levels.size === 0) return false;
@@ -107,7 +108,7 @@ export class TowerUpgradeService {
     const name = tower.typeConfig.upgrades.find((u) => u.id === first)?.name ?? first;
     const text = levels.size > 1
       ? `${[...levels.values()].reduce((a, b) => a + b, 0)} UPGRADES`
-      : `${name.toUpperCase()} ${count > 1 ? `+${count}` : `LV ${tower.getUpgradeLevel(first)}`}`;
+      : `${name.toUpperCase()} ${count > 1 ? `+${count}` : `LV ${tower.getUpgradeLevel(first) + 1}`}`;
     this.floatOverTower(tower, text, UPGRADE_TEXT.bought);
     return true;
   }
@@ -119,7 +120,7 @@ export class TowerUpgradeService {
   }
 
   private floatOverTower(tower: Tower, text: string, color: string): void {
-    const effects = this.gameState.tilesEngine?.effects;
+    const effects = this.engineInit.getEngine()?.effects;
     if (!effects) return;
     const { lat, lon, height = 0 } = tower.position;
     const top = height + Math.max(tower.typeConfig.shootHeight, 0) + UPGRADE_TEXT.lift;

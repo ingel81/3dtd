@@ -3,16 +3,16 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
 // Only their DI tokens are needed
-vi.mock('./facade/tower-defense-facade.service', () => ({
-  TowerDefenseFacadeService: class TowerDefenseFacadeService {},
+vi.mock('../sim/client/sim-client.service', () => ({ SimClient: class SimClient {} }));
+vi.mock('./infrastructure/engine-initialization.service', () => ({
+  EngineInitializationService: class EngineInitializationService {},
 }));
-vi.mock('../managers/game-state.manager', () => ({ GameStateManager: class GameStateManager {} }));
 
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { TowerUpgradeService } from './tower-upgrade.service';
 import { UpgradeHintService } from './upgrade-hint.service';
-import { TowerDefenseFacadeService } from './facade/tower-defense-facade.service';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import { EngineInitializationService } from './infrastructure/engine-initialization.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ResearchStore } from '../store/research.store';
 import { requiredUpgradeTier, type UpgradeId } from '../configs/tower-types.config';
@@ -26,8 +26,9 @@ describe('TowerUpgradeService', () => {
   const credits = signal(0);
   const maxUpgradeTier = signal(1);
 
-  /** Level per track; facade.upgradeTower raises it like the real command */
+  /** Level per track of the shadow tower; a command acts at the next tick, so it stays */
   let levels: Record<string, number>;
+  /** command:upgrade-tower on the bus, as (tower, upgradeId) */
   let upgradeTower: ReturnType<typeof vi.fn>;
   let spawnFloatingText: ReturnType<typeof vi.fn>;
   let upgradeHint: UpgradeHintService;
@@ -54,16 +55,16 @@ describe('TowerUpgradeService', () => {
     credits.set(0);
     maxUpgradeTier.set(1);
     levels = {};
-    upgradeTower = vi.fn((_t: unknown, id: UpgradeId) => {
-      levels[id] = (levels[id] ?? 0) + 1;
-      return true;
-    });
+    upgradeTower = vi.fn();
     spawnFloatingText = vi.fn();
     upgradeHint = new UpgradeHintService();
     const injector = Injector.create({
       providers: [
-        { provide: TowerDefenseFacadeService, useValue: { upgradeTower } },
-        { provide: GameStateManager, useValue: { tilesEngine: { effects: { spawnFloatingText } } } },
+        {
+          provide: SimClient,
+          useValue: { bus: { emit: (e: { towerId: string; upgradeId: UpgradeId }) => upgradeTower(e.towerId === tower.id ? tower : e.towerId, e.upgradeId) } },
+        },
+        { provide: EngineInitializationService, useValue: { getEngine: () => ({ effects: { spawnFloatingText } }) } },
         { provide: TowerDefenseStore, useValue: { credits } },
         { provide: ResearchStore, useValue: { maxUpgradeTier } },
         { provide: UpgradeHintService, useValue: upgradeHint },
@@ -119,13 +120,6 @@ describe('TowerUpgradeService', () => {
       expect(upgradeHint.hint()?.refusal).toEqual({ kind: 'maxed' });
     });
 
-    it('answers nothing when the command refuses the purchase', () => {
-      credits.set(1000);
-      upgradeTower.mockReturnValue(false);
-      expect(service.buy(tower, 'damage')).toBe(false);
-      expect(spawnFloatingText).not.toHaveBeenCalled();
-      expect(upgradeHint.hint()).toBeNull();
-    });
   });
 
   describe('several at once (TODO E45)', () => {
