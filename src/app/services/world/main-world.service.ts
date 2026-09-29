@@ -49,11 +49,13 @@ export class MainWorldService {
   /**
    * A new run on a place that is about to change (a move, another location,
    * a DevWorld): the simulation drops its world and pauses until the new one
-   * is sent (sendToSim), and starts a fresh run; its game:reset clears the
-   * mirror and the show.
+   * is sent (sendToSim), and starts a fresh run. The old run goes from the
+   * main thread at once (SimClient.newRun: mirror, show, stores), not only
+   * with the new world's first packet.
    */
   resetRun(): void {
     if (!this.sim.started) return;
+    this.sim.newRun();
     this.sim.unloadWorld();
     void this.sim.rpc('reset');
   }

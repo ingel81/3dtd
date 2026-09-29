@@ -124,10 +124,28 @@ export class PresentationHost implements SimPresenterApi {
     this.audio.update(gameTimeDeltaMs);
   }
 
+  /**
+   * Everything of the simulation's run off the field at once (a new run, a
+   * new place, the worker restarted): the renderers the ops fill, what the
+   * presenter keeps, the loops and the show. The clear ops the simulation
+   * sends with its own reset find nothing left.
+   */
   clear(): void {
     this.frame.clear();
     this.flames.clear();
-    this.audio.clearAbilitySounds();
+    const engine = this.engine;
+    engine.enemies.clear();
+    engine.oozes.clear();
+    engine.projectiles.clear();
+    engine.trailStreaks.clear();
+    engine.flameBeams.clear();
+    engine.tentacles.clear();
+    engine.plinths.clear();
+    engine.towerBadges.clear();
+    engine.searchlights.clear();
+    engine.towers.clear();
+    engine.effects.stopAllTowerFires();
+    this.clearShow();
   }
 
   // ── What the facades call ──
