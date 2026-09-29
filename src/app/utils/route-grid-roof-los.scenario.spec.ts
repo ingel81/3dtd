@@ -71,9 +71,10 @@ describe('A cell under an eave in __corridor (playtest 567, orange cells left ou
       getCamera: () => ({ position: { x: 20, y: 60, z: -40 } }),
       terrain: { raycastColumnSample: street, raycastLineOfSight: () => false, inspectColumn: () => null },
     };
-    const towerManager = { getSelected: () => TOWER, getById: () => TOWER, getSelectionViz: () => null };
     corridor = new CorridorConsole({
-      gameState: () => ({ towerManager, getGlobalRouteGrid: () => ({ getGrid: () => grid }) }),
+      grid: { getGrid: () => grid },
+      mirror: { tower: () => TOWER },
+      selection: { selectedId: TOWER.id, getViz: () => null },
       engineInit: { getEngine: () => engine },
       inputHandler: { armPick: (callback: (hit: { x: number; y: number; z: number }) => void) => { picked = callback; } },
       pathRoute: { explainCorridorAt: () => null, routeLineLift: () => 1 },

@@ -37,7 +37,7 @@ describe('injector scope', () => {
   const scoped = componentScoped();
 
   it('finds the component-scoped services', () => {
-    expect(scoped).toContain('GameStateManager');
+    expect(scoped).toContain('TowerDefenseFacadeService');
     expect(scoped).toContain('WaveDirector');
   });
 

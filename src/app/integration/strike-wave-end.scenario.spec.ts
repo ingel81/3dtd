@@ -5,11 +5,13 @@
  * auto-start of the next wave counts only from then on.
  *
  * Through the real GameStateManager sub-step loop and the real
- * GameLoopFacadeService auto-start ("auto 10s", ecbf9a71) on its bus, with
+ * GameLoopFacadeService auto-start ("auto 10s", ecbf9a71) on the main bus, with
  * the harness of ability-strike.spec.ts: only the services around the loop
  * are stubbed, the route grid's radius query is a plain distance filter.
  * The facade's per-frame hook (tickAutoWave) runs after every frame, as in
- * the game; its startWave is a spy, so the next wave is only counted.
+ * the game; its startWave is a spy, so the next wave is only counted. The
+ * simulation's events reach the main bus once per frame and the mirror shows
+ * the frame's game time, as the SimClient delivers a packet.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
@@ -48,6 +50,7 @@ import { GameLoopFacadeService } from '../services/facade/game-loop-facade.servi
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { DamageApplicationService } from '../services/combat/damage-application.service';
 import { GameObject } from '../core/game-object';
+import { createMainEventBus, type ViewEvent } from '../sim/client/view-events';
 import { ABILITIES } from '../configs/abilities.config';
 import { AUTO_WAVE_DELAY_MS } from '../utils/auto-wave-countdown';
 import { geoDistanceFast } from '../utils/geo-utils';
@@ -55,8 +58,6 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
 import type { FacadeComponentBridge } from '../services/facade/tower-defense-facade.service';
-
-/** The engine the loop gets, as in ability-loop.scenario.spec.ts */
 
 const NUKE = ABILITIES['nuclear-strike'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -112,11 +113,24 @@ function createGame() {
     effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],
   });
 
+  // The main thread's side: the simulation's events of a frame on the main
+  // bus after the frame, the mirror at the frame's game time
+  const mainBus = createMainEventBus();
+  const pending: ViewEvent[] = [];
+  gsm.getEventBus().onAny((event) => pending.push(event as unknown as ViewEvent));
+  const scalars = { gameTimeMs: gsm.gameTimeMs };
+  const deliver = () => {
+    scalars.gameTimeMs = gsm.gameTimeMs;
+    for (const event of pending.splice(0)) mainBus.emit(event);
+  };
+  mockServices['SimClient'] = withAutoStubs({ bus: mainBus, started: true });
+  mockServices['SimMirror'] = withAutoStubs({ scalars });
+
   const facade = new GameLoopFacadeService();
-  facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gsm);
+  facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
   facade.subscribeToEventBus({ onGameOverExtra: () => undefined });
   const startWave = vi.spyOn(facade, 'startWave').mockImplementation(() => undefined);
-  return { gsm, facade, store, startWave, bus: gsm.getEventBus() };
+  return { gsm, facade, store, startWave, deliver, bus: gsm.getEventBus() };
 }
 
 /** A zombie `metresBeforeHq` before the HQ, walking at its own speed */
@@ -139,7 +153,7 @@ describe('A strike behind the last zombie of a small wave, playtest 121 (night 1
 
   it('keeps the wave running until the explosion, the auto-start counts from there', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
-    const { gsm, facade, store, startWave, bus } = createGame();
+    const { gsm, facade, store, startWave, deliver, bus } = createGame();
 
     // Sub-step (1-based) in which each thing happened, -1 until it did. The
     // handlers run inside a sub-step, before its per-step hook counts it.
@@ -170,6 +184,7 @@ describe('A strike behind the last zombie of a small wave, playtest 121 (night 1
         step++;
         phases.push(gsm.waveManager.phase());
       });
+      deliver();
       facade.tickAutoWave();
       countdown[step] = store.autoWaveSecondsLeft();
     };
