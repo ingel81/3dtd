@@ -216,6 +216,25 @@ export class Tower extends GameObject {
     this.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
   }
 
+  /**
+   * A shadow tower of the main thread (sim/client/mirror): the simulation's
+   * tower `id`, built without touching the id counter, never simulated.
+   * `aim` keeps the object of a shadow it replaces (the tower renderer holds it).
+   */
+  static shadow(
+    id: string,
+    position: GeoPosition,
+    typeId: TowerTypeId,
+    customRotation: number,
+    plinthHeight: number,
+    plinthOverhang: readonly number[],
+    aim?: TowerAim,
+  ): Tower {
+    const tower = GameObject.withId(id, () => new Tower(position, typeId, customRotation, plinthHeight, plinthOverhang));
+    if (aim) (tower as unknown as { aim: TowerAim }).aim = aim;
+    return tower;
+  }
+
   get transform(): TransformComponent {
     return this._transform;
   }

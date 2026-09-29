@@ -49,6 +49,8 @@ export interface WormGroupRef {
   $w: number;
   size: number;
   remaining: number;
+  /** EnemyTypeId of the chained type (WormGroup.type.id) */
+  type: string;
 }
 
 /** An event as it crossed: `type` plus the payload with references; `live`/`show` false when the bus had them muted. */
