@@ -340,7 +340,7 @@ export class GameCommandsHandler {
     // A tower's line of sight from the main thread's GPU (the coop host's
     // for every client), at its boundary (TowerLos)
     this.on('command:los-mask', (event) => {
-      this.gsm.applyLosMask(event.towerId, event.mask);
+      this.gsm.applyLosMask(event.towerId, event.mask, event.generation);
     });
 
     this.on('command:leave-game', () => {

@@ -58,8 +58,14 @@ export interface SimSnapshot {
   mannedByPlayer?: [string, string][];
   /** Towers waiting for their line of sight retrofit, oldest first; empty since the worker split (awaitingLos) */
   losQueue: string[];
-  /** [tower id, reason] of the towers waiting for their line of sight, oldest first (TowerLos); absent before the worker split */
-  awaitingLos?: [string, LosResolveReason][];
+  /**
+   * [tower id, reason, generation] of the towers waiting for their line of
+   * sight, oldest first (TowerLos); absent before the worker split, without
+   * the generation before generations
+   */
+  awaitingLos?: [string, LosResolveReason, number?][];
+  /** TowerLos: generation of the next request; absent before generations */
+  losGeneration?: number;
 }
 
 export interface SavedTower {

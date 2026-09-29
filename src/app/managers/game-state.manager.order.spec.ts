@@ -572,8 +572,9 @@ describe('GameStateManager order of operations (characterization)', () => {
 
       expect(log).toEqual([
         'event:debug:max-upgrade-all-towers',
-        // Still waiting for its first sight: that answer covers the new range
+        // Still waiting for its first sight: it asks again with the new range
         'los.recompute',
+        'event:tower:los-needed',
         'sink.towers.updateRangeIndicator',
         'tower.refreshGuardHeading',
         'combat.turnToGuardHeading',

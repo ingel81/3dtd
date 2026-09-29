@@ -71,8 +71,9 @@ describe('TowerLosRegistry', () => {
     frame({ towerStates: [towerDto(t)] });
     return t;
   };
+  let generation = 0;
   const needed = (t: Tower, reason: 'place' | 'upgrade' | 'retrofit' = 'place', range = t.combat.range) =>
-    bus.emit({ type: 'tower:los-needed', towerId: t.id, reason, range, canTargetGround: true, canTargetAir: true });
+    bus.emit({ type: 'tower:los-needed', towerId: t.id, reason, generation: ++generation, range, canTargetGround: true, canTargetAir: true });
 
   beforeEach(() => {
     grid = {
@@ -151,6 +152,8 @@ describe('TowerLosRegistry', () => {
       towerId: t.id,
       reason: 'place',
       mask: losMaskToJson(maskOf(TOWER_TYPES.archer.range, true, true)),
+      // The request's generation back, so only the answer to the latest applies (TowerLos)
+      generation,
     }]);
     expect(mirror.tower(t.id)!.visibleCells).toHaveLength(1);
     expect(registry.pendingTowerIds()).toEqual([]);

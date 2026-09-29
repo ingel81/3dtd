@@ -7,6 +7,12 @@ import type { LosMask } from '../../utils/los-mask';
 import { TOWER_TYPES, type TowerTypeId } from '../../configs/tower-types.config';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 
+/** Why a tower waits and the generation of its latest request */
+export interface LosAwait {
+  reason: LosResolveReason;
+  generation: number;
+}
+
 /**
  * The towers' line of sight in the simulation, as request and answer
  * (docs/SIM_WORKER.md, "Sichtlinien"). The simulation renders nothing: a
@@ -17,6 +23,14 @@ import { canTargetAirEffective } from '../../entities/tower-targeting.util';
  * (applyMask). A tower placed without its mask does not fire; an upgraded
  * one keeps its old answers until the new ones come.
  *
+ * Every request carries a generation and the answer brings it back: a
+ * second need while one waits (a range upgrade or an air retrofit before
+ * the first answer came) asks again with a new generation, and only the
+ * answer to the latest applies. The generations are part of the
+ * simulation's state (snapshots), so every coop client and a re-simulation
+ * count alike; a logged mask without one (a log from before) answers what
+ * waits.
+ *
  * Every applied mask goes out as `tower:los-resolved` and into the command
  * log with its boundary (CommandLog.recordLos). A re-simulation plays the
  * logged `command:los-mask` again; the log's `los:resolved` entries apply a
@@ -25,8 +39,10 @@ import { canTargetAirEffective } from '../../entities/tower-targeting.util';
  * placed the tower, plays on.
  */
 export class TowerLos {
-  /** Towers waiting for their mask, oldest first, with why */
-  private readonly awaiting = new Map<Tower, LosResolveReason>();
+  /** Towers waiting for their mask, oldest first, with why and the generation asked for */
+  private readonly awaiting = new Map<Tower, LosAwait>();
+  /** Generation of the next request */
+  private nextGeneration = 1;
 
   constructor(
     private readonly grid: GlobalRouteGridService,
@@ -50,43 +66,63 @@ export class TowerLos {
   }
 
   private request(tower: Tower, reason: LosResolveReason): void {
-    // A second need while one waits: the answer to come covers it (the main
-    // thread renders the tower as it stands when it gets to it)
-    if (this.awaiting.has(tower)) return;
-    this.awaiting.set(tower, reason);
-    this.announce(tower, reason);
+    // A second need while one waits asks again: the pending answer was
+    // rendered for the tower as it stood then (range, air). A tower that
+    // never had its sight still needs all of it (place).
+    const waiting = this.awaiting.get(tower);
+    const entry: LosAwait = {
+      reason: waiting?.reason === 'place' ? 'place' : reason,
+      generation: this.nextGeneration++,
+    };
+    // In place, so the order stays that of the first request
+    if (waiting) Object.assign(waiting, entry);
+    else this.awaiting.set(tower, entry);
+    this.announce(tower, entry);
   }
 
   /**
-   * `tower:los-needed` with what the main thread renders: the range (a
-   * placed tower's base range, else its range now) and the layers it may
+   * `tower:los-needed` with what the main thread renders: the range the
+   * tower has now (a placed one's is its base range) and the layers it may
    * target, air as its owner's research has it now.
    */
-  private announce(tower: Tower, reason: LosResolveReason): void {
+  private announce(tower: Tower, { reason, generation }: LosAwait): void {
     const typeId = tower.typeConfig.id as TowerTypeId;
     const config = TOWER_TYPES[typeId];
     this.eventBus.emit({
       type: 'tower:los-needed',
       towerId: tower.id,
       reason,
-      range: reason === 'place' ? config.range : tower.combat.range,
+      generation,
+      range: tower.combat.range,
       canTargetGround: config.canTargetGround ?? true,
       canTargetAir: canTargetAirEffective(typeId, this.airTargetingFor(tower.ownerId)),
     });
   }
 
   /**
+   * Ask again for every tower still waiting, with the same generations: the
+   * live state back after a replay, whose restore the main thread did not
+   * hear (the live listeners were muted).
+   */
+  announceAwaiting(): void {
+    for (const [tower, entry] of this.awaiting) this.announce(tower, entry);
+  }
+
+  /**
    * The mask for a waiting tower (command:los-mask): its cells from now on,
    * announced as tower:los-resolved. A tower that waits for nothing takes
-   * nothing (a second answer, one for a tower sold since).
+   * nothing (a second answer, one for a tower sold since), nor does one that
+   * asked again since (`generation` of an older request). A mask without a
+   * generation (a log from before generations) answers what waits.
    */
-  applyMask(tower: Tower, mask: LosMask): boolean {
-    const reason = this.awaiting.get(tower);
-    if (reason === undefined) return false;
+  applyMask(tower: Tower, mask: LosMask, generation?: number): boolean {
+    const entry = this.awaiting.get(tower);
+    if (entry === undefined) return false;
+    if (generation !== undefined && generation !== entry.generation) return false;
     this.awaiting.delete(tower);
     this.grid.unregisterTower(tower.id);
     this.registerFromMask(tower, mask);
-    this.eventBus.emit({ type: 'tower:los-resolved', towerId: tower.id, mask, reason });
+    this.eventBus.emit({ type: 'tower:los-resolved', towerId: tower.id, mask, reason: entry.reason });
     return true;
   }
 
@@ -127,22 +163,35 @@ export class TowerLos {
     return this.awaiting.has(tower);
   }
 
-  /** The waiting towers with their reason, oldest first (snapshots) */
-  awaitingEntries(): [string, LosResolveReason][] {
-    return [...this.awaiting].map(([tower, reason]) => [tower.id, reason]);
+  /** The waiting towers with their reason and generation, oldest first (snapshots) */
+  awaitingEntries(): [string, LosResolveReason, number][] {
+    return [...this.awaiting].map(([tower, { reason, generation }]) => [tower.id, reason, generation]);
+  }
+
+  /** Generation of the next request (snapshots) */
+  get generation(): number {
+    return this.nextGeneration;
   }
 
   /**
-   * Put the waiting towers back, oldest first (a snapshot restore). A live
-   * restore asks for them again: a request the main thread had in hand
-   * belonged to the state before. A replay's restore asks nothing, its masks
-   * come from the log.
+   * Put the waiting towers back, oldest first, and the generation counter (a
+   * snapshot restore). An entry without a generation (a snapshot from before
+   * generations) gets a new one. A live restore asks for them again with the
+   * same generations, so a coop client that restores the host's state takes
+   * the host's answers. A replay's restore asks nothing, its masks come from
+   * the log.
    */
-  restoreAwaiting(entries: readonly (readonly [Tower, LosResolveReason])[], announce: boolean): void {
+  restoreAwaiting(
+    entries: readonly (readonly [Tower, LosResolveReason, number?])[],
+    nextGeneration: number | undefined,
+    announce: boolean,
+  ): void {
     this.awaiting.clear();
-    for (const [tower, reason] of entries) {
-      this.awaiting.set(tower, reason);
-      if (announce) this.announce(tower, reason);
+    if (nextGeneration !== undefined) this.nextGeneration = nextGeneration;
+    for (const [tower, reason, generation] of entries) {
+      const entry: LosAwait = { reason, generation: generation ?? this.nextGeneration++ };
+      this.awaiting.set(tower, entry);
+      if (announce) this.announce(tower, entry);
     }
   }
 }

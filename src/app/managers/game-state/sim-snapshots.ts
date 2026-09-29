@@ -119,6 +119,7 @@ export class SimSnapshots {
       mannedByPlayer: [...w.towerLifecycle.mannedTowers()].map(([playerId, tower]) => [playerId, tower.id]),
       losQueue: [],
       awaitingLos: w.towerLos.awaitingEntries(),
+      losGeneration: w.towerLos.generation,
     };
   }
 
@@ -183,15 +184,15 @@ export class SimSnapshots {
     }));
     // Towers waiting for their sight; `losQueue` of a snapshot from before
     // the worker split held the air retrofits still to render
-    const awaiting: [Tower, LosResolveReason][] = [];
-    for (const [id, why] of [
+    const awaiting: [Tower, LosResolveReason, number?][] = [];
+    for (const [id, why, generation] of [
       ...(snapshot.awaitingLos ?? []),
       ...snapshot.losQueue.map((id): [string, LosResolveReason] => [id, 'retrofit']),
     ]) {
       const tower = w.towerManager.getById(id);
-      if (tower) awaiting.push([tower, why]);
+      if (tower) awaiting.push([tower, why, generation]);
     }
-    w.towerLos.restoreAwaiting(awaiting, reason === 'live');
+    w.towerLos.restoreAwaiting(awaiting, snapshot.losGeneration, reason === 'live');
 
     w.creditsLedger.restore(snapshot.accounts ?? [[w.creditsLedger.players[0], snapshot.credits]]);
     w.healthLedger.restore(snapshot.baseHealth);
@@ -296,7 +297,7 @@ export class SimSnapshots {
       w.towerLos.restoreAwaiting(wave.awaitingLos.flatMap(([towerId, why]) => {
         const tower = w.towerManager.getById(towerId);
         return tower ? [[tower, why] as const] : [];
-      }), reason === 'live');
+      }), undefined, reason === 'live');
     }
     for (const event of wave.deferred) w.eventBus.emitDeferred(event as never);
     GameObject.setIdCounter(snapshot.base.idCounter);
