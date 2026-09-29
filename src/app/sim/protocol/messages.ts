@@ -51,6 +51,12 @@ export interface SimTickInput {
   /** In the order they were given; they act at the boundary before this frame's first sub-step */
   commands: QueuedCommand[];
   lockstep: LockstepDelivery | null;
+  /**
+   * While a replay is on (rpc replayEnter): play it at `speed` times the
+   * frame's wall time (capped like the game clock) instead of the live game;
+   * `playing` false holds it. Null for the live game.
+   */
+  replay: { playing: boolean; speed: number } | null;
 }
 
 /** What the simulation sends besides frames. */
@@ -97,9 +103,15 @@ export interface SimRpc {
   restoreWaveSnapshot(snapshot: unknown, reason: 'replay' | 'live'): void;
   replayFile(head: { configHash: string; gameVersion: string; commit: string }): string;
   loadReplayFile(text: string, here: { configHash: string; gameVersion: string }): { refusal: string | null; note: string | null; waves: number[] };
-  replayEnter(wave: number): { lengthInSteps: number | null } | null;
-  replayStep(steps: number): { stepInWave: number; finished: boolean; divergedAt: number | null };
-  replaySeek(stepInWave: number): { stepInWave: number };
+  /**
+   * Keep the live state, put the simulation at the wave's start in replay
+   * mode. `file`: a replay file's text read before (loadReplayFile) instead
+   * of the run's own record. Null when the wave cannot be re-simulated.
+   */
+  replayEnter(wave: number, fromFile: boolean): { lengthInSteps: number | null } | null;
+  /** Jump to `stepInWave` without the show (VFX, sounds muted), forward or from the start */
+  replaySeek(stepInWave: number): void;
+  /** Give the live game back as it was, leave replay mode */
   replayExit(): void;
   commandLog(): unknown[];
 }

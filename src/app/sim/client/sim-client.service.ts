@@ -41,6 +41,8 @@ export class SimClient {
   private pendingPackets: SimFramePacket[] = [];
   private commands: QueuedCommand[] = [];
   private lockstep: LockstepLink | null = null;
+  /** See SimTickInput.replay; set by the replay UI (ReplayService) */
+  replay: { playing: boolean; speed: number } | null = null;
   /** Last relay tick handed to the simulation */
   private deliveredTick = -1;
   /** Game time of the last applied packet, for the presenter's advance() */
@@ -165,6 +167,7 @@ export class SimClient {
       renderingEnabled,
       commands,
       lockstep: this.lockstepDelivery(),
+      replay: this.replay,
     });
     // The same thread answers at once
     this.applyPending();
