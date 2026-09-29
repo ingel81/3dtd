@@ -156,7 +156,6 @@ export class GameLoopFacadeService {
       },
       state: () => ({
         enemies: this.mirror.scalars.enemiesAlive,
-        pending: this.mirror.scalars.pendingSpawns,
         towers: this.mirror.scalars.towerCount,
         phase: this.mirror.scalars.phase,
         gameTimeMs: this.mirror.scalars.gameTimeMs,

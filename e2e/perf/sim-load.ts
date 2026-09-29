@@ -61,8 +61,6 @@ interface LoadState {
   phase: string;
   gameTimeMs: number;
   paths: [number, number][][];
-  /** Enemies spawned but not out of their portal yet (absent in the build without it) */
-  pending?: number;
   /** The worker build: the simulation's time for its last tick */
   tickMs?: number;
   /** The worker build: main-thread ms of the last packet's apply, by part (SimClient.applyTimes) */
@@ -258,13 +256,14 @@ const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, 
   .map((k) => path.slice(k).map(([lat, lon]) => ({ lat, lon }))));
 let sliceAt = 0;
 /**
- * Enemies spread over the slices until `target` are alive. The debug spawn lines them up at each slice's start and
- * lets them out one by one, so they count once they are out: the runner waits until none waits any more. Enemies that
- * reached the HQ during a long fill are topped up in another round, up to 4 rounds.
+ * Enemies spread over the slices until `target` are alive. The simulation takes a round's spawns in one tick, which
+ * at thousands of enemies takes seconds (a route profile per slice), so the runner waits until the count reached what
+ * it spawned. Enemies that reached the HQ during a long fill are topped up in another round, up to 4 rounds.
  */
 async function spawnUpTo(target: number): Promise<void> {
   for (let round = 0; round < 4; round++) {
-    const missing = target - (await state(page)).enemies;
+    const before = (await state(page)).enemies;
+    const missing = target - before;
     if (missing <= target * 0.005) return;
     const perSlice = Math.ceil(missing / slices.length);
     let spawned = 0;
@@ -273,13 +272,12 @@ async function spawnUpTo(target: number): Promise<void> {
       await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: 1.5, health: ENEMY_HP });
       spawned += count;
     }
-    // Until the line at the portals is empty (the build without `pending` counts only the ones out)
     const until = Date.now() + 180_000;
     while (Date.now() < until) {
       await page.waitForTimeout(1000);
       const now = await state(page);
-      console.log(`  enemies ${now.enemies} of ${target}, waiting ${now.pending ?? '?'}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
-      if (now.pending === 0 || (now.pending === undefined && now.enemies >= target * 0.97)) break;
+      console.log(`  enemies ${now.enemies} of ${target}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
+      if (now.enemies >= before + spawned * 0.98) break;
     }
   }
 }
