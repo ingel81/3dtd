@@ -135,6 +135,26 @@ describe('SimMirror', () => {
       expect(mirror.enemy('enemy-5')).toBeNull();
     });
 
+    it('shows an event the numbers of its moment, and those of the table after the events', () => {
+      const bus = createMainEventBus();
+      const hp: number[] = [];
+      bus.on('enemy:spawned', (e) => hp.push(e.enemy.health.hp));
+      mirror.applyState(packet({ enemies: [{ num: 5, type: 'zombie', lat: 48.2, hp: 80, route: 0 }] }));
+
+      // The event was emitted sub-steps before the packet's end
+      feed(mirror, bus, packet({
+        enemies: [{ num: 5, type: 'zombie', lat: 48.3, hp: 40, route: 1, progress: 0.5 }],
+        events: [{ type: 'enemy:spawned', payload: { enemy: ref(5, { lat: 48.25, hp: 60, route: 0, pr: 0.25 }) } }],
+      }));
+
+      expect(hp).toEqual([60]);
+      const view = mirror.enemy('enemy-5')!;
+      expect(view.health.hp).toBe(40);
+      expect(view.position.lat).toBe(48.3);
+      expect(view.movement.getPathProgress()).toBe(0.5);
+      expect(view.movement.routeId).toBe('south');
+    });
+
     it('builds a view from a table row it has no ref for', () => {
       mirror.applyState(packet({ enemies: [{ num: 9, type: 'spider' }] }));
       expect(mirror.enemy('enemy-9')?.typeConfig.id).toBe('spider');

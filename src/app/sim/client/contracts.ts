@@ -7,7 +7,8 @@
  *   presenter.applyOps(packet.ops)        renderer calls
  *   for each event: bus.emit(mirror.importEvent(event))   (live/show flags set on the bus around it)
  *   presenter.present(packet)             tables to the renderers, when packet.presented
- *   mirror.afterFrame(packet)             per-frame numbers other readers poll (tower aims already set in applyState)
+ *   mirror.afterFrame(packet)             per-frame numbers other readers poll (tower aims already set in applyState);
+ *                                         enemy views an event set to its moment get their table row back
  */
 import type { SimFramePacket, SimScalars } from '../protocol/packet';
 import type { ExportedEvent } from '../protocol/events';

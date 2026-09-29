@@ -110,6 +110,8 @@ export class SimMirror implements SimMirrorApi {
   private readonly goneEnemies = new Map<number, EnemyView>();
   private frameStamp = 0;
   private readonly seen = new Map<number, number>();
+  /** Views an event reference set to the numbers of its moment, given back their row in afterFrame */
+  private readonly touched: EnemyView[] = [];
 
   private readonly wormMap = new Map<number, WormGroupView>();
   private readonly projectileMap = new Map<number, ProjectileView>();
@@ -170,8 +172,17 @@ export class SimMirror implements SimMirrorApi {
     return out as ViewEvent;
   }
 
-  afterFrame(_packet: SimFramePacket): void {
+  afterFrame(packet: SimFramePacket): void {
     this.eventTime = null;
+    // The events are handed on: whoever reads a view now (frame listeners,
+    // the UI) reads the end of the packet, as the table has it
+    const touched = this.touched;
+    if (touched.length > 0) {
+      const data = packet.enemies.data;
+      for (const view of touched) if (view.row >= 0) this.applyEnemyRow(view, data, view.row * ENEMY_STRIDE);
+      touched.length = 0;
+      this.aliveList = null;
+    }
     this.goneTowers.clear();
     this.goneEnemies.clear();
     // A projectile view lives for the events of its packet
@@ -191,6 +202,7 @@ export class SimMirror implements SimMirrorApi {
       view.active = false;
     }
     this.enemyMap.clear();
+    this.touched.length = 0;
     this.enemyList = [];
     this.aliveList = null;
     this.goneEnemies.clear();
@@ -360,29 +372,12 @@ export class SimMirror implements SimMirrorApi {
         changed = true;
       }
       this.seen.set(num, stamp);
-      const flags = data[o + E_FLAGS];
-      view.flags = flags;
-      view.alive = (flags & EF_ALIVE) !== 0;
-      view.active = (flags & EF_ACTIVE) !== 0;
-      view.hasBody = (flags & EF_BODY) !== 0;
-      view.position.lat = data[o + E_LAT];
-      view.position.lon = data[o + E_LON];
-      view.transform.terrainHeight = data[o + E_TERRAIN];
-      view.heightOffset = data[o + E_HOFF];
-      view.position.height = view.transform.terrainHeight + view.heightOffset;
-      view.transform.rotation = data[o + E_ROT];
-      view.health.hp = data[o + E_HP];
-      view.health.maxHp = data[o + E_MAXHP];
-      view.animSpeed = data[o + E_ANIM_SPEED];
-      view.movement.progress = data[o + E_PROGRESS];
-      view.movement.distanceAlongPath = data[o + E_DIST];
-      view.movement.effectiveSpeed = data[o + E_EFF_SPEED];
-      view.movement.paused = (flags & EF_MOVING) === 0;
-      const route = data[o + E_ROUTE];
-      if (this.routeIndexOf(view) !== route) this.setRoute(view, route);
+      view.row = i;
+      this.applyEnemyRow(view, data, o);
     }
     for (const [num, view] of this.enemyMap) {
       if (this.seen.get(num) === stamp) continue;
+      view.row = -1;
       view.alive = false;
       view.active = false;
       this.enemyMap.delete(num);
@@ -392,6 +387,30 @@ export class SimMirror implements SimMirrorApi {
     }
     if (changed) this.enemyList = [...this.enemyMap.values()];
     this.aliveList = null;
+  }
+
+  /** The numbers of `view`'s row at `o` in the enemy table */
+  private applyEnemyRow(view: EnemyView, data: SimFramePacket['enemies']['data'], o: number): void {
+    const flags = data[o + E_FLAGS];
+    view.flags = flags;
+    view.alive = (flags & EF_ALIVE) !== 0;
+    view.active = (flags & EF_ACTIVE) !== 0;
+    view.hasBody = (flags & EF_BODY) !== 0;
+    view.position.lat = data[o + E_LAT];
+    view.position.lon = data[o + E_LON];
+    view.transform.terrainHeight = data[o + E_TERRAIN];
+    view.heightOffset = data[o + E_HOFF];
+    view.position.height = view.transform.terrainHeight + view.heightOffset;
+    view.transform.rotation = data[o + E_ROT];
+    view.health.hp = data[o + E_HP];
+    view.health.maxHp = data[o + E_MAXHP];
+    view.animSpeed = data[o + E_ANIM_SPEED];
+    view.movement.progress = data[o + E_PROGRESS];
+    view.movement.distanceAlongPath = data[o + E_DIST];
+    view.movement.effectiveSpeed = data[o + E_EFF_SPEED];
+    view.movement.paused = (flags & EF_MOVING) === 0;
+    const route = data[o + E_ROUTE];
+    if (this.routeIndexOf(view) !== route) this.setRoute(view, route);
   }
 
   private createEnemy(num: number, type: EnemyTypeConfig): EnemyView {
@@ -487,6 +506,7 @@ export class SimMirror implements SimMirrorApi {
     if (ref.pr !== undefined) view.movement.progress = ref.pr;
     if (ref.body) view.hasBody = true;
     if (this.routeIndexOf(view) !== ref.route) this.setRoute(view, ref.route);
+    if (view.row >= 0) this.touched.push(view);
     if (ref.worm) {
       const group = this.wormMap.get(ref.worm.g) ?? this.wormGroupOf({ $w: ref.worm.g, size: 1, remaining: 1, type: ref.type });
       if (!group.type) group.type = view.typeConfig;
