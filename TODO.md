@@ -87,13 +87,6 @@ allem unter T (Coop).
       echte Lauf ist das nächste Release (`release.yml`, dann `deploy.yml`); danach nach DONE.
 - [ ] **H4** Tower-LOD (High, Medium, Low).
 - [ ] **H5** Tower-Instancing (schwierig wegen der Rotationen).
-- [ ] **H6** Simulationsschritt und Frame entkoppeln (**eingeordnet 2026-09-29**, ohne Umbau): Nach dem Pool-Fix (E68)
-      nimmt die Simulation bei Tempo 4 und 5000 Gegnern 12 bis 27 ms je Bild, Bild und Anzeige zusammen 5 bis 7 ms
-      (Bot-Messung 2026-09-28, `tmp/nightly-2026-09-28/pools/series.log`): 26 bis 50 FPS. `GameClock` hält schon
-      heute ab 20 FPS (MAX_CATCHUP_MS 50) die Zeitlupe statt der Spirale. Entkoppeln heißt: der Simulation ein
-      Zeitbudget je Bild geben (etwa 16 ms), das Bild bleibt flüssig, das Tempo sinkt unter Last (Tempo 4 würde bei
-      5000 Gegnern effektiv etwa 2,5); im Coop bremst der Langsamste den Raum wie heute über MAX_AHEAD_TICKS. Frage an
-      den User: flüssiges Bild oder volles Tempo unter Last? Der Worker (E57) wäre die Lösung ohne diesen Tausch.
 - [ ] **H7** Explosionen zweistufig staffeln.
 - [ ] **H8** Bloom nur für ausgewählte Objekte (Render-Layers, zweiter Composer).
 - [ ] **H9** Mobile und Barrierefreiheit: Qualitäts-Presets, Breakpoints 768 und 480 px, Touch-Ziele 44 px.
@@ -187,11 +180,11 @@ Ideen (2026-09-27), nichts entschieden:
       Photogrammetrie braucht Aufnahmen von oben (Drohne). Gaussian Splats nur für die Optik, Kollision braucht ein Mesh.
       Verwandt: Mond/Mars-Tiles bräuchten ein anderes Ellipsoid (`EARTH_RADIUS` in `geo-utils.ts`, `EllipsoidSync`) und
       ebenfalls Wege ohne Straßen.
-- [ ] **E57 Simulation in einen Worker?** (**gemessen 2026-09-28**): Offline-Testwelt, Produktions-Build, Tempo 4 und
-      5000 Gegner: die Simulation nimmt 67 bis 68 % des Bildes (24 FPS), bei Tempo 1 lohnt es nicht (Bild 7 bis 9 ms).
-      Erst die beiden vollen Pools beheben (E68) und neu messen, dann über den Umbau entscheiden (grob 2 bis 4 Wochen).
-      **Konzept und Demo 2026-09-29** ([WORKER_PLAN.md](docs/WORKER_PLAN.md)): im Stellvertreter hält ein Worker 60 FPS
-      bei Tempo 4, wo der Hauptthread 24 schafft; `postMessage` reicht (0,1 ms je Bild), also keine COOP/COEP-Header.
+- [ ] **E71 Worker-Stand nachprüfen** (Branch `simu-worker`, [SIM_WORKER.md](docs/SIM_WORKER.md)): Handtest,
+      Coop über zwei Rechner; Bot-Lauf (der Bot entscheidet je Bild statt je Sub-Step, Werte können sich verschieben);
+      Desktop-App mit `crossOriginIsolated` (Header in `desktop/src/protocol.js`, kein Build geprüft); Webseite nach dem
+      Deploy mit `curl -I` auf /play/. Einmal hing M5 über 5 Minuten auf dem Ladebildschirm (zufälliger Ort), in drei
+      weiteren Läufen nicht; erst mit Logs belegen. Dann entscheiden, ob `simu-worker` nach `next` geht.
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
       **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze

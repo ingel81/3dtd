@@ -148,8 +148,9 @@ Nachmessen: `node tools/worker-sim/build.mjs`, `node tools/worker-sim/server.mjs
    Worker nützlich, testbar im Hauptthread), dann Stand-Puffer und Ereignisliste, dann Umzug in den Worker hinter einem
    Schalter, messen gegen E57.
 
-## Offene Fragen
+## Entschiedene Fragen
 
-- Lohnt der Umbau, bevor es Spieler mit schwachen Rechnern im Spätspiel gibt? Die Messung gilt für 5000 Gegner bei
-  Tempo 4.
-- Soll der Coop-Websocket im Hauptthread bleiben und Befehle weiterreichen, oder mit in den Worker?
+- Der Umbau lohnt sich schon jetzt: gebaut 2026-09-29 (Branch `simu-worker`, [SIM_WORKER.md](SIM_WORKER.md)).
+- Der Coop-Websocket bleibt im Hauptthread; der Worker bekommt die gelieferten Ticks über einen `LockstepLink`.
+- Transport: Tabellen im `SharedArrayBuffer` statt `postMessage` allein, mit COOP/COEP-Headern; ohne Isolation
+  dieselbe Form mit Kopien je Bild.
