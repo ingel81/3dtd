@@ -245,6 +245,8 @@ export class SimCore implements SimCoreApi {
     hashBreakdownAt: (tick) => this.gsm.hashBreakdownAt(tick),
     captureWaveSnapshot: () => this.gsm.captureWaveSnapshot(),
     restoreWaveSnapshot: (snapshot, reason) => {
+      // As a replay's seek: the old state's particles, marks, strikes and one-shot sounds go first
+      this.gsm.clearShow();
       this.gsm.restoreWaveSnapshot(snapshot as WaveSnapshot, reason);
       this.gsm.resyncPresentation();
       this.forcePresent = true;

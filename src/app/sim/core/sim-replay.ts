@@ -44,6 +44,8 @@ export class SimReplay {
 
   /** Put the simulation at the wave's start, in replay mode. */
   enter(): void {
+    // Blood, scorch marks, damage numbers, a strike still running: the replay starts on a clean field
+    this.gsm.clearShow();
     this.resim.start();
     this.gsm.resyncPresentation();
     this.carryMs = 0;
@@ -92,6 +94,9 @@ export class SimReplay {
       bus.setShowMuted(false);
     }
     this.carryMs = 0;
+    // Damage numbers and particles of the stretch skipped were muted; a strike
+    // from before the jump would play on (a laser seen twice)
+    this.gsm.clearShow();
     this.gsm.resyncPresentation();
   }
 
@@ -101,6 +106,8 @@ export class SimReplay {
    * hear: the requests of the restore went out muted.
    */
   exit(): void {
+    // The replay's marks, numbers and strikes stay behind in it
+    this.gsm.clearShow();
     // In replay mode still: the live listeners hear nothing of the way back
     this.gsm.restoreSnapshot(this.live, 'live');
     this.resim.end();

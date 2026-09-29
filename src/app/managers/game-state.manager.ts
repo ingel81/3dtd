@@ -1049,6 +1049,15 @@ export class GameStateManager {
   };
 
   /**
+   * Take the show of the state before off the field (op `show.clear`): before
+   * a snapshot restore, and after a replay's seek, whose skipped stretch
+   * would otherwise play its numbers and strikes at once.
+   */
+  clearShow(): void {
+    this.sink.show.clear();
+  }
+
+  /**
    * Announce what the simulation holds now, after a snapshot restore or a
    * replay's seek, which change it without the events that normally bring
    * its look and sound: the fire towers' furnaces (ops), the abilities'

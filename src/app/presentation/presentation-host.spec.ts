@@ -224,6 +224,17 @@ describe('PresentationHost', () => {
     expect(engine.spatialAudio.stopOneShots).toHaveBeenCalled();
   });
 
+  it('takes the show off the field with the op before a restore, and sets up the restored state on sim:presented', () => {
+    host.applyOps([['show.clear']]);
+    expect(engine.effects.clear).toHaveBeenCalledTimes(1);
+    expect(engine.spatialAudio.stopOneShots).toHaveBeenCalledTimes(1);
+    // In a replay too: the event is not live there
+    bus.setLiveMuted(true);
+    bus.emit({ type: 'sim:presented', phase: 'wave', wave: 7, credits: 0, baseHealth: 300, enemiesAlive: 0, waveEnemiesLeft: 0 });
+    bus.setLiveMuted(false);
+    expect(host.backgroundMusic.followPhase).toHaveBeenCalledWith('wave', 7);
+  });
+
   it('follows the phase with music and blood moon on resync, and holds the loops in a pause', () => {
     host.resync('wave', 14, 500);
     expect(host.backgroundMusic.followPhase).toHaveBeenCalledWith('wave', 14);

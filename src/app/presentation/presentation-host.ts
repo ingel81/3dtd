@@ -106,6 +106,9 @@ export class PresentationHost implements SimPresenterApi {
     });
     // An id that comes back (a restore set the counter back) is a new enemy
     this.subs.add(bus.on('enemy:spawned', ({ enemy }) => this.frame.forgetEnemy(enemy.num)));
+    // After a snapshot restore or a replay's seek (GameStateManager.resyncPresentation),
+    // in a replay too: the look and sound of the state as it stands
+    this.subs.add(bus.on('sim:presented', (event) => this.resync(event.phase, event.wave, event.baseHealth)));
   }
 
   // ── SimPresenterApi ──
@@ -311,6 +314,7 @@ export class PresentationHost implements SimPresenterApi {
       const [lat, lon, explosionHeight, groundHeight, air] = args as [number, number, number, number, boolean];
       iceExplosion(engine, lat, lon, explosionHeight, groundHeight, air);
     });
+    ops.override('show.clear', () => this.clearShow());
     ops.override('main.iceDecal', (args) => iceDecal(engine, args[0] as number, args[1] as number, args[2] as number));
   }
 }

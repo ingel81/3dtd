@@ -323,10 +323,16 @@ describe('SimCore in the same thread', () => {
       const [waiting] = drive.needs(packet);
       expect(waiting.reason).toBe('place');
       expect(core.rpc('replayEnter', 1, false)).not.toBeNull();
+      // The live game's show goes before the replay's start is set up
+      expect(drive.tick({ replay: { playing: true, speed: 4 } }).ops[0][0]).toBe('show.clear');
       for (let f = 0; f < 30; f++) drive.tick({ replay: { playing: true, speed: 4 } });
+      core.rpc('replaySeek', 10);
+      expect(drive.tick({ replay: { playing: false, speed: 4 } }).ops.map((op) => op[0])).toContain('show.clear');
 
       core.rpc('replayExit');
       packet = drive.tick();
+      // The replay's show goes before the live state is set up again
+      expect(packet.ops[0][0]).toBe('show.clear');
       // Asked again where the main thread hears it (live), with the same generation
       const again = packet.events.filter((e) => e.type === 'tower:los-needed');
       expect(again.filter((e) => e.live).map((e) => e.payload['towerId'])).toEqual([waiting.towerId]);

@@ -10,7 +10,7 @@
  *
  * Where the op is not a plain engine call, its doc says what the player does:
  * the main thread fills in what only it has (a renderer's object, the tile
- * ground, the listener, the wall clock). Every op under `main` is such a
+ * ground, the listener, the wall clock). Every op under `main` and `show` is such a
  * composite; there is no engine member of that name.
  *
  * Ops that only show a moment (texts, flashes, strikes, sounds) are
@@ -146,6 +146,16 @@ export interface SimSink {
   readonly spatialAudio: {
     /** A one-shot at a local position (the sound registered on the main thread) */
     playAt(soundId: string, position: OpVec3): void;
+  };
+  readonly show: {
+    /**
+     * Take the show off the field before a snapshot restore or after a
+     * replay's seek: the player calls PresentationHost.clearShow()
+     * (particles, marks, damage numbers, ability strikes and their sounds,
+     * the one-shot sounds). What the restored state shows comes with
+     * `sim:presented` (GameStateManager.resyncPresentation).
+     */
+    clear(): void;
   };
   readonly main: {
     /**
