@@ -21,6 +21,8 @@ import { FramePresenter } from './frame-presenter';
 import { FlameSounds } from './flame-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
 import { registerCombatSounds } from './combat-sounds';
+import { iceDecal, iceExplosion } from './ice-effects';
+import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import type { ScorchGround } from '../three-engine/renderers/scorch-marks';
 
 /** What the presentation reads of the mirror (sim/client/mirror): enemy views and shadow towers */
@@ -90,7 +92,7 @@ export class PresentationHost implements SimPresenterApi {
     this.frame = new FramePresenter(engine, source, ground);
     this.flames = new FlameSounds(() => engine.spatialAudio ?? null);
     this.ops = new OpPlayer(engine);
-    this.installOverrides(source);
+    this.installOverrides(source, bus);
 
     // Heavy steps as the walk clip lands a foot (EnemyTypeConfig.footstep):
     // for GameSoundsService and ScreenShakeService on the main bus
@@ -98,10 +100,6 @@ export class PresentationHost implements SimPresenterApi {
       const enemy = source.enemy(id);
       if (enemy?.alive) bus.emit({ type: 'enemy:footstep', enemy });
     });
-    // A killed ooze splats where it is heard
-    this.subs.add(bus.on('enemy:died', ({ enemy }) => {
-      if (enemy.hasBody) this.frame.oozes.died(enemy.num, engine);
-    }));
     // An id that comes back (a restore set the counter back) is a new enemy
     this.subs.add(bus.on('enemy:spawned', ({ enemy }) => this.frame.forgetEnemy(enemy.num)));
   }
@@ -200,22 +198,39 @@ export class PresentationHost implements SimPresenterApi {
     this.hq.destroy();
   }
 
-  /** Where the main thread supplies what an op cannot carry. */
-  private installOverrides(source: PresentationSource): void {
+  /** Where the main thread supplies what an op cannot carry (sim/core/sim-sink.ts says which). */
+  private installOverrides(source: PresentationSource, bus: MainEventBus): void {
     const ops = this.ops;
     const engine = this.engine;
     const oozes = this.frame.oozes;
 
+    // A new instance starts on its walk clip once its model is there, unless it stands (a debug spawn)
+    ops.override('enemies.create', (args, call) => {
+      const [id, renderType, lat, lon, height, walking] = args as [string, string, number, number, number, boolean];
+      const created = call(id, renderType, lat, lon, height) as Promise<unknown> | undefined;
+      void created?.then((renderData) => {
+        if (renderData && walking) engine.enemies.startWalkAnimation(id);
+      });
+    });
+
     // The tower renderer turns the turret by the shadow tower's aim, which the mirror sets every frame
     ops.override('towers.create', (args, call) => {
       const aim: TowerAim | undefined = source.tower(args[0] as string)?.aim;
-      if (aim) args[6] = aim;
-      else console.error(`[PresentationHost] towers.create: no shadow tower ${String(args[0])}`);
-      call(...args);
+      if (!aim) {
+        console.error(`[PresentationHost] towers.create: no shadow tower ${String(args[0])}`);
+        return;
+      }
+      call(...args.slice(0, 6), aim);
     });
+    ops.override('searchlights.add', (args, call) => {
+      const [id, lat, lon, footHeight, typeId] = args as [string, number, number, number, TowerTypeId];
+      call(id, lat, lon, footHeight, TOWER_TYPES[typeId]);
+    });
+    ops.override('lightningBolts.registerIdleCrackle', (args, call) => call(args[0], args[1], performance.now() / 1000));
 
     // An ooze's body: stations from its path on this thread, the grid's ground
     ops.override('oozes.add', (args) => oozes.add(engine, args[0] as string, args[1] as RouteWaypoint[]));
+    ops.override('oozes.collapse', (args) => oozes.collapse(engine, args[0] as string, args[1] as number, args[2] as number));
     ops.override('oozes.remove', (args, call) => {
       call(...args);
       oozes.forget(args[0] as string, engine);
@@ -249,11 +264,22 @@ export class PresentationHost implements SimPresenterApi {
       this.flames.clear();
     });
 
-    // The tentacle's grab sounds where it strikes
-    ops.override('tentacles.startStrike', (args, call) => {
-      call(...args);
-      const at = args[1] as Vector3;
-      engine.spatialAudio?.playAt('tentacle-grab', at).catch(() => undefined);
+    // The chain starts at the tip of the tower's model and sounds there
+    ops.override('main.chainLightning', (args) => {
+      const towerId = args[0] as string;
+      const tower = engine.towers.get(towerId);
+      if (!tower) return;
+      const tip = engine.sync.geoToLocalSimple(tower.lat, tower.lon, tower.height);
+      tip.y = tower.tipY;
+      const hits = args[1] as Vector3[];
+      bus.emit({ type: 'vfx:chain-lightning', points: [tip, ...hits], sourceTowerId: towerId });
+      // Spatialised at the tip, so distant towers sound quieter
+      engine.spatialAudio?.playAt('lightning-chain', tip).catch(() => undefined);
     });
+    ops.override('main.iceExplosion', (args) => {
+      const [lat, lon, explosionHeight, groundHeight, air] = args as [number, number, number, number, boolean];
+      iceExplosion(engine, lat, lon, explosionHeight, groundHeight, air);
+    });
+    ops.override('main.iceDecal', (args) => iceDecal(engine, args[0] as number, args[1] as number, args[2] as number));
   }
 }

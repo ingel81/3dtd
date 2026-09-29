@@ -38,7 +38,7 @@ const HERO_LEVEL_UP_TEXT = { color: '#D9BC68', durationMs: 2200, floatSpeed: 1.4
  * Framework-agnostic service on the main thread's bus (SimClient.bus): it
  * hears the simulation's VFX events as views and spawns the effects with
  * the ThreeTilesEngine, resolving what only the renderers know (a tower's
- * tip for its muzzle flash and its lightning chain).
+ * tip for its muzzle flash).
  */
 export class VFXService {
   private readonly subs = new SubscriptionBag();
@@ -108,7 +108,7 @@ export class VFXService {
 
     // Chain-lightning bolts: spawn one bolt per segment (tip→primary→jump→…)
     this.subs.add(this.eventBus.onShow('vfx:chain-lightning', (event) => {
-      this.handleChainLightning(event.sourceTowerId, event.points);
+      this.handleChainLightning(event.points);
     }));
 
     // Bone burst a metre above the body a split came from. The impact bursts'
@@ -318,33 +318,24 @@ export class VFXService {
   }
 
   /**
-   * Spawn lightning bolts for a chain fire. The chain starts at the tip of
-   * the tower's model, which only the renderer knows: it takes the place of
-   * the first point the simulation sent, and the chain's sound plays there.
-   * Each successive pair of points gets one bolt (one instance in the bolt
-   * renderer). Bolts rely on additive blending + boosted intensity to stand
-   * out: auto-enabling bloom turned out to make every emissive material on
-   * the map glow permanently, so we explicitly do NOT touch the global bloom
-   * pass here.
+   * Spawn lightning bolts for a chain fire (the points start at the tower's
+   * tip, PresentationHost puts it in front). Each successive pair of points
+   * gets one bolt (one instance in the bolt renderer). Bolts rely on
+   * additive blending + boosted intensity to stand out: auto-enabling bloom
+   * turned out to make every emissive material on the map glow permanently,
+   * so we explicitly do NOT touch the global bloom pass here.
    *
    * Each bolt also requests a pooled additive halo sprite at its end (the
    * impact point on the hit enemy). The halo fades with the bolt's lifetime
    * and briefly brightens whatever is behind it, a local-scope substitute
    * for global bloom (3D Tiles ignore dynamic lights).
    */
-  private handleChainLightning(towerId: string, points: readonly { x: number; y: number; z: number }[]): void {
+  private handleChainLightning(points: readonly { x: number; y: number; z: number }[]): void {
     if (points.length < 2) return;
-    const tower = this.tilesEngine.towers.get(towerId);
-    if (!tower) return;
-    const tip = this.tilesEngine.sync.geoToLocalSimpleInto(tower.lat, tower.lon, tower.height, this.tmpA);
-    tip.y = tower.tipY;
-    // Spatialised at the tip, so distant towers sound quieter
-    this.tilesEngine.spatialAudio?.playAt('lightning-chain', tip.clone()).catch(() => undefined);
 
     const now = performance.now() / 1000;
     for (let i = 0; i < points.length - 1; i++) {
-      // tmpA holds the tip for the first bolt
-      if (i > 0) this.tmpA.set(points[i].x, points[i].y, points[i].z);
+      this.tmpA.set(points[i].x, points[i].y, points[i].z);
       this.tmpB.set(points[i + 1].x, points[i + 1].y, points[i + 1].z);
       this.tilesEngine.lightningBolts.spawnBolt(this.tmpA, this.tmpB, now, {
         attachLight: true,

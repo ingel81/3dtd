@@ -23,7 +23,7 @@ export interface PresentationGround {
   getGroundLocalYAt(localX: number, localZ: number): number | null;
 }
 
-type OozeEngine = Pick<ThreeTilesEngine, 'oozes' | 'sync' | 'spatialAudio'>;
+export type OozeEngine = Pick<ThreeTilesEngine, 'oozes' | 'sync' | 'spatialAudio'>;
 
 interface OozeEntry {
   readonly id: string;
@@ -31,7 +31,7 @@ interface OozeEntry {
   readonly body: RouteBody;
   /** Geo height of the ground under its tip (E_TERRAIN), where the grid has none */
   terrain: number;
-  /** Removed by an op; kept to the end of the frame for its enemy:died, which comes after the ops */
+  /** Removed by an op; kept to the end of the frame (a collapse may follow in the same packet) */
   gone: boolean;
 }
 
@@ -42,7 +42,7 @@ interface OozeEntry {
  * stations are built from the path on the main thread's frame and ground,
  * the table goes to the band renderer once per frame, and each ooze is
  * heard where its body is nearest the listener (OozeSounds): the bubbling
- * loop, and the splat when it dies (enemy:died of an enemy with a body).
+ * loop, and the splat when it collapses.
  */
 export class OozePresenter {
   private readonly oozes = new Map<number, OozeEntry>();
@@ -109,11 +109,20 @@ export class OozePresenter {
     }
   }
 
-  /** Ooze `num` was killed: its loop ends in a splat at the body point nearest the listener. */
-  died(num: number, engine: OozeEngine): void {
-    const entry = this.oozes.get(num);
+  /**
+   * Op `oozes.collapse`(id, tailM, tipM): a killed ooze breaks up. Its band
+   * gets the stretch it had, with nothing left, and collapses
+   * (OozeBandRenderer.collapse); its loop ends in a splat at the body point
+   * nearest the listener.
+   */
+  collapse(engine: OozeEngine, id: string, tailM: number, tipM: number): void {
+    engine.oozes.setFrame(id, tailM, tipM, 0, false, false, false, false, false);
+    engine.oozes.collapse(id);
+    const entry = this.oozes.get(Number(id.slice(id.lastIndexOf('-') + 1)));
     const audio = engine.spatialAudio ?? null;
     if (entry === undefined || audio === null) return;
+    entry.body.tailM = tailM;
+    entry.body.tipM = tipM;
     this.sounds.stop(entry.id, audio);
     audio.getListener().getWorldPosition(this.listener);
     const k = this.hear(entry);

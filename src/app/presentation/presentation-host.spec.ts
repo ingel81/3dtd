@@ -39,6 +39,7 @@ import { EnemyView } from '../sim/client/views';
 import { getEnemyType } from '../configs/enemy-types.config';
 import type { Tower } from '../entities/tower.entity';
 import type { ThreeTilesEngine } from '../three-engine';
+import { TOWER_TYPES } from '../configs/tower-types.config';
 
 function makeEngine() {
   let handles = 0;
@@ -47,6 +48,7 @@ function makeEngine() {
     sync: {
       getOrigin: () => ({ lat: 0, lon: 0, height: 0 }),
       geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat),
+      geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
     },
     effects: { setScorchGround: vi.fn(), clear: vi.fn(), stopAllFires: vi.fn(), spawnFloatingText: vi.fn() },
     hero: { setGround: vi.fn(), present: vi.fn() },
@@ -60,11 +62,14 @@ function makeEngine() {
     enemies: {
       setFootstepListener: vi.fn((listener: ((id: string) => void) | null) => { footstep = listener; }),
       clear: vi.fn(),
+      create: vi.fn((id: string) => Promise.resolve(id === 'enemy-404' ? null : {})),
+      startWalkAnimation: vi.fn(),
     },
-    towers: { create: vi.fn() },
-    oozes: { add: vi.fn(), remove: vi.fn(), discard: vi.fn(), clear: vi.fn(), setFrame: vi.fn() },
+    towers: { create: vi.fn(), get: vi.fn(() => ({ lat: 1, lon: 2, height: 3, tipY: 12 })) },
+    searchlights: { add: vi.fn() },
+    lightningBolts: { registerIdleCrackle: vi.fn() },
+    oozes: { add: vi.fn(), remove: vi.fn(), discard: vi.fn(), clear: vi.fn(), setFrame: vi.fn(), collapse: vi.fn() },
     flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn(), clear: vi.fn() },
-    tentacles: { startStrike: vi.fn() },
     getTerrainHeightAtGeo: vi.fn(() => 0),
     spatialAudio: {
       registerSound: vi.fn(),
@@ -142,11 +147,48 @@ describe('PresentationHost', () => {
     expect(host.flames.size).toBe(0);
   });
 
-  it('plays the tentacle\'s grab where it strikes', () => {
-    host.applyOps([['tentacles.startStrike', 'tower-5', { x: 1, y: 2, z: 3 }]]);
+  it('starts a new enemy instance on its walk clip once its model is there, unless it stands', async () => {
+    host.applyOps([
+      ['enemies.create', 'enemy-1', 'zombie', 1, 2, 3, true],
+      ['enemies.create', 'enemy-2', 'zombie', 1, 2, 3, false],
+      ['enemies.create', 'enemy-404', 'zombie', 1, 2, 3, true],
+    ]);
+    expect(engine.enemies.create.mock.calls[0]).toEqual(['enemy-1', 'zombie', 1, 2, 3]);
+    await settle();
+    expect(engine.enemies.startWalkAnimation.mock.calls).toEqual([['enemy-1']]);
+  });
+
+  it('gives the searchlight its tower config and the idle crackle the wall clock', () => {
+    host.applyOps([
+      ['searchlights.add', 'tower-6', 1, 2, 3, 'archer'],
+      ['lightningBolts.registerIdleCrackle', 'tower-7', { x: 1, y: 2, z: 3 }],
+    ]);
+    expect(engine.searchlights.add.mock.calls[0][4]).toBe(TOWER_TYPES.archer);
+    const [, tip, now] = engine.lightningBolts.registerIdleCrackle.mock.calls[0] as unknown as [string, Vector3, number];
+    expect(tip).toBeInstanceOf(Vector3);
+    expect(now).toBeGreaterThan(0);
+  });
+
+  it('starts a chain lightning at the tower model\'s tip and sounds it there', () => {
+    const chains: { points: readonly { x: number; y: number; z: number }[]; sourceTowerId: string }[] = [];
+    bus.on('vfx:chain-lightning', (event) => chains.push(event));
+    host.applyOps([['main.chainLightning', 'tower-3', [{ x: 5, y: 6, z: 7 }]]]);
+    expect(engine.towers.get).toHaveBeenCalledWith('tower-3');
+    expect(chains[0].sourceTowerId).toBe('tower-3');
+    expect(chains[0].points.map((p) => [p.x, p.y, p.z])).toEqual([[2, 12, 1], [5, 6, 7]]);
     const [id, at] = engine.spatialAudio.playAt.mock.calls[0] as unknown as [string, Vector3];
-    expect(id).toBe('tentacle-grab');
-    expect(at).toBeInstanceOf(Vector3);
+    expect(id).toBe('lightning-chain');
+    expect(at.toArray()).toEqual([2, 12, 1]);
+  });
+
+  it('collapses a killed ooze with nothing left and splats it where it is heard', () => {
+    host.applyOps([
+      ['oozes.add', 'enemy-9', [{ lat: 0, lon: 0 }, { lat: 0, lon: 0.001 }]],
+      ['oozes.collapse', 'enemy-9', 10, 30],
+    ]);
+    expect(engine.oozes.setFrame).toHaveBeenCalledWith('enemy-9', 10, 30, 0, false, false, false, false, false);
+    expect(engine.oozes.collapse).toHaveBeenCalledWith('enemy-9');
+    expect(engine.spatialAudio.playAtGeo).toHaveBeenCalledTimes(1);
   });
 
   it('turns the renderer\'s footsteps into enemy:footstep with the view on the main bus', () => {

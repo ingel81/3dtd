@@ -324,9 +324,8 @@ describe('FramePresenter', () => {
 
     presenter.oozes.forget('enemy-9', engine as unknown as PresenterEngine);
     expect(engine.spatialAudio.stopLoop).toHaveBeenCalledTimes(1);
-    // Kept to the end of the frame for its death
-    presenter.oozes.died(9, engine as unknown as PresenterEngine);
-    expect(engine.spatialAudio.playAtGeo).toHaveBeenCalledTimes(1);
+    // Kept to the end of the frame
+    expect(presenter.oozes.size).toBe(1);
     presenter.present(packet({ oozes: [] }));
     expect(presenter.oozes.size).toBe(0);
   });
