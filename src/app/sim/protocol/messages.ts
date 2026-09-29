@@ -134,10 +134,22 @@ export interface SimRpc {
   /** Give the live game back as it was, leave replay mode */
   replayExit(): void;
   commandLog(): unknown[];
+  /** Where the last tick's time went, ms: the commands, the sub-steps, the packet, and the slowest command */
+  tickProfile(): TickProfile;
   /** `__towerTargets()` (services/debug/tower-target-console.ts): towerTargetRows over the towers and the living enemies */
   towerTargets(): TowerTargetRow[];
   /** `__towerTargets.watch()`: explainTowerTarget of every tower for the enemies `enemyIds` (an ooze's clumps), the lines not null */
   towerTargetLines(enemyIds: string[]): string[];
+}
+
+/** The parts of a tick's time (rpc tickProfile) */
+export interface TickProfile {
+  commandsMs: number;
+  updateMs: number;
+  packetMs: number;
+  slowest: { type: string; ms: number } | null;
+  /** The slowest tick since the world was loaded, its parts as above */
+  worst?: Omit<TickProfile, 'worst'> & { tickMs: number; stepsRun: number };
 }
 
 /** What the replay bar needs of a wave the simulation entered (rpc replayEnter). */

@@ -182,6 +182,12 @@ export interface SimScalars {
   abilityDamage: number[];
   /** The replay while one is on, null for the live game */
   replay: { wave: number; stepInWave: number; lengthInSteps: number | null; divergedAt: number | null; finished: boolean } | null;
+  /**
+   * Wall-clock ms the simulation spent on this tick: the commands, the
+   * sub-steps and the packet (the second number besides the frame time;
+   * per sub-step divide by the packet's stepsRun)
+   */
+  tickMs: number;
   /** The run's seed (GameRng.seed): the main thread's wave source and bot draw their own streams from it */
   seed: number;
 }

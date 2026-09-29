@@ -1,3 +1,4 @@
+import type { MainEventBus } from '../../sim/client/view-events';
 import {
   PositionalAudio,
   AudioListener,
@@ -8,7 +9,6 @@ import {
   Audio,
 } from 'three';
 import { AUDIO_LIMITS, MASTER_BUS_PRE_GAIN, SPATIAL_AUDIO_DEFAULTS } from '../../configs/audio.config';
-import { GameEventBus } from '../../game-engine';
 import { AudioBufferCache } from './audio-buffer-cache';
 import { PositionalVoiceFactory } from './positional-voice-factory';
 import { SpatialAudioPlayback, RegisteredSound, SoundDebugEvent } from './spatial-audio-playback';
@@ -237,7 +237,7 @@ export class SpatialAudioManager {
     return this.playback.getActiveSoundCount() + this.loops.size;
   }
 
-  setEventBus(eventBus: GameEventBus): void {
+  setEventBus(eventBus: MainEventBus): void {
     this.playback.setEventBus(eventBus);
   }
 

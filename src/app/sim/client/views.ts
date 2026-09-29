@@ -44,6 +44,8 @@ export interface EnemyMovementView {
   progress: number;
   distanceAlongPath: number;
   effectiveSpeed: number;
+  /** Stopped (E_FLAGS without EF_MOVING): Enemy Debug's paused enemies */
+  paused: boolean;
   getPathProgress(): number;
   getDistanceAlongPath(): number;
   /** E_EFF_SPEED of the last packet; the argument (game time) of the entity's is not needed here */
@@ -79,6 +81,7 @@ export class EnemyView {
     progress: 0,
     distanceAlongPath: 0,
     effectiveSpeed: 0,
+    paused: false,
     getPathProgress() {
       return this.progress;
     },

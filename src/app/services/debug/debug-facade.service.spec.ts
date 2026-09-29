@@ -6,6 +6,7 @@ import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { SimClient } from '../../sim/client/sim-client.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import type { ThreeTilesEngine } from '../../three-engine';
 import { DEFAULT_VFX_SETTINGS, matchingVfxPreset } from '../../three-engine/vfx-settings';
 import { LEGACY_FPS_LIMIT_KEY, STORAGE_KEY } from '../../utils/display-options.storage';
@@ -16,7 +17,8 @@ function createFacade(
   uiStore: object = {},
   markerViz: object = {},
   streetRendering: object = {},
-  sim: object = { bus: new GameEventBus(), configure: () => undefined, presenter: null },
+  sim: object = { bus: new GameEventBus(), configure: () => undefined },
+  presentation: object = { setScreenShake: () => undefined },
 ): DebugFacadeService {
   const injector = Injector.create({
     providers: [
@@ -25,6 +27,7 @@ function createFacade(
       { provide: MarkerVisualizationService, useValue: markerViz },
       { provide: StreetRenderingService, useValue: streetRendering },
       { provide: SimClient, useValue: sim },
+      { provide: PresentationService, useValue: presentation },
     ],
   });
   return runInInjectionContext(injector, () => new DebugFacadeService());
@@ -61,7 +64,7 @@ describe('DebugFacadeService cheats', () => {
   it('readies every ability through debug commands on SimClient.bus, for the next tick', () => {
     const appendDebugLog = vi.fn();
     const bus = new GameEventBus();
-    const facade = createFacade({ appendDebugLog }, {}, {}, { bus, configure: () => undefined, presenter: null });
+    const facade = createFacade({ appendDebugLog }, {}, {}, { bus, configure: () => undefined });
     const received = vi.fn();
     bus.on('debug:ready-ability', received);
 
@@ -195,13 +198,13 @@ describe('DebugFacadeService VFX settings', () => {
 describe('DebugFacadeService options the simulation and the presentation hold', () => {
   beforeEach(() => localStorage.clear());
 
-  it('sends movement as debug:movement, damage numbers as SimClient.configure, and switches the presenter screen shake', () => {
+  it('sends movement as debug:movement, damage numbers as SimClient.configure, and switches the screen shake through PresentationService', () => {
     const configure = vi.fn();
-    const screenShake = { enable: vi.fn(), disable: vi.fn() };
+    const setScreenShake = vi.fn();
     const bus = new GameEventBus();
     const movement = vi.fn();
     bus.on('debug:movement', movement);
-    const facade = createFacade({}, {}, {}, { bus, configure, presenter: { screenShake } });
+    const facade = createFacade({}, {}, {}, { bus, configure }, { setScreenShake });
 
     facade.onMovementToggled(false);
     facade.onDamageNumbersToggled(false);
@@ -210,8 +213,7 @@ describe('DebugFacadeService options the simulation and the presentation hold', 
 
     expect(movement).toHaveBeenCalledWith({ type: 'debug:movement', enabled: false });
     expect(configure).toHaveBeenCalledWith({ damageNumbers: false });
-    expect(screenShake.disable).toHaveBeenCalledTimes(1);
-    expect(screenShake.enable).toHaveBeenCalledTimes(1);
+    expect(setScreenShake.mock.calls).toEqual([[false], [true]]);
     expect(stored()).toMatchObject({ movement: false, damageNumbers: false, screenShake: true });
   });
 });

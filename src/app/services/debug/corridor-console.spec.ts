@@ -95,7 +95,8 @@ describe('CorridorConsole', () => {
 
   function install(): CorridorConsole {
     const deps = {
-      grid: { getGrid: () => grid, showCellSelection },
+      grid: { getGrid: () => grid },
+      gridViz: { showCellSelection },
       mirror: { tower: (id: string) => towers[id] ?? null },
       selection: {
         get selectedId() {

@@ -8,7 +8,7 @@ interface Lab {
   services: Record<string, unknown>;
   /** Token names nobody put into `services`: they got a no-op stub */
   stubbed: Set<string>;
-  /** While set, new stubs and the engine are traced into `calls` (lab.ts, reach) */
+  /** While set, new stubs are traced into `calls` (lab.ts, reach) */
   tracing: boolean;
   /** Member path to calls, e.g. engine.effects.spawnMuzzleFlash */
   calls: Map<string, number>;

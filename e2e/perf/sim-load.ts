@@ -21,6 +21,10 @@ const ENEMIES = Number(argument('enemies', '5000'));
 const SPEED = Number(argument('speed', '4'));
 const TOWERS = Number(argument('towers', '40'));
 const SECONDS = Number(argument('seconds', '10'));
+/** Frames without the display's cap (Chromium): the real headroom instead of a flat 60 */
+const UNCAPPED = process.argv.includes('--uncapped');
+/** A screenshot at the start of the measurement, to see the scene measured */
+const SHOT = argument('shot', '');
 const BROWSER = argument('browser', 'chromium');
 const HEADED = process.argv.includes('--headed');
 const GPU_ARGS = process.platform === 'win32'
@@ -33,6 +37,10 @@ interface LoadState {
   phase: string;
   gameTimeMs: number;
   paths: [number, number][][];
+  /** The worker build: the simulation's time for its last tick */
+  tickMs?: number;
+  /** The worker build: main-thread ms of the last packet's apply, by part (SimClient.applyTimes) */
+  apply?: Record<string, number>;
 }
 
 async function gameReady(page: Page): Promise<void> {
@@ -44,11 +52,23 @@ async function gameReady(page: Page): Promise<void> {
     gone = (await page.locator('td-loading-screen').count()) ? 0 : gone + 1;
     await page.waitForTimeout(500);
   }
-  for (let i = 0; i < 20; i++) {
-    const skip = page.getByRole('button', { name: /skip intro/i });
-    if (!(await skip.count())) break;
-    await skip.first().click().catch(() => undefined);
-    await page.waitForTimeout(700);
+  // What's new covers the map and the intro's button: closed first
+  const whatsNew = page.getByRole('button', { name: /^close$/i });
+  await whatsNew.first().waitFor({ state: 'visible', timeout: 15_000 }).catch(() => undefined);
+  if (await whatsNew.count()) await whatsNew.first().click().catch(() => undefined);
+  // The intro flight must be over, or the camera moves through the measurement: wait for its button, click it,
+  // and go on once it stayed gone for three seconds
+  const skip = page.getByRole('button', { name: /skip intro/i });
+  await skip.first().waitFor({ state: 'visible', timeout: 30_000 }).catch(() => undefined);
+  let quiet = 0;
+  for (let i = 0; i < 60 && quiet < 6; i++) {
+    if (await skip.count()) {
+      quiet = 0;
+      await skip.first().click().catch(() => undefined);
+    } else {
+      quiet++;
+    }
+    await page.waitForTimeout(500);
   }
   await page.waitForFunction(() => '__load' in globalThis, null, { timeout: 60_000 });
   await page.waitForTimeout(1000);
@@ -79,15 +99,22 @@ function towerSpots(paths: [number, number][][]): { lat: number; lon: number }[]
   return spots;
 }
 
-async function measure(page: Page, seconds: number): Promise<{ fps: number; p05: number; speed: number; enemies: number }> {
+async function measure(page: Page, seconds: number): Promise<{ fps: number; p05: number; speed: number; enemies: number; tickMs: number | null; apply: Record<string, number> }> {
   const before = await state(page);
-  const frames = await page.evaluate((ms) => new Promise<number[]>((resolve) => {
+  const { times: frames, ticks, applies } = await page.evaluate((ms) => new Promise<{ times: number[]; ticks: number[]; applies: Record<string, number[]> }>((resolve) => {
     const times: number[] = [];
+    const ticks: number[] = [];
+    const applies: Record<string, number[]> = {};
     const end = performance.now() + ms;
+    const load = (globalThis as unknown as { __load: { state(): { tickMs?: number } } }).__load;
     const tick = (t: number) => {
       times.push(t);
+      const tickMs = load.state().tickMs;
+      if (tickMs !== undefined) ticks.push(tickMs);
+      const apply = (load.state() as { apply?: Record<string, number> }).apply;
+      if (apply) for (const [k, v] of Object.entries(apply)) (applies[k] ??= []).push(v);
       if (t < end) requestAnimationFrame(tick);
-      else resolve(times);
+      else resolve({ times, ticks, applies });
     };
     requestAnimationFrame(tick);
   }), seconds * 1000);
@@ -100,11 +127,18 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
     p05: 1000 / gaps[Math.floor(gaps.length * 0.95)],
     speed: (after.gameTimeMs - before.gameTimeMs) / wall,
     enemies: after.enemies,
+    // Median of the worker's tick time over the frames, null for the build without a worker
+    tickMs: ticks.length > 0 ? [...ticks].sort((a, b) => a - b)[Math.floor(ticks.length / 2)] : null,
+    // Mean main-thread ms per frame of each part of applying the packet
+    apply: Object.fromEntries(Object.entries(applies).map(([k, v]) => [k, Number((v.reduce((a, b) => a + b, 0) / v.length).toFixed(2))])),
   };
 }
 
 const engine = BROWSER === 'firefox' ? firefox : chromium;
-const browser = await engine.launch({ headless: !HEADED, args: BROWSER === 'firefox' ? [] : GPU_ARGS });
+const browser = await engine.launch({
+  headless: !HEADED,
+  args: BROWSER === 'firefox' ? [] : [...GPU_ARGS, ...(UNCAPPED ? ['--disable-frame-rate-limit', '--disable-gpu-vsync'] : [])],
+});
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
 // DevWorld loads no tiles, but the production build wants a key before it starts the engine
 await context.addInitScript(() => {
@@ -124,7 +158,9 @@ const types = ['archer', 'cannon', 'ice', 'fire', 'lightning', 'rocket', 'magic'
 let tried = 0;
 for (const spot of towerSpots(start.paths)) {
   if (tried % 10 === 0 && (await state(page)).towers >= TOWERS) break;
-  await emit(page, { type: 'command:place-tower', position: { lat: spot.lat, lon: spot.lon }, typeId: types[tried % types.length] });
+  // With the ground under it, as the placement UI sends it; a spot without ground is none
+  const height = await page.evaluate(([lat, lon]) => (globalThis as unknown as { __load: { groundAt(a: number, b: number): number | null } }).__load.groundAt(lat, lon), [spot.lat, spot.lon]);
+  if (height !== null) await emit(page, { type: 'command:place-tower', position: { lat: spot.lat, lon: spot.lon, height }, typeId: types[tried % types.length] });
   tried++;
   if (tried % 10 === 0) await page.waitForTimeout(200);
 }
@@ -136,7 +172,11 @@ console.log(`towers ${placed.towers} of ${TOWERS} (${tried} spots tried)`);
 // spawning keeps a body limit per lane, so the load comes by the debug spawn, in slices along each route
 await emit(page, { type: 'command:start-wave', config: { schedule: { entries: [{ enemyType: 'zombie', speed: 0.05, health: 1000 }], baseDelay: 100, spawnMode: 'each' } } });
 const kinds = ['zombie', 'rat', 'zombie-soldier', 'skeleton', 'spider', 'bat'];
-const slices = start.paths.flatMap((path) => path.slice(0, -2).map((_, k) => path.slice(k).map(([lat, lon]) => ({ lat, lon }))));
+// 25 slices per route: each slice is a path of its own, whose corner geometry the simulation works out once
+// (getRouteProfile caches by path); one per waypoint cost tens of ms each and seconds in all
+const SLICES = 25;
+const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, i) => Math.floor((i * (path.length - 2)) / SLICES))
+  .map((k) => path.slice(k).map(([lat, lon]) => ({ lat, lon }))));
 const perSlice = Math.ceil(ENEMIES / slices.length);
 let spawned = 0;
 for (let i = 0; i < slices.length && spawned < ENEMIES; i++) {
@@ -154,6 +194,7 @@ while (Date.now() < until) {
   if (now.enemies >= ENEMIES * 0.9) break;
   await page.waitForTimeout(1000);
 }
+if (SHOT) await page.screenshot({ path: SHOT });
 const result = await measure(page, SECONDS);
-console.log(JSON.stringify({ browser: BROWSER, url: URL_BASE, speedAsked: SPEED, towers: placed.towers, ...result }));
+console.log(JSON.stringify({ browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, ...result }));
 await browser.close();

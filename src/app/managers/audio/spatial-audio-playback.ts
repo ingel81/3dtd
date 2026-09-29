@@ -1,6 +1,6 @@
+import type { MainEventBus } from '../../sim/client/view-events';
 import { Audio, Matrix4, Object3D, PositionalAudio, Vector3 } from 'three';
 import { AUDIO_LIMITS, PROJECTILE_SOUND_IDS } from '../../configs/audio.config';
-import { GameEventBus } from '../../game-engine';
 import { PositionalVoiceFactory } from './positional-voice-factory';
 import { SpatialSoundConfig } from './spatial-audio.manager';
 
@@ -54,7 +54,7 @@ export class SpatialAudioPlayback {
    * that disconnects a one-shot after its sample; null for a looping one.
    */
   private globalSounds = new Map<Audio, ReturnType<typeof setTimeout> | null>();
-  private eventBus: GameEventBus | null = null;
+  private eventBus: MainEventBus | null = null;
   /**
    * Last play timestamp per AudioBuffer — used for anti-flood filtering.
    * Keyed by buffer reference (not soundId) because the same source file is
@@ -115,7 +115,7 @@ export class SpatialAudioPlayback {
 
   // --- Event bus ---
 
-  setEventBus(eventBus: GameEventBus): void {
+  setEventBus(eventBus: MainEventBus): void {
     this.eventBus = eventBus;
   }
 

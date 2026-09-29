@@ -5,7 +5,6 @@ import { StreetNetwork } from './location/osm-street.service';
 import { OsmStreetService } from './location/osm-street.service';
 import { PathAndRouteService } from './world/path-route.service';
 import { GeoPosition } from '../models/game.types';
-import { Tower } from '../entities/tower.entity';
 import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { TowerSelectionService } from './tower-selection.service';

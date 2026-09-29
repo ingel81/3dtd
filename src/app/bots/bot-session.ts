@@ -25,6 +25,7 @@ import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { RouteQueriesService } from '../services/route-queries.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
+import { MainWorldService } from '../services/world/main-world.service';
 import { EventSubscription } from '../game-engine';
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { useDirectorParams } from '../director/director-params';
@@ -82,6 +83,8 @@ export class BotSession {
   /** Commands go out on SimClient.bus and act at the next tick; the game is read from the mirror */
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
+  /** The main thread's world: the corridor of a new location may still be building */
+  private readonly mainWorld = inject(MainWorldService);
 
   private socket: WebSocket | null = null;
   private clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
@@ -103,7 +106,6 @@ export class BotSession {
   private readonly world: PlayerBotWorld;
 
   // === EXTERNAL DEPENDENCIES ===
-  private readonly corridorPending: () => boolean;
   private readonly towerPlacement: TowerPlacementService;
   private readonly callbacks: BotCallbacks;
   private readonly runLog: BotRunLog;
@@ -118,7 +120,6 @@ export class BotSession {
   private nextSeed: number | undefined;
 
   constructor(private readonly signals: BotSignals, deps: BotDeps) {
-    this.corridorPending = deps.corridorPending;
     this.towerPlacement = deps.towerPlacement;
     this.callbacks = deps.callbacks;
     this.runLog = deps.runLog;
@@ -183,7 +184,7 @@ export class BotSession {
   updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean {
     if (!this.signals.botEnabled() || !this.currentBot) return false;
     // Towers and waves wait for the corridor build of a new location (CorridorBuild).
-    if (this.corridorPending()) return false;
+    if (this.mainWorld.corridorPending()) return false;
     // A coop bot plays the room's game, not the single player game of the
     // lobby behind it: its moves there would be gone with the room's start.
     if (this.signals.botCoop() && !this.world.coop) return false;

@@ -131,11 +131,23 @@ export class GameLoopFacadeService {
     (globalThis as Record<string, unknown>)['__load'] = {
       emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
       speed: (value: number) => this.gameStore.gameSpeed.set(value),
+      // Answers once the simulation's worker takes a call: whether it is alive
+      ping: () => this.sim.rpc('worldKey'),
+      tickProfile: () => this.sim.rpc('tickProfile'),
+      // The ground under a spot as the placement UI samples it (geo height), null where the tiles have none
+      groundAt: (lat: number, lon: number) => {
+        const engine = this.bridge.getEngine();
+        const localY = engine?.getTerrainHeightAtGeo(lat, lon) ?? null;
+        return engine && localY !== null ? localY + engine.sync.getOrigin().height : null;
+      },
       state: () => ({
         enemies: this.mirror.scalars.enemiesAlive,
         towers: this.mirror.scalars.towerCount,
         phase: this.mirror.scalars.phase,
         gameTimeMs: this.mirror.scalars.gameTimeMs,
+        tickMs: this.mirror.scalars.tickMs,
+        apply: this.sim.applyTimes,
+        subStep: this.mirror.scalars.subStep,
         paths: this.world.routes().map((path) => path.map((w) => [w.lat, w.lon])),
       }),
     };

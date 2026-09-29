@@ -3,6 +3,7 @@ import { UIStore } from '../../store/ui.store';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { SimClient } from '../../sim/client/sim-client.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
 import { readVfxSettings, withVfxPreset, type VfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
 import type { ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
@@ -36,6 +37,7 @@ export class DebugFacadeService {
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly sim = inject(SimClient);
+  private readonly presentation = inject(PresentationService);
 
   /** Display options as stored at startup; the shared signals below start from them. */
   private readonly stored = loadDisplayOptions();
@@ -275,9 +277,7 @@ export class DebugFacadeService {
    */
   onScreenShakeToggled(enabled: boolean): void {
     this.screenShakeEnabled.set(enabled);
-    const shake = this.sim.presenter?.screenShake;
-    if (enabled) shake?.enable();
-    else shake?.disable();
+    this.presentation.setScreenShake(enabled);
     persistDisplayOptions({ screenShake: enabled });
   }
 
@@ -320,7 +320,7 @@ export class DebugFacadeService {
     this.engine?.applyVfxSettings(this.vfx());
     if (!this.healthBarsVisible()) this.applyHealthBars();
     if (!this.damageNumbersVisible()) this.sim.configure({ damageNumbers: false });
-    if (!this.screenShakeEnabled()) this.sim.presenter?.screenShake?.disable();
+    if (!this.screenShakeEnabled()) this.presentation.setScreenShake(false);
 
     // Debug window options, not held in signals here
     const opts = loadDisplayOptions();

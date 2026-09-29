@@ -104,11 +104,11 @@ describe('U and the upgrade tiles, playtest 518, 519 and 520 replayed', () => {
       () => ({ buildingChanged: vi.fn() }),
       { phase: () => 'setup' } as never,
       {} as never,
-      { recomputeTowerLOS: vi.fn() } as never,
+      { recompute: vi.fn(), register: vi.fn(), unregister: vi.fn(), clearAll: vi.fn() } as never,
       { turnToGuardHeading: vi.fn() } as never,
       ledger,
       bus,
-      () => null,
+      { towers: { updateRangeIndicator: vi.fn(), setHoldFire: vi.fn() }, towerBadges: { setHoldFire: vi.fn() } } as never,
       () => false,
     );
     new GameCommandsHandler(

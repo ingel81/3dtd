@@ -103,6 +103,7 @@ function pickOnLine(service: PathAndRouteService, point: Vector3): { row: Record
   let click: ((hit: { x: number; y: number; z: number }) => void) | null = null;
   const corridor = new CorridorConsole({
     grid: { getGrid: () => grid },
+    gridViz: { showCellSelection: () => undefined },
     mirror: { tower: () => null },
     selection: { selectedId: null, getViz: () => null },
     engineInit: { getEngine: () => engine },

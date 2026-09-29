@@ -26,7 +26,7 @@ import { commandMarkers } from '../../replay/replay-bar-view';
 import type { ExportedEvent } from '../protocol/events';
 import type { SimFramePacket } from '../protocol/packet';
 import type {
-  ReplayEntered, SimConfig, SimCoreApi, SimOutput, SimRpc, SimTickInput, SimWorld,
+  ReplayEntered, SimConfig, TickProfile, SimCoreApi, SimOutput, SimRpc, SimTickInput, SimWorld,
 } from '../protocol/messages';
 import { TableStore } from '../protocol/table-store';
 import { SimCoords } from './sim-coords';
@@ -35,6 +35,7 @@ import { PacketWriter } from './packet-writer';
 import { exportEvents } from './event-export';
 import { DeliveredLink } from './delivered-link';
 import { SimReplay } from './sim-replay';
+import { towerTargetLines, towerTargetRows, type TowerTargetLookup } from '../../services/debug/tower-target-console';
 
 /** Every service of the simulation, each made by its own constructor in the simulation's injector. */
 export const SIM_PROVIDERS: StaticProvider[] = [
@@ -79,7 +80,11 @@ export class SimCore implements SimCoreApi {
     this.gsm = this.injector.get(GameStateManager);
     this.combat = this.injector.get(TowerCombatService);
     this.writer = new PacketWriter(this.gsm, this.combat, options.store ?? new TableStore(false));
-    exportEvents(this.gsm.getEventBus(), () => this.events, this.writer.routeIndex);
+    const gsm = this.gsm;
+    exportEvents(gsm.getEventBus(), () => this.events, this.writer.routeIndex, {
+      gameTimeMs: () => gsm.gameTimeMs,
+      subStep: () => gsm.subStep,
+    });
   }
 
   /** The tables the packets are written into */
@@ -127,14 +132,20 @@ export class SimCore implements SimCoreApi {
   }
 
   tick(input: SimTickInput, out: (message: SimOutput) => void): SimFramePacket {
+    const started = performance.now();
     const gsm = this.gsm;
     this.link.deliver(input.lockstep, out);
     gsm.paused.set(input.paused);
     gsm.gameSpeed.set(input.gameSpeed);
     // At the boundary before this frame's first sub-step, in the order given
+    let slowest: TickProfile['slowest'] = null;
     for (const { playerId, command } of input.commands) {
+      const c0 = performance.now();
       gsm.receiveCommand(command as unknown as GameEvent, playerId);
+      const ms = performance.now() - c0;
+      if (!slowest || ms > slowest.ms) slowest = { type: command.type, ms };
     }
+    const commandsDone = performance.now();
 
     const delta = this.lastNow === null ? 16 : input.now - this.lastNow;
     this.lastNow = input.now;
@@ -148,9 +159,19 @@ export class SimCore implements SimCoreApi {
       stepsRun = gsm.subStep - before;
     }
 
+    const updateDone = performance.now();
     const presented = input.renderingEnabled && (stepsRun > 0 || this.forcePresent || input.commands.length > 0);
     this.forcePresent = false;
-    return this.packet(stepsRun, presented, input);
+    const packet = this.packet(stepsRun, presented, input);
+    const end = performance.now();
+    packet.scalars.tickMs = end - started;
+    const profile = { commandsMs: commandsDone - started, updateMs: updateDone - commandsDone, packetMs: end - updateDone, slowest };
+    const worst = this.profile.worst;
+    this.profile = {
+      ...profile,
+      worst: !worst || end - started > worst.tickMs ? { ...profile, tickMs: end - started, stepsRun } : worst,
+    };
+    return packet;
   }
 
   private packet(stepsRun: number, presented: boolean, input: Pick<SimTickInput, 'paused' | 'gameSpeed'>): SimFramePacket {
@@ -178,7 +199,30 @@ export class SimCore implements SimCoreApi {
     return handler(...args);
   }
 
+  /** What the tower target console reads in the simulation: an enemy's cell, a cell still in the grid */
+  private targetLookup(): TowerTargetLookup {
+    const grid = this.injector.get(GlobalRouteGridService);
+    const coords = this.injector.get(SimCoords);
+    return {
+      cellOf: (enemy) => {
+        const local = coords.sync.geoToLocalSimple(enemy.position.lat, enemy.position.lon, 0);
+        return grid.getCellAt(local.x, local.z);
+      },
+      isGridCell: (cell) => grid.getCellAt(cell.x, cell.z) === cell,
+    };
+  }
+
+  /** See SimRpc.tickProfile */
+  private profile: TickProfile = { commandsMs: 0, updateMs: 0, packetMs: 0, slowest: null };
+
   private readonly rpcHandlers: SimRpc = {
+    tickProfile: () => this.profile,
+    towerTargets: () => towerTargetRows(this.gsm.towerManager.getAll(), this.gsm.enemyManager.getAlive(), this.targetLookup()),
+    towerTargetLines: (ids) => towerTargetLines(
+      this.gsm.towerManager.getAll(),
+      this.gsm.enemyManager.getAll().filter((enemy) => ids.includes(enemy.id)),
+      this.targetLookup(),
+    ),
     reset: (seed) => {
       this.leaveReplay();
       this.gsm.reset(seed);

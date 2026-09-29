@@ -75,7 +75,13 @@ describe('Enemy Debug places on the route and walks on from there (playtest 329)
       if (event.action === 'start') m.enemyManager.getById(event.enemyId)?.startMoving();
     });
     service = new EnemyDebugService();
-    service.initialize(m.engine, signal([{ id: 'spawn-1' }]) as never);
+    // The main thread's engine as the placement reads it: the frame, no terrain
+    const engine = {
+      sync: m.coords.sync,
+      getTerrainHeightAtGeo: () => null,
+      enemies: { startWalkAnimation: vi.fn(), startRunAnimation: vi.fn() },
+    };
+    service.initialize(engine as never, signal([{ id: 'spawn-1' }]) as never);
   });
 
   afterEach(() => {

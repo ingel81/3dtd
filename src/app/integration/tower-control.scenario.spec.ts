@@ -99,7 +99,7 @@ function flatSync() {
 
 function createGame(): GameStateManager {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
-  provideSimServices(mockServices);
+  provideSimServices(mockServices, { sync: { ...flatSync(), getOrigin: () => ({ lat: BASE.lat, lon: BASE.lon, height: 0 }) } as never });
   GameObject.resetIdCounter();
   const ref: { gsm?: GameStateManager } = {};
   const alive = (out: Enemy[]) => {

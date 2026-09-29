@@ -94,3 +94,5 @@ e2e/test-results
 bot-server/run-report.html
 bot-server/_*.py
 tools/worker-sim/dist/
+tools/worker-sim/core/dist/
+tools/worker-sim/core/devworld-path.json

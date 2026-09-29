@@ -18,6 +18,7 @@ import { PresentationHost } from '../../presentation/presentation-host';
 import { PresentationService } from '../../presentation/presentation.service';
 import { TowerLosRegistry } from '../tower-los-registry';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { MainWorldService } from '../world/main-world.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { UIStore } from '../../store/ui.store';
@@ -31,7 +32,8 @@ import { BestWaveService } from '../location/best-wave.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
-import { researchSnapshotOf, watchResearchOf, type ResearchSnapshot } from '../../managers/research-snapshot';
+import { researchSnapshotOf, type ResearchSnapshot } from '../../managers/research-snapshot';
+import { watchResearchOf } from '../../sim/client/mirror/mirror-research';
 import { Vector3 } from 'three';
 import { StreetNetwork } from '../location/osm-street.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
@@ -121,6 +123,7 @@ export class TowerDefenseFacadeService {
   private readonly presentation = inject(PresentationService);
   private readonly los = inject(TowerLosRegistry);
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly world = inject(MainWorldService);
   private readonly gridViz = inject(RouteGridVizService);
 
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
@@ -189,6 +192,7 @@ export class TowerDefenseFacadeService {
 
     // Initialize the bot client
     this.botClient.initialize({
+      corridorPending: () => this.world.corridorPending(),
       towerPlacement: this.towerPlacement,
       strategicPlacement: this.strategicPlacement,
       osmService: this.osmService,

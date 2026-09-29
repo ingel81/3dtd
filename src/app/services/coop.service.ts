@@ -319,7 +319,6 @@ export class CoopService {
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
   /** Kills, towers built, gold given and leaks per player in this run (CoopRunCounts) */
   private readonly runCounts = new CoopRunCounts({
-    sim: this.sim,
     mirror: this.mirror,
     inGame: () => this.inGame(),
     roster: () => this.roster(),

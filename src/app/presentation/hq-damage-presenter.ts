@@ -119,6 +119,12 @@ export class HqDamagePresenter {
   }
 
   /** The base healed: every fire goes out. */
+  /** Debug: a red sphere where the HQ stands on the tiles (special points debug) */
+  spawnDebugPoint(): void {
+    if (!this.basePosition || this.hqTerrainHeight === null) return;
+    this.engine.effects.spawnDebugSphere(this.basePosition.lat, this.basePosition.lon, this.hqTerrainHeight, 1, 0xff0000);
+  }
+
   healBase(): void {
     this.engine.effects.stopAllFires();
     this.activeFireId = null;
