@@ -74,8 +74,13 @@ export class SimClient {
     return this.presenterImpl;
   }
 
-  attach(mirror: SimMirrorApi, presenter: SimPresenterApi): void {
+  /** The mirror, and the presenter once an engine stands (null before and after one). */
+  attach(mirror: SimMirrorApi, presenter: SimPresenterApi | null = this.presenterImpl): void {
     this.mirrorImpl = mirror;
+    this.presenterImpl = presenter;
+  }
+
+  setPresenter(presenter: SimPresenterApi | null): void {
     this.presenterImpl = presenter;
   }
 
