@@ -69,14 +69,18 @@ Ergebnisse in [SIM_WORKER.md](SIM_WORKER.md#kennzahlen), das Vorhaben als Funkti
 npm run build                                   # schreibt build-info.json: Version und Commit gehen in jedes Ergebnis
 node e2e/perf/serve.mjs dist/3DTD/browser 4244 --isolate
 node e2e/perf/sim-load.ts --url http://localhost:4244 --browser firefox --headed --enemies 5000 --speed 4
-node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --headed   --steps 3000,5000,8000,12000,16000,20000,25000 --speeds 4,1 --machine A --dpr 1
+node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --headed   --steps 3000,5000,8000,12000,16000,20000,25000 --speeds 4,1 --machine A
 ```
 
 - `--uncapped` misst Chromium ohne Bildratenbremse, sonst begrenzt der Monitor (144 Hz sind 144 FPS).
-- Gegner haben 1 000 000 HP (`--hp`) und starten auf den ersten 70 % der Routen: keiner stirbt, keiner läuft durch.
+- Gegner haben 1 000 000 HP (`--hp`), gehen 0,5 m/s (`--enemy-speed`) und starten auf den ersten 70 % der Routen:
+  keiner stirbt, kaum einer erreicht das HQ. Die Simulation nimmt die Spawns einer Runde in einem Tick (bei Tausenden
+  Sekunden); der Lauf wartet über einen Aufruf an die Simulation, bis sie durch sind, und füllt nach, was das HQ
+  erreichte (höchstens 4 Runden).
 - Vor jeder Messung pendelt der Lauf ein (mindestens 5 s, dann bis zwei 2-s-Fenster weniger als 5 % auseinander).
 - Jedes Ergebnis nennt Rechner (`--machine`, nie den Hostnamen), CPU, Speicher, Browser, GPU und Pixeldichte. Firefox
-  übernimmt sichtbar die Windows-Skalierung; `--dpr 1` setzt sie für beide Browser gleich.
+  übernimmt sichtbar die Windows-Skalierung; der Lauf setzt deshalb für beide Browser die Pixeldichte 1
+  (`--dpr system` lässt sie dem Browser).
 - `--hide-enemies` misst jede Stufe ein zweites Mal ohne Gegner und Lebensbalken im Bild (Anteil der GPU).
 - Der Vergleich mit `next` braucht dort denselben Handle `__load` als lokalen Patch nur für die Messung.
 
