@@ -119,6 +119,16 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
   // Going to another place in the page lands where it was asked to
   const locationChange = { applyNewLocation: vi.fn(async (data: { hq: { lat: number; lon: number } }) => hq.set({ lat: data.hq.lat, lon: data.hq.lon })) };
   // The wave source this seat would play next, when the test cares
+  // The run log as RunLogFacade keeps it: a reset closes the open run and
+  // opens the next, which asks the coop for its head. It hears the reset
+  // after the coop, as in the game, where the coop subscribes in its constructor.
+  let coopHead: () => { players: string[]; you: string } | null = () => null;
+  const runs: { coop: { players: string[]; you: string } | null }[] = [{ coop: null }];
+  const runLog = {
+    collector: withAutoStubs({ markCoop: (players: string[], you: string) => { runs[runs.length - 1].coop = { players, you }; } }),
+    closedRun,
+    setCoopHead: (head: typeof coopHead) => { coopHead = head; },
+  };
   const director = waveSource
     ? { sourceNextRun: waveSource, useSourceNextRun: vi.fn(function (this: { sourceNextRun: WaveSourceId }, id: WaveSourceId) { this.sourceNextRun = id; }) }
     : null;
@@ -142,12 +152,18 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       { provide: LocationFacadeService, useValue: withAutoStubs({ addRandomSpawn: vi.fn(async () => true) }) },
       { provide: LocationChangeCoordinatorService, useValue: locationChange },
       { provide: InputHandlerService, useValue: withAutoStubs({}) },
-      { provide: RunLogFacade, useValue: { collector: withAutoStubs({}), closedRun } },
+      { provide: RunLogFacade, useValue: runLog },
       { provide: MatDialog, useValue: { open: () => ({ afterClosed: () => of(true) }) } },
       ...(director ? [{ provide: WaveDirector, useValue: director }] : []),
     ],
   });
-  return { coop: injector.get(CoopService), sim, los, mirror, hq, locationChange, closedRun, director };
+  const coop = injector.get(CoopService);
+  bus.onLive('game:reset', () => {
+    runs.push({ coop: null });
+    const head = coopHead();
+    if (head) runLog.collector.markCoop(head.players, head.you);
+  });
+  return { coop, sim, los, mirror, hq, locationChange, closedRun, director, runs };
 }
 
 /** Wait for `ok`, flushing effects, up to 3 s */
@@ -229,6 +245,27 @@ describe('CoopService over a real relay (review R21)', () => {
     // The host renders the lines of sight, the guest waits for them (COOP_PLAN C3)
     expect(host.los.setRole).toHaveBeenLastCalledWith('render');
     expect(guest.los.setRole).toHaveBeenLastCalledWith('wait');
+  });
+
+  // The start resets the simulation by a call; its game:reset comes with a
+  // later packet, when the game already runs (review f05)
+  it('marks the run the start opens as coop, not the one before, and says nothing of a new run then', async () => {
+    const { host, guest } = await lobby();
+    guest.coop.setLobbyReady(true);
+    await until(() => host.coop.room()!.players.find((p) => p.name === 'Bob')!.ready);
+    host.coop.start();
+    await until(() => host.coop.inGame() && guest.coop.inGame());
+    expect(guest.sim.rpc).toHaveBeenCalledWith('reset', expect.any(Number));
+    guest.sim.bus.emit({ type: 'game:reset' });
+
+    expect(guest.runs.map((run) => run.coop)).toEqual([null, { players: ['Ann', 'Bob'], you: 'Bob' }]);
+    const newRunLines = () => guest.coop.chat().filter((line) => line.text === 'The host started a new run');
+    expect(newRunLines()).toEqual([]);
+
+    // The host's restart later on is a new run, and a coop one again
+    guest.sim.bus.emit({ type: 'game:reset' });
+    expect(guest.runs.map((run) => run.coop?.you ?? null)).toEqual([null, 'Bob', 'Bob']);
+    expect(newRunLines()).toHaveLength(1);
   });
 
   it('counts an ooze that flows in point by point once for its lane (TODO E34)', async () => {
