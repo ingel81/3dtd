@@ -1,6 +1,8 @@
 # Simulation im Worker (Umbau, Branch `simu-worker`)
 
-Stand 2026-09-29: im Bau. Ziel: die Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton, UI,
+Stand 2026-09-29 abends: Die Simulation läuft im Worker, das Spiel läuft damit im Browser (DevWorld: Tower,
+Sichtlinien, Wellen, 5000 Gegner). Offen: Specs der alten Aufrufer nachziehen, E2E, Coop und Replay im Browser prüfen,
+Doku der übrigen Dokumente. Ziel: die Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton, UI,
 Eingabe, Tiles und die GPU-Sichtlinien. Grundlage: [WORKER_PLAN.md](WORKER_PLAN.md) (Stufe 1: echte Simulation im
 Worker bitgleich).
 
@@ -79,3 +81,35 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
 2. Zusammenführen, grün machen: Build, Specs, Spiel im Browser (E2E), Einzelspieler.
 3. Worker-Transport scharf, Coop, Replay, Bots.
 4. Messen gegen E57 (5000 Gegner, Tempo 4), E2E, Doku (ARCHITECTURE, EVENT_SYSTEM, WORKER_PLAN).
+
+## Transport
+
+- **Tabellen** (Gegner, Geschosse, Tower, Oozes, Würmer) im `SharedArrayBuffer` (`sim/protocol/table-store.ts`,
+  `wire.ts`): der Worker schreibt, der Hauptthread liest ohne Kopie. Ein Tick ist unterwegs, also braucht der Speicher
+  keine Sperre. Wächst eine Tabelle, geht der neue Puffer einmal mit. Ohne `crossOriginIsolated` dieselbe Form mit
+  Kopien je Bild.
+- **Variables** (Befehle, Events, Ops, Tower-Zustände, RPC) per `postMessage`; es ist zugleich das Wecksignal.
+  `Atomics.wait`/`notify` bräuchten wir nur für ein reines Shared-Memory-Signal; der Worker dürfte dann blockierend
+  warten, der Hauptthread liest einmal je Bild (Firefox hat kein `Atomics.waitAsync`).
+- **Header** für die Isolation: Web `public/.htaccess` (COOP same-origin, COEP credentialless), Dev-Server in
+  `angular.json`, Desktop-App im `app://`-Handler. Nach dem nächsten Deploy mit `curl -I` prüfen.
+
+## Kennzahlen
+
+Zwei Zahlen statt einer: die **Bildzeit** des Hauptthreads (FPS) und die **Tick-Zeit** der Simulation im Worker
+(`SimScalars.tickMs`, zerlegt per RPC `tickProfile`); dazu kostet das Anwenden eines Pakets den Hauptthread
+`SimClient.applyTimes`.
+
+Messung 2026-09-29 (`e2e/perf/sim-load.ts`, Produktions-Build, DevWorld, 40 Tower, rund 4800 Gegner, Tempo 4, ein
+Windows-Rechner; Tempo 4 wird überall erreicht):
+
+| | ohne Worker (`next`) | mit Worker |
+|---|---|---|
+| Chromium ohne Bildratenbremse, FPS / langsamste 5 % | 300 / 172 | 296 / 200 |
+| Firefox sichtbar, FPS / langsamste 5 % | 32 / 24 | 127 / 72 |
+| Tick-Zeit im Worker (Chromium / Firefox) | – | 1,9 / 4,7 ms |
+| Paket anwenden im Hauptthread (Chromium / Firefox) | – | 1,5 / 3,8 ms |
+
+In Chromium kostet die Simulation in dieser Szene wenig; der Worker glättet vor allem die langsamen Bilder. In Firefox,
+wo die Simulation im Hauptthread das Bild auffraß, fast vierfache Bildrate.
+
