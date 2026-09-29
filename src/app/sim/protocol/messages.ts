@@ -8,6 +8,7 @@ import type { SpawnPoint } from '../../managers/wave.manager';
 import type { CommandData } from '../../managers/game-state/command-data';
 import type { StampedCommand } from '../../coop/lockstep';
 import type { SimFramePacket } from './packet';
+import type { ReplayMarker } from '../../replay/replay-bar-view';
 import type { WireFrame } from './wire';
 
 /**
@@ -101,19 +102,31 @@ export interface SimRpc {
   hashBreakdownAt(tick: number): unknown;
   captureWaveSnapshot(): unknown;
   restoreWaveSnapshot(snapshot: unknown, reason: 'replay' | 'live'): void;
-  replayFile(head: { configHash: string; gameVersion: string; commit: string }): string;
+  /** The run's (or the loaded file's) replayable waves as a replay file's text; null when there is none */
+  replayFile(head: { configHash: string; gameVersion: string; commit: string }): { text: string; waves: number[] } | null;
   loadReplayFile(text: string, here: { configHash: string; gameVersion: string }): { refusal: string | null; note: string | null; waves: number[] };
   /**
    * Keep the live state, put the simulation at the wave's start in replay
    * mode. `file`: a replay file's text read before (loadReplayFile) instead
    * of the run's own record. Null when the wave cannot be re-simulated.
    */
-  replayEnter(wave: number, fromFile: boolean): { lengthInSteps: number | null } | null;
+  replayEnter(wave: number, fromFile: boolean): ReplayEntered | null;
   /** Jump to `stepInWave` without the show (VFX, sounds muted), forward or from the start */
   replaySeek(stepInWave: number): void;
   /** Give the live game back as it was, leave replay mode */
   replayExit(): void;
   commandLog(): unknown[];
+}
+
+/** What the replay bar needs of a wave the simulation entered (rpc replayEnter). */
+export interface ReplayEntered {
+  wave: number;
+  lengthInSteps: number | null;
+  startStep: number;
+  /** commandMarkers() of the wave's log (replay/replay-bar-view.ts) */
+  markers: ReplayMarker[];
+  /** The waves the bar can switch to, oldest first: the file's, or the run's replayable ones */
+  waves: number[];
 }
 
 // ── Worker messages ──
