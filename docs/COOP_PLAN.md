@@ -524,8 +524,14 @@ Haltens). Abnahme: `room.spec.ts` (Halten, Weiterreichen, Weiter, Zeitablauf, Ob
 Im Browser geprüft (2026-09-29, Bot-Räume in der DevWorld, `run.ts --falsify-at-wave 3`): in 3 von 3 Räumen eine
 Resync, danach bis W12 keine Abweichung mehr. Der erste Browserlauf fand dabei einen Fehler im Snapshot: zwischen den
 Wellen geladen, sprang der Gast in eine leere Welle, die sofort endete und ihr Abschlussgold ein zweites Mal zahlte
-(`restoreWaveState` setzt die Phase jetzt nur, wenn eine Welle lief). Noch offen: Darstellung nach dem Laden (Spuren,
-Auren, Töne des alten Stands; headless nicht zu sehen), Stände über 1 MB (L-Wellen).
+(`restoreWaveState` setzt die Phase jetzt nur, wenn eine Welle lief).
+
+**Resync fertig (2026-09-29):** Stände über 1 MB gehen in Stücken (`resync-state` mit `part`/`parts`, je höchstens
+`RESYNC_PART_CHARS` = 768 kB base64, ein Stück alle 250 ms wegen der 4 MB/s des Relays, höchstens `MAX_RESYNC_PARTS`
+= 16); das Relay reicht jedes Stück sofort weiter und zählt den Stand mit dem letzten als gesendet, ein Stück außer
+der Reihe lässt die Resync scheitern. Der Gast lädt erst, wenn alle da sind. Das Laden räumt die Darstellung wie
+der Sprung im Replay: `clearShow()` davor (Partikel, Spuren, Schlag-Effekte, Einmal-Töne), `resyncPresentation()`
+danach (Ofenfeuer, HQ-Feuer, Status-Looks, Musik und Blutmond der Phase).
 
 Was für die Resync noch fehlt (nicht gebaut):
 - Protokoll: Relay meldet `desync`, der Host nimmt an einer Tick-Grenze T den Snapshot und schickt ihn (Größe:

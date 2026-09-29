@@ -194,7 +194,7 @@ export class Room {
    * A resync under way (C5b): no tick closes from `tick` on until every
    * guest in `waiting` loaded the host's state, or RESYNC_TIMEOUT_MS passed
    */
-  private resync: { tick: number; since: number; waiting: Set<string>; stateSent: boolean; ok: boolean } | null = null;
+  private resync: { tick: number; since: number; waiting: Set<string>; stateSent: boolean; nextPart: number; ok: boolean } | null = null;
   /** Hash reports below this tick describe a state a resync replaced */
   private hashFloor = 0;
   private resyncCount = 0;
@@ -427,13 +427,14 @@ export class Room {
       case 'hash-detail':
         return this.takeDesyncDetail(playerId, message.tick, message.entities);
       case 'resync-state':
-        return this.takeResyncState(playerId, message.tick, message.gz);
+        return this.takeResyncState(playerId, message.tick, message.gz, message.part ?? 0, message.parts ?? 1);
       case 'resynced': {
         const resync = this.resync;
         if (!resync || message.tick !== resync.tick || !resync.waiting.delete(playerId)) return;
         if (!message.ok) resync.ok = false;
         this.log(`resync: ${this.who(playerId)} ${message.ok ? 'loaded' : 'could not load'} the state of tick ${resync.tick}`);
-        if (resync.waiting.size === 0) this.finishResync();
+        // With pieces still to come the last one finishes it (takeResyncState)
+        if (resync.waiting.size === 0 && resync.stateSent) this.finishResync();
         return;
       }
       case 'stats':
@@ -561,23 +562,39 @@ export class Room {
     if (this.resync || this.players.length < 2) return;
     if (this.resyncCount >= MAX_RESYNCS) return this.log(`no resync: ${MAX_RESYNCS} already, divergences only count from here`);
     const guests = new Set(this.players.filter((p) => p.id !== this.hostId).map((p) => p.id));
-    this.resync = { tick: this.nextTick, since: this.now(), waiting: guests, stateSent: false, ok: true };
+    this.resync = { tick: this.nextTick, since: this.now(), waiting: guests, stateSent: false, nextPart: 0, ok: true };
     this.resyncCount++;
     this.log(`resync ${this.resyncCount}: holding at tick ${this.nextTick}, the host's state goes to ${[...guests].map((id) => this.who(id)).join(', ')}`);
     this.broadcast({ t: 'resync', tick: this.nextTick });
   }
 
-  private takeResyncState(playerId: string, tick: number, gz: string | null): void {
+  /**
+   * A piece of the host's state: passed on to the guests as it comes, in
+   * order; the state counts as sent with the last piece. A piece out of order
+   * fails the resync, the guests could not put the state together.
+   */
+  private takeResyncState(playerId: string, tick: number, gz: string | null, part: number, parts: number): void {
     const resync = this.resync;
     if (!resync || playerId !== this.hostId || tick !== resync.tick || resync.stateSent) return;
+    if (gz !== null && part !== resync.nextPart) {
+      this.log(`resync: piece ${part + 1} of ${parts} from the host out of order, expected ${resync.nextPart + 1}`);
+      resync.stateSent = true;
+      resync.ok = false;
+      return this.finishResync();
+    }
+    resync.nextPart = part + 1;
+    if (gz !== null && part < parts - 1) {
+      for (const id of resync.waiting) this.send(id, { t: 'resync-state', tick, gz, part, parts });
+      return;
+    }
     resync.stateSent = true;
     if (gz === null) {
       this.log(`resync: the host cannot send its state at tick ${tick}`);
       resync.ok = false;
       return this.finishResync();
     }
-    this.log(`resync: state of tick ${tick} from the host, ${Math.round(gz.length / 1024)} kB`);
-    for (const id of resync.waiting) this.send(id, { t: 'resync-state', tick, gz });
+    this.log(`resync: state of tick ${tick} from the host${parts > 1 ? `, the last of ${parts} pieces` : ''}, ${Math.round(gz.length / 1024)} kB`);
+    for (const id of resync.waiting) this.send(id, { t: 'resync-state', tick, gz, part, parts });
     if (resync.waiting.size === 0) this.finishResync();
   }
 

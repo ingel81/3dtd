@@ -157,7 +157,7 @@ export class CoopSession {
   /** After a desync the room holds at the boundary of `tick` for a resync (C5b) */
   onResync: ((tick: number) => void) | null = null;
   /** Guest: the host's state for the resync at `tick` */
-  onResyncState: ((tick: number, gz: string) => void) | null = null;
+  onResyncState: ((tick: number, gz: string, part: number, parts: number) => void) | null = null;
   /** The room goes on after the resync at `tick` */
   onResyncDone: ((tick: number, ok: boolean) => void) | null = null;
   /** The relay's answer to a sent run log (TODO E38) */
@@ -299,8 +299,8 @@ export class CoopSession {
   }
 
   /** Host, resync: the state at the boundary of `tick`, or null when it cannot be sent (C5b) */
-  resyncState(tick: number, gz: string | null): void {
-    this.out({ t: 'resync-state', tick, gz });
+  resyncState(tick: number, gz: string | null, part = 0, parts = 1): void {
+    this.out(gz === null ? { t: 'resync-state', tick, gz } : { t: 'resync-state', tick, gz, part, parts });
   }
 
   /** Guest, resync: the host's state is loaded, or not */
@@ -436,7 +436,7 @@ export class CoopSession {
       case 'resync':
         return this.onResync?.(message.tick);
       case 'resync-state':
-        return this.onResyncState?.(message.tick, message.gz);
+        return this.onResyncState?.(message.tick, message.gz, message.part ?? 0, message.parts ?? 1);
       case 'resync-done':
         return this.onResyncDone?.(message.tick, message.ok);
     }

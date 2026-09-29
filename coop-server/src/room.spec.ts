@@ -473,7 +473,7 @@ describe('Room (COOP_PLAN C4)', () => {
       room.receive('b', { t: 'resync-state', tick, gz: 'QUJD' }); // not the host: ignored
       expect(last('a', 'resync-state')).toBeUndefined();
       room.receive('a', { t: 'resync-state', tick, gz: 'QUJD' });
-      expect(last('b', 'resync-state')).toEqual({ t: 'resync-state', tick, gz: 'QUJD' });
+      expect(last('b', 'resync-state')).toEqual({ t: 'resync-state', tick, gz: 'QUJD', part: 0, parts: 1 });
       expect(last('a', 'resync-state')).toBeUndefined();
       room.receive('b', { t: 'resynced', tick, ok: true });
       expect(last('a', 'resync-done')).toEqual({ t: 'resync-done', tick, ok: true });
@@ -488,6 +488,28 @@ describe('Room (COOP_PLAN C4)', () => {
       room.receive('b', { t: 'hash', tick: 90, hash: 4 });
       expect(all('a', 'desync')).toHaveLength(2);
       expect(all('a', 'resync')).toHaveLength(2);
+    });
+
+    it('passes a state in pieces on as they come and counts it sent with the last', () => {
+      const tick = diverged();
+      room.receive('a', { t: 'resync-state', tick, gz: 'QUJD', part: 0, parts: 3 });
+      room.receive('a', { t: 'resync-state', tick, gz: 'REVG', part: 1, parts: 3 });
+      expect(all('b', 'resync-state')).toEqual([
+        { t: 'resync-state', tick, gz: 'QUJD', part: 0, parts: 3 },
+        { t: 'resync-state', tick, gz: 'REVG', part: 1, parts: 3 },
+      ]);
+      room.receive('a', { t: 'resync-state', tick, gz: 'R0hJ', part: 2, parts: 3 });
+      expect(last('b', 'resync-state')).toEqual({ t: 'resync-state', tick, gz: 'R0hJ', part: 2, parts: 3 });
+      expect(last('a', 'resync-done')).toBeUndefined();
+      room.receive('b', { t: 'resynced', tick, ok: true });
+      expect(last('a', 'resync-done')).toEqual({ t: 'resync-done', tick, ok: true });
+    });
+
+    it('fails the resync on a piece out of order', () => {
+      const tick = diverged();
+      room.receive('a', { t: 'resync-state', tick, gz: 'QUJD', part: 1, parts: 3 });
+      expect(last('b', 'resync-state')).toBeUndefined();
+      expect(last('b', 'resync-done')).toEqual({ t: 'resync-done', tick, ok: false });
     });
 
     it('goes on without when the host cannot send or nobody answers', () => {

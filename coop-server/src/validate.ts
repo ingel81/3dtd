@@ -10,7 +10,7 @@
  * they came; the room checks them (validOptions, validDetail) or only
  * forwards them (the world, bounded by the relay's message size).
  */
-import type { ClientMessage } from '../../src/app/coop/protocol.ts';
+import { MAX_RESYNC_PARTS, type ClientMessage } from '../../src/app/coop/protocol.ts';
 
 /** Longest name, as the client allows it */
 const NAME_MAX = 32;
@@ -173,7 +173,13 @@ export function parseClientMessage(value: unknown): ClientMessage | null {
       if (tick === null) return null;
       const gz = m['gz'];
       if (gz === null) return { t: 'resync-state', tick, gz: null };
-      return typeof gz === 'string' && gz.length > 0 && BASE64.test(gz) ? { t: 'resync-state', tick, gz } : null;
+      const parts = m['parts'] === undefined ? 1 : m['parts'];
+      const part = m['part'] === undefined ? 0 : m['part'];
+      if (!Number.isInteger(parts) || !Number.isInteger(part)) return null;
+      if ((parts as number) < 1 || (parts as number) > MAX_RESYNC_PARTS || (part as number) < 0 || (part as number) >= (parts as number)) return null;
+      return typeof gz === 'string' && gz.length > 0 && BASE64.test(gz)
+        ? { t: 'resync-state', tick, gz, part: part as number, parts: parts as number }
+        : null;
     }
     case 'resynced': {
       const tick = tickOf(m['tick']);

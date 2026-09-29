@@ -23,6 +23,13 @@ export const PROTOCOL_VERSION = 1;
 export const MAX_PLAYERS = 4;
 
 /**
+ * Most pieces a resync state may take (coop/resync.ts): 12 MB of gzip,
+ * about three times the largest state measured (4.1 MB JSON at 3000
+ * enemies before gzip), sent in 4 s of the relay's 20 s.
+ */
+export const MAX_RESYNC_PARTS = 16;
+
+/**
  * What a player's client is doing in the lobby, as it tells the room (User,
  * 2026-09-25): entering a map key, loading the host's map, reloading the page
  * for a new place, or the map stands. Null before it said anything.
@@ -155,8 +162,12 @@ export type ClientMessage =
   | { t: 'ping'; lat: number; lon: number; height: number }
   /** After a game, with the player's consent: the run log, gzip and base64 (TODO E38); only to a relay that collects */
   | { t: 'run-log'; gz: string }
-  /** Host, after `resync`: the simulation at the boundary of `tick` (wave snapshot, JSON, gzip, base64); null when it cannot (C5b) */
-  | { t: 'resync-state'; tick: number; gz: string | null }
+  /**
+   * Host, after `resync`: the simulation at the boundary of `tick` (wave
+   * snapshot, JSON, gzip, base64), in `parts` pieces sent in order, `part`
+   * counting from 0 (absent: one piece); null when it cannot (C5b)
+   */
+  | { t: 'resync-state'; tick: number; gz: string | null; part?: number; parts?: number }
   /** Guest: the host's state is loaded at the boundary of `tick`, or why not (C5b) */
   | { t: 'resynced'; tick: number; ok: boolean };
 
@@ -208,7 +219,7 @@ export type ServerMessage =
    * the others load it (C5b, TODO E58).
    */
   | { t: 'resync'; tick: number }
-  /** To the guests: the host's state at the boundary of `tick` */
-  | { t: 'resync-state'; tick: number; gz: string }
+  /** To the guests: a piece of the host's state at the boundary of `tick` */
+  | { t: 'resync-state'; tick: number; gz: string; part: number; parts: number }
   /** The room goes on; `ok` false when the state could not be sent or loaded everywhere */
   | { t: 'resync-done'; tick: number; ok: boolean };

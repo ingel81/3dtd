@@ -201,10 +201,16 @@ export class CoopService {
       subStep: () => this.gameState.subStep,
       refusal: () => this.gameState.waveSnapshotRefusal(),
       capture: () => this.gameState.captureWaveSnapshot(),
-      restore: (snapshot) => this.gameState.restoreWaveSnapshot(snapshot, 'live'),
+      // As a replay's seek: the old state's particles, marks, strikes and
+      // one-shot sounds go first, then the look and sound of the loaded one
+      restore: (snapshot) => {
+        this.gameState.clearShow();
+        this.gameState.restoreWaveSnapshot(snapshot, 'live');
+        this.gameState.resyncPresentation();
+      },
     },
     {
-      state: (tick, gz) => this.session?.resyncState(tick, gz),
+      state: (tick, gz, part, parts) => this.session?.resyncState(tick, gz, part, parts),
       loaded: (tick, ok) => this.session?.resynced(tick, ok),
     },
     (text) => console.warn(text),
@@ -1288,7 +1294,7 @@ export class CoopService {
       this.startResyncPolling();
       this.notify(this.isHost() ? 'Sending your game state to the others to bring them back in step' : "Loading the host's game state to get back in step", 'info');
     });
-    session.onResyncState = inZone((tick, gz) => this.resync.state(tick, gz));
+    session.onResyncState = inZone((tick, gz, part, parts) => this.resync.state(tick, gz, part, parts));
     session.onResyncDone = inZone((_tick, ok) => {
       this.resync.done();
       this.stopResyncPolling();
