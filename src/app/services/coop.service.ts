@@ -37,7 +37,7 @@ import type { CoopRoomInfo, PlayerStatus, PublicRoom, RefusalReason, RoomListing
 import { clientInfoFrom, mixedEngines } from '../coop/client-info';
 import { laneStats, type LaneStat } from '../coop/lane-stats';
 import { InputHandlerService } from './input-handler.service';
-import { SubscriptionBag } from '../game-engine/game-event-bus';
+import { SubscriptionBag, EventSubscription } from '../game-engine/game-event-bus';
 import { RunLogFacade } from '../run-log/run-log.facade';
 import { SPAWN_COLORS } from '../configs/map-constants.config';
 import { laneCss } from '../coop/lane-color';
@@ -528,6 +528,16 @@ export class CoopService {
     this.subs.add(bus.onLive('credits:changed', (event) => {
       if (this.inGame()) this.gold.set(new Map(this.gold()).set(event.playerId, event.credits));
     }));
+    // Every player's gold as the simulation's packets carry it: the start
+    // credits of a new run come with its first packet, not as credits:changed
+    const offFrame = this.sim.onFrame((packet) => {
+      if (!this.inGame() || packet.scalars.replay) return;
+      const { players, credits } = packet.scalars;
+      const gold = this.gold();
+      if (players.every((id, i) => gold.get(id) === credits[i])) return;
+      this.gold.set(new Map(players.map((id, i) => [id, credits[i]])));
+    });
+    this.subs.add(new EventSubscription(offFrame));
     this.subs.add(bus.onLive('coop:credits-given', (event) => {
       if (event.toLocal) this.notify(`${this.nameOf(event.from)} sent you ${event.amount} gold`);
       this.runCounts.giftGiven(event.from, event.amount);
