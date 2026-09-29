@@ -1,4 +1,4 @@
-import { afterEach, beforeEach, describe, it, expect, vi, type Mock } from 'vitest';
+import { beforeEach, describe, it, expect, vi, type Mock } from 'vitest';
 
 // Mock three.js
 vi.mock('three', async () => await import('@/test/mocks/three.mock'));

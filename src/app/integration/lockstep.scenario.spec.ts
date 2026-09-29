@@ -53,7 +53,7 @@ import { LocalRelay, type LocalLink } from '../coop/local-relay';
 import { TICK_SUB_STEPS, type LockstepLink } from '../coop/lockstep';
 import { HASH_EVERY_TICKS } from '../coop/hash-check';
 import { buildWorldPackage, packagePaths, readWorldPackage } from '../coop/world-package';
-import { buildSimWorld, type SimWorld, type SimWorldOptions } from './sim-world';
+import { buildSimWorld, worldSourceOf, type SimWorld, type SimWorldOptions } from './sim-world';
 
 const SEED = 0xc0de;
 const PLAYERS = ['a', 'b'];
@@ -487,7 +487,7 @@ describe('Coop world package (COOP_PLAN C1)', () => {
   function hostAndJoiner(relay: LocalRelay) {
     Math.random = mulberry32(SEED + 1);
     const host = buildClient(relay, 'a', { ground: hills });
-    const source = host.gsm.worldSource()!;
+    const source = worldSourceOf(host.world);
     const text = JSON.stringify(buildWorldPackage(source, HEAD));
     const read = readWorldPackage(text, HEAD);
     if (!read.world) throw new Error(`refused: ${read.refusal}`);
@@ -501,11 +501,11 @@ describe('Coop world package (COOP_PLAN C1)', () => {
 
   it('gives the joiner the host world: same cells, same heights, same world key', () => {
     const { host, joiner, world, source } = hostAndJoiner(new LocalRelay(true));
-    const grid = joiner.gsm.getGlobalRouteGrid();
+    const grid = joiner.world.grid;
     expect(source.heights.some(([, , state]) => state === 2)).toBe(true); // filled cells travel too
     expect(joiner.gsm.worldKey()).toBe(world.worldKey);
     expect(joiner.gsm.worldKey()).toBe(host.gsm.worldKey());
-    expect(grid.cellsWithoutHeight()).toBe(host.gsm.getGlobalRouteGrid().cellsWithoutHeight());
+    expect(grid.cellsWithoutHeight()).toBe(host.world.grid.cellsWithoutHeight());
     expect(grid.exportHeights()).toEqual(source.heights);
 
     // Without the heights the same routes give another world
@@ -620,8 +620,9 @@ describe('Coop world package (COOP_PLAN C1)', () => {
     const relay = new LocalRelay(true);
     const { host, joiner } = hostAndJoiner(relay);
     // The routes start at height 0, so the spawn falls back to a ground lookup; the joiner's
-    // tiles answer another height there, as another machine's refinement would
-    (joiner.gsm.tilesEngine as unknown as { getTerrainHeightAtGeo: () => number }).getTerrainHeightAtGeo = () => 3.7;
+    // ground under the spawn points (SimWorld.spawnGround) says another height, as a world
+    // measured on another machine's tiles would: the cells win
+    joiner.gsm.enemyManager.setSpawnGround(() => 3.7);
     host.emit({ type: 'command:start-wave', director: directorWave() });
     let waved = false;
     for (let f = 0; f < 20000; f++) {
@@ -799,8 +800,8 @@ describe('Coop players in the simulation (COOP_PLAN C2a)', () => {
     expect(a.gsm.creditsOf('b')).toBe(start);
 
     // Selecting: a partner's tower too, to look at it; acting on it only its owner (TODO E39)
-    expect(a.gsm.selectableTower(built.id)).toBe(built.id);
-    expect(b.gsm.selectableTower(built.id)).toBe(built.id);
+    expect(a.gsm.towerPolicy.may('a', built, 'select')).toBe(true);
+    expect(b.gsm.towerPolicy.may('b', built, 'select')).toBe(true);
     expect(a.gsm.mayManage(built)).toBe(true);
     expect(b.gsm.mayManage(built)).toBe(false);
 
@@ -1140,7 +1141,7 @@ describe('Coop lanes and readiness (COOP_PLAN C2d)', () => {
         b.gsm.setLanes(lanes);
       }
       let shown: WaveGroupDisplay[] = [];
-      (a.gsm as unknown as { waveDebug: unknown }).waveDebug = { setCurrentWaveGroups: (groups: WaveGroupDisplay[]) => { shown = groups; } };
+      a.gsm.getEventBus().on('wave:groups', (event) => { shown = event.groups; });
       a.emit({ type: 'command:start-wave', director: directorWave() });
       for (let f = 0; f < 200 && a.gsm.waveManager.phase() !== 'wave'; f++) {
         relay.closeTick();
@@ -1266,8 +1267,7 @@ describe('Coop line of sight from the host (COOP_PLAN C3)', () => {
     const relay = new LocalRelay();
     const a = buildClient(relay, 'a');
     const b = buildClient(relay, 'b');
-    a.gsm.setLosRole('host');
-    b.gsm.setLosRole('guest');
+    // A renders and answers (the host's TowerLosRegistry), B only waits
     const readyAt = new Map<string, number>();
     const lag = mulberry32(3);
 
@@ -1280,6 +1280,7 @@ describe('Coop line of sight from the host (COOP_PLAN C3)', () => {
       a.link.deliver();
       if (lag() < 0.5) b.link.deliver(1 + Math.floor(lag() * 3));
       a.frame(40);
+      a.run(() => a.world.answerLos());
       b.frame(40);
       if (f === 30) b.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: 250 / M, lon: 10 / M, height: 0 } });
       if (placed === null) {

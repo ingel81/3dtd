@@ -146,7 +146,6 @@ describe('Split on death integration', () => {
             if (e.movement.getPathProgress() >= at) t.enemyManager.kill(e);
           }
         }
-        t.enemyManager.presentFrame(now);
       }
       random.mockRestore();
 

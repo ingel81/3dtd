@@ -46,7 +46,7 @@ describe('Guard heading after a debug skeleton outside a wave (playtest 336)', (
       { turnTowersToGuard } as never,
       {} as never,
       m.eventBus,
-      () => null,
+      m.sink as never,
       () => false,
     );
     aliveAtDeath = [];

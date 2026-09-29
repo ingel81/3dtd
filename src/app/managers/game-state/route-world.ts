@@ -1,5 +1,4 @@
 import type { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
-import type { WaveManager } from '../wave.manager';
 import type { RouteWaypoint } from '../../models/game.types';
 import type { SimWorld } from '../../sim/protocol/messages';
 import type { SimCoords } from '../../sim/core/sim-coords';
@@ -9,7 +8,6 @@ import { worldKeyOf } from '../../sim/protocol/world-key';
 /** What the route world reads of the GameStateManager */
 export interface RouteWorldHost {
   readonly grid: GlobalRouteGridService;
-  readonly waveManager: WaveManager;
   readonly coords: SimCoords;
   /** New routes enter the towers' ranges elsewhere (TowerLifecycle.refreshGuardHeadings) */
   routesChanged(): void;
@@ -64,10 +62,9 @@ export class RouteWorld {
     this.host.routesChanged();
   }
 
-  /** The key of the world the simulation stands on (worldKeyOf) */
+  /** The key of the world the simulation stands on (worldKeyOf), its routes in the world's order */
   key(): string {
     const origin = this.host.coords.ready ? this.host.coords.sync.getOrigin() : null;
-    // The routes of the world as loaded (the wave pipeline takes them only in initialize, after the check)
     return worldKeyOf(this.host.grid.snapshotHeights(), this.paths.values(), origin);
   }
 }

@@ -984,10 +984,6 @@ describe('SpatialAudioManager around the pause (playtest 546, 548)', () => {
     camera.position.set(x, 0, 0);
     camera.updateMatrixWorld(true);
   };
-  /** createLoop awaits the context and the buffer. */
-  const settle = async () => {
-    for (let i = 0; i < 20; i++) await Promise.resolve();
-  };
 
   it('546: nothing starts while the camera flies over enemies in the pause; in earshot they walk on after it', async () => {
     const { camera, manager, ready } = setup();
