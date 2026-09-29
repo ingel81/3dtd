@@ -2,7 +2,8 @@ import { Injectable, effect, inject, signal, untracked } from '@angular/core';
 import { ABILITIES, type AbilityId, type AbilityRejectReason } from '../configs/abilities.config';
 import { HERO, type HeroRejectReason } from '../configs/hero.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
-import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import { SubscriptionBag } from '../game-engine/game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { UIStore } from '../store/ui.store';
 import { UPGRADE_HINT_MS } from './upgrade-hint.service';
@@ -103,7 +104,7 @@ export class RefusalHintService {
   }
 
   /** Follow the managers' refusals of a game session. */
-  connect(bus: GameEventBus, fromPlayer: () => boolean = () => true): void {
+  connect(bus: MainEventBus, fromPlayer: () => boolean = () => true): void {
     this.subs.disposeAll();
     this.subs.add(bus.onLive('ability:rejected', (event) => {
       if (!event.local) return;
