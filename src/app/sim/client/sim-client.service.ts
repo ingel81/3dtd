@@ -228,12 +228,28 @@ export class SimClient {
     for (const packet of packets) this.apply(packet);
   }
 
+  /**
+   * Main-thread ms of the last packet's apply, by part: the mirror's state,
+   * the renderer ops, the events on the bus, the tables to the renderers, the
+   * frame listeners (the frame time's share of the simulation on this thread)
+   */
+  readonly applyTimes = { state: 0, ops: 0, events: 0, present: 0, listeners: 0 };
+
   /** The order of contracts.ts: state, ops, events, tables. */
   private apply(packet: SimFramePacket): void {
+    const times = this.applyTimes;
+    let t = performance.now();
+    const lap = (key: keyof SimClient['applyTimes']) => {
+      const now = performance.now();
+      times[key] = now - t;
+      t = now;
+    };
     const mirror = this.mirror;
     const presenter = this.presenterImpl;
     mirror.applyState(packet);
+    lap('state');
     presenter?.applyOps(packet.ops);
+    lap('ops');
     const bus = this.bus;
     for (const event of packet.events) {
       bus.setLiveMuted(!event.live);
@@ -242,6 +258,7 @@ export class SimClient {
     }
     bus.setLiveMuted(false);
     bus.setShowMuted(false);
+    lap('events');
     const gameTime = packet.scalars.gameTimeMs;
     if (presenter) {
       if (this.lastGameTimeMs !== null && gameTime > this.lastGameTimeMs) presenter.advance(gameTime - this.lastGameTimeMs);
@@ -249,6 +266,8 @@ export class SimClient {
     }
     this.lastGameTimeMs = gameTime;
     mirror.afterFrame(packet);
+    lap('present');
     for (const listener of this.frameListeners) listener(packet);
+    lap('listeners');
   }
 }
