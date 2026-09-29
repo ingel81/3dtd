@@ -74,7 +74,8 @@ allem unter T (Coop).
       1600×900, eine RTX-Karte, Render mit `gl.finish()`, an und aus im Wechsel: Reichweitenringe aller 12 Tower
       +0,05 ms je Bild (0,87 gegen 0,92), Laser-Säule +0,1 ms (0,9 gegen 1,0). Der Kegel lädt je Bild ein Attribut
       von höchstens 256 × 2 Zahlen hoch, Portal-Drehbereich und `buildBand` laufen einmal je Ortsaufbau, nicht je Bild.
-      Offen nur: dieselbe Messung über echten Tiles (Stencil gegen Tile-Tiefe), kostet Kartensitzungen.
+      Über echten Tiles (`--map`, Stuttgart, 36 Tower, 2026-09-29): Ringe +0,14 ms im Mittel (0,76 gegen 0,90).
+      Offen: Laser auf der Karte, dort kam im Lauf kein Schlag zustande.
 - [ ] **G1 Konzept Resistenzen, Immunitäten, Schild und HP** je Gegnertyp. Entschieden: Herbert Slow-Resistenz 50 %,
       `immunityPercent` geht im neuen Feld auf. Grundlage (lokal, nicht im Repo): `tmp/archive-2026-09/fix1/reports/bossresist.md`, `immunity.md`.
 - [ ] **G2 Konzept Tech Tree des Helden** (Stufe 2 erst damit), Vorschläge (lokal, nicht im Repo) in `tmp/archive-2026-09/fix1/reports/herotier2.md`.

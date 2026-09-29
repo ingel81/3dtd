@@ -4,8 +4,12 @@
 // the difference is the effect's cost.
 //
 //   node e2e/perf/render-costs.ts --url http://localhost:4220 [--rounds 6] [--seconds 3]
+//   node e2e/perf/render-costs.ts --url http://localhost:4200 --map [--place 48.7758,9.1829]
 //
 // Serve a development build first (docs/E2E.md, coop bots). No map tiles, no relay, no dev server.
+// With --map the same over real tiles (the stencil against the tiles' depth): the running dev server
+// with a tile key, a visible window (the tiles need the GPU), one map session; towers come by command
+// along the route instead of from the bot.
 import { chromium, type Page } from '@playwright/test';
 
 function argument(name: string, fallback: string): string {
@@ -16,6 +20,9 @@ function argument(name: string, fallback: string): string {
 const URL_BASE = argument('url', 'http://localhost:4220');
 const ROUNDS = Number(argument('rounds', '6'));
 const SECONDS = Number(argument('seconds', '3'));
+const MAP = process.argv.includes('--map');
+/** "lat,lon" of the map run; Stuttgart centre as in the E2E tests */
+const PLACE = argument('place', '48.7758,9.1829');
 const GPU_ARGS = process.platform === 'win32'
   ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist']
   : ['--enable-gpu', '--ignore-gpu-blocklist'];
@@ -85,7 +92,7 @@ type Game = {
 
 async function main(): Promise<void> {
   const browser = await chromium.launch({
-    headless: true,
+    headless: !MAP,
     args: [...GPU_ARGS, '--disable-frame-rate-limit', '--disable-gpu-vsync', '--disable-renderer-backgrounding', '--disable-background-timer-throttling'],
   });
   const page = await (await browser.newContext({ viewport: { width: 1600, height: 900 } })).newPage();
@@ -93,15 +100,34 @@ async function main(): Promise<void> {
     localStorage.setItem('td_seen_version', '9999.0.0');
     localStorage.setItem('td_onboarding_v2', JSON.stringify({ done: true, completed: [] }));
   });
-  await page.goto(`${URL_BASE}/?devworld`);
+  await page.goto(MAP ? `${URL_BASE}/?l=${PLACE}` : `${URL_BASE}/?devworld`);
   await gameReady(page);
+
+  if (MAP) {
+    // No bot on a map: towers beside the route by command, some fit, the rest the game refuses
+    await page.evaluate(() => {
+      const w = window as unknown as { ng: { getComponent(el: Element | null): Record<string, never> } };
+      const gs = (w.ng.getComponent(document.querySelector('app-tower-defense')) as unknown as {
+        gameState: { getEventBus(): { emit(e: Record<string, unknown>): void }; getCachedPaths(): Map<string, { lat: number; lon: number; height?: number }[]> };
+      }).gameState;
+      const bus = gs.getEventBus();
+      bus.emit({ type: 'debug:add-credits', amount: 20000 });
+      const path = [...gs.getCachedPaths().values()][0];
+      for (const f of [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]) {
+        const p = path[Math.floor(path.length * f)];
+        for (const [dLat, dLon] of [[0.00012, 0], [-0.00012, 0], [0, 0.00016], [0, -0.00016]]) {
+          bus.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: p.lat + dLat, lon: p.lon + dLon, height: p.height ?? 0 } });
+        }
+      }
+    });
+  }
 
   // Let the bot build a defense, then hold the game so only the picture changes between turns
   await page.evaluate(() => {
     const w = window as unknown as { ng: { getComponent(el: Element | null): Game } };
     w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.setGameSpeed(8);
   });
-  for (let i = 0; i < 120; i++) {
+  for (let i = 0; i < (MAP ? 5 : 120); i++) {
     const towers = await page.evaluate(() => {
       const w = window as unknown as { ng: { getComponent(el: Element | null): Game } };
       return w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.towerManager.getAll().length;
