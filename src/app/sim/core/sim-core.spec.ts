@@ -65,7 +65,9 @@ function answer(main: ReturnType<typeof mainWorld>, core: SimCore, need: LosNeed
     if (need.canTargetAir) cell.airVisibility.set(need.towerId, true);
   }
   const mask = main.grid.encodeLosMask(need.towerId, x, z, need.range, need.canTargetGround, need.canTargetAir);
-  return { type: 'command:los-mask', towerId: need.towerId, reason: need.reason, mask: losMaskToJson(mask) } as unknown as CommandData;
+  return {
+    type: 'command:los-mask', towerId: need.towerId, reason: need.reason, mask: losMaskToJson(mask), generation: need.generation,
+  } as unknown as CommandData;
 }
 
 const wave: WaveConfig = {
@@ -252,5 +254,55 @@ describe('SimCore in the same thread', () => {
     expect(paused.scalars.paused).toBe(true);
     expect(drive.tick({ paused: true }).scalars.gameTimeMs).toBe(paused.scalars.gameTimeMs);
     expect(paused.scalars.gameTimeMs).toBeGreaterThan(time);
+  });
+
+  it('gives the live game back after a replay with the towers that waited for their sight asking again', () => {
+    const mathRandom = Math.random;
+    Math.random = mulberry32(SEED + 2);
+    try {
+      const main = mainWorld();
+      const core = newCore(main.world);
+      const drive = new Driver(core);
+      drive.send({ type: 'debug:add-credits', amount: 5000 });
+      drive.send({ type: 'debug:complete-all-research' });
+      drive.send({ type: 'command:place-tower', typeId: 'archer', position: { lat: 60 / M, lon: 9 / M, height: 0 } });
+      let packet = drive.tick();
+      for (const need of drive.needs(packet)) drive.send(answer(main, core, need));
+      drive.tick();
+      drive.send({ type: 'command:start-wave', config: wave });
+      for (let f = 0; f < 20000; f++) {
+        packet = drive.tick();
+        if (packet.scalars.phase !== 'wave' && f > 0) break;
+      }
+      for (let f = 0; f < 400 && packet.scalars.snapshotRefusal !== null; f++) packet = drive.tick();
+
+      // A second tower asks for its sight; the replay starts before the answer
+      drive.send({ type: 'command:place-tower', typeId: 'cannon', position: { lat: 140 / M, lon: -9 / M, height: 0 } });
+      packet = drive.tick();
+      const [waiting] = drive.needs(packet);
+      expect(waiting.reason).toBe('place');
+      expect(core.rpc('replayEnter', 1, false)).not.toBeNull();
+      for (let f = 0; f < 30; f++) drive.tick({ replay: { playing: true, speed: 4 } });
+
+      core.rpc('replayExit');
+      packet = drive.tick();
+      // Asked again where the main thread hears it (live), with the same generation
+      const again = packet.events.filter((e) => e.type === 'tower:los-needed');
+      expect(again.filter((e) => e.live).map((e) => e.payload['towerId'])).toEqual([waiting.towerId]);
+      expect(again.filter((e) => e.live).map((e) => e.payload['generation'])).toEqual([waiting.generation]);
+      // Both towers stay towers on the main thread: states, no removal of a tower that stands
+      const ids = core.gsm.towerManager.getAll().map((t) => t.id);
+      expect(packet.removedTowers.filter((id) => ids.includes(id))).toEqual([]);
+      expect(packet.towerStates.map((s) => s.id).sort()).toEqual([...ids].sort());
+      // The first tower, built anew by the restore, brings its mask along; the second came back as new
+      expect(packet.towerStates.find((s) => s.id !== waiting.towerId)!.losMask?.bits.length).toBeGreaterThan(0);
+
+      // Its answer ends the wait
+      drive.send(answer(main, core, waiting));
+      packet = drive.tick();
+      expect(packet.towerStates.find((s) => s.id === waiting.towerId)!.losReady).toBe(true);
+    } finally {
+      Math.random = mathRandom;
+    }
   });
 });

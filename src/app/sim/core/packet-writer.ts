@@ -301,7 +301,14 @@ export class PacketWriter {
     table.count = rows;
   }
 
-  /** Towers placed or changed since the last packet, and the ones gone. */
+  /**
+   * Towers placed or changed since the last packet, and the ones gone. A
+   * tower a snapshot restore built anew (a new object, the same id, type and
+   * place) is a change, not a removal: its state goes with its mask, none
+   * included, so the main thread's readers keep the tower and the request
+   * it may have made in the same packet. Another tower under an id that
+   * stood (a replay that parted from the record) goes as removed and new.
+   */
   private towerChanges(): { towerStates: TowerStateDto[]; removedTowers: string[] } {
     const towerStates: TowerStateDto[] = [];
     const removedTowers: string[] = [];
@@ -310,11 +317,11 @@ export class PacketWriter {
       standing.add(tower.id);
       const key = changeKey(tower);
       const last = this.sent.get(tower.id);
-      if (last && last.tower !== tower) removedTowers.push(tower.id);
-      const fresh = !last || last.tower !== tower;
-      if (!fresh && last.key === key && last.mask === tower.losMask) continue;
+      const rebuilt = last !== undefined && last.tower !== tower;
+      if (rebuilt && !sameTower(last.tower, tower)) removedTowers.push(tower.id);
+      if (last && !rebuilt && last.key === key && last.mask === tower.losMask) continue;
       const dto = towerState(tower);
-      if (fresh ? tower.losMask !== null : last.mask !== tower.losMask) {
+      if (last ? rebuilt || last.mask !== tower.losMask : tower.losMask !== null) {
         dto.losMask = tower.losMask ? losMaskToJson(tower.losMask) : null;
       }
       towerStates.push(dto);
@@ -354,4 +361,11 @@ function towerState(tower: Tower): TowerStateDto {
     combat: { range: tower.combat.range, damage: tower.combat.damage, fireRate: tower.combat.fireRate },
     losReady: tower.losReady,
   };
+}
+
+/** The same tower built anew: its type on the same spot */
+function sameTower(a: Tower, b: Tower): boolean {
+  return a.typeConfig.id === b.typeConfig.id
+    && a.position.lat === b.position.lat
+    && a.position.lon === b.position.lon;
 }

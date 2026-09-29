@@ -95,11 +95,16 @@ export class SimReplay {
     this.gsm.resyncPresentation();
   }
 
-  /** Give the live game back as it was, then leave replay mode. */
+  /**
+   * Give the live game back as it was, then leave replay mode. The towers
+   * that waited for their line of sight ask again once the live listeners
+   * hear: the requests of the restore went out muted.
+   */
   exit(): void {
     // In replay mode still: the live listeners hear nothing of the way back
     this.gsm.restoreSnapshot(this.live, 'live');
     this.resim.end();
+    this.gsm.towerLos.announceAwaiting();
     this.gsm.resyncPresentation();
   }
 
