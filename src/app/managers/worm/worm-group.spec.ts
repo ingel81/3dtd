@@ -29,6 +29,25 @@ describe('wormSegmentCount', () => {
   });
 });
 
+describe('WormGroup head and rush', () => {
+  it('gives the head the segment HP times its factor', () => {
+    expect(group(10).headMaxHp).toBe(50 * chain.head.hpFactor);
+  });
+
+  it('counts the HP its heads have over their segments in maxHp', () => {
+    const g = group(10);
+    g.headBonusHp = 200;
+    expect(g.maxHp).toBe(10 * 50 + 200);
+  });
+
+  it('walks at its speed while whole and faster the more it has lost', () => {
+    const g = group(20);
+    expect(g.rushOf(g.chains[0])).toBe(1);
+    expect(g.rushOf({ first: 10, last: 19, front: 0 })).toBeCloseTo(1 + chain.rush * 0.5, 9);
+    expect(g.rushOf({ first: 19, last: 19, front: 0 })).toBeCloseTo(1 + chain.rush * 0.95, 9);
+  });
+});
+
 describe('wormSway', () => {
   it('comes out of the portal straight', () => {
     for (const d of [-5, 0, 2, PORTAL_DEPTH / 2]) expect(wormSway(chain, d)).toBe(0);

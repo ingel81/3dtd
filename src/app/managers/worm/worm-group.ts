@@ -17,6 +17,8 @@ export interface SavedWormState {
   seq: number;
   pathId: number;
   idle: boolean;
+  /** Missing in states saved before the worm had a head of its own */
+  headBonusHp?: number;
 }
 
 /** A slot not out of the portal yet, walking, or killed, through or removed. */
@@ -98,6 +100,11 @@ export class WormGroup {
   /** Spawn order and path, the order WormChains ticks chains on one path in */
   seq = 0;
   pathId = 0;
+  /**
+   * Max HP its heads have over their segment's (EnemyChain.head), each head
+   * counted from when it spawned or took the lead: part of maxHp.
+   */
+  headBonusHp = 0;
   private readonly state: Uint8Array;
   private aliveSlots = 0;
   private pendingSlots: number;
@@ -143,7 +150,21 @@ export class WormGroup {
   }
 
   get maxHp(): number {
-    return this.size * this.segmentMaxHp;
+    return this.size * this.segmentMaxHp + this.headBonusHp;
+  }
+
+  /** Max HP of a segment that leads a worm */
+  get headMaxHp(): number {
+    return this.segmentMaxHp * this.chain.head.hpFactor;
+  }
+
+  /**
+   * Speed factor of `chain`: 1 at its spawned length, up to 1 + rush for a
+   * last segment alone (EnemyChain.rush).
+   */
+  rushOf(chain: WormChain): number {
+    const lost = 1 - (chain.last - chain.first + 1) / this.size;
+    return 1 + this.chain.rush * Math.max(0, lost);
   }
 
   /** HP left over all its worms, the segments still in the portal at full HP */
@@ -224,6 +245,7 @@ export class WormGroup {
       seq: this.seq,
       pathId: this.pathId,
       idle: this.idle,
+      headBonusHp: this.headBonusHp,
     };
   }
 
@@ -237,6 +259,7 @@ export class WormGroup {
     this.seq = saved.seq;
     this.pathId = saved.pathId;
     this.idle = saved.idle;
+    this.headBonusHp = saved.headBonusHp ?? 0;
   }
 
   /** The segments saveState() named, found by id after the restore */

@@ -63,6 +63,13 @@ export class HealthComponent extends Component {
     this.syncDeathFlag();
   }
 
+  /** A new max HP with the same share of it left (a worm segment that becomes the head) */
+  scaleMaxHp(newMaxHp: number): void {
+    this._hp = this._maxHp > 0 ? (this._hp / this._maxHp) * newMaxHp : newMaxHp;
+    this._maxHp = newMaxHp;
+    this.syncDeathFlag();
+  }
+
   get hp(): number {
     return this._hp;
   }

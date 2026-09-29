@@ -17,6 +17,7 @@
  */
 
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
+import type { ArmorType } from '../../../configs/combat/combat.types';
 import {
   ENEMY_TYPES, WORM_MAX_SEGMENTS, leakDamageOf, lineageHp, lineageLeakDamage, type EnemyTypeId,
 } from '../../../configs/enemy-types.config';
@@ -93,11 +94,45 @@ export interface BudgetResult {
   readonly unhurt: readonly string[];
 }
 
-/** HP of one enemy at ×1, split tree included; a worm counts all its segments. */
-export function enemyHp(type: string): number {
+/** The bodies of one kind one spawn brings, each walking past the towers on its own. */
+export interface BodyPart {
+  readonly bodies: number;
+  /** HP of one of them at ×1 */
+  readonly hp: number;
+  readonly armor: ArmorType;
+  /** Speed its time under fire counts with (m/s) */
+  readonly speed: number;
+}
+
+/**
+ * Speed factor a worm's segments pass the towers with on average, for its
+ * rush (EnemyChain.rush): taken apart from the front, the k-th lost segment
+ * speeds the rest up to 1 + rush · k / size, and the time under fire goes
+ * with the inverse, whose mean over k is ln(1 + rush) / rush.
+ */
+export function meanRush(rush: number): number {
+  return rush > 0 ? rush / DetMath.log(1 + rush) : 1;
+}
+
+/**
+ * The bodies of one spawn of `type`: the enemy itself with its split tree,
+ * or for a chain its head (EnemyChain.head, HP and armor of its own) and its
+ * segments, as many as the longest worm has. The same rule for every type.
+ */
+export function bodyParts(type: string): BodyPart[] {
   const cfg = ENEMY_TYPES[type as EnemyTypeId];
-  if (!cfg) return 0;
-  return cfg.chain ? cfg.baseHp * WORM_MAX_SEGMENTS : lineageHp(type as EnemyTypeId);
+  if (!cfg) return [];
+  if (!cfg.chain) return [{ bodies: 1, hp: lineageHp(type as EnemyTypeId), armor: cfg.armorType, speed: cfg.baseSpeed }];
+  const speed = cfg.baseSpeed * meanRush(cfg.chain.rush);
+  return [
+    { bodies: 1, hp: cfg.baseHp * cfg.chain.head.hpFactor, armor: cfg.chain.head.armorType, speed },
+    { bodies: WORM_MAX_SEGMENTS - 1, hp: cfg.baseHp, armor: cfg.armorType, speed },
+  ];
+}
+
+/** HP of one enemy at ×1, split tree included; a worm counts its head and all its segments. */
+export function enemyHp(type: string): number {
+  return bodyParts(type).reduce((sum, part) => sum + part.bodies * part.hp, 0);
 }
 
 export function sizeWave(input: BudgetInput): BudgetResult {
@@ -106,7 +141,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const types = Object.entries(input.enemies).filter(([type, count]) => count > 0 && ENEMY_TYPES[type as EnemyTypeId]);
   // Bodies, not spawns: a chain (Skarnax) is one spawn but a body per segment, each walking
   // past the towers on its own, each with its share of HP and leak (the same rule for every type)
-  const bodiesOf = (type: string) => (ENEMY_TYPES[type as EnemyTypeId].chain ? WORM_MAX_SEGMENTS : 1);
+  const bodiesOf = (type: string) => bodyParts(type).reduce((sum, part) => sum + part.bodies, 0);
   const count = types.reduce((sum, [type, n]) => sum + n * bodiesOf(type), 0);
   // The seconds a chain takes to come out of its portal, one segment after another
   const emerging = types.reduce((most, [type]) => {
@@ -120,26 +155,34 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   let leakCost = 0;
   for (const [type, spawns] of types) {
     const cfg = ENEMY_TYPES[type as EnemyTypeId];
-    const bodies = bodiesOf(type);
-    const n = spawns * bodies;
-    const bodyHp = enemyHp(type) / bodies;
-    const bodyLeak = cfg.chain ? leakDamageOf(type as EnemyTypeId) / bodies : lineageLeakDamage(type as EnemyTypeId);
+    const bodyLeak = cfg.chain ? leakDamageOf(type as EnemyTypeId) / bodiesOf(type) : lineageLeakDamage(type as EnemyTypeId);
     const side = cfg.isAirUnit ? 'air' : 'ground';
-    const rawDps = defense.dps?.[side]?.[cfg.armorType] ?? 0;
-    const dps = rawDps * BUDGET_REALISM;
-    leakCost += n * (cfg.chain ? bodyLeak : Math.max(1, bodyLeak));
-    if (!(dps > 0)) { unhurt.push(type); continue; }
-    const sec = bodyHp / dps;
-    // Seconds of the whole defense's damage the enemy takes on its way past: each tower
-    // counts with the stretch it sees (damage-metres over speed, over the total damage)
-    const damageMetres = defense.damageMetres?.[side]?.[cfg.armorType] ?? 0;
-    const fire = Math.max(MIN_UNDER_FIRE_S, damageMetres / (rawDps * Math.max(0.1, cfg.baseSpeed)));
     const oneLeak = bodyLeak * input.leakScale;
     const share = oneLeak > leakHp ? SURE_KILL_SHARE : UNDER_FIRE_SHARE;
-    // For the wave's window: how long this enemy is under fire at all (union of the stretches)
-    const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, cfg.baseSpeed));
-    hurt.push({ type, n, sec, fire, onRoute, cap: (share * fire) / sec });
+    let isHurt = false;
+    for (const part of bodyParts(type)) {
+      const n = spawns * part.bodies;
+      leakCost += n * (cfg.chain ? bodyLeak : Math.max(1, bodyLeak));
+      const rawDps = defense.dps?.[side]?.[part.armor] ?? 0;
+      const dps = rawDps * BUDGET_REALISM;
+      if (!(dps > 0)) continue;
+      isHurt = true;
+      const sec = part.hp / dps;
+      // Seconds of the whole defense's damage the body takes on its way past: each tower
+      // counts with the stretch it sees (damage-metres over speed, over the total damage)
+      const damageMetres = defense.damageMetres?.[side]?.[part.armor] ?? 0;
+      const fire = Math.max(MIN_UNDER_FIRE_S, damageMetres / (rawDps * Math.max(0.1, part.speed)));
+      // For the wave's window: how long this body is under fire at all (union of the stretches)
+      const onRoute = Math.max(MIN_UNDER_FIRE_S, (defense.metresUnderFire?.[side] ?? 0) / Math.max(0.1, part.speed));
+      hurt.push({ type, n, sec, fire, onRoute, cap: (share * fire) / sec });
+    }
+    if (!isHurt) unhurt.push(type);
   }
+
+  // One HP factor per type: the parts of a worm share the lowest of their limits
+  const capOf = new Map<string, number>();
+  for (const h of hurt) capOf.set(h.type, Math.min(capOf.get(h.type) ?? Infinity, h.cap));
+  for (const h of hurt) h.cap = capOf.get(h.type)!;
 
   // The cap: the defense spends at most the wave's time on the route on it,
   // plus the leaks the tension curve allows for this wave
@@ -161,7 +204,7 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   const hpMult: Record<string, number> = {};
   const clamped: string[] = [];
   for (const h of hurt) {
-    if (h.cap < m) clamped.push(h.type);
+    if (h.cap < m && !clamped.includes(h.type)) clamped.push(h.type);
     hpMult[h.type] = round3(Math.max(HP_MULT_MIN, Math.min(HP_MULT_MAX, h.cap, m)));
   }
   // Nothing to measure against: the row's strength alone (HP x1 at strength 1)

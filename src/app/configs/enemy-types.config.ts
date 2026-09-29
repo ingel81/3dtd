@@ -51,6 +51,19 @@ export interface EnemyChain {
   sway: number;
   /** Length of one sway along the route (m) */
   swayWavelength: number;
+  /**
+   * The segment that leads a worm: its HP are the segment's times `hpFactor`
+   * and it wears `armorType`. After a cut the first segment behind the gap
+   * takes both over (WormChains), so a worm taken apart from the front meets
+   * a head at every step.
+   */
+  head: { hpFactor: number; armorType: ArmorType };
+  /**
+   * How much faster a worm gets as it shrinks: its speed times
+   * 1 + rush · (share of the spawned length it has lost). A last segment
+   * alone walks at 1 + rush times the base speed.
+   */
+  rush: number;
 }
 
 /**
@@ -1081,6 +1094,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       // route corners can still open gaps on the outer side.
       sway: 0.35,
       swayWavelength: 40,
+      // Siege and magic crack the head, arrows, fire and lightning barely
+      head: { hpFactor: 5, armorType: 'fortified' },
+      rush: 1,
     },
   },
 

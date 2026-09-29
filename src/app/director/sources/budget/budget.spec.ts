@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { budgetSeconds, enemyHp, sizeWave, BUDGET_REALISM, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
+import { bodyParts, budgetSeconds, enemyHp, meanRush, sizeWave, BUDGET_REALISM, SURE_KILL_SHARE, UNDER_FIRE_SHARE, type BudgetInput } from './budget';
 import type { EffectiveDPSPerArmor } from '../../models/game-state-snapshot';
 import { ENEMY_TYPES, WORM_MAX_SEGMENTS } from '../../../configs/enemy-types.config';
 
 const flat = (v: number) => ({ unarmored: v, light: v, heavy: v, fortified: v, ethereal: v });
+const scale = <T extends Record<string, number>>(o: T, k: number) =>
+  Object.fromEntries(Object.entries(o).map(([key, v]) => [key, v * k])) as T;
 const dps = (ground: number, air = ground): EffectiveDPSPerArmor => ({ ground: flat(ground), air: flat(air) });
 
 const base = (over: Partial<BudgetInput> = {}): BudgetInput => ({
@@ -105,6 +107,29 @@ describe('sizeWave, a chain', () => {
     const out = (WORM_MAX_SEGMENTS * ENEMY_TYPES['worm'].chain!.spacing) / ENEMY_TYPES['worm'].baseSpeed;
     expect(worm.window).toBeGreaterThan(out);
     expect(worm.hpMult['worm']).toBeGreaterThan(1);
+  });
+
+  it('counts the head as a body of its own, with its HP and armor', () => {
+    const chain = ENEMY_TYPES['worm'].chain!;
+    const [head, segments] = bodyParts('worm');
+    expect(head).toMatchObject({ bodies: 1, hp: 400 * chain.head.hpFactor, armor: chain.head.armorType });
+    expect(segments).toMatchObject({ bodies: WORM_MAX_SEGMENTS - 1, hp: 400, armor: ENEMY_TYPES['worm'].armorType });
+    expect(enemyHp('worm')).toBe(400 * (WORM_MAX_SEGMENTS - 1 + chain.head.hpFactor));
+  });
+
+  it('holds the whole worm lower against a defense weak against the head', () => {
+    const at = (fortified: number) => {
+      const d = { ...flat(5000), fortified };
+      const defense = { dps: { ground: d, air: d }, damageMetres: { ground: scale(d, 60), air: scale(d, 60) }, metresUnderFire: { ground: 60, air: 60 }, hpRemaining: 300 };
+      return sizeWave(base({ wave: 30, enemies: { worm: 1 }, spawnDelayMs: 0, regulator: 20, defense })).hpMult['worm'];
+    };
+    expect(at(200)).toBeLessThan(at(5000));
+  });
+
+  it('passes the towers faster on average the more it rushes', () => {
+    expect(meanRush(0)).toBe(1);
+    expect(meanRush(1)).toBeCloseTo(1 / Math.log(2), 6);
+    expect(bodyParts('worm')[1].speed).toBeCloseTo(ENEMY_TYPES['worm'].baseSpeed * meanRush(ENEMY_TYPES['worm'].chain!.rush), 9);
   });
 });
 

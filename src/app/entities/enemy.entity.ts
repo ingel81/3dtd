@@ -166,7 +166,10 @@ export class Enemy extends GameObject {
 
   /** Get effective armor type (checks for active override like Armor Break, then falls back to config). */
   getEffectiveArmorType(): ArmorType {
-    return this._armorTypeOverride ?? this.typeConfig.armorType;
+    if (this._armorTypeOverride) return this._armorTypeOverride;
+    // The segment that leads a worm wears the head's armor (EnemyChain.head)
+    if (this.worm?.head) return this.worm.group.chain.head.armorType;
+    return this.typeConfig.armorType;
   }
 
   // Convenience getters

@@ -473,6 +473,16 @@ Umgesetzt für Skarnax, the Thousand-Legged Calamity (`worm`).
   gilt je Segment (Custom Wave: „Health“ ist die HP eines Segments). Der Kopf nutzt das Modell
   des Typs, der Körper das von `segmentModel`. `Enemy.worm` (`WormLink`) hält Gruppe, Slot,
   Kopf-Flag und das Ziel des Segments in diesem Sub-Step.
+- **Kopf:** Das Segment, das einen Wurm anführt, hat die HP eines Segments mal
+  `chain.head.hpFactor` (5) und die Rüstung `chain.head.armorType` (`fortified`, Segmente
+  `heavy`; `Enemy.getEffectiveArmorType()`). Nach einem Schnitt übernimmt das erste Segment
+  hinter der Lücke beides, mit dem Anteil an HP, den es noch hatte
+  (`HealthComponent.scaleMaxHp()`). `WormGroup.headBonusHp` zählt die HP der Köpfe über ihre
+  Segmente hinaus in `maxHp` (Boss-Leiste). Daten des Gegnertyps, keine Wellenregel.
+- **Raserei:** Eine Kette läuft mit `1 + chain.rush · (verlorener Anteil ihrer Länge)` mal
+  Grundtempo (`WormGroup.rushOf()`, `rush` 1): ein allein übriges Segment fast doppelt so
+  schnell. Die Budget-Quelle rechnet die Zeit unter Feuer mit dem Mittel
+  `rush / ln(1 + rush)` (`meanRush()`) und den Kopf als eigenen Körper (`bodyParts()`).
 - **Bewegung:** `WormChains.tick()` läuft pro Sub-Step vor der Enemy-Schleife. Eine Kette
   schiebt eine Front-Distanz vor, im Mittel der Slows ihrer Segmente auf der Route (ein
   verlangsamtes Segment bremst den ganzen Wurm), und gibt jedem Segment Distanz und Platz quer

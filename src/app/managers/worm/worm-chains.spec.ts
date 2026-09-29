@@ -39,6 +39,11 @@ describe('Worm chains', () => {
     vi.restoreAllMocks();
   });
 
+  // The chain geometry below at the base speed; the rush has its own tests
+  const rush = chain.rush;
+  beforeEach(() => { chain.rush = 0; });
+  afterEach(() => { chain.rush = rush; });
+
   it('puts the head on the route at once and the rest in the portal', () => {
     const spawned = vi.fn();
     m.eventBus.on('worm:spawned', spawned);
@@ -314,6 +319,54 @@ describe('Worm chains', () => {
       expect(m.tilesEngine.enemies.create).toHaveBeenCalledWith(lead.id, 'worm', expect.anything(), expect.anything(), expect.anything());
       expect(m.tilesEngine.enemies.setRenderType).not.toHaveBeenCalled();
       expect(distance(head) - distance(lead)).toBeCloseTo(2 * chain.spacing, 6);
+    });
+  });
+
+  describe('its head', () => {
+    it('spawns with the head HP and armor, the body with the segment ones', () => {
+      const head = m.enemyManager.spawn(straightPath(400), 'worm');
+      const group = head.worm!.group;
+      tickEngine(m, 5_000);
+
+      expect(head.health.maxHp).toBe(group.headMaxHp);
+      expect(head.getEffectiveArmorType()).toBe(chain.head.armorType);
+      const body = group.segments[1]!;
+      expect(body.health.maxHp).toBe(group.segmentMaxHp);
+      expect(body.getEffectiveArmorType()).toBe(ENEMY_TYPES['worm'].armorType);
+      expect(group.maxHp).toBe(group.size * group.segmentMaxHp + group.headMaxHp - group.segmentMaxHp);
+    });
+
+    it('passes to the next segment when the head goes, with the share of HP it had', () => {
+      const head = m.enemyManager.spawn(straightPath(400), 'worm');
+      const group = head.worm!.group;
+      tickEngine(m, 5_000);
+      const next = group.segments[1]!;
+      next.health.setHp(group.segmentMaxHp / 2);
+      const maxBefore = group.maxHp;
+
+      m.enemyManager.kill(head);
+      tickEngine(m, 16);
+
+      expect(next.worm!.head).toBe(true);
+      expect(next.health.maxHp).toBe(group.headMaxHp);
+      expect(next.health.hp).toBeCloseTo(group.headMaxHp / 2, 9);
+      expect(next.getEffectiveArmorType()).toBe(chain.head.armorType);
+      expect(group.maxHp).toBe(maxBefore + group.headMaxHp - group.segmentMaxHp);
+    });
+
+    it('rushes the rest of the worm once it has lost segments', () => {
+      chain.rush = 1;
+      const head = m.enemyManager.spawn(straightPath(400), 'worm');
+      const group = head.worm!.group;
+      tickEngine(m, 20_000);
+      m.enemyManager.kill(head);
+      tickEngine(m, 16);
+      const lead = group.segments[1]!;
+      const before = distance(lead);
+
+      tickEngine(m, 1_000);
+
+      expect(distance(lead) - before).toBeCloseTo(SPEED * (1 + 1 / group.size), 2);
     });
   });
 

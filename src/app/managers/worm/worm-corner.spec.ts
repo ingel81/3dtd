@@ -180,6 +180,11 @@ const distance = (e: Enemy): number => e.movement.getDistanceAlongPath();
 describe('Worm through route corners', () => {
   let m: TestManagers;
 
+  // The chain geometry below at the base speed; the rush has its own tests
+  const rush = chain.rush;
+  beforeEach(() => { chain.rush = 0; });
+  afterEach(() => { chain.rush = rush; });
+
   beforeEach(() => {
     vi.spyOn(performance, 'now').mockReturnValue(1000);
     m = createTestManagers();

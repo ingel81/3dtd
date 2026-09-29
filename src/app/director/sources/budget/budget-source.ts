@@ -25,7 +25,7 @@ import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.conf
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
 import { directorParams } from '../../director-params';
 import { RUN_PLAN_RULES, planLeakScale, planRowForWave, type RunPlanRow } from './run-plan';
-import { enemyHp, sizeWave, type BudgetResult } from './budget';
+import { bodyParts, sizeWave, type BudgetResult } from './budget';
 
 /**
  * The loop moves the budget between half and one and a half. Decided was half to double (User, 2026-09-28);
@@ -169,7 +169,9 @@ function factsOf(wave: number, row: RunPlanRow): WavePeekFacts {
   for (const [type, count] of entries) {
     const cfg = ENEMY_TYPES[type as EnemyTypeId];
     if (!cfg) continue;
-    hpByArmor.set(cfg.armorType, (hpByArmor.get(cfg.armorType) ?? 0) + count * enemyHp(type));
+    for (const part of bodyParts(type)) {
+      hpByArmor.set(part.armor, (hpByArmor.get(part.armor) ?? 0) + count * part.bodies * part.hp);
+    }
     if (cfg.isAirUnit) air = true;
   }
   return {

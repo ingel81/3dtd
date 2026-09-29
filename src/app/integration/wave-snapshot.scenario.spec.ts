@@ -317,7 +317,8 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
     const chains = (snapshot: WaveSnapshot) => snapshot.wave!.enemies.worms.groups[0].state.chains.length;
     expect(splitAt(setup, 30, (snapshot) => expect(wormsIn(snapshot)).toBe(1))).toBeGreaterThan(100);
     expect(splitAt(setup, 600, (snapshot) => expect(wormsIn(snapshot)).toBe(2))).toBeGreaterThan(100);
-    for (const at of [1300, 1800]) {
+    // Soon after the cut: the short front part rushes (EnemyChain.rush) and is through early
+    for (const at of [1300, 1500]) {
       expect(splitAt(setup, at, (snapshot) => expect(chains(snapshot)).toBeGreaterThan(1))).toBeGreaterThan(100);
     }
   });

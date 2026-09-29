@@ -27,7 +27,10 @@ const CHAIN_GAP_SPACINGS = 2;
 
 /** What WormChains needs from EnemyManager. */
 export interface WormHost {
-  /** Spawn the enemy of a segment where its group comes out (WormGroup.start), linked to its slot. */
+  /**
+   * Spawn the enemy of a segment where its group comes out (WormGroup.start),
+   * linked to its slot, with the head's max HP when the link leads its worm.
+   */
   spawnSegment(group: WormGroup, link: WormLink, paused: boolean): Enemy;
   /** Draw a body segment with the head model from now on: it leads a worm now. */
   showAsHead(enemy: Enemy): void;
@@ -54,7 +57,8 @@ interface ChainRef {
  * spacing holds exactly at any timescale and after any number of sub-steps.
  *
  * The pace is the mean slow over the chain's segments on the route: a slowed
- * segment drags the rest along. A chain stands while one of its segments is
+ * segment drags the rest along. A chain that has lost segments walks faster
+ * (WormGroup.rushOf). A chain stands while one of its segments is
  * held (Enemy Debug stop) or its head is halted (freeze, stun). A halted ring
  * behind the head stays out of the mean and is dragged along, its halt only
  * shows (user decision 2026-09-15; until then any halted segment stood the
@@ -256,12 +260,16 @@ export class WormChains {
     if (walking > 0 && !held) group.idle = false;
 
     // The first segment behind a gap leads a worm of its own now, a tail
-    // left alone as well
-    const lead = group.segments[chain.first]?.worm;
-    if (lead && !lead.head) {
+    // left alone as well. It takes over the head's HP, with the share it has
+    // left, and its armor (EnemyChain.head).
+    const leader = group.segments[chain.first];
+    const lead = leader?.worm;
+    if (leader && lead && !lead.head) {
       lead.head = true;
       lead.tail = false;
-      this.host.showAsHead(group.segments[chain.first]!);
+      leader.health.scaleMaxHp(group.headMaxHp);
+      group.headBonusHp += group.headMaxHp - group.segmentMaxHp;
+      this.host.showAsHead(leader);
     }
     // The segment in front of a gap ends its worm now. A last slot still in
     // the portal comes out as the tail (emerge).
@@ -274,7 +282,8 @@ export class WormChains {
     if (!held && !halted && !group.idle) {
       const pace = paced > 0 ? slowSum / paced : 1;
       // Never backwards: a chain that is already closer only waits
-      chain.front = Math.max(chain.front, Math.min(chain.front + group.speedMps * pace * seconds, limit));
+      const speed = group.speedMps * pace * group.rushOf(chain);
+      chain.front = Math.max(chain.front, Math.min(chain.front + speed * seconds, limit));
     }
 
     for (let slot = chain.first; slot <= chain.last; slot++) {
@@ -305,6 +314,7 @@ export class WormChains {
     };
     const enemy = this.host.spawnSegment(group, link, paused);
     group.emerge(slot, enemy);
+    if (link.head) group.headBonusHp += group.headMaxHp - group.segmentMaxHp;
     // On the curve where it comes out, in case it does not move this sub-step
     const at = enemy.movement.getDistanceAlongPath();
     placeWormSegment(enemy, group, at, wormSway(group.chain, at, group.origin));

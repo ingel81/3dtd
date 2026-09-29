@@ -153,7 +153,10 @@ export class EnemyManager extends EntityManager<Enemy> {
   /** Every worm (EnemyTypeConfig.chain) on the routes, ticked in update() */
   private readonly worms = new WormChains({
     spawnSegment: (group, link, paused) =>
-      this.spawnOne(group.path, group.type.id, group.speedMps, paused, group.segmentMaxHp, group.start ?? undefined, link),
+      this.spawnOne(
+        group.path, group.type.id, group.speedMps, paused,
+        link.head ? group.headMaxHp : group.segmentMaxHp, group.start ?? undefined, link,
+      ),
     // The head model is the worm type's own; presentFrame resolves the new slot
     showAsHead: (enemy) => this.tilesEngine?.enemies.setRenderType(enemy.id, enemy.typeConfig.id),
     showAsTail: (enemy) => {
