@@ -53,7 +53,7 @@ export function enemyRef(enemy: Enemy, routeIndex: RouteIndexOf): EnemyRef {
 }
 
 function wormRef(group: WormGroup): WormGroupRef {
-  return { $w: wormGroupNum(group), size: group.size, remaining: group.remaining };
+  return { $w: wormGroupNum(group), size: group.size, remaining: group.remaining, type: group.type.id };
 }
 
 function towerRef(tower: Tower): TowerRef {
