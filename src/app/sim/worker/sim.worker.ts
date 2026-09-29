@@ -61,4 +61,9 @@ addEventListener('message', (ev: MessageEvent<ToWorker>) => {
   }
 });
 
+// A tick that cannot be read never answers: the main thread would wait for its frame for good
+addEventListener('messageerror', () => {
+  post({ kind: 'error', error: 'simulation worker: a message from the main thread could not be read' });
+});
+
 post({ kind: 'ready' });
