@@ -283,12 +283,10 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
     }
   });
 
-  it('goes on bit for bit with a coop tower still waiting for its line of sight from the host', () => {
+  it('goes on bit for bit with a tower still waiting for its line of sight', () => {
     const setup: Setup = {
       wave: ground,
-      // Both are guests: no mask comes, the tower waits on both
-      configure: (sim) => (sim.gsm as unknown as { towerPlacement: { setCoopLosRole(role: string): void } })
-        .towerPlacement.setCoopLosRole('guest'),
+      // Nobody answers (answerLos): the tower waits on both
       before: (sim) => sim.gsm.getEventBus().emit({ type: 'debug:add-credits', amount: 5000 }),
       during: (sim, step) => {
         if (step !== 100) return;
@@ -296,7 +294,7 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
         sim.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: p.lat, lon: p.lon + 10 / 111_000, height: 0 } });
       },
     };
-    expect(splitAt(setup, 300, (snapshot) => expect(snapshot.wave!.awaitingLos.length).toBe(1))).toBeGreaterThan(100);
+    expect(splitAt(setup, 300, (snapshot) => expect(snapshot.base.awaitingLos).toHaveLength(1))).toBeGreaterThan(100);
   });
 
   const worms = schedule(['worm', 'zombie', 'rat'], 6, 0.1, 'each');

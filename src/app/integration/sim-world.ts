@@ -27,6 +27,7 @@ import type { SpawnPoint } from '../managers/wave.manager';
 import type { ColumnSample } from '../three-engine/column-sample';
 import { losMaskToJson, type LosMaskJson } from '../utils/los-mask';
 import type { LosResolveReason } from '../game-engine/events/event-types';
+import type { WorldSource } from '../coop/world-package';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { DetMath } from '../utils/det-math';
 import { buildRoute, flatSync, localSync, markAllVisible, type LocalSync } from './sim-step-bench';
@@ -56,6 +57,8 @@ export interface SimWorld {
   grid: GlobalRouteGridService;
   towers: Tower[];
   routes: GeoPosition[][];
+  /** The HQ: the end of the first route */
+  hq: GeoPosition;
   /**
    * Answer every line of sight the simulation asked for since the last call
    * with a clear view (command:los-mask on its bus), as the main thread's
@@ -192,5 +195,18 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
       gsm.getEventBus().emit({ type: 'command:los-mask', towerId, reason, mask: clearViewMask(grid, tower, sync) });
     }
   };
-  return { gsm, grid, towers, routes, answerLos };
+  return { gsm, grid, towers, routes, hq: routes[0][routes[0].length - 1], answerLos };
+}
+
+/** The finished world as a coop host packs it (coop/world-package.ts), from the spec's simulation. */
+export function worldSourceOf(world: SimWorld): WorldSource {
+  const gsm = world.gsm;
+  return {
+    origin: gsm.coords.sync.getOrigin(),
+    hq: world.hq,
+    spawns: gsm.getSpawnPoints(),
+    paths: gsm.getCachedPaths() as Map<string, RouteWaypoint[]>,
+    heights: world.grid.exportHeights(),
+    worldKey: gsm.worldKey(),
+  };
 }
