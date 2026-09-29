@@ -37,6 +37,15 @@ describe('TowerLosRegistry', () => {
     applyLosMask: ReturnType<typeof vi.fn>;
   };
   let engine: ThreeTilesEngine;
+  let mapper: {
+    invalidate: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    getRenderTarget: () => object;
+    getReferencePos: () => Vector3;
+    getFarDistance: () => number;
+    readFacesToCpu: ReturnType<typeof vi.fn>;
+  };
+  let initialized: boolean;
   let blockers: object | null;
   let bus: MainEventBus;
   let mirror: SimMirror;
@@ -67,7 +76,7 @@ describe('TowerLosRegistry', () => {
 
   beforeEach(() => {
     grid = {
-      isInitialized: () => true,
+      isInitialized: () => initialized,
       registerTower: vi.fn(() => [cell(0, 0)]),
       registerTowerIncremental: vi.fn(() => []),
       unregisterTower: vi.fn(),
@@ -89,13 +98,14 @@ describe('TowerLosRegistry', () => {
       },
     };
     blockers = {};
-    const mapper = {
+    initialized = true;
+    mapper = {
       invalidate: vi.fn(),
       update: vi.fn(),
       getRenderTarget: () => ({}),
       getReferencePos: () => new Vector3(),
       getFarDistance: () => 100,
-      readFacesToCpu: () => [],
+      readFacesToCpu: vi.fn(() => []),
     };
     engine = { sync, getLosBlockerGroup: () => blockers, getTowerShadowMapper: () => mapper } as unknown as ThreeTilesEngine;
     const injector = Injector.create({
@@ -144,6 +154,41 @@ describe('TowerLosRegistry', () => {
     }]);
     expect(mirror.tower(t.id)!.visibleCells).toHaveLength(1);
     expect(registry.pendingTowerIds()).toEqual([]);
+  });
+
+  it('renders the cube fresh from the tip on the top of the plinth, out to the range asked for', () => {
+    registry.attach(engine);
+    const t = new Tower({ lat: 7, lon: 5, height: 8 }, 'archer', 0, 3);
+    frame({ towerStates: [towerDto(t)] });
+    needed(t);
+    frame();
+
+    expect(mapper.invalidate.mock.invocationCallOrder[0]).toBeLessThan(mapper.update.mock.invocationCallOrder[0]);
+    const [tip, far, group] = mapper.update.mock.calls[0];
+    const config = TOWER_TYPES.archer;
+    expect(tip.toArray()).toEqual([5, 8 + config.heightOffset + config.shootHeight, 7]);
+    expect(far).toBe(config.range);
+    expect(group).toBe(blockers);
+    const ctx = grid.registerTower.mock.calls[0][4] as { farDistance: number; faces: unknown };
+    expect(ctx.farDistance).toBe(100);
+    // The faces come back to the CPU only when the resolve samples a cell
+    expect(mapper.readFacesToCpu).not.toHaveBeenCalled();
+    void ctx.faces;
+    expect(mapper.readFacesToCpu).toHaveBeenCalledTimes(1);
+  });
+
+  it('waits with its renders while the main grid has no cells', () => {
+    registry.attach(engine);
+    initialized = false;
+    const t = place(5, 7);
+    needed(t);
+    frame();
+    expect(grid.registerTower).not.toHaveBeenCalled();
+    expect(registry.pendingTowerIds()).toEqual([t.id]);
+
+    initialized = true;
+    frame();
+    expect(sent).toHaveLength(1);
   });
 
   it('resolves an upgrade and a retrofit incrementally, at the range asked for', () => {
