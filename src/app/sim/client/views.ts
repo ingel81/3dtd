@@ -76,6 +76,10 @@ export class EnemyView {
   hasBody = false;
   /** Its row in the last packet's enemy table, -1 without one (the mirror's) */
   row = -1;
+  /** The mirror's packet count when a row last had it (the mirror's) */
+  stamp = 0;
+  /** Index of its route in the world's spawn list (E_ROUTE), -1 for none (the mirror's) */
+  route = -1;
   readonly movement: EnemyMovementView = {
     routeId: '',
     path: [],

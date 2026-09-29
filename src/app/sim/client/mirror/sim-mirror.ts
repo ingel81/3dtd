@@ -109,7 +109,6 @@ export class SimMirror implements SimMirrorApi {
   /** Enemies gone with this packet, until afterFrame: its events still name them */
   private readonly goneEnemies = new Map<number, EnemyView>();
   private frameStamp = 0;
-  private readonly seen = new Map<number, number>();
   /** Views an event reference set to the numbers of its moment, given back their row in afterFrame */
   private readonly touched: EnemyView[] = [];
 
@@ -138,7 +137,10 @@ export class SimMirror implements SimMirrorApi {
   setWorld(spawnIds: readonly string[], paths: ReadonlyMap<string, readonly GeoPosition[]>): void {
     this.spawnIds = spawnIds;
     this.paths = paths;
-    for (const view of this.enemyMap.values()) this.setRoute(view, this.routeIndexOf(view));
+    // By the route's id: the new world may list the spawns in another order
+    for (const view of this.enemyMap.values()) {
+      this.setRoute(view, view.movement.routeId === '' ? -1 : spawnIds.indexOf(view.movement.routeId));
+    }
   }
 
   /** Spawn ids in SimWorld order */
@@ -206,7 +208,6 @@ export class SimMirror implements SimMirrorApi {
     this.enemyList = [];
     this.aliveList = null;
     this.goneEnemies.clear();
-    this.seen.clear();
     for (const group of this.wormMap.values()) {
       group.remaining = 0;
       group.chains = 0;
@@ -371,17 +372,16 @@ export class SimMirror implements SimMirrorApi {
         view = this.createEnemy(num, type);
         changed = true;
       }
-      this.seen.set(num, stamp);
+      view.stamp = stamp;
       view.row = i;
       this.applyEnemyRow(view, data, o);
     }
     for (const [num, view] of this.enemyMap) {
-      if (this.seen.get(num) === stamp) continue;
+      if (view.stamp === stamp) continue;
       view.row = -1;
       view.alive = false;
       view.active = false;
       this.enemyMap.delete(num);
-      this.seen.delete(num);
       this.goneEnemies.set(num, view);
       changed = true;
     }
@@ -410,22 +410,19 @@ export class SimMirror implements SimMirrorApi {
     view.movement.effectiveSpeed = data[o + E_EFF_SPEED];
     view.movement.paused = (flags & EF_MOVING) === 0;
     const route = data[o + E_ROUTE];
-    if (this.routeIndexOf(view) !== route) this.setRoute(view, route);
+    if (view.route !== route) this.setRoute(view, route);
   }
 
   private createEnemy(num: number, type: EnemyTypeConfig): EnemyView {
     const view = new EnemyView(`enemy-${num}`, num, type);
     view.movement.speedMps = type.baseSpeed;
     this.enemyMap.set(num, view);
-    this.seen.set(num, this.frameStamp);
+    view.stamp = this.frameStamp;
     return view;
   }
 
-  private routeIndexOf(view: EnemyView): number {
-    return view.movement.routeId === '' ? -1 : this.spawnIds.indexOf(view.movement.routeId);
-  }
-
   private setRoute(view: EnemyView, route: number): void {
+    view.route = route;
     const id = route >= 0 ? this.spawnIds[route] ?? '' : '';
     view.movement.routeId = id;
     view.movement.path = (id && this.paths.get(id)) || [];
@@ -505,7 +502,7 @@ export class SimMirror implements SimMirrorApi {
     view.alive = ref.alive && view.active;
     if (ref.pr !== undefined) view.movement.progress = ref.pr;
     if (ref.body) view.hasBody = true;
-    if (this.routeIndexOf(view) !== ref.route) this.setRoute(view, ref.route);
+    if (view.route !== ref.route) this.setRoute(view, ref.route);
     if (view.row >= 0) this.touched.push(view);
     if (ref.worm) {
       const group = this.wormMap.get(ref.worm.g) ?? this.wormGroupOf({ $w: ref.worm.g, size: 1, remaining: 1, type: ref.type });

@@ -79,6 +79,8 @@ interface EnemyRecord {
   slot: EnemyInstanceState | null;
   /** The frame that last had it in the table */
   seen: number;
+  /** Offset of its row in that frame's table while alive, -1 while dying (the worms' heads, during present() only) */
+  row: number;
 }
 
 /** A projectile the presenter has seen: its trail's distance */
@@ -111,8 +113,6 @@ export class FramePresenter {
   readonly wormSounds = new WormSounds();
 
   private readonly enemies = new Map<number, EnemyRecord>();
-  /** Row offset of each alive enemy in this frame's table, for the worms' heads (during present() only) */
-  private readonly enemyRow = new Map<number, number>();
   private readonly projectiles = new Map<number, ProjectileRecord>();
   /** Kills per tower as last shown by its badge */
   private readonly towerKills = new Map<number, number>();
@@ -195,7 +195,6 @@ export class FramePresenter {
     this.oozes.clear(this.engine);
     this.wormSounds.clear(audio);
     this.enemies.clear();
-    this.enemyRow.clear();
     this.projectiles.clear();
     this.towerKills.clear();
     for (const view of this.partnerHeroes.values()) this.engine.disposePartnerHero(view);
@@ -212,7 +211,6 @@ export class FramePresenter {
     const d = table.data;
     const pos = this.local;
     this.enemyTable = d;
-    this.enemyRow.clear();
     this.statusVisuals.beginFrame();
 
     for (let r = 0; r < table.count; r++) {
@@ -226,17 +224,18 @@ export class FramePresenter {
         record = undefined;
       }
       if (record === undefined) {
-        record = { id: `enemy-${num}`, type, slot: null, seen: frame };
+        record = { id: `enemy-${num}`, type, slot: null, seen: frame, row: -1 };
         this.enemies.set(num, record);
       }
       record.seen = frame;
       const flags = d[o + E_FLAGS];
       if ((flags & EF_ALIVE) === 0) {
+        record.row = -1;
         // Dying: its loop ended with its walk
         if (this.enemySounds.has(num)) this.enemySounds.forget(num, audio);
         continue;
       }
-      this.enemyRow.set(num, o);
+      record.row = o;
 
       const lat = d[o + E_LAT];
       const lon = d[o + E_LON];
@@ -283,9 +282,10 @@ export class FramePresenter {
 
   /** The head of a worm chain: local position of enemy `num` lifted to where its voice sits. */
   private wormHead(num: number, out: Vector3): boolean {
-    const o = this.enemyRow.get(num);
+    const record = this.enemies.get(num);
     const d = this.enemyTable;
-    if (o === undefined || d === null) return false;
+    if (record === undefined || record.seen !== this.frame || record.row < 0 || d === null) return false;
+    const o = record.row;
     const sync = this.engine.sync;
     sync.geoToLocalSimpleInto(d[o + E_LAT], d[o + E_LON], 0, out);
     out.y = d[o + E_TERRAIN] + d[o + E_HOFF] + WORM_SOUNDS.voice.liftM - sync.getOrigin().height;
