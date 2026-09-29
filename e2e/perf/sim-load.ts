@@ -6,6 +6,9 @@
 //   node e2e/perf/serve.mjs <dist/3DTD/browser> <port> [--isolate]
 //   node e2e/perf/sim-load.ts --url http://localhost:4231 [--enemies 5000] [--speed 4] [--towers 40]
 //                             [--seconds 10] [--browser chromium|firefox] [--headed]
+//   A curve over the enemy count (TODO E72): --steps 3000,5000,8000,12000,16000 --speeds 4,1 [--hide-enemies]
+//   tops the enemies up to each step in the same window and measures every speed there; --hide-enemies measures
+//   each once more with the enemy meshes and health bars left out of the draw (the render share per enemy).
 //
 // The page needs a handle `__load` (emit a command, read the state, set the speed): the worker build has it in
 // SimClient, the main-thread build gets it from a local patch for the measurement only.
@@ -32,6 +35,9 @@ const PLACE = argument('place', '48.7758,9.1829');
 /** "x,y,steps": zoom in with the mouse wheel at that spot after the measurement, for a second screenshot (shot-zoom.png) */
 const ZOOM = argument('zoom', '');
 const BROWSER = argument('browser', 'chromium');
+const STEPS = argument('steps', '').split(',').filter(Boolean).map(Number);
+const SPEEDS = argument('speeds', '').split(',').filter(Boolean).map(Number);
+const HIDE = process.argv.includes('--hide-enemies');
 const HEADED = process.argv.includes('--headed');
 const GPU_ARGS = process.platform === 'win32'
   ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist']
@@ -105,7 +111,15 @@ function towerSpots(paths: [number, number][][]): { lat: number; lon: number }[]
   return spots;
 }
 
-async function measure(page: Page, seconds: number): Promise<{ fps: number; p05: number; speed: number; enemies: number; tickMs: number | null; apply: Record<string, number> }> {
+interface Sums {
+  wallMs: number; packets: number; emptyPackets: number; subSteps: number; tickMs: number; events: number; ops: number;
+  apply: Record<string, number>;
+}
+const stats = (page: Page, reset: boolean) =>
+  page.evaluate((r) => (globalThis as unknown as { __load: { stats?(reset: boolean): Sums } }).__load.stats?.(r) ?? null, reset);
+
+async function measure(page: Page, seconds: number): Promise<{ fps: number; p05: number; speed: number; enemies: number; tickMs: number | null; apply: Record<string, number>; sums: Record<string, number> | null }> {
+  await stats(page, true);
   const before = await state(page);
   const { times: frames, ticks, applies } = await page.evaluate((ms) => new Promise<{ times: number[]; ticks: number[]; applies: Record<string, number[]> }>((resolve) => {
     const times: number[] = [];
@@ -125,6 +139,7 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
     requestAnimationFrame(tick);
   }), seconds * 1000);
   const after = await state(page);
+  const s = await stats(page, false);
   const gaps = frames.slice(1).map((t, i) => t - frames[i]).sort((a, b) => a - b);
   const wall = frames[frames.length - 1] - frames[0];
   return {
@@ -137,7 +152,23 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
     tickMs: ticks.length > 0 ? [...ticks].sort((a, b) => a - b)[Math.floor(ticks.length / 2)] : null,
     // Mean main-thread ms per frame of each part of applying the packet
     apply: Object.fromEntries(Object.entries(applies).map(([k, v]) => [k, Number((v.reduce((a, b) => a + b, 0) / v.length).toFixed(2))])),
+    // Summed over every packet instead of sampled per frame: the worker's load (share of wall time), per sub-step and per
+    // packet costs, the apply per packet by part, events per packet, the share of packets without a sub-step
+    sums: s && s.packets > 0 ? {
+      workerLoad: round(s.tickMs / s.wallMs, 3),
+      tickPerStepMs: round(s.tickMs / Math.max(1, s.subSteps), 3),
+      packetsPerS: round(s.packets / (s.wallMs / 1000), 1),
+      emptyShare: round(s.emptyPackets / s.packets, 3),
+      eventsPerPacket: round(s.events / s.packets, 1),
+      opsPerPacket: round(s.ops / s.packets, 1),
+      applyPerPacketMs: round(Object.values(s.apply).reduce((a, b) => a + b, 0) / s.packets, 3),
+      ...Object.fromEntries(Object.entries(s.apply).map(([k, v]) => [`apply.${k}`, round(v / s.packets, 3)])),
+    } : null,
   };
+}
+
+function round(value: number, digits: number): number {
+  return Number(value.toFixed(digits));
 }
 
 const engine = BROWSER === 'firefox' ? firefox : chromium;
@@ -185,23 +216,59 @@ const kinds = ['zombie', 'rat', 'zombie-soldier', 'skeleton', 'spider', 'bat'];
 const SLICES = 25;
 const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, i) => Math.floor((i * (path.length - 2)) / SLICES))
   .map((k) => path.slice(k).map(([lat, lon]) => ({ lat, lon }))));
-const perSlice = Math.ceil(ENEMIES / slices.length);
-let spawned = 0;
-for (let i = 0; i < slices.length && spawned < ENEMIES; i++) {
-  const count = Math.min(perSlice, ENEMIES - spawned);
-  await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[i % kinds.length], count, path: slices[i], speed: 1.5, health: 4000 });
-  spawned += count;
+let sliceAt = 0;
+/** Enemies spread over the slices until `target` are alive (the towers kill some between the measurements) */
+async function spawnUpTo(target: number): Promise<void> {
+  const missing = target - (await state(page)).enemies;
+  if (missing <= 0) return;
+  const perSlice = Math.ceil(missing / slices.length);
+  let spawned = 0;
+  for (let i = 0; i < slices.length && spawned < missing; i++, sliceAt++) {
+    const count = Math.min(perSlice, missing - spawned);
+    await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: 1.5, health: 4000 });
+    spawned += count;
+  }
+  // Until most of them are out
+  const until = Date.now() + 120_000;
+  while (Date.now() < until) {
+    const now = await state(page);
+    console.log(`  enemies ${now.enemies} of ${target}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
+    if (now.enemies >= target * 0.9) break;
+    await page.waitForTimeout(1000);
+  }
 }
-await page.evaluate((s) => (globalThis as unknown as { __load: { speed(v: number): void } }).__load.speed(s), SPEED);
+const setSpeed = (value: number) => page.evaluate((v) => (globalThis as unknown as { __load: { speed(v: number): void } }).__load.speed(v), value);
+const hideEnemies = (hidden: boolean) =>
+  page.evaluate((h) => (globalThis as unknown as { __load: { hideEnemies?(h: boolean): number } }).__load.hideEnemies?.(h) ?? 0, hidden);
 
-// Until the wave has most of its enemies out
-const until = Date.now() + 120_000;
-while (Date.now() < until) {
-  const now = await state(page);
-  console.log(`t=${Math.round((Date.now() - until + 120_000) / 1000)}s enemies ${now.enemies} phase ${now.phase} game ${Math.round(now.gameTimeMs / 1000)}s`);
-  if (now.enemies >= ENEMIES * 0.9) break;
-  await page.waitForTimeout(1000);
+if (STEPS.length > 0) {
+  // The curve: each step topped up in the same window, every speed measured there, a line per measurement
+  const rows: Record<string, unknown>[] = [];
+  for (const target of STEPS) {
+    for (const speed of SPEEDS.length > 0 ? SPEEDS : [SPEED]) {
+      await setSpeed(speed);
+      await spawnUpTo(target);
+      await page.waitForTimeout(2000);
+      for (const hidden of HIDE ? [false, true] : [false]) {
+        if (HIDE) await hideEnemies(hidden);
+        const r = await measure(page, SECONDS);
+        const row = { browser: BROWSER, uncapped: UNCAPPED, target, speedAsked: speed, hidden, towers: placed.towers, ...r };
+        rows.push(row);
+        console.log(JSON.stringify(row));
+        const limit = r.speed < speed * 0.97 || r.fps < 58;
+        console.log(`STEP ${target} x${speed}${hidden ? ' hidden' : ''}: fps ${r.fps.toFixed(1)} p05 ${r.p05.toFixed(1)} speed ${r.speed.toFixed(2)} ` +
+          `enemies ${r.enemies} worker ${r.sums?.workerLoad ?? '-'} apply/packet ${r.sums?.applyPerPacketMs ?? '-'} ms${limit ? '  <- limit' : ''}`);
+      }
+      if (HIDE) await hideEnemies(false);
+    }
+  }
+  console.log('CURVE ' + JSON.stringify(rows));
+  await browser.close();
+  process.exit(0);
 }
+
+await spawnUpTo(ENEMIES);
+await setSpeed(SPEED);
 if (SHOT) await page.screenshot({ path: SHOT });
 const result = await measure(page, SECONDS);
 if (SHOT && ZOOM) {

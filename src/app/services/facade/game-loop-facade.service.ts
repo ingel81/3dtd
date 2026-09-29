@@ -1,5 +1,6 @@
 import { Injectable, inject, Injector, NgZone, effect, untracked } from '@angular/core';
 import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { createLoadStats } from '../../sim/client/load-stats';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { waveButtonAction } from '../../coop/room-options';
 import { CameraControlService } from '../camera-control.service';
@@ -129,6 +130,7 @@ export class GameLoopFacadeService {
     this.waveDirector.useRandomSource(() => this.mirror.rng.stream('director'));
     // The load runner's handle (e2e/perf/sim-load.ts): a command, the speed, the numbers it measures
     (globalThis as Record<string, unknown>)['__load'] = {
+      ...createLoadStats(this.sim, () => this.bridge.getEngine()?.getScene() ?? null),
       emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
       speed: (value: number) => this.gameStore.gameSpeed.set(value),
       // Answers once the simulation's worker takes a call: whether it is alive
