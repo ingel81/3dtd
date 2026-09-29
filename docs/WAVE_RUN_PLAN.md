@@ -225,8 +225,9 @@ Quelle. Bleiben bewusst geteilt: der Konfigurations-Hash und die Stellschrauben 
 - Zeit unter Feuer aus der Route: `metersUnderFire` im Schnappschuss, gemessen mit der Sichtlinie der Tower,
   Boden und Luft getrennt, gemittelt über die Spuren.
 - `sources/budget/`: `run-plan.json` (der Entwurf aus Abschnitt 11), `budget.ts` (die Schritte aus Abschnitt 9 mit
-  Grenze je Gegner), `budget-source.ts`. Leckschaden wächst stetig mit der Kurve (`LEAK_GROWTH`), Boss-Gold nach dem
-  Plan.
+  Grenze je Gegner), `budget-source.ts`. Leckschaden wächst stetig mit der Kurve (`LEAK_GROWTH`). Gold: ruhige Kurve mal
+  Stärke der Zeile (`planBaseGold`, die Kampagnentabelle ohne die Spitzen W10/W20/W30, danach ihre Verjüngung;
+  ein Boss 1,3 zahlt 1,3-fach, kein Boss-×2).
 - 2026-09-29: Standard (`DEFAULT_WAVE_SOURCE = 'budget'`), der adaptive Source mit Templates, Kampagnen-Pins,
   Boss-Rotation und Endgame-HP entfernt; `table` bleibt, `?waves=table` schaltet einen Tab um.
 

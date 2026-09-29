@@ -140,6 +140,14 @@ const BOSS_GOLD_MULTIPLIER = 2;
  * Boss waves past the campaign pay double; the wave source says which ones
  * are (`WaveRules.isBoss`).
  */
+/**
+ * Share of the last authored wave's gold that wave `waveNum` past the
+ * campaign pays, before any boss bonus: the taper down to the sustain floor.
+ */
+export function goldTaper(waveNum: number): number {
+  return Math.max(GOLD_SUSTAIN_FRACTION, DetMath.pow(GOLD_TAPER_PER_WAVE, waveNum - CAMPAIGN.length));
+}
+
 export function waveGold(
   waveNum: number,
   boss: boolean,
@@ -151,10 +159,7 @@ export function waveGold(
     return { kill: e.killGold, complete: e.completionGold };
   }
   const last = CAMPAIGN[len - 1];
-  const scale = Math.max(
-    GOLD_SUSTAIN_FRACTION,
-    DetMath.pow(GOLD_TAPER_PER_WAVE, waveNum - len),
-  ) * (boss ? BOSS_GOLD_MULTIPLIER : 1);
+  const scale = goldTaper(waveNum) * (boss ? BOSS_GOLD_MULTIPLIER : 1);
   return {
     kill: Math.round(last.killGold * scale),
     complete: Math.round(last.completionGold * scale),

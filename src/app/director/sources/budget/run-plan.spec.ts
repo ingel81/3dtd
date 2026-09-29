@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, planLeakScale, planRowForWave } from './run-plan';
+import { RUN_PLAN, RUN_PLAN_REPEAT, RUN_PLAN_RULES, planBaseGold, planLeakScale, planRowForWave } from './run-plan';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { waveGold } from '../../../configs/campaign.config';
 
@@ -37,11 +37,36 @@ describe('run plan', () => {
     expect(planLeakScale(31)).toBeCloseTo(2, 0);
   });
 
-  it('pays boss gold on the plan boss waves, not on the campaign cadence', () => {
-    expect(RUN_PLAN_RULES.gold(35)).toEqual(waveGold(35, false));
-    expect(RUN_PLAN_RULES.gold(40)).toEqual(waveGold(40, true));
+  it('marks the plan boss waves, not the campaign cadence', () => {
     expect(RUN_PLAN_RULES.isBoss(35)).toBe(false);
     expect(RUN_PLAN_RULES.isBoss(40)).toBe(true);
+  });
+
+  it('pays gold on a smooth curve times the row strength', () => {
+    for (let w = 1; w <= 90; w++) {
+      const row = planRowForWave(w)!;
+      const base = planBaseGold(w);
+      expect(RUN_PLAN_RULES.gold(w).kill, `wave ${w}`).toBe(Math.round(base.kill * row.strength));
+    }
+  });
+
+  it('takes the campaign peaks out and keeps the rest of its table', () => {
+    expect(planBaseGold(9)).toEqual(waveGold(9, false));
+    expect(planBaseGold(21)).toEqual(waveGold(21, false));
+    expect(planBaseGold(20).kill).toBeLessThan(waveGold(20, false).kill);
+    expect(planBaseGold(30).kill).toBeLessThan(waveGold(30, false).kill);
+    for (const w of [10, 20]) {
+      expect(planBaseGold(w).kill).toBeGreaterThan(planBaseGold(w - 1).kill);
+      expect(planBaseGold(w).kill).toBeLessThan(planBaseGold(w + 1).kill);
+    }
+    expect(planBaseGold(30).kill).toBeCloseTo(planBaseGold(29).kill * 1.2, -1);
+  });
+
+  it('tapers past the campaign from the smooth last wave, no boss bonus of its own', () => {
+    const w30 = planBaseGold(30).kill;
+    expect(planBaseGold(31).kill).toBeCloseTo(w30 * 0.85, -1);
+    expect(planBaseGold(40).kill).toBeLessThan(planBaseGold(39).kill);
+    expect(RUN_PLAN_RULES.gold(40).kill).toBe(Math.round(planBaseGold(40).kill * 1.3));
   });
 
   it('names each wave and its enemy mix in advance', () => {

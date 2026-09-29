@@ -11,7 +11,7 @@
 import rawPlan from './run-plan.json';
 import type { SpawnPattern } from '../../spawn-schedule-builder';
 import type { WaveRules } from '../../wave-rules';
-import { waveGold } from '../../../configs/campaign.config';
+import { CAMPAIGN_LENGTH, goldTaper, waveGold } from '../../../configs/campaign.config';
 import { budgetSeconds } from './budget';
 
 export interface RunPlanRow {
@@ -57,9 +57,47 @@ export function planLeakScale(wave: number): number {
   return Math.round(scale * 100) / 100;
 }
 
+/** Campaign waves whose gold was a boss peak; the plan's curve runs smooth through them. */
+const CAMPAIGN_GOLD_PEAKS: ReadonlySet<number> = new Set([10, 20, 30]);
+
+/** Growth of the campaign's gold per wave over W21 to W29, the line the last wave keeps to. */
+const LATE_GOLD_GROWTH = 1.2;
+
+type WaveGold = { kill: number; complete: number };
+
+const scaleGold = (gold: WaveGold, k: number): WaveGold => ({
+  kill: Math.round(gold.kill * k),
+  complete: Math.round(gold.complete * k),
+});
+
+/** The campaign's gold at `wave` (1 to 30) with its boss peaks taken out */
+function smoothCampaignGold(wave: number): WaveGold {
+  if (!CAMPAIGN_GOLD_PEAKS.has(wave)) return waveGold(wave, false);
+  if (wave === CAMPAIGN_LENGTH) return scaleGold(waveGold(wave - 1, false), LATE_GOLD_GROWTH);
+  const before = waveGold(wave - 1, false);
+  const after = waveGold(wave + 1, false);
+  return {
+    kill: Math.round(Math.sqrt(before.kill * after.kill)),
+    complete: Math.round(Math.sqrt(before.complete * after.complete)),
+  };
+}
+
+/**
+ * The plan's gold curve for a wave of strength 1: the campaign's table
+ * without its boss peaks (W10 and W20 the geometric mean of their neighbours,
+ * W30 on the growth line of W21 to W29), past it the campaign's taper from
+ * there. One smooth curve; a row's strength scales it (RUN_PLAN_RULES.gold).
+ */
+export function planBaseGold(wave: number): WaveGold {
+  if (wave < 1) return { kill: 0, complete: 0 };
+  if (wave <= CAMPAIGN_LENGTH) return smoothCampaignGold(wave);
+  return scaleGold(smoothCampaignGold(CAMPAIGN_LENGTH), goldTaper(wave));
+}
+
 export const RUN_PLAN_RULES: WaveRules = {
   leakScale: planLeakScale,
-  gold: (wave) => waveGold(wave, planRowForWave(wave)?.boss === true),
+  // The same rule as the HP: a boss row of strength 1.3 pays 1.3 times, a breather 0.7
+  gold: (wave) => scaleGold(planBaseGold(wave), planRowForWave(wave)?.strength ?? 1),
   isBoss: (wave) => planRowForWave(wave)?.boss === true,
   enemyMix: (wave) => {
     const row = planRowForWave(wave);
