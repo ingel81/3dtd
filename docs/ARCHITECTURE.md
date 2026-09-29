@@ -1359,8 +1359,10 @@ unbegrenzt, der Loop verhält sich dann wie ohne Cap.
 (`SimTickInput.paused`, gesetzt in `GameStateManager.paused`). Pausiert läuft kein Sub-Step: Spawns, Kampf,
 Projektile, Status-Effekte, Forschung und Bot-Ticks stehen, die Game-Clock
 auch. `update()` merkt sich trotzdem die Wanduhr, damit der erste Frame nach
-der Pause nichts nachholt. Auf dem Hauptthread hält `PresentationHost.setPaused` die Loop-Sounds an und dämpft
-die Musik, außer mit `GameStore.pauseKeepsLoops`. Rendering, Kamera, Partikel
+der Pause nichts nachholt. Auf dem Hauptthread setzt `GameLoopFacadeService.syncPresentation` je Bild die
+Renderer-Timescale (`engine.setTimescale`: die des Replays, pausiert 0, sonst die Spielgeschwindigkeit), damit die
+Laufanimationen mit ihren Gegnern stehen bleiben, und schaltet das Rendering (`setRenderingEnabled`);
+`PresentationHost.setPaused` hält die Loop-Sounds an und dämpft die Musik, außer mit `GameStore.pauseKeepsLoops`. Rendering, Kamera, Partikel
 und UI laufen weiter. Die Timescale (Untergrenze 0,1) bleibt unberührt, beim
 Fortsetzen gilt wieder die gewählte Geschwindigkeit. Ein Neustart hebt die
 Pause auf (`resetGameState`).
