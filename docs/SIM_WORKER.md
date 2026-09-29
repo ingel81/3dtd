@@ -175,7 +175,7 @@ Browser, GPU (so wie WebGL sie meldet) und Pixeldichte.
 
 | Rechner | CPU | RAM | GPU | Monitor | Betriebssystem | Browser |
 |---|---|---|---|---|---|---|
-| A | AMD Ryzen 9 9950X3D, 16 Kerne / 32 Threads | 64 GB DDR5-4800 | NVIDIA GeForce RTX 5080 | 2560 × 1440, 144 Hz, Windows-Skalierung 125 % | Windows 11 Pro 26200 | Chromium 141.0.7390.37, Firefox 142.0.1 (Playwright 1.56.1) |
+| A | AMD Ryzen 9 9950X3D, 16 Kerne / 32 Threads, Basistakt 4,3 GHz, 128 MB L3 | 64 GB DDR5-4800 | NVIDIA GeForce RTX 5080 | 2560 × 1440, 144 Hz, Windows-Skalierung 125 % | Windows 11 Pro 64 Bit, 10.0.26200 | Chromium 141.0.7390.37, Firefox 142.0.1 (Playwright 1.56.1) |
 
 Firefox meldet die GPU absichtlich vergröbert („GTX 980 or similar“, Schutz vor Fingerprinting) und hat in den sichtbaren
 Läufen die Windows-Skalierung übernommen: Pixeldichte 1,25 gegen 1,0 in Chromium, also rund 56 % mehr Pixel je Bild.
