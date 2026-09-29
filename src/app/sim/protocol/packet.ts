@@ -9,6 +9,7 @@
  * `count` rows are valid. Ids of entities are the numeric part of their
  * GameObject id (`enemy-123` is 123), see entityNum().
  */
+import { PROJECTILE_TYPES, type ProjectileTypeId } from '../../configs/projectile-types.config';
 import type { PresentationOp } from './ops';
 import type { ExportedEvent } from './events';
 import type { LosMaskJson } from '../../utils/los-mask';
@@ -76,6 +77,8 @@ export const P_TYPE = 8;
 export const PROJECTILE_STRIDE = 9;
 /** Homing or arcing: the model turns along `direction` */
 export const PF_ROTATES = 1;
+/** Projectile types by P_TYPE, in the config's order */
+export const PROJECTILE_TYPE_IDS = Object.keys(PROJECTILE_TYPES) as readonly ProjectileTypeId[];
 
 // ── Towers: every standing tower ──
 export const T_ID = 0;

@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from 'vitest';
 import { Scene, Texture, Vector3 } from 'three';
 import type { GooSplash, GroundDecals } from './ground-decals';
 import { BURST_PALETTES, EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../../configs/visual-effects.config';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus } from '../../sim/client/view-events';
 import { VFXService } from '../../game-engine/vfx.service';
 import type { ThreeTilesEngine } from '../three-tiles-engine';
 import type { TrailParticleConfig } from '../../configs/projectile-types.config';
@@ -117,7 +117,7 @@ describe('VFX settings at a skeleton split', () => {
   // renderer and its impact switch (TODO 1.10, "Impact Effects ohne Wirkung")
   it.each([true, false])('bursts bone particles where a skeleton splits only while impact effects are on (%s)', (on) => {
     const { pools, effects } = setup({ impactEffects: on });
-    const bus = new GameEventBus();
+    const bus = createMainEventBus();
     const vfx = new VFXService(bus, { effects } as unknown as ThreeTilesEngine);
     const skeleton = {
       position: { lat: 0, lon: 0 },

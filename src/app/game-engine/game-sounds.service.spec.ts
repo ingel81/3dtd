@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { BACKGROUND_MUSIC } from '../configs/background-music.config';
-import { GameEventBus } from './game-event-bus';
+import { createMainEventBus } from '../sim/client/view-events';
 import { GameSoundsService } from './game-sounds.service';
 import {
   ABILITY_CAST_SOUNDS,
@@ -15,16 +15,16 @@ import {
 import { getEnemyType } from '../configs/enemy-types.config';
 import { BLOOD_MOON_FIRST_WAVE } from '../configs/blood-moon.config';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { Enemy } from '../entities/enemy.entity';
+import type { EnemyView } from '../sim/client/views';
 
 const AT = { lat: 1, lon: 2, height: 3 };
 
-function enemy(typeId: string, worm: { group: { remaining: number } } | null = null): Enemy {
-  return { typeConfig: getEnemyType(typeId), position: AT, worm } as unknown as Enemy;
+function enemy(typeId: string, worm: { group: { remaining: number } } | null = null): EnemyView {
+  return { typeConfig: getEnemyType(typeId), position: AT, worm } as unknown as EnemyView;
 }
 
 function setup() {
-  const bus = new GameEventBus();
+  const bus = createMainEventBus();
   const audio = {
     registerSound: vi.fn(),
     playAtGeo: vi.fn(() => Promise.resolve(null)),
@@ -77,7 +77,7 @@ describe('GameSoundsService', () => {
 
   it('plays hits of single shots only, and none on a ghost', () => {
     const { bus, at } = setup();
-    const shot = (id: string, target: Enemy) => bus.emit({
+    const shot = (id: string, target: EnemyView) => bus.emit({
       type: 'projectile:hit',
       projectile: { typeConfig: { id } } as never,
       target,

@@ -21,7 +21,7 @@ export function enemyHitSpot(enemy: Enemy): Readonly<{ lat: number; lon: number;
 const bloodColors = new Map<string, number | undefined>();
 
 /** The type's blood colour as a hex number, undefined for the default red (EnemyTypeConfig.bloodColor). */
-export function enemyBloodColor(enemy: Enemy): number | undefined {
+export function enemyBloodColor(enemy: Pick<Enemy, 'typeConfig'>): number | undefined {
   const type = enemy.typeConfig;
   let color = bloodColors.get(type.id);
   if (color === undefined && !bloodColors.has(type.id)) {
