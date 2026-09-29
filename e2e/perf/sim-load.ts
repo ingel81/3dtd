@@ -50,6 +50,8 @@ const DPR_ARG = argument('dpr', '1');
 const DPR = DPR_ARG === 'system' ? '' : DPR_ARG;
 /** Enemies the towers cannot kill in a measurement: the count stays what the step asked for, the towers keep hitting */
 const ENEMY_HP = Number(argument('hp', '1000000'));
+/** Walking speed of the enemies, m/s: slow, so few reach the HQ over a curve of several minutes */
+const ENEMY_SPEED = Number(argument('enemy-speed', '0.5'));
 const HEADED = process.argv.includes('--headed');
 const GPU_ARGS = process.platform === 'win32'
   ? ['--use-angle=d3d11', '--enable-gpu', '--ignore-gpu-blocklist']
@@ -257,28 +259,25 @@ const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, 
 let sliceAt = 0;
 /**
  * Enemies spread over the slices until `target` are alive. The simulation takes a round's spawns in one tick, which
- * at thousands of enemies takes seconds (a route profile per slice), so the runner waits until the count reached what
- * it spawned. Enemies that reached the HQ during a long fill are topped up in another round, up to 4 rounds.
+ * at thousands of enemies takes seconds (a route profile per slice): a call to the simulation answers only after the
+ * commands given before it ran (SimClient.rpc), so the runner waits for that answer and one frame more, then counts.
+ * Enemies that reached the HQ meanwhile are topped up in another round, up to 4 rounds.
  */
 async function spawnUpTo(target: number): Promise<void> {
   for (let round = 0; round < 4; round++) {
-    const before = (await state(page)).enemies;
-    const missing = target - before;
+    const missing = target - (await state(page)).enemies;
     if (missing <= target * 0.005) return;
     const perSlice = Math.ceil(missing / slices.length);
     let spawned = 0;
     for (let i = 0; i < slices.length && spawned < missing; i++, sliceAt++) {
       const count = Math.min(perSlice, missing - spawned);
-      await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: 1.5, health: ENEMY_HP });
+      await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: ENEMY_SPEED, health: ENEMY_HP });
       spawned += count;
     }
-    const until = Date.now() + 180_000;
-    while (Date.now() < until) {
-      await page.waitForTimeout(1000);
-      const now = await state(page);
-      console.log(`  enemies ${now.enemies} of ${target}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
-      if (now.enemies >= before + spawned * 0.98) break;
-    }
+    await page.evaluate(() => (globalThis as unknown as { __load: { ping(): Promise<unknown> } }).__load.ping());
+    await page.waitForTimeout(1000);
+    const now = await state(page);
+    console.log(`  enemies ${now.enemies} of ${target} after round ${round + 1}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
   }
 }
 /** Frames per second over `ms` of wall clock */
