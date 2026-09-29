@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { FavouriteTowerUpgradeStrategy } from './favourite-tower-upgrade.strategy';
 import { createEmptySnapshot, GameStateSnapshot } from '../../../director/models/game-state-snapshot';
-import { GameStateManager } from '../../../managers/game-state.manager';
+import type { BotWorld } from '../../bot-world';
 import { GameRng } from '../../../utils/game-rng';
 
 /** A tower as the strategy reads it: damage done, upgrades and their prices. */
@@ -20,7 +20,7 @@ function strategyWith(towers: ReturnType<typeof tower>[], rolls = [0]) {
   let roll = 0;
   const rng = new GameRng(1);
   rng.stream = () => () => rolls[Math.min(roll++, rolls.length - 1)];
-  const gameState = { towerManager: { getAll: () => towers }, rng } as unknown as GameStateManager;
+  const gameState = { towerManager: { getAll: () => towers }, rng } as unknown as BotWorld;
   return new FavouriteTowerUpgradeStrategy(gameState);
 }
 

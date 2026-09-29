@@ -18,13 +18,13 @@ import { GameStateSnapshot } from '../../../director/models/game-state-snapshot'
 import { TowerAction } from '../../bots/tower-bot.interface';
 import type { BotWorld } from '../../bot-world';
 import { ABILITIES } from '../../../configs/abilities.config';
-import type { Enemy } from '../../../entities/enemy.entity';
+import type { EnemyView } from '../../../sim/client/views';
 import { DecisionAim, densestCenter, enemiesFromProgress } from './ability-aim';
 
 const EMP = ABILITIES['emp'];
 
 interface EmpAim {
-  center: Enemy;
+  center: EnemyView;
   covered: number;
   machines: boolean;
 }

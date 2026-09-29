@@ -2,6 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { BotSession } from './bot-session';
 import { BotClientService, type BotDeps } from './bot-client.service';
+import { GameEventBus } from '../game-engine/game-event-bus';
+import { GameStore } from '../store/game.store';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { RouteQueriesService } from '../services/route-queries.service';
+import { PathAndRouteService } from '../services/world/path-route.service';
 import { StateSnapshotService } from '../director/state-snapshot.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { BUILD_VERSION } from '../configs/build-info.config';
@@ -51,6 +57,11 @@ describe('BotSession connect (playtest 565)', () => {
       providers: [
         { provide: StateSnapshotService, useValue: {} },
         { provide: TowerDefenseStore, useValue: { phase: signal('setup') } },
+        { provide: GameStore, useValue: { setGameSpeed: () => undefined } },
+        { provide: SimClient, useValue: { bus: new GameEventBus() } },
+        { provide: SimMirror, useValue: new SimMirror() },
+        { provide: RouteQueriesService, useValue: {} },
+        { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
       ],
     });
     const client = runInInjectionContext(injector, () => new BotClientService());
@@ -75,6 +86,11 @@ describe('BotSession connect (playtest 565)', () => {
       providers: [
         { provide: StateSnapshotService, useValue: {} },
         { provide: TowerDefenseStore, useValue: { phase: signal('setup'), renderingEnabled } },
+        { provide: GameStore, useValue: { setGameSpeed: () => undefined } },
+        { provide: SimClient, useValue: { bus: new GameEventBus() } },
+        { provide: SimMirror, useValue: new SimMirror() },
+        { provide: RouteQueriesService, useValue: {} },
+        { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
       ],
     });
     const client = runInInjectionContext(injector, () => new BotClientService());

@@ -8,12 +8,39 @@ import { BaseTowerBot } from './bots/base-tower-bot';
 import { ITowerBot, TowerAction } from './bots/tower-bot.interface';
 import { GameStateSnapshot } from '../director/models/game-state-snapshot';
 import { GameEventBus } from '../game-engine/game-event-bus';
+import { GameStore } from '../store/game.store';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { packet } from '../sim/client/mirror/testing/mirror-packets';
+import { RouteQueriesService } from '../services/route-queries.service';
+import { PathAndRouteService } from '../services/world/path-route.service';
 
 /** Sub-step length the game loop hands the bot (GameClock.FIXED_STEP_MS). */
 const STEP_MS = 16.667;
 
-/** The corridor build of the location, as GameStateManager.corridorPending tells it. */
+/** The corridor build of the location, as CorridorBuild.pending tells it (BotDeps.corridorPending). */
 const corridor = { building: false };
+
+/**
+ * The injector a session is built in: the stores, the simulation's bus and
+ * a mirror with `players` (the first at this client, `ready` or not).
+ */
+function sessionInjector(phase: string, options: { bus?: GameEventBus; players?: string[]; ready?: boolean } = {}): Injector {
+  const players = options.players ?? ['local'];
+  const mirror = new SimMirror();
+  mirror.applyState(packet({ scalars: { players, localPlayerId: players[0], credits: players.map(() => 0), ready: players.map(() => options.ready ?? false) } }));
+  return Injector.create({
+    providers: [
+      { provide: StateSnapshotService, useValue: {} },
+      { provide: TowerDefenseStore, useValue: { phase: signal(phase), spawnPoints: signal([]) } },
+      { provide: GameStore, useValue: { setGameSpeed: vi.fn() } },
+      { provide: SimClient, useValue: { bus: options.bus ?? new GameEventBus() } },
+      { provide: SimMirror, useValue: mirror },
+      { provide: RouteQueriesService, useValue: {} },
+      { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
+    ],
+  });
+}
 
 class TestBot extends BaseTowerBot {
   decisionCount = 0;
@@ -28,15 +55,10 @@ class TestBot extends BaseTowerBot {
 
 /** BotSession with an enabled TestBot, in the given game phase. */
 function createSession(phase = 'wave') {
-  const injector = Injector.create({
-    providers: [
-      { provide: StateSnapshotService, useValue: {} },
-      { provide: TowerDefenseStore, useValue: { phase: signal(phase) } },
-    ],
-  });
+  const injector = sessionInjector(phase);
   // Der Service ist hier nur Halter der Signale, in die die Session schreibt.
   const client = runInInjectionContext(injector, () => new BotClientService());
-  const deps = { gameState: { corridorPending: () => corridor.building, players: ['local'] } } as unknown as BotDeps;
+  const deps = { corridorPending: () => corridor.building } as unknown as BotDeps;
   const session = runInInjectionContext(injector, () => new BotSession(client, deps));
   const bot = new TestBot();
   // enableBot() would build a real strategy bot; updateBot only needs a bot.
@@ -127,14 +149,9 @@ describe('BotSession bot actions', () => {
     const bus = new GameEventBus();
     const commands = vi.fn();
     bus.on('command:use-ability', commands);
-    const injector = Injector.create({
-      providers: [
-        { provide: StateSnapshotService, useValue: {} },
-        { provide: TowerDefenseStore, useValue: { phase: signal('wave') } },
-      ],
-    });
+    const injector = sessionInjector('wave', { bus });
     const client = runInInjectionContext(injector, () => new BotClientService());
-    const deps = { gameState: { getEventBus: () => bus, corridorPending: () => false, players: ['local'] } } as unknown as BotDeps;
+    const deps = { corridorPending: () => false } as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
     (session as unknown as { currentBot: ITowerBot | null }).currentBot = new StrikeBot();
     client.botEnabled.set(true);
@@ -152,22 +169,13 @@ describe('BotSession bot actions', () => {
 describe('BotSession run config', () => {
   /** A session whose seed source and restart are observable. */
   function configSession() {
-    const injector = Injector.create({
-      providers: [
-        { provide: StateSnapshotService, useValue: {} },
-        { provide: TowerDefenseStore, useValue: { phase: signal('setup') } },
-      ],
-    });
+    const injector = sessionInjector('setup');
     const client = runInInjectionContext(injector, () => new BotClientService());
-    const rng = { useNextSeed: vi.fn(), reset: vi.fn() };
     const restartGame = vi.fn();
-    const deps = {
-      gameState: { corridorPending: () => false, players: ['local'], rng },
-      callbacks: { restartGame },
-    } as unknown as BotDeps;
+    const deps = { corridorPending: () => false, callbacks: { restartGame } } as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
     client.botEnabled.set(true);
-    return { session, client, rng, restartGame };
+    return { session, client, restartGame };
   }
 
   /** applyRunConfig is what the `run_config` message lands in. */
@@ -175,15 +183,18 @@ describe('BotSession run config', () => {
     (session as unknown as { applyRunConfig(c: unknown): void }).applyRunConfig(config);
   }
 
-  it('asks the source for the seed instead of resetting it, and starts the run', () => {
-    const { session, rng, restartGame } = configSession();
+  it('starts the run with the seed the server named, once; a repeat without a config draws its own', () => {
+    vi.useFakeTimers();
+    const { session, restartGame } = configSession();
 
     apply(session, { seed: 4242 });
-
-    // reset() here would be drawn over by the restart's own reset
-    expect(rng.reset).not.toHaveBeenCalled();
-    expect(rng.useNextSeed).toHaveBeenCalledWith(4242);
     expect(restartGame).toHaveBeenCalledTimes(1);
+    expect(restartGame).toHaveBeenLastCalledWith(4242);
+
+    (session as unknown as { awaitRunConfig(): void }).awaitRunConfig();
+    vi.advanceTimersByTime(5000);
+    expect(restartGame).toHaveBeenLastCalledWith(undefined);
+    vi.useRealTimers();
   });
 
   it('starts the run only after the config, so the head names what the run plays', () => {
@@ -222,25 +233,10 @@ describe('BotSession in a coop room (bot=coop)', () => {
 
   /** A coop bot's session; `players` of the run, `ready` whether the local one said ready */
   function coopSession(players: string[], ready = false) {
-    const injector = Injector.create({
-      providers: [
-        { provide: StateSnapshotService, useValue: {} },
-        { provide: TowerDefenseStore, useValue: { phase: signal('setup') } },
-      ],
-    });
+    const injector = sessionInjector('setup', { players, ready });
     const client = runInInjectionContext(injector, () => new BotClientService());
     const startWave = vi.fn();
-    const gameState = {
-      corridorPending: () => false,
-      players,
-      localPlayerId: players[0],
-      isReady: () => ready,
-      towerManager: { getAll: () => [] },
-      creditsOf: () => 0,
-      researchOf: () => ({ airTargetingUnlocked: false }),
-      heroOf: () => ({ getDefenseProfile: () => null }),
-    };
-    const deps = { gameState, callbacks: { startWave } } as unknown as BotDeps;
+    const deps = { corridorPending: () => false, callbacks: { startWave } } as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
     const bot = new WaveBot();
     (session as unknown as { currentBot: ITowerBot | null }).currentBot = bot;
