@@ -1,6 +1,6 @@
 # Signal Store Architektur: TowerDefenseStore
 
-**Stand:** 2026-09-15 (`directorEnabled`-Ownership: 2026-09-07)
+**Stand:** 2026-09-29 (Stores werden vom Hauptthread-Bus gespeist, die Simulation läuft im Worker, [SIM_WORKER.md](SIM_WORKER.md)); 2026-09-15 (`directorEnabled`-Ownership: 2026-09-07)
 
 ## Überblick
 
@@ -35,10 +35,16 @@ Alle Sub-Stores sind `@Injectable({ providedIn: 'root' })`. Der Root-Store injiz
 | `DebugFacade` | `services/debug/debug-facade.service.ts` | Debug-Log, Height-Debug, Display Options, VFX-Schalter, Enemy-Debug |
 | **`TowerDefenseFacade`** | `services/facade/tower-defense-facade.service.ts` | **Orchestrierung**: Init, Engine-Setup, delegiert an Sub-Facades |
 
-### GSM→Store Sync Layer
+### Simulation→Store Sync Layer
 | Service | Datei | Verantwortung |
 |---------|-------|--------------|
-| `GameStateSyncService` | `services/infrastructure/game-state-sync.service.ts` | EventBus → Store: Sync aller Game-State-Events |
+| `GameStateSyncService` | `services/infrastructure/game-state-sync.service.ts` | Hauptthread-Bus (`SimClient.bus`) → Store: Sync aller Game-State-Events |
+
+Die Simulation läuft im Web Worker und kennt keinen Store. Ihre Events kommen mit jedem Paket als Views auf den
+Hauptthread-Bus ([EVENT_SYSTEM.md](EVENT_SYSTEM.md#zwei-busse-simulation-und-hauptthread)); daraus schreibt der
+`GameStateSyncService` die Stores. Was je Bild gelesen wird statt per Event (Spielzeit, Gegnerzahl, Tower), liest
+der Hauptthread aus dem Spiegel (`SimMirror`, `sim/client/mirror/sim-mirror.ts`). Nach einem Restore (Coop-Resync,
+Sprung im Replay) setzt `sim:presented` die Stores auf den Stand, den die Simulation dann hat.
 
 ### Persistenz (localStorage)
 | Key | Schreiber | Inhalt |
@@ -46,7 +52,7 @@ Alle Sub-Stores sind `@Injectable({ providedIn: 'root' })`. Der Root-Store injiz
 | `td-ui-state` | `UIStore` (lädt im Konstruktor, schreibt per `effect()` mit 500 ms Trailing-Debounce) | `infoOverlayVisible`, `streetsVisible`, `routesVisible`, `spatialGridDebugVisible`, `airSpatialGridDebugVisible`, `airRouteVisible`, `perTowerLosFilter`, `openMenu`, `musicVolume`, `sfxVolume`, `musicMuted`, `sfxMuted`, `autoStartWaves`. Ältere Stände mit einem Flag pro Menü öffnen beim Laden genau ein Menü |
 | `td_display_options` | `DebugFacadeService` über `utils/display-options.storage.ts` (Angular-frei) | Display-Optionen und VFX-Schalter in einem Objekt. Die alten Keys `3dtd-fps-limit` und `td_screen_shake_enabled` faltet `loadDisplayOptions()` einmal ein und löscht sie |
 
-Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_recent_locations_v1` (`LocationManagementService`), `td_best_waves_v1` (`BestWaveService` über `best-waves.ts`), `td_onboarding_v2` (`OnboardingService`), `td_debug_windows_v6` (`DebugWindowService`), `td_music_enabled` (`BackgroundMusicService`), `training-timescale` (`GameStateManager`), `td_geocode_cache_v1` (`GeocodingService`), `3dtd-tile-credentials` (`ConfigService`).
+Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_recent_locations_v1` (`LocationManagementService`), `td_best_waves_v1` (`BestWaveService` über `best-waves.ts`), `td_onboarding_v2` (`OnboardingService`), `td_debug_windows_v6` (`DebugWindowService`), `td_music_enabled` (`BackgroundMusicService`), `td_geocode_cache_v1` (`GeocodingService`), `3dtd-tile-credentials` (`ConfigService`).
 
 **Display-Optionen und VFX-Schalter liegen in keinem Store.** `DebugFacadeService` hält die Signals `healthBarsVisible`, `screenShakeEnabled`, `damageNumbersVisible`, `fpsLimit` und `vfx` (`VfxSettings` aus `three-engine/vfx-settings.ts`: `muzzleFlash`, `projectileTrails`, `impactEffects`, `groundMarks`, `freezeTint`, `bloom`, `colorGrading`, `bloodMoon`) und startet sie aus dem gespeicherten Objekt. Quick Actions und das Display-Debug-Fenster lesen diese Signals. Eine Änderung geht an die Engine (`applyVfxSettings()`, `setFpsLimit()` usw.) und per `persistDisplayOptions()` als Merge ins Objekt; jeder Schreiber setzt nur seine eigenen Felder. `ScreenShakeService` liest seinen Startwert selbst über `loadDisplayOptions()`.
 
@@ -57,9 +63,9 @@ Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_rece
 | Schicht | Verantwortung | Enthält |
 |---------|--------------|---------|
 | **Store** | State Container | Signals (state), Computed Values, set/update methods, resetAll() |
-| **Facade** | Orchestration | Commands via EventBus, liest/schreibt UI-State über Store |
-| **EventBus** | Engine-Kommunikation | Commands (start-wave, place-tower), Engine-Events (wave:started) |
-| **GameStateSyncService** | GSM→Store Bridge | Hört EventBus, schreibt Store-Signals |
+| **Facade** | Orchestration | Commands über den Hauptthread-Bus, liest/schreibt UI-State über Store |
+| **EventBus** | Kommunikation mit der Simulation | Hauptthread-Bus `SimClient.bus`: Commands (start-wave, place-tower) gehen mit dem nächsten Tick in den Worker, Events der Simulation (wave:started) kommen mit dem Paket zurück |
+| **GameStateSyncService** | Simulation→Store Bridge | Hört den Hauptthread-Bus, schreibt Store-Signals |
 | **Component** | Pure View | Template-Bindings, User-Input → Facade, Angular Lifecycle |
 
 ### Was gehört wohin?
@@ -90,8 +96,9 @@ Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_rece
 
 ```
 ┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
-│Component │────>│ Facade   │────>│ EventBus │────>│ Engine   │
-│(UI Input)│     │(Command) │     │(Emit)    │     │(GSM)     │
+│Component │────>│ Facade   │────>│ EventBus │────>│ Worker   │
+│(UI Input)│     │(Command) │     │(SimClient│     │(SimCore, │
+│          │     │          │     │ .bus)    │     │ GSM)     │
 └──────────┘     └──────────┘     └──────────┘     └──────────┘
                                         │
                                         ▼
@@ -113,16 +120,18 @@ Weitere Keys liegen in Services, nicht in Stores: `td_favorites_v2` und `td_rece
 ```
 Component.startWave()
   → Facade.startWave() → GameLoopFacade.startWave()
-    → EventBus.emit('command:start-wave', config)
+    → SimClient.bus.emit('command:start-wave', config)      (Hauptthread)
+      → mit dem nächsten Tick in den Worker (SimCore.tick → GameStateManager.receiveCommand)
       → GameCommandsHandler → GameStateManager.startWave() → WaveManager.startWave()
-        → EventBus.emit('wave:started', { wave: 1, enemyCount: 10 })
+        → Bus der Simulation: emit('wave:started', { wave: 1, enemyCount: 10 })
+        → mit dem Paket auf den Hauptthread-Bus (SimClient)
           → GameStateSyncService → Store.phase.set('wave')
           → GameStateSyncService → Store.waveNumber.set(1)
           → GameStateSyncService → Store.enemiesAlive.set(0)   (zählt per enemy:spawned hoch)
           → GameStateSyncService → Store.waveEnemyTotal.set(10), Store.waveEnemiesLeft.set(10)
 ```
 
-**Konkretes Beispiel: Enemy stirbt**
+**Konkretes Beispiel: Enemy stirbt** (im Worker; die Events erreichen den Sync auf dem Hauptthread mit dem Paket)
 ```
 DamageApplicationService → EnemyManager.kill() → enemy:died Event
   → GameStateSyncService:
@@ -231,10 +240,11 @@ reduziert. Der `DebugStore` kam am 2026-05-10 als sechster Sub-Store dazu.
 - **Consumer-kompatibel**: Bestehender Code nutzt weiterhin `TowerDefenseStore`
 - **`DebugStore`-Sonderrolle:** Hält ausschließlich Debug-Panel-State (Wave/Tower/Enemy-Overrides). `WaveDebugService` / `TowerDebugService` / `EnemyDebugService` bleiben als Service-Schicht und delegieren ihre Signals an den Store. Konsumenten lesen weiterhin z.B. `waveDebug.enemyCount()`; die Quelle ist transparent verlegt.
 
-### GameStateSyncService (EventBus → Store)
+### GameStateSyncService (Hauptthread-Bus → Store)
 - **Warum nicht direkt im Store?**: Store soll keine EventBus-Dependency haben (pure state)
 - **Warum nicht in der Facade?**: Separation of Concerns. Facade = Commands. SyncService = State-Sync.
-- **Lifecycle:** `initialize(eventBus)` nach GSM.initialize(), `dispose()` bei Game-Dispose
+- **Lifecycle:** `initialize()` ohne Argument (liest `SimClient.bus` und `SimMirror`), aufgerufen aus
+  `TowerDefenseFacadeService` beim Aufsetzen des Spiels; `dispose()` bei Game-Dispose
 
 ### Verbleibende Bridge
 - **Interface:** `FacadeComponentBridge` in `tower-defense-facade.service.ts`
@@ -257,7 +267,7 @@ src/app/store/
   *.spec.ts                       ← Unit Tests
 
 src/app/services/
-  infrastructure/game-state-sync.service.ts  ← EventBus → Store sync layer
+  infrastructure/game-state-sync.service.ts  ← Hauptthread-Bus → Store sync layer
   facade/tower-defense-facade.service.ts     ← Main orchestration facade
   facade/game-loop-facade.service.ts         ← Wave, game loop, upgrades
   facade/location-facade.service.ts          ← Location detection, DevWorld
