@@ -39,6 +39,7 @@ import { ReplayService } from '../replay.service';
 import { TowerControlService } from '../tower-control.service';
 import { COOP } from '../coop.token';
 import { newRunSeed } from '../../utils/game-rng';
+import type { CommandEvent } from '../../game-engine/events/command-events';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -96,6 +97,17 @@ export class GameLoopFacadeService {
 
   /** Flag to prevent concurrent AI wave requests */
   private pendingAIWaveRequest = false;
+
+  /**
+   * performance.now() when this client sent command:start-wave, null once the
+   * answer is in. The store's phase follows only with the packet that brings
+   * wave:started, a frame or two (in coop the relay's round trip) after the
+   * command; until then a second press, the auto-start or a fast bot would
+   * send it again. The simulation drops a start it does not take without a
+   * word, so the guard also lapses after START_ANSWER_MS.
+   */
+  private startSentAt: number | null = null;
+  private static readonly START_ANSWER_MS = 2000;
 
   /** Throttle: last UI stats update timestamp */
   private lastStatsUpdate = 0;
@@ -162,6 +174,7 @@ export class GameLoopFacadeService {
     this.eventBusSubs.disposeAll();
     this.autoWave.cancel();
     this.pendingAIWaveRequest = false;
+    this.startSentAt = null;
     this.lastStatsUpdate = 0;
     this.initialized = false;
   }
@@ -287,6 +300,12 @@ export class GameLoopFacadeService {
     this.eventBusSubs.add(eventBus.onLive('game:over', () => this.cancelAutoWave()));
     this.eventBusSubs.add(eventBus.onLive('game:reset', () => this.cancelAutoWave()));
 
+    // The answer to a start this client sent (see startSentAt): the wave
+    // started, or the run it was meant for ended or was put back
+    for (const type of ['wave:started', 'game:over', 'game:reset', 'sim:restored'] as const) {
+      this.eventBusSubs.add(eventBus.on(type, () => { this.startSentAt = null; }));
+    }
+
     // Every new run resets the wave director, the restart button as well as a
     // location change, which resets the game without going through
     // restartGame. The fairness gate's multiplier is a per-RUN correction;
@@ -369,10 +388,21 @@ export class GameLoopFacadeService {
    */
   private emitDebugPanelWave(): void {
     this.store.waveExplanation.set(null);
-    this.sim.bus.emit({
+    this.sendStartWave({
       type: 'command:start-wave',
       director: this.waveDebug.toAIWaveConfig(),
     });
+  }
+
+  /** The one place command:start-wave leaves this client, see startSentAt. */
+  private sendStartWave(command: Extract<CommandEvent, { type: 'command:start-wave' }>): void {
+    this.startSentAt = performance.now();
+    this.sim.bus.emit(command);
+  }
+
+  /** A start this client sent has no answer yet (see startSentAt). */
+  private startInFlight(): boolean {
+    return this.startSentAt !== null && performance.now() - this.startSentAt < GameLoopFacadeService.START_ANSWER_MS;
   }
 
   /**
@@ -407,6 +437,7 @@ export class GameLoopFacadeService {
   private startWaveNow(): void {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
+    if (this.startInFlight()) return;
     if (this.store.spawnPoints().length === 0) return;
     // The corridor of a new location or a move is still being built (CorridorBuild).
     if (this.world.corridorPending()) return;
@@ -450,7 +481,7 @@ export class GameLoopFacadeService {
       // plan goes along for the run log of every client (wave:planned); its
       // numbers come from the plan, so they belong to the wave that ships
       // rather than to whatever the service happens to hold now.
-      this.sim.bus.emit({
+      this.sendStartWave({
         type: 'command:start-wave',
         director: aiConfig,
         plan: { waveSource: this.waveDirector.source.id, log: planned.log },
@@ -480,6 +511,7 @@ export class GameLoopFacadeService {
   startCustomWave(): void {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
+    if (this.startInFlight()) return;
     if (this.store.spawnPoints().length === 0) return;
     // The corridor of a new location or a move is still being built (CorridorBuild).
     if (this.world.corridorPending()) return;

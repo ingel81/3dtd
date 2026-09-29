@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, NgZone, runInInjectionContext, signal } from '@angular/core';
 
 // Only its DI token is needed; the real module pulls in the game state manager.
@@ -46,6 +46,7 @@ import type { DecisionExplanation } from '../../director/wave-explanation';
 import type { PlannedWave } from '../../director/wave-source';
 import { GameRng } from '../../utils/game-rng';
 import { RunLogFacade } from '../../run-log/run-log.facade';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
 
 /**
  * The store path of the director's explanation. The facade is the only writer
@@ -245,5 +246,75 @@ describe('GameLoopFacadeService: pause', () => {
     facade.startCustomWave();
     expect(store.paused()).toBe(true);
     expect(emitted).toEqual([]);
+  });
+});
+
+/**
+ * The store's phase follows a start only with the packet that brings
+ * wave:started, a frame or two after the command (in coop the relay's round
+ * trip). Until then the button, the auto-start or a fast bot must not send a
+ * second start.
+ */
+describe('GameLoopFacadeService: one start until the simulation answers', () => {
+  let facade: GameLoopFacadeService;
+  let store: ReturnType<typeof makeStore>;
+  let bus: MainEventBus;
+  let starts: number;
+
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['performance'] });
+    store = makeStore();
+    store.directorEnabled.set(false);
+    bus = createMainEventBus();
+    starts = 0;
+    bus.on('command:start-wave', () => starts++);
+    const injector = Injector.create({
+      providers: [
+        ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: SimClient, useValue: { bus, started: true, configure: () => undefined } },
+        { provide: SimMirror, useValue: { rng: new GameRng(1) } },
+        { provide: MainWorldService, useValue: { corridorPending: () => false } },
+        { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
+        { provide: TowerDefenseStore, useValue: store },
+        { provide: WaveDirector, useValue: waveDirectorStub() },
+        { provide: BotClientService, useValue: {} },
+        { provide: StateSnapshotService, useValue: {} },
+        { provide: WaveDebugService, useValue: { toAIWaveConfig: () => wave() } },
+      ],
+    });
+    facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
+    facade.subscribeToEventBus({ onGameOverExtra: () => undefined });
+  });
+
+  afterEach(() => vi.useRealTimers());
+
+  it('sends one start while the phase still says setup, the next after the wave', () => {
+    facade.startWave();
+    facade.readyOrStartWave();
+    facade.startCustomWave();
+    expect(starts).toBe(1);
+
+    bus.emit({ type: 'wave:started', wave: 1, enemyCount: 20 });
+    bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
+    facade.startWave();
+    expect(starts).toBe(2);
+  });
+
+  it('a new run lets the start go again', () => {
+    facade.startWave();
+    bus.emit({ type: 'game:reset' });
+    facade.startWave();
+    expect(starts).toBe(2);
+  });
+
+  it('a start the simulation dropped without a word holds the button only a while', () => {
+    facade.startWave();
+    vi.advanceTimersByTime(1000);
+    facade.startWave();
+    expect(starts).toBe(1);
+    vi.advanceTimersByTime(1500);
+    facade.startWave();
+    expect(starts).toBe(2);
   });
 });
