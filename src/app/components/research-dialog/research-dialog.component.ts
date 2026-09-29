@@ -11,7 +11,10 @@ import { TechTreeComponent } from '../tech-tree/tech-tree.component';
 import { DragScrollDirective } from '../tech-tree/drag-scroll.directive';
 import { buildTechTreeView, TECH_TREE_METRICS } from '../tech-tree/tech-tree-view';
 import { COOP } from '../../services/coop.token';
-import type { ResearchSnapshot } from '../../managers/research-snapshot';
+import { researchSnapshotOf, type ResearchSnapshot } from '../../managers/research-snapshot';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { watchResearchOf } from '../../sim/client/mirror/mirror-research';
 import { RESEARCH_DIALOG_DESC_ID, RESEARCH_DIALOG_TITLE_ID, type ResearchDialogData } from './open-research-dialog';
 import {
   buildResearchDetail,
@@ -61,6 +64,8 @@ export class ResearchDialogComponent {
   private readonly research = inject(ResearchStore);
   private readonly store = inject(TowerDefenseStore);
   private readonly facade = inject(TowerDefenseFacadeService);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
   private readonly coop = inject(COOP, { optional: true });
   private readonly data = inject<ResearchDialogData | null>(MAT_DIALOG_DATA, { optional: true });
 
@@ -129,9 +134,9 @@ export class ResearchDialogComponent {
         this.partner.set(null);
         return;
       }
-      const read = () => this.partner.set(this.facade.researchSnapshotOf(id));
+      const read = () => this.partner.set(researchSnapshotOf(this.mirror.researchOf(id)));
       read();
-      onCleanup(this.facade.watchResearchOf(id, read));
+      onCleanup(watchResearchOf(this.sim.bus, id, read));
     });
   }
 

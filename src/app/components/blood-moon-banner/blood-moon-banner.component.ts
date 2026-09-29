@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, effect, inject, signal, viewChild } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
 import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { BossIntroService } from '../../services/boss-intro.service';
 import { TdIconComponent } from '../icon/icon.component';
@@ -44,7 +44,7 @@ export class BloodMoonBannerComponent {
   readonly waveLabel = signal('');
 
   constructor() {
-    const bus = inject(GameStateManager).getEventBus();
+    const bus = inject(SimClient).bus;
     const subs = [
       bus.onLive('wave:started', ({ wave }) => this.show(wave)),
       bus.onLive('game:reset', () => this.timing.reset()),

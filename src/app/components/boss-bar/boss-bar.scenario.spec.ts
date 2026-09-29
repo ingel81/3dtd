@@ -2,7 +2,9 @@
  * Playtest 352, 353 and 362 (night 2026-09-14): what the boss bar at the top
  * says for the worm and the ooze. The component as it runs, fed over the
  * event bus by the real EnemyManager (rendering mocked); its 8 Hz poll runs
- * on fake timers.
+ * on fake timers. The main bus carries the worm as the mirror has it
+ * (WormGroupView: chains counted, hp and maxHp as the worm table sends
+ * them), here read live off the real group.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -13,11 +15,12 @@ vi.mock('three', async () => {
 
 import { DestroyRef, Injector, NgZone, runInInjectionContext } from '@angular/core';
 import { BossBarComponent } from './boss-bar.component';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
 import { createTestManagers, TestManagers, tickEngine } from '../../integration/test-helpers';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { northPath } from '../../../test/worm-test-helpers';
 import type { WormGroup } from '../../managers/worm/worm-group';
+import { createMainEventBus } from '../../sim/client/view-events';
 
 describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
   let m: TestManagers;
@@ -27,9 +30,23 @@ describe('Boss bar for the worm and the ooze (playtest 352, 353, 362)', () => {
     vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
     vi.spyOn(performance, 'now').mockReturnValue(1000);
     m = createTestManagers();
+    // The simulation's events on the main bus; a worm group as its view
+    const bus = createMainEventBus();
+    m.eventBus.onAny((event) => {
+      if (event.type !== 'worm:spawned') return bus.emit(event as never);
+      const group = event.group;
+      const view = {
+        type: group.type,
+        get chains() { return group.chains.length; },
+        get remaining() { return group.remaining; },
+        get maxHp() { return group.maxHp; },
+        hp: () => group.hp(),
+      };
+      bus.emit({ ...event, group: view } as never);
+    });
     const injector = Injector.create({
       providers: [
-        { provide: GameStateManager, useValue: { getEventBus: () => m.eventBus } },
+        { provide: SimClient, useValue: { bus } },
         { provide: NgZone, useValue: { runOutsideAngular: (fn: () => unknown) => fn() } },
         { provide: DestroyRef, useValue: { onDestroy: () => () => undefined, destroyed: false } },
       ],

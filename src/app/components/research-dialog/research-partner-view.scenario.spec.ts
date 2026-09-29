@@ -2,9 +2,9 @@
  * Coop: a partner's research, looked at only (TODO E35). The real MatDialog
  * in a TestBed with animations off, the real opener with the partner's id,
  * the real ResearchDialogComponent with its template read from disk. Two
- * players' ResearchManagers on one bus, as GameStateManager holds them; the
- * facade stub hands out what the real facade does (researchSnapshotOf,
- * watchResearchOf). The tree itself is a stub here: what it draws from the
+ * players' ResearchManagers on the simulation's bus, their events through the
+ * real SimMirror onto the main bus as the SimClient hands them on; the dialog
+ * reads the partner from the mirror. The tree itself is a stub here: what it draws from the
  * nodes is covered by research-tree-view.spec and tech-tree.component.spec.
  */
 // Material's dialog is partially compiled and needs the JIT compiler
@@ -23,7 +23,10 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MATERIAL_ANIMATIONS } from '@angular/material/core';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { ResearchManager } from '../../managers/research.manager';
-import { researchSnapshotOf, watchResearchOf } from '../../managers/research-snapshot';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { createMainEventBus } from '../../sim/client/view-events';
+import { packet } from '../../sim/client/mirror/testing/mirror-packets';
 import { TowerDefenseFacadeService } from '../../services/facade/tower-defense-facade.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { COOP } from '../../services/coop.token';
@@ -76,9 +79,12 @@ describe('Coop research view of a partner (TODO E35)', () => {
 
   beforeEach(() => {
     bus = new GameEventBus();
-    const mine = new ResearchManager(bus, { playerId: 'p1', local: () => true });
+    const mirror = new SimMirror();
+    mirror.applyState(packet({ scalars: { players: ['p1', 'p2'], localPlayerId: 'p1' } }));
+    const main = createMainEventBus();
+    bus.onAny((event) => main.emit(mirror.importEvent({ type: event.type, payload: { ...event }, live: true, show: true })));
+    new ResearchManager(bus, { playerId: 'p1', local: () => true });
     theirs = new ResearchManager(bus, { playerId: 'p2', local: () => false });
-    const byId: Record<string, ResearchManager> = { p1: mine, p2: theirs };
     theirs.onCenterPlaced();
     theirs.completeResearch('biology');
     theirs.startResearch('gatling-tech');
@@ -90,14 +96,9 @@ describe('Coop research view of a partner (TODO E35)', () => {
       providers: [
         { provide: MATERIAL_ANIMATIONS, useValue: { animationsDisabled: true } },
         { provide: TowerDefenseStore, useValue: { credits: signal(750) } },
-        {
-          provide: TowerDefenseFacadeService,
-          useValue: {
-            researchSnapshotOf: (id: string) => researchSnapshotOf(byId[id]),
-            watchResearchOf: (id: string, changed: () => void) => watchResearchOf(bus, id, changed),
-            emitCommand,
-          },
-        },
+        { provide: TowerDefenseFacadeService, useValue: { emitCommand } },
+        { provide: SimMirror, useValue: mirror },
+        { provide: SimClient, useValue: { bus: main } },
         {
           provide: COOP,
           useValue: {

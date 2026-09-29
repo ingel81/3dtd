@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, ElementRef, inject, viewChild } from '@angular/core';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
 import { PulseThrottle } from '../../utils/pulse-throttle';
 
 /** Fade of the red edge: in fast, out slower */
@@ -30,7 +30,7 @@ export class LeakVignetteComponent {
   private readonly throttle = new PulseThrottle(LEAK_PULSE_MIN_INTERVAL_MS);
 
   constructor() {
-    const bus = inject(GameStateManager).getEventBus();
+    const bus = inject(SimClient).bus;
     const subs = [
       bus.onLive('enemy:reached-base', () => this.pulse()),
       bus.onLive('enemy:leaking', () => this.pulse()),

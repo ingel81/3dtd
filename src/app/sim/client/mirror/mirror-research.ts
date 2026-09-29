@@ -1,6 +1,8 @@
 import type { ActiveResearch, ResearchId } from '../../../configs/research/research.types';
 import { getResearch } from '../../../configs/research/research-tree.config';
 import type { ResearchSource } from '../../../managers/research-snapshot';
+import { SubscriptionBag } from '../../../game-engine/game-event-bus';
+import type { MainEventBus } from '../view-events';
 
 /**
  * One player's research as the main thread has it (sim/client/mirror): the
@@ -76,4 +78,17 @@ export class MirrorResearch implements ResearchSource {
       if (t !== undefined) a.elapsed = t;
     }
   }
+}
+
+/**
+ * Calls `changed` whenever `playerId`'s research moves, as the mirror hears
+ * it: after every change (research:state-changed) and with the progress, 10
+ * times a second. The live game only, like the ResearchStore's sync.
+ * Returns the unsubscribe.
+ */
+export function watchResearchOf(bus: MainEventBus, playerId: string, changed: () => void): () => void {
+  const subs = new SubscriptionBag();
+  subs.add(bus.onLive('research:state-changed', (e) => { if (e.playerId === playerId) changed(); }));
+  subs.add(bus.onLive('research:progress', (e) => { if (e.playerId === playerId) changed(); }));
+  return () => subs.disposeAll();
 }

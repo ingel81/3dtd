@@ -6,7 +6,7 @@ import { getTestBed, TestBed } from '@angular/core/testing';
 import { BrowserTestingModule, platformBrowserTesting } from '@angular/platform-browser/testing';
 import { BotDebuggerComponent } from './bot-debugger.component';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { GameStore } from '../../store/game.store';
 import { BotClientService } from '../../bots/bot-client.service';
 import { WaveDirector } from '../../director/wave-director';
 
@@ -17,7 +17,7 @@ beforeAll(() => {
 });
 
 function setup(connected = false) {
-  const gameState = { setGameSpeed: vi.fn() };
+  const gameStore = { setGameSpeed: vi.fn(), gameSpeed: signal(1) };
   const botClient = {
     isConnected: vi.fn(() => connected),
     connect: vi.fn(async () => undefined),
@@ -31,21 +31,21 @@ function setup(connected = false) {
   TestBed.configureTestingModule({
     providers: [
       { provide: DebugWindowService, useValue: { botWindow } },
-      { provide: GameStateManager, useValue: gameState },
+      { provide: GameStore, useValue: gameStore },
       { provide: BotClientService, useValue: botClient },
       { provide: WaveDirector, useValue: waveDirector },
     ],
   });
   const panel = TestBed.runInInjectionContext(() => new BotDebuggerComponent());
-  return { panel, gameState, botClient, waveDirector, botWindow };
+  return { panel, gameStore, botClient, waveDirector, botWindow };
 }
 
 describe('BotDebuggerComponent', () => {
   it('sets the training timescale from the slider and the preset buttons', () => {
-    const { panel, gameState } = setup();
+    const { panel, gameStore } = setup();
     panel.onTimescaleChange({ target: { value: '8' } } as unknown as Event);
     panel.setTimescale(25);
-    expect(gameState.setGameSpeed.mock.calls).toEqual([[8], [25]]);
+    expect(gameStore.setGameSpeed.mock.calls).toEqual([[8], [25]]);
   });
 
   it('connects to the backend when disconnected and disconnects when connected', async () => {
