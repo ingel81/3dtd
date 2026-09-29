@@ -6,6 +6,69 @@ Header der Webseite) stehen in TODO E71. Die Simulation läuft in einem Web Work
 UI, Eingabe, Tiles und die GPU-Sichtlinien. Grundlage: [WORKER_PLAN.md](WORKER_PLAN.md) (Stufe 1: echte Simulation im
 Worker bitgleich).
 
+## Überblick
+
+```mermaid
+flowchart LR
+  subgraph Haupt["Hauptthread"]
+    RAF["requestAnimationFrame: RenderLoop"]
+    Input["Eingabe, UI, Bot, Wellenquelle"]
+    Client["SimClient.frame: Paket anwenden, Tick senden"]
+    Mirror["SimMirror: Schatten-Tower, Views, Skalare"]
+    Bus["Hauptthread-Bus: Events mit Views"]
+    UI["Stores und Angular-UI"]
+    Pres["PresentationHost: OpPlayer, FramePresenter"]
+    Fx["VFX, Ton, Musik, Screen Shake"]
+    Render["Renderer, Tiles, renderer.render"]
+    Los["TowerLosRegistry: GPU-Sichtlinien"]
+    Relay["Coop-Relay WebSocket"]
+  end
+  subgraph Work["Worker"]
+    Core["SimCore.tick: Befehle an der Grenze"]
+    Steps["GameStateManager: feste Sub-Steps der Manager"]
+    Packet["Paket: Tabellen im SAB, Ops, Events, Tower-Zustände"]
+  end
+  RAF --> Client
+  Input -- "command:*" --> Client
+  Client -- "tick mit Befehlen" --> Core
+  Relay -. "gelieferte Ticks, mit dem Tick weiter" .-> Client
+  Core --> Steps --> Packet
+  Packet -- "postMessage, ein Tick unterwegs" --> Client
+  Client --> Mirror
+  Client --> Bus
+  Client --> Pres
+  Mirror --> Input
+  Mirror --> UI
+  Bus --> UI
+  Bus --> Fx
+  Bus -- "tower:los-needed" --> Los
+  Los -- "command:los-mask" --> Client
+  Pres --> Render
+  RAF --> Render
+```
+
+```mermaid
+sequenceDiagram
+  participant R as RenderLoop
+  participant C as SimClient
+  participant W as Worker SimCore
+  participant P as Spiegel, Bus, Presenter
+  R->>C: frame
+  C->>P: Paket vom letzten Tick anwenden
+  C->>W: tick mit Befehlen seit dem letzten
+  R->>R: Renderer und renderer.render
+  W->>W: Befehle anwenden, Sub-Steps
+  W-->>C: Paket, im nächsten Bild angewandt
+```
+
+Jedes Bild beginnt mit `requestAnimationFrame` in der `RenderLoop`; `GameLoopFacadeService` ruft darin
+`SimClient.frame`. Der wendet das Paket an, das seit dem letzten Bild aus dem Worker kam, und schickt den nächsten
+Tick mit den Befehlen seit dem letzten, solange kein Tick unterwegs ist. Der Worker rechnet die Sub-Steps, während
+der Hauptthread mit dem zuletzt angewandten Stand rendert. Beim Anwenden geht der Zustand in den Spiegel, die Ops an
+den Presenter, die Events auf den Hauptthread-Bus und die Tabellen an die Renderer; UI, Ton, Bot und Wellenquelle
+lesen nur Spiegel und Bus und antworten mit `command:*`. Nebenwege: Die Welt geht beim Laden einmal als `SimWorld` in
+den Worker, im Coop reicht der Hauptthread die Ticks des Relays durch, das Replay ist ein Modus des Workers.
+
 ## Grundsätze
 
 - **Ein Weg.** Der Hauptthread greift nie auf Sim-Objekte zu (kein `GameStateManager`, keine Manager, keine lebenden
