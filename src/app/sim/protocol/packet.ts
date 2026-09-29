@@ -174,6 +174,8 @@ export interface SimScalars {
   /** Wave numbers a replay can re-simulate (SimRecorder), newest last */
   replayableWaves: number[];
   towerCount: number;
+  /** The run's seed (GameRng.seed): the main thread's wave source and bot draw their own streams from it */
+  seed: number;
 }
 
 /**
