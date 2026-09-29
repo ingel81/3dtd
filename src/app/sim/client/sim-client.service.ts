@@ -11,6 +11,15 @@ import type { SimMirrorApi, SimPresenterApi } from './contracts';
 import { createMainEventBus, type MainEventBus, type ViewEvent } from './view-events';
 import { WorkerTransport, type SimTransport, type SimTransportHandlers } from './transport';
 
+/**
+ * A tick longer than this goes on without waiting for the next frame (see
+ * SimClient). The game clock takes at most 50 ms of wall clock per tick
+ * (GameClock.MAX_CATCHUP_MS): a tick this long plus the wait for the frame
+ * and the apply comes near it, and the game turns into slow motion. Shorter
+ * ticks keep to the frame, which leaves this thread one packet per frame.
+ */
+export const EARLY_TICK_MS = 35;
+
 /** Inputs the UI gives on the main bus; everything else on it came from the simulation. */
 export function isSimInput(type: string): boolean {
   return type.startsWith('command:') || (type.startsWith('debug:') && type !== 'debug:sound');
@@ -27,10 +36,10 @@ export function isSimInput(type: string): boolean {
  * One tick is in flight at a time: the next goes when its packet is back, so
  * a slow simulation slows the game instead of piling up frames. A packet is
  * applied at the start of the main thread's next frame, before it renders.
- * Where a tick takes longer than a frame (many enemies, high speed) and the
- * worker has two sets of tables (SimTransport.concurrent), the next tick goes
- * out as soon as the packet is back instead of with the next frame: the
- * simulation works on while this thread applies and draws, rather than
+ * Where a tick takes longer than EARLY_TICK_MS (many enemies, high speed)
+ * and the worker has two sets of tables (SimTransport.concurrent), the next
+ * tick goes out as soon as the packet is back instead of with the next frame:
+ * the simulation works on while this thread applies and draws, rather than
  * waiting for it. It never writes the set this thread still reads: a tick
  * goes early only while the packet just back is the only one not applied.
  *
@@ -139,7 +148,6 @@ export class SimClient {
     this.lastGameTimeMs = null;
     this.resetShown = false;
     this.lastTickMs = 0;
-    this.lastFrameAt = null;
     this.failure.set(null);
   }
 
@@ -179,19 +187,16 @@ export class SimClient {
 
   /** The last tick's time in the simulation, ms (SimScalars.tickMs) */
   private lastTickMs = 0;
-  /** Wall clock between this thread's frames, smoothed; see sendEarly() */
-  private frameIntervalMs = 16;
-  private lastFrameAt: number | null = null;
 
   /**
    * The packet just back is the only one not applied, and the tick took
-   * longer than a frame: the next tick goes now rather than with the next
-   * frame. Its tables go into the other set, the one of the packet before,
-   * which is applied.
+   * longer than EARLY_TICK_MS: the next tick goes now rather than with the
+   * next frame. Its tables go into the other set, the one of the packet
+   * before, which is applied.
    */
   private sendEarly(): void {
     const transport = this.transport;
-    if (!transport?.concurrent || this.pendingPackets.length !== 1 || !(this.lastTickMs > this.frameIntervalMs)) return;
+    if (!transport?.concurrent || this.pendingPackets.length !== 1 || !(this.lastTickMs > EARLY_TICK_MS)) return;
     if (!this.worldLoaded || this.inFlight || this.failure() !== null) return;
     this.sendTick(performance.now(), this.gameStore.renderingEnabled());
   }
@@ -266,8 +271,6 @@ export class SimClient {
    * next tick if none is out.
    */
   frame(now: number, renderingEnabled = this.gameStore.renderingEnabled()): void {
-    if (this.lastFrameAt !== null) this.frameIntervalMs += (Math.min(now - this.lastFrameAt, 100) - this.frameIntervalMs) * 0.1;
-    this.lastFrameAt = now;
     this.applyPending();
     if (!this.transport || !this.worldLoaded || this.inFlight || this.failure() !== null) return;
     this.sendTick(now, renderingEnabled);
