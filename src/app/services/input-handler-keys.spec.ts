@@ -9,6 +9,8 @@ vi.mock('./world/map-placement.service', () => ({ MapPlacementService: class Map
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { InputHandlerService } from './input-handler.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { TowerSelectionService } from './tower-selection.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { MapPlacementService } from './world/map-placement.service';
@@ -41,6 +43,8 @@ describe('InputHandlerService keys on a focused slider', () => {
 
     const injector = Injector.create({
       providers: [
+        { provide: SimMirror, useValue: {} },
+        { provide: TowerSelectionService, useValue: {} },
         { provide: TowerDefenseStore, useValue: {} },
         { provide: UIStore, useValue: { photoMode: signal(false) } },
         { provide: MatDialog, useValue: { openDialogs: [] } },
