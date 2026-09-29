@@ -60,6 +60,10 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
   einem eigenen `GameRng` mit dem Lauf-Seed (Strom `director`, dieselbe Folge wie bisher), der Bot ebenso (`bot`).
   Die Regeln der Wellenquelle gehen per `configure({waveSource})` in den Worker. Der Bot entscheidet je Bild statt je
   Sub-Step; seine Befehle wirken am nächsten Tick.
+- **Stand, den die Wellenquelle liest:** Was sie bei `wave:completed` festhält (`StateSnapshotService`, etwa die
+  Spielzeit) und was sie beim Planen der nächsten Welle liest, kommt aus dem Spiegel, also vom Ende des Pakets, mit
+  dem das Event ankommt, nicht vom Sub-Step, in dem die Welle endete. Laufen mehrere Sub-Steps je Bild (hohes Tempo),
+  kann dazwischen schon mehr geschehen sein. Bewusst so gelassen.
 - **Auswahl eines Towers** ist UI-Zustand des Hauptthreads, nicht mehr der Simulation.
 - **Coop:** Die Relay-Verbindung bleibt im Hauptthread; der Worker bekommt einen `LockstepLink`, der die gelieferten
   Ticks je Tick-Nachricht erhält und Befehle, Hashes, Glätte zurückschickt.
