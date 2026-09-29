@@ -1,15 +1,14 @@
 /**
  * Shared test helpers for integration tests.
  *
- * Provides mock factories for Three.js rendering layer (ThreeTilesEngine)
- * and Angular services that are not under test.
+ * Provides a spy for the simulation's renderer calls (SimSink), its frame
+ * (SimCoords) and mocks of Angular services that are not under test.
  */
-import { vi } from 'vitest';
+import { vi, type Mock } from 'vitest';
 import { GeoPosition } from '../models/game.types';
 import { GameEventBus } from '../game-engine/game-event-bus';
 import { EnemyManager } from '../managers/enemy.manager';
 import { TowerManager } from '../managers/tower.manager';
-import { NO_RESEARCH } from '../managers/research.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig, SpawnEntry } from '../managers/wave.manager';
 import { EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
@@ -17,7 +16,8 @@ import { GlobalRouteGridService } from '../services/world/global-route-grid.serv
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
 import { Tower } from '../entities/tower.entity';
-import type { ThreeTilesEngine } from '../three-engine';
+import { OriginSync, SimCoords, type SimSync } from '../sim/core/sim-coords';
+import type { SimOps, SimSink } from '../sim/core/sim-sink';
 
 // ─── vi.mock('@angular/core') helper ───────────────────────────────
 
@@ -125,164 +125,59 @@ export function makeSingleTypeWaveConfig(opts: {
   };
 }
 
-// ─── Mock ThreeTilesEngine ────────────────────────────────────────
+// ─── The simulation's sink and frame ──────────────────────────────
 
-/** Creates a mock ThreeTilesEngine that stubs all rendering calls */
-export function createMockTilesEngine() {
-  return {
-    getScene: vi.fn(() => ({})),
-    getTerrainHeightAtGeo: vi.fn(() => 0),
-    setTimescale: vi.fn(),
-    sync: {
-      getOrigin: vi.fn(() => ({ lat: 48.776, lon: 9.183, height: 300 })),
-      geoToLocalSimple: vi.fn((_lat: number, _lon: number, _h: number) => ({
-        x: 0,
-        y: 0,
-        z: 0,
-      })),
-      geoToLocal: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
-      geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: unknown) => target),
+/** A SimSink whose every member is a vi.fn, by the engine member path (`sink.effects.spawnFloatingText`). */
+export type SinkSpy = { readonly [K in keyof SimSink]: { readonly [M in keyof SimSink[K]]: Mock } };
+
+/** A spy for the simulation's renderer calls: every member of every renderer a vi.fn on first use. */
+export function createSinkSpy(): SinkSpy {
+  const members = new Map<PropertyKey, object>();
+  return new Proxy({}, {
+    get(_obj, prop) {
+      let member = members.get(prop);
+      if (!member) {
+        member = withAutoStubs({});
+        members.set(prop, member);
+      }
+      return member;
     },
-    spatialAudio: {
-      registerSound: vi.fn(),
-      playAt: vi.fn(),
-      // AudioService chains .catch() on it
-      playAtGeo: vi.fn(() => Promise.resolve(null)),
-      geoToLocalPosition: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
-      createLoop: vi.fn(() => Promise.resolve({ stop: vi.fn() })),
-      playOneShot: vi.fn(() => Promise.resolve()),
-      stopLoop: vi.fn(),
-      updateLoopPosition: vi.fn(),
-      pauseLoop: vi.fn(),
-      resumeLoop: vi.fn(),
-      holdLoops: vi.fn(),
-      rebalanceEnemyLoops: vi.fn(),
-      isWithinAudibleDistance: vi.fn(() => true),
-      getListener: vi.fn(() => ({
-        getWorldPosition: (target: { set: (x: number, y: number, z: number) => unknown }) => target.set(0, 0, 0),
-      })),
-    },
-    trailStreaks: {
-      create: vi.fn(),
-      update: vi.fn(),
-      remove: vi.fn(),
-      clear: vi.fn(),
-      pushPosition: vi.fn(),
-    },
-    towers: {
-      create: vi.fn(),
-      update: vi.fn(),
-      remove: vi.fn(),
-      clear: vi.fn(),
-      select: vi.fn(),
-      deselect: vi.fn(),
-    },
-    towerBadges: {
-      setRank: vi.fn(),
-      remove: vi.fn(),
-      clear: vi.fn(),
-    },
-    searchlights: {
-      add: vi.fn(),
-      remove: vi.fn(),
-      clear: vi.fn(),
-    },
-    tentacles: {
-      create: vi.fn(),
-      remove: vi.fn(),
-      clear: vi.fn(),
-      setVisible: vi.fn(),
-      startStrike: vi.fn(),
-      resetAllToIdle: vi.fn(),
-      getStrikeTarget: vi.fn(() => null),
-      captureStrike: vi.fn(() => null),
-      restoreStrike: vi.fn(),
-    },
-    plinths: {
-      create: vi.fn(),
-      remove: vi.fn(),
-      clear: vi.fn(),
-      setVisible: vi.fn(),
-    },
-    enemies: {
-      setFootstepListener: vi.fn(),
-      create: vi.fn(() => Promise.resolve({})),
-      remove: vi.fn(),
-      clear: vi.fn(),
-      startWalkAnimation: vi.fn(),
-      playDeathAnimation: vi.fn(),
-      startRunAnimation: vi.fn(),
-      resolveSlot: vi.fn(() => null),
-      updateSlot: vi.fn(),
-      setFreezeVisual: vi.fn(),
-      setRenderType: vi.fn(),
-      setIcedVisual: vi.fn(),
-      setStunVisual: vi.fn(),
-    },
-    oozes: {
-      add: vi.fn(),
-      setFrame: vi.fn(),
-      remove: vi.fn(),
-      collapse: vi.fn(),
-      discard: vi.fn(),
-      clear: vi.fn(),
-    },
-    projectiles: {
-      create: vi.fn(),
-      update: vi.fn(),
-      updateWithRotation: vi.fn(),
-      remove: vi.fn(),
-      clear: vi.fn(),
-    },
-    effects: {
-      spawnFloatingText: vi.fn(),
-      spawnTowerInnerFire: vi.fn(),
-      stopTowerInnerFire: vi.fn(),
-      stopAllTowerFires: vi.fn(),
-      spawnIceExplosionAtGeo: vi.fn(),
-      spawnIceDecal: vi.fn(),
-      spawnConfigurableTrail: vi.fn(),
-      spawnFrostAura: vi.fn(),
-      updateFrostAuraPosition: vi.fn(),
-      stopFrostAura: vi.fn(),
-      hasFrostAura: vi.fn(() => false),
-      spawnIceCrystals: vi.fn(),
-      spawnBurstAtGeo: vi.fn(),
-      updateIceCrystalsPosition: vi.fn(),
-      stopIceCrystals: vi.fn(),
-      spawnMuzzleFlash: vi.fn(),
-      setScorchGround: vi.fn(),
-      markScorch: vi.fn(),
-      groundMarksEnabled: true,
-      clear: vi.fn(),
-    },
-    orbitalBeams: { setGround: vi.fn(), fire: vi.fn(), clear: vi.fn() },
-    triggerScreenShake: vi.fn(),
-  };
+  }) as SinkSpy;
 }
 
-export type MockTilesEngine = ReturnType<typeof createMockTilesEngine>;
+/** SimOps over a sink spy: the calls go to the spy, nothing is recorded. */
+export function createTestOps(sink: SinkSpy = createSinkSpy()): SimOps {
+  return {
+    sink: sink as unknown as SimSink,
+    setShowMuted: () => undefined,
+    take: () => [],
+    pending: 0,
+  } as unknown as SimOps;
+}
+
+/** The frame of TEST_PATH: EllipsoidSync's simple frame around the old mock engine's origin */
+export const TEST_ORIGIN = { lat: 48.776, lon: 9.183, height: 300 };
+
+export function createTestCoords(sync: SimSync = new OriginSync(TEST_ORIGIN.lat, TEST_ORIGIN.lon, TEST_ORIGIN.height)): SimCoords {
+  const coords = new SimCoords();
+  coords.use(sync);
+  return coords;
+}
 
 /**
- * The engine an ability integration spec hands to GameStateManager.initialize:
- * a mock tiles engine with the members the sub-step loop reaches stubbed, plus
- * an auto-stubbed catch-all for anything else it touches.
+ * Put the simulation's frame and a sink spy into the record a spec's
+ * mocked `inject()` reads (by class name): what GameStateManager and the
+ * combat services inject besides the services the spec provides.
  */
-export function createAbilityTestEngine(): never {
-  // The helper's engine is typed; the loop reaches a few members it does not declare
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'sync']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['hero'] = withAutoStubs({});
-  // A coop partner's hero gets a renderer of his own (review R15)
-  (engine as Record<string, unknown>)['createPartnerHero'] = vi.fn(() => withAutoStubs({}));
-  // BackgroundMusicService resumes the audio context on wave:started
-  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
-  // Headless, like a training tab: no presentFrame
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  return withAutoStubs(engine) as never;
+export function provideSimServices(
+  services: Record<string, unknown>,
+  options: { sync?: SimSync; sink?: SinkSpy } = {},
+): { sink: SinkSpy; coords: SimCoords } {
+  const sink = options.sink ?? createSinkSpy();
+  const coords = createTestCoords(options.sync);
+  services['SimCoords'] = coords;
+  services['SimOps'] = createTestOps(sink);
+  return { sink, coords };
 }
 
 // ─── Mock Angular Services ────────────────────────────────────────
@@ -298,7 +193,6 @@ export function createMockGlobalRouteGrid(): GlobalRouteGridService {
     getGroundLocalYAt: vi.fn(() => null),
     getEnemiesInRadiusGeo: vi.fn(() => []),
     getStats: vi.fn(() => ({ trackedEnemies: 0, occupiedCells: 0 })),
-    initDebugViz: vi.fn(),
     clear: vi.fn(),
   } as unknown as GlobalRouteGridService;
 }
@@ -311,9 +205,9 @@ export interface TestManagers {
   towerManager: TowerManager;
   projectileManager: ProjectileManager;
   waveManager: WaveManager;
-  tilesEngine: MockTilesEngine;
-  /** The same mock typed as the engine, for passing to initialize(). */
-  engine: ThreeTilesEngine;
+  /** The renderer calls the managers made */
+  sink: SinkSpy;
+  coords: SimCoords;
 }
 
 /**
@@ -327,17 +221,13 @@ export function createTestManagers(): TestManagers {
   const globalRouteGrid = createMockGlobalRouteGrid();
   const spatialGrid = new SpatialGridService();
 
-  const enemyManager = new EnemyManager(eventBus, globalRouteGrid, spatialGrid);
-  const towerManager = new TowerManager(eventBus, NO_RESEARCH);
-  const projectileManager = new ProjectileManager(eventBus);
+  const sink = createSinkSpy();
+  const coords = createTestCoords();
+  const simSink = sink as unknown as SimSink;
+  const enemyManager = new EnemyManager(eventBus, globalRouteGrid, spatialGrid, coords, simSink);
+  const towerManager = new TowerManager(eventBus, coords, simSink);
+  const projectileManager = new ProjectileManager(eventBus, simSink);
   const waveManager = new WaveManager(eventBus, enemyManager);
-
-  const tilesEngine = createMockTilesEngine();
-  const engine = tilesEngine as unknown as ThreeTilesEngine;
-
-  // Initialize with mock engine
-  enemyManager.initialize(engine);
-  projectileManager.initialize(engine);
 
   // The enemy debugger's cheats, run as GameCommandsHandler and
   // GameStateManager.debugKillAll & co. run them in the game
@@ -354,8 +244,8 @@ export function createTestManagers(): TestManagers {
     towerManager,
     projectileManager,
     waveManager,
-    tilesEngine,
-    engine,
+    sink,
+    coords,
   };
 }
 

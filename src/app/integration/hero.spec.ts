@@ -30,24 +30,12 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { createMockTilesEngine, withAutoStubs, TEST_PATH } from './test-helpers';
+import { withAutoStubs, TEST_PATH } from './test-helpers';
 import { createHeroTestGame } from './hero-test-helpers';
 import { HERO } from '../configs/hero.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
 
-function createEngine(): never {
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'sync']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['hero'] = withAutoStubs({});
-  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
-  // Headless, like a training tab: no presentFrame
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  return withAutoStubs(engine) as never;
-}
 
 const HIRE_STEP = 5;
 const MOVE_STEP = 10;
@@ -75,7 +63,7 @@ interface Outcome {
 }
 
 function run(timescale: number): Outcome {
-  const gsm = createHeroTestGame(timescale, mockServices, createEngine());
+  const gsm = createHeroTestGame(timescale, mockServices);
   const bus = gsm.getEventBus();
   let heroKillEvents = 0;
   bus.on('hero:kill', () => heroKillEvents++);
@@ -141,7 +129,7 @@ describe('Hero through the sub-step loop', () => {
 
   it('walks to the post along the route', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
-    const gsm = createHeroTestGame(1, mockServices, createEngine());
+    const gsm = createHeroTestGame(1, mockServices);
     const bus = gsm.getEventBus();
     const before = gsm.credits();
     bus.emit({ type: 'command:hire-hero' });

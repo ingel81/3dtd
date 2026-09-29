@@ -31,7 +31,7 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { createMockTilesEngine, withAutoStubs, TEST_PATH } from './test-helpers';
+import { withAutoStubs, TEST_PATH } from './test-helpers';
 import { createHeroTestGame } from './hero-test-helpers';
 import { HERO } from '../configs/hero.config';
 import { geoDistanceFast } from '../utils/geo-utils';
@@ -40,17 +40,6 @@ import type { GeoPosition } from '../models/game.types';
 /** GameClock.FIXED_STEP_MS in seconds */
 const STEP_S = 16.667 / 1000;
 
-function createEngine(): never {
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'sync']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['hero'] = withAutoStubs({});
-  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  return withAutoStubs(engine) as never;
-}
 
 const HIRE_STEP = 5;
 const MOVE_STEP = 10;
@@ -79,7 +68,7 @@ interface Run {
 }
 
 function run(timescale: number): Run {
-  const gsm = createHeroTestGame(timescale, mockServices, createEngine());
+  const gsm = createHeroTestGame(timescale, mockServices);
   const bus = gsm.getEventBus();
   const trace: [number, number][] = [];
   const spawnGroup = () => GROUP.map(({ type, speed }) => gsm.enemyManager.spawn(TEST_PATH, type, speed));

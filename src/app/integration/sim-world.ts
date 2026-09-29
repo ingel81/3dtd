@@ -19,89 +19,36 @@ import { DamageApplicationService } from '../services/combat/damage-application.
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { TowerCombatService } from '../services/combat/tower-combat.service';
 import { EconomyService } from '../services/economy.service';
+import { SimCoords } from '../sim/core/sim-coords';
+import { SimOps } from '../sim/core/sim-sink';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import type { SpawnPoint } from '../managers/wave.manager';
 import type { ColumnSample } from '../three-engine/column-sample';
-import { losMaskToJson, type LosMask } from '../utils/los-mask';
-import type { GameEventBus } from '../game-engine/game-event-bus';
+import { losMaskToJson, type LosMaskJson } from '../utils/los-mask';
+import type { LosResolveReason } from '../game-engine/events/event-types';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
-import { noopStub } from './noop-stub';
 import { DetMath } from '../utils/det-math';
-import { buildRoute, createBenchEngine, flatSync, localSync, markAllVisible, type LocalSync } from './sim-step-bench';
+import { buildRoute, flatSync, localSync, markAllVisible, type LocalSync } from './sim-step-bench';
 
 /**
- * The line of sight side of TowerPlacementService, on the real grid, no GPU.
- * A tower placed in the single player game gets no line of sight (the
- * specs mark theirs with markAllVisible). In coop it does what
- * TowerLosRegistry does with the host's GPU answering "everything visible":
- * every client waits, the host resolves after the frame and sends
- * command:los-mask on `bus()`.
+ * A clear view for `tower` as the main thread's TowerLosRegistry would send
+ * it with nothing in the way (markAllVisible), without leaving it in the
+ * grid: the simulation applies it when the command comes back.
  */
-export function losPlacement(
-  grid: GlobalRouteGridService,
-  bus: () => GameEventBus | null = () => null,
-  sync: LocalSync = flatSync,
-) {
-  const queue: Tower[] = [];
-  let role: 'host' | 'guest' | null = null;
-  const awaiting: Tower[] = [];
-  const sent = new Set<Tower>();
-  const fromMask = (tower: Tower, mask: LosMask) => {
+export function clearViewMask(grid: GlobalRouteGridService, tower: Tower, sync: LocalSync = flatSync): LosMaskJson {
+  const before = { cells: tower.visibleCells, mask: tower.losMask, ready: tower.losReady };
+  markAllVisible(grid, tower, sync);
+  const mask = losMaskToJson(tower.losMask!);
+  grid.unregisterTower(tower.id);
+  if (before.mask) {
     const { x, z } = sync.geoToLocalSimple(tower.position.lat, tower.position.lon, 0);
-    tower.visibleCells = grid.applyLosMask(tower.id, x, z, mask);
-    tower.losMask = mask;
-    tower.losReady = true;
-  };
-  const unregister = (tower: Tower) => {
-    grid.unregisterTower(tower.id);
-    tower.visibleCells = [];
-    tower.losMask = null;
-    const i = awaiting.indexOf(tower);
-    if (i >= 0) awaiting.splice(i, 1);
-    sent.delete(tower);
-  };
-  return noopStub({
-    registerTowerOnGrid: (tower: Tower) => {
-      if (!role) return;
-      tower.losReady = false;
-      awaiting.push(tower);
-    },
-    registerTowerFromMask: fromMask,
-    unregisterTowerFromGrid: unregister,
-    clearAllTowerOverlays: (towers: Tower[]) => towers.forEach(unregister),
-    queuedLosTowerIds: () => queue.map((t) => t.id),
-    requeueLos: (towers: Tower[]) => queue.splice(0, queue.length, ...towers),
-    setLosMaskSource: () => undefined,
-    setCoopLosRole: (next: 'host' | 'guest' | null) => { role = next; },
-    awaitingLosTowerIds: () => awaiting.map((t) => t.id),
-    awaitingLosEntries: () => awaiting.map((t) => [t.id, 'place']),
-    restoreAwaitingLos: (entries: [Tower, string][]) => {
-      awaiting.splice(0, awaiting.length, ...entries.map(([t]) => t));
-      sent.clear();
-    },
-    applyCoopLosMask: (tower: Tower, mask: LosMask) => {
-      const i = awaiting.indexOf(tower);
-      if (i < 0) return;
-      awaiting.splice(i, 1);
-      sent.delete(tower);
-      grid.unregisterTower(tower.id);
-      fromMask(tower, mask);
-    },
-    drainLosQueue: () => {
-      if (role !== 'host') return;
-      const tower = awaiting.find((t) => !sent.has(t));
-      if (!tower) return;
-      markAllVisible(grid, tower, sync);
-      const mask = tower.losMask!;
-      grid.unregisterTower(tower.id);
-      tower.visibleCells = [];
-      tower.losMask = null;
-      tower.losReady = false;
-      sent.add(tower);
-      bus()?.emit({ type: 'command:los-mask', towerId: tower.id, reason: 'place', mask: losMaskToJson(mask) });
-    },
-  });
+    grid.applyLosMask(tower.id, x, z, before.mask);
+  }
+  tower.visibleCells = before.cells;
+  tower.losMask = before.mask;
+  tower.losReady = before.ready;
+  return mask;
 }
 
 export interface SimWorld {
@@ -109,6 +56,12 @@ export interface SimWorld {
   grid: GlobalRouteGridService;
   towers: Tower[];
   routes: GeoPosition[][];
+  /**
+   * Answer every line of sight the simulation asked for since the last call
+   * with a clear view (command:los-mask on its bus), as the main thread's
+   * TowerLosRegistry does after a frame; a coop guest's spec never calls it.
+   */
+  answerLos(): void;
 }
 
 export interface SimWorldOptions {
@@ -188,25 +141,27 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
     if (missing.length > 0) throw new Error(`world package: ${missing.length} cells not in the grid`);
   }
 
+  const coords = new SimCoords();
+  coords.use(sync);
+  services['SimCoords'] = coords;
+  services['SimOps'] = new SimOps();
   services['GlobalRouteGridService'] = grid;
   services['SpatialGridService'] = new SpatialGridService();
   services['StatusEffectService'] = new StatusEffectService();
-  services['ResearchStore'] = noopStub();
-  services['PathAndRouteService'] = noopStub({ getCachedPaths: () => paths });
-  services['EnemyDebugService'] = noopStub({ debugEnemies: () => [], clearDebugEnemies: () => undefined });
   services['EconomyService'] = new EconomyService();
   services['CombatVfxService'] = new CombatVfxService();
   services['DamageApplicationService'] = new DamageApplicationService();
   services['CombatEffectService'] = new CombatEffectService();
   services['TowerCombatService'] = new TowerCombatService();
-  let gameState: GameStateManager | null = null;
-  services['TowerPlacementService'] = losPlacement(grid, () => gameState?.getEventBus() ?? null, sync);
 
   const gsm = new GameStateManager();
-  gameState = gsm;
   gsm.rng.reset(seed);
-  gsm.initialize(createBenchEngine(sync), routes[0][routes[0].length - 1], spawnPoints, paths as Map<string, GeoPosition[]>);
+  gsm.initialize(routes[0][routes[0].length - 1], spawnPoints, paths);
   gsm.researchManager.completeResearch('aa-retrofit');
+  // What asked for its line of sight, answered by answerLos
+  const needed: [string, LosResolveReason][] = [];
+  gsm.getEventBus().on('tower:los-needed', (event) => needed.push([event.towerId, event.reason]));
+  gsm.getEventBus().on('game:reset', () => { needed.length = 0; });
 
   const types = ['archer', 'cannon', 'ice', 'fire', 'lightning', 'rocket', 'magic', 'poison'] as const;
   const towers = types.map((type, i) => {
@@ -230,5 +185,12 @@ export function buildSimWorld(services: Record<string, unknown>, seed: number, o
     markAllVisible(grid, tower, sync);
     return tower;
   });
-  return { gsm, grid, towers, routes };
+  const answerLos = (): void => {
+    for (const [towerId, reason] of needed.splice(0)) {
+      const tower = gsm.towerManager.getById(towerId);
+      if (!tower) continue;
+      gsm.getEventBus().emit({ type: 'command:los-mask', towerId, reason, mask: clearViewMask(grid, tower, sync) });
+    }
+  };
+  return { gsm, grid, towers, routes, answerLos };
 }

@@ -4,7 +4,7 @@
  * against the vi.mock('@angular/core') inject stub each spec file declares
  * (see withAutoStubs in ./test-helpers).
  */
-import { createTestCachedPaths, withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
+import { createTestCachedPaths, provideSimServices, withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS, type SinkSpy } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { DamageApplicationService } from '../services/combat/damage-application.service';
@@ -13,7 +13,6 @@ import { HERO } from '../configs/hero.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { ThreeTilesEngine } from '../three-engine';
 import { LOCAL_PLAYER_ID } from '../managers/game-state/command-log';
 
 /** HQ at the north end of the 111 m TEST_PATH. */
@@ -22,12 +21,13 @@ export const HERO_TEST_BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length -
 /**
  * Resets `mockServices` (the map backing the @angular/core `inject()` stub),
  * stubs the services the loop reaches around the hero, and starts a
- * GameStateManager with enough credits to hire him.
+ * GameStateManager with enough credits to hire him. `sink` gets the
+ * simulation's renderer calls.
  */
 export function createHeroTestGame(
   timescale: number,
   mockServices: Record<string, unknown>,
-  engine: ThreeTilesEngine,
+  sink?: SinkSpy,
 ): GameStateManager {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   GameObject.resetIdCounter();
@@ -44,16 +44,15 @@ export function createHeroTestGame(
     },
   });
   const paths = createTestCachedPaths();
-  mockServices['PathAndRouteService'] = withAutoStubs({ getCachedPaths: () => paths });
+  provideSimServices(mockServices, { sink });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['CombatEffectService'] = new CombatEffectService();
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  gsm.initialize(engine, HERO_TEST_BASE_POSITION, TEST_SPAWN_POINTS, paths);
+  gsm.initialize(HERO_TEST_BASE_POSITION, TEST_SPAWN_POINTS, paths);
   gsm.gameSpeed.set(timescale);
   gsm.getEventBus().emit({
     playerId: LOCAL_PLAYER_ID,

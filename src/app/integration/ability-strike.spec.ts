@@ -31,9 +31,9 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
+  provideSimServices,
   addMissileSilo,
   createTestCachedPaths,
-  createAbilityTestEngine,
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
@@ -48,8 +48,6 @@ import { EFFECTIVENESS_COLORS } from '../configs/combat/damage-matrix.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-
-const createEngine = createAbilityTestEngine;
 
 const NUKE = ABILITIES['nuclear-strike'];
 /** HQ at the end of the path */
@@ -116,6 +114,7 @@ interface Outcome {
 /** A game in setup with a missile silo, the strike researched, the grid stubbed and the real damage path. */
 function createGame(timescale: number) {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  const sim = provideSimServices(mockServices);
   GameObject.resetIdCounter();
 
   // The grid stub has to be in place before the manager injects it
@@ -132,7 +131,6 @@ function createGame(timescale: number) {
     },
   });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   const combat = new CombatEffectService();
@@ -141,8 +139,8 @@ function createGame(timescale: number) {
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  const engine = createEngine() as unknown as EngineWithTexts;
-  gsm.initialize(engine as never, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  const engine = sim.sink as unknown as EngineWithTexts;
+  gsm.initialize(BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.gameSpeed.set(timescale);
   const silo = addMissileSilo(gsm.towerManager);
 
