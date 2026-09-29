@@ -1,5 +1,7 @@
-import { GameEventBus, SubscriptionBag } from './game-event-bus';
-import { ThreeTilesEngine } from '../three-engine';
+import { SubscriptionBag } from './game-event-bus';
+import type { ThreeTilesEngine } from '../three-engine';
+import type { MainEventBus } from '../sim/client/view-events';
+import type { EnemyView } from '../sim/client/views';
 import type { SpatialSoundConfig } from '../managers/audio/spatial-audio.manager';
 import {
   ABILITY_CAST_SOUNDS,
@@ -19,7 +21,6 @@ import { isBloodMoonWave } from '../configs/blood-moon.config';
 import { BACKGROUND_MUSIC, cueLeadMs } from '../configs/background-music.config';
 import type { AbilityStatus } from '../configs/abilities.config';
 import type { HeroStatus } from '../configs/hero.config';
-import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
 
 /**
@@ -31,8 +32,9 @@ import type { GeoPosition } from '../models/game.types';
  * hero's hire and ammo, and the game over (the HQ's destruction, then the
  * stinger).
  *
- * Framework-agnostic like AudioService; GameStateManager makes one per
- * engine. The UI cues are uiSound's (services/ui-sound.ts).
+ * Framework-agnostic like AudioService, on the main thread's bus; the
+ * PresentationHost makes one per engine. The UI cues are uiSound's
+ * (services/ui-sound.ts).
  */
 export class GameSoundsService {
   private readonly subs = new SubscriptionBag();
@@ -47,7 +49,7 @@ export class GameSoundsService {
   private quietUntilMs = -Infinity;
 
   constructor(
-    private readonly eventBus: GameEventBus,
+    private readonly eventBus: MainEventBus,
     private readonly tilesEngine: ThreeTilesEngine,
   ) {
     this.registerSounds();
@@ -165,7 +167,7 @@ export class GameSoundsService {
    * The death sound of `enemy`: a worm segment lost while the worm lives on
    * sounds as a segment, the worm's last one as the boss.
    */
-  private deathSample(enemy: Enemy): GameSoundSample | null {
+  private deathSample(enemy: EnemyView): GameSoundSample | null {
     const worm = enemy.worm;
     if (worm && worm.group.remaining > 0) return WORLD_SOUNDS.wormSegment;
     // A split plays its split sound instead (enemy:split)
@@ -218,7 +220,7 @@ export class GameSoundsService {
     this.tilesEngine.spatialAudio?.playGlobal(cue.id)?.catch(() => undefined);
   }
 
-  /** Where the game speed comes from (GameStateManager), see cueLeadMs. */
+  /** Where the game speed comes from (the last frame packet), see cueLeadMs. */
   setGameSpeedSource(source: () => number): void {
     this.gameSpeed = source;
   }

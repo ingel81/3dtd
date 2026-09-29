@@ -1,6 +1,7 @@
 import { Vector3 } from 'three';
-import { GameEventBus, SubscriptionBag } from './game-event-bus';
-import { ThreeTilesEngine } from '../three-engine';
+import { SubscriptionBag } from './game-event-bus';
+import type { ThreeTilesEngine } from '../three-engine';
+import type { MainEventBus } from '../sim/client/view-events';
 import {
   ABILITY_IMPACT_SHAKE,
   ABILITY_LAUNCH_SHAKE,
@@ -41,7 +42,7 @@ export class ScreenShakeService {
   private lastHqShakeHp = 0;
 
   constructor(
-    private readonly eventBus: GameEventBus,
+    private readonly eventBus: MainEventBus,
     private readonly engine: ThreeTilesEngine,
   ) {
     this._enabled = loadDisplayOptions().screenShake !== false;

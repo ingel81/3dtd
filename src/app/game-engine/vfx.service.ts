@@ -1,7 +1,7 @@
 import { clearStrikeEffects } from '../three-engine/strike-effects';
 import { Vector3 } from 'three';
-import { GameEventBus, SubscriptionBag } from '../game-engine';
-import { ThreeTilesEngine } from '../three-engine';
+import { SubscriptionBag } from './game-event-bus';
+import type { ThreeTilesEngine } from '../three-engine';
 import {
   BURST_PALETTES,
   EXPLOSION_PRESETS,
@@ -17,7 +17,7 @@ import { ABILITIES, ABILITY_IDS, type AbilityId } from '../configs/abilities.con
 import { createMissileStart, launchSiteLoaded, missileStartAt } from '../three-engine/renderers/missile-silo';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
-import type { GameEvent } from './game-event-bus';
+import type { MainEventBus, ViewEvent } from '../sim/client/view-events';
 import { enemyBloodColor } from '../utils/enemy-hit-spot';
 
 /** Blood particles per piece a bleeding enemy splits into (the ooze's clumps) */
@@ -25,8 +25,8 @@ const SPLIT_SPLASH_PARTICLES = 12;
 
 /** What an ability shows while it is on its way and where it lands. */
 interface AbilityVfx {
-  used(event: Extract<GameEvent, { type: 'ability:used' }>): void;
-  impact(event: Extract<GameEvent, { type: 'ability:impact' }>): void;
+  used(event: Extract<ViewEvent, { type: 'ability:used' }>): void;
+  impact(event: Extract<ViewEvent, { type: 'ability:impact' }>): void;
 }
 
 /** The hero's level-up text: --td-gold-light, larger and longer than a reward popup. */
@@ -35,8 +35,10 @@ const HERO_LEVEL_UP_TEXT = { color: '#D9BC68', durationMs: 2200, floatSpeed: 1.4
 /**
  * VFX Service - Handles visual effects via events
  *
- * Framework-agnostic service that subscribes to VFX events
- * and spawns visual effects using ThreeTilesEngine.
+ * Framework-agnostic service on the main thread's bus (SimClient.bus): it
+ * hears the simulation's VFX events as views and spawns the effects with
+ * the ThreeTilesEngine, resolving what only the renderers know (a tower's
+ * tip for its muzzle flash and its lightning chain).
  */
 export class VFXService {
   private readonly subs = new SubscriptionBag();
@@ -79,7 +81,7 @@ export class VFXService {
   };
 
   constructor(
-    private eventBus: GameEventBus,
+    private eventBus: MainEventBus,
     private tilesEngine: ThreeTilesEngine
   ) {
     this.setupEventHandlers();
@@ -106,7 +108,7 @@ export class VFXService {
 
     // Chain-lightning bolts: spawn one bolt per segment (tip→primary→jump→…)
     this.subs.add(this.eventBus.onShow('vfx:chain-lightning', (event) => {
-      this.handleChainLightning(event.points);
+      this.handleChainLightning(event.sourceTowerId, event.points);
     }));
 
     // Bone burst a metre above the body a split came from. The impact bursts'
@@ -316,23 +318,33 @@ export class VFXService {
   }
 
   /**
-   * Spawn lightning bolts for a chain fire. Each successive pair of points
-   * gets one bolt (one instance in the bolt renderer). Bolts rely on additive
-   * blending + boosted intensity to stand out: auto-enabling bloom turned
-   * out to make every emissive material on the map glow permanently, so we
-   * explicitly do NOT touch the global bloom pass here.
+   * Spawn lightning bolts for a chain fire. The chain starts at the tip of
+   * the tower's model, which only the renderer knows: it takes the place of
+   * the first point the simulation sent, and the chain's sound plays there.
+   * Each successive pair of points gets one bolt (one instance in the bolt
+   * renderer). Bolts rely on additive blending + boosted intensity to stand
+   * out: auto-enabling bloom turned out to make every emissive material on
+   * the map glow permanently, so we explicitly do NOT touch the global bloom
+   * pass here.
    *
    * Each bolt also requests a pooled additive halo sprite at its end (the
    * impact point on the hit enemy). The halo fades with the bolt's lifetime
    * and briefly brightens whatever is behind it, a local-scope substitute
    * for global bloom (3D Tiles ignore dynamic lights).
    */
-  private handleChainLightning(points: { x: number; y: number; z: number }[]): void {
+  private handleChainLightning(towerId: string, points: readonly { x: number; y: number; z: number }[]): void {
     if (points.length < 2) return;
+    const tower = this.tilesEngine.towers.get(towerId);
+    if (!tower) return;
+    const tip = this.tilesEngine.sync.geoToLocalSimpleInto(tower.lat, tower.lon, tower.height, this.tmpA);
+    tip.y = tower.tipY;
+    // Spatialised at the tip, so distant towers sound quieter
+    this.tilesEngine.spatialAudio?.playAt('lightning-chain', tip.clone()).catch(() => undefined);
 
     const now = performance.now() / 1000;
     for (let i = 0; i < points.length - 1; i++) {
-      this.tmpA.set(points[i].x, points[i].y, points[i].z);
+      // tmpA holds the tip for the first bolt
+      if (i > 0) this.tmpA.set(points[i].x, points[i].y, points[i].z);
       this.tmpB.set(points[i + 1].x, points[i + 1].y, points[i + 1].z);
       this.tilesEngine.lightningBolts.spawnBolt(this.tmpA, this.tmpB, now, {
         attachLight: true,
@@ -340,8 +352,13 @@ export class VFXService {
     }
   }
 
-  private handleBloodEffect(position: Vector3, intensity: number, skipGroundDecal?: boolean, color?: number): void {
-    const { lat, lon, height } = this.tilesEngine.sync.localToGeo(position);
+  private handleBloodEffect(
+    position: { x: number; y: number; z: number },
+    intensity: number,
+    skipGroundDecal?: boolean,
+    color?: number,
+  ): void {
+    const { lat, lon, height } = this.tilesEngine.sync.localToGeo(this.tmpA.set(position.x, position.y, position.z));
     const count = Math.max(1, Math.round(intensity));
 
     this.tilesEngine.effects.spawnBloodSplatter(lat, lon, height, count, color);

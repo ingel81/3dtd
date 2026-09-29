@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Group, Vector3 } from 'three';
-import { GameEventBus } from './game-event-bus';
+import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
 import { VFXService } from './vfx.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import {
@@ -20,7 +20,7 @@ import { ABILITY_IDS, lockedAbilityStatus } from '../configs/abilities.config';
 import type { TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
 
 function setup() {
-  const eventBus = new GameEventBus();
+  const eventBus = createMainEventBus();
   const tilesEngine = {
     towers: {
       get: vi.fn(() => ({ lat: 0, lon: 0, height: 0, tipY: 12 })),
@@ -100,7 +100,7 @@ describe('VFXService hero ammo impacts', () => {
 
 describe('VFXService hero level-up', () => {
   it('raises "LEVEL N" in gold from his head', () => {
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     const spawnFloatingText = vi.fn();
     const tilesEngine = {
       hero: { headPosition: vi.fn((out: Vector3) => out.set(1, 2, 3)) },
@@ -114,7 +114,7 @@ describe('VFXService hero level-up', () => {
   });
 
   it('shows nothing while he is not on the map', () => {
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     const spawnFloatingText = vi.fn();
     const tilesEngine = { hero: { headPosition: () => null }, sync: {}, effects: { spawnFloatingText } };
     const service = new VFXService(eventBus, tilesEngine as unknown as ThreeTilesEngine);
@@ -159,7 +159,7 @@ describe('VFXService split', () => {
 });
 
 describe('VFXService projectile impact', () => {
-  const impact = (eventBus: GameEventBus, projectileType: string) =>
+  const impact = (eventBus: MainEventBus, projectileType: string) =>
     eventBus.emit({ type: 'vfx:projectile-impact', lat: 1, lon: 2, height: 3, projectileType, targetLost: false });
 
   it.each([
@@ -212,7 +212,7 @@ describe('VFXService nuclear strike', () => {
   const TARGET = { lat: 48, lon: 9, height: 300 };
 
   function strikeSetup() {
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     const tilesEngine = {
       sync: {
         geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: Vector3) => target.set(7, 8, 9)),
@@ -462,7 +462,7 @@ describe('VFXService nuclear strike', () => {
 
 describe('VFXService blood', () => {
   it('lays no decal and casts no ray for one while ground marks are off', () => {
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     const tilesEngine = {
       sync: { localToGeo: vi.fn(() => ({ lat: 1, lon: 2, height: 3 })) },
       getTerrainHeightAtGeo: vi.fn(() => 0),

@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest';
 import { Vector3 } from 'three';
-import { GameEventBus } from './game-event-bus';
+import { createMainEventBus } from '../sim/client/view-events';
 import { ScreenShakeService, shakeFalloff } from './screen-shake.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SHAKE, ABILITY_LAUNCH_SHAKE, SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
@@ -11,7 +11,7 @@ const { nearDistance, farDistance, presets } = SCREEN_SHAKE_CONFIG;
 function setup(stored?: object) {
   localStorage.clear();
   if (stored) localStorage.setItem(STORAGE_KEY, JSON.stringify(stored));
-  const eventBus = new GameEventBus();
+  const eventBus = createMainEventBus();
   const engine = {
     triggerScreenShake: vi.fn(),
     // The camera sits at the origin, `lat` stands for the impact's distance on X
@@ -274,7 +274,7 @@ describe('ScreenShakeService', () => {
   it('takes the key it used to have of its own', () => {
     localStorage.clear();
     localStorage.setItem(LEGACY_SCREEN_SHAKE_KEY, 'false');
-    const service = new ScreenShakeService(new GameEventBus(), {} as ThreeTilesEngine);
+    const service = new ScreenShakeService(createMainEventBus(), {} as ThreeTilesEngine);
     expect(service.enabled).toBe(false);
     expect(localStorage.getItem(LEGACY_SCREEN_SHAKE_KEY)).toBeNull();
     service.destroy();
