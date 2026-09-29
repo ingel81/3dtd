@@ -167,6 +167,21 @@ Zwei Zahlen statt einer: die **Bildzeit** des Hauptthreads (FPS) und die **Tick-
 (`SimScalars.tickMs`, zerlegt per RPC `tickProfile`); dazu kostet das Anwenden eines Pakets den Hauptthread
 `SimClient.applyTimes`.
 
+### Messrechner
+
+Alle Zahlen dieses Dokuments stammen von Rechner **A**. Messungen weiterer Rechner kommen mit eigenem Namen dazu
+(`sim-load.ts --machine <Name>`); jedes Ergebnis nennt seit 2026-09-29 selbst CPU, Threads, Speicher, Betriebssystem,
+Browser, GPU (so wie WebGL sie meldet) und Pixeldichte.
+
+| Rechner | CPU | RAM | GPU | Monitor | Betriebssystem | Browser |
+|---|---|---|---|---|---|---|
+| A | AMD Ryzen 9 9950X3D, 16 Kerne / 32 Threads | 64 GB DDR5-4800 | NVIDIA GeForce RTX 5080 | 2560 × 1440, 144 Hz, Windows-Skalierung 125 % | Windows 11 Pro 26200 | Chromium 141.0.7390.37, Firefox 142.0.1 (Playwright 1.56.1) |
+
+Firefox meldet die GPU absichtlich vergröbert („GTX 980 or similar“, Schutz vor Fingerprinting) und hat in den sichtbaren
+Läufen die Windows-Skalierung übernommen: Pixeldichte 1,25 gegen 1,0 in Chromium, also rund 56 % mehr Pixel je Bild.
+Vergleiche innerhalb eines Browsers betrifft das nicht; Chromium gegen Firefox ist deshalb kein fairer Vergleich. Künftige
+Läufe setzen die Pixeldichte mit `--dpr 1` fest.
+
 Messung 2026-09-29 spät (`e2e/perf/sim-load.ts`, Produktions-Build, DevWorld, 40 Tower, 5000 Gegner mit 1 000 000 HP,
 Tempo 4, sichtbare Fenster, eingependelt; Chromium ohne Bildratenbremse drei Läufe, Firefox auf 144-Hz-Monitor zwei,
 Mittelwerte). „Fix“ ist die gebackene Vorschau der Seitenleiste (E73), auf `next` nur für die Messung eingespielt:

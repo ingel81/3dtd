@@ -4,7 +4,7 @@
 // with it in the worker.
 //
 //   node e2e/perf/serve.mjs <dist/3DTD/browser> <port> [--isolate]
-//   node e2e/perf/sim-load.ts --url http://localhost:4231 [--enemies 5000] [--speed 4] [--towers 40]
+//   node e2e/perf/sim-load.ts --url http://localhost:4231 [--enemies 5000] [--speed 4] [--towers 40] [--machine A] [--dpr 1]
 //                             [--seconds 10] [--browser chromium|firefox] [--headed]
 //   A curve over the enemy count (TODO E72): --steps 3000,5000,8000,12000,16000 --speeds 4,1 [--hide-enemies]
 //   tops the enemies up to each step in the same window and measures every speed there; --hide-enemies measures
@@ -13,6 +13,7 @@
 // The page needs a handle `__load` (emit a command, read the state, set the speed): the worker build has it in
 // SimClient, the main-thread build gets it from a local patch for the measurement only.
 import { chromium, firefox, type Page } from '@playwright/test';
+import os from 'node:os';
 
 function argument(name: string, fallback: string): string {
   const at = process.argv.indexOf(`--${name}`);
@@ -38,6 +39,10 @@ const BROWSER = argument('browser', 'chromium');
 const STEPS = argument('steps', '').split(',').filter(Boolean).map(Number);
 const SPEEDS = argument('speeds', '').split(',').filter(Boolean).map(Number);
 const HIDE = process.argv.includes('--hide-enemies');
+/** The machine's name in the results, to tell measurements of several computers apart (never a host name: the repo is public) */
+const MACHINE = argument('machine', 'A');
+/** Device pixels per CSS pixel; unset, Firefox takes the system's scaling (1.25 on a scaled desktop) and Chromium 1 */
+const DPR = argument('dpr', '');
 /** Enemies the towers cannot kill in a measurement: the count stays what the step asked for, the towers keep hitting */
 const ENEMY_HP = Number(argument('hp', '1000000'));
 const HEADED = process.argv.includes('--headed');
@@ -178,7 +183,7 @@ const browser = await engine.launch({
   headless: !HEADED && !MAP,
   args: BROWSER === 'firefox' ? [] : [...GPU_ARGS, ...(UNCAPPED ? ['--disable-frame-rate-limit', '--disable-gpu-vsync'] : [])],
 });
-const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
+const context = await browser.newContext({ viewport: { width: 1600, height: 900 }, ...(DPR ? { deviceScaleFactor: Number(DPR) } : {}) });
 // DevWorld loads no tiles, but the production build wants a key before it starts the engine; a map run takes the dev server's own
 if (!MAP) {
   await context.addInitScript(() => {
@@ -190,6 +195,26 @@ page.on('pageerror', (e) => console.log('pageerror', e.message));
 await page.goto(MAP ? `${URL_BASE}/?l=${PLACE}` : `${URL_BASE}/?devworld&bot=manual`);
 await gameReady(page);
 console.log('isolated', await page.evaluate(() => globalThis.crossOriginIsolated));
+// What the numbers were measured on: from the OS and from the page (the GPU as WebGL names it; Firefox rounds it to a
+// common model on purpose, against fingerprinting)
+const machine = {
+  name: MACHINE,
+  cpu: os.cpus()[0]?.model.trim(),
+  threads: os.cpus().length,
+  memoryGb: Math.round(os.totalmem() / 2 ** 30),
+  os: `${os.type()} ${os.release()}`,
+  browser: `${BROWSER} ${browser.version()}`,
+  ...(await page.evaluate(() => {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    const info = gl?.getExtension('WEBGL_debug_renderer_info');
+    return {
+      gpu: info ? String(gl!.getParameter(info.UNMASKED_RENDERER_WEBGL)) : String(gl?.getParameter(gl.RENDERER) ?? 'none'),
+      devicePixelRatio: Math.round(devicePixelRatio * 100) / 100,
+      viewport: [innerWidth, innerHeight],
+    };
+  })),
+};
+console.log('MACHINE ' + JSON.stringify(machine));
 
 const start = await state(page);
 await emit(page, { type: 'debug:add-credits', amount: 1_000_000 });
@@ -287,7 +312,7 @@ if (STEPS.length > 0) {
       for (const hidden of HIDE ? [false, true] : [false]) {
         if (HIDE) await hideEnemies(hidden);
         const r = await measure(page, SECONDS);
-        const row = { browser: BROWSER, uncapped: UNCAPPED, target, speedAsked: speed, hidden, towers: placed.towers, ...r };
+        const row = { machine: MACHINE, browser: BROWSER, uncapped: UNCAPPED, target, speedAsked: speed, hidden, towers: placed.towers, ...r };
         rows.push(row);
         console.log(JSON.stringify(row));
         const limit = r.speed < speed * 0.97 || r.fps < 58;
@@ -320,5 +345,5 @@ if (SHOT && ZOOM) {
   await page.waitForTimeout(4000);
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-zoom.png') });
 }
-console.log(JSON.stringify({ browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, ...result }));
+console.log(JSON.stringify({ machine, browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, ...result }));
 await browser.close();
