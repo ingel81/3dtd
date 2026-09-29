@@ -4,6 +4,11 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-30
+
+- [x] **Custom Wave ohne Spawn-Floor** (`4bb4620a`): der Delay des Debug-Panels gilt wieder, auch unter der Mindestpause
+      je Gegnertyp aus E50.
+
 ## 2026-09-29
 
 - [x] **E57 Simulation im Worker** (Branch `simu-worker`, `889270eb` bis `d838479a`, [SIM_WORKER.md](docs/SIM_WORKER.md)):
