@@ -32,7 +32,14 @@ import { UIStore } from '../../store/ui.store';
 import { ReplayService } from '../replay.service';
 import { TowerControlService } from '../tower-control.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { TowerSelectionService } from '../tower-selection.service';
+import { PresentationService } from '../../presentation/presentation.service';
+import { GameStore } from '../../store/game.store';
 import type { WaveConfig } from '../../director/models/wave-config';
 import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import type { DecisionExplanation } from '../../director/wave-explanation';
@@ -79,7 +86,17 @@ const UNUSED = [
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   SoundDebugService, DebugWindowService, EnemyDebugService, NgZone,
   PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService, TowerControlService,
+  GlobalRouteGridService, RouteGridVizService, TowerSelectionService, PresentationService, GameStore,
 ];
+
+/** The simulation's side as the facade reaches it: commands go on the bus, the mirror serves the director's stream */
+function simProviders(emitted: { type: string }[]) {
+  return [
+    { provide: SimClient, useValue: { bus: { emit: (e: { type: string }) => emitted.push(e) } } },
+    { provide: SimMirror, useValue: { rng: new GameRng(1) } },
+    { provide: MainWorldService, useValue: { corridorPending: () => false } },
+  ];
+}
 
 describe('GameLoopFacadeService: waveExplanation', () => {
   let facade: GameLoopFacadeService;
@@ -105,6 +122,7 @@ describe('GameLoopFacadeService: waveExplanation', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        ...simProviders(emitted),
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: WaveDirector, useValue: director },
@@ -114,10 +132,7 @@ describe('GameLoopFacadeService: waveExplanation', () => {
       ],
     });
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    facade.initialize(
-      { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false, rng: new GameRng(1) } as unknown as GameStateManager,
-    );
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
   });
 
   it('puts the explanation of a director wave into the store', async () => {
@@ -200,6 +215,7 @@ describe('GameLoopFacadeService: pause', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        ...simProviders(emitted),
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: WaveDirector, useValue: waveDirectorStub() },
@@ -209,10 +225,7 @@ describe('GameLoopFacadeService: pause', () => {
       ],
     });
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    facade.initialize(
-      { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => ({ emit: (e: { type: string }) => emitted.push(e) }), corridorPending: () => false, rng: new GameRng(1) } as unknown as GameStateManager,
-    );
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
   });
 
   it('is lifted by a wave start', () => {
