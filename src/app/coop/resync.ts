@@ -28,8 +28,9 @@ export interface ResyncGame {
   subStep(): number;
   /** Why the state cannot be taken now (debug enemies and the like), null when it can */
   refusal(): string | null;
-  capture(): WaveSnapshot;
-  restore(snapshot: WaveSnapshot): void;
+  /** The state at the boundary; the simulation stands there while the room holds */
+  capture(): Promise<WaveSnapshot> | WaveSnapshot;
+  restore(snapshot: WaveSnapshot): Promise<void> | void;
 }
 
 /** What the resync sends */
@@ -128,7 +129,7 @@ export class ResyncDriver {
       return this.sendOnce(tick, null);
     }
     // Taken at once: the simulation stands at the boundary now
-    const snapshot = this.game.capture();
+    const snapshot = await this.game.capture();
     let gz: string;
     try {
       gz = await gzipBase64(JSON.stringify(snapshot));
@@ -165,7 +166,7 @@ export class ResyncDriver {
       const snapshot = JSON.parse(await gunzipBase64(gz)) as WaveSnapshot;
       // Still at the boundary: the room holds until every guest answered
       if (this.tick !== tick || this.game.subStep() !== boundary) return;
-      this.game.restore(snapshot);
+      await this.game.restore(snapshot);
       this.out.loaded(tick, true);
     } catch (error) {
       this.warn(`[Coop] resync: loading the host's state failed: ${String(error)}`);

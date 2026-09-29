@@ -87,6 +87,8 @@ export interface SimConfig {
   players?: { players: string[]; local: string };
   lanes?: [string, string][];
   cheatsFor?: string[] | 'all' | null;
+  /** Coop: players out of the run (the relay was lost and this client goes on alone): their lanes close */
+  playersLeft?: string[];
   lockstep?: { hashEvery?: number } | null;
   /** Debug: enemies stand still (display option `movement`) */
   movementEnabled?: boolean;
