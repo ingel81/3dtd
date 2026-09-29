@@ -30,6 +30,16 @@ export interface TileStats {
   cacheMB: number;
 }
 
+/**
+ * Sound one-shots since the page loaded: asked for, and started past the
+ * limits (SpatialAudioPlayback.getSoundCounts). The FPS display shows them
+ * per second.
+ */
+export interface SoundCounts {
+  requested: number;
+  played: number;
+}
+
 /** Camera debug info */
 export interface CameraDebugInfo {
   posX: number; posY: number; posZ: number;

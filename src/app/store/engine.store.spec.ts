@@ -22,8 +22,8 @@ describe('EngineStore', () => {
       expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
     });
 
-    it('activeSounds starts at 0', () => {
-      expect(store.activeSounds()).toBe(0);
+    it('soundCounts starts at 0', () => {
+      expect(store.soundCounts()).toEqual({ requested: 0, played: 0 });
     });
 
     it('mapAttribution has default value', () => {
@@ -58,7 +58,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 0,
       });
       expect(store.fps()).toBe(60);
@@ -68,27 +68,27 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 30,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 0,
       });
       expect(store.tileStats()).toEqual(baseTileStats);
     });
 
-    it('updates activeSounds', () => {
+    it('updates soundCounts', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 5,
+        soundCounts: { requested: 50, played: 5 },
         cameraHeading: 0,
       });
-      expect(store.activeSounds()).toBe(5);
+      expect(store.soundCounts()).toEqual({ requested: 50, played: 5 });
     });
 
     it('updates attribution when provided', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         attribution: 'OpenStreetMap',
         cameraHeading: 0,
       });
@@ -100,7 +100,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 0,
       });
       expect(store.mapAttribution()).toBe(original);
@@ -110,7 +110,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 90,
       });
       expect(store.cameraHeading()).toBe(90);
@@ -120,7 +120,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 90,
       });
       expect(store.compassRotation()).toBe(90);
@@ -128,7 +128,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 180,
       });
       expect(store.compassRotation()).toBe(180);
@@ -141,7 +141,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 10,
       });
       // delta = 10 - 350 = -340, corrected to +20
@@ -160,7 +160,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 0,
         cameraDebugInfo: debugInfo,
       });
@@ -179,7 +179,7 @@ describe('EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: baseTileStats,
-        activeSoundCount: 0,
+        soundCounts: { requested: 0, played: 0 },
         cameraHeading: 45,
         cameraDebugInfo: debugInfo,
       });
@@ -191,7 +191,7 @@ describe('EngineStore', () => {
     it('resets all engine state to initial values', () => {
       store.fps.set(120);
       store.tileStats.set({ parsing: 5, downloading: 10, total: 50, visible: 40, cacheMB: 300 });
-      store.activeSounds.set(10);
+      store.soundCounts.set({ requested: 10, played: 1 });
       store.mapAttribution.set('Custom');
       store.cameraHeading.set(270);
       store.compassRotation.set(630);
@@ -208,7 +208,7 @@ describe('EngineStore', () => {
 
       expect(store.fps()).toBe(0);
       expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
-      expect(store.activeSounds()).toBe(0);
+      expect(store.soundCounts()).toEqual({ requested: 0, played: 0 });
       expect(store.mapAttribution()).toBe('Map data ©2024 Google');
       expect(store.cameraHeading()).toBe(0);
       expect(store.compassRotation()).toBe(0);

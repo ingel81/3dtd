@@ -339,7 +339,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly fps = this.store.fps;
   readonly tileStats = this.store.tileStats;
   readonly mapAttribution = this.store.mapAttribution;
-  readonly activeSounds = this.store.activeSounds;
 
   // Camera, from Store
   readonly compassRotation = this.store.compassRotation;

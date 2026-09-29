@@ -1,22 +1,77 @@
 <aside #box class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
+       [class.td-info--wide]="uiStore.infoOverlayVisible() && uiStore.infoOverlayWide()"
        (click)="uiStore.toggleInfoOverlay()"
        (keydown.enter)="uiStore.toggleInfoOverlay()"
        (keydown.space)="uiStore.toggleInfoOverlay()"
        tabindex="0"
        role="button" [attr.aria-expanded]="uiStore.infoOverlayVisible()">
-  <div class="td-info__row td-info__row--head">
+  <div class="td-info__col">
+    <div class="td-info__row td-info__row--head">
+      @if (uiStore.infoOverlayVisible()) {
+        <span class="k">FPS</span>
+      }
+      <span class="v">{{ fps() | number:'1.0-0' }}</span>
+      <td-icon class="caret" [name]="caret()" [size]="10"></td-icon>
+    </div>
     @if (uiStore.infoOverlayVisible()) {
-      <span class="k">FPS</span>
+      <div class="td-info__row" title="Game speed reached / set, and how busy the simulation's worker is">
+        <span class="k">Speed</span>
+        <span class="v">
+          @if (sample(); as s) {
+            @if (s.paused) {
+              paused
+            } @else {
+              <span [class.bad]="speedShort()">{{ s.speed | number:'1.1-1' }}</span> / {{ s.speedSet | number:'1.0-2' }}
+            }
+            · Sim {{ s.workerLoad * 100 | number:'1.0-0' }}%
+          } @else {
+            –
+          }
+        </span>
+      </div>
+      <div class="td-info__row"><span class="k">Tiles</span><span class="v">{{ tileStats().visible }}/{{ tileStats().total }}</span></div>
+      <div class="td-info__row"><span class="k">Cache</span><span class="v">{{ tileStats().cacheMB }} MB</span></div>
+      <div class="td-info__row" title="Sounds per second: asked for / actually played">
+        <span class="k">Sounds/s</span>
+        <span class="v">
+          @if (sample(); as s) {
+            {{ s.soundsRequestedPerS | number:'1.0-0' }} / {{ s.soundsPlayedPerS | number:'1.0-0' }}
+          } @else {
+            –
+          }
+        </span>
+      </div>
+      <div class="td-info__row"><span class="k">Streets</span><span class="v">{{ streetCount() }}</span></div>
     }
-    <span class="v">{{ fps() | number:'1.0-0' }}</span>
-    <td-icon class="caret"
-             [name]="uiStore.infoOverlayVisible() ? 'caretU' : 'caret'"
-             [size]="10"></td-icon>
   </div>
-  @if (uiStore.infoOverlayVisible()) {
-    <div class="td-info__row"><span class="k">Tiles</span><span class="v">{{ tileStats().visible }}/{{ tileStats().total }}</span></div>
-    <div class="td-info__row"><span class="k">Cache</span><span class="v">{{ tileStats().cacheMB }} MB</span></div>
-    <div class="td-info__row"><span class="k">Sounds</span><span class="v">{{ activeSounds() }}</span></div>
-    <div class="td-info__row"><span class="k">Streets</span><span class="v">{{ streetCount() }}</span></div>
+  @if (uiStore.infoOverlayVisible() && uiStore.infoOverlayWide()) {
+    <div class="td-info__col td-info__col--side">
+      <div class="td-info__row" title="Simulation ticks per second: one per packet"><span class="k">Ticks/s</span><span class="v">{{ (sample()?.ticksPerS ?? 0) | number:'1.0-0' }}</span></div>
+      <div class="td-info__row" title="Tables in shared memory (cross-origin isolated), else copied every frame">
+        <span class="k">Memory</span><span class="v">{{ meter.sharedMemory ? 'shared' : 'copy' }}</span>
+      </div>
+      <div class="td-info__row" title="Main-thread ms to apply one packet of the simulation">
+        <span class="k">Packet</span><span class="v">{{ (sample()?.applyPerPacketMs ?? 0) | number:'1.2-2' }} ms</span>
+      </div>
+      <div class="td-info__row"><span class="k">Enemies</span><span class="v">{{ (sample()?.enemies ?? 0) | number:'1.0-0' }}</span></div>
+      <div class="td-info__row td-info__row--chart">
+        <span class="k">FPS</span>
+        <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
+          <polyline [attr.points]="charts().fps" />
+        </svg>
+      </div>
+      <div class="td-info__row td-info__row--chart">
+        <span class="k">Ticks</span>
+        <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
+          <polyline [attr.points]="charts().ticks" />
+        </svg>
+      </div>
+      <div class="td-info__row td-info__row--chart">
+        <span class="k">Sim</span>
+        <svg class="chart" [attr.width]="chartW" [attr.height]="chartH" [attr.viewBox]="'0 0 ' + chartW + ' ' + chartH" aria-hidden="true">
+          <polyline [attr.points]="charts().load" />
+        </svg>
+      </div>
+    </div>
   }
 </aside>

@@ -1,5 +1,5 @@
 import { Injectable, signal } from '@angular/core';
-import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
+import { CameraDebugInfo, SoundCounts, TileStats } from './tower-defense.store.types';
 
 @Injectable({ providedIn: 'root' })
 export class EngineStore {
@@ -17,8 +17,8 @@ export class EngineStore {
   /** Tile loading statistics */
   readonly tileStats = signal<TileStats>({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
 
-  /** Active spatial audio sound count */
-  readonly activeSounds = signal<number>(0);
+  /** Sound one-shots asked for and played so far */
+  readonly soundCounts = signal<SoundCounts>({ requested: 0, played: 0 });
 
   /** Map attribution text */
   readonly mapAttribution = signal<string>('Map data ©2024 Google');
@@ -46,7 +46,7 @@ export class EngineStore {
   updateEngineStats(snapshot: {
     fps: number;
     tileStats: TileStats;
-    activeSoundCount: number;
+    soundCounts: SoundCounts;
     attribution?: string;
     cameraHeading: number;
     cameraDebugInfo?: CameraDebugInfo | null;
@@ -65,8 +65,9 @@ export class EngineStore {
       this.tileStats.set(next);
     }
 
-    if (this.activeSounds() !== snapshot.activeSoundCount) {
-      this.activeSounds.set(snapshot.activeSoundCount);
+    const sounds = this.soundCounts();
+    if (sounds.requested !== snapshot.soundCounts.requested || sounds.played !== snapshot.soundCounts.played) {
+      this.soundCounts.set(snapshot.soundCounts);
     }
 
     if (snapshot.attribution) {
@@ -93,7 +94,7 @@ export class EngineStore {
   resetAll(): void {
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
-    this.activeSounds.set(0);
+    this.soundCounts.set({ requested: 0, played: 0 });
     this.mapAttribution.set('Map data ©2024 Google');
     this.cameraHeading.set(0);
     this.compassRotation.set(0);

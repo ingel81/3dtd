@@ -255,11 +255,11 @@ describe('TowerDefenseStore', () => {
       store.updateEngineStats({
         fps: 60,
         tileStats: { parsing: 1, downloading: 2, total: 10, visible: 8, cacheMB: 50 },
-        activeSoundCount: 3,
+        soundCounts: { requested: 30, played: 3 },
         cameraHeading: 45,
       });
       expect(engineStore.fps()).toBe(60);
-      expect(engineStore.activeSounds()).toBe(3);
+      expect(engineStore.soundCounts()).toEqual({ requested: 30, played: 3 });
     });
   });
 

@@ -42,6 +42,9 @@ import { COOP } from '../coop.token';
 import { newRunSeed } from '../../utils/game-rng';
 import type { CommandEvent } from '../../game-engine/events/command-events';
 
+/** See GameLoopFacadeService.loadHandle */
+export type LoadHandle = ReturnType<GameLoopFacadeService['createLoadHandle']>;
+
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
  *
@@ -140,8 +143,23 @@ export class GameLoopFacadeService {
     // (the mirror follows the simulation's seed): the same numbers as when the
     // simulation served it. GameRng keeps a stream's function across a reset.
     this.waveDirector.useRandomSource(() => this.mirror.rng.stream('director'));
-    // The load runner's handle (e2e/perf/sim-load.ts): a command, the speed, the numbers it measures
-    (globalThis as Record<string, unknown>)['__load'] = {
+    // The load runner's handle (e2e/perf/sim-load.ts); the in-game benchmark drives the same (loadHandle)
+    this.loadHandle = this.createLoadHandle();
+    (globalThis as Record<string, unknown>)['__load'] = this.loadHandle;
+    // Coop: the host starts the wave once everyone is ready (D15)
+    this.coop?.setWaveStarter(() => this.startWaveNow());
+  }
+
+  /**
+   * The handle of the load measurements: a command, the speed, the pause,
+   * the ground under a spot, the numbers they read. `__load` in the page for
+   * the load runner (e2e/perf/sim-load.ts), `loadHandle` for the in-game
+   * benchmark (benchmark/benchmark.service.ts). Null before initialize().
+   */
+  loadHandle: LoadHandle | null = null;
+
+  private createLoadHandle() {
+    return {
       ...createLoadStats(this.sim, () => this.bridge.getEngine()?.getScene() ?? null),
       emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
       speed: (value: number) => this.gameStore.gameSpeed.set(value),
@@ -162,11 +180,9 @@ export class GameLoopFacadeService {
         tickMs: this.mirror.scalars.tickMs,
         apply: this.sim.applyTimes,
         subStep: this.mirror.scalars.subStep,
-        paths: this.world.routes().map((path) => path.map((w) => [w.lat, w.lon])),
+        paths: this.world.routes().map((path) => path.map((w): [number, number] => [w.lat, w.lon])),
       }),
     };
-    // Coop: the host starts the wave once everyone is ready (D15)
-    this.coop?.setWaveStarter(() => this.startWaveNow());
   }
 
   /**
@@ -713,7 +729,7 @@ export class GameLoopFacadeService {
         this.engineStore.updateEngineStats({
           fps: engine.renderLoop.getFPS(),
           tileStats: engine.getTileStats(),
-          activeSoundCount: engine.spatialAudio.getActiveSoundCount(),
+          soundCounts: engine.spatialAudio.getSoundCounts(),
           attribution: engine.getAttributions(),
           cameraHeading: this.cameraControl.getCameraHeading(),
           cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),

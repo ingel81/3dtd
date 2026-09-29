@@ -17,6 +17,7 @@ const QUICK_MENUS: readonly QuickMenu[] = ['display', 'audio', 'layers', 'dev'];
 /** Shape of persisted UI state */
 interface PersistedUIState {
   infoOverlayVisible: boolean;
+  infoOverlayWide?: boolean;
   streetsVisible: boolean;
   routesVisible: boolean;
   spatialGridDebugVisible: boolean;
@@ -137,8 +138,14 @@ export class UIStore {
   /** Special points debug visibility */
   readonly specialPointsDebugVisible = signal<boolean>(false);
 
-  /** Info overlay (FPS, tiles, enemies, sounds) */
+  /** Info overlay (FPS, tiles, enemies, sounds) expanded; collapsed it shows the FPS only */
   readonly infoOverlayVisible = signal<boolean>(false);
+
+  /**
+   * The expanded info overlay's third stage: a column to the right with the
+   * simulation's numbers and charts (TODO E75)
+   */
+  readonly infoOverlayWide = signal<boolean>(false);
 
   /**
    * Bottom edge of the info overlay in px from the top of the canvas area,
@@ -229,6 +236,7 @@ export class UIStore {
     const state = readJson(STORAGE_KEY) as (PersistedUIState & LegacyMenuFlags) | null;
     if (state && typeof state === 'object') {
       if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
+      if (state.infoOverlayWide !== undefined) this.infoOverlayWide.set(state.infoOverlayWide);
       if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
       if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
       if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
@@ -257,6 +265,7 @@ export class UIStore {
       effect(() => {
         this.pendingState = {
           infoOverlayVisible: this.infoOverlayVisible(),
+          infoOverlayWide: this.infoOverlayWide(),
           streetsVisible: this.streetsVisible(),
           routesVisible: this.routesVisible(),
           spatialGridDebugVisible: this.spatialGridDebugVisible(),
@@ -296,7 +305,18 @@ export class UIStore {
   toggleRoutes(): void { this.routesVisible.update(v => !v); }
   toggleHeightDebug(): void { this.heightDebugVisible.update(v => !v); }
   toggleSpecialPointsDebug(): void { this.specialPointsDebugVisible.update(v => !v); }
-  toggleInfoOverlay(): void { this.infoOverlayVisible.update(v => !v); }
+  /** The info overlay's stages in turn: FPS only, expanded, wide, and back */
+  toggleInfoOverlay(): void {
+    if (!this.infoOverlayVisible()) {
+      this.infoOverlayVisible.set(true);
+      this.infoOverlayWide.set(false);
+    } else if (!this.infoOverlayWide()) {
+      this.infoOverlayWide.set(true);
+    } else {
+      this.infoOverlayVisible.set(false);
+      this.infoOverlayWide.set(false);
+    }
+  }
   toggleSpatialGridDebug(): void { this.spatialGridDebugVisible.update(v => !v); }
   toggleAirSpatialGridDebug(): void { this.airSpatialGridDebugVisible.update(v => !v); }
   toggleAirRoute(): void { this.airRouteVisible.update(v => !v); }
@@ -345,6 +365,7 @@ export class UIStore {
     this.heightDebugVisible.set(false);
     this.specialPointsDebugVisible.set(false);
     this.infoOverlayVisible.set(false);
+    this.infoOverlayWide.set(false);
     this.spatialGridDebugVisible.set(false);
     this.airSpatialGridDebugVisible.set(false);
     this.airRouteVisible.set(false);

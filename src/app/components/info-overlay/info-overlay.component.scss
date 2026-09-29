@@ -17,6 +17,8 @@
   user-select: none;
   cursor: pointer;
   transition: box-shadow 0.15s ease;
+  display: flex;
+  align-items: flex-start;
 }
 .td-info:hover {
   box-shadow:
@@ -40,6 +42,29 @@
   color: var(--td-teal);
   font-variant-numeric: tabular-nums;
   flex: 1;
+}
+
+/* Stage 3: the simulation's column to the right, a hairline between */
+.td-info__col--side {
+  margin-left: 12px;
+  padding-left: 12px;
+  border-left: 1px solid var(--td-frame-dark);
+}
+
+/* Speed below the speed set */
+.td-info__row .v .bad {
+  color: var(--td-perf-critical);
+}
+
+.td-info__row--chart .chart {
+  display: block;
+  overflow: visible;
+}
+.td-info__row--chart polyline {
+  fill: none;
+  stroke: var(--td-teal);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
 }
 
 /* Caret only on the head row, subtle */

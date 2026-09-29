@@ -80,6 +80,12 @@ export class SpatialAudioPlayback {
   /** Stretch of the anti-flood window, the game speed from 1 up (setTimescale). */
   private floodScale = 1;
   private feedbackMinDistance = 0;
+  /**
+   * One-shots asked for and started since the page loaded (the FPS display,
+   * TODO E75): the difference is what the limits above and the distance
+   * dropped. Two additions per call, no timer.
+   */
+  private readonly counts = { requested: 0, played: 0 };
 
   constructor(
     voices: PositionalVoiceFactory,
@@ -201,6 +207,11 @@ export class SpatialAudioPlayback {
     return this.activeSounds.length;
   }
 
+  /** One-shots asked for and started so far, see `counts` */
+  getSoundCounts(): { requested: number; played: number } {
+    return { ...this.counts };
+  }
+
   // --- Playback ---
 
   /** `playbackRate` above 1 plays the sample faster and higher, below 1 slower and lower. */
@@ -210,6 +221,7 @@ export class SpatialAudioPlayback {
     volumeMultiplier = 1.0,
     playbackRate = 1
   ): Promise<PositionalAudio | null> {
+    this.counts.requested++;
     const sound = this.sounds.get(soundId);
     if (!sound) {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
@@ -337,6 +349,7 @@ export class SpatialAudioPlayback {
         this.voices.removeContainer(container);
         return null;
       }
+      this.counts.played++;
       this.emitDebug('play', soundId, isProjectile ? 'projectile' : 'one-shot');
     } catch (e) {
       console.error(`[SpatialAudio] audio.play() failed for '${soundId}':`, e);
@@ -404,6 +417,7 @@ export class SpatialAudioPlayback {
   }
 
   private async playNonPositional(soundId: string, volumeMultiplier: number, channelVolume: number): Promise<Audio | null> {
+    this.counts.requested++;
     const sound = this.sounds.get(soundId);
     if (!sound) {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
@@ -425,6 +439,7 @@ export class SpatialAudioPlayback {
     audio.setVolume(sound.config.volume * volumeMultiplier * channelVolume);
     audio.setLoop(sound.config.loop);
     audio.play();
+    this.counts.played++;
 
     let timer: ReturnType<typeof setTimeout> | null = null;
     if (!sound.config.loop) {

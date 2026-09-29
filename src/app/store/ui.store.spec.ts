@@ -40,6 +40,7 @@ describe('UIStore', () => {
       expect(store.heightDebugVisible()).toBe(false);
       expect(store.specialPointsDebugVisible()).toBe(false);
       expect(store.infoOverlayVisible()).toBe(false);
+      expect(store.infoOverlayWide()).toBe(false);
       expect(store.spatialGridDebugVisible()).toBe(false);
       expect(store.dpsBinsVisible()).toBe(false);
       expect(store.buildingsVisible()).toBe(false);
@@ -127,6 +128,19 @@ describe('UIStore', () => {
     });
   });
 
+  describe('toggleInfoOverlay', () => {
+    it('steps through FPS only, expanded, wide and back', () => {
+      const stage = () => [store.infoOverlayVisible(), store.infoOverlayWide()];
+      expect(stage()).toEqual([false, false]);
+      store.toggleInfoOverlay();
+      expect(stage()).toEqual([true, false]);
+      store.toggleInfoOverlay();
+      expect(stage()).toEqual([true, true]);
+      store.toggleInfoOverlay();
+      expect(stage()).toEqual([false, false]);
+    });
+  });
+
   describe('toggleBuildings', () => {
     it('toggles buildingsVisible', () => {
       expect(store.buildingsVisible()).toBe(false);
@@ -201,6 +215,7 @@ describe('UIStore', () => {
       store.heightDebugVisible.set(true);
       store.specialPointsDebugVisible.set(true);
       store.infoOverlayVisible.set(true);
+      store.infoOverlayWide.set(true);
       store.spatialGridDebugVisible.set(true);
       store.dpsBinsVisible.set(true);
       store.buildingsVisible.set(true);
@@ -219,6 +234,7 @@ describe('UIStore', () => {
       expect(store.heightDebugVisible()).toBe(false);
       expect(store.specialPointsDebugVisible()).toBe(false);
       expect(store.infoOverlayVisible()).toBe(false);
+      expect(store.infoOverlayWide()).toBe(false);
       expect(store.spatialGridDebugVisible()).toBe(false);
       expect(store.dpsBinsVisible()).toBe(false);
       expect(store.buildingsVisible()).toBe(false);

@@ -34,7 +34,7 @@ import { GameStore } from './game.store';
 import { LocationStore } from './location.store';
 import { UIStore } from './ui.store';
 import { ResearchStore } from './research.store';
-import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
+import { CameraDebugInfo, SoundCounts, TileStats } from './tower-defense.store.types';
 import { EngineInitializationService } from '../services/infrastructure/engine-initialization.service';
 
 export * from './tower-defense.store.types';
@@ -207,7 +207,7 @@ export class TowerDefenseStore {
   readonly tileStats = this.engineStore.tileStats;
 
   /** Active spatial audio sound count */
-  readonly activeSounds = this.engineStore.activeSounds;
+  readonly soundCounts = this.engineStore.soundCounts;
 
   /** Map attribution text */
   readonly mapAttribution = this.engineStore.mapAttribution;
@@ -318,7 +318,7 @@ export class TowerDefenseStore {
   updateEngineStats(snapshot: {
     fps: number;
     tileStats: TileStats;
-    activeSoundCount: number;
+    soundCounts: SoundCounts;
     attribution?: string;
     cameraHeading: number;
     cameraDebugInfo?: CameraDebugInfo | null;

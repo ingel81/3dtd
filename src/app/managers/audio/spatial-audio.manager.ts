@@ -237,6 +237,11 @@ export class SpatialAudioManager {
     return this.playback.getActiveSoundCount() + this.loops.size;
   }
 
+  /** One-shots asked for and started since the page loaded (SpatialAudioPlayback.getSoundCounts) */
+  getSoundCounts(): { requested: number; played: number } {
+    return this.playback.getSoundCounts();
+  }
+
   setEventBus(eventBus: MainEventBus): void {
     this.playback.setEventBus(eventBus);
   }
