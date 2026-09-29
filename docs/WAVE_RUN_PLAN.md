@@ -198,7 +198,10 @@ Rechnung Schaden kennt, aber nicht die Schusszahl; das prüft erst die Bot-Messu
 Zeilen 31 bis 60 wiederholen sich (`RUN_PLAN_REPEAT` = 30, alle drei späten Bosse). Eine wiederholte Zeile bringt ihre
 Anzahl mal `S(N) / S(Zeilenwelle)` (`planEnemies`, innerhalb des Plans 1), der Wurm bleibt einer. Über
 `MAX_BODIES_PER_LANE` = 2500 Körper je Spur (Teilungen mitgezählt, die größte Plan-Zeile W48 hat 2460) schrumpft die
-Anzahl zurück, die HP tragen den Rest.
+Anzahl zurück, die HP tragen den Rest. Gemessen (2026-09-29, Prod-Build, DevWorld, ein Rechner mit RTX 5080): die Grenze
+greift ab den Skelett-Zeilen ab W78 und bei Einzelkörpern ab etwa W254; gleichzeitig leben höchstens rund 700 je
+Spur, weil der Spawnabstand fest ist (mehr Körper machen die Welle länger, nicht dichter). Vier Spuren bei Tempo 4:
+Bild 12 bis 14 ms im Median, p95 bis 20 ms, gleich schwer wie W48 aus dem Plan; solo unter 8 ms.
 
 ## 12. Trennung der Wellenquelle geprüft (2026-09-28)
 
