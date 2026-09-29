@@ -29,12 +29,12 @@ export type GameEvent =
  * Event Map for type-safe subscriptions
  * Maps event type string to event payload type
  */
-type GameEventMap = {
-  [K in GameEvent['type']]: Extract<GameEvent, { type: K }>;
+export type EventMap<E extends { type: string }> = {
+  [K in E['type']]: Extract<E, { type: K }>;
 };
 
 /** A handler as stored in GameEventBus.listeners: widened to the union, see on(). */
-type StoredHandler = (event: GameEvent) => void;
+type StoredHandler<E> = (event: E) => void;
 
 /**
  * Subscription Handle
@@ -135,12 +135,12 @@ interface EventBusMetrics {
  * eventBus.processQueue();
  * ```
  */
-export class GameEventBus {
+export class GameEventBus<E extends { type: string } = GameEvent> {
   /** Map of event types to their listener sets */
-  private listeners = new Map<GameEvent['type'], Set<StoredHandler>>();
+  private listeners = new Map<E['type'], Set<StoredHandler<E>>>();
 
   /** Queue for deferred events (processed at stable point in game loop) */
-  private deferredQueue: GameEvent[] = [];
+  private deferredQueue: E[] = [];
 
   /** WeakMap tracking subscriptions per owner for automatic cleanup */
   private ownerSubscriptions = new WeakMap<object, Set<EventSubscription>>();
@@ -157,7 +157,7 @@ export class GameEventBus {
 
   /** Debug listeners that receive ALL events (for debug panel) */
   /** Catch-all listeners (onAny); a new array on every change, so an emit under way keeps its list */
-  private debugListeners: readonly ((event: GameEvent) => void)[] = [];
+  private debugListeners: readonly ((event: E) => void)[] = [];
 
   /** See onLive() */
   private liveMuted = false;
@@ -177,7 +177,7 @@ export class GameEventBus {
    * });
    * ```
    */
-  onAny(handler: (event: GameEvent) => void): EventSubscription {
+  onAny(handler: (event: E) => void): EventSubscription {
     this.debugListeners = [...this.debugListeners, handler];
     return new EventSubscription(() => {
       const list = this.debugListeners;
@@ -203,16 +203,16 @@ export class GameEventBus {
    * subscription.dispose();
    * ```
    */
-  on<T extends GameEvent['type']>(
+  on<T extends E['type']>(
     eventType: T,
-    handler: (event: GameEventMap[T]) => void
+    handler: (event: EventMap<E>[T]) => void
   ): EventSubscription {
     if (!this.listeners.has(eventType)) {
       this.listeners.set(eventType, new Set());
     }
 
     // Widening is safe: the set under eventType only receives events of that type.
-    this.listeners.get(eventType)!.add(handler as StoredHandler);
+    this.listeners.get(eventType)!.add(handler as StoredHandler<E>);
 
     return new EventSubscription(() => this.off(eventType, handler));
   }
@@ -227,9 +227,9 @@ export class GameEventBus {
    * screen shake subscribe with on(): they are what the replay shows.
    * Same place in the order as on().
    */
-  onLive<T extends GameEvent['type']>(
+  onLive<T extends E['type']>(
     eventType: T,
-    handler: (event: GameEventMap[T]) => void
+    handler: (event: EventMap<E>[T]) => void
   ): EventSubscription {
     return this.on(eventType, (event) => {
       if (!this.liveMuted) handler(event);
@@ -244,9 +244,9 @@ export class GameEventBus {
    * and effects all at once would be noise, not a picture. Same place in the
    * order as on().
    */
-  onShow<T extends GameEvent['type']>(
+  onShow<T extends E['type']>(
     eventType: T,
-    handler: (event: GameEventMap[T]) => void
+    handler: (event: EventMap<E>[T]) => void
   ): EventSubscription {
     return this.on(eventType, (event) => {
       if (!this.showMuted) handler(event);
@@ -273,11 +273,11 @@ export class GameEventBus {
    * @param eventType - Event type
    * @param handler - Handler to remove
    */
-  off<T extends GameEvent['type']>(
+  off<T extends E['type']>(
     eventType: T,
-    handler: (event: GameEventMap[T]) => void
+    handler: (event: EventMap<E>[T]) => void
   ): void {
-    this.listeners.get(eventType)?.delete(handler as StoredHandler);
+    this.listeners.get(eventType)?.delete(handler as StoredHandler<E>);
   }
 
   /**
@@ -305,7 +305,7 @@ export class GameEventBus {
     return this.debugListeners.length;
   }
 
-  emit<T extends GameEvent['type']>(event: GameEventMap[T]): void {
+  emit<T extends E['type']>(event: EventMap<E>[T]): void {
     if (this.metricsEnabled) {
       this.metrics.eventsEmitted++;
     }
@@ -318,7 +318,7 @@ export class GameEventBus {
     // emit nor keeps the event from the game's handlers
     for (const handler of this.debugListeners) {
       try {
-        handler(event as GameEvent);
+        handler(event as E);
       } catch (err) {
         console.error(`[GameEventBus] Catch-all listener threw on '${event.type}':`, err);
       }
@@ -362,7 +362,7 @@ export class GameEventBus {
    * });
    * ```
    */
-  emitDeferred<T extends GameEvent['type']>(event: GameEventMap[T]): void {
+  emitDeferred<T extends E['type']>(event: EventMap<E>[T]): void {
     if (this.metricsEnabled) {
       this.metrics.eventsDeferred++;
     }
@@ -402,7 +402,7 @@ export class GameEventBus {
   }
 
   /** The events waiting for processQueue(), oldest first (the wave snapshot reads them) */
-  get deferred(): readonly GameEvent[] {
+  get deferred(): readonly E[] {
     return this.deferredQueue;
   }
 
@@ -414,7 +414,7 @@ export class GameEventBus {
     // and are still drained this call, preserving drain-until-empty semantics.
     let i = 0;
     while (i < this.deferredQueue.length) {
-      this.emit(this.deferredQueue[i++]);
+      this.emit(this.deferredQueue[i++] as EventMap<E>[E['type']]);
     }
     this.deferredQueue.length = 0;
   }
@@ -448,10 +448,10 @@ export class GameEventBus {
    * }
    * ```
    */
-  subscribe<T extends GameEvent['type']>(
+  subscribe<T extends E['type']>(
     owner: object,
     eventType: T,
-    handler: (event: GameEventMap[T]) => void
+    handler: (event: EventMap<E>[T]) => void
   ): void {
     const subscription = this.on(eventType, handler);
 
@@ -523,7 +523,7 @@ export class GameEventBus {
    * @param eventType - Optional event type to count (all if omitted)
    * @returns Number of listeners
    */
-  getListenerCount(eventType?: GameEvent['type']): number {
+  getListenerCount(eventType?: E['type']): number {
     if (eventType) {
       return this.listeners.get(eventType)?.size ?? 0;
     }
@@ -543,7 +543,7 @@ export class GameEventBus {
   /**
    * Check if any listeners are registered for event type
    */
-  hasListeners(eventType: GameEvent['type']): boolean {
+  hasListeners(eventType: E['type']): boolean {
     const handlers = this.listeners.get(eventType);
     return handlers ? handlers.size > 0 : false;
   }
