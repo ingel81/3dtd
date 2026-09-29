@@ -60,7 +60,6 @@ vi.mock('three', async (importOriginal) => {
 });
 
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
-import { GameEventBus } from '../game-engine/game-event-bus';
 import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
 import { HqDamagePresenter } from './hq-damage-presenter';
 import { EllipsoidSync } from '../three-engine/ellipsoid-sync';
@@ -84,7 +83,7 @@ function world() {
   const sync = new EllipsoidSync(FIRST.lat, FIRST.lon, 0);
   audio.setGeoToLocal((lat, lon, height, target) => sync.geoToLocalSimpleInto(lat, lon, height, target));
   // The audio manager reports to a bus of its own
-  const debugBus = new GameEventBus();
+  const debugBus = createMainEventBus();
   audio.setEventBus(debugBus);
   const bus = createMainEventBus();
   const culled: string[] = [];
