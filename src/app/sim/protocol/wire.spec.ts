@@ -3,7 +3,9 @@ import { ENEMY_STRIDE, E_LAT, type SimFramePacket } from './packet';
 import { TableStore, TableViews } from './table-store';
 import { fromWire, toWire } from './wire';
 
+/** A packet as PacketWriter writes one: into the store's next set */
 function packetOf(store: TableStore, enemies: number): SimFramePacket {
+  store.begin();
   const tables = store.all();
   const e = store.table('enemies', enemies);
   for (let i = 0; i < enemies; i++) e.data[i * ENEMY_STRIDE + E_LAT] = i + 0.5;
@@ -31,16 +33,21 @@ describe('Packet tables across the worker boundary', () => {
     });
   }
 
-  it('sends a shared buffer once and views it in place after', () => {
+  it('sends the shared buffers of both sets once and views them in place after, the sets in turn', () => {
     const store = new TableStore(true);
     const first = toWire(packetOf(store, 2), store).frame;
-    expect(first.buffers.length).toBe(5);
+    expect(first.buffers.length).toBe(10);
     const views = new TableViews();
-    const packet = fromWire(first, views);
+    const a = fromWire(first, views);
     const second = toWire(packetOf(store, 2), store).frame;
     expect(second.buffers).toEqual([]);
+    // The next packet goes into the other set: the main thread may still read the last one
+    const b = fromWire(second, views);
+    expect(b.enemies.data).not.toBe(a.enemies.data);
+    const third = fromWire(toWire(packetOf(store, 2), store).frame, views);
+    expect(third.enemies.data).toBe(a.enemies.data);
     store.table('enemies').data[E_LAT] = 42;
-    expect(fromWire(second, views).enemies.data).toBe(packet.enemies.data);
-    expect(packet.enemies.data[E_LAT]).toBe(42);
+    expect(a.enemies.data[E_LAT]).toBe(42);
+    expect(b.enemies.data[E_LAT]).not.toBe(42);
   });
 });

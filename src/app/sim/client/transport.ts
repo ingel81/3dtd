@@ -17,6 +17,11 @@ export interface SimTransportHandlers {
 }
 
 export interface SimTransport {
+  /**
+   * The simulation runs beside this thread with two sets of tables (the worker): a tick may go out while the last
+   * packet is not applied yet. False for the same thread, whose tick answers at once.
+   */
+  readonly concurrent: boolean;
   configure(config: SimConfig): void;
   loadWorld(world: SimWorld): void;
   /** Run one frame; the packet comes through handlers.frame (at once in the same thread) */
@@ -27,6 +32,8 @@ export interface SimTransport {
 
 /** The simulation in this thread (specs): every call answers at once. */
 export class InlineTransport implements SimTransport {
+  readonly concurrent = false;
+
   constructor(
     private readonly core: SimCoreApi,
     private readonly handlers: SimTransportHandlers,
@@ -61,6 +68,11 @@ export class InlineTransport implements SimTransport {
 
 /** The simulation in a module worker (sim/worker/sim.worker.ts). */
 export class WorkerTransport implements SimTransport {
+  /** Only with shared memory: without it every frame carries copies, and the tick waits for the frame as before */
+  get concurrent(): boolean {
+    return this.shared;
+  }
+  private shared = false;
   private readonly worker: Worker;
   private nextRpc = 1;
   private readonly pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
@@ -82,6 +94,7 @@ export class WorkerTransport implements SimTransport {
   private receive(message: FromWorker): void {
     switch (message.kind) {
       case 'frame':
+        this.shared = message.frame.shared;
         this.handlers.frame(fromWire(message.frame, this.views));
         return;
       case 'output':

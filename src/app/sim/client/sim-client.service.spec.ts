@@ -12,6 +12,7 @@ import type { ViewEvent } from './view-events';
 
 /** A transport that records what the client sends and answers when told to */
 class FakeTransport implements SimTransport {
+  concurrent = false;
   readonly ticks: SimTickInput[] = [];
   readonly rpcs: [keyof SimRpc, unknown[]][] = [];
   readonly configs: unknown[] = [];
@@ -36,8 +37,8 @@ class FakeTransport implements SimTransport {
   }
 }
 
-function packet(events: ExportedEvent[] = [], gameTimeMs = 0): SimFramePacket {
-  return { events, ops: [], scalars: { gameTimeMs } } as unknown as SimFramePacket;
+function packet(events: ExportedEvent[] = [], gameTimeMs = 0, tickMs = 1): SimFramePacket {
+  return { events, ops: [], scalars: { gameTimeMs, tickMs } } as unknown as SimFramePacket;
 }
 
 const event = (type: string): ExportedEvent => ({ type, payload: {}, live: true, show: true });
@@ -174,6 +175,45 @@ describe('SimClient', () => {
       transport().handlers.frame(packet([event('game:reset')]));
       frame();
       expect(seen).toEqual(['game:reset', 'wave:started', 'game:reset']);
+    });
+  });
+
+  describe('a tick longer than a frame (worker with two sets of tables)', () => {
+    it('sends the next tick as soon as the packet is back, and applies the packet with the next frame', () => {
+      const { transport, frame, presenter } = setup();
+      transport().concurrent = true;
+      frame();
+      transport().handlers.frame(packet([], 0, 40));
+      expect(transport().ticks).toHaveLength(2);
+      expect(presenter.present).not.toHaveBeenCalled();
+      frame();
+      expect(presenter.present).toHaveBeenCalledTimes(1);
+      expect(transport().ticks).toHaveLength(2);
+    });
+
+    it('waits for the frame while the packet before is not applied: its tables would be written over', () => {
+      const { transport, frame, presenter } = setup();
+      transport().concurrent = true;
+      frame();
+      transport().handlers.frame(packet([], 0, 40));
+      transport().handlers.frame(packet([], 16, 40));
+      expect(transport().ticks).toHaveLength(2);
+      frame();
+      expect(presenter.present).toHaveBeenCalledTimes(2);
+      expect(transport().ticks).toHaveLength(3);
+    });
+
+    it('keeps to the frame when the tick is shorter than one, or the tables are copies', () => {
+      const short = setup();
+      short.transport().concurrent = true;
+      short.frame();
+      short.transport().handlers.frame(packet([], 0, 2));
+      expect(short.transport().ticks).toHaveLength(1);
+
+      const copies = setup();
+      copies.frame();
+      copies.transport().handlers.frame(packet([], 0, 40));
+      expect(copies.transport().ticks).toHaveLength(1);
     });
   });
 

@@ -27,6 +27,12 @@ export function isSimInput(type: string): boolean {
  * One tick is in flight at a time: the next goes when its packet is back, so
  * a slow simulation slows the game instead of piling up frames. A packet is
  * applied at the start of the main thread's next frame, before it renders.
+ * Where a tick takes longer than a frame (many enemies, high speed) and the
+ * worker has two sets of tables (SimTransport.concurrent), the next tick goes
+ * out as soon as the packet is back instead of with the next frame: the
+ * simulation works on while this thread applies and draws, rather than
+ * waiting for it. It never writes the set this thread still reads: a tick
+ * goes early only while the packet just back is the only one not applied.
  *
  * A run has an epoch (newRun): commands and packets of an older run are
  * dropped. A simulation that failed (a throw in its tick, a worker that did
@@ -109,7 +115,10 @@ export class SimClient {
     const handlers: SimTransportHandlers = {
       frame: (packet) => {
         this.inFlight = false;
-        if (this.tickEpoch === this.epoch && this.failure() === null) this.pendingPackets.push(packet);
+        if (this.tickEpoch !== this.epoch || this.failure() !== null) return;
+        this.pendingPackets.push(packet);
+        this.lastTickMs = packet.scalars.tickMs;
+        this.sendEarly();
       },
       output: (message) => this.output(message),
       error: (error) => this.fail(error),
@@ -129,6 +138,8 @@ export class SimClient {
     this.deliveredTick = -1;
     this.lastGameTimeMs = null;
     this.resetShown = false;
+    this.lastTickMs = 0;
+    this.lastFrameAt = null;
     this.failure.set(null);
   }
 
@@ -164,6 +175,25 @@ export class SimClient {
     this.presenterImpl?.clear();
     this.bus.emit({ type: 'game:reset' });
     this.resetShown = true;
+  }
+
+  /** The last tick's time in the simulation, ms (SimScalars.tickMs) */
+  private lastTickMs = 0;
+  /** Wall clock between this thread's frames, smoothed; see sendEarly() */
+  private frameIntervalMs = 16;
+  private lastFrameAt: number | null = null;
+
+  /**
+   * The packet just back is the only one not applied, and the tick took
+   * longer than a frame: the next tick goes now rather than with the next
+   * frame. Its tables go into the other set, the one of the packet before,
+   * which is applied.
+   */
+  private sendEarly(): void {
+    const transport = this.transport;
+    if (!transport?.concurrent || this.pendingPackets.length !== 1 || !(this.lastTickMs > this.frameIntervalMs)) return;
+    if (!this.worldLoaded || this.inFlight || this.failure() !== null) return;
+    this.sendTick(performance.now(), this.gameStore.renderingEnabled());
   }
 
   /** Called once when the simulation fails (coop leaves the room). */
@@ -236,14 +266,24 @@ export class SimClient {
    * next tick if none is out.
    */
   frame(now: number, renderingEnabled = this.gameStore.renderingEnabled()): void {
+    if (this.lastFrameAt !== null) this.frameIntervalMs += (Math.min(now - this.lastFrameAt, 100) - this.frameIntervalMs) * 0.1;
+    this.lastFrameAt = now;
     this.applyPending();
     if (!this.transport || !this.worldLoaded || this.inFlight || this.failure() !== null) return;
+    this.sendTick(now, renderingEnabled);
+    // The same thread answers at once
+    this.applyPending();
+  }
+
+  /** The next tick out, with the commands given since the last one. */
+  private sendTick(now: number, renderingEnabled: boolean): void {
+    const transport = this.transport!;
     this.inFlight = true;
     this.tickEpoch = this.epoch;
     const commands = this.commands;
     this.commands = [];
     try {
-      this.transport.tick({
+      transport.tick({
         now,
         gameSpeed: this.gameStore.gameSpeed(),
         paused: this.gameStore.paused(),
@@ -255,10 +295,7 @@ export class SimClient {
     } catch (error) {
       // The same thread's simulation (InlineTransport) throws here
       this.fail(error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error));
-      return;
     }
-    // The same thread answers at once
-    this.applyPending();
   }
 
   /**

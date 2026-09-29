@@ -75,6 +75,8 @@ export class PacketWriter {
 
   write(frame: PacketFrame, ops: PresentationOp[], events: ExportedEvent[]): SimFramePacket {
     const gsm = this.gsm;
+    // Into the other set of tables: the main thread may still read the last packet's
+    this.store.begin();
     this.writeEnemies();
     this.writeProjectiles();
     this.writeTowers();
