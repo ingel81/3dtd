@@ -55,6 +55,7 @@ export function initialScalars(): SimScalars {
     laneSpawns: [],
     replayableWaves: [],
     towerCount: 0,
+    replay: null,
     seed: 0,
   };
 }

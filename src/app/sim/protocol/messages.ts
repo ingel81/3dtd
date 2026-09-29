@@ -69,7 +69,10 @@ export type SimOutput =
 export interface SimCoreApi {
   /** Settings of the run that come from the main thread (wave source, dev flags); see SimConfig */
   configure(config: SimConfig): void;
-  /** Build the world; before it the simulation runs no sub-step */
+  /**
+   * Build the world and start a fresh run on it (the seed stays unless reset
+   * gives another); before it the simulation runs no sub-step
+   */
   loadWorld(world: SimWorld): void;
   /** One frame: commands in, sub-steps, the packet out */
   tick(input: SimTickInput, out: (message: SimOutput) => void): SimFramePacket;
@@ -89,6 +92,11 @@ export interface SimConfig {
   movementEnabled?: boolean;
   /** Debug: damage numbers (display option) */
   damageNumbers?: boolean;
+  /**
+   * The main thread rebuilds the route corridor: no tower is placed and no
+   * wave starts until it is false again (GameStateManager.corridorPending)
+   */
+  corridorPending?: boolean;
 }
 
 /**
