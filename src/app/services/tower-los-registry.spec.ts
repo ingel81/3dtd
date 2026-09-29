@@ -1,20 +1,28 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { Vector3 } from 'three';
+
+vi.mock('./world/global-route-grid.service', () => ({ GlobalRouteGridService: class GlobalRouteGridService {} }));
+vi.mock('../sim/client/sim-client.service', () => ({ SimClient: class SimClient {} }));
+
+import { Injector, runInInjectionContext } from '@angular/core';
 import { TowerLosRegistry } from './tower-los-registry';
+import { GlobalRouteGridService } from './world/global-route-grid.service';
+import { SimClient } from '../sim/client/sim-client.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { packet, towerDto, type PacketParts } from '../sim/client/mirror/testing/mirror-packets';
+import { createMainEventBus, type MainEventBus, type ViewEvent } from '../sim/client/view-events';
 import { Tower } from '../entities/tower.entity';
 import { TOWER_TYPES } from '../configs/tower-types.config';
-import type { GlobalRouteGridService } from './world/global-route-grid.service';
+import { losMaskToJson, type LosMask } from '../utils/los-mask';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
 import type { RouteCell } from '../utils/route-cell';
-import type { LosMask } from '../utils/los-mask';
-import { GameEventBus, type GameEvent } from '../game-engine/game-event-bus';
+import type { SimFramePacket } from '../sim/protocol/packet';
 
 /**
- * The registry against a fake grid and cubemap. The registration on the
- * frozen cells runs with the real grid in tower-placement-los.spec.ts and
- * through the service in tower-placement.service.spec.ts; these pin the
- * lifecycle, the masks and events and the recompute queue.
+ * The registry against a fake grid and cubemap, a real mirror and the main
+ * bus: the simulation asks with tower:los-needed, the registry renders after
+ * the frame and answers with command:los-mask; the masks the simulation
+ * sends back in the tower states go into the main grid.
  */
 describe('TowerLosRegistry', () => {
   /** Local frame: lon is x, lat is z, height is y. */
@@ -28,41 +36,47 @@ describe('TowerLosRegistry', () => {
     encodeLosMask: ReturnType<typeof vi.fn>;
     applyLosMask: ReturnType<typeof vi.fn>;
   };
-  let towerManager: {
-    getAll: () => Tower[];
-    refreshSelectionViz: ReturnType<typeof vi.fn>;
-    onTowerUnregistered: ReturnType<typeof vi.fn>;
-  };
-  let towers: Tower[];
   let engine: ThreeTilesEngine;
-  let bus: GameEventBus;
-  let resolved: Extract<GameEvent, { type: 'tower:los-resolved' }>[];
+  let mapper: {
+    invalidate: ReturnType<typeof vi.fn>;
+    update: ReturnType<typeof vi.fn>;
+    getRenderTarget: () => object;
+    getReferencePos: () => Vector3;
+    getFarDistance: () => number;
+    readFacesToCpu: ReturnType<typeof vi.fn>;
+  };
+  let initialized: boolean;
+  let blockers: object | null;
+  let bus: MainEventBus;
+  let mirror: SimMirror;
+  let frameListeners: ((packet: SimFramePacket) => void)[];
+  let sent: Extract<ViewEvent, { type: 'command:los-mask' }>[];
   let registry: TowerLosRegistry;
 
-  /** One frame of the game loop: GameStateManager.update drains the queue. */
-  const runFrames = () => registry.drainLosQueue();
-  const tower = (lon = 0, lat = 0) => {
-    const t = new Tower({ lat, lon, height: 0 }, 'archer');
-    towers.push(t);
-    return t;
-  };
-  const cell = (x: number, z: number) =>
-    ({ x, z, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
-  const gameState = () =>
-    ({ towerManager, getEventBus: () => bus, researchOf: () => ({ airTargetingUnlocked: false }) }) as unknown as GameStateManager;
-  const attach = () => registry.attach(engine, gameState());
   const maskOf = (range: number, ground: boolean, air: boolean): LosMask =>
     ({ range, ground, air, bits: new Uint8Array([range & 0xff]) });
+  const cell = (x: number, z: number) =>
+    ({ x, z, towerVisibility: new Map(), airVisibility: new Map() }) as unknown as RouteCell;
+
+  /** A packet through the mirror, then the SimClient's frame listeners */
+  const frame = (parts: PacketParts = {}) => {
+    const p = packet(parts);
+    mirror.applyState(p);
+    mirror.afterFrame(p);
+    for (const listener of [...frameListeners]) listener(p);
+  };
+  /** A tower the simulation placed: its state in the mirror */
+  const place = (lon = 0, lat = 0): Tower => {
+    const t = new Tower({ lat, lon, height: 0 }, 'archer');
+    frame({ towerStates: [towerDto(t)] });
+    return t;
+  };
+  const needed = (t: Tower, reason: 'place' | 'upgrade' | 'retrofit' = 'place', range = t.combat.range) =>
+    bus.emit({ type: 'tower:los-needed', towerId: t.id, reason, range, canTargetGround: true, canTargetAir: true });
 
   beforeEach(() => {
-    // The queue is drained by the game loop, never from a frame callback:
-    // a hidden tab runs the loop from the heartbeat worker without frames.
-    vi.stubGlobal('requestAnimationFrame', () => {
-      throw new Error('no frame callbacks');
-    });
-
     grid = {
-      isInitialized: () => true,
+      isInitialized: () => initialized,
       registerTower: vi.fn(() => [cell(0, 0)]),
       registerTowerIncremental: vi.fn(() => []),
       unregisterTower: vi.fn(),
@@ -70,310 +84,252 @@ describe('TowerLosRegistry', () => {
         maskOf(range, ground, air)),
       applyLosMask: vi.fn(() => [cell(1, 1), cell(2, 2)]),
     };
-    bus = new GameEventBus();
-    resolved = [];
-    bus.on('tower:los-resolved', (event) => resolved.push(event));
-    towers = [];
-    towerManager = { getAll: () => towers, refreshSelectionViz: vi.fn(), onTowerUnregistered: vi.fn() };
-    const mapper = {
+    bus = createMainEventBus();
+    sent = [];
+    bus.on('command:los-mask', (event) => sent.push(event));
+    mirror = new SimMirror();
+    frameListeners = [];
+    const sim = {
+      bus,
+      mirror,
+      onFrame: (listener: (packet: SimFramePacket) => void) => {
+        frameListeners.push(listener);
+        return () => frameListeners.splice(frameListeners.indexOf(listener), 1);
+      },
+    };
+    blockers = {};
+    initialized = true;
+    mapper = {
       invalidate: vi.fn(),
       update: vi.fn(),
       getRenderTarget: () => ({}),
       getReferencePos: () => new Vector3(),
       getFarDistance: () => 100,
-      readFacesToCpu: () => [],
+      readFacesToCpu: vi.fn(() => []),
     };
-    engine = { sync, getLosBlockerGroup: () => ({}), getTowerShadowMapper: () => mapper } as unknown as ThreeTilesEngine;
-    registry = new TowerLosRegistry(grid as unknown as GlobalRouteGridService);
+    engine = { sync, getLosBlockerGroup: () => blockers, getTowerShadowMapper: () => mapper } as unknown as ThreeTilesEngine;
+    const injector = Injector.create({
+      providers: [
+        { provide: GlobalRouteGridService, useValue: grid },
+        { provide: SimClient, useValue: sim },
+      ],
+    });
+    registry = runInInjectionContext(injector, () => new TowerLosRegistry());
   });
 
   afterEach(() => {
-    vi.unstubAllGlobals();
     vi.restoreAllMocks();
   });
 
-  it('registers nothing before attach and after detach', () => {
-    registry.register(tower(), { lat: 0, lon: 0, height: 0 }, 'archer');
-    attach();
-    registry.detach();
-    registry.register(tower(), { lat: 0, lon: 0, height: 0 }, 'archer');
-
+  it('hears nothing before attach and after detach', () => {
+    const t = place(5, 7);
+    needed(t);
+    frame();
     expect(grid.registerTower).not.toHaveBeenCalled();
+
+    registry.attach(engine);
+    registry.detach();
+    needed(t);
+    frame();
+    expect(grid.registerTower).not.toHaveBeenCalled();
+    expect(sent).toEqual([]);
   });
 
-  it('registers a tower on the cells as they are and marks its LOS ready', () => {
-    attach();
-    const t = tower(5, 7);
-    registry.register(t, t.position, 'archer');
+  it('renders a placed tower after the frame on the cells as they are and answers with its mask', () => {
+    registry.attach(engine);
+    const t = place(5, 7);
+    needed(t);
+    expect(registry.pendingTowerIds()).toEqual([t.id]);
+    expect(grid.registerTower).not.toHaveBeenCalled();
 
+    frame();
     const [id, x, z, range] = grid.registerTower.mock.calls[0];
     expect([id, x, z, range]).toEqual([t.id, 5, 7, TOWER_TYPES.archer.range]);
-    expect(t.losReady).toBe(true);
-    expect(t.visibleCells).toHaveLength(1);
-  });
-
-  it('keeps the answers of a placement as a mask on the tower and announces it', () => {
-    attach();
-    const t = tower(5, 7);
-    registry.register(t, t.position, 'archer');
-
     expect(grid.encodeLosMask).toHaveBeenCalledWith(t.id, 5, 7, TOWER_TYPES.archer.range, true, true);
-    expect(t.losMask).toEqual(maskOf(TOWER_TYPES.archer.range, true, true));
-    expect(resolved).toEqual([{ type: 'tower:los-resolved', towerId: t.id, mask: t.losMask, reason: 'place' }]);
+    expect(sent).toEqual([{
+      type: 'command:los-mask',
+      towerId: t.id,
+      reason: 'place',
+      mask: losMaskToJson(maskOf(TOWER_TYPES.archer.range, true, true)),
+    }]);
+    expect(mirror.tower(t.id)!.visibleCells).toHaveLength(1);
+    expect(registry.pendingTowerIds()).toEqual([]);
   });
 
-  it('takes a new mask after a range upgrade, at the new range', () => {
-    attach();
-    const t = tower(5, 7);
-    registry.register(t, t.position, 'archer');
-    t.combat.range = 45;
-    registry.recompute(t);
+  it('renders the cube fresh from the tip on the top of the plinth, out to the range asked for', () => {
+    registry.attach(engine);
+    const t = new Tower({ lat: 7, lon: 5, height: 8 }, 'archer', 0, 3);
+    frame({ towerStates: [towerDto(t)] });
+    needed(t);
+    frame();
 
-    expect(t.losMask?.range).toBe(45);
-    expect(resolved.map((e) => e.reason)).toEqual(['place', 'upgrade']);
-    expect(resolved[1].mask).toBe(t.losMask);
+    expect(mapper.invalidate.mock.invocationCallOrder[0]).toBeLessThan(mapper.update.mock.invocationCallOrder[0]);
+    const [tip, far, group] = mapper.update.mock.calls[0];
+    const config = TOWER_TYPES.archer;
+    expect(tip.toArray()).toEqual([5, 8 + config.heightOffset + config.shootHeight, 7]);
+    expect(far).toBe(config.range);
+    expect(group).toBe(blockers);
+    const ctx = grid.registerTower.mock.calls[0][4] as { farDistance: number; faces: unknown };
+    expect(ctx.farDistance).toBe(100);
+    // The faces come back to the CPU only when the resolve samples a cell
+    expect(mapper.readFacesToCpu).not.toHaveBeenCalled();
+    void ctx.faces;
+    expect(mapper.readFacesToCpu).toHaveBeenCalledTimes(1);
   });
 
-  it('registers a tower from a mask without the cube and announces nothing', () => {
-    attach();
-    const t = tower(5, 7);
-    const mask = maskOf(30, true, true);
-    const mapper = engine.getTowerShadowMapper() as unknown as { update: ReturnType<typeof vi.fn> };
-
-    registry.registerFromMask(t, mask);
-
-    expect(grid.applyLosMask).toHaveBeenCalledWith(t.id, 5, 7, mask);
-    expect(mapper.update).not.toHaveBeenCalled();
+  it('waits with its renders while the main grid has no cells', () => {
+    registry.attach(engine);
+    initialized = false;
+    const t = place(5, 7);
+    needed(t);
+    frame();
     expect(grid.registerTower).not.toHaveBeenCalled();
-    expect(t.visibleCells).toHaveLength(2);
-    expect(t.losReady).toBe(true);
-    expect(t.losMask).toBe(mask);
-    expect(resolved).toEqual([]);
+    expect(registry.pendingTowerIds()).toEqual([t.id]);
+
+    initialized = true;
+    frame();
+    expect(sent).toHaveLength(1);
   });
 
-  it('drops the mask when the tower is unregistered', () => {
-    attach();
-    const t = tower();
-    registry.register(t, t.position, 'archer');
-    registry.unregister(t);
-    expect(t.losMask).toBeNull();
+  it('resolves an upgrade and a retrofit incrementally, at the range asked for', () => {
+    registry.attach(engine);
+    const t = place(5, 7);
+    needed(t, 'upgrade', 45);
+    frame();
+    expect(grid.registerTowerIncremental.mock.calls[0].slice(0, 4)).toEqual([t.id, 5, 7, 45]);
+    expect(grid.registerTower).not.toHaveBeenCalled();
+    expect(sent[0]).toMatchObject({ reason: 'upgrade', mask: { range: 45 } });
   });
 
-  it('runs a scheduled recompute on the next drain, unless the tower was unregistered', () => {
-    attach();
-    const kept = tower();
-    const sold = tower(50, 0);
-    registry.scheduleRecompute(kept);
-    registry.scheduleRecompute(sold);
-    registry.unregister(sold);
+  it('renders one tower per frame, oldest first; a new request of a tower takes the place of its old one', () => {
+    registry.attach(engine);
+    const a = place(1, 0);
+    const b = place(2, 0);
+    needed(a);
+    needed(b);
+    needed(a, 'retrofit');
+    expect(registry.pendingTowerIds()).toEqual([b.id, a.id]);
 
-    runFrames();
-    runFrames();
-
-    expect(grid.registerTowerIncremental.mock.calls.map(([id]) => id)).toEqual([kept.id]);
-    expect(towerManager.onTowerUnregistered).toHaveBeenCalledWith(sold);
-    expect(grid.unregisterTower).toHaveBeenCalledWith(sold.id);
-    expect(sold.visibleCells).toEqual([]);
+    frame();
+    expect(sent.map((e) => e.towerId)).toEqual([b.id]);
+    frame();
+    expect(sent.map((e) => [e.towerId, e.reason])).toEqual([[b.id, 'place'], [a.id, 'retrofit']]);
   });
 
-  it('drains one tower per call, oldest first, each with a retrofit mask', () => {
-    attach();
-    const first = tower();
-    const second = tower(50, 0);
-    registry.scheduleRecompute(first);
-    registry.scheduleRecompute(second);
-
-    runFrames();
-    expect(grid.registerTowerIncremental.mock.calls.map(([id]) => id)).toEqual([first.id]);
-    runFrames();
-    runFrames();
-    expect(grid.registerTowerIncremental.mock.calls.map(([id]) => id)).toEqual([first.id, second.id]);
-    expect(resolved.map((e) => [e.towerId, e.reason])).toEqual([[first.id, 'retrofit'], [second.id, 'retrofit']]);
-  });
-
-  it('forgets the queue of the old location on attach', () => {
-    attach();
-    const t = tower();
-    registry.scheduleRecompute(t);
-    attach();
-    runFrames();
-
-    expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
-  });
-
-  it('keeps a tower queued while its recompute cannot run', () => {
-    const blocked = { ...engine, getLosBlockerGroup: () => null } as unknown as ThreeTilesEngine;
-    registry.attach(blocked, gameState());
+  it('drops a request of a tower the mirror does not have, and keeps one while the cube cannot render', () => {
+    registry.attach(engine);
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-    registry.scheduleRecompute(tower());
+    const gone = new Tower({ lat: 0, lon: 0, height: 0 }, 'archer');
+    needed(gone);
+    frame();
+    expect(registry.pendingTowerIds()).toEqual([]);
 
-    runFrames();
-    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no LOS blocker group'));
+    const t = place(5, 7);
+    blockers = null;
+    needed(t);
+    frame();
+    expect(registry.pendingTowerIds()).toEqual([t.id]);
+    expect(sent).toEqual([]);
+    expect(warn).toHaveBeenCalled();
 
-    // Still queued: the next drain tries it again
-    runFrames();
-    expect(warn).toHaveBeenCalledTimes(2);
+    blockers = {};
+    frame();
+    expect(sent).toHaveLength(1);
   });
 
-  it('drops the queue on detach', () => {
-    attach();
-    registry.scheduleRecompute(tower());
-    registry.detach();
-    attach();
-    runFrames();
+  it('forgets the requests on a new run, on a new location and of a sold tower', () => {
+    registry.attach(engine);
+    const t = place(5, 7);
+    needed(t);
+    bus.emit({ type: 'game:reset' });
+    expect(registry.pendingTowerIds()).toEqual([]);
 
-    expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
+    needed(t);
+    registry.attach(engine);
+    expect(registry.pendingTowerIds()).toEqual([]);
+
+    needed(t);
+    frame({ removedTowers: [t.id] });
+    expect(registry.pendingTowerIds()).toEqual([]);
+    expect(grid.unregisterTower).toHaveBeenCalledWith(t.id);
+    expect(sent).toEqual([]);
+  });
+
+  it('leaves a request of a replay alone: its towers take their masks from the log', () => {
+    registry.attach(engine);
+    const t = place(5, 7);
+    bus.setLiveMuted(true);
+    needed(t);
+    bus.setLiveMuted(false);
+    expect(registry.pendingTowerIds()).toEqual([]);
+  });
+
+  it('as a coop guest renders nothing and leaves the request queued', () => {
+    registry.attach(engine);
+    registry.setRole('wait');
+    const t = place(5, 7);
+    needed(t);
+    frame();
+    expect(grid.registerTower).not.toHaveBeenCalled();
+    expect(sent).toEqual([]);
+    expect(registry.pendingTowerIds()).toEqual([t.id]);
+  });
+
+  it('writes the mask the simulation applied into the main grid, and takes it out again for none', () => {
+    registry.attach(engine);
+    const t = place(5, 7);
+    const mask = losMaskToJson(maskOf(30, true, false));
+    frame({ towerStates: [{ ...towerDto(t), losReady: true, losMask: mask }] });
+    const [id, x, z, applied] = grid.applyLosMask.mock.calls[0];
+    expect([id, x, z]).toEqual([t.id, 5, 7]);
+    expect(applied).toMatchObject({ range: 30, ground: true, air: false });
+    expect(mirror.tower(t.id)!.visibleCells).toHaveLength(2);
+
+    // A state without a mask leaves the grid as it is
+    frame({ towerStates: [towerDto(t)] });
+    expect(grid.applyLosMask).toHaveBeenCalledTimes(1);
+
+    frame({ towerStates: [{ ...towerDto(t), losMask: null }] });
+    expect(grid.unregisterTower).toHaveBeenCalledWith(t.id);
+    expect(mirror.tower(t.id)!.visibleCells).toEqual([]);
   });
 
   describe('the log of a recompute that takes most cells away', () => {
     const seen = () => Array.from({ length: 10 }, (_, i) => cell(i, 0));
-    const recomputeTo = (t: Tower, cells: RouteCell[]) => {
-      grid.registerTowerIncremental.mockReturnValueOnce(cells);
-      registry.scheduleRecompute(t);
-      runFrames();
+    const recomputeTo = (t: Tower, before: RouteCell[], after: RouteCell[]) => {
+      mirror.tower(t.id)!.visibleCells = before;
+      grid.registerTowerIncremental.mockReturnValueOnce(after);
+      needed(t, 'upgrade');
+      frame();
     };
 
     it('warns once per drop, with the trigger and what the cube saw, and again only after the cells came back', () => {
-      attach();
+      registry.attach(engine);
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      const t = tower();
-      t.losReady = true;
-      t.visibleCells = seen();
+      const t = place();
 
-      recomputeTo(t, []);
+      recomputeTo(t, seen(), []);
       expect(warn).toHaveBeenCalledTimes(1);
       const line = String(warn.mock.calls[0][0]);
-      expect(line).toContain(`${t.id} archer: 0 of 10 visible cells left after a LOS recompute (asked for)`);
+      expect(line).toContain(`${t.id} archer: 0 of 10 visible cells left after a LOS recompute (upgrade)`);
       expect(line).toContain('geometry within 2 m of the tip');
 
       // Still down: no second line
-      t.visibleCells = seen();
-      recomputeTo(t, [cell(0, 0)]);
+      recomputeTo(t, seen(), [cell(0, 0)]);
       expect(warn).toHaveBeenCalledTimes(1);
 
       // Back, then down again
-      recomputeTo(t, seen());
-      recomputeTo(t, []);
+      recomputeTo(t, seen(), seen());
+      recomputeTo(t, seen(), []);
       expect(warn).toHaveBeenCalledTimes(2);
     });
 
-    it('names a direct call as the trigger', () => {
-      attach();
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      const t = tower();
-      t.losReady = true;
-      t.visibleCells = seen();
-
-      grid.registerTowerIncremental.mockReturnValueOnce([]);
-      registry.recompute(t);
-
-      expect(String(warn.mock.calls[0][0])).toContain('LOS recompute (direct call)');
-    });
-
     it('stays quiet when a recompute moves a few answers or the tower saw only a few cells', () => {
-      attach();
+      registry.attach(engine);
       const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      const t = tower();
-      t.losReady = true;
-      t.visibleCells = seen();
-      recomputeTo(t, seen().slice(0, 7));
-
-      const small = tower(50, 0);
-      small.losReady = true;
-      small.visibleCells = seen().slice(0, 5);
-      recomputeTo(small, []);
-
+      recomputeTo(place(), seen(), seen().slice(0, 7));
+      recomputeTo(place(50, 0), seen().slice(0, 5), []);
       expect(warn).not.toHaveBeenCalled();
-    });
-  });
-  describe('in coop (COOP_PLAN C3)', () => {
-    let sent: Extract<GameEvent, { type: 'command:los-mask' }>[];
-    beforeEach(() => {
-      sent = [];
-      bus.on('command:los-mask', (event) => sent.push(event));
-    });
-
-    it('as a guest renders nothing: a placed tower waits for the host, not ready', () => {
-      attach();
-      registry.setCoopRole('guest');
-      const t = tower(5, 7);
-      registry.register(t, t.position, 'archer');
-      runFrames();
-
-      expect(grid.registerTower).not.toHaveBeenCalled();
-      expect(t.losReady).toBe(false);
-      expect(registry.awaitingTowerIds()).toEqual([t.id]);
-      expect(sent).toEqual([]);
-      expect(resolved).toEqual([]);
-    });
-
-    it('as the host renders after the frame, sends the mask once and leaves the cells as the guests have them', () => {
-      attach();
-      registry.setCoopRole('host');
-      const t = tower(5, 7);
-      registry.register(t, t.position, 'archer');
-      expect(grid.registerTower).not.toHaveBeenCalled();
-
-      runFrames();
-      expect(grid.registerTower).toHaveBeenCalledTimes(1);
-      expect(sent).toHaveLength(1);
-      expect(sent[0]).toMatchObject({ towerId: t.id, reason: 'place', mask: { range: TOWER_TYPES.archer.range } });
-      // Put back: not ready, no answers, nothing announced as resolved
-      expect(grid.unregisterTower).toHaveBeenCalledWith(t.id);
-      expect(t.losReady).toBe(false);
-      expect(t.visibleCells).toEqual([]);
-      expect(resolved).toEqual([]);
-
-      runFrames();
-      expect(sent).toHaveLength(1);
-    });
-
-    it('applies the host mask at its tick, on host and guest alike', () => {
-      attach();
-      registry.setCoopRole('guest');
-      const t = tower(5, 7);
-      registry.register(t, t.position, 'archer');
-      const mask = maskOf(TOWER_TYPES.archer.range, true, false);
-      registry.applyCoopMask(t, mask);
-
-      expect(t.losReady).toBe(true);
-      expect(t.losMask).toBe(mask);
-      expect(t.visibleCells).toHaveLength(2);
-      expect(registry.awaitingTowerIds()).toEqual([]);
-      // A second one for a tower that waits for nothing changes nothing
-      registry.applyCoopMask(t, maskOf(5, true, true));
-      expect(t.losMask).toBe(mask);
-    });
-
-    it('keeps the old answers of an upgraded tower until the new mask comes back', () => {
-      attach();
-      registry.setCoopRole('host');
-      const t = tower(5, 7);
-      const old = maskOf(30, true, false);
-      registry.registerFromMask(t, old);
-      t.combat.range = 45;
-      registry.recompute(t);
-      expect(t.losMask).toBe(old);
-
-      runFrames();
-      expect(grid.registerTowerIncremental).toHaveBeenCalledTimes(1);
-      expect(sent[0]).toMatchObject({ towerId: t.id, reason: 'upgrade', mask: { range: 45 } });
-      // The host is back on the old mask, as the guests are
-      expect(t.losMask).toBe(old);
-      expect(t.losReady).toBe(true);
-    });
-
-    it('queues a retrofit as waiting, not for the local drain', () => {
-      attach();
-      registry.setCoopRole('guest');
-      const t = tower(5, 7);
-      registry.registerFromMask(t, maskOf(30, true, false));
-      registry.scheduleRecompute(t);
-      runFrames();
-
-      expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
-      expect(registry.awaitingTowerIds()).toEqual([t.id]);
-      expect(registry.queuedTowerIds()).toEqual([]);
     });
   });
 });

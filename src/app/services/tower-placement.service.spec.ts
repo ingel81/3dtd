@@ -46,7 +46,6 @@ vi.mock('../utils/tower-los-viz', () => ({
 import { TowerPlacementService } from './tower-placement.service';
 import { Tower } from '../entities/tower.entity';
 import { TOWER_TYPES, TowerTypeId } from '../configs/tower-types.config';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, haversineDistance } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
 import type { RouteCell } from '../utils/route-cell';
@@ -117,8 +116,6 @@ describe('TowerPlacementService', () => {
     rebuildAirRouteLayer: ReturnType<typeof vi.fn>;
   };
   let airTargetingUnlocked: ReturnType<typeof signal<boolean>>;
-  /** The simulation's research, which the LOS registry reads */
-  let research: { airTargetingUnlocked: boolean };
   let overlay: Group;
   let scene: object;
   let blockerGroup: object | null;
@@ -219,7 +216,6 @@ describe('TowerPlacementService', () => {
     };
     injectionRegistry['GlobalRouteGridService'] = grid;
     airTargetingUnlocked = signal(false);
-    research = { airTargetingUnlocked: false };
     injectionRegistry['ResearchStore'] = { airTargetingUnlocked };
     injectionRegistry['TowerDefenseStore'] = {
       spawnPoints: signal([{ id: 'sp-1', name: 'Spawn', color: '#f00', ...spawn }]),
@@ -590,20 +586,16 @@ describe('TowerPlacementService', () => {
       expect(command.plinthOverhang).toEqual([]);
     });
 
-    it('registers the LOS of such a tower from the top of its plinth', async () => {
+    it('places the foot of such a tower on the top of its plinth, where its line of sight starts', async () => {
       devTerrain = devWorld(slope);
       init();
       await enterBuild('archer');
       hover(FREE, 5);
       service.handleBuildClick();
-      const { position, plinthHeight } = emit.mock.calls[0][0];
-      const tower = new Tower(position, 'archer', 0, plinthHeight);
+      const { position } = emit.mock.calls[0][0];
 
-      service.registerTowerOnGrid(tower, position, 'archer');
-
-      const { footprintRadius, heightOffset, shootHeight } = TOWER_TYPES.archer;
-      const [tip] = mapper.update.mock.calls[0];
-      expect(tip.y).toBeCloseTo(slope(footprintRadius) + heightOffset + shootHeight);
+      // TowerLosRegistry renders the cube from the foot plus the type's shoot height
+      expect(position.height).toBeCloseTo(slope(TOWER_TYPES.archer.footprintRadius));
     });
 
     it('re-probes only after the cursor moved a meter', async () => {
@@ -1139,143 +1131,17 @@ describe('TowerPlacementService', () => {
     });
   });
 
-  describe('grid registration', () => {
-    const placed = (typeId: TowerTypeId, p = FREE) => {
-      const position = { ...p, height: 8 };
-      return { position, tower: new Tower(position, typeId) };
-    };
-
-    it('renders the cubemap from the tip and registers the tower with its targeting', () => {
-      init();
-      const { tower, position } = placed('archer');
-      const local = sync.geoToLocalSimple(position.lat, position.lon, position.height);
-      const config = TOWER_TYPES.archer;
-
-      service.registerTowerOnGrid(tower, position, 'archer');
-
-      expect(mapper.invalidate).toHaveBeenCalled();
-      expect(mapper.invalidate.mock.invocationCallOrder[0])
-        .toBeLessThan(mapper.update.mock.invocationCallOrder[0]);
-      const [tip, far, blockers] = mapper.update.mock.calls[0];
-      expect(tip.x).toBeCloseTo(local.x);
-      expect(tip.y).toBeCloseTo(8 + config.heightOffset + config.shootHeight);
-      expect(tip.z).toBeCloseTo(local.z);
-      expect(far).toBe(config.range);
-      expect(blockers).toBe(blockerGroup);
-
-      const [id, x, z, range, ctx, ground, air] = grid.registerTower.mock.calls[0];
-      expect([id, range, ground, air]).toEqual([tower.id, config.range, true, true]);
-      expect(x).toBeCloseTo(local.x);
-      expect(z).toBeCloseTo(local.z);
-      expect(ctx).toMatchObject({
-        referencePos: mapper.getReferencePos(),
-        farDistance: 77,
-        visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
-        emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
-      });
-
-      expect(tower.visibleCells).toEqual([{ x: 1, z: 1 }]);
-      expect(tower.losReady).toBe(true);
-    });
-
-    it('reads the cube faces back only when the resolve asks for them', () => {
-      init();
-      const { tower, position } = placed('archer');
-      service.registerTowerOnGrid(tower, position, 'archer');
-
-      expect(mapper.readFacesToCpu).not.toHaveBeenCalled();
-      const ctx = grid.registerTower.mock.calls[0][4] as { faces: unknown };
-      void ctx.faces;
-      expect(mapper.readFacesToCpu).toHaveBeenCalledTimes(1);
-    });
-
-    it('passes the targeting of ground-only, air-only and retrofitted types', () => {
-      init();
-      const flags = (typeId: TowerTypeId) => {
-        grid.registerTower.mockClear();
-        const { tower, position } = placed(typeId);
-        service.registerTowerOnGrid(tower, position, typeId);
-        return grid.registerTower.mock.calls[0].slice(5);
-      };
-
-      expect(flags('fire')).toEqual([true, false]);
-      expect(flags('rocket')).toEqual([false, true]);
-      expect(flags('dual-gatling')).toEqual([true, false]);
-      research.airTargetingUnlocked = true;
-      expect(flags('dual-gatling')).toEqual([true, true]);
-    });
-
-    it('refreshes the selection viz of a tower that is already selected', () => {
-      init();
-      const plain = placed('archer');
-      service.registerTowerOnGrid(plain.tower, plain.position, 'archer');
-      expect(towerManager.refreshSelectionViz).not.toHaveBeenCalled();
-
-      const selected = placed('archer', at(0, 400));
-      selected.tower.selected = true;
-      service.registerTowerOnGrid(selected.tower, selected.position, 'archer');
-      expect(towerManager.refreshSelectionViz).toHaveBeenCalledWith(selected.tower);
-    });
-
-    it('leaves the tower without LOS while the grid is not initialized', () => {
-      init();
-      grid.isInitialized.mockReturnValue(false);
-      const { tower, position } = placed('archer');
-      service.registerTowerOnGrid(tower, position, 'archer');
-
-      expect(grid.registerTower).not.toHaveBeenCalled();
-      expect(tower.losReady).toBe(false);
-    });
-
-    it('leaves the tower without LOS when there is no blocker group', () => {
-      init();
-      blockerGroup = null;
-      const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
-      const { tower, position } = placed('archer');
-      service.registerTowerOnGrid(tower, position, 'archer');
-
-      expect(warn).toHaveBeenCalledWith(expect.stringContaining('no LOS blocker group'));
-      expect(grid.registerTower).not.toHaveBeenCalled();
-      expect(tower.losReady).toBe(false);
-    });
-
-    it('unregisters a tower from the grid and the selection owner', () => {
-      init();
-      const { tower, position } = placed('archer');
-      service.registerTowerOnGrid(tower, position, 'archer');
-
-      service.unregisterTowerFromGrid(tower);
-
-      expect(towerManager.onTowerUnregistered).toHaveBeenCalledWith(tower);
-      expect(grid.unregisterTower).toHaveBeenCalledWith(tower.id);
-      expect(tower.visibleCells).toEqual([]);
-    });
-
-    it('clears every tower handed to clearAllTowerOverlays', () => {
-      init();
-      const a = placed('archer').tower;
-      const b = placed('cannon', at(0, 400)).tower;
-
-      service.clearAllTowerOverlays([a, b]);
-
-      expect(grid.unregisterTower.mock.calls.map(([id]) => id)).toEqual([a.id, b.id]);
-    });
-  });
-
   describe('dispose', () => {
-    it('leaves build mode, unsubscribes and drops the queued LOS recomputes', async () => {
+    it('leaves build mode and takes the preview and its LOS view down', async () => {
       init();
       await enterBuild();
       hover(FREE);
-      service.scheduleLosRecompute(new Tower({ ...FREE, height: 0 }, 'archer'));
 
       service.dispose();
-      service.drainLosQueue();
 
       expect(service.buildMode()).toBe(false);
       expect(overlay.children).toHaveLength(0);
       expect(losViz.instances[0].disposed).toBe(true);
-      expect(grid.registerTowerIncremental).not.toHaveBeenCalled();
     });
 
     it('releases each loaded preview model once', async () => {
@@ -1300,9 +1166,6 @@ describe('TowerPlacementService', () => {
       expect(service.validateTowerPosition(FREE.lat, FREE.lon)).toEqual({
         valid: false, reason: 'Service not initialized',
       });
-      const { tower, position } = { position: { ...FREE, height: 0 }, tower: new Tower({ ...FREE, height: 0 }, 'archer') };
-      service.registerTowerOnGrid(tower, position, 'archer');
-      expect(grid.registerTower).not.toHaveBeenCalled();
       await enterBuild();
       hover(FREE);
       expect(service.handleBuildClick()).toBe(false);
