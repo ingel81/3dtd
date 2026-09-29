@@ -2,8 +2,7 @@ import { Injectable, inject, signal } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
-import { CombatEffectService } from '../combat/combat-effect.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
 import { loadDisplayOptions, persistDisplayOptions } from '../../utils/display-options.storage';
 import { readVfxSettings, withVfxPreset, type VfxPreset, type VfxSettings } from '../../three-engine/vfx-settings';
 import type { ColorGradingPreset } from '../../three-engine/post-processing/color-grading';
@@ -26,7 +25,7 @@ function toFpsLimit(value: unknown): FpsLimit {
  * - UIStore: debug log, height debug toggle
  * - MarkerVisualizationService: height debug marker visualization
  * - StreetRenderingService: the street render that places those markers
- * - GameStateManager: game state cheats (credits, health)
+ * - SimClient: game state cheats (credits, health) as debug:* commands
  *
  * Also owns the display options (persisted in one object, see
  * utils/display-options.storage) and applies them to the engine.
@@ -36,7 +35,7 @@ export class DebugFacadeService {
   private readonly uiStore = inject(UIStore);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly streetRendering = inject(StreetRenderingService);
-  private readonly combatEffect = inject(CombatEffectService);
+  private readonly sim = inject(SimClient);
 
   /** Display options as stored at startup; the shared signals below start from them. */
   private readonly stored = loadDisplayOptions();
@@ -92,8 +91,8 @@ export class DebugFacadeService {
    * amount (e.g. 100000 for Shift+Click, negative to take credits, which
    * stops at zero in the command) to override.
    */
-  addDebugCredits(gameState: GameStateManager, amount = 1000): void {
-    gameState.getEventBus().emit({ type: 'debug:add-credits', amount });
+  addDebugCredits(amount = 1000): void {
+    this.sim.bus.emit({ type: 'debug:add-credits', amount });
     this.appendDebugLog(`${amount >= 0 ? '+' : ''}${amount.toLocaleString()} Credits (Debug)`);
   }
 
@@ -101,16 +100,16 @@ export class DebugFacadeService {
    * Add debug health via EventBus command. Default 1000; pass a custom
    * amount (e.g. 100000 for Shift+Click, negative to take HP) to override.
    */
-  addDebugHealth(gameState: GameStateManager, amount = 1000): void {
-    gameState.getEventBus().emit({ type: 'debug:add-health', amount });
+  addDebugHealth(amount = 1000): void {
+    this.sim.bus.emit({ type: 'debug:add-health', amount });
     this.appendDebugLog(`${amount >= 0 ? '+' : ''}${amount.toLocaleString()} HP (Debug)`);
   }
 
   /**
    * Kill all enemies (emits debug:kill-all event)
    */
-  killAllEnemies(gameState: GameStateManager): void {
-    gameState.getEventBus().emit({ type: 'debug:kill-all' });
+  killAllEnemies(): void {
+    this.sim.bus.emit({ type: 'debug:kill-all' });
   }
 
   /**
@@ -118,8 +117,8 @@ export class DebugFacadeService {
    * Used to record gameplay trailers without waiting for the tech tree.
    * Player still needs gold to actually build/upgrade.
    */
-  completeAllResearch(gameState: GameStateManager): void {
-    gameState.getEventBus().emit({ type: 'debug:complete-all-research' });
+  completeAllResearch(): void {
+    this.sim.bus.emit({ type: 'debug:complete-all-research' });
     this.appendDebugLog('All research completed (Debug)');
   }
 
@@ -128,33 +127,31 @@ export class DebugFacadeService {
    * Used to skip the tedious manual upgrade clicks when setting up
    * performance / stress-test scenarios.
    */
-  maxUpgradeAllTowers(gameState: GameStateManager): void {
-    gameState.getEventBus().emit({ type: 'debug:max-upgrade-all-towers' });
+  maxUpgradeAllTowers(): void {
+    this.sim.bus.emit({ type: 'debug:max-upgrade-all-towers' });
     this.appendDebugLog('All towers max upgraded (Debug)');
   }
 
   /**
    * Every ability ready: its research with the prerequisites done and every
    * charge back, as often as clicked, to test strike after strike. Sent
-   * deferred, one event per ability: it lands in the next gameplay sub-step
-   * like the rest of the simulation, so while the game is paused it waits
-   * until it runs on.
+   * as commands, one per ability: they act at the next tick like the rest
+   * of the simulation, so while the game is paused they wait until it runs on.
    */
-  readyAbilities(gameState: GameStateManager): void {
-    const bus = gameState.getEventBus();
+  readyAbilities(): void {
     for (const abilityId of ABILITY_IDS) {
-      bus.emitDeferred({ type: 'debug:ready-ability', abilityId });
+      this.sim.bus.emit({ type: 'debug:ready-ability', abilityId });
     }
     this.appendDebugLog('Abilities ready (Debug)');
   }
 
   /**
    * Hero ready: his research with the prerequisites done and the Mercenary
-   * hired for free, at the route point next to the HQ. Deferred like the
-   * nuke cheat, so it lands in the next gameplay sub-step.
+   * hired for free, at the route point next to the HQ. A command like the
+   * nuke cheat, so it acts at the next tick.
    */
-  readyHero(gameState: GameStateManager): void {
-    gameState.getEventBus().emitDeferred({ type: 'debug:ready-hero' });
+  readyHero(): void {
+    this.sim.bus.emit({ type: 'debug:ready-hero' });
     this.appendDebugLog('Mercenary hired (Debug)');
   }
 
@@ -182,15 +179,13 @@ export class DebugFacadeService {
    * Set by the component after engine initialization.
    */
   private engine: import('../../three-engine').ThreeTilesEngine | null = null;
-  private gameState: GameStateManager | null = null;
 
   /**
    * Set engine reference for display option operations.
    * Must be called after engine initialization.
    */
-  setEngine(engine: import('../../three-engine').ThreeTilesEngine | null, gameState?: GameStateManager): void {
+  setEngine(engine: import('../../three-engine').ThreeTilesEngine | null): void {
     this.engine = engine;
-    if (gameState) this.gameState = gameState;
   }
 
   /**
@@ -239,9 +234,7 @@ export class DebugFacadeService {
    * Toggle movement enabled state and persist
    */
   onMovementToggled(enabled: boolean): void {
-    if (this.gameState) {
-      this.gameState.enemyManager.movementEnabled = enabled;
-    }
+    this.sim.configure({ movementEnabled: enabled });
     persistDisplayOptions({ movement: enabled });
   }
 
@@ -273,7 +266,7 @@ export class DebugFacadeService {
    */
   onDamageNumbersToggled(visible: boolean): void {
     this.damageNumbersVisible.set(visible);
-    this.combatEffect.damageNumbersEnabled = visible;
+    this.sim.configure({ damageNumbers: visible });
     persistDisplayOptions({ damageNumbers: visible });
   }
 
@@ -282,13 +275,9 @@ export class DebugFacadeService {
    */
   onScreenShakeToggled(enabled: boolean): void {
     this.screenShakeEnabled.set(enabled);
-    if (this.gameState) {
-      if (enabled) {
-        this.gameState.screenShakeService.enable();
-      } else {
-        this.gameState.screenShakeService.disable();
-      }
-    }
+    const shake = this.sim.presenter?.screenShake;
+    if (enabled) shake?.enable();
+    else shake?.disable();
     persistDisplayOptions({ screenShake: enabled });
   }
 
@@ -330,16 +319,14 @@ export class DebugFacadeService {
     this.engine?.renderLoop.setFpsLimit(this.fpsLimit());
     this.engine?.applyVfxSettings(this.vfx());
     if (!this.healthBarsVisible()) this.applyHealthBars();
-    if (!this.damageNumbersVisible()) this.combatEffect.damageNumbersEnabled = false;
-    if (!this.screenShakeEnabled()) this.gameState?.screenShakeService.disable();
+    if (!this.damageNumbersVisible()) this.sim.configure({ damageNumbers: false });
+    if (!this.screenShakeEnabled()) this.sim.presenter?.screenShake?.disable();
 
     // Debug window options, not held in signals here
     const opts = loadDisplayOptions();
     if (opts.enemies === false) this.engine?.enemies.setEnemiesVisible(false);
     if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
-    if (opts.movement === false && this.gameState) {
-      this.gameState.enemyManager.movementEnabled = false;
-    }
+    if (opts.movement === false) this.sim.configure({ movementEnabled: false });
   }
 
   // ========================================
