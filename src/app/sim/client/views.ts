@@ -15,10 +15,23 @@ import type { GeoPosition } from '../../models/game.types';
 export class WormGroupView {
   remaining = 0;
   seq = 0;
+  /** The chained type, null until a reference or its head named it */
+  type: EnemyTypeConfig | null = null;
+  /** Worms of the group now (rows of the worm table) */
+  chains = 0;
+  /** HP left over the whole group (W_HP) */
+  hpLeft = 0;
+  /** WormGroup.maxHp (W_MAXHP) */
+  maxHp = 0;
   constructor(
     readonly num: number,
     readonly size: number,
   ) {}
+
+  /** HP left over all its worms, as WormGroup.hp() */
+  hp(): number {
+    return this.hpLeft;
+  }
 }
 
 export interface EnemyMovementView {
