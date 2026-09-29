@@ -55,6 +55,7 @@ export function initialScalars(): SimScalars {
     laneSpawns: [],
     replayableWaves: [],
     towerCount: 0,
+    abilityDamage: [0],
     seed: 0,
   };
 }
@@ -539,6 +540,12 @@ export class SimMirror implements SimMirrorApi {
   creditsOf(playerId: string): number {
     const i = this.scalars.players.indexOf(playerId);
     return i < 0 ? 0 : this.scalars.credits[i] ?? 0;
+  }
+
+  /** HP the abilities of `playerId` took from enemies so far (the run log) */
+  abilityDamageOf(playerId: string): number {
+    const i = this.scalars.players.indexOf(playerId);
+    return i < 0 ? 0 : this.scalars.abilityDamage[i] ?? 0;
   }
 
   /** Coop: `playerId` said ready for the next wave */

@@ -1,7 +1,8 @@
 import { signal } from '@angular/core';
-import type { GameEventBus, SubscriptionBag } from '../game-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
-import type { Enemy } from '../entities/enemy.entity';
+import type { SubscriptionBag } from '../game-engine';
+import type { SimMirror } from '../sim/client/mirror/sim-mirror';
+import type { MainEventBus } from '../sim/client/view-events';
+import type { EnemyView } from '../sim/client/views';
 import type { CoopSummaryRow } from './coop.service';
 
 /** A player's counts over a coop run */
@@ -14,7 +15,8 @@ interface PlayerCounts {
 
 /** What the run counts read of the CoopService */
 export interface CoopRunCountsHost {
-  readonly gameState: GameStateManager;
+  /** Kill credit and each player's gold, as the simulation last told them */
+  readonly mirror: Pick<SimMirror, 'killCreditPlayer' | 'creditsOf'>;
   inGame(): boolean;
   /** The players of the running game in roster order, with their lanes */
   roster(): readonly { id: string; name: string; spawnId: string | null }[];
@@ -40,10 +42,10 @@ export class CoopRunCounts {
   constructor(private readonly host: CoopRunCountsHost) {}
 
   /** Count from the game's events into `subs` */
-  wire(bus: GameEventBus, subs: SubscriptionBag): void {
+  wire(bus: MainEventBus, subs: SubscriptionBag): void {
     const host = this.host;
     subs.add(bus.onLive('enemy:died', ({ killedBy }) => {
-      if (host.inGame() && killedBy && killedBy.kind !== 'debug') this.countFor(host.gameState.killCreditPlayer(killedBy)).kills++;
+      if (host.inGame() && killedBy && killedBy.kind !== 'debug') this.countFor(host.mirror.killCreditPlayer(killedBy)).kills++;
     }));
     subs.add(bus.onLive('tower:placed', ({ tower }) => {
       if (host.inGame()) this.countFor(tower.ownerId).towers++;
@@ -52,9 +54,9 @@ export class CoopRunCounts {
     // ooze flows into the base point by point (enemy:leaking) and counts once,
     // as in the run log.
     const leaking = new Set<string>();
-    const countLeak = (enemy: Enemy): void => {
+    const countLeak = (enemy: EnemyView): void => {
       if (!host.inGame()) return;
-      const owner = this.laneOwnerOf(enemy.movement.path);
+      const owner = this.laneOwnerOf(enemy.movement.routeId);
       if (!owner) return;
       this.countFor(owner).leaks++;
       this.waveLeaks.update((leaks) => new Map(leaks).set(owner, (leaks.get(owner) ?? 0) + 1));
@@ -80,7 +82,7 @@ export class CoopRunCounts {
         me: p.id === host.playerId(),
         left: host.leftIds().has(p.id),
         color: host.laneColorOf(p.id),
-        gold: host.gameState.creditsOf(p.id),
+        gold: host.mirror.creditsOf(p.id),
         ...(this.counts.get(p.id) ?? { kills: 0, towers: 0, goldGiven: 0, leaks: 0 }),
       })));
     }));
@@ -113,14 +115,11 @@ export class CoopRunCounts {
   }
 
   /**
-   * The player whose lane `path` is: an enemy walks the route array of the
-   * spawn it came out of (its children too), the lane of that spawn is theirs
+   * The player whose lane the route `routeId` is: an enemy walks the route of
+   * the spawn it came out of (its children too), the lane of that spawn is theirs
    */
-  private laneOwnerOf(path: readonly unknown[]): string | null {
-    for (const [spawnId, route] of this.host.gameState.getCachedPaths()) {
-      if (route !== path) continue;
-      return this.host.roster().find((p) => p.spawnId === spawnId)?.id ?? null;
-    }
-    return null;
+  private laneOwnerOf(routeId: string): string | null {
+    if (!routeId) return null;
+    return this.host.roster().find((p) => p.spawnId === routeId)?.id ?? null;
   }
 }
