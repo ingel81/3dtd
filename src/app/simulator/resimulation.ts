@@ -1,7 +1,6 @@
 import type { CommandLogEntry } from '../managers/game-state/command-log';
 import { isLosLogCommand } from '../managers/game-state/command-log';
 import type { WaveConfig } from '../managers/wave.manager';
-import type { LosResolveReason } from '../game-engine/game-event-bus';
 import { losMaskFromJson, type LosMask } from '../utils/los-mask';
 import type { SimSnapshot } from './sim-snapshot';
 import type { WaveRecord } from './sim-recorder';
@@ -17,13 +16,10 @@ export interface ResimHost {
   /** One sub-step by count (not by wall clock), checks and boundary included; true when the game ended in it */
   simulateStep(): boolean;
   waveRunning(): boolean;
-  /**
-   * Replay mode on: commands only from replayCommand, masks for place and
-   * upgrade from `masks`, no retrofit drain. Off with null.
-   */
-  setReplayMode(masks: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void;
+  /** Replay mode on: commands only from replayCommand, towers wait for their line of sight as live. */
+  setReplayMode(on: boolean): void;
   replayCommand(entry: CommandLogEntry): void;
-  /** A logged retrofit mask, applied at its sub-step */
+  /** A logged line of sight, applied at its sub-step to a tower still waiting for it (TowerLos.replayMask) */
   applyLosMask(towerId: string, mask: LosMask): void;
   /**
    * Called at the start of every sub-step with the boundary before it and a
@@ -51,7 +47,6 @@ export interface ResimHost {
  */
 export class Resimulation {
   private cursor: number;
-  private readonly masks = new Map<string, LosMask[]>();
   private started = false;
   private done = false;
   /** Sub-step of the first hash that did not match the live run, null while all match */
@@ -86,10 +81,9 @@ export class Resimulation {
   /** Put the simulation at the wave's start. Replay mode stays on until end(). */
   start(): void {
     const record = this.record;
-    this.collectMasks();
     // Replay mode first: the restore sends events of its own (out of the
     // manned tower), which the live listeners must not hear either
-    this.host.setReplayMode((towerId, reason) => this.masks.get(`${towerId}|${reason}`)?.shift() ?? null);
+    this.host.setReplayMode(true);
     this.host.setBoundaryListener((boundary, hash) => this.checkHash(boundary, hash));
     this.host.restoreSnapshot(record.snapshot!);
     this.host.startWave(record.config);
@@ -127,7 +121,7 @@ export class Resimulation {
    */
   end(): void {
     this.host.setBoundaryListener(null);
-    this.host.setReplayMode(null);
+    this.host.setReplayMode(false);
     this.started = false;
   }
 
@@ -143,28 +137,13 @@ export class Resimulation {
       if (entry.step < now) continue;
       const los = entry.command;
       if (isLosLogCommand(los)) {
-        // Place and upgrade masks come in through the command (collectMasks)
-        if (los.reason === 'retrofit') this.host.applyLosMask(los.towerId, losMaskFromJson(los.mask));
+        // A mask the tower still waits for (a log from before the worker
+        // split had no command:los-mask for it); one the command answered
+        // already takes nothing
+        this.host.applyLosMask(los.towerId, losMaskFromJson(los.mask));
         continue;
       }
       this.host.replayCommand(entry);
-    }
-  }
-
-  /** The place and upgrade masks of the wave, per tower and reason in log order. */
-  private collectMasks(): void {
-    this.masks.clear();
-    const end = this.record.endStep;
-    for (let i = this.record.logStart; i < this.log.length; i++) {
-      const entry = this.log[i];
-      if (end !== null && entry.step >= end) break;
-      const los = entry.command;
-      if (!isLosLogCommand(los)) continue;
-      if (los.reason === 'retrofit') continue;
-      const key = `${los.towerId}|${los.reason}`;
-      let list = this.masks.get(key);
-      if (!list) this.masks.set(key, (list = []));
-      list.push(losMaskFromJson(los.mask));
     }
   }
 

@@ -32,8 +32,8 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
+  provideSimServices,
   createTestCachedPaths,
-  createAbilityTestEngine,
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
@@ -51,8 +51,6 @@ import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
-
-const createEngine = createAbilityTestEngine;
 
 const LASER = ABILITIES['orbital-laser'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -105,6 +103,7 @@ function floatingTexts(texts: ReturnType<typeof vi.fn>, prefix: '-' | '+'): stri
 
 function run(timescale: number): Outcome {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  const sim = provideSimServices(mockServices);
   GameObject.resetIdCounter();
 
   const ref: { gsm?: GameStateManager } = {};
@@ -120,7 +119,6 @@ function run(timescale: number): Outcome {
     },
   });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['StatusEffectService'] = new StatusEffectService();
@@ -128,8 +126,8 @@ function run(timescale: number): Outcome {
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  const engine = createEngine() as unknown as { effects: { spawnFloatingText: ReturnType<typeof vi.fn> } };
-  gsm.initialize(engine as never, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  const engine = sim.sink as unknown as { effects: { spawnFloatingText: ReturnType<typeof vi.fn> } };
+  gsm.initialize(BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   const creditsBefore = gsm.credits();
   gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();

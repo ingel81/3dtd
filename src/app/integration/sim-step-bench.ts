@@ -5,21 +5,19 @@
  * The real GameStateManager with the real GlobalRouteGridService (cells from
  * straight routes on a flat frame at the equator), SpatialGridService,
  * StatusEffectService, CombatVfxService, DamageApplicationService,
- * CombatEffectService and TowerCombatService. Everything else the loop
- * injects and the whole engine are no-op stubs (noopStub): no vi.fn, so no
- * call is recorded and a long run does not grow memory.
+ * CombatEffectService and TowerCombatService, on a SimCoords of the flat
+ * frame. The economy is a no-op stub (noopStub): no vi.fn, so no call is
+ * recorded and a long run does not grow memory.
  *
  * Stubbed on purpose:
  *  - Line of sight: markAllVisible() writes a clear view into the route cells
  *    in a tower's reach (every cell whose square reaches into its range), the
  *    answers resolveTowerLos (route-grid-los.ts) gives with nothing in the
  *    way, and keeps them as the tower's LosMask, as TowerLosRegistry does.
- *    With the stub engine the registry never runs, so without it losReady
- *    stays false and no tower fires. Combat reads only these answers; there
- *    is no raycast fallback.
- *  - The renderer: nothing. Turrets turn in the simulation (Tower.aim).
- *  - Rendering is off (renderingEnabled false), as in a training tab and the
- *    headless fast-forward of a replay: presentFrame does not run.
+ *    The towers are put up past TowerLifecycle, so none waits for a mask.
+ *    Combat reads only these answers; there is no raycast fallback.
+ *  - The renderer: the simulation's ops are recorded and dropped after
+ *    every frame, as SimCore hands them to the packet.
  *
  * Load: the towers stand along the routes, every type that fights in turn.
  * Enemies of mixed types (air included) walk the routes with `hpFactor`
@@ -40,6 +38,8 @@ import { TowerCombatService } from '../services/combat/tower-combat.service';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
+import { SimCoords } from '../sim/core/sim-coords';
+import { SimOps } from '../sim/core/sim-sink';
 import { ENEMY_TYPES, type EnemyTypeId } from '../configs/enemy-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
@@ -116,38 +116,6 @@ export type LocalSync = ReturnType<typeof localSync>;
 /** Geo to local on a flat frame at the equator, x east, z south */
 export const flatSync = localSync();
 
-/** The engine: no-op except where the loop needs an answer. */
-export function createBenchEngine(sync: LocalSync = flatSync): never {
-  const resolved = () => Promise.resolve(null);
-  return noopStub({
-    renderingEnabled: false,
-    // Flat ground, where the route grid does not answer (the spawn)
-    getTerrainHeightAtGeo: () => 0,
-    // ScreenShakeService measures the impact's distance to it
-    getCamera: () => ({ position: new Vector3(0, 500, 0) }),
-    sync: noopStub({ ...sync }),
-    terrain: noopStub({}),
-    towers: noopStub({
-      get: () => undefined,
-    }),
-    enemies: noopStub({ create: resolved }),
-    // A coop partner's hero gets a renderer of his own (review R15)
-    createPartnerHero: () => noopStub({}),
-    spatialAudio: noopStub({
-      playAtGeo: resolved,
-      playAt: resolved,
-      playGlobal: resolved,
-      createLoop: resolved,
-      playOneShot: resolved,
-      // BackgroundMusicService builds three.js Audio channels on it
-      getListener: () => noopStub({
-        context: noopStub({ state: 'running', currentTime: 0, resume: () => Promise.resolve() }, true),
-        getWorldPosition: (t: Vector3) => t.set(0, 0, 0),
-      }, true),
-    }),
-  });
-}
-
 /** One route: north from (x, 0), a waypoint every 10 m, 3 m of corridor to each side */
 export function buildRoute(eastM: number, lengthM: number): RouteWaypoint[] {
   const route: RouteWaypoint[] = [];
@@ -214,28 +182,24 @@ export function createSimBench(scenario: SimScenario, services: Record<string, u
   const paths = new Map<string, GeoPosition[]>(routes.map((route, i) => [`spawn-${i + 1}`, route]));
   const spawnPoints = routes.map((route, i) => ({ id: `spawn-${i + 1}`, name: `Spawn ${i + 1}`, ...route[0] }));
 
+  const coords = new SimCoords();
+  coords.use(flatSync);
+  services['SimCoords'] = coords;
+  const ops = new SimOps();
+  services['SimOps'] = ops;
   services['GlobalRouteGridService'] = grid;
   services['SpatialGridService'] = new SpatialGridService();
   services['StatusEffectService'] = new StatusEffectService();
-  services['ResearchStore'] = noopStub();
-  services['PathAndRouteService'] = noopStub({ getCachedPaths: () => paths });
-  services['EnemyDebugService'] = noopStub({ debugEnemies: () => [] });
   services['EconomyService'] = noopStub({ computeWaveCompletionBonus: () => 0 });
   services['CombatVfxService'] = new CombatVfxService();
   services['DamageApplicationService'] = new DamageApplicationService();
   services['CombatEffectService'] = new CombatEffectService();
   services['TowerCombatService'] = new TowerCombatService();
-  // Every tower sees all (markAllVisible); the lists a snapshot reads are empty
-  services['TowerPlacementService'] = noopStub({
-    queuedLosTowerIds: () => [],
-    awaitingLosTowerIds: () => [],
-    awaitingLosEntries: () => [],
-  });
 
   const gsm = new GameStateManager();
   // Before initialize: the managers take their streams there
   gsm.rng.reset(BENCH_SEED);
-  gsm.initialize(createBenchEngine(), routes[0][routes[0].length - 1], spawnPoints, paths);
+  gsm.initialize(routes[0][routes[0].length - 1], spawnPoints, paths);
   gsm.adjustBaseHealth(1e12);
   // Air targeting for the retrofit types; the simulation reads it from the ResearchManager
   gsm.researchManager.completeResearch('aa-retrofit');
@@ -299,6 +263,7 @@ export function createSimBench(scenario: SimScenario, services: Record<string, u
           topUp(MAX_REFILL_PER_STEP);
           last = performance.now();
         });
+        ops.take();
       }
       return done;
     },

@@ -9,51 +9,22 @@ vi.mock('three', async () => {
 });
 
 import { ProjectileManager } from './projectile.manager';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus } from '../game-engine/game-event-bus';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { ThreeTilesEngine } from '../three-engine';
-
-const createMockTilesEngine = () => ({
-  projectiles: {
-    create: vi.fn(),
-    update: vi.fn(),
-    updateWithRotation: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-  },
-  effects: {
-    spawnConfigurableTrail: vi.fn(),
-  },
-  trailStreaks: {
-    create: vi.fn(),
-    pushPosition: vi.fn(),
-    remove: vi.fn(),
-    updateAll: vi.fn(),
-  },
-  sync: {
-    geoToLocalSimple: vi.fn().mockReturnValue({ x: 0, y: 0, z: 0 }),
-    geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _height: number, target: { x: number; y: number; z: number }) => {
-      if (target) { target.x = 0; target.y = 0; target.z = 0; }
-      return target;
-    }),
-  },
-  spatialAudio: {
-    registerSound: vi.fn(),
-  },
-});
+import { createSinkSpy, type SinkSpy } from '../integration/test-helpers';
+import type { SimSink } from '../sim/core/sim-sink';
 
 describe('ProjectileManager', () => {
   let eventBus: GameEventBus;
-  let tilesEngine: ReturnType<typeof createMockTilesEngine>;
+  let sink: SinkSpy;
   let manager: ProjectileManager;
 
   beforeEach(() => {
     eventBus = new GameEventBus();
-    tilesEngine = createMockTilesEngine();
-    manager = new ProjectileManager(eventBus);
-    manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
+    sink = createSinkSpy();
+    manager = new ProjectileManager(eventBus, sink as unknown as SimSink);
   });
 
   it('spawns a projectile and creates renderer entity', () => {
@@ -68,7 +39,7 @@ describe('ProjectileManager', () => {
 
     const spawnHeight = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
 
-    expect(tilesEngine.projectiles.create).toHaveBeenCalledWith(
+    expect(sink.projectiles.create).toHaveBeenCalledWith(
       projectile.id,
       projectile.typeConfig.id,
       tower.position.lat,
@@ -76,46 +47,27 @@ describe('ProjectileManager', () => {
       spawnHeight,
       projectile.direction
     );
+    expect(sink.trailStreaks.create).toHaveBeenCalledWith(projectile.id, projectile.typeConfig.visualType);
     expect(manager.getAll()).toHaveLength(1);
     expect(eventBus.getQueueSize()).toBe(2); // audio event + muzzle flash deferred
   });
 
-  it('plays the shots of a manned tower at the listener, the others at the tower', () => {
+  it('leaves the sound and flash of a manned tower\'s shot to the main thread (tower:manual-shot)', () => {
     const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
     const enemy = new Enemy('zombie', [
       { lat: 0.001, lon: 0, height: 0 },
       { lat: 0.002, lon: 0, height: 0 },
     ]);
-    const sounds: (boolean | undefined)[] = [];
-    eventBus.on('audio:play', (event) => sounds.push(event.atListener));
-
+    const shown: string[] = [];
+    eventBus.onAny((event) => shown.push(event.type));
     manager.spawn(tower, enemy);
     tower.manned = true;
     manager.spawn(tower, enemy);
     manager.fireBlank(tower, { lat: 0.0003, lon: 0, height: 5 }, 0);
     eventBus.processQueue();
 
-    expect(sounds).toEqual([false, true, true]);
-  });
-
-  it("plays a partner's manned tower where it stands, only this player's seat at the listener (TODO E42)", () => {
-    const mine = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
-    const theirs = new Tower({ lat: 0, lon: 0.001, height: 2 }, 'ice');
-    mine.manned = true;
-    theirs.manned = true;
-    manager.ownSeat = (tower) => tower === mine;
-    const enemy = new Enemy('zombie', [
-      { lat: 0.001, lon: 0, height: 0 },
-      { lat: 0.002, lon: 0, height: 0 },
-    ]);
-    const sounds: (boolean | undefined)[] = [];
-    eventBus.on('audio:play', (event) => sounds.push(event.atListener));
-
-    manager.spawn(mine, enemy);
-    manager.spawn(theirs, enemy);
-    eventBus.processQueue();
-
-    expect(sounds).toEqual([true, false]);
+    expect(shown).toEqual(['audio:play', 'vfx:muzzle-flash']);
+    expect(manager.getAll()).toHaveLength(3);
   });
 
   it('flies a free shot of a manned tower to its aim point and removes it there without a hit', () => {
@@ -129,7 +81,7 @@ describe('ProjectileManager', () => {
     for (let i = 0; i < 600 && manager.getAll().length > 0; i++) manager.update(16);
 
     expect(manager.getAll()).toHaveLength(0);
-    expect(tilesEngine.projectiles.remove).toHaveBeenCalledWith(shot.id);
+    expect(sink.projectiles.remove).toHaveBeenCalledWith(shot.id);
     eventBus.processQueue();
     expect(hits).not.toHaveBeenCalled();
   });
@@ -155,7 +107,7 @@ describe('ProjectileManager', () => {
     expect(projectile.sourceTowerType).toBeNull();
     expect(projectile.damage).toBe(16);
     expect(projectile.damageType).toBe('physical');
-    expect(tilesEngine.projectiles.create).toHaveBeenCalledWith(projectile.id, 'hero-round', 0, 0, 3, projectile.direction);
+    expect(sink.projectiles.create).toHaveBeenCalledWith(projectile.id, 'hero-round', 0, 0, 3, projectile.direction);
 
     const deferred: string[] = [];
     eventBus.onAny((event) => deferred.push(event.type));
@@ -185,77 +137,7 @@ describe('ProjectileManager', () => {
       })
     );
     expect(manager.getById(projectile.id)).toBeNull();
-    expect(tilesEngine.projectiles.remove).toHaveBeenCalledWith(projectile.id);
-  });
-
-  it('updates in-flight projectile with rotation for arc trajectory', () => {
-    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'archer');
-    const enemy = new Enemy('zombie', [
-      { lat: 0.01, lon: 0, height: 0 },
-      { lat: 0.02, lon: 0, height: 0 },
-    ]);
-
-    const projectile = manager.spawn(tower, enemy);
-
-    manager.update(16);
-    // Visual push moved out of the sub-step: update() simulates only,
-    // presentFrame() feeds the renderer once per frame.
-    expect(tilesEngine.projectiles.updateWithRotation).not.toHaveBeenCalled();
-    manager.presentFrame();
-
-    expect(tilesEngine.projectiles.updateWithRotation).toHaveBeenCalledWith(
-      projectile.id,
-      projectile.position.lat,
-      projectile.position.lon,
-      projectile.flightHeight,
-      projectile.direction
-    );
-  });
-
-  it('lays a frame\'s trail particles back along the path instead of stacking them', () => {
-    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'magic');
-    const enemy = new Enemy('zombie', [
-      { lat: 0.001, lon: 0, height: 0 },
-      { lat: 0.002, lon: 0, height: 0 },
-    ]);
-    const projectile = manager.spawn(tower, enemy);
-
-    // Three sub-steps at 100 m/s: 4.8 m flown, nine 0.5 m gates.
-    manager.update(16);
-    manager.update(16);
-    manager.update(16);
-    manager.presentFrame();
-
-    const calls = tilesEngine.effects.spawnConfigurableTrail.mock.calls;
-    expect(calls).toHaveLength(9);
-    const { dx, dy, dz } = projectile.direction;
-    calls.forEach(([x, y, z], i) => {
-      // geoToLocalSimpleInto is mocked to the origin
-      expect(x).toBeCloseTo(-dx * 0.5 * i, 5);
-      expect(y).toBeCloseTo(-dy * 0.5 * i, 5);
-      expect(z).toBeCloseTo(-dz * 0.5 * i, 5);
-    });
-  });
-
-  it('starts the rocket trail and streak at the nozzle, behind the mesh centre', () => {
-    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'rocket');
-    const enemy = new Enemy('zombie', [
-      { lat: 0.001, lon: 0, height: 0 },
-      { lat: 0.002, lon: 0, height: 0 },
-    ]);
-    const projectile = manager.spawn(tower, enemy);
-
-    manager.update(16);
-    manager.presentFrame();
-
-    const tail = projectile.typeConfig.tailOffset!;
-    const { dx, dy, dz } = projectile.direction;
-    const [x, y, z] = tilesEngine.effects.spawnConfigurableTrail.mock.calls[0];
-    expect(x).toBeCloseTo(-dx * tail, 5);
-    expect(y).toBeCloseTo(-dy * tail, 5);
-    expect(z).toBeCloseTo(-dz * tail, 5);
-    const streakPos = tilesEngine.trailStreaks.pushPosition.mock.calls[0][1];
-    expect(streakPos.z).toBeCloseTo(-dz * tail, 5);
+    expect(sink.projectiles.remove).toHaveBeenCalledWith(projectile.id);
   });
 
   it('does not emit hit event when a non-splash target died before impact', () => {
@@ -276,7 +158,7 @@ describe('ProjectileManager', () => {
 
     expect(hitSpy).not.toHaveBeenCalled();
     expect(manager.getById(projectile.id)).toBeNull();
-    expect(tilesEngine.projectiles.remove).toHaveBeenCalledWith(projectile.id);
+    expect(sink.projectiles.remove).toHaveBeenCalledWith(projectile.id);
   });
 
   it('still emits hit event for a splash projectile when target died before impact', () => {
@@ -300,6 +182,6 @@ describe('ProjectileManager', () => {
     expect(hitSpy).toHaveBeenCalledTimes(1);
     expect(projectile.targetLost).toBe(true);
     expect(manager.getById(projectile.id)).toBeNull();
-    expect(tilesEngine.projectiles.remove).toHaveBeenCalledWith(projectile.id);
+    expect(sink.projectiles.remove).toHaveBeenCalledWith(projectile.id);
   });
 });

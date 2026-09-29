@@ -1,20 +1,13 @@
-import { signal } from '@angular/core';
-import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
 import { GeoPosition } from '../models/game.types';
-import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus } from '../game-engine';
-import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
-import { TOWER_TYPES } from '../configs/tower-types.config';
-import { TowerLosViz } from '../utils/tower-los-viz';
-import { canTargetAirEffective } from '../entities/tower-targeting.util';
-import type { SimResearch } from './research.manager';
+import { GameEventBus } from '../game-engine/game-event-bus';
 import { LOCAL_PLAYER_ID } from './game-state/command-log';
 import { computeGuardHeading } from '../utils/tower-guard-heading';
-import { veteranLevel } from '../configs/veteran-ranks.config';
 import { aimIdle } from '../entities/tower-aim';
+import type { SimCoords } from '../sim/core/sim-coords';
+import { opVec, type SimSink } from '../sim/core/sim-sink';
 
 /**
  * Manages all tower entities
@@ -24,85 +17,21 @@ import { aimIdle } from '../entities/tower-aim';
  * - No inject() calls
  * - Constructor injection
  * - Emits events: tower:placed, tower:sold
+ *
+ * What a tower looks like (model, plinth, searchlight, tentacle, crackle,
+ * furnace) is built and taken down on the main thread through ops (SimSink).
+ * Which tower is selected is the main thread's UI state.
  */
 export class TowerManager extends EntityManager<Tower> {
   constructor(
     private eventBus: GameEventBus,
-    private research: SimResearch,
+    private readonly coords: SimCoords,
+    private readonly sink: SimSink,
   ) {
     super();
   }
 
-  // Use signal for reactive updates
-  private readonly _selectedTowerId = signal<string | null>(null);
-  private placementSoundRegistered = false;
   private activeRoutesGetter: (() => GeoPosition[][]) | null = null;
-
-  /**
-   * GlobalRouteGridService — Quelle für Cells-in-Range und Cell-Size beim
-   * Bauen der Selection-LOS-Viz.
-   */
-  private globalRouteGrid: GlobalRouteGridService | null = null;
-
-  setGlobalRouteGrid(grid: GlobalRouteGridService): void {
-    this.globalRouteGrid = grid;
-  }
-
-  /**
-   * Aktuell aktive Selection-LOS-Viz. Lebt solange ein Tower selected
-   * ist und vor allem Build-Mode NICHT aktiv (siehe Lesson 9).
-   */
-  private selectionViz: TowerLosViz | null = null;
-  private selectionVizTowerId: string | null = null;
-
-  /**
-   * Initialize with ThreeTilesEngine and register the tower sounds.
-   * Placement rules are not checked here: TowerPlacementService validates
-   * every position (see checkTowerPlacement) before a tower is placed.
-   */
-  override initialize(tilesEngine: ThreeTilesEngine): void {
-    super.initialize(tilesEngine);
-
-    // Register placement sound
-    if (!this.placementSoundRegistered && tilesEngine.spatialAudio) {
-      tilesEngine.spatialAudio.registerSound('tower-placed', 'assets/sounds/effects/building_placed.mp3', {
-        refDistance: 50,
-        rolloffFactor: 1,
-        volume: 0.6,
-      });
-
-      // Register sell sound
-      tilesEngine.spatialAudio.registerSound('tower-sold', 'assets/sounds/effects/building_selled.mp3', {
-        refDistance: 50,
-        rolloffFactor: 1,
-        volume: 0.6,
-      });
-
-      // Register fire tower flame loop sound
-      tilesEngine.spatialAudio.registerSound('flame-loop', 'assets/sounds/towers/fire/flame_loop.mp3', {
-        refDistance: 30,
-        rolloffFactor: 1.2,
-        volume: 0.5,
-        loop: true,
-      });
-
-      // Register tentacle strike sound
-      tilesEngine.spatialAudio.registerSound('tentacle-grab', 'assets/sounds/towers/tentacle/tentacle-01.mp3', {
-        refDistance: 25,
-        rolloffFactor: 1.5,
-        volume: 0.7,
-      });
-
-      // Register lightning chain shot sound
-      tilesEngine.spatialAudio.registerSound('lightning-chain', 'assets/sounds/towers/lightning/lightning_chain.mp3', {
-        refDistance: 40,
-        rolloffFactor: 1.2,
-        volume: 0.6,
-      });
-
-      this.placementSoundRegistered = true;
-    }
-  }
 
   /**
    * Set a callback to retrieve the active enemy routes, for the towers'
@@ -133,20 +62,6 @@ export class TowerManager extends EntityManager<Tower> {
   }
 
   /**
-   * Per frame: show above every tower the veteran rank its kills have
-   * earned. Read from `combat.kills` each time, so the badge follows the kill
-   * count whatever set it, not only a tower:kill; the badge renderer does
-   * nothing while a rank stays the same.
-   */
-  syncVeteranBadges(): void {
-    const badges = this.tilesEngine?.towerBadges;
-    if (!badges) return;
-    for (const tower of this.getAll()) {
-      badges.setRank(tower.id, veteranLevel(tower.combat.kills));
-    }
-  }
-
-  /**
    * Place a new tower
    * @param position Geo position
    * @param typeId Tower type ID
@@ -165,10 +80,6 @@ export class TowerManager extends EntityManager<Tower> {
     /** Tower.ownerId, set before tower:placed goes out */
     ownerId: string = LOCAL_PLAYER_ID,
   ): Tower | null {
-    if (!this.tilesEngine) {
-      throw new Error('TowerManager not initialized');
-    }
-
     // Note: Validation is done by TowerPlacementService (with 3D distance calculation)
     // We skip redundant validation here to allow rooftop placements etc.
 
@@ -183,50 +94,31 @@ export class TowerManager extends EntityManager<Tower> {
     }
 
     const terrainHeight = position.height!;
-    this.tilesEngine.towers.create(
-      tower.id,
-      typeId,
-      position.lat,
-      position.lon,
-      terrainHeight,
-      customRotation,
-      tower.aim,
-    );
+    this.sink.towers.create(tower.id, typeId, position.lat, position.lon, terrainHeight, customRotation);
 
     // Stone plinth from the lowest point of the footprint up to the foot,
     // braced where it hangs over a drop
     if (tower.plinthHeight > 0) {
-      this.tilesEngine.plinths.create(
+      this.sink.plinths.create(
         tower.id,
         position.lat,
         position.lon,
         terrainHeight,
         tower.plinthHeight,
         tower.typeConfig.footprintRadius,
-        tower.plinthOverhang,
+        [...tower.plinthOverhang],
       );
     }
 
     // Searchlight for the blood moon, on the tower's foot (the plinth's top),
     // turning with the turret; passive buildings get none
-    this.tilesEngine.searchlights.add(
-      tower.id,
-      position.lat,
-      position.lon,
-      terrainHeight,
-      tower.typeConfig,
-    );
+    this.sink.searchlights.add(tower.id, position.lat, position.lon, terrainHeight, typeId);
 
     // Create tentacle visual for Tentacle Towers
     if (typeId === 'tentacle') {
-      const localPos = this.tilesEngine.sync.geoToLocalSimple(
-        position.lat,
-        position.lon,
-        terrainHeight
-      );
-      const shootPos = localPos.clone();
+      const shootPos = this.coords.sync.geoToLocalSimple(position.lat, position.lon, terrainHeight);
       shootPos.y += tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
-      this.tilesEngine.tentacles.create(tower.id, shootPos);
+      this.sink.tentacles.create(tower.id, opVec(shootPos));
     }
 
     // Start inner fire for Fire Towers
@@ -234,17 +126,9 @@ export class TowerManager extends EntityManager<Tower> {
 
     // Start permanent idle-crackle at tip for Lightning Towers
     if (typeId === 'lightning') {
-      const tipPos = this.tilesEngine.sync.geoToLocalSimple(
-        position.lat,
-        position.lon,
-        terrainHeight,
-      );
+      const tipPos = this.coords.sync.geoToLocalSimple(position.lat, position.lon, terrainHeight);
       tipPos.y += tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
-      this.tilesEngine.lightningBolts.registerIdleCrackle(
-        tower.id,
-        tipPos,
-        performance.now() / 1000,
-      );
+      this.sink.lightningBolts.registerIdleCrackle(tower.id, opVec(tipPos));
     }
 
     this.add(tower);
@@ -268,174 +152,6 @@ export class TowerManager extends EntityManager<Tower> {
     });
 
     return tower;
-  }
-
-  /**
-   * Select a tower
-   */
-  selectTower(id: string | null): void {
-    const currentId = this._selectedTowerId();
-
-    // Deselect previous
-    if (currentId) {
-      const prev = this.getById(currentId);
-      if (prev) {
-        prev.deselect();
-        this.tilesEngine?.towers.deselect(currentId);
-      }
-    }
-
-    // Bei jedem Selection-Wechsel die vorige Viz disposen — wir behalten
-    // nicht mehrere parallel.
-    this.disposeSelectionViz();
-
-    // Select new
-    this._selectedTowerId.set(id);
-    if (id) {
-      const tower = this.getById(id);
-      if (tower) {
-        tower.select();
-        this.tilesEngine?.towers.select(id);
-        if (tower.losReady) this.buildSelectionViz(tower);
-        this.eventBus.emit({ type: 'tower:selected', tower });
-      }
-    } else if (currentId) {
-      this.eventBus.emit({ type: 'tower:deselected' });
-    }
-  }
-
-  /**
-   * Selection-LOS-Viz für `tower` bauen. No-op wenn nicht alle
-   * Dependencies bereit sind.
-   */
-  private buildSelectionViz(tower: Tower): void {
-    if (!this.globalRouteGrid || !this.tilesEngine) return;
-    const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
-    if (!config) return;
-
-    const localPos = this.tilesEngine.sync.geoToLocalSimple(
-      tower.position.lat,
-      tower.position.lon,
-      tower.position.height ?? 0,
-    );
-    const tipY = localPos.y + config.heightOffset + config.shootHeight;
-    const towerTip = new Vector3(localPos.x, tipY, localPos.z);
-
-    const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = canTargetAirEffective(
-      tower.typeConfig.id as TowerTypeId,
-      this.research.airTargetingFor(tower.ownerId),
-    );
-    const range = tower.combat.range;
-
-    const blockerGroup = this.tilesEngine.getLosBlockerGroup();
-    if (!blockerGroup) return;
-    const cells = this.globalRouteGrid.getCellsInRange(
-      localPos.x, localPos.z, range,
-    );
-    if (cells.length === 0) return;
-
-    this.selectionViz = new TowerLosViz({
-      cells,
-      towerTip,
-      groundRange: range,
-      airRange: range,
-      canTargetGround,
-      canTargetAir,
-      gridCellSize: this.globalRouteGrid.getCellSize(),
-      shadowMapper: this.tilesEngine.getTowerShadowMapper(),
-      blockerGroup,
-    });
-    // Restore the persisted per-tower-LOS filter on the fresh viz —
-    // applyLosFilter() is also called externally on signal changes by
-    // GameLoopFacade.
-    this.selectionViz.setFilterMode(this.losFilterMode);
-    this.selectionViz.addTo(this.tilesEngine.getScene());
-    this.selectionVizTowerId = tower.id;
-  }
-
-  /**
-   * Current per-tower-LOS filter for the SELECTION viz. Owned by
-   * UIStore.perTowerLosFilter — the GameLoopFacade pushes changes in
-   * via `applyLosFilter()`. Mirrored here so that newly built selection
-   * vizes (after a tower-click or refreshSelectionViz) start with the
-   * correct state.
-   */
-  private losFilterMode: 'both' | 'ground' | 'air' = 'both';
-
-  /**
-   * Apply the per-tower-LOS filter to the active selection viz (if any)
-   * and remember the mode for any future viz built during the same
-   * session. Idempotent.
-   */
-  applyLosFilter(mode: 'both' | 'ground' | 'air'): void {
-    this.losFilterMode = mode;
-    this.selectionViz?.setFilterMode(mode);
-  }
-
-  /**
-   * Aktive Selection-LOS-Viz (oder null wenn kein Tower selected oder Viz
-   * noch nicht gebaut). Vom LOS-Debug-Panel benutzt um die Plate-Meshes
-   * für 3D-Picking zu raycasten.
-   */
-  getSelectionViz(): TowerLosViz | null {
-    return this.selectionViz;
-  }
-
-  private disposeSelectionViz(): void {
-    if (this.selectionViz) {
-      this.selectionViz.dispose();
-      this.selectionViz = null;
-      this.selectionVizTowerId = null;
-    }
-  }
-
-  /**
-   * Wird vom TowerPlacementService nach `registerTowerOnGrid` /
-   * `recomputeTowerLOS` aufgerufen, wenn dieser Tower selected ist.
-   * Baut die Viz mit dem aktuellen Cell-Set + Range neu.
-   */
-  refreshSelectionViz(tower: Tower): void {
-    if (this._selectedTowerId() !== tower.id) return;
-    this.disposeSelectionViz();
-    if (tower.losReady) this.buildSelectionViz(tower);
-  }
-
-  /**
-   * Wird beim Sell aufgerufen — bereinigt die Selection-Viz, falls dieser
-   * Tower gerade dargestellt wurde.
-   */
-  onTowerUnregistered(tower: Tower): void {
-    if (this.selectionVizTowerId === tower.id) {
-      this.disposeSelectionViz();
-    }
-  }
-
-  /** Per-Frame-Tick — pulse animation. */
-  tickSelectionViz(timeSeconds: number): void {
-    this.selectionViz?.tick(timeSeconds);
-  }
-
-  /**
-   * Get currently selected tower
-   */
-  getSelected(): Tower | null {
-    const id = this._selectedTowerId();
-    return id ? this.getById(id) : null;
-  }
-
-  /**
-   * Get ID of currently selected tower
-   */
-  getSelectedId(): string | null {
-    return this._selectedTowerId();
-  }
-
-  /**
-   * Deselect all towers
-   */
-  deselectAll(): void {
-    this.selectTower(null);
   }
 
   /**
@@ -471,7 +187,7 @@ export class TowerManager extends EntityManager<Tower> {
    * put the fires out (a replay's seek, entering or leaving it).
    */
   refreshInnerFires(): void {
-    this.tilesEngine?.effects.stopAllTowerFires();
+    this.sink.effects.stopAllTowerFires();
     for (const tower of this.getAll()) {
       if (tower.typeConfig.id === 'fire') this.startInnerFire(tower);
     }
@@ -479,53 +195,50 @@ export class TowerManager extends EntityManager<Tower> {
 
   /** The glow deep inside a fire tower's furnace. */
   private startInnerFire(tower: Tower): void {
-    const engine = this.tilesEngine;
-    if (!engine) return;
     const { lat, lon } = tower.position;
-    const localPos = engine.sync.geoToLocalSimple(lat, lon, tower.transform.terrainHeight);
+    const localPos = this.coords.sync.geoToLocalSimple(lat, lon, tower.transform.terrainHeight);
     // Fire center: deep inside the tower furnace
     const fireHeight = tower.typeConfig.heightOffset - 1.5;
-    engine.effects.spawnTowerInnerFire(tower.id, localPos, fireHeight, 0.5);
+    this.sink.effects.spawnTowerInnerFire(tower.id, opVec(localPos), fireHeight, 0.5);
   }
 
   /**
-   * Override remove to cleanup Three.js resources
+   * Override remove to take its look down on the main thread
    */
   override remove(entity: Tower): void {
     // Stop inner fire for Fire Towers
     if (entity.typeConfig.id === 'fire') {
-      this.tilesEngine?.effects.stopTowerInnerFire(entity.id);
+      this.sink.effects.stopTowerInnerFire(entity.id);
     }
     // Remove tentacle visual for Tentacle Towers
     if (entity.typeConfig.id === 'tentacle') {
-      this.tilesEngine?.tentacles.remove(entity.id);
+      this.sink.tentacles.remove(entity.id);
     }
     // Stop idle-crackle for Lightning Towers
     if (entity.typeConfig.id === 'lightning') {
-      this.tilesEngine?.lightningBolts.deregisterIdleCrackle(entity.id);
+      this.sink.lightningBolts.deregisterIdleCrackle(entity.id);
     }
     if (entity.plinthHeight > 0) {
-      this.tilesEngine?.plinths.remove(entity.id);
+      this.sink.plinths.remove(entity.id);
     }
-    this.tilesEngine?.towerBadges.remove(entity.id);
-    this.tilesEngine?.searchlights.remove(entity.id);
-    this.tilesEngine?.towers.remove(entity.id);
+    this.sink.towerBadges.remove(entity.id);
+    this.sink.searchlights.remove(entity.id);
+    this.sink.towers.remove(entity.id);
     super.remove(entity);
   }
 
   /**
-   * Override clear to cleanup all Three.js resources
+   * Override clear to take every tower's look down
    */
   override clear(): void {
     // Stop all tower inner fires
-    this.tilesEngine?.effects.stopAllTowerFires();
+    this.sink.effects.stopAllTowerFires();
     // Clear all tentacle visuals
-    this.tilesEngine?.tentacles.clear();
-    this.tilesEngine?.plinths.clear();
-    this.tilesEngine?.towerBadges.clear();
-    this.tilesEngine?.searchlights.clear();
-    this.tilesEngine?.towers.clear();
-    this._selectedTowerId.set(null);
+    this.sink.tentacles.clear();
+    this.sink.plinths.clear();
+    this.sink.towerBadges.clear();
+    this.sink.searchlights.clear();
+    this.sink.towers.clear();
     super.clear();
   }
 }

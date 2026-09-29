@@ -40,7 +40,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { Vector3, type WebGLCubeRenderTarget } from 'three';
-import { createMockTilesEngine, withAutoStubs, TEST_SPAWN_POINTS } from './test-helpers';
+import { provideSimServices, withAutoStubs, TEST_SPAWN_POINTS } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { DamageApplicationService } from '../services/combat/damage-application.service';
@@ -293,26 +293,6 @@ const AIR_COUNT = 9;
 /** Longest a wave may take here, in 16 ms frames. */
 const MAX_FRAMES = 240_000 / 16;
 
-function createEngine(): never {
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'oozes']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['towers']['get'] = () => undefined;
-  engine['hero'] = withAutoStubs({});
-  engine['flameBeams'] = withAutoStubs({});
-  engine['tentacles'] = withAutoStubs({});
-  engine['bloodMoon'] = withAutoStubs({});
-  engine['spatialAudio']['playAtGeo'] = () => Promise.resolve();
-  engine['spatialAudio']['getListener'] = () => ({
-    context: { state: 'running', resume: () => Promise.resolve() },
-    getWorldPosition: (target: Vector3) => target.set(0, 0, 0),
-  });
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  return withAutoStubs(engine) as never;
-}
 
 interface Game {
   gsm: GameStateManager;
@@ -333,6 +313,7 @@ function createGame(
   blocks: readonly Block[] = BLOCKS,
 ): Game {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  provideSimServices(mockServices, { sync: flatSync as never });
   GameObject.resetIdCounter();
 
   const grid = createGrid();
@@ -340,16 +321,13 @@ function createGame(
 
   mockServices['GlobalRouteGridService'] = grid;
   mockServices['SpatialGridService'] = new SpatialGridService();
-  mockServices['ResearchStore'] = withAutoStubs({ airTargetingUnlocked: () => false });
-  mockServices['PathAndRouteService'] = withAutoStubs({ getCachedPaths: () => paths });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['CombatEffectService'] = new CombatEffectService();
   mockServices['TowerCombatService'] = new TowerCombatService();
 
   const gsm = new GameStateManager();
-  gsm.initialize(createEngine(), BASE, TEST_SPAWN_POINTS, paths);
+  gsm.initialize(BASE, TEST_SPAWN_POINTS, paths);
 
   const towers = defense.map(({ type, x, z }) => {
     const config = TOWER_TYPES[type];

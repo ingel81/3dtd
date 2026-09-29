@@ -21,12 +21,21 @@ import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { Tower } from '../../entities/tower.entity';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { SimCoords } from '../../sim/core/sim-coords';
+import { createSinkSpy, createTestOps, type SinkSpy } from '../../integration/test-helpers';
+
+/** Every position at the origin: what these tests' grid stubs answer does not depend on it */
+const originSync = {
+  getOrigin: () => ({ lat: 0, lon: 0, height: 0 }),
+  geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }),
+  geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target,
+};
 
 /**
  * Coverage:
  * - calculateHeading: pure geo→radian heading math
  * - getEffectiveDPS / getEffectiveBeamWidth: upgrade-aware private getters
- * - Beam-state cleanup (stopTowerBeam, stopAllBeams) — flame-sound + throttle map
+ * - Beam-state cleanup (stopTowerBeam, stopAllBeams) — flame ops + throttle map
  * - updateBeamTowers: acquires only inside the flame, flame follows the range
  * - Turret heading without a target: held during a wave, guard heading after
  *
@@ -36,12 +45,19 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
  */
 describe('TowerCombatService', () => {
   let service: TowerCombatService;
+  let coords: SimCoords;
+  let sink: SinkSpy;
 
   beforeEach(() => {
     Object.keys(mockInjections).forEach(k => delete mockInjections[k]);
     mockInjections['GlobalRouteGridService'] = {};
     mockInjections['SpatialGridService'] = {};
     mockInjections['CombatEffectService'] = {};
+    coords = new SimCoords();
+    coords.use(originSync as never);
+    sink = createSinkSpy();
+    mockInjections['SimCoords'] = coords;
+    mockInjections['SimOps'] = createTestOps(sink);
     service = new TowerCombatService();
   });
 
@@ -180,43 +196,52 @@ describe('TowerCombatService', () => {
   describe('stopTowerBeam / stopAllBeams', () => {
     interface PrivateState {
       lastBeamBloodEffect: Map<string, number>;
-      activeFlameSounds: Map<string, string>;
-      tilesEngine: { flameBeams?: { stopBeam: ReturnType<typeof vi.fn> } } | null;
+      beams: Map<string, unknown>;
     }
     function priv(svc: TowerCombatService): PrivateState {
       return svc as unknown as PrivateState;
     }
+    const beam = { source: { x: 0, y: 0, z: 0 }, target: { x: 0, y: 0, z: 1 }, length: 20, width: 8 };
 
-    it('stopTowerBeam stops the beam and keeps the per-enemy throttle', () => {
+    it('stopTowerBeam puts the flame out with the next flush and keeps the per-enemy throttle', () => {
       // The throttle is keyed by enemy id and shared by all fire towers;
       // selling one tower has nothing to remove from it.
       const p = priv(service);
-      p.tilesEngine = { flameBeams: { stopBeam: vi.fn() } };
+      p.beams.set('t-1', beam);
       p.lastBeamBloodEffect.set('e-1', 999);
 
       service.stopTowerBeam('t-1');
-      expect(p.tilesEngine!.flameBeams!.stopBeam).toHaveBeenCalledWith('t-1');
+      service.flushBeams();
+      expect(sink.flameBeams.stopBeam).toHaveBeenCalledWith('t-1');
+      expect(sink.flameBeams.startBeam).not.toHaveBeenCalled();
       expect(p.lastBeamBloodEffect.get('e-1')).toBe(999);
     });
 
-    it('stopTowerBeam tolerates a missing tilesEngine', () => {
-      priv(service).tilesEngine = null;
-      expect(() => service.stopTowerBeam('t-X')).not.toThrow();
+    it('stopTowerBeam of a tower without a flame sends nothing', () => {
+      service.stopTowerBeam('t-X');
+      service.flushBeams();
+      expect(sink.flameBeams.stopBeam).not.toHaveBeenCalled();
     });
 
-    it('stopAllBeams clears the entire throttle map', () => {
+    it('stopAllBeams clears the entire throttle map and the flames at the next flush', () => {
       const p = priv(service);
-      p.tilesEngine = {
-        flameBeams: {
-          stopBeam: vi.fn(),
-          clear: vi.fn(),
-        },
-      } as never;
+      p.beams.set('t-1', beam);
       p.lastBeamBloodEffect.set('t-1', 1);
       p.lastBeamBloodEffect.set('t-2', 2);
 
       service.stopAllBeams();
       expect(p.lastBeamBloodEffect.size).toBe(0);
+      service.flushBeams();
+      expect(sink.flameBeams.clear).toHaveBeenCalledTimes(1);
+      expect(sink.flameBeams.startBeam).not.toHaveBeenCalled();
+    });
+
+    it('sends a burning flame once per flush, as the last sub-step left it', () => {
+      priv(service).beams.set('t-1', beam);
+      service.flushBeams();
+      service.flushBeams();
+      expect(sink.flameBeams.startBeam).toHaveBeenCalledTimes(2);
+      expect(sink.flameBeams.startBeam).toHaveBeenLastCalledWith('t-1', beam.source, beam.target, 20, 8);
     });
   });
 
@@ -258,15 +283,9 @@ describe('TowerCombatService', () => {
       mockInjections['CombatEffectService'] = { applyBeamDamage: vi.fn() };
       service = new TowerCombatService();
 
-      const engine = {
-        sync: {
-          geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }),
-          geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target,
-        },
-        towers: {},
-        flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn() },
-      };
-      service.initialize(engine as never, NO_RESEARCH);
+      service.initialize(NO_RESEARCH);
+      /** The flames the renderer gets after the step */
+      const engine = { flameBeams: sink.flameBeams };
       // Cone geometry needs real Vector3 math, which the three mock lacks.
       (service as unknown as { getEnemiesInCone: () => unknown[] }).getEnemiesInCone = () => [];
 
@@ -274,7 +293,10 @@ describe('TowerCombatService', () => {
       tower.losReady = true;
       tower.visibleCells = [{} as never];
       const towerManager = { getAllActive: () => [tower] };
-      const run = () => service.updateBeamTowers(16, towerManager as never, {} as never, 1000);
+      const run = () => {
+        service.updateBeamTowers(16, towerManager as never, 1000);
+        service.flushBeams();
+      };
       return { engine, tower, getEnemiesForTower, run };
     }
 
@@ -286,7 +308,6 @@ describe('TowerCombatService', () => {
 
       run();
       expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
-      expect(engine.flameBeams.stopBeam).toHaveBeenCalled();
     });
 
     it('burns an enemy inside the flame with a cone as long as the range', () => {
@@ -305,6 +326,13 @@ describe('TowerCombatService', () => {
 
       run();
       expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
+    });
+
+    it('puts a burning flame out once its tower holds fire', () => {
+      const { tower, engine, run } = setup(18);
+      run();
+      tower.holdFire = true;
+      run();
       expect(engine.flameBeams.stopBeam).toHaveBeenCalledWith(tower.id);
     });
 
@@ -322,7 +350,6 @@ describe('TowerCombatService', () => {
       const { engine, run } = setup(21);
       run();
       expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
-      expect(engine.flameBeams.stopBeam).toHaveBeenCalled();
     });
 
     it('drops the blood-throttle entry of an enemy the beam killed', () => {
@@ -390,10 +417,7 @@ describe('TowerCombatService', () => {
       mockInjections['SpatialGridService'] = { hasEnemyInRadius };
       mockInjections['GlobalRouteGridService'] = { getEnemiesForTower, getBodyEnemies: () => [] };
       service = new TowerCombatService();
-      service.initialize({
-        sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
-        towers: {},
-      } as never, NO_RESEARCH);
+      service.initialize(NO_RESEARCH);
 
       const tower = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, 'archer');
       tower.losReady = true;
@@ -401,9 +425,7 @@ describe('TowerCombatService', () => {
       // Stands in for a few range upgrades; applyUpgrade scales the same field.
       tower.combat.range = tower.typeConfig.range * 2;
 
-      service.updateTowerShooting(
-        1000, 16, { getAllActive: () => [tower] } as never, {} as never, {} as never,
-      );
+      service.updateTowerShooting(1000, 16, { getAllActive: () => [tower] } as never, {} as never);
 
       const radius = tower.combat.range * COMBAT_TUNING.rangeMargin.standard;
       expect(hasEnemyInRadius.mock.calls[0][2]).toBeCloseTo(radius, 6);
@@ -424,11 +446,7 @@ describe('TowerCombatService', () => {
     function setup() {
       mockInjections['GlobalRouteGridService'] = { getEnemiesForTower: noEnemies, getBodyEnemies: () => [] };
       service = new TowerCombatService();
-      service.initialize({
-        sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
-        towers: {},
-        flameBeams: { stopBeam: vi.fn() },
-      } as never, NO_RESEARCH);
+      service.initialize(NO_RESEARCH);
     }
 
     const loops: {
@@ -436,9 +454,9 @@ describe('TowerCombatService', () => {
       typeId: 'archer' | 'fire' | 'tentacle';
       run: (towerManager: never) => void;
     }[] = [
-      { kind: 'projectile', typeId: 'archer', run: (tm) => service.updateTowerShooting(1000, 16, tm, {} as never, {} as never) },
-      { kind: 'beam', typeId: 'fire', run: (tm) => service.updateBeamTowers(16, tm, {} as never, 1000) },
-      { kind: 'melee', typeId: 'tentacle', run: (tm) => service.updateMeleeTowers(16, tm, {} as never, 1000) },
+      { kind: 'projectile', typeId: 'archer', run: (tm) => service.updateTowerShooting(1000, 16, tm, {} as never) },
+      { kind: 'beam', typeId: 'fire', run: (tm) => service.updateBeamTowers(16, tm, 1000) },
+      { kind: 'melee', typeId: 'tentacle', run: (tm) => service.updateMeleeTowers(16, tm, 1000) },
     ];
 
     for (const { kind, typeId, run } of loops) {
@@ -522,25 +540,24 @@ describe('TowerCombatService', () => {
       mockInjections['GlobalRouteGridService'] = grid;
       mockInjections['CombatEffectService'] = {
         applyChainDamage: (enemy: { id: string }) => hits.push(enemy.id),
-        emitChainLightningVfx: () => undefined,
       };
-      service = new TowerCombatService();
-      service.initialize({
-        sync: {
-          geoToLocalSimpleInto: (lat: number, _lon: number, _h: number, target: { x: number; z: number }) => {
-            asked = enemies.find((e) => e.position.lat === lat)?.id ?? '';
-            target.x = 0;
-            target.z = 0;
-            return target;
-          },
+      coords.use({
+        ...originSync,
+        geoToLocalSimpleInto: (lat: number, _lon: number, _h: number, target: { x: number; y: number; z: number }) => {
+          asked = enemies.find((e) => e.position.lat === lat)?.id ?? '';
+          target.x = 0;
+          target.y = 0;
+          target.z = 0;
+          return target;
         },
-        towers: { get: () => undefined },
-      } as never, NO_RESEARCH);
+      } as never);
+      service = new TowerCombatService();
+      service.initialize(NO_RESEARCH);
       const tower = new Tower(towerPos, 'lightning');
       tower.losReady = true;
       tower.visibleCells = [{}] as never;
       const run = (gameTimeMs: number) =>
-        service.updateChainTowers(16, { getAllActive: () => [tower] } as never, {} as never, gameTimeMs);
+        service.updateChainTowers(16, { getAllActive: () => [tower] } as never, gameTimeMs);
       return { tower, run, hits };
     }
 
@@ -596,18 +613,15 @@ describe('TowerCombatService', () => {
       // No radius query: a tower that sees no cell has no candidates
       mockInjections['GlobalRouteGridService'] = { getEnemiesForTower, getBodyEnemies: () => [], isPositionVisibleFromTower };
       service = new TowerCombatService();
-      // A tripwire: the renderer has no line-of-sight raycast any more
+      // A tripwire: nothing may ask a renderer for a line of sight
       const towers = { hasLineOfSight: vi.fn(() => true) };
-      service.initialize({
-        sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
-        towers,
-      } as never, NO_RESEARCH);
+      service.initialize(NO_RESEARCH);
       const tower = new Tower(towerPos, 'archer');
       tower.losReady = true;
       tower.visibleCells = visibleCells as never;
       // On cooldown: the test stops at the target, before a shot
       tower.combat.fire();
-      const run = () => service.updateTowerShooting(1000, 16, { getAllActive: () => [tower] } as never, {} as never, {} as never);
+      const run = () => service.updateTowerShooting(1000, 16, { getAllActive: () => [tower] } as never, {} as never);
       return { towers, tower, run, isPositionVisibleFromTower, getEnemiesForTower };
     }
 

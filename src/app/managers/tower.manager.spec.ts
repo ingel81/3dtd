@@ -9,64 +9,28 @@ vi.mock('three', async () => {
 });
 
 import { TowerManager } from './tower.manager';
-import { NO_RESEARCH } from './research.manager';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus } from '../game-engine/game-event-bus';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { ThreeTilesEngine } from '../three-engine';
+import { createSinkSpy, createTestCoords, type SinkSpy } from '../integration/test-helpers';
+import type { SimSink } from '../sim/core/sim-sink';
 
-const createMockTilesEngine = () => ({
-  towers: {
-    create: vi.fn(),
-    select: vi.fn(),
-    deselect: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-  },
-  plinths: {
-    create: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-  },
-  towerBadges: {
-    setRank: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-  },
-  searchlights: {
-    add: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-  },
-  tentacles: {
-    create: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-  },
-  effects: {
-    spawnTowerInnerFire: vi.fn(),
-    stopTowerInnerFire: vi.fn(),
-    stopAllTowerFires: vi.fn(),
-  },
-  sync: {
-    geoToLocalSimple: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
-  },
-  spatialAudio: {
-    registerSound: vi.fn(),
-  },
-});
+/** A frame that puts every tower at the origin */
+const originSync = {
+  getOrigin: () => ({ lat: 0, lon: 0, height: 0 }),
+  geoToLocalSimple: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
+};
 
 describe('TowerManager', () => {
   let eventBus: GameEventBus;
-  let tilesEngine: ReturnType<typeof createMockTilesEngine>;
+  let sink: SinkSpy;
   let manager: TowerManager;
 
   beforeEach(() => {
     eventBus = new GameEventBus();
-    tilesEngine = createMockTilesEngine();
-    manager = new TowerManager(eventBus, NO_RESEARCH);
-    manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
+    sink = createSinkSpy();
+    manager = new TowerManager(eventBus, createTestCoords(originSync as never), sink as unknown as SimSink);
   });
 
   it('places a tower, creates renderer and emits event', () => {
@@ -80,18 +44,17 @@ describe('TowerManager', () => {
 
     expect(tower).toBeTruthy();
     expect(tower.position).toEqual(position);
-    expect(tilesEngine.towers.create).toHaveBeenCalledWith(
+    expect(sink.towers.create).toHaveBeenCalledWith(
       tower.id,
       'fire',
       position.lat,
       position.lon,
       position.height,
       0.5,
-      tower.aim, // the renderer draws the tower's own aim
     );
     // No routes, so no guard heading: the aim stays where it was placed
     expect(tower.aim.target).toBe(tower.aim.current);
-    expect(tilesEngine.effects.spawnTowerInnerFire).toHaveBeenCalledWith(
+    expect(sink.effects.spawnTowerInnerFire).toHaveBeenCalledWith(
       tower.id,
       { x: 0, y: 0, z: 0 },
       tower.typeConfig.heightOffset - 1.5,
@@ -128,8 +91,8 @@ describe('TowerManager', () => {
     const tower = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5) as Tower;
     manager.placeTower({ lat: 1.001, lon: 2, height: 5 }, 'archer');
 
-    expect(tilesEngine.plinths.create).toHaveBeenCalledTimes(1);
-    expect(tilesEngine.plinths.create).toHaveBeenCalledWith(
+    expect(sink.plinths.create).toHaveBeenCalledTimes(1);
+    expect(sink.plinths.create).toHaveBeenCalledWith(
       tower.id, 1, 2, 7, 2.5, tower.typeConfig.footprintRadius, [],
     );
   });
@@ -138,7 +101,7 @@ describe('TowerManager', () => {
     const tower = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5, [3, 4]) as Tower;
 
     expect(tower.plinthOverhang).toEqual([3, 4]);
-    expect(tilesEngine.plinths.create).toHaveBeenCalledWith(
+    expect(sink.plinths.create).toHaveBeenCalledWith(
       tower.id, 1, 2, 7, 2.5, tower.typeConfig.footprintRadius, [3, 4],
     );
   });
@@ -148,52 +111,32 @@ describe('TowerManager', () => {
     const flat = manager.placeTower({ lat: 1.001, lon: 2, height: 5 }, 'archer') as Tower;
 
     manager.sell(flat);
-    expect(tilesEngine.plinths.remove).not.toHaveBeenCalled();
+    expect(sink.plinths.remove).not.toHaveBeenCalled();
     manager.sell(onPlinth);
-    expect(tilesEngine.plinths.remove).toHaveBeenCalledWith(onPlinth.id);
+    expect(sink.plinths.remove).toHaveBeenCalledWith(onPlinth.id);
 
     manager.clear();
-    expect(tilesEngine.plinths.clear).toHaveBeenCalled();
-  });
-
-  it('shows above every tower the veteran rank its kills have earned', () => {
-    const recruit = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
-    const veteran = manager.placeTower({ lat: 1.001, lon: 2, height: 5 }, 'archer') as Tower;
-    recruit.combat.kills = 9;
-    veteran.combat.kills = 50;
-
-    manager.syncVeteranBadges();
-
-    expect(tilesEngine.towerBadges.setRank.mock.calls).toEqual([[recruit.id, 0], [veteran.id, 2]]);
-  });
-
-  it('follows kills set without a tower:kill, as a restore would set them', () => {
-    const tower = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
-    manager.syncVeteranBadges();
-    tower.combat.kills = 400;
-    manager.syncVeteranBadges();
-
-    expect(tilesEngine.towerBadges.setRank).toHaveBeenLastCalledWith(tower.id, 4);
+    expect(sink.plinths.clear).toHaveBeenCalled();
   });
 
   it('takes the veteran badge down with its tower', () => {
     const tower = manager.placeTower({ lat: 1, lon: 2, height: 5 }, 'archer') as Tower;
     manager.sell(tower);
-    expect(tilesEngine.towerBadges.remove).toHaveBeenCalledWith(tower.id);
+    expect(sink.towerBadges.remove).toHaveBeenCalledWith(tower.id);
 
     manager.clear();
-    expect(tilesEngine.towerBadges.clear).toHaveBeenCalled();
+    expect(sink.towerBadges.clear).toHaveBeenCalled();
   });
 
   it('hands every tower to the searchlights on its foot, and takes the light down with it', () => {
     const tower = manager.placeTower({ lat: 1, lon: 2, height: 7 }, 'cannon', 0, 2.5) as Tower;
     // The foot is the plinth's top, position.height; the renderer skips passive buildings
-    expect(tilesEngine.searchlights.add).toHaveBeenCalledWith(tower.id, 1, 2, 7, tower.typeConfig);
+    expect(sink.searchlights.add).toHaveBeenCalledWith(tower.id, 1, 2, 7, 'cannon');
 
     manager.sell(tower);
-    expect(tilesEngine.searchlights.remove).toHaveBeenCalledWith(tower.id);
+    expect(sink.searchlights.remove).toHaveBeenCalledWith(tower.id);
     manager.clear();
-    expect(tilesEngine.searchlights.clear).toHaveBeenCalled();
+    expect(sink.searchlights.clear).toHaveBeenCalled();
   });
 
   describe('guard heading', () => {
@@ -210,7 +153,7 @@ describe('TowerManager', () => {
       expect(tower.guardHeading).toBeLessThan(Math.PI / 4);
       expect(tower.aim.target).toBe(tower.guardHeading);
       expect(tower.aim.hasTarget).toBe(false);
-      expect(tilesEngine.towers.create).toHaveBeenCalledWith(tower.id, 'archer', 1, 2, 0, 0, tower.aim);
+      expect(sink.towers.create).toHaveBeenCalledWith(tower.id, 'archer', 1, 2, 0, 0);
     });
 
     it('is null when no route reaches the range', () => {
@@ -262,37 +205,7 @@ describe('TowerManager', () => {
       })
     );
     expect(manager.getById(tower.id)).toBeNull();
-    expect(tilesEngine.towers.remove).toHaveBeenCalledWith(tower.id);
-  });
-
-  it('selects and deselects towers and emits events', () => {
-    const selectedSpy = vi.fn();
-    const deselectedSpy = vi.fn();
-    eventBus.on('tower:selected', selectedSpy);
-    eventBus.on('tower:deselected', deselectedSpy);
-
-    const tower1 = manager.placeTower({ lat: 0.002, lon: 0, height: 1 }, 'ice') as Tower;
-    const tower2 = manager.placeTower({ lat: 0.003, lon: 0, height: 1 }, 'ice') as Tower;
-
-    // Phase 4 refactor: per-tower viz mesh is now owned by the grid service
-    // (shared single mesh, swapped on selection). The Tower entity no longer
-    // carries a `losVisualization` property — the test asserts only the
-    // observable selectTower behaviour: tower.selected flag + engine
-    // select/deselect + emitted events.
-
-    manager.selectTower(tower1.id);
-    expect(tower1.selected).toBe(true);
-    expect(tilesEngine.towers.select).toHaveBeenCalledWith(tower1.id);
-    expect(selectedSpy).toHaveBeenCalledWith(expect.objectContaining({ tower: tower1 }));
-
-    manager.selectTower(tower2.id);
-    expect(tower1.selected).toBe(false);
-    expect(tilesEngine.towers.deselect).toHaveBeenCalledWith(tower1.id);
-    expect(tower2.selected).toBe(true);
-
-    manager.deselectAll();
-    expect(tower2.selected).toBe(false);
-    expect(deselectedSpy).toHaveBeenCalledTimes(1);
+    expect(sink.towers.remove).toHaveBeenCalledWith(tower.id);
   });
 
   it('getAll/getById return expected towers', () => {

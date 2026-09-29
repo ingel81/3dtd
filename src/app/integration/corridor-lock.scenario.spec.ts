@@ -43,7 +43,12 @@ vi.mock('@angular/core', async () => {
 });
 
 import { Vector3 } from 'three';
-import { createMockTilesEngine, withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
+import {
+  provideSimServices,
+  withAutoStubs,
+  TEST_PATH,
+  TEST_SPAWN_POINTS,
+} from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { DamageApplicationService } from '../services/combat/damage-application.service';
@@ -223,6 +228,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
 
     for (const key of Object.keys(mockServices)) delete mockServices[key];
+    provideSimServices(mockServices);
     GameObject.resetIdCounter();
 
     // The route as the street width gives it until the first measurement
@@ -300,9 +306,6 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     grid = new GlobalRouteGridService();
     mockServices['GlobalRouteGridService'] = grid;
     mockServices['SpatialGridService'] = new SpatialGridService();
-    mockServices['ResearchStore'] = withAutoStubs({ airTargetingUnlocked: () => false, isTowerUnlocked: () => true });
-    mockServices['PathAndRouteService'] = pathRoute;
-    mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
     mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
     mockServices['DamageApplicationService'] = new DamageApplicationService();
     mockServices['CombatEffectService'] = new CombatEffectService();

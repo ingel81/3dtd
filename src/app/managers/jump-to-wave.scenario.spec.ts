@@ -28,24 +28,14 @@ const ROUTE_CELL = { lat: 48.771, lon: 9.181 };
 /** The stubs of game-state.manager.spec.ts, plus the route grid and combat an ability uses and the place a record is kept for */
 function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
-    GameStore: {
-      gameSpeed: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
-      // initialize() hands the current value to the engine it attaches
-      paused: Object.assign(vi.fn().mockReturnValue(false), { set: vi.fn() }),
-      renderingEnabled: Object.assign(vi.fn().mockReturnValue(true), { set: vi.fn() }),
-    },
-    UIStore: {
-      specialPointsDebugVisible: vi.fn().mockReturnValue(false),
-    },
-    PathAndRouteService: {
-      getCachedPaths: vi.fn().mockReturnValue(new Map()),
-    },
+    SimCoords: createTestCoords() as unknown as Record<string, unknown>,
+    SimOps: createTestOps() as unknown as Record<string, unknown>,
     GlobalRouteGridService: {
-      initDebugViz: vi.fn(),
       clear: vi.fn(),
       initialize: vi.fn(),
+      isInitialized: vi.fn().mockReturnValue(false),
       generateFromRoutes: vi.fn(),
-      getDefenseReachPercent: vi.fn().mockReturnValue(0),
+      unregisterTower: vi.fn(),
       snapToRouteCell: vi.fn().mockReturnValue(ROUTE_CELL),
       getEnemiesInRadiusGeo: vi.fn((_c: unknown, _r: number, _f: unknown, out: unknown[]) => {
         out.length = 0;
@@ -64,14 +54,6 @@ function createStubService(name: string): Record<string, unknown> {
       removeExpired: vi.fn(),
       hasActiveEffect: vi.fn().mockReturnValue(false),
     },
-    HQDamageService: {
-      initialize: vi.fn(),
-      reset: vi.fn(),
-      healBase: vi.fn(),
-      triggerGameOverEffects: vi.fn(),
-      showGameOverScreen: vi.fn().mockReturnValue(false),
-      onTilesLoaded: vi.fn(),
-    },
     TowerCombatService: {
       initialize: vi.fn(),
       turnTowersToGuard: vi.fn(),
@@ -82,36 +64,6 @@ function createStubService(name: string): Record<string, unknown> {
       updateChainTowers: vi.fn(),
       stopAllBeams: vi.fn(),
       stopAllMelee: vi.fn(),
-    },
-    OsmStreetService: {},
-    ResearchStore: {
-      isTowerUnlocked: vi.fn().mockReturnValue(true),
-      centerLevel: vi.fn().mockReturnValue(0),
-      researchSlots: vi.fn().mockReturnValue(1),
-      maxUpgradeTier: vi.fn().mockReturnValue(1),
-      airTargetingUnlocked: vi.fn().mockReturnValue(false),
-      completedResearches: Object.assign(vi.fn().mockReturnValue(new Set()), { set: vi.fn(), update: vi.fn() }),
-      activeResearches: Object.assign(vi.fn().mockReturnValue([]), { set: vi.fn() }),
-      applyResearchEffects: vi.fn(),
-      resetResearchState: vi.fn(),
-    },
-    WaveDebugService: {
-      setCurrentWaveConfig: vi.fn(),
-    },
-    EnemyDebugService: {
-      debugEnemies: vi.fn().mockReturnValue([]),
-      clearDebugEnemies: vi.fn(),
-    },
-    MarkerVisualizationService: {
-      spawnHQDebugPoint: vi.fn(),
-    },
-    TowerPlacementService: {
-      clearAllTowerOverlays: vi.fn(),
-      registerTowerOnGrid: vi.fn(),
-      unregisterTowerFromGrid: vi.fn(),
-      recomputeTowerLOS: vi.fn(),
-      scheduleLosRecompute: vi.fn(),
-      drainLosQueue: vi.fn(),
     },
     SpatialGridService: {
       updateEnemy: vi.fn(),
@@ -149,61 +101,11 @@ import { skippedWavesGold } from '../services/economy.service';
 import { RunLogCollector } from '../run-log/run-log.service';
 import { runSummary } from '../run-log/run-summary';
 import { BestWaveService } from '../services/location/best-wave.service';
+import { createTestCoords, createTestOps } from '../integration/test-helpers';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = 16.667;
 const NUKE = ABILITIES['nuclear-strike'];
-
-/** Any engine call is a no-op; the jump and the abilities draw nothing the tests read */
-function createMockEngine(): never {
-  const handler: ProxyHandler<Record<string, unknown>> = {
-    get(target, prop) {
-      if (prop in target) return target[prop as string];
-      const fn = vi.fn().mockReturnValue(undefined);
-      target[prop as string] = fn;
-      return fn;
-    },
-  };
-  const autoProxy = () => new Proxy({} as Record<string, unknown>, handler);
-  return new Proxy(
-    {
-      getScene: vi.fn().mockReturnValue({}),
-      getTerrainHeightAtGeo: vi.fn().mockReturnValue(0),
-      setTimescale: vi.fn(),
-      sync: {
-        getOrigin: vi.fn().mockReturnValue(HQ),
-        geoToLocal: vi.fn().mockReturnValue({ x: 0, y: 0, z: 0 }),
-        geoToLocalSimple: vi.fn().mockReturnValue({ x: 0, y: 0, z: 0 }),
-        localToGeo: vi.fn().mockReturnValue({ ...HQ, height: 0 }),
-      },
-      // The music crossfades on wave:started and asks the listener's context whether it runs
-      spatialAudio: new Proxy({ getListener: vi.fn().mockReturnValue({ context: { state: 'running' } }) } as Record<string, unknown>, {
-        get(target, prop) {
-          if (prop in target) return target[prop as string];
-          const fn = prop === 'playAtGeo' ? vi.fn().mockResolvedValue(undefined) : vi.fn().mockReturnValue(undefined);
-          target[prop as string] = fn;
-          return fn;
-        },
-      }),
-      effects: autoProxy(),
-      enemies: autoProxy(),
-      towers: autoProxy(),
-      plinths: autoProxy(),
-      towerBadges: autoProxy(),
-      bloodMoon: autoProxy(),
-      searchlights: autoProxy(),
-      projectiles: autoProxy(),
-      trailStreaks: autoProxy(),
-      tentacles: autoProxy(),
-      hero: autoProxy(),
-      orbitalBeams: autoProxy(),
-      abilityMarkers: autoProxy(),
-      oozes: autoProxy(),
-      triggerScreenShake: vi.fn(),
-    } as Record<string, unknown>,
-    handler,
-  ) as never;
-}
 
 /**
  * Playtest 381 and 382 (docs/archive/REVIEW_SPRINT_2026-09-14.md) replayed with the
@@ -220,7 +122,7 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
     localStorage.clear();
     Object.keys(mockServices).forEach((k) => delete mockServices[k]);
     gsm = new GameStateManager();
-    gsm.initialize(createMockEngine(), { ...HQ, height: 0 }, [{ id: 'sp-1', name: 'North', lat: 48.78, lon: 9.18, height: 0 }] as never[], new Map());
+    gsm.initialize({ ...HQ, height: 0 }, [{ id: 'sp-1', name: 'North', lat: 48.78, lon: 9.18, height: 0 }] as never[], new Map());
     bus = gsm.getEventBus();
     // The strike's launch site
     gsm.towerManager.add(new Tower({ ...HQ, height: 0 }, 'missile-silo'));

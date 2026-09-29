@@ -36,8 +36,8 @@ vi.mock('@angular/core', async () => {
 
 import { signal } from '@angular/core';
 import {
+  provideSimServices,
   addMissileSilo,
-  createMockTilesEngine,
   createTestCachedPaths,
   withAutoStubs,
   TEST_PATH,
@@ -57,24 +57,6 @@ import type { GeoPosition } from '../models/game.types';
 import type { FacadeComponentBridge } from '../services/facade/tower-defense-facade.service';
 
 /** The engine the loop gets, as in ability-loop.scenario.spec.ts */
-function createEngine(): never {
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'sync']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
-  engine['spatialAudio']['playAtGeo'] = vi.fn(() => Promise.resolve(null));
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  // ScreenShakeService measures the strike's distance from the camera
-  (engine as Record<string, unknown>)['getCamera'] = () => ({ position: { x: 0, y: 400, z: 0 } });
-  return new Proxy(engine, {
-    get(obj, prop, receiver) {
-      if (!(prop in obj)) Reflect.set(obj, prop, withAutoStubs(vi.fn()));
-      return Reflect.get(obj, prop, receiver);
-    },
-  }) as never;
-}
 
 const NUKE = ABILITIES['nuclear-strike'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -89,6 +71,7 @@ const STEP_MS = 16.667;
 /** A game with the strike researched and the facade's auto-start on its bus. */
 function createGame() {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  provideSimServices(mockServices);
   GameObject.resetIdCounter();
 
   const ref: { gsm?: GameStateManager } = {};
@@ -104,7 +87,6 @@ function createGame() {
     },
   });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['CombatEffectService'] = new CombatEffectService();
@@ -121,7 +103,7 @@ function createGame() {
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  gsm.initialize(BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.gameSpeed.set(1);
   addMissileSilo(gsm.towerManager);
   gsm.getEventBus().emit({

@@ -4,7 +4,6 @@ import {
   TransformComponent,
   HealthComponent,
   RenderComponent,
-  AudioComponent,
   MovementComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
@@ -15,11 +14,12 @@ import type { AirPortalExit } from '../utils/air-portal-exit';
 import type { WormLink } from '../managers/worm/worm-group';
 import type { RouteBody } from '../utils/route-body';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
-import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 import { EnemyRush } from './enemy-rush';
 
 /**
- * Enemy entity - combines Transform, Health, Render, Movement, and Audio components
+ * Enemy entity - combines Transform, Health, Render and Movement components.
+ * Its sounds and looks are the main thread's (presentation/), from the
+ * frame packet's enemy table and the simulation's events.
  */
 export class Enemy extends GameObject {
   readonly typeConfig: EnemyTypeConfig;
@@ -32,28 +32,18 @@ export class Enemy extends GameObject {
   private _health!: HealthComponent;
   private _render!: RenderComponent;
   private _movement!: MovementComponent;
-  private _audio!: AudioComponent;
 
   private isMoving = false;
 
   // ── Hot-path mirrors and caches ─────────────────────────────────
   // EnemyManager touches every enemy several times a frame. These plain
-  // fields let it answer "anything to do?" and find the enemy's grid and
-  // render slots without loading a component or hashing the string id into
+  // fields let it answer "anything to do?" and find the enemy's grid slots
+  // without loading a component or hashing the string id into
   // a 20k-entry Map. Each is written only by the owner named on it, and every
   // cache is validated before use, so none of them can change an outcome.
 
   /** Mirror of `health.isDead`. Written only by HealthComponent (DeathFlagSink). */
   deadFlag = false;
-  /** Whether the audio component holds loop handles. Written only by AudioComponent (LoopFlagSink). */
-  hasAudioLoops = false;
-  /**
-   * Game time to the next random call (ms), -1 while none is due: the enemy
-   * has no randomSound or does not move. Written only by the enemy itself;
-   * EnemyManager ticks it (tickRandomSound) in game time, so the calls stop
-   * in the pause and follow the game speed.
-   */
-  randomSoundLeftMs = -1;
   /** Whether the transform still turns toward its heading. Written only by TransformComponent (TurningFlagSink). */
   isTurning = false;
   /** GlobalRouteGrid's memo of this enemy's last cell evaluation, see updateEnemyPosition(). */
@@ -62,8 +52,6 @@ export class Enemy extends GameObject {
   routeCell: RouteCell | undefined = undefined;
   /** SpatialGrid entry kept by EnemyManager, re-validated on every use (SpatialGrid.updateTracked). */
   spatialEntry: SpatialEntry | null = null;
-  /** Renderer instance slot, resolved lazily by EnemyManager.presentFrame(). */
-  renderSlot: EnemyInstanceState | null = null;
   /**
    * Walk/run alternation, only for types with `animationVariation` and a run
    * clip; null for everyone else, so EnemyManager skips it on a field check.
@@ -133,35 +121,10 @@ export class Enemy extends GameObject {
       new MovementComponent(this),
       ComponentType.MOVEMENT
     );
-    this._audio = this.addComponent(
-      new AudioComponent(this, this),
-      ComponentType.AUDIO
-    );
 
     // Configure movement
     this._movement.setPath(path, startIndex, startProgress);
     this._movement.speedMps = speedOverride ?? this.typeConfig.baseSpeed;
-
-    // Register sounds
-    if (this.typeConfig.movingSound) {
-      this._audio.registerSound('moving', this.typeConfig.movingSound, {
-        volume: this.typeConfig.movingSoundVolume ?? 0.3,
-        refDistance: this.typeConfig.movingSoundRefDistance ?? 30,
-        loop: true,
-        randomStart: this.typeConfig.randomSoundStart ?? false,
-      });
-    }
-
-    // Register random sound (not looped, played in game time, see
-    // tickRandomSound). At volume 1: each call picks its own volume between
-    // randomSoundVolumeMin and Max, which would otherwise be scaled twice.
-    if (this.typeConfig.randomSound) {
-      this._audio.registerSound('randomSound', this.typeConfig.randomSound, {
-        volume: 1,
-        refDistance: this.typeConfig.randomSoundRefDistance ?? 30,
-        loop: false,
-      });
-    }
   }
 
   /** Get effective armor type (checks for active override like Armor Break, then falls back to config). */
@@ -185,8 +148,9 @@ export class Enemy extends GameObject {
   get movement(): MovementComponent {
     return this._movement;
   }
-  get audio(): AudioComponent {
-    return this._audio;
+  /** Walking (startMoving) rather than stopped; its moving sound loops on the main thread (EF_MOVING) */
+  get moving(): boolean {
+    return this.isMoving;
   }
 
   /**
@@ -207,69 +171,32 @@ export class Enemy extends GameObject {
     return this.transform.position;
   }
 
-  /**
-   * Start moving and play moving sound
-   */
+  /** Start moving */
   startMoving(): void {
     this.movement.resume();
     this.isMoving = true;
-
-    // Loop sound for normal enemies
-    if (this.typeConfig.movingSound) {
-      this.audio.play('moving', true);
-    }
-
-    if (this.typeConfig.randomSound) {
-      this.randomSoundLeftMs = this.nextRandomSoundInterval();
-    }
   }
 
   /**
    * Debug: walk or run from now on. The speed is simulation state, so this
-   * sets it here; the caller switches the clip. A rushing enemy keeps
-   * alternating from this state on.
+   * sets it here; the renderer shows the clip from the packet (EF_RUNNING).
+   * A rushing enemy keeps alternating from this state on.
    */
   setRunning(running: boolean): void {
     if (this.rush) this.rush.force(running);
     this.movement.speedMultiplier = running ? (this.typeConfig.runSpeedMultiplier ?? 1) : 1;
   }
 
-  /**
-   * Stop moving and sound
-   */
+  /** Stop moving */
   stopMoving(): void {
     this.movement.pause();
     this.isMoving = false;
-    this.audio.stop('moving');
-    this.randomSoundLeftMs = -1;
-  }
-
-  /**
-   * Advance the random call by `deltaMs` of game time and play it when due.
-   * EnemyManager calls this only while randomSoundLeftMs >= 0.
-   */
-  tickRandomSound(deltaMs: number): void {
-    this.randomSoundLeftMs -= deltaMs;
-    if (this.randomSoundLeftMs > 0) return;
-    const minVol = this.typeConfig.randomSoundVolumeMin ?? 0.2;
-    const maxVol = this.typeConfig.randomSoundVolumeMax ?? 0.6;
-    // eslint-disable-next-line no-restricted-properties -- sound only: volume of the call
-    this.audio.play('randomSound', false, minVol + Math.random() * (maxVol - minVol));
-    this.randomSoundLeftMs = this.nextRandomSoundInterval();
-  }
-
-  private nextRandomSoundInterval(): number {
-    const minInterval = this.typeConfig.randomSoundMinInterval ?? 2000;
-    const maxInterval = this.typeConfig.randomSoundMaxInterval ?? 5000;
-    // eslint-disable-next-line no-restricted-properties -- sound only: when an enemy calls, not part of the simulation
-    return minInterval + Math.random() * (maxInterval - minInterval);
   }
 
   /**
    * Cleanup on destroy
    */
   override destroy(): void {
-    this.randomSoundLeftMs = -1;
     this.isMoving = false;
 
     super.destroy();

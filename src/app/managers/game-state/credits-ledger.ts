@@ -1,5 +1,5 @@
 import { signal } from '@angular/core';
-import { GameEventBus } from '../../game-engine';
+import { GameEventBus } from '../../game-engine/game-event-bus';
 import type { CreditsSource } from '../../game-engine/game-event-bus';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { LOCAL_PLAYER_ID } from './command-log';

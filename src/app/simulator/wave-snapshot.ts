@@ -45,7 +45,7 @@ export interface WaveRunState {
   heroTargets: [string, string][];
   /** Every player's strikes on their way, roster order */
   strikes: [string, SavedStrike[]][];
-  /** Coop: [tower id, reason] of the towers waiting for the host's line of sight, oldest first */
+  /** Coop: [tower id, reason] of the towers waiting for the host's line of sight, oldest first; empty since the worker split (SimSnapshot.awaitingLos) */
   awaitingLos: [string, LosResolveReason][];
   /** Events waiting for the next sub-step, those of plain data (a wave:completed, a sound); one holding an entity is presentation and left out */
   deferred: unknown[];

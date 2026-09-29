@@ -1,7 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import type { LoopHandle } from '../../managers/audio/spatial-audio-loops';
 import { Vector3 } from 'three';
-import { ThreeTilesEngine } from '../../three-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { SpatialGridService } from '../world/spatial-grid.service';
 import { CombatEffectService } from './combat-effect.service';
@@ -14,7 +12,6 @@ import { getEnemyAimOffsetY } from '../../utils/enemy-aim.util';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { upgradeFactor } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
-import { EnemyManager } from '../../managers/enemy.manager';
 import { ProjectileManager } from '../../managers/projectile.manager';
 import type { GeoPosition } from '../../models/game.types';
 import { ROUTE_BODY_AIM_HEIGHT_M, type RouteBodyContact } from '../../utils/route-body';
@@ -24,6 +21,16 @@ import { TOWER_CONTROL } from '../../configs/tower-control.config';
 import { aimDirectionInto, eyeBackAt, eyeInto, rayHitDistance } from '../../utils/manual-aim';
 import { aimAt, aimIdle, aimPitch, aimPitchTowards, isAimAligned, releaseAim } from '../../entities/tower-aim';
 import { DetMath } from '../../utils/det-math';
+import { SimCoords } from '../../sim/core/sim-coords';
+import { SimOps, opVec, type OpVec3, type SimSink } from '../../sim/core/sim-sink';
+
+/** A fire tower's flame as the renderer shows it this frame, see TowerCombatService.flushBeams */
+interface BeamFrame {
+  source: OpVec3;
+  target: OpVec3;
+  length: number;
+  width: number;
+}
 
 /** A shot of the manned tower: at `target`, or a miss when null */
 export interface ManualShot {
@@ -41,26 +48,32 @@ export interface ManualShot {
  * - Firing and projectile spawning
  * - Guard heading between waves (turnTowersToGuard)
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class TowerCombatService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly spatialGrid = inject(SpatialGridService);
   private readonly combatEffectService = inject(CombatEffectService);
+  private readonly coords = inject(SimCoords);
+  private readonly sink: SimSink = inject(SimOps).sink;
 
-  private tilesEngine: ThreeTilesEngine | null = null;
   /** The game's ResearchManager once initialized */
   private research: SimResearch = NO_RESEARCH;
 
-  // Throttle blood effects for beam damage (per-enemy)
+  // Throttle blood effects for beam damage (per-enemy, game time)
   private lastBeamBloodEffect = new Map<string, number>();
   private readonly BEAM_BLOOD_EFFECT_INTERVAL = COMBAT_TUNING.beamBloodEffectIntervalMs;
 
-  // Active flame sound loops per tower (towerId -> soundHandle, FLAME_PENDING while created)
-  private activeFlameSounds = new Map<string, LoopHandle>();
+  /**
+   * The flames burning now by tower, and the ones put out since the last
+   * flushBeams: the renderer gets one startBeam per frame and tower, the
+   * last of the frame's sub-steps, not one per sub-step.
+   */
+  private readonly beams = new Map<string, BeamFrame>();
+  private readonly beamsStopped = new Set<string>();
+  private beamsCleared = false;
 
   // Reusable vectors for cone collision
   private readonly tempDirection = new Vector3();
-  private readonly tempSoundPos = new Vector3();
   private readonly _cone: Cone = { x: 0, y: 0, z: 0, dirX: 0, dirY: 0, dirZ: 1, length: 0, cosHalfAngle: 1 };
   private readonly _coneContact: RouteBodyContact = { station: 0, offset: 0, distance: 0 };
   private readonly groundAt = (x: number, z: number): number | null => this.globalRouteGrid.getGroundLocalYAt(x, z);
@@ -98,10 +111,9 @@ export class TowerCombatService {
   private readonly _pitchMuzzle = new Vector3();
 
   /**
-   * Initialize with engine reference and the research the combat reads
+   * Initialize with the research the combat reads
    */
-  initialize(tilesEngine: ThreeTilesEngine, research: SimResearch): void {
-    this.tilesEngine = tilesEngine;
+  initialize(research: SimResearch): void {
     this.research = research;
   }
 
@@ -112,18 +124,16 @@ export class TowerCombatService {
    * in (its LosMask). No answer (off the corridor, beyond the reach) counts
    * as not visible; there is no raycast (D2 in SIMULATOR_PLAN.md).
    */
-  private buildLosCheck(tower: Tower): ((enemy: Enemy) => boolean) | undefined {
-    const engine = this.tilesEngine;
-    if (!engine) return undefined;
+  private buildLosCheck(tower: Tower): (enemy: Enemy) => boolean {
+    const sync = this.coords.sync;
     // Shared reusable vector — avoids both a per-enemy AND a per-predicate
     // Vector3 allocation. Safe because predicates are built and consumed
     // sequentially per tower (never retained across tower iterations).
-    // Capturing `engine` also removes the non-null assertion on the field.
     const pos = this._losScratch;
     return (enemy: Enemy) => {
       // A body along the route: its aim point is one the tower sees
       if (enemy.body) return this.bodyAim.distSq(enemy) < Infinity;
-      engine.sync.geoToLocalSimpleInto(
+      sync.geoToLocalSimpleInto(
         enemy.position.lat,
         enemy.position.lon,
         enemy.transform.terrainHeight,
@@ -145,9 +155,7 @@ export class TowerCombatService {
     if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) return false;
     tower.lastSleepCheck = gameTimeMs;
 
-    const engine = this.tilesEngine;
-    if (!engine) return false;
-    const towerLocal = engine.sync.geoToLocalSimpleInto(
+    const towerLocal = this.coords.sync.geoToLocalSimpleInto(
       tower.position.lat,
       tower.position.lon,
       0,
@@ -164,50 +172,23 @@ export class TowerCombatService {
   }
 
   /**
-   * Candidate enemies for one tower, written into `_candidateScratch`.
-   * findTarget does the exact range check afterwards, so `radiusMeters`
-   * only has to cover it; only the path without an engine reads it.
-   *
-   * With an engine, the tower reads the enemies of its visibleCells from
-   * the GlobalRouteGrid. Works for ground, air-only and dual-targeting towers:
-   * visibleCells is the union of ground + air visible cells, so a "blue-only"
-   * cell still produces candidates and buildLosCheck filters them per enemy.
-   * A tower that sees no cell has no candidates: an enemy anywhere else has
-   * no answer of the tower and would not pass buildLosCheck.
-   *
-   * Without an engine (no LOS at all), a geo-distance filter over all alive
-   * enemies.
+   * Candidate enemies for one tower, written into `_candidateScratch`:
+   * the enemies of its visibleCells from the GlobalRouteGrid. findTarget
+   * does the exact range check afterwards. Works for ground, air-only and
+   * dual-targeting towers: visibleCells is the union of ground + air visible
+   * cells, so a "blue-only" cell still produces candidates and buildLosCheck
+   * filters them per enemy. A tower that sees no cell has no candidates: an
+   * enemy anywhere else has no answer of the tower and would not pass
+   * buildLosCheck.
    *
    * Enemies whose body lies along the route are in no cell: each living one
    * is added, findTarget measures it at the tower's aim point (BodyAim).
    */
-  private collectCandidates(
-    tower: Tower,
-    radiusMeters: number,
-    enemyManager: EnemyManager,
-  ): Enemy[] {
-    if (this.tilesEngine) {
-      const out = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
-      if (tower.visibleCells.length === 0) return out;
-      for (const enemy of this.globalRouteGrid.getBodyEnemies()) {
-        if (enemy.alive) out.push(enemy);
-      }
-      return out;
-    }
-
-    // Ultimate fallback: geo-distance filter (no engine available).
-    // getAlive() is only touched here: it re-filters the whole enemy list
-    // whenever its cache was invalidated, which while a wave is spawning is
-    // every sub-step.
-    const mPerDegLat = METERS_PER_DEGREE_LAT;
-    const mPerDegLon = METERS_PER_DEGREE_LAT * DetMath.cos(tower.position.lat * DEG_TO_RAD);
-    const radiusSq = radiusMeters ** 2;
-    const out = this._candidateScratch;
-    out.length = 0;
-    for (const enemy of enemyManager.getAlive()) {
-      const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
-      const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
-      if (dx * dx + dy * dy <= radiusSq) out.push(enemy);
+  private collectCandidates(tower: Tower): Enemy[] {
+    const out = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
+    if (tower.visibleCells.length === 0) return out;
+    for (const enemy of this.globalRouteGrid.getBodyEnemies()) {
+      if (enemy.alive) out.push(enemy);
     }
     return out;
   }
@@ -217,12 +198,11 @@ export class TowerCombatService {
    * route is on the map. Its distance and aim point depend on the tower.
    */
   private beginBodyAim(tower: Tower): void {
-    const engine = this.tilesEngine;
-    if (!engine || this.globalRouteGrid.getBodyEnemies().length === 0) {
+    if (this.globalRouteGrid.getBodyEnemies().length === 0) {
       this.bodyAim.endTurn();
       return;
     }
-    const local = engine.sync.geoToLocalSimpleInto(
+    const local = this.coords.sync.geoToLocalSimpleInto(
       tower.position.lat,
       tower.position.lon,
       0,
@@ -252,12 +232,12 @@ export class TowerCombatService {
 
   /** aimLocalPosition() into `out`, without allocating. */
   private aimLocalInto(target: Enemy, out: Vector3): Vector3 {
-    const engine = this.tilesEngine!;
+    const sync = this.coords.sync;
     if (target.body && this.bodyAim.aim(target, this._aimPoint)) {
       const p = this._aimPoint;
-      return engine.sync.geoToLocalSimpleInto(p.lat, p.lon, p.height + ROUTE_BODY_AIM_HEIGHT_M, out);
+      return sync.geoToLocalSimpleInto(p.lat, p.lon, p.height + ROUTE_BODY_AIM_HEIGHT_M, out);
     }
-    engine.sync.geoToLocalSimpleInto(
+    sync.geoToLocalSimpleInto(
       target.position.lat,
       target.position.lon,
       target.transform.terrainHeight + target.heightOffset,
@@ -269,7 +249,7 @@ export class TowerCombatService {
 
   /** Tilt the guns of a tower with pitchNodes towards `target` (only the model shows it). */
   private aimPitch(tower: Tower, target: Enemy): void {
-    if (!tower.typeConfig.pitchNodes || !this.tilesEngine) return;
+    if (!tower.typeConfig.pitchNodes) return;
     const point = this.aimLocalInto(target, this._pitchTarget);
     const muzzle = this.muzzleLocal(tower, this._pitchMuzzle);
     const dx = point.x - muzzle.x;
@@ -315,7 +295,6 @@ export class TowerCombatService {
     gameTimeMs: number,
     deltaTime: number,
     towerManager: TowerManager,
-    enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
   ): void {
 
@@ -340,11 +319,7 @@ export class TowerCombatService {
       // losCheck dispatches per-enemy on isAirUnit so air targets resolve
       // against air-LoS and ground targets against ground-LoS, the tower's
       // answers in cell.airVisibility / cell.towerVisibility.
-      const candidates = this.collectCandidates(
-        tower,
-        tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
-        enemyManager,
-      );
+      const candidates = this.collectCandidates(tower);
       this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower);
 
@@ -365,7 +340,7 @@ export class TowerCombatService {
         if (tower.combat.canFire() && isAimAligned(tower.aim)) {
           // Periodic LOS recheck (throttled to max ~3/sec per tower) — runs
           // for air targets too now that tall buildings can break air LOS.
-          if (losCheck && tower.needsLosRecheck(gameTimeMs)) {
+          if (tower.needsLosRecheck(gameTimeMs)) {
             tower.markLosChecked(gameTimeMs);
             if (!losCheck(target)) {
               // Target no longer visible - find new target
@@ -419,7 +394,6 @@ export class TowerCombatService {
     tower: Tower,
     gameTimeMs: number,
     deltaTime: number,
-    enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
   ): ManualShot | null {
     tower.combat.update(deltaTime);
@@ -428,7 +402,7 @@ export class TowerCombatService {
     // The guns tilt with the aim, as far as they go (types without pitchNodes keep 0)
     aimPitch(tower.aim, pitch);
 
-    const aimTarget = tower.losReady ? this.manualTarget(tower, enemyManager) : null;
+    const aimTarget = tower.losReady ? this.manualTarget(tower) : null;
     this.mannedAimTargets.set(tower.id, aimTarget);
     if (!tower.losReady || !tower.triggerHeld || !tower.combat.canFire()) return null;
     if (!isAimAligned(tower.aim, TOWER_CONTROL.alignToleranceRad)) return null;
@@ -448,23 +422,18 @@ export class TowerCombatService {
    * Where a manned tower's miss flies: the point on the aim ray at the
    * tower's range from the eye, so it passes the crosshair. Geo, relative
    * to the muzzle (METERS_PER_DEGREE_LAT at the tower's latitude, as the
-   * projectile moves). Without an engine: straight ahead at muzzle height.
+   * projectile moves).
    */
   private freeShotEnd(tower: Tower): GeoPosition {
     const { heading, pitch } = tower.manualAim;
     const muzzleHeight = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
     const range = tower.combat.range;
     const dir = aimDirectionInto(heading, pitch, this._mannedDir);
-    let dx = dir.x * range;
-    let dy = dir.y * range;
-    let dz = dir.z * range;
-    if (this.tilesEngine) {
-      const eye = this.mannedEyeInto(tower, this._mannedEye);
-      const muzzle = this.muzzleLocal(tower, this._mannedMuzzle);
-      dx += eye.x - muzzle.x;
-      dy += eye.y - muzzle.y;
-      dz += eye.z - muzzle.z;
-    }
+    const eye = this.mannedEyeInto(tower, this._mannedEye);
+    const muzzle = this.muzzleLocal(tower, this._mannedMuzzle);
+    const dx = dir.x * range + eye.x - muzzle.x;
+    const dy = dir.y * range + eye.y - muzzle.y;
+    const dz = dir.z * range + eye.z - muzzle.z;
     const mPerDegLon = METERS_PER_DEGREE_LAT * DetMath.cos(tower.position.lat * DEG_TO_RAD);
     return {
       lat: tower.position.lat + dz / METERS_PER_DEGREE_LAT,
@@ -508,14 +477,8 @@ export class TowerCombatService {
    * First enemy along the aim ray of the manned tower within its hit radius
    * that the tower may attack. Candidates as for its automatic fire.
    */
-  private manualTarget(tower: Tower, enemyManager: EnemyManager): Enemy | null {
-    const engine = this.tilesEngine;
-    if (!engine) return null;
-    const candidates = this.collectCandidates(
-      tower,
-      tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
-      enemyManager,
-    );
+  private manualTarget(tower: Tower): Enemy | null {
+    const candidates = this.collectCandidates(tower);
     this.beginBodyAim(tower);
     const losCheck = this.buildLosCheck(tower);
 
@@ -562,7 +525,7 @@ export class TowerCombatService {
   /** Where a tower's shots start, local: its position at muzzle height (as ProjectileManager.spawn). */
   private muzzleLocal(tower: Tower, out: Vector3): Vector3 {
     const height = (tower.position.height ?? 0) + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
-    return this.tilesEngine!.sync.geoToLocalSimpleInto(tower.position.lat, tower.position.lon, height, out);
+    return this.coords.sync.geoToLocalSimpleInto(tower.position.lat, tower.position.lon, height, out);
   }
 
   /**
@@ -586,13 +549,8 @@ export class TowerCombatService {
   updateBeamTowers(
     deltaTime: number,
     towerManager: TowerManager,
-    enemyManager: EnemyManager,
     gameTimeMs: number,
   ): void {
-    if (!this.tilesEngine || !this.tilesEngine?.flameBeams) return;
-
-    // Wall-clock used only for the beam-blood-splatter throttle (visual).
-    const now = performance.now();
     // deltaTime is sub-step game-time ms — convert to seconds for DPS math.
     const dt = deltaTime / 1000;
 
@@ -608,11 +566,7 @@ export class TowerCombatService {
       // burn, and range upgrades widened that ring instead of the flame.
       // The beam margin covers the cone's hit tolerance past its length.
       const beamLength = tower.combat.range;
-      const candidates = this.collectCandidates(
-        tower,
-        beamLength * COMBAT_TUNING.rangeMargin.beam,
-        enemyManager,
-      );
+      const candidates = this.collectCandidates(tower);
 
       // Find primary target (closest/lowest HP in range). Same LOS predicate
       // as the projectile/melee/chain paths — beam towers must not acquire
@@ -626,7 +580,7 @@ export class TowerCombatService {
       // cached target without a LOS check, and unlike projectile towers
       // there is no canFire gate where the recheck would naturally run —
       // without this, a target drifting behind a building kept burning.
-      if (target && losCheck && tower.needsLosRecheck(gameTimeMs)) {
+      if (target && tower.needsLosRecheck(gameTimeMs)) {
         tower.markLosChecked(gameTimeMs);
         if (!losCheck(target)) {
           tower.clearTarget();
@@ -642,7 +596,7 @@ export class TowerCombatService {
         // Get local positions
         const terrainHeight = tower.position.height ?? 0;
         // Scratch vectors: every sub-step of every beam tower, and all readers copy them
-        const towerLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
+        const towerLocalPos = this.coords.sync.geoToLocalSimpleInto(
           tower.position.lat,
           tower.position.lon,
           terrainHeight,
@@ -653,23 +607,14 @@ export class TowerCombatService {
 
         const targetLocalPos = this.aimLocalInto(target, this._beamTargetScratch);
 
-        // Start/update flame beam visual
+        // Start/update flame beam visual (and its loop sound, on the main thread)
         const beamWidth = this.getEffectiveBeamWidth(tower);
-        this.tilesEngine?.flameBeams.startBeam(
-          tower.id,
-          towerLocalPos,
-          targetLocalPos,
-          beamLength,
-          beamWidth
-        );
-
-        // Start flame sound if not already playing
-        if (!this.activeFlameSounds.has(tower.id)) {
-          this.startFlameSound(tower.id, towerLocalPos);
-        } else {
-          // Update sound position
-          this.updateFlameSoundPosition(tower.id, towerLocalPos);
-        }
+        this.beams.set(tower.id, {
+          source: opVec(towerLocalPos),
+          target: opVec(targetLocalPos),
+          length: beamLength,
+          width: beamWidth,
+        });
 
         // Apply DPS to all enemies in cone. A share of it is dealt as burn
         // instead of directly: in the cone the total stays the tower's DPS,
@@ -688,10 +633,10 @@ export class TowerCombatService {
 
         for (const enemy of enemiesInCone) {
           // Throttle blood effects per enemy
-          const lastBlood = this.lastBeamBloodEffect.get(enemy.id) ?? 0;
-          const showBlood = now - lastBlood > this.BEAM_BLOOD_EFFECT_INTERVAL;
+          const lastBlood = this.lastBeamBloodEffect.get(enemy.id) ?? -Infinity;
+          const showBlood = gameTimeMs - lastBlood > this.BEAM_BLOOD_EFFECT_INTERVAL;
           if (showBlood) {
-            this.lastBeamBloodEffect.set(enemy.id, now);
+            this.lastBeamBloodEffect.set(enemy.id, gameTimeMs);
           }
 
           this.combatEffectService.applyBeamDamage(
@@ -711,16 +656,13 @@ export class TowerCombatService {
         }
       } else {
         // No target - stop beam and sound, the turret keeps its heading
-        this.tilesEngine?.flameBeams.stopBeam(tower.id);
-        this.stopFlameSound(tower.id);
+        this.stopBeam(tower.id);
         releaseAim(tower.aim);
       }
     }
 
-    // Flame-beam shader animation is NOT advanced here. `ThreeTilesEngine`
-    // already ticks it once per render frame; doing it again per sub-step
-    // advanced the effect by the sub-step count on top, so the flames ran
-    // several times too fast whenever the frame rate dropped.
+    // Flame-beam shader animation is NOT advanced here: the renderer ticks
+    // it once per render frame on the main thread.
   }
 
   /**
@@ -762,8 +704,7 @@ export class TowerCombatService {
     endWidth: number,
     candidates: Enemy[]
   ): Enemy[] {
-    if (!this.tilesEngine) return [];
-
+    const sync = this.coords.sync;
     // Cone from the source toward the target. Half-angle: endWidth is the
     // diameter, tan(angle) = (endWidth/2) / coneLength
     const dir = this.tempDirection.subVectors(target, source).normalize();
@@ -790,7 +731,7 @@ export class TowerCombatService {
         // A body along the route: the point this tower aims at on it, where
         // its hit then lands
         if (!this.bodyAim.aim(enemy, this._aimPoint)) continue;
-        p = this.tilesEngine.sync.geoToLocalSimpleInto(
+        p = sync.geoToLocalSimpleInto(
           this._aimPoint.lat,
           this._aimPoint.lon,
           this._aimPoint.height + ROUTE_BODY_AIM_HEIGHT_M,
@@ -817,7 +758,7 @@ export class TowerCombatService {
         continue;
       }
 
-      p = this.tilesEngine.sync.geoToLocalSimpleInto(
+      p = sync.geoToLocalSimpleInto(
         enemy.position.lat,
         enemy.position.lon,
         enemy.transform.terrainHeight + enemy.heightOffset,
@@ -834,21 +775,35 @@ export class TowerCombatService {
    * Stop a specific tower's flame beam and sound (called when fire tower is sold)
    */
   stopTowerBeam(towerId: string): void {
-    this.tilesEngine?.flameBeams?.stopBeam(towerId);
-    this.stopFlameSound(towerId);
+    this.stopBeam(towerId);
   }
 
   /**
    * Stop all active beams (called on wave end)
    */
   stopAllBeams(): void {
-    this.tilesEngine?.flameBeams?.clear();
+    this.beams.clear();
+    this.beamsStopped.clear();
+    this.beamsCleared = true;
     this.lastBeamBloodEffect.clear();
+  }
 
-    // Stop all flame sounds. Snapshot keys before iterating because
-    // stopFlameSound mutates the map.
-    for (const towerId of [...this.activeFlameSounds.keys()]) {
-      this.stopFlameSound(towerId);
+  private stopBeam(towerId: string): void {
+    if (this.beams.delete(towerId)) this.beamsStopped.add(towerId);
+  }
+
+  /**
+   * The flames for the renderer, once per frame (sim/core/packet-writer.ts):
+   * a clear if all were put out, every beam put out since, then every
+   * burning beam as the last sub-step left it.
+   */
+  flushBeams(sink: SimSink = this.sink): void {
+    if (this.beamsCleared) sink.flameBeams.clear();
+    this.beamsCleared = false;
+    for (const towerId of this.beamsStopped) sink.flameBeams.stopBeam(towerId);
+    this.beamsStopped.clear();
+    for (const [towerId, beam] of this.beams) {
+      sink.flameBeams.startBeam(towerId, beam.source, beam.target, beam.length, beam.width);
     }
   }
 
@@ -863,12 +818,8 @@ export class TowerCombatService {
   updateMeleeTowers(
     deltaTime: number,
     towerManager: TowerManager,
-    enemyManager: EnemyManager,
     gameTimeMs: number,
   ): void {
-    if (!this.tilesEngine) return;
-
-
     for (const tower of towerManager.getAllActive()) {
       // Type-filter MUST be before combat.update — see comment in
       // updateTowerShooting for the cooldown-double-tick bug.
@@ -881,11 +832,7 @@ export class TowerCombatService {
       // Wake check (game-time, no timescale compensation needed thanks to sub-stepping)
       if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
-      const candidates = this.collectCandidates(
-        tower,
-        tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
-        enemyManager,
-      );
+      const candidates = this.collectCandidates(tower);
       this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower);
       const target = tower.findTarget(candidates, this.research.airTargetingFor(tower.ownerId), losCheck, this.bodyDistSq);
@@ -909,8 +856,9 @@ export class TowerCombatService {
             tower.id,
           );
 
-          this.tilesEngine.tentacles?.startStrike(tower.id, targetLocalPos);
-          this.tilesEngine.spatialAudio?.playAt('tentacle-grab', targetLocalPos);
+          const at = opVec(targetLocalPos);
+          this.sink.tentacles.startStrike(tower.id, at);
+          this.sink.spatialAudio.playAt('tentacle-grab', at);
         }
       } else {
         if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
@@ -926,7 +874,7 @@ export class TowerCombatService {
    * Resets tentacles to idle — they stay visible as part of the tower
    */
   stopAllMelee(): void {
-    this.tilesEngine?.tentacles?.resetAllToIdle();
+    this.sink.tentacles.resetAllToIdle();
   }
 
   // =====================================================
@@ -940,12 +888,8 @@ export class TowerCombatService {
   updateChainTowers(
     deltaTime: number,
     towerManager: TowerManager,
-    enemyManager: EnemyManager,
     gameTimeMs: number,
   ): void {
-    if (!this.tilesEngine) return;
-
-
     for (const tower of towerManager.getAllActive()) {
       // Type-filter MUST be before combat.update — see comment in
       // updateTowerShooting for the cooldown-double-tick bug.
@@ -958,11 +902,7 @@ export class TowerCombatService {
       // Wake check
       if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
-      const candidates = this.collectCandidates(
-        tower,
-        tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
-        enemyManager,
-      );
+      const candidates = this.collectCandidates(tower);
       this.beginBodyAim(tower);
       const losCheck = this.buildLosCheck(tower);
       const airTargeting = this.research.airTargetingFor(tower.ownerId);
@@ -983,7 +923,7 @@ export class TowerCombatService {
       // fire: findTarget keeps a target without asking again, so the bolt went
       // on into the alley the enemy had walked into (TODO E43). No turret to
       // turn, so the bolt goes to the new target at once.
-      if (losCheck && tower.needsLosRecheck(gameTimeMs)) {
+      if (tower.needsLosRecheck(gameTimeMs)) {
         tower.markLosChecked(gameTimeMs);
         if (!losCheck(target)) {
           tower.clearTarget();
@@ -1023,8 +963,8 @@ export class TowerCombatService {
         this.combatEffectService.applyChainDamage(hits[i], dmg, damageType, tower.id);
       }
 
-      // Phase 3 hook — emit VFX event with bolt endpoints
-      this.emitChainFireEvent(tower, hits);
+      // The bolt through the hits; the main thread starts it at the tower's tip
+      this.sink.main.chainLightning(tower.id, hits.map((hit) => opVec(this.aimLocalPosition(hit))));
     }
   }
 
@@ -1067,111 +1007,5 @@ export class TowerCombatService {
       }
     }
     return best;
-  }
-
-  /**
-   * Emit a 'vfx:chain-lightning' event with the local-space points of the
-   * chain (tower tip → primary → jump1 → ...). One bolt mesh spawns per
-   * consecutive pair in the VFX handler. Also plays the chain-fire sound
-   * spatialised at the tower tip.
-   */
-  private emitChainFireEvent(tower: Tower, hits: Enemy[]): void {
-    if (!this.tilesEngine || hits.length === 0) return;
-
-    const towerData = this.tilesEngine.towers.get(tower.id);
-    if (!towerData) return;
-
-    const points: { x: number; y: number; z: number }[] = [];
-
-    // Tower tip in local space
-    const tipLocal = this.tilesEngine.sync.geoToLocalSimple(
-      tower.position.lat,
-      tower.position.lon,
-      towerData.height,
-    );
-    const tipY = towerData.tipY;
-    points.push({ x: tipLocal.x, y: tipY, z: tipLocal.z });
-
-    // Hits, center-of-mass (a body: the aim point)
-    for (const e of hits) {
-      const p = this.aimLocalPosition(e);
-      points.push({ x: p.x, y: p.y, z: p.z });
-    }
-
-    this.combatEffectService.emitChainLightningVfx(points, tower.id);
-
-    // Chain sound from the tower tip (spatialised so distant towers feel quieter)
-    this.tempSoundPos.set(tipLocal.x, tipY, tipLocal.z);
-    this.tilesEngine.spatialAudio?.playAt('lightning-chain', this.tempSoundPos);
-  }
-
-  // =====================================================
-  // FLAME SOUND HELPERS
-  // =====================================================
-
-  /**
-   * Start flame loop sound for a tower.
-   *
-   * createLoop is async, so without a synchronous reservation a
-   * stopFlameSound / stopAllBeams that fires *between* the await and the
-   * handle-storing line would silently leak the loop — the loop's handle
-   * gets stored after the cancel ran, so nobody can stop it later. This
-   * was the "fire sound keeps playing after wave end / kill all" bug.
-   *
-   * Fix: reserve the slot with a PENDING sentinel before awaiting. After
-   * await, only commit the real handle if the sentinel is still there.
-   * If the entry is gone (= we got cancelled mid-await), stop the freshly
-   * created loop immediately.
-   */
-  private static readonly FLAME_PENDING: LoopHandle = -1; // real handles count up from 1
-  private async startFlameSound(towerId: string, position: Vector3): Promise<void> {
-    if (!this.tilesEngine?.spatialAudio) return;
-
-    // Don't start if already playing or in flight
-    if (this.activeFlameSounds.has(towerId)) return;
-
-    this.activeFlameSounds.set(towerId, TowerCombatService.FLAME_PENDING);
-
-    this.tempSoundPos.copy(position);
-    const handle = await this.tilesEngine.spatialAudio.createLoop(
-      'flame-loop',
-      this.tempSoundPos,
-      { volumeMultiplier: 1.0 }
-    );
-
-    const current = this.activeFlameSounds.get(towerId);
-    if (current === TowerCombatService.FLAME_PENDING && handle !== null) {
-      this.activeFlameSounds.set(towerId, handle);
-    } else if (handle !== null) {
-      // We were cancelled mid-await. The loop is already playing into
-      // the void — stop it now or it leaks forever.
-      this.tilesEngine.spatialAudio.stopLoop(handle);
-    }
-  }
-
-  /**
-   * Update flame sound position (for moving camera / distance-based pause)
-   */
-  private updateFlameSoundPosition(towerId: string, position: Vector3): void {
-    const handle = this.activeFlameSounds.get(towerId);
-    if (handle === undefined || handle === TowerCombatService.FLAME_PENDING || !this.tilesEngine?.spatialAudio) return;
-
-    this.tempSoundPos.copy(position);
-    this.tilesEngine.spatialAudio.updateLoopPosition(handle, this.tempSoundPos);
-  }
-
-  /**
-   * Stop flame sound for a tower
-   */
-  private stopFlameSound(towerId: string): void {
-    const handle = this.activeFlameSounds.get(towerId);
-    if (handle === undefined) return;
-
-    // Pending: clear the slot so the in-flight startFlameSound knows
-    // to stop the loop itself once the await resolves.
-    this.activeFlameSounds.delete(towerId);
-    if (handle === TowerCombatService.FLAME_PENDING) return;
-
-    this.tilesEngine?.spatialAudio?.stopLoop(handle);
   }
 }

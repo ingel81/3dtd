@@ -1,6 +1,5 @@
 import { Injectable, inject } from '@angular/core';
 import { Vector3 } from 'three';
-import { ThreeTilesEngine } from '../../three-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { StatusEffectService } from './status-effect.service';
 import { CombatVfxService } from './combat-vfx.service';
@@ -16,7 +15,7 @@ import { TIMING } from '../../configs/timing.config';
 import { geoDistanceFast } from '../../utils/geo-utils';
 import { TowerManager } from '../../managers/tower.manager';
 import { EnemyManager } from '../../managers/enemy.manager';
-import { GameEventBus, SubscriptionBag } from '../../game-engine';
+import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
 import { DamageType, DamageResult, DamageEffectiveness } from '../../configs/combat/combat.types';
 import {
   DAMAGE_MATRIX,
@@ -28,6 +27,8 @@ import { ABILITY_DEATH_BLOOD_CAP } from '../../configs/visual-effects.config';
 import { enemyHitSpot } from '../../utils/enemy-hit-spot';
 import { ROUTE_BODY_AIM_HEIGHT_M, type RouteBodyContact } from '../../utils/route-body';
 import type { AbilityHaltStatus } from '../../configs/abilities.config';
+import { SimCoords } from '../../sim/core/sim-coords';
+import { SimOps, type SimSink } from '../../sim/core/sim-sink';
 
 /**
  * CombatEffectService - Orchestrates projectile hits
@@ -38,14 +39,15 @@ import type { AbilityHaltStatus } from '../../configs/abilities.config';
  * - CombatVfxService for visual effects
  * - StatusEffectService for slow/burn/poison
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class CombatEffectService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly statusEffectService = inject(StatusEffectService);
   private readonly vfx = inject(CombatVfxService);
   private readonly damageService = inject(DamageApplicationService);
+  private readonly coords = inject(SimCoords);
+  private readonly sink: SimSink = inject(SimOps).sink;
 
-  private tilesEngine: ThreeTilesEngine | null = null;
   /** The game's research once initialized */
   private research: SimResearch = NO_RESEARCH;
   /** The game's towers once initialized: whose research a shot's splash follows */
@@ -61,7 +63,7 @@ export class CombatEffectService {
   private readonly _hitLocal = new Vector3();
   private readonly _hitContact: RouteBodyContact = { station: 0, offset: 0, distance: 0 };
 
-  /** Whether damage numbers are shown on hits (toggled via display options) */
+  /** Whether damage numbers are shown on hits (display option, SimConfig.damageNumbers) */
   damageNumbersEnabled = true;
 
   /** The owner of the tower that fired; '' (read as the first player) for one sold since. */
@@ -77,10 +79,9 @@ export class CombatEffectService {
   }
 
   /**
-   * Initialize with engine reference and subscribe to events
+   * Initialize with the game's bus, towers, enemies and research, and subscribe to events
    */
   initialize(
-    tilesEngine: ThreeTilesEngine,
     eventBus: GameEventBus,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
@@ -89,13 +90,12 @@ export class CombatEffectService {
     // Clean up previous subscriptions on re-init
     this.eventBusSubs.disposeAll();
 
-    this.tilesEngine = tilesEngine;
     this.eventBus = eventBus;
     this.research = research;
     this.towerManager = towerManager;
 
     // Initialize sub-services
-    this.vfx.initialize(tilesEngine, eventBus);
+    this.vfx.initialize(eventBus);
     this.damageService.initialize(towerManager, enemyManager, eventBus);
 
     // Subscribe to projectile:hit events
@@ -319,7 +319,7 @@ export class CombatEffectService {
   }
 
   private spawnDamageNumber(enemy: Enemy, damage: number, effectiveness: DamageEffectiveness): void {
-    if (!this.damageNumbersEnabled || !this.tilesEngine) return;
+    if (!this.damageNumbersEnabled) return;
     const rounded = Math.round(damage);
     const color = EFFECTIVENESS_COLORS[effectiveness];
     const effectivenessScale = EFFECTIVENESS_SCALES[effectiveness];
@@ -328,7 +328,7 @@ export class CombatEffectService {
     const baseScale = 0.25 + t * 0.3; // 0.25 (low dmg) → 0.55 (high dmg)
     const scale = baseScale * effectivenessScale;
     const spot = enemyHitSpot(enemy);
-    this.tilesEngine.effects.spawnFloatingText(
+    this.sink.effects.spawnFloatingText(
       `-${rounded}`,
       spot.lat,
       spot.lon,
@@ -356,7 +356,7 @@ export class CombatEffectService {
     effectType: 'poison' | 'burn',
     sourceTowerId: string,
   ): void {
-    if (!enemy.alive || !this.tilesEngine) return;
+    if (!enemy.alive) return;
     if (enemy.body) this.keepHitOnBody(enemy);
 
     const result = this.damageService.applyDamage(
@@ -373,7 +373,7 @@ export class CombatEffectService {
     if (this.damageNumbersEnabled && result) {
       const rounded = Math.round(result.finalDamage);
       const spot = enemyHitSpot(enemy);
-      this.tilesEngine.effects.spawnFloatingText(
+      this.sink.effects.spawnFloatingText(
         `-${rounded}`,
         spot.lat,
         spot.lon,
@@ -400,7 +400,7 @@ export class CombatEffectService {
     const body = enemy.body!;
     const hit = body.hit;
     const st = body.stations;
-    const local = this.tilesEngine!.sync.geoToLocalSimpleInto(hit.lat, hit.lon, 0, this._hitLocal);
+    const local = this.coords.sync.geoToLocalSimpleInto(hit.lat, hit.lon, 0, this._hitLocal);
     const { station: k, offset } = body.nearest(local.x, local.z, this._hitContact);
     const groundY = this.globalRouteGrid.getGroundLocalYAt(st.x[k] + st.rightX[k] * offset, st.z[k] + st.rightZ[k] * offset)
       ?? hit.height - st.originHeight;
@@ -466,7 +466,7 @@ export class CombatEffectService {
     if (result) {
       this.spawnDamageNumberFromResult(enemy, result);
     }
-    this.tilesEngine?.enemies.triggerHitFlash(enemy.id);
+    this.sink.enemies.triggerHitFlash(enemy.id);
   }
 
   /**
@@ -530,16 +530,5 @@ export class CombatEffectService {
           break;
       }
     }
-  }
-
-  /**
-   * Emit a 'vfx:chain-lightning' event with the polyline of hit points
-   * (tower tip → primary → jump1 → …) in local space.
-   */
-  emitChainLightningVfx(points: { x: number; y: number; z: number }[], sourceTowerId: string): void {
-    if (!this.eventBus || points.length < 2) return;
-    // Deferred like all other vfx:* events — processed at the stable frame-end
-    // point, not synchronously inside the tower-combat update.
-    this.eventBus.emitDeferred({ type: 'vfx:chain-lightning', points, sourceTowerId });
   }
 }

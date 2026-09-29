@@ -1,18 +1,17 @@
-import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Projectile } from '../entities/projectile.entity';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
-import { ThreeTilesEngine } from '../three-engine';
 import { PROJECTILE_SOUNDS, ProjectileTypeId } from '../configs/projectile-types.config';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { DamageType } from '../configs/combat/combat.types';
 import type { GeoPosition } from '../models/game.types';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus } from '../game-engine/game-event-bus';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { DetMath } from '../utils/det-math';
 import type { SavedProjectile } from '../simulator/wave-snapshot';
 import { assignPlainFields, plainFields } from '../simulator/plain-fields';
+import type { SimSink } from '../sim/core/sim-sink';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
@@ -23,72 +22,31 @@ import { assignPlainFields, plainFields } from '../simulator/plain-fields';
  * - Constructor injection
  * - Emits events instead of callbacks
  */
-/** Where a shot's sound plays: at a geo position, or at the listener (audio:play atListener) */
+/** Where a shot's sound plays, a geo position */
 interface ShotSound {
   lat: number;
   lon: number;
   height: number;
-  atListener?: boolean;
 }
 
 /**
- * Spawn one trail-particle burst per this many meters travelled.
- * Distance-based gating gives uniform trails at any framerate / speed.
+ * Projectiles in flight. Their renderers and trails are the main thread's:
+ * created and removed by ops (SimSink), moved from the packet's projectile
+ * table.
+ *
+ * A shot of a manned tower has no sound and no muzzle flash from here: the
+ * main thread shows them on `tower:manual-shot` (at the listener for its own
+ * player's seat, or at once at the click when it predicted the shot).
  */
-const TRAIL_SPAWN_DISTANCE_M = 0.5;
-
 export class ProjectileManager extends EntityManager<Projectile> {
-  /**
-   * Presentation only: a manned tower's shot the player's client showed
-   * already, at the click (TowerControlService, coop). Such a shot flies
-   * and hits as any other, without a second sound and muzzle flash. What it
-   * returns must not change the simulation, only what is seen and heard.
-   */
-  quietShot: ((towerId: string) => boolean) | null = null;
-
-  /**
-   * The tower this client's player sits in (GameStateManager). Only its shots
-   * sound at the listener; a partner's manned tower sounds where it stands
-   * (TODO E42). Null: every manned tower is this player's (single player).
-   */
-  ownSeat: ((tower: Tower) => boolean) | null = null;
-
-  private soundsRegistered = false;
-
   /** Reused per-frame scratch buffers — avoids per-update allocation. */
   private readonly toRemove: Projectile[] = [];
-  private readonly trailPos = new Vector3();
 
   constructor(
-    private eventBus: GameEventBus
+    private eventBus: GameEventBus,
+    private readonly sink: SimSink,
   ) {
     super();
-  }
-
-  /**
-   * Initialize projectile manager with ThreeTilesEngine
-   */
-  override initialize(tilesEngine: ThreeTilesEngine): void {
-    super.initialize(tilesEngine);
-
-    // Register projectile sounds with spatial audio.
-    // Override the duration-based heuristic — projectile samples can run
-    // ~1 s, which would put them in the medium bucket (4 polyphony, ~50 ms
-    // anti-flood). At 8 max-upgraded towers in continuous fire that caps
-    // out instantly. Combat sounds need loose throttling regardless of
-    // sample length.
-    if (!this.soundsRegistered && tilesEngine.spatialAudio) {
-      for (const [id, config] of Object.entries(PROJECTILE_SOUNDS)) {
-        tilesEngine.spatialAudio.registerSound(id, config.url, {
-          refDistance: config.refDistance,
-          rolloffFactor: config.rolloffFactor,
-          volume: config.volume,
-          minIntervalMs: 10,
-          maxInstances: 12,
-        });
-      }
-      this.soundsRegistered = true;
-    }
   }
 
   /**
@@ -98,7 +56,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    *   (a body along the route, see Projectile.aimPoint)
    */
   spawn(tower: Tower, targetEnemy: Enemy, heading?: number, aimPoint?: GeoPosition): Projectile {
-    const quiet = this.quietShot?.(tower.id) ?? false;
+    const quiet = tower.manned;
     const start = this.muzzlePosition(tower, heading);
     const projectile = this.launch(
       start.position,
@@ -125,7 +83,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * @param heading turret heading, for the fire point as in spawn()
    */
   fireBlank(tower: Tower, aimPoint: GeoPosition, heading: number): Projectile {
-    const quiet = this.quietShot?.(tower.id) ?? false;
+    const quiet = tower.manned;
     const start = this.muzzlePosition(tower, heading);
     const projectile = this.launch(
       start.position,
@@ -165,18 +123,12 @@ export class ProjectileManager extends EntityManager<Projectile> {
     return { position: { lat, lon, height: tower.position.height }, height };
   }
 
-  /**
-   * A tower's shot sounds at its position, on its model. The shots of the
-   * tower this player sits in (ownSeat) sound at the listener, without a direction: the
-   * model is below and in front of the eye, and a look up would turn the
-   * shot behind the head, where HRTF panning colours it (docs/TOWER_CONTROL.md).
-   */
+  /** A tower's shot sounds at its position, on its model. */
   private towerSoundPosition(tower: Tower): ShotSound {
     return {
       lat: tower.position.lat,
       lon: tower.position.lon,
       height: (tower.position.height ?? 0) + tower.typeConfig.heightOffset,
-      atListener: tower.manned && (this.ownSeat?.(tower) ?? true),
     };
   }
 
@@ -230,10 +182,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
     sound: ShotSound | null,
     aimPoint?: GeoPosition,
   ): Projectile {
-    if (!this.tilesEngine) {
-      throw new Error('ProjectileManager not initialized');
-    }
-
     const projectile = new Projectile(
       start,
       targetEnemy,
@@ -246,20 +194,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
       aimPoint,
     );
 
-    this.tilesEngine.projectiles.create(
-      projectile.id,
-      projectile.typeConfig.id,
-      start.lat,
-      start.lon,
-      startHeight,
-      projectile.direction
-    );
-
-    // Create trail streak for the projectile
-    this.tilesEngine.trailStreaks?.create(
-      projectile.id,
-      projectile.typeConfig.visualType
-    );
+    this.showCreated(projectile, start.lat, start.lon, startHeight);
 
     this.add(projectile);
 
@@ -315,95 +250,17 @@ export class ProjectileManager extends EntityManager<Projectile> {
         });
 
         this.toRemove.push(projectile);
-      } else if (projectile.typeConfig.trailParticles?.enabled) {
-        // Accumulate travel distance on the sub-step so the trail-particle
-        // density stays framerate-independent; the spawns themselves are
-        // visual and happen in presentFrame.
-        projectile.trailDistanceAcc += projectile.distanceThisFrame;
       }
     }
 
     this.toRemove.forEach((p) => this.remove(p));
   }
 
-  /**
-   * Push projectile state to the renderer. Call once per render frame, after
-   * the sub-step loop, and only when at least one sub-step actually ran —
-   * same contract as `EnemyManager.presentFrame`.
-   *
-   * This work used to sit inside the per-sub-step loop, where instance
-   * positions, trail particles and streak points were re-pushed for every
-   * step even though `commitToGPU` runs once per frame and only the last
-   * push is ever seen. Headless training (rendering off, high timescale)
-   * paid for all of it per sub-step; now it is skipped entirely there.
-   */
-  presentFrame(): void {
-    const engine = this.tilesEngine;
-    if (!engine) return;
-
-    for (const projectile of this.getAllActive()) {
-      // Update visual position (projectiles whose target died keep flying
-      // to the last known position and stay visible until impact).
-      if (projectile.isHoming || projectile.hasArcTrajectory) {
-        // Homing and arc projectiles update rotation continuously
-        engine.projectiles.updateWithRotation(
-          projectile.id,
-          projectile.position.lat,
-          projectile.position.lon,
-          projectile.flightHeight,
-          projectile.direction
-        );
-      } else {
-        // Regular projectiles keep fixed rotation
-        engine.projectiles.update(
-          projectile.id,
-          projectile.position.lat,
-          projectile.position.lon,
-          projectile.flightHeight
-        );
-      }
-
-      engine.sync.geoToLocalSimpleInto(
-        projectile.position.lat,
-        projectile.position.lon,
-        projectile.flightHeight,
-        this.trailPos
-      );
-      const dir = projectile.direction;
-      const tailOffset = projectile.typeConfig.tailOffset ?? 0;
-      if (tailOffset > 0) {
-        // Trails start at the tail (rocket nozzle), not the mesh centre
-        this.trailPos.x -= dir.dx * tailOffset;
-        this.trailPos.y -= dir.dy * tailOffset;
-        this.trailPos.z -= dir.dz * tailOffset;
-      }
-
-      // Distance-based trail spawn: drain the distance accumulated on the
-      // sub-steps so trails stay visually uniform across framerates /
-      // projectile speeds. The per-config spawnChance still applies on each
-      // gate hit. The frame's spawns are laid back along the flight
-      // direction, one gate apart, instead of all landing on the current
-      // position: a rocket covers 2 m per frame at 60 FPS, and the stacked
-      // spawns read as blobs rather than a trail.
-      const trailConfig = projectile.typeConfig.trailParticles;
-      if (trailConfig?.enabled) {
-        let back = 0;
-        while (projectile.trailDistanceAcc >= TRAIL_SPAWN_DISTANCE_M) {
-          projectile.trailDistanceAcc -= TRAIL_SPAWN_DISTANCE_M;
-          engine.effects.spawnConfigurableTrail(
-            this.trailPos.x - dir.dx * back,
-            this.trailPos.y - dir.dy * back,
-            this.trailPos.z - dir.dz * back,
-            trailConfig
-          );
-          back += TRAIL_SPAWN_DISTANCE_M;
-        }
-      }
-
-      // Push position to trail streak (ribbon renderer). pushPosition copies
-      // the vector into its ring buffer, so the scratch buffer is safe to reuse.
-      engine.trailStreaks?.pushPosition(projectile.id, this.trailPos);
-    }
+  /** Its instance and trail streak on the main thread */
+  private showCreated(projectile: Projectile, lat: number, lon: number, height: number): void {
+    const d = projectile.direction;
+    this.sink.projectiles.create(projectile.id, projectile.typeConfig.id, lat, lon, height, { dx: d.dx, dy: d.dy, dz: d.dz });
+    this.sink.trailStreaks.create(projectile.id, projectile.typeConfig.visualType);
   }
 
   /**
@@ -420,7 +277,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
       lat: sound.lat,
       lon: sound.lon,
       height: sound.height,
-      atListener: sound.atListener,
     });
   }
 
@@ -428,8 +284,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * Remove projectile and cleanup resources
    */
   override remove(entity: Projectile): void {
-    this.tilesEngine?.projectiles.remove(entity.id);
-    this.tilesEngine?.trailStreaks?.remove(entity.id);
+    this.sink.projectiles.remove(entity.id);
+    this.sink.trailStreaks.remove(entity.id);
     super.remove(entity);
   }
 
@@ -488,15 +344,14 @@ export class ProjectileManager extends EntityManager<Projectile> {
       assignPlainFields(p.transform, s.transform);
       assignPlainFields(p.combat, s.combat);
       assignPlainFields(p.movement, s.movement);
-      this.tilesEngine?.projectiles.create(p.id, p.typeConfig.id, p.position.lat, p.position.lon, p.flightHeight, p.direction);
-      this.tilesEngine?.trailStreaks?.create(p.id, p.typeConfig.visualType);
+      this.showCreated(p, p.position.lat, p.position.lon, p.flightHeight);
       this.add(p);
     }
   }
 
   override clear(): void {
-    this.tilesEngine?.projectiles.clear();
-    this.tilesEngine?.trailStreaks?.clear();
+    this.sink.projectiles.clear();
+    this.sink.trailStreaks.clear();
     super.clear();
   }
 }

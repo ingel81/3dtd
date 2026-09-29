@@ -1,123 +1,72 @@
 import type { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
-import type { PathAndRouteService } from '../../services/world/path-route.service';
 import type { WaveManager } from '../wave.manager';
-import type { ThreeTilesEngine } from '../../three-engine';
-import type { GeoPosition, RouteWaypoint } from '../../models/game.types';
-import type { WorldSource } from '../../coop/world-package';
-import { raycastStats } from '../../utils/raycast-stats';
-import { fnv1a } from '../../utils/fnv1a';
+import type { RouteWaypoint } from '../../models/game.types';
+import type { SimWorld } from '../../sim/protocol/messages';
+import type { SimCoords } from '../../sim/core/sim-coords';
+import { OriginSync } from '../../sim/core/sim-coords';
+import { worldKeyOf } from '../../sim/protocol/world-key';
 
 /** What the route world reads of the GameStateManager */
 export interface RouteWorldHost {
   readonly grid: GlobalRouteGridService;
-  readonly pathRoutes: PathAndRouteService;
   readonly waveManager: WaveManager;
-  engine(): ThreeTilesEngine | null;
-  /** The HQ, null before the world stands */
-  basePosition(): GeoPosition | null;
+  readonly coords: SimCoords;
   /** New routes enter the towers' ranges elsewhere (TowerLifecycle.refreshGuardHeadings) */
   routesChanged(): void;
 }
 
 /**
- * The world the GameStateManager simulates on: the route grid's cells built
- * from the routes in use, the world's key and the package a coop host sends.
+ * The world the simulation runs on (docs/SIM_WORKER.md, "Welt"): the routes
+ * and the route grid's cells as the main thread froze them (SimWorld). The
+ * cells are generated from the routes and take the world's heights; nothing
+ * is sampled, there are no tiles.
  */
 export class RouteWorld {
+  private paths = new Map<string, RouteWaypoint[]>();
+
   constructor(private readonly host: RouteWorldHost) {}
 
-  /** The enemy routes in use, for LOS preview during tower placement */
+  /** The enemy routes by spawn point id, in the world's order */
+  cachedPaths(): Map<string, RouteWaypoint[]> {
+    return this.paths;
+  }
+
+  /** The enemy routes in use */
   routes(): RouteWaypoint[][] {
-    return Array.from(this.host.pathRoutes.getCachedPaths().values());
+    return Array.from(this.paths.values());
   }
 
   /**
-   * The cells of the routes in use built again from nothing, without setting
-   * the tile region anew: the corridor build (CorridorBuild) narrows the
-   * routes pass by pass, and the tiles it measures on stay the ones of the
-   * street routes the location was loaded with.
+   * Stand on `world`: its frame (SimCoords), its routes, the grid's cells
+   * generated from them with the world's heights. Throws when the heights
+   * name cells the routes do not make.
    */
-  rebuildCells(): void {
-    this.host.grid.clear();
-    this.buildCells(false);
-  }
-
-  /** Initialize the grid and generate the cells of the routes in use; with `region`, set the tile region to them as well. */
-  buildCells(region: boolean): void {
-    const engine = this.host.engine();
-    if (!engine) {
-      console.warn('[GameStateManager] Cannot initialize GlobalRouteGrid - no engine');
-      return;
-    }
-
-    // One terrain probe for the grid: ground plus the tile LOD it came from,
-    // which `sampleCellY` uses so a coarse streaming pass cannot overwrite a
-    // finer sample. The engine caches per column, so repeated cells are free.
-    // Its rays are booked as routeGrid (`__raycastStats()`).
-    const columnSampler = (x: number, z: number) => {
-      const scope = raycastStats.enter('routeGrid');
-      try {
-        return engine.terrain.sampleColumn(x, z);
-      } finally {
-        raycastStats.exit(scope);
-      }
-    };
-    // Cheap LOD-probe used by the route-grid full-sweep to skip stable
-    // cells whose tile-LOD has not improved (Option C, perf/route-grid-
-    // tile-aware-update).
-    const terrainPeekLOD = (x: number, z: number) => engine.terrain.peekBestTileLODAtLocal(x, z);
-    this.host.grid.initialize(columnSampler, engine.sync, terrainPeekLOD);
-
-    // Generate cells from routes
+  load(world: SimWorld): void {
+    const { grid, coords } = this.host;
+    coords.use(new OriginSync(world.origin.lat, world.origin.lon, world.origin.height ?? 0));
+    this.paths = new Map(world.paths);
+    grid.clear();
+    // No sampler: every cell's height comes from the world (restoreHeights)
+    grid.initialize(() => null, coords.sync);
     const routes = this.routes();
-    // Fine tiles along the whole corridor, so the cells sample real ground
-    // even where the camera does not look.
-    if (region) engine.setRouteCorridor(routes);
-    if (routes.length > 0) {
-      this.host.grid.generateFromRoutes(routes);
-    }
-
+    if (routes.length > 0) grid.generateFromRoutes(routes);
+    const missing = grid.restoreHeights(world.heights);
+    if (missing.length > 0) throw new Error(`SimWorld: ${missing.length} cell heights with no cell of the routes`);
     this.host.routesChanged();
   }
 
-  /** Defense reach percent of the routes in use, see GlobalRouteGridService.getDefenseReachPercent */
-  defenseReachPercent(): number {
-    return this.host.grid.getDefenseReachPercent(this.routes());
+  /**
+   * A frame and routes a spec built itself (integration/sim-world.ts): the
+   * grid stands already, only the routes are taken.
+   */
+  adopt(paths: Map<string, RouteWaypoint[]>): void {
+    this.paths = paths;
+    this.host.routesChanged();
   }
 
-  /**
-   * A key of the world the simulation runs on: the frozen cell heights, the
-   * routes and the local origin, hashed. A snapshot or a replay file only
-   * re-simulates on the world with the same key (docs/SIMULATOR_PLAN.md,
-   * P4). Walks every cell, a few ms: for export and import, not per frame.
-   */
+  /** The key of the world the simulation stands on (worldKeyOf) */
   key(): string {
-    const heights = [...this.host.grid.snapshotHeights()].sort((a, b) => a[0] - b[0]);
-    const parts: string[] = heights.map(([key, height]) => `${key}:${height.toFixed(2)}`);
-    for (const path of this.host.waveManager.getPaths()) {
-      parts.push(path.map((p) => `${p.lat.toFixed(7)},${p.lon.toFixed(7)}`).join(';'));
-    }
-    const origin = this.host.engine()?.sync.getOrigin();
-    if (origin) parts.push(`o=${origin.lat.toFixed(7)},${origin.lon.toFixed(7)}`);
-    return fnv1a(parts.join('|'));
-  }
-
-  /**
-   * The finished world as a coop host packs it (coop/world-package.ts): HQ,
-   * spawns, the routes as the corridor build left them, the cells' heights
-   * and the world key. Null before the world stands. Walks every cell.
-   */
-  source(): WorldSource | null {
-    const origin = this.host.engine()?.sync.getOrigin();
-    const hq = this.host.basePosition();
-    if (!origin || !hq) return null;
-    return {
-      origin: { lat: origin.lat, lon: origin.lon, height: origin.height },
-      hq,
-      spawns: this.host.waveManager.spawnPoints,
-      paths: this.host.pathRoutes.getCachedPaths(),
-      heights: this.host.grid.exportHeights(),
-      worldKey: this.key(),
-    };
+    const origin = this.host.coords.ready ? this.host.coords.sync.getOrigin() : null;
+    return worldKeyOf(this.host.grid.snapshotHeights(), this.host.waveManager.getPaths(), origin);
   }
 }

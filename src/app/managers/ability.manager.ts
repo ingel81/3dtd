@@ -22,7 +22,8 @@
  * ResearchManager's `research:state-changed`.
  */
 
-import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import type { IGameManager } from '../game-engine/game-manager.interface';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { LOCAL_OWNER, type PlayerOwner } from './game-state/player-owner';
 

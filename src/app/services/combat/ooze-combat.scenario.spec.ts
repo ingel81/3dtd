@@ -32,6 +32,7 @@ import { METERS_PER_DEGREE_LAT as M } from '../../utils/geo-utils';
 import { ROUTE_BODY_AIM_HEIGHT_M, RouteBody, RouteBodyStations } from '../../utils/route-body';
 import { lateralLimit } from '../../utils/route-corridor';
 import type { RouteCell } from '../../utils/route-cell';
+import { createSinkSpy, createTestCoords, createTestOps } from '../../integration/test-helpers';
 
 const ORIGIN_HEIGHT = 100;
 /** Local ground under the route */
@@ -79,7 +80,10 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
 
   beforeEach(() => {
     Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
-    spawnFloatingText = vi.fn();
+    const sink = createSinkSpy();
+    spawnFloatingText = sink.effects.spawnFloatingText;
+    mockInjections['SimCoords'] = createTestCoords(flatSync as never);
+    mockInjections['SimOps'] = createTestOps(sink);
     status = new StatusEffectService();
     status.setGameClockProvider(() => 5_000);
   });
@@ -90,9 +94,7 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
     mockInjections['StatusEffectService'] = status;
     mockInjections['CombatVfxService'] = { emitIceExplosion: vi.fn(), emitIceDecal: vi.fn() };
     mockInjections['DamageApplicationService'] = { applyDamage: vi.fn(() => ({ finalDamage: 12, effectiveness: 'normal' })) };
-    const service = new CombatEffectService();
-    (service as unknown as { tilesEngine: unknown }).tilesEngine = { sync: flatSync, effects: { spawnFloatingText } };
-    return service;
+    return new CombatEffectService();
   }
 
   /** A shot of `type` from `tower` lands at its aim point `at` on `ooze`. */
@@ -177,7 +179,7 @@ describe('Towers against the ooze body (playtest 359, 360, 424)', () => {
     const fire = towerAt('fire', 100, 10);
     mockInjections['GlobalRouteGridService'] = gridFor([fire]);
     const service = new TowerCombatService();
-    service.initialize({ sync: flatSync } as never, NO_RESEARCH);
+    service.initialize(NO_RESEARCH);
     const combat = service as unknown as {
       bodyAim: BodyAim;
       getEnemiesInCone: (source: Vector3, target: Vector3, length: number, width: number, candidates: Enemy[]) => Enemy[];

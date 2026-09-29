@@ -1,3 +1,4 @@
+import type { LosResolveReason } from '../game-engine/events/event-types';
 import type { GameClockState } from '../managers/game-state/game-clock';
 import type { GameRngState } from '../utils/game-rng';
 import type { ResearchSaveState } from '../configs/research/research.types';
@@ -55,8 +56,10 @@ export interface SimSnapshot {
   mannedTowerId: string | null;
   /** Every manned tower as [player, tower id]; absent in a snapshot from before coop */
   mannedByPlayer?: [string, string][];
-  /** Towers waiting for their line of sight retrofit, oldest first */
+  /** Towers waiting for their line of sight retrofit, oldest first; empty since the worker split (awaitingLos) */
   losQueue: string[];
+  /** [tower id, reason] of the towers waiting for their line of sight, oldest first (TowerLos); absent before the worker split */
+  awaitingLos?: [string, LosResolveReason][];
 }
 
 export interface SavedTower {

@@ -47,7 +47,13 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { createMockTilesEngine, createTestCachedPaths, withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
+import {
+  provideSimServices,
+  createTestCachedPaths,
+  withAutoStubs,
+  TEST_PATH,
+  TEST_SPAWN_POINTS,
+} from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { DamageApplicationService } from '../services/combat/damage-application.service';
@@ -90,22 +96,10 @@ function flatSync() {
   };
 }
 
-function createEngine(): never {
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'flameBeams']) {
-    engine[key] = withAutoStubs(engine[key] ?? {});
-  }
-  engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync() });
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  engine['hero'] = withAutoStubs({});
-  engine['towers']['aimHeading'] = () => null;
-  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  return withAutoStubs(engine) as never;
-}
 
 function createGame(): GameStateManager {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  provideSimServices(mockServices);
   GameObject.resetIdCounter();
   const ref: { gsm?: GameStateManager } = {};
   const alive = (out: Enemy[]) => {
@@ -125,18 +119,15 @@ function createGame(): GameStateManager {
     getEnemiesInRadiusGeo: (_c: GeoPosition, _r: number, _exclude: unknown, out: Enemy[]) => alive(out),
   });
   const paths = createTestCachedPaths();
-  mockServices['PathAndRouteService'] = withAutoStubs({ getCachedPaths: () => paths });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null, hasEnemyInRadius: () => true });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
-  mockServices['ResearchStore'] = withAutoStubs({ airTargetingUnlocked: () => false });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['CombatEffectService'] = new CombatEffectService();
   mockServices['TowerCombatService'] = new TowerCombatService();
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  gsm.initialize(createEngine(), BASE, TEST_SPAWN_POINTS, paths);
+  gsm.initialize(BASE, TEST_SPAWN_POINTS, paths);
   return gsm;
 }
 
