@@ -125,6 +125,18 @@ export class GameLoopFacadeService {
     // (the mirror follows the simulation's seed): the same numbers as when the
     // simulation served it. GameRng keeps a stream's function across a reset.
     this.waveDirector.useRandomSource(() => this.mirror.rng.stream('director'));
+    // The load runner's handle (e2e/perf/sim-load.ts): a command, the speed, the numbers it measures
+    (globalThis as Record<string, unknown>)['__load'] = {
+      emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
+      speed: (value: number) => this.gameStore.gameSpeed.set(value),
+      state: () => ({
+        enemies: this.mirror.scalars.enemiesAlive,
+        towers: this.mirror.scalars.towerCount,
+        phase: this.mirror.scalars.phase,
+        gameTimeMs: this.mirror.scalars.gameTimeMs,
+        paths: this.world.routes().map((path) => path.map((w) => [w.lat, w.lon])),
+      }),
+    };
     // Coop: the host starts the wave once everyone is ready (D15)
     this.coop?.setWaveStarter(() => this.startWaveNow());
   }
