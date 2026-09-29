@@ -11,6 +11,7 @@
  */
 import type { PresentationOp } from './ops';
 import type { ExportedEvent } from './events';
+import type { LosMaskJson } from '../../utils/los-mask';
 
 // ── Enemies: every active enemy, dead ones in their death animation included ──
 export const E_ID = 0;
@@ -184,6 +185,13 @@ export interface TowerStateDto {
   /** combat values the panels read, after upgrades and research */
   combat: { range: number; damage: number; fireRate: number };
   losReady: boolean;
+  /**
+   * The tower's line of sight when it changed since the last state sent (a
+   * mask applied, a restore): the main thread writes it into its own grid
+   * (viz, the wave source's coverage numbers). Null when the tower has none
+   * any more; absent when unchanged.
+   */
+  losMask?: LosMaskJson | null;
 }
 
 export interface SimFramePacket {
