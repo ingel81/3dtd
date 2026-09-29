@@ -576,6 +576,21 @@ describe('WaveManager', () => {
       expect(enemyManager.spawn).toHaveBeenCalledTimes(4);
     });
 
+    it('spawns at the asked gap without the floor where the schedule waives it (the debug panel custom wave)', () => {
+      const config = scheduledConfig([
+        { enemyType: 'rat', speed: 5 },
+        { enemyType: 'stone-golem', speed: 5 },
+        { enemyType: 'zombie', speed: 5 },
+      ], 10);
+      config.schedule.spawnFloor = false;
+      wm.startWave(config);
+      wm.tickSpawn(0);
+      wm.tickSpawn(10);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
+      wm.tickSpawn(10);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(3);
+    });
+
     it('spawns a coop lane copy together with the entry before it', () => {
       wm.startWave(scheduledConfig([
         { enemyType: 'stone-golem', speed: 5, delay: 0 },

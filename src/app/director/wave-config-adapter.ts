@@ -50,6 +50,9 @@ export function adaptDirectorWave(
   if (aiConfig.spawnMode) {
     schedule.spawnMode = aiConfig.spawnMode;
   }
+  if (aiConfig.spawnFloor === false) {
+    schedule.spawnFloor = false;
+  }
 
   return { schedule };
 }

@@ -59,6 +59,13 @@ export interface WaveConfig {
    */
   spawnMode?: 'each' | 'random';
 
+  /**
+   * false: the gaps are the wave's own, without the spawn floor per enemy
+   * type (spawnFloorMs, E50). The custom wave of the debug panel sends it, so
+   * a delay of 20 ms spawns every 20 ms.
+   */
+  spawnFloor?: false;
+
   // === METADATA ===
 
   /** AI confidence in this configuration (0-1) */

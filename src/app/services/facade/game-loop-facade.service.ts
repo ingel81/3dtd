@@ -392,7 +392,8 @@ export class GameLoopFacadeService {
     this.store.waveExplanation.set(null);
     this.sendStartWave({
       type: 'command:start-wave',
-      director: this.waveDebug.toAIWaveConfig(),
+      // The panel's delay as set, below the spawn floor per enemy type too (E50)
+      director: { ...this.waveDebug.toAIWaveConfig(), spawnFloor: false },
     });
   }
 

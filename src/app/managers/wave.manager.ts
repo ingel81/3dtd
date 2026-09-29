@@ -83,6 +83,12 @@ export interface SpawnSchedule {
    * behave identically under both modes.
    */
   spawnMode?: 'each' | 'random';
+  /**
+   * false: the gaps are the wave's own, without the spawn floor per enemy
+   * type (spawnFloorMs, E50); the debug panel's custom wave. Absent in every
+   * planned wave and in older logs, which keep the floor they were run with.
+   */
+  spawnFloor?: false;
 }
 
 /**
@@ -373,7 +379,7 @@ export class WaveManager implements IGameManager {
       const prev = entries[idx - 1];
       const extraPause = prev.pauseAfter ?? 0;
       if (prev.delay === 0) return extraPause;
-      const floor = Math.max(spawnFloorMs(prev.enemyType), spawnFloorMs(entries[idx].enemyType));
+      const floor = schedule.spawnFloor === false ? 0 : Math.max(spawnFloorMs(prev.enemyType), spawnFloorMs(entries[idx].enemyType));
       return Math.max(prev.delay ?? getDelay(), floor) + extraPause;
     };
 

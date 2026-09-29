@@ -149,6 +149,23 @@ describe('GameLoopFacadeService: waveExplanation', () => {
     expect(store.waveExplanation()).toBeNull();
   });
 
+  it('sends the custom wave without the spawn floor, a planned wave keeps it', async () => {
+    facade.startCustomWave();
+    const custom = (emitted as unknown as { director: WaveConfig }[])[0].director;
+    expect(custom.spawnFloor).toBe(false);
+    expect(adaptDirectorWave(custom).schedule.spawnFloor).toBe(false);
+
+    emitted.length = 0;
+    // The start answered, so the next one goes out
+    store.phase.set('setup');
+    (facade as unknown as { startSentAt: number | null }).startSentAt = null;
+    facade.startWave();
+    await settle();
+    const plannedWave = (emitted as unknown as { director: WaveConfig }[])[0].director;
+    expect(plannedWave.spawnFloor).toBeUndefined();
+    expect(adaptDirectorWave(plannedWave).schedule.spawnFloor).toBeUndefined();
+  });
+
   it('clears it for a manual wave with the director off', () => {
     store.waveExplanation.set(EXPLANATION);
     store.directorEnabled.set(false);
