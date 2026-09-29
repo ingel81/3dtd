@@ -94,6 +94,7 @@ function createStubService(name: string): Record<string, unknown> {
 import { signal } from '@angular/core';
 import { GameStateManager } from './game-state.manager';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import { ABILITIES } from '../configs/abilities.config';
 import { Tower } from '../entities/tower.entity';
 import { abilityButtonView } from '../components/ability-bar/ability-button';
@@ -168,7 +169,9 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
   it('382: a place with W5, restart, jump to 35, game over: no record hint, the map keeps W5, "Earned" leaves the jump gold out', () => {
     const log = new RunLogCollector();
     const bag = new SubscriptionBag();
-    log.attach(bus, bag);
+    // One thread, one bus: the simulation's events reach the main side as they are
+    const mainBus = bus as unknown as MainEventBus;
+    log.attach(mainBus, bag);
     log.open({ seed: 1, map: 'devworld', player: 'human' }, {
       step: () => 0,
       timeMs: () => 0,
@@ -179,7 +182,7 @@ describe('Dev wave jump, playtest 381 and 382 replayed', () => {
       towers: () => [],
     });
     const best = new BestWaveService();
-    best.connect(bus, () => true);
+    best.connect(mainBus, () => true);
 
     // An earlier run reached W5 here
     for (let wave = 1; wave <= 5; wave++) bus.emit({ type: 'wave:started', wave, enemyCount: 10 });

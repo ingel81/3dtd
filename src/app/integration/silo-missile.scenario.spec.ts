@@ -8,6 +8,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Group, Object3D, Scene, Vector3 } from 'three';
 import { GameEventBus } from '../game-engine/game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import { VFXService } from '../game-engine/vfx.service';
 import { AbilityManager, type AbilityWorld } from '../managers/ability.manager';
 import { ThreeTowerRenderer, type TowerRenderData } from '../three-engine/renderers/three-tower.renderer';
@@ -81,7 +82,8 @@ describe('Missile silo: the missile standing in it', () => {
       orbitalBeams: { clear: vi.fn() },
       effects: { markScorch: vi.fn() },
     };
-    new VFXService(bus, engine as unknown as ThreeTilesEngine);
+    // One thread, one bus: the AbilityManager's events reach the VFXService as they are
+    new VFXService(bus as unknown as MainEventBus, engine as unknown as ThreeTilesEngine);
     bus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: 'nuclear-strike',
