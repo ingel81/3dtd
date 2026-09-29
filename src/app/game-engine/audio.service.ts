@@ -92,8 +92,6 @@ export class AudioService {
   /** Missiles on their way, see AbilityImpactSound.launch */
   private readonly launches: LaunchLoop[] = [];
   private ground: AbilitySoundGround | null = null;
-  /** Whether a tower's shot stays quiet (shown at the click already, QuietShots) */
-  private quietShot: (towerId: string) => boolean = () => false;
   private readonly local = new Vector3();
   private readonly foot = new Vector3();
 
@@ -103,11 +101,6 @@ export class AudioService {
   ) {
     this.registerSounds();
     this.setupEventHandlers();
-  }
-
-  /** Asked for every shot sound (audio:play with `shotOf`): true keeps it quiet. */
-  setQuietShot(quiet: (towerId: string) => boolean): void {
-    this.quietShot = quiet;
   }
 
   /** Ground under the ability loops; without it they stand at the height of their target. */
@@ -154,7 +147,6 @@ export class AudioService {
    */
   private setupEventHandlers(): void {
     this.subs.add(this.eventBus.onShow('audio:play', (event) => {
-      if (event.shotOf !== undefined && this.quietShot(event.shotOf)) return;
       this.handleAudioPlay(event);
     }));
 

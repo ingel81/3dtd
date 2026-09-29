@@ -86,14 +86,6 @@ describe('AudioService nuclear strike', () => {
     expect(spatialAudio.playAtGeo.mock.calls).toEqual([['bullet', 1, 2, 3, 1]]);
   });
 
-  it('keeps the shot of a tower quiet when it was shown at the click already', () => {
-    const { eventBus, spatialAudio, service } = setup();
-    service.setQuietShot((towerId) => towerId === 'tower-1');
-    eventBus.emit({ type: 'audio:play', sound: 'bullet', lat: 1, lon: 2, height: 3, shotOf: 'tower-1' });
-    eventBus.emit({ type: 'audio:play', sound: 'bullet', lat: 1, lon: 2, height: 3, shotOf: 'tower-2' });
-    expect(spatialAudio.playAtGeo).toHaveBeenCalledTimes(1);
-  });
-
   it('plays the blast at the impact point, then the rolls of rumble, quieter, in game time', () => {
     const { spatialAudio, service, impact, run } = setup();
     impact();

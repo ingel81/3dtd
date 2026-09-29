@@ -4,14 +4,12 @@ import { Vector3 } from 'three';
 // The services have specs of their own; here only what the host wires
 vi.mock('../game-engine/vfx.service', () => ({
   VFXService: class {
-    setQuietShot = vi.fn();
     destroy = vi.fn();
   },
 }));
 vi.mock('../game-engine/audio.service', () => ({
   AudioService: class {
     setGround = vi.fn();
-    setQuietShot = vi.fn();
     update = vi.fn();
     clearAbilitySounds = vi.fn();
     destroy = vi.fn();
@@ -44,6 +42,7 @@ import { createMainEventBus, type MainEventBus } from '../sim/client/view-events
 import { EnemyView } from '../sim/client/views';
 import { getEnemyType } from '../configs/enemy-types.config';
 import type { Tower } from '../entities/tower.entity';
+import type { SimScalars } from '../sim/protocol/packet';
 import type { ThreeTilesEngine } from '../three-engine';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 
@@ -110,6 +109,7 @@ describe('PresentationHost', () => {
     const source: PresentationSource = {
       enemy: (id) => enemies.get(id) ?? null,
       tower: (id) => towers.get(id) ?? null,
+      scalars: { players: ['p1'], localPlayerId: 'p1', mannedTowers: [null] } as unknown as SimScalars,
     };
     const ground = { getGroundLocalYAt: () => 5, getCellAt: () => undefined };
     host = new PresentationHost({ engine: engine as unknown as ThreeTilesEngine, bus, source, ground });
