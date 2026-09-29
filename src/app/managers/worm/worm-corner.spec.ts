@@ -246,7 +246,7 @@ describe('Worm through route corners', () => {
 
     expect(group.chains.map((c) => c.first)).toEqual([0, 9]);
     expect(rear.worm!.head).toBe(true);
-    expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(rear.id, 'worm');
+    expect(m.sink.enemies.setRenderType).toHaveBeenCalledWith(rear.id, 'worm');
     expect(distance(group.segments[7]!) - distance(rear)).toBeCloseTo(2 * chain.spacing, 6);
     expect(worst.gap).toBeLessThan(MAX_GAP);
     expect(worst.yawStep).toBeLessThan(MAX_YAW_STEP);

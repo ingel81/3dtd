@@ -480,71 +480,67 @@ describe('HeroManager', () => {
   });
 
   describe('rendering', () => {
+    // Every frame packet carries getPresentation() (sim/core/packet-writer.ts)
     it('hands the renderer where he stands, where he looks, what he does and his post', () => {
       const shown: { pose: string; x: number; z: number; post: { x: number; z: number } }[] = [];
-      let cleared = 0;
-      manager.setView({
-        present: (h) => shown.push({ pose: h.pose, ...local(h), post: local(h.anchor) }),
-        clear: () => cleared++,
-      });
-      manager.presentFrame();
+      const present = () => {
+        const h = manager.getPresentation();
+        if (h) shown.push({ pose: h.pose, ...local(h), post: local(h.anchor) });
+      };
+      present();
       expect(shown).toHaveLength(0); // not hired
 
       hired();
-      manager.presentFrame();
+      present();
       expect(shown.at(-1)).toEqual({ pose: 'idle', x: 0, z: 300, post: { x: 0, z: 300 } });
 
       manager.moveTo(at(0, 200));
       tick(10);
-      manager.presentFrame();
+      present();
       expect(shown.at(-1)).toMatchObject({ pose: 'run', post: { x: 0, z: 200 } });
 
       enemies.push(enemyAt('close', 0, 285));
       tick(1);
-      manager.presentFrame();
+      present();
       expect(shown.at(-1)!.pose).toBe('run-shoot'); // fires on his way
 
       enemies.length = 0;
       tick(800); // at his post
       enemies.push(enemyAt('at-post', 0, 195));
       tick(1);
-      manager.presentFrame();
+      present();
       expect(shown.at(-1)).toMatchObject({ pose: 'shoot', x: 0, z: 200 });
 
       manager.reset();
-      expect(cleared).toBe(1);
+      expect(manager.getPresentation()).toBeNull();
     });
 
-    it('shows him with the hire and his new post with a move order, before any sub-step (a pause)', () => {
-      const shown: { x: number; z: number; post: { x: number; z: number } }[] = [];
-      manager.setView({ present: (h) => shown.push({ ...local(h), post: local(h.anchor) }), clear: () => undefined });
-
+    it('stands with the hire and moves his post with a move order, before any sub-step (a pause)', () => {
+      const shown = () => {
+        const h = manager.getPresentation()!;
+        return { ...local(h), post: local(h.anchor) };
+      };
       hired();
-      expect(shown).toEqual([{ x: 0, z: 300, post: { x: 0, z: 300 } }]);
+      expect(shown()).toEqual({ x: 0, z: 300, post: { x: 0, z: 300 } });
 
       expect(manager.moveTo(at(0, 200))).toBe(true);
-      expect(shown).toHaveLength(2);
-      expect(shown.at(-1)).toEqual({ x: 0, z: 300, post: { x: 0, z: 200 } });
+      expect(shown()).toEqual({ x: 0, z: 300, post: { x: 0, z: 200 } });
 
-      expect(manager.moveTo(at(40, 100))).toBe(false); // refused: nothing to show
-      expect(shown).toHaveLength(2);
+      expect(manager.moveTo(at(40, 100))).toBe(false); // refused: nothing changes
+      expect(shown()).toEqual({ x: 0, z: 300, post: { x: 0, z: 200 } });
     });
 
-    it('presents the frame when the routes shift under him without a sub-step, a pause too', () => {
-      const shown: { x: number; z: number }[] = [];
-      manager.setView({ present: (h) => shown.push(local(h)), clear: () => undefined });
+    it('stands on the new graph when the routes shift under him without a sub-step, a pause too', () => {
       hired();
       sendTo(0, 200);
-      shown.length = 0;
 
       const shifted = new Map([['spawn-south', line([10, 0], [10, 150], [10, 300])]]);
       (manager as unknown as { world: HeroWorld }).world.routes = () => shifted;
       // A query only, no update()/tick(): a corridor rebuild replacing the
-      // routes while paused must still show him on the new graph at once,
-      // since no sub-step follows to present it.
+      // routes while paused must still show him on the new graph at once
       manager.resolveMoveTarget(at(10, 100));
 
-      expect(shown).toEqual([{ x: 10, z: 200 }]);
+      expect(local(manager.getPresentation()!)).toEqual({ x: 10, z: 200 });
     });
 
     it('gives the same presentation without a renderer (the wave replay records it), none before the hire', () => {

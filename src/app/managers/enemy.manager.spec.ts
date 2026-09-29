@@ -8,50 +8,38 @@ vi.mock('three', async () => {
 });
 
 import { EnemyManager } from './enemy.manager';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus } from '../game-engine/game-event-bus';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
-import type { ThreeTilesEngine } from '../three-engine';
 import type { Enemy } from '../entities/enemy.entity';
 import type { OozeBody } from '../entities/ooze-body';
 import { waveRules } from '../director/wave-rules';
 import { PORTAL_OPENING_HEIGHT } from '../configs/marker-geometry.config';
-import { BURST_PALETTES, STUN_SPARKS } from '../configs/visual-effects.config';
 import { TIMING } from '../configs/timing.config';
 import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, leakDamageOf, type EnemyTypeId } from '../configs/enemy-types.config';
+import { createSinkSpy, createTestCoords, type SinkSpy } from '../integration/test-helpers';
+import type { SimSink } from '../sim/core/sim-sink';
 
 /** Reward weight of `n` bodies of `type`: what the wave manager reports for them. */
 const bodies = (n: number, type: EnemyTypeId = 'zombie') => n * enemyRewardWeight(ENEMY_TYPES[type].baseHp);
 
-const createMockTilesEngine = () => ({
-  enemies: {
-    setFootstepListener: vi.fn(),
-    create: vi.fn(() => Promise.resolve({})),
-    startWalkAnimation: vi.fn(),
-    startRunAnimation: vi.fn(),
-    playDeathAnimation: vi.fn(),
-    remove: vi.fn(),
-    clear: vi.fn(),
-    resolveSlot: vi.fn((_id: string): unknown => null),
-    updateSlot: vi.fn(),
-  },
-  oozes: {
-    add: vi.fn(),
-    setFrame: vi.fn(),
-    remove: vi.fn(),
-    collapse: vi.fn(),
-    discard: vi.fn(),
-    clear: vi.fn(),
-  },
-  spatialAudio: null,
-  sync: {
-    getOrigin: vi.fn(() => ({ height: 0 })),
-    geoToLocalSimple: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
-    geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: unknown) => target),
-  },
-  getTerrainHeightAtGeo: vi.fn(() => 0),
+/** A frame that puts everything at the origin: the grid is off in these tests */
+const createMockSync = () => ({
+  getOrigin: vi.fn(() => ({ lat: 0, lon: 0, height: 0 })),
+  geoToLocalSimple: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
+  geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: unknown) => target),
 });
+
+/** An enemy manager on the origin frame, its renderer calls into `sink` */
+const createManager = (bus: GameEventBus, grid: unknown, sink: SinkSpy) =>
+  new EnemyManager(
+    bus,
+    grid as GlobalRouteGridService,
+    new SpatialGridService(),
+    createTestCoords(createMockSync() as never),
+    sink as unknown as SimSink,
+  );
 
 const createGlobalRouteGrid = () => ({
   isInitialized: vi.fn(() => false),
@@ -65,20 +53,15 @@ const createGlobalRouteGrid = () => ({
 
 describe('EnemyManager', () => {
   let eventBus: GameEventBus;
-  let tilesEngine: ReturnType<typeof createMockTilesEngine>;
+  let sink: SinkSpy;
   let globalRouteGrid: ReturnType<typeof createGlobalRouteGrid>;
   let manager: EnemyManager;
 
   beforeEach(() => {
     eventBus = new GameEventBus();
-    tilesEngine = createMockTilesEngine();
+    sink = createSinkSpy();
     globalRouteGrid = createGlobalRouteGrid();
-    manager = new EnemyManager(
-      eventBus,
-      globalRouteGrid as unknown as GlobalRouteGridService,
-      new SpatialGridService()
-    );
-    manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
+    manager = createManager(eventBus, globalRouteGrid, sink);
   });
 
   it('spawns enemies with correct type and stats', () => {
@@ -172,7 +155,7 @@ describe('EnemyManager', () => {
     const call = diedSpy.mock.calls[0][0];
     expect(call.credits).toBe(waveRules().gold(1).kill);
     expect(manager.getById(enemy.id)).toBeNull();
-    expect(tilesEngine.enemies.remove).toHaveBeenCalledWith(enemy.id);
+    expect(sink.enemies.remove).toHaveBeenCalledWith(enemy.id);
     expect(manager.getAliveCount()).toBe(0);
   });
 
@@ -377,7 +360,7 @@ describe('EnemyManager', () => {
       })
     );
     expect(manager.getById(enemy.id)).toBeNull();
-    expect(tilesEngine.enemies.remove).toHaveBeenCalledWith(enemy.id);
+    expect(sink.enemies.remove).toHaveBeenCalledWith(enemy.id);
   });
 
   it('getAlive returns only living enemies', () => {
@@ -486,80 +469,6 @@ describe('EnemyManager', () => {
       expect(zombie.movement.progress).toBeGreaterThan(0);
     });
 
-    it('ices a frozen enemy on the change only, and thaws it', () => {
-      const engine = tilesEngine as unknown as Record<string, Record<string, unknown>>;
-      engine['enemies']['setIcedVisual'] = vi.fn();
-      engine['effects'] = { spawnIceCrystals: vi.fn(), updateIceCrystalsPosition: vi.fn(), stopIceCrystals: vi.fn() };
-      const { setIcedVisual } = engine['enemies'] as { setIcedVisual: MockInstance };
-      const effects = engine['effects'] as Record<string, MockInstance>;
-      const enemy = manager.spawn(path, 'zombie');
-      enemy.movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 1000, startTime: 0, sourceId: 'frost' });
-
-      manager.presentFrame(16);
-      manager.presentFrame(32);
-      expect(setIcedVisual.mock.calls).toEqual([[enemy.id, true]]);
-      expect(effects['spawnIceCrystals']).toHaveBeenCalledTimes(1);
-      expect(effects['updateIceCrystalsPosition']).toHaveBeenCalledTimes(1);
-
-      manager.presentFrame(1000);
-      expect(setIcedVisual.mock.calls).toEqual([[enemy.id, true], [enemy.id, false]]);
-      expect(effects['stopIceCrystals']).toHaveBeenCalledWith(enemy.id);
-    });
-
-    it('sparks a stunned enemy every interval of game time, a few bursts per frame at most', () => {
-      const engine = tilesEngine as unknown as Record<string, Record<string, unknown>>;
-      engine['enemies']['setStunVisual'] = vi.fn();
-      engine['effects'] = { spawnBurstAtGeo: vi.fn() };
-      const { setStunVisual } = engine['enemies'] as { setStunVisual: MockInstance };
-      const { spawnBurstAtGeo } = engine['effects'] as { spawnBurstAtGeo: MockInstance };
-      const enemies = Array.from({ length: STUN_SPARKS.perFrame + 2 }, () => manager.spawn(path, 'tank'));
-      for (const enemy of enemies) {
-        enemy.movement.applyStatusEffect({ type: 'stun', value: 1, duration: 1000, startTime: 0, sourceId: 'emp' });
-      }
-
-      manager.presentFrame(16);
-      expect(setStunVisual).toHaveBeenCalledTimes(enemies.length);
-      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(STUN_SPARKS.perFrame);
-      expect(spawnBurstAtGeo.mock.calls[0][4]).toBe(BURST_PALETTES.stun);
-
-      manager.presentFrame(32); // the two left over
-      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(enemies.length);
-      manager.presentFrame(32 + STUN_SPARKS.intervalMs / 2); // nobody is due
-      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(enemies.length);
-
-      manager.presentFrame(1000);
-      expect(setStunVisual).toHaveBeenCalledTimes(enemies.length * 2);
-      expect(setStunVisual).toHaveBeenLastCalledWith(enemies[enemies.length - 1].id, false);
-      expect(spawnBurstAtGeo).toHaveBeenCalledTimes(enemies.length);
-    });
-
-    it('shows a switch in the present pass, once', () => {
-      const enemy = manager.spawn(path, 'wallsmasher');
-      const slot = { released: false, isWalking: true };
-      tilesEngine.enemies.resolveSlot.mockReturnValue(slot);
-      tilesEngine.enemies.startRunAnimation.mockImplementation(() => { slot.isWalking = false; });
-
-      manager.presentFrame(0);
-      expect(tilesEngine.enemies.startRunAnimation).not.toHaveBeenCalled();
-
-      enemy.rush!.force(true);
-      manager.presentFrame(16);
-      manager.presentFrame(32);
-      expect(tilesEngine.enemies.startRunAnimation).toHaveBeenCalledTimes(1);
-      expect(tilesEngine.enemies.startRunAnimation).toHaveBeenCalledWith(enemy.id);
-    });
-
-    it('ticks audio only for enemies that hold a loop handle', () => {
-      const enemy = manager.spawn(path, 'zombie');
-      const audioUpdate = vi.spyOn(enemy.audio, 'update');
-      manager.update(16, 16);
-      expect(audioUpdate).not.toHaveBeenCalled();
-
-      enemy.hasAudioLoops = true; // what AudioComponent sets once a loop handle arrives
-      manager.update(16, 32);
-      expect(audioUpdate).toHaveBeenCalledTimes(1);
-    });
-
     it('ticks the transform only while it turns', () => {
       const enemy = manager.spawn(path, 'zombie');
       const transformUpdate = vi.spyOn(enemy.transform, 'update');
@@ -595,21 +504,6 @@ describe('EnemyManager', () => {
       expect(turningSteps).toBeGreaterThan(10); // the quarter turn eases over many steps
       expect(enemy.isTurning).toBe(false); // settled on the held heading
       expect(enemy.transform.rotation).toBeCloseTo(-Math.PI / 2, 6); // east
-    });
-
-    it('resolves the render slot once, and again after the renderer released it', () => {
-      const slot = { released: false };
-      tilesEngine.enemies.resolveSlot.mockReturnValue(slot);
-      manager.spawn(path, 'zombie');
-
-      manager.presentFrame(0);
-      manager.presentFrame(16);
-      expect(tilesEngine.enemies.resolveSlot).toHaveBeenCalledTimes(1);
-      expect(tilesEngine.enemies.updateSlot).toHaveBeenCalledTimes(2);
-
-      slot.released = true;
-      manager.presentFrame(32);
-      expect(tilesEngine.enemies.resolveSlot).toHaveBeenCalledTimes(2);
     });
 
     it('reports sampled phase timings scaled to the whole loop', () => {
@@ -735,7 +629,7 @@ describe('EnemyManager', () => {
       expect(bat.portalExit).not.toBeNull();
       expect(middle(bat)).toBeCloseTo(PORTAL_OPENING_HEIGHT / 2, 12);
       // Not at cruise altitude for the frames before the first present pass
-      expect(tilesEngine.enemies.create).toHaveBeenCalledWith(bat.id, 'bat', 0, 0, altitude(bat));
+      expect(sink.enemies.create).toHaveBeenCalledWith(bat.id, 'bat', 0, 0, altitude(bat), true);
     });
 
     it('comes through the same height whatever its altitude spread', () => {
@@ -770,12 +664,7 @@ describe('EnemyManager', () => {
     it('climbs the same at every sub-step size', () => {
       // 4.8 s of game time: the bat is 38 m along, in the middle of its climb
       const heightAfter = (step: number) => {
-        const m = new EnemyManager(
-          eventBus,
-          globalRouteGrid as unknown as GlobalRouteGridService,
-          new SpatialGridService(),
-        );
-        m.initialize(createMockTilesEngine() as unknown as ThreeTilesEngine);
+        const m = createManager(eventBus, globalRouteGrid, createSinkSpy());
         const bat = m.spawn(route, 'bat', undefined, false, undefined, 'portal');
         for (let i = 1; i * step <= 4800; i++) m.update(step, i * step);
         expect(bat.portalExit).not.toBeNull();
@@ -786,14 +675,6 @@ describe('EnemyManager', () => {
       expect(reference).toBeLessThan(15);
       expect(heightAfter(8)).toBeCloseTo(reference, 9);
       expect(heightAfter(32)).toBeCloseTo(reference, 9);
-    });
-
-    it('shows the model at its real height in the present pass', () => {
-      const bat = fromPortal('bat');
-      tilesEngine.enemies.resolveSlot.mockReturnValue({ released: false });
-      manager.presentFrame(0);
-      const pushed = (tilesEngine.enemies.updateSlot.mock.calls[0] as unknown[])[1] as { y: number };
-      expect(pushed.y).toBeCloseTo(altitude(bat), 12);
     });
 
     it('gives the way out of the portal to wave spawns of air units only', () => {
@@ -958,7 +839,7 @@ describe('EnemyManager', () => {
 
     it('spawns without a model instance, with its body where it joins the path', () => {
       const ooze = manager.spawn(route, 'ooze');
-      expect(tilesEngine.enemies.create).not.toHaveBeenCalled();
+      expect(sink.enemies.create).not.toHaveBeenCalled();
       expect(ooze.body).not.toBeNull();
       expect(ooze.body!.tailM).toBe(0);
       expect(ooze.body!.tipM).toBe(0);
@@ -1005,7 +886,7 @@ describe('EnemyManager', () => {
       expect(leaking.reduce((a, b) => a + b, 0) + reached[0]).toBe(leakDamageOf('ooze'));
       expect(reached).toHaveLength(1);
       expect(manager.getAliveCount()).toBe(0);
-      expect(tilesEngine.oozes.remove).toHaveBeenCalledWith(ooze.id);
+      expect(sink.oozes.remove).toHaveBeenCalledWith(ooze.id);
     });
 
     it('flows in slower when slowed and not at all when idle', () => {
@@ -1042,11 +923,8 @@ describe('EnemyManager', () => {
       // Lanes scattered across the corridor, not one line
       expect(new Set(clumps.map((c) => c.movement.getLateralFactor().toFixed(3))).size).toBe(20);
       // The band collapses from the body's stretch of the kill's sub-step; the removal after it keeps that
-      expect(tilesEngine.oozes.setFrame).toHaveBeenLastCalledWith(
-        ooze.id, expect.closeTo(40, 6), expect.closeTo(120, 6), 0, false, false, false,
-      );
-      expect(tilesEngine.oozes.collapse).toHaveBeenCalledWith(ooze.id);
-      expect(tilesEngine.oozes.remove).toHaveBeenCalledWith(ooze.id);
+      expect(sink.oozes.collapse).toHaveBeenCalledWith(ooze.id, expect.closeTo(40, 6), expect.closeTo(120, 6));
+      expect(sink.oozes.remove).toHaveBeenCalledWith(ooze.id);
     });
 
     it('breaks a short body into fewer clumps', () => {
@@ -1082,7 +960,7 @@ describe('EnemyManager', () => {
     });
 
     expect(manager.getAll()).toHaveLength(0);
-    expect(tilesEngine.enemies.create).not.toHaveBeenCalled();
+    expect(sink.enemies.create).not.toHaveBeenCalled();
 
     warnSpy.mockRestore();
   });

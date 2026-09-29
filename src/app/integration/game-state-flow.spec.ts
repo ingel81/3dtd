@@ -39,7 +39,6 @@ describe('Game State Flow Integration', () => {
     m = createTestManagers();
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
 
-    m.towerManager.initialize(m.engine);
 
     clock = { now: 0 };
   });

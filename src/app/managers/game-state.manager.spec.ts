@@ -23,25 +23,15 @@ vi.mock('@angular/core', async () => {
 
 function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
-    GameStore: {
-      gameSpeed: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
-      // initialize() hands the current value to the engine it attaches
-      paused: Object.assign(vi.fn().mockReturnValue(false), { set: vi.fn() }),
-      pauseKeepsLoops: vi.fn().mockReturnValue(false),
-      renderingEnabled: Object.assign(vi.fn().mockReturnValue(true), { set: vi.fn() }),
-    },
-    UIStore: {
-      specialPointsDebugVisible: vi.fn().mockReturnValue(false),
-    },
-    PathAndRouteService: {
-      getCachedPaths: vi.fn().mockReturnValue(new Map()),
-    },
+    SimCoords: createTestCoords() as unknown as Record<string, unknown>,
+    SimOps: createTestOps() as unknown as Record<string, unknown>,
     GlobalRouteGridService: {
-      initDebugViz: vi.fn(),
       clear: vi.fn(),
       initialize: vi.fn(),
+      isInitialized: vi.fn().mockReturnValue(false),
       generateFromRoutes: vi.fn(),
-      getDefenseReachPercent: vi.fn().mockReturnValue(0),
+      applyLosMask: vi.fn().mockReturnValue([]),
+      unregisterTower: vi.fn(),
     },
     CombatEffectService: {
       initialize: vi.fn(),
@@ -54,14 +44,6 @@ function createStubService(name: string): Record<string, unknown> {
       removeExpired: vi.fn(),
       hasActiveEffect: vi.fn().mockReturnValue(false),
     },
-    HQDamageService: {
-      initialize: vi.fn(),
-      reset: vi.fn(),
-      healBase: vi.fn(),
-      triggerGameOverEffects: vi.fn(),
-      showGameOverScreen: vi.fn().mockReturnValue(false),
-      onTilesLoaded: vi.fn(),
-    },
     TowerCombatService: {
       initialize: vi.fn(),
       turnTowersToGuard: vi.fn(),
@@ -73,36 +55,6 @@ function createStubService(name: string): Record<string, unknown> {
       stopAllBeams: vi.fn(),
       stopTowerBeam: vi.fn(),
       stopAllMelee: vi.fn(),
-    },
-    OsmStreetService: {},
-    ResearchStore: {
-      isTowerUnlocked: vi.fn().mockReturnValue(true),
-      centerLevel: vi.fn().mockReturnValue(0),
-      researchSlots: vi.fn().mockReturnValue(1),
-      maxUpgradeTier: vi.fn().mockReturnValue(1),
-      airTargetingUnlocked: vi.fn().mockReturnValue(false),
-      completedResearches: Object.assign(vi.fn().mockReturnValue(new Set()), { set: vi.fn(), update: vi.fn() }),
-      activeResearches: Object.assign(vi.fn().mockReturnValue([]), { set: vi.fn() }),
-      applyResearchEffects: vi.fn(),
-      resetResearchState: vi.fn(),
-    },
-    WaveDebugService: {
-      setCurrentWaveConfig: vi.fn(),
-    },
-    EnemyDebugService: {
-      debugEnemies: vi.fn().mockReturnValue([]),
-      clearDebugEnemies: vi.fn(),
-    },
-    MarkerVisualizationService: {
-      spawnHQDebugPoint: vi.fn(),
-    },
-    TowerPlacementService: {
-      clearAllTowerOverlays: vi.fn(),
-      registerTowerOnGrid: vi.fn(),
-      unregisterTowerFromGrid: vi.fn(),
-      recomputeTowerLOS: vi.fn(),
-      scheduleLosRecompute: vi.fn(),
-      drainLosQueue: vi.fn(),
     },
     SpatialGridService: {
       updateEnemy: vi.fn(),
@@ -121,12 +73,12 @@ function createStubService(name: string): Record<string, unknown> {
   return stubs[name] ?? {};
 }
 
-import { effect, signal } from '@angular/core';
 import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 import { getResearch } from '../configs/research/research-tree.config';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus } from '../game-engine/game-event-bus';
+import { createTestCoords, createTestOps, type SinkSpy } from '../integration/test-helpers';
 import { skippedWavesGold } from '../services/economy.service';
 import { LOCAL_PLAYER_ID } from './game-state/command-log';
 
@@ -134,69 +86,9 @@ function getEventBus(gsm: GameStateManager): GameEventBus {
   return gsm.getEventBus();
 }
 
-/** Creates a deep auto-mock: any missing property returns a noop fn or nested proxy */
-function createDeepMock(): never {
-  const noopFn = vi.fn();
-  const noopReturning = (val: unknown) => vi.fn().mockReturnValue(val);
-
-  const handler: ProxyHandler<Record<string, unknown>> = {
-    get(target, prop) {
-      if (prop in target) return target[prop as string];
-      // Return a vi.fn() for any unknown property (auto-stub)
-      const fn = vi.fn().mockReturnValue(undefined);
-      target[prop as string] = fn;
-      return fn;
-    },
-  };
-
-  const autoProxy = () => new Proxy({} as Record<string, unknown>, handler);
-
-  return new Proxy(
-    {
-      getScene: noopReturning({}),
-      getTerrainHeightAtGeo: noopReturning(0),
-      setTimescale: noopFn,
-      sync: {
-        getOrigin: noopReturning({ lat: 48.77, lon: 9.18 }),
-        geoToLocal: noopReturning({ x: 0, y: 0, z: 0 }),
-        geoToLocalSimple: noopReturning({ x: 0, y: 0, z: 0 }),
-        localToGeo: noopReturning({ lat: 48.77, lon: 9.18, height: 0 }),
-      },
-      // The music mixer resumes the listener's context before a crossfade
-      spatialAudio: new Proxy({
-        getListener: noopReturning({ context: { state: 'running', resume: () => Promise.resolve() } }),
-      } as Record<string, unknown>, {
-        get(target, prop) {
-          if (prop in target) return target[prop as string];
-          // playAtGeo returns a Promise, all others return undefined
-          const fn = prop === 'playAtGeo'
-            ? vi.fn().mockResolvedValue(undefined)
-            : vi.fn().mockReturnValue(undefined);
-          target[prop as string] = fn;
-          return fn;
-        },
-      }),
-      effects: autoProxy(),
-      enemies: autoProxy(),
-      towers: autoProxy(),
-      plinths: autoProxy(),
-      towerBadges: autoProxy(),
-      bloodMoon: autoProxy(),
-      searchlights: autoProxy(),
-      projectiles: autoProxy(),
-      trailStreaks: autoProxy(),
-      tentacles: autoProxy(),
-      hero: autoProxy(),
-      orbitalBeams: autoProxy(),
-      oozes: autoProxy(),
-      triggerScreenShake: noopFn,
-    } as Record<string, unknown>,
-    handler
-  ) as never;
-}
-
-function createMockEngine(): never {
-  return createDeepMock();
+/** The renderer calls of the manager under test */
+function sinkOf(): SinkSpy {
+  return (mockServices['SimOps'] as { sink: SinkSpy }).sink;
 }
 
 const BASE_POSITION = { lat: 48.77, lon: 9.18, height: 0 };
@@ -228,8 +120,7 @@ describe('GameStateManager', () => {
 
   describe('initialize()', () => {
     it('registers event handlers on the EventBus', () => {
-      const engine = createMockEngine();
-      gsm.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+      gsm.initialize(BASE_POSITION, SPAWN_POINTS as never[], new Map());
 
       const bus = getEventBus(gsm);
       expect(bus.hasListeners('command:place-tower')).toBe(true);
@@ -247,8 +138,7 @@ describe('GameStateManager', () => {
     let bus: GameEventBus;
 
     beforeEach(() => {
-      const engine = createMockEngine();
-      gsm.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+      gsm.initialize(BASE_POSITION, SPAWN_POINTS as never[], new Map());
       bus = getEventBus(gsm);
     });
 
@@ -449,12 +339,8 @@ describe('GameStateManager', () => {
         const center = { id: 't2', holdFire: false, typeConfig: { id: 'research-center', attackType: 'passive' } };
         const towers: Record<string, unknown> = { t1: archer, t2: center };
         vi.spyOn(gsm.towerManager, 'getById').mockImplementation((id) => (towers[id] ?? null) as never);
-        const engine = gsm.tilesEngine as unknown as {
-          towers: { setHoldFire: Mock };
-          towerBadges: { setHoldFire: Mock };
-        };
-        const setHoldFire = engine.towers.setHoldFire;
-        const badge = engine.towerBadges.setHoldFire;
+        const setHoldFire = sinkOf().towers.setHoldFire;
+        const badge = sinkOf().towerBadges.setHoldFire;
 
         bus.emit({ type: 'command:set-hold-fire', towerId: 't1', holdFire: true });
         expect(archer.holdFire).toBe(true);
@@ -479,10 +365,8 @@ describe('GameStateManager', () => {
     });
 
     describe('corridor build under way (corridorPending)', () => {
-      let building: boolean;
       beforeEach(() => {
-        building = true;
-        gsm.setCorridorPending(() => building);
+        gsm.setCorridorPending(true);
       });
 
       it('places no tower and takes no credits until the corridor is built', () => {
@@ -492,7 +376,7 @@ describe('GameStateManager', () => {
         expect(place).not.toHaveBeenCalled();
         expect(gsm.credits()).toBe(credits);
 
-        building = false;
+        gsm.setCorridorPending(false);
         expect(gsm.placeTower(BASE_POSITION, 'archer')).not.toBeNull();
         expect(place).toHaveBeenCalledTimes(1);
       });
@@ -505,16 +389,22 @@ describe('GameStateManager', () => {
         expect(start).not.toHaveBeenCalled();
         expect(begin).not.toHaveBeenCalled();
 
-        building = false;
+        gsm.setCorridorPending(false);
         gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
         gsm.beginWave();
         expect(start).toHaveBeenCalledTimes(1);
         expect(begin).toHaveBeenCalledTimes(1);
       });
 
-      it('waits for nothing without a corridor owner', () => {
-        gsm.setCorridorPending(null);
+      it('waits for nothing once the corridor stands', () => {
+        gsm.setCorridorPending(false);
         expect(gsm.corridorPending()).toBe(false);
+      });
+
+      it('places nothing and starts nothing before it has a world', () => {
+        const fresh = new GameStateManager();
+        expect(fresh.corridorPending()).toBe(true);
+        expect(fresh.placeTower(BASE_POSITION, 'archer')).toBeNull();
       });
     });
 
@@ -636,17 +526,13 @@ describe('GameStateManager', () => {
     });
 
     describe('debug:ready-hero (Hero ready)', () => {
-      const paths = () => mockServices['PathAndRouteService'] as { getCachedPaths: ReturnType<typeof vi.fn> };
-
       beforeEach(() => {
-        paths().getCachedPaths.mockReturnValue(new Map([['sp-1', [
+        // A world with a route to stand on
+        gsm.initialize(BASE_POSITION, SPAWN_POINTS as never[], new Map([['sp-1', [
           { lat: BASE_POSITION.lat + 0.001, lon: BASE_POSITION.lon },
           { lat: BASE_POSITION.lat, lon: BASE_POSITION.lon },
         ]]]));
-      });
-
-      afterEach(() => {
-        paths().getCachedPaths.mockReturnValue(new Map());
+        bus = getEventBus(gsm);
       });
 
       it('lands with the sub-step\'s event queue: the research with its prerequisites, then the hire for free', () => {
@@ -670,9 +556,7 @@ describe('GameStateManager', () => {
         expect(gsm.heroManager.getHero()).toBe(hero);
       });
 
-      it('shows a hero hired in a pause at once, though no sub-step runs', () => {
-        const present = vi.fn();
-        gsm.heroManager.setView({ present, clear: vi.fn() });
+      it('stands a hero hired in a pause at once, though no sub-step runs', () => {
         gsm.researchManager.completeResearch(getResearch('mercenary-contract')!.id);
         gsm.addCredits(getResearch('mercenary-contract')!.cost + 1000, 'cheat');
         gsm.update(1, undefined);
@@ -684,30 +568,29 @@ describe('GameStateManager', () => {
         gsm.update(1000, undefined);
 
         expect(gsm.heroManager.getStatus().hired).toBe(true);
-        expect(present).toHaveBeenCalledTimes(1);
+        // What the frame packet hands the renderer (PacketWriter), with no sub-step run
+        expect(gsm.heroManager.getPresentation()).not.toBeNull();
         expect(gsm.gameTimeMs).toBe(clock);
       });
     });
 
     describe('research:completed', () => {
-      it('queues an LOS recompute for the towers the AA retrofit gives air targeting', () => {
+      it('asks for the line of sight of the towers the AA retrofit gives air targeting', () => {
+        (mockServices['GlobalRouteGridService'] as { isInitialized: Mock }).isInitialized.mockReturnValue(true);
         gsm.addCredits(1000, 'cheat');
         gsm.researchManager.completeResearch('gatling-tech');
         const gatling = gsm.placeTower(BASE_POSITION, 'dual-gatling');
         gsm.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, 'archer');
         expect(gatling).not.toBeNull();
-        const placement = mockServices['TowerPlacementService'] as Record<string, ReturnType<typeof vi.fn>>;
+        // Both wait for their first sight; give the gatling one
+        const needed: [string, string, boolean][] = [];
+        bus.on('tower:los-needed', (event) => needed.push([event.towerId, event.reason, event.canTargetAir]));
+        expect(gsm.towerLos.applyMask(gatling!, { range: 20, ground: true, air: false, bits: new Uint8Array(0) })).toBe(true);
 
-        bus.emit({
-          type: 'research:completed', playerId: 'local', local: true,
-          researchId: 'aa-retrofit',
-          effects: [{ kind: 'enable-targeting', capability: 'air' }],
-        });
+        gsm.researchManager.completeResearch('aa-retrofit');
 
-        // Queued, not run in the handler: the ResearchStore only learns about
-        // the unlock in a research:completed handler subscribed after this one.
-        expect(placement['scheduleLosRecompute'].mock.calls).toEqual([[gatling]]);
-        expect(placement['recomputeTowerLOS']).not.toHaveBeenCalled();
+        // The gatling asks again, now with air; the archer still waits for its first
+        expect(needed).toEqual([[gatling!.id, 'retrofit', true]]);
       });
     });
 
@@ -764,9 +647,6 @@ describe('GameStateManager', () => {
       const combat = () => mockServices['TowerCombatService'] as Record<string, ReturnType<typeof vi.fn>>;
 
       it('turns the towers to their guard heading once a wave is completed', () => {
-        // The music also listens for the wave end; it has no audio graph here.
-        vi.spyOn(gsm.backgroundMusic as unknown as { playBuildPhase: () => void }, 'playBuildPhase')
-          .mockImplementation(() => undefined);
         bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: true, closeCall: false, hpLost: 0 });
         expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
       });
@@ -788,28 +668,16 @@ describe('GameStateManager', () => {
         const tower = gsm.placeTower(BASE_POSITION, 'archer')!;
         expect(tower.guardHeading).toBeNull();
 
-        // North to south, a few meters east of the tower.
-        const paths = mockServices['PathAndRouteService'] as { getCachedPaths: ReturnType<typeof vi.fn> };
-        paths.getCachedPaths.mockReturnValue(new Map([['sp-1', [
+        // North to south, a few meters east of the tower: a new world's routes
+        gsm.initialize(BASE_POSITION, SPAWN_POINTS as never[], new Map([['sp-1', [
           { lat: BASE_POSITION.lat + 0.01, lon: BASE_POSITION.lon + 0.00005 },
           { lat: BASE_POSITION.lat - 0.01, lon: BASE_POSITION.lon + 0.00005 },
         ]]]));
-        gsm.initializeGlobalRouteGrid();
 
         // Entered from the north, slightly east of it.
         expect(tower.guardHeading).toBeGreaterThan(0);
         expect(tower.guardHeading).toBeLessThan(Math.PI / 4);
         expect(combat()['turnTowersToGuard']).toHaveBeenCalledWith(gsm.towerManager);
-      });
-
-      it('sets the tile region for new routes, not when their cells are built again', () => {
-        const setRouteCorridor = vi.fn();
-        (gsm.tilesEngine as unknown as { setRouteCorridor: typeof setRouteCorridor }).setRouteCorridor = setRouteCorridor;
-        gsm.initializeGlobalRouteGrid();
-        expect(setRouteCorridor).toHaveBeenCalledTimes(1);
-
-        gsm.rebuildRouteCells();
-        expect(setRouteCorridor).toHaveBeenCalledTimes(1);
       });
 
       // Debug enemies fought between waves never complete a wave
@@ -899,12 +767,9 @@ describe('GameStateManager', () => {
       });
 
       it('clears the ooze renderer, a killed ooze\'s collapsing band and debris included, which a wave end leaves', () => {
-        const engine = createMockEngine() as unknown as { oozes: { clear: Mock } };
-        const game = new GameStateManager();
-        game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-        const clear = engine.oozes.clear;
+        const clear = sinkOf().oozes.clear;
         clear.mockClear();
-        game.reset();
+        gsm.reset();
         expect(clear).toHaveBeenCalledTimes(1);
       });
     });
@@ -1042,8 +907,7 @@ describe('GameStateManager', () => {
         // Reset for a fresh frame budget.
         const sped = vi.fn();
         const gsm2 = new GameStateManager();
-        const engine = createMockEngine();
-        gsm2.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+        gsm2.initialize(BASE_POSITION, SPAWN_POINTS as never[], new Map());
         gsm2.setGameSpeed(5.0);
         gsm2.update(0, sped);
         gsm2.update(100, sped); // 100ms wall × 5× = 500ms game-time
@@ -1115,102 +979,6 @@ describe('GameStateManager', () => {
           expect(onSub.mock.calls.length - beforeResume).toBeLessThanOrEqual(2);
         });
 
-        it('stops the renderer clock while paused and restores it on resume', () => {
-          const engine = createMockEngine() as unknown as { setTimescale: ReturnType<typeof vi.fn> };
-          const paused = new GameStateManager();
-          paused.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-          paused.setGameSpeed(2);
-
-          paused.paused.set(true);
-          paused.update(1, undefined);
-          expect(engine.setTimescale).toHaveBeenLastCalledWith(0);
-
-          paused.paused.set(false);
-          paused.update(17, undefined);
-          expect(engine.setTimescale).toHaveBeenLastCalledWith(2);
-        });
-
-        /** A game whose GameStore the test drives; Angular would run its effects on each change. */
-        function withStore(pausedAtStart: boolean) {
-          const store = {
-            gameSpeed: signal(1), paused: signal(pausedAtStart), pauseKeepsLoops: signal(false), renderingEnabled: signal(true),
-          };
-          mockServices['GameStore'] = store;
-          const from = vi.mocked(effect).mock.calls.length;
-          const game = new GameStateManager();
-          const effects = vi.mocked(effect).mock.calls.slice(from).map(([fn]) => fn as () => void);
-          const sync = () => {
-            for (const run of effects) run();
-          };
-          sync();
-          const engine = createMockEngine() as unknown as { spatialAudio: { holdLoops: Mock } };
-          return { store, game, sync, engine };
-        }
-
-        it('applies renderingEnabled to an engine that attaches after the flag was set', () => {
-          // A bot client sets the flag while connecting, long before the
-          // engine exists. The effect then ran against no engine and the
-          // signal never changed again, so the tab rendered the whole run.
-          const { store, game, sync, engine } = withStore(false);
-          store.renderingEnabled.set(false);
-          sync();
-
-          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-
-          const setRendering = (engine as unknown as { setRenderingEnabled: Mock }).setRenderingEnabled;
-          expect(setRendering).toHaveBeenLastCalledWith(false);
-        });
-
-        it('holds every audio loop through GameStore.paused (playtest 545 to 547)', () => {
-          const { store, game, sync, engine } = withStore(false);
-          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-          const holdLoops = engine.spatialAudio.holdLoops;
-          expect(holdLoops).toHaveBeenLastCalledWith(false);
-
-          store.paused.set(true);
-          sync();
-          expect(game.paused()).toBe(true);
-          expect(holdLoops).toHaveBeenLastCalledWith(true);
-
-          store.paused.set(false);
-          sync();
-          expect(holdLoops).toHaveBeenLastCalledWith(false);
-        });
-
-        it('keeps the loops running in the pause of the boss intro, so the boss is heard', () => {
-          const { store, game, sync, engine } = withStore(false);
-          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-          store.pauseKeepsLoops.set(true);
-          store.paused.set(true);
-          sync();
-          expect(engine.spatialAudio.holdLoops).toHaveBeenLastCalledWith(false);
-        });
-
-        it('holds the loops of an engine that arrives while the game is paused', () => {
-          const { game, engine } = withStore(true);
-          game.initialize(engine as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-          expect(engine.spatialAudio.holdLoops).toHaveBeenLastCalledWith(true);
-        });
-
-        it('presents no enemy frame while paused, so no ooze loop starts in the pause (playtest 548)', () => {
-          const engine = createMockEngine();
-          const game = new GameStateManager();
-          game.initialize(engine, BASE_POSITION, SPAWN_POINTS as never[], new Map());
-          const present = vi.spyOn(game.enemyManager, 'presentFrame');
-          game.update(1, undefined);
-          game.update(18, undefined);
-          const running = present.mock.calls.length;
-          expect(running).toBeGreaterThan(0);
-
-          game.paused.set(true);
-          game.update(35, undefined);
-          game.update(500, undefined);
-          expect(present.mock.calls.length).toBe(running);
-
-          game.paused.set(false);
-          game.update(517, undefined);
-          expect(present.mock.calls.length).toBeGreaterThan(running);
-        });
       });
 
       it('reset() zeroes the game-clock and remainder', () => {

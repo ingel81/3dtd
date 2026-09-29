@@ -9,8 +9,10 @@
  *
  * The real sub-managers run; their per-step methods are wrapped to log and
  * then call through. Services injected by Angular are stubs that log the calls
- * the loop makes. `research:progress` stays out of the log: it is throttled on
- * the wall clock, not on game time.
+ * the loop makes, the renderer calls (SimSink) log as `sink.*`. Nothing is
+ * presented from the loop any more: the frame packet is written after it
+ * (SimCore). `research:progress` stays out of the log: it is throttled on the
+ * wall clock, not on game time.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
@@ -32,9 +34,9 @@ vi.mock('@angular/core', async () => {
 });
 
 import { GameStateManager } from './game-state.manager';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus } from '../game-engine/game-event-bus';
 import { GameObject } from '../core/game-object';
-import { withAutoStubs } from '../integration/test-helpers';
+import { createSinkSpy, createTestCoords, createTestOps, withAutoStubs } from '../integration/test-helpers';
 import type { Tower } from '../entities/tower.entity';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { LOCAL_PLAYER_ID } from './game-state/command-log';
@@ -45,26 +47,28 @@ const logged = (label: string, ret?: unknown) => vi.fn(() => {
   return ret;
 });
 
-/** Debug enemies the stubbed EnemyDebugService reports. */
-let debugEnemies: unknown[] = [];
 /** Answers of checkWaveComplete, in call order; false once empty. */
 let waveCompleteAnswers: boolean[] = [];
 
+/** The renderer calls the order depends on log, every other one is a quiet stub */
+function createSink() {
+  const sink = createSinkSpy() as unknown as Record<string, Record<string, unknown>>;
+  sink['effects']['clear'] = logged('sink.effects.clear');
+  sink['effects']['spawnFloatingText'] = logged('sink.effects.spawnFloatingText');
+  sink['oozes']['clear'] = logged('sink.oozes.clear');
+  sink['towers']['updateRangeIndicator'] = logged('sink.towers.updateRangeIndicator');
+  return sink;
+}
+
 function createStub(name: string): Record<string, unknown> {
   switch (name) {
-    case 'GameStore':
-      return { gameSpeed: Object.assign(vi.fn(() => 1), { set: vi.fn() }) };
-    case 'UIStore':
-      return { specialPointsDebugVisible: () => false };
-    case 'PathAndRouteService':
-      return { getCachedPaths: () => new Map() };
-    case 'HQDamageService':
-      return {
-        reset: logged('hq.reset'),
-        healBase: logged('hq.healBase'),
-        triggerGameOverEffects: logged('hq.triggerGameOverEffects'),
-        showGameOverScreen: () => false,
-      };
+    case 'SimCoords':
+      return createTestCoords() as unknown as Record<string, unknown>;
+    case 'SimOps':
+      return createTestOps(createSink() as never) as unknown as Record<string, unknown>;
+    case 'GlobalRouteGridService':
+      // A world stands: towers ask for their line of sight
+      return { isInitialized: () => true, getGroundLocalYAt: () => null, getGroundLocalYForEnemy: () => null };
     case 'TowerCombatService':
       return {
         updateTowerShooting: logged('combat.updateTowerShooting'),
@@ -77,31 +81,6 @@ function createStub(name: string): Record<string, unknown> {
         turnTowersToGuard: logged('combat.turnTowersToGuard'),
         turnToGuardHeading: logged('combat.turnToGuardHeading'),
       };
-    case 'ResearchStore':
-      return {
-        isTowerUnlocked: () => true,
-        airTargetingUnlocked: () => false,
-        activeResearches: Object.assign(vi.fn(() => []), {
-          set: logged('researchStore.activeResearches.set'),
-        }),
-      };
-    case 'WaveDebugService':
-      return { setCurrentWaveGroups: logged('waveDebug.setCurrentWaveGroups') };
-    case 'EnemyDebugService':
-      return {
-        debugEnemies: () => debugEnemies,
-        clearDebugEnemies: logged('enemyDebug.clearDebugEnemies'),
-      };
-    case 'MarkerVisualizationService':
-      return { spawnHQDebugPoint: logged('marker.spawnHQDebugPoint') };
-    case 'TowerPlacementService':
-      return {
-        registerTowerOnGrid: logged('placement.registerTowerOnGrid'),
-        unregisterTowerFromGrid: logged('placement.unregisterTowerFromGrid'),
-        recomputeTowerLOS: logged('placement.recomputeTowerLOS'),
-        scheduleLosRecompute: logged('placement.scheduleLosRecompute'),
-        clearAllTowerOverlays: logged('placement.clearAllTowerOverlays'),
-      };
     case 'SpatialGridService':
       return { updateEnemyTracked: () => null };
     case 'EconomyService':
@@ -112,44 +91,6 @@ function createStub(name: string): Record<string, unknown> {
     default:
       return {};
   }
-}
-
-function createEngine(): never {
-  const auto = (seed: Record<string, unknown> = {}) => withAutoStubs(seed);
-  const engine = {
-    getScene: () => ({}),
-    getTerrainHeightAtGeo: () => 0,
-    renderingEnabled: true,
-    setTimescale: (scale: number) => log.push(`engine.setTimescale(${scale})`),
-    sync: auto({
-      getOrigin: () => ({ lat: 48.77, lon: 9.18, height: 0 }),
-      geoToLocal: () => ({ x: 0, y: 0, z: 0 }),
-      geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }),
-      localToGeo: () => ({ lat: 48.77, lon: 9.18, height: 0 }),
-    }),
-    spatialAudio: auto({ playAtGeo: vi.fn(() => Promise.resolve()) }),
-    effects: auto({
-      clear: logged('engine.effects.clear'),
-      spawnFloatingText: logged('engine.effects.spawnFloatingText'),
-    }),
-    towers: auto({
-      updateRangeIndicator: logged('engine.towers.updateRangeIndicator'),
-    }),
-    plinths: auto(),
-    towerBadges: auto(),
-    bloodMoon: auto(),
-    searchlights: auto(),
-    enemies: auto(),
-    projectiles: auto(),
-    trailStreaks: auto(),
-    tentacles: auto(),
-    abilityMarkers: auto(),
-    orbitalBeams: auto(),
-    mushroomClouds: auto(),
-    hero: auto(),
-    oozes: auto(),
-  };
-  return auto(engine) as never;
 }
 
 /** Wraps methods of a live object: log the call, then run the original. */
@@ -194,9 +135,6 @@ const WAVE_STEP = [
   ...STEP_HEAD, 'wave.tickSpawn', 'enemy.update', ...COMBAT, 'hero.update',
   'ability.hasPendingStrikes', 'wave.checkWaveComplete', 'onSubStep',
 ];
-/** Once per frame after the loop, when a sub-step ran and rendering is on */
-const PRESENT = ['enemy.presentFrame', 'projectile.presentFrame', 'hero.presentFrame'];
-
 const repeat = (sequence: string[], times: number): string[] =>
   Array.from({ length: times }, () => sequence).flat();
 
@@ -209,45 +147,41 @@ describe('GameStateManager order of operations (characterization)', () => {
   beforeEach(() => {
     for (const key of Object.keys(mockServices)) delete mockServices[key];
     GameObject.resetIdCounter();
-    debugEnemies = [];
     waveCompleteAnswers = [];
 
     const on = vi.spyOn(GameEventBus.prototype, 'on');
     gsm = new GameStateManager();
-    gsm.initialize(createEngine(), BASE_POSITION, SPAWN_POINTS as never[], new Map());
+    gsm.initialize(BASE_POSITION, SPAWN_POINTS as never[], new Map());
     subscriptions = on.mock.calls.map(([type]) => type);
     on.mockRestore();
 
-    // The music has no audio graph here
-    const music = gsm.backgroundMusic as unknown as Record<string, () => void>;
-    for (const method of ['playBuildPhase', 'playWavePhase', 'fadeOutAndStop', 'stop']) {
-      music[method] = () => undefined;
-    }
-
     bus = gsm.getEventBus();
-    trace(gsm.projectileManager, 'projectile', ['update', 'presentFrame', 'clear']);
+    trace(gsm.projectileManager, 'projectile', ['update', 'clear']);
     trace(gsm.researchManager, 'research', [
       'update', 'startQueued', 'reset', 'onCenterPlaced', 'onCenterRemoved', 'upgradeCenter',
     ]);
     trace(gsm.abilityManager, 'ability', ['update', 'reset', 'hasPendingStrikes']);
-    trace(gsm.heroManager, 'hero', ['update', 'reset', 'presentFrame']);
+    trace(gsm.heroManager, 'hero', ['update', 'reset']);
     trace(bus, 'bus', ['processQueue']);
     trace(gsm.waveManager, 'wave', ['tickSpawn', 'endWave', 'reset', 'startWave', 'beginWave']);
     (gsm.waveManager as unknown as { checkWaveComplete: () => boolean }).checkWaveComplete = () => {
       log.push('wave.checkWaveComplete');
       return waveCompleteAnswers.shift() ?? false;
     };
-    trace(gsm.enemyManager, 'enemy', ['update', 'presentFrame', 'clear']);
+    trace(gsm.enemyManager, 'enemy', ['update', 'clear']);
     trace(gsm.towerManager, 'tower', [
-      'placeTower', 'sell', 'clear', 'selectTower', 'refreshGuardHeading', 'refreshGuardHeadings',
+      'placeTower', 'sell', 'clear', 'refreshGuardHeading', 'refreshGuardHeadings',
     ]);
+    trace(gsm.towerLos, 'los', ['register', 'recompute', 'unregister', 'clearAll']);
+    trace(gsm.debugEnemies, 'debugEnemies', ['clear']);
     bus.onAny((event) => {
       if (event.type !== 'research:progress') log.push(`event:${event.type}`);
     });
-    gsm.setCorridorPending(() => {
+    const corridorPending = gsm.corridorPending.bind(gsm);
+    gsm.corridorPending = () => {
       log.push('corridorPending');
-      return false;
-    });
+      return corridorPending();
+    };
     log.length = 0;
   });
 
@@ -256,19 +190,14 @@ describe('GameStateManager order of operations (characterization)', () => {
   });
 
   describe('frame and sub-steps', () => {
-    it('runs a frame outside a wave: timescale to the renderer, the sub-steps, then the present', () => {
+    it('runs a frame outside a wave: the sub-steps, nothing else', () => {
       gsm.update(1000, onSubStep); // first frame: 16 ms fallback, below one step
       gsm.update(1050, onSubStep); // 50 ms + 16 ms carried: three steps
       gsm.update(1066, onSubStep); // 16 ms + ~16 ms carried: one step
 
       expect(log).toEqual([
-        'engine.setTimescale(1)',
-        'engine.setTimescale(1)',
         ...repeat(SETUP_STEP, 3),
-        ...PRESENT,
-        'engine.setTimescale(1)',
         ...SETUP_STEP,
-        ...PRESENT,
       ]);
     });
 
@@ -277,25 +206,15 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1000, onSubStep);
       gsm.update(1050, onSubStep);
 
-      expect(log).toEqual([
-        'engine.setTimescale(1)',
-        'engine.setTimescale(1)',
-        ...repeat(WAVE_STEP, 3),
-        ...PRESENT,
-      ]);
+      expect(log).toEqual(repeat(WAVE_STEP, 3));
     });
 
     it('runs combat outside a wave while debug enemies are alive', () => {
-      debugEnemies = [{}];
+      gsm.debugEnemies.add({ id: 'enemy-99' } as never);
       gsm.update(1000, onSubStep);
       gsm.update(1050, onSubStep);
 
-      expect(log).toEqual([
-        'engine.setTimescale(1)',
-        'engine.setTimescale(1)',
-        ...repeat(DEBUG_STEP, 3),
-        ...PRESENT,
-      ]);
+      expect(log).toEqual(repeat(DEBUG_STEP, 3));
     });
 
     it('ends a wave inside the sub-step it completes in, and the next sub-step delivers wave:completed', () => {
@@ -306,7 +225,6 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1050, onSubStep);
 
       expect(log).toEqual([
-        'engine.setTimescale(1)',
         ...WAVE_STEP,
         ...WAVE_STEP.slice(0, -1),
         'wave.endWave',
@@ -317,7 +235,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'event:credits:changed',
         'combat.stopAllBeams',
         'combat.stopAllMelee',
-        'enemyDebug.clearDebugEnemies',
+        'debugEnemies.clear',
         // The hook sees the setup the check just began
         'onSubStep',
         ...STEP_HEAD,
@@ -326,7 +244,6 @@ describe('GameStateManager order of operations (characterization)', () => {
         'enemy.update',
         'hero.update',
         'onSubStep',
-        ...PRESENT,
       ]);
       expect(gsm.waveManager.phase()).toBe('setup');
     });
@@ -342,12 +259,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1050, onSubStep);
 
       const heldStep = WAVE_STEP.filter((call) => call !== 'wave.checkWaveComplete');
-      expect(log).toEqual([
-        'engine.setTimescale(1)',
-        'engine.setTimescale(1)',
-        ...repeat(heldStep, 3),
-        ...PRESENT,
-      ]);
+      expect(log).toEqual(repeat(heldStep, 3));
       expect(gsm.waveManager.phase()).toBe('wave');
     });
 
@@ -358,7 +270,6 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1050, onSubStep); // budget for three steps, one runs
 
       expect(log).toEqual([
-        'engine.setTimescale(1)',
         // No hook after the step that ends the game: the loop breaks first
         ...SETUP_STEP.slice(0, -1),
         // The event goes out before the field is cleared: the run log writes
@@ -366,33 +277,14 @@ describe('GameStateManager order of operations (characterization)', () => {
         // enemies that were standing while they are still there.
         'event:game:over',
         'enemy.clear',
-        'enemyDebug.clearDebugEnemies',
-        'tower.selectTower',
-        'hq.triggerGameOverEffects',
-        ...PRESENT,
+        'debugEnemies.clear',
       ]);
       expect(gsm.waveManager.phase()).toBe('gameover');
 
       // 66 - 16.667 carried plus 16 ms: three steps, the game over is not repeated
       log.length = 0;
       gsm.update(1066, onSubStep);
-      expect(log).toEqual(['engine.setTimescale(1)', ...repeat(SETUP_STEP, 3), ...PRESENT]);
-    });
-
-    it('syncs active research to the store once per frame, after the present', () => {
-      gsm.addCredits(100_000, 'cheat');
-      gsm.researchManager.onCenterPlaced();
-      bus.emit({ type: 'command:start-research', researchId: 'gatling-tech' });
-      gsm.update(1000, onSubStep);
-      log.length = 0;
-      gsm.update(1050, onSubStep);
-
-      expect(log).toEqual([
-        'engine.setTimescale(1)',
-        ...repeat(SETUP_STEP, 3),
-        ...PRESENT,
-        'researchStore.activeResearches.set',
-      ]);
+      expect(log).toEqual(repeat(SETUP_STEP, 3));
     });
 
     it('hands the frame timing to the profiler last', () => {
@@ -403,26 +295,16 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1050, onSubStep);
 
       expect(log).toEqual([
-        'engine.setTimescale(1)',
         'profiler.accumulateFrameTiming(steps=0)',
-        'engine.setTimescale(1)',
         ...repeat(SETUP_STEP, 3),
-        ...PRESENT,
         'profiler.accumulateFrameTiming(steps=3)',
       ]);
     });
 
-    it('skips presenting when rendering is off', () => {
-      (gsm.tilesEngine as unknown as { renderingEnabled: boolean }).renderingEnabled = false;
-      gsm.update(1000, onSubStep);
-      gsm.update(1050, onSubStep);
-
-      expect(log).toEqual(['engine.setTimescale(1)', 'engine.setTimescale(1)', ...repeat(SETUP_STEP, 3)]);
-    });
   });
 
   describe('pause', () => {
-    it('only stops the renderer clock while paused and resumes without catching up', () => {
+    it('runs nothing while paused and resumes without catching up', () => {
       gsm.update(1000, onSubStep);
       gsm.update(1050, onSubStep);
       const clock = gsm.gameTimeMs;
@@ -431,13 +313,13 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.paused.set(true);
       gsm.update(1066, onSubStep);
       gsm.update(5000, onSubStep);
-      expect(log).toEqual(['engine.setTimescale(0)', 'engine.setTimescale(0)']);
+      expect(log).toEqual([]);
       expect(gsm.gameTimeMs).toBe(clock);
 
       log.length = 0;
       gsm.paused.set(false);
       gsm.update(5016, onSubStep); // 16 ms since the last paused frame, ~16 ms carried
-      expect(log).toEqual(['engine.setTimescale(1)', ...SETUP_STEP, ...PRESENT]);
+      expect(log).toEqual(SETUP_STEP);
     });
   });
 
@@ -449,12 +331,8 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1020, onSubStep); // 20 ms x 10 + ~10 ms carried: twelve steps
 
       expect(log).toEqual([
-        'engine.setTimescale(10)',
         ...repeat(WAVE_STEP, 9),
-        ...PRESENT,
-        'engine.setTimescale(10)',
         ...repeat(WAVE_STEP, 12),
-        ...PRESENT,
       ]);
     });
 
@@ -467,11 +345,6 @@ describe('GameStateManager order of operations (characterization)', () => {
         seen.push(`enemy ${now} ${stepMs}`);
         enemyUpdate(stepMs, now);
       };
-      const present = gsm.enemyManager.presentFrame.bind(gsm.enemyManager);
-      gsm.enemyManager.presentFrame = (now: number) => {
-        seen.push(`present ${now}`);
-        present(now);
-      };
 
       gsm.setGameSpeed(10);
       gsm.waveManager.phase.set('wave');
@@ -483,7 +356,6 @@ describe('GameStateManager order of operations (characterization)', () => {
         now += 16.667;
         expected.push(`enemy ${now} 16.667`, `shoot ${now} 16.667`, `hook ${now} 16.667`);
       }
-      expected.push(`present ${now}`);
       expect(seen).toEqual(expected);
       expect(gsm.gameTimeMs).toBe(now);
     });
@@ -496,18 +368,6 @@ describe('GameStateManager order of operations (characterization)', () => {
         'enemy:reached-base', 'enemy:leaking', 'enemy:died',
         'research:completed', 'wave:completed',
         'research:completed', 'hero:kill',
-        // VFXService, AudioService, GameSoundsService, ScreenShakeService, BackgroundMusicService, BloodMoonService
-        'vfx:projectile-impact', 'vfx:blood', 'vfx:muzzle-flash', 'vfx:chain-lightning',
-        'enemy:split', 'ability:used', 'ability:impact', 'ability:state-changed', 'game:reset', 'hero:level-up',
-        'audio:play', 'ability:used', 'ability:impact', 'game:reset',
-        'debug:kill-all', 'debug:complete-all-research', 'debug:max-upgrade-all-towers', 'debug:ready-ability',
-        'debug:ready-hero',
-        'enemy:died', 'enemy:split', 'projectile:hit', 'enemy:footstep', 'tower:upgraded', 'ability:used',
-        'hero:level-up', 'wave:started', 'wave:completed', 'sim:restored', 'research:completed', 'ability:state-changed',
-        'hero:state-changed', 'game:over', 'game:reset',
-        'vfx:projectile-impact', 'health:changed', 'ability:used', 'ability:impact', 'enemy:footstep', 'enemy:died',
-        'wave:started', 'ability:impact', 'health:changed', 'wave:completed', 'game:over', 'game:reset',
-        'wave:started', 'wave:completed', 'game:over', 'game:reset',
         // GameStateManager: LOS masks for the re-simulation, AA retrofit, guard turns, kill reward
         'enemy:reached-base', 'enemy:leaking',
         'tower:los-resolved',
@@ -525,7 +385,8 @@ describe('GameStateManager order of operations (characterization)', () => {
         'command:restart-game',
         'debug:add-credits', 'debug:add-health', 'debug:complete-all-research', 'debug:kill-all', 'debug:spawn-enemy',
         'debug:remove-enemy', 'debug:max-upgrade-all-towers',
-        'debug:ready-ability', 'debug:jump-to-wave', 'debug:ready-hero',
+        'debug:ready-ability', 'debug:jump-to-wave', 'debug:enemy-move', 'debug:movement', 'debug:enemy-speed',
+        'debug:ready-hero',
       ]);
     });
 
@@ -556,15 +417,16 @@ describe('GameStateManager order of operations (characterization)', () => {
         'event:enemy:died',
         'combat.turnTowersToGuard',
         'event:credits:changed',
-        'engine.effects.spawnFloatingText',
+        'sink.effects.spawnFloatingText',
       ]);
     });
 
-    it('queues an LOS recompute when research unlocks air targeting', () => {
+    it('asks for the line of sight again when research unlocks air targeting', () => {
       gsm.addCredits(10_000, 'cheat');
       gsm.researchManager.completeResearch('gatling-tech');
       const gatling = gsm.placeTower(BASE_POSITION, 'dual-gatling');
       expect(gatling).not.toBeNull();
+      gsm.towerLos.applyMask(gatling!, { range: 20, ground: true, air: false, bits: new Uint8Array(0) });
       log.length = 0;
 
       bus.emit({
@@ -572,7 +434,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         researchId: 'aa-retrofit',
         effects: [{ kind: 'enable-targeting', capability: 'air' }],
       });
-      expect(log).toEqual(['event:research:completed', 'placement.scheduleLosRecompute']);
+      expect(log).toEqual(['event:research:completed', 'los.recompute', 'event:tower:los-needed']);
     });
   });
 
@@ -586,7 +448,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       archer = gsm.towerManager.getAll()[0];
     });
 
-    it('places: tower, cost, grid registration', () => {
+    it('places: tower, cost, then the request for its line of sight', () => {
       expect(archer).toBeDefined();
       expect(log).toEqual([
         'event:command:place-tower',
@@ -596,19 +458,22 @@ describe('GameStateManager order of operations (characterization)', () => {
         'event:tower:placed',
         'event:audio:play',
         'event:credits:changed',
-        'placement.registerTowerOnGrid',
+        'los.register',
+        'event:tower:los-needed',
       ]);
     });
 
-    it('upgrades range: cost, LOS, range ring, guard heading, then tower:upgraded', () => {
+    it('upgrades range: cost, LOS request, range ring, guard heading, then tower:upgraded', () => {
+      gsm.towerLos.applyMask(archer, { range: 20, ground: true, air: false, bits: new Uint8Array(0) });
       log.length = 0;
       bus.emit({ type: 'command:upgrade-tower', towerId: archer.id, upgradeId: 'range' });
 
       expect(log).toEqual([
         'event:command:upgrade-tower',
         'event:credits:changed',
-        'placement.recomputeTowerLOS',
-        'engine.towers.updateRangeIndicator',
+        'los.recompute',
+        'event:tower:los-needed',
+        'sink.towers.updateRangeIndicator',
         'tower.refreshGuardHeading',
         'combat.turnToGuardHeading',
         'event:tower:upgraded',
@@ -625,14 +490,13 @@ describe('GameStateManager order of operations (characterization)', () => {
       expect(gsm.credits()).toBe(credits);
     });
 
-    it('sells: grid, selection, tower, refund', () => {
+    it('sells: grid, tower, refund', () => {
       log.length = 0;
       bus.emit({ type: 'command:sell-tower', towerId: archer.id });
 
       expect(log).toEqual([
         'event:command:sell-tower',
-        'placement.unregisterTowerFromGrid',
-        'tower.selectTower',
+        'los.unregister',
         'tower.sell',
         'event:tower:sold',
         'event:audio:play',
@@ -660,8 +524,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       bus.emit({ type: 'command:sell-tower', towerId: center.id });
       expect(log).toEqual([
         'event:command:sell-tower',
-        'placement.unregisterTowerFromGrid',
-        'tower.selectTower',
+        'los.unregister',
         'research.onCenterRemoved',
         'event:research:state-changed',
         'tower.sell',
@@ -693,8 +556,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       bus.emit({ type: 'command:sell-tower', towerId: silo.id });
       expect(log).toEqual([
         'event:command:sell-tower',
-        'placement.unregisterTowerFromGrid',
-        'tower.selectTower',
+        'los.unregister',
         'tower.sell',
         'event:tower:sold',
         'event:audio:play',
@@ -710,8 +572,9 @@ describe('GameStateManager order of operations (characterization)', () => {
 
       expect(log).toEqual([
         'event:debug:max-upgrade-all-towers',
-        'placement.recomputeTowerLOS',
-        'engine.towers.updateRangeIndicator',
+        // Still waiting for its first sight: that answer covers the new range
+        'los.recompute',
+        'sink.towers.updateRangeIndicator',
         'tower.refreshGuardHeading',
         'combat.turnToGuardHeading',
         'event:tower:upgraded',
@@ -735,7 +598,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         'corridorPending',
         // The wave-start snapshot asks whether a strike is pending (snapshotRefusal)
         'ability.hasPendingStrikes',
-        'waveDebug.setCurrentWaveGroups',
+        'event:wave:groups',
         'event:game:started',
         'wave.startWave',
         'event:wave:started',
@@ -759,13 +622,11 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.reset();
 
       expect(log).toEqual([
-        'hq.reset',
-        'tower.selectTower',
-        'placement.clearAllTowerOverlays',
+        'los.clearAll',
         'combat.stopAllBeams',
         'combat.stopAllMelee',
         'enemy.clear',
-        'enemyDebug.clearDebugEnemies',
+        'debugEnemies.clear',
         'tower.clear',
         'projectile.clear',
         'wave.reset',
@@ -773,7 +634,8 @@ describe('GameStateManager order of operations (characterization)', () => {
         'research.reset',
         'ability.reset',
         'hero.reset',
-        'engine.effects.clear',
+        'sink.effects.clear',
+        'sink.oozes.clear',
         'event:credits:changed',
         'economy.reset',
         'event:game:reset',
@@ -784,7 +646,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       bus.emit({ type: 'debug:add-health', amount: -20 });
       gsm.healBase();
 
-      expect(log).toEqual(['event:debug:add-health', 'event:health:changed', 'hq.healBase']);
+      expect(log).toEqual(['event:debug:add-health', 'event:health:changed']);
     });
   });
 
@@ -815,7 +677,6 @@ describe('GameStateManager order of operations (characterization)', () => {
 
       const step = WAVE_STEP.slice(0, -1);
       expect(log).toEqual([
-        'engine.setTimescale(1)',
         ...step.slice(0, step.indexOf('hero.update') + 1),
         'event:debug:add-credits',
         'ability.hasPendingStrikes',
@@ -823,7 +684,6 @@ describe('GameStateManager order of operations (characterization)', () => {
         // The boundary
         'event:credits:changed',
         'onSubStep',
-        ...PRESENT,
       ]);
       expect(gsm.commandLog.entries).toEqual([
         { step: 1, playerId: LOCAL_PLAYER_ID, command: { type: 'debug:add-credits', amount: 5 } },
@@ -852,13 +712,11 @@ describe('GameStateManager order of operations (characterization)', () => {
       });
 
       expect(log).toEqual([
-        'engine.setTimescale(1)',
         ...SETUP_STEP,
         'event:debug:add-credits',
         'event:credits:changed',
         ...SETUP_STEP,
         ...SETUP_STEP,
-        ...PRESENT,
       ]);
       expect(gsm.commandLog.entries.map((e) => e.step)).toEqual([1]);
     });
@@ -871,16 +729,12 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1050, onSubStep);
 
       expect(log).toEqual([
-        'engine.setTimescale(1)',
         ...SETUP_STEP.slice(0, -1),
         'event:debug:add-credits',
         'event:game:over',
         'enemy.clear',
-        'enemyDebug.clearDebugEnemies',
-        'tower.selectTower',
-        'hq.triggerGameOverEffects',
+        'debugEnemies.clear',
         'event:credits:changed',
-        ...PRESENT,
       ]);
       expect(gsm.commandLog.entries.map((e) => e.step)).toEqual([1]);
     });
