@@ -187,15 +187,10 @@ Ideen (2026-09-27), nichts entschieden:
       weiteren Läufen nicht; nach den Review-Fixes zählte M5 einmal 5 statt 6 Wellen und der Coop-Test T65 sah einen
       Reload, beide im zweiten Lauf grün; erst mit Logs belegen. Dann entscheiden, ob `simu-worker` nach `next` geht.
 - [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-gemessen-2026-09-29)):
-      **Gemessen 2026-09-29:** Chromium hält Tempo 4 und 144 FPS bis rund 11000 Gegner, dann wird der Worker knapp;
-      Firefox hängt schon ab 3000 am Hauptthread (Paket anwenden, Vorschau-Kopie, GPU), der Worker ist höchstens halb
-      ausgelastet. Die Schätzung „zuerst bremst der Worker“ stimmt nur für Chromium. Nächste Hebel laut Messung:
-      Hauptthread verschlanken, Vorschau ohne Kopie (E73), Tick vom Bild lösen, GPU-Culling; SAB-Gegnerdaten und
-      mehrere Worker erst danach. Entscheidung User.
-- [ ] **E73 Vorschau der Seitenleiste kostet Firefox rund 6 ms je Bild** (gemessen 2026-09-29, Bisect): die 3D-Vorschauen
-      der Gegnergruppen rendern mit 30 FPS über einen zweiten WebGL-Renderer und kopieren jedes Bild per `drawImage`
-      ins 2D-Canvas (`model-preview.service.ts`); DevWorld, 4800 Gegner: 69 statt 124 FPS. Gilt auch ohne Worker.
-      Idee: Standbild oder seltener rendern, solange eine Welle läuft.
+      **Gemessen 2026-09-29** bis 25000 Gegner: Chromium hält 144 FPS und Tempo 4 bis rund 11000 (vorher 4900), dann
+      wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
+      Nächste Hebel laut Messung: Hauptthread verschlanken, Tick vom Bild lösen, GPU-Culling; SAB-Gegnerdaten und
+      mehrere Worker danach. Entscheidung User.
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
       **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze
