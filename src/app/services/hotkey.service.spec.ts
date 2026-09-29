@@ -220,7 +220,7 @@ describe('HotkeyService', () => {
           useValue: {
             bus: {
               emit: (e: { type: string; towerId: string; upgradeId: UpgradeId }) =>
-                e.type === 'command:upgrade-tower' && facade.upgradeTower(store.selectedTower(), e.upgradeId),
+                e.type === 'command:upgrade-tower' && (facade.upgradeTower as unknown as (t: unknown, id: UpgradeId) => boolean)(store.selectedTower(), e.upgradeId),
             },
           },
         },

@@ -73,7 +73,7 @@ describe('TowerPlacementService placement checks', () => {
     getAll = vi.fn(() => [...towers]);
 
     injectionRegistry['SimClient'] = { bus: { emit: vi.fn() } };
-    injectionRegistry['SimMirror'] = { towers: () => getAll() };
+    injectionRegistry['SimMirror'] = { towers: () => (getAll as unknown as () => Tower[])() };
     injectionRegistry['TowerSelectionService'] = { select: vi.fn() };
     service = new TowerPlacementService();
   });

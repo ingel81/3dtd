@@ -263,9 +263,9 @@ describe('TowerPlacementService', () => {
     };
     emit = vi.fn();
 
-    injectionRegistry['SimClient'] = { bus: { emit: (e: unknown) => emit(e) } };
+    injectionRegistry['SimClient'] = { bus: { emit: (e: unknown) => (emit as unknown as (e: unknown) => void)(e) } };
     injectionRegistry['SimMirror'] = { towers: () => towerManager.getAll() };
-    injectionRegistry['TowerSelectionService'] = { select: (id: string | null) => towerManager.selectTower(id) };
+    injectionRegistry['TowerSelectionService'] = { select: (id: string | null) => (towerManager.selectTower as unknown as (id: string | null) => void)(id) };
     service = new TowerPlacementService();
   });
 

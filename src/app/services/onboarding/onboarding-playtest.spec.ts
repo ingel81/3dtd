@@ -9,6 +9,7 @@
  * credit cheat of the playtest has no step here.
  */
 import { describe, it, expect, beforeEach } from 'vitest';
+import type { MainEventBus } from '../../sim/client/view-events';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { ResearchManager } from '../../managers/research.manager';
 import { AbilityManager, AbilityWorld } from '../../managers/ability.manager';
@@ -110,7 +111,8 @@ describe('first-run tips, playtest 502 to 507', () => {
     service?.disconnect();
     game = new Game();
     service = new OnboardingService();
-    service.connect(game.bus);
+    // The simulation's bus stands in for the main bus: the managers here emit plain data
+    service.connect(game.bus as unknown as MainEventBus);
   };
 
   beforeEach(() => {
@@ -221,7 +223,8 @@ describe('first-run tips, playtest 502 to 507', () => {
     expect(label()).toBe('Build a research center 4/7');
 
     // Engine set up again: connect() on the same service
-    service.connect(game.bus);
+    // The simulation's bus stands in for the main bus: the managers here emit plain data
+    service.connect(game.bus as unknown as MainEventBus);
     expect(service.state().completed).toEqual(['build-tower', 'start-wave', 'upgrade-tower']);
   });
 

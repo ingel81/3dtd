@@ -128,7 +128,7 @@ describe('Build preview with a plinth on a spot too close to the route (playtest
       getAll: () => [], selectTower: vi.fn(), refreshSelectionViz: vi.fn(), onTowerUnregistered: vi.fn(),
     };
 
-    injectionRegistry['SimClient'] = { bus: { emit: (e: unknown) => emit(e) } };
+    injectionRegistry['SimClient'] = { bus: { emit: (e: unknown) => (emit as unknown as (e: unknown) => void)(e) } };
     injectionRegistry['SimMirror'] = { towers: () => towerManager.getAll() };
     injectionRegistry['TowerSelectionService'] = { select: towerManager.selectTower };
     service = new TowerPlacementService();

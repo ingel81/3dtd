@@ -144,7 +144,7 @@ describe('Towers at roof edges and walls (playtest 12 to 17, C10)', () => {
       getAll: () => [], selectTower: vi.fn(), refreshSelectionViz: vi.fn(), onTowerUnregistered: vi.fn(),
     };
 
-    injectionRegistry['SimClient'] = { bus: { emit: (e: unknown) => emit(e) } };
+    injectionRegistry['SimClient'] = { bus: { emit: (e: unknown) => (emit as unknown as (e: unknown) => void)(e) } };
     injectionRegistry['SimMirror'] = { towers: () => towerManager.getAll() };
     injectionRegistry['TowerSelectionService'] = { select: towerManager.selectTower };
     service = new TowerPlacementService();

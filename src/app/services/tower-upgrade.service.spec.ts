@@ -62,7 +62,7 @@ describe('TowerUpgradeService', () => {
       providers: [
         {
           provide: SimClient,
-          useValue: { bus: { emit: (e: { towerId: string; upgradeId: UpgradeId }) => upgradeTower(e.towerId === tower.id ? tower : e.towerId, e.upgradeId) } },
+          useValue: { bus: { emit: (e: { towerId: string; upgradeId: UpgradeId }) => (upgradeTower as unknown as (t: unknown, id: UpgradeId) => void)(e.towerId === tower.id ? tower : e.towerId, e.upgradeId) } },
         },
         { provide: EngineInitializationService, useValue: { getEngine: () => ({ effects: { spawnFloatingText } }) } },
         { provide: TowerDefenseStore, useValue: { credits } },

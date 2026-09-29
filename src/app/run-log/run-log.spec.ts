@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
+import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { RunLogCollector, SAMPLE_INTERVAL_MS, type RunLogWorld } from './run-log.service';
 import { reconcileWave, RUN_LOG_FORMAT, type RunLogEvent, type RunLogSample, type RunLogWave } from './run-log.types';
 import { fromJsonl, toJsonl } from './run-log.export';
@@ -22,7 +23,7 @@ function tower(id: string, type: string) {
 }
 
 describe('the run log', () => {
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let subs: SubscriptionBag;
   let log: RunLogCollector;
   let step = 0;
@@ -57,7 +58,7 @@ describe('the run log', () => {
     (log.current()?.records ?? []).filter((r): r is RunLogSample => r.kind === 'sample');
 
   beforeEach(() => {
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     subs = new SubscriptionBag();
     log = new RunLogCollector();
     log.attach(bus, subs);

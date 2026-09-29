@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
 
 // Mock Angular DI: inject() returns the actual stores we construct in beforeEach.
 // Decorator must be a no-op so providedIn doesn't reach the real platform.
@@ -17,7 +18,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { GameStateSyncService } from './game-state-sync.service';
-import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
+import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
 import { GameStore } from '../../store/game.store';
@@ -40,7 +41,7 @@ describe('GameStateSyncService (real service)', () => {
   let store: TowerDefenseStore;
   let researchStore: ResearchStore;
   let service: GameStateSyncService;
-  let eventBus: GameEventBus;
+  let eventBus: MainEventBus;
   let log: RunLogCollector;
   let logSubs: SubscriptionBag;
   let health = 100;
@@ -71,7 +72,7 @@ describe('GameStateSyncService (real service)', () => {
     log = new RunLogCollector();
     injectionRegistry['RunLogFacade'] = { collector: log, current: () => log.current() };
 
-    eventBus = new GameEventBus();
+    eventBus = createMainEventBus();
     mirror = { scalars: { gameTimeMs: 0 }, localPlayerId: 'local' };
     injectionRegistry['SimClient'] = { bus: eventBus };
     injectionRegistry['SimMirror'] = mirror;
