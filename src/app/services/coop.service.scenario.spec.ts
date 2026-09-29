@@ -103,6 +103,7 @@ function player(relayPort: number, waveSource?: WaveSourceId) {
       failureListeners.push(listener);
       return () => undefined;
     },
+    onFrame: () => () => undefined,
     /** The simulation threw: what SimClient tells its listeners */
     fail: (error: string) => failureListeners.forEach((listener) => listener(error)),
     rpc: vi.fn(async (method: string) => (method === 'stateHash' ? 1 : null)),
