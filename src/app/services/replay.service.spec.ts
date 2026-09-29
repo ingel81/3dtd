@@ -150,7 +150,7 @@ describe('ReplayService.enter gate', () => {
     host.remove();
   });
 
-  it('stops listening to the simulation's frames when the game component goes', () => {
+  it('stops listening to the frames of the simulation when the game component goes', () => {
     expect(frames).toHaveLength(1);
     (injector as unknown as { destroy(): void }).destroy();
     expect(frames).toHaveLength(0);
