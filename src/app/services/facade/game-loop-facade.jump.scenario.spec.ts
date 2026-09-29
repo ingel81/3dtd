@@ -34,10 +34,17 @@ import { ResearchStore } from '../../store/research.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { TowerSelectionService } from '../tower-selection.service';
+import { PresentationService } from '../../presentation/presentation.service';
+import { GameStore } from '../../store/game.store';
 import { waveButtonView } from '../../components/game-sidebar/wave-panel/wave-button';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
 import type { WaveConfig } from '../../director/models/wave-config';
 import { adaptDirectorWave } from '../../director/wave-config-adapter';
 import { GameRng } from '../../utils/game-rng';
@@ -49,19 +56,20 @@ const UNUSED = [
   MarkerVisualizationService, RouteAnimationService, IntroCameraFlightService,
   SoundDebugService, DebugWindowService, EnemyDebugService, NgZone,
   PerformanceProfilerService, StreetRenderingService, UIStore, BossIntroService, ReplayService, TowerControlService,
+  GlobalRouteGridService, RouteGridVizService, TowerSelectionService, PresentationService, GameStore,
 ];
 
 /**
  * Playtest 357, 365, 379 and 380 (docs/archive/REVIEW_SPRINT_2026-09-14.md)
- * replayed after the dev jump: the `wave:jumped` event GameStateManager
- * sends (game-state.manager.spec.ts) goes through the real
+ * replayed after the dev jump: the `wave:jumped` event the simulation
+ * sends (game-state.manager.spec.ts) goes over the main bus through the real
  * GameStateSyncService into the store, and the real GameLoopFacadeService
  * starts the next wave from it. The director is a stub around the budget
  * source, so the wave that starts is the run plan's row for that number. The
  * wave button reads the store as the WAVE panel does.
  */
 describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () => {
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let facade: GameLoopFacadeService;
   let started: WaveConfig[];
   const store = {
@@ -101,15 +109,18 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
   };
 
   beforeEach(() => {
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     started = [];
-    bus.on('command:start-wave', (e) => started.push(e.director!));
+    bus.on('command:start-wave', (e) => started.push(e.director! as WaveConfig));
     store.phase.set('setup');
     store.waveNumber.set(0);
     store.waveExplanation.set(null);
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        { provide: SimClient, useValue: { bus } },
+        { provide: SimMirror, useValue: { rng: new GameRng(1), localPlayerId: 'local', scalars: { gameTimeMs: 0 } } },
+        { provide: MainWorldService, useValue: { corridorPending: () => false } },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: TowerDefenseStore, useValue: store },
         { provide: ResearchStore, useValue: {} },
@@ -119,12 +130,9 @@ describe('Wave start after a jump, playtest 357, 365, 379 and 380 replayed', () 
         { provide: WaveDebugService, useValue: {} },
       ],
     });
-    runInInjectionContext(injector, () => new GameStateSyncService()).initialize(bus);
+    runInInjectionContext(injector, () => new GameStateSyncService()).initialize();
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    facade.initialize(
-      { getEngine: () => ({}) } as unknown as FacadeComponentBridge,
-      { getEventBus: () => bus, corridorPending: () => false, rng: new GameRng(1) } as unknown as GameStateManager,
-    );
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
   });
 
   it('379 and 357: after the jump to 30 the button shows Wave 30, Space starts the worm, "Why this wave" names it', async () => {

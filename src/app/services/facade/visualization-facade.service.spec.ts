@@ -1,6 +1,20 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Injector, runInInjectionContext, signal } from '@angular/core';
 
+// The facade's effects, run by hand: each runs once when registered and again on `runEffects()`
+const effects = vi.hoisted(() => ({ registered: [] as (() => void)[] }));
+vi.mock('@angular/core', async () => {
+  const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
+  return {
+    ...actual,
+    effect: (fn: () => void) => {
+      effects.registered.push(fn);
+      fn();
+      return { destroy: () => undefined };
+    },
+  };
+});
+
 // InputHandlerService imports MatDialog; the real module is partially compiled
 // and needs the JIT compiler.
 vi.mock('@angular/material/dialog', () => ({ MatDialog: class MatDialog {} }));
@@ -67,13 +81,18 @@ import { LocationManagementService } from '../location/location-management.servi
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EngineStore } from '../../store/engine.store';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../world/main-world.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { TowerSelectionService } from '../tower-selection.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import {
   CAMERA_ANGLE, CAMERA_MARKER_RADIUS, CAMERA_PADDING, STREET_FILTER_RADIUS, SPAWN_COLORS,
 } from '../../configs/map-constants.config';
 import { INTRO_GATE_SAMPLES_PER_FRAME, INTRO_GATE_TIMEOUT_MS } from '../../utils/flight-gate';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
 import type { CameraFrame } from '../camera-framing.service';
 
 /**
@@ -92,7 +111,7 @@ const VIEW: CameraView = { position: { x: 1, y: 2, z: 3 }, target: { x: 4, y: 5,
 
 describe('VisualizationFacadeService', () => {
   let facade: VisualizationFacadeService;
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let streetNetwork: object | null;
   let filteredNetwork: object | null;
   let cachedPaths: Map<string, typeof ROUTE>;
@@ -154,9 +173,6 @@ describe('VisualizationFacadeService', () => {
   };
   const grid = {
     retryUnsampledCells: vi.fn(() => ({ promoted: 0 })),
-    initSpatialGridVisualizationIfEnabled: vi.fn(),
-    initAirSpatialGridVisualizationIfEnabled: vi.fn(),
-    initAirRouteLayerIfEnabled: vi.fn(),
     getStats: vi.fn(() => ({ totalCells: 42 })),
     snapshotHeights: vi.fn(() => new Map()),
     cellsWithoutHeight: vi.fn(() => 0),
@@ -165,21 +181,26 @@ describe('VisualizationFacadeService', () => {
     getGrid: vi.fn((): unknown => null),
     getCoordinateSync: vi.fn((): unknown => ({ sync: true })),
   };
-  const music = { onLoadingComplete: vi.fn() };
-  const towerManager = { getSelected: vi.fn(() => null), getById: vi.fn(() => null) };
-  const gameState = {
-    initialize: vi.fn(),
-    initializeGlobalRouteGrid: vi.fn(),
-    rebuildRouteCells: vi.fn(),
-    getGlobalRouteGrid: () => grid,
-    getEventBus: () => bus,
-    towerCount: () => towerCount,
-    enemyManager: { getAliveCount: () => 0 },
-    waveManager: { phase: () => 'setup' },
-    onTilesLoaded: vi.fn(),
-    backgroundMusic: music,
-    towerManager,
+  /** The overlays of the grid's cells */
+  const gridViz = {
+    initSpatialGridVisualizationIfEnabled: vi.fn(),
+    initAirSpatialGridVisualizationIfEnabled: vi.fn(),
+    initAirRouteLayerIfEnabled: vi.fn(),
+  };
+  /** The presentation: the music after loading, the HQ ground once the tiles are in */
+  const presentationHost = { onTilesLoaded: vi.fn() };
+  const presentation = { onLoadingComplete: vi.fn(), host: presentationHost };
+  /** The main thread's world: HQ and spawns, the cells, the corridor's gate, the world to the simulation */
+  const world = {
+    attach: vi.fn(),
+    buildCells: vi.fn(),
+    rebuildCells: vi.fn(),
+    sendToSim: vi.fn(),
     setCorridorPending: vi.fn(),
+  };
+  /** The simulation's numbers after the last packet */
+  const mirror = {
+    get scalars() { return { towerCount, phase: 'setup', enemiesAlive: 0 }; },
   };
 
   const osm = {
@@ -187,7 +208,7 @@ describe('VisualizationFacadeService', () => {
     loadBuildings: vi.fn(),
     filterBuildingsNearRoutes: vi.fn(() => ['near']),
   };
-  const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false) };
+  const uiStore = { routesVisible: signal(true), buildingsVisible: signal(false), specialPointsDebugVisible: signal(false) };
   const cameraControl = {
     initialize: vi.fn(),
     setOverviewProvider: vi.fn(),
@@ -290,7 +311,6 @@ describe('VisualizationFacadeService', () => {
   const enemyDebug = { initialize: vi.fn(), placementMode: vi.fn(() => false) };
   const towerDebug = { showShootHeight: signal(false), allOverrides: signal({}), selectTower: vi.fn() };
   const losDebug = { initialize: vi.fn() };
-  const gridService = { name: 'grid service' };
   const locationMgmt = { isApplyingLocation: signal(false) };
   const stateSnapshots = { getCurrentDPSProfile: vi.fn(() => ({ profile: 1 })) };
   const mapPlacement = { initialize: vi.fn(), placementMode: vi.fn(() => null) };
@@ -315,6 +335,7 @@ describe('VisualizationFacadeService', () => {
     heightDebugVisible: ReturnType<typeof signal<boolean>>;
     streetsVisible: ReturnType<typeof signal<boolean>>;
     cameraFramingDebug: ReturnType<typeof signal<boolean>>;
+    selectedTower: ReturnType<typeof signal<unknown>>;
   };
 
   const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
@@ -363,7 +384,13 @@ describe('VisualizationFacadeService', () => {
         { provide: TowerDebugService, useValue: towerDebug },
         { provide: DebugFacadeService, useValue: {} },
         { provide: LosDebugService, useValue: losDebug },
-        { provide: GlobalRouteGridService, useValue: gridService },
+        { provide: GlobalRouteGridService, useValue: grid },
+        { provide: SimClient, useValue: { get bus() { return bus; } } },
+        { provide: SimMirror, useValue: mirror },
+        { provide: MainWorldService, useValue: world },
+        { provide: RouteGridVizService, useValue: gridViz },
+        { provide: TowerSelectionService, useValue: {} },
+        { provide: PresentationService, useValue: presentation },
         { provide: LocationManagementService, useValue: locationMgmt },
         { provide: StateSnapshotService, useValue: stateSnapshots },
         { provide: MapPlacementService, useValue: mapPlacement },
@@ -391,7 +418,7 @@ describe('VisualizationFacadeService', () => {
     });
     vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
 
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     streetNetwork = { streets: [{}] };
     filteredNetwork = { streets: [{}], filtered: true };
     cachedPaths = new Map([['spawn-1', ROUTE]]);
@@ -435,10 +462,12 @@ describe('VisualizationFacadeService', () => {
       heightDebugVisible: signal(false),
       streetsVisible: signal(true),
       cameraFramingDebug: signal(false),
+      selectedTower: signal<unknown>(null),
     };
+    effects.registered.length = 0;
 
     facade = create();
-    facade.initialize(bridge as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+    facade.initialize(bridge as unknown as FacadeComponentBridge);
   });
 
   afterEach(() => {
@@ -540,7 +569,7 @@ describe('VisualizationFacadeService', () => {
     });
 
     it('listens once however often it is initialised', async () => {
-      facade.initialize(bridge as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+      facade.initialize(bridge as unknown as FacadeComponentBridge);
       await blindBuild();
       // With towers standing each listener only logs, so the log counts the listeners.
       towerCount = 1;
@@ -653,8 +682,8 @@ describe('VisualizationFacadeService', () => {
     it('wires clicks, moves and keys to the component bridge', () => {
       facade.setupClickHandlerWithGameState();
 
-      const [canvasArg, engineArg, gameStateArg, buildMode, onClick, onMove] = inputHandler.initialize.mock.calls[0];
-      expect([canvasArg, engineArg, gameStateArg, buildMode]).toEqual([canvas, engine, gameState, towerPlacement.buildMode]);
+      const [canvasArg, engineArg, buildMode, onClick, onMove] = inputHandler.initialize.mock.calls[0];
+      expect([canvasArg, engineArg, buildMode]).toEqual([canvas, engine, towerPlacement.buildMode]);
       onClick(1, 2, 3);
       onMove(1, 2, 'hit');
       expect(bridge.onTerrainClick).toHaveBeenCalledWith(1, 2, 3);
@@ -723,26 +752,26 @@ describe('VisualizationFacadeService', () => {
     it('returns nothing before initialize', () => {
       const fresh = create();
       expect(fresh.initializeGameState()).toBeUndefined();
-      expect(gameState.initialize).not.toHaveBeenCalled();
+      expect(world.attach).not.toHaveBeenCalled();
       fresh.dispose();
     });
 
     it('returns nothing without streets', () => {
       streetNetwork = null;
       expect(facade.initializeGameState()).toBeUndefined();
-      expect(gameState.initialize).not.toHaveBeenCalled();
+      expect(world.attach).not.toHaveBeenCalled();
     });
 
     it('starts the game on the routes and returns the route detail', () => {
       expect(facade.initializeGameState()).toBe('1.2 km');
 
-      expect(gameState.initialize).toHaveBeenCalledWith(
-        engine, HQ, [{ id: SPAWN.id, name: SPAWN.name, lat: SPAWN.lat, lon: SPAWN.lon }], cachedPaths,
+      expect(world.attach).toHaveBeenCalledWith(
+        engine, HQ, [{ id: SPAWN.id, name: SPAWN.name, lat: SPAWN.lat, lon: SPAWN.lon }],
       );
       expect(strategicPlacement.initialize).toHaveBeenCalledWith(streetNetwork);
-      expect(enemyDebug.initialize).toHaveBeenCalledWith(gameState, engine, store.spawnPoints);
+      expect(enemyDebug.initialize).toHaveBeenCalledWith(engine, store.spawnPoints);
       expect(engineInit.setStepCurrent).toHaveBeenCalledWith('grid');
-      expect(gameState.initializeGlobalRouteGrid).toHaveBeenCalled();
+      expect(world.buildCells).toHaveBeenCalledWith(true);
       expect(engineInit.setStepDone).toHaveBeenCalledWith('grid');
       expect(towerPlacement.initialize).toHaveBeenCalled();
       expect(osm.filterStreetsNearRoutes).toHaveBeenCalled();
@@ -753,7 +782,7 @@ describe('VisualizationFacadeService', () => {
       cachedPaths = new Map();
       facade.initializeGameState();
       expect(console.error).toHaveBeenCalledWith(expect.stringContaining('No routes found'));
-      expect(gameState.initializeGlobalRouteGrid).toHaveBeenCalled();
+      expect(world.buildCells).toHaveBeenCalledWith(true);
     });
   });
 
@@ -761,11 +790,11 @@ describe('VisualizationFacadeService', () => {
     it('hands the location to tower placement, map placement and the LOS debug panel', () => {
       facade.initializeTowerPlacement();
 
-      expect(towerPlacement.initialize).toHaveBeenCalledWith(engine, streetNetwork, osm, HQ, gameState);
+      expect(towerPlacement.initialize).toHaveBeenCalledWith(engine, streetNetwork, osm, HQ);
       expect(mapPlacement.initialize).toHaveBeenCalledWith(engine, streetNetwork, HQ);
-      expect(abilityTargeting.initialize).toHaveBeenCalledWith(engine, gameState);
-      expect(heroControl.initialize).toHaveBeenCalledWith(engine, gameState);
-      expect(losDebug.initialize).toHaveBeenCalledWith(engine, towerManager, bus, gridService);
+      expect(abilityTargeting.initialize).toHaveBeenCalledWith(engine);
+      expect(heroControl.initialize).toHaveBeenCalledWith(engine);
+      expect(losDebug.initialize).toHaveBeenCalledWith(engine, grid);
     });
 
     it('does nothing without streets', () => {
@@ -849,7 +878,7 @@ describe('VisualizationFacadeService', () => {
     it('frames the overview on the frozen cells once the build is over, and stores it as the initial view', async () => {
       // The cells before the build stand on 10 m, the frozen ones on 12 m
       let groundY = 10;
-      gameState.rebuildRouteCells.mockImplementationOnce(() => { groundY = 12; });
+      world.rebuildCells.mockImplementationOnce(() => { groundY = 12; });
       grid.isInitialized.mockReturnValue(true);
       grid.getGrid.mockReturnValue({ getGroundSampleAt: () => ({ y: groundY, tileError: 2.5 }) });
       const grounds: unknown[] = [];
@@ -857,7 +886,7 @@ describe('VisualizationFacadeService', () => {
         grounds.push((options as { groundAt: (x: number, z: number) => unknown }).groundAt(0, 0));
         return FRAME;
       });
-      const pending = gameState.setCorridorPending.mock.calls[0][0] as () => boolean;
+      const pending = world.setCorridorPending.mock.calls[0][0] as () => boolean;
       let buildingWhenFramed: boolean | null = null;
       cameraFraming.applyFrame.mockImplementationOnce(() => { buildingWhenFramed = pending(); });
       cameraFraming.getLastFrame.mockReturnValue(FRAME);
@@ -888,11 +917,11 @@ describe('VisualizationFacadeService', () => {
       expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
       expect(pathRoute.buildBands).toHaveBeenCalledTimes(1);
       // The cells once, without setting the tile region again
-      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
-      expect(gameState.initializeGlobalRouteGrid).not.toHaveBeenCalled();
+      expect(world.rebuildCells).toHaveBeenCalledTimes(1);
+      expect(world.buildCells).not.toHaveBeenCalled();
       // The street's line for the band, the line in the band, and once more on the heights of the final cells
       expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(3);
-      expect(grid.initAirRouteLayerIfEnabled).toHaveBeenCalled();
+      expect(gridViz.initAirRouteLayerIfEnabled).toHaveBeenCalled();
       // As a step of the loading screen
       expect(engineInit.setStepCurrent).toHaveBeenCalledWith('corridor');
       expect(engineInit.setStepDone).toHaveBeenCalledWith('corridor', '1 stations, 42 cells');
@@ -903,11 +932,11 @@ describe('VisualizationFacadeService', () => {
       await untilDone(facade.scheduleOverlayHeightUpdate());
       expect(corridor.runs[0].step.mock.calls).toEqual([[CorridorBuild.SLICE_MS], [CorridorBuild.SLICE_MS], [CorridorBuild.SLICE_MS]]);
       expect(engineInit.updateStepMeta).toHaveBeenCalledWith('corridor', 'Measuring the corridor 33 %');
-      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
+      expect(world.rebuildCells).toHaveBeenCalledTimes(1);
     });
 
     it('has towers and waves wait from the start of the height update until the corridor is frozen', async () => {
-      const pending = gameState.setCorridorPending.mock.calls[0][0] as () => boolean;
+      const pending = world.setCorridorPending.mock.calls[0][0] as () => boolean;
       expect(pending()).toBe(false);
       let heightsDone!: () => void;
       heightUpdate.scheduleOverlayHeightUpdate.mockImplementationOnce(() => new Promise<undefined>((resolve) => { heightsDone = () => resolve(undefined); }));
@@ -929,7 +958,7 @@ describe('VisualizationFacadeService', () => {
       await untilDone(loading);
 
       expect(corridor.runs[0].cancel).toHaveBeenCalledWith('superseded');
-      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
+      expect(world.rebuildCells).not.toHaveBeenCalled();
     });
 
     it('builds the corridor of routes rebuilt in place the same way, and hands its steps and result on', async () => {
@@ -938,7 +967,7 @@ describe('VisualizationFacadeService', () => {
 
       expect(result).toMatchObject({ bandStations: 30, passages: 0, cells: 42 });
       expect(report).toHaveBeenCalledWith({ step: 'Building the corridor', percent: null });
-      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
+      expect(world.rebuildCells).toHaveBeenCalledTimes(1);
       // The player has the camera during a move
       expect(cameraFraming.applyFrame).not.toHaveBeenCalled();
       expect(cameraControl.saveInitialPosition).not.toHaveBeenCalled();
@@ -1023,7 +1052,7 @@ describe('VisualizationFacadeService', () => {
       introFlight.readiness.mockReturnValue(1);
       facade.checkAllLoaded();
 
-      expect(music.onLoadingComplete).toHaveBeenCalled();
+      expect(presentation.onLoadingComplete).toHaveBeenCalled();
       expect(routeAnimation.startAnimation).toHaveBeenCalledWith(cachedPaths, [SPAWN]);
       expect(introFlight.start).toHaveBeenCalledWith(cachedPaths);
     });
@@ -1035,7 +1064,7 @@ describe('VisualizationFacadeService', () => {
 
       facade.checkAllLoaded();
 
-      expect(music.onLoadingComplete).toHaveBeenCalled();
+      expect(presentation.onLoadingComplete).toHaveBeenCalled();
       expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
       expect(introFlight.start).not.toHaveBeenCalled();
     });
@@ -1045,7 +1074,7 @@ describe('VisualizationFacadeService', () => {
       facade.checkAllLoaded();
 
       expect(introFlight.prepare).not.toHaveBeenCalled();
-      expect(music.onLoadingComplete).toHaveBeenCalled();
+      expect(presentation.onLoadingComplete).toHaveBeenCalled();
       expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
       expect(introFlight.start).not.toHaveBeenCalled();
     });
@@ -1054,7 +1083,7 @@ describe('VisualizationFacadeService', () => {
       engineInit.loading.set(false);
       facade.checkAllLoaded();
       expect(engineInit.checkAllLoaded).toHaveBeenCalled();
-      expect(music.onLoadingComplete).not.toHaveBeenCalled();
+      expect(presentation.onLoadingComplete).not.toHaveBeenCalled();
     });
   });
 
@@ -1122,7 +1151,7 @@ describe('VisualizationFacadeService', () => {
       filteredNetwork = {};
       bridge.getEngine.mockReturnValue(null);
       facade.onTilesLoaded();
-      expect(gameState.onTilesLoaded).not.toHaveBeenCalled();
+      expect(presentationHost.onTilesLoaded).not.toHaveBeenCalled();
     });
 
     it('refreshes streets and markers', () => {
@@ -1131,7 +1160,7 @@ describe('VisualizationFacadeService', () => {
       expect(streetRendering.renderStreets).toHaveBeenCalled();
       expect(buildingRendering.renderBuildings).not.toHaveBeenCalled();
       expect(markerViz.updateMarkerHeights).toHaveBeenCalledWith();
-      expect(gameState.onTilesLoaded).toHaveBeenCalled();
+      expect(presentationHost.onTilesLoaded).toHaveBeenCalled();
     });
 
     it('takes its tile batch off the trace chain when a step throws', () => {
@@ -1160,9 +1189,9 @@ describe('VisualizationFacadeService', () => {
     it('leaves the overlays of the cells to what makes the cells', () => {
       facade.onTilesLoaded();
 
-      expect(grid.initSpatialGridVisualizationIfEnabled).not.toHaveBeenCalled();
-      expect(grid.initAirSpatialGridVisualizationIfEnabled).not.toHaveBeenCalled();
-      expect(grid.initAirRouteLayerIfEnabled).not.toHaveBeenCalled();
+      expect(gridViz.initSpatialGridVisualizationIfEnabled).not.toHaveBeenCalled();
+      expect(gridViz.initAirSpatialGridVisualizationIfEnabled).not.toHaveBeenCalled();
+      expect(gridViz.initAirRouteLayerIfEnabled).not.toHaveBeenCalled();
     });
 
     /**
@@ -1180,7 +1209,7 @@ describe('VisualizationFacadeService', () => {
       expect(grid.retryUnsampledCells).not.toHaveBeenCalled();
       expect(pathRoute.beginClearanceMeasurement).not.toHaveBeenCalled();
       expect(pathRoute.refreshRouteLines).not.toHaveBeenCalled();
-      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
+      expect(world.rebuildCells).not.toHaveBeenCalled();
       expect(routeAnimation.startAnimation).not.toHaveBeenCalled();
       expect(frames.size).toBe(0);
     });
@@ -1312,7 +1341,6 @@ describe('VisualizationFacadeService', () => {
   });
 
   describe('event bus and dispose', () => {
-    const selected = { type: 'tower:selected', tower: { typeConfig: { id: 'cannon' } } } as never;
 
     it('lets the spawn portals follow the game events', () => {
       facade.subscribeToEventBus();
@@ -1320,9 +1348,11 @@ describe('VisualizationFacadeService', () => {
     });
 
     it('selects the tower type in the debug panel when a tower is selected', () => {
-      facade.subscribeToEventBus();
-      facade.subscribeToEventBus();
-      bus.emit(selected);
+      facade.initEffects({} as Injector);
+      expect(towerDebug.selectTower).not.toHaveBeenCalled();
+      // The selection is the main thread's UI state (TowerSelectionService writes the store)
+      store.selectedTower.set({ typeConfig: { id: 'cannon' } });
+      for (const run of effects.registered) run();
       expect(towerDebug.selectTower).toHaveBeenCalledTimes(1);
       expect(towerDebug.selectTower).toHaveBeenCalledWith('cannon');
     });
@@ -1389,13 +1419,13 @@ describe('VisualizationFacadeService', () => {
       towerCount = 0;
       engineInit.getEngine.mockReturnValue(null);
       await expect(api().reset()).resolves.toBe('Not changed: no location loaded.');
-      expect(gameState.rebuildRouteCells).not.toHaveBeenCalled();
+      expect(world.rebuildCells).not.toHaveBeenCalled();
     });
 
     it('builds the corridor with the new settings and answers when it is frozen', async () => {
       const answer = await untilDone(api().set({ bulgeLength: 9 }));
       expect(answer).toBe('Corridor rebuilt: 42 cells. Widths per stretch: __routes.describe()');
-      expect(gameState.rebuildRouteCells).toHaveBeenCalledTimes(1);
+      expect(world.rebuildCells).toHaveBeenCalledTimes(1);
       await api().reset();
     });
 

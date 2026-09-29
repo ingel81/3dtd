@@ -41,7 +41,14 @@ import {
 import { MAX_MANUAL_SPAWN_DISTANCE, MIN_MANUAL_SPAWN_DISTANCE } from '../../configs/map-constants.config';
 import { makeGeoToLocal, fakePortalPreview } from '../../../test/portal-preview-fixture';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { TowerSelectionService } from '../tower-selection.service';
+import { PresentationService } from '../../presentation/presentation.service';
+import { GameStore } from '../../store/game.store';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { StreetNetwork } from '../location/osm-street.service';
 import { GameRng } from '../../utils/game-rng';
@@ -122,6 +129,7 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
       directorError: signal(null),
       paused: signal(true),
     };
+    gameUpdate = vi.fn();
     const injector = Injector.create({
       providers: [
         { provide: EngineStore, useValue: {} },
@@ -148,28 +156,27 @@ describe('Turning the spawn preview in the pause, playtest 534 replayed', () => 
         { provide: ReplayService, useValue: { update: vi.fn() } },
         { provide: TowerControlService, useValue: { active: () => false, update: vi.fn(), flushAim: vi.fn() } },
         { provide: NgZone, useValue: { run: (fn: () => void) => fn() } },
+        // The simulation's frame goes out once per engine frame, in the pause as well
+        { provide: SimClient, useValue: { bus: { emit: vi.fn() }, frame: gameUpdate, replay: null } },
+        { provide: SimMirror, useValue: { rng: new GameRng(1), scalars: { gameTimeMs: 0 } } },
+        { provide: MainWorldService, useValue: { corridorPending: () => false, syncPending: vi.fn() } },
+        { provide: GlobalRouteGridService, useValue: {} },
+        {
+          provide: RouteGridVizService,
+          useValue: {
+            isSpatialGridVizVisible: () => false,
+            isAirSpatialGridVizVisible: () => false,
+            updateVisualization: vi.fn(),
+            updateAnimation: vi.fn(),
+          },
+        },
+        { provide: TowerSelectionService, useValue: { tick: vi.fn() } },
+        { provide: PresentationService, useValue: { host: null } },
+        { provide: GameStore, useValue: { paused: signal(true) } },
       ],
     });
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    gameUpdate = vi.fn();
-    facade.initialize(
-      { getEngine: () => null } as unknown as FacadeComponentBridge,
-      {
-        getEventBus: () => ({ emit: vi.fn() }),
-        paused: () => true,
-        tilesEngine: null,
-        gameTimeMs: 0,
-        update: gameUpdate,
-        getGlobalRouteGrid: () => ({
-          isSpatialGridVizVisible: () => false,
-          isAirSpatialGridVizVisible: () => false,
-          updateVisualization: vi.fn(),
-          updateAnimation: vi.fn(),
-        }),
-        towerManager: { tickSelectionViz: vi.fn(), syncVeteranBadges: vi.fn() },
-        rng: new GameRng(1),
-      } as unknown as GameStateManager,
-    );
+    facade.initialize({ getEngine: () => null } as unknown as FacadeComponentBridge);
   });
 
   it('534: with the game paused, R held turns the spawn preview in every frame, up to the limit of its opening', () => {

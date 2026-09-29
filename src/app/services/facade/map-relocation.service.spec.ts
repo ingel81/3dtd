@@ -20,6 +20,7 @@ import { LocationChangeCoordinatorService } from '../location/location-change-co
 import { MapPlacementService } from '../world/map-placement.service';
 import { RelocationStatusService } from '../world/relocation-status.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { MainWorldService } from '../world/main-world.service';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import type { VizCallbacks } from './location-facade.service';
 
@@ -55,7 +56,8 @@ describe('MapRelocationService', () => {
     setStreetNetworkLocation: vi.fn(),
     setFilteredStreetNetwork: vi.fn(),
   };
-  const gameState = { reset: vi.fn(), initialize: vi.fn(), initializeGlobalRouteGrid: vi.fn() };
+  /** The main thread's world: a new run on the place, then its HQ, spawns and cells */
+  const world = { resetRun: vi.fn(), attach: vi.fn(), buildCells: vi.fn() };
   const osm = { loadStreets: vi.fn(), findRandomStreetPoint: vi.fn(), findPath: vi.fn(), haversineDistance: vi.fn() };
   const coordinator = { applyNewLocation: vi.fn(async () => undefined) };
   const mapPlacement = { handlePlacementClick: vi.fn(() => placementClick), updateDependencies: vi.fn() };
@@ -104,7 +106,7 @@ describe('MapRelocationService', () => {
       buildCorridor: vi.fn(async () => BUILT),
     };
     host = {
-      context: vi.fn(() => ({ bridge, gameState })),
+      context: vi.fn(() => ({ bridge })),
       vizCallbacks: vi.fn(() => viz),
       addSpawnPoint: vi.fn((id: string, name: string, lat: number, lon: number, color: number) =>
         store.spawnPoints.update((p) => [...p, { id, name, lat, lon, color }])),
@@ -128,6 +130,7 @@ describe('MapRelocationService', () => {
         { provide: MapPlacementService, useValue: mapPlacement },
         { provide: RelocationStatusService, useValue: relocationStatus },
         { provide: TowerDefenseStore, useValue: store },
+        { provide: MainWorldService, useValue: world },
       ],
     });
     relocation = runInInjectionContext(injector, () => new MapRelocationService());
@@ -138,7 +141,7 @@ describe('MapRelocationService', () => {
   it('does nothing when the placement service rejects the click', async () => {
     await relocation.applyPlacementClick(host);
     expect(host.context).not.toHaveBeenCalled();
-    expect(gameState.reset).not.toHaveBeenCalled();
+    expect(world.resetRun).not.toHaveBeenCalled();
   });
 
   it('moves the HQ in place through the host, keeping a spawn that still has a route', async () => {
@@ -149,9 +152,11 @@ describe('MapRelocationService', () => {
     expect(viz.initializeVisualizationServices).toHaveBeenCalled();
     expect(viz.initializeTowerPlacement).toHaveBeenCalled();
     expect(host.syncUrlWithLocation).toHaveBeenCalled();
-    expect(gameState.initialize).toHaveBeenCalledWith(
-      engine, INSIDE, [{ id: OLD_SPAWN.id, name: OLD_SPAWN.name, lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }], cachedPaths,
+    expect(world.attach).toHaveBeenCalledWith(
+      engine, INSIDE, [{ id: OLD_SPAWN.id, name: OLD_SPAWN.name, lat: OLD_SPAWN.lat, lon: OLD_SPAWN.lon }],
     );
+    // The cells of the new routes, with the tile region set to them
+    expect(world.buildCells).toHaveBeenCalledWith(true);
     expect(mapPlacement.updateDependencies).toHaveBeenCalled();
     expect(viz.buildCorridor).toHaveBeenCalledTimes(1);
     expect(viz.buildCorridor).toHaveBeenCalledWith('HQ moved in place', hint.report);
@@ -180,7 +185,7 @@ describe('MapRelocationService', () => {
 
     expect(relocationStatus.show).toHaveBeenCalledWith('Moving HQ', 'Finding the route');
     expect(relocationStatus.painted.mock.invocationCallOrder[0])
-      .toBeLessThan(gameState.reset.mock.invocationCallOrder[0]);
+      .toBeLessThan(world.resetRun.mock.invocationCallOrder[0]);
     // The build reports its steps on the hint and takes it away at its end
     expect(relocationStatus.follow.mock.invocationCallOrder[0])
       .toBeLessThan(viz.buildCorridor.mock.invocationCallOrder[0]);
@@ -203,7 +208,7 @@ describe('MapRelocationService', () => {
   });
 
   it('takes the hint back and passes the error on when the rebuild throws', async () => {
-    gameState.initialize.mockImplementationOnce(() => {
+    world.buildCells.mockImplementationOnce(() => {
       throw new Error('no grid');
     });
 
@@ -221,7 +226,7 @@ describe('MapRelocationService', () => {
     await click('hq', INSIDE);
 
     expect(relocationStatus.clear).toHaveBeenCalled();
-    expect(gameState.reset).not.toHaveBeenCalled();
+    expect(world.resetRun).not.toHaveBeenCalled();
     expect(viz.buildCorridor).not.toHaveBeenCalled();
   });
 
@@ -260,7 +265,7 @@ describe('MapRelocationService', () => {
       hq: { ...OUTSIDE, name: 'Loading...' },
       spawn: { lat: 49.505, lon: 9.2, name: 'Hauptstraße' },
     });
-    expect(gameState.reset).not.toHaveBeenCalled();
+    expect(world.resetRun).not.toHaveBeenCalled();
   });
 
   it('does not hand the new streets to a component that went away during the load', async () => {
@@ -280,7 +285,7 @@ describe('MapRelocationService', () => {
   it('replaces the spawn in place when it has a route to the HQ, and refuses one without', async () => {
     await click('spawn', INSIDE);
     expect(host.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', INSIDE.lat, INSIDE.lon, SPAWN_COLORS[0], undefined);
-    expect(gameState.reset).toHaveBeenCalledTimes(1);
+    expect(world.resetRun).toHaveBeenCalledTimes(1);
     // Under a hint of its own, as for the HQ
     expect(relocationStatus.show).toHaveBeenCalledWith('Moving spawn', 'Finding the route');
     expect(viz.buildCorridor).toHaveBeenCalledWith('spawn moved in place', hint.report);
@@ -289,7 +294,7 @@ describe('MapRelocationService', () => {
 
     osm.findPath.mockReturnValue(null);
     await click('spawn', INSIDE);
-    expect(gameState.reset).toHaveBeenCalledTimes(1);
+    expect(world.resetRun).toHaveBeenCalledTimes(1);
   });
 
   it('replaces a spawn outside the loaded box in place too, on the way reaching out of it', async () => {
@@ -330,11 +335,11 @@ describe('MapRelocationService', () => {
     await click('hq', INSIDE);
     await click('spawn', INSIDE);
 
-    host.context.mockReturnValue({ bridge, gameState });
+    host.context.mockReturnValue({ bridge });
     host.vizCallbacks.mockReturnValue(null);
     await click('hq', INSIDE);
 
-    expect(gameState.reset).not.toHaveBeenCalled();
+    expect(world.resetRun).not.toHaveBeenCalled();
     expect(engine.setOrigin).not.toHaveBeenCalled();
     expect(coordinator.applyNewLocation).not.toHaveBeenCalled();
   });

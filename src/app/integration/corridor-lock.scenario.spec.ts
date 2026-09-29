@@ -10,107 +10,58 @@
  * on the finest tile level, and is then frozen: no tile batch and no camera
  * move measures a station, samples a cell or rebuilds a route line again.
  * Only a new build does, and towers and waves wait for it
- * (GameStateManager.corridorPending).
+ * (MainWorldService.corridorPending, sent to the simulation). Since the
+ * simulation runs in a worker it stands on the world the freeze handed it
+ * (MainWorldService.sendToSim); a tile batch sends it nothing new.
  *
- * Real: GameStateManager (towerCount, placeTower, sellTower, beginWave,
- * onTilesLoaded and the sub-step loop), GlobalRouteGridService (cells from the
- * route and their heights, enemies in their cells), SpatialGridService,
- * TowerCombatService, CombatEffectService, DamageApplicationService,
- * CorridorBuild and the fingerprint over what came out. Fake: the route
- * service (a measurement that finds the free space `tiles.halfWidth` shows,
- * the route built with it), the tile LOD handle (a level the build sets and
- * columns that answer differently per level), the GPU line of sight (every
- * cell in range visible, as TowerLosRegistry.register writes it for a clear
- * view), the renderer and the animation frames.
+ * Real: the main thread's MainWorldService and GlobalRouteGridService (cells
+ * from the route and their heights), CorridorBuild and the fingerprint over
+ * what came out; the simulation behind the SimClient in one thread (SimCore:
+ * towers, waves, combat) with the real SimMirror. Fake: the route service (a
+ * measurement that finds the free space `tiles.halfWidth` shows, the route
+ * built with it), the tile LOD handle (a level the build sets and columns
+ * that answer differently per level), the GPU line of sight (every cell in
+ * range visible, the answer the main thread sends as command:los-mask for a
+ * clear view), the animation frames.
  */
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-
-vi.mock('three', async () => await import('@/test/mocks/three.mock'));
-
-const mockServices: Record<string, unknown> = {};
-vi.mock('@angular/core', async () => {
-  const actual = await vi.importActual<Record<string, unknown>>('@angular/core');
-  return {
-    ...actual,
-    Injectable: () => (target: unknown) => target,
-    effect: vi.fn(),
-    inject: (token: { name?: string }) => {
-      const name = token?.name ?? 'unknown';
-      if (!mockServices[name]) mockServices[name] = withAutoStubs({});
-      return mockServices[name];
-    },
-  };
-});
-
-import { Vector3 } from 'three';
-import {
-  provideSimServices,
-  withAutoStubs,
-  TEST_PATH,
-  TEST_SPAWN_POINTS,
-} from './test-helpers';
-import { GameStateManager } from '../managers/game-state.manager';
-import { CombatEffectService } from '../services/combat/combat-effect.service';
-import { DamageApplicationService } from '../services/combat/damage-application.service';
-import { TowerCombatService } from '../services/combat/tower-combat.service';
+import { Injector } from '@angular/core';
+import { withAutoStubs, TEST_PATH, TEST_SPAWN_POINTS } from './test-helpers';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
-import { SpatialGridService } from '../services/world/spatial-grid.service';
+import { MainWorldService } from '../services/world/main-world.service';
+import { RouteGridVizService } from '../services/world/route-grid-viz.service';
+import { PathAndRouteService } from '../services/world/path-route.service';
 import { CorridorBuild, type CorridorBuildDeps, type CorridorMeasurement } from '../services/world/corridor-build';
 import { corridorFingerprint, type CorridorFingerprint } from '../services/debug/corridor-fingerprint';
 import { ROUTE_CORRIDOR_COARSE_ERROR_TARGET, ROUTE_CORRIDOR_ERROR_TARGET } from '../three-engine/route-corridor-region';
 import type { CorridorState } from '../services/world/path-route.service';
-import { GameObject } from '../core/game-object';
-import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { SimClient } from '../sim/client/sim-client.service';
+import { InlineTransport } from '../sim/client/transport';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { SimCore } from '../sim/core/sim-core';
+import { OriginSync } from '../sim/core/sim-coords';
+import { GameStore } from '../store/game.store';
+import { losMaskToJson } from '../utils/los-mask';
+import type { ThreeTilesEngine } from '../three-engine';
+import type { ViewEvent } from '../sim/client/view-events';
 import type { Tower } from '../entities/tower.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 
-/** The origin of the helper's engine */
+/** The origin of the location */
 const ORIGIN = { lat: 48.776, lon: 9.183, height: 300 };
-const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
-/** Geo to local on a flat frame around the origin, as the engine's sync near it */
-const flatSync = {
-  getOrigin: () => ({ ...ORIGIN }),
-  geoToLocalSimple: (lat: number, lon: number, height: number) =>
-    new Vector3((lon - ORIGIN.lon) * M_PER_DEG_LON, height - ORIGIN.height, -(lat - ORIGIN.lat) * METERS_PER_DEGREE_LAT),
-  geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3): Vector3 =>
-    target.set((lon - ORIGIN.lon) * M_PER_DEG_LON, height - ORIGIN.height, -(lat - ORIGIN.lat) * METERS_PER_DEGREE_LAT),
-};
 
 /** HQ at the north end of the 111 m test path */
 const BASE: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** An Archer some 7 m east of the middle of the route */
 const TOWER_AT: GeoPosition = { lat: 48.7763, lon: 9.183, height: ORIGIN.height };
-/** Speeds of one wave's zombies, all spawned at its start */
-const WAVE = [2.5, 3, 3.5, 4, 2.5, 3];
+/** One wave of zombies */
+const WAVE_SIZE = 6;
 /** Longest a wave may take, frames of 16 ms */
 const WAVE_FRAMES = 90_000 / 16;
 /** The whole grid, as `__corridor.fingerprint()` reads it */
 const WHOLE_GRID = { xMin: -Infinity, xMax: Infinity, zMin: -Infinity, zMax: Infinity };
 /** Between two frames of the build, ms: two of them reach the tiles' QUIET_MS */
 const FRAME_MS = 250;
-
-function createEngine(terrain: Record<string, unknown>): never {
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'oozes']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['sync'] = withAutoStubs({ ...engine['sync'], ...flatSync });
-  engine['terrain'] = withAutoStubs(terrain);
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  // No model data
-  engine['towers']['get'] = () => undefined;
-  engine['hero'] = withAutoStubs({});
-  engine['flameBeams'] = withAutoStubs({});
-  engine['tentacles'] = withAutoStubs({});
-  engine['bloodMoon'] = withAutoStubs({});
-  engine['spatialAudio']['playAtGeo'] = () => Promise.resolve();
-  engine['spatialAudio']['getListener'] = () => ({
-    context: { state: 'running', resume: () => Promise.resolve() },
-    getWorldPosition: (target: Vector3) => target.set(0, 0, 0),
-  });
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  return withAutoStubs(engine) as never;
-}
 
 describe('The corridor frozen after its build, playtest 2026-09-15', () => {
   let frames: Map<number, FrameRequestCallback>;
@@ -134,7 +85,10 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
   /** Frames the build waits for, resolved by pumping */
   let buildFrames: (() => void)[];
   let clock: number;
-  let gsm: GameStateManager;
+  let sync: OriginSync;
+  let client: SimClient;
+  let mirror: SimMirror;
+  let world: MainWorldService;
   let grid: GlobalRouteGridService;
   let corridor: CorridorBuild;
   let pathRoute: Record<string, unknown> & {
@@ -142,7 +96,9 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     corridorState: () => CorridorState;
   };
   let measurements: ReturnType<typeof vi.fn>;
-  let towerShots: Map<string, number>;
+  /** Worlds the simulation was handed */
+  let worldsSent: ReturnType<typeof vi.spyOn>;
+  let events: ViewEvent[];
   let now: number;
 
   const runFrames = () => {
@@ -169,13 +125,23 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     return settled;
   };
 
+  /** Frames of the game: the corridor's gate to the simulation, then its tick (GameLoopFacadeService.onEngineUpdate). */
+  const gameFrames = (n: number) => {
+    for (let i = 0; i < n; i++) {
+      world.syncPending();
+      client.frame((now += 16), false);
+    }
+  };
+
   /**
-   * A batch of tiles loads and settles: all that is left of what used to
-   * measure and rebuild the corridor here (VisualizationFacadeService.onTilesLoaded).
+   * A batch of tiles loads and settles while the game runs. What used to
+   * measure and rebuild the corridor here does neither any more
+   * (VisualizationFacadeService.onTilesLoaded leaves cells, lines and the
+   * simulation's world alone).
    */
   const tileBatch = () => {
-    gsm.onTilesLoaded();
     runFrames();
+    gameFrames(2);
   };
 
   /** `__corridor.fingerprint()`: the corridor in use, stored state only. */
@@ -185,38 +151,50 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
   const cellHeights = () =>
     grid.getGrid().dumpCellsInBox(WHOLE_GRID).map((c) => `${c.x},${c.z}:${c.terrainHeight}`).sort();
 
-  /** Cells of `tower` that are no longer the live grid's cell at their place. */
-  const orphaned = (tower: Tower) => tower.visibleCells.filter((cell) => grid.getCellAt(cell.x, cell.z) !== cell);
-
-  const frame = () => {
-    now += 16;
-    gsm.update(now);
-  };
-
-  /** Build an Archer and give it the answers TowerLosRegistry.register writes for a clear view. */
-  const buildArcher = (): Tower => {
-    const tower = gsm.placeTower(TOWER_AT, 'archer')!;
-    expect(tower).not.toBeNull();
-    const local = flatSync.geoToLocalSimple(TOWER_AT.lat, TOWER_AT.lon, TOWER_AT.height ?? 0);
-    const cells = grid.getCellsInRange(local.x, local.z, tower.combat.range);
-    for (const cell of cells) cell.towerVisibility.set(tower.id, true);
-    tower.visibleCells = cells;
-    tower.losReady = true;
+  /** Build an Archer by command and answer its line of sight as the GPU does for a clear view; null when refused. */
+  const buildArcher = (): Tower | null => {
+    const before = new Set(mirror.towers().map((t) => t.id));
+    client.bus.emit({ type: 'command:place-tower', position: TOWER_AT, typeId: 'archer' });
+    gameFrames(2);
+    const tower = mirror.towers().find((t) => !before.has(t.id)) ?? null;
+    if (!tower) return null;
+    const needed = events.find((e) => e.type === 'tower:los-needed' && e.towerId === tower.id) as
+      Extract<ViewEvent, { type: 'tower:los-needed' }>;
+    const local = sync.geoToLocalSimple(tower.position.lat, tower.position.lon, 0);
+    for (const cell of grid.getCellsInRange(local.x, local.z, needed.range)) cell.towerVisibility.set(tower.id, true);
+    const mask = grid.encodeLosMask(tower.id, local.x, local.z, needed.range, needed.canTargetGround, needed.canTargetAir);
+    client.bus.emit({ type: 'command:los-mask', towerId: tower.id, reason: 'place', mask: losMaskToJson(mask) });
+    gameFrames(2);
+    expect(mirror.tower(tower.id)!.losReady).toBe(true);
     return tower;
   };
 
-  /** One wave of zombies along the route, run until the loop ends it; the tower's shots in it. */
-  const runWave = (tower: Tower): number => {
-    towerShots.clear();
-    gsm.beginWave();
-    for (const speed of WAVE) gsm.enemyManager.spawn(TEST_PATH, 'zombie', speed);
-    for (let i = 0; i < WAVE_FRAMES && gsm.waveManager.phase() === 'wave'; i++) frame();
-    expect(gsm.waveManager.phase()).toBe('setup');
-    return towerShots.get(tower.id) ?? 0;
+  /** Ask for one wave of zombies; the phase the game is in two frames later */
+  const startWave = () => {
+    client.bus.emit({
+      type: 'command:start-wave',
+      config: {
+        schedule: {
+          entries: Array.from({ length: WAVE_SIZE }, () => ({ enemyType: 'zombie', speed: 1, health: 0.5 })),
+          baseDelay: 400,
+          spawnMode: 'each',
+        },
+      },
+    });
+    gameFrames(2);
+    return mirror.scalars.phase;
   };
 
-  beforeEach(async () => {
-    vi.spyOn(Math, 'random').mockReturnValue(0.5); // centre line
+  /** One wave, run until the simulation ends it; the kills of `tower` in it. */
+  const runWave = (tower: Tower): number => {
+    const before = mirror.tower(tower.id)!.combat.kills;
+    expect(startWave()).toBe('wave');
+    for (let i = 0; i < WAVE_FRAMES && mirror.scalars.phase === 'wave'; i++) gameFrames(1);
+    expect(mirror.scalars.phase).toBe('setup');
+    return mirror.tower(tower.id)!.combat.kills - before;
+  };
+
+  beforeEach(() => {
     vi.spyOn(console, 'warn').mockImplementation(() => undefined);
     log = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     frames = new Map();
@@ -226,10 +204,6 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
       return nextFrame;
     });
     vi.stubGlobal('cancelAnimationFrame', (id: number) => frames.delete(id));
-
-    for (const key of Object.keys(mockServices)) delete mockServices[key];
-    provideSimServices(mockServices);
-    GameObject.resetIdCounter();
 
     // The route as the street width gives it until the first measurement
     tiles = { halfWidth: 4 };
@@ -241,6 +215,8 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     unmeasured = 0;
     buildFrames = [];
     clock = 0;
+    now = 1000;
+    events = [];
     let halfWidth = 3;
     const route = (): RouteWaypoint[] => TEST_PATH.map((p) => ({ ...p, corridorLeft: halfWidth, corridorRight: halfWidth }));
     const paths = new Map<string, RouteWaypoint[]>([['spawn-1', route()]]);
@@ -304,19 +280,42 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     }) as typeof pathRoute;
 
     grid = new GlobalRouteGridService();
-    mockServices['GlobalRouteGridService'] = grid;
-    mockServices['SpatialGridService'] = new SpatialGridService();
-    mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
-    mockServices['DamageApplicationService'] = new DamageApplicationService();
-    mockServices['CombatEffectService'] = new CombatEffectService();
-    mockServices['TowerCombatService'] = new TowerCombatService();
+    const gridViz = withAutoStubs({}) as unknown as RouteGridVizService;
+    const injector = Injector.create({
+      providers: [
+        { provide: GameStore, useFactory: () => new GameStore(), deps: [] },
+        { provide: SimClient, useFactory: () => new SimClient(), deps: [] },
+        { provide: SimMirror, useFactory: () => new SimMirror(), deps: [] },
+        { provide: GlobalRouteGridService, useValue: grid },
+        { provide: RouteGridVizService, useValue: gridViz },
+        { provide: PathAndRouteService, useValue: pathRoute },
+        { provide: MainWorldService, useFactory: () => new MainWorldService(), deps: [] },
+      ],
+    });
+    client = injector.get(SimClient);
+    mirror = injector.get(SimMirror);
+    world = injector.get(MainWorldService);
+    client.attach(mirror, null);
+    client.start((handlers) => new InlineTransport(new SimCore(), handlers));
+    client.bus.onAny((event) => events.push(event));
+    worldsSent = vi.spyOn(client, 'loadWorld');
 
-    gsm = new GameStateManager();
-    gsm.initialize(createEngine(terrain), BASE, TEST_SPAWN_POINTS, paths);
-    gsm.initializeGlobalRouteGrid();
+    // The location as it loads: engine, HQ and spawn, the cells of the route
+    sync = new OriginSync(ORIGIN.lat, ORIGIN.lon, ORIGIN.height);
+    const engine = {
+      sync,
+      terrain,
+      getTerrainHeightAtGeo: () => ground.y,
+      setRouteCorridor: vi.fn(),
+    } as unknown as ThreeTilesEngine;
+    world.attach(engine, BASE, TEST_SPAWN_POINTS);
+    world.buildCells(true);
 
     corridor = new CorridorBuild({
-      gameState: () => gsm,
+      world,
+      grid,
+      gridViz,
+      scalars: () => mirror.scalars,
       engineInit: {
         getEngine: () => ({
           tilesLodDebug: () => tilesLod,
@@ -331,16 +330,7 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
       now: () => clock,
     } as unknown as CorridorBuildDeps);
     // As VisualizationFacadeService.initialize wires it
-    gsm.setCorridorPending(() => corridor.pending());
-
-    towerShots = new Map();
-    const spawn = gsm.projectileManager.spawn.bind(gsm.projectileManager);
-    vi.spyOn(gsm.projectileManager, 'spawn').mockImplementation((...args: Parameters<typeof spawn>) => {
-      const id = args[0].id;
-      towerShots.set(id, (towerShots.get(id) ?? 0) + 1);
-      return spawn(...args);
-    });
-    now = 1000;
+    world.setCorridorPending(() => corridor.pending());
   });
 
   afterEach(() => {
@@ -349,11 +339,15 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     vi.restoreAllMocks();
   });
 
-  /** The location loads: the corridor is built once, no tower yet. */
+  /** The location loads: the corridor is built once and handed to the simulation, no tower yet. */
   const loadLocation = async () => {
     const result = await untilDone(corridor.build('location load'));
     expect(result).not.toBeNull();
     expect(builds()).toBe(1);
+    expect(worldsSent).toHaveBeenCalledTimes(1);
+    gameFrames(2);
+    client.bus.emit({ type: 'debug:add-credits', amount: 5000 });
+    gameFrames(1);
     return result!;
   };
 
@@ -401,11 +395,12 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     // The line the build baked is the one still on the map.
     expect(pathRoute.refreshRouteLines).toHaveBeenCalledTimes(lines);
     expect(builds()).toBe(1);
+    expect(worldsSent).toHaveBeenCalledTimes(1);
   });
 
   it('a tile batch between waves rebuilds nothing under the tower, and the tower keeps firing', async () => {
     await loadLocation();
-    const tower = buildArcher();
+    const tower = buildArcher()!;
     expect(runWave(tower)).toBeGreaterThan(0);
 
     tiles.halfWidth = 5;
@@ -413,17 +408,19 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
 
     expect(measurements).toHaveBeenCalledTimes(1);
     expect(builds()).toBe(1);
-    expect(orphaned(tower)).toEqual([]);
+    // The simulation keeps the world its tower stands on
+    expect(worldsSent).toHaveBeenCalledTimes(1);
     expect(runWave(tower)).toBeGreaterThan(0);
   });
 
   it('nothing rebuilds after the tower is sold either: the corridor stays until the next build', async () => {
     await loadLocation();
-    const tower = buildArcher();
+    const tower = buildArcher()!;
     tiles.halfWidth = 5;
     tileBatch();
-    gsm.sellTower(tower);
-    expect(gsm.towerCount()).toBe(0);
+    client.bus.emit({ type: 'command:sell-tower', towerId: tower.id });
+    gameFrames(2);
+    expect(mirror.scalars.towerCount).toBe(0);
 
     tileBatch();
 
@@ -444,6 +441,8 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
     expect(result).not.toBeNull();
     expect(builds()).toBe(2);
     expect(measurements).toHaveBeenCalledTimes(2);
+    // The simulation gets the new world
+    expect(worldsSent).toHaveBeenCalledTimes(2);
     // The batch really did carry other tiles: the new build shows it.
     const after = fingerprint();
     expect(after.hash).not.toBe(before.hash);
@@ -462,15 +461,15 @@ describe('The corridor frozen after its build, playtest 2026-09-15', () => {
       for (let j = 0; j < 10; j++) await Promise.resolve();
     }
 
-    expect(corridor.pending()).toBe(true);
-    expect(gsm.placeTower(TOWER_AT, 'archer')).toBeNull();
-    gsm.beginWave();
-    expect(gsm.waveManager.phase()).toBe('setup');
+    expect(world.corridorPending()).toBe(true);
+    expect(buildArcher()).toBeNull();
+    expect(startWave()).toBe('setup');
 
     expect(await untilDone(building)).not.toBeNull();
     expect(builds()).toBe(2);
+    gameFrames(1);
     const tower = buildArcher();
-    expect(orphaned(tower)).toEqual([]);
-    expect(runWave(tower)).toBeGreaterThan(0);
+    expect(tower).not.toBeNull();
+    expect(runWave(tower!)).toBeGreaterThan(0);
   });
 });

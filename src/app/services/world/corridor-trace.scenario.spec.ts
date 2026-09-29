@@ -40,19 +40,13 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
       snapshotHeights: () => new Map(state.cells),
       cellsWithoutHeight: () => 0,
       retryUnsampledCells: () => ({ promoted: 0 }),
-      initSpatialGridVisualizationIfEnabled: vi.fn(),
-      initAirSpatialGridVisualizationIfEnabled: vi.fn(),
-      initAirRouteLayerIfEnabled: vi.fn(),
     };
-    const gameState = {
-      towerCount: () => 0,
-      enemyManager: { getAliveCount: () => 0 },
-      waveManager: { phase: () => 'setup' },
-      getGlobalRouteGrid: () => grid,
+    const world = {
       // The new cells: one more, one 0.5 m higher, one without a height.
-      rebuildRouteCells: vi.fn(() => {
+      rebuildCells: vi.fn(() => {
         state.cells = new Map([[1, 10], [2, 10.5], [3, NaN], [4, 11]]);
       }),
+      sendToSim: vi.fn(),
     };
     const pathRoute = {
       routesEpoch: () => state.epoch,
@@ -100,7 +94,14 @@ describe('corridor trace, from the loading screen to the frozen corridor', () =>
       routeCorridorLod: () => ({ tiles: 12, fine: 12, finest: 0, coarse: 0, pending: 0 }),
     };
     return new CorridorBuild({
-      gameState: () => gameState,
+      scalars: () => ({ towerCount: 0, phase: 'setup', enemiesAlive: 0 }),
+      world,
+      grid,
+      gridViz: {
+        initSpatialGridVisualizationIfEnabled: vi.fn(),
+        initAirSpatialGridVisualizationIfEnabled: vi.fn(),
+        initAirRouteLayerIfEnabled: vi.fn(),
+      },
       engineInit: { getEngine: () => engine },
       pathRoute,
       routeAnimation: { isRunning: () => false, startAnimation: vi.fn() },

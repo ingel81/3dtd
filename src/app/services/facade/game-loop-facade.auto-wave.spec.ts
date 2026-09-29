@@ -29,12 +29,19 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
 import { UIStore } from '../../store/ui.store';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus, type MainEventBus } from '../../sim/client/view-events';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { TowerSelectionService } from '../tower-selection.service';
+import { PresentationService } from '../../presentation/presentation.service';
+import { GameStore } from '../../store/game.store';
 import { AUTO_WAVE_DELAY_MS } from '../../utils/auto-wave-countdown';
 import { ReplayService } from '../replay.service';
 import { TowerControlService } from '../tower-control.service';
 import type { FacadeComponentBridge } from './tower-defense-facade.service';
-import type { GameStateManager } from '../../managers/game-state.manager';
 import { GameRng } from '../../utils/game-rng';
 import { RunLogFacade } from '../../run-log/run-log.facade';
 import { COOP } from '../coop.token';
@@ -48,13 +55,23 @@ const UNUSED = [
   WaveDebugService, SoundDebugService, DebugWindowService, EnemyDebugService,
   StateSnapshotService, PerformanceProfilerService,
   StreetRenderingService, BossIntroService, ReplayService, TowerControlService,
+  GlobalRouteGridService, RouteGridVizService, TowerSelectionService, PresentationService, GameStore,
 ];
+
+/** The simulation's side: its bus, and the mirror's game clock and director stream */
+function simProviders(bus: MainEventBus, clock: { gameTimeMs: number } = { gameTimeMs: 0 }) {
+  return [
+    { provide: SimClient, useValue: { bus } },
+    { provide: SimMirror, useValue: { rng: new GameRng(1), get scalars() { return { gameTimeMs: clock.gameTimeMs }; } } },
+    { provide: MainWorldService, useValue: { corridorPending: () => false } },
+  ];
+}
 
 const WAVE_DONE = { type: 'wave:completed', wave: 3, credits: 0, perfect: true, closeCall: false, hpLost: 0 } as const;
 
 describe('GameLoopFacadeService: auto-start of the next wave', () => {
   let facade: GameLoopFacadeService;
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let clock: { gameTimeMs: number };
   let startWave: ReturnType<typeof vi.spyOn>;
   let resetDirector: ReturnType<typeof vi.fn<() => void>>;
@@ -67,7 +84,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
   };
 
   beforeEach(() => {
-    bus = new GameEventBus();
+    bus = createMainEventBus();
     clock = { gameTimeMs: 50_000 };
     resetDirector = vi.fn<() => void>();
     autoStartWaves.set(true);
@@ -78,6 +95,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        ...simProviders(bus, clock),
         { provide: WaveDirector, useValue: waveDirectorStub({ resetForNewGame: resetDirector }) },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
@@ -87,13 +105,7 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
       ],
     });
     facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    const gameState = {
-      getEventBus: () => bus,
-      get gameTimeMs() { return clock.gameTimeMs; },
-      waveManager: { stopSpawning: vi.fn() },
-      rng: new GameRng(1),
-    };
-    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
     facade.subscribeToEventBus({ onGameOverExtra: () => undefined });
     startWave = vi.spyOn(facade, 'startWave').mockImplementation(() => undefined);
   });
@@ -172,13 +184,14 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
 
 describe('GameLoopFacadeService: restart after the coop connection broke (TODO E40)', () => {
   it('goes on alone first, then restarts as a single player game', () => {
-    const bus = new GameEventBus();
+    const bus = createMainEventBus();
     const lost = signal(true);
     const continueAlone = vi.fn(() => lost.set(false));
     const coop = { lostInGame: lost, inGame: () => false, isHost: () => false, continueAlone, setWaveStarter: () => undefined };
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        ...simProviders(bus),
         { provide: WaveDirector, useValue: waveDirectorStub() },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
@@ -189,8 +202,7 @@ describe('GameLoopFacadeService: restart after the coop connection broke (TODO E
       ],
     });
     const facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    const gameState = { getEventBus: () => bus, gameTimeMs: 0, waveManager: { stopSpawning: vi.fn() }, rng: new GameRng(1) };
-    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
 
     const restarts: unknown[] = [];
     bus.on('command:restart-game', (event) => restarts.push(event));
@@ -203,7 +215,7 @@ describe('GameLoopFacadeService: restart after the coop connection broke (TODO E
 
 describe('GameLoopFacadeService: the bot\'s wave button in coop', () => {
   it('says ready every time and never takes it back, where the button toggles', () => {
-    const bus = new GameEventBus();
+    const bus = createMainEventBus();
     const sayReady = vi.fn();
     const toggleReady = vi.fn();
     const coop = {
@@ -213,6 +225,7 @@ describe('GameLoopFacadeService: the bot\'s wave button in coop', () => {
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
+        ...simProviders(bus),
         { provide: WaveDirector, useValue: waveDirectorStub() },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
@@ -223,8 +236,7 @@ describe('GameLoopFacadeService: the bot\'s wave button in coop', () => {
       ],
     });
     const facade = runInInjectionContext(injector, () => new GameLoopFacadeService());
-    const gameState = { getEventBus: () => bus, gameTimeMs: 0, waveManager: { stopSpawning: vi.fn() }, rng: new GameRng(1) };
-    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge, gameState as unknown as GameStateManager);
+    facade.initialize({ getEngine: () => ({}) } as unknown as FacadeComponentBridge);
 
     // Two decisions before the first ready came back from the relay
     facade.readyOrStartWave();
