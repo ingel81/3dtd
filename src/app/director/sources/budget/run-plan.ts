@@ -63,7 +63,7 @@ const CAMPAIGN_GOLD_PEAKS: ReadonlySet<number> = new Set([10, 20, 30]);
 /** Growth of the campaign's gold per wave over W21 to W29, the line the last wave keeps to. */
 const LATE_GOLD_GROWTH = 1.2;
 
-type WaveGold = { kill: number; complete: number };
+interface WaveGold { kill: number; complete: number }
 
 const scaleGold = (gold: WaveGold, k: number): WaveGold => ({
   kill: Math.round(gold.kill * k),
