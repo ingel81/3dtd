@@ -30,12 +30,20 @@ import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
 import { waveHasAir, waveRules } from '../../../director/wave-rules';
 import { ENEMY_TYPES, EnemyTypeId } from '../../../configs/enemy-types.config';
 import { HERO } from '../../../configs/hero.config';
+import { isAntiEtherealTower } from '../../../director/defense-analyzer';
 
 /**
  * Researches no bot starts. The mercenary: bots never hire the hero, so the
  * research would spend their gold on nothing and shift the baselines the
  * wave director is measured against (docs/HERO.md).
  */
+/**
+ * Added to the score of a research that unlocks magic, ice or lightning. The
+ * other scores sit around 0.1 to 2 (2 for the next upgrade tier), the
+ * anti-air bump at 100, so these come after air and before the tier line.
+ */
+const ETHEREAL_STAPLE_BONUS = 2.5;
+
 export const BOT_SKIPPED_RESEARCH: ReadonlySet<ResearchId> = new Set([HERO.researchId]);
 
 export class ResearchPickStrategy extends BaseStrategy {
@@ -274,7 +282,10 @@ export class ResearchPickStrategy extends BaseStrategy {
       }
       const avgMult = ARMOR_TYPES.reduce((s, a) =>
         s + (DAMAGE_MATRIX[towerCfg.damageType]?.[a] ?? 1) * (dist[a] ?? 0), 0);
-      return (dps * avgMult) / Math.max(1, towerCfg.cost);
+      // Magic, ice and lightning belong in the mix before the first ghost
+      // wave, as with a player: their unlocks go ahead of the tier line.
+      const etherealStaple = isAntiEtherealTower(effect.towerId as TowerTypeId) ? ETHEREAL_STAPLE_BONUS : 0;
+      return (dps * avgMult) / Math.max(1, towerCfg.cost) + etherealStaple;
     }
     if (effect.kind === 'unlock-upgrade-tier') {
       // High priority if current max tier < unlock-tier

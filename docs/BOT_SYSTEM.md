@@ -197,26 +197,22 @@ export interface BotConfig {
 | Skill | reactionTimeMs | maxTowers | adaptsToEnemies |
 |---|---|---|---|
 | beginner | 3000 | 10 | false |
-| expert | 800 | 20 | true |
+| expert | 800 | 40 | true |
 
 `knownTowerTypes` ist bei allen `ALL_COMBAT_TOWERS` (archer, dual-gatling,
 cannon, magic, rocket, ice, fire, tentacle, poison, lightning, chaos). Was ein Bot
 tatsächlich bauen *kann*, entscheidet der Research-Unlock, nicht die Config.
 Skill-Level unterscheiden sich in Reaktionszeit, Turm-Cap und Strategie-Set.
 
-**Warum `maxTowers` bei 20 liegt** (und nicht bei 80 oder 300):
+**Warum `maxTowers` bei 40 liegt:**
 
 - Der Design-Zielbestand sind ~13 Türme (einer je Typ, Archer ×3) auf Level 20,
-  siehe `docs/wave-planner.html`. 20 liegt knapp darüber, nicht weit.
-- Bei 80 baute der Bot eine Verteidigung, die kein menschlicher Build erreicht:
-  ~7800 DPS über den ganzen Pfad, ab Welle 11 wurden 100 % jeder Welle getötet.
-  Der Wave Director hatte damit nichts mehr zum Zielen: die Near-Miss-Quote lag
-  über 15k Episoden flach bei 0.02, während er das einzig noch Erreichbare
-  optimierte, das Run-Pacing. Ein Lauf gegen eine Verteidigung, die das
-  Spiel nie produziert, lehrt Wellen, die das Spiel nie braucht.
-- Bei 300 baute der Bot 298 Türme; die Kampfauflösung allein kostete 6 ms pro
-  Sub-Step, was bei Timescale 75 (~225 Sub-Steps pro Frame) den Loop auf 2 FPS
-  drückte.
+  siehe `docs/wave-planner.html`. 40 liegt deutlich darüber, damit der Bot misst,
+  was ein Spieler erreicht, der weiter baut. Die Wellenquellen planen gegen die
+  Abwehr, die steht; ein Training, dem ein zu starker Bot falsche Wellen
+  beibringt, gibt es nicht mehr.
+- Die Grenze hält die Rechenlast der Messläufe: bei 300 baute der Bot 298 Türme,
+  die Kampfauflösung allein kostete 6 ms pro Sub-Step.
 
 Die Factory legt beim Erzeugen ±30 % Jitter auf `reactionTimeMs` und `maxTowers`
 (`jitterConfig()`, Faktor in [0.7, 1.3], Untergrenzen 100 ms und 5 Türme,
@@ -314,17 +310,17 @@ auf einen Dragon. `light` ist die Rüstung, die die ersten Luftwellen schicken.
 
 ### AntiEtherealPlacement (88)
 
-Aktiv bei `vulnerabilities.etherealGap`, ab Welle 9.
+Aktiv, solange weniger als ein Viertel der Türme Ethereal trifft (ab dem dritten
+Turm mindestens einer, `antiEtherealWanted()`), unterhalb `maxTowers`.
 
 Ethereal ist die eine Rüstungsklasse, die sich nicht mit Masse erschlagen lässt:
 physical, pierce und fire liegen alle bei 0.1×, nur magic (2.0×), ice (1.5×),
-lightning (1.5×) und chaos (1.0×) kommen durch. Das Kampagne forciert `ghost_surge` auf
-W13 und `wraith_storm` auf W17, und ein forciertes Template ignoriert das
-Capability-Gate; ohne diese Strategie verliert der Bot dort schlicht. Vorher
-entstanden Ethereal-Konter nur zufällig über den „neuen Typ probieren"-Zweig der
-Coverage-Strategien.
+lightning (1.5×) und chaos (1.0×) kommen durch. Ein Spieler baut Magic, Eis und
+Blitz als Teil des Mix, nicht erst nach der ersten Geisterwelle; baute der Bot
+nur einen einzigen, spät, maßen die Geisterzeilen einen wehrlosen Bot statt der
+Welle.
 
-Welle 9 als Start, damit Forschung und Bau bis W13 fertig werden. Auswahl über
+Auswahl: der am wenigsten gebaute der drei Typen, bei Gleichstand der beste nach
 `getTowerValueVsArmor(t, 'ethereal')`.
 
 ### SplashDefensePlacement (85)
@@ -360,7 +356,7 @@ ist und ihre Prereqs erfüllt sind.
   Ausschluss hätte die adaptive Wahl den Global-Perk wie jeden anderen
   bewertet und 600 Credits ausgegeben.
 
-Zwei Sonderregeln, beide aus konkreten Fehlern:
+Drei Sonderregeln, alle aus konkreten Fehlern:
 
 - **Anti-Air-Dringlichkeit:** Enthält das Kampagnen-Template der *nächsten*
   Welle Lufteinheiten und die Verteidigung hat keine Luftfähigkeit, bekommt
@@ -372,6 +368,9 @@ Zwei Sonderregeln, beide aus konkreten Fehlern:
   `dragon_elite`): Das ist der Gegner, für den die Rakete gebaut ist, während
   gegen die leichten Schwärme das nachgerüstete Gatling die bessere Wahl je
   Gold ist.
+- **Ethereal im Mix:** Forschungen, die Magic, Eis oder Blitz freischalten,
+  bekommen +2,5 (`ETHEREAL_STAPLE_BONUS`): nach der Luftnot, vor der Tier-Linie
+  (2,0). Gates davor erben den Wert über `bestScoreBehind`.
 - **`hasAntiAirCapability`** liest bevorzugt `defense.capabilities.hasAntiAir`
   (was wirklich gebaut ist und reicht) und fällt sonst auf die Unlock-Flags
   *aller* luftfähigen Türme zurück. Die alte Prüfung sah nur `rocket`, also galt

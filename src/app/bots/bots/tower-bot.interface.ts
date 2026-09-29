@@ -155,20 +155,13 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     reactionTimeMs: 800,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    // The design target roster is ~13 towers (one of each type, archer x3) at
-    // level 20 — see docs/wave-planner.html. This is set just above that, not
-    // far above it, because the bot IS the opponent the wave director trains
-    // against: at 80 it built a defense no human roster reaches, ~7800 DPS
-    // covering the whole path, which killed 100% of every wave from wave 11 on.
-    // The director then had nothing to aim at — near-miss ratio sat flat at
-    // 0.02 across 15k episodes while it optimised the only thing still
-    // reachable, run pacing. Training against a defense the game never
-    // produces teaches waves the game never needs.
-    //
-    // The cap also has to keep combat resolution affordable: at 300 the bot
-    // built 298 towers and combat alone cost 6ms per sub-step, which at
-    // timescale 75 (~225 sub-steps per frame) collapsed the loop to 2 FPS.
-    // 20 is far below that ceiling.
-    maxTowers: 20,
+    // Well above the design roster of ~13 towers (docs/wave-planner.html),
+    // so the bot measures what a player who keeps building reaches. The wave
+    // sources plan against the defense that stands, so a higher cap no longer
+    // teaches anything wrong; it only has to keep combat affordable in the
+    // measurement runs: at 300 the bot built 298 towers and combat alone cost
+    // 6ms per sub-step. With the factory's jitter the cap lands between 28
+    // and 52.
+    maxTowers: 40,
   },
 };
