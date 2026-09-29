@@ -5,46 +5,97 @@ import { resolve } from 'node:path';
 import { AnimationClip, Group, Object3D, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
-import { ModelPreviewService, measurePreviewModel } from './model-preview.service';
+import { ModelPreviewService, PLAYBACK_FPS, TURN_FRAMES, bakeSize, measurePreviewModel, turnFrameAt } from './model-preview.service';
 import { AssetManagerService } from './asset-manager.service';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 
-describe('ModelPreviewService frame rate', () => {
+describe('ModelPreviewService baked turns (TODO E73)', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  it('steps previews at 30 fps on a 60 Hz display and keeps the turn rate', () => {
+  /** The service with a renderer that counts its work instead of drawing (jsdom has no WebGL) */
+  function setup() {
     const raf: { callback: FrameRequestCallback | null } = { callback: null };
     vi.stubGlobal('requestAnimationFrame', (cb: FrameRequestCallback) => {
       raf.callback = cb;
       return 1;
     });
-
-    const injector = Injector.create({
-      providers: [{ provide: AssetManagerService, useValue: {} }],
-    });
+    const injector = Injector.create({ providers: [{ provide: AssetManagerService, useValue: {} }] });
     const service = runInInjectionContext(injector, () => new ModelPreviewService());
-    const model = new Group();
-    const mixer = { update: vi.fn() };
-    // A detached canvas: the loop steps rotation and mixer but skips the
-    // render, which would need WebGL.
+    const renderer = {
+      render: vi.fn(), setSize: vi.fn(), setViewport: vi.fn(), setScissor: vi.fn(), setScissorTest: vi.fn(),
+      domElement: {},
+    };
     const internals = service as unknown as {
+      renderer: unknown;
+      turns: Map<string, unknown>;
       previews: Map<string, unknown>;
       startAnimationLoop(): void;
     };
-    internals.previews.set('p', {
-      canvas: { isConnected: false },
-      model,
-      mixer,
-      animating: true,
-      config: { modelUrl: 'test.glb', rotationSpeed: 0.4 },
-    });
+    internals.renderer = renderer;
+    const pivot = new Group();
+    const mixer = { update: vi.fn(), stopAllAction: vi.fn() };
+    const sheetDraws = vi.fn();
+    const turn = {
+      sheet: { getContext: () => ({ drawImage: sheetDraws }) },
+      width: 60, height: 40, baked: 0,
+      job: { scene: { remove: vi.fn(), traverse: vi.fn() }, camera: {}, pivot, mixer, loaded: true },
+    };
+    internals.turns.set('t', turn);
+    const canvasDraws = vi.fn();
+    const canvas = { isConnected: true, width: 60, height: 40, getContext: () => ({ clearRect: vi.fn(), drawImage: canvasDraws }) };
+    internals.previews.set('p', { canvas, turn, config: { modelUrl: 'test.glb' }, shown: -1 });
     internals.startAnimationLoop();
+    const frames = (from: number, count: number, hz = 60) => {
+      for (let i = 0; i < count; i++) raf.callback?.(from + (i * 1000) / hz);
+    };
+    return { renderer, turn, mixer, pivot, sheetDraws, canvasDraws, frames };
+  }
 
-    // One second of 60 Hz frames.
-    for (let i = 0; i <= 60; i++) raf.callback?.(1000 + (i * 1000) / 60);
+  it('bakes a full turn in a few display frames, then renders no more', () => {
+    const { renderer, turn, mixer, sheetDraws, frames } = setup();
 
-    expect(mixer.update).toHaveBeenCalledTimes(31);
-    expect(model.rotation.y).toBeCloseTo(0.4, 5);
+    frames(1000, Math.ceil(TURN_FRAMES / 6));
+    expect(turn.baked).toBe(TURN_FRAMES);
+    expect(turn.job).toBeNull();
+    expect(renderer.render).toHaveBeenCalledTimes(TURN_FRAMES);
+    expect(sheetDraws).toHaveBeenCalledTimes(TURN_FRAMES);
+    // The clip steps one playback frame per baked frame after the first
+    expect(mixer.update).toHaveBeenCalledTimes(TURN_FRAMES - 1);
+    expect(mixer.update).toHaveBeenCalledWith(1 / PLAYBACK_FPS);
+
+    frames(5000, 120);
+    expect(renderer.render).toHaveBeenCalledTimes(TURN_FRAMES);
+  });
+
+  it('turns the model by one frame of a full turn per baked frame', () => {
+    const { pivot, frames } = setup();
+    frames(1000, 1);
+    // Six frames baked in the first display frame, the last at frame 5
+    expect(pivot.rotation.y).toBeCloseTo((5 / TURN_FRAMES) * Math.PI * 2, 6);
+  });
+
+  it('plays the turn at the playback rate on a 60 Hz display, one copy per new frame', () => {
+    const { canvasDraws, frames } = setup();
+    frames(1000, 20);
+    canvasDraws.mockClear();
+
+    // One second at 60 Hz shows PLAYBACK_FPS frames
+    frames(2000, 60);
+    expect(canvasDraws).toHaveBeenCalledTimes(PLAYBACK_FPS);
+  });
+
+  it('picks the frame by time, looping, within the frames baked so far', () => {
+    expect(turnFrameAt(0, TURN_FRAMES)).toBe(0);
+    expect(turnFrameAt(1000, TURN_FRAMES)).toBe(PLAYBACK_FPS);
+    expect(turnFrameAt((TURN_FRAMES / PLAYBACK_FPS) * 1000, TURN_FRAMES)).toBe(0);
+    expect(turnFrameAt(1000, 5)).toBe(4);
+    expect(turnFrameAt(1000, 0)).toBe(-1);
+  });
+
+  it('bakes at most 1.25 pixels per CSS pixel', () => {
+    expect(bakeSize(240, 160, 120)).toEqual({ width: 150, height: 100 });
+    expect(bakeSize(64, 64, 64)).toEqual({ width: 64, height: 64 });
+    expect(bakeSize(64, 64, 0)).toEqual({ width: 64, height: 64 });
   });
 });
 

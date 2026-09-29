@@ -308,7 +308,6 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       this.modelPreview.createPreview(previewId, canvas, {
         modelUrl: enemyConfig.modelUrl,
         scale: overrides?.previewScale ?? enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
-        rotationSpeed: 0.4,
         cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
         cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12,
         offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,

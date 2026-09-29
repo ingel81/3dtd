@@ -264,7 +264,6 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
       {
         modelUrl: towerConfig.modelUrl,
         scale: previewScale,
-        rotationSpeed: 0.4,
         cameraDistance: 20,
         cameraAngle: Math.PI / 5,
         lightIntensity: 1.2,
