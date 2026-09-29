@@ -74,7 +74,7 @@ describe('CorridorSnapshotReader', () => {
 
   function reader(): CorridorSnapshotReader {
     const deps = {
-      gameState: () => ({ getGlobalRouteGrid: () => ({ getGrid: () => grid }) }),
+      grid: { getGrid: () => grid },
       engineInit: { getEngine: () => engine, loading: () => loading },
       pathRoute: { corridorState: () => ({ routes: [{ key: 'r', band: [] }], stations: [] }) },
       store: {

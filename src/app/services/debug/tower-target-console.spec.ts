@@ -11,7 +11,9 @@ vi.mock('three', () => ({
   },
 }));
 
-import { explainTowerTarget, TowerTargetConsole, type TowerTargetLookup } from './tower-target-console';
+import {
+  explainTowerTarget, towerTargetLines, towerTargetRows, TowerTargetConsole, type TowerTargetLookup,
+} from './tower-target-console';
 import { Tower } from '../../entities/tower.entity';
 import { aimAt } from '../../entities/tower-aim';
 import { Enemy } from '../../entities/enemy.entity';
@@ -132,91 +134,98 @@ describe('TowerTargetConsole (__towerTargets)', () => {
     delete (globalThis as Record<string, unknown>)['__towerTargets'];
   });
 
-  /** An Ice tower 15 m beside a clump in a cell it sees, and an ooze whose split hands that clump out */
+  /** The view of `enemy` on the main bus: its id, whether it is an ooze, alive as the simulation says */
+  const viewOf = (enemy: Enemy) => ({
+    id: enemy.id,
+    hasBody: enemy.body !== null,
+    get alive() {
+      return enemy.alive;
+    },
+  });
+
+  /**
+   * An Ice tower 15 m beside a clump in a cell it sees, and an ooze whose
+   * split hands that clump out. The simulation answers the rpc with the
+   * same helpers it runs (towerTargetRows, towerTargetLines).
+   */
   const setup = () => {
     const bus = new GameEventBus();
     const tower = iceAt(20, 15);
     const clump = clumpAt(20);
     const cell = cellSeenBy(tower, true);
     tower.visibleCells = [cell];
-    const probe = new TowerTargetConsole({
-      gameState: () =>
-        ({
-          towerManager: { getAllActive: () => [tower] },
-          enemyManager: { getAlive: () => [clump] },
-          getGlobalRouteGrid: () => ({ getCellAt: () => cell }),
-          getEventBus: () => bus,
-        }) as never,
-      engineInit: {
-        getEngine: () => ({ sync: { geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }) }, towers: {} }) as never,
-      },
-    });
+    const simLookup: TowerTargetLookup = { cellOf: () => cell, isGridCell: () => true };
+    const rpc = (method: string, ids?: string[]) =>
+      Promise.resolve(method === 'towerTargets'
+        ? towerTargetRows([tower], [clump], simLookup)
+        : towerTargetLines([tower], [clump].filter((e) => ids!.includes(e.id)), simLookup));
+    const probe = new TowerTargetConsole({ sim: { bus, rpc } as never });
     probe.install();
-    const api = (globalThis as Record<string, unknown>)['__towerTargets'] as (() => string) & { watch: (on?: boolean) => string };
+    const api = (globalThis as Record<string, unknown>)['__towerTargets'] as (() => Promise<string>) & { watch: (on?: boolean) => string };
     const ooze = new Enemy('ooze', PATH);
     ooze.body = {} as RouteBody;
-    const split = (enemy = ooze): void => bus.emit({ type: 'enemy:split', enemy, children: [clump] });
+    const split = (enemy = ooze): void => bus.emit({ type: 'enemy:split', enemy: viewOf(enemy), children: [viewOf(clump)] } as never);
     return { tower, clump, probe, api, split, ooze };
   };
 
   const lines = (): unknown[] => log.mock.calls.map((call: unknown[]) => call[0]);
 
-  it('logs nothing unless watching; watching, a line per tower near the clumps each second for 6 s after the split', () => {
+  it('logs nothing unless watching; watching, a line per tower near the clumps each second for 6 s after the split', async () => {
     const { tower, probe, api, split, ooze } = setup();
     split();
-    vi.advanceTimersByTime(3_000);
+    await vi.advanceTimersByTimeAsync(3_000);
     expect(log).not.toHaveBeenCalled();
 
     api.watch();
     split();
-    vi.advanceTimersByTime(999);
+    await vi.advanceTimersByTimeAsync(999);
     expect(log).not.toHaveBeenCalled();
-    vi.advanceTimersByTime(1);
+    await vi.advanceTimersByTimeAsync(1);
     expect(lines()).toEqual([
       `[TowerTargets] ${ooze.id} +1 s, 1 clump(s)`,
       `[TowerTargets] ${tower.id} ice: no target, 1 candidate(s) in range not taken yet (nearest 15.0 m)`,
     ]);
-    vi.advanceTimersByTime(10_000);
+    await vi.advanceTimersByTimeAsync(10_000);
     expect(log).toHaveBeenCalledTimes(12);
 
     api.watch(false);
     split();
-    vi.advanceTimersByTime(3_000);
+    await vi.advanceTimersByTimeAsync(3_000);
     expect(log).toHaveBeenCalledTimes(12);
     probe.uninstall();
     expect((globalThis as Record<string, unknown>)['__towerTargets']).toBeUndefined();
   });
 
-  it('stops once the clumps are gone', () => {
+  it('stops once the clumps are gone', async () => {
     const { clump, api, split, ooze } = setup();
     api.watch();
     split();
     clump.health.takeDamage(clump.health.hp);
-    vi.advanceTimersByTime(3_000);
+    await vi.advanceTimersByTimeAsync(3_000);
     expect(lines()).toEqual([`[TowerTargets] ${ooze.id}: all clumps gone`]);
   });
 
-  it('follows each ooze that breaks up for its own 6 s, the one before it included', () => {
+  it('follows each ooze that breaks up for its own 6 s, the one before it included', async () => {
     const { api, split, ooze } = setup();
     const second = new Enemy('ooze', PATH);
     second.body = {} as RouteBody;
     api.watch();
     split();
-    vi.advanceTimersByTime(3_000);
+    await vi.advanceTimersByTimeAsync(3_000);
     split(second);
-    vi.advanceTimersByTime(3_000);
+    await vi.advanceTimersByTimeAsync(3_000);
     const heads = (enemy: Enemy) => lines().filter((line) => String(line).startsWith(`[TowerTargets] ${enemy.id} +`));
     expect(heads(ooze)).toHaveLength(6);
     expect(heads(second)).toHaveLength(3);
     api.watch(false);
-    vi.advanceTimersByTime(3_000);
+    await vi.advanceTimersByTimeAsync(3_000);
     expect(heads(second)).toHaveLength(3);
   });
 
-  it('__towerTargets() prints a table of the towers with an enemy near', () => {
+  it('__towerTargets() prints a table of the towers with an enemy near', async () => {
     const table = vi.spyOn(console, 'table').mockImplementation(() => undefined);
     const { tower, api } = setup();
-    expect(api()).toBe('1 tower(s) with an enemy near.');
+    expect(await api()).toBe('1 tower(s) with an enemy near.');
     expect(table).toHaveBeenCalledWith([
       { tower: tower.id, why: 'no target, 1 candidate(s) in range not taken yet (nearest 15.0 m)', sleeping: false, visibleCells: 1 },
     ]);

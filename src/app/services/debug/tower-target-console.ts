@@ -3,10 +3,11 @@ import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { geoDistanceFast } from '../../utils/geo-utils';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { Tower } from '../../entities/tower.entity';
+import type { EnemyView } from '../../sim/client/views';
 import type { TowerTypeId } from '../../configs/tower-types.config';
 import type { RouteCell } from '../../utils/route-cell';
-import type { GameStateManager } from '../../managers/game-state.manager';
-import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
+import type { SimClient } from '../../sim/client/sim-client.service';
+import type { TowerTargetRow } from '../../sim/protocol/messages';
 import { isAimAligned } from '../../entities/tower-aim';
 
 /** How long `__towerTargets.watch()` logs after an ooze breaks up, s */
@@ -104,17 +105,54 @@ export function explainTowerTarget(tower: Tower, enemies: readonly Enemy[], look
   return `${why}${candidates.length} candidate(s) in range not taken yet (nearest ${metres(nearest)})${gone}`;
 }
 
+/**
+ * explainTowerTarget for every tower with an enemy near it, as the table's
+ * rows. Runs in the simulation (SimRpc.towerTargets), which has the towers'
+ * targets and visible cells.
+ */
+export function towerTargetRows(
+  towers: Iterable<Tower>,
+  enemies: readonly Enemy[],
+  lookup: TowerTargetLookup,
+): TowerTargetRow[] {
+  const rows: TowerTargetRow[] = [];
+  for (const tower of towers) {
+    const line = explainTowerTarget(tower, enemies, lookup);
+    if (line === null) continue;
+    rows.push({
+      tower: tower.id,
+      why: line.slice(line.indexOf(': ') + 2),
+      sleeping: tower.isSleeping,
+      visibleCells: tower.visibleCells.length,
+    });
+  }
+  return rows;
+}
+
+/**
+ * explainTowerTarget of every tower for `enemies` (an ooze's clumps), the
+ * lines that are not null. Runs in the simulation (SimRpc.towerTargetLines).
+ */
+export function towerTargetLines(towers: Iterable<Tower>, enemies: readonly Enemy[], lookup: TowerTargetLookup): string[] {
+  const lines: string[] = [];
+  for (const tower of towers) {
+    const line = explainTowerTarget(tower, enemies, lookup);
+    if (line !== null) lines.push(line);
+  }
+  return lines;
+}
+
 /** What TowerTargetConsole needs; VisualizationFacadeService passes its services. */
 export interface TowerTargetConsoleDeps {
-  /** The game state, set by the facade's initialize(); read on each call. */
-  gameState: () => Pick<GameStateManager, 'towerManager' | 'enemyManager' | 'getGlobalRouteGrid' | 'getEventBus'>;
-  engineInit: Pick<EngineInitializationService, 'getEngine'>;
+  /** The simulation's end: its bus (enemy:split) and the rpc that answers for its towers */
+  sim: Pick<SimClient, 'bus' | 'rpc'>;
 }
 
 /**
  * Tower targeting probe for playtests, analog zu `__corridor`, in DevTools:
  * `__towerTargets()` prints a table of every tower with an enemy near it
- * and why it has or has no target (explainTowerTarget);
+ * and why it has or has no target (explainTowerTarget, run in the
+ * simulation: SimRpc.towerTargets);
  * `__towerTargets.watch()` logs one line per tower near the clumps each
  * second, for WATCH_SECONDS after each ooze breaks up, the first a second
  * after the split (the clumps join the route cells in the next sub-step);
@@ -145,37 +183,9 @@ export class TowerTargetConsole {
     this.api = null;
   }
 
-  /** The route cells as the live game answers them, null without a location. */
-  private lookup(): TowerTargetLookup | null {
-    const engine = this.deps.engineInit.getEngine();
-    if (!engine) return null;
-    const grid = this.deps.gameState().getGlobalRouteGrid();
-    return {
-      cellOf: (enemy) => {
-        const local = engine.sync.geoToLocalSimple(enemy.position.lat, enemy.position.lon, 0);
-        return grid.getCellAt(local.x, local.z);
-      },
-      isGridCell: (cell) => grid.getCellAt(cell.x, cell.z) === cell,
-    };
-  }
-
   /** `__towerTargets()`: one row per tower with an enemy near it. */
-  private table(): string {
-    const lookup = this.lookup();
-    if (!lookup) return 'No location loaded.';
-    const gameState = this.deps.gameState();
-    const enemies = gameState.enemyManager.getAlive();
-    const rows: Record<string, string | number | boolean>[] = [];
-    for (const tower of gameState.towerManager.getAllActive()) {
-      const line = explainTowerTarget(tower, enemies, lookup);
-      if (line === null) continue;
-      rows.push({
-        tower: tower.id,
-        why: line.slice(line.indexOf(': ') + 2),
-        sleeping: tower.isSleeping,
-        visibleCells: tower.visibleCells.length,
-      });
-    }
+  private async table(): Promise<string> {
+    const rows = await this.deps.sim.rpc('towerTargets');
     console.table(rows);
     return `${rows.length} tower(s) with an enemy near.`;
   }
@@ -188,30 +198,28 @@ export class TowerTargetConsole {
       this.stopFollowing();
       return 'Not watching.';
     }
-    this.splitSub ??= this.deps.gameState().getEventBus().on('enemy:split', (event) => {
-      if (event.enemy.body !== null) this.follow(event.enemy, event.children);
+    this.splitSub ??= this.deps.sim.bus.on('enemy:split', (event) => {
+      if (event.enemy.hasBody) this.follow(event.enemy, event.children);
     });
     return `Watching: after each ooze breaks up, a line per tower near its clumps every second for ${WATCH_SECONDS} s.`;
   }
 
   /** The towers near the clumps `ooze` broke into, each second, beside any ooze still followed. */
-  private follow(ooze: Enemy, clumps: readonly Enemy[]): void {
+  private follow(ooze: EnemyView, clumps: readonly EnemyView[]): void {
     let second = 0;
     const timer = setInterval(() => {
       second++;
-      const lookup = this.lookup();
       const alive = clumps.filter((clump) => clump.alive);
-      if (lookup === null || alive.length === 0 || second > WATCH_SECONDS) {
+      if (alive.length === 0 || second > WATCH_SECONDS) {
         if (alive.length === 0) console.log(`[TowerTargets] ${ooze.id}: all clumps gone`);
         clearInterval(timer);
         this.timers.delete(timer);
         return;
       }
       console.log(`[TowerTargets] ${ooze.id} +${second} s, ${alive.length} clump(s)`);
-      for (const tower of this.deps.gameState().towerManager.getAllActive()) {
-        const line = explainTowerTarget(tower, alive, lookup);
-        if (line !== null) console.log(`[TowerTargets] ${line}`);
-      }
+      void this.deps.sim.rpc('towerTargetLines', alive.map((clump) => clump.id)).then((lines) => {
+        for (const line of lines) console.log(`[TowerTargets] ${line}`);
+      });
     }, 1000);
     this.timers.add(timer);
   }

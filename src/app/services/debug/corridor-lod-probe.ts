@@ -1,4 +1,5 @@
-import type { GameStateManager } from '../../managers/game-state.manager';
+import type { GlobalRouteGridService } from '../world/global-route-grid.service';
+import type { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import type { PathAndRouteService } from '../world/path-route.service';
@@ -83,8 +84,10 @@ export interface ProbeClipboard {
 
 /** What CorridorLodProbe needs; VisualizationFacadeService passes its services. */
 export interface CorridorLodProbeDeps {
-  /** The game state, set by the facade's initialize(); read on each call. */
-  gameState: () => Pick<GameStateManager, 'towerCount' | 'enemyManager' | 'waveManager' | 'getGlobalRouteGrid'>;
+  /** The main thread's route grid */
+  grid: Pick<GlobalRouteGridService, 'getGrid'>;
+  /** Towers, phase and enemies as the simulation last told them */
+  mirror: Pick<SimMirror, 'scalars'>;
   engineInit: Pick<EngineInitializationService, 'getEngine' | 'loading'>;
   introFlight: Pick<IntroCameraFlightService, 'isRunning'>;
   pathRoute: Pick<PathAndRouteService, 'measureAllStations' | 'corridorState'>;
@@ -289,7 +292,7 @@ export class CorridorLodProbe {
   }
 
   private compute(): CorridorFingerprint {
-    const grid = this.deps.gameState().getGlobalRouteGrid().getGrid();
+    const grid = this.deps.grid.getGrid();
     return corridorFingerprint(this.deps.pathRoute.corridorState(), grid.dumpCellsInBox(WHOLE_GRID));
   }
 
@@ -303,10 +306,10 @@ export class CorridorLodProbe {
   private blocker(): { why: string; todo: string } | null {
     const reload = 'Seite neu laden und Befehl nochmal';
     if (this.deps.engineInit.loading()) return { why: 'Ort lädt noch', todo: 'Ladebildschirm abwarten und Befehl nochmal' };
-    const gameState = this.deps.gameState();
-    if (gameState.towerCount() > 0) return { why: 'Tower stehen', todo: 'Seite neu laden, keinen Tower setzen, Befehl nochmal' };
-    if (gameState.waveManager.phase() === 'wave') return { why: 'Welle läuft', todo: reload };
-    if (gameState.enemyManager.getAliveCount() > 0) return { why: 'Gegner auf der Karte', todo: reload };
+    const sim = this.deps.mirror.scalars;
+    if (sim.towerCount > 0) return { why: 'Tower stehen', todo: 'Seite neu laden, keinen Tower setzen, Befehl nochmal' };
+    if (sim.phase === 'wave') return { why: 'Welle läuft', todo: reload };
+    if (sim.enemiesAlive > 0) return { why: 'Gegner auf der Karte', todo: reload };
     if (this.deps.introFlight.isRunning()) return { why: 'Intro noch aktiv', todo: 'warten und Befehl nochmal' };
     if (this.deps.corridorBuilding()) {
       return { why: 'Korridor wird noch gebaut', todo: 'ein paar Sekunden warten und Befehl nochmal' };

@@ -83,6 +83,14 @@ export interface SimConfig {
   damageNumbers?: boolean;
 }
 
+/** One row of `__towerTargets()` (services/debug/tower-target-console.ts, towerTargetRows) */
+export interface TowerTargetRow {
+  tower: string;
+  why: string;
+  sleeping: boolean;
+  visibleCells: number;
+}
+
 /**
  * Calls with an answer; SimClient.rpc sends them and resolves the promise
  * with the reply. Filled by the simulation side as the main thread needs them.
@@ -101,6 +109,10 @@ export interface SimRpc {
   replaySeek(stepInWave: number): { stepInWave: number };
   replayExit(): void;
   commandLog(): unknown[];
+  /** `__towerTargets()` (services/debug/tower-target-console.ts): towerTargetRows over the towers and the living enemies */
+  towerTargets(): TowerTargetRow[];
+  /** `__towerTargets.watch()`: explainTowerTarget of every tower for the enemies `enemyIds` (an ooze's clumps), the lines not null */
+  towerTargetLines(enemyIds: string[]): string[];
 }
 
 // ── Worker messages ──
