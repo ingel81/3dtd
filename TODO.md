@@ -184,7 +184,8 @@ Ideen (2026-09-27), nichts entschieden:
       Coop über zwei Rechner; Bot-Lauf (der Bot entscheidet je Bild statt je Sub-Step, Werte können sich verschieben);
       Desktop-App mit `crossOriginIsolated` (Header in `desktop/src/protocol.js`, kein Build geprüft); Webseite nach dem
       Deploy mit `curl -I` auf /play/. Einmal hing M5 über 5 Minuten auf dem Ladebildschirm (zufälliger Ort), in drei
-      weiteren Läufen nicht; erst mit Logs belegen. Dann entscheiden, ob `simu-worker` nach `next` geht.
+      weiteren Läufen nicht; nach den Review-Fixes zählte M5 einmal 5 statt 6 Wellen und der Coop-Test T65 sah einen
+      Reload, beide im zweiten Lauf grün; erst mit Logs belegen. Dann entscheiden, ob `simu-worker` nach `next` geht.
 - [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-studie-2026-09-29-nur-geschätzt)):
       Studie nur geschätzt, bei Tempo 4 bremst zuerst der Worker. Entschieden (User, 2026-09-29): erst die Messkurve
       (3000 bis 16000 Gegner, Tempo 1 und 4, Chromium und Firefox, 60-FPS-Bremse, Worker-Auslastung summiert, Kosten je
