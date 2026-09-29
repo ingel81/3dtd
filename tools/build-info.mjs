@@ -1,5 +1,5 @@
 /**
- * Writes `public/build-info.json` with the commit the build comes from.
+ * Writes `public/build-info.json` with the game version and the commit the build comes from.
  *
  * Runs before `npm run build` and `npm start`. The run log puts the commit in
  * its head, so a batch of runs can be tied to the code that produced it
@@ -32,7 +32,14 @@ function git(args) {
 function current() {
   const commit = git(['rev-parse', '--short', 'HEAD']) || 'unknown';
   const dirty = git(['status', '--porcelain']).length > 0;
-  return { commit, dirty };
+  // The game version, for the load runner's results (e2e/perf/sim-load.ts)
+  let version = 'unknown';
+  try {
+    version = JSON.parse(readFileSync('package.json', 'utf8')).version ?? 'unknown';
+  } catch {
+    // no package.json readable: the version stays unknown
+  }
+  return { version, commit, dirty };
 }
 
 /**
@@ -42,8 +49,8 @@ function current() {
  * @returns true when the file was written
  */
 function write({ quiet = false } = {}) {
-  const { commit, dirty } = current();
-  const next = `${JSON.stringify({ commit, dirty, builtAt: new Date().toISOString() }, null, 2)}\n`;
+  const { version, commit, dirty } = current();
+  const next = `${JSON.stringify({ version, commit, dirty, builtAt: new Date().toISOString() }, null, 2)}\n`;
 
   let previous = null;
   try {
@@ -51,7 +58,7 @@ function write({ quiet = false } = {}) {
   } catch {
     // no file yet, or not readable: write it
   }
-  if (previous && previous.commit === commit && previous.dirty === dirty) return false;
+  if (previous && previous.version === version && previous.commit === commit && previous.dirty === dirty) return false;
 
   mkdirSync('public', { recursive: true });
   writeFileSync(OUT, next, 'utf8');

@@ -3,6 +3,7 @@
 // over a stretch of wall clock. The same scene for the build with the simulation on the main thread and the one
 // with it in the worker.
 //
+//   npm run build (writes build-info.json: game version and commit, which every result carries)
 //   node e2e/perf/serve.mjs <dist/3DTD/browser> <port> [--isolate]
 //   node e2e/perf/sim-load.ts --url http://localhost:4231 [--enemies 5000] [--speed 4] [--towers 40] [--machine A] [--dpr 1]
 //                             [--seconds 10] [--browser chromium|firefox] [--headed]
@@ -215,6 +216,10 @@ const machine = {
   })),
 };
 console.log('MACHINE ' + JSON.stringify(machine));
+// The build measured: game version and commit from its build-info.json (tools/build-info.mjs, run by `npm run build`)
+const build = (await fetch(`${URL_BASE}/build-info.json`).then((r) => (r.ok ? r.json() : null)).catch(() => null)) as
+  { version?: string; commit?: string; dirty?: boolean } | null;
+console.log('BUILD ' + JSON.stringify(build));
 
 const start = await state(page);
 await emit(page, { type: 'debug:add-credits', amount: 1_000_000 });
@@ -312,7 +317,7 @@ if (STEPS.length > 0) {
       for (const hidden of HIDE ? [false, true] : [false]) {
         if (HIDE) await hideEnemies(hidden);
         const r = await measure(page, SECONDS);
-        const row = { machine: MACHINE, browser: BROWSER, uncapped: UNCAPPED, target, speedAsked: speed, hidden, towers: placed.towers, ...r };
+        const row = { version: build?.version ?? 'unknown', commit: build?.commit ?? 'unknown', dirty: build?.dirty ?? null, machine: MACHINE, devicePixelRatio: machine.devicePixelRatio, browser: BROWSER, uncapped: UNCAPPED, target, speedAsked: speed, hidden, towers: placed.towers, ...r };
         rows.push(row);
         console.log(JSON.stringify(row));
         const limit = r.speed < speed * 0.97 || r.fps < 58;
@@ -345,5 +350,5 @@ if (SHOT && ZOOM) {
   await page.waitForTimeout(4000);
   await page.screenshot({ path: SHOT.replace(/\.png$/, '-zoom.png') });
 }
-console.log(JSON.stringify({ machine, browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, ...result }));
+console.log(JSON.stringify({ build, machine, browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, ...result }));
 await browser.close();
