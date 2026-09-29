@@ -26,7 +26,7 @@ import { commandMarkers } from '../../replay/replay-bar-view';
 import type { ExportedEvent } from '../protocol/events';
 import type { SimFramePacket } from '../protocol/packet';
 import type {
-  ReplayEntered, SimConfig, SimCoreApi, SimOutput, SimRpc, SimTickInput, SimWorld,
+  ReplayEntered, SimConfig, TickProfile, SimCoreApi, SimOutput, SimRpc, SimTickInput, SimWorld,
 } from '../protocol/messages';
 import { TableStore } from '../protocol/table-store';
 import { SimCoords } from './sim-coords';
@@ -132,14 +132,20 @@ export class SimCore implements SimCoreApi {
   }
 
   tick(input: SimTickInput, out: (message: SimOutput) => void): SimFramePacket {
+    const started = performance.now();
     const gsm = this.gsm;
     this.link.deliver(input.lockstep, out);
     gsm.paused.set(input.paused);
     gsm.gameSpeed.set(input.gameSpeed);
     // At the boundary before this frame's first sub-step, in the order given
+    let slowest: TickProfile['slowest'] = null;
     for (const { playerId, command } of input.commands) {
+      const c0 = performance.now();
       gsm.receiveCommand(command as unknown as GameEvent, playerId);
+      const ms = performance.now() - c0;
+      if (!slowest || ms > slowest.ms) slowest = { type: command.type, ms };
     }
+    const commandsDone = performance.now();
 
     const delta = this.lastNow === null ? 16 : input.now - this.lastNow;
     this.lastNow = input.now;
@@ -153,9 +159,19 @@ export class SimCore implements SimCoreApi {
       stepsRun = gsm.subStep - before;
     }
 
+    const updateDone = performance.now();
     const presented = input.renderingEnabled && (stepsRun > 0 || this.forcePresent || input.commands.length > 0);
     this.forcePresent = false;
-    return this.packet(stepsRun, presented, input);
+    const packet = this.packet(stepsRun, presented, input);
+    const end = performance.now();
+    packet.scalars.tickMs = end - started;
+    const profile = { commandsMs: commandsDone - started, updateMs: updateDone - commandsDone, packetMs: end - updateDone, slowest };
+    const worst = this.profile.worst;
+    this.profile = {
+      ...profile,
+      worst: !worst || end - started > worst.tickMs ? { ...profile, tickMs: end - started, stepsRun } : worst,
+    };
+    return packet;
   }
 
   private packet(stepsRun: number, presented: boolean, input: Pick<SimTickInput, 'paused' | 'gameSpeed'>): SimFramePacket {
@@ -196,7 +212,11 @@ export class SimCore implements SimCoreApi {
     };
   }
 
+  /** See SimRpc.tickProfile */
+  private profile: TickProfile = { commandsMs: 0, updateMs: 0, packetMs: 0, slowest: null };
+
   private readonly rpcHandlers: SimRpc = {
+    tickProfile: () => this.profile,
     towerTargets: () => towerTargetRows(this.gsm.towerManager.getAll(), this.gsm.enemyManager.getAlive(), this.targetLookup()),
     towerTargetLines: (ids) => towerTargetLines(
       this.gsm.towerManager.getAll(),

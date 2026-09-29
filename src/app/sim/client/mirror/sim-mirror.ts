@@ -58,6 +58,7 @@ export function initialScalars(): SimScalars {
     abilityDamage: [0],
     replay: null,
     seed: 0,
+    tickMs: 0,
   };
 }
 

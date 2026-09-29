@@ -131,11 +131,16 @@ export class GameLoopFacadeService {
     (globalThis as Record<string, unknown>)['__load'] = {
       emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
       speed: (value: number) => this.gameStore.gameSpeed.set(value),
+      // Answers once the simulation's worker takes a call: whether it is alive
+      ping: () => this.sim.rpc('worldKey'),
+      tickProfile: () => this.sim.rpc('tickProfile'),
       state: () => ({
         enemies: this.mirror.scalars.enemiesAlive,
         towers: this.mirror.scalars.towerCount,
         phase: this.mirror.scalars.phase,
         gameTimeMs: this.mirror.scalars.gameTimeMs,
+        tickMs: this.mirror.scalars.tickMs,
+        subStep: this.mirror.scalars.subStep,
         paths: this.world.routes().map((path) => path.map((w) => [w.lat, w.lon])),
       }),
     };
