@@ -94,6 +94,8 @@ export type CommandEvent =
       towerId: string;
       reason: LosResolveReason;
       mask: import('../../utils/los-mask').LosMaskJson;
+      /** The generation of the tower:los-needed it answers; absent in a log from before generations */
+      generation?: number;
     }
   | {
       /** Coop: the giving player left the game; the relay puts it in a tick for them (docs/COOP_PLAN.md, C4) */

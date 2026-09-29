@@ -141,7 +141,7 @@ export class TowerLosRegistry {
       if (!mask) return;
       this.queue.delete(id);
       budget--;
-      this.sim.bus.emit({ type: 'command:los-mask', towerId: id, reason: request.reason, mask });
+      this.sim.bus.emit({ type: 'command:los-mask', towerId: id, reason: request.reason, mask, generation: request.generation });
     }
   }
 

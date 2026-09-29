@@ -75,6 +75,7 @@ describe('TowerLosRegistry on the frozen cells', () => {
       type: 'tower:los-needed',
       towerId: tower.id,
       reason,
+      generation: 1,
       range: tower.combat.range,
       canTargetGround: tower.typeConfig.canTargetGround ?? true,
       canTargetAir: canTargetAirEffective(tower.typeConfig.id as TowerTypeId, airUnlocked),

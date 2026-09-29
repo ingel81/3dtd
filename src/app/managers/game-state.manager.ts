@@ -493,9 +493,9 @@ export class GameStateManager {
    * The line of sight the main thread rendered for a tower waiting for it
    * (command:los-mask), at the boundary it came in; see TowerLos.applyMask.
    */
-  applyLosMask(towerId: string, mask: LosMaskJson): void {
+  applyLosMask(towerId: string, mask: LosMaskJson, generation?: number): void {
     const tower = this.towerManager.getById(towerId);
-    if (tower) this.towerLos.applyMask(tower, losMaskFromJson(mask));
+    if (tower) this.towerLos.applyMask(tower, losMaskFromJson(mask), generation);
   }
 
   /** Coop: lanes, readiness, who left, gifts, see CoopRoom */

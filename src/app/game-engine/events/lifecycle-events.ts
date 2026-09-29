@@ -114,6 +114,8 @@ export type LifecycleEvent =
       type: 'tower:los-needed';
       towerId: string;
       reason: LosResolveReason;
+      /** Of this request; the answer brings it back, only the latest request's applies (TowerLos) */
+      generation: number;
       range: number;
       canTargetGround: boolean;
       canTargetAir: boolean;
