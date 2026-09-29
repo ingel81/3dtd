@@ -1,4 +1,5 @@
 import { Injectable, inject, Injector, NgZone, effect, untracked } from '@angular/core';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { waveButtonAction } from '../../coop/room-options';
 import { CameraControlService } from '../camera-control.service';
@@ -80,6 +81,7 @@ export class GameLoopFacadeService {
   private readonly mirror = inject(SimMirror);
   private readonly world = inject(MainWorldService);
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
   private readonly selection = inject(TowerSelectionService);
   private readonly presentation = inject(PresentationService);
   private readonly gameStore = inject(GameStore);
@@ -620,11 +622,11 @@ export class GameLoopFacadeService {
     // Route grid visualization — both ground- and air-layer share the
     // same cell-state buffer, so a single updateVisualization() call
     // refreshes whichever of the two meshes is currently shown.
-    const grid = this.grid;
-    if (grid.isSpatialGridVizVisible() || grid.isAirSpatialGridVizVisible()) {
-      grid.updateVisualization();
+    const gridViz = this.gridViz;
+    if (gridViz.isSpatialGridVizVisible() || gridViz.isAirSpatialGridVizVisible()) {
+      gridViz.updateVisualization();
     }
-    grid.updateAnimation(deltaTime);
+    gridViz.updateAnimation(deltaTime);
 
     // The line-of-sight views of the build preview and of the selected
     // tower pulse on one time base

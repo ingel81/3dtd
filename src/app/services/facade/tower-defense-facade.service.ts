@@ -1,4 +1,5 @@
 import { Injectable, inject, Injector } from '@angular/core';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
 import { OsmStreetService } from '../location/osm-street.service';
@@ -120,6 +121,7 @@ export class TowerDefenseFacadeService {
   private readonly presentation = inject(PresentationService);
   private readonly los = inject(TowerLosRegistry);
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
 
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
   private bridge!: FacadeComponentBridge;
@@ -270,7 +272,7 @@ export class TowerDefenseFacadeService {
     this.modelPreview.dispose();
 
     if (this.initialized) {
-      this.grid.cleanupSpatialGridVisualization();
+      this.gridViz.cleanupSpatialGridVisualization();
 
       const engine = this.bridge.getEngine();
       if (engine) {
@@ -595,7 +597,7 @@ export class TowerDefenseFacadeService {
   /** Toggle spatial grid debug visualization on the global route grid. */
   toggleSpatialGridDebug(): void {
     if (this.initialized) {
-      this.grid.toggleSpatialGridDebug();
+      this.gridViz.toggleSpatialGridDebug();
     }
   }
 

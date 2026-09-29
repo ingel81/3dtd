@@ -135,6 +135,7 @@ describe('CorridorBuild', () => {
     return new CorridorBuild({
       world: { rebuildCells: () => calls.push('cells'), sendToSim: () => calls.push('sim') },
       grid,
+      gridViz: grid,
       scalars: () => ({ towerCount: state.towers, enemiesAlive: state.enemies, phase: state.phase }),
       engineInit: { getEngine: () => (state.engine ? engine : null) },
       pathRoute,

@@ -1,4 +1,5 @@
 import { Injectable, inject, DestroyRef, Injector } from '@angular/core';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog } from '@angular/material/dialog';
 import { OsmStreetService } from '../location/osm-street.service';
@@ -80,6 +81,7 @@ interface ComponentContext {
 export class LocationFacadeService {
   private readonly world = inject(MainWorldService);
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
   private readonly presentation = inject(PresentationService);
   private readonly osmService = inject(OsmStreetService);
   private readonly markerViz = inject(MarkerVisualizationService);
@@ -553,7 +555,7 @@ export class LocationFacadeService {
     this.heightUpdate.stopHeightUpdates();
 
     this.world.resetRun();
-    this.grid.disposeVisualization();
+    this.gridViz.disposeVisualization();
 
     this.markerViz.clearAllMarkers();
     this.pathRoute.clearAllRoutes();

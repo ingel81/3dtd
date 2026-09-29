@@ -1,4 +1,5 @@
 import { Injectable, inject } from '@angular/core';
+import { RouteGridVizService } from './route-grid-viz.service';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import type { SpawnPoint } from '../../managers/wave.manager';
@@ -25,6 +26,7 @@ import { worldKeyOf } from '../../sim/protocol/world-key';
 @Injectable({ providedIn: 'root' })
 export class MainWorldService {
   private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly sim = inject(SimClient);
   private readonly mirror = inject(SimMirror);
@@ -145,9 +147,9 @@ export class MainWorldService {
     this.buildCells(false);
   }
 
-  /** Defense reach percent of the routes in use, see GlobalRouteGridService.getDefenseReachPercent */
+  /** Defense reach percent of the routes in use, see RouteGridVizService.getDefenseReachPercent */
   defenseReachPercent(): number {
-    return this.grid.getDefenseReachPercent(this.routes());
+    return this.gridViz.getDefenseReachPercent(this.routes());
   }
 
   /** The key of the world as it stands here, see worldKeyOf. */
