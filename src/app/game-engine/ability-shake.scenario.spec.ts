@@ -10,9 +10,9 @@ import { UIStore } from '../store/ui.store';
 import { EnemyDebugService } from '../services/debug/enemy-debug.service';
 import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
 import { StreetRenderingService } from '../services/world/street-rendering.service';
-import { CombatEffectService } from '../services/combat/combat-effect.service';
+import { SimClient } from '../sim/client/sim-client.service';
+import { PresentationService } from '../presentation/presentation.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
 import { ABILITIES } from '../configs/abilities.config';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { loadDisplayOptions } from '../utils/display-options.storage';
@@ -27,8 +27,8 @@ const WARNING_STEPS = 390;
 /**
  * Playtest 320 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md), the shake:
  * Display, "Screen Shake" off, then fire the nuclear strike again. The
- * switch goes through DebugFacadeService.onScreenShakeToggled to the game
- * state's ScreenShakeService; the strike is the real AbilityManager's, its
+ * switch goes through DebugFacadeService.onScreenShakeToggled and the
+ * PresentationService to the host's ScreenShakeService; the strike is the real AbilityManager's, its
  * impact comes over the simulation's bus onto the main bus. The camera stands on the impact point.
  */
 describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed', () => {
@@ -53,6 +53,9 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
       getCamera: () => ({ position: new Vector3() }),
     };
     const shake = new ScreenShakeService(bus, shakeEngine as unknown as ThreeTilesEngine);
+    // The engine's presentation host, as far as the switch reaches it
+    const presentation = new PresentationService();
+    presentation.attach({ screenShake: shake, backgroundMusic: {}, setShotPrediction: () => undefined } as never);
 
     abilities = new AbilityManager(simBus, {
       snapToRoute: (target: GeoPosition) => ({ ...target }),
@@ -76,11 +79,12 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
         { provide: EnemyDebugService, useValue: {} },
         { provide: MarkerVisualizationService, useValue: {} },
         { provide: StreetRenderingService, useValue: {} },
-        { provide: CombatEffectService, useValue: {} },
+        { provide: SimClient, useValue: { bus, configure: () => undefined } },
+        { provide: PresentationService, useValue: presentation },
       ],
     });
     facade = runInInjectionContext(injector, () => new DebugFacadeService());
-    facade.setEngine(null, { screenShakeService: shake } as unknown as GameStateManager);
+    facade.setEngine(null);
   });
 
   /** Fire at the camera's feet and run the warning out in sub-steps */
