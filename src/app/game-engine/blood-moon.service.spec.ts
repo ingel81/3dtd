@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from 'vitest';
-import { GameEventBus } from './game-event-bus';
+import { createMainEventBus } from '../sim/client/view-events';
 import { BloodMoonService } from './blood-moon.service';
 
 function setup() {
-  const eventBus = new GameEventBus();
+  const eventBus = createMainEventBus();
   const look = { setActive: vi.fn() };
   const service = new BloodMoonService(eventBus, look);
   return { eventBus, look, service };

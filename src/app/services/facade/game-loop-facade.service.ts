@@ -1,4 +1,5 @@
 import { Injectable, inject, Injector, NgZone, effect, untracked } from '@angular/core';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { waveButtonAction } from '../../coop/room-options';
 import { CameraControlService } from '../camera-control.service';
@@ -16,7 +17,13 @@ import { WaveDirector } from '../../director/wave-director';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { RunLogFacade } from '../../run-log/run-log.facade';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { TowerSelectionService } from '../tower-selection.service';
+import { PresentationService } from '../../presentation/presentation.service';
+import { GameStore } from '../../store/game.store';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -70,14 +77,19 @@ export class GameLoopFacadeService {
   private readonly bossIntro = inject(BossIntroService);
   private readonly replay = inject(ReplayService);
   private readonly towerControl = inject(TowerControlService);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
+  private readonly world = inject(MainWorldService);
+  private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
+  private readonly selection = inject(TowerSelectionService);
+  private readonly presentation = inject(PresentationService);
+  private readonly gameStore = inject(GameStore);
   /** Coop, where the game runs one (component scope); the wave button means "ready" there */
   private readonly coop = inject(COOP, { optional: true });
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
-
-  /** Game state manager — set via initialize() */
-  private gameState!: GameStateManager;
 
   /** Whether this sub-facade has been initialized */
   private initialized = false;
@@ -100,16 +112,33 @@ export class GameLoopFacadeService {
   /** Auto-start of the next wave, on the game clock, see AutoWaveCountdown */
   private readonly autoWave = new AutoWaveCountdown();
 
+  /** Game time of the packet the bot saw last, for its decision clock */
+  private botGameTimeMs: number | null = null;
+  /** The pause as the presentation holds it (loops, dimmed music), see onEngineUpdate */
+  private presentedPause: string | null = null;
+
   /**
    * Initialize sub-facade with bridge and game state.
    */
-  initialize(bridge: FacadeComponentBridge, gameState: GameStateManager): void {
+  initialize(bridge: FacadeComponentBridge): void {
     this.bridge = bridge;
-    this.gameState = gameState;
     this.initialized = true;
-    // The run's director stream; GameRng keeps a stream's function across a
-    // reset, so asking per plan and holding it come to the same.
-    this.waveDirector.useRandomSource(() => gameState.rng.stream('director'));
+    // The run's director stream, drawn on this thread from the run's seed
+    // (the mirror follows the simulation's seed): the same numbers as when the
+    // simulation served it. GameRng keeps a stream's function across a reset.
+    this.waveDirector.useRandomSource(() => this.mirror.rng.stream('director'));
+    // The load runner's handle (e2e/perf/sim-load.ts): a command, the speed, the numbers it measures
+    (globalThis as Record<string, unknown>)['__load'] = {
+      emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
+      speed: (value: number) => this.gameStore.gameSpeed.set(value),
+      state: () => ({
+        enemies: this.mirror.scalars.enemiesAlive,
+        towers: this.mirror.scalars.towerCount,
+        phase: this.mirror.scalars.phase,
+        gameTimeMs: this.mirror.scalars.gameTimeMs,
+        paths: this.world.routes().map((path) => path.map((w) => [w.lat, w.lon])),
+      }),
+    };
     // Coop: the host starts the wave once everyone is ready (D15)
     this.coop?.setWaveStarter(() => this.startWaveNow());
   }
@@ -132,10 +161,10 @@ export class GameLoopFacadeService {
   initEffects(injector: Injector): void {
     // Effect: Update all existing enemies when speed changes
     effect(() => {
-      const speed = this.waveDebug.enemySpeed();
-      for (const enemy of this.gameState.enemyManager.getAll()) {
-        enemy.movement.speedMps = speed;
-      }
+      const speedMps = this.waveDebug.enemySpeed();
+      untracked(() => {
+        if (this.sim.started) this.sim.bus.emit({ type: 'debug:enemy-speed', speedMps });
+      });
     }, { injector });
 
     // Effect: Sync wave debug state with store
@@ -160,12 +189,13 @@ export class GameLoopFacadeService {
     effect(() => {
       const phase = this.store.phase();
       if (phase === 'wave') {
-        for (const de of this.enemyDebug.debugEnemies()) {
-          if (de.enemy.movement.paused && de.enemy.alive) {
-            de.enemy.startMoving();
+        untracked(() => {
+          for (const de of this.enemyDebug.debugEnemies()) {
+            if (!de.enemy.alive) continue;
+            this.sim.bus.emit({ type: 'debug:enemy-move', enemyId: de.id, action: 'start' });
             this.bridge.getEngine()?.enemies.startWalkAnimation(de.id);
           }
-        }
+        });
       }
     }, { injector });
 
@@ -182,13 +212,10 @@ export class GameLoopFacadeService {
       });
     }, { injector });
 
-    // Effect: Bridge UIStore.perTowerLosFilter → TowerManager selection
-    // viz. TowerManager is framework-agnostic, so we push the change
-    // in from this Angular facade rather than letting the manager
-    // subscribe.
+    // Effect: the selected tower's line-of-sight view follows the filter
     effect(() => {
       const mode = this.uiStore.perTowerLosFilter();
-      this.gameState?.towerManager?.applyLosFilter(mode);
+      this.selection.applyLosFilter(mode);
     }, { injector });
 
     // Effect: Apply debug overrides to selected enemy (live update)
@@ -203,7 +230,8 @@ export class GameLoopFacadeService {
         rotation: selected.overrides.rotation,
         animationSpeed: selected.overrides.animationSpeed,
       });
-      selected.enemy.movement.speedMps = selected.overrides.baseSpeed;
+      const speedMps = selected.overrides.baseSpeed;
+      untracked(() => this.sim.bus.emit({ type: 'debug:enemy-speed', enemyId: selected.id, speedMps }));
     }, { injector });
   }
 
@@ -215,7 +243,7 @@ export class GameLoopFacadeService {
     // Defensive: clear any prior subscriptions so a future re-init path can't
     // double-subscribe (consistent with combat-effect/hq-damage/game-state).
     this.eventBusSubs.disposeAll();
-    const eventBus = this.gameState.getEventBus();
+    const eventBus = this.sim.bus;
 
     // Subscribe to debug:start-custom-wave event
     this.eventBusSubs.add(
@@ -265,7 +293,7 @@ export class GameLoopFacadeService {
     const coop = this.coop?.inGame() ? this.coop : null;
     if (coop ? coop.options().wave !== 'auto' : !this.uiStore.autoStartWaves() || this.botClient.botEnabled()) return;
     if (this.store.phase() === 'gameover') return;
-    const now = this.gameState.gameTimeMs;
+    const now = this.mirror.scalars.gameTimeMs;
     this.autoWave.arm(now);
     this.showAutoWaveSeconds(this.autoWave.secondsLeft(now));
   }
@@ -282,7 +310,7 @@ export class GameLoopFacadeService {
    */
   tickAutoWave(): void {
     if (!this.autoWave.armed) return;
-    const now = this.gameState.gameTimeMs;
+    const now = this.mirror.scalars.gameTimeMs;
     if (this.autoWave.tick(now)) {
       this.showAutoWaveSeconds(null);
       // Coop: the host's client starts it for the room; a guest's only counted along
@@ -311,7 +339,7 @@ export class GameLoopFacadeService {
    */
   private emitDebugPanelWave(): void {
     this.store.waveExplanation.set(null);
-    this.gameState.getEventBus().emit({
+    this.sim.bus.emit({
       type: 'command:start-wave',
       director: this.waveDebug.toAIWaveConfig(),
     });
@@ -351,7 +379,7 @@ export class GameLoopFacadeService {
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
     // The corridor of a new location or a move is still being built (CorridorBuild).
-    if (this.gameState.corridorPending()) return;
+    if (this.world.corridorPending()) return;
     this.store.paused.set(false);
 
     // Source priority for the wave config:
@@ -392,7 +420,7 @@ export class GameLoopFacadeService {
       // plan goes along for the run log of every client (wave:planned); its
       // numbers come from the plan, so they belong to the wave that ships
       // rather than to whatever the service happens to hold now.
-      this.gameState.getEventBus().emit({
+      this.sim.bus.emit({
         type: 'command:start-wave',
         director: aiConfig,
         plan: { waveSource: this.waveDirector.source.id, log: planned.log },
@@ -424,7 +452,7 @@ export class GameLoopFacadeService {
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
     // The corridor of a new location or a move is still being built (CorridorBuild).
-    if (this.gameState.corridorPending()) return;
+    if (this.world.corridorPending()) return;
     this.store.paused.set(false);
     this.emitDebugPanelWave();
   }
@@ -437,7 +465,8 @@ export class GameLoopFacadeService {
    * Handle game over.
    */
   onGameOver(): void {
-    this.gameState.waveManager.stopSpawning();
+    // The simulation ended the wave and its spawning itself
+    this.pendingAIWaveRequest = false;
   }
 
   /**
@@ -458,7 +487,7 @@ export class GameLoopFacadeService {
     // Cleanup DPS profile visualization (delegated to VisualizationFacade)
     cleanupDpsViz();
 
-    this.gameState.getEventBus().emit(coop ? { type: 'command:restart-game', seed: newRunSeed() } : { type: 'command:restart-game' });
+    this.sim.bus.emit(coop ? { type: 'command:restart-game', seed: newRunSeed() } : { type: 'command:restart-game' });
 
     // Reset pending AI wave request flag
     this.pendingAIWaveRequest = false;
@@ -494,13 +523,36 @@ export class GameLoopFacadeService {
       return false;
     }
 
-    this.gameState.getEventBus().emit({
+    this.sim.bus.emit({
       type: 'command:upgrade-tower',
       towerId: tower.id,
       upgradeId,
     });
 
     return true;
+  }
+
+  /**
+   * What the simulation's look follows on this thread (was the
+   * GameStateManager's store effects): the renderers' clock (the replay's
+   * speed, 0 in the pause), their on/off switch, and the pause of the sound
+   * loops and the music.
+   */
+  private syncPresentation(): void {
+    const engine = this.bridge.getEngine();
+    if (!engine) return;
+    const paused = this.gameStore.paused();
+    const replayScale = this.replay.timescale();
+    engine.setTimescale(replayScale ?? (paused ? 0 : this.gameStore.gameSpeed()));
+    const rendering = this.gameStore.renderingEnabled();
+    if (engine.renderingEnabled !== rendering) engine.setRenderingEnabled(rendering);
+    const keepLoops = this.gameStore.pauseKeepsLoops();
+    const pause = `${paused}|${keepLoops}`;
+    const host = this.presentation.host;
+    if (host && pause !== this.presentedPause) {
+      this.presentedPause = pause;
+      host.setPaused(paused, keepLoops);
+    }
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -523,40 +575,43 @@ export class GameLoopFacadeService {
     this.keyboardPan.update(dtSec);
     // Quick jumps (Home, N) add to what keyboard pan did this frame
     this.cameraControl.update(deltaTime);
-    this.markerViz.animateMarkers(deltaTime, this.gameState.paused());
+    this.markerViz.animateMarkers(deltaTime, this.gameStore.paused());
     this.routeAnimation.update(deltaTime);
     // After keyboardPan so a scripted flight wins the frame if both run.
     this.introFlight.update(deltaTime);
     // The mouse look of this frame, as a command before the sub-steps
     this.towerControl.flushAim();
 
-    // Game logic tick — sub-step loop runs gameplay at fixed game-time
-    // granularity. Bot decisions are per-sub-step so they stay
-    // framerate-independent at any training speed.
-    this.gameState.update(performance.now(), (gameTimeStepMs) => {
-      // Bot decision tick per sub-step (game-time). The snapshot is passed as
-      // a thunk so it is only built on the ticks where the bot's reaction
-      // cooldown has actually elapsed.
-      if (this.botClient.botEnabled()) {
-        this.botClient.updateBot(
-          () => this.stateSnapshots.getStateSnapshot(),
-          gameTimeStepMs,
-        );
-      }
-    });
+    // The simulation (docs/SIM_WORKER.md): apply the packet that came back
+    // from the worker (mirror, renderers, events), then send this frame's
+    // tick with the commands given since. The worker runs the sub-steps
+    // while this thread renders.
+    this.world.syncPending();
+    this.syncPresentation();
+    this.sim.frame(performance.now());
+
+    // Bot decision tick once per frame, on the game time the packet moved
+    // (the bot's reaction cooldown runs in game time). The snapshot is passed
+    // as a thunk so it is only built on the ticks where the cooldown has
+    // actually elapsed. Its commands go with the next tick.
+    const gameTimeMs = this.mirror.scalars.gameTimeMs;
+    const botDelta = this.botGameTimeMs === null ? 0 : gameTimeMs - this.botGameTimeMs;
+    this.botGameTimeMs = gameTimeMs;
+    if (botDelta > 0 && this.botClient.botEnabled()) {
+      this.botClient.updateBot(() => this.stateSnapshots.getStateSnapshot(), botDelta);
+    }
 
     // After the sub-steps: a boss that stepped out of its portal in them
     // cuts the camera in this frame. Its pose wins over pan and jumps above.
     this.bossIntro.update(deltaTime);
-    // The wave replay, while it is on. After the game's update: its pause
-    // set the renderers' timescale to 0, the replay sets its own speed
-    this.replay.update(deltaTime);
+    // The wave replay's bar and a replay that waited for a quiet field
+    this.replay.update();
     // The view from the manned tower, after the sub-steps turned it to the aim
     this.towerControl.update(deltaTime);
 
     // One sample a second of game time, after the sub-steps of this frame.
     // Not while a replay re-simulates: the clock is the replay's then
-    if (!this.gameState.isReplaying) {
+    if (!this.sim.replay) {
       this.runLog.tick();
       this.tickAutoWave();
     }
@@ -567,20 +622,17 @@ export class GameLoopFacadeService {
     // Route grid visualization — both ground- and air-layer share the
     // same cell-state buffer, so a single updateVisualization() call
     // refreshes whichever of the two meshes is currently shown.
-    const grid = this.gameState.getGlobalRouteGrid();
-    if (grid.isSpatialGridVizVisible() || grid.isAirSpatialGridVizVisible()) {
-      grid.updateVisualization();
+    const gridViz = this.gridViz;
+    if (gridViz.isSpatialGridVizVisible() || gridViz.isAirSpatialGridVizVisible()) {
+      gridViz.updateVisualization();
     }
-    grid.updateAnimation(deltaTime);
+    gridViz.updateAnimation(deltaTime);
 
-    // GPU-LOS-Viz: Build-Preview (TowerPlacementService) und Selection
-    // (TowerManager) ticken pulse-uniform mit gemeinsamer Zeitbasis.
+    // The line-of-sight views of the build preview and of the selected
+    // tower pulse on one time base
     const losTimeSec = performance.now() * 0.001;
     this.towerPlacement.tickBuildPreviewViz(losTimeSec);
-    this.gameState.towerManager.tickSelectionViz(losTimeSec);
-
-    // Veteran badges follow the towers' kill counts (cosmetic)
-    this.gameState.towerManager.syncVeteranBadges();
+    this.selection.tick(losTimeSec);
 
     // Throttled UI stats (~10Hz)
     const now = performance.now();

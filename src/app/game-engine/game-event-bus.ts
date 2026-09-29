@@ -267,6 +267,10 @@ export class GameEventBus<E extends { type: string } = GameEvent> {
     return this.liveMuted;
   }
 
+  get isShowMuted(): boolean {
+    return this.showMuted;
+  }
+
   /**
    * Unsubscribe from event
    *

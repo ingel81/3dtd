@@ -11,7 +11,10 @@ import type { PathAndRouteService } from './path-route.service';
 import type { RouteAnimationService } from './route-animation.service';
 import type { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import type { TowerDefenseStore } from '../../store/tower-defense.store';
-import type { GameStateManager } from '../../managers/game-state.manager';
+import type { MainWorldService } from './main-world.service';
+import type { GlobalRouteGridService } from './global-route-grid.service';
+import type { RouteGridVizService } from './route-grid-viz.service';
+import type { SimScalars } from '../../sim/protocol/packet';
 
 /**
  * A measurement of the corridor clearance under way
@@ -64,8 +67,14 @@ export interface CorridorBuildResult {
 
 /** What CorridorBuild needs; VisualizationFacadeService passes its services. */
 export interface CorridorBuildDeps {
-  /** The game state, set by the facade's initialize(); read on each call. */
-  gameState: () => Pick<GameStateManager, 'towerCount' | 'enemyManager' | 'waveManager' | 'getGlobalRouteGrid' | 'rebuildRouteCells'>;
+  /** The main thread's world: it rebuilds the cells and, once frozen, hands the world to the simulation. */
+  world: Pick<MainWorldService, 'rebuildCells' | 'sendToSim'>;
+  /** The main thread's grid the cells are built on */
+  grid: GlobalRouteGridService;
+  /** The grid's overlays, drawn on the new cells at the build's end */
+  gridViz: Pick<RouteGridVizService, 'initSpatialGridVisualizationIfEnabled' | 'initAirSpatialGridVisualizationIfEnabled' | 'initAirRouteLayerIfEnabled'>;
+  /** The simulation's numbers after the last packet (SimClient.scalars): towers, phase, enemies. */
+  scalars: () => Pick<SimScalars, 'towerCount' | 'phase' | 'enemiesAlive'>;
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
   pathRoute: Pick<
     PathAndRouteService,
@@ -202,10 +211,10 @@ export class CorridorBuild {
 
   /** Why the corridor must not be built again now, null if it may: `__corridor.set()`. */
   rebuildBlocker(): string | null {
-    const gameState = this.deps.gameState();
-    if (gameState.towerCount() > 0) return 'towers stand on the map, sell them first';
-    if (gameState.waveManager.phase() === 'wave') return 'a wave is running';
-    if (gameState.enemyManager.getAliveCount() > 0) return 'enemies are on the map';
+    const scalars = this.deps.scalars();
+    if (scalars.towerCount > 0) return 'towers stand on the map, sell them first';
+    if (scalars.phase === 'wave') return 'a wave is running';
+    if (scalars.enemiesAlive > 0) return 'enemies are on the map';
     return null;
   }
 
@@ -315,8 +324,7 @@ export class CorridorBuild {
 
       // 4. The band of every route on these columns, then routes and cells.
       const spawns = this.deps.store.spawnPoints();
-      const gameState = this.deps.gameState();
-      const grid = gameState.getGlobalRouteGrid();
+      const grid = this.deps.grid;
       const before = corridorTrace.enabled ? this.snapshot() : null;
       report({ step: BUILD_STEP, percent: null });
       const t0 = this.now();
@@ -327,7 +335,7 @@ export class CorridorBuild {
       }));
       traced(() => corridorTrace.within('build', () => {
         pathRoute.refreshRouteLines(spawns);
-        gameState.rebuildRouteCells();
+        this.deps.world.rebuildCells();
       }));
       ms.build = this.now() - t0;
       traced(() => {
@@ -377,9 +385,10 @@ export class CorridorBuild {
         if (dropped()) return null;
       }
       t = this.now();
-      grid.initSpatialGridVisualizationIfEnabled();
-      grid.initAirSpatialGridVisualizationIfEnabled();
-      grid.initAirRouteLayerIfEnabled();
+      const gridViz = this.deps.gridViz;
+      gridViz.initSpatialGridVisualizationIfEnabled();
+      gridViz.initAirSpatialGridVisualizationIfEnabled();
+      gridViz.initAirRouteLayerIfEnabled();
       if (this.deps.routeAnimation.isRunning()) {
         this.deps.routeAnimation.startAnimation(pathRoute.getCachedPaths(), spawns);
       }
@@ -432,6 +441,8 @@ export class CorridorBuild {
           cornersMs: ms.corners,
         });
       });
+      // Frozen: the simulation stands on this world from here (docs/SIM_WORKER.md)
+      this.deps.world.sendToSim();
       return result;
     } finally {
       if (this.running === ticket) this.running = null;
@@ -562,6 +573,6 @@ export class CorridorBuild {
     const paths = this.deps.pathRoute.getCachedPaths();
     let waypoints = 0;
     for (const path of paths.values()) waypoints += path.length;
-    return { cells: this.deps.gameState().getGlobalRouteGrid().snapshotHeights(), widths: widthProfile(paths), waypoints };
+    return { cells: this.deps.grid.snapshotHeights(), widths: widthProfile(paths), waypoints };
   }
 }

@@ -121,7 +121,13 @@
               "buildTarget": "3DTD:build:development"
             }
           },
-          "defaultConfiguration": "development"
+          "defaultConfiguration": "development",
+          "options": {
+            "headers": {
+              "Cross-Origin-Opener-Policy": "same-origin",
+              "Cross-Origin-Embedder-Policy": "credentialless"
+            }
+          }
         },
         "lint": {
           "builder": "@angular-eslint/builder:lint",

@@ -1,6 +1,5 @@
 import { GameObject } from '../core/game-object';
-import { IGameManager } from '../game-engine';
-import { ThreeTilesEngine } from '../three-engine';
+import type { IGameManager } from '../game-engine/game-manager.interface';
 
 /**
  * An array in insertion order that callers may iterate while entries come
@@ -62,18 +61,13 @@ class SnapshotList<T> {
 export abstract class EntityManager<T extends GameObject> implements IGameManager {
   protected entities = new Map<string, T>();
   protected activeEntities = new Set<T>();
-  protected tilesEngine: ThreeTilesEngine | null = null;
 
   /** The arrays getAll() and getAllActive() hand out, kept in step with the two collections above */
   private readonly allList = new SnapshotList<T>();
   private readonly activeList = new SnapshotList<T>();
 
-  /**
-   * Initialize with ThreeTilesEngine
-   */
-  initialize(tilesEngine: ThreeTilesEngine): void {
-    this.tilesEngine = tilesEngine;
-  }
+  /** No-op: a manager gets what it needs through its constructor. */
+  initialize(): void { /* nothing to do */ }
 
   /**
    * Add an entity to the manager
@@ -148,6 +142,5 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
    */
   destroy(): void {
     this.clear();
-    this.tilesEngine = null;
   }
 }

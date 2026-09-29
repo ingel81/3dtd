@@ -1,5 +1,6 @@
 import type { GamePhase } from '../models/game.types';
-import { GameEventBus, SubscriptionBag } from './game-event-bus';
+import { SubscriptionBag } from './game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import { ThreeTilesEngine } from '../three-engine';
 import { cueLeadMs, BACKGROUND_MUSIC, MusicTrack } from '../configs/background-music.config';
 import { MusicBufferLoader } from './music-buffer-loader';
@@ -145,7 +146,7 @@ export class BackgroundMusicService {
   // =====================================================
 
   constructor(
-    private readonly eventBus: GameEventBus,
+    private readonly eventBus: MainEventBus,
     tilesEngine: ThreeTilesEngine,
   ) {
     this.mixer = new MusicMixer(tilesEngine.spatialAudio.getListener());
@@ -362,7 +363,7 @@ export class BackgroundMusicService {
   /**
    * The music of `phase` and `wave`, unless it already plays: after a
    * snapshot restore or a replay's seek, which change the phase without
-   * the events that bring its music (GameStateManager.resyncPresentation).
+   * the events that bring its music (PresentationHost.resync).
    */
   followPhase(phase: GamePhase, wave: number): void {
     const want = phase === 'wave' ? 'wave' : phase === 'gameover' ? 'gameover' : 'build';
@@ -378,7 +379,7 @@ export class BackgroundMusicService {
     }
   }
 
-  /** Where the game speed comes from (GameStateManager), see cueLeadMs. */
+  /** Where the game speed comes from (the last frame packet), see cueLeadMs. */
   setGameSpeedSource(source: () => number): void {
     this.gameSpeed = source;
   }

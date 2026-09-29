@@ -1,6 +1,7 @@
 import { Vector3, type PositionalAudio } from 'three';
-import { GameEventBus, SubscriptionBag } from '../game-engine';
-import { ThreeTilesEngine } from '../three-engine';
+import { SubscriptionBag } from './game-event-bus';
+import type { ThreeTilesEngine } from '../three-engine';
+import type { MainEventBus } from '../sim/client/view-events';
 import {
   ABILITY_IMPACT_SOUNDS,
   type AbilityBeamSound,
@@ -63,7 +64,7 @@ interface LaunchLoop extends AbilityLoop {
   diveVoice: PositionalAudio | null;
 }
 
-/** Ground the ability loops stand on: the route grid (GameStateManager). */
+/** Ground the ability loops stand on: the main thread's route grid. */
 export interface AbilitySoundGround {
   getGroundLocalYAt(localX: number, localZ: number): number | null;
 }
@@ -71,14 +72,15 @@ export interface AbilitySoundGround {
 /**
  * Audio Service - Handles spatial audio via events
  *
- * Framework-agnostic service that subscribes to audio events
- * and plays sounds using ThreeTilesEngine's SpatialAudioManager.
+ * Framework-agnostic service on the main thread's bus (SimClient.bus) that
+ * plays sounds using ThreeTilesEngine's SpatialAudioManager.
  *
  * Event-driven: Subscribes to `audio:play` events from GameEventBus, and
  * plays each ability's sounds (ABILITY_IMPACT_SOUNDS): its warning loop from
  * `ability:used` to `ability:impact`, a missile's launch, engine and dive
  * from its launch site onto the target, its impact sound on
- * `ability:impact`, its tail and a beam's burn in game time (update())
+ * `ability:impact`, its tail and a beam's burn in game time (update(), once
+ * per frame with the frame's game time)
  */
 export class AudioService {
   private readonly subs = new SubscriptionBag();
@@ -90,15 +92,22 @@ export class AudioService {
   /** Missiles on their way, see AbilityImpactSound.launch */
   private readonly launches: LaunchLoop[] = [];
   private ground: AbilitySoundGround | null = null;
+  /** Whether a tower's shot stays quiet (shown at the click already, QuietShots) */
+  private quietShot: (towerId: string) => boolean = () => false;
   private readonly local = new Vector3();
   private readonly foot = new Vector3();
 
   constructor(
-    private eventBus: GameEventBus,
+    private eventBus: MainEventBus,
     private tilesEngine: ThreeTilesEngine
   ) {
     this.registerSounds();
     this.setupEventHandlers();
+  }
+
+  /** Asked for every shot sound (audio:play with `shotOf`): true keeps it quiet. */
+  setQuietShot(quiet: (towerId: string) => boolean): void {
+    this.quietShot = quiet;
   }
 
   /** Ground under the ability loops; without it they stand at the height of their target. */
@@ -145,6 +154,7 @@ export class AudioService {
    */
   private setupEventHandlers(): void {
     this.subs.add(this.eventBus.onShow('audio:play', (event) => {
+      if (event.shotOf !== undefined && this.quietShot(event.shotOf)) return;
       this.handleAudioPlay(event);
     }));
 
@@ -179,10 +189,10 @@ export class AudioService {
   }
 
   /**
-   * One gameplay sub-step (GameStateManager.runSubStep): moves each beam's
-   * burn on and plays the repeats of impact sounds whose time has come. In
-   * game time like the ability itself, so a pause holds them and a higher
-   * game speed shortens them.
+   * `stepMs` of game time went by (PresentationHost.advance, once per
+   * frame): moves each beam's burn on and plays the repeats of impact
+   * sounds whose time has come. In game time like the ability itself, so a
+   * pause holds them and a higher game speed shortens them.
    */
   update(stepMs: number): void {
     if (this.beams.length !== 0) this.moveBeams(stepMs);
@@ -246,7 +256,7 @@ export class AudioService {
   }
 
   /**
-   * Each missile one sub-step on: its engine where the flight has it,
+   * Each missile `stepMs` of game time on: its engine where the flight has it,
    * fading in; its dive at the target once the impact is `leadMs` away;
    * over at the end of its flight, if no impact came first.
    */
@@ -333,7 +343,7 @@ export class AudioService {
   }
 
   /**
-   * Each beam's burn one sub-step on: `speedMps` times the time it has burnt
+   * Each beam's burn `stepMs` of game time on: `speedMps` times the time it has burnt
    * along its path, where the beam stands in the simulation
    * (AbilityManager); once burnt, fading out where it ended, then over.
    */

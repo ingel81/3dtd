@@ -1,5 +1,5 @@
 import { GameObject } from '../../core/game-object';
-import type { GameEventBus } from '../../game-engine';
+import type { GameEventBus } from '../../game-engine/game-event-bus';
 import type { EnemyManager } from '../enemy.manager';
 import type { ProjectileManager } from '../projectile.manager';
 import type { TowerManager } from '../tower.manager';
@@ -11,11 +11,11 @@ import type { Tower } from '../../entities/tower.entity';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { TowerTypeId } from '../../configs/tower-types.config';
 import type { GeoPosition } from '../../models/game.types';
-import type { EnemyDebugService } from '../../services/debug/enemy-debug.service';
 import type { TowerCombatService } from '../../services/combat/tower-combat.service';
-import type { TowerPlacementService } from '../../services/tower-placement.service';
 import type { EconomyService } from '../../services/economy.service';
-import type { ThreeTilesEngine } from '../../three-engine';
+import type { SimSink } from '../../sim/core/sim-sink';
+import type { DebugEnemies } from './debug-enemies';
+import type { TowerLos } from './tower-los';
 import type { GameClock } from './game-clock';
 import type { GameRng } from '../../utils/game-rng';
 import type { CreditsLedger } from './credits-ledger';
@@ -25,6 +25,7 @@ import { toPlainData } from './command-log';
 import { SIM_SNAPSHOT_VERSION, type SavedTower, type SimSnapshot, type SnapshotRefusal } from '../../simulator/sim-snapshot';
 import { WAVE_SNAPSHOT_VERSION, type WaveSnapshot, type WaveSnapshotRefusal } from '../../simulator/wave-snapshot';
 import { losMaskToJson } from '../../utils/los-mask';
+import type { LosResolveReason } from '../../game-engine/events/event-types';
 
 /** The parts of the GameStateManager a snapshot reads and writes */
 export interface SnapshotWorld {
@@ -39,9 +40,10 @@ export interface SnapshotWorld {
   readonly projectileManager: ProjectileManager;
   readonly towerManager: TowerManager;
   readonly towerLifecycle: TowerLifecycle;
-  readonly towerPlacement: TowerPlacementService;
+  readonly towerLos: TowerLos;
   readonly towerCombat: TowerCombatService;
-  readonly enemyDebug: EnemyDebugService;
+  readonly debugEnemies: DebugEnemies;
+  readonly sink: SimSink;
   /** Every player's research, abilities and hero in roster order */
   research(): readonly ResearchManager[];
   abilities(): readonly AbilityManager[];
@@ -50,7 +52,6 @@ export interface SnapshotWorld {
   abilityOf(playerId: string): AbilityManager;
   heroOf(playerId: string): HeroManager;
   players(): readonly string[];
-  tilesEngine(): ThreeTilesEngine | null;
   /** A wave has started in this run (game:started went out) */
   runStarted(): boolean;
   setRunStarted(started: boolean): void;
@@ -78,7 +79,7 @@ export class SimSnapshots {
     const w = this.world;
     const phase = w.waveManager.phase();
     if (phase !== 'setup' && phase !== 'gameover') return 'not-setup';
-    if (w.enemyManager.getAll().length > 0 || w.enemyDebug.debugEnemies().length > 0) return 'enemies';
+    if (w.enemyManager.getAll().length > 0 || w.debugEnemies.size > 0) return 'enemies';
     if (w.projectileManager.getAll().length > 0) return 'projectiles';
     if (w.abilities().some((seat) => seat.hasPendingStrikes())) return 'pending-strike';
     if (w.eventBus.hasDeferred) return 'pending-events';
@@ -116,7 +117,8 @@ export class SimSnapshots {
       towers: w.towerManager.getAll().map((tower) => saveTower(tower)),
       mannedTowerId: w.towerLifecycle.mannedTower(w.players()[0])?.id ?? null,
       mannedByPlayer: [...w.towerLifecycle.mannedTowers()].map(([playerId, tower]) => [playerId, tower.id]),
-      losQueue: w.towerPlacement.queuedLosTowerIds(),
+      losQueue: [],
+      awaitingLos: w.towerLos.awaitingEntries(),
     };
   }
 
@@ -126,7 +128,8 @@ export class SimSnapshots {
    * and id counter. What ran since goes: enemies, projectiles, a wave in
    * progress. No event of the way there goes out: the stores do not hear the
    * replay at all (GameEventBus.onLive), and what shows the state from events
-   * (the HQ fire) reads it anew on `sim:restored`.
+   * (the HQ fire) reads it anew on `sim:restored`. Towers that wait for their
+   * line of sight wait again; a live restore asks for it anew (TowerLos).
    */
   restore(snapshot: SimSnapshot, reason: 'replay' | 'live'): void {
     if (snapshot.version !== SIM_SNAPSHOT_VERSION) {
@@ -142,12 +145,13 @@ export class SimSnapshots {
     w.towerCombat.stopAllMelee();
     w.enemyManager.clear();
     w.enemyManager.resetKillRewards();
-    w.enemyDebug.clearDebugEnemies();
+    w.debugEnemies.clear();
     w.towerManager.clear();
     w.projectileManager.clear();
     w.waveManager.reset();
     for (const seat of w.abilities()) seat.reset();
-    w.tilesEngine()?.oozes.clear();
+    // A killed ooze's collapsing band belongs to the state before
+    w.sink.oozes.clear();
 
     // Towers keep their ids: the id counter is set before each is built
     for (const saved of snapshot.towers) {
@@ -177,9 +181,17 @@ export class SimSnapshots {
       const tower = w.towerManager.getById(towerId);
       return tower ? [[playerId, tower] as const] : [];
     }));
-    w.towerPlacement.requeueLos(
-      snapshot.losQueue.map((id) => w.towerManager.getById(id)).filter((tower): tower is Tower => !!tower),
-    );
+    // Towers waiting for their sight; `losQueue` of a snapshot from before
+    // the worker split held the air retrofits still to render
+    const awaiting: [Tower, LosResolveReason][] = [];
+    for (const [id, why] of [
+      ...(snapshot.awaitingLos ?? []),
+      ...snapshot.losQueue.map((id): [string, LosResolveReason] => [id, 'retrofit']),
+    ]) {
+      const tower = w.towerManager.getById(id);
+      if (tower) awaiting.push([tower, why]);
+    }
+    w.towerLos.restoreAwaiting(awaiting, reason === 'live');
 
     w.creditsLedger.restore(snapshot.accounts ?? [[w.creditsLedger.players[0], snapshot.credits]]);
     w.healthLedger.restore(snapshot.baseHealth);
@@ -200,7 +212,7 @@ export class SimSnapshots {
    * for events waiting and shots in flight, which the wave snapshot carries.
    */
   waveRefusal(): WaveSnapshotRefusal | null {
-    if (this.world.enemyDebug.debugEnemies().length > 0) return 'debug-enemies';
+    if (this.world.debugEnemies.size > 0) return 'debug-enemies';
     return null;
   }
 
@@ -241,7 +253,7 @@ export class SimSnapshots {
           return target ? [[seat.owner.playerId, target.id] as [string, string]] : [];
         }),
         strikes: w.abilities().map((seat) => [seat.owner.playerId, seat.captureWaveState()]),
-        awaitingLos: w.towerPlacement.awaitingLosEntries(),
+        awaitingLos: [],
         deferred: w.eventBus.deferred.filter(plainEvent).map((event) => toPlainData(event)),
       },
     };
@@ -279,10 +291,13 @@ export class SimSnapshots {
     for (const [towerId, targetId] of wave.towerTargets) w.towerManager.getById(towerId)?.restoreTarget(enemy(targetId));
     for (const [playerId, targetId] of wave.heroTargets) w.heroOf(playerId).restoreTarget(enemy(targetId));
     for (const [playerId, strikes] of wave.strikes) w.abilityOf(playerId).restoreWaveState(strikes, enemy);
-    w.towerPlacement.restoreAwaitingLos(wave.awaitingLos.flatMap(([towerId, reason]) => {
-      const tower = w.towerManager.getById(towerId);
-      return tower ? [[tower, reason] as const] : [];
-    }));
+    // A wave snapshot from before the worker split kept its waiting towers here
+    if (wave.awaitingLos.length > 0) {
+      w.towerLos.restoreAwaiting(wave.awaitingLos.flatMap(([towerId, why]) => {
+        const tower = w.towerManager.getById(towerId);
+        return tower ? [[tower, why] as const] : [];
+      }), reason === 'live');
+    }
     for (const event of wave.deferred) w.eventBus.emitDeferred(event as never);
     GameObject.setIdCounter(snapshot.base.idCounter);
   }

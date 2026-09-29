@@ -29,8 +29,8 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
+  provideSimServices,
   createTestCachedPaths,
-  createAbilityTestEngine,
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
@@ -88,6 +88,7 @@ interface Outcome {
 
 function run(timescale: number): Outcome {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  provideSimServices(mockServices);
   GameObject.resetIdCounter();
 
   const ref: { gsm?: GameStateManager } = {};
@@ -103,7 +104,6 @@ function run(timescale: number): Outcome {
     },
   });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['StatusEffectService'] = new StatusEffectService();
@@ -111,7 +111,7 @@ function run(timescale: number): Outcome {
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  gsm.initialize(createAbilityTestEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  gsm.initialize(BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({

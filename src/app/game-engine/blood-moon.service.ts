@@ -1,5 +1,6 @@
 import type { GamePhase } from '../models/game.types';
-import { GameEventBus, SubscriptionBag } from './game-event-bus';
+import { SubscriptionBag } from './game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import { isBloodMoonWave } from '../configs/blood-moon.config';
 import type { BloodMoonLook } from '../three-engine/blood-moon/blood-moon-look';
 
@@ -16,7 +17,7 @@ export class BloodMoonService {
   private readonly subs = new SubscriptionBag();
 
   constructor(
-    private readonly eventBus: GameEventBus,
+    private readonly eventBus: MainEventBus,
     private readonly look: Pick<BloodMoonLook, 'setActive'>,
   ) {
     this.subs.add(this.eventBus.onShow('wave:started', ({ wave }) => this.look.setActive(isBloodMoonWave(wave))));
@@ -27,7 +28,7 @@ export class BloodMoonService {
 
   /**
    * The look of `phase` and `wave`, at once: after a snapshot restore or a
-   * replay's seek (GameStateManager.resyncPresentation).
+   * replay's seek (PresentationHost.resync).
    */
   follow(phase: GamePhase, wave: number): void {
     this.look.setActive(phase === 'wave' && isBloodMoonWave(wave), true);

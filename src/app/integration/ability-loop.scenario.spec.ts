@@ -1,20 +1,18 @@
 /**
- * Integration Test: playtest points 320, 335, 395 and 397 of night 2
+ * Integration Test: playtest points 320, 395 and 397 of night 2
  * (docs/archive/REVIEW_SPRINT_2026-09-14.md) through the real GameStateManager
- * sub-step loop, with the real VFX, audio and screen shake services it
- * creates, the real damage path and real enemies.
+ * sub-step loop, the real damage path and real enemies. What the strike
+ * looks and sounds like (markers, cloud, the rumbling tail of 320 and 335)
+ * is the main thread's and tested there.
  *
- * 320: a restart during the warning leaves no marker, cloud or rumble.
- * 335: the quieter repeats of the strike's sound wait out a pause and come
- *      sooner at 4x.
+ * 320: a restart during the warning: nothing lands.
  * 395: a pause holds the freeze, the enemies stand on after it.
  * 397: the wave waits for the beam; its fire share caps the unarmored at
  *      60 %, takes a good quarter from a tank and hardly anything from a ghost.
  *
  * Harness as in ability-strike.spec.ts: only the services around the loop are
  * stubbed, the route grid's radius query is a plain distance filter over the
- * living enemies. The engine's ability renderers and its spatial audio are
- * stubs the test reads back.
+ * living enemies.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
@@ -36,8 +34,8 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
+  provideSimServices,
   addMissileSilo,
-  createMockTilesEngine,
   createTestCachedPaths,
   withAutoStubs,
   TEST_PATH,
@@ -49,40 +47,11 @@ import { DamageApplicationService } from '../services/combat/damage-application.
 import { StatusEffectService } from '../services/combat/status-effect.service';
 import { GameObject } from '../core/game-object';
 import { ABILITIES, type AbilityId } from '../configs/abilities.config';
-import { GAME_SOUNDS } from '../configs/audio.config';
 import type { EnemyTypeId } from '../configs/enemy-types.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
-
-type Mock = ReturnType<typeof vi.fn>;
-
-/** The engine the loop gets, and its parts for the test to read back */
-function createEngine() {
-  // The helper's engine is typed; the loop reaches a few members it does not declare
-  const engine = createMockTilesEngine() as unknown as Record<string, Record<string, unknown>>;
-  for (const key of ['effects', 'towers', 'enemies', 'projectiles', 'trailStreaks', 'spatialAudio', 'sync', 'orbitalBeams']) {
-    engine[key] = withAutoStubs(engine[key]);
-  }
-  engine['enemies']['create'] = vi.fn(() => Promise.resolve(null));
-  // BackgroundMusicService resumes the audio context on wave:started
-  engine['spatialAudio']['getListener'] = () => ({ context: { state: 'running', resume: () => Promise.resolve() } });
-  // AudioService plays an impact sound and every repeat of its tail here
-  engine['spatialAudio']['playAtGeo'] = vi.fn(() => Promise.resolve(null));
-  // Headless, like a training tab: no presentFrame
-  (engine as Record<string, unknown>)['renderingEnabled'] = false;
-  // Every other part (ability renderers, plinths, blood moon, ...) a callable
-  // stub whose members are stubs as well, so GameStateManager.reset() runs
-  // through; the test reads the ability renderers back from it
-  const full = new Proxy(engine, {
-    get(obj, prop, receiver) {
-      if (!(prop in obj)) Reflect.set(obj, prop, withAutoStubs(vi.fn()));
-      return Reflect.get(obj, prop, receiver);
-    },
-  });
-  return { engine: full as never, parts: full as unknown as Record<string, Record<string, Mock>> };
-}
 
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** The fourth waypoint, about 33 m down the path */
@@ -90,23 +59,11 @@ const TARGET: GeoPosition = TEST_PATH[3];
 const SEGMENT_M = geoDistanceFast(TEST_PATH[0], TEST_PATH[1]);
 /** 6500 ms of warning in sub-steps of 16.667 ms */
 const NUKE_WARNING_STEPS = 390;
-const TAIL = GAME_SOUNDS.nuclearStrike.tail;
-/** Sub-steps until the last repeat of the tail, and a few more */
-const TAIL_STEPS = Math.ceil(Math.max(...TAIL.map((r) => r.delayMs)) / 16.667) + 5;
-/** The missile's one-shots, from the silo (a silo stands in every game here) */
-const MISSILE_SOUNDS: readonly string[] = [
-  GAME_SOUNDS.nuclearStrike.launch.ignition.id,
-  GAME_SOUNDS.nuclearStrike.launch.dive.id,
-];
-
-/** The one-shots played at the impact and after it: the blast and its tail, not the missile's */
-function strikeSounds(played: Mock): unknown[][] {
-  return played.mock.calls.filter((call) => !MISSILE_SOUNDS.includes(call[0] as string));
-}
 
 /** A game in setup with `researched` done, the grid stubbed and the real damage path. */
 function createGame(timescale: number, researched: AbilityId[]) {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  provideSimServices(mockServices);
   GameObject.resetIdCounter();
 
   // The grid stub has to be in place before the manager injects it
@@ -123,7 +80,6 @@ function createGame(timescale: number, researched: AbilityId[]) {
     },
   });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['StatusEffectService'] = new StatusEffectService();
@@ -131,8 +87,7 @@ function createGame(timescale: number, researched: AbilityId[]) {
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  const { engine, parts } = createEngine();
-  gsm.initialize(engine, BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  gsm.initialize(BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.gameSpeed.set(timescale);
   addMissileSilo(gsm.towerManager);
   for (const id of researched) {
@@ -142,7 +97,7 @@ function createGame(timescale: number, researched: AbilityId[]) {
       effects: [{ kind: 'global-perk', perkId: ABILITIES[id].perkId, description: '' }],
     });
   }
-  return { gsm, parts, bus: gsm.getEventBus(), clock: { now: 1000 } };
+  return { gsm, bus: gsm.getEventBus(), clock: { now: 1000 } };
 }
 
 /** One rendered frame, 16 ms of wall clock; `onStep` after each of its sub-steps */
@@ -175,99 +130,20 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
   });
 
   describe('320: restart', () => {
-    it('during the warning: marker and cloud go, nothing lands, shakes or rumbles after it', () => {
-      const { gsm, parts, bus, clock } = createGame(1, ['nuclear-strike']);
+    it('during the warning: nothing lands after it', () => {
+      const { gsm, bus, clock } = createGame(1, ['nuclear-strike']);
       let impacts = 0;
       bus.on('ability:impact', () => impacts++);
       gsm.beginWave();
       expect(gsm.abilityManager.use('nuclear-strike', TARGET).ok).toBe(true);
-      expect(parts['abilityMarkers']['showStrike']).toHaveBeenCalledTimes(1);
-      const played = parts['spatialAudio']['playAtGeo'];
-      // The ignition at the silo with the command
-      expect(played.mock.calls.map((call) => call[0])).toEqual([GAME_SOUNDS.nuclearStrike.launch.ignition.id]);
       runSteps(gsm, clock, NUKE_WARNING_STEPS / 2);
 
       bus.emit({ type: 'command:restart-game' });
       runSteps(gsm, clock, 1);
-      expect(parts['abilityMarkers']['clear']).toHaveBeenCalled();
-      expect(parts['mushroomClouds']['clear']).toHaveBeenCalled();
       expect(gsm.abilityManager.hasPendingStrikes()).toBe(false);
 
-      // No impact: no cloud, no blast or tail, and no ability shake, which
-      // comes only with ability:impact (ScreenShakeService; the switch is
-      // ability-shake.scenario.spec.ts)
-      runSteps(gsm, clock, 2 * NUKE_WARNING_STEPS + TAIL_STEPS);
+      runSteps(gsm, clock, 2 * NUKE_WARNING_STEPS);
       expect(impacts).toBe(0);
-      expect(parts['mushroomClouds']['detonate']).not.toHaveBeenCalled();
-      expect(strikeSounds(played)).toEqual([]);
-    });
-
-    it('right after the impact: the rumbling tail is cut', () => {
-      const { gsm, parts, bus, clock } = createGame(1, ['nuclear-strike']);
-      let impacts = 0;
-      bus.on('ability:impact', () => impacts++);
-      gsm.beginWave();
-      gsm.abilityManager.use('nuclear-strike', TARGET);
-      while (impacts === 0) frame(gsm, clock);
-      const played = parts['spatialAudio']['playAtGeo'];
-      expect(strikeSounds(played)).toHaveLength(1);
-
-      bus.emit({ type: 'command:restart-game' });
-      runSteps(gsm, clock, TAIL_STEPS);
-      expect(strikeSounds(played)).toHaveLength(1);
-    });
-  });
-
-  describe('335: the strike sound\'s tail in game time', () => {
-    /**
-     * Frames of 16 ms wall clock from the impact until the last repeat of
-     * the tail has played, the pause frames not counted; with `pauseFrames`
-     * the game pauses in the frame after the impact.
-     */
-    const tailRun = (timescale: number, pauseFrames = 0) => {
-      const { gsm, parts, bus, clock } = createGame(timescale, ['nuclear-strike']);
-      let impacts = 0;
-      bus.on('ability:impact', () => impacts++);
-      gsm.beginWave();
-      gsm.abilityManager.use('nuclear-strike', TARGET);
-      while (impacts === 0) frame(gsm, clock);
-
-      const played = parts['spatialAudio']['playAtGeo'];
-      const atImpact = strikeSounds(played).length;
-      let heardInPause = 0;
-      if (pauseFrames > 0) {
-        gsm.paused.set(true);
-        for (let i = 0; i < pauseFrames; i++) frame(gsm, clock);
-        heardInPause = strikeSounds(played).length - atImpact;
-        gsm.paused.set(false);
-      }
-      let frames = 0;
-      while (strikeSounds(played).length < 1 + TAIL.length && frames < 1000) {
-        frame(gsm, clock);
-        frames++;
-      }
-      return { atImpact, heardInPause, frames, volumes: strikeSounds(played).map((call) => call[4]) };
-    };
-
-    it('plays the impact, then the quieter pieces of its tail', () => {
-      expect(tailRun(1).volumes).toEqual([1, ...TAIL.map((r) => r.volume)]);
-    });
-
-    it('P right after the impact: the repeats wait for the resume, then come as without the pause', () => {
-      const straight = tailRun(1);
-      // About ten seconds of wall clock, far longer than the tail
-      const paused = tailRun(1, 600);
-      expect(paused.atImpact).toBe(1);
-      expect(paused.heardInPause).toBe(0);
-      expect(paused.frames).toBe(straight.frames);
-    });
-
-    it('at 4x the tail is over in about a quarter of the wall time', () => {
-      const single = tailRun(1).frames;
-      const fourfold = tailRun(4).frames;
-      expect(single).toBeGreaterThan(40);
-      expect(fourfold).toBeGreaterThanOrEqual(Math.floor(single / 4) - 1);
-      expect(fourfold).toBeLessThanOrEqual(Math.ceil(single / 4) + 1);
     });
   });
 

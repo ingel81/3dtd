@@ -45,7 +45,7 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { RouteWaypoint } from '../models/game.types';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
-import { createMockTilesEngine } from './test-helpers';
+import { createSinkSpy, createTestCoords, createTestOps } from './test-helpers';
 
 const STEP = 16;
 // At the equator a degree of longitude is as long as one of latitude; x east, z south
@@ -80,20 +80,12 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
     grid.initialize(() => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 1 }), flatSync as never);
     grid.generateFromRoutes([ROUTE]);
     const spatial = new SpatialGridService();
-    const mock = createMockTilesEngine();
-    const engine = {
-      ...mock,
-      sync: flatSync,
-      towers: {
-        get: () => undefined,
-      },
-      enemies: { ...mock.enemies, triggerHitFlash: vi.fn() },
-      flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn(), clear: vi.fn() },
-    };
-    enemies = new EnemyManager(bus, grid, spatial);
-    enemies.initialize(engine as never);
-    projectiles = new ProjectileManager(bus);
-    projectiles.initialize(engine as never);
+    const sink = createSinkSpy();
+    const coords = createTestCoords(flatSync as never);
+    mockInjections['SimCoords'] = coords;
+    mockInjections['SimOps'] = createTestOps(sink);
+    enemies = new EnemyManager(bus, grid, spatial, coords, sink as never);
+    projectiles = new ProjectileManager(bus, sink as never);
     towers = [];
     towerManager = { getAllActive: () => towers, getById: (id) => towers.find((t) => t.id === id) };
     now = 0;
@@ -108,10 +100,10 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
     mockInjections['CombatVfxService'] = new CombatVfxService();
     mockInjections['DamageApplicationService'] = new DamageApplicationService();
     const effects = new CombatEffectService();
-    effects.initialize(engine as never, bus, towerManager as never, enemies, NO_RESEARCH);
+    effects.initialize(bus, towerManager as never, enemies, NO_RESEARCH);
     mockInjections['CombatEffectService'] = effects;
     combat = new TowerCombatService();
-    combat.initialize(engine as never, NO_RESEARCH);
+    combat.initialize(NO_RESEARCH);
   });
 
   afterEach(() => {
@@ -137,8 +129,8 @@ describe('Towers against the clumps of a killed ooze (playtest 363)', () => {
     projectiles.update(STEP);
     bus.processQueue();
     enemies.update(STEP, now);
-    combat.updateTowerShooting(now, STEP, towerManager as never, enemies, projectiles);
-    combat.updateBeamTowers(STEP, towerManager as never, enemies, now);
+    combat.updateTowerShooting(now, STEP, towerManager as never, projectiles);
+    combat.updateBeamTowers(STEP, towerManager as never, now);
     for (const tower of towers) stepTowerAim(tower.aim, STEP);
   };
 

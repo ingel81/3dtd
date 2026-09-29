@@ -1,57 +1,51 @@
+import { Injectable, inject } from '@angular/core';
 import { Vector3 } from 'three';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
-import { GeoPosition } from '../models/game.types';
-import { Tower } from '../entities/tower.entity';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
-import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { LosResolveContext, cubeCoverage } from '../utils/gpu-cube-resolve';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-import { losMaskToJson, type LosMask } from '../utils/los-mask';
+import { losMaskFromJson, losMaskToJson } from '../utils/los-mask';
 import type { LosResolveReason } from '../game-engine/game-event-bus';
+import type { Tower } from '../entities/tower.entity';
+import { SimClient } from '../sim/client/sim-client.service';
+import type { LosNeededPayload } from '../sim/protocol/events';
+import type { SimFramePacket } from '../sim/protocol/packet';
 
 /**
- * Per-tower line of sight on the GlobalRouteGrid: registers a placed tower
- * (cubemap render from its tip, GPU resolve of the cells in range) and
- * unregisters it. The cells are the ones the corridor build froze, so the
- * answers hold for as long as the tower stands; only a research retrofit or
- * a range upgrade asks for a recompute. TowerPlacementService owns one and
- * exposes these as its grid-registration API.
+ * Lines of sight on the main thread (docs/SIM_WORKER.md, docs/LOS_PIPELINE.md).
+ * The simulation never renders: a tower that needs its line of sight (placed,
+ * range upgraded, air retrofit researched) waits there and says so with
+ * `tower:los-needed`. This service renders the cube from the tower's tip on
+ * the GPU, resolves the cells in range on the main thread's grid and sends the
+ * answer as `command:los-mask`; the simulation applies it at the boundary it
+ * arrives at and logs it, so a replay needs no GPU.
  *
- * Every resolve ends in a LosMask on the tower (`tower.losMask`) and a
- * `tower:los-resolved` event carrying it. registerFromMask applies a stored
- * mask instead of a cube, for a snapshot restore or a re-simulation.
+ * Who renders: the single player game and the coop host (role 'render'); a
+ * coop guest waits for the host's masks (role 'wait'), which reach its
+ * simulation through the relay.
+ *
+ * The main thread's grid follows the simulation's answers: every tower state
+ * that carries a mask (sim/protocol/packet.ts TowerStateDto.losMask) is
+ * written into it, so the grid's views and the wave source's coverage numbers
+ * read what the towers see.
  */
-/** A tower's answers as resolveOnGpu wrote them: what encoding a mask of them needs. */
-interface ResolvedLos {
-  x: number;
-  z: number;
-  range: number;
-  canTargetGround: boolean;
-  canTargetAir: boolean;
-  ctx: LosResolveContext;
-}
-
+@Injectable({ providedIn: 'root' })
 export class TowerLosRegistry {
+  private readonly grid = inject(GlobalRouteGridService);
+  private readonly sim = inject(SimClient);
   private engine: ThreeTilesEngine | null = null;
-  private gameState: GameStateManager | null = null;
+  private role: 'render' | 'wait' = 'render';
+  /** Requests in the order the simulation made them, the latest per tower */
+  private readonly queue = new Map<string, LosNeededPayload>();
+  private readonly unsubscribe: (() => void)[] = [];
 
   /**
-   * Towers a caller asked a recompute for (scheduleRecompute: the air
-   * retrofit of a research), worked off by drainLosQueue from the game loop,
-   * in the order they were queued. The old answers stay in the cells until
-   * the recompute replaces them; the air answers the retrofit adds are
-   * missing until then, and combat counts a missing answer as not visible.
+   * Cube renders per frame. Each one is a forced cubemap render plus the face
+   * readback; running many towers in one frame blocked the main thread for
+   * 1-2 s.
    */
-  private readonly staleLos = new Set<Tower>();
-
-  /**
-   * LOS recomputes per frame. Each one is a forced cubemap render plus the
-   * face readback; running many towers in one frame blocked the main thread
-   * for 1-2 s.
-   */
-  private static readonly LOS_RECOMPUTES_PER_FRAME = 1;
+  private static readonly RESOLVES_PER_FRAME = 1;
 
   /**
    * A recompute that leaves a tower no more than this share of the cells it
@@ -68,282 +62,114 @@ export class TowerLosRegistry {
   private static readonly LOS_DROP_NEAR_M = 2;
 
   /** Towers whose drop is logged already, see reportLosDrop. */
-  private readonly losDropLogged = new WeakSet<Tower>();
+  private readonly losDropLogged = new Set<string>();
 
-  /**
-   * Re-simulation (docs/SIMULATOR_PLAN.md, P4): where a place or an upgrade
-   * gets its mask instead of the GPU, the one the live run logged. A cube
-   * rendered again could see other tiles than the live one did. The
-   * retrofit queue does not drain meanwhile: the re-simulation applies the
-   * logged retrofit masks at the sub-step they came in.
-   */
-  private maskSource: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null = null;
-
-  /**
-   * Coop (docs/COOP_PLAN.md, C3): no client applies a line of sight it
-   * rendered itself, the host's GPU answers for everyone. A tower that needs
-   * one waits here (place, upgrade, retrofit, in the order they came up; the
-   * same on every client, as the simulation asks). The host renders it after
-   * the frame, puts the cells back as they were and sends the mask as
-   * `command:los-mask`; every client applies it at the tick it comes back
-   * (applyCoopMask). Null in the single player game.
-   */
-  private coopRole: 'host' | 'guest' | null = null;
-  private readonly awaiting = new Map<Tower, LosResolveReason>();
-  /** Host: masks sent and not back yet, so a frame does not send one twice */
-  private readonly sent = new Set<Tower>();
-
-  /** Coop masks the host renders per frame: each is a cube render and readback, as LOS_RECOMPUTES_PER_FRAME */
-  private static readonly COOP_RESOLVES_PER_FRAME = 1;
-
-  constructor(private readonly grid: GlobalRouteGridService) {}
-
-  /** Coop: 'host' renders and sends the masks, 'guest' waits for them; null for the single player game. See coopRole. */
-  setCoopRole(role: 'host' | 'guest' | null): void {
-    this.coopRole = role;
-    this.sent.clear();
-  }
-
-  /** Coop: the towers waiting for a mask from the host, oldest first. */
-  awaitingTowerIds(): string[] {
-    return [...this.awaiting.keys()].map((tower) => tower.id);
-  }
-
-  /** See maskSource; null goes back to the GPU. */
-  setMaskSource(source: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
-    this.maskSource = source;
-  }
-
-  /** Towers waiting for their retrofit, oldest first (for the wave-start snapshot). */
-  queuedTowerIds(): string[] {
-    return [...this.staleLos].map((tower) => tower.id);
-  }
-
-  /**
-   * Anti-air retrofit researched, from the simulation's ResearchManager
-   * (not the UI store): read at resolve time, not cached.
-   */
-  private airTargetingUnlocked(tower: Tower): boolean {
-    return this.gameState?.researchOf(tower.ownerId).airTargetingUnlocked ?? false;
-  }
-
-  /**
-   * Work against the engine and game state of a (new) location. The cells a
-   * tower registers on are the ones the corridor build froze (CorridorBuild)
-   * and stay as they are while it stands; only a research retrofit asks for
-   * a recompute (scheduleRecompute).
-   */
-  attach(engine: ThreeTilesEngine, gameState: GameStateManager): void {
+  /** Work against the engine of a (new) location; the requests of the previous one are gone. */
+  attach(engine: ThreeTilesEngine): void {
+    this.detach();
     this.engine = engine;
-    this.gameState = gameState;
-    // Towers queued for the previous location went with its grid.
-    this.staleLos.clear();
+    const bus = this.sim.bus;
+    // Live only: a replay's towers take their masks from the log
+    const needed = bus.onLive('tower:los-needed', (event) => {
+      const { type: _type, ...payload } = event;
+      this.queue.delete(payload.towerId);
+      this.queue.set(payload.towerId, payload);
+    });
+    const reset = bus.on('game:reset', () => this.queue.clear());
+    this.unsubscribe.push(() => needed.dispose(), () => reset.dispose());
+    this.unsubscribe.push(this.sim.onFrame((packet) => this.afterFrame(packet)));
   }
 
-  /** Drop the queue and forget engine and game state. */
   detach(): void {
-    this.staleLos.clear();
+    for (const off of this.unsubscribe.splice(0)) off();
+    this.queue.clear();
+    this.losDropLogged.clear();
     this.engine = null;
-    this.gameState = null;
   }
 
-  /**
-   * Register a placed tower on the GlobalRouteGrid:
-   * - LOS raycasting to determine visible cells
-   * - Grid registration for enemy targeting
-   * - LOS visualization mesh (hidden by default, shown on selection)
-   */
-  register(tower: Tower, position: GeoPosition, typeId: TowerTypeId): void {
+  /** 'render' in the single player game and for the coop host, 'wait' for a coop guest. */
+  setRole(role: 'render' | 'wait'): void {
+    this.role = role;
+  }
+
+  /** Towers waiting for this client's GPU, oldest first (debug). */
+  pendingTowerIds(): string[] {
+    return [...this.queue.keys()];
+  }
+
+  /** The simulation's answers into the main grid, then this frame's renders. */
+  private afterFrame(packet: SimFramePacket): void {
+    for (const id of packet.removedTowers) {
+      this.queue.delete(id);
+      this.losDropLogged.delete(id);
+      this.grid.unregisterTower(id);
+    }
+    for (const state of packet.towerStates) {
+      if (state.losMask === undefined) continue;
+      const tower = this.sim.mirror.tower(state.id);
+      if (!tower) continue;
+      if (state.losMask === null) {
+        this.grid.unregisterTower(state.id);
+        tower.visibleCells = [];
+        continue;
+      }
+      const local = this.localOf(tower);
+      if (!local) continue;
+      tower.visibleCells = this.grid.applyLosMask(state.id, local.x, local.z, losMaskFromJson(state.losMask));
+    }
+    if (this.role === 'render') this.resolveQueued();
+  }
+
+  private localOf(tower: Tower): { x: number; y: number; z: number } | null {
+    if (!this.engine) return null;
+    const p = tower.position;
+    return this.engine.sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0);
+  }
+
+  private resolveQueued(): void {
     if (!this.engine || !this.grid.isInitialized()) return;
-    if (this.maskSource) {
-      const mask = this.maskSource(tower.id, 'place');
-      if (mask) this.registerFromMask(tower, mask);
-      return;
-    }
-    if (this.coopRole) {
-      tower.losReady = false;
-      this.awaiting.set(tower, 'place');
-      return;
-    }
-
-    const resolved = this.resolveOnGpu(tower, TOWER_TYPES[typeId]?.range, false, position);
-    if (!resolved) return;
-    tower.losReady = true;
-    this.recordMask(tower, resolved, 'place');
-
-    // Wenn dieser Tower bereits selected ist (z.B. nach Auto-Select beim
-    // Place), die Selection-Viz vom TowerManager refreshen lassen.
-    if (tower.selected) {
-      this.gameState?.towerManager.refreshSelectionViz(tower);
+    let budget = TowerLosRegistry.RESOLVES_PER_FRAME;
+    for (const [id, request] of this.queue) {
+      if (budget === 0) return;
+      const tower = this.sim.mirror.tower(id);
+      if (!tower) {
+        // Sold before its turn
+        this.queue.delete(id);
+        continue;
+      }
+      const mask = this.resolve(tower, request);
+      if (!mask) return;
+      this.queue.delete(id);
+      budget--;
+      this.sim.bus.emit({ type: 'command:los-mask', towerId: id, reason: request.reason, mask });
     }
   }
 
   /**
-   * Render the cube from the tower's tip and resolve its cells in `range`:
-   * all of them (a place), or incrementally, keeping the cached answers (a
-   * recompute). Writes the answers into the grid and `tower.visibleCells`.
-   * Null when there is nothing to render against.
+   * Render the cube from the tower's tip and resolve its cells in range on
+   * the main grid: all of them for a place, incrementally for a recompute
+   * (cells that keep a cached answer are not sampled again). The answers stay
+   * in the main grid; the mask goes to the simulation.
    */
-  private resolveOnGpu(
-    tower: Tower,
-    range: number | undefined,
-    incremental: boolean,
-    position: GeoPosition = tower.position,
-  ): ResolvedLos | null {
+  private resolve(tower: Tower, request: LosNeededPayload): ReturnType<typeof losMaskToJson> | null {
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
-    if (!config || range === undefined || !this.engine) return null;
-
-    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
+    const terrainPos = this.localOf(tower);
+    if (!config || !terrainPos) return null;
     const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-    const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = canTargetAirEffective(
-      tower.typeConfig.id as TowerTypeId,
-      this.airTargetingUnlocked(tower),
-    );
-
-    // The cells and their heights are the ones the corridor build froze
-    // (CorridorBuild): the tower registers its answers on them once.
-    const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);
-    const ctx = this.buildLosResolveContext(tipWorld, range);
+    const ctx = this.buildLosResolveContext(new Vector3(terrainPos.x, tipY, terrainPos.z), request.range);
     if (!ctx) {
       console.warn('[TowerLosRegistry] no LOS blocker group');
       return null;
     }
-    tower.visibleCells = incremental
-      ? this.grid.registerTowerIncremental(tower.id, terrainPos.x, terrainPos.z, range, ctx, canTargetGround, canTargetAir)
-      : this.grid.registerTower(tower.id, terrainPos.x, terrainPos.z, range, ctx, canTargetGround, canTargetAir);
-    return { x: terrainPos.x, z: terrainPos.z, range, canTargetGround, canTargetAir, ctx };
-  }
-
-  /**
-   * Register a placed tower from a stored LosMask instead of its cube: the
-   * same cells, visibleCells and losReady as register() gave when the mask
-   * was taken, without GPU work. For a snapshot restore and a re-simulation
-   * (the mask comes from a `tower:los-resolved` event or `tower.losMask`).
-   * Emits no event: the mask is a recorded result, not a new one. Needs the
-   * engine only for the local position of the tower.
-   */
-  registerFromMask(tower: Tower, mask: LosMask): void {
-    if (!this.engine || !this.grid.isInitialized()) return;
-    const position = tower.position;
-    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
-    this.staleLos.delete(tower);
-    tower.visibleCells = this.grid.applyLosMask(tower.id, terrainPos.x, terrainPos.z, mask);
-    tower.losMask = mask;
-    tower.losReady = true;
-    if (tower.selected) {
-      this.gameState?.towerManager.refreshSelectionViz(tower);
-    }
-  }
-
-  /** Take the tower's answers as its LosMask and announce them (`tower:los-resolved`). */
-  private recordMask(tower: Tower, resolved: ResolvedLos, reason: LosResolveReason): void {
-    const mask = this.encode(tower, resolved);
-    tower.losMask = mask;
-    this.gameState?.getEventBus().emit({ type: 'tower:los-resolved', towerId: tower.id, mask, reason });
-  }
-
-  private encode(tower: Tower, resolved: ResolvedLos): LosMask {
-    return this.grid.encodeLosMask(
-      tower.id, resolved.x, resolved.z, resolved.range, resolved.canTargetGround, resolved.canTargetAir,
-    );
-  }
-
-  /**
-   * Unregister a tower from the GlobalRouteGrid.
-   */
-  unregister(tower: Tower): void {
-    this.awaiting.delete(tower);
-    this.sent.delete(tower);
-    // Selection-Viz wird vom TowerManager bereinigt (Owner-Pattern).
-    this.gameState?.towerManager.onTowerUnregistered(tower);
-    this.grid.unregisterTower(tower.id);
-    this.staleLos.delete(tower);
-    tower.visibleCells = [];
-    tower.losMask = null;
-  }
-
-  /**
-   * Recompute a tower's LOS after it gained air targets or its range grew.
-   * Uses incremental registration: cells that still hold a cached entry for
-   * this tower keep it (no cube sample), cells new to its reach and the
-   * capability it just gained are resolved against a fresh cubemap. The
-   * result mixes cubes of different moments, so it is kept as a mask
-   * (recordMask): a re-simulation applies that, it does not recompute.
-   */
-  recompute(tower: Tower, reason: LosResolveReason = 'upgrade'): void {
-    if (!this.engine || !this.grid.isInitialized()) return;
-    if (this.maskSource) {
-      const mask = this.maskSource(tower.id, reason);
-      if (mask) this.registerFromMask(tower, mask);
-      return;
-    }
-    if (this.coopRole) {
-      // The old answers stay until the host's mask comes back
-      if (!this.awaiting.has(tower)) this.awaiting.set(tower, reason);
-      return;
-    }
-
-    // Incremental: only sample cells that don't already have a cached entry.
-    // The queue entry is settled only once the recompute ran. One that bails
-    // stays queued and the drain retries it next frame: dropped, its air
-    // answers would stay missing for good. A direct call (range upgrade)
-    // settles the entry as well.
     const before = tower.visibleCells.length;
-    const resolved = this.resolveOnGpu(tower, tower.combat.range, true);
-    if (!resolved) return;
-    const queued = this.staleLos.delete(tower);
-    this.reportLosDrop(tower, before, queued, resolved.ctx);
-    this.recordMask(tower, resolved, reason);
-
-    // Selection-Viz refreshen, falls dieser Tower selected ist.
-    if (tower.selected) {
-      this.gameState?.towerManager.refreshSelectionViz(tower);
-    }
-  }
-
-  /**
-   * Coop host: render the line of sight of up to COOP_RESOLVES_PER_FRAME
-   * waiting towers, put the grid and the tower back as every client has
-   * them (the previous mask, or none), and send each mask as
-   * `command:los-mask`. Nothing of it acts here before it comes back.
-   */
-  private resolveForCoop(): void {
-    let budget = TowerLosRegistry.COOP_RESOLVES_PER_FRAME;
-    for (const [tower, reason] of this.awaiting) {
-      if (budget === 0) break;
-      if (this.sent.has(tower)) continue;
-      const previous = tower.losMask;
-      const range = reason === 'place' ? TOWER_TYPES[tower.typeConfig.id as TowerTypeId]?.range : tower.combat.range;
-      const resolved = this.resolveOnGpu(tower, range, reason !== 'place');
-      if (!resolved) break;
-      const mask = this.encode(tower, resolved);
-      this.grid.unregisterTower(tower.id);
-      if (previous) {
-        this.registerFromMask(tower, previous);
-      } else {
-        tower.visibleCells = [];
-        tower.losReady = false;
-      }
-      this.sent.add(tower);
-      budget--;
-      this.gameState?.getEventBus().emit({
-        type: 'command:los-mask', towerId: tower.id, reason, mask: losMaskToJson(mask),
-      });
-    }
-  }
-
-  /**
-   * Coop: the host's mask for `tower` came back at its tick; every client
-   * applies it here, at the same sub-step boundary. A tower that waits for
-   * nothing takes nothing.
-   */
-  applyCoopMask(tower: Tower, mask: LosMask): void {
-    if (!this.awaiting.has(tower)) return;
-    this.awaiting.delete(tower);
-    this.sent.delete(tower);
-    this.grid.unregisterTower(tower.id);
-    this.registerFromMask(tower, mask);
+    const incremental = request.reason !== 'place';
+    tower.visibleCells = incremental
+      ? this.grid.registerTowerIncremental(tower.id, terrainPos.x, terrainPos.z, request.range, ctx, request.canTargetGround, request.canTargetAir)
+      : this.grid.registerTower(tower.id, terrainPos.x, terrainPos.z, request.range, ctx, request.canTargetGround, request.canTargetAir);
+    if (incremental) this.reportLosDrop(tower, before, request.reason, ctx);
+    return losMaskToJson(this.grid.encodeLosMask(
+      tower.id, terrainPos.x, terrainPos.z, request.range, request.canTargetGround, request.canTargetAir,
+    ));
   }
 
   /**
@@ -355,84 +181,25 @@ export class TowerLosRegistry {
    * everything as blocked (geometry at the tip). Once per drop: the tower is
    * logged again only after its cells came back.
    */
-  private reportLosDrop(tower: Tower, before: number, queued: boolean, ctx: LosResolveContext): void {
+  private reportLosDrop(tower: Tower, before: number, reason: LosResolveReason, ctx: LosResolveContext): void {
     const after = tower.visibleCells.length;
     if (before < TowerLosRegistry.LOS_DROP_MIN_CELLS || after > before * TowerLosRegistry.LOS_DROP_LEFT_SHARE) {
-      this.losDropLogged.delete(tower);
+      this.losDropLogged.delete(tower.id);
       return;
     }
-    if (this.losDropLogged.has(tower)) return;
-    this.losDropLogged.add(tower);
+    if (this.losDropLogged.has(tower.id)) return;
+    this.losDropLogged.add(tower.id);
 
-    const trigger = queued ? 'asked for' : 'direct call';
     const nearM = TowerLosRegistry.LOS_DROP_NEAR_M;
     const { near, empty } = cubeCoverage(ctx, nearM);
     const tip = ctx.referencePos;
     const percent = (share: number) => `${Math.round(share * 100)} %`;
     console.warn(
-      `[TowerLOS] ${tower.id} ${tower.typeConfig.id}: ${after} of ${before} visible cells left after a LOS recompute (${trigger}). ` +
+      `[TowerLOS] ${tower.id} ${tower.typeConfig.id}: ${after} of ${before} visible cells left after a LOS recompute (${reason}). ` +
       `Cube from the tip (${tip.x.toFixed(1)}, ${tip.y.toFixed(1)}, ${tip.z.toFixed(1)}), far ${ctx.farDistance} m: ` +
       `${percent(near)} geometry within ${nearM} m of the tip, ${percent(empty)} empty. ` +
       `__towerTargets() shows what the tower makes of each enemy near it.`,
     );
-  }
-
-  /**
-   * recompute on one of the next drainLosQueue calls instead of right away:
-   * each recompute is a cube render and readback, and a research can hand
-   * air targets to many towers at once (see LOS_RECOMPUTES_PER_FRAME).
-   */
-  scheduleRecompute(tower: Tower): void {
-    if (this.coopRole) {
-      if (!this.awaiting.has(tower)) this.awaiting.set(tower, 'retrofit');
-      return;
-    }
-    this.staleLos.add(tower);
-  }
-
-  /** Coop: the towers waiting for the host's mask with their reason, oldest first (wave snapshot) */
-  awaitingEntries(): [string, LosResolveReason][] {
-    return [...this.awaiting].map(([tower, reason]) => [tower.id, reason]);
-  }
-
-  /**
-   * Coop: put the waiting towers back, oldest first (wave snapshot restore).
-   * None counts as sent: a host sends its masks again, and the second answer
-   * finds nothing waiting (applyCoopMask).
-   */
-  restoreAwaiting(entries: readonly (readonly [Tower, LosResolveReason])[]): void {
-    this.awaiting.clear();
-    this.sent.clear();
-    for (const [tower, reason] of entries) this.awaiting.set(tower, reason);
-  }
-
-  /** Put towers back in the retrofit queue, in order (wave-start snapshot restore). */
-  requeue(towers: readonly Tower[]): void {
-    this.staleLos.clear();
-    for (const tower of towers) this.staleLos.add(tower);
-  }
-
-  /**
-   * Recompute queued towers, at most LOS_RECOMPUTES_PER_FRAME (each is a
-   * forced cubemap render plus the face readback), oldest first. Called by
-   * the game loop once per frame after its sub-steps (GameStateManager
-   * .update), so it runs under the heartbeat of a hidden tab as well, and
-   * the answers change between two sub-steps. The `tower:los-resolved`
-   * event of each carries the mask; for an exact re-simulation the command
-   * log records the sub-step it came in.
-   */
-  drainLosQueue(): void {
-    if (this.maskSource) return;
-    if (this.coopRole) {
-      if (this.coopRole === 'host') this.resolveForCoop();
-      return;
-    }
-    let budget = TowerLosRegistry.LOS_RECOMPUTES_PER_FRAME;
-    for (const tower of [...this.staleLos]) {
-      // recompute takes the tower out of the queue.
-      this.recompute(tower, 'retrofit');
-      if (--budget === 0) break;
-    }
   }
 
   /**
@@ -453,11 +220,10 @@ export class TowerLosRegistry {
       cube: mapper.getRenderTarget(),
       referencePos: mapper.getReferencePos(),
       farDistance: mapper.getFarDistance(),
-      // Alle 6 Faces einmal in die CPU-Buffer holen — statt einem
-      // synchronen 1×1-Readback pro Cell beim anschließenden Resolve.
-      // Lazy: erst wenn der Resolve wirklich eine Zelle sampelt. Eine
-      // inkrementelle Registrierung, die nur gecachte Zellen sieht,
-      // löst damit gar keinen GPU→CPU-Roundtrip aus.
+      // All six faces into the CPU buffers at once, instead of a synchronous
+      // 1x1 readback per cell during the resolve. Lazy: only once the resolve
+      // samples a cell; an incremental registration that sees cached cells
+      // only triggers no GPU-to-CPU round trip at all.
       get faces() {
         return mapper.readFacesToCpu();
       },

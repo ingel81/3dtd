@@ -7,12 +7,10 @@ import { ENEMY_TYPES, EnemyTypeId, SplitOnDeath, enemyDeathDuration, enemyReward
 import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
-import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, SubscriptionBag } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { waveRules } from '../director/wave-rules';
-import { EnemyStatusVisuals } from './enemy-status-visuals';
 import type { DamageType } from '../configs/combat/combat.types';
 import { airPortalExit, airPortalExitOffset, type AirPortalExit } from '../utils/air-portal-exit';
 import type { StatusEffect } from '../models/status-effects';
@@ -20,7 +18,8 @@ import { portalCorridorWidth, portalScaleForWidth } from '../three-engine/render
 import { WormChains, stepWormSegment } from './worm/worm-chains';
 import type { WormGroup, WormLink } from './worm/worm-group';
 import { OozeBodies } from './ooze-bodies';
-import { WormSounds } from './worm/worm-sounds';
+import type { SimCoords } from '../sim/core/sim-coords';
+import type { SimSink } from '../sim/core/sim-sink';
 import type { KilledBy } from '../game-engine/game-event-bus';
 import type { EnemiesState, SavedEnemy } from '../simulator/wave-snapshot';
 import { assignPlainFields, decodeNumber, encodeNumber, plainFields } from '../simulator/plain-fields';
@@ -44,11 +43,10 @@ const ENEMY_GROUND_ADJUST_MPS = 8;
 const PROFILE_STRIDE = 32;
 
 /**
- * Enemy fields a wave snapshot leaves out: identity, the audio loop mirror
- * (the restore starts the loop anew) and the route grid memo's generation
- * (restoreEnemyMemo)
+ * Enemy fields a wave snapshot leaves out: identity and the route grid
+ * memo's generation (restoreEnemyMemo)
  */
-const ENEMY_NOT_SAVED = ['id', 'type', 'hasAudioLoops', 'routeCellGen'];
+const ENEMY_NOT_SAVED = ['id', 'type', 'routeCellGen'];
 
 /**
  * Why an enemy dies. A 'combat' kill (towers, damage over time) pays from
@@ -117,9 +115,6 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Reusable array to avoid allocations in update loop
   private toRemove: Enemy[] = [];
 
-  // What the status effects look like: auras, crystals, sparks, tints
-  private readonly statusVisuals = new EnemyStatusVisuals();
-
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
 
@@ -157,22 +152,43 @@ export class EnemyManager extends EntityManager<Enemy> {
         group.path, group.type.id, group.speedMps, paused,
         link.head ? group.headMaxHp : group.segmentMaxHp, group.start ?? undefined, link,
       ),
-    // The head model is the worm type's own; presentFrame resolves the new slot
-    showAsHead: (enemy) => this.tilesEngine?.enemies.setRenderType(enemy.id, enemy.typeConfig.id),
+    // The head model is the worm type's own
+    showAsHead: (enemy) => this.sink.enemies.setRenderType(enemy.id, enemy.typeConfig.id),
     showAsTail: (enemy) => {
-      if (enemy.worm) this.tilesEngine?.enemies.setRenderType(enemy.id, enemy.worm.group.chain.tailModel);
+      if (enemy.worm) this.sink.enemies.setRenderType(enemy.id, enemy.worm.group.chain.tailModel);
     },
   });
-  /** Skarnax's voice at the head of each worm, moved in presentFrame() */
-  private readonly wormSounds = new WormSounds();
+
+  /**
+   * The ground (geo height) under a spawn the route grid has no cell for,
+   * from the world (SimWorld.spawnGround); null where there is none.
+   */
+  private spawnGround: (at: GeoPosition) => number | null = () => null;
 
   constructor(
     private eventBus: GameEventBus,
     private globalRouteGrid: GlobalRouteGridService,
-    private spatialGrid: SpatialGridService
+    private spatialGrid: SpatialGridService,
+    private readonly coords: SimCoords,
+    private readonly sink: SimSink,
   ) {
     super();
-    this.oozes = new OozeBodies(globalRouteGrid, eventBus, () => this.getWaveNumber());
+    this.oozes = new OozeBodies(globalRouteGrid, eventBus, () => this.getWaveNumber(), coords, sink);
+  }
+
+  /** See spawnGround */
+  setSpawnGround(ground: (at: GeoPosition) => number | null): void {
+    this.spawnGround = ground;
+  }
+
+  /** Every worm group on the routes (the packet's worm table) */
+  get wormGroups(): readonly WormGroup[] {
+    return this.worms.all;
+  }
+
+  /** The oozes' bodies (the packet's ooze table) */
+  get oozeBodies(): OozeBodies {
+    return this.oozes;
   }
 
   /**
@@ -189,29 +205,26 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
   }
 
-  /** The enemy debugger's spawn (the debug:spawn-enemy command). */
-  debugSpawn(event: Extract<GameEvent, { type: 'debug:spawn-enemy' }>): void {
-    if (!this.tilesEngine) {
-      console.warn('[EnemyManager] Debug spawn ignored - not initialized');
-      return;
-    }
-
+  /** The enemy debugger's spawn (the debug:spawn-enemy command); returns what it spawned. */
+  debugSpawn(event: Extract<GameEvent, { type: 'debug:spawn-enemy' }>): Enemy[] {
     if (!event.path || event.path.length < 2) {
       console.warn('[EnemyManager] Debug spawn ignored - invalid path');
-      return;
+      return [];
     }
 
     const count = event.count ?? 1;
+    const spawned: Enemy[] = [];
     for (let i = 0; i < count; i++) {
-      this.spawn(
+      spawned.push(this.spawn(
         event.path,
         event.enemyType as EnemyTypeId,
         event.speed,
         event.paused ?? false,
         event.health,
         event.start,
-      );
+      ));
     }
+    return spawned;
   }
 
   /** Remove every segment of `group` on the route; none comes out of the portal any more. */
@@ -220,18 +233,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     for (const segment of group.segments) {
       if (segment !== null) this.remove(segment);
     }
-  }
-
-  /**
-   * Initialize enemy manager with ThreeTilesEngine
-   */
-  override initialize(tilesEngine: ThreeTilesEngine): void {
-    super.initialize(tilesEngine);
-    // Heavy steps as the walk clip lands a foot (EnemyTypeConfig.footstep)
-    tilesEngine.enemies?.setFootstepListener((id) => {
-      const enemy = this.getById(id);
-      if (enemy?.alive) this.eventBus.emitDeferred({ type: 'enemy:footstep', enemy });
-    });
   }
 
   /**
@@ -276,10 +277,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     entry: SpawnEntry | undefined,
     worm: WormLink | null,
   ): Enemy {
-    if (!this.tilesEngine) {
-      throw new Error('EnemyManager not initialized');
-    }
-
     const start = typeof entry === 'object' ? entry : undefined;
     const enemy = new Enemy(typeId, path, speedOverride, start?.segmentIndex, start?.segmentProgress);
     enemy.worm = worm;
@@ -287,11 +284,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Override health if specified
     if (healthOverride !== undefined) {
       enemy.health.resetMaxHp(healthOverride);
-    }
-
-    // Initialize audio with spatial audio manager
-    if (this.tilesEngine.spatialAudio) {
-      enemy.audio.initialize(this.tilesEngine.spatialAudio);
     }
 
     if (start) {
@@ -317,7 +309,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Get height at spawn position - the parent's ground for a split child,
     // else prefer path height (smoothed) over live sampling
     const startPos = path[0];
-    const origin = this.tilesEngine.sync.getOrigin();
+    const sync = this.coords.sync;
+    const origin = sync.getOrigin();
     let geoHeight: number;
 
     if (start) {
@@ -327,19 +320,16 @@ export class EnemyManager extends EntityManager<Enemy> {
       geoHeight = startPos.height;
     } else {
       // Fallback: the ground under the spawn from the route grid, the frozen
-      // cells every coop client shares (TODO E63 b). The client's own tiles
-      // only where the grid has nothing: they refine differently per machine,
-      // and a spawn height from them stays in the enemy's eased terrainHeight.
+      // cells every coop client shares (TODO E63 b). Where the grid has
+      // nothing, the ground the world measured under the spawn point
+      // (SimWorld.spawnGround), the same for every client.
       let localTerrainY: number | null = null;
       if (this.globalRouteGrid.isInitialized()) {
-        this.tilesEngine.sync.geoToLocalSimpleInto(startPos.lat, startPos.lon, 0, this._tempLocalPos);
+        sync.geoToLocalSimpleInto(startPos.lat, startPos.lon, 0, this._tempLocalPos);
         localTerrainY = this.globalRouteGrid.getGroundLocalYAt(this._tempLocalPos.x, this._tempLocalPos.z);
       }
-      localTerrainY ??= this.tilesEngine.getTerrainHeightAtGeo(startPos.lat, startPos.lon);
-      // Convert local Y to geo height for proper round-trip through geoToLocalSimple
       // geoToLocalSimple does: Y = height - originHeight
-      // So we need: geoHeight = localY + originHeight
-      geoHeight = localTerrainY !== null ? localTerrainY + origin.height : origin.height;
+      geoHeight = localTerrainY !== null ? localTerrainY + origin.height : this.spawnGround(startPos) ?? origin.height;
     }
 
     enemy.transform.terrainHeight = geoHeight;
@@ -365,24 +355,17 @@ export class EnemyManager extends EntityManager<Enemy> {
     // An ooze has no model instance: its body lies along the route. A worm's
     // body segments are drawn with the segment model, its last with the tail.
     if (enemy.typeConfig.ooze) {
-      this.oozes.attach(enemy, this.tilesEngine);
+      this.oozes.attach(enemy);
     } else {
       const renderType = worm === null || worm.head
         ? typeId
         : worm.tail ? worm.group.chain.tailModel : worm.group.chain.segmentModel;
-      this.tilesEngine.enemies
-        .create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset)
-        .then((renderData) => {
-          if (renderData && !paused) {
-            this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
-          }
-        });
+      this.sink.enemies.create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, geoHeight + enemy.heightOffset, !paused);
     }
 
     if (paused) {
       enemy.movement.pause();
     } else {
-      // Start moving and sounds immediately if not paused
       enemy.startMoving();
     }
 
@@ -478,16 +461,6 @@ export class EnemyManager extends EntityManager<Enemy> {
    * changes; a snapshot restore can bring back a wave number that already
    * paid (a replay runs wave N again), so it calls this.
    */
-  /**
-   * Forget which enemies show a status look (frost and poison auras, ice
-   * crystals, burn, stun sparks), so the next presentFrame sets them again.
-   * After effects.clear() took the particles away (a replay's seek) the
-   * sets would still say they are shown.
-   */
-  resetStatusVisuals(): void {
-    this.statusVisuals.reset();
-  }
-
   resetKillRewards(): void {
     this.rewardWaveNumber = -1;
     this.remainingKillBudget = 0;
@@ -570,7 +543,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     const credits = combat ? this.calculateDynamicReward(enemy) : 0;
     this.eventBus.emit({ type: 'enemy:died', enemy, credits, killedBy });
     // A dying ooze stops bubbling and splats (OozeBodies)
-    if (enemy.body !== null) this.oozes.died(enemy, this.tilesEngine);
+    if (enemy.body !== null) this.oozes.died(enemy);
 
     // Before the removal below: the children start from the parent's place
     const split = enemy.typeConfig.splitOnDeath;
@@ -580,7 +553,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       !!enemy.typeConfig.deathAnimation ||
       (enemy.typeConfig.deathAnimations?.length ?? 0) > 0;
     if (hasDeathAnim) {
-      this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
+      this.sink.enemies.playDeathAnimation(enemy.id);
       this.pendingDeaths.push({
         enemy,
         remainingMs: enemyDeathDuration(enemy.typeConfig),
@@ -661,14 +634,6 @@ export class EnemyManager extends EntityManager<Enemy> {
   private profileSampleOffset = 0;
 
   /**
-   * Reports the cost of {@link presentFrame} (ms), once per render frame.
-   * Separate from `onProfileTiming` because the visual push no longer runs
-   * per sub-step — mixing the two would resurrect the unit confusion the
-   * panel just got rid of.
-   */
-  onPresentTiming: ((ms: number) => void) | null = null;
-
-  /**
    * Update all enemies — movement and rendering. Called once per gameplay
    * sub-step (~16ms game-time). `gameTimeMs` is the engine game-clock used
    * for DoT ticks, status-effect lookups, and pending death delays.
@@ -691,7 +656,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     const tTotal = profiling ? performance.now() : 0;
 
     this.toRemove.length = 0;
-    const origin = this.tilesEngine?.sync.getOrigin();
+    const sync = this.coords.sync;
+    const originHeight = sync.getOrigin().height;
 
     for (const enemy of this.getAllActive()) {
       // `alive` reads a mirror kept on the enemy (Enemy.deadFlag), so this
@@ -702,11 +668,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       if (sample) sampled++;
 
       let t0 = sample ? performance.now() : 0;
-      // Deliberately NOT the generic enemy.update(): of the five enemy
-      // components only transform (rotation lerp) and audio (loop positions)
-      // do per-tick work — health, render and movement have empty update()
-      // bodies, and iterating the component Map with five polymorphic calls
-      // per enemy per sub-step was pure overhead at 10k+ enemies.
+      // Deliberately NOT the generic enemy.update(): of the enemy components
+      // only transform (rotation lerp) does per-tick work — health, render
+      // and movement have empty update() bodies, and iterating the component
+      // Map with polymorphic calls per enemy per sub-step was pure overhead
+      // at 10k+ enemies.
       // GameObject.update() remains for towers/projectiles.
       // `enabled` is honoured because the generic path did — nothing sets it
       // false on an enemy today, but silently ignoring it would be a trap.
@@ -716,18 +682,6 @@ export class EnemyManager extends EntityManager<Enemy> {
       // the early-out update() would take. Movement holds the heading per
       // segment, so this is true only for a few sub-steps after a corner.
       if (enemy.isTurning && enemy.transform.enabled) enemy.transform.update(deltaTime);
-      // Audio's only per-tick work is moving loops, and only enemies with a
-      // moving sound hold a loop handle (playing, paused or waiting to join
-      // in earshot, see SpatialAudioLoops). `hasAudioLoops` mirrors
-      // `loopHandles.size > 0`, so skipping on it is exactly the early-out
-      // update() takes, without loading the component. The call stays here
-      // rather than in a separate pass over the looping enemies: the loops
-      // share the enemy-sound budget, and a free slot goes to the first
-      // waiting loop that updates. rebalanceEnemyLoops() after this loop
-      // hands the slots to the nearest enemies again a few times a second.
-      if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
-      // Random calls count game time: none in the pause, faster at speed
-      if (enemy.randomSoundLeftMs >= 0) enemy.tickRandomSound(deltaTime);
       // Single-pass: remove expired effects + get the status flags (game-time).
       // Without effects the array is not loaded at all (hasStatusEffects).
       const statusFlags = enemy.movement.hasStatusEffects
@@ -777,31 +731,29 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Update global route grid position for O(1) tower targeting
       // Also update spatial grid for O(1) proximity queries (sleep wake-checks, fallback targeting)
       t0 = sample ? performance.now() : 0;
-      if (this.tilesEngine) {
-        // Compute local position ONCE, reused for grid update AND ground read below
-        this.tilesEngine.sync.geoToLocalSimpleInto(
-          enemy.position.lat,
-          enemy.position.lon,
-          0, // Height not needed for X/Z cell lookup
-          this._tempLocalPos
-        );
-        // Both grids keep a memo on the enemy (route cell, spatial entry) and
-        // skip their string-keyed lookups while it holds (see
-        // GlobalRouteGrid.updateEnemyPosition and SpatialGrid.updateTracked).
-        // The spatial entry still gets the exact x/z every sub-step, since
-        // proximity queries filter on them. A body along the route (ooze) is
-        // in neither: the route grid keeps it in its body list.
-        if (enemy.body === null) {
-          if (this.globalRouteGrid.isInitialized()) {
-            this.globalRouteGrid.updateEnemyPosition(enemy, this._tempLocalPos.x, this._tempLocalPos.z);
-          }
-          enemy.spatialEntry = this.spatialGrid.updateEnemyTracked(
-            enemy.spatialEntry,
-            enemy.id,
-            this._tempLocalPos.x,
-            this._tempLocalPos.z,
-          );
+      // Compute local position ONCE, reused for grid update AND ground read below
+      sync.geoToLocalSimpleInto(
+        enemy.position.lat,
+        enemy.position.lon,
+        0, // Height not needed for X/Z cell lookup
+        this._tempLocalPos
+      );
+      // Both grids keep a memo on the enemy (route cell, spatial entry) and
+      // skip their string-keyed lookups while it holds (see
+      // GlobalRouteGrid.updateEnemyPosition and SpatialGrid.updateTracked).
+      // The spatial entry still gets the exact x/z every sub-step, since
+      // proximity queries filter on them. A body along the route (ooze) is
+      // in neither: the route grid keeps it in its body list.
+      if (enemy.body === null) {
+        if (this.globalRouteGrid.isInitialized()) {
+          this.globalRouteGrid.updateEnemyPosition(enemy, this._tempLocalPos.x, this._tempLocalPos.z);
         }
+        enemy.spatialEntry = this.spatialGrid.updateEnemyTracked(
+          enemy.spatialEntry,
+          enemy.id,
+          this._tempLocalPos.x,
+          this._tempLocalPos.z,
+        );
       }
       if (sample) tGrid += performance.now() - t0;
 
@@ -817,7 +769,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       t0 = sample ? performance.now() : 0;
 
       let geoHeight = enemy.transform.terrainHeight;
-      if (origin && this.globalRouteGrid.isInitialized()) {
+      if (this.globalRouteGrid.isInitialized()) {
         // Reuses the cell updateEnemyPosition() just resolved above: the
         // value getGroundLocalYAt() would return, minus the Map probe.
         const cellY = this.globalRouteGrid.getGroundLocalYForEnemy(
@@ -828,7 +780,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         if (cellY !== null) {
           // Air units carry their spread here rather than in the movement
           // component, where it used to be folded into terrainHeight each step.
-          const target = cellY + origin.height + enemy.movement.getHeightVariation();
+          const target = cellY + originHeight + enemy.movement.getHeightVariation();
           // Cell refreshes can move ground by metres in one frame. Ease into
           // it so a streaming correction reads as the enemy settling rather
           // than teleporting.
@@ -848,8 +800,6 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
     }
 
-    this.tilesEngine?.spatialAudio?.rebalanceEnemyLoops();
-
     // The oozes' bodies follow their tips; those fully in the base leak
     this.oozes.update(deltaTime, gameTimeMs, this.toRemove);
 
@@ -861,7 +811,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Send profiling data to PerformanceProfilerService
     if (profiling) {
       // Phases were timed on every PROFILE_STRIDE-th enemy; scale the sums
-      // to the whole loop. Render is reported by presentFrame.
+      // to the whole loop. Render is the main thread's.
       const scale = sampled > 0 ? processed / sampled : 0;
       this.onProfileTiming!(tMove * scale, tGrid * scale, tHeight * scale, 0, performance.now() - tTotal);
     }
@@ -911,101 +861,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
   }
 
-  /**
-   * Push simulation state to the renderer. Call once per render frame, after
-   * the sub-step loop, and only when at least one sub-step actually ran.
-   *
-   * This work used to sit inside the per-sub-step loop, where it was redone
-   * for every step even though only the last one is ever seen. Below 60 FPS
-   * the loop runs several times a frame — measured at 5.8 sub-steps at 10k
-   * enemies, and above 40 once the frame rate collapsed — so most of it was
-   * thrown away. Skipping frames with no sub-step keeps the update rate
-   * exactly where it was: at 144 FPS the simulation ticks roughly every
-   * second frame, and the visuals now follow that same cadence rather than
-   * running ahead of it.
-   *
-   * Deliberately NOT here: damage-over-time (emits `dot:damage`),
-   * ground-height easing (combat and targeting read `terrainHeight`) and the
-   * walk/run switch (feeds movement). Those are gameplay and stay on the
-   * sub-step, or their outcome would depend on the frame rate. Only the clip
-   * that shows the switch is chosen here.
-   */
-  presentFrame(gameTimeMs: number): void {
-    const engine = this.tilesEngine;
-    if (!engine) return;
-
-    const profiling = this.onPresentTiming !== null;
-    const t0 = profiling ? performance.now() : 0;
-    const origin = engine.sync.getOrigin();
-    this.statusVisuals.beginFrame();
-
-    for (const enemy of this.getAllActive()) {
-      if (!enemy.alive) continue;
-      // An ooze has no instance: its body goes to the ooze renderer below
-      if (enemy.body !== null) continue;
-
-      // X/Z is re-derived rather than carried over from the sub-step: one
-      // conversion per enemy per frame, against the whole visual push per
-      // enemy per sub-step that it replaces.
-      engine.sync.geoToLocalSimpleInto(
-        enemy.position.lat,
-        enemy.position.lon,
-        0,
-        this._tempLocalPos,
-      );
-
-      // The render slot is resolved once and kept on the enemy. A slot the
-      // renderer freed (removal, engine-side clear) is flagged `released`
-      // and resolved again. Resolving by id cost ~10 string-keyed Map
-      // lookups per enemy per frame across the height offset and the push.
-      let slot = enemy.renderSlot;
-      if (slot === null || slot.released) {
-        slot = enemy.renderSlot = engine.enemies.resolveSlot(enemy.id);
-      }
-
-      // Air units fly at fixed altitude over local terrain — `terrainHeight
-      // + heightOffset` (air-unit configs set heightOffset to ≈15-20m).
-      // Single-source-of-truth: matches `getAirTargetY(cell)` from the LOS
-      // pipeline. Caveat (Option B): in dense skyscraper scenes, air units
-      // may clip through facades — accepted trade-off for predictable
-      // coverage visualization. Out of a spawn portal they fly lower for
-      // the first ~45 m (Enemy.portalExit); the air LOS still samples the
-      // cruise height there.
-      this._tempLocalPos.y = origin
-        ? (enemy.transform.terrainHeight + enemy.heightOffset) - origin.height
-        : 0;
-
-      const currentSpeed =
-        enemy.movement.speedMps *
-        enemy.movement.speedMultiplier *
-        enemy.movement.getSlowMultiplier(gameTimeMs);
-
-      if (slot !== null) {
-        // Show the walk/run state the sub-step decided. Mismatch only right
-        // after a switch, so the id-based call runs once per switch.
-        const rush = enemy.rush;
-        if (rush !== null && slot.isWalking === rush.running) {
-          if (rush.running) engine.enemies.startRunAnimation(enemy.id);
-          else engine.enemies.startWalkAnimation(enemy.id);
-        }
-        engine.enemies.updateSlot(
-          slot,
-          this._tempLocalPos,
-          enemy.transform.rotation,
-          enemy.health.healthPercent,
-          currentSpeed,
-        );
-      }
-
-      this.statusVisuals.present(enemy, engine, this._tempLocalPos, gameTimeMs);
-    }
-
-    this.oozes.present(engine, gameTimeMs);
-    this.wormSounds.present(this.worms.all, engine, gameTimeMs);
-
-    if (profiling) this.onPresentTiming!(performance.now() - t0);
-  }
-
   /** Tick the game-time death-animation removals each sub-step. */
   private tickPendingDeaths(deltaTime: number): void {
     if (this.pendingDeaths.length === 0) return;
@@ -1041,13 +896,11 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.killingEnemies.delete(entity.id);
     // Through at the HQ or removed: a gap in its worm (a kill made it one already)
     if (entity.worm !== null) entity.worm.group.lose(entity.worm.slot);
-    // Its auras and crystals; the tints go with the render slot
-    this.statusVisuals.forget(entity.id, this.tilesEngine);
     // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
-    this.tilesEngine?.enemies.remove(entity.id);
-    if (entity.body !== null) this.oozes.detach(entity, this.tilesEngine);
+    this.sink.enemies.remove(entity.id);
+    if (entity.body !== null) this.oozes.detach(entity);
     super.remove(entity);
   }
 
@@ -1074,12 +927,10 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Clear spatial grid
     this.spatialGrid.clear();
 
-    this.tilesEngine?.enemies.clear();
-    this.oozes.clear(this.tilesEngine);
-    this.wormSounds.clear(this.tilesEngine?.spatialAudio ?? null);
+    this.sink.enemies.clear();
+    this.oozes.clear();
     this.killingEnemies.clear();
 
-    this.statusVisuals.clear(this.tilesEngine);
     super.clear();
     this.aliveCount.set(0);
     this.cachedAliveEnemies = null; // Invalidate cache
@@ -1186,7 +1037,6 @@ export class EnemyManager extends EntityManager<Enemy> {
       };
     }
     if (enemy.id !== saved.id) throw new Error(`Enemy ${saved.id} came back as ${enemy.id}`);
-    if (this.tilesEngine?.spatialAudio) enemy.audio.initialize(this.tilesEngine.spatialAudio);
     const m = enemy.movement;
     // The lane's limits and the height variation first, then every field as it was
     m.setLateralFactor(decodeNumber(saved.movement['lateralFactor'] as number | string));
@@ -1223,21 +1073,19 @@ export class EnemyManager extends EntityManager<Enemy> {
       const m = enemy.movement;
       const link = enemy.worm;
       const renderType = link === null || link.head ? saved.typeId : link.tail ? link.group.chain.tailModel : link.group.chain.segmentModel;
-      if (this.tilesEngine && !enemy.typeConfig.ooze) {
-        this.tilesEngine.enemies
-          .create(enemy.id, renderType, enemy.position.lat, enemy.position.lon, enemy.transform.terrainHeight + enemy.heightOffset)
-          .then((renderData) => {
-            if (renderData && enemy.alive && !m.paused) this.tilesEngine!.enemies.startWalkAnimation(enemy.id);
-          });
+      if (!enemy.typeConfig.ooze) {
+        this.sink.enemies.create(
+          enemy.id, renderType, enemy.position.lat, enemy.position.lon,
+          enemy.transform.terrainHeight + enemy.heightOffset, enemy.alive && !m.paused,
+        );
       }
-      if (enemy.alive && !m.paused && enemy.typeConfig.movingSound) enemy.audio.play('moving', true);
       this.add(enemy);
       if (enemy.alive) this.aliveCount.update((c) => c + 1);
     }
     this.cachedAliveEnemies = null;
     const byId = (id: string) => this.getById(id);
     state.worms.groups.forEach((saved, i) => groups[i].restoreSegments(saved.state, byId));
-    if (this.tilesEngine) this.oozes.restoreWaveState(state.oozes, byId, this.tilesEngine);
+    this.oozes.restoreWaveState(state.oozes, byId);
     for (const [id, remainingMs] of state.pendingDeaths) {
       const enemy = byId(id);
       if (enemy) this.pendingDeaths.push({ enemy, remainingMs: decodeNumber(remainingMs) });
@@ -1258,10 +1106,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.subs.disposeAll();
     this.pendingDeaths.length = 0;
     this.killingEnemies.clear();
-    // The ooze's bubbling and the worm's voice live outside the enemies'
-    // audio components; clear() stops them, and so must a teardown
-    this.oozes.clear(this.tilesEngine);
-    this.wormSounds.clear(this.tilesEngine?.spatialAudio ?? null);
+    this.oozes.clear();
     super.destroy();
   }
 }

@@ -1,5 +1,6 @@
 import { Injectable, inject, Injector } from '@angular/core';
-import { SubscriptionBag, GameEventBus } from '../../game-engine/game-event-bus';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { BackgroundMusicService } from '../../game-engine/background-music.service';
 import { OsmStreetService } from '../location/osm-street.service';
 import { TowerPlacementService } from '../tower-placement.service';
@@ -11,7 +12,12 @@ import { DebugFacadeService } from '../debug/debug-facade.service';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { ModelPreviewService } from '../infrastructure/model-preview.service';
 import { StrategicPlacementService } from '../world/strategic-placement.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { PresentationHost } from '../../presentation/presentation-host';
+import { PresentationService } from '../../presentation/presentation.service';
+import { TowerLosRegistry } from '../tower-los-registry';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { BotClientService } from '../../bots/bot-client.service';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { UIStore } from '../../store/ui.store';
@@ -110,12 +116,15 @@ export class TowerDefenseFacadeService {
   private readonly refusals = inject(RefusalHintService);
   private readonly onboarding = inject(OnboardingService);
   private readonly bestWaves = inject(BestWaveService);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
+  private readonly presentation = inject(PresentationService);
+  private readonly los = inject(TowerLosRegistry);
+  private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
 
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
   private bridge!: FacadeComponentBridge;
-
-  /** Game state manager, component-provided, set via initialize(). */
-  private gameState!: GameStateManager;
 
   /** Whether the facade has been initialized via initEffects() */
   private initialized = false;
@@ -129,15 +138,19 @@ export class TowerDefenseFacadeService {
   /**
    * Initialize the facade with component bridge, game state, and injector.
    */
-  private initialize(bridge: FacadeComponentBridge, gameState: GameStateManager, injector: Injector): void {
+  private initialize(bridge: FacadeComponentBridge, injector: Injector): void {
     this.bridge = bridge;
-    this.gameState = gameState;
     this.initialized = true;
 
+    // The simulation's worker starts with the game (docs/SIM_WORKER.md); it
+    // runs no sub-step until the first world is sent (MainWorldService)
+    this.sim.attach(this.mirror, null);
+    this.sim.start();
+
     // Initialize sub-facades
-    this.gameLoopFacade.initialize(bridge, gameState);
-    this.locationFacade.initialize(bridge, gameState, injector);
-    this.vizFacade.initialize(bridge, gameState);
+    this.gameLoopFacade.initialize(bridge);
+    this.locationFacade.initialize(bridge, injector);
+    this.vizFacade.initialize(bridge);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -148,8 +161,8 @@ export class TowerDefenseFacadeService {
    * Create Angular effects that were previously in the component constructor.
    * Delegates effect creation to sub-facades.
    */
-  initEffects(component: { getFacadeBridge: () => FacadeComponentBridge; gameState: GameStateManager; injector: Injector }): void {
-    this.initialize(component.getFacadeBridge(), component.gameState, component.injector);
+  initEffects(component: { getFacadeBridge: () => FacadeComponentBridge; injector: Injector }): void {
+    this.initialize(component.getFacadeBridge(), component.injector);
 
     const injector = component.injector;
     this.gameLoopFacade.initEffects(injector);
@@ -176,7 +189,6 @@ export class TowerDefenseFacadeService {
 
     // Initialize the bot client
     this.botClient.initialize({
-      gameState: this.gameState,
       towerPlacement: this.towerPlacement,
       strategicPlacement: this.strategicPlacement,
       osmService: this.osmService,
@@ -248,7 +260,11 @@ export class TowerDefenseFacadeService {
     this.bestWaves.disconnect();
     this.refusals.disconnect();
     uiSound.disconnect();
-    this.gameState.dispose();
+    this.los.detach();
+    this.sim.setPresenter(null);
+    this.dropPresentation();
+    this.sim.stop();
+    this.mirror.clear();
     this.gameLoopFacade.dispose();
     this.locationFacade.dispose();
     this.vizFacade.dispose();
@@ -256,7 +272,7 @@ export class TowerDefenseFacadeService {
     this.modelPreview.dispose();
 
     if (this.initialized) {
-      this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
+      this.gridViz.cleanupSpatialGridVisualization();
 
       const engine = this.bridge.getEngine();
       if (engine) {
@@ -266,6 +282,14 @@ export class TowerDefenseFacadeService {
     }
 
     this.initialized = false;
+  }
+
+  /** The presentation of the engine going away: detached from the UI's handle, its services off the bus. */
+  private dropPresentation(): void {
+    const old = this.presentation.host;
+    if (!old) return;
+    this.presentation.detach(old);
+    old.destroy();
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -340,13 +364,22 @@ export class TowerDefenseFacadeService {
           this.vizFacade.onTilesLoaded();
         }
 
-        const eventBus = this.gameState.getEventBus();
+        // The look and sound of the simulation on this engine: the packets'
+        // ops and tables, the main bus's events (docs/SIM_WORKER.md)
+        this.dropPresentation();
+        const host = new PresentationHost({ engine, bus: this.sim.bus, source: this.mirror, ground: this.grid });
+        this.presentation.attach(host);
+        this.sim.setPresenter(host);
+        // Lines of sight render here on the simulation's request
+        this.los.attach(engine);
+
+        const eventBus = this.sim.bus;
         engine.spatialAudio.setEventBus(eventBus);
         this.soundDebug.subscribeToEventBus(eventBus);
 
-        this.debugFacade.setEngine(engine, this.gameState);
+        this.debugFacade.setEngine(engine);
         this.debugFacade.applyDisplayOptions();
-        this.profiler.setEngine(engine, this.gameState);
+        this.profiler.setEngine(engine);
         // Timing hooks stay unwired by default, PerformanceDebuggerComponent
         // calls profiler.setProfilingActive(true) while the panel is open.
         // Wiring them unconditionally costs ~20% CPU at 10k enemies because
@@ -386,31 +419,27 @@ export class TowerDefenseFacadeService {
 
     const result = this.vizFacade.initializeGameState();
 
-    // Initialize GSM→Store sync (EventBus events → Store signals)
-    this.gameStateSync.initialize(
-      this.gameState.getEventBus(),
-      () => this.gameState.gameTimeMs,
-      () => this.gameState.localPlayerId,
-    );
+    // The simulation's events into the stores (SimClient.bus → Store signals)
+    this.gameStateSync.initialize();
     // The run log listens to the same bus and opens the run (docs/RUN_LOG.md)
     // `botAutoMode` as well as `botEnabled`: the bot module loads on demand,
     // and until it is there `botEnabled` is still false although the tab was
     // opened to play bot runs. The first run of every tab was written as a
     // human one and would have landed in the players' numbers.
-    this.runLog.initialize(this.gameState, this.gameState.getEventBus(), () =>
+    this.runLog.initialize(() =>
       this.botClient.botEnabled() || this.botClient.botAutoMode()
         ? { player: 'bot', botSkill: this.botClient.botSkillLevel() }
         : { player: 'human' },
       () => this.waveDirector.source.id,
     );
     // First-run tips follow the same events
-    this.onboarding.connect(this.gameState.getEventBus());
+    this.onboarding.connect(this.sim.bus);
     // Best wave per place for the world map; runs the bot plays and coop runs (review R16) do not count,
     // nor one that went on alone after the relay was lost (the partner stays in the run, PLAYTEST T38)
-    this.bestWaves.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled() && this.gameState.players.length === 1);
+    this.bestWaves.connect(this.sim.bus, () => !this.botClient.botEnabled() && this.mirror.scalars.players.length === 1);
     // Refused hires and abilities in the context hint box; the bot's commands get none
-    this.refusals.connect(this.gameState.getEventBus(), () => !this.botClient.botEnabled());
-    uiSound.connect(() => this.gameState.tilesEngine?.spatialAudio ?? null);
+    this.refusals.connect(this.sim.bus, () => !this.botClient.botEnabled());
+    uiSound.connect(() => this.bridge.getEngine()?.spatialAudio ?? null);
 
     // Let sub-facades subscribe to their own EventBus events
     this.vizFacade.subscribeToEventBus();
@@ -542,23 +571,23 @@ export class TowerDefenseFacadeService {
   /** Sell the currently selected tower via EventBus command. */
   /** Whether this player may act on `tower`; a partner's is read only (TODO E39) */
   mayManage(tower: Tower): boolean {
-    return this.gameState.mayManage(tower);
+    return this.mirror.mayManage(tower);
   }
 
   /** A player's research as it stands, for the coop view of a partner's tree (TODO E35) */
   researchSnapshotOf(playerId: string): ResearchSnapshot {
-    return researchSnapshotOf(this.gameState.researchOf(playerId));
+    return researchSnapshotOf(this.mirror.researchOf(playerId));
   }
 
   /** Calls `changed` whenever `playerId`'s research moves; returns the unsubscribe */
   watchResearchOf(playerId: string, changed: () => void): () => void {
-    return watchResearchOf(this.gameState.getEventBus(), playerId, changed);
+    return watchResearchOf(this.sim.bus, playerId, changed);
   }
 
   sellSelectedTower(): void {
     const tower = this.store.selectedTower();
     if (tower) {
-      this.gameState.getEventBus().emit({
+      this.sim.bus.emit({
         type: 'command:sell-tower',
         towerId: tower.id,
       });
@@ -568,12 +597,12 @@ export class TowerDefenseFacadeService {
   /** Toggle spatial grid debug visualization on the global route grid. */
   toggleSpatialGridDebug(): void {
     if (this.initialized) {
-      this.gameState.getGlobalRouteGrid().toggleSpatialGridDebug();
+      this.gridViz.toggleSpatialGridDebug();
     }
   }
 
-  /** Emit a command event on the GameEventBus. Used for research commands etc. */
+  /** Emit a command on the main bus; it goes to the simulation with the next tick. Used for research commands etc. */
   emitCommand(event: { type: string; [key: string]: unknown }): void {
-    this.gameState.getEventBus().emit(event as Parameters<GameEventBus['emit']>[0]);
+    this.sim.bus.emit(event as Parameters<SimClient['bus']['emit']>[0]);
   }
 }

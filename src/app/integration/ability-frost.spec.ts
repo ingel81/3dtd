@@ -31,8 +31,8 @@ vi.mock('@angular/core', async () => {
 });
 
 import {
+  provideSimServices,
   createTestCachedPaths,
-  createAbilityTestEngine,
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
@@ -47,8 +47,6 @@ import { EnemyTypeId } from '../configs/enemy-types.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-
-const createEngine = createAbilityTestEngine;
 
 const FROST = ABILITIES['frost-bomb'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -85,6 +83,7 @@ interface Trace {
 
 function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + FREEZE_STEPS + 20): Trace {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
+  provideSimServices(mockServices);
   GameObject.resetIdCounter();
 
   const ref: { gsm?: GameStateManager } = {};
@@ -100,7 +99,6 @@ function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + FREEZE_ST
     },
   });
   mockServices['SpatialGridService'] = withAutoStubs({ updateEnemyTracked: () => null });
-  mockServices['EnemyDebugService'] = withAutoStubs({ debugEnemies: () => [] });
   mockServices['EconomyService'] = withAutoStubs({ computeWaveCompletionBonus: () => 0 });
   mockServices['DamageApplicationService'] = new DamageApplicationService();
   mockServices['StatusEffectService'] = new StatusEffectService();
@@ -110,7 +108,7 @@ function run(timescale: number, steps = COMMAND_STEP + WARNING_STEPS + FREEZE_ST
 
   const gsm = new GameStateManager();
   ref.gsm = gsm;
-  gsm.initialize(createEngine(), BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
+  gsm.initialize(BASE_POSITION, TEST_SPAWN_POINTS, createTestCachedPaths());
   gsm.gameSpeed.set(timescale);
   const bus = gsm.getEventBus();
   bus.emit({

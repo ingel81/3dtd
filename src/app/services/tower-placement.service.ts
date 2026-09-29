@@ -16,9 +16,6 @@ import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult } from '../utils/tower-placement-rules';
 import { ResearchStore } from '../store/research.store';
-import { TowerLosRegistry } from './tower-los-registry';
-import type { LosMask } from '../utils/los-mask';
-import type { LosResolveReason } from '../game-engine/game-event-bus';
 import { BuildPreviewLos } from './build-preview-los';
 import { makeModelTransparent, tintPreviewModel } from './tower-preview-model';
 import {
@@ -107,8 +104,8 @@ interface FootprintWatch {
  * - Line-of-Sight hex grid preview (BuildPreviewLos)
  * - Direct rotation control (tower faces mouse direction)
  *
- * Also the entry point for a placed tower's LOS on the route grid; the work
- * is done by TowerLosRegistry.
+ * A placed tower's line of sight is TowerLosRegistry's (the simulation asks,
+ * the main thread renders).
  */
 @Injectable({ providedIn: 'root' })
 export class TowerPlacementService {
@@ -146,7 +143,6 @@ export class TowerPlacementService {
   // ========================================
 
   /** Per-tower LOS on the route grid: registration and refresh. */
-  private readonly losRegistry = new TowerLosRegistry(this.globalRouteGrid);
 
   /** GPU-LOS-Viz der Build-Preview. */
   private readonly buildPreviewLos = new BuildPreviewLos(
@@ -256,10 +252,6 @@ export class TowerPlacementService {
     this.streetNetwork = streetNetwork;
     this.osmService = osmService;
     this.baseCoords = baseCoords;
-
-    // Runs again on every location change; the registry drops what it
-    // queued for the previous one.
-    this.losRegistry.attach(engine);
 
     if (isDevMode() && typeof window !== 'undefined') window.__footprintDebug = this.footprintDebugHook;
   }
@@ -927,107 +919,11 @@ export class TowerPlacementService {
   }
 
   // ========================================
-  // TOWER GRID REGISTRATION (TowerLosRegistry)
-  // ========================================
-
-  /**
-   * Register a placed tower on the GlobalRouteGrid: LOS resolve of the
-   * cells in range, grid registration for targeting, selection viz refresh.
-   */
-  registerTowerOnGrid(tower: Tower, position: GeoPosition, typeId: TowerTypeId): void {
-    this.losRegistry.register(tower, position, typeId);
-  }
-
-  /**
-   * Unregister a tower from the GlobalRouteGrid.
-   */
-  unregisterTowerFromGrid(tower: Tower): void {
-    this.losRegistry.unregister(tower);
-  }
-
-  /**
-   * Recompute a tower's LOS now, e.g. after its range grew. Also settles
-   * whatever the height-change queue held for it.
-   */
-  recomputeTowerLOS(tower: Tower): void {
-    this.losRegistry.recompute(tower);
-  }
-
-  /**
-   * recomputeTowerLOS on one of the next drainLosQueue calls instead of
-   * right away, one tower per frame.
-   */
-  scheduleLosRecompute(tower: Tower): void {
-    this.losRegistry.scheduleRecompute(tower);
-  }
-
-  /** Work off queued LOS recomputes, one tower per call; the game loop calls it once per frame. */
-  drainLosQueue(): void {
-    this.losRegistry.drainLosQueue();
-  }
-
-  /** Register a placed tower from a stored LosMask, no GPU work (snapshot restore, re-simulation). */
-  registerTowerFromMask(tower: Tower, mask: LosMask): void {
-    this.losRegistry.registerFromMask(tower, mask);
-  }
-
-  /** Re-simulation: masks for place and upgrade from the log, see TowerLosRegistry.setMaskSource. */
-  /** Coop: whose GPU answers the lines of sight, see TowerLosRegistry.setCoopRole. */
-  setCoopLosRole(role: 'host' | 'guest' | null): void {
-    this.losRegistry.setCoopRole(role);
-  }
-
-  /** Coop: the host's mask for `tower` at its tick, see TowerLosRegistry.applyCoopMask. */
-  applyCoopLosMask(tower: Tower, mask: LosMask): void {
-    this.losRegistry.applyCoopMask(tower, mask);
-  }
-
-  /** Coop: towers waiting for the host's mask, oldest first. */
-  awaitingLosTowerIds(): string[] {
-    return this.losRegistry.awaitingTowerIds();
-  }
-
-  /** Coop: the waiting towers with their reason, see TowerLosRegistry.awaitingEntries */
-  awaitingLosEntries(): [string, LosResolveReason][] {
-    return this.losRegistry.awaitingEntries();
-  }
-
-  /** Coop: see TowerLosRegistry.restoreAwaiting */
-  restoreAwaitingLos(entries: readonly (readonly [Tower, LosResolveReason])[]): void {
-    this.losRegistry.restoreAwaiting(entries);
-  }
-
-  setLosMaskSource(source: ((towerId: string, reason: LosResolveReason) => LosMask | null) | null): void {
-    this.losRegistry.setMaskSource(source);
-  }
-
-  /** Towers waiting for their LOS retrofit, oldest first. */
-  queuedLosTowerIds(): string[] {
-    return this.losRegistry.queuedTowerIds();
-  }
-
-  /** Put towers back in the LOS retrofit queue, in order. */
-  requeueLos(towers: readonly Tower[]): void {
-    this.losRegistry.requeue(towers);
-  }
-
-  /**
-   * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
-   * Called on reset to cleanup before starting fresh
-   */
-  clearAllTowerOverlays(towers: Tower[]): void {
-    for (const tower of towers) {
-      this.unregisterTowerFromGrid(tower);
-    }
-  }
-
-  // ========================================
   // CLEANUP
   // ========================================
 
   dispose(): void {
     this.exitBuildMode();
-    this.losRegistry.detach();
     this.footprintNote = null;
     this.footprintWatch = null;
     if (typeof window !== 'undefined' && window.__footprintDebug === this.footprintDebugHook) {

@@ -1,6 +1,8 @@
 import { Injectable, inject, WritableSignal } from '@angular/core';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { ThreeTilesEngine } from '../../three-engine';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { SPAWN_COLORS } from '../../configs/map-constants.config';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { StreetNetwork, OsmStreetService, STREET_RADIUS_M } from './osm-street.service';
@@ -33,7 +35,6 @@ export interface LocationChangeInput {
  */
 export interface LocationChangeContext {
   engine: ThreeTilesEngine;
-  gameState: GameStateManager;
   streetNetwork: StreetNetwork | null;
   streetNetworkLocation: { lat: number; lon: number } | null;
   heightDebugVisible: WritableSignal<boolean>;
@@ -90,6 +91,9 @@ export class LocationChangeExecutorService {
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
+  private readonly world = inject(MainWorldService);
+  private readonly grid = inject(GlobalRouteGridService);
+  private readonly gridViz = inject(RouteGridVizService);
   private readonly cameraControl = inject(CameraControlService);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
@@ -164,8 +168,8 @@ export class LocationChangeExecutorService {
     this.routeAnimation.stopAnimation();
     this.introFlight.stop();
 
-    // Reset game state (handles stopping spawns via waveManager.reset())
-    ctx.gameState.reset();
+    // A fresh run; the simulation waits for the new place's world
+    this.world.resetRun();
     callbacks.appendDebugLog('Game state reset');
     callbacks.clearMapEntities();
     this.pathRoute.clearCache();
@@ -340,12 +344,7 @@ export class LocationChangeExecutorService {
       lon: sp.lon,
     }));
 
-    ctx.gameState.initialize(
-      ctx.engine,
-      { lat: base.lat, lon: base.lon },
-      waveSpawnPoints,
-      this.pathRoute.getCachedPaths()
-    );
+    this.world.attach(ctx.engine, { lat: base.lat, lon: base.lon }, waveSpawnPoints);
 
     // Validate that routes were found
     const paths = this.pathRoute.getCachedPaths();
@@ -356,11 +355,11 @@ export class LocationChangeExecutorService {
     // Initialize GlobalRouteGrid after routes are computed
     await this.engineInit.setStepCurrent('grid');
     this.engineInit.updateStepMeta('grid', 'Calculating grid...');
-    ctx.gameState.initializeGlobalRouteGrid();
+    this.world.buildCells(true);
     // The overlays that are on (Route Grid, Air Route Grid, air route) went
     // with the old cells in STEP 2: draw them on the new cells now, as
     // the corridor build does (CorridorBuild), not only at the next tile load.
-    const routeGrid = ctx.gameState.getGlobalRouteGrid();
+    const routeGrid = this.gridViz;
     routeGrid.initSpatialGridVisualizationIfEnabled();
     routeGrid.initAirSpatialGridVisualizationIfEnabled();
     routeGrid.initAirRouteLayerIfEnabled();

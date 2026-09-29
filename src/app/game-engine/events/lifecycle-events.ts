@@ -8,6 +8,7 @@ import type { LosMask } from '../../utils/los-mask';
 import type { CreditsSource, LosResolveReason, KilledBy, WaveGoldBreakdown } from './event-types';
 import type { WaveConfig as DirectorWave } from '../../director/models/wave-config';
 import type { WaveLogFields, WaveSourceId } from '../../director/wave-source';
+import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 
 export type LifecycleEvent =
   // ==================== Enemy Lifecycle ====================
@@ -105,6 +106,19 @@ export type LifecycleEvent =
       reason: LosResolveReason;
     }
   | {
+      /**
+       * A tower waits for its line of sight (placed, range grown, air
+       * retrofit). The main thread renders it with this range and these
+       * layers and answers with `command:los-mask` (TowerLosRegistry).
+       */
+      type: 'tower:los-needed';
+      towerId: string;
+      reason: LosResolveReason;
+      range: number;
+      canTargetGround: boolean;
+      canTargetAir: boolean;
+    }
+  | {
       type: 'tower:sold';
       tower: Tower;
       refund: number;
@@ -172,6 +186,14 @@ export type LifecycleEvent =
       director: DirectorWave;
       waveSource: WaveSourceId;
       log: WaveLogFields;
+    }
+  | {
+      /**
+       * The sidebar's preview of the wave that starts (summarizeWaveGroups):
+       * one lane's composition. Live waves only, before wave:started.
+       */
+      type: 'wave:groups';
+      groups: WaveGroupDisplay[];
     }
   | {
       type: 'wave:started';

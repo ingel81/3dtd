@@ -81,3 +81,17 @@ export function isProjectileRef(v: unknown): v is ProjectileRef {
 export function isWormGroupRef(v: unknown): v is WormGroupRef {
   return typeof v === 'object' && v !== null && '$w' in v;
 }
+
+/**
+ * `tower:los-needed` (simulation event, defined by the simulation side): a
+ * tower waits for its line of sight. The main thread renders it from the
+ * tower's tip with this range and these layers and answers with
+ * `command:los-mask`. `reason` as in LosResolveReason.
+ */
+export interface LosNeededPayload {
+  towerId: string;
+  reason: 'place' | 'upgrade' | 'retrofit';
+  range: number;
+  canTargetGround: boolean;
+  canTargetAir: boolean;
+}

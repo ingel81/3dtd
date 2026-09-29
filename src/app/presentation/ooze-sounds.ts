@@ -1,7 +1,6 @@
 import { Vector3 } from 'three';
-import type { LoopHandle } from './audio/spatial-audio-loops';
-import type { GameEventBus } from '../game-engine';
-import type { SpatialAudioManager } from './audio/spatial-audio.manager';
+import type { LoopHandle } from '../managers/audio/spatial-audio-loops';
+import type { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { OOZE_SOUNDS } from '../configs/audio.config';
 import { oozeSoundUrls } from '../utils/ooze-sound';
 
@@ -15,19 +14,15 @@ interface OozeLoop {
 }
 
 /**
- * The oozes' sounds, for OozeBodies: a bubbling loop per ooze that the
- * bodies move once per frame to the point nearest the listener, a splat
- * when one breaks up and a slurp while one flows into the HQ (OOZE_SOUNDS).
- * The loops stand while the game is paused like every loop
- * (SpatialAudioManager.holdLoops); the one-shots go out as audio:play from
- * the sub-step, so they keep to game time as well.
+ * The oozes' sounds, for OozePresenter: a bubbling loop per ooze that moves
+ * once per frame to the body point nearest the listener, and a splat when
+ * one breaks up (OOZE_SOUNDS). The slurp while one flows into the HQ comes
+ * from the simulation as audio:play; it is registered here with the others.
  */
 export class OozeSounds {
   private registeredWith: SpatialAudioManager | null = null;
   private readonly loops = new Map<string, OozeLoop>();
   private readonly at = new Vector3();
-
-  constructor(private readonly eventBus: GameEventBus) {}
 
   /** Registers the sounds with `audio`, synthesising them the first time an ooze appears. */
   register(audio: SpatialAudioManager): void {
@@ -41,10 +36,9 @@ export class OozeSounds {
   }
 
   /**
-   * Once per render frame: the loop of ooze `id` moves to local (x, y, z).
-   * The first call asks for the loop. Out of earshot it waits in
-   * SpatialAudioLoops and joins once the point comes within earshot;
-   * SpatialAudioLoops also pauses it out of range and resumes it back in range.
+   * Once per frame: the loop of ooze `id` moves to local (x, y, z). The
+   * first call asks for the loop; out of earshot it waits in
+   * SpatialAudioLoops and joins once the point comes within earshot.
    */
   follow(id: string, audio: SpatialAudioManager, x: number, y: number, z: number): void {
     this.at.set(x, y, z);
@@ -78,13 +72,8 @@ export class OozeSounds {
   }
 
   /** The splat of a breaking ooze at a geo point, `height` on the ground. */
-  splat(lat: number, lon: number, height: number): void {
-    this.eventBus.emitDeferred({ type: 'audio:play', sound: OOZE_SOUNDS.splat.id, lat, lon, height });
-  }
-
-  /** A slurp of body flowing into the HQ at a geo point. */
-  slurp(lat: number, lon: number, height: number): void {
-    this.eventBus.emitDeferred({ type: 'audio:play', sound: OOZE_SOUNDS.slurp.id, lat, lon, height });
+  splat(audio: SpatialAudioManager, lat: number, lon: number, height: number): void {
+    audio.playAtGeo(OOZE_SOUNDS.splat.id, lat, lon, height).catch(() => undefined);
   }
 
   /** Ooze `id` is gone: its loop ends, one still loading ends when it arrives. */

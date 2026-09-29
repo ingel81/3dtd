@@ -59,7 +59,7 @@ describe('Worm chains', () => {
     expect(m.enemyManager.getPendingSpawnCount()).toBe(group.size - 1);
     expect(spawned).toHaveBeenCalledWith(expect.objectContaining({ head, group }));
     // Body segments are drawn from the segment pool, the head from its own
-    expect(m.tilesEngine.enemies.create).toHaveBeenCalledWith(head.id, 'worm', expect.anything(), expect.anything(), expect.anything());
+    expect(m.sink.enemies.create).toHaveBeenCalledWith(head.id, 'worm', expect.anything(), expect.anything(), expect.anything(), true);
   });
 
   it('comes out one segment per spacing and keeps the spacing', () => {
@@ -77,7 +77,7 @@ describe('Worm chains', () => {
       expect(e.typeConfig.id).toBe('worm');
     }
     expect(m.enemyManager.getPendingSpawnCount()).toBe(group.size - segments.length);
-    const bodyCreates = m.tilesEngine.enemies.create.mock.calls.filter((c: unknown[]) => c[1] === 'worm-segment');
+    const bodyCreates = m.sink.enemies.create.mock.calls.filter((c: unknown[]) => c[1] === 'worm-segment');
     expect(bodyCreates.length).toBe(segments.length - 1);
   });
 
@@ -94,8 +94,8 @@ describe('Worm chains', () => {
     tickEngine(m, 2_500);
     const tail = group.segments[last]!;
     expect(tail.worm).toMatchObject({ head: false, tail: true });
-    expect(m.tilesEngine.enemies.create).toHaveBeenCalledWith(tail.id, 'worm-tail', expect.anything(), expect.anything(), expect.anything());
-    expect(m.tilesEngine.enemies.setRenderType).not.toHaveBeenCalledWith(tail.id, expect.anything());
+    expect(m.sink.enemies.create).toHaveBeenCalledWith(tail.id, 'worm-tail', expect.anything(), expect.anything(), expect.anything(), true);
+    expect(m.sink.enemies.setRenderType).not.toHaveBeenCalledWith(tail.id, expect.anything());
   });
 
   it('sways by the distance each segment has reached, straight out of the portal', () => {
@@ -238,7 +238,7 @@ describe('Worm chains', () => {
       expect(group.chains.map((c) => c.first)).toEqual([0, 6]);
       expect(rear.worm!.head).toBe(true);
       expect(group.segments[4]!.worm!.head).toBe(false);
-      expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(rear.id, 'worm');
+      expect(m.sink.enemies.setRenderType).toHaveBeenCalledWith(rear.id, 'worm');
       expect(distance(group.segments[4]!) - distance(rear)).toBeCloseTo(2 * chain.spacing, 6);
     });
 
@@ -249,7 +249,7 @@ describe('Worm chains', () => {
       tickEngine(m, 16);
 
       expect(front.worm!.tail).toBe(true);
-      expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(front.id, 'worm-tail');
+      expect(m.sink.enemies.setRenderType).toHaveBeenCalledWith(front.id, 'worm-tail');
       // The rear worm's tail is still in the portal
       const tails = out(group).filter((e) => e.worm!.tail);
       expect(tails).toEqual([front]);
@@ -267,7 +267,7 @@ describe('Worm chains', () => {
       tickEngine(m, 16);
 
       expect(lone.worm).toMatchObject({ head: true, tail: false });
-      expect(m.tilesEngine.enemies.setRenderType).toHaveBeenCalledWith(lone.id, 'worm');
+      expect(m.sink.enemies.setRenderType).toHaveBeenCalledWith(lone.id, 'worm');
       expect(group.segments[2]!.worm!.tail).toBe(true);
     });
 
@@ -316,8 +316,8 @@ describe('Worm chains', () => {
 
       const lead = group.segments[2]!;
       expect(lead.worm!.head).toBe(true);
-      expect(m.tilesEngine.enemies.create).toHaveBeenCalledWith(lead.id, 'worm', expect.anything(), expect.anything(), expect.anything());
-      expect(m.tilesEngine.enemies.setRenderType).not.toHaveBeenCalled();
+      expect(m.sink.enemies.create).toHaveBeenCalledWith(lead.id, 'worm', expect.anything(), expect.anything(), expect.anything(), true);
+      expect(m.sink.enemies.setRenderType).not.toHaveBeenCalled();
       expect(distance(head) - distance(lead)).toBeCloseTo(2 * chain.spacing, 6);
     });
   });

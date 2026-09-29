@@ -1,4 +1,4 @@
-import type { GameEventBus } from '../../game-engine';
+import type { GameEventBus } from '../../game-engine/game-event-bus';
 import type { CreditsLedger } from './credits-ledger';
 
 /** What the room state needs of the GameStateManager */

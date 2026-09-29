@@ -12,7 +12,7 @@ vi.mock('three', () => ({
 }));
 
 import { Enemy } from './enemy.entity';
-import { TransformComponent, HealthComponent, RenderComponent, MovementComponent, AudioComponent } from '../game-components';
+import { TransformComponent, HealthComponent, RenderComponent, MovementComponent } from '../game-components';
 import { ComponentType } from '../core/component';
 import { getEnemyType } from '../configs/enemy-types.config';
 import { StatusEffect } from '../models/status-effects';
@@ -31,14 +31,14 @@ describe('Enemy entity', () => {
     expect(enemy.movement.path).toEqual(path);
   });
 
-  it('has Transform, Health, Render, Movement, and Audio components', () => {
+  it('has Transform, Health, Render and Movement components, no sound of its own', () => {
     const enemy = new Enemy('zombie', path);
 
     expect(enemy.getComponent(ComponentType.TRANSFORM)).toBeInstanceOf(TransformComponent);
     expect(enemy.getComponent(ComponentType.HEALTH)).toBeInstanceOf(HealthComponent);
     expect(enemy.getComponent(ComponentType.RENDER)).toBeInstanceOf(RenderComponent);
     expect(enemy.getComponent(ComponentType.MOVEMENT)).toBeInstanceOf(MovementComponent);
-    expect(enemy.getComponent(ComponentType.AUDIO)).toBeInstanceOf(AudioComponent);
+    expect(enemy.hasComponent(ComponentType.AUDIO)).toBe(false);
   });
 
   it('sets HP from config baseHp', () => {
@@ -160,37 +160,14 @@ describe('Enemy entity', () => {
     expect(enemy.health.hp).toBe(0);
   });
 
-  describe('Zufallsrufe', () => {
-    it('zählen Spielzeit und rufen mit einer Lautstärke zwischen Min und Max, nicht doppelt skaliert', () => {
-      const enemy = new Enemy('wallsmasher', path);
-      const config = getEnemyType('wallsmasher');
-      const play = vi.spyOn(enemy.audio, 'play').mockResolvedValue();
-      enemy.startMoving();
-      play.mockClear();
-
-      expect(enemy.randomSoundLeftMs).toBeGreaterThanOrEqual(config.randomSoundMinInterval!);
-      enemy.tickRandomSound(config.randomSoundMinInterval! - 1);
-      expect(play).not.toHaveBeenCalled();
-
-      enemy.tickRandomSound(config.randomSoundMaxInterval!);
-      expect(play).toHaveBeenCalledTimes(1);
-      const [, , volume] = play.mock.calls[0];
-      expect(volume).toBeGreaterThanOrEqual(config.randomSoundVolumeMin!);
-      expect(volume).toBeLessThanOrEqual(config.randomSoundVolumeMax!);
-      expect(enemy.randomSoundLeftMs).toBeGreaterThan(0);
-    });
-
-    it('hören auf, sobald der Gegner steht', () => {
-      const enemy = new Enemy('wallsmasher', path);
-      enemy.startMoving();
-      enemy.stopMoving();
-      expect(enemy.randomSoundLeftMs).toBe(-1);
-    });
-
-    it('gibt es nur für Gegner mit randomSound', () => {
-      const enemy = new Enemy('zombie', path);
-      enemy.startMoving();
-      expect(enemy.randomSoundLeftMs).toBe(-1);
-    });
+  it('walks from startMoving to stopMoving, what the main thread loops its moving sound by (EF_MOVING)', () => {
+    const enemy = new Enemy('wallsmasher', path);
+    expect(enemy.moving).toBe(false);
+    enemy.startMoving();
+    expect(enemy.moving).toBe(true);
+    expect(enemy.movement.paused).toBe(false);
+    enemy.stopMoving();
+    expect(enemy.moving).toBe(false);
+    expect(enemy.movement.paused).toBe(true);
   });
 });

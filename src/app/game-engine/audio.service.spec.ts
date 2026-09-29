@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { Group, Vector3 } from 'three';
-import { GameEventBus } from './game-event-bus';
+import { createMainEventBus } from '../sim/client/view-events';
 import { AudioService } from './audio.service';
 import type { ThreeTilesEngine } from '../three-engine';
 import { ABILITY_IMPACT_SOUNDS, GAME_SOUNDS, type AbilityImpactSound } from '../configs/audio.config';
@@ -26,7 +26,7 @@ describe('AudioService nuclear strike', () => {
   });
 
   function setup() {
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     const spatialAudio = {
       registerSound: vi.fn(),
       playAtGeo: vi.fn(() => Promise.resolve(null)),
@@ -84,6 +84,14 @@ describe('AudioService nuclear strike', () => {
 
     expect(spatialAudio.playAtListener.mock.calls).toEqual([['bullet', 1]]);
     expect(spatialAudio.playAtGeo.mock.calls).toEqual([['bullet', 1, 2, 3, 1]]);
+  });
+
+  it('keeps the shot of a tower quiet when it was shown at the click already', () => {
+    const { eventBus, spatialAudio, service } = setup();
+    service.setQuietShot((towerId) => towerId === 'tower-1');
+    eventBus.emit({ type: 'audio:play', sound: 'bullet', lat: 1, lon: 2, height: 3, shotOf: 'tower-1' });
+    eventBus.emit({ type: 'audio:play', sound: 'bullet', lat: 1, lon: 2, height: 3, shotOf: 'tower-2' });
+    expect(spatialAudio.playAtGeo).toHaveBeenCalledTimes(1);
   });
 
   it('plays the blast at the impact point, then the rolls of rumble, quieter, in game time', () => {
@@ -160,7 +168,7 @@ describe('AudioService nuclear strike siren', () => {
   function setup(loopArrives?: () => Promise<number | null>) {
     let handles = 0;
     const arrives = loopArrives ?? (() => Promise.resolve(++handles));
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     const spatialAudio = {
       registerSound: vi.fn(),
       playAtGeo: vi.fn(() => Promise.resolve(null)),
@@ -275,7 +283,7 @@ describe('AudioService orbital laser burn', () => {
 
   function setup() {
     let handles = 0;
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     /** Where the loop was put, per update */
     const moves: Vector3[] = [];
     const spatialAudio = {
@@ -404,7 +412,7 @@ describe('AudioService nuclear strike missile', () => {
 
   function setup() {
     let handles = 0;
-    const eventBus = new GameEventBus();
+    const eventBus = createMainEventBus();
     /** Where the engine loop was put, per update */
     const moves: Vector3[] = [];
     const voices: object[] = [];

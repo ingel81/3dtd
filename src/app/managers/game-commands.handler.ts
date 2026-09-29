@@ -1,4 +1,4 @@
-import { GameEventBus, SubscriptionBag } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import { GameStateManager } from './game-state.manager';
 import { CommandLog, LOCAL_PLAYER_ID, toPlainData, type CommandLogEntry } from './game-state/command-log';
@@ -41,8 +41,8 @@ export class GameCommandsHandler {
   private readonly executors = new Map<string, (event: GameEvent) => void>();
   /** A sub-step is running, see beginStep() */
   private inStep = false;
-  /** Commands that arrived during the running step, in arrival order */
-  private readonly pending: GameEvent[] = [];
+  /** Commands that arrived during the running step, in arrival order, with who gave them (null: this client's player) */
+  private readonly pending: { event: GameEvent; playerId: string | null }[] = [];
   /** Re-simulating: only replay() gives commands, see setReplaying() */
   private replaying = false;
   /** Coop: commands go to the relay and come back stamped, see setLockstep() */
@@ -79,7 +79,10 @@ export class GameCommandsHandler {
   endStep(): void {
     this.inStep = false;
     if (this.pending.length === 0) return;
-    for (const event of this.pending) this.execute(event);
+    for (const { event, playerId } of this.pending) {
+      if (playerId === null) this.execute(event);
+      else this.execute(event, playerId);
+    }
     this.pending.length = 0;
   }
 
@@ -138,19 +141,34 @@ export class GameCommandsHandler {
   }
 
   private readonly receive = (event: GameEvent): void => {
+    this.take(event, null);
+  };
+
+  /**
+   * A command from the main thread's bus (SimCore.tick), given by
+   * `playerId`: the same way as one from the simulation's own bus, logged
+   * as that player's. Only command and cheat types are taken.
+   */
+  receiveFrom(event: GameEvent, playerId: string): void {
+    if (!this.executors.has(event.type)) return;
+    this.take(event, playerId);
+  }
+
+  private take(event: GameEvent, playerId: string | null): void {
     if (this.replaying) return;
     // Coop: a cheat this player may not use does not even go out (the relay drops it too)
-    if (isDebugCommand(event) && !this.gsm.mayCheat(this.gsm.localPlayerId)) return;
+    if (isDebugCommand(event) && !this.gsm.mayCheat(playerId ?? this.gsm.localPlayerId)) return;
     if (this.lockstep) {
       this.lockstep.send(toPlainData(event) as Parameters<LockstepLink['send']>[0]);
       return;
     }
     if (this.inStep) {
-      this.pending.push(event);
+      this.pending.push({ event, playerId });
       return;
     }
-    this.execute(event);
-  };
+    if (playerId === null) this.execute(event);
+    else this.execute(event, playerId);
+  }
 
   /**
    * Without a relay the command is this client's player's: LOCAL_PLAYER_ID in
@@ -319,9 +337,10 @@ export class GameCommandsHandler {
       }
     });
 
-    // Coop: the host's line of sight, at its tick on every client (C3)
+    // A tower's line of sight from the main thread's GPU (the coop host's
+    // for every client), at its boundary (TowerLos)
     this.on('command:los-mask', (event) => {
-      this.gsm.applyCoopLosMask(event.towerId, event.mask);
+      this.gsm.applyLosMask(event.towerId, event.mask);
     });
 
     this.on('command:leave-game', () => {
@@ -381,6 +400,19 @@ export class GameCommandsHandler {
     // Between waves only; refused otherwise, see GameStateManager.jumpToWave
     this.on('debug:jump-to-wave', (event) => {
       this.gsm.jumpToWave(event.wave, event.grantGold);
+    });
+
+    // Enemy Debug's hands on a single enemy (or all of them, for the speed)
+    this.on('debug:enemy-move', (event) => {
+      this.gsm.debugEnemyMove(event.enemyId, event.action);
+    });
+
+    this.on('debug:movement', (event) => {
+      this.gsm.debugMovement(event.enabled);
+    });
+
+    this.on('debug:enemy-speed', (event) => {
+      this.gsm.debugEnemySpeed(event.enemyId, event.speedMps);
     });
 
     // The hero's research with its prerequisites, then the hire for free;

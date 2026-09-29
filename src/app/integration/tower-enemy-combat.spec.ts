@@ -43,7 +43,6 @@ describe('Tower → Enemy Combat Integration', () => {
 
   function placeTower(position: GeoPosition = TEST_TOWER_POSITION): Tower {
     // Initialize tower manager first
-    m.towerManager.initialize(m.engine);
     return m.towerManager.placeTower(position, 'archer', 0)!;
   }
 
@@ -55,7 +54,7 @@ describe('Tower → Enemy Combat Integration', () => {
     expect(tower).toBeDefined();
     expect(m.towerManager.getAll()).toHaveLength(1);
     expect(m.towerManager.getById(tower.id)).toBe(tower);
-    expect(m.tilesEngine.towers.create).toHaveBeenCalledOnce();
+    expect(m.sink.towers.create).toHaveBeenCalledOnce();
   });
 
   it('should emit tower:placed event when a tower is placed', () => {
@@ -94,7 +93,7 @@ describe('Tower → Enemy Combat Integration', () => {
     expect(m.projectileManager.getAll()).toHaveLength(1);
     expect(projectile.targetEnemy).toBe(enemy);
     expect(projectile.damage).toBe(tower.combat.damage);
-    expect(m.tilesEngine.projectiles.create).toHaveBeenCalledOnce();
+    expect(m.sink.projectiles.create).toHaveBeenCalledOnce();
   });
 
   it('should move projectile toward target and hit it', () => {

@@ -43,7 +43,7 @@ import { isAimAligned, stepTowerAim } from '../entities/tower-aim';
 import type { TowerTypeId } from '../configs/tower-types.config';
 import type { RouteWaypoint } from '../models/game.types';
 import { METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
-import { createMockTilesEngine } from './test-helpers';
+import { createSinkSpy, createTestCoords, createTestOps } from './test-helpers';
 
 const STEP = 1000 / 60;
 // At the equator a degree of longitude is as long as one of latitude; x east, z south
@@ -75,19 +75,12 @@ describe('Turret aim in the simulation', () => {
     grid.initialize(() => ({ groundY: 0, topY: 0, tileDepth: 20, tileGeometricError: 1 }), flatSync as never);
     grid.generateFromRoutes([ROUTE]);
     const spatial = new SpatialGridService();
-    const mock = createMockTilesEngine();
-    const engine = {
-      ...mock,
-      sync: flatSync,
-      terrain: { lodVersion: 1 },
-      // No model, ever
-      towers: { hasLineOfSight: () => true, get: () => undefined },
-      enemies: { ...mock.enemies, triggerHitFlash: vi.fn() },
-    };
-    enemies = new EnemyManager(bus, grid, spatial);
-    enemies.initialize(engine as never);
-    projectiles = new ProjectileManager(bus);
-    projectiles.initialize(engine as never);
+    const sink = createSinkSpy();
+    const coords = createTestCoords(flatSync as never);
+    mockInjections['SimCoords'] = coords;
+    mockInjections['SimOps'] = createTestOps(sink);
+    enemies = new EnemyManager(bus, grid, spatial, coords, sink as never);
+    projectiles = new ProjectileManager(bus, sink as never);
     towers = [];
     now = 0;
 
@@ -100,10 +93,10 @@ describe('Turret aim in the simulation', () => {
     mockInjections['DamageApplicationService'] = new DamageApplicationService();
     const effects = new CombatEffectService();
     const towerManager = { getAllActive: () => towers, getById: (id: string) => towers.find((t) => t.id === id) };
-    effects.initialize(engine as never, bus, towerManager as never, enemies, NO_RESEARCH);
+    effects.initialize(bus, towerManager as never, enemies, NO_RESEARCH);
     mockInjections['CombatEffectService'] = effects;
     combat = new TowerCombatService();
-    combat.initialize(engine as never, NO_RESEARCH);
+    combat.initialize(NO_RESEARCH);
   });
 
   afterEach(() => {
@@ -142,7 +135,7 @@ describe('Turret aim in the simulation', () => {
       now += STEP;
       projectiles.update(STEP);
       enemies.update(STEP, now);
-      combat.updateTowerShooting(now, STEP, towerManager as never, enemies, projectiles);
+      combat.updateTowerShooting(now, STEP, towerManager as never, projectiles);
       if (targetAt < 0 && tower.currentTarget) targetAt = i;
       if (spawn.mock.calls.length > 0) return { targetAt, shotAt: i, aligned: isAimAligned(tower.aim) };
       for (const t of towers) stepTowerAim(t.aim, STEP);

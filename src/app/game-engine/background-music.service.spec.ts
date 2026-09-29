@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { GameEventBus } from './game-event-bus';
+import { createMainEventBus } from '../sim/client/view-events';
 import { BackgroundMusicService } from './background-music.service';
 import { BACKGROUND_MUSIC, BackgroundMusicConfig } from '../configs/background-music.config';
 import { MASTER_BUS_PRE_GAIN } from '../configs/audio.config';
@@ -167,7 +167,7 @@ async function flush(): Promise<void> {
 }
 
 function setup(opts: { suspended?: boolean } = {}) {
-  const eventBus = new GameEventBus();
+  const eventBus = createMainEventBus();
   const context = {
     state: opts.suspended ? 'suspended' : 'running',
     resume: vi.fn(async () => { context.state = 'running'; }),

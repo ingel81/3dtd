@@ -9,8 +9,10 @@
  * `count` rows are valid. Ids of entities are the numeric part of their
  * GameObject id (`enemy-123` is 123), see entityNum().
  */
+import { PROJECTILE_TYPES, type ProjectileTypeId } from '../../configs/projectile-types.config';
 import type { PresentationOp } from './ops';
 import type { ExportedEvent } from './events';
+import type { LosMaskJson } from '../../utils/los-mask';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 
 // ── Enemies: every active enemy, dead ones in their death animation included ──
@@ -75,6 +77,8 @@ export const P_TYPE = 8;
 export const PROJECTILE_STRIDE = 9;
 /** Homing or arcing: the model turns along `direction` */
 export const PF_ROTATES = 1;
+/** Projectile types by P_TYPE, in the config's order */
+export const PROJECTILE_TYPE_IDS = Object.keys(PROJECTILE_TYPES) as readonly ProjectileTypeId[];
 
 // ── Towers: every standing tower ──
 export const T_ID = 0;
@@ -176,6 +180,8 @@ export interface SimScalars {
   towerCount: number;
   /** HP the abilities of each player took from enemies so far, roster order (CombatEffectService.abilityDamageOf; the run log) */
   abilityDamage: number[];
+  /** The replay while one is on, null for the live game */
+  replay: { wave: number; stepInWave: number; lengthInSteps: number | null; divergedAt: number | null; finished: boolean } | null;
   /** The run's seed (GameRng.seed): the main thread's wave source and bot draw their own streams from it */
   seed: number;
 }
@@ -200,6 +206,13 @@ export interface TowerStateDto {
   /** combat values the panels read, after upgrades and research */
   combat: { range: number; damage: number; fireRate: number };
   losReady: boolean;
+  /**
+   * The tower's line of sight when it changed since the last state sent (a
+   * mask applied, a restore): the main thread writes it into its own grid
+   * (viz, the wave source's coverage numbers). Null when the tower has none
+   * any more; absent when unchanged.
+   */
+  losMask?: LosMaskJson | null;
 }
 
 export interface SimFramePacket {
@@ -229,9 +242,4 @@ export interface SimFramePacket {
 /** 123 from 'enemy-123'. */
 export function entityNum(id: string): number {
   return Number(id.slice(id.lastIndexOf('-') + 1));
-}
-
-/** The buffers of a packet, for postMessage's transfer list. */
-export function packetTransfers(p: SimFramePacket): ArrayBuffer[] {
-  return [p.enemies, p.projectiles, p.towers, p.oozes, p.worms].map((t) => t.data.buffer as ArrayBuffer);
 }

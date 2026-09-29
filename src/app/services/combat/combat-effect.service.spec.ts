@@ -14,6 +14,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { CombatEffectService } from './combat-effect.service';
+import { createSinkSpy, createTestCoords, createTestOps } from '../../integration/test-helpers';
 import { PROJECTILE_TYPES, ProjectileTypeId } from '../../configs/projectile-types.config';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
@@ -220,13 +221,14 @@ describe('CombatEffectService DoT ticks on a body along the route', () => {
     };
     const getGroundLocalYAt = vi.fn(() => 3);
     mockInjections['GlobalRouteGridService'] = { getGroundLocalYAt };
-    const service = new CombatEffectService();
     // 1 degree = 10 m in the fake sync: x east, z south
     const sync = {
       geoToLocalSimpleInto: (lat: number, lon: number, _h: number, target: { x: number; z: number }) =>
         Object.assign(target, { x: lon * 10, z: -lat * 10 }),
     };
-    (service as unknown as { tilesEngine: unknown }).tilesEngine = { sync, effects: { spawnFloatingText: vi.fn() } };
+    mockInjections['SimCoords'] = createTestCoords(sync as never);
+    mockInjections['SimOps'] = createTestOps();
+    const service = new CombatEffectService();
 
     (service as unknown as {
       handleDotDamage: (e: unknown, d: number, t: string, f: string, s: string) => void;
@@ -298,9 +300,10 @@ describe('CombatEffectService ability damage numbers', () => {
 
   beforeEach(() => {
     Object.keys(mockInjections).forEach((k) => delete mockInjections[k]);
+    const sink = createSinkSpy();
+    spawnFloatingText = sink.effects.spawnFloatingText;
+    mockInjections['SimOps'] = createTestOps(sink);
     service = new CombatEffectService();
-    spawnFloatingText = vi.fn();
-    (service as unknown as { tilesEngine: unknown }).tilesEngine = { effects: { spawnFloatingText } };
   });
 
   it('shows a share of max HP past the matrix as a normal hit, whatever the armor', () => {

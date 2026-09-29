@@ -91,15 +91,15 @@ describe('Ooze integration', () => {
       vi.restoreAllMocks();
     });
 
-    it('splats once when the ooze is killed', () => {
+    it('breaks up once when the ooze is killed: the collapse, with which the main thread splats', () => {
       const m = createWiredManagers();
-      vi.spyOn(m.eventBus, 'emitDeferred');
       m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
       tickEngine(m, 5_000);
-      m.enemyManager.kill(m.enemyManager.getAlive()[0]);
-      expect(played(m, 'ooze_splat')).toHaveLength(1);
+      const ooze = m.enemyManager.getAlive()[0];
+      m.enemyManager.kill(ooze);
+      expect(m.sink.oozes.collapse).toHaveBeenCalledTimes(1);
+      expect(m.sink.oozes.collapse).toHaveBeenCalledWith(ooze.id, ooze.body!.tailM, ooze.body!.tipM);
       m.enemyManager.clear();
-      vi.restoreAllMocks();
     });
   });
 
@@ -208,7 +208,7 @@ describe('Ooze integration', () => {
       expect(m.waveManager.checkWaveComplete()).toBe(true);
 
       m.waveManager.endWave();
-      const oozes = m.tilesEngine.oozes;
+      const oozes = m.sink.oozes;
       expect(oozes.collapse).toHaveBeenCalledTimes(1);
       expect(oozes.clear).not.toHaveBeenCalled();
       expect(oozes.discard).not.toHaveBeenCalled();
@@ -218,8 +218,8 @@ describe('Ooze integration', () => {
       tickEngine(m, 5_000);
       const ooze = m.enemyManager.getAlive()[0];
       m.enemyManager.clear();
-      expect(m.tilesEngine.oozes.discard).toHaveBeenCalledWith(ooze.id);
-      expect(m.tilesEngine.oozes.clear).not.toHaveBeenCalled();
+      expect(m.sink.oozes.discard).toHaveBeenCalledWith(ooze.id);
+      expect(m.sink.oozes.clear).not.toHaveBeenCalled();
     });
   });
 

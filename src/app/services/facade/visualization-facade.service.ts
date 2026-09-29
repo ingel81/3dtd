@@ -27,7 +27,11 @@ import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { SimClient } from '../../sim/client/sim-client.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
+import { SimMirror } from '../../sim/client/mirror/sim-mirror';
+import { MainWorldService } from '../world/main-world.service';
+import { PresentationService } from '../../presentation/presentation.service';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { TowerTypeId } from '../../configs/tower-types.config';
 import { Vector3 } from 'three';
@@ -109,10 +113,18 @@ export class VisualizationFacadeService {
   private readonly relocationStatus = inject(RelocationStatusService);
   private readonly cellReport = inject(CellReportService);
   private readonly corridorSnapshot = inject(CorridorSnapshotService);
+  private readonly sim = inject(SimClient);
+  private readonly gridViz = inject(RouteGridVizService);
+  private readonly mirror = inject(SimMirror);
+  private readonly world = inject(MainWorldService);
+  private readonly presentation = inject(PresentationService);
 
   /** The one owner of the route corridor, built once per route set (CorridorBuild). */
   private readonly corridor = new CorridorBuild({
-    gameState: () => this.gameState,
+    world: this.world,
+    grid: this.globalRouteGridService,
+    gridViz: this.gridViz,
+    scalars: () => this.mirror.scalars,
     engineInit: this.engineInit,
     pathRoute: this.pathRoute,
     routeAnimation: this.routeAnimation,
@@ -121,7 +133,9 @@ export class VisualizationFacadeService {
 
   /** `__corridor.probeLod()` and `fingerprint()`, see CorridorLodProbe. */
   private readonly lodProbe = new CorridorLodProbe({
-    gameState: () => this.gameState,
+    mirror: this.mirror,
+    grid: this.globalRouteGridService,
+    world: this.world,
     engineInit: this.engineInit,
     introFlight: this.introFlight,
     pathRoute: this.pathRoute,
@@ -130,7 +144,9 @@ export class VisualizationFacadeService {
 
   /** `__corridor` in DevTools, see CorridorConsole. */
   private readonly corridorConsole = new CorridorConsole({
-    gameState: () => this.gameState,
+    mirror: this.mirror,
+    grid: this.globalRouteGridService,
+    world: this.world,
     engineInit: this.engineInit,
     inputHandler: this.inputHandler,
     pathRoute: this.pathRoute,
@@ -145,7 +161,9 @@ export class VisualizationFacadeService {
 
   /** What the corridor snapshot (Snapshot tile, `__corridor.snapshot()`) reads off the game, see CorridorSnapshotReader. */
   private readonly snapshotReader = new CorridorSnapshotReader({
-    gameState: () => this.gameState,
+    mirror: this.mirror,
+    grid: this.globalRouteGridService,
+    world: this.world,
     engineInit: this.engineInit,
     pathRoute: this.pathRoute,
     store: this.store,
@@ -158,7 +176,9 @@ export class VisualizationFacadeService {
 
   /** `__towerTargets` in DevTools, see TowerTargetConsole. */
   private readonly towerTargetConsole = new TowerTargetConsole({
-    gameState: () => this.gameState,
+    mirror: this.mirror,
+    grid: this.globalRouteGridService,
+    world: this.world,
     engineInit: this.engineInit,
   });
 
@@ -179,12 +199,14 @@ export class VisualizationFacadeService {
     cameraFraming: this.cameraFraming,
     pathRoute: this.pathRoute,
     introFlight: this.introFlight,
-    grid: () => this.gameState.getGlobalRouteGrid(),
+    grid: () => this.globalRouteGridService,
   });
 
   /** DPS profile bins along the path, see DpsBinsOverlay. */
   private readonly dpsBins = new DpsBinsOverlay({
-    gameState: () => this.gameState,
+    mirror: this.mirror,
+    grid: this.globalRouteGridService,
+    world: this.world,
     stateSnapshots: this.stateSnapshots,
   });
 
@@ -201,9 +223,6 @@ export class VisualizationFacadeService {
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
 
-  /** Game state manager — set via initialize() */
-  private gameState!: GameStateManager;
-
   /** Whether this sub-facade has been initialized */
   private initialized = false;
 
@@ -218,13 +237,12 @@ export class VisualizationFacadeService {
   /**
    * Initialize sub-facade with bridge and game state.
    */
-  initialize(bridge: FacadeComponentBridge, gameState: GameStateManager): void {
+  initialize(bridge: FacadeComponentBridge): void {
     this.bridge = bridge;
-    this.gameState = gameState;
     this.initialized = true;
 
     // Towers and waves wait while the corridor is built.
-    gameState.setCorridorPending(() => this.corridor.pending());
+    this.world.setCorridorPending(() => this.corridor.pending());
     // A location that loads in a hidden tab gets no tiles at all, and the
     // corridor freezes on nothing; build again when the page is shown.
     // Off first: initialize() runs again on a location change.
@@ -282,7 +300,7 @@ export class VisualizationFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
-    if (this.initialized) this.gameState.setCorridorPending(null);
+    if (this.initialized) this.world.setCorridorPending(null);
     document.removeEventListener('visibilitychange', this.onVisibilityChange);
     this.corridor.dispose();
     this.corridorConsole.uninstall();
@@ -330,7 +348,7 @@ export class VisualizationFacadeService {
     // Defensive: clear any prior subscriptions so a future re-init path can't
     // double-subscribe (consistent with combat-effect/hq-damage/game-state).
     this.eventBusSubs.disposeAll();
-    const eventBus = this.gameState.getEventBus();
+    const eventBus = this.sim.bus;
 
     // Spawn portals surge at wave start and calm down after the wave
     this.markerViz.subscribeToEventBus(eventBus);
@@ -402,7 +420,7 @@ export class VisualizationFacadeService {
   }
 
   /**
-   * Setup click handler with explicit gameState reference.
+   * Setup the click handler.
    */
   setupClickHandlerWithGameState(): void {
     const engine = this.bridge.getEngine() || this.engineInit.getEngine();
@@ -411,7 +429,6 @@ export class VisualizationFacadeService {
     this.inputHandler.initialize(
       this.bridge.getCanvasElement(),
       engine,
-      this.gameState,
       this.towerPlacement.buildMode,
       (lat: number, lon: number, height: number) => this.bridge.onTerrainClick(lat, lon, height),
       (lat: number, lon: number, hitPoint: Vector3) => this.bridge.onMouseMove(lat, lon, hitPoint)
@@ -481,18 +498,15 @@ export class VisualizationFacadeService {
       lon: sp.lon,
     }));
 
-    this.gameState.initialize(
-      engine,
-      { lat: base.lat, lon: base.lon },
-      waveSpawnPoints,
-      this.pathRoute.getCachedPaths()
-    );
+    // The place on the main thread; its world goes to the simulation once
+    // the corridor build froze it (MainWorldService.sendToSim)
+    this.world.attach(engine, { lat: base.lat, lon: base.lon }, waveSpawnPoints);
 
     // Initialize strategic placement service with street network
     this.strategicPlacement.initialize(streetNetwork);
 
     // Initialize enemy debug service
-    this.enemyDebug.initialize(this.gameState, engine, this.store.spawnPoints);
+    this.enemyDebug.initialize(engine, this.store.spawnPoints);
 
     // Validate routes
     const paths = this.pathRoute.getCachedPaths();
@@ -503,7 +517,7 @@ export class VisualizationFacadeService {
     // Initialize GlobalRouteGrid
     void this.engineInit.setStepCurrent('grid');
     this.engineInit.updateStepMeta('grid', 'Calculating grid...');
-    this.gameState.initializeGlobalRouteGrid();
+    this.world.buildCells(true);
     void this.engineInit.setStepDone('grid');
 
     // Initialize tower placement
@@ -536,25 +550,19 @@ export class VisualizationFacadeService {
       streetNetwork,
       this.osmService,
       { lat: base.lat, lon: base.lon },
-      this.gameState
     );
 
     // Initialize map placement service (HQ/Spawn click-to-place)
     this.mapPlacement.initialize(engine, streetNetwork, { lat: base.lat, lon: base.lon });
 
     // Ability targeting (Nuclear Strike): aims with the engine, fires through the game state
-    this.abilityTargeting.initialize(engine, this.gameState);
+    this.abilityTargeting.initialize(engine);
 
     // Hero: selection rings and the move preview with the engine, orders through the game state
-    this.heroControl.initialize(engine, this.gameState);
+    this.heroControl.initialize(engine);
 
     // LOS-Debug-Panel — beobachtet TowerManager-Selection + Cubemap
-    this.losDebug.initialize(
-      engine,
-      this.gameState.towerManager,
-      this.gameState.getEventBus(),
-      this.globalRouteGridService,
-    );
+    this.losDebug.initialize(engine, this.globalRouteGridService);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -708,7 +716,7 @@ export class VisualizationFacadeService {
     if (wasLoading && !isNowLoading) {
       cameraTimeline.record('loading.done', { isApplying });
       // Transition from opening music → build phase music now that loading screen is gone
-      this.gameState.backgroundMusic?.onLoadingComplete();
+      this.presentation.onLoadingComplete();
 
       if (!this.routeAnimation.isRunning() && !isApplying) {
         const cachedPaths = this.pathRoute.getCachedPaths();
@@ -807,7 +815,9 @@ export class VisualizationFacadeService {
       // step. The overlay places its plates once, when it is made, so a batch
       // that made it between a build's cells and the end of that build could
       // leave it on the heights from before the cell fallback.
-      this.gameState.onTilesLoaded();
+      // The HQ's fire stands on the tiles; the debug point where the HQ is
+      this.presentation.host?.onTilesLoaded();
+      if (this.uiStore.specialPointsDebugVisible()) this.markerViz.spawnHQDebugPoint();
       const tGameState = performance.now();
 
       perfTrace.log(() =>

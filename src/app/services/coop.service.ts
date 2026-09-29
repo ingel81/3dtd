@@ -1,5 +1,12 @@
 import { DestroyRef, Injectable, Injector, NgZone, computed, effect, inject, signal, untracked } from '@angular/core';
-import { GameStateManager } from '../managers/game-state.manager';
+import { SimClient } from '../sim/client/sim-client.service';
+import type { WaveSnapshot } from '../simulator/wave-snapshot';
+import type { HashBreakdown } from '../simulator/state-hash';
+import { GlobalRouteGridService } from './world/global-route-grid.service';
+import { SimMirror } from '../sim/client/mirror/sim-mirror';
+import { MainWorldService } from './world/main-world.service';
+import { TowerLosRegistry } from './tower-los-registry';
+import { PresentationService } from '../presentation/presentation.service';
 import { ConfigService } from '../core/services/config.service';
 import { GameStore } from '../store/game.store';
 import { UIStore } from '../store/ui.store';
@@ -191,23 +198,25 @@ const REFUSAL_TEXT: Record<RefusalReason, string> = {
  */
 @Injectable()
 export class CoopService {
-  private readonly gameState = inject(GameStateManager);
+  private readonly sim = inject(SimClient);
+  private readonly mirror = inject(SimMirror);
+  private readonly world = inject(MainWorldService);
+  private readonly los = inject(TowerLosRegistry);
+  private readonly presentation = inject(PresentationService);
   /** Optional: specs of the room flow run without a director and play the address's source */
   private readonly waveDirector = inject(WaveDirector, { optional: true });
   /** Resync after a desync (C5b): holds, sends or loads the state at the room's boundary */
   private readonly resync = new ResyncDriver(
     () => this.isHost(),
     {
-      subStep: () => this.gameState.subStep,
-      refusal: () => this.gameState.waveSnapshotRefusal(),
-      capture: () => this.gameState.captureWaveSnapshot(),
-      // As a replay's seek: the old state's particles, marks, strikes and
-      // one-shot sounds go first, then the look and sound of the loaded one
-      restore: (snapshot) => {
-        this.gameState.clearShow();
-        this.gameState.restoreWaveSnapshot(snapshot, 'live');
-        this.gameState.resyncPresentation();
-      },
+      // The simulation stands at the room's boundary while it holds: the
+      // mirror's numbers are the worker's there
+      subStep: () => this.mirror.scalars.subStep,
+      refusal: () => this.mirror.scalars.waveSnapshotRefusal,
+      capture: () => this.sim.rpc('captureWaveSnapshot') as Promise<WaveSnapshot>,
+      // As a replay's seek: the simulation says `sim:restored`, on which the
+      // presentation clears the old state's show and sets up the loaded one
+      restore: (snapshot) => this.sim.rpc('restoreWaveSnapshot', snapshot, 'live'),
     },
     {
       state: (tick, gz, part, parts) => this.session?.resyncState(tick, gz, part, parts),
@@ -241,6 +250,7 @@ export class CoopService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly pathRoute = inject(PathAndRouteService);
+  private readonly grid = inject(GlobalRouteGridService);
   private readonly locationFacade = inject(LocationFacadeService);
   private readonly locationChange = inject(LocationChangeCoordinatorService);
   /** The signals of a room, back to their start in leave() */
@@ -309,7 +319,8 @@ export class CoopService {
   readonly gold = signal<ReadonlyMap<string, number>>(new Map());
   /** Kills, towers built, gold given and leaks per player in this run (CoopRunCounts) */
   private readonly runCounts = new CoopRunCounts({
-    gameState: this.gameState,
+    sim: this.sim,
+    mirror: this.mirror,
     inGame: () => this.inGame(),
     roster: () => this.roster(),
     playerId: () => this.playerId(),
@@ -477,7 +488,7 @@ export class CoopService {
     this.laneFromUrl = params.get('lane');
     this.hashEveryFromUrl = hashEveryParam(params.get('hashEvery'));
 
-    const bus = this.gameState.getEventBus();
+    const bus = this.sim.bus;
     // A partner's tower wears its owner's lane colour (review R14)
     this.subs.add(bus.onLive('tower:placed', ({ tower }) => {
       if (!this.inGame() || tower.ownerId === this.playerId()) return;
@@ -636,7 +647,7 @@ export class CoopService {
   private async openRoom(session: CoopSession): Promise<void> {
     await this.guard(async () => {
       // A new room has a lane free for the second player (User, 2026-09-24)
-      if (this.gameState.getSpawnPoints().length < 2) await this.locationFacade.addRandomSpawn();
+      if (this.world.spawnPoints.length < 2) await this.locationFacade.addRandomSpawn();
       this.room.set(await session.create());
       this.shareWorld();
     });
@@ -707,7 +718,7 @@ export class CoopService {
 
   /** Host: send the world of the place loaded now (again, after a change of place). */
   shareWorld(): void {
-    const source = this.gameState.worldSource();
+    const source = this.world.source();
     if (!this.session || !source) {
       this.error.set('The place is not loaded yet.');
       return;
@@ -715,7 +726,7 @@ export class CoopService {
     const world = buildWorldPackage(source, this.head());
     this.sharedWaveSource = world.waveSource ?? null;
     this.session.sendWorld(world, world.spawns.map((spawn) => spawn.id));
-    this.lanes.set(laneStats(this.gameState.getCachedPaths(), LANE_WALK_SPEED_MPS));
+    this.lanes.set(laneStats(this.pathRoute.getCachedPaths(), LANE_WALK_SPEED_MPS));
     this.sharedMap = this.mapSignature();
     this.sharedMapNow.set(this.sharedMap);
     this.movingSaid = false;
@@ -752,7 +763,7 @@ export class CoopService {
   private async fillLanes(): Promise<void> {
     const room = this.room();
     if (this.filling || !room || room.started || !this.isHost() || !this.worldReady()) return;
-    if (room.spawnIds.length >= room.players.length || this.gameState.getSpawnPoints().length >= 4) return;
+    if (room.spawnIds.length >= room.players.length || this.world.spawnPoints.length >= 4) return;
     this.filling = true;
     try {
       const added = await this.locationFacade.addRandomSpawn();
@@ -863,7 +874,7 @@ export class CoopService {
   /** In the game: send `amount` of this player's gold to `playerId`; it moves at the tick. */
   giveGold(playerId: string, amount: number): void {
     if (!this.inGame() || playerId === this.playerId()) return;
-    this.gameState.getEventBus().emit({ type: 'command:give-credits', to: playerId, amount: Math.floor(amount) });
+    this.sim.bus.emit({ type: 'command:give-credits', to: playerId, amount: Math.floor(amount) });
   }
 
   /**
@@ -875,10 +886,9 @@ export class CoopService {
   continueAlone(): void {
     if (!this.lostInGame()) return;
     const me = this.playerId();
-    const gsm = this.gameState;
-    gsm.setLockstep(null);
-    gsm.setLosRole(null);
-    for (const id of [...gsm.players]) if (id !== me) gsm.playerLeft(id);
+    this.sim.setLockstep(null);
+    this.los.setRole('render');
+    this.sim.configure({ playersLeft: this.mirror.scalars.players.filter((id) => id !== me) });
     this.leave();
     this.uiStore.notice.set('The coop game goes on as a single player game.');
   }
@@ -984,7 +994,7 @@ export class CoopService {
 
   /** A click on a partner's tower: whose it is, rather than nothing (review R14) */
   private sayWhoseTower(towerId: string): void {
-    const owner = this.gameState.towerManager.getById(towerId)?.ownerId;
+    const owner = this.mirror.tower(towerId)?.ownerId;
     if (!owner || owner === this.playerId()) return;
     this.ngZone.run(() => this.notify(`That is ${this.nameOf(owner)}'s tower`));
   }
@@ -1012,7 +1022,7 @@ export class CoopService {
   lanesWithoutRoute(): string[] {
     const room = this.room();
     if (!room || !this.worldReady()) return [];
-    const paths = this.gameState.getCachedPaths();
+    const paths = this.pathRoute.getCachedPaths();
     const taken = new Set(room.players.map((p) => p.spawnId).filter((id): id is string => id !== null));
     return [...taken].filter((id) => (paths.get(id)?.length ?? 0) < 2);
   }
@@ -1032,7 +1042,7 @@ export class CoopService {
   /** In the game: the wave button. Ready for the next wave, or no longer. */
   toggleReady(): void {
     this.readyNow = !this.readyNow;
-    this.gameState.getEventBus().emit({ type: 'command:set-ready', ready: this.readyNow });
+    this.sim.bus.emit({ type: 'command:set-ready', ready: this.readyNow });
   }
 
   /**
@@ -1042,7 +1052,7 @@ export class CoopService {
    */
   sayReady(): void {
     this.readyNow = true;
-    this.gameState.getEventBus().emit({ type: 'command:set-ready', ready: true });
+    this.sim.bus.emit({ type: 'command:set-ready', ready: true });
   }
 
   sendChat(text: string): void {
@@ -1065,9 +1075,11 @@ export class CoopService {
       this.lanBridge?.stop();
       this.lanAddresses.set([]);
     }
-    this.gameState.setLockstep(null);
-    this.gameState.setLosRole(null);
-    this.gameState.setCheatRule(null);
+    if (this.sim.started) {
+      this.sim.setLockstep(null);
+      this.sim.configure({ cheatsFor: null });
+    }
+    this.los.setRole('render');
     // Status, room, world, desync, roster, chat, latencies, waits, the host's place, pings
     this.perRoom.reset();
     this.inputHandler.setForeignTowerClick(null);
@@ -1102,7 +1114,7 @@ export class CoopService {
     const room = this.room();
     const hq = this.locationMgmt.hq();
     if (!room || !hq) return '';
-    const spawns = this.gameState.getSpawnPoints().map(({ lat, lon }) => ({ lat, lon }));
+    const spawns = this.world.spawnPoints.map(({ lat, lon }) => ({ lat, lon }));
     return `${window.location.origin}${this.urlLocation.urlFor(hq, spawns)}${this.roomParams(room.code)}`;
   }
 
@@ -1268,7 +1280,7 @@ export class CoopService {
     });
     session.onHost = inZone((hostId) => {
       if (this.room()) this.room.set({ ...this.room()!, hostId });
-      if (hostId === this.playerId() && this.inGame()) this.gameState.setLosRole('host');
+      if (hostId === this.playerId() && this.inGame()) this.los.setRole('render');
       this.notify(hostId === this.playerId() ? 'You are the host now' : `${this.nameOf(hostId)} is the host now`);
     });
     session.onChat = inZone((from, text) => this.addChatLine(from, text));
@@ -1283,9 +1295,10 @@ export class CoopService {
     });
     session.onDesync = inZone((tick, hashes, outOfStep, parts) => {
       this.desync.set({ tick, hashes, outOfStep });
-      const own = this.gameState.stateHash();
-      console.warn(`[Coop] out of step at tick ${tick}: ${hashes.map(([id, h]) => `${id} ${(h >>> 0).toString(16)}`).join(', ')}; here now ${own.toString(16)}`);
-      this.reportDesyncDetail(session, tick, parts);
+      void this.sim.rpc('stateHash').then((own) => {
+        console.warn(`[Coop] out of step at tick ${tick}: ${hashes.map(([id, h]) => `${id} ${(h >>> 0).toString(16)}`).join(', ')}; here now ${own.toString(16)}`);
+      });
+      void this.reportDesyncDetail(session, tick, parts);
       this.notify(desyncText(outOfStep, this.playerId(), (id) => this.nameOf(id)), 'warn');
     });
     // Resync (C5b): the room holds, the host's state replaces the guests'
@@ -1317,8 +1330,8 @@ export class CoopService {
    * hashes and, with a relay that names no parts, every entity part go into
    * the log here as well, so two players' logs tell it apart without the relay.
    */
-  private reportDesyncDetail(session: CoopSession, tick: number, parts: HashPart[] | null): void {
-    const breakdown = this.gameState.hashBreakdownAt(tick);
+  private async reportDesyncDetail(session: CoopSession, tick: number, parts: HashPart[] | null): Promise<void> {
+    const breakdown = await this.sim.rpc('hashBreakdownAt', tick) as HashBreakdown | null;
     if (!breakdown) {
       console.warn(`[Coop] no hash breakdown kept for tick ${tick}`);
       return;
@@ -1426,7 +1439,7 @@ export class CoopService {
   /** The place loaded here is the world's: same HQ, same spawns in the same order. */
   private standsOn(world: WorldPackage): boolean {
     const hq = this.locationMgmt.hq();
-    const spawns = this.gameState.getSpawnPoints();
+    const spawns = this.world.spawnPoints;
     return hq !== null && samePlace(hq, world.hq)
       && spawns.length === world.spawns.length
       && spawns.every((spawn, i) => samePlace(spawn, world.spawns[i]));
@@ -1441,7 +1454,7 @@ export class CoopService {
   private async placeLoaded(): Promise<boolean> {
     let end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
     const generation = this.generation;
-    while (this.needsKey() || !this.engineInit.getEngine() || this.engineInit.loading() || this.gameState.corridorPending()) {
+    while (this.needsKey() || !this.engineInit.getEngine() || this.engineInit.loading() || this.world.corridorPending()) {
       // Left the room meanwhile: nothing to wait for
       if (generation !== this.generation) return false;
       if (this.needsKey()) end = performance.now() + WORLD_LOAD_TIMEOUT_MS;
@@ -1456,16 +1469,18 @@ export class CoopService {
     const paths = packagePaths(world);
     this.pathRoute.adoptPaths(paths);
     this.lanes.set(laneStats(paths, LANE_WALK_SPEED_MPS));
-    this.gameState.reseatWavePipeline(world.spawns, paths);
-    this.gameState.rebuildRouteCells();
-    this.gameState.getGlobalRouteGrid().restoreHeights(world.heights);
-    const key = this.gameState.worldKey();
+    this.world.setSpawns(world.spawns);
+    this.world.rebuildCells();
+    this.grid.restoreHeights(world.heights);
+    const key = this.world.key();
     if (key !== world.worldKey) {
       this.error.set(worldPackageRefusalText('other-world'));
       console.warn(`[Coop] world key ${key}, host ${world.worldKey}`);
       this.status.set('lobby');
       return;
     }
+    // The simulation stands on the host's world from here
+    this.world.sendToSim();
     this.worldReady.set(true);
     this.hostPlace.set(null);
     this.status.set('lobby');
@@ -1477,19 +1492,20 @@ export class CoopService {
 
   /** The room started: a fresh run with its seed, players, lanes, the tick stream. */
   private startGame(start: CoopStart): void {
-    const gsm = this.gameState;
-    gsm.reset(start.seed);
-    gsm.setPlayers(start.players, start.localId);
-    gsm.setLanes(start.lanes);
-    // A partner's hero wears his lane colour (review R15)
-    for (const id of start.players) {
-      if (id !== start.localId) gsm.setPartnerHeroColor(id, this.laneColorNumberOf(id));
-    }
-    gsm.setLosRole(this.isHost() ? 'host' : 'guest');
-    gsm.setLockstep(start.link, this.hashEveryFromUrl);
+    void this.sim.rpc('reset', start.seed);
     // The relay and the room's rule decide (D38): a cheat acts on every client alike or on none
     const relayAllows = this.room()?.cheats ?? false;
-    gsm.setCheatRule((playerId) => mayCheat(start.options, relayAllows, playerId, start.hostId));
+    this.sim.configure({
+      players: { players: [...start.players], local: start.localId },
+      lanes: [...start.lanes],
+      cheatsFor: start.players.filter((playerId) => mayCheat(start.options, relayAllows, playerId, start.hostId)),
+    });
+    // A partner's hero wears his lane colour (review R15)
+    for (const id of start.players) {
+      if (id !== start.localId) this.presentation.host?.setPartnerHeroColor(id, this.laneColorNumberOf(id));
+    }
+    this.los.setRole(this.isHost() ? 'render' : 'wait');
+    this.sim.setLockstep(start.link, this.hashEveryFromUrl);
     this.startOptions.set(start.options);
     this.inputHandler.setForeignTowerClick((towerId) => this.sayWhoseTower(towerId));
     this.readyNow = false;
@@ -1502,7 +1518,7 @@ export class CoopService {
     })));
     this.readyIds.set(new Set());
     this.leftIds.set(new Set());
-    this.gold.set(new Map(start.players.map((id) => [id, gsm.creditsOf(id)])));
+    this.gold.set(new Map(start.players.map((id) => [id, this.mirror.creditsOf(id)])));
     this.applySpeed(start.speed);
     this.runCounts.clear();
     this.markRunAsCoop();

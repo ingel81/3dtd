@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { Vector3 } from 'three';
+import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
 import { GameEventBus } from './game-event-bus';
 import { ScreenShakeService } from './screen-shake.service';
 import { AbilityManager, type AbilityWorld } from '../managers/ability.manager';
@@ -28,10 +29,10 @@ const WARNING_STEPS = 390;
  * Display, "Screen Shake" off, then fire the nuclear strike again. The
  * switch goes through DebugFacadeService.onScreenShakeToggled to the game
  * state's ScreenShakeService; the strike is the real AbilityManager's, its
- * impact comes over the real bus. The camera stands on the impact point.
+ * impact comes over the simulation's bus onto the main bus. The camera stands on the impact point.
  */
 describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed', () => {
-  let bus: GameEventBus;
+  let bus: MainEventBus;
   let abilities: AbilityManager;
   let facade: DebugFacadeService;
   let engine: { triggerScreenShake: ReturnType<typeof vi.fn> };
@@ -39,7 +40,10 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
 
   beforeEach(() => {
     localStorage.clear();
-    bus = new GameEventBus();
+    bus = createMainEventBus();
+    // The strike runs on the simulation's bus; its ability events carry no entities and cross as they are
+    const simBus = new GameEventBus();
+    simBus.onAny((event) => bus.emit(event as never));
     impacts = 0;
     bus.on('ability:impact', () => impacts++);
     engine = { triggerScreenShake: vi.fn() };
@@ -50,7 +54,7 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
     };
     const shake = new ScreenShakeService(bus, shakeEngine as unknown as ThreeTilesEngine);
 
-    abilities = new AbilityManager(bus, {
+    abilities = new AbilityManager(simBus, {
       snapToRoute: (target: GeoPosition) => ({ ...target }),
       enemiesInRadius: (_c: unknown, _r: number, out: unknown[]) => out,
       strike: () => 0,
@@ -60,7 +64,7 @@ describe('Nuclear strike with Screen Shake switched off, playtest 320 replayed',
       launchSite: () => ({ towerId: 'silo', position: { lat: 0, lon: 0, height: 0 } }),
     } as unknown as AbilityWorld);
     abilities.setPhaseProvider(() => 'wave');
-    bus.emit({
+    simBus.emit({
       type: 'research:completed', playerId: 'local', local: true,
       researchId: NUKE.researchId,
       effects: [{ kind: 'global-perk', perkId: NUKE.perkId, description: '' }],

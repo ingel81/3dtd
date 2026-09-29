@@ -56,6 +56,7 @@ export function initialScalars(): SimScalars {
     replayableWaves: [],
     towerCount: 0,
     abilityDamage: [0],
+    replay: null,
     seed: 0,
   };
 }
