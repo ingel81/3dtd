@@ -182,8 +182,8 @@ export class RunLogFacade {
     // mirror's, as the last packet left them.
     const mine = (tower: Tower): boolean => tower.ownerId === mirror.localPlayerId;
     const world: RunLogWorld = {
-      step: () => mirror.scalars.subStep,
-      timeMs: () => mirror.scalars.gameTimeMs,
+      step: () => mirror.subStep,
+      timeMs: () => mirror.gameTimeMs,
       credits: () => mirror.creditsOf(mirror.localPlayerId),
       baseHealth: () => mirror.scalars.baseHealth,
       // The living ones: an enemy in its death animation already counted as

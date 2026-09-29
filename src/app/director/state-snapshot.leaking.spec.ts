@@ -28,13 +28,14 @@ describe('StateSnapshotService oozes flowing in', () => {
   let results: WaveResult[];
 
   const ooze = (id: string) =>
-    ({ id, typeConfig: { id: 'ooze' }, getComponent: () => ({ getPathProgress: () => 1 }) }) as unknown as Enemy;
+    ({ id, typeConfig: { id: 'ooze' }, movement: { getPathProgress: () => 1 } }) as unknown as Enemy;
   const completeWave = (wave: number) =>
     bus.emit({ type: 'wave:completed', wave, credits: 0, perfect: false, closeCall: false, hpLost: 0 });
 
   beforeEach(() => {
     bus = new GameEventBus();
-    injections['GameStateManager'] = { getEventBus: () => bus, gameTimeMs: 0 };
+    injections['SimClient'] = { bus };
+    injections['SimMirror'] = { gameTimeMs: 0 };
     injections['TowerDefenseStore'] = { baseHealth: () => 100 };
     const collector = new StateSnapshotService();
     results = [];
