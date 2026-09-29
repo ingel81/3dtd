@@ -16,12 +16,6 @@ export type EffectEvent =
        * (docs/TOWER_CONTROL.md). The limits of a one-shot still apply.
        */
       atListener?: boolean;
-      /**
-       * A tower's shot sound: the tower that fired. The main thread keeps
-       * it and the vfx:muzzle-flash after it quiet when the shot was shown
-       * at the click already (a manned tower in coop, ShotPrediction).
-       */
-      shotOf?: string;
     }
   | {
       type: 'vfx:blood';

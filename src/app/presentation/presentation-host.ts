@@ -14,22 +14,23 @@ import { BloodMoonService } from '../game-engine/blood-moon.service';
 import type { SimPresenterApi } from '../sim/client/contracts';
 import type { MainEventBus } from '../sim/client/view-events';
 import type { EnemyView } from '../sim/client/views';
-import type { SimFramePacket } from '../sim/protocol/packet';
+import type { SimFramePacket, SimScalars } from '../sim/protocol/packet';
 import type { PresentationOp } from '../sim/protocol/ops';
 import { OpPlayer } from './op-player';
 import { FramePresenter } from './frame-presenter';
 import { FlameSounds } from './flame-sounds';
 import { HqDamagePresenter } from './hq-damage-presenter';
 import { registerCombatSounds } from './combat-sounds';
-import { QuietShots } from './quiet-shots';
+import { ManualShots } from './manual-shots';
 import { iceDecal, iceExplosion } from './ice-effects';
 import { TOWER_TYPES, type TowerTypeId } from '../configs/tower-types.config';
 import type { ScorchGround } from '../three-engine/renderers/scorch-marks';
 
-/** What the presentation reads of the mirror (sim/client/mirror): enemy views and shadow towers */
+/** What the presentation reads of the mirror (sim/client/mirror): enemy views, shadow towers, the last scalars */
 export interface PresentationSource {
   enemy(id: string): EnemyView | null;
   tower(id: string): Tower | null;
+  readonly scalars: SimScalars;
 }
 
 export interface PresentationHostOptions {
@@ -62,7 +63,7 @@ export class PresentationHost implements SimPresenterApi {
   readonly frame: FramePresenter;
   readonly ops: OpPlayer;
   readonly flames: FlameSounds;
-  readonly quietShots = new QuietShots();
+  readonly manualShots: ManualShots;
 
   private readonly engine: ThreeTilesEngine;
   private readonly subs = new SubscriptionBag();
@@ -77,8 +78,6 @@ export class PresentationHost implements SimPresenterApi {
     this.audio = new AudioService(bus, engine);
     // Its ability loops (the siren) stand on the route grid's ground
     this.audio.setGround(ground);
-    this.audio.setQuietShot(this.quietShots.sound);
-    this.vfx.setQuietShot(this.quietShots.flash);
     this.gameSounds = new GameSoundsService(bus, engine);
     this.gameSounds.setGameSpeedSource(() => this.gameSpeed);
     this.screenShake = new ScreenShakeService(bus, engine);
@@ -86,6 +85,7 @@ export class PresentationHost implements SimPresenterApi {
     this.backgroundMusic.setGameSpeedSource(() => this.gameSpeed);
     this.bloodMoon = new BloodMoonService(bus, engine.bloodMoon);
     this.hq = new HqDamagePresenter(engine, bus);
+    this.manualShots = new ManualShots(bus, source);
 
     // Scorch marks sit on route cells at the grid's ground height, the hero
     // and the foot of the orbital laser's beam stand on it like the enemies
@@ -117,7 +117,6 @@ export class PresentationHost implements SimPresenterApi {
   present(packet: SimFramePacket): void {
     this.gameSpeed = packet.scalars.gameSpeed;
     this.frame.present(packet);
-    this.quietShots.endFrame();
   }
 
   advance(gameTimeDeltaMs: number): void {
@@ -190,7 +189,7 @@ export class PresentationHost implements SimPresenterApi {
    * the simulation's shot for it plays without sound and muzzle flash.
    */
   setShotPrediction(take: ((towerId: string) => boolean) | null): void {
-    this.quietShots.setSource(take);
+    this.manualShots.setPrediction(take);
   }
 
   /** A coop partner's hero in his lane colour; null takes the ring off. */
@@ -209,6 +208,7 @@ export class PresentationHost implements SimPresenterApi {
     this.backgroundMusic.destroy();
     this.bloodMoon.destroy();
     this.hq.destroy();
+    this.manualShots.destroy();
   }
 
   /** Where the main thread supplies what an op cannot carry (sim/core/sim-sink.ts says which). */

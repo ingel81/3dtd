@@ -46,8 +46,6 @@ export class VFXService {
   // Scratch vectors to avoid per-event allocations (chain lightning, scorch marks).
   private readonly tmpA = new Vector3();
   private readonly tmpB = new Vector3();
-  /** Whether a tower's shot stays quiet (shown at the click already, QuietShots) */
-  private quietShot: (towerId: string) => boolean = () => false;
   /** Where the last missile stood in its silo, see handleLaunch */
   private readonly missileStart = createMissileStart();
 
@@ -89,11 +87,6 @@ export class VFXService {
     this.setupEventHandlers();
   }
 
-  /** Asked for every muzzle flash: true keeps it dark. */
-  setQuietShot(quiet: (towerId: string) => boolean): void {
-    this.quietShot = quiet;
-  }
-
   /**
    * Setup event handlers for VFX events
    */
@@ -110,7 +103,6 @@ export class VFXService {
 
     // Muzzle flash on tower fire (projectile towers only)
     this.subs.add(this.eventBus.onShow('vfx:muzzle-flash', (event) => {
-      if (this.quietShot(event.towerId)) return;
       this.handleMuzzleFlash(event.towerId, event.towerTypeId);
     }));
 
