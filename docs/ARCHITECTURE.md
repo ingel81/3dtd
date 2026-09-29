@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-09-16 (Services, Manager, Signaturen, Ordner und Game Loop gegen den Code geprüft); am 2026-09-25 nachgezogen: Replay als Neu-Simulation, Ordner `coop/`, `simulator/`, `run-log/`, Wellenquellen, Coop in [COOP_PLAN.md](COOP_PLAN.md)
+**Stand:** 2026-09-16 (Services, Manager, Signaturen, Ordner und Game Loop gegen den Code geprüft); am 2026-09-25 nachgezogen: Replay als Neu-Simulation, Ordner `coop/`, `simulator/`, `run-log/`, Wellenquellen, Coop in [COOP_PLAN.md](COOP_PLAN.md); am 2026-09-29: Simulation im Web Worker ([SIM_WORKER.md](SIM_WORKER.md)), Ordner `sim/` und `presentation/`
 
 ## Übersicht
 
@@ -12,6 +12,7 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 
 | System | Kern im Code | Dokument |
 |---|---|---|
+| Simulation im Web Worker: Kern, Paket je Bild, Spiegel, Darstellung | `sim/core/sim-core.ts`, `sim/worker/sim.worker.ts`, `sim/client/`, `presentation/` | [SIM_WORKER.md](SIM_WORKER.md) |
 | Tower (Bau, Upgrades, Sockel, Veteranen-Ränge) | `managers/tower.manager.ts`, `TowerPlacementService`, `TowerLifecycle` | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | Gegner, auch Luft, Ooze und Wurm (Skarnax) | `managers/enemy.manager.ts`, `managers/ooze-bodies.ts`, `managers/worm/` | [ENEMY_CREATION.md](ENEMY_CREATION.md), [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
 | Wellen, Director, Boss-Intro, Blutmond | `managers/wave.manager.ts`, `director/` | [WAVE_SYSTEM.md](WAVE_SYSTEM.md), [WAVE_SOURCE_PLAN.md](WAVE_SOURCE_PLAN.md), [WAVE_RUN_PLAN.md](WAVE_RUN_PLAN.md) |
@@ -54,6 +55,32 @@ Wellen-Pfad des Backends sind am 2026-09-20 entfallen
 
 Details zum Weg vom Director zur fertigen Welle:
 [WAVE_SYSTEM.md](WAVE_SYSTEM.md#wave-erzeugung-director--waveconfig).
+
+### Simulation im Worker
+
+> **Vollständige Dokumentation:** [SIM_WORKER.md](SIM_WORKER.md) (Grundsätze, Verträge, Entscheidungen, Kennzahlen)
+
+Die Simulation (GameStateManager, Manager, Entities, Kampf-Services) läuft in einem Web Worker. Der Hauptthread
+hält Bild, Ton, UI, Eingabe, Tiles und die GPU-Sichtlinien und greift nie auf ein Sim-Objekt zu.
+
+| Teil | Datei | Aufgabe |
+|---|---|---|
+| **SimCore** | `sim/core/sim-core.ts` | Die Simulation hinter `SimCoreApi` (`configure`, `loadWorld`, `tick`, `rpc`, `sim/protocol/messages.ts`): baut den GameStateManager mit seinen Sim-Services in einem eigenen Injector (`SIM_PROVIDERS`), rechnet je Tick ein Bild und gibt ein Paket zurück |
+| Worker-Einstieg | `sim/worker/sim.worker.ts` | Ein `SimCore`, getrieben von den Nachrichten des `WorkerTransport` |
+| Renderer-Aufrufe | `sim/core/sim-sink.ts`, `sim/protocol/ops.ts` | Die Simulation ruft ihren `SimSink` wie früher die Engine; jeder Aufruf wird als Op aufgezeichnet |
+| Koordinaten | `sim/core/sim-coords.ts` | Geo zu lokal um den Ursprung der Welt, reine Mathe ohne Tiles |
+| Events über die Grenze | `sim/core/event-export.ts`, `sim/protocol/events.ts` | Jedes Event der Simulation außer den Eingaben, Entities als Referenzen mit den Zahlen des Moments |
+| Paket | `sim/core/packet-writer.ts`, `sim/protocol/packet.ts` | Tabellen (Gegner, Geschosse, Tower, Oozes, Würmer), Skalare, geänderte Tower-Zustände, Ops, Events |
+| Tabellen-Speicher | `sim/protocol/table-store.ts`, `sim/protocol/wire.ts` | Tabellen im `SharedArrayBuffer`, der Hauptthread liest sie ohne Kopie; ohne `crossOriginIsolated` dieselbe Form mit Kopien |
+| **SimClient** | `sim/client/sim-client.service.ts` | Das Ende des Hauptthreads: `frame()` wendet das zurückgekommene Paket an und schickt den nächsten Tick mit den Befehlen seit dem letzten; ein Tick ist unterwegs. `bus` ist der Hauptthread-Bus, `rpc` für Aufrufe mit Antwort |
+| Transporte | `sim/client/transport.ts` | `WorkerTransport` im Spiel, `InlineTransport` (selber Thread) für die Specs |
+| **SimMirror** | `sim/client/mirror/sim-mirror.ts` | Bild der Simulation nach dem letzten Paket: Schatten-Tower (echte `Tower` aus `TowerStateDto`, nie simuliert), Views der Gegner, Geschosse und Würmer (`sim/client/views.ts`), Skalare, Stände je Spieler. Gelesen von UI, Eingabe, Bot und Wellenquelle |
+| Darstellung | `presentation/presentation-host.ts`, `op-player.ts`, `frame-presenter.ts` | `PresentationHost` je Engine: `OpPlayer` ruft die Engine-Member der Ops, `FramePresenter` gibt die Tabellen an die Renderer; VFX, Ton, Screen Shake, Musik, Blutmond und HQ-Feuer hören den Hauptthread-Bus |
+| Welt | `services/world/main-world.service.ts`, `sim/client/sim-world-builder.ts` | Der Hauptthread baut Korridor und Zellen aus den Tiles, friert sie ein und schickt sie als `SimWorld`; sein Raster bleibt für Sichtlinien, Anzeige und Boden der Renderer. Hält auch `corridorPending` |
+| Sichtlinien | `services/tower-los-registry.ts`, `managers/game-state/tower-los.ts` | Die Simulation meldet `tower:los-needed`, der Hauptthread rendert die Cubemap und antwortet mit `command:los-mask` |
+
+Reihenfolge beim Anwenden eines Pakets (`sim/client/contracts.ts`): Zustand in den Spiegel, Ops an den Presenter,
+Events auf den Hauptthread-Bus, Tabellen an die Renderer, danach die Frame-Listener (`SimClient.onFrame`).
 
 ## Design Prinzipien
 
@@ -103,7 +130,7 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
 | **EngineInitializationService** | Loading Sequence mit 10 Boot-Steps (`location` bis `flight`; `location`, `grid`, `corridor` und `flight` setzen andere Services; kein eigener Schritt für die 3D Tiles, auf die wartet der Korridor-Bau), Progress Tracking |
 | **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
-| **GameStateSyncService** | EventBus → Store Bridge: wave/game/credits/health/tower/enemy/research:state-changed |
+| **GameStateSyncService** | Hauptthread-Bus (`SimClient.bus`) → Store: wave/game/credits/health/tower/enemy/research:state-changed |
 | **run-summary** (`run-log/run-summary.ts`) | Zahlen der Game-Over-Bilanz, aus dem Run-Log gerechnet (siehe [RUN_LOG.md](RUN_LOG.md)) |
 
 #### (Root): Camera & Input + zentrale Services
@@ -115,9 +142,9 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **InputHandlerService** | Click/Pan Detection, Terrain Raycasting, Kamera-, Build- und Debug-Tasten. Außerhalb von Build- und Platzierungsmodus zeigt der Tower unter dem Zeiger seine Reichweite (Scheibe und Auswahlring des Renderers, `ThreeTowerRenderer.setHovered`): höchstens ein Tower-Pick alle 100 ms mit Nachzügler für die Endposition, keiner bei gedrückter Maustaste. Ein Druck auf dem Canvas nimmt die Hover-Reichweite weg (auch auf dem Tower selbst, vor einem Kamera-Ziehen), das Loslassen über dem Canvas pickt neu |
 | **HotkeyService** | Spieltasten nach dem InputHandler (alle Tasten: [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md#tastenkürzel)); Provider der Spielkomponente, weil er die Facade braucht. Zuordnung in `hotkey-map.ts` |
 | **TowerUpgradeService** | Upgrade-Käufe des Spielers, von U (`buyFirst`, aus dem HotkeyService) und vom Klick auf eine Upgrade-Kachel (`buy`, Tower- und Research-Panel über die Spielkomponente), mit einer Antwort für beide: Track und neue Stufe als Welttext über dem Tower und Kachel-Blitz, oder der Grund über dem Tower und als Zeile im Panel (`UpgradeHintService`). Regeln in `utils/player-actions.ts` (`upgradeTrackRefusal`). Provider der Spielkomponente, weil er die Facade braucht; die Bots kaufen direkt über die Facade, ohne Antwort |
-| **BossIntroService** | Boss-Intro: tritt ein Boss einer Welle aus seinem Portal, Kameraschnitt aufs Portal mit Titelkarte, das Spiel pausiert, Klick oder Esc überspringt. Provider der Spielkomponente (hört am Bus des GameStateManager), getickt aus `GameLoopFacadeService.onEngineUpdate` nach den Sub-Steps; bekommt jede Taste vor InputHandler und HotkeyService. Regeln, Zeitplan und Einstellung in `utils/boss-intro.ts`, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro) |
+| **BossIntroService** | Boss-Intro: tritt ein Boss einer Welle aus seinem Portal, Kameraschnitt aufs Portal mit Titelkarte, das Spiel pausiert, Klick oder Esc überspringt. Provider der Spielkomponente (hört am Hauptthread-Bus `SimClient.bus`), getickt aus `GameLoopFacadeService.onEngineUpdate` nach den Sub-Steps; bekommt jede Taste vor InputHandler und HotkeyService. Regeln, Zeitplan und Einstellung in `utils/boss-intro.ts`, siehe [WAVE_SYSTEM.md](WAVE_SYSTEM.md#boss-intro) |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
-| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, LOS-Registrierung auf den eingefrorenen Zellen. Tastet die Grundfläche ab (`resolveFootprint`): auf unebenem Grund Fuß auf dem höchsten Punkt, Sockel bis zum tiefsten, der ihn trägt, an einer Kante auf Stützen; schließt Plätze aus, deren innere Hälfte in einer Wand steht oder über einem Abbruch hängt, schon in der Vorschau. `placementAt` für den Trainings-Bot |
+| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh; der Bau geht als `command:place-tower` an die Simulation. Tastet die Grundfläche ab (`resolveFootprint`): auf unebenem Grund Fuß auf dem höchsten Punkt, Sockel bis zum tiefsten, der ihn trägt, an einer Kante auf Stützen; schließt Plätze aus, deren innere Hälfte in einer Wand steht oder über einem Abbruch hängt, schon in der Vorschau. `placementAt` für den Trainings-Bot |
 | **EconomyService** | Wave-Completion-Bonus + Perfect-Streak (extrahiert aus GameStateManager, 2026-05-10) |
 | **AbilityTargetingService** | Zielmodus einer Fähigkeit: Ring im Radius des Schlags am Cursor, auf die Route gesnappt, Klick sendet `command:use-ability`, siehe [ABILITIES.md](ABILITIES.md) |
 | **HeroControlService** | Held wählen, schicken (`command:hero-move`), anheuern und Munition wechseln, siehe [HERO.md](HERO.md) |
@@ -126,11 +153,15 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **SellConfirmService** | Verkauf in zwei Schritten ohne Dialog (`SELL_CONFIRM_WINDOW_MS`), für Tower- und Research-Panel |
 | **RefusalHintService** | Hinweis in der Context-Hint-Box, wenn eine Fähigkeit oder der Held einen Befehl des Spielers ablehnt |
 | **UpgradeHintService** | Zeile im Panel, wenn ein Upgrade nicht gekauft werden kann (`UPGRADE_HINT_MS`) |
-| **TowerLosRegistry** (`tower-los-registry.ts`) | LOS eines Towers auf dem Route-Grid: Registrieren, Neuberechnen, Warteschlange der angeforderten Neuberechnungen, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md) |
+| **TowerLosRegistry** (`tower-los-registry.ts`) | Sichtlinien auf dem Hauptthread: hört `tower:los-needed`, rendert die Cubemap auf der GPU (eine je Bild), löst die Zellen im Raster des Hauptthreads auf und schickt `command:los-mask`. Coop-Gäste rendern nicht. Schreibt die Masken aus den Tower-Zuständen der Pakete ins eigene Raster, siehe [LOS_PIPELINE.md](LOS_PIPELINE.md) |
+| **TowerSelectionService** | Der gewählte Tower als UI-Zustand des Hauptthreads: Id im Store, Schatten-Tower, Auswahlring, LOS-Anzeige der Auswahl |
 | `build-preview-los.ts`, `tower-preview-model.ts`, `tower-plinth-preview.ts` | Bauvorschau: LOS-Anzeige, transparentes Modell mit Grün/Rot-Tönung, Sockel |
 | `hotkey-map.ts` | Zuordnung Taste zu Aktion (`resolveHotkey`, `HOTKEY_HELP`) |
 
 #### combat/
+
+Die Kampf-Services laufen in der Simulation (Worker, `SIM_PROVIDERS` in `sim/core/sim-core.ts`), nicht im
+Injector der App.
 
 | Service | Verantwortung |
 |---------|---------------|
@@ -139,7 +170,6 @@ Die Tabellen unten führen die Services und Hilfsklassen je Ordner. Specs liegen
 | **CombatVfxService** | VFX-Trigger für Combat-Events (Hit-Sparks, Splash-Visuals) |
 | **DamageApplicationService** | Damage-Pipeline: Schadensmatrix, Resistances, DOT-Application |
 | **StatusEffectService** | Status-Effekte (Slow, Burn, Poison, Freeze als Halt, Stun) inkl. DOT-Ticks, siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
-| **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
 | **BodyAim** (`body-aim.ts`) | Zielpunkt eines Towers auf einem Körper entlang der Route (Ooze): der nächste Punkt in Reichweite und Sicht |
 
 #### world/
@@ -244,10 +274,9 @@ tower-defense.component.ts
     │   └── GameStateSyncService ─────── EventBus → Store Bridge
     │
     ├── GameLoopFacadeService ───────── Wave, Game Loop, AI
-    │   ├── TowerCombatService ───────── Targeting, Rotation, Shooting
-    │   ├── CombatEffectService ──────── Hits, Damage, Effects
-    │   ├── HQDamageService ──────────── HQ Fire, Damage Sounds
-    │   └── StrategicPlacementService ── Optimale Tower-Positionen
+    │   ├── SimClient ────────────────── Tick je Bild, Paket anwenden, Hauptthread-Bus
+    │   ├── SimMirror ────────────────── Schatten-Tower, Views, Skalare
+    │   └── PresentationService ──────── PresentationHost je Engine (Ops, Tabellen, Ton, VFX)
     │
     ├── VisualizationFacadeService ──── Rendering, Camera, Toggles
     │   ├── CameraControlService ─────── Kamera-Steuerung
@@ -283,14 +312,15 @@ tower-defense.component.ts
     │   ├── DebugWindowService ────────── Debug Windows
     │   └── ModelPreviewService ───────── 3D Previews
     │
-    ├── Managers (event-driven)
-    │   ├── GameStateManager ──────────── Game-Loop, Event-Wiring, Sub-Manager-Lifecycle, Fassade für UI und Bots
-    │   │   └── game-state/ ───────────── GameClock, Ledger, TowerLifecycle, LockstepPacer, SimSnapshots, RouteWorld, CoopRoom
-    │   ├── GameCommandsHandler ───────── Routing der `command:*`- und sieben `debug:*`-Events (2026-05-10)
-    │   ├── EconomyService ────────────── Wave-Completion-Bonus + Streak (extrahiert aus GSM)
-    │   ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
-    │   ├── AbilityManager / HeroManager / SimRecorder
-    │   └── EntityManager ─────────────── Generischer Entity-Container
+    └── Web Worker: SimCore (sim/core/sim-core.ts), eigener Injector, keine Engine, keine Stores
+        ├── GameStateManager ──────────── Game-Loop, Event-Wiring, Sub-Manager-Lifecycle
+        │   └── game-state/ ───────────── GameClock, Ledger, TowerLifecycle, TowerLos, LockstepPacer, SimSnapshots, RouteWorld, CoopRoom
+        ├── GameCommandsHandler ───────── Routing der `command:*`- und `debug:*`-Events
+        ├── TowerCombatService / CombatEffectService / DamageApplicationService / StatusEffectService
+        ├── EconomyService ────────────── Wave-Completion-Bonus + Streak
+        ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
+        ├── AbilityManager / HeroManager / SimRecorder
+        └── EntityManager ─────────────── Generischer Entity-Container
 ```
 
 ---
@@ -454,7 +484,7 @@ ein Map-Zugriff pro Strahl. Herkunft: archive/PERF_BUG_ANALYSIS_2026-05-28.md, N
 
 | Aufrufer | Strahlen |
 |---|---|
-| `routeGrid` | Zell-Sampling des Route-Grids, nur im Korridor-Bau (`GameStateManager`) |
+| `routeGrid` | Zell-Sampling des Route-Grids, nur im Korridor-Bau auf dem Hauptthread (`CorridorBuild`) |
 | `routeCorridor` | Säule und Seitenstrahlen der Korridor-Stationen (`TerrainQueries.measureStreetClearance`) |
 | `corridorPick` | Säulen-Inspektion ohne Cache (`TerrainQueries.inspectColumn`) |
 | `streets` | Straßen-Overlay (`StreetRenderingService`) |
@@ -527,8 +557,8 @@ Tower-LOS und Air-Routing bedienen.
    das entwertet einzelne Säulen-Samples (kein globaler Cache-Clear); danach
    invalidiert der Engine die LOS-Cubemap und ruft den Callback
 2. `VisualizationFacadeService.onTilesLoaded()`: Straßen, Gebäude, Marker-Höhen,
-   `gameState.onTilesLoaded()`; die Overlays der Zellen zeichnen der Korridor-Bau
-   und der Grid-Schritt eines Ortswechsels
+   `PresentationHost.onTilesLoaded()`; die Overlays der Zellen zeichnen der Korridor-Bau
+   und der Grid-Schritt eines Ortswechsels. Die Simulation bekommt keine Tiles
 3. Am Korridor ändert sich dabei nichts: Cells, Höhen und Routenlinie stehen, seit
    `CorridorBuild` sie eingefroren hat. Gesampelt wird nur in einem Bau
    ([ROUTE_CORRIDOR.md](ROUTE_CORRIDOR.md))
@@ -553,18 +583,18 @@ sanity-checked.
 Tower-Platzierung und Kamera-Bewegung lösten früher schwere Frame-Drops aus
 (95-600ms synchrone Raycasts). Beide nutzen jetzt progressive Batching:
 
-**Tower LOS Registration:**
-- `TowerPlacementService.registerTowerOnGrid()` läuft beim Platzieren (aus
-  `GameStateManager`, nicht für passive Gebäude): `registerTower()` am Grid mit
-  GPU-Cubemap-LOS auf den eingefrorenen Cells
-  ([LOS_PIPELINE.md](LOS_PIPELINE.md)), danach `tower.losReady = true`
-- Combat-System überspringt Towers mit `!losReady`
-- Eine Neuberechnung fragen nur die Forschung, die einem Tower Luftziele gibt
-  (Queue des `TowerLosRegistry`, `drainLosQueue()` aus `GameStateManager.update`,
-  höchstens ein Tower pro Frame), und ein Reichweiten-Upgrade (sofort) an
-- Jede Auflösung endet in einer `LosMask` am Tower und dem Event
-  `tower:los-resolved`; der Kampf raycastet nicht, eine Zelle ohne Antwort gilt als
-  nicht sichtbar ([LOS_PIPELINE.md](LOS_PIPELINE.md))
+**Tower LOS als Anfrage und Antwort** (Simulation im Worker, [SIM_WORKER.md](SIM_WORKER.md)):
+- Ein gebauter Tower (nicht passive Gebäude), ein Reichweiten-Upgrade und die Forschung, die einem Tower
+  Luftziele gibt, fragen in der Simulation eine Maske an (`TowerLos`, `managers/game-state/tower-los.ts`,
+  Event `tower:los-needed`): ein neuer Tower wartet ohne Sicht, ein aufgerüsteter behält seine alten Antworten,
+  bis die neuen kommen
+- Auf dem Hauptthread rendert `TowerLosRegistry` die GPU-Cubemap auf den eingefrorenen Cells
+  ([LOS_PIPELINE.md](LOS_PIPELINE.md)), höchstens einen Tower pro Bild, und schickt `command:los-mask`;
+  Coop-Gäste rendern nicht, sie bekommen die Masken des Hosts über das Relay
+- Die Simulation wendet die Maske an der Grenze des Ticks an, mit dem sie kommt, setzt `tower.losReady` und
+  emittiert `tower:los-resolved`; die Maske steht im Befehlslog, ein Replay braucht keine GPU
+- Combat-System überspringt Towers mit `!losReady`; ein gebauter Tower schießt also erst ein bis zwei Bilder
+  nach dem Bau. Der Kampf raycastet nicht, eine Zelle ohne Antwort gilt als nicht sichtbar
 
 **Street Rendering:**
 - `renderStreets()` sammelt alle Nodes und gibt sofort zurück
@@ -701,30 +731,39 @@ class Projectile extends GameObject {
 
 ### 4.1 GameStateManager (Orchestrator)
 
+Der GameStateManager läuft in der Simulation, im Worker (`SimCore`, siehe [Simulation im Worker](#simulation-im-worker)).
+Er kennt weder Engine noch Renderer noch UI-Stores: seine Welt kommt als `SimWorld`, seine Darstellung geht als Op
+(`SimOps`) und als Event hinaus.
+
 ```typescript
-@Injectable()  // Nur dieser Manager hat noch Angular DI
+@Injectable()  // im Injector der Simulation (SIM_PROVIDERS), nicht der App
 class GameStateManager {
+  readonly coords: SimCoords;   // Geo zu lokal um den Ursprung der Welt
+  readonly ops: SimOps;         // Renderer-Aufrufe als Ops, der Paket-Schreiber nimmt sie
+
   // Sub-Managers (manuell erstellt, nicht injected)
   readonly towerManager: TowerManager;
   readonly enemyManager: EnemyManager;
   readonly projectileManager: ProjectileManager;
   readonly waveManager: WaveManager;
-  readonly researchManager: ResearchManager;
-  readonly abilityManager: AbilityManager;
-  readonly heroManager: HeroManager;
+  get researchManager(): ResearchManager;  // der des lokalen Spielers; researchOf(playerId) je Spieler
+  get abilityManager(): AbilityManager;    // abilityOf(playerId)
+  get heroManager(): HeroManager;          // heroOf(playerId)
+  readonly towerLos: TowerLos;             // Sichtlinien als Anfrage und Antwort
 
-  // Event Bus
-  private readonly eventBus = new GameEventBus();
+  private readonly eventBus = new GameEventBus();  // Bus der Simulation, mit lebenden Entities
 
-  // Game State (Angular Signals für UI-Bindings, gehalten von BaseHealthLedger / CreditsLedger)
+  // Signals der Simulation (Ledger), nicht die der UI-Stores
   readonly baseHealth: WritableSignal<number>;
   readonly credits: WritableSignal<number>;
 
-  initialize(engine: ThreeTilesEngine, basePosition, spawnPoints, cachedPaths): void;
+  loadWorld(world: SimWorld): void;  // Raster aus der Welt des Hauptthreads, dann initialize()
+  initialize(basePosition, spawnPoints, cachedPaths): void;  // direkt nur für Specs mit eigenem Raster
+  receiveCommand(command: GameEvent, playerId: string): void;  // Befehle des Ticks, vor dem ersten Sub-Step
   update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void): void;  // Sub-Step-Loop, siehe Abschnitt 9
-  reset(): void;
+  reset(seed?: number): void;
   dispose(): void;
-  getEventBus(): GameEventBus;  // Fuer externe Subscriptions
+  getEventBus(): GameEventBus;
 }
 ```
 
@@ -741,6 +780,7 @@ ohne Angular-DI, und delegiert an sie. Seine öffentliche API (`placeTower`, `se
 | `GameClock` | Sub-Step-Takt: Wanduhr-Delta begrenzen, mit dem Timescale multiplizieren, Rest übertragen, Spielzeit führen (`FIXED_STEP_MS` und die Deckel) |
 | `CreditsLedger` | `credits`-Signal; einzige Stelle, die bucht und `credits:changed` emittiert |
 | `BaseHealthLedger` | `baseHealth`-Signal; emittiert `health:changed` |
+| `TowerLos` | Sichtlinien: nach Bau, Reichweiten-Upgrade oder Luft-Forschung fragt ein Tower seine Maske an (`tower:los-needed`); ein neuer schießt erst mit ihr. `command:los-mask` wendet sie an der Grenze des Ticks an, sie steht im Befehlslog |
 | `TowerLifecycle` | Bauen, Verkaufen, Upgraden (Prüfungen, Kosten, Tier-Gating, `tower:upgraded`), Range-Refresh, AA-Retrofit, Wachrichtung |
 | `LockstepPacer` | Coop: Relay-Link, Tempo gegen den Raum, Barriere je Sub-Step-Grenze, gemeldete Prüfsummen (2026-09-28) |
 | `SimSnapshots` | Snapshot zwischen den Wellen und mitten in der Welle, Plan der laufenden Welle (2026-09-28) |
@@ -759,7 +799,7 @@ Aufrufe pro Sub-Step und pro Frame, Pause, Timescale 1 und 10, Listener-Reihenfo
 ```typescript
 // Kein @Injectable - Constructor Injection
 class EnemyManager extends EntityManager<Enemy> {
-  constructor(eventBus: GameEventBus, routeGrid: GlobalRouteGridService, spatialGrid: SpatialGridService);
+  constructor(eventBus: GameEventBus, routeGrid: GlobalRouteGridService, spatialGrid: SpatialGridService, coords: SimCoords, sink: SimSink);
 
   spawn(path, typeId, speedOverride?, paused?, healthOverride?, entry?): Enemy;  // entry: 'portal' oder ein Start mitten auf dem Pfad
   kill(enemy: Enemy, cause: KillCause = 'combat'): boolean;  // Emittiert 'enemy:died'; nur 'combat' zahlt Gold und teilt, 'debug' (kill-all) nicht
@@ -781,22 +821,21 @@ eines Wurms liefert den Kopf und emittiert `worm:spawned`. Details in
 Oozes führt `OozeBodies` (`managers/ooze-bodies.ts`), damit die Schleife pro Gegner
 für alle anderen nur `enemy.body` prüft: Körper anlegen beim Spawn, wachsen und in die
 HQ fließen im Sub-Step (`enemy:leaking`, am Ende einmal `enemy:reached-base`), Split
-entlang des Körpers, Frame an `tilesEngine.oozes` in `presentFrame`.
+entlang des Körpers; der Renderer bekommt die Körper als Op (`sink.oozes`) und über die Ooze-Tabelle des Pakets.
 
 ### 4.3 TowerManager (Framework-agnostic)
 
 ```typescript
 // Kein @Injectable - Constructor Injection
 class TowerManager extends EntityManager<Tower> {
-  constructor(eventBus: GameEventBus, osmService: OsmStreetService, researchStore: ResearchStore);
+  constructor(eventBus: GameEventBus, coords: SimCoords, sink: SimSink);
 
-  initialize(tilesEngine: ThreeTilesEngine): void;  // aus EntityManager
   placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation = 0, plinthHeight = 0, plinthOverhang: readonly number[] = []): Tower | null;  // Emittiert 'tower:placed'
   sell(tower: Tower): number;  // Emittiert 'tower:sold'
-  selectTower(id: string | null): void;
-  getSelected(): Tower | null;
 }
 ```
+
+Die Auswahl eines Towers ist UI-Zustand des Hauptthreads (`TowerSelectionService`), nicht der Simulation.
 
 Die Platzierungsregeln liegen nicht im TowerManager, sondern in `TowerPlacementService`
 und `utils/tower-placement-rules.ts`.
@@ -806,7 +845,7 @@ und `utils/tower-placement-rules.ts`.
 ```typescript
 // Kein @Injectable - Constructor Injection
 class ProjectileManager extends EntityManager<Projectile> {
-  constructor(eventBus: GameEventBus);
+  constructor(eventBus: GameEventBus, sink: SimSink);
 
   spawn(tower: Tower, targetEnemy: Enemy, heading?: number, aimPoint?: GeoPosition): Projectile;  // Emittiert 'vfx:muzzle-flash'; aimPoint für Körper entlang der Route
   spawnShot(origin, originHeight, target, typeId, damage, damageType, sourceId, aimPoint?): Projectile;  // Schuss ohne Tower (Held); aimPoint für Körper entlang der Route
@@ -847,12 +886,15 @@ class ResearchManager implements IGameManager {
 }
 ```
 
-Den Store-Zustand meldet der Manager als `research:state-changed`, `GameStateSyncService`
-schreibt ihn in den `ResearchStore`.
+Den Store-Zustand meldet der Manager als `research:state-changed`; auf dem Hauptthread schreibt
+`GameStateSyncService` ihn in den `ResearchStore`.
 
 ResearchEffects sind in `configs/research/research.types.ts` definiert und werden bei Completion an Tower- und Game-Systeme verteilt (`kind`: `unlock-tower`, `global-perk`, `unlock-upgrade-tier`, `enable-targeting`).
 
 ### 4.7 SpatialAudioManager
+
+Läuft auf dem Hauptthread in der Darstellung (`PresentationHost`); die Simulation spielt Töne per Op
+(`spatialAudio.*`) und `audio:play`-Event.
 
 ```typescript
 // Framework-agnostic (kein @Injectable)
@@ -871,13 +913,13 @@ class SpatialAudioManager {
 ```typescript
 // Kein @Injectable - Constructor Injection, Welt über HeroWorld
 class HeroManager implements IGameManager {
-  constructor(eventBus: GameEventBus, world: HeroWorld);
+  constructor(eventBus: GameEventBus, world: HeroWorld, owner?: PlayerOwner, heroId?: string);
 
   hire(price?: number): boolean;            // command:hire-hero
   moveTo(target: GeoPosition): boolean;     // command:hero-move, Weg per Dijkstra im Befehl
   setAmmo(ammo: HeroAmmoId): boolean;       // command:hero-ammo
   update(stepMs: number): void;             // eigener Schritt am Ende von runSubStep
-  presentFrame(): void;                     // einmal pro Frame an den HeroRenderer
+  getPresentation();                        // was der Paket-Schreiber je Bild für den HeroRenderer nimmt
   getDefenseProfile(): HeroDefenseProfile | null;  // für analyzeDefense
 }
 ```
@@ -892,9 +934,11 @@ Der Held (Söldner) läuft auf dem Routengraph (`utils/route-graph.ts`), kämpft
 
 Das Replay rechnet eine Welle aus dem Zustand bei ihrem Start und den Befehlen noch einmal, mit den echten
 Renderern. `SimRecorder` (`simulator/`, vom GameStateManager gehalten) nimmt beim Wellenstart einen `SimSnapshot`,
-merkt sich die Wellenkonfiguration und den Einstieg in den `CommandLog`. `ReplaySession` sichert den Live-Stand,
-spielt die Welle ab und springt (Neu-Simulation bis zur Zielstelle), danach kommt der Live-Stand zurück.
-`ReplayService` (Angular) steuert den Modus, `app-replay-bar` die Leiste. Das frühere Präsentations-Replay
+merkt sich die Wellenkonfiguration und den Einstieg in den `CommandLog`. Die Neu-Simulation läuft im Worker
+(`sim/core/sim-replay.ts`; RPC `replayEnter`, `replaySeek`, `replayExit`, das Abspielen über `SimTickInput.replay`):
+sie sichert den Live-Stand, spielt die Welle ab und springt (Neu-Simulation bis zur Zielstelle), danach kommt der
+Live-Stand zurück. Ihre Bilder kommen als normale Pakete. `ReplayService` (Hauptthread) steuert den Modus,
+`app-replay-bar` die Leiste. Das frühere Präsentations-Replay
 (`ReplayRecorder`, `ReplayPlayer`) ist am 2026-09-24 entfallen.
 
 ---
@@ -903,7 +947,10 @@ spielt die Welle ab und springt (Neu-Simulation bis zur Zielstelle), danach komm
 
 > **Vollständige Dokumentation:** [EVENT_SYSTEM.md](EVENT_SYSTEM.md)
 
-Das Projekt verwendet einen **type-safe Event Bus** für lose Kopplung zwischen Komponenten.
+Das Projekt verwendet einen **type-safe Event Bus** für lose Kopplung zwischen Komponenten. Es gibt zwei Busse:
+den der Simulation im Worker (`GameStateManager.getEventBus()`, Events mit lebenden Entities) und den des
+Hauptthreads (`SimClient.bus`, `MainEventBus` aus `sim/client/view-events.ts`, dieselben Events mit Views und
+Schatten-Towern, dazu die Befehle der UI). Beide sind ein `GameEventBus`.
 
 ### GameEventBus
 
@@ -936,18 +983,17 @@ Commands) mit Producer, Listener und Payload stehen in [EVENT_SYSTEM.md](EVENT_S
 - **Deferred Events:** Nicht-kritisch, beim nächsten `processQueue()` verarbeitet (z.B. `vfx:*`, `audio:play`, `debug:sound`; außerdem `wave:completed`)
 
 ```typescript
-// GameStateManager.runSubStep(stepMs), einmal pro Sub-Step
+// GameStateManager.runSubStep(stepMs), einmal pro Sub-Step, im Worker
 projectileManager.update(stepMs);          // Emits immediate + deferred
-researchManager.update(stepMs);
-audioService?.update(stepMs);              // Loop-Sounds in Spielzeit
-abilityManager.update(stepMs);             // Einschläge und Strahlen der Fähigkeiten
+research.update(stepMs);                   // je Spieler, danach startQueued
+ability.update(stepMs);                    // je Spieler: Einschläge und Strahlen der Fähigkeiten
 eventBus.processQueue();                   // Process deferred at stable point
 waveManager.tickSpawn(stepMs);             // nur in der Wave-Phase
 enemyManager.update(stepMs, gameTimeMs);   // Emits immediate events
 towerCombat.updateTowerShooting(...);      // + Beam/Melee/Chain, nur in der Wave-Phase oder mit Debug-Gegnern
-heroManager.update(stepMs);                // eigener Schritt des Helden
+towerCombat.updateMannedTower(...);        // je besetztem Tower
+hero.update(stepMs);                       // je Spieler: eigener Schritt des Helden
 stepTowerAim(tower.aim, stepMs);           // je Tower: Turmdrehung in Spielzeit, gibt das Feuern frei
-// danach in update(): onSubStep (Bot)
 ```
 
 ---
@@ -1253,17 +1299,22 @@ const animate = (currentTime: number) => {
   requestAnimationFrame(animate);
 };
 
-// GameLoopFacadeService.onEngineUpdate(deltaTime) - der onUpdateCallback
+// GameLoopFacadeService.onEngineUpdate(deltaTime) - der onUpdateCallback, auf dem Hauptthread
 function onEngineUpdate(deltaTime: number) {
   // pro Frame: Build-Preview-Rotation, Street-Batches, Keyboard-Pan, Marker, Route-Animation, Intro-Flug
-  gameState.update(performance.now(), (stepMs) => {
-    // Die Turmdrehung läuft in runSubStep (stepTowerAim je Tower), nicht hier
-    if (botEnabled) botClient.updateBot(getSnapshot, stepMs);  // BotSession, nur in Bot-Läufen
-  });
-  bossIntro.update(deltaTime);  // Boss aus dem Portal: Kameraschnitt, Wanduhr, siehe WAVE_SYSTEM.md
-  // danach: Auto-Wave-Countdown, Profiler, Route-Grid-Viz, LOS-Viz-Puls, UI-Stats (~10 Hz)
+  towerControl.flushAim();       // Zielen im besetzten Tower als Befehl
+  world.syncPending();           // corridorPending an die Simulation
+  sim.frame(performance.now());  // Paket anwenden (Spiegel, Ops, Events, Tabellen), nächsten Tick schicken
+  if (botEnabled) botClient.updateBot(getSnapshot, botDelta);  // je Bild, auf der Spielzeit des Pakets
+  bossIntro.update(deltaTime);   // Boss aus dem Portal: Kameraschnitt, Wanduhr, siehe WAVE_SYSTEM.md
+  // danach: Replay, besetzter Tower, Run-Log, Auto-Wave-Countdown, Profiler, Route-Grid-Viz, LOS-Viz-Puls, UI-Stats (~10 Hz)
 }
 ```
+
+Der Worker rechnet die Sub-Steps eines Ticks, während der Hauptthread rendert. Ein Tick ist unterwegs; das Paket
+kommt am Anfang des nächsten Bilds an die Reihe (`SimClient.frame`). Befehle, die zwischen zwei Ticks auf dem
+Hauptthread-Bus landen, gehen mit dem nächsten Tick und wirken an der Grenze vor seinem ersten Sub-Step
+(`SimCore.tick`, `GameStateManager.receiveCommand`).
 
 `ThreeTilesEngine.update()` ruft `onUpdateCallback` auch bei abgeschaltetem Rendering
 (Headless-Training); Enemy-Animation, Tower-Visuals, Projektil-Upload und Effekte laufen
@@ -1276,9 +1327,9 @@ die Spielzeit in festen Sub-Steps von `FIXED_STEP_MS` (16,667 ms) frei, höchste
 `MAX_SUBSTEPS_PER_FRAME` (600) pro Frame, und `endFrame()` trägt den Rest in den nächsten
 Frame, gedeckelt auf 600 Sub-Steps plus `MAX_REMAINDER_MS` (2000). Jeder Sub-Step läuft durch `runSubStep()`
 (Reihenfolge in Abschnitt 5), danach prüft die Schleife Wave-Ende und Game Over. Nach der
-Schleife gibt `presentFrame()` den Enemy- und Projektil-Zustand einmal an den Renderer, wenn
-mindestens ein Sub-Step lief und Rendering an ist. Oberhalb von 60 fps läuft deshalb nicht
-in jedem Frame ein Sub-Step.
+Schleife schreibt `SimCore` das Paket (`PacketWriter`); es trägt `presented`, wenn Rendering an ist und ein
+Sub-Step lief oder ein Befehl kam. Dann gibt der `FramePresenter` auf dem Hauptthread die Tabellen an die
+Renderer. Oberhalb von 60 fps läuft deshalb nicht in jedem Frame ein Sub-Step.
 
 **Hintergrund-Tab (nur Training):** Mit `setBackgroundLoopEnabled(true)` ruft bei
 verstecktem Tab ein Worker-Takt (`workers/heartbeat.worker.ts`, 16 ms) `update()` ohne
@@ -1304,12 +1355,12 @@ Simulation rechnet mit dem Wanduhr-Delta zwischen den gelaufenen Frames: bei
 also volle Spielgeschwindigkeit, auch bei Training-Timescales. Standard ist
 unbegrenzt, der Loop verhält sich dann wie ohne Cap.
 
-**Pause:** `GameStore.paused` (Pause-Button neben dem Game-Speed), gespiegelt
-in `GameStateManager.paused`. Pausiert läuft kein Sub-Step: Spawns, Kampf,
+**Pause:** `GameStore.paused` (Pause-Button neben dem Game-Speed), mit jedem Tick an die Simulation
+(`SimTickInput.paused`, gesetzt in `GameStateManager.paused`). Pausiert läuft kein Sub-Step: Spawns, Kampf,
 Projektile, Status-Effekte, Forschung und Bot-Ticks stehen, die Game-Clock
 auch. `update()` merkt sich trotzdem die Wanduhr, damit der erste Frame nach
-der Pause nichts nachholt, und setzt die Renderer-Timescale auf 0, damit die
-Laufanimationen mit ihren Gegnern stehen bleiben. Rendering, Kamera, Partikel
+der Pause nichts nachholt. Auf dem Hauptthread hält `PresentationHost.setPaused` die Loop-Sounds an und dämpft
+die Musik, außer mit `GameStore.pauseKeepsLoops`. Rendering, Kamera, Partikel
 und UI laufen weiter. Die Timescale (Untergrenze 0,1) bleibt unberührt, beim
 Fortsetzen gilt wieder die gewählte Geschwindigkeit. Ein Neustart hebt die
 Pause auf (`resetGameState`).
@@ -1350,17 +1401,19 @@ Abschnitt 6) und in den Fach-Dokumenten.
 | `game-engine/` | Event Bus und die Angular-freien Dienste daran | siehe [game-engine/README.md](../src/app/game-engine/README.md) |
 | `integration/` | Tests über mehrere Manager und Services | |
 | `interfaces/` | Provider-Interfaces für Straßennetz und Terrain | |
-| `managers/` | Manager (event-driven, Angular-frei außer dem GameStateManager), `game-state/` (GameClock, Ledger, TowerLifecycle, Wellen-Vorschau), `worm/`, `audio/` (Spatial Audio), `ooze-*.ts` | `game-state.manager.ts`, `game-commands.handler.ts` |
+| `managers/` | Manager der Simulation (event-driven, laufen im Worker), `game-state/` (GameClock, Ledger, TowerLifecycle, TowerLos, Wellen-Vorschau), `worm/`, `ooze-*.ts`; `audio/` (Spatial Audio) läuft auf dem Hauptthread in der Darstellung | `game-state.manager.ts`, `game-commands.handler.ts` |
+| `presentation/` | Darstellung auf dem Hauptthread: `PresentationHost` je Engine, `OpPlayer` (Ops), `FramePresenter` (Tabellen), Status-Looks, Gegner-, Ooze- und Wurm-Ton, HQ-Feuer | `presentation-host.ts`, `presentation.service.ts` |
 | `models/` | Typen (`game.types.ts`, `location.types.ts`, `status-effects.ts`) | |
 | `replay/` | Replay-Leiste: Befehls-Marken, Zeitformat | `replay-bar-view.ts`, siehe [REPLAY.md](REPLAY.md) |
 | `run-log/` | Run-Log: Sammler, Speicher, Export, Game-Over-Zahlen | `run-log.service.ts`, `run-summary.ts`, siehe [RUN_LOG.md](RUN_LOG.md) |
 | `simulator/` | Snapshot, Prüfsumme, Neu-Simulation, Replay-Sitzung, Replay-Datei | `resimulation.ts`, `state-hash.ts`, `replay-session.ts` |
+| `sim/` | Simulation im Worker: `core/` (SimCore, Sink, Koordinaten, Event-Export, Paket), `worker/` (Einstieg), `protocol/` (Paket, Ops, Events, Nachrichten, Tabellen-Speicher), `client/` (SimClient, Transporte, Spiegel, Views), siehe [SIM_WORKER.md](SIM_WORKER.md) | `core/sim-core.ts`, `client/sim-client.service.ts`, `client/mirror/sim-mirror.ts` |
 | `services/` | Angular-Services in sieben Unterordnern und im Root | Tabellen unter [Services](#services) |
 | `store/` | Signal Stores | siehe [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) |
 | `styles/` | Theme-Tokens | `td-theme.ts` |
 | `three-engine/` | Three.js-Engine: Szene, Tiles, Kamera, Render-Loop, Raycasts, Renderer, Post-Processing | `three-tiles-engine.ts`, Abschnitt 1 und 6 |
 | `utils/` | Reine Hilfsmodule (Route-Grid, Korridor, Geo, Kamera, LOS, Platzierung, Frame-Pacer) | `global-route-grid.ts`, `route-corridor.ts`, `geo-utils.ts` |
-| `workers/` | Web Worker: Heartbeat für den Loop im versteckten Tab (A* läuft im Main Thread) | `heartbeat.worker.ts` |
+| `workers/` | Web Worker: Heartbeat für den Loop im versteckten Tab (A* läuft im Main Thread); der Worker der Simulation liegt in `sim/worker/` | `heartbeat.worker.ts` |
 
 Außerhalb von `src/app/`: `tools/` (Shader-Check, Blender-Skripte, Weltkarten-Umrisse,
 Modell-Budget, Charts, Benchmarks, Relay-Last), `bot-server/` (Python, nur Bot-Läufe), `coop-server/` (Node-Relay
@@ -1472,7 +1525,7 @@ Partikelzahl (30 bis 230) und Radius (1,5 bis 11,5 m).
 
 Ein Licht oder einen eigenen Loop-Sound erzeugt das Feuer nicht.
 
-**Automatisches Spawning** (`HQDamageService`):
+**Automatisches Spawning** (`HqDamagePresenter`, `presentation/hq-damage-presenter.ts`, am Hauptthread-Bus):
 - HP über `GAME_BALANCE.fire.permanentThreshold` (50): kurzer `spawnFireFlash()` pro Treffer
 - HP darunter: ein dauerhaftes `spawnScaledFire()` mit Skala `1 - HP/50`, bei jedem Treffer neu gesetzt
 - Game Over: `spawnHQExplosion()` plus `spawnScaledFire(…, 1.0)`
