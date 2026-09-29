@@ -1,7 +1,8 @@
 /**
  * Playtest 312 and 313 (night 2026-09-14): a tower on a stone plinth. The
- * real TowerManager places and sells it, the real TowerPlinthRenderer puts
- * the plinth into a scene, the real ScreenPicker picks from the tower meshes
+ * real TowerManager places and sells it; its renderer calls go as ops
+ * (SimOps) through the main thread's OpPlayer to the engine, where the real
+ * TowerPlinthRenderer puts the plinth into a scene, the real ScreenPicker picks from the tower meshes
  * plus the plinth meshes, as ThreeTilesEngine hands them to it
  * (three-tiles-engine.ts, pickableTowers). The tower model is a stand-in box
  * standing on the foot. The shot comes from the real ProjectileManager.
@@ -24,7 +25,8 @@ import {
   type WebGLRenderer,
 } from 'three';
 import { TowerManager } from '../../../managers/tower.manager';
-import { NO_RESEARCH } from '../../../managers/research.manager';
+import { SimOps } from '../../../sim/core/sim-sink';
+import { OpPlayer } from '../../../presentation/op-player';
 import { TowerPlinthRenderer } from './tower-plinth.renderer';
 import { plinthBraces } from './plinth-braces';
 import { braceCourse, PLINTH_EMBED_M, type PlinthBrace } from './plinth-geometry';
@@ -32,15 +34,16 @@ import { ScreenPicker } from '../../screen-picker';
 import { TowerShadowMapper } from '../../tower-shadow-mapper';
 import { TOWER_TYPES } from '../../../configs/tower-types.config';
 import { footprintSampleOffsets } from '../../../utils/tower-footprint';
-import { createTestManagers, TEST_PATH } from '../../../integration/test-helpers';
+import { createTestCoords, createTestManagers, TEST_PATH } from '../../../integration/test-helpers';
 import type { Tower } from '../../../entities/tower.entity';
-import type { ThreeTilesEngine } from '../../index';
 
 /** Local frame of the test: x = lon, z = lat, y = height, in metres. */
 const sync = {
   geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
   geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
   geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat),
+  getOrigin: () => ({ lat: 0, lon: 0, height: 0 }),
+  localToGeo: (v: { x: number; y: number; z: number }) => ({ lat: v.z, lon: v.x, height: v.y }),
 };
 
 const RECT = { left: 0, top: 0, width: 800, height: 600 };
@@ -82,8 +85,25 @@ function setup() {
     spatialAudio: { registerSound: vi.fn(), playAt: vi.fn(), playAtGeo: vi.fn(() => Promise.resolve()) },
   };
   const m = createTestManagers();
-  const manager = new TowerManager(m.eventBus, NO_RESEARCH);
-  manager.initialize(engine as unknown as ThreeTilesEngine);
+  const ops = new SimOps();
+  const tm = new TowerManager(m.eventBus, createTestCoords(sync), ops.sink);
+  const player = new OpPlayer(engine);
+  /** The manager, each call's ops played on the engine right after it, as a frame would */
+  const manager = {
+    placeTower: (...args: Parameters<TowerManager['placeTower']>) => {
+      const placed = tm.placeTower(...args);
+      player.play(ops.take());
+      return placed;
+    },
+    sell: (tower: Tower) => {
+      tm.sell(tower);
+      player.play(ops.take());
+    },
+    clear: () => {
+      tm.clear();
+      player.play(ops.take());
+    },
+  };
 
   // Side view at the height of the plinth, the canvas centre on its middle
   const camera = new PerspectiveCamera(40, RECT.width / RECT.height, 1, 1000);
@@ -155,7 +175,7 @@ describe('A tower on its stone plinth (playtest 312, 313)', () => {
     s.m.projectileManager.spawn(tower, enemy);
 
     const { heightOffset, shootHeight } = TOWER_TYPES.cannon;
-    const startHeight = s.m.tilesEngine.projectiles.create.mock.calls[0][4];
+    const startHeight = s.m.sink.projectiles.create.mock.calls[0][4];
     expect(startHeight).toBeCloseTo(FOOT + heightOffset + shootHeight, 6);
     expect(startHeight - (FOOT - PLINTH)).toBeCloseTo(PLINTH + heightOffset + shootHeight, 6);
   });
