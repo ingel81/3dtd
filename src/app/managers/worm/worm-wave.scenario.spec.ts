@@ -2,7 +2,8 @@
  * Playtest 354 and 355 (night 2026-09-14): the worm in a Custom Wave with
  * Count 2 and placed through Enemy Debug. Real EnemyManager, WaveManager and
  * GameStateSyncService with its store (the wave button's "N left" reads
- * waveEnemiesLeft), rendering mocked. The Custom Wave's schedule is built as
+ * waveEnemiesLeft), rendering mocked. The simulation's events reach the
+ * sync service's main bus as they happen. The Custom Wave's schedule is built as
  * WaveDebugService builds it: one entry per worm, the debug store's spawn
  * delay of 1.5 s between them. Enemy Debug's click arrives as the
  * debug:spawn-enemy it emits (EnemyDebugService.handleEnemyPlacement).
@@ -36,6 +37,7 @@ import { GameStore } from '../../store/game.store';
 import { UIStore } from '../../store/ui.store';
 import { EngineStore } from '../../store/engine.store';
 import { LocationStore } from '../../store/location.store';
+import { createMainEventBus, type ViewEvent } from '../../sim/client/view-events';
 import type { GeoPosition } from '../../models/game.types';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from './worm-group';
@@ -72,8 +74,12 @@ describe('Worm in a Custom Wave and in Enemy Debug (playtest 354, 355)', () => {
     injectionRegistry['TowerDefenseStore'] = store;
 
     m = createTestManagers();
+    const mainBus = createMainEventBus();
+    m.eventBus.onAny((event) => mainBus.emit(event as unknown as ViewEvent));
+    injectionRegistry['SimClient'] = { bus: mainBus };
+    injectionRegistry['SimMirror'] = { scalars: { gameTimeMs: 0 }, localPlayerId: 'local' };
     sync = new GameStateSyncService();
-    sync.initialize(m.eventBus);
+    sync.initialize();
     worms = [];
     m.eventBus.on('worm:spawned', (e) => worms.push(e.group));
   });
