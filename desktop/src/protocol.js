@@ -85,6 +85,17 @@ const CONTENT_SECURITY_POLICY = [
   "frame-ancestors 'none'",
 ].join('; ');
 
+/**
+ * Cross-origin isolation (docs/SIM_WORKER.md): the simulation worker shares
+ * its tables with the page through SharedArrayBuffer, which needs the page
+ * isolated. `credentialless` keeps the tile and map hosts working without a
+ * Cross-Origin-Resource-Policy of their own; they answer with CORS.
+ */
+const CROSS_ORIGIN_ISOLATION = {
+  'Cross-Origin-Opener-Policy': 'same-origin',
+  'Cross-Origin-Embedder-Policy': 'credentialless',
+};
+
 function mimeTypeFor(filePath) {
   return MIME_TYPES[path.extname(filePath).toLowerCase()] ?? 'application/octet-stream';
 }
@@ -161,7 +172,7 @@ const NOT_FOUND_ERRORS = new Set(['ENOENT', 'ENOTDIR', 'EISDIR']);
  * reads inside the asar in Electron and a fake does in the tests.
  */
 function createAppProtocolHandler({ root, readFile }) {
-  const headers = (extra) => ({ 'Content-Security-Policy': CONTENT_SECURITY_POLICY, ...extra });
+  const headers = (extra) => ({ 'Content-Security-Policy': CONTENT_SECURITY_POLICY, ...CROSS_ORIGIN_ISOLATION, ...extra });
 
   return async function handleAppRequest(request) {
     const filePath = resolveFilePath(root, request.url);

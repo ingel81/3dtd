@@ -105,6 +105,19 @@ export type LifecycleEvent =
       reason: LosResolveReason;
     }
   | {
+      /**
+       * A tower waits for its line of sight (placed, range grown, air
+       * retrofit). The main thread renders it with this range and these
+       * layers and answers with `command:los-mask` (TowerLosRegistry).
+       */
+      type: 'tower:los-needed';
+      towerId: string;
+      reason: LosResolveReason;
+      range: number;
+      canTargetGround: boolean;
+      canTargetAir: boolean;
+    }
+  | {
       type: 'tower:sold';
       tower: Tower;
       refund: number;

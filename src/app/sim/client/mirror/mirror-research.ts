@@ -1,0 +1,79 @@
+import type { ActiveResearch, ResearchId } from '../../../configs/research/research.types';
+import { getResearch } from '../../../configs/research/research-tree.config';
+import type { ResearchSource } from '../../../managers/research-snapshot';
+
+/**
+ * One player's research as the main thread has it (sim/client/mirror): the
+ * last research:state-changed, the elapsed times of research:progress on top.
+ * Reads like the ResearchManager for what the UI, the bot and the wave
+ * source ask of it (ResearchSource, airTargetingUnlocked).
+ */
+export class MirrorResearch implements ResearchSource {
+  private completed = new Set<ResearchId>();
+  private active: ActiveResearch[] = [];
+  private queued: ResearchId[] = [];
+  private _centerLevel = 0;
+  private _maxSlots = 1;
+  private _airTargetingUnlocked = false;
+
+  constructor(readonly playerId: string) {}
+
+  get centerLevel(): number {
+    return this._centerLevel;
+  }
+
+  get maxSlots(): number {
+    return this._maxSlots;
+  }
+
+  get availableSlots(): number {
+    return Math.max(0, this._maxSlots - this.active.length);
+  }
+
+  /** The AA retrofit is done: the combat counts air targets for this player's towers */
+  get airTargetingUnlocked(): boolean {
+    return this._airTargetingUnlocked;
+  }
+
+  isCompleted(id: ResearchId): boolean {
+    return this.completed.has(id);
+  }
+
+  getCompletedResearches(): Set<ResearchId> {
+    return this.completed;
+  }
+
+  getActiveResearches(): ActiveResearch[] {
+    return this.active;
+  }
+
+  getQueuedResearches(): ResearchId[] {
+    return this.queued;
+  }
+
+  /** research:state-changed */
+  setState(
+    active: readonly ActiveResearch[],
+    completed: ReadonlySet<ResearchId>,
+    queued: readonly ResearchId[],
+    centerLevel: number,
+    maxSlots: number,
+  ): void {
+    this.active = active.map((a) => ({ ...a }));
+    this.completed = new Set(completed);
+    this.queued = [...queued];
+    this._centerLevel = centerLevel;
+    this._maxSlots = maxSlots;
+    this._airTargetingUnlocked = [...this.completed].some((id) =>
+      getResearch(id)?.effects.some((e) => e.kind === 'enable-targeting' && e.capability === 'air'),
+    );
+  }
+
+  /** research:progress */
+  setElapsed(elapsed: ReadonlyMap<ResearchId, number>): void {
+    for (const a of this.active) {
+      const t = elapsed.get(a.researchId);
+      if (t !== undefined) a.elapsed = t;
+    }
+  }
+}

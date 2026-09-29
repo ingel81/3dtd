@@ -1,0 +1,8 @@
+# Cross-origin isolation for the game (docs/SIM_WORKER.md): the simulation
+# worker shares its tables with the page through SharedArrayBuffer, which
+# browsers only allow on an isolated page. `credentialless` keeps the tile,
+# map and street hosts working; they answer with CORS.
+<IfModule mod_headers.c>
+  Header always set Cross-Origin-Opener-Policy "same-origin"
+  Header always set Cross-Origin-Embedder-Policy "credentialless"
+</IfModule>

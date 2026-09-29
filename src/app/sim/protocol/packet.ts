@@ -12,6 +12,8 @@
 import { PROJECTILE_TYPES, type ProjectileTypeId } from '../../configs/projectile-types.config';
 import type { PresentationOp } from './ops';
 import type { ExportedEvent } from './events';
+import type { LosMaskJson } from '../../utils/los-mask';
+import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 
 // ── Enemies: every active enemy, dead ones in their death animation included ──
 export const E_ID = 0;
@@ -36,7 +38,12 @@ export const E_DIST = 11;
 export const E_EFF_SPEED = 12;
 /** Index of the enemy's route in SimWorldInfo.spawns (the spawn id its path belongs to), -1 for none */
 export const E_ROUTE = 13;
-export const ENEMY_STRIDE = 14;
+/** Index of the enemy's type in ENEMY_TYPE_IDS: the mirror builds a view from a row it has no reference for */
+export const E_TYPE = 14;
+export const ENEMY_STRIDE = 15;
+
+/** Enemy type ids in config order, for E_TYPE */
+export const ENEMY_TYPE_IDS: readonly string[] = Object.keys(ENEMY_TYPES);
 
 export const EF_ALIVE = 1;
 export const EF_ACTIVE = 2;
@@ -90,6 +97,8 @@ export const TF_HOLD_FIRE = 2;
 export const TF_MANNED = 4;
 export const TF_TRIGGER = 8;
 export const TF_SLEEPING = 16;
+/** A manned tower's crosshair is on an enemy it may shoot (TowerCombatService.mannedAimTargetOf) */
+export const TF_ON_TARGET = 32;
 
 // ── Oozes (enemies with a body) ──
 export const O_ID = 0;
@@ -113,7 +122,11 @@ export const W_HEAD = 2;
 export const W_REMAINING = 3;
 export const W_SEQ = 4;
 export const W_SIZE = 5;
-export const WORM_STRIDE = 6;
+/** HP left over the whole group (WormGroup.hp()), the same on every row of the group */
+export const W_HP = 6;
+/** WormGroup.maxHp, the same on every row of the group */
+export const W_MAXHP = 7;
+export const WORM_STRIDE = 8;
 
 /** A table: rows of `stride` numbers, `count` of them valid. */
 export interface SimTable {
@@ -165,6 +178,10 @@ export interface SimScalars {
   /** Wave numbers a replay can re-simulate (SimRecorder), newest last */
   replayableWaves: number[];
   towerCount: number;
+  /** The replay while one is on, null for the live game */
+  replay: { wave: number; stepInWave: number; lengthInSteps: number | null; divergedAt: number | null; finished: boolean } | null;
+  /** The run's seed (GameRng.seed): the main thread's wave source and bot draw their own streams from it */
+  seed: number;
 }
 
 /**
@@ -187,6 +204,13 @@ export interface TowerStateDto {
   /** combat values the panels read, after upgrades and research */
   combat: { range: number; damage: number; fireRate: number };
   losReady: boolean;
+  /**
+   * The tower's line of sight when it changed since the last state sent (a
+   * mask applied, a restore): the main thread writes it into its own grid
+   * (viz, the wave source's coverage numbers). Null when the tower has none
+   * any more; absent when unchanged.
+   */
+  losMask?: LosMaskJson | null;
 }
 
 export interface SimFramePacket {
@@ -216,9 +240,4 @@ export interface SimFramePacket {
 /** 123 from 'enemy-123'. */
 export function entityNum(id: string): number {
   return Number(id.slice(id.lastIndexOf('-') + 1));
-}
-
-/** The buffers of a packet, for postMessage's transfer list. */
-export function packetTransfers(p: SimFramePacket): ArrayBuffer[] {
-  return [p.enemies, p.projectiles, p.towers, p.oozes, p.worms].map((t) => t.data.buffer as ArrayBuffer);
 }
