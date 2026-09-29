@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 import { SoundPoolStats, SoundDebugEvent } from '../../managers/audio/spatial-audio.manager';
-import { GameEventBus, EventSubscription } from '../../game-engine';
+import { EventSubscription } from '../../game-engine';
+import type { MainEventBus } from '../../sim/client/view-events';
 
 const MAX_EVENTS = 30;
 
@@ -54,7 +55,7 @@ export class SoundDebugService {
   /**
    * Subscribe to debug:sound events from the EventBus
    */
-  subscribeToEventBus(eventBus: GameEventBus): void {
+  subscribeToEventBus(eventBus: MainEventBus): void {
     // Cleanup previous subscription if any
     this.eventSubscription?.dispose();
 

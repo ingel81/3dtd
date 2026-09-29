@@ -19,7 +19,7 @@ import {
   Vector3,
 } from 'three';
 import { MarkerVisualizationService } from './marker-visualization.service';
-import { HQDamageService } from '../combat/hq-damage.service';
+import { MainWorldService } from './main-world.service';
 import { AssetManagerService } from '../infrastructure/asset-manager.service';
 import { UIStore } from '../../store/ui.store';
 import { GameEventBus } from '../../game-engine/game-event-bus';
@@ -127,7 +127,7 @@ function fakeEngine() {
       }),
       localToGeo: vi.fn(localToGeo),
     },
-    effects: { setDebugSpheresVisible: vi.fn(), impactEffectsEnabled: true, spawnPortalSparks: vi.fn() },
+    effects: { setDebugSpheresVisible: vi.fn(), spawnDebugSphere: vi.fn(), impactEffectsEnabled: true, spawnPortalSparks: vi.fn() },
   };
   return { engine, overlay, terrain, asEngine: engine as unknown as ThreeTilesEngine };
 }
@@ -154,7 +154,7 @@ function createService() {
       this.specialPointsDebugVisible.update((v) => !v);
     },
   };
-  const hqDamage = { spawnDebugPoint: vi.fn() };
+  const world = { basePosition: { lat: 48.1, lon: 11.5, height: 520 } as { lat: number; lon: number; height: number } | null };
   const frameScene = fakeFrameScene();
   const assets = {
     loadModel: vi.fn(async (url: string) => ({ scene: frameScene, animations: [], refCount: 1, url })),
@@ -162,12 +162,12 @@ function createService() {
   const injector = Injector.create({
     providers: [
       { provide: UIStore, useValue: uiStore },
-      { provide: HQDamageService, useValue: hqDamage },
+      { provide: MainWorldService, useValue: world },
       { provide: AssetManagerService, useValue: assets },
     ],
   });
   const service = runInInjectionContext(injector, () => new MarkerVisualizationService());
-  return { service, uiStore, hqDamage, assets, frameScene };
+  return { service, uiStore, world, assets, frameScene };
 }
 
 /** Let pending promises (the frame's load) settle. */
@@ -183,7 +183,7 @@ const hqLabelY = (ground: number) => ground + MARKER_FLOAT_HEIGHT + MARKER_LABEL
 describe('MarkerVisualizationService', () => {
   let service: MarkerVisualizationService;
   let uiStore: ReturnType<typeof createService>['uiStore'];
-  let hqDamage: ReturnType<typeof createService>['hqDamage'];
+  let world: ReturnType<typeof createService>['world'];
   let assets: ReturnType<typeof createService>['assets'];
   let frameScene: Group;
   let fake: ReturnType<typeof fakeEngine>;
@@ -191,7 +191,7 @@ describe('MarkerVisualizationService', () => {
 
   beforeEach(() => {
     labelFake.instances.length = 0;
-    ({ service, uiStore, hqDamage, assets, frameScene } = createService());
+    ({ service, uiStore, world, assets, frameScene } = createService());
     fake = fakeEngine();
     heightDebugVisible = signal(false);
   });
@@ -771,7 +771,8 @@ describe('MarkerVisualizationService', () => {
 
       expect(uiStore.specialPointsDebugVisible()).toBe(true);
       expect(fake.engine.effects.setDebugSpheresVisible).toHaveBeenLastCalledWith(true);
-      expect(hqDamage.spawnDebugPoint).toHaveBeenCalledTimes(1);
+      expect(fake.engine.effects.spawnDebugSphere).toHaveBeenCalledTimes(1);
+      expect(fake.engine.effects.spawnDebugSphere.mock.calls[0].slice(0, 2)).toEqual([48.1, 11.5]);
     });
 
     it('hides the spheres without a new HQ point when switched off', () => {
@@ -782,14 +783,14 @@ describe('MarkerVisualizationService', () => {
 
       expect(uiStore.specialPointsDebugVisible()).toBe(false);
       expect(fake.engine.effects.setDebugSpheresVisible).toHaveBeenLastCalledWith(false);
-      expect(hqDamage.spawnDebugPoint).toHaveBeenCalledTimes(1);
+      expect(fake.engine.effects.spawnDebugSphere).toHaveBeenCalledTimes(1);
     });
 
     it('still flips the UI flag before initialize', () => {
       service.toggleSpecialPointsDebug();
 
       expect(uiStore.specialPointsDebugVisible()).toBe(true);
-      expect(hqDamage.spawnDebugPoint).not.toHaveBeenCalled();
+      world.basePosition = null;
     });
 
     it('updateDebugSpheresVisibility applies the UI flag to the engine', () => {

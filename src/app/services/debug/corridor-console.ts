@@ -10,6 +10,7 @@ import type { EngineInitializationService } from '../infrastructure/engine-initi
 import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
 import type { GlobalRouteGridService } from '../world/global-route-grid.service';
+import type { RouteGridVizService } from '../world/route-grid-viz.service';
 import type { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import type { TowerSelectionService } from '../tower-selection.service';
 import type { ColumnSample } from '../../three-engine/column-sample';
@@ -58,7 +59,9 @@ export function describeColumn(column: ColumnInspection): Record<string, string 
 /** What CorridorConsole needs; VisualizationFacadeService passes its services. */
 export interface CorridorConsoleDeps {
   /** The main thread's route grid, the one the display and the picks read */
-  grid: Pick<GlobalRouteGridService, 'getGrid' | 'showCellSelection'>;
+  grid: Pick<GlobalRouteGridService, 'getGrid'>;
+  /** The grid's debug view: the cells of the cell report are marked there */
+  gridViz: Pick<RouteGridVizService, 'showCellSelection'>;
   /** The shadow towers */
   mirror: Pick<SimMirror, 'tower'>;
   /** The selected tower and its line-of-sight view */
@@ -94,7 +97,7 @@ export class CorridorConsole {
   private readonly reportSource: CellReportSource = {
     spotAt: (hit) => this.spotAt(hit),
     cellsInRect: (rect, limit) => this.cellsInRect(rect, limit),
-    showSelection: (spots) => this.deps.grid.showCellSelection(spots),
+    showSelection: (spots) => this.deps.gridViz.showCellSelection(spots),
     describe: (spots) => this.describeCells(spots),
   };
 

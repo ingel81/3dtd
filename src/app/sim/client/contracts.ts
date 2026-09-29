@@ -37,8 +37,4 @@ export interface SimPresenterApi {
   /** Game time of the frame for what follows it on the main thread (ability sound tails, status sparks) */
   advance(gameTimeDeltaMs: number): void;
   clear(): void;
-  /** The music, whose volume the game component sets */
-  readonly backgroundMusic?: { setVolume(volume: number): void };
-  /** The screen shake, switched by the display options */
-  readonly screenShake?: { enable(): void; disable(): void };
 }

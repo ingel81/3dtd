@@ -65,8 +65,6 @@ export interface BotRunLog {
 
 /** Abhängigkeiten, die nicht per DI kommen (component-scoped oder erst beim Start bekannt). */
 export interface BotDeps {
-  /** The route corridor of a new location is still being built (CorridorBuild): no tower, no wave */
-  corridorPending: () => boolean;
   towerPlacement: TowerPlacementService;
   strategicPlacement: StrategicPlacementService;
   osmService: OsmStreetService;
