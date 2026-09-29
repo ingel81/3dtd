@@ -192,7 +192,6 @@ export class TowerDefenseFacadeService {
 
     // Initialize the bot client
     this.botClient.initialize({
-      corridorPending: () => this.world.corridorPending(),
       towerPlacement: this.towerPlacement,
       strategicPlacement: this.strategicPlacement,
       osmService: this.osmService,

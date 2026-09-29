@@ -25,6 +25,10 @@ const SECONDS = Number(argument('seconds', '10'));
 const UNCAPPED = process.argv.includes('--uncapped');
 /** A screenshot at the start of the measurement, to see the scene measured */
 const SHOT = argument('shot', '');
+/** A real place over real tiles instead of the DevWorld: the dev server with a tile key, a visible window (the tiles need the GPU), one map session */
+const MAP = process.argv.includes('--map');
+/** "lat,lon" of the map run; Stuttgart centre as in the E2E tests */
+const PLACE = argument('place', '48.7758,9.1829');
 const BROWSER = argument('browser', 'chromium');
 const HEADED = process.argv.includes('--headed');
 const GPU_ARGS = process.platform === 'win32'
@@ -136,17 +140,19 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
 
 const engine = BROWSER === 'firefox' ? firefox : chromium;
 const browser = await engine.launch({
-  headless: !HEADED,
+  headless: !HEADED && !MAP,
   args: BROWSER === 'firefox' ? [] : [...GPU_ARGS, ...(UNCAPPED ? ['--disable-frame-rate-limit', '--disable-gpu-vsync'] : [])],
 });
 const context = await browser.newContext({ viewport: { width: 1600, height: 900 } });
-// DevWorld loads no tiles, but the production build wants a key before it starts the engine
-await context.addInitScript(() => {
-  localStorage.setItem('3dtd-tile-credentials', JSON.stringify({ tileProvider: 'cesium', cesiumIonToken: 'devworld' }));
-});
+// DevWorld loads no tiles, but the production build wants a key before it starts the engine; a map run takes the dev server's own
+if (!MAP) {
+  await context.addInitScript(() => {
+    localStorage.setItem('3dtd-tile-credentials', JSON.stringify({ tileProvider: 'cesium', cesiumIonToken: 'devworld' }));
+  });
+}
 const page = await context.newPage();
 page.on('pageerror', (e) => console.log('pageerror', e.message));
-await page.goto(`${URL_BASE}/?devworld&bot=manual`);
+await page.goto(MAP ? `${URL_BASE}/?l=${PLACE}` : `${URL_BASE}/?devworld&bot=manual`);
 await gameReady(page);
 console.log('isolated', await page.evaluate(() => globalThis.crossOriginIsolated));
 
