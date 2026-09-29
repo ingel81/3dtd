@@ -29,6 +29,8 @@ const SHOT = argument('shot', '');
 const MAP = process.argv.includes('--map');
 /** "lat,lon" of the map run; Stuttgart centre as in the E2E tests */
 const PLACE = argument('place', '48.7758,9.1829');
+/** "x,y,steps": zoom in with the mouse wheel at that spot after the measurement, for a second screenshot (shot-zoom.png) */
+const ZOOM = argument('zoom', '');
 const BROWSER = argument('browser', 'chromium');
 const HEADED = process.argv.includes('--headed');
 const GPU_ARGS = process.platform === 'win32'
@@ -202,5 +204,18 @@ while (Date.now() < until) {
 }
 if (SHOT) await page.screenshot({ path: SHOT });
 const result = await measure(page, SECONDS);
+if (SHOT && ZOOM) {
+  const [x, y, steps] = ZOOM.split(',').map(Number);
+  // Home: the camera's quick jump to the HQ, where the route ends
+  await page.keyboard.press(argument('jump', 'Home'));
+  await page.waitForTimeout(2500);
+  await page.mouse.move(x, y);
+  for (let i = 0; i < steps; i++) {
+    await page.mouse.wheel(0, -400);
+    await page.waitForTimeout(150);
+  }
+  await page.waitForTimeout(4000);
+  await page.screenshot({ path: SHOT.replace(/\.png$/, '-zoom.png') });
+}
 console.log(JSON.stringify({ browser: BROWSER, url: URL_BASE, uncapped: UNCAPPED, speedAsked: SPEED, towers: placed.towers, ...result }));
 await browser.close();
