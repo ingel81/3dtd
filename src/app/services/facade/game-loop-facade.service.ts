@@ -179,6 +179,13 @@ export class GameLoopFacadeService {
       });
     }, { injector });
 
+    // Effect: the simulation stopped with an error; the game stands, the banner says why
+    effect(() => {
+      const failure = this.sim.failure();
+      if (failure === null) return;
+      untracked(() => this.uiStore.notice.set(`The simulation stopped with an error (${failure}). Reload the page to play on.`));
+    }, { injector });
+
     // Effect: Sync wave debug state with store
     effect(() => {
       const waveActive = this.store.waveActive();
