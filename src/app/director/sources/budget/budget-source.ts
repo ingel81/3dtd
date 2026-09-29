@@ -19,7 +19,7 @@ import type {
 } from '../../wave-source';
 import type { WaveConfig, WaveEnemyGroup } from '../../models/wave-config';
 import type { WaveResult } from '../../models/wave-result';
-import type { DecisionExplanation } from '../../wave-explanation';
+import type { BudgetBreakdown, DecisionExplanation } from '../../wave-explanation';
 import type { ArmorType } from '../../../configs/combat/combat.types';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../../configs/enemy-types.config';
 import { PressureController, targetPressure, wavePressure } from '../../pressure-controller';
@@ -80,7 +80,10 @@ export class BudgetWaveSource implements WaveSource {
       .map(([type, count]) => ({ type, count, healthMultiplier: sized.hpMult[type] ?? 1 }));
     const totalCount = enemies.reduce((sum, group) => sum + group.count, 0);
     const shared = sharedMult(sized);
-    const explanation = explain(wave, row, planned, sized, regulator, totalCount, shared);
+    const explanation: DecisionExplanation = {
+      ...explain(wave, row, planned, sized, regulator, totalCount, shared),
+      budget: breakdown(row, planned, sized, regulator, target),
+    };
 
     const config: WaveConfig = {
       enemies,
@@ -138,6 +141,39 @@ export class BudgetWaveSource implements WaveSource {
     this.pressure.reset();
     this.lastCapped = false;
   }
+}
+
+/** The numbers of a sized wave for the wave debug window */
+function breakdown(
+  row: RunPlanRow, planned: Readonly<Record<string, number>>, sized: BudgetResult, regulator: number, target: number,
+): BudgetBreakdown {
+  return {
+    row: row.wave,
+    strength: row.strength,
+    regulator: round2(regulator),
+    regulatorMin: BUDGET_REGULATOR_LIMITS.min,
+    regulatorMax: BUDGET_REGULATOR_LIMITS.max,
+    targetPressure: round3(target),
+    budget: round1(sized.budget),
+    window: round1(sized.window),
+    delivered: round1(sized.delivered),
+    capped: sized.capped,
+    types: Object.entries(planned)
+      .filter(([, count]) => count > 0)
+      .map(([type, count]) => {
+        const cfg = ENEMY_TYPES[type as EnemyTypeId];
+        const unhurt = sized.unhurt.includes(type);
+        return {
+          type,
+          name: cfg?.name ?? type,
+          count,
+          armor: cfg?.armorType ?? 'unarmored',
+          hpMult: sized.hpMult[type] ?? 1,
+          limit: unhurt ? null : sized.limits[type] ?? null,
+          state: unhurt ? 'unhurt' as const : sized.clamped.includes(type) ? 'limit' as const : 'shared' as const,
+        };
+      }),
+  };
 }
 
 /** The factor most of the wave got: the unclamped one, else the largest. */
@@ -199,4 +235,8 @@ function round1(x: number): number {
 
 function round2(x: number): number {
   return Math.round(x * 100) / 100;
+}
+
+function round3(x: number): number {
+  return Math.round(x * 1000) / 1000;
 }

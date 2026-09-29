@@ -60,4 +60,20 @@ describe('BudgetWaveSource', () => {
     expect(facts[1].boss).toBe(true);
     expect(facts.every((f) => f.known && f.count !== null)).toBe(true);
   });
+
+  it('lays out the loop, the budget, the defense and each type for the wave debug window', () => {
+    const wave = plan(new BudgetWaveSource(), 12);
+    const b = wave.explanation!.budget!;
+    expect(b.row).toBe(12);
+    expect(b.regulator).toBe(1);
+    expect([b.regulatorMin, b.regulatorMax]).toEqual([BUDGET_REGULATOR_LIMITS.min, BUDGET_REGULATOR_LIMITS.max]);
+    expect(b.budget).toBeCloseTo(wave.log.diagnostics!['budget'] as number, 1);
+    expect(b.types.map((t) => t.type)).toEqual(wave.config.enemies.map((g) => g.type));
+    for (const t of b.types) {
+      const group = wave.config.enemies.find((g) => g.type === t.type)!;
+      expect(t.count).toBe(group.count);
+      expect(t.hpMult).toBe(group.healthMultiplier);
+      if (t.state === 'limit') expect(t.hpMult).toBe(t.limit);
+    }
+  });
 });

@@ -108,6 +108,8 @@ export interface BudgetResult {
   readonly clamped: readonly string[];
   /** Types the defense cannot hurt at all (no air defense, no tower yet): HP × the row's strength. */
   readonly unhurt: readonly string[];
+  /** Each hurt type's own limit (time under fire) as an HP factor. */
+  readonly limits: Readonly<Record<string, number>>;
 }
 
 /** The bodies of one kind one spawn brings, each walking past the towers on its own. */
@@ -226,7 +228,9 @@ export function sizeWave(input: BudgetInput): BudgetResult {
   // Nothing to measure against: the row's strength alone (HP x1 at strength 1)
   for (const type of unhurt) hpMult[type] = round3(Math.max(HP_MULT_MIN, input.strength));
 
-  return { hpMult, budget, delivered, window, capped: delivered < budget, clamped, unhurt };
+  const limits: Record<string, number> = {};
+  for (const [type, cap] of capOf) limits[type] = round3(cap);
+  return { hpMult, budget, delivered, window, capped: delivered < budget, clamped, unhurt, limits };
 }
 
 function round3(x: number): number {

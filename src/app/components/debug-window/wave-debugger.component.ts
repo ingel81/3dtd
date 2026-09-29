@@ -58,6 +58,11 @@ export class WaveDebuggerComponent {
   /** Director's reasons for the wave in play; null for waves it did not plan. */
   readonly explanation = this.store.waveExplanation;
 
+  /** 0.042 as "4.2 %" */
+  percent(share: number): string {
+    return `${Math.round(share * 1000) / 10} %`;
+  }
+
   // === Wave source (docs/WAVE_SOURCE_PLAN.md, section 7) ===
 
   /** Every source the registry knows, with the name it shows under. */

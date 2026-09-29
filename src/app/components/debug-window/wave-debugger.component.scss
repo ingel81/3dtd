@@ -63,6 +63,50 @@
   color: var(--td-text-muted);
 }
 
+/* Budget source: the loop, the budget and the defense as key and value,
+ * then one row per enemy type; a type at its own limit in orange, one the
+ * defense cannot hurt muted. */
+.budget-grid {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 2px 8px;
+  margin-bottom: 6px;
+  color: var(--td-text-secondary);
+  line-height: 1.4;
+}
+.budget-key {
+  color: var(--td-text-muted);
+}
+.budget-muted {
+  color: var(--td-text-muted);
+}
+.budget-flag {
+  margin-left: 4px;
+  color: var(--td-warn-orange);
+}
+.budget-types {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+  color: var(--td-text-secondary);
+}
+.budget-types th {
+  text-align: left;
+  font-weight: 400;
+  color: var(--td-text-muted);
+  border-bottom: 1px solid var(--td-frame-mid);
+  padding: 1px 4px 1px 0;
+}
+.budget-types td {
+  padding: 1px 4px 1px 0;
+}
+.budget-types tr.budget-at-limit td {
+  color: var(--td-warn-orange);
+}
+.budget-types tr.budget-unhurt td {
+  color: var(--td-text-muted);
+}
+
 /* Mode Toggle */
 .mode-toggle {
   display: flex;

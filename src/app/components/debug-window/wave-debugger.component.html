@@ -34,11 +34,57 @@
         <div class="section-title">Why this wave</div>
         @if (explanation(); as why) {
           <div class="why-summary">{{ why.summary }}</div>
-          <ul class="why-reasons">
-            @for (reason of why.reasons; track $index) {
-              <li>{{ reason }}</li>
-            }
-          </ul>
+          @if (why.budget; as b) {
+            <div class="budget-grid">
+              <span class="budget-key">Row</span>
+              <span>W{{ b.row }} · strength {{ b.strength }}</span>
+              <span class="budget-key">Loop</span>
+              <span>
+                R {{ b.regulator }}
+                <span class="budget-muted">({{ b.regulatorMin }} to {{ b.regulatorMax }}, target {{ percent(b.targetPressure) }} of HP)</span>
+                @if (b.regulator <= b.regulatorMin || b.regulator >= b.regulatorMax) {
+                  <span class="budget-flag">at stop</span>
+                }
+              </span>
+              <span class="budget-key">Budget</span>
+              <span>{{ b.budget }} s of defense damage</span>
+              <span class="budget-key">Defense</span>
+              <span>
+                {{ b.window }} s while the wave is on the route · {{ b.delivered }} s sent
+                @if (b.capped) {
+                  <span class="budget-flag">capped</span>
+                }
+              </span>
+            </div>
+            <table class="budget-types">
+              <thead>
+                <tr><th>Enemy</th><th>Count</th><th>Armor</th><th>HP ×</th><th>Limit</th></tr>
+              </thead>
+              <tbody>
+                @for (t of b.types; track t.type) {
+                  <tr [class.budget-at-limit]="t.state === 'limit'" [class.budget-unhurt]="t.state === 'unhurt'">
+                    <td>{{ t.name }}</td>
+                    <td>{{ t.count }}</td>
+                    <td>{{ t.armor }}</td>
+                    <td>{{ t.hpMult }}</td>
+                    <td>
+                      @switch (t.state) {
+                        @case ('limit') { at {{ t.limit }} }
+                        @case ('unhurt') { no damage }
+                        @default { {{ t.limit }} }
+                      }
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          } @else {
+            <ul class="why-reasons">
+              @for (reason of why.reasons; track $index) {
+                <li>{{ reason }}</li>
+              }
+            </ul>
+          }
         } @else {
           <div class="why-empty">No director decision for this wave.</div>
         }
