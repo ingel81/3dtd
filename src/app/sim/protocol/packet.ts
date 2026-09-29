@@ -14,7 +14,6 @@ import type { PresentationOp } from './ops';
 import type { ExportedEvent } from './events';
 import type { LosMaskJson } from '../../utils/los-mask';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 
 // ── Enemies: every active enemy, dead ones in their death animation included ──
 export const E_ID = 0;
@@ -80,9 +79,6 @@ export const PROJECTILE_STRIDE = 9;
 export const PF_ROTATES = 1;
 /** Projectile types by P_TYPE, in the config's order */
 export const PROJECTILE_TYPE_IDS = Object.keys(PROJECTILE_TYPES) as readonly ProjectileTypeId[];
-
-/** Projectile type ids in config order, for P_TYPE */
-export const PROJECTILE_TYPE_IDS: readonly string[] = Object.keys(PROJECTILE_TYPES);
 
 // ── Towers: every standing tower ──
 export const T_ID = 0;

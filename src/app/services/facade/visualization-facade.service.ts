@@ -28,6 +28,7 @@ import { LocationManagementService } from '../location/location-management.servi
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { StateSnapshotService } from '../../director/state-snapshot.service';
 import { SimClient } from '../../sim/client/sim-client.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
 import { PresentationService } from '../../presentation/presentation.service';
@@ -113,6 +114,7 @@ export class VisualizationFacadeService {
   private readonly cellReport = inject(CellReportService);
   private readonly corridorSnapshot = inject(CorridorSnapshotService);
   private readonly sim = inject(SimClient);
+  private readonly gridViz = inject(RouteGridVizService);
   private readonly mirror = inject(SimMirror);
   private readonly world = inject(MainWorldService);
   private readonly presentation = inject(PresentationService);
@@ -121,6 +123,7 @@ export class VisualizationFacadeService {
   private readonly corridor = new CorridorBuild({
     world: this.world,
     grid: this.globalRouteGridService,
+    gridViz: this.gridViz,
     scalars: () => this.mirror.scalars,
     engineInit: this.engineInit,
     pathRoute: this.pathRoute,
