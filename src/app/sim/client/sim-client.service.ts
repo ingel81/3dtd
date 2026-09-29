@@ -308,6 +308,9 @@ export class SimClient {
       case 'lockstep-frame':
         link.noteFrame?.(message.steps, message.blocked, message.behind);
         return;
+      case 'lockstep-ran':
+        link.commandsRan?.(message.count);
+        return;
     }
   }
 

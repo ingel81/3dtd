@@ -114,9 +114,12 @@ export class GameCommandsHandler {
   runTick(tick: number): void {
     const link = this.lockstep;
     if (!link) return;
+    let own = 0;
     for (const stamped of link.commandsAt(tick)) {
       this.execute(commandEvent(stamped.command), stamped.playerId);
+      if (stamped.playerId === link.playerId) own++;
     }
+    if (own > 0) link.commandsRan?.(own);
     link.release(tick);
   }
 

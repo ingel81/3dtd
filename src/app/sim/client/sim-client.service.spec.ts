@@ -177,6 +177,16 @@ describe('SimClient', () => {
     });
   });
 
+  it('tells the link when its own commands ran in the simulation, not when their tick went out', () => {
+    const { client, transport, frame } = setup();
+    const link = { confirmedTick: vi.fn(() => 0), commandsAt: vi.fn(() => []), release: vi.fn(), commandsRan: vi.fn() };
+    client.setLockstep(link as unknown as LockstepLink);
+    frame();
+    expect(link.commandsRan).not.toHaveBeenCalled();
+    transport().handlers.output({ kind: 'lockstep-ran', count: 2 });
+    expect(link.commandsRan).toHaveBeenCalledWith(2);
+  });
+
   it('forgets lockstep, replay and the failure on a restart', () => {
     const { client, transport } = setup();
     const link = { confirmedTick: vi.fn(() => 0), commandsAt: vi.fn(() => []), release: vi.fn() };

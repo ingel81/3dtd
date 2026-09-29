@@ -252,13 +252,16 @@ describe('SimCore in the same thread', () => {
 
     // The relay stamped B's gift at tick 1; ticks 0 to 3 closed
     const gift = { tick: 1, seq: 1, playerId: 'b', command: { type: 'debug:add-credits', amount: 5 } as unknown as CommandData };
-    const delivery = { confirmedTick: 3, ticks: [0, 1, 2, 3].map((tick) => ({ tick, commands: tick === 1 ? [gift] : [] })) };
+    const own = { tick: 2, seq: 2, playerId: 'a', command: { type: 'debug:add-credits', amount: 7 } as unknown as CommandData };
+    const delivery = { confirmedTick: 3, ticks: [0, 1, 2, 3].map((tick) => ({ tick, commands: tick === 1 ? [gift] : tick === 2 ? [own] : [] })) };
     core.tick(input([], delivery, 1100), (m) => out.push(m));
     expect(core.gsm.creditsOf('b')).toBe(credits + 5);
+    // The own command ran here now: the input delay counts from this, not from the hand-over
+    expect(out.filter((m) => m.kind === 'lockstep-ran')).toEqual([{ kind: 'lockstep-ran', count: 1 }]);
     expect(core.gsm.subStep).toBeGreaterThan(0);
     expect(out.some((m) => m.kind === 'lockstep-hash')).toBe(true);
     expect(out.some((m) => m.kind === 'lockstep-frame')).toBe(true);
-    expect(core.gsm.commandLog.entries.map((e) => [e.playerId, e.step])).toEqual([['b', 1 * TICK_SUB_STEPS]]);
+    expect(core.gsm.commandLog.entries.map((e) => [e.playerId, e.step])).toEqual([['b', 1 * TICK_SUB_STEPS], ['a', 2 * TICK_SUB_STEPS]]);
   });
 
   it('starts no second wave while one runs', () => {

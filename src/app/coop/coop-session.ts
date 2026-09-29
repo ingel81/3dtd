@@ -88,13 +88,14 @@ export class WebSocketLink implements LockstepLink {
     return this.confirmed;
   }
 
-  /** Called once per tick, as its commands run: the own ones give the input delay */
   commandsAt(tick: number): readonly StampedCommand[] {
-    const commands = this.received.get(tick) ?? [];
-    for (const stamped of commands) {
-      if (stamped.playerId === this.playerId) this.stats.commandRan(performance.now());
-    }
-    return commands;
+    return this.received.get(tick) ?? [];
+  }
+
+  /** Own commands ran in the simulation (not when their tick went to the worker): the input delay */
+  commandsRan(count: number): void {
+    const now = performance.now();
+    for (let i = 0; i < count; i++) this.stats.commandRan(now);
   }
 
   release(tick: number): void {
