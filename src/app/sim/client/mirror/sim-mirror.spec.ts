@@ -244,9 +244,41 @@ describe('SimMirror', () => {
       expect(mirror.mannedTower('b')).toBeNull();
     });
 
-    it('resets its random source to the run seed', () => {
+    it('resets its random source to the run seed, and again with a new run on the same seed', () => {
       mirror.applyState(packet({ scalars: { seed: 1234 } }));
       expect(mirror.rng.seed).toBe(1234);
+      const director = mirror.rng.stream('director');
+      const first = director();
+      director();
+      const reset = packet({ scalars: { seed: 1234 }, events: [{ type: 'game:reset' }] });
+      feed(mirror, null, reset);
+      expect(director()).toBe(first);
+    });
+
+    it('reads each player ability damage', () => {
+      mirror.applyState(packet({ scalars: { players: ['a', 'b'], abilityDamage: [5, 7] } }));
+      expect(mirror.abilityDamageOf('b')).toBe(7);
+      expect(mirror.abilityDamageOf('x')).toBe(0);
+    });
+  });
+
+  describe('time', () => {
+    it('is the time of the event while one is handed on, of the packet otherwise', () => {
+      const p = packet({ scalars: { gameTimeMs: 5000, subStep: 300 } });
+      mirror.applyState(p);
+      expect(mirror.gameTimeMs).toBe(5000);
+      mirror.importEvent({ type: 'wave:started', payload: { wave: 1, enemyCount: 3 }, live: true, show: true, t: 4200, step: 252 });
+      expect(mirror.gameTimeMs).toBe(4200);
+      expect(mirror.subStep).toBe(252);
+      mirror.afterFrame(p);
+      expect(mirror.gameTimeMs).toBe(5000);
+      expect(mirror.subStep).toBe(300);
+    });
+
+    it('takes the route progress of an enemy from its reference', () => {
+      mirror.applyState(packet({}));
+      const view = mirror.importEvent({ type: 'enemy:died', payload: { enemy: ref(8, { pr: 0.75, alive: false }) }, live: true, show: true }) as { enemy: EnemyView };
+      expect(view.enemy.movement.getPathProgress()).toBe(0.75);
     });
   });
 });
