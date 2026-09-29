@@ -1,5 +1,4 @@
 import { Vector3 } from 'three';
-import type { RouteGridVizService } from '../world/route-grid-viz.service';
 import {
   CorridorConfig,
   corridorConfig,
@@ -11,6 +10,7 @@ import type { EngineInitializationService } from '../infrastructure/engine-initi
 import type { InputHandlerService } from '../input-handler.service';
 import type { PathAndRouteService } from '../world/path-route.service';
 import type { GlobalRouteGridService } from '../world/global-route-grid.service';
+import type { RouteGridVizService } from '../world/route-grid-viz.service';
 import type { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import type { TowerSelectionService } from '../tower-selection.service';
 import type { ColumnSample } from '../../three-engine/column-sample';
@@ -60,7 +60,7 @@ export function describeColumn(column: ColumnInspection): Record<string, string 
 export interface CorridorConsoleDeps {
   /** The main thread's route grid, the one the display and the picks read */
   grid: Pick<GlobalRouteGridService, 'getGrid'>;
-  /** The cell report's highlight */
+  /** The grid's debug view: the cells of the cell report are marked there */
   gridViz: Pick<RouteGridVizService, 'showCellSelection'>;
   /** The shadow towers */
   mirror: Pick<SimMirror, 'tower'>;

@@ -76,6 +76,7 @@ import { UIStore } from './store/ui.store';
 import { ConfigService } from './core/services/config.service';
 // The simulation as the main thread sees it (docs/SIM_WORKER.md)
 import { SimClient } from './sim/client/sim-client.service';
+import { PresentationService } from './presentation/presentation.service';
 import { RouteGridVizService } from './services/world/route-grid-viz.service';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
@@ -221,6 +222,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   private readonly dialog = inject(MatDialog);
   readonly sim = inject(SimClient);
+  private readonly presentation = inject(PresentationService);
   private readonly routeGridViz = inject(RouteGridVizService);
   private readonly runLog = inject(RunLogFacade);
   protected readonly uiStore = inject(UIStore);
@@ -567,7 +569,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   private applyAudioVolumes(): void {
     const bot = this.botEnabled();
-    this.sim.presenter?.backgroundMusic?.setVolume(bot ? 0 : this.uiStore.effectiveMusicVolume());
+    this.presentation.setMusicVolume(bot ? 0 : this.uiStore.effectiveMusicVolume());
     this.engine?.spatialAudio.setMasterVolume(bot ? 0 : this.uiStore.effectiveSfxVolume());
     this.engine?.spatialAudio.setUiVolume(bot ? 0 : this.uiStore.effectiveUiVolume());
   }

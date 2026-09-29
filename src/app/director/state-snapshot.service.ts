@@ -24,7 +24,7 @@ import { SubscriptionBag } from '../game-engine/game-event-bus';
 import type { EnemyView } from '../sim/client/views';
 import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
-import { PathAndRouteService } from '../services/world/path-route.service';
+import { MainWorldService } from '../services/world/main-world.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ResearchStore } from '../store/research.store';
 import { GameStateSnapshot, type DefenseAnalysis } from './models/game-state-snapshot';
@@ -52,7 +52,7 @@ export class StateSnapshotService {
   private store = inject(TowerDefenseStore);
   private researchStore = inject(ResearchStore);
   private gridService = inject(GlobalRouteGridService);
-  private readonly pathRoute = inject(PathAndRouteService);
+  private readonly world = inject(MainWorldService);
   /** The simulation's events as views (SimClient.bus) */
   private get eventBus() {
     return this.sim.bus;
@@ -71,7 +71,7 @@ export class StateSnapshotService {
 
   /** The enemy routes in use, as the main thread has them */
   private routes() {
-    return Array.from(this.pathRoute.getCachedPaths().values());
+    return this.world.routes();
   }
 
   private subscriptions = new SubscriptionBag();
@@ -145,7 +145,7 @@ export class StateSnapshotService {
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
     const routes = this.routes();
-    defense.defenseReachPercent = this.gridService.defenseReach(routes).fraction;
+    defense.defenseReachPercent = this.world.defenseReachPercent();
     // Averaged over the routes, so in coop already one lane's share, like the damage above
     const underFire = this.gridService.metersUnderFire(routes);
     defense.damageMetres = damageMetresPerArmor(towers, airTargetingUnlocked, underFire.byTower);

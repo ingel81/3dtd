@@ -1,4 +1,5 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
+import { PresentationService } from '../presentation/presentation.service';
 
 /**
  * Coop: how long a shot shown at the click waits for the simulation's own
@@ -13,12 +14,16 @@ const SAME_SHOT_MS = 100;
 /**
  * The manned tower's shot shown at the click in coop (TowerControlService):
  * the simulation's shot that follows plays without its muzzle flash, sound
- * and recoil. The presentation asks take() before it plays flash and sound,
- * TowerControlService before the recoil; both get the same answer for one
- * shot, in either order.
+ * and recoil. The presentation asks take() before it plays flash and sound
+ * (registered with PresentationService.setShotPrediction), TowerControlService
+ * before the recoil; both get the same answer for one shot, in either order.
  */
 @Injectable({ providedIn: 'root' })
 export class ShotPrediction {
+  constructor() {
+    inject(PresentationService).setShotPrediction((towerId) => this.take(towerId));
+  }
+
   private shown: { towerId: string; at: number } | null = null;
   /** The shot take() found shown, for the other side's take() of the same shot */
   private quiet: { towerId: string; at: number } | null = null;

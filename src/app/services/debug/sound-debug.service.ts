@@ -1,7 +1,7 @@
-import type { MainEventBus } from '../../sim/client/view-events';
 import { Injectable, signal } from '@angular/core';
 import { SoundPoolStats, SoundDebugEvent } from '../../managers/audio/spatial-audio.manager';
 import { EventSubscription } from '../../game-engine';
+import type { MainEventBus } from '../../sim/client/view-events';
 
 const MAX_EVENTS = 30;
 

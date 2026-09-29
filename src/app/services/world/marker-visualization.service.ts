@@ -1,4 +1,3 @@
-import type { MainEventBus } from '../../sim/client/view-events';
 import { Injectable, WritableSignal, inject } from '@angular/core';
 import {
   Group,
@@ -13,9 +12,10 @@ import {
   Color,
 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
-import { GameEventBus, SubscriptionBag } from '../../game-engine';
+import { SubscriptionBag } from '../../game-engine';
+import type { MainEventBus } from '../../sim/client/view-events';
 import { GeoPosition, RouteWaypoint } from '../../models/game.types';
-import { PresentationService } from '../../presentation/presentation.service';
+import { MainWorldService } from './main-world.service';
 import { AssetManagerService } from '../infrastructure/asset-manager.service';
 import { UIStore } from '../../store/ui.store';
 import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
@@ -113,7 +113,7 @@ export class MarkerVisualizationService {
   // INJECTED SERVICES
   // ========================================
 
-  private readonly presentation = inject(PresentationService);
+  private readonly world = inject(MainWorldService);
   private readonly uiStore = inject(UIStore);
   private readonly assetManager = inject(AssetManagerService);
 
@@ -613,10 +613,14 @@ export class MarkerVisualizationService {
   }
 
   /**
-   * Spawn or update HQ debug point at cached terrain height.
+   * Spawn or update the HQ debug point on the ground under the HQ.
    */
   spawnHQDebugPoint(): void {
-    this.presentation.host?.hq.spawnDebugPoint();
+    const base = this.world.basePosition;
+    const engine = this.engine;
+    if (!base || !engine) return;
+    const ground = engine.getTerrainHeightAtGeo(base.lat, base.lon) ?? 0;
+    engine.effects.spawnDebugSphere(base.lat, base.lon, ground, 1, 0xff0000);
   }
 
   /**

@@ -10,7 +10,7 @@ import type { GameEvent } from '../game-engine/game-event-bus';
 import { createMainEventBus, type MainEventBus, type ViewEvent } from '../sim/client/view-events';
 import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
-import { PathAndRouteService } from '../services/world/path-route.service';
+import { MainWorldService } from '../services/world/main-world.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ResearchStore } from '../store/research.store';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
@@ -116,7 +116,10 @@ describe('StateSnapshotService', () => {
       providers: [
         { provide: SimClient, useValue: { bus } },
         { provide: SimMirror, useValue: mirror },
-        { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map(routes.map((r, i) => [`spawn-${i}`, r])) } },
+        {
+          provide: MainWorldService,
+          useValue: { routes: () => routes, defenseReachPercent: () => grid.getDefenseReachPercent(routes) },
+        },
         { provide: TowerDefenseStore, useValue: store },
         { provide: ResearchStore, useValue: research },
         { provide: GlobalRouteGridService, useValue: grid },

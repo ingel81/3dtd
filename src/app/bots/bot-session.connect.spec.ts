@@ -8,6 +8,7 @@ import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { RouteQueriesService } from '../services/route-queries.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
+import { MainWorldService } from '../services/world/main-world.service';
 import { StateSnapshotService } from '../director/state-snapshot.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { BUILD_VERSION } from '../configs/build-info.config';
@@ -62,6 +63,7 @@ describe('BotSession connect (playtest 565)', () => {
         { provide: SimMirror, useValue: new SimMirror() },
         { provide: RouteQueriesService, useValue: {} },
         { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
+        { provide: MainWorldService, useValue: { corridorPending: () => false } },
       ],
     });
     const client = runInInjectionContext(injector, () => new BotClientService());
@@ -91,6 +93,7 @@ describe('BotSession connect (playtest 565)', () => {
         { provide: SimMirror, useValue: new SimMirror() },
         { provide: RouteQueriesService, useValue: {} },
         { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
+        { provide: MainWorldService, useValue: { corridorPending: () => false } },
       ],
     });
     const client = runInInjectionContext(injector, () => new BotClientService());

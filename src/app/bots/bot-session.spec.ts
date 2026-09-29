@@ -14,11 +14,12 @@ import { SimMirror } from '../sim/client/mirror/sim-mirror';
 import { packet } from '../sim/client/mirror/testing/mirror-packets';
 import { RouteQueriesService } from '../services/route-queries.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
+import { MainWorldService } from '../services/world/main-world.service';
 
 /** Sub-step length the game loop hands the bot (GameClock.FIXED_STEP_MS). */
 const STEP_MS = 16.667;
 
-/** The corridor build of the location, as CorridorBuild.pending tells it (BotDeps.corridorPending). */
+/** The corridor build of the location, as MainWorldService.corridorPending tells it. */
 const corridor = { building: false };
 
 /**
@@ -38,6 +39,7 @@ function sessionInjector(phase: string, options: { bus?: GameEventBus; players?:
       { provide: SimMirror, useValue: mirror },
       { provide: RouteQueriesService, useValue: {} },
       { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
+      { provide: MainWorldService, useValue: { corridorPending: () => corridor.building } },
     ],
   });
 }
@@ -58,7 +60,7 @@ function createSession(phase = 'wave') {
   const injector = sessionInjector(phase);
   // Der Service ist hier nur Halter der Signale, in die die Session schreibt.
   const client = runInInjectionContext(injector, () => new BotClientService());
-  const deps = { corridorPending: () => corridor.building } as unknown as BotDeps;
+  const deps = {} as unknown as BotDeps;
   const session = runInInjectionContext(injector, () => new BotSession(client, deps));
   const bot = new TestBot();
   // enableBot() would build a real strategy bot; updateBot only needs a bot.
@@ -151,7 +153,7 @@ describe('BotSession bot actions', () => {
     bus.on('command:use-ability', commands);
     const injector = sessionInjector('wave', { bus });
     const client = runInInjectionContext(injector, () => new BotClientService());
-    const deps = { corridorPending: () => false } as unknown as BotDeps;
+    const deps = {} as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
     (session as unknown as { currentBot: ITowerBot | null }).currentBot = new StrikeBot();
     client.botEnabled.set(true);
@@ -172,7 +174,7 @@ describe('BotSession run config', () => {
     const injector = sessionInjector('setup');
     const client = runInInjectionContext(injector, () => new BotClientService());
     const restartGame = vi.fn();
-    const deps = { corridorPending: () => false, callbacks: { restartGame } } as unknown as BotDeps;
+    const deps = { callbacks: { restartGame } } as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
     client.botEnabled.set(true);
     return { session, client, restartGame };
@@ -236,7 +238,7 @@ describe('BotSession in a coop room (bot=coop)', () => {
     const injector = sessionInjector('setup', { players, ready });
     const client = runInInjectionContext(injector, () => new BotClientService());
     const startWave = vi.fn();
-    const deps = { corridorPending: () => false, callbacks: { startWave } } as unknown as BotDeps;
+    const deps = { callbacks: { startWave } } as unknown as BotDeps;
     const session = runInInjectionContext(injector, () => new BotSession(client, deps));
     const bot = new WaveBot();
     (session as unknown as { currentBot: ITowerBot | null }).currentBot = bot;

@@ -42,7 +42,7 @@ import { PathAndRouteService } from './world/path-route.service';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { UIStore } from '../store/ui.store';
 import { GameEventBus } from '../game-engine/game-event-bus';
-import { HeroManager, type HeroPresentation, type HeroWorld } from '../managers/hero.manager';
+import { HeroManager, type HeroWorld } from '../managers/hero.manager';
 import { GameCommandsHandler } from '../managers/game-commands.handler';
 import type { GameStateManager } from '../managers/game-state.manager';
 import { HERO, type HeroStatus } from '../configs/hero.config';
@@ -84,7 +84,6 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
   let input: InputHandlerService;
   let canvas: HTMLCanvasElement;
   let credits: number;
-  let presented: { x: number; z: number; post: { x: number; z: number } }[];
   const heroStatus = signal<HeroStatus>(undefined as never);
   const selectedTower = signal<object | null>(null);
   const selectedTowerId = signal<string | null>(null);
@@ -129,6 +128,11 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     return { x: p.x, y: p.z };
   };
   const heroAt = () => local(hero.getHero()!.position);
+  /** Where the next packet shows him and his post (HeroManager.getPresentation, the packet's HeroFrame) */
+  const shown = () => {
+    const h = hero.getPresentation();
+    return h && { ...local(h), post: local(h.anchor) };
+  };
   const tick = (steps: number) => {
     for (let i = 0; i < steps; i++) hero.update(STEP_MS);
   };
@@ -138,7 +142,6 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date', 'performance'] });
     bus = new GameEventBus();
     credits = 0;
-    presented = [];
     for (const s of [ui.buildMode, ui.photoMode, ui.viewOnly, ui.heroSelected]) s.set(false);
     ui.mapPlacementMode.set(null);
     ui.abilityTargeting.set(null);
@@ -166,10 +169,6 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
       },
     };
     hero = new HeroManager(bus, world);
-    hero.setView({
-      present: (h: HeroPresentation) => presented.push({ ...local(h), post: local(h.anchor) }),
-      clear: () => undefined,
-    });
     // GameStateSyncService: GameStore.hero follows the manager
     heroStatus.set(hero.getStatus());
     bus.on('hero:state-changed', (event) => heroStatus.set(event.hero));
@@ -391,13 +390,13 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     // Paused: GameStateManager.update runs no sub-step, so no hero.update here
     hire();
     expect(credits).toBe(0);
-    expect(presented).toEqual([{ x: 0, z: 300, post: { x: 0, z: 300 } }]);
+    expect(shown()).toEqual({ x: 0, z: 300, post: { x: 0, z: 300 } });
 
     click(heroPx().x, heroPx().y);
     expect(control.selected()).toBe(true);
 
     click(0, 150);
-    expect(presented.at(-1)).toEqual({ x: 0, z: 300, post: { x: 0, z: 150 } });
+    expect(shown()).toEqual({ x: 0, z: 300, post: { x: 0, z: 150 } });
     expect(heroAt()).toEqual({ x: 0, z: 300 });
     expect(heroStatus().mode).toBe('travel');
 
