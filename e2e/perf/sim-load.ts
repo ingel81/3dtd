@@ -42,8 +42,12 @@ const SPEEDS = argument('speeds', '').split(',').filter(Boolean).map(Number);
 const HIDE = process.argv.includes('--hide-enemies');
 /** The machine's name in the results, to tell measurements of several computers apart (never a host name: the repo is public) */
 const MACHINE = argument('machine', 'A');
-/** Device pixels per CSS pixel; unset, Firefox takes the system's scaling (1.25 on a scaled desktop) and Chromium 1 */
-const DPR = argument('dpr', '');
+/**
+ * Device pixels per CSS pixel, 1 by default so both browsers draw the same pixels; `system` leaves it to the browser
+ * (Firefox takes the system's scaling, 1.25 on a scaled desktop, Chromium 1)
+ */
+const DPR_ARG = argument('dpr', '1');
+const DPR = DPR_ARG === 'system' ? '' : DPR_ARG;
 /** Enemies the towers cannot kill in a measurement: the count stays what the step asked for, the towers keep hitting */
 const ENEMY_HP = Number(argument('hp', '1000000'));
 const HEADED = process.argv.includes('--headed');
@@ -251,24 +255,36 @@ const SLICES = 25;
 const slices = start.paths.flatMap((path) => Array.from({ length: SLICES }, (_, i) => Math.floor((i * 0.7 * (path.length - 2)) / SLICES))
   .map((k) => path.slice(k).map(([lat, lon]) => ({ lat, lon }))));
 let sliceAt = 0;
-/** Enemies spread over the slices until `target` are alive (the towers kill some between the measurements) */
+/**
+ * Enemies spread over the slices until `target` are alive. The game stands still meanwhile, so none reaches the HQ
+ * during a long fill; a round that fell short (a spawn refused, enemies gone) is topped up once more, up to 4 rounds.
+ */
 async function spawnUpTo(target: number): Promise<void> {
-  const missing = target - (await state(page)).enemies;
-  if (missing <= 0) return;
-  const perSlice = Math.ceil(missing / slices.length);
-  let spawned = 0;
-  for (let i = 0; i < slices.length && spawned < missing; i++, sliceAt++) {
-    const count = Math.min(perSlice, missing - spawned);
-    await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: 1.5, health: ENEMY_HP });
-    spawned += count;
-  }
-  // Until most of them are out
-  const until = Date.now() + 120_000;
-  while (Date.now() < until) {
-    const now = await state(page);
-    console.log(`  enemies ${now.enemies} of ${target}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
-    if (now.enemies >= target * 0.97) break;
-    await page.waitForTimeout(1000);
+  await pause(true);
+  try {
+    for (let round = 0; round < 4; round++) {
+      const missing = target - (await state(page)).enemies;
+      if (missing <= target * 0.005) return;
+      const perSlice = Math.ceil(missing / slices.length);
+      let spawned = 0;
+      for (let i = 0; i < slices.length && spawned < missing; i++, sliceAt++) {
+        const count = Math.min(perSlice, missing - spawned);
+        await emit(page, { type: 'debug:spawn-enemy', enemyType: kinds[sliceAt % kinds.length], count, path: slices[i], speed: 1.5, health: ENEMY_HP });
+        spawned += count;
+      }
+      // Until the count stops rising: the spawns arrive over a few packets
+      const until = Date.now() + 120_000;
+      let last = -1;
+      while (Date.now() < until) {
+        const now = await state(page);
+        console.log(`  enemies ${now.enemies} of ${target}, phase ${now.phase}, game ${Math.round(now.gameTimeMs / 1000)}s`);
+        if (now.enemies >= target * 0.995 || now.enemies === last) break;
+        last = now.enemies;
+        await page.waitForTimeout(1000);
+      }
+    }
+  } finally {
+    await pause(false);
   }
 }
 /** Frames per second over `ms` of wall clock */
@@ -299,6 +315,9 @@ async function settle(): Promise<void> {
   console.log('  not settled after 30 s, measuring anyway');
 }
 
+/** Holds the game (the build without `__load.pause`, `next`, fills while it runs) */
+const pause = (paused: boolean) =>
+  page.evaluate((p) => (globalThis as unknown as { __load: { pause?(p: boolean): void } }).__load.pause?.(p), paused);
 const setSpeed = (value: number) => page.evaluate((v) => (globalThis as unknown as { __load: { speed(v: number): void } }).__load.speed(v), value);
 const hideEnemies = (hidden: boolean) =>
   page.evaluate((h) => (globalThis as unknown as { __load: { hideEnemies?(h: boolean): number } }).__load.hideEnemies?.(h) ?? 0, hidden);
