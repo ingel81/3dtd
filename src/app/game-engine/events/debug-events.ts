@@ -70,4 +70,24 @@ export type DebugEvent =
   | {
       type: 'debug:remove-enemy';
       enemyId: string;
+    }
+  | {
+      /**
+       * Enemy Debug: walk or run, stop or start moving (Enemy.setRunning,
+       * startMoving, stopMoving). The main thread shows the clip.
+       */
+      type: 'debug:enemy-move';
+      enemyId: string;
+      action: 'walk' | 'run' | 'start' | 'stop';
+    }
+  | {
+      /** Enemy Debug: base speed of one enemy, or of every enemy when enemyId is absent (movement.speedMps) */
+      type: 'debug:enemy-speed';
+      enemyId?: string;
+      speedMps: number;
+    }
+  | {
+      /** Display option: enemies stand still (EnemyManager.movementEnabled) */
+      type: 'debug:movement';
+      enabled: boolean;
     };

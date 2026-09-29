@@ -8,6 +8,8 @@ import type { SpawnPoint } from '../../managers/wave.manager';
 import type { CommandData } from '../../managers/game-state/command-data';
 import type { StampedCommand } from '../../coop/lockstep';
 import type { SimFramePacket } from './packet';
+import type { ReplayMarker } from '../../replay/replay-bar-view';
+import type { WireFrame } from './wire';
 
 /**
  * The world the simulation stands on, from the finished world on the main
@@ -50,6 +52,12 @@ export interface SimTickInput {
   /** In the order they were given; they act at the boundary before this frame's first sub-step */
   commands: QueuedCommand[];
   lockstep: LockstepDelivery | null;
+  /**
+   * While a replay is on (rpc replayEnter): play it at `speed` times the
+   * frame's wall time (capped like the game clock) instead of the live game;
+   * `playing` false holds it. Null for the live game.
+   */
+  replay: { playing: boolean; speed: number } | null;
 }
 
 /** What the simulation sends besides frames. */
@@ -61,7 +69,10 @@ export type SimOutput =
 export interface SimCoreApi {
   /** Settings of the run that come from the main thread (wave source, dev flags); see SimConfig */
   configure(config: SimConfig): void;
-  /** Build the world; before it the simulation runs no sub-step */
+  /**
+   * Build the world and start a fresh run on it (the seed stays unless reset
+   * gives another); before it the simulation runs no sub-step
+   */
   loadWorld(world: SimWorld): void;
   /** One frame: commands in, sub-steps, the packet out */
   tick(input: SimTickInput, out: (message: SimOutput) => void): SimFramePacket;
@@ -76,11 +87,18 @@ export interface SimConfig {
   players?: { players: string[]; local: string };
   lanes?: [string, string][];
   cheatsFor?: string[] | 'all' | null;
+  /** Coop: players out of the run (the relay was lost and this client goes on alone): their lanes close */
+  playersLeft?: string[];
   lockstep?: { hashEvery?: number } | null;
   /** Debug: enemies stand still (display option `movement`) */
   movementEnabled?: boolean;
   /** Debug: damage numbers (display option) */
   damageNumbers?: boolean;
+  /**
+   * The main thread rebuilds the route corridor: no tower is placed and no
+   * wave starts until it is false again (GameStateManager.corridorPending)
+   */
+  corridorPending?: boolean;
 }
 
 /**
@@ -94,13 +112,31 @@ export interface SimRpc {
   hashBreakdownAt(tick: number): unknown;
   captureWaveSnapshot(): unknown;
   restoreWaveSnapshot(snapshot: unknown, reason: 'replay' | 'live'): void;
-  replayFile(head: { configHash: string; gameVersion: string; commit: string }): string;
+  /** The run's (or the loaded file's) replayable waves as a replay file's text; null when there is none */
+  replayFile(head: { configHash: string; gameVersion: string; commit: string }): { text: string; waves: number[] } | null;
   loadReplayFile(text: string, here: { configHash: string; gameVersion: string }): { refusal: string | null; note: string | null; waves: number[] };
-  replayEnter(wave: number): { lengthInSteps: number | null } | null;
-  replayStep(steps: number): { stepInWave: number; finished: boolean; divergedAt: number | null };
-  replaySeek(stepInWave: number): { stepInWave: number };
+  /**
+   * Keep the live state, put the simulation at the wave's start in replay
+   * mode. `file`: a replay file's text read before (loadReplayFile) instead
+   * of the run's own record. Null when the wave cannot be re-simulated.
+   */
+  replayEnter(wave: number, fromFile: boolean): ReplayEntered | null;
+  /** Jump to `stepInWave` without the show (VFX, sounds muted), forward or from the start */
+  replaySeek(stepInWave: number): void;
+  /** Give the live game back as it was, leave replay mode */
   replayExit(): void;
   commandLog(): unknown[];
+}
+
+/** What the replay bar needs of a wave the simulation entered (rpc replayEnter). */
+export interface ReplayEntered {
+  wave: number;
+  lengthInSteps: number | null;
+  startStep: number;
+  /** commandMarkers() of the wave's log (replay/replay-bar-view.ts) */
+  markers: ReplayMarker[];
+  /** The waves the bar can switch to, oldest first: the file's, or the run's replayable ones */
+  waves: number[];
 }
 
 // ── Worker messages ──
@@ -113,7 +149,7 @@ export type ToWorker =
 
 export type FromWorker =
   | { kind: 'ready' }
-  | { kind: 'frame'; packet: SimFramePacket }
+  | { kind: 'frame'; frame: WireFrame }
   | { kind: 'output'; message: SimOutput }
   | { kind: 'rpc-reply'; id: number; ok: true; value: unknown }
   | { kind: 'rpc-reply'; id: number; ok: false; error: string }
