@@ -189,6 +189,7 @@ export class GameStore {
     this.abilities.set(lockedAbilities());
     this.hero.set(initialHeroStatus());
     this.selectedTower.set(null);
+    this.mannedTowerId.set(null);
     this.towerCount.set(0);
     this.placedUniqueTypes.set(new Set());
     this.showGameOverScreen.set(false);
