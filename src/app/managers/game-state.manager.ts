@@ -1268,6 +1268,18 @@ export class GameStateManager {
     this.backgroundMusic?.followPhase(phase, wave);
     this.bloodMoonService?.follow(phase, wave);
     for (const seat of this.abilitySeats) seat.announceState();
+    const alive = this.enemyManager.getAliveCount();
+    this.eventBus.emit({
+      type: 'sim:presented',
+      phase,
+      wave,
+      credits: this.creditsOf(this.localPlayerId),
+      baseHealth: this.baseHealth(),
+      enemiesAlive: alive,
+      waveEnemiesLeft: phase === 'wave'
+        ? alive + this.enemyManager.getPendingSpawnCount() + this.waveManager.getEnemiesToSpawn()
+        : 0,
+    });
   }
 
   /** A key of the world the simulation runs on, see RouteWorld.key */

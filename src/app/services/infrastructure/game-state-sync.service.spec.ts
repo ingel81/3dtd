@@ -119,6 +119,22 @@ describe('GameStateSyncService (real service)', () => {
   });
 
   // ── Enemies left in the running wave (wave button bar) ─────────
+  describe('after a restore', () => {
+    it('sim:presented → the state as it stands, whatever the events said before', () => {
+      eventBus.emit({ type: 'wave:started', wave: 3, enemyCount: 10 });
+      eventBus.emit({ type: 'enemy:died', enemy: {} as never, credits: 10, killedBy: null });
+      eventBus.emit({
+        type: 'sim:presented', phase: 'wave', wave: 3, credits: 342, baseHealth: 477, enemiesAlive: 32, waveEnemiesLeft: 40,
+      });
+      expect(store.phase()).toBe('wave');
+      expect(store.credits()).toBe(342);
+      expect(store.baseHealth()).toBe(477);
+      expect(store.enemiesAlive()).toBe(32);
+      expect(store.waveEnemiesLeft()).toBe(40);
+      expect(store.waveEnemyTotal()).toBe(40);
+    });
+  });
+
   describe('enemies left in the wave', () => {
     it('wave:started → total and left = announced enemy count', () => {
       eventBus.emit({ type: 'wave:started', wave: 4, enemyCount: 12 });

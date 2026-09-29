@@ -96,6 +96,19 @@ export class GameStateSyncService {
       this.store.resetGameState();
     }));
 
+    // After a restore (coop resync, a replay's way back): the state as it
+    // stands, none of the events that led there reached the store
+    this.subs.add(eventBus.onLive('sim:presented', (event) => {
+      this.store.phase.set(event.phase);
+      this.store.waveNumber.set(event.wave);
+      this.store.credits.set(event.credits);
+      this.store.baseHealth.set(event.baseHealth);
+      this.store.enemiesAlive.set(event.enemiesAlive);
+      this.store.waveEnemiesLeft.set(event.waveEnemiesLeft);
+      // The total counts splits as they happened; it is never less than what is left
+      this.store.waveEnemyTotal.update((total) => Math.max(total, event.waveEnemiesLeft));
+    }));
+
     // ── Credits ───────────────────────────────────────────────────
     this.subs.add(eventBus.onLive('credits:changed', (event) => {
       if (event.local) this.store.credits.set(event.credits);

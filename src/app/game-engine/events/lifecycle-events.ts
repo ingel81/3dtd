@@ -228,6 +228,22 @@ export type LifecycleEvent =
       reason: 'replay' | 'live';
     }
   | {
+      /**
+       * What the state shows after a restore, once it is whole (enemies
+       * included): GameStateManager.resyncPresentation. The stores take it
+       * over, they heard none of the events that led there (a coop resync).
+       */
+      type: 'sim:presented';
+      phase: 'setup' | 'wave' | 'gameover';
+      wave: number;
+      /** The local player's credits */
+      credits: number;
+      baseHealth: number;
+      enemiesAlive: number;
+      /** Alive, still in the portal and still to spawn */
+      waveEnemiesLeft: number;
+    }
+  | {
       type: 'credits:changed';
       /** The new total of the player's account */
       credits: number;

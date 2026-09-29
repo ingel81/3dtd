@@ -234,6 +234,11 @@ export class WaveManager implements IGameManager {
     return this.expectedEnemyCount;
   }
 
+  /** Scheduled enemies of the current wave that have not spawned yet */
+  getEnemiesToSpawn(): number {
+    return Math.max(0, this.expectedEnemyCount - this.spawnedEnemyCount);
+  }
+
   /**
    * Reward weight of every body the current wave can field: each scheduled
    * enemy plus everything a kill splits it into (lineageRewardWeight), and a
