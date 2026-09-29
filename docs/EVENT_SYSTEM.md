@@ -1,6 +1,6 @@
 # Event System - Framework-Agnostic Event Bus
 
-**Stand:** 2026-09-24 (Befehlsgrenze, Befehlslog, `command:tower-aim`, `onLive`/`onShow`), Listener per Grep nachgezogen 2026-09-15 (`wave:completed`-Semantik: 2026-09-07)
+**Stand:** 2026-09-29 (zwei Busse: Simulation im Worker und Hauptthread, Sichtlinien als Anfrage und Antwort, [SIM_WORKER.md](SIM_WORKER.md)); 2026-09-24 (Befehlsgrenze, Befehlslog, `command:tower-aim`, `onLive`/`onShow`), Listener per Grep nachgezogen 2026-09-15 (`wave:completed`-Semantik: 2026-09-07)
 
 Das Event-System ermöglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren über Events statt direkter Methodenaufrufe oder Callbacks.
 
@@ -24,6 +24,37 @@ Das Event-System ermöglicht lose Kopplung zwischen Game-Engine Komponenten. All
 - **Events für Broadcasts** - `enemy:died`, `projectile:hit`, `wave:completed`
 - **Spatial Grid für Queries** - Tower Targeting, AOE Damage
 
+### Zwei Busse: Simulation und Hauptthread
+
+Seit 2026-09-29 läuft die Simulation in einem Web Worker ([SIM_WORKER.md](SIM_WORKER.md)). Es gibt zwei Busse,
+beide ein `GameEventBus`:
+
+| Bus | Wo | Events tragen | Wer hört |
+|-----|----|---------------|----------|
+| Bus der Simulation (`GameStateManager.getEventBus()`) | Worker (`SimCore`) | lebende Entities (`Enemy`, `Tower`, `Projectile`, `WormGroup`) | Manager, Kampf-Services, `GameCommandsHandler` |
+| Hauptthread-Bus (`SimClient.bus`, Typ `MainEventBus` in `sim/client/view-events.ts`) | Hauptthread | Views (`EnemyView`, `ProjectileView`, `WormGroupView` aus `sim/client/views.ts`) und Schatten-Tower; ein `Vector3` kommt als `{ x, y, z }` | UI, Stores (`GameStateSyncService`), Darstellung (VFX, Audio, Screen Shake, Musik, HQ-Feuer), Run-Log, Wellenquelle, Bot, Sichtlinien (`TowerLosRegistry`) |
+
+**Von der Simulation zum Hauptthread.** `exportEvents` (`sim/core/event-export.ts`) hört den Bus der Simulation per
+`onAny` und legt jedes Event außer den Eingaben als `ExportedEvent` (`sim/protocol/events.ts`) ins Paket des Bilds.
+Entities werden dabei Referenzen mit den Zahlen des Moments: `EnemyRef` (`$e`, Position, Höhe, HP, `alive`, Typ,
+Route, Wurm-Slot), `TowerRef` (`$t`), `ProjectileRef` (`$p`), `WormGroupRef` (`$w`). Dazu tragen sie `live` und
+`show` (wie der Bus beim Emit stumm geschaltet war, siehe "onLive und onShow") und Spielzeit und Sub-Step des
+Emits. Auf dem Hauptthread setzt `SimMirror.importEvent` die Views ein, `SimClient` emittiert das Event auf dem
+Hauptthread-Bus. Ein Paket wird in dieser Reihenfolge angewendet: Zustand in den Spiegel (Tower-Zustände vor den
+Events, damit `$t` den Schatten-Tower findet), Ops, Events, Tabellen an die Renderer. Die Listener auf dem
+Hauptthread hören ein Event also erst mit dem Paket, nicht im Sub-Step, in dem es entstand; mehrere Sub-Steps eines
+Bilds kommen in einem Paket.
+
+**Vom Hauptthread zur Simulation.** Eingaben sind `command:*` und die `debug:*`-Events außer `debug:sound`
+(`isSimInput`, `sim/client/sim-client.service.ts`). Wer sie auf dem Hauptthread-Bus emittiert, erreicht zuerst die
+Listener dort; `SimClient` sammelt sie und schickt sie mit dem nächsten Tick. `SimCore.tick` gibt sie in der
+gegebenen Reihenfolge an `GameStateManager.receiveCommand`, vor dem ersten Sub-Step des Ticks, und der
+`GameCommandsHandler` führt sie aus (siehe "Befehlsgrenze und Befehlslog"). Die Simulation schickt Eingaben nicht
+zurück.
+
+Die Tabellen unten nennen Producer und Consumer beider Seiten. Producer sind fast immer Teile der Simulation;
+Consumer auf dem Hauptthread hören das Event auf dem Hauptthread-Bus.
+
 ---
 
 ## Event-Typen
@@ -45,8 +76,8 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `tower:placed` | TowerManager | GameStateSyncService, DpsBinsOverlay (DPS-Anzeige der VisualizationFacade, nur solange sie an ist), AIDataCollector, RunStatsTracker, OnboardingService | Tower gebaut (`tower`, `position`, `cost`). Die Kosten zieht `GameStateManager.placeTower()` (`TowerLifecycle.place()`) direkt ab. GameStateSyncService führt daraus auch `GameStore.placedUniqueTypes` (Einmal-Gebäude, `TowerTypeConfig.unique`) |
 | `tower:upgraded` | TowerLifecycle (`upgrade()`; auch bei `debug:max-upgrade-all-towers` über `maxUpgradeAll()`, dann mit `level: 0`, `cost: 0`) | GameStateSyncService, DpsBinsOverlay, AIDataCollector, OnboardingService | Tower aufgewertet (`tower`, `level`, `cost`) |
 | `tower:sold` | TowerManager | GameStateSyncService, DpsBinsOverlay, LosDebugService, AIDataCollector, RunStatsTracker | Tower verkauft (`tower`, `refund`). Die Gutschrift macht `GameStateManager.sellTower()` (`TowerLifecycle.sell()`) direkt. Kommt, bevor der Tower aus der Tower-Liste geht |
-| `tower:selected` | TowerManager | GameStateSyncService, VisualizationFacade, LosDebugService | Tower ausgewählt (`tower`) |
-| `tower:deselected` | TowerManager | GameStateSyncService, LosDebugService | Tower-Auswahl aufgehoben |
+| `tower:los-needed` | `TowerLos` (Bau, Reichweiten-Upgrade, Luft-Forschung) | TowerLosRegistry (Hauptthread, nur `onLive`) | Ein Tower braucht seine Sichtlinie (`towerId`, `reason`, `range`, `canTargetGround`, `canTargetAir`), siehe "Sichtlinien: Anfrage und Antwort" |
+| `tower:los-resolved` | `TowerLos` (Maske angewendet) | GameStateManager (Befehlslog, `recordLos`) | Die Maske eines Towers steht (`towerId`, `mask`, `reason`) |
 | `tower:kill` | DamageApplicationService | GameStateSyncService | Kill einem Tower gutgeschrieben, `combat.kills` ist schon erhöht (`tower`). Das Abzeichen über dem Tower hängt nicht an diesem Event, es liest die Kills jeden Frame (`TowerManager.syncVeteranBadges`). Beim gewählten Tower zählt `selectedTowerRevision` hoch, daraus leitet die Sidebar Kills, Stats und Rang ab |
 | `audio:play` mit `atListener` | ProjectileManager (Schüsse des bemannten Towers) | AudioService → `SpatialAudioManager.playAtListener` | Sound am Hörer statt an `lat`/`lon`, ohne Richtung, mit den Grenzen eines One-Shots |
 | `tower:manned` | TowerLifecycle (man, leave; auch beim Verkauf, Spielende, Neustart) | GameStateSyncService (`GameStore.mannedTowerId`), TowerControlService (Kamera zurück bei `null`) | Spieler sitzt in einem Tower (`towerId`) oder in keinem mehr (`null`) |
@@ -57,7 +88,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `game:over` | GameStateManager (`triggerGameOver()`) | GameStateSyncService, GameLoopFacade, AIDataCollector, BackgroundMusicService, BloodMoonService, TrainingSession, BestWaveService, MarkerVisualizationService | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`; emittiert wird nur `'base-destroyed'`) |
 | `game:reset` | GameStateManager (`reset()`) | GameStateSyncService, BackgroundMusicService, BloodMoonService, BloodMoonBannerComponent, BossIntroService (bricht ein laufendes Intro ab, vergisst wartende Bosse), VFXService und AudioService (laufende Schläge und Nachhall weg), GameLoopFacade, RunStatsTracker, BestWaveService, OnboardingService, RefusalHintService, MarkerVisualizationService | Spiel zurückgesetzt |
 | `credits:changed` | GameStateManager (`CreditsLedger`) | GameStateSyncService, RunStatsTracker | Credits geändert (`credits`, `delta`) |
-| `health:changed` | GameStateManager (`BaseHealthLedger`: Leaks und `debug:add-health`) | HQDamageService, ScreenShakeService, GameStateSyncService, AIDataCollector, RunStatsTracker | Base Health geändert (`health`, `delta`) |
+| `health:changed` | GameStateManager (`BaseHealthLedger`: Leaks und `debug:add-health`) | HqDamagePresenter, ScreenShakeService, GameStateSyncService, AIDataCollector, RunStatsTracker | Base Health geändert (`health`, `delta`) |
 | `research:started` | ResearchManager | OnboardingService | Forschung gestartet (`researchId`, `cost`, `duration`) |
 | `research:completed` | ResearchManager (auch `completeAllResearch()`) | GameStateSyncService (`applyResearchEffects`), GameStateManager (LOS-Neuberechnung, wenn Air-Targeting frei wird), AbilityManager und HeroManager (Freischaltung) | Forschung fertig (`researchId`, `effects`) |
 | `research:cancelled` | ResearchManager | RunStatsTracker (Erstattung) | Forschung abgebrochen (`researchId`, `refund`) |
@@ -83,7 +114,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `vfx:projectile-impact` | ProjectileManager | VFXService, ScreenShakeService | Projektil-Einschlag VFX spawnen, einzige Quelle für Explosionen (`lat`, `lon`, `height`, `projectileType`, `targetLost`) |
 | `vfx:muzzle-flash` | ProjectileManager (beim Abschuss) | VFXService | Muzzle-Flash VFX am Tower spawnen (`towerId`, `towerTypeId`) |
 | `vfx:chain-lightning` | CombatEffectService (`emitChainLightningVfx()`, aufgerufen von TowerCombatService für den Lightning Tower) | VFXService → LightningBoltRenderer | Chain-Polyline rendern (`points` = Tip → primary → jumpN, `sourceTowerId`). Triggert pro Segment einen Bolt + lokalen Aufhell-Halo. |
-| `audio:play` | ProjectileManager, TowerManager (Bau, Verkauf), HQDamageService, `OozeSounds` (Ooze) | AudioService | 3D Sound abspielen (`sound`, `lat`, `lon`, `height`, `volume?`) |
+| `audio:play` | ProjectileManager, TowerManager (Bau, Verkauf), `OozeSounds` (Ooze) | AudioService | 3D Sound abspielen (`sound`, `lat`, `lon`, `height`, `volume?`) |
 | `wave:completed` | WaveManager (`endWave()`) | GameStateSyncService, GameStateManager (Tower in Wachrichtung drehen), AIDataCollector, BackgroundMusicService, BloodMoonService, TrainingSession, AbilityManager (Ladungen je Welle), GameLoopFacade (Auto-Wave-Countdown), OnboardingService, MarkerVisualizationService | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Den Wave-Bonus bucht der GameStateManager im Update-Loop, nicht über dieses Event. Siehe Warnung unten. |
 
 > **`wave:completed` ist kein verlässlicher „jede Welle"-Hook.**
@@ -133,15 +164,15 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `command:place-tower` | TowerPlacementService (der Trainings-Bot ruft `GameStateManager.placeTower()` direkt) | GameCommandsHandler → GameStateManager.placeTower() | Tower platzieren (`position`, `typeId`, `rotation?`, `plinthHeight?` für den Sockel, `plinthOverhang?` für seine Stützen) |
-| `command:sell-tower` | TowerDefenseFacade (der Trainings-Bot ruft `GameStateManager.sellTower()` direkt) | GameCommandsHandler → GameStateManager.sellTower() | Tower verkaufen (`towerId`) |
-| `command:upgrade-tower` | GameLoopFacade (`upgradeTower()`, auch für den Trainings-Bot per Callback) | GameCommandsHandler → GameStateManager.upgradeTower() (`TowerLifecycle`: Kosten, Tier-Gating, emittiert `tower:upgraded`) | Tower upgraden (`towerId`, `upgradeId`) |
+| `command:place-tower` | TowerPlacementService, BotSession | GameCommandsHandler → GameStateManager.placeTower() | Tower platzieren (`position`, `typeId`, `rotation?`, `plinthHeight?` für den Sockel, `plinthOverhang?` für seine Stützen) |
+| `command:sell-tower` | TowerDefenseFacade, BotSession | GameCommandsHandler → GameStateManager.sellTower() | Tower verkaufen (`towerId`) |
+| `command:upgrade-tower` | GameLoopFacade (`upgradeTower()`), BotSession | GameCommandsHandler → GameStateManager.upgradeTower() (`TowerLifecycle`: Kosten, Tier-Gating, emittiert `tower:upgraded`) | Tower upgraden (`towerId`, `upgradeId`) |
 | `command:set-targeting` | TowerDefenseComponent (Targeting-Knöpfe im Tower-Panel, `facade.emitCommand`) | GameCommandsHandler → setzt `targetingStrategy` bzw. `airSubStrategy` am Tower | Zielwahl eines Towers (`towerId`, `strategy?`, `airSubStrategy?`); ein weggelassenes Feld bleibt. Bis 2026-09-14 setzte die Komponente die Felder direkt, der Weg über den Bus macht die Wahl für das Replay aufzeichenbar |
 | `command:set-hold-fire` | TowerDefenseComponent (Knopf "Hold fire" im Tower-Panel, `facade.emitCommand`) | GameCommandsHandler → GameStateManager.setTowerHoldFire() (`TowerLifecycle.setHoldFire`) | Feuerpause eines Towers an oder aus (`towerId`, `holdFire`): `Tower.holdFire`, der Renderer graut das Modell aus, eine Flamme geht sofort aus. Ein passiver Tower (Forschungszentrum, Raketensilo) bleibt unverändert |
 | `command:man-tower` | TowerControlService (Taste C, Knopf im Tower-Panel) | GameCommandsHandler → GameStateManager.manTower() (`TowerLifecycle.man`) | Spieler steigt in einen Projektil-Tower (`towerId`): kein Autofeuer mehr, der Turm folgt `Tower.manualAim`. Andere Tower und nach Spielende: ignoriert. Antwort `tower:manned`. Siehe [TOWER_CONTROL.md](TOWER_CONTROL.md) |
 | `command:leave-tower` | TowerControlService (C, Esc, Maus freigegeben, Photo Mode, Replay, Boss-Intro, Intro-Flug, HQ oder Spawn setzen, Laden, Fehler) | GameCommandsHandler → GameStateManager.leaveTower() | Spieler steigt aus, der Tower feuert wieder selbst. Antwort `tower:manned` mit `null` |
 | `command:tower-trigger` | TowerControlService (linke Maustaste) | GameCommandsHandler → GameStateManager.setMannedTrigger() | Abzug des besetzten Towers gedrückt oder losgelassen (`held`) |
-| `command:tower-aim` | TowerControlService (`flushAim()`, aus GameLoopFacade vor den Sub-Steps) | GameCommandsHandler → GameStateManager.setMannedAim() | Zielrichtung des besetzten Towers (`heading`, `pitch`, rad) nach `Tower.manualAim`: die Mausbewegungen eines Frames als ein Befehl, nur bei Änderung. Die Replay-Leiste setzt dafür keine Marke |
+| `command:tower-aim` | TowerControlService (`flushAim()`, aus GameLoopFacade vor `SimClient.frame`) | GameCommandsHandler → GameStateManager.setMannedAim() | Zielrichtung des besetzten Towers (`heading`, `pitch`, rad) nach `Tower.manualAim`: die Mausbewegungen eines Frames als ein Befehl, nur bei Änderung. Die Replay-Leiste setzt dafür keine Marke |
 | `command:start-wave` | GameLoopFacade | GameCommandsHandler → GameStateManager.startWave() bzw. beginWave() → WaveManager | Welle starten (`config?`) |
 | `command:restart-game` | GameLoopFacade | GameCommandsHandler → GameStateManager.reset() | Spiel neu starten |
 | `command:start-research` | TowerDefenseComponent (`facade.emitCommand`), TrainingSession | GameCommandsHandler → ResearchManager | Forschung starten (`researchId`) |
@@ -152,6 +183,21 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `command:hire-hero` | HeroControlService.hire (Held-Knopf der Fähigkeitenleiste vor dem Anheuern) | GameCommandsHandler → HeroManager.hire() | Held anheuern (Forschung, Credits, Route); Antwort `hero:state-changed` oder `hero:rejected`. Bots senden ihn nie |
 | `command:hero-move` | HeroControlService (Klick bei gewähltem Helden) | GameCommandsHandler → HeroManager.moveTo() | Held zum nächsten Routenpunkt im Umkreis von 30 m schicken (`target`), der Weg wird im Befehl berechnet |
 | `command:hero-ammo` | HeroControlService (Taste V, Helden-Panel) | GameCommandsHandler → HeroManager.setAmmo() | Munition laden (`ammo`: `standard`, `explosive`, `rune`) |
+| `command:los-mask` | TowerLosRegistry (Hauptthread, nach dem GPU-Render); im Coop über das Relay vom Host | GameCommandsHandler → `TowerLos` | Die Sichtlinie eines Towers (`towerId`, `reason`, `mask`), Antwort auf `tower:los-needed` |
+
+Die Auswahl eines Towers ist seit dem Worker-Umbau UI-Zustand des Hauptthreads (`TowerSelectionService`); die Typen
+`tower:selected` und `tower:deselected` stehen noch in `lifecycle-events.ts`, emittiert werden sie nicht mehr.
+
+### Sichtlinien: Anfrage und Antwort
+
+Die Simulation rendert nichts ([SIM_WORKER.md](SIM_WORKER.md), "Sichtlinien"; `managers/game-state/tower-los.ts`).
+Braucht ein Tower seine Sichtlinie (gebaut, Reichweite vergrößert, Luftziele erforscht), emittiert sie
+`tower:los-needed`. Auf dem Hauptthread rendert `TowerLosRegistry` (`services/tower-los-registry.ts`) die Cubemap
+von der Turmspitze auf der GPU, höchstens einen Tower pro Bild, löst die Zellen im Raster des Hauptthreads auf und
+emittiert `command:los-mask` auf dem Hauptthread-Bus; der geht mit dem nächsten Tick an die Simulation. Dort wendet
+`TowerLos` die Maske an der Grenze an, setzt `losReady` und emittiert `tower:los-resolved`. Ein neuer Tower schießt
+vorher nicht, ein aufgerüsteter behält bis dahin seine alten Antworten. Im Coop rendern der Einzelspieler und der
+Host; ein Gast wartet auf die Masken des Hosts, die über das Relay in seine Simulation kommen.
 
 ### Befehlsgrenze und Befehlslog
 
@@ -162,14 +208,16 @@ Sub-Steps, nie mitten in einem. Damit lässt sich ein Lauf aus Startzustand, See
   Step samt Wellenende- und Game-Over-Check `endStep()`. Ein Befehl, der dazwischen kommt (ein Listener, der auf ein
   Sim-Event reagiert, etwa ein Ausstieg beim Game Over), wartet bis `endStep()` und wirkt dann in Ankunftsreihenfolge.
   Auch nach dem Step, der das Spiel beendet, laufen die gewarteten Befehle noch, erst dann bricht die Schleife ab.
-- **UI:** Befehle zwischen zwei Frames (Klicks, Tasten, `tickAutoWave`, `flushAim` vor den Sub-Steps) liegen schon
-  an einer Grenze und wirken sofort, ohne Verzögerung.
-- **Bot:** Der `onSubStep`-Callback von `update()` (Bot-Tick; die Turmdrehung läuft seit P2 in `runSubStep`) läuft an der Grenze nach
-  `endStep()`. Der Bot entscheidet also auf dem Stand nach den Checks, sein Befehl wirkt sofort. Nach dem Step, der das
-  Spiel beendet, läuft er nicht mehr.
+- **UI:** Befehle vom Hauptthread (Klicks, Tasten, `tickAutoWave`, `flushAim`) gehen mit dem nächsten Tick an die
+  Simulation und wirken an der Grenze vor dessen erstem Sub-Step (`SimCore.tick`). Ein Tick ist unterwegs, also
+  wirkt ein Befehl ein bis zwei Bilder nach der Eingabe.
+- **Bot:** Der Bot läuft auf dem Hauptthread und entscheidet einmal je Bild auf dem Spiegel
+  (`GameLoopFacadeService.onEngineUpdate`, nach `SimClient.frame`); seine Befehle gehen wie die der UI mit dem
+  nächsten Tick. Den `onSubStep`-Callback von `update()` nutzen nur noch Specs und die Messung
+  `integration/sim-step-bench.ts`, die den GameStateManager direkt treiben.
 - **Befehlslog:** `GameStateManager.commandLog` (`managers/game-state/command-log.ts`) hält jeden Befehl, den der
   Handler ausführt, als Klartext (`toPlainData`) mit `step` (Wert von `GameClock.subStep` an der Grenze: der Befehl
-  wirkt nach Step `step` und vor Step `step + 1`) und `playerId` (heute immer `local`). Auch abgelehnte Befehle und
+  wirkt nach Step `step` und vor Step `step + 1`) und `playerId` (der Spieler, von dem der Befehl kam). Auch abgelehnte Befehle und
   die Cheats des Handlers stehen darin, eine Neu-Simulation braucht dieselben Eingaben. Geschrieben im Handler, nicht
   über `onAny`, damit `emit` auf seinem schnellen Pfad bleibt. Geleert bei `reset()` (Neustart), `initialize()`
   (neuer Ort) und `reseatWavePipeline()` (neue DevWorld).
@@ -182,7 +230,7 @@ Sub-Steps, nie mitten in einem. Damit lässt sich ein Lauf aus Startzustand, See
 
 ### onLive und onShow: wer im Replay mithört
 
-Seit 2026-09-24 ([REPLAY.md](REPLAY.md)). Das Replay rechnet eine Welle auf dem Live-Bus nach, Kills, Credits,
+Seit 2026-09-24 ([REPLAY.md](REPLAY.md)). Das Replay rechnet eine Welle auf dem Bus der Simulation nach, Kills, Credits,
 Wellenende und Boss-Spawns gehen also noch einmal raus. Zwei Varianten von `on()` sagen, wer das hören darf. Beide
 haben denselben Platz in der Reihenfolge wie `on()`.
 
@@ -193,8 +241,9 @@ haben denselben Platz in der Reihenfolge wie `on()`.
 | `onShow()` | Live-Spiel und Replay, nicht beim Springen im Replay (`setShowMuted`) | Was das Spiel zeigt: VFX, Audio, Spielsounds, Screen-Shake, Musik, Blutmond-Look |
 
 Ein neuer Abonnent, der Zustand außerhalb der Simulation führt, nimmt `onLive()`; einer, der Bild oder Ton macht,
-`onShow()`. Was nicht am Bus hängt, sondern je Frame die Uhr liest (`tickAutoWave`, `runLog.tick`), fragt
-`GameStateManager.isReplaying`.
+`onShow()`. Die Stummschaltung reist mit: jedes `ExportedEvent` trägt `live` und `show`, und `SimClient` schaltet
+den Hauptthread-Bus für dieses Event genauso stumm. Was nicht am Bus hängt, sondern je Frame die Uhr liest
+(`tickAutoWave`, `runLog.tick`), fragt auf dem Hauptthread `SimClient.replay`.
 
 ---
 
@@ -290,7 +339,7 @@ function gameLoop(deltaTime: number) {
 │                              emit('health:changed')                 │
 │                                      │                              │
 │                                      ▼                              │
-│                              HQDamageService                        │
+│                              HqDamagePresenter (Hauptthread)        │
 │                              updateFireIntensity()                  │
 │                                                                     │
 │  eventBus.processQueue() ◄── Am Ende des Frames                     │
@@ -305,6 +354,9 @@ function gameLoop(deltaTime: number) {
 │                                                                     │
 └─────────────────────────────────────────────────────────────────────┘
 ```
+
+Der Ablauf oben läuft im Worker. `HqDamagePresenter`, `VFXService` und `AudioService` sitzen auf dem Hauptthread:
+sie hören die Events auf dem Hauptthread-Bus, wenn das Paket des Bilds angewendet wird.
 
 ---
 
@@ -321,14 +373,16 @@ function gameLoop(deltaTime: number) {
 | **ProjectileManager** | Nein | Producer | Emittiert `projectile:hit`, `vfx:*`, `audio:play` |
 | **EnemyManager** | Nein | Mixed | Emittiert `enemy:spawned`, `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `enemy:split`, `worm:spawned`, `dot:damage`; reagiert auf `debug:spawn-enemy` und `debug:remove-enemy` |
 | **WaveManager** | Nein | Mixed | Emittiert `wave:started`, `wave:completed`; reagiert auf `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `debug:kill-all` |
-| **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold`, `tower:selected`, `tower:deselected`, `audio:play` |
+| **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold`, `audio:play` |
 | **ResearchManager** | Nein | Producer | Emittiert `research:*` |
 | **GameCommandsHandler** | Nein | Subscriber | Reagiert auf `command:*` und die sieben `debug:*`-Cheats (Credits, Health, Research, Max Up, Fähigkeiten, Held, Wellensprung), sucht den Tower heraus und ruft den GameStateManager; hält Befehle bis zur Sub-Step-Grenze und schreibt das Befehlslog (siehe "Befehlsgrenze und Befehlslog"); emittiert selbst nichts |
 | **AbilityManager** | Nein | Mixed | Emittiert `ability:used`, `ability:impact`, `ability:resolved`, `ability:rejected`, `ability:state-changed`; reagiert auf `research:completed` (Freischaltung) und `wave:completed` (Ladungen) |
 | **CombatEffectService** | Ja | Mixed | Reagiert auf `projectile:hit`, `dot:damage`, emittiert `vfx:chain-lightning` |
 | **DamageApplicationService** | Ja | Producer | Emittiert `tower:kill`, bei Schüssen des Helden `hero:kill` |
 | **HeroManager** | Nein | Mixed | Emittiert `hero:state-changed`, `hero:rejected`, `hero:level-up`; reagiert auf `research:completed`, `hero:kill` |
-| **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
+| **HqDamagePresenter** (`presentation/hq-damage-presenter.ts`) | Nein | Subscriber (Hauptthread) | Reagiert auf `health:changed`, `game:over`, `game:reset`; spielt den HQ-Treffer selbst über `spatialAudio` |
+| **SimClient** (`sim/client/sim-client.service.ts`) | Ja | Brücke (Hauptthread) | Hält den Hauptthread-Bus, emittiert darauf die Events jedes Pakets, sammelt die Eingaben für den nächsten Tick |
+| **TowerLosRegistry** (`services/tower-los-registry.ts`) | Ja | Mixed (Hauptthread) | Reagiert auf `tower:los-needed`, emittiert `command:los-mask` |
 | **GameStateSyncService** | Ja | Subscriber | Synchronisiert Game State mit Angular UI |
 | **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:started`, `game:over`, `game:reset`, `wave:jumped`; über seine Klassen in `managers/game-state/` außerdem `credits:changed`, `health:changed`, `tower:upgraded`. Reagiert auf `enemy:died`, `enemy:reached-base`, `enemy:leaking`, `research:completed`, `wave:completed`, `debug:remove-enemy`, `debug:kill-all` |
 | **UI-Dienste** | Ja, außer RunStatsTracker | Subscriber | RunStatsTracker (Bilanz fürs Game-Over), BestWaveService (Bestwelle je Ort), OnboardingService (Tipps), RefusalHintService (Hinweis bei `ability:rejected`, `hero:rejected`), MarkerVisualizationService (Spawn-Portal), LeakVignetteComponent, BossBarComponent, BossIntroService, BloodMoonBannerComponent; Events je Dienst in den Tabellen oben |
@@ -397,6 +451,10 @@ bag.disposeAll();
 | Datei | Beschreibung |
 |-------|--------------|
 | `game-engine/game-event-bus.ts` | Event Bus Core (GameEvent Union, Subscriptions, processQueue) |
+| `sim/core/event-export.ts` | Events der Simulation als `ExportedEvent` ins Paket |
+| `sim/protocol/events.ts` | `ExportedEvent`, die Referenzen `EnemyRef`, `TowerRef`, `ProjectileRef`, `WormGroupRef`, `LosNeededPayload` |
+| `sim/client/view-events.ts` | `ViewEvent`, `MainEventBus`, `createMainEventBus()` |
+| `sim/client/mirror/sim-mirror.ts` | `importEvent`: Referenzen zu Views |
 | `game-engine/vfx.service.ts` | VFX Event Handler, Zielmarker und Einschläge der Fähigkeiten |
 | `game-engine/audio.service.ts` | Audio Event Handler, Einschlagsounds der Fähigkeiten |
 | `game-engine/background-music.service.ts` | Phasen-basiertes Crossfade-System |

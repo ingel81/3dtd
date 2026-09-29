@@ -19,6 +19,8 @@ npm run coop-server  # Coop-Relay (:3003), docs/COOP_PLAN.md
 
 - Angular 22 Standalone Components (nur UI)
 - Three.js + 3DTilesRendererJS für 3D-Rendering
+- **Simulation im Web Worker** - GameStateManager und Manager laufen im Worker (`SimCore`), der Hauptthread hält Bild,
+  Ton, UI, Tiles und GPU-Sichtlinien und liest den Spiegel ([SIM_WORKER.md](docs/SIM_WORKER.md))
 - **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
 - **Signal Store** - 6 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research, Debug)
 - Kein Backend im Spiel-Client - komplett clientseitig (`bot-server/` nur für Bot-Läufe)
@@ -57,9 +59,11 @@ src/app/
 ├── interfaces/                 # Provider-Interfaces (StreetNetwork, Terrain)
 ├── managers/                   # Manager (Enemy, Tower, Wave, Research, Ability, Hero usw., event-driven), game-state/ (Ledger, Lifecycle, Clock), worm/, audio/ (Spatial Audio)
 ├── models/                     # Type Definitions (game.types, location.types, status-effects)
+├── presentation/               # Darstellung auf dem Hauptthread: PresentationHost, OpPlayer, FramePresenter, Ton, HQ-Feuer
 ├── replay/                     # Replay-Leiste: Marken, Zeitformat (docs/REPLAY.md)
 ├── run-log/                    # Run-Log: Sammler, Speicher, Export, Game-Over-Zahlen (docs/RUN_LOG.md)
 ├── simulator/                  # Snapshot, Prüfsumme, Neu-Simulation, Replay-Session, Replay-Datei (docs/SIMULATOR_PLAN.md)
+├── sim/                        # Simulation im Worker: core/ (SimCore), worker/, protocol/ (Paket, Ops, Events), client/ (SimClient, Spiegel)
 ├── services/                   # Angular Services (Subfolders: combat/, debug/, facade/, infrastructure/, location/, onboarding/, world/)
 ├── store/                      # Signal Stores (Game, UI, Engine, Location, Research, Debug)
 ├── styles/                     # Theme-Tokens (td-theme.ts)

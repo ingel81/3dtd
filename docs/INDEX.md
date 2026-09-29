@@ -35,7 +35,8 @@ etwas noch nicht Gebautes · **Bericht** = Befund zu einem Zeitpunkt, mit Datum 
 | [TOWER_CONTROL.md](TOWER_CONTROL.md) | Aktuell (MVP) | Tower bemannen: Egoperspektive, Zielen und Feuern von Hand nach den Regeln des Towers (Strahltest, Fehlschuss), Commands und warum das Zielen keiner ist, Kamera, HUD, Grenzen |
 | [RUN_LOG.md](RUN_LOG.md) | Aktuell | Das Log eines Laufs: Format, Kopf, Wellenblöcke, Abgleiche, wo die Läufe liegen |
 | [REPLAY.md](REPLAY.md) | Aktuell | Replay jeder Welle als Neu-Simulation: Snapshot am Wellenstart, Befehlslog, Springen, Datei speichern und laden, Bedienung, Grenzen |
-| [WORKER_PLAN.md](WORKER_PLAN.md) | Konzept | Simulation in einem Worker (E57): Demo, Stufe 1 (echte Simulation im Worker bitgleich, Kopplungsliste), Transport `postMessage` gegen `SharedArrayBuffer`, COOP/COEP, Schnittstelle |
+| [SIM_WORKER.md](SIM_WORKER.md) | Aktuell | Simulation im Web Worker: Grundsätze, Datenfluss, Verträge (Paket, Ops, Events, Views), Entscheidungen (Sichtlinien, Welt, Wellenquelle, Bot, Coop, Replay), Transport im `SharedArrayBuffer`, Kennzahlen |
+| [WORKER_PLAN.md](WORKER_PLAN.md) | Historisch (gebaut, siehe SIM_WORKER.md) | Konzept der Simulation in einem Worker (E57): Demo, Stufe 1 (echte Simulation im Worker bitgleich, Kopplungsliste), Transport `postMessage` gegen `SharedArrayBuffer`, COOP/COEP, Schnittstelle |
 | [SIMULATOR_PLAN.md](SIMULATOR_PLAN.md) | Aktuell | Deterministische Simulation: Befehlsgrenze, Turmdrehung in der Sim, Sicht als Daten, Snapshot, Prüfsumme, Abnahme, Messungen; Unterbau für Coop |
 | [COOP_PLAN.md](COOP_PLAN.md) | Aktuell (ausgeliefert mit 0.5.0) | Coop "Vier Tore" im Lockstep über einen Node-Relay, online über die öffentliche Lobby, im LAN aus der Desktop-App: Entscheidungen D1 bis D68, Pakete C0 bis C9 (offen C5b), Relay-Betrieb, Schutz gegen Schummeln |
 | [COOP_UI_REWORK_PLAN.md](COOP_UI_REWORK_PLAN.md) | Aktuell (gebaut 2026-09-26) | Coop-Oberfläche und Standortdialog überarbeitet: Befunde aus Technik- und Design-Review, Entscheidungen U1 bis U8, Pakete P1 bis P5 |
@@ -175,6 +176,7 @@ nachgeführt; Pfade und Zahlen darin gelten für ihren Zeitpunkt.
 | ...das Schadens-/Rüstungssystem verstehen | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
 | ...das GPU-instanzierte Enemy-Rendering verstehen | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
 | ...die GPU-LOS-Pipeline verstehen | [LOS_PIPELINE.md](LOS_PIPELINE.md) |
+| ...verstehen, wie Simulation und Hauptthread sich teilen | [SIM_WORKER.md](SIM_WORKER.md), [ARCHITECTURE.md](ARCHITECTURE.md#simulation-im-worker) |
 | ...Coop verstehen, im LAN spielen, einen Relay betreiben | [COOP_PLAN.md](COOP_PLAN.md) |
 | ...ein Release bauen | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md), Skill `/release` |
 | ...Browser-Tests laufen lassen | [E2E.md](E2E.md) |
