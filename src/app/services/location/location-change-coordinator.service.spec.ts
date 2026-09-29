@@ -35,6 +35,9 @@ import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WORLD_DICE_FAILED, WorldDiceService } from './world-dice.service';
 import { UIStore } from '../../store/ui.store';
+import { MainWorldService } from '../world/main-world.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { RouteGridVizService } from '../world/route-grid-viz.service';
 import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
 import {
   LOCATION_DIALOG_LOAD_FAILED,
@@ -167,12 +170,8 @@ describe('LocationChangeCoordinatorService', () => {
     initAirSpatialGridVisualizationIfEnabled: vi.fn(),
     initAirRouteLayerIfEnabled: vi.fn(),
   };
-  const gameState = {
-    reset: vi.fn(),
-    initialize: vi.fn(),
-    initializeGlobalRouteGrid: vi.fn(),
-    getGlobalRouteGrid: () => routeGrid,
-  };
+  /** The main thread's world: a new run, then HQ, spawns and the cells of the routes */
+  const world = { resetRun: vi.fn(), attach: vi.fn(), buildCells: vi.fn() };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -198,7 +197,6 @@ describe('LocationChangeCoordinatorService', () => {
 
     ctx = {
       engine: engine as unknown as LocationChangeContext['engine'],
-      gameState: gameState as unknown as LocationChangeContext['gameState'],
       streetNetwork: null,
       streetNetworkLocation: null,
       heightDebugVisible: signal(false),
@@ -227,6 +225,9 @@ describe('LocationChangeCoordinatorService', () => {
         { provide: UrlLocationService, useValue: urlLocation },
         { provide: WorldDiceService, useValue: worldDice },
         { provide: UIStore, useValue: uiStore },
+        { provide: MainWorldService, useValue: world },
+        { provide: GlobalRouteGridService, useValue: {} },
+        { provide: RouteGridVizService, useValue: routeGrid },
         // A factory, like the coordinator below: a class provider would need the JIT compiler.
         { provide: LocationChangeExecutorService, useFactory: () => new LocationChangeExecutorService() },
       ],
@@ -262,7 +263,7 @@ describe('LocationChangeCoordinatorService', () => {
 
     it('raises every loading flag first and clears them by the end', async () => {
       let flagsDuringReset: boolean[] = [];
-      gameState.reset.mockImplementationOnce(() => {
+      world.resetRun.mockImplementationOnce(() => {
         flagsDuringReset = [
           engineInit.loading(), engineInit.tilesLoading(), engineInit.osmLoading(),
           heightUpdate.heightsLoading(), locationMgmt.isApplyingLocation(),
@@ -284,7 +285,7 @@ describe('LocationChangeCoordinatorService', () => {
       expect(heightUpdate.stopHeightUpdates).toHaveBeenCalled();
       expect(routeAnimation.stopAnimation).toHaveBeenCalled();
       expect(introFlight.stop).toHaveBeenCalled();
-      expect(gameState.reset).toHaveBeenCalled();
+      expect(world.resetRun).toHaveBeenCalled();
       expect(callbacks.clearMapEntities).toHaveBeenCalled();
       expect(pathRoute.clearCache).toHaveBeenCalled();
       expect(callbacks.setSpawnPoints).toHaveBeenCalledWith([]);
@@ -389,14 +390,14 @@ describe('LocationChangeCoordinatorService', () => {
       expect(callbacks.addSpawnPoint).toHaveBeenCalledWith('spawn-1', 'Spawn', SPAWN.lat, SPAWN.lon, SPAWN_COLORS[0], 187.5);
     });
 
-    it('starts the game state on the spawns without their colour and builds the grid', async () => {
+    it('puts the world on the spawns without their colour and builds the grid', async () => {
       await executor.executeLocationChange(input(), ctx, callbacks);
 
-      expect(gameState.initialize).toHaveBeenCalledWith(
-        engine, HQ, [{ id: 'spawn-1', name: 'Main Street', lat: SPAWN.lat, lon: SPAWN.lon }], cachedPaths,
+      expect(world.attach).toHaveBeenCalledWith(
+        engine, HQ, [{ id: 'spawn-1', name: 'Main Street', lat: SPAWN.lat, lon: SPAWN.lon }],
       );
-      expect(gameState.initializeGlobalRouteGrid).toHaveBeenCalled();
-      const gridOrder = gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0];
+      expect(world.buildCells).toHaveBeenCalledWith(true);
+      const gridOrder = world.buildCells.mock.invocationCallOrder[0];
       expect(callbacks.initializeTowerPlacement.mock.invocationCallOrder[0]).toBeGreaterThan(gridOrder);
       expect(callbacks.filterStreetNetworkToRoutes.mock.invocationCallOrder[0]).toBeGreaterThan(gridOrder);
     });
@@ -405,7 +406,7 @@ describe('LocationChangeCoordinatorService', () => {
       await executor.executeLocationChange(input(), ctx, callbacks);
 
       // Step 2 took them away with the old cells (clearMapEntities)
-      const gridOrder = gameState.initializeGlobalRouteGrid.mock.invocationCallOrder[0];
+      const gridOrder = world.buildCells.mock.invocationCallOrder[0];
       for (const init of Object.values(routeGrid)) {
         expect(init).toHaveBeenCalledTimes(1);
         expect(init.mock.invocationCallOrder[0]).toBeGreaterThan(gridOrder);
@@ -417,7 +418,7 @@ describe('LocationChangeCoordinatorService', () => {
 
       await expect(executor.executeLocationChange(input(), ctx, callbacks))
         .rejects.toThrow('No route possible between HQ and spawn');
-      expect(gameState.initializeGlobalRouteGrid).not.toHaveBeenCalled();
+      expect(world.buildCells).not.toHaveBeenCalled();
       expect(callbacks.initializeTowerPlacement).not.toHaveBeenCalled();
     });
 
