@@ -12,7 +12,7 @@
 import rawPlan from './run-plan.json';
 import type { SpawnPattern } from '../../spawn-schedule-builder';
 import type { WaveRules } from '../../wave-rules';
-import { CAMPAIGN_LENGTH, goldTaper, waveGold } from '../../../configs/campaign.config';
+import { CAMPAIGN, goldTaper, waveGold } from '../../../configs/campaign.config';
 import { baseBudgetSeconds, budgetSeconds } from './budget';
 import { ENEMY_TYPES, lineageBodies, type EnemyTypeId } from '../../../configs/enemy-types.config';
 
@@ -85,7 +85,7 @@ const scaleGold = (gold: WaveGold, k: number): WaveGold => ({
 /** The campaign's gold at `wave` (1 to 30) with its boss peaks taken out */
 function smoothCampaignGold(wave: number): WaveGold {
   if (!CAMPAIGN_GOLD_PEAKS.has(wave)) return waveGold(wave, false);
-  if (wave === CAMPAIGN_LENGTH) return scaleGold(waveGold(wave - 1, false), LATE_GOLD_GROWTH);
+  if (wave === CAMPAIGN.length) return scaleGold(waveGold(wave - 1, false), LATE_GOLD_GROWTH);
   const before = waveGold(wave - 1, false);
   const after = waveGold(wave + 1, false);
   return {
@@ -102,8 +102,8 @@ function smoothCampaignGold(wave: number): WaveGold {
  */
 export function planBaseGold(wave: number): WaveGold {
   if (wave < 1) return { kill: 0, complete: 0 };
-  if (wave <= CAMPAIGN_LENGTH) return smoothCampaignGold(wave);
-  return scaleGold(smoothCampaignGold(CAMPAIGN_LENGTH), goldTaper(wave));
+  if (wave <= CAMPAIGN.length) return smoothCampaignGold(wave);
+  return scaleGold(smoothCampaignGold(CAMPAIGN.length), goldTaper(wave));
 }
 
 /**
