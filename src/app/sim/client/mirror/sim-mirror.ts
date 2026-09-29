@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import {
   E_ANIM_SPEED, E_DIST, E_EFF_SPEED, E_FLAGS, E_HOFF, E_HP, E_ID, E_LAT, E_LON, E_MAXHP, E_PROGRESS, E_ROT,
-  E_ROUTE, E_TERRAIN, E_TYPE, EF_ACTIVE, EF_ALIVE, EF_BODY, ENEMY_STRIDE, ENEMY_TYPE_IDS,
+  E_ROUTE, E_TERRAIN, E_TYPE, EF_ACTIVE, EF_ALIVE, EF_MOVING, EF_BODY, ENEMY_STRIDE, ENEMY_TYPE_IDS,
   T_AIM, T_COOLDOWN, T_DAMAGE, T_FLAGS, T_ID, T_KILLS, T_PITCH, TF_HOLD_FIRE, TF_LOS_READY, TF_MANNED,
   TF_ON_TARGET, TF_SLEEPING, TF_TRIGGER, TOWER_STRIDE,
   W_GROUP, W_HEAD, W_HP, W_MAXHP, W_REMAINING, W_SEQ, W_SIZE, WORM_STRIDE,
@@ -367,6 +367,7 @@ export class SimMirror implements SimMirrorApi {
       view.movement.progress = data[o + E_PROGRESS];
       view.movement.distanceAlongPath = data[o + E_DIST];
       view.movement.effectiveSpeed = data[o + E_EFF_SPEED];
+      view.movement.paused = (flags & EF_MOVING) === 0;
       const route = data[o + E_ROUTE];
       if (this.routeIndexOf(view) !== route) this.setRoute(view, route);
     }
