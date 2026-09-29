@@ -185,6 +185,10 @@ Ideen (2026-09-27), nichts entschieden:
       Desktop-App mit `crossOriginIsolated` (Header in `desktop/src/protocol.js`, kein Build geprüft); Webseite nach dem
       Deploy mit `curl -I` auf /play/. Einmal hing M5 über 5 Minuten auf dem Ladebildschirm (zufälliger Ort), in drei
       weiteren Läufen nicht; erst mit Logs belegen. Dann entscheiden, ob `simu-worker` nach `next` geht.
+- [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-studie-2026-09-29-nur-geschätzt)):
+      Studie nur geschätzt, bei Tempo 4 bremst zuerst der Worker. Entschieden (User, 2026-09-29): erst die Messkurve
+      (3000 bis 16000 Gegner, Tempo 1 und 4, Chromium und Firefox, 60-FPS-Bremse, Worker-Auslastung summiert, Kosten je
+      Teil, GPU-Anteil), die Messung entscheidet die Richtung (Gegnerdaten im SAB, dann mehrere Worker).
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
       **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze

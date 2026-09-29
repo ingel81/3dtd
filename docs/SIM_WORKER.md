@@ -180,3 +180,34 @@ Windows-Rechner; Tempo 4 wird überall erreicht):
 In Chromium kostet die Simulation in dieser Szene wenig; der Worker glättet vor allem die langsamen Bilder. In Firefox,
 wo die Simulation im Hauptthread das Bild auffraß, fast vierfache Bildrate.
 
+
+## Mehr Gegner (Studie 2026-09-29, nur geschätzt)
+
+Ziel: mehr Gegner gleichzeitig bei gleicher Bildrate (60 FPS, Tempo 4 gehalten), nicht mehr FPS. Alle Grenzen sind
+lineare Hochrechnungen aus einem Messpunkt (4800 Gegner, DevWorld, ohne Tiles); die Messkurve steht in TODO E72.
+
+| Grenze bei 60 FPS | Firefox | Chromium |
+|---|---|---|
+| Worker, Tempo 4 (240 Sub-Steps/s) | ~5,5k bis 8k | ~8k bis 12k |
+| Worker, Tempo 1 | ~25k bis 30k | ~35k bis 45k |
+| Hauptthread, DevWorld | ~16k | ~45k |
+| Hauptthread, echte Karte (Tiles geraten) | ~10k bis 12k | ~35k |
+
+Bei Tempo 4 bremst zuerst der Worker, bei Tempo 1 der Hauptthread oder die GPU. Die GPU ist nicht gemessen; die
+Gegner-Instanzen werden ohne Frustum-Culling gezeichnet (`enemy-instance.manager.ts`, `frustumCulled = false`).
+
+Hebel, nach Wirkung auf die Gegnergrenze:
+
+1. **Heiße Gegnerfelder als typisierte Arrays im SAB** (Position, Wegstrecke, Tempo, HP, Flags; die Paket-Tabelle
+   direkt daraus): Tick geschätzt 25 bis 45 % schneller, Grenze ×1,3 bis 1,8. Bitgleich nur mit Float64 und gleicher
+   Rechenreihenfolge. Voraussetzung für 2, denn JS-Objekte lassen sich nicht zwischen Workern teilen.
+2. **Mehrere Sim-Worker, phasenweise im Sub-Step**: parallel Bewegung, seriell Raster in Index-Reihenfolge, parallel
+   Zielsuche je Tower, seriell Feuer, Schaden, Events und Zufall. Mit 2 Workern etwa 1,6x, mit 4 etwa 2,2 bis 2,5x auf
+   den Tick; mit 1 zusammen Grenze ×2,5 bis 4. Braucht einen Schalter, der bitgleich auf einen Worker zurückfällt.
+   Aufteilung nach System (Bewegung gegen Kampf) bringt nichts, weil der Kampf auf die Bewegung wartet.
+3. **Hauptthread verschlanken**: Spiegel und Presenter laufen je einmal über alle Gegner mit eigener Map
+   (`sim-mirror.ts` applyEnemyTable, `frame-presenter.ts`); eine Schleife, Views nur bei Bedarf, Instanzpuffer direkt
+   aus der Tabelle. Wird erst nach 1 oder 2 bindend.
+4. **GPU je Gegner**: Culling pro Instanz, einfacheres Modell in der Entfernung, Lebensbalken nur nahe der Kamera.
+5. Kleinere Punkte: leere Ticks überspringen, Tower-Vergleich ohne `JSON.stringify` im PacketWriter, binäre Events,
+   WASM erst nach 1.
