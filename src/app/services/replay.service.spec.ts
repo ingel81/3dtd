@@ -248,4 +248,32 @@ describe('ReplayService.enter gate', () => {
       vi.useRealTimers();
     }
   });
+
+  it('switches the wave of a loaded file without letting go of the file', async () => {
+    rpc.mockImplementation(async (method: string, wave?: number) => {
+      if (method === 'loadReplayFile') return { refusal: null, note: null, waves: [1, 2] };
+      return method === 'replayEnter' ? { wave, startStep: 0, lengthInSteps: 100, waves: [1, 2], markers: [] } : null;
+    });
+    await service.loadFile(new Blob(['{}']));
+    expect(service.active()).toBe(true);
+
+    await service.switchWave(1);
+
+    expect(rpc.mock.calls.map(([method]) => method)).toEqual(['loadReplayFile', 'replayEnter', 'replayEnter']);
+    expect(entered()).toEqual([['replayEnter', 1, true], ['replayEnter', 2, true]]);
+    expect(service.fromFile()).toBe(true);
+  });
+
+  it('lets the simulation drop a loaded file that could not be entered', async () => {
+    rpc.mockImplementation(async (method: string) =>
+      (method === 'loadReplayFile' ? { refusal: null, note: 'other version', waves: [1] } : null));
+    introActive.set(true);
+
+    await service.loadFile(new Blob(['{}']));
+
+    expect(service.active()).toBe(false);
+    expect(service.fromFile()).toBe(false);
+    expect(service.fileNote()).toBeNull();
+    expect(rpc.mock.calls.map(([method]) => method)).toEqual(['loadReplayFile', 'replayExit']);
+  });
 });
