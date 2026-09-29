@@ -23,6 +23,7 @@ import {
   tickEngine,
 } from './test-helpers';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import { ScreenShakeService } from '../game-engine/screen-shake.service';
 import { BaseHealthLedger } from '../managers/game-state/base-health-ledger';
 import { RunLogCollector } from '../run-log/run-log.service';
@@ -87,12 +88,14 @@ describe('Ooze in a wave: HQ leaks, shake, run summary, clumps (playtest 360, 36
       getCamera: () => ({ position: {} }),
       sync: { geoToLocalSimpleInto: vi.fn() },
     };
-    shake = new ScreenShakeService(m.eventBus, engine as unknown as ThreeTilesEngine);
+    // One thread, one bus: the simulation's events reach the main side as they are
+    const mainBus = m.eventBus as unknown as MainEventBus;
+    shake = new ScreenShakeService(mainBus, engine as unknown as ThreeTilesEngine);
     m.eventBus.on('health:changed', (e) => hurt.push({ delta: e.delta, wall }));
     m.eventBus.on('enemy:leaking', (e) => leaking.push({ damage: e.damage, wall }));
     m.eventBus.on('enemy:reached-base', (e) => reached.push(e.damage));
     log = new RunLogCollector();
-    log.attach(m.eventBus, new SubscriptionBag());
+    log.attach(mainBus, new SubscriptionBag());
     log.open({ seed: 1, map: 'devworld', player: 'human' }, {
       step: () => 0,
       timeMs: () => clock.now,

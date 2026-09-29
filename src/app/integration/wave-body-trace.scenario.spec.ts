@@ -30,6 +30,7 @@ vi.mock('three', async () => {
 
 import { createTestManagers, TestManagers, TEST_PATH, tickEngine } from './test-helpers';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
+import type { MainEventBus } from '../sim/client/view-events';
 import { RunLogCollector, type RunLogWorld } from '../run-log/run-log.service';
 import type { RunLogWave } from '../run-log/run-log.types';
 import { Tower } from '../entities/tower.entity';
@@ -89,7 +90,8 @@ describe('the bodies of a wave, traced per id', () => {
     bus = m.eventBus;
     subs = new SubscriptionBag();
     log = new RunLogCollector();
-    log.attach(bus, subs);
+    // One thread, one bus: the simulation's events reach the run log as they are
+    log.attach(bus as unknown as MainEventBus, subs);
     trace = new Map();
     clock = { now: 0 };
 

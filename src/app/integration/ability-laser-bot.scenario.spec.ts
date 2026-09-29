@@ -44,6 +44,7 @@ import { ABILITIES } from '../configs/abilities.config';
 import { EnemyTypeId } from '../configs/enemy-types.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import { OrbitalLaserStrategy } from '../bots/strategies/ability/orbital-laser.strategy';
+import type { BotWorld } from '../bots/bot-world';
 import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
@@ -139,7 +140,9 @@ function run(timescale: number): Outcome {
     return gsm.enemyManager.spawn(TEST_PATH, type, undefined, false, undefined, start);
   });
 
-  const strategy = new OrbitalLaserStrategy(gsm);
+  // The simulation as the bot's world: its enemies stand in for the mirror's
+  // views, with the position, movement, type, armor and health both carry
+  const strategy = new OrbitalLaserStrategy(gsm as unknown as BotWorld);
   const decision = { phase: 'wave' } as GameStateSnapshot;
   let reason = '';
   let target: GeoPosition = { lat: 0, lon: 0 };

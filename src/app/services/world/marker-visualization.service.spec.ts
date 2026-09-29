@@ -22,7 +22,7 @@ import { MarkerVisualizationService } from './marker-visualization.service';
 import { MainWorldService } from './main-world.service';
 import { AssetManagerService } from '../infrastructure/asset-manager.service';
 import { UIStore } from '../../store/ui.store';
-import { GameEventBus } from '../../game-engine/game-event-bus';
+import { createMainEventBus } from '../../sim/client/view-events';
 import { SPAWN_PORTAL_LOOK } from '../../configs/visual-effects.config';
 import type { ThreeTilesEngine } from '../../three-engine';
 import {
@@ -626,7 +626,7 @@ describe('MarkerVisualizationService', () => {
       const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
       init();
       service.addSpawnMarker('s1', 'S1', BASE.lat + 0.001, BASE.lon, 0xff0000);
-      const bus = new GameEventBus();
+      const bus = createMainEventBus();
       service.subscribeToEventBus(bus);
       const energy = () => (portalFrames().material as ShaderMaterial).uniforms['uEnergy'].value as number;
 
@@ -656,7 +656,7 @@ describe('MarkerVisualizationService', () => {
       init();
       service.addSpawnMarker('s1', 'S1', lat, BASE.lon, 0xff0000);
       service.placeSpawnPortal('s1', route, 12);
-      const bus = new GameEventBus();
+      const bus = createMainEventBus();
       service.subscribeToEventBus(bus);
       return (at: { lat: number; lon: number }) =>
         bus.emit({ type: 'enemy:spawned', enemy: { position: at } } as never);
