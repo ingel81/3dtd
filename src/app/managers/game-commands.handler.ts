@@ -325,6 +325,10 @@ export class GameCommandsHandler {
 
   private attachWaveCommands(): void {
     this.on('command:start-wave', (event) => {
+      // One wave at a time: a second start (sent twice, both coop players
+      // at once) and one after the game ended take nothing. The simulation's
+      // own phase decides, so every client and a re-simulation drop alike.
+      if (this.gsm.phase() !== 'setup') return;
       if (event.director) {
         if (event.plan) {
           this.eventBus.emit({ type: 'wave:planned', director: event.director, waveSource: event.plan.waveSource, log: event.plan.log });

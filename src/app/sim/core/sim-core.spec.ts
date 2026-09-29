@@ -261,6 +261,18 @@ describe('SimCore in the same thread', () => {
     expect(core.gsm.commandLog.entries.map((e) => [e.playerId, e.step])).toEqual([['b', 1 * TICK_SUB_STEPS]]);
   });
 
+  it('starts no second wave while one runs', () => {
+    const main = mainWorld();
+    const drive = new Driver(newCore(main.world));
+    drive.send({ type: 'command:start-wave', config: wave });
+    expect(drive.tick().scalars.waveNumber).toBe(1);
+    drive.send({ type: 'command:start-wave', config: wave });
+    const packet = drive.tick();
+    expect(packet.scalars.phase).toBe('wave');
+    expect(packet.scalars.waveNumber).toBe(1);
+    expect(packet.events.filter((e) => e.type === 'wave:started')).toEqual([]);
+  });
+
   it('writes the enemy table and keeps the tables out of the renderers with rendering off', () => {
     const main = mainWorld();
     const core = newCore(main.world);
