@@ -132,15 +132,10 @@ describe('CorridorBuild', () => {
       },
       getCachedPaths: () => state.paths,
     };
-    const gameState = {
-      towerCount: () => state.towers,
-      enemyManager: { getAliveCount: () => state.enemies },
-      waveManager: { phase: () => state.phase },
-      getGlobalRouteGrid: () => grid,
-      rebuildRouteCells: () => calls.push('cells'),
-    };
     return new CorridorBuild({
-      gameState: () => gameState,
+      world: { rebuildCells: () => calls.push('cells'), sendToSim: () => calls.push('sim') },
+      grid,
+      scalars: () => ({ towerCount: state.towers, enemiesAlive: state.enemies, phase: state.phase }),
       engineInit: { getEngine: () => (state.engine ? engine : null) },
       pathRoute,
       routeAnimation: { isRunning: () => state.animation, startAnimation: () => calls.push('animation') },
@@ -185,7 +180,7 @@ describe('CorridorBuild', () => {
         'clearColumns', 'measure', 'commit',
         // The street's line, the band on its columns, the line in the band, its cells
         'routes', 'band', 'routes', 'cells',
-        'routes', 'overlays',
+        'routes', 'overlays', 'sim',
         'camera 20', COARSE,
       ]);
       expect(runs[0].budgets).toEqual([CorridorBuild.SLICE_MS, CorridorBuild.SLICE_MS, CorridorBuild.SLICE_MS]);
@@ -394,7 +389,7 @@ describe('CorridorBuild', () => {
       state.bare = 3;
       const result = await corridor.build('location load');
 
-      expect(calls).toEqual(['clearColumns', 'measure', 'commit', 'routes', 'band', 'routes', 'cells', 'routes', 'overlays']);
+      expect(calls).toEqual(['clearColumns', 'measure', 'commit', 'routes', 'band', 'routes', 'cells', 'routes', 'overlays', 'sim']);
       expect(clock).toBe(0);
       expect(result).toMatchObject({ unmeasured: 4, fallbackStations: 0, fallbackCells: 0 });
     });
@@ -416,7 +411,7 @@ describe('CorridorBuild', () => {
 
       expect(steps.filter((step) => step.startsWith('Rounding the corners')).length).toBeGreaterThan(1);
       // After the route line, before the overlays
-      expect(calls.slice(-2)).toEqual(['routes', 'overlays']);
+      expect(calls.slice(-3)).toEqual(['routes', 'overlays', 'sim']);
       for (const path of state.paths.values()) {
         // They stand: nothing left to size, not even a step
         expect(sizeRouteCorners(path, -1)).toBe(true);
@@ -442,7 +437,7 @@ describe('CorridorBuild', () => {
     it('restarts a running route animation on the frozen routes', async () => {
       state.animation = true;
       await corridor.build('location load');
-      expect(calls.slice(-5, -2)).toEqual(['routes', 'overlays', 'animation']);
+      expect(calls.slice(-6, -2)).toEqual(['routes', 'overlays', 'animation', 'sim']);
     });
   });
 
