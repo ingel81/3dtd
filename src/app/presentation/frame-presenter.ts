@@ -20,6 +20,7 @@ import {
   E_TYPE,
   ENEMY_TYPE_IDS,
   EF_ALIVE,
+  EF_ANY_STATUS,
   EF_BODY,
   EF_MOVING,
   EF_RUNNING,
@@ -81,6 +82,8 @@ interface EnemyRecord {
   seen: number;
   /** Offset of its row in that frame's table while alive, -1 while dying (the worms' heads, during present() only) */
   row: number;
+  /** It had a status effect in the last frame: its looks are checked once more when it ends */
+  status: boolean;
 }
 
 /** A projectile the presenter has seen: its trail's distance */
@@ -224,7 +227,7 @@ export class FramePresenter {
         record = undefined;
       }
       if (record === undefined) {
-        record = { id: `enemy-${num}`, type, slot: null, seen: frame, row: -1 };
+        record = { id: `enemy-${num}`, type, slot: null, seen: frame, row: -1, status: false };
         this.enemies.set(num, record);
       }
       record.seen = frame;
@@ -269,7 +272,10 @@ export class FramePresenter {
         engine.enemies.updateSlot(slot, pos, d[o + E_ROT], maxHp > 0 ? d[o + E_HP] / maxHp : 0, d[o + E_ANIM_SPEED]);
       }
 
-      this.statusVisuals.present(record.id, flags, lat, lon, bodyHeight, engine, pos, gameTimeMs);
+      // Almost no enemy carries an effect: the looks are looked at only while one does, and once after
+      const status = (flags & EF_ANY_STATUS) !== 0;
+      if (status || record.status) this.statusVisuals.present(record.id, flags, lat, lon, bodyHeight, engine, pos, gameTimeMs);
+      record.status = status;
     }
 
     for (const [num, record] of this.enemies) {
