@@ -468,8 +468,13 @@ export class CoopService {
       const run = this.runLog.closedRun();
       if (run) untracked(() => void this.offerRunLog(run));
     });
+    // The simulation failed: out of the room, so the partners' lockstep does not wait for this seat
+    const offFailure = this.sim.onFailure(() => {
+      if (this.session) this.ngZone.run(() => this.leave());
+    });
     // The game component goes (another route): out of the room, the LAN relay and scan with it
     inject(DestroyRef).onDestroy(() => {
+      offFailure();
       this.scanLan(false);
       this.leave();
       this.subs.disposeAll();

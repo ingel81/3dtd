@@ -145,6 +145,11 @@ export class SimCore implements SimCoreApi {
       const ms = performance.now() - c0;
       if (!slowest || ms > slowest.ms) slowest = { type: command.type, ms };
     }
+    // Commands applied between two ticks (rpc applyCommands) show with this frame
+    if (this.commandsBetween) {
+      this.commandsBetween = false;
+      this.forcePresent = true;
+    }
     const commandsDone = performance.now();
 
     const delta = this.lastNow === null ? 16 : input.now - this.lastNow;
@@ -212,6 +217,9 @@ export class SimCore implements SimCoreApi {
     };
   }
 
+  /** Commands came in by rpc since the last tick: its packet is presented */
+  private commandsBetween = false;
+
   /** See SimRpc.tickProfile */
   private profile: TickProfile = { commandsMs: 0, updateMs: 0, packetMs: 0, slowest: null };
 
@@ -223,6 +231,10 @@ export class SimCore implements SimCoreApi {
       this.gsm.enemyManager.getAll().filter((enemy) => ids.includes(enemy.id)),
       this.targetLookup(),
     ),
+    applyCommands: (commands) => {
+      for (const { playerId, command } of commands) this.gsm.receiveCommand(command as unknown as GameEvent, playerId);
+      if (commands.length > 0) this.commandsBetween = true;
+    },
     reset: (seed) => {
       this.leaveReplay();
       this.gsm.reset(seed);

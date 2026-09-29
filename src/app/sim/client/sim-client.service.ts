@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { GameStore } from '../../store/game.store';
 import type { CommandData } from '../../managers/game-state/command-data';
 import { toPlainData } from '../../managers/game-state/command-log';
@@ -27,6 +27,12 @@ export function isSimInput(type: string): boolean {
  * One tick is in flight at a time: the next goes when its packet is back, so
  * a slow simulation slows the game instead of piling up frames. A packet is
  * applied at the start of the main thread's next frame, before it renders.
+ *
+ * A run has an epoch (newRun): commands and packets of an older run are
+ * dropped. A simulation that failed (a throw in its tick, a worker that did
+ * not load) stops for good: no further tick on a half-updated state, the
+ * error in `failure` (the game loop puts it in the banner), the coop
+ * lockstep let go.
  */
 @Injectable({ providedIn: 'root' })
 export class SimClient {
@@ -49,6 +55,15 @@ export class SimClient {
   private lastGameTimeMs: number | null = null;
   /** Called after each applied packet (the loop's per-frame readers: bot, run log, auto wave) */
   private readonly frameListeners = new Set<(packet: SimFramePacket) => void>();
+  /** The run the commands and packets belong to, see newRun() */
+  private epoch = 0;
+  /** The epoch of the tick in flight: its packet is dropped when a new run began meanwhile */
+  private tickEpoch = 0;
+  /** newRun() emitted game:reset here already: the new run's first packet brings its own, not handed on */
+  private resetShown = false;
+  /** Why the simulation stopped, null while it runs (see fail()) */
+  readonly failure = signal<string | null>(null);
+  private readonly failureListeners = new Set<(error: string) => void>();
 
   constructor() {
     this.bus.onAny((event) => {
@@ -90,21 +105,31 @@ export class SimClient {
    */
   start(transport?: (handlers: SimTransportHandlers) => SimTransport): void {
     this.transport?.dispose();
+    this.resetSession();
     const handlers: SimTransportHandlers = {
       frame: (packet) => {
         this.inFlight = false;
-        this.pendingPackets.push(packet);
+        if (this.tickEpoch === this.epoch && this.failure() === null) this.pendingPackets.push(packet);
       },
       output: (message) => this.output(message),
-      error: (error) => console.error('[Sim]', error),
+      error: (error) => this.fail(error),
     };
     this.transport = transport ? transport(handlers) : new WorkerTransport(handlers);
+  }
+
+  /** What a started or stopped simulation forgets: the world, what is in flight or queued, the links and the failure. */
+  private resetSession(): void {
+    this.epoch++;
     this.worldLoaded = false;
     this.inFlight = false;
     this.pendingPackets = [];
     this.commands = [];
+    this.lockstep = null;
+    this.replay = null;
     this.deliveredTick = -1;
     this.lastGameTimeMs = null;
+    this.resetShown = false;
+    this.failure.set(null);
   }
 
   get started(): boolean {
@@ -114,13 +139,56 @@ export class SimClient {
   stop(): void {
     this.transport?.dispose();
     this.transport = null;
-    this.worldLoaded = false;
+    this.resetSession();
+  }
+
+  /**
+   * A new run on a new place (MainWorldService.resetRun): the old run goes
+   * from the main thread at once, not only with the new world's first packet
+   * after seconds of corridor build. Its queued commands and a packet still
+   * in flight are dropped (ids start over: a line of sight for tower-3 must
+   * not reach the new tower-3); mirror and presentation are cleared, and the
+   * stores and services hear game:reset now. The simulation's own resets
+   * that come with the new world's first packet are not handed on again.
+   */
+  newRun(): void {
+    this.epoch++;
     this.inFlight = false;
+    this.commands = [];
     this.pendingPackets = [];
+    this.lastGameTimeMs = null;
+    this.mirrorImpl?.clear();
+    this.presenterImpl?.clear();
+    this.bus.emit({ type: 'game:reset' });
+    this.resetShown = true;
+  }
+
+  /** Called once when the simulation fails (coop leaves the room). */
+  onFailure(listener: (error: string) => void): () => void {
+    this.failureListeners.add(listener);
+    return () => this.failureListeners.delete(listener);
+  }
+
+  /**
+   * The simulation threw (its tick, its load, the worker itself). Its state
+   * may be half updated: no further tick, no retry. The game stands with a
+   * message; coop lets the lockstep go so the partners are not left waiting.
+   */
+  private fail(error: string): void {
+    console.error('[Sim]', error);
+    if (this.failure() !== null) return;
+    const firstLine = error.split('\n')[0];
+    this.failure.set(firstLine);
+    this.inFlight = false;
+    this.commands = [];
+    this.lockstep = null;
+    this.deliveredTick = -1;
+    for (const listener of this.failureListeners) listener(firstLine);
   }
 
   /** Settings of the run the simulation reads (wave source, roster, lanes, dev flags). */
   configure(config: SimConfig): void {
+    if (this.failure() !== null) return;
     this.requireTransport().configure(config);
   }
 
@@ -166,25 +234,44 @@ export class SimClient {
    */
   frame(now: number, renderingEnabled = this.gameStore.renderingEnabled()): void {
     this.applyPending();
-    if (!this.transport || !this.worldLoaded || this.inFlight) return;
+    if (!this.transport || !this.worldLoaded || this.inFlight || this.failure() !== null) return;
     this.inFlight = true;
+    this.tickEpoch = this.epoch;
     const commands = this.commands;
     this.commands = [];
-    this.transport.tick({
-      now,
-      gameSpeed: this.gameStore.gameSpeed(),
-      paused: this.gameStore.paused(),
-      renderingEnabled,
-      commands,
-      lockstep: this.lockstepDelivery(),
-      replay: this.replay,
-    });
+    try {
+      this.transport.tick({
+        now,
+        gameSpeed: this.gameStore.gameSpeed(),
+        paused: this.gameStore.paused(),
+        renderingEnabled,
+        commands,
+        lockstep: this.lockstepDelivery(),
+        replay: this.replay,
+      });
+    } catch (error) {
+      // The same thread's simulation (InlineTransport) throws here
+      this.fail(error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error));
+      return;
+    }
     // The same thread answers at once
     this.applyPending();
   }
 
+  /**
+   * A call with an answer. The commands given since the last tick go ahead
+   * of it (applyCommands), so the call acts on the state they leave: the
+   * replay's begin leaves the manned tower first, then enters the replay.
+   */
   rpc<K extends keyof SimRpc>(method: K, ...args: Parameters<SimRpc[K]>): Promise<ReturnType<SimRpc[K]>> {
-    return this.requireTransport().rpc(method, args) as Promise<ReturnType<SimRpc[K]>>;
+    if (this.failure() !== null) return Promise.reject(new Error(`simulation stopped: ${this.failure()}`));
+    const transport = this.requireTransport();
+    if (this.commands.length > 0 && method !== 'applyCommands') {
+      const commands = this.commands;
+      this.commands = [];
+      transport.rpc('applyCommands', [commands]).catch((error: unknown) => console.error('[Sim] applyCommands', error));
+    }
+    return transport.rpc(method, args) as Promise<ReturnType<SimRpc[K]>>;
   }
 
   private requireTransport(): SimTransport {
@@ -251,10 +338,15 @@ export class SimClient {
     presenter?.applyOps(packet.ops);
     lap('ops');
     const bus = this.bus;
+    const resetShown = this.resetShown;
+    this.resetShown = false;
     for (const event of packet.events) {
+      const view = mirror.importEvent(event);
+      // newRun() handed game:reset on already
+      if (resetShown && event.type === 'game:reset') continue;
       bus.setLiveMuted(!event.live);
       bus.setShowMuted(!event.show);
-      bus.emit(mirror.importEvent(event));
+      bus.emit(view);
     }
     bus.setLiveMuted(false);
     bus.setShowMuted(false);

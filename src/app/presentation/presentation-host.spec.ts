@@ -55,7 +55,7 @@ function makeEngine() {
       geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3) => target.set(lon, height, lat),
       geoToLocalSimple: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
     },
-    effects: { setScorchGround: vi.fn(), clear: vi.fn(), stopAllFires: vi.fn(), spawnFloatingText: vi.fn() },
+    effects: { setScorchGround: vi.fn(), clear: vi.fn(), stopAllFires: vi.fn(), spawnFloatingText: vi.fn(), stopAllTowerFires: vi.fn() },
     hero: { setGround: vi.fn(), present: vi.fn() },
     orbitalBeams: { setGround: vi.fn(), clear: vi.fn() },
     abilityMarkers: { clear: vi.fn() },
@@ -70,8 +70,13 @@ function makeEngine() {
       create: vi.fn((id: string) => Promise.resolve(id === 'enemy-404' ? null : {})),
       startWalkAnimation: vi.fn(),
     },
-    towers: { create: vi.fn(), get: vi.fn(() => ({ lat: 1, lon: 2, height: 3, tipY: 12 })) },
-    searchlights: { add: vi.fn() },
+    towers: { create: vi.fn(), clear: vi.fn(), get: vi.fn(() => ({ lat: 1, lon: 2, height: 3, tipY: 12 })) },
+    projectiles: { clear: vi.fn() },
+    trailStreaks: { clear: vi.fn() },
+    tentacles: { clear: vi.fn() },
+    plinths: { clear: vi.fn() },
+    towerBadges: { clear: vi.fn() },
+    searchlights: { add: vi.fn(), clear: vi.fn() },
     lightningBolts: { registerIdleCrackle: vi.fn() },
     oozes: { add: vi.fn(), remove: vi.fn(), discard: vi.fn(), clear: vi.fn(), setFrame: vi.fn(), collapse: vi.fn() },
     flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn(), clear: vi.fn() },
@@ -228,6 +233,16 @@ describe('PresentationHost', () => {
     expect(host.backgroundMusic.setDimmed).toHaveBeenLastCalledWith(true);
     host.setPaused(true, true);
     expect(engine.spatialAudio.holdLoops).toHaveBeenLastCalledWith(false);
+  });
+
+  it('takes the whole run off the field on clear: renderers, loops and show', () => {
+    host.clear();
+    for (const renderer of ['enemies', 'oozes', 'projectiles', 'trailStreaks', 'flameBeams', 'tentacles', 'plinths', 'towerBadges', 'searchlights', 'towers'] as const) {
+      expect((engine[renderer] as unknown as { clear: ReturnType<typeof vi.fn> }).clear).toHaveBeenCalled();
+    }
+    expect(engine.effects.stopAllTowerFires).toHaveBeenCalled();
+    expect(engine.effects.clear).toHaveBeenCalled();
+    expect(engine.spatialAudio.stopOneShots).toHaveBeenCalled();
   });
 
   it('lets go of the bus and the footsteps on destroy', () => {

@@ -38,6 +38,14 @@ export class TowerLosRegistry {
   private role: 'render' | 'wait' = 'render';
   /** Requests in the order the simulation made them, the latest per tower */
   private readonly queue = new Map<string, LosNeededPayload>();
+  /**
+   * The packet each request came in with (`packets` then): a removal or a
+   * mask of the same packet is older than the request (events are handed on
+   * before the frame's tower states are read here) and does not end it.
+   */
+  private readonly queuedAt = new Map<string, number>();
+  /** Packets handled so far, see queuedAt */
+  private packets = 0;
   private readonly unsubscribe: (() => void)[] = [];
 
   /**
@@ -74,15 +82,16 @@ export class TowerLosRegistry {
       const { type: _type, ...payload } = event;
       this.queue.delete(payload.towerId);
       this.queue.set(payload.towerId, payload);
+      this.queuedAt.set(payload.towerId, this.packets);
     });
-    const reset = bus.on('game:reset', () => this.queue.clear());
+    const reset = bus.on('game:reset', () => this.clearQueue());
     this.unsubscribe.push(() => needed.dispose(), () => reset.dispose());
     this.unsubscribe.push(this.sim.onFrame((packet) => this.afterFrame(packet)));
   }
 
   detach(): void {
     for (const off of this.unsubscribe.splice(0)) off();
-    this.queue.clear();
+    this.clearQueue();
     this.losDropLogged.clear();
     this.engine = null;
   }
@@ -97,15 +106,32 @@ export class TowerLosRegistry {
     return [...this.queue.keys()];
   }
 
+  private clearQueue(): void {
+    this.queue.clear();
+    this.queuedAt.clear();
+  }
+
+  /** The request of `id` ends, unless it came with this packet (see queuedAt). */
+  private endRequest(id: string): void {
+    const at = this.queuedAt.get(id);
+    if (at === undefined || at === this.packets) return;
+    this.queue.delete(id);
+    this.queuedAt.delete(id);
+  }
+
   /** The simulation's answers into the main grid, then this frame's renders. */
   private afterFrame(packet: SimFramePacket): void {
+    // A tower removed and put back in the same packet (a restore) keeps the request its new self made
     for (const id of packet.removedTowers) {
-      this.queue.delete(id);
+      this.endRequest(id);
       this.losDropLogged.delete(id);
       this.grid.unregisterTower(id);
     }
     for (const state of packet.towerStates) {
       if (state.losMask === undefined) continue;
+      // Answered: by this client's render, or by the host's for a coop guest,
+      // whose queue would otherwise hold every tower when it becomes the host
+      this.endRequest(state.id);
       const tower = this.sim.mirror.tower(state.id);
       if (!tower) continue;
       if (state.losMask === null) {
@@ -118,6 +144,7 @@ export class TowerLosRegistry {
       tower.visibleCells = this.grid.applyLosMask(state.id, local.x, local.z, losMaskFromJson(state.losMask));
     }
     if (this.role === 'render') this.resolveQueued();
+    this.packets++;
   }
 
   private localOf(tower: Tower): { x: number; y: number; z: number } | null {
@@ -135,11 +162,13 @@ export class TowerLosRegistry {
       if (!tower) {
         // Sold before its turn
         this.queue.delete(id);
+        this.queuedAt.delete(id);
         continue;
       }
       const mask = this.resolve(tower, request);
       if (!mask) return;
       this.queue.delete(id);
+      this.queuedAt.delete(id);
       budget--;
       this.sim.bus.emit({ type: 'command:los-mask', towerId: id, reason: request.reason, mask, generation: request.generation });
     }

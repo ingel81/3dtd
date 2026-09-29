@@ -70,6 +70,7 @@ describe('ReplayService.enter gate', () => {
   let paused: ReturnType<typeof signal<boolean>>;
   let getEngine: ReturnType<typeof vi.fn>;
   let service: ReplayService;
+  let injector: Injector;
   /** What SimScalars.snapshotRefusal says: shots still flying or a quiet field */
   let refusal: string | null;
 
@@ -102,7 +103,7 @@ describe('ReplayService.enter gate', () => {
     };
     getEngine = vi.fn(() => engine);
 
-    const injector = Injector.create({
+    injector = Injector.create({
       providers: [
         {
           provide: UIStore,
@@ -119,7 +120,7 @@ describe('ReplayService.enter gate', () => {
             },
             onFrame: (listener: (packet: SimFramePacket) => void) => {
               frames.push(listener);
-              return () => undefined;
+              return () => frames.splice(frames.indexOf(listener), 1);
             },
             rpc,
             replay: null,
@@ -147,6 +148,12 @@ describe('ReplayService.enter gate', () => {
 
   afterEach(() => {
     host.remove();
+  });
+
+  it('stops listening to the frames of the simulation when the game component goes', () => {
+    expect(frames).toHaveLength(1);
+    (injector as unknown as { destroy(): void }).destroy();
+    expect(frames).toHaveLength(0);
   });
 
   it('does not start while a boss intro holds the camera', async () => {

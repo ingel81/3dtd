@@ -73,8 +73,10 @@ export interface CorridorBuildDeps {
   grid: GlobalRouteGridService;
   /** The grid's overlays, drawn on the new cells at the build's end */
   gridViz: Pick<RouteGridVizService, 'initSpatialGridVisualizationIfEnabled' | 'initAirSpatialGridVisualizationIfEnabled' | 'initAirRouteLayerIfEnabled'>;
-  /** The simulation's numbers after the last packet (SimClient.scalars): towers, phase, enemies. */
-  scalars: () => Pick<SimScalars, 'towerCount' | 'phase' | 'enemiesAlive'>;
+  /** The simulation's numbers after the last packet (SimClient.scalars): towers, phase, enemies, wave. */
+  scalars: () => Pick<SimScalars, 'towerCount' | 'phase' | 'enemiesAlive' | 'waveNumber'>;
+  /** A coop game runs: a rebuild would start a new run on this client only */
+  coopInGame?: () => boolean;
   engineInit: Pick<EngineInitializationService, 'getEngine'>;
   pathRoute: Pick<
     PathAndRouteService,
@@ -209,12 +211,20 @@ export class CorridorBuild {
     return this.blind;
   }
 
-  /** Why the corridor must not be built again now, null if it may: `__corridor.set()`. */
+  /**
+   * Why the corridor must not be built again now, null if it may:
+   * `__corridor.set()`, the rebuild when the page becomes visible. A build
+   * ends in a fresh run on the new world (MainWorldService.sendToSim): not
+   * once the run has played a wave (its wave, research, gold and hero would
+   * go), and not in a coop game, where only this client would start over.
+   */
   rebuildBlocker(): string | null {
     const scalars = this.deps.scalars();
     if (scalars.towerCount > 0) return 'towers stand on the map, sell them first';
     if (scalars.phase === 'wave') return 'a wave is running';
     if (scalars.enemiesAlive > 0) return 'enemies are on the map';
+    if (scalars.waveNumber > 0) return `the run has played ${scalars.waveNumber} wave(s), restart it first`;
+    if (this.deps.coopInGame?.()) return 'a coop game is running';
     return null;
   }
 

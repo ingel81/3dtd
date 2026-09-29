@@ -33,6 +33,7 @@ import { TowerSelectionService } from '../tower-selection.service';
 import { SimMirror } from '../../sim/client/mirror/sim-mirror';
 import { MainWorldService } from '../world/main-world.service';
 import { PresentationService } from '../../presentation/presentation.service';
+import { COOP } from '../coop.token';
 import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { TowerTypeId } from '../../configs/tower-types.config';
 import { Vector3 } from 'three';
@@ -120,6 +121,8 @@ export class VisualizationFacadeService {
   private readonly mirror = inject(SimMirror);
   private readonly world = inject(MainWorldService);
   private readonly presentation = inject(PresentationService);
+  /** Coop, where the game runs one (component scope): the corridor is not rebuilt in it */
+  private readonly coop = inject(COOP, { optional: true });
 
   /** The one owner of the route corridor, built once per route set (CorridorBuild). */
   private readonly corridor = new CorridorBuild({
@@ -127,6 +130,7 @@ export class VisualizationFacadeService {
     grid: this.globalRouteGridService,
     gridViz: this.gridViz,
     scalars: () => this.mirror.scalars,
+    coopInGame: () => this.coop?.inGame() ?? false,
     engineInit: this.engineInit,
     pathRoute: this.pathRoute,
     routeAnimation: this.routeAnimation,

@@ -59,9 +59,13 @@ const UNUSED = [
 ];
 
 /** The simulation's side: its bus, and the mirror's game clock and director stream */
-function simProviders(bus: MainEventBus, clock: { gameTimeMs: number } = { gameTimeMs: 0 }) {
+function simProviders(
+  bus: MainEventBus,
+  clock: { gameTimeMs: number } = { gameTimeMs: 0 },
+  configure: (config: unknown) => void = () => undefined,
+) {
   return [
-    { provide: SimClient, useValue: { bus } },
+    { provide: SimClient, useValue: { bus, started: true, configure } },
     { provide: SimMirror, useValue: { rng: new GameRng(1), get scalars() { return { gameTimeMs: clock.gameTimeMs }; } } },
     { provide: MainWorldService, useValue: { corridorPending: () => false } },
   ];
@@ -75,6 +79,8 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
   let clock: { gameTimeMs: number };
   let startWave: ReturnType<typeof vi.spyOn>;
   let resetDirector: ReturnType<typeof vi.fn<() => void>>;
+  let configure: ReturnType<typeof vi.fn<(config: unknown) => void>>;
+  let sourceId: string;
   const autoStartWaves = signal(true);
   const botEnabled = signal(false);
   const store = {
@@ -87,16 +93,21 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     bus = createMainEventBus();
     clock = { gameTimeMs: 50_000 };
     resetDirector = vi.fn<() => void>();
+    configure = vi.fn<(config: unknown) => void>();
+    sourceId = 'budget';
     autoStartWaves.set(true);
     botEnabled.set(false);
     store.phase.set('setup');
     store.autoWaveSecondsLeft.set(null);
 
+    // The source in service is the one the last reset put in
+    const director = waveDirectorStub({ resetForNewGame: resetDirector });
+    Object.defineProperty(director, 'source', { get: () => ({ id: sourceId }) });
     const injector = Injector.create({
       providers: [
         ...UNUSED.map((token) => ({ provide: token, useValue: {} })),
-        ...simProviders(bus, clock),
-        { provide: WaveDirector, useValue: waveDirectorStub({ resetForNewGame: resetDirector }) },
+        ...simProviders(bus, clock, configure),
+        { provide: WaveDirector, useValue: director },
         { provide: RunLogFacade, useValue: { tick: () => undefined, collector: { noteDirectorDecision: () => undefined } } },
         { provide: NgZone, useValue: { run: (fn: () => unknown) => fn() } },
         { provide: TowerDefenseStore, useValue: store },
@@ -117,6 +128,16 @@ describe('GameLoopFacadeService: auto-start of the next wave', () => {
     expect(resetDirector).toHaveBeenCalledTimes(1);
     bus.emit({ type: 'game:reset' });
     expect(resetDirector).toHaveBeenCalledTimes(2);
+  });
+
+  // The simulation's kill gold, leak damage and completion gold follow the source's rules
+  it('hands the simulation the source in service at the start and after every reset', () => {
+    expect(configure).toHaveBeenLastCalledWith({ waveSource: 'budget' });
+    // Switched in the debug window or by the coop host: in service from the next run
+    sourceId = 'table';
+    bus.emit({ type: 'game:reset' });
+    expect(configure).toHaveBeenLastCalledWith({ waveSource: 'table' });
+    expect(configure).toHaveBeenCalledTimes(2);
   });
 
   it('counts down on the game clock after a wave and starts the next once', () => {

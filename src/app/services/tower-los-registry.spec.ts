@@ -278,6 +278,38 @@ describe('TowerLosRegistry', () => {
     expect(registry.pendingTowerIds()).toEqual([t.id]);
   });
 
+  it('renders a tower removed and put back in the same packet (a restore) on the request its new self made', () => {
+    registry.attach(engine);
+    registry.setRole('wait');
+    const t = place(5, 7);
+    // The restore's packet: the tower goes and comes back, and asks for its line of sight
+    needed(t);
+    registry.setRole('render');
+    frame({ removedTowers: [t.id], towerStates: [towerDto(t)] });
+    expect(sent.map((e) => e.towerId)).toEqual([t.id]);
+  });
+
+  it('as a coop guest drops a request once the host’s mask for it arrived, not one that came with the mask', () => {
+    registry.attach(engine);
+    registry.setRole('wait');
+    const t = place(5, 7);
+    const u = place(9, 9);
+    needed(t);
+    frame();
+    expect(registry.pendingTowerIds()).toEqual([t.id]);
+
+    // The host's mask for t comes through the relay; u asks in the same packet as its own mask
+    const mask = losMaskToJson(maskOf(30, true, false));
+    needed(u);
+    frame({ towerStates: [{ ...towerDto(t), losMask: mask }, { ...towerDto(u), losMask: mask }] });
+    expect(registry.pendingTowerIds()).toEqual([u.id]);
+
+    // Become the host: nothing already answered is rendered again
+    registry.setRole('render');
+    frame();
+    expect(sent.map((e) => e.towerId)).toEqual([u.id]);
+  });
+
   it('writes the mask the simulation applied into the main grid, and takes it out again for none', () => {
     registry.attach(engine);
     const t = place(5, 7);

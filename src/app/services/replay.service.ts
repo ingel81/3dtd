@@ -1,4 +1,4 @@
-import { ElementRef, Injectable, Injector, NgZone, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
+import { DestroyRef, ElementRef, Injectable, Injector, NgZone, afterNextRender, computed, effect, inject, signal, untracked } from '@angular/core';
 import { LiveAnnouncer } from '@angular/cdk/a11y';
 import type { Quaternion, Vector3 } from 'three';
 import { GameClock } from '../managers/game-state/game-clock';
@@ -135,12 +135,14 @@ export class ReplayService {
   private resumeAfterScrub = false;
 
   constructor() {
-    // The waves the simulation can re-simulate, from every packet
-    this.sim.onFrame((packet) => {
+    // The waves the simulation can re-simulate, from every packet. The
+    // client is the app's, this service the game component's: let go with it
+    const offFrame = this.sim.onFrame((packet) => {
       const waves = packet.scalars.replayableWaves;
       const newest = waves.length > 0 ? waves[waves.length - 1] : null;
       if (newest !== this.recordedWave()) this.ngZone.run(() => this.recordedWave.set(newest));
     });
+    inject(DestroyRef).onDestroy(offFrame);
     // The waves went (restart, a new place): nothing left to show
     effect(() => {
       if (this.recordedWave() === null && !this.file) untracked(() => this.exit());
