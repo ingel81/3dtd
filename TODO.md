@@ -196,8 +196,9 @@ Ideen (2026-09-27), nichts entschieden:
       Dabei gefunden und behoben: der Coop-Bot-Läufer las noch `gameState` im Hauptthread.
       **Stand 2026-10-01:** `simu-worker` ist seit 2026-09-30 in `next` (Branch gelöscht). Nachtlauf 2026-10-01: Review
       gegen `main` nur im Code, Regressionen behoben (Run-Log nach neuem Ort, Game Over ohne Abwahl, Forschung nach
-      Restore, Raster-Overlay, Bot auf altem Stand, Movement-Schalter, Messskripte). Offen: Handtest, Coop über zwei
-      Rechner, Webseite nach dem Deploy.
+      Restore, Raster-Overlay, Bot auf altem Stand, Movement-Schalter, Messskripte, Gold-Abweichungen im Run-Log bei
+      hohem Tempo, Kill-Zuordnung im Coop beim Verkauf). E2E 15 von 15 grün (2026-10-01). Offen: Handtest, Coop über
+      zwei Rechner, Webseite nach dem Deploy.
 - [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-gemessen-2026-09-29)):
       **Gemessen 2026-09-29** bis 25000 Gegner: Chromium hält 144 FPS und Tempo 4 bis rund 11000 (vorher 4900), dann
       wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
