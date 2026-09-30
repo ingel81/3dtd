@@ -1,7 +1,7 @@
 # Plan: Simulation läuft frei, die Darstellung liest nur
 
-Stand 2026-09-30, Branch `simu-worker`. Entwurf, noch nichts gebaut. Offene Arbeit steht in [TODO.md](../TODO.md)
-(E85); Architektur heute in [SIM_WORKER.md](SIM_WORKER.md).
+Stand 2026-09-30, Branch `perf/decouple` (von `simu-worker`). Schritte 1 bis 3 gebaut, 4 bis 6 offen. Offene Arbeit
+steht in [TODO.md](../TODO.md) (E85); Architektur in [SIM_WORKER.md](SIM_WORKER.md).
 
 ## Ziel
 
@@ -13,7 +13,7 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
   schickt nur Eingaben (Befehle, Tempo, Pause) und Aufrufe (Replay, Snapshot).
 - FPS hängen nur noch an Zeichnen und Einräumen eines Stands je Bild, das Tempo nur noch am Worker.
 
-## Heute (gemessen und im Code nachgesehen)
+## Vor dem Umbau (gemessen und im Code nachgesehen)
 
 - Der Hauptthread schickt je Bild einen Tick (`SimClient.frame` → `sendTick`); immer nur einer ist unterwegs. Der
   Worker rechnet die Wanduhr seit dem letzten Tick nach, höchstens 50 ms (`GameClock.MAX_CATCHUP_MS`), und schickt ein
@@ -36,6 +36,16 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
 - Ohne fällige Arbeit schläft der Loop bis zum nächsten fälligen Sub-Step.
 - Kommt der Worker nicht nach, fällt die Spielzeit zurück wie heute; eine Obergrenze des Rückstands (Startwert
   250 ms) verhindert, dass er nach einer Pause des Tabs minutenlang nachholt.
+- **Gebaut (Schritt 3):** `SimLoop` (`sim/worker/sim-loop.ts`) treibt den `SimCore` über `pass(now, deadline)` und
+  `idleMs()`: ein Durchgang mit `PASS_BUDGET_MS` (8 ms) als Frist, dann das Paket, dann entweder sofort weiter
+  (Selbst-Nachricht über einen `MessageChannel`), ein `setTimeout` bis zum nächsten fälligen Sub-Step, oder Schlaf bis
+  zur nächsten Nachricht (Pause, keine Welt, Coop-Barriere, angehaltenes Replay). Jede Nachricht weckt ihn. Ein
+  Durchgang ohne Sub-Step und ohne Änderung veröffentlicht nichts. Die `GameClock` hält den Rückstand auf
+  `MAX_BACKLOG_MS` (250 ms) mal Tempo; die 50-ms-Klammer je Tick, `MAX_REMAINDER_MS` und die 600 Sub-Steps je Bild
+  sind weg. `GameStateManager.update` und `SimReplay.play` nehmen die Frist und beginnen danach keinen Sub-Step mehr
+  (mindestens einer läuft). Die Uhr des Workers ist sein eigenes `performance.now()`.
+- Abweichung: `setTimeout` für das Warten auf den nächsten Sub-Step (nicht für „sofort“). Bei hohem Tempo drosseln
+  Browser verschachtelte Timer auf 4 ms; dann laufen je Durchgang mehrere Sub-Steps, das Tempo bleibt.
 
 ### 2. Stände: drei Tabellensätze im SAB
 
@@ -67,6 +77,17 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
 
 - Befehle, Tempo und Pause gehen als Nachricht an den Worker und wirken ab dem nächsten Sub-Step. Heute reisen sie
   mit dem Tick; das Ergebnis ist dasselbe, nur der Zeitpunkt hängt nicht mehr am Bild.
+- **Gebaut (Schritt 3):** Eine Nachricht `input` (`SimInput`: Befehle, Tempo, Pause, Rendering, Replay-Steuerung,
+  Relay-Ticks), vom `SimClient` einmal je Bild und nur, wenn sich etwas geändert hat oder Befehle da sind
+  (`flushInput`). Vor jedem Aufruf (`rpc`) geht die Eingabe voraus, Nachrichten kommen in Reihenfolge an; der eigene
+  Aufruf `applyCommands` ist weg. Die Eingabe, die eine Pause oder ein angehaltenes Replay beendet, stellt deren Uhr
+  auf jetzt, sonst spränge das Spiel um den Rückstand. Eingabe, Einstellung (`configure`) und Aufruf lassen den
+  nächsten Durchgang ein Paket veröffentlichen, auch ohne Sub-Step.
+- **Lauf-Epoche:** `SimClient.newRun` schickt erst `unload` (der Worker rechnet ohne Welt nichts und veröffentlicht
+  nichts), dann `epoch`; der Worker stempelt jede Veröffentlichung mit der Epoche, der Hauptthread verwirft Pakete
+  einer älteren. `SimClient.unloadWorld` ist in `newRun` aufgegangen.
+- Aufrufe laufen in Schritt 3 zwischen zwei Durchgängen auf dem Stand, den der Worker gerade hat; Anhalten und
+  Fortsetzen des Loops kommt mit Schritt 5. Ein Replay-Sprung rechnet weiter in Scheiben von 60 ms je Durchgang.
 - Aufrufe (`rpc`: Replay, Snapshot, Hash, Tower-Ziele) laufen zwischen zwei Durchgängen. Aufrufe, die einen festen
   Stand brauchen (Replay-Einstieg, Resync), halten den Loop an und lassen ihn danach weiterlaufen.
 
@@ -107,7 +128,7 @@ Jeder Schritt mit grünen Specs, E2E (`npm run e2e`) und einem Messcheck (`e2e/p
 2. **Event-Strom mit Folgenummer** getrennt vom Stand; der Hauptthread spielt Events aller Veröffentlichungen, den
    Stand nur den neuesten.
 3. **Loop im Worker** mit eigener Uhr, Budget je Durchgang, Nachrichten für Befehle, Tempo, Pause; Tick auf Anfrage
-   und früher Tick entfernt. Inline-Transport synchron.
+   und früher Tick entfernt. Inline-Transport synchron. **Gebaut 2026-09-30.**
 4. **Coop:** Freigaben per Nachricht, Loop wartet an der Grenze; Coop-Bot-Lauf zu zweit ohne Abweichung, Resync-Lauf
    (`e2e/coop-bots/run.ts --falsify-at-wave --big-wave`).
 5. **Aufrufe und Replay:** Loop anhalten und fortsetzen; Replay-Sprünge (`e2e/perf/replay-seek.ts`).
@@ -128,6 +149,10 @@ Tabelle, statt zu kopieren. Setzt beide Umbauten voraus; entscheiden nach den Me
 - Ruckeln durch seltene Veröffentlichung (Punkt 6), messbar über Veröffentlichungen je Sekunde.
 - Bot und Run-Log lesen den Spiegel je Bild; sie sehen weiter jeden Bild-Stand, aber nicht mehr jeden Tick. Das ist
   heute schon so (Bot entscheidet je Bild).
+- Offen nach Schritt 3: Ohne Gegendruck (Schritt 6) wächst die Liste der Pakete, solange der Hauptthread keine Bilder
+  rechnet. Bei Tempo 4 und mehr veröffentlicht der Worker je Sub-Step (bis rund 240 Pakete je Sekunde), jedes schreibt
+  die Tabellen; ob ein Mindestabstand zwischen zwei Veröffentlichungen lohnt, zeigt die Messung (`packetsPerS`). Im Coop
+  meldet `noteFrame` die Glätte jetzt je Durchgang statt je Bild (Schritt 4).
 - Specs, die einen Tick je `frame()` annehmen, müssen auf den Loop umgestellt werden.
 
 ## Zum Multi-Worker-Umbau

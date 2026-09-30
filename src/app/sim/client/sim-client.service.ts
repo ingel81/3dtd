@@ -4,33 +4,13 @@ import type { CommandData } from '../../managers/game-state/command-data';
 import { toPlainData } from '../../managers/game-state/command-log';
 import type { LockstepLink } from '../../coop/lockstep';
 import type {
-  LockstepDelivery, QueuedCommand, SimConfig, SimOutput, SimRpc, SimWorld,
+  LockstepDelivery, QueuedCommand, SimConfig, SimInput, SimOutput, SimRpc, SimWorld,
 } from '../protocol/messages';
 import type { SimFramePacket, SimScalars } from '../protocol/packet';
 import type { SimMirrorApi, SimPresenterApi } from './contracts';
 import { createMainEventBus, type MainEventBus, type ViewEvent } from './view-events';
 import { WorkerTransport, type SimTransport, type SimTransportHandlers } from './transport';
 import { mergePackets } from './merge-packets';
-
-/**
- * A tick longer than this goes on without waiting for the next frame (see
- * SimClient). The game clock takes at most 50 ms of wall clock per tick
- * (GameClock.MAX_CATCHUP_MS): a tick this long plus the wait for the frame
- * and the apply comes near it, and the game turns into slow motion. Shorter
- * ticks keep to the frame, which leaves this thread one packet per frame.
- */
-export const EARLY_TICK_MS = 35;
-
-/**
- * `?earlyTick=` in ms, for measuring the threshold (TODO E72): a whole number from 0 (every tick early) to 1000,
- * `off` for never; else EARLY_TICK_MS.
- */
-export function earlyTickParam(search: string): number {
-  const value = new URLSearchParams(search).get('earlyTick');
-  if (value === 'off') return Infinity;
-  const n = Number(value);
-  return value !== null && value !== '' && Number.isInteger(n) && n >= 0 && n <= 1000 ? n : EARLY_TICK_MS;
-}
 
 /** Inputs the UI gives on the main bus; everything else on it came from the simulation. */
 export function isSimInput(type: string): boolean {
@@ -41,24 +21,22 @@ export function isSimInput(type: string): boolean {
  * The main thread's end of the simulation (docs/SIM_WORKER.md). Everything on
  * the main thread reaches the simulation through this service:
  *  - `bus`: the simulation's events as views; commands (`command:*`,
- *    cheat `debug:*`) emitted on it go to the simulation with the next tick.
+ *    cheat `debug:*`) emitted on it go to the simulation with this frame's
+ *    input.
  *  - `mirror`: what the simulation looked like after the last packet.
  *  - `rpc`: calls with an answer (replay file, snapshots, hashes).
  *
- * One tick is in flight at a time: the next goes when its packet is back, so
- * a slow simulation slows the game instead of piling up frames. The packets
- * that came are applied at the start of the main thread's next frame, before
- * it renders, as one (applyPending).
- * Where a tick takes longer than EARLY_TICK_MS (many enemies, high speed)
- * and the worker's tables are in shared memory (SimTransport.concurrent), the
- * next tick goes out as soon as the packet is back instead of with the next
- * frame: the simulation works on while this thread applies and draws, rather
- * than waiting for it. It never writes the set this thread reads (the claim
- * in applyPending, TableViews.claim).
+ * The simulation runs by its own clock (docs/SIM_DECOUPLE_PLAN.md): it waits
+ * for no frame and no request of this thread and publishes packets as it
+ * gets on. This thread sends it what changed (commands, speed, pause, the
+ * replay's controls, the relay's ticks) once per frame (flushInput), and
+ * applies the packets that came since its last frame as one, before it
+ * renders (applyPending). The simulation never writes the set of tables this
+ * thread reads (the claim in applyPending, TableViews.claim).
  *
  * A run has an epoch (newRun): commands and packets of an older run are
- * dropped. A simulation that failed (a throw in its tick, a worker that did
- * not load) stops for good: no further tick on a half-updated state, the
+ * dropped. A simulation that failed (a throw in a pass, a worker that did
+ * not load) stops for good: nothing further on a half-updated state, the
  * error in `failure` (the game loop puts it in the banner), the coop
  * lockstep let go.
  */
@@ -71,12 +49,13 @@ export class SimClient {
   private transport: SimTransport | null = null;
 
   private worldLoaded = false;
-  private inFlight = false;
   private pendingPackets: SimFramePacket[] = [];
   private commands: QueuedCommand[] = [];
   private lockstep: LockstepLink | null = null;
-  /** See SimTickInput.replay; set by the replay UI (ReplayService) */
+  /** See SimInput.replay; set by the replay UI (ReplayService) */
   replay: { playing: boolean; speed: number } | null = null;
+  /** The settings the simulation has (the last input sent), null before the first */
+  private sent: Omit<SimInput, 'commands' | 'lockstep'> | null = null;
   /** Last relay tick handed to the simulation */
   private deliveredTick = -1;
   /** Game time of the last applied packet, for the presenter's advance() */
@@ -85,8 +64,6 @@ export class SimClient {
   private readonly frameListeners = new Set<(packet: SimFramePacket) => void>();
   /** The run the commands and packets belong to, see newRun() */
   private epoch = 0;
-  /** The epoch of the tick in flight: its packet is dropped when a new run began meanwhile */
-  private tickEpoch = 0;
   /** newRun() emitted game:reset here already: the new run's first packet brings its own, not handed on */
   private resetShown = false;
   /** Why the simulation stopped, null while it runs (see fail()) */
@@ -135,24 +112,22 @@ export class SimClient {
     this.transport?.dispose();
     this.resetSession();
     const handlers: SimTransportHandlers = {
-      frame: (packet) => {
-        this.inFlight = false;
-        if (this.tickEpoch !== this.epoch || this.failure() !== null) return;
+      frame: (packet, epoch) => {
+        if (epoch !== this.epoch || this.failure() !== null) return;
         this.pendingPackets.push(packet);
-        this.lastTickMs = packet.scalars.tickMs;
-        this.sendEarly();
       },
       output: (message) => this.output(message),
       error: (error) => this.fail(error),
     };
     this.transport = transport ? transport(handlers) : new WorkerTransport(handlers);
+    this.transport.epoch(this.epoch);
   }
 
-  /** What a started or stopped simulation forgets: the world, what is in flight or queued, the links and the failure. */
+  /** What a started or stopped simulation forgets: the world, what is queued, the links and the failure. */
   private resetSession(): void {
     this.epoch++;
     this.worldLoaded = false;
-    this.inFlight = false;
+    this.sent = null;
     this.pendingPackets = [];
     this.commands = [];
     this.lockstep = null;
@@ -160,7 +135,6 @@ export class SimClient {
     this.deliveredTick = -1;
     this.lastGameTimeMs = null;
     this.resetShown = false;
-    this.lastTickMs = 0;
     this.failure.set(null);
   }
 
@@ -177,18 +151,24 @@ export class SimClient {
   /**
    * A new run on a new place (MainWorldService.resetRun): the old run goes
    * from the main thread at once, not only with the new world's first packet
-   * after seconds of corridor build. Its queued commands and a packet still
-   * in flight are dropped (ids start over: a line of sight for tower-3 must
-   * not reach the new tower-3); mirror and presentation are cleared, and the
-   * stores and services hear game:reset now. The simulation's own resets
-   * that come with the new world's first packet are not handed on again.
+   * after seconds of corridor build. Its queued commands and its packets
+   * still on their way are dropped (ids start over: a line of sight for
+   * tower-3 must not reach the new tower-3); mirror and presentation are
+   * cleared, and the stores and services hear game:reset now. The
+   * simulation's own resets that come with the new world's first packet are
+   * not handed on again.
    *
-   * A tick in flight stays in flight until its packet is back (dropped by
-   * its epoch): a second tick meanwhile would have the worker write the
-   * tables while this thread reads them.
+   * The simulation lets its world go first and runs no sub-step until the
+   * next loadWorld: every packet it publishes after it took the new epoch
+   * is the new run's.
    */
   newRun(): void {
     this.epoch++;
+    this.worldLoaded = false;
+    if (this.transport && this.failure() === null) {
+      this.transport.unloadWorld();
+      this.transport.epoch(this.epoch);
+    }
     this.commands = [];
     this.pendingPackets = [];
     this.lastGameTimeMs = null;
@@ -198,24 +178,6 @@ export class SimClient {
     this.resetShown = true;
   }
 
-  /** The last tick's time in the simulation, ms (SimScalars.tickMs) */
-  private lastTickMs = 0;
-  /** EARLY_TICK_MS, or what the address asks for (earlyTickParam) */
-  private readonly earlyTickMs = earlyTickParam(typeof location === 'undefined' ? '' : location.search);
-
-  /**
-   * The packet just back is the only one not applied, and the tick took
-   * longer than EARLY_TICK_MS: the next tick goes now rather than with the
-   * next frame. Its tables go into the other set, the one of the packet
-   * before, which is applied.
-   */
-  private sendEarly(): void {
-    const transport = this.transport;
-    if (!transport?.concurrent || this.pendingPackets.length !== 1 || !(this.lastTickMs > this.earlyTickMs)) return;
-    if (!this.worldLoaded || this.inFlight || this.failure() !== null) return;
-    this.sendTick(performance.now(), this.gameStore.renderingEnabled());
-  }
-
   /** Called once when the simulation fails (coop leaves the room). */
   onFailure(listener: (error: string) => void): () => void {
     this.failureListeners.add(listener);
@@ -223,8 +185,8 @@ export class SimClient {
   }
 
   /**
-   * The simulation threw (its tick, its load, the worker itself). Its state
-   * may be half updated: no further tick, no retry. The game stands with a
+   * The simulation threw (a pass, its load, the worker itself). Its state
+   * may be half updated: nothing further goes to it, no retry. The game stands with a
    * message; coop lets the lockstep go so the partners are not left waiting.
    */
   private fail(error: string): void {
@@ -232,7 +194,6 @@ export class SimClient {
     if (this.failure() !== null) return;
     const firstLine = error.split('\n')[0];
     this.failure.set(firstLine);
-    this.inFlight = false;
     this.commands = [];
     this.lockstep = null;
     this.deliveredTick = -1;
@@ -251,19 +212,14 @@ export class SimClient {
     this.worldLoaded = true;
   }
 
-  /** The world goes (a new place is being built): no tick until the next loadWorld. */
-  unloadWorld(): void {
-    this.worldLoaded = false;
-  }
-
   get hasWorld(): boolean {
     return this.worldLoaded;
   }
 
   /**
-   * Coop: the relay link. Its delivered ticks go to the simulation with every
-   * tick; what the simulation sends back (commands, hashes, smoothness) goes to
-   * it. Null for the single player game.
+   * Coop: the relay link. Its delivered ticks go to the simulation with the
+   * frame's input; what the simulation sends back (commands, hashes,
+   * smoothness) goes to it. Null for the single player game.
    */
   setLockstep(link: LockstepLink | null, hashEvery?: number): void {
     this.lockstep = link;
@@ -282,52 +238,61 @@ export class SimClient {
   }
 
   /**
-   * One frame of the main thread's loop: apply what came back, then send the
-   * next tick if none is out.
+   * One frame of the main thread's loop: apply what the simulation published
+   * since the last one, then send it what changed here.
    */
   frame(now: number, renderingEnabled = this.gameStore.renderingEnabled()): void {
     this.applyPending();
-    if (!this.transport || !this.worldLoaded || this.inFlight || this.failure() !== null) return;
-    this.sendTick(now, renderingEnabled);
-    // The same thread answers at once
-    this.applyPending();
-  }
-
-  /** The next tick out, with the commands given since the last one. */
-  private sendTick(now: number, renderingEnabled: boolean): void {
-    const transport = this.transport!;
-    this.inFlight = true;
-    this.tickEpoch = this.epoch;
-    const commands = this.commands;
-    this.commands = [];
+    const transport = this.transport;
+    if (!transport || !this.worldLoaded || this.failure() !== null) return;
     try {
-      transport.tick({
-        now,
-        gameSpeed: this.gameStore.gameSpeed(),
-        paused: this.gameStore.paused(),
-        renderingEnabled,
-        commands,
-        lockstep: this.lockstepDelivery(),
-        replay: this.replay,
-      });
+      this.flushInput(now, renderingEnabled);
+      transport.frame(now);
     } catch (error) {
       // The same thread's simulation (InlineTransport) throws here
       this.fail(error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error));
     }
+    // The same thread answers at once
+    this.applyPending();
   }
 
   /**
-   * A call with an answer. The commands given since the last tick go ahead
-   * of it (applyCommands), so the call acts on the state they leave: the
-   * replay's begin leaves the manned tower first, then enters the replay.
+   * The input out: the commands given since the last one and the relay's new
+   * ticks, with speed, pause, rendering and the replay's controls. Nothing
+   * goes when none of it changed.
+   */
+  private flushInput(now: number, renderingEnabled = this.sent?.renderingEnabled ?? this.gameStore.renderingEnabled()): void {
+    const replay = this.replay;
+    const gameSpeed = this.gameStore.gameSpeed();
+    const paused = this.gameStore.paused();
+    const lockstep = this.lockstepDelivery();
+    const sent = this.sent;
+    if (
+      sent && this.commands.length === 0 && !lockstep
+      && sent.gameSpeed === gameSpeed && sent.paused === paused && sent.renderingEnabled === renderingEnabled
+      && sent.replay?.playing === replay?.playing && sent.replay?.speed === replay?.speed
+    ) return;
+    const commands = this.commands;
+    this.commands = [];
+    // A copy: the replay UI changes its object in place
+    this.sent = { gameSpeed, paused, renderingEnabled, replay: replay ? { ...replay } : null };
+    this.transport!.input({ ...this.sent, commands, lockstep }, now);
+  }
+
+  /**
+   * A call with an answer. What changed here since the last frame goes
+   * ahead of it (flushInput), so the call acts on the state the commands
+   * leave: the replay's begin leaves the manned tower first, then enters the
+   * replay. The answer comes after everything sent before the call ran.
    */
   rpc<K extends keyof SimRpc>(method: K, ...args: Parameters<SimRpc[K]>): Promise<ReturnType<SimRpc[K]>> {
     if (this.failure() !== null) return Promise.reject(new Error(`simulation stopped: ${this.failure()}`));
     const transport = this.requireTransport();
-    if (this.commands.length > 0 && method !== 'applyCommands') {
-      const commands = this.commands;
-      this.commands = [];
-      transport.rpc('applyCommands', [commands]).catch((error: unknown) => console.error('[Sim] applyCommands', error));
+    try {
+      this.flushInput(performance.now());
+    } catch (error) {
+      this.fail(error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error));
+      return Promise.reject(new Error(`simulation stopped: ${this.failure()}`));
     }
     return transport.rpc(method, args) as Promise<ReturnType<SimRpc[K]>>;
   }
@@ -337,16 +302,18 @@ export class SimClient {
     return this.transport;
   }
 
+  /** Coop: the ticks the relay closed since the last input, null when there are none. */
   private lockstepDelivery(): LockstepDelivery | null {
     const link = this.lockstep;
     if (!link) return null;
     const confirmed = link.confirmedTick();
+    if (confirmed <= this.deliveredTick) return null;
     const ticks: LockstepDelivery['ticks'] = [];
     for (let t = this.deliveredTick + 1; t <= confirmed; t++) {
       ticks.push({ tick: t, commands: link.commandsAt(t) });
       link.release(t);
     }
-    if (confirmed > this.deliveredTick) this.deliveredTick = confirmed;
+    this.deliveredTick = confirmed;
     return { confirmedTick: confirmed, ticks };
   }
 
@@ -373,7 +340,7 @@ export class SimClient {
    * The packets that came since the last frame, folded into one
    * (mergePackets): the newest one's state, every one's ops, events and
    * tower changes in order. When the newest one's tables are written again
-   * already (a newer packet is on its way), they all wait for the next frame.
+   * already (newer packets are on their way), they all wait for the next frame.
    */
   private applyPending(): void {
     const transport = this.transport;

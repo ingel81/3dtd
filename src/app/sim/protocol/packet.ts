@@ -191,9 +191,11 @@ export interface SimScalars {
     seeking: { target: number; from: number } | null;
   } | null;
   /**
-   * Wall-clock ms the simulation spent on this tick: the commands, the
-   * sub-steps and the packet (the second number besides the frame time;
-   * per sub-step divide by the packet's stepsRun)
+   * Wall-clock ms the simulation spent on this packet: the commands since
+   * the one before, the pass's sub-steps and the packet itself (the second
+   * number besides the frame time; per sub-step divide by the packet's
+   * stepsRun). Summed over the packets and divided by the wall clock, the
+   * share of its time the simulation computes
    */
   tickMs: number;
   /** The run's seed (GameRng.seed): the main thread's wave source and bot draw their own streams from it */
@@ -232,9 +234,9 @@ export interface TowerStateDto {
 export interface SimFramePacket {
   /** Running number of the packet */
   frame: number;
-  /** Sub-steps run in this update */
+  /** Sub-steps run in this pass */
   stepsRun: number;
-  /** Tables hold this frame's state for the renderers (stepsRun > 0 and rendering on) */
+  /** Tables hold this packet's state for the renderers (stepsRun > 0 and rendering on) */
   presented: boolean;
   scalars: SimScalars;
   enemies: SimTable;

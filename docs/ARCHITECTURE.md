@@ -65,14 +65,14 @@ hält Bild, Ton, UI, Eingabe, Tiles und die GPU-Sichtlinien und greift nie auf e
 
 | Teil | Datei | Aufgabe |
 |---|---|---|
-| **SimCore** | `sim/core/sim-core.ts` | Die Simulation hinter `SimCoreApi` (`configure`, `loadWorld`, `tick`, `rpc`, `sim/protocol/messages.ts`): baut den GameStateManager mit seinen Sim-Services in einem eigenen Injector (`SIM_PROVIDERS`), rechnet je Tick ein Bild und gibt ein Paket zurück |
+| **SimCore** | `sim/core/sim-core.ts` | Die Simulation hinter `SimCoreApi` (`configure`, `loadWorld`, `input`, `pass`, `idleMs`, `rpc`, `sim/protocol/messages.ts`): baut den GameStateManager mit seinen Sim-Services in einem eigenen Injector (`SIM_PROVIDERS`), rechnet je Durchgang des Loops (`sim/worker/sim-loop.ts`) die fälligen Sub-Steps und gibt ein Paket zurück |
 | Worker-Einstieg | `sim/worker/sim.worker.ts` | Ein `SimCore`, getrieben von den Nachrichten des `WorkerTransport` |
 | Renderer-Aufrufe | `sim/core/sim-sink.ts`, `sim/protocol/ops.ts` | Die Simulation ruft ihren `SimSink` wie früher die Engine; jeder Aufruf wird als Op aufgezeichnet |
 | Koordinaten | `sim/core/sim-coords.ts` | Geo zu lokal um den Ursprung der Welt, reine Mathe ohne Tiles |
 | Events über die Grenze | `sim/core/event-export.ts`, `sim/protocol/events.ts` | Jedes Event der Simulation außer den Eingaben, Entities als Referenzen mit den Zahlen des Moments |
 | Paket | `sim/core/packet-writer.ts`, `sim/protocol/packet.ts` | Tabellen (Gegner, Geschosse, Tower, Oozes, Würmer), Skalare, geänderte Tower-Zustände, Ops, Events |
 | Tabellen-Speicher | `sim/protocol/table-store.ts`, `sim/protocol/wire.ts` | Tabellen im `SharedArrayBuffer`, der Hauptthread liest sie ohne Kopie; ohne `crossOriginIsolated` dieselbe Form mit Kopien |
-| **SimClient** | `sim/client/sim-client.service.ts` | Das Ende des Hauptthreads: `frame()` wendet das zurückgekommene Paket an und schickt den nächsten Tick mit den Befehlen seit dem letzten; ein Tick ist unterwegs. `bus` ist der Hauptthread-Bus, `rpc` für Aufrufe mit Antwort |
+| **SimClient** | `sim/client/sim-client.service.ts` | Das Ende des Hauptthreads: `frame()` wendet die Pakete an, die der Worker seit dem letzten Bild veröffentlicht hat (als eines), und schickt Befehle, Tempo und Pause, wenn sich etwas geändert hat. `bus` ist der Hauptthread-Bus, `rpc` für Aufrufe mit Antwort |
 | Transporte | `sim/client/transport.ts` | `WorkerTransport` im Spiel, `InlineTransport` (selber Thread) für die Specs |
 | **SimMirror** | `sim/client/mirror/sim-mirror.ts` | Bild der Simulation nach dem letzten Paket: Schatten-Tower (echte `Tower` aus `TowerStateDto`, nie simuliert), Views der Gegner, Geschosse und Würmer (`sim/client/views.ts`), Skalare, Stände je Spieler. Gelesen von UI, Eingabe, Bot und Wellenquelle |
 | Darstellung | `presentation/presentation-host.ts`, `op-player.ts`, `frame-presenter.ts` | `PresentationHost` je Engine: `OpPlayer` ruft die Engine-Member der Ops, `FramePresenter` gibt die Tabellen an die Renderer; VFX, Ton, Screen Shake, Musik, Blutmond und HQ-Feuer hören den Hauptthread-Bus |
@@ -284,7 +284,7 @@ tower-defense.component.ts
     │   └── GameStateSyncService ─────── EventBus → Store Bridge
     │
     ├── GameLoopFacadeService ───────── Wave, Game Loop, AI
-    │   ├── SimClient ────────────────── Tick je Bild, Paket anwenden, Hauptthread-Bus
+    │   ├── SimClient ────────────────── Pakete je Bild anwenden, Eingaben senden, Hauptthread-Bus
     │   ├── SimMirror ────────────────── Schatten-Tower, Views, Skalare
     │   └── PresentationService ──────── PresentationHost je Engine (Ops, Tabellen, Ton, VFX)
     │
@@ -945,7 +945,7 @@ Der Held (Söldner) läuft auf dem Routengraph (`utils/route-graph.ts`), kämpft
 Das Replay rechnet eine Welle aus dem Zustand bei ihrem Start und den Befehlen noch einmal, mit den echten
 Renderern. `SimRecorder` (`simulator/`, vom GameStateManager gehalten) nimmt beim Wellenstart einen `SimSnapshot`,
 merkt sich die Wellenkonfiguration und den Einstieg in den `CommandLog`. Die Neu-Simulation läuft im Worker
-(`sim/core/sim-replay.ts`; RPC `replayEnter`, `replaySeek`, `replayExit`, das Abspielen über `SimTickInput.replay`):
+(`sim/core/sim-replay.ts`; RPC `replayEnter`, `replaySeek`, `replayExit`, das Abspielen über `SimInput.replay`):
 sie sichert den Live-Stand, spielt die Welle ab und springt (Neu-Simulation bis zur Zielstelle), danach kommt der
 Live-Stand zurück. Ihre Bilder kommen als normale Pakete. `ReplayService` (Hauptthread) steuert den Modus,
 `app-replay-bar` die Leiste. Das frühere Präsentations-Replay
@@ -1314,32 +1314,34 @@ function onEngineUpdate(deltaTime: number) {
   // pro Frame: Build-Preview-Rotation, Street-Batches, Keyboard-Pan, Marker, Route-Animation, Intro-Flug
   towerControl.flushAim();       // Zielen im besetzten Tower als Befehl
   world.syncPending();           // corridorPending an die Simulation
-  sim.frame(performance.now());  // Paket anwenden (Spiegel, Ops, Events, Tabellen), nächsten Tick schicken
+  sim.frame(performance.now());  // Pakete anwenden (Spiegel, Ops, Events, Tabellen), Eingaben schicken
   if (botEnabled) botClient.updateBot(getSnapshot, botDelta);  // je Bild, auf der Spielzeit des Pakets
   bossIntro.update(deltaTime);   // Boss aus dem Portal: Kameraschnitt, Wanduhr, siehe WAVE_SYSTEM.md
   // danach: Replay, besetzter Tower, Run-Log, Auto-Wave-Countdown, Profiler, Route-Grid-Viz, LOS-Viz-Puls, UI-Stats (~10 Hz)
 }
 ```
 
-Der Worker rechnet die Sub-Steps eines Ticks, während der Hauptthread rendert. Ein Tick ist unterwegs; das Paket
-kommt am Anfang des nächsten Bilds an die Reihe (`SimClient.frame`). Befehle, die zwischen zwei Ticks auf dem
-Hauptthread-Bus landen, gehen mit dem nächsten Tick und wirken an der Grenze vor seinem ersten Sub-Step
-(`SimCore.tick`, `GameStateManager.receiveCommand`).
+Der Worker loopt mit eigener Uhr (`sim/worker/sim-loop.ts`, [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md)): er
+rechnet die fälligen Sub-Steps und veröffentlicht Pakete, ohne auf ein Bild zu warten. Was seit dem letzten Bild kam,
+wendet der Hauptthread am Anfang des nächsten als ein Paket an (`SimClient.frame`). Befehle vom Hauptthread-Bus gehen
+mit der Eingabe des Bilds und wirken sofort, an der Grenze zwischen zwei Sub-Steps
+(`SimCore.input`, `GameStateManager.receiveCommand`).
 
 `ThreeTilesEngine.update()` ruft `onUpdateCallback` auch bei abgeschaltetem Rendering
 (Headless-Training); Enemy-Animation, Tower-Visuals, Projektil-Upload und Effekte laufen
 danach nur mit Rendering.
 
 **Sub-Steps:** `GameStateManager.update()` überlässt die Zeitrechnung `GameClock`
-(`managers/game-state/game-clock.ts`): `beginFrame()` begrenzt das Wanduhr-Delta auf
-`MAX_CATCHUP_MS` (50) und multipliziert es mit dem Training-Timescale, `nextSubStep()` gibt
-die Spielzeit in festen Sub-Steps von `FIXED_STEP_MS` (16,667 ms) frei, höchstens
-`MAX_SUBSTEPS_PER_FRAME` (600) pro Frame, und `endFrame()` trägt den Rest in den nächsten
-Frame, gedeckelt auf 600 Sub-Steps plus `MAX_REMAINDER_MS` (2000). Jeder Sub-Step läuft durch `runSubStep()`
+(`managers/game-state/game-clock.ts`): `beginFrame()` nimmt das Wanduhr-Delta seit dem letzten Durchgang mal
+Timescale plus den Rest, höchstens `MAX_BACKLOG_MS` (250) mal Timescale, `nextSubStep()` gibt
+die Spielzeit in festen Sub-Steps von `FIXED_STEP_MS` (16,667 ms) frei, und `endFrame()` trägt den Rest in den
+nächsten Durchgang. `update()` beginnt nach seiner Frist (`deadline`, im Worker 8 ms je Durchgang,
+`PASS_BUDGET_MS`) keinen Sub-Step mehr; kommt die Simulation nicht nach, läuft das Spiel langsamer als die Wanduhr,
+statt Rückstand anzuhäufen. Jeder Sub-Step läuft durch `runSubStep()`
 (Reihenfolge in Abschnitt 5), danach prüft die Schleife Wave-Ende und Game Over. Nach der
 Schleife schreibt `SimCore` das Paket (`PacketWriter`); es trägt `presented`, wenn Rendering an ist und ein
 Sub-Step lief oder ein Befehl kam. Dann gibt der `FramePresenter` auf dem Hauptthread die Tabellen an die
-Renderer. Oberhalb von 60 fps läuft deshalb nicht in jedem Frame ein Sub-Step.
+Renderer. Oberhalb von 60 fps kommt deshalb nicht in jedem Frame ein Paket.
 
 **Hintergrund-Tab (nur Training):** Mit `setBackgroundLoopEnabled(true)` ruft bei
 verstecktem Tab ein Worker-Takt (`workers/heartbeat.worker.ts`, 16 ms) `update()` ohne
@@ -1360,16 +1362,15 @@ der mehr als ein halbes Intervall zu spät kommt (erster Frame, Stall,
 Tab-Wechsel), setzt die Phase 3/8 Intervall vor sich neu; bei Refreshraten vom
 Ein- bis Vierfachen des Caps liegt dann kein Vsync auf der Schwelle, sonst
 würde Jitter kurze und lange Abstände abwechseln lassen. Die
-Simulation rechnet mit dem Wanduhr-Delta zwischen den gelaufenen Frames: bei
-30 fps sind das ~33 ms, unter `MAX_CATCHUP_MS` (50) in `GameClock`,
-also volle Spielgeschwindigkeit, auch bei Training-Timescales. Standard ist
+Simulation läuft im Worker mit eigener Uhr, die Spielgeschwindigkeit hängt
+also nicht am Cap, auch bei Training-Timescales. Standard ist
 unbegrenzt, der Loop verhält sich dann wie ohne Cap.
 
-**Pause:** `GameStore.paused` (Pause-Button neben dem Game-Speed), mit jedem Tick an die Simulation
-(`SimTickInput.paused`, gesetzt in `GameStateManager.paused`). Pausiert läuft kein Sub-Step: Spawns, Kampf,
+**Pause:** `GameStore.paused` (Pause-Button neben dem Game-Speed), bei jeder Änderung an die Simulation
+(`SimInput.paused`, gesetzt in `GameStateManager.paused`). Pausiert läuft kein Sub-Step: Spawns, Kampf,
 Projektile, Status-Effekte, Forschung und Bot-Ticks stehen, die Game-Clock
-auch. `update()` merkt sich trotzdem die Wanduhr, damit der erste Frame nach
-der Pause nichts nachholt. Auf dem Hauptthread setzt `GameLoopFacadeService.syncPresentation` je Bild die
+auch, und der Loop des Workers schläft. Die Eingabe, die die Pause beendet, stellt die Wanduhr der Game-Clock
+auf jetzt (`SimCore.input`), damit der erste Durchgang danach nichts nachholt. Auf dem Hauptthread setzt `GameLoopFacadeService.syncPresentation` je Bild die
 Renderer-Timescale (`engine.setTimescale`: die des Replays, pausiert 0, sonst die Spielgeschwindigkeit), damit die
 Laufanimationen mit ihren Gegnern stehen bleiben, und schaltet das Rendering (`setRenderingEnabled`);
 `PresentationHost.setPaused` hält die Loop-Sounds an und dämpft die Musik, außer mit `GameStore.pauseKeepsLoops`. Rendering, Kamera, Partikel

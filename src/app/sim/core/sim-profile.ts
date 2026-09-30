@@ -1,6 +1,6 @@
 /**
  * The perf panel's view into the worker (TODO E82, docs/SIM_WORKER.md): the
- * simulation's time by part, summed over the ticks since the panel last
+ * simulation's time by part, summed over the passes since the panel last
  * asked (rpc profileSums). Set on the GameStateManager only while the panel
  * is open (SimConfig.profile); without it the sub-steps take no timer.
  */
@@ -32,7 +32,7 @@ export class SimProfile implements SimProfiler {
     s.enemyMs += totalMs;
   }
 
-  /** One tick's parts, from the times SimCore.tick takes anyway */
+  /** One pass's parts, from the times SimCore.pass takes anyway */
   addTick(commandsMs: number, updateMs: number, packetMs: number, stepsRun: number): void {
     const s = this.sums;
     s.ticks++;

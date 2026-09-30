@@ -885,16 +885,34 @@ describe('GameStateManager', () => {
         gsm.update(17, onSub);
         const stepsAfterSeed = onSub.mock.calls.length;
 
-        // A 60-second jump — what a background tab produces on return, and
-        // what a stalled frame produces under load. The delta is clamped
-        // before it becomes game-time, so the loop works off a few steps
-        // rather than thousands. Catching it all up is what turned one slow
-        // frame into a slower next one.
+        // A 60-second jump: what a loop that stood produces when it goes on
+        // (a hidden tab, a long call). The backlog is capped
+        // (GameClock.MAX_BACKLOG_MS), so the loop works off a quarter of a
+        // second rather than a minute.
         gsm.update(60_017, onSub);
 
         const stepsThisFrame = onSub.mock.calls.length - stepsAfterSeed;
         expect(stepsThisFrame).toBeGreaterThan(0);
-        expect(stepsThisFrame).toBeLessThanOrEqual(4);
+        expect(stepsThisFrame).toBeLessThanOrEqual(15);
+      });
+
+      it('starts no further sub-step after the deadline and carries the rest into the next call', () => {
+        const onSub = vi.fn();
+        gsm.update(1, onSub);
+        gsm.update(17, onSub);
+        const seeded = onSub.mock.calls.length;
+
+        // 100 ms are due; the deadline has passed already: one sub-step runs
+        gsm.update(117, onSub, performance.now() - 1);
+        expect(onSub.mock.calls.length - seeded).toBe(1);
+        expect(gsm.dueInMs()).toBe(0);
+        // The rest with the next call, at the same wall clock
+        gsm.update(117, onSub);
+        expect(onSub.mock.calls.length - seeded).toBe(6);
+        expect(gsm.dueInMs()).toBeGreaterThan(0);
+
+        gsm.paused.set(true);
+        expect(gsm.dueInMs()).toBe(Infinity);
       });
 
       it('scales sub-step count by training timescale', () => {

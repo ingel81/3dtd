@@ -1,9 +1,10 @@
 /**
  * The simulation behind SimCoreApi (docs/SIM_WORKER.md): the GameStateManager
  * with its sim services, built in an Injector of its own (no platform, no
- * app, no root lookups), a world from the main thread, one frame per tick
- * and a packet out. Runs in the worker (sim/worker/sim.worker.ts) and, for
- * the specs, in the same thread.
+ * app, no root lookups), a world from the main thread, inputs as they come
+ * and a packet out per pass of the loop (docs/SIM_DECOUPLE_PLAN.md). Runs in
+ * the worker (sim/worker/sim.worker.ts, driven by SimLoop) and, for the
+ * specs, in the same thread (a pass per frame).
  */
 import { Injector, type StaticProvider } from '@angular/core';
 import { GameStateManager } from '../../managers/game-state.manager';
@@ -26,7 +27,7 @@ import { commandMarkers } from '../../replay/replay-bar-view';
 import type { ExportedEvent } from '../protocol/events';
 import type { SimFramePacket } from '../protocol/packet';
 import type {
-  ReplayEntered, SimConfig, TickProfile, SimCoreApi, SimOutput, SimRpc, SimTickInput, SimWorld,
+  ReplayEntered, SimConfig, TickProfile, SimCoreApi, SimInput, SimOutput, SimRpc, SimWorld,
 } from '../protocol/messages';
 import { TableStore } from '../protocol/table-store';
 import { SimCoords } from './sim-coords';
@@ -65,10 +66,18 @@ export class SimCore implements SimCoreApi {
   private readonly combat: TowerCombatService;
   private readonly link = new DeliveredLink();
   private events: ExportedEvent[] = [];
-  /** Wall clock of the last tick, for the replay's pace */
-  private lastNow: number | null = null;
-  /** Something changed the state outside a sub-step (a restore, the replay): the next packet presents */
+  /** Wall clock of the replay's last pass, for its pace; null before its first */
+  private replayNow: number | null = null;
+  /** Something changed the state outside a sub-step (a command, a restore, the replay): the next packet presents */
   private forcePresent = true;
+  /** Something came in since the last packet (an input, a setting, a call): a packet goes out even without a sub-step */
+  private dirty = false;
+  /** The settings of the last input (SimInput); game speed and pause live in the GameStateManager */
+  private renderingEnabled = true;
+  private replayInput: SimInput['replay'] = null;
+  /** Ms and the slowest of the commands since the last packet, for its tickMs and the profile */
+  private commandsMs = 0;
+  private slowest: TickProfile['slowest'] = null;
   private worldLoaded = false;
   private replay: SimReplay | null = null;
   /** A replay file read by loadReplayFile */
@@ -95,6 +104,7 @@ export class SimCore implements SimCoreApi {
 
   configure(config: SimConfig): void {
     const gsm = this.gsm;
+    this.dirty = true;
     if (config.waveSource !== undefined && isWaveSourceId(config.waveSource)) {
       setActiveWaveRules(createWaveSource(config.waveSource).rules);
     }
@@ -136,65 +146,93 @@ export class SimCore implements SimCoreApi {
     this.forcePresent = true;
   }
 
-  tick(input: SimTickInput, out: (message: SimOutput) => void): SimFramePacket {
-    const started = performance.now();
+  unloadWorld(): void {
+    this.worldLoaded = false;
+  }
+
+  output(out: (message: SimOutput) => void): void {
+    this.link.out = out;
+  }
+
+  input(input: SimInput, now: number): void {
     const gsm = this.gsm;
-    this.link.deliver(input.lockstep, out);
+    // The loop slept through a pause or a held replay: their clocks take the
+    // wall clock now, or the game would jump by the backlog when they go on
+    if (gsm.paused()) gsm.update(now);
+    if (!this.replayInput?.playing) this.replayNow = now;
+    if (input.lockstep) this.link.deliver(input.lockstep);
     gsm.paused.set(input.paused);
     gsm.gameSpeed.set(input.gameSpeed);
-    // At the boundary before this frame's first sub-step, in the order given
-    let slowest: TickProfile['slowest'] = null;
+    if (input.renderingEnabled && !this.renderingEnabled) this.forcePresent = true;
+    this.renderingEnabled = input.renderingEnabled;
+    this.replayInput = input.replay;
+    this.dirty = true;
+    if (input.commands.length === 0) return;
+    // At the boundary between two sub-steps (no pass runs meanwhile), in the order given
+    const started = performance.now();
+    let c0 = started;
     for (const { playerId, command } of input.commands) {
-      const c0 = performance.now();
       gsm.receiveCommand(command as unknown as GameEvent, playerId);
-      const ms = performance.now() - c0;
-      if (!slowest || ms > slowest.ms) slowest = { type: command.type, ms };
+      const c1 = performance.now();
+      if (!this.slowest || c1 - c0 > this.slowest.ms) this.slowest = { type: command.type, ms: c1 - c0 };
+      c0 = c1;
     }
-    // Commands applied between two ticks (rpc applyCommands) show with this frame
-    if (this.commandsBetween) {
-      this.commandsBetween = false;
-      this.forcePresent = true;
-    }
-    const commandsDone = performance.now();
+    this.commandsMs += c0 - started;
+    this.forcePresent = true;
+  }
 
-    const delta = this.lastNow === null ? 16 : input.now - this.lastNow;
-    this.lastNow = input.now;
+  pass(now: number, deadline = Infinity): SimFramePacket | null {
+    if (!this.worldLoaded) return null;
+    const started = performance.now();
+    const gsm = this.gsm;
     let stepsRun = 0;
     const replay = this.replay;
     if (replay) {
+      const delta = this.replayNow === null ? 16 : now - this.replayNow;
+      this.replayNow = now;
       if (replay.isSeeking) {
         stepsRun = replay.advanceSeek();
         // The seek's end sets up the field anew: shown even without a sub-step
         if (!replay.isSeeking) this.forcePresent = true;
-      } else if (input.replay?.playing) {
-        stepsRun = replay.play(delta, input.replay.speed);
+      } else if (this.replayInput?.playing) {
+        stepsRun = replay.play(delta, this.replayInput.speed, deadline);
       }
-    } else if (this.worldLoaded) {
+    } else {
       const before = gsm.subStep;
-      gsm.update(input.now);
+      gsm.update(now, undefined, deadline);
       stepsRun = gsm.subStep - before;
     }
+    if (stepsRun === 0 && !this.forcePresent && !this.dirty) return null;
 
     const updateDone = performance.now();
     // A replay's jump shows only where it arrives: its slices on the way are not drawn
-    const presented = input.renderingEnabled && !this.replay?.isSeeking
-      && (stepsRun > 0 || this.forcePresent || input.commands.length > 0);
+    const presented = this.renderingEnabled && !this.replay?.isSeeking && (stepsRun > 0 || this.forcePresent);
     this.forcePresent = false;
-    const packet = this.packet(stepsRun, presented, input);
+    this.dirty = false;
+    const packet = this.packet(stepsRun, presented);
     const end = performance.now();
-    packet.scalars.tickMs = end - started;
-    const profile = { commandsMs: commandsDone - started, updateMs: updateDone - commandsDone, packetMs: end - updateDone, slowest };
+    const profile = { commandsMs: this.commandsMs, updateMs: updateDone - started, packetMs: end - updateDone, slowest: this.slowest };
+    this.commandsMs = 0;
+    this.slowest = null;
+    const tickMs = profile.commandsMs + end - started;
+    packet.scalars.tickMs = tickMs;
     this.parts?.addTick(profile.commandsMs, profile.updateMs, profile.packetMs, stepsRun);
     const worst = this.profile.worst;
-    this.profile = {
-      ...profile,
-      worst: !worst || end - started > worst.tickMs ? { ...profile, tickMs: end - started, stepsRun } : worst,
-    };
+    this.profile = { ...profile, worst: !worst || tickMs > worst.tickMs ? { ...profile, tickMs, stepsRun } : worst };
     return packet;
   }
 
-  private packet(stepsRun: number, presented: boolean, input: Pick<SimTickInput, 'paused' | 'gameSpeed'>): SimFramePacket {
-    // The flames of the frame go out once, the last of its sub-steps
+  idleMs(): number {
+    if (!this.worldLoaded) return Infinity;
+    if (this.forcePresent || this.dirty) return 0;
+    const replay = this.replay;
+    if (!replay) return this.gsm.dueInMs();
+    if (replay.isSeeking) return 0;
+    return this.replayInput?.playing ? replay.dueInMs(this.replayInput.speed) : Infinity;
+  }
+
+  private packet(stepsRun: number, presented: boolean): SimFramePacket {
+    // The flames of the pass go out once, the last of its sub-steps
     this.combat.flushBeams();
     const ops = this.gsm.ops.take();
     const events = this.events;
@@ -203,8 +241,8 @@ export class SimCore implements SimCoreApi {
       {
         stepsRun,
         presented,
-        paused: input.paused,
-        gameSpeed: input.gameSpeed,
+        paused: this.gsm.paused(),
+        gameSpeed: this.gsm.gameSpeed(),
         replay: this.replay?.state() ?? null,
       },
       ops,
@@ -215,6 +253,8 @@ export class SimCore implements SimCoreApi {
   rpc<K extends keyof SimRpc>(method: K, ...args: Parameters<SimRpc[K]>): ReturnType<SimRpc[K]> {
     const handler = this.rpcHandlers[method] as (...a: Parameters<SimRpc[K]>) => ReturnType<SimRpc[K]>;
     if (!handler) throw new Error(`SimCore: no rpc ${String(method)}`);
+    // What a call changes shows with the next packet
+    this.dirty = true;
     return handler(...args);
   }
 
@@ -231,9 +271,6 @@ export class SimCore implements SimCoreApi {
     };
   }
 
-  /** Commands came in by rpc since the last tick: its packet is presented */
-  private commandsBetween = false;
-
   /** The perf panel's sums while it is open (SimConfig.profile), see SimRpc.profileSums */
   private parts: SimProfile | null = null;
 
@@ -249,10 +286,6 @@ export class SimCore implements SimCoreApi {
       this.gsm.enemyManager.getAll().filter((enemy) => ids.includes(enemy.id)),
       this.targetLookup(),
     ),
-    applyCommands: (commands) => {
-      for (const { playerId, command } of commands) this.gsm.receiveCommand(command as unknown as GameEvent, playerId);
-      if (commands.length > 0) this.commandsBetween = true;
-    },
     reset: (seed) => {
       this.leaveReplay();
       this.gsm.reset(seed);
@@ -335,6 +368,7 @@ export class SimCore implements SimCoreApi {
     if (!this.replay) return;
     this.replay.exit();
     this.replay = null;
+    this.replayNow = null;
     this.forcePresent = true;
   }
 }

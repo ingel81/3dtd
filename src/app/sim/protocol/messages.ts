@@ -35,27 +35,30 @@ export interface QueuedCommand {
   command: CommandData;
 }
 
-/** Coop: what the relay delivered since the last tick (the worker's LockstepLink reads it). */
+/** Coop: what the relay delivered since the last input (the worker's LockstepLink reads it). */
 export interface LockstepDelivery {
   confirmedTick: number;
   ticks: { tick: number; commands: readonly StampedCommand[] }[];
 }
 
-/** One frame's input. */
-export interface SimTickInput {
-  /** performance.now() of the main thread's frame */
-  now: number;
+/**
+ * What the main thread gives the simulation (docs/SIM_DECOUPLE_PLAN.md): sent
+ * when something of it changed or commands came, not per frame. The
+ * simulation keeps the settings until the next one.
+ */
+export interface SimInput {
   gameSpeed: number;
   paused: boolean;
-  /** The renderers show the frame; off in headless training tabs */
+  /** The renderers show the packets; off in headless training tabs */
   renderingEnabled: boolean;
-  /** In the order they were given; they act at the boundary before this frame's first sub-step */
+  /** In the order they were given; they act at once, at the boundary between two sub-steps */
   commands: QueuedCommand[];
+  /** Coop: the ticks the relay closed since the last input, null when there is no news */
   lockstep: LockstepDelivery | null;
   /**
    * While a replay is on (rpc replayEnter): play it at `speed` times the
-   * frame's wall time (capped like the game clock) instead of the live game;
-   * `playing` false holds it. Null for the live game.
+   * wall clock (the backlog capped like the game clock's) instead of the
+   * live game; `playing` false holds it. Null for the live game.
    */
   replay: { playing: boolean; speed: number } | null;
 }
@@ -75,8 +78,20 @@ export interface SimCoreApi {
    * gives another); before it the simulation runs no sub-step
    */
   loadWorld(world: SimWorld): void;
-  /** One frame: commands in, sub-steps, the packet out */
-  tick(input: SimTickInput, out: (message: SimOutput) => void): SimFramePacket;
+  /** The world goes (a new place is being built): no sub-step until the next loadWorld */
+  unloadWorld(): void;
+  /** Where the simulation's messages besides packets go (SimOutput) */
+  output(out: (message: SimOutput) => void): void;
+  /** Settings and commands at the wall clock `now`; the commands act before this returns */
+  input(input: SimInput, now: number): void;
+  /**
+   * One pass of the loop at the wall clock `now`: the sub-steps due, none
+   * started after `deadline` (performance.now()), then the packet. Null when
+   * nothing ran and nothing changed.
+   */
+  pass(now: number, deadline?: number): SimFramePacket | null;
+  /** Wall ms until the next pass has work: 0 at once, Infinity until a message comes */
+  idleMs(): number;
   /** Everything else, by name (see SimRpc) */
   rpc<K extends keyof SimRpc>(method: K, ...args: Parameters<SimRpc[K]>): ReturnType<SimRpc[K]>;
 }
@@ -121,12 +136,6 @@ export interface TowerTargetRow {
  */
 export interface SimRpc {
   reset(seed?: number): void;
-  /**
-   * The commands given since the last tick, applied now as a tick applies
-   * them at its boundary (SimClient.rpc sends them ahead of any other call,
-   * so a call acts on the state they leave).
-   */
-  applyCommands(commands: QueuedCommand[]): void;
   worldKey(): string;
   stateHash(): number;
   hashBreakdownAt(tick: number): unknown;
@@ -146,7 +155,7 @@ export interface SimRpc {
   /** Give the live game back as it was, leave replay mode */
   replayExit(): void;
   commandLog(): unknown[];
-  /** Where the last tick's time went, ms: the commands, the sub-steps, the packet, and the slowest command */
+  /** Where the last pass's time went, ms: the commands since the one before, the sub-steps, the packet, and the slowest command */
   tickProfile(): TickProfile;
   /** The simulation by part since the last call, null while SimConfig.profile is off */
   profileSums(): SimProfileSums | null;
@@ -161,14 +170,14 @@ export interface SimRpc {
   falsifyCredits(amount: number): void;
 }
 
-/** The simulation by part (rpc profileSums, sim/core/sim-profile.ts): sums over the ticks since the last call, ms unless said otherwise */
+/** The simulation by part (rpc profileSums, sim/core/sim-profile.ts): sums over the passes since the last call, ms unless said otherwise */
 export interface SimProfileSums {
   ticks: number;
   /** Sub-steps run in them */
   subSteps: number;
-  /** Whole ticks, as SimScalars.tickMs */
+  /** Whole passes, as SimScalars.tickMs */
   tickMs: number;
-  /** The commands at the boundary before the first sub-step */
+  /** The commands, at the boundary they came in at */
   commandsMs: number;
   /** GameStateManager.update: the sub-steps */
   updateMs: number;
@@ -184,13 +193,13 @@ export interface SimProfileSums {
   eventsMs: number;
 }
 
-/** The parts of a tick's time (rpc tickProfile) */
+/** The parts of a pass's time (rpc tickProfile) */
 export interface TickProfile {
   commandsMs: number;
   updateMs: number;
   packetMs: number;
   slowest: { type: string; ms: number } | null;
-  /** The slowest tick since the world was loaded, its parts as above */
+  /** The slowest pass since the world was loaded, its parts as above */
   worst?: Omit<TickProfile, 'worst'> & { tickMs: number; stepsRun: number };
 }
 
@@ -210,12 +219,15 @@ export interface ReplayEntered {
 export type ToWorker =
   | { kind: 'configure'; config: SimConfig }
   | { kind: 'world'; world: SimWorld }
-  | { kind: 'tick'; input: SimTickInput }
+  | { kind: 'unload' }
+  /** The run the packets from here on belong to (SimClient.newRun) */
+  | { kind: 'epoch'; epoch: number }
+  | { kind: 'input'; input: SimInput }
   | { kind: 'rpc'; id: number; method: keyof SimRpc; args: unknown[] };
 
 export type FromWorker =
   | { kind: 'ready' }
-  | { kind: 'frame'; frame: WireFrame }
+  | { kind: 'frame'; frame: WireFrame; epoch: number }
   | { kind: 'output'; message: SimOutput }
   | { kind: 'rpc-reply'; id: number; ok: true; value: unknown }
   | { kind: 'rpc-reply'; id: number; ok: false; error: string }

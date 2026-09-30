@@ -63,11 +63,11 @@ noch Schüsse fliegen, wartet es bis zu 5 s auf ein ruhiges Feld. Dann übernimm
   Run-Log, Director-Historie, Stores, Bestwelle, Bot, Boss-Intro, Hinweise, Boss-Leiste, Leck-Vignette, Portale.
   Auto-Start-Countdown und Run-Log-Stichprobe, die je Frame die Uhr lesen, ruhen ebenso
   (`GameStateManager.isReplaying`).
-- **Abspielen:** Je Frame rückt die Simulation um Tempo mal Frame-Zeit vor, höchstens `GameClock.MAX_CATCHUP_MS`
-  wie die Spieluhr, und die Renderer bekommen den Stand (`presentReplayFrame`). Die Renderer-Uhr folgt dem Tempo.
+- **Abspielen:** Je Durchgang des Loops rückt die Simulation um Tempo mal Wanduhr vor, der Rückstand gedeckelt
+  wie bei der Spieluhr (`GameClock.MAX_BACKLOG_MS`), und die Renderer bekommen den Stand (`presentReplayFrame`). Die Renderer-Uhr folgt dem Tempo.
 - **Springen:** Ohne Show (`GameEventBus.onShow`: VFX, Sounds, Musik, Screen-Shake, Blutmond) bis zum Ziel rechnen,
   ab dem nächsten Zwischenstand davor, sonst ab hier oder ab Wellenstart. Die Simulation rechnet in Scheiben von 60 ms
-  je Tick (`SimReplay.advanceSeek`), ohne die Zwischenstände zu zeichnen; die Leiste zeigt „Jumping 43 %“, ein neues Ziel (Ziehen am Balken) übernimmt ab
+  je Durchgang (`SimReplay.advanceSeek`), ohne die Zwischenstände zu zeichnen; die Leiste zeigt „Jumping 43 %“, ein neues Ziel (Ziehen am Balken) übernimmt ab
   der nächsten Scheibe.
 - **Zwischenstände:** Während das Replay offen ist, hält die Nachrechnung alle paar Sekunden den Stand als
   Wellen-Snapshot in einem String (`Resimulation`, Budget 250 MB, mindestens 5 s Abstand). Der Abstand richtet sich

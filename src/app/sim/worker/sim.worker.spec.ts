@@ -1,11 +1,17 @@
 /**
  * The worker's entry: a message from the main thread it cannot read
  * (messageerror) goes back as an error, so the main thread stops instead of
- * waiting for a frame that never comes.
+ * playing on without an input that got lost.
  */
 import { describe, it, expect, vi, afterEach } from 'vitest';
 
-vi.mock('../core/sim-core', () => ({ SimCore: class SimCore {} }));
+vi.mock('../core/sim-core', () => ({
+  SimCore: class SimCore {
+    output(): void {
+      /* nowhere */
+    }
+  },
+}));
 
 describe('sim.worker', () => {
   afterEach(() => vi.unstubAllGlobals());

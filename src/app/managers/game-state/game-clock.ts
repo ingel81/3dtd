@@ -3,10 +3,10 @@
  *
  * Advances by FIXED_STEP_MS per sub-step. Sub-stepping ensures the
  * simulation runs identically at every training timescale: at 75× a
- * single render-frame splits into ~75 sub-steps, each behaving like
+ * pass of the same wall time runs ~75 times the sub-steps, each behaving like
  * one 1× tick. No /timescale compensation anywhere.
  *
- * Owned by the GameStateManager, which drives one frame as
+ * Owned by the GameStateManager, which drives one pass as
  * `beginFrame()`, `while (nextSubStep()) { ... }`, `endFrame()`, or
  * `holdFrame()` while paused. Plain arithmetic, no allocation per sub-step.
  */
@@ -19,37 +19,23 @@ export interface GameClockState {
 export class GameClock {
   /** Fixed game-time per sub-step (~60Hz game-time granularity). */
   static readonly FIXED_STEP_MS = 16.667;
-  /** Max sub-steps per real-frame. At 75× training and 10fps real-time
-   *  we need ~450 sub-steps to keep up; 600 gives headroom for heavier
-   *  scenes before the simulation falls behind wall-clock-timescale. */
-  static readonly MAX_SUBSTEPS_PER_FRAME = 600;
-  /** Cap on unprocessed game-time debt. Without a cap, frame-drops cause
-   *  the remainder to grow unboundedly — the sim trails further behind
-   *  every frame and never catches up. Capping at one real-frame worth
-   *  of timescale lets spikes recover but bounds the debt. */
-  static readonly MAX_REMAINDER_MS = 2000;
-
   /**
-   * Upper bound on the wall-clock delta a single frame may carry into the
-   * sub-step loop (ms), applied before the timescale scales it.
-   *
-   * 50 ms ≈ three sub-steps, i.e. real-time is held down to 20 FPS. Below
-   * that the simulation runs slower than the wall clock instead of trying
-   * to catch up — a consistent slow-motion rather than a spiral. Everything
-   * in gameplay reasons in game-time, so nothing observes the difference.
-   *
-   * The player's 30 fps frame cap (RenderLoop.setFpsLimit) hands in
-   * ~33 ms per frame, inside the bound, so a capped game keeps full speed.
-   * Going below ~34 ms here would turn that cap into slow motion.
+   * The most wall clock the simulation may lie behind (ms), times the
+   * timescale in game time: what a pass did not get to is kept up to here and
+   * worked off by the next ones, the rest is dropped. So a simulation that
+   * cannot keep up runs slower than the wall clock instead of piling up debt,
+   * and a loop that stood (a hidden tab, a long call, the coop barrier) does
+   * not run minutes of game time at once. Start value, tuned by measurement
+   * (docs/SIM_DECOUPLE_PLAN.md, TODO E85).
    */
-  static readonly MAX_CATCHUP_MS = 50;
+  static readonly MAX_BACKLOG_MS = 250;
 
   private _gameTimeMs = 0;
   /** Sub-steps since the run started; the run log stamps events with it. */
   private _subStep = 0;
-  /** Game-time left over from the last frame, below one sub-step unless capped. */
+  /** Game-time left over from the last pass: below one sub-step, or what its deadline left undone. */
   private subStepRemainderMs = 0;
-  /** Wall clock of the last frame; 0 means no frame yet. */
+  /** Wall clock of the last pass; 0 means none yet. */
   private lastUpdateTime = 0;
   /** Game-time the current frame still has to run. */
   private pendingMs = 0;
@@ -80,66 +66,36 @@ export class GameClock {
   }
 
   /**
-   * A paused frame: no sub-step runs and the game clock stands. The wall
-   * clock is still taken, otherwise the first frame after the pause would
-   * try to catch up the whole pause. The remainder stays as it was, the
-   * resume continues where the pause began.
+   * A paused pass, or the moment a pause ends: no sub-step runs and the game
+   * clock stands. The wall clock is still taken, otherwise the first pass
+   * after the pause would try to catch up the pause (the loop sleeps through
+   * it, docs/SIM_DECOUPLE_PLAN.md). The remainder stays as it was, the resume
+   * continues where the pause began.
    */
   holdFrame(currentTime: number): void {
     this.lastUpdateTime = currentTime;
   }
 
   /**
-   * Opens a frame: the game-time it runs is the remainder plus the clamped
-   * wall-clock delta times the timescale.
-   *
-   * Clamp the wall-clock delta BEFORE the timescale multiplies it. The
-   * sub-step loop exists to keep game-time in step with wall-clock, so an
-   * unclamped delta means a slow frame is fully caught up on the next one:
-   * more sub-steps, more work, a slower frame still. Measured at 11.7k
-   * enemies with rendering off: 40.5 sub-steps per frame and climbing.
-   *
-   * Clamping the real delta rather than the sub-step count keeps timescale
-   * semantics exact — 20x still runs its 20 steps for a healthy frame,
-   * because the multiplication happens after. Only catch-up debt from
-   * frames that ran long is dropped, which the loop already did via
-   * `maxBudget`, just at a ~12 second threshold.
-   *
-   * This also covers a case that has nothing to do with load: rAF is
-   * throttled in a background tab, so returning to one produced a delta of
-   * minutes and a multi-second hang while the loop worked it off.
+   * Opens a pass: the game-time it may run is the remainder plus the
+   * wall-clock delta times the timescale, at most MAX_BACKLOG_MS of wall
+   * clock. The caller runs sub-steps while it has time (its deadline); what
+   * is left carries over (endFrame).
    */
   beginFrame(currentTime: number, timescale: number): void {
-    const rawDeltaTime = this.lastUpdateTime
-      ? Math.min(currentTime - this.lastUpdateTime, GameClock.MAX_CATCHUP_MS)
-      : 16;
+    const rawDeltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
     this.lastUpdateTime = currentTime;
-
-    const frameGameTimeMs = rawDeltaTime * timescale;
-
-    // Cap accumulated game-time so a slow real-frame (heavy rendering /
-    // massive waves) doesn't grow the sim debt without bound. Excess is
-    // dropped — simulation stays ≤ MAX_REMAINDER_MS behind wall-clock
-    // × timescale but never more.
-    let pendingMs = this.subStepRemainderMs + frameGameTimeMs;
-    const maxBudget =
-      GameClock.MAX_SUBSTEPS_PER_FRAME * GameClock.FIXED_STEP_MS
-      + GameClock.MAX_REMAINDER_MS;
-    if (pendingMs > maxBudget) pendingMs = maxBudget;
-    this.pendingMs = pendingMs;
+    this.pendingMs = Math.min(this.subStepRemainderMs + rawDeltaTime * timescale, GameClock.MAX_BACKLOG_MS * timescale);
     this._stepsThisFrame = 0;
   }
 
   /**
-   * Takes the next sub-step if the frame still holds one: advances the game
-   * clock by FIXED_STEP_MS and books the step. False once the frame's
-   * game-time is used up or MAX_SUBSTEPS_PER_FRAME is reached.
+   * Takes the next sub-step if the pass still holds one: advances the game
+   * clock by FIXED_STEP_MS and books the step. False once the game-time due
+   * is used up.
    */
   nextSubStep(): boolean {
-    if (
-      this.pendingMs >= GameClock.FIXED_STEP_MS &&
-      this._stepsThisFrame < GameClock.MAX_SUBSTEPS_PER_FRAME
-    ) {
+    if (this.pendingMs >= GameClock.FIXED_STEP_MS) {
       this._gameTimeMs += GameClock.FIXED_STEP_MS;
       this.pendingMs -= GameClock.FIXED_STEP_MS;
       this._stepsThisFrame++;
@@ -167,7 +123,7 @@ export class GameClock {
 
   /**
    * Put game time and step count back. The frame bookkeeping starts over:
-   * no remainder, and the next frame takes its wall clock afresh.
+   * no remainder, and the next pass takes its wall clock afresh.
    */
   setState(state: GameClockState): void {
     this._gameTimeMs = state.gameTimeMs;
@@ -177,14 +133,20 @@ export class GameClock {
     this.lastUpdateTime = 0;
   }
 
-  /** The frame still holds a sub-step it may take (what nextSubStep would do, without taking it). */
+  /** The pass still holds a sub-step it may take (what nextSubStep would do, without taking it). */
   hasDueStep(): boolean {
-    return this.pendingMs >= GameClock.FIXED_STEP_MS && this._stepsThisFrame < GameClock.MAX_SUBSTEPS_PER_FRAME;
+    return this.pendingMs >= GameClock.FIXED_STEP_MS;
   }
 
-  /** Closes the frame: whatever game-time is left carries into the next one. */
+  /** Closes the pass: whatever game-time is left carries into the next one. */
   endFrame(): void {
     this.subStepRemainderMs = this.pendingMs;
+  }
+
+  /** Wall ms from the last pass until the next sub-step is due at `timescale`; 0 when one is due already. */
+  dueInMs(timescale: number): number {
+    const missing = GameClock.FIXED_STEP_MS - this.subStepRemainderMs;
+    return missing <= 0 ? 0 : missing / timescale;
   }
 
   /** Back to game-time 0, no remainder, no previous frame, step count 0. */

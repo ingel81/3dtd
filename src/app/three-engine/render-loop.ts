@@ -93,9 +93,8 @@ export class RenderLoop {
    * Cap the render loop at `fps` frames per second, 0 = unlimited (vsync).
    *
    * Frames that come too early are skipped whole, update included. The
-   * simulation steps on the wall-clock delta between the frames that run, so
-   * a 30 fps cap hands GameStateManager ~33 ms per frame, inside its
-   * MAX_CATCHUP_MS of 50: game speed stays the same, training timescales
+   * simulation runs by its own clock in the worker (docs/SIM_DECOUPLE_PLAN.md),
+   * so the game speed stays the same at any cap, training timescales
    * included. Persisted by DebugFacadeService.
    */
   setFpsLimit(fps: number): void {

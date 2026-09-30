@@ -5,20 +5,19 @@ import type { LockstepDelivery, SimOutput } from '../protocol/messages';
 /**
  * The simulation's end of the relay (docs/SIM_WORKER.md, "Coop"): the relay
  * connection stays on the main thread, which hands the ticks it received
- * over with every tick message (LockstepDelivery). What the simulation sends
- * back (commands, state hashes, the smoothness of a frame) goes out as
- * SimOutput through the tick's `out`.
+ * over with an input message (LockstepDelivery). What the simulation sends
+ * back (commands, state hashes, the smoothness of a pass) goes out as
+ * SimOutput (SimCoreApi.output).
  */
 export class DeliveredLink implements LockstepLink {
   playerId = '';
   private confirmed = -1;
   private readonly ticks = new Map<number, readonly StampedCommand[]>();
-  private out: (message: SimOutput) => void = () => undefined;
+  /** Where the answers go (SimCoreApi.output) */
+  out: (message: SimOutput) => void = () => undefined;
 
-  /** The ticks of this tick message, and where the answers go. */
-  deliver(delivery: LockstepDelivery | null, out: (message: SimOutput) => void): void {
-    this.out = out;
-    if (!delivery) return;
+  /** The ticks of an input message. */
+  deliver(delivery: LockstepDelivery): void {
     for (const { tick, commands } of delivery.ticks) this.ticks.set(tick, commands);
     if (delivery.confirmedTick > this.confirmed) this.confirmed = delivery.confirmedTick;
   }

@@ -42,7 +42,7 @@ const MAP = process.argv.includes('--map');
 const PLACE = argument('place', '48.7758,9.1829');
 /** "x,y,steps": zoom in with the mouse wheel at that spot after the measurement, for a second screenshot (shot-zoom.png) */
 const ZOOM = argument('zoom', '');
-/** More of the page's query, e.g. a measurement switch: `--query earlyTick=20` */
+/** More of the page's query, e.g. a measurement switch: `--query hashEvery=1` */
 const QUERY = argument('query', '');
 const BROWSER = argument('browser', 'chromium');
 const STEPS = argument('steps', '').split(',').filter(Boolean).map(Number);

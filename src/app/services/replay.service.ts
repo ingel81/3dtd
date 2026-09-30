@@ -179,7 +179,7 @@ export class ReplayService {
     const engine = this.engineInit.getEngine();
     if (!engine || this.busy) return;
     // Out of a manned tower first (camera and pointer lock of the tower view):
-    // the command goes with the tick before the replay starts
+    // the command goes to the simulation ahead of the call that starts the replay
     if (this.gameStore.mannedTowerId()) this.sim.bus.emit({ type: 'command:leave-tower' });
 
     if (this.photoMode.active()) this.photoMode.exit();

@@ -28,6 +28,7 @@ export function spawnTick(commands = 78, points = 777, given?: unknown[]): strin
   core.loadWorld({ origin: O, hq: route[points - 1], spawns: [{ id: 'spawn-1', name: 's', ...route[0] }], paths: [...paths], heights: grid.exportHeights(), worldKey: worldKeyOf(grid.snapshotHeights(), paths.values(), sync.getOrigin()), spawnGround: { 'spawn-1': 300 } });
   const list = given ?? buildCommands(commands, points);
   const t0 = performance.now();
-  const packet = core.tick({ now: 1000, gameSpeed: 4, paused: false, renderingEnabled: true, commands: list as never, lockstep: null, replay: null }, () => undefined);
-  return `${list.length} commands, tick ${(performance.now() - t0).toFixed(0)} ms, enemies ${packet.enemies.count}`;
+  core.input({ gameSpeed: 4, paused: false, renderingEnabled: true, commands: list as never, lockstep: null, replay: null }, 1000);
+  const packet = core.pass(1000)!;
+  return `${list.length} commands, pass ${(performance.now() - t0).toFixed(0)} ms, enemies ${packet.enemies.count}`;
 }

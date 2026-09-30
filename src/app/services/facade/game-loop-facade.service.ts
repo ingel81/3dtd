@@ -163,7 +163,7 @@ export class GameLoopFacadeService {
       ...createLoadStats(this.sim, () => this.bridge.getEngine()?.getScene() ?? null),
       emit: (command: { type: string }) => this.sim.bus.emit(command as Parameters<SimClient['bus']['emit']>[0]),
       speed: (value: number) => this.gameStore.gameSpeed.set(value),
-      // Answers once the simulation's worker takes a call: whether it is alive
+      // Answers once the simulation ran everything sent before it (the commands go ahead of the call)
       ping: () => this.sim.rpc('worldKey'),
       tickProfile: () => this.sim.rpc('tickProfile'),
       // The ground under a spot as the placement UI samples it (geo height), null where the tiles have none
@@ -665,10 +665,10 @@ export class GameLoopFacadeService {
     // The mouse look of this frame, as a command before the sub-steps
     this.towerControl.flushAim();
 
-    // The simulation (docs/SIM_WORKER.md): apply the packet that came back
-    // from the worker (mirror, renderers, events), then send this frame's
-    // tick with the commands given since. The worker runs the sub-steps
-    // while this thread renders.
+    // The simulation (docs/SIM_WORKER.md): apply the packets the worker
+    // published since the last frame (mirror, renderers, events), then send
+    // it the commands given since. The worker runs the sub-steps by its own
+    // clock, whatever this thread does.
     this.world.syncPending();
     this.syncPresentation();
     this.sim.frame(performance.now());
@@ -676,7 +676,7 @@ export class GameLoopFacadeService {
     // Bot decision tick once per frame, on the game time the packet moved
     // (the bot's reaction cooldown runs in game time). The snapshot is passed
     // as a thunk so it is only built on the ticks where the cooldown has
-    // actually elapsed. Its commands go with the next tick.
+    // actually elapsed. Its commands go with the next frame's input.
     const gameTimeMs = this.mirror.scalars.gameTimeMs;
     const botDelta = this.botGameTimeMs === null ? 0 : gameTimeMs - this.botGameTimeMs;
     this.botGameTimeMs = gameTimeMs;

@@ -11,7 +11,7 @@ import type { SimScalars } from '../protocol/packet';
  * 5 s apart at least, forgotten when the replay ends (docs/REPLAY.md)
  */
 const KEYFRAMES = { budgetBytes: 250e6, minIntervalSteps: 300 };
-/** Wall clock a seek runs per tick, so the bar shows how far it got and a new target can come in between */
+/** Wall clock a seek runs per pass, so the bar shows how far it got and a new target can come in between */
 const SEEK_SLICE_MS = 60;
 
 /**
@@ -20,14 +20,15 @@ const SEEK_SLICE_MS = 60;
  * snapshot, the wave is re-simulated from its own snapshot, and leaving puts
  * the live state back. Its frames go to the main thread as normal packets,
  * the show included; the bar and the player's controls are the main
- * thread's (ReplayService), which drives this through SimCore's tick
- * (SimTickInput.replay) and its rpc.
+ * thread's (ReplayService), which drives this through SimCore's input
+ * (SimInput.replay) and its rpc.
  *
- * Playing advances the re-simulation by speed times the frame's wall time,
- * at most GameClock.MAX_CATCHUP_MS per frame like the game clock. Seeking
+ * Playing advances the re-simulation by speed times the wall time since the
+ * last pass, the backlog capped like the game clock's
+ * (GameClock.MAX_BACKLOG_MS). Seeking
  * runs the simulation to the point sought with the show muted, from the
  * nearest keyframe before it (or the wave's start), in slices of
- * SEEK_SLICE_MS per tick: the packets tell the bar how far it got (drawn is
+ * SEEK_SLICE_MS per pass: the packets tell the bar how far it got (drawn is
  * only where it arrives), and a new target (a drag on the bar) takes over
  * from the next slice.
  */
@@ -72,12 +73,13 @@ export class SimReplay {
   }
 
   /**
-   * One frame of `deltaMs` wall time at `speed`: sub-steps as the time
-   * holds, until the wave ends. Returns the sub-steps run.
+   * One pass, `deltaMs` of wall time after the last, at `speed`: sub-steps
+   * as the time holds, until the wave ends; none started after `deadline`
+   * (performance.now()), what is left carries over. Returns the sub-steps run.
    */
-  play(deltaMs: number, speed: number): number {
+  play(deltaMs: number, speed: number, deadline = Infinity): number {
     if (this.resim.finished || this.seeking !== null) return 0;
-    this.carryMs += Math.min(deltaMs, GameClock.MAX_CATCHUP_MS) * speed;
+    this.carryMs = Math.min(this.carryMs + deltaMs * speed, GameClock.MAX_BACKLOG_MS * speed);
     let steps = 0;
     while (this.carryMs >= GameClock.FIXED_STEP_MS) {
       this.carryMs -= GameClock.FIXED_STEP_MS;
@@ -86,8 +88,16 @@ export class SimReplay {
         this.carryMs = 0;
         break;
       }
+      if (deadline !== Infinity && performance.now() >= deadline) break;
     }
     return steps;
+  }
+
+  /** Wall ms from the last play() until the next sub-step is due at `speed`: 0 when one is due, Infinity at the wave's end. */
+  dueInMs(speed: number): number {
+    if (this.resim.finished) return Infinity;
+    const missing = GameClock.FIXED_STEP_MS - this.carryMs;
+    return missing <= 0 ? 0 : missing / speed;
   }
 
   /**

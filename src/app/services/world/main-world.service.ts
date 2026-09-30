@@ -56,7 +56,6 @@ export class MainWorldService {
   resetRun(): void {
     if (!this.sim.started) return;
     this.sim.newRun();
-    this.sim.unloadWorld();
     void this.sim.rpc('reset');
   }
 

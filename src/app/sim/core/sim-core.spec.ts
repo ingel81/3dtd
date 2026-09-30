@@ -24,7 +24,8 @@ import { losMaskToJson } from '../../utils/los-mask';
 import { METERS_PER_DEGREE_LAT as M } from '../../utils/geo-utils';
 import { mulberry32 } from '../../utils/game-rng';
 import { GameObject } from '../../core/game-object';
-import type { SimWorld, SimTickInput, SimOutput, QueuedCommand } from '../protocol/messages';
+import type { SimWorld, SimInput, SimOutput, QueuedCommand } from '../protocol/messages';
+import { GameClock } from '../../managers/game-state/game-clock';
 import { TICK_SUB_STEPS } from '../../coop/lockstep';
 import type { SimFramePacket } from '../protocol/packet';
 import { ENEMY_STRIDE, E_FLAGS, EF_ALIVE, TOWER_STRIDE, T_KILLS } from '../protocol/packet';
@@ -78,7 +79,13 @@ const wave: WaveConfig = {
   } as WaveConfig['schedule'],
 };
 
-/** Drives a core like the SimClient: a tick per frame, commands with it, the packets kept. */
+const SETTINGS: SimInput = { gameSpeed: 4, paused: false, renderingEnabled: true, commands: [], lockstep: null, replay: null };
+
+/**
+ * Drives a core frame by frame, as the SimClient does with the simulation in
+ * its own thread: the input with the commands given, then a pass with every
+ * sub-step due. An input every frame, so every pass has a packet.
+ */
 class Driver {
   now = 1000;
   packets: SimFramePacket[] = [];
@@ -90,14 +97,12 @@ class Driver {
     this.queued.push({ playerId: 'local', command: command as CommandData });
   }
 
-  tick(overrides: Partial<SimTickInput> = {}): SimFramePacket {
+  tick(overrides: Partial<SimInput> = {}): SimFramePacket {
     this.now += 16.667;
     const commands = this.queued;
     this.queued = [];
-    const packet = this.core.tick({
-      now: this.now, gameSpeed: 4, paused: false, renderingEnabled: true, commands, lockstep: null, replay: null,
-      ...overrides,
-    }, () => undefined);
+    this.core.input({ ...SETTINGS, commands, ...overrides }, this.now);
+    const packet = this.core.pass(this.now)!;
     this.packets.push(packet);
     return packet;
   }
@@ -240,21 +245,25 @@ describe('SimCore in the same thread', () => {
     const core = newCore(main.world);
     core.configure({ players: { players: ['a', 'b'], local: 'a' }, lockstep: { hashEvery: 1 } });
     const out: SimOutput[] = [];
-    const input = (commands: QueuedCommand[], lockstep: SimTickInput['lockstep'], now: number): SimTickInput => ({
-      now, gameSpeed: 1, paused: false, renderingEnabled: true, commands, lockstep, replay: null,
-    });
+    core.output((m) => out.push(m));
+    const frame = (commands: QueuedCommand[], lockstep: SimInput['lockstep'], now: number): void => {
+      core.input({ ...SETTINGS, gameSpeed: 1, commands, lockstep }, now);
+      core.pass(now);
+    };
     const credits = core.gsm.creditsOf('b');
 
     // A command given here goes to the relay, it does not act
-    core.tick(input([{ playerId: 'a', command: { type: 'debug:add-credits', amount: 7 } as unknown as CommandData }], null, 1000), (m) => out.push(m));
+    frame([{ playerId: 'a', command: { type: 'debug:add-credits', amount: 7 } as unknown as CommandData }], null, 1000);
     expect(out.filter((m) => m.kind === 'lockstep-send')).toHaveLength(1);
     expect(core.gsm.subStep).toBe(0); // no tick closed: the barrier holds
+    // Only the relay's next tick brings work: the loop sleeps until a message
+    expect(core.idleMs()).toBe(Infinity);
 
     // The relay stamped B's gift at tick 1; ticks 0 to 3 closed
     const gift = { tick: 1, seq: 1, playerId: 'b', command: { type: 'debug:add-credits', amount: 5 } as unknown as CommandData };
     const own = { tick: 2, seq: 2, playerId: 'a', command: { type: 'debug:add-credits', amount: 7 } as unknown as CommandData };
     const delivery = { confirmedTick: 3, ticks: [0, 1, 2, 3].map((tick) => ({ tick, commands: tick === 1 ? [gift] : tick === 2 ? [own] : [] })) };
-    core.tick(input([], delivery, 1100), (m) => out.push(m));
+    frame([], delivery, 1100);
     expect(core.gsm.creditsOf('b')).toBe(credits + 5);
     // The own command ran here now: the input delay counts from this, not from the hand-over
     expect(out.filter((m) => m.kind === 'lockstep-ran')).toEqual([{ kind: 'lockstep-ran', count: 1 }]);
@@ -304,16 +313,16 @@ describe('SimCore in the same thread', () => {
     drive.send({ type: 'command:start-wave', config: wave });
     for (let f = 0; f < 200 && drive.tick().enemies.count === 0; f++) { /* until enemies walk */ }
 
-    // Off: no sums, and a tick takes only the four timestamps of its own tickMs
+    // Off: no sums, and a pass takes only the three timestamps of its own tickMs
     expect(core.rpc('profileSums')).toBeNull();
     const now = vi.spyOn(performance, 'now');
     drive.tick();
-    expect(now).toHaveBeenCalledTimes(4);
+    expect(now).toHaveBeenCalledTimes(3);
     now.mockClear();
 
     core.configure({ profile: true });
     for (let f = 0; f < 30; f++) drive.tick();
-    expect(now.mock.calls.length).toBeGreaterThan(30 * 4);
+    expect(now.mock.calls.length).toBeGreaterThan(30 * 3);
     now.mockRestore();
     const sums = core.rpc('profileSums')!;
     expect(sums.ticks).toBe(30);
@@ -327,6 +336,141 @@ describe('SimCore in the same thread', () => {
     core.configure({ profile: false });
     expect(core.rpc('profileSums')).toBeNull();
     expect(core.gsm.enemyManager.onProfileTiming).toBeNull();
+  });
+
+  describe('as the loop drives it (docs/SIM_DECOUPLE_PLAN.md)', () => {
+    const STEP = GameClock.FIXED_STEP_MS;
+
+    /** A core at speed 1 with the first pass behind it (it opens the clock) */
+    function running(gameSpeed = 1): SimCore {
+      const core = newCore(mainWorld().world);
+      core.input({ ...SETTINGS, gameSpeed }, 1000);
+      core.pass(1000);
+      return core;
+    }
+
+    it('publishes nothing while no sub-step is due and nothing changed, and says how long to sleep', () => {
+      const core = running();
+      // The first pass took 16 ms, short of a sub-step
+      expect(core.gsm.subStep).toBe(0);
+      expect(core.idleMs()).toBeCloseTo(STEP - 16, 6);
+      expect(core.pass(1000.3)).toBeNull();
+
+      const packet = core.pass(1001)!;
+      expect(packet.stepsRun).toBe(1);
+      expect(core.idleMs()).toBeGreaterThan(15);
+      // Four times the speed, a quarter of the wait
+      core.input({ ...SETTINGS, gameSpeed: 4 }, 1001);
+      expect(core.pass(1001)!.stepsRun).toBe(0);
+      expect(core.idleMs()).toBeCloseTo((STEP - 0.333) / 4, 1);
+    });
+
+    it('publishes what an input, a setting or a call changed at once, without a sub-step', () => {
+      const core = running();
+      expect(core.pass(1000.1)).toBeNull();
+      core.input({ ...SETTINGS, gameSpeed: 1, commands: [{ playerId: 'local', command: { type: 'debug:add-credits', amount: 9 } as unknown as CommandData }] }, 1000.2);
+      expect(core.idleMs()).toBe(0);
+      const packet = core.pass(1000.2)!;
+      expect(packet.stepsRun).toBe(0);
+      expect(packet.presented).toBe(true);
+      expect(core.pass(1000.3)).toBeNull();
+
+      core.configure({ damageNumbers: true });
+      expect(core.idleMs()).toBe(0);
+      expect(core.pass(1000.4)!.presented).toBe(false);
+      core.rpc('stateHash');
+      expect(core.pass(1000.5)).not.toBeNull();
+      expect(core.pass(1000.6)).toBeNull();
+    });
+
+    it('stops at the deadline with the rest carried over, the same sub-steps as without one', () => {
+      const core = running(4);
+      const free = running(4);
+      const before = core.gsm.subStep;
+      // 100 ms at speed 4: 24 sub-steps due. The deadline has passed: one runs, the pass asks to go on at once
+      const hashes = new Set<number>();
+      let passes = 0;
+      do {
+        expect(core.pass(1100, performance.now() - 1)!.stepsRun).toBe(1);
+        hashes.add(core.gsm.stateHash());
+        passes++;
+      } while (core.idleMs() === 0 && passes < 100);
+      expect(passes).toBe(24);
+      expect(hashes.size).toBe(24);
+      expect(core.pass(1100, performance.now() - 1)).toBeNull();
+
+      expect(free.pass(1100)!.stepsRun).toBe(24);
+      expect(core.gsm.subStep).toBe(before + 24);
+      expect(core.gsm.stateHash()).toBe(free.gsm.stateHash());
+    });
+
+    it('keeps at most MAX_BACKLOG_MS of wall clock times the speed: a loop that stood does not run minutes at once', () => {
+      const core = running(4);
+      const packet = core.pass(61_000)!;
+      expect(packet.stepsRun).toBe(Math.floor((GameClock.MAX_BACKLOG_MS * 4) / STEP));
+      // And what a deadline leaves undone stays within it
+      const slow = running(4);
+      for (let t = 1100; t <= 5000; t += 100) slow.pass(t, performance.now() - 1);
+      expect(slow.pass(5000)!.stepsRun).toBeLessThanOrEqual(Math.floor((GameClock.MAX_BACKLOG_MS * 4) / STEP));
+    });
+
+    it('sleeps through a pause and goes on where it stood, without a jump', () => {
+      const core = running();
+      core.pass(1100);
+      const steps = core.gsm.subStep;
+      core.input({ ...SETTINGS, gameSpeed: 1, paused: true }, 1100);
+      expect(core.pass(1100)!.scalars.paused).toBe(true);
+      expect(core.idleMs()).toBe(Infinity);
+
+      // A minute later: the clock is held at the moment the pause ends
+      core.input({ ...SETTINGS, gameSpeed: 1 }, 61_100);
+      expect(core.pass(61_100)!.stepsRun).toBe(0);
+      expect(core.gsm.subStep).toBe(steps);
+      expect(core.idleMs()).toBeLessThan(STEP);
+      expect(core.pass(61_117)!.stepsRun).toBe(1);
+    });
+
+    it('runs nothing without a world: the loop sleeps until the next one', () => {
+      const core = running();
+      core.unloadWorld();
+      core.input({ ...SETTINGS, gameSpeed: 1 }, 1100);
+      expect(core.pass(1100)).toBeNull();
+      expect(core.idleMs()).toBe(Infinity);
+      expect(core.gsm.subStep).toBe(0);
+
+      core.rpc('reset', SEED);
+      core.loadWorld(mainWorld().world);
+      expect(core.idleMs()).toBe(0);
+      const packet = core.pass(9000)!;
+      expect(packet.events.some((e) => e.type === 'game:reset')).toBe(true);
+      expect(packet.stepsRun).toBe(0);
+    });
+
+    it('holds a replay that does not play, and plays it by the wall clock from where it was let go', () => {
+      const mathRandom = Math.random;
+      Math.random = mulberry32(SEED + 3);
+      try {
+        const drive = new Driver(newCore(mainWorld().world));
+        drive.send({ type: 'command:start-wave', config: wave });
+        let packet = drive.tick();
+        for (let f = 0; f < 20000 && (packet.scalars.phase === 'wave' || f === 0); f++) packet = drive.tick();
+        for (let f = 0; f < 400 && packet.scalars.snapshotRefusal !== null; f++) packet = drive.tick();
+        const core = drive.core;
+        expect(core.rpc('replayEnter', 1, false)).not.toBeNull();
+        let now = drive.now;
+        core.pass(now);
+        // Entered, not playing: only a message brings work
+        expect(core.idleMs()).toBe(Infinity);
+
+        now += 30_000;
+        core.input({ ...SETTINGS, paused: true, replay: { playing: true, speed: 2 } }, now);
+        expect(core.pass(now)!.scalars.replay!.stepInWave).toBe(0);
+        expect(core.idleMs()).toBeCloseTo(STEP / 2, 6);
+        expect(core.pass(now + 50)!.scalars.replay!.stepInWave).toBe(Math.floor(100 / STEP));
+      } finally {
+        Math.random = mathRandom;
+      }
+    });
   });
 
   it('gives the live game back after a replay with the towers that waited for their sight asking again', () => {

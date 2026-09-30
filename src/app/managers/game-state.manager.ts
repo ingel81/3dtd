@@ -262,7 +262,7 @@ export class GameStateManager {
     () => this.actingPlayerId,
   );
 
-  /** Game speed (1.0 = normal, 75 at most), per frame from the main thread (SimTickInput.gameSpeed) */
+  /** Game speed (1.0 = normal, 75 at most), from the main thread when it changes (SimInput.gameSpeed) */
   readonly gameSpeed = signal<number>(1.0);
 
   /** Command-Bus-Adapter — registriert sich bei initialize(). */
@@ -280,7 +280,7 @@ export class GameStateManager {
    */
   private runStarted = false;
 
-  /** Game time stands still, per frame from the main thread (SimTickInput.paused). */
+  /** Game time stands still, from the main thread when it changes (SimInput.paused). */
   readonly paused = signal<boolean>(false);
 
   // Computed signals for UI bindings
@@ -805,11 +805,16 @@ export class GameStateManager {
    * during a step (a listener reacting to a sim event) waits in the
    * GameCommandsHandler until the step and its wave-end and game-over checks
    * are done (docs/EVENT_SYSTEM.md, "Befehlsgrenze und Befehlslog").
+   *
+   * `deadline` (performance.now()): no further sub-step starts after it, the
+   * game-time left carries into the next call (the worker's loop gives each
+   * pass a budget, docs/SIM_DECOUPLE_PLAN.md). At least one due sub-step
+   * runs. Which sub-steps a call runs never changes what they do.
    */
-  update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void): void {
+  update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void, deadline = Infinity): void {
     // Paused: no sub-step runs, so nothing in the simulation moves and the
     // game clock stands. The wall clock is still taken, otherwise the first
-    // frame after the pause would try to catch up the whole pause. The
+    // pass after the pause would try to catch up the pause. The
     // remainder stays as it was, the resume continues where the pause began.
     if (this.paused()) {
       this.clock.holdFrame(currentTime);
@@ -819,8 +824,8 @@ export class GameStateManager {
     const profiling = this.profiler !== null;
     const frameStart = profiling ? performance.now() : 0;
 
-    // Clamped wall-clock delta × timescale plus the carried remainder,
-    // see GameClock.beginFrame().
+    // Wall-clock delta × timescale plus the carried remainder, see
+    // GameClock.beginFrame().
     const timescale = this.gameSpeed();
     this.clock.beginFrame(currentTime, timescale * this.lockstep.pace(this.clock.subStep));
 
@@ -839,7 +844,9 @@ export class GameStateManager {
       // Per-sub-step listeners at the boundary: one decides on the state
       // after the checks, its command acts at once
       onSubStep?.(stepMs);
+      if (deadline !== Infinity && performance.now() >= deadline) break;
     }
+    this.barrierClosed = !open;
     // Coop: how smoothly this client runs (PLAYTEST T19)
     const link = this.lockstep.current;
     if (link?.noteFrame) {
@@ -892,6 +899,20 @@ export class GameStateManager {
     // The boundary: what came in during the step takes effect now
     commands?.endStep();
     return gameOver;
+  }
+
+  /** Coop: the last update() stopped at the lockstep barrier, the relay's next tick is not closed yet */
+  private barrierClosed = false;
+
+  /**
+   * Wall ms from the last update() until the next sub-step is due: 0 when
+   * one is due already (the deadline cut the update short), Infinity while
+   * only a message can bring one (paused, or waiting at the coop barrier for
+   * the relay's tick). The worker's loop sleeps this long.
+   */
+  dueInMs(): number {
+    if (this.paused() || this.barrierClosed) return Infinity;
+    return this.clock.dueInMs(this.gameSpeed() * this.lockstep.pace(this.clock.subStep));
   }
 
   /** Coop: commands run at the relay's ticks (setLockstep) */

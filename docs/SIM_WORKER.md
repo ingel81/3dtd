@@ -14,7 +14,7 @@ flowchart LR
   subgraph Haupt["Hauptthread"]
     RAF["requestAnimationFrame: RenderLoop"]
     Input["Eingabe, UI, Bot, Wellenquelle"]
-    Client["SimClient.frame: Paket anwenden, Tick senden"]
+    Client["SimClient.frame: Pakete anwenden, Eingaben senden"]
     Mirror["SimMirror: Schatten-Tower, Views, Skalare"]
     Bus["Hauptthread-Bus: Events mit Views"]
     UI["Stores und Angular-UI"]
@@ -25,16 +25,17 @@ flowchart LR
     Relay["Coop-Relay WebSocket"]
   end
   subgraph Work["Worker"]
-    Core["SimCore.tick: Befehle an der Grenze"]
+    Loop["SimLoop: eigene Uhr, Durchgang mit Budget"]
+    Core["SimCore: Befehle an der Grenze, pass"]
     Steps["GameStateManager: feste Sub-Steps der Manager"]
     Packet["Paket: Tabellen im SAB, Ops, Events, Tower-Zustände"]
   end
   RAF --> Client
   Input -- "command:*" --> Client
-  Client -- "tick mit Befehlen" --> Core
-  Relay -. "gelieferte Ticks, mit dem Tick weiter" .-> Client
-  Core --> Steps --> Packet
-  Packet -- "postMessage, ein Tick unterwegs" --> Client
+  Client -- "input: Befehle, Tempo, Pause (bei Änderung)" --> Core
+  Relay -. "gelieferte Ticks, mit der Eingabe weiter" .-> Client
+  Loop --> Core --> Steps --> Packet
+  Packet -- "postMessage je Veröffentlichung" --> Client
   Client --> Mirror
   Client --> Bus
   Client --> Pres
@@ -54,18 +55,23 @@ sequenceDiagram
   participant C as SimClient
   participant W as Worker SimCore
   participant P as Spiegel, Bus, Presenter
+  W->>W: Durchgang: fällige Sub-Steps, höchstens 8 ms
+  W-->>C: Paket (Veröffentlichung)
+  W->>W: nächster Durchgang, sobald ein Sub-Step fällig ist
+  W-->>C: Paket
   R->>C: frame
-  C->>P: Paket vom letzten Tick anwenden
-  C->>W: tick mit Befehlen seit dem letzten
+  C->>P: Pakete seit dem letzten Bild als eines anwenden
+  C->>W: input, wenn sich etwas geändert hat
   R->>R: Renderer und renderer.render
-  W->>W: Befehle anwenden, Sub-Steps
-  W-->>C: Paket, im nächsten Bild angewandt
 ```
 
-Jedes Bild beginnt mit `requestAnimationFrame` in der `RenderLoop`; `GameLoopFacadeService` ruft darin
-`SimClient.frame`. Der wendet das Paket an, das seit dem letzten Bild aus dem Worker kam, und schickt den nächsten
-Tick mit den Befehlen seit dem letzten, solange kein Tick unterwegs ist. Der Worker rechnet die Sub-Steps, während
-der Hauptthread mit dem zuletzt angewandten Stand rendert. Beim Anwenden geht der Zustand in den Spiegel, die Ops an
+Der Worker loopt mit eigener Uhr (`sim/worker/sim-loop.ts`, [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md)): ein
+Durchgang rechnet die fälligen Sub-Steps, höchstens 8 ms Wanduhr, veröffentlicht ein Paket und gibt den Thread frei;
+ohne fällige Arbeit schläft er bis zum nächsten fälligen Sub-Step oder bis eine Nachricht kommt (Pause, keine Welt).
+Er wartet auf kein Bild. Jedes Bild beginnt mit `requestAnimationFrame` in der `RenderLoop`;
+`GameLoopFacadeService` ruft darin `SimClient.frame`. Der wendet die Pakete, die seit dem letzten Bild aus dem Worker
+kamen, als eines an (`merge-packets.ts`) und schickt Befehle, Tempo, Pause und Replay-Steuerung, wenn sich etwas
+geändert hat. Beim Anwenden geht der Zustand in den Spiegel, die Ops an
 den Presenter, die Events auf den Hauptthread-Bus und die Tabellen an die Renderer; UI, Ton, Bot und Wellenquelle
 lesen nur Spiegel und Bus und antworten mit `command:*`. Nebenwege: Die Welt geht beim Laden einmal als `SimWorld` in
 den Worker, im Coop reicht der Hauptthread die Ticks des Relays durch, das Replay ist ein Modus des Workers.
@@ -78,7 +84,7 @@ den Worker, im Coop reicht der Hauptthread die Ticks des Relays durch, das Repla
   Specs, über dieselbe Schnittstelle (`SimCoreApi`, `sim/protocol/messages.ts`).
 - **Die Simulation kennt weder Engine noch Angular-UI.** Keine `ThreeTilesEngine`, keine Stores, keine Renderer.
   Darstellung geht als Op (`SimSink`, aufgezeichnet, `sim/protocol/ops.ts`), als Event oder als Tabelle im Paket.
-- **Ein Paket je Bild** (`sim/protocol/packet.ts`): Tabellen (Gegner, Geschosse, Tower, Oozes, Wurmketten),
+- **Ein Paket je Veröffentlichung** (`sim/protocol/packet.ts`), auf dem Hauptthread je Bild zu einem gefaltet: Tabellen (Gegner, Geschosse, Tower, Oozes, Wurmketten),
   Skalare, geänderte Tower-Zustände, Ops, Events. Der Hauptthread wendet es an: Tower-Zustände, Gegner-Tabelle,
   Ops, dann Events, dann die Tabellen an die Renderer.
 - **Keine parallelen Systeme.** Alter Pfad fällt mit dem neuen.
@@ -87,14 +93,15 @@ den Worker, im Coop reicht der Hauptthread die Ticks des Relays durch, das Repla
 
 ```
 Hauptthread                                   Worker
-UI/Eingabe --command:*--> SimClient.bus -----> tick{commands} --> SimCore (GameStateManager ...)
-Renderer/Ton <-- Presenter/OpPlayer <-- Paket <-- frame        <-- Paket (Tabellen, Ops, Events)
+UI/Eingabe --command:*--> SimClient.bus -----> input{commands} -> SimCore (GameStateManager ...)
+Renderer/Ton <-- Presenter/OpPlayer <-- Paket <-- frame        <-- Pakete (Tabellen, Ops, Events) aus dem Loop
 Stores/UI    <-- GameStateSync etc.  <-- SimClient.bus (Views)
 LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
 ```
 
-- Ein Tick ist unterwegs, dann erst der nächste (Gegendruck). Befehle zwischen zwei Ticks gehen mit dem nächsten.
-- Befehle wirken an der Grenze vor dem ersten Sub-Step des Ticks (wie heute zwischen zwei Bildern).
+- Befehle gehen mit der Eingabe des Bilds (`SimClient.flushInput`) und wirken im Worker sofort, zwischen zwei
+  Durchgängen, also an einer Grenze zwischen zwei Sub-Steps. Vor jedem Aufruf (`rpc`) geht die Eingabe voraus.
+- Ein Gegendruck (der Worker wartet, wenn der Hauptthread weit zurückliegt) kommt mit Schritt 6 des Plans.
 
 ## Verträge
 
@@ -103,7 +110,7 @@ LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
 | `sim/protocol/packet.ts` | Paket, Tabellen-Layout (Spalten `E_*`, `P_*`, `T_*`, `O_*`, `W_*`), Skalare, `TowerStateDto` |
 | `sim/protocol/ops.ts` | Op = `[Pfad, ...Argumente]`, Rekorder; Argumente nur plain, Vektor als `{x,y,z}` |
 | `sim/protocol/events.ts` | Events über die Grenze: Entities als Referenzen (`$e`, `$t`, `$p`, `$w`) mit den Zahlen des Moments |
-| `sim/protocol/messages.ts` | `SimCoreApi` (configure, loadWorld, tick, rpc), `SimWorld`, Worker-Nachrichten |
+| `sim/protocol/messages.ts` | `SimCoreApi` (configure, loadWorld, input, pass, idleMs, rpc), `SimInput`, `SimWorld`, Worker-Nachrichten |
 | `sim/client/views.ts` | `EnemyView`, `ProjectileView`, `WormGroupView` mit den Feldpfaden der Entities |
 | `sim/client/view-events.ts` | `ViewEvent = ToView<GameEvent>`, `MainEventBus` |
 
@@ -123,14 +130,14 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
 - **Wellenquelle, Bot:** bleiben auf dem Hauptthread und lesen den Spiegel. Die Wellenquelle zieht ihren Zufall aus
   einem eigenen `GameRng` mit dem Lauf-Seed (Strom `director`, dieselbe Folge wie bisher), der Bot ebenso (`bot`).
   Die Regeln der Wellenquelle gehen per `configure({waveSource})` in den Worker. Der Bot entscheidet je Bild statt je
-  Sub-Step; seine Befehle wirken am nächsten Tick.
+  Sub-Step; seine Befehle gehen mit der nächsten Eingabe.
 - **Stand, den die Wellenquelle liest:** Was sie bei `wave:completed` festhält (`StateSnapshotService`, etwa die
   Spielzeit) und was sie beim Planen der nächsten Welle liest, kommt aus dem Spiegel, also vom Ende des Pakets, mit
   dem das Event ankommt, nicht vom Sub-Step, in dem die Welle endete. Laufen mehrere Sub-Steps je Bild (hohes Tempo),
   kann dazwischen schon mehr geschehen sein. Bewusst so gelassen.
 - **Auswahl eines Towers** ist UI-Zustand des Hauptthreads, nicht mehr der Simulation.
 - **Coop:** Die Relay-Verbindung bleibt im Hauptthread; der Worker bekommt einen `LockstepLink`, der die gelieferten
-  Ticks je Tick-Nachricht erhält und Befehle, Hashes, Glätte zurückschickt.
+  Ticks mit der Eingabe erhält und Befehle, Hashes, Glätte zurückschickt.
 - **Replay:** läuft im Worker (RPC `replayEnter/Step/Seek/Exit`), Bilder kommen als normale Pakete.
 - **Entwicklerwerkzeuge**, die heute Sim-Objekte ändern (Gegner anhalten, Tempo, Bewegung aus), werden `debug:*`-Befehle.
 
@@ -153,13 +160,13 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
 ## Transport
 
 - **Tabellen** (Gegner, Geschosse, Tower, Oozes, Würmer) im `SharedArrayBuffer` (`sim/protocol/table-store.ts`,
-  `wire.ts`): der Worker schreibt, der Hauptthread liest ohne Kopie. Zwei Sätze Tabellen im Wechsel: Dauert ein Tick
-  länger als 35 ms (`EARLY_TICK_MS`), schickt der `SimClient` den nächsten sofort, wenn das Paket zurück ist, statt mit
-  dem nächsten Bild. Der Worker schreibt dann in den anderen Satz, während der Hauptthread den letzten noch anwendet.
-  Ein Tick geht nur früh, solange das eben gekommene Paket das einzige nicht angewendete ist, also schreibt der Worker
-  nie den Satz, den der Hauptthread liest. Hintergrund: Die Spieluhr holt je Tick höchstens 50 ms Wanduhr nach
-  (`GameClock.MAX_CATCHUP_MS`); jede Wartezeit darüber wurde Zeitlupe. Wächst eine Tabelle, geht der neue Puffer einmal
-  mit. Ohne `crossOriginIsolated` ein Satz mit Kopien je Bild, ohne frühe Ticks.
+  `wire.ts`): der Worker schreibt, der Hauptthread liest ohne Kopie. Drei Sätze Tabellen: einen schreibt der Worker,
+  einer hält das neueste Paket, einen liest der Hauptthread; ein Kontrollwort im SAB (`Atomics`) sagt, welcher Satz
+  welches Paket hält, und der Worker schreibt nie den Satz, den der Hauptthread liest (`TableViews.claim`). Wächst eine
+  Tabelle, geht der neue Puffer einmal mit. Ohne `crossOriginIsolated` ein Satz, und jede Veröffentlichung trägt Kopien
+  ihrer Zeilen. Die Spieluhr hält höchstens 250 ms Wanduhr Rückstand (`GameClock.MAX_BACKLOG_MS`); bis 2026-09-30 holte
+  sie je Tick höchstens 50 ms nach, und ein Tick ging erst mit dem nächsten Bild los (ab 35 ms Tick-Zeit früher), was
+  bei langsamen Bildern zur Zeitlupe wurde.
 - **Spiegel** (`sim/client/mirror/sim-mirror.ts`): kopiert je Paket die Gegnertabelle einmal (zwei Kopien im Wechsel)
   und zeigt jede `EnemyView` auf ihre Zeile; die Felder lesen die Zeile erst beim Zugriff. Eine Ansicht, deren Gegner
   die Tabelle verlässt oder deren Werte ein Event auf seinen Moment setzt, bekommt eine eigene Zeile.
@@ -171,9 +178,9 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
 
 ## Kennzahlen
 
-Zwei Zahlen statt einer: die **Bildzeit** des Hauptthreads (FPS) und die **Tick-Zeit** der Simulation im Worker
-(`SimScalars.tickMs`, zerlegt per RPC `tickProfile`); dazu kostet das Anwenden eines Pakets den Hauptthread
-`SimClient.applyTimes`.
+Zwei Zahlen statt einer: die **Bildzeit** des Hauptthreads (FPS) und die **Rechenzeit** der Simulation im Worker
+(`SimScalars.tickMs` je Paket, zerlegt per RPC `tickProfile`; über die Pakete summiert und durch die Wanduhr geteilt
+die Auslastung des Workers); dazu kostet das Anwenden der Pakete eines Bilds den Hauptthread `SimClient.applyTimes`.
 
 Wo sie im Spiel stehen (TODO E82, E75, E74):
 
