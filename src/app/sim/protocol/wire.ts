@@ -18,8 +18,10 @@ export interface WireFrame {
   packet: WirePacket;
   /** New table buffers (shared memory), or this frame's rows (no shared memory) */
   buffers: TableBuffer[];
-  /** The tables are in shared memory, in two sets used in turn (TableStore) */
+  /** The tables are in shared memory, in sets used in turn (TableStore) */
   shared: boolean;
+  /** The control word of the sets (TableStore.takeControl), with the first frame only */
+  control: SharedArrayBuffer | null;
 }
 
 /** The worker's side: the packet's tables are the store's own (the writer wrote into store.table()). */
@@ -28,7 +30,8 @@ export function toWire(packet: SimFramePacket, store: TableStore): { frame: Wire
   const { enemies: _e, projectiles: _p, towers: _t, oozes: _o, worms: _w, ...rest } = packet;
   for (const name of TABLE_NAMES) counts[name] = packet[name].count;
   if (store.shared) {
-    return { frame: { packet: { ...rest, counts, set: store.set }, buffers: store.takeReplaced(), shared: true }, transfer: [] };
+    const frame = { packet: { ...rest, counts, set: store.set }, buffers: store.takeReplaced(), shared: true, control: store.takeControl() };
+    return { frame, transfer: [] };
   }
   store.takeReplaced();
   const buffers: TableBuffer[] = [];
@@ -39,12 +42,16 @@ export function toWire(packet: SimFramePacket, store: TableStore): { frame: Wire
     buffers.push({ name, set: 0, buffer: copy.buffer as ArrayBuffer });
     transfer.push(copy.buffer as ArrayBuffer);
   }
-  return { frame: { packet: { ...rest, counts, set: 0 }, buffers, shared: false }, transfer };
+  return { frame: { packet: { ...rest, counts, set: 0 }, buffers, shared: false, control: null }, transfer };
 }
 
-/** The main thread's side: the packet with its tables viewed in place. */
+/**
+ * The main thread's side: the packet with its tables viewed in place. With
+ * shared memory, claim the set (TableViews.claim with frame.packet.set) before
+ * reading the tables.
+ */
 export function fromWire(frame: WireFrame, views: TableViews): SimFramePacket {
-  views.adopt(frame.buffers);
+  views.adopt(frame.buffers, frame.control);
   const { counts, set, ...rest } = frame.packet;
   const tables = {} as Record<TableName, SimTable>;
   for (const name of TABLE_NAMES) tables[name] = views.table(name, counts[name], set);

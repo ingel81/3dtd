@@ -108,6 +108,13 @@ Jeder Schritt mit grünen Specs, E2E (`npm run e2e`) und einem Messcheck (`e2e/p
 6. **Gegendruck und Hintergrund-Tab**, dann die volle Messreihe und Doku (SIM_WORKER.md).
 7. Nur bei Bedarf: Interpolation zwischen zwei Ständen.
 
+## Später: Paket direkt aus der Tabelle
+
+Heute kopiert der Worker jeden Gegner je Paket in die Gegner-Tabelle (`writeEnemies`, rund 6,5 % des Workers bei
+16 000 Gegnern in Chromium). Liegen die Gegnerdaten selbst in einer Tabelle im SAB (Bewegungstabelle aus
+[MULTI_WORKER_PLAN.md](MULTI_WORKER_PLAN.md), Branch `perf/multi-worker`), veröffentlicht der Worker einen Satz dieser
+Tabelle, statt zu kopieren. Setzt beide Umbauten voraus; entscheiden nach den Messungen. Nicht Teil dieses Plans.
+
 ## Risiken
 
 - Mehr CPU: Worker und Hauptthread arbeiten beide durchgehend. Auf schwachen Rechnern mit zwei Kernen kann das

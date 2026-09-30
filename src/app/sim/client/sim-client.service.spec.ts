@@ -24,6 +24,12 @@ class FakeTransport implements SimTransport {
   loadWorld(): void {
     /* the world is taken */
   }
+  claim(): boolean {
+    return true;
+  }
+  release(): void {
+    /* nothing held */
+  }
   tick(input: SimTickInput): void {
     if (this.throwOnTick) throw this.throwOnTick;
     this.ticks.push(input);

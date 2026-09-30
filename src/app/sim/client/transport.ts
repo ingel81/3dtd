@@ -18,10 +18,17 @@ export interface SimTransportHandlers {
 
 export interface SimTransport {
   /**
-   * The simulation runs beside this thread with two sets of tables (the worker): a tick may go out while the last
-   * packet is not applied yet. False for the same thread, whose tick answers at once.
+   * The simulation runs beside this thread with sets of tables in shared memory (the worker): a tick may go out
+   * while the last packet is not applied yet. False for the same thread, whose tick answers at once.
    */
   readonly concurrent: boolean;
+  /**
+   * Read `packet`'s tables until release(): false when their memory holds a
+   * newer packet already (TableViews.claim). Always true where every packet
+   * has tables of its own.
+   */
+  claim(packet: SimFramePacket): boolean;
+  release(): void;
   configure(config: SimConfig): void;
   loadWorld(world: SimWorld): void;
   /** Run one frame; the packet comes through handlers.frame (at once in the same thread) */
@@ -45,6 +52,14 @@ export class InlineTransport implements SimTransport {
 
   loadWorld(world: SimWorld): void {
     this.core.loadWorld(world);
+  }
+
+  claim(): boolean {
+    return true;
+  }
+
+  release(): void {
+    /* nothing held */
   }
 
   tick(input: SimTickInput): void {
@@ -78,6 +93,8 @@ export class WorkerTransport implements SimTransport {
   private readonly pending = new Map<number, { resolve: (v: unknown) => void; reject: (e: Error) => void }>();
   /** The simulation's tables in shared memory (or this frame's copies without it) */
   private readonly views = new TableViews();
+  /** The set of tables each packet not yet released was written into */
+  private readonly setOf = new WeakMap<SimFramePacket, number>();
 
   constructor(private readonly handlers: SimTransportHandlers) {
     this.worker = new Worker(new URL('../worker/sim.worker', import.meta.url), { type: 'module' });
@@ -93,10 +110,13 @@ export class WorkerTransport implements SimTransport {
 
   private receive(message: FromWorker): void {
     switch (message.kind) {
-      case 'frame':
+      case 'frame': {
         this.shared = message.frame.shared;
-        this.handlers.frame(fromWire(message.frame, this.views));
+        const packet = fromWire(message.frame, this.views);
+        this.setOf.set(packet, message.frame.packet.set);
+        this.handlers.frame(packet);
         return;
+      }
       case 'output':
         this.handlers.output(message.message);
         return;
@@ -122,6 +142,15 @@ export class WorkerTransport implements SimTransport {
 
   loadWorld(world: SimWorld): void {
     this.post({ kind: 'world', world });
+  }
+
+  claim(packet: SimFramePacket): boolean {
+    const set = this.setOf.get(packet);
+    return set !== undefined && this.views.claim(set, packet.frame);
+  }
+
+  release(): void {
+    this.views.release();
   }
 
   tick(input: SimTickInput): void {

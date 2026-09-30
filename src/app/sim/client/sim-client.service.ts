@@ -48,11 +48,11 @@ export function isSimInput(type: string): boolean {
  * a slow simulation slows the game instead of piling up frames. A packet is
  * applied at the start of the main thread's next frame, before it renders.
  * Where a tick takes longer than EARLY_TICK_MS (many enemies, high speed)
- * and the worker has two sets of tables (SimTransport.concurrent), the next
- * tick goes out as soon as the packet is back instead of with the next frame:
- * the simulation works on while this thread applies and draws, rather than
- * waiting for it. It never writes the set this thread still reads: a tick
- * goes early only while the packet just back is the only one not applied.
+ * and the worker's tables are in shared memory (SimTransport.concurrent), the
+ * next tick goes out as soon as the packet is back instead of with the next
+ * frame: the simulation works on while this thread applies and draws, rather
+ * than waiting for it. It never writes the set this thread reads (the claim
+ * in applyPending, TableViews.claim).
  *
  * A run has an epoch (newRun): commands and packets of an older run are
  * dropped. A simulation that failed (a throw in its tick, a worker that did
@@ -367,11 +367,28 @@ export class SimClient {
     }
   }
 
+  /**
+   * The packets that came, in order. A packet whose tables the simulation
+   * writes again already (a newer one is on its way) waits with the ones
+   * after it for the next frame.
+   */
   private applyPending(): void {
-    if (this.pendingPackets.length === 0) return;
+    const transport = this.transport;
+    if (this.pendingPackets.length === 0 || !transport) return;
     const packets = this.pendingPackets;
-    this.pendingPackets = [];
-    for (const packet of packets) this.apply(packet);
+    let done = 0;
+    while (done < packets.length) {
+      const packet = packets[done];
+      if (!transport.claim(packet)) break;
+      try {
+        this.apply(packet);
+      } finally {
+        transport.release();
+      }
+      done++;
+    }
+    if (done === packets.length) this.pendingPackets = [];
+    else packets.splice(0, done);
   }
 
   /**
