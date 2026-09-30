@@ -1334,7 +1334,7 @@ danach nur mit Rendering.
 **Sub-Steps:** `GameStateManager.update()` überlässt die Zeitrechnung `GameClock`
 (`managers/game-state/game-clock.ts`): `beginFrame()` nimmt das Wanduhr-Delta seit dem letzten Durchgang mal
 Timescale plus den Rest, höchstens `MAX_BACKLOG_MS` (250) mal Timescale, `nextSubStep()` gibt
-die Spielzeit in festen Sub-Steps von `FIXED_STEP_MS` (16,667 ms) frei, und `endFrame()` trägt den Rest in den
+die Spielzeit in festen Sub-Steps von `FIXED_STEP_MS` (33,334 ms, 30 je Sekunde Spielzeit; bis 2026-09-30 16,667 ms) frei, und `endFrame()` trägt den Rest in den
 nächsten Durchgang. `update()` beginnt nach seiner Frist (`deadline`, im Worker 8 ms je Durchgang,
 `PASS_BUDGET_MS`) keinen Sub-Step mehr; kommt die Simulation nicht nach, läuft das Spiel langsamer als die Wanduhr,
 statt Rückstand anzuhäufen. Jeder Sub-Step läuft durch `runSubStep()`

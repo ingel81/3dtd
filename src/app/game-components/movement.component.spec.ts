@@ -7,6 +7,7 @@ import { StatusEffect } from '../models/status-effects';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT, geoHeading } from '../utils/geo-utils';
 import { corridorConfig, getRouteProfile, lateralLimit } from '../utils/route-corridor';
+import { GameClock } from '../managers/game-state/game-clock';
 
 class TestGameObject extends GameObject {
   constructor() {
@@ -54,8 +55,8 @@ describe('MovementComponent', () => {
     movement.setLateralFactor(0.5);
     movement.speedMps = 5;
     for (let i = 0; i < 10; i++) {
-      movement.move(16.667, 0);
-      transform.update(16.667);
+      movement.move(GameClock.FIXED_STEP_MS, 0);
+      transform.update(GameClock.FIXED_STEP_MS);
     }
     expect(transform.rotation).toBeCloseTo(facing, 6);
 
@@ -307,7 +308,7 @@ describe('MovementComponent', () => {
       movement.speedMps = 5;
       movement.applyStatusEffect({ type: 'freeze', value: 1, duration: 1000, startTime: 0, sourceId: 'a' });
       const status = movement.updateStatusEffects(0);
-      movement.move(16.667, 0, status.slowMultiplier);
+      movement.move(GameClock.FIXED_STEP_MS, 0, status.slowMultiplier);
       expect(movement.progress).toBe(0);
     });
   });
@@ -335,14 +336,14 @@ describe('MovementComponent', () => {
       { lat: 48.7762, lon: 9.183 },
       { lat: 48.7762, lon: 9.1834 },
     ];
-    const STEP_MS = 16.667;
+    const STEP_MS = GameClock.FIXED_STEP_MS;
     let transform: TransformComponent;
     const target = () => (transform as unknown as { targetRotation: number }).targetRotation;
 
     beforeEach(() => {
       transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
       movement.setPath(corner);
-      movement.speedMps = 50; // ~0.83 m per step, ~27 steps on the first segment
+      movement.speedMps = 25; // ~0.83 m per step, ~27 steps on the first segment
     });
 
     /** The step is on the arc of the corner (RouteCorners), from the distance along the path. */
@@ -470,7 +471,7 @@ describe('MovementComponent', () => {
     const LAT = 48.776;
     const LON = 9.183;
     const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(LAT * DEG_TO_RAD);
-    const STEP_MS = 16.667;
+    const STEP_MS = GameClock.FIXED_STEP_MS;
     let transform: TransformComponent;
 
     beforeEach(() => {
@@ -634,7 +635,7 @@ describe('MovementComponent', () => {
     const LAT = 48.776;
     const LON = 9.183;
     const COS = Math.cos(LAT * DEG_TO_RAD);
-    const STEP_MS = 16.667;
+    const STEP_MS = GameClock.FIXED_STEP_MS;
     const SPEED = 5; // 8.3 cm per step
     const LANES = [-1, -0.5, 0, 0.5, 1];
 

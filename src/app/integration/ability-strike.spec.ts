@@ -37,6 +37,7 @@ import {
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
@@ -48,14 +49,15 @@ import { EFFECTIVENESS_COLORS } from '../configs/combat/damage-matrix.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
+import { GameClock } from '../managers/game-state/game-clock';
 
 const NUKE = ABILITIES['nuclear-strike'];
 /** HQ at the end of the path */
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** Sub-step whose per-step hook sends the command, as the bot does. */
-const COMMAND_STEP = 30;
-/** 6500 ms of warning in sub-steps of 16.667 ms */
-const WARNING_STEPS = 390;
+const COMMAND_STEP = stepsOf(500);
+/** 6500 ms of warning in sub-steps */
+const WARNING_STEPS = stepsOf(6500);
 /** Outcome read at this sub-step, the same one in both runs */
 const READ_STEP = COMMAND_STEP + WARNING_STEPS + 10;
 /** Halfway through the warning */
@@ -63,7 +65,7 @@ const PAUSE_STEP = COMMAND_STEP + WARNING_STEPS / 2;
 /** The fourth waypoint, about 33 m down the path */
 const TARGET: GeoPosition = TEST_PATH[3];
 /** Game seconds from the wave start (the spawn) to the impact */
-const IMPACT_S = ((COMMAND_STEP + WARNING_STEPS) * 16.667) / 1000;
+const IMPACT_S = ((COMMAND_STEP + WARNING_STEPS) * GameClock.FIXED_STEP_MS) / 1000;
 
 /** An enemy that has walked `metres` from the spawn when the strike lands */
 const walking = (type: EnemyTypeId, metres: number, preDamage: number) =>
@@ -231,7 +233,7 @@ describe('Nuclear strike through the sub-step loop', () => {
     vi.restoreAllMocks();
   });
 
-  it('lands on the 390th sub-step after the command', () => {
+  it('lands 6500 ms after the command', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5); // centre line, no height spread
     expect(run(1).impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
   });

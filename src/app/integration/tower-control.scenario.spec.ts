@@ -323,7 +323,7 @@ describe('Manning a tower, through the sub-step loop', () => {
     gsm.getEventBus().emit({ type: 'command:man-tower', towerId: tower.id });
     gsm.getEventBus().emit({ type: 'command:tower-trigger', held: true });
     let subSteps = 0;
-    steps(gsm, clock, 300, () => subSteps++);
+    steps(gsm, clock, 600, () => subSteps++);
 
     // One shot at once, then one per 1000 / rate ms of game time, whatever the sub-step's length: the
     // cooldown takes what was over in the sub-step it ran out in along (CombatComponent)

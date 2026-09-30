@@ -26,9 +26,10 @@ import type { ResearchId } from '../../configs/research/research.types';
 import type { GeoPosition } from '../../models/game.types';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { singlePlayer } from '../../integration/single-player-parts';
+import { GameClock } from '../../managers/game-state/game-clock';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 const HQ: GeoPosition = { lat: 48.7758, lon: 9.1829 };
 /** A straight route from 300 m south up to the HQ, for the hero to stand on */
 const ROUTE: GeoPosition[] = [{ lat: HQ.lat - 300 / METERS_PER_DEGREE_LAT, lon: HQ.lon }, HQ];

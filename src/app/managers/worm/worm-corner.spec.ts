@@ -18,10 +18,11 @@ import { corridorConfig, lateralLimit } from '../../utils/route-corridor';
 import type { GeoPosition, RouteWaypoint } from '../../models/game.types';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from './worm-group';
+import { GameClock } from '../../managers/game-state/game-clock';
 
 const chain = ENEMY_TYPES['worm'].chain!;
 const SPEED = ENEMY_TYPES['worm'].baseSpeed;
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 // The ring of tools/blender/worm_boss.py at scale 2.5: it spans SEG_REAR
 // -0.58 to SEG_FRONT 0.52 model units round its pivot, and is about
@@ -34,6 +35,8 @@ const HALF_WIDTH = 2.7;
 const MAX_GAP = 0.5;
 const MAX_OVERLAP = 2;
 const MAX_YAW_STEP = 20 * DEG_TO_RAD;
+/** A ring turns at most 1.2 rad a second of game time: 0.02 rad in a sub-step of 60 a second */
+const MAX_TURN_PER_STEP = 1.2 * STEP_MS / 1000;
 
 const LAT0 = 48.776;
 const LON0 = 9.183;
@@ -213,7 +216,7 @@ describe('Worm through route corners', () => {
       expect(worst.overlap).toBeLessThan(MAX_OVERLAP);
       expect(worst.yawStep).toBeLessThan(MAX_YAW_STEP);
       // A ring turns with the curve it walks, no swing after a corner
-      expect(worst.turnPerStep).toBeLessThan(0.02);
+      expect(worst.turnPerStep).toBeLessThan(MAX_TURN_PER_STEP);
       expect(worst.movePerStep).toBeLessThan(2 * SPEED * STEP_MS / 1000);
       expect(worst.offCentre).toBeLessThanOrEqual(room() + 1e-6);
     });
@@ -230,7 +233,7 @@ describe('Worm through route corners', () => {
     expect(worst.offCentre).toBeLessThanOrEqual(lateralLimit(2.75) + 1e-6);
     // Tighter than the wide street (0.8 m measured), still far from the sharp corner
     expect(worst.gap).toBeLessThan(1);
-    expect(worst.turnPerStep).toBeLessThan(0.02);
+    expect(worst.turnPerStep).toBeLessThan(MAX_TURN_PER_STEP);
   });
 
   it('splits in the corner like anywhere else', () => {
@@ -250,18 +253,18 @@ describe('Worm through route corners', () => {
     expect(distance(group.segments[7]!) - distance(rear)).toBeCloseTo(2 * chain.spacing, 6);
     expect(worst.gap).toBeLessThan(MAX_GAP);
     expect(worst.yawStep).toBeLessThan(MAX_YAW_STEP);
-    expect(worst.turnPerStep).toBeLessThan(0.02);
+    expect(worst.turnPerStep).toBeLessThan(MAX_TURN_PER_STEP);
     expect(worst.movePerStep).toBeLessThan(2 * SPEED * STEP_MS / 1000);
   });
 
-  it('takes the same shape in a corner at 1x and with four sub-steps in one', () => {
+  it('takes the same shape in a corner at 1x and with two sub-steps in one', () => {
     const path = cornerPath(90);
     const fine = m.enemyManager.spawn(path, 'worm').worm!.group;
     walk(m, fine, path, 36_000, { now: 0 });
 
     const coarse = createTestManagers();
     const group = coarse.enemyManager.spawn(path, 'worm').worm!.group;
-    walk(coarse, group, path, 36_000, { now: 0 }, 4 * STEP_MS);
+    walk(coarse, group, path, 36_000, { now: 0 }, 2 * STEP_MS);
 
     const out = (g: WormGroup): Enemy[] => g.segments.filter((e): e is Enemy => e !== null);
     const a = out(fine);

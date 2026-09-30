@@ -19,8 +19,9 @@ import { bandPath } from '../../utils/corridor-band-path';
 import type { RouteWaypoint } from '../../models/game.types';
 import type { Enemy } from '../../entities/enemy.entity';
 import type { WormGroup } from './worm-group';
+import { GameClock } from '../../managers/game-state/game-clock';
 
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 // The ring as in worm-corner.spec.ts: its ends round the pivot and half its width.
 const FRONT = 0.52 * 2.5;
@@ -189,6 +190,7 @@ describe('Worm past a car on the centre line', () => {
     // the band's widths, which move with the line, under 0.02 both with the
     // widths pinned all along and with the one-sided step from 7 to 2.5 m
     // the fitting gave at a car.
-    expect(turn).toBeLessThan(0.03);
+    // By time: 0.03 rad in a step of 16.7 ms are 1.8 rad a second
+    expect(turn).toBeLessThan(1.8 * STEP_MS / 1000);
   });
 });

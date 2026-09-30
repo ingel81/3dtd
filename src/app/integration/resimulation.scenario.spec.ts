@@ -53,6 +53,7 @@ import { Resimulation } from '../simulator/resimulation';
 import { buildReplayFile, readReplayFile } from '../simulator/replay-file';
 import { STATE_HASH_VERSION } from '../simulator/state-hash';
 import { buildSimWorld } from './sim-world';
+import { GameClock } from '../managers/game-state/game-clock';
 
 const SEED = 0x51a1;
 
@@ -228,7 +229,7 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     playLive(world);
     // Let the last shots land, then the state is quiet again
     let now = 1e6;
-    for (let i = 0; i < 200 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+    for (let i = 0; i < 200 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += GameClock.FIXED_STEP_MS));
     expect(gsm.snapshotRefusal()).toBeNull();
     const live = gsm.captureSnapshot();
     const liveHash = gsm.stateHash();
@@ -364,10 +365,10 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     const { gsm } = world;
     playLive(world);
     let now = 1e6;
-    for (let i = 0; i < 200 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+    for (let i = 0; i < 200 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += GameClock.FIXED_STEP_MS));
     const live = gsm.captureSnapshot();
     const run = () => {
-      for (let i = 0; i < 120; i++) gsm.update((now += 16.667));
+      for (let i = 0; i < 120; i++) gsm.update((now += GameClock.FIXED_STEP_MS));
       return gsm.captureSnapshot();
     };
     // Both runs from the restored state: a restore starts the frame bookkeeping over
@@ -400,7 +401,7 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
       let now = from;
       gsm.getEventBus().emit({ type: 'command:start-wave', config } as never);
       for (let f = 0; f < 20000 && gsm.waveManager.phase() === 'wave'; f++) gsm.update((now += 10 + ((f * 11) % 23)));
-      for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+      for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += GameClock.FIXED_STEP_MS));
       return now;
     };
 
@@ -458,7 +459,7 @@ describe('The simulation without native transcendentals (TODO E28)', () => {
       const { gsm } = world;
       const bus = gsm.getEventBus();
       let now = 1e6;
-      for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+      for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += GameClock.FIXED_STEP_MS));
       bus.emit({ type: 'command:start-wave', config: bossConfig() } as never);
       for (let f = 0; f < 20000 && gsm.waveManager.phase() === 'wave'; f++) gsm.update((now += 10 + ((f * 13) % 29)));
       expect(gsm.simRecorder.records.length).toBe(2);

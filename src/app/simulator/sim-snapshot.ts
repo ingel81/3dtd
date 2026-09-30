@@ -10,7 +10,7 @@ import type { LosMaskJson } from '../utils/los-mask';
 import type { GamePhase } from '../models/game.types';
 
 /** Bumped whenever the shape changes; an export with another version is refused. */
-export const SIM_SNAPSHOT_VERSION = 1;
+export const SIM_SNAPSHOT_VERSION = 2;
 
 /**
  * The simulation between two waves, as plain data: the state a wave is

@@ -36,6 +36,7 @@ import {
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
@@ -51,13 +52,13 @@ import type { GeoPosition } from '../models/game.types';
 const EMP = ABILITIES['emp'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** Sub-step whose per-step hook sends the command, as the bot does: 4.5 s in */
-const COMMAND_STEP = 270;
-/** 500 ms of warning in sub-steps of 16.667 ms */
-const WARNING_STEPS = 30;
+const COMMAND_STEP = stepsOf(4500);
+/** 500 ms of warning in sub-steps */
+const WARNING_STEPS = stepsOf(500);
 /** 6 s for machines, 1.5 s for the rest, 0.75 s for bosses */
-const MACHINE_STEPS = 360;
-const OTHER_STEPS = 90;
-const BOSS_STEPS = 45;
+const MACHINE_STEPS = stepsOf(6000);
+const OTHER_STEPS = stepsOf(1500);
+const BOSS_STEPS = stepsOf(750);
 /** The sixth waypoint, about 56 m along the path */
 const TARGET: GeoPosition = TEST_PATH[5];
 
@@ -164,7 +165,7 @@ describe('EMP through the sub-step loop', () => {
     vi.restoreAllMocks();
   });
 
-  it('goes off on the 30th sub-step after the command', () => {
+  it('goes off 500 ms after the command', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     expect(run(1).impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
   });

@@ -38,6 +38,7 @@ import {
   createTestCachedPaths,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
@@ -80,9 +81,9 @@ const MOVE_STEP = 10;
 /** 44 m south of the HQ, 67 m north of the spawn */
 const POST: GeoPosition = TEST_PATH[6];
 /** The ooze comes once he holds his post, 10 s in */
-const OOZE_STEP = 600;
+const OOZE_STEP = stepsOf(10_000);
 /** 45 s: its tip, 3 m/s, some 100 m along the path, short of the HQ */
-const LAST_STEP = 2700;
+const LAST_STEP = stepsOf(45_000);
 
 interface Shot {
   step: number;
@@ -181,7 +182,7 @@ describe('An ooze passes the hero at his post, playtest 393 replayed', () => {
     }
     // Up to the end, with the tip some 35 m past him
     const last = pastTip.at(-1)!;
-    expect(last.step).toBeGreaterThan(LAST_STEP - 60);
+    expect(last.step).toBeGreaterThan(LAST_STEP - stepsOf(1000));
     expect(geoDistanceFast(last.hero, last.tip)).toBeGreaterThan(30);
   });
 });

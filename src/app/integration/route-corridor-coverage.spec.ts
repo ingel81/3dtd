@@ -16,6 +16,7 @@ import { GlobalRouteGrid } from '../utils/global-route-grid';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { getRouteProfile } from '../utils/route-corridor';
 import type { RouteWaypoint } from '../models/game.types';
+import { GameClock } from '../managers/game-state/game-clock';
 
 const ORIGIN = { lat: 48.776, lon: 9.183 };
 const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(ORIGIN.lat * DEG_TO_RAD);
@@ -59,11 +60,12 @@ function positionsOutside(route: RouteWaypoint[], factors: number[]): string[] {
     const movement = new MovementComponent(walker);
     const transform = walker.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
     movement.setPath(route);
-    movement.speedMps = 4;
+    // About 7 cm a sub-step: dense enough to meet every cell on the way
+    movement.speedMps = 2;
     movement.setLateralFactor(factor);
 
     let steps = 0;
-    while (movement.move(16.667, 0) === 'moving' && steps++ < 20000) {
+    while (movement.move(GameClock.FIXED_STEP_MS, 0) === 'moving' && steps++ < 20000) {
       const local = sync.geoToLocalSimple(transform.position.lat, transform.position.lon, 0);
       if (!grid.getCellAt(local.x, local.z)) {
         outside.push(`factor ${factor} segment ${movement.currentIndex} at ${local.x.toFixed(2)},${local.z.toFixed(2)}`);

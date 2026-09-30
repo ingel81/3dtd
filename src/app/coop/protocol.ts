@@ -17,7 +17,7 @@ import type { HashedEntities, HashPart } from './hash-check';
  * Back to 1 before the first release (User, 2026-09-25): the numbers up to
  * then were development steps only.
  */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Players per room at most (D16). */
 export const MAX_PLAYERS = 4;

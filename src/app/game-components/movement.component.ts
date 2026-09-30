@@ -538,22 +538,26 @@ export class MovementComponent extends Component {
     const transform = this.transformRef;
     if (!transform) return 'moving';
 
-    // Current segment length
-    const segmentLength = this.profile.segmentLengths[this.currentIndex] || 1;
-
-    // Update progress based on actual segment length
-    this.progress += meters / segmentLength;
-
-    // Handle segment transitions, keeping overflow for smooth movement
-    while (this.progress >= 1) {
-      this.progress -= 1;
+    // Across waypoints by metres: what is over at a segment's end goes on in
+    // the next one as the same distance, measured on that segment's length.
+    // (Carried as a share of the segment left behind, a step over a short
+    // segment into a long one jumped, the further the longer the sub-step.)
+    const segmentLengths = this.profile.segmentLengths;
+    let length = segmentLengths[this.currentIndex] || 1;
+    let left = (1 - this.progress) * length;
+    while (meters >= left) {
+      meters -= left;
+      this.progress = 0;
       this.currentIndex++;
       this.cachedPerpValid = false; // Invalidate cached perpendicular on segment change
 
       if (this.currentIndex >= this.path.length - 1) {
         return 'reached_end';
       }
+      length = segmentLengths[this.currentIndex] || 1;
+      left = length;
     }
+    this.progress += meters / length;
 
     // Past the end of the path (a body still flowing into the base, see
     // OozeBodies): nothing to place

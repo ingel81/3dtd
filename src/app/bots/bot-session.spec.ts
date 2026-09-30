@@ -15,9 +15,10 @@ import { packet } from '../sim/client/mirror/testing/mirror-packets';
 import { RouteQueriesService } from '../services/route-queries.service';
 import { PathAndRouteService } from '../services/world/path-route.service';
 import { MainWorldService } from '../services/world/main-world.service';
+import { GameClock } from '../managers/game-state/game-clock';
 
 /** Sub-step length the game loop hands the bot (GameClock.FIXED_STEP_MS). */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 /** The corridor build of the location, as MainWorldService.corridorPending tells it. */
 const corridor = { building: false };

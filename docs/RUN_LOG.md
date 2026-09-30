@@ -30,7 +30,7 @@ JSONL, eine Zeile je Datensatz, in der Reihenfolge, in der sie entstanden sind. 
 ### Jeder Datensatz trägt den Sub-Step
 
 `step` ist der fortlaufende Zähler aus `GameClock.subStep`, `timeMs` die Spielzeit zum Mitlesen. Die Spielzeit ist
-eine Summe aus 16,667 ms und driftet im Float; der Schritt-Index tut das nicht. Ein Replay als Neu-Simulation
+eine Summe aus Sub-Steps von 33,334 ms und driftet im Float; der Schritt-Index tut das nicht. Ein Replay als Neu-Simulation
 (Stufe 2 in [BALANCING_PLAN.md](BALANCING_PLAN.md), Abschnitt 5) braucht den Schritt, nicht die Zeit.
 
 ### Der Kopf

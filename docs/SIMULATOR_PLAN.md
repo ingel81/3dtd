@@ -45,7 +45,7 @@ Tower-Besitz, Sicht vom Host über das Netz, Umgang mit Float-Abweichungen zwisc
 | Baustein | Stand | Stelle |
 |----------|-------|--------|
 | Geseedeter Zufall | mulberry32, Ströme `director`, `spawn`, `enemy`, `bot`, Seed im Run-Log | `utils/game-rng.ts` |
-| Fester Takt | 16,667 ms je Sub-Step, fortlaufender Zähler `subStep` | `managers/game-state/game-clock.ts` |
+| Fester Takt | 33,334 ms je Sub-Step (30 je Sekunde; bis 2026-09-30 16,667 ms), fortlaufender Zähler `subStep` | `managers/game-state/game-clock.ts` |
 | Befehle | alle Spieler- und Bot-Aktionen als `command:*` | `managers/game-commands.handler.ts` |
 | Zellhöhen | nach dem Korridorbau eingefroren, Gegner, Held, Ooze lesen sie | `utils/global-route-grid.ts` |
 | Held, Fähigkeiten, Forschung | Spielzeit, kein Zufall | Kopfkommentare der Manager |
@@ -135,7 +135,7 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
   Position, Höhe, Leben, Wegfortschritt und Statuseffekte; je Tower Cooldown, Kills, Schaden, Ziel, Upgrade-Stufen,
   Zielstrategie, Hold-Fire und Besetzung; Projektile; je Held Ort, Cooldown, Stufe, Munition und Ziel; je Spieler
   Forschung (fertig, laufend, Warteschlange) und Fähigkeiten (Ladungen, Schläge unterwegs). Bits, nicht gerundet. Nur
-  beim Aufnehmen und Prüfen, alle 60 Sub-Steps und am Wellenende, im Coop alle 30 Ticks; im normalen Spiel nicht.
+  beim Aufnehmen und Prüfen, jede Spielsekunde (30 Sub-Steps) und am Wellenende, im Coop alle 30 Ticks; im normalen Spiel nicht.
   `STATE_HASH_VERSION` (2 seit TODO E63 i, 3 seit der eigenen Mathe aus E28) steht in der Replay-Datei; eine Datei
   einer anderen Version spielt ohne Prüfung ihrer Summen.
 - Snapshot mitten in der Welle (`simulator/wave-snapshot.ts`, 2026-09-28): `captureWaveSnapshot()` an jeder
@@ -145,7 +145,7 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
   Funktionen, deren letztes Bit je Engine und V8-Version anders ausfällt. So gibt dieselbe Welle in Node, Chromium und
   Firefox dieselben Prüfsummen (`tools/det-math-browsers/run.mjs`, COOP_PLAN C5).
 - Abnahme-Spec: ein Lauf mit Bot über mehrere Wellen, Befehle aufgezeichnet; dann jede Welle aus ihrem Snapshot
-  nachgerechnet, Prüfsumme je 60 Sub-Steps gleich. Dazu dieselbe Welle bei Timescale 1 und 20.
+  nachgerechnet, Prüfsumme je Spielsekunde gleich. Dazu dieselbe Welle bei Timescale 1 und 20.
 - Benchmark-Spec für den ganzen Sub-Step (Gegner, Tower, Projektile in festen Mengen), damit P1 bis P3 zeigen, dass nichts
   teurer wurde.
 
@@ -179,7 +179,7 @@ Reihenfolge nach Abhängigkeit. P1 bis P3 sind unabhängig voneinander.
 | Turmdrehung in der Sim | gleiche Rechnung, ohne Map-Lookup je Tower im Renderer |
 | Sicht als Daten, kein Raycast-Rückgriff | Kampf wird billiger; Maske kodieren nur beim Bau (µs) |
 | Snapshot | nur an Wellenstart, wenige KB, unter 1 ms |
-| Prüfsumme | nur beim Aufnehmen und Prüfen, alle 60 Sub-Steps |
+| Prüfsumme | nur beim Aufnehmen und Prüfen, jede Spielsekunde (30 Sub-Steps) |
 | Präsentations-Aufnahme weg | spart rund 0,8 ms je Sekunde Spielzeit und bis zu 48 MB |
 | Vorrechnen beim Springen | headless, gemessen per Benchmark; Ziel 10 800 Sub-Steps unter 2 s bei typischer Welle |
 

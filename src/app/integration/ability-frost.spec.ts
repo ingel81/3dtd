@@ -36,6 +36,7 @@ import {
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
@@ -51,12 +52,12 @@ import type { GeoPosition } from '../models/game.types';
 const FROST = ABILITIES['frost-bomb'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** Sub-step whose per-step hook sends the command, as the bot does: 4.5 s in */
-const COMMAND_STEP = 270;
-/** 500 ms of warning in sub-steps of 16.667 ms */
-const WARNING_STEPS = 30;
+const COMMAND_STEP = stepsOf(4500);
+/** 500 ms of warning in sub-steps */
+const WARNING_STEPS = stepsOf(500);
 /** 3 s of freeze, bosses 1 s */
-const FREEZE_STEPS = 180;
-const BOSS_FREEZE_STEPS = 60;
+const FREEZE_STEPS = stepsOf(3000);
+const BOSS_FREEZE_STEPS = stepsOf(1000);
 const TARGET: GeoPosition = TEST_PATH[3];
 
 /**
@@ -162,7 +163,7 @@ describe('Frost bomb through the sub-step loop', () => {
     vi.restoreAllMocks();
   });
 
-  it('bursts on the 30th sub-step after the command', () => {
+  it('bursts 500 ms after the command', () => {
     vi.spyOn(Math, 'random').mockReturnValue(0.5);
     expect(run(1).impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
   });

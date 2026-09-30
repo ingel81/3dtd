@@ -22,6 +22,7 @@ import { METERS_PER_DEGREE_LAT as M } from '../../utils/geo-utils';
 import type { RouteWaypoint } from '../../models/game.types';
 import type { TowerTypeId } from '../../configs/tower-types.config';
 import type { ViewEvent } from './view-events';
+import { GameClock } from '../../managers/game-state/game-clock';
 
 const ORIGIN = { lat: 48.7758, lon: 9.1829, height: 300 };
 
@@ -65,7 +66,7 @@ describe('SimClient to SimCore in one thread', () => {
   const events: ViewEvent[] = [];
 
   const frames = (n: number) => {
-    for (let i = 0; i < n; i++) client.frame((now += 16.667), false);
+    for (let i = 0; i < n; i++) client.frame((now += GameClock.FIXED_STEP_MS), false);
   };
 
   beforeEach(() => {

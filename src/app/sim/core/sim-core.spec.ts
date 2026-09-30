@@ -98,7 +98,7 @@ class Driver {
   }
 
   tick(overrides: Partial<SimInput> = {}): SimFramePacket {
-    this.now += 16.667;
+    this.now += GameClock.FIXED_STEP_MS;
     const commands = this.queued;
     this.queued = [];
     this.core.input({ ...SETTINGS, commands, ...overrides }, this.now);
@@ -356,13 +356,13 @@ describe('SimCore in the same thread', () => {
       expect(core.idleMs()).toBeCloseTo(STEP - 16, 6);
       expect(core.pass(1000.3)).toBeNull();
 
-      const packet = core.pass(1001)!;
+      const packet = core.pass(1018)!;
       expect(packet.stepsRun).toBe(1);
-      expect(core.idleMs()).toBeGreaterThan(15);
+      expect(core.idleMs()).toBeGreaterThan(STEP - 2);
       // Four times the speed, a quarter of the wait
-      core.input({ ...SETTINGS, gameSpeed: 4 }, 1001);
-      expect(core.pass(1001)!.stepsRun).toBe(0);
-      expect(core.idleMs()).toBeCloseTo((STEP - 0.333) / 4, 1);
+      core.input({ ...SETTINGS, gameSpeed: 4 }, 1018);
+      expect(core.pass(1018)!.stepsRun).toBe(0);
+      expect(core.idleMs()).toBeCloseTo((STEP - (34 - STEP)) / 4, 1);
     });
 
     it('publishes what an input, a setting or a call changed at once, without a sub-step', () => {
@@ -387,7 +387,7 @@ describe('SimCore in the same thread', () => {
       const core = running(4);
       const free = running(4);
       const before = core.gsm.subStep;
-      // 100 ms at speed 4: 24 sub-steps due. The deadline has passed: one runs, the pass asks to go on at once
+      // 100 ms at speed 4: 12 sub-steps due. The deadline has passed: one runs, the pass asks to go on at once
       const hashes = new Set<number>();
       let passes = 0;
       do {
@@ -395,12 +395,12 @@ describe('SimCore in the same thread', () => {
         hashes.add(core.gsm.stateHash());
         passes++;
       } while (core.idleMs() === 0 && passes < 100);
-      expect(passes).toBe(24);
-      expect(hashes.size).toBe(24);
+      expect(passes).toBe(12);
+      expect(hashes.size).toBe(12);
       expect(core.pass(1100, performance.now() - 1)).toBeNull();
 
-      expect(free.pass(1100)!.stepsRun).toBe(24);
-      expect(core.gsm.subStep).toBe(before + 24);
+      expect(free.pass(1100)!.stepsRun).toBe(12);
+      expect(core.gsm.subStep).toBe(before + 12);
       expect(core.gsm.stateHash()).toBe(free.gsm.stateHash());
     });
 
@@ -416,19 +416,19 @@ describe('SimCore in the same thread', () => {
       const asked = { demandPending: () => false, takeDemand: vi.fn(() => false) };
       let now = 1000;
       const every: SimFramePacket[] = [];
-      for (let i = 0; i < 5; i++) {
-        now += 17;
+      for (let i = 0; i < 2; i++) {
+        now += 34;
         expect(core.pass(now, Infinity, asked)).toBeNull();
         every.push(free.pass(now)!);
       }
       expect(core.gsm.subStep).toBe(free.gsm.subStep);
       expect(core.idleMs()).toBeGreaterThan(0);
       // It asks: one packet with everything since the last
-      now += 17;
+      now += 34;
       every.push(free.pass(now)!);
       const packet = core.pass(now, Infinity, { demandPending: () => false, takeDemand: () => true })!;
       expect(packet.stepsRun).toBe(every.reduce((a, p) => a + p.stepsRun, 0));
-      expect(packet.stepsRun).toBeGreaterThan(5);
+      expect(packet.stepsRun).toBeGreaterThanOrEqual(3);
       expect(packet.presented).toBe(true);
       expect(packet.events.map((e) => e.type)).toEqual(every.flatMap((p) => p.events.map((e) => e.type)));
       expect(packet.ops.map((op) => op[0])).toEqual(every.flatMap((p) => p.ops.map((op) => op[0])));
@@ -436,18 +436,18 @@ describe('SimCore in the same thread', () => {
       // Nothing held after it
       expect(core.pass(now + 1, Infinity, asked)).toBeNull();
       // Asked only from when the next packet is due (MIN_PUBLISH_GAP_MS)
-      expect(asked.takeDemand).toHaveBeenCalledTimes(3);
+      expect(asked.takeDemand).toHaveBeenCalledTimes(1);
     });
 
     it('ends the pass after the sub-step running when the main thread waits for a packet', () => {
       const core = running(4);
-      // 100 ms at speed 4: 24 sub-steps due, the demand comes during the third
+      // 100 ms at speed 4: 12 sub-steps due, the demand comes during the third
       let checks = 0;
       const packet = core.pass(1100, Infinity, { demandPending: () => ++checks >= 3, takeDemand: () => true })!;
       expect(packet.stepsRun).toBe(3);
       // The rest is still due
       expect(core.idleMs()).toBe(0);
-      expect(core.pass(1100)!.stepsRun).toBe(21);
+      expect(core.pass(1100)!.stepsRun).toBe(9);
     });
 
     it('answers demands MIN_PUBLISH_GAP_MS apart, behind or not', () => {
@@ -479,7 +479,7 @@ describe('SimCore in the same thread', () => {
       // Keeping up at speed 1: every second sub-step goes out, about 30 states a second
       const kept = running(1);
       let packets = 0;
-      for (let t = 1017; t <= 2000; t += 16.667) {
+      for (let t = 1017; t <= 2000; t += GameClock.FIXED_STEP_MS) {
         if (kept.pass(t, Infinity, always)) packets++;
       }
       expect(packets).toBeGreaterThanOrEqual(29);
@@ -487,7 +487,7 @@ describe('SimCore in the same thread', () => {
       // A pass that comes late does not push the next packet a sub-step further
       const late = running(1);
       packets = 0;
-      for (let t = 1017; t <= 2000; t += 16.667) {
+      for (let t = 1017; t <= 2000; t += GameClock.FIXED_STEP_MS) {
         if (late.pass(t + (packets % 2 === 0 ? 3 : 0), Infinity, always)) packets++;
       }
       expect(packets).toBeGreaterThanOrEqual(28);
@@ -506,9 +506,9 @@ describe('SimCore in the same thread', () => {
       expect(core.gsm.subStep).toBeGreaterThan(0);
 
       // The pause: the loop sleeps until a message, the last state goes out first
-      expect(core.pass(1035, Infinity, never)).toBeNull();
+      expect(core.pass(1052, Infinity, never)).toBeNull();
       core.gsm.paused.set(true);
-      const last = core.pass(1040, Infinity, never)!;
+      const last = core.pass(1056, Infinity, never)!;
       expect(last.stepsRun).toBe(1);
       expect(core.idleMs()).toBe(Infinity);
       core.gsm.paused.set(false);
@@ -520,7 +520,7 @@ describe('SimCore in the same thread', () => {
       expect(free.pass(1034, Infinity, demand)).not.toBeNull();
       asks = false;
       let packets = 0;
-      for (let now = 1051; now < 1034 + 2 * MAX_PUBLISH_GAP_MS + 17; now += 17) {
+      for (let now = 1068; now < 1034 + 2 * MAX_PUBLISH_GAP_MS + 17; now += 34) {
         if (free.pass(now, Infinity, demand)) packets++;
       }
       expect(packets).toBe(2);
@@ -541,8 +541,8 @@ describe('SimCore in the same thread', () => {
         last = core.pass(now, Infinity, demand) ?? last;
       }
       const stood = core.gsm.subStep;
-      expect(stood).toBeGreaterThan(MAX_AHEAD_MS / 17 - 2);
-      expect(stood).toBeLessThan(MAX_AHEAD_MS / 17 + 3);
+      expect(stood).toBeGreaterThan(MAX_AHEAD_MS / STEP - 2);
+      expect(stood).toBeLessThan(MAX_AHEAD_MS / STEP + 3);
       expect(last!.scalars.subStep).toBe(stood);
       expect(core.idleMs()).toBe(Infinity);
       expect(core.pass(now + 5000, Infinity, demand)).toBeNull();
@@ -559,7 +559,7 @@ describe('SimCore in the same thread', () => {
       core.pass(now, Infinity, demand);
       expect(core.gsm.subStep).toBe(stood);
       expect(core.idleMs()).toBeLessThan(STEP);
-      expect(core.pass(now + 17, Infinity, demand)!.stepsRun).toBe(1);
+      expect(core.pass(now + 34, Infinity, demand)!.stepsRun).toBeGreaterThanOrEqual(1);
     });
 
     it('keeps at most MAX_BACKLOG_MS of wall clock times the speed: a loop that stood does not run minutes at once', () => {
@@ -585,7 +585,7 @@ describe('SimCore in the same thread', () => {
       expect(core.pass(61_100)!.stepsRun).toBe(0);
       expect(core.gsm.subStep).toBe(steps);
       expect(core.idleMs()).toBeLessThan(STEP);
-      expect(core.pass(61_117)!.stepsRun).toBe(1);
+      expect(core.pass(61_118)!.stepsRun).toBe(1);
     });
 
     it('runs nothing without a world: the loop sleeps until the next one', () => {

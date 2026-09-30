@@ -17,9 +17,10 @@ import { ABILITIES } from '../configs/abilities.config';
 import { SCREEN_SHAKE_CONFIG } from '../configs/visual-effects.config';
 import { loadDisplayOptions } from '../utils/display-options.storage';
 import type { GeoPosition } from '../models/game.types';
+import { GameClock } from '../managers/game-state/game-clock';
 
 /** GameClock.FIXED_STEP_MS */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 const NUKE = ABILITIES['nuclear-strike'];
 /** 6500 ms of warning in sub-steps */
 const WARNING_STEPS = 390;

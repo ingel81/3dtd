@@ -10,7 +10,7 @@ import type { SavedWormGroup } from '../managers/worm/worm-chains';
 import type { SavedOoze } from '../managers/ooze-bodies';
 
 /** Bumped whenever the shape changes; another version is refused. */
-export const WAVE_SNAPSHOT_VERSION = 1;
+export const WAVE_SNAPSHOT_VERSION = 2;
 
 /**
  * The simulation at any sub-step boundary, a wave running included, as

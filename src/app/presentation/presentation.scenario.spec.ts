@@ -53,6 +53,7 @@ import { PresentationHost } from './presentation-host';
 import type { RouteWaypoint } from '../models/game.types';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { ViewEvent } from '../sim/client/view-events';
+import { GameClock } from '../managers/game-state/game-clock';
 
 const ORIGIN = { lat: 48.7758, lon: 9.1829, height: 300 };
 
@@ -132,7 +133,7 @@ describe('The presentation of a wave from real packets', () => {
   const events: ViewEvent[] = [];
 
   const frames = (n: number) => {
-    for (let i = 0; i < n; i++) client.frame((now += 16.667), true);
+    for (let i = 0; i < n; i++) client.frame((now += GameClock.FIXED_STEP_MS), true);
   };
 
   beforeEach(() => {

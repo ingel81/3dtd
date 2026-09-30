@@ -40,6 +40,7 @@ import {
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
@@ -57,8 +58,8 @@ const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 /** The fourth waypoint, about 33 m down the path */
 const TARGET: GeoPosition = TEST_PATH[3];
 const SEGMENT_M = geoDistanceFast(TEST_PATH[0], TEST_PATH[1]);
-/** 6500 ms of warning in sub-steps of 16.667 ms */
-const NUKE_WARNING_STEPS = 390;
+/** 6500 ms of warning in sub-steps */
+const NUKE_WARNING_STEPS = stepsOf(6500);
 
 /** A game in setup with `researched` done, the grid stubbed and the real damage path. */
 function createGame(timescale: number, researched: AbilityId[]) {
@@ -149,10 +150,10 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
 
   describe('395: the freeze in a pause', () => {
     /** Sub-step whose per-step hook sends the command: 4.5 s in, as in ability-frost.spec.ts */
-    const COMMAND_STEP = 270;
-    const WARNING_STEPS = 30;
-    const FREEZE_STEPS = 180;
-    const BOSS_FREEZE_STEPS = 60;
+    const COMMAND_STEP = stepsOf(4500);
+    const WARNING_STEPS = stepsOf(500);
+    const FREEZE_STEPS = stepsOf(3000);
+    const BOSS_FREEZE_STEPS = stepsOf(1000);
     /** Halfway through the boss's freeze */
     const PAUSE_STEP = COMMAND_STEP + WARNING_STEPS + BOSS_FREEZE_STEPS / 2;
 
@@ -208,8 +209,8 @@ describe('Abilities through the sub-step loop, playtest 320, 335, 395 and 397 (n
   describe('397: orbital laser', () => {
     /** The ninth waypoint, about 89 m along the 111 m path: the beam runs back to about 17 m */
     const LASER_TARGET: GeoPosition = TEST_PATH[8];
-    const WARNING_STEPS = 60;
-    const BURN_STEPS = 240;
+    const WARNING_STEPS = stepsOf(1000);
+    const BURN_STEPS = stepsOf(4000);
 
     it('keeps the wave open while the beam burns and ends it once the beam is out', () => {
       const { gsm, bus, clock } = createGame(1, ['orbital-laser']);

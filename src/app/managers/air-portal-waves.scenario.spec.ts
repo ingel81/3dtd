@@ -27,8 +27,9 @@ import { createTestManagers, TEST_SPAWN_POINTS, type TestManagers } from '../int
 import { geoDistanceFast, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
+import { GameClock } from './game-state/game-clock';
 
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 /** Height of the routes; the mocked grid leaves the ground there */
 const GROUND = 300;
 

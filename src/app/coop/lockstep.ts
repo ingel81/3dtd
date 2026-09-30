@@ -15,11 +15,12 @@ import type { CommandData } from '../managers/game-state/command-data';
  */
 
 /**
- * Sub-steps per net tick: 2 × 16.667 ms, 30 ticks a second at speed 1. Was 4;
- * half the tick halves the wait for a command to come back (PLAYTEST T28,
- * TODO E29), for twice the ticks from the relay.
+ * Sub-steps per net tick: one of 33.3 ms, 30 ticks a second at speed 1. Was 2
+ * of 16.667 ms, the same 30 ticks a second, until the simulation went to 30
+ * sub-steps a second (TODO E86), and 4 before that: a shorter tick shortens
+ * the wait for a command to come back (PLAYTEST T28, TODO E29).
  */
-export const TICK_SUB_STEPS = 2;
+export const TICK_SUB_STEPS = 1;
 
 /** A command as the relay stamped it. */
 export interface StampedCommand {

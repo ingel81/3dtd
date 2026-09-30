@@ -11,6 +11,7 @@ import { mulberry32 } from '../../src/app/utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../../src/app/utils/geo-utils';
 import { Resimulation } from '../../src/app/simulator/resimulation';
 import { buildReplayFile, readReplayFile } from '../../src/app/simulator/replay-file';
+import { GameClock } from '../../src/app/managers/game-state/game-clock';
 
 const SEED = 0x51a1;
 
@@ -85,7 +86,7 @@ export function record(): { text: string; waves: WaveResult[]; ms: number } {
     });
     // Let the last shots land, so the next wave's snapshot is allowed
     for (let k = 0; k < 400 && gsm.snapshotRefusal() !== null; k++) {
-      gsm.update((now += 16.667));
+      gsm.update((now += GameClock.FIXED_STEP_MS));
       gsm.ops.take();
     }
   });

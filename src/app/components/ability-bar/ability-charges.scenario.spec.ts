@@ -19,9 +19,10 @@ import type { GameStateManager } from '../../managers/game-state.manager';
 import { ABILITY_IDS, type AbilityId, type AbilityStatus } from '../../configs/abilities.config';
 import type { GeoPosition } from '../../models/game.types';
 import { singlePlayer } from '../../integration/single-player-parts';
+import { GameClock } from '../../managers/game-state/game-clock';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 /** 6500 ms of warning in sub-steps */
 const WARNING_STEPS = 390;
 

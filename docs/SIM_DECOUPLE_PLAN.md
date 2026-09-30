@@ -197,6 +197,41 @@ meisten Bilder den alten Stand: hohe FPS, aber wenige neue Stände. Jetzt trägt
 neuen Stand, das Tempo wird gehalten oder steigt; die FPS sinken leicht, weil jedes Anwenden Zeit des Hauptthreads
 kostet.
 
+## Danach: 30 Stände und 30 Sub-Steps je Sekunde (TODO E86)
+
+Branches `perf/interp` und `perf/rate30`, auf `perf/decouple` aufgesetzt.
+
+- **Gleiten zwischen zwei Ständen** (`perf/interp`): Der Worker veröffentlicht rund 30 Stände je Sekunde
+  (`MIN_PUBLISH_GAP_MS`, als Zeitplan), Gegner und Lebensbalken gleiten im Shader, Geschosse, ihre Spuren und die
+  Helden auf dem Hauptthread (`three-engine/renderers/state-lerp.ts`). Beschrieben in [SIM_WORKER.md](SIM_WORKER.md).
+- **30 Sub-Steps je Sekunde** (`perf/rate30`): `GameClock.FIXED_STEP_MS` 33,334 ms. Bewusst eine Spur über 1000/30,
+  wie 16,667 über 1000/60 lag: Zähler summieren Sub-Steps, und mit dem genauen Drittel liegt die Summe von 15
+  Sub-Steps um einen Rundungsfehler unter 500 ms, eine runde Dauer (500 ms Vorwarnung) kostete dann einen Sub-Step
+  mehr. Gemessen in den Specs: mit 1000/30 fiel die EMP nach 16 statt 15 Sub-Steps.
+
+Was sich an den Regeln ändert (vorher 60 Sub-Steps, Abklingzeit ohne Rest):
+
+- **Feuerrate:** Die Abklingzeit nimmt den Rest des Sub-Steps mit, in dem sie abläuft (`CombatComponent`). Tower und
+  Held schießen jetzt im Mittel genau mit ihrer Rate. Vorher wurde der Schussabstand auf ganze Sub-Steps
+  aufgerundet: bei 60 Sub-Steps im Mittel einen halben Sub-Step (8,3 ms) je Schuss zu langsam, also rund 0,4 % bei
+  0,5 Schüssen je Sekunde, 0,8 % bei 1, 1,2 % bei 1,5, 4 % bei 5, 8 % bei 10, 12 % bei 15; im Einzelfall je nach
+  Rate zwischen 0 und dem Doppelten. Ein Spec-Fall (Gatling mit 8 Raten-Stufen) schoss 38 statt 36 Mal in derselben
+  Zeit. Höchstens ein Schuss je Sub-Step bleibt, also höchstens 30 Schüsse je Sekunde (erreicht wird rechnerisch
+  rund 15).
+- **Gehen über Wegpunkte:** Was am Ende eines Wegstücks übrig ist, geht als Strecke ins nächste
+  (`MovementComponent.advance`), nicht mehr als Anteil des verlassenen Stücks. Vorher sprang, wer aus einem kurzen
+  Stück in ein langes ging; mit 33 ms sprang der Held so 4 m. Gegner laufen dadurch an Wegpunkten eine Spur anders.
+- **Zeitpunkte rasten auf 33 ms statt 17 ms:** Einschläge, Effektenden, Treffer von Geschossen (sie treffen, sobald
+  der Rest kürzer ist als der Weg des Sub-Steps, kein Durchfliegen), Spawns.
+- **Gift und Brand:** gleich viele Ticks wie vorher, bei jeder geprüften Dauer und Startzeit (Spec in
+  `enemy.manager.spec.ts`). Der Tick, der auf das letzte Moment des Effekts fiele, kommt nicht (war schon so): 3 s
+  Brand sind 5 Ticks, nicht 6.
+- **Als Zeit statt als Schrittzahl:** Stuck-Erkennung (10 s), Zwischenstände des Replays (5 s), Prüfsumme je
+  Spielsekunde, Flugrichtung der Geschosse alle 50 ms (bei 33 ms jeden zweiten Sub-Step, also alle 67 ms),
+  Drehglättung der Gegner nach Zeit (lineare Näherung, bei 33 ms dreht ein Gegner je Sub-Step 30 % statt exakt 28 %
+  des Rests).
+- **Coop:** ein Tick ist ein Sub-Step, weiter 30 Ticks je Sekunde; Relay und Client müssen vom selben Stand sein.
+
 ## Später: Paket direkt aus der Tabelle
 
 Heute kopiert der Worker jeden Gegner je Paket in die Gegner-Tabelle (`writeEnemies`, rund 6,5 % des Workers bei

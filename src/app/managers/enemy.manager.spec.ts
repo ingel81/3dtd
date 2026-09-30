@@ -20,6 +20,7 @@ import { TIMING } from '../configs/timing.config';
 import { ENEMY_TYPES, enemyDeathDuration, enemyRewardWeight, leakDamageOf, type EnemyTypeId } from '../configs/enemy-types.config';
 import { createSinkSpy, createTestCoords, type SinkSpy } from '../integration/test-helpers';
 import type { SimSink } from '../sim/core/sim-sink';
+import { GameClock } from './game-state/game-clock';
 
 /** Reward weight of `n` bodies of `type`: what the wave manager reports for them. */
 const bodies = (n: number, type: EnemyTypeId = 'zombie') => n * enemyRewardWeight(ENEMY_TYPES[type].baseHp);
@@ -494,7 +495,7 @@ describe('EnemyManager', () => {
       for (let s = 1; s <= 150; s++) {
         const wasTurning = enemy.isTurning;
         const before = transformUpdate.mock.calls.length;
-        manager.update(16.667, s * 16.667);
+        manager.update(GameClock.FIXED_STEP_MS, s * GameClock.FIXED_STEP_MS);
         // Called exactly when the flag was set as the loop reached the enemy.
         expect(transformUpdate.mock.calls.length - before).toBe(wasTurning ? 1 : 0);
         if (wasTurning) turningSteps++;
@@ -551,6 +552,33 @@ describe('EnemyManager', () => {
 
     beforeEach(() => {
       now = 0;
+    });
+
+    it('ticks a burn and a poison as often at 30 sub-steps a second as at 60: once per 500 ms, the last moment left out (TODO E86)', () => {
+      /** Ticks of one effect of `duration` ms applied at `startStep`, stepped at `stepMs` until long after it ran out */
+      const ticks = (type: 'burn' | 'poison', duration: number, stepMs: number, startStep: number): number => {
+        const dots = collectDots();
+        const enemy = manager.spawn(path, 'zombie');
+        let clock = 0;
+        for (let step = 0; step < startStep + (duration + 1000) / stepMs; step++) {
+          if (step === startStep) enemy.movement.refreshStatusEffect(type, 1, duration, clock, 'source');
+          clock += stepMs;
+          manager.update(stepMs, clock);
+        }
+        return dots.filter((d) => d.sourceId === 'source').length;
+      };
+      for (const type of ['burn', 'poison'] as const) {
+        for (const duration of [1000, 3000, 4000]) {
+          // Applied at different moments of the clock, which drifts in floating point
+          for (const startStep of [0, 7, 100, 301]) {
+            const game = ticks(type, duration, GameClock.FIXED_STEP_MS, startStep);
+            const before = ticks(type, duration, 16.667, 2 * startStep);
+            expect(game, `${type} ${duration} ms from step ${startStep}`).toBe(before);
+            // The tick that falls on the effect's last moment does not come: the effect is gone by then
+            expect(game, `${type} ${duration} ms from step ${startStep}`).toBe(duration / 500 - 1);
+          }
+        }
+      }
     });
 
     it('ticks each burn source on its own, as fire damage', () => {
@@ -652,7 +680,7 @@ describe('EnemyManager', () => {
       let previous = bat.heightOffset;
       for (let s = 1; bat.portalExit !== null; s++) {
         expect(s).toBeLessThan(1000);
-        manager.update(16.667, s * 16.667);
+        manager.update(GameClock.FIXED_STEP_MS, s * GameClock.FIXED_STEP_MS);
         if (bat.movement.getDistanceAlongPath() <= exit.climbStart) expect(bat.heightOffset).toBe(exit.from);
         expect(bat.heightOffset).toBeGreaterThanOrEqual(previous);
         previous = bat.heightOffset;

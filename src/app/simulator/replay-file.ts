@@ -4,7 +4,7 @@ import { replayable, type WaveRecord } from './sim-recorder';
 import { STATE_HASH_VERSION } from './state-hash';
 
 /** Bumped whenever the file's shape changes; another version is refused. */
-export const REPLAY_FILE_VERSION = 1;
+export const REPLAY_FILE_VERSION = 2;
 const FORMAT = '3dtd-replay';
 
 /**

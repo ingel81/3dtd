@@ -14,6 +14,7 @@ import type { RouteWaypoint } from '../../models/game.types';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { wormSway } from './worm-group';
 import { wormPathOf } from './worm-path';
+import { GameClock } from '../../managers/game-state/game-clock';
 
 /**
  * What placing the rings on the worm's curve (WormPath.place) costs per
@@ -30,7 +31,7 @@ import { wormPathOf } from './worm-path';
  */
 
 const chain = ENEMY_TYPES['worm'].chain!;
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 const STEP_M = ENEMY_TYPES['worm'].baseSpeed * STEP_MS / 1000;
 const RINGS = WORM_MAX_SEGMENTS;
 const STEPS = 3000;

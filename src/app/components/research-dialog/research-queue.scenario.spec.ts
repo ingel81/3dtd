@@ -19,9 +19,10 @@ import { buildResearchNodes, researchClickAction, type ResearchTreeState } from 
 import { researchStatus } from '../game-sidebar/research-panel/research-status';
 import { LOCAL_PLAYER_ID } from '../../managers/game-state/command-log';
 import { singlePlayer } from '../../integration/single-player-parts';
+import { GameClock } from '../../managers/game-state/game-clock';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 /**
  * Playtest 508 and 509 (docs/archive/REVIEW_FIX_2026-09-14.md) replayed: a

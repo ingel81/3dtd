@@ -15,9 +15,15 @@ import { EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
+import { GameClock } from '../managers/game-state/game-clock';
 import { Tower } from '../entities/tower.entity';
 import { OriginSync, SimCoords, type SimSync } from '../sim/core/sim-coords';
 import type { SimOps, SimSink } from '../sim/core/sim-sink';
+
+/** Sub-steps it takes until `ms` of game time have passed (GameClock.FIXED_STEP_MS each) */
+export function stepsOf(ms: number): number {
+  return Math.ceil(ms / GameClock.FIXED_STEP_MS - 1e-9);
+}
 
 // ─── vi.mock('@angular/core') helper ───────────────────────────────
 

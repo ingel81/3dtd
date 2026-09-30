@@ -65,9 +65,10 @@ import { TowerSelectionService } from '../../../services/tower-selection.service
 import { PresentationService } from '../../../presentation/presentation.service';
 import { GameStore } from '../../../store/game.store';
 import { RunLogFacade } from '../../../run-log/run-log.facade';
+import { GameClock } from '../../../managers/game-state/game-clock';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 /** SidebarWavePanelComponent.autoStartSeconds */
 const AUTO_SECONDS = AUTO_WAVE_DELAY_MS / 1000;
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { TransformComponent, TurningFlagSink } from './transform.component';
 import { GameObject } from '../core/game-object';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { GameClock } from '../managers/game-state/game-clock';
 
 class TestGameObject extends GameObject {
   constructor() {
@@ -104,7 +105,7 @@ describe('TransformComponent', () => {
       expect(transform.rotation).toBe(-1.2);
       expect(internals.targetRotation).toBe(-1.2);
       expect(sink.isTurning).toBe(false);
-      transform.update(16.667);
+      transform.update(GameClock.FIXED_STEP_MS);
       expect(transform.rotation).toBe(-1.2);
     });
 
@@ -116,7 +117,7 @@ describe('TransformComponent', () => {
 
       let ticks = 0;
       while (sink.isTurning && ticks < 1000) {
-        transform.update(16.667);
+        transform.update(GameClock.FIXED_STEP_MS);
         ticks++;
       }
       expect(ticks).toBeGreaterThan(1);
@@ -150,7 +151,7 @@ describe('TransformComponent', () => {
         } else if (op < 0.3) {
           transform.rotation = internals.targetRotation;
         } else {
-          transform.update(16.667);
+          transform.update(GameClock.FIXED_STEP_MS);
         }
 
         expect(sink.isTurning).toBe(
@@ -158,7 +159,7 @@ describe('TransformComponent', () => {
         );
         if (!sink.isTurning) {
           const before = transform.rotation;
-          transform.update(16.667);
+          transform.update(GameClock.FIXED_STEP_MS);
           expect(Object.is(transform.rotation, before)).toBe(true);
         }
       }
@@ -168,7 +169,7 @@ describe('TransformComponent', () => {
       const transform = new TransformComponent(new TestGameObject());
       transform.lookAt({ lat: 1, lon: 0 });
       transform.lookAt({ lat: 0, lon: 1 });
-      transform.update(16.667);
+      transform.update(GameClock.FIXED_STEP_MS);
       expect(transform.rotation).toBeLessThan(0);
     });
   });

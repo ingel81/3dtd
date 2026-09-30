@@ -49,6 +49,7 @@ import { mulberry32 } from '../utils/game-rng';
 import { DEG_TO_RAD, METERS_PER_DEGREE_LAT as M } from '../utils/geo-utils';
 import { DetMath } from '../utils/det-math';
 import { noopStub } from './noop-stub';
+import { GameClock } from '../managers/game-state/game-clock';
 
 export interface SimScenario {
   name: string;
@@ -256,7 +257,7 @@ export function createSimBench(scenario: SimScenario, services: Record<string, u
       let done = 0;
       let last = 0;
       while (done < steps) {
-        now += 16.667;
+        now += GameClock.FIXED_STEP_MS;
         gsm.update(now, () => {
           if (times && done > 0 && done <= times.length) times[done - 1] = performance.now() - last;
           done++;

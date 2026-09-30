@@ -27,7 +27,7 @@ export class AutoWaveCountdown {
 
   /**
    * Whole seconds left, rounded up for the display; null when not armed. The
-   * gap is rounded to whole ms first: the game clock adds 16.667 ms per
+   * gap is rounded to whole ms first: the game clock adds a broken number of ms (16.667 then) per
    * sub-step, and armed at some clock values the full delay came out as
    * 10000.000000000002 ms, which rounded up to 11.
    */

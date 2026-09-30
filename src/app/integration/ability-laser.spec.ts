@@ -37,6 +37,7 @@ import {
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
@@ -54,10 +55,10 @@ import type { GeoPosition } from '../models/game.types';
 
 const LASER = ABILITIES['orbital-laser'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
-const COMMAND_STEP = 30;
-/** 1 s of warning, then 4 s of burn, in sub-steps of 16.667 ms */
-const WARNING_STEPS = 60;
-const BURN_STEPS = 240;
+const COMMAND_STEP = stepsOf(500);
+/** 1 s of warning, then 4 s of burn, in sub-steps */
+const WARNING_STEPS = stepsOf(1000);
+const BURN_STEPS = stepsOf(4000);
 /** The ninth waypoint, about 89 m along the 111 m path: the beam runs back to about 17 m */
 const TARGET: GeoPosition = TEST_PATH[8];
 
@@ -194,10 +195,10 @@ describe('Orbital laser through the sub-step loop', () => {
     vi.restoreAllMocks();
   });
 
-  it('lands 60 sub-steps after the command and resolves after 4 s of burn', () => {
+  it('lands 1 s after the command and resolves after 4 s of burn', () => {
     const outcome = run(1);
     expect(outcome.impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
-    // The landing sub-step burns the first of the 240 ticks
+    // The landing sub-step burns the first of the burn's ticks
     expect(outcome.resolvedStep).toBe(COMMAND_STEP + WARNING_STEPS + BURN_STEPS - 1);
   });
 

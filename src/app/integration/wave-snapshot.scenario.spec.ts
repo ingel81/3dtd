@@ -44,6 +44,7 @@ import type { EnemyTypeId } from '../configs/enemy-types.config';
 import type { WaveSnapshot } from '../simulator/wave-snapshot';
 import { mulberry32 } from '../utils/game-rng';
 import { HASH_PARTS, firstDifferences } from '../coop/hash-check';
+import { stepsOf } from './test-helpers';
 import { buildSimWorld, type SimWorld, type SimWorldOptions } from './sim-world';
 
 const SEED = 0x5a5e;
@@ -233,16 +234,16 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
       },
       during: (sim, step) => {
         if (step === 10) sim.emit({ type: 'command:hero-move', target: at(sim, 0, 12) });
-        if (step === 420) sim.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: at(sim, 0, 20) });
-        if (step === 430) sim.emit({ type: 'command:use-ability', abilityId: 'orbital-laser', target: at(sim, 0, 4) });
-        if (step === 500) sim.emit({ type: 'command:use-ability', abilityId: 'emp', target: at(sim, 1, 25) });
+        if (step === stepsOf(7000)) sim.emit({ type: 'command:use-ability', abilityId: 'frost-bomb', target: at(sim, 0, 20) });
+        if (step === stepsOf(7200)) sim.emit({ type: 'command:use-ability', abilityId: 'orbital-laser', target: at(sim, 0, 4) });
+        if (step === stepsOf(8300)) sim.emit({ type: 'command:use-ability', abilityId: 'emp', target: at(sim, 1, 25) });
       },
     };
     // The frost bomb and the laser on their way, then the laser burning, the EMP on its way
     const strikes = (snapshot: WaveSnapshot) => snapshot.wave!.strikes.flatMap(([, list]) => list.map((strike) => strike.fields['abilityId']));
-    expect(splitAt(setup, 445, (snapshot) => expect(strikes(snapshot)).toEqual(['frost-bomb', 'orbital-laser']))).toBeGreaterThan(100);
-    expect(splitAt(setup, 520, (snapshot) => expect(strikes(snapshot)).toEqual(['orbital-laser', 'emp']))).toBeGreaterThan(100);
-    expect(splitAt(setup, 600, (snapshot) => {
+    expect(splitAt(setup, stepsOf(7400), (snapshot) => expect(strikes(snapshot)).toEqual(['frost-bomb', 'orbital-laser']))).toBeGreaterThan(100);
+    expect(splitAt(setup, stepsOf(8700), (snapshot) => expect(strikes(snapshot)).toEqual(['orbital-laser', 'emp']))).toBeGreaterThan(100);
+    expect(splitAt(setup, stepsOf(10_000), (snapshot) => {
       expect(strikes(snapshot)).toEqual(['orbital-laser']);
       // The beam has burnt enemies: its shares go along
       expect(snapshot.wave!.strikes[0][1][0].dealt!.length).toBeGreaterThan(0);
@@ -258,11 +259,11 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
         if (step === 0) for (const tower of sim.world.towers) sim.emit({ type: 'command:set-hold-fire', towerId: tower.id, holdFire: true });
         const p = sim.world.routes[0][3];
         if (step === 1) sim.emit({ type: 'command:hero-move', target: { lat: p.lat, lon: p.lon } });
-        if (step === 5000) for (const tower of sim.world.towers) sim.emit({ type: 'command:set-hold-fire', towerId: tower.id, holdFire: false });
+        if (step === stepsOf(83_000)) for (const tower of sim.world.towers) sim.emit({ type: 'command:set-hold-fire', towerId: tower.id, holdFire: false });
       },
     };
-    expect(splitAt(setup, 2500)).toBeGreaterThan(100);
-    for (const step of [3900, 4100]) {
+    expect(splitAt(setup, stepsOf(41_700))).toBeGreaterThan(100);
+    for (const step of [stepsOf(65_000), stepsOf(68_300)]) {
       expect(splitAt(setup, step, (snapshot) => expect(snapshot.wave!.heroTargets.length).toBe(1))).toBeGreaterThan(100);
     }
   });
@@ -307,26 +308,26 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
       maxSteps: 100_000,
       // A segment in the middle of the first worm dies: it falls apart into two
       during: (sim, step) => {
-        if (step !== 1200) return;
+        if (step !== stepsOf(20_000)) return;
         const segment = sim.gsm.enemyManager.getAlive().filter((e) => e.worm !== null && e.worm.group.seq === 1)[4];
         sim.run(() => sim.gsm.enemyManager.kill(segment));
       },
     };
     const chains = (snapshot: WaveSnapshot) => snapshot.wave!.enemies.worms.groups[0].state.chains.length;
-    expect(splitAt(setup, 30, (snapshot) => expect(wormsIn(snapshot)).toBe(1))).toBeGreaterThan(100);
-    expect(splitAt(setup, 600, (snapshot) => expect(wormsIn(snapshot)).toBe(2))).toBeGreaterThan(100);
+    expect(splitAt(setup, stepsOf(500), (snapshot) => expect(wormsIn(snapshot)).toBe(1))).toBeGreaterThan(100);
+    expect(splitAt(setup, stepsOf(10_000), (snapshot) => expect(wormsIn(snapshot)).toBe(2))).toBeGreaterThan(100);
     // Soon after the cut: the short front part rushes (EnemyChain.rush) and is through early
-    for (const at of [1300, 1500]) {
+    for (const at of [stepsOf(21_700), stepsOf(25_000)]) {
       expect(splitAt(setup, at, (snapshot) => expect(chains(snapshot)).toBeGreaterThan(1))).toBeGreaterThan(100);
     }
   });
 
   it('goes on bit for bit with oozes growing along the route, flowing in and splitting', () => {
     const bodies = (snapshot: WaveSnapshot) => snapshot.wave!.enemies.oozes.length;
-    for (const at of [60, 400, 1200]) {
+    for (const at of [stepsOf(1000), stepsOf(6700), stepsOf(20_000)]) {
       expect(splitAt({ wave: oozes }, at, (snapshot) => expect(bodies(snapshot)).toBeGreaterThan(0))).toBeGreaterThan(50);
     }
     // After the oozes: their clumps
-    expect(splitAt({ wave: oozes }, 2500)).toBeGreaterThan(50);
+    expect(splitAt({ wave: oozes }, stepsOf(41_700))).toBeGreaterThan(50);
   });
 });

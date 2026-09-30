@@ -12,6 +12,7 @@ import { buildSimWorld } from '../../src/app/integration/sim-world';
 import { mulberry32 } from '../../src/app/utils/game-rng';
 import { METERS_PER_DEGREE_LAT as M } from '../../src/app/utils/geo-utils';
 import type { SpawnEntry, WaveConfig } from '../../src/app/managers/wave.manager';
+import { GameClock } from '../../src/app/managers/game-state/game-clock';
 
 const f64 = new Float64Array(1);
 const u32 = new Uint32Array(f64.buffer);
@@ -119,7 +120,7 @@ export function simulate(origin?: { lat: number; lon: number }): { hashes: numbe
       if (f === 150) bus.emit({ type: 'command:upgrade-tower', towerId: towers[3].id, upgradeId: 'speed' });
     }
     now = 1e6;
-    for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += 16.667));
+    for (let i = 0; i < 400 && gsm.snapshotRefusal() !== null; i++) gsm.update((now += GameClock.FIXED_STEP_MS));
     bus.emit({ type: 'command:start-wave', config: bossConfig() } as never);
     for (let f = 0; f < 20000 && gsm.waveManager.phase() === 'wave'; f++) gsm.update((now += 10 + ((f * 13) % 29)));
     return { hashes: gsm.simRecorder.records.map((r) => r.hashes), end: gsm.stateHash(), kills };
@@ -237,7 +238,7 @@ export function heavy(waves = 6, dense = false): { hashes: number[]; waves: numb
         }
       }
       for (let i = 0; i < 200 && gsm.waveManager.phase() !== 'wave' && gsm.waveManager.phase() !== 'gameover'; i++) {
-        gsm.update((now += 16.667));
+        gsm.update((now += GameClock.FIXED_STEP_MS));
       }
     }
     return { hashes, waves: played, kills, subSteps: gsm.subStep, splashCalls, unflooredSplash };

@@ -4,6 +4,7 @@ vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
 import { GameEventBus } from '../game-engine';
 import { EnemyManager } from './enemy.manager';
+import { GameClock } from './game-state/game-clock';
 import { WaveManager, WaveConfig, SpawnPoint, SpawnEntry } from './wave.manager';
 import { GeoPosition } from '../models/game.types';
 
@@ -315,10 +316,12 @@ describe('WaveManager', () => {
     });
 
     it('an enemy that neither moves nor loses HP is logged once, after the window that takes the sample and one more', () => {
+      // The window of 10 s of game time, in sub-steps
+      const window = Math.round(10_000 / GameClock.FIXED_STEP_MS);
       // The first call sees the counters change; the window after it only samples
-      steps(601);
+      steps(window + 1);
       expect(stuckWarnings()).toBe(0);
-      steps(599);
+      steps(window - 1);
       expect(stuckWarnings()).toBe(0);
       steps(1);
       expect(stuckWarnings()).toBe(1);

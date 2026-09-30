@@ -31,14 +31,15 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { withAutoStubs, TEST_PATH } from './test-helpers';
+import { withAutoStubs, TEST_PATH, stepsOf } from './test-helpers';
 import { createHeroTestGame } from './hero-test-helpers';
 import { HERO } from '../configs/hero.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import type { GeoPosition } from '../models/game.types';
+import { GameClock } from '../managers/game-state/game-clock';
 
 /** GameClock.FIXED_STEP_MS in seconds */
-const STEP_S = 16.667 / 1000;
+const STEP_S = GameClock.FIXED_STEP_MS / 1000;
 
 
 const HIRE_STEP = 5;
@@ -46,7 +47,7 @@ const MOVE_STEP = 10;
 /** 44 m south of the HQ, 67 m north of the spawn */
 const POST: GeoPosition = TEST_PATH[6];
 /** 2 minutes of game time */
-const LAST_STEP = 7200;
+const LAST_STEP = stepsOf(120_000);
 
 /** Zombies walking north toward his post */
 const GROUP = [
@@ -121,9 +122,9 @@ describe('Hero at his post at 75x, playtest 426 replayed', () => {
     const single = run(1);
     const fast = run(75);
 
-    // 75x really ran as some 72 sub-steps per frame
+    // 75x really ran as some 36 sub-steps per frame of 16 ms
     expect(single.maxStepsPerFrame).toBeLessThanOrEqual(2);
-    expect(fast.maxStepsPerFrame).toBeGreaterThanOrEqual(70);
+    expect(fast.maxStepsPerFrame).toBeGreaterThanOrEqual(35);
 
     // Same hero at every sub-step
     expect(fast.trace).toEqual(single.trace);

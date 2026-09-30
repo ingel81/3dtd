@@ -34,7 +34,7 @@ Alle Werte stehen in `configs/abilities.config.ts` (`ABILITIES['nuclear-strike']
 | Ladungen | 1, höchstens 1. Eine neue nach je 3 abgeschlossenen Wellen; die Welle des Einsatzes zählt mit. Solange die Ladung steht, sammeln Wellen nichts an |
 | Einsatz | nur während einer Welle |
 | Ziel | Klick; der Einschlag liegt auf der Mitte der nächsten Route-Zelle im Umkreis von 30 m, sonst wird abgelehnt |
-| Vorwarnung | 6500 ms Spielzeit, das sind 390 Sub-Steps à 16,667 ms, gleich aus jeder Entfernung zum Silo (Entscheidung des Users 2026-09-17; bis dahin 1500 ms). Ein Zombie (5 m/s) läuft in der Zeit 32 m, ein Tank (3 m/s) 19,5 m: der Spieler muss vorhalten |
+| Vorwarnung | 6500 ms Spielzeit, das sind 195 Sub-Steps à 33,334 ms, gleich aus jeder Entfernung zum Silo (Entscheidung des Users 2026-09-17; bis dahin 1500 ms). Ein Zombie (5 m/s) läuft in der Zeit 32 m, ein Tank (3 m/s) 19,5 m: der Spieler muss vorhalten |
 | Wirkung | Radius 25 m, gemessen in 2D, also Boden und Luft; 60 % der Max-HP, Bosse (`isBoss`) 20 %; an der Schadensmatrix vorbei (`effect` der Art `max-hp-fraction`) |
 | Gold | jeder Kill zahlt seinen Anteil am Kill-Budget der Welle wie jeder andere, mit Gold-Popup, und zählt in KILLS und EARNED der Game-Over-Übersicht; kein Tower bekommt ihn gutgeschrieben, auch keinen Veteranenrang. Ein getötetes Skeleton splittet wie bei jedem Kill |
 | Schadenszahl | je getroffenem Gegner eine, die getöteten eingeschlossen: sein Anteil an den Max-HP, rot wie ein normaler Tower-Treffer (matrixfrei, `EFFECTIVENESS_COLORS.normal`). Der Schalter Damage Numbers gilt auch hier |
@@ -128,7 +128,7 @@ nach den ersten Wellen. Im Kampagne laufen Maschinen sicher in W9 und W22
 | Freischaltung | Forschung `orbital-laser`: 1.500 Gold, 45 s, Voraussetzung `master-engineering` |
 | Ladungen | wie der Nuklearschlag: 1, eine neue nach je 3 abgeschlossenen Wellen |
 | Ziel | Klick; der Strahl setzt auf dem Punkt der Gegnerroute auf, der dem Klick am nächsten liegt (Route-Polylinie, nicht Route-Zelle), im Umkreis von 30 m, sonst abgelehnt. Bei mehreren Routen die nächste, bei Gleichstand die erste in Spawn-Reihenfolge |
-| Vorwarnung | 1000 ms Spielzeit, 60 Sub-Steps |
+| Vorwarnung | 1000 ms Spielzeit, 30 Sub-Steps |
 | Weg | vom Aufsetzpunkt die Route zurück Richtung Spawn-Portal, 18 m/s für 4000 ms, also höchstens 72 m (`abilityBeamReachM`). Beginnt die Route früher, endet der Strahl dort früher |
 | Wirkung | Radius 5 m um den Strahl in 2D, Boden und Luft. Je Sub-Step verliert jeder Gegner darunter 100 % seiner Max-HP pro Sekunde mal Sub-Step-Länge, mal dem Multiplikator von `fire` gegen seine Rüstung (Schadensmatrix), Bosse 30 % pro Sekunde; über den ganzen Strahl höchstens 60 %, Bosse 20 % (`abilityBeamFraction`, `abilityBeamCap`). Der Schaden läuft über `DamageApplicationService.applyMaxHpFraction` wie beim Nuklearschlag, kein Tower bekommt Kill oder Schaden gutgeschrieben |
 | Gold | wie beim Nuklearschlag: jeder Kill zahlt seinen Anteil am Kill-Budget, mit Gold-Popup |
@@ -173,7 +173,7 @@ UI (AbilityTargetingService)            Bot (NuclearStrikeStrategy)
                                                     + ability:state-changed
 GameStateManager.runSubStep
   researchManager.update → abilityManager.update(stepMs)     Countdown in Spielzeit
-                                   │  nach 390 Sub-Steps
+                                   │  nach 195 Sub-Steps
        GlobalRouteGridService.getEnemiesInRadiusGeo (25 m)
        CombatEffectService.applyAbilityStrike
        DamageApplicationService.applyMaxHpFraction           matrixfrei, kein Tower-Kill
@@ -206,7 +206,7 @@ Einschlag hängt nicht daran.
 ## Determinismus
 
 - Der Befehl wirkt beim Emit wie die anderen Commands; der Countdown beginnt im
-  nächsten Sub-Step und wird pro Sub-Step um 16,667 ms verringert.
+  nächsten Sub-Step und wird pro Sub-Step um seine Länge (33,334 ms) verringert.
 - Kein Zufall. Die Radius-Abfrage liefert die Gegner in Zellen-Reihenfolge; das
   Ergebnis hängt davon nicht ab, jeder Gegner verliert seinen eigenen Anteil.
 - Ein Strahl (Orbitallaser) brennt nach dem Einschlag Sub-Step für Sub-Step
@@ -226,7 +226,7 @@ Einschlag hängt nicht daran.
 - Nachweis: `integration/ability-strike.spec.ts` schickt den Befehl über den
   echten Sub-Step-Loop des GameStateManager mit echten Gegnern und dem echten
   Schadensweg, mit einem Missile Silo in der Tower-Liste. Der Einschlag liegt
-  auf Sub-Step 390 nach dem Befehl, und HP, Kills und Gold sind bei Timescale
+  auf Sub-Step 195 nach dem Befehl, und HP, Kills und Gold sind bei Timescale
   1 und 10 gleich. Die Gegner laufen dort langsamer als früher (Wege statt
   Tempi), damit sie beim Einschlag an denselben Stellen stehen wie mit 1,5 s.
   Derselbe Spec prüft den Abschussort: ohne Silo `no-launch-site`, mit Silo
@@ -694,7 +694,7 @@ Tests: `abilities.config.spec.ts`, `ability.manager.spec.ts`,
 `refusal-hint.scenario.spec.ts` (K ohne Silo), `game-state.manager.order.spec.ts`
 (Snapshot nach Bau und Verkauf), `building-panel.spec.ts`,
 `missile-silo-placement.strategy.spec.ts`, `integration/strike-wave-end.scenario.spec.ts`
-(Welle bleibt 390 Sub-Steps offen).
+(Welle bleibt 195 Sub-Steps offen).
 
 ---
 

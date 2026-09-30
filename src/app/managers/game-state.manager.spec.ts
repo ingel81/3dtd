@@ -73,6 +73,7 @@ function createStubService(name: string): Record<string, unknown> {
   return stubs[name] ?? {};
 }
 
+import { GameClock } from './game-state/game-clock';
 import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
@@ -629,7 +630,7 @@ describe('GameStateManager', () => {
         expect(gsm.researchManager.isActive('ice-magic')).toBe(false);
 
         gsm.paused.set(false);
-        gsm.update(117, undefined);
+        gsm.update(140, undefined);
         expect(gsm.researchManager.isActive('ice-magic')).toBe(true);
       });
 
@@ -845,10 +846,10 @@ describe('GameStateManager', () => {
     });
 
     describe('sub-step loop (fixed-timestep accumulation)', () => {
-      it('runs one sub-step per ~16.7ms of game-time', () => {
+      it('runs one sub-step per FIXED_STEP_MS of game-time', () => {
         const onSub = vi.fn();
-        gsm.update(0, onSub);          // first call sets lastUpdateTime, raw delta ~16ms
-        gsm.update(16.667, onSub);     // ~1 sub-step worth
+        gsm.update(1, onSub);                             // first call sets lastUpdateTime, raw delta ~16ms
+        gsm.update(1 + GameClock.FIXED_STEP_MS, onSub);   // 1 sub-step worth
         // Expect at least one sub-step. The first call may also fire one
         // depending on the initial-delta fallback (16ms default).
         expect(onSub.mock.calls.length).toBeGreaterThanOrEqual(1);
@@ -902,13 +903,13 @@ describe('GameStateManager', () => {
         gsm.update(17, onSub);
         const seeded = onSub.mock.calls.length;
 
-        // 100 ms are due; the deadline has passed already: one sub-step runs
+        // 100 ms and what was carried are due, three sub-steps; the deadline has passed already: one runs
         gsm.update(117, onSub, performance.now() - 1);
         expect(onSub.mock.calls.length - seeded).toBe(1);
         expect(gsm.dueInMs()).toBe(0);
         // The rest with the next call, at the same wall clock
         gsm.update(117, onSub);
-        expect(onSub.mock.calls.length - seeded).toBe(6);
+        expect(onSub.mock.calls.length - seeded).toBe(3);
         expect(gsm.dueInMs()).toBeGreaterThan(0);
 
         gsm.paused.set(true);
@@ -1000,8 +1001,8 @@ describe('GameStateManager', () => {
       });
 
       it('reset() zeroes the game-clock and remainder', () => {
-        gsm.update(0, undefined);
-        gsm.update(100, undefined);
+        gsm.update(1, undefined);
+        gsm.update(101, undefined);
         expect(gsm.gameTimeMs).toBeGreaterThan(0);
         gsm.reset();
         expect(gsm.gameTimeMs).toBe(0);

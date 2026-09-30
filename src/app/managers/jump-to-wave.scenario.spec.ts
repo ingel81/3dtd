@@ -103,9 +103,10 @@ import { RunLogCollector } from '../run-log/run-log.service';
 import { runSummary } from '../run-log/run-summary';
 import { BestWaveService } from '../services/location/best-wave.service';
 import { createTestCoords, createTestOps } from '../integration/test-helpers';
+import { GameClock } from './game-state/game-clock';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 const NUKE = ABILITIES['nuclear-strike'];
 
 /**

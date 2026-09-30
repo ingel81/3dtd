@@ -44,6 +44,7 @@ import {
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { GameLoopFacadeService } from '../services/facade/game-loop-facade.service';
@@ -58,6 +59,7 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { SpawnStart } from '../managers/enemy.manager';
 import type { GeoPosition } from '../models/game.types';
 import type { FacadeComponentBridge } from '../services/facade/tower-defense-facade.service';
+import { GameClock } from '../managers/game-state/game-clock';
 
 const NUKE = ABILITIES['nuclear-strike'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
@@ -65,9 +67,9 @@ const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
 const BEHIND: GeoPosition = TEST_PATH[3];
 const SEGMENT_M = geoDistanceFast(TEST_PATH[0], TEST_PATH[1]);
 const PATH_M = SEGMENT_M * (TEST_PATH.length - 1);
-/** 6500 ms of warning in sub-steps of 16.667 ms */
-const WARNING_STEPS = 390;
-const STEP_MS = 16.667;
+/** 6500 ms of warning in sub-steps */
+const WARNING_STEPS = stepsOf(6500);
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 /** A game with the strike researched and the facade's auto-start on its bus. */
 function createGame() {

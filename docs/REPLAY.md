@@ -45,7 +45,7 @@ und ist nicht abspielbar. Cheats, die am Befehlslog vorbei Gegner setzen, entfer
 (`debug:spawn-enemy`, `debug:remove-enemy`, `debug:kill-all`), markieren die laufende Welle ebenso.
 
 Während der Welle schreibt der `CommandLog` jeden Befehl und jede Sichtlinien-Maske (`tower:los-resolved`) mit ihrem
-Sub-Step mit. Der Recorder nimmt jede Spielsekunde (60 Sub-Steps) eine Prüfsumme, am Beginn des Sub-Steps, wenn alle
+Sub-Step mit. Der Recorder nimmt jede Spielsekunde (30 Sub-Steps) eine Prüfsumme, am Beginn des Sub-Steps, wenn alle
 Eingaben der Grenze davor durch sind. Kosten: 0,05 / 0,16 / 0,51 ms je Prüfsumme bei 200 / 1000 / 3000 Gegnern,
 unter 0,01 ms je Sub-Step.
 

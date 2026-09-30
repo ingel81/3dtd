@@ -6,7 +6,7 @@
  * block per wave, and one end record.
  *
  * Every record carries the sub-step it belongs to. The game time is a sum of
- * 16.667 ms steps and drifts in floating point; the step index does not, and a
+ * fixed sub-steps and drifts in floating point; the step index does not, and a
  * replay as a re-simulation (BALANCING_PLAN.md, section 5) needs the step, not
  * the time.
  */

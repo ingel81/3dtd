@@ -793,7 +793,7 @@ export class GameStateManager {
    * Main update loop — called once per frame of the main thread (SimCore.tick).
    *
    * Architecture: outer wrapper handles wall-clock → game-time conversion;
-   * inner sub-step loop runs all gameplay logic at a FIXED 16.667ms game-time
+   * inner sub-step loop runs all gameplay logic at a FIXED game-time (GameClock.FIXED_STEP_MS)
    * granularity, identical to a single 1× tick.
    *
    * `onSubStep` is invoked once per sub-step with the step length in game-time
