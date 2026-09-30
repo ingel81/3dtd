@@ -98,6 +98,7 @@ function makeEngine() {
         return slot;
       }),
       updateSlot: vi.fn(),
+      beginState: vi.fn(),
       startRunAnimation: vi.fn((id: string) => { slots.get(id)!.isWalking = false; }),
       startWalkAnimation: vi.fn((id: string) => { slots.get(id)!.isWalking = true; }),
       setFreezeVisual: vi.fn(),

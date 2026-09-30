@@ -172,6 +172,8 @@ export class GameLoopFacadeService {
         const localY = engine?.getTerrainHeightAtGeo(lat, lon) ?? null;
         return engine && localY !== null ? localY + engine.sync.getOrigin().height : null;
       },
+      // Where a few enemies are shown now (x, z each) and the slide's state, for the evenness of the picture
+      shown: (reset = false) => this.bridge.getEngine()?.enemies.shownPositions(16, reset) ?? [],
       state: () => ({
         enemies: this.mirror.scalars.enemiesAlive,
         towers: this.mirror.scalars.towerCount,

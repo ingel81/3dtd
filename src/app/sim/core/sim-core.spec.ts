@@ -15,7 +15,7 @@ vi.mock('@angular/core', async () => {
   return { ...actual, Injectable: () => (target: unknown) => target };
 });
 
-import { MAX_AHEAD_MS, MAX_PUBLISH_GAP_MS, MIN_PUBLISH_GAP_BEHIND_MS, SimCore } from './sim-core';
+import { MAX_AHEAD_MS, MAX_PUBLISH_GAP_MS, MIN_PUBLISH_GAP_MS, SimCore } from './sim-core';
 import { OriginSync } from './sim-coords';
 import { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
 import { buildRoute } from '../../integration/sim-step-bench';
@@ -435,7 +435,8 @@ describe('SimCore in the same thread', () => {
       expect(packet.scalars.gameTimeMs).toBe(every[every.length - 1].scalars.gameTimeMs);
       // Nothing held after it
       expect(core.pass(now + 1, Infinity, asked)).toBeNull();
-      expect(asked.takeDemand).toHaveBeenCalledTimes(5);
+      // Asked only from when the next packet is due (MIN_PUBLISH_GAP_MS)
+      expect(asked.takeDemand).toHaveBeenCalledTimes(3);
     });
 
     it('ends the pass after the sub-step running when the main thread waits for a packet', () => {
@@ -449,7 +450,7 @@ describe('SimCore in the same thread', () => {
       expect(core.pass(1100)!.stepsRun).toBe(21);
     });
 
-    it('answers a demand while it lies behind only MIN_PUBLISH_GAP_BEHIND_MS after its last packet', () => {
+    it('answers demands MIN_PUBLISH_GAP_MS apart, behind or not', () => {
       const always = { demandPending: () => true, takeDemand: vi.fn(() => true) };
       const past = () => performance.now() - 1;
       const core = running(4);
@@ -467,16 +468,30 @@ describe('SimCore in the same thread', () => {
       }
       expect(core.idleMs()).toBe(0);
       expect(gaps.length).toBeGreaterThan(3);
-      expect(Math.min(...gaps)).toBeGreaterThanOrEqual(MIN_PUBLISH_GAP_BEHIND_MS);
-      expect(Math.max(...gaps)).toBeLessThan(MIN_PUBLISH_GAP_BEHIND_MS + 5);
+      // A schedule: the passes come every 5 ms, the packets every 33 ms on average, never closer than half of it
+      const later = gaps.slice(1);
+      expect(later.reduce((a, b) => a + b, 0) / later.length).toBeCloseTo(MIN_PUBLISH_GAP_MS, 0);
+      expect(Math.min(...gaps)).toBeGreaterThanOrEqual(MIN_PUBLISH_GAP_MS / 2);
+      expect(Math.max(...gaps)).toBeLessThanOrEqual(MIN_PUBLISH_GAP_MS + 5);
       // The demand is left standing meanwhile, not used up
       expect(always.takeDemand).toHaveBeenCalledTimes(gaps.length + 1);
 
-      // Caught up: every demand is answered again, however young the last packet
+      // Keeping up at speed 1: every second sub-step goes out, about 30 states a second
       const kept = running(1);
-      expect(kept.pass(1017, Infinity, always)).not.toBeNull();
-      expect(kept.pass(1034, Infinity, always)).not.toBeNull();
-      // And an input goes out at once even while behind
+      let packets = 0;
+      for (let t = 1017; t <= 2000; t += 16.667) {
+        if (kept.pass(t, Infinity, always)) packets++;
+      }
+      expect(packets).toBeGreaterThanOrEqual(29);
+      expect(packets).toBeLessThanOrEqual(30);
+      // A pass that comes late does not push the next packet a sub-step further
+      const late = running(1);
+      packets = 0;
+      for (let t = 1017; t <= 2000; t += 16.667) {
+        if (late.pass(t + (packets % 2 === 0 ? 3 : 0), Infinity, always)) packets++;
+      }
+      expect(packets).toBeGreaterThanOrEqual(28);
+      // And an input goes out at once, however young the last packet
       core.input({ ...SETTINGS }, now + 1);
       expect(core.pass(now + 1, past(), always)).not.toBeNull();
     });
@@ -502,10 +517,10 @@ describe('SimCore in the same thread', () => {
       const free = running();
       let asks = true;
       const demand = { demandPending: () => false, takeDemand: () => asks };
-      expect(free.pass(1017, Infinity, demand)).not.toBeNull();
+      expect(free.pass(1034, Infinity, demand)).not.toBeNull();
       asks = false;
       let packets = 0;
-      for (let now = 1034; now < 1017 + 2 * MAX_PUBLISH_GAP_MS + 17; now += 17) {
+      for (let now = 1051; now < 1034 + 2 * MAX_PUBLISH_GAP_MS + 17; now += 17) {
         if (free.pass(now, Infinity, demand)) packets++;
       }
       expect(packets).toBe(2);
@@ -516,12 +531,12 @@ describe('SimCore in the same thread', () => {
       let pending = false;
       const demand = { demandPending: () => pending, takeDemand: () => pending && !(pending = false) };
       pending = true;
-      expect(core.pass(1017, Infinity, demand)).not.toBeNull();
+      expect(core.pass(1034, Infinity, demand)).not.toBeNull();
 
       // The main thread stands: the simulation runs on for MAX_AHEAD_MS, then its last state goes out and it sleeps
-      let now = 1017;
+      let now = 1034;
       let last: SimFramePacket | null = null;
-      while (now < 1017 + MAX_AHEAD_MS + 100) {
+      while (now < 1034 + MAX_AHEAD_MS + 100) {
         now += 17;
         last = core.pass(now, Infinity, demand) ?? last;
       }

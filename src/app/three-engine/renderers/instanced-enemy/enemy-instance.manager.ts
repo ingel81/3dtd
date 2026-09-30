@@ -12,6 +12,7 @@ import {
 import { VATData } from './vat-baker';
 import { createVATBloodMoonUniforms, createVATMaterial, setVATTexture } from './vat-material';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
+import { STATE_LERP_JUMP_M, StateLerp } from '../state-lerp';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocator';
@@ -94,6 +95,8 @@ export interface TypePool {
   // Per-instance attributes
   animFrameAttr: InstancedBufferAttribute;
   tintColorAttr: InstancedBufferAttribute;
+  /** aPrevOffset (state-lerp.ts); goes out with the matrix */
+  prevOffsetAttr: InstancedBufferAttribute;
 
   // Dirty flags for batched GPU buffer updates (set per-instance, flushed once per frame)
   matrixDirty: boolean;
@@ -208,11 +211,25 @@ export class EnemyInstanceManager {
   private static readonly _tempPos = new Vector3();
   private static readonly _carriedMatrix = new Matrix4();
 
-  /** @param portalClip The spawn portals' clip every pool's material shares (portal-clip.ts) */
+  /** Share of a body's old offset it is still shown at while a state is written (StateLerp.begin) */
+  private carry = 0;
+  /** The offset the last updateEnemyState() wrote: the health bar slides by the same */
+  readonly lastOffset = new Vector3();
+
+  /**
+   * @param portalClip The spawn portals' clip every pool's material shares (portal-clip.ts)
+   * @param stateLerp The slide between two states every pool's material shares (state-lerp.ts)
+   */
   constructor(
     private readonly scene: Scene,
     private readonly portalClip: PortalClipUniforms = createPortalClipUniforms(),
+    readonly stateLerp: StateLerp = new StateLerp(),
   ) {}
+
+  /** A state of the simulation is about to be written (updateEnemyState per enemy): the slide starts over. */
+  beginState(now: number): void {
+    this.carry = this.stateLerp.begin(now);
+  }
 
   /**
    * Create a pool for an enemy type with baked VAT data.
@@ -228,6 +245,7 @@ export class EnemyInstanceManager {
       colorMultiplier: config.colorMultiplier,
       bloodMoon: this.bloodMoon,
       portalClip: this.portalClip,
+      stateLerp: this.stateLerp.uniform,
     });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
@@ -243,9 +261,11 @@ export class EnemyInstanceManager {
 
     const animFrameAttr = new InstancedBufferAttribute(animFrameData, 1);
     const tintColorAttr = new InstancedBufferAttribute(tintColorData, 3);
+    const prevOffsetAttr = new InstancedBufferAttribute(new Float32Array(INITIAL_INSTANCES_PER_TYPE * 3), 3);
 
     instancedMesh.geometry.setAttribute('aAnimFrame', animFrameAttr);
     instancedMesh.geometry.setAttribute('aTintColor', tintColorAttr);
+    instancedMesh.geometry.setAttribute('aPrevOffset', prevOffsetAttr);
 
     // count=0 → GPU renders nothing; slots are initialized on first use.
     // The gate keeps the empty mesh out of the render list.
@@ -263,6 +283,7 @@ export class EnemyInstanceManager {
       gate,
       animFrameAttr,
       tintColorAttr,
+      prevOffsetAttr,
       matrixDirty: false,
       tintDirty: false,
       animFrameDirty: false,
@@ -291,8 +312,9 @@ export class EnemyInstanceManager {
     }
     this.syncDrawCount(pool);
 
-    // Set instance matrix
+    // Set instance matrix. A new body (or a slot taken again) slides from nowhere
     this.setInstanceMatrix(pool, index, position, heading);
+    pool.prevOffsetAttr.setXYZ(index, 0, 0, 0);
 
     // Set initial attributes; they go out with the frame flush.
     pool.animFrameAttr.setX(index, 0);
@@ -350,10 +372,11 @@ export class EnemyInstanceManager {
     heading: number,
     currentSpeed?: number,
   ): void {
+    this.lastOffset.set(0, 0, 0);
     if (state.isDead) return;
 
     // Update matrix (state passed for debug overrides)
-    this.setInstanceMatrix(state.pool, state.index, position, heading, state);
+    this.setInstanceMatrix(state.pool, state.index, position, heading, state, true);
 
     // The ground walked, for a walk clip that steps by it
     if (state.config.gaitStride !== undefined) walkGait(state, position, heading);
@@ -416,6 +439,8 @@ export class EnemyInstanceManager {
 
     const pool = this.pools.get(state.typeId);
     if (!pool) return;
+    // No state moves a corpse any more: it lies where it was shown, or every new state would slide it again
+    this.settleShown(pool, state.index);
 
     const pickedDeath = pickDeathAnimation(state.config, pool);
     if (pickedDeath) {
@@ -645,6 +670,7 @@ export class EnemyInstanceManager {
     // while nothing renders, and headless training keeps removing enemies.
     this.matrix.makeTranslation(0, -10000, 0);
     pool.instancedMesh.setMatrixAt(state.index, this.matrix);
+    pool.prevOffsetAttr.setXYZ(state.index, 0, 0, 0);
     pool.matrixDirty = true;
 
     pool.instances.delete(id);
@@ -755,6 +781,9 @@ export class EnemyInstanceManager {
       // really is a full upload and not a partial one covering a few slots.
       pool.instancedMesh.instanceMatrix.clearUpdateRanges();
       pool.instancedMesh.instanceMatrix.needsUpdate = true;
+      (pool.prevOffsetAttr.array as Float32Array).fill(0);
+      pool.prevOffsetAttr.clearUpdateRanges();
+      pool.prevOffsetAttr.needsUpdate = true;
       pool.instances.clear();
       pool.slots.reset();
       this.syncDrawCount(pool);
@@ -845,8 +874,10 @@ export class EnemyInstanceManager {
     mesh.instanceMatrix = grownAttribute(mesh.instanceMatrix, capacity);
     pool.animFrameAttr = grownAttribute(pool.animFrameAttr, capacity);
     pool.tintColorAttr = grownAttribute(pool.tintColorAttr, capacity);
+    pool.prevOffsetAttr = grownAttribute(pool.prevOffsetAttr, capacity);
     mesh.geometry.setAttribute('aAnimFrame', pool.animFrameAttr);
     mesh.geometry.setAttribute('aTintColor', pool.tintColorAttr);
+    mesh.geometry.setAttribute('aPrevOffset', pool.prevOffsetAttr);
     pool.slots.grow(capacity);
   }
 
@@ -862,6 +893,7 @@ export class EnemyInstanceManager {
     position: Vector3,
     heading: number,
     state?: EnemyInstanceState,
+    slide = false,
   ): void {
     const configOffset = pool.config.headingOffset ?? 0;
     const rotationOffset = state?.debugRotation ?? 0;
@@ -902,6 +934,23 @@ export class EnemyInstanceManager {
 
     const te = pool.instancedMesh.instanceMatrix.array as Float32Array;
     const o = index * 16;
+    if (slide) {
+      // From where the body is shown now (its last state and what is left of that slide) to the new state
+      const off = pool.prevOffsetAttr.array as Float32Array;
+      const p = index * 3;
+      const carry = this.carry;
+      let dx = te[o + 12] + off[p] * carry - position.x;
+      let dy = te[o + 13] + off[p + 1] * carry - py;
+      let dz = te[o + 14] + off[p + 2] * carry - position.z;
+      // Switched off, or a jump (a teleport, a restore): the body stands where its state puts it
+      if (!this.stateLerp.enabled || dx * dx + dy * dy + dz * dz > STATE_LERP_JUMP_M * STATE_LERP_JUMP_M) {
+        dx = dy = dz = 0;
+      }
+      off[p] = dx;
+      off[p + 1] = dy;
+      off[p + 2] = dz;
+      this.lastOffset.set(dx, dy, dz);
+    }
     te[o] = (1 - (yy + zz)) * scale;
     te[o + 1] = (xy + wz) * scale;
     te[o + 2] = (xz - wy) * scale;
@@ -919,6 +968,34 @@ export class EnemyInstanceManager {
     te[o + 14] = position.z;
     te[o + 15] = 1;
     pool.matrixDirty = true;
+  }
+
+  /** The body of `index` from now on where it is shown at this moment, without a slide left. */
+  private settleShown(pool: TypePool, index: number): void {
+    const off = pool.prevOffsetAttr.array as Float32Array;
+    const p = index * 3;
+    if (off[p] === 0 && off[p + 1] === 0 && off[p + 2] === 0) return;
+    const left = 1 - this.stateLerp.uniform.value;
+    const te = pool.instancedMesh.instanceMatrix.array as Float32Array;
+    const o = index * 16;
+    te[o + 12] += off[p] * left;
+    te[o + 13] += off[p + 1] * left;
+    te[o + 14] += off[p + 2] * left;
+    off[p] = off[p + 1] = off[p + 2] = 0;
+    pool.matrixDirty = true;
+  }
+
+  /**
+   * Where the body of `state` is shown now (its state's place and what is
+   * left of the slide), scene-local. For probes of the picture's smoothness.
+   */
+  shownPosition(state: EnemyInstanceState, out: Vector3): Vector3 {
+    const te = state.pool.instancedMesh.instanceMatrix.array as Float32Array;
+    const off = state.pool.prevOffsetAttr.array as Float32Array;
+    const o = state.index * 16;
+    const p = state.index * 3;
+    const left = 1 - this.stateLerp.uniform.value;
+    return out.set(te[o + 12] + off[p] * left, te[o + 13] + off[p + 1] * left, te[o + 14] + off[p + 2] * left);
   }
 
   /**
@@ -939,6 +1016,9 @@ export class EnemyInstanceManager {
           pool.instancedMesh.instanceMatrix.clearUpdateRanges();
           pool.instancedMesh.instanceMatrix.addUpdateRange(0, activeCount * 16);
           pool.instancedMesh.instanceMatrix.needsUpdate = true;
+          pool.prevOffsetAttr.clearUpdateRanges();
+          pool.prevOffsetAttr.addUpdateRange(0, activeCount * 3);
+          pool.prevOffsetAttr.needsUpdate = true;
         }
         pool.matrixDirty = false;
       }

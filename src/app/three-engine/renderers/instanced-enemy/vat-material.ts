@@ -43,6 +43,8 @@ export interface VATMaterialOptions {
   bloodMoon?: VATBloodMoonUniforms;
   /** Shared spawn portal clip; without it the material gets its own, without portals */
   portalClip?: PortalClipUniforms;
+  /** The slide between two states (StateLerp.uniform), shared by every type; without it none */
+  stateLerp?: IUniform<number>;
 }
 
 /**
@@ -59,6 +61,8 @@ export interface VATMaterialOptions {
  * Per-instance attributes:
  *   aAnimFrame (float) - current animation frame in the VAT
  *   aTintColor (vec3) - tint color overlay (0,0,0 = no tint)
+ *   aPrevOffset (vec3) - from the state's position back to where the body
+ *     was shown before it; the body slides in over uStateLerp (state-lerp.ts)
  *
  * Blood moon (VATBloodMoonUniforms, shared by every type): a rim glow while
  * bloodMoonGlow is above 0, and for blending types the mood's multiplier.
@@ -84,6 +88,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     // The same uniform objects in every material (see VATBloodMoonUniforms, PortalClipUniforms)
     ...bloodMoon,
     ...portalClip,
+    uStateLerp: options?.stateLerp ?? { value: 1 },
     bloodMoonGlowColor: { value: new Vector3(glow.color.r, glow.color.g, glow.color.b) },
     bloodMoonRim: { value: glow.rim },
     bloodMoonBase: { value: glow.base },
@@ -120,6 +125,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       // Per-instance attributes
       attribute float aAnimFrame;
       attribute vec3 aTintColor;
+      attribute vec3 aPrevOffset;
+
+      uniform float uStateLerp;
 
       // VAT uniforms
       uniform sampler2D vatTexture;
@@ -170,6 +178,8 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
         // Apply instance transform
         vec4 worldPosition = modelMatrix * instanceMatrix * vec4(animatedPosition, 1.0);
+        // On the way from where the body was shown to where its newest state put it
+        worldPosition.xyz += aPrevOffset * (1.0 - uStateLerp);
         vWorldPosition = worldPosition.xyz;
         vec4 mvPosition = viewMatrix * worldPosition;
         gl_Position = projectionMatrix * mvPosition;

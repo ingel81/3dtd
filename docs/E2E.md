@@ -79,6 +79,10 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   keiner stirbt, kaum einer erreicht das HQ. Die Simulation nimmt die Spawns einer Runde in einem Tick (bei Tausenden
   Sekunden); der Lauf wartet über einen Aufruf an die Simulation, bis sie durch sind, und füllt nach, was das HQ
   erreichte (höchstens 4 Runden).
+- `evenness` je Messung: wie gleichmäßig sich Gegner von Bild zu Bild bewegen (`stepEvenness` in `load-scene.ts`,
+  TODO E86). `stepCv` ist die Streuung der Schrittweite je Bild geteilt durch ihren Mittelwert (0 = jedes Bild gleich
+  weit, um 1 und mehr = stehen und springen), `stillShare` der Anteil der Bilder, in denen ein laufender Gegner stand.
+  `--query interp=off` misst ohne das Gleiten zwischen zwei Ständen.
 - Vor jeder Messung pendelt der Lauf ein (mindestens 5 s, dann bis zwei 2-s-Fenster weniger als 5 % auseinander).
 - Jedes Ergebnis nennt Rechner (`--machine`, nie den Hostnamen), CPU, Speicher, Browser, GPU und Pixeldichte. Firefox
   übernimmt sichtbar die Windows-Skalierung; der Lauf setzt deshalb für beide Browser die Pixeldichte 1

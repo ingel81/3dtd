@@ -174,6 +174,38 @@ export async function settle(driver: LoadDriver): Promise<boolean> {
 }
 
 /**
+ * How evenly the picture moves (TODO E86): `tracks[k]` holds x and z of a few enemies as shown in frame `k`
+ * (NaN while one is gone). Per enemy the speed on the screen from frame to frame; `stepCv` is its standard
+ * deviation over its mean, averaged over the enemies that walk (0 = every frame moves them the same way,
+ * around 1 = they stand for a frame and jump in the next), `stillShare` the share of frames in which a walking
+ * enemy did not move at all. Null without an enemy that walks.
+ */
+export function stepEvenness(times: readonly number[], tracks: readonly (readonly number[])[]): { stepCv: number; stillShare: number; probes: number } | null {
+  const count = Math.floor((tracks[0]?.length ?? 0) / 2);
+  let cvSum = 0;
+  let stillSum = 0;
+  let probes = 0;
+  for (let e = 0; e < count; e++) {
+    const speeds: number[] = [];
+    for (let k = 1; k < tracks.length; k++) {
+      const dt = times[k] - times[k - 1];
+      const dx = tracks[k][e * 2] - tracks[k - 1][e * 2];
+      const dz = tracks[k][e * 2 + 1] - tracks[k - 1][e * 2 + 1];
+      if (dt > 0 && Number.isFinite(dx) && Number.isFinite(dz)) speeds.push((Math.hypot(dx, dz) * 1000) / dt);
+    }
+    if (speeds.length < 10) continue;
+    const mean = speeds.reduce((a, b) => a + b, 0) / speeds.length;
+    // Standing enemies say nothing about the slide
+    if (mean < 0.05) continue;
+    const variance = speeds.reduce((a, b) => a + (b - mean) ** 2, 0) / speeds.length;
+    cvSum += Math.sqrt(variance) / mean;
+    stillSum += speeds.filter((s) => s < mean * 0.01).length / speeds.length;
+    probes++;
+  }
+  return probes > 0 ? { stepCv: cvSum / probes, stillShare: stillSum / probes, probes } : null;
+}
+
+/**
  * Frames per second over a list of rAF times, and the slow end: the frame
  * time only 5 % of frames were slower than, as frames per second.
  */

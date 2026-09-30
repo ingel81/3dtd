@@ -19,7 +19,7 @@ import { writeFileSync } from 'node:fs';
 import { startProfiles, summarize } from './cdp-profile.ts';
 // The scene the in-game benchmark builds as well (TODO E74): tower spots, route slices, fill and settle
 import {
-  frameStats, placeTowers, routeSlices, settle, spawnUpTo, startLoadWave, type LoadDriver,
+  frameStats, placeTowers, routeSlices, settle, spawnUpTo, startLoadWave, stepEvenness, type LoadDriver,
 } from '../../src/app/benchmark/load-scene.ts';
 
 function argument(name: string, fallback: string): string {
@@ -126,23 +126,30 @@ interface Sums {
 const stats = (page: Page, reset: boolean) =>
   page.evaluate((r) => (globalThis as unknown as { __load: { stats?(reset: boolean): Sums } }).__load.stats?.(r) ?? null, reset);
 
-async function measure(page: Page, seconds: number): Promise<{ fps: number; p05: number; speed: number; enemies: number; tickMs: number | null; apply: Record<string, number>; sums: Record<string, number> | null }> {
+async function measure(page: Page, seconds: number): Promise<{ fps: number; p05: number; speed: number; enemies: number; tickMs: number | null; apply: Record<string, number>; evenness: ReturnType<typeof stepEvenness>; sums: Record<string, number> | null }> {
   await stats(page, true);
-  const before = await state(page);
-  const { times: frames, ticks, applies } = await page.evaluate((ms) => new Promise<{ times: number[]; ticks: number[]; applies: Record<string, number[]> }>((resolve) => {
+  const { times: frames, ticks, applies, tracks, gameMs } = await page.evaluate((ms) => new Promise<{ times: number[]; ticks: number[]; applies: Record<string, number[]>; tracks: number[][]; gameMs: [number, number] }>((resolve) => {
     const times: number[] = [];
+    // Game time at the first and the last frame: read in the page, so the way of the result out of it does not count
+    const gameMs: [number, number] = [0, 0];
     const ticks: number[] = [];
     const applies: Record<string, number[]> = {};
+    // Where a few enemies are shown in each frame (builds with the slide between states, TODO E86)
+    const tracks: number[][] = [];
     const end = performance.now() + ms;
-    const load = (globalThis as unknown as { __load: { state(): { tickMs?: number } } }).__load;
+    const load = (globalThis as unknown as { __load: { state(): { tickMs?: number; gameTimeMs: number }; shown?(reset?: boolean): number[] } }).__load;
+    load.shown?.(true);
     const tick = (t: number) => {
+      if (times.length === 0) gameMs[0] = load.state().gameTimeMs;
+      gameMs[1] = load.state().gameTimeMs;
       times.push(t);
+      if (load.shown) tracks.push(load.shown());
       const tickMs = load.state().tickMs;
       if (tickMs !== undefined) ticks.push(tickMs);
       const apply = (load.state() as { apply?: Record<string, number> }).apply;
       if (apply) for (const [k, v] of Object.entries(apply)) (applies[k] ??= []).push(v);
       if (t < end) requestAnimationFrame(tick);
-      else resolve({ times, ticks, applies });
+      else resolve({ times, ticks, applies, tracks, gameMs });
     };
     requestAnimationFrame(tick);
   }), seconds * 1000);
@@ -152,12 +159,14 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
   return {
     // Frames per second and the slow end (frameStats)
     ...frameStats(frames),
-    speed: (after.gameTimeMs - before.gameTimeMs) / wall,
+    speed: (gameMs[1] - gameMs[0]) / wall,
     enemies: after.enemies,
     // Median of the worker's tick time over the frames, null for the build without a worker
     tickMs: ticks.length > 0 ? [...ticks].sort((a, b) => a - b)[Math.floor(ticks.length / 2)] : null,
     // Mean main-thread ms per frame of each part of applying the packet
     apply: Object.fromEntries(Object.entries(applies).map(([k, v]) => [k, Number((v.reduce((a, b) => a + b, 0) / v.length).toFixed(2))])),
+    // How evenly the enemies move on the screen from frame to frame (stepEvenness), null for a build without the probe
+    evenness: tracks.length > 0 ? roundAll(stepEvenness(frames, tracks)) : null,
     // Summed over every packet instead of sampled per frame: the worker's load (share of wall time), per sub-step and per
     // packet costs, the apply by part (one per frame that got packets), events per packet, the share of applies without a
     // sub-step. Builds before the fold per frame (no `applies`) applied every packet on its own
@@ -178,6 +187,10 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
 
 function round(value: number, digits: number): number {
   return Number(value.toFixed(digits));
+}
+
+function roundAll<T extends Record<string, number>>(values: T | null): T | null {
+  return values && (Object.fromEntries(Object.entries(values).map(([k, v]) => [k, round(v, 3)])) as T);
 }
 
 const engine = BROWSER === 'firefox' ? firefox : chromium;

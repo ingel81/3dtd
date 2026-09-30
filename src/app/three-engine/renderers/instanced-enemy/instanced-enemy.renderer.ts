@@ -10,6 +10,7 @@ import { AssetManagerService } from '../../../services/infrastructure/asset-mana
 import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
+import { StateLerp, stateLerpParam } from '../state-lerp';
 import { bakeEnemyVAT } from './vat-baker';
 
 // Dummy Object3D shared across all instanced enemy stubs
@@ -81,9 +82,42 @@ export class InstancedEnemyRenderer {
     private readonly assetManager: AssetManagerService,
     portalClip: PortalClipUniforms = createPortalClipUniforms(),
   ) {
-    this.instanceManager = new EnemyInstanceManager(scene, portalClip);
-    this.healthBarManager = new HealthBarInstanceManager(scene, portalClip);
+    // The slide between two states, one clock for the enemies and their bars (state-lerp.ts)
+    this.stateLerp = new StateLerp(stateLerpParam(typeof location === 'undefined' ? '' : location.search));
+    this.instanceManager = new EnemyInstanceManager(scene, portalClip, this.stateLerp);
+    this.healthBarManager = new HealthBarInstanceManager(scene, portalClip, this.stateLerp.uniform);
   }
+
+  /** The slide between two states of the simulation (state-lerp.ts) */
+  readonly stateLerp: StateLerp;
+
+  /** A state of the simulation is about to be written (updateSlot per enemy); `now`: performance.now(). */
+  beginState(now: number): void {
+    this.instanceManager.beginState(now);
+  }
+
+  /**
+   * Where up to `count` enemies are shown now, x and z each, scene-local:
+   * the same enemies from call to call while they live (`reset` picks anew).
+   * For the measure of how evenly the picture moves (e2e/perf/sim-load.ts).
+   */
+  shownPositions(count: number, reset = false): number[] {
+    if (reset || this.probeIds.length === 0) this.probeIds = this.instanceManager.getAllIds().slice(0, count);
+    const out: number[] = [];
+    for (const id of this.probeIds) {
+      const state = this.instanceManager.getState(id);
+      if (!state || state.isDead) {
+        out.push(NaN, NaN);
+        continue;
+      }
+      const at = this.instanceManager.shownPosition(state, this.probeAt);
+      out.push(at.x, at.z);
+    }
+    return out;
+  }
+
+  private probeIds: string[] = [];
+  private readonly probeAt = new Vector3();
 
   // =====================================================
   // PRELOADING
@@ -309,6 +343,7 @@ export class InstancedEnemyRenderer {
       healthPercent,
       6, // barWidth
       1, // barHeight
+      this.instanceManager.lastOffset,
     );
   }
 
@@ -336,6 +371,8 @@ export class InstancedEnemyRenderer {
 
     // Hit-flash tints run out on the clock, not with the animation toggle.
     this.instanceManager.expireHitFlashes();
+    // How far the bodies are on their way to their newest state
+    this.stateLerp.update(performance.now());
 
     // The animation toggle only holds the VAT frames. Positions and health
     // keep arriving through updateSlot() and still have to be flushed,
@@ -457,6 +494,8 @@ export class InstancedEnemyRenderer {
   clear(): void {
     this.instanceManager.clear();
     this.healthBarManager.clear();
+    this.stateLerp.reset();
+    this.probeIds = [];
     this.instancedEnemies.clear();
   }
 

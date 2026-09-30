@@ -63,13 +63,15 @@ export const SIM_PROVIDERS: StaticProvider[] = [
 export const MAX_PUBLISH_GAP_MS = 100;
 
 /**
- * While the simulation lies behind (sub-steps still due after a pass), it
- * answers a demand this long after its last packet at the earliest (ms of
- * wall clock): every packet costs it the tables and the main thread an
- * apply, time the sub-steps need more. A simulation that keeps up answers
- * every demand. Start value, tuned by measurement (TODO E85).
+ * The time between two packets that answer a demand (ms of wall clock):
+ * about 30 states per second. Every packet costs the simulation the tables
+ * and the main thread an apply; the picture stays smooth because the bodies
+ * slide between two states (state-lerp.ts, TODO E86). An input, a setting or
+ * a call still publishes at once. Kept as a schedule, not as a distance to
+ * the last packet: a pass that came a moment late does not push the next
+ * packet a whole sub-step further (two never come closer than half of it).
  */
-export const MIN_PUBLISH_GAP_BEHIND_MS = 33;
+export const MIN_PUBLISH_GAP_MS = 33;
 
 /**
  * Backpressure: the longest the simulation runs on without the main thread
@@ -109,6 +111,8 @@ export class SimCore implements SimCoreApi {
   private heldMs = 0;
   /** Wall clock of the last packet (the loop's `now`) */
   private publishedAt = -Infinity;
+  /** From when the next demand is answered (MIN_PUBLISH_GAP_MS) */
+  private answerFrom = -Infinity;
   /** Wall clock of the last demand taken (the main thread was there) */
   private askedAt = -Infinity;
   /** The loop waits for the main thread's next demand (MAX_AHEAD_MS) */
@@ -219,8 +223,8 @@ export class SimCore implements SimCoreApi {
   pass(now: number, deadline = Infinity, demand?: PacketDemand): SimFramePacket | null {
     if (!this.worldLoaded) return null;
     // The main thread waits: the sub-step running is the last of this pass, unless the last packet is too
-    // young to answer while behind (then the pass uses its budget, and answers if it caught up)
-    const spaced = now - this.publishedAt >= MIN_PUBLISH_GAP_BEHIND_MS;
+    // young to be followed by another (then the pass uses its budget)
+    const spaced = now >= this.answerFrom;
     const stop = demand && spaced ? () => demand.demandPending() : undefined;
     const started = performance.now();
     const gsm = this.gsm;
@@ -259,7 +263,7 @@ export class SimCore implements SimCoreApi {
     // On demand (docs/SIM_DECOUPLE_PLAN.md): the tables are written and the message goes once per frame of the
     // main thread, not per sub-step. The demand is taken even when something else publishes: one packet answers both
     const dueIn = waits ? Infinity : this.dueInMs();
-    const asked = demand ? (spaced || dueIn > 0 || changed) && demand.takeDemand() : true;
+    const asked = demand ? (spaced || changed) && demand.takeDemand() : true;
     if (asked) this.askedAt = now;
     if (!asked && !changed && dueIn !== Infinity && now - this.publishedAt < MAX_PUBLISH_GAP_MS) {
       this.heldSteps = stepsRun;
@@ -267,6 +271,7 @@ export class SimCore implements SimCoreApi {
       return null;
     }
     this.publishedAt = now;
+    this.answerFrom = Math.max(this.answerFrom + MIN_PUBLISH_GAP_MS, now + MIN_PUBLISH_GAP_MS / 2);
     this.heldSteps = 0;
     // A replay's jump shows only where it arrives: its slices on the way are not drawn
     const presented = this.renderingEnabled && !this.replay?.isSeeking && (stepsRun > 0 || this.forcePresent);

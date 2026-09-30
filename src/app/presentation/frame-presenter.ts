@@ -215,6 +215,8 @@ export class FramePresenter {
     const pos = this.local;
     this.enemyTable = d;
     this.statusVisuals.beginFrame();
+    // The bodies slide from where they are shown to this state (state-lerp.ts)
+    engine.enemies.beginState(performance.now());
 
     for (let r = 0; r < table.count; r++) {
       const o = r * ENEMY_STRIDE;

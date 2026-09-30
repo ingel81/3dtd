@@ -8,6 +8,7 @@ import {
   Scene,
   Camera,
   DoubleSide,
+  type IUniform,
 } from 'three';
 import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
@@ -35,9 +36,11 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
   attribute vec2 aSize;     // bar width / height; aSize.x <= 0 → hidden slot
   attribute float aHealth;
   attribute vec3 aBarColor;
+  attribute vec3 aPrevOffset; // back to where the bar was shown before its newest state (state-lerp.ts)
 
   uniform vec3 uCameraRight;
   uniform vec3 uCameraUp;
+  uniform float uStateLerp;
 
   varying float vHealth;
   varying vec3 vBarColor;
@@ -49,9 +52,12 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
   ${PORTAL_CLIP_GLSL}
 
   void main() {
+    // With its enemy on the way from the state before to the newest
+    vec3 center = aCenter + aPrevOffset * (1.0 - uStateLerp);
+
     // Hidden / free slots and bars behind a portal's plane collapse to a
     // clipped vertex so they never rasterize.
-    if (aSize.x <= 0.0 || portalClipAhead(aCenter) < 0.0) {
+    if (aSize.x <= 0.0 || portalClipAhead(center) < 0.0) {
       gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
       vUv = vec2(0.0);
       vHealth = 0.0;
@@ -66,7 +72,7 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
     // Billboard: offset the unit-quad vertex (position.xy ∈ [-0.5, 0.5] from
     // PlaneGeometry(1,1)) along the camera-aligned axes. The mesh root sits
     // at the origin (identity), so aCenter is already in world space.
-    vec3 worldPos = aCenter
+    vec3 worldPos = center
                   + uCameraRight * (position.x * aSize.x)
                   + uCameraUp    * (position.y * aSize.y);
 
@@ -169,6 +175,7 @@ export class HealthBarInstanceManager {
   private sizeAttribute: InstancedBufferAttribute;   // width, height (0 = hidden)
   private healthAttribute: InstancedBufferAttribute;
   private barColorAttribute: InstancedBufferAttribute; // fixed color override (boss etc.)
+  private prevOffsetAttribute: InstancedBufferAttribute; // the enemy's slide (state-lerp.ts), goes out with the centre
 
   // Billboard axes, shared by reference with both materials' uniforms so a
   // single set per frame updates both passes.
@@ -187,10 +194,14 @@ export class HealthBarInstanceManager {
    */
   private hiddenFlags = new Uint8Array(INITIAL_HEALTH_BARS);
 
-  /** @param portalClip The spawn portals' clip, shared with the enemies (portal-clip.ts) */
+  /**
+   * @param portalClip The spawn portals' clip, shared with the enemies (portal-clip.ts)
+   * @param stateLerp The slide between two states, shared with the enemies (StateLerp.uniform)
+   */
   constructor(
     private readonly scene: Scene,
     private readonly portalClip: PortalClipUniforms = createPortalClipUniforms(),
+    private readonly stateLerp: IUniform<number> = { value: 1 },
   ) {
     // Unit quad for the billboard; the shaders read only position and uv.
     const plane = new PlaneGeometry(1, 1);
@@ -211,7 +222,9 @@ export class HealthBarInstanceManager {
     this.sizeAttribute = new InstancedBufferAttribute(sizeData, 2);
     this.healthAttribute = new InstancedBufferAttribute(healthData, 1);
     this.barColorAttribute = new InstancedBufferAttribute(barColorData, 3);
+    this.prevOffsetAttribute = new InstancedBufferAttribute(new Float32Array(INITIAL_HEALTH_BARS * 3), 3);
 
+    geometry.setAttribute('aPrevOffset', this.prevOffsetAttribute);
     geometry.setAttribute('aCenter', this.centerAttribute);
     geometry.setAttribute('aSize', this.sizeAttribute);
     geometry.setAttribute('aHealth', this.healthAttribute);
@@ -274,6 +287,7 @@ export class HealthBarInstanceManager {
     // Position + size
     this.hiddenFlags[index] = 0;
     this.centerAttribute.setXYZ(index, position.x, position.y + yOffset, position.z);
+    this.prevOffsetAttribute.setXYZ(index, 0, 0, 0);
     this.sizeAttribute.setXY(index, barWidth, barHeight);
 
     // Health + color
@@ -308,14 +322,18 @@ export class HealthBarInstanceManager {
     healthPercent: number,
     barWidth: number,
     barHeight: number,
+    slide?: Vector3,
   ): void {
     // A hidden slot is a corpse whose bar was retired — writing to it would
     // both resurrect the bar and pile up update ranges for nothing.
     if (this.hiddenFlags[index]) return;
 
-    // Position moves every frame → write into the instanced buffer; flushed
-    // once per frame in updateBillboard().
+    // Position moves with every state → write into the instanced buffer; flushed
+    // once per frame in updateBillboard(). `slide`: its enemy's offset back to
+    // where it was shown, the bar goes the same way.
     this.centerAttribute.setXYZ(index, position.x, position.y + yOffset, position.z);
+    if (slide) this.prevOffsetAttribute.setXYZ(index, slide.x, slide.y, slide.z);
+    else this.prevOffsetAttribute.setXYZ(index, 0, 0, 0);
     this.centerDirty = true;
 
     // Size only changes via debug scaling, so write it ONLY when it actually
@@ -354,6 +372,9 @@ export class HealthBarInstanceManager {
       this.centerAttribute.clearUpdateRanges();
       this.centerAttribute.addUpdateRange(0, this.slots.activeCount * 3);
       this.centerAttribute.needsUpdate = true;
+      this.prevOffsetAttribute.clearUpdateRanges();
+      this.prevOffsetAttribute.addUpdateRange(0, this.slots.activeCount * 3);
+      this.prevOffsetAttribute.needsUpdate = true;
       this.centerDirty = false;
     }
     if (this.healthDirty) {
@@ -421,6 +442,8 @@ export class HealthBarInstanceManager {
     this.sizeAttribute = grownAttribute(this.sizeAttribute, capacity);
     this.healthAttribute = grownAttribute(this.healthAttribute, capacity);
     this.barColorAttribute = grownAttribute(this.barColorAttribute, capacity);
+    this.prevOffsetAttribute = grownAttribute(this.prevOffsetAttribute, capacity);
+    this.geometry.setAttribute('aPrevOffset', this.prevOffsetAttribute);
     this.geometry.setAttribute('aCenter', this.centerAttribute);
     this.geometry.setAttribute('aSize', this.sizeAttribute);
     this.geometry.setAttribute('aHealth', this.healthAttribute);
@@ -478,6 +501,7 @@ export class HealthBarInstanceManager {
         uCameraUp: { value: this.cameraUp },
         // The same objects as the enemies' materials
         ...this.portalClip,
+        uStateLerp: this.stateLerp,
       },
       vertexShader: HEALTH_BAR_VERTEX,
       fragmentShader: /* glsl */ `

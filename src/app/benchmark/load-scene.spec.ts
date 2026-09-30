@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  frameStats, placeTowers, routeSlices, settle, settledBetween, spawnUpTo, towerSpots, LOAD_TOWER_TYPES, type LoadDriver,
+  frameStats, stepEvenness, placeTowers, routeSlices, settle, settledBetween, spawnUpTo, towerSpots, LOAD_TOWER_TYPES, type LoadDriver,
 } from './load-scene';
 
 const path: [number, number][] = Array.from({ length: 20 }, (_, i) => [48 + i * 0.0002, 9]);
@@ -85,5 +85,20 @@ describe('load scene', () => {
     expect(fps).toBeCloseTo(100 / 1.04);
     expect(p05).toBe(100);
     expect(frameStats([1])).toEqual({ fps: 0, p05: 0 });
+  });
+
+  it('tells a picture that moves evenly from one that stands and jumps', () => {
+    const times = Array.from({ length: 61 }, (_, k) => k * 10);
+    // One enemy walks 2 m/s along x, shown anew every frame; a second stands
+    const even = times.map((t) => [t * 0.002, 5, 7, 7]);
+    expect(stepEvenness(times, even)).toEqual({ stepCv: expect.closeTo(0, 6), stillShare: 0, probes: 1 });
+    // The same walk, shown anew only every third frame
+    const stepped = times.map((_, k) => [Math.floor(k / 3) * 0.06, 5, 7, 7]);
+    const s = stepEvenness(times, stepped)!;
+    expect(s.stepCv).toBeGreaterThan(1.3);
+    expect(s.stillShare).toBeCloseTo(2 / 3, 1);
+    // Nobody walks, or the enemy is gone
+    expect(stepEvenness(times, times.map(() => [7, 7]))).toBeNull();
+    expect(stepEvenness(times, times.map(() => [NaN, NaN]))).toBeNull();
   });
 });
