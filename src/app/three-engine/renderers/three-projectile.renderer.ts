@@ -33,7 +33,16 @@ import {
 } from './magic-orb-shaders';
 import { InstanceSlotAllocator } from './instance-slot-allocator';
 import { DrawGate } from './draw-gate';
-import { STATE_LERP_JUMP_M, type StateLerp } from './state-lerp';
+import type { StateLerp } from './state-lerp';
+
+/**
+ * A projectile further than this from where it is shown has jumped (a
+ * replay's seek, a restore), m. Far more than a body's STATE_LERP_JUMP_M:
+ * a fast shot flies 180 m/s, at speed 4 some 24 m between two states and
+ * more from the muzzle to its first, and with the enemies' 10 m it stood
+ * there at once, metres ahead of the barrel, instead of flying out of it.
+ */
+export const PROJECTILE_JUMP_M = 60;
 
 /**
  * Simple instanced entity manager for projectiles
@@ -90,7 +99,7 @@ export class ProjectileInstanceManager {
     let dx = t[p] + o[p] * carry - position.x;
     let dy = t[p + 1] + o[p + 1] * carry - position.y;
     let dz = t[p + 2] + o[p + 2] * carry - position.z;
-    if (!this.slides || dx * dx + dy * dy + dz * dz > STATE_LERP_JUMP_M * STATE_LERP_JUMP_M) dx = dy = dz = 0;
+    if (!this.slides || dx * dx + dy * dy + dz * dz > PROJECTILE_JUMP_M * PROJECTILE_JUMP_M) dx = dy = dz = 0;
     t[p] = position.x;
     t[p + 1] = position.y;
     t[p + 2] = position.z;

@@ -143,10 +143,17 @@ describe('ProjectileInstanceManager', () => {
       expect(x()).toBe(6);
     });
 
+    it('flies out of the muzzle: the first state of a fast shot, metres ahead, still slides from where it was made', () => {
+      manager.updatePosition('a', at(24));
+      expect(x()).toBe(0);
+      manager.slide(0.5);
+      expect(x()).toBeCloseTo(12, 6);
+    });
+
     it('stands at once after a jump, in a slot taken again, and with the slide off', () => {
-      manager.updatePosition('a', at(50));
-      expect(x()).toBe(50);
-      manager.updatePosition('a', at(52));
+      manager.updatePosition('a', at(100));
+      expect(x()).toBe(100);
+      manager.updatePosition('a', at(102));
       manager.remove('a');
       manager.add('b', at(7), new Euler(), scale);
       manager.slide(0.2);
