@@ -30,6 +30,7 @@ import { TdIconComponent } from '../../icon/icon.component';
 import { TdRichTooltipDirective } from '../../tooltip/td-rich-tooltip.directive';
 import { TdTooltipData } from '../../tooltip/tooltip-data.types';
 import { towerCardTooltip } from '../sidebar-tooltips';
+import { towerPreviewConfig } from '../../../services/infrastructure/preview-sheets';
 
 /**
  * BUILD-Sektion der Sidebar: Tower-Karten mit 3D-Preview, im Build-Mode
@@ -258,18 +259,7 @@ export class SidebarBuildPanelComponent implements AfterViewInit {
 
     const previewId = `tower-preview-${towerId}`;
     this.towerPreviewIds.add(previewId);
-    this.modelPreview.createPreview(
-      previewId,
-      canvas,
-      {
-        modelUrl: towerConfig.modelUrl,
-        scale: previewScale,
-        cameraDistance: 20,
-        cameraAngle: Math.PI / 5,
-        lightIntensity: 1.2,
-        isHidden: this.isBuildPanelHidden,
-      }
-    );
+    this.modelPreview.createPreview(previewId, canvas, { ...towerPreviewConfig(towerConfig, previewScale), isHidden: this.isBuildPanelHidden });
   }
 
   /** Damage-vs-armor chart without a highlighted row. */

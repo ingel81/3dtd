@@ -43,6 +43,7 @@ import { isBenchmarkSearch } from '../../benchmark/benchmark-report';
 // Sub-facades
 import { GameLoopFacadeService } from './game-loop-facade.service';
 import { LocationFacadeService } from './location-facade.service';
+import { installPreviewSheetHook } from '../infrastructure/preview-sheets';
 import { VisualizationFacadeService } from './visualization-facade.service';
 
 /**
@@ -210,6 +211,8 @@ export class TowerDefenseFacadeService {
 
     const params = new URLSearchParams(window.location.search);
     const botMode = params.get('bot');
+    // The sheets rendered ahead are baked in this page (tools/preview-sheets/bake.ts, TODO E76)
+    if (params.has('previewsheets')) installPreviewSheetHook(this.modelPreview);
 
     if (this.devWorld.isActive && botMode === 'coop') {
       // One seat of a coop room (e2e/coop-bots): no bot server, whose

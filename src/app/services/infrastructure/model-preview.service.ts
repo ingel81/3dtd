@@ -18,6 +18,7 @@ import {
 } from 'three';
 import { AssetManagerService } from './asset-manager.service';
 import { FramePacer } from '../../utils/frame-pacer';
+import { PREVIEW_MANIFEST, PREVIEW_SHEET_DIR, previewViewKey, type PreviewSheetEntry, type PreviewSheetManifest } from './preview-sheets';
 
 export interface PreviewConfig {
   modelUrl: string;
@@ -48,11 +49,14 @@ export interface PreviewConfig {
  * about 6 ms a frame with one enemy group in the wave panel (69 instead of
  * 124 FPS, 4800 enemies). Baked, playing a turn is a copy between two 2D
  * canvases of a few kB; the WebGL renderer works only while a turn bakes.
+ * 144 frames at 24 FPS (TODO E76): 2.5 degrees a step, one turn in 6 s.
+ * The game's own views come baked with the build (preview-sheets.ts); a
+ * turn bakes here only for a view without a sheet.
  */
-export const TURN_FRAMES = 72;
-export const PLAYBACK_FPS = 12;
-/** Frames per row of a turn's sheet: a grid, since one row of 72 wide cards would pass the browsers' canvas limits */
-const SHEET_COLUMNS = 9;
+export const TURN_FRAMES = 144;
+export const PLAYBACK_FPS = 24;
+/** Frames per row of a turn's sheet: a grid, since one row of 144 wide cards would pass the browsers' canvas limits */
+export const SHEET_COLUMNS = 12;
 /** Frames rendered into a turn per display frame while one bakes: a turn is done in a few frames without a hitch */
 const BAKE_PER_FRAME = 6;
 /** Baked pixels per CSS pixel at most: previews are small, a sharper turn costs memory for every frame of it */
@@ -107,9 +111,12 @@ interface BakeJob {
   loaded: boolean;
 }
 
-/** A baked turn: its frames in a grid on one 2D canvas, shared by every preview of the same model and view */
+/**
+ * A baked turn: its frames in a grid on one 2D canvas, or on the picture of
+ * a sheet rendered ahead, shared by every preview of the same model and view
+ */
 interface Turn {
-  sheet: HTMLCanvasElement;
+  sheet: HTMLCanvasElement | ImageBitmap;
   width: number;
   height: number;
   /** Frames baked so far, TURN_FRAMES when done */
@@ -150,6 +157,8 @@ export class ModelPreviewService {
 
   // Track loaded model URLs for this service
   private loadedModelUrls = new Set<string>();
+  /** The sheets rendered ahead by their view (previewViewKey); empty when the manifest is missing */
+  private sheets: Promise<Map<string, PreviewSheetEntry>> | null = null;
 
   /**
    * Initialize the shared renderer.
@@ -194,17 +203,72 @@ export class ModelPreviewService {
       this.destroyPreview(id);
     }
 
-    const cssWidth = targetCanvas.getBoundingClientRect?.().width ?? 0;
-    const size = bakeSize(targetCanvas.width, targetCanvas.height, cssWidth);
-    const key = turnKey(config, size);
-    let turn = this.turns.get(key);
-    if (!turn) {
-      turn = this.startTurn(config, size);
+    const view = previewViewKey(config);
+    const sheet = (await this.sheetsByView()).get(view);
+    let turn: Turn;
+    if (sheet) {
+      turn = this.sheetTurn(sheet);
+    } else {
+      const cssWidth = targetCanvas.getBoundingClientRect?.().width ?? 0;
+      const size = bakeSize(targetCanvas.width, targetCanvas.height, cssWidth);
+      const key = turnKey(view, size);
+      turn = this.turns.get(key) ?? this.startTurn(config, size);
       this.turns.set(key, turn);
     }
     this.previews.set(id, { canvas: targetCanvas, turn, config, shown: -1 });
 
     if (turn.job && !turn.job.loaded) await this.loadModel(turn.job, config);
+  }
+
+  /** The manifest of the sheets rendered ahead, read once */
+  private sheetsByView(): Promise<Map<string, PreviewSheetEntry>> {
+    this.sheets ??= fetch(PREVIEW_MANIFEST)
+      .then((response) => (response.ok ? (response.json() as Promise<PreviewSheetManifest>) : null))
+      .then((manifest) => {
+        const byView = new Map<string, PreviewSheetEntry>();
+        // A manifest of another frame count or layout plays wrong: none then, every turn bakes
+        if (manifest?.frames !== TURN_FRAMES || manifest.columns !== SHEET_COLUMNS) return byView;
+        for (const entry of Object.values(manifest.sheets)) byView.set(entry.view, entry);
+        return byView;
+      })
+      .catch(() => new Map<string, PreviewSheetEntry>());
+    return this.sheets;
+  }
+
+  /**
+   * The turn of a sheet rendered ahead: shown once its picture is decoded
+   * (off the main thread, createImageBitmap); until then the preview stays empty.
+   */
+  private sheetTurn(entry: PreviewSheetEntry): Turn {
+    const key = `sheet:${entry.file}`;
+    const known = this.turns.get(key);
+    if (known) return known;
+    const placeholder = document.createElement('canvas');
+    const turn: Turn = { sheet: placeholder, width: entry.width, height: entry.height, baked: 0, job: null };
+    this.turns.set(key, turn);
+    void fetch(`${PREVIEW_SHEET_DIR}/${entry.file}`)
+      .then((response) => (response.ok ? response.blob() : Promise.reject(new Error(String(response.status)))))
+      .then((blob) => createImageBitmap(blob))
+      .then((bitmap) => {
+        turn.sheet = bitmap;
+        turn.baked = TURN_FRAMES;
+      })
+      .catch((error) => console.error(`[ModelPreview] Failed to load sheet: ${entry.file}`, error));
+    return turn;
+  }
+
+  /**
+   * Bake a whole turn at once, for the sheets rendered ahead
+   * (tools/preview-sheets/bake.ts): the sheet's canvas, TURN_FRAMES frames in
+   * SHEET_COLUMNS columns, each `size` large.
+   */
+  async bakeSheet(config: PreviewConfig, size: { width: number; height: number }): Promise<HTMLCanvasElement> {
+    if (!this.renderer) this.initialize();
+    const turn = this.startTurn(config, size);
+    await this.loadModel(turn.job!, config);
+    const sheet = turn.sheet as HTMLCanvasElement;
+    this.bakeFrames(turn, TURN_FRAMES);
+    return sheet;
   }
 
   /** A turn to bake: its scene, camera, lights and an empty sheet */
@@ -326,7 +390,8 @@ export class ModelPreviewService {
     this.renderer.setViewport(0, capacity - height, width, height);
     this.renderer.setScissor(0, capacity - height, width, height);
     this.renderer.setScissorTest(true);
-    const ctx = turn.sheet.getContext('2d');
+    // A turn that bakes has a canvas for its sheet (startTurn)
+    const ctx = (turn.sheet as HTMLCanvasElement).getContext('2d');
     const frameSeconds = 1 / PLAYBACK_FPS;
     for (let i = 0; i < count && turn.baked < TURN_FRAMES; i++) {
       const frame = turn.baked;
@@ -400,6 +465,8 @@ export class ModelPreviewService {
     this.previews.clear();
     for (const turn of this.turns.values()) {
       if (turn.job) this.disposeJob(turn.job);
+      // A sheet's decoded picture (sheetTurn); a baked turn's canvas has no close
+      if ('close' in turn.sheet) turn.sheet.close();
     }
     this.turns.clear();
 
@@ -448,9 +515,8 @@ export class ModelPreviewService {
   }
 }
 
-/** The same model seen the same way at the same size bakes the same turn */
-function turnKey(config: PreviewConfig, size: { width: number; height: number }): string {
-  const { isHidden: _hidden, ...view } = config;
+/** The same model seen the same way (previewViewKey) at the same size bakes the same turn */
+function turnKey(view: string, size: { width: number; height: number }): string {
   return JSON.stringify([view, size.width, size.height]);
 }
 

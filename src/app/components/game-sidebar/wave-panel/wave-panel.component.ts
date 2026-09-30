@@ -45,6 +45,7 @@ import { waveButtonView } from './wave-button';
 import { WaveTimelineComponent } from './wave-timeline.component';
 import { ReplayService } from '../../../services/replay.service';
 import { COOP } from '../../../services/coop.token';
+import { enemyPreviewConfig } from '../../../services/infrastructure/preview-sheets';
 
 /**
  * WAVE-Sektion der Sidebar: Gegnergruppen der laufenden Welle mit 3D-Preview,
@@ -305,17 +306,7 @@ export class SidebarWavePanelComponent implements AfterViewInit {
       const previewId = `mixed-enemy-${idx}`;
       this.activeMixedPreviewIds.push(previewId);
 
-      this.modelPreview.createPreview(previewId, canvas, {
-        modelUrl: enemyConfig.modelUrl,
-        scale: overrides?.previewScale ?? enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
-        cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
-        cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12,
-        offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,
-        animationName: enemyConfig.walkAnimation || undefined,
-        animationTimeScale: 0.7,
-        lightIntensity: 1.3,
-        groundModel: true,
-      });
+      this.modelPreview.createPreview(previewId, canvas, enemyPreviewConfig(enemyConfig, overrides));
     });
   }
 
