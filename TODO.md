@@ -186,6 +186,9 @@ Ideen (2026-09-27), nichts entschieden:
       Deploy mit `curl -I` auf /play/. Einmal hing M5 über 5 Minuten auf dem Ladebildschirm (zufälliger Ort), in drei
       weiteren Läufen nicht; nach den Review-Fixes zählte M5 einmal 5 statt 6 Wellen und der Coop-Test T65 sah einen
       Reload, beide im zweiten Lauf grün; erst mit Logs belegen. Dann entscheiden, ob `simu-worker` nach `next` geht.
+      **Entschieden (User, 2026-09-30):** Claude macht den Bot-Lauf (Solo über einige Wellen gegen `next`), baut und startet
+      das Desktop-Paket (Isolation, Worker-Modus) und schreibt die Klickwege für Handtest und Coop in PLAYTEST.md; Handtest
+      und Coop über zwei Rechner macht der User.
 - [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-gemessen-2026-09-29)):
       **Gemessen 2026-09-29** bis 25000 Gegner: Chromium hält 144 FPS und Tempo 4 bis rund 11000 (vorher 4900), dann
       wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
@@ -203,29 +206,12 @@ Ideen (2026-09-27), nichts entschieden:
       **Mehrere Worker:** nur im Labor gebaut und gemessen (Branch `perf/multi-worker-lab`): Bewegung bitgleich, mit 4
       Workern 1,7- bis 3,7-mal so schnell; hochgerechnet 1,3- bis 1,4-mal so viel Simulation. Offen: der Umbau im Spiel
       (Bewegungsdaten aus dem Worker heraus, Snapshot, Prüfsumme und Resync bitgleich, 24 Dateien), Worker-Zahl und
-      Schalter in den Einstellungen. **Culling** (Hebel 3) gebaut, aber ungemessen (Branch `wt/render-cull`): der
+      Schalter in den Einstellungen. **Entschieden (User, 2026-09-30):** mehrere Worker bauen, auf eigenem Branch, mit
+      Schalter für 1 Worker und Bitgleichheit gegen Coop; Culling erst messen (Chromium ohne Bildratenbremse bei 8000,
+      16 000, 25 000, normal und herangezoomt, Sichttest am Bildrand), nur bei Gewinn übernehmen; die Schwelle für frühe
+      Ticks (35 ms) in Firefox mit mehreren Wiederholungen bei 16 000 und 20 000 nachmessen. **Culling** (Hebel 3) gebaut, aber ungemessen (Branch `wt/render-cull`): der
       Vertex-Shader verwirft eine Gegner-Instanz, deren Hüllkugel außerhalb des Sichtfelds liegt, ohne Kosten im
       Hauptthread. Offen: Messung in Chromium ohne Bildratenbremse und Sichttest am Bildrand.
-- [ ] **E74 Benchmark im Spiel** (User, 2026-09-29): die Lastmessung als integrierte Funktion im Spiel statt nur als
-      Playwright-Skript (`e2e/perf/sim-load.ts`). Ein gemischter Lauf auf der DevWorld mit mehreren Teiltests
-      hintereinander (feste Tower, Gegnerstufen, Tempo 1 und 4, Einpendeln vor jeder Messung), am Ende die Werte
-      abgezogen: FPS, langsamste 5 %, erreichtes Tempo, Ticks, Worker-Auslastung, Kosten je Paket. Jede Zeile mit
-      Spielversion, Commit, Rechner- und Browserdaten (CPU, Threads, Speicher, GPU, Pixeldichte), damit Läufe
-      verschiedener Rechner in eine Tabelle passen. Offen: Einstieg im Spiel, Export oder Sammeln der Ergebnisse.
-      **Entschieden (User, 2026-09-30):** Eintrag im Spielmenü startet den Lauf; am Ende eine Tabelle und ein Knopf, der
-      die Ergebnisse als lesbaren Text in die Zwischenablage kopiert (zum Versenden). Keine CSV, keine Datei.
-      **Gebaut 2026-09-30** (simu-worker): Menü → Benchmark lädt in die DevWorld neu (`?benchmark`), 2000/5000/10 000
-      Gegner bei Tempo 4 und 1, rund 140 s; Tabelle und „Copy results“. Die Szene teilt er mit `sim-load.ts`
-      (`src/app/benchmark/load-scene.ts`). Offen: dein Test im Spiel.
-- [ ] **E75 FPS-Anzeige mit Simulation** (Playtest 2026-09-30, Branch `simu-worker`): aufgeklappt auch die Werte der
-      Simulation: Ticks je Sekunde, erreichtes gegen eingestelltes Tempo, Auslastung des Workers (bei vielen Gegnern und
-      hohem Tempo sinkt das Tempo, die FPS halten), dazu ob der Worker mit gemeinsamem Speicher oder im Kopie-Fallback
-      läuft (`crossOriginIsolated`). Ein dritter Zustand nach rechts erweitert mit einem einfachen Mini-Chart von FPS,
-      Ticks und Auslastung.
-      **Entschieden (User, 2026-09-30):** Stufe 2 (heutiges Aufgeklappt) nur ergänzt um „Tempo 3,8 / 4 · Sim 72 %“ (Tempo
-      rot unter dem eingestellten) und die Sounds „angefordert / tatsächlich gespielt“ (z. B. 10 000 / 32). Alles weitere
-      (Ticks je Sekunde, Speicher-Modus, Kosten je Paket, Gegnerzahl) und die Mini-Charts erst in Stufe 3.
-      **Gebaut 2026-09-30** (simu-worker), zugeklappt ohne Hörer auf die Pakete. Offen: dein Blick darauf.
 - [ ] **E76 Vorschau der Seitenleiste nachbessern** (Playtest 2026-09-30, nach E73): die gebackene Drehung wirkt minimal
       ruckelig (72 Bilder mit 12 FPS, 5° je Schritt) und dreht in 6 s statt früher 15,7 s. Gebacken wird beim ersten
       Anzeigen, Gegnergruppen also beim Wellenstart; besser vorberechnen (beim Laden, im Leerlauf der Setup-Phase) oder
@@ -238,54 +224,18 @@ Ideen (2026-09-27), nichts entschieden:
       rund 3600 Kopien. Eine Obergrenze je Leerlauf-Rückruf half nicht. Vorschlag: die Drehungen beim Build vorrendern und
       als Bildbänder ausliefern, oder im Worker auf einem OffscreenCanvas backen. Entscheidung User. Speicher der Bildbänder
       mit 144 Bildern geschätzt (nicht gemessen) 140 bis 190 MB, doppelt so viel wie mit 72.
-- [ ] **E77 Lebensbalken über 20 000 Gegner**: `MAX_HEALTH_BARS = 20000`, darüber fehlen Balken (Messung 2026-09-29 mit
-      25 000 Gegnern).
-      **Entschieden (User, 2026-09-30):** Balken nur für Gegner nahe der Kamera oder im Bild, wenn die Prüfung messbar
-      nichts kostet; sonst die Obergrenze anheben.
-      **Gebaut 2026-09-30** (simu-worker): die Obergrenze fällt, Balken und Gegner-Instanzen starten klein (2048 und 512 je
-      Typ) und verdoppeln sich bei Bedarf. Keine Prüfung je Bild, welche Balken nah oder im Bild sind. Gemessen in Firefox
-      bei 16 000 Gegnern je zweimal gegen den Stand davor: 80/79 und 80/76 gegen 81/80 und 73/78 FPS, also gleich im
-      Rauschen. Bei 25 000 Gegnern sind die Balken zu sehen. Offen: dein Blick darauf.
-- [ ] **E78 Messlauf nachschärfen** (`e2e/perf/sim-load.ts`): Messungen mit `--dpr 1` wiederholen (Firefox lief sichtbar
-      mit Pixeldichte 1,25, Chrome gegen Firefox so nicht fair); bei 20 000 und 25 000 Gegnern füllt der Lauf nicht ganz
-      auf (3 bis 8 % unter dem Ziel, Wartezeit 120 s).
-      **Gebaut 2026-09-30:** Pixeldichte 1 als Vorgabe, Gegner 0,5 m/s, Füllen wartet über einen Aufruf an die
-      Simulation und füllt bis zu 4 Runden nach (trifft die Zielzahl genau), `--profile` für CPU-Profile beider Threads,
-      alle Reihen neu gemessen.
-- [ ] **E79 Replay: Effekte bleiben nach dem Verlassen** (Playtest 2026-09-30): wer ein Replay während eines Effekts
-      verlässt (Atombombe), sieht ihn im Live-Spiel weiterlaufen. Prüfen, ob `next` das auch tut.
-      **Behoben 2026-09-30** (simu-worker): `next` räumt ab, der Worker-Stand hatte `clearShow()` beim Umbau verloren. Die
-      Simulation schickt wieder `show.clear` vor jedem Laden (Replay rein und raus, Springen, Coop-Resync), und der
-      Hauptthread baut Bild und Ton des geladenen Stands auf. Offen: im Spiel ansehen.
-- [ ] **E80 Replay: Springen dauert** (Playtest 2026-09-30): ein Sprung in der Zeitleiste dauert bei 10 000 Gegnern und
-      Tempo 1 vier bis sechs Sekunden, er rechnet ab dem Wellenstart jeden Spielzug nach. Ideen: Zwischenstände alle
-      paar Sekunden, Fortschritt anzeigen. Vergleich mit `next` offen.
-      **Entschieden (User, 2026-09-30):** Zwischenstände während das Replay offen ist, als kompakte Strings im Worker,
-      Budget 250 MB, Abstand passt sich an (rund 1,3 KB je Gegner: bei 10 000 etwa alle 10 s, bei 25 000 alle 25 bis
-      30 s), beim Verlassen freigegeben. Nicht in der Replay-Datei, der Download bleibt so klein wie heute. Fortschritt
-      anzeigen, solange ein Sprung rechnet.
-      **Gebaut 2026-09-30** (simu-worker), gemessen mit `e2e/perf/replay-seek.ts` (3000 Gegner, Welle 6:38 min): der
-      erste weite Sprung 7,6 s wie vorher (7,4 s), jeder weitere 0,2 s statt 2,3 bis 4 s. Die Leiste zeigt „Jumping
-      43 %“. Nebenbei behoben: ein Zwischenstand plante den Weg des Helden neu und hätte das Replay vom Live-Lauf
-      abgebracht. Offen: im Spiel bei 10 000 Gegnern ansehen.
+      **Entschieden (User, 2026-09-30):** die Drehungen beim Build vorrendern und als Bildbänder ausliefern.
 - [ ] **E81 Restrisiken des zweiten Worker-Reviews** (2026-09-29): Wellenstart-Sperre im Hauptthread fällt nach 2 s
       Wanduhr (braucht das Relay länger, verwirft die Simulation den zweiten Start); Coop-Start und Ortswechsel ohne Paket
       dazwischen ließen den Lauf unmarkiert; ein hängender Worker blockiert nach `newRun`; Gegner-Views nur aus Event-Refs
       behalten die Werte des Events. Beobachten, nur mit Beleg angehen.
-- [ ] **E82 Performance-Panel der Developer-Tools nach dem Worker** (User, 2026-09-30): zeigt keine Simulationszeiten
-      mehr, weil es sich an `enemyManager.onProfileTiming` des Hauptthreads hängte. **Entschieden:** das Panel wird die
-      volle Aufschlüsselung: Simulation je Teil im Worker (Bewegung, Raster, Kampf, Paket packen), Hauptthread je Teil
-      (Einräumen: Zustand, Effekte, Ereignisse, Darstellung, Zuhörer), Zeichnen. Dieselben Messwerte wie die FPS-Anzeige
-      (E75), die kompakt bleibt. Messen darf den Worker nicht bremsen: die Aufschlüsselung je Teil läuft nur, solange das
-      Panel offen ist (dort ist ein kleiner Verlust in Ordnung); die Kennzahlen der FPS-Anzeige kommen aus Werten, die
-      ohnehin anfallen (Tick-Zeit, Sub-Steps, Pakete), ohne zusätzliche Zeitmessung im Hot Path.
-      **Gebaut 2026-09-30** (simu-worker): Worker je Teil, Einräumen je Paket, Spielschleife und Zeichnen; der Profiler im
-      Worker läuft nur bei offenem Panel (`SimConfig.profile`). Geschlossen ohne messbaren Verlust (16 000 Gegner,
-      Tempo 4, je 4 Läufe: 103 gegen 102 FPS); ohne Panel nimmt ein Tick genau 4 Zeitstempel (Spec).
 - [ ] **E58 Coop-Resync auf Abruf** (**erster Bau 2026-09-28**, COOP_PLAN C5b): Relay hält nach einer Abweichung, der
       Host schickt seinen Stand, die Gäste laden ihn an derselben Tick-Grenze; im Browser mit Bots geprüft.
       **Fertig gebaut 2026-09-29:** Stände in Teilen, Darstellung und Stores nach dem Laden (mit Bild zweier Sitze
       geprüft). Offen nur: ein Stand in mehreren Teilen im Browser (bisher nur Unit-Tests).
+      **Entschieden (User, 2026-09-30):** beides bauen: ein Coop-Bot-Lauf mit großer Custom-Welle ohne Spawn-Untergrenze und
+      gefälschtem Gold, der einen Resync in mehreren Teilen auslöst, und ein URL-Schalter, der die Teilgröße für Tests
+      verkleinert.
 - [ ] **E60 Versus-Modus** (Idee, im Lobby-Umschalter schon als SOON, COOP_PLAN D39): Form offen.
 - [ ] **E61 DevWorld als Spielfeld** (Idee): prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
       Verwandt: E55, E56.
