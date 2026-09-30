@@ -175,6 +175,25 @@ Zwei Zahlen statt einer: die **Bildzeit** des Hauptthreads (FPS) und die **Tick-
 (`SimScalars.tickMs`, zerlegt per RPC `tickProfile`); dazu kostet das Anwenden eines Pakets den Hauptthread
 `SimClient.applyTimes`.
 
+Wo sie im Spiel stehen (TODO E82, E75, E74):
+
+- **FPS-Anzeige** (oben links, drei Stufen): ab Stufe 2 Tempo erreicht / eingestellt und Worker-Last, ab Stufe 3 Ticks
+  je Sekunde, Speicher-Modus, Kosten je Paket, Gegner und Mini-Charts. Alles aus `PacketSums`
+  (`sim/client/load-stats.ts`): Tick-Zeit, Sub-Steps, Spielzeit und Einräumzeiten, die jedes Paket ohnehin bringt;
+  keine zusätzliche Zeitmessung, zugeklappt hört sie nicht einmal auf die Pakete.
+- **Performance-Fenster** (Dev-Menü): Simulation je Teil im Worker (Befehle, Gegner mit Bewegung/Raster/Höhe als
+  Stichprobe, Kampf, Geschosse, Events, Rest, Paket schreiben), Einräumen je Teil, Spielschleife und Zeichnen des
+  Hauptthreads (nur CPU). Nur solange es offen ist: `SimConfig.profile` setzt dann den Profiler im Worker
+  (`sim/core/sim-profile.ts`), das Fenster holt die Summen alle 0,5 s per RPC `profileSums`; `RenderLoop.setTiming`
+  misst das Bild. Geschlossen nimmt ein Tick nur die Zeitstempel, die er schon vorher nahm (vier für `tickMs`, zwei je
+  Befehl).
+- **Benchmark** (Spielmenü): lädt die Seite in die DevWorld neu (`?devworld&bot=manual&benchmark`, auch von einer
+  echten Karte aus, ohne Tiles und Kartensitzung), baut die Szene des Lastlaufs (`benchmark/load-scene.ts`, dieselbe
+  wie `e2e/perf/sim-load.ts`: 40 Tower, Gegner mit 1 000 000 HP und 0,5 m/s auf den ersten 70 % der Routen,
+  Auffüllen mit Warten auf die Simulation, Einpendeln) und misst 2000, 5000 und 10 000 Gegner je bei Tempo 4 und 1, je 8 s. Am Ende eine
+  Tabelle und ein Knopf, der sie als Text kopiert; jede Zeile trägt Version, Commit, Browser, System, Threads,
+  Speicher, GPU, Pixeldichte und Fenster. Das CPU-Modell kann der Browser nicht lesen, der Text sagt das.
+
 ### Messrechner
 
 Alle Zahlen dieses Dokuments stammen von Rechner **A**. Messungen weiterer Rechner kommen mit eigenem Namen dazu

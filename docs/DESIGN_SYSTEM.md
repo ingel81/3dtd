@@ -763,7 +763,8 @@ Die Werte liefert `veteranView()` (`tower-panel/tower-stats.ts`) aus `stats().ki
 | `components/game-sidebar/` | Rechte Sidebar mit Aktionen, Tower-Slots, Wave-Preview (Panels siehe [Sidebar-Panels](#sidebar-panels)) |
 | `components/compass/` | Kompass-Anzeige |
 | `components/ability-bar/` | Fähigkeitenleiste am linken Rand (Held, Fähigkeiten) |
-| `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle über Caret) |
+| `components/info-overlay/` | FPS-Anzeige in drei Stufen (Caret schaltet weiter): nur FPS; aufgeklappt mit Tempo und Worker-Last (Tempo in `--td-perf-critical` unter dem eingestellten), Tiles, Cache, Sounds je Sekunde angefordert / gespielt, Straßen; breit mit einer Spalte rechts: Ticks, Speicher-Modus, Kosten je Paket, Gegner, Mini-Charts |
+| `benchmark/benchmark-panel.component.*` | Benchmark oben mittig: Fortschritt, Tabelle, Kopierknopf (Gold), Schließen (Rahmen-Button) |
 | `components/quick-actions/` | Quick Actions: Route-Animation, Display-, Audio-, Layer- und Dev-Menü, Kamera-Reset |
 | `components/game-speed/` | Pause und Game-Speed (1x/2x/4x), Bauphase und Welle |
 | `components/boss-intro/` | Schleier und Titelkarte des Boss-Intros |

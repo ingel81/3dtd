@@ -63,7 +63,9 @@ ein echter zweiter Rechner, Hardware. Und alles, wofür beide Kameras dieselbe S
 
 Kein Test, ein Messlauf: eine DevWorld-Szene mit Towern und vielen Gegnern im Produktions-Build, gemessen werden
 Bilder pro Sekunde, langsamste 5 %, erreichtes Tempo, Ticks und Auslastung des Workers, Kosten je Paket. Einordnung und
-Ergebnisse in [SIM_WORKER.md](SIM_WORKER.md#kennzahlen), das Vorhaben als Funktion im Spiel in TODO E74.
+Ergebnisse in [SIM_WORKER.md](SIM_WORKER.md#kennzahlen). Die Szene (Tower-Plätze, Routenstücke, Auffüllen,
+Einpendeln) liegt in `src/app/benchmark/load-scene.ts`, die auch der Benchmark im Spiel nutzt (TODO E74); der Lauf
+lädt die Datei direkt, sie hat deshalb keine Imports.
 
 ```bash
 npm run build                                   # schreibt build-info.json: Version und Commit gehen in jedes Ergebnis

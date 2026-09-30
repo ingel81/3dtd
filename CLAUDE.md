@@ -41,6 +41,7 @@ src/app/
 ├── app.ts                      # Root Component (AppComponent)
 ├── app.config.ts               # Provider Config
 ├── app.routes.ts               # Routing
+├── benchmark/                  # Benchmark im Spiel: Lastszene (auch für e2e/perf/sim-load.ts), Bericht, Panel
 ├── tower-defense.component.*   # Haupt-Spielkomponente (.ts, .html, .scss)
 ├── bots/                       # Bot System (Strategy Pattern), Bot-Session, WebSocket-Client
 │   ├── bots/                   # StrategyBot, Factory

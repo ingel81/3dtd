@@ -228,13 +228,23 @@ Details: [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md).
 | **TowerDebugService** | Tower-Parameter Overrides (Scale, Height, Rotation), delegiert State an `DebugStore` |
 | **EnemyDebugService** | Enemy-Debug (Spawn, Type-Config, Live-Visualisierung), delegiert State an `DebugStore` |
 | **DebugWindowService** | Offen/zu-Zustand der elf Debug-Fenster. Die Fenster-Komponenten laden als ein Lazy-Chunk (`components/debug-window/debug-windows.ts`, ein `@defer`-Block im Template), sobald das Dev-Menü oder ein Fenster offen ist; die Debug-Services bleiben im Spiel-Chunk |
-| **PerformanceProfilerService** | Frame-Time Sampling, Hot-Path-Profile (`.profiles/`) |
+| **PerformanceProfilerService** | Zahlen des Performance-Fensters (TODO E82): Simulation je Teil im Worker (`SimConfig.profile`, RPC `profileSums`), Einräumen je Paket (`SimClient.applyTimes`), Bild des Hauptthreads (`RenderLoop.setTiming`); die Zeitmessungen laufen nur, solange das Fenster offen ist |
+| **SimMeterService** | Simulationswerte der FPS-Anzeige ab Stufe 2 (TODO E75): erreichtes Tempo, Worker-Last, Ticks, Kosten je Paket, Sounds je Sekunde, Verlauf der letzten Minute; nur aus Werten, die jedes Paket ohnehin bringt (`PacketSums`) |
 | **LosDebugService** | Zustand des LOS-Debug-Fensters: aktiver Tower, Cubemap-Faces, Pixel-zu-Cell-Lookup |
 | **DebugStateDumpService** | JSON-Snapshot des Engine-Zustands als Download für Bug-Hunts |
 
 Im Release-Build bleibt das alles erreichbar (Entscheidung des Users, 2026-09-16): das Dev-Menü mit den Cheats, die
 Konsolen-Globals (`__corridor`, `__rg`, `__perf`, `__raycastStats` usw.) und die Dauer-Messungen (Raycast-Zeitmessung,
 `[Camera]`-Log). Kein Build-Schalter nimmt sie heraus.
+
+#### benchmark/ (unter `src/app/`)
+
+| Datei | Verantwortung |
+|-------|---------------|
+| **BenchmarkService** | Benchmark im Spiel (TODO E74): Eintrag im Spielmenü lädt die Seite mit `?devworld&bot=manual&benchmark` neu, dann Stufen und Tempi messen; auf die Spielkomponente begrenzt, fährt den Last-Handle des `GameLoopFacadeService` |
+| `load-scene.ts` | Die Lastszene, die auch `e2e/perf/sim-load.ts` baut: Tower-Plätze, Routenstücke, Auffüllen mit Warten auf die Simulation (`sync`), Einpendeln; ohne Imports, damit Node sie direkt lädt |
+| `benchmark-report.ts` | Plan, URL, Ergebnis als lesbarer Text (`formatBenchmark`) |
+| `BenchmarkPanelComponent` | Fortschritt mit Abbrechen, am Ende Tabelle und Kopierknopf |
 
 ### Facade Services
 
