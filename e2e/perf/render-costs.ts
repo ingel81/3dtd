@@ -80,15 +80,20 @@ const stats = (xs: number[]) => {
   return { mean: +mean.toFixed(2), median: +sorted[Math.floor(sorted.length / 2)].toFixed(2), p95: +sorted[Math.floor(sorted.length * 0.95)].toFixed(2), n: xs.length };
 };
 
-type Game = {
-  gameState: {
-    getEventBus(): { emit(e: Record<string, unknown>): void };
-    setGameSpeed(v: number): void;
-    towerManager: { getAll(): { id: string; position: { lat: number; lon: number } }[] };
-    getHQPosition?(): { lat: number; lon: number } | null;
-  };
+/** The game component's engine (its tower renderer's range rings) */
+interface Game {
   engineInit: { getEngine(): { towers: { towers: Map<string, { rangeIndicator?: { visible: boolean } }> } } | null };
-};
+}
+
+/** The load handle the page sets up (GameLoopFacadeService.createLoadHandle): commands, speed, what the mirror says */
+interface Load {
+  emit(command: Record<string, unknown>): void;
+  speed(value: number): void;
+  groundAt(lat: number, lon: number): number | null;
+  state(): { towers: number; paths: [number, number][][] };
+}
+const setSpeed = (page: Page, value: number) =>
+  page.evaluate((v) => (globalThis as unknown as { __load: Load }).__load.speed(v), value);
 
 async function main(): Promise<void> {
   const browser = await chromium.launch({
@@ -106,32 +111,23 @@ async function main(): Promise<void> {
   if (MAP) {
     // No bot on a map: towers beside the route by command, some fit, the rest the game refuses
     await page.evaluate(() => {
-      const w = window as unknown as { ng: { getComponent(el: Element | null): Record<string, never> } };
-      const gs = (w.ng.getComponent(document.querySelector('app-tower-defense')) as unknown as {
-        gameState: { getEventBus(): { emit(e: Record<string, unknown>): void }; getCachedPaths(): Map<string, { lat: number; lon: number; height?: number }[]> };
-      }).gameState;
-      const bus = gs.getEventBus();
-      bus.emit({ type: 'debug:add-credits', amount: 20000 });
-      const path = [...gs.getCachedPaths().values()][0];
+      const handle = (globalThis as unknown as { __load: Load }).__load;
+      handle.emit({ type: 'debug:add-credits', amount: 20000 });
+      const path = handle.state().paths[0];
       for (const f of [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]) {
-        const p = path[Math.floor(path.length * f)];
+        const [lat, lon] = path[Math.floor(path.length * f)];
         for (const [dLat, dLon] of [[0.00012, 0], [-0.00012, 0], [0, 0.00016], [0, -0.00016]]) {
-          bus.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: p.lat + dLat, lon: p.lon + dLon, height: p.height ?? 0 } });
+          const height = handle.groundAt(lat + dLat, lon + dLon) ?? 0;
+          handle.emit({ type: 'command:place-tower', typeId: 'archer', position: { lat: lat + dLat, lon: lon + dLon, height } });
         }
       }
     });
   }
 
   // Let the bot build a defense, then hold the game so only the picture changes between turns
-  await page.evaluate(() => {
-    const w = window as unknown as { ng: { getComponent(el: Element | null): Game } };
-    w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.setGameSpeed(8);
-  });
+  await setSpeed(page, 8);
   for (let i = 0; i < (MAP ? 5 : 120); i++) {
-    const towers = await page.evaluate(() => {
-      const w = window as unknown as { ng: { getComponent(el: Element | null): Game } };
-      return w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.towerManager.getAll().length;
-    });
+    const towers = await page.evaluate(() => (globalThis as unknown as { __load: Load }).__load.state().towers);
     if (towers >= 12) break;
     await page.waitForTimeout(2000);
   }
@@ -143,10 +139,7 @@ async function main(): Promise<void> {
     return n;
   }, on);
 
-  await page.evaluate(() => {
-    const w = window as unknown as { ng: { getComponent(el: Element | null): Game } };
-    w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.setGameSpeed(0);
-  });
+  await setSpeed(page, 0);
   const rings = await setRings(false);
   const off: number[] = [];
   const on: number[] = [];
@@ -163,32 +156,18 @@ async function main(): Promise<void> {
   const laserOff: number[] = [];
   const laserOn: number[] = [];
   for (let r = 0; r < ROUNDS; r++) {
-    await page.evaluate(() => {
-      const w = window as unknown as { ng: { getComponent(el: Element | null): Game } };
-      w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.setGameSpeed(1);
-    });
+    await setSpeed(page, 1);
     laserOff.push(...await frames(page, SECONDS * 1000));
+    // Commands to the simulation (the research and the charge as cheats), which runs in its worker
     await page.evaluate(() => {
-      const w = window as unknown as { ng: { getComponent(el: Element | null): Game } };
-      const gs = w.ng.getComponent(document.querySelector('app-tower-defense')).gameState;
-      const game = gs as unknown as {
-        players: string[]; researchOf(p: string): { completeResearch(id: string): void };
-        getCachedPaths(): Map<string, { lat: number; lon: number; height?: number }[]>;
-      };
-      const bus = gs.getEventBus();
-      for (const p of game.players) game.researchOf(p).completeResearch('orbital-laser');
-      const path = [...game.getCachedPaths().values()][0];
-      const target = path[Math.floor(path.length / 2)];
-      bus.emit({ type: 'debug:ready-ability', abilityId: 'orbital-laser' });
-      bus.emit({ type: 'command:use-ability', abilityId: 'orbital-laser', target: { lat: target.lat, lon: target.lon, height: target.height ?? 0 } });
+      const handle = (globalThis as unknown as { __load: Load }).__load;
+      const path = handle.state().paths[0];
+      const [lat, lon] = path[Math.floor(path.length / 2)];
+      handle.emit({ type: 'debug:complete-all-research' });
+      handle.emit({ type: 'debug:ready-ability', abilityId: 'orbital-laser' });
+      handle.emit({ type: 'command:use-ability', abilityId: 'orbital-laser', target: { lat, lon, height: handle.groundAt(lat, lon) ?? 0 } });
     });
     await page.waitForTimeout(300);
-    const burning = await page.evaluate(() => {
-      const w = window as unknown as { ng: { getComponent(el: Element | null): { gameState: { abilityOf(p: string): { pending?: unknown[] }; players: string[] } } } };
-      const gs = w.ng.getComponent(document.querySelector('app-tower-defense')).gameState;
-      return gs.players.reduce((n, p) => n + (gs.abilityOf(p).pending?.length ?? 0), 0);
-    });
-    if (r === 0) console.log(`laser strikes under way: ${burning}`);
     laserOn.push(...await frames(page, SECONDS * 1000));
     await page.waitForTimeout(6000);
   }

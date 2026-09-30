@@ -92,10 +92,8 @@ function indicators(enemies: Enemy[], paused: boolean): Indicators {
   const sync = new EllipsoidSync(ORIGIN.lat, ORIGIN.lon);
   const self = Object.create(OffscreenIndicatorsComponent.prototype) as Indicators;
   Object.assign(self, {
-    gameState: {
-      tilesEngine: { getCamera: () => cam, sync },
-      enemyManager: { getAlive: () => enemies },
-    },
+    engineInit: { getEngine: () => ({ getCamera: () => cam, sync }) },
+    mirror: { aliveEnemies: () => enemies },
     gameStore: { phase: () => 'wave', renderingEnabled: () => true, paused: () => paused },
     host: { nativeElement: { clientWidth: 1920, clientHeight: 1080 } },
     arrows: signal([]),
