@@ -306,13 +306,20 @@ Ideen (2026-09-27), nichts entschieden:
       danach ansehen.
 - [ ] **E88 Wave-Debug-Panel in zwei Tabs** (Playtest 2026-09-30): erster Tab (Name etwa „Run plan“ oder
       „Campaign“) mit Wellenquelle, „Why this wave“ und „Jump to wave“; zweiter Tab „Custom Wave“ mit dem Rest
-      (eigene Welle zusammenstellen usw.).
+      (eigene Welle zusammenstellen usw.).
+
 - [ ] **E89 Layer-Menü: Knöpfe ohne Wirkung** (Playtest 2026-09-30): das Route-Grid-Overlay und die Flughöhe der
       Luftroute lassen sich nicht mehr anzeigen, vielleicht weitere. Vermutlich lesen sie seit der Simulation im Worker
       noch deren Objekte statt des Rasters im Hauptthread. Alle Knöpfe des Menüs prüfen.
+      **Behoben 2026-09-30:** die Overlays bekamen ihre Szene nie (`initDebugViz` rief früher der `GameStateManager`,
+      der jetzt im Worker läuft); jetzt beim Start der Engine, beim Abbau räumt `dispose` alle Overlays. Im Browser
+      (DevWorld) alle drei Knöpfe geprüft.
 - [ ] **E90 Fokus nach dem Layer-Menü** (Playtest 2026-09-30): Layer-Menü schließen, mit Esc das Hauptmenü öffnen und
       schließen: danach steht der Tooltip des Layer-Knopfs, und das Hauptmenü braucht 2× Esc. Vermutlich behält der
       Knopf den Fokus und das erste Esc schließt dessen Tooltip. Im Browser prüfen (jsdom kennt den Fall nicht).
+      **Behoben 2026-09-30:** der Dialog gab den Fokus beim Schließen mit Esc als Tastatur-Fokus an den Knopf zurück,
+      dessen Tooltip schluckte das nächste Esc. Kein Dialog gibt den Fokus mehr zurück (`app.config.ts`). Im Browser
+      mit Gegenprobe geprüft.
 - [ ] **E91 Diagramme für FPS, Ticks und Sim** (Playtest 2026-09-30): minimal bleiben, aber wie richtige Diagramme
       aussehen (Skala, saubere Linie, Grenzlinien, aktueller Wert). Entwurf vor dem Bauen.
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
