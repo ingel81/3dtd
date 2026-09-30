@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Injector } from '@angular/core';
-import { SimClient } from './sim-client.service';
+import { EARLY_TICK_MS, SimClient, earlyTickParam } from './sim-client.service';
 import { GameStore } from '../../store/game.store';
 import type { SimTransport, SimTransportHandlers } from './transport';
 import type { SimMirrorApi, SimPresenterApi } from './contracts';
@@ -241,5 +241,16 @@ describe('SimClient', () => {
     client.loadWorld({} as never);
     client.frame(16, false);
     expect(link.confirmedTick).not.toHaveBeenCalled();
+  });
+});
+
+describe('earlyTickParam (TODO E72)', () => {
+  it('takes whole ms from 0 to 1000 and off, else the default', () => {
+    expect(earlyTickParam('?earlyTick=20')).toBe(20);
+    expect(earlyTickParam('?earlyTick=0')).toBe(0);
+    expect(earlyTickParam('?earlyTick=off')).toBe(Infinity);
+    for (const bad of ['', '?earlyTick=', '?earlyTick=-1', '?earlyTick=2.5', '?earlyTick=1001', '?earlyTick=x']) {
+      expect(earlyTickParam(bad)).toBe(EARLY_TICK_MS);
+    }
   });
 });

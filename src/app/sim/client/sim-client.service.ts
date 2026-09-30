@@ -20,6 +20,17 @@ import { WorkerTransport, type SimTransport, type SimTransportHandlers } from '.
  */
 export const EARLY_TICK_MS = 35;
 
+/**
+ * `?earlyTick=` in ms, for measuring the threshold (TODO E72): a whole number from 0 (every tick early) to 1000,
+ * `off` for never; else EARLY_TICK_MS.
+ */
+export function earlyTickParam(search: string): number {
+  const value = new URLSearchParams(search).get('earlyTick');
+  if (value === 'off') return Infinity;
+  const n = Number(value);
+  return value !== null && value !== '' && Number.isInteger(n) && n >= 0 && n <= 1000 ? n : EARLY_TICK_MS;
+}
+
 /** Inputs the UI gives on the main bus; everything else on it came from the simulation. */
 export function isSimInput(type: string): boolean {
   return type.startsWith('command:') || (type.startsWith('debug:') && type !== 'debug:sound');
@@ -187,6 +198,8 @@ export class SimClient {
 
   /** The last tick's time in the simulation, ms (SimScalars.tickMs) */
   private lastTickMs = 0;
+  /** EARLY_TICK_MS, or what the address asks for (earlyTickParam) */
+  private readonly earlyTickMs = earlyTickParam(typeof location === 'undefined' ? '' : location.search);
 
   /**
    * The packet just back is the only one not applied, and the tick took
@@ -196,7 +209,7 @@ export class SimClient {
    */
   private sendEarly(): void {
     const transport = this.transport;
-    if (!transport?.concurrent || this.pendingPackets.length !== 1 || !(this.lastTickMs > EARLY_TICK_MS)) return;
+    if (!transport?.concurrent || this.pendingPackets.length !== 1 || !(this.lastTickMs > this.earlyTickMs)) return;
     if (!this.worldLoaded || this.inFlight || this.failure() !== null) return;
     this.sendTick(performance.now(), this.gameStore.renderingEnabled());
   }
