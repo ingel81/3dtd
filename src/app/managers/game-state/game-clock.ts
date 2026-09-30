@@ -1,8 +1,8 @@
 /**
  * Game-Clock — single source of truth for ALL gameplay timing.
  *
- * Advances by FIXED_STEP_MS per sub-step, 30 sub-steps per second of game
- * time. Sub-stepping ensures the
+ * Advances by FIXED_STEP_MS per sub-step, SIM_STEPS_PER_SECOND of them per
+ * second of game time (configs/timing.config.ts). Sub-stepping ensures the
  * simulation runs identically at every training timescale: at 75× a
  * pass of the same wall time runs ~75 times the sub-steps, each behaving like
  * one 1× tick. No /timescale compensation anywhere.
@@ -11,6 +11,8 @@
  * `beginFrame()`, `while (nextSubStep()) { ... }`, `endFrame()`, or
  * `holdFrame()` while paused. Plain arithmetic, no allocation per sub-step.
  */
+import { SIM_STEPS_PER_SECOND } from '../../configs/timing.config';
+
 /** See GameClock.getState. Plain data. */
 export interface GameClockState {
   gameTimeMs: number;
@@ -19,18 +21,26 @@ export interface GameClockState {
 
 export class GameClock {
   /**
-   * Fixed game-time per sub-step: 30 sub-steps a second. Was 16.667 (60 a
-   * second) until 2026-09-30: half the sub-steps are about half the
-   * simulation's work, and the picture slides between two states anyway
-   * (three-engine/renderers/state-lerp.ts, TODO E86).
+   * Fixed game-time per sub-step, from the rate (SIM_STEPS_PER_SECOND):
+   * 33.334 ms at 30 a second, 16.667 ms at 60.
    *
-   * A hair over 1000 / 30 on purpose, as 16.667 was over 1000 / 60: timers
-   * count down or add up sub-steps, and with the exact third the sum of 15
-   * sub-steps comes out a rounding error short of 500 ms, which costs a
-   * round duration (a 500 ms warning, a tick of poison) one sub-step more.
-   * At 33.334 the 15th sub-step is past 500 ms whatever the rounding.
+   * Rounded up to the next thousandth of a ms on purpose, not the exact
+   * 1000 / rate: timers count sub-steps down or add them up, and with the
+   * exact third the sum of 15 sub-steps comes out a rounding error short of
+   * 500 ms, which costs a round duration (a 500 ms warning, a tick of
+   * poison) one sub-step more. A hair over, the sub-step that completes a
+   * round duration is past it whatever the rounding.
    */
-  static readonly FIXED_STEP_MS = 33.334;
+  static readonly FIXED_STEP_MS = Math.ceil(1_000_000 / SIM_STEPS_PER_SECOND) / 1000;
+
+  /**
+   * Sub-steps in `ms` of game time, to the nearest: for windows and
+   * intervals given as a duration (a stuck check every 10 s, a state hash
+   * every second), so no count of sub-steps stands anywhere as a number.
+   */
+  static stepsIn(ms: number): number {
+    return Math.max(1, Math.round(ms / GameClock.FIXED_STEP_MS));
+  }
   /**
    * The most wall clock the simulation may lie behind (ms), times the
    * timescale in game time: what a pass did not get to is kept up to here and

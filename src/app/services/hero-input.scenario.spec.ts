@@ -49,9 +49,10 @@ import { HERO, type HeroStatus } from '../configs/hero.config';
 import { heroPanelView } from '../components/game-sidebar/hero-panel/hero-panel';
 import { at, local, line } from '../../test/geo-test-points';
 import { singlePlayer } from '../integration/single-player-parts';
+import { GameClock } from '../managers/game-state/game-clock';
 
-/** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+/** The length of one gameplay sub-step. */
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 /** Two spawns, south and west, joining at (0, 150) and running north to the HQ at (0, 300) */
 const ROUTES = new Map([
@@ -133,7 +134,12 @@ describe('Hero under the pointer, playtest 386, 387, 389, 391 and 425 replayed',
     const h = hero.getPresentation();
     return h && { ...local(h), post: local(h.anchor) };
   };
-  const tick = (steps: number) => {
+  /**
+   * `sixtieths` of a second of game time, in sub-steps of the game's length (one at least): the numbers
+   * below were written as sub-steps of 60 a second and stand for that time at any rate
+   */
+  const tick = (sixtieths: number) => {
+    const steps = Math.max(1, Math.round((sixtieths * 1000) / 60 / STEP_MS));
     for (let i = 0; i < steps; i++) hero.update(STEP_MS);
   };
 

@@ -143,8 +143,9 @@ Die Reihenfolge hält jeden Schritt ohne Netz testbar, bis C4 den echten Relay b
 ### C0 Lockstep im Prozess (gebaut 2026-09-24)
 
 - `coop/lockstep.ts`: `LockstepLink` (das Client-Ende des Relays, egal worüber), `StampedCommand` mit Tick,
-  laufender Nummer und `playerId`, `TICK_SUB_STEPS = 1` (rund 33 ms bei Tempo 1: ein Sub-Step von 33,334 ms, seit die Simulation 30 Sub-Steps je
-  Sekunde rechnet, TODO E86; davor 2 Sub-Steps von 16,667 ms, bis 2026-09-25 waren es 4). `PROTOCOL_VERSION` 2.
+  laufender Nummer und `playerId`, `TICK_SUB_STEPS` aus der Simulationsrate (`SIM_STEPS_PER_SECOND`, `configs/timing.config.ts`), so dass ein Tick
+  rund 33 ms dauert: ein Sub-Step von 33,334 ms, seit die Simulation 30 Sub-Steps je Sekunde rechnet (TODO E86); davor
+  2 Sub-Steps von 16,667 ms, bis 2026-09-25 waren es 4. `PROTOCOL_VERSION` 2.
 - `coop/local-relay.ts`: Relay im Prozess für Specs und als Vorbild für C4. Er hält die Ankunftsreihenfolge, legt
   alles Eingegangene in den nächsten Tick, wenn der schließt, und gibt jeden geschlossenen Tick an jeden Link.
 - `GameCommandsHandler.setLockstep(link)`: Ein Befehl vom Bus wirkt nicht mehr dort, wo er gegeben wurde, sondern

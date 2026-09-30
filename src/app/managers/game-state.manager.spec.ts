@@ -903,13 +903,15 @@ describe('GameStateManager', () => {
         gsm.update(17, onSub);
         const seeded = onSub.mock.calls.length;
 
-        // 100 ms and what was carried are due, three sub-steps; the deadline has passed already: one runs
+        // 100 ms and what was carried are due, some sub-steps; the deadline has passed already: one runs
+        const due = Math.floor((132 - seeded * GameClock.FIXED_STEP_MS) / GameClock.FIXED_STEP_MS);
+        expect(due).toBeGreaterThan(1);
         gsm.update(117, onSub, performance.now() - 1);
         expect(onSub.mock.calls.length - seeded).toBe(1);
         expect(gsm.dueInMs()).toBe(0);
         // The rest with the next call, at the same wall clock
         gsm.update(117, onSub);
-        expect(onSub.mock.calls.length - seeded).toBe(3);
+        expect(onSub.mock.calls.length - seeded).toBe(due);
         expect(gsm.dueInMs()).toBeGreaterThan(0);
 
         gsm.paused.set(true);

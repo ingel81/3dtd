@@ -27,11 +27,12 @@ import { Enemy } from '../entities/enemy.entity';
 import { ABILITIES } from '../configs/abilities.config';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { GameClock } from '../managers/game-state/game-clock';
+import { stepsOf } from './test-helpers';
 
 /** GameClock.FIXED_STEP_MS */
 const STEP_MS = GameClock.FIXED_STEP_MS;
 /** 6500 ms of warning in sub-steps */
-const WARNING_STEPS = 390;
+const WARNING_STEPS = stepsOf(6500);
 const NUKE = ABILITIES['nuclear-strike'];
 
 // At the equator a degree of longitude is as long as one of latitude

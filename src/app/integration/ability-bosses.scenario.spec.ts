@@ -37,6 +37,7 @@ import {
   makeSingleTypeWaveConfig,
   TEST_SPAWN_POINTS,
   type TestManagers,
+  stepsOf,
 } from './test-helpers';
 import { AbilityManager } from '../managers/ability.manager';
 import { StatusEffectService } from '../services/combat/status-effect.service';
@@ -57,14 +58,14 @@ import { routeSweepToward } from '../utils/route-sweep';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GameEvent } from '../game-engine/game-event-bus';
 import type { GeoPosition } from '../models/game.types';
+import { GameClock } from '../managers/game-state/game-clock';
 
-/** GameClock.FIXED_STEP_MS */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 /** Frost bomb and EMP: 500 ms of warning */
-const WARNING_STEPS = 30;
+const WARNING_STEPS = stepsOf(500);
 /** A boss: frozen 1 s, stunned 0.75 s */
-const BOSS_FREEZE_STEPS = 60;
-const BOSS_STUN_STEPS = 45;
+const BOSS_FREEZE_STEPS = stepsOf(1000);
+const BOSS_STUN_STEPS = stepsOf(750);
 const LASER = ABILITIES['orbital-laser'];
 const BEAM = LASER.effect as Extract<AbilityEffect, { kind: 'beam' }>;
 /** The laser's warning and its burn, and a few sub-steps after */
@@ -293,7 +294,7 @@ describe('Frost bomb and EMP on the ooze, playtest 399 replayed', () => {
   };
 
   it('the tip stands 1 s frozen and 0.75 s stunned, then moves on', () => {
-    run(1200); // 20 s: the tip on the route, the body growing behind it
+    run(stepsOf(20_000)); // 20 s: the tip on the route, the body growing behind it
     const ooze = m.enemyManager.getAlive()[0];
     expect(ooze.typeConfig.id).toBe('ooze');
 
@@ -316,7 +317,7 @@ describe('Frost bomb and EMP on the ooze, playtest 399 replayed', () => {
     const leaks: number[] = [];
     m.eventBus.on('enemy:leaking', (event) => leaks.push(event.damage));
     // The 111 m route at 3 m/s: the tip arrives after 37 s, then the body flows in
-    run(2400);
+    run(stepsOf(40_000));
     const ooze = m.enemyManager.getAlive()[0];
     // Flowing in: it has leaked, and a body flowed in whole would be gone
     expect(ooze.typeConfig.id).toBe('ooze');

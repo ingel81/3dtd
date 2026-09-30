@@ -20,7 +20,10 @@ import { Tower } from '../entities/tower.entity';
 import { OriginSync, SimCoords, type SimSync } from '../sim/core/sim-coords';
 import type { SimOps, SimSink } from '../sim/core/sim-sink';
 
-/** Sub-steps it takes until `ms` of game time have passed (GameClock.FIXED_STEP_MS each) */
+/**
+ * Sub-steps it takes until `ms` of game time have passed (GameClock.FIXED_STEP_MS each). Specs give
+ * durations and ask for the sub-steps here, so they hold at any rate (SIM_STEPS_PER_SECOND).
+ */
 export function stepsOf(ms: number): number {
   return Math.ceil(ms / GameClock.FIXED_STEP_MS - 1e-9);
 }

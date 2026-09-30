@@ -204,10 +204,17 @@ Branches `perf/interp` und `perf/rate30`, auf `perf/decouple` aufgesetzt.
 - **Gleiten zwischen zwei Ständen** (`perf/interp`): Der Worker veröffentlicht rund 30 Stände je Sekunde
   (`MIN_PUBLISH_GAP_MS`, als Zeitplan), Gegner und Lebensbalken gleiten im Shader, Geschosse, ihre Spuren und die
   Helden auf dem Hauptthread (`three-engine/renderers/state-lerp.ts`). Beschrieben in [SIM_WORKER.md](SIM_WORKER.md).
-- **30 Sub-Steps je Sekunde** (`perf/rate30`): `GameClock.FIXED_STEP_MS` 33,334 ms. Bewusst eine Spur über 1000/30,
-  wie 16,667 über 1000/60 lag: Zähler summieren Sub-Steps, und mit dem genauen Drittel liegt die Summe von 15
-  Sub-Steps um einen Rundungsfehler unter 500 ms, eine runde Dauer (500 ms Vorwarnung) kostete dann einen Sub-Step
-  mehr. Gemessen in den Specs: mit 1000/30 fiel die EMP nach 16 statt 15 Sub-Steps.
+- **30 Sub-Steps je Sekunde** (`perf/rate30`). Die Rate steht an einer Stelle: `SIM_STEPS_PER_SECOND` in
+  `configs/timing.config.ts`. Daraus folgen die Schrittlänge (`GameClock.FIXED_STEP_MS`, 33,334 ms), der Coop-Tick
+  (`TICK_SUB_STEPS = max(1, round(Rate / 30))`, den auch das Relay nimmt) und jede Schrittzahl
+  (`GameClock.stepsIn(ms)`: Stuck-Erkennung, Replay-Zwischenstände, Prüfsumme je Spielsekunde). Specs geben Dauern an
+  und rechnen mit `stepsOf(ms)` (`integration/test-helpers.ts`); die Suite ist bei 30 und bei 60 grün. Ein Wechsel der
+  Rate ist die eine Zeile, dazu die Versionen (`REPLAY_FILE_VERSION`, beide Snapshot-Versionen, `PROTOCOL_VERSION`),
+  weil ein aufgezeichneter Sub-Step dann etwas anderes heißt, und ein Relay vom selben Stand.
+- Die Schrittlänge ist `Math.ceil(1_000_000 / Rate) / 1000`, also auf die Tausendstel-Millisekunde aufgerundet
+  (16,667 bei 60, 33,334 bei 30), nicht genau 1000/Rate: Zähler summieren Sub-Steps, und mit dem genauen Drittel liegt
+  die Summe von 15 Sub-Steps um einen Rundungsfehler unter 500 ms, eine runde Dauer (500 ms Vorwarnung) kostete dann
+  einen Sub-Step mehr. Gemessen in den Specs: mit 1000/30 fiel die EMP nach 16 statt 15 Sub-Steps.
 
 Was sich an den Regeln ändert (vorher 60 Sub-Steps, Abklingzeit ohne Rest):
 

@@ -285,4 +285,4 @@ function fnv(hash: number, word: number): number {
 }
 
 /** Sub-steps between two hashes while recording or checking a wave: one game second. */
-export const STATE_HASH_INTERVAL = Math.round(1000 / GameClock.FIXED_STEP_MS);
+export const STATE_HASH_INTERVAL = GameClock.stepsIn(1000);

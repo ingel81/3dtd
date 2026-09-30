@@ -18,9 +18,11 @@ import {
   createTestCachedPaths,
   tickEngine,
   makeSingleTypeWaveConfig,
+  stepsOf,
 } from './test-helpers';
 import { waveRules } from '../director/wave-rules';
 import { lineageRewardWeight } from '../configs/enemy-types.config';
+import { GameClock } from '../managers/game-state/game-clock';
 
 const MINION = 'skeleton-minion';
 
@@ -120,7 +122,7 @@ describe('Split on death integration', () => {
   });
 
   it('splits identically at 1 and at 10 sub-steps per frame (timescale 1 vs 10)', () => {
-    const STEP = 16.667;
+    const STEP = GameClock.FIXED_STEP_MS;
     const run = (stepsPerFrame: number) => {
       const t = createWiredManagers(); // resets the id counter
       const gold: number[] = [];
@@ -134,7 +136,7 @@ describe('Split on death integration', () => {
 
       t.waveManager.startWave(skeletonWave(12, 150));
       let now = 0;
-      for (let frame = 0; frame < 600 / stepsPerFrame; frame++) {
+      for (let frame = 0; frame < stepsOf(10_000) / stepsPerFrame; frame++) {
         for (let s = 0; s < stepsPerFrame; s++) {
           now += STEP;
           t.waveManager.tickSpawn(STEP);

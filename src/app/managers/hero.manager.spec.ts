@@ -7,9 +7,10 @@ import { ROUTE_BODY_AIM_HEIGHT_M } from '../utils/route-body';
 import { at, local, line } from '../../test/geo-test-points';
 import type { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
+import { GameClock } from './game-state/game-clock';
 
-/** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+/** The length of one gameplay sub-step. */
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 /**
  * Two spawns: south at (0, 0), west at (-150, 150). They join at (0, 150)
@@ -74,7 +75,12 @@ describe('HeroManager', () => {
       researchId: HERO.researchId,
       effects: [{ kind: 'global-perk', perkId: HERO.perkId, description: '' }],
     });
-  const tick = (steps: number) => {
+  /**
+   * `sixtieths` of a second of game time, in sub-steps of the game's length (one at least): the numbers
+   * below were written as sub-steps of 60 a second and stand for that time at any rate
+   */
+  const tick = (sixtieths: number) => {
+    const steps = Math.max(1, Math.round((sixtieths * 1000) / 60 / STEP_MS));
     for (let i = 0; i < steps; i++) manager.update(STEP_MS);
   };
   const heroAt = () => local(manager.getHero()!.position);

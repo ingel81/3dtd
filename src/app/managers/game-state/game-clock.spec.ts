@@ -20,22 +20,23 @@ describe('GameClock', () => {
 
   it('carries the remainder into the next frame', () => {
     const clock = new GameClock();
-    frame(clock, 1000);                   // 16 ms carried
-    expect(frame(clock, 1050)).toBe(1);   // 66 ms: one step, ~33 ms left
-    expect(frame(clock, 1051)).toBe(1);   // ~34 ms: one step
-    expect(clock.gameTimeMs).toBe(STEP + STEP);
+    frame(clock, 1000);                                        // 16 ms carried
+    expect(frame(clock, 1000 + 3 * STEP - 15)).toBe(3);        // three steps, 1 ms left
+    expect(frame(clock, 1000 + 4 * STEP - 15)).toBe(1);        // one step more
+    expect(clock.gameTimeMs).toBe(STEP + STEP + STEP + STEP);
   });
 
   it('multiplies the wall-clock delta by the timescale', () => {
     const clock = new GameClock();
-    expect(frame(clock, 1000, 10)).toBe(4);    // 160 ms
-    expect(frame(clock, 1020, 10)).toBe(6);    // 200 ms + ~27 ms carried
+    const first = Math.floor(160 / STEP);
+    expect(frame(clock, 1000, 10)).toBe(first);                                          // 16 ms x 10
+    expect(frame(clock, 1020, 10)).toBe(Math.floor((160 - first * STEP + 200) / STEP));  // 20 ms x 10 and the rest
   });
 
-  it('takes a slow pass in full: 100 ms are three sub-steps, not slow motion', () => {
+  it('takes a slow pass in full: 100 ms are 100 ms of sub-steps, not slow motion', () => {
     const clock = new GameClock();
     frame(clock, 1000);
-    expect(frame(clock, 1100)).toBe(3);        // 100 ms + 16 ms carried
+    expect(frame(clock, 1100)).toBe(Math.floor(116 / STEP));   // 100 ms + 16 ms carried
   });
 
   it('caps a long wall-clock gap at MAX_BACKLOG_MS times the timescale', () => {
@@ -51,10 +52,10 @@ describe('GameClock', () => {
     frame(clock, 1000);
     expect(clock.dueInMs(1)).toBeCloseTo(STEP - 16, 6);
     expect(clock.dueInMs(4)).toBeCloseTo((STEP - 16) / 4, 6);
-    // 116 ms due, the pass gets to two sub-steps: one is left for the next
+    // 116 ms due, the pass gets to two sub-steps: the others are left for the next
     expect(frame(clock, 1100, 1, 2)).toBe(2);
     expect(clock.dueInMs(1)).toBe(0);
-    expect(frame(clock, 1100)).toBe(1);
+    expect(frame(clock, 1100)).toBe(Math.floor(116 / STEP) - 2);
     // A simulation that never keeps up stays MAX_BACKLOG_MS behind, no more
     for (let t = 1200; t <= 3000; t += 100) frame(clock, t, 1, 1);
     expect(frame(clock, 3000)).toBe(Math.floor(GameClock.MAX_BACKLOG_MS / STEP) - 1);

@@ -20,11 +20,12 @@ import { ABILITY_IDS, type AbilityId, type AbilityStatus } from '../../configs/a
 import type { GeoPosition } from '../../models/game.types';
 import { singlePlayer } from '../../integration/single-player-parts';
 import { GameClock } from '../../managers/game-state/game-clock';
+import { stepsOf } from '../../integration/test-helpers';
 
 /** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
 const STEP_MS = GameClock.FIXED_STEP_MS;
 /** 6500 ms of warning in sub-steps */
-const WARNING_STEPS = 390;
+const WARNING_STEPS = stepsOf(6500);
 
 /**
  * Playtest 318 and the logic of 319 (night 2, docs/archive/REVIEW_SPRINT_2026-09-14.md)

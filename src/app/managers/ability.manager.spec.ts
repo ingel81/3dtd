@@ -7,12 +7,17 @@ import type { Enemy } from '../entities/enemy.entity';
 import type { GamePhase, GeoPosition } from '../models/game.types';
 import { routeSweepToward, type RouteSweep } from '../utils/route-sweep';
 import { METERS_PER_DEGREE_LAT, geoDistanceFast } from '../utils/geo-utils';
+import { GameClock } from './game-state/game-clock';
+import { stepsOf } from '../integration/test-helpers';
 
-/** GameClock.FIXED_STEP_MS: the length of one gameplay sub-step. */
-const STEP_MS = 16.667;
+/** The length of one gameplay sub-step. */
+const STEP_MS = GameClock.FIXED_STEP_MS;
 const NUKE = ABILITIES['nuclear-strike'];
 /** The nuclear strike's 6500 ms of warning in sub-steps */
-const NUKE_STEPS = 390;
+const NUKE_STEPS = stepsOf(6500);
+/** The 500 ms of warning of the frost bomb and the EMP, the orbital laser's 1000 ms */
+const SHORT_STEPS = stepsOf(500);
+const LASER_STEPS = stepsOf(1000);
 const FROST = ABILITIES['frost-bomb'];
 const EMP = ABILITIES['emp'];
 const LASER = ABILITIES['orbital-laser'];
@@ -135,7 +140,7 @@ describe('AbilityManager', () => {
       expect(manager.use('nuclear-strike', TARGET)).toEqual({ ok: false, reason: 'no-charge' });
     });
 
-    it('lands on the 390th sub-step after the command, 6.5 s of game time', () => {
+    it('lands after 6.5 s of game time, not a sub-step earlier', () => {
       expect(NUKE.warningMs).toBe(6500);
       inRadius = [enemyOf('z1', 'zombie')];
       manager.use('nuclear-strike', TARGET);
@@ -265,11 +270,11 @@ describe('AbilityManager', () => {
   describe('frost bomb', () => {
     beforeEach(() => unlock(FROST.perkId));
 
-    it('freezes everyone in the radius on the 30th sub-step: 3 s, bosses 1 s, ground and air', () => {
+    it('freezes everyone in the radius after 500 ms: 3 s, bosses 1 s, ground and air', () => {
       inRadius = [enemyOf('z1', 'zombie'), enemyOf('boss', 'herbert'), enemyOf('bat1', 'bat')];
       expect(manager.use('frost-bomb', TARGET).ok).toBe(true);
 
-      tick(29);
+      tick(SHORT_STEPS - 1);
       expect(world.halt).not.toHaveBeenCalled();
       tick(1);
       expect(world.enemiesInRadius).toHaveBeenCalledWith({ ...TARGET, height: 5 }, FROST.radiusM, expect.any(Array));
@@ -287,7 +292,7 @@ describe('AbilityManager', () => {
       bus.on('ability:resolved', (e) => resolved.push(e));
       inRadius = [enemyOf('z1', 'zombie'), enemyOf('z2', 'zombie')];
       manager.use('frost-bomb', TARGET);
-      tick(30);
+      tick(SHORT_STEPS);
       expect(resolved).toEqual([{ type: 'ability:resolved', playerId: 'local', local: true, abilityId: 'frost-bomb', strikeId: 1, hits: 2, kills: 0 }]);
     });
 
@@ -301,11 +306,11 @@ describe('AbilityManager', () => {
   describe('EMP', () => {
     beforeEach(() => unlock(EMP.perkId));
 
-    it('stuns everyone in the radius on the 30th sub-step: machines 6 s, others 1.5 s, bosses 0.75 s', () => {
+    it('stuns everyone in the radius after 500 ms: machines 6 s, others 1.5 s, bosses 0.75 s', () => {
       inRadius = [enemyOf('t1', 'tank'), enemyOf('z1', 'zombie'), enemyOf('m1', 'mech'), enemyOf('boss', 'herbert')];
       expect(manager.use('emp', TARGET).ok).toBe(true);
 
-      tick(29);
+      tick(SHORT_STEPS - 1);
       expect(world.halt).not.toHaveBeenCalled();
       tick(1);
       expect(world.enemiesInRadius).toHaveBeenCalledWith({ ...TARGET, height: 5 }, EMP.radiusM, expect.any(Array));
@@ -325,8 +330,10 @@ describe('AbilityManager', () => {
     /** An enemy the beam can burn: alive, with its armor */
     const beamEnemy = (id: string, type: string) =>
       ({ id, typeConfig: ENEMY_TYPES[type], alive: true, getEffectiveArmorType: () => ENEMY_TYPES[type].armorType }) as unknown as Enemy;
-    /** Sub-steps of 16.667 ms in the 4 s burn */
-    const BURN_STEPS = 240;
+    /** Sub-steps in the 4 s burn */
+    const BURN_STEPS = stepsOf(4000);
+    /** Sub-steps of burn that bring an unarmored enemy to its cap: 1.5 x 100 % a second up to 60 % */
+    const CAP_STEPS = stepsOf(400);
 
     beforeEach(() => {
       unlock(LASER.perkId);
@@ -357,7 +364,7 @@ describe('AbilityManager', () => {
       const events: GameEvent[] = [];
       bus.onAny((e) => events.push(e));
       manager.use('orbital-laser', TARGET);
-      tick(60);
+      tick(LASER_STEPS);
       const used = events.find((e) => e.type === 'ability:used') as Extract<GameEvent, { type: 'ability:used' }>;
       const impact = events.find((e) => e.type === 'ability:impact') as Extract<GameEvent, { type: 'ability:impact' }>;
       expect(used.path).toBe(sweep!.points);
@@ -366,9 +373,9 @@ describe('AbilityManager', () => {
       expect(impact.path).toBe(sweep!.points);
     });
 
-    it('lands on the 60th sub-step and then runs 18 m/s along the stretch, one tick per sub-step', () => {
+    it('lands after 1 s and then runs 18 m/s along the stretch, one tick per sub-step', () => {
       manager.use('orbital-laser', TARGET);
-      tick(59);
+      tick(LASER_STEPS - 1);
       expect(world.enemiesInRadius).not.toHaveBeenCalled();
       tick(1);
       const centres = () => (world.enemiesInRadius as ReturnType<typeof vi.fn>).mock.calls.map(([c]) => ({ ...c }));
@@ -387,8 +394,8 @@ describe('AbilityManager', () => {
       inRadius = [beamEnemy('z1', 'zombie'), beamEnemy('t1', 'tank'), beamEnemy('boss', 'herbert')];
       strikeKills = 0;
       manager.use('orbital-laser', TARGET);
-      // The landing sub-step burns the first tick: the last is the 239th after it
-      tick(60 + BURN_STEPS - 2);
+      // The landing sub-step burns the first tick: the last comes BURN_STEPS - 1 after it
+      tick(LASER_STEPS + BURN_STEPS - 2);
       expect(resolved).toEqual([]);
       expect(manager.hasPendingStrikes()).toBe(true);
       expect(manager.getStatus('orbital-laser').pending).toBe(true);
@@ -397,10 +404,10 @@ describe('AbilityManager', () => {
       expect(manager.hasPendingStrikes()).toBe(false);
 
       const total = (id: string) => strikes.reduce((sum, s) => sum + (s.fractions[s.ids.indexOf(id)] ?? 0), 0);
-      // Unarmored: 1.5 x 100 % per second, at the cap after 24 sub-steps
+      // Unarmored: 1.5 x 100 % per second, at the cap after 0.4 s
       expect(total('z1')).toBeCloseTo(0.6, 6);
-      expect(strikes.filter((s) => s.ids.includes('z1'))).toHaveLength(24);
-      // Heavy: 0.6 x 100 % per second, 0.01 a sub-step, at the cap as well
+      expect(strikes.filter((s) => s.ids.includes('z1'))).toHaveLength(CAP_STEPS);
+      // Heavy: 0.6 x 100 % per second, at the cap as well
       expect(total('t1')).toBeCloseTo(0.6, 6);
       // Fortified boss: 0.25 x 30 % per second for 4 s = 0.3, capped at 0.2
       expect(total('boss')).toBeCloseTo(0.2, 6);
@@ -413,15 +420,15 @@ describe('AbilityManager', () => {
       inRadius = [beamEnemy('z1', 'zombie')];
       strikeKills = 1; // what the damage path reports for each tick with a target
       manager.use('orbital-laser', TARGET);
-      tick(60 + BURN_STEPS);
-      expect(resolved).toEqual([expect.objectContaining({ hits: 1, kills: 24 })]);
+      tick(LASER_STEPS + BURN_STEPS);
+      expect(resolved).toEqual([expect.objectContaining({ hits: 1, kills: CAP_STEPS })]);
     });
 
     it('shows an enemy the sum of its ticks as one number in the sub-step the beam has moved on', () => {
       inRadius = [beamEnemy('z1', 'zombie')];
       manager.use('orbital-laser', TARGET);
-      // The landing sub-step and 9 more: 10 ticks of 2.5 % on it (fire 1.5 against unarmored)
-      tick(60 + 9);
+      // The landing sub-step and the ones up to 1/6 s of burn: 25 % on it (fire 1.5 against unarmored)
+      tick(LASER_STEPS + stepsOf(160) - 1);
       expect(numbers).toEqual([]);
       inRadius = [];
       tick(1);
@@ -433,23 +440,23 @@ describe('AbilityManager', () => {
     it('shows a number once an enemy has its cap, and every second on one it stays on', () => {
       inRadius = [beamEnemy('z1', 'zombie'), beamEnemy('boss', 'herbert')];
       manager.use('orbital-laser', TARGET);
-      tick(60 + BURN_STEPS);
+      tick(LASER_STEPS + BURN_STEPS);
       const of = (id: string) => numbers.filter((n) => n.id === id).map((n) => n.fraction);
-      // At the cap after 24 ticks: one number with all of it, in the 25th
+      // At the cap after 0.4 s: one number with all of it, in the tick after
       expect(of('z1')).toEqual([expect.closeTo(0.6, 4)]);
-      // Fortified boss: 0.25 x 30 % per second, a number after 60 and 120 ticks, the rest at its cap (160)
+      // Fortified boss: 0.25 x 30 % per second, a number after 1 s and 2 s, the rest at its cap (2.67 s)
       expect(of('boss')).toEqual([expect.closeTo(0.075, 4), expect.closeTo(0.075, 4), expect.closeTo(0.05, 4)]);
       expect(numbers.every((n) => n.damageType === 'fire')).toBe(true);
     });
 
     it('shows what is left when the beam is over', () => {
-      sweep = routeSweepToward([ROUTE], TARGET, LASER.snapRadiusM, 9); // 0.5 s of burn, 30 ticks
+      sweep = routeSweepToward([ROUTE], TARGET, LASER.snapRadiusM, 9); // 0.5 s of burn
       inRadius = [beamEnemy('t1', 'tank')];
       manager.use('orbital-laser', TARGET);
-      tick(60 + 28);
+      tick(LASER_STEPS + stepsOf(500) - 2);
       expect(numbers).toEqual([]);
       tick(1);
-      // Heavy: 1 % a tick for all 30 ticks, below its cap and under a second
+      // Heavy: 60 % a second for all of the 0.5 s, below its cap and under a second
       expect(numbers.map((n) => n.fraction)).toEqual([expect.closeTo(0.3, 4)]);
       expect(manager.hasPendingStrikes()).toBe(false);
     });
@@ -457,9 +464,9 @@ describe('AbilityManager', () => {
     it('ends where the stretch ends before its time is up', () => {
       sweep = routeSweepToward([ROUTE], TARGET, LASER.snapRadiusM, 36); // 2 s of burn
       manager.use('orbital-laser', TARGET);
-      tick(60 + 120);
+      tick(LASER_STEPS + stepsOf(2000));
       expect(manager.hasPendingStrikes()).toBe(false);
-      expect(world.enemiesInRadius).toHaveBeenCalledTimes(120);
+      expect(world.enemiesInRadius).toHaveBeenCalledTimes(stepsOf(2000));
     });
   });
 

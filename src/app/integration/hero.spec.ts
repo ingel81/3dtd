@@ -30,7 +30,7 @@ vi.mock('@angular/core', async () => {
   };
 });
 
-import { withAutoStubs, TEST_PATH } from './test-helpers';
+import { withAutoStubs, TEST_PATH, stepsOf } from './test-helpers';
 import { createHeroTestGame } from './hero-test-helpers';
 import { HERO } from '../configs/hero.config';
 import { geoDistanceFast } from '../utils/geo-utils';
@@ -41,7 +41,8 @@ const HIRE_STEP = 5;
 const MOVE_STEP = 10;
 /** 44 m south of the HQ: he walks there in about 5.5 s */
 const POST: GeoPosition = TEST_PATH[6];
-const READ_STEP = 1800;
+/** 30 s in */
+const READ_STEP = stepsOf(30_000);
 
 /** Zombies (80 HP, unarmored) walking north toward him, spread by their speed */
 const ROSTER = [

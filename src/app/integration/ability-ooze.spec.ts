@@ -27,9 +27,9 @@ import { StatusEffectService } from '../services/combat/status-effect.service';
 import { Enemy } from '../entities/enemy.entity';
 import { ABILITIES, type AbilityId } from '../configs/abilities.config';
 import type { GeoPosition, RouteWaypoint } from '../models/game.types';
+import { GameClock } from '../managers/game-state/game-clock';
 
-/** GameClock.FIXED_STEP_MS */
-const STEP_MS = 16.667;
+const STEP_MS = GameClock.FIXED_STEP_MS;
 
 // At the equator a degree of longitude is as long as one of latitude
 const flatSync = {
@@ -110,8 +110,12 @@ describe('Frost bomb, EMP and orbital laser against the ooze body', () => {
     }
   });
 
-  /** `steps` sub-steps of game time */
-  const tick = (steps: number) => {
+  /**
+   * `sixtieths` of a second of game time, in sub-steps of the game's length (one at least): the numbers
+   * below were written as sub-steps of 60 a second and stand for that time at any rate
+   */
+  const tick = (sixtieths: number) => {
+    const steps = Math.max(1, Math.round((sixtieths * 1000) / 60 / STEP_MS));
     for (let i = 0; i < steps; i++) {
       clock += STEP_MS;
       manager.update(STEP_MS);

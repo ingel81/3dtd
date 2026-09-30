@@ -139,6 +139,12 @@ const WAVE_STEP = [
 const repeat = (sequence: string[], times: number): string[] =>
   Array.from({ length: times }, () => sequence).flat();
 
+const STEP = GameClock.FIXED_STEP_MS;
+/** Wall clock of a second frame, after the first at 1000 (16 ms carried), that runs exactly three sub-steps */
+const THREE_STEPS = 1000 + 3 * STEP - 15;
+/** A frame a sub-step after it: one sub-step */
+const ONE_MORE = THREE_STEPS + STEP;
+
 describe('GameStateManager order of operations (characterization)', () => {
   let gsm: GameStateManager;
   let bus: GameEventBus;
@@ -193,8 +199,8 @@ describe('GameStateManager order of operations (characterization)', () => {
   describe('frame and sub-steps', () => {
     it('runs a frame outside a wave: the sub-steps, nothing else', () => {
       gsm.update(1000, onSubStep); // first frame: 16 ms fallback, below one step
-      gsm.update(1085, onSubStep); // 85 ms + 16 ms carried: three steps
-      gsm.update(1118, onSubStep); // 33 ms + ~1 ms carried: one step
+      gsm.update(THREE_STEPS, onSubStep); // with the 16 ms carried: three steps, 1 ms left
+      gsm.update(ONE_MORE, onSubStep); // a sub-step later: one step
 
       expect(log).toEqual([
         ...repeat(SETUP_STEP, 3),
@@ -205,7 +211,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     it('runs the spawner and combat in a wave and checks the wave end before the per-step hook', () => {
       gsm.waveManager.phase.set('wave');
       gsm.update(1000, onSubStep);
-      gsm.update(1085, onSubStep);
+      gsm.update(THREE_STEPS, onSubStep);
 
       expect(log).toEqual(repeat(WAVE_STEP, 3));
     });
@@ -213,7 +219,7 @@ describe('GameStateManager order of operations (characterization)', () => {
     it('runs combat outside a wave while debug enemies are alive', () => {
       gsm.debugEnemies.add({ id: 'enemy-99' } as never);
       gsm.update(1000, onSubStep);
-      gsm.update(1085, onSubStep);
+      gsm.update(THREE_STEPS, onSubStep);
 
       expect(log).toEqual(repeat(DEBUG_STEP, 3));
     });
@@ -223,7 +229,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       waveCompleteAnswers = [false, true];
       gsm.update(1000, onSubStep);
       log.length = 0;
-      gsm.update(1085, onSubStep);
+      gsm.update(THREE_STEPS, onSubStep);
 
       expect(log).toEqual([
         ...WAVE_STEP,
@@ -257,7 +263,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         return true;
       };
       gsm.update(1000, onSubStep);
-      gsm.update(1085, onSubStep);
+      gsm.update(THREE_STEPS, onSubStep);
 
       const heldStep = WAVE_STEP.filter((call) => call !== 'wave.checkWaveComplete');
       expect(log).toEqual(repeat(heldStep, 3));
@@ -268,7 +274,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1000, onSubStep);
       gsm.baseHealth.set(0);
       log.length = 0;
-      gsm.update(1085, onSubStep); // budget for three steps, one runs
+      gsm.update(THREE_STEPS, onSubStep); // budget for three steps, one runs
 
       expect(log).toEqual([
         // No hook after the step that ends the game: the loop breaks first
@@ -282,9 +288,9 @@ describe('GameStateManager order of operations (characterization)', () => {
       ]);
       expect(gsm.waveManager.phase()).toBe('gameover');
 
-      // The two steps left over plus 33 ms: three steps, the game over is not repeated
+      // The two steps left over and a sub-step's time: three steps, the game over is not repeated
       log.length = 0;
-      gsm.update(1118, onSubStep);
+      gsm.update(ONE_MORE, onSubStep);
       expect(log).toEqual(repeat(SETUP_STEP, 3));
     });
 
@@ -293,7 +299,7 @@ describe('GameStateManager order of operations (characterization)', () => {
         accumulateFrameTiming: (...args: unknown[]) => log.push(`profiler.accumulateFrameTiming(steps=${args[4]})`),
       } as never);
       gsm.update(1000, onSubStep);
-      gsm.update(1085, onSubStep);
+      gsm.update(THREE_STEPS, onSubStep);
 
       expect(log).toEqual([
         'profiler.accumulateFrameTiming(steps=0)',
@@ -307,19 +313,19 @@ describe('GameStateManager order of operations (characterization)', () => {
   describe('pause', () => {
     it('runs nothing while paused and resumes without catching up', () => {
       gsm.update(1000, onSubStep);
-      gsm.update(1085, onSubStep);
+      gsm.update(THREE_STEPS, onSubStep);
       const clock = gsm.gameTimeMs;
       log.length = 0;
 
       gsm.paused.set(true);
-      gsm.update(1118, onSubStep);
+      gsm.update(ONE_MORE, onSubStep);
       gsm.update(5000, onSubStep);
       expect(log).toEqual([]);
       expect(gsm.gameTimeMs).toBe(clock);
 
       log.length = 0;
       gsm.paused.set(false);
-      gsm.update(5033, onSubStep); // 33 ms since the last paused frame, ~1 ms carried
+      gsm.update(5000 + STEP, onSubStep); // a sub-step's time since the last paused frame, 1 ms carried
       expect(log).toEqual(SETUP_STEP);
     });
   });
@@ -328,12 +334,13 @@ describe('GameStateManager order of operations (characterization)', () => {
     it('runs the same sub-step sequence at 10x, only more of them per frame', () => {
       gsm.setGameSpeed(10);
       gsm.waveManager.phase.set('wave');
-      gsm.update(1000, onSubStep); // 16 ms x 10: four steps
-      gsm.update(1020, onSubStep); // 20 ms x 10 + ~27 ms carried: six steps
+      gsm.update(1000, onSubStep); // 16 ms x 10
+      gsm.update(1020, onSubStep); // 20 ms x 10 and what was carried
 
+      const first = Math.floor(160 / STEP);
       expect(log).toEqual([
-        ...repeat(WAVE_STEP, 4),
-        ...repeat(WAVE_STEP, 6),
+        ...repeat(WAVE_STEP, first),
+        ...repeat(WAVE_STEP, Math.floor((160 - first * STEP + 200) / STEP)),
       ]);
     });
 
@@ -354,7 +361,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       const expected: string[] = [];
       let now = 0;
       const step = GameClock.FIXED_STEP_MS;
-      for (let i = 0; i < 4; i++) {
+      for (let i = 0; i < Math.floor(160 / step); i++) {
         now += step;
         expected.push(`enemy ${now} ${step}`, `shoot ${now} ${step}`, `hook ${now} ${step}`);
       }
@@ -676,7 +683,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1000, onSubStep);
       emitInStep(ADD_5);
       log.length = 0;
-      gsm.update(1018, onSubStep); // 18 ms + 16 ms carried: one step
+      gsm.update(1000 + STEP - 15, onSubStep); // with the 16 ms carried: one step
 
       const step = WAVE_STEP.slice(0, -1);
       expect(log).toEqual([
@@ -695,7 +702,7 @@ describe('GameStateManager order of operations (characterization)', () => {
 
     it('runs a command from between two frames at once, stamped with the steps run so far', () => {
       gsm.update(1000, onSubStep);
-      gsm.update(1085, onSubStep); // three steps
+      gsm.update(THREE_STEPS, onSubStep); // three steps
       log.length = 0;
       bus.emit(ADD_5);
 
@@ -707,7 +714,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.update(1000, onSubStep);
       log.length = 0;
       let sent = false;
-      gsm.update(1085, () => {
+      gsm.update(THREE_STEPS, () => {
         log.push('onSubStep');
         if (sent) return;
         sent = true;
@@ -729,7 +736,7 @@ describe('GameStateManager order of operations (characterization)', () => {
       gsm.baseHealth.set(0);
       emitInStep(ADD_5);
       log.length = 0;
-      gsm.update(1085, onSubStep);
+      gsm.update(THREE_STEPS, onSubStep);
 
       expect(log).toEqual([
         ...SETUP_STEP.slice(0, -1),

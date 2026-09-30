@@ -112,8 +112,9 @@ LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
   die Strecke vom vorigen zum neuesten Stand, ein Intervall später. Kein Gleiten bei neuem Slot, Sprung über 10 m,
   Tod und Entfernen. `?interp=off` schaltet es zum Vergleichen ab. Geschosse und Helden gleiten auf derselben Uhr, auf dem Hauptthread gemischt (es sind wenige); Spuren und Rauch
   eines Geschosses beginnen dort, wo es gezeigt wird. Drehung und Status-Effekte springen mit dem Stand.
-- 30 Sub-Steps je Sekunde Spielzeit (TODO E86, 2026-09-30): `GameClock.FIXED_STEP_MS` ist 33,334 ms statt 16,667 ms,
-  ein Coop-Tick ist ein Sub-Step (`TICK_SUB_STEPS = 1`, weiter 30 Ticks je Sekunde). Was sich an den Regeln ändert,
+- 30 Sub-Steps je Sekunde Spielzeit (TODO E86, 2026-09-30): die Rate steht einmal, `SIM_STEPS_PER_SECOND` in
+  `configs/timing.config.ts`; `GameClock.FIXED_STEP_MS` (33,334 ms statt 16,667 ms) und der Coop-Tick
+  (`TICK_SUB_STEPS`, jetzt ein Sub-Step, weiter 30 Ticks je Sekunde) leiten sich daraus ab. Was sich an den Regeln ändert,
   steht in [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md) unter „30 Sub-Steps je Sekunde“. Alte Replay-Dateien und
   Snapshots werden abgewiesen (Versionen erhöht), alte Coop-Clients auch (`PROTOCOL_VERSION` 2).
 - Gegendruck: Ruft der Hauptthread 250 ms lang nichts ab (versteckter Tab, langer Hänger), rechnet der Worker nicht

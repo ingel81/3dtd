@@ -343,7 +343,7 @@ describe('MovementComponent', () => {
     beforeEach(() => {
       transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
       movement.setPath(corner);
-      movement.speedMps = 25; // ~0.83 m per step, ~27 steps on the first segment
+      movement.speedMps = 830 / STEP_MS; // 0.83 m per step, ~27 steps on the first segment
     });
 
     /** The step is on the arc of the corner (RouteCorners), from the distance along the path. */

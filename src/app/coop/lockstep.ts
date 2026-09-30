@@ -1,3 +1,4 @@
+import { SIM_STEPS_PER_SECOND } from '../configs/timing.config';
 import type { CommandData } from '../managers/game-state/command-data';
 
 /**
@@ -14,13 +15,17 @@ import type { CommandData } from '../managers/game-state/command-data';
  * client from running past a command it has not heard of yet.
  */
 
+/** Net ticks the relay closes per second at speed 1 */
+const TICKS_PER_SECOND = 30;
+
 /**
- * Sub-steps per net tick: one of 33.3 ms, 30 ticks a second at speed 1. Was 2
- * of 16.667 ms, the same 30 ticks a second, until the simulation went to 30
- * sub-steps a second (TODO E86), and 4 before that: a shorter tick shortens
- * the wait for a command to come back (PLAYTEST T28, TODO E29).
+ * Sub-steps per net tick, from the simulation's rate
+ * (SIM_STEPS_PER_SECOND): as many as make a tick of about 33 ms, one at 30
+ * sub-steps a second, two at 60. A tick was twice as long until 2026-09-25:
+ * a shorter one shortens the wait for a command to come back (PLAYTEST T28,
+ * TODO E29).
  */
-export const TICK_SUB_STEPS = 1;
+export const TICK_SUB_STEPS = Math.max(1, Math.round(SIM_STEPS_PER_SECOND / TICKS_PER_SECOND));
 
 /** A command as the relay stamped it. */
 export interface StampedCommand {

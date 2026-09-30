@@ -34,6 +34,7 @@ import {
   withAutoStubs,
   TEST_PATH,
   TEST_SPAWN_POINTS,
+  stepsOf,
 } from './test-helpers';
 import { GameStateManager } from '../managers/game-state.manager';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
@@ -52,9 +53,9 @@ import type { GameStateSnapshot } from '../director/models/game-state-snapshot';
 
 const LASER = ABILITIES['orbital-laser'];
 const BASE_POSITION: GeoPosition = TEST_PATH[TEST_PATH.length - 1];
-const COMMAND_STEP = 30;
+const COMMAND_STEP = stepsOf(500);
 /** Command, 1 s of warning, 4 s of burn and a little more, in sub-steps */
-const END_STEP = COMMAND_STEP + 60 + 240 + 10;
+const END_STEP = COMMAND_STEP + stepsOf(1000) + stepsOf(4000) + 10;
 const SEGMENT_M = geoDistanceFast(TEST_PATH[0], TEST_PATH[1]);
 
 /**

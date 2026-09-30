@@ -628,7 +628,7 @@ export class WaveManager implements IGameManager {
    * of game time (none runs in a pause), longer than any halt (a machine's
    * 6 s stun), so a halted enemy is not taken for a stuck one.
    */
-  private static readonly STUCK_WINDOW_STEPS = Math.round(10_000 / GameClock.FIXED_STEP_MS);
+  private static readonly STUCK_WINDOW_STEPS = GameClock.stepsIn(10_000);
 
   private _loggedStuckForWave = false;
   private _stuckFrames = 0;

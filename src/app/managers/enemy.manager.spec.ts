@@ -571,11 +571,12 @@ describe('EnemyManager', () => {
         for (const duration of [1000, 3000, 4000]) {
           // Applied at different moments of the clock, which drifts in floating point
           for (const startStep of [0, 7, 100, 301]) {
-            const game = ticks(type, duration, GameClock.FIXED_STEP_MS, startStep);
-            const before = ticks(type, duration, 16.667, 2 * startStep);
-            expect(game, `${type} ${duration} ms from step ${startStep}`).toBe(before);
+            // The sub-step's length at 30 and at 60 a second, as GameClock derives it from the rate
+            const at30 = ticks(type, duration, Math.ceil(1_000_000 / 30) / 1000, startStep);
+            const at60 = ticks(type, duration, Math.ceil(1_000_000 / 60) / 1000, 2 * startStep);
+            expect(at30, `${type} ${duration} ms from step ${startStep}`).toBe(at60);
             // The tick that falls on the effect's last moment does not come: the effect is gone by then
-            expect(game, `${type} ${duration} ms from step ${startStep}`).toBe(duration / 500 - 1);
+            expect(at30, `${type} ${duration} ms from step ${startStep}`).toBe(duration / 500 - 1);
           }
         }
       }

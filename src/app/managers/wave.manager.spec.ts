@@ -176,6 +176,27 @@ describe('WaveManager', () => {
       expect(enemyManager.spawn).toHaveBeenCalledTimes(3);
     });
 
+    it('spawns as many in the same time at 30 sub-steps a second as at 60 (TODO E86)', () => {
+      /** Spawns of a long wave in 10 s of game time, stepped at `rate` sub-steps a second */
+      const spawned = (rate: number, spawnDelay: number): number => {
+        const spawn = vi.mocked(enemyManager.spawn);
+        spawn.mockClear();
+        wm.reset();
+        wm.startWave(makeWaveConfig({ count: 1000, spawnDelay }));
+        const stepMs = Math.ceil(1_000_000 / rate) / 1000;
+        for (let step = 0; step < 10 * rate; step++) wm.tickSpawn(stepMs);
+        return spawn.mock.calls.length;
+      };
+      for (const delay of [50, 130, 400, 999]) {
+        const at30 = spawned(30, delay);
+        expect(at30, `${delay} ms`).toBe(spawned(60, delay));
+        // The gap carries what was over in its sub-step: one per delay and the first at once, where the
+        // spawn floor of the lane allows that many
+        expect(at30, `${delay} ms`).toBeGreaterThan(10);
+        if (delay >= 400) expect(at30, `${delay} ms`).toBe(Math.floor(10_000 / delay) + 1);
+      }
+    });
+
     it('uses "each" spawn mode (round-robin)', () => {
       wm.startWave(makeWaveConfig({ count: 3, spawnMode: 'each', spawnDelay: 50 }));
 

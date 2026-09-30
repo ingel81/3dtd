@@ -19,10 +19,12 @@ import {
   createTestCachedPaths,
   makeSingleTypeWaveConfig,
   tickEngine,
+  stepsOf,
 } from './test-helpers';
 import { waveRules } from '../director/wave-rules';
 import { ENEMY_TYPES, enemyRewardWeight, leakDamageOf, lineageRewardWeight } from '../configs/enemy-types.config';
 import type { Enemy } from '../entities/enemy.entity';
+import { GameClock } from '../managers/game-state/game-clock';
 
 /** Managers wired as GameStateManager wires them for leaks and the kill budget. */
 function createWiredManagers(): TestManagers {
@@ -41,11 +43,11 @@ describe('Ooze integration', () => {
     m.eventBus.on('enemy:reached-base', (e) => log.push(`reached ${e.damage}`));
 
     m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
-    const STEP = 16.667;
+    const STEP = GameClock.FIXED_STEP_MS;
     let now = 0;
     let steps = 0;
     const samples: number[][] = [];
-    for (let frame = 0; frame < 4200 / stepsPerFrame; frame++) {
+    for (let frame = 0; frame < stepsOf(70_000) / stepsPerFrame; frame++) {
       for (let s = 0; s < stepsPerFrame; s++) {
         now += STEP;
         steps++;
@@ -227,7 +229,7 @@ describe('Ooze integration', () => {
     const split = (stepsPerFrame: number) => {
       const m = createWiredManagers();
       m.waveManager.startWave(makeSingleTypeWaveConfig({ count: 1, type: 'ooze' }));
-      const STEP = 16.667;
+      const STEP = GameClock.FIXED_STEP_MS;
       let now = 0;
       const frames = (steps: number) => {
         for (let f = 0; f < steps / stepsPerFrame; f++) {
@@ -241,10 +243,10 @@ describe('Ooze integration', () => {
       const clumps = () => m.enemyManager.getAlive().map((e) => [
         e.movement.getDistanceAlongPath(), e.movement.getLateralFactor(), e.health.maxHp,
       ]);
-      frames(1680); // 28 s: the body is full
+      frames(stepsOf(28_000)); // 28 s: the body is full
       m.enemyManager.kill(m.enemyManager.getAlive()[0]);
       const atKill = clumps();
-      frames(120); // 2 s of hopping on
+      frames(stepsOf(2000)); // 2 s of hopping on
       const later = clumps();
       m.enemyManager.clear();
       return { atKill, later };

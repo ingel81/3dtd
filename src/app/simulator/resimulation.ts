@@ -52,7 +52,7 @@ interface Keyframe {
 }
 
 /** A wave without a known end is taken as this long when spacing the keyframes (10 minutes) */
-const UNKNOWN_LENGTH_STEPS = Math.round(600_000 / GameClock.FIXED_STEP_MS);
+const UNKNOWN_LENGTH_STEPS = GameClock.stepsIn(600_000);
 
 /**
  * Re-simulates one wave from its record and the command log: restore the
