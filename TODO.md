@@ -285,11 +285,14 @@ Ideen (2026-09-27), nichts entschieden:
       sind wieder langsamer (mehr lebende Partikel), und der additive Pool und die Schadenszahlen bleiben dort auch bei
       4x voll. Vorschlag: Größen lassen; Entscheidung User.
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
-      appimage.github.io (automatisch gefunden, Test bestanden). Der Test meldet drei Punkte: der Dateiname
+      appimage.github.io (automatisch gefunden und aufgenommen, dessen Test bestanden). Der Test meldet drei Punkte: der Dateiname
       `3DTD-linux-x64.AppImage` soll kein „linux“ tragen (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete
       Update-Information (`appimagetool -u` und eine `.zsync` neben dem AppImage, für AppImageUpdate); alte
       AppImage-Laufzeit, die glibc und libfuse2 des Systems braucht. Prüfen, was electron-builder davon kann, und ob
       ein neuer Name den Auto-Update-Feed (`latest-linux.yml`) bricht.
+      Dazu (User, 2026-09-30): ein AUR-Paket `3dtd-bin` (PKGBUILD, das das AppImage des Releases lädt, mit
+      Desktop-Eintrag und Icon), damit Arch-Nutzer es per AUR-Helfer installieren; bei jedem Release Version und
+      Prüfsumme nachziehen, am besten aus der CI.
 ---
 
 ## Entschieden (keine Arbeit)
