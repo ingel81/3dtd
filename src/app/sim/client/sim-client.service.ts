@@ -69,6 +69,8 @@ export class SimClient {
   private epoch = 0;
   /** newRun() emitted game:reset here already: the new run's first packet brings its own, not handed on */
   private resetShown = false;
+  /** Number of the last packet of this run that came in (SimFramePacket.frame), applied or not */
+  private received = 0;
   /** Why the simulation stopped, null while it runs (see fail()) */
   readonly failure = signal<string | null>(null);
   private readonly failureListeners = new Set<(error: string) => void>();
@@ -114,6 +116,7 @@ export class SimClient {
       frame: (packet, epoch) => {
         this.demandOut = false;
         if (epoch !== this.epoch || this.failure() !== null) return;
+        this.received = packet.frame;
         this.pendingPackets.push(packet);
       },
       output: (message) => this.output(message),
@@ -247,6 +250,27 @@ export class SimClient {
   /** A command from the main thread (the same as emitting it on the bus). */
   send(command: CommandData): void {
     this.bus.emit(command as unknown as ViewEvent);
+  }
+
+  /**
+   * The packet number the next state change of this thread's commands comes
+   * after: the last packet in so far. A call's answer comes after every
+   * packet the simulation published before it ran (one message queue), so
+   * read when a call returns, a packet with a higher number shows what was
+   * sent before the call (the bot waits for its command's packet so).
+   */
+  get receivedFrame(): number {
+    return this.received;
+  }
+
+  /** The run the packets belong to; changes with start() and newRun() */
+  get runEpoch(): number {
+    return this.epoch;
+  }
+
+  /** Commands given on the bus that still wait for the next input */
+  get queuedCommands(): number {
+    return this.commands.length;
   }
 
   onFrame(listener: (packet: SimFramePacket) => void): () => void {

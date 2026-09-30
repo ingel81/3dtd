@@ -159,12 +159,14 @@ export class BotSession {
   disableBot(): void {
     this.currentBot = null;
     this.signals.botEnabled.set(false);
+    this.awaiting?.();
   }
 
   /**
    * Reset bot state (for new game / game over)
    */
   resetBot(): void {
+    this.awaiting?.();
     if (this.currentBot) {
       this.currentBot.reset();
       this.signals.botStats.set({ towersPlaced: 0, goldSpent: 0 });
@@ -196,15 +198,51 @@ export class BotSession {
     // an expensive thing to build (full defense analysis, per-armor effective
     // DPS, a route-grid reach query), and the bot is in reaction cooldown most
     // frames.
+    // The last command's result is not in the mirror yet: a decision now
+    // would read the state before it (and place a second tower on the spot)
+    if (this.awaiting !== null) return false;
+
     if (!this.currentBot.tickCooldown(deltaTime)) return false;
 
     // Cooldown already advanced above, so pass 0 to avoid double-ticking.
     const action = this.currentBot.update(this.world.view(getSnapshot()), 0);
     if (action) {
+      const queued = this.sim.queuedCommands;
       this.executeBotAction(action);
+      if (this.sim.queuedCommands > queued) this.awaitResult();
       return true;
     }
     return false;
+  }
+
+  /** Set while the bot waits for its last command's packet (awaitResult); stops the wait */
+  private awaiting: (() => void) | null = null;
+
+  /**
+   * Hold the next decision until the packet with the last command's result
+   * is applied. The command goes with the next input and runs in the
+   * simulation's worker; since the worker move a decision in the frames
+   * between read the state before it (at speed 75 the reaction time is over
+   * every frame). A call goes after the command and answers once it ran; the
+   * first packet after the answer shows it (SimClient.receivedFrame). In coop
+   * the command waits for its relay tick, which the call does not: there the
+   * wait covers the input's way only.
+   */
+  private awaitResult(): void {
+    const epoch = this.sim.runEpoch;
+    let off: (() => void) | null = null;
+    const done = () => {
+      off?.();
+      if (this.awaiting === done) this.awaiting = null;
+    };
+    this.awaiting = done;
+    this.sim.rpc('worldKey').then(() => {
+      if (this.awaiting !== done) return;
+      const after = this.sim.receivedFrame;
+      off = this.sim.onFrame((packet) => {
+        if (packet.frame > after || this.sim.runEpoch !== epoch) done();
+      });
+    }, done);
   }
 
   /**

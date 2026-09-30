@@ -27,7 +27,7 @@ const corridor = { building: false };
  * The injector a session is built in: the stores, the simulation's bus and
  * a mirror with `players` (the first at this client, `ready` or not).
  */
-function sessionInjector(phase: string, options: { bus?: GameEventBus; players?: string[]; ready?: boolean } = {}): Injector {
+function sessionInjector(phase: string, options: { bus?: GameEventBus; players?: string[]; ready?: boolean; sim?: object } = {}): Injector {
   const players = options.players ?? ['local'];
   const mirror = new SimMirror();
   mirror.applyState(packet({ scalars: { players, localPlayerId: players[0], credits: players.map(() => 0), ready: players.map(() => options.ready ?? false) } }));
@@ -36,7 +36,7 @@ function sessionInjector(phase: string, options: { bus?: GameEventBus; players?:
       { provide: StateSnapshotService, useValue: {} },
       { provide: TowerDefenseStore, useValue: { phase: signal(phase), spawnPoints: signal([]) } },
       { provide: GameStore, useValue: { setGameSpeed: vi.fn() } },
-      { provide: SimClient, useValue: { bus: options.bus ?? new GameEventBus() } },
+      { provide: SimClient, useValue: options.sim ?? { bus: options.bus ?? new GameEventBus() } },
       { provide: SimMirror, useValue: mirror },
       { provide: RouteQueriesService, useValue: {} },
       { provide: PathAndRouteService, useValue: { getCachedPaths: () => new Map() } },
@@ -265,5 +265,68 @@ describe('BotSession in a coop room (bot=coop)', () => {
     session.updateBot(() => ({ player: {} }) as GameStateSnapshot, STEP_MS);
     expect(bot.decisions).toBe(1);
     expect(startWave).not.toHaveBeenCalled();
+  });
+});
+
+describe('BotSession waits for the packet of its last command', () => {
+  /** The simulation as the session sees it: commands queue, a call answers when resolved, packets come in */
+  function waitingSession() {
+    let queued = 0;
+    let received = 0;
+    let answer: (() => void) | null = null;
+    const frames = new Set<(p: { frame: number }) => void>();
+    const sim = {
+      bus: new GameEventBus(),
+      get queuedCommands() { return queued; },
+      get receivedFrame() { return received; },
+      runEpoch: 1,
+      rpc: () => new Promise<void>((resolve) => { answer = resolve; }),
+      onFrame: (listener: (p: { frame: number }) => void) => { frames.add(listener); return () => frames.delete(listener); },
+    };
+    const injector = sessionInjector('wave', { sim });
+    const client = runInInjectionContext(injector, () => new BotClientService());
+    const session = runInInjectionContext(injector, () => new BotSession(client, {} as unknown as BotDeps));
+    const bot = new TestBot();
+    (session as unknown as { currentBot: ITowerBot | null }).currentBot = bot;
+    client.botEnabled.set(true);
+    // Every decision gives a command, as a placement does
+    (session as unknown as { executeBotAction: () => void }).executeBotAction = () => { queued++; };
+    const packetIn = (frame: number) => { received = frame; };
+    const packetApplied = (frame: number) => { for (const f of [...frames]) f({ frame }); };
+    const answered = async () => { answer?.(); await Promise.resolve(); await Promise.resolve(); };
+    return { session, bot, packetIn, packetApplied, answered };
+  }
+
+  it('decides again only after a packet that came after the command ran', async () => {
+    const { session, bot, packetIn, packetApplied, answered } = waitingSession();
+    const snapshot = () => ({}) as GameStateSnapshot;
+    const decide = () => session.updateBot(snapshot, 1000);
+
+    decide();
+    expect(bot.decisionCount).toBe(1);
+    // Speed 75: the reaction time is over every frame, yet nothing is decided on the old state
+    packetIn(5);
+    packetApplied(5);
+    decide();
+    expect(bot.decisionCount).toBe(1);
+
+    // The call answers: packet 5 came before the command ran, the next one after
+    await answered();
+    packetApplied(5);
+    decide();
+    expect(bot.decisionCount).toBe(1);
+    packetIn(6);
+    packetApplied(6);
+    decide();
+    expect(bot.decisionCount).toBe(2);
+  });
+
+  it('lets go of the wait on reset', () => {
+    const { session, bot } = waitingSession();
+    const snapshot = () => ({}) as GameStateSnapshot;
+    session.updateBot(snapshot, 1000);
+    session.resetBot();
+    session.updateBot(snapshot, 1000);
+    expect(bot.decisionCount).toBe(2);
   });
 });
