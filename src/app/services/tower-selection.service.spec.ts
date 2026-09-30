@@ -150,6 +150,14 @@ describe('TowerSelectionService', () => {
     expect(vizzes[1].dispose).toHaveBeenCalled();
   });
 
+  it('drops the selection at game over, the build panel comes back', () => {
+    const real = place();
+    selection.select(real.id);
+    bus.emit({ type: 'game:over', reason: 'base-destroyed' });
+    expect(selected()).toBeNull();
+    expect(ring.deselect).toHaveBeenCalledWith(real.id);
+  });
+
   it('follows a new shadow of the selected id (a replay seeks back before an upgrade)', () => {
     const real = place();
     real.applyUpgrade('range');

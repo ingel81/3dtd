@@ -120,11 +120,12 @@ export class EnemyDebugService {
     });
 
     // The list ends where the simulation's enemies do: at the end of a wave,
-    // on a new run and on a restore. Enemy ids start over in a new run, so a
+    // at game over, on a new run and on a restore. Enemy ids start over in a new run, so a
     // kept entry would steer (debug:enemy-move, debug:enemy-speed) an enemy
     // that is not the placed one.
     this.listEndSubs = [
       eventBus.on('wave:completed', () => this.clearDebugEnemies()),
+      eventBus.on('game:over', () => this.clearDebugEnemies()),
       eventBus.on('game:reset', () => this.clearDebugEnemies()),
       eventBus.on('sim:restored', () => this.clearDebugEnemies()),
     ];

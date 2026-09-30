@@ -19,7 +19,7 @@ describe('commandMarkers', () => {
   });
 
   it('leaves out what is outside the wave, the aim and the lines of sight', () => {
-    const entries = [entry(50), entry(150, 'command:tower-aim'), entry(160, 'los:resolved'), entry(170), entry(250)];
+    const entries = [entry(50), entry(150, 'command:tower-aim'), entry(160, 'los:resolved'), entry(165, 'command:los-mask'), entry(170), entry(250)];
     expect(commandMarkers(entries, 100, 200)).toEqual([{ percent: 70 }]);
   });
 

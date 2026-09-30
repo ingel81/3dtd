@@ -10,15 +10,19 @@ export interface ReplayMarker {
 /** Ticks closer than this share of the bar (percent) are drawn as one */
 const MARKER_MIN_GAP_PERCENT = 0.4;
 
-/** Commands that are no decision of the player's and get no tick */
-const UNMARKED = new Set<string>([LOS_LOG_TYPE, 'command:tower-aim']);
+/**
+ * Commands that are no decision of the player's and get no tick: the lines of
+ * sight (the GPU's answer `command:los-mask`, and the mask the log keeps as
+ * `los:resolved`) and the aim of a manned tower
+ */
+const UNMARKED = new Set<string>([LOS_LOG_TYPE, 'command:los-mask', 'command:tower-aim']);
 
 /**
  * The commands of a wave as ticks on the progress bar: build, sell,
  * upgrade, targeting, abilities, whatever command the wave saw between
  * `startStep` and `endStep`. Ticks that would touch merge, so a burst of
- * clicks stays one mark. The aim of a manned tower and the logged lines of
- * sight get none.
+ * clicks stays one mark. The aim of a manned tower and the lines of sight get
+ * none.
  */
 export function commandMarkers(entries: readonly CommandLogEntry[], startStep: number, endStep: number): ReplayMarker[] {
   const length = endStep - startStep;

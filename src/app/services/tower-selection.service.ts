@@ -40,6 +40,8 @@ export class TowerSelectionService {
       this.select(null);
       this.disposeViz();
     });
+    // Game over puts the build panel back, as the simulation's own deselect did before the worker
+    this.sim.bus.onLive('game:over', () => this.select(null));
   }
 
   /** The selected tower's id, null for none */
