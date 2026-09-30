@@ -281,7 +281,8 @@ export class TowerDefenseFacadeService {
     this.modelPreview.dispose();
 
     if (this.initialized) {
-      this.gridViz.cleanupSpatialGridVisualization();
+      // Every overlay, the reach marker and the scene of this engine
+      this.gridViz.dispose();
 
       const engine = this.bridge.getEngine();
       if (engine) {
@@ -381,6 +382,10 @@ export class TowerDefenseFacadeService {
         this.sim.setPresenter(host);
         // Lines of sight render here on the simulation's request
         this.los.attach(engine);
+        // The route grid's debug overlays (layer menu) and the defense reach
+        // marker draw into this scene; the simulation's GameStateManager did
+        // this before it moved into the worker
+        this.gridViz.initDebugViz(engine.getScene(), engine.portalClip);
 
         const eventBus = this.sim.bus;
         engine.spatialAudio.setEventBus(eventBus);
