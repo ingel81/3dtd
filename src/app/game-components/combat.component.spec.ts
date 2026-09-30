@@ -92,4 +92,52 @@ describe('CombatComponent', () => {
     combat.update(2);
     expect(combat.canFire()).toBe(true);
   });
+  describe('holds its rate at any sub-step length (TODO E86)', () => {
+    /** A unit that fires whenever it can, as a tower with a target: shots in `seconds` at `stepsPerSecond` */
+    function shots(fireRate: number, stepsPerSecond: number, seconds = 10): number {
+      const combat = new CombatComponent(gameObject, { damage: 1, range: 1, fireRate });
+      const stepMs = 1000 / stepsPerSecond;
+      let fired = 0;
+      for (let step = 0; step < seconds * stepsPerSecond; step++) {
+        combat.update(stepMs);
+        if (combat.canFire()) {
+          combat.fire();
+          fired++;
+        }
+      }
+      return fired;
+    }
+
+    it('fires rate times ten shots in ten seconds, at 60 and at 30 sub-steps a second', () => {
+      for (const rate of [0.33, 0.5, 1, 1.5, 3, 5, 7.3, 11.9, 15.2, 25]) {
+        for (const stepsPerSecond of [60, 30]) {
+          const fired = shots(rate, stepsPerSecond);
+          // The first shot goes at once; after it one per interval, none lost to the sub-step's length
+          expect(fired, `${rate}/s at ${stepsPerSecond} steps`).toBeGreaterThanOrEqual(Math.floor(rate * 10));
+          expect(fired, `${rate}/s at ${stepsPerSecond} steps`).toBeLessThanOrEqual(Math.floor(rate * 10) + 1);
+        }
+      }
+    });
+
+    it('fires no more than once a sub-step, however high the rate', () => {
+      expect(shots(100, 30, 1)).toBe(30);
+    });
+
+    it('saves up nothing while it does not fire: after a wait the next shot, then a whole interval', () => {
+      const combat = new CombatComponent(gameObject, { damage: 1, range: 1, fireRate: 5 });
+      combat.fire();
+      // The cooldown of 200 ms runs out in the seventh sub-step of 33.3 ms; nobody to shoot at for a second
+      for (let step = 0; step < 30; step++) combat.update(1000 / 30);
+      expect(combat.canFire()).toBe(true);
+      expect(combat.cooldownRemaining).toBe(0);
+      combat.fire();
+      expect(combat.cooldownRemaining).toBe(200);
+      let steps = 0;
+      while (!combat.canFire()) {
+        combat.update(1000 / 30);
+        steps++;
+      }
+      expect(steps).toBe(6);
+    });
+  });
 });

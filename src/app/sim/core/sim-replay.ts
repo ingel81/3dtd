@@ -10,7 +10,7 @@ import type { SimScalars } from '../protocol/packet';
  * Keyframes of the replay (Resimulation): up to 250 MB of the wave's states,
  * 5 s apart at least, forgotten when the replay ends (docs/REPLAY.md)
  */
-const KEYFRAMES = { budgetBytes: 250e6, minIntervalSteps: 300 };
+const KEYFRAMES = { budgetBytes: 250e6, minIntervalSteps: Math.round(5000 / GameClock.FIXED_STEP_MS) };
 /** Wall clock a seek runs per pass, so the bar shows how far it got and a new target can come in between */
 const SEEK_SLICE_MS = 60;
 

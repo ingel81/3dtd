@@ -325,19 +325,12 @@ describe('Manning a tower, through the sub-step loop', () => {
     let subSteps = 0;
     steps(gsm, clock, 300, () => subSteps++);
 
-    // The same sub-steps on the CombatComponent's clock: a shot each time the
-    // cooldown of 1000 / rate ms has run down, none held back or added
-    let cooldown = 0;
-    let expected = 0;
-    for (let i = 0; i < subSteps; i++) {
-      cooldown = Math.max(0, cooldown - GameClock.FIXED_STEP_MS);
-      if (cooldown <= 0) {
-        cooldown = 1000 / rate;
-        expected++;
-      }
-    }
+    // One shot at once, then one per 1000 / rate ms of game time, whatever the sub-step's length: the
+    // cooldown takes what was over in the sub-step it ran out in along (CombatComponent)
+    const seconds = (subSteps * GameClock.FIXED_STEP_MS) / 1000;
     expect(subSteps).toBeGreaterThan(200);
-    expect(blank.mock.calls.length).toBe(expected);
+    expect(blank.mock.calls.length).toBeGreaterThanOrEqual(Math.floor(rate * seconds));
+    expect(blank.mock.calls.length).toBeLessThanOrEqual(Math.floor(rate * seconds) + 1);
   });
 
   it('an enemy on the crosshair but out of the tower\'s range is a blank', () => {

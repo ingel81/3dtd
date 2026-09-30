@@ -358,8 +358,8 @@ export class TowerCombatService {
             }
           }
 
-          // Single fire per sub-step — sub-step is small enough (≤16.67ms game-time)
-          // that a tower with fireRate up to 60/sec produces at most 1 shot per step.
+          // Single fire per sub-step: no tower fires faster than once a sub-step
+          // (GameClock.FIXED_STEP_MS); the cooldown carries what was over (CombatComponent).
           tower.combat.fire();
           projectileManager.spawn(tower, target, heading, this.projectileAim(target));
         }

@@ -6,6 +6,7 @@ import type { SimSnapshot } from './sim-snapshot';
 import type { WaveSnapshot } from './wave-snapshot';
 import type { WaveRecord } from './sim-recorder';
 import { STATE_HASH_INTERVAL } from './state-hash';
+import { GameClock } from '../managers/game-state/game-clock';
 
 /** What a re-simulation drives; the GameStateManager provides it (GameStateManager.resimHost). */
 export interface ResimHost {
@@ -51,7 +52,7 @@ interface Keyframe {
 }
 
 /** A wave without a known end is taken as this long when spacing the keyframes (10 minutes) */
-const UNKNOWN_LENGTH_STEPS = 36_000;
+const UNKNOWN_LENGTH_STEPS = Math.round(600_000 / GameClock.FIXED_STEP_MS);
 
 /**
  * Re-simulates one wave from its record and the command log: restore the

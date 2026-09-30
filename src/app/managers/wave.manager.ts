@@ -1,5 +1,6 @@
 import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
+import { GameClock } from './game-state/game-clock';
 import { ENEMY_TYPES, EnemyTypeId, enemyRewardWeight, lineageRewardWeight, spawnFloorMs } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
@@ -627,7 +628,7 @@ export class WaveManager implements IGameManager {
    * of game time (none runs in a pause), longer than any halt (a machine's
    * 6 s stun), so a halted enemy is not taken for a stuck one.
    */
-  private static readonly STUCK_WINDOW_STEPS = 600;
+  private static readonly STUCK_WINDOW_STEPS = Math.round(10_000 / GameClock.FIXED_STEP_MS);
 
   private _loggedStuckForWave = false;
   private _stuckFrames = 0;

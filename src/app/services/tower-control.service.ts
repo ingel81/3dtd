@@ -299,7 +299,7 @@ export class TowerControlService {
     const onTarget = this.mirror.onTargetOf(tower.id);
     if (onTarget !== this.onTarget()) this.onTarget.set(onTarget);
     const interval = tower.combat.fireRate > 0 ? 1000 / tower.combat.fireRate : 1;
-    const reload = Math.round((1 - tower.combat.cooldownRemaining / interval) * 20) / 20;
+    const reload = Math.round((1 - Math.max(0, tower.combat.cooldownRemaining) / interval) * 20) / 20;
     if (reload !== this.reload()) this.reload.set(reload);
   }
 

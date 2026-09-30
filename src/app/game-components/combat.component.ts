@@ -16,6 +16,11 @@ export interface CombatConfig {
  * Cooldown is driven by deltaTime (game-time ms). High-timescale correctness
  * is handled at the GameStateManager level via fixed-timestep sub-stepping —
  * the combat component itself behaves identically at every timescale.
+ *
+ * The rate holds at any sub-step length: a cooldown runs out somewhere
+ * inside a sub-step, and the shot of that sub-step takes what was over into
+ * the next cooldown. Without it every shot came up to a sub-step late, and a
+ * unit fired slower than its rate the longer the sub-step (TODO E86).
  */
 export class CombatComponent extends Component {
   damage: number;
@@ -35,7 +40,10 @@ export class CombatComponent extends Component {
    */
   damageDealt = 0;
 
-  /** Remaining cooldown in GAME-TIME ms (0 = can fire). */
+  /**
+   * Remaining cooldown in GAME-TIME ms; 0 or below = can fire. Below 0 only
+   * in the sub-step it ran out in: how long ago that was (see update()).
+   */
   private cooldownRemainingMs = 0;
 
   constructor(gameObject: GameObject, config: CombatConfig) {
@@ -45,7 +53,7 @@ export class CombatComponent extends Component {
     this.fireRate = config.fireRate;
   }
 
-  /** Game-time ms until the next shot, 0 when it can fire (read by the `__towerTargets` console). */
+  /** Game-time ms until the next shot, 0 or just below when it can fire (read by the `__towerTargets` console). */
   get cooldownRemaining(): number {
     return this.cooldownRemainingMs;
   }
@@ -59,16 +67,21 @@ export class CombatComponent extends Component {
     return this.fireRate > 0 && this.cooldownRemainingMs <= 0;
   }
 
+  /** The shot of this sub-step: the next cooldown starts where the last one ran out, not at the sub-step's end. */
   fire(): void {
     if (this.fireRate > 0) {
-      this.cooldownRemainingMs = 1000 / this.fireRate;
+      this.cooldownRemainingMs += 1000 / this.fireRate;
     }
   }
 
+  /**
+   * One sub-step, before the unit may fire in it. A cooldown that runs out
+   * in this sub-step goes below 0 by what was over, for fire() to take
+   * along. It is kept for this one sub-step only: a unit that does not fire
+   * now (no target) saves up nothing, and no sub-step brings two shots.
+   */
   update(deltaTime: number): void {
-    if (this.cooldownRemainingMs > 0) {
-      this.cooldownRemainingMs -= deltaTime;
-      if (this.cooldownRemainingMs < 0) this.cooldownRemainingMs = 0;
-    }
+    if (this.cooldownRemainingMs > 0) this.cooldownRemainingMs -= deltaTime;
+    else this.cooldownRemainingMs = 0;
   }
 }

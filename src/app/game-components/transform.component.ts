@@ -20,6 +20,9 @@ export interface TurningFlagSink {
   isTurning: boolean;
 }
 
+/** Game-time ms the rotation smoothing factor counts for: a sub-step of 60 a second, which it was tuned at */
+const ROTATION_SMOOTHING_REF_MS = 1000 / 60;
+
 /**
  * TransformComponent handles position, rotation, and scale of a GameObject
  */
@@ -32,7 +35,7 @@ export class TransformComponent extends Component {
   private _rotation = 0; // Heading in radians (smoothed), see `rotation`
   private targetRotation = 0;
   private rotationInitialized = false;
-  rotationSmoothingFactor = 0.15; // 0 = no smoothing, 1 = instant
+  rotationSmoothingFactor = 0.15; // Share of the way per ROTATION_SMOOTHING_REF_MS: 0 = no smoothing, 1 = instant
 
   constructor(
     gameObject: GameObject,
@@ -137,9 +140,11 @@ export class TransformComponent extends Component {
       if (Math.abs(diff) < 0.001) {
         this._rotation = this.targetRotation;
       } else {
-        // Linear approximation of exponential smoothing (avoids Math.pow per enemy per frame)
-        // For factor=0.15, dt=16.67ms: exact=0.15, approx=0.15. Error <4% across typical dt range.
-        const t = Math.min(1, this.rotationSmoothingFactor * deltaTime / 16.67);
+        // The factor is the share of the way per ROTATION_SMOOTHING_REF_MS; by time, so the turn takes
+        // as long at any sub-step length. Linear instead of the exact 1 - (1 - f)^(dt / ref): plain
+        // arithmetic gives every browser the same bits, Math.pow does not. At twice the reference
+        // the step is 0.30 where the exact curve has 0.28.
+        const t = Math.min(1, this.rotationSmoothingFactor * deltaTime / ROTATION_SMOOTHING_REF_MS);
         this._rotation += diff * t;
         // Normalize rotation
         while (this._rotation > Math.PI) this._rotation -= 2 * Math.PI;

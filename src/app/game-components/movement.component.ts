@@ -509,7 +509,7 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Move along path. `deltaTime` is sub-step game-time ms (~16.67ms).
+   * Move along path. `deltaTime` is sub-step game-time ms (GameClock.FIXED_STEP_MS).
    * `gameTimeMs` is the engine game-clock used for status-effect lookups.
    * `cachedSlowMult` lets the caller share the slow multiplier across
    * updateStatusEffects + move within the same sub-step (1 iteration).
@@ -517,7 +517,7 @@ export class MovementComponent extends Component {
   move(deltaTime: number, gameTimeMs: number, cachedSlowMult?: number): 'moving' | 'reached_end' {
     if (this.paused) return 'moving';
 
-    // Sub-step is fixed (~16.67ms game-time), so a small constant cap is safe.
+    // Sub-step is fixed (GameClock.FIXED_STEP_MS of game-time), so a small constant cap is safe.
     const maxDelta = 100;
     const cappedDelta = Math.min(deltaTime, maxDelta);
     const deltaSeconds = cappedDelta / 1000;

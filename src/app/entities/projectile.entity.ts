@@ -59,7 +59,7 @@ export class Projectile extends GameObject {
   // Frame counter used to throttle the homing-recalc / arc-tangent recalc.
   // Both are smooth-changing values; reusing the last computed direction for
   // a few frames is imperceptible and saves the trig/sqrt cost.
-  private _directionRecalcCounter = 0;
+  private _directionRecalcMs = 0;
 
   // Target lost tracking - projectile continues to last known position
   private _targetLost = false;
@@ -289,12 +289,12 @@ export class Projectile extends GameObject {
     // Calculate flight height along trajectory
     this._flightHeight = this.calculateFlightHeight();
 
-    // Recalc the direction every Nth tick — both homing and arc tangents
+    // Recalc the direction every DIRECTION_RECALC_MS — both homing and arc tangents
     // change smoothly, so reusing the cached vector for a few frames is
     // imperceptible and avoids the per-frame trig/sqrt.
-    this._directionRecalcCounter++;
-    if (this._directionRecalcCounter >= Projectile.DIRECTION_RECALC_EVERY_N) {
-      this._directionRecalcCounter = 0;
+    this._directionRecalcMs += deltaTime;
+    if (this._directionRecalcMs >= Projectile.DIRECTION_RECALC_MS) {
+      this._directionRecalcMs = 0;
       if (this._isHoming) {
         this._direction = this.calculateDirectionVector(
           { lat: newLat, lon: newLon },
@@ -313,8 +313,8 @@ export class Projectile extends GameObject {
     return this.aimPoint ?? this.targetEnemy!.position;
   }
 
-  /** Recalc cadence for direction (homing + arc tangent). */
-  private static readonly DIRECTION_RECALC_EVERY_N = 3;
+  /** Recalc cadence for direction (homing + arc tangent), game-time ms: the sub-step it has passed in. */
+  private static readonly DIRECTION_RECALC_MS = 50;
 
   /**
    * Calculate tangent direction for arc trajectory projectiles

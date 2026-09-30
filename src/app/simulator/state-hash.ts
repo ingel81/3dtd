@@ -1,3 +1,4 @@
+import { GameClock } from '../managers/game-state/game-clock';
 import type { Enemy } from '../entities/enemy.entity';
 import type { Tower } from '../entities/tower.entity';
 import type { Projectile } from '../entities/projectile.entity';
@@ -284,4 +285,4 @@ function fnv(hash: number, word: number): number {
 }
 
 /** Sub-steps between two hashes while recording or checking a wave: one game second. */
-export const STATE_HASH_INTERVAL = 60;
+export const STATE_HASH_INTERVAL = Math.round(1000 / GameClock.FIXED_STEP_MS);
