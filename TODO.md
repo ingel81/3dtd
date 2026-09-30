@@ -291,6 +291,12 @@ Ideen (2026-09-27), nichts entschieden:
       18 bis 25 FPS gemischt, 36 bis 38 statt 17 nur mit Gatling und Archer; mit Fenster 31,3 statt 18,2. 2x und 4x
       sind wieder langsamer (mehr lebende Partikel), und der additive Pool und die Schadenszahlen bleiben dort auch bei
       4x voll. Vorschlag: Größen lassen; Entscheidung User.
+- [ ] **Fahrplan Worker und Performance** (User, 2026-09-30, Claude arbeitet ihn selbstständig ab, alles auf eigenen
+      Branches, nichts gepusht, Übernahme nach `simu-worker` und Merge nach `next` entscheidet der User):
+      **A** Entkopplung fertig (E85: Coop, Replay und Aufrufe, Gegendruck, Hintergrund-Tab, E2E, Schlussmessung).
+      **B1** Interpolation im Shader, dann niedrigere Simulationsrate (E86, mit Prüfliste). **B2** mehrere Worker
+      wieder aufnehmen (E72, `perf/multi-worker`), auch für schwächere Rechner und deutlich mehr Gegner. **B3** Paket
+      direkt aus der Tabelle. Jeder Schritt bitgleich über alle Rechner, gemessen in beiden Browsern.
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
