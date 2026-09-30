@@ -11,7 +11,7 @@
  */
 
 import { Injectable, effect, inject, signal } from '@angular/core';
-import { SubscriptionBag } from '../game-engine/game-event-bus';
+import { EventSubscription, SubscriptionBag } from '../game-engine/game-event-bus';
 import type { Tower } from '../entities/tower.entity';
 import { SimClient } from '../sim/client/sim-client.service';
 import { SimMirror } from '../sim/client/mirror/sim-mirror';
@@ -156,11 +156,12 @@ export class RunLogFacade {
       this.close('restart');
       this.openPending = true;
     }));
-    this.subs.add(this.sim.onFrame(() => {
+    const offFrame = this.sim.onFrame(() => {
       if (!this.openPending) return;
       this.openPending = false;
       this.open();
-    }));
+    });
+    this.subs.add(new EventSubscription(() => void offFrame()));
 
     this.openPending = true;
   }
