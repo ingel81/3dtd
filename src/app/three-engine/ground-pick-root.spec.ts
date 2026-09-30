@@ -12,7 +12,7 @@ import {
 } from 'three';
 import { EnvironmentControls, TilesRenderer } from '3d-tiles-renderer';
 import { instrumentRaycasts, raycastStats } from '../utils/raycast-stats';
-import { GroundPickRoot, TileSetVersion } from './ground-pick-root';
+import { GroundPickRoot, SceneGraphVersion, TileSetVersion } from './ground-pick-root';
 
 /**
  * Szene wie im Spiel an der Route: Boden in einer eigenen Gruppe (die Tiles),
@@ -355,5 +355,41 @@ describe('TileSetVersion', () => {
     (tiles as unknown as { frameCount: number }).frameCount++;
     emit(tiles, 'update-after');
     expect(version.value).toBe(0);
+  });
+});
+
+describe('SceneGraphVersion (DevWorld)', () => {
+  it('bleibt gleich, solange niemand Objekte tauscht, und ändert sich mit jedem neuen, entfernten oder ausgetauschten', () => {
+    const ground = new Group();
+    const terrain = new Group();
+    ground.add(terrain);
+    terrain.add(roofTile());
+    const version = new SceneGraphVersion(ground);
+    const start = version.value;
+    expect(version.value).toBe(start);
+
+    const buildings = roofTile();
+    terrain.add(buildings);
+    const added = version.value;
+    expect(added).not.toBe(start);
+
+    terrain.remove(buildings);
+    terrain.add(roofTile());
+    expect(version.value).not.toBe(added);
+  });
+
+  it('hält den Cache der Wurzel, bis der Boden neu gebaut wird', () => {
+    const { scene, ground, groundMesh } = routeScene();
+    const root = new GroundPickRoot(ground, new SceneGraphVersion(ground));
+    scene.add(root);
+    const meshRaycast = vi.spyOn(groundMesh, 'raycast');
+    downRay(5, 50, 5).intersectObject(root);
+    downRay(5, 50, 5).intersectObject(root);
+    expect(meshRaycast).toHaveBeenCalledTimes(1);
+
+    // A new place: the ground's meshes are built anew, the roof answers at once
+    ground.add(roofTile());
+    ground.updateMatrixWorld(true);
+    expect(downRay(0, 50, 0).intersectObject(root)[0].point.y).toBeCloseTo(12, 6);
   });
 });

@@ -1,7 +1,7 @@
 import { Object3D, PerspectiveCamera, Scene } from 'three';
 import { GlobeControls, EnvironmentControls, type TilesRenderer } from '3d-tiles-renderer';
 import { cameraTimeline } from '../utils/camera-timeline';
-import { GroundPickRoot, TileSetVersion } from './ground-pick-root';
+import { GroundPickRoot, SceneGraphVersion, TileSetVersion } from './ground-pick-root';
 
 /**
  * CameraRig: Controls und Startposition der Engine-Kamera.
@@ -14,14 +14,15 @@ import { GroundPickRoot, TileSetVersion } from './ground-pick-root';
  *
  * - Tiles-Pfad: GlobeControls über dem Ellipsoid der TilesRenderer-Gruppe, ihre
  *   Raycasts treffen nur die Tiles ({@link GroundPickRoot})
- * - DevWorld: EnvironmentControls über der flachen devWorldGroup
+ * - DevWorld: EnvironmentControls über der flachen devWorldGroup, ebenfalls über
+ *   {@link GroundPickRoot} (Cache)
  *
  * Vom Engine besessen: `update()` pro Frame vor dem Tiles-Update, `dispose()` aus dem
  * Engine-dispose().
  */
 export class CameraRig {
   private controls: GlobeControls | null = null;
-  /** Szene der GlobeControls, hängt in der Engine-Szene; null in DevWorld */
+  /** Szene der Controls (nur der Boden, mit Cache), hängt in der Engine-Szene */
   private groundPick: GroundPickRoot | null = null;
   /** Leert den Raycast-Cache von groundPick, sobald sich die Tiles ändern */
   private tileSetVersion: TileSetVersion | null = null;
@@ -87,8 +88,14 @@ export class CameraRig {
     envControls.minAltitude = 0.1;     // Min camera altitude (radians from ground)
     envControls.maxAltitude = Math.PI / 2 - 0.1; // Max altitude (near vertical)
 
-    // Set scene for raycasting (against devWorldGroup which contains terrain)
-    envControls.setScene(devWorldGroup);
+    // Raycasts against the DevWorld ground only, through the same cache as the
+    // tiles: at rest the controls cast rays below the camera every frame, and
+    // uncached against every building that was about 7 % of the main thread in
+    // the load scene (Chromium profile at 16 000 enemies, 2026-09-30)
+    const groundPick = new GroundPickRoot(devWorldGroup, new SceneGraphVersion(devWorldGroup));
+    scene.add(groundPick);
+    this.groundPick = groundPick;
+    envControls.setScene(groundPick);
 
     // Store as GlobeControls type (EnvironmentControls is parent class)
     this.controls = envControls as unknown as GlobeControls;

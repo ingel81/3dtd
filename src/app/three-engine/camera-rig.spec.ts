@@ -130,7 +130,7 @@ describe('CameraRig', () => {
   });
 
   describe('DevWorld (EnvironmentControls)', () => {
-    it('baut EnvironmentControls mit Zoom- und Höhengrenzen und raycastet gegen die DevWorld-Gruppe', () => {
+    it('baut EnvironmentControls mit Zoom- und Höhengrenzen und raycastet über GroundPickRoot gegen die DevWorld-Gruppe', () => {
       const { canvas, rig, controls } = setup();
       const scene = new Scene();
       const devWorldGroup = new Group();
@@ -140,7 +140,10 @@ describe('CameraRig', () => {
       expect(rig.getControls()).toBeInstanceOf(EnvironmentControls);
       expect(rig.getControls()).not.toBeInstanceOf(GlobeControls);
       expect(controls().ctorArgs[0]).toBe(scene);
-      expect(controls().setScene).toHaveBeenCalledWith(devWorldGroup);
+      // Through the ground root with its cache, which answers with the DevWorld group only
+      const root = controls().setScene.mock.calls[0][0];
+      expect(root).toBeInstanceOf(GroundPickRoot);
+      expect(root.parent).toBe(scene);
       expect(controls().enableDamping).toBe(true);
       expect(controls().enableDoubleTapZoom).toBe(false);
       expect(controls().minDistance).toBe(5);

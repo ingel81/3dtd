@@ -67,6 +67,26 @@ export class TileSetVersion {
   }
 }
 
+/**
+ * SceneGraphVersion: für einen Boden, der sich nur durch Austausch ganzer
+ * Objekte ändert (DevWorld: Gelände, Rand, Straßen, Gebäude werden bei einem
+ * neuen Ort neu gebaut, nie an Ort und Stelle verschoben). Der Wert ist eine
+ * Prüfsumme über die Ids der Objekte unter `root`; ein neues, entferntes oder
+ * ausgetauschtes Objekt ändert ihn. Die Bewegung des Bodens selbst prüft
+ * GroundPickRoot über `matrixWorld`.
+ */
+export class SceneGraphVersion {
+  constructor(private readonly root: Object3D) {}
+
+  get value(): number {
+    let value = 0;
+    this.root.traverse((object) => {
+      value = (Math.imul(value, 31) + object.id) | 0;
+    });
+    return value;
+  }
+}
+
 /** A ray answered before and the hits the ground gave for it. */
 interface CachedRay {
   ox: number;
