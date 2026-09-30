@@ -274,6 +274,21 @@ describe('FramePresenter', () => {
       expect(engine.trailStreaks.pushPosition.mock.calls[0][0]).toBe('projectile-11');
     });
 
+    it('lays bursts only for the way it has been shown on, none behind the muzzle while it slides', () => {
+      const { presenter, engine } = setup();
+      const trails = engine.effects.spawnConfigurableTrail.mock.calls as unknown as number[][];
+      presenter.present(packet({ projectiles: [row(0)] }));
+      // 3 m on, shown still at the start (sliding there): nothing laid yet
+      engine.projectiles.lastOffset.set(0, -3, 0);
+      presenter.present(packet({ projectiles: [row(3)] }));
+      expect(trails).toHaveLength(0);
+      // 3 m more, shown where the last state was: the first 3 m are laid, back from there
+      presenter.present(packet({ projectiles: [row(6)] }));
+      expect(trails).toHaveLength(6);
+      expect(Math.min(...trails.map((t) => t[1]))).toBeGreaterThanOrEqual(0 - 2.1 - 1e-9);
+      engine.projectiles.lastOffset.set(0, 0, 0);
+    });
+
     it('starts a projectile seen again after it left afresh', () => {
       const { presenter, engine } = setup();
       presenter.present(packet({ projectiles: [row(0)] }));

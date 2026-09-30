@@ -348,11 +348,16 @@ export class FramePresenter {
       this.lead.copy(slide).negate();
 
       // One trail burst per TRAIL_SPAWN_DISTANCE_M flown, laid back along
-      // the flight one gate apart instead of stacked on the current position
+      // the flight one gate apart instead of stacked on the current position.
+      // Only for the way the body has been shown on so far: it is shown
+      // `behind` short of its new state, and the rest waits for the next.
+      // Laid back from the shown place for all the way flown, the bursts of
+      // a shot's first stretch lay behind the muzzle.
       const trailConfig = record.type.trailParticles;
       if (trailConfig?.enabled) {
+        const behind = slide.length();
         let back = 0;
-        while (record.trailAcc >= TRAIL_SPAWN_DISTANCE_M) {
+        while (record.trailAcc - behind >= TRAIL_SPAWN_DISTANCE_M) {
           record.trailAcc -= TRAIL_SPAWN_DISTANCE_M;
           engine.effects.spawnConfigurableTrail(pos.x - dir.dx * back, pos.y - dir.dy * back, pos.z - dir.dz * back, trailConfig);
           back += TRAIL_SPAWN_DISTANCE_M;
