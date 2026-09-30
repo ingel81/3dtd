@@ -230,10 +230,19 @@ Ideen (2026-09-27), nichts entschieden:
       als fertige Bildbänder mit dem Build ausliefern.
       **Entschieden (User, 2026-09-30):** flüssiger bei gleichem Tempo (144 Bilder mit 24 FPS, 6 s je Umdrehung) und
       alle Drehungen beim Laden des Ortes backen (alle Tower samt gesperrter Silhouetten, alle Gegnertypen).
+      **Versuch 2026-09-30, nicht übernommen** (Branch `wt/render`, Commit `570d74ac`): 144 Bilder mit 24 FPS, alle
+      Gegnertypen nach dem Laden im Leerlauf vorgebacken. Chromium unauffällig, Firefox fällt minutenlang auf 13 FPS:
+      jedes Bild wird aus dem WebGL-Canvas in ein 2D-Bildband kopiert, und das ist in Firefox teuer; beim Vorbacken sind es
+      rund 3600 Kopien. Eine Obergrenze je Leerlauf-Rückruf half nicht. Vorschlag: die Drehungen beim Build vorrendern und
+      als Bildbänder ausliefern, oder im Worker auf einem OffscreenCanvas backen. Entscheidung User.
 - [ ] **E77 Lebensbalken über 20 000 Gegner**: `MAX_HEALTH_BARS = 20000`, darüber fehlen Balken (Messung 2026-09-29 mit
       25 000 Gegnern).
       **Entschieden (User, 2026-09-30):** Balken nur für Gegner nahe der Kamera oder im Bild, wenn die Prüfung messbar
       nichts kostet; sonst die Obergrenze anheben.
+      **Gebaut 2026-09-30** (simu-worker): die Obergrenze fällt, Balken und Gegner-Instanzen starten klein (2048 und 512 je
+      Typ) und verdoppeln sich bei Bedarf. Keine Prüfung je Bild, welche Balken nah oder im Bild sind. Gemessen in Firefox
+      bei 16 000 Gegnern je zweimal gegen den Stand davor: 80/79 und 80/76 gegen 81/80 und 73/78 FPS, also gleich im
+      Rauschen. Bei 25 000 Gegnern sind die Balken zu sehen. Offen: dein Blick darauf.
 - [ ] **E78 Messlauf nachschärfen** (`e2e/perf/sim-load.ts`): Messungen mit `--dpr 1` wiederholen (Firefox lief sichtbar
       mit Pixeldichte 1,25, Chrome gegen Firefox so nicht fair); bei 20 000 und 25 000 Gegnern füllt der Lauf nicht ganz
       auf (3 bis 8 % unter dem Ziel, Wartezeit 120 s).
