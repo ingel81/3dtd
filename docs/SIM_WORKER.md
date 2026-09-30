@@ -267,6 +267,9 @@ Hebel nach den Messwerten:
    zwei Tabellen-Puffer im SAB, weil der Hauptthread noch liest).
 3. **GPU je Gegner**: Culling pro Instanz (die Gegner-Instanzen haben `frustumCulled = false`), einfacheres Modell in
    der Entfernung, Lebensbalken nur nahe der Kamera.
+   Gemessen 2026-09-30: Culling im Vertex-Shader (Hüllkugel gegen das Sichtfeld) bringt in Chromium ohne
+   Bildratenbremse bei 8000 bis 25 000 Gegnern nichts über die Streuung von rund ±10 FPS, auch nicht, wenn alle Gegner
+   außerhalb des Bildes stehen; nicht übernommen.
 4. **Worker schneller** (Chromium ab rund 14000): Gegnerfelder als typisierte Arrays im SAB, danach mehrere Worker
    phasenweise im Sub-Step.
 

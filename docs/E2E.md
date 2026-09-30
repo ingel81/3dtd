@@ -112,3 +112,15 @@ Lecks je Lane, HQ-Verlust, Tower je Spieler und Lane), je Lauf eine mit Ende, La
 Sichtlinien sind Würfel-Renderings, auf SwiftShader (`--swiftshader`) teilten sich alle Tabs einen GPU-Prozess, und
 ein Raum lief mit halbem Tempo. Das Relay nimmt höchstens 8 Verbindungen je Adresse (`MAX_PER_ADDRESS`), also `--parallel` mal `--players` höchstens 8; für mehr das Relay mit `--max-per-address N` starten. `--solo` spielt einen
 Bot allein im ausgelieferten DevWorld als Vergleich (dann darf kein Bot-Server auf :3001 laufen).
+
+Resync prüfen (COOP_PLAN C5b, TODO E58): `--falsify-at-wave 3` fälscht nach Welle 3 das Gold des letzten Platzes, das
+Relay erkennt die Abweichung und der Host schickt seinen Stand. `--big-wave 3000` startet davor eine Welle aus 3000
+zähen Zombies und fälscht erst, wenn die meisten laufen: der Stand geht dann in mehreren Teilen. Mit
+`--query resyncPart=64` schickt der Host Teile zu 64 kB, so geht auch ein kleiner Stand in mehreren.
+
+## Vorschau-Bildbänder (`e2e/previews/bake.ts`)
+
+Kein Test: `npm run build && npm run previews` backt die Drehungen der Seitenleiste (jeder Tower, jeder Gegnertyp) im
+ausgelieferten Build mit dem Code des Spiels und schreibt sie als WebP nach `public/assets/previews/` samt
+`manifest.json` (TODO E76). Nötig, wenn ein Modell oder eine Vorschau-Ansicht sich ändert; `preview-sheets.spec.ts`
+nennt dann die veralteten. `--only tower-archer` backt eines neu.

@@ -211,7 +211,12 @@ Ideen (2026-09-27), nichts entschieden:
       16 000, 25 000, normal und herangezoomt, Sichttest am Bildrand), nur bei Gewinn übernehmen; die Schwelle für frühe
       Ticks (35 ms) in Firefox mit mehreren Wiederholungen bei 16 000 und 20 000 nachmessen. **Culling** (Hebel 3) gebaut, aber ungemessen (Branch `wt/render-cull`): der
       Vertex-Shader verwirft eine Gegner-Instanz, deren Hüllkugel außerhalb des Sichtfelds liegt, ohne Kosten im
-      Hauptthread. Offen: Messung in Chromium ohne Bildratenbremse und Sichttest am Bildrand.
+      Hauptthread. **Gemessen 2026-09-30, nicht übernommen** (Branch `perf/cull`, Chromium ohne Bildratenbremse,
+      8000/16 000/25 000 Gegner, je zwei Runden): weder in der Gesamtansicht noch im Bestfall (herangezoomt, alle Gegner
+      außerhalb des Bildes) ein Unterschied über die Streuung von rund ±10 FPS. Den Sichttest am Bildrand braucht es
+      damit nicht.
+      **Mehrere Worker im Spiel:** Plan in `docs/MULTI_WORKER_PLAN.md` (Branch `perf/multi-worker`); entschieden (User,
+      2026-09-30): bauen wie dort empfohlen, auf dem eigenen Branch, danach messen.
 - [ ] **E76 Vorschau der Seitenleiste nachbessern** (Playtest 2026-09-30, nach E73): die gebackene Drehung wirkt minimal
       ruckelig (72 Bilder mit 12 FPS, 5° je Schritt) und dreht in 6 s statt früher 15,7 s. Gebacken wird beim ersten
       Anzeigen, Gegnergruppen also beim Wellenstart; besser vorberechnen (beim Laden, im Leerlauf der Setup-Phase) oder
@@ -225,6 +230,10 @@ Ideen (2026-09-27), nichts entschieden:
       als Bildbänder ausliefern, oder im Worker auf einem OffscreenCanvas backen. Entscheidung User. Speicher der Bildbänder
       mit 144 Bildern geschätzt (nicht gemessen) 140 bis 190 MB, doppelt so viel wie mit 72.
       **Entschieden (User, 2026-09-30):** die Drehungen beim Build vorrendern und als Bildbänder ausliefern.
+      **Gebaut 2026-09-30:** `npm run previews` (`e2e/previews/bake.ts`) backt in einem Build alle Tower und Gegnertypen
+      (144 Bilder, 24 FPS) als WebP nach `public/assets/previews/` (37 Bildbänder, 5,7 MB); das Spiel lädt sie und backt
+      nur noch eine Ansicht ohne Bildband (Debug-Regler) selbst. `preview-sheets.spec.ts` schlägt fehl, sobald ein Modell
+      oder eine Ansicht sich ändert und nicht neu gebacken wurde. Offen: Firefox im Spiel ansehen.
 - [ ] **E81 Restrisiken des zweiten Worker-Reviews** (2026-09-29): Wellenstart-Sperre im Hauptthread fällt nach 2 s
       Wanduhr (braucht das Relay länger, verwirft die Simulation den zweiten Start); Coop-Start und Ortswechsel ohne Paket
       dazwischen ließen den Lauf unmarkiert; ein hängender Worker blockiert nach `newRun`; Gegner-Views nur aus Event-Refs
@@ -236,6 +245,9 @@ Ideen (2026-09-27), nichts entschieden:
       **Entschieden (User, 2026-09-30):** beides bauen: ein Coop-Bot-Lauf mit großer Custom-Welle ohne Spawn-Untergrenze und
       gefälschtem Gold, der einen Resync in mehreren Teilen auslöst, und ein URL-Schalter, der die Teilgröße für Tests
       verkleinert.
+      **Gebaut 2026-09-30:** `?resyncPart=<kB>` (1 bis 768) teilt den Stand des Hosts in kleinere Stücke;
+      `e2e/coop-bots/run.ts --big-wave N` startet vor der Fälschung (`--falsify-at-wave`) eine Welle aus N zähen
+      Zombies ohne Spawn-Untergrenze. Offen: der Lauf.
 - [ ] **E60 Versus-Modus** (Idee, im Lobby-Umschalter schon als SOON, COOP_PLAN D39): Form offen.
 - [ ] **E61 DevWorld als Spielfeld** (Idee): prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
       Verwandt: E55, E56.

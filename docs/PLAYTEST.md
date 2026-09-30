@@ -26,6 +26,48 @@ warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). 
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
 
+## W Simulation im Worker (Branch `simu-worker`, 2026-09-30)
+
+Die Simulation läuft in einem Web Worker ([SIM_WORKER.md](SIM_WORKER.md)). Geprüft per Spec, E2E und Bot-Lauf; offen
+ist, wie es sich spielt. Dev-Server auf dem Branch, `http://localhost:4200/`, Konsole offen. Jede `Uncaught`- oder
+`[Sim]`-Fehlerzeile melden.
+
+Paket W1, allein auf einer echten Karte:
+
+- **W1.1 Ein normaler Lauf:** Ort wählen, bis mindestens Welle 10 spielen, zwischendurch Tempo 4. Erwartung: nichts
+  anders als auf `next`; Tower treffen, Gegner laufen flüssig, Töne und Effekte kommen zur Zeit.
+- **W1.2 FPS-Anzeige:** Den FPS-Zähler oben links anklicken, dann noch einmal. Erwartung: erst „Speed x / y · Sim
+  n %“ und „Sounds/s“, dann rechts daneben Ticks/s, „Memory shared“, „Packet … ms“, Gegnerzahl und kleine Kurven.
+  Sinkt das Tempo unter das eingestellte, ist die erste Zahl rot.
+- **W1.3 Tab im Hintergrund:** Während einer Welle zwei Minuten in einen anderen Tab, dann zurück. Erwartung: die
+  Welle lief weiter (Wellenzähler und Gold passen), kein Standbild, keine Fehlermeldung.
+- **W1.4 Vorschau der Seitenleiste:** Tower-Karten und Gegnergruppen im Wellen-Panel ansehen, auch gesperrte Tower.
+  Erwartung: alle drehen sich gleichmäßig ab dem ersten Bild, eine Umdrehung in etwa 6 Sekunden, gesperrte als
+  dunkle Silhouette.
+
+Paket W2, Replay und Werkzeuge:
+
+- **W2.1 Replay-Effekte:** Eine Welle mit Atombombe (Fähigkeit) spielen, danach das Replay der Welle öffnen und
+  verlassen, während die Bombe im Replay noch wirkt. Erwartung: im Live-Spiel ist nichts mehr von ihr zu sehen.
+- **W2.2 Replay springen:** Das Replay einer großen Welle öffnen, weit nach vorn klicken, dann zurück. Erwartung:
+  beim ersten Sprung „Jumping n %“ in der Leiste, der Rücksprung ist fast sofort da.
+- **W2.3 Benchmark:** Esc (Menü), „Benchmark“, „Run“. Erwartung: die Seite lädt in eine Testwelt, misst rund
+  3 Minuten, zeigt dann eine Tabelle und „Copy results“; kopieren und hier einfügen.
+- **W2.4 Performance-Fenster:** Unten rechts „T“ (Developer options), „Performance“. Erwartung: Zeiten des Workers
+  je Teil, Einräumen je Paket, Spielschleife und Zeichnen; die Zahlen bewegen sich mit der Gegnerzahl.
+
+Paket W3, Coop über zwei Rechner und Desktop-App:
+
+- **W3.1 Coop im LAN:** Relay neu starten (`npm run coop-server`), auf beiden Rechnern der Branch, ein Raum, bis
+  mindestens Welle 8 zu zweit. Erwartung: keine `DESYNC`-Zeile im Relay-Log (`logs/coop_*.log`), beide sehen dieselben
+  Gegner an denselben Stellen.
+- **W3.2 Coop mit Tempo 4 und vielen Gegnern:** Host setzt Tempo 4, eine Custom Wave mit 2000 Zombies. Erwartung:
+  beide Rechner halten Schritt, kein „waiting for …“ über Sekunden, kein `DESYNC`.
+- **W3.3 Desktop-App:** Installer aus dem Branch (`desktop/`, [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md)),
+  App starten, FPS-Zähler zweimal aufklappen. Erwartung: „Memory shared“; ein Lauf bis Welle 5 wie im Browser.
+- **W3.4 Coop Browser gegen App:** Ein Spieler im Browser, einer in der App, ein Raum bis Welle 5. Erwartung: kein
+  `DESYNC`.
+
 ## M Druck-Regler und HP-Budget (2026-09-22)
 
 Gemessen ist der Regler an Bot-Läufen; was Bots nicht prüfen können, ist wie es sich anfühlt. Genau darum geht
