@@ -167,6 +167,8 @@ export class TowerManager extends EntityManager<Tower> {
       type: 'tower:sold',
       tower,
       refund,
+      damageDealt: tower.combat.damageDealt,
+      kills: tower.combat.kills,
     });
 
     // Play sell sound

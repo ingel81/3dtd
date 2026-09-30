@@ -325,7 +325,8 @@ export class RunLogCollector {
     }));
     bag.add(bus.onLive('tower:sold', (e) => {
       if (!this.owns(e.tower)) return;
-      this.soldThisWave.push({ ...this.towerWave(e.tower), sold: true });
+      // The numbers of the sale: the shadow tower's are the packet's before
+      this.soldThisWave.push({ ...this.towerWave(e.tower, e.damageDealt, e.kills), sold: true });
       this.towerMarks.delete(e.tower.id);
       this.event('tower-sold', { id: e.tower.typeConfig.id, credits: e.refund });
     }));
@@ -518,7 +519,7 @@ export class RunLogCollector {
     return (this.world?.towers() ?? []).filter((tower) => this.owns(tower));
   }
 
-  private towerWave(tower: Tower): RunLogTowerWave {
+  private towerWave(tower: Tower, damageDealt = tower.combat.damageDealt, kills = tower.combat.kills): RunLogTowerWave {
     const mark = this.towerMarks.get(tower.id) ?? { damage: 0, kills: 0 };
     const levels: Record<string, number> = {};
     for (const upgrade of tower.typeConfig.upgrades) {
@@ -529,8 +530,8 @@ export class RunLogCollector {
       id: tower.id,
       type: tower.typeConfig.id,
       levels,
-      damage: Math.round(tower.combat.damageDealt - mark.damage),
-      kills: tower.combat.kills - mark.kills,
+      damage: Math.round(damageDealt - mark.damage),
+      kills: kills - mark.kills,
     };
   }
 

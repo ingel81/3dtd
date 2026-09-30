@@ -124,6 +124,13 @@ export type LifecycleEvent =
       type: 'tower:sold';
       tower: Tower;
       refund: number;
+      /**
+       * The tower's damage and kills at the sale (the simulation sets them).
+       * The main thread's shadow tower has the numbers of the packet before:
+       * a sold tower has no row in the tower table of the packet it went in.
+       */
+      damageDealt?: number;
+      kills?: number;
     }
   | {
       // Nach jedem Kill, der einem Tower gutgeschrieben wird (combat.kills ist

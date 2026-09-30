@@ -165,6 +165,24 @@ describe('the run log', () => {
       expect(wave.mismatches).toBeUndefined();
     });
 
+    it('takes a sold tower’s damage and kills from the sale, not from its shadow of the packet before', () => {
+      open();
+      const archer = tower('t1', 'archer');
+      standing = [archer];
+      bus.emit({ type: 'tower:placed', tower: archer as never, position: { lat: 1, lon: 2 }, cost: 60 });
+      bus.emit({ type: 'wave:started', wave: 1, enemyCount: 1 });
+      // The shadow: 100 damage, one kill as the last tower table had them
+      archer.combat.damageDealt = 100;
+      archer.combat.kills = 1;
+      standing = [];
+      bus.emit({ type: 'tower:sold', tower: archer as never, refund: 45, damageDealt: 180, kills: 2 });
+      bus.emit({ type: 'wave:completed', wave: 1, credits: 0, perfect: false, closeCall: false, hpLost: 0 });
+
+      expect(waves()[0].towers).toEqual([
+        { id: 't1', type: 'archer', levels: { damage: 2 }, damage: 180, kills: 2, sold: true },
+      ]);
+    });
+
     it('books build and upgrade gold per tower type, so damage per gold has a divisor', () => {
       open();
       const archer = tower('t1', 'archer');
