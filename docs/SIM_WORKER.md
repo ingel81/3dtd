@@ -253,8 +253,8 @@ Tempo 1: Chromium `next` 144 bis rund 7700, 101 bei 11000, 24 bei 24000; Worker 
   ist der Hauptthread: ein Paket anzuwenden kostet 6 ms bei 7300 und 19 ms bei 24000 Gegnern; der Worker ist höchstens
   zu 71 % beschäftigt.
 - **GPU je Gegner** (Chromium ohne Bremse, Tempo 1, Gegner ein- und ausgeblendet): 0,9 ms bei 8000, 3,2 ms bei 16000,
-  6,8 ms bei 25000 Gegnern je Bild, rund 0,27 µs je Gegner. Lebensbalken gibt es höchstens 20 000
-  (`MAX_HEALTH_BARS`), bei 25000 fehlen sie für den Rest.
+  6,8 ms bei 25000 Gegnern je Bild, rund 0,27 µs je Gegner. Damals gab es höchstens 20 000 Lebensbalken
+  und 20 000 Instanzen je Gegnertyp; seit E77 wachsen beide Puffer mit der Zahl der Gegner (verdoppeln sich).
 - In beiden Browsern bremst das Bild den Worker: ein Tick geht erst mit dem nächsten Bild los, während der Hauptthread
   ein langes Paket anwendet, wartet der Worker.
 
