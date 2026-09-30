@@ -97,6 +97,11 @@ Ein Lauf öffnet mit dem ersten Paket der Simulation nach einem Reset, nicht bei
 leert der Hauptthread den Spiegel sofort, das erste Paket der neuen Welt kommt Sekunden später. Ein sofort geöffneter
 Lauf hatte Seed 0 im Kopf und begann Welle 1 bei 0 Credits (behoben 2026-10-01).
 
+Credits, HQ und lebende Gegner an Blockgrenzen sind die des Moments: `wave:started`, `wave:completed` und `game:over`
+tragen sie aus der Simulation mit (`EventMoment`), der Spiegel antwortet damit, solange er ein solches Event weitergibt.
+Vorher kamen sie vom Ende des Pakets; ein Kauf nach dem Wellenende im selben Paket stand dann in beiden Blöcken und
+gab ein Paar Gold-Abweichungen (Bot bei Tempo 75: 8 von 79 Wellen, behoben 2026-10-01).
+
 Ist der Lauf geschlossen, bleibt er lesbar, bis der nächste öffnet. Das Game Over erreicht zwei Zuhörer: Das Log
 schließt den Lauf, die Bot-Session schickt den Rest an den Server. Wer zweiter war, fand früher einen leeren
 Sammler vor, und jedem Bot-Lauf auf dem Server fehlten seine letzte Welle und sein Ende.

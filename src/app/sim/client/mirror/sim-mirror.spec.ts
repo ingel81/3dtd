@@ -263,6 +263,21 @@ describe('SimMirror', () => {
       expect(mirror.killCreditPlayer(null)).toBe('a');
     });
 
+    it('credits a kill of a tower sold in the same packet by the order of the events, as the simulation did', () => {
+      const real = new Tower(AT, 'archer');
+      real.ownerId = 'b';
+      mirror.applyState(packet({ scalars: { players: ['a', 'b'] }, towerStates: [towerDto(real)] }));
+      mirror.afterFrame(packet({}));
+      // The packet that sells it: the kill before the sale is the owner's, one after (its shot landing late) the first player's
+      mirror.applyState(packet({ scalars: { players: ['a', 'b'] }, removedTowers: [real.id] }));
+      const byTower = { kind: 'tower', towerId: real.id } as const;
+      expect(mirror.killCreditPlayer(byTower)).toBe('b');
+      mirror.importEvent({ type: 'tower:sold', payload: { tower: { $t: real.id }, refund: 10 }, live: true, show: true });
+      expect(mirror.killCreditPlayer(byTower)).toBe('a');
+      mirror.afterFrame(packet({}));
+      expect(mirror.killCreditPlayer(byTower)).toBe('a');
+    });
+
     it('lets the local player select a partner tower to look at, not a partner building', () => {
       const own = new Tower(AT, 'archer');
       own.ownerId = 'a';

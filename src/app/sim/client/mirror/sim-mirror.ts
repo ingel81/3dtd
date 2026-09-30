@@ -131,6 +131,8 @@ export class SimMirror implements SimMirrorApi {
   private eventTime: { t: number; step: number } | null = null;
   /** Credits, HQ and enemies alive at the event being handed on, where it carries them (EventMoment) */
   private eventMoment: EventMoment | null = null;
+  /** Towers whose tower:sold this packet's events handed on so far (killCreditPlayer) */
+  private readonly soldInPacket = new Set<string>();
 
   // ── World ─────────────────────────────────────────────────────
 
@@ -179,6 +181,7 @@ export class SimMirror implements SimMirrorApi {
   afterFrame(_packet: SimFramePacket): void {
     this.eventTime = null;
     this.eventMoment = null;
+    this.soldInPacket.clear();
     // The events are handed on: whoever reads a view now (frame listeners,
     // the UI) reads the end of the packet, as the table has it
     const touched = this.touched;
@@ -202,6 +205,7 @@ export class SimMirror implements SimMirrorApi {
   clear(): void {
     this.eventTime = null;
     this.eventMoment = null;
+    this.soldInPacket.clear();
     this.scalars = initialScalars();
     this.towerMap.clear();
     this.towerList = null;
@@ -551,6 +555,9 @@ export class SimMirror implements SimMirrorApi {
       case 'hero:state-changed':
         this.heroStatuses.set(event.playerId, event.hero);
         break;
+      case 'tower:sold':
+        this.soldInPacket.add(event.tower.id);
+        break;
       // A new run starts its streams over, also on the same seed
       case 'game:reset':
         this.rng.reset(this.scalars.seed);
@@ -633,7 +640,9 @@ export class SimMirror implements SimMirrorApi {
   killCreditPlayer(killedBy: KilledBy | null): string {
     const players = this.scalars.players;
     if (killedBy?.kind === 'tower') {
-      const tower = this.tower(killedBy.towerId);
+      // The tower stood at the kill unless its sale came before in this packet's events: a tower
+      // removed by this packet is still found (tower() has the gone ones), sold first it is not
+      const tower = this.soldInPacket.has(killedBy.towerId) ? null : this.tower(killedBy.towerId);
       if (tower) return tower.ownerId;
     } else if (killedBy?.kind === 'hero') {
       const heroId = killedBy.heroId ?? HERO_SOURCE_ID;
