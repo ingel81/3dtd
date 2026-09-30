@@ -15,6 +15,9 @@ import { shareableUrl } from '../../utils/public-url';
  *   decimal place). A spawn without one faces along its route, as every
  *   spawn in URLs from before the bearing.
  */
+/** Query switches the location URL keeps */
+const KEPT_SWITCHES = ['waves', 'interp'];
+
 @Injectable({ providedIn: 'root' })
 export class UrlLocationService {
   private readonly BEARING_PRECISION = 1;
@@ -60,9 +63,13 @@ export class UrlLocationService {
     if (spawns.length > 0) {
       url += `&s=${spawns.map((s) => this.formatSpawn(s)).join(';')}`;
     }
-    // The wave source a tab was opened with survives picking a place (initialWaveSourceId)
-    const waves = new URLSearchParams(window.location.search).get('waves');
-    if (waves) url += `&waves=${encodeURIComponent(waves)}`;
+    // Switches a tab was opened with survive picking a place: the wave source
+    // (initialWaveSourceId), the slide between two states (state-lerp.ts)
+    const search = new URLSearchParams(window.location.search);
+    for (const key of KEPT_SWITCHES) {
+      const value = search.get(key);
+      if (value) url += `&${key}=${encodeURIComponent(value)}`;
+    }
     return url;
   }
 
