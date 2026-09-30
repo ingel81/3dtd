@@ -203,7 +203,9 @@ Ideen (2026-09-27), nichts entschieden:
       **Mehrere Worker:** nur im Labor gebaut und gemessen (Branch `perf/multi-worker-lab`): Bewegung bitgleich, mit 4
       Workern 1,7- bis 3,7-mal so schnell; hochgerechnet 1,3- bis 1,4-mal so viel Simulation. Offen: der Umbau im Spiel
       (Bewegungsdaten aus dem Worker heraus, Snapshot, Prüfsumme und Resync bitgleich, 24 Dateien), Worker-Zahl und
-      Schalter in den Einstellungen.
+      Schalter in den Einstellungen. **Culling** (Hebel 3) gebaut, aber ungemessen (Branch `wt/render-cull`): der
+      Vertex-Shader verwirft eine Gegner-Instanz, deren Hüllkugel außerhalb des Sichtfelds liegt, ohne Kosten im
+      Hauptthread. Offen: Messung in Chromium ohne Bildratenbremse und Sichttest am Bildrand.
 - [ ] **E74 Benchmark im Spiel** (User, 2026-09-29): die Lastmessung als integrierte Funktion im Spiel statt nur als
       Playwright-Skript (`e2e/perf/sim-load.ts`). Ein gemischter Lauf auf der DevWorld mit mehreren Teiltests
       hintereinander (feste Tower, Gegnerstufen, Tempo 1 und 4, Einpendeln vor jeder Messung), am Ende die Werte
@@ -234,7 +236,8 @@ Ideen (2026-09-27), nichts entschieden:
       Gegnertypen nach dem Laden im Leerlauf vorgebacken. Chromium unauffällig, Firefox fällt minutenlang auf 13 FPS:
       jedes Bild wird aus dem WebGL-Canvas in ein 2D-Bildband kopiert, und das ist in Firefox teuer; beim Vorbacken sind es
       rund 3600 Kopien. Eine Obergrenze je Leerlauf-Rückruf half nicht. Vorschlag: die Drehungen beim Build vorrendern und
-      als Bildbänder ausliefern, oder im Worker auf einem OffscreenCanvas backen. Entscheidung User.
+      als Bildbänder ausliefern, oder im Worker auf einem OffscreenCanvas backen. Entscheidung User. Speicher der Bildbänder
+      mit 144 Bildern geschätzt (nicht gemessen) 140 bis 190 MB, doppelt so viel wie mit 72.
 - [ ] **E77 Lebensbalken über 20 000 Gegner**: `MAX_HEALTH_BARS = 20000`, darüber fehlen Balken (Messung 2026-09-29 mit
       25 000 Gegnern).
       **Entschieden (User, 2026-09-30):** Balken nur für Gegner nahe der Kamera oder im Bild, wenn die Prüfung messbar
