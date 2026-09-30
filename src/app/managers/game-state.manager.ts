@@ -1113,7 +1113,8 @@ export class GameStateManager {
    * Announce what the simulation holds now, after a snapshot restore or a
    * replay's seek, which change it without the events that normally bring
    * its look and sound: the fire towers' furnaces (ops), the abilities'
-   * state, and `sim:presented` with the numbers the main thread shows the
+   * state, every player's research (the mirror knows it only from its
+   * events), and `sim:presented` with the numbers the main thread shows the
    * rest from (HQ fire, music and blood moon of the phase, status looks).
    */
   resyncPresentation(): void {
@@ -1121,6 +1122,8 @@ export class GameStateManager {
     const phase = this.waveManager.phase();
     const wave = this.waveManager.waveNumber();
     for (const seat of this.abilitySeats) seat.announceState();
+    // The main thread's research (SimMirror) follows research:state-changed only
+    for (const seat of this.researchSeats) seat.research.announceState();
     const alive = this.enemyManager.getAliveCount();
     this.eventBus.emit({
       type: 'sim:presented',

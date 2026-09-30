@@ -161,6 +161,15 @@ export class ResearchManager implements IGameManager {
     return this.queue.includes(id);
   }
 
+  /**
+   * Announce the whole state again (`research:state-changed`): after a restore
+   * (restoreState emits nothing), for the main thread's mirror, which knows
+   * the research only from these events (GameStateManager.resyncPresentation).
+   */
+  announceState(): void {
+    this.emitStateSnapshot();
+  }
+
   /** Emit a `research:state-changed` snapshot covering every store-relevant field. */
   private emitStateSnapshot(): void {
     this.emit({

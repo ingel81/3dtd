@@ -582,6 +582,23 @@ describe('ResearchManager', () => {
       expect(rm2.centerLevel).toBe(1);
     });
 
+    it('restores silently; announceState tells the main thread the restored state (resyncPresentation)', () => {
+      rm.onCenterPlaced();
+      rm.completeResearch(NO_PREREQ_ID);
+      const state = rm.getState();
+      const { bus: bus2, rm: rm2 } = makeManager();
+      const seen = vi.fn();
+      bus2.on('research:state-changed', seen);
+
+      rm2.restoreState(state);
+      expect(seen).not.toHaveBeenCalled();
+
+      rm2.announceState();
+      expect(seen).toHaveBeenCalledTimes(1);
+      expect(seen.mock.calls[0][0]).toMatchObject({ centerLevel: 1 });
+      expect(seen.mock.calls[0][0].completedResearches).toContain(NO_PREREQ_ID);
+    });
+
     it('restores active research with elapsed progress', () => {
       rm.onCenterPlaced();
       rm.startResearch(NO_PREREQ_ID);
