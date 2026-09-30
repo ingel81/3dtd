@@ -293,6 +293,10 @@ Ideen (2026-09-27), nichts entschieden:
       Dazu (User, 2026-09-30): ein AUR-Paket `3dtd-bin` (PKGBUILD, das das AppImage des Releases lädt, mit
       Desktop-Eintrag und Icon), damit Arch-Nutzer es per AUR-Helfer installieren; bei jedem Release Version und
       Prüfsumme nachziehen, am besten aus der CI.
+- [ ] **E84 Weitere Vertriebswege** (nachrangig, User 2026-09-30, nach E83): Flathub (Flatpak-Manifest, Review durch
+      Flathub, Electron-Basis-App), Snap Store (snapcraft, electron-builder kann `snap`), unter Windows winget (Manifest
+      per PR an winget-pkgs, nimmt den NSIS-Installer). Distro-Repos (Debian, Fedora) erst, wenn jemand dort paketiert.
+      Je Weg klären: Aufwand pro Release, Auto-Update neben dem eigenen, Sandbox gegen WebGL und LAN-Relay.
 ---
 
 ## Entschieden (keine Arbeit)
