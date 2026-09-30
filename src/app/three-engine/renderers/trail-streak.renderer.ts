@@ -286,11 +286,17 @@ class TrailStreak {
 
   // ── Public API ──
 
+  /** Where the projectile was shown when its newest state came, and from there to that state (state-lerp.ts) */
+  private readonly base = new Vector3();
+  private readonly lead = new Vector3();
+  private hasLead = false;
+
   /** Attach to a projectile */
   acquire(projectileId: string): void {
     this.projectileId = projectileId;
     this.head = 0;
     this.count = 0;
+    this.hasLead = false;
     this.mesh.visible = true;
   }
 
@@ -303,8 +309,16 @@ class TrailStreak {
     this.mesh.geometry.setDrawRange(0, 0);
   }
 
-  /** Push a new world-space position (call once per frame per projectile) */
-  pushPosition(pos: Vector3): void {
+  /**
+   * Push a new world-space position (call once per state per projectile).
+   * `lead`: the projectile slides on from `pos` by this much until its next
+   * state, and the streak's head goes with it (updateGeometry).
+   */
+  pushPosition(pos: Vector3, lead?: Vector3): void {
+    this.base.copy(pos);
+    this.hasLead = lead !== undefined && lead.lengthSq() > 0;
+    if (this.hasLead) this.lead.copy(lead!);
+
     // Skip if too close to last position (avoid degenerate segments)
     const cap = this.capacity;
     if (this.count > 0) {
@@ -323,9 +337,12 @@ class TrailStreak {
    * Walks back from the newest position and cuts the streak where it
    * reaches `style.length`, so the distance flown between two rendered
    * frames (frame rate, game speed) does not change how long it is.
+   * `lerp`: how far the projectile is on its way to its newest state; the
+   * head is there, ahead of the newest position pushed.
    */
-  updateGeometry(): void {
-    if (this.count < 2) {
+  updateGeometry(lerp = 1): void {
+    const live = this.hasLead;
+    if (this.count < (live ? 1 : 2)) {
       this.mesh.geometry.setDrawRange(0, 0);
       return;
     }
@@ -336,15 +353,24 @@ class TrailStreak {
     const along = TrailStreak._along;
 
     // Newest first; the oldest drawn point sits where the length runs out
-    let ringIdx = (this.head - 1 + cap) % cap;
-    points[0].copy(this.ring[ringIdx]);
+    let ringIdx = this.head;
+    let k = 0;
+    if (live) {
+      points[0].copy(this.base).addScaledVector(this.lead, lerp);
+    } else {
+      ringIdx = (this.head - 1 + cap) % cap;
+      points[0].copy(this.ring[ringIdx]);
+      k = 1;
+    }
     along[0] = 0;
     let n = 1;
     let total = 0;
-    for (let k = 1; k < this.count && total < maxLength; k++) {
+    for (; k < this.count && total < maxLength; k++) {
       ringIdx = (ringIdx - 1 + cap) % cap;
       const older = this.ring[ringIdx];
       const seg = points[n - 1].distanceTo(older);
+      // The head still on the newest position pushed: no segment of no length
+      if (seg < 1e-6) continue;
       if (total + seg > maxLength) {
         points[n].lerpVectors(points[n - 1], older, (maxLength - total) / seg);
         total = maxLength;
@@ -353,6 +379,11 @@ class TrailStreak {
         total += seg;
       }
       along[n++] = total;
+    }
+
+    if (n < 2) {
+      this.mesh.geometry.setDrawRange(0, 0);
+      return;
     }
 
     const positions = this.posAttr.array as Float32Array;
@@ -534,10 +565,10 @@ export class TrailStreakRenderer {
   /**
    * Record a new position for an active projectile trail.
    */
-  pushPosition(projectileId: string, worldPos: Vector3): void {
+  pushPosition(projectileId: string, worldPos: Vector3, lead?: Vector3): void {
     const trail = this.active.get(projectileId);
     if (trail) {
-      trail.pushPosition(worldPos);
+      trail.pushPosition(worldPos, lead);
     }
   }
 
@@ -555,9 +586,9 @@ export class TrailStreakRenderer {
   /**
    * Rebuild all active trail geometries. Call once per frame.
    */
-  updateAll(): void {
+  updateAll(lerp = 1): void {
     for (const trail of this.active.values()) {
-      trail.updateGeometry();
+      trail.updateGeometry(lerp);
     }
   }
 

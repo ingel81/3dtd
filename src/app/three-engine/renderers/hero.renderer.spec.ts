@@ -4,6 +4,7 @@ import { resolve } from 'node:path';
 import { AnimationClip, Box3, BoxGeometry, Group, Mesh, MeshStandardMaterial, Object3D, Scene, Vector3 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { StateLerp } from './state-lerp';
 import { HeroRenderer, type HeroCoordinates } from './hero.renderer';
 import { HERO_MODEL, loadHeroModel, type HeroModelConfig } from './hero-model';
 import { HERO } from '../../configs/hero.config';
@@ -56,6 +57,28 @@ describe('HeroRenderer', () => {
     expect(root.visible).toBe(true);
     expect(root.position.toArray()).toEqual([20, 2, 10]);
     expect(root.rotation.y).toBeCloseTo(0.5);
+  });
+
+  it('slides from where he was shown to his newest state (state-lerp.ts), and stands at once on his first frame', () => {
+    const { renderer } = setup();
+    const lerp = new StateLerp();
+    renderer.stateLerp = lerp;
+    renderer.present(hero());
+    const root = renderer.pickTarget()!;
+    const first = root.position.clone();
+    expect(first.toArray()).toEqual([20, 2, 10]);
+
+    lerp.begin(1000);
+    renderer.present(hero({ lon: 0.022 }), 0);
+    const target = new Vector3(22, 2.2, 10);
+    // Still where he was, then on his way, then there
+    expect(root.position.distanceTo(first)).toBeCloseTo(0, 5);
+    lerp.update(1000 + lerp.interval / 2);
+    renderer.update(8, 8);
+    expect(root.position.distanceTo(first.clone().lerp(target, 0.5))).toBeCloseTo(0, 5);
+    lerp.update(5000);
+    renderer.update(8, 8);
+    expect(root.position.distanceTo(target)).toBeCloseTo(0, 5);
   });
 
   it('shows the rings under him and on his post only while he is selected', () => {

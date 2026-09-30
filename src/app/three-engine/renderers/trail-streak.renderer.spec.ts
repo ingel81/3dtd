@@ -73,6 +73,26 @@ describe('TrailStreakRenderer', () => {
     trails.dispose();
   });
 
+  it('keeps its head on a projectile that slides on from the newest position pushed (state-lerp.ts)', () => {
+    const trails = new TrailStreakRenderer(new Scene());
+    trails.create('p1', 'rocket');
+    const lead = new Vector3(4, 0, 0);
+    for (let i = 0; i < 5; i++) trails.pushPosition('p1', new Vector3(i * 4, 10, 0), lead);
+    const { mesh } = (trails as unknown as { active: Map<string, { mesh: Mesh }> }).active.get('p1')!;
+    const position = mesh.geometry.getAttribute('position') as BufferAttribute;
+    const headX = () => (position.getX(0) + position.getX(1)) / 2;
+
+    // At the state the head is on the position pushed, then it goes ahead with the body
+    trails.updateAll(0);
+    expect(headX()).toBeCloseTo(16, 5);
+    trails.updateAll(0.5);
+    expect(headX()).toBeCloseTo(18, 5);
+    trails.updateAll(1);
+    expect(headX()).toBeCloseTo(20, 5);
+    expect(mesh.geometry.drawRange.count).toBeGreaterThan(0);
+    trails.dispose();
+  });
+
   it('reaches its length with positions at the minimum spacing', () => {
     const { length, minSegmentDistSq } = getTrailStyle('rocket');
     expect(rocketStreak(Math.sqrt(minSegmentDistSq), 100).length).toBeCloseTo(length, 5);

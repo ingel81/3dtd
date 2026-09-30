@@ -91,9 +91,13 @@ export class InstancedEnemyRenderer {
   /** The slide between two states of the simulation (state-lerp.ts) */
   readonly stateLerp: StateLerp;
 
-  /** A state of the simulation is about to be written (updateSlot per enemy); `now`: performance.now(). */
-  beginState(now: number): void {
-    this.instanceManager.beginState(now);
+  /**
+   * A state of the simulation is about to be written (updateSlot per enemy);
+   * `now`: performance.now(). Returns the carry for what slides on the same
+   * clock (projectiles, heroes), see StateLerp.begin.
+   */
+  beginState(now: number): number {
+    return this.instanceManager.beginState(now);
   }
 
   /**
@@ -365,14 +369,15 @@ export class InstancedEnemyRenderer {
   }
 
   updateAnimations(deltaTime: number, camera: Camera): void {
+    // How far the bodies are on their way to their newest state; projectiles and heroes go by it too
+    this.stateLerp.update(performance.now());
+
     // Hidden enemies get no per-frame writes (updateSlot returns early), so
     // there is nothing to flush either.
     if (!this._showEnemies) return;
 
     // Hit-flash tints run out on the clock, not with the animation toggle.
     this.instanceManager.expireHitFlashes();
-    // How far the bodies are on their way to their newest state
-    this.stateLerp.update(performance.now());
 
     // The animation toggle only holds the VAT frames. Positions and health
     // keep arriving through updateSlot() and still have to be flushed,

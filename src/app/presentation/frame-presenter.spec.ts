@@ -98,7 +98,7 @@ function makeEngine() {
         return slot;
       }),
       updateSlot: vi.fn(),
-      beginState: vi.fn(),
+      beginState: vi.fn(() => 0),
       startRunAnimation: vi.fn((id: string) => { slots.get(id)!.isWalking = false; }),
       startWalkAnimation: vi.fn((id: string) => { slots.get(id)!.isWalking = true; }),
       setFreezeVisual: vi.fn(),
@@ -121,7 +121,7 @@ function makeEngine() {
       spawnConfigurableTrail: vi.fn(),
     },
     oozes: { add: vi.fn(), setFrame: vi.fn() },
-    projectiles: { update: vi.fn(), updateWithRotation: vi.fn() },
+    projectiles: { update: vi.fn(), updateWithRotation: vi.fn(), beginState: vi.fn(), lastOffset: new Vector3() },
     trailStreaks: { pushPosition: vi.fn() },
     towerBadges: { setRank: vi.fn() },
     hero: { present: vi.fn() },
@@ -306,7 +306,7 @@ describe('FramePresenter', () => {
     ];
     presenter.present(packet({ heroes }));
     presenter.present(packet({ heroes }));
-    expect(engine.hero.present).toHaveBeenCalledWith(present);
+    expect(engine.hero.present).toHaveBeenCalledWith(present, 0);
     expect(engine.createPartnerHero).toHaveBeenCalledTimes(1);
     expect(partner.setOwnerColor).toHaveBeenCalledWith(0xff0000);
     expect(partner.present).toHaveBeenCalledTimes(2);

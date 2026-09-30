@@ -104,6 +104,8 @@ function standInEngine(sync: OriginSync) {
       }),
     }),
     towers: withAutoStubs({ get: vi.fn(() => ({ lat: ORIGIN.lat, lon: ORIGIN.lon, height: ORIGIN.height, tipY: 8 })) }),
+    // What the presenter reads of the projectiles besides calling them
+    projectiles: withAutoStubs({ lastOffset: new Vector3() }),
     spatialAudio: withAutoStubs({
       createLoop: vi.fn(() => Promise.resolve(++handles)),
       playAt: vi.fn(() => Promise.resolve(null)),

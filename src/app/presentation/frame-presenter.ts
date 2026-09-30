@@ -127,6 +127,7 @@ export class FramePresenter {
 
   private readonly local = new Vector3();
   private readonly trailPos = new Vector3();
+  private readonly lead = new Vector3();
   private readonly direction = { dx: 0, dy: 0, dz: 0 };
   private readonly headAt = (num: number, out: Vector3): boolean => this.wormHead(num, out);
 
@@ -143,11 +144,14 @@ export class FramePresenter {
       const gameTimeMs = packet.scalars.gameTimeMs;
       const deltaMs = this.lastGameTimeMs === null ? 0 : Math.max(0, gameTimeMs - this.lastGameTimeMs);
       this.lastGameTimeMs = gameTimeMs;
+      // Bodies slide from where they are shown to this state (state-lerp.ts): enemies, projectiles, heroes
+      const carry = this.engine.enemies.beginState(performance.now());
+      this.engine.projectiles.beginState(carry);
       this.presentEnemies(packet, frame, gameTimeMs, deltaMs);
       this.oozes.present(packet.oozes, this.engine);
       this.wormSounds.present(packet.worms, this.headAt, this.engine.spatialAudio ?? null, gameTimeMs);
       this.presentProjectiles(packet, frame);
-      this.presentHeroes(packet.heroes, packet.scalars.localPlayerId);
+      this.presentHeroes(packet.heroes, packet.scalars.localPlayerId, carry);
       this.presentBadges(packet);
       this.engine.spatialAudio?.rebalanceEnemyLoops();
       // The tables are views into shared memory, valid during present() only
@@ -215,8 +219,6 @@ export class FramePresenter {
     const pos = this.local;
     this.enemyTable = d;
     this.statusVisuals.beginFrame();
-    // The bodies slide from where they are shown to this state (state-lerp.ts)
-    engine.enemies.beginState(performance.now());
 
     for (let r = 0; r < table.count; r++) {
       const o = r * ENEMY_STRIDE;
@@ -340,6 +342,10 @@ export class FramePresenter {
         pos.y -= dir.dy * tailOffset;
         pos.z -= dir.dz * tailOffset;
       }
+      // And where the body is shown now, not ahead of it at its new state: it slides there (state-lerp.ts)
+      const slide = engine.projectiles.lastOffset;
+      pos.add(slide);
+      this.lead.copy(slide).negate();
 
       // One trail burst per TRAIL_SPAWN_DISTANCE_M flown, laid back along
       // the flight one gate apart instead of stacked on the current position
@@ -355,19 +361,19 @@ export class FramePresenter {
         record.trailAcc = 0;
       }
 
-      // pushPosition copies the vector into its ring buffer
-      engine.trailStreaks?.pushPosition(record.id, pos);
+      // pushPosition copies the vectors; the streak's head goes on with the body
+      engine.trailStreaks?.pushPosition(record.id, pos, this.lead);
     }
     for (const [num, record] of this.projectiles) {
       if (record.seen !== frame) this.projectiles.delete(num);
     }
   }
 
-  private presentHeroes(heroes: readonly HeroFrame[], localPlayerId: string): void {
+  private presentHeroes(heroes: readonly HeroFrame[], localPlayerId: string, carry: number): void {
     for (const hero of heroes) {
       if (hero.present === null) continue;
       const view = hero.playerId === localPlayerId ? this.engine.hero : this.partnerHero(hero.playerId);
-      view.present(hero.present);
+      view.present(hero.present, carry);
     }
   }
 

@@ -110,8 +110,8 @@ LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
   tragen je Instanz den Versatz zurück zu der Stelle, an der sie zuletzt gezeigt wurden (`aPrevOffset`), der Shader
   zieht ihn über ein Stand-Intervall ab (`uStateLerp`, `three-engine/renderers/state-lerp.ts`). Das Bild zeigt also
   die Strecke vom vorigen zum neuesten Stand, ein Intervall später. Kein Gleiten bei neuem Slot, Sprung über 10 m,
-  Tod und Entfernen. `?interp=off` schaltet es zum Vergleichen ab. Drehung, Status-Effekte, Geschosse und Held
-  springen mit dem Stand.
+  Tod und Entfernen. `?interp=off` schaltet es zum Vergleichen ab. Geschosse und Helden gleiten auf derselben Uhr, auf dem Hauptthread gemischt (es sind wenige); Spuren und Rauch
+  eines Geschosses beginnen dort, wo es gezeigt wird. Drehung und Status-Effekte springen mit dem Stand.
 - Gegendruck: Ruft der Hauptthread 250 ms lang nichts ab (versteckter Tab, langer Hänger), rechnet der Worker nicht
   weiter, bis der nächste Abruf kommt, und holt die Standzeit nicht nach. Das Spiel steht im versteckten Tab.
 - Was der Hauptthread in einer Aufgabe schickt, geht als eine Nachricht und wirkt an derselben Grenze (etwa `reset`,

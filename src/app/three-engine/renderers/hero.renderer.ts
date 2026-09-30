@@ -11,6 +11,7 @@ import {
 import type { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import type { HeroPresentation, HeroView } from '../../managers/hero.manager';
 import { HERO_MODEL, HeroModel, HeroModelConfig, loadHeroModel } from './hero-model';
+import { STATE_LERP_JUMP_M, type StateLerp } from './state-lerp';
 
 /** Ground under a local position: the route grid, like the enemies' feet. */
 export interface HeroGround {
@@ -106,19 +107,32 @@ export class HeroRenderer implements HeroView {
 
   // ==================== HeroView ====================
 
-  present(hero: HeroPresentation): void {
+  /** The slide between two states, shared with the enemies (state-lerp.ts); null: he stands where his state puts him */
+  stateLerp: StateLerp | null = null;
+  /** Where his newest state put him, and from there back to where he was shown before */
+  private readonly at = new Vector3();
+  private readonly slide = new Vector3();
+
+  /** `carry`: share of his old slide still shown while this state is written (StateLerp.begin). */
+  present(hero: HeroPresentation, carry = 0): void {
     if (this.disposed) return;
     if (!this.loading) this.loadModel();
 
     const at = this.onGround(hero.lat, hero.lon);
-    this.root.position.copy(at);
+    // From where he is shown to the new state; at once on his first frame and after a jump
+    if (this.visible && this.stateLerp?.enabled) {
+      this.slide.multiplyScalar(carry).add(this.at).sub(at);
+      if (this.slide.lengthSq() > STATE_LERP_JUMP_M * STATE_LERP_JUMP_M) this.slide.set(0, 0, 0);
+    } else {
+      this.slide.set(0, 0, 0);
+    }
+    this.at.copy(at);
     this.root.rotation.y = hero.heading + this.config.yawOffset;
     this.root.visible = true;
     this.visible = true;
     this.model?.setPose(hero.pose);
+    this.place(1);
 
-    this.selectionRing.position.set(at.x, at.y + LIFT_M, at.z);
-    this.ownerRing.position.set(at.x, at.y + LIFT_M, at.z);
     const post = this.onGround(hero.anchor.lat, hero.anchor.lon);
     this.postRing.position.set(post.x, post.y + LIFT_M, post.z);
     this.syncRings();
@@ -171,6 +185,11 @@ export class HeroRenderer implements HeroView {
    */
   update(realDeltaMs: number, gameDeltaMs: number): void {
     if (!this.visible) return;
+    if (this.slide.x !== 0 || this.slide.y !== 0 || this.slide.z !== 0) {
+      const left = 1 - (this.stateLerp?.uniform.value ?? 1);
+      this.place(left);
+      if (left <= 0) this.slide.set(0, 0, 0);
+    }
     this.model?.update(gameDeltaMs);
     if (this.selected) {
       this.pulseMs += realDeltaMs;
@@ -216,6 +235,16 @@ export class HeroRenderer implements HeroView {
     const y = this.ground?.getGroundLocalYAt(p.x, p.z);
     if (y !== null && y !== undefined) this.groundY = y;
     return p.setY(this.groundY);
+  }
+
+  /** He and the rings at his feet, `left` of the slide still to go. */
+  private place(left: number): void {
+    const x = this.at.x + this.slide.x * left;
+    const y = this.at.y + this.slide.y * left;
+    const z = this.at.z + this.slide.z * left;
+    this.root.position.set(x, y, z);
+    this.selectionRing.position.set(x, y + LIFT_M, z);
+    this.ownerRing.position.set(x, y + LIFT_M, z);
   }
 
   private syncRings(): void {

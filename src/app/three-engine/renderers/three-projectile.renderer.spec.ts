@@ -109,6 +109,56 @@ describe('ProjectileInstanceManager', () => {
     expect(manager.count).toBe(4);
   });
 
+  describe('between two states (state-lerp.ts)', () => {
+    const x = (index = 0) => (manager.instancedMesh.instanceMatrix.array as Float32Array)[index * 16 + 12];
+    const at = (px: number) => new Vector3(px, 0, 0);
+
+    beforeEach(() => {
+      manager.slides = true;
+      manager.carry = 0;
+      add('a');
+    });
+
+    it('slides from where it was shown to its newest state, rotation and scale kept', () => {
+      manager.updatePosition('a', at(3));
+      expect(manager.lastOffset.x).toBe(-3);
+      expect(x()).toBe(0);
+      manager.slide(0.5);
+      expect(x()).toBeCloseTo(1.5, 6);
+      manager.slide(1);
+      expect(x()).toBe(3);
+      // Arrived: nothing left to write
+      (manager.instancedMesh.instanceMatrix.array as Float32Array)[12] = 99;
+      manager.slide(1);
+      expect(x()).toBe(99);
+    });
+
+    it('goes on from where it is shown when the next state comes early', () => {
+      manager.updatePosition('a', at(3));
+      manager.slide(0.5);
+      manager.carry = 0.5;
+      manager.update('a', at(6), new Euler());
+      expect(x()).toBeCloseTo(1.5, 6);
+      manager.slide(1);
+      expect(x()).toBe(6);
+    });
+
+    it('stands at once after a jump, in a slot taken again, and with the slide off', () => {
+      manager.updatePosition('a', at(50));
+      expect(x()).toBe(50);
+      manager.updatePosition('a', at(52));
+      manager.remove('a');
+      manager.add('b', at(7), new Euler(), scale);
+      manager.slide(0.2);
+      expect(x()).toBe(7);
+
+      manager.slides = false;
+      manager.updatePosition('b', at(9));
+      expect(x()).toBe(9);
+      expect(manager.lastOffset.x).toBe(0);
+    });
+  });
+
   it('stays out of the render list while no projectile is in flight', () => {
     const mesh = manager.instancedMesh;
     expect(mesh.visible).toBe(false);

@@ -346,6 +346,8 @@ export class ThreeTilesEngine {
     this.plinths = new TowerPlinthRenderer(this.scene, coordinateSync);
     this.towerBadges = new TowerBadgeRenderer(this.scene, (id) => this.towers.get(id)?.mesh ?? null);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
+    // One clock for everything that slides between two states (state-lerp.ts)
+    this.projectiles.stateLerp = this.enemies.stateLerp;
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
     this.flameBeams = new ThreeFlameBeamRenderer();
     this.flameBeams.setEffectsRenderer(this.effects);
@@ -375,6 +377,7 @@ export class ThreeTilesEngine {
       groundMarks: this.effects,
     });
     this.hero = new HeroRenderer(this.scene, coordinateSync, this.assetManager);
+    this.hero.stateLerp = this.enemies.stateLerp;
     this.coordinateSync = coordinateSync;
     this.frostBursts = new FrostBurstRenderer(this.scene, this.effects.particleShaderMaterials);
     this.empPulses = new EmpPulseRenderer(this.scene, this.effects.particleShaderMaterials);
@@ -970,7 +973,7 @@ export class ThreeTilesEngine {
     this.tentacles.update(deltaTime, this.camera.position);
 
     // Rebuild trail streak geometries
-    this.trailStreaks.updateAll();
+    this.trailStreaks.updateAll(this.enemies.stateLerp.uniform.value);
 
     // Tick lightning bolt shader clocks and spawn idle-crackle micro-bolts
     this.lightningBolts.update(performance.now() / 1000);
@@ -1210,6 +1213,7 @@ export class ThreeTilesEngine {
   /** A coop partner's hero on the map (review R15); gone with disposePartnerHero */
   createPartnerHero(): HeroRenderer {
     const view = new HeroRenderer(this.scene, this.coordinateSync, this.assetManager ?? null);
+    view.stateLerp = this.enemies.stateLerp;
     this.partnerHeroes.add(view);
     return view;
   }

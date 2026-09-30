@@ -33,6 +33,7 @@ import {
 } from './magic-orb-shaders';
 import { InstanceSlotAllocator } from './instance-slot-allocator';
 import { DrawGate } from './draw-gate';
+import { STATE_LERP_JUMP_M, type StateLerp } from './state-lerp';
 
 /**
  * Simple instanced entity manager for projectiles
@@ -46,6 +47,20 @@ export class ProjectileInstanceManager {
   private readonly matrix = new Matrix4();
   /** Matrices written since the last flush(). */
   private matrixDirty = false;
+
+  // The slide between two states (state-lerp.ts), on this thread: a few hundred
+  // projectiles over ten pools of mixed materials, not worth a shader each
+  /** Per slot: where its newest state put it, and from there back to where it was shown before */
+  private readonly target: Float32Array;
+  private readonly offset: Float32Array;
+  /** A slot still has an offset to work off */
+  private sliding = false;
+  /** Share of the old offsets still shown while a state is written (StateLerp.begin), and whether anything slides */
+  carry = 0;
+  slides = false;
+  /** The offset the last update wrote: trails start where the body is shown */
+  readonly lastOffset = new Vector3();
+  private static readonly _shown = new Vector3();
 
   // Reusable vectors to avoid allocations in update loop
   private static readonly _tempPos = new Vector3();
@@ -62,6 +77,57 @@ export class ProjectileInstanceManager {
     this.instancedMesh.frustumCulled = false;
     this.slots = new InstanceSlotAllocator(maxCount);
     this.gate = new DrawGate([this.instancedMesh]);
+    this.target = new Float32Array(maxCount * 3);
+    this.offset = new Float32Array(maxCount * 3);
+  }
+
+  /** A slot's new state: where it is shown for now, the rest of the way left to slide(). */
+  private slideTo(index: number, position: Vector3): Vector3 {
+    const t = this.target;
+    const o = this.offset;
+    const p = index * 3;
+    const carry = this.carry;
+    let dx = t[p] + o[p] * carry - position.x;
+    let dy = t[p + 1] + o[p + 1] * carry - position.y;
+    let dz = t[p + 2] + o[p + 2] * carry - position.z;
+    if (!this.slides || dx * dx + dy * dy + dz * dz > STATE_LERP_JUMP_M * STATE_LERP_JUMP_M) dx = dy = dz = 0;
+    t[p] = position.x;
+    t[p + 1] = position.y;
+    t[p + 2] = position.z;
+    o[p] = dx;
+    o[p + 1] = dy;
+    o[p + 2] = dz;
+    if (dx !== 0 || dy !== 0 || dz !== 0) this.sliding = true;
+    this.lastOffset.set(dx, dy, dz);
+    return ProjectileInstanceManager._shown.set(position.x + dx, position.y + dy, position.z + dz);
+  }
+
+  /** Per frame: every projectile on its way to its newest state, `lerp` of it done (StateLerp.uniform). */
+  slide(lerp: number): void {
+    if (!this.sliding) return;
+    const left = 1 - lerp;
+    const t = this.target;
+    const o = this.offset;
+    const te = this.instancedMesh.instanceMatrix.array as Float32Array;
+    for (const index of this.entities.values()) {
+      const p = index * 3;
+      if (o[p] === 0 && o[p + 1] === 0 && o[p + 2] === 0) continue;
+      const m = index * 16;
+      te[m + 12] = t[p] + o[p] * left;
+      te[m + 13] = t[p + 1] + o[p + 1] * left;
+      te[m + 14] = t[p + 2] + o[p + 2] * left;
+      if (left <= 0) o[p] = o[p + 1] = o[p + 2] = 0;
+    }
+    if (left <= 0) this.sliding = false;
+    this.matrixDirty = true;
+  }
+
+  private settle(index: number, position: Vector3): void {
+    const p = index * 3;
+    this.target[p] = position.x;
+    this.target[p + 1] = position.y;
+    this.target[p + 2] = position.z;
+    this.offset[p] = this.offset[p + 1] = this.offset[p + 2] = 0;
   }
 
   /** Skipped (not drawn) when all `maxCount` slots are in flight. */
@@ -78,6 +144,8 @@ export class ProjectileInstanceManager {
 
     this.entities.set(id, index);
     this.syncDrawCount();
+    // A new projectile (or a slot taken again) slides from nowhere
+    this.settle(index, position);
 
     this.matrix.compose(
       position,
@@ -100,7 +168,7 @@ export class ProjectileInstanceManager {
     );
 
     this.matrix.compose(
-      position,
+      this.slideTo(index, position),
       ProjectileInstanceManager._tempRot.setFromEuler(rotation),
       ProjectileInstanceManager._tempScale
     );
@@ -123,7 +191,7 @@ export class ProjectileInstanceManager {
     );
 
     this.matrix.compose(
-      position,
+      this.slideTo(index, position),
       ProjectileInstanceManager._tempRot,
       ProjectileInstanceManager._tempScale
     );
@@ -139,6 +207,8 @@ export class ProjectileInstanceManager {
     this.matrix.makeTranslation(0, -10000, 0);
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.matrixDirty = true;
+    const p = index * 3;
+    this.offset[p] = this.offset[p + 1] = this.offset[p + 2] = 0;
 
     this.entities.delete(id);
     this.slots.release(index);
@@ -177,6 +247,8 @@ export class ProjectileInstanceManager {
     this.slots.reset();
     this.syncDrawCount();
     this.matrixDirty = false;
+    this.offset.fill(0);
+    this.sliding = false;
   }
 
   /** Draw count follows the slot allocator; the gate hides an empty pool. */
@@ -612,6 +684,7 @@ export class ThreeProjectileRenderer {
     lon: number,
     height: number
   ): void {
+    this.lastOffset.set(0, 0, 0);
     const visualType = this.projectileTypes.get(id);
     if (!visualType) return;
 
@@ -620,6 +693,31 @@ export class ThreeProjectileRenderer {
 
     const localPos = this.sync.geoToLocal(lat, lon, height);
     manager.updatePosition(id, localPos);
+    this.lastOffset.copy(manager.lastOffset);
+  }
+
+  /** The offset the last update() or updateWithRotation() left: from the state's place back to where the body is shown. */
+  readonly lastOffset = new Vector3();
+
+  /** The slide between two states, shared with the enemies (state-lerp.ts); null: every projectile stands where its state puts it */
+  stateLerp: StateLerp | null = null;
+
+  /** A state of the simulation is about to be written; `carry` from StateLerp.begin. */
+  beginState(carry: number): void {
+    const slides = this.stateLerp?.enabled ?? false;
+    for (const manager of this.managers()) {
+      manager.carry = carry;
+      manager.slides = slides;
+    }
+  }
+
+  private managers(): ProjectileInstanceManager[] {
+    const all = [
+      this.cannonballManager, this.magicManager, this.iceManager, this.bulletManager, this.rocketManager,
+      this.poisonManager, this.chaosManager, this.shellManager,
+    ];
+    if (this.arrowManager) all.push(this.arrowManager);
+    return all;
   }
 
   /**
@@ -632,6 +730,7 @@ export class ThreeProjectileRenderer {
     height: number,
     direction: { dx: number; dy: number; dz: number }
   ): void {
+    this.lastOffset.set(0, 0, 0);
     const visualType = this.projectileTypes.get(id);
     if (!visualType) return;
 
@@ -641,6 +740,7 @@ export class ThreeProjectileRenderer {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const rotation = this.directionToEuler(direction);
     manager.update(id, localPos, rotation);
+    this.lastOffset.copy(manager.lastOffset);
   }
 
   /**
@@ -676,6 +776,9 @@ export class ThreeProjectileRenderer {
    * create/update/remove calls.
    */
   commitToGPU(): void {
+    // On their way to their newest state, as far as the enemies are
+    const lerp = this.stateLerp?.uniform.value ?? 1;
+    for (const manager of this.managers()) manager.slide(lerp);
     this.arrowManager?.flush();
     this.cannonballManager.flush();
     this.magicManager.flush();

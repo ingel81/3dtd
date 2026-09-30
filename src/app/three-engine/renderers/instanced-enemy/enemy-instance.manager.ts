@@ -226,9 +226,13 @@ export class EnemyInstanceManager {
     readonly stateLerp: StateLerp = new StateLerp(),
   ) {}
 
-  /** A state of the simulation is about to be written (updateEnemyState per enemy): the slide starts over. */
-  beginState(now: number): void {
-    this.carry = this.stateLerp.begin(now);
+  /**
+   * A state of the simulation is about to be written (updateEnemyState per
+   * enemy): the slide starts over. Returns the share of the old offsets
+   * still shown (StateLerp.begin), for what slides on the same clock.
+   */
+  beginState(now: number): number {
+    return (this.carry = this.stateLerp.begin(now));
   }
 
   /**
