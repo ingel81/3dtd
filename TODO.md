@@ -247,7 +247,10 @@ Ideen (2026-09-27), nichts entschieden:
       verkleinert.
       **Gebaut 2026-09-30:** `?resyncPart=<kB>` (1 bis 768) teilt den Stand des Hosts in kleinere Stücke;
       `e2e/coop-bots/run.ts --big-wave N` startet vor der Fälschung (`--falsify-at-wave`) eine Welle aus N zähen
-      Zombies ohne Spawn-Untergrenze. Offen: der Lauf.
+      Zombies ohne Spawn-Untergrenze. **Geprüft 2026-09-30** (zwei Bots, Tempo 4, Dev-Build isoliert): bei rund 3600
+      Gegnern mitten in der Welle ein Stand von 406 kB in einem Teil, mit `resyncPart=64` in 7 Teilen; beide Male lud der
+      Gast, der Raum lief ohne neue Abweichung weiter (einmal 55 s bis Game Over). Dafür liest der Coop-Bot-Läufer jetzt
+      Spiegel und Bus statt `gameState`, gefälscht wird per Test-Aufruf in die Simulation (`falsifyCredits`).
 - [ ] **E60 Versus-Modus** (Idee, im Lobby-Umschalter schon als SOON, COOP_PLAN D39): Form offen.
 - [ ] **E61 DevWorld als Spielfeld** (Idee): prozedurale Karten als volles Spiel ohne Google-Tiles, später ein Editor.
       Verwandt: E55, E56.
