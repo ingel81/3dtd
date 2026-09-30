@@ -42,6 +42,8 @@ const MAP = process.argv.includes('--map');
 const PLACE = argument('place', '48.7758,9.1829');
 /** "x,y,steps": zoom in with the mouse wheel at that spot after the measurement, for a second screenshot (shot-zoom.png) */
 const ZOOM = argument('zoom', '');
+/** More of the page's query, e.g. a measurement switch: `--query earlyTick=20` */
+const QUERY = argument('query', '');
 const BROWSER = argument('browser', 'chromium');
 const STEPS = argument('steps', '').split(',').filter(Boolean).map(Number);
 const SPEEDS = argument('speeds', '').split(',').filter(Boolean).map(Number);
@@ -193,7 +195,7 @@ if (!MAP) {
 }
 const page = await context.newPage();
 page.on('pageerror', (e) => console.log('pageerror', e.message));
-await page.goto(MAP ? `${URL_BASE}/?l=${PLACE}` : `${URL_BASE}/?devworld&bot=manual`);
+await page.goto((MAP ? `${URL_BASE}/?l=${PLACE}` : `${URL_BASE}/?devworld&bot=manual`) + (QUERY ? `&${QUERY}` : ''));
 await gameReady(page);
 console.log('isolated', await page.evaluate(() => globalThis.crossOriginIsolated));
 // What the numbers were measured on: from the OS and from the page (the GPU as WebGL names it; Firefox rounds it to a
