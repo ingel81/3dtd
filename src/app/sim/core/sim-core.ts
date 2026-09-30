@@ -62,6 +62,15 @@ export const SIM_PROVIDERS: StaticProvider[] = [
  */
 export const MAX_PUBLISH_GAP_MS = 100;
 
+/**
+ * While the simulation lies behind (sub-steps still due after a pass), it
+ * answers a demand this long after its last packet at the earliest (ms of
+ * wall clock): every packet costs it the tables and the main thread an
+ * apply, time the sub-steps need more. A simulation that keeps up answers
+ * every demand. Start value, tuned by measurement (TODO E85).
+ */
+export const MIN_PUBLISH_GAP_BEHIND_MS = 33;
+
 export interface SimCoreOptions {
   /** Where the packet's tables live; the worker's store shares its memory with the main thread */
   store?: TableStore;
@@ -196,8 +205,10 @@ export class SimCore implements SimCoreApi {
 
   pass(now: number, deadline = Infinity, demand?: PacketDemand): SimFramePacket | null {
     if (!this.worldLoaded) return null;
-    // The main thread waits: the sub-step running is the last of this pass
-    const stop = demand ? () => demand.demandPending() : undefined;
+    // The main thread waits: the sub-step running is the last of this pass, unless the last packet is too
+    // young to answer while behind (then the pass uses its budget, and answers if it caught up)
+    const spaced = now - this.publishedAt >= MIN_PUBLISH_GAP_BEHIND_MS;
+    const stop = demand && spaced ? () => demand.demandPending() : undefined;
     const started = performance.now();
     const gsm = this.gsm;
     let stepsRun = 0;
@@ -224,8 +235,9 @@ export class SimCore implements SimCoreApi {
     const updateDone = performance.now();
     // On demand (docs/SIM_DECOUPLE_PLAN.md): the tables are written and the message goes once per frame of the
     // main thread, not per sub-step. The demand is taken even when something else publishes: one packet answers both
-    const asked = demand ? demand.takeDemand() : true;
-    if (!asked && !changed && this.dueInMs() !== Infinity && now - this.publishedAt < MAX_PUBLISH_GAP_MS) {
+    const dueIn = this.dueInMs();
+    const asked = demand ? (spaced || dueIn > 0 || changed) && demand.takeDemand() : true;
+    if (!asked && !changed && dueIn !== Infinity && now - this.publishedAt < MAX_PUBLISH_GAP_MS) {
       this.heldSteps = stepsRun;
       this.heldMs += updateDone - started;
       return null;

@@ -56,7 +56,10 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
   Sub-Step zu veröffentlichen kostete den Worker das Schreiben der Tabellen je Sub-Step (Last 0,80 statt 0,55 bei
   Tempo 1) und den Hauptthread Bilder. Ein wartender Abruf beendet den Durchgang nach dem laufenden Sub-Step, das
   Paket geht also höchstens einen Sub-Step nach dem Abruf raus. Der Hauptthread ruft erst wieder ab, wenn ein Paket
-  gekommen ist (sonst kämen zwei Pakete für ein Bild).
+  gekommen ist (sonst kämen zwei Pakete für ein Bild). Hängt der Worker hinterher (nach dem Durchgang sind noch
+  Sub-Steps fällig), beantwortet er einen Abruf frühestens `MIN_PUBLISH_GAP_BEHIND_MS` (33 ms) nach dem letzten Paket:
+  bei Überlast kostet jeder Stand Worker- und Hauptthread-Zeit, die dem Tempo fehlt (Messung Firefox, 16 000 und
+  25 000 Gegner, Tempo 4). Kommt er mit, antwortet er auf jeden Abruf.
 - Abweichung: `setTimeout` für das Warten auf den nächsten Sub-Step (nicht für „sofort“). Bei hohem Tempo drosseln
   Browser verschachtelte Timer auf 4 ms; dann laufen je Durchgang mehrere Sub-Steps, das Tempo bleibt.
 

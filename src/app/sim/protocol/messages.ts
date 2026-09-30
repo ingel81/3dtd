@@ -92,7 +92,8 @@ export interface SimCoreApi {
    * after this pass, or when the last one is MAX_PUBLISH_GAP_MS old. Else
    * null: what ran goes with the next packet, events and ops in order. A
    * demand that waits ends the pass after the sub-step running, so the
-   * packet goes out at once.
+   * packet goes out at once; a simulation that lies behind answers it
+   * MIN_PUBLISH_GAP_BEHIND_MS after its last packet at the earliest.
    */
   pass(now: number, deadline?: number, demand?: PacketDemand): SimFramePacket | null;
   /** Wall ms until the next pass has work: 0 at once, Infinity until a message comes */

@@ -15,7 +15,7 @@ vi.mock('@angular/core', async () => {
   return { ...actual, Injectable: () => (target: unknown) => target };
 });
 
-import { MAX_PUBLISH_GAP_MS, SimCore } from './sim-core';
+import { MAX_PUBLISH_GAP_MS, MIN_PUBLISH_GAP_BEHIND_MS, SimCore } from './sim-core';
 import { OriginSync } from './sim-coords';
 import { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
 import { buildRoute } from '../../integration/sim-step-bench';
@@ -447,6 +447,38 @@ describe('SimCore in the same thread', () => {
       // The rest is still due
       expect(core.idleMs()).toBe(0);
       expect(core.pass(1100)!.stepsRun).toBe(21);
+    });
+
+    it('answers a demand while it lies behind only MIN_PUBLISH_GAP_BEHIND_MS after its last packet', () => {
+      const always = { demandPending: () => true, takeDemand: vi.fn(() => true) };
+      const past = () => performance.now() - 1;
+      const core = running(4);
+      // 250 ms of backlog at speed 4, one sub-step per pass (the deadline has passed): behind all the way
+      expect(core.pass(1300, past(), always)).not.toBeNull();
+      let now = 1300;
+      const gaps: number[] = [];
+      let last = now;
+      for (let i = 0; i < 40; i++) {
+        now += 5;
+        if (core.pass(now, past(), always)) {
+          gaps.push(now - last);
+          last = now;
+        }
+      }
+      expect(core.idleMs()).toBe(0);
+      expect(gaps.length).toBeGreaterThan(3);
+      expect(Math.min(...gaps)).toBeGreaterThanOrEqual(MIN_PUBLISH_GAP_BEHIND_MS);
+      expect(Math.max(...gaps)).toBeLessThan(MIN_PUBLISH_GAP_BEHIND_MS + 5);
+      // The demand is left standing meanwhile, not used up
+      expect(always.takeDemand).toHaveBeenCalledTimes(gaps.length + 1);
+
+      // Caught up: every demand is answered again, however young the last packet
+      const kept = running(1);
+      expect(kept.pass(1017, Infinity, always)).not.toBeNull();
+      expect(kept.pass(1034, Infinity, always)).not.toBeNull();
+      // And an input goes out at once even while behind
+      core.input({ ...SETTINGS }, now + 1);
+      expect(core.pass(now + 1, past(), always)).not.toBeNull();
     });
 
     it('publishes without being asked: after an input, before it sleeps for good, and after MAX_PUBLISH_GAP_MS', () => {
