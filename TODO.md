@@ -302,6 +302,11 @@ Ideen (2026-09-27), nichts entschieden:
       Balance, Replays und Coop ändern sich (auf Altlasten nimmt der User keine Rücksicht, die Balance wird ohnehin neu
       eingestellt). Erst messen (Wegwerf-Build mit 33,333 ms), dann entscheiden; hängt an E85 (Interpolation zwischen
       zwei Ständen). Nach E85.
+      Vor einer Entscheidung zu prüfen: (1) Interpolation im Vertex-Shader (alte und neue Position je Instanz einmal je
+      Stand hochladen, der Shader mischt je Bild) statt je Bild im Hauptthread, auch für Lebensbalken, Geschosse, Held;
+      (2) Feuerraten über 30 Schüsse je Sekunde und das Raster von Schaden über Zeit und Effektdauern; (3) Treffer
+      schneller Geschosse bei doppeltem Weg je Schritt; (4) Coop-Takt (heute 2 Sub-Steps je Netz-Tick); (5) Stellen, die
+      16,67 ms oder feste Schrittzahlen annehmen (Atombombe 390 Sub-Steps); (6) feste Prüfsummen der Specs neu.
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
       appimage.github.io (automatisch gefunden und aufgenommen, dessen Test bestanden). Der Test meldet drei Punkte: der Dateiname
       `3DTD-linux-x64.AppImage` soll kein „linux“ tragen (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete
