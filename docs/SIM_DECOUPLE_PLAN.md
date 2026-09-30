@@ -44,6 +44,19 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
   `MAX_BACKLOG_MS` (250 ms) mal Tempo; die 50-ms-Klammer je Tick, `MAX_REMAINDER_MS` und die 600 Sub-Steps je Bild
   sind weg. `GameStateManager.update` und `SimReplay.play` nehmen die Frist und beginnen danach keinen Sub-Step mehr
   (mindestens einer läuft). Die Uhr des Workers ist sein eigenes `performance.now()`.
+- **Veröffentlichen auf Abruf (Nachbesserung Schritt 3):** Der Worker rechnet frei, schreibt die Tabellen und schickt
+  ein Paket aber nur, wenn der Hauptthread das letzte bekommen hat. Der Hauptthread setzt dazu am Anfang des Bilds,
+  das es anwendet (der Worker schreibt das nächste derweil in einen anderen Satz),
+  ein Feld im Kontrollwort (`TableViews.demand`; ein Durchgang sieht es nach seinem Sub-Step) und schickt eine kleine
+  Nachricht `demand` (sie weckt einen Loop, der mit unveröffentlichten Sub-Steps schläft; ohne SAB der einzige Weg),
+  der Worker nimmt den Abruf beim Veröffentlichen (`TableStore.takeDemand`). Ohne Abruf veröffentlicht er nur nach einer Eingabe, einer
+  Einstellung oder einem Aufruf, bevor der Loop unbefristet schläft (Pause, Barriere), oder wenn das letzte Paket
+  `MAX_PUBLISH_GAP_MS` (100 ms) alt ist. Was dazwischen lief, geht mit dem nächsten Paket: Events und Ops in
+  Reihenfolge aus ihren Sammlern, Sub-Steps und Rechenzeit summiert. Grund (Messung Firefox, 25 000 Gegner): je
+  Sub-Step zu veröffentlichen kostete den Worker das Schreiben der Tabellen je Sub-Step (Last 0,80 statt 0,55 bei
+  Tempo 1) und den Hauptthread Bilder. Ein wartender Abruf beendet den Durchgang nach dem laufenden Sub-Step, das
+  Paket geht also höchstens einen Sub-Step nach dem Abruf raus. Der Hauptthread ruft erst wieder ab, wenn ein Paket
+  gekommen ist (sonst kämen zwei Pakete für ein Bild).
 - Abweichung: `setTimeout` für das Warten auf den nächsten Sub-Step (nicht für „sofort“). Bei hohem Tempo drosseln
   Browser verschachtelte Timer auf 4 ms; dann laufen je Durchgang mehrere Sub-Steps, das Tempo bleibt.
 
@@ -149,10 +162,10 @@ Tabelle, statt zu kopieren. Setzt beide Umbauten voraus; entscheiden nach den Me
 - Ruckeln durch seltene Veröffentlichung (Punkt 6), messbar über Veröffentlichungen je Sekunde.
 - Bot und Run-Log lesen den Spiegel je Bild; sie sehen weiter jeden Bild-Stand, aber nicht mehr jeden Tick. Das ist
   heute schon so (Bot entscheidet je Bild).
-- Offen nach Schritt 3: Ohne Gegendruck (Schritt 6) wächst die Liste der Pakete, solange der Hauptthread keine Bilder
-  rechnet. Bei Tempo 4 und mehr veröffentlicht der Worker je Sub-Step (bis rund 240 Pakete je Sekunde), jedes schreibt
-  die Tabellen; ob ein Mindestabstand zwischen zwei Veröffentlichungen lohnt, zeigt die Messung (`packetsPerS`). Im Coop
-  meldet `noteFrame` die Glätte jetzt je Durchgang statt je Bild (Schritt 4).
+- Offen nach Schritt 3: Ohne Gegendruck (Schritt 6) rechnet der Worker weiter, solange der Hauptthread keine Bilder
+  rechnet, und veröffentlicht dann alle 100 ms; die Liste der Pakete wächst so lange. Der Stand eines Bilds ist so alt
+  wie die Zeit zwischen Abruf (Anfang des vorigen Bilds) und Anwenden; ob das bei langen Bildern stört, zeigt die
+  Messung. Im Coop meldet `noteFrame` die Glätte jetzt je Durchgang statt je Bild (Schritt 4).
 - Specs, die einen Tick je `frame()` annehmen, müssen auf den Loop umgestellt werden.
 
 ## Zum Multi-Worker-Umbau

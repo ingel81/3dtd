@@ -27,11 +27,12 @@ export function isSimInput(type: string): boolean {
  *  - `rpc`: calls with an answer (replay file, snapshots, hashes).
  *
  * The simulation runs by its own clock (docs/SIM_DECOUPLE_PLAN.md): it waits
- * for no frame and no request of this thread and publishes packets as it
- * gets on. This thread sends it what changed (commands, speed, pause, the
- * replay's controls, the relay's ticks) once per frame (flushInput), and
- * applies the packets that came since its last frame as one, before it
- * renders (applyPending). The simulation never writes the set of tables this
+ * for no frame of this thread to compute. It publishes a packet when this
+ * thread took the last one (the demand at the start of frame()), so its
+ * tables are written once per frame here, not per sub-step. This thread sends it
+ * what changed (commands, speed, pause, the replay's controls, the relay's
+ * ticks) once per frame (flushInput), and applies the packets that came
+ * since its last frame as one, before it renders (applyPending). The simulation never writes the set of tables this
  * thread reads (the claim in applyPending, TableViews.claim).
  *
  * A run has an epoch (newRun): commands and packets of an older run are
@@ -54,6 +55,8 @@ export class SimClient {
   private lockstep: LockstepLink | null = null;
   /** See SimInput.replay; set by the replay UI (ReplayService) */
   replay: { playing: boolean; speed: number } | null = null;
+  /** A demand for a packet is out and none came since (frame()) */
+  private demandOut = false;
   /** The settings the simulation has (the last input sent), null before the first */
   private sent: Omit<SimInput, 'commands' | 'lockstep'> | null = null;
   /** Last relay tick handed to the simulation */
@@ -113,6 +116,7 @@ export class SimClient {
     this.resetSession();
     const handlers: SimTransportHandlers = {
       frame: (packet, epoch) => {
+        this.demandOut = false;
         if (epoch !== this.epoch || this.failure() !== null) return;
         this.pendingPackets.push(packet);
       },
@@ -127,6 +131,7 @@ export class SimClient {
   private resetSession(): void {
     this.epoch++;
     this.worldLoaded = false;
+    this.demandOut = false;
     this.sent = null;
     this.pendingPackets = [];
     this.commands = [];
@@ -242,8 +247,15 @@ export class SimClient {
    * since the last one, then send it what changed here.
    */
   frame(now: number, renderingEnabled = this.gameStore.renderingEnabled()): void {
-    this.applyPending();
     const transport = this.transport;
+    // The last packet asked for came: the next is asked for before this one is applied and drawn, so the
+    // simulation writes it meanwhile (into another set of tables) and it is here for the next frame. One
+    // demand per packet: a second while the first is out would bring two packets for one frame
+    if (transport && this.worldLoaded && !this.demandOut && this.failure() === null) {
+      this.demandOut = true;
+      transport.demand();
+    }
+    this.applyPending();
     if (!transport || !this.worldLoaded || this.failure() !== null) return;
     try {
       this.flushInput(now, renderingEnabled);

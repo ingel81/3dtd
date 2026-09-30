@@ -27,7 +27,7 @@ import { commandMarkers } from '../../replay/replay-bar-view';
 import type { ExportedEvent } from '../protocol/events';
 import type { SimFramePacket } from '../protocol/packet';
 import type {
-  ReplayEntered, SimConfig, TickProfile, SimCoreApi, SimInput, SimOutput, SimRpc, SimWorld,
+  PacketDemand, ReplayEntered, SimConfig, TickProfile, SimCoreApi, SimInput, SimOutput, SimRpc, SimWorld,
 } from '../protocol/messages';
 import { TableStore } from '../protocol/table-store';
 import { SimCoords } from './sim-coords';
@@ -54,6 +54,14 @@ export const SIM_PROVIDERS: StaticProvider[] = [
   { provide: GameStateManager, useFactory: () => new GameStateManager(), deps: [] },
 ];
 
+/**
+ * The longest the simulation keeps what it ran to itself while the main
+ * thread asks for no packet (ms of wall clock): events of a main thread that
+ * stands still do not wait for good. Start value, to be matched with the
+ * backpressure (docs/SIM_DECOUPLE_PLAN.md, TODO E85).
+ */
+export const MAX_PUBLISH_GAP_MS = 100;
+
 export interface SimCoreOptions {
   /** Where the packet's tables live; the worker's store shares its memory with the main thread */
   store?: TableStore;
@@ -78,6 +86,11 @@ export class SimCore implements SimCoreApi {
   /** Ms and the slowest of the commands since the last packet, for its tickMs and the profile */
   private commandsMs = 0;
   private slowest: TickProfile['slowest'] = null;
+  /** Sub-steps and their ms of the passes since the last packet: they go with the next */
+  private heldSteps = 0;
+  private heldMs = 0;
+  /** Wall clock of the last packet (the loop's `now`) */
+  private publishedAt = -Infinity;
   private worldLoaded = false;
   private replay: SimReplay | null = null;
   /** A replay file read by loadReplayFile */
@@ -181,8 +194,10 @@ export class SimCore implements SimCoreApi {
     this.forcePresent = true;
   }
 
-  pass(now: number, deadline = Infinity): SimFramePacket | null {
+  pass(now: number, deadline = Infinity, demand?: PacketDemand): SimFramePacket | null {
     if (!this.worldLoaded) return null;
+    // The main thread waits: the sub-step running is the last of this pass
+    const stop = demand ? () => demand.demandPending() : undefined;
     const started = performance.now();
     const gsm = this.gsm;
     let stepsRun = 0;
@@ -195,26 +210,41 @@ export class SimCore implements SimCoreApi {
         // The seek's end sets up the field anew: shown even without a sub-step
         if (!replay.isSeeking) this.forcePresent = true;
       } else if (this.replayInput?.playing) {
-        stepsRun = replay.play(delta, this.replayInput.speed, deadline);
+        stepsRun = replay.play(delta, this.replayInput.speed, deadline, stop);
       }
     } else {
       const before = gsm.subStep;
-      gsm.update(now, undefined, deadline);
+      gsm.update(now, undefined, deadline, stop);
       stepsRun = gsm.subStep - before;
     }
-    if (stepsRun === 0 && !this.forcePresent && !this.dirty) return null;
+    const changed = this.forcePresent || this.dirty;
+    stepsRun += this.heldSteps;
+    if (stepsRun === 0 && !changed) return null;
 
     const updateDone = performance.now();
+    // On demand (docs/SIM_DECOUPLE_PLAN.md): the tables are written and the message goes once per frame of the
+    // main thread, not per sub-step. The demand is taken even when something else publishes: one packet answers both
+    const asked = demand ? demand.takeDemand() : true;
+    if (!asked && !changed && this.dueInMs() !== Infinity && now - this.publishedAt < MAX_PUBLISH_GAP_MS) {
+      this.heldSteps = stepsRun;
+      this.heldMs += updateDone - started;
+      return null;
+    }
+    this.publishedAt = now;
+    this.heldSteps = 0;
     // A replay's jump shows only where it arrives: its slices on the way are not drawn
     const presented = this.renderingEnabled && !this.replay?.isSeeking && (stepsRun > 0 || this.forcePresent);
     this.forcePresent = false;
     this.dirty = false;
     const packet = this.packet(stepsRun, presented);
     const end = performance.now();
-    const profile = { commandsMs: this.commandsMs, updateMs: updateDone - started, packetMs: end - updateDone, slowest: this.slowest };
+    const profile = {
+      commandsMs: this.commandsMs, updateMs: this.heldMs + updateDone - started, packetMs: end - updateDone, slowest: this.slowest,
+    };
     this.commandsMs = 0;
+    this.heldMs = 0;
     this.slowest = null;
-    const tickMs = profile.commandsMs + end - started;
+    const tickMs = profile.commandsMs + profile.updateMs + profile.packetMs;
     packet.scalars.tickMs = tickMs;
     this.parts?.addTick(profile.commandsMs, profile.updateMs, profile.packetMs, stepsRun);
     const worst = this.profile.worst;
@@ -225,6 +255,11 @@ export class SimCore implements SimCoreApi {
   idleMs(): number {
     if (!this.worldLoaded) return Infinity;
     if (this.forcePresent || this.dirty) return 0;
+    return this.dueInMs();
+  }
+
+  /** Wall ms until the next sub-step is due: 0 when one is, Infinity while only a message brings one */
+  private dueInMs(): number {
     const replay = this.replay;
     if (!replay) return this.gsm.dueInMs();
     if (replay.isSeeking) return 0;

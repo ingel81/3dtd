@@ -15,7 +15,7 @@ vi.mock('@angular/core', async () => {
   return { ...actual, Injectable: () => (target: unknown) => target };
 });
 
-import { SimCore } from './sim-core';
+import { MAX_PUBLISH_GAP_MS, SimCore } from './sim-core';
 import { OriginSync } from './sim-coords';
 import { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
 import { buildRoute } from '../../integration/sim-step-bench';
@@ -402,6 +402,76 @@ describe('SimCore in the same thread', () => {
       expect(free.pass(1100)!.stepsRun).toBe(24);
       expect(core.gsm.subStep).toBe(before + 24);
       expect(core.gsm.stateHash()).toBe(free.gsm.stateHash());
+    });
+
+    it('publishes on demand: what ran meanwhile goes with the next packet, events and ops in order', () => {
+      const core = running();
+      const free = running();
+      core.input({ ...SETTINGS, gameSpeed: 1, commands: [{ playerId: 'local', command: { type: 'command:start-wave', config: wave } as unknown as CommandData }] }, 1000);
+      free.input({ ...SETTINGS, gameSpeed: 1, commands: [{ playerId: 'local', command: { type: 'command:start-wave', config: wave } as unknown as CommandData }] }, 1000);
+      core.pass(1000);
+      free.pass(1000);
+
+      // The main thread asks for nothing: sub-steps run, no packet is written
+      const asked = { demandPending: () => false, takeDemand: vi.fn(() => false) };
+      let now = 1000;
+      const every: SimFramePacket[] = [];
+      for (let i = 0; i < 5; i++) {
+        now += 17;
+        expect(core.pass(now, Infinity, asked)).toBeNull();
+        every.push(free.pass(now)!);
+      }
+      expect(core.gsm.subStep).toBe(free.gsm.subStep);
+      expect(core.idleMs()).toBeGreaterThan(0);
+      // It asks: one packet with everything since the last
+      now += 17;
+      every.push(free.pass(now)!);
+      const packet = core.pass(now, Infinity, { demandPending: () => false, takeDemand: () => true })!;
+      expect(packet.stepsRun).toBe(every.reduce((a, p) => a + p.stepsRun, 0));
+      expect(packet.stepsRun).toBeGreaterThan(5);
+      expect(packet.presented).toBe(true);
+      expect(packet.events.map((e) => e.type)).toEqual(every.flatMap((p) => p.events.map((e) => e.type)));
+      expect(packet.ops.map((op) => op[0])).toEqual(every.flatMap((p) => p.ops.map((op) => op[0])));
+      expect(packet.scalars.gameTimeMs).toBe(every[every.length - 1].scalars.gameTimeMs);
+      // Nothing held after it
+      expect(core.pass(now + 1, Infinity, asked)).toBeNull();
+      expect(asked.takeDemand).toHaveBeenCalledTimes(5);
+    });
+
+    it('ends the pass after the sub-step running when the main thread waits for a packet', () => {
+      const core = running(4);
+      // 100 ms at speed 4: 24 sub-steps due, the demand comes during the third
+      let checks = 0;
+      const packet = core.pass(1100, Infinity, { demandPending: () => ++checks >= 3, takeDemand: () => true })!;
+      expect(packet.stepsRun).toBe(3);
+      // The rest is still due
+      expect(core.idleMs()).toBe(0);
+      expect(core.pass(1100)!.stepsRun).toBe(21);
+    });
+
+    it('publishes without being asked: after an input, before it sleeps for good, and after MAX_PUBLISH_GAP_MS', () => {
+      const never = { demandPending: () => false, takeDemand: () => false };
+      const core = running();
+      expect(core.pass(1017, Infinity, never)).toBeNull();
+      // An input: its packet goes at once, with the sub-step held
+      core.input({ ...SETTINGS, gameSpeed: 1 }, 1018);
+      expect(core.pass(1018, Infinity, never)!.stepsRun).toBe(core.gsm.subStep);
+      expect(core.gsm.subStep).toBeGreaterThan(0);
+
+      // The pause: the loop sleeps until a message, the last state goes out first
+      expect(core.pass(1035, Infinity, never)).toBeNull();
+      core.gsm.paused.set(true);
+      const last = core.pass(1040, Infinity, never)!;
+      expect(last.stepsRun).toBe(1);
+      expect(core.idleMs()).toBe(Infinity);
+      core.gsm.paused.set(false);
+
+      // A main thread that stands still: a packet every MAX_PUBLISH_GAP_MS
+      let packets = 0;
+      for (let now = 1057; now < 1040 + 3 * MAX_PUBLISH_GAP_MS + 17; now += 17) {
+        if (core.pass(now, Infinity, never)) packets++;
+      }
+      expect(packets).toBe(3);
     });
 
     it('keeps at most MAX_BACKLOG_MS of wall clock times the speed: a loop that stood does not run minutes at once', () => {

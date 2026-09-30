@@ -66,7 +66,8 @@ sequenceDiagram
 ```
 
 Der Worker loopt mit eigener Uhr (`sim/worker/sim-loop.ts`, [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md)): ein
-Durchgang rechnet die fälligen Sub-Steps, höchstens 8 ms Wanduhr, veröffentlicht ein Paket und gibt den Thread frei;
+Durchgang rechnet die fälligen Sub-Steps, höchstens 8 ms Wanduhr, veröffentlicht ein Paket, wenn der Hauptthread das
+letzte bekommen hat (Abruf im Kontrollwort je Bild, sonst spätestens nach 100 ms), und gibt den Thread frei;
 ohne fällige Arbeit schläft er bis zum nächsten fälligen Sub-Step oder bis eine Nachricht kommt (Pause, keine Welt).
 Er wartet auf kein Bild. Jedes Bild beginnt mit `requestAnimationFrame` in der `RenderLoop`;
 `GameLoopFacadeService` ruft darin `SimClient.frame`. Der wendet die Pakete, die seit dem letzten Bild aus dem Worker

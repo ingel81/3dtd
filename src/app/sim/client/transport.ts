@@ -34,6 +34,8 @@ export interface SimTransport {
   epoch(epoch: number): void;
   /** Settings and commands; they act at the next boundary between two sub-steps. `now`: this frame's wall clock */
   input(input: SimInput, now: number): void;
+  /** This thread takes the next packet the simulation has (once per packet that came, at the start of a frame) */
+  demand(): void;
   /**
    * A frame of this thread began. The worker needs none of it; the same
    * thread's simulation runs its pass now, the packet comes through
@@ -81,6 +83,10 @@ export class InlineTransport implements SimTransport {
 
   input(input: SimInput, now: number): void {
     this.core.input(input, now);
+  }
+
+  demand(): void {
+    /* every frame's pass publishes */
   }
 
   frame(now: number): void {
@@ -179,6 +185,16 @@ export class WorkerTransport implements SimTransport {
   /** The worker takes its own wall clock when the message arrives */
   input(input: SimInput): void {
     this.post({ kind: 'input', input });
+  }
+
+  /**
+   * In the control word, which a pass at work sees after its sub-step, and
+   * as a message, which wakes a loop that sleeps with sub-steps it has not
+   * published (it would go on sleeping until the next one is due).
+   */
+  demand(): void {
+    this.views.demand();
+    this.post({ kind: 'demand' });
   }
 
   frame(): void {

@@ -75,9 +75,10 @@ export class SimReplay {
   /**
    * One pass, `deltaMs` of wall time after the last, at `speed`: sub-steps
    * as the time holds, until the wave ends; none started after `deadline`
-   * (performance.now()), what is left carries over. Returns the sub-steps run.
+   * (performance.now()) or once `stop` says so, what is left carries over.
+   * Returns the sub-steps run.
    */
-  play(deltaMs: number, speed: number, deadline = Infinity): number {
+  play(deltaMs: number, speed: number, deadline = Infinity, stop?: () => boolean): number {
     if (this.resim.finished || this.seeking !== null) return 0;
     this.carryMs = Math.min(this.carryMs + deltaMs * speed, GameClock.MAX_BACKLOG_MS * speed);
     let steps = 0;
@@ -88,7 +89,7 @@ export class SimReplay {
         this.carryMs = 0;
         break;
       }
-      if (deadline !== Infinity && performance.now() >= deadline) break;
+      if ((deadline !== Infinity && performance.now() >= deadline) || stop?.()) break;
     }
     return steps;
   }

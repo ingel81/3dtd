@@ -75,6 +75,29 @@ describe('Packet tables across the worker boundary', () => {
     expect(views.claim(held, packets[0].frame)).toBe(false);
   });
 
+  for (const shared of [true, false]) {
+    it(`hands the main thread's demand over once, the first packet asked for from the start (${shared ? 'control word' : 'message'})`, () => {
+      const store = new TableStore(shared);
+      const views = new TableViews();
+      expect(store.takeDemand()).toBe(true);
+      expect(store.takeDemand()).toBe(false);
+      fromWire(toWire(packetOf(store, 1), store).frame, views);
+
+      // With the control word the main thread writes it itself; without, its message does
+      expect(store.demandPending()).toBe(false);
+      expect(views.demand()).toBe(shared);
+      store.demand();
+      expect(store.demandPending()).toBe(true);
+      expect(store.takeDemand()).toBe(true);
+      expect(store.takeDemand()).toBe(false);
+      // The message of a demand the control word brought already asks for no second packet
+      if (shared) {
+        store.demand();
+        expect(store.takeDemand()).toBe(false);
+      }
+    });
+  }
+
   it('keeps the newest packet and the one before it while the next is written', () => {
     const store = new TableStore(true);
     const views = new TableViews();

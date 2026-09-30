@@ -63,7 +63,7 @@ describe('PacketSums', () => {
 });
 
 describe('loadRates', () => {
-  it('turns a window into speed, worker load, packets per second and apply per packet', () => {
+  it('turns a window into speed, worker load, packets and sub-steps per second and apply per packet', () => {
     const rates = loadRates({
       wallMs: 2000, packets: 100, applies: 100, emptyPackets: 0, subSteps: 400, tickMs: 500, gameMs: 7600, events: 0, ops: 0,
       apply: { state: 50, ops: 10, events: 20, present: 100, listeners: 20 },
@@ -71,6 +71,7 @@ describe('loadRates', () => {
     expect(rates.speed).toBeCloseTo(3.8);
     expect(rates.workerLoad).toBeCloseTo(0.25);
     expect(rates.packetsPerS).toBeCloseTo(50);
+    expect(rates.subStepsPerS).toBeCloseTo(200);
     expect(rates.applyPerPacketMs).toBeCloseTo(2);
   });
 });

@@ -808,10 +808,11 @@ export class GameStateManager {
    *
    * `deadline` (performance.now()): no further sub-step starts after it, the
    * game-time left carries into the next call (the worker's loop gives each
-   * pass a budget, docs/SIM_DECOUPLE_PLAN.md). At least one due sub-step
-   * runs. Which sub-steps a call runs never changes what they do.
+   * pass a budget, docs/SIM_DECOUPLE_PLAN.md), nor once `stop` says so (the
+   * main thread waits for a packet). At least one due sub-step runs. Which
+   * sub-steps a call runs never changes what they do.
    */
-  update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void, deadline = Infinity): void {
+  update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void, deadline = Infinity, stop?: () => boolean): void {
     // Paused: no sub-step runs, so nothing in the simulation moves and the
     // game clock stands. The wall clock is still taken, otherwise the first
     // pass after the pause would try to catch up the pause. The
@@ -844,7 +845,7 @@ export class GameStateManager {
       // Per-sub-step listeners at the boundary: one decides on the state
       // after the checks, its command acts at once
       onSubStep?.(stepMs);
-      if (deadline !== Infinity && performance.now() >= deadline) break;
+      if ((deadline !== Infinity && performance.now() >= deadline) || stop?.()) break;
     }
     this.barrierClosed = !open;
     // Coop: how smoothly this client runs (PLAYTEST T19)

@@ -41,7 +41,10 @@ export interface LoadRates {
   speed: number;
   /** Share of the wall time the worker spent in ticks, 0 to 1 */
   workerLoad: number;
+  /** Packets the simulation published per second */
   packetsPerS: number;
+  /** Sub-steps the simulation ran per second (60 per unit of speed when it keeps up) */
+  subStepsPerS: number;
   /** Main-thread ms of one apply (the packets of a frame), all parts */
   applyPerPacketMs: number;
 }
@@ -53,6 +56,7 @@ export function loadRates(stats: LoadStats): LoadRates {
     speed: stats.gameMs / wall,
     workerLoad: stats.tickMs / wall,
     packetsPerS: (stats.packets * 1000) / wall,
+    subStepsPerS: (stats.subSteps * 1000) / wall,
     applyPerPacketMs: stats.applies > 0 ? apply / stats.applies : 0,
   };
 }

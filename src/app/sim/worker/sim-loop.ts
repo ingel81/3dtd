@@ -9,7 +9,7 @@ export const PASS_BUDGET_MS = 8;
 
 /** What the loop drives (SimCore) */
 export interface LoopCore {
-  /** One pass: the sub-steps due until `deadline`, the packet out; null when nothing ran and nothing changed */
+  /** One pass: the sub-steps due until `deadline`, the packet out; null when there is none to publish now */
   pass(now: number, deadline: number): SimFramePacket | null;
   /** Wall ms until the next pass has work: 0 at once, Infinity until a message comes (SimCore.idleMs) */
   idleMs(): number;
@@ -49,9 +49,9 @@ export function workerTimers(): LoopTimers {
 /**
  * The simulation's loop in the worker (docs/SIM_DECOUPLE_PLAN.md): its own
  * clock, no frame to wait for. A pass runs the sub-steps due, at most
- * PASS_BUDGET_MS of wall clock, publishes the packet and gives the thread
- * back, so messages (inputs, calls) come in between two passes, at a sub-step
- * boundary. With nothing due it sleeps until the next sub-step is due, or
+ * PASS_BUDGET_MS of wall clock, publishes a packet when the main thread
+ * asks for one (SimCore.pass) and gives the thread back, so messages
+ * (inputs, calls) come in between two passes, at a sub-step boundary. With nothing due it sleeps until the next sub-step is due, or
  * until a message wakes it (paused, waiting for the relay, no world).
  */
 export class SimLoop {

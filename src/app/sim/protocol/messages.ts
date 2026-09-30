@@ -86,14 +86,27 @@ export interface SimCoreApi {
   input(input: SimInput, now: number): void;
   /**
    * One pass of the loop at the wall clock `now`: the sub-steps due, none
-   * started after `deadline` (performance.now()), then the packet. Null when
-   * nothing ran and nothing changed.
+   * started after `deadline` (performance.now()), then the packet when the
+   * main thread asks for one (`demand`; always without it), when an input,
+   * a setting or a call came since the last, when the loop sleeps for good
+   * after this pass, or when the last one is MAX_PUBLISH_GAP_MS old. Else
+   * null: what ran goes with the next packet, events and ops in order. A
+   * demand that waits ends the pass after the sub-step running, so the
+   * packet goes out at once.
    */
-  pass(now: number, deadline?: number): SimFramePacket | null;
+  pass(now: number, deadline?: number, demand?: PacketDemand): SimFramePacket | null;
   /** Wall ms until the next pass has work: 0 at once, Infinity until a message comes */
   idleMs(): number;
   /** Everything else, by name (see SimRpc) */
   rpc<K extends keyof SimRpc>(method: K, ...args: Parameters<SimRpc[K]>): ReturnType<SimRpc[K]>;
+}
+
+/** The main thread's demand for a packet as the simulation reads it (TableStore) */
+export interface PacketDemand {
+  /** The main thread waits for a packet */
+  demandPending(): boolean;
+  /** True once per demand: the packet published now answers it */
+  takeDemand(): boolean;
 }
 
 export interface SimConfig {
@@ -223,6 +236,8 @@ export type ToWorker =
   /** The run the packets from here on belong to (SimClient.newRun) */
   | { kind: 'epoch'; epoch: number }
   | { kind: 'input'; input: SimInput }
+  /** The main thread applied the last packet and takes the next: wakes the loop (the control word says the same to a pass at work) */
+  | { kind: 'demand' }
   | { kind: 'rpc'; id: number; method: keyof SimRpc; args: unknown[] };
 
 export type FromWorker =

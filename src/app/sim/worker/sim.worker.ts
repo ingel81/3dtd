@@ -26,7 +26,11 @@ function describe(error: unknown): string {
 }
 
 const loop = new SimLoop(
-  core,
+  {
+    // A packet only when the main thread took the last one (TableStore.takeDemand)
+    pass: (now, deadline) => core.pass(now, deadline, store),
+    idleMs: () => core.idleMs(),
+  },
   (packet) => {
     const { frame, transfer } = toWire(packet, store);
     post({ kind: 'frame', frame, epoch }, transfer);
@@ -52,6 +56,9 @@ function take(message: Exclude<ToWorker, { kind: 'rpc' }>): void {
       return;
     case 'input':
       core.input(message.input, performance.now());
+      return;
+    case 'demand':
+      store.demand();
       return;
   }
 }

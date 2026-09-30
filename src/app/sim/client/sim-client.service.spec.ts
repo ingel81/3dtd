@@ -17,6 +17,7 @@ class FakeTransport implements SimTransport {
   readonly configs: unknown[] = [];
   /** Every message in the order sent, by kind */
   readonly sent: string[] = [];
+  demands = 0;
   run = 0;
   throwOnFrame: Error | null = null;
   constructor(readonly handlers: SimTransportHandlers) {}
@@ -42,6 +43,9 @@ class FakeTransport implements SimTransport {
   input(input: SimInput): void {
     this.sent.push('input');
     this.inputs.push(input);
+  }
+  demand(): void {
+    this.demands++;
   }
   frame(): void {
     if (this.throwOnFrame) throw this.throwOnFrame;
@@ -307,6 +311,25 @@ describe('SimClient', () => {
       transport().claim = () => true;
       frame();
       expect(presenter.present).toHaveBeenCalledTimes(1);
+    });
+
+    it('are asked for one at a time: the next only once the last came, with the frame that applies it', () => {
+      const { client, transport, frame, presenter } = setup();
+      frame();
+      frame();
+      expect(transport().demands).toBe(1);
+      transport().publish(packet());
+      frame();
+      expect(transport().demands).toBe(2);
+      expect(presenter.present).toHaveBeenCalledTimes(1);
+      frame();
+      expect(transport().demands).toBe(2);
+
+      // No world, no demand
+      transport().publish(packet());
+      client.newRun();
+      frame();
+      expect(transport().demands).toBe(2);
     });
   });
 

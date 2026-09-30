@@ -10,6 +10,11 @@
  * simulation never writes the newest nor the one being read, so no lock is
  * needed and a frame costs no copy and no allocation.
  *
+ * The control word also carries the main thread's demand
+ * (docs/SIM_DECOUPLE_PLAN.md): it asks for the next packet once it has
+ * applied the last (TableViews.demand), and the simulation writes and
+ * publishes one only when asked (TableStore.takeDemand), not per sub-step.
+ *
  * The main thread claims a set before it reads it (TableViews.claim) and lets
  * it go after (release). The claim holds only while the set still holds the
  * packet whose message the main thread has: a set the simulation writes
@@ -56,8 +61,10 @@ export const SHARED_SETS = 3;
 const C_LATEST = 0;
 /** The set the main thread reads now, NO_SET while it reads none */
 const C_READING = 1;
+/** 1 while the main thread waits for a packet (it applied the last one), 0 once the simulation took the demand */
+const C_DEMAND = 2;
 /** From here one per set: the packet (SimFramePacket.frame) it holds, WRITING while the simulation writes it */
-const C_FRAME_OF = 2;
+const C_FRAME_OF = 3;
 const CONTROL_LENGTH = C_FRAME_OF + SHARED_SETS;
 const NO_SET = -1;
 const WRITING = -1;
@@ -88,6 +95,8 @@ export class TableStore {
   private controlToSend: SharedArrayBuffer | null = null;
   /** The set published before the newest one: written last, see begin() */
   private previous = NO_SET;
+  /** The main thread's demand where there is no control word to carry it (demand()); the first packet is asked for */
+  private demanded = true;
 
   constructor(readonly shared: boolean = sharedMemoryAvailable()) {
     this.sets = Array.from({ length: shared ? SHARED_SETS : 1 }, () => new Map<TableName, SimTable>());
@@ -102,6 +111,7 @@ export class TableStore {
       this.control.fill(WRITING);
       this.control[C_LATEST] = NO_SET;
       this.control[C_READING] = NO_SET;
+      this.control[C_DEMAND] = 1;
       this.controlToSend = buffer;
     }
   }
@@ -147,6 +157,27 @@ export class TableStore {
     if (!control) return;
     Atomics.store(control, C_FRAME_OF + this.current, frame);
     this.previous = Atomics.exchange(control, C_LATEST, this.current);
+  }
+
+  /**
+   * The main thread's demand came as a message. With a control word it is
+   * in there already, and a pass may have answered it by now: taking it
+   * from the message as well would publish twice for one demand.
+   */
+  demand(): void {
+    if (!this.control) this.demanded = true;
+  }
+
+  /** The main thread waits for a packet (takeDemand would say true) */
+  demandPending(): boolean {
+    return this.demanded || (this.control !== null && Atomics.load(this.control, C_DEMAND) === 1);
+  }
+
+  /** True once per demand of the main thread: the packet to publish now is the one it waits for */
+  takeDemand(): boolean {
+    const asked = this.demanded;
+    this.demanded = false;
+    return this.control ? Atomics.exchange(this.control, C_DEMAND, 0) === 1 || asked : asked;
   }
 
   /** The control word's buffer the first time, for the main thread's TableViews; null after and without shared memory */
@@ -235,5 +266,15 @@ export class TableViews {
   /** The set claimed is read: the simulation may write it again. */
   release(): void {
     if (this.control) Atomics.store(this.control, C_READING, NO_SET);
+  }
+
+  /**
+   * Ask the simulation for its next packet (TableStore.takeDemand): a pass
+   * at work sees it after its sub-step. False without a shared control word.
+   */
+  demand(): boolean {
+    if (!this.control) return false;
+    Atomics.store(this.control, C_DEMAND, 1);
+    return true;
   }
 }

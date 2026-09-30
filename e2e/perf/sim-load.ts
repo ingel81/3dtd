@@ -165,6 +165,7 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
       workerLoad: round(s.tickMs / s.wallMs, 3),
       tickPerStepMs: round(s.tickMs / Math.max(1, s.subSteps), 3),
       packetsPerS: round(s.packets / (s.wallMs / 1000), 1),
+      subStepsPerS: round(s.subSteps / (s.wallMs / 1000), 1),
       appliesPerS: round((s.applies ?? s.packets) / (s.wallMs / 1000), 1),
       emptyShare: round(s.emptyPackets / (s.applies ?? s.packets), 3),
       eventsPerPacket: round(s.events / s.packets, 1),
