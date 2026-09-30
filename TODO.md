@@ -304,6 +304,9 @@ Ideen (2026-09-27), nichts entschieden:
       schießen ohne Wirkung. Replay-, Resync-, Snapshot- und Lockstep-Specs prüfen damit Slow, Freeze, Stun, Gift und
       Brand nie. Den echten Dienst in die Testwelt nehmen (oder gezielt Effekte setzen) und die betroffenen Specs
       danach ansehen.
+- [ ] **E88 Wave-Debug-Panel in zwei Tabs** (Playtest 2026-09-30): erster Tab (Name etwa „Run plan“ oder
+      „Campaign“) mit Wellenquelle, „Why this wave“ und „Jump to wave“; zweiter Tab „Custom Wave“ mit dem Rest
+      (eigene Welle zusammenstellen usw.).
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
