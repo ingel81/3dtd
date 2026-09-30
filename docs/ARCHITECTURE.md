@@ -1341,7 +1341,9 @@ statt Rückstand anzuhäufen. Jeder Sub-Step läuft durch `runSubStep()`
 (Reihenfolge in Abschnitt 5), danach prüft die Schleife Wave-Ende und Game Over. Nach der
 Schleife schreibt `SimCore` das Paket (`PacketWriter`); es trägt `presented`, wenn Rendering an ist und ein
 Sub-Step lief oder ein Befehl kam. Dann gibt der `FramePresenter` auf dem Hauptthread die Tabellen an die
-Renderer. Oberhalb von 60 fps kommt deshalb nicht in jedem Frame ein Paket.
+Renderer. Einen Abruf beantwortet der Worker höchstens alle 33 ms (`MIN_PUBLISH_GAP_MS`, rund 30 Stände je
+Sekunde); dazwischen gleiten Gegner, Geschosse und Helden vom vorigen zum neuesten Stand
+(`three-engine/renderers/state-lerp.ts`, [SIM_WORKER.md](SIM_WORKER.md#datenfluss)).
 
 **Hintergrund-Tab (nur Training):** Mit `setBackgroundLoopEnabled(true)` ruft bei
 verstecktem Tab ein Worker-Takt (`workers/heartbeat.worker.ts`, 16 ms) `update()` ohne
