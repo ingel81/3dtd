@@ -296,6 +296,12 @@ Ideen (2026-09-27), nichts entschieden:
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
       bei 16 000 Gegnern in Chromium), und langsame Bilder machen das Spiel zur Zeitlupe. Plan steht, Entscheidungen
       offen (Reihenfolge zum Multi-Worker-Umbau, Branch, Startwerte).
+- [ ] **E86 Simulationsrate senken, Bild interpolieren** (User, 2026-09-30): Die Simulation rechnet 60 Sub-Steps je
+      Sekunde Spielzeit (`GameClock.FIXED_STEP_MS` 16,667 ms), bei Tempo 4 also 240 je Sekunde. Viele Strategiespiele
+      rechnen 10 bis 30 und interpolieren das Bild. 30 statt 60 würde die Arbeit des Workers grob halbieren; Ergebnisse,
+      Balance, Replays und Coop ändern sich (auf Altlasten nimmt der User keine Rücksicht, die Balance wird ohnehin neu
+      eingestellt). Erst messen (Wegwerf-Build mit 33,333 ms), dann entscheiden; hängt an E85 (Interpolation zwischen
+      zwei Ständen). Nach E85.
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
       appimage.github.io (automatisch gefunden und aufgenommen, dessen Test bestanden). Der Test meldet drei Punkte: der Dateiname
       `3DTD-linux-x64.AppImage` soll kein „linux“ tragen (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete
