@@ -14,10 +14,15 @@ import { createVATBloodMoonUniforms, createVATMaterial, setVATTexture } from './
 import { createPortalClipUniforms, type PortalClipUniforms } from '../portal-clip';
 import { bloodMoonMultiplier } from '../../blood-moon/blood-moon-mood';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
-import { InstanceSlotAllocator } from '../instance-slot-allocator';
+import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
 
-const MAX_INSTANCES_PER_TYPE = 20000;
+/**
+ * Instances a type's buffers hold at first; they double whenever an enemy
+ * finds no free slot, so a wave of 25 000 of one type draws them all (TODO
+ * E77), and the types a place never spawns keep small buffers.
+ */
+const INITIAL_INSTANCES_PER_TYPE = 512;
 const UP = new Vector3(0, 1, 0);
 
 /** Per-enemy animation and visual state */
@@ -227,14 +232,14 @@ export class EnemyInstanceManager {
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
       material,
-      MAX_INSTANCES_PER_TYPE,
+      INITIAL_INSTANCES_PER_TYPE,
     );
     instancedMesh.count = 0;
     instancedMesh.frustumCulled = false;
 
     // Per-instance attributes
-    const animFrameData = new Float32Array(MAX_INSTANCES_PER_TYPE);
-    const tintColorData = new Float32Array(MAX_INSTANCES_PER_TYPE * 3);
+    const animFrameData = new Float32Array(INITIAL_INSTANCES_PER_TYPE);
+    const tintColorData = new Float32Array(INITIAL_INSTANCES_PER_TYPE * 3);
 
     const animFrameAttr = new InstancedBufferAttribute(animFrameData, 1);
     const tintColorAttr = new InstancedBufferAttribute(tintColorData, 3);
@@ -254,7 +259,7 @@ export class EnemyInstanceManager {
       vatData,
       config,
       instances: new Map(),
-      slots: new InstanceSlotAllocator(MAX_INSTANCES_PER_TYPE),
+      slots: new InstanceSlotAllocator(INITIAL_INSTANCES_PER_TYPE),
       gate,
       animFrameAttr,
       tintColorAttr,
@@ -266,7 +271,7 @@ export class EnemyInstanceManager {
 
   /**
    * Add an enemy instance. Returns the instance state, or null if the pool
-   * doesn't exist or all MAX_INSTANCES_PER_TYPE slots are taken.
+   * doesn't exist. The pool grows when all its slots are taken.
    */
   addEnemy(
     id: string,
@@ -279,8 +284,11 @@ export class EnemyInstanceManager {
     if (pool.instances.has(id)) return pool.instances.get(id)!;
 
     // Allocate instance slot
-    const index = pool.slots.alloc();
-    if (index < 0) return null;
+    let index = pool.slots.alloc();
+    if (index < 0) {
+      this.growPool(pool, pool.slots.capacity * 2);
+      index = pool.slots.alloc();
+    }
     this.syncDrawCount(pool);
 
     // Set instance matrix
@@ -818,6 +826,30 @@ export class EnemyInstanceManager {
   // PRIVATE
   // =====================================================
 
+  /** Slots a type's buffers hold, taken or free (0 without a pool) */
+  capacityOf(typeId: string): number {
+    return this.pools.get(typeId)?.slots.capacity ?? 0;
+  }
+
+  /**
+   * Room for `capacity` instances of a type, every instance kept. The mesh
+   * and the geometry are disposed first: three frees the GPU buffer of an
+   * instance matrix only with its mesh, that of an attribute only with its
+   * geometry, and uploads the model and the grown buffers again on the
+   * next draw. A handful of times in a run (doubling).
+   */
+  private growPool(pool: TypePool, capacity: number): void {
+    const mesh = pool.instancedMesh;
+    mesh.dispose();
+    mesh.geometry.dispose();
+    mesh.instanceMatrix = grownAttribute(mesh.instanceMatrix, capacity);
+    pool.animFrameAttr = grownAttribute(pool.animFrameAttr, capacity);
+    pool.tintColorAttr = grownAttribute(pool.tintColorAttr, capacity);
+    mesh.geometry.setAttribute('aAnimFrame', pool.animFrameAttr);
+    mesh.geometry.setAttribute('aTintColor', pool.tintColorAttr);
+    pool.slots.grow(capacity);
+  }
+
   /** Draw count follows the slot allocator; the gate hides an empty pool. */
   private syncDrawCount(pool: TypePool): void {
     pool.instancedMesh.count = pool.slots.activeCount;
@@ -897,7 +929,7 @@ export class EnemyInstanceManager {
       // (0, activeCount) covers every drawn slot. Clearing first drops the
       // range of a flush the renderer never uploaded (e.g. mesh toggled
       // invisible), so the ranges array cannot grow. Without a range
-      // Three.js would upload the full MAX_INSTANCES_PER_TYPE-sized buffer.
+      // Three.js would upload the full buffer, free slots included.
       // activeCount 0 means every slot was released since the write and
       // nothing is drawn. No range then: bufferSubData reads a length of 0
       // as "up to the end", so (0, 0) would upload the whole buffer.

@@ -74,6 +74,38 @@ describe('EnemyInstanceManager', () => {
     manager.createPool('wallsmasher', fakeVat(CLIPS), CONFIG);
   });
 
+  it('grows a type past its first buffers, every instance kept (TODO E77)', () => {
+    const pool = (manager as unknown as { pools: Map<string, TypePool> }).pools.get('wallsmasher')!;
+    const first = manager.capacityOf('wallsmasher');
+    const mesh = pool.instancedMesh;
+    let disposed = 0;
+    mesh.addEventListener('dispose', () => disposed++);
+    mesh.geometry.addEventListener('dispose', () => disposed++);
+    for (let i = 0; i < first; i++) manager.addEnemy(`e${i}`, 'wallsmasher', new Vector3(i, 0, 0), 0);
+    manager.setIcedVisual('e3', true);
+
+    const over = manager.addEnemy('over', 'wallsmasher', new Vector3(-5, 0, 0), 0)!;
+    expect(over.index).toBe(first);
+    expect(manager.capacityOf('wallsmasher')).toBe(first * 2);
+    // Mesh and geometry disposed once each, so three frees the old buffers
+    expect(disposed).toBe(2);
+    expect(mesh.instanceMatrix.count).toBe(first * 2);
+    expect(mesh.count).toBe(first + 1);
+    const matrix = new Matrix4();
+    mesh.getMatrixAt(first - 1, matrix);
+    expect(new Vector3().setFromMatrixPosition(matrix).x).toBe(first - 1);
+    mesh.getMatrixAt(first, matrix);
+    expect(new Vector3().setFromMatrixPosition(matrix).x).toBe(-5);
+    // The geometry draws the grown per-instance attributes, the tint kept
+    expect(mesh.geometry.getAttribute('aTintColor')).toBe(pool.tintColorAttr);
+    expect(pool.tintColorAttr.count).toBe(first * 2);
+    expect(pool.tintColorAttr.getX(3)).toBeGreaterThan(0);
+    expect(pool.animFrameAttr.count).toBe(first * 2);
+
+    for (let i = 0; i < 25_000 - first - 1; i++) manager.addEnemy(`f${i}`, 'wallsmasher', new Vector3(), 0);
+    expect(manager.count).toBe(25_000);
+  });
+
   it('switches between the walk and run clips', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     expect(state.isWalking).toBe(true);

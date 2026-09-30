@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
-import { InstancedBufferAttribute } from 'three';
-import { InstanceSlotAllocator } from './instance-slot-allocator';
+import { DynamicDrawUsage, InstancedBufferAttribute } from 'three';
+import { InstanceSlotAllocator, grownAttribute } from './instance-slot-allocator';
 
 describe('InstanceSlotAllocator', () => {
   it('hands out slots in order and reuses a freed one before growing', () => {
@@ -110,5 +110,25 @@ describe('InstanceSlotAllocator', () => {
       const top = live.size === 0 ? 0 : Math.max(...live) + 1;
       expect(slots.activeCount).toBe(top);
     }
+  });
+
+  it('grows, keeping the slots in use and the free list', () => {
+    const slots = new InstanceSlotAllocator(2);
+    expect([slots.alloc(), slots.alloc(), slots.alloc()]).toEqual([0, 1, -1]);
+    slots.grow(4);
+    expect(slots.capacity).toBe(4);
+    slots.release(0);
+    expect([slots.alloc(), slots.alloc(), slots.alloc(), slots.alloc()]).toEqual([0, 2, 3, -1]);
+    slots.grow(3); // never shrinks
+    expect(slots.capacity).toBe(4);
+  });
+
+  it('copies a per-instance attribute into a larger one', () => {
+    const attribute = new InstancedBufferAttribute(new Float32Array([1, 2, 3, 4]), 2).setUsage(DynamicDrawUsage);
+    const grown = grownAttribute(attribute, 4);
+    expect(grown.count).toBe(4);
+    expect(grown.itemSize).toBe(2);
+    expect(grown.usage).toBe(DynamicDrawUsage);
+    expect(Array.from(grown.array)).toEqual([1, 2, 3, 4, 0, 0, 0, 0]);
   });
 });

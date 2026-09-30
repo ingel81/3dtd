@@ -1,4 +1,4 @@
-import type { BufferAttribute } from 'three';
+import { InstancedBufferAttribute, type BufferAttribute } from 'three';
 
 /**
  * Per-slot update ranges one attribute collects before uploadSlot()
@@ -7,6 +7,21 @@ import type { BufferAttribute } from 'three';
  * training) they would otherwise pile up without bound.
  */
 const MAX_SLOT_RANGES = 64;
+
+/**
+ * A copy of a per-instance attribute with room for `capacity` instances,
+ * its values kept, for a pool that grew (InstanceSlotAllocator.grow). The
+ * caller swaps it in; three frees the old one's GPU buffer only with the
+ * geometry (or InstancedMesh) it belonged to, so the caller disposes that
+ * first.
+ */
+export function grownAttribute(attribute: InstancedBufferAttribute, capacity: number): InstancedBufferAttribute {
+  const array = new Float32Array(capacity * attribute.itemSize);
+  array.set(attribute.array as Float32Array);
+  const grown = new InstancedBufferAttribute(array, attribute.itemSize, attribute.normalized, attribute.meshPerAttribute);
+  grown.setUsage(attribute.usage);
+  return grown;
+}
 
 /**
  * Slot allocator for instanced pools (enemy types, health bars, projectiles).
@@ -23,12 +38,29 @@ const MAX_SLOT_RANGES = 64;
  * names a free slot.
  */
 export class InstanceSlotAllocator {
-  private readonly used: Uint8Array;
+  private used: Uint8Array;
   private readonly free: number[] = [];
   private _activeCount = 0;
 
-  constructor(readonly capacity: number) {
-    this.used = new Uint8Array(capacity);
+  constructor(private _capacity: number) {
+    this.used = new Uint8Array(_capacity);
+  }
+
+  /** Slots there are, taken or free */
+  get capacity(): number {
+    return this._capacity;
+  }
+
+  /**
+   * Room for `capacity` slots, the slots in use kept: for a pool whose
+   * buffers grow with it (health bars, enemy types). Never shrinks.
+   */
+  grow(capacity: number): void {
+    if (capacity <= this._capacity) return;
+    const used = new Uint8Array(capacity);
+    used.set(this.used);
+    this.used = used;
+    this._capacity = capacity;
   }
 
   /** One past the highest slot in use, 0 when the pool is empty. */
@@ -45,7 +77,7 @@ export class InstanceSlotAllocator {
         return index;
       }
     }
-    if (this._activeCount >= this.capacity) return -1;
+    if (this._activeCount >= this._capacity) return -1;
     const index = this._activeCount++;
     this.used[index] = 1;
     return index;

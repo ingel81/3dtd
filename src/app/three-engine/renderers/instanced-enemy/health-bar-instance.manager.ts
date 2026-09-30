@@ -9,12 +9,17 @@ import {
   Camera,
   DoubleSide,
 } from 'three';
-import { InstanceSlotAllocator } from '../instance-slot-allocator';
+import { InstanceSlotAllocator, grownAttribute } from '../instance-slot-allocator';
 import { DrawGate } from '../draw-gate';
 import { DISPLAY_OUTPUT_GLSL } from '../display-output';
 import { createPortalClipUniforms, PORTAL_CLIP_GLSL, type PortalClipUniforms } from '../portal-clip';
 
-const MAX_HEALTH_BARS = 20000;
+/**
+ * Bars the buffers hold at first; they double whenever a bar finds no free
+ * slot, so every enemy gets its bar however many there are (TODO E77: a
+ * fixed 20 000 left the rest of 25 000 without one).
+ */
+const INITIAL_HEALTH_BARS = 2048;
 
 // Shared GLSL for the health bar vertex shader.
 //
@@ -143,8 +148,8 @@ const HEALTH_BAR_BODY = /* glsl */ `
  *
  * The passes are plain Meshes over one InstancedBufferGeometry, not
  * InstancedMeshes: the shader never reads instanceMatrix, and an
- * InstancedMesh allocates and uploads one anyway (20 000 × 16 floats,
- * 1.28 MB per pass). geometry.instanceCount is the draw count of both.
+ * InstancedMesh allocates and uploads one anyway (16 floats per bar and
+ * pass). geometry.instanceCount is the draw count of both.
  */
 export class HealthBarInstanceManager {
   /** Shared by both passes; instanceCount is their draw count. */
@@ -157,7 +162,7 @@ export class HealthBarInstanceManager {
   private readonly gate: DrawGate;
 
   private instances = new Map<string, number>(); // enemyId → instanceIndex
-  private readonly slots = new InstanceSlotAllocator(MAX_HEALTH_BARS);
+  private readonly slots = new InstanceSlotAllocator(INITIAL_HEALTH_BARS);
 
   // Per-instance attributes (shared between both meshes via the same geometry)
   private centerAttribute: InstancedBufferAttribute; // world center (x, y, z)
@@ -180,7 +185,7 @@ export class HealthBarInstanceManager {
    * piles up update ranges. Only `add()` clears the flag — the GLOBAL
    * health-bar toggle is mesh-level (`setVisible`), not per slot.
    */
-  private readonly hiddenFlags = new Uint8Array(MAX_HEALTH_BARS);
+  private hiddenFlags = new Uint8Array(INITIAL_HEALTH_BARS);
 
   /** @param portalClip The spawn portals' clip, shared with the enemies (portal-clip.ts) */
   constructor(
@@ -197,10 +202,10 @@ export class HealthBarInstanceManager {
     this.geometry = geometry;
 
     // Per-instance attributes
-    const centerData = new Float32Array(MAX_HEALTH_BARS * 3);
-    const sizeData = new Float32Array(MAX_HEALTH_BARS * 2); // 0 → hidden by default
-    const healthData = new Float32Array(MAX_HEALTH_BARS);
-    const barColorData = new Float32Array(MAX_HEALTH_BARS * 3);
+    const centerData = new Float32Array(INITIAL_HEALTH_BARS * 3);
+    const sizeData = new Float32Array(INITIAL_HEALTH_BARS * 2); // 0 → hidden by default
+    const healthData = new Float32Array(INITIAL_HEALTH_BARS);
+    const barColorData = new Float32Array(INITIAL_HEALTH_BARS * 3);
 
     this.centerAttribute = new InstancedBufferAttribute(centerData, 3);
     this.sizeAttribute = new InstancedBufferAttribute(sizeData, 2);
@@ -243,8 +248,8 @@ export class HealthBarInstanceManager {
 
   /**
    * Add a health bar for an enemy. Returns its slot index (the existing one
-   * if the enemy already has a bar), or -1 when all MAX_HEALTH_BARS slots
-   * are taken.
+   * if the enemy already has a bar); the buffers grow when all slots are
+   * taken.
    */
   add(
     enemyId: string,
@@ -257,8 +262,11 @@ export class HealthBarInstanceManager {
     const existing = this.instances.get(enemyId);
     if (existing !== undefined) return existing;
 
-    const index = this.slots.alloc();
-    if (index < 0) return -1;
+    let index = this.slots.alloc();
+    if (index < 0) {
+      this.grow(this.slots.capacity * 2);
+      index = this.slots.alloc();
+    }
 
     this.instances.set(enemyId, index);
     this.syncDrawCount();
@@ -279,7 +287,7 @@ export class HealthBarInstanceManager {
 
     // Center and health go out with the frame flush in updateBillboard().
     // The rest has none and queues just this slot (without a range Three.js
-    // re-uploads the full MAX_HEALTH_BARS-sized buffer on needsUpdate).
+    // re-uploads the full buffer on needsUpdate).
     this.centerDirty = true;
     this.healthDirty = true;
     this.slots.uploadSlot(this.sizeAttribute, index);
@@ -341,7 +349,7 @@ export class HealthBarInstanceManager {
     // The (0, activeCount) ranges cover every drawn slot. Clearing first
     // drops the range of a flush the renderer never uploaded (bars toggled
     // invisible), so the ranges array cannot grow. Without a range Three.js
-    // would push the full MAX_HEALTH_BARS-sized buffer every frame.
+    // would push the full buffer every frame.
     if (this.centerDirty) {
       this.centerAttribute.clearUpdateRanges();
       this.centerAttribute.addUpdateRange(0, this.slots.activeCount * 3);
@@ -394,6 +402,33 @@ export class HealthBarInstanceManager {
 
   get count(): number {
     return this.instances.size;
+  }
+
+  /** Slots the buffers hold, taken or free */
+  get capacity(): number {
+    return this.slots.capacity;
+  }
+
+  /**
+   * Room for `capacity` bars, every bar kept. The geometry is disposed
+   * first: three frees an attribute's GPU buffer only with its geometry,
+   * and uploads the unit quad and the grown buffers again on the next draw.
+   * Runs a handful of times in a run (doubling), each a few 100 kB.
+   */
+  private grow(capacity: number): void {
+    this.geometry.dispose();
+    this.centerAttribute = grownAttribute(this.centerAttribute, capacity);
+    this.sizeAttribute = grownAttribute(this.sizeAttribute, capacity);
+    this.healthAttribute = grownAttribute(this.healthAttribute, capacity);
+    this.barColorAttribute = grownAttribute(this.barColorAttribute, capacity);
+    this.geometry.setAttribute('aCenter', this.centerAttribute);
+    this.geometry.setAttribute('aSize', this.sizeAttribute);
+    this.geometry.setAttribute('aHealth', this.healthAttribute);
+    this.geometry.setAttribute('aBarColor', this.barColorAttribute);
+    const hidden = new Uint8Array(capacity);
+    hidden.set(this.hiddenFlags);
+    this.hiddenFlags = hidden;
+    this.slots.grow(capacity);
   }
 
   /** Draw count of both passes follows the slot allocator; the gate hides them while empty. */

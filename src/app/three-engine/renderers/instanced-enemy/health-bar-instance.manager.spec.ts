@@ -119,4 +119,30 @@ describe('HealthBarInstanceManager', () => {
     bars.setVisible(true);
     expect(visible()).toEqual([false, false]);
   });
+
+  it('grows past its first buffers, every bar kept, so 25 000 enemies all get one (TODO E77)', () => {
+    const first = bars.capacity;
+    const geometry = meshes[0].geometry;
+    let disposed = 0;
+    geometry.addEventListener('dispose', () => disposed++);
+    for (let i = 0; i < first; i++) bars.add(`e${i}`, new Vector3(i, 0, 0), 2, null, 6, 1);
+    bars.hide('e7');
+
+    expect(bars.add('over', new Vector3(-1, 0, 0), 2, null, 6, 1)).toBe(first);
+    expect(bars.capacity).toBe(first * 2);
+    // Disposed once, so three frees the old buffers; both passes draw the grown ones
+    expect(disposed).toBe(1);
+    expect(meshes[1].geometry).toBe(geometry);
+    expect(attribute('aCenter').count).toBe(first * 2);
+    expect(attribute('aCenter').getX(first - 1)).toBe(first - 1);
+    expect(attribute('aCenter').getX(first)).toBe(-1);
+    expect(attribute('aSize').getX(7)).toBe(0);
+    expect(drawCounts()).toEqual([first + 1, first + 1]);
+
+    // The hidden bar stays retired in the grown buffers
+    bars.updateAt(7, new Vector3(), 2, 0.5, 6, 1);
+    expect(attribute('aSize').getX(7)).toBe(0);
+    for (let i = 0; i < 25_000 - first - 1; i++) bars.add(`f${i}`, new Vector3(), 2, null, 6, 1);
+    expect(bars.count).toBe(25_000);
+  });
 });
