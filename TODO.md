@@ -297,6 +297,13 @@ Ideen (2026-09-27), nichts entschieden:
       **B1** Interpolation im Shader, dann niedrigere Simulationsrate (E86, mit Prüfliste). **B2** mehrere Worker
       wieder aufnehmen (E72, `perf/multi-worker`), auch für schwächere Rechner und deutlich mehr Gegner. **B3** Paket
       direkt aus der Tabelle. Jeder Schritt bitgleich über alle Rechner, gemessen in beiden Browsern.
+      **Stand 2026-09-30 abends:** A und B1 in `simu-worker` übernommen; B2 und B3 verworfen (siehe „Verworfen“).
+      Nächster Hebel: der Hauptthread (Paket anwenden, Gegner darstellen), der bei vielen Gegnern die Bildrate hält.
+- [ ] **E87 Statuseffekte in den Simulations-Specs** (2026-09-30): Die Testwelt der Specs (`integration/sim-world.ts`)
+      setzt nie einen Statuseffekt: `StatusEffectService` ist dort ein Platzhalter, die Eis-, Feuer- und Gift-Tower
+      schießen ohne Wirkung. Replay-, Resync-, Snapshot- und Lockstep-Specs prüfen damit Slow, Freeze, Stun, Gift und
+      Brand nie. Den echten Dienst in die Testwelt nehmen (oder gezielt Effekte setzen) und die betroffenen Specs
+      danach ansehen.
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
@@ -368,6 +375,11 @@ jeweiligen Fach-Doku.
 
 - **Enemy Movement als Structure of Arrays**: gebaut `bd1d3a5`, zurückgenommen `731f454` (13 % langsamer). Nur als
   Komplettumbau mit Position und Rotation in Arrays sinnvoll; gemessen unter jsdom.
+- **Mehrere Simulations-Worker und Gegnerzustand in Tabellen** (E72 B2, B3; User 2026-09-30): gebaut auf
+  `perf/multi-worker` (Bewegung als Zeilen einer geteilten Tabelle, zwei Phasen, Helfer-Worker, bitgleich im Coop 4
+  gegen 1 Thread) und `spike/tables` (Position als Getter, Paket aus den Zeilen). Gemessen: mit 4 Threads 13 bis 18 %
+  weniger Rechenzeit als heute, mit 1 Thread 12 bis 19 % mehr (schwache Rechner bekämen 1 bis 2 Threads); das Paket
+  aus den Zeilen macht seine Schleife nicht schneller. Etwa 60 % des Sub-Steps bleiben seriell. Branches als Archiv.
 - **Weitere Enemy-Hot-Path-Hebel** (2026-09-10): Culling je Pool greift nur bei ganz anderer Blickrichtung; kalte
   Gegner einmal je Frame zu rechnen ändert die Simulation.
 
