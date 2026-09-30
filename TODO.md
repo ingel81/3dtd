@@ -194,6 +194,10 @@ Ideen (2026-09-27), nichts entschieden:
       (Zeitlimit): beide ohne Fehler, gleich viele Tower und Kills, HQ am Ende 255 (`simu-worker`) gegen 294 (`next`);
       ein Lauf je Seite sagt über den Unterschied nichts, weitere Läufe auf Wunsch des Users abgebrochen.
       Dabei gefunden und behoben: der Coop-Bot-Läufer las noch `gameState` im Hauptthread.
+      **Stand 2026-10-01:** `simu-worker` ist seit 2026-09-30 in `next` (Branch gelöscht). Nachtlauf 2026-10-01: Review
+      gegen `main` nur im Code, Regressionen behoben (Run-Log nach neuem Ort, Game Over ohne Abwahl, Forschung nach
+      Restore, Raster-Overlay, Bot auf altem Stand, Movement-Schalter, Messskripte). Offen: Handtest, Coop über zwei
+      Rechner, Webseite nach dem Deploy.
 - [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-gemessen-2026-09-29)):
       **Gemessen 2026-09-29** bis 25000 Gegner: Chromium hält 144 FPS und Tempo 4 bis rund 11000 (vorher 4900), dann
       wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
@@ -298,6 +302,7 @@ Ideen (2026-09-27), nichts entschieden:
       wieder aufnehmen (E72, `perf/multi-worker`), auch für schwächere Rechner und deutlich mehr Gegner. **B3** Paket
       direkt aus der Tabelle. Jeder Schritt bitgleich über alle Rechner, gemessen in beiden Browsern.
       **Stand 2026-09-30 abends:** A und B1 in `simu-worker` übernommen; B2 und B3 verworfen (siehe „Verworfen“).
+      **Stand 2026-10-01:** A und B1 sind in `next`.
       Nächster Hebel: der Hauptthread (Paket anwenden, Gegner darstellen), der bei vielen Gegnern die Bildrate hält.
 - [ ] **E87 Statuseffekte in den Simulations-Specs** (2026-09-30): Die Testwelt der Specs (`integration/sim-world.ts`)
       setzt nie einen Statuseffekt: `StatusEffectService` ist dort ein Platzhalter, die Eis-, Feuer- und Gift-Tower
@@ -336,6 +341,7 @@ Ideen (2026-09-27), nichts entschieden:
       statt 3,0 / 15 / 72. Chromium 16 000 bei Tempo 4: 4,0 / 107 bis 111 / 112 statt 4,0 / 48 / 128; 25 000 bei Tempo 4:
       4,0 / 62 / 75 statt 3,97 / 23 / 85. Tempo gleich oder besser, 1,7- bis 2,7-mal so viele neue Stände, FPS 3 bis
       14 % niedriger (öfter eingeräumt). Offen: Übernahme nach `simu-worker` (User).
+      **Übernommen 2026-09-30:** über `simu-worker` in `next`.
 - [ ] **E86 Simulationsrate senken, Bild interpolieren** (User, 2026-09-30): Die Simulation rechnet 60 Sub-Steps je
       Sekunde Spielzeit (`GameClock.FIXED_STEP_MS` 16,667 ms), bei Tempo 4 also 240 je Sekunde. Viele Strategiespiele
       rechnen 10 bis 30 und interpolieren das Bild. 30 statt 60 würde die Arbeit des Workers grob halbieren; Ergebnisse,
@@ -360,6 +366,9 @@ Ideen (2026-09-27), nichts entschieden:
       gegen den Stand mit Interpolation: Worker-Last Firefox 0,52 statt 0,94, Chromium 0,31 statt 0,52, Tempo 4,0.
       Offen: E2E und Coop-Lauf auf dem Endstand, die Drehung springt mit dem Stand, Auren und Flammen gleiten nicht
       mit (ansehen), Balance neu einstellen, Übernahme (User).
+      **Übernommen 2026-09-30** in `next`. Firefox-Gegencheck 2026-10-01 (16 000 Gegner, Tempo 4, je zwei Runden,
+      gleiche Bedingungen): vor E86 (`9070ba91`) 64 bis 69 FPS bei Worker-Last 0,89 bis 0,91, jetzt 72 bis 75 FPS bei
+      0,51 bis 0,53; die höheren FPS aus früheren Messungen entstanden unter anderen Bedingungen.
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
       appimage.github.io (automatisch gefunden und aufgenommen, dessen Test bestanden). Der Test meldet drei Punkte: der Dateiname
       `3DTD-linux-x64.AppImage` soll kein „linux“ tragen (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete

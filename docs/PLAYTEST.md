@@ -26,10 +26,10 @@ warten. Offene Arbeit, Bugs und Entscheidungen stehen in [TODO.md](../TODO.md). 
 - Orte immer per URL mit F5 kalt laden (`http://localhost:4200/` plus die Parameter unten), keine Tower, keine Welle,
   wenn nicht anders gesagt.
 
-## W Simulation im Worker (Branch `simu-worker`, 2026-09-30)
+## W Simulation im Worker (seit 2026-09-30 auf `next`)
 
 Die Simulation läuft in einem Web Worker ([SIM_WORKER.md](SIM_WORKER.md)). Geprüft per Spec, E2E und Bot-Lauf; offen
-ist, wie es sich spielt. Dev-Server auf dem Branch, `http://localhost:4200/`, Konsole offen. Jede `Uncaught`- oder
+ist, wie es sich spielt. Dev-Server auf `next`, `http://localhost:4200/`, Konsole offen. Jede `Uncaught`- oder
 `[Sim]`-Fehlerzeile melden.
 
 Paket W1, allein auf einer echten Karte:

@@ -1,10 +1,11 @@
-# Simulation im Worker (Umbau, Branch `simu-worker`)
+# Simulation im Worker
 
-Stand 2026-09-29 spät: Die Simulation läuft im Worker, alle Phasen sind umgesetzt, zwei Reviews (11 und 17 Befunde) sind
-behoben. Specs, Lint und Build sind grün, die E2E-Suite läuft auf dem Worker-Stand, auch auf echten Tiles. Gemessen
-bis 25 000 Gegner (siehe Kennzahlen und Mehr Gegner). Offene Prüfungen (Handtest, Bot-Lauf, Desktop-App, Header der
-Webseite) stehen in TODO E71, die nächsten Hebel in E72, der Benchmark im Spiel in E74. Die Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton,
-UI, Eingabe, Tiles und die GPU-Sichtlinien. Grundlage: [WORKER_PLAN.md](WORKER_PLAN.md) (Stufe 1: echte Simulation im
+Stand 2026-10-01: Die Simulation läuft im Worker, seit 2026-09-30 auf `next` (vorher Branch `simu-worker`), mit dem
+Loop auf eigener Uhr ([SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md), TODO E85) und 30 Sub-Steps je Sekunde samt
+Gleiten zwischen zwei Ständen (E86). Drei Reviews sind behoben, das letzte nach dem Merge im Nachtlauf 2026-10-01
+(Regressionen gegenüber `main`). Gemessen bis 25 000 Gegner (siehe Kennzahlen und Mehr Gegner). Offene Prüfungen
+(Handtest, Coop über zwei Rechner, Webseite) stehen in TODO E71, die Hebel in E72, der Benchmark im Spiel in E74. Die
+Simulation läuft in einem Web Worker, der Hauptthread hält nur Bild, Ton, UI, Eingabe, Tiles und die GPU-Sichtlinien. Grundlage: [WORKER_PLAN.md](WORKER_PLAN.md) (Stufe 1: echte Simulation im
 Worker bitgleich).
 
 ## Überblick
@@ -158,10 +159,12 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
 - **Coop:** Die Relay-Verbindung bleibt im Hauptthread; der Worker bekommt einen `LockstepLink`, der die gelieferten
   Ticks mit einer Eingabe erhält, sobald sie ankommen (nicht erst mit dem nächsten Bild), und Befehle, Hashes, Glätte
   zurückschickt. An der Barriere schläft der Loop bis zur nächsten Nachricht.
-- **Replay:** läuft im Worker (RPC `replayEnter/Step/Seek/Exit`), Bilder kommen als normale Pakete.
+- **Replay:** läuft im Worker (RPC `replayEnter/Seek/Exit`, abgespielt über die Eingabe), Bilder kommen als normale Pakete.
 - **Entwicklerwerkzeuge**, die heute Sim-Objekte ändern (Gegner anhalten, Tempo, Bewegung aus), werden `debug:*`-Befehle.
 
 ## Aufteilung
+
+So war der Umbau am 2026-09-29 aufgeteilt (historisch).
 
 | Bereich | Wer | Dateien |
 |---|---|---|
@@ -171,6 +174,8 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
 | `SimClient`, Transporte, Event-Import, LOS-Dienst, Welt-Übergabe, Game-Loop, Coop, Replay, Integration | Lead | `sim/client/sim-client*.ts`, `sim/client/transport/**`, `services/tower-los-registry.ts`, LOS-Teil von `tower-placement`, `services/facade/*` (Verdrahtung), `services/coop.service.ts`, `services/replay.service.ts` |
 
 ## Phasen
+
+Historisch, alle erledigt.
 
 1. Verträge (erledigt), dann parallel: `sim`, `pres`, `mirror`, Lead (Client, Transporte, LOS, Welt).
 2. Zusammenführen, grün machen: Build, Specs, Spiel im Browser (E2E), Einzelspieler.

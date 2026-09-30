@@ -1,7 +1,8 @@
 # Plan: Simulation läuft frei, die Darstellung liest nur
 
-Stand 2026-09-30, Branch `perf/decouple` (von `simu-worker`). Schritte 1 bis 6 gebaut; Schritt 7 (Interpolation) nur
-bei Bedarf. Offene Arbeit steht in [TODO.md](../TODO.md) (E85); Architektur in [SIM_WORKER.md](SIM_WORKER.md).
+Stand 2026-10-01: gebaut und seit 2026-09-30 auf `next`: Schritte 1 bis 6 (E85, Branch `perf/decouple`), danach
+Interpolation und 30 Sub-Steps je Sekunde (E86, Branches `perf/interp` und `perf/rate30`). Die Branches sind
+aufgegangen; ihre Namen unten sind Geschichte. Offene Arbeit steht in [TODO.md](../TODO.md) (E85); Architektur in [SIM_WORKER.md](SIM_WORKER.md).
 
 ## Ziel
 
@@ -266,12 +267,10 @@ nimmt dem Worker das Warten auf das Bild und dem Hauptthread das Einräumen je T
 Worker selbst schneller. Vorschlag: die Entkopplung zuerst, weil sie in beiden Browsern wirkt und der Multi-Worker-Umbau
 dann gegen einen Worker ohne Leerlauf misst.
 
-## Offene Entscheidungen
+## Entscheidungen (getroffen)
 
-1. Reihenfolge gegenüber dem Multi-Worker-Umbau. Vorschlag: Entkopplung zuerst.
-2. Eigener Branch von `simu-worker` (Vorschlag: `perf/decouple`) oder direkt auf `simu-worker`. Vorschlag: eigener
-   Branch, Übernahme nach Messung.
-3. Budget je Durchgang (8 ms), Rückstandsgrenze (250 ms), Gegendruck-Grenze: Startwerte, per Messung festlegen.
-   Die Konstanten: `PASS_BUDGET_MS` (`sim/worker/sim-loop.ts`), `GameClock.MAX_BACKLOG_MS`, und in
-   `sim/core/sim-core.ts` `MAX_AHEAD_MS` (Gegendruck), `MAX_PUBLISH_GAP_MS` (Paket ohne Abruf) und
-   `MIN_PUBLISH_GAP_BEHIND_MS` (Paketabstand bei Rückstand).
+1. Entkopplung vor dem Multi-Worker-Umbau; mehrere Worker sind seither verworfen (TODO, „Verworfen“).
+2. Eigener Branch, übernommen nach Messung.
+3. Die Startwerte sind geblieben: `PASS_BUDGET_MS` 8 ms (`sim/worker/sim-loop.ts`), `GameClock.MAX_BACKLOG_MS`
+   250 ms, in `sim/core/sim-core.ts` `MAX_AHEAD_MS` 250 ms (Gegendruck), `MAX_PUBLISH_GAP_MS` 100 ms (Paket ohne
+   Abruf) und `MIN_PUBLISH_GAP_MS` 33 ms (rund 30 Stände je Sekunde, E86).

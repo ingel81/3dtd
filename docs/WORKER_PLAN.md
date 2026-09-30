@@ -1,6 +1,6 @@
 # Simulation in einem Worker (Konzept, TODO E57)
 
-Stand 2026-09-29: gebaut (Branch `simu-worker`), Aufbau und Entscheidungen in [SIM_WORKER.md](SIM_WORKER.md). Dieses
+Stand 2026-09-29: gebaut (Branch `simu-worker`, seit 2026-09-30 auf `next`), Aufbau und Entscheidungen in [SIM_WORKER.md](SIM_WORKER.md). Dieses
 Dokument bleibt das Konzept mit Demo und Stufe 1. Die Zahlen unter „Demo“ stammen aus einem
 Stellvertreter der Simulation (`tools/worker-demo`, `e2e/perf/worker-demo.ts`), die unter „Stufe 1“ aus der echten
 Simulation ohne Bild (`tools/worker-sim`, `e2e/perf/worker-sim.ts`).
