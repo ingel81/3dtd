@@ -88,6 +88,11 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   (`e2e/perf/cdp-profile.ts`), die Funktionen mit der meisten eigenen Zeit ausgegeben. Lesbare Namen braucht einen
   Build ohne Namenskürzung: `NG_BUILD_MANGLE=0 npm run build`.
 - Der Vergleich mit `next` braucht dort denselben Handle `__load` als lokalen Patch nur für die Messung.
+- Auf Prozessoren mit ungleichen Kernen (eine Hälfte mit großem Cache, oder Leistungs- und Effizienzkerne) den Lauf an
+  eine Kernhälfte binden, unter Windows `start /affinity <Maske> /wait /b node e2e/perf/sim-load.ts …` (die Browser
+  erben die Zuordnung): Die Simulation hängt am Speicher, zwischen zwei Hälften lag auf dem Messrechner das
+  1,5-fache an Tempo und Einräumzeit, und ohne Bindung verteilt das Betriebssystem die Threads von Lauf zu Lauf anders.
+- Der Lauf startet die Browser so, dass ein Fenster ohne Fokus oder hinter einem anderen nicht gedrosselt wird.
 - `e2e/perf/replay-seek.ts`: spielt eine Welle aus Tausenden Gegnern, öffnet ihr Replay und misst Sprünge an 90, 50, 80
   und 30 % (TODO E80).
 
