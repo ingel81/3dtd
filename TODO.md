@@ -323,6 +323,16 @@ Ideen (2026-09-27), nichts entschieden:
       **Gemessen 2026-09-30** (Wegwerf-Build von `88658b44` mit 33,333 ms, eine Runde, Tempo 4, nur Rechenzeit): Firefox
       25 000 Gegner Tempo 3,23 statt 2,00, 16 000 Gegner Worker-Last 0,68 statt 0,94; Chromium Worker-Last 0,63 statt 0,85
       (25 000) und 0,49 statt 0,59 (16 000); FPS unverändert. Weniger als die Hälfte, weil ein Teil je Paket anfällt.
+      **Gebaut 2026-09-30** (Branches `perf/interp` `ca8b6f1b` und darauf `perf/rate30` `8f18da91`, beide auf
+      `perf/decouple`): Gegner und Lebensbalken gleiten im Shader zwischen zwei Ständen, Geschosse, Spuren und Helden
+      auf der CPU, der Worker veröffentlicht höchstens alle 33 ms (ein laufender Gegner steht in 0 bis 4 % der Bilder
+      statt in 53 bis 78 %). Die Rate ist eine Konstante (`SIM_STEPS_PER_SECOND`, jetzt 30), alles andere leitet sich
+      ab; die Suite ist bei 30 und bei 60 grün. Dabei: Abklingzeiten tragen ihren Rest (Tower schießen genau mit ihrer
+      Rate, gerechnet 4 % mehr bei 5 Schüssen je Sekunde, 8 % bei 10), der Überschuss an Wegpunkten läuft als Strecke
+      weiter, Coop-Protokoll, Replay-Datei und Snapshots haben Version 2. Kurzcheck bei 16 000 Gegnern und Tempo 4
+      gegen den Stand mit Interpolation: Worker-Last Firefox 0,52 statt 0,94, Chromium 0,31 statt 0,52, Tempo 4,0.
+      Offen: E2E und Coop-Lauf auf dem Endstand, die Drehung springt mit dem Stand, Auren und Flammen gleiten nicht
+      mit (ansehen), Balance neu einstellen, Übernahme (User).
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
       appimage.github.io (automatisch gefunden und aufgenommen, dessen Test bestanden). Der Test meldet drei Punkte: der Dateiname
       `3DTD-linux-x64.AppImage` soll kein „linux“ tragen (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete
