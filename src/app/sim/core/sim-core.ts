@@ -71,6 +71,15 @@ export const MAX_PUBLISH_GAP_MS = 100;
  */
 export const MIN_PUBLISH_GAP_BEHIND_MS = 33;
 
+/**
+ * Backpressure: the longest the simulation runs on without the main thread
+ * asking for a packet (ms of wall clock since its last demand). Past it the
+ * loop waits for the next demand: a main thread that stands (a hidden tab, a
+ * long hang) gets no pile of packets, and the game does not play on unseen.
+ * In a running game the demand comes every frame. Start value (TODO E85).
+ */
+export const MAX_AHEAD_MS = 250;
+
 export interface SimCoreOptions {
   /** Where the packet's tables live; the worker's store shares its memory with the main thread */
   store?: TableStore;
@@ -100,6 +109,10 @@ export class SimCore implements SimCoreApi {
   private heldMs = 0;
   /** Wall clock of the last packet (the loop's `now`) */
   private publishedAt = -Infinity;
+  /** Wall clock of the last demand taken (the main thread was there) */
+  private askedAt = -Infinity;
+  /** The loop waits for the main thread's next demand (MAX_AHEAD_MS) */
+  private waiting = false;
   private worldLoaded = false;
   private replay: SimReplay | null = null;
   /** A replay file read by loadReplayFile */
@@ -211,9 +224,19 @@ export class SimCore implements SimCoreApi {
     const stop = demand && spaced ? () => demand.demandPending() : undefined;
     const started = performance.now();
     const gsm = this.gsm;
+    // Backpressure: the main thread asked for nothing for too long, no sub-step until it does
+    const waits = demand !== undefined && now - this.askedAt > MAX_AHEAD_MS && !demand.demandPending();
+    if (!waits && this.waiting) {
+      // It goes on: the time it stood is not caught up
+      gsm.holdClock(now);
+      this.replayNow = now;
+    }
+    this.waiting = waits;
     let stepsRun = 0;
     const replay = this.replay;
-    if (replay) {
+    if (waits) {
+      // What ran before goes out below, then the loop sleeps until the demand
+    } else if (replay) {
       const delta = this.replayNow === null ? 16 : now - this.replayNow;
       this.replayNow = now;
       if (replay.isSeeking) {
@@ -235,8 +258,9 @@ export class SimCore implements SimCoreApi {
     const updateDone = performance.now();
     // On demand (docs/SIM_DECOUPLE_PLAN.md): the tables are written and the message goes once per frame of the
     // main thread, not per sub-step. The demand is taken even when something else publishes: one packet answers both
-    const dueIn = this.dueInMs();
+    const dueIn = waits ? Infinity : this.dueInMs();
     const asked = demand ? (spaced || dueIn > 0 || changed) && demand.takeDemand() : true;
+    if (asked) this.askedAt = now;
     if (!asked && !changed && dueIn !== Infinity && now - this.publishedAt < MAX_PUBLISH_GAP_MS) {
       this.heldSteps = stepsRun;
       this.heldMs += updateDone - started;
@@ -267,7 +291,8 @@ export class SimCore implements SimCoreApi {
   idleMs(): number {
     if (!this.worldLoaded) return Infinity;
     if (this.forcePresent || this.dirty) return 0;
-    return this.dueInMs();
+    // Waiting for the main thread: its demand comes as a message
+    return this.waiting ? Infinity : this.dueInMs();
   }
 
   /** Wall ms until the next sub-step is due: 0 when one is, Infinity while only a message brings one */

@@ -1,7 +1,7 @@
 # Plan: Simulation läuft frei, die Darstellung liest nur
 
-Stand 2026-09-30, Branch `perf/decouple` (von `simu-worker`). Schritte 1 bis 3 gebaut, 4 bis 6 offen. Offene Arbeit
-steht in [TODO.md](../TODO.md) (E85); Architektur in [SIM_WORKER.md](SIM_WORKER.md).
+Stand 2026-09-30, Branch `perf/decouple` (von `simu-worker`). Schritte 1 bis 6 gebaut; Schritt 7 (Interpolation) nur
+bei Bedarf. Offene Arbeit steht in [TODO.md](../TODO.md) (E85); Architektur in [SIM_WORKER.md](SIM_WORKER.md).
 
 ## Ziel
 
@@ -88,6 +88,13 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
 - **Gegendruck:** Liegt der Hauptthread mehr als eine Grenze hinter dem Strom (Startwert 250 ms Spielzeit oder
   64 Veröffentlichungen), wartet der Worker. Ohne das wüchse der Speicher bei einem hängenden Hauptthread
   unbegrenzt. Im normalen Spiel greift es nicht.
+- **Gebaut (Schritt 6), Abweichung:** Die Grenze misst Wanduhr seit dem letzten Abruf des Hauptthreads, nicht
+  Spielzeit oder Pakete: `MAX_AHEAD_MS` (250 ms, `sim-core.ts`). Kommt so lange kein Abruf, veröffentlicht der Worker
+  seinen letzten Stand und rechnet keinen Sub-Step mehr, bis der nächste Abruf kommt; dann geht es von dort weiter,
+  ohne die Standzeit nachzuholen (die Uhr wird gestellt wie nach einer Pause). 250 ms Spielzeit wären bei Tempo 4 nur
+  62 ms Wanduhr, das hätten schon zwei lange Bilder gerissen. Bis zur Grenze fallen höchstens drei Pakete an
+  (100-ms-Frist). Gemessen mit `e2e/perf/main-stall.ts` (Hauptthread 3 s blockiert, Tempo 4): der Worker lief 263 ms
+  (Chromium) und 250 ms (Firefox) weiter, danach Tempo 3,98 und 4,01, nichts nachgeholt.
 
 ### 4. Eingaben, Tempo, Pause, Aufrufe
 
@@ -138,6 +145,14 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
   zeichnet dann nicht, der Gegendruck hält den Strom kurz; beim Zurückkommen spielt der Hauptthread die Events ab (oder
   verwirft Show-Events älter als eine Grenze, Töne und VFX ohne Nutzen). Der Heartbeat-Worker wird dafür unnötig, sofern
   nichts anderes an ihm hängt; prüfen.
+- **Gebaut (Schritt 6):** Im versteckten Tab rechnet der Hauptthread keine Bilder und ruft nichts ab; der Gegendruck
+  hält die Simulation nach 250 ms an. Das Spiel steht also im versteckten Tab wie vor dem Umbau (Einzelspieler; im
+  Coop fällt der Client zurück und holt im Lockstep auf wie bisher). Beim Zurückkommen liegen höchstens drei Pakete
+  an; ein Verwerfen alter Show-Events ist deshalb nicht nötig.
+- **Heartbeat geprüft, bleibt:** Der Heartbeat-Worker (`workers/heartbeat.worker.ts`, nur DevWorld, für Bot-Läufe)
+  treibt im versteckten Tab die Bilder des Hauptthreads ohne Zeichnen. Daran hängen der Bot, die Wellenquelle und das
+  Run-Log, die auf dem Hauptthread laufen, und jetzt auch der Abruf: ohne ihn stünde ein Bot-Lauf im versteckten Tab
+  am Gegendruck. Seine 50-ms-Obergrenze je Schritt betrifft nur noch die Uhr der Darstellung.
 
 ## Was bleibt, was geht
 
@@ -160,7 +175,8 @@ Jeder Schritt mit grünen Specs, E2E (`npm run e2e`) und einem Messcheck (`e2e/p
    (`e2e/coop-bots/run.ts --falsify-at-wave --big-wave`). **Gebaut 2026-09-30.**
 5. **Aufrufe und Replay:** Loop anhalten und fortsetzen; Replay-Sprünge (`e2e/perf/replay-seek.ts`).
    **Gebaut 2026-09-30** als Bündel je Aufgabe statt Anhalten, siehe Abschnitt 4.
-6. **Gegendruck und Hintergrund-Tab**, dann die volle Messreihe und Doku (SIM_WORKER.md).
+6. **Gegendruck und Hintergrund-Tab**, dann die volle Messreihe und Doku (SIM_WORKER.md). **Gebaut 2026-09-30**; die
+   Messreihe steht aus.
 7. Nur bei Bedarf: Interpolation zwischen zwei Ständen.
 
 ## Später: Paket direkt aus der Tabelle
@@ -177,10 +193,10 @@ Tabelle, statt zu kopieren. Setzt beide Umbauten voraus; entscheiden nach den Me
 - Ruckeln durch seltene Veröffentlichung (Punkt 6), messbar über Veröffentlichungen je Sekunde.
 - Bot und Run-Log lesen den Spiegel je Bild; sie sehen weiter jeden Bild-Stand, aber nicht mehr jeden Tick. Das ist
   heute schon so (Bot entscheidet je Bild).
-- Offen nach Schritt 3: Ohne Gegendruck (Schritt 6) rechnet der Worker weiter, solange der Hauptthread keine Bilder
-  rechnet, und veröffentlicht dann alle 100 ms; die Liste der Pakete wächst so lange. Der Stand eines Bilds ist so alt
-  wie die Zeit zwischen Abruf (Anfang des vorigen Bilds) und Anwenden; ob das bei langen Bildern stört, zeigt die
-  Messung.
+- Der Stand eines Bilds ist so alt wie die Zeit zwischen Abruf (Anfang des vorigen Bilds) und Anwenden; ob das bei
+  langen Bildern stört, zeigt der Handtest.
+- Ein Hauptthread, der länger als 250 ms hängt (Tiles laden, GC), hält jetzt auch die Simulation an, ab da so lange
+  wie der Hänger. Vor dem Umbau kostete jedes Bild über 50 ms Spielzeit.
 - Specs, die einen Tick je `frame()` annehmen, müssen auf den Loop umgestellt werden.
 
 ## Zum Multi-Worker-Umbau
@@ -196,3 +212,6 @@ dann gegen einen Worker ohne Leerlauf misst.
 2. Eigener Branch von `simu-worker` (Vorschlag: `perf/decouple`) oder direkt auf `simu-worker`. Vorschlag: eigener
    Branch, Übernahme nach Messung.
 3. Budget je Durchgang (8 ms), Rückstandsgrenze (250 ms), Gegendruck-Grenze: Startwerte, per Messung festlegen.
+   Die Konstanten: `PASS_BUDGET_MS` (`sim/worker/sim-loop.ts`), `GameClock.MAX_BACKLOG_MS`, und in
+   `sim/core/sim-core.ts` `MAX_AHEAD_MS` (Gegendruck), `MAX_PUBLISH_GAP_MS` (Paket ohne Abruf) und
+   `MIN_PUBLISH_GAP_BEHIND_MS` (Paketabstand bei Rückstand).

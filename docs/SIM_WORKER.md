@@ -102,7 +102,14 @@ LOS (GPU)    <-- tower:los-needed    --> command:los-mask --> SimCore
 
 - Befehle gehen mit der Eingabe des Bilds (`SimClient.flushInput`) und wirken im Worker sofort, zwischen zwei
   Durchgängen, also an einer Grenze zwischen zwei Sub-Steps. Vor jedem Aufruf (`rpc`) geht die Eingabe voraus.
-- Ein Gegendruck (der Worker wartet, wenn der Hauptthread weit zurückliegt) kommt mit Schritt 6 des Plans.
+- Pakete auf Abruf: Der Hauptthread ruft am Anfang jedes Bilds das nächste Paket ab, wenn das letzte gekommen ist
+  (Feld im Kontrollwort und eine kleine Nachricht, die einen schlafenden Loop weckt). Der Worker schreibt die Tabellen
+  nur dann; ohne Abruf nur nach einer Eingabe, einem Aufruf, vor unbefristetem Schlaf oder nach 100 ms. Hängt er
+  hinterher, antwortet er frühestens 33 ms nach dem letzten Paket.
+- Gegendruck: Ruft der Hauptthread 250 ms lang nichts ab (versteckter Tab, langer Hänger), rechnet der Worker nicht
+  weiter, bis der nächste Abruf kommt, und holt die Standzeit nicht nach. Das Spiel steht im versteckten Tab.
+- Was der Hauptthread in einer Aufgabe schickt, geht als eine Nachricht und wirkt an derselben Grenze (etwa `reset`,
+  Spieler und Lockstep beim Coop-Start).
 
 ## Verträge
 
@@ -138,7 +145,8 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
   kann dazwischen schon mehr geschehen sein. Bewusst so gelassen.
 - **Auswahl eines Towers** ist UI-Zustand des Hauptthreads, nicht mehr der Simulation.
 - **Coop:** Die Relay-Verbindung bleibt im Hauptthread; der Worker bekommt einen `LockstepLink`, der die gelieferten
-  Ticks mit der Eingabe erhält und Befehle, Hashes, Glätte zurückschickt.
+  Ticks mit einer Eingabe erhält, sobald sie ankommen (nicht erst mit dem nächsten Bild), und Befehle, Hashes, Glätte
+  zurückschickt. An der Barriere schläft der Loop bis zur nächsten Nachricht.
 - **Replay:** läuft im Worker (RPC `replayEnter/Step/Seek/Exit`), Bilder kommen als normale Pakete.
 - **Entwicklerwerkzeuge**, die heute Sim-Objekte ändern (Gegner anhalten, Tempo, Bewegung aus), werden `debug:*`-Befehle.
 

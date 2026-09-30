@@ -15,7 +15,7 @@ vi.mock('@angular/core', async () => {
   return { ...actual, Injectable: () => (target: unknown) => target };
 });
 
-import { MAX_PUBLISH_GAP_MS, MIN_PUBLISH_GAP_BEHIND_MS, SimCore } from './sim-core';
+import { MAX_AHEAD_MS, MAX_PUBLISH_GAP_MS, MIN_PUBLISH_GAP_BEHIND_MS, SimCore } from './sim-core';
 import { OriginSync } from './sim-coords';
 import { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
 import { buildRoute } from '../../integration/sim-step-bench';
@@ -498,12 +498,53 @@ describe('SimCore in the same thread', () => {
       expect(core.idleMs()).toBe(Infinity);
       core.gsm.paused.set(false);
 
-      // A main thread that stands still: a packet every MAX_PUBLISH_GAP_MS
+      // A main thread that does not ask: a packet every MAX_PUBLISH_GAP_MS
+      const free = running();
+      let asks = true;
+      const demand = { demandPending: () => false, takeDemand: () => asks };
+      expect(free.pass(1017, Infinity, demand)).not.toBeNull();
+      asks = false;
       let packets = 0;
-      for (let now = 1057; now < 1040 + 3 * MAX_PUBLISH_GAP_MS + 17; now += 17) {
-        if (core.pass(now, Infinity, never)) packets++;
+      for (let now = 1034; now < 1017 + 2 * MAX_PUBLISH_GAP_MS + 17; now += 17) {
+        if (free.pass(now, Infinity, demand)) packets++;
       }
-      expect(packets).toBe(3);
+      expect(packets).toBe(2);
+    });
+
+    it('waits for the main thread after MAX_AHEAD_MS without a demand, and goes on without catching up', () => {
+      const core = running();
+      let pending = false;
+      const demand = { demandPending: () => pending, takeDemand: () => pending && !(pending = false) };
+      pending = true;
+      expect(core.pass(1017, Infinity, demand)).not.toBeNull();
+
+      // The main thread stands: the simulation runs on for MAX_AHEAD_MS, then its last state goes out and it sleeps
+      let now = 1017;
+      let last: SimFramePacket | null = null;
+      while (now < 1017 + MAX_AHEAD_MS + 100) {
+        now += 17;
+        last = core.pass(now, Infinity, demand) ?? last;
+      }
+      const stood = core.gsm.subStep;
+      expect(stood).toBeGreaterThan(MAX_AHEAD_MS / 17 - 2);
+      expect(stood).toBeLessThan(MAX_AHEAD_MS / 17 + 3);
+      expect(last!.scalars.subStep).toBe(stood);
+      expect(core.idleMs()).toBe(Infinity);
+      expect(core.pass(now + 5000, Infinity, demand)).toBeNull();
+      expect(core.gsm.subStep).toBe(stood);
+
+      // A call is still answered with a packet, without a sub-step
+      core.rpc('stateHash');
+      expect(core.pass(now + 6000, Infinity, demand)!.stepsRun).toBe(0);
+      expect(core.idleMs()).toBe(Infinity);
+
+      // The demand comes a minute later: on from here, nothing caught up
+      pending = true;
+      now += 60_000;
+      core.pass(now, Infinity, demand);
+      expect(core.gsm.subStep).toBe(stood);
+      expect(core.idleMs()).toBeLessThan(STEP);
+      expect(core.pass(now + 17, Infinity, demand)!.stepsRun).toBe(1);
     });
 
     it('keeps at most MAX_BACKLOG_MS of wall clock times the speed: a loop that stood does not run minutes at once', () => {

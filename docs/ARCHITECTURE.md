@@ -1346,7 +1346,8 @@ Renderer. Oberhalb von 60 fps kommt deshalb nicht in jedem Frame ein Paket.
 **Hintergrund-Tab (nur Training):** Mit `setBackgroundLoopEnabled(true)` ruft bei
 verstecktem Tab ein Worker-Takt (`workers/heartbeat.worker.ts`, 16 ms) `update()` ohne
 `render()` auf, mit höchstens 50 ms pro Tick (`MAX_BACKGROUND_STEP_MS`). Solange der Worker
-läuft, steppt der rAF-Loop die Simulation nicht.
+läuft, ruft der rAF-Loop `update()` nicht. Ohne diesen Takt rechnet der Hauptthread im versteckten Tab keine
+Bilder und ruft keine Pakete ab; die Simulation wartet dann nach 250 ms (`MAX_AHEAD_MS`), das Spiel steht.
 
 **Frame-Cap (60 / 30 / unbegrenzt):** Spieler-Einstellung im Display-Menü der
 Quick-Actions, persistiert von `DebugFacadeService` als `fpsLimit` in

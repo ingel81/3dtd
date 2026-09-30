@@ -95,6 +95,8 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
 - Der Lauf startet die Browser so, dass ein Fenster ohne Fokus oder hinter einem anderen nicht gedrosselt wird.
 - `e2e/perf/replay-seek.ts`: spielt eine Welle aus Tausenden Gegnern, öffnet ihr Replay und misst Sprünge an 90, 50, 80
   und 30 % (TODO E80).
+- `e2e/perf/main-stall.ts`: blockiert den Hauptthread einige Sekunden und misst, wie lange die Simulation weiterlief
+  und ob sie danach nachholt (Gegendruck, TODO E85).
 
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 

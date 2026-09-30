@@ -906,6 +906,15 @@ export class GameStateManager {
     return gameOver;
   }
 
+  /**
+   * The loop stood (it waited for the main thread) and goes on at
+   * `currentTime`: the wall clock is taken without a sub-step, as in a pause,
+   * so the time it stood is not caught up.
+   */
+  holdClock(currentTime: number): void {
+    this.clock.holdFrame(currentTime);
+  }
+
   /** Coop: the last update() stopped at the lockstep barrier, the relay's next tick is not closed yet */
   private barrierClosed = false;
 
