@@ -215,6 +215,10 @@ Ideen (2026-09-27), nichts entschieden:
       8000/16 000/25 000 Gegner, je zwei Runden): weder in der Gesamtansicht noch im Bestfall (herangezoomt, alle Gegner
       außerhalb des Bildes) ein Unterschied über die Streuung von rund ±10 FPS. Den Sichttest am Bildrand braucht es
       damit nicht.
+      **Schwelle früher Ticks nachgemessen 2026-09-30** (Firefox, Tempo 4, je drei Läufe, `?earlyTick=`): bei 16 000
+      Gegnern ohne frühe Ticks 108,6 FPS und Tempo 2,97, mit 50 ms 107,8/3,39, mit 35 ms 104,7/3,76, mit 20 ms
+      103,4/3,88; bei 20 000 ähnlich (88,9/2,07 bis 87,4/2,86). Frühe Ticks kosten 2 bis 4 FPS für 0,7 bis 0,8 mehr
+      Tempo; 20 gegen 35 ms liegt im Rauschen. 35 ms bleibt.
       **Mehrere Worker im Spiel:** Plan in `docs/MULTI_WORKER_PLAN.md` (Branch `perf/multi-worker`); entschieden (User,
       2026-09-30): bauen wie dort empfohlen, auf dem eigenen Branch, danach messen.
 - [ ] **E76 Vorschau der Seitenleiste nachbessern** (Playtest 2026-09-30, nach E73): die gebackene Drehung wirkt minimal
