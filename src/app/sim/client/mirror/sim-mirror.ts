@@ -1,11 +1,9 @@
 import { Injectable } from '@angular/core';
 import {
-  E_ANIM_SPEED, E_DIST, E_EFF_SPEED, E_FLAGS, E_HOFF, E_HP, E_ID, E_LAT, E_LON, E_MAXHP, E_PROGRESS, E_ROT,
-  E_ROUTE, E_TERRAIN, E_TYPE, EF_ACTIVE, EF_ALIVE, EF_MOVING, EF_BODY, ENEMY_STRIDE, ENEMY_TYPE_IDS,
-  T_AIM, T_COOLDOWN, T_DAMAGE, T_FLAGS, T_ID, T_KILLS, T_PITCH, TF_HOLD_FIRE, TF_LOS_READY, TF_MANNED,
-  TF_ON_TARGET, TF_SLEEPING, TF_TRIGGER, TOWER_STRIDE,
-  W_GROUP, W_HEAD, W_HP, W_MAXHP, W_REMAINING, W_SEQ, W_SIZE, WORM_STRIDE,
-  type HeroFrame, type SimFramePacket, type SimScalars, type TowerStateDto,
+  E_ID, E_ROUTE, E_TYPE, ENEMY_STRIDE, ENEMY_TYPE_IDS, T_AIM, T_COOLDOWN, T_DAMAGE, T_FLAGS, T_ID, T_KILLS, T_PITCH,
+  TF_HOLD_FIRE, TF_LOS_READY, TF_MANNED, TF_ON_TARGET, TF_SLEEPING, TF_TRIGGER, TOWER_STRIDE, W_GROUP, W_HEAD, W_HP,
+  W_MAXHP, W_REMAINING, W_SEQ, W_SIZE, WORM_STRIDE, type HeroFrame, type SimFramePacket, type SimScalars,
+  type TowerStateDto,
 } from '../../protocol/packet';
 import {
   isEnemyRef, isProjectileRef, isTowerRef, isWormGroupRef,
@@ -111,6 +109,14 @@ export class SimMirror implements SimMirrorApi {
   private frameStamp = 0;
   /** Views an event reference set to the numbers of its moment, given back their row in afterFrame */
   private readonly touched: EnemyView[] = [];
+  /**
+   * The mirror's copies of the enemy table the views read (EnemyView), used
+   * in turn: the packet's own table is the worker's memory, which it writes
+   * again while this thread still holds the views of the packet before. A
+   * view that leaves gets a row of its own from the copy it read.
+   */
+  private readonly enemyCopies: Float64Array[] = [new Float64Array(0), new Float64Array(0)];
+  private enemyCopy = 0;
 
   private readonly wormMap = new Map<number, WormGroupView>();
   private readonly projectileMap = new Map<number, ProjectileView>();
@@ -174,14 +180,19 @@ export class SimMirror implements SimMirrorApi {
     return out as ViewEvent;
   }
 
-  afterFrame(packet: SimFramePacket): void {
+  afterFrame(_packet: SimFramePacket): void {
     this.eventTime = null;
     // The events are handed on: whoever reads a view now (frame listeners,
     // the UI) reads the end of the packet, as the table has it
     const touched = this.touched;
     if (touched.length > 0) {
-      const data = packet.enemies.data;
-      for (const view of touched) if (view.row >= 0) this.applyEnemyRow(view, data, view.row * ENEMY_STRIDE);
+      const data = this.enemyCopies[this.enemyCopy];
+      for (const view of touched) {
+        if (view.row < 0) continue;
+        const o = view.row * ENEMY_STRIDE;
+        view.pointAt(data, o);
+        if (view.route !== data[o + E_ROUTE]) this.setRoute(view, data[o + E_ROUTE]);
+      }
       touched.length = 0;
       this.aliveList = null;
     }
@@ -200,6 +211,7 @@ export class SimMirror implements SimMirrorApi {
     this.onTarget.clear();
     // Whoever still holds a view (the boss bar) sees it gone, as a row that went
     for (const view of this.enemyMap.values()) {
+      view.settle();
       view.alive = false;
       view.active = false;
     }
@@ -359,7 +371,12 @@ export class SimMirror implements SimMirrorApi {
   }
 
   private applyEnemyTable(packet: SimFramePacket): void {
-    const { data, count } = packet.enemies;
+    const { count } = packet.enemies;
+    const length = count * ENEMY_STRIDE;
+    this.enemyCopy = 1 - this.enemyCopy;
+    let data = this.enemyCopies[this.enemyCopy];
+    if (data.length < length) data = this.enemyCopies[this.enemyCopy] = new Float64Array(Math.max(length, data.length * 2));
+    data.set(packet.enemies.data.subarray(0, length));
     const stamp = this.frameStamp;
     let changed = false;
     for (let i = 0; i < count; i++) {
@@ -374,10 +391,14 @@ export class SimMirror implements SimMirrorApi {
       }
       view.stamp = stamp;
       view.row = i;
-      this.applyEnemyRow(view, data, o);
+      view.pointAt(data, o);
+      const route = data[o + E_ROUTE];
+      if (view.route !== route) this.setRoute(view, route);
     }
     for (const [num, view] of this.enemyMap) {
       if (view.stamp === stamp) continue;
+      // Its numbers from the copy of the packet before, which the next packet writes over
+      view.settle();
       view.row = -1;
       view.alive = false;
       view.active = false;
@@ -387,30 +408,6 @@ export class SimMirror implements SimMirrorApi {
     }
     if (changed) this.enemyList = [...this.enemyMap.values()];
     this.aliveList = null;
-  }
-
-  /** The numbers of `view`'s row at `o` in the enemy table */
-  private applyEnemyRow(view: EnemyView, data: SimFramePacket['enemies']['data'], o: number): void {
-    const flags = data[o + E_FLAGS];
-    view.flags = flags;
-    view.alive = (flags & EF_ALIVE) !== 0;
-    view.active = (flags & EF_ACTIVE) !== 0;
-    view.hasBody = (flags & EF_BODY) !== 0;
-    view.position.lat = data[o + E_LAT];
-    view.position.lon = data[o + E_LON];
-    view.transform.terrainHeight = data[o + E_TERRAIN];
-    view.heightOffset = data[o + E_HOFF];
-    view.position.height = view.transform.terrainHeight + view.heightOffset;
-    view.transform.rotation = data[o + E_ROT];
-    view.health.hp = data[o + E_HP];
-    view.health.maxHp = data[o + E_MAXHP];
-    view.animSpeed = data[o + E_ANIM_SPEED];
-    view.movement.progress = data[o + E_PROGRESS];
-    view.movement.distanceAlongPath = data[o + E_DIST];
-    view.movement.effectiveSpeed = data[o + E_EFF_SPEED];
-    view.movement.paused = (flags & EF_MOVING) === 0;
-    const route = data[o + E_ROUTE];
-    if (view.route !== route) this.setRoute(view, route);
   }
 
   private createEnemy(num: number, type: EnemyTypeConfig): EnemyView {
@@ -497,7 +494,6 @@ export class SimMirror implements SimMirrorApi {
     view.position.lon = ref.lon;
     view.transform.terrainHeight = ref.th;
     view.heightOffset = ref.ho;
-    view.position.height = ref.th + ref.ho;
     view.health.hp = ref.hp;
     view.alive = ref.alive && view.active;
     if (ref.pr !== undefined) view.movement.progress = ref.pr;
