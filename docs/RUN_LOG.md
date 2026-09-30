@@ -89,8 +89,13 @@ Das kostenlose Max-Upgrade aus dem Dev-Menü steht nicht drin, genau wie es nich
 Gegner leben über die Naht hinweg. Ein Block hält deshalb beides fest: `enemiesAtStart`, was zu Blockbeginn noch
 stand, und `enemiesAlive`, was am Ende übrig ist. Was die letzte Welle übrig ließ, stirbt in dieser.
 
-Gezählt wird über `EnemyManager.getAliveCount()`, nicht über die Länge der Gegnerliste: Ein Gegner in seiner
-Sterbeanimation steht noch in der Liste, obwohl er längst als Kill gebucht ist, und die Welle zählte ihn doppelt.
+Gezählt werden die lebenden Gegner der Simulation (`enemiesAlive` im Spiegel), nicht die Länge der Gegnerliste: Ein
+Gegner in seiner Sterbeanimation steht noch in der Liste, obwohl er längst als Kill gebucht ist, und die Welle zählte
+ihn doppelt.
+
+Ein Lauf öffnet mit dem ersten Paket der Simulation nach einem Reset, nicht beim Reset selbst: Bei einem neuen Ort
+leert der Hauptthread den Spiegel sofort, das erste Paket der neuen Welt kommt Sekunden später. Ein sofort geöffneter
+Lauf hatte Seed 0 im Kopf und begann Welle 1 bei 0 Credits (behoben 2026-10-01).
 
 Ist der Lauf geschlossen, bleibt er lesbar, bis der nächste öffnet. Das Game Over erreicht zwei Zuhörer: Das Log
 schließt den Lauf, die Bot-Session schickt den Rest an den Server. Wer zweiter war, fand früher einen leeren

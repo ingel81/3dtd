@@ -145,14 +145,28 @@ export class RunLogFacade {
       }
     }));
     // The reset comes on restart, location change and DevWorld rebuild; the
-    // run that was open ends there and the next one opens right after.
+    // run that was open ends there and the next one opens with the new run's
+    // first packet. On a new place SimClient.newRun hands game:reset on with
+    // the mirror cleared (seed 0, no credits, no HQ), seconds before the new
+    // world's first packet: a run opened at once had seed 0 in its head and
+    // started wave 1 at 0 credits, and the packet's reset of the credits
+    // booked as income. The same holds for the first run, opened before any
+    // packet came.
     this.subs.add(bus.onLive('game:reset', () => {
       this.close('restart');
+      this.openPending = true;
+    }));
+    this.subs.add(this.sim.onFrame(() => {
+      if (!this.openPending) return;
+      this.openPending = false;
       this.open();
     }));
 
-    this.open();
+    this.openPending = true;
   }
+
+  /** A run opens with the next packet applied (see initialize) */
+  private openPending = false;
 
   /** Per frame, from the game loop: writes the one-second samples. */
   tick(): void {
