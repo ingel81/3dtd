@@ -309,6 +309,13 @@ Ideen (2026-09-27), nichts entschieden:
       schießen ohne Wirkung. Replay-, Resync-, Snapshot- und Lockstep-Specs prüfen damit Slow, Freeze, Stun, Gift und
       Brand nie. Den echten Dienst in die Testwelt nehmen (oder gezielt Effekte setzen) und die betroffenen Specs
       danach ansehen.
+      **Nachgesehen und gebaut 2026-10-01:** Der Dienst ist in der Testwelt echt. Die Lücke war eine andere: Die Wellen
+      der Specs haben 2 HP je Gegner und sterben an den ersten beiden Towern, Eis, Feuer und Gift treffen nie. Neue
+      Fälle mit zähen Gegnern (3000 HP, Tempo 4): Snapshot mitten in der Welle mit Slow, Brand und Gift
+      (`wave-snapshot.scenario.spec.ts`) und Neu-Simulation (`resimulation.scenario.spec.ts`). Dabei gefunden: Die
+      Neu-Simulation wich ab, weil die Testwelt ihren Towern die Zellen in anderer Reihenfolge gab als das Spiel (bei
+      zwei Gegnern mit gleichen HP zielte „highest-hp“ nach einem Restore auf den anderen). Im Spiel kommen die Zellen
+      immer aus der Maske; die Testwelt tut das jetzt auch (`markAllVisible`).
 - [ ] **E88 Wave-Debug-Panel in zwei Tabs** (Playtest 2026-09-30): erster Tab (Name etwa „Run plan“ oder
       „Campaign“) mit Wellenquelle, „Why this wave“ und „Jump to wave“; zweiter Tab „Custom Wave“ mit dem Rest
       (eigene Welle zusammenstellen usw.).

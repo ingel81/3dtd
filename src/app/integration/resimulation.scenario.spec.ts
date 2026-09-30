@@ -94,7 +94,7 @@ function waveConfig(): WaveConfig {
  * vary), commands between frames at fixed frame counts. Returns the state
  * hash right after the wave's last step.
  */
-function playLive(world: World): number {
+function playLive(world: World, config: WaveConfig = waveConfig(), onFrame?: () => void): number {
   const { gsm, towers } = world;
   const bus = gsm.getEventBus();
   let now = 1000;
@@ -111,11 +111,12 @@ function playLive(world: World): number {
   gsm.gameSpeed.set(3);
   bus.emit({ type: 'debug:ready-hero' });
   bus.emit({ type: 'debug:ready-ability', abilityId: 'frost-bomb' });
-  bus.emit({ type: 'command:start-wave', config: waveConfig() } as never);
+  bus.emit({ type: 'command:start-wave', config } as never);
 
-  for (let f = 0; f < 6000 && gsm.waveManager.phase() === 'wave'; f++) {
+  for (let f = 0; f < 12_000 && gsm.waveManager.phase() === 'wave'; f++) {
     // Frames of 10 to 40 ms: 1 to 7 sub-steps at 3x
     frame(10 + ((f * 7) % 31));
+    onFrame?.();
     if (f === 20) bus.emit({ type: 'debug:add-credits', amount: 5000 });
     if (f === 25) bus.emit({ type: 'command:upgrade-tower', towerId: towers[0].id, upgradeId: 'damage' });
     if (f === 30) bus.emit({ type: 'command:set-targeting', towerId: towers[1].id, strategy: 'highest-hp' });
@@ -159,6 +160,27 @@ describe('Re-simulation of a wave (SIMULATOR_PLAN P5)', () => {
     expect(resim.divergedAt).toBeNull();
     expect(resim.checkedHashes).toBe(record.hashes.length);
     expect(gsm.subStep).toBe(record.endStep);
+    expect(gsm.stateHash()).toBe(liveEnd);
+    resim.end();
+  });
+
+  it('re-simulates bit for bit with slow, burn and poison on the enemies (TODO E87)', () => {
+    world = buildWorld();
+    const { gsm } = world;
+    // With 2 HP the enemies die at the first two towers; these walk on past the ice, fire and poison ones
+    const types = ['zombie', 'tank', 'rat'] as const;
+    const entries: SpawnEntry[] = Array.from({ length: 30 }, (_, i) => ({ enemyType: types[i % 3], speed: 4, health: 3000 }));
+    const effects = new Set<string>();
+    const liveEnd = playLive(world, { schedule: { entries, baseDelay: 300, delayVariation: 0.3, spawnMode: 'random' } }, () => {
+      for (const enemy of gsm.enemyManager.getAll()) for (const effect of enemy.movement.statusEffects) effects.add(effect.type);
+    });
+    expect([...effects]).toEqual(expect.arrayContaining(['slow', 'burn', 'poison']));
+
+    const record = gsm.simRecorder.get(1)!;
+    const resim = new Resimulation(gsm.resimHost, record, gsm.commandLog.entries);
+    resim.start();
+    while (resim.step()) { /* to the end */ }
+    expect(resim.divergedAt).toBeNull();
     expect(gsm.stateHash()).toBe(liveEnd);
     resim.end();
   });

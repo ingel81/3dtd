@@ -140,8 +140,11 @@ export function markAllVisible(grid: GlobalRouteGridService, tower: Tower, sync:
     if (ground) cell.towerVisibility.set(tower.id, true);
     if (air) cell.airVisibility.set(tower.id, true);
   }
-  tower.visibleCells = cells;
   tower.losMask = grid.encodeLosMask(tower.id, x, z, tower.combat.range, ground, air);
+  // The cells in the order the game has them: from the mask (TowerLos.applyMask), as a restore and a replay
+  // rebuild them. In range order, a tie of the targeting (two enemies of the same HP) went another way after a
+  // restore than live, and a re-simulation diverged (TODO E87)
+  tower.visibleCells = grid.applyLosMask(tower.id, x, z, tower.losMask);
   tower.losReady = true;
 }
 

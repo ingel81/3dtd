@@ -115,8 +115,8 @@ function build(setup: Setup): Sim {
   return sim;
 }
 
-function schedule(types: readonly EnemyTypeId[], count: number, health = 2, spawnMode: 'each' | 'random' = 'random'): WaveConfig {
-  const entries: SpawnEntry[] = Array.from({ length: count }, (_, i) => ({ enemyType: types[i % types.length], speed: 1, health }));
+function schedule(types: readonly EnemyTypeId[], count: number, health = 2, spawnMode: 'each' | 'random' = 'random', speed = 1): WaveConfig {
+  const entries: SpawnEntry[] = Array.from({ length: count }, (_, i) => ({ enemyType: types[i % types.length], speed, health }));
   return { schedule: { entries, baseDelay: 300, delayVariation: 0.3, spawnMode } };
 }
 
@@ -192,6 +192,18 @@ describe('Snapshot mid-wave (TODO E58, COOP_PLAN C5b)', () => {
 
   it('goes on bit for bit with skeletons splitting and shots in flight', () => {
     for (const at of [200, 700]) expect(splitAt({ wave: splitters }, at)).toBeGreaterThan(100);
+  });
+
+  it('goes on bit for bit with slow, burn and poison on the enemies (TODO E87)', () => {
+    // With 2 HP and speed 1 the enemies die at the first two towers and never meet the ice, fire and poison ones
+    // further down the routes; these walk past them
+    const tough = schedule(['zombie', 'tank', 'rat'], 30, 3000, 'random', 4);
+    const effects = new Set<string>();
+    const noted = (snapshot: WaveSnapshot) => {
+      for (const type of ['slow', 'burn', 'poison']) if (JSON.stringify(snapshot).includes(`"${type}"`)) effects.add(type);
+    };
+    for (const at of [1300, 3000]) expect(splitAt({ wave: tough, maxSteps: 8000 }, at, noted)).toBeGreaterThan(100);
+    expect([...effects].sort()).toEqual(['burn', 'poison', 'slow']);
   });
 
   it('goes on bit for bit with the heavy ones', () => {
