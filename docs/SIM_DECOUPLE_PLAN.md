@@ -179,6 +179,24 @@ Jeder Schritt mit grünen Specs, E2E (`npm run e2e`) und einem Messcheck (`e2e/p
    Messreihe steht aus.
 7. Nur bei Bedarf: Interpolation zwischen zwei Ständen.
 
+## Ergebnis (gemessen 2026-09-30)
+
+`e2e/perf/sim-load.ts`, Produktions-Build, DevWorld, 40 Tower, Tempo 4, Messrechner A, der Lauf an eine Hälfte der
+Kerne gebunden (der Rechner hat zwei ungleich schnelle Kernhälften, ungebunden streuen die Läufe um das 1,5-fache),
+zwei Runden deckungsgleich. Vor dem Umbau (`88658b44`) → nach Schritt 6 (`3867621a`):
+
+| | Tempo | Neue Stände je s | FPS |
+|---|---|---|---|
+| Firefox 16 000 | 3,9 → 4,0 | 24 → 43 bis 49 | 107 → 102 |
+| Firefox 25 000 | 3,0 → 3,2 | 15 → 27 | 72 → 71 |
+| Chromium 16 000 | 4,0 → 4,0 | 48 → 107 bis 111 | 128 → 112 |
+| Chromium 25 000 | 3,97 → 4,0 | 23 → 62 | 85 → 75 |
+
+„Neue Stände je s“ sind die Bilder, die ein neues Paket anwenden (`appliesPerS`). Vor dem Umbau wiederholten die
+meisten Bilder den alten Stand: hohe FPS, aber wenige neue Stände. Jetzt trägt bei Chromium fast jedes Bild einen
+neuen Stand, das Tempo wird gehalten oder steigt; die FPS sinken leicht, weil jedes Anwenden Zeit des Hauptthreads
+kostet.
+
 ## Später: Paket direkt aus der Tabelle
 
 Heute kopiert der Worker jeden Gegner je Paket in die Gegner-Tabelle (`writeEnemies`, rund 6,5 % des Workers bei

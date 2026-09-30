@@ -327,6 +327,21 @@ Gebaut (Hebel 1 und 2 der Liste oben):
 - **Nicht gebaut, weil ohne Gewinn gemessen:** Gegnergeräusche ausgelassen (Presenter 4,30 statt 4,32 ms bei 16000 in
   Firefox), Typindex im Paketschreiber (unter 1 % der Worker-Zeit).
 
+**Entkopplung (gemessen 2026-09-30, [SIM_DECOUPLE_PLAN.md](SIM_DECOUPLE_PLAN.md)):** Der Worker loopt mit eigener
+Uhr, der Hauptthread ruft je Bild ein Paket ab. Tempo 4, Messrechner A, der Lauf an eine Hälfte der Kerne gebunden,
+zwei Runden deckungsgleich, vorher (`88658b44`) → nachher (`3867621a`); die Zahlen sind wegen der Bindung nicht mit
+den Tabellen oben vergleichbar:
+
+| | Tempo | Neue Stände je s | FPS |
+|---|---|---|---|
+| Firefox 16 000 | 3,9 → 4,0 | 24 → 43 bis 49 | 107 → 102 |
+| Firefox 25 000 | 3,0 → 3,2 | 15 → 27 | 72 → 71 |
+| Chromium 16 000 | 4,0 → 4,0 | 48 → 107 bis 111 | 128 → 112 |
+| Chromium 25 000 | 3,97 → 4,0 | 23 → 62 | 85 → 75 |
+
+„Neue Stände je s“ zählt die Bilder, die ein neues Paket anwenden; vorher wiederholten die meisten Bilder den alten
+Stand.
+
 Wo die Zeit jetzt hingeht (CPU-Profil `sim-load.ts --profile`, Chromium, 25000 Gegner, Tempo 4):
 
 - **Hauptthread:** zu 39 % im Leerlauf bei 73 FPS, die Grenze ist in Chromium also das Zeichnen. Größte Posten:
