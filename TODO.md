@@ -300,8 +300,15 @@ Ideen (2026-09-27), nichts entschieden:
 - [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
       Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
       spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
-      bei 16 000 Gegnern in Chromium), und langsame Bilder machen das Spiel zur Zeitlupe. Plan steht, Entscheidungen
-      offen (Reihenfolge zum Multi-Worker-Umbau, Branch, Startwerte).
+      bei 16 000 Gegnern in Chromium), und langsame Bilder machen das Spiel zur Zeitlupe.
+      **Gebaut 2026-09-30** (Branch `perf/decouple`, Schritte 1 bis 6, `3867621a`): Loop im Worker mit eigener Uhr, drei
+      Tabellensätze, Veröffentlichen auf Abruf (bei Rückstand höchstens alle 33 ms), Coop-Freigaben direkt an den Worker,
+      Aufrufe und Replay mit angehaltenem Loop, Gegendruck; E2E 15 von 15 grün.
+      **Gemessen** (gegen `88658b44`, an eine Kernhälfte gebunden, zwei Runden, Tempo / neue Stände je Sekunde / FPS):
+      Firefox 16 000 Gegner bei Tempo 4: 4,0 / 43 bis 49 / 102 statt 3,9 / 24 / 107; 25 000 bei Tempo 4: 3,2 / 27 / 71
+      statt 3,0 / 15 / 72. Chromium 16 000 bei Tempo 4: 4,0 / 107 bis 111 / 112 statt 4,0 / 48 / 128; 25 000 bei Tempo 4:
+      4,0 / 62 / 75 statt 3,97 / 23 / 85. Tempo gleich oder besser, 1,7- bis 2,7-mal so viele neue Stände, FPS 3 bis
+      14 % niedriger (öfter eingeräumt). Offen: Übernahme nach `simu-worker` (User).
 - [ ] **E86 Simulationsrate senken, Bild interpolieren** (User, 2026-09-30): Die Simulation rechnet 60 Sub-Steps je
       Sekunde Spielzeit (`GameClock.FIXED_STEP_MS` 16,667 ms), bei Tempo 4 also 240 je Sekunde. Viele Strategiespiele
       rechnen 10 bis 30 und interpolieren das Bild. 30 statt 60 würde die Arbeit des Workers grob halbieren; Ergebnisse,
