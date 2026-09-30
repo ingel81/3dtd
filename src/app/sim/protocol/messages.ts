@@ -154,6 +154,11 @@ export interface SimRpc {
   towerTargets(): TowerTargetRow[];
   /** `__towerTargets.watch()`: explainTowerTarget of every tower for the enemies `enemyIds` (an ooze's clumps), the lines not null */
   towerTargetLines(enemyIds: string[]): string[];
+  /**
+   * Tests of the coop resync (e2e/coop-bots/run.ts --falsify-at-wave): `amount` gold for the local player past the
+   * lockstep, so this client's state leaves the room's and the relay repairs it (COOP_PLAN C5b). Changes this client only.
+   */
+  falsifyCredits(amount: number): void;
 }
 
 /** The simulation by part (rpc profileSums, sim/core/sim-profile.ts): sums over the ticks since the last call, ms unless said otherwise */

@@ -249,11 +249,29 @@ async function installProbe(page: Page): Promise<void> {
     type Pos = { lat: number; lon: number };
     type AnyFn = (...args: never[]) => unknown;
     const w = window as unknown as Record<string, unknown> & { ng: { getComponent(el: Element | null): Record<string, never> } };
+    type Scalars = { players: string[]; laneSpawns: string[]; gameTimeMs: number; subStep: number; credits: number[]; baseHealth: number };
     const comp = w.ng.getComponent(document.querySelector('app-tower-defense')) as unknown as {
-      gameState: Record<string, AnyFn> & { players: string[]; laneSpawns: string[]; gameTimeMs: number; towerManager: { getAll(): { ownerId: string; typeConfig: { id: string } }[] } };
+      sim: { bus: unknown; mirror: { scalars: Scalars; towers(): unknown[]; enemies(): { alive: boolean }[] } };
+      facade: { world: { pathRoute: { getCachedPaths(): Map<string, Pos[]> } } };
       coop: { desync(): { tick: number } | null };
     };
-    const gs = comp.gameState;
+    // The simulation runs in a worker (docs/SIM_WORKER.md): what the probe reads of it, from the main thread's
+    // mirror and the bus the simulation's events come in on
+    const mirror = comp.sim.mirror;
+    const at = (list: readonly number[], player: string) => list[mirror.scalars.players.indexOf(player)];
+    const gs = {
+      getEventBus: () => comp.sim.bus,
+      getCachedPaths: () => comp.facade.world.pathRoute.getCachedPaths(),
+      get players() { return mirror.scalars.players; },
+      get laneSpawns() { return mirror.scalars.laneSpawns; },
+      get gameTimeMs() { return mirror.scalars.gameTimeMs; },
+      get subStep() { return mirror.scalars.subStep; },
+      laneSpawnOf: (player: string) => mirror.scalars.laneSpawns[mirror.scalars.players.indexOf(player)] ?? null,
+      creditsOf: (player: string) => at(mirror.scalars.credits, player),
+      baseHealth: () => mirror.scalars.baseHealth,
+      towerManager: { getAll: () => mirror.towers() },
+      enemyManager: { getAlive: () => mirror.enemies().filter((enemy) => enemy.alive) },
+    } as unknown as Record<string, AnyFn> & { players: string[]; laneSpawns: string[]; gameTimeMs: number; towerManager: { getAll(): { ownerId: string; typeConfig: { id: string } }[] } };
     const bus = (gs.getEventBus as () => { onLive(type: string, fn: (e: Record<string, never>) => void): void })();
     const paths = () => (gs.getCachedPaths as () => Map<string, Pos[]>)();
     const laneOf = (enemy: { movement: { path: Pos[] } }): string => {
@@ -514,8 +532,7 @@ async function playRun(index: number): Promise<boolean> {
     if (SOLO) {
       code = `solo-${index}`;
       await seats[0].evaluate((speed) => {
-        const w = window as unknown as { ng: { getComponent(el: Element | null): { gameState: { setGameSpeed(v: number): void } } } };
-        w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.setGameSpeed(speed);
+        (globalThis as unknown as { __load: { speed(v: number): void } }).__load.speed(speed);
       }, SPEED);
     } else {
       code = await startRoom(seats);
@@ -536,16 +553,15 @@ async function playRun(index: number): Promise<boolean> {
         // After a falsification: what each seat holds of the research centers, credits and research, to see a resync hold
         for (const [seat, page] of seats.entries()) {
           const view = await page.evaluate(() => {
-            const w = window as unknown as { ng: { getComponent(el: Element | null): { gameState: Record<string, never> } } };
-            const gs = w.ng.getComponent(document.querySelector('app-tower-defense')).gameState as unknown as {
-              subStep: number; players: string[]; creditsOf(p: string): number; researchOf(p: string): { centerLevel: number };
-              towerManager: { getAll(): { id: string; ownerId: string; typeConfig: { id: string }; getUpgradeLevel(u: string): number }[] };
-            };
+            const w = window as unknown as { ng: { getComponent(el: Element | null): { sim: { mirror: {
+              scalars: { subStep: number; players: string[]; credits: number[] };
+              towers(): { id: string; ownerId: string; typeConfig: { id: string }; getUpgradeLevel(u: string): number }[];
+            } } } } };
+            const mirror = w.ng.getComponent(document.querySelector('app-tower-defense')).sim.mirror;
             return {
-              step: gs.subStep,
-              credits: gs.players.map((p) => gs.creditsOf(p)),
-              centers: gs.towerManager.getAll().filter((t) => t.typeConfig.id === 'research-center').map((t) => `${t.id}/${t.ownerId}:${t.getUpgradeLevel('research-slots')}`),
-              levels: gs.players.map((p) => gs.researchOf(p).centerLevel),
+              step: mirror.scalars.subStep,
+              credits: mirror.scalars.credits.slice(),
+              centers: mirror.towers().filter((t) => t.typeConfig.id === 'research-center').map((t) => `${t.id}/${t.ownerId}:${t.getUpgradeLevel('research-slots')}`),
             };
           }).catch((e) => String(e));
           log(`run ${index}: seat ${seat} ${JSON.stringify(view)}`);
@@ -557,8 +573,8 @@ async function playRun(index: number): Promise<boolean> {
       if (FALSIFY_AT_WAVE > 0 && written >= FALSIFY_AT_WAVE && seats.length > 1 && !falsified) {
         falsified = true;
         await seats[seats.length - 1].evaluate(() => {
-          const w = window as unknown as { ng: { getComponent(el: Element | null): { gameState: { addCredits(n: number, s: string): void } } } };
-          w.ng.getComponent(document.querySelector('app-tower-defense')).gameState.addCredits(7, 'reset');
+          const w = window as unknown as { ng: { getComponent(el: Element | null): { sim: { rpc(m: string, n: number): Promise<void> } } } };
+          return w.ng.getComponent(document.querySelector('app-tower-defense')).sim.rpc('falsifyCredits', 7);
         });
         log(`run ${index}: falsified the gold of seat ${seats.length - 1} after wave ${written}`);
       }

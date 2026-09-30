@@ -259,6 +259,7 @@ export class SimCore implements SimCoreApi {
       this.forcePresent = true;
     },
     worldKey: () => this.gsm.worldKey(),
+    falsifyCredits: (amount) => this.gsm.addCredits(amount, 'reset'),
     stateHash: () => this.gsm.stateHash(),
     hashBreakdownAt: (tick) => this.gsm.hashBreakdownAt(tick),
     captureWaveSnapshot: () => this.gsm.captureWaveSnapshot(),
