@@ -52,8 +52,6 @@ export class WaveDebugService {
   readonly enemyType = this.debugStore.waveEnemyType;
   readonly spawnMode = this.debugStore.waveSpawnMode;
   readonly spawnDelay = this.debugStore.waveSpawnDelay;
-  /** Max enemies the WaveManager may spawn per tickSpawn() call. */
-  readonly maxSpawnsPerFrame = signal(3);
 
   // Mixed wave mode
   readonly mixedMode = signal(false);
@@ -122,10 +120,6 @@ export class WaveDebugService {
 
   setSpawnDelay(value: number): void {
     this.spawnDelay.set(Math.max(0, Math.min(5000, value)));
-  }
-
-  setMaxSpawnsPerFrame(value: number): void {
-    this.maxSpawnsPerFrame.set(Math.max(1, Math.min(100, Math.floor(value))));
   }
 
   // === Mixed Wave Methods ===

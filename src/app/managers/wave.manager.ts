@@ -169,9 +169,10 @@ export class WaveManager implements IGameManager {
 
   /**
    * Maximum number of enemies that may be spawned in a single tickSpawn() call
-   * (i.e. per sub-step). Lets the wave debugger crank the spawn-delay down to
-   * 0 without locking up the loop in a tight spawn burst. Default 3 matches
-   * the legacy default — bump via the Wave Debug Panel for stress tests.
+   * (i.e. per sub-step, 90 per second of game time at 30 sub-steps). Keeps a
+   * spawn delay of 0 from locking up the loop in a tight spawn burst. The run
+   * plan's delays are 100 ms and more, so only debug waves reach it. The name
+   * stays for the snapshot's counters.
    */
   maxSpawnsPerFrame = 3;
 

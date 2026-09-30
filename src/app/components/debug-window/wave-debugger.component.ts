@@ -168,11 +168,6 @@ export class WaveDebuggerComponent {
     this.waveDebug.setSpawnDelay(this.roundTo(value, 2));
   }
 
-  onMaxSpawnsPerFrameChange(event: Event): void {
-    const value = parseInt((event.target as HTMLInputElement).value, 10);
-    this.waveDebug.setMaxSpawnsPerFrame(value);
-  }
-
   // === Mixed Mode Handlers ===
 
   onGroupTypeChange(groupId: number, event: Event): void {
