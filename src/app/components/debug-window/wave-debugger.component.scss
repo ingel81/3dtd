@@ -141,6 +141,39 @@
   background: var(--td-frame-mid);
 }
 
+/* Tabs: underlined, so they don't read as the Single/Mixed toggle below */
+.tab-bar {
+  display: flex;
+  margin-bottom: 10px;
+  border-bottom: 1px solid var(--td-frame-mid);
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 6px 8px;
+  margin-bottom: -1px;
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--td-text-secondary);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.tab-btn:hover:not(.active) {
+  color: var(--td-text-primary);
+}
+
+.tab-btn.active {
+  color: var(--td-teal);
+  border-bottom-color: var(--td-teal);
+}
+
 /* Sections */
 .section {
   padding: 8px 0;

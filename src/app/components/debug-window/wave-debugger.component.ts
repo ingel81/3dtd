@@ -55,6 +55,8 @@ export class WaveDebuggerComponent {
   readonly waveDebug = inject(WaveDebugService);
   private readonly store = inject(TowerDefenseStore);
   private readonly waveDirector = inject(WaveDirector);
+  /** The tab shown: the run's plan (source, why this wave, jump) or the custom wave */
+  readonly tab = signal<'plan' | 'custom'>('plan');
   /** Director's reasons for the wave in play; null for waves it did not plan. */
   readonly explanation = this.store.waveExplanation;
 

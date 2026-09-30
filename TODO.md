@@ -307,6 +307,8 @@ Ideen (2026-09-27), nichts entschieden:
 - [ ] **E88 Wave-Debug-Panel in zwei Tabs** (Playtest 2026-09-30): erster Tab (Name etwa „Run plan“ oder
       „Campaign“) mit Wellenquelle, „Why this wave“ und „Jump to wave“; zweiter Tab „Custom Wave“ mit dem Rest
       (eigene Welle zusammenstellen usw.).
+      **Gebaut 2026-09-30:** Tabs „Run plan“ (Quelle, Why this wave, Jump to wave) und „Custom wave“ (Single/Mixed),
+      als Unterstrich-Tabs, damit sie nicht wie der Single/Mixed-Umschalter aussehen. Im Browser angesehen.
 
 - [ ] **E89 Layer-Menü: Knöpfe ohne Wirkung** (Playtest 2026-09-30): das Route-Grid-Overlay und die Flughöhe der
       Luftroute lassen sich nicht mehr anzeigen, vielleicht weitere. Vermutlich lesen sie seit der Simulation im Worker

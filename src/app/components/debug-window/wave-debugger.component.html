@@ -10,6 +10,22 @@
     (focused)="windowService.bringToFront('wave')"
   >
     <div class="wave-debug-content">
+      <!-- Two tabs: the run's plan (source, why, jump) and the custom wave -->
+      <div class="tab-bar" role="tablist" aria-label="Wave debug">
+        <button class="tab-btn" role="tab" id="wave-tab-plan" aria-controls="wave-panel-plan"
+                [class.active]="tab() === 'plan'" [attr.aria-selected]="tab() === 'plan'"
+                (click)="tab.set('plan')">
+          Run plan
+        </button>
+        <button class="tab-btn" role="tab" id="wave-tab-custom" aria-controls="wave-panel-custom"
+                [class.active]="tab() === 'custom'" [attr.aria-selected]="tab() === 'custom'"
+                (click)="tab.set('custom')">
+          Custom wave
+        </button>
+      </div>
+
+      @if (tab() === 'plan') {
+      <div role="tabpanel" id="wave-panel-plan" aria-labelledby="wave-tab-plan">
       <!-- Which wave source plays; the switch takes effect with the next run -->
       <div class="section source">
         <div class="section-title">Wave source</div>
@@ -117,6 +133,9 @@
         </button>
       </div>
 
+      </div>
+      } @else {
+      <div role="tabpanel" id="wave-panel-custom" aria-labelledby="wave-tab-custom">
       <!-- Mode Toggle -->
       <div class="mode-toggle" role="group" aria-label="Wave composition">
         <button class="mode-btn" [class.active]="!waveDebug.mixedMode()" [attr.aria-pressed]="!waveDebug.mixedMode()" (click)="waveDebug.mixedMode() && waveDebug.toggleMixedMode()">
@@ -337,6 +356,8 @@
             {{ waveDebug.waveActive() ? 'Wave running...' : 'Start Mixed Wave' }}
           </button>
         </div>
+      }
+      </div>
       }
     </div>
   </app-draggable-debug-panel>
