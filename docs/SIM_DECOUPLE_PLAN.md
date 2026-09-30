@@ -102,8 +102,14 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
 - **Lauf-Epoche:** `SimClient.newRun` schickt erst `unload` (der Worker rechnet ohne Welt nichts und veröffentlicht
   nichts), dann `epoch`; der Worker stempelt jede Veröffentlichung mit der Epoche, der Hauptthread verwirft Pakete
   einer älteren. `SimClient.unloadWorld` ist in `newRun` aufgegangen.
-- Aufrufe laufen in Schritt 3 zwischen zwei Durchgängen auf dem Stand, den der Worker gerade hat; Anhalten und
-  Fortsetzen des Loops kommt mit Schritt 5. Ein Replay-Sprung rechnet weiter in Scheiben von 60 ms je Durchgang.
+- **Gebaut (Schritt 5), Abweichung:** Kein eigenes Anhalten und Fortsetzen. Alles, was der Hauptthread in einer
+  Aufgabe (Task) schickt, geht als eine Nachricht (`batch`) an den Worker, der sie am Stück abarbeitet, ohne Durchgang
+  dazwischen (`WorkerTransport.post`). Damit wirken etwa beim Coop-Start `reset`, Spieler, Lanes und Lockstep an
+  derselben Grenze; ohne das konnte zwischen `reset` und dem Lockstep ein Sub-Step laufen (mit Tick auf Anfrage lag
+  dazwischen nie ein Tick). Die Aufrufe mit festem Stand brauchen darüber hinaus nichts: Der Replay-Einstieg schickt
+  die Pause mit seiner Eingabe voraus und die Simulation prüft selbst, ob ihr Stand still ist; im Replay rechnet der
+  Loop nur das Replay, der Live-Stand liegt als Snapshot daneben; der Resync greift an der Barriere zu, an der der Loop
+  schläft. Ein Replay-Sprung rechnet weiter in Scheiben von 60 ms je Durchgang, dazwischen kommen neue Ziele an.
 - Aufrufe (`rpc`: Replay, Snapshot, Hash, Tower-Ziele) laufen zwischen zwei Durchgängen. Aufrufe, die einen festen
   Stand brauchen (Replay-Einstieg, Resync), halten den Loop an und lassen ihn danach weiterlaufen.
 
@@ -153,6 +159,7 @@ Jeder Schritt mit grünen Specs, E2E (`npm run e2e`) und einem Messcheck (`e2e/p
 4. **Coop:** Freigaben per Nachricht, Loop wartet an der Grenze; Coop-Bot-Lauf zu zweit ohne Abweichung, Resync-Lauf
    (`e2e/coop-bots/run.ts --falsify-at-wave --big-wave`). **Gebaut 2026-09-30.**
 5. **Aufrufe und Replay:** Loop anhalten und fortsetzen; Replay-Sprünge (`e2e/perf/replay-seek.ts`).
+   **Gebaut 2026-09-30** als Bündel je Aufgabe statt Anhalten, siehe Abschnitt 4.
 6. **Gegendruck und Hintergrund-Tab**, dann die volle Messreihe und Doku (SIM_WORKER.md).
 7. Nur bei Bedarf: Interpolation zwischen zwei Ständen.
 

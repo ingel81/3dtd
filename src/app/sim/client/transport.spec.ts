@@ -14,8 +14,9 @@ class FakeWorker {
   constructor() {
     FakeWorker.last = this;
   }
-  postMessage(): void {
-    /* taken */
+  readonly posted: unknown[] = [];
+  postMessage(message: unknown): void {
+    this.posted.push(message);
   }
   terminate(): void {
     /* gone */
@@ -33,5 +34,37 @@ describe('WorkerTransport', () => {
     FakeWorker.last!.onmessageerror?.(new MessageEvent('messageerror'));
 
     expect(error).toHaveBeenCalledWith('worker: a message from the simulation could not be read');
+  });
+
+  it('sends what one task gave as one message, in order, so the loop runs no pass in between', async () => {
+    vi.stubGlobal('Worker', FakeWorker);
+    const transport = new WorkerTransport({ frame: vi.fn(), output: vi.fn(), error: vi.fn() });
+    const worker = FakeWorker.last!;
+
+    // Rejected when the worker goes below
+    transport.rpc('reset', [7]).catch(() => undefined);
+    transport.configure({ lockstep: {} });
+    transport.epoch(3);
+    expect(worker.posted).toEqual([]);
+    await Promise.resolve();
+    expect(worker.posted).toEqual([{
+      kind: 'batch',
+      messages: [
+        { kind: 'rpc', id: 1, method: 'reset', args: [7] },
+        { kind: 'configure', config: { lockstep: {} } },
+        { kind: 'epoch', epoch: 3 },
+      ],
+    }]);
+
+    // One message alone goes as it is
+    transport.unloadWorld();
+    await Promise.resolve();
+    expect(worker.posted[1]).toEqual({ kind: 'unload' });
+
+    // Nothing goes to a worker that is gone
+    transport.unloadWorld();
+    transport.dispose();
+    await Promise.resolve();
+    expect(worker.posted).toHaveLength(2);
   });
 });

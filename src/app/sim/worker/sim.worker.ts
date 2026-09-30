@@ -6,7 +6,7 @@
  * Packets go back as WireFrames: the tables stay in the store's memory
  * (shared where the page is cross-origin isolated), the rest is cloned.
  */
-import type { FromWorker, SimRpc, ToWorker } from '../protocol/messages';
+import type { FromWorker, SimRpc, ToWorker, ToWorkerMessage } from '../protocol/messages';
 import { TableStore } from '../protocol/table-store';
 import { toWire } from '../protocol/wire';
 import { SimCore } from '../core/sim-core';
@@ -40,7 +40,7 @@ const loop = new SimLoop(
 core.output((message) => post({ kind: 'output', message }));
 
 /** A message that is no call: a throw leaves the state half updated, the loop stops for good */
-function take(message: Exclude<ToWorker, { kind: 'rpc' }>): void {
+function take(message: Exclude<ToWorkerMessage, { kind: 'rpc' }>): void {
   switch (message.kind) {
     case 'configure':
       core.configure(message.config);
@@ -63,8 +63,8 @@ function take(message: Exclude<ToWorker, { kind: 'rpc' }>): void {
   }
 }
 
-addEventListener('message', (ev: MessageEvent<ToWorker>) => {
-  const message = ev.data;
+/** False when the message left the state half updated: nothing further runs */
+function handle(message: ToWorkerMessage): boolean {
   if (message.kind === 'rpc') {
     try {
       const call = core.rpc as (method: keyof SimRpc, ...args: unknown[]) => unknown;
@@ -73,14 +73,23 @@ addEventListener('message', (ev: MessageEvent<ToWorker>) => {
     } catch (error) {
       post({ kind: 'rpc-reply', id: message.id, ok: false, error: describe(error) });
     }
-  } else {
-    try {
-      take(message);
-    } catch (error) {
-      loop.stop();
-      post({ kind: 'error', error: describe(error) });
-      return;
-    }
+    return true;
+  }
+  try {
+    take(message);
+    return true;
+  } catch (error) {
+    loop.stop();
+    post({ kind: 'error', error: describe(error) });
+    return false;
+  }
+}
+
+addEventListener('message', (ev: MessageEvent<ToWorker>) => {
+  const message = ev.data;
+  // A batch is what the main thread sent in one task: taken in one go, no pass in between
+  for (const one of message.kind === 'batch' ? message.messages : [message]) {
+    if (!handle(one)) return;
   }
   // Whatever came may have work for the loop: it looks at once
   loop.wake();

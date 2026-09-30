@@ -230,7 +230,8 @@ export interface ReplayEntered {
 
 // ── Worker messages ──
 
-export type ToWorker =
+/** One message to the worker; see ToWorker for how they travel */
+export type ToWorkerMessage =
   | { kind: 'configure'; config: SimConfig }
   | { kind: 'world'; world: SimWorld }
   | { kind: 'unload' }
@@ -240,6 +241,14 @@ export type ToWorker =
   /** The main thread applied the last packet and takes the next: wakes the loop (the control word says the same to a pass at work) */
   | { kind: 'demand' }
   | { kind: 'rpc'; id: number; method: keyof SimRpc; args: unknown[] };
+
+/**
+ * What the main thread posts: everything it sent in one task, in order. The
+ * worker takes a batch in one go, no pass of its loop in between: a reset,
+ * the settings after it and a call all act at the same boundary between two
+ * sub-steps (docs/SIM_DECOUPLE_PLAN.md).
+ */
+export type ToWorker = ToWorkerMessage | { kind: 'batch'; messages: ToWorkerMessage[] };
 
 export type FromWorker =
   | { kind: 'ready' }

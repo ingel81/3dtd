@@ -5,7 +5,7 @@
  * thread runs one pass per frame and answers at once.
  */
 import type {
-  FromWorker, SimConfig, SimCoreApi, SimInput, SimOutput, SimRpc, SimWorld, ToWorker,
+  FromWorker, SimConfig, SimCoreApi, SimInput, SimOutput, SimRpc, SimWorld, ToWorkerMessage,
 } from '../protocol/messages';
 import type { SimFramePacket } from '../protocol/packet';
 import { TableViews } from '../protocol/table-store';
@@ -126,8 +126,23 @@ export class WorkerTransport implements SimTransport {
     this.worker.onmessageerror = () => handlers.error('worker: a message from the simulation could not be read');
   }
 
-  private post(message: ToWorker): void {
-    this.worker.postMessage(message);
+  /** What this task sent so far; it goes at the task's end */
+  private outbox: ToWorkerMessage[] = [];
+  private disposed = false;
+
+  /**
+   * Everything sent in one task goes to the worker as one message, in order:
+   * its loop runs no sub-step between a reset and the settings that follow
+   * it, or between an input and the call after it (ToWorker).
+   */
+  private post(message: ToWorkerMessage): void {
+    if (this.outbox.push(message) > 1) return;
+    queueMicrotask(() => {
+      const messages = this.outbox;
+      this.outbox = [];
+      if (this.disposed) return;
+      this.worker.postMessage(messages.length === 1 ? messages[0] : { kind: 'batch', messages });
+    });
   }
 
   private receive(message: FromWorker): void {
@@ -210,6 +225,7 @@ export class WorkerTransport implements SimTransport {
   }
 
   dispose(): void {
+    this.disposed = true;
     this.worker.terminate();
     for (const call of this.pending.values()) call.reject(new Error('simulation worker stopped'));
     this.pending.clear();
