@@ -381,11 +381,6 @@ export class GameStateManager {
   private replaying = false;
   /** What the re-simulation logs, so the run's own log stays as it was */
   private replayLog: CommandLog | null = null;
-  /** A replay re-simulates a wave: the live clock stands, what reads it waits (auto start, run log) */
-  get isReplaying(): boolean {
-    return this.replaying;
-  }
-
   /** See ResimHost.setBoundaryListener */
   private boundaryListener: ((boundaryStep: number, hash: () => number) => void) | null = null;
 

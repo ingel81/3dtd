@@ -38,14 +38,14 @@ describe('mergePackets', () => {
     const mask = { cells: [1] } as unknown as TowerStateDto['losMask'];
     const merged = mergePackets([
       packet(1, { towerStates: [state('tower-1', { losMask: mask }), state('tower-2')] }),
-      packet(2, { towerStates: [state('tower-1', { totalInvested: 5 })], removedTowers: ['tower-2', 'tower-3'] }),
+      packet(2, { towerStates: [state('tower-1', { customRotation: 5 })], removedTowers: ['tower-2', 'tower-3'] }),
       // A restore puts tower-3 back
       packet(3, { towerStates: [state('tower-3')] }),
     ]);
     expect(merged.removedTowers).toEqual(['tower-2', 'tower-3']);
     expect(merged.towerStates.map((s) => s.id)).toEqual(['tower-1', 'tower-3']);
     // The later state without a mask keeps the one sent before
-    expect(merged.towerStates[0].totalInvested).toBe(5);
+    expect(merged.towerStates[0].customRotation).toBe(5);
     expect(merged.towerStates[0].losMask).toBe(mask);
     expect('losMask' in merged.towerStates[1]).toBe(false);
   });

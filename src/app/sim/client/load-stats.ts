@@ -43,7 +43,7 @@ export interface LoadRates {
   workerLoad: number;
   /** Packets the simulation published per second */
   packetsPerS: number;
-  /** Sub-steps the simulation ran per second (60 per unit of speed when it keeps up) */
+  /** Sub-steps the simulation ran per second (30 per unit of speed when it keeps up) */
   subStepsPerS: number;
   /** Main-thread ms of one apply (the packets of a frame), all parts */
   applyPerPacketMs: number;

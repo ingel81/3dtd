@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { HqDamagePresenter } from './hq-damage-presenter';
 import { createMainEventBus, type MainEventBus } from '../sim/client/view-events';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { TIMING } from '../configs/timing.config';
 import { GAME_SOUNDS } from '../configs/audio.config';
 import type { GeoPosition } from '../models/game.types';
 
@@ -105,28 +104,18 @@ describe('HqDamagePresenter', () => {
     expect(engine.effects.spawnScaledFire.mock.calls[0][2]).toBe(142.5);
   });
 
-  it('explodes and burns at full size on game:over, the screen after its delay; a reset cancels it', () => {
-    vi.useFakeTimers();
-    const { hq, engine } = make(makeEngine({ terrainHeight: 10 }));
+  it('explodes and burns at full size on game:over; a reset puts the fires out', () => {
+    const { engine } = make(makeEngine({ terrainHeight: 10 }));
     bus.emit({ type: 'game:over', reason: 'base-destroyed' });
     expect(engine.effects.spawnHQExplosion).toHaveBeenCalled();
     expect(engine.effects.spawnScaledFire).toHaveBeenCalledWith(BASE.lat, BASE.lon, 10, 1.0);
-    expect(hq.showGameOverScreen()).toBe(false);
-    vi.advanceTimersByTime(TIMING.gameOverScreenDelay);
-    expect(hq.showGameOverScreen()).toBe(true);
 
-    bus.emit({ type: 'game:over', reason: 'base-destroyed' });
     bus.emit({ type: 'game:reset' });
-    vi.advanceTimersByTime(TIMING.gameOverScreenDelay * 2);
-    expect(hq.showGameOverScreen()).toBe(false);
     expect(engine.effects.stopAllFires).toHaveBeenCalled();
   });
 
-  it('puts every fire out on healBase, and hears nothing after destroy', () => {
-    const { hq, engine } = make();
-    hq.updateFireIntensity(FIRE_THRESHOLD / 2);
-    hq.healBase();
-    expect(engine.effects.stopAllFires).toHaveBeenCalled();
+  it('hears nothing after destroy', () => {
+    const { hq } = make();
     hq.destroy();
     expect(bus.getListenerCount('health:changed')).toBe(0);
   });

@@ -408,7 +408,6 @@ export class SimCore implements SimCoreApi {
       this.leaveReplay();
       this.file = null;
     },
-    commandLog: () => this.gsm.commandLog.entries.slice(),
   };
 
   /** The record and log of `wave`: the loaded file's, else the run's own. */

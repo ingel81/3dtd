@@ -1,9 +1,7 @@
-import { signal } from '@angular/core';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GeoPosition } from '../models/game.types';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { GAME_SOUNDS } from '../configs/audio.config';
-import { TIMING } from '../configs/timing.config';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import type { MainEventBus } from '../sim/client/view-events';
 
@@ -18,18 +16,14 @@ type HqEngine = Pick<ThreeTilesEngine, 'effects' | 'spatialAudio' | 'sync' | 'ge
 /**
  * What the HQ shows of its health (main bus): the fire that grows as it
  * loses health, the damage sound and the leak's number over it on
- * `health:changed`, the explosion and inferno on `game:over`, then the game
- * over screen (showGameOverScreen) after TIMING.gameOverScreenDelay.
+ * `health:changed`, the explosion and inferno on `game:over`. The game over
+ * screen is the store's (GameStateSync).
  */
 export class HqDamagePresenter {
-  /** The game over screen may show (after the delay) */
-  readonly showGameOverScreen = signal(false);
-
   private readonly subs = new SubscriptionBag();
   private basePosition: GeoPosition | null = null;
   private activeFireId: string | null = null;
   private hqTerrainHeight: number | null = null;
-  private gameOverTimeout: ReturnType<typeof setTimeout> | null = null;
   private lastDamageSoundTime = Number.NEGATIVE_INFINITY;
 
   constructor(
@@ -101,7 +95,7 @@ export class HqDamagePresenter {
     this.activeFireId = effects.spawnScaledFire(base.lat, base.lon, fireY, scale);
   }
 
-  /** The HQ explodes and burns at full size; the game over screen follows after its delay. */
+  /** The HQ explodes and burns at full size. */
   triggerGameOverEffects(): void {
     const base = this.basePosition;
     const effects = this.engine.effects;
@@ -111,38 +105,16 @@ export class HqDamagePresenter {
       effects.spawnHQExplosion(base.lat, base.lon, localY);
       this.activeFireId = effects.spawnScaledFire(base.lat, base.lon, localY, 1.0);
     }
-    if (this.gameOverTimeout) clearTimeout(this.gameOverTimeout);
-    this.gameOverTimeout = setTimeout(() => {
-      this.gameOverTimeout = null;
-      this.showGameOverScreen.set(true);
-    }, TIMING.gameOverScreenDelay);
   }
 
-  /** The base healed: every fire goes out. */
-  /** Debug: a red sphere where the HQ stands on the tiles (special points debug) */
-  spawnDebugPoint(): void {
-    if (!this.basePosition || this.hqTerrainHeight === null) return;
-    this.engine.effects.spawnDebugSphere(this.basePosition.lat, this.basePosition.lon, this.hqTerrainHeight, 1, 0xff0000);
-  }
-
-  healBase(): void {
-    this.engine.effects.stopAllFires();
-    this.activeFireId = null;
-  }
-
-  /** A new game: fires out, no game over screen waiting. */
+  /** A new game: fires out. */
   reset(): void {
-    if (this.gameOverTimeout) clearTimeout(this.gameOverTimeout);
-    this.gameOverTimeout = null;
     this.engine.effects.stopAllFires();
     this.activeFireId = null;
-    this.showGameOverScreen.set(false);
   }
 
   destroy(): void {
     this.subs.disposeAll();
-    if (this.gameOverTimeout) clearTimeout(this.gameOverTimeout);
-    this.gameOverTimeout = null;
   }
 
   /**

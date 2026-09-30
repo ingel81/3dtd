@@ -7,14 +7,12 @@ import { FramePacer } from '../utils/frame-pacer';
 const FRAME_WAIT_TIMEOUT_MS = 1000;
 
 /**
- * Longest game-time step a single background tick may advance.
+ * Longest delta a single background tick hands to `update()`, ms.
  *
- * A throttled hidden tab can hand us gaps of seconds. At a training
- * timescale of 75 a one-second gap is 75 seconds of game time in one step,
- * which the fixed sub-step loop would try to catch up in a single frame,
- * the same sub-step pile-up that showed up as 225 sub-steps per frame and
- * 2 FPS. Capping means game time runs slower than wall-clock while hidden,
- * which is the right trade: slower beats stopped.
+ * A throttled hidden tab can hand us gaps of seconds. The game time runs in
+ * the simulation's worker by its own clock (docs/SIM_DECOUPLE_PLAN.md); what
+ * the delta still drives on this thread (the bot's reaction time, the
+ * presentation's clocks) should not jump by seconds in one step.
  */
 const MAX_BACKGROUND_STEP_MS = 50;
 

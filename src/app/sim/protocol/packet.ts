@@ -160,10 +160,6 @@ export interface SimScalars {
   /** Credits per player, roster order */
   credits: number[];
   enemiesAlive: number;
-  /** Enemies still to come in the running wave: pending spawns plus the schedule's rest */
-  enemiesToSpawn: number;
-  pendingSpawns: number;
-  isReplaying: boolean;
   /** SimSnapshots refusal, null when a snapshot may be taken now */
   snapshotRefusal: string | null;
   waveSnapshotRefusal: string | null;
@@ -216,7 +212,6 @@ export interface TowerStateDto {
   plinthHeight: number;
   plinthOverhang: readonly number[];
   upgrades: [string, number][];
-  totalInvested: number;
   /** Tower.getSimState() as plain data */
   sim: Record<string, unknown>;
   /** combat values the panels read, after upgrades and research */

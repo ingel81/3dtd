@@ -106,7 +106,6 @@ export class PacketWriter {
   private scalars(frame: PacketFrame): SimScalars {
     const gsm = this.gsm;
     const players = [...gsm.players];
-    const pending = gsm.enemyManager.getPendingSpawnCount();
     return {
       subStep: gsm.subStep,
       gameTimeMs: gsm.gameTimeMs,
@@ -117,9 +116,6 @@ export class PacketWriter {
       localPlayerId: gsm.localPlayerId,
       credits: players.map((id) => gsm.creditsOf(id)),
       enemiesAlive: gsm.enemyManager.getAliveCount(),
-      enemiesToSpawn: pending + gsm.waveManager.getEnemiesToSpawn(),
-      pendingSpawns: pending,
-      isReplaying: gsm.isReplaying,
       snapshotRefusal: gsm.snapshotRefusal(),
       waveSnapshotRefusal: gsm.waveSnapshotRefusal(),
       lockstepActive: gsm.lockstepActive,
@@ -354,7 +350,6 @@ function towerState(tower: Tower): TowerStateDto {
     plinthHeight: tower.plinthHeight,
     plinthOverhang: [...tower.plinthOverhang],
     upgrades: tower.getUpgradeLevels(),
-    totalInvested: tower.typeConfig.cost + tower.getTotalUpgradeCost(),
     sim: tower.getSimState() as unknown as Record<string, unknown>,
     combat: { range: tower.combat.range, damage: tower.combat.damage, fireRate: tower.combat.fireRate },
     losReady: tower.losReady,

@@ -40,9 +40,6 @@ export function initialScalars(): SimScalars {
     localPlayerId: LOCAL_PLAYER_ID,
     credits: [0],
     enemiesAlive: 0,
-    enemiesToSpawn: 0,
-    pendingSpawns: 0,
-    isReplaying: false,
     snapshotRefusal: null,
     waveSnapshotRefusal: null,
     lockstepActive: false,
@@ -150,10 +147,6 @@ export class SimMirror implements SimMirrorApi {
   }
 
   /** Spawn ids in SimWorld order */
-  get spawnIdList(): readonly string[] {
-    return this.spawnIds;
-  }
-
   // ── Packet ────────────────────────────────────────────────────
 
   applyState(packet: SimFramePacket): void {

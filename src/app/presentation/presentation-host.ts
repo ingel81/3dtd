@@ -189,11 +189,6 @@ export class PresentationHost implements SimPresenterApi {
     this.hq.onTilesLoaded();
   }
 
-  /** The base healed: the HQ fire goes out. */
-  healBase(): void {
-    this.hq.healBase();
-  }
-
   /**
    * The game stands still: every loop (walk cycles, flames, the ooze's
    * bubbling) holds and the music goes down, except in the boss intro

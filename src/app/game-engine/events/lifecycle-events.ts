@@ -126,13 +126,6 @@ export type LifecycleEvent =
       refund: number;
     }
   | {
-      type: 'tower:selected';
-      tower: Tower;
-    }
-  | {
-      type: 'tower:deselected';
-    }
-  | {
       // Nach jedem Kill, der einem Tower gutgeschrieben wird (combat.kills ist
       // schon erhöht). Tower sind mutable Entities; die Sidebar zeichnet ihre
       // Kill-Anzeige über dieses Event neu.

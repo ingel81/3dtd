@@ -93,10 +93,6 @@ export class SimClient {
     return this.mirror.scalars;
   }
 
-  get presenter(): SimPresenterApi | null {
-    return this.presenterImpl;
-  }
-
   /** The mirror, and the presenter once an engine stands (null before and after one). */
   attach(mirror: SimMirrorApi, presenter: SimPresenterApi | null = this.presenterImpl): void {
     this.mirrorImpl = mirror;

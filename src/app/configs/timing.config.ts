@@ -23,9 +23,6 @@ export const TIMING = {
   /** Line-of-sight recheck interval for tower targeting (ms) */
   losRecheckInterval: 300,
 
-  /** Delay before showing game-over screen after base destroyed (ms) */
-  gameOverScreenDelay: 3000,
-
   /** Duration of floating reward text popup (ms) */
   rewardPopupDuration: 1200,
 

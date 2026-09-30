@@ -113,7 +113,6 @@ export function towerDto(tower: Tower): TowerStateDto {
     plinthHeight: tower.plinthHeight,
     plinthOverhang: tower.plinthOverhang,
     upgrades: tower.getUpgradeLevels(),
-    totalInvested: tower.typeConfig.cost + tower.getTotalUpgradeCost(),
     sim: tower.getSimState() as unknown as Record<string, unknown>,
     combat: { range: tower.combat.range, damage: tower.combat.damage, fireRate: tower.combat.fireRate },
     losReady: tower.losReady,

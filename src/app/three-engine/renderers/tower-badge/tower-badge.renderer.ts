@@ -56,9 +56,9 @@ export function badgeStyle(level: number): [number, number, number] {
  * pixel scale change.
  *
  * Kept apart from ThreeTowerRenderer, which it only asks for a tower's
- * model. The TowerManager hands it every tower's rank each frame
- * (syncVeteranBadges) and removes the badge with the tower; photo mode hides
- * all of them (setVisible).
+ * model. The FramePresenter hands it a tower's rank when its kills change
+ * (presentBadges), the TowerManager removes the badge with the tower (an op
+ * from the simulation); photo mode hides all of them (setVisible).
  */
 export class TowerBadgeRenderer {
   private readonly geometry: InstancedBufferGeometry;

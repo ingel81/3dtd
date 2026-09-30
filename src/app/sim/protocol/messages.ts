@@ -168,7 +168,6 @@ export interface SimRpc {
   replaySeek(stepInWave: number): void;
   /** Give the live game back as it was, leave replay mode */
   replayExit(): void;
-  commandLog(): unknown[];
   /** Where the last pass's time went, ms: the commands since the one before, the sub-steps, the packet, and the slowest command */
   tickProfile(): TickProfile;
   /** The simulation by part since the last call, null while SimConfig.profile is off */
