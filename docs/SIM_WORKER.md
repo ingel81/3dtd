@@ -153,9 +153,16 @@ den Id-Zähler anzufassen. `Tower.aim` wird je Bild aus der Tower-Tabelle gesetz
 ## Transport
 
 - **Tabellen** (Gegner, Geschosse, Tower, Oozes, Würmer) im `SharedArrayBuffer` (`sim/protocol/table-store.ts`,
-  `wire.ts`): der Worker schreibt, der Hauptthread liest ohne Kopie. Ein Tick ist unterwegs, also braucht der Speicher
-  keine Sperre. Wächst eine Tabelle, geht der neue Puffer einmal mit. Ohne `crossOriginIsolated` dieselbe Form mit
-  Kopien je Bild.
+  `wire.ts`): der Worker schreibt, der Hauptthread liest ohne Kopie. Zwei Sätze Tabellen im Wechsel: Dauert ein Tick
+  länger als 35 ms (`EARLY_TICK_MS`), schickt der `SimClient` den nächsten sofort, wenn das Paket zurück ist, statt mit
+  dem nächsten Bild. Der Worker schreibt dann in den anderen Satz, während der Hauptthread den letzten noch anwendet.
+  Ein Tick geht nur früh, solange das eben gekommene Paket das einzige nicht angewendete ist, also schreibt der Worker
+  nie den Satz, den der Hauptthread liest. Hintergrund: Die Spieluhr holt je Tick höchstens 50 ms Wanduhr nach
+  (`GameClock.MAX_CATCHUP_MS`); jede Wartezeit darüber wurde Zeitlupe. Wächst eine Tabelle, geht der neue Puffer einmal
+  mit. Ohne `crossOriginIsolated` ein Satz mit Kopien je Bild, ohne frühe Ticks.
+- **Spiegel** (`sim/client/mirror/sim-mirror.ts`): kopiert je Paket die Gegnertabelle einmal (zwei Kopien im Wechsel)
+  und zeigt jede `EnemyView` auf ihre Zeile; die Felder lesen die Zeile erst beim Zugriff. Eine Ansicht, deren Gegner
+  die Tabelle verlässt oder deren Werte ein Event auf seinen Moment setzt, bekommt eine eigene Zeile.
 - **Variables** (Befehle, Events, Ops, Tower-Zustände, RPC) per `postMessage`; es ist zugleich das Wecksignal.
   `Atomics.wait`/`notify` bräuchten wir nur für ein reines Shared-Memory-Signal; der Worker dürfte dann blockierend
   warten, der Hauptthread liest einmal je Bild (Firefox hat kein `Atomics.waitAsync`).
@@ -243,3 +250,62 @@ Hebel nach den Messwerten:
    der Entfernung, Lebensbalken nur nahe der Kamera.
 4. **Worker schneller** (Chromium ab rund 14000): Gegnerfelder als typisierte Arrays im SAB, danach mehrere Worker
    phasenweise im Sub-Step.
+
+## Hebel gebaut (gemessen 2026-09-30)
+
+Messlauf wie oben, aber mit Pixeldichte 1 in beiden Browsern, Gegnern mit 0,5 m/s und genauem Auffüllen (TODO E78,
+[E2E.md](E2E.md#lastmessung-e2eperfsim-loadts)); die Zahlen sind deshalb nicht direkt mit denen vom 2026-09-29
+vergleichbar. `next` mit dem Vorschau-Fix, „vorher“ der Worker-Stand am Morgen (`147f7b60`), „Hebel“ mit Hebel 1 und 2
+(`951caf9c`). FPS, in Klammern das erreichte Tempo, wo es unter 97 % des eingestellten fällt:
+
+| Gegner, Tempo 4 | Chromium `next` | Chromium vorher | Chromium Hebel | Firefox `next` | Firefox vorher | Firefox Hebel |
+|---|---|---|---|---|---|---|
+| 5000 | 144 | 144 | 144 | 44 | 86 | 89 |
+| 8000 | 142 | 144 | 144 | 13 (2,69) | 83 (3,85) | 86 |
+| 12000 | 55 | 144 | 144 | 9 (1,74) | 79 (2,48) | 81 (3,57) |
+| 16000 | 21 | 100 | 100 | 6 (1,30) | 69 (2,42) | 62 (3,38) |
+| 20000 | 13 (2,56) | 86 | 87 | 5 (1,01) | 70 (1,88) | 61 (2,53) |
+| 25000 | 9 (1,87) | 74 (3,34) | 73 | 4 (0,74) | 56 (1,40) | 58 (1,98) |
+
+| Gegner, Tempo 1 | Chromium `next` | Chromium vorher | Chromium Hebel | Firefox `next` | Firefox vorher | Firefox Hebel |
+|---|---|---|---|---|---|---|
+| 8000 | 144 | 144 | 144 | 52 | 78 | 88 |
+| 12000 | 143 | 144 | 144 | 20 (0,93) | 70 | 72 |
+| 16000 | 95 | 82 | 85 | 15 (0,75) | 62 (0,95) | 69 |
+| 20000 | 66 | 85 | 83 | 11 (0,54) | 64 (0,91) | 58 (0,90) |
+| 25000 | 41 | 73 | 73 | 9 (0,47) | 49 (0,69) | 54 (0,79) |
+
+Gebaut (Hebel 1 und 2 der Liste oben):
+
+- **Tick vom Bild gelöst** (siehe Transport): Firefox erreicht bei Tempo 4 deutlich mehr Tempo (12000: 3,57 statt 2,48;
+  25000: 1,98 statt 1,40), der Worker ist dann zu 86 bis 93 % beschäftigt; Chromium hält Tempo 4 jetzt auch bei 25000.
+  Mehr Simulation heißt mehr Pakete je Sekunde: Firefox zeichnet bei 16000 und 20000 Gegnern dafür weniger Bilder.
+- **Spiegel liest bei Bedarf** statt 17 Zahlen je Gegner und Paket zu schreiben: in Firefox bei 16000 Gegnern 1,1 bis
+  1,4 ms statt 4,4 ms je Paket.
+- **Presenter:** keine Map-Schreibzugriffe und keine Routensuche je Gegner mehr, Statusoptik nur für Gegner mit Effekt.
+- **Nicht gebaut, weil ohne Gewinn gemessen:** Gegnergeräusche ausgelassen (Presenter 4,30 statt 4,32 ms bei 16000 in
+  Firefox), Typindex im Paketschreiber (unter 1 % der Worker-Zeit).
+
+Wo die Zeit jetzt hingeht (CPU-Profil `sim-load.ts --profile`, Chromium, 25000 Gegner, Tempo 4):
+
+- **Hauptthread:** zu 39 % im Leerlauf bei 73 FPS, die Grenze ist in Chromium also das Zeichnen. Größte Posten:
+  `presentEnemies` 106 ms/s, Spiegel 92 ms/s (vor dem Umbau des Spiegels), Animationen 56 ms/s, Instanzmatrizen 47 ms/s.
+- **Worker** (zu 88 % beschäftigt): Bewegung der Gegner rund 43 % (`move`, `place`, `placeOnArc`, Winkelfunktionen),
+  Gegner-Update mit Rastern und Höhe 19 %, Kampf rund 11 %, Paket schreiben 7 %.
+
+**Mehrere Worker, Labor** (`tools/multi-worker`, `e2e/perf/multi-worker.mjs`, Branch `perf/multi-worker-lab`): der
+Bewegungsteil des Sub-Steps mit den echten `Enemy`- und `MovementComponent`-Objekten, über 1 bis 4 Worker verteilt, per
+`Atomics` im Takt. Ergebnis je Sub-Step:
+
+| Gegner | Chromium 1 / 2 / 4 Worker | Firefox 1 / 2 / 4 Worker |
+|---|---|---|
+| 8000 | 0,45 / 0,24 / 0,14 ms (×3,3) | 0,56 / 0,30 / 0,16 ms (×3,5) |
+| 16000 | 1,00 / 0,86 / 0,47 ms (×2,2) | 1,18 / 0,62 / 0,32 ms (×3,7) |
+| 25000 | 1,51 / 1,35 / 0,88 ms (×1,7) | 2,26 / 1,30 / 0,66 ms (×3,4) |
+
+Die Positionen sind bei jeder Worker-Zahl und in beiden Browsern bitgleich (dieselbe Prüfsumme). Chromium skaliert bei
+vielen Gegnern schlecht (der Speicher bremst, siehe Profil). Da die Bewegung rund 43 % des Workers ausmacht, bringen
+4 Worker hochgerechnet etwa das 1,3-fache (Chromium) bis 1,4-fache (Firefox) an Simulation, und das nur dort, wo der
+Worker die Grenze ist: Firefox ab rund 12000, Chromium ab rund 25000 Gegnern bei Tempo 4. Für den Bau im Spiel müssen
+die Bewegungsdaten den Worker verlassen können (Gegnerdaten im SAB oder Bewegungsobjekte in den Helfern), mit Snapshot,
+Prüfsumme und Coop-Resync bitgleich; das berührt 24 Dateien und ist ein eigener Umbau (TODO E72).

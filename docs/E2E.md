@@ -82,7 +82,12 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
   übernimmt sichtbar die Windows-Skalierung; der Lauf setzt deshalb für beide Browser die Pixeldichte 1
   (`--dpr system` lässt sie dem Browser).
 - `--hide-enemies` misst jede Stufe ein zweites Mal ohne Gegner und Lebensbalken im Bild (Anteil der GPU).
+- `--profile <Präfix>` (Chromium): nach jeder Messung ein CPU-Profil von Hauptthread und Worker
+  (`e2e/perf/cdp-profile.ts`), die Funktionen mit der meisten eigenen Zeit ausgegeben. Lesbare Namen braucht einen
+  Build ohne Namenskürzung: `NG_BUILD_MANGLE=0 npm run build`.
 - Der Vergleich mit `next` braucht dort denselben Handle `__load` als lokalen Patch nur für die Messung.
+- `e2e/perf/replay-seek.ts`: spielt eine Welle aus Tausenden Gegnern, öffnet ihr Replay und misst Sprünge an 90, 50, 80
+  und 30 % (TODO E80).
 
 ## Coop-Läufe mit Bots (`e2e/coop-bots/run.ts`)
 
