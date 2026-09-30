@@ -291,6 +291,11 @@ Ideen (2026-09-27), nichts entschieden:
       18 bis 25 FPS gemischt, 36 bis 38 statt 17 nur mit Gatling und Archer; mit Fenster 31,3 statt 18,2. 2x und 4x
       sind wieder langsamer (mehr lebende Partikel), und der additive Pool und die Schadenszahlen bleiben dort auch bei
       4x voll. Vorschlag: Größen lassen; Entscheidung User.
+- [ ] **E85 Simulation und Darstellung ganz entkoppeln** (User, 2026-09-30, [SIM_DECOUPLE_PLAN.md](docs/SIM_DECOUPLE_PLAN.md)):
+      Der Worker loopt mit eigener Uhr statt auf Tick-Anfrage, der Hauptthread liest je Bild den neuesten Stand und
+      spielt die Events seither ab. Heute wartet der Worker nach jedem Paket auf das nächste Bild (rund 30 % Leerlauf
+      bei 16 000 Gegnern in Chromium), und langsame Bilder machen das Spiel zur Zeitlupe. Plan steht, Entscheidungen
+      offen (Reihenfolge zum Multi-Worker-Umbau, Branch, Startwerte).
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
       appimage.github.io (automatisch gefunden und aufgenommen, dessen Test bestanden). Der Test meldet drei Punkte: der Dateiname
       `3DTD-linux-x64.AppImage` soll kein „linux“ tragen (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete
