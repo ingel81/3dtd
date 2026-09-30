@@ -14,7 +14,8 @@
     "importHelpers": true,
     "target": "ES2022",
     "module": "preserve",
-    "resolveJsonModule": true
+    "resolveJsonModule": true,
+    "rewriteRelativeImportExtensions": true
   },
   "angularCompilerOptions": {
     "enableI18nLegacyMessageIdFormat": false,

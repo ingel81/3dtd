@@ -1,4 +1,5 @@
-import { SIM_STEPS_PER_SECOND } from '../configs/timing.config';
+// With the extension: the relay loads this file in plain Node, which resolves no import without one
+import { SIM_STEPS_PER_SECOND } from '../configs/timing.config.ts';
 import type { CommandData } from '../managers/game-state/command-data';
 
 /**
