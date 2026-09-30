@@ -86,7 +86,10 @@ node e2e/perf/sim-load.ts --url http://localhost:4244 --browser chromium --heade
 - Vor jeder Messung pendelt der Lauf ein (mindestens 5 s, dann bis zwei 2-s-Fenster weniger als 5 % auseinander).
 - Jedes Ergebnis nennt Rechner (`--machine`, nie den Hostnamen), CPU, Speicher, Browser, GPU und Pixeldichte. Firefox
   übernimmt sichtbar die Windows-Skalierung; der Lauf setzt deshalb für beide Browser die Pixeldichte 1
-  (`--dpr system` lässt sie dem Browser).
+  (`--dpr system` lässt sie dem Browser). **Offen (2026-10-01):** Das sichtbare Firefox meldete trotz `--dpr 1`
+  Pixeldichte 1,25 (Feld `devicePixelRatio` im Ergebnis); mit der Pref `layout.css.devPixelsPerPx` = 1 stand sie auf
+  1, die FPS fielen aber bei 5000 Gegnern von 76 auf 64 (langsamste 5 % in beiden Fällen bei 62). Ungeklärt, deshalb
+  nicht übernommen; Firefox-Zahlen seither mit dem gemeldeten Wert lesen.
 - `--hide-enemies` misst jede Stufe ein zweites Mal ohne Gegner und Lebensbalken im Bild (Anteil der GPU).
 - `--profile <Präfix>` (Chromium): nach jeder Messung ein CPU-Profil von Hauptthread und Worker
   (`e2e/perf/cdp-profile.ts`), die Funktionen mit der meisten eigenen Zeit ausgegeben. Lesbare Namen braucht einen
