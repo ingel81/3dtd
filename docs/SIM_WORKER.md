@@ -274,31 +274,34 @@ Hebel nach den Messwerten:
 
 Messlauf wie oben, aber mit Pixeldichte 1 in beiden Browsern, Gegnern mit 0,5 m/s und genauem Auffüllen (TODO E78,
 [E2E.md](E2E.md#lastmessung-e2eperfsim-loadts)); die Zahlen sind deshalb nicht direkt mit denen vom 2026-09-29
-vergleichbar. `next` mit dem Vorschau-Fix, „vorher“ der Worker-Stand am Morgen (`147f7b60`), „Hebel“ mit Hebel 1 und 2
-(`951caf9c`). FPS, in Klammern das erreichte Tempo, wo es unter 97 % des eingestellten fällt:
+vergleichbar. `next` mit dem Vorschau-Fix, „vorher“ der Worker-Stand vom Vorabend (`147f7b60`), „jetzt“ mit Hebel 1 und
+2, Panel, FPS-Anzeige und Benchmark (`43371665`). FPS, in Klammern das erreichte Tempo, wo es unter 97 % des
+eingestellten fällt:
 
-| Gegner, Tempo 4 | Chromium `next` | Chromium vorher | Chromium Hebel | Firefox `next` | Firefox vorher | Firefox Hebel |
+| Gegner, Tempo 4 | Chromium `next` | Chromium vorher | Chromium jetzt | Firefox `next` | Firefox vorher | Firefox jetzt |
 |---|---|---|---|---|---|---|
-| 5000 | 144 | 144 | 144 | 44 | 86 | 89 |
-| 8000 | 142 | 144 | 144 | 13 (2,69) | 83 (3,85) | 86 |
-| 12000 | 55 | 144 | 144 | 9 (1,74) | 79 (2,48) | 81 (3,57) |
-| 16000 | 21 | 100 | 100 | 6 (1,30) | 69 (2,42) | 62 (3,38) |
-| 20000 | 13 (2,56) | 86 | 87 | 5 (1,01) | 70 (1,88) | 61 (2,53) |
-| 25000 | 9 (1,87) | 74 (3,34) | 73 | 4 (0,74) | 56 (1,40) | 58 (1,98) |
+| 5000 | 144 | 144 | 144 | 44 | 86 | 90 |
+| 8000 | 142 | 144 | 144 | 13 (2,69) | 83 (3,85) | 87 |
+| 12000 | 55 | 144 | 144 | 9 (1,74) | 79 (2,48) | 83 (3,46) |
+| 16000 | 21 | 100 | 102 | 6 (1,30) | 69 (2,42) | 71 (3,34) |
+| 20000 | 13 (2,56) | 86 | 88 | 5 (1,01) | 70 (1,88) | 67 (2,48) |
+| 25000 | 9 (1,87) | 74 (3,34) | 72 | 4 (0,74) | 56 (1,40) | 60 (2,00) |
 
-| Gegner, Tempo 1 | Chromium `next` | Chromium vorher | Chromium Hebel | Firefox `next` | Firefox vorher | Firefox Hebel |
+| Gegner, Tempo 1 | Chromium `next` | Chromium vorher | Chromium jetzt | Firefox `next` | Firefox vorher | Firefox jetzt |
 |---|---|---|---|---|---|---|
 | 8000 | 144 | 144 | 144 | 52 | 78 | 88 |
-| 12000 | 143 | 144 | 144 | 20 (0,93) | 70 | 72 |
-| 16000 | 95 | 82 | 85 | 15 (0,75) | 62 (0,95) | 69 |
-| 20000 | 66 | 85 | 83 | 11 (0,54) | 64 (0,91) | 58 (0,90) |
-| 25000 | 41 | 73 | 73 | 9 (0,47) | 49 (0,69) | 54 (0,79) |
+| 12000 | 143 | 144 | 144 | 20 (0,93) | 70 | 76 |
+| 16000 | 95 | 82 | 90 | 15 (0,75) | 62 (0,95) | 73 |
+| 20000 | 66 | 85 | 85 | 11 (0,54) | 64 (0,91) | 66 (0,93) |
+| 25000 | 41 | 73 | 72 | 9 (0,47) | 49 (0,69) | 59 (0,82) |
 
 Gebaut (Hebel 1 und 2 der Liste oben):
 
-- **Tick vom Bild gelöst** (siehe Transport): Firefox erreicht bei Tempo 4 deutlich mehr Tempo (12000: 3,57 statt 2,48;
-  25000: 1,98 statt 1,40), der Worker ist dann zu 86 bis 93 % beschäftigt; Chromium hält Tempo 4 jetzt auch bei 25000.
-  Mehr Simulation heißt mehr Pakete je Sekunde: Firefox zeichnet bei 16000 und 20000 Gegnern dafür weniger Bilder.
+- **Tick vom Bild gelöst** (siehe Transport): Firefox erreicht bei Tempo 4 deutlich mehr Tempo bei etwa gleicher
+  Bildrate (12000: 3,46 statt 2,48; 16000: 3,34 statt 2,42; 25000: 2,00 statt 1,40), der Worker ist dann zu 63 bis 94 %
+  beschäftigt; Chromium erreicht bei 25000 Tempo 3,89 statt 3,34. Mehr Simulation heißt mehr Pakete je Sekunde: in
+  einem Zwischenlauf nur mit Hebel 1 und 2 zeichnete Firefox bei 16000 und 20000 Gegnern 61 bis 62 statt 69 bis 70
+  Bilder, im Schlusslauf 67 bis 71; die Läufe streuen um einige FPS.
 - **Spiegel liest bei Bedarf** statt 17 Zahlen je Gegner und Paket zu schreiben: in Firefox bei 16000 Gegnern 1,1 bis
   1,4 ms statt 4,4 ms je Paket.
 - **Presenter:** keine Map-Schreibzugriffe und keine Routensuche je Gegner mehr, Statusoptik nur für Gegner mit Effekt.

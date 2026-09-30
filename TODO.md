@@ -198,7 +198,7 @@ Ideen (2026-09-27), nichts entschieden:
       Gegner, beide Browser), am Ende die volle Reihe bis 25 000 inklusive `next`.
       **Gebaut 2026-09-30** (simu-worker, [SIM_WORKER.md](docs/SIM_WORKER.md#hebel-gebaut-gemessen-2026-09-30)): Tick vom
       Bild gelöst (zwei Tabellensätze, früher Tick ab 35 ms), Spiegel liest bei Bedarf, Presenter ohne Map-Schreiben je
-      Gegner. Firefox bei Tempo 4 deutlich mehr Tempo (12 000: 3,57 statt 2,48), Chromium hält Tempo 4 bis 25 000.
+      Gegner. Firefox bei Tempo 4 deutlich mehr Tempo bei etwa gleicher Bildrate (16 000: 3,34 statt 2,42), Chromium bei 25 000 Tempo 3,89 statt 3,34.
       **Mehrere Worker:** nur im Labor gebaut und gemessen (Branch `perf/multi-worker-lab`): Bewegung bitgleich, mit 4
       Workern 1,7- bis 3,7-mal so schnell; hochgerechnet 1,3- bis 1,4-mal so viel Simulation. Offen: der Umbau im Spiel
       (Bewegungsdaten aus dem Worker heraus, Snapshot, Prüfsumme und Resync bitgleich, 24 Dateien), Worker-Zahl und
