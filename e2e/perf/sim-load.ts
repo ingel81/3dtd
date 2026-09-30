@@ -178,10 +178,24 @@ function round(value: number, digits: number): number {
 }
 
 const engine = BROWSER === 'firefox' ? firefox : chromium;
+// A window behind another or without the focus must measure like the one in front: browsers lower the priority of
+// background windows and throttle their timers, which slowed whole runs by half while the machine was in use
+const FOREGROUND_ARGS = [
+  '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows', '--disable-background-timer-throttling',
+  '--disable-features=CalculateNativeWinOcclusion',
+];
+const FOREGROUND_PREFS = {
+  'widget.windows.window_occlusion_tracking.enabled': false,
+  'dom.ipc.processPriorityManager.enabled': false,
+  'dom.timeout.enable_budget_timer_throttling': false,
+  'dom.min_background_timeout_value': 4,
+};
 const browser = await engine.launch({
   headless: !HEADED && !MAP,
+  ...(BROWSER === 'firefox' ? { firefoxUserPrefs: FOREGROUND_PREFS } : {}),
   args: BROWSER === 'firefox' ? [] : [
     ...GPU_ARGS,
+    ...FOREGROUND_ARGS,
     ...(UNCAPPED ? ['--disable-frame-rate-limit', '--disable-gpu-vsync'] : []),
     ...(PROFILE ? [`--remote-debugging-port=${CDP_PORT}`] : []),
   ],
