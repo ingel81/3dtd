@@ -16,8 +16,6 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 - [x] **E77 Lebensbalken über 20 000** (`38b5dbf0`): Balken- und Gegner-Puffer wachsen mit der Gegnerzahl.
 - [x] **E79 Replay-Effekte** (`f003ced4`): Replay und Resync räumen die Show wieder ab (seit dem Worker-Umbau verloren).
 - [x] **E80 Replay-Sprünge** (`c2d18259`, `951caf9c`): Zwischenstände im Worker, weitere Sprünge 0,2 statt 2 bis 4 s.
-- [x] **Mehr Gegner bei gleicher Bildrate, Hebel 1 und 2** (E72, `f1393c6a` bis `d3f91750`): Firefox bei 16 000 Gegnern
-      und Tempo 4 Tempo 3,34 statt 2,42 bei gleicher Bildrate.
 - [x] **Custom Wave ohne Spawn-Floor** (`4bb4620a`): der Delay des Debug-Panels gilt wieder, auch unter der Mindestpause
       je Gegnertyp aus E50.
 
