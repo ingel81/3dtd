@@ -80,7 +80,8 @@ export class DebugStateDumpService {
       },
       routeGrid: {
         initialized: this.routeGrid.isInitialized(),
-        gridStats: this.routeGrid.getStats(),
+        // The cells only: enemies are tracked in the simulation's grid, in its worker
+        totalCells: this.routeGrid.getStats().totalCells,
         sampleStats: grid.dumpStats(),
         outliers20m: grid.dumpOutliers(20),
       },
@@ -123,7 +124,7 @@ export interface StateSnapshot {
   };
   routeGrid: {
     initialized: boolean;
-    gridStats: { totalCells: number; trackedEnemies: number; occupiedCells: number };
+    totalCells: number;
     sampleStats: RouteGridSampleStats;
     outliers20m: RouteCellDump[];
   };

@@ -713,7 +713,7 @@ export class GameLoopFacadeService {
     // refreshes whichever of the two meshes is currently shown.
     const gridViz = this.gridViz;
     if (gridViz.isSpatialGridVizVisible() || gridViz.isAirSpatialGridVizVisible()) {
-      gridViz.updateVisualization();
+      gridViz.updateVisualization(this.mirror.aliveEnemies());
     }
     gridViz.updateAnimation(deltaTime);
 

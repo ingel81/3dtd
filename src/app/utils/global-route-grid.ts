@@ -1158,8 +1158,8 @@ export class GlobalRouteGrid {
   /**
    * Update visualization colors only (call each frame when visible)
    */
-  updateVisualization(): void {
-    this.aggregateViz.updateVisualization();
+  updateVisualization(occupied?: ReadonlySet<RouteCell>): void {
+    this.aggregateViz.updateVisualization(occupied);
   }
 
   /**

@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
+import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry, Vector3 } from 'three';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/route-altitude-tubes';
 import { RouteGridSelectionViz } from '../../utils/route-grid-selection-viz';
 import type { PortalClipUniforms } from '../../three-engine/renderers/portal-clip';
 import type { GeoPosition } from '../../models/game.types';
+import type { RouteCell } from '../../utils/route-cell';
 import { UIStore } from '../../store/ui.store';
 
 /**
@@ -78,11 +79,29 @@ export class RouteGridVizService {
   }
 
   /**
-   * Update visualization
+   * Update the overlay's colours. The enemies in the cells come from
+   * `enemies` (the mirror's living ones): the main thread's grid tracks no
+   * enemies, the simulation's does, in its worker.
    */
-  updateVisualization(): void {
-    this.grid.updateVisualization();
+  updateVisualization(enemies: readonly { position: { lat: number; lon: number } }[] = []): void {
+    const grid = this.grid;
+    const sync = grid.getCoordinateSync();
+    const occupied = this.occupied;
+    occupied.clear();
+    if (sync) {
+      const local = this.local;
+      for (const enemy of enemies) {
+        sync.geoToLocalSimpleInto(enemy.position.lat, enemy.position.lon, 0, local);
+        const cell = grid.getCellAt(local.x, local.z);
+        if (cell) occupied.add(cell);
+      }
+    }
+    grid.updateVisualization(occupied);
   }
+
+  /** Scratch of updateVisualization */
+  private readonly occupied = new Set<RouteCell>();
+  private readonly local = new Vector3();
 
   /**
    * Update animation time

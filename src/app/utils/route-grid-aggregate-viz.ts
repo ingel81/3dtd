@@ -447,9 +447,12 @@ export class RouteGridAggregateViz {
 
   /**
    * Update visualization colors only (call each frame when visible)
-   * FAST: Only updates state attribute, no terrain sampling or matrix updates
+   * FAST: Only updates state attribute, no terrain sampling or matrix updates.
+   * `occupied`: the cells with enemies in them; without it the cells' own
+   * enemy sets, which only the simulation's grid fills (the main thread's
+   * grid gets them from the mirror, RouteGridVizService.updateVisualization).
    */
-  updateVisualization(): void {
+  updateVisualization(occupied?: ReadonlySet<RouteCell>): void {
     if (!this.cellStateAttribute) return;
     // State buffer is shared between ground & air meshes — write once,
     // both layers read it. We need at least one of the two meshes for
@@ -465,7 +468,7 @@ export class RouteGridAggregateViz {
 
       // 4-State Aggregate (shared palette with per-tower viz) + Enemy-Overlays.
       // State-Codes siehe buildLosCellFragment() oben.
-      const hasEnemies = cell.enemies.size > 0;
+      const hasEnemies = occupied ? occupied.has(cell) : cell.enemies.size > 0;
       const groundByAny = this.isGroundVisibleByAnyTower(cell);
       const airByAny = this.isAirVisibleByAnyTower(cell);
 
