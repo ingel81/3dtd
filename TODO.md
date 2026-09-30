@@ -242,7 +242,9 @@ Ideen (2026-09-27), nichts entschieden:
       **Gebaut 2026-09-30:** `npm run previews` (`e2e/previews/bake.ts`) backt in einem Build alle Tower und Gegnertypen
       (144 Bilder, 24 FPS) als WebP nach `public/assets/previews/` (37 Bildbänder, 5,7 MB); das Spiel lädt sie und backt
       nur noch eine Ansicht ohne Bildband (Debug-Regler) selbst. `preview-sheets.spec.ts` schlägt fehl, sobald ein Modell
-      oder eine Ansicht sich ändert und nicht neu gebacken wurde. Offen: Firefox im Spiel ansehen.
+      oder eine Ansicht sich ändert und nicht neu gebacken wurde. **Gemessen** (Firefox, DevWorld, Tempo 4, gegen
+      `5b3198d2`): 5000 Gegner 134 statt 94 FPS, 16 000 Gegner 103 statt 71 FPS und Tempo 3,94 statt 3,46; die Ursache
+      im Einzelnen nicht profiliert. Offen: im Spiel ansehen (PLAYTEST W1.4).
 - [ ] **E81 Restrisiken des zweiten Worker-Reviews** (2026-09-29): Wellenstart-Sperre im Hauptthread fällt nach 2 s
       Wanduhr (braucht das Relay länger, verwirft die Simulation den zweiten Start); Coop-Start und Ortswechsel ohne Paket
       dazwischen ließen den Lauf unmarkiert; ein hängender Worker blockiert nach `newRun`; Gegner-Views nur aus Event-Refs
