@@ -12,7 +12,7 @@ import type { SimScalars } from '../protocol/packet';
  */
 const KEYFRAMES = { budgetBytes: 250e6, minIntervalSteps: 300 };
 /** Wall clock a seek runs per tick, so the bar shows how far it got and a new target can come in between */
-const SEEK_SLICE_MS = 40;
+const SEEK_SLICE_MS = 60;
 
 /**
  * A replay as a re-simulation in the simulation (docs/SIMULATOR_PLAN.md, P6,
@@ -27,8 +27,9 @@ const SEEK_SLICE_MS = 40;
  * at most GameClock.MAX_CATCHUP_MS per frame like the game clock. Seeking
  * runs the simulation to the point sought with the show muted, from the
  * nearest keyframe before it (or the wave's start), in slices of
- * SEEK_SLICE_MS per tick: the packets show how far it got, and a new target
- * (a drag on the bar) takes over from the next slice.
+ * SEEK_SLICE_MS per tick: the packets tell the bar how far it got (drawn is
+ * only where it arrives), and a new target (a drag on the bar) takes over
+ * from the next slice.
  */
 export class SimReplay {
   private resim: Resimulation;

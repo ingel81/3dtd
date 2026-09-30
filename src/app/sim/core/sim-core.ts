@@ -171,7 +171,9 @@ export class SimCore implements SimCoreApi {
     }
 
     const updateDone = performance.now();
-    const presented = input.renderingEnabled && (stepsRun > 0 || this.forcePresent || input.commands.length > 0);
+    // A replay's jump shows only where it arrives: its slices on the way are not drawn
+    const presented = input.renderingEnabled && !this.replay?.isSeeking
+      && (stepsRun > 0 || this.forcePresent || input.commands.length > 0);
     this.forcePresent = false;
     const packet = this.packet(stepsRun, presented, input);
     const end = performance.now();

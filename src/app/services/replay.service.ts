@@ -111,7 +111,7 @@ export class ReplayService {
    * live run (a determinism bug), null while it matches
    */
   readonly divergedAtMs = signal<number | null>(null);
-  /** A jump running: how far it got, 0 to 100 (the simulation runs it in slices), null while none runs */
+  /** A jump running: how far it got, 0 to 100 (the simulation runs it in slices of 60 ms), null while none runs */
   readonly seekPercent = signal<number | null>(null);
   /** The replay shows a loaded file, not the run under way */
   readonly fromFile = signal(false);

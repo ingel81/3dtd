@@ -66,8 +66,8 @@ noch Schüsse fliegen, wartet es bis zu 5 s auf ein ruhiges Feld. Dann übernimm
 - **Abspielen:** Je Frame rückt die Simulation um Tempo mal Frame-Zeit vor, höchstens `GameClock.MAX_CATCHUP_MS`
   wie die Spieluhr, und die Renderer bekommen den Stand (`presentReplayFrame`). Die Renderer-Uhr folgt dem Tempo.
 - **Springen:** Ohne Show (`GameEventBus.onShow`: VFX, Sounds, Musik, Screen-Shake, Blutmond) bis zum Ziel rechnen,
-  ab dem nächsten Zwischenstand davor, sonst ab hier oder ab Wellenstart. Die Simulation rechnet in Scheiben von 40 ms
-  je Tick (`SimReplay.advanceSeek`); die Leiste zeigt „Jumping 43 %“, ein neues Ziel (Ziehen am Balken) übernimmt ab
+  ab dem nächsten Zwischenstand davor, sonst ab hier oder ab Wellenstart. Die Simulation rechnet in Scheiben von 60 ms
+  je Tick (`SimReplay.advanceSeek`), ohne die Zwischenstände zu zeichnen; die Leiste zeigt „Jumping 43 %“, ein neues Ziel (Ziehen am Balken) übernimmt ab
   der nächsten Scheibe.
 - **Zwischenstände:** Während das Replay offen ist, hält die Nachrechnung alle paar Sekunden den Stand als
   Wellen-Snapshot in einem String (`Resimulation`, Budget 250 MB, mindestens 5 s Abstand). Der Abstand richtet sich
