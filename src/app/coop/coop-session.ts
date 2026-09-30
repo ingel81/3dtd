@@ -113,11 +113,18 @@ export class WebSocketLink implements LockstepLink {
     if (report) this.out({ t: 'stats', stats: report });
   }
 
+  private tickListener: (() => void) | null = null;
+
+  onTick(listener: (() => void) | null): void {
+    this.tickListener = listener;
+  }
+
   /** From the session: a tick closed at the relay. Ticks come in order over the one socket. */
   receive(tick: number, commands: readonly StampedCommand[]): void {
     this.stats.tickArrived(performance.now());
     if (commands.length > 0) this.received.set(tick, commands);
     this.confirmed = tick;
+    this.tickListener?.();
   }
 }
 

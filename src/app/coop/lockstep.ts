@@ -51,11 +51,20 @@ export interface LockstepLink {
   /** The state hash at the boundary of `tick`, before its commands ran; every HASH_EVERY_TICKS ticks (C5). `parts`: per HASH_PARTS entry. */
   reportHash(tick: number, hash: number, parts?: readonly number[]): void;
   /**
-   * A frame ran `steps` sub-steps; `blocked` when the tick barrier held one
-   * that was due; `behind` ticks closed and not yet run. For the smoothness
-   * report (coop/lockstep-stats.ts); a link may ignore it.
+   * A pass of the simulation's loop ran `steps` sub-steps; `blocked` when
+   * the tick barrier held one that was due; `behind` ticks closed and not
+   * yet run. Only passes that ran a sub-step or were held: the loop sleeps
+   * until a sub-step is due, a pass that an input woke for nothing does not
+   * count. For the smoothness report (coop/lockstep-stats.ts); a link may
+   * ignore it.
    */
   noteFrame?(steps: number, blocked: boolean, behind: number): void;
+  /**
+   * Call `listener` whenever a tick came in (confirmedTick moved), null to
+   * stop: the ticks go on to the simulation at once instead of with the
+   * next frame (docs/SIM_DECOUPLE_PLAN.md). A link may leave it out.
+   */
+  onTick?(listener: (() => void) | null): void;
   /**
    * `count` commands of this client's player ran now (the input delay of
    * the smoothness report); a link may ignore it.

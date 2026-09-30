@@ -135,6 +135,7 @@ export class SimClient {
     this.sent = null;
     this.pendingPackets = [];
     this.commands = [];
+    this.lockstep?.onTick?.(null);
     this.lockstep = null;
     this.replay = null;
     this.deliveredTick = -1;
@@ -200,6 +201,7 @@ export class SimClient {
     const firstLine = error.split('\n')[0];
     this.failure.set(firstLine);
     this.commands = [];
+    this.lockstep?.onTick?.(null);
     this.lockstep = null;
     this.deliveredTick = -1;
     for (const listener of this.failureListeners) listener(firstLine);
@@ -222,14 +224,28 @@ export class SimClient {
   }
 
   /**
-   * Coop: the relay link. Its delivered ticks go to the simulation with the
-   * frame's input; what the simulation sends back (commands, hashes,
-   * smoothness) goes to it. Null for the single player game.
+   * Coop: the relay link. Its ticks go to the simulation as they come in
+   * (LockstepLink.onTick), not with the next frame: the loop waits at the
+   * barrier for them, whatever this thread draws. What the simulation sends
+   * back (commands, hashes, smoothness) goes to the link. Null for the
+   * single player game.
    */
   setLockstep(link: LockstepLink | null, hashEvery?: number): void {
+    this.lockstep?.onTick?.(null);
     this.lockstep = link;
+    link?.onTick?.(() => this.ticksCame());
     this.deliveredTick = -1;
     this.configure({ lockstep: link ? { hashEvery } : null });
+  }
+
+  /** The relay closed ticks: on to the simulation now, with whatever else changed since the last frame. */
+  private ticksCame(): void {
+    if (!this.transport || !this.worldLoaded || this.failure() !== null) return;
+    try {
+      this.flushInput(performance.now());
+    } catch (error) {
+      this.fail(error instanceof Error ? `${error.message}\n${error.stack ?? ''}` : String(error));
+    }
   }
 
   /** A command from the main thread (the same as emitting it on the bus). */

@@ -848,11 +848,15 @@ export class GameStateManager {
       if ((deadline !== Infinity && performance.now() >= deadline) || stop?.()) break;
     }
     this.barrierClosed = !open;
-    // Coop: how smoothly this client runs (PLAYTEST T19)
+    // Coop: how smoothly this client runs (PLAYTEST T19). The loop passes when a sub-step is due; a pass
+    // that a message woke with nothing due says nothing about it
     const link = this.lockstep.current;
     if (link?.noteFrame) {
-      const behind = this.lockstep.ticksInHand(link, this.clock.subStep);
-      link.noteFrame(this.clock.stepsThisFrame, !open && this.clock.hasDueStep(), Math.max(0, behind));
+      const held = !open && this.clock.hasDueStep();
+      if (held || this.clock.stepsThisFrame > 0) {
+        const behind = this.lockstep.ticksInHand(link, this.clock.subStep);
+        link.noteFrame(this.clock.stepsThisFrame, held, Math.max(0, behind));
+      }
     }
     this.clock.endFrame();
 

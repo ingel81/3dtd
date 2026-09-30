@@ -333,6 +333,28 @@ describe('SimClient', () => {
     });
   });
 
+  it('hands the relay\'s ticks on as they come in, without waiting for a frame, and lets the link go after', () => {
+    const { client, transport, frame } = setup();
+    let confirmed = -1;
+    let came: (() => void) | null = null;
+    const link = {
+      confirmedTick: () => confirmed, commandsAt: () => [], release: vi.fn(),
+      onTick: (listener: (() => void) | null) => (came = listener),
+    };
+    client.setLockstep(link as unknown as LockstepLink);
+    frame();
+    confirmed = 0;
+    came!();
+    expect(transport().inputs).toHaveLength(2);
+    expect(transport().inputs[1].lockstep).toEqual({ confirmedTick: 0, ticks: [{ tick: 0, commands: [] }] });
+    // The frame after has nothing left to hand on
+    frame();
+    expect(transport().inputs).toHaveLength(2);
+
+    client.setLockstep(null);
+    expect(came).toBeNull();
+  });
+
   it('tells the link when its own commands ran in the simulation, not when their input went out', () => {
     const { client, transport, frame } = setup();
     const link = { confirmedTick: vi.fn(() => 0), commandsAt: vi.fn(() => []), release: vi.fn(), commandsRan: vi.fn() };

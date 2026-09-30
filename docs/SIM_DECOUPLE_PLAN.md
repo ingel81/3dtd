@@ -112,6 +112,11 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
 - Der Lockstep bleibt, wie er ist: Die Simulation rechnet nur bis zur Grenze des Ticks, den das Relay freigegeben
   hat. Die freigegebenen Ticks mit ihren Befehlen gehen per Nachricht an den Worker, sobald sie im Hauptthread ankommen
   (heute: mit dem nächsten Tick). Der Loop wartet an der Grenze.
+- **Gebaut (Schritt 4):** Die Ticks des Relays gehen an den Worker, sobald sie ankommen (`LockstepLink.onTick`,
+  `SimClient.ticksCame`), nicht erst mit dem nächsten Bild. An der Barriere schläft der Loop, bis eine Nachricht
+  kommt (`GameStateManager.dueInMs`), und veröffentlicht vorher seinen letzten Stand; darauf verlässt sich der Resync,
+  der den Spiegel an der Grenze liest. Die Glätte-Meldung (`noteFrame`) zählt jetzt Durchgänge des Loops, die einen
+  Sub-Step rechneten oder an der Barriere hingen, nicht mehr Bilder.
 - Später möglich: die Relay-Verbindung in den Worker verlegen, damit ein langsames Bild auch die Freigaben nicht
   aufhält. Nicht Teil dieses Plans.
 
@@ -146,7 +151,7 @@ Jeder Schritt mit grünen Specs, E2E (`npm run e2e`) und einem Messcheck (`e2e/p
 3. **Loop im Worker** mit eigener Uhr, Budget je Durchgang, Nachrichten für Befehle, Tempo, Pause; Tick auf Anfrage
    und früher Tick entfernt. Inline-Transport synchron. **Gebaut 2026-09-30.**
 4. **Coop:** Freigaben per Nachricht, Loop wartet an der Grenze; Coop-Bot-Lauf zu zweit ohne Abweichung, Resync-Lauf
-   (`e2e/coop-bots/run.ts --falsify-at-wave --big-wave`).
+   (`e2e/coop-bots/run.ts --falsify-at-wave --big-wave`). **Gebaut 2026-09-30.**
 5. **Aufrufe und Replay:** Loop anhalten und fortsetzen; Replay-Sprünge (`e2e/perf/replay-seek.ts`).
 6. **Gegendruck und Hintergrund-Tab**, dann die volle Messreihe und Doku (SIM_WORKER.md).
 7. Nur bei Bedarf: Interpolation zwischen zwei Ständen.
@@ -168,7 +173,7 @@ Tabelle, statt zu kopieren. Setzt beide Umbauten voraus; entscheiden nach den Me
 - Offen nach Schritt 3: Ohne Gegendruck (Schritt 6) rechnet der Worker weiter, solange der Hauptthread keine Bilder
   rechnet, und veröffentlicht dann alle 100 ms; die Liste der Pakete wächst so lange. Der Stand eines Bilds ist so alt
   wie die Zeit zwischen Abruf (Anfang des vorigen Bilds) und Anwenden; ob das bei langen Bildern stört, zeigt die
-  Messung. Im Coop meldet `noteFrame` die Glätte jetzt je Durchgang statt je Bild (Schritt 4).
+  Messung.
 - Specs, die einen Tick je `frame()` annehmen, müssen auf den Loop umgestellt werden.
 
 ## Zum Multi-Worker-Umbau

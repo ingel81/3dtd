@@ -1,7 +1,8 @@
 /**
  * How smoothly a coop client runs, measured to find why the game feels
- * sluggish in coop (PLAYTEST T19, TODO E29). Counted per frame and per tick,
- * reported to the relay every REPORT_EVERY_MS, which logs it. Framework-free
+ * sluggish in coop (PLAYTEST T19, TODO E29). Counted per pass of the
+ * simulation's loop (one that ran a sub-step or was held at the barrier; its
+ * "frame") and per tick, reported to the relay every REPORT_EVERY_MS, which logs it. Framework-free
  * and pure; times are wall-clock ms the caller passes in.
  */
 
