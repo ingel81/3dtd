@@ -10,6 +10,7 @@ import type { SimFramePacket, SimScalars } from '../protocol/packet';
 import type { SimMirrorApi, SimPresenterApi } from './contracts';
 import { createMainEventBus, type MainEventBus, type ViewEvent } from './view-events';
 import { WorkerTransport, type SimTransport, type SimTransportHandlers } from './transport';
+import { mergePackets } from './merge-packets';
 
 /**
  * A tick longer than this goes on without waiting for the next frame (see
@@ -45,8 +46,9 @@ export function isSimInput(type: string): boolean {
  *  - `rpc`: calls with an answer (replay file, snapshots, hashes).
  *
  * One tick is in flight at a time: the next goes when its packet is back, so
- * a slow simulation slows the game instead of piling up frames. A packet is
- * applied at the start of the main thread's next frame, before it renders.
+ * a slow simulation slows the game instead of piling up frames. The packets
+ * that came are applied at the start of the main thread's next frame, before
+ * it renders, as one (applyPending).
  * Where a tick takes longer than EARLY_TICK_MS (many enemies, high speed)
  * and the worker's tables are in shared memory (SimTransport.concurrent), the
  * next tick goes out as soon as the packet is back instead of with the next
@@ -368,31 +370,26 @@ export class SimClient {
   }
 
   /**
-   * The packets that came, in order. A packet whose tables the simulation
-   * writes again already (a newer one is on its way) waits with the ones
-   * after it for the next frame.
+   * The packets that came since the last frame, folded into one
+   * (mergePackets): the newest one's state, every one's ops, events and
+   * tower changes in order. When the newest one's tables are written again
+   * already (a newer packet is on its way), they all wait for the next frame.
    */
   private applyPending(): void {
     const transport = this.transport;
-    if (this.pendingPackets.length === 0 || !transport) return;
     const packets = this.pendingPackets;
-    let done = 0;
-    while (done < packets.length) {
-      const packet = packets[done];
-      if (!transport.claim(packet)) break;
-      try {
-        this.apply(packet);
-      } finally {
-        transport.release();
-      }
-      done++;
+    if (packets.length === 0 || !transport) return;
+    if (!transport.claim(packets[packets.length - 1])) return;
+    this.pendingPackets = [];
+    try {
+      this.apply(mergePackets(packets));
+    } finally {
+      transport.release();
     }
-    if (done === packets.length) this.pendingPackets = [];
-    else packets.splice(0, done);
   }
 
   /**
-   * Main-thread ms of the last packet's apply, by part: the mirror's state,
+   * Main-thread ms of the last apply (the packets of a frame), by part: the mirror's state,
    * the renderer ops, the events on the bus, the tables to the renderers, the
    * frame listeners (the frame time's share of the simulation on this thread)
    */

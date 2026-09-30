@@ -251,6 +251,7 @@ export class PerformanceProfilerService {
     const renderMs = (frame?.renderMs ?? 0) / frames;
     const mainBusy = frame && window.wallMs > 0 ? (frame.updateMs + frame.renderMs) / window.wallMs : 0;
     const packets = Math.max(1, window.packets);
+    const applies = Math.max(1, window.applies);
     const apply = window.apply;
     const applyTotal = apply.state + apply.ops + apply.events + apply.present + apply.listeners;
 
@@ -270,12 +271,12 @@ export class PerformanceProfilerService {
       renderMs,
       mainBusyPct: mainBusy * 100,
       apply: {
-        state: apply.state / packets,
-        ops: apply.ops / packets,
-        events: apply.events / packets,
-        present: apply.present / packets,
-        listeners: apply.listeners / packets,
-        total: applyTotal / packets,
+        state: apply.state / applies,
+        ops: apply.ops / applies,
+        events: apply.events / applies,
+        present: apply.present / applies,
+        listeners: apply.listeners / applies,
+        total: applyTotal / applies,
       },
       speed: rates.speed,
       speedSet: this.gameStore.gameSpeed(),

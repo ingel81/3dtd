@@ -120,7 +120,7 @@ const emit = (page: Page, command: Record<string, unknown>) =>
   page.evaluate((c) => (globalThis as unknown as { __load: { emit(e: unknown): void } }).__load.emit(c), command);
 
 interface Sums {
-  wallMs: number; packets: number; emptyPackets: number; subSteps: number; tickMs: number; events: number; ops: number;
+  wallMs: number; packets: number; applies?: number; emptyPackets: number; subSteps: number; tickMs: number; events: number; ops: number;
   apply: Record<string, number>;
 }
 const stats = (page: Page, reset: boolean) =>
@@ -159,16 +159,18 @@ async function measure(page: Page, seconds: number): Promise<{ fps: number; p05:
     // Mean main-thread ms per frame of each part of applying the packet
     apply: Object.fromEntries(Object.entries(applies).map(([k, v]) => [k, Number((v.reduce((a, b) => a + b, 0) / v.length).toFixed(2))])),
     // Summed over every packet instead of sampled per frame: the worker's load (share of wall time), per sub-step and per
-    // packet costs, the apply per packet by part, events per packet, the share of packets without a sub-step
+    // packet costs, the apply by part (one per frame that got packets), events per packet, the share of applies without a
+    // sub-step. Builds before the fold per frame (no `applies`) applied every packet on its own
     sums: s && s.packets > 0 ? {
       workerLoad: round(s.tickMs / s.wallMs, 3),
       tickPerStepMs: round(s.tickMs / Math.max(1, s.subSteps), 3),
       packetsPerS: round(s.packets / (s.wallMs / 1000), 1),
-      emptyShare: round(s.emptyPackets / s.packets, 3),
+      appliesPerS: round((s.applies ?? s.packets) / (s.wallMs / 1000), 1),
+      emptyShare: round(s.emptyPackets / (s.applies ?? s.packets), 3),
       eventsPerPacket: round(s.events / s.packets, 1),
       opsPerPacket: round(s.ops / s.packets, 1),
-      applyPerPacketMs: round(Object.values(s.apply).reduce((a, b) => a + b, 0) / s.packets, 3),
-      ...Object.fromEntries(Object.entries(s.apply).map(([k, v]) => [`apply.${k}`, round(v / s.packets, 3)])),
+      applyPerPacketMs: round(Object.values(s.apply).reduce((a, b) => a + b, 0) / (s.applies ?? s.packets), 3),
+      ...Object.fromEntries(Object.entries(s.apply).map(([k, v]) => [`apply.${k}`, round(v / (s.applies ?? s.packets), 3)])),
     } : null,
   };
 }

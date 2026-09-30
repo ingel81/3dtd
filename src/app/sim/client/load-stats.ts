@@ -11,8 +11,11 @@ import type { SimClient } from './sim-client.service';
 export interface LoadStats {
   /** Wall ms since the reset */
   wallMs: number;
+  /** Packets the simulation published (by their running number: the ones a frame folded into one count each) */
   packets: number;
-  /** Packets whose tick ran no sub-step */
+  /** Frames that applied packets (SimClient folds what came since the last frame into one) */
+  applies: number;
+  /** Applies whose packets ran no sub-step */
   emptyPackets: number;
   subSteps: number;
   /** The worker's ms over all ticks (SimScalars.tickMs): divided by wallMs, its load */
@@ -21,13 +24,13 @@ export interface LoadStats {
   gameMs: number;
   events: number;
   ops: number;
-  /** Main-thread ms of applying the packets, by part (SimClient.applyTimes) */
+  /** Main-thread ms of the applies, by part (SimClient.applyTimes) */
   apply: Record<keyof SimClient['applyTimes'], number>;
 }
 
 function emptyStats(): LoadStats {
   return {
-    wallMs: 0, packets: 0, emptyPackets: 0, subSteps: 0, tickMs: 0, gameMs: 0, events: 0, ops: 0,
+    wallMs: 0, packets: 0, applies: 0, emptyPackets: 0, subSteps: 0, tickMs: 0, gameMs: 0, events: 0, ops: 0,
     apply: { state: 0, ops: 0, events: 0, present: 0, listeners: 0 },
   };
 }
@@ -39,7 +42,7 @@ export interface LoadRates {
   /** Share of the wall time the worker spent in ticks, 0 to 1 */
   workerLoad: number;
   packetsPerS: number;
-  /** Main-thread ms of applying one packet, all parts */
+  /** Main-thread ms of one apply (the packets of a frame), all parts */
   applyPerPacketMs: number;
 }
 
@@ -50,7 +53,7 @@ export function loadRates(stats: LoadStats): LoadRates {
     speed: stats.gameMs / wall,
     workerLoad: stats.tickMs / wall,
     packetsPerS: (stats.packets * 1000) / wall,
-    applyPerPacketMs: stats.packets > 0 ? apply / stats.packets : 0,
+    applyPerPacketMs: stats.applies > 0 ? apply / stats.applies : 0,
   };
 }
 
@@ -63,6 +66,8 @@ export class PacketSums {
   private sums = emptyStats();
   private since = performance.now();
   private lastGameMs: number | null = null;
+  /** SimFramePacket.frame of the last packet */
+  private lastFrame: number | null = null;
   private stopListening: (() => void) | null = null;
 
   constructor(private readonly sim: Pick<SimClient, 'onFrame' | 'applyTimes'>) {}
@@ -78,6 +83,7 @@ export class PacketSums {
     this.sums = emptyStats();
     this.since = performance.now();
     this.lastGameMs = null;
+    this.lastFrame = null;
   }
 
   stop(): void {
@@ -98,7 +104,10 @@ export class PacketSums {
 
   private add(packet: SimFramePacket): void {
     const sums = this.sums;
-    sums.packets++;
+    const frame = packet.frame;
+    sums.packets += this.lastFrame !== null && frame > this.lastFrame ? frame - this.lastFrame : 1;
+    this.lastFrame = frame ?? null;
+    sums.applies++;
     if (packet.stepsRun === 0) sums.emptyPackets++;
     sums.subSteps += packet.stepsRun;
     sums.tickMs += packet.scalars.tickMs;

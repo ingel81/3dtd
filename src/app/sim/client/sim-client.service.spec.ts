@@ -44,7 +44,9 @@ class FakeTransport implements SimTransport {
 }
 
 function packet(events: ExportedEvent[] = [], gameTimeMs = 0, tickMs = 1): SimFramePacket {
-  return { events, ops: [], scalars: { gameTimeMs, tickMs } } as unknown as SimFramePacket;
+  return {
+    events, ops: [], towerStates: [], removedTowers: [], stepsRun: 1, presented: true, scalars: { gameTimeMs, tickMs },
+  } as unknown as SimFramePacket;
 }
 
 const event = (type: string): ExportedEvent => ({ type, payload: {}, live: true, show: true });
@@ -197,16 +199,29 @@ describe('SimClient', () => {
       expect(transport().ticks).toHaveLength(2);
     });
 
-    it('waits for the frame while the packet before is not applied: its tables would be written over', () => {
-      const { transport, frame, presenter } = setup();
+    it('sends no second early tick while a packet waits, and applies the packets of a frame as one', () => {
+      const { transport, frame, presenter, seen } = setup();
       transport().concurrent = true;
       frame();
-      transport().handlers.frame(packet([], 0, 40));
-      transport().handlers.frame(packet([], 16, 40));
+      transport().handlers.frame(packet([event('wave:started')], 0, 40));
+      transport().handlers.frame(packet([event('enemy:killed')], 16, 40));
       expect(transport().ticks).toHaveLength(2);
       frame();
-      expect(presenter.present).toHaveBeenCalledTimes(2);
+      expect(presenter.present).toHaveBeenCalledTimes(1);
+      expect(seen).toEqual(['wave:started', 'enemy:killed']);
       expect(transport().ticks).toHaveLength(3);
+    });
+
+    it('keeps the packets for the next frame while the tables of the newest are written again', () => {
+      const { transport, frame, presenter } = setup();
+      frame();
+      transport().handlers.frame(packet());
+      transport().claim = () => false;
+      frame();
+      expect(presenter.present).not.toHaveBeenCalled();
+      transport().claim = () => true;
+      frame();
+      expect(presenter.present).toHaveBeenCalledTimes(1);
     });
 
     it('keeps to the frame when the tick is shorter than one, or the tables are copies', () => {

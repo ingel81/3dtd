@@ -53,6 +53,12 @@ Simulation und Darstellung sind **ganz entkoppelt** (Entscheidung User, 2026-09-
   Hauptthread Stände überspringt. Sie gehen je Veröffentlichung als Nachricht mit Folgenummer; der Hauptthread spielt
   alle seit dem letzten Bild ab, in Reihenfolge, und dann den neuesten Stand.
 - Events tragen heute die Zahlen ihres Moments (Event-Refs); das bleibt so, sie brauchen keinen Stand von damals.
+- **Gebaut (Schritt 2):** Jede Veröffentlichung bleibt eine Nachricht (Stand und Strom zusammen, `frame` als
+  Folgenummer). Der `SimClient` faltet alle seit dem letzten Bild angekommenen zu einem Paket (`merge-packets.ts`):
+  Tabellen, Skalare und Helden vom neuesten, Ops und Events aller in Reihenfolge, Tower-Änderungen so, als hätte ein
+  Tick sie alle gerechnet. Das ist dieselbe Lage wie heute ein Tick mit vielen Sub-Steps; Spiegel, Presenter und die
+  Leser je Bild (LOS, Coop, Replay, Lastzahlen) bleiben unverändert. `LoadStats.packets` zählt die Veröffentlichungen
+  über `frame`, `applies` die Bilder, die welche einräumten.
 - **Gegendruck:** Liegt der Hauptthread mehr als eine Grenze hinter dem Strom (Startwert 250 ms Spielzeit oder
   64 Veröffentlichungen), wartet der Worker. Ohne das wüchse der Speicher bei einem hängenden Hauptthread
   unbegrenzt. Im normalen Spiel greift es nicht.

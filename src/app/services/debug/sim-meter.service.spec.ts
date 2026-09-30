@@ -3,7 +3,7 @@ import { meterSample, speedShort } from './sim-meter.service';
 import type { LoadStats } from '../../sim/client/load-stats';
 
 const window: LoadStats = {
-  wallMs: 1000, packets: 60, emptyPackets: 0, subSteps: 240, tickMs: 720, gameMs: 3800, events: 0, ops: 0,
+  wallMs: 1000, packets: 60, applies: 60, emptyPackets: 0, subSteps: 240, tickMs: 720, gameMs: 3800, events: 0, ops: 0,
   apply: { state: 30, ops: 6, events: 12, present: 60, listeners: 12 },
 };
 
