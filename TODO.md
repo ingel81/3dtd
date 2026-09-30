@@ -189,6 +189,11 @@ Ideen (2026-09-27), nichts entschieden:
       **Entschieden (User, 2026-09-30):** Claude macht den Bot-Lauf (Solo über einige Wellen gegen `next`), baut und startet
       das Desktop-Paket (Isolation, Worker-Modus) und schreibt die Klickwege für Handtest und Coop in PLAYTEST.md; Handtest
       und Coop über zwei Rechner macht der User.
+      **Stand 2026-09-30:** Klickwege in PLAYTEST.md (Paket W1 bis W3). Desktop-Paket gebaut (0.5.1, NSIS) und gestartet:
+      `crossOriginIsolated` wahr, Simulation im Worker, DevWorld lädt. Bot-Lauf allein, je ein Lauf bis Welle 24
+      (Zeitlimit): beide ohne Fehler, gleich viele Tower und Kills, HQ am Ende 255 (`simu-worker`) gegen 294 (`next`);
+      ein Lauf je Seite sagt über den Unterschied nichts, weitere Läufe auf Wunsch des Users abgebrochen.
+      Dabei gefunden und behoben: der Coop-Bot-Läufer las noch `gameState` im Hauptthread.
 - [ ] **E72 Mehr Gegner bei gleicher Bildrate** ([SIM_WORKER.md](docs/SIM_WORKER.md#mehr-gegner-gemessen-2026-09-29)):
       **Gemessen 2026-09-29** bis 25000 Gegner: Chromium hält 144 FPS und Tempo 4 bis rund 11000 (vorher 4900), dann
       wird der Worker knapp; Firefox hält Tempo 4 bis rund 7300, Grenze ist der Hauptthread (Paket anwenden 6 bis 19 ms).
