@@ -313,6 +313,26 @@ describe('SimMirror', () => {
       expect(mirror.subStep).toBe(300);
     });
 
+    it('has the credits, HQ and enemies of the event while one that carries them is handed on', () => {
+      const p = packet({ scalars: { players: ['a', 'b'], credits: [300, 90], baseHealth: 400, enemiesAlive: 12 } });
+      mirror.applyState(p);
+      // The wave ended before a purchase in the same packet: its numbers are the ones before the purchase
+      mirror.importEvent({
+        type: 'wave:completed', payload: { wave: 3 }, live: true, show: true, t: 4200, step: 252,
+        moment: { credits: [350, 90], baseHealth: 410, enemiesAlive: 0 },
+      });
+      expect(mirror.creditsOf('a')).toBe(350);
+      expect(mirror.baseHealth).toBe(410);
+      expect(mirror.enemiesAlive).toBe(0);
+      // An event without them reads the packet's
+      mirror.importEvent({ type: 'tower:placed', payload: {}, live: true, show: true, t: 4300, step: 258 });
+      expect(mirror.creditsOf('a')).toBe(300);
+      mirror.afterFrame(p);
+      expect(mirror.creditsOf('a')).toBe(300);
+      expect(mirror.baseHealth).toBe(400);
+      expect(mirror.enemiesAlive).toBe(12);
+    });
+
     it('takes the route progress of an enemy from its reference', () => {
       mirror.applyState(packet({}));
       const view = mirror.importEvent({ type: 'enemy:died', payload: { enemy: ref(8, { pr: 0.75, alive: false }) }, live: true, show: true }) as { enemy: EnemyView };

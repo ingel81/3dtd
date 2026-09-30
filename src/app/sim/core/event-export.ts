@@ -10,7 +10,7 @@ import { Enemy } from '../../entities/enemy.entity';
 import { Tower } from '../../entities/tower.entity';
 import { Projectile } from '../../entities/projectile.entity';
 import { WormGroup } from '../../managers/worm/worm-group';
-import type { EnemyRef, ExportedEvent, ProjectileRef, TowerRef, WormGroupRef } from '../protocol/events';
+import type { EnemyRef, EventMoment, ExportedEvent, ProjectileRef, TowerRef, WormGroupRef } from '../protocol/events';
 import { entityNum } from '../protocol/packet';
 
 /** Where an enemy's route stands in the world's spawn list, -1 for none (packet column E_ROUTE). */
@@ -93,7 +93,12 @@ function exportValue(value: unknown, routeIndex: RouteIndexOf): unknown {
 export interface EmitClock {
   gameTimeMs(): number;
   subStep(): number;
+  /** The numbers the MOMENT_EVENTS carry */
+  moment?(): EventMoment;
 }
+
+/** Events that carry the numbers of their moment (EventMoment) */
+const MOMENT_EVENTS = new Set(['wave:started', 'wave:completed', 'game:over']);
 
 /** One event as it crosses; its mute flags as the bus had them, the clock of its emit. */
 export function exportEvent(event: GameEvent, bus: GameEventBus, routeIndex: RouteIndexOf, clock?: EmitClock): ExportedEvent {
@@ -104,6 +109,7 @@ export function exportEvent(event: GameEvent, bus: GameEventBus, routeIndex: Rou
     live: !bus.isLiveMuted,
     show: !bus.isShowMuted,
     ...(clock ? { t: clock.gameTimeMs(), step: clock.subStep() } : {}),
+    ...(clock?.moment && MOMENT_EVENTS.has(type) ? { moment: clock.moment() } : {}),
   };
 }
 

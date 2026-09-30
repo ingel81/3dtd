@@ -133,6 +133,11 @@ export class SimCore implements SimCoreApi {
     exportEvents(gsm.getEventBus(), () => this.events, this.writer.routeIndex, {
       gameTimeMs: () => gsm.gameTimeMs,
       subStep: () => gsm.subStep,
+      moment: () => ({
+        credits: gsm.players.map((id) => gsm.creditsOf(id)),
+        baseHealth: gsm.baseHealth(),
+        enemiesAlive: gsm.enemyManager.getAliveCount(),
+      }),
     });
   }
 

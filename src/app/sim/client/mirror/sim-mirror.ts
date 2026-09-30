@@ -7,7 +7,7 @@ import {
 } from '../../protocol/packet';
 import {
   isEnemyRef, isProjectileRef, isTowerRef, isWormGroupRef,
-  type EnemyRef, type ExportedEvent, type ProjectileRef, type WormGroupRef,
+  type EnemyRef, type EventMoment, type ExportedEvent, type ProjectileRef, type WormGroupRef,
 } from '../../protocol/events';
 import type { SimMirrorApi } from '../contracts';
 import type { ViewEvent } from '../view-events';
@@ -129,6 +129,8 @@ export class SimMirror implements SimMirrorApi {
   private readonly towerListeners = new Set<(change: TowerChange) => void>();
   /** Time and sub-step of the event being handed on, null outside one (see gameTimeMs) */
   private eventTime: { t: number; step: number } | null = null;
+  /** Credits, HQ and enemies alive at the event being handed on, where it carries them (EventMoment) */
+  private eventMoment: EventMoment | null = null;
 
   // ── World ─────────────────────────────────────────────────────
 
@@ -167,6 +169,7 @@ export class SimMirror implements SimMirrorApi {
 
   importEvent(event: ExportedEvent): ViewEvent {
     this.eventTime = event.t === undefined ? null : { t: event.t, step: event.step ?? this.scalars.subStep };
+    this.eventMoment = event.moment ?? null;
     const out: Record<string, unknown> = { type: event.type };
     for (const key of Object.keys(event.payload)) out[key] = this.toView(event.payload[key]);
     this.afterEvent(out as ViewEvent);
@@ -175,6 +178,7 @@ export class SimMirror implements SimMirrorApi {
 
   afterFrame(_packet: SimFramePacket): void {
     this.eventTime = null;
+    this.eventMoment = null;
     // The events are handed on: whoever reads a view now (frame listeners,
     // the UI) reads the end of the packet, as the table has it
     const touched = this.touched;
@@ -197,6 +201,7 @@ export class SimMirror implements SimMirrorApi {
 
   clear(): void {
     this.eventTime = null;
+    this.eventMoment = null;
     this.scalars = initialScalars();
     this.towerMap.clear();
     this.towerList = null;
@@ -581,9 +586,20 @@ export class SimMirror implements SimMirrorApi {
     return this.scalars.localPlayerId;
   }
 
+  /** Credits of `playerId`, as gameTimeMs: at the event while one that carries them is handed on (EventMoment) */
   creditsOf(playerId: string): number {
     const i = this.scalars.players.indexOf(playerId);
-    return i < 0 ? 0 : this.scalars.credits[i] ?? 0;
+    return i < 0 ? 0 : (this.eventMoment?.credits ?? this.scalars.credits)[i] ?? 0;
+  }
+
+  /** HQ health, as creditsOf: the event's while one that carries it is handed on */
+  get baseHealth(): number {
+    return this.eventMoment?.baseHealth ?? this.scalars.baseHealth;
+  }
+
+  /** Enemies alive, as creditsOf: the event's while one that carries them is handed on */
+  get enemiesAlive(): number {
+    return this.eventMoment?.enemiesAlive ?? this.scalars.enemiesAlive;
   }
 
   /** HP the abilities of `playerId` took from enemies so far (the run log) */

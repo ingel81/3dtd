@@ -212,10 +212,12 @@ export class RunLogFacade {
       step: () => mirror.subStep,
       timeMs: () => mirror.gameTimeMs,
       credits: () => mirror.creditsOf(mirror.localPlayerId),
-      baseHealth: () => mirror.scalars.baseHealth,
+      // Credits, HQ and enemies at a wave's start and end are the event's (EventMoment): a packet
+      // of many sub-steps ends later, and a purchase after the wave's end was booked in both blocks
+      baseHealth: () => mirror.baseHealth,
       // The living ones: an enemy in its death animation already counted as
       // a kill, so the wave booked it twice and its bodies came out one too many.
-      enemiesAlive: () => mirror.scalars.enemiesAlive,
+      enemiesAlive: () => mirror.enemiesAlive,
       dps: () => calculateTotalDPS(mirror.towers().filter(mine)),
       towers: () => mirror.towers(),
       ownsTower: mine,

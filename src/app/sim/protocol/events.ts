@@ -56,6 +56,19 @@ export interface WormGroupRef {
 }
 
 /** An event as it crossed: `type` plus the payload with references; `live`/`show` false when the bus had them muted. */
+/**
+ * Numbers of the simulation at an emit, for the events whose readers take
+ * them then (wave start, wave end, game over: the run log's blocks). A packet
+ * of many sub-steps ends later than such an event, and what came after it in
+ * the packet (a purchase, the next wave's first kills) is in its scalars.
+ */
+export interface EventMoment {
+  /** Credits per player, roster order */
+  readonly credits: readonly number[];
+  readonly baseHealth: number;
+  readonly enemiesAlive: number;
+}
+
 export interface ExportedEvent {
   readonly type: string;
   readonly payload: Record<string, unknown>;
@@ -67,6 +80,8 @@ export interface ExportedEvent {
   readonly t?: number;
   /** Sub-step of the emit (GameClock.subStep) */
   readonly step?: number;
+  /** The numbers at the emit, see EventMoment (MOMENT_EVENTS only) */
+  readonly moment?: EventMoment;
 }
 
 export function isEnemyRef(v: unknown): v is EnemyRef {

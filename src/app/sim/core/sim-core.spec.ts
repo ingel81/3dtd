@@ -277,7 +277,11 @@ describe('SimCore in the same thread', () => {
     const main = mainWorld();
     const drive = new Driver(newCore(main.world));
     drive.send({ type: 'command:start-wave', config: wave });
-    expect(drive.tick().scalars.waveNumber).toBe(1);
+    const first = drive.tick();
+    expect(first.scalars.waveNumber).toBe(1);
+    // The wave's start carries the numbers of its moment (EventMoment, the run log's blocks)
+    const started = first.events.find((e) => e.type === 'wave:started');
+    expect(started?.moment).toEqual({ credits: first.scalars.credits, baseHealth: first.scalars.baseHealth, enemiesAlive: 0 });
     drive.send({ type: 'command:start-wave', config: wave });
     const packet = drive.tick();
     expect(packet.scalars.phase).toBe('wave');
