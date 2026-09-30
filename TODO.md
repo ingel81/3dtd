@@ -307,6 +307,9 @@ Ideen (2026-09-27), nichts entschieden:
       (2) Feuerraten über 30 Schüsse je Sekunde und das Raster von Schaden über Zeit und Effektdauern; (3) Treffer
       schneller Geschosse bei doppeltem Weg je Schritt; (4) Coop-Takt (heute 2 Sub-Steps je Netz-Tick); (5) Stellen, die
       16,67 ms oder feste Schrittzahlen annehmen (Atombombe 390 Sub-Steps); (6) feste Prüfsummen der Specs neu.
+      **Gemessen 2026-09-30** (Wegwerf-Build von `88658b44` mit 33,333 ms, eine Runde, Tempo 4, nur Rechenzeit): Firefox
+      25 000 Gegner Tempo 3,23 statt 2,00, 16 000 Gegner Worker-Last 0,68 statt 0,94; Chromium Worker-Last 0,63 statt 0,85
+      (25 000) und 0,49 statt 0,59 (16 000); FPS unverändert. Weniger als die Hälfte, weil ein Teil je Paket anfällt.
 - [ ] **E83 AppImage im AppImage-Katalog nachbessern** (2026-09-30): 3DTD steht seit dem 2026-09-30 im Katalog auf
       appimage.github.io (automatisch gefunden und aufgenommen, dessen Test bestanden). Der Test meldet drei Punkte: der Dateiname
       `3DTD-linux-x64.AppImage` soll kein „linux“ tragen (etwa `3DTD-0.5.1-x86_64.AppImage`); keine eingebettete
