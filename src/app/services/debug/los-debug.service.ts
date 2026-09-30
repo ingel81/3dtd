@@ -232,7 +232,10 @@ export class LosDebugService {
   private onTowerSelected(tower: Tower): void {
     this._activeTower.set(tower);
     this.computeTowerTip(tower);
-    this.rebuildCellEntries(tower);
+    // The selection follows every kill of the tower (selectedTowerRevision);
+    // the cells in range are built for the open panel only, setEnabled
+    // builds them when it opens
+    if (this._enabled()) this.rebuildCellEntries(tower);
   }
 
   private onTowerDeselected(): void {
