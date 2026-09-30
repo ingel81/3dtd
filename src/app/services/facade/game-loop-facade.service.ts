@@ -204,11 +204,15 @@ export class GameLoopFacadeService {
    * Called from the main facade during initEffects().
    */
   initEffects(injector: Injector): void {
-    // Effect: Update all existing enemies when speed changes
+    // Effect: the Wave Debug speed applies to the enemies on the map too. A
+    // cheat command (it taints the wave's replay), so only when there are
+    // enemies to change: not at startup, not for a type picked between waves
     effect(() => {
       const speedMps = this.waveDebug.enemySpeed();
       untracked(() => {
-        if (this.sim.started) this.sim.bus.emit({ type: 'debug:enemy-speed', speedMps });
+        if (this.sim.started && this.sim.hasWorld && this.mirror.scalars.enemiesAlive > 0) {
+          this.sim.bus.emit({ type: 'debug:enemy-speed', speedMps });
+        }
       });
     }, { injector });
 

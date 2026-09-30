@@ -42,6 +42,15 @@ export class DebugFacadeService {
   /** Display options as stored at startup; the shared signals below start from them. */
   private readonly stored = loadDisplayOptions();
 
+  constructor() {
+    // "Movement off" is a command to the simulation. The one applyDisplayOptions
+    // sends at engine start waits for the world, and a new run (SimClient.newRun)
+    // drops what waits; so it goes again with every new run, to the run's world
+    this.sim.bus.onLive('game:reset', () => {
+      if (loadDisplayOptions().movement === false) this.sim.bus.emit({ type: 'debug:movement', enabled: false });
+    });
+  }
+
   // ========================================
   // Shared display option signals (single source of truth for UI sync)
   // Both QuickActions and DisplayOptions read from these.

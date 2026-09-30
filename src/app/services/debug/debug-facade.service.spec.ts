@@ -216,4 +216,19 @@ describe('DebugFacadeService options the simulation and the presentation hold', 
     expect(setScreenShake.mock.calls).toEqual([[false], [true]]);
     expect(stored()).toMatchObject({ movement: false, damageNumbers: false, screenShake: true });
   });
+
+  it('sends "movement off" again with every new run: SimClient.newRun drops the commands that wait for the world', () => {
+    const bus = new GameEventBus();
+    const movement = vi.fn();
+    bus.on('debug:movement', movement);
+    const facade = createFacade({}, {}, {}, { bus, configure: vi.fn() }, { setScreenShake: vi.fn() });
+
+    bus.emit({ type: 'game:reset' });
+    expect(movement).not.toHaveBeenCalled();
+
+    facade.onMovementToggled(false);
+    movement.mockClear();
+    bus.emit({ type: 'game:reset' });
+    expect(movement).toHaveBeenCalledWith({ type: 'debug:movement', enabled: false });
+  });
 });
