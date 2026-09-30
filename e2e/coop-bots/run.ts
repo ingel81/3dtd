@@ -48,6 +48,12 @@ const MAX_WAVES = Number(argument('max-waves', '0'));
  * past the lockstep, which the relay must catch and repair with a resync (COOP_PLAN C5b).
  */
 const FALSIFY_AT_WAVE = Number(argument('falsify-at-wave', '0'));
+/**
+ * With --falsify-at-wave: the host starts a wave of this many tough zombies first, below the spawn floor, and
+ * the gold is falsified once most of them walk (`--big-wave 3000`). The resync then carries a state of thousands
+ * of enemies, in several pieces (TODO E58); `--query resyncPart=64` cuts even a small state into pieces.
+ */
+const BIG_WAVE = Number(argument('big-wave', '0'));
 /** The 3D view on (slower, only to look at a run) */
 const RENDER = process.argv.includes('--render');
 const HEADED = process.argv.includes('--headed');
@@ -94,6 +100,35 @@ const log = (text: string) => console.log(`${new Date().toISOString().slice(11, 
 const write = (record: unknown) => appendFileSync(RUNS_FILE, `${JSON.stringify(record)}\n`);
 
 // === One seat ===
+
+type LoadState = { enemies: number; phase: string };
+const loadState = (page: Page) => page.evaluate(() => (globalThis as unknown as { __load: { state(): LoadState } }).__load.state());
+let bigWaveSent = false;
+/**
+ * The big wave of --big-wave: started by the host between two waves, then true once most of it walks. The bots start
+ * their own waves too; a start that meets a running wave is dropped and tried again at the next pause.
+ */
+async function bigWaveWalks(host: Page, run: number): Promise<boolean> {
+  const now = await loadState(host);
+  if (!bigWaveSent) {
+    if (now.phase !== 'setup') return false;
+    await host.evaluate((count) => (globalThis as unknown as { __load: { emit(e: unknown): void } }).__load.emit({
+      type: 'command:start-wave',
+      director: { enemies: [{ type: 'zombie', count, healthMultiplier: 200 }], totalCount: count, spawnDelay: 5, pattern: 'sequential', spawnFloor: false },
+    }), BIG_WAVE);
+    bigWaveSent = true;
+    log(`run ${run}: big wave of ${BIG_WAVE} started`);
+    return false;
+  }
+  if (now.enemies < BIG_WAVE * 0.8) {
+    log(`run ${run}: big wave, ${now.enemies} walk (${now.phase})`);
+    // Its start met a running wave: again at the next pause
+    if (now.phase === 'setup') bigWaveSent = false;
+    return false;
+  }
+  log(`run ${run}: big wave, ${now.enemies} walk`);
+  return true;
+}
 
 async function openSeat(browser: Browser, name: string, skew = false): Promise<Page> {
   const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
@@ -491,6 +526,7 @@ async function playRun(index: number): Promise<boolean> {
     let end: Record<string, unknown> | null = null;
     let lastWave = 0;
     let falsified = false;
+    bigWaveSent = false;
     while (Date.now() < deadline) {
       await seats[0].waitForTimeout(5000);
       const probe = await probeOf(seats[0]);
@@ -515,7 +551,10 @@ async function playRun(index: number): Promise<boolean> {
           log(`run ${index}: seat ${seat} ${JSON.stringify(view)}`);
         }
       }
-      if (FALSIFY_AT_WAVE > 0 && written === FALSIFY_AT_WAVE && seats.length > 1 && !falsified) {
+      if (FALSIFY_AT_WAVE > 0 && written >= FALSIFY_AT_WAVE && seats.length > 1 && !falsified && BIG_WAVE > 0) {
+        if (!(await bigWaveWalks(seats[0], index))) continue;
+      }
+      if (FALSIFY_AT_WAVE > 0 && written >= FALSIFY_AT_WAVE && seats.length > 1 && !falsified) {
         falsified = true;
         await seats[seats.length - 1].evaluate(() => {
           const w = window as unknown as { ng: { getComponent(el: Element | null): { gameState: { addCredits(n: number, s: string): void } } } };

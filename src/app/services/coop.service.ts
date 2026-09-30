@@ -20,7 +20,7 @@ import { BUILD_VERSION } from '../configs/build-info.config';
 import { balanceConfigHash } from '../run-log/config-hash';
 import { WaveDirector } from '../director/wave-director';
 import { initialWaveSourceId, isWaveSourceId } from '../director/wave-source.registry';
-import { ResyncDriver } from '../coop/resync';
+import { ResyncDriver, resyncPartParam } from '../coop/resync';
 import type { WaveSourceId } from '../director/wave-source';
 import { newRunSeed } from '../utils/game-rng';
 import { coordKey } from '../utils/geo-utils';
@@ -495,6 +495,7 @@ export class CoopService {
     this.relayFromUrl = params.get('relay');
     this.laneFromUrl = params.get('lane');
     this.hashEveryFromUrl = hashEveryParam(params.get('hashEvery'));
+    this.resync.partChars = resyncPartParam(params.get('resyncPart')) ?? this.resync.partChars;
 
     const bus = this.sim.bus;
     // A partner's tower wears its owner's lane colour (review R14)

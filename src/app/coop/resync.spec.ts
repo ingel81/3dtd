@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ResyncDriver, RESYNC_PART_CHARS, type ResyncGame } from './resync';
+import { ResyncDriver, RESYNC_PART_CHARS, resyncPartParam, type ResyncGame } from './resync';
 import { MAX_RESYNC_PARTS } from './protocol';
 import { TICK_SUB_STEPS } from './lockstep';
 import type { WaveSnapshot } from '../simulator/wave-snapshot';
@@ -48,6 +48,34 @@ describe('ResyncDriver', () => {
     await guest.poll();
     expect(loaded).toEqual([true]);
     expect(restored).toEqual([snapshot]);
+  });
+
+  it('sends smaller pieces when a test asks for them (?resyncPart=)', async () => {
+    const snapshot = { blob: noise(40 * 1024) };
+    const restored: unknown[] = [];
+    const sent: number[] = [];
+    const guest = new ResyncDriver(() => false, game(null, restored), { state: () => undefined, loaded: () => undefined });
+    const host = new ResyncDriver(() => true, game(snapshot, []), {
+      state: (tick, gz, part, parts) => {
+        sent.push(gz!.length);
+        guest.state(tick, gz!, part, parts);
+      },
+      loaded: () => undefined,
+    }, () => undefined, noWait);
+    host.partChars = resyncPartParam('8')!;
+    host.hold(7);
+    guest.hold(7);
+    await host.poll();
+    expect(sent.length).toBeGreaterThan(3);
+    expect(sent.slice(0, -1).every((chars) => chars === 8 * 1024)).toBe(true);
+    await guest.poll();
+    expect(restored).toEqual([snapshot]);
+  });
+
+  it('takes a part size of 1 kB up to the normal one, nothing else', () => {
+    expect(resyncPartParam('1')).toBe(1024);
+    expect(resyncPartParam('768')).toBe(RESYNC_PART_CHARS);
+    for (const bad of [null, '', '0', '769', '2.5', 'x', '-1']) expect(resyncPartParam(bad)).toBeUndefined();
   });
 
   it('does not load before the last piece', async () => {

@@ -21,6 +21,15 @@ import { MAX_RESYNC_PARTS } from './protocol';
 export const RESYNC_PART_CHARS = 768 * 1024;
 export const RESYNC_PART_GAP_MS = 250;
 
+/**
+ * `?resyncPart=` in kB: smaller pieces, so a test sends a state of a normal wave in
+ * several (TODO E58). A whole number from 1 to RESYNC_PART_CHARS / 1024, else none.
+ */
+export function resyncPartParam(value: string | null): number | undefined {
+  const n = Number(value);
+  return value !== null && Number.isInteger(n) && n >= 1 && n <= RESYNC_PART_CHARS / 1024 ? n * 1024 : undefined;
+}
+
 
 /** What the resync needs of the game */
 export interface ResyncGame {
@@ -57,6 +66,9 @@ export class ResyncDriver {
     /** Waits between two pieces; the spec passes one that does not */
     private readonly wait: (ms: number) => Promise<void> = (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
   ) {}
+
+  /** Characters per piece, a multiple of 4; smaller only for tests (resyncPartParam) */
+  partChars = RESYNC_PART_CHARS;
 
   /** A resync is under way: the room holds at the boundary of this tick */
   get holdingAt(): number | null {
@@ -137,7 +149,8 @@ export class ResyncDriver {
       this.warn(`[Coop] resync: packing the state failed: ${String(error)}`);
       return this.sendOnce(tick, null);
     }
-    const parts = Math.ceil(gz.length / RESYNC_PART_CHARS);
+    const size = this.partChars;
+    const parts = Math.ceil(gz.length / size);
     if (parts > MAX_RESYNC_PARTS) {
       this.warn(`[Coop] resync: the state is ${Math.round(gz.length / 1024)} kB, more than ${MAX_RESYNC_PARTS} pieces`);
       return this.sendOnce(tick, null);
@@ -147,7 +160,7 @@ export class ResyncDriver {
       if (part > 0) await this.wait(RESYNC_PART_GAP_MS);
       // The room went on meanwhile (timeout): the rest would go nowhere
       if (this.tick !== tick) return;
-      this.out.state(tick, gz.slice(part * RESYNC_PART_CHARS, (part + 1) * RESYNC_PART_CHARS), part, parts);
+      this.out.state(tick, gz.slice(part * size, (part + 1) * size), part, parts);
     }
   }
 
