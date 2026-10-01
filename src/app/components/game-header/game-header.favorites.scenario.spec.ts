@@ -166,7 +166,7 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
   });
 
   it('Esc closes the favorites and keeps the key from the game', () => {
-    header.toggleFavMenu();
+    // Open from beforeEach
     expect(header.favMenuExpanded()).toBe(true);
     const esc = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
     header.onEscape(esc);
@@ -174,7 +174,8 @@ describe('Favorites menu, playtest 538 to 540 replayed', () => {
     expect(esc.defaultPrevented).toBe(true);
   });
 
-  it('Esc closes the spawn menu and keeps the key from the game; with the menu shut it leaves the key alone', () => {
+  it('Esc closes the spawn menu and keeps the key from the game; with the menus shut it leaves the key alone', () => {
+    header.closeFavMenu();
     header.spawnMenuOpen.set(true);
     const first = new KeyboardEvent('keydown', { key: 'Escape', cancelable: true });
     header.onEscape(first);
