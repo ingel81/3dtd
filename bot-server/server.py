@@ -17,21 +17,52 @@ no encoder and no copy of the game's tables here any more.
 import asyncio
 import json
 import random
+import re
 import time
 from datetime import datetime
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import websockets
 
 from config import (
     SERVER_HOST,
     SERVER_PORT,
+    DASHBOARD_HOST,
     DASHBOARD_PORT,
     BOT_WEIGHTS,
     DIRECTOR_PARAMS,
     RUNS_DIR,
 )
 from utils.logger import logger
+
+# Anything but these in a file or folder name of a run log becomes "_": the
+# run id and the config hash come from the client and must not leave RUNS_DIR
+_UNSAFE_NAME = re.compile(r"[^A-Za-z0-9_.-]")
+
+# Origins a game tab may connect from; a client without one (a script) passes
+_LOCAL_HOSTS = {"localhost", "127.0.0.1", "::1"}
+
+
+def safe_name(value, fallback="unknown"):
+    """A client's id as a plain file name: no separators, no leading dots."""
+    name = _UNSAFE_NAME.sub("_", str(value or "")).lstrip(".")[:120]
+    return name or fallback
+
+
+def local_origin(websocket):
+    """
+    Whether the connection comes from a page on this machine. Without the
+    check any website the developer opens could talk to the server on
+    localhost: start, stop and write run logs.
+    """
+    request = getattr(websocket, "request", None)
+    headers = getattr(request, "headers", None) or getattr(websocket, "request_headers", None)
+    origin = headers.get("Origin") if headers else None
+    if not origin:
+        return True
+    return urlsplit(origin).hostname in _LOCAL_HOSTS
+
 
 # Optional dashboard (FastAPI). Without it the server runs headless.
 try:
@@ -75,6 +106,10 @@ class BotServer:
     # === CONNECTION ===
 
     async def handle_client(self, websocket):
+        if not local_origin(websocket):
+            logger.error("refused a connection from a page that is not on this machine")
+            await websocket.close(1008, "origin")
+            return
         self.clients.add(websocket)
         client_id = id(websocket)
         self.client_contexts[client_id] = ClientContext()
@@ -160,7 +195,7 @@ class BotServer:
         head is looked at, for the config hash the file is filed under, and
         the wave blocks, to count what the dashboard shows.
         """
-        run_id = str(msg.get("runId") or "").replace("/", "_").replace("\\", "_")
+        run_id = safe_name(msg.get("runId"), "")
         lines = msg.get("lines") or []
         if not run_id or not lines:
             return
@@ -172,7 +207,7 @@ class BotServer:
                 continue
             kind = record.get("kind")
             if kind == "head":
-                ctx.config_hash = str(record.get("configHash") or "unknown")
+                ctx.config_hash = safe_name(record.get("configHash"))
             elif kind == "wave":
                 ctx.wave_num = int(record.get("wave", 0) or 0)
                 ctx.waves_played += 1
@@ -267,12 +302,12 @@ async def main():
                 import uvicorn
                 config = uvicorn.Config(
                     _dashboard.app,
-                    host="0.0.0.0",
+                    host=DASHBOARD_HOST,
                     port=DASHBOARD_PORT,
                     log_level="warning",
                 )
                 dashboard_task = asyncio.create_task(uvicorn.Server(config).serve())
-                logger.info(f"dashboard on http://localhost:{DASHBOARD_PORT}")
+                logger.info(f"dashboard on http://{DASHBOARD_HOST}:{DASHBOARD_PORT}")
             except ImportError:
                 logger.warning("uvicorn not installed, dashboard disabled")
 

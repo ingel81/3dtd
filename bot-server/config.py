@@ -11,6 +11,9 @@ any more — the client plans every wave itself since 2026-09-20
 # === SERVER ===
 SERVER_HOST = "localhost"
 SERVER_PORT = 3001
+# The dashboard's buttons start and stop every bot without a login: this
+# machine only. "0.0.0.0" opens it to the network, on purpose only.
+DASHBOARD_HOST = "127.0.0.1"
 DASHBOARD_PORT = 3002
 
 # === BOTS ===

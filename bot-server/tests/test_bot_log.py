@@ -157,3 +157,34 @@ def test_status_is_kept_per_client_for_the_dashboard(srv):
 
     status = srv.client_statuses[4242]
     assert (status["wave"], status["enemiesAlive"], status["phase"]) == (12, 30, "wave")
+
+
+def test_a_config_hash_or_run_id_cannot_leave_the_runs_folder(srv, tmp_path):
+    msg = _run_log([_head("../../outside"), _wave(1)], run_id=r"..\..\evil")
+    _handle(srv, msg)
+
+    runs = tmp_path / "runs"
+    written = [p.relative_to(runs).as_posix() for p in runs.rglob("*.jsonl")]
+    assert written == ["_.._outside/_.._evil.jsonl"]
+    assert not (tmp_path / "outside").exists()
+
+
+class _Request:
+    def __init__(self, origin):
+        self.headers = {"Origin": origin} if origin else {}
+
+
+class _Socket:
+    def __init__(self, origin):
+        self.request = _Request(origin)
+
+
+@pytest.mark.parametrize("origin, allowed", [
+    (None, True),
+    ("http://localhost:4200", True),
+    ("http://127.0.0.1:4260", True),
+    ("https://evil.example", False),
+    ("http://localhost.evil.example", False),
+])
+def test_only_pages_on_this_machine_connect(origin, allowed):
+    assert server.local_origin(_Socket(origin)) is allowed
